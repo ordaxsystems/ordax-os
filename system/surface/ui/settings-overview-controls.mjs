@@ -38,6 +38,7 @@ import { KEYBOARD_LAYOUT_OPTIONS } from "../../services/input/keyboard-layout.mj
 import { COLOR_THEME_OPTIONS, resolveColorAppearance, selectColorTheme } from "../../services/preferences/color-palette.mjs";
 import { listPreferenceDefinitions } from "../../services/preferences/catalog.mjs";
 import { assertSurfaceRenderLifecycle } from "../../contracts/surface-render-lifecycle.mjs";
+import { assertProductConnectorPort } from "../../contracts/product-connector.mjs";
 
 const SETTINGS_WINDOW_SELECTOR = '[data-window-id="settings"]';
 const SETTINGS_EXTENSION_SELECTOR = '[data-app-extension="settings-overview"]';
@@ -190,6 +191,7 @@ export function mountSettingsOverviewControls(
   keyboardLayout = null,
   localSession = null,
   localAiPort = null,
+  productConnectorPort = null,
 ) {
   if (!(root instanceof Element)) {
     throw new TypeError("Settings overview controls require a Surface root Element");
@@ -209,6 +211,7 @@ export function mountSettingsOverviewControls(
   const localSessionPort =
     localSession === null ? null : assertLocalSessionPort(localSession);
   const localAi = localAiPort === null ? null : assertLocalAiPort(localAiPort);
+  const connectorPort = productConnectorPort === null ? null : assertProductConnectorPort(productConnectorPort);
   const documentObject = root.ownerDocument;
   let settingsExamples = null;
 
@@ -230,6 +233,11 @@ export function mountSettingsOverviewControls(
   let localAiSnapshot = localAi === null ? null : validateLocalAiSnapshot(localAi.getSnapshot());
   let localSessionPending = false;
   let localSessionMessageId = null;
+  let connectorSnapshot = null;
+  let connectorReadFailed = false;
+  let connectorPending = false;
+  let connectorError = false;
+  let connectorOrdinal = 0;
   let networkManagementReadFailed = false;
   let networkManagementLastSuccessAt = null;
   let networkManagementPending = false;
@@ -282,6 +290,9 @@ export function mountSettingsOverviewControls(
     }
     if (element.dataset.settingsLocalSessionCurrent !== undefined) {
       return Object.freeze({ kind: "local-session-current", value: "current" });
+    }
+    if (element.dataset.settingsConnectorToggle !== undefined) {
+      return Object.freeze({ kind: "connector-toggle", value: "discovery" });
     }
     if (element.dataset.settingsLocalSessionAction) {
       return Object.freeze({
@@ -635,6 +646,40 @@ export function mountSettingsOverviewControls(
       options.append(button);
     }
     section.append(options);
+    view.append(section);
+  };
+
+  const renderConnector = (view) => {
+    const section = node(documentObject, "section", "ordax-settings-section");
+    section.dataset.settingsConnector = "";
+    section.append(
+      node(documentObject, "h4", "ordax-settings-section-title", t("settings.connector.title")),
+      node(documentObject, "p", "ordax-settings-section-copy", t("settings.connector.description")),
+    );
+    const status = connectorSnapshot?.available === true
+      ? connectorSnapshot.enabled
+        ? "settings.connector.enabled" : "settings.connector.disabled"
+      : connectorReadFailed ? "settings.connector.unavailable" : "settings.connector.unavailable";
+    section.append(node(documentObject, "p", "ordax-settings-section-copy", t(status)));
+    if (connectorSnapshot?.available === true && !connectorSnapshot.accountAuthenticated && !connectorSnapshot.enabled) {
+      section.append(node(documentObject, "p", "ordax-settings-section-copy", t("settings.connector.loginRequired")));
+    }
+    const control = node(
+      documentObject, "button", "ordax-settings-action",
+      connectorPending ? t("settings.connector.pending")
+        : t(connectorSnapshot?.enabled ? "settings.connector.disable" : "settings.connector.enable"),
+    );
+    control.type = "button";
+    control.dataset.settingsConnectorToggle = "";
+    control.setAttribute("role", "switch");
+    control.setAttribute("aria-checked", String(connectorSnapshot?.enabled === true));
+    control.disabled = connectorPending || connectorSnapshot?.available !== true
+      || (!connectorSnapshot.accountAuthenticated && !connectorSnapshot.enabled);
+    section.append(control);
+    if (connectorError) section.append(node(
+      documentObject, "p", "ordax-settings-section-copy", t("settings.connector.error"),
+    ));
+    section.append(node(documentObject, "p", "ordax-settings-section-copy", t("settings.connector.note")));
     view.append(section);
   };
 
@@ -1256,6 +1301,7 @@ export function mountSettingsOverviewControls(
       renderIntelligence(view);
     } else if (activeSection === "security") {
       renderSecurity(view);
+      renderConnector(view);
     } else if (activeSection === "notifications") {
       renderNotifications(view);
     }
@@ -1276,6 +1322,40 @@ export function mountSettingsOverviewControls(
   };
 
   const replaceView = () => renderView(true);
+
+  const refreshConnector = async () => {
+    if (destroyed || !connectorPort) return;
+    const ordinal = ++connectorOrdinal;
+    try {
+      const value = await connectorPort.status();
+      if (destroyed || connectorOrdinal !== ordinal) return;
+      connectorSnapshot = value;
+      connectorReadFailed = false;
+    } catch {
+      if (destroyed || connectorOrdinal !== ordinal) return;
+      connectorSnapshot = null;
+      connectorReadFailed = true;
+    }
+    if (activeSection === "security") replaceView();
+  };
+
+  const configureConnector = async () => {
+    if (!connectorPort || !connectorSnapshot?.available || connectorPending || destroyed) return;
+    if (!connectorSnapshot.accountAuthenticated && !connectorSnapshot.enabled) return;
+    const requested = !connectorSnapshot.enabled;
+    connectorPending = true;
+    connectorError = false;
+    replaceView();
+    try {
+      connectorSnapshot = await connectorPort.configure(requested);
+      connectorReadFailed = false;
+    } catch {
+      connectorError = true;
+    } finally {
+      connectorPending = false;
+      if (!destroyed) replaceView();
+    }
+  };
 
   const refreshKeyboardLayout = async () => {
     if (!keyboardLayoutPort || destroyed || keyboardLayoutPending) return;
@@ -1409,6 +1489,11 @@ export function mountSettingsOverviewControls(
   };
 
   const onClick = (event) => {
+    const connectorToggle = event.target.closest("[data-settings-connector-toggle]");
+    if (connectorToggle && root.contains(connectorToggle)) {
+      void configureConnector();
+      return;
+    }
     const openModels = event.target.closest("[data-settings-open-model-store]");
     if (openModels && root.contains(openModels) && activeSection === "intelligence"
       && activationPort !== null) {
@@ -1422,6 +1507,7 @@ export function mountSettingsOverviewControls(
       && validSettingsSection(sectionButton.dataset.settingsSection)
     ) {
       const nextSection = sectionButton.dataset.settingsSection;
+      if (nextSection === "security") void refreshConnector();
       selectedNetworkSsid = null;
       networkManagementMessageId = null;
       if (activationPort) {
@@ -1650,6 +1736,7 @@ export function mountSettingsOverviewControls(
   const networkManagementPoll = networkManagementPort
     ? setInterval(() => void refreshNetworkManagement(), 5000)
     : null;
+  if (activeSection === "security") void refreshConnector();
   if (keyboardLayoutPort) void refreshKeyboardLayout();
   if (networkPort) void refreshNetwork();
   if (networkManagementPort) void refreshNetworkManagement();
@@ -1662,6 +1749,7 @@ export function mountSettingsOverviewControls(
       networkManagementReadOrdinal += 1;
       networkActionOrdinal += 1;
       keyboardLayoutOrdinal += 1;
+      connectorOrdinal += 1;
       if (networkPoll !== null) clearInterval(networkPoll);
       if (networkManagementPoll !== null) clearInterval(networkManagementPoll);
       unsubscribeNotifications?.();

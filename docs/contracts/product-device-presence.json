@@ -45,7 +45,8 @@
     "legacyShellReporterMounted": false,
     "requiresAuthenticatedLogin": true,
     "stopsOnAccountLogout": true,
-    "stopsOnNativeHostShutdown": true
+    "stopsOnNativeHostShutdown": true,
+    "presenceCondition": "authenticated-enrollment-and-explicit-private-owner-opt-in"
   },
   "production": {
     "enabled": false,
@@ -56,8 +57,23 @@
     "automaticEnrollment": true,
     "enrollmentTrigger": "after-successful-authenticated-native-account-login",
     "requiresConfiguredHttpsControlPlane": true,
-    "presenceAvailableAfterEnrollment": true,
-    "manualPowerShellRequired": false
+    "presenceAvailableAfterEnrollment": false,
+    "manualPowerShellRequired": false,
+    "discoveryOptInRequired": true,
+    "defaultDiscoverability": false,
+    "presenceAvailableAfterOwnerOptIn": true,
+    "connectorSettingsPath": "/__ordax/native/product-connector",
+    "settingsOwnedBy": "system/surface/runtime/product_device_runtime.py",
+    "persistentVisibilityPolicy": "/state/ordax/native-state/device-agent/product-connector-visibility.json",
+    "requiresValidAccountSessionToEnable": true,
+    "offlineDisableAlwaysAllowed": true,
+    "discoveryOptInBoundToAccountSubject": true,
+    "otherAccountReuseAllowed": false,
+    "legacySubjectlessConsentAccepted": false,
+    "nativeSurfaceContract": "system/contracts/product-connector.mjs",
+    "nativeSurfaceAdapter": "system/adapters/native/product-connector.mjs",
+    "surfaceDirectFetch": false,
+    "remoteActionGatewayGrantedByOptIn": false
   },
   "externalMcp": {
     "accountLoginAutomaticallyConnectsExternalClient": false,

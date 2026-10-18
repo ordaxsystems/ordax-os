@@ -88,7 +88,7 @@ class ProductDeviceRuntimeTests(unittest.TestCase):
         expected = runtime.PostLoginDeviceResult(status="enrolled", device_id="00000000-0000-4000-8000-000000000001")
         profile = {"displayName": "Surface Dev"}
         with (
-            patch.object(runtime, "ProductDeviceIdentityStore", return_value=object()),
+            patch.object(runtime, "ProductDeviceIdentityStore", return_value=Mock(connector_visibility_enabled=Mock(return_value=False))),
             patch.object(runtime, "ProductDeviceEnrollmentClient", return_value=fake_client),
             patch.object(runtime, "enroll_product_device_after_login", return_value=expected) as enroll,
             patch.object(runtime, "ProductDevicePresenceWorker") as worker,
@@ -101,7 +101,7 @@ class ProductDeviceRuntimeTests(unittest.TestCase):
             )
             result = coordinator.after_authenticated_login(profile)
         self.assertEqual(result, expected)
-        worker.return_value.start.assert_called_once()
+        worker.return_value.start.assert_not_called()
         enroll.assert_called_once_with(
             fake_client,
             profile,

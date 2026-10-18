@@ -1,3 +1,16 @@
+Native Connector Settings opt-in (2026-10-18): Owner/Development USB now
+uses the private ProductDeviceIdentityStore as SSOT for a separate
+`product-connector-visibility.json` preference, default-off. Native Settings
+calls the loopback-only `/__ordax/native/product-connector` route. The existing
+Account gateway validates a live authenticated session before enabling
+discovery; disabling requires no cloud availability and stops the single Native
+presence worker. An authenticated login still enrolls the device, but does
+not publish discoverability without opt-in. This does not grant ChatGPT OAuth,
+filesystem, input, or remote execution. OS action attestation/Runtime remains
+unavailable, and physical USB proof remains pending. The account session is
+memory-only until the encrypted local vault gate; login may need repeating
+after Native Host restart. Stable is unaffected.
+
 Native Product Connector candidate (2026-10-17): Owner/Development USB
 reuses the existing Native Account login and private Product device
 identity to start one fail-soft HTTPS presence worker after authenticated
