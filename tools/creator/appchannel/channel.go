@@ -15,9 +15,10 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"runtime"
 	"strings"
 	"time"
+
+	"github.com/ordaxsystems/ordax-os/tools/creator/internal/atomicfile"
 )
 
 const (
@@ -317,44 +318,6 @@ func downloadArtifact(client *http.Client, artifact Artifact, destination string
 	return nil
 }
 
-func writeEnvelopeAtomic(path string, data []byte) error {
-	parent := filepath.Dir(path)
-	if err := os.MkdirAll(parent, 0o755); err != nil {
-		return err
-	}
-	temp, err := os.CreateTemp(parent, ".ordax-app-envelope-*")
-	if err != nil {
-		return err
-	}
-	tempPath := temp.Name()
-	remove := true
-	defer func() {
-		_ = temp.Close()
-		if remove {
-			_ = os.Remove(tempPath)
-		}
-	}()
-	if _, err := temp.Write(data); err != nil {
-		return err
-	}
-	if err := temp.Sync(); err != nil {
-		return err
-	}
-	if err := temp.Close(); err != nil {
-		return err
-	}
-	if runtime.GOOS != "windows" {
-		if err := os.Chmod(tempPath, 0o600); err != nil {
-			return err
-		}
-	}
-	_ = os.Remove(path)
-	if err := os.Rename(tempPath, path); err != nil {
-		return err
-	}
-	remove = false
-	return nil
-}
 
 func Current(root string, trustBytes []byte, expectedTrustSHA256 string) (Installed, error) {
 	root, err := appRoot(root)
@@ -474,7 +437,7 @@ func AcquireCached(client *http.Client, root, envelopeURL string, trustBytes []b
 	if err != nil {
 		return Installed{}, false, err
 	}
-	if err := writeEnvelopeAtomic(filepath.Join(actualRoot, currentEnvelopeName), verifyBytes); err != nil {
+	if err := atomicfile.Replace(filepath.Join(actualRoot, currentEnvelopeName), verifyBytes); err != nil {
 		return installed, changed, nil
 	}
 	return verified, changed, nil
