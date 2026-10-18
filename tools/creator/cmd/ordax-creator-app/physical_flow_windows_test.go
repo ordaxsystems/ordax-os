@@ -161,6 +161,70 @@ func TestPortableSourceSpecsRejectsUnboundExtraSourceBeforeElevation(t *testing.
 	}
 }
 
+func TestSignedPortableCandidateRequiresMatchingVerifiedInMemoryManifest(t *testing.T) {
+	directory := t.TempDir()
+	payload := physicalchannel.PortablePayloadManifest{
+		Schema: physicalchannel.PortablePayloadSchema,
+		ReleaseSourceCommit: strings.Repeat("a", 40),
+	}
+	installed := physicalchannel.Installed{
+		SourceCommit: strings.Repeat("b", 40),
+		Directory: directory,
+		Manifest: physicalchannel.Manifest{
+			Schema: physicalchannel.ManifestSchemaPortable,
+			SourceCommit: strings.Repeat("b", 40),
+			PortablePayload: &payload,
+		},
+	}
+	for _, tc := range []struct{
+		name string
+		mutate func(*physicalchannel.Installed, *physicalchannel.PortablePayloadManifest)
+	}{
+		{"no-candidate", func(i *physicalchannel.Installed, _ *physicalchannel.PortablePayloadManifest) { *i = physicalchannel.Installed{} }},
+		{"swapped-directory", func(i *physicalchannel.Installed, _ *physicalchannel.PortablePayloadManifest) { i.Directory += "-swapped" }},
+		{"wrong-schema", func(i *physicalchannel.Installed, _ *physicalchannel.PortablePayloadManifest) { i.Manifest.Schema = physicalchannel.ManifestSchema }},
+		{"writer-identity", func(i *physicalchannel.Installed, _ *physicalchannel.PortablePayloadManifest) { i.Manifest.SourceCommit = strings.Repeat("c", 40) }},
+		{"missing-portable", func(i *physicalchannel.Installed, _ *physicalchannel.PortablePayloadManifest) { i.Manifest.PortablePayload = nil }},
+		{"changed-payload", func(_ *physicalchannel.Installed, p *physicalchannel.PortablePayloadManifest) { p.ReleaseSourceCommit = strings.Repeat("d", 40) }},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			copyInstalled := installed
+			copyPayload := payload
+			copyInstalled.Manifest.PortablePayload = &copyPayload
+			selectedPayload := payload
+			tc.mutate(&copyInstalled, &selectedPayload)
+			if err := verifySignedPortableCandidate(directory, selectedPayload, &copyInstalled); err == nil {
+				t.Fatal("a physical candidate different from the verified signed manifest was accepted")
+			}
+		})
+	}
+	if err := verifySignedPortableCandidate(directory, payload, nil); err == nil {
+		t.Fatal("unsigned physical candidate state was accepted")
+	}
+}
+
+func TestSignedPortableCandidateRechecksCachedWriterContents(t *testing.T) {
+	directory := t.TempDir()
+	payload := physicalchannel.PortablePayloadManifest{
+		Schema: physicalchannel.PortablePayloadSchema,
+		ReleaseSourceCommit: strings.Repeat("a", 40),
+	}
+	installed := physicalchannel.Installed{
+		SourceCommit: strings.Repeat("b", 40),
+		Directory: directory,
+		Manifest: physicalchannel.Manifest{
+			Schema: physicalchannel.ManifestSchemaPortable,
+			SourceCommit: strings.Repeat("b", 40),
+			PortablePayload: &payload,
+		},
+	}
+	// Metadata alone must never qualify: ReleaseSequence must re-open and
+	// hash the signed physical writer and all bound Portable files.
+	if err := verifySignedPortableCandidate(directory, payload, &installed); err == nil {
+		t.Fatal("unmaterialized signed-candidate metadata was accepted")
+	}
+}
+
 func TestValidatePortablePhysicalPreparationAcceptsExactBinding(t *testing.T) {
 	preparation, target, planSHA := validPortablePreparationForTest()
 	if err := validatePortablePhysicalPreparation(preparation, target, planSHA); err != nil {
