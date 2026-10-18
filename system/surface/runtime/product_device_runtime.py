@@ -1,8 +1,8 @@
 """Runtime composition for fail-soft Product-device enrollment.
 
-This module keeps Product-device setup out of Surface JavaScript and owns no HTTP
-route, heartbeat, background thread or remote-action capability. It only composes
-existing enrollment primitives for the Native host after an authenticated login.
+This module keeps Product-device identity and presence out of Surface JavaScript.
+It composes the existing Native Account gateway and one outbound HTTPS presence
+worker. It owns no MCP endpoint, grant, inference model or remote execution.
 """
 
 from __future__ import annotations
@@ -65,13 +65,16 @@ class ProductDevicePostLoginCoordinator:
             product_mode=self.product_mode,
         )
         if result.status == "enrolled" and self.presence is not None:
-            # Read-only discovery only; this never grants MCP actions.
-            self.presence.start()
+            # Discovery only. Absence of network must not affect login.
+            try:
+                self.presence.start()
+            except (OSError, RuntimeError):
+                pass
         return result
 
-    def stop_presence(self) -> None:
+    def stop_presence(self, *, wait: bool = False) -> None:
         if self.presence is not None:
-            self.presence.stop()
+            self.presence.stop(wait=wait)
 
 
 class ProductDeviceAccountGatewayProxy:
@@ -115,7 +118,7 @@ class ProductDeviceAccountGatewayProxy:
         return reply
 
     def close_product_presence(self) -> None:
-        self._coordinator.stop_presence()
+        self._coordinator.stop_presence(wait=True)
 
 
 def compose_product_device_account_gateway(
