@@ -14,6 +14,9 @@ async function readState(client) {
       title: document.title,
       hasEmulatorApi: window.__ORDAX_EMULATOR__?.schema === "ordax.windows-emulator/1",
       kernelDisabled: window.__ORDAX_EMULATOR__?.kernel === false,
+      meridianEnabled: document.documentElement.hasAttribute('data-meridian'),
+      firstRunAccent: getComputedStyle(document.querySelector('.ordax-first-run') ?? document.documentElement).getPropertyValue('--ordax-accent').trim(),
+      meridianAccent: getComputedStyle(document.documentElement).getPropertyValue('--md-accent').trim(),
       firstRunVisible: Boolean(document.querySelector(".ordax-first-run")),
       nextActionVisible: Boolean(document.querySelector('[data-first-run-action="next"]')),
       surfaceTarget: window.__ORDAX_EMULATOR__?.surfaceTarget ?? null,
@@ -68,6 +71,9 @@ runBrowser(async (client) => {
     throw new Error(`Windows emulator API did not initialize within ${STARTUP_TIMEOUT_MS}ms: ${JSON.stringify({ result, browserExceptions: browserExceptions() })}`);
   }
   if (!result.kernelDisabled) throw new Error("Windows emulator unexpectedly reports a kernel");
+  if (!result.meridianEnabled || !result.meridianAccent || result.firstRunAccent !== result.meridianAccent) {
+    throw new Error('Emulator first-run must consume the same Meridian tokens as Native: ' + JSON.stringify(result));
+  }
   if (!result.firstRunVisible || !result.nextActionVisible) {
     throw new Error(`Windows emulator first-run did not render: ${JSON.stringify({ result, browserExceptions: browserExceptions() })}`);
   }
