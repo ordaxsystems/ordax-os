@@ -675,6 +675,16 @@ body { background: var(--md-canvas); font-weight: 400; }
   .meridian-native-workspace .ordax-quick-panel-layer { inset-block-start:auto; inset-inline:6px; bottom:calc(var(--ordax-navigation-height) + 8px); width:auto; }
   .meridian-native-workspace .ordax-native-navigation-menu { left: 10px !important; bottom: 76px !important; width: calc(100vw - 20px) !important; max-height: calc(100dvh - 92px); }
 }
+@media (min-width: 601px) and (max-width: 760px) {
+  .meridian-native-workspace > .ordax-native-header { gap:8px; padding-inline:12px; }
+  .meridian-native-workspace .meridian-system-location { flex:0 1 auto; gap:8px; }
+  .meridian-native-workspace .meridian-system-location > [data-current-destination] { max-width:clamp(78px,20vw,142px); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .meridian-native-workspace .meridian-system-search { width:36px; min-width:36px; height:36px; flex:0 0 36px; justify-content:center; padding:8px; }
+  .meridian-native-workspace .meridian-system-tools { min-width:0; flex:0 1 auto; gap:4px; }
+  .meridian-native-workspace .meridian-header-status-actions { max-width:clamp(96px,25vw,170px); flex:0 1 auto; }
+  .meridian-native-workspace .meridian-header-status-actions .ordax-status-action { max-width:100%; min-width:0; overflow:hidden; }
+  .meridian-native-workspace .meridian-header-status-actions .ordax-status-action-label { display:block; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+}
 @media (max-width: 600px) {
   .ordax-shell.meridian-native-workspace { grid-template-rows: 58px minmax(0, 1fr) calc(var(--ordax-navigation-height) + env(safe-area-inset-bottom)); }
   .meridian-native-workspace .meridian-mobile-menu { width:32px; height:32px; }
