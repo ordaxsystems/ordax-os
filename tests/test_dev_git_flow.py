@@ -345,7 +345,7 @@ class DevelopmentGitFlowTest(unittest.TestCase):
         )
         self.assertIn("runtime-v1", self._script(RUN).stdout)
 
-        # A pinned boot must remain local and enter the Dev console without launching the runtime.
+        # A pinned boot must launch the known-good local Surface without a network pull.
         # The real dev-base builder installs these scripts as executable files. Mirror that
         # installation boundary here instead of relying on the source-tree executable bit.
         bin_dir = self.root / "bin"
@@ -373,10 +373,9 @@ class DevelopmentGitFlowTest(unittest.TestCase):
             }
         )
         boot = self._script(DEV_INIT, env=boot_env)
-        self.assertIn("Rollback fixado", boot.stdout)
-        self.assertIn("Checkout conhecido como bom carregado. Entrando no console Dev.", boot.stdout)
-        self.assertIn("OrdaX Dev pronto.", boot.stdout)
-        self.assertNotIn("runtime-v1", boot.stdout)
+        self.assertIn("OrdaX: iniciando a Surface local", boot.stdout)
+        self.assertIn("OrdaX: iniciando a Surface local", boot.stdout)
+        self.assertIn("runtime-v1", boot.stdout)
         self.assertFalse(pull_marker.exists())
 
         # The explicit pull is the only normal action that releases the sticky rollback.
@@ -388,7 +387,7 @@ class DevelopmentGitFlowTest(unittest.TestCase):
             self.commit_v2,
         )
 
-    def test_console_boot_does_not_launch_runtime_or_trigger_runtime_rollback(self) -> None:
+    def test_graphical_boot_runs_local_runtime_without_remote_pull_or_runtime_rollback(self) -> None:
         self._script(PULL)
         self.commit_v2 = self._commit_runtime("runtime-v2")
         self._script(PULL)
@@ -426,10 +425,9 @@ class DevelopmentGitFlowTest(unittest.TestCase):
         )
 
         result = self._script(DEV_INIT, env=boot_env)
-        self.assertIn("Checkout local saudavel", result.stdout)
-        self.assertIn("Boot rapido: console Dev local; rede e main watch iniciam em paralelo.", result.stdout)
-        self.assertIn("OrdaX Dev pronto.", result.stdout)
-        self.assertFalse(runtime_marker.exists())
+        self.assertIn("Checkout local verificado", result.stdout)
+        self.assertIn("OrdaX: iniciando a Surface local", result.stdout)
+        self.assertTrue(runtime_marker.exists())
         self.assertFalse(pull_marker.exists())
         self.assertFalse((self.state / "boot-rejected-commit").exists())
         self.assertFalse((self.state / "pinned-commit").exists())
@@ -472,13 +470,12 @@ class DevelopmentGitFlowTest(unittest.TestCase):
         )
         result = self._script(DEV_INIT, env=env)
 
-        self.assertIn("Checkout local saudavel", result.stdout)
-        self.assertIn("Boot rapido: console Dev local; rede e main watch iniciam em paralelo.", result.stdout)
-        self.assertIn("OrdaX Dev pronto.", result.stdout)
-        self.assertNotIn("runtime-v1", result.stdout)
+        self.assertIn("Checkout local verificado", result.stdout)
+        self.assertIn("OrdaX: iniciando a Surface local", result.stdout)
+        self.assertIn("runtime-v1", result.stdout)
         self.assertFalse(pull_marker.exists())
         boot_metrics = (self.state / "boot-last.tsv").read_text(encoding="utf-8")
-        self.assertTrue(boot_metrics.startswith("fast-console\t"))
+        self.assertTrue(boot_metrics.startswith("fast-graphical\t"))
 
     def test_seed_boot_does_not_require_or_create_version_store(self) -> None:
         self._script(PULL)
@@ -517,7 +514,7 @@ class DevelopmentGitFlowTest(unittest.TestCase):
         result = self._script(DEV_INIT, env=env)
 
         self.assertIn("OrdaX Dev pronto.", result.stdout)
-        self.assertNotIn("runtime-v1", result.stdout)
+        self.assertIn("runtime-v1", result.stdout)
         self.assertFalse(versions.exists())
 
     def test_unmapped_ab_slot_falls_back_to_seed_rootfs(self) -> None:
@@ -557,7 +554,7 @@ class DevelopmentGitFlowTest(unittest.TestCase):
         result = self._script(DEV_INIT, env=env)
 
         self.assertIn("OrdaX Dev pronto.", result.stdout)
-        self.assertNotIn("runtime-v1", result.stdout)
+        self.assertIn("runtime-v1", result.stdout)
         self.assertTrue(versions.is_dir())
         self.assertFalse((self.state / "base-update/rootfs/slot-a").exists())
 
@@ -596,29 +593,16 @@ class DevelopmentGitFlowTest(unittest.TestCase):
         self.assertIn('mv "$stage" "$WORKTREE"', pull)
         self.assertNotIn('pull --ff-only', pull)
 
-        self.assertIn('BOOT_PULL_ATTEMPTS=${ORDAX_BOOT_PULL_ATTEMPTS:-2}', dev_init)
         self.assertIn("BOOT_REJECTED_FILE=$STATE_DIR/boot-rejected-commit", dev_init)
         self.assertIn("BOOT_METRICS_FILE=$STATE_DIR/boot-last.tsv", dev_init)
         self.assertIn("local_checkout_bootable()", dev_init)
-        self.assertIn("start_network_background()", dev_init)
-        self.assertIn("start_main_watch_background()", dev_init)
-        self.assertIn("record_boot_handoff()", dev_init)
-        self.assertIn("recover_previous_checkout()", dev_init)
-        self.assertIn("Boot rapido: console Dev local; rede e main watch iniciam em paralelo.", dev_init)
-        self.assertLess(
-            dev_init.index("if local_checkout_bootable; then"),
-            dev_init.index("network_ok=0"),
-        )
-        fast_block = dev_init.split("if local_checkout_bootable; then", 1)[1].split(
-            "Primeiro boot ou checkout local inconsistente",
-            1,
-        )[0]
-        self.assertNotIn("ordax-pull", fast_block)
-        self.assertNotIn('"$BIN_DIR/ordax-run"', fast_block)
-        self.assertIn("maintenance_shell", fast_block)
-        self.assertIn('while [ "$attempt" -le "$BOOT_PULL_ATTEMPTS" ]', dev_init)
-        self.assertIn("repetindo uma vez apos pausa curta", dev_init)
-        self.assertIn("sleep 2", dev_init)
+        self.assertIn("initialize_network_hardware()", dev_init)
+        self.assertIn("start_local_surface()", dev_init)
+        self.assertIn('"$BIN_DIR/ordax-network" --init-hardware', dev_init)
+        self.assertIn('start_local_surface fast-graphical', dev_init)
+        self.assertIn('record_boot_handoff recovery-no-checkout', dev_init)
+        self.assertNotIn('"$BIN_DIR/ordax-pull"', dev_init)
+        self.assertNotIn('start_main_watch_background()', dev_init)
 
     def test_pull_replaces_dirty_or_invalid_runtime_checkout_atomically(self) -> None:
         self._script(PULL)

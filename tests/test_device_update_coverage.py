@@ -52,9 +52,10 @@ class DeviceUpdateCoverageTests(unittest.TestCase):
         self.assertNotIn('for module in iwlwifi rtl8xxxu mt76x2u ath9k_htc', init)
         self.assertIn('for module in iwlwifi rtl8xxxu mt76x2u ath9k_htc', network)
         self.assertIn("load_network_modules", network)
-        self.assertIn("start_network_background", init)
-        self.assertIn("start_main_watch_background", init)
-        self.assertIn('"$BIN_DIR/ordax-main-watch"', init)
+        self.assertIn('"$BIN_DIR/ordax-network" --init-hardware', init)
+        self.assertIn("start_local_surface fast-graphical", init)
+        self.assertNotIn("start_main_watch_background", init)
+        self.assertNotIn('"$BIN_DIR/ordax-main-watch"', init)
 
     def test_runtime_pull_stays_lightweight_while_helpers_refresh_from_git(self):
         pull = PULL.read_text(encoding="utf-8")

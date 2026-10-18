@@ -43,11 +43,13 @@ WIFI_SETUP_ATTEMPTS=$(normalize_timeout "$WIFI_SETUP_ATTEMPTS" 3 1)
 [ "$WIFI_SETUP_ATTEMPTS" -le 5 ] 2>/dev/null || WIFI_SETUP_ATTEMPTS=5
 
 force_choose=0
+hardware_only=0
 case "${1:-}" in
     "") ;;
     --choose) force_choose=1 ;;
+    --init-hardware) hardware_only=1 ;;
     -h|--help)
-        echo "uso: ordax-network [--choose]"
+        echo "uso: ordax-network [--choose|--init-hardware]"
         echo "  sem opcao: conecta automaticamente usando rede salva ou melhor sinal"
         echo "  --choose: mostra as redes e permite trocar a rede salva"
         exit 0
@@ -67,6 +69,8 @@ load_network_modules() {
 }
 
 load_network_modules
+# Pure module discovery: do not claim a network, ask for credentials or probe Git.
+[ "$hardware_only" -eq 1 ] && exit 0
 write_network_status no-ip startup || true
 
 cleanup_runtime_files() {

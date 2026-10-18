@@ -99,13 +99,12 @@ install_candidate_root() {
     '#!/bin/sh' \
     'exit 1'
 
-  # The console-first Dev boot must not auto-start the runtime. Keep a failing
-  # stub here so the proof catches any future regression that puts ordax-run
-  # back on the boot path.
+  # A verified candidate must call the local runtime directly. No network or
+  # Git pull is necessary for the initial Surface handoff.
   write_file "$root/usr/local/bin/ordax-run" 0755 \
     '#!/bin/sh' \
-    "printf '%s\\n' ORDAX_RUN_MUST_NOT_START_DURING_DEV_BOOT >&2" \
-    'exit 99'
+    "printf '%s\\n' ORDAX_GRAPHICAL_AUTOSTART_PROVED" \
+    'exit 0'
 }
 
 run_isolated_init() {
@@ -137,16 +136,12 @@ install_candidate_root "$SUCCESS_SEED/versions/$SOURCE_SHA" "$SOURCE_SHA"
 success_output="$(run_isolated_init "$SUCCESS_SEED" 2>&1)"
 printf '%s\n' "$success_output"
 grep -Fq "Base candidata $SOURCE_SHA preparada no slot b; iniciando ensaio unico." <<<"$success_output"
-grep -Fxq "Checkout local saudavel: $SOURCE_SHA" <<<"$success_output"
-grep -Fxq 'Boot rapido: console Dev local; rede e main watch iniciam em paralelo.' <<<"$success_output"
-grep -Fxq 'OrdaX Dev pronto.' <<<"$success_output"
-if grep -Fq 'ORDAX_RUN_MUST_NOT_START_DURING_DEV_BOOT' <<<"$success_output"; then
-  echo "rootfs-selector-proof: Dev boot auto-started ordax-run" >&2
-  exit 1
-fi
+grep -Fxq "Checkout local verificado: $SOURCE_SHA" <<<"$success_output"
+grep -Fxq 'OrdaX: iniciando a Surface local sem internet...' <<<"$success_output"
+grep -Fxq 'ORDAX_GRAPHICAL_AUTOSTART_PROVED' <<<"$success_output"
 test "$(cat "$SUCCESS_SEED/state/ordax/base-update/rootfs/slot-b")" = "$SOURCE_SHA"
 test -f "$SUCCESS_SEED/state/ordax/boot-last.tsv"
-grep -Fq $'fast-console\t' "$SUCCESS_SEED/state/ordax/boot-last.tsv"
+grep -Fq "fast-graphical" "$SUCCESS_SEED/state/ordax/boot-last.tsv"
 
 FAIL_SEED="$TMP/failure-seed"
 install_seed_root \

@@ -158,6 +158,14 @@ handoff_runtime_drift_if_needed() {
 log "watch da main iniciado; intervalo=${INTERVAL}s"
 
 while :; do
+    # OOBE is a durable transaction. Never update or drift-restart the UI
+    # before the exact First Run completion receipt exists.
+    first_run_receipt=$STATE_DIR/native-state/first-run.json
+    if [ ! -f "$first_run_receipt" ] || [ -L "$first_run_receipt" ] ||
+       ! /bin/busybox grep -q '"completed"[[:space:]]*:[[:space:]]*true' "$first_run_receipt"; then
+        sleep_interval
+        continue
+    fi
     supervisor_pid=$(active_supervisor_pid || true)
     if [ -n "$supervisor_pid" ]; then
         if [ "$OWNER_STATE" != supervisor ]; then
