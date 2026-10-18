@@ -25,11 +25,11 @@ test("Studio runtime source lock pins the merged headless compatibility contract
   assert.equal(lock.$schema, "prototype-ordax.studio-runtime-source-lock/1");
   assert.equal(lock.source.repository, "https://github.com/ordaxsystems/ordax-runtime");
   assert.match(lock.source.commit, /^[0-9a-f]{40}$/);
-  assert.equal(lock.source.commit, "fe0727e21d24ab3fbc00df16194f229da191a6fc");
+  assert.equal(lock.source.commit, "5b9e2452999fef19f0e4a7a16de1e6efc433f44c");
   assert.deepEqual(lock.source.compatibility_contract, {
     path: "docs/contracts/ordax-os-runtime-compatibility.json",
     schema: "ordax.studio-runtime-compatibility/1",
-    sha256: "184bf7881b74ef9b7fc3e9e3d1ee0793550495c0d2e247e051902e122e18e7c9",
+    sha256: "b2e9785eb7e672c4f3581aae0786ff1c1bc3e06c20dc010171a17070aee9f859",
     product_version: "0.4.7",
   });
 
@@ -55,6 +55,10 @@ test("Studio runtime source lock pins the merged headless compatibility contract
     lock.runtime.central_attestation_owner,
     "ordax_dev_agent.product_central_session.ProductCentralSessionClient",
   );
+  assert.equal(lock.runtime.native_device_identity_provider, "ProductDeviceIdentityStore.read_enrolled_credential");
+  assert.equal(lock.runtime.native_identity_provider_supported, true);
+  assert.equal(lock.runtime.device_id_match_required, true);
+  assert.equal(lock.runtime.duplicate_persisted_token_forbidden, true);
 });
 
 test("Studio runtime source lock is source-only and cannot silently activate dispatch", async () => {
@@ -92,6 +96,8 @@ test("Studio runtime source lock is source-only and cannot silently activate dis
   assert.equal(lock.activation.requires_device_scoped_grants, true);
   assert.equal(lock.activation.requires_native_policy, true);
   assert.equal(lock.activation.intelligence_grants_do_not_authorize_remote_actions, true);
+  assert.equal(lock.activation.single_device_heartbeat_owner_required, true);
+  assert.equal(lock.activation.verified_os_runtime_provenance_required, true);
 });
 
 test("Studio integration consumes the source lock without widening Surface authority", async () => {
