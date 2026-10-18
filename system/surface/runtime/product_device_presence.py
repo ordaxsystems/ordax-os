@@ -101,13 +101,15 @@ class ProductDevicePresenceWorker:
         with self._lock:
             if self._closed:
                 raise ProductDevicePresenceError("device-presence-worker-closed")
+            was_enabled = self._enabled
             self._enabled = True
             if self._thread is None:
                 self._thread = threading.Thread(
                     target=self._run, name="ordax-product-presence", daemon=True,
                 )
                 self._thread.start()
-        self._wake.set()
+            elif not was_enabled:
+                self._wake.set()
 
     def _report(self, online: bool) -> None:
         try:
