@@ -101,11 +101,15 @@ export function createInstalledAppCapabilityReader({
   resolveCaller,
   readAllowedCapabilities,
   capabilityReader,
+  mountCaller = null,
 } = {}) {
   if (typeof resolveCaller !== "function" || typeof readAllowedCapabilities !== "function") {
     throw new TypeError("Installed app capabilities require trusted host resolvers");
   }
   const reader = assertDeviceAgentCapabilityReaderPort(capabilityReader);
+  // Only trusted composition may supply the mount-time identity. Without a
+  // mount pin, a host-global reader is still valid for internal diagnostics.
+  const pinnedCaller = mountCaller === null ? null : verifiedCaller(mountCaller);
   return Object.freeze({
     schema: DEVICE_AGENT_CAPABILITY_READER_SCHEMA,
     async capabilities(request = undefined) {
@@ -115,6 +119,9 @@ export function createInstalledAppCapabilityReader({
       // Both resolvers are OS-private ports. Fail closed if absent, stale, or
       // malformed. Do not return a previous/cached authorized snapshot.
       const caller = verifiedCaller(await resolveCaller());
+      if (pinnedCaller !== null && !sameCaller(caller, pinnedCaller)) {
+        throw new TypeError("Installed app mount identity is no longer current");
+      }
       const [decision, available] = await Promise.all([
         readAllowedCapabilities(caller),
         reader.capabilities({ client: "ordax-native" }),
@@ -126,6 +133,9 @@ export function createInstalledAppCapabilityReader({
       const currentCaller = verifiedCaller(await resolveCaller());
       if (!sameCaller(currentCaller, caller)) {
         throw new TypeError("Installed app caller changed during capability discovery");
+      }
+      if (pinnedCaller !== null && !sameCaller(currentCaller, pinnedCaller)) {
+        throw new TypeError("Installed app mount identity is no longer current");
       }
       if (current.state !== "ready") {
         return validateDeviceAgentCapabilitiesSnapshot({
