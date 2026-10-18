@@ -17,6 +17,15 @@ class DevelopmentNetworkContractTest(unittest.TestCase):
         for script in (NETWORK, DEV_INIT):
             subprocess.run(["/bin/sh", "-n", str(script)], check=True)
 
+    def test_network_status_writer_is_defined_before_startup_use(self) -> None:
+        text = NETWORK.read_text(encoding="utf-8")
+        writer = text.index("\nwrite_network_status() {")
+        status = text.index("\nwrite_network_status no-ip startup || true")
+        hardware_exit = text.index('[ "$hardware_only" -eq 1 ] && exit 0')
+        self.assertLess(writer, status)
+        self.assertLess(hardware_exit, status)
+        self.assertEqual(text.count("\nwrite_network_status() {"), 1)
+
     def test_wired_dhcp_skips_kernel_tunnel_interfaces(self) -> None:
         text = NETWORK.read_text(encoding="utf-8")
         self.assertIn('net_type=$(cat "$netpath/type" 2>/dev/null || true)', text)

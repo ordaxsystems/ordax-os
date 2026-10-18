@@ -29,7 +29,7 @@ import {
   memoryAutoCaptureEnabled,
 } from "../../services/preferences/memory.mjs";
 import { translateFirstRunText } from "../../services/i18n/first-run.mjs";
-import { FIRST_RUN_STEP_IDS, FIRST_RUN_STEP_LABELS } from "../../services/first-run/journey.mjs";
+import { FIRST_RUN_STEP_IDS, FIRST_RUN_STEP_LABELS, getFirstRunStepIndex } from "../../services/first-run/journey.mjs";
 import { deriveFirstRunCapabilities } from "../../services/first-run/capabilities.mjs";
 import { completeFirstRunState, matchesFirstRunIdentitySelection, validateFirstRunState, verifyFirstRunIdentitySession } from "../../services/state/first-run.mjs";
 import {
@@ -164,7 +164,8 @@ export function mountFirstRunExperience(
   overlay.append(shell);
   documentObject.body.append(overlay);
 
-  let stepIndex = Math.max(0, STEPS.indexOf(safeFirstRunResumeStep(cursorPort?.load().step)));
+  // The cursor is observed once: locale selection and initial navigation must agree.
+  let stepIndex = getFirstRunStepIndex(resumedStep);
   let cursorQueue = Promise.resolve();
   let destroyed = false;
   let finishing = false;
@@ -1050,7 +1051,7 @@ export function mountFirstRunExperience(
         if (!identityStillCurrent) {
           draft.accountMode = null;
           selectedIdentitySubjectId = null;
-          stepIndex = STEPS.indexOf("account");
+          stepIndex = getFirstRunStepIndex("account");
           identityMessage = "A sessão da Conta OrdaX mudou. Entre novamente ou continue sem conta.";
           finishing = false;
           render();
@@ -1188,7 +1189,7 @@ export function mountFirstRunExperience(
     ) {
       draft.accountMode = null;
       selectedIdentitySubjectId = null;
-      stepIndex = STEPS.indexOf("account");
+      stepIndex = getFirstRunStepIndex("account");
       identityMessage = "A sessão da Conta OrdaX mudou. Entre novamente ou continue sem conta.";
     }
     if (sessionSnapshot.state === "signed-in") {

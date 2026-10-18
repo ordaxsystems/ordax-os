@@ -7,6 +7,7 @@ import {
   validateFirstRunCursor,
 } from "../system/contracts/first-run-cursor.mjs";
 import { createNativeFirstRunCursor } from "../system/adapters/native/first-run-cursor.mjs";
+import { FIRST_RUN_STEP_IDS, getFirstRunStepIndex } from "../system/services/first-run/journey.mjs";
 
 test("resume cursor never persists later-stage account/identity state", () => {
   for (const step of ["privacy", "name", "ready"]) {
@@ -51,4 +52,16 @@ test("native First Run resumes with independent cursor, never a second receipt",
   assert.match(ui, /cursorPort\.save\(safeStep\)/);
   assert.doesNotMatch(ui, /draft\.resumeStep\s*=/);
   assert.match(native, /createNativeFirstRunCursor\(window\)/);
+});
+
+test("First Run resume reads the bounded cursor once and resolves indices through the canonical journey", async () => {
+  const ui = await readFile(new URL("../system/surface/ui/first-run.mjs", import.meta.url), "utf8");
+  assert.equal((ui.match(/cursorPort\\?\\.load\\(\\)\\.step/g) ?? []).length, 1);
+  assert.match(ui, /let stepIndex = getFirstRunStepIndex\\(resumedStep\\)/);
+  assert.doesNotMatch(ui, /STEPS\\.indexOf\\(/);
+  assert.equal(getFirstRunStepIndex(safeFirstRunResumeStep("ready")), getFirstRunStepIndex("account"));
+  for (const [index, step] of FIRST_RUN_STEP_IDS.entries()) {
+    assert.equal(getFirstRunStepIndex(step), index);
+  }
+  assert.throws(() => getFirstRunStepIndex("unknown"), /Unknown first-run step/);
 });
