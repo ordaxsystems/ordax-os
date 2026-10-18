@@ -21,6 +21,9 @@ export const INSTALLED_APP_CAPABILITY_DECISION_SCHEMA =
 
 const APP_ID_RE = /^[a-z][a-z0-9-]{0,127}$/;
 const SHA256_RE = /^[0-9a-f]{64}$/;
+// The Native host assigns a fresh UUID for each live mount. Reusing the
+// same app bytes or same install receipt MUST NOT revive an old port.
+const INSTANCE_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const CONTROL_RE = /[\u0000-\u001f\u007f]/;
 
 function exactObject(value, fields, label) {
@@ -54,21 +57,24 @@ function optionalScope(value, label) {
 
 function sameCaller(a, b) {
   return a.appId === b.appId && a.publisherId === b.publisherId
-    && a.packageSha256 === b.packageSha256 && a.accountId === b.accountId
+    && a.packageSha256 === b.packageSha256
+    && a.runtimeInstanceId === b.runtimeInstanceId && a.accountId === b.accountId
     && a.spaceId === b.spaceId && a.deviceId === b.deviceId;
 }
 
 function verifiedCaller(value) {
-  exactObject(value, ["appId", "publisherId", "packageSha256", "accountId", "spaceId", "deviceId", "verified"],
+  exactObject(value, ["appId", "publisherId", "packageSha256", "runtimeInstanceId", "accountId", "spaceId", "deviceId", "verified"],
     "Installed app caller");
   if (value.verified !== true || !APP_ID_RE.test(value.appId)
-      || !SHA256_RE.test(value.packageSha256)) {
+      || !SHA256_RE.test(value.packageSha256)
+      || !INSTANCE_RE.test(value.runtimeInstanceId)) {
     throw new TypeError("Installed app caller is not a verified package");
   }
   return Object.freeze({
     appId: value.appId,
     publisherId: bounded(value.publisherId, "Caller publisher"),
     packageSha256: value.packageSha256,
+    runtimeInstanceId: value.runtimeInstanceId,
     // Guest/device-owner sessions intentionally have no account or Space.
     // Only the trusted OS resolver may decide that a scope is null.
     accountId: optionalScope(value.accountId, "Caller account"),
