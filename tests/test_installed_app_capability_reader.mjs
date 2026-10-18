@@ -258,3 +258,20 @@ test("changing only the Native execution instance while permission discovery is 
   });
   await assert.rejects(() => port.capabilities(), /changed during capability discovery/);
 });
+
+
+test("identity validation does not execute custom coercion on app, digest or instance fields", async () => {
+  for (const field of ["appId", "packageSha256", "runtimeInstanceId"]) {
+    let coerced = false;
+    const actual = { ...caller(), [field]: {
+      toString() { coerced = true; throw new Error("untrusted coercion ran"); },
+    } };
+    const port = createInstalledAppCapabilityReader({
+      resolveCaller: async () => actual,
+      readAllowedCapabilities: async () => { throw new Error("grant lookup must not run"); },
+      capabilityReader: reader(),
+    });
+    await assert.rejects(() => port.capabilities(), /not a verified package/);
+    assert.equal(coerced, false, field);
+  }
+});
