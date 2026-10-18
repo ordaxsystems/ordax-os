@@ -153,20 +153,20 @@ esac
 # foundation, but the public profile cannot activate its broker or token.
 [ "$DISTRIBUTION_PROFILE" = "stable-mvp" ] && NATIVE_INSTALL_CAPABILITY=disabled
 
-if [ "$DISTRIBUTION_PROFILE" = "stable-mvp" ]; then
+if [ "$DISTRIBUTION_PROFILE" = "stable-mvp" ] || [ -n "$VERIFIED_RUNTIME_MODE" ]; then
     case "$VERIFIED_RUNTIME_MODE" in
         verified-erofs-overlay)
             [ "$VERIFIED_RUNTIME_ROOT" = "/run/ordax/runtime/native-surface/rootfs" ] || {
-                echo "ordax-surface: verified Stable runtime root is invalid" >&2
+                echo "ordax-surface: verified runtime root is invalid" >&2
                 exit 1
             }
             [ "${#VERIFIED_RUNTIME_SHA256}" -eq 64 ] || {
-                echo "ordax-surface: verified Stable runtime digest is invalid" >&2
+                echo "ordax-surface: verified runtime digest is invalid" >&2
                 exit 1
             }
             case "$VERIFIED_RUNTIME_SHA256" in
                 *[!0-9a-f]*)
-                    echo "ordax-surface: verified Stable runtime digest is invalid" >&2
+                    echo "ordax-surface: verified runtime digest is invalid" >&2
                     exit 1
                     ;;
             esac
@@ -178,7 +178,7 @@ if [ "$DISTRIBUTION_PROFILE" = "stable-mvp" ]; then
             # must never provision its graphical runtime from the network.
             ;;
         *)
-            echo "ordax-surface: unsupported Stable runtime mode" >&2
+            echo "ordax-surface: unsupported verified runtime mode" >&2
             exit 1
             ;;
     esac
@@ -690,7 +690,8 @@ fallback_with_reason() {
 }
 
 runtime_base_is_ready() {
-    if [ "$DISTRIBUTION_PROFILE" = "stable-mvp" ]; then
+    if [ "$DISTRIBUTION_PROFILE" = "stable-mvp" ] ||
+       [ "$VERIFIED_RUNTIME_MODE" = "verified-erofs-overlay" ]; then
         [ "$VERIFIED_RUNTIME_MODE" = "verified-erofs-overlay" ] || return 1
         [ "$RUNTIME_ROOT" = "$VERIFIED_RUNTIME_ROOT" ] || return 1
     else
@@ -833,9 +834,10 @@ upgrade_existing_runtime() {
 }
 
 ensure_runtime() {
-    if [ "$DISTRIBUTION_PROFILE" = "stable-mvp" ]; then
+    if [ "$DISTRIBUTION_PROFILE" = "stable-mvp" ] ||
+       [ "$VERIFIED_RUNTIME_MODE" = "verified-erofs-overlay" ]; then
         runtime_is_ready || {
-            echo "ordax-surface: Stable/MVP requires the preverified offline graphical runtime" >>"$HOST_LOG"
+            echo "ordax-surface: verified boot requires the offline graphical runtime" >>"$HOST_LOG"
             return 1
         }
         echo "ordax-surface: using verified immutable Surface runtime with ephemeral overlay" >>"$HOST_LOG"
