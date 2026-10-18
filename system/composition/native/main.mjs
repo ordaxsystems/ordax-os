@@ -984,6 +984,9 @@ async function start() {
       storeLifecycleRequests = createAppLifecycleRequestService({
         catalogPort: storeCatalog,
         verifiedCatalogPort: storeCatalogComposition.verifiedCatalogPort,
+        // Read the exact ephemeral Native observations belonging to the
+        // currently published Store projection, never a second inventory.
+        getCurrentObservations: () => storeCatalogComposition.getCurrentObservations(),
         lifecycleDelegate: createNativeAppLifecycleDelegate(window),
       });
     } catch (error) {
