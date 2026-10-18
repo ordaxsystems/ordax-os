@@ -73,13 +73,37 @@ class ProductDevicePresenceReporterTests(unittest.TestCase):
         self.assertEqual(lifecycle["reportMode"], "one-shot")
         self.assertFalse(lifecycle["ownsHeartbeatLoop"])
         self.assertFalse(lifecycle["dualWritesLegacyAndCanonical"])
-        self.assertFalse(lifecycle["enrollmentImplemented"])
+        self.assertTrue(lifecycle["enrollmentImplemented"])
         self.assertFalse(lifecycle["bootDependency"])
         self.assertFalse(lifecycle["grantsRemoteActions"])
         self.assertFalse(lifecycle["opensInboundPort"])
         self.assertFalse(value["production"]["enabled"])
-        self.assertFalse(value["ownerDevelopment"]["automaticEnrollment"])
+        self.assertTrue(value["ownerDevelopment"]["automaticEnrollment"])
+        self.assertEqual(value["ownerDevelopment"]["enrollmentTrigger"], "after-successful-authenticated-native-account-login")
+        self.assertEqual(value["status"], "foundation-not-mounted")
 
+
+    def test_account_login_enrollment_is_not_external_mcp_authorization(self):
+        """No implied ChatGPT OAuth consent, device grants, or action runtime."""
+        value = json.loads(CONTRACT.read_text(encoding="utf-8"))
+        mcp = value["externalMcp"]
+        self.assertFalse(mcp["accountLoginAutomaticallyConnectsExternalClient"])
+        self.assertFalse(mcp["devicePresenceRuntimeMounted"])
+        self.assertFalse(mcp["attestedMcpSessionImplementedInOs"])
+        self.assertFalse(mcp["remoteActionRuntimePackagedInOs"])
+        self.assertFalse(mcp["remoteActionDispatchEnabled"])
+        self.assertTrue(mcp["oauthClientConsentRequired"])
+        self.assertTrue(mcp["deviceScopedCapabilityGrantRequired"])
+        self.assertTrue(mcp["chatGptAccountDistinctFromOrdaxAccount"])
+
+        source = (ROOT / "system/surface/runtime/product_device_runtime.py").read_text(encoding="utf-8")
+        self.assertIn("after_authenticated_login", source)
+        self.assertIn("compose_product_device_account_gateway", source)
+        self.assertIn('distribution_profile != "owner-development"', source)
+        self.assertIn('product_mode != "usb"', source)
+        runtime_lock = json.loads((ROOT / "system/services/device-agent/studio-runtime-source-lock.json").read_text(encoding="utf-8"))
+        self.assertFalse(runtime_lock["distribution"]["runtime_packaged_in_stable"])
+        self.assertFalse(runtime_lock["activation"]["dispatch_enabled"])
 
 if __name__ == "__main__":
     unittest.main()
