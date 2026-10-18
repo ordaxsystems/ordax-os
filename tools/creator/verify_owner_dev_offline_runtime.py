@@ -138,6 +138,12 @@ def verify(stage: Path) -> str:
     expected_pin = f"{expected}  /ordax/dev-base/{RELATIVE_IMAGE.as_posix()}\n"
     if pin.read_text(encoding="ascii") != expected_pin or sha256(image) != expected:
         raise OfflineRuntimeError("Owner offline Surface EROFS pin/digest mismatch")
+    # The full offline producer is fsck/label-verified in CI. Here the separate
+    # Owner consumer additionally rejects non-EROFS objects before publication.
+    with image.open("rb") as stream:
+        stream.seek(1024)
+        if stream.read(4) != bytes.fromhex("e2e1f5e0"):
+            raise OfflineRuntimeError("Owner offline Surface image is not EROFS")
     return source["runtime_id"]
 
 
