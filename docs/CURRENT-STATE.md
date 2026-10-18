@@ -60,6 +60,13 @@ docs/INTELLIGENCE.md.
 
 # Current State
 
+Native Central home layout correction (2026-10-18): the persistent local-space
+card remains in the secondary column at desktop widths, while capability-backed
+continuation and pending-service cards occupy successive rows in the main column.
+At narrow widths these direct `.ordax-space` children flow in document order.
+This preserves the existing lifecycle owners and avoids overlapping grid areas;
+it changes presentation only and does not claim new backend or USB capability.
+
 Native emulator / Meridian First Run (2026-10-18): the Windows emulator now loads
 `system/composition/native/index.html` for both onboarding and desktop, with no
 emulator-owned First Run or Web preview handoff. Development-only persistence
