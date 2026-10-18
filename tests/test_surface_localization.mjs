@@ -122,15 +122,17 @@ for (const locale of SURFACE_COMPLETE_LOCALES) {
     try {
       const markup = createDesktopShellMarkup(localization);
       const buttons = [...markup.matchAll(/<button\b([^>]*)>([\s\S]*?)<\/button>/g)];
-      const launchers = buttons.filter(([, attributes]) =>
-        attributes.includes('class="ordax-sidebar-launcher-brand"'),
+      // Meridian brand is a Home destination, not a second app launcher.
+      const brands = buttons.filter(([, attributes]) =>
+        attributes.includes('ordax-sidebar-launcher-brand'),
       );
-      assert.equal(launchers.length, 1, "One sidebar brand opens the canonical launcher");
-      const [, launcher] = launchers[0];
-      assert.ok(launcher.includes('data-launcher-toggle'));
-      assert.ok(launcher.includes('aria-controls="ordax-launcher"'));
-      assert.ok(launcher.includes('aria-expanded="false"'));
-      assert.ok(launcher.includes(`aria-label="${localization.translate("shell.launcher.command")}"`));
+      assert.equal(brands.length, 1, "One sidebar brand returns to the canonical Home");
+      const [, brand] = brands[0];
+      assert.ok(brand.includes('data-show-desktop'));
+      assert.ok(brand.includes('aria-label="OrdaX OS"'));
+      assert.ok(!brand.includes('data-launcher-toggle'));
+      // The official launcher remains independently accessible via its actions.
+      assert.ok(buttons.some(([, attributes]) => attributes.includes('data-launcher-toggle')));
       assert.ok(markup.includes('id="ordax-launcher"'));
       assert.ok(markup.includes('data-launcher-query'));
       const expected = ["files", "studio", "settings", "system"];
