@@ -2,6 +2,8 @@
 
 Status: CANONICAL EXECUTION HANDOFF BEFORE THE NEXT STABLE/MVP PHYSICAL RETEST
 
+**Lifecycle note (2026-10-18):** the pre-consent `NO` and `BLOCKED` markers preserved below describe the previously reviewed handoff snapshot, not a live override of `docs/contracts/physical-write-authorization.json`. A newly authorized branch must pass the canonical `physical_promotion.py` context check and CI before merge; recorded owner consent never substitutes for an offline signed v3 publisher release, live USB re-enumeration, UAC, 17-source readback or hardware boot evidence. The most recent actual authorization state must be read from the contract at the tested commit.
+
 This document narrows the current physical-promotion boundary. It does not authorize a USB write and does not replace `MVP.md`, `docs/CURRENT-STATE.md`, `docs/PROMOTION-GATES.md`, the structured physical-authorization contract, or hardware evidence.
 
 ## Current boundary

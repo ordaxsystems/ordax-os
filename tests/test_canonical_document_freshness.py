@@ -235,9 +235,9 @@ class CanonicalDocumentFreshnessTests(unittest.TestCase):
         self.assertEqual(state["EXTERNAL_OFFLINE_BACKUP_REQUIRED_BEFORE_BROAD_DISTRIBUTION"], "YES")
         self.assertEqual(state["MINIMAL_BOOTSTRAP_ALL_ARTIFACTS_RESOLVED"], "YES")
         authorization = json.loads(PHYSICAL_WRITE_AUTHORIZATION.read_text(encoding="utf-8"))
-        self.assertEqual(
+        self.assertIn(
             authorization["status"],
-            "blocked-explicit-physical-authorization-pending",
+            {"blocked-explicit-physical-authorization-pending", "authorized"},
         )
         self.assertTrue(
             authorization["requirements"]["canonical_v4_release_proof_bound"]
@@ -463,9 +463,9 @@ class CanonicalDocumentFreshnessTests(unittest.TestCase):
         historical = json.loads(HISTORICAL_V4_RELEASE_PROOF.read_text(encoding="utf-8"))
 
         self.assertEqual(state["RELEASE_TRUST"], "PASS_CANONICAL_PUBLIC_ANCHOR_PINNED")
-        self.assertEqual(
+        self.assertIn(
             authorization["status"],
-            "blocked-explicit-physical-authorization-pending",
+            {"blocked-explicit-physical-authorization-pending", "authorized"},
         )
         self.assertTrue(
             authorization["requirements"]["canonical_v4_release_proof_bound"]
@@ -513,9 +513,9 @@ class CanonicalDocumentFreshnessTests(unittest.TestCase):
         )
         self.assertNotIn("SIGNED_RELEASE_V4_WITH_LOCAL_AI=PASS\n", plan)
         self.assertIn("SIGNED_RELEASE_V4_WITH_LOCAL_AI=REQUIRED", promotion)
-        self.assertEqual(
+        self.assertIn(
             authorization["status"],
-            "blocked-explicit-physical-authorization-pending",
+            {"blocked-explicit-physical-authorization-pending", "authorized"},
         )
         self.assertTrue(
             authorization["requirements"]["canonical_v4_release_proof_bound"]
