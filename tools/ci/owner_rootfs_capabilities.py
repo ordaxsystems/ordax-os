@@ -10,16 +10,9 @@ import shlex
 import sys
 
 ROOT = Path(__file__).resolve().parents[2]
-OWNER_SHELL_SOURCES = (
+# Runtime helper sources belong only to DEV_HELPER_MANIFEST, not this list.
+OWNER_NON_HELPER_SHELL_SOURCES = (
     "bootstrap/dev/entrypoint",
-    "bootstrap/dev-base/ordax-dev-init",
-    "bootstrap/dev-base/ordax-network",
-    "bootstrap/dev-base/ordax-pull",
-    "bootstrap/dev-base/ordax-rollback",
-    "bootstrap/dev-base/ordax-run",
-    "bootstrap/dev-base/ordax-diagnose",
-    "bootstrap/dev-base/ordax-main-watch",
-    "bootstrap/recovery/entrypoint",
     "system/entrypoint",
     "system/supervisor",
 )
@@ -371,7 +364,7 @@ def owner_inventory(root: Path = ROOT) -> dict[str, object]:
     explicit_busybox: set[str] = set()
     missing_sources: list[str] = []
     runtime_helpers = owner_runtime_helpers(root)
-    sources = tuple(dict.fromkeys((*OWNER_SHELL_SOURCES, *(source for source, _ in runtime_helpers))))
+    sources = (*OWNER_NON_HELPER_SHELL_SOURCES, *(source for source, _ in runtime_helpers))
     for relative in sources:
         path = root / relative
         if path.is_symlink() or not path.is_file():
