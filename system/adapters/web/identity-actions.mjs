@@ -149,7 +149,8 @@ export function createWebIdentityActions(
         return;
       }
       if (action === "sign-out") {
-        return disconnectLocal();
+        await disconnectLocal();
+        return;
       }
       throw new Error(`Unsupported identity action: ${String(action)}`);
     },
