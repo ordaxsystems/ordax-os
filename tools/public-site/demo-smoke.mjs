@@ -29,7 +29,7 @@ try{await runBrowser(async client=>{
  assert.equal(await evaluate(`document.activeElement.closest('.public-demo-menu')!==null`),true);
  await client.send('Input.dispatchKeyEvent',{type:'keyDown',key:'End',code:'End'});
  assert.equal(await evaluate(`document.activeElement.dataset.value`),'example-files');
- await client.send('Input.dispatchKeyEvent',{type:'keyDown',key:'Escape',code:'Escape'});
+ await client.send('Input.dispatchKeyEvent',{type:'keyDown',key:'Escape',code:'Escape',windowsVirtualKeyCode:27,nativeVirtualKeyCode:27});
  assert.equal(await evaluate(`document.activeElement.matches('.meridian-mobile-menu')`),true);
  assert.equal(await evaluate(`document.activeElement.getAttribute('aria-expanded')`),'false');
  await evaluate(`document.querySelector('[data-device="phone"] .meridian-mobile-menu').click()`);
@@ -39,6 +39,13 @@ try{await runBrowser(async client=>{
  // Expansion moves the same live preview instead of creating another UI or resetting it.
  await evaluate(`globalThis.proofPhone=document.querySelector('[data-device="phone"]');document.querySelector('[data-expand="phone"]').click()`);
  assert.equal(await evaluate(`document.querySelector('.demo-expanded').open`),true);
+ await evaluate(`document.querySelector('.demo-expanded .meridian-mobile-menu').click()`);
+ await client.send('Input.dispatchKeyEvent',{type:'keyDown',key:'Escape',code:'Escape',windowsVirtualKeyCode:27,nativeVirtualKeyCode:27});
+ await client.send('Input.dispatchKeyEvent',{type:'keyUp',key:'Escape',code:'Escape',windowsVirtualKeyCode:27,nativeVirtualKeyCode:27});await sleep(100);
+ assert.equal(await evaluate(`document.querySelector('.demo-expanded').open`),true);
+ assert.equal(await evaluate(`document.querySelector('.demo-expanded .public-demo-menu').hidden`),true);
+ assert.equal(await evaluate(`document.activeElement.matches('.meridian-mobile-menu')`),true);
+
  assert.equal(await evaluate(`document.querySelector('.demo-expanded [data-device="phone"]')===globalThis.proofPhone`),true);
  assert.equal(await evaluate(`document.querySelector('.demo-expanded').getBoundingClientRect().width<=innerWidth`),true);
  assert.equal(await evaluate(`(()=>{const camera=document.querySelector('.demo-expanded .phone-camera').getBoundingClientRect(),screen=document.querySelector('.demo-expanded .phone-viewport').getBoundingClientRect();return camera.bottom<=screen.top;})()`),true);
@@ -53,6 +60,13 @@ try{await runBrowser(async client=>{
  await evaluate(`document.querySelector('.demo-expanded [data-action="public-dismiss"]').click()`);
  assert.equal(await evaluate(`document.querySelector('.demo-expanded .public-demo-notice').hidden`),true);
  assert.equal(await evaluate(`document.activeElement===globalThis.proofAction`),true);
+ await evaluate(`globalThis.proofAction.click();document.querySelector('.demo-expanded [data-action="public-dismiss"]').focus()`);
+ await client.send('Input.dispatchKeyEvent',{type:'keyDown',key:'Escape',code:'Escape',windowsVirtualKeyCode:27,nativeVirtualKeyCode:27});
+ await client.send('Input.dispatchKeyEvent',{type:'keyUp',key:'Escape',code:'Escape',windowsVirtualKeyCode:27,nativeVirtualKeyCode:27});await sleep(100);
+ assert.equal(await evaluate(`document.querySelector('.demo-expanded').open`),true);
+ assert.equal(await evaluate(`document.querySelector('.demo-expanded .public-demo-notice').hidden`),true);
+ assert.equal(await evaluate(`document.activeElement===globalThis.proofAction`),true);
+
  await evaluate(`document.querySelector('.demo-expanded .meridian-mobile-menu').click();document.querySelector('.demo-expanded .public-demo-menu [data-value="store"]').click()`);
  assert.equal(await evaluate(`document.querySelector('.demo-expanded .public-demo-notice').hidden`),false);
  await evaluate(`document.querySelector('.demo-expanded [data-action="public-dismiss"]').click()`);
@@ -66,7 +80,10 @@ try{await runBrowser(async client=>{
  assert.equal(await evaluate(`document.activeElement.matches('[data-expand="phone"]')`),true);
  await evaluate(`document.querySelector('[data-expand=""]').click()`);
  assert.equal(await evaluate(`!!document.querySelector('.demo-expanded [data-device="laptop"]')`),true);
- await evaluate(`document.querySelector('[data-close-expanded]').click()`);await sleep(100);
+ await evaluate(`document.querySelector('.demo-expanded [data-close-expanded]').focus()`);
+ await client.send('Input.dispatchKeyEvent',{type:'keyDown',key:'Escape',code:'Escape',windowsVirtualKeyCode:27,nativeVirtualKeyCode:27});
+ await client.send('Input.dispatchKeyEvent',{type:'keyUp',key:'Escape',code:'Escape',windowsVirtualKeyCode:27,nativeVirtualKeyCode:27});await sleep(100);
+ assert.equal(await evaluate(`document.querySelector('.demo-expanded').open`),false);
  assert.equal(await evaluate(`document.activeElement.matches('[data-expand=""]')`),true);
  // Public controls must switch to the actual generated app page, not call services.
  await evaluate(`document.querySelector('[data-device="laptop"] [data-action="app"][data-value="settings"]').click()`);assert.equal(await evaluate(`!!document.querySelector('[data-device="laptop"] [data-ordax-settings-overview-view]')`),true);
