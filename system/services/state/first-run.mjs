@@ -52,6 +52,28 @@ export function completeFirstRunState({ locale, timeZone, accountMode }) {
   });
 }
 
+// Durable First Run receipt is the commit point; portable preferences are
+// derived state, recovered from the receipt on next Native boot if needed.
+export async function persistFirstRunCompletion(store, preferences, draft) {
+  if (!store || typeof store.save !== "function" || !preferences || typeof preferences.set !== "function") {
+    throw new TypeError("First Run completion requires state and preference ports");
+  }
+  const completed = completeFirstRunState(draft);
+  await store.save(completed);
+  const failedPreferenceIds = [];
+  for (const [key, value] of [
+    [REGIONAL_LOCALE_PREFERENCE_ID, completed.locale],
+    [REGIONAL_TIME_ZONE_PREFERENCE_ID, completed.timeZone],
+  ]) {
+    try {
+      await preferences.set(key, value);
+    } catch {
+      failedPreferenceIds.push(key);
+    }
+  }
+  return Object.freeze({ completed, failedPreferenceIds: Object.freeze(failedPreferenceIds) });
+}
+
 export function seedMissingRegionalPreferencesFromFirstRun(preferenceRecord, firstRunState) {
   const current = validatePreferenceRecord(preferenceRecord);
   const firstRun = validateFirstRunState(firstRunState);

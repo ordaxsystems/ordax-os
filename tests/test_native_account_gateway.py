@@ -336,5 +336,35 @@ class NativeAccountGatewayTests(unittest.TestCase):
         self.assertNotIn("/v3/device/setup", source)
 
 
+class NativeLogoutIsolationTests(unittest.TestCase):
+    def test_offline_logout_discards_cookies_and_blocks_token_reuse(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "session.json"
+            client = gateway.NativeAccountGateway("https://accounts.example", str(path))
+            client._cookies = {"ordax_access": "access", "ordax_refresh": "refresh"}
+            def unavailable(*args, **kwargs):
+                raise gateway.NativeAccountGatewayError("gateway-unreachable")
+            client._request = unavailable
+            with self.assertRaises(gateway.NativeAccountGatewayError):
+                client.logout()
+            self.assertEqual(client._cookies, {})
+            self.assertFalse(path.exists())
+            with self.assertRaises(gateway.NativeAccountGatewayError) as error:
+                client._product_access_token()
+            self.assertEqual(error.exception.code, "authentication-required")
+
+    def test_rejected_logout_discards_cookies_without_claiming_revocation(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "session.json"
+            client = gateway.NativeAccountGateway("https://accounts.example", str(path))
+            client._cookies = {"ordax_access": "access", "ordax_refresh": "refresh"}
+            client._request = lambda *args, **kwargs: gateway.GatewayReply(
+                status=503, headers={}, body=b""
+            )
+            reply = client.logout()
+            self.assertEqual(reply.status, 503)
+            self.assertEqual(client._cookies, {})
+
+
 if __name__ == "__main__":
     unittest.main()

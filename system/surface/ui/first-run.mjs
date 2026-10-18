@@ -31,7 +31,7 @@ import {
 import { translateFirstRunText } from "../../services/i18n/first-run.mjs";
 import { FIRST_RUN_STEP_IDS, FIRST_RUN_STEP_LABELS, getFirstRunStepIndex } from "../../services/first-run/journey.mjs";
 import { deriveFirstRunCapabilities } from "../../services/first-run/capabilities.mjs";
-import { completeFirstRunState, matchesFirstRunIdentitySelection, validateFirstRunState, verifyFirstRunIdentitySession } from "../../services/state/first-run.mjs";
+import { matchesFirstRunIdentitySelection, persistFirstRunCompletion, validateFirstRunState, verifyFirstRunIdentitySession } from "../../services/state/first-run.mjs";
 import {
   networkManagementActionMessage,
   networkManagementFailureMessage,
@@ -1071,9 +1071,11 @@ export function mountFirstRunExperience(
           return;
         }
       }
-      preferencePort.set(REGIONAL_LOCALE_PREFERENCE_ID, draft.locale);
-      preferencePort.set(REGIONAL_TIME_ZONE_PREFERENCE_ID, draft.timeZone);
-      await store.save(completeFirstRunState(draft));
+      const receipt = await persistFirstRunCompletion(store, preferencePort, draft);
+      if (receipt.failedPreferenceIds.length > 0) {
+        // The Native receipt already committed; boot restores missing preferences.
+        console.warn("OrdaX First Run regional preferences pending durable recovery");
+      }
       close();
     } catch {
       if (destroyed) return;

@@ -169,3 +169,36 @@ test("first-run identity completion refreshes the real session before saving a r
   }, "account-A"), false);
   assert.equal(await verifyFirstRunIdentitySession(null, "account-A"), false);
 });
+
+test("completion commits its receipt before publishing portable preferences", async () => {
+  const events = [];
+  const { persistFirstRunCompletion } = await import("../system/services/state/first-run.mjs");
+  const result = await persistFirstRunCompletion(
+    { save: async value => { assert.equal(value.completed, true); events.push("receipt"); } },
+    { set: async key => { events.push(key); } },
+    { locale: "pt-BR", timeZone: "America/Bahia", accountMode: "local-only" },
+  );
+  assert.deepEqual(events, ["receipt", "regional.locale", "regional.time-zone"]);
+  assert.deepEqual(result.failedPreferenceIds, []);
+});
+
+test("failed receipt publishes no preferences, and failed preferences are recoverable", async () => {
+  const { persistFirstRunCompletion } = await import("../system/services/state/first-run.mjs");
+  const draft = { locale: "pt-BR", timeZone: "America/Bahia", accountMode: "local-only" };
+  let writes = 0;
+  await assert.rejects(() => persistFirstRunCompletion(
+    { save: async () => { throw new Error("USB write failed"); } },
+    { set: async () => { writes += 1; } }, draft,
+  ), /USB write failed/);
+  assert.equal(writes, 0);
+  let receipt = null;
+  const result = await persistFirstRunCompletion(
+    { save: async value => { receipt = value; } },
+    { set: async key => { if (key === "regional.locale") throw Error("write failed"); } }, draft,
+  );
+  assert.equal(receipt.completed, true);
+  assert.deepEqual(result.failedPreferenceIds, ["regional.locale"]);
+  const recovered = seedMissingRegionalPreferencesFromFirstRun(
+    { "regional.time-zone": "America/Bahia" }, receipt);
+  assert.equal(recovered.snapshot["regional.locale"], "pt-BR");
+});

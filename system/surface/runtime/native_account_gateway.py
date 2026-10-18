@@ -240,9 +240,12 @@ class NativeAccountGateway:
 
     def logout(self) -> GatewayReply:
         with self._lock:
-            reply = self._request("POST", "/auth/logout", body=b"", content_type="application/json")
-            self._cookies = {}
-            return reply
+            try:
+                return self._request("POST", "/auth/logout", body=b"", content_type="application/json")
+            finally:
+                # Even an offline/failed remote revocation must detach the
+                # device-local credentials so they cannot be replayed later.
+                self._cookies.clear()
 
     def account_export(self) -> GatewayReply:
         with self._lock:

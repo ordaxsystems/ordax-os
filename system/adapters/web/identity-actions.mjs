@@ -121,10 +121,13 @@ export function createWebIdentityActions(
           redirect: "manual",
           headers: { Accept: "application/json" },
         });
-        if (!(response.ok || response.status === 303 || response.status === 0)) {
+        if (!(response.ok || response.status === 303)) {
           throw new Error(`Identity sign-out failed: ${response.status}`);
         }
         await session?.refresh?.();
+        if (session?.getSnapshot().state !== "signed-out") {
+          throw new Error("Identity sign-out was not confirmed by the session authority");
+        }
         return;
       }
       throw new Error(`Unsupported identity action: ${String(action)}`);

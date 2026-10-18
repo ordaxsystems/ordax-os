@@ -43,7 +43,10 @@
     "corrupt_existing_receipt_must_not_be_overwritten": true,
     "concurrent_completion_posts_serialized": true,
     "directory_entry_fsync_required_before_acknowledgement": true,
-    "post_completion_regional_edits_owner": "settings"
+    "post_completion_regional_edits_owner": "settings",
+    "completion_receipt_precedes_regional_preference_sync": true,
+    "failed_regional_preference_writes_recovered_from_receipt_on_next_boot": true,
+    "failed_receipt_must_not_publish_portable_preferences": true
   },
   "flow": [
     "welcome",

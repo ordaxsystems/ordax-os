@@ -236,3 +236,33 @@ test("disposed identity actions reject commands and do not query registration po
   assert.deepEqual(requests, ["/auth/session"]);
   session.dispose();
 });
+test("sign-out rejects opaque redirect and unchanged authenticated state", async () => {
+  let status = 200;
+  let authenticated = true;
+  const windowRef = {
+    fetch: async path => path === "/auth/session" ? {
+      ok: true, status: 200,
+      json: async () => authenticated ? {
+        $schema: "prototype-ordax.public-identity-session/1",
+        authenticated: true, provider: "supabase", status: "authenticated",
+        subject: "account-A", email: "person@example.invalid",
+      } : {
+        $schema: "prototype-ordax.public-identity-session/1",
+        authenticated: false, provider: "supabase", status: "anonymous",
+      },
+    } : { ok: status >= 200 && status < 300, status },
+  };
+  const session = createWebIdentitySession(windowRef);
+  await session.refresh();
+  const actions = createWebIdentityActions(windowRef, session);
+  status = 0;
+  await assert.rejects(actions.execute("sign-out"), /sign-out failed/);
+  status = 200;
+  await assert.rejects(actions.execute("sign-out"), /not confirmed/);
+  assert.equal(session.getSnapshot().state, "signed-in");
+  authenticated = false;
+  await actions.execute("sign-out");
+  assert.equal(session.getSnapshot().state, "signed-out");
+  actions.dispose();
+  session.dispose();
+});
