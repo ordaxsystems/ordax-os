@@ -71,7 +71,7 @@ load_network_modules() {
 write_network_status() {
     status=$1
     detail=${2:-}
-    temporary=$NETWORK_STATUS_FILE.tmp.$
+    temporary=$NETWORK_STATUS_FILE.tmp.$$
     printf '%s|%s\n' "$status" "$detail" >"$temporary" || return 1
     /bin/busybox mv -f "$temporary" "$NETWORK_STATUS_FILE"
 }
