@@ -4571,7 +4571,7 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
                     expected_keys = (
                         {"email", "password"}
                         if parsed_path == ACCOUNT_LOGIN_PATH
-                        else {"email", "password", "legalAcceptance"}
+                        else {"email", "password", "legal_acceptance"}
                     )
                     if payload is None or set(payload) != expected_keys:
                         self._empty(400)
@@ -4581,7 +4581,10 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
                     if not isinstance(email, str) or not isinstance(password, str):
                         self._empty(400)
                         return
-                    if parsed_path == ACCOUNT_REGISTER_PATH and payload.get("legalAcceptance") is not True:
+                    # The same-origin form and Native gateway share the
+                    # single canonical affirmative consent token. A boolean,
+                    # blank or arbitrary string never implies legal acceptance.
+                    if parsed_path == ACCOUNT_REGISTER_PATH and payload.get("legal_acceptance") != "accepted":
                         self._empty(400)
                         return
                     reply = (
