@@ -227,6 +227,7 @@ export function createAccountSyncRuntime({
   const pending = new Map();
   let pendingStore = null;
   let pendingPersisted = true;
+  let pendingSaveAccepted = true;
   let pendingOwner = null;
   const listeners = new Set();
   let activeSubjectId = null;
@@ -252,20 +253,22 @@ export function createAccountSyncRuntime({
     if (!pendingStore) return false;
     try {
       pendingPersisted = false;
+      pendingSaveAccepted = false;
       const payload = JSON.stringify({
         $schema: PORTABLE_PENDING_STATE_SCHEMA,
         subjectId: pendingOwner,
         mutations: [...pending.values()],
       });
       const ok = pendingStore.save(payload);
-      return ok === true;
+      pendingSaveAccepted = ok === true;
+      return pendingSaveAccepted;
     } catch {
       return false;
     }
   };
   const confirmPortablePending = async (subjectId) => {
     if (syncStateRegistry === null) return true;
-    if (pendingOwner !== subjectId || !pendingStore) return false;
+    if (pendingOwner !== subjectId || !pendingStore || !pendingSaveAccepted) return false;
     try {
       if (await pendingStore.flush() !== true) return false;
       if (!isCurrentSubject(subjectId) || pendingOwner !== subjectId) return false;
@@ -280,6 +283,7 @@ export function createAccountSyncRuntime({
     pendingOwner = null;
     pendingStore = null;
     pendingPersisted = true;
+    pendingSaveAccepted = true;
     if (subjectId === null) return;
     const nextStore = syncStateRegistry === null ? null
       : assertSyncStateStore(syncStateRegistry.open("portable-pending", { partitionKey: subjectId }));
@@ -689,13 +693,14 @@ export function createAccountSyncRuntime({
           rebasePortablePending(PORTABLE_PREFERENCES_OBJECT_ID, current);
         }
       } else if (prefs.tombstone) {
-        queuePreferences();
+        // Cloud deletion never authorizes re-uploading device-global state.
+        if (preferencesDirty) queuePreferences();
       } else if (preferencesDirty) {
         queuePreferences();
       } else {
         applyRemotePreferences(prefs);
       }
-    } else if (!pending.has(PORTABLE_PREFERENCES_OBJECT_ID)) {
+    } else if (!pending.has(PORTABLE_PREFERENCES_OBJECT_ID) && preferencesDirty) {
       queuePreferences();
     }
 
@@ -709,13 +714,13 @@ export function createAccountSyncRuntime({
           rebasePortablePending(PORTABLE_WORKSPACE_OBJECT_ID, current);
         }
       } else if (workspace.tombstone) {
-        queueWorkspace();
+        if (workspaceDirty) queueWorkspace();
       } else if (workspaceDirty) {
         queueWorkspace();
       } else {
         applyRemoteWorkspace(workspace);
       }
-    } else if (!pending.has(PORTABLE_WORKSPACE_OBJECT_ID)) {
+    } else if (!pending.has(PORTABLE_WORKSPACE_OBJECT_ID) && workspaceDirty) {
       queueWorkspace();
     }
 
@@ -853,6 +858,7 @@ export function createAccountSyncRuntime({
       pending.clear();
       pendingOwner = null;
       pendingStore = null;
+      pendingSaveAccepted = true;
       preferencesDirty = false;
       workspaceDirty = false;
     }

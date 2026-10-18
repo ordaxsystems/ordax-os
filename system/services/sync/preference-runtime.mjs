@@ -102,6 +102,7 @@ export function createPreferenceSyncRuntime(
   let queue = createSyncMutationQueue(recovered.mutations);
   let destroyed = false;
   let queuePersistence = store?.scope ?? "session";
+  let lastSaveAccepted = true;
   let lastTheme = preferences.getSnapshot()[APPEARANCE_PREFERENCE_ID];
   let suppressThemeQueue = false;
   const listeners = new Set();
@@ -118,9 +119,11 @@ export function createPreferenceSyncRuntime(
     if (!store) return false;
     try {
       const saved = store.save(serializeState(serverRevision, queue));
-      if (saved === false) queuePersistence = "session";
-      return saved;
+      lastSaveAccepted = saved === true;
+      if (!lastSaveAccepted) queuePersistence = "session";
+      return lastSaveAccepted;
     } catch {
+      lastSaveAccepted = false;
       queuePersistence = "session";
       return false;
     }
@@ -166,6 +169,7 @@ export function createPreferenceSyncRuntime(
     queue = createSyncMutationQueue(next.mutations);
     lastTheme = preferences.getSnapshot()[APPEARANCE_PREFERENCE_ID];
     queuePersistence = store?.scope ?? "session";
+    lastSaveAccepted = true;
     emit();
   }) ?? (() => {});
 
@@ -236,9 +240,12 @@ export function createPreferenceSyncRuntime(
     async flushDurably() {
       if (partitioned && currentSubject === null) return false;
       if (store === null) return !partitioned;
+      if (!lastSaveAccepted) return false;
+      const owner = currentSubject;
       if (typeof store.flush !== "function") return store.scope !== "device";
       try {
-        return await store.flush() === true;
+        const confirmed = await store.flush() === true;
+        return confirmed && currentSubject === owner;
       } catch {
         return false;
       }

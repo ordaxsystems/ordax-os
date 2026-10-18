@@ -10,6 +10,8 @@ import { createPreferenceSnapshot, setPreferenceValue } from "../system/services
 import { createPreferenceSyncRuntime } from "../system/services/sync/preference-runtime.mjs";
 import { createWorkspaceMetadataBridge } from "../system/services/sync/workspace-metadata.mjs";
 import { createAccountSyncRuntime } from "../system/services/sync/account-runtime.mjs";
+import { createSyncStateNamespaceRegistry } from "../system/services/sync/state-store-registry.mjs";
+import { SYNC_STATE_STORE_SCHEMA } from "../system/contracts/sync-state-store.mjs";
 
 function signedInIdentity() {
   const snapshot = Object.freeze({
@@ -869,9 +871,154 @@ test("offline sign-out during a portable mutation discards its late ACK", async 
   releasePending();
   await new Promise(resolve => setImmediate(resolve));
   assert.equal(sync.getSnapshot().accountContinuity, "not-active");
-  assert.equal(sync.getSnapshot().pendingMutationCount > 0, true,
-    "an old account ACK must not acknowledge pending data after logout");
+  assert.equal(sync.getSnapshot().pendingMutationCount, 0,
+    "signed-out state must not expose another account's queue");
   assert.equal(sent.length, submitted, "no subsequent remote mutation is sent after logout");
   sync.destroy();
   preferenceSync.destroy();
+});
+
+function partitionedPhysicalStore(initial = null) {
+  let raw = initial;
+  let accepts = true;
+  return {
+    schema: SYNC_STATE_STORE_SCHEMA, scope: "device",
+    load: () => raw,
+    save(value) {
+      if (!accepts) return false;
+      raw = value;
+      return true;
+    },
+    async flush() { return accepts; },
+    rejectWrites(value) { accepts = value !== true; },
+    read: () => raw,
+  };
+}
+
+function changingIdentity() {
+  let state = { state: "signed-out" };
+  const listeners = new Set();
+  return {
+    schema: IDENTITY_SESSION_SCHEMA,
+    getSnapshot: () => state,
+    subscribe(listener) {
+      listeners.add(listener);
+      listener(state);
+      return () => listeners.delete(listener);
+    },
+    change(subjectId) {
+      state = subjectId === null ? { state: "signed-out" }
+        : { state: "signed-in", subjectId, displayName: subjectId };
+      for (const listener of [...listeners]) listener(state);
+    },
+  };
+}
+
+test("account A offline appearance and portable intent stays partitioned across B sign-in and restart", async () => {
+  const root = partitionedPhysicalStore();
+  const registry = createSyncStateNamespaceRegistry(root, { legacyNamespace: "appearance" });
+  const identity = changingIdentity();
+  const preferences = preferencesRuntime();
+  const workspace = createWorkspaceMetadataBridge(workspaceStore());
+  let online = false;
+  const transmissions = [];
+  const transport = {
+    schema: SYNC_TRANSPORT_SCHEMA,
+    async snapshot() { return { cursor: 0, objects: [] }; },
+    async pullChanges({ afterCursor }) { return { nextCursor: afterCursor, changes: [] }; },
+    async applyMutation(entry) {
+      transmissions.push({ subject: identity.getSnapshot().subjectId, entry });
+      if (!online) throw new Error("offline transport");
+      return {
+        $schema: "prototype-ordax.sync-ack/1",
+        objectId: entry.objectId, dataClass: entry.dataClass,
+        serverRevision: entry.baseServerRevision + 1,
+        applied: true, conflict: false, tombstone: false,
+      };
+    },
+  };
+  const makeRuntime = prefix => {
+    const appearance = createPreferenceSyncRuntime(preferences, {
+      identitySession: identity, syncStateRegistry: registry,
+      createIdempotencyKey: keyFactory(prefix + "-appearance"),
+    });
+    const account = createAccountSyncRuntime({
+      identitySession: identity, syncStateRegistry: registry,
+      transport, preferenceSync: appearance, preferences,
+      workspaceMetadataSource: workspace.source, workspaceStore: workspace.store,
+      createIdempotencyKey: keyFactory(prefix + "-portable"),
+    });
+    return { appearance, account, destroy() { account.destroy(); appearance.destroy(); } };
+  };
+  const first = makeRuntime("first");
+  preferences.set("appearance.theme", "dark");
+  preferences.set("accessibility.contrast", "high");
+  assert.equal(first.appearance.pendingMutations().length, 0, "guest theme is not cloud intent");
+  assert.equal(first.account.getSnapshot().pendingMutationCount, 0, "guest edits are local");
+
+  identity.change("account-A");
+  await first.account.refresh();
+  assert.equal(transmissions.length, 0, "A login cannot upload previous guest state");
+
+  preferences.set("appearance.theme", "light");
+  preferences.set("accessibility.contrast", "standard");
+  await new Promise(resolve => setImmediate(resolve));
+  const pendingA = registry.open("portable-pending", { partitionKey: "account-A" }).load();
+  assert.ok(pendingA, "A's pending portable intent must use its own durable slot");
+  assert.ok(registry.open("appearance", { partitionKey: "account-A" }).load());
+  const mutationA = first.appearance.pendingMutations();
+  assert.equal(mutationA.length, 1);
+
+  identity.change(null);
+  assert.equal(first.appearance.pendingMutations().length, 0);
+  assert.equal(first.account.getSnapshot().pendingMutationCount, 0);
+  identity.change("account-B");
+  await first.account.refresh();
+  assert.equal(first.appearance.pendingMutations().length, 0);
+  assert.equal(first.account.getSnapshot().pendingMutationCount, 0);
+  assert.equal(registry.open("portable-pending", { partitionKey: "account-B" }).load(), null);
+  assert.equal(transmissions.filter(x => x.subject === "account-B").length, 0,
+    "A or guest payload must not leak into B's empty account");
+
+  first.destroy();
+  const rebooted = makeRuntime("rebooted");
+  identity.change(null);
+  identity.change("account-A");
+  await rebooted.account.refresh();
+  assert.equal(rebooted.appearance.pendingMutations().length, 1);
+  assert.deepEqual(rebooted.appearance.pendingMutations()[0], mutationA[0],
+    "restart must restore A's precise theme intent and idempotency key");
+  assert.ok(registry.open("portable-pending", { partitionKey: "account-A" }).load());
+  online = true;
+  await rebooted.account.flush();
+  const after = transmissions.filter(x => x.subject === "account-A");
+  assert.ok(after.some(x => x.entry.objectId === "preferences/surface"));
+  assert.ok(after.some(x => x.entry.objectId === "appearance/theme"));
+  assert.equal(transmissions.some(x => x.subject === "account-B"), false);
+  rebooted.destroy();
+});
+
+test("legacy unscoped appearance slot is never replayed as an authenticated account mutation", async () => {
+  const legacy = JSON.stringify({
+    $schema: "ordax.preference-sync-state/1", serverRevision: 1,
+    mutations: [{
+      $schema: "ordax.sync-mutation/1", operation: "upsert",
+      objectId: "appearance/theme", dataClass: "appearance",
+      objectSchemaVersion: 1, baseServerRevision: 1,
+      idempotencyKey: "legacy:theme:01", payload: { theme: "dark" },
+    }],
+  });
+  const registry = createSyncStateNamespaceRegistry(partitionedPhysicalStore(legacy), {
+    legacyNamespace: "appearance",
+  });
+  const identity = changingIdentity();
+  const preferences = preferencesRuntime();
+  const appearance = createPreferenceSyncRuntime(preferences, {
+    identitySession: identity, syncStateRegistry: registry,
+    createIdempotencyKey: keyFactory("legacy-proof"),
+  });
+  identity.change("account-B");
+  assert.equal(appearance.pendingMutations().length, 0);
+  assert.equal(registry.open("appearance").load(), legacy, "legacy data is retained for explicit recovery");
+  appearance.destroy();
 });
