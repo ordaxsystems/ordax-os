@@ -38,92 +38,68 @@ class SurfaceRuntimeSourceContractTests(unittest.TestCase):
 
     def test_current_lock_refresh_is_bound_to_ci_drift_evidence(self):
         contract = json.loads(CONTRACT.read_text(encoding="utf-8"))
+        lock = contract["apk_package_lock"]
         refresh = contract["lock_refresh"]
-        self.assertIn(
-            refresh["status"],
-            {
-                "reviewed-candidate-lock-refresh",
-                "reproof-required-after-upstream-libseccomp-drift",
-                "reproof-required-after-upstream-tiff-drift",
-                "reproof-required-after-upstream-openjpeg-drift",
-            },
-        )
-        self.assertIsInstance(refresh["detected_by_qemu_run_id"], int)
-        self.assertGreater(refresh["detected_by_qemu_run_id"], 0)
-        self.assertIsInstance(refresh["discovery_run_id"], int)
-        self.assertGreater(refresh["discovery_run_id"], 0)
-        self.assertEqual(refresh["resolved_package_count"], contract["apk_package_lock_count"])
+        discovery = contract["discovery_evidence"]
+        proof = contract["reproducibility_proof"]
+        self.assertEqual(refresh["resolved_package_count"], len(lock))
+        self.assertEqual(refresh["previous_package_count"], len(lock))
         self.assertEqual(refresh["missing"], [])
         self.assertEqual(refresh["extra"], [])
-        self.assertIsInstance(refresh["changed"], list)
-        self.assertGreaterEqual(len(refresh["changed"]), 1)
-        for entry in refresh["changed"]:
-            self.assertEqual(contract["apk_package_lock"][entry["name"]], entry["to"])
-            self.assertNotEqual(entry["from"], entry["to"])
-        self.assertRegex(refresh["discovery_source_commit"], r"^[0-9a-f]{40}$")
-        self.assertIsInstance(refresh["discovery_artifact_id"], int)
-        self.assertGreater(refresh["discovery_artifact_id"], 0)
-        self.assertRegex(refresh["discovery_artifact_sha256"], r"^[0-9a-f]{64}$")
-        if refresh["status"] == "reproof-required-after-upstream-openjpeg-drift":
-            self.assertEqual(contract["apk_package_lock"]["openjpeg"], "2.5.4-r1")
-            self.assertEqual(refresh["detected_by_qemu_run_id"], 37839826453)
-            self.assertIn(
-                {"name": "openjpeg", "from": "2.5.4-r0", "to": "2.5.4-r1"},
-                refresh["changed"],
-            )
-            self.assertTrue(refresh["reproducibility_reproof_required"])
-            self.assertNotIn("byte-reproducible-erofs-runtime-ci", contract["closed_gates"])
-            self.assertEqual(
-                contract["reproducibility_proof"]["status"],
-                "historical-pass-reproof-required",
-            )
         self.assertFalse(refresh["physical_artifact_created"])
         self.assertFalse(refresh["physical_write_authorized"])
+        self.assertRegex(refresh["discovery_source_commit"], r"^[0-9a-f]{40}$")
+        self.assertRegex(refresh["discovery_artifact_sha256"], r"^[0-9a-f]{64}$")
+        self.assertGreater(refresh["discovery_artifact_id"], 0)
+        self.assertGreater(refresh["discovery_run_id"], 0)
+        self.assertGreater(refresh["detected_by_qemu_run_id"], 0)
+        self.assertEqual(discovery["source_commit"], refresh["discovery_source_commit"])
+        self.assertEqual(discovery["workflow_run_id"], refresh["discovery_run_id"])
+        self.assertEqual(discovery["artifact_archive_sha256"], refresh["discovery_artifact_sha256"])
+        self.assertEqual(discovery["resolved_package_count"], len(lock))
+        self.assertFalse(discovery["physical_artifact_created"])
+        self.assertFalse(discovery["physical_write_authorized"])
+        changed = refresh["changed"]
+        self.assertIsInstance(changed, list)
+        self.assertTrue(changed)
+        self.assertEqual(len(changed), len({item["name"] for item in changed}))
+        for entry in changed:
+            self.assertEqual(lock[entry["name"]], entry["to"])
+            self.assertNotEqual(entry["from"], entry["to"])
+        for field in ("tree_manifest_sha256", "normalized_tar_sha256", "erofs_sha256"):
+            self.assertRegex(proof[field], r"^[0-9a-f]{64}$")
+        self.assertGreater(proof["erofs_size"], 0)
+        self.assertTrue(proof["repeat_digest_required"])
+        self.assertTrue(proof["repeat_digest_passed"])
+
         if refresh["status"] == "reviewed-candidate-lock-refresh":
             self.assertFalse(refresh["reproducibility_reproof_required"])
+            self.assertEqual(proof["status"], "pass-ci-repeat-digest")
+            # The drift discovery ran against the OLD source; byte-repeat proof
+            # is independently tied to the first commit containing the new lock.
+            self.assertRegex(proof["source_commit"], r"^[0-9a-f]{40}$")
+            self.assertIsInstance(proof["workflow_run_id"], int)
+            self.assertGreater(proof["workflow_run_id"], 0)
+            self.assertIn("byte-reproducible-erofs-runtime-ci", contract["closed_gates"])
         else:
+            # New Alpine security revisions must fail closed until current
+            # bytes are reproduced, without hardcoding every future package
+            # or upgrading packages during an offline USB boot.
+            self.assertTrue(refresh["status"].startswith("reproof-required-after-upstream-"))
             self.assertTrue(refresh["reproducibility_reproof_required"])
             drift = refresh["upstream_drift"]
-            expected = {
-                "reproof-required-after-upstream-libseccomp-drift": ("libseccomp", "2.6.0-r0", "2.6.1-r0"),
-                "reproof-required-after-upstream-tiff-drift": ("tiff", "4.7.1-r0", "4.7.2-r0"),
-                "reproof-required-after-upstream-openjpeg-drift": ("openjpeg", "2.5.4-r0", "2.5.4-r1"),
-            }[refresh["status"]]
-            self.assertEqual((drift["package"], drift["from"], drift["to"]), expected)
-            self.assertEqual(contract["apk_package_lock"][drift["package"]], drift["to"])
+            self.assertIn(
+                {"name": drift["package"], "from": drift["from"], "to": drift["to"]},
+                changed,
+            )
             self.assertEqual(drift["detected_by_qemu_run_id"], refresh["detected_by_qemu_run_id"])
-        proof = contract["reproducibility_proof"]
-        if refresh["status"] == "reviewed-candidate-lock-refresh":
-            self.assertEqual(proof["source_commit"], refresh["discovery_source_commit"])
-            self.assertEqual(proof["workflow_run_id"], refresh["discovery_run_id"])
-            self.assertEqual(proof["status"], "pass-ci-repeat-digest")
-            self.assertIn("byte-reproducible-erofs-runtime-ci", contract["closed_gates"])
-        elif refresh["status"] in {
-            "reproof-required-after-upstream-tiff-drift",
-            "reproof-required-after-upstream-openjpeg-drift",
-        }:
-            # Historical evidence may refer to the same previous reviewed
-            # discovery commit: the lock changed after that proof. A differing
-            # SHA is not a prerequisite to invalidate its applicability.
-            if refresh["status"] == "reproof-required-after-upstream-tiff-drift":
-                self.assertNotEqual(proof["source_commit"], refresh["discovery_source_commit"])
-            else:
-                self.assertEqual(proof["source_commit"], refresh["discovery_source_commit"])
-                self.assertEqual(proof["workflow_run_id"], refresh["discovery_run_id"])
+            self.assertEqual(lock[drift["package"]], drift["to"])
             self.assertEqual(proof["status"], "historical-pass-reproof-required")
             self.assertNotIn("byte-reproducible-erofs-runtime-ci", contract["closed_gates"])
             self.assertIn(
                 "repeat-byte-reproducible-erofs-build-on-current-apk-lock",
                 contract["promotion_blockers"],
             )
-        else:
-            self.assertEqual(proof["source_commit"], refresh["discovery_source_commit"])
-            self.assertEqual(proof["workflow_run_id"], refresh["discovery_run_id"])
-        self.assertTrue(proof["repeat_digest_passed"])
-        self.assertRegex(proof["tree_manifest_sha256"], r"^[0-9a-f]{64}$")
-        self.assertRegex(proof["normalized_tar_sha256"], r"^[0-9a-f]{64}$")
-        self.assertRegex(proof["erofs_sha256"], r"^[0-9a-f]{64}$")
-        self.assertGreater(proof["erofs_size"], 0)
 
     def test_candidate_reuses_exact_stable_base_alpine_identity(self):
         contract = json.loads(CONTRACT.read_text(encoding="utf-8"))
