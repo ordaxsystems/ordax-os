@@ -134,7 +134,10 @@
     "local_only_requires_native_detachment_proof": true,
     "offline_native_detachment_may_leave_remote_revocation_unconfirmed": true,
     "unavailable_identity_without_detachment_proof_must_not_authorize_guest_completion": true,
-    "guest_completion_rechecks_local_detachment_after_preference_ack": true
+    "guest_completion_rechecks_local_detachment_after_preference_ack": true,
+    "registration_legal_acceptance_wire_field": "legal_acceptance",
+    "registration_legal_acceptance_wire_value": "accepted",
+    "registration_remains_disabled_until_legal_policy_activation": true
   },
   "privacy": {
     "owner": "preference-runtime",
