@@ -6,6 +6,7 @@ import stat
 import sys
 import tempfile
 import threading
+import time
 import unittest
 from unittest.mock import Mock, patch
 
@@ -110,6 +111,48 @@ class ProductDevicePresenceNativeTests(unittest.TestCase):
             ProductDevicePresenceClient("http://cp.example", self.store)
         with self.assertRaises(ValueError):
             ProductDevicePresenceWorker(Mock(), interval_seconds=3)
+
+    def test_receipt_status_never_confuses_opt_in_with_real_connectivity(self):
+        class Device:
+            def __init__(self):
+                self.accepted = False
+                self.attempts = 0
+                self.visited = threading.Event()
+                self.calls = []
+            def report(self, online):
+                self.calls.append(online)
+                if online:
+                    self.attempts += 1
+                    self.visited.set()
+                    return self.accepted
+                return True
+
+        client = Device()
+        worker = ProductDevicePresenceWorker(client, interval_seconds=60)
+        self.assertEqual(worker.connection_state(), "disabled")
+        worker.start()
+        self.assertIn(worker.connection_state(), {"connecting", "unavailable"})
+        self.assertTrue(client.visited.wait(3))
+        deadline = time.monotonic() + 2
+        while worker.connection_state() != "unavailable" and time.monotonic() < deadline:
+            time.sleep(0.005)
+        self.assertEqual(worker.connection_state(), "unavailable")
+        self.assertEqual(client.attempts, 1)
+        client.accepted = True
+        client.visited.clear()
+        worker._wake.set()  # deterministic synthetic heartbeat, same existing worker
+        self.assertTrue(client.visited.wait(3))
+        deadline = time.monotonic() + 2
+        while worker.connection_state() != "confirmed" and time.monotonic() < deadline:
+            time.sleep(0.005)
+        self.assertEqual(worker.connection_state(), "confirmed")
+        self.assertIsNotNone(worker._last_online_receipt)
+        with worker._lock:
+            worker._last_online_receipt = time.monotonic() - 4 * worker.interval_seconds
+        self.assertEqual(worker.connection_state(), "unavailable")
+        worker.stop(wait=True)
+        self.assertEqual(worker.connection_state(), "disabled")
+        self.assertEqual(client.calls[-1], False)
 
     def test_exactly_one_worker_and_offline_on_stop(self):
         class Device:
