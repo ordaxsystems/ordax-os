@@ -237,9 +237,15 @@ def _serve_native_host(args) -> int:
         # Stop native Product presence on host teardown. No Studio, shell
         # command, or separate MCP server owns this device lifecycle.
         presence_close = getattr(server.account_gateway, "close_product_presence", None)
-        if callable(presence_close):
-            presence_close()
-        server.server_close()
+        try:
+            if callable(presence_close):
+                presence_close()
+        except (OSError, RuntimeError):
+            # Remote presence cannot prevent the host from closing its local
+            # App Data authority, even if offline notification fails.
+            pass
+        finally:
+            server.server_close()
     return 0
 
 
