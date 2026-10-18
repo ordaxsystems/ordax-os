@@ -155,3 +155,38 @@ class ProductDeviceIdentityStore:
             },
         )
         return self.credential_path
+
+    def read_enrolled_credential(self) -> dict[str, str] | None:
+        """Read only the private committed device identity; never mint on read.
+
+        Open + fstat on one descriptor avoids path-replacement races after
+        lstat. This secret is for the trusted Native Host, never Surface JS.
+        """
+        flags = os.O_RDONLY | getattr(os, "O_CLOEXEC", 0)
+        if hasattr(os, "O_NOFOLLOW"):
+            flags |= os.O_NOFOLLOW
+        try:
+            fd = os.open(self.credential_path, flags)
+        except (FileNotFoundError, OSError):
+            return None
+        try:
+            meta = os.fstat(fd)
+            if (not stat.S_ISREG(meta.st_mode)
+                    or stat.S_IMODE(meta.st_mode) != 0o600
+                    or not 0 < meta.st_size <= MAX_STATE_BYTES):
+                return None
+            raw = os.read(fd, MAX_STATE_BYTES + 1)
+            if len(raw) > MAX_STATE_BYTES:
+                return None
+            payload = json.loads(raw.decode("utf-8"))
+        except (OSError, UnicodeError, json.JSONDecodeError):
+            return None
+        finally:
+            os.close(fd)
+        if not isinstance(payload, dict) or set(payload) != {"device_id", "device_token"}:
+            return None
+        device_id, token = payload["device_id"], payload["device_token"]
+        if (not isinstance(device_id, str) or not UUID_RE.fullmatch(device_id)
+                or not isinstance(token, str) or not HEX64_RE.fullmatch(token)):
+            return None
+        return {"device_id": device_id, "device_token": token}
