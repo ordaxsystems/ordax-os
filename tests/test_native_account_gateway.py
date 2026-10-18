@@ -345,10 +345,13 @@ class NativeLogoutIsolationTests(unittest.TestCase):
             def unavailable(*args, **kwargs):
                 raise gateway.NativeAccountGatewayError("gateway-unreachable")
             client._request = unavailable
-            with self.assertRaises(gateway.NativeAccountGatewayError):
-                client.logout()
+            reply = client.logout()
+            self.assertEqual(reply.status, 202)
             self.assertEqual(client._cookies, {})
             self.assertFalse(path.exists())
+            local_session = json.loads(client.session().body)
+            self.assertFalse(local_session["authenticated"])
+            self.assertEqual(local_session["status"], "anonymous")
             with self.assertRaises(gateway.NativeAccountGatewayError) as error:
                 client._product_access_token()
             self.assertEqual(error.exception.code, "authentication-required")
@@ -362,8 +365,45 @@ class NativeLogoutIsolationTests(unittest.TestCase):
                 status=503, headers={}, body=b""
             )
             reply = client.logout()
-            self.assertEqual(reply.status, 503)
+            self.assertEqual(reply.status, 202)
             self.assertEqual(client._cookies, {})
+
+
+    def test_logout_without_cookies_is_local_and_never_calls_gateway(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            client = gateway.NativeAccountGateway(
+                "https://accounts.example", str(Path(temporary) / "session.json")
+            )
+            client._request = lambda *args, **kwargs: self.fail("guest must not call remote logout")
+            self.assertEqual(client.logout().status, 204)
+            snapshot = json.loads(client.session().body)
+            self.assertFalse(snapshot["authenticated"])
+            self.assertEqual(snapshot["provider"], "ordax-native")
+
+    def test_new_login_replaces_locally_detached_session_without_guest_leak(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            client = gateway.NativeAccountGateway(
+                "https://accounts.example", str(Path(temporary) / "session.json")
+            )
+            client._cookies = {"ordax_access": "old-access"}
+            client._request = lambda *args, **kwargs: gateway.GatewayReply(
+                status=500, headers={}, body=b""
+            )
+            self.assertEqual(client.logout().status, 202)
+            self.assertEqual(client._cookies, {})
+            seen = []
+            def fake_request(method, path, **kwargs):
+                seen.append((method, path))
+                if path == "/auth/login":
+                    client._cookies = {"ordax_access": "fresh-access"}
+                    return gateway.GatewayReply(status=200, headers={}, body=b"")
+                return gateway.GatewayReply(
+                    status=200, headers={}, body=b'{"authenticated":true}'
+                )
+            client._request = fake_request
+            self.assertEqual(client.login("person@example.invalid", "secret").status, 200)
+            self.assertTrue(json.loads(client.session().body)["authenticated"])
+            self.assertEqual(seen, [("POST", "/auth/login"), ("GET", "/auth/session")])
 
 
 if __name__ == "__main__":

@@ -130,7 +130,11 @@
     "identity_selection_requires_current_subject_at_completion": true,
     "identity_selection_requires_fresh_session_read": true,
     "identity_subject_in_first_run_receipt": false,
-    "expired_or_changed_identity_returns_to_account_step": true
+    "expired_or_changed_identity_returns_to_account_step": true,
+    "local_only_requires_native_detachment_proof": true,
+    "offline_native_detachment_may_leave_remote_revocation_unconfirmed": true,
+    "unavailable_identity_without_detachment_proof_must_not_authorize_guest_completion": true,
+    "guest_completion_rechecks_local_detachment_after_preference_ack": true
   },
   "privacy": {
     "owner": "preference-runtime",

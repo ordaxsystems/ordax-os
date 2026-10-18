@@ -275,3 +275,44 @@ test("identity commitment revalidates session after preference ACK", async () =>
   assert.equal(completed, receipt);
   assert.equal(receipt.accountMode, "identity");
 });
+test("guest selection requires native detachment even for stale or unavailable identity", async () => {
+  const { ensureFirstRunLocalIsolation } = await import("../system/services/state/first-run.mjs");
+  const session = { getSnapshot: () => ({ state: "unavailable" }) };
+  assert.equal(await ensureFirstRunLocalIsolation(session, null), false);
+  assert.equal(await ensureFirstRunLocalIsolation(session, { disconnectLocal: async () => ({}) }), false);
+  assert.equal(await ensureFirstRunLocalIsolation(session, {
+    disconnectLocal: async () => ({ localSessionDetached: true, remoteRevocation: "not-applicable" }),
+  }), true);
+  assert.equal(await ensureFirstRunLocalIsolation({ getSnapshot: () => ({ state: "signed-in" }) }, {
+    disconnectLocal: async () => ({ localSessionDetached: true }),
+  }), false);
+  assert.equal(await ensureFirstRunLocalIsolation(session, {
+    disconnectLocal: async () => { throw new Error("offline host unreachable"); },
+  }), false);
+});
+
+test("guest completion requires a fresh local detachment after preference ACK", async () => {
+  const { ensureFirstRunLocalIsolation, persistFirstRunCompletion } =
+    await import("../system/services/state/first-run.mjs");
+  let proof = false;
+  let writes = 0;
+  const session = { getSnapshot: () => ({ state: "unavailable" }) };
+  const actions = { disconnectLocal: async () => ({ localSessionDetached: proof }) };
+  const completed = {
+    locale: "pt-BR", timeZone: "America/Bahia", accountMode: "local-only",
+  };
+  const save = { save: async () => { writes++; } };
+  const preferences = { set() {}, persistConfirmed: async () => true };
+  await assert.rejects(
+    persistFirstRunCompletion(save, preferences, completed, {
+      authorizeCommit: () => ensureFirstRunLocalIsolation(session, actions),
+    }),
+    /authorization changed before receipt/,
+  );
+  assert.equal(writes, 0);
+  proof = true;
+  await persistFirstRunCompletion(save, preferences, completed, {
+    authorizeCommit: () => ensureFirstRunLocalIsolation(session, actions),
+  });
+  assert.equal(writes, 1);
+});

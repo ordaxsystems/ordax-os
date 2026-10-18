@@ -31,7 +31,7 @@ import {
 import { translateFirstRunText } from "../../services/i18n/first-run.mjs";
 import { FIRST_RUN_STEP_IDS, FIRST_RUN_STEP_LABELS, getFirstRunStepIndex } from "../../services/first-run/journey.mjs";
 import { deriveFirstRunCapabilities } from "../../services/first-run/capabilities.mjs";
-import { matchesFirstRunIdentitySelection, persistFirstRunCompletion, validateFirstRunState, verifyFirstRunIdentitySession } from "../../services/state/first-run.mjs";
+import { ensureFirstRunLocalIsolation, matchesFirstRunIdentitySelection, persistFirstRunCompletion, validateFirstRunState, verifyFirstRunIdentitySession } from "../../services/state/first-run.mjs";
 import {
   networkManagementActionMessage,
   networkManagementFailureMessage,
@@ -1050,6 +1050,24 @@ export function mountFirstRunExperience(
     }
   };
 
+  const chooseLocalOnly = async () => {
+    if (destroyed || identityPending || finishing) return;
+    identityPending = "sign-out";
+    identityMessage = "";
+    render();
+    const isolated = await ensureFirstRunLocalIsolation(sessionPort, actionsPort);
+    if (destroyed) return;
+    identityPending = null;
+    if (!isolated) {
+      identityMessage = "Não foi possível desconectar a Conta OrdaX deste dispositivo. Tente novamente antes de continuar sem conta.";
+      render();
+      return;
+    }
+    selectedIdentitySubjectId = null;
+    draft.accountMode = "local-only";
+    go(stepIndex + 1);
+  };
+
   const finish = async () => {
     if (destroyed || finishing || draft.accountMode === null) return;
     finishing = true;
@@ -1074,7 +1092,7 @@ export function mountFirstRunExperience(
       await persistFirstRunCompletion(store, preferencePort, draft, {
         authorizeCommit: draft.accountMode === "identity"
           ? async () => !destroyed && verifyFirstRunIdentitySession(sessionPort, selectedIdentitySubjectId)
-          : null,
+          : async () => !destroyed && ensureFirstRunLocalIsolation(sessionPort, actionsPort),
       });
       close();
     } catch {
@@ -1128,9 +1146,7 @@ export function mountFirstRunExperience(
       draft.accountMode = "identity";
       go(stepIndex + 1);
     } else if (kind === "account-local") {
-      selectedIdentitySubjectId = null;
-      draft.accountMode = "local-only";
-      go(stepIndex + 1);
+      void chooseLocalOnly();
     }
   };
 

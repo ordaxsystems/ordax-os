@@ -4551,7 +4551,16 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
 
         if parsed_path in {ACCOUNT_LOGIN_PATH, ACCOUNT_REGISTER_PATH, ACCOUNT_LOGOUT_PATH, ACCOUNT_CLOSE_PATH, ACCOUNT_SYNC_MUTATE_PATH, NETWORK_MESSAGE_SEND_PATH}:
             if self.server.account_gateway is None:
-                self._empty(503)
+                if parsed_path == ACCOUNT_LOGOUT_PATH:
+                    # No configured account gateway means no device-local
+                    # account tokens can exist. Do not block guest onboarding.
+                    self._write_json(202, {
+                        "$schema": "ordax.native-account-detach/1",
+                        "localSessionDetached": True,
+                        "remoteRevocation": "not-applicable",
+                    })
+                else:
+                    self._empty(503)
                 return
             try:
                 if parsed_path == ACCOUNT_REGISTER_PATH and not ACCOUNT_REGISTRATION_ENABLED:
@@ -4595,6 +4604,13 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
                     return
                 if parsed_path == ACCOUNT_LOGOUT_PATH:
                     reply = self.server.account_gateway.logout()
+                    if reply.status == 202:
+                        self._write_json(202, {
+                            "$schema": "ordax.native-account-detach/1",
+                            "localSessionDetached": True,
+                            "remoteRevocation": "unconfirmed",
+                        })
+                        return
                     if reply.status not in {200, 204, 303}:
                         self._empty(reply.status)
                         return

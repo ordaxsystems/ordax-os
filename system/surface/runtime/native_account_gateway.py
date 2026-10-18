@@ -13,6 +13,7 @@ credential-at-rest boundary for removable USB media.
 
 from __future__ import annotations
 
+import json
 import os
 import re
 import stat
@@ -143,6 +144,8 @@ class NativeAccountGateway:
         self._opener = build_opener(_NoRedirect())
         _purge_legacy_plaintext_session(self.legacy_session_path)
         self._cookies: dict[str, str] = {}
+        # Only a completed local detach may establish session absence offline.
+        self._locally_detached = False
 
     @property
     def configured(self) -> bool:
@@ -206,6 +209,17 @@ class NativeAccountGateway:
 
     def session(self) -> GatewayReply:
         with self._lock:
+            if self._locally_detached and not self._cookies:
+                return GatewayReply(
+                    status=200,
+                    headers={},
+                    body=json.dumps({
+                        "$schema": "prototype-ordax.public-identity-session/1",
+                        "authenticated": False,
+                        "provider": "ordax-native",
+                        "status": "anonymous",
+                    }).encode("utf-8"),
+                )
             return self._request("GET", "/auth/session")
 
     def login(self, email: str, password: str) -> GatewayReply:
@@ -240,12 +254,24 @@ class NativeAccountGateway:
 
     def logout(self) -> GatewayReply:
         with self._lock:
+            if not self._cookies:
+                self._locally_detached = True
+                return GatewayReply(status=204, headers={}, body=b"")
             try:
-                return self._request("POST", "/auth/logout", body=b"", content_type="application/json")
+                try:
+                    reply = self._request(
+                        "POST", "/auth/logout", body=b"", content_type="application/json"
+                    )
+                except NativeAccountGatewayError:
+                    return GatewayReply(status=202, headers={}, body=b"")
+                if reply.status not in (200, 204, 303):
+                    # Remote revocation was not confirmed, but this USB's
+                    # bearer credentials are detached regardless of HTTP status.
+                    return GatewayReply(status=202, headers={}, body=b"")
+                return reply
             finally:
-                # Even an offline/failed remote revocation must detach the
-                # device-local credentials so they cannot be replayed later.
                 self._cookies.clear()
+                self._locally_detached = True
 
     def account_export(self) -> GatewayReply:
         with self._lock:

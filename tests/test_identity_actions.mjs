@@ -266,3 +266,61 @@ test("sign-out rejects opaque redirect and unchanged authenticated state", async
   actions.dispose();
   session.dispose();
 });
+test("offline Native logout detaches local bearer while honestly marking remote revocation unconfirmed", async () => {
+  let signedIn = true, remoteRevocation = "unconfirmed";
+  const calls = [];
+  const windowRef = {
+    fetch: async (path, options) => {
+      calls.push({ path, options });
+      if (path === "/auth/logout") {
+        signedIn = false;
+        return { ok: true, status: 202, json: async () => ({
+          $schema: "ordax.native-account-detach/1",
+          localSessionDetached: true, remoteRevocation,
+        }) };
+      }
+      if (path === "/auth/session") return {
+        ok: true,
+        json: async () => signedIn ? {
+          $schema: "prototype-ordax.public-identity-session/1",
+          authenticated: true, provider: "ordax-native",
+          status: "authenticated", subject: "account-A", email: "a@example.invalid",
+        } : {
+          $schema: "prototype-ordax.public-identity-session/1",
+          authenticated: false, provider: "ordax-native", status: "anonymous",
+        },
+      };
+      throw Error("unexpected route");
+    },
+  };
+  const session = createWebIdentitySession(windowRef);
+  await session.refresh();
+  const actions = createWebIdentityActions(windowRef, session);
+  const receipt = await actions.disconnectLocal();
+  assert.deepEqual(receipt, { localSessionDetached: true, remoteRevocation: "unconfirmed" });
+  assert.equal(session.getSnapshot().state, "signed-out");
+  assert.deepEqual(calls.filter(x => x.path === "/auth/logout").map(x => x.options.method), ["POST"]);
+  actions.dispose(); session.dispose();
+});
+
+test("unavailable gateway permits guest only with exact Native detachment receipt", async () => {
+  let proof = { $schema: "ordax.native-account-detach/1", localSessionDetached: true, remoteRevocation: "not-applicable" };
+  const windowRef = {
+    fetch: async path => path === "/auth/logout" ? {
+      ok: true, status: 202, json: async () => proof,
+    } : { ok: true, json: async () => ({
+      $schema: "prototype-ordax.public-identity-session/1",
+      authenticated: false, provider: "unconfigured", status: "anonymous",
+    }) },
+  };
+  const session = createWebIdentitySession(windowRef);
+  await session.refresh();
+  assert.equal(session.getSnapshot().state, "unavailable");
+  const actions = createWebIdentityActions(windowRef, session);
+  assert.equal((await actions.disconnectLocal()).localSessionDetached, true);
+  proof = { ...proof, localSessionDetached: false };
+  await assert.rejects(actions.disconnectLocal(), /detachment proof is invalid/);
+  proof = { ...proof, localSessionDetached: true, remoteRevocation: "confirmed" };
+  await assert.rejects(actions.disconnectLocal(), /detachment proof is invalid/);
+  actions.dispose(); session.dispose();
+});

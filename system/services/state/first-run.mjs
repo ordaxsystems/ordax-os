@@ -42,6 +42,22 @@ export async function verifyFirstRunIdentitySession(sessionPort, selectedSubject
   }
 }
 
+// Switching to guest mode must detach the Native-owned bearer session.
+// An ambiguous session is never sufficient without the Host's local proof.
+export async function ensureFirstRunLocalIsolation(sessionPort, actionsPort) {
+  if (
+    !sessionPort || typeof sessionPort.getSnapshot !== "function"
+    || !actionsPort || typeof actionsPort.disconnectLocal !== "function"
+  ) return false;
+  try {
+    const proof = await actionsPort.disconnectLocal();
+    return proof?.localSessionDetached === true
+      && sessionPort.getSnapshot().state !== "signed-in";
+  } catch {
+    return false;
+  }
+}
+
 export function completeFirstRunState({ locale, timeZone, accountMode }) {
   return validateFirstRunState({
     schema: FIRST_RUN_STATE_SCHEMA,

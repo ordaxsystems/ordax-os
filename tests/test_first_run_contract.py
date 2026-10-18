@@ -247,6 +247,8 @@ class FirstRunContractTests(unittest.TestCase):
         self.assertIn("passwordDraft", ui)
         self.assertIn("await persistFirstRunCompletion(store, preferencePort, draft,", ui)
         self.assertIn('authorizeCommit: draft.accountMode === "identity"', ui)
+        self.assertIn("ensureFirstRunLocalIsolation(sessionPort, actionsPort)", ui)
+        self.assertIn("void chooseLocalOnly()", ui)
         state_service = (ROOT / "system" / "services" / "state" / "first-run.mjs").read_text(encoding="utf-8")
         self.assertIn("export async function persistFirstRunCompletion(", state_service)
         self.assertLess(
