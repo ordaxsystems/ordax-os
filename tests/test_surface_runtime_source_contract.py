@@ -75,8 +75,11 @@ class SurfaceRuntimeSourceContractTests(unittest.TestCase):
         if refresh["status"] == "reviewed-candidate-lock-refresh":
             self.assertFalse(refresh["reproducibility_reproof_required"])
             self.assertEqual(proof["status"], "pass-ci-repeat-digest")
-            self.assertEqual(proof["source_commit"], refresh["discovery_source_commit"])
-            self.assertEqual(proof["workflow_run_id"], refresh["discovery_run_id"])
+            # The drift discovery ran against the OLD source; byte-repeat proof
+            # is independently tied to the first commit containing the new lock.
+            self.assertRegex(proof["source_commit"], r"^[0-9a-f]{40}$")
+            self.assertIsInstance(proof["workflow_run_id"], int)
+            self.assertGreater(proof["workflow_run_id"], 0)
             self.assertIn("byte-reproducible-erofs-runtime-ci", contract["closed_gates"])
         else:
             # New Alpine security revisions must fail closed until current

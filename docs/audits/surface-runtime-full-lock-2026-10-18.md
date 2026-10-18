@@ -31,3 +31,16 @@ historical only; the new candidate is **not yet byte-reproducibility-proven**.
 There is no authorization for physical USB writes, internal disk changes,
 production release, or Stable/MVP promotion here. The unrelated Owner USB
 PR #1949 should integrate this fix only after its independent gates pass.
+
+
+## Reproducibility result — exact full lock candidate
+
+The [Surface Runtime Candidate #39140630053](https://github.com/ordaxsystems/ordax-os/actions/runs/39140630053) completed successfully on source \`2e001b75b6e5f25155e3ba735d8c56e34c58539b\`. The canonical build generated two full EROFS runtime candidates from the same reviewed 253-package lock and compared the source tree, normalized TAR and EROFS image bytes with no differences.
+
+- Tree SHA-256: \`845cef22b42c87aecd174d40d26b0f5b96371125594d69b0c4af35d00b8da164\`
+- TAR SHA-256: \`5ecdd243adfea369abe51ef842c592268268ffdabd512f536197fefd1a087a88\`
+- EROFS SHA-256: \`b04b614033f802a00bb3edbb51b05fc69cb57e42947f5ffb2450f5b85c057799\`
+- EROFS size: 1,052,028,928 bytes.
+- Artifact proof metadata: \`surface-runtime-candidate-2e001b75b6e5f25155e3ba735d8c56e34c58539b\`, artifact ID \`12140789074\`, ZIP SHA-256 \`374f05ba5818f6abd5bdad2e5a2c0f85973a24ed0447558d6b52071757d0377c\`.
+
+This closes the **candidate EROFS repeat-byte gate**, not first-boot hardware validation, USB flashing or Stable/MVP promotion. The discovery and repeated-build SHAs are intentionally different: package drift was discovered on the old source, then rebuilt on the new pinned source. The metadata-only completion commit must still pass its own CI. Separate Foundation/Surface presentation contract regressions are not overridden.
