@@ -1189,3 +1189,32 @@ test("missing Native durable registry keeps account queues subject-bound only fo
     "A's in-memory queue is protected without borrowing another account's identity");
   appearance.destroy();
 });
+
+test("corrupt account appearance state stays intact and cannot be replayed or overwritten", async () => {
+  const root = partitionedPhysicalStore();
+  const registry = createSyncStateNamespaceRegistry(root);
+  const slot = registry.open("appearance", { partitionKey: "account-A" });
+  slot.save("{corrupt-appearance");
+  const identity = changingIdentity();
+  const prefs = preferencesRuntime();
+  const appearance = createPreferenceSyncRuntime(prefs, {
+    identitySession: identity, syncStateRegistry: registry,
+    createIdempotencyKey: keyFactory("corrupt-appearance"),
+  });
+  identity.change("account-A");
+  assert.equal(await appearance.flushDurably(), false);
+  prefs.set("appearance.theme", "dark");
+  assert.equal(appearance.pendingMutations().length, 0);
+  assert.equal(slot.load(), "{corrupt-appearance");
+  assert.throws(() => appearance.applyRemoteAppearance({
+    $schema: "ordax.sync-object/1", objectId: "appearance/theme",
+    dataClass: "appearance", objectSchemaVersion: 1, serverRevision: 1,
+    tombstone: false, payload: { theme: "light" },
+  }), /requires explicit recovery/);
+  identity.change("account-B");
+  assert.equal(await appearance.flushDurably(), true);
+  identity.change("account-A");
+  assert.equal(await appearance.flushDurably(), false);
+  assert.equal(slot.load(), "{corrupt-appearance");
+  appearance.destroy();
+});
