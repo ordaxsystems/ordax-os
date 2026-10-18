@@ -147,6 +147,7 @@
     "download_only_missing_or_unmatched_signed_artifacts": true,
     "offline_fallback": "last-signed-candidate-reverified-by-current",
     "additional_media_catalog_or_cache_allowed": false,
-    "physical_write_authority_unchanged": true
+    "physical_write_authority_unchanged": true,
+    "signed_envelope_pointer_prior_state_preserved_on_replace_failure": true
   }
 }

@@ -151,6 +151,8 @@ The authoritative consumer-media behavior is `docs/contracts/creator-consumer-fl
 
 No user image/ISO selector, duplicate artifact catalog, mutable global cache or extra installer is allowed.
 
+All three Creator delivery channels now use the shared `tools/creator/internal/atomicfile` writer for their signed current/pending/previous envelope pointers. A failed pointer replacement preserves the previous signed offline pointer; version monotonicity, source re-verification and physical write authorization remain independent.
+
 
 ```text
 Git main
