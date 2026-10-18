@@ -30,7 +30,16 @@ export function createNativeInstalledAppCapabilityContextProvider({
     // An app name, catalogue entry or model string is never sufficient proof.
     const installed = await resolveCurrentInstalledApp(componentId);
     if (installed === null) return null;
-    if (!installed || installed.verified !== true || installed.appId !== componentId) {
+    // Treat even a host resolver result as inert data. No getters or
+    // renderer-controlled objects may run while validating mount identity.
+    if (!installed || typeof installed !== "object" || Array.isArray(installed)
+        || ![Object.prototype, null].includes(Object.getPrototypeOf(installed))
+        || Reflect.ownKeys(installed).length !== 7
+        || ["appId", "publisherId", "packageSha256", "accountId",
+            "spaceId", "deviceId", "verified"].some(key =>
+          !Object.hasOwn(installed, key)
+          || !Object.hasOwn(Object.getOwnPropertyDescriptor(installed, key), "value"))
+        || installed.verified !== true || installed.appId !== componentId) {
       throw new TypeError("Native app capability identity is not a verified current slot");
     }
     const reader = createInstalledAppCapabilityReader({
