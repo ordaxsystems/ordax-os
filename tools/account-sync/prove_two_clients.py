@@ -231,12 +231,16 @@ def main() -> int:
     object_id = f"proof/two-client/{secrets.token_hex(16)}"
     revision: int | None = None
     tombstoned = False
-    attempted_login = False
+    authenticated_clients = []
+    create_cursor: int | None = None
+    proof_delete_cursor: int | None = None
     try:
-        attempted_login = True
         client_a.login(email, password)
+        authenticated_clients.append(client_a)
         client_b.login(email, password)
+        authenticated_clients.append(client_b)
         observer.login(other_email, other_password)
+        authenticated_clients.append(observer)
         primary = client_a.subject()
         if primary != client_b.subject():
             fail("same-account-session-mismatch")
@@ -303,17 +307,8 @@ def main() -> int:
             fail("tombstone-not-delivered-to-second-session")
 
         assert_other_account_cannot_read(observer, object_id, observer_cursor)
-        write_receipt(
-            os.environ.get("ORDAX_PROOF_RECEIPT_PATH", "").strip(),
-            base_url,
-            change_cursor,
-            deleted_cursor,
-        )
-        print(
-            "ACCOUNT_SYNC_TWO_CLIENT_PROOF=PASS "
-            f"create_cursor={change_cursor} delete_cursor={deleted_cursor}"
-        )
-        return 0
+        create_cursor = change_cursor
+        proof_delete_cursor = deleted_cursor
     finally:
         if revision is not None and not tombstoned:
             # A negative proof must not leave an active object behind if a
@@ -325,15 +320,29 @@ def main() -> int:
                 )
             except (Exception, SystemExit):
                 pass
-        if attempted_login:
-            failed_logout = False
-            for client in (client_a, client_b, observer):
-                try:
-                    client.logout()
-                except (Exception, SystemExit):
-                    failed_logout = True
-            if failed_logout:
-                fail("logout-unconfirmed")
+        failed_logout = False
+        for client in authenticated_clients:
+            try:
+                client.logout()
+            except (Exception, SystemExit):
+                failed_logout = True
+        if failed_logout:
+            fail("logout-unconfirmed")
+
+    # Successful cleanup and credential removal are prerequisites for a PASS receipt.
+    if create_cursor is None or proof_delete_cursor is None or not tombstoned:
+        fail("incomplete-continuity-proof")
+    write_receipt(
+        os.environ.get("ORDAX_PROOF_RECEIPT_PATH", "").strip(),
+        base_url,
+        create_cursor,
+        proof_delete_cursor,
+    )
+    print(
+        "ACCOUNT_SYNC_TWO_CLIENT_PROOF=PASS "
+        f"create_cursor={create_cursor} delete_cursor={proof_delete_cursor}"
+    )
+    return 0
 
 
 if __name__ == "__main__":
