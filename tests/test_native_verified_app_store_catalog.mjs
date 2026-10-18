@@ -279,3 +279,34 @@ test("disposing during a noncooperative Native fetch settles without awaiting ho
   assert.equal(runtime.port.getSnapshot().reason, "native-store-catalog-disposed");
   assert.deepEqual(runtime.port.getSnapshot().entries, []);
 });
+
+test("timed-out revalidation cannot resurrect signed install candidates, but a later verified read can recover", async () => {
+  let count = 0;
+  let stalledSignal;
+  const runtime = await createNativeVerifiedAppStoreCatalog({
+    async fetch(_url, options) {
+      count += 1;
+      if (count === 2) {
+        stalledSignal = options.signal;
+        // Even after fetch returns, a noncooperative JSON body can hang.
+        return {
+          ok: true, status: 200,
+          json() { return new Promise(() => {}); },
+        };
+      }
+      return response(ready(count + 3));
+    },
+  }, { timeoutMs: 15 });
+  assert.equal(runtime.port.getSnapshot().state, "ready");
+  const pending = runtime.refresh();
+  assert.equal(runtime.port.getSnapshot().state, "unavailable");
+  assert.deepEqual(runtime.port.getSnapshot().entries, []);
+  await pending;
+  assert.equal(stalledSignal.aborted, true);
+  assert.equal(runtime.port.getSnapshot().state, "unavailable");
+  assert.equal(runtime.port.getSnapshot().reason, "native-store-catalog-unavailable");
+  await runtime.refresh();
+  assert.equal(runtime.port.getSnapshot().state, "ready");
+  assert.equal(runtime.port.getSnapshot().sequence, 6);
+  runtime.destroy();
+});
