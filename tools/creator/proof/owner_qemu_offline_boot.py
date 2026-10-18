@@ -152,11 +152,21 @@ def main() -> int:
                     text = serial.read_text(encoding="utf-8", errors="replace") if serial.exists() else ""
                     checks = observed(text, args.source_commit)
                     if not checks["recovery_not_entered"]:
-                        raise ProofError("Owner USB entered local recovery during offline QEMU boot")
+                        # The guest is disposable and the tail is limited; emit
+                        # the genuine kernel/initramfs cause before removal.
+                        raise ProofError(
+                            "Owner USB entered recovery during offline QEMU boot; "
+                            f"checks={checks}; serial-tail={text[-3500:]!r}"
+                        )
                     if all(checks.values()):
                         break
                     if guest.poll() is not None:
-                        raise ProofError("QEMU guest exited before offline Surface handoff")
+                        detail = text[-3500:]
+                        errors = guest.stderr.read(1500).decode("utf-8", "replace") if guest.stderr else ""
+                        raise ProofError(
+                            "QEMU exited before offline Surface handoff; "
+                            f"returncode={guest.returncode}; serial-tail={detail!r}; qemu-stderr={errors!r}"
+                        )
                     time.sleep(1)
                 if not checks or not all(checks.values()):
                     detail = serial.read_text(encoding="utf-8", errors="replace")[-2500:] if serial.exists() else ""
