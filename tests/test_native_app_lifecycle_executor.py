@@ -187,6 +187,18 @@ class NativeAppLifecycleExecutorTests(unittest.TestCase):
                         "",
                     ])
                 )
+            if command == "status":
+                self.assertEqual(argv[argv.index("--component") + 1], "notes")
+                return Result(json.dumps({
+                    "$schema": "prototype-ordax.runtime-component-activation-state/1",
+                    "component_id": "notes",
+                    "revision": 3,
+                    "current": None,
+                    "previous": None,
+                    "pending": {"version": "0.4.3", "source_commit": COMMIT},
+                    "rejected": None,
+                    "pending_health": "unknown",
+                }) + "\n")
             self.fail(f"unexpected command: {command}")
 
         return calls, runner
@@ -205,7 +217,7 @@ class NativeAppLifecycleExecutorTests(unittest.TestCase):
         )
         self.assertEqual(
             [argv[1] for argv, _kwargs in calls],
-            ["verify-envelope-v2", "stage-v2", "verify-slot-v2", "arm-pending"],
+            ["verify-envelope-v2", "stage-v2", "verify-slot-v2", "arm-pending", "status"],
         )
         for argv, kwargs in calls:
             self.assertNotIn("promote-state", argv)
@@ -233,7 +245,7 @@ class NativeAppLifecycleExecutorTests(unittest.TestCase):
         )
         self.assertEqual(result["operation"], "update")
         self.assertEqual(result["state"], "pending-health")
-        self.assertEqual([argv[1] for argv, _ in calls][-1], "arm-pending")
+        self.assertEqual([argv[1] for argv, _ in calls][-2:], ["arm-pending", "status"])
 
     def test_missing_cached_artifact_fails_before_runtime_channel(self) -> None:
         # Only three of four artifacts exist.
@@ -294,19 +306,30 @@ class NativeAppLifecycleExecutorTests(unittest.TestCase):
 
     def test_remove_resolves_exact_current_revision_and_preserves_data_and_cache(self) -> None:
         calls = []
+        status_reads = 0
 
         def runner(argv, **kwargs):
+            nonlocal status_reads
             calls.append(list(argv))
             if argv[1] == "status":
+                status_reads += 1
                 return Result(json.dumps({
                     "$schema": "prototype-ordax.runtime-component-activation-state/1",
                     "component_id": "notes",
-                    "revision": 12,
-                    "current": {"version": "0.4.3", "source_commit": COMMIT},
+                    "revision": 12 if status_reads == 1 else 13,
+                    "current": (
+                        {"version": "0.4.3", "source_commit": COMMIT}
+                        if status_reads == 1 else None
+                    ),
                     "previous": None,
                     "pending": None,
                     "rejected": None,
                     "pending_health": "unknown",
+                    "removed_identity": (
+                        None if status_reads == 1
+                        else {"version": "0.4.3", "source_commit": COMMIT}
+                    ),
+                    "user_removed": status_reads == 2,
                 }) + "\n")
             if argv[1] == "uninstall-state":
                 self.assertEqual(argv[argv.index("--expected-revision") + 1], "12")
@@ -331,11 +354,109 @@ class NativeAppLifecycleExecutorTests(unittest.TestCase):
             watermark_path=str(self.watermark),
             runner=runner,
         )
-        self.assertEqual([argv[1] for argv in calls], ["status", "uninstall-state"])
+        self.assertEqual([argv[1] for argv in calls], ["status", "uninstall-state", "status"])
         self.assertEqual(result["state"], "removed")
         self.assertFalse(result["appDataTouched"])
         self.assertFalse(result["artifactCachePurged"])
         self.assertEqual(result["revision"], 13)
+
+    def test_install_cannot_report_accepted_when_go_status_did_not_commit_pending(self) -> None:
+        self.cache_all()
+        calls, valid_runner = self.install_runner()
+
+        def stale_runner(argv, **kwargs):
+            result = valid_runner(argv, **kwargs)
+            if argv[1] == "status":
+                state = json.loads(result.stdout)
+                state["pending"] = None
+                return Result(json.dumps(state) + "\n")
+            return result
+
+        with self.assertRaisesRegex(
+            lifecycle.NativeAppLifecycleError, "not durably observed"
+        ):
+            lifecycle.execute_offline_lifecycle_plan(
+                self.plan(),
+                artifact_root=str(self.cache),
+                channel_bin=self.channel,
+                trust_path=str(self.trust),
+                slot_root=str(self.slot_root),
+                watermark_path=str(self.watermark),
+                runner=stale_runner,
+            )
+        self.assertEqual(calls[-1][0][1], "status")
+
+    def test_install_rejects_wrong_persisted_revision_or_health(self) -> None:
+        self.cache_all()
+        for key, value in [("revision", 2), ("pending_health", "healthy")]:
+            _calls, valid_runner = self.install_runner()
+
+            def drift_runner(argv, **kwargs):
+                result = valid_runner(argv, **kwargs)
+                if argv[1] != "status":
+                    return result
+                state = json.loads(result.stdout)
+                state[key] = value
+                return Result(json.dumps(state) + "\n")
+
+            with self.subTest(key=key), self.assertRaisesRegex(
+                lifecycle.NativeAppLifecycleError, "not durably observed"
+            ):
+                lifecycle.execute_offline_lifecycle_plan(
+                    self.plan(),
+                    artifact_root=str(self.cache),
+                    channel_bin=self.channel,
+                    trust_path=str(self.trust),
+                    slot_root=str(self.slot_root),
+                    watermark_path=str(self.watermark),
+                    runner=drift_runner,
+                )
+
+    def test_remove_rejects_stdout_success_without_go_tombstone(self) -> None:
+        calls = []
+        status_reads = 0
+
+        def runner(argv, **kwargs):
+            nonlocal status_reads
+            calls.append(argv[1])
+            if argv[1] == "status":
+                status_reads += 1
+                return Result(json.dumps({
+                    "$schema": "prototype-ordax.runtime-component-activation-state/1",
+                    "component_id": "notes",
+                    "revision": 12 if status_reads == 1 else 13,
+                    "current": {"version": "0.4.3", "source_commit": COMMIT}
+                    if status_reads == 1 else None,
+                    "previous": None,
+                    "pending": None,
+                    "rejected": None,
+                    "pending_health": "unknown",
+                    "user_removed": False,
+                    "removed_identity": None,
+                }) + "\n")
+            if argv[1] == "uninstall-state":
+                return Result("\n".join([
+                    "RUNTIME_COMPONENT_STATE_UNINSTALLED=YES",
+                    "COMPONENT_ID=notes",
+                    "REVISION=13",
+                    "CURRENT_PRESENT=NO",
+                    "APP_DATA_TOUCHED=NO",
+                    "SLOT_CACHE_PURGED=NO", "",
+                ]))
+            self.fail(f"unexpected command: {argv[1]}")
+
+        with self.assertRaisesRegex(
+            lifecycle.NativeAppLifecycleError, "not durably observed"
+        ):
+            lifecycle.execute_offline_lifecycle_plan(
+                self.plan("remove", candidate=False),
+                channel_bin=self.channel,
+                trust_path=str(self.trust),
+                slot_root=str(self.slot_root),
+                watermark_path=str(self.watermark),
+                runner=runner,
+            )
+        self.assertEqual(calls, ["status", "uninstall-state", "status"])
 
     def test_remove_refuses_pending_or_absent_current_before_uninstall(self) -> None:
         for state in [
