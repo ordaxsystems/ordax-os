@@ -29,7 +29,8 @@ Keep Alpine in the development Base for this gate. Its replacement and all Stabl
 ## Evidence and promotion gates
 
 - **Proven in CI (run 39091773231):** the real runtime producer completed; the final staged image passed `OWNER_DEV_OFFLINE_WELCOME_RELEASE_GATE=PASS`, including SHA-256/EROFS and provenance validation. The derived offline Owner seed was 4 GiB.
-- **Blocked in that run:** the prepared ext4-growth oracle received the old fixed 768-MiB target, smaller than the seed, and correctly stopped. PR #1949 now computes the target from the exact RAW seed; revalidation is required.
+- **Prior blocker corrected:** a fixed 768-MiB target was smaller than the derived 4-GiB seed. Run 39093579863 subsequently reported `CREATOR_PREPARED_EXT4_GROWTH_PROOF=PASS`, matching the upstream `resize2fs` baseline and preserving the filesystem tree.
+- **Follow-up:** the subsequent source-commit assertion revealed a PR-only identity mismatch: the growth proof inherited GitHub's synthetic merge SHA. The workflow now explicitly exports the exact Owner checkout SHA to that proof. Revalidation is required before the Owner Creator gate can pass.
 - **Required before merge or publication:** green Owner preflight, full Creator disposable RAW proof, prepared ext4 growth equivalence and file preservation, kernel/initramfs/Surface regressions, exact bundled SHA/source identity and no inadvertent physical writes.
 - **Required before claiming notebook success:** an Owner-specific offline cold-boot demonstration proving the real welcome screen, local session/First Run persistence, Wi-Fi join and optional skip, reboot, online transactional pull and failed-update rollback. Portable v2 QEMU Stable proofs alone do **not** establish Owner graphical First Run.
 - **Related non-Owner gates:** report unrelated Surface Web / public-site failures separately; do not bypass or relabel them as passed.

@@ -65,6 +65,11 @@ class OfflineOwnerWelcomeGateTests(unittest.TestCase):
         self.assertIn("os.environ['ORDAX_OWNER_SOURCE_COMMIT']", workflow)
         self.assertNotIn('$GITHUB_SHA', workflow)
         self.assertIn("if: github.event_name == 'push' && github.ref == 'refs/heads/main'", workflow)
+        growth = workflow.split("- name: Materialize and verify RAW development seed", 1)[1].split(
+            "- name: Build split Windows Creator bundle", 1
+        )[0]
+        self.assertIn('export ORDAX_SOURCE_COMMIT="$ORDAX_OWNER_SOURCE_COMMIT"', growth)
+        self.assertIn("assert prepared['source_commit'] == os.environ['ORDAX_OWNER_SOURCE_COMMIT']", growth)
 
     def test_checkout_alone_is_not_a_bootable_desktop(self):
         with tempfile.TemporaryDirectory() as work:

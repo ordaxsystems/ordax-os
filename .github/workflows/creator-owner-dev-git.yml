@@ -395,6 +395,9 @@ jobs:
           PY
 
           prepared_proof="$RUNNER_TEMP/owner-prototype-prepared-ext4-proof.json"
+          # A PR checkout uses the head SHA, not GitHub's synthetic merge SHA.
+          # Pass that exact source identity to the canonical ext4 growth oracle.
+          export ORDAX_SOURCE_COMMIT="$ORDAX_OWNER_SOURCE_COMMIT"
           # Exercise actual ext4 growth from this exact, derived Owner seed.
           # The old 768-MiB target is smaller than a graphical offline USB;
           # never bypass the prepared-media oracle or change Stable geometry.
