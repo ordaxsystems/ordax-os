@@ -994,7 +994,15 @@
       "target": "system/services/preferences/runtime.mjs",
       "owner": "OrdaX OS preferences",
       "purpose": "Portable observable binding delegating validation and updates to the existing catalog and persistence to the canonical store port",
-      "sha256": "84b71ccd21165f196a61690e5b1d760d96a3dd8e12108e4b96d5222f857ebd5c"
+      "sha256": "84b71ccd21165f196a61690e5b1d760d96a3dd8e12108e4b96d5222f857ebd5c",
+      "adaptedSha256": "7c623da813a3f60f4a4c9d447cdcb1069cf5757397d2f749c6111f6b3b737344",
+      "adaptation": "2026-10-17: Preserve canonical preferences and synchronous UI mutation, but expose pending writes and only confirm durability after a successful Native host ACK. Earlier asynchronous acknowledgments cannot override newer preferences.",
+      "adaptationHistory": [
+        {
+          "sha256": "84b71ccd21165f196a61690e5b1d760d96a3dd8e12108e4b96d5222f857ebd5c",
+          "reason": "Previous synchronous persistence-status projection before Native host acknowledgment"
+        }
+      ]
     },
     {
       "target": "system/surface/workspace/components/central/preferences-context.tsx",

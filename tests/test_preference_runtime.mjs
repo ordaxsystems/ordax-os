@@ -73,3 +73,69 @@ test('unknown or unchanged values issue no writes and disposal releases subscrip
   assert.equal(calls, 2);
   assert.equal(writes, 2);
 });
+
+
+test('asynchronous preference saves stay pending until the latest acknowledgment', async () => {
+  const acknowledgments = [];
+  const runtime = createPreferenceRuntime({
+    schema: PREFERENCE_STORE_SCHEMA,
+    load: () => ({}),
+    save: () => new Promise(resolve => acknowledgments.push(resolve)),
+  });
+  const statuses = [];
+  runtime.subscribe(() => statuses.push(runtime.getPersistenceSnapshot()));
+  runtime.set('appearance.theme', 'dark');
+  assert.equal(runtime.getPersistenceSnapshot(), 'pending');
+  runtime.set('appearance.theme', 'light');
+  assert.equal(runtime.getPersistenceSnapshot(), 'pending');
+  acknowledgments[0](true);
+  await Promise.resolve();
+  await Promise.resolve();
+  assert.equal(runtime.getPersistenceSnapshot(), 'pending', 'old ACK must not confirm newer write');
+  acknowledgments[1](false);
+  await Promise.resolve();
+  await Promise.resolve();
+  assert.equal(runtime.getPersistenceSnapshot(), 'session-only');
+  assert.equal(runtime.getSnapshot()['appearance.theme'], 'light');
+  assert.deepEqual(statuses, ['not-written', 'pending', 'pending', 'session-only']);
+  runtime.dispose();
+});
+
+test('asynchronous rejected saves stay session-only and dispose never publishes late ACK', async () => {
+  let rejectWrite;
+  const runtime = createPreferenceRuntime({
+    schema: PREFERENCE_STORE_SCHEMA,
+    load: () => ({}),
+    save: () => new Promise((_, reject) => { rejectWrite = reject; }),
+  });
+  let calls = 0;
+  runtime.subscribe(() => { calls++; });
+  runtime.set('appearance.theme', 'dark');
+  assert.equal(runtime.getPersistenceSnapshot(), 'pending');
+  rejectWrite(new Error('disk denied'));
+  await Promise.resolve();
+  await Promise.resolve();
+  assert.equal(runtime.getPersistenceSnapshot(), 'session-only');
+  const beforeDispose = calls;
+  runtime.dispose();
+  assert.equal(calls, beforeDispose);
+});
+
+test('late Native acknowledgment after disposal cannot publish false saved state', async () => {
+  let accept;
+  const runtime = createPreferenceRuntime({
+    schema: PREFERENCE_STORE_SCHEMA,
+    load: () => ({}),
+    save: () => new Promise(resolve => { accept = resolve; }),
+  });
+  let signals = 0;
+  runtime.subscribe(() => { signals++; });
+  runtime.set('appearance.theme', 'dark');
+  const beforeDispose = signals;
+  runtime.dispose();
+  accept(true);
+  await Promise.resolve();
+  await Promise.resolve();
+  assert.equal(runtime.getPersistenceSnapshot(), 'pending');
+  assert.equal(signals, beforeDispose);
+});
