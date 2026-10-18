@@ -205,7 +205,7 @@ func TestPortablePayloadSkipsOversizedSparseDonorBeforeHashing(t *testing.T) {
 	kernel := filepath.Join(previous, "kernel")
 	// A stale version may contain a very large sparse file under a known ID.
 	// The signed size must be checked before reading any cached contents.
-	if err := os.Truncate(kernel, 1<<30); err != nil {
+	if err := os.Truncate(kernel, 64<<20); err != nil {
 		t.Skipf("sparse truncation unavailable: %v", err)
 	}
 	transport := &portableSourceTestTransport{bodies: bodies}
