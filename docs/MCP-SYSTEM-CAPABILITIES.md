@@ -76,7 +76,10 @@ ou a presença na Loja não conferem permissão.
   aplicativo vem de `resolveCurrentInstalledApp` privado do host, que deve
   provar publisher, pacote atual, appId e escopos. Ausência de comprovação
   não injeta o port, e atualização, troca de Space ou revogação são
-  rechecadas a cada consulta. O provider não é registrado automaticamente
+  rechecadas a cada consulta. A porta é **fixada na identidade exata da
+  montagem**: um módulo antigo continua bloqueado mesmo que a política
+  passe a autorizar um pacote novo ou outro Space; a composição deve criar
+  uma nova porta depois da mudança. O provider não é registrado automaticamente
   na Surface enquanto o bootstrap Native não fornecer resolvers
   autenticados e conectados ao Settings/Permissions. Seu contrato é testado
   com contextos independentes de dois aplicativos.
