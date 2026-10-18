@@ -192,6 +192,60 @@ func TestVerifyInstalledRehashesCriticalFilesEveryTime(t *testing.T) {
 	}
 }
 
+func TestVerifyInstalledRejectsUnboundWriterRootEntries(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		create func(root, path string) error
+	}{
+		{"extra-file", func(_, path string) error { return os.WriteFile(path, []byte("unbound"), 0o600) }},
+		{"extra-directory", func(_, path string) error { return os.Mkdir(path, 0o700) }},
+		{"extra-symlink", func(root, path string) error {
+			return os.Symlink(filepath.Join(root, "provenance.json"), path)
+		}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			root := t.TempDir()
+			manifest := writeBoundFiles(t, root)
+			if err := tc.create(root, filepath.Join(root, "unbound-"+tc.name)); err != nil {
+				if tc.name == "extra-symlink" {
+					t.Skipf("symbolic links unavailable: %v", err)
+				}
+				t.Fatal(err)
+			}
+			if err := VerifyInstalled(root, manifest); err == nil || !strings.Contains(err.Error(), "unexpected physical candidate entry") {
+				t.Fatalf("extra unsigned root entry accepted: %v", err)
+			}
+		})
+	}
+}
+
+func TestVerifyInstalledRejectsOversizedCachedWriterBeforeHashing(t *testing.T) {
+	root := t.TempDir()
+	manifest := writeBoundFiles(t, root)
+	if err := os.Truncate(filepath.Join(root, "provenance.json"), 1<<30); err != nil {
+		t.Skipf("sparse-file truncation unavailable: %v", err)
+	}
+	if err := VerifyInstalled(root, manifest); err == nil || !strings.Contains(err.Error(), "bound physical file changed") {
+		t.Fatalf("oversized cached writer accepted: %v", err)
+	}
+}
+
+func TestVerifyInstalledRejectsSymlinkedVersionSlot(t *testing.T) {
+	root := t.TempDir()
+	directory := filepath.Join(root, "candidate")
+	if err := os.Mkdir(directory, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	manifest := writeBoundFiles(t, directory)
+	link := filepath.Join(root, "candidate-link")
+	if err := os.Symlink(directory, link); err != nil {
+		t.Skipf("symbolic links unavailable: %v", err)
+	}
+	if err := VerifyInstalled(link, manifest); err == nil || !strings.Contains(err.Error(), "version root") {
+		t.Fatalf("symlinked signed candidate root accepted: %v", err)
+	}
+}
+
 func zipWithEntries(t *testing.T, entries map[string][]byte) string {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "candidate.zip")

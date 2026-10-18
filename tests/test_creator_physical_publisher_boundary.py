@@ -55,6 +55,9 @@ class CreatorPhysicalPublisherBoundaryTests(unittest.TestCase):
         integrity = data["physical_candidate_integrity"]
         self.assertIs(integrity["whole_disk_raw_image_required"], False)
         self.assertEqual(integrity["portable_artifact_count"], 17)
+        self.assertIs(integrity["offline_writer_slot_rejects_unbound_root_entries"], True)
+        self.assertIs(integrity["cached_writer_size_checked_before_hashing"], True)
+        self.assertIs(integrity["version_root_must_be_real_directory"], True)
         self.assertEqual(integrity["portable_application_operation_count"], 39)
         self.assertNotIn("ordax-bootstrap-seed.raw", integrity["critical_files_bound_by_sha256_and_size"])
         self.assertEqual(

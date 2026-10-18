@@ -530,6 +530,22 @@ export function mountSettingsOverviewControls(
       }
       view.append(section);
     }
+    // Current device durability is observed, never inferred from a selected value.
+    const persistence = typeof preferences.getPersistenceSnapshot === "function"
+      ? preferences.getPersistenceSnapshot()
+      : null;
+    if (["pending", "saved", "session-only"].includes(persistence)) {
+      const status = node(
+        documentObject,
+        "p",
+        "ordax-settings-preference-persistence",
+        t(`settings.preference.persistence.${persistence}`),
+      );
+      status.dataset.settingsPreferencePersistence = persistence;
+      status.setAttribute("role", "status");
+      status.setAttribute("aria-live", "polite");
+      view.append(status);
+    }
   };
 
   const renderKeyboardLayout = (view) => {
