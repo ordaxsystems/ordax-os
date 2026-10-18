@@ -64,7 +64,7 @@ ou a presença na Loja não conferem permissão.
   **somente descoberta** para um app de cada vez, usando duas dependências
   estritamente OS-private: o resolvedor da identidade real do pacote/processo
   e o leitor de permissões locais vigentes. A cada leitura, compara identidade
-  (appId + SHA-256 do pacote + conta + Space + dispositivo), cruza modos
+  (appId + publisher do pacote verificado + SHA-256 do pacote + conta + Space + dispositivo), cruza modos
   permitidos com as capabilities efetivamente disponíveis e não reutiliza
   cache após revogação ou troca de Space. Não expõe métodos de concessão,
   execução, seleção de outro app ou alteração de escopo. **O host ainda deve
