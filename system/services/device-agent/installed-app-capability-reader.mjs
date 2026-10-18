@@ -25,8 +25,18 @@ const CONTROL_RE = /[\u0000-\u001f\u007f]/;
 
 function exactObject(value, fields, label) {
   if (!value || typeof value !== "object" || Array.isArray(value)
-      || Object.keys(value).sort().join(",") !== [...fields].sort().join(",")) {
+      || ![Object.prototype, null].includes(Object.getPrototypeOf(value))) {
+    throw new TypeError(label + " must be a plain data object");
+  }
+  const keys = Reflect.ownKeys(value);
+  const allowed = new Set(fields);
+  if (keys.length !== allowed.size || keys.some(key => !allowed.has(key))) {
     throw new TypeError(label + " fields are incompatible");
+  }
+  // Reject accessors: caller/decision identity cannot change between checks.
+  if (Object.values(Object.getOwnPropertyDescriptors(value))
+      .some(descriptor => !Object.hasOwn(descriptor, "value"))) {
+    throw new TypeError(label + " cannot contain accessor fields");
   }
   return value;
 }
