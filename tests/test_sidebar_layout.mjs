@@ -15,28 +15,51 @@ test("sidebar slots preserve the same brand, home, navigation, account and auxil
   assert.ok(html.indexOf('data-sidebar-slot="navigation"') < html.indexOf('data-sidebar-slot="account"'));
 });
 test("Web and Native sidebar render one Meridian OrdaX OS wordmark", async () => {
-  const [webNavigation, nativeShell, sharedStyles] = await Promise.all([
+  const [webNavigation, nativeShell, sharedStyles, webComposition] = await Promise.all([
     readFile(new URL("../system/surface/workspace/components/central/meridian-navigation.tsx", import.meta.url), "utf8"),
     readFile(new URL("../system/surface/ui/desktop-shell.mjs", import.meta.url), "utf8"),
     readFile(new URL("../system/surface/ui/sidebar-layout.css", import.meta.url), "utf8"),
+    readFile(new URL("../system/composition/web/main.tsx", import.meta.url), "utf8"),
   ]);
   const markup = sidebarBrandMarkup();
   assert.ok(markup.includes('class="brand-name">OrdaX</span>'));
   assert.ok(markup.includes('class="brand-sub">OS</span>'));
   assert.ok(!markup.includes("WEB"));
   assert.ok(webNavigation.includes("sidebarBrandMarkup()"));
-  assert.ok(nativeShell.includes('class="meridian-sidebar-brand-row"><button type="button" class="meridian-brand-home"'));
-  assert.ok(nativeShell.includes('class="sidebar-collapse ordax-sidebar-toggle meridian-sidebar-toggle" data-sidebar-toggle'));
+  assert.ok(nativeShell.includes('brand: `<button type="button" class="meridian-brand-home"'));
+  assert.ok(nativeShell.includes('home: `<div class="meridian-native-home-nav"><div class="ordax-space-switcher-slot" data-space-switcher-slot></div><button type="button" class="ordax-rail-button os-nav-item meridian-home-destination"'));
+  assert.ok(nativeShell.includes('auxiliary: `<div class="ordax-power-slot" data-power-slot></div><button type="button" class="sidebar-collapse ordax-sidebar-toggle" data-sidebar-toggle'));
+  const nativeRail = nativeShell.slice(nativeShell.indexOf("function meridianNavigation("), nativeShell.indexOf("function meridianNavigationMenu("));
+  assert.ok(!nativeRail.includes("meridian-home-destination"));
   assert.ok(sharedStyles.includes(".brand-wordmark { display:block; }"));
+  assert.ok(sharedStyles.includes(".brand-name { font-size:1.5rem; font-weight:550; letter-spacing:-.06em; line-height:1.05; }"));
+  assert.ok(webComposition.includes("../../surface/ui/brand/symbol.css"));
+});
+test("Native and Web headers share Meridian dimensions and search styling", async () => {
+  const [sharedHeader, nativeStyles] = await Promise.all([
+    readFile(new URL("../system/surface/ui/meridian.css", import.meta.url), "utf8"),
+    readFile(new URL("../system/surface/ui/identity.css", import.meta.url), "utf8"),
+  ]);
+  assert.ok(sharedHeader.includes(".meridian-workspace {font:400 .8125rem/1.5 var(--md-font);}"));
+  assert.match(sharedHeader, /\.meridian-system-header \{height:66px;flex-shrink:0;display:flex;/);
+  assert.match(sharedHeader, /\.meridian-system-search \{display:flex;align-items:center;gap:12px;width:min\(350px,36%\);/);
+  assert.match(sharedHeader, /\.meridian-system-search kbd \{padding:0;border:0;background:transparent;/);
+  assert.doesNotMatch(nativeStyles, /\.meridian-native-workspace \.ordax-native-header \{ display:grid/);
+  assert.doesNotMatch(nativeStyles, /\.meridian-native-workspace \.meridian-system-search \{\s*height:42px/);
 });
 test("Web and Native share the Meridian rail destination order and grouping", async () => {
-  const webConfig = await readFile(new URL("../system/surface/workspace/components/central/config.ts", import.meta.url), "utf8");
-  const nativeShell = await readFile(new URL("../system/surface/ui/desktop-shell.mjs", import.meta.url), "utf8");
+  const [webConfig, nativeShell, sharedSidebarStyles] = await Promise.all([
+    readFile(new URL("../system/surface/workspace/components/central/config.ts", import.meta.url), "utf8"),
+    readFile(new URL("../system/surface/ui/desktop-shell.mjs", import.meta.url), "utf8"),
+    readFile(new URL("../system/surface/ui/sidebar-layout.css", import.meta.url), "utf8"),
+  ]);
   assert.deepEqual(MERIDIAN_RAIL_DESTINATIONS.map(item => item.key), ["home", "intelligence", "spaces", "apps", "profiles", "devices", "store"]);
   assert.deepEqual(MERIDIAN_RAIL_DESTINATIONS.filter(item => item.group === "principal").map(item => item.key), ["intelligence", "spaces", "apps"]);
   assert.deepEqual(MERIDIAN_RAIL_DESTINATIONS.filter(item => item.group === "ecossistema").map(item => item.key), ["profiles", "devices", "store"]);
   assert.match(webConfig, /MERIDIAN_RAIL_DESTINATIONS/);
   assert.match(nativeShell, /MERIDIAN_RAIL_DESTINATIONS/);
+  assert.ok(nativeShell.includes('<p class="meridian-nav-label" data-nav-group-label="ecossistema">Ecossistema</p>'));
+  assert.match(sharedSidebarStyles, /\.meridian-native-nav-group \{ display:flex; flex-direction:column; gap:5px;/);
 });
 test("Native Meridian navigation markup has matching styles and a clean collapsed rail", async () => {
   const [nativeShell, nativeStyles, sharedSidebarStyles] = await Promise.all([
@@ -60,6 +83,7 @@ test("Native rail follows the Meridian Web destinations; local tools stay in its
   assert.ok(menu.includes('data-nav-menu-group="dispositivo"'));
   assert.match(menu, /const deviceApps = \["files", "studio", "settings", "system"\]/);
   assert.ok(menu.includes('data-nav-menu-app="${id}"'));
+  assert.ok(nativeShell.includes('data-current-destination>${t("shell.home.title")}</span>'));
 });
 test("account presentation escapes public names and does not invent storage, plan or credentials", () => {
   const view = projectSidebarAccount({ state: "signed-in", subjectId: "private-id", displayName: '<img src=x onerror="run()"> Maria' });
@@ -172,37 +196,33 @@ test("navigation capacity measures the Ecosystem heading once and preserves it a
   headingVisible = false;
   assert.equal(sidebarNavigationCapacity(nav), 4);
 });
-test("Native overflow keeps home and a launcher, then restores the complete grouped navigation", () => {
-  const home = { hidden: false, getBoundingClientRect: () => ({ height: 44 }) };
+test("Native overflow measures destinations separately from the persistent Home slot", () => {
   const apps = Array.from({ length: 6 }, () => ({ hidden: false, getBoundingClientRect: () => ({ height: 44 }) }));
   const more = { hidden: true, getBoundingClientRect: () => ({ height: 44 }) };
   const groups = [
-    { hidden: false, querySelector: () => [home, ...apps.slice(0, 3)].find(button => !button.hidden) },
+    { hidden: false, querySelector: () => apps.slice(0, 3).find(button => !button.hidden) },
     { hidden: false, querySelector: () => apps.slice(3).find(button => !button.hidden) },
   ];
   let resize, disconnected = false;
   const nav = {
-    clientHeight: 236,
+    clientHeight: 188,
     ownerDocument: { defaultView: {
       getComputedStyle: () => ({ rowGap: "4px" }),
       ResizeObserver: class { constructor(fn) { resize = fn; } observe() {} disconnect() { disconnected = true; } },
     } },
     querySelectorAll: selector => selector === ".meridian-nav-destination button" ? apps : selector === "[data-nav-group]" ? groups : [],
-    querySelector: selector => selector === ".meridian-home-destination" ? home : ["[data-nav-menu-more]", "[data-launcher-more]"].includes(selector) ? more : [home, ...apps, more].find(button => !button.hidden),
+    querySelector: selector => ["[data-nav-menu-more]", "[data-launcher-more]"].includes(selector) ? more : [...apps, more].find(button => !button.hidden),
   };
   const fit = mountNativeSidebarFit(nav, () => {});
-  assert.equal(home.hidden, false);
   assert.equal(apps.filter(button => !button.hidden).length, 3);
   assert.equal(more.hidden, false);
   assert.equal(groups[0].hidden, false);
   assert.equal(groups[1].hidden, true);
   nav.clientHeight = 44; resize();
-  assert.equal(home.hidden, true);
   assert.ok(apps.every(button => button.hidden));
   assert.ok(groups.every(group => group.hidden));
   assert.equal(more.hidden, false);
   nav.clientHeight = 332; resize();
-  assert.equal(home.hidden, false);
   assert.ok(apps.every(button => !button.hidden));
   assert.ok(groups.every(group => !group.hidden));
   assert.equal(more.hidden, true);

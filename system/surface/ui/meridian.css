@@ -1,4 +1,5 @@
 /* Shared Meridian visual policy. Existing preference IDs and service owners remain unchanged. */
+.meridian-workspace {font:400 .8125rem/1.5 var(--md-font);}
 [data-meridian] {
  --ordax-sidebar-expanded-width:var(--md-rail-width);--ordax-sidebar-collapsed-width:var(--md-rail-compact);--ordax-navigation-height:var(--md-dock);--ordax-navigation-control-height:44px;
  --background:var(--md-canvas);--foreground:var(--md-ink);--card:var(--md-surface);--secondary:var(--md-subtle);--muted:var(--md-subtle);--muted-foreground:var(--md-muted);--primary:var(--md-accent);--primary-foreground:var(--md-accent-text);--accent:var(--md-accent-soft);--accent-foreground:var(--md-accent);--border:var(--md-border);--sidebar-surface:var(--md-rail);
@@ -51,7 +52,7 @@
 .meridian-system-location>button:not(.meridian-mobile-menu) {display:flex;gap:7px;align-items:center;border:0;background:transparent;font-size:0.6875rem;color:var(--md-muted);max-width:180px;overflow:hidden;}
 .meridian-system-search {display:flex;align-items:center;gap:12px;width:min(350px,36%);padding:10px 13px;background:var(--md-surface);border:1px solid var(--md-border);border-radius:10px;color:var(--md-muted)!important;text-align:left;font-size:0.6875rem!important;}
 .meridian-system-search>span {flex:1;}
-.meridian-system-search kbd {font-size:0.5625rem;color:var(--md-muted);white-space:nowrap;}
+.meridian-system-search kbd {padding:0;border:0;background:transparent;box-shadow:none;color:var(--md-muted);font:400 0.5625rem/1.5 ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;white-space:nowrap;}
 .meridian-system-tools {display:flex;align-items:center;gap:12px;}
 .meridian-system-tools>button {display:grid;place-items:center;width:34px;height:34px;padding:0;background:transparent;border:0;border-radius:8px;}
 .meridian-system-tools>button:hover {background:var(--md-subtle);}
