@@ -41,6 +41,11 @@ cat "$RUNTIME_PIN" >/dev/null 2>&1 || fail "offline Surface EROFS pin is missing
 set -- $(cat "$RUNTIME_PIN")
 RUNTIME_SHA256=$1
 
+# Establish the switch_root self-bind *before* adding child mounts.
+# A non-recursive bind mounted after /run hides its tmpfs/EROFS subtree,
+# leaving the verified runtime unavailable once the new root takes over.
+mount -o bind "$DEV_ROOT" "$DEV_ROOT" || fail "cannot bind development root"
+
 # Keep the writable Surface overlay ephemeral. The EROFS lower remains
 # immutable on ORDAX; neither a persistent rootfs extraction nor an APK
 # acquisition is needed at cold boot.
@@ -59,7 +64,6 @@ ORDAX_SURFACE_RUNTIME_ROOT=/run/ordax/runtime/native-surface/rootfs
 ORDAX_SURFACE_RUNTIME_SHA256=$RUNTIME_SHA256
 export ORDAX_SURFACE_RUNTIME_MODE ORDAX_SURFACE_RUNTIME_ROOT ORDAX_SURFACE_RUNTIME_SHA256
 
-mount -o bind "$DEV_ROOT" "$DEV_ROOT" || fail "cannot bind development root"
 mount -o bind /proc "$DEV_ROOT/proc" || fail "cannot bind /proc"
 mount -o bind /sys "$DEV_ROOT/sys" || fail "cannot bind /sys"
 mount -o bind /dev "$DEV_ROOT/dev" || fail "cannot bind /dev"
