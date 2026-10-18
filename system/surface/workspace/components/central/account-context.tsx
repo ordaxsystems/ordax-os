@@ -47,7 +47,7 @@ export function WebAccountProvider({ session, children }: { session: AccountSess
   return <AccountSessionContext.Provider value={session}>{children}</AccountSessionContext.Provider>;
 }
 
-export function useWebAccount() {
+export function useWebAccount(translate?: (id: string) => string) {
   const session = useContext(AccountSessionContext);
   if (session === null) throw new Error('Web account composition is missing');
   const identity = useSyncExternalStore(session.identity.subscribe, session.identity.getSnapshot, session.identity.getSnapshot);
@@ -57,6 +57,7 @@ export function useWebAccount() {
   const surface = useSyncExternalStore(session.surface.subscribe, session.surface.getSnapshot, session.surface.getSnapshot);
   const offline = surface.connectivity === 'offline';
   const authorized: { ready: boolean; visibleSpaces: readonly ReturnType<typeof validateSpace>[]; activeSpace: ReturnType<typeof validateSpace> | null } = deriveAuthorizedSpaces(identity, catalog, selection);
-  const { displayName, initials } = projectSidebarAccount(identity, offline);
-  return { session, identity, actions, catalog, members: session.members, actorCapability: session.actorCapability, membershipActions: session.membershipActions, selection, surface, offline, authorized, displayName, initials };
+  const sidebarAccount = projectSidebarAccount(identity, offline, translate);
+  const { displayName, initials } = sidebarAccount;
+  return { session, identity, actions, catalog, members: session.members, actorCapability: session.actorCapability, membershipActions: session.membershipActions, selection, surface, offline, authorized, displayName, initials, sidebarAccount };
 }

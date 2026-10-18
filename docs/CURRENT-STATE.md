@@ -40,6 +40,14 @@ docs/INTELLIGENCE.md.
 
 # Current State
 
+Shared sidebar account profile (2026-10-18): Web and Native/USB consume the same
+`projectSidebarAccount` identity/status/connection model and Meridian profile
+styles in `system/surface/ui/sidebar-layout.css`. The Web-only profile rules were
+moved to that existing shared owner; Native retains account launch, storage and
+notification controls. Offline/logout/capability loss update the connection mark
+without inventing a session. Other shell/page composition differences remain;
+this increment does not claim full Web/Native equivalence.
+
 Emulator preference continuity (2026-10-18): Windows onboarding and its same-origin
 Surface now consume `createWebPreferenceStore` and `createPreferenceRuntime`,
 removing the emulator-only preference implementation/storage authority. Completed

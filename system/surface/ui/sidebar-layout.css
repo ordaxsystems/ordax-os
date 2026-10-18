@@ -59,3 +59,36 @@
 }
 
 .ordax-product-sidebar :is(.account-open, .account-actions) svg { fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+
+/* Meridian account profile: one component style for Web and Native/USB. */
+[data-meridian] .ordax-product-sidebar .sidebar-account { padding:0; border:0; background:transparent; }
+[data-meridian] .ordax-product-sidebar .meridian-rail-account {
+  display:flex; align-items:center; gap:10px; width:100%; min-height:58px;
+  padding:10px 8px; border:1px solid var(--md-rail-border); border-radius:12px;
+  background:var(--md-rail-selected); color:var(--md-rail-text); text-align:left; cursor:pointer;
+}
+[data-meridian] .ordax-product-sidebar .meridian-rail-account:is(:hover,[aria-current=page]) { border-color:var(--md-rail-muted); }
+[data-meridian] .ordax-product-sidebar .meridian-rail-account:focus-visible { outline:2px solid var(--md-focus); outline-offset:3px; }
+[data-meridian] .ordax-product-sidebar .meridian-account-avatar { position:relative; display:grid; place-items:center; flex-shrink:0; }
+[data-meridian] .ordax-product-sidebar .meridian-account-avatar>i {
+  position:absolute; bottom:0; right:0; width:9px; height:9px; border:2px solid var(--md-rail);
+  border-radius:50%; background:var(--md-rail-muted);
+}
+[data-meridian] .ordax-product-sidebar .meridian-account-avatar>i[data-connected=true] { background:var(--md-sage-soft); }
+[data-meridian] .ordax-product-sidebar .meridian-rail-account .avatar {
+  display:grid; place-items:center; width:32px; height:32px; flex-shrink:0; border-radius:50%;
+  border:1px solid var(--md-rail-border); background:var(--md-rail); color:var(--md-rail-text);
+  font-size:.875rem; font-weight:550;
+}
+[data-meridian] .ordax-product-sidebar .meridian-rail-account .account-identity { display:block; min-width:0; flex:1; }
+[data-meridian] .ordax-product-sidebar .meridian-rail-account strong {
+  display:block; font-weight:550; font-size:.8125rem; line-height:1.4;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+[data-meridian] .ordax-product-sidebar .meridian-rail-account .account-identity>:is(small,span) {
+  display:block; margin-top:3px; font-size:.6875rem; line-height:1.4; color:var(--md-rail-muted);
+}
+@container sidebar-chrome (max-width:100px) {
+  [data-meridian] .ordax-product-sidebar .meridian-rail-account { justify-content:center; min-height:44px; padding:0; }
+  [data-meridian] .ordax-product-sidebar .meridian-rail-account :is(.account-identity,.account-chevron) { display:none; }
+}

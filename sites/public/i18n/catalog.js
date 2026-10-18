@@ -1565,6 +1565,8 @@
   register("surface.224ea01e4a29", "Aura", "Aura");
   register("surface.67a12f4a2644", "Perfis profissionais", "Professional profiles");
   register("surface.70feed55e97f", "Loja", "Store");
+  register("surface.1fdff273ce1e", "Entrar na conta", "Sign in to account");
+  register("surface.a984b0db8c70", "Conectar conta", "Connect account");
   register("surface.fe4982c42f5f", "Inteligência", "Intelligence");
   register("surface.019b096ef090", "Editor 3D", "3D Editor");
   register("surface.180efe2ab526", "SEUS AMBIENTES, CONECTADOS", "YOUR ENVIRONMENTS, CONNECTED");
@@ -1693,6 +1695,7 @@
   register("surface.ddfe38802540", "Arquivos recentes", "Recent files");
   register("surface.dff6624256ba", "Atividades", "Activity");
   register("surface.a802e71ee477", "Sincronização", "Sync");
+  register("surface.5c9cb6831931", "Abrir meu perfil", "Open my profile");
   register("surface.921504f8b41f", "Expandir sidebar", "Expand sidebar");
   register("surface.c38f981d84e4", "Abrir área de trabalho", "Open desktop");
   register("surface.5d4a502a9f61", "Buscar espaços por nome, perfil ou local", "Search spaces by name, Profile or location");

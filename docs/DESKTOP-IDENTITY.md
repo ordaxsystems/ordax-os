@@ -1784,3 +1784,18 @@ preference, and Native receives its current localization port. Example state rem
 session-only; account/session/data operations retain their existing owners and gates.
 The existing English audit and the new cross-language transition/rendering regressions
 cover this boundary. Public runtime packaging and browser/release proofs are separate.
+
+### Shared sidebar account profile — 2026-10-18
+
+The Meridian profile row now shares its geometry, avatar, typography, focus and
+connection-indicator styles through `system/surface/ui/sidebar-layout.css`.
+The corresponding Web-only style block was removed. Native/USB retains the
+canonical account launch and existing storage/notification controls; Web keeps
+its Account window, utilities and planned resources.
+
+`projectSidebarAccount` remains the identity presentation owner and now projects
+connection availability as well. Web consumes its localized status/open label;
+Native refreshes the same connection mark on real session/host changes.
+Offline is not a new signed-in claim; logout or lost identity capability clears
+stale identity through the existing port validation. This increment unifies the
+profile component, not the complete Web and Native shell compositions.
