@@ -45,7 +45,7 @@ respond() {
     outcome=$2
     interface_name=$3
     detail=$4
-    temporary=$RESPONSE.tmp.$
+    temporary=$RESPONSE.tmp.$$
     printf '%s\t%s\t%s\t%s\n' "$request_id" "$outcome" "$interface_name" "$detail" >"$temporary"
     chmod 600 "$temporary"
     mv -f "$temporary" "$RESPONSE"
