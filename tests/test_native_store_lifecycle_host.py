@@ -234,6 +234,32 @@ class NativeStoreLifecycleHostTests(unittest.TestCase):
         acquire.assert_not_called()
         execute.assert_not_called()
 
+    def test_native_readback_divergence_never_returns_http_acceptance(self) -> None:
+        value = plan("remove")
+        with (
+            mock.patch.object(host, "acquire_lifecycle_plan_artifacts") as acquire,
+            mock.patch.object(
+                host,
+                "execute_offline_lifecycle_plan",
+                side_effect=host.NativeAppLifecycleError(
+                    "runtime component uninstall was not durably observed"
+                ),
+            ) as execute,
+        ):
+            body = json.dumps(value, separators=(",", ":")).encode("utf-8")
+            request = Request(
+                f"{self.origin}/__ordax/native/store-lifecycle",
+                data=body,
+                method="POST",
+                headers={"Content-Type": "application/json"},
+            )
+            with self.assertRaises(HTTPError) as context:
+                urlopen(request, timeout=2)
+            self.assertEqual(context.exception.code, 503)
+            self.assertEqual(context.exception.read(), b"")
+        acquire.assert_not_called()
+        execute.assert_called_once()
+
     def test_internal_lifecycle_failure_returns_no_private_error_payload(self) -> None:
         with (
             mock.patch.object(
