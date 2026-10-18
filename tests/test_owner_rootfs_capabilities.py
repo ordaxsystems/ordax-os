@@ -78,6 +78,61 @@ done
             "CONFIG_UDHCPC", "CONFIG_SETSID",
         }.issubset(missing_applets))
 
+
+    def test_helpers_are_manifest_owned_and_owner_sources_include_remote(self) -> None:
+        inventory = capabilities.owner_inventory(ROOT)
+        helpers = inventory["runtime_helpers"]
+        targets = {entry["target"] for entry in helpers}
+        self.assertIn("usr/local/bin/ordax-main-watch", targets)
+        self.assertIn("usr/local/bin/ordax-remote", targets)
+        self.assertIn("ordax/bootstrap/recovery/entrypoint", targets)
+        self.assertIn(
+            "bootstrap/base-update/owner-development/ordax-remote",
+            inventory["sources"],
+        )
+        self.assertIn("sha256sum", inventory["explicit_busybox_applets"])
+        self.assertEqual(len(helpers), len(targets))
+
+    def test_manifest_rejects_duplicate_targets_and_traversal(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            manifest = root / capabilities.DEV_HELPER_MANIFEST
+            manifest.parent.mkdir(parents=True)
+            source = root / "bootstrap/dev-base/ordax-run"
+            source.parent.mkdir(parents=True)
+            source.write_text("#!/bin/sh\\nexit 0\\n", encoding="utf-8")
+            good = "bootstrap/dev-base/ordax-run\\tusr/local/bin/ordax-run\\n"
+            manifest.write_text(good, encoding="utf-8")
+            self.assertEqual(
+                capabilities.owner_runtime_helpers(root),
+                (("bootstrap/dev-base/ordax-run", "usr/local/bin/ordax-run"),),
+            )
+            manifest.write_text(good + good, encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "conflicting"):
+                capabilities.owner_runtime_helpers(root)
+            manifest.write_text(
+                "bootstrap/dev-base/../ordax-run\\tusr/local/bin/ordax-run\\n",
+                encoding="utf-8",
+            )
+            with self.assertRaisesRegex(ValueError, "unsafe"):
+                capabilities.owner_runtime_helpers(root)
+            manifest.write_text(good, encoding="utf-8")
+            source.unlink()
+            source.symlink_to(root / "outside")
+            with self.assertRaisesRegex(ValueError, "unsafe"):
+                capabilities.owner_runtime_helpers(root)
+
+    def test_initial_alpine_seed_and_preflight_consume_canonical_manifest(self) -> None:
+        core = (ROOT / "bootstrap/base/alpine_core.py").read_text(encoding="utf-8")
+        preflight = (ROOT / "tools/ci/preflight_owner_dev.py").read_text(encoding="utf-8")
+        self.assertIn('for helper in inventory["runtime_helpers"]:', core)
+        self.assertIn('helper["source"]', core)
+        self.assertIn('helper["target"]', core)
+        self.assertIn("Owner helper content differs from canonical manifest", core)
+        self.assertNotIn('for name in ("ordax-network", "ordax-pull"', core)
+        self.assertIn('paths = owner_inventory(ROOT)["sources"]', preflight)
+        self.assertNotIn("OWNER_PATHS = (", preflight)
+
     def test_alpine_fallback_verifier_consumes_the_same_inventory(self) -> None:
         text = (ROOT / "bootstrap/base/alpine_core.py").read_text(encoding="utf-8")
         self.assertIn("owner_rootfs_inventory()", text)

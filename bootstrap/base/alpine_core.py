@@ -508,10 +508,10 @@ def install_runtime(rootfs: Path, kernel_modules: Path) -> None:
         selected_members = select_dev_module_members(archive)
         archive.extractall(rootfs, members=selected_members, filter="data")
 
-    copy_script(ROOT / "bootstrap/dev-base/ordax-dev-init", rootfs / "sbin/ordax-dev-init")
-    for name in ("ordax-network", "ordax-pull", "ordax-rollback", "ordax-run", "ordax-diagnose"):
-        copy_script(ROOT / f"bootstrap/dev-base/{name}", rootfs / f"usr/local/bin/{name}")
-    copy_script(ROOT / "bootstrap/recovery/entrypoint", rootfs / "ordax/bootstrap/recovery/entrypoint")
+    # Use exactly the helper map also consumed by live refresh. No parallel copy list.
+    inventory = owner_rootfs_inventory()
+    for helper in inventory["runtime_helpers"]:
+        copy_script(ROOT / helper["source"], rootfs / helper["target"])
 
     for directory in ("workspace", "state", "home", "run", "tmp", "proc", "sys", "dev", "root"):
         path = rootfs / directory
@@ -547,7 +547,10 @@ def owner_rootfs_inventory() -> dict[str, object]:
         raise BuildError("cannot load Owner rootfs capability audit")
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
-    inventory = module.owner_inventory(ROOT)
+    try:
+        inventory = module.owner_inventory(ROOT)
+    except (OSError, ValueError) as exc:
+        raise BuildError(f"Owner helper manifest or capability inventory is invalid: {exc}") from exc
     if inventory["missing_sources"] or inventory["unknown_commands"]:
         raise BuildError(
             "Owner rootfs capability inventory is incomplete: "
@@ -570,22 +573,17 @@ def verify_rootfs(rootfs: Path) -> None:
         raise BuildError(f"rootfs still contains unsafe objects: {bad}")
 
     stage("verify-rootfs-required-executables")
-    required = [
-        "bin/sh",
-        "usr/bin/git",
-        "sbin/ordax-dev-init",
-        "usr/local/bin/ordax-network",
-        "usr/local/bin/ordax-main-watch",
-        "usr/local/bin/ordax-pull",
-        "usr/local/bin/ordax-rollback",
-        "usr/local/bin/ordax-run",
-        "usr/local/bin/ordax-diagnose",
+    inventory = owner_rootfs_inventory()
+    required = ["bin/sh", "usr/bin/git"] + [
+        helper["target"] for helper in inventory["runtime_helpers"]
     ]
     for rel in required:
         path = rootfs / rel
         if not path.is_file() or not os.access(path, os.X_OK):
             raise BuildError(f"required executable missing: /{rel}")
-    inventory = owner_rootfs_inventory()
+    for helper in inventory["runtime_helpers"]:
+        if sha256_file(rootfs / helper["target"]) != sha256_file(ROOT / helper["source"]):
+            raise BuildError(f"Owner helper content differs from canonical manifest: {helper['target']}")
     stage("verify-rootfs-owner-command-closure")
     search_roots = ("bin", "sbin", "usr/bin", "usr/sbin", "usr/local/bin", "usr/local/sbin")
     internal_commands = set(inventory["internal_commands"])

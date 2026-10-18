@@ -33,7 +33,7 @@ SHELL_ONLY = {
 INTERNAL_COMMANDS = {
     "ordax-dev-init", "ordax-network", "ordax-pull", "ordax-rollback",
     "ordax-run", "ordax-diagnose", "ordax-main-watch", "ordax-release-agent",
-    "ordax-portable-state", "entrypoint",
+    "ordax-portable-state", "ordax-remote", "entrypoint",
 }
 BUILDROOT_PROGRAMS = {
     "git": "BR2_PACKAGE_GIT",
@@ -54,6 +54,7 @@ BUSYBOX_SYMBOLS = {
     "od": "CONFIG_OD", "pivot_root": "CONFIG_PIVOT_ROOT", "poweroff": "CONFIG_POWEROFF",
     "printf": "CONFIG_PRINTF",
     "readlink": "CONFIG_READLINK", "reboot": "CONFIG_REBOOT", "rm": "CONFIG_RM",
+    "sha256sum": "CONFIG_SHA256SUM",
     "rmdir": "CONFIG_RMDIR", "sed": "CONFIG_SED", "setsid": "CONFIG_SETSID",
     "sh": "CONFIG_ASH", "sleep": "CONFIG_SLEEP", "stat": "CONFIG_STAT",
     "stty": "CONFIG_STTY", "switch_root": "CONFIG_SWITCH_ROOT", "sync": "CONFIG_SYNC",
@@ -72,6 +73,51 @@ _VAR_RE = re.compile(r"^\$\{?([A-Za-z_][A-Za-z0-9_]*)\}?$")
 CONTROL = {";", ";;", "&&", "||", "|", "(", "{"}
 CLOSERS = {")", "}"}
 
+
+
+DEV_HELPER_MANIFEST = "system/services/base-update/dev-helper-manifest.tsv"
+
+
+def owner_runtime_helpers(root: Path = ROOT) -> tuple[tuple[str, str], ...]:
+    """Canonical, fail-closed Owner helper source/target map for initial seed and refresh."""
+    manifest = root / DEV_HELPER_MANIFEST
+    if manifest.is_symlink() or not manifest.is_file():
+        raise ValueError("canonical Owner helper manifest is missing or unsafe")
+    entries: list[tuple[str, str]] = []
+    sources: set[str] = set()
+    targets: set[str] = set()
+    for lineno, raw in enumerate(manifest.read_text(encoding="utf-8").splitlines(), 1):
+        if not raw or raw.startswith("#"):
+            continue
+        parts = raw.split("\t")
+        if len(parts) != 2:
+            raise ValueError(f"malformed Owner helper manifest line {lineno}")
+        source, target = parts
+        for value in (source, target):
+            if (not value or value.startswith("/") or "\\" in value
+                    or any(part in ("", ".", "..") for part in value.split("/"))):
+                raise ValueError(f"unsafe Owner helper path on line {lineno}")
+        name = source.rsplit("/", 1)[-1]
+        if source == "bootstrap/recovery/entrypoint":
+            expected_target = "ordax/bootstrap/recovery/entrypoint"
+        elif source == "bootstrap/dev-base/ordax-dev-init":
+            expected_target = "sbin/ordax-dev-init"
+        elif (source.startswith(("bootstrap/dev-base/", "bootstrap/base-update/owner-development/"))
+              and name.startswith("ordax-")):
+            expected_target = "usr/local/bin/" + name
+        else:
+            raise ValueError(f"Owner helper source outside canonical policy on line {lineno}")
+        if target != expected_target or source in sources or target in targets:
+            raise ValueError(f"conflicting Owner helper mapping on line {lineno}")
+        path = root / source
+        if path.is_symlink() or not path.is_file() or not (0 < path.stat().st_size <= 1048576):
+            raise ValueError(f"Owner helper source missing, unsafe or oversized: {source}")
+        sources.add(source)
+        targets.add(target)
+        entries.append((source, target))
+    if not entries:
+        raise ValueError("canonical Owner helper manifest must not be empty")
+    return tuple(entries)
 
 def _strip_heredocs(text: str) -> str:
     out: list[str] = []
@@ -324,7 +370,9 @@ def owner_inventory(root: Path = ROOT) -> dict[str, object]:
     all_commands: set[str] = set()
     explicit_busybox: set[str] = set()
     missing_sources: list[str] = []
-    for relative in OWNER_SHELL_SOURCES:
+    runtime_helpers = owner_runtime_helpers(root)
+    sources = tuple(dict.fromkeys((*OWNER_SHELL_SOURCES, *(source for source, _ in runtime_helpers))))
+    for relative in sources:
         path = root / relative
         if path.is_symlink() or not path.is_file():
             missing_sources.append(relative)
@@ -347,6 +395,9 @@ def owner_inventory(root: Path = ROOT) -> dict[str, object]:
         "explicit_busybox_applets": sorted(explicit_busybox),
         "unknown_commands": sorted(all_commands - known),
         "missing_sources": missing_sources,
+        "runtime_helpers": [
+            {"source": source, "target": target} for source, target in runtime_helpers
+        ],
     }
 
 
