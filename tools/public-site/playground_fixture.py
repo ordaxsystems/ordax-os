@@ -154,6 +154,25 @@ def _surface_home() -> dict[str, object]:
                 (app_id, f"app.{app_id}.title")
                 for app_id in re.findall(r'"([a-z][a-z0-9-]*)"', navigation.group(1))
             ]
+    if not rail_matches:
+        # Current Native Home uses one canonical Quick Access source, also
+        # consumed by the live Home actions. Do not duplicate app IDs in this
+        # public fixture or confuse Meridian destinations with launchable apps.
+        quick_access = re.search(
+            r'\bconst QUICK_ACCESS_APP_IDS\s*=\s*Object\.freeze\(\[([^\]]+)\]\);',
+            text,
+        )
+        home_actions = re.search(
+            r'QUICK_ACCESS_APP_IDS\.map\(\(id\)\s*=>\s*railButton\(id,\s*'
+            r't\(\`app\.\$\{id\}\.title\`\),\s*ICONS\[id\],\s*t,\s*'
+            r'"ordax-home-action"\)\)',
+            text,
+        )
+        if quick_access and home_actions:
+            app_ids = re.findall(r'"([a-z][a-z0-9-]*)"', quick_access.group(1))
+            if not app_ids or len(set(app_ids)) != len(app_ids):
+                raise PlaygroundFixtureError("Native Home Quick Access app IDs are invalid")
+            rail_matches = [(app_id, f"app.{app_id}.title") for app_id in app_ids]
     space_matches = SPACE_RE.findall(text)
     area = AREA_RE.search(text)
     command = COMMAND_RE.search(text)
