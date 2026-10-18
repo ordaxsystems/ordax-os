@@ -16,6 +16,7 @@ class SystemDeviceCapabilityServicesTests(unittest.TestCase):
                 "tests/test_device_action_preflight.mjs",
                 "tests/test_installed_app_capability_reader.mjs",
                 "tests/test_native_installed_app_capability_context.mjs",
+                "tests/test_native_capability_mount_lifecycle.mjs",
             ],
             cwd=ROOT,
             check=True,
