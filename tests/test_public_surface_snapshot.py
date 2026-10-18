@@ -53,7 +53,7 @@ class PublicSurfaceSnapshotTests(unittest.TestCase):
         tokens=re.findall(r"name:\s*(?:'([^']+)'|surfaceName\('([^']+)'\))",block)
         shared=(ROOT/'system/services/surface/meridian-navigation.mjs').read_text(encoding='utf-8')
         self.assertIn('...MERIDIAN_RAIL_DESTINATIONS.map(',block)
-        shared_names=re.findall(r"\\{key:'[a-z][a-z0-9-]*',name:'([^']+)'",shared)
+        shared_names=re.findall(r"\{key:'[a-z][a-z0-9-]*',name:'([^']+)'",shared)
         self.assertTrue(shared_names,'Canonical Meridian rail destinations must be declared')
         # One shared owner for Web/Native rail; config adds only other app targets.
         actual=list(shared_names)
