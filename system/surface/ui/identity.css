@@ -554,7 +554,7 @@ body { background: var(--md-canvas); font-weight: 400; }
 .meridian-native-workspace .ordax-home-hero-copy > p:not(.ordax-home-hero-label) { max-width: 430px; margin: 0; color: color-mix(in srgb, var(--md-on-art) 78%, transparent); font-size: .75rem; line-height: 1.55; }
 .meridian-native-workspace .ordax-home-hero-copy .ordax-welcome-action { min-height: 44px; margin-top: 18px; padding: 10px 14px; border: 0; border-radius: 8px; background: var(--md-canvas); color: var(--md-ink); font-size: .6875rem; }
 .meridian-native-workspace .ordax-home-hero-copy .ordax-rail-icon { width: 17px; height: 17px; color: inherit; }
-.meridian-native-workspace .meridian-session-strip { grid-area: session; }
+.meridian-native-workspace .meridian-session-strip { grid-area: session; margin-bottom:0; }
 .meridian-native-workspace .meridian-native-command { grid-area: command; }
 .meridian-native-workspace .ordax-home-meta { grid-area: meta; display: flex; align-self: center; align-items: center; justify-content: flex-end; gap: 14px; min-height: 0; padding: 0; border: 0; background: transparent; box-shadow: none; }
 .meridian-native-workspace .ordax-home-meta-icon { display: grid; place-items: center; width: 48px; height: 48px; flex: 0 0 48px; border-radius: 14px; background: var(--md-sage-soft); color: var(--md-sage); }
