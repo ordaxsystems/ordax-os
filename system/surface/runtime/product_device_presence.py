@@ -97,7 +97,13 @@ class ProductDevicePresenceWorker:
     def start(self) -> None:
         with self._lock:
             if self._thread is not None and self._thread.is_alive():
-                return
+                if not self._stop.is_set():
+                    return
+                # A previous logout is finishing its offline report. Do not
+                # reuse a stopped worker or overlap two device writers.
+                self._thread.join(timeout=11.0)
+                if self._thread.is_alive():
+                    raise ProductDevicePresenceError("device-presence-worker-stopping")
             self._stop.clear()
             worker = threading.Thread(target=self._run, name="ordax-product-presence", daemon=True)
             self._thread = worker
