@@ -24,6 +24,14 @@ Rules are machine-readable in `docs/contracts/module-boundaries.json`.
 Component update contracts follow the same boundary: `component-manifest.mjs` declares identity, version, failure domain and release mode; `component-state-store.mjs` owns persisted slot state; `component-manager.mjs` exposes the neutral runtime port. A semantic version does not by itself grant independent update authority — only `releaseMode: "component-slot"` does.
 `component-runtime-metadata.mjs` is the single shared validator for the read-only Native `current|pending` runtime-component resolution. Services must consume it instead of reimplementing `slot|absent|bundled` identity rules.
 
+O preflight compartilhado de ações é implementado pelo owner de sistema
+`system/services/device-agent/action-preflight.mjs`, consumindo as
+validações existentes em `device-agent.mjs` e
+`device-action-envelope.mjs`. O wrapper legado do Studio não é uma
+autoridade distinta. Este preflight não é uma porta de execução, não
+autentica grants e não habilita ações por qualquer aplicativo.
+Veja `docs/MCP-SYSTEM-CAPABILITIES.md`.
+
 ## Pre-MVP ecosystem contracts
 
 The product foundation also defines narrow provider-neutral ports for the next account/ecosystem layer:

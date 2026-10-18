@@ -554,7 +554,7 @@ body { background: var(--md-canvas); font-weight: 400; }
 .meridian-native-workspace .ordax-home-hero-copy > p:not(.ordax-home-hero-label) { max-width: 430px; margin: 0; color: color-mix(in srgb, var(--md-on-art) 78%, transparent); font-size: .75rem; line-height: 1.55; }
 .meridian-native-workspace .ordax-home-hero-copy .ordax-welcome-action { min-height: 44px; margin-top: 18px; padding: 10px 14px; border: 0; border-radius: 8px; background: var(--md-canvas); color: var(--md-ink); font-size: .6875rem; }
 .meridian-native-workspace .ordax-home-hero-copy .ordax-rail-icon { width: 17px; height: 17px; color: inherit; }
-.meridian-native-workspace .meridian-session-strip { grid-area: session; }
+.meridian-native-workspace .meridian-session-strip { grid-area: session; margin-bottom:0; }
 .meridian-native-workspace .meridian-native-command { grid-area: command; }
 .meridian-native-workspace .ordax-home-meta { grid-area: meta; display: flex; align-self: center; align-items: center; justify-content: flex-end; gap: 14px; min-height: 0; padding: 0; border: 0; background: transparent; box-shadow: none; }
 .meridian-native-workspace .ordax-home-meta-icon { display: grid; place-items: center; width: 48px; height: 48px; flex: 0 0 48px; border-radius: 14px; background: var(--md-sage-soft); color: var(--md-sage); }
@@ -575,7 +575,6 @@ body { background: var(--md-canvas); font-weight: 400; }
 .meridian-native-workspace .meridian-taskbar-start,
 .meridian-native-workspace .meridian-taskbar-end { display: flex; align-items: center; gap: 7px; min-width: 0; }
 .meridian-native-workspace .meridian-taskbar-end { justify-content: flex-end; }
-.meridian-native-workspace .meridian-taskbar-start .ordax-presentation-toggle,
 .meridian-native-workspace .meridian-taskbar-start .ordax-presentation-toggle { width:36px; min-width:36px; height:38px; border:0; border-radius:9px; background:transparent; color:var(--md-muted); }
 .meridian-native-workspace .meridian-taskbar-start .ordax-presentation-toggle[aria-pressed="true"] { background:var(--md-subtle); color:var(--md-ink); }
 .meridian-native-workspace .meridian-taskbar-start .ordax-presentation-toggle:hover { background:var(--md-subtle); color:var(--md-ink); }
@@ -614,7 +613,7 @@ body { background: var(--md-canvas); font-weight: 400; }
 .meridian-native-workspace .meridian-taskbar-system-tray .ordax-tray-network { width:36px; min-width:36px; justify-content:center; padding:0; }
 .meridian-native-workspace .meridian-taskbar-system-tray .ordax-tray-network .ordax-tray-label { display:none; }
 .meridian-native-workspace .meridian-taskbar-system-tray .ordax-tray-network .ordax-tray-icon { color:var(--md-ink); }
-.meridian-native-workspace .meridian-taskbar-end .ordax-native-theme-toggle { width:40px; min-width:40px; height:44px; }
+.meridian-native-workspace .meridian-taskbar-end .ordax-native-theme-toggle { width:36px; min-width:36px; height:36px; }
 .meridian-native-workspace .ordax-quick-panel-layer { inset-block-start:auto; inset-inline-end:18px; bottom:calc(var(--ordax-navigation-height) + 8px); }
 .meridian-native-workspace .ordax-native-navigation-menu { position: fixed; z-index: 180; display: grid; grid-template-rows: auto auto minmax(0,1fr); gap: 14px; width: min(430px, calc(100vw - var(--workspace-rail) - 40px)); max-height: min(660px, calc(100dvh - 100px)); padding: 18px; overflow: hidden; border: 1px solid var(--md-border); border-radius: 16px; background: var(--md-surface); color: var(--md-ink); box-shadow: var(--md-window-shadow); }
 .meridian-native-workspace .ordax-native-navigation-menu[hidden] { display: none; }
@@ -657,7 +656,7 @@ body { background: var(--md-canvas); font-weight: 400; }
   .meridian-native-workspace .meridian-system-search kbd,
   .meridian-native-workspace .meridian-native-location-context { display: none; }
   .meridian-native-workspace .meridian-taskbar-start { overflow: hidden; }
-  .meridian-native-workspace .meridian-native-dock { max-width:100%; padding:2px 4px; }
+  .meridian-native-workspace .meridian-native-dock { max-width:100%; padding:0; }
   .meridian-native-workspace .meridian-dock-shortcuts { gap:2px; }
   .meridian-native-workspace .meridian-dock-shortcuts .ordax-dock-shortcut,
   .meridian-native-workspace .ordax-running-app { width:36px; min-width:36px; height:36px; padding-bottom:3px; }
@@ -674,7 +673,7 @@ body { background: var(--md-canvas); font-weight: 400; }
   .meridian-native-workspace .meridian-system-search > .meridian-native-search-icon { display:grid; }
 }
 @media (max-width: 560px) {
-  .meridian-native-workspace .ordax-home-panel { grid-template-columns: minmax(0, 1fr); grid-template-areas: "intro" "hero" "session" "command" "meta" "quick"; }
+  .meridian-native-workspace .ordax-home-panel { grid-template-columns: minmax(0, 1fr); grid-template-areas: "intro" "meta" "hero" "session" "command" "quick"; }
   .meridian-native-workspace .ordax-home-meta { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
   .meridian-native-workspace .ordax-date { margin: 0; text-align: end; }
 }
@@ -685,10 +684,11 @@ body { background: var(--md-canvas); font-weight: 400; }
   .meridian-native-workspace .ordax-home-panel { padding-inline: 28px; gap: 18px 22px; }
 }
 @container meridian-native-home (max-width: 820px) {
-  .meridian-native-workspace .ordax-home-panel { grid-template-columns: minmax(0, 1fr); grid-template-areas: "intro" "hero" "session" "command" "meta" "quick"; gap: 18px; padding: 28px; }
+  .meridian-native-workspace .ordax-home-panel { grid-template-columns: minmax(0, 1fr); grid-template-areas: "intro" "meta" "hero" "session" "command" "quick"; gap: 18px; padding: 28px; }
   .meridian-native-workspace .ordax-home-panel > .ordax-space:not([data-home-continuation]):not([data-home-pending]),
   .meridian-native-workspace .ordax-home-panel > .ordax-space:is([data-home-continuation],[data-home-pending]) { grid-column: 1; grid-row: auto; }
   .meridian-native-workspace .ordax-home-hero { min-height: 250px; }
+  .meridian-native-workspace .ordax-home-intro { min-height: 0; }
   .meridian-native-workspace .ordax-home-meta { align-self: start; align-items: center; justify-content: flex-start; gap: 14px; min-height: 0; padding: 0; }
   .meridian-native-workspace .ordax-clock { font-size: .75rem; }
   .meridian-native-workspace .ordax-date { text-align: start; }

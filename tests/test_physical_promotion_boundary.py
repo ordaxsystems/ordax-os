@@ -288,6 +288,20 @@ class PhysicalPromotionBoundaryTests(unittest.TestCase):
         )
         self.assertIn("'writer_source_commit': os.environ['GITHUB_SHA']", workflow)
 
+    def test_unsigned_v2_review_bundle_never_claims_signed_v3_usb_readiness(self):
+        workflow = PHYSICAL_PROMOTION_WORKFLOW.read_text(encoding="utf-8")
+        self.assertIn("'prototype-ordax.creator-physical-manifest/2'", workflow)
+        self.assertIn("'creator/physical/portable-windows/2'", workflow)
+        self.assertIn("PHYSICAL_RELEASE_ENVELOPE_PRESENT=NO", workflow)
+        for marker in (
+            "LEGACY_PHYSICAL_V2_PACKAGE_READY_FOR_REVIEW=YES",
+            "PORTABLE_V3_17_SOURCE_RELEASE_READY=NO",
+            "PORTABLE_V3_SIGNED_WRITER_PUBLISHED=NO",
+            "PHYSICAL_USB_WRITE_READY=NO",
+        ):
+            self.assertEqual(workflow.count(marker), 1, marker)
+        self.assertNotIn("PORTABLE_PHYSICAL_RELEASE_PACKAGE_READY_FOR_OFFLINE_SIGNING=YES", workflow)
+
     def test_current_repo_authorization_owner_and_stage_are_consistent(self):
         # Repository identity alone cannot convey consent. The canonical
         # authorization document must explicitly match the evaluated stage.
@@ -312,21 +326,6 @@ class PhysicalPromotionBoundaryTests(unittest.TestCase):
             self.assertFalse(auth["explicit_owner_authorization"])
             self.assertIsNone(auth["authorization_context_sha256"])
             self.assertFalse(status["ready"])
-
-    def test_unsigned_v2_candidate_never_claims_v3_usb_ready(self):
-        workflow = (ROOT / ".github/workflows/physical-write-promotion.yml").read_text(
-            encoding="utf-8"
-        )
-        self.assertIn("'prototype-ordax.creator-physical-manifest/2'", workflow)
-        for marker in (
-            "LEGACY_PHYSICAL_V2_PACKAGE_READY_FOR_REVIEW=YES",
-            "PORTABLE_V3_17_SOURCE_RELEASE_READY=NO",
-            "PORTABLE_V3_SIGNED_WRITER_PUBLISHED=NO",
-            "PHYSICAL_USB_WRITE_READY=NO",
-            "PHYSICAL_RELEASE_ENVELOPE_PRESENT=NO",
-        ):
-            self.assertIn(marker, workflow)
-        self.assertNotIn("PORTABLE_PHYSICAL_RELEASE_PACKAGE_READY_FOR_OFFLINE_SIGNING=YES", workflow)
 
     def test_current_contract_hashes_match_repository_and_authorization_stage(self):
         # Binding proof to the actual source remains mandatory both before
