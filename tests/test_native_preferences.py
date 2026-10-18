@@ -30,6 +30,11 @@ class NativePreferenceTests(unittest.TestCase):
         self.assertFalse(host.valid_preference_record({"nested.value": {"bad": True}}))
         self.assertFalse(host.valid_preference_record({"list.value": [1, 2]}))
         self.assertFalse(host.valid_preference_record({"number.value": math.nan}))
+        self.assertFalse(host.valid_preference_record({"number.value": math.inf}))
+        self.assertTrue(host.valid_preference_record({"text.value": "x" * 4096}))
+        self.assertFalse(host.valid_preference_record({"text.value": "x" * 4097}))
+        self.assertTrue(host.valid_preference_record({f"key.{i}": i for i in range(128)}))
+        self.assertFalse(host.valid_preference_record({f"key.{i}": i for i in range(129)}))
 
     def test_host_preference_write_is_atomic_and_round_trips(self):
         host = load_host_server()
