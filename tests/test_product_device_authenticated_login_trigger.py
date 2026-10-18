@@ -52,9 +52,11 @@ class FakeCoordinator:
         self.calls = []
         self.raises = raises
         self.stop_calls = 0
+        self.wait_values = []
 
-    def stop_presence(self):
+    def stop_presence(self, *, wait=False):
         self.stop_calls += 1
+        self.wait_values.append(wait)
 
     def after_authenticated_login(self, profile: dict):
         self.calls.append(profile)
@@ -107,6 +109,7 @@ class ProductDeviceAuthenticatedLoginTriggerTests(unittest.TestCase):
         self.assertEqual(coordinator.stop_calls, 1)
         proxy.close_product_presence()
         self.assertEqual(coordinator.stop_calls, 2)
+        self.assertEqual(coordinator.wait_values, [False, True]
 
     def test_other_gateway_methods_delegate_unchanged(self):
         gateway = FakeGateway()
