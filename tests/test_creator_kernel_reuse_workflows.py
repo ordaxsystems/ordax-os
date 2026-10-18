@@ -71,9 +71,14 @@ class CreatorKernelReuseWorkflowTests(unittest.TestCase):
             '--kernel-modules "out/kernel/kernel-modules-$ORDAX_KERNEL_VERSION.tar"',
             dev_base,
         )
-        self.assertIn('--seed-from-local "$GITHUB_WORKSPACE" "$GITHUB_SHA"', dev_base)
+        self.assertIn('--seed-from-local "$GITHUB_WORKSPACE" "$ORDAX_OWNER_SOURCE_COMMIT"', dev_base)
         self.assertIn('test -z "$(git -C "$rootfs/workspace/ordax" status --porcelain)"', dev_base)
-        self.assertIn('test "$(cat "$rootfs/state/ordax/current-commit")" = "$GITHUB_SHA"', dev_base)
+        self.assertIn('test "$(cat "$rootfs/state/ordax/current-commit")" = "$ORDAX_OWNER_SOURCE_COMMIT"', dev_base)
+        self.assertIn("ORDAX_OWNER_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}", workflow)
+        self.assertIn('ref: ${{ github.event.pull_request.head.sha || github.sha }}', workflow)
+        self.assertIn('test "$(git -C "$rootfs/workspace/ordax" rev-parse HEAD)" = "$ORDAX_OWNER_SOURCE_COMMIT"', dev_base)
+        self.assertIn('"$target_bytes"', self.step_block(workflow, "Materialize and verify RAW development seed"))
+        self.assertIn('seed_bytes="$(stat -c \'%s\' "$proof/ordax-disposable.raw")"', workflow)
         self.assertNotIn('git clone https://github.com/ordaxsystems/ordax-os.git', dev_base)
         for step in (
             "Derive development Git bootstrap manifest",
