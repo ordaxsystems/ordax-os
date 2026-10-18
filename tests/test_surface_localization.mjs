@@ -145,11 +145,21 @@ for (const locale of SURFACE_COMPLETE_LOCALES) {
         attributes.includes('class="meridian-menu-item"') &&
         expected.some(id => attributes.includes(`data-nav-menu-app="${id}"`)),
       );
-      assert.equal(deviceMenuApps.length, expected.length, "Device-only apps remain available in the destinations menu");
+      // The dedicated System updates shortcut is distinct from its ordinary
+      // device-app destination. Both are canonical menu entries.
+      const ordinaryDeviceApps = deviceMenuApps.filter(([, attributes]) =>
+        !attributes.includes('data-app-target="updates"'),
+      );
+      assert.equal(ordinaryDeviceApps.length, expected.length, "Device apps remain in the destinations menu");
+      const updateDestinations = deviceMenuApps.filter(([, attributes]) =>
+        attributes.includes('data-app-target="updates"'),
+      );
+      assert.equal(updateDestinations.length, 1, "Exactly one System updates shortcut remains");
+      assert.ok(updateDestinations[0][1].includes('data-launch-app="system"'));
       assert.ok(!buttons.some(([, attributes]) => attributes.includes('data-launch-app="internet"')), "Internet stays absent until its portable component is verified");
       assert.ok(!buttons.some(([, attributes]) => attributes.includes('data-launch-app="assistant"')), "Assistant remains unavailable during the remove-first migration gate");
       for (const id of expected) {
-        const matches = deviceMenuApps.filter(([, attributes]) => attributes.includes(`data-nav-menu-app="${id}"`));
+        const matches = ordinaryDeviceApps.filter(([, attributes]) => attributes.includes(`data-nav-menu-app="${id}"`));
         assert.equal(matches.length, 1, `One destination-menu entry for ${id}`);
         const [, attributes, content] = matches[0];
         const title = localization.translate(`app.${id}.title`);
