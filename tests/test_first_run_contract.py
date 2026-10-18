@@ -249,6 +249,10 @@ class FirstRunContractTests(unittest.TestCase):
         self.assertIn('authorizeCommit: draft.accountMode === "identity"', ui)
         self.assertIn("ensureFirstRunLocalIsolation(sessionPort, actionsPort)", ui)
         self.assertIn("void chooseLocalOnly()", ui)
+        native_host = (ROOT / "system" / "surface" / "runtime" / "native_host_server.py").read_text(encoding="utf-8")
+        self.assertIn('else {"email", "password", "legal_acceptance"}', native_host)
+        self.assertIn('payload.get("legal_acceptance") != "accepted"', native_host)
+        self.assertIn("ACCOUNT_REGISTRATION_ENABLED = False", native_host)
         state_service = (ROOT / "system" / "services" / "state" / "first-run.mjs").read_text(encoding="utf-8")
         self.assertIn("export async function persistFirstRunCompletion(", state_service)
         self.assertLess(
