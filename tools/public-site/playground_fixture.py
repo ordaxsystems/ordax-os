@@ -150,13 +150,16 @@ def _surface_home() -> dict[str, object]:
     if (
         "function meridianNavigationMenu(localization, t)" not in text
         or "navigation: meridianNavigation(localization, t)" not in text
-        or "meridianNavigationMenu(localization, t)" not in text
+        or "${meridianNavigationMenu(localization, t)}" not in text
     ):
         raise PlaygroundFixtureError("desktop shell has no canonical Meridian navigation")
     device_apps = DEVICE_APPS_RE.search(text)
     if not device_apps or 't(`app.${id}.title`)' not in text:
         raise PlaygroundFixtureError("desktop shell is missing Meridian device-app metadata")
-    app_ids = DEVICE_APP_ID_RE.findall(device_apps.group(1))
+    raw_ids = device_apps.group(1).strip()
+    if not re.fullmatch(r'"[a-z][a-z0-9-]*"(?:\s*,\s*"[a-z][a-z0-9-]*")*', raw_ids):
+        raise PlaygroundFixtureError("desktop shell has malformed Meridian device-app IDs")
+    app_ids = DEVICE_APP_ID_RE.findall(raw_ids)
     if not app_ids or len(set(app_ids)) != len(app_ids):
         raise PlaygroundFixtureError("desktop shell has empty or duplicated Meridian device apps")
     rail_matches = [(app_id, f"app.{app_id}.title") for app_id in app_ids]
