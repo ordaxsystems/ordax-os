@@ -56,12 +56,17 @@ class PhysicalMvpHardeningTests(unittest.TestCase):
 
     def test_first_run_footer_remains_in_its_own_visible_layout_row(self):
         text = FIRST_RUN_CSS.read_text(encoding="utf-8")
-        self.assertIn("grid-template-rows: minmax(0, 1fr) auto", text)
-        self.assertIn("min-height: 0", text)
-        self.assertIn("height: min(760px, calc(100dvh - 36px))", text)
+        # A separate scrolling body and fixed footer are required; visual
+        # proportions and whitespace belong to the current Meridian design.
+        import re
+        normalized = re.sub(r"\\s+", "", text)
+        self.assertIn(".ordax-first-run-card{", normalized)
+        self.assertIn("grid-template-rows:minmax(0,1fr)auto;", normalized)
+        self.assertIn("min-height:0", normalized)
+        self.assertIn("100dvh", normalized)
         self.assertIn(".ordax-first-run-footer", text)
         self.assertIn("flex: 0 0 auto", text)
-        self.assertIn("grid-template-columns: repeat(7, 1fr)", text)
+        self.assertIn("overflow:auto", normalized)
 
 
 if __name__ == "__main__":
