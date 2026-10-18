@@ -6,6 +6,7 @@ import {
   SURFACE_DESTINATION_IDS,
   getSurfaceDestination,
   getSurfaceWindowTitle,
+  resolveSurfaceWindowTitle,
 } from '../system/services/surface/destination-catalog.mjs';
 import { HOME_SHORTCUTS } from '../system/services/preferences/home-shortcuts.mjs';
 
@@ -27,5 +28,18 @@ test('intelligence presentation resolves to the managed Aura window', () => {
 });
 
 test('unknown destination ids fail closed', () => {
-  assert.throws(() => getSurfaceDestination('missing-destination'), /Unknown Surface destination/);
+  for (const id of ['missing-destination', '__proto__', 'constructor', 'toString']) {
+    assert.throws(() => getSurfaceDestination(id), /Unknown Surface destination/);
+  }
+});
+
+test('managed window titles resolve canonical labels without changing auxiliary panels', () => {
+  for (const id of SURFACE_DESTINATION_IDS) {
+    const { label, windowTitle } = getSurfaceDestination(id);
+    assert.equal(resolveSurfaceWindowTitle(label), windowTitle);
+    assert.equal(resolveSurfaceWindowTitle(windowTitle), windowTitle);
+  }
+  assert.equal(resolveSurfaceWindowTitle('Configurações'), 'Configurações');
+  assert.equal(resolveSurfaceWindowTitle('Minha conta'), 'Minha conta');
+  assert.throws(() => resolveSurfaceWindowTitle(undefined), /Invalid Surface window title/);
 });
