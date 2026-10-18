@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 SPEC = importlib.util.spec_from_file_location(
@@ -133,6 +134,41 @@ class OwnerQemuHandoffTests(unittest.TestCase):
         self.assertIn("self.surface_web_process_failed = True", browser)
         self.assertIn("if host.surface_web_process_failed:", browser)
 
+    def test_same_disposable_disk_is_reused_for_two_real_boots(self):
+        disk = Path("/tmp/only-disposable-usb.raw")
+        with patch.object(PROOF, "prove_guest_boot", side_effect=[
+            {"checks": {"real": True}, "qemu_framebuffer": {"quantized_colors": 50}},
+            {"checks": {"real": True}, "qemu_framebuffer": {"quantized_colors": 50}},
+        ]) as boot:
+            outputs = (
+                (Path("/tmp/first.ppm"), Path("/tmp/first.serial")),
+                (Path("/tmp/second.ppm"), Path("/tmp/second.serial")),
+            )
+            result = PROOF.prove_boot_pair(
+                disk, Path("/tmp/kernel"), Path("/tmp/initramfs"),
+                "a" * 40, Path("/tmp"), outputs, 180,
+            )
+        self.assertEqual(len(result), 2)
+        self.assertEqual(boot.call_count, 2)
+        self.assertEqual([call.args[0] for call in boot.call_args_list], [disk, disk])
+        self.assertNotEqual(boot.call_args_list[0].args[4], boot.call_args_list[1].args[4])
+        self.assertNotEqual(boot.call_args_list[0].args[6], boot.call_args_list[1].args[6])
+
+    def test_second_guest_failure_is_not_reported_as_pass(self):
+        with patch.object(PROOF, "prove_guest_boot", side_effect=[
+            {"checks": {"real": True}, "qemu_framebuffer": {"quantized_colors": 50}},
+            PROOF.ProofError("second offline boot failed"),
+        ]):
+            with self.assertRaisesRegex(PROOF.ProofError, "second offline boot failed"):
+                PROOF.prove_boot_pair(
+                    Path("/tmp/only-disposable-usb.raw"),
+                    Path("/tmp/kernel"), Path("/tmp/initramfs"),
+                    "a" * 40, Path("/tmp"),
+                    ((Path("/tmp/first.ppm"), Path("/tmp/first.serial")),
+                     (Path("/tmp/second.ppm"), Path("/tmp/second.serial"))),
+                    180,
+                )
+
     def test_creator_runs_real_qemu_only_after_disposable_raw_proof(self):
         workflow = (ROOT / ".github/workflows/creator-owner-dev-git.yml").read_text(encoding="utf-8")
         materialize = workflow.index("- name: Materialize and verify RAW development seed")
@@ -142,6 +178,9 @@ class OwnerQemuHandoffTests(unittest.TestCase):
         self.assertLess(qemu, bundle)
         self.assertIn("owner_qemu_offline_boot.py", workflow)
         self.assertIn('--serial-out "$RUNNER_TEMP/owner-qemu-serial.log"', workflow)
+        self.assertIn('--second-serial-out "$RUNNER_TEMP/owner-qemu-second-serial.log"', workflow)
+        self.assertIn("proof['second_offline_boot_proven'] is True", workflow)
+        self.assertIn("proof['second_boot']['same_disposable_disk_reused'] is True", workflow)
         self.assertIn("${{ runner.temp }}/owner-qemu-serial.log", workflow)
         self.assertIn("if: always()", workflow)
         self.assertIn("ORDAX_OWNER_SOURCE_COMMIT", workflow)

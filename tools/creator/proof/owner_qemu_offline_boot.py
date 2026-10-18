@@ -230,6 +230,98 @@ def capture_qmp_framebuffer(socket_path: Path, image_path: Path) -> dict[str, in
         raise ProofError("QEMU screenshot was not created as a regular file")
     return analyze_ppm(image_path)
 
+def prove_guest_boot(
+    disk: Path, kernel: Path, initramfs: Path, source: str,
+    serial: Path, qmp_socket: Path, framebuffer_out: Path, serial_out: Path,
+    timeout_seconds: int,
+) -> dict:
+    """Boot a real isolated guest, prove WebKit and pixels, then close QEMU.
+
+    Both boots in the caller receive the SAME disposable regular-file USB,
+    never a host disk and never a newly reseeded image.
+    """
+    guest = subprocess.Popen(
+        qemu_command(disk, kernel, initramfs, serial, qmp_socket),
+        stdout=subprocess.DEVNULL, stderr=subprocess.PIPE,
+    )
+    try:
+        deadline = time.monotonic() + timeout_seconds
+        checks: dict[str, bool] = {}
+        healthy_since: float | None = None
+        while time.monotonic() < deadline:
+            text = serial.read_text(encoding="utf-8", errors="replace") if serial.exists() else ""
+            checks = observed(text, source)
+            if (not checks["recovery_not_entered"] or not checks["no_surface_restart_or_failure"]
+                    or not checks["webkit_process_not_failed"]):
+                raise ProofError(
+                    "Owner USB entered recovery or Surface failed during offline QEMU boot; "
+                    f"checks={checks}; serial-tail={text[-3500:]!r}"
+                )
+            if (checks["privileged_webkit_page_loaded"] and checks["native_surface_heartbeat"]
+                    and not checks["virtual_drm_transport_selected"]):
+                raise ProofError(
+                    "Owner QEMU active virtio DRM renderer was not selected; "
+                    f"checks={checks}; serial-tail={text[-3500:]!r}"
+                )
+            if all(checks.values()):
+                if healthy_since is None:
+                    healthy_since = time.monotonic()
+                if time.monotonic() - healthy_since >= STABLE_SECONDS:
+                    break
+            else:
+                healthy_since = None
+            if guest.poll() is not None:
+                errors = guest.stderr.read(1500).decode("utf-8", "replace") if guest.stderr else ""
+                raise ProofError(
+                    "QEMU exited before offline Surface handoff; "
+                    f"returncode={guest.returncode}; serial-tail={text[-3500:]!r}; "
+                    f"qemu-stderr={errors!r}"
+                )
+            time.sleep(1)
+        if (not checks or not all(checks.values()) or healthy_since is None
+                or time.monotonic() - healthy_since < STABLE_SECONDS):
+            detail = serial.read_text(encoding="utf-8", errors="replace")[-3500:] if serial.exists() else ""
+            raise ProofError(
+                f"Owner USB offline rendered-health check timed out; checks={checks}; serial-tail={detail!r}"
+            )
+        framebuffer = capture_qmp_framebuffer(qmp_socket, framebuffer_out)
+        return {"checks": checks, "qemu_framebuffer": framebuffer}
+    finally:
+        # A QEMU process stop and new process constitute a *virtual cold
+        # power-cycle*, not a claim of graceful guest shutdown. Wait until
+        # all guest disk handles close before the next boot on the SAME disk.
+        if guest.poll() is None:
+            guest.terminate()
+            try:
+                guest.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                guest.kill()
+                guest.wait(timeout=5)
+        if guest.stderr is not None:
+            guest.stderr.close()
+        # Capture serial after process exit, on success AND failure.
+        if serial.is_file() and not serial_out.exists():
+            with serial.open("rb") as guest_serial, serial_out.open("xb") as evidence:
+                evidence.write(guest_serial.read(128 * 1024))
+
+
+def prove_boot_pair(
+    disk: Path, kernel: Path, initramfs: Path, source: str,
+    temporary_root: Path, outputs: tuple[tuple[Path, Path], tuple[Path, Path]],
+    timeout_seconds: int,
+) -> list[dict]:
+    """Two separate real QEMU launches using a single, already-verified disk."""
+    boots = []
+    for index, (framebuffer_out, serial_out) in enumerate(outputs, start=1):
+        boots.append(prove_guest_boot(
+            disk, kernel, initramfs, source,
+            temporary_root / f"boot-{index}.serial",
+            temporary_root / f"boot-{index}.qmp.sock",
+            framebuffer_out, serial_out, timeout_seconds,
+        ))
+    return boots
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--raw", type=Path, required=True)
@@ -240,6 +332,8 @@ def main() -> int:
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--framebuffer-out", type=Path, required=True)
     parser.add_argument("--serial-out", type=Path, required=True)
+    parser.add_argument("--second-framebuffer-out", type=Path, required=True)
+    parser.add_argument("--second-serial-out", type=Path, required=True)
     parser.add_argument("--timeout-seconds", type=int, default=210)
     args = parser.parse_args()
 
@@ -253,106 +347,63 @@ def main() -> int:
         raw_sha = validate(
             args.raw, args.media_proof, args.kernel, args.initramfs, args.source_commit
         )
-        if args.output.exists() or args.output.is_symlink():
-            raise ProofError("proof output exists; refusing overwrite")
-        if not args.output.parent.is_dir() or args.output.parent.is_symlink():
-            raise ProofError("proof output parent is unavailable or unsafe")
-        if (args.framebuffer_out.exists() or args.framebuffer_out.is_symlink()
-                or args.framebuffer_out.parent != args.output.parent):
-            raise ProofError("framebuffer destination must be new and beside the proof receipt")
-        if (args.serial_out.exists() or args.serial_out.is_symlink()
-                or args.serial_out.parent != args.output.parent):
-            raise ProofError("serial evidence destination must be new and beside the proof receipt")
+        outputs = (
+            (args.framebuffer_out, args.serial_out),
+            (args.second_framebuffer_out, args.second_serial_out),
+        )
+        evidence = [args.output, *(path for pair in outputs for path in pair)]
+        if len(set(evidence)) != len(evidence):
+            raise ProofError("Owner evidence destinations must be distinct")
+        for path in evidence:
+            if path.exists() or path.is_symlink():
+                raise ProofError(f"Owner evidence destination already exists: {path}")
+            if path.parent != args.output.parent or not path.parent.is_dir() or path.parent.is_symlink():
+                raise ProofError("all Owner QEMU evidence must be new and in one safe directory")
+
         with tempfile.TemporaryDirectory(prefix="ordax-owner-qemu-") as temporary:
             root = Path(temporary)
-            disk, serial, qmp_socket = (
-                root / "usb.raw", root / "serial.log", root / "monitor.sock"
-            )
+            disk = root / "usb.raw"
             subprocess.run(
                 ["cp", "--sparse=always", "--reflink=auto", "--", str(args.raw), str(disk)],
                 check=True, timeout=80,
             )
             if digest(disk) != raw_sha:
                 raise ProofError("QEMU guest disk copy does not match verified Owner seed")
-            command = qemu_command(
-                disk, regular(args.kernel, "kernel"), regular(args.initramfs, "initramfs"),
-                serial, qmp_socket
+            kernel = regular(args.kernel, "kernel")
+            initramfs = regular(args.initramfs, "initramfs")
+            boots = prove_boot_pair(
+                disk, kernel, initramfs, args.source_commit, root, outputs,
+                args.timeout_seconds,
             )
-            guest = subprocess.Popen(
-                command, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE
-            )
-            try:
-                deadline = time.monotonic() + args.timeout_seconds
-                checks: dict[str, bool] = {}
-                healthy_since: float | None = None
-                while time.monotonic() < deadline:
-                    text = serial.read_text(encoding="utf-8", errors="replace") if serial.exists() else ""
-                    checks = observed(text, args.source_commit)
-                    if (not checks["recovery_not_entered"] or not checks["no_surface_restart_or_failure"]
-                            or not checks["webkit_process_not_failed"]):
-                        # The guest is disposable and the tail is limited; emit
-                        # the genuine kernel/initramfs/UI cause before removal.
-                        raise ProofError(
-                            "Owner USB entered recovery or Surface failed during offline QEMU boot; "
-                            f"checks={checks}; serial-tail={text[-3500:]!r}"
-                        )
-                    if (checks["privileged_webkit_page_loaded"] and checks["native_surface_heartbeat"]
-                            and not checks["virtual_drm_transport_selected"]):
-                        raise ProofError(
-                            "Owner QEMU active virtio DRM renderer was not selected; "
-                            f"checks={checks}; serial-tail={text[-3500:]!r}"
-                        )
-                    if all(checks.values()):
-                        if healthy_since is None:
-                            healthy_since = time.monotonic()
-                        if time.monotonic() - healthy_since >= STABLE_SECONDS:
-                            break
-                    else:
-                        healthy_since = None
-                    if guest.poll() is not None:
-                        detail = text[-3500:]
-                        errors = guest.stderr.read(1500).decode("utf-8", "replace") if guest.stderr else ""
-                        raise ProofError(
-                            "QEMU exited before offline Surface handoff; "
-                            f"returncode={guest.returncode}; serial-tail={detail!r}; qemu-stderr={errors!r}"
-                        )
-                    time.sleep(1)
-                if not checks or not all(checks.values()) or healthy_since is None or time.monotonic() - healthy_since < STABLE_SECONDS:
-                    detail = serial.read_text(encoding="utf-8", errors="replace")[-3500:] if serial.exists() else ""
-                    raise ProofError(f"Owner USB offline rendered-health check timed out; checks={checks}; serial-tail={detail!r}")
-                framebuffer = capture_qmp_framebuffer(qmp_socket, args.framebuffer_out)
-                report = {
-                    "$schema": SCHEMA, "status": "pass",
-                    "source_commit": args.source_commit,
-                    "raw_sha256": raw_sha, "checks": checks,
+            report = {
+                "$schema": SCHEMA, "status": "pass",
+                "source_commit": args.source_commit,
+                "raw_sha256": raw_sha,
+                "checks": boots[0]["checks"],
+                "healthy_observation_seconds": STABLE_SECONDS,
+                "qemu_framebuffer": boots[0]["qemu_framebuffer"],
+                "graphical_framebuffer_varied_proven": True,
+                "second_offline_boot_proven": True,
+                "second_boot": {
+                    "checks": boots[1]["checks"],
                     "healthy_observation_seconds": STABLE_SECONDS,
-                    "qemu_framebuffer": framebuffer,
-                    "graphical_framebuffer_varied_proven": True,
-                    "network_device_attached": False,
-                    "physical_device_touched": False,
-                    "physical_write_authorized": False,
-                    "qemu_boot_scope": "direct-kernel-owner-initramfs-to-real-surface-heartbeat",
-                    "welcome_screen_rendered_proven": False,
-                    "notebook_boot_proven": False,
-                }
-                args.output.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-                print("ORDAX_OWNER_QEMU_OFFLINE_HANDOFF=PASS")
-                return 0
-            finally:
-                # Preserve real guest serial diagnostics on BOTH outcomes.
-                # No synthetic markers, disks, credentials or runtime state.
-                if serial.is_file() and not args.serial_out.exists():
-                    with serial.open("rb") as guest_serial, args.serial_out.open("xb") as evidence:
-                        evidence.write(guest_serial.read(128 * 1024))
-                if guest.poll() is None:
-                    guest.terminate()
-                    try:
-                        guest.wait(timeout=5)
-                    except subprocess.TimeoutExpired:
-                        guest.kill()
-                        guest.wait(timeout=5)
-                if guest.stderr is not None:
-                    guest.stderr.close()
+                    "qemu_framebuffer": boots[1]["qemu_framebuffer"],
+                    "same_disposable_disk_reused": True,
+                    "qemu_process_restarted": True,
+                },
+                "network_device_attached": False,
+                "physical_device_touched": False,
+                "physical_write_authorized": False,
+                "qemu_boot_scope": "direct-kernel-owner-initramfs-to-real-surface-heartbeat",
+                "virtual_power_cycle_only": True,
+                "first_run_completion_persistence_proven": False,
+                "welcome_screen_rendered_proven": False,
+                "notebook_boot_proven": False,
+            }
+            args.output.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+            print("ORDAX_OWNER_QEMU_OFFLINE_HANDOFF=PASS")
+            print("ORDAX_OWNER_QEMU_SECOND_BOOT=PASS")
+            return 0
     except (OSError, ProofError, ValueError, json.JSONDecodeError, subprocess.SubprocessError) as exc:
         print(f"ORDAX_OWNER_QEMU_OFFLINE_HANDOFF=FAIL: {exc}", file=sys.stderr)
         return 1
