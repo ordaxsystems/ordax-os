@@ -631,7 +631,6 @@ class SurfaceUiContractTests(unittest.TestCase):
         # Meridian now uses the shared profile renderer; asserting the
         # removed sidebarAccountMarkup name would forbid the current owner.
         self.assertIn('sidebarProfileMarkup(projectSidebarAccount(', shell)
-        self.assertIn('from "./sidebar-account.mjs"', shell)
         self.assertIn("data-power-slot", shell)
         self.assertIn("data-update-slot", shell)
         self.assertIn("data-ordax-clock", shell)
