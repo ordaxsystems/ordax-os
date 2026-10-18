@@ -192,8 +192,11 @@ class ProductDeviceIdentityStore:
             return None
         return {"device_id": device_id, "device_token": token}
 
-    def connector_visibility_enabled(self) -> bool:
+    def connector_visibility_enabled(self, subject: str | None = None) -> bool:
         """Read private Owner opt-in; missing/malformed state fails closed."""
+        if not isinstance(subject, str) or not UUID_RE.fullmatch(subject):
+            return False
+        subject = str(uuid.UUID(subject))
         path = self.connector_visibility_path
         flags = os.O_RDONLY | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NOFOLLOW", 0)
         try:
@@ -216,16 +219,20 @@ class ProductDeviceIdentityStore:
             os.close(descriptor)
         return (
             isinstance(payload, dict)
-            and set(payload) == {"schema", "enabled"}
+            and set(payload) == {"schema", "enabled", "subject"}
             and payload["schema"] == "ordax.product-connector-visibility/1"
             and payload["enabled"] is True
+            and payload["subject"] == subject
         )
 
-    def set_connector_visibility(self, enabled: bool) -> None:
+    def set_connector_visibility(self, enabled: bool, subject: str | None = None) -> None:
         """Persist only device discoverability, never OAuth or action grants."""
         if type(enabled) is not bool:
             raise TypeError("connector visibility must be a boolean")
+        if enabled and (not isinstance(subject, str) or not UUID_RE.fullmatch(subject)):
+            raise ValueError("connector requires an authenticated account subject")
         self._atomic_write(self.connector_visibility_path, {
             "schema": "ordax.product-connector-visibility/1",
             "enabled": enabled,
+            "subject": str(uuid.UUID(subject)) if enabled else None,
         })
