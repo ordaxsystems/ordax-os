@@ -160,6 +160,9 @@ class ProductDeviceAccountGatewayProxy:
     def configure_connector_visibility(self, enabled: bool) -> dict:
         if type(enabled) is not bool:
             raise ValueError("invalid-connector-visibility")
+        if not enabled:
+            # Local privacy opt-out must work even when the cloud session expires.
+            return self._coordinator.configure_visibility(False, {})
         if not self._authenticated:
             raise PermissionError("connector-account-login-required")
         # Canonical session validation is required even after previous login.
