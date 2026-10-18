@@ -31,7 +31,7 @@ function requireServerRevision(value) {
   return value;
 }
 
-function recoverPersistedState(store, fallbackRevision) {
+function recoverPersistedState(store, fallbackRevision, { failClosed = false } = {}) {
   if (!store) {
     return { serverRevision: fallbackRevision, mutations: [] };
   }
@@ -56,6 +56,9 @@ function recoverPersistedState(store, fallbackRevision) {
       mutations: value.mutations.map(validateAppearanceSyncMutation),
     };
   } catch {
+    if (failClosed) {
+      return { serverRevision: fallbackRevision, mutations: [], recoveryBlocked: true };
+    }
     return { serverRevision: fallbackRevision, mutations: [] };
   }
 }
@@ -101,7 +104,10 @@ export function createPreferenceSyncRuntime(
         partitionKey: currentSubject,
       })))
     : (syncStateStore === null ? null : assertSyncStateStore(syncStateStore));
-  const recovered = recoverPersistedState(store, requireServerRevision(initialServerRevision));
+  const recovered = recoverPersistedState(
+    store, requireServerRevision(initialServerRevision), { failClosed: partitioned },
+  );
+  let recoveryBlocked = recovered.recoveryBlocked === true;
   let serverRevision = recovered.serverRevision;
   let queue = createSyncMutationQueue(recovered.mutations);
   let destroyed = false;
@@ -120,6 +126,7 @@ export function createPreferenceSyncRuntime(
   });
 
   const persist = () => {
+    if (recoveryBlocked) return false;
     if (!store) {
       if (partitioned && currentSubject !== null) {
         sessionPartitions.set(currentSubject, {
@@ -150,7 +157,7 @@ export function createPreferenceSyncRuntime(
 
   const queueTheme = (theme) => {
     // Guest/device changes remain local, never become anonymous cloud mutations.
-    if (partitioned && currentSubject === null) return;
+    if (partitioned && (currentSubject === null || recoveryBlocked)) return;
     const mutation = createAppearanceSyncMutation({
       theme,
       baseServerRevision: serverRevision,
@@ -182,13 +189,16 @@ export function createPreferenceSyncRuntime(
     const nextStore = nextSubject === null || syncStateRegistry === null ? null
       : assertSyncStateStore(syncStateRegistry.open("appearance", { partitionKey: nextSubject }));
     const next = nextStore
-      ? recoverPersistedState(nextStore, requireServerRevision(initialServerRevision))
+      ? recoverPersistedState(nextStore, requireServerRevision(initialServerRevision), {
+          failClosed: true,
+        })
       : (sessionPartitions.get(nextSubject) ?? {
         serverRevision: requireServerRevision(initialServerRevision),
         mutations: [],
       });
     currentSubject = nextSubject;
     store = nextStore;
+    recoveryBlocked = next.recoveryBlocked === true;
     serverRevision = next.serverRevision;
     queue = createSyncMutationQueue(next.mutations);
     lastTheme = preferences.getSnapshot()[APPEARANCE_PREFERENCE_ID];
@@ -222,7 +232,7 @@ export function createPreferenceSyncRuntime(
       return queue.snapshot();
     },
     acknowledge(idempotencyKey, nextServerRevision) {
-      if (partitioned && currentSubject === null) return false;
+      if (partitioned && (currentSubject === null || recoveryBlocked)) return false;
       const revision = requireServerRevision(nextServerRevision);
       const removed = queue.acknowledge(idempotencyKey);
       if (!removed) return false;
@@ -232,6 +242,7 @@ export function createPreferenceSyncRuntime(
       return true;
     },
     rebasePending(nextServerRevision) {
+      if (recoveryBlocked) return false;
       const revision = requireServerRevision(nextServerRevision);
       const pending = queue.snapshot();
       serverRevision = revision;
@@ -244,6 +255,9 @@ export function createPreferenceSyncRuntime(
       return true;
     },
     applyRemoteAppearance(value) {
+      if (recoveryBlocked) {
+        throw new Error("Account appearance coordination requires explicit recovery");
+      }
       const remote = validateAppearanceSyncObject(value);
       if (remote.tombstone) return false;
       if (queue.snapshot().length > 0) {
@@ -262,7 +276,7 @@ export function createPreferenceSyncRuntime(
       return true;
     },
     async flushDurably() {
-      if (partitioned && currentSubject === null) return false;
+      if (recoveryBlocked || (partitioned && currentSubject === null)) return false;
       if (store === null) return !partitioned;
       if (partitioned && store.scope !== "device") return false;
       if (!lastSaveAccepted) return false;
