@@ -513,6 +513,18 @@ body { background: var(--md-canvas); font-weight: 400; }
 .meridian-native-workspace .meridian-native-area-menu .ordax-area-button:hover { background:var(--md-subtle); }
 .meridian-native-workspace .meridian-native-area-menu .ordax-area-add { justify-content:center; border-color:var(--md-border); }
 .meridian-native-workspace .meridian-system-search { justify-self:center; width:100%; min-width:0; }
+.meridian-native-workspace .meridian-system-search {
+  height:42px; gap:12px; padding:0; border:0; border-radius:0; background:transparent;
+  box-shadow:none; color:var(--md-muted); text-align:left; font-size:.6875rem;
+}
+.meridian-native-workspace .meridian-system-search:hover,
+.meridian-native-workspace .meridian-system-search[aria-expanded="true"] { background:transparent; color:var(--md-ink); }
+.meridian-native-workspace .meridian-system-search kbd {
+  padding:2px 5px; border:1px solid var(--md-border); border-radius:4px;
+  color:var(--md-muted); font: .5625rem var(--md-font); white-space:nowrap;
+}
+.meridian-native-workspace .meridian-system-location > [data-current-destination] { color:var(--md-ink); font-size:.75rem; font-weight:600; }
+.meridian-native-workspace .meridian-system-location > i { color:var(--md-border-strong); font-size:.72rem; }
 .meridian-native-workspace .meridian-system-search .meridian-native-search-icon { display:grid; place-items:center; flex:0 0 17px; width:17px; height:17px; }
 .meridian-native-workspace .meridian-system-search > span:not(.meridian-native-search-icon) { flex:1; min-width:0; white-space:nowrap; }
 .meridian-native-search-icon svg { width:17px; height:17px; fill:none; stroke:currentColor; stroke-width:1.6; stroke-linecap:round; stroke-linejoin:round; }
@@ -577,6 +589,13 @@ body { background: var(--md-canvas); font-weight: 400; }
 .meridian-native-workspace .meridian-dock-shortcuts .ordax-dock-shortcut[data-open-window]::after { position:absolute; bottom:2px; left:calc(50% - 6px); width:12px; height:3px; border-radius:3px; background:var(--md-accent); content:""; }
 .meridian-native-workspace .meridian-dock-shortcuts .ordax-rail-icon { display:grid; place-items:center; width:32px; height:32px; color:var(--md-ink); }
 .meridian-native-workspace .meridian-dock-shortcuts .ordax-rail-icon svg { width:21px; height:21px; }
+.meridian-native-workspace .meridian-dock-shortcuts .ordax-dock-shortcut .ordax-rail-icon { border-radius:8px; }
+.meridian-native-workspace [data-dock-pinned-app="studio"] .ordax-rail-icon { background:var(--md-accent-soft); color:var(--md-accent); }
+.meridian-native-workspace [data-dock-pinned-app="files"] .ordax-rail-icon { background:var(--md-sage-soft); color:var(--md-sage); }
+.meridian-native-workspace [data-dock-pinned-app="store"] .ordax-rail-icon { background:var(--md-amber-soft); color:var(--md-amber); }
+.meridian-native-workspace [data-dock-pinned-app="account"] .ordax-rail-icon { background:var(--md-rose-soft); color:var(--md-rose); }
+.meridian-native-workspace [data-dock-pinned-app="settings"] .ordax-rail-icon { background:var(--md-slate-soft); color:var(--md-slate); }
+.meridian-native-workspace [data-dock-pinned-app="system"] .ordax-rail-icon { background:var(--md-blue-soft); color:var(--md-blue); }
 .meridian-native-workspace .meridian-dock-shortcuts .ordax-dock-shortcut > span:last-child { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; }
 .meridian-native-workspace .meridian-dock-divider { width:1px; height:25px; flex:0 0 1px; margin-inline:3px; background:var(--md-border); }
 .meridian-native-workspace .ordax-dock-launcher { display:grid; place-items:center; width:44px; min-width:44px; height:44px; padding:0; border:1px solid transparent; border-radius:10px; background:transparent; color:var(--md-muted); }

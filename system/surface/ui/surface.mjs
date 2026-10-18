@@ -718,7 +718,7 @@ export function mountSurface(
     const currentDestination = root.querySelector("[data-current-destination]");
     if (currentDestination) {
       const activeApp = activeWindow ? catalog.get(activeWindow.appId) : null;
-      currentDestination.textContent = activeApp ? appTitle(localization, activeApp) : localization.translate("shell.home.title");
+      currentDestination.textContent = activeApp ? appTitle(localization, activeApp) : "Central";
     }
     for (const button of root.querySelectorAll("[data-sidebar-app]")) {
       const appId = button.dataset.sidebarApp;
