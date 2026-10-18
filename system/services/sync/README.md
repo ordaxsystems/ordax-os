@@ -43,6 +43,14 @@ The Native account composition now reuses the **same canonical `ordax.sync-state
 - On unavailable identity, the Surface fails closed to guest windows instead of displaying the last signed-in subject's targets. Corrupt local account partitions remain preserved and cannot be silently overwritten. If localStorage is inaccessible, records remain volatile and separated only for that runtime.
 - These partitions implement **logical UI/data routing**, not filesystem encryption or OS user permissions. People sharing the same USB/browser storage can still inspect localStorage using privileged development access. Protecting arbitrary device files and per-person local secrets requires its own account/OS permission architecture and physical tests. No public-cloud rollout is enabled by this change.
 
+### Live two-client proof (manual; not simulated CI)
+
+The existing `.github/workflows/account-sync-two-client-proof.yml` is the sole **live provider** proof entry point. It is `workflow_dispatch` only and requires a dedicated non-production proof account through `ORDAX_PROOF_ACCOUNT_EMAIL` and `ORDAX_PROOF_ACCOUNT_PASSWORD` GitHub secrets. The script `tools/account-sync/prove_two_clients.py` holds separate in-memory cookie jars for sessions A and B, asserts A→B incremental creation and tombstone delivery, and never publishes account identifiers or bearer credentials.
+
+The producer step exposes the **actual generated receipt path** through `GITHUB_OUTPUT`. Validation and artifact upload consume that one producer output, rather than assuming one step's local environment variable exists in another step. Gateway URLs must be HTTPS with no embedded userinfo, query or fragment; credential-bearing HTTP redirects are rejected. The proof uploads only the sanitized receipt with source commit and delivery cursors.
+
+The pull-request CI exercises the producer-output contract, URL validation and redirect-denial with a disposable loopback server **without real credentials**. This does *not* count as the live provider proof. No claim of two authenticated real sessions or production cloud rollout is made until the manual proof is run successfully and its independent receipt is reviewed. Physical USB operation, filesystem isolation, password recovery and account lifecycle promotion remain separate gates.
+
 ### Conflict boundary
 
 Memory does not use the automatic rebase policy used by Appearance/preferences/workspace metadata. A concurrent/divergent Memory object is quarantined and blocks canonical account cursor advancement until the domain conflict is explicitly resolved.
