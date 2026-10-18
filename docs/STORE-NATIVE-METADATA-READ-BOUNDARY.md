@@ -19,9 +19,9 @@ O serviço consultava o estado Native dos componentes em sequência, de modo que
 
 O adaptador existente `system/adapters/native/verified-app-store-catalog.mjs` é o único leitor do snapshot Native verificado. Quando inicia um refresh após um estado `ready`, ele publica **sincronamente** `unavailable/native-store-catalog-refreshing` antes de aguardar a rede local/verificador. Isso notifica a projeção da Loja, que esconde imediatamente ações e observações temporárias de `current`; nem a UI nem o primeiro provisionamento podem reutilizar o catálogo antigo no intervalo. Uma falha de transporte permanece `unavailable`, nunca elegível. Leituras concorrentes são ordenadas por geração: resposta antiga não restaura versão/candidatos depois da mais recente.
 
-O encerramento do adaptador revoga o snapshot (`native-store-catalog-disposed`), avisa assinantes e impede novas consultas Native. Nenhuma dessas transições altera a sequência monotônica de publicação, substitui o verificador, modifica estado de instalação ou concede instalação à Loja. A autoridade Native permanece intacta.
+O encerramento do adaptador revoga o snapshot (`native-store-catalog-disposed`), avisa assinantes e impede novas consultas Native. A projeção derivada `verified-store-projection.mjs` também revoga seu próprio snapshot ao ser destruída (`verified-store-projection-disposed`), eliminando a possibilidade de uma porta antiga continuar apresentando ações de instalação após o teardown. Nenhuma dessas transições altera a sequência monotônica de publicação, substitui o verificador, modifica estado de instalação ou concede instalação à Loja. A autoridade Native permanece intacta.
 
-Provas: `node --test tests/test_native_verified_app_store_catalog.mjs tests/test_native_store_catalog_composition.mjs`. Incluem fetch pendente, refreshes concorrentes, descarte durante leitura, invalidação instantânea das ações e recuperação apenas após novo snapshot verificado.
+Provas: `node --test tests/test_native_verified_app_store_catalog.mjs tests/test_native_store_catalog_composition.mjs tests/test_verified_store_projection.mjs`. Incluem fetch pendente, refreshes concorrentes, descarte durante leitura, invalidação instantânea das ações e recuperação apenas após novo snapshot verificado.
 
 ## Evidência automatizada
 
