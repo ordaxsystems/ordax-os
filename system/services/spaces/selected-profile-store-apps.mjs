@@ -7,6 +7,13 @@ const EMPTY = Object.freeze([]);
 // This is a presentation join only, not a per-Space installation inventory.
 // The Account owns selected Space/profilePack; Profile owns references;
 // the Store owns device/runtime installation observations.
+/**
+ * @param {{
+ *   space?: ReturnType<typeof import("../../contracts/spaces.mjs").validateSpace> | null;
+ *   profileEntries?: ReturnType<typeof import("../../contracts/profile-pack-catalog.mjs").validateProfilePackCatalogList>;
+ *   storeSnapshot?: ReturnType<typeof import("../../contracts/app-store.mjs").validateAppStoreCatalogSnapshot>;
+ * }} [input]
+ */
 export function projectSelectedSpaceProfileStoreApps({ space = null, profileEntries, storeSnapshot } = {}) {
   if (space === null) return Object.freeze({ state: "no-selection", profileTitle: null, storeState: null, entries: EMPTY });
   const selected = validateSpace(space);
