@@ -95,7 +95,8 @@ def qemu_command(
         "-kernel", str(kernel), "-initrd", str(initramfs),
         "-append", (
             "console=ttyS0,115200n8 rdinit=/init ordax.mode=normal "
-            "ordax.distribution_profile=owner-development"
+            "ordax.distribution_profile=owner-development "
+            "ordax.owner_qemu_graphics_probe=1"
         ),
         "-drive", f"if=none,id=ownerusb,format=raw,file={image}",
         "-device", "qemu-xhci,id=owner-xhci",
