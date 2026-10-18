@@ -158,3 +158,47 @@ test("host caller and policy decision reject accessor and symbol-based identity 
   });
   await assert.rejects(() => hostilePolicy.capabilities(), /fields are incompatible/);
 });
+
+
+test("guest OS session is scoped explicitly and cannot reuse another account grant", async () => {
+  const guest = { ...caller(), accountId: null, spaceId: null };
+  const readerPort = createInstalledAppCapabilityReader({
+    resolveCaller: async () => guest,
+    readAllowedCapabilities: async identity => decision(identity, [{ id: "notes.read", modes: ["read"] }]),
+    capabilityReader: reader(),
+  });
+  assert.deepEqual((await readerPort.capabilities()).capabilities,
+    [{ id: "notes.read", modes: ["read"] }]);
+  const crossAccount = createInstalledAppCapabilityReader({
+    resolveCaller: async () => guest,
+    readAllowedCapabilities: async identity => decision(
+      { ...identity, accountId: "other-account" }, [{ id: "notes.read", modes: ["read"] }],
+    ),
+    capabilityReader: reader(),
+  });
+  await assert.rejects(() => crossAccount.capabilities(), /not bound to the verified caller/);
+});
+
+test("OS account, Space or package change during in-flight policy read fails closed", async () => {
+  let current = caller();
+  const initial = current;
+  const port = createInstalledAppCapabilityReader({
+    resolveCaller: async () => current,
+    readAllowedCapabilities: async identity => {
+      current = { ...initial, spaceId: "changed-space" };
+      return decision(identity, [{ id: "orders.update", modes: ["write"] }]);
+    },
+    capabilityReader: reader(),
+  });
+  await assert.rejects(() => port.capabilities(), /changed during capability discovery/);
+  current = initial;
+  const afterUninstall = createInstalledAppCapabilityReader({
+    resolveCaller: async () => current,
+    readAllowedCapabilities: async identity => {
+      current = null;
+      return decision(identity, [{ id: "orders.update", modes: ["write"] }]);
+    },
+    capabilityReader: reader(),
+  });
+  await assert.rejects(() => afterUninstall.capabilities(), /not a plain data object|must be a plain data object/);
+});
