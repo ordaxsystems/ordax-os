@@ -108,6 +108,22 @@ class OwnerQemuHandoffTests(unittest.TestCase):
             with self.assertRaisesRegex(PROOF.ProofError, "already exists"):
                 PROOF.capture_qmp_framebuffer(Path(tmp) / "unused.sock", path)
 
+    def test_owner_webkit_events_are_real_privileged_load_callbacks_only(self):
+        browser = (ROOT / "system/surface/runtime/ordax_browser_host.py").read_text(encoding="utf-8")
+        command = PROOF.qemu_command(
+            Path("/tmp/usb.raw"), Path("/tmp/vmlinuz"),
+            Path("/tmp/initrd.gz"), Path("/tmp/serial"),
+        )
+        self.assertIn("ordax.owner_qemu_graphics_probe=1", command[command.index("-append") + 1])
+        self.assertIn('if distribution_profile != "owner-development":', browser)
+        self.assertIn('"/dev/ttyS0"', browser)
+        self.assertIn('self.surface_view.connect("load-changed", self.on_surface_load_changed)', browser)
+        self.assertIn('self.surface_view.connect("load-failed", self.on_surface_load_failed)', browser)
+        self.assertIn('self.surface_view.connect("web-process-terminated", self.on_surface_web_process_terminated)', browser)
+        self.assertIn('emit_owner_graphics_probe(self.owner_graphics_probe_enabled, event)', browser)
+        self.assertIn("self.surface_web_process_failed = True", browser)
+        self.assertIn("if host.surface_web_process_failed:", browser)
+
     def test_creator_runs_real_qemu_only_after_disposable_raw_proof(self):
         workflow = (ROOT / ".github/workflows/creator-owner-dev-git.yml").read_text(encoding="utf-8")
         materialize = workflow.index("- name: Materialize and verify RAW development seed")
