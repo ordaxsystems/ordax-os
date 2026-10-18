@@ -108,6 +108,8 @@ PROFILE_ACTIVATION_COMMAND_PATH = "/__ordax/native/profile-activation-command"
 SYNC_STATE_PATH = "/__ordax/native/sync-state"
 SYNC_CHECKPOINT_PATH = "/__ordax/native/sync-checkpoint"
 ACCOUNT_SESSION_PATH = "/auth/session"
+PRODUCT_CONNECTOR_SETTINGS_PATH = "/__ordax/native/product-connector"
+MAX_PRODUCT_CONNECTOR_SETTINGS_BODY = 128
 ACCOUNT_REGISTRATION_POLICY_PATH = "/auth/registration-policy"
 ACCOUNT_LOGIN_PATH = "/auth/login"
 ACCOUNT_REGISTER_PATH = "/auth/register"
@@ -600,7 +602,7 @@ def read_preferences() -> dict:
             payload = json.load(handle)
     except FileNotFoundError:
         return {}
-    except (OSError, json.JSONDecodeError):
+    except (OSError, UnicodeError, json.JSONDecodeError):
         return {}
     return payload if valid_preference_record(payload) else {}
 
@@ -611,12 +613,22 @@ def write_preferences(preferences: dict) -> None:
     directory = os.path.dirname(PREFERENCES_FILE)
     os.makedirs(directory, mode=0o700, exist_ok=True)
     temporary = f"{PREFERENCES_FILE}.tmp.{os.getpid()}.{threading.get_ident()}"
-    with open(temporary, "w", encoding="utf-8") as handle:
-        json.dump(preferences, handle, separators=(",", ":"), sort_keys=True, allow_nan=False)
-        handle.write("\n")
-        handle.flush()
-        os.fsync(handle.fileno())
-    os.replace(temporary, PREFERENCES_FILE)
+    try:
+        with open(temporary, "w", encoding="utf-8") as handle:
+            # Preferences are device-local user data; do not depend on umask.
+            os.fchmod(handle.fileno(), 0o600)
+            json.dump(preferences, handle, separators=(",", ":"), sort_keys=True, allow_nan=False)
+            handle.write("\n")
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary, PREFERENCES_FILE)
+    finally:
+        # On a failed replace, keep the last durable record and remove only
+        # this writer's uncommitted candidate. Never touch the destination.
+        try:
+            os.unlink(temporary)
+        except FileNotFoundError:
+            pass
     try:
         directory_fd = os.open(directory, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
     except OSError:
@@ -3757,6 +3769,19 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
 
     def do_GET(self) -> None:  # noqa: N802
         parsed_path = urlsplit(self.path).path
+        if parsed_path == PRODUCT_CONNECTOR_SETTINGS_PATH:
+            if urlsplit(self.path).query or self.client_address[0] != "127.0.0.1":
+                self._empty(403)
+                return
+            status_reader = getattr(self.server.account_gateway, "connector_status", None)
+            if not callable(status_reader):
+                self._empty(503)
+                return
+            try:
+                self._write_json(200, status_reader())
+            except (OSError, TypeError, ValueError):
+                self._empty(503)
+            return
         if parsed_path.startswith(NATIVE_LOCAL_AI_PREFIX + "/"):
             self._serve_local_ai("GET", parsed_path)
             return
@@ -4445,6 +4470,25 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
             return
 
         parsed_path = urlsplit(self.path).path
+        if parsed_path == PRODUCT_CONNECTOR_SETTINGS_PATH:
+            if urlsplit(self.path).query:
+                self._empty(400)
+                return
+            configure = getattr(self.server.account_gateway, "configure_connector_visibility", None)
+            if not callable(configure):
+                self._empty(503)
+                return
+            body = self._read_json_body(MAX_PRODUCT_CONNECTOR_SETTINGS_BODY)
+            if body is None or set(body) != {"enabled"} or type(body["enabled"]) is not bool:
+                self._empty(400)
+                return
+            try:
+                self._write_json(200, configure(body["enabled"]))
+            except PermissionError:
+                self._empty(401)
+            except (OSError, RuntimeError, TypeError, ValueError):
+                self._empty(503)
+            return
         if parsed_path.startswith(NATIVE_LOCAL_AI_PREFIX + "/"):
             self._serve_local_ai("POST", parsed_path)
             return

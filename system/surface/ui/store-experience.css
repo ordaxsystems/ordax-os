@@ -1,0 +1,12 @@
+/* Shared Store chrome and layout for Web and Native; all paint uses Meridian. */
+.ordax-store-experience {min-width:0;min-height:0;container-type:inline-size;color:var(--md-ink);background:var(--md-canvas);font-family:var(--ordax-font,var(--os-font,Inter,sans-serif));}
+.ordax-store-context {display:flex;align-items:center;justify-content:space-between;gap:16px;padding:16px 22px;border-bottom:1px solid var(--md-border);background:var(--md-surface);}
+.ordax-store-context strong {font-size:14px;font-weight:600;}
+.ordax-store-context p {margin:4px 0 0;font-size:12px;line-height:1.5;color:var(--md-muted);}
+.ordax-store-context button {flex-shrink:0;min-height:44px;padding:10px 14px;border:1px solid var(--md-border);border-radius:10px;background:var(--md-subtle);color:var(--md-ink);font:inherit;font-size:12px;cursor:pointer;}
+.ordax-store-context button:focus-visible {outline:2px solid var(--md-focus);outline-offset:2px;}
+.ordax-store-experience [hidden] {display:none!important;}
+.ordax-store-experience [data-store-preview-status] {padding:24px;color:var(--md-muted);}
+.ordax-store-experience [data-store-preview-host] {display:block;height:760px;max-height:calc(100dvh - 220px);min-height:400px;}
+.ordax-store-experience [data-store-official] {--ordax-app-bg:var(--md-canvas);--ordax-text:var(--md-ink);--ordax-muted:var(--md-muted);--ordax-rail-bg:var(--md-surface);--ordax-border-soft:var(--md-border);--ordax-subtle-bg:var(--md-subtle);--ordax-card-bg:var(--md-surface);}
+@container (max-width:600px) {.ordax-store-context {align-items:flex-start;flex-direction:column;padding:14px 16px;gap:10px;}.ordax-store-context button {width:100%;}}

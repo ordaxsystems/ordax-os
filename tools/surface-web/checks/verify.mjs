@@ -85,6 +85,17 @@ for (const entry of provenance.files) {
   if (entry.path === 'src/lib/intelligence/ai.functions.ts' || Object.hasOwn(provenance.excluded_files ?? {}, entry.path)) continue;
   let bytes = await readFile(new URL(entry.path.replace(/^src\//, ''), sourceRoot));
   const sha = value => createHash('sha256').update(value).digest('hex');
+  if (entry.adaptedSha256) {
+    assert.match(entry.sha256, /^[a-f0-9]{64}$/, 'Adaptations retain the upstream digest');
+    assert.ok(entry.adaptation, 'Adapted reference requires its migration explanation');
+    assert.equal(sha(bytes.toString('utf8').replace(/\r\n/g, '\n')), entry.adaptedSha256, 'Adapted reference drift: ' + entry.path);
+    if (entry.runtime) {
+      const runtime = await readFile(new URL(entry.runtime.target, root), 'utf8');
+      assert.equal(sha(runtime.replace(/\r\n/g, '\n')), entry.runtime.sha256, 'Shared runtime drift: ' + entry.runtime.target);
+    }
+    verified++;
+    continue;
+  }
   const candidates = [sha(bytes)];
   if (!entry.path.startsWith('src/assets/')) {
     // Normalize both the source and recorded edits before reversing multiline changes.

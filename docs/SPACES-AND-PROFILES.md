@@ -353,3 +353,7 @@ The **Space structure is native OrdaX core**, not an app packaged by the Store. 
 **OS/Base updates are a fourth independent lane** and never depend on a vertical app being available. An app fault does not prevent boot or unrelated Spaces. No new Store or Space update API is implied by this architecture rule; the updater and lifecycle gates must be implemented and proven separately.
 
 This division is machine-readable under `update_ownership` in the existing `docs/contracts/spaces-and-profile-packs.json`; do not create another competing Space/app ownership registry.
+
+### Inventory enforcement — Store remains the only app delivery owner
+
+The Profile component inventory contract refuses `kind: "app"` records. Such records are not proof of Store installation, availability, entitlement or trust, and cannot satisfy Profile provisioning. Profile inventory continues to cover only knowledge/skill/model packs and connectors. Installed applications and individual updates remain projections of the canonical App Store/Native lifecycle, never inferred from Profile manifests or receipts.

@@ -1,10 +1,10 @@
 import { items, sections, copy, kindMeta, operationSteps } from './preview-data.js';
 import { advanceQueue, cancelRequest } from './session.js';
 import { icon as meridianIcon } from './icons.mjs';
-import { initialStore, storeReducer, statusOf, activeOps } from '../../../lib/store/state.ts';
-import { searchCatalog, evaluateModel, platformLabel } from '../../../lib/store/catalog.ts';
+import { initialStore, storeReducer, statusOf, activeOps } from '../../../lib/store/state.mjs';
+import { searchCatalog, evaluateModel, platformLabel } from '../../../lib/store/catalog.mjs';
 import { listFirstRunDefaultAppIds } from '../../../../../services/apps/first-run-selection.mjs';
-import logo from '../../../../ui/brand/ordax-symbol.png';
+const logo = new URL('../../../../ui/brand/ordax-symbol.png', import.meta.url).href;
 
 /** Session-only presentation shared by the standalone page and the system Store. */
 export function mountStorePresentation(root, { embedded = false, material = 'paper' } = {}) {

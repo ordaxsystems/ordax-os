@@ -9,6 +9,7 @@ import {
 } from "../system/services/preferences/catalog.mjs";
 import { resolveRegionalTimeZone } from "../system/services/preferences/regional.mjs";
 import { createWebPreferenceStore } from "../system/adapters/web/preferences.mjs";
+import { MAX_PREFERENCE_ENTRIES, MAX_PREFERENCE_STRING_LENGTH, validatePreferenceRecord } from "../system/contracts/preference-store.mjs";
 
 const REGIONAL_DEFAULTS = Object.freeze({
   "regional.locale": "pt-BR",
@@ -191,4 +192,30 @@ test("memory automatic capture preference persists through the shared store", ()
     recoverPreferenceSnapshot({ "memory.auto-capture": "invalid" })["memory.auto-capture"],
     "on",
   );
+});
+
+test("bounded preference records share finite number, key and Unicode text semantics across hosts", () => {
+  const valid = { "test.null": null, "test.bool": true, "test.number": -0.5, "test.string": "abc" };
+  assert.deepEqual(validatePreferenceRecord(valid), valid);
+  for (const value of [NaN, Infinity, -Infinity]) {
+    assert.throws(() => validatePreferenceRecord({ "test.number": value }), /scalar/);
+  }
+  assert.equal(validatePreferenceRecord({ "test.text": "x".repeat(MAX_PREFERENCE_STRING_LENGTH) })["test.text"].length, 4096);
+  assert.throws(() => validatePreferenceRecord({ "test.text": "x".repeat(MAX_PREFERENCE_STRING_LENGTH + 1) }), /scalar/);
+  assert.doesNotThrow(() => validatePreferenceRecord({ "test.emoji": "😀".repeat(MAX_PREFERENCE_STRING_LENGTH) }));
+  assert.throws(() => validatePreferenceRecord({ "test.emoji": "😀".repeat(MAX_PREFERENCE_STRING_LENGTH + 1) }), /scalar/);
+  const full = Object.fromEntries(Array.from({ length: MAX_PREFERENCE_ENTRIES }, (_, i) => [`key.${i}`, i]));
+  assert.equal(Object.keys(validatePreferenceRecord(full)).length, MAX_PREFERENCE_ENTRIES);
+  assert.throws(() => validatePreferenceRecord({ ...full, "key.extra": 1 }), /entry limit/);
+});
+
+test("Web store refuses invalid Native preference shapes without corrupting last good record", () => {
+  const storage = new FakeStorage();
+  const store = createWebPreferenceStore({ localStorage: storage });
+  assert.equal(store.save({ "appearance.theme": "dark" }), true);
+  for (const value of [NaN, Infinity, -Infinity]) {
+    assert.throws(() => store.save({ "test.number": value }), TypeError);
+  }
+  assert.throws(() => store.save({ "test.text": "a".repeat(MAX_PREFERENCE_STRING_LENGTH + 1) }), TypeError);
+  assert.deepEqual(store.load(), { "appearance.theme": "dark" });
 });

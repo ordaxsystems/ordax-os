@@ -177,6 +177,9 @@ type appRefreshState struct {
 	PhysicalMode     string
 	BackendDirectory string
 	PortablePayload  *physicalchannel.PortablePayloadManifest
+	// Retain the exact already-verified physical manifest for fail-closed
+	// revalidation of the privileged writer before preparation and UAC.
+	PhysicalCandidate *physicalchannel.Installed
 }
 
 type physicalBackendReadiness struct {

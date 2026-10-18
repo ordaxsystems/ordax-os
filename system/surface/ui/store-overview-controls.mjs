@@ -240,7 +240,9 @@ export function mountStoreOverviewControls(
   modelHardwareReader = null,
   modelMetricsPort = null,
   appActivationPort = null,
+  resolveSlot = null,
 ) {
+  if (resolveSlot !== null && typeof resolveSlot !== "function") throw new TypeError("Store slot resolver must be a function");
   const catalog = assertAppStoreCatalogPort(catalogPort);
   const lifecycle = assertSurfaceRenderLifecycle(surfaceLifecycle);
   const localization = lifecycle.localization;
@@ -354,7 +356,7 @@ export function mountStoreOverviewControls(
   const render = () => {
     if (destroyed) return;
     const windowNode = root.querySelector(STORE_WINDOW_SELECTOR);
-    const slot = windowNode?.querySelector(STORE_EXTENSION_SELECTOR) ?? null;
+    const slot = resolveSlot ? resolveSlot() : windowNode?.querySelector(STORE_EXTENSION_SELECTOR) ?? null;
     if (!slot) {
       mountedSlot = null;
       return;

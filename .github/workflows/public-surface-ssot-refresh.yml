@@ -1,0 +1,76 @@
+name: Public Surface SSOT Refresh
+
+# One approved generator for derived public artifacts. Never hand-edit hashes.
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/public-surface-ssot-refresh.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: public-surface-ssot-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    # Derived artifacts are created on feature branches only. Main remains protected.
+    if: github.repository == 'ordaxsystems/ordax-os' && github.ref != 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout same branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Node 22
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Python 3.12
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.12'
+          check-latest: false
+
+      - name: Install locked dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Validate typed Connector adapter before generating presentation
+        run: node --test tests/test_product_connector_adapter.mjs
+
+      - name: Run canonical snapshot and fixture generators
+        run: |
+          set -euo pipefail
+          node tools/public-site/surface_snapshot.mjs
+          python tools/public-site/playground_fixture.py --write
+          python tools/public-site/playground_fixture.py
+
+      - name: Commit only generated public artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          git add -- sites/public/assets/surface-snapshot.json sites/public/assets/surface-snapshot.css \
+            sites/public/assets/public-surface-day.jpg sites/public/assets/public-surface-night.jpg \
+            sites/public/assets/public-space-city.jpg sites/public/assets/playground-fixture.json \
+            sites/public/index.html sites/public/i18n/catalog.js
+          git diff --cached --check
+          if git diff --cached --quiet; then
+            echo 'PUBLIC_SURFACE_SSOT=ALREADY_CURRENT'
+            exit 0
+          fi
+          git config user.name 'ordax-ssot-bot'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'chore(public): regenerate canonical Surface artifacts'
+          # A short-lived GitHub CLI credential helper uses the job token from
+          # environment. Checkout never persists credentials into the worktree.
+          gh auth setup-git --hostname github.com
+          git push origin HEAD:"${GITHUB_REF_NAME}"
+          echo 'PUBLIC_SURFACE_SSOT=UPDATED'

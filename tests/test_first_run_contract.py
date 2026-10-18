@@ -261,30 +261,16 @@ class FirstRunContractTests(unittest.TestCase):
         self.assertIn("getCurrentObservations()", composition)
         self.assertIn("currentObservations = Object.freeze([])", projection)
         self.assertIn('firstRunAppSelection.installedByThisPlan !== false', first_run)
-        # First Run may phrase this summary differently across Meridian
-        # revisions, but it must explicitly say display does not install apps.
-        no_install_messages = (
-            "Nenhum aplicativo adicional foi instalado.",
-            "Esta lista é informativa e não instala aplicativos.",
-        )
-        self.assertTrue(any(message in first_run for message in no_install_messages))
+        self.assertIn("Esta lista é informativa e não instala aplicativos.", first_run)
         self.assertNotIn("installApp(", first_run)
-        # Assert the actual UI labels are translated in all four locales.
-        # Their copy may evolve with Meridian without changing the no-install
-        # invariant or requiring a second source of truth for the labels.
-        for candidate_labels in (
-            ("Aplicativos essenciais",),
-            ("Pacotes independentes confirmados:", "Aplicativos independentes verificados:"),
-            ("Candidatos verificados para futura distribuição:",),
-            ("Remoção preservada ou fora do primeiro uso:", "Removidos ou fora desta configuração:"),
-            ("Ainda sem comprovação de distribuição:", "Distribuição ainda não verificada:"),
+        for text in (
+            "Aplicativos essenciais",
+            "Aplicativos independentes verificados:",
+            "Candidatos verificados para futura distribuição:",
+            "Removidos ou fora desta configuração:",
+            "Distribuição ainda não verificada:",
         ):
-            active = [text for text in candidate_labels if text in first_run]
-            self.assertEqual(len(active), 1)
-            self.assertEqual(
-                translated.count(json.dumps(active[0], ensure_ascii=False) + ":"),
-                4,
-            )
+            self.assertEqual(translated.count(json.dumps(text, ensure_ascii=False) + ":"), 4)
 
     def test_branding_records_first_run_without_claiming_early_graphics(self):
         branding = json.loads(BRANDING.read_text(encoding="utf-8"))

@@ -14,7 +14,10 @@
     "device_profile_contract": "system/contracts/device-profile.mjs",
     "device_profile_adapter": "system/adapters/native/device-profile.mjs",
     "journey": "system/services/first-run/journey.mjs",
-    "capabilities": "system/services/first-run/capabilities.mjs"
+    "capabilities": "system/services/first-run/capabilities.mjs",
+    "visual_tokens": "system/surface/ui/meridian.tokens.css",
+    "visual_styles": "system/surface/ui/first-run.css",
+    "native_composition": "system/composition/native/index.html"
   },
   "resume_cursor": {
     "schema": "ordax.first-run-cursor/1",

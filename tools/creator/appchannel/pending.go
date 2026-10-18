@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/ordaxsystems/ordax-os/tools/creator/internal/atomicfile"
 )
 
 const (
@@ -200,7 +202,7 @@ func AcquirePending(client *http.Client, root, envelopeURL string, trustBytes []
 	if _, err := installedFrom(actualRoot, verifyManifest); err != nil {
 		return Installed{}, false, err
 	}
-	if err := writeEnvelopeAtomic(filepath.Join(actualRoot, pendingEnvelopeName), verifyBytes); err != nil {
+	if err := atomicfile.Replace(filepath.Join(actualRoot, pendingEnvelopeName), verifyBytes); err != nil {
 		return Installed{}, false, err
 	}
 	return installed, true, nil
@@ -236,7 +238,7 @@ func PromotePending(root, expectedSourceCommit string, trustBytes []byte, expect
 			return Installed{}, errors.New("current Creator app matches pending identity but its version slot is damaged; refusing in-place repair")
 		}
 		if _, err := installedFrom(actualRoot, currentManifest); err == nil {
-			if err := writeEnvelopeAtomic(filepath.Join(actualRoot, previousEnvelopeName), currentBytes); err != nil {
+			if err := atomicfile.Replace(filepath.Join(actualRoot, previousEnvelopeName), currentBytes); err != nil {
 				return Installed{}, fmt.Errorf("preserve previous signed Creator app: %w", err)
 			}
 		} else {
@@ -248,7 +250,7 @@ func PromotePending(root, expectedSourceCommit string, trustBytes []byte, expect
 		return Installed{}, fmt.Errorf("signed current Creator app identity is invalid; refusing pending promotion: %w", currentEnvelopeErr)
 	}
 
-	if err := writeEnvelopeAtomic(filepath.Join(actualRoot, currentEnvelopeName), pendingBytes); err != nil {
+	if err := atomicfile.Replace(filepath.Join(actualRoot, currentEnvelopeName), pendingBytes); err != nil {
 		return Installed{}, err
 	}
 	if err := os.Remove(filepath.Join(actualRoot, pendingEnvelopeName)); err != nil && !errors.Is(err, os.ErrNotExist) {

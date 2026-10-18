@@ -70,6 +70,12 @@ function action(documentObject, label, id, primary = false) {
   return button;
 }
 
+function availabilityPanel(documentObject, title, detail) {
+  const panel = el(documentObject, "article", "ordax-first-run-availability");
+  panel.append(el(documentObject, "strong", "", title), el(documentObject, "p", "", detail));
+  return panel;
+}
+
 function signalLabel(dbm) {
   if (dbm >= -50) return "Sinal forte";
   if (dbm >= -60) return "Sinal bom";
@@ -253,7 +259,12 @@ export function mountFirstRunExperience(
   const renderProgress = () => {
     progress.replaceChildren();
     const brand = el(documentObject, "div", "ordax-first-run-brand");
-    brand.append(el(documentObject, "strong", "", "OrdaX"), el(documentObject, "span", "", "Primeiro uso"));
+    const mark = el(documentObject, "div", "ordax-first-run-brand-mark");
+    const symbol = el(documentObject, "img", "");
+    symbol.src = new URL("./brand/ordax-symbol.png", import.meta.url).href;
+    symbol.alt = "";
+    mark.append(symbol, el(documentObject, "strong", "", "OrdaX"));
+    brand.append(mark, el(documentObject, "span", "", "Primeiro uso"));
     const list = el(documentObject, "ol", "ordax-first-run-steps");
     STEP_LABELS.forEach((label, index) => {
       const item = el(documentObject, "li", "", label);
@@ -268,7 +279,7 @@ export function mountFirstRunExperience(
     body.append(heading(
       "Bem-vindo",
       "Seu OrdaX começa aqui.",
-      "Vamos configurar este pendrive para uso diário. O MVP executa pelo USB e não instala o sistema no SSD, NVMe ou HD interno.",
+      "Escolha o idioma e prepare seu OrdaX para começar.",
     ));
     const grid = el(documentObject, "div", "ordax-first-run-grid");
     [
@@ -287,7 +298,7 @@ export function mountFirstRunExperience(
     body.append(heading(
       "Idioma e região",
       "Ajuste idioma e horário.",
-      "Este assistente de primeiro uso já está disponível nos idiomas listados. A tradução do restante da Surface é expandida separadamente.",
+      "Escolha como o OrdaX apresenta os textos e o horário. Você pode alterar essas opções depois em Ajustes.",
     ));
     const form = el(documentObject, "div", "ordax-first-run-form");
     const localeField = el(documentObject, "label", "ordax-first-run-field");
@@ -365,14 +376,13 @@ export function mountFirstRunExperience(
     body.append(heading(
       "Rede",
       "Conecte-se agora ou continue offline.",
-      "A rede é opcional. Este passo usa o mesmo broker Native de Wi-Fi da Surface; não existe um segundo gerenciador exclusivo do assistente.",
+      "Escolha uma rede Wi-Fi para acessar os serviços online. Você também pode continuar offline e conectar depois em Ajustes.",
     ));
     if (!capabilitySnapshot.networkManagement) {
-      body.append(el(
+      body.append(availabilityPanel(
         documentObject,
-        "p",
-        "ordax-first-run-notice",
-        "O gerenciamento de Wi-Fi não está disponível neste host. Continue offline e configure a rede quando o adapter estiver disponível.",
+        "Wi-Fi",
+        "Não é possível configurar o Wi-Fi nesta sessão. Você pode continuar; nenhuma conexão será alterada.",
       ));
       return;
     }
@@ -406,6 +416,7 @@ export function mountFirstRunExperience(
       const button = action(documentObject, entry.ssid, "network-select");
       button.dataset.firstRunSsid = entry.ssid;
       button.dataset.selected = String(selectedSsid === entry.ssid);
+      button.setAttribute("aria-pressed", String(selectedSsid === entry.ssid));
       button.disabled = networkPending || entry.connected;
       button.append(el(
         documentObject,
@@ -440,17 +451,15 @@ export function mountFirstRunExperience(
   const renderSecurity = (body) => {
     body.append(heading(
       "Segurança local",
-      "Proteja esta sessão sem depender da Conta.",
-      "Você pode configurar um PIN ou senha local agora. A credencial fica neste dispositivo. "
-        + "Este bloqueio protege a Surface em execução e não criptografa os arquivos do pendrive.",
+      "Proteja seu OrdaX.",
+      "Use um PIN ou senha local para proteger a sessão do OrdaX. A credencial fica neste dispositivo e não criptografa os arquivos do pendrive.",
     ));
 
     if (!capabilitySnapshot.localSession || !localSessionSnapshot) {
-      body.append(el(
+      body.append(availabilityPanel(
         documentObject,
-        "p",
-        "ordax-first-run-note",
-        "O owner de sessão local não está disponível nesta execução. Você pode continuar e configurar depois em Ajustes quando ele estiver disponível.",
+        "Segurança local",
+        "O bloqueio local não está disponível nesta sessão. Nenhum PIN ou senha será criado ao continuar.",
       ));
       return;
     }
@@ -459,7 +468,7 @@ export function mountFirstRunExperience(
       const configured = el(documentObject, "article", "ordax-first-run-account");
       configured.append(
         el(documentObject, "strong", "", "Bloqueio local configurado"),
-        el(documentObject, "p", "", "A próxima inicialização da Surface começará bloqueada e exigirá esta credencial local."),
+        el(documentObject, "p", "", "Na próxima inicialização, use seu PIN ou senha local para desbloquear o OrdaX."),
       );
       body.append(configured);
       return;
@@ -518,14 +527,14 @@ export function mountFirstRunExperience(
     body.append(heading(
       "Conta OrdaX",
       "A conta é opcional.",
-      "Continuar sem conta é uma rota oficial do produto. Entrar e Criar conta só ficam ativos quando um provedor real anunciar essas capacidades.",
+      "Entre com sua Conta OrdaX ou comece sem conta. Seus aplicativos locais continuam disponíveis sem internet.",
     ));
     const state = el(documentObject, "article", "ordax-first-run-account");
     const copy = sessionSnapshot.state === "signed-in"
       ? `Conta autenticada como ${sessionSnapshot.displayName}.`
       : sessionSnapshot.state === "signed-out"
-        ? "O host oferece identidade, mas nenhuma sessão está ativa."
-        : "A identidade online ainda não está configurada neste host.";
+        ? "Entre para usar sua Conta OrdaX neste dispositivo."
+        : "O acesso à Conta OrdaX ainda não está disponível nesta sessão.";
     state.append(
       el(documentObject, "strong", "", sessionSnapshot.state === "signed-in" ? sessionSnapshot.displayName : "Conta OrdaX"),
       el(documentObject, "p", "", copy),
@@ -570,7 +579,7 @@ export function mountFirstRunExperience(
         const legal = el(documentObject, "div", "ordax-first-run-legal");
         legal.append(
           el(documentObject, "strong", "", "Documentos vigentes"),
-          el(documentObject, "p", "", "Leia os documentos canônicos antes de criar sua Conta OrdaX."),
+          el(documentObject, "p", "", "Leia os Termos e a Política de Privacidade antes de criar sua conta."),
         );
         const links = el(documentObject, "div", "ordax-first-run-legal-links");
         const privacy = documentObject.createElement("a");
@@ -617,9 +626,6 @@ export function mountFirstRunExperience(
       );
       buttons.append(signIn, register);
     }
-    const local = action(documentObject, "Continuar sem conta", "account-local");
-    local.disabled = identityPending !== null;
-    buttons.append(local);
     body.append(buttons);
 
     if (
@@ -631,7 +637,7 @@ export function mountFirstRunExperience(
         documentObject,
         "p",
         "ordax-first-run-note",
-        "Nenhuma senha fictícia é solicitada: as ações online permanecem desativadas até existir integração real de identidade.",
+        "Você pode começar sem conta e entrar depois em Ajustes. Entrar e criar conta ficam disponíveis quando o serviço de conta estiver conectado.",
       ));
     }
   };
@@ -639,30 +645,33 @@ export function mountFirstRunExperience(
   const renderPrivacy = (body) => {
     body.append(heading(
       "Privacidade",
-      "Local primeiro.",
-      "Este assistente não ativa sincronização, backup ou cobrança. Identidade online e proteção local do dispositivo permanecem responsabilidades separadas.",
+      "Você no controle.",
+      "Escolha como o OrdaX usa a memória local. Esta configuração não ativa sincronização, backup ou cobrança.",
     ));
     const grid = el(documentObject, "div", "ordax-first-run-grid");
     [
       ["Dados locais", "Arquivos, Notas e preferências continuam no armazenamento persistente do USB."],
-      ["Conta independente", "O uso local não depende de sessão cloud e não deve falhar quando a internet cair."],
-      ["Sem disco interno", "A instalação permanente continua fora do MVP e não é oferecida neste fluxo."],
+      ["Conta independente", "Seus aplicativos locais continuam disponíveis sem conta e sem internet."],
+      ["Sem disco interno", "Esta configuração não instala o OrdaX no disco interno do computador."],
     ].forEach(([title, detail]) => {
       const item = el(documentObject, "article", "ordax-first-run-tile");
       item.append(el(documentObject, "strong", "", title), el(documentObject, "p", "", detail));
       grid.append(item);
     });
-    body.append(grid);
 
-    const memory = el(documentObject, "article", "ordax-first-run-tile");
+    const memory = el(documentObject, "article", "ordax-first-run-memory");
     memory.dataset.firstRunPrivacyMemory = "";
     memory.append(
       el(documentObject, "strong", "", "Memória automática"),
-      el(documentObject, "p", "", "Permite registrar memórias úteis localmente. Você pode alterar esta opção depois em Configurações."),
+      el(documentObject, "p", "", "Permite à OrdaX Intelligence registrar memórias úteis localmente, conforme as permissões do dispositivo. Você pode alterar esta opção em Ajustes."),
     );
-    const memoryChoice = el(documentObject, "label", "ordax-first-run-field");
+    memory.querySelector("p").id = "ordax-first-run-memory-description";
+    const memoryChoice = el(documentObject, "label", "ordax-first-run-memory-choice");
     const memoryToggle = documentObject.createElement("input");
     memoryToggle.type = "checkbox";
+    memoryToggle.setAttribute("role", "switch");
+    memoryToggle.setAttribute("aria-label", translateFirstRunText(draft.locale, "Memória automática"));
+    memoryToggle.setAttribute("aria-describedby", "ordax-first-run-memory-description");
     memoryToggle.checked = memoryAutoCaptureEnabled(preferencePort.getSnapshot());
     memoryToggle.dataset.firstRunMemoryAutoCapture = "";
     memoryChoice.append(
@@ -670,20 +679,19 @@ export function mountFirstRunExperience(
       el(documentObject, "span", "", memoryToggle.checked ? "Ativada" : "Desativada"),
     );
     memory.append(memoryChoice);
-    body.append(memory);
+    body.append(memory, grid);
   };
 
   const renderName = (body) => {
     body.append(heading(
       "Nome do dispositivo",
       "Identifique este OrdaX.",
-      "O nome é salvo pelo perfil nativo do dispositivo e não entra no recibo do First Run.",
+      "Dê um nome fácil de reconhecer ao seu dispositivo. Você pode alterá-lo depois em Ajustes.",
     ));
     if (!capabilitySnapshot.deviceProfile || !deviceProfilePort || !deviceProfileSnapshot) {
-      body.append(el(
+      body.append(availabilityPanel(
         documentObject,
-        "p",
-        "ordax-first-run-note",
+        "Nome do dispositivo",
         "O nome do dispositivo está indisponível agora. O OrdaX manterá o nome já gerenciado pelo sistema.",
       ));
       return;
@@ -709,8 +717,8 @@ export function mountFirstRunExperience(
   const renderReady = (body) => {
     body.append(heading(
       "Tudo pronto",
-      "Seu espaço está preparado.",
-      "O assistente só desaparece depois que o estado de conclusão for gravado com sucesso no armazenamento persistente do pendrive.",
+      "Revise suas escolhas.",
+      "Confira as opções abaixo. Ao entrar, o OrdaX salva a conclusão desta configuração no pendrive.",
     ));
     const summary = el(documentObject, "dl", "ordax-first-run-summary");
     const localeLabel = REGIONAL_LOCALE_OPTIONS.find((entry) => entry.value === draft.locale)?.label ?? draft.locale;
@@ -726,21 +734,21 @@ export function mountFirstRunExperience(
     });
     body.append(summary);
     if (firstRunAppSelection !== null) {
-      const appSummary = el(documentObject, "section", "ordax-first-run-tile");
+      const appSummary = el(documentObject, "details", "ordax-first-run-essentials");
       appSummary.dataset.firstRunEssentials = "";
-      appSummary.append(el(documentObject, "strong", "", "Aplicativos essenciais"));
+      appSummary.append(el(documentObject, "summary", "", "Aplicativos essenciais"));
       for (const [label, count] of [
-        ["Pacotes independentes confirmados:", firstRunAppSelection.alreadyInstalledAppIds.length],
+        ["Aplicativos independentes verificados:", firstRunAppSelection.alreadyInstalledAppIds.length],
         ["Candidatos verificados para futura distribuição:", firstRunAppSelection.eligibleCandidateAppIds.length],
-        ["Remoção preservada ou fora do primeiro uso:", firstRunAppSelection.suppressedAppIds.length],
-        ["Ainda sem comprovação de distribuição:", firstRunAppSelection.unavailableAppIds.length],
+        ["Removidos ou fora desta configuração:", firstRunAppSelection.suppressedAppIds.length],
+        ["Distribuição ainda não verificada:", firstRunAppSelection.unavailableAppIds.length],
       ]) {
         const line = el(documentObject, "p", "", label);
         line.append(documentObject.createTextNode(` ${count}`));
         appSummary.append(line);
       }
       appSummary.append(el(documentObject, "p", "",
-        "Resumo somente leitura. Nenhum aplicativo adicional foi instalado. Apps embutidos fora do catálogo verificado não são contabilizados como pacotes independentes."
+        "Esta lista é informativa e não instala aplicativos. Aplicativos integrados fora do catálogo verificado não entram nesta contagem."
       ));
       body.append(appSummary);
     }
@@ -757,6 +765,7 @@ export function mountFirstRunExperience(
     card.replaceChildren();
     const body = el(documentObject, "div", "ordax-first-run-body");
     const step = STEPS[stepIndex];
+    overlay.dataset.firstRunStep = step;
     if (step === "welcome") renderWelcome(body);
     else if (step === "regional") renderRegional(body);
     else if (step === "network") renderNetwork(body);
@@ -768,10 +777,14 @@ export function mountFirstRunExperience(
 
     const footer = el(documentObject, "footer", "ordax-first-run-footer");
     if (stepIndex > 0 && !finishing) footer.append(action(documentObject, "Voltar", "back"));
-    if (step !== "account") {
+    if (step === "account") {
+      const local = action(documentObject, "Continuar sem conta", "account-local", !capabilitySnapshot.identitySignIn && !capabilitySnapshot.identityRegister);
+      local.disabled = identityPending !== null;
+      footer.append(local);
+    } else {
       const label = step === "ready"
         ? finishing ? "Salvando…" : "Entrar no OrdaX"
-        : step === "network" ? "Continuar offline ou conectado" : "Continuar";
+        : "Continuar";
       const next = action(documentObject, label, step === "ready" ? "finish" : "next", true);
       next.disabled = (
         finishing
