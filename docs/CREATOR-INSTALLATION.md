@@ -139,11 +139,18 @@ VERIFY-MEDIA
   independently re-read partition table/filesystems/artifacts after write
 ```
 
-At the current prototype stage CHECK and the Core-side VERIFY-PAYLOAD capability exist. The canonical manifest is still unresolved/unauthorized, so a real current payload cannot yet pass VERIFY-PAYLOAD and PLAN remains blocked. APPLY is not implemented.
+The Creator Core implements verification and planning, and the narrow Windows physical-apply path exists behind explicit publisher, authorization, removable-target, UAC and readback gates. **A successful CI proof does not authorize a physical write**: the current physical-write contract still blocks it. The official public Creator must not expose an operational USB-writing promise until the signed release and real-hardware gates have passed. This section describes stage ownership, not permission to execute APPLY.
 
 ## Artifact delivery
 
 The Creator never compiles the kernel on the user's Windows machine.
+
+The product uses **three independently versioned delivery channels**: the Creator application, its inspection components, and the signed Portable physical release. Their existing implementations are `tools/creator/appchannel`, `tools/creator/componentchannel` and `tools/creator/physicalchannel`. The official Portable release acquires the exact 17 signed artifacts; it does **not** require a new whole-disk RAW download whenever OrdaX changes. The Owner/Development ZIP containing `ordax-bootstrap-seed.raw` is a separate offline development profile, not a second public Creator.
+
+The authoritative consumer-media behavior is `docs/contracts/creator-consumer-flow.json` (`media_acquisition` and `physical_candidate_integrity`). The signed release—not an image name, local cache or Git branch—defines the target version, source, hashes and sizes. Before downloading, the existing version store may supply a regular file with matching size and hash. Mismatched-size files are rejected before hashing; reused files are rehashed during copying, and the final candidate is independently checked. Missing or corrupted bytes are downloaded from the signed URL. If offline, only a previously signed, reverified candidate can be used; no fallback can bypass physical-write authorization.
+
+No user image/ISO selector, duplicate artifact catalog, mutable global cache or extra installer is allowed.
+
 
 ```text
 Git main
