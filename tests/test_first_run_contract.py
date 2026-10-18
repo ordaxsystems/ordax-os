@@ -245,7 +245,14 @@ class FirstRunContractTests(unittest.TestCase):
         self.assertIn('isIdentityActionSupported(actions, "sign-in")', capabilities)
         self.assertIn('isIdentityActionSupported(actions, "register")', capabilities)
         self.assertIn("passwordDraft", ui)
-        self.assertIn("await store.save(completeFirstRunState(draft))", ui)
+        self.assertIn("await persistFirstRunCompletion(store, preferencePort, draft)", ui)
+        state_service = (ROOT / "system" / "services" / "state" / "first-run.mjs").read_text(encoding="utf-8")
+        self.assertIn("export async function persistFirstRunCompletion(", state_service)
+        self.assertLess(
+            state_service.index("await store.save(completed)"),
+            state_service.index("await preferences.set(key, value)"),
+            "Durable receipt must be confirmed before portable preferences are published",
+        )
         self.assertNotIn("localStorage", ui)
         self.assertNotIn("sessionStorage", ui)
 
