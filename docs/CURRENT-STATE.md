@@ -1,3 +1,5 @@
+Physical USB lifecycle interpretation (2026-10-18): the historical `PHYSICAL_OWNER_AUTHORIZATION_RECORDED=NO` and `FIRST_STABLE_MVP_USB_WRITE=HOLD...` snapshot markers below are retained as evidence of the earlier pre-consent gate. For current authorization use `docs/contracts/physical-write-authorization.json` at the exact source commit and `tools/creator/physical_promotion.py`. An approved contract does not prove the v3 signed writer was published or that a physical USB was written, read back, booted or recovered.
+
 Runtime Product MCP source alignment (2026-10-18): `system/services/device-agent/studio-runtime-source-lock.json`
 pins reviewed `ordaxsystems/ordax-runtime` 0.4.7 at an immutable commit and
 SHA-256 of its `ordax-os-runtime-compatibility.json` contract. The upstream
