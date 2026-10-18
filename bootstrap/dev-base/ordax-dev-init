@@ -61,7 +61,7 @@ record_boot_handoff() {
             fi
             ;;
     esac
-    temporary=$BOOT_METRICS_FILE.tmp.$
+    temporary=$BOOT_METRICS_FILE.tmp.$$
     printf '%s\t%s\t%s\t%s\n' "$mode" "$elapsed" "$source_sha" "$ended" >"$temporary"
     mv -f "$temporary" "$BOOT_METRICS_FILE"
 }

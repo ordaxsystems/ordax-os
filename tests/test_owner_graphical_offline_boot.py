@@ -30,6 +30,24 @@ class OwnerGraphicalOfflineBootTests(unittest.TestCase):
         self.assertLess(NETWORK.index('[ "$hardware_only" -eq 1 ] && exit 0'),
                         NETWORK.index("write_network_status no-ip startup"))
 
+    def test_pid_scoped_atomic_state_staging_has_no_shared_literal_dollar_suffix(self):
+        # The literal suffix .tmp.$ is NOT the process ID in BusyBox ash.
+        # It causes concurrent Owner Git/guardian/health transactions to
+        # overwrite one another before the atomic rename.
+        import re
+
+        for relative in (
+            "bootstrap/dev-base/ordax-dev-init",
+            "bootstrap/dev-base/ordax-pull",
+            "system/entrypoint",
+            "system/supervisor",
+        ):
+            with self.subTest(relative=relative):
+                source = (ROOT / relative).read_text(encoding="utf-8")
+                self.assertNotRegex(source, r"\\.tmp\\.\\$(?!\\$)")
+                self.assertIn(".tmp.$", source)
+                subprocess.run(["/bin/sh", "-n", str(ROOT / relative)], check=True)
+
     def test_versioned_base_keeps_ephemeral_surface_mount_during_pivot(self):
         code = INIT
         self.assertIn("for shared in state workspace home proc sys dev run; do", code)
