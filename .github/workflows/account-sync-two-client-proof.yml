@@ -43,7 +43,7 @@ jobs:
           set -euo pipefail
           python tools/account-sync/prove_two_clients.py
           test -s "$ORDAX_PROOF_RECEIPT_PATH"
-          printf 'proof_receipt=%s\\n' "$ORDAX_PROOF_RECEIPT_PATH" >> "$GITHUB_OUTPUT"
+          printf 'proof_receipt=%s\n' "$ORDAX_PROOF_RECEIPT_PATH" >> "$GITHUB_OUTPUT"
 
       - name: Validate sanitized receipt shape
         shell: bash
