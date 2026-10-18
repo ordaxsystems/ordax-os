@@ -102,14 +102,14 @@ export function mountSpaceSwitcherControls(
     };
 
     trigger.replaceChildren();
-    const mark = element("span", "ordax-space-switcher-mark", active ? active.name.trim().slice(0, 1).toLocaleUpperCase() : "◇");
+    const mark = element("span", "ordax-space-switcher-mark meridian-rail-space-icon");
     mark.setAttribute("aria-hidden", "true");
+    mark.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18M7 15h3m3 0h3"/></svg>';
     const label = element("span", "ordax-space-switcher-trigger-label");
+    const english = lifecycle.localization.getLocale().toLowerCase().startsWith("en");
     label.append(
-      element("strong", "", active ? active.name : t("account.spaces.switcher.title")),
-      element("small", "", active
-        ? semanticTypeLabel(active)
-        : t("account.spaces.switcher.noSelection")),
+      element("strong", "", active ? active.name : english ? "Choose context" : "Escolher contexto"),
+      element("small", "", english ? "YOUR SPACE" : "SEU SPACE"),
     );
     const chevron = element("span", "ordax-space-switcher-chevron", "⌄");
     chevron.setAttribute("aria-hidden", "true");

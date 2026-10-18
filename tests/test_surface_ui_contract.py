@@ -628,7 +628,7 @@ class SurfaceUiContractTests(unittest.TestCase):
         self.assertIn('from "./sidebar-layout.mjs"', shell)
         self.assertIn('from "./sidebar-account.mjs"', shell)
         self.assertIn('createSidebarMarkup(', shell)
-        self.assertIn('sidebarAccountMarkup(projectSidebarAccount(', shell)
+        self.assertIn('sidebarProfileMarkup(projectSidebarAccount(', shell)
         self.assertIn("data-power-slot", shell)
         self.assertIn("data-update-slot", shell)
         self.assertIn("data-ordax-clock", shell)
@@ -661,7 +661,11 @@ class SurfaceUiContractTests(unittest.TestCase):
         self.assertIn('event.key.toLocaleLowerCase() === "k"', surface)
         self.assertIn("event.ctrlKey || event.metaKey", surface)
         self.assertIn("data-launcher-toggle", shell)
-        self.assertIn("ordax-brand-symbol", shell)
+        # The product mark is owned by the shared Meridian sidebar brand
+        # presenter, not duplicated inside Native desktop-shell markup.
+        brand = (SURFACE / "sidebar-layout.mjs").read_text(encoding="utf-8")
+        self.assertIn("sidebarBrandMarkup()", shell)
+        self.assertIn('class="meridian-brand-symbol"', brand)
         self.assertIn("ordax-home-hero", shell)
         self.assertIn("data-show-desktop", shell)
         self.assertIn("ordax-home-action-grid", shell)

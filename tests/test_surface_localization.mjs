@@ -122,17 +122,13 @@ for (const locale of SURFACE_COMPLETE_LOCALES) {
     try {
       const markup = createDesktopShellMarkup(localization);
       const buttons = [...markup.matchAll(/<button\b([^>]*)>([\s\S]*?)<\/button>/g)];
-      const launchers = buttons.filter(([, attributes]) =>
-        attributes.includes('class="ordax-sidebar-launcher-brand"'),
+      const brandButtons = buttons.filter(([, attributes]) =>
+        attributes.includes('class="meridian-brand-home"'),
       );
-      assert.equal(launchers.length, 1, "One sidebar brand opens the canonical launcher");
-      const [, launcher] = launchers[0];
-      assert.ok(launcher.includes('data-launcher-toggle'));
-      assert.ok(launcher.includes('aria-controls="ordax-launcher"'));
-      assert.ok(launcher.includes('aria-expanded="false"'));
-      assert.ok(launcher.includes(`aria-label="${localization.translate("shell.launcher.command")}"`));
-      assert.ok(markup.includes('id="ordax-launcher"'));
-      assert.ok(markup.includes('data-launcher-query'));
+      assert.equal(brandButtons.length, 1, "The single sidebar wordmark returns to the OrdaX home screen");
+      const [, brand] = brandButtons[0];
+      assert.ok(brand.includes('data-show-desktop'));
+      assert.ok(brand.includes('aria-label="OrdaX OS"'));
       const expected = ["files", "studio", "settings", "system"];
       const navigation = buttons.filter(([, attributes]) =>
         attributes.includes('class="ordax-rail-button os-nav-item"') &&
@@ -141,9 +137,11 @@ for (const locale of SURFACE_COMPLETE_LOCALES) {
       assert.equal(navigation.length, 0, "Device-only apps stay out of the Web-equivalent sidebar");
       const deviceMenuApps = buttons.filter(([, attributes]) =>
         attributes.includes('class="meridian-menu-item"') &&
+        !attributes.includes('data-app-target="updates"') &&
         expected.some(id => attributes.includes(`data-nav-menu-app="${id}"`)),
       );
       assert.equal(deviceMenuApps.length, expected.length, "Device-only apps remain available in the destinations menu");
+      assert.equal(buttons.filter(([, attributes]) => attributes.includes('data-app-target="updates"')).length, 1, "System updates remain a separate destination-menu shortcut");
       assert.ok(!buttons.some(([, attributes]) => attributes.includes('data-launch-app="internet"')), "Internet stays absent until its portable component is verified");
       assert.ok(!buttons.some(([, attributes]) => attributes.includes('data-launch-app="assistant"')), "Assistant remains unavailable during the remove-first migration gate");
       for (const id of expected) {

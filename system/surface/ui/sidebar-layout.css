@@ -3,7 +3,7 @@
   display: flex; flex-direction: column; align-items: stretch; justify-content: flex-start; min-height: 0; overflow: hidden;
   gap: var(--ordax-sidebar-row-gap); padding: var(--ordax-sidebar-padding-top) 12px max(12px, env(safe-area-inset-bottom));
   container: sidebar-chrome / inline-size;
-  background: #000;
+  background: var(--ordax-rail-bg);
 }
 .ordax-product-sidebar [data-sidebar-slot="brand"] {
   display: flex; align-items: center; height: var(--ordax-sidebar-logo-height);
@@ -23,8 +23,6 @@
   height: 44px; min-height: 44px; min-width: 0; gap: 12px; padding: 0 12px; flex: 0 0 44px;
   font-size: .75rem; text-align: left;
 }
-.ordax-sidebar-launcher-brand { width: 100%; height: 36px; padding: 0; border: 0; background: transparent; cursor: pointer; }
-.ordax-sidebar-launcher-brand .ordax-brand { display: flex; align-items: center; gap: 8px; }
 .ordax-product-sidebar .sidebar-account {
   margin: 0; padding: 12px; border: 1px solid var(--ordax-border-soft);
   border-radius: var(--ordax-radius-md); background: var(--ordax-subtle-bg); color: var(--ordax-text);
@@ -48,16 +46,15 @@
 .ordax-product-sidebar button:focus-visible { outline: 2px solid var(--ordax-focus); outline-offset: 2px; }
 @container sidebar-chrome (max-width: 100px) {
   [data-sidebar-slot="brand"] :is(.brand, .ordax-brand) { justify-content: center; width: 100%; gap: 0; }
-  [data-sidebar-slot="brand"] :is(.brand > div, .ordax-brand-word) { display: none; }
+  [data-sidebar-slot="brand"] :is(.brand-wordmark, .ordax-brand-word) { display: none; }
   .meridian-nav-label { display: none !important; }
   :is(.ordax-rail-button, .os-nav-item) { justify-content: center !important; padding-inline: 0 !important; }
   :is(.ordax-rail-button, .os-nav-item) > span:not(.ordax-rail-icon) { display: none; }
   .sidebar-account { padding: 0 !important; border: 0 !important; background: transparent !important; }
   .account-open { justify-content: center; gap: 0; }
   :is(.account-identity, .account-chevron, .account-storage-summary, .meridian-rail-context) { display: none !important; }
-  [data-sidebar-slot="home"] .ordax-space-switcher-trigger { justify-content: center; padding-inline: 0; border-color: transparent; }
-  [data-sidebar-slot="home"] .ordax-space-switcher-trigger-label,
-  [data-sidebar-slot="home"] .ordax-space-switcher-chevron { display: none !important; }
+  [data-sidebar-slot="home"] :is(.ordax-space-switcher-trigger,.meridian-rail-space) { justify-content: center; padding-inline: 0; border-color: transparent; }
+  [data-sidebar-slot="home"] :is(.ordax-space-switcher-trigger-label,.meridian-rail-space > span:nth-child(2),.ordax-space-switcher-chevron,.meridian-rail-space > svg) { display: none !important; }
   [data-sidebar-slot="account"] .meridian-rail-utilities { justify-content: center; flex-direction: column; gap: 4px; padding-top: 8px; }
   .account-storage-compact { display: inline !important; }
   .account-storage-footer { flex-direction: column; }
@@ -96,4 +93,84 @@
 @container sidebar-chrome (max-width:100px) {
   [data-meridian] .ordax-product-sidebar .meridian-rail-account { justify-content:center; min-height:44px; padding:0; }
   [data-meridian] .ordax-product-sidebar .meridian-rail-account :is(.account-identity,.account-chevron) { display:none; }
+}
+
+/* Meridian rail geometry and presentation shared by Web, USB, and Native. */
+.meridian-workspace .ordax-product-sidebar { gap:16px; padding:27px 16px 18px; }
+.meridian-workspace .ordax-product-sidebar [data-sidebar-slot="brand"] { height:34px; min-height:34px; }
+.meridian-workspace .ordax-product-sidebar .meridian-brand-home { display:block; flex:1 1 auto; min-width:0; padding:0; border:0; background:transparent; color:inherit; text-align:left; cursor:pointer; }
+.meridian-workspace .ordax-product-sidebar .brand { display:flex; align-items:center; gap:10px; min-height:42px; padding:0 8px; }
+.meridian-workspace .ordax-product-sidebar .brand-wordmark { display:block; }
+.meridian-workspace .ordax-product-sidebar .meridian-brand-symbol { display:block; flex:0 0 auto; width:30px; height:30px; }
+.meridian-workspace .ordax-product-sidebar .brand-name { font-size:1.5rem; font-weight:550; letter-spacing:-.06em; line-height:1.05; }
+.meridian-workspace .ordax-product-sidebar .brand-sub { display:block; color:var(--md-rail-muted); font-size:.5rem; font-weight:400; letter-spacing:.2em; }
+.meridian-workspace .ordax-product-sidebar :is(.sidebar-home-row,.meridian-native-home-nav) { display:flex; flex-direction:column; gap:14px; min-width:0; }
+.meridian-workspace .ordax-product-sidebar [data-sidebar-slot="navigation"] { gap:5px; min-height:44px; overflow:hidden; }
+.meridian-workspace .ordax-product-sidebar .meridian-nav-destination { min-width:0; flex-shrink:0; }
+.meridian-workspace .ordax-product-sidebar .meridian-native-nav-group { display:flex; flex-direction:column; gap:5px; min-width:0; }
+.meridian-workspace .ordax-product-sidebar .meridian-native-nav-group[hidden] { display:none; }
+.meridian-workspace .ordax-product-sidebar .meridian-nav-label { margin:0; padding:19px 10px 10px; color:var(--md-rail-muted); font-size:.5rem; letter-spacing:.15em; text-transform:uppercase; }
+.meridian-workspace .ordax-product-sidebar .os-nav-item {
+  position:relative; display:flex; align-items:center; width:100%; height:44px; min-height:44px; flex:0 0 44px;
+  gap:11px; padding:0 10px; border:1px solid transparent; border-radius:9px; background:transparent;
+  color:var(--md-rail-muted); font:450 .8125rem/1.2 var(--md-font); text-align:left; cursor:pointer;
+}
+.meridian-workspace .ordax-product-sidebar .os-nav-item > :is(svg,.ordax-rail-icon) { display:block; width:19px; height:19px; flex:0 0 19px; color:currentColor; }
+.meridian-workspace .ordax-product-sidebar .os-nav-item:is(:hover,:focus-visible,[data-active="true"]) { border-color:var(--md-rail-border); background:var(--md-rail-selected); color:var(--md-rail-text); }
+.meridian-workspace .ordax-product-sidebar .os-nav-item[data-active="true"] { box-shadow:inset 3px 0 var(--md-art-clay); }
+.meridian-workspace .ordax-product-sidebar .os-nav-item:disabled { opacity:.58; cursor:not-allowed; }
+.meridian-workspace .ordax-product-sidebar .meridian-nav-more { flex-shrink:0; }
+.meridian-workspace .ordax-product-sidebar .meridian-planned-mark { margin-inline-start:auto; color:var(--md-rail-muted); font-size:.9rem; }
+.meridian-workspace .ordax-product-sidebar [data-sidebar-slot="account"] { display:flex; flex-direction:column; gap:15px; }
+.meridian-workspace .ordax-product-sidebar .meridian-rail-context { display:flex; align-items:center; gap:8px; padding:0 10px; color:var(--md-rail-text); font-size:.625rem; }
+.meridian-workspace .ordax-product-sidebar .meridian-rail-context i { width:4px; height:4px; flex:0 0 4px; border-radius:50%; background:var(--md-rail-muted); }
+.meridian-workspace .ordax-product-sidebar .meridian-rail-context small { display:block; margin-top:4px; color:var(--md-rail-muted); font-size:.5rem; }
+.meridian-workspace .ordax-product-sidebar .meridian-rail-utilities { display:flex; align-items:center; justify-content:space-around; gap:0; padding-top:14px; border-top:1px solid var(--md-rail-border); }
+.meridian-workspace .ordax-product-sidebar .meridian-rail-utilities > button,
+.meridian-workspace .ordax-product-sidebar .meridian-rail-notification-slot { display:grid; place-items:center; width:44px; min-width:44px; height:44px; flex:0 0 44px; border:0; border-radius:8px; background:transparent; color:var(--md-rail-muted); cursor:pointer; }
+.meridian-workspace .ordax-product-sidebar .meridian-rail-utilities > button:hover,
+.meridian-workspace .ordax-product-sidebar .meridian-rail-notification-slot:has(>button:hover) { background:var(--md-rail-selected); color:var(--md-rail-text); }
+.meridian-workspace .ordax-product-sidebar .meridian-rail-utilities svg { width:18px; height:18px; }
+.meridian-workspace .ordax-product-sidebar .meridian-rail-notification-slot > button { display:grid; place-items:center; width:100%; height:100%; padding:0; border:0; border-radius:8px; background:transparent; color:inherit; cursor:pointer; }
+.meridian-workspace .ordax-product-sidebar .meridian-rail-notification-slot > button:hover { background:transparent; color:var(--md-rail-text); }
+.meridian-workspace .ordax-product-sidebar :is(.ordax-space-switcher-trigger,.meridian-rail-space) { display:flex; align-items:center; gap:10px; width:100%; min-height:54px; padding:10px 8px; border:1px solid var(--md-rail-border); border-radius:10px; background:transparent; box-shadow:none; color:var(--md-rail-text); text-align:left; cursor:pointer; }
+.meridian-workspace .ordax-product-sidebar :is(.ordax-space-switcher-trigger,.meridian-rail-space):is(:hover,:focus-visible,[aria-expanded="true"]) { border-color:var(--md-rail-muted); background:var(--md-rail-selected); }
+.meridian-workspace .ordax-product-sidebar :is(.ordax-space-switcher-trigger,.meridian-rail-space):focus-visible { outline:2px solid var(--md-focus); outline-offset:2px; }
+.meridian-workspace .ordax-product-sidebar :is(.ordax-space-switcher-trigger-label,.meridian-rail-space > span:nth-child(2)) { display:grid; gap:3px; flex:1; min-width:0; }
+.meridian-workspace .ordax-product-sidebar :is(.ordax-space-switcher-trigger-label,.meridian-rail-space > span:nth-child(2)) strong { color:var(--md-rail-text); font-size:.6875rem; font-weight:500; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.meridian-workspace .ordax-product-sidebar :is(.ordax-space-switcher-trigger-label,.meridian-rail-space > span:nth-child(2)) small { color:var(--md-rail-muted); font-size:.5rem; letter-spacing:.14em; }
+.meridian-workspace .ordax-product-sidebar :is(.ordax-space-switcher-mark,.meridian-rail-space > span:first-child) { display:grid; place-items:center; width:32px; height:32px; flex:0 0 32px; border:1px solid var(--md-rail-border); border-radius:9px; background:var(--md-rail-selected); color:var(--md-rail-text); }
+.meridian-workspace .ordax-product-sidebar .meridian-rail-space > span:first-child svg { width:20px; height:20px; }
+.meridian-workspace .ordax-product-sidebar .ordax-space-switcher-mark svg { width:18px; height:18px; fill:none; stroke:currentColor; stroke-width:1.6; stroke-linecap:round; stroke-linejoin:round; }
+.meridian-workspace .ordax-product-sidebar .ordax-space-switcher-chevron { color:var(--md-rail-muted); }
+.meridian-workspace .ordax-product-sidebar .ordax-power-slot { padding:0; margin:0; }
+.meridian-native-workspace .ordax-product-sidebar .sidebar-collapse { border:1px solid color-mix(in oklch,var(--md-rail-text) 28%,var(--md-rail-border)); border-radius:6px; background:var(--md-rail); color:var(--md-rail-text); box-shadow:0 2px 8px oklch(0 0 0 / 14%); }
+.meridian-native-workspace .ordax-product-sidebar .sidebar-collapse:hover,
+.meridian-native-workspace .ordax-product-sidebar .sidebar-collapse:focus-visible { border-color:var(--md-rail-text); background:var(--md-accent); color:var(--md-accent-text); }
+.meridian-native-workspace .ordax-product-sidebar .sidebar-collapse svg { width:16px; height:16px; stroke-width:2.25; }
+.meridian-workspace[data-view="desktop"] .ordax-product-sidebar { gap:20px; padding:24px 10px 16px; }
+
+@container sidebar-chrome (max-width:100px) {
+  .meridian-workspace .ordax-product-sidebar .brand { justify-content:center; width:100%; padding:0; }
+  .meridian-workspace .ordax-product-sidebar .meridian-brand-home,
+  .meridian-workspace .ordax-product-sidebar .meridian-brand-home .brand { width:28px; flex:0 0 28px; }
+  .meridian-workspace .ordax-product-sidebar .meridian-brand-home .brand { justify-content:center; padding:0; }
+  .meridian-workspace .ordax-product-sidebar .meridian-brand-symbol { width:28px; height:28px; }
+  .meridian-workspace .ordax-product-sidebar .brand-wordmark,
+  .meridian-workspace .ordax-product-sidebar .meridian-nav-label,
+  .meridian-workspace .ordax-product-sidebar .meridian-rail-context,
+  .meridian-workspace .ordax-product-sidebar .meridian-rail-account>:is(.account-identity,.account-chevron) { display:none!important; }
+  .meridian-workspace .ordax-product-sidebar .meridian-rail-utilities { flex-direction:column; gap:6px; }
+  .meridian-workspace .ordax-product-sidebar :is(.ordax-space-switcher-trigger,.meridian-rail-space) { justify-content:center; padding-inline:0; border-color:transparent; }
+  .meridian-workspace .ordax-product-sidebar :is(.ordax-space-switcher-trigger-label,.meridian-rail-space > span:nth-child(2),.ordax-space-switcher-chevron,.meridian-rail-space > svg) { display:none!important; }
+}
+@media(max-width:1150px) and (min-width:951px) {
+  .meridian-workspace .ordax-product-sidebar { padding-inline:12px; }
+}
+@media(max-width:950px) and (min-width:601px) {
+  .meridian-workspace .ordax-product-sidebar { padding:24px 10px 16px; }
+  .meridian-workspace .ordax-product-sidebar :is(.ordax-sidebar-toggle,.sidebar-collapse) { display:none; }
+}
+@media(max-width:600px) {
+  .meridian-workspace .ordax-product-sidebar { display:none!important; }
 }
