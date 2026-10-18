@@ -6,6 +6,7 @@ import stat
 import sys
 import tempfile
 import threading
+import time
 import unittest
 from unittest.mock import Mock, patch
 
@@ -110,6 +111,36 @@ class ProductDevicePresenceNativeTests(unittest.TestCase):
             ProductDevicePresenceClient("http://cp.example", self.store)
         with self.assertRaises(ValueError):
             ProductDevicePresenceWorker(Mock(), interval_seconds=3)
+
+    def test_receipt_status_never_confuses_opt_in_with_real_connectivity(self):
+        class Device:
+            def __init__(self):
+                self.accepted = False
+                self.calls = []
+            def report(self, online):
+                self.calls.append(online)
+                return self.accepted if online else True
+
+        client = Device()
+        worker = ProductDevicePresenceWorker(client, interval_seconds=60)
+        self.assertEqual(worker.connection_state(), "disabled")
+        # Drive the receipt projection deterministically. The separate lifecycle
+        # test proves one thread and an offline report on stop.
+        with worker._lock:
+            worker._enabled = True
+        self.assertEqual(worker.connection_state(), "connecting")
+        worker._report(True)
+        self.assertEqual(worker.connection_state(), "unavailable")
+        client.accepted = True
+        worker._report(True)
+        self.assertEqual(worker.connection_state(), "confirmed")
+        with worker._lock:
+            worker._last_online_receipt = time.monotonic() - 4 * worker.interval_seconds
+        self.assertEqual(worker.connection_state(), "unavailable")
+        with worker._lock:
+            worker._enabled = False
+        self.assertEqual(worker.connection_state(), "disabled")
+        self.assertEqual(client.calls, [True, True])
 
     def test_exactly_one_worker_and_offline_on_stop(self):
         class Device:

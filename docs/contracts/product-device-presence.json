@@ -73,7 +73,21 @@
     "nativeSurfaceContract": "system/contracts/product-connector.mjs",
     "nativeSurfaceAdapter": "system/adapters/native/product-connector.mjs",
     "surfaceDirectFetch": false,
-    "remoteActionGatewayGrantedByOptIn": false
+    "remoteActionGatewayGrantedByOptIn": false,
+    "presenceStateSSOT": "system/surface/runtime/product_device_presence.py:ProductDevicePresenceWorker",
+    "presenceStatePort": "system/contracts/product-connector.mjs",
+    "presenceStateValues": [
+      "disabled",
+      "connecting",
+      "confirmed",
+      "unavailable"
+    ],
+    "confirmedRequiresServerReceipt": true,
+    "localOwnerOptInIsNotServerConnectivity": true,
+    "presenceConfirmationMaxAge": "3x managed heartbeat interval (monotonic, memory-only)",
+    "statusEndpointUsesExistingWorker": true,
+    "secondHeartbeatOrRemoteProbe": false,
+    "remoteActionsRequireIndependentOAuthAndAttestation": true
   },
   "externalMcp": {
     "accountLoginAutomaticallyConnectsExternalClient": false,

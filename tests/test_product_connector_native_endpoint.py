@@ -27,6 +27,7 @@ class FakeGateway:
         return {
             "available": True,
             "enabled": self.enabled,
+            "presenceState": "connecting" if self.enabled else "disabled",
             "accountAuthenticated": self.authenticated,
             "requiresClientOAuthAndGrants": True,
             "remoteActionsEnabled": False,
@@ -79,6 +80,7 @@ class NativeProductConnectorEndpointTests(unittest.TestCase):
         status, payload = self.request("GET")
         self.assertEqual(status, 200)
         self.assertFalse(payload["enabled"])
+        self.assertEqual(payload["presenceState"], "disabled")
         self.assertFalse(payload["remoteActionsEnabled"])
         self.assertTrue(payload["requiresClientOAuthAndGrants"])
 

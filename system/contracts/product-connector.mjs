@@ -11,9 +11,16 @@ export function validateProductConnectorSnapshot(value) {
     throw new TypeError("Connector cannot advertise ungranted remote actions");
   }
   if (value.enabled && !value.available) throw new TypeError("Unavailable Connector cannot be enabled");
+  if (!["disabled", "connecting", "confirmed", "unavailable"].includes(value.presenceState)) {
+    throw new TypeError("Invalid Connector presence receipt state");
+  }
+  if (value.enabled === (value.presenceState === "disabled")) {
+    throw new TypeError("Connector consent and presence state mismatch");
+  }
   return Object.freeze({
     available: value.available,
     enabled: value.enabled,
+    presenceState: value.presenceState,
     accountAuthenticated: value.accountAuthenticated,
     requiresClientOAuthAndGrants: true,
     remoteActionsEnabled: false,
