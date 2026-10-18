@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import threading
+import time
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, build_opener
 
@@ -96,12 +97,17 @@ class ProductDevicePresenceWorker:
         self._thread: threading.Thread | None = None
         self._enabled = False
         self._closed = False
+        self._last_online_attempt: float | None = None
+        self._last_online_receipt: float | None = None
 
     def start(self) -> None:
         with self._lock:
             if self._closed:
                 raise ProductDevicePresenceError("device-presence-worker-closed")
             was_enabled = self._enabled
+            if not was_enabled:
+                self._last_online_attempt = None
+                self._last_online_receipt = None
             self._enabled = True
             if self._thread is None:
                 self._thread = threading.Thread(
@@ -112,10 +118,33 @@ class ProductDevicePresenceWorker:
                 self._wake.set()
 
     def _report(self, online: bool) -> None:
+        accepted = False
         try:
-            self.client.report(online)
+            accepted = self.client.report(online) is True
         except (OSError, ValueError, ProductDevicePresenceError):
             pass
+        # Only the existing presence worker observes server acknowledgement.
+        # Never infer connectivity from an owner preference or unverified reply.
+        with self._lock:
+            if online and self._enabled and not self._closed:
+                self._last_online_attempt = time.monotonic()
+                if accepted:
+                    self._last_online_receipt = self._last_online_attempt
+
+    def connection_state(self) -> str:
+        """Bounded projection; no extra heartbeat, credentials or probe."""
+        with self._lock:
+            if not self._enabled or self._closed:
+                return "disabled"
+            if self._last_online_attempt is None:
+                return "connecting"
+            if (
+                self._last_online_receipt is not None
+                and self._last_online_receipt >= self._last_online_attempt
+                and time.monotonic() - self._last_online_receipt <= 3 * self.interval_seconds
+            ):
+                return "confirmed"
+            return "unavailable"
 
     def _run(self) -> None:
         last_reported_state: bool | None = None
@@ -142,6 +171,8 @@ class ProductDevicePresenceWorker:
     def stop(self, *, wait: bool = False) -> None:
         with self._lock:
             self._enabled = False
+            self._last_online_attempt = None
+            self._last_online_receipt = None
             if wait:
                 self._closed = True
             thread = self._thread
