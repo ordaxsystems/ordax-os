@@ -57,7 +57,7 @@ class OwnerQemuHandoffTests(unittest.TestCase):
         )
         self.assertIn("-net", command)
         self.assertEqual(command[command.index("-net") + 1], "none")
-        self.assertIn("usb-storage,bus=owner-xhci.0,drive=ownerusb,bootindex=1", command)
+        self.assertIn("usb-storage,bus=owner-xhci.0,drive=ownerusb,removable=on,bootindex=1", command)
         self.assertIn("rdinit=/init", command[command.index("-append") + 1])
         self.assertIn("ordax.distribution_profile=owner-development", command[command.index("-append") + 1])
         self.assertNotIn("user,hostfwd", " ".join(command))

@@ -87,7 +87,7 @@ def qemu_command(image: Path, kernel: Path, initramfs: Path, serial: Path) -> li
         ),
         "-drive", f"if=none,id=ownerusb,format=raw,file={image}",
         "-device", "qemu-xhci,id=owner-xhci",
-        "-device", "usb-storage,bus=owner-xhci.0,drive=ownerusb,bootindex=1",
+        "-device", "usb-storage,bus=owner-xhci.0,drive=ownerusb,removable=on,bootindex=1",
         "-device", "usb-kbd,bus=owner-xhci.0",
         "-device", "usb-mouse,bus=owner-xhci.0",
         "-device", "virtio-vga",

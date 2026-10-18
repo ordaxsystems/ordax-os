@@ -42,3 +42,5 @@ The PR must remain **draft** while any release, Owner cold-boot, or hardware gat
 The Creator PR path now boots a disposable **copy** of the exact verified USB RAW image with the existing kernel and initramfs. QEMU presents the disk as removable USB, has no NIC, and must observe actual serial output from the Owner Base, exact seeded Git commit and the automatic local Surface handoff before allowing package construction to continue. No sentinel replaces the product entrypoint. A bounded failure or recovery shell is **FAIL**, not a passing boot.
 
 This direct-kernel TCG proof is **not** UEFI, proof of a rendered Welcome screen, Wi-Fi hardware or physical notebook. Those remain independent release gates.
+
+**QEMU device identity:** `usb-storage` defaults to a USB hard disk; the Owner initramfs intentionally rejects that as non-removable. The QEMU proof explicitly uses the documented `removable=on` property so it emulates an actual USB stick; the production removable-media validation is unchanged.
