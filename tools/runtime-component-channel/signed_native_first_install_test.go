@@ -304,3 +304,222 @@ func TestNativeHostABIClassificationDoesNotWeakenSignedDependencyGraph(t *testin
 		t.Fatalf("unsigned app dependency was treated as host port: %v", err)
 	}
 }
+
+
+// One end-to-end state-machine proof uses actual Ed25519-signed release/2 slots
+// and the existing Go activation writer for each transition. It represents a
+// disposable native state directory, NOT a physical USB boot or an App Data
+// migration/rollback proof.
+func TestSignedStoreRoundTripAcrossHealthUpdateRemovalAndOfflineReinstall(t *testing.T) {
+	fixture := makeActivationV2Fixture(t)
+	const componentID = "internet"
+
+	// This sentinel lives outside the component slot graph, like app-owned
+	// persistent data. The lifecycle must never erase unrelated user bytes.
+	dataRoot := filepath.Join(fixture.dir, "user-app-data")
+	if err := os.MkdirAll(dataRoot, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	dataPath := filepath.Join(dataRoot, "retained-data.bin")
+	const retainedPayload = "user-owned-bytes-must-survive-store-lifecycle"
+	if err := os.WriteFile(dataPath, []byte(retainedPayload), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	assertDataPreserved := func(stage string) {
+		t.Helper()
+		actual, err := os.ReadFile(dataPath)
+		if err != nil || string(actual) != retainedPayload {
+			t.Fatalf("%s changed user-owned data: payload=%q error=%v", stage, actual, err)
+		}
+	}
+	readCanonical := func(stage string) activationState {
+		t.Helper()
+		state, err := readActivationState(fixture.root, componentID)
+		if err != nil {
+			t.Fatalf("%s cannot reload persisted Go activation state: %v", stage, err)
+		}
+		assertDataPreserved(stage)
+		return state
+	}
+	promoteHealthy := func(candidate activationV2Candidate, observedRevision int64) activationState {
+		t.Helper()
+		armed, err := armPendingStateAtRevision(
+			candidate.slot, fixture.trustPath, fixture.root, &observedRevision,
+		)
+		if err != nil {
+			t.Fatalf("signed candidate failed to arm at revision %d: %v", observedRevision, err)
+		}
+		if armed.Revision != observedRevision+1 || armed.Pending == nil ||
+			armed.Current != nil && sameSlotIdentity(armed.Current, armed.Pending) ||
+			armed.PendingHealth != "unknown" {
+			t.Fatalf("signed candidate did not enter pending-health: %+v", armed)
+		}
+		persistedPending := readCanonical("arm-pending")
+		if persistedPending.Revision != armed.Revision ||
+			!sameSlotIdentity(persistedPending.Pending, armed.Pending) {
+			t.Fatalf("pending state did not survive reload: %+v", persistedPending)
+		}
+		healthRevision := armed.Revision
+		healthy, err := recordPendingHealthAtRevision(
+			fixture.root, componentID, *armed.Pending, "healthy", &healthRevision,
+		)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if healthy.PendingHealth != "healthy" {
+			t.Fatalf("probation did not record healthy state: %+v", healthy)
+		}
+		promoted, err := promotePendingStateAtRevision(
+			fixture.root, componentID, *healthy.Pending, healthy.Revision,
+			fixture.trustPath,
+		)
+		if err != nil {
+			t.Fatal(err)
+		}
+		persisted := readCanonical("healthy-promotion")
+		if promoted.Revision != persisted.Revision ||
+			persisted.Current == nil ||
+			!sameSlotIdentity(persisted.Current, promoted.Current) ||
+			persisted.Pending != nil || persisted.PendingHealth != "unknown" {
+			t.Fatalf("healthy promotion is not durably current: %+v", persisted)
+		}
+		return persisted
+	}
+
+	first := addActivationV2Candidate(
+		t, fixture, "1.0.0", "1111111111111111111111111111111111111111",
+	)
+	initial := readCanonical("initial-state")
+	if initial.Revision != 0 || initial.Current != nil || initial.Pending != nil {
+		t.Fatalf("initial activation graph is not empty: %+v", initial)
+	}
+	installed := promoteHealthy(first, initial.Revision)
+
+	// A failed signed update must not replace the current runtime.
+	failed := addActivationV2Candidate(
+		t, fixture, "1.1.0", "2222222222222222222222222222222222222222",
+	)
+	revisionBeforeFailedUpdate := installed.Revision
+	armedFailed, err := armPendingStateAtRevision(
+		failed.slot, fixture.trustPath, fixture.root, &revisionBeforeFailedUpdate,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if armedFailed.Current == nil || !sameSlotIdentity(armedFailed.Current, installed.Current) {
+		t.Fatalf("failed candidate prematurely replaced healthy current: %+v", armedFailed)
+	}
+	failedHealthRevision := armedFailed.Revision
+	failedHealth, err := recordPendingHealthAtRevision(
+		fixture.root, componentID, *armedFailed.Pending, "failed", &failedHealthRevision,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rejected, err := rejectPendingStateAtRevision(
+		fixture.root, componentID, *failedHealth.Pending, failedHealth.Revision,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	afterReject := readCanonical("failed-update-rejected")
+	if rejected.Revision != afterReject.Revision ||
+		afterReject.Pending != nil || !sameSlotIdentity(afterReject.Current, installed.Current) ||
+		!sameSlotIdentity(afterReject.Rejected, armedFailed.Pending) {
+		t.Fatalf("failed update damaged the installed version: %+v", afterReject)
+	}
+
+	// The same already-observed revision cannot arm another generation after
+	// probation/rejection changed the Go writer state.
+	next := addActivationV2Candidate(
+		t, fixture, "1.2.0", "3333333333333333333333333333333333333333",
+	)
+	if _, err := armPendingStateAtRevision(
+		next.slot, fixture.trustPath, fixture.root, &revisionBeforeFailedUpdate,
+	); err == nil || !strings.Contains(err.Error(), "revision is stale") {
+		t.Fatalf("stale update generation was accepted: %v", err)
+	}
+	updated := promoteHealthy(next, afterReject.Revision)
+	if updated.Current.Version != "1.2.0" ||
+		!sameSlotIdentity(updated.Previous, installed.Current) {
+		t.Fatalf("healthy signed update lost previous slot or installed wrong version: %+v", updated)
+	}
+
+	// A pending/healthy or previously installed generation must not serve as
+	// a removal decision for the newly promoted state.
+	if _, err := uninstallCurrentStateAtRevision(
+		fixture.root, componentID, *installed.Current, installed.Revision,
+		fixture.trustPath,
+	); err == nil {
+		t.Fatal("stale old-version uninstall removed a newer signed installation")
+	}
+	stillCurrent := readCanonical("stale-uninstall-rejected")
+	if !sameSlotIdentity(stillCurrent.Current, updated.Current) ||
+		stillCurrent.Revision != updated.Revision {
+		t.Fatalf("stale uninstall mutated current release: %+v", stillCurrent)
+	}
+
+	removed, err := uninstallCurrentStateAtRevision(
+		fixture.root, componentID, *updated.Current, updated.Revision,
+		fixture.trustPath,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	persistedRemoved := readCanonical("uninstall-and-reload")
+	if removed.Revision != updated.Revision+1 ||
+		persistedRemoved.Revision != removed.Revision ||
+		persistedRemoved.Current != nil || persistedRemoved.Pending != nil ||
+		persistedRemoved.Previous != nil || persistedRemoved.Rejected != nil ||
+		!persistedRemoved.UserRemoved ||
+		!sameSlotIdentity(persistedRemoved.Removed, updated.Current) {
+		t.Fatalf("explicit removal tombstone not durable: %+v", persistedRemoved)
+	}
+	_, slot, bundled, err := resolveCurrentState(fixture.root, componentID, fixture.trustPath)
+	if err != nil || slot != "" || bundled {
+		t.Fatalf("explicitly removed release became launchable after reload: slot=%q bundled=%t error=%v", slot, bundled, err)
+	}
+
+	// Replaying the exact prior uninstall is allowed only while its signed
+	// immutable identity is still the canonical tombstone. No revision bump.
+	retried, err := uninstallCurrentStateAtRevision(
+		fixture.root, componentID, *updated.Current, updated.Revision,
+		fixture.trustPath,
+	)
+	if err != nil || retried.Revision != persistedRemoved.Revision {
+		t.Fatalf("idempotent Go tombstone retry was not stable: %+v error=%v", retried, err)
+	}
+
+	// Existing verified slot bytes survive uninstall. Reinstall is an explicit
+	// new decision pinned to the removal revision, without downloading a new
+	// artifact or resurrecting a silently bundled fallback.
+	trustBytes, err := os.ReadFile(fixture.trustPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := verifySlotV2WithTrustBytes(next.slot, trustBytes); err != nil {
+		t.Fatalf("signed cached slot was lost after uninstall: %v", err)
+	}
+	staleReinstallRevision := updated.Revision
+	if _, err := armPendingStateAtRevision(
+		next.slot, fixture.trustPath, fixture.root, &staleReinstallRevision,
+	); err == nil || !strings.Contains(err.Error(), "revision is stale") {
+		t.Fatalf("reinstall ignored removal generation: %v", err)
+	}
+	reinstalled := promoteHealthy(next, persistedRemoved.Revision)
+	if !sameSlotIdentity(reinstalled.Current, updated.Current) ||
+		reinstalled.UserRemoved || reinstalled.Removed != nil {
+		t.Fatalf("explicit reinstall did not clear tombstone on healthy promotion: %+v", reinstalled)
+	}
+	if _, err := uninstallCurrentStateAtRevision(
+		fixture.root, componentID, *updated.Current, updated.Revision,
+		fixture.trustPath,
+	); err == nil {
+		t.Fatal("old removal request matched a newly reinstalled identical signed release")
+	}
+	last := readCanonical("reinstall-after-stale-request")
+	if !sameSlotIdentity(last.Current, reinstalled.Current) ||
+		last.Revision != reinstalled.Revision {
+		t.Fatalf("stale replay damaged reinstalled release: %+v", last)
+	}
+}
