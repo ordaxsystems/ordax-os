@@ -147,6 +147,16 @@ class OfflineOwnerWelcomeGateTests(unittest.TestCase):
         self.assertIn("/sbin/ordax-portable-mount mount-surface-runtime", source)
         self.assertIn('mount -t tmpfs -o mode=0755 tmpfs "$DEV_ROOT/run"', source)
         self.assertIn("export ORDAX_SURFACE_RUNTIME_MODE ORDAX_SURFACE_RUNTIME_ROOT ORDAX_SURFACE_RUNTIME_SHA256", source)
+        # Bind the new root before mounting its child tmpfs/overlay tree.
+        # A later non-recursive bind shadows already-mounted children.
+        self.assertLess(
+            source.index('mount -o bind "$DEV_ROOT" "$DEV_ROOT"'),
+            source.index('mount -t tmpfs -o mode=0755 tmpfs "$DEV_ROOT/run"'),
+        )
+        self.assertLess(
+            source.index('mount -t tmpfs -o mode=0755 tmpfs "$DEV_ROOT/run"'),
+            source.index("/sbin/ordax-portable-mount mount-surface-runtime"),
+        )
         self.assertLess(source.index("mount-surface-runtime"), source.index("exec switch_root"))
         self.assertNotIn("ordax-pull", source)
         self.assertIn('[ "$VERIFIED_RUNTIME_MODE" = "verified-erofs-overlay" ]', surface)
