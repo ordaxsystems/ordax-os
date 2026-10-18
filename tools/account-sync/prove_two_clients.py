@@ -16,7 +16,7 @@ import secrets
 import sys
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode, urlsplit
-from urllib.request import HTTPCookieProcessor, Request, build_opener
+from urllib.request import HTTPRedirectHandler, HTTPCookieProcessor, Request, build_opener
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 DEFAULT_GATEWAY_FILE = os.path.join(ROOT, "system", "services", "account", "gateway-base-url")
@@ -30,11 +30,19 @@ def fail(message: str) -> "NoReturn":
     raise SystemExit(f"ACCOUNT_SYNC_TWO_CLIENT_PROOF=FAIL reason={message}")
 
 
+class _NoRedirect(HTTPRedirectHandler):
+    """A proof cannot send login credentials to a redirected origin."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        del req, fp, code, msg, headers, newurl
+        return None
+
+
 class Client:
     def __init__(self, base_url: str) -> None:
         self.base_url = base_url.rstrip("/")
         self.jar = http.cookiejar.CookieJar()
-        self.opener = build_opener(HTTPCookieProcessor(self.jar))
+        self.opener = build_opener(HTTPCookieProcessor(self.jar), _NoRedirect())
 
     def request(self, method: str, path: str, body: bytes | None = None, content_type: str | None = None):
         headers = {"Accept": "application/json", "User-Agent": "OrdaX-Account-Sync-Proof/1"}
