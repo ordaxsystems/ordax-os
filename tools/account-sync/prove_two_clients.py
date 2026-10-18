@@ -76,6 +76,16 @@ class Client:
         status, payload = self.request("POST", "/auth/logout", b"", "application/json")
         if status != 200 or payload.get("signedOut") is not True:
             fail(f"logout:{status}")
+        # A successful POST acknowledgment is not proof that the old cookie
+        # jar became anonymous. Observe the canonical session endpoint.
+        status, session = self.request("GET", "/auth/session")
+        if (
+            status != 200
+            or session.get("$schema") != "prototype-ordax.public-identity-session/1"
+            or session.get("authenticated") is not False
+            or session.get("status") != "anonymous"
+        ):
+            fail("logout-session-still-active")
 
     def subject(self) -> str:
         status, payload = self.request("GET", "/auth/session")
@@ -108,6 +118,16 @@ class Client:
         status, payload = self.request("POST", "/sync/mutate", body, "application/json")
         if status != 200 or payload.get("$schema") != ACK_SCHEMA:
             fail(f"mutate:{status}")
+        # Never accept a success receipt for a different object, class or
+        # operation; a valid schema alone is insufficient binding evidence.
+        if (
+            payload.get("objectId") != mutation["objectId"]
+            or payload.get("dataClass") != mutation["dataClass"]
+            or payload.get("tombstone") is not (mutation["operation"] == "delete")
+            or payload.get("applied") is not True
+            or payload.get("conflict") is not False
+        ):
+            fail("mutate-ack-contract-mismatch")
         return payload
 
 
