@@ -50,11 +50,11 @@ That last distinction is intentional. The physical Dev USB owns a disposable run
 ## Current host behavior
 
 - kernel: absent by design;
-- first-run: real `system/surface/ui/first-run.mjs`;
+- first-run: real `system/surface/ui/first-run.mjs`, with the same `tokens.css`, `color-palettes.css`, `first-run.css`, `meridian.tokens.css` and `meridian.css` owners used by Native; the separate `ui/journeys/` setup storyboard remains presentation-only and is not the boot entry;
 - first-run persistence: browser `localStorage`, isolated under emulator-specific keys;
 - online identity actions: unavailable for now, so local-only onboarding remains supported;
 - network/hardware management: unavailable for now and must stay visibly unavailable rather than being faked;
-- post-onboarding Surface: repository `system/composition/web/index.html`;
+- post-onboarding Surface: repository `system/composition/web/` with `?preview=layout`, through the canonical loopback-only preview gate; identity/host capabilities remain unavailable rather than simulated as authorized;
 - reset: use the `Reiniciar primeiro uso` development control.
 
 The page exposes `window.__ORDAX_EMULATOR__` so automation can identify the target, inspect the first-run state and reset the flow without pretending that native kernel capabilities exist.
