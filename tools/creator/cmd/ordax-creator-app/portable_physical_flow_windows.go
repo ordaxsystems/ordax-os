@@ -72,13 +72,15 @@ func validatePortablePhysicalPreparation(
 		return errors.New("o backend retornou uma preparação Portable incompatível")
 	}
 	if preparation.Target.DiskNumber != target.DiskNumber ||
+		preparation.Target.PhysicalDiskBytes != target.PhysicalDiskBytes ||
+		preparation.Target.DeviceSerial != target.DeviceSerial ||
 		preparation.Target.ConfirmationToken != target.ConfirmationToken ||
 		preparation.Target.SystemDisk ||
 		!preparation.Target.PrototypeSafe {
 		return errors.New("o dispositivo mudou durante a preparação Portable; operação cancelada")
 	}
 	if preparation.ApplicationPlanSHA256 != expectedPlanSHA ||
-		len(preparation.DestructiveAuthorization) != 64 ||
+		!validLowerHexString(preparation.DestructiveAuthorization, 64) ||
 		preparation.WholeDiskRawImageRequired {
 		return errors.New("a preparação Portable não preservou os vínculos de segurança esperados")
 	}

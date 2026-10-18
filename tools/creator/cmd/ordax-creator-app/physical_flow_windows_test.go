@@ -64,6 +64,7 @@ func validPortablePreparationForTest() (portablePhysicalPreparationDocument, phy
 		DriveLetter:       "O:",
 		DiskNumber:        2,
 		PhysicalDiskBytes: 16 * 1024 * 1024 * 1024,
+		DeviceSerial:      "USB-TEST-SERIAL",
 		PrototypeSafe:     true,
 		ConfirmationToken: strings.Repeat("d", 64),
 	}
@@ -178,6 +179,41 @@ func TestValidatePortablePhysicalPreparationRejectsPlanOrTargetDrift(t *testing.
 	preparation.Target.DiskNumber++
 	if err := validatePortablePhysicalPreparation(preparation, target, planSHA); err == nil {
 		t.Fatal("Portable target swap unexpectedly accepted")
+	}
+}
+
+func TestValidatePortablePhysicalPreparationRejectsCapacityOrSerialDrift(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		mutate func(*portablePhysicalPreparationDocument)
+	}{
+		{"capacity", func(p *portablePhysicalPreparationDocument) { p.Target.PhysicalDiskBytes++ }},
+		{"serial", func(p *portablePhysicalPreparationDocument) { p.Target.DeviceSerial = "OTHER-USB" }},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			preparation, target, planSHA := validPortablePreparationForTest()
+			tc.mutate(&preparation)
+			if err := validatePortablePhysicalPreparation(preparation, target, planSHA); err == nil {
+				t.Fatalf("Portable preparation %s drift accepted", tc.name)
+			}
+		})
+	}
+}
+
+func TestValidatePortablePhysicalPreparationRejectsMalformedAuthorization(t *testing.T) {
+	for _, tc := range []struct{ name, value string }{
+		{"nonhex", strings.Repeat("z", 64)},
+		{"uppercase", strings.Repeat("F", 64)},
+		{"truncated", strings.Repeat("a", 63)},
+		{"whitespace", strings.Repeat("a", 63) + " "},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			preparation, target, planSHA := validPortablePreparationForTest()
+			preparation.DestructiveAuthorization = tc.value
+			if err := validatePortablePhysicalPreparation(preparation, target, planSHA); err == nil {
+				t.Fatalf("malformed Portable authorization %s accepted", tc.name)
+			}
+		})
 	}
 }
 
