@@ -8,12 +8,12 @@ export function projectSidebarAccount(identity, offline = false, translate = id 
   const session = validateIdentitySessionSnapshot(identity);
   const displayName = session.state === "signed-in" ? session.displayName : translate(session.state === "signed-out" ? "sidebar.account.signIn" : "sidebar.account.unavailable");
   const initials = session.state === "signed-in" ? displayName.trim().split(/\s+/).slice(0, 2).map(part => Array.from(part)[0] ?? "").join("").toLocaleUpperCase() : null;
-  return Object.freeze({ displayName, initials, status: translate(offline ? "sidebar.account.offline" : session.state === "signed-in" ? "sidebar.account.signedIn" : "sidebar.account.connect"), openLabel: translate("sidebar.account.open"), storageLabel: translate("sidebar.storage.unavailable"), storageShort: translate("sidebar.storage.short"), notificationsLabel: translate("sidebar.notifications"), notificationsUnavailable: translate("sidebar.notifications.unavailable") });
+  return Object.freeze({ displayName, initials, connected: session.state === "signed-in" && !offline, status: translate(offline ? "sidebar.account.offline" : session.state === "signed-in" ? "sidebar.account.signedIn" : "sidebar.account.connect"), openLabel: translate("sidebar.account.open"), storageLabel: translate("sidebar.storage.unavailable"), storageShort: translate("sidebar.storage.short"), notificationsLabel: translate("sidebar.notifications"), notificationsUnavailable: translate("sidebar.notifications.unavailable") });
 }
 export function sidebarAccountMarkup(view, native = false) {
   const launch = native ? 'data-sidebar-app="account" data-launch-app="account" data-app-target="overview"' : '';
   return `<section class="account sidebar-account" aria-label="${escapeMarkup(view.displayName)}">
-    <button type="button" class="account-open" data-sidebar-account-open ${launch} aria-label="${escapeMarkup(view.openLabel)}" title="${escapeMarkup(view.openLabel)}"><span class="avatar" data-sidebar-avatar aria-hidden="true">${view.initials ? escapeMarkup(view.initials) : USER_ICON}</span><span class="account-identity"><strong data-sidebar-account-name>${escapeMarkup(view.displayName)}</strong><span data-sidebar-account-status>${escapeMarkup(view.status)}</span></span>${CHEVRON}</button>
+    <button type="button" class="account-open meridian-rail-account" data-sidebar-account-open ${launch} aria-label="${escapeMarkup(view.openLabel)}" title="${escapeMarkup(view.openLabel)}"><span class="meridian-account-avatar" aria-hidden="true"><span class="avatar" data-sidebar-avatar>${view.initials ? escapeMarkup(view.initials) : USER_ICON}</span><i data-sidebar-account-connected data-connected="${view.connected}"></i></span><span class="account-identity"><strong data-sidebar-account-name>${escapeMarkup(view.displayName)}</strong><span data-sidebar-account-status>${escapeMarkup(view.status)}</span></span>${CHEVRON}</button>
     <div class="storage-track storage-unavailable" data-sidebar-storage aria-label="${escapeMarkup(view.storageLabel)}"></div>
     <div class="account-storage-footer"><span class="account-storage-value" title="${escapeMarkup(view.storageLabel)}"><span class="account-storage-summary" data-sidebar-storage-short>${escapeMarkup(view.storageShort)}</span><span class="account-storage-compact">—</span></span><div class="account-actions" data-sidebar-notification-slot><button type="button" data-sidebar-notifications ${native ? 'disabled' : ''} title="${escapeMarkup(native ? view.notificationsUnavailable : view.notificationsLabel)}" aria-label="${escapeMarkup(view.notificationsLabel)}">${BELL}</button></div></div>
   </section>`;
@@ -30,6 +30,7 @@ export function mountNativeSidebarAccount(root, identity, host, surface) {
     card.setAttribute("aria-label", view.displayName);
     card.querySelector("[data-sidebar-account-name]").textContent = view.displayName;
     card.querySelector("[data-sidebar-account-status]").textContent = view.status;
+    card.querySelector("[data-sidebar-account-connected]").setAttribute("data-connected", String(view.connected));
     card.querySelector("[data-sidebar-storage-short]").textContent = view.storageShort;
     card.querySelector("[data-sidebar-storage]").setAttribute("aria-label", view.storageLabel);
     card.querySelector(".account-storage-value").setAttribute("title", view.storageLabel);

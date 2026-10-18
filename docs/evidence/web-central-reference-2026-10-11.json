@@ -981,8 +981,15 @@
       "sha256": "91186c177c48d3441ed6e09fcd599b6e5f557abe001921889a8d16eae4b509bc",
       "owner": "OrdaX OS Surface",
       "purpose": "React subscription context projecting existing account and Spaces ports without a second store",
-      "adaptedSha256": "57a5dfe2530414b9a8d80cb42ddec9e5f8f144d232062dcbf271eece94834ed8",
-      "adaptation": "Web Surface reads canonical Identity, Actions, Spaces, Space selection and Surface Host snapshot ports without importing the Web composition; connectivity and Space guards remain unchanged. 2026-10-17: the context exposes the composed bounded Space members reader, server-authored actor capability reader and bounded membership action runtime to the Surface without importing transport, gateway, Supabase or RPC authority."
+      "adaptedSha256": "dfd9252fc41bf2548deda27d17c5a027f77162d396aa21b98b0669e283fb4792",
+      "adaptation": "Web Surface reads canonical Identity, Actions, Spaces, Space selection and Surface Host snapshot ports without importing the Web composition; connectivity and Space guards remain unchanged. 2026-10-17: the context exposes the composed bounded Space members reader, server-authored actor capability reader and bounded membership action runtime to the Surface without importing transport, gateway, Supabase or RPC authority. 2026-10-18: shared account projection supplies localized status/connection state; profile geometry, typography and appearance now belong to shared ui/sidebar-layout.css for Web and Native/USB. Existing actions, storage notes and mocks retained.",
+      "adaptationHistory": [
+        {
+          "date": "2026-10-18",
+          "sha256": "57a5dfe2530414b9a8d80cb42ddec9e5f8f144d232062dcbf271eece94834ed8",
+          "reason": "Before user-authorized Web/Native sidebar profile SSOT unification"
+        }
+      ]
     },
     {
       "target": "system/adapters/web/space-selection.mjs",

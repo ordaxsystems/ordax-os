@@ -1,5 +1,18 @@
 # Source Migration Ledger
 
+## Shared sidebar profile — 2026-10-18
+
+- Origin: canonical `main` at `bd9485c4`, existing Web Meridian profile CSS and
+  `system/surface/ui/sidebar-account.mjs`; explicit user request for shared UX/SSOT.
+- Decision: ADOPTED existing Web profile geometry into the shared sidebar CSS
+  owner, consumed by Native/USB and Web, removing those Web-only style rules.
+- Web reuses localized status/connection projection from the existing account
+  owner; Native binds the same connection indicator to real identity/capabilities.
+- Account actions, Native storage/notification controls and planned mocks remain;
+  no new authentication, device permissions, framework or backend was introduced.
+- Regression: identity/offline/logout/capability-loss and existing sidebar
+  geometry/hints; strict Web compilation and reference provenance verification.
+
 ## Emulator preference SSOT — 2026-10-18
 
 - Origin: `tools/windows-emulator/main.mjs`, current canonical main; user-requested
