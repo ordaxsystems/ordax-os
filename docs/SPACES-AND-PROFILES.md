@@ -309,7 +309,7 @@ Invite is not membership. Pending invites are separate temporary entities; only 
 
 The product backend now has explicit, bounded server-authoritative mutation boundaries instead of relying on direct client table writes:
 
-- Space creation uses `ordax_create_space_v1`; creation authority, type resolution, quota and idempotency are checked below the client, and the owner membership is created by the same server-side flow.
+- Space creation is intended to use `ordax_create_space_v1` with server-side type/quota/idempotency validation. **Deployment gate (2026-10-19):** the source RPC still attempts to insert an `owner` membership, whereas the active Product PostgreSQL `ordax_space_members_role_check` permits only `admin/member/viewer`. Until a forward-only reconciliation migration and PostgreSQL regression pass, this create path is **blocked**, not a verified success. `ordax_spaces.owner_user_id` must remain the one persisted Owner identity; a visible owner entry must be projected without a second membership row (see ordax-os#2007).
 - Space rename/archive/restore use `ordax_mutate_space_lifecycle_v1`; direct authenticated `UPDATE`/`DELETE` on `ordax_spaces` is revoked.
 - direct authenticated `INSERT`/`UPDATE`/`DELETE` on `ordax_space_members` is revoked and the historical membership write policies are removed;
 - actions over an **existing** membership use `ordax_mutate_space_membership_v1` and the versioned `ordax.space-membership-actions/1` contract for `change-role`, `suspend`, `reactivate` and `remove`.
@@ -398,3 +398,8 @@ Esta seção complementa as definições de Space/Profile Pack acima; **não** c
 As definições desta seção **não** afirmam que fluxos de onboarding, sincronização OS↔Platform, grants ou E2E já estejam implantados. Mudanças futuras de esquema exigem migrations versionadas, teste de dados legados, isolamento multi-Owner/Space, revogação, concorrência e teste físico de Runtime. Manter os ports de leitura e ferramentas públicas compatíveis enquanto as autoridades evoluem.
 
 **Prova de implantação pendente (consulta somente leitura 19/10/2026):** no PostgreSQL ativo da Platform, os identificadores persistentes são `ordax_spaces.space_id` e `ordax_projects.project_id`. As funções públicas `ordax_mutate_space_lifecycle_v1` e `ordax_mutate_space_membership_v1` descritas acima **não apareceram** na inspeção de rotinas implantadas; a existência das migrations no repositório do OS não comprova seu deploy. Não inferir um segundo backend nem executar migrations até reconciliar registry, adapter e autoridade de implantação.
+
+
+### Bloqueio da autoridade de proprietário — 2026-10-19
+
+A inspeção read-only da instância Platform confirmou `ordax_space_members_role_check` limitado a `admin/member/viewer` **e** função implantada `ordax_create_space_v1` que tenta inserir `role='owner'`. Os testes isolados de criação do OS utilizam fixtures históricas que permitem `owner`; por isso passar nesses testes não comprova compatibilidade do banco implantado. Regra canônica: `ordax_spaces.owner_user_id` é a única propriedade persistida; Owner pode aparecer como papel **derivado de leitura** para a interface, jamais como segunda linha de autoridade. A correção será versionada em `ordax-os#2007`, sem reescrever a migration já aplicada, e inclui reconciliação de `ordax_policy`/RPCs ausentes. Este estado não autoriza onboarding automático do MCP nem enfraquecimento de RLS.
