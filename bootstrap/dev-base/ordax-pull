@@ -97,7 +97,7 @@ read_state() {
 write_state() {
     destination=$1
     value=$2
-    temporary=$destination.tmp.$
+    temporary=$destination.tmp.$$
     printf '%s\n' "$value" >"$temporary"
     mv -f "$temporary" "$destination"
 }
@@ -173,7 +173,7 @@ record_dirty_checkout() {
 
     head=$(git -C "$WORKTREE" rev-parse HEAD 2>/dev/null || true)
     status_file=$DIRTY_CHECKOUT_DIR/last-status.txt
-    status_tmp=$status_file.tmp.$
+    status_tmp=$status_file.tmp.$$
     {
         printf 'head=%s\n' "${head:-unknown}"
         git -C "$WORKTREE" status --porcelain=v1 2>/dev/null || true
@@ -181,7 +181,7 @@ record_dirty_checkout() {
     mv -f "$status_tmp" "$status_file"
 
     patch_file=$DIRTY_CHECKOUT_DIR/last-tracked-changes.patch
-    patch_tmp=$patch_file.tmp.$
+    patch_tmp=$patch_file.tmp.$$
     if run_bounded_git -C "$WORKTREE" diff --binary --no-ext-diff HEAD >"$patch_tmp" 2>/dev/null; then
         mv -f "$patch_tmp" "$patch_file"
     else

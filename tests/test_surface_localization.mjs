@@ -4,6 +4,7 @@ import { readFile } from "node:fs/promises";
 
 import { PREFERENCE_RUNTIME_SCHEMA } from "../system/contracts/preference-runtime.mjs";
 import { createDesktopShellMarkup } from "../system/surface/ui/desktop-shell.mjs";
+import { getDesktopShortcutGlyphMarkup } from "../system/services/surface/desktop-shortcut-glyphs.mjs";
 import {
   SURFACE_COMPLETE_LOCALES,
   SURFACE_ENGLISH_TARGET_LOCALE,
@@ -122,6 +123,11 @@ for (const locale of SURFACE_COMPLETE_LOCALES) {
     try {
       const markup = createDesktopShellMarkup(localization);
       const buttons = [...markup.matchAll(/<button\b([^>]*)>([\s\S]*?)<\/button>/g)];
+      for (const appId of ["central", "apps", "files", "studio", "settings"]) {
+        const shortcut = buttons.find(([, attributes]) => attributes.includes(`data-desktop-app="${appId}"`));
+        assert.ok(shortcut, `Desktop shortcut ${appId} is present in ${locale}`);
+        assert.ok(shortcut[2].includes(getDesktopShortcutGlyphMarkup(appId)), `${appId} uses its canonical Meridian glyph`);
+      }
       const brandButtons = buttons.filter(([, attributes]) =>
         attributes.includes('class="meridian-brand-home"'),
       );
@@ -129,22 +135,25 @@ for (const locale of SURFACE_COMPLETE_LOCALES) {
       const [, brand] = brandButtons[0];
       assert.ok(brand.includes('data-show-desktop'));
       assert.ok(brand.includes('aria-label="OrdaX OS"'));
-      const expected = ["files", "studio", "settings", "system"];
+      const railExcluded = ["files", "studio", "settings"];
+      const expectedMenuApps = [...railExcluded, "system"];
       const navigation = buttons.filter(([, attributes]) =>
         attributes.includes('class="ordax-rail-button os-nav-item"') &&
-        expected.some(id => attributes.includes(`data-sidebar-app="${id}"`)),
+        railExcluded.some(id => attributes.includes(`data-sidebar-app="${id}"`)),
       );
       assert.equal(navigation.length, 0, "Device-only apps stay out of the Web-equivalent sidebar");
       const deviceMenuApps = buttons.filter(([, attributes]) =>
         attributes.includes('class="meridian-menu-item"') &&
         !attributes.includes('data-app-target="updates"') &&
-        expected.some(id => attributes.includes(`data-nav-menu-app="${id}"`)),
+        expectedMenuApps.some(id => attributes.includes(`data-nav-menu-app="${id}"`)),
       );
-      assert.equal(deviceMenuApps.length, expected.length, "Device-only apps remain available in the destinations menu");
+      assert.equal(deviceMenuApps.length, expectedMenuApps.length, "Device apps remain available in the destinations menu");
       assert.equal(buttons.filter(([, attributes]) => attributes.includes('data-app-target="updates"')).length, 1, "System updates remain a separate destination-menu shortcut");
+      const systemRail = buttons.filter(([, attributes]) => attributes.includes('data-sidebar-app="system"'));
+      assert.equal(systemRail.length, 1, "System remains available in the global rail as the control panel");
       assert.ok(!buttons.some(([, attributes]) => attributes.includes('data-launch-app="internet"')), "Internet stays absent until its portable component is verified");
       assert.ok(!buttons.some(([, attributes]) => attributes.includes('data-launch-app="assistant"')), "Assistant remains unavailable during the remove-first migration gate");
-      for (const id of expected) {
+      for (const id of expectedMenuApps) {
         const matches = deviceMenuApps.filter(([, attributes]) => attributes.includes(`data-nav-menu-app="${id}"`));
         assert.equal(matches.length, 1, `One destination-menu entry for ${id}`);
         const [, attributes, content] = matches[0];
@@ -161,7 +170,9 @@ for (const locale of SURFACE_COMPLETE_LOCALES) {
       assert.ok(profile.includes('data-app-target="overview"'));
       assert.ok(profile.includes(`aria-label="${localization.translate("sidebar.account.open")}"`));
       assert.ok(account.length >= 2, "Spaces and professional profiles use the existing Account service");
-      assert.ok(markup.includes('class="meridian-system-header ordax-native-header"'));
+      assert.ok(!markup.includes('ordax-native-header'));
+      assert.ok(markup.includes('data-area-switcher'));
+      assert.ok(markup.includes('data-update-slot'));
       assert.ok(markup.includes('class="ordax-dock ordax-statusbar meridian-taskbar"'));
       assert.ok(markup.includes('data-connectivity-tray'));
       assert.ok(markup.includes('data-ordax-tray-clock'));

@@ -47,25 +47,71 @@
   --md-window-edge:color-mix(in srgb,var(--md-accent) 38%,var(--md-border));
   --md-window-shadow:0 18px 42px color-mix(in srgb,var(--md-rail) 18%,transparent),var(--md-shadow-small);
   --md-chrome-active:color-mix(in srgb,var(--md-surface) 75%,var(--md-accent-soft));
-  --md-radius:16px;
-  --md-radius-small:9px;
-  --md-radius-large:24px;
-  --md-space-1:4px;
-  --md-space-2:8px;
-  --md-space-3:12px;
-  --md-space-4:16px;
-  --md-space-5:24px;
-  --md-space-6:32px;
-  --md-space-7:48px;
-  --md-rail-width:208px;
-  --md-rail-compact:72px;
-  --md-bar:66px;
-  --md-dock:66px;
-  --md-font:var(--ordax-font,Inter,system-ui,sans-serif);
+  /* rem geometry follows the shared display/text scale across Web and Native. */
+  --md-radius-xs:.25rem;
+  --md-radius-small:.5625rem;
+  --md-radius:1rem;
+  --md-radius-large:1.5rem;
+  --md-space-1:.25rem;
+  --md-space-2:.5rem;
+  --md-space-3:.75rem;
+  --md-space-4:1rem;
+  --md-space-5:1.5rem;
+  --md-space-6:2rem;
+  --md-space-7:3rem;
+  --md-rail-width:13rem;
+  --md-rail-compact:4.5rem;
+  --md-rail-responsive:11.125rem;
+  --md-dock:3.5rem;
+  --md-dock-control-size:2.75rem;
+  --md-dock-icon-size:1.75rem;
+  --md-dock-glyph-size:1.3125rem;
+  --md-dock-item-gap:.375rem;
+  --md-taskbar-inline-padding:1.25rem;
+  --md-taskbar-layout-gap:1rem;
+  --md-taskbar-side-min:5.3125rem;
+  --md-taskbar-control-gap:.4375rem;
+  --md-desktop-shortcut-inset:1.5rem;
+  --md-desktop-shortcut-cell:5.75rem;
+  --md-desktop-shortcut-gap:.625rem;
+  --md-desktop-shortcut-icon:2.6875rem;
+  --md-desktop-shortcut-glyph-size:1.5rem;
+  --md-desktop-shortcut-padding:.375rem .25rem;
+  --md-desktop-shortcut-radius:.625rem;
+  --md-desktop-shortcut-icon-radius:.75rem;
+  --md-desktop-shortcut-label-size:.6875rem;
+  --md-desktop-shortcut-label-weight:500;
+  --md-desktop-shortcut-label-leading:1.2;
+  --md-desktop-shortcut-icon-shadow:0 2px 8px rgb(21 35 29 / 15%);
+  --md-desktop-shortcut-label-shadow:0 1px 3px rgb(20 36 29 / 60%);
+  --md-sidebar-gap:1rem;
+  --md-sidebar-padding-block:1.6875rem;
+  --md-sidebar-padding-inline:1rem;
+  --md-sidebar-nav-gap:.3125rem;
+  --md-sidebar-nav-height:2.75rem;
+  --md-sidebar-nav-inline:.625rem;
+  --md-sidebar-icon-size:1.1875rem;
+  --md-sidebar-icon-gap:.6875rem;
+  --ordax-window-titlebar-height:3.375rem;
+  --ordax-window-titlebar-padding:.5625rem .75rem .5625rem .9375rem;
+  --ordax-window-mark-size:2.125rem;
+  --ordax-window-control-size:2rem;
+  --ordax-window-width:clamp(52.5rem,60vw,96rem);
+  --ordax-window-gutter:clamp(2rem,3vw,6rem);
+  --md-font:Inter,system-ui,"Segoe UI",sans-serif;
+  --ordax-sidebar-expanded-width:var(--md-rail-width);
+  --ordax-sidebar-collapsed-width:var(--md-rail-compact);
+  --ordax-navigation-height:var(--md-dock);
+  --ordax-navigation-control-height:var(--md-dock-control-size);
   --md-duration:180ms;
   color-scheme:light;
   color:var(--md-ink);
   font:0.875rem/1.5 var(--md-font);
+}
+@media(max-width:600px) {
+  [data-meridian] {
+    --md-dock:4.5rem;
+  }
 }
 [data-meridian][data-theme="dark"], [data-meridian][data-theme="native"], [data-meridian][data-ordax-theme="dark"], [data-meridian][data-material="ink"], [data-meridian] [data-material-preview="ink"] {
   --md-canvas:#202824;

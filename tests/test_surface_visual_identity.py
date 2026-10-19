@@ -213,7 +213,10 @@ class SurfaceVisualIdentityTests(unittest.TestCase):
         # Meridian deliberately uses the single canonical field artwork.
         self.assertIn('url("./brand/meridian-field.svg")', css)
         self.assertNotIn('url("./brand/midnight-landscape.png")', css)
-        self.assertNotRegex(css, r'#[a-fA-F0-9]{3,8}\b')
+        # Solid black is the opacity stop in dock mask-image gradients, not a
+        # theme color. Keep the no-hardcoded-palette check on actual paint CSS.
+        paint_css = re.sub(r'mask-image:\s*linear-gradient\([^;]*\);', '', css)
+        self.assertNotRegex(paint_css, r'#[a-fA-F0-9]{3,8}\b')
         provenance = (SURFACE / 'brand' / 'ARTWORK-SOURCE.md').read_text(encoding='utf-8')
         self.assertIn(hashlib.sha256(wallpaper).hexdigest(), provenance)
         self.assertIn('No text, logo, interface', provenance)

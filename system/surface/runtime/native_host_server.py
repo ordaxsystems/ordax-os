@@ -14,6 +14,7 @@ import os
 import re
 import secrets
 import stat
+import subprocess
 import sys
 import threading
 import time
@@ -88,6 +89,7 @@ from native_app_lifecycle_executor import (
     execute_offline_lifecycle_plan,
     validate_lifecycle_plan,
 )
+from display_outputs import DisplayOutputError, WaylandDisplayOutputProvider
 
 SESSION_PATH = "/__ordax/native/session"
 POWER_PATH = "/__ordax/native/power"
@@ -144,6 +146,7 @@ POWER_STATUS_PATH = "/__ordax/native/power-status"
 HARDWARE_INVENTORY_PATH = "/__ordax/native/hardware-inventory"
 NETWORK_STATUS_PATH = "/__ordax/native/network-status"
 NETWORK_MANAGEMENT_PATH = "/__ordax/native/network-management"
+DISPLAY_OUTPUTS_PATH = "/__ordax/native/display-outputs"
 UPDATE_HISTORY_PATH = "/__ordax/native/update-history"
 NATIVE_INSTALL_TARGETS_PATH = "/__ordax/native/native-install-targets"
 COMPONENT_RUNTIME_PATH = "/__ordax/native/component-runtime"
@@ -180,6 +183,7 @@ RESCUE_STATUS_FILE = "/var/lib/ordax/rescue-status.json"
 BOOT_ID_FILE = "/run/ordax-update/base-boot-id"
 TOKEN_HEADER = "X-OrdaX-Power-Token"
 NETWORK_TOKEN_HEADER = "X-OrdaX-Network-Token"
+DISPLAY_OUTPUTS_TOKEN_HEADER = "X-OrdaX-Display-Token"
 NATIVE_INSTALL_TOKEN_HEADER = "X-OrdaX-Native-Install-Token"
 PROFILE_ACTIVATION_TOKEN_HEADER = "X-OrdaX-Profile-Activation-Token"
 DIAGNOSTIC_TOKEN_HEADER = "X-OrdaX-Diagnostic-Token"
@@ -187,6 +191,7 @@ HEALTH_TOKEN_HEADER = "X-OrdaX-Health-Token"
 MAX_CONTROL_BODY = 512
 MAX_STORE_LIFECYCLE_BODY = 16 * 1024
 MAX_NETWORK_ACTION_BODY = 1024
+MAX_DISPLAY_OUTPUT_ACTION_BODY = 512
 MAX_NETWORK_SCAN_BYTES = 512 * 1024
 MAX_NETWORKS = 32
 MAX_NATIVE_INSTALL_SNAPSHOT_BYTES = 256 * 1024
@@ -462,18 +467,34 @@ def start_telemetry_heartbeat(config_path: str) -> bool:
 
 
 def supported_power_actions(power_request_path: str) -> tuple[str, ...]:
+    """Advertise host power only while a private FIFO has a live reader.
+
+    Existence and mode alone are insufficient: the broker can exit while its
+    FIFO remains on disk. Probe O_WRONLY|O_NONBLOCK, so an absent reader fails
+    immediately without blocking the Native HTTP session or sending an action.
+    The open descriptor, rather than a path stat, is checked for identity.
+    """
     try:
-        metadata = os.stat(power_request_path)
+        descriptor = os.open(
+            power_request_path,
+            os.O_WRONLY
+            | getattr(os, "O_NONBLOCK", 0)
+            | getattr(os, "O_CLOEXEC", 0)
+            | getattr(os, "O_NOFOLLOW", 0),
+        )
     except OSError:
         return ()
-    if (
-        not stat.S_ISFIFO(metadata.st_mode)
-        or metadata.st_uid != os.geteuid()
-        or stat.S_IMODE(metadata.st_mode) != 0o600
-        or not os.access(power_request_path, os.W_OK)
-    ):
-        return ()
-    return POWER_ACTIONS
+    try:
+        metadata = os.fstat(descriptor)
+        if (
+            not stat.S_ISFIFO(metadata.st_mode)
+            or metadata.st_uid != os.geteuid()
+            or stat.S_IMODE(metadata.st_mode) != 0o600
+        ):
+            return ()
+        return POWER_ACTIONS
+    finally:
+        os.close(descriptor)
 
 
 def queue_power_action(power_request_path: str, action: str) -> None:
@@ -3402,6 +3423,11 @@ class NativeHostServer(ThreadingHTTPServer):
     daemon_threads = True
     allow_reuse_address = True
 
+    @property
+    def supported_actions(self) -> tuple[str, ...]:
+        # No cached capability: the FIFO reader can disappear after startup.
+        return supported_power_actions(self.power_request_path)
+
     def __init__(
         self,
         server_address,
@@ -3422,14 +3448,20 @@ class NativeHostServer(ThreadingHTTPServer):
         store_artifact_root: str = DEFAULT_STORE_ARTIFACT_ROOT,
         store_artifact_base_origin: str = "",
         account_gateway_origin: str = "",
+        display_outputs_provider=None,
     ):
         super().__init__(server_address, handler_class)
         self.power_token = secrets.token_urlsafe(32)
         self.network_token = secrets.token_urlsafe(32)
+        self.display_outputs_token = secrets.token_urlsafe(32)
+        self.display_outputs_provider = (
+            display_outputs_provider
+            if display_outputs_provider is not None
+            else WaylandDisplayOutputProvider()
+        )
         self.diagnostic_token = secrets.token_urlsafe(32)
         self.health_token = secrets.token_urlsafe(32)
         self.power_request_path = power_request_path
-        self.supported_actions = supported_power_actions(power_request_path)
         self.network_paths = network_broker_paths(network_session_dir)
         self.network_lock = threading.Lock()
         self.keyboard_layout_lock = threading.Lock()
@@ -3550,6 +3582,16 @@ class NativeHostServer(ThreadingHTTPServer):
         if receipt is None:
             raise PermissionError("Profile activation was rejected by the user")
         return receipt
+
+    def server_close(self) -> None:
+        close_display_provider = getattr(self.display_outputs_provider, "close", None)
+        try:
+            if callable(close_display_provider):
+                close_display_provider()
+        except Exception as exc:
+            print(f"ordax-native-host: display provider shutdown failed: {exc}", file=sys.stderr, flush=True)
+        finally:
+            super().server_close()
 
 
 class NativeHostHandler(SimpleHTTPRequestHandler):
@@ -3850,7 +3892,7 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
                 return
             self._write_json(reply.status, payload)
             return
-        if parsed_path in {SESSION_PATH, MEMORY_PATH, FILES_PATH, TRASH_PATH, FILE_CONTENT_PATH, FILE_EXPORT_PATH, IMAGE_PREVIEW_PATH, MEDIA_PREVIEW_PATH, DOCUMENT_PREVIEW_PATH, METRICS_PATH, RECOVERY_STATUS_PATH, POWER_STATUS_PATH, HARDWARE_INVENTORY_PATH, NETWORK_STATUS_PATH, NETWORK_MANAGEMENT_PATH, KEYBOARD_LAYOUT_PATH, NATIVE_INSTALL_TARGETS_PATH, COMPONENT_RUNTIME_PATH, STORE_CATALOG_PATH, UPDATE_HISTORY_PATH, DIAGNOSTIC_JOURNAL_PATH} and self.client_address[0] != "127.0.0.1":
+        if parsed_path in {SESSION_PATH, MEMORY_PATH, FILES_PATH, TRASH_PATH, FILE_CONTENT_PATH, FILE_EXPORT_PATH, IMAGE_PREVIEW_PATH, MEDIA_PREVIEW_PATH, DOCUMENT_PREVIEW_PATH, METRICS_PATH, RECOVERY_STATUS_PATH, POWER_STATUS_PATH, HARDWARE_INVENTORY_PATH, NETWORK_STATUS_PATH, NETWORK_MANAGEMENT_PATH, DISPLAY_OUTPUTS_PATH, KEYBOARD_LAYOUT_PATH, NATIVE_INSTALL_TARGETS_PATH, COMPONENT_RUNTIME_PATH, STORE_CATALOG_PATH, UPDATE_HISTORY_PATH, DIAGNOSTIC_JOURNAL_PATH} and self.client_address[0] != "127.0.0.1":
             self._empty(403)
             return
         if parsed_path.startswith(COMPONENT_MODULE_PREFIX) and self.client_address[0] != "127.0.0.1":
@@ -3929,6 +3971,20 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
                 self._empty(503)
                 return
             self._write_json(200, snapshot)
+            return
+        if parsed_path == DISPLAY_OUTPUTS_PATH:
+            if urlsplit(self.path).query:
+                self._empty(400)
+                return
+            supplied_token = self.headers.get(DISPLAY_OUTPUTS_TOKEN_HEADER, "")
+            if not hmac.compare_digest(supplied_token, self.server.display_outputs_token):
+                self._empty(403)
+                return
+            try:
+                self._write_json(200, self.server.display_outputs_provider.read())
+            except (OSError, RuntimeError, TypeError, ValueError) as exc:
+                print(f"ordax-native-host: display output discovery unavailable: {exc}", file=sys.stderr, flush=True)
+                self._empty(503)
             return
         if parsed_path == NATIVE_INSTALL_TARGETS_PATH:
             if self.server.product_mode != "usb" or not self.server.native_install_available:
@@ -4311,6 +4367,7 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
                 {
                     "token": self.server.power_token,
                     "networkToken": self.server.network_token,
+                    "displayOutputsToken": self.server.display_outputs_token,
                     "diagnosticToken": self.server.diagnostic_token,
                     "productMode": self.server.product_mode,
                     "nativeInstallAvailable": self.server.native_install_available,
@@ -4928,6 +4985,51 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
                 self._empty(500)
                 return
             self._empty(204)
+            return
+
+        if parsed_path == DISPLAY_OUTPUTS_PATH:
+            if urlsplit(self.path).query:
+                self._empty(400)
+                return
+            supplied_token = self.headers.get(DISPLAY_OUTPUTS_TOKEN_HEADER, "")
+            if not hmac.compare_digest(supplied_token, self.server.display_outputs_token):
+                self._empty(403)
+                return
+            payload = self._read_json_body(MAX_DISPLAY_OUTPUT_ACTION_BODY)
+            if payload is None or not isinstance(payload.get("action"), str):
+                self._empty(400)
+                return
+            action = payload["action"]
+            try:
+                if action == "preview" and set(payload) == {"action", "outputId", "modeId"}:
+                    if not isinstance(payload["outputId"], str) or not isinstance(payload["modeId"], str):
+                        self._empty(400)
+                        return
+                    snapshot = self.server.display_outputs_provider.preview(payload["outputId"], payload["modeId"])
+                elif action == "confirm" and set(payload) == {"action", "previewId"}:
+                    if not isinstance(payload["previewId"], str):
+                        self._empty(400)
+                        return
+                    snapshot = self.server.display_outputs_provider.confirm(payload["previewId"])
+                elif action == "revert" and set(payload) == {"action", "previewId"}:
+                    if not isinstance(payload["previewId"], str):
+                        self._empty(400)
+                        return
+                    snapshot = self.server.display_outputs_provider.revert(payload["previewId"])
+                else:
+                    self._empty(400)
+                    return
+            except DisplayOutputError as exc:
+                message = str(exc)
+                status = 503 if "unavailable" in message else 409
+                print(f"ordax-native-host: display output action unavailable: {message}", file=sys.stderr, flush=True)
+                self._empty(status)
+                return
+            except (OSError, RuntimeError, subprocess.SubprocessError, ValueError) as exc:
+                print(f"ordax-native-host: display output action failed safely: {exc}", file=sys.stderr, flush=True)
+                self._empty(503)
+                return
+            self._write_json(200, snapshot)
             return
 
         if self.path == NETWORK_MANAGEMENT_PATH:

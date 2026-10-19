@@ -27,6 +27,7 @@ MAX_BODY = 2 * 1024 * 1024
 MAX_REPORT = 4 * 1024 * 1024
 EVIDENCE_CONTEXTS = {
     ("owner-development", "dynamic-native-runtime"): "development",
+    ("owner-development", "verified-erofs-overlay"): "development",
     ("stable-mvp", "verified-erofs-overlay"): "canonical-stable-mvp",
 }
 UPDATE_PHASES = frozenset({
@@ -117,7 +118,7 @@ def evidence_context_from_environment() -> dict:
     if expected_scope is None or evidence_scope != expected_scope:
         raise ValueError("physical proof evidence context is invalid")
 
-    if evidence_scope == "canonical-stable-mvp":
+    if runtime_mode == "verified-erofs-overlay":
         if not (
             len(runtime_sha256) == 64
             and all(char in "0123456789abcdef" for char in runtime_sha256)
@@ -565,7 +566,7 @@ def _evidence_context(report: dict) -> tuple[str, str, str, str | None] | None:
     expected_scope = EVIDENCE_CONTEXTS.get((distribution_profile, runtime_mode))
     if expected_scope is None or evidence_scope != expected_scope:
         return None
-    if evidence_scope == "canonical-stable-mvp":
+    if runtime_mode == "verified-erofs-overlay":
         if not _valid_sha256(runtime_sha256):
             return None
     elif runtime_sha256 is not None:

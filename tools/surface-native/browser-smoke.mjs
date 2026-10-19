@@ -196,11 +196,24 @@ function buildProofExpression(moduleSources, styles, assetUrls) {
     const result = {};
     result.shellMounted = Boolean(root.querySelector('[data-workspace]'));
     result.launcherApps = root.querySelectorAll('[data-launch-app]').length;
+    const shell = root.querySelector('[data-ordax-shell]');
+    const globalHeader = () => root.querySelector('.ordax-native-header, .meridian-system-header');
+    const headerlessGrid = () => getComputedStyle(root.querySelector('[data-workspace]')).gridRowStart === '1'
+      && getComputedStyle(root.querySelector('.ordax-statusbar')).gridRowStart === '2';
+    result.globalHeaderRemovedOnCentralHome = globalHeader() === null && headerlessGrid();
 
     root.querySelector('[data-launcher-toggle]').click();
     const settingsLaunch = root.querySelector('[data-launch-app="settings"]');
     result.settingsLaunchPresent = Boolean(settingsLaunch);
     settingsLaunch.click();
+    result.centralAppHasNoGlobalHeader = globalHeader() === null && headerlessGrid();
+    const presentationToggle = root.querySelector('[data-presentation-toggle]');
+    presentationToggle.click();
+    result.desktopPresentationHasNoGlobalHeader = shell.dataset.view === 'desktop'
+      && globalHeader() === null && headerlessGrid();
+    presentationToggle.click();
+    result.centralAppStillHasNoGlobalHeader = shell.dataset.view === 'central'
+      && globalHeader() === null && headerlessGrid();
 
     const windowBefore = root.querySelector('[data-window-id="settings"]');
     const slotBefore = windowBefore?.querySelector('[data-app-extension="settings-overview"]');
@@ -279,6 +292,15 @@ function buildProofExpression(moduleSources, styles, assetUrls) {
     result.windowRemovedAfterClose = root.querySelector('[data-window-id="settings"]') === null;
     result.dockRemovedAfterClose = root.querySelector('[data-open-window="settings"]') === null;
     result.focusMovedToWorkspaceOnClose = document.activeElement === root.querySelector('[data-workspace]');
+    result.centralHomeStillHasNoGlobalHeaderAfterClose = globalHeader() === null && headerlessGrid();
+
+    const storeLaunch = root.querySelector('[data-dock-pinned-app="store"]');
+    result.storeLaunchPresent = Boolean(storeLaunch);
+    storeLaunch?.click();
+    const storeWindow = root.querySelector('[data-window-id="store"]');
+    result.storeOpensWithoutGlobalHeader = Boolean(storeWindow) && globalHeader() === null && headerlessGrid();
+    storeWindow?.querySelector('[data-window-action="close"]')?.click();
+    result.storeWindowClosesCleanly = root.querySelector('[data-window-id="store"]') === null;
 
     const { createNotificationsRuntime } = await import(urls['system/services/notifications/runtime.mjs']);
     const { mountNotificationCenterControls } = await import(urls['system/surface/ui/notification-center-controls.mjs']);
@@ -335,6 +357,10 @@ function buildProofExpression(moduleSources, styles, assetUrls) {
 
     const required = [
       'shellMounted', 'settingsLaunchPresent', 'settingsWindowCreated', 'focusBeforeSnapshot',
+      'globalHeaderRemovedOnCentralHome', 'centralAppHasNoGlobalHeader',
+      'desktopPresentationHasNoGlobalHeader', 'centralAppStillHasNoGlobalHeader',
+      'centralHomeStillHasNoGlobalHeaderAfterClose', 'storeLaunchPresent',
+      'storeOpensWithoutGlobalHeader', 'storeWindowClosesCleanly',
       'sameWindowAfterSnapshot', 'sameSlotAfterSnapshot', 'sameInputAfterSnapshot',
       'focusAfterSnapshot', 'scrollPreservedAfterSnapshot', 'draftPreservedAfterSnapshot',
       'sameWindowAfterPreference', 'sameInputAfterPreference', 'focusAfterPreference',

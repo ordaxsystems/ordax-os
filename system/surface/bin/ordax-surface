@@ -52,8 +52,8 @@ NATIVE_INSTALL_REQUEST=$SESSION_DIR/native-install-request
 NATIVE_INSTALL_RESPONSE=$SESSION_DIR/native-install-response
 NATIVE_INSTALL_SNAPSHOT=$SESSION_DIR/native-install-targets.json
 POWER_REQUEST=$SESSION_DIR/power-request
+HOST_POWER_REQUEST=${ORDAX_HOST_POWER_REQUEST:-/run/ordax-update/host-power-request}
 KEYBOARD_SESSION_RESTART_REQUEST=$SESSION_DIR/keyboard-session-restart-request
-POWER_TRANSITION_REQUEST=$SESSION_DIR/power-transition-request
 SURFACE_PID=$$
 POWER_STATE_DIR=$STATE_ROOT/power
 POWER_LAST_REQUEST=$POWER_STATE_DIR/last-request
@@ -104,7 +104,7 @@ chmod 700 "$SESSION_DIR" "$PERSISTENT_NATIVE_STATE" "$PERSISTENT_USER_HOME" "$RE
 : > "$TIME_SYNC_LOG"
 : > "$NETWORK_LOG"
 : > "$NATIVE_INSTALL_LOG"
-rm -f "$RUNTIME_PROOF_CONTEXT" "$POWER_TRANSITION_REQUEST" >/dev/null 2>&1 || true
+rm -f "$RUNTIME_PROOF_CONTEXT" >/dev/null 2>&1 || true
 
 valid_account_gateway_base_url() {
     value=${1:-}
@@ -153,20 +153,20 @@ esac
 # foundation, but the public profile cannot activate its broker or token.
 [ "$DISTRIBUTION_PROFILE" = "stable-mvp" ] && NATIVE_INSTALL_CAPABILITY=disabled
 
-if [ "$DISTRIBUTION_PROFILE" = "stable-mvp" ]; then
+if [ "$DISTRIBUTION_PROFILE" = "stable-mvp" ] || [ -n "$VERIFIED_RUNTIME_MODE" ]; then
     case "$VERIFIED_RUNTIME_MODE" in
         verified-erofs-overlay)
             [ "$VERIFIED_RUNTIME_ROOT" = "/run/ordax/runtime/native-surface/rootfs" ] || {
-                echo "ordax-surface: verified Stable runtime root is invalid" >&2
+                echo "ordax-surface: verified runtime root is invalid" >&2
                 exit 1
             }
             [ "${#VERIFIED_RUNTIME_SHA256}" -eq 64 ] || {
-                echo "ordax-surface: verified Stable runtime digest is invalid" >&2
+                echo "ordax-surface: verified runtime digest is invalid" >&2
                 exit 1
             }
             case "$VERIFIED_RUNTIME_SHA256" in
                 *[!0-9a-f]*)
-                    echo "ordax-surface: verified Stable runtime digest is invalid" >&2
+                    echo "ordax-surface: verified runtime digest is invalid" >&2
                     exit 1
                     ;;
             esac
@@ -178,7 +178,7 @@ if [ "$DISTRIBUTION_PROFILE" = "stable-mvp" ]; then
             # must never provision its graphical runtime from the network.
             ;;
         *)
-            echo "ordax-surface: unsupported Stable runtime mode" >&2
+            echo "ordax-surface: unsupported verified runtime mode" >&2
             exit 1
             ;;
     esac
@@ -635,26 +635,8 @@ cleanup() {
 }
 
 terminate() {
-    trap - EXIT
-    # A power request reaches this handler through TERM. During host quiescence,
-    # guardian/supervisor ancestors also receive TERM and can relay it back to
-    # this PID. Keep the power owner signal-immune until reboot/poweroff wins.
-    trap '' HUP INT TERM
-    requested_power_action=""
-    if [ -s "$POWER_TRANSITION_REQUEST" ]; then
-        IFS= read -r requested_power_action <"$POWER_TRANSITION_REQUEST" || requested_power_action=""
-    fi
+    trap - EXIT HUP INT TERM
     cleanup
-    case "$requested_power_action" in
-        restart|shutdown)
-            rm -f "$POWER_TRANSITION_REQUEST" >/dev/null 2>&1 || true
-            if ! perform_host_power_transition "$requested_power_action"; then
-                record_power_request "$requested_power_action" failed >/dev/null 2>&1 || true
-                power_console_status "failed: $requested_power_action did not cross the kernel boundary"
-                while :; do /bin/busybox sleep 3600; done
-            fi
-            ;;
-    esac
     exit 0
 }
 
@@ -690,7 +672,8 @@ fallback_with_reason() {
 }
 
 runtime_base_is_ready() {
-    if [ "$DISTRIBUTION_PROFILE" = "stable-mvp" ]; then
+    if [ "$DISTRIBUTION_PROFILE" = "stable-mvp" ] ||
+       [ "$VERIFIED_RUNTIME_MODE" = "verified-erofs-overlay" ]; then
         [ "$VERIFIED_RUNTIME_MODE" = "verified-erofs-overlay" ] || return 1
         [ "$RUNTIME_ROOT" = "$VERIFIED_RUNTIME_ROOT" ] || return 1
     else
@@ -833,6 +816,17 @@ upgrade_existing_runtime() {
 }
 
 ensure_runtime() {
+    # Owner USB reuses the canonical verified EROFS/overlay handoff. A missing
+    # or invalid preseed must fail closed: never fall through to APK downloads.
+    if [ "$DISTRIBUTION_PROFILE" = "owner-development" ] &&
+       [ "$VERIFIED_RUNTIME_MODE" = "verified-erofs-overlay" ]; then
+        runtime_is_ready || {
+            echo "ordax-surface: Owner USB offline graphical runtime is invalid" >>"$HOST_LOG"
+            return 1
+        }
+        echo "ordax-surface: using preverified Owner USB EROFS runtime" >>"$HOST_LOG"
+        return 0
+    fi
     if [ "$DISTRIBUTION_PROFILE" = "stable-mvp" ]; then
         runtime_is_ready || {
             echo "ordax-surface: Stable/MVP requires the preverified offline graphical runtime" >>"$HOST_LOG"
@@ -1048,8 +1042,19 @@ publish_runtime_proof_context() {
 
     case "$DISTRIBUTION_PROFILE" in
         owner-development)
-            runtime_mode=dynamic-native-runtime
             evidence_scope=development
+            if [ "$VERIFIED_RUNTIME_MODE" = "verified-erofs-overlay" ]; then
+                [ "$RUNTIME_ROOT" = "/run/ordax/runtime/native-surface/rootfs" ] || return 1
+                [ "${#VERIFIED_RUNTIME_SHA256}" -eq 64 ] || return 1
+                case "$VERIFIED_RUNTIME_SHA256" in
+                    *[!0-9a-f]*) return 1 ;;
+                esac
+                runtime_mode=verified-erofs-overlay
+                runtime_sha256=$VERIFIED_RUNTIME_SHA256
+            else
+                [ -z "$VERIFIED_RUNTIME_MODE" ] || return 1
+                runtime_mode=dynamic-native-runtime
+            fi
             ;;
         stable-mvp)
             [ "$VERIFIED_RUNTIME_MODE" = "verified-erofs-overlay" ] || return 1
@@ -1266,120 +1271,14 @@ reconcile_stale_power_request() {
     fi
 }
 
-root_filesystem_is_read_only() {
-    root_options=$(/bin/busybox awk '$2 == "/" { print $4; exit }' /proc/mounts 2>/dev/null || true)
-    case ",$root_options," in
-        *,ro,*) return 0 ;;
-    esac
-    return 1
-}
-
-terminate_remaining_host_processes_for_power_transition() {
-    signal=$1
-    for proc_path in /proc/[0-9]*; do
-        pid=${proc_path##*/}
-        case "$pid" in
-            1|"$SURFACE_PID") continue ;;
-            ''|*[!0-9]*) continue ;;
-        esac
-        /bin/busybox kill "-$signal" "$pid" >/dev/null 2>&1 || true
-    done
-}
-
-power_console_status() {
-    message=$1
-    printf 'OrdaX power: %s\n' "$message" >/dev/console 2>/dev/null || true
-}
-
-quiesce_root_filesystem_for_power_transition() {
-    action=$1
-    record_power_request "$action" stopping || {
-        echo "ordax-surface: refusing $action because stopping state could not be persisted" >>"$HOST_LOG"
-        return 1
-    }
-    echo "ordax-surface: power state=stopping action=$action" >>"$HOST_LOG"
-    power_console_status "stopping ($action)"
-    terminate_remaining_host_processes_for_power_transition TERM
-    /bin/busybox sleep "$POWER_TERM_GRACE_SECONDS"
-    terminate_remaining_host_processes_for_power_transition KILL
-    /bin/busybox sleep "$POWER_KILL_SETTLE_SECONDS"
-
-    record_power_request "$action" syncing || {
-        echo "ordax-surface: refusing $action because syncing state could not be persisted" >>"$HOST_LOG"
-        return 1
-    }
-    echo "ordax-surface: power state=syncing action=$action timeout=${POWER_SYNC_TIMEOUT_SECONDS}s" >>"$HOST_LOG"
-    power_console_status "syncing filesystems ($action)"
-    /bin/busybox timeout -k 1 "$POWER_SYNC_TIMEOUT_SECONDS" /bin/busybox sync >>"$HOST_LOG" 2>&1 || {
-        echo "ordax-surface: refusing $action because filesystem sync exceeded ${POWER_SYNC_TIMEOUT_SECONDS}s or failed" >>"$HOST_LOG"
-        return 1
-    }
-
-    case "$action" in
-        restart) final_state=rebooting ;;
-        shutdown) final_state=powering-off ;;
-    esac
-    record_power_request "$action" "$final_state" || {
-        echo "ordax-surface: refusing $action because final transition state could not be persisted" >>"$HOST_LOG"
-        return 1
-    }
-    /bin/busybox timeout -k 1 "$POWER_SYNC_TIMEOUT_SECONDS" /bin/busybox sync >>"$HOST_LOG" 2>&1 || {
-        echo "ordax-surface: refusing $action because final state flush failed" >>"$HOST_LOG"
-        return 1
-    }
-    echo "ordax-surface: power state=$final_state action=$action; remounting root read-only" >>"$HOST_LOG"
-    power_console_status "$final_state"
-
-    # Drop writable inherited descriptors before securing the root filesystem.
-    exec >/dev/null 2>&1
-    if ! /bin/busybox timeout -k 1 "$POWER_REMOUNT_TIMEOUT_SECONDS" /bin/busybox mount -o remount,ro /; then
-        power_console_status "failed: root remount timeout/error ($action)"
-        return 1
-    fi
-    if ! root_filesystem_is_read_only; then
-        power_console_status "failed: root remained writable ($action)"
-        return 1
-    fi
-    /bin/busybox timeout -k 1 "$POWER_SYNC_TIMEOUT_SECONDS" /bin/busybox sync >/dev/null 2>&1 || true
-    return 0
-}
-
-perform_host_power_transition() {
-    action=$1
-    case "$action" in
-        restart|shutdown) ;;
-        *) return 1 ;;
-    esac
-    quiesce_root_filesystem_for_power_transition "$action" || return 1
-    # Root is read-only. The normal kernel action gets a finite budget; only
-    # after it returns/times out do we use the emergency sysrq fallback.
-    case "$action" in
-        restart)
-            /bin/busybox timeout -k 1 "$POWER_KERNEL_ACTION_TIMEOUT_SECONDS" /bin/busybox reboot -f >/dev/null 2>&1 || true
-            if [ -w /proc/sysrq-trigger ]; then
-                printf 'b' >/proc/sysrq-trigger 2>/dev/null || true
-                /bin/busybox sleep 1
-            fi
-            ;;
-        shutdown)
-            /bin/busybox timeout -k 1 "$POWER_KERNEL_ACTION_TIMEOUT_SECONDS" /bin/busybox poweroff -f >/dev/null 2>&1 || true
-            if [ -w /proc/sysrq-trigger ]; then
-                printf 'o' >/proc/sysrq-trigger 2>/dev/null || true
-                /bin/busybox sleep 1
-            fi
-            ;;
-    esac
-    power_console_status "failed: kernel $action returned after normal and emergency paths"
-    return 1
-}
-queue_host_power_transition() {
+forward_host_power_request() {
     action=$1
     case "$action" in restart|shutdown) ;; *) return 1 ;; esac
-    temporary=$POWER_TRANSITION_REQUEST.tmp.$$
-    printf '%s\n' "$action" >"$temporary" || return 1
-    chmod 600 "$temporary" || return 1
-    /bin/busybox mv -f "$temporary" "$POWER_TRANSITION_REQUEST" || return 1
-    /bin/busybox kill -TERM "$SURFACE_PID" >/dev/null 2>&1 || return 1
+    [ -p "$HOST_POWER_REQUEST" ] || {
+        echo "ordax-surface: host power owner channel is unavailable" >>"$HOST_LOG"
+        return 1
+    }
+    printf '%s\n' "$action" >"$HOST_POWER_REQUEST" || return 1
     return 0
 }
 
@@ -1434,17 +1333,23 @@ prepare_power_broker() {
                 case "$action" in
                     restart)
                         echo "ordax-surface: host power broker accepted restart" >>"$HOST_LOG"
-                        record_power_request restart pending || echo "ordax-surface: failed to persist restart request proof" >>"$HOST_LOG"
+                        if ! record_power_request restart pending; then
+                            echo "ordax-surface: refusing restart because pending power proof could not be persisted" >>"$HOST_LOG"
+                            continue
+                        fi
                         /bin/busybox sleep 1
-                        if ! queue_host_power_transition restart; then
+                        if ! forward_host_power_request restart; then
                             record_power_request restart failed || true
                         fi
                         ;;
                     shutdown)
                         echo "ordax-surface: host power broker accepted shutdown" >>"$HOST_LOG"
-                        record_power_request shutdown pending || echo "ordax-surface: failed to persist shutdown request proof" >>"$HOST_LOG"
+                        if ! record_power_request shutdown pending; then
+                            echo "ordax-surface: refusing shutdown because pending power proof could not be persisted" >>"$HOST_LOG"
+                            continue
+                        fi
                         /bin/busybox sleep 1
-                        if ! queue_host_power_transition shutdown; then
+                        if ! forward_host_power_request shutdown; then
                             record_power_request shutdown failed || true
                         fi
                         ;;
@@ -1556,6 +1461,59 @@ wait_for_native_server 10 || fallback_with_reason "native Surface HTTP/control s
 
 printf '\033[2J\033[H'
 printf 'OrdaX: iniciando Surface grafica...\n'
+
+# WebKitGTK 2.48 can negotiate DMA-BUF on a DRM device that cannot present
+# those buffers. Restrict shared-memory transport to the *active* virtio DRM
+# device in Owner Development; no global software-rendering switch, no
+# change to real Intel/AMD/NVIDIA devices, and no Stable/MVP contract change.
+# The driver identity comes from sysfs, not the QEMU proof's command line.
+select_owner_virtio_webkit_transport() {
+    [ "$DISTRIBUTION_PROFILE" = "owner-development" ] || return 0
+    # A DRM card may be represented as a PCI or virtio child in sysfs.
+    # Inspect the bound device and its kernel uevent, not the presence of a
+    # loaded module or a test-only command-line parameter.
+    drm_device=/sys/class/drm/card0/device
+    active_driver=$(/bin/busybox readlink -f "$drm_device/driver" 2>/dev/null || true)
+    active_device=$(/bin/busybox readlink -f "$drm_device" 2>/dev/null || true)
+    detected=0
+    case "$active_driver" in */virtio_gpu) detected=1 ;; esac
+    if [ "$detected" -eq 0 ] && [ -r "$drm_device/uevent" ]; then
+        /bin/busybox grep -qx 'DRIVER=virtio_gpu' "$drm_device/uevent" && detected=1
+    fi
+    case "$active_device" in
+        */virtio[0-9]*)
+            # Only a kernel-bound virtio child, not an arbitrary PCI alias.
+            [ -e /sys/module/virtio_gpu ] && detected=1
+            ;;
+    esac
+    # virtio-vga's DRM card0 may expose its *parent PCI device* as
+    # /sys/class/drm/card0/device (driver=virtio-pci). Require the documented
+    # exact modern VirtIO-GPU PCI vendor/device pair; never match the bus or
+    # vendor alone, which would misclassify other VirtIO devices.
+    if [ "$detected" -eq 0 ] && [ "$active_driver" = "/sys/bus/pci/drivers/virtio-pci" ] &&
+       [ -r "$drm_device/vendor" ] && [ -r "$drm_device/device" ] &&
+       /bin/busybox grep -qx '0x1af4' "$drm_device/vendor" &&
+       /bin/busybox grep -qx '0x1050' "$drm_device/device"; then
+        detected=1
+    fi
+    if [ "$detected" -eq 1 ]; then
+        export WEBKIT_DISABLE_DMABUF_RENDERER=1
+        printf 'ordax-surface: owner virtio_gpu selected WebKit non-DMA-BUF transport\n'
+        return 0
+    fi
+    if [ -r /proc/cmdline ] &&
+       /bin/busybox grep -qw 'ordax.owner_qemu_graphics_probe=1' /proc/cmdline; then
+        # Bounded non-sensitive QEMU-only evidence to correct DRM classification.
+        printf 'ORDAX_OWNER_DRM_DRIVER_PATH=%s\n' "${active_driver:-unavailable}"
+        printf 'ORDAX_OWNER_DRM_DEVICE_PATH=%s\n' "${active_device:-unavailable}"
+        if [ -r "$drm_device/uevent" ]; then
+            /bin/busybox grep '^DRIVER=' "$drm_device/uevent" || true
+        fi
+        [ -r "$drm_device/vendor" ] && /bin/busybox sed -n '1s/^/ORDAX_OWNER_DRM_PCI_VENDOR=/p' "$drm_device/vendor" || true
+        [ -r "$drm_device/device" ] && /bin/busybox sed -n '1s/^/ORDAX_OWNER_DRM_PCI_DEVICE=/p' "$drm_device/device" || true
+    fi
+}
+select_owner_virtio_webkit_transport
 
 START_URI="http://127.0.0.1:8765/composition/native/index.html?source=$SOURCE_SHA"
 /bin/busybox chroot "$RUNTIME_ROOT" \

@@ -32,6 +32,12 @@ The shared Core owns:
 
 Platform adapters own only unavoidable host API integration. They may not define another OrdaX layout or security policy.
 
+## Unsigned review bundle versus signed Portable v3 distribution
+
+`Physical Write Promotion` can preflight and build a Windows writer review input, but currently packages only `prototype-ordax.creator-physical-manifest/2` without the signed v3 release envelope. That bundle must never be installed as a physical-media-ready Stable release. The public Creator's existing v3 verifier requires 17 canonical source files, each with a release-commit-bound URL, SHA-256 and size, plus valid purpose-bound Ed25519 provenance. The workflow explicitly reports `PORTABLE_V3_17_SOURCE_RELEASE_READY=NO`, `PORTABLE_V3_SIGNED_WRITER_PUBLISHED=NO` and `PHYSICAL_USB_WRITE_READY=NO` while it emits v2; these indicators describe publication readiness, not consent or completed hardware proof.
+
+Source-scoped owner consent is governed **only** by `docs/contracts/physical-write-authorization.json` and `physical_promotion.py`. Historical permission cannot survive changes to the protected context; renew authorization through the official owner ceremony once the v3 publisher inputs are final. The publisher signs with its legitimately held offline key, verifies exact asset readback, and never ships the private key. Live removable-target re-enumeration, destructive confirmation, UAC, physical 17/17 readback and boot/recovery evidence remain separate mandatory gates.
+
 ## Creator payload boundary
 
 `source_path` in `docs/contracts/minimal-bootstrap.json` means a slash-separated path **relative to the assembled Creator payload root**, never an arbitrary developer/runner path.
@@ -152,7 +158,7 @@ POST_WRITE_READBACK=IMPLEMENTED_GATED
 PHYSICAL_SIGNED_CHANNEL=IMPLEMENTED
 OFFLINE_LAST_KNOWN_GOOD_PHYSICAL_BACKEND=IMPLEMENTED
 CREATOR_DEV_CHANNEL=READ_ONLY
-EXPLICIT_OWNER_AUTHORIZATION_STABLE_MVP=YES_SOURCE_CONTRACT
+EXPLICIT_OWNER_AUTHORIZATION_STABLE_MVP=SEE_CANONICAL_CONTRACT
 CANONICAL_RELEASE_TRUST=PASS_CANONICAL_PUBLIC_ANCHOR_PINNED
 MINIMAL_BOOTSTRAP_ALL_ARTIFACTS_RESOLVED=YES
 PHYSICAL_AUTHORIZATION_ELIGIBLE=YES

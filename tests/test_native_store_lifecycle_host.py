@@ -31,7 +31,7 @@ def artifact(name: str, char: str) -> dict:
 
 def plan(operation: str = "install") -> dict:
     return {
-        "schema": "ordax.app-lifecycle-plan/1",
+        "schema": "ordax.app-lifecycle-plan/2",
         "request": {
             "schema": "ordax.app-lifecycle-request/1",
             "requestId": f"store:{operation}:notes:host-test",
@@ -43,6 +43,16 @@ def plan(operation: str = "install") -> dict:
         "catalogSequence": 9,
         "catalogSha256": "f" * 64,
         "catalogSourceCommit": COMMIT,
+        "expectedActivation": (
+            {"source": "absent", "revision": 0, "version": None, "sourceCommit": None}
+            if operation == "install"
+            else {
+                "source": "slot",
+                "revision": 12,
+                "version": "0.4.2" if operation == "update" else "0.4.3",
+                "sourceCommit": COMMIT,
+            }
+        ),
         "candidate": (
             {
                 "appId": "notes",

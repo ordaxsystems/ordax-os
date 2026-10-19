@@ -11,9 +11,6 @@ PRODUCT_CONTROL_PLANE_URL=${ORDAX_PRODUCT_CONTROL_PLANE_URL:-}
 PRODUCT_CONTROL_PLANE_CONFIG=$WORKTREE/bootstrap/base-update/owner-development/product-control-plane-origin
 STATE_DIR=${ORDAX_STATE_DIR:-/state/ordax}
 CURRENT_FILE=$STATE_DIR/current-commit
-PINNED_FILE=$STATE_DIR/pinned-commit
-BOOT_REJECTED_FILE=$STATE_DIR/boot-rejected-commit
-PULL_BIN=${ORDAX_PULL_BIN:-/usr/local/bin/ordax-pull}
 OWNER_UPDATE_STAGE_TIMEOUT=${ORDAX_STAGE_TIMEOUT_SECONDS:-60}
 ENTRY_PID=""
 TAIL_PID=""
@@ -56,39 +53,6 @@ read_state_value() {
     }
     IFS= read -r value <"$path" || true
     printf '%s' "$value"
-}
-
-recover_automatic_rollback_pin() {
-    [ -x "$PULL_BIN" ] || return 0
-    [ -s "$PINNED_FILE" ] && [ ! -L "$PINNED_FILE" ] || return 0
-    [ -s "$BOOT_REJECTED_FILE" ] && [ ! -L "$BOOT_REJECTED_FILE" ] || return 0
-
-    pinned=$(read_state_value "$PINNED_FILE")
-    rejected=$(read_state_value "$BOOT_REJECTED_FILE")
-    current=$("$GIT_BIN" -C "$WORKTREE" rev-parse HEAD 2>/dev/null || true)
-    is_sha "$pinned" || return 0
-    is_sha "$rejected" || return 0
-    is_sha "$current" || return 0
-    [ "$current" = "$pinned" ] || return 0
-    [ "$rejected" != "$pinned" ] || return 0
-
-    echo "ordax-run: rollback automatico detectado; procurando uma main mais nova sem abandonar o known-good"
-    if ORDAX_AUTOMATIC_ROLLBACK_RECOVERY=1 \
-            ORDAX_WORKTREE="$WORKTREE" \
-            ORDAX_STATE_DIR="$STATE_DIR" \
-            "$PULL_BIN"; then
-        refreshed=$("$GIT_BIN" -C "$WORKTREE" rev-parse HEAD 2>/dev/null || true)
-        if is_sha "$refreshed" && [ "$refreshed" != "$pinned" ] && [ "$refreshed" != "$rejected" ] && \
-           [ ! -e "$PINNED_FILE" ] && [ ! -e "$BOOT_REJECTED_FILE" ]; then
-            echo "ordax-run: rollback automatico liberado por uma main mais nova: $refreshed"
-            return 0
-        fi
-        echo "ordax-run: sincronizacao nao confirmou uma entrega nova segura; mantendo protecao de rollback" >&2
-        return 0
-    fi
-
-    echo "ordax-run: main ainda indisponivel ou sem entrega nova segura; mantendo known-good $pinned" >&2
-    return 0
 }
 
 valid_https_origin() {
@@ -193,8 +157,9 @@ start_guardian_tail() {
     TAIL_PID=$!
 }
 
-recover_automatic_rollback_pin
-
+# The local checkout must boot without network, including on a pinned rollback.
+# The running supervisor/main watcher already owns automatic recovery after
+# the durable First Run receipt; ordax-run must never pull before the UI starts.
 [ -x "$ENTRYPOINT" ] || fail "$ENTRYPOINT nao existe ou nao e executavel"
 
 source_sha=$("$GIT_BIN" -C "$WORKTREE" rev-parse HEAD 2>/dev/null || true)

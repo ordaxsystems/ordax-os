@@ -1019,9 +1019,13 @@
       "owner": "OrdaX OS preferences",
       "purpose": "Portable observable binding delegating validation and updates to the existing catalog and persistence to the canonical store port",
       "sha256": "84b71ccd21165f196a61690e5b1d760d96a3dd8e12108e4b96d5222f857ebd5c",
-      "adaptedSha256": "99cce840447d7d828f6c1c495dba3d2f9906e6243e9ddd2f1b75334031de12c3",
-      "adaptation": "2026-10-18: Share one preference persistence confirmation controller across the Native Surface and portable runtime, publishing pending and host-confirmed results through the existing preference port. No new storage owner. 2026-10-18: First Run requires the existing preference port's durable save confirmation before a completed receipt; failed, superseded or stale Native acknowledgments cannot confirm a revision. One persistence owner is retained.",
+      "adaptedSha256": "9848a0012e7d170b72b036190156e8f57e7e0c72c811aad9ed940427eb624ac3",
+      "adaptation": "2026-10-18: Share one preference persistence confirmation controller across the Native Surface and portable runtime, publishing pending and host-confirmed results through the existing preference port. No new storage owner. | 2026-10-18: Share one preference persistence confirmation controller across the Native Surface and portable runtime, publishing pending and host-confirmed results through the existing preference port. No new storage owner. 2026-10-18: First Run requires the existing preference port's durable save confirmation before a completed receipt; failed, superseded or stale Native acknowledgments cannot confirm a revision. One persistence owner is retained.",
       "adaptationHistory": [
+        {
+          "sha256": "5e0212264fc792a5c9981e9b4b19a0d8e8bf050fd3a96c41c2c66cbe2eb672d6",
+          "reason": "Previous host-confirmed preference projection before current display scaling support"
+        },
         {
           "sha256": "84b71ccd21165f196a61690e5b1d760d96a3dd8e12108e4b96d5222f857ebd5c",
           "reason": "Previous synchronous persistence-status projection before Native host acknowledgment"
@@ -1037,8 +1041,14 @@
       "owner": "OrdaX OS Surface",
       "purpose": "One mounted theme subscription and document effect shared by Central/Desktop and Appearance",
       "sha256": "4415726f84d0cc44e98ffa9046e215ba87f4463e5a12d36f2cc02414ba69cd74",
-      "adaptedSha256": "ee8e98e939959b94ef929a450c946ee6a564da8565359a8c7946c49a2b2721be",
-      "adaptation": "OS Surface canonical preference consumer. Canonical accessibility preferences apply across Web via shared tokens and runtime, responsive controls and relative typography; no new storage or authority. Shared favorite-shortcut presentation consumes a single persisted preference and metadata owner; no installation or grants. 2026-10-12: selectable USB color profile references Native semantic tokens; layout unchanged. 2026-10-12: shared color-palette service and stylesheet consumed by Web/Native; no copied palette. Notification UX uses one shared renderer/CSS and the canonical preferences; Web explicitly has no authorized delivery adapter. Native updater ownership is unchanged."
+      "adaptedSha256": "63d1be9cfdcaf8f877a114e9a74b8f350f0e865c4c022f4b5322602e7e3978e4",
+      "adaptation": "OS Surface canonical preference consumer. Canonical accessibility preferences apply across Web via shared tokens and runtime, responsive controls and relative typography; no new storage or authority. Shared favorite-shortcut presentation consumes a single persisted preference and metadata owner; no installation or grants. 2026-10-12: selectable USB color profile references Native semantic tokens; layout unchanged. 2026-10-12: shared color-palette service and stylesheet consumed by Web/Native; no copied palette. Notification UX uses one shared renderer/CSS and the canonical preferences; Web explicitly has no authorized delivery adapter. Native updater ownership is unchanged.",
+      "adaptationHistory": [
+        {
+          "sha256": "ee8e98e939959b94ef929a450c946ee6a564da8565359a8c7946c49a2b2721be",
+          "reason": "Previous Central preference context before current display-scale and persistence status projections"
+        }
+      ]
     },
     {
       "target": "system/composition/web/main.tsx",
@@ -1098,7 +1108,7 @@
       "purpose": "Canonical account read lifecycle with bounded shared GET transport; domain validation and command authority remain in existing ports",
       "sha256": "2254f43a2d958eabd812926da58f3ccfb10de6fdf44edd69f16a4f7d52b9f133",
       "adaptedSha256": "b36f7f1df6b184f224c30331242305af508e42f44c1b3ad9517a20b20f97e42a",
-      "adaptation": " 2026-10-16: permitted signup navigation revalidates the existing server policy immediately before navigation; no account creation or legal acceptance occurs here. 2026-10-18: Canonical account sign-out now supports a Native proof of local credential detachment while recording that offline remote revocation is unconfirmed. Public action still returns Promise<void>; guest First Run consumes the explicit local proof. No parallel session authority."
+      "adaptation": " 2026-10-16: permitted signup navigation revalidates the existing server policy immediately before navigation; no account creation or legal acceptance occurs here. |  2026-10-16: permitted signup navigation revalidates the existing server policy immediately before navigation; no account creation or legal acceptance occurs here. 2026-10-18: Canonical account sign-out now supports a Native proof of local credential detachment while recording that offline remote revocation is unconfirmed. Public action still returns Promise<void>; guest First Run consumes the explicit local proof. No parallel session authority."
     },
     {
       "target": "system/adapters/web/spaces.mjs",

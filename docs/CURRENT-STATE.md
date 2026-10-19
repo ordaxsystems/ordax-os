@@ -62,6 +62,42 @@ docs/INTELLIGENCE.md.
 
 # Current State
 
+Meridian shell (2026-10-19): the persistent workspace header has been removed
+from Web, Native, Central, Área de Trabalho, and app destinations. Workspace
+content begins at the top of the shell; search and appearance remain available
+through the existing navigation and taskbar controls. Native area switching
+now lives in the sidebar, and update status remains available there as well.
+The Store's redundant context banner is removed; its mode switch sits with the
+window controls so both the mock presentation and real-catalog view remain
+reachable. Window title bars remain the window-management surface. Display-scale
+tokens continue to be shared across desktop presentations.
+
+Surface shortcut placement (2026-10-19): Central quick access, desktop icons,
+taskbar pins, and the device-app section in the navigation menu derive from one
+ordered catalog under `system/services/surface/`. Rendered sidebar app labels
+are localized from their actual app IDs, avoiding stale app-name lists. The app
+runtime catalog and host capabilities remain the authority for whether an app
+can open; shortcut placement does not grant access. System Updates remains a
+separate destination within the System app. Native rail and overflow-menu icons
+consume the shared Meridian destination glyph metadata. Web and Native desktop
+shortcut grids now share Meridian spacing, cell, icon, and inset tokens.
+Their grid and shortcut interaction styles now also have one Meridian owner;
+the number of rows adapts to the available vertical workspace height, with
+narrow-workspace sizing shared across both hosts.
+
+Desktop canvas (2026-10-19): Web and Native resolve the desktop wallpaper
+through one Meridian CSS token and the same local SVG asset. Both presentations
+apply the existing material opacity and high-contrast removal preference to
+the wallpaper; shortcut labels remain legible on the plain canvas. The
+Web-only watermark was removed so the desktop has the same content hierarchy
+across hosts. The wallpaper remains decorative, behind shortcuts and windows.
+
+Desktop taskbar frame (2026-10-19): Native and Web now share Meridian tokens
+for the bottom bar's three-column balance, side-control minimum, group spacing,
+horizontal inset and dock glyph size. Host styles retain only their own
+responsive breakpoints and platform-specific controls, so visual geometry is
+consistent while available system actions remain truthful to each host.
+
 Native Central home layout correction (2026-10-18): the persistent local-space
 card remains in the secondary column at desktop widths, while capability-backed
 continuation and pending-service cards occupy successive rows in the main column.
@@ -516,11 +552,27 @@ não comprova boot físico, serviços autenticados de host ou release assinada.
 ## Ajustes Web e navegação USB — 2026-10-12
 
 Ajustes Web consome settings.css e o catálogo de textos Native diretamente,
-com Aparência/Acessibilidade ligadas ao runtime/store de preferências existente.
+com Aparência, Tela e Acessibilidade ligadas ao runtime/store de preferências existente.
 Entrada Ajustes na sidebar abre a mesma janela Configurações; o atalho de
 engrenagem duplicado foi removido. O painel carrega sob demanda pelo tratamento
 de recursos já existente. As outras seções Native dependentes de host não foram
 expostas como funções Web disponíveis.
+
+## Ajuste de escala da tela — 2026-10-18
+
+Web e Native/USB compartilham a preferência local **Ajustes → Tela → Escala da interface**.
+O modo Automático adapta a escala visual da Surface à largura útil da janela; os tokens
+Meridian de geometria e os componentes principais da sidebar, header, dock e janelas usam
+essa escala nos dois hosts. A área principal e o hero também respondem a telas ultrawide.
+Há opções manuais Compacto,
+Padrão, Confortável e Grande. A escolha é persistida no dispositivo e fica fora
+da allowlist de sync da Conta. Resolução e frequência física continuam pertencendo ao host:
+Web apenas explica esse limite; Native/USB consulta modos reais por um contrato estável e um
+adaptador opcional do compositor Wayland. Sem o provedor ou suporte de gerenciamento de saída,
+o controle fica indisponível e nenhuma lista fictícia é exibida. O contrato e a UI não dependem
+de Alpine; ao trocar a base, o adaptador do host pode ser substituído sem refazer Surface,
+preferências ou jornada de Ajustes. A jornada de referência para recursos sem capacidade real
+permanece disponível.
 
 workspace/presentation.mjs define uma única política: entrar na Área de trabalho
 mantém a sidebar recolhida nos dois renderers, sem expansão; retornar à Central
