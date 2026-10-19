@@ -147,6 +147,17 @@ test("equivalent desktop shortcuts share Meridian identity colors without removi
   assert.ok(webDesktop.includes("id: 'aura'"));
   assert.ok(webDesktop.includes("open(item.name)"));
 });
+test("Web and Native desktop shortcuts consume one canonical glyph source", async () => {
+  const [webDesktop, nativeShell] = await Promise.all([
+    readFile(new URL("../system/surface/workspace/components/central/desktop.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../system/surface/ui/desktop-shell.mjs", import.meta.url), "utf8"),
+  ]);
+  assert.ok(webDesktop.includes("getDesktopShortcutGlyphMarkup(item.id)"));
+  assert.ok(webDesktop.includes("<DesktopShortcutIcon item={item}/>"));
+  for (const [key, appId] of [["presentation", "central"], ["files", "files"], ["studio", "studio"], ["settings", "settings"], ["apps", "apps"]]) {
+    assert.ok(nativeShell.includes(`${key}: getDesktopShortcutGlyphMarkup("${appId}")`), `${appId} Native glyph comes from the shared catalog`);
+  }
+});
 test("Native rail keeps shared Meridian destinations, area switching, and System controls", async () => {
   const nativeShell = await readFile(new URL("../system/surface/ui/desktop-shell.mjs", import.meta.url), "utf8");
   const rail = nativeShell.slice(nativeShell.indexOf("function meridianNavigation("), nativeShell.indexOf("function meridianNavigationMenu("));

@@ -8,10 +8,11 @@ import { LayoutGrid, ChevronRight, Sparkles, WalletCards } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import meridianWallpaper from '../../../ui/brand/meridian-field.svg';
 import { AccountPanel, AppIcon, Panel } from './primitives';
-import { favorites, shortcuts } from './config';
+import { favorites, shortcuts, type AppItem } from './config';
 import { useWebAccount } from './account-context';
 import { WindowResourceLoadError } from './window-resource-error.mjs';
 import type { DesktopAction, DesktopState } from './desktop-state';
+import { getDesktopShortcutGlyphMarkup } from '../../../../services/surface/desktop-shortcut-glyphs.mjs';
 
 // One stable resource type; no fetch until the Store is actually mounted.
 // Cached module-load failures are recovered by explicit page reload.
@@ -20,6 +21,13 @@ const SettingsExperience = lazy(() => import('./settings').then(module => ({ def
 
 export type PresentationProps = { onCentral: () => void };
 type Props = PresentationProps & { dispatch: Dispatch<DesktopAction> };
+
+function DesktopShortcutIcon({ item }: { item: AppItem }) {
+  const glyph = getDesktopShortcutGlyphMarkup(item.id);
+  if (!glyph) return <AppIcon icon={item.icon} tone={item.tone}/>;
+  return <span className="app-icon" data-tone={item.tone} dangerouslySetInnerHTML={{ __html: glyph }}/>;
+}
+
 export function Desktop({ onCentral, dispatch }: Props) {
 
   const open = (title: string) => dispatch({ type: 'open', title });
@@ -32,7 +40,7 @@ export function Desktop({ onCentral, dispatch }: Props) {
     <img src={meridianWallpaper} alt="Paisagem da área de trabalho" className="desktop-wallpaper" width={1920} height={768}/>
     <section className="desktop-shortcuts" aria-label="Atalhos da área de trabalho">
       {desktopShortcuts.map(item => <Button variant="ghost" className="desktop-shortcut" data-desktop-app={item.id} key={item.id} onClick={() => item.id === 'central' ? onCentral() : open(item.name)}>
-        <AppIcon icon={item.icon} tone={item.tone}/><span>{item.name}</span>
+        <DesktopShortcutIcon item={item}/><span>{item.name}</span>
       </Button>)}
     </section>
     <div className="desktop-watermark" aria-hidden="true"><span>Seu espaço.</span><span>Seu ritmo.</span><small>OrdaX OS Web</small></div>
