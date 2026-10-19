@@ -111,8 +111,18 @@ class NativeKeyboardLayoutTests(unittest.TestCase):
         self.assertIn('KEYBOARD_LAYOUT_APPLY_PATH = "/__ordax/native/keyboard-layout/apply"', server)
         self.assertIn('queue_keyboard_session_restart(payload["layoutId"])', post_section)
         self.assertIn('with self.server.keyboard_layout_lock:', post_section)
-        self.assertNotIn("subprocess", server)
-        self.assertNotIn("os.system", server)
+        # The Native server legitimately uses subprocess in other
+        # independently authorized routes. This route must only enqueue an
+        # allowlisted layout through a private FIFO, never execute a shell.
+        queue = server.split("def queue_keyboard_session_restart(", 1)[1].split(
+            "\n\ndef keyboard_layout_snapshot(", 1
+        )[0]
+        for forbidden in ("subprocess", "os.system", "shell=True", "Popen("):
+            self.assertNotIn(forbidden, queue)
+        self.assertIn("KEYBOARD_LAYOUT_ID_SET", queue)
+        self.assertIn("stat.S_ISFIFO", queue)
+        self.assertIn('getattr(os, "O_NOFOLLOW", 0)', queue)
+        self.assertIn("os.fstat(descriptor)", queue)
         self.assertNotIn("Access-Control-Allow-Origin", server)
 
     def test_launcher_maps_only_whitelisted_layouts_before_cage(self):

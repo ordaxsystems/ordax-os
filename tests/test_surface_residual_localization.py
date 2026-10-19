@@ -88,7 +88,11 @@ class SurfaceResidualLocalizationTests(unittest.TestCase):
         source = UPDATES.read_text(encoding="utf-8")
         self.assertIn("assertSurfaceRenderLifecycle", source)
         self.assertIn("localization.subscribe", source)
-        self.assertIn('"system.updateShortcut.label"', source)
+        # The compact update affordance is icon-only. Its accessible name
+        # must come from the canonical ARIA localization key, not a hidden
+        # obsolete visual label or hardcoded Portuguese text.
+        self.assertIn('"system.updateShortcut.aria"', source)
+        self.assertIn('button.setAttribute("aria-label", t(', source)
         self.assertIn('"system.updateShortcut.title.basePending"', source)
         self.assertNotIn('"Atualizações"', source)
         self.assertNotIn('"Há uma atualização que requer atenção.', source)

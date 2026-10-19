@@ -40,8 +40,14 @@ class SettingsLocalAiViewTests(unittest.TestCase):
         self.assertIn('next.appId !== "store" || !VIEWS.includes(next.target)', store)
         self.assertIn('activeView = next.target;', store)
         self.assertIn('modelReadState === "idle"', store)
-        self.assertIn("      localAi,\n      productConnector,\n    );", native)
-        self.assertEqual(native.count("      localAi,\n      productConnector,\n    );"), 2)
+        # Native Settings receives the display capability after Local AI and
+        # connector authorities; the fail-soft path must pass null explicitly.
+        normal = "      localAi,\n      productConnector,\n      displayOutputs,\n    );"
+        fallback = "      localAi,\n      productConnector,\n      null,\n    );"
+        self.assertIn(normal, native)
+        self.assertIn(fallback, native)
+        self.assertEqual(native.count("settingsOverviewControls = mountSettingsOverviewControls("), 2)
+        self.assertIn('reportClientDiagnostic("settings-network-management", error)', native)
         self.assertIn("createNativeProductConnector(window)", native)
         # Native Store uses the canonical window composition, not the retired
         # Store overview mount. Navigation still receives authorized activation.
