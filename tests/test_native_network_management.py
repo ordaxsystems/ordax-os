@@ -245,6 +245,8 @@ class NativeNetworkManagementTests(unittest.TestCase):
         disconnect = broker.split("        disconnect)", 1)[1].split("        forget)", 1)[0]
         reconnect = broker.split("        reconnect)", 1)[1].split("        *)", 1)[0]
         self.assertIn('AUTO_CONNECT_PAUSED=$STATE_DIR/autoconnect-paused', broker)
+        self.assertIn("pause_tmp=$AUTO_CONNECT_PAUSED.tmp.$$", disconnect)
+        self.assertNotIn("pause_tmp=$AUTO_CONNECT_PAUSED.tmp.$\n", disconnect)
         self.assertIn('"$AUTO_CONNECT_PAUSED"', disconnect)
         # The persistent pause receipt must be committed before killing
         # WPA; an interrupted shutdown can no longer reconnect accidentally.
