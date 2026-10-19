@@ -1,4 +1,5 @@
 from pathlib import Path
+import json
 import subprocess
 import unittest
 
@@ -30,6 +31,24 @@ class NativeAccountGatewayResolutionTests(unittest.TestCase):
         configured = GATEWAY_CONFIG.read_text(encoding="utf-8").strip()
         self.assertTrue(configured.startswith("https://"))
         subprocess.run(["sh", "-n", str(SURFACE_ENTRYPOINT)], check=True)
+
+    def test_native_gateway_tracks_verified_platform_destination_without_public_auth_cutover(self):
+        # The source-owner for the project ref is the account migration
+        # contract; never hardcode a retired hostname or enable public auth.
+        hardening = json.loads(
+            (ROOT / "docs/contracts/public-auth-hardening.json").read_text(encoding="utf-8")
+        )
+        destination = hardening["postgresql_destination"]
+        project_ref = destination["project_ref"]
+        self.assertEqual(destination["project_name"], "ordax-platform")
+        self.assertFalse(destination["functional_provider_cutover_complete"])
+        self.assertFalse(destination["public_registration_enabled"])
+        configured = GATEWAY_CONFIG.read_text(encoding="utf-8").strip()
+        self.assertEqual(
+            configured,
+            f"https://{project_ref}.supabase.co/functions/v1/ordax-account-gateway",
+        )
+        self.assertNotIn(hardening["target"]["project_ref"], configured)
 
     def test_entrypoint_does_not_fetch_identity_configuration_from_network(self):
         text = SURFACE_ENTRYPOINT.read_text(encoding="utf-8")
