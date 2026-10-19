@@ -49,10 +49,12 @@ behind the working controls.
 ### Desktop taskbar frame — 2026-10-19
 
 `system/surface/ui/meridian.css` owns the shared three-column taskbar frame,
-group alignment and spacing. Meridian tokens own the side minimum, horizontal
-inset and dock glyph size. Web and Native may arrange their host-specific
-controls and responsive collapse behavior, but must not redefine the shared
-frame geometry or create a second dock scale.
+group alignment, dock targets, app glyph scale and open/active/minimized
+indicators. Meridian tokens own the side minimum, horizontal inset, control
+size, item gap and glyph size. Shared dock navigation uses wrapping arrow keys
+and Home/End without activating apps; each host retains only its own horizontal
+scroll reveal. Web and Native may arrange host-specific controls and responsive
+collapse behavior, but must not redefine shared dock geometry or interaction.
 
 ### Desktop window chrome — 2026-10-19
 

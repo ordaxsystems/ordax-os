@@ -100,11 +100,6 @@
 @container store-host (max-width:480px) { .meridian-store-context {padding:10px;gap:8px;flex-wrap:wrap;}.meridian-store-context small {font-size:0.5625rem;} }
 @media(prefers-reduced-motion:reduce) { .meridian-home * {scroll-behavior:auto!important;transition:none!important;} }
 
-.meridian-workspace .desktop-task[data-pinned=true] {background:transparent;box-shadow:none;border-color:transparent;}
-.meridian-workspace .desktop-task {flex-shrink:0;}
-
-.meridian-workspace .desktop-task[data-pinned=true]::after {display:none;}
-
 /* Full Meridian chrome: context rail, persistent topbar and a centered icon dock. */
 .window-workspace.meridian-workspace[data-view=central] {--workspace-rail:var(--md-rail-width);--sidebar-visual-width:var(--md-rail-width);--running-track:calc(var(--md-dock) + env(safe-area-inset-bottom));}
 .window-workspace.meridian-workspace[data-view=desktop] {--workspace-rail:var(--md-rail-compact);--sidebar-visual-width:var(--md-rail-compact);--running-track:calc(var(--md-dock) + env(safe-area-inset-bottom));}
@@ -113,15 +108,8 @@
 .meridian-taskbar-start>button,.meridian-taskbar-end>button {display:flex;align-items:center;justify-content:center;gap:6px;flex-shrink:0;height:var(--md-dock-control-size);min-width:var(--md-dock-control-size);padding:0 8px;border:0;border-radius:9px;background:transparent;color:var(--md-muted);cursor:pointer;font:inherit;font-size:0.625rem;}
 .meridian-taskbar-start [data-workspace-switch] {background:var(--md-subtle);color:var(--md-ink);}.meridian-taskbar-start button:hover,.meridian-taskbar-end button:hover {background:var(--md-subtle);color:var(--md-ink);}
 .meridian-dock-frame {position:relative;min-width:0;max-width:100%;}
-.meridian-workspace .meridian-dock {display:flex;align-items:center;gap:var(--md-dock-item-gap);padding:2px 0;max-width:100%;width:max-content;border:0;border-radius:0;background:transparent;box-shadow:none;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;overscroll-behavior-x:contain;touch-action:pan-x;}
-.meridian-dock::-webkit-scrollbar {display:none;}
-.meridian-workspace .meridian-dock .desktop-task {display:grid;place-items:center;position:relative;width:var(--md-dock-control-size);min-width:var(--md-dock-control-size);max-width:var(--md-dock-control-size);height:var(--md-dock-control-size);padding:0 4px;border:1px solid transparent;border-radius:10px;background:transparent;color:var(--md-ink);box-shadow:none;}
-.meridian-workspace .meridian-dock .desktop-task .app-icon {display:grid;place-items:center;width:var(--md-dock-icon-size);height:var(--md-dock-icon-size);border-radius:8px;box-shadow:none;}.meridian-dock .app-icon svg {width:var(--md-dock-glyph-size);height:var(--md-dock-glyph-size);stroke-width:1.65;}
+.meridian-workspace .meridian-dock {display:flex;align-items:center;padding:2px 0;max-width:100%;width:max-content;border:0;border-radius:0;background:transparent;box-shadow:none;overflow-x:auto;overflow-y:hidden;touch-action:pan-x;}
 .meridian-workspace .meridian-dock .meridian-dock-label {display:none!important;}
-.meridian-workspace .meridian-dock .desktop-task[data-active=true] {border-color:var(--md-accent);background:var(--md-accent-soft);}
-.meridian-workspace .meridian-dock .desktop-task::after {width:4px;height:3px;left:calc(50% - 2px);bottom:2px;background:var(--md-accent);border-radius:50%;}
-.meridian-workspace .meridian-dock .desktop-task[data-active=true]::after {width:14px;left:calc(50% - 7px);border-radius:3px;}
-.meridian-workspace .meridian-dock .desktop-task[data-minimized=true] {border-bottom:1px solid transparent;}.meridian-workspace .meridian-dock .desktop-task[data-minimized=true]::after {background:transparent;border:1px solid var(--md-muted);height:4px;width:5px;}
 .meridian-dock-edge {position:absolute;top:6px;bottom:6px;width:14px;display:none;place-items:center;pointer-events:none;background:var(--md-surface);color:var(--md-muted);font-size:1.25rem;}.meridian-dock-edge.start {left:1px;border-radius:10px 0 0 10px;}.meridian-dock-edge.end {right:1px;border-radius:0 10px 10px 0;}.meridian-dock-frame[data-start=true] .start,.meridian-dock-frame[data-end=true] .end {display:grid;}
 .meridian-navigation-menu {left:calc(var(--workspace-rail) + 20px)!important;bottom:calc(var(--md-dock) + 8px)!important;width:min(420px,calc(100% - var(--workspace-rail) - 40px))!important;border-radius:16px;background:var(--md-surface);border-color:var(--md-border);}
 .meridian-navigation-menu .desktop-menu-search {margin:18px 0 10px;background:var(--md-subtle);border-radius:9px;}
