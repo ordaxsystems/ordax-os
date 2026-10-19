@@ -217,7 +217,8 @@ try {
         await click('.sidebar-collapse');
         await until("document.querySelector('.sidebar-collapse').getAttribute('aria-expanded')!=="+JSON.stringify(initiallyExpanded));
         await until("document.querySelector('.workspace-sidebar').getBoundingClientRect().width!=="+initialRail);
-        assert.equal(await evaluate("[...document.querySelectorAll('.meridian-rail-utilities button')].every(button=>{const box=button.getBoundingClientRect();return box.width>=44&&box.height>=44;})"),true,'Collapsed sidebar utilities keep usable hit areas');
+        const undersizedUtilities = await evaluate(`JSON.stringify([...document.querySelectorAll('.meridian-rail-utilities button')].map(button=>{const box=button.getBoundingClientRect();return {label:button.getAttribute('aria-label')||button.title||button.textContent?.trim()||'unlabelled',width:box.width,height:box.height,display:getComputedStyle(button).display,rootFontSize:getComputedStyle(document.documentElement).fontSize};}).filter(button=>button.width<44||button.height<44))`);
+        assert.deepEqual(JSON.parse(undersizedUtilities),[],'Collapsed sidebar utilities keep usable hit areas (44 CSS px minimum)');
         await click('.sidebar-collapse');
         await until("document.querySelector('.sidebar-collapse').getAttribute('aria-expanded')==="+JSON.stringify(initiallyExpanded));
       }
