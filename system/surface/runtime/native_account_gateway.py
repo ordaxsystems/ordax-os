@@ -72,7 +72,9 @@ def verified_account_session_reply(
     if (
         raw.get("authenticated") is True
         and raw.get("status") == "authenticated"
-        and raw.get("provider") not in ("unconfigured", "gated")
+        and isinstance(raw.get("provider"), str)
+        and bool(raw["provider"])
+        and raw["provider"] not in ("unconfigured", "gated")
     ):
         subject = raw.get("subject")
         email = raw.get("email")
