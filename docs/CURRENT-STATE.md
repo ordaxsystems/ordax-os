@@ -62,12 +62,15 @@ docs/INTELLIGENCE.md.
 
 # Current State
 
-Native Meridian shell (2026-10-19): shared display-scale tokens apply to both
-Central and Área de Trabalho. The global header is hidden throughout Área de
-Trabalho and on every Central destination other than Início; Central Início
-retains the header. Its grid row collapses alongside it on other pages. The
-presentation choice does not change the desktop notebook/computer viewport
-target.
+Meridian shell (2026-10-19): the persistent workspace header has been removed
+from Web, Native, Central, Área de Trabalho, and app destinations. Workspace
+content begins at the top of the shell; search and appearance remain available
+through the existing navigation and taskbar controls. Native area switching
+now lives in the sidebar, and update status remains available there as well.
+The Store's redundant context banner is removed; its mode switch sits with the
+window controls so both the mock presentation and real-catalog view remain
+reachable. Window title bars remain the window-management surface. Display-scale
+tokens continue to be shared across desktop presentations.
 
 Native Central home layout correction (2026-10-18): the persistent local-space
 card remains in the secondary column at desktop widths, while capability-backed

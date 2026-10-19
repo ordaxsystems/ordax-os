@@ -68,21 +68,6 @@
  --ordax-accent:var(--md-accent);--ordax-border:var(--md-border);--ordax-shadow-soft:var(--md-shadow-small);
 }
 
-/* One Meridian workspace header owner for both Web and Native. */
-.meridian-system-header {height:var(--md-bar);flex-shrink:0;display:flex;align-items:center;gap:1.375rem;justify-content:space-between;padding:0 1.875rem;border-bottom:1px solid var(--md-border);background:var(--md-canvas);font-size:0.75rem;}
-.meridian-system-header button {font:inherit;color:inherit;cursor:pointer;}
-.meridian-system-location {display:flex;align-items:center;gap:.875rem;min-width:0;white-space:nowrap;}
-.meridian-system-location>span {font-weight:550;}
-.meridian-system-location>i {font-style:normal;color:var(--md-border-strong);}
-.meridian-system-location>button:not(.meridian-mobile-menu) {display:flex;gap:.4375rem;align-items:center;border:0;background:transparent;font-size:0.6875rem;color:var(--md-muted);max-width:11.25rem;overflow:hidden;}
-.meridian-system-search {display:flex;align-items:center;gap:.75rem;width:min(21.875rem,36%);padding:.625rem .8125rem;background:var(--md-surface);border:1px solid var(--md-border);border-radius:.625rem;color:var(--md-muted)!important;text-align:left;font-size:0.6875rem!important;}
-.meridian-system-search>span {flex:1;}
-.meridian-system-search kbd {padding:0;border:0;background:transparent;box-shadow:none;color:var(--md-muted);font:400 0.5625rem/1.5 ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;white-space:nowrap;}
-.meridian-system-tools {display:flex;align-items:center;gap:.75rem;}
-.meridian-system-tools>button {display:grid;place-items:center;width:2.125rem;height:2.125rem;padding:0;background:transparent;border:0;border-radius:.5rem;}
-.meridian-system-tools>button:hover {background:var(--md-subtle);}
-.meridian-mobile-menu {display:none;align-items:center;justify-content:center;border:0;background:transparent;padding:.3125rem;}
-
 /* Shared home components used by Web and Native. */
 .meridian-session-strip {display:flex;align-items:center;gap:20px;flex-wrap:wrap;border-bottom:1px solid var(--md-border);padding:0 0 16px;margin-bottom:20px;color:var(--md-muted);font-size:0.75rem;}
 .meridian-session-strip>span,.meridian-session-strip button {display:flex;gap:7px;align-items:center;}
@@ -113,20 +98,4 @@
  .meridian-command-icon {display:none;}
  .meridian-command input {font-size:0.6875rem;}
  .meridian-command small button {margin-left:0;}
-}
-
-@media(max-width:1150px) {
- .meridian-system-header {padding:0 1.5rem;gap:.9375rem;}
- .meridian-planned-indicator {display:none;}
- .meridian-system-search {width:38%;}
-}
-@media(max-width:600px) {
- .meridian-system-header {padding:0 .9375rem;gap:.625rem;}
- .meridian-mobile-menu {display:flex;}
- .meridian-system-location {gap:9px;font-size:0.6875rem;}
- .meridian-system-location>button:not(.meridian-mobile-menu),.meridian-system-location>i {display:none;}
- .meridian-system-search {padding:.5rem;width:2.125rem;height:2.125rem;justify-content:center;border:0;background:transparent;}
- .meridian-system-search>span,.meridian-system-search kbd {display:none;}
- .meridian-system-tools {gap:3px;}
- .meridian-system-tools>button {width:1.875rem;}
 }

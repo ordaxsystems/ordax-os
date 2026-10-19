@@ -1,7 +1,7 @@
 import {translateSurfaceMessage} from '../../../../services/i18n/surface.mjs';
 import {REGIONAL_LOCALE_PREFERENCE_ID} from '../../../../services/preferences/regional.mjs';
 import { createElement, useEffect, useLayoutEffect, useRef, useState, type Dispatch, type KeyboardEvent, type ReactNode } from 'react';
-import { Bell, Search, LayoutGrid, Monitor, MoreHorizontal, ChevronDown, ChevronRight, Sparkles, WalletCards, Settings, Clock3, Menu, Moon, Sun, ShieldCheck, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
+import { Bell, Search, LayoutGrid, Monitor, MoreHorizontal, ChevronDown, ChevronRight, Sparkles, WalletCards, Settings, Clock3, ShieldCheck, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { SIDEBAR_LAYOUT, sidebarBrandMarkup, sidebarNavigationCapacity, sidebarIsExpanded } from '../../../ui/sidebar-layout.mjs';
@@ -15,18 +15,8 @@ import { useWebPreferences } from './preferences-context';
 import { HOME_SHORTCUTS_PREFERENCE_ID, readFavoriteShortcutIds } from '../../../../services/preferences/home-shortcuts.mjs';
 import type { DesktopAction, DesktopState } from './desktop-state';
 
-type HeaderProps = {title:string;theme:'light'|'dark';onMaterial:()=>void;onMenu:()=>void;onOpen:(title:string)=>void};
-export function WorkspaceHeader({title,theme,onMaterial,onMenu,onOpen}:HeaderProps) {
-  const {authorized}=useWebAccount();
-  return <header className="meridian-system-header">
-    <div className="meridian-system-location"><button className="meridian-mobile-menu" aria-label="Abrir navegação" onClick={onMenu} data-navigation-trigger><Menu size={20}/></button><span>{title}</span><i>/</i><button onClick={()=>onOpen('Espaços')}>{authorized.activeSpace?.name??'Seu espaço'}<ChevronDown size={13}/></button></div>
-    <button className="meridian-system-search" aria-label="Buscar aplicativos e recursos" onClick={onMenu} data-navigation-trigger><Search size={17}/><span>Buscar aplicativos e recursos</span><kbd>Ctrl K</kbd></button>
-    <div className="meridian-system-tools"><span className="meridian-planned-indicator"><i/>Recursos planejados</span><button aria-label={theme==='dark'?'Usar material Argila':'Usar material Grafite'} onClick={onMaterial}>{theme==='dark'?<Sun size={18}/>:<Moon size={18}/>}</button><button aria-label="Ajustes rápidos do sistema" onClick={()=>onOpen('Configurações')}><Settings size={18}/></button></div>
-  </header>;
-}
-
-type Props = {menuRequest?:number;onSidebarChange:(mode:'collapsed'|'expanded')=>void;state:DesktopState;dispatch:Dispatch<DesktopAction>;view:'central'|'desktop';onToggleView:()=>void;onCentral:()=>void};
-export function WorkspaceNavigation({state,dispatch,view,onToggleView,onCentral,onSidebarChange,menuRequest=0}:Props) {
+type Props = {onSidebarChange:(mode:'collapsed'|'expanded')=>void;state:DesktopState;dispatch:Dispatch<DesktopAction>;view:'central'|'desktop';onToggleView:()=>void;onCentral:()=>void};
+export function WorkspaceNavigation({state,dispatch,view,onToggleView,onCentral,onSidebarChange}:Props) {
   const destination=presentationDestination(view);
   const DestinationIcon=destination.target==='desktop'?Monitor:LayoutGrid;
   const {snapshot}=useWebPreferences();
@@ -36,7 +26,6 @@ export function WorkspaceNavigation({state,dispatch,view,onToggleView,onCentral,
   const pinned=favorites.filter(item=>pinnedIds.has(item.id));
   const [startOpen,setStartOpen]=useState(false);
   const [search,setSearch]=useState('');
-  const observedMenuRequest=useRef(menuRequest);
   const [visibleCount,setVisibleCount]=useState(6);
   const [expanded,setExpanded]=useState(false);
   const collapseLabel=translateSurfaceMessage(String(snapshot[REGIONAL_LOCALE_PREFERENCE_ID]??'pt-BR'),expanded?'shell.sidebar.collapse':'shell.sidebar.expand');
@@ -50,7 +39,6 @@ export function WorkspaceNavigation({state,dispatch,view,onToggleView,onCentral,
   const [edges,setEdges]=useState({start:false,end:false});
   function openMenu(trigger?:HTMLElement) {menuTrigger.current=trigger??document.activeElement as HTMLElement;menuNavigated.current=false;setSearch('');setStartOpen(true);}
   useLayoutEffect(()=>{setMenuContainer(sidebar.current?.closest<HTMLElement>('.window-workspace')??null);},[]);
-  useEffect(()=>{if(menuRequest!==observedMenuRequest.current){observedMenuRequest.current=menuRequest;openMenu();}},[menuRequest]);
   useEffect(()=>{
     function key(event:globalThis.KeyboardEvent){if((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==='k'&&!document.querySelector('dialog[open],[role="dialog"][data-state="open"]')&&!document.activeElement?.shadowRoot?.querySelector('dialog[open]')){event.preventDefault();openMenu();}}
     document.addEventListener('keydown',key);return()=>document.removeEventListener('keydown',key);

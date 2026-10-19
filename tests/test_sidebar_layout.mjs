@@ -27,7 +27,8 @@ test("Web and Native sidebar render one Meridian OrdaX OS wordmark", async () =>
   assert.ok(!markup.includes("WEB"));
   assert.ok(webNavigation.includes("sidebarBrandMarkup()"));
   assert.ok(nativeShell.includes('brand: `<button type="button" class="meridian-brand-home"'));
-  assert.ok(nativeShell.includes('home: `<div class="meridian-native-home-nav"><div class="ordax-space-switcher-slot" data-space-switcher-slot></div><button type="button" class="ordax-rail-button os-nav-item meridian-home-destination"'));
+  assert.ok(nativeShell.includes('home: `<div class="meridian-native-home-nav"><div class="ordax-space-switcher-slot" data-space-switcher-slot></div><div class="meridian-native-area-control">'));
+  assert.ok(nativeShell.includes('class="ordax-rail-button os-nav-item meridian-home-destination"'));
   assert.ok(nativeShell.includes('auxiliary: `<div class="ordax-power-slot" data-power-slot></div><button type="button" class="sidebar-collapse ordax-sidebar-toggle" data-sidebar-toggle'));
   const nativeRail = nativeShell.slice(nativeShell.indexOf("function meridianNavigation("), nativeShell.indexOf("function meridianNavigationMenu("));
   assert.ok(!nativeRail.includes("meridian-home-destination"));
@@ -35,21 +36,24 @@ test("Web and Native sidebar render one Meridian OrdaX OS wordmark", async () =>
   assert.ok(sharedStyles.includes(".brand-name { font-size:1.5rem; font-weight:550; letter-spacing:-.06em; line-height:1.05; }"));
   assert.ok(webComposition.includes("../../surface/ui/brand/symbol.css"));
 });
-test("Native and Web headers share Meridian dimensions and search styling", async () => {
-  const [sharedHeader, nativeStyles, tokens] = await Promise.all([
+test("Native and Web omit the global Meridian header while keeping top controls elsewhere", async () => {
+  const [sharedStyles, nativeStyles, tokens, nativeShell, webNavigation, webCentral] = await Promise.all([
     readFile(new URL("../system/surface/ui/meridian.css", import.meta.url), "utf8"),
     readFile(new URL("../system/surface/ui/identity.css", import.meta.url), "utf8"),
     readFile(new URL("../system/surface/ui/meridian.tokens.css", import.meta.url), "utf8"),
+    readFile(new URL("../system/surface/ui/desktop-shell.mjs", import.meta.url), "utf8"),
+    readFile(new URL("../system/surface/workspace/components/central/meridian-navigation.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../system/surface/workspace/components/central/central.tsx", import.meta.url), "utf8"),
   ]);
-  assert.match(sharedHeader, /\.meridian-workspace,\s*\.meridian-native-workspace\s*\{\s*font:400 \.8125rem\/1\.5 var\(--md-font\);/);
-  assert.match(sharedHeader, /--md-home-content-max:clamp\(82\.5rem,70vw,280rem\);/);
-  assert.match(sharedHeader, /--md-home-heading-size:clamp\(1\.75rem,3vw,2\.625rem\);/);
-  assert.match(sharedHeader, /\.meridian-system-header \{height:var\(--md-bar\);flex-shrink:0;display:flex;/);
-  assert.match(tokens, /--md-bar:4\.125rem;/);
-  assert.match(sharedHeader, /\.meridian-system-search \{display:flex;align-items:center;gap:\.75rem;width:min\(21\.875rem,36%\);/);
-  assert.match(sharedHeader, /\.meridian-system-search kbd \{padding:0;border:0;background:transparent;/);
-  assert.doesNotMatch(nativeStyles, /\.meridian-native-workspace \.ordax-native-header \{ display:grid/);
-  assert.doesNotMatch(nativeStyles, /\.meridian-native-workspace \.meridian-system-search \{\s*height:42px/);
+  assert.doesNotMatch(sharedStyles, /\.meridian-system-header|\.meridian-system-search|\.meridian-planned-indicator/);
+  assert.doesNotMatch(nativeStyles, /ordax-native-header|meridian-system-header|meridian-system-search|meridian-header-status-actions/);
+  assert.doesNotMatch(tokens, /--md-bar:/);
+  assert.doesNotMatch(nativeShell, /ordax-native-header|meridian-system-header|data-current-destination/);
+  assert.doesNotMatch(webNavigation, /WorkspaceHeader|meridian-system-header/);
+  assert.doesNotMatch(webCentral, /WorkspaceHeader/);
+  assert.match(nativeStyles, /grid-template-rows: minmax\(0, 1fr\) calc\(var\(--ordax-navigation-height\)/);
+  assert.ok(nativeShell.includes('data-area-menu-toggle'));
+  assert.ok(nativeShell.includes('data-update-slot'));
 });
 test("Web and Native share the Meridian rail destination order and grouping", async () => {
   const [webConfig, nativeShell, sharedSidebarStyles, tokens] = await Promise.all([
@@ -81,7 +85,7 @@ test("Native Meridian navigation markup has matching styles and a clean collapse
   assert.match(sharedSidebarStyles, /span:not\(\.ordax-rail-icon\) \{ display: none; \}/);
   assert.ok(nativeShell.includes('<span class="ordax-rail-icon">${ICONS.more}</span>'));
 });
-test("Native rail keeps shared Meridian destinations and exposes System as its control panel", async () => {
+test("Native rail keeps shared Meridian destinations, area switching, and System controls", async () => {
   const nativeShell = await readFile(new URL("../system/surface/ui/desktop-shell.mjs", import.meta.url), "utf8");
   const rail = nativeShell.slice(nativeShell.indexOf("function meridianNavigation("), nativeShell.indexOf("function meridianNavigationMenu("));
   const menu = nativeShell.slice(nativeShell.indexOf("function meridianNavigationMenu("), nativeShell.indexOf("export function createDesktopShellMarkup"));
@@ -91,7 +95,9 @@ test("Native rail keeps shared Meridian destinations and exposes System as its c
   assert.ok(menu.includes('data-nav-menu-group="dispositivo"'));
   assert.match(menu, /const deviceApps = \["files", "studio", "settings", "system"\]/);
   assert.ok(menu.includes('data-nav-menu-app="${id}"'));
-  assert.ok(nativeShell.includes('data-current-destination>${t("shell.home.title")}</span>'));
+  assert.ok(nativeShell.includes('data-current-area>${t("surface.area.label", { ordinal: "01" })}</span>'));
+  assert.ok(nativeShell.includes('data-area-switcher aria-label="${t("shell.areas.aria")}"'));
+  assert.ok(nativeShell.includes('data-update-slot'));
 });
 test("account presentation escapes public names and does not invent storage, plan or credentials", () => {
   const view = projectSidebarAccount({ state: "signed-in", subjectId: "private-id", displayName: '<img src=x onerror="run()"> Maria' });
@@ -312,13 +318,31 @@ test("Web and Native load one Meridian sidebar profile stylesheet owner", async 
   assert.doesNotMatch(webStyles,/^\.meridian-rail-account\s*\{/m);
   for(const entry of [native,web])assert.ok(entry.includes("surface/ui/sidebar-layout.css"));
 });
-test("Web and Native load the same Meridian workspace header rules", async () => {
-  const [shared, webStyles, native] = await Promise.all([
+test("Web and Native shells contain no global workspace header", async () => {
+  const [shared, webStyles, native, nativeShell, webNavigation, webCentral] = await Promise.all([
     readFile(new URL("../system/surface/ui/meridian.css", import.meta.url), "utf8"),
     readFile(new URL("../system/surface/workspace/components/central/meridian.css", import.meta.url), "utf8"),
     readFile(new URL("../system/composition/native/index.html", import.meta.url), "utf8"),
+    readFile(new URL("../system/surface/ui/desktop-shell.mjs", import.meta.url), "utf8"),
+    readFile(new URL("../system/surface/workspace/components/central/meridian-navigation.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../system/surface/workspace/components/central/central.tsx", import.meta.url), "utf8"),
   ]);
-  assert.match(shared, /\.meridian-system-header \{[^}]*display:flex/);
-  assert.doesNotMatch(webStyles, /\.meridian-system-header \{[^}]*display:flex/);
+  assert.doesNotMatch(shared, /meridian-system-header|meridian-system-search/);
+  assert.doesNotMatch(webStyles, /meridian-system-header|meridian-system-search/);
+  assert.doesNotMatch(native, /ordax-native-header|meridian-system-header/);
+  assert.doesNotMatch(nativeShell, /ordax-native-header|meridian-system-header/);
+  assert.doesNotMatch(webNavigation, /WorkspaceHeader|meridian-system-header/);
+  assert.doesNotMatch(webCentral, /WorkspaceHeader/);
   assert.ok(native.includes("surface/ui/meridian.css"));
+});
+test("Store removes its duplicate page header and keeps the catalog switch in window controls", async () => {
+  const [experience, styles] = await Promise.all([
+    readFile(new URL("../system/surface/ui/store-experience.mjs", import.meta.url), "utf8"),
+    readFile(new URL("../system/surface/ui/store-experience.css", import.meta.url), "utf8"),
+  ]);
+  assert.doesNotMatch(experience, /ordax-store-context|data-store-context-title|data-store-context-note/);
+  assert.match(experience, /windowNode\?\.querySelector\('\.ordax-window-controls, \.desktop-window-controls'\)/);
+  assert.match(experience, /windowControls\.prepend\(toggle\)/);
+  assert.match(experience, /toggle\.remove\(\)/);
+  assert.match(styles, /\.ordax-store-window-action/);
 });

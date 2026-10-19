@@ -2,7 +2,7 @@ import React from 'react';
 import {surfaceMessageIds,translateSurfaceMessage} from '../../system/services/i18n/surface.mjs';
 import {renderToStaticMarkup} from 'react-dom/server';
 import {MeridianHome} from '../../system/surface/workspace/components/central/meridian-home';
-import {WorkspaceHeader, WorkspaceNavigation} from '../../system/surface/workspace/components/central/meridian-navigation';
+import {WorkspaceNavigation} from '../../system/surface/workspace/components/central/meridian-navigation';
 import {ServiceOverview} from '../../system/surface/workspace/components/central/service-overview';
 import {WebSettings} from '../../system/surface/workspace/components/central/settings';
 import {AccountPanel} from '../../system/surface/workspace/components/central/primitives';
@@ -26,7 +26,7 @@ const canonicalizeSnapshotHome=(value:string)=>value
 const clean=(value:string)=>value.replace(/ xmlns="[^"]*"/g,'').replace(/<link rel="preload"[^>]*>/g,'').replace(/ href="https?:[^"]*"/g,' aria-disabled="true"');
 export function snapshot(){
  const home=canonicalizeSnapshotHome(renderToStaticMarkup(<MeridianHome theme="light" onOpen={noop} onExample={noop} onPrompt={noop}/>));
- const chrome=renderToStaticMarkup(<div className="window-workspace meridian-workspace demo-native-root" data-meridian="" data-material="paper" data-view="central" data-sidebar="expanded" data-compact="none" data-running="false"><div className="workspace-stage"><div className="central-presentation"><div className="os-shell"><WorkspaceHeader title="Início" theme="light" onMaterial={noop} onMenu={noop} onOpen={noop}/><main className="os-main"><div className="central-content" data-public-demo-content>{/* Public renderer inserts the selected snapshot here. */}</div></main></div></div></div><div className="compact-reservation" aria-hidden="true"/><WorkspaceNavigation onSidebarChange={noop} state={{windows:[],active:null,compactActive:null,compactCollapsed:false}} dispatch={noop} view="central" onToggleView={noop} onCentral={noop}/></div>);
+ const chrome=renderToStaticMarkup(<div className="window-workspace meridian-workspace demo-native-root" data-meridian="" data-material="paper" data-view="central" data-sidebar="expanded" data-compact="none" data-running="false"><div className="workspace-stage"><div className="central-presentation"><div className="os-shell"><main className="os-main"><div className="central-content" data-public-demo-content>{/* Public renderer inserts the selected snapshot here. */}</div></main></div></div></div><div className="compact-reservation" aria-hidden="true"/><WorkspaceNavigation onSidebarChange={noop} state={{windows:[],active:null,compactActive:null,compactCollapsed:false}} dispatch={noop} view="central" onToggleView={noop} onCentral={noop}/></div>);
  const examples=createSpaceExamples();
  const spaces=createSpacesView().spacesView({spaces:examples.spaceExamples,spaceActivity:examples.spaceActivityExamples,spaceTemplates:examples.spaceTemplateExamples,activeSpace:'achegue',presentationSubject:'examples',networkOnline:true},{spacesQuery:'',spacesCategory:'Todos',spacesSort:'recent',spaceFavorites:{}});
  const views:Record<string,string>={spaces:'<div data-meridian class="md-page--spaces">'+spaces+'</div>',apps:clean(renderToStaticMarkup(<FavoriteShortcutsPanel onOpen={noop} showHelp/>)),profiles:clean(renderToStaticMarkup(<ProfileCatalogPanel/>)),account:clean(renderToStaticMarkup(<AccountPanel onOpen={noop}/>)),home:clean(home),settings:clean(renderToStaticMarkup(<WebSettings onOpen={noop}/>))};

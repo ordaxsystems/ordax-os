@@ -730,7 +730,6 @@ export function mountSurface(
   const renderSidebar = () => {
     const area = getActiveArea(state);
     const activeWindow = area.windows.find((item) => item.id === area.activeWindowId) ?? null;
-    root.dataset.activeDestination = activeWindow?.appId ?? "home";
     const homeButton = root.querySelector(".meridian-home-destination");
     if (homeButton) {
       homeButton.hidden = state.presentation !== "central";
@@ -738,11 +737,6 @@ export function mountSurface(
       homeButton.dataset.active = String(homeActive);
       if (homeActive) homeButton.setAttribute("aria-current", "page");
       else homeButton.removeAttribute("aria-current");
-    }
-    const currentDestination = root.querySelector("[data-current-destination]");
-    if (currentDestination) {
-      const activeApp = activeWindow ? catalog.get(activeWindow.appId) : null;
-      currentDestination.textContent = activeApp ? appTitle(localization, activeApp) : localization.translate("shell.home.title");
     }
     for (const button of root.querySelectorAll("[data-sidebar-app]")) {
       const appId = button.dataset.sidebarApp;

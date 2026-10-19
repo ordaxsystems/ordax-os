@@ -62,7 +62,6 @@
   --md-rail-width:13rem;
   --md-rail-compact:4.5rem;
   --md-rail-responsive:11.125rem;
-  --md-bar:4.125rem;
   --md-dock:3.5rem;
   --md-dock-control-size:2.75rem;
   --md-dock-icon-size:1.75rem;
@@ -93,7 +92,6 @@
 }
 @media(max-width:600px) {
   [data-meridian] {
-    --md-bar:3.8125rem;
     --md-dock:4.5rem;
   }
 }

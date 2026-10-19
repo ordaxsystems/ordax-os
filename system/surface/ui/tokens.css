@@ -161,7 +161,6 @@ html[data-ordax-text-scale="extra-large"] { font-size: 125%; }
   --ordax-navigation-height: 40px;
   --ordax-navigation-control-height: 32px;
   --ordax-rail-width: var(--ordax-sidebar-expanded-width);
-  --ordax-header-height: 64px;
 
   /* Geometry. */
   --ordax-radius-xs: 4px;

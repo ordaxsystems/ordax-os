@@ -164,7 +164,9 @@ for (const locale of SURFACE_COMPLETE_LOCALES) {
       assert.ok(profile.includes('data-app-target="overview"'));
       assert.ok(profile.includes(`aria-label="${localization.translate("sidebar.account.open")}"`));
       assert.ok(account.length >= 2, "Spaces and professional profiles use the existing Account service");
-      assert.ok(markup.includes('class="meridian-system-header ordax-native-header"'));
+      assert.ok(!markup.includes('ordax-native-header'));
+      assert.ok(markup.includes('data-area-switcher'));
+      assert.ok(markup.includes('data-update-slot'));
       assert.ok(markup.includes('class="ordax-dock ordax-statusbar meridian-taskbar"'));
       assert.ok(markup.includes('data-connectivity-tray'));
       assert.ok(markup.includes('data-ordax-tray-clock'));

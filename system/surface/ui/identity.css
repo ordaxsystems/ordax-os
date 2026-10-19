@@ -5,7 +5,6 @@ body { background: var(--md-canvas); font-weight: 400; }
 .ordax-shell {
   grid-template-columns: var(--ordax-rail-width) minmax(0, 1fr);
   grid-template-rows: minmax(0, 1fr) calc(var(--ordax-navigation-height) + env(safe-area-inset-bottom));
-  --ordax-header-height: 0px;
   gap: 0;
   background: var(--md-canvas);
 }
@@ -484,48 +483,27 @@ body { background: var(--md-canvas); font-weight: 400; }
 /* Native uses the same Meridian shell hierarchy as the Web workspace. */
 .ordax-shell.meridian-native-workspace {
   grid-template-columns: var(--ordax-rail-width) minmax(0, 1fr);
-  grid-template-rows: var(--md-bar) minmax(0, 1fr) calc(var(--ordax-navigation-height) + env(safe-area-inset-bottom));
+  grid-template-rows: minmax(0, 1fr) calc(var(--ordax-navigation-height) + env(safe-area-inset-bottom));
   --workspace-rail: var(--ordax-rail-width);
   --sidebar-visual-width: var(--ordax-rail-width);
   background: var(--md-canvas);
 }
-.meridian-native-workspace > .ordax-rail { grid-row: 1 / 4; overflow: visible; }
-.meridian-native-workspace > .ordax-workspace { grid-row: 2; }
-.meridian-native-workspace > .ordax-native-header { grid-column: 2; grid-row: 1; min-width: 0; }
-.meridian-native-workspace > .ordax-statusbar { grid-column: 2; grid-row: 3; }
-.meridian-native-workspace[data-view="desktop"] { grid-template-rows: minmax(0,1fr) calc(var(--ordax-navigation-height) + env(safe-area-inset-bottom)); }
-.meridian-native-workspace[data-view="desktop"] > .ordax-rail { grid-row: 1 / 3; }
-.meridian-native-workspace[data-view="desktop"] > .ordax-workspace { grid-row: 1; }
-.meridian-native-workspace[data-view="desktop"] > .ordax-native-header { display:none; }
-.meridian-native-workspace[data-view="desktop"] > .ordax-statusbar { grid-row: 2; }
-.meridian-native-workspace[data-view="central"]:not([data-active-destination="home"]) { grid-template-rows: 0 minmax(0,1fr) calc(var(--ordax-navigation-height) + env(safe-area-inset-bottom)); }
-.meridian-native-workspace[data-view="central"]:not([data-active-destination="home"]) > .ordax-native-header { display:none; }
-.meridian-native-workspace .meridian-system-location { min-width:0; }
-.meridian-native-location-context { color: var(--md-muted); font-size: .68rem; }
-.meridian-native-workspace .meridian-system-location { position:relative; }
-.meridian-native-workspace .meridian-native-area-trigger { display:flex; align-items:center; gap:.4375rem; min-width:0; padding:.3125rem .4375rem; border:0; border-radius:.4375rem; background:transparent; color:var(--md-muted); font-size:.6875rem; }
-.meridian-native-workspace .meridian-native-area-trigger:hover,
-.meridian-native-workspace .meridian-native-area-trigger[aria-expanded="true"] { background:var(--md-subtle); color:var(--md-ink); }
-.meridian-native-workspace .meridian-native-area-trigger svg { width:.875rem; height:.875rem; flex:0 0 auto; fill:none; stroke:currentColor; stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round; }
-.meridian-native-workspace .meridian-native-area-menu { position:absolute; z-index:190; top:calc(100% + .5rem); left:0; min-width:11.875rem; padding:.375rem; border:1px solid var(--md-border); border-radius:.6875rem; background:var(--md-surface); box-shadow:var(--md-window-shadow); }
+.meridian-native-workspace > .ordax-rail { grid-row: 1 / 3; overflow: visible; }
+.meridian-native-workspace > .ordax-workspace { grid-column: 2; grid-row: 1; }
+.meridian-native-workspace > .ordax-statusbar { grid-column: 2; grid-row: 2; }
+.meridian-native-workspace .meridian-native-area-control { position:relative; min-width:0; }
+.meridian-native-workspace .meridian-native-area-trigger { justify-content:flex-start; }
+.meridian-native-workspace .meridian-native-area-trigger > span:nth-child(2) { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.meridian-native-workspace .meridian-native-area-trigger > svg:last-child { width:.875rem; height:.875rem; flex:0 0 auto; fill:none; stroke:currentColor; stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round; }
+.meridian-native-workspace .meridian-native-area-trigger:is(:hover,:focus-visible,[aria-expanded="true"]) { color:var(--md-rail-text); }
+.meridian-native-workspace .meridian-native-area-menu { position:absolute; z-index:190; top:0; left:calc(100% + .5rem); min-width:11.875rem; padding:.375rem; border:1px solid var(--md-border); border-radius:.6875rem; background:var(--md-surface); box-shadow:var(--md-window-shadow); }
 .meridian-native-workspace .meridian-native-area-menu[hidden] { display:none; }
 .meridian-native-workspace .meridian-native-area-menu .ordax-area-switcher { display:grid; gap:.1875rem; max-height:min(17.5rem,calc(100dvh - 7.5rem)); overflow:auto; }
 .meridian-native-workspace .meridian-native-area-menu .ordax-area-button { display:flex; align-items:center; justify-content:flex-start; width:100%; min-height:2.25rem; padding:0 .5625rem; border:1px solid transparent; border-radius:.4375rem; background:transparent; color:var(--md-ink); text-align:left; font-size:.7rem; }
 .meridian-native-workspace .meridian-native-area-menu .ordax-area-button[data-active="true"] { background:var(--md-subtle); color:var(--md-ink); }
 .meridian-native-workspace .meridian-native-area-menu .ordax-area-button:hover { background:var(--md-subtle); }
 .meridian-native-workspace .meridian-native-area-menu .ordax-area-add { justify-content:center; border-color:var(--md-border); }
-.meridian-native-workspace .meridian-system-location > [data-current-destination] { color:var(--md-ink); font-size:.75rem; font-weight:600; }
-.meridian-native-workspace .meridian-system-location > i { color:var(--md-border-strong); font-size:.72rem; }
-.meridian-native-workspace .ordax-native-header :is(button,.meridian-system-search):focus-visible { outline:2px solid var(--md-focus); outline-offset:2px; }
-.meridian-native-workspace .meridian-system-search .meridian-native-search-icon { display:grid; place-items:center; flex:0 0 1.0625rem; width:1.0625rem; height:1.0625rem; }
-.meridian-native-workspace .meridian-system-search > span:not(.meridian-native-search-icon) { flex:1; min-width:0; white-space:nowrap; }
-.meridian-native-search-icon svg { width:1.0625rem; height:1.0625rem; fill:none; stroke:currentColor; stroke-width:1.6; stroke-linecap:round; stroke-linejoin:round; }
-.meridian-native-workspace .meridian-system-tools { min-width:11.875rem; justify-content:flex-end; gap:.75rem; }
-.meridian-native-workspace .meridian-header-status-actions { display:flex; align-items:center; justify-content:flex-end; min-width:0; }
-.meridian-native-workspace .meridian-header-status-actions .ordax-status-action { display:flex; align-items:center; gap:.5rem; min-height:2.125rem; padding:0 .25rem; border:0; border-radius:.4375rem; background:transparent; color:var(--md-muted); font-size:.68rem; white-space:nowrap; }
-.meridian-native-workspace .meridian-header-status-actions .ordax-status-action::before { width:.375rem; height:.375rem; flex:0 0 .375rem; border-radius:50%; background:var(--md-border-strong); content:""; }
-.meridian-native-workspace .meridian-header-status-actions .ordax-status-action[data-alerting="true"] { color:var(--md-ink); }
-.meridian-native-workspace .meridian-header-status-actions .ordax-status-action[data-alerting="true"]::before { background:var(--md-accent); }
+.meridian-native-workspace .meridian-native-area-trigger .ordax-rail-icon svg { fill:none; stroke:currentColor; stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round; }
 .meridian-native-workspace .ordax-native-theme-toggle,
 .meridian-native-workspace .ordax-native-settings { display: grid; place-items: center; width: 2.25rem; min-width: 2.25rem; height: 2.25rem; padding: 0; border: 0; border-radius: var(--md-radius-small); background: transparent; color: var(--md-muted); cursor: pointer; }
 .meridian-native-workspace .ordax-native-theme-toggle:hover,
@@ -647,11 +625,10 @@ body { background: var(--md-canvas); font-weight: 400; }
 .meridian-native-workspace .meridian-nav-more { flex-shrink: 0; }
 
 @media (max-width: 760px) {
-  .ordax-shell.meridian-native-workspace { grid-template-columns: var(--ordax-sidebar-collapsed-width) minmax(0, 1fr); grid-template-rows: var(--md-bar) minmax(0, 1fr) calc(var(--ordax-navigation-height) + env(safe-area-inset-bottom)); }
-  .meridian-native-workspace > .ordax-rail { grid-row: 1 / 4; padding-inline: 8px; }
-  .meridian-native-workspace > .ordax-workspace { grid-column: 2; grid-row: 2; }
-  .meridian-native-workspace > .ordax-native-header { grid-column: 2; grid-row: 1; }
-  .meridian-native-workspace > .ordax-statusbar { grid-column:2; grid-row:3; grid-template-columns:minmax(0,1fr) minmax(0,auto) minmax(0,1fr); gap:.25rem; padding-inline:.375rem; }
+  .ordax-shell.meridian-native-workspace { grid-template-columns: var(--ordax-sidebar-collapsed-width) minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) calc(var(--ordax-navigation-height) + env(safe-area-inset-bottom)); }
+  .meridian-native-workspace > .ordax-rail { grid-row: 1 / 3; padding-inline: 8px; }
+  .meridian-native-workspace > .ordax-workspace { grid-column: 2; grid-row: 1; }
+  .meridian-native-workspace > .ordax-statusbar { grid-column:2; grid-row:2; grid-template-columns:minmax(0,1fr) minmax(0,auto) minmax(0,1fr); gap:.25rem; padding-inline:.375rem; }
   .meridian-native-workspace .meridian-taskbar { grid-template-columns:auto minmax(0,1fr) auto; gap:.5rem; }
   .meridian-native-workspace .ordax-rail { display: flex; }
   .meridian-native-workspace .ordax-home-panel { display: grid; grid-template-columns: minmax(0, 1fr) minmax(150px, .55fr); grid-template-areas: "intro meta" "hero hero" "session session" "command command" "quick quick"; gap: .875rem; padding: 1.25rem .875rem 1.625rem; }
@@ -663,9 +640,6 @@ body { background: var(--md-canvas); font-weight: 400; }
   .meridian-native-workspace .ordax-home-meta { min-height: 0; padding: .75rem; }
   .meridian-native-workspace .ordax-clock { font-size: 1.5rem; }
   .meridian-native-workspace .ordax-date { margin-top: .375rem; text-align: start; }
-  .meridian-native-workspace .meridian-system-search > span:not(.meridian-native-search-icon),
-  .meridian-native-workspace .meridian-system-search kbd,
-  .meridian-native-workspace .meridian-native-location-context { display: none; }
   .meridian-native-workspace .meridian-taskbar-start { overflow: hidden; }
   .meridian-native-workspace .meridian-native-dock { width:100%; max-width:100%; min-width:0; }
   .meridian-native-workspace .ordax-running-apps { width:max-content; max-width:none; flex:0 0 auto; overflow:visible; }
@@ -677,22 +651,8 @@ body { background: var(--md-canvas); font-weight: 400; }
   .meridian-native-workspace .ordax-quick-panel-layer { inset-block-start:auto; inset-inline:6px; bottom:calc(var(--ordax-navigation-height) + 8px); width:auto; }
   .meridian-native-workspace .ordax-native-navigation-menu { left: 10px !important; bottom: calc(var(--ordax-navigation-height) + 4px) !important; width: calc(100vw - 20px) !important; max-height: calc(100dvh - 92px); }
 }
-@media (min-width: 601px) and (max-width: 760px) {
-  .meridian-native-workspace > .ordax-native-header { gap:.5rem; padding-inline:.75rem; }
-  .meridian-native-workspace .meridian-system-location { flex:0 1 auto; gap:.5rem; }
-  .meridian-native-workspace .meridian-system-location > [data-current-destination] { max-width:clamp(4.875rem,20vw,8.875rem); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .meridian-native-workspace .meridian-system-search { width:2.25rem; min-width:2.25rem; height:2.25rem; flex:0 0 2.25rem; justify-content:center; padding:.5rem; }
-  .meridian-native-workspace .meridian-system-tools { min-width:0; flex:0 1 auto; gap:.25rem; }
-  .meridian-native-workspace .meridian-header-status-actions { max-width:clamp(6rem,25vw,10.625rem); flex:0 1 auto; }
-  .meridian-native-workspace .meridian-header-status-actions .ordax-status-action { max-width:100%; min-width:0; overflow:hidden; }
-  .meridian-native-workspace .meridian-header-status-actions .ordax-status-action-label { display:block; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-}
 @media (max-width: 600px) {
-  .ordax-shell.meridian-native-workspace { grid-template-rows: var(--md-bar) minmax(0, 1fr) calc(var(--ordax-navigation-height) + env(safe-area-inset-bottom)); }
-  .meridian-native-workspace .meridian-mobile-menu { width:2rem; height:2rem; }
-  .meridian-native-workspace .meridian-header-status-actions { display:none; }
-  .meridian-native-workspace .meridian-system-tools { min-width:0; }
-  .meridian-native-workspace .meridian-system-search > .meridian-native-search-icon { display:grid; }
+  .ordax-shell.meridian-native-workspace { grid-template-rows: minmax(0, 1fr) calc(var(--ordax-navigation-height) + env(safe-area-inset-bottom)); }
 }
 @media (max-width: 560px) {
   .meridian-native-workspace .ordax-home-panel { grid-template-columns: minmax(0, 1fr); grid-template-areas: "intro" "meta" "hero" "session" "command" "quick"; }
@@ -749,7 +709,7 @@ body { background: var(--md-canvas); font-weight: 400; }
 @media (max-width: 600px) {
   .ordax-shell.meridian-native-workspace { grid-template-columns: minmax(0, 1fr); --workspace-rail: 0px; --sidebar-visual-width: 0px; }
   .meridian-native-workspace > .ordax-rail { display: none !important; }
-  .meridian-native-workspace > :is(.ordax-native-header, .ordax-workspace, .ordax-statusbar) { grid-column: 1; }
+  .meridian-native-workspace > :is(.ordax-workspace, .ordax-statusbar) { grid-column: 1; }
 }
 
 /* Match the Web rail's 208 / 178 / 72 / hidden responsive geometry. */
