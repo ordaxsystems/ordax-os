@@ -70,15 +70,19 @@ test('moving a Native executable to docs never bypasses the OS SemVer gate',()=>
     mkdirSync(join(worktree,'system','surface','bin'),{recursive:true});
     mkdirSync(join(worktree,'docs'),{recursive:true});
     writeFileSync(join(worktree,'system','surface','bin','ordax-surface'),'#!/bin/sh\nexit 0\n');
+    writeFileSync(join(worktree,'system','surface','bin','ação-native'),'#!/bin/sh\nexit 0\n');
     git('add','.');
     git('commit','-qm','baseline executable');
     const baseSha=git('rev-parse','HEAD').trim();
     git('mv','system/surface/bin/ordax-surface','docs/ordax-surface');
+    git('mv','system/surface/bin/ação-native','docs/ação-native');
     git('commit','-qm','move executable to docs');
     const detected=listOsVersionDiffPaths(baseSha,{cwd:worktree});
-    assert.deepEqual(detected,[
-      'docs/ordax-surface','system/surface/bin/ordax-surface',
-    ]);
+    assert.deepEqual(detected.slice().sort(),[
+      'docs/ordax-surface','docs/ação-native',
+      'system/surface/bin/ordax-surface','system/surface/bin/ação-native',
+    ].sort());
+    assert.equal(osProductCodeChanged(['system/surface/bin/ação-native']),true);
     assert.equal(osProductCodeChanged(detected),true);
     assert.throws(()=>verifyOsVersionChange({
       previous:oldVersion,current:oldVersion,paths:detected,
