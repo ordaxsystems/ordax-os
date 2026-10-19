@@ -181,10 +181,15 @@ function buildProofExpression(moduleSources, styles, assetUrls) {
       emit(next) { snapshot = next; for (const listener of [...listeners]) listener(snapshot); },
     };
     const savedWorkspaces = [];
+    let retainedWorkspace = null;
     const workspaceStore = {
       schema: 'ordax.workspace-store/2',
-      load() { return null; },
-      save(value) { savedWorkspaces.push(value); },
+      load() { return retainedWorkspace; },
+      save(value) {
+        retainedWorkspace = value;
+        savedWorkspaces.push(value);
+        return true;
+      },
     };
     const root = document.querySelector('#ordax-proof-root');
     const surface = mountSurface(root, host, null, workspaceStore);
