@@ -319,6 +319,21 @@ function buildProofExpression(moduleSources, styles, assetUrls) {
     result.notificationsFitViewport = panelBounds.left >= 0 && panelBounds.top >= 0
       && panelBounds.right <= innerWidth + 1 && panelBounds.bottom <= innerHeight + 1
       && notificationPanel.scrollWidth <= notificationPanel.clientWidth + 1;
+    if (!result.notificationsFitViewport) {
+      const computed = getComputedStyle(notificationPanel);
+      result.notificationViewportDiagnostic = {
+        viewport: { width: innerWidth, height: innerHeight },
+        panel: { left: panelBounds.left, top: panelBounds.top,
+          right: panelBounds.right, bottom: panelBounds.bottom,
+          width: panelBounds.width, height: panelBounds.height },
+        scrollWidth: notificationPanel.scrollWidth,
+        clientWidth: notificationPanel.clientWidth,
+        computed: { position: computed.position, width: computed.width,
+          height: computed.height, bottom: computed.bottom,
+          insetInlineStart: computed.insetInlineStart },
+        navigationHeight: getComputedStyle(root).getPropertyValue('--ordax-navigation-height').trim(),
+      };
+    }
     const notificationList = root.querySelector('.ordax-notification-scroll');
     result.notificationsNoHorizontalOverflow = notificationList.scrollWidth <= notificationList.clientWidth + 1;
 
