@@ -27,7 +27,9 @@ export function mountUpdateControls(root, updatePort, appActivation, surfaceLife
     throw new Error("Surface update controls require the shared shell update slot");
   }
 
-  const button = node(documentObject, "button", "ordax-status-action", t("system.updateShortcut.label"));
+  const button = node(documentObject, "button", "ordax-status-action");
+  const label = node(documentObject, "span", "ordax-status-action-label", t("system.updateShortcut.label"));
+  button.append(label);
   button.type = "button";
   button.dataset.updateOpenSystem = "";
   button.setAttribute("aria-label", t("system.updateShortcut.aria"));
@@ -37,7 +39,7 @@ export function mountUpdateControls(root, updatePort, appActivation, surfaceLife
 
   const render = () => {
     const alerting = updateIsAlerting(snapshot);
-    button.textContent = t(
+    label.textContent = t(
       alerting ? "system.updateShortcut.labelAlert" : "system.updateShortcut.label",
     );
     button.setAttribute("aria-label", t("system.updateShortcut.aria"));

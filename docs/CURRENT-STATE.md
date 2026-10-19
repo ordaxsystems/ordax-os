@@ -1,3 +1,5 @@
+Physical USB lifecycle interpretation (2026-10-18): the historical `PHYSICAL_OWNER_AUTHORIZATION_RECORDED=NO` and `FIRST_STABLE_MVP_USB_WRITE=HOLD...` snapshot markers below are retained as evidence of the earlier pre-consent gate. For current authorization use `docs/contracts/physical-write-authorization.json` at the exact source commit and `tools/creator/physical_promotion.py`. An approved contract does not prove the v3 signed writer was published or that a physical USB was written, read back, booted or recovered.
+
 Runtime Product MCP source alignment (2026-10-18): `system/services/device-agent/studio-runtime-source-lock.json`
 pins reviewed `ordaxsystems/ordax-runtime` 0.4.7 at an immutable commit and
 SHA-256 of its `ordax-os-runtime-compatibility.json` contract. The upstream
@@ -59,6 +61,13 @@ remain independent. See docs/contracts/product-device-presence.json and
 docs/INTELLIGENCE.md.
 
 # Current State
+
+Native Central home layout correction (2026-10-18): the persistent local-space
+card remains in the secondary column at desktop widths, while capability-backed
+continuation and pending-service cards occupy successive rows in the main column.
+At narrow widths these direct `.ordax-space` children flow in document order.
+This preserves the existing lifecycle owners and avoids overlapping grid areas;
+it changes presentation only and does not claim new backend or USB capability.
 
 Native emulator / Meridian First Run (2026-10-18): the Windows emulator now loads
 `system/composition/native/index.html` for both onboarding and desktop, with no
@@ -507,11 +516,20 @@ não comprova boot físico, serviços autenticados de host ou release assinada.
 ## Ajustes Web e navegação USB — 2026-10-12
 
 Ajustes Web consome settings.css e o catálogo de textos Native diretamente,
-com Aparência/Acessibilidade ligadas ao runtime/store de preferências existente.
+com Aparência, Tela e Acessibilidade ligadas ao runtime/store de preferências existente.
 Entrada Ajustes na sidebar abre a mesma janela Configurações; o atalho de
 engrenagem duplicado foi removido. O painel carrega sob demanda pelo tratamento
 de recursos já existente. As outras seções Native dependentes de host não foram
 expostas como funções Web disponíveis.
+
+## Ajuste de escala da tela — 2026-10-18
+
+Web e Native/USB compartilham a preferência local **Ajustes → Tela → Escala da interface**.
+O modo Automático adapta a escala visual da Surface à largura da janela; o layout Meridian
+também amplia a área principal e o hero em telas ultrawide. Há opções manuais Compacto,
+Padrão, Confortável e Grande. A escolha é persistida no dispositivo e fica fora
+da allowlist de sync da Conta. Brilho, seleção de monitor, resolução e frequência continuam
+dependentes de uma capacidade real do host; a jornada de referência existente foi mantida.
 
 workspace/presentation.mjs define uma única política: entrar na Área de trabalho
 mantém a sidebar recolhida nos dois renderers, sem expansão; retornar à Central

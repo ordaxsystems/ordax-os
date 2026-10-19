@@ -64,8 +64,13 @@ class SurfaceVisualIdentityTests(unittest.TestCase):
         self.assertFalse((SURFACE / "app-identity.css").exists())
 
         css = identity.read_text(encoding="utf-8")
-        self.assertIn("var(--ordax-accent)", css)
-        self.assertIn("var(--ordax-panel)", css)
+        self.assertIn("var(--md-accent)", css)
+        self.assertIn("var(--md-rail)", css)
+        self.assertIn("var(--md-surface)", css)
+        # Legacy semantic aliases are mapped once from Meridian tokens.
+        meridian = (SURFACE / "meridian.css").read_text(encoding="utf-8")
+        self.assertIn("--ordax-accent:var(--md-accent)", meridian)
+        self.assertIn("--ordax-panel:var(--md-surface)", meridian)
         self.assertIn(".ordax-window", css)
         self.assertIn(".ordax-rail", css)
         self.assertIn(".ordax-launcher-panel", css)
@@ -75,7 +80,9 @@ class SurfaceVisualIdentityTests(unittest.TestCase):
             html = index.read_text(encoding="utf-8")
             self.assertIn('../../surface/ui/identity.css', html)
             self.assertNotIn('../../surface/ui/app-identity.css', html)
-            self.assertIn('name="theme-color" content="#edf3fc"', html)
+            palette = (SURFACE / "meridian.tokens.css").read_text(encoding="utf-8")
+            self.assertIn("--md-canvas:#f4f2ed;", palette)
+            self.assertIn('name="theme-color" content="#f4f2ed"', html)
 
     def test_refreshed_shell_keeps_launcher_dock_and_panels_anchored(self):
         css = (SURFACE / "identity.css").read_text(encoding="utf-8")
@@ -202,8 +209,14 @@ class SurfaceVisualIdentityTests(unittest.TestCase):
         self.assertEqual(hashlib.sha256(wallpaper).hexdigest(),
                          '805969ce2fb30001842a545c2dead4516285bcc4973a8673f66aa3599d2601ce')
         css = (SURFACE / 'identity.css').read_text(encoding='utf-8')
-        self.assertIn('url("./brand/midnight-landscape.png")', css)
-        self.assertNotRegex(css, r'#[a-fA-F0-9]{3,8}\b')
+        # The pinned historical artwork stays provenance-bound, while
+        # Meridian deliberately uses the single canonical field artwork.
+        self.assertIn('url("./brand/meridian-field.svg")', css)
+        self.assertNotIn('url("./brand/midnight-landscape.png")', css)
+        # Solid black is the opacity stop in dock mask-image gradients, not a
+        # theme color. Keep the no-hardcoded-palette check on actual paint CSS.
+        paint_css = re.sub(r'mask-image:\s*linear-gradient\([^;]*\);', '', css)
+        self.assertNotRegex(paint_css, r'#[a-fA-F0-9]{3,8}\b')
         provenance = (SURFACE / 'brand' / 'ARTWORK-SOURCE.md').read_text(encoding='utf-8')
         self.assertIn(hashlib.sha256(wallpaper).hexdigest(), provenance)
         self.assertIn('No text, logo, interface', provenance)

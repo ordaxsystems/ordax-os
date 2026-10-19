@@ -130,6 +130,23 @@ ordaxsystems/ordax-apps/apps/studio
 
 O OrdaX OS não deve empacotar um segundo ORDAX Runtime apenas para executar o Studio.
 
+## MCP como capacidade transversal do sistema
+
+O OrdaX OS é owner dos **serviços nativos de permissões e capabilities**
+consumidos por todos os apps, não apenas Studio. A Platform é owner do
+Product MCP remoto e dos grants OAuth/PostgreSQL. No Windows, o Runtime
+implementa a política e as capacidades locais; o Studio pode apresentar a
+interface Owner para autorizações Windows, mas não se torna serviço de
+permissões universal.
+
+No OrdaX OS, Settings/Permissions e o host de sistema administram acesso
+tipado por app verificado/cliente + conta + Space/projeto + dispositivo +
+capability. Apps (Pedidos, Files, Notas, Studio e outros) consomem ports
+públicos, sem raw Device Agent, grant minting, distribuição ou exec próprios.
+A remoção ou falha de Studio não pode desativar o MCP de sistema.
+Os contratos e gates de ativação estão em
+[`docs/MCP-SYSTEM-CAPABILITIES.md`](MCP-SYSTEM-CAPABILITIES.md).
+
 ## Adapters especializados
 
 Blender, Unity e integrações futuras são adapters/capabilities. Eles não justificam um novo owner de autorização nem um segundo Device Agent.

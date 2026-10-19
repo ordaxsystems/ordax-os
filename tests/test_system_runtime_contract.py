@@ -249,8 +249,6 @@ class SystemRuntimeContractTests(unittest.TestCase):
         self.assertIn("prepare_power_broker", launcher)
         self.assertIn('exec 9<>"$POWER_REQUEST"', launcher)
         self.assertIn('IFS= read -r action <&9', launcher)
-        self.assertIn('/bin/busybox reboot -f', launcher)
-        self.assertIn('/bin/busybox poweroff -f', launcher)
         self.assertIn("--power-request /run/ordax-surface/power-request", launcher)
         self.assertIn('DEFAULT_POWER_REQUEST_PATH = "/run/ordax-surface/power-request"', server)
         self.assertIn("queue_power_action", server)
@@ -346,65 +344,108 @@ class SystemRuntimeContractTests(unittest.TestCase):
         self.assertNotIn("component.probation.result", server)
         self.assertNotIn("record_system_component_probation", server)
 
-    def test_native_power_transition_cleans_surface_and_secures_root_before_forced_action(self):
-        text = SURFACE_RUNTIME.read_text(encoding="utf-8")
-        self.assertIn("POWER_TRANSITION_REQUEST=$SESSION_DIR/power-transition-request", text)
-        self.assertIn("SURFACE_PID=$$", text)
-        self.assertIn("queue_host_power_transition()", text)
-        self.assertIn('/bin/busybox kill -TERM "$SURFACE_PID"', text)
-        self.assertIn("perform_host_power_transition()", text)
-        self.assertIn("quiesce_root_filesystem_for_power_transition()", text)
-        self.assertIn("terminate_remaining_host_processes_for_power_transition()", text)
-        self.assertIn('/bin/busybox mount -o remount,ro /', text)
-        self.assertIn("root_filesystem_is_read_only", text)
-        self.assertIn('/bin/busybox reboot -f', text)
-        self.assertIn('/bin/busybox poweroff -f', text)
-        self.assertIn("printf 'b' >/proc/sysrq-trigger", text)
-        self.assertIn("printf 'o' >/proc/sysrq-trigger", text)
-        quiesce = text[text.index("quiesce_root_filesystem_for_power_transition()") : text.index("perform_host_power_transition()")]
-        self.assertLess(quiesce.index("exec >/dev/null 2>&1"), quiesce.index('/bin/busybox mount -o remount,ro /'))
-        self.assertNotIn('mount -o remount,ro / >>"$HOST_LOG"', quiesce)
+    def test_host_guardian_owns_power_transition_after_surface_request(self):
+        surface = SURFACE_RUNTIME.read_text(encoding="utf-8")
+        guardian = SYSTEM_ENTRYPOINT.read_text(encoding="utf-8")
 
-        transition = text[text.index("perform_host_power_transition()") : text.index("queue_host_power_transition()") ]
-        self.assertLess(transition.index('quiesce_root_filesystem_for_power_transition "$action"'), transition.index('/bin/busybox reboot -f'))
-        self.assertLess(transition.index('quiesce_root_filesystem_for_power_transition "$action"'), transition.index('/bin/busybox poweroff -f'))
-        self.assertNotIn("$HOST_LOG", transition[transition.index('quiesce_root_filesystem_for_power_transition "$action"') :])
-        self.assertIn('POWER_KERNEL_ACTION_TIMEOUT_SECONDS', transition)
-        self.assertIn('/bin/busybox timeout -k 1 "$POWER_KERNEL_ACTION_TIMEOUT_SECONDS" /bin/busybox reboot -f', transition)
-        self.assertIn('/bin/busybox timeout -k 1 "$POWER_KERNEL_ACTION_TIMEOUT_SECONDS" /bin/busybox poweroff -f', transition)
-        self.assertIn('power_console_status "failed: kernel $action returned after normal and emergency paths"', transition)
-        termination = text[text.index("terminate()") : text.index("console_fallback()") ]
-        self.assertIn("trap - EXIT", termination)
-        self.assertIn("trap '' HUP INT TERM", termination)
-        self.assertNotIn("trap - EXIT HUP INT TERM", termination)
-        self.assertLess(termination.index("trap '' HUP INT TERM"), termination.index("cleanup"))
-        self.assertLess(termination.index("cleanup"), termination.index('perform_host_power_transition "$requested_power_action"'))
+        self.assertIn('HOST_POWER_REQUEST=${ORDAX_HOST_POWER_REQUEST:-/run/ordax-update/host-power-request}', surface)
+        self.assertIn("forward_host_power_request()", surface)
+        self.assertIn("record_power_request restart pending", surface)
+        self.assertIn("record_power_request shutdown pending", surface)
+        # Host power is a fail-closed, durable operation: never forward a
+        # request whose cross-boot audit record could not be persisted.
+        self.assertIn("if ! record_power_request restart pending; then", surface)
+        self.assertIn("if ! record_power_request shutdown pending; then", surface)
+        self.assertIn("refusing restart because pending power proof could not be persisted", surface)
+        self.assertIn("refusing shutdown because pending power proof could not be persisted", surface)
+        self.assertLess(
+            surface.index("if ! record_power_request restart pending; then"),
+            surface.index("forward_host_power_request restart"),
+        )
+        self.assertLess(
+            surface.index("if ! record_power_request shutdown pending; then"),
+            surface.index("forward_host_power_request shutdown"),
+        )
+        self.assertNotIn("POWER_TRANSITION_REQUEST", surface)
+        self.assertNotIn("perform_host_power_transition()", surface)
+        self.assertNotIn("quiesce_root_filesystem_for_power_transition()", surface)
+        power_broker = surface[surface.index("prepare_power_broker() {"):]
+        self.assertNotIn('/bin/busybox kill -TERM "$SURFACE_PID"', power_broker)
+        self.assertIn('SURFACE_PID=$$', surface)
+        self.assertIn('/bin/busybox kill -TERM "$SURFACE_PID"', surface)
+        self.assertNotIn('/bin/busybox reboot -f', surface)
+        self.assertNotIn('/bin/busybox poweroff -f', surface)
+
+        self.assertIn("HOST_POWER_REQUEST=$UPDATE_RUN_DIR/host-power-request", guardian)
+        self.assertIn("prepare_host_power_channel()", guardian)
+        self.assertIn('exec 8<>"$HOST_POWER_REQUEST"', guardian)
+        self.assertIn('read -r -t "$CHECK_INTERVAL" HOST_POWER_ACTION <&8', guardian)
+        self.assertIn("perform_host_power_transition()", guardian)
+        self.assertIn("quiesce_supervisor_for_power_transition()", guardian)
+        self.assertIn("SUPERVISOR_POWER_QUIESCED_FILE=$UPDATE_RUN_DIR/supervisor-power-quiesced", guardian)
+        self.assertIn("terminate_persistent_host_agents()", guardian)
+        self.assertIn('/bin/busybox mount -o remount,ro /', guardian)
+        self.assertIn("root_filesystem_is_read_only", guardian)
+        self.assertIn('/bin/busybox reboot -f >/dev/null 2>&1', guardian)
+        self.assertIn('/bin/busybox poweroff -f >/dev/null 2>&1', guardian)
+        self.assertIn("printf 'b' >/proc/sysrq-trigger", guardian)
+        self.assertIn("printf 'o' >/proc/sysrq-trigger", guardian)
+        self.assertIn('/bin/busybox mount -o remount,rw /', guardian)
+        transition = guardian[
+            guardian.index("perform_host_power_transition()") : guardian.index("wait_guardian_interval()")
+        ]
+        self.assertLess(
+            transition.index("quiesce_supervisor_for_power_transition"),
+            transition.index('/bin/busybox sync >>"$GUARDIAN_LOG"'),
+        )
+        self.assertLess(
+            transition.index('/bin/busybox sync >>"$GUARDIAN_LOG"'),
+            transition.index('/bin/busybox mount -o remount,ro /'),
+        )
+        self.assertLess(
+            transition.index('/bin/busybox mount -o remount,ro /'),
+            transition.index('/bin/busybox reboot -f'),
+        )
+        self.assertLess(
+            transition.index('/bin/busybox mount -o remount,ro /'),
+            transition.index('/bin/busybox poweroff -f'),
+        )
+
+    def test_supervisor_proves_surface_quiescence_before_guardian_power_transition(self):
+        supervisor = SYSTEM_SUPERVISOR.read_text(encoding="utf-8")
+        guardian = SYSTEM_ENTRYPOINT.read_text(encoding="utf-8")
+        self.assertIn("SUPERVISOR_POWER_QUIESCED_FILE=$UPDATE_RUN_DIR/supervisor-power-quiesced", supervisor)
+        self.assertIn('rm -f "$SUPERVISOR_POWER_QUIESCED_FILE"', supervisor)
+        termination = supervisor[supervisor.index("terminate() {") : supervisor.index("fail_closed() {")]
+        self.assertLess(termination.index("stop_surface"), termination.index('mv -f "$temporary" "$SUPERVISOR_POWER_QUIESCED_FILE"'))
+        self.assertIn('[ "$proof" = "$pid" ] || {', guardian)
+        self.assertIn("supervisor exited without proving Surface/Native quiescence", guardian)
 
     def test_power_actions_persist_cross_boot_proof_before_destructive_action(self):
         text = SURFACE_RUNTIME.read_text(encoding="utf-8")
         self.assertIn("POWER_LAST_REQUEST=$POWER_STATE_DIR/last-request", text)
+        guardian = SYSTEM_ENTRYPOINT.read_text(encoding="utf-8")
+        # A literal trailing dollar would reuse the same temporary filename
+        # across the Surface broker and the Guardian; $ is the shell PID.
+        self.assertIn("temporary=$POWER_LAST_REQUEST.tmp.$", text)
+        self.assertIn("temporary=$POWER_LAST_REQUEST.tmp.$", guardian)
+
         self.assertIn("record_power_request()", text)
         self.assertIn("record_power_request restart pending", text)
         self.assertIn("record_power_request restart failed", text)
         self.assertIn("record_power_request shutdown pending", text)
         self.assertIn("record_power_request shutdown failed", text)
         self.assertIn("printf '%s|%s|%s|%s\\n'", text)
-        self.assertIn('/bin/busybox sync', text)
-        self.assertIn('queue_host_power_transition shutdown', text)
-        self.assertIn('POWER_SYNC_TIMEOUT_SECONDS=12', text)
-        self.assertIn('POWER_REMOUNT_TIMEOUT_SECONDS=5', text)
-        self.assertIn('POWER_KERNEL_ACTION_TIMEOUT_SECONDS=5', text)
-        for status in ("stopping", "syncing", "rebooting", "powering-off"):
-            self.assertIn(status, text)
-        self.assertIn('/bin/busybox timeout -k 1 "$POWER_SYNC_TIMEOUT_SECONDS" /bin/busybox sync', text)
-        self.assertIn('/bin/busybox timeout -k 1 "$POWER_REMOUNT_TIMEOUT_SECONDS" /bin/busybox mount -o remount,ro /', text)
+        # Surface only records and forwards; Guardian performs the fsync.
+        self.assertIn('/bin/busybox sync', SYSTEM_ENTRYPOINT.read_text(encoding='utf-8'))
+        self.assertIn('forward_host_power_request shutdown', text)
         self.assertLess(
             text.index("record_power_request restart pending"),
-            text.index("if ! queue_host_power_transition restart; then"),
+            text.index("if ! forward_host_power_request restart; then"),
         )
         self.assertLess(
             text.index("record_power_request shutdown pending"),
-            text.index("if ! queue_host_power_transition shutdown; then"),
+            text.index("if ! forward_host_power_request shutdown; then"),
         )
 
     def test_stale_same_boot_power_request_is_reconciled_as_failed(self):

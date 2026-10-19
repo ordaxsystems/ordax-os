@@ -4,6 +4,7 @@ import { validateComponentRuntimeMetadata } from "../../contracts/component-runt
 import { validateComponentRuntime } from "../../contracts/component-runtime.mjs";
 import { composeTrustedComponentContext } from "./runtime-loader.mjs";
 import { assertAppDataPort } from "../../contracts/app-data.mjs";
+import { revokeInstalledAppCapabilityReader } from "../device-agent/installed-app-capability-reader.mjs";
 import {
   assertComponentMountParent,
   createComponentMountContext,
@@ -110,6 +111,8 @@ export async function loadVerifiedCurrentComponentRuntime({
   }
   let mounted = null;
   let releaseMountRoot = null;
+  let trustedContext = null;
+  let returnedMount = false;
   try {
     assertComponentMountParent(context, { label: "Current component" });
     // The privileged Native bootstrap is the only owner of App Data binding.
@@ -117,6 +120,7 @@ export async function loadVerifiedCurrentComponentRuntime({
     const trustedBeforeImport = requireTrustedAppData
       ? await bounded(() => composeTrustedComponentContext(id, context), limit, "trusted context")
       : null;
+    trustedContext = trustedBeforeImport;
     if (trustedBeforeImport !== null) {
       const appData = assertAppDataPort(trustedBeforeImport.appData);
       if (appData.identity.appId !== id) {
@@ -142,6 +146,7 @@ export async function loadVerifiedCurrentComponentRuntime({
     const effectiveContext = trustedBeforeImport ?? await bounded(
       () => composeTrustedComponentContext(id, context), limit, "trusted context",
     );
+    trustedContext = effectiveContext;
     const mountContext = createComponentMountContext(effectiveContext, id, {
       label: "Current component",
     });
@@ -162,10 +167,12 @@ export async function loadVerifiedCurrentComponentRuntime({
     let destroyed = false;
     mounted = null;
     releaseMountRoot = null;
+    returnedMount = true;
     return Object.freeze({
       destroy() {
         if (destroyed) return;
         destroyed = true;
+        revokeInstalledAppCapabilityReader(trustedContext?.capabilityReader);
         try { runtimeMount.destroy(); } finally { releaseRoot?.(); }
       },
     });
@@ -174,5 +181,11 @@ export async function loadVerifiedCurrentComponentRuntime({
     try { releaseMountRoot?.(); } catch { /* mount root cleanup is isolated */ }
     onError?.(error);
     return null;
+  } finally {
+    // No capability survives failed import, absent slot, mount timeout,
+    // replaced slot or an app that never reached a successful mount.
+    if (!returnedMount) {
+      revokeInstalledAppCapabilityReader(trustedContext?.capabilityReader);
+    }
   }
 }

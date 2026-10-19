@@ -12,6 +12,16 @@
 @container settings-web (max-width:580px){.wm-topic-grid,.wm-settings-grid{grid-template-columns:minmax(0,1fr)}.wm-topic-card{padding:16px}.wm-settings-heading h1{font-size:30px}}
 @media(max-width:600px){.wm-settings{padding:20px 16px}.wm-settings-panel{padding:18px}}
 
+.wm-display-options button{min-width:94px;justify-content:center}
+.wm-display-host{margin-top:20px;padding:15px 16px;border:1px solid color-mix(in srgb,var(--md-amber) 30%,var(--md-border));border-left:3px solid var(--md-amber);border-radius:10px;background:color-mix(in srgb,var(--md-amber) 8%,var(--md-surface))}
+.wm-display-host>div{display:grid;gap:6px}
+.wm-display-host>div strong{font-size:12px;font-weight:600}
+.wm-display-host>div span,.wm-display-host>.wm-settings-note{font-size:11px;line-height:1.55;color:var(--md-muted)}
+.wm-display-host .wm-settings-link{color:var(--md-accent);font-weight:600}
+.wm-display-host .wm-settings-note{margin:8px 0 0}
+@container settings-web (max-width:900px){.wm-display-options{display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}}
+@container settings-web (max-width:580px){.wm-display-options{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
 .wm-topic-status{font-size:9px;font-style:normal;color:var(--md-muted);opacity:.85}
 
 .wm-shared-native-settings{container:settings-web / inline-size;margin:20px 0}.wm-settings-examples>h3{font-size:22px;margin:0 0 8px}.wm-settings-examples>p{font-size:12px;line-height:1.6;color:var(--md-muted);margin:0 0 18px}.wm-shared-native-settings button{font:inherit;color:var(--md-ink);cursor:pointer}.wm-shared-native-settings button:focus-visible{outline:2px solid var(--md-focus);outline-offset:3px}

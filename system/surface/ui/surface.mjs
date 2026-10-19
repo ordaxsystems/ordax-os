@@ -20,6 +20,7 @@ import {
 import { resolveColorAppearance } from "../../services/preferences/color-palette.mjs";
 import { APPEARANCE_PREFERENCE_ID } from "../../services/preferences/appearance.mjs";
 import { COLOR_PALETTE_PREFERENCE_ID } from "../../services/preferences/color-palette.mjs";
+import { DISPLAY_SCALE_PREFERENCE_ID } from "../../services/preferences/display.mjs";
 import {
   createDesktopShellMarkup,
   mountDesktopClock,
@@ -470,11 +471,28 @@ export function mountSurface(
   const launcherQuery = root.querySelector("[data-launcher-query]");
   const appLauncher = root.querySelector("[data-app-launcher]");
   const windowLayer = root.querySelector("[data-window-layer]");
+  const nativeDock = root.querySelector(".meridian-native-dock");
   const runningApps = root.querySelector("[data-running-apps]");
   const areaSwitcher = root.querySelector("[data-area-switcher]");
   const areaMenu = root.querySelector("[data-native-area-menu]");
   const areaMenuToggle = root.querySelector("[data-area-menu-toggle]");
   const areaKicker = root.querySelector("[data-area-kicker]");
+
+  const updateDockOverflow = () => {
+    if (!nativeDock) return;
+    const remaining = Math.max(0, nativeDock.scrollWidth - nativeDock.clientWidth - nativeDock.scrollLeft);
+    nativeDock.dataset.scrollBefore = String(nativeDock.scrollLeft > 1);
+    nativeDock.dataset.scrollAfter = String(remaining > 1);
+  };
+
+  const revealDockButton = (button) => {
+    if (!nativeDock || !button) return;
+    const viewport = nativeDock.getBoundingClientRect();
+    const target = button.getBoundingClientRect();
+    if (target.left < viewport.left) nativeDock.scrollLeft -= viewport.left - target.left;
+    else if (target.right > viewport.right) nativeDock.scrollLeft += target.right - viewport.right;
+    updateDockOverflow();
+  };
 
   const setAreaMenuOpen = (open, { restoreFocus = false } = {}) => {
     areaMenu.hidden = !open;
@@ -679,14 +697,17 @@ export function mountSurface(
       }
       let icon = button.querySelector(".ordax-rail-icon");
       if (!icon) {
-        button.replaceChildren();
+        // Preserve existing, potentially focused controls and their children
+        // when repairing an absent icon during incremental reconciliation.
         icon = element("span", "ordax-rail-icon");
         icon.setAttribute("aria-hidden", "true");
-        button.append(icon);
+        button.prepend(icon);
       }
       if (ICONS[app.id]) icon.innerHTML = ICONS[app.id];
       else icon.textContent = app.monogram;
       button.dataset.active = String(area.activeWindowId === windowState.id && !windowState.minimized);
+      if (button.dataset.active === "true") button.setAttribute("aria-current", "true");
+      else button.removeAttribute("aria-current");
       const localizedTitle = appTitle(localization, app);
       button.setAttribute(
         "aria-label",
@@ -703,6 +724,7 @@ export function mountSurface(
     for (const child of Array.from(runningApps.children)) {
       if (child.dataset?.openWindow && !retained.has(child)) child.remove();
     }
+    updateDockOverflow();
   };
 
   const renderSidebar = () => {
@@ -710,6 +732,7 @@ export function mountSurface(
     const activeWindow = area.windows.find((item) => item.id === area.activeWindowId) ?? null;
     const homeButton = root.querySelector(".meridian-home-destination");
     if (homeButton) {
+      homeButton.hidden = state.presentation !== "central";
       const homeActive = activeWindow === null && state.presentation === "central";
       homeButton.dataset.active = String(homeActive);
       if (homeActive) homeButton.setAttribute("aria-current", "page");
@@ -718,7 +741,7 @@ export function mountSurface(
     const currentDestination = root.querySelector("[data-current-destination]");
     if (currentDestination) {
       const activeApp = activeWindow ? catalog.get(activeWindow.appId) : null;
-      currentDestination.textContent = activeApp ? appTitle(localization, activeApp) : "Central";
+      currentDestination.textContent = activeApp ? appTitle(localization, activeApp) : localization.translate("shell.home.title");
     }
     for (const button of root.querySelectorAll("[data-sidebar-app]")) {
       const appId = button.dataset.sidebarApp;
@@ -814,6 +837,9 @@ export function mountSurface(
     root.dataset.ordaxMotion = state.preferences[ACCESSIBILITY_MOTION_PREFERENCE_ID];
     documentElement.dataset.ordaxTextScale =
       state.preferences[ACCESSIBILITY_TEXT_SCALE_PREFERENCE_ID];
+    documentElement.dataset.ordaxDisplayScale =
+      state.preferences[DISPLAY_SCALE_PREFERENCE_ID];
+    root.dataset.ordaxDisplayScale = state.preferences[DISPLAY_SCALE_PREFERENCE_ID];
     launcher.hidden = !state.launcherOpen;
     root.querySelectorAll("[data-launcher-toggle]").forEach(button => button.setAttribute("aria-expanded", String(state.launcherOpen)));
     root.querySelectorAll("[data-navigation-menu-toggle]").forEach(button => button.setAttribute("aria-expanded", String(!navigationMenu.hidden)));
@@ -1166,6 +1192,25 @@ export function mountSurface(
   };
 
   const onKeyDown = (event) => {
+    const dockButton = event.target.closest?.(".meridian-native-dock button");
+    if (dockButton && !event.altKey && !event.ctrlKey && !event.metaKey
+      && ["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) {
+      const buttons = Array.from(nativeDock.querySelectorAll("button:not(:disabled)"))
+        .filter((button) => !button.hidden && button.getClientRects().length > 0);
+      const index = buttons.indexOf(dockButton);
+      if (index >= 0) {
+        const nextIndex = event.key === "Home" ? 0
+          : event.key === "End" ? buttons.length - 1
+            : Math.min(buttons.length - 1, Math.max(0, index + (event.key === "ArrowRight" ? 1 : -1)));
+        event.preventDefault();
+        if (nextIndex !== index) {
+          buttons[nextIndex].focus({ preventScroll: true });
+          revealDockButton(buttons[nextIndex]);
+        }
+        return;
+      }
+    }
+
     if ((event.ctrlKey || event.metaKey) && event.key.toLocaleLowerCase() === "k") {
       event.preventDefault();
       openNativeNavigation(event.target);
@@ -1238,6 +1283,10 @@ export function mountSurface(
   root.addEventListener("pointercancel", onPointerCancel);
   root.addEventListener("dblclick", onDoubleClick);
   root.addEventListener("keydown", onKeyDown);
+  nativeDock?.addEventListener("scroll", updateDockOverflow, { passive: true });
+  const nativeWindow = root.ownerDocument?.defaultView;
+  nativeWindow?.addEventListener("resize", updateDockOverflow, { passive: true });
+  updateDockOverflow();
   const unsubscribeActivation = activationPort?.subscribe((activation) => {
     const app = catalog.get(activation.appId);
     if (!catalog.isAvailable(app, state.capabilityIds)) return;
@@ -1303,6 +1352,8 @@ export function mountSurface(
       root.removeEventListener("pointercancel", onPointerCancel);
       root.removeEventListener("dblclick", onDoubleClick);
       root.removeEventListener("keydown", onKeyDown);
+      nativeDock?.removeEventListener("scroll", updateDockOverflow);
+      nativeWindow?.removeEventListener("resize", updateDockOverflow);
       unsubscribePreferencePersistence();
       preferencePersistence.dispose();
       preferenceListeners.clear();
@@ -1310,7 +1361,9 @@ export function mountSurface(
       delete root.dataset.ordaxTheme;
       delete root.dataset.ordaxContrast;
       delete root.dataset.ordaxMotion;
+      delete root.dataset.ordaxDisplayScale;
       delete documentElement.dataset.ordaxTextScale;
+      delete documentElement.dataset.ordaxDisplayScale;
       if (originalDocumentLanguage === null) {
         documentElement.removeAttribute("lang");
       } else {
