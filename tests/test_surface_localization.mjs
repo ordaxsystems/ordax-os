@@ -129,22 +129,25 @@ for (const locale of SURFACE_COMPLETE_LOCALES) {
       const [, brand] = brandButtons[0];
       assert.ok(brand.includes('data-show-desktop'));
       assert.ok(brand.includes('aria-label="OrdaX OS"'));
-      const expected = ["files", "studio", "settings", "system"];
+      const railExcluded = ["files", "studio", "settings"];
+      const expectedMenuApps = [...railExcluded, "system"];
       const navigation = buttons.filter(([, attributes]) =>
         attributes.includes('class="ordax-rail-button os-nav-item"') &&
-        expected.some(id => attributes.includes(`data-sidebar-app="${id}"`)),
+        railExcluded.some(id => attributes.includes(`data-sidebar-app="${id}"`)),
       );
       assert.equal(navigation.length, 0, "Device-only apps stay out of the Web-equivalent sidebar");
       const deviceMenuApps = buttons.filter(([, attributes]) =>
         attributes.includes('class="meridian-menu-item"') &&
         !attributes.includes('data-app-target="updates"') &&
-        expected.some(id => attributes.includes(`data-nav-menu-app="${id}"`)),
+        expectedMenuApps.some(id => attributes.includes(`data-nav-menu-app="${id}"`)),
       );
-      assert.equal(deviceMenuApps.length, expected.length, "Device-only apps remain available in the destinations menu");
+      assert.equal(deviceMenuApps.length, expectedMenuApps.length, "Device apps remain available in the destinations menu");
       assert.equal(buttons.filter(([, attributes]) => attributes.includes('data-app-target="updates"')).length, 1, "System updates remain a separate destination-menu shortcut");
+      const systemRail = buttons.filter(([, attributes]) => attributes.includes('data-sidebar-app="system"'));
+      assert.equal(systemRail.length, 1, "System remains available in the global rail as the control panel");
       assert.ok(!buttons.some(([, attributes]) => attributes.includes('data-launch-app="internet"')), "Internet stays absent until its portable component is verified");
       assert.ok(!buttons.some(([, attributes]) => attributes.includes('data-launch-app="assistant"')), "Assistant remains unavailable during the remove-first migration gate");
-      for (const id of expected) {
+      for (const id of expectedMenuApps) {
         const matches = deviceMenuApps.filter(([, attributes]) => attributes.includes(`data-nav-menu-app="${id}"`));
         assert.equal(matches.length, 1, `One destination-menu entry for ${id}`);
         const [, attributes, content] = matches[0];

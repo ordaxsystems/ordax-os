@@ -730,6 +730,7 @@ export function mountSurface(
   const renderSidebar = () => {
     const area = getActiveArea(state);
     const activeWindow = area.windows.find((item) => item.id === area.activeWindowId) ?? null;
+    root.dataset.activeDestination = activeWindow?.appId ?? "home";
     const homeButton = root.querySelector(".meridian-home-destination");
     if (homeButton) {
       homeButton.hidden = state.presentation !== "central";

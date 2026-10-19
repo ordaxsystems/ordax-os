@@ -36,24 +36,27 @@ test("Web and Native sidebar render one Meridian OrdaX OS wordmark", async () =>
   assert.ok(webComposition.includes("../../surface/ui/brand/symbol.css"));
 });
 test("Native and Web headers share Meridian dimensions and search styling", async () => {
-  const [sharedHeader, nativeStyles] = await Promise.all([
+  const [sharedHeader, nativeStyles, tokens] = await Promise.all([
     readFile(new URL("../system/surface/ui/meridian.css", import.meta.url), "utf8"),
     readFile(new URL("../system/surface/ui/identity.css", import.meta.url), "utf8"),
+    readFile(new URL("../system/surface/ui/meridian.tokens.css", import.meta.url), "utf8"),
   ]);
-  assert.match(sharedHeader, /\.meridian-workspace\s*\{\s*font:400 \.8125rem\/1\.5 var\(--md-font\);/);
-  assert.match(sharedHeader, /--md-home-content-max:1320px;/);
+  assert.match(sharedHeader, /\.meridian-workspace,\s*\.meridian-native-workspace\s*\{\s*font:400 \.8125rem\/1\.5 var\(--md-font\);/);
+  assert.match(sharedHeader, /--md-home-content-max:clamp\(82\.5rem,70vw,280rem\);/);
   assert.match(sharedHeader, /--md-home-heading-size:clamp\(1\.75rem,3vw,2\.625rem\);/);
-  assert.match(sharedHeader, /\.meridian-system-header \{height:66px;flex-shrink:0;display:flex;/);
-  assert.match(sharedHeader, /\.meridian-system-search \{display:flex;align-items:center;gap:12px;width:min\(350px,36%\);/);
+  assert.match(sharedHeader, /\.meridian-system-header \{height:var\(--md-bar\);flex-shrink:0;display:flex;/);
+  assert.match(tokens, /--md-bar:4\.125rem;/);
+  assert.match(sharedHeader, /\.meridian-system-search \{display:flex;align-items:center;gap:\.75rem;width:min\(21\.875rem,36%\);/);
   assert.match(sharedHeader, /\.meridian-system-search kbd \{padding:0;border:0;background:transparent;/);
   assert.doesNotMatch(nativeStyles, /\.meridian-native-workspace \.ordax-native-header \{ display:grid/);
   assert.doesNotMatch(nativeStyles, /\.meridian-native-workspace \.meridian-system-search \{\s*height:42px/);
 });
 test("Web and Native share the Meridian rail destination order and grouping", async () => {
-  const [webConfig, nativeShell, sharedSidebarStyles] = await Promise.all([
+  const [webConfig, nativeShell, sharedSidebarStyles, tokens] = await Promise.all([
     readFile(new URL("../system/surface/workspace/components/central/config.ts", import.meta.url), "utf8"),
     readFile(new URL("../system/surface/ui/desktop-shell.mjs", import.meta.url), "utf8"),
     readFile(new URL("../system/surface/ui/sidebar-layout.css", import.meta.url), "utf8"),
+    readFile(new URL("../system/surface/ui/meridian.tokens.css", import.meta.url), "utf8"),
   ]);
   assert.deepEqual(MERIDIAN_RAIL_DESTINATIONS.map(item => item.key), ["home", "intelligence", "spaces", "apps", "profiles", "devices", "store"]);
   assert.deepEqual(MERIDIAN_RAIL_DESTINATIONS.filter(item => item.group === "principal").map(item => item.key), ["intelligence", "spaces", "apps"]);
@@ -61,7 +64,8 @@ test("Web and Native share the Meridian rail destination order and grouping", as
   assert.match(webConfig, /MERIDIAN_RAIL_DESTINATIONS/);
   assert.match(nativeShell, /MERIDIAN_RAIL_DESTINATIONS/);
   assert.ok(nativeShell.includes('<p class="meridian-nav-label" data-nav-group-label="ecossistema">Ecossistema</p>'));
-  assert.match(sharedSidebarStyles, /\.meridian-native-nav-group \{ display:flex; flex-direction:column; gap:5px;/);
+  assert.match(sharedSidebarStyles, /\.meridian-workspace \.ordax-product-sidebar \.meridian-native-nav-group \{ display:flex; flex-direction:column; gap:var\(--md-sidebar-nav-gap\);/);
+  assert.match(tokens, /--md-sidebar-nav-gap:\.3125rem;/);
 });
 test("Native Meridian navigation markup has matching styles and a clean collapsed rail", async () => {
   const [nativeShell, nativeStyles, sharedSidebarStyles] = await Promise.all([
@@ -286,16 +290,20 @@ test("Native account binding clears stale identity and updates the shared indica
 
 test("Web and Native load one Meridian sidebar profile stylesheet owner", async () => {
   const read=path=>readFile(new URL("../"+path,import.meta.url),"utf8");
-  const [shared,webStyles,native,web,nativeStyles,brandStyles]=await Promise.all([
+  const [shared,webStyles,native,web,nativeStyles,brandStyles,tokens]=await Promise.all([
     read("system/surface/ui/sidebar-layout.css"),
     read("system/surface/workspace/components/central/meridian.css"),
     read("system/composition/native/index.html"),
     read("system/composition/web/main.tsx"),
     read("system/surface/ui/identity.css"),
     read("system/surface/ui/brand/symbol.css"),
+    read("system/surface/ui/meridian.tokens.css"),
   ]);
   assert.ok(shared.includes(".ordax-product-sidebar .meridian-rail-account {"));
-  assert.ok(shared.includes(".meridian-workspace .ordax-product-sidebar { gap:16px; padding:27px 16px 18px; }"));
+  assert.ok(shared.includes(".meridian-workspace .ordax-product-sidebar { gap:var(--md-sidebar-gap); padding:var(--md-sidebar-padding-block) var(--md-sidebar-padding-inline) 1.125rem; }"));
+  assert.match(tokens, /--md-sidebar-gap:1rem;/);
+  assert.match(tokens, /--md-sidebar-padding-block:1\.6875rem;/);
+  assert.match(tokens, /--md-sidebar-padding-inline:1rem;/);
   assert.ok(shared.includes(":is(.ordax-space-switcher-trigger,.meridian-rail-space)"));
   assert.ok(brandStyles.includes('background: url("./ordax-symbol.png")'));
   assert.doesNotMatch(native,/style="mask-image:/);

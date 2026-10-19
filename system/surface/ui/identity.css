@@ -498,6 +498,8 @@ body { background: var(--md-canvas); font-weight: 400; }
 .meridian-native-workspace[data-view="desktop"] > .ordax-workspace { grid-row: 1; }
 .meridian-native-workspace[data-view="desktop"] > .ordax-native-header { display:none; }
 .meridian-native-workspace[data-view="desktop"] > .ordax-statusbar { grid-row: 2; }
+.meridian-native-workspace[data-view="central"][data-active-destination="home"] { grid-template-rows: 0 minmax(0,1fr) calc(var(--ordax-navigation-height) + env(safe-area-inset-bottom)); }
+.meridian-native-workspace[data-view="central"][data-active-destination="home"] > .ordax-native-header { display:none; }
 .meridian-native-workspace .meridian-system-location { min-width:0; }
 .meridian-native-location-context { color: var(--md-muted); font-size: .68rem; }
 .meridian-native-workspace .meridian-system-location { position:relative; }
