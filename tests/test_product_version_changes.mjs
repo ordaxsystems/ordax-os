@@ -10,6 +10,7 @@ test('runtime changes automatically require OS version increase',()=>{
     'system/surface/entrypoint.mjs','system/services/app-service.mjs',
     'system/contracts/component-manifest.mjs','bootstrap/release-agent/activate.sh',
     'boot/esp/init.sh','kernel/net.c','src/system/surface/view.ts',
+    'system/surface/assets/wallpaper.webp','system/adapters/native/ordax.service',
   ]) assert.equal(osProductCodeChanged([path]),true,path);
   assert.throws(()=>verifyOsVersionChange({
     previous:oldVersion,current:oldVersion,paths:['system/surface/entrypoint.mjs'],
