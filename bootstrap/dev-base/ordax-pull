@@ -665,7 +665,7 @@ fi
 # Atomic rename avoids torn receipts; only fixed phase tokens are persisted.
 record_pull_exit() {
     code=$1
-    if [ "$code" -eq 0 ] && [ "$PULL_PHASE" != helpers-pending ]; then
+    if [ "$code" -eq 0 ]; then
         PULL_PHASE=completed
     fi
     write_state "$PULL_RESULT_FILE" "$PULL_PHASE" || true
@@ -803,14 +803,10 @@ if [ "$AUTOMATIC_ROLLBACK_RECOVERY" -eq 1 ]; then
 else
     rm -f "$PINNED_FILE"
 fi
-# The atomic checkout and durable SHA were committed above. A helper
-# installation failure is a separate, retryable activation warning: the
-# Supervisor checks dev-helpers-sha and retries on the next update cycle.
-# Returning checkout failure here would falsely report the old sourceSha
-# after the new commit was already activated.
+# Helper installation is a separate required activation gate. A failure may
+# happen after the Git swap and must report nonzero so the Supervisor does not
+# promote an incompletely installed version. The Supervisor reads the exact
+# active SHA and the bounded error phase instead of assuming checkout rollback.
 PULL_PHASE=helper-refresh
-if ! refresh_dev_helpers "$current"; then
-    PULL_PHASE=helpers-pending
-    echo "ordax-git: checkout confirmado em $current; instalacao dos helpers pendente, Supervisor tentara novamente" >&2
-fi
+refresh_dev_helpers "$current" || exit 1
 printf 'ORDAX_SOURCE_SHA=%s\n' "$current"
