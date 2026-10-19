@@ -278,7 +278,7 @@ class DevelopmentGitFlowTest(unittest.TestCase):
         self.commit_v2 = self._commit_runtime("runtime-v2")
         helper = self.source / "system/services/base-update/dev-helpers.sh"
         helper.parent.mkdir(parents=True, exist_ok=True)
-        helper.write_text("#!/bin/sh\\nexit 23\\n".replace("\\\\n", "\\n"), encoding="utf-8")
+        helper.write_text(chr(10).join(("#!/bin/sh", "exit 23", "")), encoding="utf-8")
         self._run(["git", "-C", str(self.source), "add", "system"])
         self._run(["git", "-C", str(self.source), "commit", "-m", "failing helper fixture"])
         self._run(["git", "-C", str(self.source), "push", "origin", "main"])
