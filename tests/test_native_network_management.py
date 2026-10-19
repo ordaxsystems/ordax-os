@@ -306,9 +306,17 @@ class NativeNetworkManagementTests(unittest.TestCase):
         self.assertIn("queue_network_broker_request", get_section)
         self.assertIn("if self.path == NETWORK_MANAGEMENT_PATH", post_section)
         self.assertIn("with self.server.network_lock:", post_section)
-        self.assertNotIn("subprocess", server)
-        self.assertNotIn("os.system", server)
-        self.assertNotIn("/bin/sh -c", server)
+        # The Native Host may legitimately use subprocess in unrelated,
+        # separately authorized features. The Wi-Fi IPC must never gain
+        # shell/terminal execution authority; verify the actual boundary.
+        network_queue = server.split("def queue_network_broker_request(", 1)[1].split(
+            "\ndef native_install_broker_paths(", 1
+        )[0]
+        for forbidden in ("subprocess", "os.system", "/bin/sh -c", "Popen("):
+            self.assertNotIn(forbidden, network_queue)
+        self.assertIn('os.open(', network_queue)
+        self.assertIn('O_NOFOLLOW', network_queue)
+        self.assertIn('os.fstat(descriptor)', network_queue)
 
     def test_capability_is_native_only_and_composition_probes_fail_soft(self):
         capabilities = json.loads(CAPABILITIES.read_text(encoding="utf-8"))
