@@ -67,8 +67,18 @@ if (process.argv[1] && path.resolve(fileURLToPath(import.meta.url)) === path.res
     assertProductVersionIdentity(PRODUCT_VERSION);
     process.stdout.write('ORDAX_OS_VERSION_IDENTITY=PASS '+PRODUCT_VERSION.semanticVersion+'\n');
   } else {
-    const previous=readOsVersionAt(base);
-    const paths=git('diff','--name-only',base+'...HEAD').split('\n').filter(Boolean);
+    // pull_request checks out GitHub's synthetic merge commit. Its FIRST
+    // parent is the exact tested base; event.base.sha may be stale. Comparing
+    // that parent to HEAD matches the PR's introduced bytes and avoids
+    // attributing concurrent main changes to this branch.
+    let testedBase = base;
+    if (process.env.GITHUB_EVENT_NAME === 'pull_request') {
+      const parents = git('rev-list','--parents','-n','1','HEAD').split(/\\s+/);
+      if (parents.length !== 3) throw new Error('Expected an attested two-parent GitHub PR merge commit');
+      testedBase = parents[1];
+    }
+    const previous=readOsVersionAt(testedBase);
+    const paths=git('diff','--name-only',testedBase,'HEAD').split('\n').filter(Boolean);
     process.stdout.write('ORDAX_OS_VERSION_DIFF_PATHS='+JSON.stringify(paths)+'\n');
     const result=verifyOsVersionChange({previous,current:PRODUCT_VERSION,paths});
     process.stdout.write('ORDAX_OS_VERSION_CHANGE=PASS '+JSON.stringify(result)+'\n');
