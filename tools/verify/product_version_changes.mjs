@@ -68,7 +68,7 @@ if (process.argv[1] && path.resolve(fileURLToPath(import.meta.url)) === path.res
     process.stdout.write('ORDAX_OS_VERSION_IDENTITY=PASS '+PRODUCT_VERSION.semanticVersion+'\n');
   } else {
     const previous=readOsVersionAt(base);
-    const paths=git('diff','--name-only',base,'HEAD').split('\n').filter(Boolean);
+    const paths=git('diff','--name-only',base+'...HEAD').split('\n').filter(Boolean);
     const result=verifyOsVersionChange({previous,current:PRODUCT_VERSION,paths});
     process.stdout.write('ORDAX_OS_VERSION_CHANGE=PASS '+JSON.stringify(result)+'\n');
   }
