@@ -131,6 +131,30 @@ test("Web and Native desktop shortcuts share Meridian geometry tokens", async ()
   assert.doesNotMatch(webStyles, /\.desktop-shortcuts\s*\{/);
   assert.doesNotMatch(webStyles, /max-height:\s*760px[^}]*\.desktop-shortcuts/);
 });
+test("Web and Native desktop canvas share the Meridian wallpaper and contrast preference", async () => {
+  const [tokens, nativeStyles, webStyles, sharedMeridianStyles, webDesktop, nativeEntry, webEntry] = await Promise.all([
+    readFile(new URL("../system/surface/ui/tokens.css", import.meta.url), "utf8"),
+    readFile(new URL("../system/surface/ui/identity.css", import.meta.url), "utf8"),
+    readFile(new URL("../system/surface/workspace/components/central/styles.css", import.meta.url), "utf8"),
+    readFile(new URL("../system/surface/ui/meridian.css", import.meta.url), "utf8"),
+    readFile(new URL("../system/surface/workspace/components/central/desktop.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../system/composition/native/index.html", import.meta.url), "utf8"),
+    readFile(new URL("../system/composition/web/main.tsx", import.meta.url), "utf8"),
+  ]);
+  assert.ok(sharedMeridianStyles.includes('--md-desktop-wallpaper:url("./brand/meridian-field.svg")'));
+  assert.ok(sharedMeridianStyles.includes(".classic-desktop::before"));
+  assert.ok(sharedMeridianStyles.includes(".ordax-workspace::before"));
+  assert.ok(nativeStyles.includes("background:var(--md-desktop-wallpaper) center / cover no-repeat"));
+  assert.ok(sharedMeridianStyles.includes("opacity:var(--ordax-wallpaper-opacity,1)"));
+  assert.ok(sharedMeridianStyles.includes('[data-ordax-contrast="high"] :is(.ordax-desktop-shortcut,.desktop-shortcut)'));
+  assert.ok(tokens.includes("[data-ordax-contrast=\"high\"]"));
+  assert.ok(tokens.includes("--ordax-wallpaper-opacity: 0"));
+  assert.ok(nativeEntry.includes('href="../../surface/ui/meridian.css"'));
+  assert.ok(webEntry.includes("../../surface/ui/meridian.css"));
+  assert.doesNotMatch(webDesktop, /meridian-field|desktop-wallpaper|desktop-watermark|OrdaX OS Web/);
+  assert.doesNotMatch(webStyles, /\.desktop-wallpaper|\.desktop-watermark/);
+  assert.doesNotMatch(nativeStyles, /brand\/meridian-field\.svg/);
+});
 test("equivalent desktop shortcuts share Meridian identity colors without removing Web destinations", async () => {
   const [tokens, webDesktop, webConfig, nativeShell, shortcutCatalog] = await Promise.all([
     readFile(new URL("../system/surface/ui/meridian.css", import.meta.url), "utf8"),

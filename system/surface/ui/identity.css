@@ -15,8 +15,8 @@ body { background: var(--md-canvas); font-weight: 400; }
   z-index: 0;
   inset: 0;
   pointer-events: none;
-  background:url("./brand/meridian-field.svg") center / cover no-repeat;
-  opacity:1;
+  background:var(--md-desktop-wallpaper) center / cover no-repeat;
+  opacity:var(--ordax-wallpaper-opacity, 1);
 }
 .meridian-native-workspace .ordax-workspace:has([data-central-presentation]:not([hidden]))::before { opacity:0; }
 .ordax-rail {

@@ -6,7 +6,6 @@ import { WebNotificationCenter } from './notifications';
 import { lazy, Suspense, useState, type Dispatch } from 'react';
 import { LayoutGrid, ChevronRight, Sparkles, WalletCards } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import meridianWallpaper from '../../../ui/brand/meridian-field.svg';
 import { AccountPanel, AppIcon, Panel } from './primitives';
 import { favorites, shortcuts, type AppItem } from './config';
 import { useWebAccount } from './account-context';
@@ -37,13 +36,11 @@ export function Desktop({ onCentral, dispatch }: Props) {
     { id: 'aura', name: 'Aura', icon: Sparkles, tone: 'lime' as const },
   ];
   return <main className="classic-desktop" aria-label="Área de trabalho OrdaX">
-    <img src={meridianWallpaper} alt="Paisagem da área de trabalho" className="desktop-wallpaper" width={1920} height={768}/>
     <section className="desktop-shortcuts" aria-label="Atalhos da área de trabalho">
       {desktopShortcuts.map(item => <Button variant="ghost" className="desktop-shortcut" data-desktop-app={item.id} key={item.id} onClick={() => item.id === 'central' ? onCentral() : open(item.name)}>
         <DesktopShortcutIcon item={item}/><span>{item.name}</span>
       </Button>)}
     </section>
-    <div className="desktop-watermark" aria-hidden="true"><span>Seu espaço.</span><span>Seu ritmo.</span><small>OrdaX OS Web</small></div>
   </main>;
 }
 export function DesktopContent({ title, open }: PresentationProps & { initialPrompt?: { text: string }; title: string; open: (title: string) => void }) {

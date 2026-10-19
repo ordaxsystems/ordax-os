@@ -36,6 +36,16 @@ Legacy palette literals must be removed from active contracts when the identity 
 
 Existing `appearance.theme` values (`light`, `dark`), labels (Claro, Escuro), persistence, account synchronization and the light default remain unchanged. Users switch materials in **Ajustes → Aparência**. Settings miniatures inherit the exact theme tokens through `data-theme-preview`, so they cannot drift into independent palettes. Success, warning and error retain independent semantic colors.
 
+### Desktop canvas ownership — 2026-10-19
+
+`system/surface/ui/meridian.css` owns the desktop wallpaper asset and its
+shared treatment for the Web `classic-desktop` and Native `.ordax-workspace`.
+Both consume the existing `--ordax-wallpaper-opacity` preference, so light
+material and high-contrast wallpaper removal stay aligned. Host markup supplies
+the canvas and functional shortcuts/windows but does not select another
+wallpaper or add a Web-only watermark. The SVG remains a decorative background
+behind the working controls.
+
 Normal text, secondary text and state labels must maintain at least 4.5:1 contrast on their opaque canvas/panel backgrounds; focus must maintain at least 3:1. High-contrast text maintains at least 7:1. Automated palette checks complement real browser rendering, theme persistence and responsive layout checks; they do not replace assistive-technology or physical-device verification.
 
 Motion is restrained to short UI transitions, normally 150–250 ms, and must honor both the OrdaX reduced-motion preference and the host `prefers-reduced-motion` signal. Focus remains visibly distinct in both themes and in high-contrast mode.

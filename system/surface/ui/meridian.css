@@ -17,6 +17,7 @@
 }
 [data-meridian] {
  /* Shared component vocabulary. */
+ --md-desktop-wallpaper:url("./brand/meridian-field.svg");
  --background:var(--md-canvas);--foreground:var(--md-ink);--card:var(--md-surface);--secondary:var(--md-subtle);--muted:var(--md-subtle);--muted-foreground:var(--md-muted);--primary:var(--md-accent);--primary-foreground:var(--md-accent-text);--accent:var(--md-accent-soft);--accent-foreground:var(--md-accent);--border:var(--md-border);--sidebar-surface:var(--md-rail);
  --app-orange:var(--md-accent);--app-orange-soft:var(--md-accent-soft);--app-green:var(--md-sage);--app-green-soft:var(--md-sage-soft);--app-blue:var(--md-blue);--app-blue-soft:var(--md-blue-soft);--app-lime:var(--md-sage);--app-lime-soft:var(--md-sage-soft);--app-violet:var(--md-rose);--app-violet-soft:var(--md-rose-soft);--app-ink:var(--md-ink);--app-ink-soft:var(--md-subtle);
  --desktop-surface:var(--md-surface);--shadow-panel:var(--md-shadow-small);--desktop-shadow:var(--md-window-shadow);--os-font:var(--md-font);
@@ -35,6 +36,9 @@
 }
 /* Preserve the existing independent high contrast and semantic status policy. */
 [data-meridian][data-ordax-contrast="high"] { --md-border:var(--md-ink);--md-muted:var(--md-ink); }
+[data-meridian] .classic-desktop { background:var(--md-canvas); }
+[data-meridian] .classic-desktop::before { position:absolute;z-index:0;inset:0;content:"";pointer-events:none;background:var(--md-desktop-wallpaper) center/cover no-repeat;opacity:var(--ordax-wallpaper-opacity,1); }
+[data-meridian] .ordax-workspace::before { background:var(--md-desktop-wallpaper) center/cover no-repeat; }
 [data-meridian] :is(.workspace-sidebar,.ordax-rail) {background:var(--md-rail);color:var(--md-rail-text);border-right:1px solid var(--md-rail-border);}
 [data-meridian] :is(.workspace-sidebar,.ordax-rail) :is(.brand,.brand-name,.ordax-brand-word,.ordax-brand-word small,.os-nav-item,.ordax-rail-button,.account-open,.account-identity,.account-storage-value) {color:var(--md-rail-text);}
 [data-meridian] :is(.workspace-sidebar,.ordax-rail) :is(.account-identity>span,.account-storage-footer,.account-actions>button) {color:var(--md-rail-muted);}
@@ -98,6 +102,7 @@
  border-color:color-mix(in srgb,var(--md-desktop-shortcut-label) 30%,transparent);
  background:color-mix(in srgb,var(--md-desktop-shortcut-label) 12%,transparent);color:var(--md-desktop-shortcut-label);
 }
+[data-ordax-contrast="high"] :is(.ordax-desktop-shortcut,.desktop-shortcut) { color:var(--md-ink);text-shadow:none; }
 [data-meridian] :is(.ordax-desktop-shortcut,.desktop-shortcut):active {transform:scale(.97);}
 [data-meridian] :is(.ordax-desktop-shortcut,.desktop-shortcut):focus-visible {outline:2px solid var(--md-focus);outline-offset:2px;}
 [data-meridian] :is(.ordax-desktop-shortcut,.desktop-shortcut):disabled {opacity:.5;cursor:not-allowed;}
