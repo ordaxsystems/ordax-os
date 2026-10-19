@@ -15,6 +15,16 @@ for (const entry of centralReference.files) {
   if (entry.adaptedSha256) {
     assert.equal(sha(bytes.toString('utf8').replace(/\r\n/g, '\n')), entry.adaptedSha256, 'Central adaptation drift: ' + entry.target);
     assert.ok(entry.adaptation && /^[a-f0-9]{64}$/.test(entry.sha256), 'Adaptations retain upstream provenance');
+    const history = entry.adaptationHistory ?? [];
+    assert.ok(Array.isArray(history), 'Adaptation history must be structured: ' + entry.target);
+    const recorded = new Set([entry.adaptedSha256]);
+    for (const version of history) {
+      assert.match(version.sha256, /^[a-f0-9]{64}$/, 'Historical digest must remain verifiable');
+      assert.match(version.date, /^\\d{4}-\\d{2}-\\d{2}$/, 'Historical revision requires a date');
+      assert.ok(typeof version.reason === 'string' && version.reason.trim().length >= 20, 'History requires a meaningful reason');
+      assert.ok(!recorded.has(version.sha256), 'Central adaptation SHA-256 must not be repeated');
+      recorded.add(version.sha256);
+    }
     continue;
   }
   const candidates = [sha(bytes)];
