@@ -38,7 +38,7 @@ from native_local_ai_bridge import (
     PATHS as LOCAL_AI_BRIDGE_PATHS,
     forward_local_ai,
 )
-from native_account_gateway import NativeAccountGateway, NativeAccountGatewayError
+from native_account_gateway import NativeAccountGateway, NativeAccountGatewayError, verified_account_session_reply
 from native_component_slots import (
     COMPONENT_MODULE_PREFIX,
     ComponentSlotRequestError,
@@ -4641,41 +4641,17 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
                         self._empty(reply.status)
                         return
                     session_reply = self.server.account_gateway.session()
-                    # The gateway's POST success is NOT an authenticated
-                    # session receipt. Require a fresh, verified 200 session
-                    # with the canonical schema before activating the account.
-                    # A non-200 or opaque error body must never be repackaged
-                    # as a local HTTP 200 success.
-                    if session_reply.status != 200:
-                        self._empty(503)
-                        return
-                    session_payload = json.loads(session_reply.body.decode("utf-8"))
-                    if (
-                        not isinstance(session_payload, dict)
-                        or session_payload.get("$schema") != "prototype-ordax.public-identity-session/1"
-                    ):
-                        raise ValueError("invalid session payload")
-                    active_session = (
-                        session_payload.get("authenticated") is True
-                        and session_payload.get("status") == "authenticated"
-                        and isinstance(session_payload.get("subject"), str)
-                        and bool(session_payload["subject"])
-                        and isinstance(session_payload.get("email"), str)
-                        and bool(session_payload["email"])
+                    session_payload = verified_account_session_reply(
+                        session_reply,
+                        allow_anonymous=(parsed_path == ACCOUNT_REGISTER_PATH),
                     )
-                    if not active_session:
-                        if parsed_path == ACCOUNT_REGISTER_PATH and (
-                            session_payload.get("authenticated") is False
-                            and session_payload.get("status") == "anonymous"
-                        ):
-                            session_payload["confirmationRequired"] = True
-                            self._write_json(202, session_payload)
-                            return
-                        # An anonymous or unverified session after a nominal
-                        # login is a failure, not account activation.
-                        self._empty(503)
-                        return
-                    self._write_json(200, session_payload)
+                    if not session_payload["authenticated"]:
+                        # Registration is an explicit email-confirmation state,
+                        # never a signed-in identity.
+                        session_payload["confirmationRequired"] = True
+                        self._write_json(202, session_payload)
+                    else:
+                        self._write_json(200, session_payload)
                     return
                 if parsed_path == ACCOUNT_LOGOUT_PATH:
                     reply = self.server.account_gateway.logout()
