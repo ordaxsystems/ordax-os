@@ -218,7 +218,7 @@ restore_saved_network() {
 restore_saved_network_if_needed() {
     [ "$WIFI_TOOLS_READY" -eq 1 ] || return 1
     [ ! -e "$AUTO_CONNECT_PAUSED" ] || return 0
-    [ -s "$WPA_CONF" ] && [ ! -L "$WPA_CONF" ] || return 0
+    [ -s "$WPA_CONF" ] && [ ! -L "$WPA_CONF" ] || return 1
     wifi=$(find_wifi_interface) || return 1
     if "$WPA_CLI_BIN" -p "$WPA_CTRL_DIR" -i "$wifi" ping 2>/dev/null |
         /bin/busybox grep -qx PONG; then
