@@ -6,13 +6,14 @@ import {
   assertVersionAdvance, versionGovernancePolicy,
 } from '../system/contracts/product-version-governance.mjs';
 
-test('existing OrdaX OS prototype version remains unchanged and is not a public release',()=>{
-  assert.equal(PRODUCT_VERSION.semanticVersion,'0.1.0');
-  assert.equal(PRODUCT_VERSION.displayVersion,'v0.1.0');
+test('OrdaX OS has one validated prototype version without publication authority',()=>{
+  const identity=assertProductVersionIdentity(PRODUCT_VERSION);
+  assert.equal(identity.version,PRODUCT_VERSION.semanticVersion);
+  assert.equal(PRODUCT_VERSION.displayVersion,'v'+identity.version);
+  assert.equal(PRODUCT_VERSION.displayName,'OrdaX Prototype '+PRODUCT_VERSION.displayVersion);
+  assert.equal(PRODUCT_VERSION.maturity,'prototype');
   assert.equal(PRODUCT_VERSION.stableRelease,false);
-  assert.deepEqual(assertProductVersionIdentity(PRODUCT_VERSION), {
-    version:'0.1.0',channel:'unqualified',stableRelease:false,
-  });
+  assert.equal(identity.stableRelease,false);
   assert.equal(versionGovernancePolicy().unqualifiedMeansPublished,false);
   assert.equal(versionGovernancePolicy().sourceVersionAuthorizesRelease,false);
 });
