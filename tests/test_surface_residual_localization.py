@@ -88,8 +88,15 @@ class SurfaceResidualLocalizationTests(unittest.TestCase):
         source = UPDATES.read_text(encoding="utf-8")
         self.assertIn("assertSurfaceRenderLifecycle", source)
         self.assertIn("localization.subscribe", source)
-        self.assertIn('"system.updateShortcut.label"', source)
+        # The navigation label is rendered by the Native shell; the update
+        # watcher owns the live aria/title state and its locale subscription.
+        shell = DESKTOP.read_text(encoding="utf-8")
+        self.assertIn('t("system.updateShortcut.label")', shell)
+        self.assertIn('t("system.updateShortcut.aria")', source)
         self.assertIn('"system.updateShortcut.title.basePending"', source)
+        self.assertIn('"system.updateShortcut.title.attention"', source)
+        self.assertIn('"system.updateShortcut.title.normal"', source)
+        self.assertIn('activationPort.publish({ appId: "system", target: "updates" })', source)
         self.assertNotIn('"Atualizações"', source)
         self.assertNotIn('"Há uma atualização que requer atenção.', source)
 
