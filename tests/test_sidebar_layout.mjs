@@ -77,11 +77,13 @@ test("Native Meridian navigation markup has matching styles and a clean collapse
   assert.match(sharedSidebarStyles, /span:not\(\.ordax-rail-icon\) \{ display: none; \}/);
   assert.ok(nativeShell.includes('<span class="ordax-rail-icon">${ICONS.more}</span>'));
 });
-test("Native rail follows the Meridian Web destinations; local tools stay in its menu", async () => {
+test("Native rail keeps shared Meridian destinations and exposes System as its control panel", async () => {
   const nativeShell = await readFile(new URL("../system/surface/ui/desktop-shell.mjs", import.meta.url), "utf8");
   const rail = nativeShell.slice(nativeShell.indexOf("function meridianNavigation("), nativeShell.indexOf("function meridianNavigationMenu("));
   const menu = nativeShell.slice(nativeShell.indexOf("function meridianNavigationMenu("), nativeShell.indexOf("export function createDesktopShellMarkup"));
-  assert.ok(!rail.includes('data-nav-group="dispositivo"'));
+  assert.ok(rail.includes('data-nav-group="dispositivo"'));
+  assert.match(rail, /data-sidebar-app="system" data-launch-app="system"/);
+  assert.match(rail, /data-nav-group-label="dispositivo"/);
   assert.ok(menu.includes('data-nav-menu-group="dispositivo"'));
   assert.match(menu, /const deviceApps = \["files", "studio", "settings", "system"\]/);
   assert.ok(menu.includes('data-nav-menu-app="${id}"'));

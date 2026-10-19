@@ -129,7 +129,9 @@ function meridianNavigation(localization, t) {
     localization,
     index === 0 ? `<p class="meridian-nav-label" data-nav-group-label="ecossistema">Ecossistema</p>` : "",
   )).join("");
-  return `<div class="meridian-native-nav-group" data-nav-group="principal">${primary}</div><div class="meridian-native-nav-group" data-nav-group="ecossistema">${ecosystem}</div><button type="button" class="ordax-rail-button os-nav-item meridian-nav-more" data-navigation-menu-toggle data-nav-menu-more aria-controls="ordax-native-navigation" aria-expanded="false" hidden><span class="ordax-rail-icon">${ICONS.more}</span><span>${t("shell.sidebar.more")}</span></button>`;
+  const systemLabel = t("app.system.title");
+  const deviceManagement = `<div class="meridian-nav-destination" data-meridian-destination-group="dispositivo"><p class="meridian-nav-label" data-nav-group-label="dispositivo">${localization.getLocale().toLowerCase().startsWith("en") ? "On this device" : "Neste dispositivo"}</p><button type="button" class="ordax-rail-button os-nav-item" data-sidebar-app="system" data-launch-app="system" title="${systemLabel}" aria-label="${t("surface.launcher.open", { app: systemLabel })}"><span class="ordax-rail-icon">${ICONS.system}</span><span>${systemLabel}</span></button></div>`;
+  return `<div class="meridian-native-nav-group" data-nav-group="principal">${primary}</div><div class="meridian-native-nav-group" data-nav-group="ecossistema">${ecosystem}</div><div class="meridian-native-nav-group" data-nav-group="dispositivo">${deviceManagement}</div><button type="button" class="ordax-rail-button os-nav-item meridian-nav-more" data-navigation-menu-toggle data-nav-menu-more aria-controls="ordax-native-navigation" aria-expanded="false" hidden><span class="ordax-rail-icon">${ICONS.more}</span><span>${t("shell.sidebar.more")}</span></button>`;
 }
 
 function meridianNavigationMenu(localization, t) {
