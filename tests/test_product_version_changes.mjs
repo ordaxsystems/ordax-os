@@ -7,7 +7,8 @@ const nextVersion={semanticVersion:'0.1.1-alpha.1',displayVersion:'v0.1.1-alpha.
 
 test('runtime changes automatically require OS version increase',()=>{
   for(const path of [
-    'system/surface/entrypoint.mjs','system/services/app-service.mjs',
+    'system/surface/entrypoint.mjs','system/composition/native/main.mjs',
+    'system/composition/web/main.tsx','system/services/app-service.mjs',
     'system/contracts/component-manifest.mjs','bootstrap/release-agent/activate.sh',
     'boot/esp/init.sh','kernel/net.c','src/system/surface/view.ts',
     'system/surface/assets/wallpaper.webp','system/adapters/native/ordax.service',
