@@ -161,8 +161,6 @@ body { background: var(--md-canvas); font-weight: 400; }
 }
 
 .ordax-window {
-  width: min(940px, calc(100% - 92px));
-  max-height: calc(100% - 84px);
   border-color: var(--md-border);
   border-radius: var(--md-radius);
   background: var(--md-surface);
@@ -190,15 +188,11 @@ body { background: var(--md-canvas); font-weight: 400; }
 }
 
 .ordax-window-titlebar {
-  min-height: 54px;
-  padding: 9px 12px 9px 15px;
   border-bottom-color: var(--md-border);
-  background: color-mix(in srgb, var(--md-surface) 74%, var(--md-surface));
+  background: var(--md-surface);
 }
 
 .ordax-app-mark {
-  width: 34px;
-  height: 34px;
   border-color: var(--md-border);
   border-radius: var(--md-radius-small);
   background: var(--md-subtle);

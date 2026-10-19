@@ -75,8 +75,12 @@
   --md-sidebar-nav-inline:.625rem;
   --md-sidebar-icon-size:1.1875rem;
   --md-sidebar-icon-gap:.6875rem;
+  --ordax-window-titlebar-height:3.375rem;
+  --ordax-window-titlebar-padding:.5625rem .75rem .5625rem .9375rem;
+  --ordax-window-mark-size:2.125rem;
+  --ordax-window-control-size:2rem;
   --ordax-window-width:clamp(52.5rem,60vw,96rem);
-  --ordax-window-gutter:6rem;
+  --ordax-window-gutter:clamp(2rem,3vw,6rem);
   --md-font:Inter,system-ui,"Segoe UI",sans-serif;
   --ordax-sidebar-expanded-width:var(--md-rail-width);
   --ordax-sidebar-collapsed-width:var(--md-rail-compact);
