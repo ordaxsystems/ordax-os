@@ -8,6 +8,10 @@ STATE_DIR=${ORDAX_STATE_DIR:-/state/ordax}
 RUN_DIR=${ORDAX_UPDATE_RUN_DIR:-/run/ordax-update}
 PULL_LOCK_DIR=$RUN_DIR/pull.lock
 PULL_LOCK_PID_FILE=$PULL_LOCK_DIR/pid
+# A small bounded phase token consumed by the canonical Supervisor's lastError.
+# Kept in its existing volatile update run directory; not a second history store.
+PULL_RESULT_FILE=$RUN_DIR/pull-result
+PULL_PHASE=preflight
 LOCK_HELD=0
 PREVIOUS_FILE=$STATE_DIR/previous-commit
 CURRENT_FILE=$STATE_DIR/current-commit
@@ -393,6 +397,7 @@ remote_main_sha() {
 clone_runtime_checkout() {
     destination=$1
     expected_sha=$2
+    PULL_PHASE=candidate-objects
 
     # Supervisor already fetched and verified the exact target into this cache.
     # Re-cloning over HTTPS needlessly repeats acquisition and can fail even
@@ -405,6 +410,7 @@ clone_runtime_checkout() {
             return 1
         fi
         acquire_runtime_candidate_blobs "$expected_sha" || return 1
+        PULL_PHASE=isolated-checkout
         echo "ordax-git: preparando checkout isolado do commit ja validado em cache"
         seed_runtime_checkout_from_local "$WORKTREE" "$expected_sha" "$destination" fetched
         return $?
@@ -412,6 +418,7 @@ clone_runtime_checkout() {
 
     # Cold recovery or invalid cache has no trusted local materialization
     # source; this is the only case that acquires a full clean remote clone.
+    PULL_PHASE=remote-clone
     rm -rf "$destination"
     echo "ordax-git: preparando checkout novo e isolado de $REPO_URL ($BRANCH)"
     if ! run_bounded_git clone \
@@ -554,6 +561,7 @@ replace_runtime_checkout() {
         return 1
     }
 
+    PULL_PHASE=atomic-switch
     if [ -e "$retired" ] || [ -L "$retired" ]; then
         echo "ordax-git: transaction retirement path already exists; refusing unsafe overwrite" >&2
         rm -rf "$stage"
@@ -585,6 +593,7 @@ replace_runtime_checkout() {
         return 1
     fi
 
+    PULL_PHASE=candidate-validation
     if ! checkout_metadata_valid "$WORKTREE" || ! checkout_is_clean "$WORKTREE"; then
         quarantine_interrupted_checkout "$WORKTREE" "$transaction_id" || {
             echo "ordax-git: checkout novo invalido e nao pode ser isolado; transacao preservada" >&2
@@ -601,6 +610,7 @@ replace_runtime_checkout() {
         return 1
     fi
 
+    PULL_PHASE=state-commit
     if is_sha "$old_sha" && [ "$old_sha" != "$expected_sha" ]; then
         write_state "$PREVIOUS_FILE" "$old_sha"
     fi
@@ -651,7 +661,17 @@ mkdir -p "$WORKSPACE_ROOT" "$STATE_DIR" "$RUN_DIR"
 if ! acquire_pull_lock; then
     exit 75
 fi
-trap 'release_pull_lock' EXIT
+# A failure after lock acquisition is classified at its last trusted phase.
+# Atomic rename avoids torn receipts; only fixed phase tokens are persisted.
+record_pull_exit() {
+    code=$1
+    if [ "$code" -eq 0 ] && [ "$PULL_PHASE" != helpers-pending ]; then
+        PULL_PHASE=completed
+    fi
+    write_state "$PULL_RESULT_FILE" "$PULL_PHASE" || true
+    release_pull_lock
+}
+trap 'record_pull_exit "$?"' EXIT
 trap 'exit 129' HUP
 trap 'exit 130' INT
 trap 'exit 143' TERM
@@ -675,6 +695,7 @@ fi
 # remote branch by ls-remote and fetched this ref. Trust only the matching
 # locally fetched tracking ref; do not race main or require a second HTTPS
 # discovery during the same update transaction.
+PULL_PHASE=remote-discovery
 remote_sha=""
 SUPERVISOR_VERIFIED_CACHE=0
 if [ -n "$EXPECTED_SHA" ] && checkout_metadata_valid "$WORKTREE"; then
@@ -746,6 +767,7 @@ else
         # Supervisor already fetched this exact tracking ref. A repeat fetch
         # here would reintroduce a remote dependency and race against main.
         if [ "$SUPERVISOR_VERIFIED_CACHE" -ne 1 ]; then
+            PULL_PHASE=remote-fetch
             if ! run_bounded_git -C "$WORKTREE" fetch --no-tags origin \
                 "refs/heads/$BRANCH:refs/remotes/origin/$BRANCH" >/dev/null 2>&1; then
                 echo "ordax-git: fetch de verificacao falhou; checkout local preservado" >&2
@@ -786,7 +808,9 @@ fi
 # Supervisor checks dev-helpers-sha and retries on the next update cycle.
 # Returning checkout failure here would falsely report the old sourceSha
 # after the new commit was already activated.
+PULL_PHASE=helper-refresh
 if ! refresh_dev_helpers "$current"; then
+    PULL_PHASE=helpers-pending
     echo "ordax-git: checkout confirmado em $current; instalacao dos helpers pendente, Supervisor tentara novamente" >&2
 fi
 printf 'ORDAX_SOURCE_SHA=%s\n' "$current"
