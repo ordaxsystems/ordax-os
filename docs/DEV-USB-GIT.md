@@ -233,6 +233,27 @@ fetch missing objects on the **first** acquisition; not all immutable Base,
 graphics, kernel and initramfs bytes are Git source-tree material. The
 Stable/MVP signed release channel is separate and unchanged.
 
+When the canonical Pull owner fails, it writes a bounded phase token into
+`/run/ordax-update/pull-result` (the **existing** Supervisor run directory).
+The Supervisor deletes any stale token before invoking the owner, accepts only
+the known phase vocabulary and incorporates it into the existing
+`state.json.lastError` response. This avoids misdiagnosing network-object
+acquisition, isolated staging, atomic swap and helper activation as one
+`atomic-checkout-failed` condition. An abruptly killed owner with no receipt
+remains a generic failure; untrusted shell stderr is never interpreted as a
+status code.
+
+**Git checkout and installed helper activation are distinct, mandatory
+conditions.** The current Git SHA is durably recorded before invoking the
+existing `dev-helpers.sh` owner. If helpers cannot be activated, the Pull exits
+nonzero; the Supervisor reports the *actual* post-swap Git SHA with
+`pull-helper-refresh-failed`, preserves the running Surface and retries the
+canonical helper refresh on later polls. It does not mark the version
+`running` until `dev-helpers-sha` agrees with the active Git commit. There is
+no second updater or bypass of the helper receipt, and the previous SHA remains
+available for recovery. A host-side successful Pull and an actual QEMU/physical
+Surface activation remain separate validation gates.
+
 A physical boot must confirm the repaired USB no longer cycles through
 `fetching → validating → atomic-checkout-failed`. A successful host-side pull
 proves only checkout semantics, not live runtime health, NTP, Wi-Fi, power or
