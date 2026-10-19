@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { mountDisplayOutputControls } from "../system/surface/ui/display-output-controls.mjs";
+
 import {
   DISPLAY_OUTPUTS_SCHEMA,
   assertDisplayOutputsPort,
@@ -62,4 +64,14 @@ test("display output adapter port requires all lifecycle operations", () => {
   };
   assert.equal(assertDisplayOutputsPort(port), port);
   assert.throws(() => assertDisplayOutputsPort({ ...port, revert: undefined }), /revert/);
+});
+
+test("shared display UI rejects missing or invalid translation authority in Native and Web", () => {
+  const host = { ownerDocument: {} };
+  assert.throws(() => mountDisplayOutputControls(host, { mode: "web" }),
+    /require a container, document, and translator/);
+  assert.throws(() => mountDisplayOutputControls(host, {
+    mode: "native",
+    translate: "unsafe-static-text",
+  }), /require a container, document, and translator/);
 });
