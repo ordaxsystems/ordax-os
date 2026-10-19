@@ -46,6 +46,33 @@ class SystemRuntimeContractTests(unittest.TestCase):
         for path in (SYSTEM_ENTRYPOINT, SYSTEM_SUPERVISOR, SURFACE_ENTRYPOINT, SURFACE_RUNTIME, RESCUE_AGENT, BASE_TELEMETRY_AGENT):
             subprocess.run(["sh", "-n", str(path)], check=True)
 
+    def test_update_health_and_rescue_receipts_use_unique_staging(self):
+        # A literal trailing $ produces the same temporary filename on every
+        # invocation, even after a restart or concurrent recovery attempt.
+        sources = (
+            (
+                SURFACE_RUNTIME,
+                ("BASE_UPDATE_AGENT", "RUNTIME_PROOF_CONTEXT"),
+            ),
+            (
+                RESCUE_AGENT,
+                ("LAST_GENERATION_FILE", "LAST_ACTION_FILE", "TELEMETRY_STATUS_FILE"),
+            ),
+        )
+        for path, destinations in sources:
+            script = path.read_text(encoding="utf-8")
+            for destination in destinations:
+                with self.subTest(path=str(path), destination=destination):
+                    self.assertIn(
+                        f"temporary=${destination}.tmp.$",
+                        script,
+                    )
+                    self.assertNotIn(
+                        f"temporary=${destination}.tmp.$\n",
+                        script,
+                    )
+            self.assertNotRegex(script, r"\\.tmp\\.\\$(?!\\$)")
+
     def test_native_host_user_folder_provisioning_is_fail_soft(self):
         text = NATIVE_HOST_SERVER.read_text(encoding="utf-8")
         self.assertIn("except OSError as exc:", text)
