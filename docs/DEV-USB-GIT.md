@@ -4,6 +4,55 @@ Status: **CANONICAL FOR THE CURRENT DEVELOPMENT USB**
 
 This is an owner/development profile. It does not replace the canonical product path based on signed immutable releases under `/ordax/releases/<commit>`.
 
+## OrdaX OS único — canais de distribuição, não sistemas distintos
+
+A identidade do produto e o código principal são **OrdaX OS**. `owner-development`
+(Dev) e `stable-mvp` (MVP/Stable) são perfis de distribuição do mesmo sistema
+e compartilham a composição Native/Surface, os contratos de rede, credenciais
+locais, arquivos, preferências e Apps. Um `Space` de usuário não é um canal
+de distribuição nem um mecanismo de instalação do sistema.
+
+- **Dev:** usa o proprietário canônico `ordax-pull` para adquirir um commit Git
+  exato, validar checkout e atualizar componentes permitidos, com recuperação
+  de desenvolvimento e acesso a recursos autorizados ao Owner.
+- **Stable/MVP:** distribui releases imutáveis assinadas, com verificação de
+  proveniência, ativação transacional e rollback. Não pode substituir a
+  verificação de assinatura pelo Git Pull do Dev nem oferecer permissões de
+  manutenção do Owner por padrão.
+- **Compartilhado:** a Surface aciona um único broker nativo de rede, que usa
+  `/state/network/wpa.conf` como credencial privada de Wi-Fi e o mesmo
+  endereço de controle WPA usado pelo primeiro uso. Não se criam serviços de
+  Wi-Fi, bases de credenciais nem rotinas de atualização paralelas por canal.
+
+### Rede persistente e recuperação (2026-10-19)
+
+A configuração Wi-Fi validada no primeiro uso é preparada em
+`/state/network/wpa.conf.candidate.<pid>`, no mesmo sistema de arquivos de
+`wpa.conf`, com permissões 0600 e diretório 0700. Depois da autenticação WPA
+e DHCP, a configuração é promovida por renomeação atômica e sincronizada
+antes de informar sucesso. O antigo candidato em `/run` não garantia esse
+commit porque atravessava sistemas de arquivos.
+
+Na inicialização da Surface, o broker nativo existente tenta reconectar
+automaticamente usando **apenas** a credencial persistida. Se o supplicant do
+primeiro uso já está ativo, não o encerra: aguarda o estado autenticado e
+recupera o DHCP quando necessário. Um pedido explícito `Desconectar` mantém
+uma intenção local persistente em `/state/network/autoconnect-paused`;
+`Reconectar` ou uma nova conexão autorizada libera essa pausa. O broker
+realiza tentativas periódicas delimitadas sem iniciar outro gerenciador WPA,
+e a Surface continua disponível offline.
+
+O mesmo proprietário gráfico supervisiona a sincronização do relógio após
+haver endereço IP e reinicia a tentativa NTP quando ela termina por falha
+transitória. Isso não certifica por si só DNS/TLS/Git: os estados de
+atualização continuam distintos de conexão local e devem mostrar falhas
+reais, sem apagar credenciais ou usar o SSH/MCP como atalho de rede.
+
+**Gates pendentes:** o código precisa ser incorporado à `main`, exercitado
+em QEMU Dev com rede controlada e depois no notebook real para comprovar
+reboot → Wi-Fi salvo → DHCP → DNS → horário → HTTPS/Git → Pull. Esta
+alteração não grava o pendrive físico nem modifica a emulação MVP paralela.
+
 ## Windows Creator: developer installation and channel isolation (2026-10-10)
 
 The Owner/Development Creator is packaged separately from the public Stable/MVP
