@@ -40,8 +40,15 @@ class SettingsLocalAiViewTests(unittest.TestCase):
         self.assertIn('next.appId !== "store" || !VIEWS.includes(next.target)', store)
         self.assertIn('activeView = next.target;', store)
         self.assertIn('modelReadState === "idle"', store)
-        self.assertIn("      localAi,\n      productConnector,\n    );", native)
-        self.assertEqual(native.count("      localAi,\n      productConnector,\n    );"), 2)
+        # The display capability is now passed into Settings as an optional
+        # port. The fallback must omit only that port; Local AI and the
+        # Product Connector remain supplied in both paths.
+        healthy = "      localAi,\\n      productConnector,\\n      displayOutputs,\\n    );"
+        fallback = "      localAi,\\n      productConnector,\\n      null,\\n    );"
+        self.assertIn(healthy.replace("\\\\n", "\\n"), native)
+        self.assertIn(fallback.replace("\\\\n", "\\n"), native)
+        self.assertIn("createNativeDisplayOutputs(window)", native)
+        self.assertIn("optionalNativeProbe(", native)
         self.assertIn("createNativeProductConnector(window)", native)
         # Native Store uses the canonical window composition, not the retired
         # Store overview mount. Navigation still receives authorized activation.
