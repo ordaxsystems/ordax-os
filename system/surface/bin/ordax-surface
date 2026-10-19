@@ -1328,13 +1328,15 @@ prepare_keyboard_session_restart_broker() {
 }
 
 prepare_power_broker() {
+    # Remove any stale local capability before checking the Guardian.
+    # Otherwise a previous FIFO could still be visible to the Native server.
+    rm -f "$POWER_REQUEST" >/dev/null 2>&1 || return 1
     # Never advertise a functioning power control when its actual root-owned
     # Guardian channel is missing. The graphical desktop must still boot.
     [ -p "$HOST_POWER_REQUEST" ] || {
         echo "ordax-surface: Guardian host power channel absent; controls disabled" >>"$HOST_LOG"
         return 1
     }
-    rm -f "$POWER_REQUEST" >/dev/null 2>&1 || true
     /bin/busybox mkfifo "$POWER_REQUEST" >>"$HOST_LOG" 2>&1 || return 1
     chmod 600 "$POWER_REQUEST" >>"$HOST_LOG" 2>&1 || return 1
 
