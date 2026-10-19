@@ -341,7 +341,7 @@
       },
       {
         "path": "system/surface/ui/meridian.css",
-        "sha256": "bc1c6eb5d40e6490bfc08311c56872a5723cede8d3d9adc4c3f1c9ce141f1833"
+        "sha256": "0b6a86805fef33d55025eab86f79f7598738f3405de223b4a6c50e920adb3ba2"
       },
       {
         "path": "system/surface/ui/meridian.tokens.css",
@@ -417,7 +417,7 @@
       },
       {
         "path": "system/surface/workspace/components/central/meridian.css",
-        "sha256": "5a05eebba15e9d05df30fb74e0fb5d2d59d96c98ef1602ddf4dfb4b71a906a94"
+        "sha256": "1b5fc19f9b8f53426eed30d5478160b950ae2a406fcddf15d6b33fde793d2549"
       },
       {
         "path": "system/surface/workspace/components/central/primitives.tsx",
@@ -476,6 +476,6 @@
         "sha256": "32fcfaad07deaee9a72391669c3bb285444c9c7a5ba339e66d51278c0d6daffe"
       }
     ],
-    "cssSha256": "5272ee92b644550c801f317e73f6368caa624314a41a8ce9e92d6804db0e6cbf"
+    "cssSha256": "8b62f23b2fe98c09aa40e3e93ec8aa205583f679c640c93685422ef958336a8e"
   }
 }
