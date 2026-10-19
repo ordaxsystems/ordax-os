@@ -42,6 +42,10 @@
 [data-meridian] .meridian-taskbar { display:grid;grid-template-columns:minmax(var(--md-taskbar-side-min),1fr) minmax(0,auto) minmax(var(--md-taskbar-side-min),1fr);align-items:center;gap:var(--md-taskbar-layout-gap);padding-inline:var(--md-taskbar-inline-padding);background:var(--md-surface);border-top:1px solid var(--md-border); }
 [data-meridian] :is(.meridian-taskbar-start,.meridian-taskbar-end) { display:flex;align-items:center;gap:var(--md-taskbar-control-gap);min-width:0; }
 [data-meridian] .meridian-taskbar-end { justify-content:flex-end; }
+[data-meridian] .meridian-taskbar :is(.meridian-taskbar-start,.meridian-taskbar-end) > button,[data-meridian] .meridian-taskbar .ordax-tray-item { border-radius:var(--md-radius-small);transition:background-color var(--md-duration),color var(--md-duration); }
+[data-meridian] .meridian-taskbar :is(.meridian-taskbar-start,.meridian-taskbar-end) > button:is(:hover,:focus-visible),[data-meridian] .meridian-taskbar .ordax-tray-item:is(:hover,:focus-visible) { background:var(--md-subtle);color:var(--md-ink); }
+[data-meridian] .meridian-taskbar button:focus-visible { outline:2px solid var(--md-focus);outline-offset:2px; }
+[data-meridian] .meridian-taskbar :is([data-workspace-switch],[data-presentation-toggle])[aria-pressed="true"],[data-meridian] .meridian-taskbar .ordax-tray-item[aria-expanded="true"] { background:var(--md-accent-soft);color:var(--md-accent); }
 [data-meridian] :is(.meridian-dock-shortcuts,.ordax-running-apps,.meridian-dock) { gap:var(--md-dock-item-gap); }
 [data-meridian] :is(.meridian-native-dock,.meridian-workspace .meridian-dock) { overscroll-behavior-inline:contain;scrollbar-width:none;touch-action:pan-x; }
 [data-meridian] :is(.meridian-native-dock,.meridian-workspace .meridian-dock)::-webkit-scrollbar { display:none; }

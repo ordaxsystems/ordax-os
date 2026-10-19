@@ -53,8 +53,10 @@ group alignment, dock targets, app glyph scale and open/active/minimized
 indicators. Meridian tokens own the side minimum, horizontal inset, control
 size, item gap and glyph size. Shared dock navigation uses wrapping arrow keys
 and Home/End without activating apps; each host retains only its own horizontal
-scroll reveal. Web and Native may arrange host-specific controls and responsive
-collapse behavior, but must not redefine shared dock geometry or interaction.
+scroll reveal. Taskbar hover, focus and pressed states are shared; the Central/
+desktop switch is highlighted only when its `aria-pressed` state is active. Web
+and Native may arrange host-specific controls and responsive collapse behavior,
+but must not redefine shared dock geometry or interaction.
 
 ### Desktop window chrome — 2026-10-19
 
