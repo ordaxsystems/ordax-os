@@ -41,12 +41,12 @@ test('versioning rejects regression, unversioned runtime edits and invalid prere
 
 test('version label and publication authority cannot be minted by an alpha tag',()=>{
   assert.deepEqual(assertProductVersionIdentity({
-    semanticVersion:'0.1.1-alpha.1',displayVersion:'v0.1.1-alpha.1',stableRelease:false,
+    semanticVersion:'0.1.1-alpha.1',displayVersion:'v0.1.1-alpha.1',displayName:'OrdaX Prototype v0.1.1-alpha.1',stableRelease:false,
   }),{version:'0.1.1-alpha.1',channel:'alpha',stableRelease:false});
   assert.throws(()=>assertProductVersionIdentity({
-    semanticVersion:'0.1.1-alpha.1',displayVersion:'v0.1.1-alpha.1',stableRelease:true,
+    semanticVersion:'0.1.1-alpha.1',displayVersion:'v0.1.1-alpha.1',displayName:'OrdaX Prototype v0.1.1-alpha.1',stableRelease:true,
   }),/cannot claim stable/i);
   assert.throws(()=>assertProductVersionIdentity({
-    semanticVersion:'0.1.1-alpha.1',displayVersion:'v0.1.1',stableRelease:false,
+    semanticVersion:'0.1.1-alpha.1',displayVersion:'v0.1.1',displayName:'OrdaX Prototype v0.1.1',stableRelease:false,
   }),/Displayed version/i);
 });
