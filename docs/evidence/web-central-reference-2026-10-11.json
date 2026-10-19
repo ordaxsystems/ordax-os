@@ -907,8 +907,8 @@
       "source": "src/styles.css",
       "target": "system/surface/workspace/components/central/styles.css",
       "sha256": "89fa689f7a6d3308c1fcce9fb8149f736dfb5328442578d178315d5922bb70ea",
-      "adaptedSha256": "32647287be52b01103bdf9288c9bba3c942d9180517457fdaa3d6510e3a105d1",
-      "adaptation": "Shared modal navigation uses the existing Dialog focus owner and canonical app window state; search/return-to-home work without custom overlay or Escape listener. Approved layout and unavailable services preserved. Native search label and 44-pixel close target improve menu touch access without new controls or palette. Canonical accessibility preferences apply across Web via shared tokens and runtime, responsive controls and relative typography; no new storage or authority. Single reducer retains selected compact app; mobile shows one mounted pane with selector, desktop preserves equal tiles; content responds to pane width. User-requested removal of footer mode selector, unused footer CSS and reserved grid tracks; other controls preserved. Shared favorite-shortcut presentation consumes a single persisted preference and metadata owner; no installation or grants. 2026-10-12: selectable USB color profile references Native semantic tokens; layout unchanged. 2026-10-12: shared color-palette service and stylesheet consumed by Web/Native; no copied palette.; contextual Central/Desktop destination feedback and canonical sidebar width preserved (2026-10-12) 2026-10-18: Meridian visual tokens, grouped rail sizing and Native/Web layout continuity replace previous geometry. 2026-10-19: Responsive sidebar, taskbar, and managed-window geometry are now shared with the existing canonical Meridian style ownership.",
+      "adaptedSha256": "e2b173ce7adf5a38f37ebfdd987df4a3bdb0fb3ff2d414adc6f5985f0ff372eb",
+      "adaptation": "Shared modal navigation uses the existing Dialog focus owner and canonical app window state; search/return-to-home work without custom overlay or Escape listener. Approved layout and unavailable services preserved. Native search label and 44-pixel close target improve menu touch access without new controls or palette. Canonical accessibility preferences apply across Web via shared tokens and runtime, responsive controls and relative typography; no new storage or authority. Single reducer retains selected compact app; mobile shows one mounted pane with selector, desktop preserves equal tiles; content responds to pane width. User-requested removal of footer mode selector, unused footer CSS and reserved grid tracks; other controls preserved. Shared favorite-shortcut presentation consumes a single persisted preference and metadata owner; no installation or grants. 2026-10-12: selectable USB color profile references Native semantic tokens; layout unchanged. 2026-10-12: shared color-palette service and stylesheet consumed by Web/Native; no copied palette.; contextual Central/Desktop destination feedback and canonical sidebar width preserved (2026-10-12) 2026-10-18: Meridian visual tokens, grouped rail sizing and Native/Web layout continuity replace previous geometry. 2026-10-19: Responsive sidebar, taskbar, and managed-window geometry are now shared with the existing canonical Meridian style ownership. 2026-10-19: Canonical Meridian dock behavior and styling were consolidated in main@8c8e74c; the current Surface source is verified without changing its UI.",
       "adaptationHistory": [
         {
           "date": "2026-10-18",
@@ -919,6 +919,11 @@
           "date": "2026-10-19",
           "sha256": "6bc3435891a3350ffaadf9301d3a4e0b8cb8c39b6b3907c65c18f16b88980c81",
           "reason": "Previously verified adapted SHA-256 before 2026-10-19 source evolution: Responsive sidebar, taskbar, and managed-window geometry are now shared with the existing canonical Meridian style ownership."
+        },
+        {
+          "date": "2026-10-19",
+          "sha256": "32647287be52b01103bdf9288c9bba3c942d9180517457fdaa3d6510e3a105d1",
+          "reason": "Previous adapted digest before main@8c8e74c refactored Surface dock navigation and styling under the shared Meridian owner; original upstream digest is preserved."
         }
       ]
     },
