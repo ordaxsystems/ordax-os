@@ -86,17 +86,19 @@ class SurfaceVisualIdentityTests(unittest.TestCase):
 
     def test_refreshed_shell_keeps_launcher_dock_and_panels_anchored(self):
         css = (SURFACE / "identity.css").read_text(encoding="utf-8")
+        window_css = (SURFACE / "surface.css").read_text(encoding="utf-8")
         for declaration in (
             ".ordax-launcher {",
             "top: auto;",
             "transform: translateX(-50%);",
             ".ordax-launcher-app .ordax-app-mark {",
             ".ordax-statusbar {",
-            ".ordax-running-app[data-active=\"true\"] {",
             ".ordax-quick-panel-layer {",
             ".ordax-quick-panel-header {",
         ):
             self.assertIn(declaration, css)
+        # The live running-app state is owned by the shared window Surface, not the identity palette.
+        self.assertIn('.ordax-running-app[data-active="true"] {', window_css)
 
     def test_local_session_lock_uses_product_tokens_without_legacy_warm_fallback(self):
         css = LOCK_CSS.read_text(encoding="utf-8")
