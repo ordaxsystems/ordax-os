@@ -1,6 +1,7 @@
 import hashlib
 import importlib.util
 import json
+import os
 from pathlib import Path
 import subprocess
 import tempfile
@@ -9,6 +10,8 @@ import unittest
 ROOT = Path(__file__).resolve().parents[1]
 SERVER = ROOT / "system" / "surface" / "runtime" / "native_host_server.py"
 BROKER = ROOT / "system" / "surface" / "runtime" / "network_broker.sh"
+BOOT_NETWORK = ROOT / "bootstrap" / "dev-base" / "ordax-network"
+SURFACE_LAUNCHER = ROOT / "system" / "surface" / "bin" / "ordax-surface"
 CONTRACT = ROOT / "system" / "contracts" / "network-management.mjs"
 ADAPTER = ROOT / "system" / "adapters" / "native" / "network-management.mjs"
 COMPOSITION = ROOT / "system" / "composition" / "native" / "main.mjs"
@@ -119,6 +122,47 @@ class NativeNetworkManagementTests(unittest.TestCase):
             for forbidden in ("password", "passphrase", "psk=", "secret"):
                 self.assertNotIn(forbidden, flattened)
 
+    @unittest.skipUnless(hasattr(os, "mkfifo"), "FIFO requires POSIX")
+    def test_broker_liveness_requires_private_fifo_with_real_reader(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            paths = native_host.network_broker_paths(temporary)
+            os.mkfifo(paths["control"], 0o600)
+            self.assertFalse(native_host.network_broker_available(paths))
+            reader = os.open(paths["control"], os.O_RDONLY | os.O_NONBLOCK)
+            try:
+                self.assertTrue(native_host.network_broker_available(paths))
+                self.assertEqual(os.read(reader, 32), b"")
+            finally:
+                os.close(reader)
+            self.assertFalse(native_host.network_broker_available(paths))
+            linked = root / "network-linked"
+            linked.symlink_to(paths["control"])
+            self.assertFalse(native_host.network_broker_available(
+                {**paths, "control": str(linked)}
+            ))
+
+    def test_first_run_wifi_handoff_has_one_wpa_owner_and_broker_recovery(self):
+        broker = BROKER.read_text(encoding="utf-8")
+        boot = BOOT_NETWORK.read_text(encoding="utf-8")
+        surface = SURFACE_LAUNCHER.read_text(encoding="utf-8")
+        for assignment in (
+            "WPA_CTRL_DIR=/run/ordax-wpa-supplicant",
+            "WPA_PID_FILE=/run/ordax-wpa-supplicant.pid",
+        ):
+            self.assertIn(assignment, boot)
+            self.assertIn(assignment, broker)
+        self.assertIn("WPA_CONF=$STATE_DIR/wpa.conf", boot)
+        self.assertIn("WPA_CONF=$STATE_DIR/wpa.conf", broker)
+        self.assertNotIn("killall wpa_supplicant", broker)
+        self.assertIn('"$WPA_CLI_BIN" -p "$WPA_CTRL_DIR" -i "$wifi" terminate', broker)
+        self.assertIn('if ! stop_wifi "$wifi"; then', broker)
+        self.assertIn("supervise_network_broker() (", surface)
+        self.assertIn('wait "$broker_pid" || broker_exit=$?', surface)
+        self.assertIn('kill -TERM "$broker_pid"', surface)
+        self.assertIn("trap 'exit 0' HUP INT TERM", broker)
+        self.assertNotIn('rm -f "$WPA_CONF"\n', broker.split("        disconnect)", 1)[1].split("        forget)", 1)[0])
+
     def test_broker_is_shell_valid_private_and_has_no_secret_logging(self):
         subprocess.run(["sh", "-n", str(BROKER)], check=True)
         text = BROKER.read_text(encoding="utf-8")
@@ -136,7 +180,7 @@ class NativeNetworkManagementTests(unittest.TestCase):
         text = BROKER.read_text(encoding="utf-8")
         self.assertIn('WPA_CLI_BIN=$(command -v wpa_cli || true)', text)
         self.assertIn('[ -n "$WPA_CLI_BIN" ]', text)
-        self.assertIn('WPA_CTRL_DIR=/run/wpa_supplicant', text)
+        self.assertIn('WPA_CTRL_DIR=/run/ordax-wpa-supplicant', text)
         self.assertIn('-O"$WPA_CTRL_DIR" -i "$wifi" -c "$conf"', text)
         self.assertIn('grep -q \'^wpa_state=COMPLETED$\'', text)
         self.assertIn('/bin/busybox timeout -k 1 15 "$IW_BIN" dev "$wifi" scan', text)
