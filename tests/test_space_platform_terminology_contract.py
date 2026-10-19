@@ -32,8 +32,8 @@ class SpacePlatformTerminologyContractTest(unittest.TestCase):
         doc = (ROOT / "docs/SPACES-AND-PROFILES.md").read_text(encoding="utf-8")
         for marker in (
             "## Interoperabilidade canônica: Platform, MCP, Studio, Flow",
-            "`ordax_spaces.id`",
-            "`ordax_projects.id`",
+            "`ordax_spaces.space_id`",
+            "`ordax_projects.project_id`",
             "`ordax_project_connections`",
             "`ordax_space_devices`",
             "`ordax_device_project_bindings`",
