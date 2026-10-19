@@ -208,6 +208,36 @@ Before updating an existing checkout, `ordax-pull` fails closed when:
 
 Only a successful explicit `ordax-pull` clears a rollback pin.
 
+## Atomic Pull: reuse verified fetched Git objects
+
+The development Supervisor owns remote discovery and fetch for one exact
+`main` candidate. When it invokes `ordax-pull` with
+`ORDAX_EXPECTED_SHA`, that value must equal the existing
+`refs/remotes/origin/main` tracking ref in a valid local checkout and resolve
+to a Git commit object. In that case, the updater must **not** re-query moving
+`main` or perform a second HTTPS clone of the same repository. It prepares
+its isolated candidate from the already fetched local Git objects, cloning
+with `--no-hardlinks` and checking ancestry, sparse sources, remote identity,
+cleanliness and the exact expected SHA before any atomic switch. The stage
+remains an independently owned object directory, not a shared `.git` pointer.
+
+A cold first checkout or an invalid/dirty checkout still uses the existing
+bounded remote-clone recovery. Running `ordax-pull` explicitly without a
+Supervisor-provided SHA continues to discover `main` normally. No source
+validation, fast-forward restriction, transaction journal, backup or rollback
+gate is bypassed.
+
+This specifically removes an avoidable **second** network acquisition from
+the healthy update path. The notebook still requires enough network access to
+fetch missing objects on the **first** acquisition; not all immutable Base,
+graphics, kernel and initramfs bytes are Git source-tree material. The
+Stable/MVP signed release channel is separate and unchanged.
+
+A physical boot must confirm the repaired USB no longer cycles through
+`fetching → validating → atomic-checkout-failed`. A successful host-side pull
+proves only checkout semantics, not live runtime health, NTP, Wi-Fi, power or
+remote MCP pairing.
+
 ## Rollback semantics
 
 Before a pull that actually advances `HEAD`, the old commit is remembered as `previous-commit`.
