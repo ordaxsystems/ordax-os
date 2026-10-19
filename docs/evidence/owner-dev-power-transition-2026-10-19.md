@@ -80,3 +80,42 @@ QEMU gates.
 Process-specific temporary paths address naming collisions; they do not
 constitute proof of successful physical restart, shutdown, NAND durability,
 network recovery, or an applied update on the physical notebook.
+
+## Real headless QEMU with NAT — additional integration evidence
+
+- Existing combined test seed `18a65e24cfe955d8964dccd1b3aa553816fc610a`
+  was booted as a **disposable QCOW2 overlay** on a verified 4 GiB RAW
+  via QEMU 10.0 in Windows WSL2 (TCG, no guest GUI window).
+- Guest devices: UEFI USB mass-storage, virtio-vga, USB keyboard/mouse,
+  **virtio-net-pci** and QEMU user-mode NAT on `10.0.2.0/24`.
+  QMP `query-status` returned `running` and `info network` listed the
+  actual NAT NIC. **This is not proof of guest DHCP/DNS/TLS/Git connectivity.**
+- The guest console confirmed the exact source SHA and local Owner/Development
+  runtime start. First native HTTP launch reported
+  `native Surface HTTP/control server failed readiness check` with repeated
+  connection refusals to `127.0.0.1:8765`; Guardian killed and retried it.
+  The next graphical attempt reached the rendered **8-step First Run**
+  and navigated from Welcome to Region to Network. The Network step showed
+  `Não é possível configurar o Wi-Fi nesta sessão`, expected without a Wi-Fi
+  NIC but **not evidence of usable wired Internet**.
+- Root timeout mismatch: the Owner Guardian exports **90 seconds** of initial
+  Surface health time, but `wait_for_native_server 10` gave its live Python
+  loopback server only **10 seconds** before a premature recovery.
+  The owning launcher now waits a bounded **30 seconds** and still aborts early
+  if the server process exits. Regression asserts the new exact limit.
+- Local source verification after this correction: **34**
+  `test_system_runtime_contract.py` tests plus **3**
+  `test_native_power_broker.py` tests passed.
+- The corrected source has been copied to the **draft integration gate PR
+  #2025**, head `0d317f48eeced121a1fe11736286e2d0208869db`;
+  its replacement Creator/QEMU pipeline has been started. **The already
+  running 18a65e24 guest does not contain this correction.**
+- First Run persistence across reboot, guest DHCP, DNS, TLS, GitHub, a
+  successful forward `ordax-pull` to an authorized later commit and
+  **real UI → authenticated Native → Guardian → Linux restart/shutdown**
+  remain **not proven**. HMP or ACPI monitor reset/powerdown never counts
+  as a button test. No physical drive was passed to QEMU.
+
+This evidence must not be used to approve deployment/USB recording until the
+exact rebuilt image passes the remaining gates. Preserve the single shared
+OrdaX OS and the existing Native, Network and Guardian owners.
