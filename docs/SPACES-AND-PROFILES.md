@@ -367,10 +367,10 @@ Esta seção complementa as definições de Space/Profile Pack acima; **não** c
 | Conta OrdaX | Identity subject / `session.subject_id` | identidade única autenticada pela Platform; não é Space, Perfil ou dispositivo |
 | Perfil do usuário | Account preferences/profile | preferências do usuário, não modelo de composição de um Space |
 | Pacote de perfil | `Profile Pack`, `ordax.profile-packs/1` | composição técnica **versionada**; sem dados de negócio nem identidade nova |
-| Espaço | `Space`, `ordax_spaces.id` | ambiente estável de trabalho/dados/membros, compartilhado logicamente por OS e Platform; fonte persistente: autoridade de Conta/Space da Platform |
+| Espaço | `Space`, `ordax_spaces.space_id` | ambiente estável de trabalho/dados/membros, compartilhado logicamente por OS e Platform; fonte persistente: autoridade de Conta/Space da Platform |
 | Tipo de espaço | `ordax_spaces.domain + subtype` | semântica de domínio definida em `system/services/spaces/type-catalog.mjs`, não um segundo Space |
-| Projeto | `ordax_projects.id` | recurso da autoridade de Projeto ligado a um Space; um Space pode ter vários projetos |
-| Projeto local | `ordax.project-catalog/1`, IDs `project-N` e caminhos lógicos locais | estado **do dispositivo/sessão**; não é identidade `ordax_projects.id`; vínculos com nuvem são explícitos e não sincronizam arquivos automaticamente |
+| Projeto | `ordax_projects.project_id` | recurso da autoridade de Projeto ligado a um Space; um Space pode ter vários projetos |
+| Projeto local | `ordax.project-catalog/1`, IDs `project-N` e caminhos lógicos locais | estado **do dispositivo/sessão**; não é identidade `ordax_projects.project_id`; vínculos com nuvem são explícitos e não sincronizam arquivos automaticamente |
 | Repositório | `ordax_project_connections` / GitHub repository ID | origem externa opcional verificada; nome GitHub não substitui ID nem prova de autorização |
 | Dispositivo (target) | identidade de equipamento autorizada | identidade, presença e grants distintos; pode ser usado no MCP sem cadastro artificial de Space para funções de dispositivo |
 | Associação Space–dispositivo | `ordax_space_devices` | autoriza participação do dispositivo naquele Space; não equivale a permissão para qualquer ação |
@@ -396,3 +396,5 @@ Esta seção complementa as definições de Space/Profile Pack acima; **não** c
 ### Compatibilidade e promoção
 
 As definições desta seção **não** afirmam que fluxos de onboarding, sincronização OS↔Platform, grants ou E2E já estejam implantados. Mudanças futuras de esquema exigem migrations versionadas, teste de dados legados, isolamento multi-Owner/Space, revogação, concorrência e teste físico de Runtime. Manter os ports de leitura e ferramentas públicas compatíveis enquanto as autoridades evoluem.
+
+**Prova de implantação pendente (consulta somente leitura 19/10/2026):** no PostgreSQL ativo da Platform, os identificadores persistentes são `ordax_spaces.space_id` e `ordax_projects.project_id`. As funções públicas `ordax_mutate_space_lifecycle_v1` e `ordax_mutate_space_membership_v1` descritas acima **não apareceram** na inspeção de rotinas implantadas; a existência das migrations no repositório do OS não comprova seu deploy. Não inferir um segundo backend nem executar migrations até reconciliar registry, adapter e autoridade de implantação.
