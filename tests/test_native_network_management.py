@@ -238,7 +238,7 @@ class NativeNetworkManagementTests(unittest.TestCase):
         self.assertIn('restore_wired_network_if_needed >/dev/null 2>&1 || true', broker)
         self.assertIn('WIFI_TOOLS_READY=0', broker)
         self.assertIn('wifi-tools-unavailable', broker)
-        self.assertIn('timeout -k 1 18 "$UDHCPC_BIN"', broker)
+        self.assertIn('timeout -k 1 8 "$UDHCPC_BIN"', broker)
 
     def test_manual_disconnect_remains_paused_and_saved_network_is_never_deleted(self):
         broker = BROKER.read_text(encoding="utf-8")
