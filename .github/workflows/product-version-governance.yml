@@ -20,10 +20,8 @@ jobs:
         with:
           persist-credentials: false
           fetch-depth: 0
-      - name: Setup Node 24
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
-        with:
-          node-version: '24'
+      - name: Confirm Node availability on standard Ubuntu runner
+        run: node --version
       - name: Verify syntax of canonical OS version owner and gate
         run: |
           node --check system/contracts/component-manifest.mjs
