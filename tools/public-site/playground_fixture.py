@@ -7,6 +7,7 @@ import argparse
 import hashlib
 import json
 import re
+import subprocess
 from pathlib import Path
 
 
@@ -14,6 +15,7 @@ ROOT = Path(__file__).resolve().parents[2]
 APPS_ROOT = ROOT / "system" / "apps"
 APP_CATALOG = APPS_ROOT / "catalog.mjs"
 DESKTOP_SHELL = ROOT / "system" / "surface" / "ui" / "desktop-shell.mjs"
+SHORTCUT_CATALOG = ROOT / "system" / "services" / "surface" / "shortcut-catalog.mjs"
 SURFACE_LOCALIZATION = ROOT / "system" / "services" / "i18n" / "surface.mjs"
 PUBLIC_ROOT = ROOT / "sites" / "public"
 FIXTURE_PATH = PUBLIC_ROOT / "assets" / "playground-fixture.json"
@@ -147,24 +149,41 @@ def _surface_home() -> dict[str, object]:
     """
     text = DESKTOP_SHELL.read_text(encoding="utf-8")
     messages = _surface_source_messages()
-    # The Native menu owns the real device-app list. Never fall back to the
-    # removed pre-Meridian rail layout or to a locally duplicated app catalog.
-    match = re.search(
-        r'const deviceApps = \[([^\]]+)\]\.map\(id\s*=>\s*',
-        text, re.DOTALL,
-    )
-    if not match or 't(`app.${id}.title`)' not in text:
+    # The Native shell resolves ids using the versioned Surface shortcut
+    # catalog. Consume that exact export; never reintroduce an app-id array
+    # or a parallel navigation order in the public-site generator.
+    if (
+        'listSurfaceShortcutAppIds("navigation-menu")' not in text
+        or "NAVIGATION_MENU_APP_IDS.map(id =>" not in text
+        or 't(`app.${id}.title`)' not in text
+    ):
         raise PlaygroundFixtureError(
-            "Native Meridian menu is missing its canonical device-app shortcuts"
+            "Native Meridian menu is no longer sourced from the canonical shortcut catalog"
         )
-    # Reject unexpected expressions instead of silently ignoring them and
-    # producing a public menu that differs from the actual Native menu.
-    raw_ids = match.group(1).strip()
-    if not re.fullmatch(r'"[a-z][a-z0-9-]*"(?:\s*,\s*"[a-z][a-z0-9-]*")*', raw_ids):
-        raise PlaygroundFixtureError("Native Meridian device-app list is malformed")
-    app_ids = re.findall(r'"([a-z][a-z0-9-]*)"', raw_ids)
-    if not app_ids or len(app_ids) != len(set(app_ids)):
-        raise PlaygroundFixtureError("Native Meridian device-app list is empty or duplicated")
+    source = (
+        "import {pathToFileURL} from 'node:url';"
+        "const {listSurfaceShortcutAppIds}=await import(pathToFileURL(process.argv[1]).href);"
+        "process.stdout.write(JSON.stringify(listSurfaceShortcutAppIds('navigation-menu')));"
+    )
+    try:
+        result = subprocess.run(
+            ["node", "--input-type=module", "-e", source, str(SHORTCUT_CATALOG)],
+            capture_output=True, text=True, check=True, timeout=10,
+        )
+        app_ids = json.loads(result.stdout)
+    except (OSError, subprocess.SubprocessError, ValueError) as exc:
+        raise PlaygroundFixtureError(
+            "Canonical Surface shortcut catalog cannot be evaluated"
+        ) from exc
+    if (
+        not isinstance(app_ids, list)
+        or not app_ids
+        or not all(isinstance(item, str) and re.fullmatch(r"[a-z][a-z0-9-]*", item) for item in app_ids)
+        or len(app_ids) != len(set(app_ids))
+    ):
+        raise PlaygroundFixtureError(
+            "Canonical Surface shortcut catalog returned invalid navigation-menu ids"
+        )
 
     rail = [
         {"id": app_id, "label": _message(messages, f"app.{app_id}.title")}
