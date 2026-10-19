@@ -125,6 +125,28 @@ test("Web and Native desktop shortcuts share Meridian geometry tokens", async ()
   assert.ok(nativeStyles.includes("inset: var(--md-desktop-shortcut-inset)"));
   assert.ok(webStyles.includes("left: var(--md-desktop-shortcut-inset)"));
 });
+test("equivalent desktop shortcuts share Meridian identity colors without removing Web destinations", async () => {
+  const [tokens, webDesktop, webConfig, nativeShell, shortcutCatalog] = await Promise.all([
+    readFile(new URL("../system/surface/ui/meridian.css", import.meta.url), "utf8"),
+    readFile(new URL("../system/surface/workspace/components/central/desktop.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../system/surface/workspace/components/central/config.ts", import.meta.url), "utf8"),
+    readFile(new URL("../system/surface/ui/desktop-shell.mjs", import.meta.url), "utf8"),
+    readFile(new URL("../system/services/surface/shortcut-catalog.mjs", import.meta.url), "utf8"),
+  ]);
+  for (const appId of ["central", "files", "apps"]) {
+    assert.ok(tokens.includes(`[data-desktop-app="${appId}"] :is(.ordax-rail-icon,.app-icon)`), `${appId} color is owned by shared Meridian policy`);
+    assert.ok(webDesktop.includes(`id: '${appId}'`) || webConfig.includes(`id: '${appId}'`), `Web shortcut has stable ${appId} identity`);
+  }
+  assert.ok(nativeShell.includes('data-desktop-app="central"'));
+  assert.ok(nativeShell.includes('data-desktop-app="apps"'));
+  assert.ok(nativeShell.includes('data-desktop-app="${appId}"'));
+  assert.ok(shortcutCatalog.includes('appId: "files"'));
+  assert.ok(shortcutCatalog.includes('appId: "settings"'));
+  assert.ok(webConfig.includes("id: 'projects'"));
+  assert.ok(webConfig.includes("id: 'internet'"));
+  assert.ok(webDesktop.includes("id: 'aura'"));
+  assert.ok(webDesktop.includes("open(item.name)"));
+});
 test("Native rail keeps shared Meridian destinations, area switching, and System controls", async () => {
   const nativeShell = await readFile(new URL("../system/surface/ui/desktop-shell.mjs", import.meta.url), "utf8");
   const rail = nativeShell.slice(nativeShell.indexOf("function meridianNavigation("), nativeShell.indexOf("function meridianNavigationMenu("));

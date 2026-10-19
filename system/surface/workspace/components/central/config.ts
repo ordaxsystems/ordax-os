@@ -4,7 +4,7 @@ import { getSurfaceDestination, resolveSurfaceWindowTitle } from '../../../../se
 import { House, Bell, Settings, Sparkles, Folder, FolderOpen, LayoutGrid, Globe, WalletCards, MonitorSmartphone, BriefcaseBusiness, CirclePlus, ListTodo, Compass, Workflow, ShoppingBag, Box, Terminal, FileBox, UserRound, type LucideIcon } from 'lucide-react';
 
 export type IconTone = 'orange' | 'violet' | 'blue' | 'green' | 'red' | 'lime' | 'ink';
-export type AppItem = { name: string; icon: LucideIcon; tone: IconTone; caption?: string };
+export type AppItem = { id: string; name: string; icon: LucideIcon; tone: IconTone; caption?: string };
 
 const surfaceName = (id: string): string => getSurfaceDestination(id).label;
 
@@ -15,10 +15,10 @@ export const navigation: { name: string; icon: LucideIcon; target?: string; rail
 ];
 
 export const shortcuts: AppItem[] = [
-  { name: surfaceName('projects'), icon: Folder, tone: 'orange', caption: 'Continue seus projetos' },
-  { name: surfaceName('files'), icon: FileBox, tone: 'orange', caption: 'Acesse seus documentos' },
-  { name: 'Aplicativos', icon: LayoutGrid, tone: 'blue', caption: 'Abra seus apps favoritos' },
-  { name: surfaceName('internet'), icon: Globe, tone: 'green', caption: 'Navegação segura e privada' },
+  { id: 'projects', name: surfaceName('projects'), icon: Folder, tone: 'orange', caption: 'Continue seus projetos' },
+  { id: 'files', name: surfaceName('files'), icon: FileBox, tone: 'orange', caption: 'Acesse seus documentos' },
+  { id: 'apps', name: 'Aplicativos', icon: LayoutGrid, tone: 'blue', caption: 'Abra seus apps favoritos' },
+  { id: 'internet', name: surfaceName('internet'), icon: Globe, tone: 'green', caption: 'Navegação segura e privada' },
 ];
 
 export const modes = [
@@ -36,7 +36,7 @@ const shortcutAppearance: Record<string, { icon: LucideIcon; tone: IconTone }> =
   terminal: { icon: Terminal, tone: 'ink' },
 };
 
-export const favorites: (AppItem & { id: string })[] = HOME_SHORTCUTS.map(shortcut => ({
+export const favorites: AppItem[] = HOME_SHORTCUTS.map(shortcut => ({
   ...shortcut,
   ...shortcutAppearance[shortcut.id],
 }));

@@ -227,9 +227,9 @@ export function createDesktopShellMarkup(localization) {
           </div>
 
           <section class="ordax-desktop-shortcuts" data-desktop-presentation aria-label="${t("shell.presentation.shortcuts")}" hidden>
-            <button type="button" class="ordax-desktop-shortcut ordax-desktop-shortcut-central" data-desktop-action="central" data-show-desktop title="${t("shell.presentation.centralTitle")}" aria-label="${t("shell.presentation.central")}"><span class="ordax-rail-icon" aria-hidden="true">${ICONS.presentation}</span><span data-central-shortcut-label>${t("shell.presentation.centralTitle")}</span></button>
+            <button type="button" class="ordax-desktop-shortcut" data-desktop-app="central" data-desktop-action="central" data-show-desktop title="${t("shell.presentation.centralTitle")}" aria-label="${t("shell.presentation.central")}"><span class="ordax-rail-icon" aria-hidden="true">${ICONS.presentation}</span><span data-central-shortcut-label>${t("shell.presentation.centralTitle")}</span></button>
             ${DESKTOP_SHORTCUT_APP_IDS.map(id => desktopAppShortcut(id, t)).join("")}
-            <button type="button" class="ordax-desktop-shortcut ordax-desktop-shortcut-launcher" data-desktop-action="launcher" data-launcher-toggle title="${t("shell.desktop.appsShortcut")}" aria-label="${t("shell.launcher.command")}"><span class="ordax-rail-icon" aria-hidden="true">${ICONS.apps}</span><span>${t("shell.desktop.appsShortcut")}</span></button>
+            <button type="button" class="ordax-desktop-shortcut" data-desktop-app="apps" data-desktop-action="launcher" data-launcher-toggle title="${t("shell.desktop.appsShortcut")}" aria-label="${t("shell.launcher.command")}"><span class="ordax-rail-icon" aria-hidden="true">${ICONS.apps}</span><span>${t("shell.desktop.appsShortcut")}</span></button>
           </section>
         </section>
 
