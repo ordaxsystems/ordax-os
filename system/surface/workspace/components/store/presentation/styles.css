@@ -2102,20 +2102,19 @@ dialog .permission-list li{
 }
 .presentation-scroll[data-embedded="true"] #navigation {
   display:flex;
-  gap:12px;
-  overflow-x:auto;
-  scrollbar-width:thin;
-  scrollbar-color:var(--md-border-strong) transparent;
+  flex-wrap:wrap;
+  align-content:flex-start;
+  gap:4px 12px;
+  overflow:visible;
 }
-.presentation-scroll[data-embedded="true"] #navigation::-webkit-scrollbar {height:4px;}
-.presentation-scroll[data-embedded="true"] #navigation::-webkit-scrollbar-thumb {border-radius:999px;background:var(--md-border-strong);}
-.presentation-scroll[data-embedded="true"] #navigation::-webkit-scrollbar-track {background:transparent;}
 .presentation-scroll[data-embedded="true"] .nav-group {
   display:flex;
-  flex:0 0 auto;
+  flex:0 1 auto;
+  flex-wrap:wrap;
   align-items:center;
   gap:3px;
   margin:0;
+  min-width:0;
 }
 .presentation-scroll[data-embedded="true"] .nav-label {display:none;}
 .presentation-scroll[data-embedded="true"] .nav-item {
