@@ -69,7 +69,11 @@ def verified_account_session_reply(
         raise NativeAccountGatewayError("account-session-invalid", status=503) from exc
     if not isinstance(raw, dict) or raw.get("$schema") != SESSION_SCHEMA:
         raise NativeAccountGatewayError("account-session-invalid", status=503)
-    if raw.get("authenticated") is True and raw.get("status") == "authenticated":
+    if (
+        raw.get("authenticated") is True
+        and raw.get("status") == "authenticated"
+        and raw.get("provider") not in ("unconfigured", "gated")
+    ):
         subject = raw.get("subject")
         email = raw.get("email")
         if not isinstance(subject, str) or not subject or not isinstance(email, str) or not email:
