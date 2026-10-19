@@ -80,11 +80,14 @@ class UpdateNomenclatureTests(unittest.TestCase):
         product = PRODUCT_VERSION.read_text(encoding="utf-8")
         overview = SYSTEM_OVERVIEW.read_text(encoding="utf-8")
 
-        self.assertIn('semanticVersion: "0.1.0"', product)
-        self.assertIn('displayVersion: "v0.1.0"', product)
-        self.assertIn('displayName: "OrdaX Prototype v0.1.0"', product)
+        semantic = contract["product_version"]["current"]
+        display = contract["product_version"]["display"]
+        self.assertRegex(semantic, r"^0\\.1\\.[0-9]+(?:-alpha\\.[0-9]+)?$")
+        self.assertEqual(display, "v" + semantic)
+        self.assertIn(f'semanticVersion: "{semantic}"', product)
+        self.assertIn(f'displayVersion: "{display}"', product)
+        self.assertIn(f'displayName: "OrdaX Prototype {display}"', product)
         self.assertIn("stableRelease: false", product)
-        self.assertEqual(contract["product_version"]["current"], "0.1.0")
         self.assertIn("productVersionLabel()", overview)
         self.assertIn('t("system.overview.card.productVersion")', overview)
         self.assertIn('t("system.about.productVersion.kicker")', overview)
