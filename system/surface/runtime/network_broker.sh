@@ -13,8 +13,11 @@ SCAN_RAW=$SESSION_DIR/network-scan.raw
 LINK_RAW=$SESSION_DIR/network-link.raw
 SAVED_SSID_LINE=$SESSION_DIR/network-saved-ssid
 WPA_CONF=$STATE_DIR/wpa.conf
-WPA_CTRL_DIR=/run/wpa_supplicant
-CANDIDATE=$STATE_DIR/wpa.conf.candidate.$$
+# The boot/Wizard network owner retains the only WPA control socket and PID.
+# The Surface broker consumes that owner; it never starts a second namespace.
+WPA_CTRL_DIR=/run/ordax-wpa-supplicant
+WPA_PID_FILE=/run/ordax-wpa-supplicant.pid
+CANDIDATE=$STATE_DIR/wpa.conf.candidate.$
 
 umask 077
 mkdir -p "$STATE_DIR" "$SESSION_DIR"
@@ -34,7 +37,8 @@ UDHCPC_BIN=$(command -v udhcpc || true)
 cleanup() {
     rm -f "$CONTROL" "$REQUEST" "$RESPONSE" "$SCAN_RAW" "$LINK_RAW" "$SAVED_SSID_LINE" "$CANDIDATE"
 }
-trap cleanup EXIT HUP INT TERM
+trap cleanup EXIT
+trap 'exit 0' HUP INT TERM
 
 rm -f "$CONTROL" "$REQUEST" "$RESPONSE" "$SCAN_RAW" "$LINK_RAW" "$SAVED_SSID_LINE" "$CANDIDATE"
 mkfifo "$CONTROL"
@@ -94,8 +98,38 @@ capture_scan() {
 
 stop_wifi() {
     wifi=$1
-    /bin/busybox killall wpa_supplicant >/dev/null 2>&1 || true
+    # Never kill all supplicants: only the exact network owner's socket
+    # for this interface may authorize termination. A stale socket/PID
+    # fails closed and preserves the saved network and existing IP.
+    if "$WPA_CLI_BIN" -p "$WPA_CTRL_DIR" -i "$wifi" ping 2>/dev/null |
+        /bin/busybox grep -qx PONG; then
+        "$WPA_CLI_BIN" -p "$WPA_CTRL_DIR" -i "$wifi" terminate >/dev/null 2>&1 || return 1
+        remaining=5
+        while [ "$remaining" -gt 0 ]; do
+            if ! "$WPA_CLI_BIN" -p "$WPA_CTRL_DIR" -i "$wifi" ping 2>/dev/null |
+                /bin/busybox grep -qx PONG; then
+                break
+            fi
+            /bin/busybox sleep 1
+            remaining=$((remaining - 1))
+        done
+        [ "$remaining" -gt 0 ] || return 1
+    elif [ -s "$WPA_PID_FILE" ]; then
+        # A process exists but the control channel cannot prove its owner.
+        # Do not disrupt a potentially working OOBE connection.
+        owner_pid=""
+        IFS= read -r owner_pid <"$WPA_PID_FILE" || true
+        case "$owner_pid" in
+            ''|*[!0-9]*) return 1 ;;
+        esac
+        if [ -r "/proc/$owner_pid/comm" ] &&
+            [ "$(/bin/busybox cat "/proc/$owner_pid/comm")" = wpa_supplicant ]; then
+            return 1
+        fi
+    fi
+    rm -f "$WPA_PID_FILE"
     "$IP_BIN" addr flush dev "$wifi" >/dev/null 2>&1 || true
+    return 0
 }
 
 wait_for_wifi_link() {
@@ -129,12 +163,12 @@ connect_conf() {
     wifi=$1
     conf=$2
     [ -s "$conf" ] || return 1
-    stop_wifi "$wifi"
+    stop_wifi "$wifi" || return 1
     mkdir -p "$WPA_CTRL_DIR" || return 1
     chmod 700 "$WPA_CTRL_DIR"
-    "$WPA_BIN" -B -O"$WPA_CTRL_DIR" -i "$wifi" -c "$conf" >/dev/null 2>&1 || return 1
+    "$WPA_BIN" -B -P"$WPA_PID_FILE" -O"$WPA_CTRL_DIR" -i "$wifi" -c "$conf" >/dev/null 2>&1 || return 1
     if ! wait_for_wifi_link "$wifi"; then
-        /bin/busybox killall wpa_supplicant >/dev/null 2>&1 || true
+        stop_wifi "$wifi" || true
         return 1
     fi
     try_dhcp "$wifi"
@@ -227,13 +261,19 @@ handle_request() {
             fi
             ;;
         disconnect)
-            stop_wifi "$wifi"
+            if ! stop_wifi "$wifi"; then
+                respond "$request_id" error "$wifi" network-owner-unavailable
+                return 0
+            fi
             capture_link "$wifi"
             capture_saved_ssid
             respond "$request_id" ok "$wifi" disconnected
             ;;
         forget)
-            stop_wifi "$wifi"
+            if ! stop_wifi "$wifi"; then
+                respond "$request_id" error "$wifi" network-owner-unavailable
+                return 0
+            fi
             rm -f "$WPA_CONF"
             capture_link "$wifi"
             capture_saved_ssid
