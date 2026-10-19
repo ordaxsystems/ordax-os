@@ -88,14 +88,20 @@ class WaylandDisplayOutputProvider:
             if key in {"PATH", "XDG_RUNTIME_DIR", "WAYLAND_DISPLAY", "DBUS_SESSION_BUS_ADDRESS"}
         }
         env["LC_ALL"] = "C"
-        return self.runner(
-            [self.binary, *args],
-            check=True,
-            capture_output=True,
-            text=True,
-            timeout=3.0,
-            env=env,
-        )
+        try:
+            return self.runner(
+                [self.binary, *args],
+                check=True,
+                capture_output=True,
+                text=True,
+                timeout=3.0,
+                env=env,
+            )
+        except (OSError, subprocess.SubprocessError) as exc:
+            # The provider owns process invocation and failure normalization.
+            # Never expose its raw command, stderr or transient display IDs
+            # through the narrow tokenized Native HTTP boundary.
+            raise DisplayOutputError("display output provider unavailable") from exc
 
     def _read_outputs(self) -> list[dict[str, Any]]:
         if not self.environ.get("WAYLAND_DISPLAY"):
