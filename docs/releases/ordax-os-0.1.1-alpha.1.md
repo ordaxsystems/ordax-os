@@ -28,6 +28,16 @@
 - O workflow `Public Surface SSOT Refresh` regenerou os quatro artefatos derivados no commit `e9d3c92c`, sem hashes ou snapshots feitos à mão. Essa geração não constitui aprovação dos checks do **HEAD atual**, que precisa de CI própria; o histórico de `action_required` de commits do bot continua bloqueio administrativo registrado em #2022.
 - Esta composição permanece **exclusivamente para CI**. Não foi gravada em USB, instalada no Windows, publicada como Stable ou integrada ao OrdaX Grátis.
 
+## Restauração dos contratos móveis após a evolução de Meridian
+
+- A fonte atual da `main` havia removido regras móveis de `first-run.css`, `files.css` e `surface.css` sem substituir seus contratos. No commit `ab6f660c`, as regras de composição responsiva foram recuperadas da última revisão anterior `0669d27d` e reaplicadas **nos próprios CSS canônicos**; não foi criado componente alternativo.
+- Primeiro Uso: a partir de 820 CSS px, a grade passa a uma coluna, os oito passos tornam-se uma linha horizontal compacta e o rodapé continua visível fora do conteúdo rolável. A adaptação até 600 px também foi recuperada.
+- Arquivos: abaixo de 760 CSS px, o layout das localizações e a toolbar passam a modo compacto e a coluna de tipo pode ser omitida, preservando a coluna de modificação no modo de lista; ações compactas até 560 px continuam acessíveis.
+- Surface: os layouts responsivos de 980 e 760 CSS px restauram o posicionamento de janelas, statusbar, rail e painéis dentro de uma tela estreita. Os contratos de movimentação reduzida e maximização permanecem em seus owners existentes.
+- Configurações mantém `@container settings-viewport` para responder **à janela do aplicativo**, não só ao tamanho do monitor; sua verificação foi atualizada sem reintroduzir o antigo breakpoint de viewport.
+- Conta: o teste canônico da PR #2027 comprova a navegação rolável com itens `flex: 0 0 auto`, sem adicionar uma segunda implementação CSS. Foi incluído na branch experimental como blob Git idêntico.
+- A recuperação não é uma release nem implica testes físicos aprovados. Manter Foundation, Surface Web, QEMU e Public Site obrigatórios na HEAD após esses ajustes.
+
 ## Validação / rollback
 - Testes dedicados de timeout, erros CLI, ausência de preview ativo após falha, fronteira Native sem `subprocess` e typecheck Web.
 - Os artefatos públicos devem ser gerados pelo workflow `Public Surface SSOT Refresh` e passar pela CI.
