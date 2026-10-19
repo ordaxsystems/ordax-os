@@ -23,6 +23,10 @@ export function assertProductVersionIdentity(record) {
   if (displayVersion !== 'v' + semanticVersion) {
     throw new TypeError('Displayed version must be derived from semanticVersion');
   }
+  if (typeof record.displayName !== 'string' ||
+      !record.displayName.endsWith(displayVersion)) {
+    throw new TypeError('Product displayName must include the current version label');
+  }
   if (typeof stableRelease !== 'boolean') {
     throw new TypeError('A product must explicitly declare stableRelease');
   }
