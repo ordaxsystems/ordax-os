@@ -2,7 +2,8 @@
 
 Scope: `ordax-os`, **Owner/Development USB only**. This is source repair and
 Linux integration evidence, **not** physical notebook certification or Stable/MVP
-activation. Do not build/reflash USB while these power-action gates are open.
+activation. Disposable Creator/QEMU media is permitted for tests; do not
+build/publish a physical deployment USB or reflash hardware while power-action gates are open.
 
 ## Architecture (unchanged; canonical owners)
 
@@ -59,3 +60,23 @@ A completed broker request only proves that action was queued, not that the
 kernel/firmware transitioned. Any pending `last-request` without a new
 boot-ID or clean shutdown proof is NOT approved. QEMU tests must not touch the
 physical USB, internal disk, or parallel Stable/MVP emulation.
+
+## Persistent runtime and rescue receipt staging — additional root repair
+
+The same literal `.$` temporary-suffix defect was also present outside the
+power action itself. The existing owners now use process-specific `.$$` staging
+for the persistent Base update agent, Surface runtime proof context, and the
+rescue agent's generation/action/telemetry receipts. No second agent, API,
+updater or state store was introduced; the same atomic renames are retained.
+
+A contract regression rejects any literal `.tmp.$` staging suffix across
+the Surface launcher and rescue agent and asserts each expected `.$$` path.
+The updated PR #2008 revision passed **37 Python runtime/power tests**, both
+shell syntax checks and a clean Git diff. The exact, separately published
+combined test candidate in draft PR #2025 passed **151 Python and 29 JavaScript**
+tests (180 total), but has **not** completed the in-guest Power/Network/Pull
+QEMU gates.
+
+Process-specific temporary paths address naming collisions; they do not
+constitute proof of successful physical restart, shutdown, NAND durability,
+network recovery, or an applied update on the physical notebook.
