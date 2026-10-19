@@ -326,18 +326,21 @@ handle_request() {
             fi
             ;;
         disconnect)
-            if ! stop_wifi "$wifi"; then
-                respond "$request_id" error "$wifi" network-owner-unavailable
-                return 0
-            fi
-            # Persist deliberate Disconnect across broker restarts and boots.
-            # The saved secret is retained for a later manual Reconnect.
-            pause_tmp=$AUTO_CONNECT_PAUSED.tmp.$$
+            # Durably record the explicit user intent BEFORE touching the
+            # connection. Otherwise power loss between WPA termination and
+            # this receipt would reconnect an intentionally disabled network.
+            # Keep the saved credential so later Reconnect requires no password.
+            pause_tmp=$AUTO_CONNECT_PAUSED.tmp.$
             if ! : >"$pause_tmp" || ! chmod 600 "$pause_tmp" ||
                ! mv -f "$pause_tmp" "$AUTO_CONNECT_PAUSED" ||
                ! /bin/busybox sync; then
                 rm -f "$pause_tmp"
                 respond "$request_id" error "$wifi" disconnect-state-failed
+                return 0
+            fi
+            if ! stop_wifi "$wifi"; then
+                # Pause survives an unavailable WPA owner and a forced reboot.
+                respond "$request_id" error "$wifi" network-owner-unavailable
                 return 0
             fi
             capture_link "$wifi"
