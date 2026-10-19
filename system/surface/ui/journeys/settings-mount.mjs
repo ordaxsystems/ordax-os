@@ -15,9 +15,9 @@ function settingsExamplesOverview() { return `<section class="wm-settings-exampl
  * Same renderer/navigation/scenarios as Meridian; effects are descriptive only.
  * No ports, commands, storage, credentials, account session or network access.
  * @param {HTMLElement} host
- * @param {{mode?:'web'|'usb',onAccount?:()=>void}} options
+ * @param {{onAccount?:()=>void}} options
  */
-function mountSettingsJourneys(host, { mode = 'web', onAccount } = {}) {
+function mountSettingsJourneys(host, { onAccount } = {}) {
     const doc = host.ownerDocument;
     const states = new Map();
     let current = null, dialog = null, returnFocus = null, destroyed = false;
@@ -50,7 +50,7 @@ function mountSettingsJourneys(host, { mode = 'web', onAccount } = {}) {
         seed(definition, state);
         const material = doc.documentElement.getAttribute('data-ordax-theme') ?? doc.documentElement.getAttribute('data-theme');
         dialog.setAttribute('data-material', material === 'dark' || material === 'native' ? 'ink' : 'paper');
-        dialog.innerHTML = `<header class="md-panel-header"><div><p class="md-eyebrow">${m("meridian.text.0655")}</p><h2>${esc(definition.label)}</h2></div><button type="button" class="md-button" data-action="journey-close" aria-label="${m("meridian.text.0654")}">${icon('close', 18)}</button></header><div class="md-settings-example-banner"><p>${m("meridian.text.0653")} ${mode === 'usb' ? m("meridian.text.1080") : m("meridian.text.1081")} ${m("meridian.text.0652")}</p>${kind === 'identity' && onAccount ? `<button type="button" class="md-button" data-action="settings-real-account">${m("meridian.text.0651")}</button>` : ''}</div><div class="md-panel-body">${journeyView(kind, definition, state, data, ui)}</div>`;
+        dialog.innerHTML = `<header class="md-panel-header"><div><p class="md-eyebrow">${m("meridian.text.0655")}</p><h2>${esc(definition.label)}</h2></div><button type="button" class="md-button" data-action="journey-close" aria-label="${m("meridian.text.0654")}">${icon('close', 18)}</button></header><div class="md-settings-example-banner"><p>${m("meridian.text.0653")} ${m("meridian.text.0652")}</p>${kind === 'identity' && onAccount ? `<button type="button" class="md-button" data-action="settings-real-account">${m("meridian.text.0651")}</button>` : ''}</div><div class="md-panel-body">${journeyView(kind, definition, state, data, ui)}</div>`;
         dialog.scrollTop = 0;
         dialog.querySelector('#md-story-title')?.focus({ preventScroll: true });
     }

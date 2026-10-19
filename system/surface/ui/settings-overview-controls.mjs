@@ -1349,7 +1349,7 @@ export function mountSettingsOverviewControls(
     renderSectionNavigation(view);
     if (activeSection === "appearance") {
       const examples = node(documentObject, "div", "wm-shared-native-settings");
-      settingsExamples ??= mountSettingsJourneys(root, {mode:"usb",getLocale:localization.getLocale});
+      settingsExamples ??= mountSettingsJourneys(root, {getLocale:localization.getLocale});
       examples.innerHTML = settingsExamples.overview();
       view.append(examples);
     }
@@ -1570,7 +1570,6 @@ export function mountSettingsOverviewControls(
     const displayExamplesButton = event.target.closest("[data-settings-display-examples]");
     if (displayExamplesButton && root.contains(displayExamplesButton)) {
       settingsExamples ??= mountSettingsJourneys(root, {
-        mode: "usb",
         getLocale: localization.getLocale,
       });
       settingsExamples.open("display");
