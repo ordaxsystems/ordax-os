@@ -56,19 +56,48 @@ class PublicSurfaceSnapshotTests(unittest.TestCase):
             (ROOT / "sites/public/assets/playground-fixture.json").read_text(encoding="utf-8")
         )
         self.assertEqual(module._surface_home(), fixture["home"])
-        source = module.DESKTOP_SHELL.read_text(encoding="utf-8")
-        canonical = '["files", "studio", "settings", "system"]'
-        self.assertIn(canonical, source)
+
+        # The Native menu and public fixture share the actual Surface shortcut
+        # catalog. No literal copy of the app ids is allowed in desktop-shell.
+        shell_source = module.DESKTOP_SHELL.read_text(encoding="utf-8")
+        self.assertIn('NAVIGATION_MENU_APP_IDS.map(id =>', shell_source)
+        self.assertIn('listSurfaceShortcutAppIds("navigation-menu")', shell_source)
+        catalog_source = module.SHORTCUT_CATALOG.read_text(encoding="utf-8")
+
         with tempfile.TemporaryDirectory(prefix="ordax-native-menu-proof-") as directory:
-            shell = Path(directory) / "desktop-shell.mjs"
-            for changed, issue in (
-                ('["files", "files"]', "duplicated"),
-                ('["files", unknownApp()]', "malformed"),
+            directory = Path(directory)
+            shell = directory / "desktop-shell.mjs"
+            shell.write_text(
+                shell_source.replace(
+                    "NAVIGATION_MENU_APP_IDS.map(id =>",
+                    '["files"].map(id =>',
+                ), encoding="utf-8",
+            )
+            with patch.object(module, "DESKTOP_SHELL", shell):
+                with self.assertRaisesRegex(
+                    module.PlaygroundFixtureError, "no longer sourced"
+                ):
+                    module._surface_home()
+
+            catalog = directory / "shortcut-catalog.mjs"
+            for changed in (
+                catalog_source.replace(
+                    'appId: "files"', 'appId: "studio"', 1,
+                ),
+                catalog_source.replace(
+                    '"navigation-menu": 0', '"navigation-menu": 1', 1,
+                ),
+                catalog_source.replace(
+                    'appId: "studio"', "appId: notAnIdentifier()", 1,
+                ),
             ):
-                with self.subTest(changed=changed):
-                    shell.write_text(source.replace(canonical, changed), encoding="utf-8")
-                    with patch.object(module, "DESKTOP_SHELL", shell):
-                        with self.assertRaisesRegex(module.PlaygroundFixtureError, issue):
+                with self.subTest(changed=changed[:90]):
+                    self.assertNotEqual(changed, catalog_source)
+                    catalog.write_text(changed, encoding="utf-8")
+                    with patch.object(module, "SHORTCUT_CATALOG", catalog):
+                        with self.assertRaisesRegex(
+                            module.PlaygroundFixtureError, "cannot be evaluated"
+                        ):
                             module._surface_home()
 
     def test_real_navigation_order_is_not_a_second_menu_catalog(self):
