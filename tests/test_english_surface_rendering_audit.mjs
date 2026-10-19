@@ -138,3 +138,17 @@ test("rendering modules outside First Run contain no unowned Portuguese UI liter
     `direct PT-BR UI literals bypass localization:\n${violations.join("\n")}`,
   );
 });
+
+test("Native shell device and planned-feature messages belong to the shared localization catalog", () => {
+  for (const [id, portuguese, english] of [
+    ["shell.device.context.title", "Este dispositivo", "This device"],
+    ["shell.device.context.subtitle", "Área de trabalho OrdaX", "Native workspace"],
+    ["shell.device.continuity", "Continuidade", "Continuity"],
+    ["shell.navigation.planned.label", "Recurso planejado", "Planned feature"],
+    ["shell.navigation.planned.unavailable", "Ainda não conectado a um serviço", "Not connected to a service yet"],
+    ["shell.navigation.planned.short", "Planejado", "Planned"],
+  ]) {
+    assert.equal(translateSurfaceMessage("pt-BR", id), portuguese);
+    assert.equal(translateSurfaceMessage("en-US", id), english);
+  }
+});

@@ -14,6 +14,7 @@ ROOT = Path(__file__).resolve().parents[2]
 APPS_ROOT = ROOT / "system" / "apps"
 APP_CATALOG = APPS_ROOT / "catalog.mjs"
 DESKTOP_SHELL = ROOT / "system" / "surface" / "ui" / "desktop-shell.mjs"
+SHORTCUT_CATALOG = ROOT / "system" / "services" / "surface" / "shortcut-catalog.mjs"
 SURFACE_LOCALIZATION = ROOT / "system" / "services" / "i18n" / "surface.mjs"
 PUBLIC_ROOT = ROOT / "sites" / "public"
 FIXTURE_PATH = PUBLIC_ROOT / "assets" / "playground-fixture.json"
@@ -147,24 +148,44 @@ def _surface_home() -> dict[str, object]:
     """
     text = DESKTOP_SHELL.read_text(encoding="utf-8")
     messages = _surface_source_messages()
-    # The Native menu owns the real device-app list. Never fall back to the
-    # removed pre-Meridian rail layout or to a locally duplicated app catalog.
-    match = re.search(
-        r'const deviceApps = \[([^\]]+)\]\.map\(id\s*=>\s*',
-        text, re.DOTALL,
-    )
-    if not match or 't(`app.${id}.title`)' not in text:
+    # Native menu membership and ordering are owned by the existing shortcut
+    # catalog. Parse that single declarative source instead of keeping a second
+    # hardcoded list in the public-site generator.
+    if (
+        'const NAVIGATION_MENU_APP_IDS = listSurfaceShortcutAppIds("navigation-menu");' not in text
+        or "const deviceApps = NAVIGATION_MENU_APP_IDS.map(id =>" not in text
+        or 't(`app.${id}.title`)' not in text
+    ):
         raise PlaygroundFixtureError(
             "Native Meridian menu is missing its canonical device-app shortcuts"
         )
-    # Reject unexpected expressions instead of silently ignoring them and
-    # producing a public menu that differs from the actual Native menu.
-    raw_ids = match.group(1).strip()
-    if not re.fullmatch(r'"[a-z][a-z0-9-]*"(?:\s*,\s*"[a-z][a-z0-9-]*")*', raw_ids):
-        raise PlaygroundFixtureError("Native Meridian device-app list is malformed")
-    app_ids = re.findall(r'"([a-z][a-z0-9-]*)"', raw_ids)
-    if not app_ids or len(app_ids) != len(set(app_ids)):
-        raise PlaygroundFixtureError("Native Meridian device-app list is empty or duplicated")
+    catalog = SHORTCUT_CATALOG.read_text(encoding="utf-8")
+    match = re.search(r"const entries = \[\s*(.*?)\s*\];", catalog, re.DOTALL)
+    if not match:
+        raise PlaygroundFixtureError("Native shortcut catalog has no declarative entries")
+    placements: list[tuple[int, str]] = []
+    seen_apps: set[str] = set()
+    for raw in match.group(1).splitlines():
+        line = raw.strip()
+        if not line:
+            continue
+        entry = re.fullmatch(
+            r'\{\s*appId:\s*"([a-z][a-z0-9-]*)",\s*placements:\s*\{([^{}]*)\}\s*\},?',
+            line,
+        )
+        if not entry:
+            raise PlaygroundFixtureError("Native shortcut catalog has malformed entries")
+        app_id, positions = entry.groups()
+        if app_id in seen_apps:
+            raise PlaygroundFixtureError("Native shortcut catalog duplicates an app")
+        seen_apps.add(app_id)
+        menu = re.search(r'"navigation-menu":\s*(\d+)', positions)
+        if menu:
+            placements.append((int(menu.group(1)), app_id))
+    placements.sort()
+    if [ordinal for ordinal, _ in placements] != list(range(len(placements))) or not placements:
+        raise PlaygroundFixtureError("Native navigation-menu shortcut order is invalid")
+    app_ids = [app_id for _, app_id in placements]
 
     rail = [
         {"id": app_id, "label": _message(messages, f"app.{app_id}.title")}

@@ -42,7 +42,7 @@ async function submit(windowRef, path, credentials, { registration = false } = {
   if (response.status === 202) {
     return Object.freeze({ authenticated: false, confirmationRequired: true });
   }
-  if (!(response.ok || response.status === 303 || response.status === 0)) {
+  if (!(response.ok || response.status === 303)) {
     throw new Error(`Identity credential request failed: ${response.status}`);
   }
   return Object.freeze({ authenticated: true, confirmationRequired: false });

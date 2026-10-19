@@ -13,6 +13,8 @@ jobs:
     env:
       ORDAX_PROOF_ACCOUNT_EMAIL: ${{ secrets.ORDAX_PROOF_ACCOUNT_EMAIL }}
       ORDAX_PROOF_ACCOUNT_PASSWORD: ${{ secrets.ORDAX_PROOF_ACCOUNT_PASSWORD }}
+      ORDAX_PROOF_OTHER_ACCOUNT_EMAIL: ${{ secrets.ORDAX_PROOF_OTHER_ACCOUNT_EMAIL }}
+      ORDAX_PROOF_OTHER_ACCOUNT_PASSWORD: ${{ secrets.ORDAX_PROOF_OTHER_ACCOUNT_PASSWORD }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -31,19 +33,33 @@ jobs:
             echo 'ORDAX_PROOF_ACCOUNT_PASSWORD secret is required for this manual proof.' >&2
             exit 2
           }
+          test -n "${ORDAX_PROOF_OTHER_ACCOUNT_EMAIL:-}" || {
+            echo 'ORDAX_PROOF_OTHER_ACCOUNT_EMAIL secret is required for this manual proof.' >&2
+            exit 2
+          }
+          test -n "${ORDAX_PROOF_OTHER_ACCOUNT_PASSWORD:-}" || {
+            echo 'ORDAX_PROOF_OTHER_ACCOUNT_PASSWORD secret is required for this manual proof.' >&2
+            exit 2
+          }
           echo 'ACCOUNT_SYNC_PROOF_CREDENTIALS_PRESENT=YES'
           echo 'ACCOUNT_SYNC_PROOF_CREDENTIALS_PRINTED=NO'
 
       - name: Prove two independent account-sync sessions
+        id: continuity
+        shell: bash
         env:
           ORDAX_PROOF_RECEIPT_PATH: ${{ runner.temp }}/account-sync-two-client-proof.json
-        run: python tools/account-sync/prove_two_clients.py
+        run: |
+          set -euo pipefail
+          python tools/account-sync/prove_two_clients.py
+          test -s "$ORDAX_PROOF_RECEIPT_PATH"
+          printf 'proof_receipt=%s\n' "$ORDAX_PROOF_RECEIPT_PATH" >> "$GITHUB_OUTPUT"
 
       - name: Validate sanitized receipt shape
         shell: bash
         run: |
           set -euo pipefail
-          python - "$ORDAX_PROOF_RECEIPT_PATH" <<'PY'
+          python - "${{ steps.continuity.outputs.proof_receipt }}" <<'PY'
           import json
           import pathlib
           import sys
@@ -52,7 +68,9 @@ jobs:
           data = json.loads(path.read_text(encoding="utf-8"))
           assert data["$schema"] == "prototype-ordax.account-sync-two-client-proof/1"
           assert data["status"] == "pass"
-          assert data["proof_scope"] == "two-independent-sessions-same-account"
+          assert data["proof_scope"] == "two-independent-sessions-plus-cross-account-isolation"
+          assert data["distinct_account_subjects_verified"] is True
+          assert data["cross_account_isolation_proven"] is True
           assert data["proof_object_tombstoned"] is True
           assert data["credentials_persisted"] is False
           assert data["account_identifier_recorded"] is False
@@ -74,6 +92,6 @@ jobs:
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: account-sync-two-client-proof-${{ github.sha }}
-          path: ${{ runner.temp }}/account-sync-two-client-proof.json
+          path: ${{ steps.continuity.outputs.proof_receipt }}
           if-no-files-found: error
           retention-days: 14

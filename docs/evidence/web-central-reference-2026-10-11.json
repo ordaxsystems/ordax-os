@@ -1019,8 +1019,8 @@
       "owner": "OrdaX OS preferences",
       "purpose": "Portable observable binding delegating validation and updates to the existing catalog and persistence to the canonical store port",
       "sha256": "84b71ccd21165f196a61690e5b1d760d96a3dd8e12108e4b96d5222f857ebd5c",
-      "adaptedSha256": "db6a3092a1b8dece9c2200397ded39dbb64dcfe7f3ae678acb443b7f8eeb1510",
-      "adaptation": "2026-10-18: Share one preference persistence confirmation controller across the Native Surface and portable runtime, publishing pending and host-confirmed results through the existing preference port. No new storage owner.",
+      "adaptedSha256": "9848a0012e7d170b72b036190156e8f57e7e0c72c811aad9ed940427eb624ac3",
+      "adaptation": "2026-10-18: Share one preference persistence confirmation controller across the Native Surface and portable runtime, publishing pending and host-confirmed results through the existing preference port. No new storage owner. | 2026-10-18: Share one preference persistence confirmation controller across the Native Surface and portable runtime, publishing pending and host-confirmed results through the existing preference port. No new storage owner. 2026-10-18: First Run requires the existing preference port's durable save confirmation before a completed receipt; failed, superseded or stale Native acknowledgments cannot confirm a revision. One persistence owner is retained.",
       "adaptationHistory": [
         {
           "sha256": "5e0212264fc792a5c9981e9b4b19a0d8e8bf050fd3a96c41c2c66cbe2eb672d6",
@@ -1107,8 +1107,8 @@
       "owner": "OrdaX OS Web adapter",
       "purpose": "Canonical account read lifecycle with bounded shared GET transport; domain validation and command authority remain in existing ports",
       "sha256": "2254f43a2d958eabd812926da58f3ccfb10de6fdf44edd69f16a4f7d52b9f133",
-      "adaptedSha256": "d90984fce4264f7c6e89cf31a712698c9d81ef647bdc368373e19e0c70056d15",
-      "adaptation": " 2026-10-16: permitted signup navigation revalidates the existing server policy immediately before navigation; no account creation or legal acceptance occurs here."
+      "adaptedSha256": "b36f7f1df6b184f224c30331242305af508e42f44c1b3ad9517a20b20f97e42a",
+      "adaptation": " 2026-10-16: permitted signup navigation revalidates the existing server policy immediately before navigation; no account creation or legal acceptance occurs here. |  2026-10-16: permitted signup navigation revalidates the existing server policy immediately before navigation; no account creation or legal acceptance occurs here. 2026-10-18: Canonical account sign-out now supports a Native proof of local credential detachment while recording that offline remote revocation is unconfirmed. Public action still returns Promise<void>; guest First Run consumes the explicit local proof. No parallel session authority."
     },
     {
       "target": "system/adapters/web/spaces.mjs",

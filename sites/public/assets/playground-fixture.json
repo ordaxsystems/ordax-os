@@ -257,7 +257,7 @@
       },
       {
         "path": "system/services/i18n/surface.mjs",
-        "sha256": "5f366a6b0f6a630fd1a8e4b27ef33716a2acd590acdcfb618c48fb31a3080d7d"
+        "sha256": "4ee7d81485fdbfe9f9598049621382a9acefc093cc7844028cfa9cf408beba0c"
       },
       {
         "path": "system/services/local-ai/model-candidate.generated.mjs",
@@ -337,11 +337,11 @@
       },
       {
         "path": "system/surface/ui/meridian.css",
-        "sha256": "9f1f8c180171c5fde8b02c55941fec2a278123ab1906ff1c2841d964df9b94d3"
+        "sha256": "fdbb0cc52c42c734251be0529cc782b73ad3d352e0db6822eb1820013c2b6ba9"
       },
       {
         "path": "system/surface/ui/meridian.tokens.css",
-        "sha256": "75a2e39104dde1c9a8094a53f5fd83d8b263ff77285257e034d456cd71e074e8"
+        "sha256": "b7210e750a6a3515885ec3a9a8fdea5ea3050cf87cbb36e5bde18f6ad7fc1c8d"
       },
       {
         "path": "system/surface/ui/meridian/icons.mjs",
@@ -393,7 +393,7 @@
       },
       {
         "path": "system/surface/workspace/components/central/config.ts",
-        "sha256": "7971512d056853c543b69292f179aa4ec0fccad89c5c9e5735477cf9ee709346"
+        "sha256": "3a6e96ab448f4a64a10d8b46c806087557b4c2d60f1ef54f99d069d38175c8a8"
       },
       {
         "path": "system/surface/workspace/components/central/favorite-shortcuts.tsx",
@@ -413,7 +413,7 @@
       },
       {
         "path": "system/surface/workspace/components/central/meridian.css",
-        "sha256": "28a67743771caf4b9483ca409563ad90936d31cbef87e027f549069abe249d45"
+        "sha256": "0639bbe1295d7decc6a84ce502c7be26b8b0a3e754f2f44b3820fedf197da3ed"
       },
       {
         "path": "system/surface/workspace/components/central/primitives.tsx",
@@ -441,7 +441,7 @@
       },
       {
         "path": "system/surface/workspace/components/central/styles.css",
-        "sha256": "6bc3435891a3350ffaadf9301d3a4e0b8cb8c39b6b3907c65c18f16b88980c81"
+        "sha256": "97ace3bd4c9bb500b916bd5a6aeeb10b56dffe1e6b96e11f774eb45cf03efb63"
       },
       {
         "path": "system/surface/workspace/components/store/catalog-context.tsx",
@@ -472,6 +472,6 @@
         "sha256": "32fcfaad07deaee9a72391669c3bb285444c9c7a5ba339e66d51278c0d6daffe"
       }
     ],
-    "cssSha256": "6282dfb4bf3f3a3d49ff8d9abb25e2eb8be467ce256dfe54ad63824f44da7ecf"
+    "cssSha256": "adea2655cc0dbd004978140df5407d10e6e8db9f536f670094a4c22a40a7e977"
   }
 }

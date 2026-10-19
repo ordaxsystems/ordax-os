@@ -304,7 +304,22 @@ raise SystemExit('Unknown subprocess proof mode')
         self.assertIn('isIdentityActionSupported(actions, "sign-in")', capabilities)
         self.assertIn('isIdentityActionSupported(actions, "register")', capabilities)
         self.assertIn("passwordDraft", ui)
-        self.assertIn("await store.save(completeFirstRunState(draft))", ui)
+        self.assertIn("await persistFirstRunCompletion(store, preferencePort, draft,", ui)
+        self.assertIn('authorizeCommit: draft.accountMode === "identity"', ui)
+        self.assertIn("ensureFirstRunLocalIsolation(sessionPort, actionsPort)", ui)
+        self.assertIn("void chooseLocalOnly()", ui)
+        native_host = (ROOT / "system" / "surface" / "runtime" / "native_host_server.py").read_text(encoding="utf-8")
+        self.assertIn('else {"email", "password", REGISTRATION_LEGAL_ACCEPTANCE_FIELD}', native_host)
+        self.assertIn('payload.get(REGISTRATION_LEGAL_ACCEPTANCE_FIELD) != REGISTRATION_LEGAL_ACCEPTANCE_VALUE', native_host)
+        self.assertIn("ACCOUNT_REGISTRATION_ENABLED = False", native_host)
+        state_service = (ROOT / "system" / "services" / "state" / "first-run.mjs").read_text(encoding="utf-8")
+        self.assertIn("export async function persistFirstRunCompletion(", state_service)
+        self.assertLess(
+            state_service.index("await preferences.persistConfirmed()"),
+            state_service.index("await store.save(completed)"),
+            "First Run must durably confirm preferences before committing the receipt",
+        )
+        self.assertIn("preferencePersistence.saveConfirmed(state.preferences)", (ROOT / "system" / "surface" / "ui" / "surface.mjs").read_text(encoding="utf-8"))
         self.assertNotIn("localStorage", ui)
         self.assertNotIn("sessionStorage", ui)
 

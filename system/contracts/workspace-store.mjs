@@ -197,6 +197,9 @@ export function assertWorkspaceStore(store) {
   if (typeof store.load !== "function" || typeof store.save !== "function") {
     throw new TypeError("Workspace store must implement load() and save(snapshot)");
   }
+  if (store.subscribe !== undefined && typeof store.subscribe !== "function") {
+    throw new TypeError("Workspace store subscribe must be a function when provided");
+  }
   validateWorkspaceRecord(store.load());
   return store;
 }

@@ -27,6 +27,9 @@ from urllib.request import HTTPRedirectHandler, Request, build_opener
 MAX_RESPONSE_BYTES = 2 * 1024 * 1024
 COOKIE_NAMES = frozenset(("ordax_access", "ordax_refresh"))
 COOKIE_VALUE_RE = re.compile(r"^[^;\r\n]{1,16384}$")
+# Single Native wire-contract owner for affirmative registration consent.
+REGISTRATION_LEGAL_ACCEPTANCE_FIELD = "legal_acceptance"
+REGISTRATION_LEGAL_ACCEPTANCE_VALUE = "accepted"
 
 
 class NativeAccountGatewayError(RuntimeError):
@@ -143,6 +146,8 @@ class NativeAccountGateway:
         self._opener = build_opener(_NoRedirect())
         _purge_legacy_plaintext_session(self.legacy_session_path)
         self._cookies: dict[str, str] = {}
+        # Only a completed local detach may establish session absence offline.
+        self._locally_detached = False
 
     @property
     def configured(self) -> bool:
@@ -206,6 +211,16 @@ class NativeAccountGateway:
 
     def session(self) -> GatewayReply:
         with self._lock:
+            if self._locally_detached and not self._cookies:
+                return GatewayReply(
+                    status=200,
+                    headers={},
+                    body=(
+                        b'{"$schema":"prototype-ordax.public-identity-session/1",'
+                        b'"authenticated":false,"provider":"ordax-native",'
+                        b'"status":"anonymous"}'
+                    ),
+                )
             return self._request("GET", "/auth/session")
 
     def login(self, email: str, password: str) -> GatewayReply:
@@ -229,7 +244,7 @@ class NativeAccountGateway:
             payload = urlencode({
                 "email": email,
                 "password": password,
-                "legal_acceptance": "accepted",
+                REGISTRATION_LEGAL_ACCEPTANCE_FIELD: REGISTRATION_LEGAL_ACCEPTANCE_VALUE,
             }).encode("utf-8")
             return self._request(
                 "POST",
@@ -240,9 +255,24 @@ class NativeAccountGateway:
 
     def logout(self) -> GatewayReply:
         with self._lock:
-            reply = self._request("POST", "/auth/logout", body=b"", content_type="application/json")
-            self._cookies = {}
-            return reply
+            if not self._cookies:
+                self._locally_detached = True
+                return GatewayReply(status=204, headers={}, body=b"")
+            try:
+                try:
+                    reply = self._request(
+                        "POST", "/auth/logout", body=b"", content_type="application/json"
+                    )
+                except NativeAccountGatewayError:
+                    return GatewayReply(status=202, headers={}, body=b"")
+                if reply.status not in (200, 204, 303):
+                    # Remote revocation was not confirmed, but this USB's
+                    # bearer credentials are detached regardless of HTTP status.
+                    return GatewayReply(status=202, headers={}, body=b"")
+                return reply
+            finally:
+                self._cookies.clear()
+                self._locally_detached = True
 
     def account_export(self) -> GatewayReply:
         with self._lock:

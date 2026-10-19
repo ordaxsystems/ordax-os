@@ -43,7 +43,10 @@
     "corrupt_existing_receipt_must_not_be_overwritten": true,
     "concurrent_completion_posts_serialized": true,
     "directory_entry_fsync_required_before_acknowledgement": true,
-    "post_completion_regional_edits_owner": "settings"
+    "post_completion_regional_edits_owner": "settings",
+    "regional_preferences_durable_ack_required_before_completion": true,
+    "failed_preference_ack_must_leave_first_run_incomplete": true,
+    "failed_receipt_keeps_first_run_incomplete_with_staged_nonsecret_preferences": true
   },
   "flow": [
     "welcome",
@@ -127,7 +130,14 @@
     "identity_selection_requires_current_subject_at_completion": true,
     "identity_selection_requires_fresh_session_read": true,
     "identity_subject_in_first_run_receipt": false,
-    "expired_or_changed_identity_returns_to_account_step": true
+    "expired_or_changed_identity_returns_to_account_step": true,
+    "local_only_requires_native_detachment_proof": true,
+    "offline_native_detachment_may_leave_remote_revocation_unconfirmed": true,
+    "unavailable_identity_without_detachment_proof_must_not_authorize_guest_completion": true,
+    "guest_completion_rechecks_local_detachment_after_preference_ack": true,
+    "registration_legal_acceptance_wire_field": "legal_acceptance",
+    "registration_legal_acceptance_wire_value": "accepted",
+    "registration_remains_disabled_until_legal_policy_activation": true
   },
   "privacy": {
     "owner": "preference-runtime",

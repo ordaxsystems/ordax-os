@@ -12,7 +12,11 @@
     "session_survives_device_reboot": false,
     "legacy_plaintext_session_path_is_loaded": false,
     "legacy_plaintext_session_path_is_purged_on_start": true,
-    "offline_local_os_use_requires_cloud_session": false
+    "offline_local_os_use_requires_cloud_session": false,
+    "explicit_logout_always_discards_native_in_memory_access_refresh": true,
+    "offline_local_detach_must_not_claim_remote_token_revocation": true,
+    "locally_detached_session_may_report_anonymous_without_network": true,
+    "guest_oobe_must_require_local_detachment_proof": true
   },
   "legacy_cleanup": {
     "path": "/var/lib/ordax/account/session.json",

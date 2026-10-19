@@ -16,7 +16,7 @@ import secrets
 import sys
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode, urlsplit
-from urllib.request import HTTPCookieProcessor, Request, build_opener
+from urllib.request import HTTPRedirectHandler, HTTPCookieProcessor, Request, build_opener
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 DEFAULT_GATEWAY_FILE = os.path.join(ROOT, "system", "services", "account", "gateway-base-url")
@@ -30,11 +30,19 @@ def fail(message: str) -> "NoReturn":
     raise SystemExit(f"ACCOUNT_SYNC_TWO_CLIENT_PROOF=FAIL reason={message}")
 
 
+class _NoRedirect(HTTPRedirectHandler):
+    """A proof cannot send login credentials to a redirected origin."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        del req, fp, code, msg, headers, newurl
+        return None
+
+
 class Client:
     def __init__(self, base_url: str) -> None:
         self.base_url = base_url.rstrip("/")
         self.jar = http.cookiejar.CookieJar()
-        self.opener = build_opener(HTTPCookieProcessor(self.jar))
+        self.opener = build_opener(HTTPCookieProcessor(self.jar), _NoRedirect())
 
     def request(self, method: str, path: str, body: bytes | None = None, content_type: str | None = None):
         headers = {"Accept": "application/json", "User-Agent": "OrdaX-Account-Sync-Proof/1"}
@@ -65,7 +73,31 @@ class Client:
             fail(f"login:{status}")
 
     def logout(self) -> None:
-        self.request("POST", "/auth/logout", b"", "application/json")
+        status, payload = self.request("POST", "/auth/logout", b"", "application/json")
+        if status != 200 or payload.get("signedOut") is not True:
+            fail(f"logout:{status}")
+        # A successful POST acknowledgment is not proof that the old cookie
+        # jar became anonymous. Observe the canonical session endpoint.
+        status, session = self.request("GET", "/auth/session")
+        if (
+            status != 200
+            or session.get("$schema") != "prototype-ordax.public-identity-session/1"
+            or session.get("authenticated") is not False
+            or session.get("status") != "anonymous"
+        ):
+            fail("logout-session-still-active")
+
+    def subject(self) -> str:
+        status, payload = self.request("GET", "/auth/session")
+        if (
+            status != 200
+            or payload.get("$schema") != "prototype-ordax.public-identity-session/1"
+            or payload.get("authenticated") is not True
+            or not isinstance(payload.get("subject"), str)
+            or not payload["subject"]
+        ):
+            fail(f"authenticated-session:{status}")
+        return payload["subject"]
 
     def snapshot(self):
         status, payload = self.request("GET", "/sync/snapshot?limit=500")
@@ -86,6 +118,16 @@ class Client:
         status, payload = self.request("POST", "/sync/mutate", body, "application/json")
         if status != 200 or payload.get("$schema") != ACK_SCHEMA:
             fail(f"mutate:{status}")
+        # Never accept a success receipt for a different object, class or
+        # operation; a valid schema alone is insufficient binding evidence.
+        if (
+            payload.get("objectId") != mutation["objectId"]
+            or payload.get("dataClass") != mutation["dataClass"]
+            or payload.get("tombstone") is not (mutation["operation"] == "delete")
+            or payload.get("applied") is not True
+            or payload.get("conflict") is not False
+        ):
+            fail("mutate-ack-contract-mismatch")
         return payload
 
 
@@ -135,7 +177,9 @@ def write_receipt(
     payload = {
         "$schema": "prototype-ordax.account-sync-two-client-proof/1",
         "status": "pass",
-        "proof_scope": "two-independent-sessions-same-account",
+        "proof_scope": "two-independent-sessions-plus-cross-account-isolation",
+        "distinct_account_subjects_verified": True,
+        "cross_account_isolation_proven": True,
         "gateway_origin": f"{parsed.scheme}://{parsed.netloc}",
         "source_commit": source_commit,
         "workflow_run_id": os.environ.get("GITHUB_RUN_ID") or None,
@@ -157,38 +201,105 @@ def write_receipt(
     os.replace(temp, output)
 
 
+def assert_other_account_cannot_read(
+    observer: Client, object_id: str, after_cursor: int
+) -> None:
+    # Negative proof must exercise both official read paths; a successful
+    # HTTP status by itself says nothing about cross-subject data isolation.
+    snapshot = observer.snapshot()
+    changes = observer.changes(after_cursor)
+    other_objects = snapshot.get("objects", [])
+    other_changes = changes.get("changes", [])
+    if not isinstance(other_objects, list) or not isinstance(other_changes, list):
+        fail("cross-account-invalid-list")
+    if any(item.get("objectId") == object_id for item in other_objects):
+        fail("cross-account-snapshot-leak")
+    if any(item.get("objectId") == object_id for item in other_changes):
+        fail("cross-account-changes-leak")
+    # The protocol caps each unpaged proof request at 500. A saturated page
+    # cannot prove absence: the test object might lie on an unseen page.
+    if len(other_objects) >= 500 or len(other_changes) >= 500:
+        fail("cross-account-proof-window-saturated")
+
+
 def main() -> int:
     email = os.environ.get("ORDAX_PROOF_ACCOUNT_EMAIL", "").strip()
     password = os.environ.get("ORDAX_PROOF_ACCOUNT_PASSWORD", "")
-    if not email or not password:
-        print("ACCOUNT_SYNC_TWO_CLIENT_PROOF=SKIP reason=credentials-not-provided")
+    other_email = os.environ.get("ORDAX_PROOF_OTHER_ACCOUNT_EMAIL", "").strip()
+    other_password = os.environ.get("ORDAX_PROOF_OTHER_ACCOUNT_PASSWORD", "")
+    if not email or not password or not other_email or not other_password:
+        print("ACCOUNT_SYNC_TWO_CLIENT_PROOF=SKIP reason=two-account-credentials-not-provided")
         return 2
+    if email.casefold() == other_email.casefold():
+        fail("distinct-proof-account-required")
 
     base_url = gateway_url()
-    if not base_url.startswith("https://") or "?" in base_url or "#" in base_url:
+    try:
+        destination = urlsplit(base_url)
+        valid_gateway = (
+            destination.scheme == "https"
+            and bool(destination.hostname)
+            and destination.username is None
+            and destination.password is None
+            and destination.query == ""
+            and destination.fragment == ""
+            and bool(destination.path)
+            and not destination.path.endswith("/")
+            and destination.port != 0
+        )
+    except ValueError:
+        valid_gateway = False
+    if not valid_gateway:
+        # Never include the untrusted origin in a receipt or an error message.
         fail("invalid-gateway-url")
 
     client_a = Client(base_url)
     client_b = Client(base_url)
+    observer = Client(base_url)
     object_id = f"proof/two-client/{secrets.token_hex(16)}"
-
+    revision: int | None = None
+    tombstoned = False
+    authenticated_clients = []
+    create_cursor: int | None = None
+    proof_delete_cursor: int | None = None
     try:
         client_a.login(email, password)
+        authenticated_clients.append(client_a)
         client_b.login(email, password)
+        authenticated_clients.append(client_b)
+        observer.login(other_email, other_password)
+        authenticated_clients.append(observer)
+        primary = client_a.subject()
+        if primary != client_b.subject():
+            fail("same-account-session-mismatch")
+        if primary == observer.subject():
+            fail("distinct-account-subject-required")
 
         before = client_b.snapshot()
         cursor = before.get("cursor")
-        if not isinstance(cursor, int) or cursor < 0:
+        observer_before = observer.snapshot()
+        observer_cursor = observer_before.get("cursor")
+        if len(observer_before.get("objects", [])) >= 500:
+            fail("cross-account-proof-window-saturated")
+        if not isinstance(cursor, int) or isinstance(cursor, bool) or cursor < 0:
             fail("invalid-initial-cursor")
+        if (
+            not isinstance(observer_cursor, int)
+            or isinstance(observer_cursor, bool) or observer_cursor < 0
+        ):
+            fail("invalid-other-account-cursor")
 
         first = client_a.mutate(
             mutation(object_id, 0, False, f"proof-create-{secrets.token_hex(12)}")
         )
-        revision = first.get("serverRevision")
+        observed_revision = first.get("serverRevision")
         change_cursor = first.get("changeCursor")
-        if not isinstance(revision, int) or revision != 1:
+        if not first.get("applied") or first.get("conflict"):
+            fail("create-not-applied")
+        if not isinstance(observed_revision, int) or isinstance(observed_revision, bool) or observed_revision != 1:
             fail("invalid-create-revision")
-        if not isinstance(change_cursor, int) or change_cursor <= cursor:
+        revision = observed_revision
+        if not isinstance(change_cursor, int) or isinstance(change_cursor, bool) or change_cursor <= cursor:
             fail("invalid-create-cursor")
 
         delivered = client_b.changes(cursor)
@@ -201,14 +312,18 @@ def main() -> int:
         if len(seen) != 1:
             fail("create-not-delivered-to-second-session")
 
+        assert_other_account_cannot_read(observer, object_id, observer_cursor)
         second = client_a.mutate(
             mutation(object_id, revision, True, f"proof-delete-{secrets.token_hex(12)}")
         )
         deleted_revision = second.get("serverRevision")
         deleted_cursor = second.get("changeCursor")
+        if not second.get("applied") or second.get("conflict"):
+            fail("delete-not-applied")
         if deleted_revision != revision + 1:
             fail("invalid-delete-revision")
-        if not isinstance(deleted_cursor, int) or deleted_cursor <= change_cursor:
+        tombstoned = True
+        if not isinstance(deleted_cursor, int) or isinstance(deleted_cursor, bool) or deleted_cursor <= change_cursor:
             fail("invalid-delete-cursor")
 
         removed = client_b.changes(change_cursor)
@@ -221,20 +336,43 @@ def main() -> int:
         if len(tombstones) != 1:
             fail("tombstone-not-delivered-to-second-session")
 
-        write_receipt(
-            os.environ.get("ORDAX_PROOF_RECEIPT_PATH", "").strip(),
-            base_url,
-            change_cursor,
-            deleted_cursor,
-        )
-        print(
-            "ACCOUNT_SYNC_TWO_CLIENT_PROOF=PASS "
-            f"create_cursor={change_cursor} delete_cursor={deleted_cursor}"
-        )
-        return 0
+        assert_other_account_cannot_read(observer, object_id, observer_cursor)
+        create_cursor = change_cursor
+        proof_delete_cursor = deleted_cursor
     finally:
-        client_a.logout()
-        client_b.logout()
+        if revision is not None and not tombstoned:
+            # A negative proof must not leave an active object behind if a
+            # later assertion fails. Cleanup is best-effort and cannot turn a
+            # failed proof into PASS.
+            try:
+                client_a.mutate(
+                    mutation(object_id, revision, True, f"proof-cleanup-{secrets.token_hex(12)}")
+                )
+            except (Exception, SystemExit):
+                pass
+        failed_logout = False
+        for client in authenticated_clients:
+            try:
+                client.logout()
+            except (Exception, SystemExit):
+                failed_logout = True
+        if failed_logout:
+            fail("logout-unconfirmed")
+
+    # Successful cleanup and credential removal are prerequisites for a PASS receipt.
+    if create_cursor is None or proof_delete_cursor is None or not tombstoned:
+        fail("incomplete-continuity-proof")
+    write_receipt(
+        os.environ.get("ORDAX_PROOF_RECEIPT_PATH", "").strip(),
+        base_url,
+        create_cursor,
+        proof_delete_cursor,
+    )
+    print(
+        "ACCOUNT_SYNC_TWO_CLIENT_PROOF=PASS "
+        f"create_cursor={create_cursor} delete_cursor={proof_delete_cursor}"
+    )
+    return 0
 
 
 if __name__ == "__main__":

@@ -113,12 +113,26 @@ async function scenario(modules,css,origin) {
   };
   const stateStore=await createNativeFirstRunStateStore(transport);
   const preferences={schema:'ordax.preference-runtime/1',getSnapshot:()=>prefs,
-   set(key,value){prefs={...prefs,[key]:value};},subscribe(){return ()=>{};}};
+   set(key,value){prefs={...prefs,[key]:value};},subscribe(){return ()=>{};},
+   // Real Native preference ACK is covered by adapter/HTTP integration tests.
+   // This DOM fixture models the already-confirmed preference write.
+   async persistConfirmed(){return true;}};
   const identitySession={schema:'ordax.identity-session/1',getSnapshot:()=>session,
    subscribe(listener){listeners.add(listener);listener(session);return ()=>listeners.delete(listener);},
    async refresh(){if(refreshSession)session=refreshSession;return session;}};
   const identityActions={schema:'ordax.identity-actions/1',getSnapshot:()=>({supportedActions:session.state==='signed-in'?['sign-out']:[]}),
-   subscribe(listener){listener(this.getSnapshot());return ()=>{};},async execute(){throw Error('unavailable proof identity');}};
+   subscribe(listener){listener(this.getSnapshot());return ()=>{};},
+   async disconnectLocal(){
+    // The same Native logout endpoint removes bearer credentials even if
+    // remote revocation cannot be confirmed. Never claim remote success.
+    const hadAccount=session.state==='signed-in';
+    if(hadAccount){
+     session={state:'signed-out'};
+     for(const listener of listeners)listener(session);
+    }
+    return {localSessionDetached:true,remoteRevocation:hadAccount?'unconfirmed':'not-applicable'};
+   },
+   async execute(){throw Error('unavailable proof identity');}};
   return {ports:{stateStore,preferences,identitySession,identityActions},
    get state(){return state;},get writes(){return writes;},get prefs(){return prefs;},
    get reads(){return reads;},get posts(){return posts;},
@@ -209,6 +223,15 @@ async function scenario(modules,css,origin) {
  checks.resumesAccountWithoutIdentity=!!get('account-local')
   && cursorFixture.writes.length===0 && !cursorFixture.state.completed;
  resumedAccount.destroy();
+
+ const denied=await fixture({identity:true});
+ denied.ports.identityActions.disconnectLocal=async()=>({localSessionDetached:false,remoteRevocation:'unconfirmed'});
+ const deniedView=mountFirstRunExperience(root,denied.ports);
+ await reachAccount();await click('account-local');
+ checks.deniedNativeDetachmentCannotAdvance=!!get('account-local')
+  && !!document.querySelector('.ordax-first-run-status')?.textContent.includes('Não foi possível desconectar')
+  && !denied.state.completed && denied.writes.length===0;
+ deniedView.destroy();
 
  const offline=await fixture();
  const first=mountFirstRunExperience(root,offline.ports);

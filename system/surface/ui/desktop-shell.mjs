@@ -171,7 +171,7 @@ export function createDesktopShellMarkup(localization) {
         brand: `<button type="button" class="meridian-brand-home" data-show-desktop aria-label="OrdaX OS" title="OrdaX OS">${sidebarBrandMarkup()}</button>`,
         home: `<div class="meridian-native-home-nav"><div class="ordax-space-switcher-slot" data-space-switcher-slot></div><div class="meridian-native-area-control"><button type="button" class="ordax-rail-button os-nav-item meridian-native-area-trigger" data-area-menu-toggle aria-controls="ordax-native-area-menu" aria-expanded="false" aria-label="${t("shell.areas.aria")}" title="${t("shell.areas.aria")}"><span class="ordax-rail-icon">${ICONS.presentation}</span><span data-current-area>${t("surface.area.label", { ordinal: "01" })}</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button><div id="ordax-native-area-menu" class="meridian-native-area-menu" data-native-area-menu hidden><div class="ordax-area-switcher" data-area-switcher aria-label="${t("shell.areas.aria")}"></div></div></div><button type="button" class="ordax-rail-button os-nav-item meridian-home-destination" data-show-desktop title="${t("shell.home.title")}"><span class="ordax-rail-icon">${ICONS.home}</span><span data-home-nav-label>${t("shell.home.title")}</span></button></div>`,
         navigation: meridianNavigation(localization, t),
-        account: `<div class="meridian-rail-context"><i aria-hidden="true"></i><span><span data-native-context-title>${localization.getLocale().toLowerCase().startsWith("en") ? "This device" : "Este dispositivo"}</span><small data-native-context-subtitle>${t("meridian.native.workspace")}</small></span></div><div class="meridian-rail-utilities"><button type="button" data-native-rail-continuity data-launch-app="account" data-app-target="sync" aria-label="${localization.getLocale().toLowerCase().startsWith("en") ? "Continuity" : "Continuidade"}" title="${localization.getLocale().toLowerCase().startsWith("en") ? "Continuity" : "Continuidade"}">${ICONS.clock}</button><span class="meridian-rail-notification-slot" data-sidebar-notification-slot></span><span class="meridian-rail-update-slot" data-update-slot></span><button type="button" data-launch-app="settings" aria-label="${t("app.settings.title")}" title="${t("app.settings.title")}">${ICONS.settings}</button></div>${sidebarProfileMarkup(projectSidebarAccount({ state: "unavailable" }, false, t), true)}`,
+        account: `<div class="meridian-rail-context"><i aria-hidden="true"></i><span><span data-native-context-title>${t("shell.device.context.title")}</span><small data-native-context-subtitle>${t("shell.device.context.subtitle")}</small></span></div><div class="meridian-rail-utilities"><button type="button" data-native-rail-continuity data-launch-app="account" data-app-target="sync" aria-label="${t("shell.device.continuity")}" title="${t("shell.device.continuity")}">${ICONS.clock}</button><span class="meridian-rail-notification-slot" data-sidebar-notification-slot></span><span class="meridian-rail-update-slot" data-update-slot></span><button type="button" data-launch-app="settings" aria-label="${t("app.settings.title")}" title="${t("app.settings.title")}">${ICONS.settings}</button></div>${sidebarProfileMarkup(projectSidebarAccount({ state: "unavailable" }, false, t), true)}`,
         auxiliary: `<div class="ordax-power-slot" data-power-slot></div><button type="button" class="sidebar-collapse ordax-sidebar-toggle" data-sidebar-toggle aria-controls="ordax-native-sidebar" aria-expanded="true" aria-label="${t("shell.sidebar.collapse")}" title="${t("shell.sidebar.collapse")}"><svg viewBox="0 0 24 24" aria-hidden="true">${ICONS.sidebarClose}</svg></button>`,
       } })}
 
@@ -340,12 +340,12 @@ export function syncDesktopShellLocalization(root, localization) {
   root.querySelector(".meridian-home-destination")?.setAttribute("title", t("shell.home.title"));
   const nativeContextTitle = root.querySelector("[data-native-context-title]");
   const nativeContextSubtitle = root.querySelector("[data-native-context-subtitle]");
-  if (nativeContextTitle) nativeContextTitle.textContent = english ? "This device" : "Este dispositivo";
+  if (nativeContextTitle) nativeContextTitle.textContent = t("shell.device.context.title");
   if (nativeContextSubtitle) nativeContextSubtitle.textContent = t("meridian.native.workspace");
   const continuityButton = root.querySelector("[data-native-rail-continuity]");
   if (continuityButton) {
-    continuityButton.setAttribute("aria-label", english ? "Continuity" : "Continuidade");
-    continuityButton.title = english ? "Continuity" : "Continuidade";
+    continuityButton.setAttribute("aria-label", t("shell.device.continuity"));
+    continuityButton.title = t("shell.device.continuity");
   }
   text("[data-central-shortcut-label]", "shell.presentation.centralTitle");
   aria('[data-desktop-action="central"]', "shell.presentation.central");

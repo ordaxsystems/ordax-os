@@ -55,6 +55,40 @@ export function createWebIdentityActions(
 
   const unsubscribe = session?.subscribe(update) ?? (() => {});
 
+  // One canonical logout request serves both Settings and First Run. Native
+  // may acknowledge local cookie detachment while remote revocation is offline.
+  const disconnectLocal = async () => {
+    if (disposed) throw new Error("Identity actions are disposed");
+    const response = await windowRef.fetch("/auth/logout", {
+      method: "POST",
+      credentials: "same-origin",
+      cache: "no-store",
+      redirect: "manual",
+      headers: { Accept: "application/json" },
+    });
+    let remoteRevocation = "confirmed";
+    if (response.status === 202) {
+      const receipt = await response.json();
+      if (
+        !receipt
+        || receipt.$schema !== "ordax.native-account-detach/1"
+        || receipt.localSessionDetached !== true
+        || !["unconfirmed", "not-applicable"].includes(receipt.remoteRevocation)
+      ) throw new Error("Native account detachment proof is invalid");
+      remoteRevocation = receipt.remoteRevocation;
+    } else if (!(response.ok || response.status === 303)) {
+      throw new Error(`Identity sign-out failed: ${response.status}`);
+    }
+    await session?.refresh?.();
+    // An unavailable server is not proof of a guest session. Only an
+    // explicit Native-local detachment receipt can permit offline continuation.
+    if (
+      session?.getSnapshot().state !== "signed-out"
+      && !(response.status === 202 && session?.getSnapshot().state === "unavailable")
+    ) throw new Error("Identity sign-out was not confirmed by the session authority");
+    return Object.freeze({ localSessionDetached: true, remoteRevocation });
+  };
+
   const refreshRegistration = async () => {
     if (disposed) return snapshot;
     const sequence = ++policyRefreshSequence;
@@ -92,6 +126,7 @@ export function createWebIdentityActions(
       listener(snapshot);
       return () => listeners.delete(listener);
     },
+    disconnectLocal,
     async execute(action) {
       if (disposed) throw new Error("Identity actions are disposed");
       if (!snapshot.supportedActions.includes(action)) {
@@ -114,17 +149,7 @@ export function createWebIdentityActions(
         return;
       }
       if (action === "sign-out") {
-        const response = await windowRef.fetch("/auth/logout", {
-          method: "POST",
-          credentials: "same-origin",
-          cache: "no-store",
-          redirect: "manual",
-          headers: { Accept: "application/json" },
-        });
-        if (!(response.ok || response.status === 303 || response.status === 0)) {
-          throw new Error(`Identity sign-out failed: ${response.status}`);
-        }
-        await session?.refresh?.();
+        await disconnectLocal();
         return;
       }
       throw new Error(`Unsupported identity action: ${String(action)}`);

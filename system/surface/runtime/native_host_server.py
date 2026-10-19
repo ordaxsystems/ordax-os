@@ -38,7 +38,12 @@ from native_local_ai_bridge import (
     PATHS as LOCAL_AI_BRIDGE_PATHS,
     forward_local_ai,
 )
-from native_account_gateway import NativeAccountGateway, NativeAccountGatewayError
+from native_account_gateway import (
+    NativeAccountGateway,
+    NativeAccountGatewayError,
+    REGISTRATION_LEGAL_ACCEPTANCE_FIELD,
+    REGISTRATION_LEGAL_ACCEPTANCE_VALUE,
+)
 from native_component_slots import (
     COMPONENT_MODULE_PREFIX,
     ComponentSlotRequestError,
@@ -4608,7 +4613,16 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
 
         if parsed_path in {ACCOUNT_LOGIN_PATH, ACCOUNT_REGISTER_PATH, ACCOUNT_LOGOUT_PATH, ACCOUNT_CLOSE_PATH, ACCOUNT_SYNC_MUTATE_PATH, NETWORK_MESSAGE_SEND_PATH}:
             if self.server.account_gateway is None:
-                self._empty(503)
+                if parsed_path == ACCOUNT_LOGOUT_PATH:
+                    # No configured account gateway means no device-local
+                    # account tokens can exist. Do not block guest onboarding.
+                    self._write_json(202, {
+                        "$schema": "ordax.native-account-detach/1",
+                        "localSessionDetached": True,
+                        "remoteRevocation": "not-applicable",
+                    })
+                else:
+                    self._empty(503)
                 return
             try:
                 if parsed_path == ACCOUNT_REGISTER_PATH and not ACCOUNT_REGISTRATION_ENABLED:
@@ -4619,7 +4633,7 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
                     expected_keys = (
                         {"email", "password"}
                         if parsed_path == ACCOUNT_LOGIN_PATH
-                        else {"email", "password", "legalAcceptance"}
+                        else {"email", "password", REGISTRATION_LEGAL_ACCEPTANCE_FIELD}
                     )
                     if payload is None or set(payload) != expected_keys:
                         self._empty(400)
@@ -4629,7 +4643,10 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
                     if not isinstance(email, str) or not isinstance(password, str):
                         self._empty(400)
                         return
-                    if parsed_path == ACCOUNT_REGISTER_PATH and payload.get("legalAcceptance") is not True:
+                    # The same-origin form and Native gateway share the
+                    # single canonical affirmative consent token. A boolean,
+                    # blank or arbitrary string never implies legal acceptance.
+                    if parsed_path == ACCOUNT_REGISTER_PATH and payload.get(REGISTRATION_LEGAL_ACCEPTANCE_FIELD) != REGISTRATION_LEGAL_ACCEPTANCE_VALUE:
                         self._empty(400)
                         return
                     reply = (
@@ -4652,6 +4669,13 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
                     return
                 if parsed_path == ACCOUNT_LOGOUT_PATH:
                     reply = self.server.account_gateway.logout()
+                    if reply.status == 202:
+                        self._write_json(202, {
+                            "$schema": "ordax.native-account-detach/1",
+                            "localSessionDetached": True,
+                            "remoteRevocation": "unconfirmed",
+                        })
+                        return
                     if reply.status not in {200, 204, 303}:
                         self._empty(reply.status)
                         return

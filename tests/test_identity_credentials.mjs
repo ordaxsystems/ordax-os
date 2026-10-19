@@ -209,3 +209,16 @@ test("OOBE must request fresh legal acceptance when any authoritative document c
     assert.equal(sameRegistrationLegalPolicy(original, validateRegistrationPolicy(altered)), false);
   }
 });
+test("opaque redirects cannot masquerade as authenticated credential responses", async () => {
+  const credentials = createSameOriginIdentityCredentials({
+    fetch: async () => ({ ok: false, status: 0 }),
+  });
+  await assert.rejects(
+    credentials.signIn({ email: "person@example.invalid", password: "password" }),
+    /credential request failed/,
+  );
+  await assert.rejects(
+    credentials.register({ email: "person@example.invalid", password: "password", legalAccepted: true }),
+    /credential request failed/,
+  );
+});

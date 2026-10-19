@@ -42,6 +42,22 @@ export async function verifyFirstRunIdentitySession(sessionPort, selectedSubject
   }
 }
 
+// Switching to guest mode must detach the Native-owned bearer session.
+// An ambiguous session is never sufficient without the Host's local proof.
+export async function ensureFirstRunLocalIsolation(sessionPort, actionsPort) {
+  if (
+    !sessionPort || typeof sessionPort.getSnapshot !== "function"
+    || !actionsPort || typeof actionsPort.disconnectLocal !== "function"
+  ) return false;
+  try {
+    const proof = await actionsPort.disconnectLocal();
+    return proof?.localSessionDetached === true
+      && sessionPort.getSnapshot().state !== "signed-in";
+  } catch {
+    return false;
+  }
+}
+
 export function completeFirstRunState({ locale, timeZone, accountMode }) {
   return validateFirstRunState({
     schema: FIRST_RUN_STATE_SCHEMA,
@@ -50,6 +66,39 @@ export function completeFirstRunState({ locale, timeZone, accountMode }) {
     timeZone,
     accountMode,
   });
+}
+
+// The First Run receipt is monotonic. Never commit it until the complete
+// regional preference snapshot is durably confirmed by the canonical store.
+// An interrupted receipt write may leave a staged non-secret preference, but
+// First Run remains incomplete and can retry without any parallel state.
+export async function persistFirstRunCompletion(
+  store, preferences, draft, { authorizeCommit = null } = {},
+) {
+  if (
+    !store || typeof store.save !== "function"
+    || !preferences || typeof preferences.set !== "function"
+    || typeof preferences.persistConfirmed !== "function"
+  ) {
+    throw new TypeError("First Run completion requires durable state and preference ports");
+  }
+  if (authorizeCommit !== null && typeof authorizeCommit !== "function") {
+    throw new TypeError("First Run commit authorization must be a function");
+  }
+  const completed = completeFirstRunState(draft);
+  preferences.set(REGIONAL_LOCALE_PREFERENCE_ID, completed.locale);
+  preferences.set(REGIONAL_TIME_ZONE_PREFERENCE_ID, completed.timeZone);
+  const preferenceConfirmed = await preferences.persistConfirmed();
+  if (preferenceConfirmed !== true) {
+    throw new Error("First Run regional preferences were not durably confirmed");
+  }
+  // A session selected before slow Native I/O cannot authorize a later
+  // account-mode receipt after logout or account replacement.
+  if (authorizeCommit !== null && await authorizeCommit() !== true) {
+    throw new Error("First Run identity authorization changed before receipt");
+  }
+  await store.save(completed);
+  return completed;
 }
 
 export function seedMissingRegionalPreferencesFromFirstRun(preferenceRecord, firstRunState) {
