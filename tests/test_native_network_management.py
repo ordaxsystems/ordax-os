@@ -175,7 +175,7 @@ class NativeNetworkManagementTests(unittest.TestCase):
         source = broker.split("restore_saved_network_if_needed() {", 1)[1].split("\n}\n", 1)[0]
         self.assertIn('read -r -t "$RECONNECT_INTERVAL" signal <&9', broker)
         self.assertIn('restore_saved_network_if_needed >/dev/null 2>&1 || true', broker)
-        self.assertIn("CANDIDATE=$STATE_DIR/wpa.conf.candidate.$", broker)
+        self.assertIn("CANDIDATE=$STATE_DIR/wpa.conf.candidate.$$", broker)
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             saved = root / "wpa.conf"
