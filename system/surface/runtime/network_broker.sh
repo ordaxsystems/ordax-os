@@ -141,7 +141,7 @@ stop_wifi() {
 wait_for_wifi_link() {
     wifi=$1
     attempts=0
-    while [ "$attempts" -lt 12 ]; do
+    while [ "$attempts" -lt 8 ]; do
         # Association alone is not authentication; DHCP waits for WPA.
         if "$WPA_CLI_BIN" -p "$WPA_CTRL_DIR" -i "$wifi" status 2>/dev/null |
            /bin/busybox grep -q '^wpa_state=COMPLETED$'; then
@@ -188,7 +188,7 @@ restore_wired_network_if_needed() {
 try_dhcp() {
     wifi=$1
     "$IP_BIN" link set "$wifi" up >/dev/null 2>&1 || return 1
-    /bin/busybox timeout -k 1 18 "$UDHCPC_BIN" -n -q -t 4 -T 3 -i "$wifi" >/dev/null 2>&1 || return 1
+    /bin/busybox timeout -k 1 8 "$UDHCPC_BIN" -n -q -t 2 -T 2 -i "$wifi" >/dev/null 2>&1 || return 1
     have_ipv4 "$wifi"
 }
 
