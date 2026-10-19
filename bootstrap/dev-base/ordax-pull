@@ -676,11 +676,13 @@ fi
 # locally fetched tracking ref; do not race main or require a second HTTPS
 # discovery during the same update transaction.
 remote_sha=""
+SUPERVISOR_VERIFIED_CACHE=0
 if [ -n "$EXPECTED_SHA" ] && checkout_metadata_valid "$WORKTREE"; then
     cached_main=$(git -C "$WORKTREE" rev-parse "refs/remotes/origin/$BRANCH" 2>/dev/null || true)
     if [ "$cached_main" = "$EXPECTED_SHA" ] &&
        run_bounded_git -C "$WORKTREE" cat-file -e "$EXPECTED_SHA^{commit}" >/dev/null 2>&1; then
         remote_sha=$EXPECTED_SHA
+        SUPERVISOR_VERIFIED_CACHE=1
         echo "ordax-git: usando candidato ja adquirido e fixado pelo Supervisor"
     fi
 fi
@@ -736,10 +738,14 @@ else
         echo "ordax-git: checkout local alterado; substituindo cache por clone limpo validado" >&2
         replace_runtime_checkout "$remote_sha" dirty || exit 1
     elif [ "$current" != "$remote_sha" ]; then
-        if ! run_bounded_git -C "$WORKTREE" fetch --no-tags origin \
-            "refs/heads/$BRANCH:refs/remotes/origin/$BRANCH" >/dev/null 2>&1; then
-            echo "ordax-git: fetch de verificacao falhou; checkout local preservado" >&2
-            exit 1
+        # Supervisor already fetched this exact tracking ref. A repeat fetch
+        # here would reintroduce a remote dependency and race against main.
+        if [ "$SUPERVISOR_VERIFIED_CACHE" -ne 1 ]; then
+            if ! run_bounded_git -C "$WORKTREE" fetch --no-tags origin \
+                "refs/heads/$BRANCH:refs/remotes/origin/$BRANCH" >/dev/null 2>&1; then
+                echo "ordax-git: fetch de verificacao falhou; checkout local preservado" >&2
+                exit 1
+            fi
         fi
         run_bounded_git -C "$WORKTREE" merge-base --is-ancestor "$current" "$remote_sha" >/dev/null 2>&1 || {
             echo "ordax-git: main remota nao e fast-forward do checkout local; substituicao bloqueada" >&2
