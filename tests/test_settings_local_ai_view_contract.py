@@ -43,10 +43,10 @@ class SettingsLocalAiViewTests(unittest.TestCase):
         # The display capability is now passed into Settings as an optional
         # port. The fallback must omit only that port; Local AI and the
         # Product Connector remain supplied in both paths.
-        healthy = "      localAi,\\n      productConnector,\\n      displayOutputs,\\n    );"
-        fallback = "      localAi,\\n      productConnector,\\n      null,\\n    );"
-        self.assertIn(healthy.replace("\\\\n", "\\n"), native)
-        self.assertIn(fallback.replace("\\\\n", "\\n"), native)
+        healthy = "      localAi,\n      productConnector,\n      displayOutputs,\n    );"
+        fallback = "      localAi,\n      productConnector,\n      null,\n    );"
+        self.assertIn(healthy, native)
+        self.assertIn(fallback, native)
         self.assertIn("createNativeDisplayOutputs(window)", native)
         self.assertIn("optionalNativeProbe(", native)
         self.assertIn("createNativeProductConnector(window)", native)
