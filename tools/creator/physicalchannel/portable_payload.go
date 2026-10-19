@@ -15,6 +15,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	creatorcore "github.com/ordaxsystems/ordax-os/tools/creator/core"
 )
 
 const (
@@ -58,19 +60,27 @@ var portablePayloadArtifactIDs = map[string]struct{}{
 	"release-envelope": {},
 }
 
-func validPortablePayloadURL(raw string) error {
+func validPortablePayloadURL(raw, releaseSourceCommit string) error {
 	parsed, err := url.Parse(raw)
 	if err != nil ||
 		parsed.Scheme != "https" ||
 		parsed.Host != "github.com" ||
 		parsed.User != nil ||
 		parsed.Fragment != "" ||
-		parsed.RawQuery != "" {
+		parsed.RawQuery != "" ||
+		parsed.ForceQuery ||
+		parsed.EscapedPath() != parsed.Path {
 		return errors.New("Portable payload URL must be canonical HTTPS github.com URL")
 	}
-	const prefix = "/ordaxsystems/ordax-os/releases/download/"
+	// The release source commit, not merely the repository namespace, owns
+	// the 17 signed sources. Reject cross-version or nested release paths.
+	prefix := "/ordaxsystems/ordax-os/releases/download/ordax-stable-v4-" + releaseSourceCommit + "/"
 	if !strings.HasPrefix(parsed.Path, prefix) {
-		return errors.New("Portable payload URL must stay inside the OrdaX release namespace")
+		return errors.New("Portable payload URL differs from the signed release source commit")
+	}
+	asset := strings.TrimPrefix(parsed.Path, prefix)
+	if asset == "" || asset == "." || asset == ".." || strings.Contains(asset, "/") {
+		return errors.New("Portable payload URL requires one release asset filename")
 	}
 	return nil
 }
@@ -105,7 +115,7 @@ func validatePortablePayloadManifest(payload PortablePayloadManifest) error {
 			return errors.New("Portable payload total size exceeds allowed range")
 		}
 		total += artifact.SizeBytes
-		if err := validPortablePayloadURL(artifact.URL); err != nil {
+		if err := validPortablePayloadURL(artifact.URL, payload.ReleaseSourceCommit); err != nil {
 			return fmt.Errorf("Portable payload artifact %q URL: %w", artifact.ID, err)
 		}
 	}
@@ -184,7 +194,71 @@ func downloadPortablePayloadArtifact(client *http.Client, binding PortablePayloa
 	return nil
 }
 
-func installPortablePayload(client *http.Client, directory string, manifest Manifest) error {
+// reusePortablePayloadArtifact reuses exact signed bytes from an earlier verified
+// version. No independent source catalog or mutable shared cache is introduced:
+// the signed binding still controls identity, size and digest on every use.
+// Corrupt, missing or unsafe old files are ignored; a changed file during copying
+// fails closed rather than silently downgrading the trust boundary.
+func reusePortablePayloadArtifact(versionsRoot string, binding PortablePayloadArtifactBinding, destination string) (bool, error) {
+	rootInfo, err := os.Lstat(versionsRoot)
+	if err != nil {
+		return false, err
+	}
+	if !rootInfo.IsDir() || rootInfo.Mode()&os.ModeSymlink != 0 {
+		return false, errors.New("Portable version cache root is not a regular directory")
+	}
+	versions, err := os.ReadDir(versionsRoot)
+	if err != nil {
+		return false, err
+	}
+	for _, version := range versions {
+		if !version.IsDir() || !commitPattern.MatchString(version.Name()) {
+			continue
+		}
+		sourceRoot := filepath.Join(versionsRoot, version.Name(), portablePayloadDirectory)
+		rootStat, err := os.Lstat(sourceRoot)
+		if err != nil || !rootStat.IsDir() || rootStat.Mode()&os.ModeSymlink != 0 {
+			continue
+		}
+		sourcePath := filepath.Join(sourceRoot, binding.ID)
+		// Skip oversized, undersized and unsafe donor files before hashing.
+		// The final digest and copy-time rehash remain mandatory for a match.
+		info, err := os.Lstat(sourcePath)
+		if err != nil || !info.Mode().IsRegular() || info.Mode()&os.ModeSymlink != 0 || info.Size() != binding.SizeBytes {
+			continue
+		}
+		digest, size, err := fileDigest(sourcePath)
+		if err != nil || digest != binding.SHA256 || size != binding.SizeBytes {
+			continue
+		}
+		source, err := os.Open(sourcePath)
+		if err != nil {
+			return false, err
+		}
+		dest, err := os.OpenFile(destination, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
+		if err != nil {
+			_ = source.Close()
+			return false, err
+		}
+		h := sha256.New()
+		n, copyErr := io.Copy(io.MultiWriter(dest, h), io.LimitReader(source, binding.SizeBytes+1))
+		closeSourceErr := source.Close()
+		syncErr := error(nil)
+		if copyErr == nil {
+			syncErr = dest.Sync()
+		}
+		closeDestErr := dest.Close()
+		if copyErr != nil || closeSourceErr != nil || syncErr != nil || closeDestErr != nil ||
+			n != binding.SizeBytes || hex.EncodeToString(h.Sum(nil)) != binding.SHA256 {
+			_ = os.Remove(destination)
+			return false, fmt.Errorf("previous Portable artifact changed during verified reuse: %s", binding.ID)
+		}
+		return true, nil
+	}
+	return false, nil
+}
+
+func installPortablePayload(client *http.Client, directory string, versionsRoot string, manifest Manifest) error {
 	if manifest.Schema == ManifestSchema {
 		return nil
 	}
@@ -201,11 +275,15 @@ func installPortablePayload(client *http.Client, directory string, manifest Mani
 		return err
 	}
 	for _, artifact := range payload.Artifacts {
-		if err := downloadPortablePayloadArtifact(
-			client,
-			artifact,
-			filepath.Join(sourceRoot, artifact.ID),
-		); err != nil {
+		target := filepath.Join(sourceRoot, artifact.ID)
+		reused, err := reusePortablePayloadArtifact(versionsRoot, artifact, target)
+		if err != nil {
+			return err
+		}
+		if reused {
+			continue
+		}
+		if err := downloadPortablePayloadArtifact(client, artifact, target); err != nil {
 			return err
 		}
 	}
@@ -255,14 +333,23 @@ func verifyPortablePayloadInstalled(directory string, manifest Manifest) error {
 	if !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
 		return errors.New("Portable payload source directory is unavailable or unsafe")
 	}
+	// The Creator Core is the single owner of the exact, flat 17-artifact
+	// Portable source boundary. Reuse that validator for both newly acquired
+	// releases and cached offline candidates instead of maintaining a second
+	// independent file inventory/hash policy here.
+	bindings := creatorcore.PortableMediaBindings{
+		Schema: creatorcore.PortableMediaBindingsSchema,
+		Artifacts: make([]creatorcore.PortableMediaArtifactBinding, 0, len(payload.Artifacts)),
+	}
 	for _, artifact := range payload.Artifacts {
-		actualHash, actualSize, err := fileDigest(filepath.Join(sourceRoot, artifact.ID))
-		if err != nil {
-			return fmt.Errorf("verify Portable payload %s: %w", artifact.ID, err)
-		}
-		if actualSize != artifact.SizeBytes || actualHash != artifact.SHA256 {
-			return fmt.Errorf("bound Portable payload artifact changed: %s", artifact.ID)
-		}
+		bindings.Artifacts = append(bindings.Artifacts, creatorcore.PortableMediaArtifactBinding{
+			ID: artifact.ID,
+			SHA256: artifact.SHA256,
+			SizeBytes: uint64(artifact.SizeBytes),
+		})
+	}
+	if _, err := creatorcore.VerifyPortableSources(bindings, sourceRoot); err != nil {
+		return fmt.Errorf("bound Portable payload source changed or unsafe: %w", err)
 	}
 	return nil
 }

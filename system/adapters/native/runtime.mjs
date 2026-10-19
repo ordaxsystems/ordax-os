@@ -2,6 +2,7 @@ import {
   SURFACE_HOST_SCHEMA,
   validateSurfaceSnapshot,
 } from "../../contracts/surface-host.mjs";
+import { deriveAccountSurfaceCapabilityIds } from "../../services/account/runtime.mjs";
 
 const BASE_CAPABILITIES = Object.freeze([
   "surface.render",
@@ -38,20 +39,12 @@ export function createNativeSurfaceHost(
 
   const listeners = new Set();
   const readSnapshot = () => {
-    const accountIdentityAvailable = readAccountIdentityAvailable();
-    const syncSafeStateAvailable = readSyncSafeStateAvailable();
-    if (typeof accountIdentityAvailable !== "boolean") {
-      throw new TypeError("account identity availability reader must return a boolean");
-    }
-    if (typeof syncSafeStateAvailable !== "boolean") {
-      throw new TypeError("sync availability reader must return a boolean");
-    }
-    if (syncSafeStateAvailable && !accountIdentityAvailable) {
-      throw new TypeError("sync.safe-state requires account.identity");
-    }
+    const accountCapabilities = deriveAccountSurfaceCapabilityIds({
+      accountIdentityAvailable: readAccountIdentityAvailable(),
+      syncSafeStateAvailable: readSyncSafeStateAvailable(),
+    });
     const capabilityIds = [...BASE_CAPABILITIES];
-    if (accountIdentityAvailable) capabilityIds.push("account.identity");
-    if (syncSafeStateAvailable) capabilityIds.push("sync.safe-state");
+    capabilityIds.push(...accountCapabilities);
     if (userFileSpaceAvailable) {
       capabilityIds.push("filesystem.user-space");
     }

@@ -92,7 +92,10 @@ SURFACE_HEARTBEAT_PATH = "/__ordax/native/surface-heartbeat"
 CLIENT_DIAGNOSTIC_PATH = "/__ordax/native/client-diagnostic"
 PREFERENCES_PATH = "/__ordax/native/preferences"
 KEYBOARD_LAYOUT_PATH = "/__ordax/native/keyboard-layout"
+KEYBOARD_LAYOUT_APPLY_PATH = "/__ordax/native/keyboard-layout/apply"
+KEYBOARD_SESSION_RESTART_REQUEST = "/run/ordax-surface/keyboard-session-restart-request"
 FIRST_RUN_PATH = "/__ordax/native/first-run"
+FIRST_RUN_CURSOR_PATH = "/__ordax/native/first-run-cursor"
 DEVICE_PROFILE_PATH = "/__ordax/native/device-profile"
 LOCAL_SESSION_PATH = "/__ordax/native/local-session"
 MEMORY_PATH = "/__ordax/native/intelligence-memory"
@@ -105,6 +108,8 @@ PROFILE_ACTIVATION_COMMAND_PATH = "/__ordax/native/profile-activation-command"
 SYNC_STATE_PATH = "/__ordax/native/sync-state"
 SYNC_CHECKPOINT_PATH = "/__ordax/native/sync-checkpoint"
 ACCOUNT_SESSION_PATH = "/auth/session"
+PRODUCT_CONNECTOR_SETTINGS_PATH = "/__ordax/native/product-connector"
+MAX_PRODUCT_CONNECTOR_SETTINGS_BODY = 128
 ACCOUNT_REGISTRATION_POLICY_PATH = "/auth/registration-policy"
 ACCOUNT_LOGIN_PATH = "/auth/login"
 ACCOUNT_REGISTER_PATH = "/auth/register"
@@ -150,6 +155,8 @@ HEALTH_STATE_FILE = "/run/ordax-update/healthy-sha"
 PREFERENCES_FILE = "/var/lib/ordax/preferences.json"
 KEYBOARD_LAYOUT_FILE = "/var/lib/ordax/keyboard-layout"
 FIRST_RUN_FILE = "/var/lib/ordax/first-run.json"
+FIRST_RUN_CURSOR_FILE = "/var/lib/ordax/first-run-cursor.json"
+FIRST_RUN_CURSOR_STEPS = frozenset(("welcome", "regional", "network", "security", "account"))
 # Threaded native host: serialize OOBE completion checks with persistent writes.
 _FIRST_RUN_WRITE_LOCK = threading.Lock()
 DEVICE_PROFILE_FILE = "/var/lib/ordax/device-profile.json"
@@ -595,7 +602,7 @@ def read_preferences() -> dict:
             payload = json.load(handle)
     except FileNotFoundError:
         return {}
-    except (OSError, json.JSONDecodeError):
+    except (OSError, UnicodeError, json.JSONDecodeError):
         return {}
     return payload if valid_preference_record(payload) else {}
 
@@ -606,12 +613,22 @@ def write_preferences(preferences: dict) -> None:
     directory = os.path.dirname(PREFERENCES_FILE)
     os.makedirs(directory, mode=0o700, exist_ok=True)
     temporary = f"{PREFERENCES_FILE}.tmp.{os.getpid()}.{threading.get_ident()}"
-    with open(temporary, "w", encoding="utf-8") as handle:
-        json.dump(preferences, handle, separators=(",", ":"), sort_keys=True, allow_nan=False)
-        handle.write("\n")
-        handle.flush()
-        os.fsync(handle.fileno())
-    os.replace(temporary, PREFERENCES_FILE)
+    try:
+        with open(temporary, "w", encoding="utf-8") as handle:
+            # Preferences are device-local user data; do not depend on umask.
+            os.fchmod(handle.fileno(), 0o600)
+            json.dump(preferences, handle, separators=(",", ":"), sort_keys=True, allow_nan=False)
+            handle.write("\n")
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary, PREFERENCES_FILE)
+    finally:
+        # On a failed replace, keep the last durable record and remove only
+        # this writer's uncommitted candidate. Never touch the destination.
+        try:
+            os.unlink(temporary)
+        except FileNotFoundError:
+            pass
     try:
         directory_fd = os.open(directory, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
     except OSError:
@@ -663,6 +680,36 @@ def write_keyboard_layout_id(layout_id: str) -> None:
         os.close(directory_fd)
 
 
+def queue_keyboard_session_restart(
+    layout_id: str,
+    request_path: str = KEYBOARD_SESSION_RESTART_REQUEST,
+) -> None:
+    if layout_id not in KEYBOARD_LAYOUT_ID_SET:
+        raise ValueError("invalid keyboard layout for session restart")
+    info = os.lstat(request_path)
+    if not stat.S_ISFIFO(info.st_mode) or stat.S_ISLNK(info.st_mode):
+        raise ValueError("keyboard session restart request must be a FIFO")
+    if stat.S_IMODE(info.st_mode) != 0o600:
+        raise ValueError("keyboard session restart FIFO must be private")
+    descriptor = os.open(
+        request_path,
+        os.O_WRONLY | os.O_NONBLOCK | getattr(os, "O_NOFOLLOW", 0),
+    )
+    try:
+        opened = os.fstat(descriptor)
+        if (
+            not stat.S_ISFIFO(opened.st_mode)
+            or opened.st_ino != info.st_ino
+            or opened.st_dev != info.st_dev
+        ):
+            raise ValueError("keyboard session restart FIFO changed during request")
+        payload = (layout_id + "\n").encode("ascii")
+        if os.write(descriptor, payload) != len(payload):
+            raise OSError("incomplete keyboard session restart request")
+    finally:
+        os.close(descriptor)
+
+
 def keyboard_layout_snapshot() -> dict:
     configured_layout_id = read_keyboard_layout_id()
     applied_layout_id = os.environ.get(
@@ -687,6 +734,53 @@ def initial_first_run_state() -> dict:
         "timeZone": "America/Bahia",
         "accountMode": None,
     }
+
+
+def valid_first_run_cursor(value: object) -> bool:
+    return (
+        isinstance(value, dict)
+        and set(value) == {"schema", "step"}
+        and value["schema"] == "ordax.first-run-cursor/1"
+        and isinstance(value["step"], str)
+        and value["step"] in FIRST_RUN_CURSOR_STEPS
+    )
+
+
+def read_first_run_cursor() -> dict:
+    fallback = {"schema": "ordax.first-run-cursor/1", "step": "welcome"}
+    try:
+        with open(FIRST_RUN_CURSOR_FILE, "r", encoding="utf-8") as handle:
+            payload = json.load(handle)
+    except (FileNotFoundError, OSError, UnicodeError, json.JSONDecodeError):
+        return fallback
+    return payload if valid_first_run_cursor(payload) else fallback
+
+
+def write_first_run_cursor(value: dict) -> None:
+    if not valid_first_run_cursor(value):
+        raise ValueError("invalid first-run cursor")
+    directory = os.path.dirname(FIRST_RUN_CURSOR_FILE)
+    os.makedirs(directory, mode=0o700, exist_ok=True)
+    with _FIRST_RUN_WRITE_LOCK:
+        if read_first_run_state()["completed"]:
+            raise ValueError("cannot checkpoint a completed first-run")
+        if os.path.islink(FIRST_RUN_CURSOR_FILE):
+            raise ValueError("first-run cursor cannot be a symlink")
+        temporary = f"{FIRST_RUN_CURSOR_FILE}.tmp.{os.getpid()}.{threading.get_ident()}"
+        try:
+            with open(temporary, "x", encoding="utf-8") as handle:
+                os.fchmod(handle.fileno(), 0o600)
+                json.dump(value, handle, separators=(",", ":"), sort_keys=True)
+                handle.write("\n")
+                handle.flush()
+                os.fsync(handle.fileno())
+            os.replace(temporary, FIRST_RUN_CURSOR_FILE)
+        finally:
+            try:
+                os.unlink(temporary)
+            except FileNotFoundError:
+                pass
+        _fsync_first_run_directory(directory)
 
 
 def valid_first_run_state(value: object) -> bool:
@@ -3333,6 +3427,7 @@ class NativeHostServer(ThreadingHTTPServer):
         self.supported_actions = supported_power_actions(power_request_path)
         self.network_paths = network_broker_paths(network_session_dir)
         self.network_lock = threading.Lock()
+        self.keyboard_layout_lock = threading.Lock()
         self.native_install_paths = native_install_broker_paths(network_session_dir)
         self.native_install_lock = threading.Lock()
         self.file_trash_lock = threading.Lock()
@@ -3674,6 +3769,19 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
 
     def do_GET(self) -> None:  # noqa: N802
         parsed_path = urlsplit(self.path).path
+        if parsed_path == PRODUCT_CONNECTOR_SETTINGS_PATH:
+            if urlsplit(self.path).query or self.client_address[0] != "127.0.0.1":
+                self._empty(403)
+                return
+            status_reader = getattr(self.server.account_gateway, "connector_status", None)
+            if not callable(status_reader):
+                self._empty(503)
+                return
+            try:
+                self._write_json(200, status_reader())
+            except (OSError, TypeError, ValueError):
+                self._empty(503)
+            return
         if parsed_path.startswith(NATIVE_LOCAL_AI_PREFIX + "/"):
             self._serve_local_ai("GET", parsed_path)
             return
@@ -3743,7 +3851,7 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
         if parsed_path.startswith(COMPONENT_MODULE_PREFIX) and self.client_address[0] != "127.0.0.1":
             self._empty(403)
             return
-        if parsed_path in {SYNC_STATE_PATH, SYNC_CHECKPOINT_PATH, COMPONENT_STATE_PATH, PROFILE_COMPONENT_INVENTORY_PATH, PROFILE_CONTENT_CONTEXT_PATH, PROFILE_CONTENT_CONTEXT_CAPABILITY_PATH, FIRST_RUN_PATH, DEVICE_PROFILE_PATH, LOCAL_SESSION_PATH} and self.client_address[0] != "127.0.0.1":
+        if parsed_path in {SYNC_STATE_PATH, SYNC_CHECKPOINT_PATH, COMPONENT_STATE_PATH, PROFILE_COMPONENT_INVENTORY_PATH, PROFILE_CONTENT_CONTEXT_PATH, PROFILE_CONTENT_CONTEXT_CAPABILITY_PATH, FIRST_RUN_PATH, FIRST_RUN_CURSOR_PATH, DEVICE_PROFILE_PATH, LOCAL_SESSION_PATH} and self.client_address[0] != "127.0.0.1":
             self._empty(403)
             return
         if parsed_path == METRICS_PATH:
@@ -4242,6 +4350,9 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
         if parsed_path == FIRST_RUN_PATH:
             self._write_json(200, read_first_run_state())
             return
+        if parsed_path == FIRST_RUN_CURSOR_PATH:
+            self._write_json(200, read_first_run_cursor())
+            return
         if parsed_path == DEVICE_PROFILE_PATH:
             try:
                 self._write_json(200, read_device_profile())
@@ -4359,6 +4470,25 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
             return
 
         parsed_path = urlsplit(self.path).path
+        if parsed_path == PRODUCT_CONNECTOR_SETTINGS_PATH:
+            if urlsplit(self.path).query:
+                self._empty(400)
+                return
+            configure = getattr(self.server.account_gateway, "configure_connector_visibility", None)
+            if not callable(configure):
+                self._empty(503)
+                return
+            body = self._read_json_body(MAX_PRODUCT_CONNECTOR_SETTINGS_BODY)
+            if body is None or set(body) != {"enabled"} or type(body["enabled"]) is not bool:
+                self._empty(400)
+                return
+            try:
+                self._write_json(200, configure(body["enabled"]))
+            except PermissionError:
+                self._empty(401)
+            except (OSError, RuntimeError, TypeError, ValueError):
+                self._empty(503)
+            return
         if parsed_path.startswith(NATIVE_LOCAL_AI_PREFIX + "/"):
             self._serve_local_ai("POST", parsed_path)
             return
@@ -4812,6 +4942,32 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
             self._write_json(200, snapshot)
             return
 
+        if parsed_path == KEYBOARD_LAYOUT_APPLY_PATH:
+            payload = self._read_json_body(MAX_KEYBOARD_LAYOUT_BODY)
+            if (
+                payload is None
+                or set(payload) != {"layoutId"}
+                or payload.get("layoutId") not in KEYBOARD_LAYOUT_ID_SET
+            ):
+                self._empty(400)
+                return
+            try:
+                with self.server.keyboard_layout_lock:
+                    write_keyboard_layout_id(payload["layoutId"])
+                    pending = keyboard_layout_snapshot()
+                    if pending["restartRequired"]:
+                        queue_keyboard_session_restart(payload["layoutId"])
+            except (OSError, ValueError) as exc:
+                print(
+                    f"ordax-native-host: keyboard session restart unavailable: {exc}",
+                    file=sys.stderr,
+                    flush=True,
+                )
+                self._empty(503)
+                return
+            self._write_json(202 if pending["restartRequired"] else 200, pending)
+            return
+
         if parsed_path == KEYBOARD_LAYOUT_PATH:
             payload = self._read_json_body(MAX_KEYBOARD_LAYOUT_BODY)
             if (
@@ -4822,7 +4978,8 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
                 self._empty(400)
                 return
             try:
-                write_keyboard_layout_id(payload["layoutId"])
+                with self.server.keyboard_layout_lock:
+                    write_keyboard_layout_id(payload["layoutId"])
             except (OSError, ValueError) as exc:
                 print(
                     f"ordax-native-host: could not persist keyboard layout: {exc}",
@@ -4852,6 +5009,20 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
                 self._empty(500)
                 return
             self._write_json(200, updated)
+            return
+
+        if parsed_path == FIRST_RUN_CURSOR_PATH:
+            payload = self._read_json_body(128)
+            if payload is None or not valid_first_run_cursor(payload):
+                self._empty(400)
+                return
+            try:
+                write_first_run_cursor(payload)
+            except (OSError, ValueError) as exc:
+                print(f"ordax-native-host: could not persist first-run cursor: {exc}", file=sys.stderr, flush=True)
+                self._empty(503)
+                return
+            self._empty(204)
             return
 
         if parsed_path == FIRST_RUN_PATH:

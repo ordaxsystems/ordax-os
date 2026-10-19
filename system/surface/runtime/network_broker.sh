@@ -13,6 +13,7 @@ SCAN_RAW=$SESSION_DIR/network-scan.raw
 LINK_RAW=$SESSION_DIR/network-link.raw
 SAVED_SSID_LINE=$SESSION_DIR/network-saved-ssid
 WPA_CONF=$STATE_DIR/wpa.conf
+WPA_CTRL_DIR=/run/wpa_supplicant
 CANDIDATE=$STATE_DIR/wpa.conf.candidate.$$
 
 umask 077
@@ -22,9 +23,10 @@ chmod 700 "$STATE_DIR" "$SESSION_DIR"
 IP_BIN=$(command -v ip || true)
 IW_BIN=$(command -v iw || true)
 WPA_BIN=$(command -v wpa_supplicant || true)
+WPA_CLI_BIN=$(command -v wpa_cli || true)
 UDHCPC_BIN=$(command -v udhcpc || true)
 
-[ -n "$IP_BIN" ] && [ -n "$IW_BIN" ] && [ -n "$WPA_BIN" ] && [ -n "$UDHCPC_BIN" ] || {
+[ -n "$IP_BIN" ] && [ -n "$IW_BIN" ] && [ -n "$WPA_BIN" ] && [ -n "$WPA_CLI_BIN" ] && [ -n "$UDHCPC_BIN" ] || {
     echo "ordax-network-broker: required host network tools are unavailable" >&2
     exit 1
 }
@@ -43,7 +45,7 @@ respond() {
     outcome=$2
     interface_name=$3
     detail=$4
-    temporary=$RESPONSE.tmp.$
+    temporary=$RESPONSE.tmp.$$
     printf '%s\t%s\t%s\t%s\n' "$request_id" "$outcome" "$interface_name" "$detail" >"$temporary"
     chmod 600 "$temporary"
     mv -f "$temporary" "$RESPONSE"
@@ -82,7 +84,7 @@ capture_scan() {
     wifi=$1
     temporary=$SCAN_RAW.tmp.$$
     "$IP_BIN" link set "$wifi" up >/dev/null 2>&1 || return 1
-    "$IW_BIN" dev "$wifi" scan >"$temporary" 2>/dev/null || {
+    /bin/busybox timeout -k 1 15 "$IW_BIN" dev "$wifi" scan >"$temporary" 2>/dev/null || {
         rm -f "$temporary"
         return 1
     }
@@ -100,7 +102,9 @@ wait_for_wifi_link() {
     wifi=$1
     attempts=0
     while [ "$attempts" -lt 12 ]; do
-        if "$IW_BIN" dev "$wifi" link 2>/dev/null | /bin/busybox grep -q '^Connected to '; then
+        # Association alone is not authentication; DHCP waits for WPA.
+        if "$WPA_CLI_BIN" -p "$WPA_CTRL_DIR" -i "$wifi" status 2>/dev/null |
+           /bin/busybox grep -q '^wpa_state=COMPLETED$'; then
             return 0
         fi
         attempts=$((attempts + 1))
@@ -126,7 +130,9 @@ connect_conf() {
     conf=$2
     [ -s "$conf" ] || return 1
     stop_wifi "$wifi"
-    "$WPA_BIN" -B -i "$wifi" -c "$conf" >/dev/null 2>&1 || return 1
+    mkdir -p "$WPA_CTRL_DIR" || return 1
+    chmod 700 "$WPA_CTRL_DIR"
+    "$WPA_BIN" -B -O"$WPA_CTRL_DIR" -i "$wifi" -c "$conf" >/dev/null 2>&1 || return 1
     if ! wait_for_wifi_link "$wifi"; then
         /bin/busybox killall wpa_supplicant >/dev/null 2>&1 || true
         return 1
@@ -197,7 +203,7 @@ handle_request() {
                 return 0
             fi
             {
-                printf 'ctrl_interface=/run/wpa_supplicant\n'
+                printf 'ctrl_interface=%s\n' "$WPA_CTRL_DIR"
                 printf 'update_config=0\n'
                 printf 'network={\n'
                 printf '    ssid=%s\n' "$ssid_hex"

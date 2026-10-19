@@ -69,17 +69,47 @@ class ProductDevicePresenceReporterTests(unittest.TestCase):
     def test_contract_keeps_production_enrollment_and_second_heartbeat_closed(self):
         value = json.loads(CONTRACT.read_text(encoding="utf-8"))
         lifecycle = value["lifecycle"]
-        self.assertEqual(value["status"], "foundation-not-mounted")
-        self.assertEqual(lifecycle["reportMode"], "one-shot")
-        self.assertFalse(lifecycle["ownsHeartbeatLoop"])
+        self.assertEqual(value["status"], "owner-development-usb-native-presence-source-candidate")
+        self.assertEqual(lifecycle["reportMode"], "managed-native-worker")
+        self.assertTrue(lifecycle["ownsHeartbeatLoop"])
         self.assertFalse(lifecycle["dualWritesLegacyAndCanonical"])
-        self.assertFalse(lifecycle["enrollmentImplemented"])
+        self.assertTrue(lifecycle["enrollmentImplemented"])
         self.assertFalse(lifecycle["bootDependency"])
         self.assertFalse(lifecycle["grantsRemoteActions"])
         self.assertFalse(lifecycle["opensInboundPort"])
         self.assertFalse(value["production"]["enabled"])
-        self.assertFalse(value["ownerDevelopment"]["automaticEnrollment"])
+        self.assertFalse(lifecycle["legacyShellReporterMounted"])
+        self.assertTrue(lifecycle["stopsOnAccountLogout"])
+        self.assertTrue(lifecycle["stopsOnNativeHostShutdown"])
+        self.assertEqual(value["transport"]["canonicalIngress"], "https://ordax-mcp.ordaxsystems.workers.dev")
+        self.assertTrue(value["externalMcp"]["modelRouterSeparateFromMcp"])
+        self.assertTrue(value["ownerDevelopment"]["automaticEnrollment"])
+        self.assertEqual(value["ownerDevelopment"]["enrollmentTrigger"], "after-successful-authenticated-native-account-login")
+        self.assertEqual(value["status"], "owner-development-usb-native-presence-source-candidate")
 
+
+    def test_account_login_enrollment_is_not_external_mcp_authorization(self):
+        """No implied ChatGPT OAuth consent, device grants, or action runtime."""
+        value = json.loads(CONTRACT.read_text(encoding="utf-8"))
+        mcp = value["externalMcp"]
+        self.assertFalse(mcp["accountLoginAutomaticallyConnectsExternalClient"])
+        self.assertTrue(mcp["devicePresenceRuntimeMounted"])
+        self.assertFalse(mcp["attestedMcpSessionImplementedInOs"])
+        self.assertFalse(mcp["remoteActionRuntimePackagedInOs"])
+        self.assertFalse(mcp["remoteActionDispatchEnabled"])
+        self.assertTrue(mcp["oauthClientConsentRequired"])
+        self.assertTrue(mcp["deviceScopedCapabilityGrantRequired"])
+        self.assertTrue(mcp["chatGptAccountDistinctFromOrdaxAccount"])
+
+        source = (ROOT / "system/surface/runtime/product_device_runtime.py").read_text(encoding="utf-8")
+        self.assertIn("after_authenticated_login", source)
+        self.assertIn("compose_product_device_account_gateway", source)
+        self.assertIn("ProductDevicePresenceWorker", source)
+        self.assertIn('distribution_profile != "owner-development"', source)
+        self.assertIn('product_mode != "usb"', source)
+        runtime_lock = json.loads((ROOT / "system/services/device-agent/studio-runtime-source-lock.json").read_text(encoding="utf-8"))
+        self.assertFalse(runtime_lock["distribution"]["runtime_packaged_in_stable"])
+        self.assertFalse(runtime_lock["activation"]["dispatch_enabled"])
 
 if __name__ == "__main__":
     unittest.main()

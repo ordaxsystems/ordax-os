@@ -7,12 +7,40 @@ on:
       - 'system/contracts/space-selection.mjs'
       - 'system/contracts/space-experience.mjs'
       - 'system/contracts/space-lifecycle.mjs'
+      - 'system/contracts/space-members.mjs'
+      - 'system/contracts/space-actor-capability.mjs'
       - 'system/contracts/space-membership-actions.mjs'
       - 'system/services/spaces/**'
+      - 'system/adapters/web/space-members.mjs'
+      - 'system/adapters/web/space-actor-capability.mjs'
+      - 'system/adapters/web/space-membership-actions.mjs'
+      - 'system/composition/web/account-session.mjs'
+      - 'system/surface/workspace/components/central/account-context.tsx'
+      - 'system/surface/workspace/components/central/spaces-experience.tsx'
+      - 'system/surface/workspace/components/central/space-members-panel.tsx'
+      - 'system/surface/workspace/components/central/space-members-panel.css'
+      - 'infra/supabase/functions/_shared/account_transport_admission.mjs'
+      - 'infra/supabase/functions/ordax-account-gateway/index.ts'
+      - 'infra/supabase/product/migrations/*space_members*'
+      - 'infra/supabase/product/migrations/*space_actor_capability*'
       - 'tests/test_space_foundation_nonblocking.mjs'
       - 'tests/test_space_lifecycle.mjs'
       - 'tests/test_space_lifecycle_runtime.mjs'
+      - 'tests/test_space_members.mjs'
+      - 'tests/test_space_actor_capability.mjs'
+      - 'tests/test_space_actor_capability_runtime.mjs'
+      - 'tests/test_web_space_actor_capability.mjs'
+      - 'tests/test_space_actor_capability_gateway_source.mjs'
+      - 'tests/test_space_actor_capability_authority.py'
+      - 'tests/test_web_space_members.mjs'
+      - 'tests/test_web_space_members_composition.mjs'
+      - 'tests/test_space_members_gateway_source.mjs'
+      - 'tests/test_space_members_read_authority.py'
       - 'tests/test_space_membership_actions.mjs'
+      - 'tests/test_space_membership_actions_runtime.mjs'
+      - 'tests/test_web_space_membership_actions.mjs'
+      - 'tests/test_space_membership_gateway_source.mjs'
+      - 'tests/test_space_members_surface_source.mjs'
       - 'docs/SPACES-AND-PROFILES.md'
       - '.github/workflows/space-foundation-contract-proof.yml'
   push:
@@ -22,12 +50,40 @@ on:
       - 'system/contracts/space-selection.mjs'
       - 'system/contracts/space-experience.mjs'
       - 'system/contracts/space-lifecycle.mjs'
+      - 'system/contracts/space-members.mjs'
+      - 'system/contracts/space-actor-capability.mjs'
       - 'system/contracts/space-membership-actions.mjs'
       - 'system/services/spaces/**'
+      - 'system/adapters/web/space-members.mjs'
+      - 'system/adapters/web/space-actor-capability.mjs'
+      - 'system/adapters/web/space-membership-actions.mjs'
+      - 'system/composition/web/account-session.mjs'
+      - 'system/surface/workspace/components/central/account-context.tsx'
+      - 'system/surface/workspace/components/central/spaces-experience.tsx'
+      - 'system/surface/workspace/components/central/space-members-panel.tsx'
+      - 'system/surface/workspace/components/central/space-members-panel.css'
+      - 'infra/supabase/functions/_shared/account_transport_admission.mjs'
+      - 'infra/supabase/functions/ordax-account-gateway/index.ts'
+      - 'infra/supabase/product/migrations/*space_members*'
+      - 'infra/supabase/product/migrations/*space_actor_capability*'
       - 'tests/test_space_foundation_nonblocking.mjs'
       - 'tests/test_space_lifecycle.mjs'
       - 'tests/test_space_lifecycle_runtime.mjs'
+      - 'tests/test_space_members.mjs'
+      - 'tests/test_space_actor_capability.mjs'
+      - 'tests/test_space_actor_capability_runtime.mjs'
+      - 'tests/test_web_space_actor_capability.mjs'
+      - 'tests/test_space_actor_capability_gateway_source.mjs'
+      - 'tests/test_space_actor_capability_authority.py'
+      - 'tests/test_web_space_members.mjs'
+      - 'tests/test_web_space_members_composition.mjs'
+      - 'tests/test_space_members_gateway_source.mjs'
+      - 'tests/test_space_members_read_authority.py'
       - 'tests/test_space_membership_actions.mjs'
+      - 'tests/test_space_membership_actions_runtime.mjs'
+      - 'tests/test_web_space_membership_actions.mjs'
+      - 'tests/test_space_membership_gateway_source.mjs'
+      - 'tests/test_space_members_surface_source.mjs'
       - 'docs/SPACES-AND-PROFILES.md'
       - '.github/workflows/space-foundation-contract-proof.yml'
   workflow_dispatch:
@@ -52,18 +108,41 @@ jobs:
           node --check system/contracts/space-selection.mjs
           node --check system/contracts/space-experience.mjs
           node --check system/contracts/space-lifecycle.mjs
+          node --check system/contracts/space-members.mjs
+          node --check system/contracts/space-actor-capability.mjs
           node --check system/contracts/space-membership-actions.mjs
           node --check system/services/spaces/composition.mjs
           node --check system/services/spaces/lifecycle.mjs
+          node --check system/services/spaces/members.mjs
+          node --check system/services/spaces/actor-capability.mjs
+          node --check system/services/spaces/membership-actions.mjs
           node --check system/services/spaces/type-catalog.mjs
+          node --check system/adapters/web/space-members.mjs
+          node --check system/adapters/web/space-actor-capability.mjs
+          node --check system/adapters/web/space-membership-actions.mjs
+          node --check system/composition/web/account-session.mjs
 
       - name: Prove non-blocking compatibility
         run: |
           set -euo pipefail
+          python tests/test_space_members_read_authority.py -q
+          python tests/test_space_actor_capability_authority.py -q
           node --test tests/test_space_foundation_nonblocking.mjs
           node --test tests/test_space_lifecycle.mjs
           node --test tests/test_space_lifecycle_runtime.mjs
+          node --test tests/test_space_members.mjs
+          node --test tests/test_space_actor_capability.mjs
+          node --test tests/test_space_actor_capability_runtime.mjs
+          node --test tests/test_web_space_actor_capability.mjs
+          node --test tests/test_space_actor_capability_gateway_source.mjs
+          node --test tests/test_web_space_members.mjs
+          node --test tests/test_web_space_members_composition.mjs
+          node --test tests/test_space_members_gateway_source.mjs
           node --test tests/test_space_membership_actions.mjs
+          node --test tests/test_space_membership_actions_runtime.mjs
+          node --test tests/test_web_space_membership_actions.mjs
+          node --test tests/test_space_membership_gateway_source.mjs
+          node --test tests/test_space_members_surface_source.mjs
           node --test tests/test_spaces_catalog.mjs
           node --test tests/test_space_selection.mjs
           node --test tests/test_space_experience.mjs

@@ -1,9 +1,15 @@
 import { createWebIdentitySession } from "../../adapters/web/identity.mjs";
 import { createWebIdentityActions } from "../../adapters/web/identity-actions.mjs";
 import { createWebSpacesCatalog } from "../../adapters/web/spaces.mjs";
+import { createWebSpaceMembersReader } from "../../adapters/web/space-members.mjs";
+import { createWebSpaceActorCapabilityReader } from "../../adapters/web/space-actor-capability.mjs";
+import { createWebSpaceMembershipActions } from "../../adapters/web/space-membership-actions.mjs";
 import { createWebSurfaceHost } from "../../adapters/web/runtime.mjs";
 import { createWebSpaceSelectionStore } from "../../adapters/web/space-selection.mjs";
 import { createSpaceSelectionRuntime } from "../../services/spaces/selection.mjs";
+import { createSpaceMembersReader } from "../../services/spaces/members.mjs";
+import { createSpaceActorCapabilityReader } from "../../services/spaces/actor-capability.mjs";
+import { createSpaceMembershipActionsRuntime } from "../../services/spaces/membership-actions.mjs";
 import { createWebRegistrationPolicyReader } from "../../adapters/web/identity-credentials.mjs";
 
 // Composition only: the adapters retain all validation, credentials and state.
@@ -25,6 +31,15 @@ export function createWebAccountSession(windowRef = globalThis.window) {
     },
   });
   const spaces = createWebSpacesCatalog(windowRef);
+  const membersPort = createWebSpaceMembersReader(windowRef);
+  const members = createSpaceMembersReader({ spaces, members: membersPort });
+  const actorCapabilityPort = createWebSpaceActorCapabilityReader(windowRef);
+  const actorCapability = createSpaceActorCapabilityReader({ spaces, actorCapability: actorCapabilityPort });
+  const membershipActionsPort = createWebSpaceMembershipActions(windowRef);
+  const membershipActions = createSpaceMembershipActionsRuntime({
+    spaces,
+    membershipActions: membershipActionsPort,
+  });
   // The domain service owns subject changes, catalog invalidation and selection.
   const selection = createSpaceSelectionRuntime({
     identitySession: identity, spaces, store: createWebSpaceSelectionStore(),
@@ -76,7 +91,7 @@ export function createWebAccountSession(windowRef = globalThis.window) {
   windowRef.addEventListener("online", refreshQuietly);
   windowRef.document?.addEventListener("visibilitychange", onVisibility);
   return Object.freeze({
-    identity, actions, spaces, selection, surface, refresh,
+    identity, actions, spaces, members, actorCapability, membershipActions, selection, surface, refresh,
     dispose() {
       if (disposed) return;
       disposed = true;
@@ -88,6 +103,9 @@ export function createWebAccountSession(windowRef = globalThis.window) {
       selection.dispose();
       actions.dispose();
       registrationPolicy.dispose();
+      membershipActionsPort.dispose();
+      actorCapabilityPort.dispose();
+      membersPort.dispose();
       spaces.dispose();
       identity.dispose();
       surface.dispose();

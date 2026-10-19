@@ -2,6 +2,96 @@
 
 Status: **política de seleção implementada; pré-instalação física e publicação pendentes de comprovação**. Esta decisão não altera o payload USB atual nem a instalação dos usuários. A implementação de seleção sem autoridade está em `system/services/apps/first-run-selection.mjs`, com testes em `tests/test_first_run_selection.mjs`.
 
+## Prova isolada do ciclo Native assinado
+
+O teste Go `TestSignedStoreRoundTripAcrossHealthUpdateRemovalAndOfflineReinstall`
+usa a mesma geração real de envelope Ed25519, slots `release/2`, writer CAS,
+verificação de assinatura, estado `pending-health`, registro de probation,
+promoção e remoção. Em um diretório temporário isolado, executa
+instalação saudável → atualização com saúde falha (mantém a versão anterior)
+→ atualização saudável → rejeição de remoção antiga → remoção explícita
+→ releitura do tombstone → retry idempotente da mesma remoção
+→ reinstalação offline do slot assinado preservado → rejeição de replay antigo.
+A cada etapa, recarrega `activation-state.json` pelo leitor Go e verifica
+que um arquivo de usuário sentinela, fora do grafo de slots, permanece intacto.
+
+A prova roda pelo workflow `Runtime Component Candidate` com os testes Go
+normais. **Não é um teste de hardware USB, de dados reais do App Data,
+quiescência de processos, recuperação do formato persistente ou integração
+de uma release assinada publicamente.** Esses gates continuam separados.
+
+## Limite da autorização física ao alterar a composição Native
+
+A integração de `expectedActivation` modifica
+`system/composition/native/main.mjs`, que integra o conjunto de fontes
+protegidas pelo contexto de autorização de gravação USB de
+`tools/creator/physical_promotion.py`. A autorização anterior do
+proprietário foi vinculada a **outros bytes** e não é válida para esta
+geração do código. Neste candidato, o único documento canônico
+`docs/contracts/physical-write-authorization.json` permanece no estágio
+`blocked-explicit-physical-authorization-pending`, com
+`explicit_owner_authorization:false`, `physical_write_allowed:false` e
+`authorization_context_sha256:null`. Os hashes de assinatura, a prova
+canônica de release e os demais bindings de integridade permanecem
+inalterados; o recibo anterior pode ser consultado no histórico Git,
+não em uma segunda autoridade.
+
+Esse estágio permite verificar contratos de software de maneira honesta,
+mas **não permite gerar um payload físico autorizado nem escrever no
+pendrive**. Após fechar o código e os gates, uma nova autorização deve
+ser preparada por `tools/creator/authorize_physical_write.py` e
+explicitamente confirmada pelo proprietário com o escopo e a sequência
+exatos, seguindo o fluxo oficial de três confirmações; só então a etapa
+física independente poderá ser considerada. Não copiar o hash antigo,
+não autorizar automaticamente no CI e não interpretar `QEMU PASS`
+como permissão para gravação.
+
+## Proteção contra replay entre gerações da instalação
+
+A Loja emite somente planos `ordax.app-lifecycle-plan/2` que carregam a
+**observação Native correspondente à projeção assinada atual**:
+`expectedActivation = {source, revision, version, sourceCommit}`. Para
+instalação, o estado deve ser `absent` ou `removed` naquela revisão;
+para atualização ou remoção, deve ser `slot` com identidade do release
+instalado. Sem observação confiável, o serviço nega o pedido.
+
+A mesma precondição é verificada novamente pelo executor Native contra
+`ordax-runtime-component-channel status`. Para `arm-pending`, a
+`revision` observada segue como `--expected-revision` do **writer Go
+canônico**. Para remover, o executor confirma a mesma revisão e
+versão/sourceCommit antes do `uninstall-state`, que já implementa CAS.
+Uma requisição antiga reapresentada após remoção, reinstalação ou mudança
+de revisão, mesmo sem troca de SemVer, **não pode ser reutilizada para
+modificar outra geração**. A UI não recebe novas permissões: o campo é
+apenas uma precondição derivada de observações verificadas, nunca uma
+capability de instalação.
+
+Esta defesa impede replays perigosos, mas **não promete repetição
+bem-sucedida** de uma resposta HTTP perdida depois de o Go ter confirmado
+a mutação. O resultado nesse caso permanece não confirmado para o
+solicitante e exige uma nova observação do estado Native. Não inferir
+sucesso de `requestId` nem introduzir um journal paralelo.
+
+## Comprovação do estado Native após operação da Loja
+
+O executor oficial `native_app_lifecycle_executor.py` trata a resposta do
+`ordax-runtime-component-channel` como **resultado de comando**, não como
+comprovante isolado de persistência. Depois de `arm-pending`, relê via
+`status` o estado de ativação canônico Go e exige a mesma revisão,
+`pending.version`, `pending.source_commit` e saúde `unknown`. Depois
+de `uninstall-state`, exige a revisão avançada, ausência de
+`current/previous/pending/rejected`, `user_removed:true` e
+`removed_identity` igual à versão exata removida. Divergência, saída inválida
+ou falha na releitura **bloqueia o reconhecimento de sucesso**, mesmo quando
+o comando imprimiu `YES`.
+
+Essa conferência não cria banco de instalações, recibo paralelo ou política
+de assinatura: lê a única fonte de verdade do componente. Não substitui
+prova USB física, recibos de instalação, supervisor de quiescência ou
+rollback de dados stateful. Testes de regressão em
+`tests/test_native_app_lifecycle_executor.py` cobrem readback válido,
+pendência ausente, revisão/saúde divergente e tombstone ausente.
+
 ## Regra definitiva de ownership
 
 - `ordaxsystems/ordax-os`: sistema/base, Surface, App SDK, Identity, Intelligence, Memory, permissões, Loja estrutural, Conta, Ajustes, Sistema, verificação, ativação e desinstalação de pacotes.

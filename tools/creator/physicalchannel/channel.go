@@ -267,6 +267,13 @@ func fileDigest(path string) (string, int64, error) {
 		return "", 0, err
 	}
 	defer file.Close()
+	opened, err := file.Stat()
+	if err != nil {
+		return "", 0, err
+	}
+	if !opened.Mode().IsRegular() || !os.SameFile(info, opened) {
+		return "", 0, errors.New("bound file identity changed while opening")
+	}
 	h := sha256.New()
 	n, err := io.Copy(h, file)
 	if err != nil {
@@ -276,8 +283,50 @@ func fileDigest(path string) (string, int64, error) {
 }
 
 func verifyWriterInstalled(directory string, manifest Manifest) error {
+	root, err := os.Lstat(directory)
+	if err != nil {
+		return err
+	}
+	if !root.IsDir() || root.Mode()&os.ModeSymlink != 0 {
+		return errors.New("physical candidate version root must be a real directory")
+	}
+	// The signed physical manifest already defines the exact eight writer files.
+	// Portable v3 adds only its existing signed receipt and flat sources directory.
+	// Reject unbound leftovers before treating a cached offline slot as usable.
+	expected := make(map[string]struct{}, len(manifest.Files)+2)
+	for _, binding := range manifest.Files {
+		expected[binding.Name] = struct{}{}
+	}
+	if manifest.Schema == ManifestSchemaPortable {
+		expected[portablePayloadDirectory] = struct{}{}
+		expected[portablePayloadReceiptName] = struct{}{}
+	}
+	entries, err := os.ReadDir(directory)
+	if err != nil {
+		return err
+	}
+	for _, entry := range entries {
+		if _, ok := expected[entry.Name()]; !ok {
+			return fmt.Errorf("unexpected physical candidate entry: %s", entry.Name())
+		}
+	}
+	if len(entries) != len(expected) {
+		return fmt.Errorf("physical candidate requires exactly %d root entries; got %d", len(expected), len(entries))
+	}
 	for _, binding := range manifest.Files {
 		path := filepath.Join(directory, binding.Name)
+		info, err := os.Lstat(path)
+		if err != nil {
+			return fmt.Errorf("verify %s: %w", binding.Name, err)
+		}
+		if !info.Mode().IsRegular() || info.Mode()&os.ModeSymlink != 0 {
+			return fmt.Errorf("bound physical file is not a regular file: %s", binding.Name)
+		}
+		// Cheap size rejection prevents hashing an oversized sparse or stale
+		// cached writer file. fileDigest also checks opened-file identity.
+		if info.Size() != binding.Size {
+			return fmt.Errorf("bound physical file changed: %s", binding.Name)
+		}
 		actualHash, actualSize, err := fileDigest(path)
 		if err != nil {
 			return fmt.Errorf("verify %s: %w", binding.Name, err)
@@ -516,7 +565,7 @@ func Acquire(client *http.Client, root, envelopeURL string, trustBytes []byte, e
 	if err := extractBundle(bundlePath, extracted, manifest); err != nil {
 		return Installed{}, false, err
 	}
-	if err := installPortablePayload(client, extracted, manifest); err != nil {
+	if err := installPortablePayload(client, extracted, versions, manifest); err != nil {
 		return Installed{}, false, err
 	}
 	if err := VerifyInstalled(extracted, manifest); err != nil {

@@ -5,21 +5,9 @@ import { createJourneyContext } from './context.mjs';
 
 export function createJourneyView(locale='pt-BR') {
  const m=id=>translateSurfaceMessage(locale,id);
+ const rejectFirstRun = kind => {if (kind === 'setup') throw new TypeError('First Run setup is owned by system/surface/ui/first-run.mjs');};
  const {currentContext}=createJourneyContext(locale);
 const rows = values => `<dl class="md-journey-facts">${values.map(item => `<div><dt>${esc(item.label)}</dt><dd>${esc(item.value)}</dd></div>`).join('')}</dl>`;
-const setupGroups = [
-    { label: m("meridian.text.0656"), steps: ['boot', 'boot-error', 'welcome'] },
-    { label: m("meridian.text.0657"), steps: ['language', 'keyboard', 'region'] },
-    { label: m("meridian.text.0658"), steps: ['network', 'network-connecting', 'network-error'] },
-    { label: m("meridian.text.0659"), steps: ['security'] },
-    { label: m("meridian.text.0660"), steps: ['account', 'sign-in', 'sign-up', 'identity-error'] },
-    { label: m("meridian.text.0531"), steps: ['privacy'] },
-    { label: m("meridian.text.0661"), steps: ['name', 'review', 'save-error', 'complete'] },
-];
-function setupProgress(state) {
-    const current = setupGroups.findIndex(group => group.steps.includes(state.step));
-    return { current, total: setupGroups.length, markup: `<aside class="md-journey-trail" aria-label="${m("meridian.text.0663")}"><p class="md-eyebrow">${m("meridian.text.1082")}</p><ol>${setupGroups.map((group, index) => `<li aria-label="${esc(group.label)}" ${index === current ? 'aria-current="step"' : ''} class="${index < current ? 'is-complete' : ''}"><span>${index < current ? icon('check', 13) : index + 1}</span><p>${group.label}</p></li>`).join('')}</ol><p class="md-hint">${m("meridian.text.0662")}</p></aside>` };
-}
 const operationGroups = {
     update: [{ label: m("meridian.text.1083"), steps: ['idle', 'checking', 'current', 'offline'] }, { label: m("meridian.text.1084"), steps: ['available', 'compatibility', 'storage', 'incompatible'] }, { label: m("meridian.text.0664"), steps: ['download', 'paused', 'verify', 'invalid', 'stage'] }, { label: m("meridian.text.0107"), steps: ['restart', 'deferred', 'health'] }, { label: m("meridian.text.0665"), steps: ['rollback-review', 'rollback', 'retained', 'complete'] }],
     recovery: [{ label: m("meridian.text.0163"), steps: ['diagnosis', 'report', 'missing', 'unavailable'] }, { label: m("meridian.text.0666"), steps: ['options', 'repair'] }, { label: m("meridian.text.0667"), steps: ['impact'] }, { label: m("meridian.text.0668"), steps: ['restoring', 'failed', 'complete'] }],
@@ -52,6 +40,7 @@ function fieldMarkup(field, state) {
     return `<label class="md-field md-journey-field" for="${id}"><span>${esc(field.label)}</span>${control}</label>`;
 }
 function journeyView(kind, definition, state, data, ui) {
+    rejectFirstRun(kind);
     const frame = definition.screens[state.step];
     const { space, files, project } = currentContext(data);
     const entity = entityFor(kind, state.entity, data, ui.lab.topics);
@@ -62,18 +51,18 @@ function journeyView(kind, definition, state, data, ui) {
     const completedFields = Object.entries(state.fields).filter(([key]) => !key.startsWith('confirm:') && key !== 'streamLength');
     const pending = ui.windows;
     const unavailableEntity = ['space', 'profile', 'store', 'device', 'settings'].includes(kind) && !entity;
-    const progress = kind === 'setup' ? setupProgress(state) : operationProgress(kind, state);
+    const progress = operationProgress(kind, state);
     const displayTitle = kind === 'settings' && state.step === 'edit' ? entity?.name ?? frame.title : frame.title;
     const displayText = kind === 'settings' && state.step === 'edit' ? entity?.detail ?? frame.text : frame.text;
-    const stepIcon = kind === 'settings' ? entity?.icon ?? definition.icon : kind === 'setup' ? ({ network: 'wifi', 'network-connecting': 'wifi', 'network-error': 'wifi', security: 'shield', account: 'profiles', 'sign-in': 'profiles', 'sign-up': 'profiles', privacy: 'shield', region: 'globe', name: 'desktop' }[state.step] ?? definition.icon) : definition.icon;
+    const stepIcon = kind === 'settings' ? entity?.icon ?? definition.icon : definition.icon;
     const planned = kind === 'profile' && entity?.id === 'law';
     if (unavailableEntity || planned)
         return `<div class="md-journey-unavailable">${glyph('shield', 'amber', 32)}<h3>${planned ? m("meridian.text.0687") : m("meridian.text.0688")}</h3><p>${planned ? m("meridian.text.0689") : m("meridian.text.0690")}</p>${button(m("meridian.text.0691"), 'journey-close', 'arrow')}${planned ? rows([{ label: m("meridian.text.1091"), value: m("meridian.text.0692") }, { label: m("meridian.text.0693"), value: m("meridian.text.0694") }]) : ''}</div>`;
     return `<div class="md-journey" data-story="${kind}" data-story-step="${state.step}" data-tone="${frame.tone ?? 'neutral'}">
- <div class="md-journey-context"><span>${kind === 'setup' ? m("meridian.text.0695") : esc(entity?.name ?? definition.label)}</span>${progress ? `<span class="md-step-count">${m("meridian.text.0175")} ${progress.current + 1} de ${progress.total}</span>` : ''}</div>
+ <div class="md-journey-context"><span>${esc(entity?.name ?? definition.label)}</span>${progress ? `<span class="md-step-count">${m("meridian.text.0175")} ${progress.current + 1} de ${progress.total}</span>` : ''}</div>
  <div class="md-journey-layout">${progress ? progress.markup : kind === 'identity' ? accountIntro() : `<aside class="md-journey-trail" aria-label="${m("meridian.text.0697")}"><p class="md-eyebrow">${m("meridian.text.1093")}</p><ol>${history.map(id => `<li ${id === state.step ? 'aria-current="step"' : ''}><span>${id === state.step ? icon('arrow', 13) : icon('check', 13)}</span><p>${esc(kind === 'settings' ? ({ edit: m("meridian.text.1014"), pending: m("meridian.text.0887"), complete: m("meridian.text.0696"), undo: m("meridian.text.1092") }[id] ?? definition.screens[id].title) : definition.screens[id].title)}</p></li>`).join('')}</ol></aside>`}
  <section class="md-journey-step"><div class="md-journey-step-icon md-glyph--${frame.tone === 'warning' ? 'amber' : frame.tone === 'success' ? 'sage' : 'clay'}">${icon(frame.tone === 'success' ? 'check' : stepIcon, 30)}</div>
- <h3 id="md-story-title" tabindex="-1" ${kind === 'identity' ? "role=\"heading\" aria-level=\"1\"" : ['setup', 'recovery'].includes(kind) ? "role=\"heading\" aria-level=\"2\"" : ''}>${esc(displayTitle)}</h3><p class="md-journey-description" ${frame.tone === 'warning' ? 'role="alert"' : ''} ${kind === 'intelligence' && state.step === 'stream' ? 'data-story-stream' : ''}>${esc(kind === 'intelligence' && state.step === 'stream' ? frame.text.slice(0, state.fields.streamLength ?? 0) : displayText)}</p>
+ <h3 id="md-story-title" tabindex="-1" ${kind === 'identity' ? "role=\"heading\" aria-level=\"1\"" : kind === 'recovery' ? "role=\"heading\" aria-level=\"2\"" : ''}>${esc(displayTitle)}</h3><p class="md-journey-description" ${frame.tone === 'warning' ? 'role="alert"' : ''} ${kind === 'intelligence' && state.step === 'stream' ? 'data-story-stream' : ''}>${esc(kind === 'intelligence' && state.step === 'stream' ? frame.text.slice(0, state.fields.streamLength ?? 0) : displayText)}</p>
  ${frame.entity && entity ? `<div class="md-journey-entity">${glyph(entity.icon ?? definition.icon, entity.tone ?? 'sage', 26)}<div><strong>${esc(entity.name)}</strong><p>${esc(entity.description ?? entity.detail ?? '')}</p></div></div>` : ''}
  ${frame.phase != null ? `<div class="md-journey-progress"><label for="md-story-progress">${esc(frame.progressLabel ?? (kind === 'update' ? ({ checking: m("meridian.text.0698"), download: m("meridian.text.0699"), verify: m("meridian.text.1096"), stage: m("meridian.text.0700"), health: m("meridian.text.0701"), rollback: m("meridian.text.0702") }[state.step] ?? m("meridian.text.0888")) : kind === 'recovery' ? m("meridian.text.0702") : m("meridian.text.0888")))} <span>${frame.phase}%</span></label><progress id="md-story-progress" value="${frame.phase}" max="100">${frame.phase}%</progress></div>` : ''}
  ${frame.code ? `<div class="md-journey-code"><span>${m("meridian.text.0704")}</span><strong>${esc(frame.code)}</strong><small>${m("meridian.text.0703")}</small></div>` : ''}
@@ -98,9 +87,10 @@ function journeyView(kind, definition, state, data, ui) {
  </section></div></div>`;
 }
 function journeyFrame(title, body, fullscreen = false, kind = '') {
+    rejectFirstRun(kind);
     if (!fullscreen)
         return `<dialog class="md-dialog md-dialog--journey ${kind === 'settings' ? 'md-dialog--settings' : ''}" aria-labelledby="md-panel-title"><header class="md-panel-header"><div><p class="md-eyebrow">${"ORDAX"}</p><h2 id="md-panel-title">${esc(title)}</h2></div>${button(m("meridian.text.0726"), 'journey-close', 'close')}</header><div class="md-panel-body">${body}</div><div class="md-panel-feedback" role="status" aria-live="polite"></div></dialog>`;
-    return `<main class="md-stage" data-flow="${esc(kind)}" tabindex="-1" id="meridian-main"><header class="md-stage-header"><span class="md-stage-brand"><img src="/system/surface/ui/brand/ordax-symbol.png" alt="" width="30" height="30"/>${m("meridian.text.1104")}</span>${button(kind === 'setup' ? m("meridian.text.0025") : m("meridian.text.0691"), 'journey-close', 'close')}</header><div class="md-stage-body"><p class="md-eyebrow">${kind === 'identity' ? m("meridian.text.1102") : kind === 'recovery' ? m("meridian.text.1103") : m("meridian.text.0727")}</p><h1>${esc(title)}</h1>${body}</div></main>`;
+    return `<main class="md-stage" data-flow="${esc(kind)}" tabindex="-1" id="meridian-main"><header class="md-stage-header"><span class="md-stage-brand"><img src="/system/surface/ui/brand/ordax-symbol.png" alt="" width="30" height="30"/>${m("meridian.text.1104")}</span>${button(m("meridian.text.0691"), 'journey-close', 'close')}</header><div class="md-stage-body"><p class="md-eyebrow">${kind === 'identity' ? m("meridian.text.1102") : kind === 'recovery' ? m("meridian.text.1103") : m("meridian.text.0727")}</p><h1>${esc(title)}</h1>${body}</div></main>`;
 }
 function lockScreen(ui) {
     return `<main class="md-stage md-lock-stage" tabindex="-1" id="meridian-main"><div class="md-lock-card"><p class="md-lock-brand">${m("meridian.text.1104")}</p><span class="md-lock-symbol">${icon('profiles', 48)}</span><p class="md-eyebrow">${m("meridian.text.0732")}</p><h1>${m("meridian.text.0731")}</h1><p>${m("meridian.text.0730")}</p>${ui.lockError ? notice(m("meridian.text.0728"), 'warning') : ''}<div class="md-lock-actions">${button(m("meridian.text.1105"), 'lab-unlock', 'arrow', 'solid')}${button(m("meridian.text.0729"), 'lab-lock-error', 'shield')}</div></div></main>`;

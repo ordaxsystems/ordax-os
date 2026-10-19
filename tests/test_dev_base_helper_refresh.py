@@ -11,19 +11,22 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 REFRESH = ROOT / "system" / "services" / "base-update" / "dev-helpers.sh"
+MANIFEST = ROOT / "system" / "services" / "base-update" / "dev-helper-manifest.tsv"
 RUN = ROOT / "bootstrap" / "dev-base" / "ordax-run"
 PULL = (ROOT / "bootstrap" / "dev-base" / "ordax-pull").read_text(encoding="utf-8")
-SOURCE_TO_TARGET = {
-    "bootstrap/dev-base/ordax-dev-init": "sbin/ordax-dev-init",
-    "bootstrap/dev-base/ordax-diagnose": "usr/local/bin/ordax-diagnose",
-    "bootstrap/dev-base/ordax-network": "usr/local/bin/ordax-network",
-    "bootstrap/dev-base/ordax-main-watch": "usr/local/bin/ordax-main-watch",
-    "bootstrap/dev-base/ordax-pull": "usr/local/bin/ordax-pull",
-    "bootstrap/base-update/owner-development/ordax-remote": "usr/local/bin/ordax-remote",
-    "bootstrap/dev-base/ordax-rollback": "usr/local/bin/ordax-rollback",
-    "bootstrap/dev-base/ordax-run": "usr/local/bin/ordax-run",
-    "bootstrap/recovery/entrypoint": "ordax/bootstrap/recovery/entrypoint",
-}
+
+
+def load_source_to_target() -> dict[str, str]:
+    entries: dict[str, str] = {}
+    for raw in MANIFEST.read_text(encoding="utf-8").splitlines():
+        if not raw or raw.startswith("#"):
+            continue
+        source, target = raw.split("\t")
+        entries[source] = target
+    return entries
+
+
+SOURCE_TO_TARGET = load_source_to_target()
 SOURCE_SHA = "a" * 40
 
 
@@ -39,6 +42,9 @@ class DevBaseHelperRefreshTests(unittest.TestCase):
             destination = worktree / relative
             destination.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(source, destination)
+        manifest_destination = worktree / MANIFEST.relative_to(ROOT)
+        manifest_destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(MANIFEST, manifest_destination)
         return worktree, target, state
 
     def run_refresh(
@@ -65,7 +71,7 @@ class DevBaseHelperRefreshTests(unittest.TestCase):
         )
 
     def test_refreshes_only_fixed_helpers_with_executable_mode(self):
-        self.assertIn("/bootstrap/dev-base/ordax-diagnose", PULL)
+        self.assertIn("/bootstrap/dev-base/", PULL)
         self.assertNotIn("/bootstrap/dev-base/ordax-remote", PULL)
         self.assertIn("/bootstrap/base-update/", PULL)
         with tempfile.TemporaryDirectory() as directory:
@@ -169,11 +175,19 @@ class DevBaseHelperRefreshTests(unittest.TestCase):
             entrypoint = worktree / "system" / "entrypoint"
             entrypoint.parent.mkdir(parents=True)
             run_dir = root / "run" / "ordax-update"
+            state_dir = root / "state" / "ordax"
+            state_dir.mkdir(parents=True)
+            (state_dir / "current-commit").write_text(SOURCE_SHA + "\n", encoding="ascii")
             marker = root / "run" / "ordax-surface" / "runtime-provisioning-source-sha"
             fake_git = root / "git"
 
             fake_git.write_text(
-                f"#!/bin/sh\nprintf '%s\\n' '{SOURCE_SHA}'\n",
+                "#!/bin/sh\n"
+                "case \"$*\" in\n"
+                f"  *'rev-parse HEAD'*) printf '%s\\n' '{SOURCE_SHA}' ;;\n"
+                "  *'status --porcelain'*) exit 0 ;;\n"
+                "  *) exit 2 ;;\n"
+                "esac\n",
                 encoding="utf-8",
             )
             fake_git.chmod(0o755)
@@ -195,6 +209,7 @@ class DevBaseHelperRefreshTests(unittest.TestCase):
             env.update(
                 {
                     "ORDAX_WORKTREE": str(worktree),
+                    "ORDAX_STATE_DIR": str(state_dir),
                     "ORDAX_GIT_BIN": str(fake_git),
                     "ORDAX_UPDATE_RUN_DIR": str(run_dir),
                     "ORDAX_SURFACE_RUNTIME_PROVISION_MARKER": str(marker),

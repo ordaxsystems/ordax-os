@@ -437,7 +437,13 @@ jobs:
           PY
 
           (cd tools/release-signing && go test -count=1 ./cmd/ordax-physical-release-signing)
-          echo 'PORTABLE_PHYSICAL_RELEASE_PACKAGE_READY_FOR_OFFLINE_SIGNING=YES'
+          # This CI artifact is an unsigned manifest v2 review input.
+          # The public Creator requires a purpose-signed v3 distribution
+          # with all 17 individually authenticated Stable source artifacts.
+          echo 'LEGACY_PHYSICAL_V2_PACKAGE_READY_FOR_REVIEW=YES'
+          echo 'PORTABLE_V3_17_SOURCE_RELEASE_READY=NO'
+          echo 'PORTABLE_V3_SIGNED_WRITER_PUBLISHED=NO'
+          echo 'PHYSICAL_USB_WRITE_READY=NO'
           echo 'PHYSICAL_RELEASE_ENVELOPE_PRESENT=NO'
           echo 'PRIVATE_KEY_REQUIRED_IN_CI=NO'
 

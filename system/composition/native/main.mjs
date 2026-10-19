@@ -19,7 +19,9 @@ import { createNativeProjectStore } from "../../adapters/native/projects.mjs";
 import { createNativeProjectCloudLinkStore } from "../../adapters/native/project-cloud-links.mjs";
 import { createNativeProjectWebReferenceStore } from "../../adapters/native/project-web-references.mjs";
 import { createNativeNetworkManagement } from "../../adapters/native/network-management.mjs";
+import { createNativeProductConnector } from "../../adapters/native/product-connector.mjs";
 import { createNativeKeyboardLayout } from "../../adapters/native/keyboard-layout.mjs";
+import { createNativeDeviceProfile } from "../../adapters/native/device-profile.mjs";
 import { createNativeNotificationStore } from "../../adapters/native/notifications.mjs";
 import { createNativeNetworkStatus } from "../../adapters/native/network-status.mjs";
 import { createNativePowerActions } from "../../adapters/native/power-actions.mjs";
@@ -141,9 +143,10 @@ import { mountPowerControls } from "../../surface/ui/power-controls.mjs";
 import { mountSurface } from "../../surface/ui/surface.mjs";
 import { createSurfaceBootScreen } from "../../surface/ui/boot-screen.mjs";
 import { mountFirstRunExperience } from "../../surface/ui/first-run.mjs";
+import { createNativeFirstRunCursor } from "../../adapters/native/first-run-cursor.mjs";
 import { mountLocalSessionLock } from "../../surface/ui/local-session-lock.mjs";
 import { mountSettingsOverviewControls } from "../../surface/ui/settings-overview-controls.mjs";
-import { mountStoreOverviewControls } from "../../surface/ui/store-overview-controls.mjs";
+import { mountStoreWindows } from "../../surface/ui/store-experience.mjs";
 import { mountSystemOverviewControls } from "../../surface/ui/system-overview-controls.mjs";
 import { mountSystemTrayQuickPanels } from "../../surface/ui/system-tray-quick-panels.mjs";
 import { mountUpdateControls } from "../../surface/ui/update-controls.mjs";
@@ -280,8 +283,16 @@ async function start() {
       () => createNativeNetworkManagement(window),
     ),
     optionalNativeProbe(
+      "OrdaX native Product Connector unavailable",
+      () => createNativeProductConnector(window),
+    ),
+    optionalNativeProbe(
       "OrdaX native keyboard layout unavailable",
       () => createNativeKeyboardLayout(window),
+    ),
+    optionalNativeProbe(
+      "OrdaX native device profile unavailable",
+      () => createNativeDeviceProfile(window),
     ),
     optionalNativeProbe(
       "OrdaX native system metrics unavailable",
@@ -326,7 +337,9 @@ async function start() {
     fileSpace,
     networkStatus,
     networkManagement,
+    productConnector,
     keyboardLayout,
+    deviceProfile,
     systemMetrics,
     recoveryStatus,
     powerStatus,
@@ -551,12 +564,16 @@ async function start() {
   const spaceExperience = createSpaceExperienceSource({
     providers: [selectedSpaceAuraCapability],
   });
-  installNativeIntelligenceHostBridge({
-    windowRef: window,
-    intelligencePort: selectedSpaceIntelligence,
-    identitySessionPort: identitySession,
-    spaceSelectionPort: spaceSelection,
-  });
+  // The shared Native UI may run in an unprivileged development browser.
+  // Only a real host bridge may expose Intelligence to privileged consumers.
+  if (typeof window.webkit?.messageHandlers?.ordaxBrowser?.postMessage === "function") {
+    installNativeIntelligenceHostBridge({
+      windowRef: window,
+      intelligencePort: selectedSpaceIntelligence,
+      identitySessionPort: identitySession,
+      spaceSelectionPort: spaceSelection,
+    });
+  }
   const personalOrdaxFileActions = fileSpace === null
     ? null
     : await optionalNativeProbe(
@@ -899,6 +916,7 @@ async function start() {
       keyboardLayout,
       localSession,
       localAi,
+      productConnector,
     );
   } catch (error) {
     reportClientDiagnostic("settings-network-management", error);
@@ -914,6 +932,7 @@ async function start() {
       keyboardLayout,
       localSession,
       localAi,
+      productConnector,
     );
   }
   // Store is optional: its asynchronous verified projection must not prevent
@@ -965,13 +984,16 @@ async function start() {
       storeLifecycleRequests = createAppLifecycleRequestService({
         catalogPort: storeCatalog,
         verifiedCatalogPort: storeCatalogComposition.verifiedCatalogPort,
+        // Read the exact ephemeral Native observations belonging to the
+        // currently published Store projection, never a second inventory.
+        getCurrentObservations: () => storeCatalogComposition.getCurrentObservations(),
         lifecycleDelegate: createNativeAppLifecycleDelegate(window),
       });
     } catch (error) {
       reportClientDiagnostic("store-lifecycle-composition", error);
     }
   }
-  storeOverviewControls = mountStoreOverviewControls(
+  storeOverviewControls = mountStoreWindows(
     root,
     storeCatalog,
     surface,
@@ -1042,6 +1064,12 @@ async function start() {
       identityActions,
       identityCredentials,
       localSession,
+      deviceProfile,
+      keyboardLayout,
+      resumeCursor: await optionalNativeProbe(
+        "OrdaX native First Run cursor unavailable",
+        () => createNativeFirstRunCursor(window),
+      ),
     });
   } catch (error) {
     reportClientDiagnostic("first-run", error);

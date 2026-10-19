@@ -243,3 +243,31 @@ body.titanium-concept{--canvas:#080f19;--surface:#101a29;--ink:#edf2fa;--muted:#
 .titanium-concept .product-section{background:#0b1523;color:#ecf3ff}.titanium-concept .section-intro h2 span{color:#90abcd}.titanium-concept .product-section .eyebrow,.titanium-concept .feature-index{color:#8097b6}.titanium-concept .product-features article{border-color:#34475f}.titanium-concept .product-features p,.titanium-concept .section-intro>p:last-child{color:#a2b1c7}.titanium-concept .feature-apps>span{color:#b2c4dd}.titanium-concept .feature-apps b{color:#94b9ed}.titanium-concept .mode-state{background:#162740;color:#a6bfdf}.titanium-concept .mode-active .mode-state{background:#223c5e;color:#c5e0ff}.titanium-concept .closing-note{background:radial-gradient(ellipse at 50% 120%,#253a5940,transparent 60%)}.titanium-concept .demo-expanded{background:#0b1422;color:#d9e7fc;border-color:#415775}.titanium-concept .expanded-header p{color:#92a6c3}.titanium-concept .expanded-header button{background:#1b2b43;color:#dfebfc;border-color:#506582}.titanium-concept .demo-expanded .laptop-deck{height:80px}.titanium-concept .demo-expanded .laptop-base{height:13px}
 @media(max-width:640px){.titanium-concept .hero{padding:39px 22px 25px}.titanium-concept .hero h1{font-size:clamp(39px,9vw,60px)}.titanium-concept .hero-lead{font-size:13px}.titanium-concept .device-stage{padding:16px 8% 26px 3%}.titanium-concept .phone-device{width:23%;bottom:14%}.titanium-concept .phone-shell:hover{transform:none}.titanium-concept .demo-recipes button{font-size:9px;padding:10px 9px}.titanium-concept .site-nav{border-color:#ffffff1c}.titanium-concept .hero .eyebrow{font-size:7px}.titanium-concept .stage-orbit:after{width:20px;height:20px}}
 @media(prefers-reduced-motion:reduce){.titanium-concept .phone-shell{transition:none}}
+
+/* Device viewports host the source-rendered Surface, not a second shell. */
+.demo-native {container:public-surface / inline-size;}
+.demo-native>.window-workspace {height:100%!important;min-height:0;}
+.demo-native .window-workspace {--sidebar-width:208px;--taskbar-height:66px;--os-font:var(--ordax-font);font-family:var(--ordax-font);}
+.demo-native .central-content>.demo-content {padding:28px;height:100%;overflow:auto;}
+.demo-native .public-demo-menu {position:absolute;z-index:90;inset:68px 16px auto auto;max-height:min(480px,calc(100% - 84px));overflow:auto;overscroll-behavior:contain;display:grid;grid-template-columns:1fr 1fr;gap:6px;width:min(300px,calc(100% - 32px));padding:12px;border:1px solid var(--md-border);border-radius:var(--md-radius);background:var(--md-surface);box-shadow:var(--md-shadow);}
+.demo-native .public-demo-menu[hidden] {display:none;}
+.demo-native .public-demo-menu button {min-height:44px;padding:10px;text-align:left;border:0;border-radius:8px;background:var(--md-subtle);color:var(--md-ink);font:13px var(--ordax-font);cursor:pointer;}
+.demo-native .public-demo-menu button:focus-visible {outline:2px solid var(--md-focus);outline-offset:2px;}
+
+/* The expanded device keeps its existing controller and source-rendered view. */
+.demo-expanded[data-expanded-device="phone"] {width:min(440px,96vw);}
+.demo-expanded[data-expanded-device="phone"] [data-expanded-mount] {min-width:0;}
+.demo-expanded[data-expanded-device="phone"] .expanded-scroll {padding:12px 4px 20px;}
+.demo-expanded[data-expanded-device="phone"] .phone-device {position:relative;inset:auto;width:min(340px,100%);margin-inline:auto;animation:none;filter:none;}
+.demo-expanded[data-expanded-device="phone"] .phone-shell {padding:26px 8px 8px;border-radius:36px;}
+.demo-expanded[data-expanded-device="phone"] .phone-viewport {border-radius:28px;}
+.demo-tools {flex-wrap:wrap;}
+
+.demo-expanded[data-expanded-device="phone"] .phone-camera {top:8px;left:37%;width:26%;height:8px;border-radius:10px;}
+
+/* Demo-only feedback stays inside the device, including modal expansion. */
+.demo-native .public-demo-notice {position:absolute;z-index:95;right:16px;bottom:80px;width:min(330px,calc(100% - 32px));padding:16px;border:1px solid var(--md-border);border-radius:var(--md-radius);background:var(--md-surface);color:var(--md-ink);box-shadow:var(--md-shadow);font:13px/1.5 var(--ordax-font);}
+.demo-native .public-demo-notice[hidden] {display:none;}
+.demo-native .public-demo-notice p {margin:0 0 10px;}
+.demo-native .public-demo-notice button {min-height:44px;padding:8px 14px;border:1px solid var(--md-border);border-radius:8px;background:var(--md-subtle);color:var(--md-ink);font:inherit;cursor:pointer;}
+.demo-native .public-demo-notice button:focus-visible {outline:2px solid var(--md-focus);outline-offset:2px;}

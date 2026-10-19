@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 
 	creatorcore "github.com/ordaxsystems/ordax-os/tools/creator/core"
 	physicalchannel "github.com/ordaxsystems/ordax-os/tools/creator/physicalchannel"
@@ -21,6 +22,30 @@ type portablePhysicalPreparationDocument struct {
 	WholeDiskRawImageRequired bool           `json:"whole_disk_raw_image_required"`
 }
 
+// verifySignedPortableCandidate uses the purpose-bound, verified in-memory
+// manifest obtained by the physical channel during refresh. No additional
+// signature index, mutable file list or online request is introduced. Checking
+// ReleaseSequence rehashes all eight signed writer files and all 17 signed
+// Portable sources, and revalidates bound provenance.
+func verifySignedPortableCandidate(
+	directory string,
+	payload physicalchannel.PortablePayloadManifest,
+	installed *physicalchannel.Installed,
+) error {
+	if installed == nil ||
+		installed.Directory != directory ||
+		installed.Manifest.Schema != physicalchannel.ManifestSchemaPortable ||
+		installed.Manifest.SourceCommit != installed.SourceCommit ||
+		installed.Manifest.PortablePayload == nil ||
+		!reflect.DeepEqual(*installed.Manifest.PortablePayload, payload) {
+		return errors.New("a candidata física não corresponde ao manifesto assinado carregado")
+	}
+	if _, err := physicalchannel.ReleaseSequence(*installed); err != nil {
+		return fmt.Errorf("a candidata física assinada mudou: %w", err)
+	}
+	return nil
+}
+
 func executePhysicalWrite(state appRefreshState, target physicalTarget) error {
 	switch state.PhysicalMode {
 	case "legacy-owner":
@@ -29,7 +54,7 @@ func executePhysicalWrite(state appRefreshState, target physicalTarget) error {
 		if state.PortablePayload == nil {
 			return errors.New("o payload Portable assinado não está disponível")
 		}
-		return executePortablePhysicalWrite(state.BackendDirectory, target, *state.PortablePayload)
+		return executePortablePhysicalWrite(state.BackendDirectory, target, *state.PortablePayload, state.PhysicalCandidate)
 	default:
 		return errors.New("o canal físico atual não possui uma autoridade de gravação suportada")
 	}
@@ -38,24 +63,27 @@ func executePhysicalWrite(state appRefreshState, target physicalTarget) error {
 func portableSourceSpecs(
 	directory string,
 	payload physicalchannel.PortablePayloadManifest,
+	bindings creatorcore.PortableMediaBindings,
 ) ([]string, error) {
-	specs := make([]string, 0, len(payload.Artifacts))
-	for _, artifact := range payload.Artifacts {
-		path, err := physicalchannel.PortablePayloadSourcePath(directory, artifact.ID)
-		if err != nil {
-			return nil, err
-		}
-		info, err := os.Lstat(path)
-		if err != nil {
-			return nil, fmt.Errorf("source Portable %s indisponível: %w", artifact.ID, err)
-		}
-		if !info.Mode().IsRegular() || info.Mode()&os.ModeSymlink != 0 {
-			return nil, fmt.Errorf("source Portable %s não é arquivo regular", artifact.ID)
-		}
-		if info.Size() != artifact.SizeBytes {
-			return nil, fmt.Errorf("source Portable %s mudou de tamanho", artifact.ID)
-		}
-		specs = append(specs, artifact.ID+"="+path)
+	if len(payload.Artifacts) == 0 {
+		return nil, errors.New("payload Portable sem fontes assinadas")
+	}
+	// The physical channel already defines the version-relative source path.
+	// Derive its directory instead of introducing a second path constant.
+	firstPath, err := physicalchannel.PortablePayloadSourcePath(directory, payload.Artifacts[0].ID)
+	if err != nil {
+		return nil, err
+	}
+	// Reuse Creator Core's exact 17-file/hash/identity verifier before any
+	// backend preparation or UAC. The privileged writer must still independently
+	// re-open, lock and revalidate every source during destructive apply.
+	verified, err := creatorcore.VerifyPortableSources(bindings, filepath.Dir(firstPath))
+	if err != nil {
+		return nil, fmt.Errorf("verificar fontes Portable antes da elevação: %w", err)
+	}
+	specs := make([]string, 0, len(verified))
+	for _, source := range verified {
+		specs = append(specs, source.ArtifactID+"="+source.Path)
 	}
 	return specs, nil
 }
@@ -69,13 +97,15 @@ func validatePortablePhysicalPreparation(
 		return errors.New("o backend retornou uma preparação Portable incompatível")
 	}
 	if preparation.Target.DiskNumber != target.DiskNumber ||
+		preparation.Target.PhysicalDiskBytes != target.PhysicalDiskBytes ||
+		preparation.Target.DeviceSerial != target.DeviceSerial ||
 		preparation.Target.ConfirmationToken != target.ConfirmationToken ||
 		preparation.Target.SystemDisk ||
 		!preparation.Target.PrototypeSafe {
 		return errors.New("o dispositivo mudou durante a preparação Portable; operação cancelada")
 	}
 	if preparation.ApplicationPlanSHA256 != expectedPlanSHA ||
-		len(preparation.DestructiveAuthorization) != 64 ||
+		!validLowerHexString(preparation.DestructiveAuthorization, 64) ||
 		preparation.WholeDiskRawImageRequired {
 		return errors.New("a preparação Portable não preservou os vínculos de segurança esperados")
 	}
@@ -86,7 +116,11 @@ func executePortablePhysicalWrite(
 	directory string,
 	target physicalTarget,
 	payload physicalchannel.PortablePayloadManifest,
+	installed *physicalchannel.Installed,
 ) error {
+	if err := verifySignedPortableCandidate(directory, payload, installed); err != nil {
+		return err
+	}
 	if payload.Schema != physicalchannel.PortablePayloadSchema {
 		return errors.New("payload Portable assinado possui schema incompatível")
 	}
@@ -133,7 +167,7 @@ func executePortablePhysicalWrite(
 	if err != nil {
 		return err
 	}
-	sourceSpecs, err := portableSourceSpecs(directory, payload)
+	sourceSpecs, err := portableSourceSpecs(directory, payload, bindings)
 	if err != nil {
 		return err
 	}
@@ -173,6 +207,11 @@ func executePortablePhysicalWrite(
 		return err
 	}
 
+	// The backend used during read-only preparation must remain byte-identical
+	// to the signed candidate immediately before it is passed to Windows UAC.
+	if err := verifySignedPortableCandidate(directory, payload, installed); err != nil {
+		return err
+	}
 	updateWriteProgress(creatorT(msgProgressElevationStatus), creatorT(msgPortableElevationHint))
 	args := []string{
 		"apply-portable",

@@ -53,9 +53,16 @@ NATIVE_INSTALL_RESPONSE=$SESSION_DIR/native-install-response
 NATIVE_INSTALL_SNAPSHOT=$SESSION_DIR/native-install-targets.json
 POWER_REQUEST=$SESSION_DIR/power-request
 HOST_POWER_REQUEST=${ORDAX_HOST_POWER_REQUEST:-/run/ordax-update/host-power-request}
+KEYBOARD_SESSION_RESTART_REQUEST=$SESSION_DIR/keyboard-session-restart-request
+SURFACE_PID=$$
 POWER_STATE_DIR=$STATE_ROOT/power
 POWER_LAST_REQUEST=$POWER_STATE_DIR/last-request
 POWER_PENDING_STALE_SECONDS=120
+POWER_TERM_GRACE_SECONDS=2
+POWER_KILL_SETTLE_SECONDS=1
+POWER_SYNC_TIMEOUT_SECONDS=12
+POWER_REMOUNT_TIMEOUT_SECONDS=5
+POWER_KERNEL_ACTION_TIMEOUT_SECONDS=5
 SEATD_SOCKET=/run/seatd.sock
 RUNTIME_STATE=$STATE_ROOT/runtime/native-surface
 RUNTIME_ID=alpine-v3.22-cage-webkitgtk-v1
@@ -74,6 +81,7 @@ RUNTIME_UPGRADE_TIMEOUT=${ORDAX_RUNTIME_UPGRADE_TIMEOUT_SECONDS:-120}
 HTTP_PID=""
 GRAPHICS_PID=""
 POWER_BROKER_PID=""
+KEYBOARD_SESSION_RESTART_BROKER_PID=""
 NETWORK_BROKER_PID=""
 NATIVE_INSTALL_BROKER_PID=""
 TIME_SYNC_PID=""
@@ -557,6 +565,11 @@ cleanup() {
         POWER_BROKER_PID=""
     fi
     rm -f "$POWER_REQUEST" >/dev/null 2>&1 || true
+    if [ -n "$KEYBOARD_SESSION_RESTART_BROKER_PID" ]; then
+        terminate_child "$KEYBOARD_SESSION_RESTART_BROKER_PID" "keyboard session restart broker"
+        KEYBOARD_SESSION_RESTART_BROKER_PID=""
+    fi
+    rm -f "$KEYBOARD_SESSION_RESTART_REQUEST" >/dev/null 2>&1 || true
     if [ -n "$GRAPHICS_PID" ]; then
         terminate_child "$GRAPHICS_PID" "graphics host"
         GRAPHICS_PID=""
@@ -1167,7 +1180,7 @@ write_power_request_record() {
         ''|*[!0-9]*) return 1 ;;
     esac
     case "$status" in
-        pending|failed) ;;
+        pending|stopping|syncing|rebooting|powering-off|failed) ;;
         *) return 1 ;;
     esac
 
@@ -1210,7 +1223,10 @@ reconcile_stale_power_request() {
     request_epoch=""
     status=""
     IFS='|' read -r action request_boot_id request_epoch status <"$POWER_LAST_REQUEST" || return 0
-    [ "$status" = "pending" ] || return 0
+    case "$status" in
+        pending|stopping|syncing|rebooting|powering-off) ;;
+        *) return 0 ;;
+    esac
     case "$action" in restart|shutdown) ;; *) return 0 ;; esac
     case "$request_boot_id" in ''|*[!0-9a-f]*) return 0 ;; esac
     case "$request_epoch" in ''|*[!0-9]*) return 0 ;; esac
@@ -1241,6 +1257,44 @@ forward_host_power_request() {
     }
     printf '%s\n' "$action" >"$HOST_POWER_REQUEST" || return 1
     return 0
+}
+
+prepare_keyboard_session_restart_broker() {
+    rm -f "$KEYBOARD_SESSION_RESTART_REQUEST" >/dev/null 2>&1 || true
+    /bin/busybox mkfifo "$KEYBOARD_SESSION_RESTART_REQUEST" >>"$HOST_LOG" 2>&1 || return 1
+    chmod 600 "$KEYBOARD_SESSION_RESTART_REQUEST" >>"$HOST_LOG" 2>&1 || return 1
+
+    (
+        exec 8<>"$KEYBOARD_SESSION_RESTART_REQUEST" || exit 1
+        while :; do
+            requested_layout=""
+            if IFS= read -r requested_layout <&8; then
+                case "$requested_layout" in
+                    br-abnt2|us) ;;
+                    *) continue ;;
+                esac
+                [ -r "$KEYBOARD_LAYOUT_STATE" ] && [ ! -L "$KEYBOARD_LAYOUT_STATE" ] || continue
+                configured_layout=""
+                IFS= read -r configured_layout <"$KEYBOARD_LAYOUT_STATE" || configured_layout=""
+                [ "$configured_layout" = "$requested_layout" ] || continue
+                [ "$configured_layout" != "$ORDAX_KEYBOARD_LAYOUT_ID" ] || continue
+                echo "ordax-surface: applying configured keyboard at next graphical session" >>"$HOST_LOG"
+                # Allow the HTTP response to drain, then revalidate: a later
+                # configure() may have replaced the pending layout meanwhile.
+                /bin/busybox sleep 2
+                [ -r "$KEYBOARD_LAYOUT_STATE" ] && [ ! -L "$KEYBOARD_LAYOUT_STATE" ] || continue
+                latest_layout=""
+                IFS= read -r latest_layout <"$KEYBOARD_LAYOUT_STATE" || latest_layout=""
+                [ "$latest_layout" = "$requested_layout" ] || continue
+                /bin/busybox kill -TERM "$SURFACE_PID" >/dev/null 2>&1 || true
+                exit 0
+            else
+                /bin/busybox sleep 1
+            fi
+        done
+    ) &
+    KEYBOARD_SESSION_RESTART_BROKER_PID=$!
+    kill -0 "$KEYBOARD_SESSION_RESTART_BROKER_PID" >/dev/null 2>&1 || return 1
 }
 
 prepare_power_broker() {
@@ -1348,6 +1402,7 @@ bind_runtime_mounts || fallback_with_reason "failed to bind host resources into 
 bootstrap_verified_app_install_identities || fallback_with_reason "failed to bootstrap verified app install identities"
 prepare_input_stack || fallback_with_reason "failed to prepare physical keyboard/touchpad input devices"
 configure_keyboard_layout
+prepare_keyboard_session_restart_broker || echo "ordax-surface: keyboard session restart unavailable; next startup still applies configured layout" >>"$HOST_LOG"
 publish_runtime_proof_context || fallback_with_reason "failed to publish active Surface runtime proof context"
 remove_stale_seatd_socket || fallback_with_reason "failed to clear stale seatd socket before native host startup"
 prepare_power_broker || fallback_with_reason "failed to prepare host power broker"

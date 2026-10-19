@@ -355,7 +355,10 @@ class SystemRuntimeContractTests(unittest.TestCase):
         self.assertNotIn("POWER_TRANSITION_REQUEST", surface)
         self.assertNotIn("perform_host_power_transition()", surface)
         self.assertNotIn("quiesce_root_filesystem_for_power_transition()", surface)
-        self.assertNotIn('/bin/busybox kill -TERM "$SURFACE_PID"', surface)
+        power_broker = surface[surface.index("prepare_power_broker() {"):]
+        self.assertNotIn('/bin/busybox kill -TERM "$SURFACE_PID"', power_broker)
+        self.assertIn('SURFACE_PID=$$', surface)
+        self.assertIn('/bin/busybox kill -TERM "$SURFACE_PID"', surface)
         self.assertNotIn('/bin/busybox reboot -f', surface)
         self.assertNotIn('/bin/busybox poweroff -f', surface)
 

@@ -137,6 +137,17 @@ class IndependentBaseTest(unittest.TestCase):
         self.assertNotIn("BR2_DEFAULT_KERNEL_VERSION=", profile)
         self.assertNotIn("BR2_LINUX_KERNEL_VERSION=", profile)
 
+    def test_buildroot_downloads_use_persistent_verified_cache(self):
+        builder = (BASE / "build.py").read_text(encoding="utf-8")
+        workflow = (ROOT / ".github/workflows/independent-base-experiment.yml").read_text(encoding="utf-8")
+        self.assertIn('download_cache = cache / "buildroot-downloads"', builder)
+        self.assertIn('f"BR2_DL_DIR={download_cache}"', builder)
+        self.assertIn('"buildroot_download_cache_enabled": True', builder)
+        self.assertIn("Restore Buildroot source/package download cache", workflow)
+        self.assertIn("Save Buildroot source/package download cache", workflow)
+        self.assertIn("${{ runner.temp }}/ordax-independent-cache", workflow)
+        self.assertIn("ordax-buildroot-download-v1-", workflow)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -2,6 +2,37 @@
 
 Status: **MVP SYSTEM FOUNDATION**
 
+## OrdaX OS Native Product Connector — implementação Owner/Development (2026-10-17)
+
+O **Product MCP é uma porta de entrada autorizada de clientes de IA externos**, não
+uma segunda IA ou inferência para a Surface. O ChatGPT usa o MCP do
+`ordax-platform`; o OrdaX Intelligence (`ordax.intelligence/1`) e seu model
+router continuam sendo os serviços do sistema para modelos, contexto, Memory
+e compreensão de capacidades. Nem o login na Conta OrdaX nem uma mensagem de
+um modelo geram autorizações de dispositivo.
+
+O OS Owner/Development USB já reutiliza o login Native e
+`ProductDeviceIdentityStore` para matricular uma identidade de dispositivo
+na autoridade PostgreSQL do **mesmo Product MCP**. Após login autenticado,
+`product_device_presence.py` compõe um único worker HTTPS no Native Host,
+com credencial lida de arquivo privado, sem PowerShell, token em argumentos,
+porta local pública, inferência remota ou Runtime paralelo. Logout e shutdown
+encerram o worker e solicitam presença offline. Falhas de rede são opcionais,
+nunca dependência de boot, Local AI, conta ou health da Surface.
+
+O Worker atende o canal de dispositivo canônico
+`https://ordax-mcp.ordaxsystems.workers.dev`, enquanto o ChatGPT continua
+configurado **somente** com `https://mcp.ordax.com.br/mcp`. Ambos pertencem
+à mesma autoridade PostgreSQL, não a dois servidores MCP.
+
+**Limite de segurança da fatia:** presence envia
+`capability_digest=null` e não anuncia executor de ações. O OS só será um
+target executável quando tiver Runtime canônico instalado e homologado,
+client OAuth consentido, grants explícitos e sessão atestada. A Surface
+não recebe secrets, comandos ou a responsabilidade pelo Connector.
+A prova física do USB e o rollout do ingresso de presença são gates
+separados da prova de código/CI. Stable permanece desativado.
+
 ## Decisão transversal — OrdaX Web, OS, Studio e ChatGPT (2026-10-10)
 
 **OrdaX Intelligence é um serviço sistêmico, não uma funcionalidade isolada do Studio.** Os clientes Web/OS/Studio/aplicativos devem reutilizar `ordax.intelligence/1`, model router e os atuais contratos de contexto e ações sem reconstruir identidade, histórico autoritativo, memória, grants ou catálogo. [Handoff de continuidade da raiz](../INTELLIGENCE-HANDOFF.md).

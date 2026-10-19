@@ -4,13 +4,9 @@ import { ArrowUpRight, Settings, ShieldCheck, WalletCards, RefreshCw, Monitor, L
 import { Button } from '@/components/ui/button';
 import { getWindowIcon, unavailableServices, type IconTone } from './config';
 import { useWebAccount } from './account-context';
-import symbol from '../../../ui/brand/ordax-symbol.png';
 import { PRODUCT_FAMILY_PUBLIC_ENDPOINTS } from '../../../../contracts/product-family.mjs';
 
 const accountManagementUrl = new URL('/conta/', PRODUCT_FAMILY_PUBLIC_ENDPOINTS.site.origin).href;
-export function Brand() {
-  return <div className="brand" aria-label="OrdaX OS Web"><span className="meridian-brand-symbol" style={{maskImage:`url(${symbol})`,WebkitMaskImage:`url(${symbol})`}} aria-hidden="true"/><div><div className="brand-name">OrdaX</div><span className="brand-sub">OS · WEB</span></div></div>;
-}
 export function AppIcon({ icon: Icon, tone }: { icon: LucideIcon; tone: IconTone }) {
   return <span className="app-icon" data-tone={tone}><Icon aria-hidden="true"/></span>;
 }

@@ -39,7 +39,7 @@ function artifact(name, char) {
 
 function plan(operation = "install") {
   return {
-    schema: "ordax.app-lifecycle-plan/1",
+    schema: "ordax.app-lifecycle-plan/2",
     request: {
       schema: "ordax.app-lifecycle-request/1",
       requestId: `store:${operation}:notes:native-test`,
@@ -51,6 +51,9 @@ function plan(operation = "install") {
     catalogSequence: 9,
     catalogSha256: "f".repeat(64),
     catalogSourceCommit: COMMIT,
+    expectedActivation: operation === "install"
+      ? { source: "absent", revision: 0, version: null, sourceCommit: null }
+      : { source: "slot", revision: 12, version: operation === "update" ? "0.4.2" : "0.4.3", sourceCommit: COMMIT },
     candidate: operation === "remove" ? null : {
       appId: "notes",
       version: "0.4.3",

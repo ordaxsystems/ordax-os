@@ -17,6 +17,15 @@ class DevelopmentNetworkContractTest(unittest.TestCase):
         for script in (NETWORK, DEV_INIT):
             subprocess.run(["/bin/sh", "-n", str(script)], check=True)
 
+    def test_network_status_writer_is_defined_before_startup_use(self) -> None:
+        text = NETWORK.read_text(encoding="utf-8")
+        writer = text.index("\nwrite_network_status() {")
+        status = text.index("\nwrite_network_status no-ip startup || true")
+        hardware_exit = text.index('[ "$hardware_only" -eq 1 ] && exit 0')
+        self.assertLess(writer, status)
+        self.assertLess(hardware_exit, status)
+        self.assertEqual(text.count("\nwrite_network_status() {"), 1)
+
     def test_wired_dhcp_skips_kernel_tunnel_interfaces(self) -> None:
         text = NETWORK.read_text(encoding="utf-8")
         self.assertIn('net_type=$(cat "$netpath/type" 2>/dev/null || true)', text)
@@ -78,7 +87,7 @@ class DevelopmentNetworkContractTest(unittest.TestCase):
     def test_wifi_can_force_network_change_without_destroying_saved_config_first(self) -> None:
         text = NETWORK.read_text(encoding="utf-8")
         self.assertIn('--choose) force_choose=1', text)
-        self.assertIn('uso: ordax-network [--choose]', text)
+        self.assertIn('uso: ordax-network [--choose|--init-hardware]', text)
         self.assertIn('if [ "$force_choose" -eq 0 ] && [ -s "$WPA_CONF" ]; then', text)
         self.assertIn('if connect_saved_wifi; then', text)
         self.assertIn('CANDIDATE_CONF=/run/ordax-wpa-candidate.conf', text)
@@ -141,6 +150,20 @@ class DevelopmentNetworkContractTest(unittest.TestCase):
         self.assertLess(finish, sync)
         self.assertIn('finish_network "$wifi"', text)
         self.assertIn('finish_network "$iface"', text)
+
+    def test_network_readiness_is_ip_clock_dns_https_then_git(self) -> None:
+        text = NETWORK.read_text(encoding="utf-8")
+        self.assertIn('NETWORK_STATUS_FILE=${ORDAX_NETWORK_STATUS_FILE:-/run/ordax-network-status}', text)
+        self.assertIn('/bin/busybox nslookup github.com', text)
+        self.assertIn('/bin/busybox wget -q -T "$HTTPS_PROBE_TIMEOUT" -O /dev/null https://github.com/', text)
+        self.assertIn('git -c http.lowSpeedLimit=1', text)
+        finish = text[text.index('finish_network()'):text.index('try_dhcp()')]
+        self.assertLess(finish.index('sync_clock'), finish.index('probe_dns'))
+        self.assertLess(finish.index('probe_dns'), finish.index('probe_https'))
+        self.assertLess(finish.index('probe_https'), finish.index('probe_git_remote'))
+        for state in ("no-ip", "ip-ready", "dns-failed", "https-failed", "github-git-failed", "ready"):
+            self.assertIn(state, text)
+        self.assertIn('HTTPS disponivel, mas GitHub/Git nao respondeu', text)
 
     def test_maintenance_shell_reestablishes_controlling_tty(self) -> None:
         text = DEV_INIT.read_text(encoding="utf-8")

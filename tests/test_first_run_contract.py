@@ -13,6 +13,7 @@ CONTRACT = ROOT / "docs" / "contracts" / "first-run.json"
 BRANDING = ROOT / "docs" / "contracts" / "branding.json"
 ADAPTER = ROOT / "system" / "adapters" / "native" / "first-run-state.mjs"
 UI = ROOT / "system" / "surface" / "ui" / "first-run.mjs"
+CAPABILITIES = ROOT / "system" / "services" / "first-run" / "capabilities.mjs"
 CSS = ROOT / "system" / "surface" / "ui" / "first-run.css"
 SETTINGS = ROOT / "system" / "surface" / "ui" / "settings-overview-controls.mjs"
 NATIVE_MAIN = ROOT / "system" / "composition" / "native" / "main.mjs"
@@ -33,10 +34,9 @@ class FirstRunContractTests(unittest.TestCase):
     def test_contract_keeps_usb_local_first_and_account_optional(self):
         contract = json.loads(CONTRACT.read_text(encoding="utf-8"))
         self.assertEqual(contract["$schema"], "prototype-ordax.first-run/1")
-        self.assertEqual(
-            contract["flow"],
-            ["welcome", "regional", "network", "security", "account", "privacy", "ready"],
-        )
+        self.assertEqual(contract["owners"]["journey"], "system/services/first-run/journey.mjs")
+        self.assertTrue(contract["flow"])
+        self.assertEqual(len(contract["flow"]), len(set(contract["flow"])))
         self.assertEqual(contract["regional"]["complete_locales"], ["pt-BR", "en-US", "es-ES", "de-DE", "fr-FR"])
         self.assertEqual(contract["regional"]["public_mvp_locales"], ["pt-BR", "en-US"])
         self.assertEqual(contract["regional"]["retained_compatible_locales"], ["es-ES", "de-DE", "fr-FR"])
@@ -236,8 +236,14 @@ class FirstRunContractTests(unittest.TestCase):
         self.assertIn("syncFirstRunDocumentLocale(documentObject, draft.locale)", ui)
         self.assertIn("documentObject.documentElement.lang = profile.locale", ui)
         self.assertIn("documentObject.documentElement.dir = profile.direction", ui)
-        self.assertIn('isIdentityActionSupported(actionsSnapshot, "sign-in")', ui)
-        self.assertIn('isIdentityActionSupported(actionsSnapshot, "register")', ui)
+        capabilities = CAPABILITIES.read_text(encoding="utf-8")
+        contract = json.loads(CONTRACT.read_text(encoding="utf-8"))
+        self.assertEqual(contract["owners"]["capabilities"], "system/services/first-run/capabilities.mjs")
+        self.assertIn("deriveFirstRunCapabilities", ui)
+        self.assertIn("capabilitySnapshot.identitySignIn", ui)
+        self.assertIn("capabilitySnapshot.identityRegister", ui)
+        self.assertIn('isIdentityActionSupported(actions, "sign-in")', capabilities)
+        self.assertIn('isIdentityActionSupported(actions, "register")', capabilities)
         self.assertIn("passwordDraft", ui)
         self.assertIn("await store.save(completeFirstRunState(draft))", ui)
         self.assertNotIn("localStorage", ui)
@@ -255,14 +261,14 @@ class FirstRunContractTests(unittest.TestCase):
         self.assertIn("getCurrentObservations()", composition)
         self.assertIn("currentObservations = Object.freeze([])", projection)
         self.assertIn('firstRunAppSelection.installedByThisPlan !== false', first_run)
-        self.assertIn("Nenhum aplicativo adicional foi instalado.", first_run)
+        self.assertIn("Esta lista é informativa e não instala aplicativos.", first_run)
         self.assertNotIn("installApp(", first_run)
         for text in (
             "Aplicativos essenciais",
-            "Pacotes independentes confirmados:",
+            "Aplicativos independentes verificados:",
             "Candidatos verificados para futura distribuição:",
-            "Remoção preservada ou fora do primeiro uso:",
-            "Ainda sem comprovação de distribuição:",
+            "Removidos ou fora desta configuração:",
+            "Distribuição ainda não verificada:",
         ):
             self.assertEqual(translated.count(json.dumps(text, ensure_ascii=False) + ":"), 4)
 

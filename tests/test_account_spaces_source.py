@@ -11,6 +11,14 @@ NATIVE_HOST = ROOT / "system" / "surface" / "runtime" / "native_host_server.py"
 TRANSPORT = ROOT / "infra" / "supabase" / "functions" / "_shared" / "account_transport_admission.mjs"
 
 
+def exact_route_block(source: str, route_start: str) -> str:
+    start = source.index(route_start)
+    next_route = source.find('\n  if (path === "', start + len(route_start))
+    if next_route < 0:
+        raise AssertionError(f"route following {route_start!r} was not found")
+    return source[start:next_route]
+
+
 class AccountSpacesSourceTests(unittest.TestCase):
     def test_edge_route_is_read_only_bounded_and_user_session_scoped(self):
         source = EDGE.read_text(encoding="utf-8")
@@ -24,9 +32,10 @@ class AccountSpacesSourceTests(unittest.TestCase):
         self.assertIn('.limit(MAX_VISIBLE_SPACES + 1)', source)
         self.assertIn('version: 17', source)
 
-        start = source.index('if (path === "/account/spaces" && req.method === "GET")')
-        end = source.index('if (path === "/sync/snapshot"', start)
-        route = source[start:end]
+        route = exact_route_block(
+            source,
+            'if (path === "/account/spaces" && req.method === "GET")',
+        )
         for forbidden in (".insert(", ".update(", ".delete(", ".upsert(", ".rpc("):
             self.assertNotIn(forbidden, route)
 

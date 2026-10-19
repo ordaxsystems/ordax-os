@@ -1,15 +1,17 @@
 # OrdaX Desktop Identity
 
-The OrdaX shared Surface identity follows the user-approved 2026-10-09 ribbon/blue-violet reference: **Midnight / Meia-noite** (dark) and **Ice / Gelo** (light). Navigation, command search, a landscape Home and a floating dock are implemented in the existing shared Surface, with the same application and preference owners across Web/Native. This direction supersedes the earlier visual candidate.
+The sole current visual authority is **Meridian**, reaffirmed explicitly by the user on 2026-10-18 for the entire OrdaX OS. Argila/light and Grafite/dark are materials of this identity, not alternate product designs. `system/surface/ui/meridian.tokens.css` owns its palette/type/spacing policy; shared component styles consume that owner. Historical Midnight/Ice and pre-Meridian presentation notes below are provenance, not permission to reintroduce another identity.
+
+Migration is staged without removing real operations or planned mocks. The current First Run uses Meridian directly in its canonical renderer/CSS, and the Windows emulator loads the actual Native composition used by USB rather than a Web preview. Later shell/app stages remain subject to this same visual rule; completing First Run does not imply that every legacy screen has already migrated.
 
 This is a product identity contract, not a screenshot contract. Implementations preserve the visual language while remaining functional, responsive, accessible, offline-capable and shared across supported hosts.
 
 ## Canonical visual language
 
-- midnight navy and ice canvases, with opaque working application surfaces;
-- ice text in dark mode and deep blue ink in light mode;
-- blue/violet/cyan for brand decoration; accessible semantic accents for controls;
-- thin structural rules, rounded cards, restrained glow and translucent shell materials;
+- Meridian Argila/light and Grafite/dark canvases, with opaque working application surfaces;
+- text, muted text and structural contrast from the shared Meridian token owner;
+- clay accents, sage context and independent semantic status colors from Meridian;
+- editorial hierarchy, thin structural rules, rounded surfaces and restrained shared shadows;
 - Inter as the canonical product type family, with compact, legible controls;
 - the user-approved transparent ribbon-loop image shared by the navigation, header, Home and loading screen;
 - labeled lateral navigation on desktop, compact rail on intermediate widths and one-column Home on narrow surfaces;
@@ -21,7 +23,7 @@ The user-approved symbol is `system/surface/ui/brand/ordax-symbol.png`, copied b
 
 ## Shared design-system ownership
 
-`system/surface/ui/tokens.css` owns the USB palette, typography, geometry and accessibility policy. `system/surface/ui/color-palettes.css` owns standard light/dark colors moved from the approved Web stylesheet and semantic aliases for both renderers. These sources form the single source of visual policy. Each palette is declared once; Surface and first-party application styles consume that shared policy without a second palette per application.
+`system/surface/ui/tokens.css` owns base typography, geometry and accessibility policy. `system/surface/ui/color-palettes.css` owns standard light/dark colors moved from the approved Web stylesheet and semantic aliases for both renderers. These sources form the single source of visual policy. Each palette is declared once; Surface and first-party application styles consume that shared policy without a second palette per application.
 
 `system/surface/ui/identity.css` is the shared component/composition layer for this identity. It may map existing components onto the semantic tokens while older component CSS is migrated, but it must not become a second token source.
 
@@ -1784,3 +1786,18 @@ preference, and Native receives its current localization port. Example state rem
 session-only; account/session/data operations retain their existing owners and gates.
 The existing English audit and the new cross-language transition/rendering regressions
 cover this boundary. Public runtime packaging and browser/release proofs are separate.
+
+### Shared sidebar account profile — 2026-10-18
+
+The Meridian profile row now shares its geometry, avatar, typography, focus and
+connection-indicator styles through `system/surface/ui/sidebar-layout.css`.
+The corresponding Web-only style block was removed. Native/USB retains the
+canonical account launch and existing storage/notification controls; Web keeps
+its Account window, utilities and planned resources.
+
+`projectSidebarAccount` remains the identity presentation owner and now projects
+connection availability as well. Web consumes its localized status/open label;
+Native refreshes the same connection mark on real session/host changes.
+Offline is not a new signed-in claim; logout or lost identity capability clears
+stale identity through the existing port validation. This increment unifies the
+profile component, not the complete Web and Native shell compositions.

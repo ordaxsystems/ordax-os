@@ -133,7 +133,7 @@ try {
       await client.send('Page.navigate',{url:runtimeUrl});await ready();
       await until("!!document.querySelector('.os-shell')");
       assert.equal(await evaluate("!document.querySelector('.web-workspace')"),true,'Previous page must not be mounted');
-      assert.equal(await evaluate("/\\bWEB\\b/.test(document.querySelector('.brand-sub').textContent)"),true);
+      assert.equal(await evaluate("document.querySelector('.brand-name')?.textContent.trim()==='OrdaX' && document.querySelector('.brand-sub')?.textContent.trim()==='OS'"),true,'Shared Meridian product wordmark is stable across Web and Native');
       assert.equal(await evaluate('document.documentElement.scrollWidth<=innerWidth+1'),true,'No horizontal document overflow');
       assert.equal(await evaluate("(()=>{const main=document.querySelector('.central-presentation .os-main');return main.clientHeight>0&&main.scrollWidth<=main.clientWidth+1&&['auto','scroll','hidden'].includes(getComputedStyle(main).overflowY);})()"),true,'Central fits horizontally and retains its bounded content area');
       assert.equal(await evaluate("!document.querySelector('.home-overflow')"),true,'Home overflow button is removed');
@@ -178,8 +178,13 @@ try {
       }
       if(width===1440){
         await openSidebarDestination('Loja');
-        await until("!!document.querySelector('.meridian-store-presentation')?.shadowRoot?.querySelector('[data-meridian]')");
-        assert.equal(await evaluate("(()=>{const root=document.querySelector('.meridian-store-presentation').shadowRoot;return root.adoptedStyleSheets.length===1&&!root.querySelector('style')&&getComputedStyle(root.querySelector('[data-meridian]')).getPropertyValue('--md-canvas').trim()==='#f4f2ed';})()"),true,'Store examples use the canonical bundled stylesheet without inline style elements');
+        await until("!!document.querySelector('.ordax-store-experience[data-meridian][data-store-mode]')");
+        // The official Store catalog takes precedence. Enter the explicitly
+        // labeled planned preview before asserting its isolated stylesheet.
+        if(await evaluate("document.querySelector('.ordax-store-experience')?.dataset.storeMode==='official'"))
+          await click('.ordax-store-experience [data-store-switch]');
+        await until("!!document.querySelector('.ordax-store-experience[data-store-mode=planned] [data-store-preview-host]')?.shadowRoot?.querySelector('[data-meridian]')");
+        assert.equal(await evaluate("(()=>{const root=document.querySelector('.ordax-store-experience [data-store-preview-host]').shadowRoot;return root.adoptedStyleSheets.length===1&&!root.querySelector('style')&&getComputedStyle(root.querySelector('[data-meridian]')).getPropertyValue('--md-canvas').trim()==='#f4f2ed';})()"),true,'Store planned preview uses the canonical bundled stylesheet without inline styles');
         await click('[aria-label="Fechar Loja"]');
         await openSidebarDestination('Espaços');
         await clickByText('.meridian-spaces-context-actions button','Ver exemplos completos');

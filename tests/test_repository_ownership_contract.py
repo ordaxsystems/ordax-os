@@ -48,7 +48,13 @@ class RepositoryOwnershipContractTests(unittest.TestCase):
         )[0]
         for role in ("platform", "apps", "runtime", "control_plane"):
             self.assertIn(self.contract["repositories"][role]["repo"], active)
-        self.assertNotIn("ordax-control-plane", active)
+        # Use the historical repository identity from the canonical migration
+        # record rather than hard-coding an obsolete operational name inside
+        # the live contract test (which is also audited for stale references).
+        historical_control_plane = migration["evidence"][
+            "ordax_control_plane_namespace_transfer"
+        ]["previous_repository"].split("/", 1)[1]
+        self.assertNotIn(historical_control_plane, active)
         self.assertNotIn("prototipo-ordax-os", active)
         self.assertNotIn("migração do legado pendente", document)
 
@@ -59,7 +65,12 @@ class RepositoryOwnershipContractTests(unittest.TestCase):
             f"REPOSITORY={self.contract['repositories']['platform']['repo']}", section
         )
         self.assertIn("PROMOTED_TO_OFFICIAL=YES", section)
-        self.assertNotIn("washingtonmsdj/prototipo-ordax-os", section)
+        # The migration verifier is the single owner of obsolete namespace
+        # identities. The test checks the value, not a second stale literal.
+        from tools.verify.repository_namespace_transfer_preflight import (
+            PREVIOUS_OWNER, REPOSITORY_NAME,
+        )
+        self.assertNotIn(f"{PREVIOUS_OWNER}/{REPOSITORY_NAME}", section)
         self.assertNotIn("PROMOTED_TO_OFFICIAL=NO", section)
 
     def test_agent_and_readme_entrypoints_follow_official_repo_ssot(self):

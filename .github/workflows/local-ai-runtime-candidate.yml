@@ -9,6 +9,13 @@ on:
       - 'bootstrap/release-acquisition/**'
       - 'tools/release-manifest/**'
       - 'tools/release-signing/**'
+      # Only canonical release-signing source affects the Local AI runtime's
+      # signed-v4 materialization proof. Physical writer signing, public trust
+      # administration and documentation have their own CI owners.
+      - '!tools/release-signing/windows/**'
+      - '!tools/release-signing/promote_public_trust.py'
+      - '!tools/release-signing/cmd/ordax-physical-release-signing/**'
+      - '!tools/release-signing/README.md'
       - 'tests/test_portable_v4_real_materialization_contract.py'
       - 'tests/test_local_ai_contract.py'
       - 'tests/test_local_ai_runtime_builder.py'

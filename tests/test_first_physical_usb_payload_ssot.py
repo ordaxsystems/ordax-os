@@ -50,6 +50,11 @@ class PhysicalUsbPayloadIdentityTests(unittest.TestCase):
                 fixture["status"] = status
                 fixture["physical_write_allowed"] = status == "authorized"
                 fixture["explicit_owner_authorization"] = status == "authorized"
+                # A blocked-mode test must not inherit a previous authorized
+                # source-context digest from a live owner-approved repository.
+                fixture["authorization_context_sha256"] = (
+                    auth["authorization_context_sha256"] if status == "authorized" else None
+                )
                 if wrong_url:
                     fixture["release_binding"]["canonical_envelope_url"] = "https://invalid.example/release-envelope.json"
                 auth_file.write_text(json.dumps(fixture), encoding="utf-8")

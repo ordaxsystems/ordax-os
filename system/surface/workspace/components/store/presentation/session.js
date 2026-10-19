@@ -1,4 +1,4 @@
-import { storeReducer, activeOps, DEMO_FAILING } from '../../../lib/store/state.ts';
+import { storeReducer, activeOps, DEMO_FAILING } from '../../../lib/store/state.mjs';
 import { operationSteps } from './preview-data.js';
 
 /** Advance one step of the oldest simulated request; never calls a host. */

@@ -100,7 +100,13 @@
     "portable_source_preflight_implemented": true,
     "portable_source_preflight_owner": "tools/creator/core/portable_sources.go#VerifyPortableSources",
     "portable_source_preflight_requires_exact_17_flat_files": true,
-    "portable_source_preflight_is_destructive_authorization": false
+    "portable_source_preflight_is_destructive_authorization": false,
+    "offline_writer_slot_rejects_unbound_root_entries": true,
+    "cached_writer_size_checked_before_hashing": true,
+    "version_root_must_be_real_directory": true,
+    "pre_uac_portable_preparation_confirms_device_capacity_and_serial": true,
+    "pre_uac_portable_authorization_requires_lowercase_sha256_shape": true,
+    "windows_gui_revalidates_signed_candidate_before_prepare_and_uac": true
   },
   "physical_write_gate": {
     "development_channel_can_write": false,
@@ -131,5 +137,30 @@
     "target_changes_during_prepare": "abort",
     "uac_denied": "abort_without_write",
     "write_or_readback_failure": "report_failure_and_never_claim_success"
+  },
+  "media_acquisition": {
+    "owner": "tools/creator/physicalchannel",
+    "official_delivery": "ed25519-signed-portable-physical-release",
+    "official_format": "17-exact-artifacts-with-hashes-and-sizes-not-monolithic-disk-raw",
+    "consumer_selects_iso_or_image": false,
+    "owner_development_offline_raw_seed_is_separate": true,
+    "version_identity_authority": "signed-release-source-commit",
+    "previous_version_source_reuse": true,
+    "donor_eligibility": "regular-non-symlink-file-with-exact-signed-size-and-sha256",
+    "reject_size_mismatch_before_hashing": true,
+    "revalidate_bytes_during_copy": true,
+    "new_candidate_final_validation_required": true,
+    "download_only_missing_or_unmatched_signed_artifacts": true,
+    "offline_fallback": "last-signed-candidate-reverified-by-current",
+    "additional_media_catalog_or_cache_allowed": false,
+    "physical_write_authority_unchanged": true,
+    "signed_envelope_pointer_prior_state_preserved_on_replace_failure": true,
+    "portable_v3_provenance_separates_writer_and_release_source": true,
+    "portable_v3_provenance_requires_signed_release_proof_and_envelope": true,
+    "exact_17_flat_sources_rechecked_for_offline_and_online_candidates": true,
+    "each_portable_asset_url_bound_to_signed_release_commit": true,
+    "cross_release_asset_url_rejected_by_consumer_and_signer": true,
+    "windows_gui_core_verification_before_elevation": true,
+    "portable_v3_consumer_validates_signed_authorization_and_exact_release_proof_bindings": true
   }
 }

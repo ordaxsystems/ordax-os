@@ -1,0 +1,65 @@
+name: Owner Development Preflight
+
+on:
+  pull_request:
+    paths:
+      - 'bootstrap/dev/**'
+      - 'bootstrap/dev-base/**'
+      - 'bootstrap/recovery/**'
+      - 'bootstrap/independent-base/**'
+      - 'system/**'
+      - 'tools/ci/owner_rootfs_capabilities.py'
+      - 'tools/ci/preflight_owner_dev.py'
+      - 'tests/test_owner_rootfs_capabilities.py'
+      - 'tests/test_dev_git_flow.py'
+      - 'tests/test_dev_network_contract.py'
+      - 'tests/test_owner_surface_health_budget.py'
+      - 'tests/test_system_runtime_contract.py'
+      - '.github/workflows/owner-dev-preflight.yml'
+      - '.github/workflows/creator-owner-dev-git.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'bootstrap/dev/**'
+      - 'bootstrap/dev-base/**'
+      - 'bootstrap/recovery/**'
+      - 'bootstrap/independent-base/**'
+      - 'system/**'
+      - 'tools/ci/owner_rootfs_capabilities.py'
+      - 'tools/ci/preflight_owner_dev.py'
+      - 'tests/test_owner_rootfs_capabilities.py'
+      - 'tests/test_dev_git_flow.py'
+      - 'tests/test_dev_network_contract.py'
+      - 'tests/test_owner_surface_health_budget.py'
+      - 'tests/test_system_runtime_contract.py'
+      - '.github/workflows/owner-dev-preflight.yml'
+      - '.github/workflows/creator-owner-dev-git.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: owner-dev-preflight-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  preflight:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.12'
+          check-latest: false
+
+      - name: Run Owner Development preflight
+        run: |
+          set -euo pipefail
+          python tools/ci/preflight_owner_dev.py

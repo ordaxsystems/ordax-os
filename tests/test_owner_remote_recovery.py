@@ -14,6 +14,7 @@ OWNER_ROOT = ROOT / "bootstrap/base-update/owner-development"
 CONTRACT_PATH = OWNER_ROOT / "owner-recovery-source.json"
 HELPER_PATH = OWNER_ROOT / "ordax-remote"
 REFRESH_PATH = ROOT / "system/services/base-update/dev-helpers.sh"
+HELPER_MANIFEST_PATH = ROOT / "system/services/base-update/dev-helper-manifest.tsv"
 PULL_PATH = ROOT / "bootstrap/dev-base/ordax-pull"
 STABLE_SOURCE_PATH = ROOT / "bootstrap/stable-base/source.json"
 INITRAMFS_SOURCE_PATH = ROOT / "bootstrap/initramfs/source.json"
@@ -37,6 +38,7 @@ class OwnerRemoteRecoveryTests(unittest.TestCase):
         self.initramfs_source = json.loads(INITRAMFS_SOURCE_PATH.read_text(encoding="utf-8"))
         self.helper = HELPER_PATH.read_text(encoding="utf-8")
         self.refresh = REFRESH_PATH.read_text(encoding="utf-8")
+        self.helper_manifest = HELPER_MANIFEST_PATH.read_text(encoding="utf-8")
         self.pull = PULL_PATH.read_text(encoding="utf-8")
 
     def run_helper(
@@ -196,10 +198,11 @@ class OwnerRemoteRecoveryTests(unittest.TestCase):
         self.assertIn("/bootstrap/base-update/", self.pull)
         self.assertNotIn("/bootstrap/dev-base/ordax-remote", self.pull)
         self.assertIn(
-            "stage_helper bootstrap/base-update/owner-development/ordax-remote usr/local/bin/ordax-remote",
-            self.refresh,
+            "bootstrap/base-update/owner-development/ordax-remote\tusr/local/bin/ordax-remote",
+            self.helper_manifest,
         )
-        self.assertNotIn("system/services/device-agent/owner-remote", self.refresh)
+        self.assertIn("HELPER_MANIFEST=$WORKTREE/system/services/base-update/dev-helper-manifest.tsv", self.refresh)
+        self.assertNotIn("system/services/device-agent/owner-remote", self.helper_manifest)
 
     def test_owner_recovery_bytes_are_not_in_releasable_system_tree(self):
         self.assertFalse((ROOT / "system/services/device-agent/owner-remote.sh").exists())

@@ -42,6 +42,7 @@ type physicalBackendResolution struct {
 	Directory       string
 	Mode            string
 	PortablePayload *physicalchannel.PortablePayloadManifest
+	Installed       *physicalchannel.Installed
 }
 
 func resolutionFromInstalled(installed physicalchannel.Installed) physicalBackendResolution {
@@ -56,6 +57,7 @@ func resolutionFromInstalled(installed physicalchannel.Installed) physicalBacken
 		Directory: installed.Directory,
 		Mode: "portable-public",
 		PortablePayload: payload,
+		Installed: &installed,
 	}
 }
 

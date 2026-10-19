@@ -204,6 +204,63 @@ class DevelopmentGitFlowTest(unittest.TestCase):
             stdin=subprocess.DEVNULL,
         )
 
+    def test_preseeded_checkout_runs_with_remote_git_forbidden(self) -> None:
+        env = self._env()
+        env["ORDAX_REPO_URL"] = "https://github.invalid/ordaxsystems/ordax-os.git"
+        seeded = self._run(
+            [
+                "/bin/sh",
+                str(PULL),
+                "--seed-from-local",
+                str(self.source),
+                self.commit_v1,
+            ],
+            env=env,
+        )
+        self.assertIn(f"ORDAX_SOURCE_SHA={self.commit_v1}", seeded.stdout)
+
+        remote_marker = self.root / "unexpected-remote-git"
+        guarded_git = self.root / "git-local-only"
+        guarded_git.write_text(
+            "#!/bin/sh\n"
+            "for arg in \"$@\"; do\n"
+            "  case \"$arg\" in\n"
+            f"    ls-remote|fetch|clone) touch '{remote_marker}'; exit 97 ;;\n"
+            "  esac\n"
+            "done\n"
+            "exec git \"$@\"\n",
+            encoding="utf-8",
+        )
+        guarded_git.chmod(0o755)
+        env["ORDAX_GIT_BIN"] = str(guarded_git)
+
+        result = self._script(RUN, env=env)
+
+        self.assertEqual(result.returncode, 0)
+        self.assertIn("runtime-v1", result.stdout)
+        self.assertIn(f"starting Owner/Development runtime at {self.commit_v1}", result.stdout)
+        self.assertFalse(remote_marker.exists())
+        self.assertEqual(
+            self._run(["git", "-C", str(self.worktree), "status", "--porcelain"]).stdout,
+            "",
+        )
+
+    def test_ordax_run_rejects_dirty_or_unregistered_checkout(self) -> None:
+        self._script(PULL)
+        dirty = self.worktree / "system/local-dirty.txt"
+        dirty.write_text("dirty\n", encoding="utf-8")
+        result = self._script(RUN, check=False)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("checkout local possui alteracoes", result.stderr)
+        self.assertNotIn("runtime-v1", result.stdout)
+
+        dirty.unlink()
+        (self.state / "current-commit").write_text("0" * 40 + "\n", encoding="ascii")
+        result = self._script(RUN, check=False)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("checkout diverge do commit registrado", result.stderr)
+        self.assertNotIn("runtime-v1", result.stdout)
+
     def test_clone_pull_rollback_pin_and_explicit_unpin(self) -> None:
         first = self._script(PULL)
         self.assertIn(self.commit_v1, first.stdout)
@@ -221,13 +278,7 @@ class DevelopmentGitFlowTest(unittest.TestCase):
             {
                 "/system/",
                 "/bootstrap/base-update/",
-                "/bootstrap/dev-base/ordax-dev-init",
-                "/bootstrap/dev-base/ordax-diagnose",
-                "/bootstrap/dev-base/ordax-network",
-                "/bootstrap/dev-base/ordax-main-watch",
-                "/bootstrap/dev-base/ordax-pull",
-                "/bootstrap/dev-base/ordax-rollback",
-                "/bootstrap/dev-base/ordax-run",
+                "/bootstrap/dev-base/",
                 "/bootstrap/recovery/entrypoint",
                 "/bootstrap/trust/",
                 "/bootstrap/config/release-envelope-url",
@@ -294,7 +345,7 @@ class DevelopmentGitFlowTest(unittest.TestCase):
         )
         self.assertIn("runtime-v1", self._script(RUN).stdout)
 
-        # A pinned boot must remain local and enter the Dev console without launching the runtime.
+        # A pinned boot must launch the known-good local Surface without a network pull.
         # The real dev-base builder installs these scripts as executable files. Mirror that
         # installation boundary here instead of relying on the source-tree executable bit.
         bin_dir = self.root / "bin"
@@ -322,10 +373,9 @@ class DevelopmentGitFlowTest(unittest.TestCase):
             }
         )
         boot = self._script(DEV_INIT, env=boot_env)
-        self.assertIn("Rollback fixado", boot.stdout)
-        self.assertIn("Checkout conhecido como bom carregado. Entrando no console Dev.", boot.stdout)
-        self.assertIn("OrdaX Dev pronto.", boot.stdout)
-        self.assertNotIn("runtime-v1", boot.stdout)
+        self.assertIn("OrdaX: iniciando a Surface local", boot.stdout)
+        self.assertIn("OrdaX: iniciando a Surface local", boot.stdout)
+        self.assertIn("runtime-v1", boot.stdout)
         self.assertFalse(pull_marker.exists())
 
         # The explicit pull is the only normal action that releases the sticky rollback.
@@ -337,7 +387,7 @@ class DevelopmentGitFlowTest(unittest.TestCase):
             self.commit_v2,
         )
 
-    def test_console_boot_does_not_launch_runtime_or_trigger_runtime_rollback(self) -> None:
+    def test_graphical_boot_runs_local_runtime_without_remote_pull_or_runtime_rollback(self) -> None:
         self._script(PULL)
         self.commit_v2 = self._commit_runtime("runtime-v2")
         self._script(PULL)
@@ -375,10 +425,9 @@ class DevelopmentGitFlowTest(unittest.TestCase):
         )
 
         result = self._script(DEV_INIT, env=boot_env)
-        self.assertIn("Checkout local saudavel", result.stdout)
-        self.assertIn("Boot rapido: console Dev local; rede e main watch iniciam em paralelo.", result.stdout)
-        self.assertIn("OrdaX Dev pronto.", result.stdout)
-        self.assertFalse(runtime_marker.exists())
+        self.assertIn("Checkout local verificado", result.stdout)
+        self.assertIn("OrdaX: iniciando a Surface local", result.stdout)
+        self.assertTrue(runtime_marker.exists())
         self.assertFalse(pull_marker.exists())
         self.assertFalse((self.state / "boot-rejected-commit").exists())
         self.assertFalse((self.state / "pinned-commit").exists())
@@ -421,13 +470,12 @@ class DevelopmentGitFlowTest(unittest.TestCase):
         )
         result = self._script(DEV_INIT, env=env)
 
-        self.assertIn("Checkout local saudavel", result.stdout)
-        self.assertIn("Boot rapido: console Dev local; rede e main watch iniciam em paralelo.", result.stdout)
-        self.assertIn("OrdaX Dev pronto.", result.stdout)
-        self.assertNotIn("runtime-v1", result.stdout)
+        self.assertIn("Checkout local verificado", result.stdout)
+        self.assertIn("OrdaX: iniciando a Surface local", result.stdout)
+        self.assertIn("runtime-v1", result.stdout)
         self.assertFalse(pull_marker.exists())
         boot_metrics = (self.state / "boot-last.tsv").read_text(encoding="utf-8")
-        self.assertTrue(boot_metrics.startswith("fast-console\t"))
+        self.assertTrue(boot_metrics.startswith("fast-graphical\t"))
 
     def test_seed_boot_does_not_require_or_create_version_store(self) -> None:
         self._script(PULL)
@@ -466,7 +514,7 @@ class DevelopmentGitFlowTest(unittest.TestCase):
         result = self._script(DEV_INIT, env=env)
 
         self.assertIn("OrdaX Dev pronto.", result.stdout)
-        self.assertNotIn("runtime-v1", result.stdout)
+        self.assertIn("runtime-v1", result.stdout)
         self.assertFalse(versions.exists())
 
     def test_unmapped_ab_slot_falls_back_to_seed_rootfs(self) -> None:
@@ -506,7 +554,7 @@ class DevelopmentGitFlowTest(unittest.TestCase):
         result = self._script(DEV_INIT, env=env)
 
         self.assertIn("OrdaX Dev pronto.", result.stdout)
-        self.assertNotIn("runtime-v1", result.stdout)
+        self.assertIn("runtime-v1", result.stdout)
         self.assertTrue(versions.is_dir())
         self.assertFalse((self.state / "base-update/rootfs/slot-a").exists())
 
@@ -516,7 +564,7 @@ class DevelopmentGitFlowTest(unittest.TestCase):
         dev_init = DEV_INIT.read_text(encoding="utf-8")
 
         self.assertIn("if ! sync_clock; then", network)
-        self.assertIn("continuando com IP disponivel", network)
+        self.assertIn("IP disponivel, mas relogio nao sincronizou dentro do limite", network)
         self.assertIn('CLOCK_SYNC_TIMEOUT=${ORDAX_CLOCK_SYNC_TIMEOUT_SECONDS:-5}', network)
         self.assertIn('DHCP_TIMEOUT=${ORDAX_DHCP_TIMEOUT_SECONDS:-6}', network)
         self.assertIn('WIFI_LINK_TIMEOUT=${ORDAX_WIFI_LINK_TIMEOUT_SECONDS:-8}', network)
@@ -536,32 +584,25 @@ class DevelopmentGitFlowTest(unittest.TestCase):
         self.assertIn("replace_runtime_checkout()", pull)
         self.assertIn('STAGING_PREFIX=$WORKSPACE_ROOT/.ordax-staging', pull)
         self.assertIn('RETIRED_PREFIX=$WORKSPACE_ROOT/.ordax-retired', pull)
+        self.assertIn('PULL_LOCK_DIR=$RUN_DIR/pull.lock', pull)
+        self.assertIn('acquire_pull_lock()', pull)
+        self.assertIn('recover_interrupted_swap()', pull)
+        self.assertIn('recover_legacy_retired_checkout()', pull)
+        self.assertIn('cleanup_transaction_artifacts()', pull)
+        self.assertIn('/bootstrap/dev-base/', pull)
         self.assertIn('mv "$stage" "$WORKTREE"', pull)
         self.assertNotIn('pull --ff-only', pull)
 
-        self.assertIn('BOOT_PULL_ATTEMPTS=${ORDAX_BOOT_PULL_ATTEMPTS:-2}', dev_init)
         self.assertIn("BOOT_REJECTED_FILE=$STATE_DIR/boot-rejected-commit", dev_init)
         self.assertIn("BOOT_METRICS_FILE=$STATE_DIR/boot-last.tsv", dev_init)
         self.assertIn("local_checkout_bootable()", dev_init)
-        self.assertIn("start_network_background()", dev_init)
-        self.assertIn("start_main_watch_background()", dev_init)
-        self.assertIn("record_boot_handoff()", dev_init)
-        self.assertIn("recover_previous_checkout()", dev_init)
-        self.assertIn("Boot rapido: console Dev local; rede e main watch iniciam em paralelo.", dev_init)
-        self.assertLess(
-            dev_init.index("if local_checkout_bootable; then"),
-            dev_init.index("network_ok=0"),
-        )
-        fast_block = dev_init.split("if local_checkout_bootable; then", 1)[1].split(
-            "Primeiro boot ou checkout local inconsistente",
-            1,
-        )[0]
-        self.assertNotIn("ordax-pull", fast_block)
-        self.assertNotIn('"$BIN_DIR/ordax-run"', fast_block)
-        self.assertIn("maintenance_shell", fast_block)
-        self.assertIn('while [ "$attempt" -le "$BOOT_PULL_ATTEMPTS" ]', dev_init)
-        self.assertIn("repetindo uma vez apos pausa curta", dev_init)
-        self.assertIn("sleep 2", dev_init)
+        self.assertIn("initialize_network_hardware()", dev_init)
+        self.assertIn("start_local_surface()", dev_init)
+        self.assertIn('"$BIN_DIR/ordax-network" --init-hardware', dev_init)
+        self.assertIn('start_local_surface fast-graphical', dev_init)
+        self.assertIn('record_boot_handoff recovery-no-checkout', dev_init)
+        self.assertNotIn('"$BIN_DIR/ordax-pull"', dev_init)
+        self.assertNotIn('start_main_watch_background()', dev_init)
 
     def test_pull_replaces_dirty_or_invalid_runtime_checkout_atomically(self) -> None:
         self._script(PULL)
@@ -619,6 +660,86 @@ class DevelopmentGitFlowTest(unittest.TestCase):
             self.commit_v2,
         )
 
+    def test_interrupted_atomic_swap_restores_last_checkout_before_remote_access(self) -> None:
+        self._script(PULL)
+        old_sha = self.commit_v1
+        new_sha = self._commit_runtime("runtime-v2")
+
+        transaction_id = "4242"
+        retired = self.worktree.parent / f".ordax-retired.{transaction_id}"
+        self.worktree.rename(retired)
+        self.state.mkdir(parents=True, exist_ok=True)
+        (self.state / "pull-transaction.tsv").write_text(
+            f"{transaction_id}|retired|{new_sha}|{old_sha}|update\n",
+            encoding="utf-8",
+        )
+
+        offline_remote = self.root / "origin-temporarily-offline.git"
+        self.remote.rename(offline_remote)
+        try:
+            result = self._script(PULL, check=False)
+        finally:
+            offline_remote.rename(self.remote)
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("atualizacao anterior foi interrompida", result.stderr)
+        self.assertIn(f"versao local {old_sha} restaurada", result.stderr)
+        self.assertIn(f"atualizacao falhou; usando versao local {old_sha}", result.stderr)
+        self.assertTrue(self.worktree.is_dir())
+        self.assertFalse(retired.exists())
+        self.assertFalse((self.state / "pull-transaction.tsv").exists())
+        self.assertEqual(
+            self._run(["git", "-C", str(self.worktree), "rev-parse", "HEAD"]).stdout.strip(),
+            old_sha,
+        )
+        self.assertEqual((self.state / "current-commit").read_text().strip(), old_sha)
+
+    def test_pull_lock_blocks_concurrent_owner_and_reclaims_stale_owner(self) -> None:
+        self._script(PULL)
+        run_dir = self.root / "run/ordax-update"
+        lock_dir = run_dir / "pull.lock"
+        lock_dir.mkdir(parents=True)
+        (lock_dir / "pid").write_text(f"{os.getpid()}\n", encoding="ascii")
+
+        blocked = self._script(PULL, check=False)
+        self.assertEqual(blocked.returncode, 75)
+        self.assertIn("another update transaction is active", blocked.stderr)
+
+        (lock_dir / "pid").write_text("99999999\n", encoding="ascii")
+        recovered = self._script(PULL)
+        self.assertIn("stale update lock reclaimed", recovered.stderr)
+        self.assertFalse(lock_dir.exists())
+
+    def test_interrupted_swap_restores_retired_known_good_before_remote_work(self) -> None:
+        self._script(PULL)
+        retired = self.worktree.parent / ".ordax-retired.4242"
+        staging = self.worktree.parent / ".ordax-staging.4242"
+        self.worktree.rename(retired)
+        staging.mkdir(parents=True)
+        (staging / "partial").write_text("incomplete\n", encoding="utf-8")
+
+        recovered = self._script(PULL)
+        self.assertIn("recovered interrupted checkout transaction", recovered.stderr)
+        self.assertTrue(self.worktree.is_dir())
+        self.assertFalse(retired.exists())
+        self.assertFalse(staging.exists())
+        self.assertEqual(
+            self._run(["git", "-C", str(self.worktree), "rev-parse", "HEAD"]).stdout.strip(),
+            self.commit_v1,
+        )
+
+    def test_future_dev_helper_is_included_without_updater_sparse_list_change(self) -> None:
+        self._script(PULL)
+        future = self.source / "bootstrap/dev-base/ordax-future-helper"
+        future.write_text("#!/bin/sh\nprintf '%s\n' future-helper\n", encoding="utf-8")
+        future.chmod(0o755)
+        self._run(["git", "-C", str(self.source), "add", str(future)])
+        self._run(["git", "-C", str(self.source), "commit", "-m", "future-helper"])
+        self._run(["git", "-C", str(self.source), "push", "origin", "main"])
+
+        self._script(PULL)
+        self.assertTrue((self.worktree / "bootstrap/dev-base/ordax-future-helper").is_file())
+
     def test_remote_failure_preserves_last_local_checkout(self) -> None:
         self._script(PULL)
         before = self._run(["git", "-C", str(self.worktree), "rev-parse", "HEAD"]).stdout.strip()
@@ -631,6 +752,7 @@ class DevelopmentGitFlowTest(unittest.TestCase):
 
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("main remota indisponivel", result.stderr)
+        self.assertIn(f"atualizacao falhou; usando versao local {before}", result.stderr)
         self.assertTrue(marker.is_file())
         self.assertEqual(
             self._run(["git", "-C", str(self.worktree), "rev-parse", "HEAD"]).stdout.strip(),

@@ -132,6 +132,20 @@ class NativeNetworkManagementTests(unittest.TestCase):
         self.assertNotIn('echo "$ssid_hex"', text)
         self.assertNotIn("logger", text)
 
+    def test_first_run_wifi_waits_for_wpa_handshake_and_bounded_scan(self):
+        text = BROKER.read_text(encoding="utf-8")
+        self.assertIn('WPA_CLI_BIN=$(command -v wpa_cli || true)', text)
+        self.assertIn('[ -n "$WPA_CLI_BIN" ]', text)
+        self.assertIn('WPA_CTRL_DIR=/run/wpa_supplicant', text)
+        self.assertIn('-O"$WPA_CTRL_DIR" -i "$wifi" -c "$conf"', text)
+        self.assertIn('grep -q \'^wpa_state=COMPLETED$\'', text)
+        self.assertIn('/bin/busybox timeout -k 1 15 "$IW_BIN" dev "$wifi" scan', text)
+        self.assertLess(
+            text.index('if ! wait_for_wifi_link "$wifi"; then'),
+            text.index('    try_dhcp "$wifi"', text.index('connect_conf()')),
+        )
+        self.assertNotIn("grep -q '^Connected to '", text)
+
     def test_native_api_is_loopback_tokenized_serialized_and_no_shell_endpoint(self):
         server = SERVER.read_text(encoding="utf-8")
         get_section = server.split("def do_GET", 1)[1].split("def do_POST", 1)[0]

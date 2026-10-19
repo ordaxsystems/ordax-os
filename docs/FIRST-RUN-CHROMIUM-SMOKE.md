@@ -34,3 +34,16 @@ Este teste não comprova boot do pendrive, persistência fsync/ext4/exFAT, acess
 O teste tests/test_first_run_native_http.py exercita o **servidor Native verdadeiro**, em HTTP loopback, com FIRST_RUN_FILE redirecionado para um diret?rio tempor?rio. Verifica GET inicial, POST 204 ap?s escrita at?mica, GET de retorno, retry idempotente, bloqueio de mudan?a de modo/retrocesso, JSON inv?lido, Host/Origin estrangeiros e recibo corrompido que n?o pode ser sobrescrito. Executado pelo workflow Surface Web Candidate em Linux.
 
 A prova Chromium e a prova HTTP Linux s?o complementares: usam o adaptador real no navegador e o host real em Linux, mas **n?o** afirmam boot f?sico nem fsync na m?dia USB alvo. O ensaio de integra??o entre ambos na mesma sess?o de hardware continua gate separado.
+
+## Verified browser module origin (2026-10-18)
+
+The canonical First Run renderer now resolves its Meridian brand image from
+`import.meta.url`. The Chromium proof therefore serves the exact repository
+ESM files and the existing symbol PNG over an ephemeral, loopback-only HTTP
+origin instead of importing from `blob:null`. It preserves the real import-map
+module graph, the existing production source and the same functional assertions.
+Only the already-collected source files and the one canonical brand PNG can be
+served; the server closes after the proof, including on failure. This validates
+actual relative asset resolution without an alternate logo, runtime, installer
+or skipped check. This fixes an independent baseline CI regression introduced
+with the Meridian First Run visual migration, not an installation-state change.

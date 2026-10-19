@@ -10,7 +10,26 @@
     "surface_ui": "system/surface/ui/first-run.mjs",
     "local_session_contract": "system/contracts/local-session.mjs",
     "local_session_adapter": "system/adapters/native/local-session.mjs",
-    "local_session_ui": "system/surface/ui/local-session-lock.mjs"
+    "local_session_ui": "system/surface/ui/local-session-lock.mjs",
+    "device_profile_contract": "system/contracts/device-profile.mjs",
+    "device_profile_adapter": "system/adapters/native/device-profile.mjs",
+    "journey": "system/services/first-run/journey.mjs",
+    "capabilities": "system/services/first-run/capabilities.mjs",
+    "visual_tokens": "system/surface/ui/meridian.tokens.css",
+    "visual_styles": "system/surface/ui/first-run.css",
+    "native_composition": "system/composition/native/index.html"
+  },
+  "resume_cursor": {
+    "schema": "ordax.first-run-cursor/1",
+    "owner": "native-host",
+    "contract": "system/contracts/first-run-cursor.mjs",
+    "adapter": "system/adapters/native/first-run-cursor.mjs",
+    "native_path": "/var/lib/ordax/first-run-cursor.json",
+    "only_safe_navigation_step": true,
+    "never_store_identity_secret_or_keyboard": true,
+    "resume_later_steps_at_account": true,
+    "completion_receipt_unchanged": true,
+    "optional_cursor_does_not_block_boot": true
   },
   "persistence": {
     "native_path": "/var/lib/ordax/first-run.json",
@@ -33,6 +52,7 @@
     "security",
     "account",
     "privacy",
+    "name",
     "ready"
   ],
   "regional": {
@@ -64,6 +84,8 @@
     "editable_after_first_run_in_settings": true,
     "keyboard_layout_contract": "docs/contracts/keyboard-layout.json",
     "keyboard_layout_selector_exposed": false,
+    "keyboard_status_read_only": true,
+    "keyboard_status_owner": "keyboard-layout",
     "keyboard_layout_selector_gate": "safe-current-session-apply-or-pre-surface-handoff",
     "public_mvp_locales": [
       "pt-BR",
@@ -106,6 +128,22 @@
     "identity_selection_requires_fresh_session_read": true,
     "identity_subject_in_first_run_receipt": false,
     "expired_or_changed_identity_returns_to_account_step": true
+  },
+  "privacy": {
+    "owner": "preference-runtime",
+    "preference_contract": "system/contracts/preference-runtime.mjs",
+    "preference_definition": "system/services/preferences/memory.mjs",
+    "memory_auto_capture_preference": "memory.auto-capture",
+    "must_not_enter_first_run_state": true,
+    "memory_service_consumes_runtime_preference": true,
+    "cloud_sync_enabled_by_this_step": false
+  },
+  "device_name": {
+    "owner": "device-profile",
+    "capability_driven": true,
+    "rename_must_be_confirmed_before_advancing": true,
+    "must_not_enter_first_run_state": true,
+    "owner_unavailable_must_not_block_boot": true
   },
   "mvp": {
     "runs_from_usb": true,

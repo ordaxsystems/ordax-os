@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import re
 from pathlib import Path
@@ -138,44 +139,65 @@ def _message(messages: dict[str, str], message_id: str, **values: str) -> str:
 
 
 def _surface_home() -> dict[str, object]:
+    """Project real Native Meridian device-app shortcuts into the public demo.
+
+    The sidebar destinations come from MERIDIAN_RAIL_DESTINATIONS, not from
+    the retired desktop-shell railButton/spaceLink layout. The home metadata
+    here only describes device apps genuinely reachable in the Native menu.
+    """
     text = DESKTOP_SHELL.read_text(encoding="utf-8")
     messages = _surface_source_messages()
-    rail_matches = RAIL_RE.findall(text)
-    if not rail_matches:
-        # Surface desktop now composes its navigation from app identifiers.
-        # Derive the same localized titles without a duplicated list.
-        navigation = re.search(
-            r'navigation:\s*\[([^\]]+)\]\.map\(id\s*=>\s*railButton\(id,\s*t\(\`app\.\$\{id\}\.title\`\),\s*ICONS\[id\],\s*t\)\)',
-            text, re.DOTALL,
+    # The Native menu owns the real device-app list. Never fall back to the
+    # removed pre-Meridian rail layout or to a locally duplicated app catalog.
+    match = re.search(
+        r'const deviceApps = \[([^\]]+)\]\.map\(id\s*=>\s*',
+        text, re.DOTALL,
+    )
+    if not match or 't(`app.${id}.title`)' not in text:
+        raise PlaygroundFixtureError(
+            "Native Meridian menu is missing its canonical device-app shortcuts"
         )
-        if navigation:
-            rail_matches = [
-                (app_id, f"app.{app_id}.title")
-                for app_id in re.findall(r'"([a-z][a-z0-9-]*)"', navigation.group(1))
-            ]
-    space_matches = SPACE_RE.findall(text)
-    area = AREA_RE.search(text)
-    command = COMMAND_RE.search(text)
-    space_label = SPACE_LABEL_RE.search(text)
-    if not area or not command or not space_label or not rail_matches or not space_matches:
-        raise PlaygroundFixtureError("desktop shell is missing Home metadata required by the playground")
+    # Reject unexpected expressions instead of silently ignoring them and
+    # producing a public menu that differs from the actual Native menu.
+    raw_ids = match.group(1).strip()
+    if not re.fullmatch(r'"[a-z][a-z0-9-]*"(?:\s*,\s*"[a-z][a-z0-9-]*")*', raw_ids):
+        raise PlaygroundFixtureError("Native Meridian device-app list is malformed")
+    app_ids = re.findall(r'"([a-z][a-z0-9-]*)"', raw_ids)
+    if not app_ids or len(app_ids) != len(set(app_ids)):
+        raise PlaygroundFixtureError("Native Meridian device-app list is empty or duplicated")
 
     rail = [
-        {"id": app_id, "label": _message(messages, message_id)}
-        for app_id, message_id in rail_matches
+        {"id": app_id, "label": _message(messages, f"app.{app_id}.title")}
+        for app_id in app_ids
     ]
-    spaces = [
-        {"label": _message(messages, message_id), "target": target}
-        for message_id, target in space_matches
-    ]
+    # File-system folder shortcuts are no longer part of the Meridian Home.
+    # Do not carry the historical spaceLink demo entries forward.
     return {
-        "area_label": _message(messages, "surface.area.label", ordinal=area.group(1)),
+        "area_label": _message(messages, "surface.area.label", ordinal="01"),
         "command_label": _message(messages, "shell.launcher.command"),
         "space_label": _message(messages, "shell.space.title"),
-        "spaces": spaces,
-        "rail_apps": [item["id"] for item in rail],
+        "spaces": [],
+        "rail_apps": app_ids,
         "rail_labels": rail,
     }
+
+
+def _current_surface_snapshot():
+    snapshot = json.loads((PUBLIC_ROOT / "assets/surface-snapshot.json").read_text(encoding="utf-8"))
+    css = PUBLIC_ROOT / "assets/surface-snapshot.css"
+    if hashlib.sha256(css.read_text(encoding="utf-8").encode("utf-8")).hexdigest() != snapshot.get("cssSha256"):
+        raise PlaygroundFixtureError("public Surface stylesheet diverged from its generated artifact")
+    for source in snapshot["sources"]:
+        relative = Path(source["path"])
+        if relative.is_absolute() or ".." in relative.parts:
+            raise PlaygroundFixtureError("invalid public Surface provenance path")
+        path = ROOT / relative
+        payload = path.read_bytes()
+        if path.suffix in {".ts", ".tsx", ".js", ".jsx", ".mjs", ".css", ".json", ".svg"}:
+            payload = payload.replace(b"\r\n", b"\n")
+        if hashlib.sha256(payload).hexdigest() != source["sha256"]:
+            raise PlaygroundFixtureError("public Surface snapshot is stale: " + source["path"] + "; run node tools/public-site/surface_snapshot.mjs and playground_fixture.py --write")
+    return snapshot
 
 
 def generate_fixture() -> dict[str, object]:
@@ -210,6 +232,7 @@ def generate_fixture() -> dict[str, object]:
         },
         "home": home,
         "apps": apps,
+        "surface": _current_surface_snapshot(),
     }
 
 
@@ -269,6 +292,11 @@ def write_fixture() -> None:
     html = INDEX_PATH.read_text(encoding="utf-8")
     start, end = _inline_fixture_bounds(html)
     html = html[:start] + "\n" + payload + html[end:]
+    # The demo's emitted presentation and controller must advance together in caches.
+    for asset in ("assets/surface-snapshot.css", "assets/playground.js", "i18n/catalog.js"):
+        digest = hashlib.sha256((PUBLIC_ROOT / asset).read_bytes()).hexdigest()[:12]
+        html = re.sub(r'((?:href|src)="/' + re.escape(asset) + r')(?:\?[^\"]*)?"',
+                      lambda match: match.group(1) + "?v=" + digest + '"', html)
     INDEX_PATH.write_text(html, encoding="utf-8")
 
 
