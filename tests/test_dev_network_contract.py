@@ -17,6 +17,21 @@ class DevelopmentNetworkContractTest(unittest.TestCase):
         for script in (NETWORK, DEV_INIT):
             subprocess.run(["/bin/sh", "-n", str(script)], check=True)
 
+    def test_first_run_saves_wifi_credentials_atomically_in_persistent_state(self) -> None:
+        text = NETWORK.read_text(encoding="utf-8")
+        self.assertIn("STATE_DIR=/state/network", text)
+        self.assertIn("CANDIDATE_CONF=$STATE_DIR/wpa.conf.candidate.$$", text)
+        self.assertIn("WPA_CONF=$STATE_DIR/wpa.conf", text)
+        self.assertIn('chmod 700 "$STATE_DIR"', text)
+        self.assertIn('umask 077', text)
+        self.assertIn('mv -f "$CANDIDATE_CONF" "$WPA_CONF"', text)
+        self.assertIn('/bin/busybox sync', text)
+        self.assertNotIn('CANDIDATE_CONF=/run/ordax-wpa-candidate.conf', text)
+        self.assertLess(
+            text.index('mv -f "$CANDIDATE_CONF" "$WPA_CONF"'),
+            text.index('        finish_network "$wifi"', text.index('mv -f "$CANDIDATE_CONF" "$WPA_CONF"')),
+        )
+
     def test_network_status_writer_is_defined_before_startup_use(self) -> None:
         text = NETWORK.read_text(encoding="utf-8")
         writer = text.index("\nwrite_network_status() {")
