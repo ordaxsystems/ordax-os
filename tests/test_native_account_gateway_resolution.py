@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 import subprocess
 import unittest
@@ -30,6 +31,18 @@ class NativeAccountGatewayResolutionTests(unittest.TestCase):
         configured = GATEWAY_CONFIG.read_text(encoding="utf-8").strip()
         self.assertTrue(configured.startswith("https://"))
         subprocess.run(["sh", "-n", str(SURFACE_ENTRYPOINT)], check=True)
+
+    def test_gateway_uses_canonical_platform_destination_without_legacy_fallback(self):
+        contract = json.loads((ROOT / "docs" / "contracts" / "public-auth-hardening.json").read_text(encoding="utf-8"))
+        destination = contract["postgresql_destination"]
+        self.assertEqual(destination["project_name"], "ordax-platform")
+        self.assertTrue(destination["internal_gateway_staging_deployed"])
+        configured = GATEWAY_CONFIG.read_text(encoding="utf-8").strip()
+        self.assertEqual(
+            configured,
+            f"https://{destination['project_ref']}.supabase.co/functions/v1/ordax-account-gateway",
+        )
+        self.assertNotEqual(destination["project_ref"], contract["target"]["project_ref"])
 
     def test_entrypoint_does_not_fetch_identity_configuration_from_network(self):
         text = SURFACE_ENTRYPOINT.read_text(encoding="utf-8")
