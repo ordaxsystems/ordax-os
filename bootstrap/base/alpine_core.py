@@ -588,9 +588,12 @@ def verify_rootfs(rootfs: Path) -> None:
     search_roots = ("bin", "sbin", "usr/bin", "usr/sbin", "usr/local/bin", "usr/local/sbin")
     internal_commands = set(inventory["internal_commands"])
     explicit_busybox = set(inventory["explicit_busybox_applets"])
+    # Binaries provided by the verified fixed initramfs remain there until
+    # switch_root; do not duplicate them into the development rootfs.
+    fixed_initramfs = set(inventory["fixed_initramfs_commands"])
     missing_commands = []
     for command in inventory["commands"]:
-        if command in internal_commands or command in explicit_busybox:
+        if command in internal_commands or command in explicit_busybox or command in fixed_initramfs:
             continue
         candidates = [rootfs / directory / command for directory in search_roots]
         if not any(path.is_file() and os.access(path, os.X_OK) for path in candidates):

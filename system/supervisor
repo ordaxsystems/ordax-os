@@ -202,7 +202,7 @@ run_bounded_git() {
 write_state_value() {
     destination=$1
     value=$2
-    temporary=$destination.tmp.$
+    temporary=$destination.tmp.$$
     printf '%s\n' "$value" >"$temporary"
     /bin/busybox mv -f "$temporary" "$destination"
 }
@@ -666,7 +666,7 @@ refresh_release_history() {
     if [ "$DISTRIBUTION_PROFILE" = "stable-mvp" ]; then
         return 0
     fi
-    temporary=$RELEASE_HISTORY_FILE.tmp.$
+    temporary=$RELEASE_HISTORY_FILE.tmp.$$
     : >"$temporary"
     for release_sha in $("$GIT_BIN" -C "$WORKTREE" rev-list --first-parent --max-count="$RELEASE_HISTORY_MAX_ENTRIES" HEAD -- \
         system boot bootstrap \
@@ -700,7 +700,7 @@ append_application_history() {
     [ "$apply_duration" -le 3600 ] 2>/dev/null || apply_duration=0
     [ "$stage_duration" -le 3600 ] 2>/dev/null || stage_duration=0
 
-    temporary=$UPDATE_HISTORY_FILE.tmp.$
+    temporary=$UPDATE_HISTORY_FILE.tmp.$$
     if [ -f "$UPDATE_HISTORY_FILE" ]; then
         /bin/busybox cat "$UPDATE_HISTORY_FILE" >"$temporary"
     else
@@ -795,7 +795,7 @@ write_update_state() {
     case "$last_apply_duration" in ''|*[!0-9]*) last_apply_duration=0 ;; esac
     case "$last_stage_duration" in ''|*[!0-9]*) last_stage_duration=0 ;; esac
     delivery_number=$(delivery_number_for_sha "$source_sha")
-    temporary=$UPDATE_STATE.tmp.$
+    temporary=$UPDATE_STATE.tmp.$$
     printf '{"sourceSha":"%s","deliveryNumber":%s,"versionNumber":%s,"runtimeSurfaceSha":"%s","targetSha":"%s","status":"%s","phase":"%s","applyMode":"%s","attemptId":"%s","bootRefreshRequired":%s,"baseUpdatePhase":"%s","baseUpdateSha":"%s","checkedAt":"%s","lastAppliedSha":"%s","lastAppliedAt":"%s","stagedReleaseSha":"%s","lastApplyDurationSeconds":%s,"lastStageDurationSeconds":%s,"rejectedSha":"%s","lastError":"%s"}\n' \
         "$source_sha" "$delivery_number" "$delivery_number" "$runtime_surface_sha" "$UPDATE_TARGET_SHA" "$status" "$UPDATE_PHASE" "$apply_mode" "$UPDATE_ATTEMPT_ID" \
         "$boot_refresh" "$BASE_UPDATE_PHASE" "$BASE_UPDATE_SHA" "$checked_at" "$last_applied_sha" "$last_applied_at" "$staged_release_sha" "$last_apply_duration" "$last_stage_duration" "$rejected_sha" "$UPDATE_ERROR" >"$temporary"
@@ -810,10 +810,10 @@ record_applied() {
         record_elapsed_seconds "$attempt_started" "$LAST_APPLY_DURATION_FILE"
         rm -f "$ATTEMPT_STARTED_EPOCH_FILE"
     fi
-    temporary=$LAST_APPLIED_SHA_FILE.tmp.$
+    temporary=$LAST_APPLIED_SHA_FILE.tmp.$$
     printf '%s\n' "$source_sha" >"$temporary"
     /bin/busybox mv -f "$temporary" "$LAST_APPLIED_SHA_FILE"
-    temporary=$LAST_APPLIED_AT_FILE.tmp.$
+    temporary=$LAST_APPLIED_AT_FILE.tmp.$$
     utc_now >"$temporary"
     /bin/busybox mv -f "$temporary" "$LAST_APPLIED_AT_FILE"
     applied_at=$(read_state_value "$LAST_APPLIED_AT_FILE")
@@ -1208,7 +1208,7 @@ rollback_boot_candidate() {
     append_application_history "$failed_sha" supervisor-restart rolled-back "$(utc_now)"
     log "cold-boot Surface candidate $failed_sha failed health; rolling back to last rendered runtime $previous_sha"
 
-    temporary=$REJECTED_FILE.tmp.$
+    temporary=$REJECTED_FILE.tmp.$$
     printf '%s\n' "$failed_sha" >"$temporary"
     /bin/busybox mv -f "$temporary" "$REJECTED_FILE"
     clear_surface_health
@@ -1377,7 +1377,7 @@ write_stable_activation_guard() {
     [ "$previous_sha" != "$candidate_sha" ] || return 1
     [ -n "$attempt_id" ] || return 1
 
-    temporary=$STABLE_ACTIVATION_GUARD_FILE.tmp.$
+    temporary=$STABLE_ACTIVATION_GUARD_FILE.tmp.$$
     printf '%s %s %s\n' "$previous_sha" "$candidate_sha" "$attempt_id" >"$temporary"
     chmod 600 "$temporary"
     /bin/busybox mv -f "$temporary" "$STABLE_ACTIVATION_GUARD_FILE"
@@ -2252,7 +2252,7 @@ check_for_update() {
         supervisor-restart)
             clear_surface_health
             set_update_context activating "$new_sha" "$attempt_id" ""
-            temporary=$SUPERVISOR_GUARD_FILE.tmp.$
+            temporary=$SUPERVISOR_GUARD_FILE.tmp.$$
             printf '%s %s %s\n' "$old_sha" "$new_sha" "$attempt_id" >"$temporary"
             /bin/busybox mv -f "$temporary" "$SUPERVISOR_GUARD_FILE"
             write_update_state "$new_sha" applied supervisor-restart

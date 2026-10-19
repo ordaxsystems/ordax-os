@@ -71,9 +71,14 @@ class CreatorKernelReuseWorkflowTests(unittest.TestCase):
             '--kernel-modules "out/kernel/kernel-modules-$ORDAX_KERNEL_VERSION.tar"',
             dev_base,
         )
-        self.assertIn('--seed-from-local "$GITHUB_WORKSPACE" "$GITHUB_SHA"', dev_base)
+        self.assertIn('--seed-from-local "$GITHUB_WORKSPACE" "$ORDAX_OWNER_SOURCE_COMMIT"', dev_base)
         self.assertIn('test -z "$(git -C "$rootfs/workspace/ordax" status --porcelain)"', dev_base)
-        self.assertIn('test "$(cat "$rootfs/state/ordax/current-commit")" = "$GITHUB_SHA"', dev_base)
+        self.assertIn('test "$(cat "$rootfs/state/ordax/current-commit")" = "$ORDAX_OWNER_SOURCE_COMMIT"', dev_base)
+        self.assertIn("ORDAX_OWNER_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}", workflow)
+        self.assertIn('ref: ${{ github.event.pull_request.head.sha || github.sha }}', workflow)
+        self.assertIn('test "$(git -C "$rootfs/workspace/ordax" rev-parse HEAD)" = "$ORDAX_OWNER_SOURCE_COMMIT"', dev_base)
+        self.assertIn('"$target_bytes"', self.step_block(workflow, "Materialize and verify RAW development seed"))
+        self.assertIn('seed_bytes="$(stat -c \'%s\' "$proof/ordax-disposable.raw")"', workflow)
         self.assertNotIn('git clone https://github.com/ordaxsystems/ordax-os.git', dev_base)
         for step in (
             "Derive development Git bootstrap manifest",
@@ -120,13 +125,49 @@ class CreatorKernelReuseWorkflowTests(unittest.TestCase):
         self.assertNotIn("bootstrap/kernel/build.py", dev_base)
         self.assertNotIn("bootstrap/initramfs/build.py", dev_base)
 
+    def test_review_candidate_is_byte_verified_pr_only_not_a_release(self):
+        workflow = self.workflow(OWNER_DEV)
+        verify = workflow.index("      - name: Verify exact Owner Development ZIP before publication")
+        key_cleanup = workflow.index("      - name: Destroy ephemeral private key before publish")
+        retain = workflow.index("      - name: Retain exact-commit verified USB Dev acceptance bundle")
+        publish = workflow.index("      - name: Publish development Creator bundle")
+        self.assertLess(verify, key_cleanup)
+        self.assertLess(key_cleanup, retain)
+        self.assertLess(retain, publish)
+
+        artifact = self.step_block(
+            workflow, "Retain exact-commit verified USB Dev acceptance bundle"
+        )
+        self.assertIn(
+            "if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == 'ordaxsystems/ordax-os'",
+            artifact,
+        )
+        self.assertIn(
+            "name: owner-dev-usb-candidate-${{ env.ORDAX_OWNER_SOURCE_COMMIT }}",
+            artifact,
+        )
+        self.assertIn("out/owner-prototype/release/OrdaX-Creator-Owner-Prototype.zip", artifact)
+        self.assertIn("out/owner-prototype/release/SHA256SUMS.txt", artifact)
+        self.assertIn("out/owner-prototype/release/creator-owner-update.json", artifact)
+        self.assertIn("if-no-files-found: error", artifact)
+        self.assertNotIn("gh release", artifact)
+        self.assertNotIn("private.pem", artifact)
+        self.assertNotIn("ordax-bootstrap-seed.raw", artifact)
+
     def test_owner_dev_publication_remains_main_only(self):
         workflow = self.workflow(OWNER_DEV)
         trigger = workflow.split("permissions:", 1)[0]
         self.assertIn("  push:\n    branches: [main]", trigger)
-        self.assertNotIn("  pull_request:", trigger)
+        # Non-publishing PRs can prove the actual Owner USB payload. Promotion
+        # remains restricted to an exact push of main, never a PR or dispatch.
+        self.assertIn("  pull_request:", trigger)
         publish = self.step_block(workflow, "Publish development Creator bundle")
+        self.assertIn(
+            "if: github.event_name == 'push' && github.ref == 'refs/heads/main'",
+            publish,
+        )
         self.assertIn("gh release upload creator-owner-prototype", publish)
+        self.assertEqual(workflow.count("gh release upload creator-owner-prototype"), 1)
 
 
 if __name__ == "__main__":

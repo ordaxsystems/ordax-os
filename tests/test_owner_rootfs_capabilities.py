@@ -24,6 +24,11 @@ class OwnerRootfsCapabilitiesTest(unittest.TestCase):
         inventory = capabilities.owner_inventory(ROOT)
         self.assertEqual(inventory["missing_sources"], [])
         self.assertEqual(inventory["unknown_commands"], [])
+        self.assertIn("ordax-portable-mount", inventory["fixed_initramfs_commands"])
+        self.assertEqual(
+            capabilities.fixed_initramfs_commands(ROOT),
+            {"ordax-portable-mount"},
+        )
         commands = set(inventory["commands"])
         self.assertTrue({
             "git", "ip", "iw", "wpa_supplicant", "wpa_cli", "wpa_passphrase",

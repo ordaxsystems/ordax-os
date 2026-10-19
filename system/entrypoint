@@ -97,7 +97,7 @@ is_pid() {
 write_pid() {
     destination=$1
     value=$2
-    temporary=$destination.tmp.$
+    temporary=$destination.tmp.$$
     printf '%s\n' "$value" >"$temporary"
     /bin/busybox mv -f "$temporary" "$destination"
 }
@@ -181,7 +181,7 @@ ensure_base_boot_id() {
     [ "${#generated}" -eq 32 ] || return 1
     case "$generated" in *[!0-9a-f]*) return 1 ;; esac
 
-    temporary=$BASE_BOOT_ID_FILE.tmp.$
+    temporary=$BASE_BOOT_ID_FILE.tmp.$$
     printf '%s\n' "$generated" >"$temporary"
     chmod 600 "$temporary"
     /bin/busybox mv -f "$temporary" "$BASE_BOOT_ID_FILE"
@@ -240,7 +240,7 @@ write_base_update_heartbeat() {
 
     /bin/busybox mkdir -p "$BASE_UPDATE_STATE_DIR"
     chmod 700 "$BASE_UPDATE_STATE_DIR"
-    temporary=$BASE_HEARTBEAT_FILE.tmp.$
+    temporary=$BASE_HEARTBEAT_FILE.tmp.$$
     printf '{"$schema":"prototype-ordax.base-heartbeat/1","candidateSha":"%s","sourceSha":"%s","slot":"%s","bootId":"%s"}\n' \
         "$candidate" "$source_sha" "$slot" "$boot_id" >"$temporary"
     chmod 600 "$temporary"

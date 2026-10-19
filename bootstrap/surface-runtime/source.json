@@ -117,7 +117,7 @@
     "libcap-ng": "0.8.5-r0",
     "libcap2": "2.78-r0",
     "libcrypto3": "3.5.7-r0",
-    "libcurl": "8.14.1-r3",
+    "libcurl": "8.14.1-r4",
     "libdav1d": "1.5.1-r0",
     "libdc1394": "2.2.7-r0",
     "libde265": "1.0.15-r1",
@@ -129,7 +129,7 @@
     "libelogind": "252.24-r1",
     "libepoxy": "1.5.10-r1",
     "libevdev": "1.13.3-r0",
-    "libexpat": "2.8.5-r0",
+    "libexpat": "2.9.0-r0",
     "libffi": "3.4.8-r0",
     "libflac": "1.4.3-r1",
     "libfontenc": "1.1.8-r0",
@@ -313,16 +313,16 @@
     "repeat-byte-reproducible-erofs-build-on-current-apk-lock"
   ],
   "apk_package_lock_count": 253,
-  "apk_package_lock_status": "reviewed-refresh-from-ci-run-37798187669",
+  "apk_package_lock_status": "reviewed-253-package-upstream-drift-refresh-from-ci-run-39141123619-pending-reproof",
   "discovery_evidence": {
-    "workflow_run_id": 37798187669,
-    "source_commit": "16a7515f8596d90bcd0bee463b01c240b34ca0c5",
-    "artifact_name": "surface-runtime-candidate-16a7515f8596d90bcd0bee463b01c240b34ca0c5",
-    "artifact_archive_sha256": "e269c87f172f1a1dddc38d9da992dcac185978ffe2f1c2e99164266c8ba46157",
+    "workflow_run_id": 39141123619,
+    "source_commit": "37163fd113fda6e1690cf1c18bc399c25f14c71a",
+    "artifact_name": "surface-runtime-candidate-37163fd113fda6e1690cf1c18bc399c25f14c71a",
+    "artifact_archive_sha256": "ef1f3bf0607d1ecbf757127dda4975dafdee013ea6820fe893ba10f80aafa41d",
     "resolved_package_count": 253,
     "physical_artifact_created": false,
     "physical_write_authorized": false,
-    "scope": "current-2026-10-08-tiff-full-lock-refresh"
+    "scope": "2026-10-18-complete-apk-lock-drift-libcurl-libexpat"
   },
   "closed_gates": [
     "full-transitive-apk-lock-pinned",
@@ -364,36 +364,45 @@
     "secure_boot_proven": false
   },
   "lock_refresh": {
-    "status": "reproof-required-after-upstream-openjpeg-drift",
-    "detected_by_qemu_run_id": 37839826453,
-    "discovery_run_id": 37798187669,
-    "discovery_source_commit": "16a7515f8596d90bcd0bee463b01c240b34ca0c5",
-    "discovery_artifact_id": 11560175180,
-    "discovery_artifact_sha256": "e269c87f172f1a1dddc38d9da992dcac185978ffe2f1c2e99164266c8ba46157",
+    "status": "reproof-required-after-upstream-package-drift",
+    "detected_by_ci_run_id": 39139622997,
+    "discovery_run_id": 39141123619,
+    "discovery_source_commit": "37163fd113fda6e1690cf1c18bc399c25f14c71a",
+    "discovery_artifact_id": 12141134662,
+    "discovery_artifact_sha256": "ef1f3bf0607d1ecbf757127dda4975dafdee013ea6820fe893ba10f80aafa41d",
     "previous_package_count": 253,
     "resolved_package_count": 253,
     "missing": [],
     "extra": [],
     "changed": [
       {
-        "name": "tiff",
-        "from": "4.7.1-r0",
-        "to": "4.7.2-r0"
+        "name": "libcurl",
+        "from": "8.14.1-r3",
+        "to": "8.14.1-r4"
       },
       {
-        "name": "openjpeg",
-        "from": "2.5.4-r0",
-        "to": "2.5.4-r1"
+        "name": "libexpat",
+        "from": "2.8.5-r0",
+        "to": "2.9.0-r0"
       }
     ],
     "physical_artifact_created": false,
     "physical_write_authorized": false,
     "reproducibility_reproof_required": true,
     "upstream_drift": {
-      "package": "openjpeg",
-      "from": "2.5.4-r0",
-      "to": "2.5.4-r1",
-      "detected_by_qemu_run_id": 37839826453
+      "packages": [
+        {
+          "name": "libcurl",
+          "from": "8.14.1-r3",
+          "to": "8.14.1-r4"
+        },
+        {
+          "name": "libexpat",
+          "from": "2.8.5-r0",
+          "to": "2.9.0-r0"
+        }
+      ],
+      "detected_by_ci_run_id": 39139622997
     }
   }
 }

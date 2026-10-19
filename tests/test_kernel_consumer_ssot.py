@@ -114,8 +114,10 @@ class KernelConsumerSSOTTests(unittest.TestCase):
 
     def test_owner_creator_physical_writer_binding_uses_complete_source(self):
         workflow = (ROOT / ".github/workflows/creator-owner-dev-git.yml").read_text(encoding="utf-8")
-        self.assertIn("-X main.buildReleaseSourceCommit=$GITHUB_SHA", workflow)
-        self.assertIn("-X main.buildSourceCommit=$GITHUB_SHA", workflow)
+        self.assertIn("-X main.buildReleaseSourceCommit=$ORDAX_OWNER_SOURCE_COMMIT", workflow)
+        self.assertIn("-X main.buildSourceCommit=$ORDAX_OWNER_SOURCE_COMMIT", workflow)
+        self.assertIn("ORDAX_OWNER_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}", workflow)
+        self.assertIn("'source_commit': os.environ['ORDAX_OWNER_SOURCE_COMMIT']", workflow)
         self.assertIn("-X main.buildPhysicalWriteAuthorized=YES", workflow)
         writer = (ROOT / "tools/creator/cmd/ordax-creator-physical-test/main_windows.go").read_text(encoding="utf-8")
         self.assertIn("validLowerHex(buildReleaseSourceCommit, 20)", writer)
