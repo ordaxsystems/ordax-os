@@ -17,7 +17,7 @@ const VERSION_CONTROL_FILES = new Set([
   'system/contracts/product-version.mjs',
   'system/contracts/product-version-governance.mjs',
 ]);
-const FILE_EXTENSION = /\.(?:mjs|js|cjs|ts|tsx|jsx|sh|py|c|h|rs|css|html|json)$/;
+const FILE_EXTENSION = /\.(?:mjs|js|cjs|ts|tsx|jsx|sh|py|c|h|rs|css|html|json|svg|png|webp|jpe?g|ico|woff2?|ttf|otf|desktop|service|conf)$/;
 
 export function osProductCodeChanged(paths) {
   if (!Array.isArray(paths)) throw new TypeError('Changed paths must be an array');
