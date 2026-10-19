@@ -40,7 +40,7 @@ seus bytes mudam. A classificação reconhece exclusões explícitas de
 documentação/testes e arquivos auxiliares sem efeito de produto, como
 `.gitkeep` e `README.md`, além dos próprios arquivos de governança.
 
-Renomeações e movimentações são avaliadas com `git diff --no-renames`, para que o caminho original removido continue visível ao gate mesmo quando o destino é `docs/`, `README.md` ou outra área não executável. Esta regra também independe da configuração local `diff.renames` e possui regressão com dois commits Git reais.
+Renomeações e movimentações são avaliadas com `git diff --no-renames --name-only -z` (caminhos NUL-delimitados), para que o caminho original removido continue visível ao gate mesmo quando o destino é `docs/`, `README.md` ou outra área não executável. Esta regra também independe da configuração local `diff.renames` e possui regressão com dois commits Git reais.
 
 A ausência de sufixo no nome de um arquivo **não** o isenta do versionamento.
 Os testes `tests/test_product_version_changes.mjs` incluem o launcher

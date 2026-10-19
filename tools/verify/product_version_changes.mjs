@@ -56,12 +56,13 @@ function git(...args) {
 
 // Disable Git rename detection: a move from system/ to docs/ must still
 // expose the removed runtime path, not only the non-runtime destination.
-// This is intentionally independent of user/repository diff.renames settings.
+// NUL-delimited names also avoid Git's quoted/escaped Unicode and newline paths.
+// This is intentionally independent of user/repository diff.renames/quotePath settings.
 export function listOsVersionDiffPaths(testedBase, {head='HEAD',cwd=process.cwd()}={}) {
   const changed=execFileSync('git',[
-    '-C',cwd,'diff','--no-renames','--name-only',testedBase,head,
-  ],{encoding:'utf8',maxBuffer:8*1024*1024}).trim();
-  return changed ? changed.split('\n').filter(Boolean) : [];
+    '-C',cwd,'diff','--no-renames','--name-only','-z',testedBase,head,
+  ],{encoding:'utf8',maxBuffer:8*1024*1024});
+  return changed ? changed.split('\0').filter(Boolean) : [];
 }
 
 export function readOsVersionAt(ref) {
