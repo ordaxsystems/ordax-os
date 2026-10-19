@@ -235,6 +235,21 @@ class NativeNetworkManagementTests(unittest.TestCase):
         self.assertIn('rm -f "$AUTO_CONNECT_PAUSED"', reconnect)
         self.assertIn('rm -f "$WPA_CONF" "$AUTO_CONNECT_PAUSED"', broker)
 
+    def test_shared_surface_clock_retry_waits_for_ip_before_ntp(self):
+        surface = SURFACE_LAUNCHER.read_text(encoding="utf-8")
+        section = surface.split("supervise_time_sync_agent() (", 1)[1].split(
+            "\n)\n\nstart_time_sync_agent()", 1
+        )[0]
+        self.assertLess(
+            section.index('/bin/busybox ip -4 addr show scope global'),
+            section.index('/bin/busybox ntpd -n'),
+        )
+        self.assertIn('wait "$ntp_pid"', section)
+        self.assertIn('trap \'stop_clock_supervisor\' HUP INT TERM', section)
+        self.assertIn('kill -TERM "$ntp_pid"', section)
+        self.assertIn('supervise_time_sync_agent &', surface)
+        self.assertEqual(surface.count("start_time_sync_agent() {"), 1)
+
     def test_broker_is_shell_valid_private_and_has_no_secret_logging(self):
         subprocess.run(["sh", "-n", str(BROKER)], check=True)
         text = BROKER.read_text(encoding="utf-8")
