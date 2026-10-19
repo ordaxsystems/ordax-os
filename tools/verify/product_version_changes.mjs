@@ -1,4 +1,6 @@
 import { execFileSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
+import path from 'node:path';
 import { PRODUCT_VERSION } from '../../system/contracts/product-version.mjs';
 import {
   assertProductVersionIdentity, assertVersionAdvance,
@@ -7,10 +9,14 @@ import {
 // Product behavior, not tests/docs/build attestations. Existing independently
 // versioned app/component manifests remain their own authority.
 const RUNTIME_PREFIXES = Object.freeze([
-  'system/surface/','system/services/','system/adapters/','system/apps/',
+  'system/contracts/','system/surface/','system/services/','system/adapters/','system/apps/',
   'src/system/','bootstrap/','boot/','kernel/','initramfs/',
 ]);
 const RUNTIME_EXCLUDED = /(?:^|\/)(?:tests?|__tests__|fixtures|docs)\//;
+const VERSION_CONTROL_FILES = new Set([
+  'system/contracts/product-version.mjs',
+  'system/contracts/product-version-governance.mjs',
+]);
 const FILE_EXTENSION = /\.(?:mjs|js|cjs|ts|tsx|jsx|sh|py|c|h|rs|css|html|json)$/;
 
 export function osProductCodeChanged(paths) {
@@ -18,6 +24,7 @@ export function osProductCodeChanged(paths) {
   return paths.some(path =>
     typeof path === 'string' &&
     RUNTIME_PREFIXES.some(prefix => path.startsWith(prefix)) &&
+    !VERSION_CONTROL_FILES.has(path) &&
     !RUNTIME_EXCLUDED.test(path) &&
     FILE_EXTENSION.test(path)
   );
@@ -54,7 +61,7 @@ export function readOsVersionAt(ref) {
   return {semanticVersion:match[1],displayVersion:label[1],stableRelease:stable[1]==='true'};
 }
 
-if (process.argv[1] && import.meta.url === new URL('file://'+process.argv[1]).href) {
+if (process.argv[1] && path.resolve(fileURLToPath(import.meta.url)) === path.resolve(process.argv[1])) {
   const base=process.argv[2];
   if (!base) {
     assertProductVersionIdentity(PRODUCT_VERSION);
