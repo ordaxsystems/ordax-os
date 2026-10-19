@@ -2120,6 +2120,7 @@ dialog .permission-list li{
 .presentation-scroll[data-embedded="true"] .nav-item {
   min-height:36px;
   padding:7px 10px;
+  color:var(--md-muted);
   white-space:nowrap;
 }
 .presentation-scroll[data-embedded="true"] .topbar {
