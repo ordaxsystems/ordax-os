@@ -16,6 +16,37 @@ Native
 
 The account owns identity, entitlements and synchronized user state. A device owns only device-local state and secrets.
 
+## Account activation on Native/USB
+
+OrdaX OS is **one product**: Dev and Stable share the same First Run,
+Identity Session contract, Native Account gateway adapter and online-account
+activation. Their update channels differ, not their authentication semantics.
+
+A successful login HTTP response is only a credential-operation acknowledgement.
+The Native Host must fetch a **fresh authenticated** `/auth/session` response
+from the configured HTTPS account gateway, verify the canonical schema, provider,
+subject and email, and return a sanitized public session projection. The Web/USB
+credentials adapter independently requires a fresh same-origin session before
+telling the interface that the account is active. HTTP redirects, opaque
+responses, unavailable backends, missing subject identity and anonymous sessions
+must not be presented as successful logins. Registration awaiting email
+confirmation is explicitly `confirmationRequired`, not signed-in.
+
+First Run is offline-first. An initial failed probe cannot permanently disable
+the login controls after Wi-Fi is connected: entering/resuming the Account step
+refreshes existing Identity Session/Actions owners and displays a bounded user
+retry action. A user can still choose `Continuar sem conta`. The clock, DNS
+and verified gateway availability must be tested separately in QEMU/physical
+hardware before live login activation is declared proven.
+
+The canonical USB/Native credential policy remains
+`docs/contracts/native-account-session.json`: access/refresh tokens live
+only in the Native process, and **do not survive reboot**. Persisted login
+requires a separate reviewed encrypted device-bound vault with authenticated
+encryption and removable-media threat proof. A local PIN alone is not a cloud
+login credential and plain files, cookies in JS/localStorage and unprotected
+USB secrets are prohibited.
+
 ## Spaces and professional Profile Packs
 
 The account profile identifies the user. **Spaces** organize contexts of work, projects, memory and future collaboration.
