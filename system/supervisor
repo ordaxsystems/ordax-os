@@ -47,6 +47,7 @@ OWNER_PROVISION_TIMEOUT=${ORDAX_OWNER_SURFACE_PROVISION_TIMEOUT_SECONDS:-660}
 ATTEMPT_STARTED_EPOCH_FILE=$UPDATE_RUN_DIR/attempt-started-epoch
 UPDATE_STATE=$UPDATE_RUN_DIR/state.json
 UPDATE_LOG=$UPDATE_RUN_DIR/update.log
+PULL_RESULT_FILE=$UPDATE_RUN_DIR/pull-result
 HEALTH_FILE=$UPDATE_RUN_DIR/healthy-sha
 SURFACE_HEALTH_STATE_FILE=$UPDATE_RUN_DIR/surface-health-state
 SURFACE_HEARTBEAT_FILE=$UPDATE_RUN_DIR/surface-heartbeat.json
@@ -507,15 +508,31 @@ apply_remote_checkout() {
         return 1
     fi
 
+    # Invalidate the previous attempt token before invoking the single
+    # canonical Pull owner. Without this the Supervisor can misattribute
+    # stale error details after a killed or unavailable updater.
+    rm -f "$PULL_RESULT_FILE"
     if ! ORDAX_EXPECTED_SHA="$expected_sha" \
             ORDAX_REPO_URL="$REPO_URL" \
             ORDAX_REPO_BRANCH="$BRANCH" \
             ORDAX_WORKTREE="$WORKTREE" \
             ORDAX_STATE_DIR="$STATE_DIR" \
             "$PULL_BIN" >>"$UPDATE_LOG" 2>&1; then
-        CHECKOUT_ERROR=atomic-checkout-failed
-        log "atomic checkout owner could not activate exact candidate $expected_sha"
+        pull_phase=$(read_state_value "$PULL_RESULT_FILE")
+        case "$pull_phase" in
+            preflight|remote-discovery|remote-fetch|candidate-objects|isolated-checkout|remote-clone|atomic-switch|candidate-validation|state-commit|helper-refresh)
+                CHECKOUT_ERROR="pull-$pull_phase-failed"
+                ;;
+            *)
+                CHECKOUT_ERROR=atomic-checkout-failed
+                ;;
+        esac
+        log "atomic checkout owner failed ($CHECKOUT_ERROR) for exact candidate $expected_sha"
         return 1
+    fi
+    pull_result=$(read_state_value "$PULL_RESULT_FILE")
+    if [ "$pull_result" = helpers-pending ]; then
+        log "Git candidate activated, but Dev helpers still require canonical retry"
     fi
 
     activated_sha=$("$GIT_BIN" -C "$WORKTREE" rev-parse HEAD 2>>"$UPDATE_LOG" || true)
@@ -2137,6 +2154,18 @@ check_for_update() {
 
     if [ "$remote_sha" = "$current" ]; then
         refresh_dev_helpers "$current"
+        # A post-swap helper failure must not be silently promoted to
+        # "running" on the next poll. The canonical helper receipt is the
+        # only proof that the binaries correspond to the current Git SHA.
+        if [ -f "$WORKTREE/system/services/base-update/dev-helpers.sh" ]; then
+            helper_sha=$(read_state_value "$DEV_HELPERS_SHA_FILE")
+            if [ "$helper_sha" != "$current" ]; then
+                set_update_context error "$current" "" "helper-refresh-failed"
+                write_update_state "$current" pull-error none
+                log "Git checkout $current is active; helper installation is pending canonical retry"
+                return 0
+            fi
+        fi
         if [ -f "$BOOT_REFRESH_FILE" ]; then
             pending_boot_sha=$(read_state_value "$BOOT_REFRESH_FILE")
             [ -n "$pending_boot_sha" ] && request_dev_base_candidate "$pending_boot_sha"
@@ -2177,7 +2206,16 @@ check_for_update() {
         reason=${CHECKOUT_ERROR:-checkout-failed}
         log "automatic supervisor-owned Git update failed ($reason); keeping running Surface"
         set_update_context error "$remote_sha" "$attempt_id" "$reason"
-        write_update_state "$old_sha" pull-error none
+        # A helper failure occurs AFTER the atomic Git checkout was committed.
+        # Do not lie about sourceSha: show the verified active SHA and require
+        # the independent dev-helpers-sha receipt on subsequent retries.
+        active_after_failure=$(current_sha)
+        if [ "$reason" = "pull-helper-refresh-failed" ] &&
+           [ "$active_after_failure" = "$remote_sha" ]; then
+            write_update_state "$active_after_failure" pull-error none
+        else
+            write_update_state "$old_sha" pull-error none
+        fi
         return 0
     fi
 

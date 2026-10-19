@@ -4,6 +4,60 @@ Status: **CANONICAL FOR THE CURRENT DEVELOPMENT USB**
 
 This is an owner/development profile. It does not replace the canonical product path based on signed immutable releases under `/ordax/releases/<commit>`.
 
+## OrdaX OS único — canais de distribuição, não sistemas distintos
+
+A identidade do produto e o código principal são **OrdaX OS**. `owner-development`
+(Dev) e `stable-mvp` (MVP/Stable) são perfis de distribuição do mesmo sistema
+e compartilham a composição Native/Surface, os contratos de rede, credenciais
+locais, arquivos, preferências e Apps. Um `Space` de usuário não é um canal
+de distribuição nem um mecanismo de instalação do sistema.
+
+- **Dev:** usa o proprietário canônico `ordax-pull` para adquirir um commit Git
+  exato, validar checkout e atualizar componentes permitidos, com recuperação
+  de desenvolvimento e acesso a recursos autorizados ao Owner.
+- **Stable/MVP:** distribui releases imutáveis assinadas, com verificação de
+  proveniência, ativação transacional e rollback. Não pode substituir a
+  verificação de assinatura pelo Git Pull do Dev nem oferecer permissões de
+  manutenção do Owner por padrão.
+- **Compartilhado:** a Surface aciona um único broker nativo de rede, que usa
+  `/state/network/wpa.conf` como credencial privada de Wi-Fi e o mesmo
+  endereço de controle WPA usado pelo primeiro uso. Não se criam serviços de
+  Wi-Fi, bases de credenciais nem rotinas de atualização paralelas por canal.
+
+### Rede persistente e recuperação (2026-10-19)
+
+A configuração Wi-Fi validada no primeiro uso é preparada em
+`/state/network/wpa.conf.candidate.<pid>`, no mesmo sistema de arquivos de
+`wpa.conf`, com permissões 0600 e diretório 0700. Depois da autenticação WPA
+e DHCP, a configuração é promovida por renomeação atômica e sincronizada
+antes de informar sucesso. O antigo candidato em `/run` não garantia esse
+commit porque atravessava sistemas de arquivos.
+
+O mesmo broker nativo trata DHCP em Ethernet e tethering USB quando houver
+link ativo e nenhum endereço IPv4 global. Assim o dispositivo pode recuperar
+rede cabeada após reboot, inclusive sem ferramentas WPA; o boot gráfico
+permanece offline-first e a interface não aguarda esse DHCP.
+
+Na inicialização da Surface, o broker nativo existente tenta reconectar
+automaticamente usando **apenas** a credencial persistida. Se o supplicant do
+primeiro uso já está ativo, não o encerra: aguarda o estado autenticado e
+recupera o DHCP quando necessário. Um pedido explícito `Desconectar` mantém
+uma intenção local persistente em `/state/network/autoconnect-paused`;
+`Reconectar` ou uma nova conexão autorizada libera essa pausa. O broker
+realiza tentativas periódicas delimitadas sem iniciar outro gerenciador WPA,
+e a Surface continua disponível offline.
+
+O mesmo proprietário gráfico supervisiona a sincronização do relógio após
+haver endereço IP e reinicia a tentativa NTP quando ela termina por falha
+transitória. Isso não certifica por si só DNS/TLS/Git: os estados de
+atualização continuam distintos de conexão local e devem mostrar falhas
+reais, sem apagar credenciais ou usar o SSH/MCP como atalho de rede.
+
+**Gates pendentes:** o código precisa ser incorporado à `main`, exercitado
+em QEMU Dev com rede controlada e depois no notebook real para comprovar
+reboot → Wi-Fi salvo → DHCP → DNS → horário → HTTPS/Git → Pull. Esta
+alteração não grava o pendrive físico nem modifica a emulação MVP paralela.
+
 ## Windows Creator: developer installation and channel isolation (2026-10-10)
 
 The Owner/Development Creator is packaged separately from the public Stable/MVP
@@ -207,6 +261,57 @@ Before updating an existing checkout, `ordax-pull` fails closed when:
 - the fast-forward pull fails.
 
 Only a successful explicit `ordax-pull` clears a rollback pin.
+
+## Atomic Pull: reuse verified fetched Git objects
+
+The development Supervisor owns remote discovery and fetch for one exact
+`main` candidate. When it invokes `ordax-pull` with
+`ORDAX_EXPECTED_SHA`, that value must equal the existing
+`refs/remotes/origin/main` tracking ref in a valid local checkout and resolve
+to a Git commit object. In that case, the updater must **not** re-query moving
+`main` or perform a second HTTPS clone of the same repository. It prepares
+its isolated candidate from the already fetched local Git objects, cloning
+with `--no-hardlinks` and checking ancestry, sparse sources, remote identity,
+cleanliness and the exact expected SHA before any atomic switch. The stage
+remains an independently owned object directory, not a shared `.git` pointer.
+
+A cold first checkout or an invalid/dirty checkout still uses the existing
+bounded remote-clone recovery. Running `ordax-pull` explicitly without a
+Supervisor-provided SHA continues to discover `main` normally. No source
+validation, fast-forward restriction, transaction journal, backup or rollback
+gate is bypassed.
+
+This specifically removes an avoidable **second** network acquisition from
+the healthy update path. The notebook still requires enough network access to
+fetch missing objects on the **first** acquisition; not all immutable Base,
+graphics, kernel and initramfs bytes are Git source-tree material. The
+Stable/MVP signed release channel is separate and unchanged.
+
+When the canonical Pull owner fails, it writes a bounded phase token into
+`/run/ordax-update/pull-result` (the **existing** Supervisor run directory).
+The Supervisor deletes any stale token before invoking the owner, accepts only
+the known phase vocabulary and incorporates it into the existing
+`state.json.lastError` response. This avoids misdiagnosing network-object
+acquisition, isolated staging, atomic swap and helper activation as one
+`atomic-checkout-failed` condition. An abruptly killed owner with no receipt
+remains a generic failure; untrusted shell stderr is never interpreted as a
+status code.
+
+**Git checkout and installed helper activation are distinct, mandatory
+conditions.** The current Git SHA is durably recorded before invoking the
+existing `dev-helpers.sh` owner. If helpers cannot be activated, the Pull exits
+nonzero; the Supervisor reports the *actual* post-swap Git SHA with
+`pull-helper-refresh-failed`, preserves the running Surface and retries the
+canonical helper refresh on later polls. It does not mark the version
+`running` until `dev-helpers-sha` agrees with the active Git commit. There is
+no second updater or bypass of the helper receipt, and the previous SHA remains
+available for recovery. A host-side successful Pull and an actual QEMU/physical
+Surface activation remain separate validation gates.
+
+A physical boot must confirm the repaired USB no longer cycles through
+`fetching → validating → atomic-checkout-failed`. A successful host-side pull
+proves only checkout semantics, not live runtime health, NTP, Wi-Fi, power or
+remote MCP pairing.
 
 ## Rollback semantics
 
