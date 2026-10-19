@@ -17,6 +17,20 @@ function formatMode(mode, t) {
   return `${mode.width} × ${mode.height} · ${hz} Hz${current}${recommended}`;
 }
 
+/**
+ * Shared Native/Web display control. Public options are explicitly typed
+ * at the JS→TS boundary; callbacks do not grant host authority.
+ * @param {HTMLElement} container
+ * @param {object} options
+ * @param {Document} [options.documentObject]
+ * @param {(id: string) => string} options.translate
+ * @param {ReturnType<typeof assertDisplayOutputsPort> | null} [options.port]
+ * @param {"native" | "web"} [options.mode]
+ * @param {(() => void) | null} [options.onExamples]
+ * @param {() => number} [options.now]
+ * @param {typeof globalThis.setInterval} [options.setIntervalFn]
+ * @param {typeof globalThis.clearInterval} [options.clearIntervalFn]
+ */
 export function mountDisplayOutputControls(container, {
   documentObject = container?.ownerDocument,
   translate,
