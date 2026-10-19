@@ -46,7 +46,11 @@ test("public site and Web product origins have distinct canonical roles", () => 
 });
 
 test("only bootable OS modes inherit the assigned prototype OS version", () => {
-  assert.equal(PRODUCT_VERSION.semanticVersion, "0.1.0");
+  // The OS product version evolves independently of Web/Desktop deployments.
+  // This test checks the ownership boundary, not a frozen historical number.
+  assert.equal(PRODUCT_VERSION.maturity, "prototype");
+  assert.equal(PRODUCT_VERSION.stableRelease, false);
+  assert.equal(PRODUCT_VERSION.displayVersion, "v" + PRODUCT_VERSION.semanticVersion);
   for (const id of ["web", "mobile", "desktop"]) {
     assert.equal(productFamilyVersion(id), null, id);
     assert.equal(productFamilyDisplay(id).versionLabel, null, id);
