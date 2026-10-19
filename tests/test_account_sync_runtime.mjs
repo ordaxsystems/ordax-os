@@ -9,6 +9,7 @@ import { WORKSPACE_STORE_SCHEMA, createDefaultWorkspaceRecord, validateWorkspace
 import { createPreferenceSnapshot, setPreferenceValue } from "../system/services/preferences/catalog.mjs";
 import { createPreferenceSyncRuntime } from "../system/services/sync/preference-runtime.mjs";
 import { createWorkspaceMetadataBridge } from "../system/services/sync/workspace-metadata.mjs";
+import { createNativeWorkspaceStore } from "../system/adapters/native/workspace.mjs";
 import { createAccountSyncRuntime } from "../system/services/sync/account-runtime.mjs";
 import { createSyncStateNamespaceRegistry } from "../system/services/sync/state-store-registry.mjs";
 import { SYNC_STATE_STORE_SCHEMA } from "../system/contracts/sync-state-store.mjs";
@@ -1297,4 +1298,93 @@ test("refused remote workspace restore cannot advance snapshot or incremental ch
   assert.ok(pullCount >= 2, "failed incremental page must be retried, not skipped");
   sync.destroy();
   preferenceSync.destroy();
+});
+
+test("identity owner switch is not a workspace edit: B remote workspace restores without A upload", async () => {
+  const identity = changingIdentity();
+  const map = new Map();
+  const native = createNativeWorkspaceStore({ localStorage: {
+    getItem: key => map.get(key) ?? null,
+    setItem(key, value) { map.set(key, String(value)); },
+  } });
+  const bridge = createWorkspaceMetadataBridge(native);
+  // Native composition registers workspace rescoping before Account Sync.
+  const stopRescope = identity.subscribe(snapshot => {
+    if (native.selectOwner(snapshot)) bridge.store.load();
+  });
+  const preferences = preferencesRuntime();
+  const appearance = createPreferenceSyncRuntime(preferences, {
+    createIdempotencyKey: keyFactory("identity-workspace-appearance"),
+  });
+  const uploads = [];
+  const transport = {
+    schema: SYNC_TRANSPORT_SCHEMA,
+    async snapshot() {
+      if (identity.getSnapshot().subjectId !== "account-B") return { cursor: 1, objects: [] };
+      return {
+        cursor: 15, objects: [{
+          objectId: "workspace/portable",
+          dataClass: "workspace-metadata", objectSchemaVersion: 1,
+          resolverVersion: 1, serverRevision: 4, tombstone: false,
+          payload: {
+            activeAreaId: "area-1",
+            areas: [
+              { id: "area-1", ordinal: 1, appIds: ["settings"] },
+              { id: "area-2", ordinal: 2, appIds: [] },
+            ],
+          },
+        }],
+      };
+    },
+    async pullChanges({ afterCursor }) { return { nextCursor: afterCursor, changes: [] }; },
+    async applyMutation(value) {
+      uploads.push({ subject: identity.getSnapshot().subjectId, objectId: value.objectId });
+      return {
+        $schema: "prototype-ordax.sync-ack/1",
+        objectId: value.objectId, dataClass: value.dataClass,
+        serverRevision: value.baseServerRevision + 1,
+        applied: true, conflict: false, tombstone: false,
+      };
+    },
+  };
+  const sync = createAccountSyncRuntime({
+    identitySession: identity, transport, checkpointStore: checkpointStore(),
+    preferenceSync: appearance, preferences,
+    workspaceMetadataSource: bridge.source, workspaceStore: bridge.store,
+    createIdempotencyKey: keyFactory("identity-workspace-account"),
+  });
+
+  identity.change("account-A");
+  await sync.refresh();
+  const base = createDefaultWorkspaceRecord();
+  bridge.store.save({
+    ...base,
+    areas: [{
+      ...base.areas[0],
+      windows: [{
+        id: "files", appId: "files", minimized: false, maximized: false,
+        placementOrdinal: 1, positionX: null, positionY: null,
+        target: "/private-A",
+      }],
+      activeWindowId: "files", nextWindowOrdinal: 2,
+    }, base.areas[1]],
+  });
+  assert.deepEqual(bridge.source.getSnapshot().areas[0].appIds, ["files"]);
+
+  identity.change("account-B");
+  await sync.refresh();
+  assert.equal(sync.getSnapshot().accountContinuity, "active");
+  assert.deepEqual(bridge.source.getSnapshot().areas[0].appIds, ["settings"],
+    "B's cloud workspace must win over B's fresh local partition");
+  assert.equal(bridge.store.load().areas[0].windows[0].target, null,
+    "B must never inherit A's local file target");
+  assert.equal(uploads.some(x => x.subject === "account-B" && x.objectId === "workspace/portable"),
+    false, "automated account switch is not cloud upload intent");
+
+  identity.change("account-A");
+  assert.equal(bridge.store.load().areas[0].windows[0].target, "/private-A",
+    "A's local workspace remains in A's partition");
+  sync.destroy();
+  appearance.destroy();
+  stopRescope();
 });
