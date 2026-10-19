@@ -246,6 +246,16 @@ class NativeNetworkManagementTests(unittest.TestCase):
         reconnect = broker.split("        reconnect)", 1)[1].split("        *)", 1)[0]
         self.assertIn('AUTO_CONNECT_PAUSED=$STATE_DIR/autoconnect-paused', broker)
         self.assertIn('"$AUTO_CONNECT_PAUSED"', disconnect)
+        # The persistent pause receipt must be committed before killing
+        # WPA; an interrupted shutdown can no longer reconnect accidentally.
+        self.assertLess(
+            disconnect.index('mv -f "$pause_tmp" "$AUTO_CONNECT_PAUSED"'),
+            disconnect.index('if ! stop_wifi "$wifi"; then'),
+        )
+        self.assertLess(
+            disconnect.index('/bin/busybox sync'),
+            disconnect.index('if ! stop_wifi "$wifi"; then'),
+        )
         self.assertNotIn('rm -f "$WPA_CONF"', disconnect)
         self.assertIn('rm -f "$AUTO_CONNECT_PAUSED"', reconnect)
         self.assertIn('rm -f "$WPA_CONF" "$AUTO_CONNECT_PAUSED"', broker)
