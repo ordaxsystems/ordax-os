@@ -1873,16 +1873,27 @@ def network_broker_paths(session_dir: str) -> dict[str, str]:
 
 
 def network_broker_available(paths: dict[str, str]) -> bool:
+    # A FIFO may remain on disk after its broker process exits. Advertise the
+    # capability only while the real broker has opened the read end.
     try:
-        metadata = os.stat(paths["control"])
+        descriptor = os.open(
+            paths["control"],
+            os.O_WRONLY
+            | os.O_NONBLOCK
+            | getattr(os, "O_CLOEXEC", 0)
+            | getattr(os, "O_NOFOLLOW", 0),
+        )
     except OSError:
         return False
-    return (
-        stat.S_ISFIFO(metadata.st_mode)
-        and metadata.st_uid == os.geteuid()
-        and stat.S_IMODE(metadata.st_mode) == 0o600
-        and os.access(paths["control"], os.W_OK)
-    )
+    try:
+        metadata = os.fstat(descriptor)
+        return (
+            stat.S_ISFIFO(metadata.st_mode)
+            and metadata.st_uid == os.geteuid()
+            and stat.S_IMODE(metadata.st_mode) == 0o600
+        )
+    finally:
+        os.close(descriptor)
 
 
 def _read_bounded_bytes(path: str, max_bytes: int) -> bytes:
