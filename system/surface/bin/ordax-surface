@@ -1310,7 +1310,10 @@ prepare_power_broker() {
                 case "$action" in
                     restart)
                         echo "ordax-surface: host power broker accepted restart" >>"$HOST_LOG"
-                        record_power_request restart pending || echo "ordax-surface: failed to persist restart request proof" >>"$HOST_LOG"
+                        if ! record_power_request restart pending; then
+                            echo "ordax-surface: refusing restart because pending power proof could not be persisted" >>"$HOST_LOG"
+                            continue
+                        fi
                         /bin/busybox sleep 1
                         if ! forward_host_power_request restart; then
                             record_power_request restart failed || true
@@ -1318,7 +1321,10 @@ prepare_power_broker() {
                         ;;
                     shutdown)
                         echo "ordax-surface: host power broker accepted shutdown" >>"$HOST_LOG"
-                        record_power_request shutdown pending || echo "ordax-surface: failed to persist shutdown request proof" >>"$HOST_LOG"
+                        if ! record_power_request shutdown pending; then
+                            echo "ordax-surface: refusing shutdown because pending power proof could not be persisted" >>"$HOST_LOG"
+                            continue
+                        fi
                         /bin/busybox sleep 1
                         if ! forward_host_power_request shutdown; then
                             record_power_request shutdown failed || true
