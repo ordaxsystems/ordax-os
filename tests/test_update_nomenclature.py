@@ -22,8 +22,13 @@ class UpdateNomenclatureTests(unittest.TestCase):
         self.assertFalse(contract["update"]["is_pull_request"])
         self.assertTrue(contract["product_version"]["currently_assigned"])
         self.assertEqual(contract["product_version"]["scheme"], "semantic-versioning")
-        self.assertEqual(contract["product_version"]["current"], "0.1.0")
-        self.assertEqual(contract["product_version"]["display"], "v0.1.0")
+        # The identity advances with the product owner; do not embed an old
+        # version as a second release authority in the nomenclature test.
+        self.assertIsInstance(contract["product_version"]["current"], str)
+        self.assertEqual(
+            contract["product_version"]["display"],
+            "v" + contract["product_version"]["current"],
+        )
         self.assertEqual(contract["product_version"]["maturity"], "prototype")
         self.assertFalse(contract["product_version"]["stable_release"])
         self.assertTrue(contract["product_version"]["independent_from_delivery"])
