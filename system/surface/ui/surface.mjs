@@ -821,6 +821,8 @@ export function mountSurface(
     }
     root.dataset.workspacePresentation = state.presentation;
     root.dataset.view = state.presentation;
+    // The shell's responsive Meridian selectors share the same presentation owner.
+    root.querySelector("[data-ordax-shell]").dataset.view = state.presentation;
     root.dataset.nativeSidebar = state.sidebarMode;
     const sidebarToggle = root.querySelector("[data-sidebar-toggle]");
     const sidebarExpanded = sidebarIsExpanded(root.querySelector(".ordax-rail"));

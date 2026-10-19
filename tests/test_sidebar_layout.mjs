@@ -534,3 +534,14 @@ test("shared Meridian sidebar utilities retain 44px targets when the rem baselin
   assert.equal(Math.max(44,2.75*14),44);
   assert.ok(styles.includes(".meridian-rail-notification-slot > button { display:grid; place-items:center; width:100%; height:100%;"),"Slot buttons inherit the accessible hit area");
 });
+
+test("Native state projection synchronizes root and Meridian shell for both presentations", async () => {
+  const [runtime,markup,styles]=await Promise.all([
+    readFile(new URL("../system/surface/ui/surface.mjs",import.meta.url),"utf8"),
+    readFile(new URL("../system/surface/ui/desktop-shell.mjs",import.meta.url),"utf8"),
+    readFile(new URL("../system/surface/ui/identity.css",import.meta.url),"utf8"),
+  ]);
+  assert.ok(markup.includes('data-ordax-shell data-meridian-native data-view="central"'),"Native starts in Central");
+  assert.match(runtime,/root\.dataset\.view = state\.presentation;\s*\/\/[^\n]*\n\s*root\.querySelector\("\[data-ordax-shell\]"\)\.dataset\.view = state\.presentation;/);
+  assert.ok(styles.includes('.ordax-shell.meridian-native-workspace[data-view="desktop"]'),"Desktop CSS derives its rail state from shell data-view");
+});
