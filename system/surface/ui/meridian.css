@@ -141,13 +141,6 @@
 [data-meridian] :is(.ordax-desktop-shortcut,.desktop-shortcut):active {transform:scale(.97);}
 [data-meridian] :is(.ordax-desktop-shortcut,.desktop-shortcut):focus-visible {outline:2px solid var(--md-focus);outline-offset:2px;}
 [data-meridian] :is(.ordax-desktop-shortcut,.desktop-shortcut):disabled {opacity:.5;cursor:not-allowed;}
-@media(max-width:760px) {
- [data-meridian] {
-  --md-desktop-shortcut-inset:.625rem;--md-desktop-shortcut-cell:5rem;--md-desktop-shortcut-gap:.125rem;
-  --md-desktop-shortcut-icon:2.25rem;
- }
-}
-
 /* Appearance miniatures use the same material variables as their target. */
 [data-meridian] .ordax-settings-theme-preview[data-material-preview] {
  --ordax-bg:var(--md-canvas);--ordax-app-bg:var(--md-surface);--ordax-panel:var(--md-surface);

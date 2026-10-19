@@ -549,6 +549,3 @@ body { background: var(--md-canvas); font-weight: 400; }
 .ordax-sidebar-toggle { position: absolute; z-index: 60; top: calc(var(--ordax-sidebar-padding-top) + var(--ordax-sidebar-logo-height) + var(--ordax-sidebar-row-gap) + 6px); left: calc(var(--ordax-sidebar-visual-width, var(--ordax-rail-width)) - 12px); display: grid; place-items: center; width: 24px; height: 32px; padding: 4px; border: 1px solid var(--md-border); border-radius: var(--md-radius-small); background: var(--md-surface); color: var(--md-ink); cursor: pointer; }
 .ordax-sidebar-toggle[hidden] { display: none; }
 .ordax-statusbar button { min-height: var(--ordax-navigation-control-height); height: var(--ordax-navigation-control-height); }
-/* The USB surface is a computer environment; its navigation density never
-   switches to a phone layout based on the host viewport. */
-.ordax-shell.meridian-native-workspace[data-view="desktop"] { --ordax-rail-width: var(--md-rail-compact); --sidebar-visual-width: var(--md-rail-compact); }

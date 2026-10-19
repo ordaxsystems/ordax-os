@@ -123,7 +123,6 @@ test("Web and Native desktop shortcuts share Meridian geometry tokens", async ()
     "var(--md-desktop-shortcut-icon-shadow)", "var(--md-desktop-shortcut-label-shadow)",
   ]) assert.ok(meridianStyles.includes(definition), "Shared Meridian layout is missing " + definition);  assert.ok(meridianStyles.includes(".ordax-desktop-shortcuts,.desktop-shortcuts"));
   assert.ok(meridianStyles.includes("repeat(auto-fill,var(--md-desktop-shortcut-cell))"), "available height determines the shared row count");
-  assert.ok(meridianStyles.includes("--md-desktop-shortcut-cell:5rem"), "narrow workspace sizing is shared by both hosts");
   assert.ok(meridianStyles.includes("-webkit-line-clamp:var(--md-desktop-shortcut-label-lines)"), "long shortcut labels stay within two lines in both hosts");
   assert.ok(nativeShell.includes('class="ordax-desktop-shortcuts"'));
   assert.ok(webDesktop.includes('className="desktop-shortcuts"'));
@@ -158,13 +157,14 @@ test("Web and Native desktop canvas share the Meridian wallpaper and contrast pr
   assert.doesNotMatch(nativeStyles, /brand\/meridian-field\.svg/);
 });
 test("Native USB keeps the computer shell instead of switching to mobile geometry", async () => {
-  const [nativeStyles, sharedMeridianStyles, tokens, nativeSettings, nativeNotifications, nativeSettingsJourney, webStyles] = await Promise.all([
+  const [nativeStyles, sharedMeridianStyles, tokens, nativeSettings, nativeNotifications, nativeSettingsJourney, sidebarStyles, webStyles] = await Promise.all([
     readFile(new URL("../system/surface/ui/identity.css", import.meta.url), "utf8"),
     readFile(new URL("../system/surface/ui/meridian.css", import.meta.url), "utf8"),
     readFile(new URL("../system/surface/ui/meridian.tokens.css", import.meta.url), "utf8"),
     readFile(new URL("../system/surface/ui/settings.css", import.meta.url), "utf8"),
     readFile(new URL("../system/surface/ui/notification-center.css", import.meta.url), "utf8"),
     readFile(new URL("../system/surface/ui/journeys/settings.css", import.meta.url), "utf8"),
+    readFile(new URL("../system/surface/ui/sidebar-layout.css", import.meta.url), "utf8"),
     readFile(new URL("../system/surface/workspace/components/central/meridian.css", import.meta.url), "utf8"),
   ]);
   const nativePhoneLayoutStyles = await Promise.all([
@@ -175,6 +175,9 @@ test("Native USB keeps the computer shell instead of switching to mobile geometr
   assert.doesNotMatch(nativeStyles, /@media\s*\(max-width:\s*760px\)[\s\S]*?\.ordax-home-panel\s*\{[^}]*flex-direction:\s*column/i, "Native Home keeps its desktop information layout");
   assert.doesNotMatch(nativeStyles, /@container\s+meridian-native-home/i, "Native home keeps the desktop information hierarchy at every display width");
   assert.doesNotMatch(sharedMeridianStyles, /@container\s+meridian-native-home/i);
+  assert.doesNotMatch(sharedMeridianStyles, /@media\s*\(max-width:\s*760px\)[\s\S]*?\[data-meridian\]\s*\{[^}]*--md-desktop-shortcut/i, "shared Meridian styles do not shrink Native desktop shortcuts for phones");
+  assert.match(sidebarStyles, /@media\(max-width:600px\)\s*\{\s*\.window-workspace\.meridian-workspace \.ordax-product-sidebar \{ display:none!important; \}/i, "Web may hide its rail on mobile without hiding Native's rail");
+  assert.doesNotMatch(sidebarStyles, /@media\(max-width:600px\)\s*\{\s*\.meridian-workspace \.ordax-product-sidebar/i, "responsive sidebar rules do not match the Native shell wrapper");
   assert.doesNotMatch(tokens, /@media\s*\(max-width:\s*600px\)\s*\{\s*\[data-meridian\]/i, "shared tokens do not change Native dock geometry by viewport width");
   for (const styles of [nativeSettings, nativeNotifications, nativeSettingsJourney]) {
     assert.doesNotMatch(styles, /@media\s*\(max-width:/i, "Native screens do not switch to phone layouts at narrow viewport widths");
@@ -184,9 +187,13 @@ test("Native USB keeps the computer shell instead of switching to mobile geometr
   }
   const nativeJourneys = await readFile(new URL("../system/surface/ui/journeys/styles.css", import.meta.url), "utf8");
   assert.doesNotMatch(nativeJourneys, /@media\s*\([^)]*max-width:\s*(?:650|620|600|560|450)px/i, "Native journeys do not turn into mobile sheets or vertical trails");
-  assert.match(nativeStyles, /\.ordax-shell\.meridian-native-workspace\[data-view="desktop"\]\s*\{[^}]*--ordax-rail-width:\s*var\(--md-rail-compact\)/);
+  assert.match(nativeStyles, /\[data-native-sidebar="collapsed"\] \.ordax-shell \{ --ordax-rail-width: var\(--ordax-sidebar-collapsed-width\); \}/);
+  assert.match(nativeStyles, /\[data-native-sidebar="expanded"\] \.ordax-shell \{ --ordax-rail-width: var\(--ordax-sidebar-expanded-width\); \}/);
+  assert.doesNotMatch(nativeStyles, /\.ordax-shell\.meridian-native-workspace\[data-view="desktop"\]\s*\{[^}]*--ordax-rail-width/,
+    "sidebar width follows the user's navigation state, not the Central/Desktop workspace presentation");
   assert.match(webStyles, /@media\s*\(max-width:\s*600px\)/i, "responsive layouts remain a Web capability");
   assert.match(webStyles, /@media\(max-width:600px\)\s*\{\.meridian-workspace\s*\{--md-dock:4\.5rem;/i, "the Web dock retains its mobile size adjustment");
+  assert.match(webStyles, /@media\(max-width:760px\)\s*\{\.meridian-workspace\s*\{--md-desktop-shortcut-inset/i, "the Web may compact its shortcut grid at phone widths");
 });
 test("Web and Native taskbars share one Meridian frame and dock glyph scale", async () => {
   const [tokens, sharedStyles, nativeStyles, webStyles, nativeShell, webNavigation] = await Promise.all([
