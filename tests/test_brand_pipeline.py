@@ -155,6 +155,16 @@ class BrandPipelineTests(unittest.TestCase):
         self.assertIn(canonical, font)
         self.assertNotIn("https://", font)
 
+    def test_account_topbar_geometry_has_one_local_owner(self):
+        # Account geometry is page-specific; it must not reference an
+        # undefined global Meridian token or create another color palette.
+        css = (ROOT / "sites/public/assets/account-dashboard.css").read_text(encoding="utf-8")
+        self.assertNotIn("--md-bar", css)
+        self.assertEqual(css.count("--account-topbar-height:"), 1)
+        self.assertIn("--account-topbar-height:3.625rem", css)
+        self.assertIn("height:var(--account-topbar-height)", css)
+        self.assertIn("top:var(--account-topbar-height)", css)
+
     def test_account_and_portal_materials_follow_surface_semantics(self):
         import re
         canonical = brand.render_site_identity_css()

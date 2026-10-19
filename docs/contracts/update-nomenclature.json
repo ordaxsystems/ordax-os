@@ -58,8 +58,8 @@
   "product_version": {
     "currently_assigned": true,
     "scheme": "semantic-versioning",
-    "current": "0.1.0",
-    "display": "v0.1.0",
+    "current": "0.1.1-alpha.1",
+    "display": "v0.1.1-alpha.1",
     "maturity": "prototype",
     "stable_release": false,
     "independent_from_delivery": true,

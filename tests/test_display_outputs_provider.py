@@ -111,6 +111,39 @@ class DisplayOutputsProviderTests(unittest.TestCase):
             self.provider.confirm(preview["preview"]["id"])
         self.assertEqual(self.runner.current, "1920x1080@60")
 
+    def test_display_provider_failure_is_normalized_without_shell_exception_leak(self) -> None:
+        import subprocess
+        def failing_runner(command, **kwargs):
+            raise subprocess.CalledProcessError(
+                1, command, stderr="PRIVATE DISPLAY DETAILS"
+            )
+        provider = display_outputs.WaylandDisplayOutputProvider(
+            binary="wlr-randr", runner=failing_runner,
+            environ={"PATH": "/usr/bin", "WAYLAND_DISPLAY": "wayland-0"},
+        )
+        result = provider.read()
+        self.assertFalse(result["available"])
+        self.assertEqual(result["reason"], "compositor-unsupported")
+        self.assertNotIn("PRIVATE", json.dumps(result))
+
+    def test_mode_apply_provider_error_is_safe_and_preview_never_stays_pending(self) -> None:
+        import subprocess
+        def error_on_apply(command, **kwargs):
+            if "--output" in command:
+                raise subprocess.TimeoutExpired(command, timeout=3)
+            return self.runner(command, **kwargs)
+        provider = display_outputs.WaylandDisplayOutputProvider(
+            binary="wlr-randr", runner=error_on_apply,
+            environ={"PATH": "/usr/bin", "WAYLAND_DISPLAY": "wayland-0"},
+        )
+        with self.assertRaisesRegex(
+            display_outputs.DisplayOutputError, "provider unavailable"
+        ):
+            provider.preview("DP-1", "1280x720@60")
+        self.assertIsNone(provider._pending)
+        self.assertIsNone(provider._timer)
+        self.assertEqual(self.runner.current, "1920x1080@60")
+
     def test_host_shutdown_rolls_back_an_unconfirmed_preview(self) -> None:
         self.provider.preview("DP-1", "1280x720@60")
         self.provider.close()

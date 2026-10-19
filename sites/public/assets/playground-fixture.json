@@ -257,7 +257,7 @@
       },
       {
         "path": "system/services/i18n/surface.mjs",
-        "sha256": "5f366a6b0f6a630fd1a8e4b27ef33716a2acd590acdcfb618c48fb31a3080d7d"
+        "sha256": "9218c3cffd1b35d7a7bb8cd13d1a5d95f34b4685c81f537fd19b64a369160926"
       },
       {
         "path": "system/services/local-ai/model-candidate.generated.mjs",
@@ -337,11 +337,11 @@
       },
       {
         "path": "system/surface/ui/meridian.css",
-        "sha256": "9f1f8c180171c5fde8b02c55941fec2a278123ab1906ff1c2841d964df9b94d3"
+        "sha256": "e92847f42e575f686d5f15a247e1f3d55aae56c2939d99e7fe2df27519a7bcbe"
       },
       {
         "path": "system/surface/ui/meridian.tokens.css",
-        "sha256": "75a2e39104dde1c9a8094a53f5fd83d8b263ff77285257e034d456cd71e074e8"
+        "sha256": "00ea73b5f20e639febe570a89021de852620806bd51ca0172a297eb7cf34c8f4"
       },
       {
         "path": "system/surface/ui/meridian/icons.mjs",
@@ -393,7 +393,7 @@
       },
       {
         "path": "system/surface/workspace/components/central/config.ts",
-        "sha256": "7971512d056853c543b69292f179aa4ec0fccad89c5c9e5735477cf9ee709346"
+        "sha256": "3a6e96ab448f4a64a10d8b46c806087557b4c2d60f1ef54f99d069d38175c8a8"
       },
       {
         "path": "system/surface/workspace/components/central/favorite-shortcuts.tsx",
@@ -441,7 +441,7 @@
       },
       {
         "path": "system/surface/workspace/components/central/styles.css",
-        "sha256": "6bc3435891a3350ffaadf9301d3a4e0b8cb8c39b6b3907c65c18f16b88980c81"
+        "sha256": "ea03d6ba95d8ccd90fbe72ec0f6f6d3edd1c3b0733c6144c32507cae9dbe390a"
       },
       {
         "path": "system/surface/workspace/components/store/catalog-context.tsx",
@@ -472,6 +472,6 @@
         "sha256": "32fcfaad07deaee9a72391669c3bb285444c9c7a5ba339e66d51278c0d6daffe"
       }
     ],
-    "cssSha256": "6282dfb4bf3f3a3d49ff8d9abb25e2eb8be467ce256dfe54ad63824f44da7ecf"
+    "cssSha256": "3c61d6c0f6bc36442034d196784afe3e4df78c09c56d5082a6d005eff8d7539e"
   }
 }

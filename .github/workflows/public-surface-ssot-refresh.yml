@@ -9,6 +9,7 @@ on:
       - 'tools/public-site/playground_fixture.py'
       - 'tools/public-site/surface_snapshot.mjs'
       - 'tools/public-site/surface-snapshot-entry.tsx'
+      - 'system/contracts/product-version.mjs'
       - 'system/surface/ui/desktop-shell.mjs'
       - 'system/services/surface/meridian-navigation.mjs'
       - 'system/services/i18n/surface.mjs'

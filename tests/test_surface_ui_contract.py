@@ -748,7 +748,15 @@ class SurfaceUiContractTests(unittest.TestCase):
         self.assertIn('transform: translate(-50%, -50%);', css)
         self.assertIn('.ordax-window[data-maximized="true"] {', css)
         self.assertIn('.ordax-window[data-maximized="true"] .ordax-window-body', css)
-        self.assertIn('height: calc(100% - 58px);', css)
+        # Maximize must subtract the SAME canonical titlebar dimension
+        # used by the titlebar itself, rather than a stale 58px constant.
+        self.assertIn(
+            'min-height: var(--ordax-window-titlebar-height, 3.625rem);', css
+        )
+        self.assertIn(
+            'height: calc(100% - var(--ordax-window-titlebar-height, 3.625rem));', css
+        )
+        self.assertIn('max-height: none;', css)
         self.assertIn('((placementOrdinal - 1) % 5) * 18', surface)
         self.assertNotIn('inset: 8px 12px;', css)
         self.assertNotIn('transform: translateY(4px);', css)
@@ -791,10 +799,17 @@ class SurfaceUiContractTests(unittest.TestCase):
         native_entry = (NATIVE_COMPOSITION / "index.html").read_text(encoding="utf-8")
         self.assertIn('href="../../surface/ui/tokens.css"', native_entry)
         self.assertIn('[data-ordax-motion="standard"] .ordax-window', css)
-        self.assertIn('--ordax-text-scale-factor: 1;', tokens)
-        self.assertIn('html[data-ordax-text-scale="large"] { --ordax-text-scale-factor: 1.125; }', tokens)
-        self.assertIn('html[data-ordax-text-scale="extra-large"] { --ordax-text-scale-factor: 1.25; }', tokens)
-        self.assertIn('font-size: calc(100% * var(--ordax-display-scale-factor) * var(--ordax-text-scale-factor));', tokens)
+        # Current scaling separates root typography from the zoomed product
+        # viewport; the inverse viewport prevents background gaps/cropping.
+        self.assertIn('html[data-ordax-text-scale="large"] { font-size: 112.5%; }', tokens)
+        self.assertIn('html[data-ordax-text-scale="extra-large"] { font-size: 125%; }', tokens)
+        self.assertIn('html[data-ordax-display-scale] #ordax-root {', tokens)
+        self.assertIn('width: var(--ordax-display-scale-viewport-width);', tokens)
+        self.assertIn('height: var(--ordax-display-scale-viewport-height);', tokens)
+        self.assertIn('zoom: var(--ordax-display-scale-factor);', tokens)
+        self.assertIn('--ordax-display-scale-factor: 1.2;', tokens)
+        self.assertIn('--ordax-display-scale-viewport-width: 83.333333vw;', tokens)
+        self.assertNotIn('--ordax-text-scale-factor:', tokens)
         self.assertIn('.ordax-window[data-maximized="true"]', css)
         self.assertIn('.ordax-preference-choice[data-selected="true"]', css)
 
