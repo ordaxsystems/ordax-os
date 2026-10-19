@@ -2072,3 +2072,93 @@ dialog .permission-list li{
 .resource-platforms,.update-requirements{margin-top:12px}
 .resource-permissions-intro{margin-bottom:20px}
 .loading-recovery{margin-top:24px}
+
+/* In the OS, the Meridian shell already owns the global rail and window header.
+   Keep only Store-local navigation and search inside its content surface. */
+.presentation-scroll[data-embedded="true"] .store-shell {
+  grid-template-columns:minmax(0,1fr);
+  min-height:100%;
+}
+.presentation-scroll[data-embedded="true"] .sidebar {
+  display:block;
+  position:static;
+  inset:auto;
+  width:auto;
+  height:auto;
+  min-height:0;
+  padding:8px 20px;
+  border-right:0;
+  border-bottom:1px solid var(--md-border);
+  background:var(--md-surface);
+  color:var(--md-muted);
+  box-shadow:none;
+  overflow:visible;
+}
+.presentation-scroll[data-embedded="true"] .brand,
+.presentation-scroll[data-embedded="true"] .sidebar-bottom,
+.presentation-scroll[data-embedded="true"] .location,
+.presentation-scroll[data-embedded="true"] .page-footer {
+  display:none;
+}
+.presentation-scroll[data-embedded="true"] #navigation {
+  display:flex;
+  gap:12px;
+  overflow-x:auto;
+  scrollbar-width:thin;
+  scrollbar-color:var(--md-border-strong) transparent;
+}
+.presentation-scroll[data-embedded="true"] #navigation::-webkit-scrollbar {height:4px;}
+.presentation-scroll[data-embedded="true"] #navigation::-webkit-scrollbar-thumb {border-radius:999px;background:var(--md-border-strong);}
+.presentation-scroll[data-embedded="true"] #navigation::-webkit-scrollbar-track {background:transparent;}
+.presentation-scroll[data-embedded="true"] .nav-group {
+  display:flex;
+  flex:0 0 auto;
+  align-items:center;
+  gap:3px;
+  margin:0;
+}
+.presentation-scroll[data-embedded="true"] .nav-label {display:none;}
+.presentation-scroll[data-embedded="true"] .nav-item {
+  min-height:36px;
+  padding:7px 10px;
+  white-space:nowrap;
+}
+.presentation-scroll[data-embedded="true"] .topbar {
+  display:none;
+}
+.presentation-scroll[data-embedded="true"] .global-search {
+  width:min(100%,520px);
+  max-width:520px;
+  flex:1 1 340px;
+  margin:0;
+}
+.presentation-scroll[data-embedded="true"] .preview-strip {
+  min-height:58px;
+  gap:16px;
+  padding:8px 20px;
+  background:var(--md-surface);
+}
+.presentation-scroll[data-embedded="true"] .preview-strip>span {display:none;}
+.presentation-scroll[data-embedded="true"] .preview-strip>div {margin-left:auto;}
+.presentation-scroll[data-embedded="true"] main {
+  min-height:0;
+  max-width:none;
+  padding:24px clamp(20px,3vw,36px) 32px;
+}
+.presentation-scroll[data-embedded="true"] .page-heading {margin-bottom:24px;}
+
+@container store-presentation (max-width: 760px) {
+  .presentation-scroll[data-embedded="true"] .sidebar {
+    position:static;
+    height:auto;
+    min-height:0;
+  }
+  .presentation-scroll[data-embedded="true"] .preview-strip {padding-inline:16px;}
+  .presentation-scroll[data-embedded="true"] main {padding:20px 16px 28px;}
+}
+
+@container store-presentation (max-width: 560px) {
+  .presentation-scroll[data-embedded="true"] .preview-strip {flex-wrap:wrap;}
+  .presentation-scroll[data-embedded="true"] .global-search {flex-basis:100%;}
+  .presentation-scroll[data-embedded="true"] .preview-strip>div {margin-left:auto;}
+}

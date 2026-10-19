@@ -1,7 +1,8 @@
 import { mountStoreOverviewControls } from './store-overview-controls.mjs';
 
 const presentationTemplate = new URL('../workspace/components/store/presentation/template.html', import.meta.url);
-const presentationStyles = new URL('../workspace/components/store/presentation/styles.css', import.meta.url);
+// Vite otherwise serves a CSS file fetched with fetch() as a JavaScript HMR module.
+const presentationStyles = new URL('../workspace/components/store/presentation/styles.css?direct', import.meta.url);
 const presentationTokens = new URL('./meridian.tokens.css', import.meta.url);
 
 async function readAsset(url, signal) {
