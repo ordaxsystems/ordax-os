@@ -294,6 +294,10 @@ class DevelopmentGitFlowTest(unittest.TestCase):
         )
         self.assertEqual((self.state / "current-commit").read_text().strip(), candidate)
         self.assertEqual((self.state / "previous-commit").read_text().strip(), self.commit_v1)
+        self.assertEqual(
+            (self.root / "run/ordax-update/pull-result").read_text().strip(),
+            "helpers-pending",
+        )
 
     def test_supervisor_fetched_commit_applies_without_second_remote_clone(self) -> None:
         # Reproduce a notebook where Supervisor successfully fetched main,
@@ -326,6 +330,10 @@ class DevelopmentGitFlowTest(unittest.TestCase):
         env["ORDAX_EXPECTED_SHA"] = self.commit_v2
         result = self._script(PULL, env=env)
 
+        self.assertEqual(
+            (self.root / "run/ordax-update/pull-result").read_text().strip(),
+            "completed",
+        )
         self.assertIn("candidato ja adquirido e fixado pelo Supervisor", result.stdout)
         self.assertIn("preparando checkout isolado do commit ja validado em cache", result.stdout)
         self.assertIn(f"ORDAX_SOURCE_SHA={self.commit_v2}", result.stdout)
@@ -353,6 +361,10 @@ class DevelopmentGitFlowTest(unittest.TestCase):
         result = self._script(PULL, env=env, check=False)
 
         self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(
+            (self.root / "run/ordax-update/pull-result").read_text().strip(),
+            "remote-discovery",
+        )
         self.assertEqual(
             self._run(["git", "-C", str(self.worktree), "rev-parse", "HEAD"]).stdout.strip(),
             self.commit_v1,
