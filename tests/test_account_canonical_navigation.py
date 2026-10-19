@@ -298,8 +298,11 @@ class AccountCanonicalNavigationTests(unittest.TestCase):
         controls = ACCOUNT.read_text(encoding="utf-8")
         self.assertIn(".ordax-account-navigation {", css)
         self.assertIn(".ordax-account-navigation-item", css)
+        # Responsive navigation is intrinsically scrollable; its controls stay
+        # at their natural width instead of depending on a legacy 760px media rule.
         self.assertIn("overflow-x: auto", css)
-        self.assertIn("@media (max-width: 760px)", css)
+        self.assertIn(".ordax-account-navigation-item {", css)
+        self.assertIn("flex: 0 0 auto", css)
         self.assertNotIn("ordax-account-facts", css)
         self.assertNotIn("renderPrivacy", controls)
 
