@@ -781,5 +781,12 @@ if [ "$AUTOMATIC_ROLLBACK_RECOVERY" -eq 1 ]; then
 else
     rm -f "$PINNED_FILE"
 fi
-refresh_dev_helpers "$current" || exit 1
+# The atomic checkout and durable SHA were committed above. A helper
+# installation failure is a separate, retryable activation warning: the
+# Supervisor checks dev-helpers-sha and retries on the next update cycle.
+# Returning checkout failure here would falsely report the old sourceSha
+# after the new commit was already activated.
+if ! refresh_dev_helpers "$current"; then
+    echo "ordax-git: checkout confirmado em $current; instalacao dos helpers pendente, Supervisor tentara novamente" >&2
+fi
 printf 'ORDAX_SOURCE_SHA=%s\n' "$current"
