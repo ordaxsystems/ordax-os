@@ -318,7 +318,7 @@ ensure_base_update_agent() {
         owner_changed=0
     fi
 
-    temporary=$BASE_UPDATE_AGENT.tmp.$
+    temporary=$BASE_UPDATE_AGENT.tmp.$$
     cp "$BASE_UPDATE_SOURCE" "$temporary" >>"$BASE_UPDATE_LOG" 2>&1 || return 1
     chmod 700 "$temporary" >>"$BASE_UPDATE_LOG" 2>&1 || return 1
     /bin/busybox mv -f "$temporary" "$BASE_UPDATE_AGENT" >>"$BASE_UPDATE_LOG" 2>&1 || return 1
@@ -1072,7 +1072,7 @@ publish_runtime_proof_context() {
             ;;
     esac
 
-    temporary=$RUNTIME_PROOF_CONTEXT.tmp.$
+    temporary=$RUNTIME_PROOF_CONTEXT.tmp.$$
     {
         printf 'distribution_profile=%s\n' "$DISTRIBUTION_PROFILE"
         printf 'runtime_mode=%s\n' "$runtime_mode"
