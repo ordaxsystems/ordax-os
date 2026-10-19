@@ -330,7 +330,7 @@ handle_request() {
             # connection. Otherwise power loss between WPA termination and
             # this receipt would reconnect an intentionally disabled network.
             # Keep the saved credential so later Reconnect requires no password.
-            pause_tmp=$AUTO_CONNECT_PAUSED.tmp.$
+            pause_tmp=$AUTO_CONNECT_PAUSED.tmp.$$
             if ! : >"$pause_tmp" || ! chmod 600 "$pause_tmp" ||
                ! mv -f "$pause_tmp" "$AUTO_CONNECT_PAUSED" ||
                ! /bin/busybox sync; then
