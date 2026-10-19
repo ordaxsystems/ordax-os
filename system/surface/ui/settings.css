@@ -847,6 +847,20 @@
 .ordax-settings-preference-option { grid-template-columns: minmax(0,1fr) auto; }
 .ordax-settings-persistence { padding: 16px 28px; margin: 0; }
 @container settings-viewport (max-width: 680px) {
+  .ordax-settings-navigation {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 6.5rem), 1fr));
+    gap: 4px;
+    padding: 8px 12px;
+    overflow: visible;
+  }
+  .ordax-settings-navigation-item {
+    min-width: 0;
+    min-height: 42px;
+    padding: 6px 8px;
+    line-height: 1.25;
+    white-space: normal;
+  }
   .ordax-settings-options { grid-template-columns: minmax(0,1fr); }
   .ordax-settings-header { padding: 20px; }
   .ordax-settings-section { padding: 18px 20px; }
