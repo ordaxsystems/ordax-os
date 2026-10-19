@@ -166,6 +166,12 @@ class BrandPipelineTests(unittest.TestCase):
             definitions = set(re.findall(r"(--[a-zA-Z0-9-]+)\s*:", canonical + base + css))
             references = set(re.findall(r"var\((--[a-zA-Z0-9-]+)", css))
             self.assertFalse(references - definitions, (filename, references - definitions))
+            if filename == "account-dashboard.css":
+                # Layout geometry must be owned locally. Meridian tokens are
+                # palette/scale owners, not an undefined topbar-size alias.
+                self.assertIn("--account-topbar-height:4rem;", css)
+                self.assertIn("height:var(--account-topbar-height)", css)
+                self.assertNotIn("--md-bar", css)
             if filename != "portal.css":
                 self.assertNotRegex(css, r"#[0-9a-fA-F]{3,8}\b|oklch\(|rgba?\(|hsla?\(")
         account = (ROOT / "sites/public/assets/account.css").read_text(encoding="utf-8")
