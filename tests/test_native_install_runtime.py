@@ -122,8 +122,18 @@ class NativeInstallRuntimeTests(unittest.TestCase):
         self.assertIn("queue_native_install_broker_request", get_section)
         self.assertNotIn("NATIVE_INSTALL_TARGETS_PATH", post_section)
         self.assertNotIn("native-install-apply", server)
-        self.assertNotIn("subprocess", server)
-        self.assertNotIn("os.system", server)
+        # This read-only endpoint delegates to a private FIFO broker;
+        # subprocess use elsewhere on NativeHost does not grant install
+        # command authority here. Keep the exact queue boundary strict.
+        queue = server.split("def queue_native_install_broker_request(", 1)[1].split(
+            "\n\ndef ", 1
+        )[0]
+        for forbidden in ("subprocess", "os.system", "shell=True", "Popen("):
+            self.assertNotIn(forbidden, queue)
+        self.assertIn('os.fchmod(handle.fileno(), 0o600)', queue)
+        self.assertIn('os.fsync(handle.fileno())', queue)
+        self.assertIn('getattr(os, "O_NOFOLLOW", 0)', queue)
+        self.assertIn('os.fstat(descriptor)', queue)
 
     def test_launcher_starts_broker_only_for_explicit_owner_post_mvp_preview(self):
         launcher = LAUNCHER.read_text(encoding="utf-8")
