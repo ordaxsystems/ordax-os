@@ -211,7 +211,7 @@ class SupabaseAccountProvider:
                 or not isinstance(row.get("space_id"), str)
                 or not isinstance(row.get("pack_slug"), str)
                 or PROFILE_PACK_SLUG.fullmatch(row["pack_slug"]) is None
-                                or isinstance(row.get("pack_version"), bool)
+                or isinstance(row.get("pack_version"), bool)
                 or not isinstance(row.get("pack_version"), int)
                 or not 1 <= row["pack_version"] <= MAX_JS_SAFE_INTEGER
                 or len(f'{row["pack_slug"]}@{row["pack_version"]}') > 160
