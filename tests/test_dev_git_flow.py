@@ -287,6 +287,14 @@ class DevelopmentGitFlowTest(unittest.TestCase):
             self.commit_v2,
         )
 
+        # The Supervisor's candidate preflight also materializes the required
+        # blobs before GitHub disappears. Explicitly prefetch the fixture's
+        # complete sparse payload; a partial Git fetch may contain only trees.
+        subprocess.run(
+            ["git", "-C", str(self.worktree), "archive", "--format=tar",
+             self.commit_v2, "system", "bootstrap", "docs"],
+            check=True, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE,
+        )
         # No alternate delivery system or network proxy: just remove the
         # disposable fixture remote after its exact target has been fetched.
         self.remote.rename(self.root / "temporarily-unreachable-origin.git")
