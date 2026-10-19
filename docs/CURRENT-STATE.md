@@ -1172,8 +1172,8 @@ PROJECTS_EXTERNAL_AI_ACCESS=GITHUB_DIRECT_PLUS_ORDAX_MCP
 ORDAX_WEB_DEVICE_CONTROL=PASS_SOURCE_SHARED_ACTION_CONTRACT_RUNTIME_DISABLED
 SETTINGS_VISIBLE_LABEL=AJUSTES
 SURFACE_HOME_TECHNICAL_UPDATE_MARKERS=REMOVED
-PRODUCT_VERSION=0.1.0
-PRODUCT_VERSION_LABEL=v0.1.0
+PRODUCT_VERSION=0.1.1-alpha.1
+PRODUCT_VERSION_LABEL=v0.1.1-alpha.1
 PRODUCT_MATURITY=PROTOTYPE
 PRODUCT_V1_RESERVED_FOR_STABLE_RELEASE=YES
 FIRST_PARTY_APP_VERSIONING=PER_COMPONENT
@@ -2259,3 +2259,5 @@ Estado operacional em 2026-10-15: a migration `20261015153000_space_semantics_v1
 `food.pizzeria` e `fabrication.3d-printing` estão estruturados como fundação MVP compatível com os Profile Packs existentes. `product-operations.territorial-platform`, `education.school` e `development.software` estão estruturados, porém `DEFERRED`: o compositor publica zero navegação/widget/capability para eles até promoção explícita posterior. Development modela muitos Projects dentro de um único Space e Studio apenas como ferramenta de abertura do Project. Escola preserva REL-001 e não introduz tracking/câmera irrestritos. Achegue-se permanece operacional, não um Space de desenvolvimento.
 
 Profile Pack continua sendo composição técnica versionada e seus manifests não receberam uma segunda cópia de navigation/dashboard/provider state. A sidebar global continua independente da navegação contextual. Nenhum kernel, base, Creator, physical-write ou workflow físico faz parte desta mudança.
+
+Version snapshot (2026-10-19): the current development candidate identifies as **OrdaX Prototype v0.1.1-alpha.1**, preserving the historical v0.1.0 milestone recorded above. This candidate is NOT Stable, does NOT imply a signed release or installation and does NOT authorize physical USB writing. See `docs/releases/ordax-os-0.1.1-alpha.1.md`.
