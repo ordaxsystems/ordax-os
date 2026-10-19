@@ -194,22 +194,22 @@ function buildProofExpression(moduleSources, styles, assetUrls) {
     const shell = root.querySelector('[data-ordax-shell]');
     const nativeHeader = root.querySelector('.ordax-native-header');
     const firstShellTrack = () => Number.parseFloat(getComputedStyle(shell).gridTemplateRows.trim().split(/\s+/)[0]);
-    result.centralHomeHidesHeaderAndCollapsesItsRow = getComputedStyle(nativeHeader).display === 'none'
-      && firstShellTrack() === 0;
+    result.centralHomeShowsHeaderAndItsRow = getComputedStyle(nativeHeader).display !== 'none'
+      && firstShellTrack() > 0;
 
     root.querySelector('[data-launcher-toggle]').click();
     const settingsLaunch = root.querySelector('[data-launch-app="settings"]');
     result.settingsLaunchPresent = Boolean(settingsLaunch);
     settingsLaunch.click();
-    result.centralAppShowsHeaderAndRestoresItsRow = getComputedStyle(nativeHeader).display !== 'none'
-      && firstShellTrack() > 0;
+    result.centralAppHidesHeaderAndCollapsesItsRow = getComputedStyle(nativeHeader).display === 'none'
+      && firstShellTrack() === 0;
     const presentationToggle = root.querySelector('[data-presentation-toggle]');
     presentationToggle.click();
     result.desktopPresentationHidesHeader = shell.dataset.view === 'desktop'
       && getComputedStyle(nativeHeader).display === 'none';
     presentationToggle.click();
-    result.centralAppRestoresHeader = shell.dataset.view === 'central'
-      && getComputedStyle(nativeHeader).display !== 'none';
+    result.centralAppKeepsHeaderHidden = shell.dataset.view === 'central'
+      && getComputedStyle(nativeHeader).display === 'none';
 
     const windowBefore = root.querySelector('[data-window-id="settings"]');
     const slotBefore = windowBefore?.querySelector('[data-app-extension="settings-overview"]');
@@ -288,8 +288,8 @@ function buildProofExpression(moduleSources, styles, assetUrls) {
     result.windowRemovedAfterClose = root.querySelector('[data-window-id="settings"]') === null;
     result.dockRemovedAfterClose = root.querySelector('[data-open-window="settings"]') === null;
     result.focusMovedToWorkspaceOnClose = document.activeElement === root.querySelector('[data-workspace]');
-    result.centralHomeHidesHeaderAfterClose = getComputedStyle(nativeHeader).display === 'none'
-      && firstShellTrack() === 0;
+    result.centralHomeRestoresHeaderAfterClose = getComputedStyle(nativeHeader).display !== 'none'
+      && firstShellTrack() > 0;
 
     const { createNotificationsRuntime } = await import(urls['system/services/notifications/runtime.mjs']);
     const { mountNotificationCenterControls } = await import(urls['system/surface/ui/notification-center-controls.mjs']);
@@ -346,8 +346,8 @@ function buildProofExpression(moduleSources, styles, assetUrls) {
 
     const required = [
       'shellMounted', 'settingsLaunchPresent', 'settingsWindowCreated', 'focusBeforeSnapshot',
-      'centralHomeHidesHeaderAndCollapsesItsRow', 'centralAppShowsHeaderAndRestoresItsRow',
-      'desktopPresentationHidesHeader', 'centralAppRestoresHeader', 'centralHomeHidesHeaderAfterClose',
+      'centralHomeShowsHeaderAndItsRow', 'centralAppHidesHeaderAndCollapsesItsRow',
+      'desktopPresentationHidesHeader', 'centralAppKeepsHeaderHidden', 'centralHomeRestoresHeaderAfterClose',
       'sameWindowAfterSnapshot', 'sameSlotAfterSnapshot', 'sameInputAfterSnapshot',
       'focusAfterSnapshot', 'scrollPreservedAfterSnapshot', 'draftPreservedAfterSnapshot',
       'sameWindowAfterPreference', 'sameInputAfterPreference', 'focusAfterPreference',

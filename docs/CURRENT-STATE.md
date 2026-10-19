@@ -64,10 +64,10 @@ docs/INTELLIGENCE.md.
 
 Native Meridian shell (2026-10-19): shared display-scale tokens apply to both
 Central and Área de Trabalho. The global header is hidden throughout Área de
-Trabalho; in Central it is hidden only while Início is the active destination,
-and its grid row collapses with it. Opening an app in Central restores the
-header and its row. The presentation choice does not change the desktop
-notebook/computer viewport target.
+Trabalho and on every Central destination other than Início; Central Início
+retains the header. Its grid row collapses alongside it on other pages. The
+presentation choice does not change the desktop notebook/computer viewport
+target.
 
 Native Central home layout correction (2026-10-18): the persistent local-space
 card remains in the secondary column at desktop widths, while capability-backed
