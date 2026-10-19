@@ -48,6 +48,19 @@ class NativeAccountSessionContractTests(unittest.TestCase):
         self.assertEqual(contract["status"], "memory-only-until-encrypted-vault")
         self.assertNotIn("owns an OrdaX gateway session in private device state (mode `0600`)", section)
 
+    def test_native_usb_gateway_targets_existing_approved_platform_endpoint(self):
+        # Native-only client endpoint; this does NOT approve public signup,
+        # migrate the provider authority, or change the memory-only session.
+        endpoint = (ROOT / "system/services/account/gateway-base-url").read_text(
+            encoding="utf-8"
+        ).strip()
+        self.assertEqual(
+            endpoint,
+            "https://jhfphsjptrpmtnzkpwud.supabase.co/functions/v1/ordax-account-gateway",
+        )
+        self.assertEqual(gateway._validated_base_url(endpoint), endpoint)
+        self.assertNotIn("eobcxuyvhkvdmkbaihwh", endpoint)
+
     def test_future_persistence_is_blocked_on_encrypted_vault_gate(self):
         contract = json.loads(CONTRACT.read_text(encoding="utf-8"))
         gate = contract["future_persistent_session_gate"]
