@@ -22,8 +22,13 @@ class UpdateNomenclatureTests(unittest.TestCase):
         self.assertFalse(contract["update"]["is_pull_request"])
         self.assertTrue(contract["product_version"]["currently_assigned"])
         self.assertEqual(contract["product_version"]["scheme"], "semantic-versioning")
-        self.assertEqual(contract["product_version"]["current"], "0.1.0")
-        self.assertEqual(contract["product_version"]["display"], "v0.1.0")
+        # The identity advances with the product owner; do not embed an old
+        # version as a second release authority in the nomenclature test.
+        self.assertIsInstance(contract["product_version"]["current"], str)
+        self.assertEqual(
+            contract["product_version"]["display"],
+            "v" + contract["product_version"]["current"],
+        )
         self.assertEqual(contract["product_version"]["maturity"], "prototype")
         self.assertFalse(contract["product_version"]["stable_release"])
         self.assertTrue(contract["product_version"]["independent_from_delivery"])
@@ -80,11 +85,15 @@ class UpdateNomenclatureTests(unittest.TestCase):
         product = PRODUCT_VERSION.read_text(encoding="utf-8")
         overview = SYSTEM_OVERVIEW.read_text(encoding="utf-8")
 
-        self.assertIn('semanticVersion: "0.1.0"', product)
-        self.assertIn('displayVersion: "v0.1.0"', product)
-        self.assertIn('displayName: "OrdaX Prototype v0.1.0"', product)
+        semantic = contract["product_version"]["current"]
+        display = contract["product_version"]["display"]
+        # SemVer grammar is validated by the canonical JS product-version contract.
+        # This test only checks that every projection matches its single owner.
+        self.assertEqual(display, "v" + semantic)
+        self.assertIn(f'semanticVersion: "{semantic}"', product)
+        self.assertIn(f'displayVersion: "{display}"', product)
+        self.assertIn(f'displayName: "OrdaX Prototype {display}"', product)
         self.assertIn("stableRelease: false", product)
-        self.assertEqual(contract["product_version"]["current"], "0.1.0")
         self.assertIn("productVersionLabel()", overview)
         self.assertIn('t("system.overview.card.productVersion")', overview)
         self.assertIn('t("system.about.productVersion.kicker")', overview)

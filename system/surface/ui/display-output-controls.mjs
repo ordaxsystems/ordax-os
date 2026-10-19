@@ -17,12 +17,24 @@ function formatMode(mode, t) {
   return `${mode.width} × ${mode.height} · ${hz} Hz${current}${recommended}`;
 }
 
+/**
+ * Mounts the same host-display control in Native and Web.
+ * The translator is required by the canonical UI contract. Runtime still
+ * rejects a missing or invalid translator rather than falling back to strings.
+ * @param {HTMLElement} container
+ * @param {object} options
+ * @param {Document} [options.documentObject]
+ * @param {(id: string) => string} options.translate
+ * @param {ReturnType<typeof assertDisplayOutputsPort> | null} [options.port]
+ * @param {"native" | "web"} [options.mode]
+ * @param {(() => void) | null} [options.onExamples]
+ */
 export function mountDisplayOutputControls(container, {
   documentObject = container?.ownerDocument,
   translate,
   port = null,
   mode = "native",
-  onExamples = null,
+  onExamples = /** @type {null | (() => void)} */ (null),
 } = {}) {
   if (!container || !documentObject || typeof translate !== "function") {
     throw new TypeError("Display output controls require a container, document, and translator");
