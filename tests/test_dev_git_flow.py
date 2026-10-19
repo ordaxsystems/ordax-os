@@ -278,7 +278,15 @@ class DevelopmentGitFlowTest(unittest.TestCase):
         self.commit_v2 = self._commit_runtime("runtime-v2")
         helper = self.source / "system/services/base-update/dev-helpers.sh"
         helper.parent.mkdir(parents=True, exist_ok=True)
-        helper.write_text(chr(10).join(("#!/bin/sh", "exit 23", "")), encoding="utf-8")
+        helper.write_text(
+            chr(10).join((
+                "#!/bin/sh",
+                '[ "${ORDAX_TEST_HELPER_APPROVED:-0}" = 1 ] || exit 23',
+                'printf "%s\\n" "$ORDAX_SOURCE_SHA" > "$ORDAX_STATE_DIR/dev-helpers-sha"',
+                "",
+            )),
+            encoding="utf-8",
+        )
         self._run(["git", "-C", str(self.source), "add", "system"])
         self._run(["git", "-C", str(self.source), "commit", "-m", "failing helper fixture"])
         self._run(["git", "-C", str(self.source), "push", "origin", "main"])
@@ -297,6 +305,22 @@ class DevelopmentGitFlowTest(unittest.TestCase):
         self.assertEqual(
             (self.root / "run/ordax-update/pull-result").read_text().strip(),
             "helper-refresh",
+        )
+
+        # The exact same Git candidate can finish its helper activation on
+        # the next owner retry without another atomic clone or history rewrite.
+        retry_env = self._env()
+        retry_env["ORDAX_TEST_HELPER_APPROVED"] = "1"
+        recovered = self._script(PULL, env=retry_env)
+        self.assertIn(f"ORDAX_SOURCE_SHA={candidate}", recovered.stdout)
+        self.assertEqual((self.state / "dev-helpers-sha").read_text().strip(), candidate)
+        self.assertEqual(
+            (self.root / "run/ordax-update/pull-result").read_text().strip(),
+            "completed",
+        )
+        self.assertEqual(
+            self._run(["git", "-C", str(self.worktree), "rev-parse", "HEAD"]).stdout.strip(),
+            candidate,
         )
 
     def test_supervisor_fetched_commit_applies_without_second_remote_clone(self) -> None:
