@@ -62,6 +62,26 @@ docs/INTELLIGENCE.md.
 
 # Current State
 
+Meridian shell (2026-10-19): the persistent workspace header has been removed
+from Web, Native, Central, Área de Trabalho, and app destinations. Workspace
+content begins at the top of the shell; search and appearance remain available
+through the existing navigation and taskbar controls. Native area switching
+now lives in the sidebar, and update status remains available there as well.
+The Store's redundant context banner is removed; its mode switch sits with the
+window controls so both the mock presentation and real-catalog view remain
+reachable. Window title bars remain the window-management surface. Display-scale
+tokens continue to be shared across desktop presentations.
+
+Surface shortcut placement (2026-10-19): Central quick access, desktop icons,
+taskbar pins, and the device-app section in the navigation menu derive from one
+ordered catalog under `system/services/surface/`. Rendered sidebar app labels
+are localized from their actual app IDs, avoiding stale app-name lists. The app
+runtime catalog and host capabilities remain the authority for whether an app
+can open; shortcut placement does not grant access. System Updates remains a
+separate destination within the System app. Native rail and overflow-menu icons
+consume the shared Meridian destination glyph metadata. Web and Native desktop
+shortcut grids now share Meridian spacing, cell, icon, and inset tokens.
+
 Native Central home layout correction (2026-10-18): the persistent local-space
 card remains in the secondary column at desktop widths, while capability-backed
 continuation and pending-service cards occupy successive rows in the main column.

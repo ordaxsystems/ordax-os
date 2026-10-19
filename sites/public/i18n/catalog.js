@@ -1690,16 +1690,12 @@
   register("surface.a40f57d20fc5", "OrdaX USB", "OrdaX USB");
   register("surface.29a26f05617d", "Ajuste o tamanho da interface neste dispositivo. Controles físicos dependem do suporte do host.", "Adjust the interface size on this device. Physical controls depend on host support.");
   register("surface.aa5cb1b412a5", "Escala da interface", "Interface scale");
-  register("surface.6654ace8704c", "Ajuste a escala da Surface neste dispositivo sem mudar o zoom do navegador. Automático acompanha a largura disponível; a escolha é local e não sincroniza com a Conta.", "Adjust the Surface scale on this device without changing browser zoom. Automatic adapts to the available width; this choice stays local and is not synced to Account.");
+  register("surface.67be6a1a186b", "Ajuste a escala da interface neste monitor sem alterar o zoom do navegador. Automático considera a largura e a altura úteis; a escolha é local e não sincroniza com a Conta.", "Adjust the Surface scale on this device without changing browser zoom. Automatic adapts to the available width; this choice stays local and is not synced to Account.");
   register("surface.b803f24d52ed", "Automático", "Automatic");
   register("surface.c617f19e1a86", "Compacto", "Compact");
   register("surface.0758c00e6ea0", "Padrão", "Standard");
   register("surface.789b0f7fb962", "Confortável", "Comfortable");
   register("surface.45fbe99b103c", "Grande", "Large");
-  register("surface.562cb30dd77f", "Controles físicos do monitor", "Physical monitor controls");
-  register("surface.3dc9950a12e4", "Controle físico ainda não conectado. A escala da interface acima já funciona neste dispositivo.", "Physical control is not connected yet. The interface scale above already works on this device.");
-  register("surface.9ce0fca77368", "Ver jornada de tela prevista", "View planned display journey");
-  register("surface.ed3efebaad67", "Brilho, seleção de monitor, resolução e frequência dependem de uma capacidade real do host.", "Brightness, monitor selection, resolution, and refresh rate depend on a real host capability.");
   register("surface.83d0d814f360", "Continuidade entre dispositivos", "Continuity across devices");
   register("surface.a0e6c1e59152", "Escolha como seu trabalho acompanha você.", "Choose how your work follows you.");
   register("surface.7cfb945aa92e", "Contraste", "Contrast");

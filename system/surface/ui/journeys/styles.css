@@ -4,6 +4,7 @@
 [data-meridian] .md-dialog *,[data-meridian] .md-dialog *::before,[data-meridian] .md-dialog *::after{box-sizing:border-box}
 [data-meridian] .md-dialog button,[data-meridian] .md-dialog input,[data-meridian] .md-dialog select,[data-meridian] .md-dialog textarea{font:inherit;color:inherit}
 [data-meridian] .md-dialog .md-button{display:inline-flex;align-items:center;gap:8px;padding:10px 14px;border:1px solid transparent;border-radius:9px;background:transparent;font-size:12px;cursor:pointer;min-height:38px}
+[data-meridian] .md-dialog .md-button svg{width:auto;height:auto;max-width:1.25rem;max-height:1.25rem;flex:0 0 auto}
 [data-meridian] .md-dialog .md-button--solid{background:var(--md-accent);color:var(--md-accent-text)}
 [data-meridian] .md-dialog button:disabled{opacity:.45;cursor:not-allowed}
 [data-meridian] .md-dialog button:focus-visible,[data-meridian] .md-dialog input:focus-visible,[data-meridian] .md-dialog select:focus-visible{outline:2px solid var(--md-focus);outline-offset:3px}

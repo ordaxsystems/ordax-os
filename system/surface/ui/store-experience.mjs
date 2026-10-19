@@ -1,7 +1,8 @@
 import { mountStoreOverviewControls } from './store-overview-controls.mjs';
 
 const presentationTemplate = new URL('../workspace/components/store/presentation/template.html', import.meta.url);
-const presentationStyles = new URL('../workspace/components/store/presentation/styles.css', import.meta.url);
+// Vite otherwise serves a CSS file fetched with fetch() as a JavaScript HMR module.
+const presentationStyles = new URL('../workspace/components/store/presentation/styles.css?direct', import.meta.url);
 const presentationTokens = new URL('./meridian.tokens.css', import.meta.url);
 
 async function readAsset(url, signal) {
@@ -35,11 +36,18 @@ export function mountStoreExperience(host, {
   host.classList.add('ordax-store-experience');
   host.setAttribute('data-meridian', '');
   host.dataset.material = material;
-  host.innerHTML = '<header class="ordax-store-context"><div><strong data-store-context-title></strong><p data-store-context-note></p></div><button type="button" data-store-switch></button></header><section data-store-planned hidden><p data-store-preview-status role="status"></p><div data-store-preview-host></div></section><section data-store-official><div class="ordax-app-extension" data-app-extension="store-overview"></div></section>';
+  host.innerHTML = '<section data-store-planned hidden><p data-store-preview-status role="status"></p><div data-store-preview-host></div></section><section data-store-official><div class="ordax-app-extension" data-app-extension="store-overview"></div></section>';
   const planned = host.querySelector('[data-store-planned]');
   const official = host.querySelector('[data-store-official]');
   const slot = official.querySelector('[data-app-extension="store-overview"]');
-  const toggle = host.querySelector('[data-store-switch]');
+  const windowNode = host.closest('.ordax-window, .workspace-window');
+  const windowControls = windowNode?.querySelector('.ordax-window-controls, .desktop-window-controls');
+  const toggle = documentObject.createElement('button');
+  toggle.className = 'ordax-store-window-action';
+  toggle.type = 'button';
+  toggle.dataset.storeSwitch = '';
+  if (windowControls) windowControls.prepend(toggle);
+  else host.prepend(toggle);
   const status = host.querySelector('[data-store-preview-status]');
   const t = surfaceLifecycle.localization.translate;
 
@@ -72,9 +80,9 @@ export function mountStoreExperience(host, {
     if (destroyed) return;
     host.dataset.storeMode = mode;
     planned.hidden = mode !== 'planned';official.hidden = mode !== 'official';
-    host.querySelector('[data-store-context-title]').textContent = t('store.presentation.' + mode);
-    host.querySelector('[data-store-context-note]').textContent = t('store.presentation.' + mode + '.note');
     toggle.textContent = t('store.presentation.switch.' + mode);
+    toggle.setAttribute('aria-label', t('store.presentation.switch.' + mode));
+    toggle.title = t('store.presentation.switch.' + mode);
     if (mode === 'planned') void loadPreview();
   }
   const onSwitch = () => {mode = mode === 'official' ? 'planned' : 'official';renderContext();};
@@ -88,7 +96,7 @@ export function mountStoreExperience(host, {
     destroy() {
       if (destroyed) return;
       destroyed = true;abort.abort();unsubscribe?.();controls.destroy();preview?.destroy();
-      toggle.removeEventListener('click', onSwitch);host.replaceChildren();
+      toggle.removeEventListener('click', onSwitch);toggle.remove();host.replaceChildren();
     },
   });
 }

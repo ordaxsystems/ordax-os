@@ -23,9 +23,18 @@ type Props = PresentationProps & { dispatch: Dispatch<DesktopAction> };
 export function Desktop({ onCentral, dispatch }: Props) {
 
   const open = (title: string) => dispatch({ type: 'open', title });
+  const desktopShortcuts = [
+    { id: 'central', name: 'Central', icon: LayoutGrid, tone: 'lime' as const },
+    ...shortcuts,
+    { id: 'aura', name: 'Aura', icon: Sparkles, tone: 'lime' as const },
+  ];
   return <main className="classic-desktop" aria-label="Área de trabalho OrdaX">
     <img src={meridianWallpaper} alt="Paisagem da área de trabalho" className="desktop-wallpaper" width={1920} height={768}/>
-    <section className="desktop-shortcuts" aria-label="Atalhos da área de trabalho">{[{ name: 'Central', icon: LayoutGrid, tone: 'lime' as const }, ...shortcuts, { name: 'Aura', icon: Sparkles, tone: 'lime' as const }].map(item => <Button variant="ghost" className="desktop-shortcut" key={item.name} onClick={() => item.name === 'Central' ? onCentral() : open(item.name)}><AppIcon icon={item.icon} tone={item.tone}/><span>{item.name}</span></Button>)}</section>
+    <section className="desktop-shortcuts" aria-label="Atalhos da área de trabalho">
+      {desktopShortcuts.map(item => <Button variant="ghost" className="desktop-shortcut" data-desktop-app={item.id} key={item.id} onClick={() => item.id === 'central' ? onCentral() : open(item.name)}>
+        <AppIcon icon={item.icon} tone={item.tone}/><span>{item.name}</span>
+      </Button>)}
+    </section>
     <div className="desktop-watermark" aria-hidden="true"><span>Seu espaço.</span><span>Seu ritmo.</span><small>OrdaX OS Web</small></div>
   </main>;
 }

@@ -3,6 +3,13 @@
  font:400 .8125rem/1.5 var(--md-font);
  --md-home-content-max:clamp(82.5rem,70vw,280rem);
  --md-home-content-inline:clamp(2rem,1.6vw,3rem);
+ --md-home-page-block:1.75rem;
+ --md-home-page-bottom:1.25rem;
+ --md-home-column-gap:1.5rem;
+ --md-home-row-gap:1.125rem;
+ --md-home-section-gap:1.25rem;
+ --md-home-card-inset:1.5rem;
+ --md-home-hero-inset:1.5rem 1.75rem;
  --md-home-heading-size:clamp(1.75rem,3vw,2.625rem);
  --md-home-hero-height:clamp(16.625rem,14vw,35rem);
  --md-home-hero-heading-size:clamp(1.625rem,2.8vw,2.25rem);
@@ -54,27 +61,19 @@
 [data-meridian] .ordax-store-title {font-weight:500;letter-spacing:-.04em;}
 [data-meridian] .ordax-store-nav-item[aria-pressed=true] {background:var(--md-accent-soft);color:var(--md-accent);border-color:var(--md-border);}
 
+/* Shared app identity colors keep matching desktop shortcuts consistent across hosts. */
+[data-meridian] :is(.ordax-desktop-shortcut,.desktop-shortcut)[data-desktop-app="studio"] :is(.ordax-rail-icon,.app-icon) {background:var(--md-accent-soft);color:var(--md-accent);}
+[data-meridian] :is(.ordax-desktop-shortcut,.desktop-shortcut)[data-desktop-app="files"] :is(.ordax-rail-icon,.app-icon) {background:var(--md-sage-soft);color:var(--md-sage);}
+[data-meridian] :is(.ordax-desktop-shortcut,.desktop-shortcut)[data-desktop-app="settings"] :is(.ordax-rail-icon,.app-icon) {background:var(--md-slate-soft);color:var(--md-slate);}
+[data-meridian] :is(.ordax-desktop-shortcut,.desktop-shortcut)[data-desktop-app="central"] :is(.ordax-rail-icon,.app-icon) {background:var(--md-blue-soft);color:var(--md-blue);}
+[data-meridian] :is(.ordax-desktop-shortcut,.desktop-shortcut)[data-desktop-app="apps"] :is(.ordax-rail-icon,.app-icon) {background:var(--md-amber-soft);color:var(--md-amber);}
+
 /* Appearance miniatures use the same material variables as their target. */
 [data-meridian] .ordax-settings-theme-preview[data-material-preview] {
  --ordax-bg:var(--md-canvas);--ordax-app-bg:var(--md-surface);--ordax-panel:var(--md-surface);
  --ordax-rail-bg:var(--md-rail);--ordax-text:var(--md-ink);--ordax-muted:var(--md-muted);
  --ordax-accent:var(--md-accent);--ordax-border:var(--md-border);--ordax-shadow-soft:var(--md-shadow-small);
 }
-
-/* One Meridian workspace header owner for both Web and Native. */
-.meridian-system-header {height:var(--md-bar);flex-shrink:0;display:flex;align-items:center;gap:1.375rem;justify-content:space-between;padding:0 1.875rem;border-bottom:1px solid var(--md-border);background:var(--md-canvas);font-size:0.75rem;}
-.meridian-system-header button {font:inherit;color:inherit;cursor:pointer;}
-.meridian-system-location {display:flex;align-items:center;gap:.875rem;min-width:0;white-space:nowrap;}
-.meridian-system-location>span {font-weight:550;}
-.meridian-system-location>i {font-style:normal;color:var(--md-border-strong);}
-.meridian-system-location>button:not(.meridian-mobile-menu) {display:flex;gap:.4375rem;align-items:center;border:0;background:transparent;font-size:0.6875rem;color:var(--md-muted);max-width:11.25rem;overflow:hidden;}
-.meridian-system-search {display:flex;align-items:center;gap:.75rem;width:min(21.875rem,36%);padding:.625rem .8125rem;background:var(--md-surface);border:1px solid var(--md-border);border-radius:.625rem;color:var(--md-muted)!important;text-align:left;font-size:0.6875rem!important;}
-.meridian-system-search>span {flex:1;}
-.meridian-system-search kbd {padding:0;border:0;background:transparent;box-shadow:none;color:var(--md-muted);font:400 0.5625rem/1.5 ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;white-space:nowrap;}
-.meridian-system-tools {display:flex;align-items:center;gap:.75rem;}
-.meridian-system-tools>button {display:grid;place-items:center;width:2.125rem;height:2.125rem;padding:0;background:transparent;border:0;border-radius:.5rem;}
-.meridian-system-tools>button:hover {background:var(--md-subtle);}
-.meridian-mobile-menu {display:none;align-items:center;justify-content:center;border:0;background:transparent;padding:.3125rem;}
 
 /* Shared home components used by Web and Native. */
 .meridian-session-strip {display:flex;align-items:center;gap:20px;flex-wrap:wrap;border-bottom:1px solid var(--md-border);padding:0 0 16px;margin-bottom:20px;color:var(--md-muted);font-size:0.75rem;}
@@ -106,20 +105,4 @@
  .meridian-command-icon {display:none;}
  .meridian-command input {font-size:0.6875rem;}
  .meridian-command small button {margin-left:0;}
-}
-
-@media(max-width:1150px) {
- .meridian-system-header {padding:0 1.5rem;gap:.9375rem;}
- .meridian-planned-indicator {display:none;}
- .meridian-system-search {width:38%;}
-}
-@media(max-width:600px) {
- .meridian-system-header {padding:0 .9375rem;gap:.625rem;}
- .meridian-mobile-menu {display:flex;}
- .meridian-system-location {gap:9px;font-size:0.6875rem;}
- .meridian-system-location>button:not(.meridian-mobile-menu),.meridian-system-location>i {display:none;}
- .meridian-system-search {padding:.5rem;width:2.125rem;height:2.125rem;justify-content:center;border:0;background:transparent;}
- .meridian-system-search>span,.meridian-system-search kbd {display:none;}
- .meridian-system-tools {gap:3px;}
- .meridian-system-tools>button {width:1.875rem;}
 }

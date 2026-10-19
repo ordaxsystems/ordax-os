@@ -7,6 +7,7 @@ import {
   REGIONAL_LOCALE_PREFERENCE_ID,
   REGIONAL_TIME_ZONE_PREFERENCE_ID,
 } from "../../services/preferences/regional.mjs";
+import { listSurfaceShortcutAppIds } from "../../services/surface/shortcut-catalog.mjs";
 import { MERIDIAN_RAIL_DESTINATIONS } from "../../services/surface/meridian-navigation.mjs";
 
 export function syncDesktopPresentationToggle(button, presentation, localization) {
@@ -34,8 +35,10 @@ export function syncDesktopThemeToggle(button, appearance, localization) {
 
 const SURFACE_LOCALE = "pt-BR";
 const SURFACE_TIME_ZONE = "America/Bahia";
-const QUICK_ACCESS_APP_IDS = Object.freeze(["studio", "files", "settings"]);
-const DOCK_PINNED_APP_IDS = Object.freeze(["studio", "files", "store", "account", "settings", "system"]);
+const CENTRAL_QUICK_ACCESS_APP_IDS = listSurfaceShortcutAppIds("central");
+const DESKTOP_SHORTCUT_APP_IDS = listSurfaceShortcutAppIds("desktop");
+const DOCK_PINNED_APP_IDS = listSurfaceShortcutAppIds("dock");
+const NAVIGATION_MENU_APP_IDS = listSurfaceShortcutAppIds("navigation-menu");
 
 const ICONS = Object.freeze({
   presentation: `<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>`,
@@ -82,6 +85,11 @@ function railButton(appId, label, icon, t, className = "ordax-rail-button") {
     </button>`;
 }
 
+function desktopAppShortcut(appId, t) {
+  const label = t(`app.${appId}.title`);
+  return `<button type="button" class="ordax-desktop-shortcut" data-sidebar-app="${appId}" data-desktop-app="${appId}" data-launch-app="${appId}" title="${label}" aria-label="${t("surface.launcher.open", { app: label })}"><span class="ordax-rail-icon" aria-hidden="true">${ICONS[appId]}</span><span>${label}</span></button>`;
+}
+
 function spaceLink(messageId, target, t) {
   const label = t(messageId);
   return `
@@ -118,7 +126,7 @@ function meridianDestinationButton(destination, localization, groupLabel = "") {
   const appTarget = target.target ? ` data-app-target="${target.target}"` : "";
   const planned = destination.key === "intelligence"
     ? `<span class="meridian-planned-mark" aria-label="${localization.translate("meridian.native.plannedFeature")}" title="${localization.translate("meridian.native.notConnected")}">•</span>` : "";
-  return `<div class="meridian-nav-destination" data-meridian-destination-group="${destination.group}">${groupLabel}<button type="button" class="ordax-rail-button os-nav-item" data-sidebar-app="${target.appId}" data-launch-app="${target.appId}" data-meridian-destination="${destination.key}"${appTarget} aria-label="${label}" title="${label}"><span class="ordax-rail-icon">${ICONS[destination.key === "intelligence" ? "aura" : destination.key]}</span><span>${label}</span>${planned}</button></div>`;
+  return `<div class="meridian-nav-destination" data-meridian-destination-group="${destination.group}">${groupLabel}<button type="button" class="ordax-rail-button os-nav-item" data-sidebar-app="${target.appId}" data-launch-app="${target.appId}" data-meridian-destination="${destination.key}"${appTarget} aria-label="${label}" title="${label}"><span class="ordax-rail-icon">${ICONS[destination.glyph]}</span><span>${label}</span>${planned}</button></div>`;
 }
 
 function meridianNavigation(localization, t) {
@@ -129,7 +137,9 @@ function meridianNavigation(localization, t) {
     localization,
     index === 0 ? `<p class="meridian-nav-label" data-nav-group-label="ecossistema">Ecossistema</p>` : "",
   )).join("");
-  return `<div class="meridian-native-nav-group" data-nav-group="principal">${primary}</div><div class="meridian-native-nav-group" data-nav-group="ecossistema">${ecosystem}</div><button type="button" class="ordax-rail-button os-nav-item meridian-nav-more" data-navigation-menu-toggle data-nav-menu-more aria-controls="ordax-native-navigation" aria-expanded="false" hidden><span class="ordax-rail-icon">${ICONS.more}</span><span>${t("shell.sidebar.more")}</span></button>`;
+  const systemLabel = t("app.system.title");
+  const deviceManagement = `<div class="meridian-nav-destination" data-meridian-destination-group="dispositivo"><p class="meridian-nav-label" data-nav-group-label="dispositivo">${localization.getLocale().toLowerCase().startsWith("en") ? "On this device" : "Neste dispositivo"}</p><button type="button" class="ordax-rail-button os-nav-item" data-sidebar-app="system" data-launch-app="system" title="${systemLabel}" aria-label="${t("surface.launcher.open", { app: systemLabel })}"><span class="ordax-rail-icon">${ICONS.system}</span><span>${systemLabel}</span></button></div>`;
+  return `<div class="meridian-native-nav-group" data-nav-group="principal">${primary}</div><div class="meridian-native-nav-group" data-nav-group="ecossistema">${ecosystem}</div><div class="meridian-native-nav-group" data-nav-group="dispositivo">${deviceManagement}</div><button type="button" class="ordax-rail-button os-nav-item meridian-nav-more" data-navigation-menu-toggle data-nav-menu-more aria-controls="ordax-native-navigation" aria-expanded="false" hidden><span class="ordax-rail-icon">${ICONS.more}</span><span>${t("shell.sidebar.more")}</span></button>`;
 }
 
 function meridianNavigationMenu(localization, t) {
@@ -141,12 +151,11 @@ function meridianNavigationMenu(localization, t) {
     const target = MERIDIAN_NATIVE_DESTINATION_TARGETS[destination.key];
     if (!target) return "";
     const unavailable = destination.key === "intelligence";
-    const icon = destination.key === "intelligence" ? "aura" : destination.key;
-    return `<button type="button" class="meridian-menu-item" data-nav-menu-item data-meridian-menu-destination="${destination.key}" data-launch-app="${target.appId}" data-nav-menu-app="${target.appId}"${target.target ? ` data-app-target="${target.target}"` : ""}${unavailable ? ` disabled aria-disabled="true" title="${t("meridian.native.notConnected")}"` : ""}><span class="ordax-rail-icon">${ICONS[icon]}</span><span>${label}</span>${unavailable ? `<small>${t("meridian.native.planned")}</small>` : ""}</button>`;
+    return `<button type="button" class="meridian-menu-item" data-nav-menu-item data-meridian-menu-destination="${destination.key}" data-launch-app="${target.appId}" data-nav-menu-app="${target.appId}"${target.target ? ` data-app-target="${target.target}"` : ""}${unavailable ? ` disabled aria-disabled="true" title="${t("meridian.native.notConnected")}"` : ""}><span class="ordax-rail-icon">${ICONS[destination.glyph]}</span><span>${label}</span>${unavailable ? `<small>${t("meridian.native.planned")}</small>` : ""}</button>`;
   };
   const principal = MERIDIAN_RAIL_DESTINATIONS.filter(item => item.key === "home" || item.group === "principal").map(destinationButton).join("");
   const ecosystem = MERIDIAN_RAIL_DESTINATIONS.filter(item => item.group === "ecossistema").map(destinationButton).join("");
-  const deviceApps = ["files", "studio", "settings", "system"].map(id => `<button type="button" class="meridian-menu-item" data-nav-menu-item data-launch-app="${id}" data-nav-menu-app="${id}"><span class="ordax-rail-icon">${ICONS[id]}</span><span>${t(`app.${id}.title`)}</span></button>`).join("")
+  const deviceApps = NAVIGATION_MENU_APP_IDS.map(id => `<button type="button" class="meridian-menu-item" data-nav-menu-item data-launch-app="${id}" data-nav-menu-app="${id}"><span class="ordax-rail-icon">${ICONS[id]}</span><span>${t(`app.${id}.title`)}</span></button>`).join("")
     + `<button type="button" class="meridian-menu-item" data-nav-menu-item data-launch-app="system" data-app-target="updates" data-nav-menu-app="system"><span class="ordax-rail-icon">${ICONS.system}</span><span>${t("system.updateShortcut.label")}</span></button>`;
   const english = localization.getLocale().toLowerCase().startsWith("en");
   return `<section id="ordax-native-navigation" class="meridian-navigation-menu ordax-native-navigation-menu" data-native-navigation-menu role="dialog" aria-modal="false" aria-labelledby="ordax-native-navigation-title" hidden><header class="ordax-native-navigation-heading"><div><p class="ordax-section-kicker">MERIDIAN</p><h2 id="ordax-native-navigation-title">${english ? "Navigation and apps" : "Navegação e aplicativos"}</h2></div><button type="button" class="ordax-quick-close" data-navigation-menu-close aria-label="${t("shell.quick.dateTimeClose")}">×</button></header><label class="ordax-native-navigation-search"><span class="ordax-command-icon">${ICONS.search}</span><input type="search" data-native-navigation-query data-meridian-navigation-query placeholder="${english ? "Search destinations and apps" : "Buscar destinos e aplicativos"}" autocomplete="off"></label><div class="ordax-native-navigation-list"><div data-nav-menu-group="principal">${principal}</div><div data-nav-menu-group="ecossistema"><p class="meridian-nav-label" data-nav-menu-group-label="ecossistema">${english ? "Ecosystem" : "Ecossistema"}</p>${ecosystem}</div><div data-nav-menu-group="dispositivo"><p class="meridian-nav-label" data-nav-menu-group-label="dispositivo">${english ? "On this device" : "Neste dispositivo"}</p>${deviceApps}</div></div></section>`;
@@ -159,17 +168,11 @@ export function createDesktopShellMarkup(localization) {
     <div class="ordax-shell meridian-workspace meridian-native-workspace" data-ordax-shell data-meridian-native data-view="central">
       ${createSidebarMarkup({ id: "ordax-native-sidebar", label: t("shell.rail.aria"), content: {
         brand: `<button type="button" class="meridian-brand-home" data-show-desktop aria-label="OrdaX OS" title="OrdaX OS">${sidebarBrandMarkup()}</button>`,
-        home: `<div class="meridian-native-home-nav"><div class="ordax-space-switcher-slot" data-space-switcher-slot></div><button type="button" class="ordax-rail-button os-nav-item meridian-home-destination" data-show-desktop title="${t("shell.home.title")}"><span class="ordax-rail-icon">${ICONS.home}</span><span data-home-nav-label>${t("shell.home.title")}</span></button></div>`,
+        home: `<div class="meridian-native-home-nav"><div class="ordax-space-switcher-slot" data-space-switcher-slot></div><div class="meridian-native-area-control"><button type="button" class="ordax-rail-button os-nav-item meridian-native-area-trigger" data-area-menu-toggle aria-controls="ordax-native-area-menu" aria-expanded="false" aria-label="${t("shell.areas.aria")}" title="${t("shell.areas.aria")}"><span class="ordax-rail-icon">${ICONS.presentation}</span><span data-current-area>${t("surface.area.label", { ordinal: "01" })}</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button><div id="ordax-native-area-menu" class="meridian-native-area-menu" data-native-area-menu hidden><div class="ordax-area-switcher" data-area-switcher aria-label="${t("shell.areas.aria")}"></div></div></div><button type="button" class="ordax-rail-button os-nav-item meridian-home-destination" data-show-desktop title="${t("shell.home.title")}"><span class="ordax-rail-icon">${ICONS.home}</span><span data-home-nav-label>${t("shell.home.title")}</span></button></div>`,
         navigation: meridianNavigation(localization, t),
-        account: `<div class="meridian-rail-context"><i aria-hidden="true"></i><span><span data-native-context-title>${localization.getLocale().toLowerCase().startsWith("en") ? "This device" : "Este dispositivo"}</span><small data-native-context-subtitle>${t("meridian.native.workspace")}</small></span></div><div class="meridian-rail-utilities"><button type="button" data-native-rail-continuity data-launch-app="account" data-app-target="sync" aria-label="${localization.getLocale().toLowerCase().startsWith("en") ? "Continuity" : "Continuidade"}" title="${localization.getLocale().toLowerCase().startsWith("en") ? "Continuity" : "Continuidade"}">${ICONS.clock}</button><span class="meridian-rail-notification-slot" data-sidebar-notification-slot></span><button type="button" data-launch-app="settings" aria-label="${t("app.settings.title")}" title="${t("app.settings.title")}">${ICONS.settings}</button></div>${sidebarProfileMarkup(projectSidebarAccount({ state: "unavailable" }, false, t), true)}`,
+        account: `<div class="meridian-rail-context"><i aria-hidden="true"></i><span><span data-native-context-title>${localization.getLocale().toLowerCase().startsWith("en") ? "This device" : "Este dispositivo"}</span><small data-native-context-subtitle>${t("meridian.native.workspace")}</small></span></div><div class="meridian-rail-utilities"><button type="button" data-native-rail-continuity data-launch-app="account" data-app-target="sync" aria-label="${localization.getLocale().toLowerCase().startsWith("en") ? "Continuity" : "Continuidade"}" title="${localization.getLocale().toLowerCase().startsWith("en") ? "Continuity" : "Continuidade"}">${ICONS.clock}</button><span class="meridian-rail-notification-slot" data-sidebar-notification-slot></span><span class="meridian-rail-update-slot" data-update-slot></span><button type="button" data-launch-app="settings" aria-label="${t("app.settings.title")}" title="${t("app.settings.title")}">${ICONS.settings}</button></div>${sidebarProfileMarkup(projectSidebarAccount({ state: "unavailable" }, false, t), true)}`,
         auxiliary: `<div class="ordax-power-slot" data-power-slot></div><button type="button" class="sidebar-collapse ordax-sidebar-toggle" data-sidebar-toggle aria-controls="ordax-native-sidebar" aria-expanded="true" aria-label="${t("shell.sidebar.collapse")}" title="${t("shell.sidebar.collapse")}"><svg viewBox="0 0 24 24" aria-hidden="true">${ICONS.sidebarClose}</svg></button>`,
       } })}
-
-      <header class="meridian-system-header ordax-native-header">
-        <div class="meridian-system-location"><button type="button" class="meridian-mobile-menu" data-navigation-menu-toggle aria-controls="ordax-native-navigation" aria-expanded="false" aria-label="${localization.getLocale().toLowerCase().startsWith("en") ? "Open navigation" : "Abrir navegação"}" title="${localization.getLocale().toLowerCase().startsWith("en") ? "Open navigation" : "Abrir navegação"}">${ICONS.apps}</button><span data-current-destination>${t("shell.home.title")}</span><i aria-hidden="true">/</i><button type="button" class="meridian-native-area-trigger" data-area-menu-toggle aria-controls="ordax-native-area-menu" aria-expanded="false" aria-label="${t("shell.areas.aria")}" title="${t("shell.areas.aria")}"><span class="meridian-native-location-context" data-current-area>${t("surface.area.label", { ordinal: "01" })}</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button><div id="ordax-native-area-menu" class="meridian-native-area-menu" data-native-area-menu hidden><div class="ordax-area-switcher" data-area-switcher aria-label="${t("shell.areas.aria")}"></div></div></div>
-        <button type="button" class="meridian-system-search" data-navigation-menu-toggle data-meridian-search aria-label="${localization.getLocale().toLowerCase().startsWith("en") ? "Search apps and resources" : "Buscar aplicativos e recursos"}" aria-controls="ordax-native-navigation" aria-expanded="false"><span class="meridian-native-search-icon" aria-hidden="true">${ICONS.search}</span><span>${localization.getLocale().toLowerCase().startsWith("en") ? "Search apps and resources" : "Buscar aplicativos e recursos"}</span><kbd>Ctrl K</kbd></button>
-        <div class="meridian-system-tools"><div class="ordax-status-actions meridian-header-status-actions" data-update-slot></div></div>
-      </header>
 
       <main class="ordax-workspace" tabindex="-1" data-workspace>
         <section class="ordax-desktop" aria-labelledby="surface-home-title">
@@ -211,7 +214,7 @@ export function createDesktopShellMarkup(localization) {
             <section class="ordax-home-actions" aria-labelledby="ordax-home-actions-title">
               <p id="ordax-home-actions-title" class="ordax-section-kicker">${t("shell.home.quickAccess")}</p>
               <div class="ordax-home-action-grid">
-                ${QUICK_ACCESS_APP_IDS.map((id) => railButton(id, t(`app.${id}.title`), ICONS[id], t, "ordax-home-action")).join("")}
+                ${CENTRAL_QUICK_ACCESS_APP_IDS.map((id) => railButton(id, t(`app.${id}.title`), ICONS[id], t, "ordax-home-action")).join("")}
               </div>
             </section>
 
@@ -224,8 +227,9 @@ export function createDesktopShellMarkup(localization) {
           </div>
 
           <section class="ordax-desktop-shortcuts" data-desktop-presentation aria-label="${t("shell.presentation.shortcuts")}" hidden>
-            <button type="button" class="ordax-desktop-shortcut" data-show-desktop><span class="ordax-rail-icon">${ICONS.presentation}</span><span data-central-shortcut-label>${t("shell.presentation.centralTitle")}</span></button>
-            ${QUICK_ACCESS_APP_IDS.map(id => railButton(id, t(`app.${id}.title`), ICONS[id], t, "ordax-desktop-shortcut")).join("")}
+            <button type="button" class="ordax-desktop-shortcut" data-desktop-app="central" data-desktop-action="central" data-show-desktop title="${t("shell.presentation.centralTitle")}" aria-label="${t("shell.presentation.central")}"><span class="ordax-rail-icon" aria-hidden="true">${ICONS.presentation}</span><span data-central-shortcut-label>${t("shell.presentation.centralTitle")}</span></button>
+            ${DESKTOP_SHORTCUT_APP_IDS.map(id => desktopAppShortcut(id, t)).join("")}
+            <button type="button" class="ordax-desktop-shortcut" data-desktop-app="apps" data-desktop-action="launcher" data-launcher-toggle title="${t("shell.desktop.appsShortcut")}" aria-label="${t("shell.launcher.command")}"><span class="ordax-rail-icon" aria-hidden="true">${ICONS.apps}</span><span>${t("shell.desktop.appsShortcut")}</span></button>
           </section>
         </section>
 
@@ -322,15 +326,14 @@ export function syncDesktopShellLocalization(root, localization) {
   const english = localizationPort.getLocale().toLowerCase().startsWith("en");
 
   aria(".ordax-rail", "shell.rail.aria");
-  for (const appId of ["files", "studio", "notes", "settings", "account", "system"]) {
+  for (const button of root.querySelectorAll("[data-sidebar-app]")) {
+    const appId = button.dataset.sidebarApp;
+    if (!appId || button.hasAttribute("data-sidebar-account-open") || button.hasAttribute("data-meridian-destination")) continue;
     const label = t(`app.${appId}.title`);
-    for (const button of root.querySelectorAll(`[data-sidebar-app="${appId}"]`)) {
-      if (button.hasAttribute("data-sidebar-account-open") || button.hasAttribute("data-meridian-destination")) continue;
-      button.setAttribute("title", label);
-      const labelNode = button.querySelector("span:last-child");
-      if (labelNode) labelNode.textContent = label;
-      button.setAttribute("aria-label", t("surface.launcher.open", { app: label }));
-    }
+    button.setAttribute("title", label);
+    const labelNode = button.querySelector("span:last-child");
+    if (labelNode) labelNode.textContent = label;
+    button.setAttribute("aria-label", t("surface.launcher.open", { app: label }));
   }
   text("[data-home-nav-label]", "shell.home.title");
   root.querySelector(".meridian-home-destination")?.setAttribute("title", t("shell.home.title"));
@@ -344,6 +347,11 @@ export function syncDesktopShellLocalization(root, localization) {
     continuityButton.title = english ? "Continuity" : "Continuidade";
   }
   text("[data-central-shortcut-label]", "shell.presentation.centralTitle");
+  aria('[data-desktop-action="central"]', "shell.presentation.central");
+  root.querySelector('[data-desktop-action="central"]')?.setAttribute("title", t("shell.presentation.centralTitle"));
+  text('[data-desktop-action="launcher"] span:last-child', "shell.desktop.appsShortcut");
+  aria('[data-desktop-action="launcher"]', "shell.launcher.command");
+  root.querySelector('[data-desktop-action="launcher"]')?.setAttribute("title", t("shell.desktop.appsShortcut"));
   root.querySelector("[data-desktop-presentation]")?.setAttribute("aria-label", t("shell.presentation.shortcuts"));
   text("[data-home-greeting]", "shell.home.greeting.morning");
   text("[data-home-tagline]", "shell.home.tagline");

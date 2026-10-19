@@ -25,7 +25,7 @@ export function WebSettings({onOpen}:{onOpen?:(title:string)=>void}){
  const examples=useRef<ReturnType<typeof mountSettingsJourneys>|null>(null);
  const navigate=useRef(onOpen);
  useEffect(()=>{navigate.current=onOpen;},[onOpen]);
- useEffect(()=>{if(!examplesHost.current)return;const instance=mountSettingsJourneys(examplesHost.current,{mode:'web',locale,onAccount:()=>navigate.current?.('Minha conta')});examples.current=instance;return()=>{instance.destroy();examples.current=null;};},[locale]);
+ useEffect(()=>{if(!examplesHost.current)return;const instance=mountSettingsJourneys(examplesHost.current,{locale,onAccount:()=>navigate.current?.('Minha conta')});examples.current=instance;return()=>{instance.destroy();examples.current=null;};},[locale]);
  const [mock,setMock]=useState<Record<string,boolean>>({privacy:true,sync:false,focus:false});
  const accessibilityPanel=useRef<HTMLElement>(null);
  const displayPanel=useRef<HTMLElement>(null);

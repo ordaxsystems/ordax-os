@@ -9,27 +9,89 @@
 
 html {
   --ordax-display-scale-factor: 1;
-  --ordax-text-scale-factor: 1;
-  font-size: calc(100% * var(--ordax-display-scale-factor) * var(--ordax-text-scale-factor));
+  --ordax-display-scale-viewport-width: 100vw;
+  --ordax-display-scale-viewport-height: 100dvh;
+  font-size: 100%;
 }
 
-html[data-ordax-display-scale="compact"] { --ordax-display-scale-factor: 0.9; }
-html[data-ordax-display-scale="comfortable"] { --ordax-display-scale-factor: 1.1; }
-html[data-ordax-display-scale="large"] { --ordax-display-scale-factor: 1.2; }
-
-html[data-ordax-text-scale="large"] { --ordax-text-scale-factor: 1.125; }
-html[data-ordax-text-scale="extra-large"] { --ordax-text-scale-factor: 1.25; }
-
-@media (min-width: 2560px) {
-  html[data-ordax-display-scale="automatic"] { --ordax-display-scale-factor: 1.0625; }
+html[data-ordax-display-scale="compact"] {
+  --ordax-display-scale-factor: 0.9;
+  --ordax-display-scale-viewport-width: 111.111111vw;
+  --ordax-display-scale-viewport-height: 111.111111dvh;
+}
+html[data-ordax-display-scale="comfortable"] {
+  --ordax-display-scale-factor: 1.1;
+  --ordax-display-scale-viewport-width: 90.909091vw;
+  --ordax-display-scale-viewport-height: 90.909091dvh;
+}
+html[data-ordax-display-scale="large"] {
+  --ordax-display-scale-factor: 1.2;
+  --ordax-display-scale-viewport-width: 83.333333vw;
+  --ordax-display-scale-viewport-height: 83.333333dvh;
 }
 
-@media (min-width: 3200px) {
-  html[data-ordax-display-scale="automatic"] { --ordax-display-scale-factor: 1.125; }
+/* Scale the shared app canvas instead of the document viewport. This preserves
+   the shell's full-screen bounds, so compact cannot uncover the page background
+   and large cannot push the navigation outside the visible screen. */
+html[data-ordax-display-scale] #ordax-root {
+  position: fixed;
+  inset-block-start: 0;
+  inset-inline-start: 0;
+  width: var(--ordax-display-scale-viewport-width);
+  min-width: var(--ordax-display-scale-viewport-width);
+  height: var(--ordax-display-scale-viewport-height);
+  min-height: var(--ordax-display-scale-viewport-height);
+  overflow: hidden;
+  zoom: var(--ordax-display-scale-factor);
 }
 
-@media (min-width: 5120px) {
-  html[data-ordax-display-scale="automatic"] { --ordax-display-scale-factor: 1.25; }
+html[data-ordax-display-scale] body {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  min-width: 100vw;
+  height: 100dvh;
+  min-height: 100dvh;
+  overflow: hidden;
+}
+
+html[data-ordax-display-scale] {
+  overflow: hidden;
+}
+
+html[data-ordax-display-scale] #ordax-root > :is(.ordax-shell, .window-workspace) {
+  width: 100%;
+  min-width: 100%;
+  height: 100%;
+  min-height: 100%;
+}
+
+html[data-ordax-text-scale="large"] { font-size: 112.5%; }
+html[data-ordax-text-scale="extra-large"] { font-size: 125%; }
+
+/* Automatic enlargement requires enough horizontal and vertical workspace. */
+@media (min-width: 2560px) and (min-height: 1200px) {
+  html[data-ordax-display-scale="automatic"] {
+    --ordax-display-scale-factor: 1.0625;
+    --ordax-display-scale-viewport-width: 94.117647vw;
+    --ordax-display-scale-viewport-height: 94.117647dvh;
+  }
+}
+
+@media (min-width: 3200px) and (min-height: 1800px) {
+  html[data-ordax-display-scale="automatic"] {
+    --ordax-display-scale-factor: 1.125;
+    --ordax-display-scale-viewport-width: 88.888889vw;
+    --ordax-display-scale-viewport-height: 88.888889dvh;
+  }
+}
+
+@media (min-width: 5120px) and (min-height: 2160px) {
+  html[data-ordax-display-scale="automatic"] {
+    --ordax-display-scale-factor: 1.25;
+    --ordax-display-scale-viewport-width: 80vw;
+    --ordax-display-scale-viewport-height: 80dvh;
+  }
 }
 
 /*
@@ -99,7 +161,6 @@ html[data-ordax-text-scale="extra-large"] { --ordax-text-scale-factor: 1.25; }
   --ordax-navigation-height: 40px;
   --ordax-navigation-control-height: 32px;
   --ordax-rail-width: var(--ordax-sidebar-expanded-width);
-  --ordax-header-height: 64px;
 
   /* Geometry. */
   --ordax-radius-xs: 4px;
