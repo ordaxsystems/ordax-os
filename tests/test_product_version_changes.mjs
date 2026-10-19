@@ -73,6 +73,7 @@ test('moving a Native executable to docs never bypasses the OS SemVer gate',()=>
     git('add','.');
     git('commit','-qm','baseline executable');
     git('mv','system/surface/bin/ordax-surface','docs/ordax-surface');
+    git('commit','-qm','move executable to docs');
     const detected=listOsVersionDiffPaths('HEAD',{cwd:worktree});
     assert.deepEqual(detected,[
       'docs/ordax-surface','system/surface/bin/ordax-surface',
