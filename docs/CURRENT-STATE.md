@@ -92,6 +92,12 @@ the wallpaper; shortcut labels remain legible on the plain canvas. The
 Web-only watermark was removed so the desktop has the same content hierarchy
 across hosts. The wallpaper remains decorative, behind shortcuts and windows.
 
+Desktop taskbar frame (2026-10-19): Native and Web now share Meridian tokens
+for the bottom bar's three-column balance, side-control minimum, group spacing,
+horizontal inset and dock glyph size. Host styles retain only their own
+responsive breakpoints and platform-specific controls, so visual geometry is
+consistent while available system actions remain truthful to each host.
+
 Native Central home layout correction (2026-10-18): the persistent local-space
 card remains in the secondary column at desktop widths, while capability-backed
 continuation and pending-service cards occupy successive rows in the main column.

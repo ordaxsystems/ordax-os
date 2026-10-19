@@ -155,6 +155,28 @@ test("Web and Native desktop canvas share the Meridian wallpaper and contrast pr
   assert.doesNotMatch(webStyles, /\.desktop-wallpaper|\.desktop-watermark/);
   assert.doesNotMatch(nativeStyles, /brand\/meridian-field\.svg/);
 });
+test("Web and Native taskbars share one Meridian frame and dock glyph scale", async () => {
+  const [tokens, sharedStyles, nativeStyles, webStyles, nativeShell, webNavigation] = await Promise.all([
+    readFile(new URL("../system/surface/ui/meridian.tokens.css", import.meta.url), "utf8"),
+    readFile(new URL("../system/surface/ui/meridian.css", import.meta.url), "utf8"),
+    readFile(new URL("../system/surface/ui/identity.css", import.meta.url), "utf8"),
+    readFile(new URL("../system/surface/workspace/components/central/meridian.css", import.meta.url), "utf8"),
+    readFile(new URL("../system/surface/ui/desktop-shell.mjs", import.meta.url), "utf8"),
+    readFile(new URL("../system/surface/workspace/components/central/meridian-navigation.tsx", import.meta.url), "utf8"),
+  ]);
+  assert.ok(tokens.includes("--md-taskbar-side-min:5.3125rem"));
+  assert.ok(tokens.includes("--md-taskbar-inline-padding:1.25rem"));
+  assert.ok(tokens.includes("--md-taskbar-control-gap:.4375rem"));
+  assert.ok(tokens.includes("--md-dock-glyph-size:1.3125rem"));
+  assert.ok(sharedStyles.includes("grid-template-columns:minmax(var(--md-taskbar-side-min),1fr) minmax(0,auto) minmax(var(--md-taskbar-side-min),1fr)"));
+  assert.ok(sharedStyles.includes(".meridian-taskbar-start,.meridian-taskbar-end"));
+  assert.ok(nativeShell.includes('class="ordax-dock ordax-statusbar meridian-taskbar"'));
+  assert.ok(webNavigation.includes('className="desktop-taskbar workspace-navigation meridian-taskbar"'));
+  assert.doesNotMatch(nativeStyles, /\.meridian-native-workspace \.ordax-statusbar \{\s*display:grid;\s*grid-template-columns/);
+  assert.doesNotMatch(webStyles, /\.meridian-workspace \.meridian-taskbar \{display:grid;grid-template-columns/);
+  assert.ok(nativeStyles.includes("var(--md-dock-glyph-size)"));
+  assert.ok(webStyles.includes("var(--md-dock-glyph-size)"));
+});
 test("equivalent desktop shortcuts share Meridian identity colors without removing Web destinations", async () => {
   const [tokens, webDesktop, webConfig, nativeShell, shortcutCatalog] = await Promise.all([
     readFile(new URL("../system/surface/ui/meridian.css", import.meta.url), "utf8"),

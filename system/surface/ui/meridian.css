@@ -39,6 +39,9 @@
 [data-meridian] .classic-desktop { background:var(--md-canvas); }
 [data-meridian] .classic-desktop::before { position:absolute;z-index:0;inset:0;content:"";pointer-events:none;background:var(--md-desktop-wallpaper) center/cover no-repeat;opacity:var(--ordax-wallpaper-opacity,1); }
 [data-meridian] .ordax-workspace::before { background:var(--md-desktop-wallpaper) center/cover no-repeat; }
+[data-meridian] .meridian-taskbar { display:grid;grid-template-columns:minmax(var(--md-taskbar-side-min),1fr) minmax(0,auto) minmax(var(--md-taskbar-side-min),1fr);align-items:center;gap:var(--md-taskbar-layout-gap);padding-inline:var(--md-taskbar-inline-padding);background:var(--md-surface);border-top:1px solid var(--md-border); }
+[data-meridian] :is(.meridian-taskbar-start,.meridian-taskbar-end) { display:flex;align-items:center;gap:var(--md-taskbar-control-gap);min-width:0; }
+[data-meridian] .meridian-taskbar-end { justify-content:flex-end; }
 [data-meridian] :is(.workspace-sidebar,.ordax-rail) {background:var(--md-rail);color:var(--md-rail-text);border-right:1px solid var(--md-rail-border);}
 [data-meridian] :is(.workspace-sidebar,.ordax-rail) :is(.brand,.brand-name,.ordax-brand-word,.ordax-brand-word small,.os-nav-item,.ordax-rail-button,.account-open,.account-identity,.account-storage-value) {color:var(--md-rail-text);}
 [data-meridian] :is(.workspace-sidebar,.ordax-rail) :is(.account-identity>span,.account-storage-footer,.account-actions>button) {color:var(--md-rail-muted);}

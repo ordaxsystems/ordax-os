@@ -65,7 +65,12 @@
   --md-dock:3.5rem;
   --md-dock-control-size:2.75rem;
   --md-dock-icon-size:1.75rem;
+  --md-dock-glyph-size:1.3125rem;
   --md-dock-item-gap:.375rem;
+  --md-taskbar-inline-padding:1.25rem;
+  --md-taskbar-layout-gap:1rem;
+  --md-taskbar-side-min:5.3125rem;
+  --md-taskbar-control-gap:.4375rem;
   --md-desktop-shortcut-inset:1.5rem;
   --md-desktop-shortcut-cell:5.75rem;
   --md-desktop-shortcut-gap:.625rem;
