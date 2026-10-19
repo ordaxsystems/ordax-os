@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { SIDEBAR_LAYOUT, createSidebarMarkup, sidebarBrandMarkup, sidebarNavigationCapacity, sidebarItemIsActive, mountNativeSidebarFit } from "../system/surface/ui/sidebar-layout.mjs";
+import { SIDEBAR_LAYOUT, createSidebarMarkup, sidebarBrandMarkup, sidebarNavigationCapacity, sidebarItemIsActive, mountNativeSidebarFit, sidebarIsExpanded } from "../system/surface/ui/sidebar-layout.mjs";
 import { projectSidebarAccount, sidebarAccountMarkup, sidebarProfileButtonMarkup, sidebarProfileMarkup, mountNativeSidebarAccount } from "../system/surface/ui/sidebar-account.mjs";
 import { SIDEBAR_ENGLISH_MESSAGES } from "../system/services/i18n/catalog/sidebar.mjs";
 import { MERIDIAN_RAIL_DESTINATIONS } from "../system/services/surface/meridian-navigation.mjs";
@@ -421,17 +421,23 @@ test("available navigation height includes row gaps without hiding a slot that f
 });
 test("navigation capacity measures the Ecosystem heading once and preserves it after overflow hides the group", () => {
   let headingVisible = true;
+  let headingDisplay = "block";
+  let groupHidden = false;
   const firstButton = { getBoundingClientRect: () => ({ height: 44, top: 33, bottom: 77 }) };
-  const heading = { getBoundingClientRect: () => headingVisible ? ({ height: 30, top: 0, bottom: 30 }) : ({ height: 0, top: 0, bottom: 0 }), parentElement: { querySelector: () => firstButton } };
+  const group = { get hidden() { return groupHidden; }, querySelector: () => firstButton };
+  const heading = { getBoundingClientRect: () => headingVisible ? ({ height: 30, top: 0, bottom: 30 }) : ({ height: 0, top: 0, bottom: 0 }), parentElement: group };
   const nav = {
     clientHeight: 236,
-    ownerDocument: { defaultView: { getComputedStyle: element => element === nav ? ({ rowGap: "4px" }) : ({ marginTop: "0px", marginBottom: "0px" }) } },
+    ownerDocument: { defaultView: { getComputedStyle: element => element === nav ? ({ rowGap: "4px" }) : ({ marginTop: "0px", marginBottom: "0px", display: headingDisplay }) } },
     querySelector: () => firstButton,
     querySelectorAll: selector => selector === ".meridian-nav-label" ? [heading] : [],
   };
   assert.equal(sidebarNavigationCapacity(nav), 4);
   headingVisible = false;
+  groupHidden = true;
   assert.equal(sidebarNavigationCapacity(nav), 4);
+  headingDisplay = "none";
+  assert.equal(sidebarNavigationCapacity(nav), 5, "a collapsed rail must reclaim space used only by CSS-hidden headings");
 });
 test("Native overflow measures destinations separately from the persistent Home slot", () => {
   const apps = Array.from({ length: 6 }, () => ({ hidden: false, getBoundingClientRect: () => ({ height: 44 }) }));
@@ -465,6 +471,41 @@ test("Native overflow measures destinations separately from the persistent Home 
   assert.equal(more.hidden, true);
   fit.destroy();
   assert.equal(disconnected, true);
+});
+
+test("Native sidebar navigation keeps a visible overflow path at every desktop height", () => {
+  const apps = Array.from({ length: 8 }, () => ({ hidden: false, getBoundingClientRect: () => ({ height: 44 }) }));
+  const more = { hidden: true, getBoundingClientRect: () => ({ height: 44 }) };
+  const groups = [0, 1].map(groupIndex => ({
+    hidden: false,
+    querySelector: () => apps.slice(groupIndex * 4, groupIndex * 4 + 4).find(button => !button.hidden),
+  }));
+  let resize;
+  const nav = {
+    clientHeight: 44,
+    ownerDocument: { defaultView: {
+      getComputedStyle: () => ({ rowGap: "5px" }),
+      ResizeObserver: class { constructor(callback) { resize = callback; } observe() {} disconnect() {} },
+    } },
+    querySelectorAll: selector => selector === ".meridian-nav-destination button" ? apps : selector === "[data-nav-group]" ? groups : [],
+    querySelector: selector => ["[data-nav-menu-more]", "[data-launcher-more]"].includes(selector) ? more : [...apps, more].find(button => !button.hidden),
+  };
+  const fit = mountNativeSidebarFit(nav, () => {});
+  for (let height = 44; height <= 4320; height += 1) {
+    nav.clientHeight = height;
+    resize();
+    const visible = apps.filter(button => !button.hidden).length;
+    assert.equal(more.hidden, visible === apps.length, `More visibility at ${height}px`);
+    assert.ok(visible <= apps.length, `destination count remains bounded at ${height}px`);
+    assert.equal(groups.every(group => group.hidden), visible === 0, `empty groups are hidden at ${height}px`);
+  }
+  fit.destroy();
+});
+
+test("sidebar expanded state follows its actual width across scaled desktop rail widths", () => {
+  const sidebarAt = width => ({ getBoundingClientRect: () => ({ width }) });
+  for (const width of [43, 64.8, 72, 90, 100]) assert.equal(sidebarIsExpanded(sidebarAt(width)), false, `${width}px is icon-only`);
+  for (const width of [100.1, 108, 172.8, 192, 208, 240]) assert.equal(sidebarIsExpanded(sidebarAt(width)), true, `${width}px shows labels`);
 });
 
 test("shared account connection state follows verified identity, offline and logout", () => {

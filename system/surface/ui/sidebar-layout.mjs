@@ -30,16 +30,24 @@ export function sidebarNavigationCapacity(nav) {
   const pitch = button.getBoundingClientRect().height + gap;
   if (pitch <= 0) return 0;
   const labels = [...nav.querySelectorAll(".meridian-nav-label")];
-  const measuredHeading = labels.reduce((height, label) => {
+  let headingHeight = 0;
+  for (const label of labels) {
     const rect = label.getBoundingClientRect();
-    if (rect.height <= 0) return height;
     const labelStyle = nav.ownerDocument.defaultView.getComputedStyle(label);
-    const firstButton = label.parentElement?.querySelector("button:not([hidden])");
-    const followingGap = firstButton ? Math.max(0, firstButton.getBoundingClientRect().top - rect.bottom) : 0;
-    return height + rect.height + (parseFloat(labelStyle.marginTop) || 0) + (parseFloat(labelStyle.marginBottom) || 0) + followingGap;
-  }, 0);
-  const headingHeight = Math.max(measuredHeading, measuredSidebarHeadings.get(nav) || 0);
-  if (headingHeight > 0) measuredSidebarHeadings.set(nav, headingHeight);
+    if (rect.height > 0) {
+      const firstButton = label.parentElement?.querySelector("button:not([hidden])");
+      const followingGap = firstButton ? Math.max(0, firstButton.getBoundingClientRect().top - rect.bottom) : 0;
+      const contribution = rect.height + (parseFloat(labelStyle.marginTop) || 0)
+        + (parseFloat(labelStyle.marginBottom) || 0) + followingGap;
+      measuredSidebarHeadings.set(label, Math.max(contribution, measuredSidebarHeadings.get(label) || 0));
+      headingHeight += contribution;
+    } else if (label.parentElement?.hidden && labelStyle.display !== "none") {
+      // Keep a heading's measured height when its entire group was hidden to
+      // make room for the More button. A collapsed icon rail hides labels with
+      // CSS while keeping groups visible; that saved space must count again.
+      headingHeight += measuredSidebarHeadings.get(label) || 0;
+    }
+  }
   return Math.max(0, Math.floor((nav.clientHeight - headingHeight + gap) / pitch));
 }
 export function mountNativeSidebarFit(nav, onResize) {

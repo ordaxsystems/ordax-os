@@ -29,6 +29,31 @@ export function moveDockFocus(event, container, selector, reveal) {
 }
 
 /**
+ * Let a desktop wheel scroll an overflowing horizontal dock. Trackpads keep
+ * their native horizontal delta; vertical mouse wheels are mapped to the
+ * dock only while it can consume movement, so the page can still scroll at
+ * either edge.
+ * @param {any} event
+ * @param {HTMLElement | null} dock
+ */
+export function scrollDockFromWheel(event, dock) {
+  if (!dock) return false;
+  const maxScroll = Math.max(0, dock.scrollWidth - dock.clientWidth);
+  if (maxScroll <= 1) return false;
+
+  const delta = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
+  if (!Number.isFinite(delta) || delta === 0) return false;
+  const unit = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? dock.clientWidth : 1;
+  const current = dock.scrollLeft;
+  const next = Math.min(maxScroll, Math.max(0, current + delta * unit));
+  if (Math.abs(next - current) < 0.5) return false;
+
+  event.preventDefault();
+  dock.scrollLeft = next;
+  return true;
+}
+
+/**
  * Move focus spatially through desktop shortcuts without opening an app.
  * The DOM layout is authoritative, so columns can adapt to each host's canvas.
  * @param {any} event

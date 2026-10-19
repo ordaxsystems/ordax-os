@@ -30,7 +30,7 @@ import {
   syncDesktopThemeToggle,
 } from "./desktop-shell.mjs";
 import { createSurfaceLocalization } from "../../services/i18n/surface.mjs";
-import { moveDesktopShortcutFocus, moveDockFocus } from "../../services/surface/dock-navigation.mjs";
+import { moveDesktopShortcutFocus, moveDockFocus, scrollDockFromWheel } from "../../services/surface/dock-navigation.mjs";
 import { syncDocumentLocaleProfile } from "./document-localization.mjs";
 import { SURFACE_RENDER_LIFECYCLE_SCHEMA } from "../../contracts/surface-render-lifecycle.mjs";
 import {
@@ -486,6 +486,8 @@ export function mountSurface(
     nativeDock.dataset.scrollAfter = String(remaining > 1);
   };
 
+  const onNativeDockWheel = (event) => scrollDockFromWheel(event, nativeDock);
+
   const revealDockButton = (button) => {
     if (!nativeDock || !button) return;
     const viewport = nativeDock.getBoundingClientRect();
@@ -821,7 +823,7 @@ export function mountSurface(
     }
     root.dataset.workspacePresentation = state.presentation;
     root.dataset.view = state.presentation;
-    // The shell's responsive Meridian selectors share the same presentation owner.
+    // The Meridian shell shares the canonical presentation state.
     root.querySelector("[data-ordax-shell]").dataset.view = state.presentation;
     root.dataset.nativeSidebar = state.sidebarMode;
     const sidebarToggle = root.querySelector("[data-sidebar-toggle]");
@@ -1267,6 +1269,7 @@ export function mountSurface(
   root.addEventListener("dblclick", onDoubleClick);
   root.addEventListener("keydown", onKeyDown);
   nativeDock?.addEventListener("scroll", updateDockOverflow, { passive: true });
+  nativeDock?.addEventListener("wheel", onNativeDockWheel, { passive: false });
   const nativeWindow = root.ownerDocument?.defaultView;
   nativeWindow?.addEventListener("resize", updateDockOverflow, { passive: true });
   updateDockOverflow();
@@ -1336,6 +1339,7 @@ export function mountSurface(
       root.removeEventListener("dblclick", onDoubleClick);
       root.removeEventListener("keydown", onKeyDown);
       nativeDock?.removeEventListener("scroll", updateDockOverflow);
+      nativeDock?.removeEventListener("wheel", onNativeDockWheel);
       nativeWindow?.removeEventListener("resize", updateDockOverflow);
       unsubscribePreferencePersistence();
       preferencePersistence.dispose();
