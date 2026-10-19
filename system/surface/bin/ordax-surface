@@ -1162,12 +1162,41 @@ start_native_install_broker() {
     return 1
 }
 
+supervise_time_sync_agent() (
+    # The clock must recover AFTER network readiness. Launching ntpd once
+    # before a saved Wi-Fi connection exists could leave the 2015 RTC intact
+    # for the entire graphical session after a transient DNS failure.
+    ntp_pid=""
+    stop_clock_supervisor() {
+        trap - HUP INT TERM
+        if [ -n "$ntp_pid" ]; then
+            kill -TERM "$ntp_pid" >/dev/null 2>&1 || true
+            wait "$ntp_pid" >/dev/null 2>&1 || true
+        fi
+        exit 0
+    }
+    trap 'stop_clock_supervisor' HUP INT TERM
+    while :; do
+        if ! /bin/busybox ip -4 addr show scope global 2>/dev/null |
+            /bin/busybox grep -q ' inet '; then
+            /bin/busybox sleep 5
+            continue
+        fi
+        /bin/busybox ntpd -n \
+            -p time.cloudflare.com \
+            -p time.google.com \
+            -p pool.ntp.org \
+            >>"$TIME_SYNC_LOG" 2>&1 &
+        ntp_pid=$!
+        wait "$ntp_pid" >/dev/null 2>&1 || true
+        ntp_pid=""
+        echo "ordax-surface: clock synchronization exited; retrying after network recovery" >>"$TIME_SYNC_LOG"
+        /bin/busybox sleep 15
+    done
+)
+
 start_time_sync_agent() {
-    /bin/busybox ntpd -n \
-        -p time.cloudflare.com \
-        -p time.google.com \
-        -p pool.ntp.org \
-        >>"$TIME_SYNC_LOG" 2>&1 &
+    supervise_time_sync_agent &
     TIME_SYNC_PID=$!
     kill -0 "$TIME_SYNC_PID" >/dev/null 2>&1
 }
