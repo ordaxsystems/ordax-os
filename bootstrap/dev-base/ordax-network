@@ -177,6 +177,10 @@ if [ "$force_choose" -eq 0 ]; then
         [ -d "$netpath/wireless" ] && continue
         net_type=$(cat "$netpath/type" 2>/dev/null || true)
         [ "$net_type" = 1 ] || continue
+        # With Ethernet administratively DOWN, carrier can be unreadable or
+        # zero even when QEMU/USB tether reports a live physical link.
+        # Bring up only this eligible wired interface before carrier probing.
+        ip link set "$iface" up >/dev/null 2>&1 || continue
         if [ -r "$netpath/carrier" ]; then
             carrier=$(cat "$netpath/carrier" 2>/dev/null || printf '0')
             [ "$carrier" = 1 ] || continue
