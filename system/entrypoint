@@ -373,7 +373,7 @@ mark_power_request_failed() {
     status=""
     IFS='|' read -r action request_boot_id request_epoch status <"$POWER_LAST_REQUEST" || return 0
     [ "$action" = "$expected_action" ] && [ "$status" = "pending" ] || return 0
-    temporary=$POWER_LAST_REQUEST.tmp.$
+    temporary=$POWER_LAST_REQUEST.tmp.$$
     printf '%s|%s|%s|failed\n' "$action" "$request_boot_id" "$request_epoch" >"$temporary" || return 1
     chmod 600 "$temporary" || return 1
     /bin/busybox mv -f "$temporary" "$POWER_LAST_REQUEST" || return 1
