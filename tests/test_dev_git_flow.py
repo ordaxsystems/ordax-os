@@ -348,6 +348,31 @@ class DevelopmentGitFlowTest(unittest.TestCase):
             "",
         )
 
+    def test_unavailable_promisor_blobs_preserve_checkout_and_report_stage(self) -> None:
+        self._script(PULL)
+        new_sha = self._commit_runtime("runtime-v2")
+        self._run([
+            "git", "-C", str(self.worktree), "fetch", "--no-tags", "origin",
+            "refs/heads/main:refs/remotes/origin/main",
+        ])
+        # The initial fetch supplies the commit/tree but not necessarily the
+        # sparse contents. GitHub fails before missing promised blobs arrive.
+        self.remote.rename(self.root / "temporarily-unreachable-origin.git")
+        env = self._env()
+        env["ORDAX_EXPECTED_SHA"] = new_sha
+        result = self._script(PULL, env=env, check=False)
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(
+            (self.root / "run/ordax-update/pull-result").read_text().strip(),
+            "candidate-objects",
+        )
+        self.assertEqual(
+            self._run(["git", "-C", str(self.worktree), "rev-parse", "HEAD"]).stdout.strip(),
+            self.commit_v1,
+        )
+        self.assertEqual((self.state / "current-commit").read_text().strip(), self.commit_v1)
+
     def test_supervisor_expected_sha_must_match_fetched_tracking_ref(self) -> None:
         self._script(PULL)
         self.commit_v2 = self._commit_runtime("runtime-v2")
