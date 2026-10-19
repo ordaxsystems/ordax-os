@@ -42,6 +42,21 @@
 [data-meridian] .meridian-taskbar { display:grid;grid-template-columns:minmax(var(--md-taskbar-side-min),1fr) minmax(0,auto) minmax(var(--md-taskbar-side-min),1fr);align-items:center;gap:var(--md-taskbar-layout-gap);padding-inline:var(--md-taskbar-inline-padding);background:var(--md-surface);border-top:1px solid var(--md-border); }
 [data-meridian] :is(.meridian-taskbar-start,.meridian-taskbar-end) { display:flex;align-items:center;gap:var(--md-taskbar-control-gap);min-width:0; }
 [data-meridian] .meridian-taskbar-end { justify-content:flex-end; }
+[data-meridian] :is(.meridian-dock-shortcuts,.ordax-running-apps,.meridian-dock) { gap:var(--md-dock-item-gap); }
+[data-meridian] :is(.meridian-native-dock,.meridian-workspace .meridian-dock) { overscroll-behavior-inline:contain;scrollbar-width:none;touch-action:pan-x; }
+[data-meridian] :is(.meridian-native-dock,.meridian-workspace .meridian-dock)::-webkit-scrollbar { display:none; }
+[data-meridian] :is(.ordax-dock-shortcut,.ordax-running-app,.desktop-task) { box-sizing:border-box;display:grid;place-items:center;position:relative;width:var(--md-dock-control-size);min-width:var(--md-dock-control-size);max-width:var(--md-dock-control-size);height:var(--md-dock-control-size);flex:0 0 var(--md-dock-control-size);padding:0 .1875rem;border:1px solid transparent;border-radius:var(--md-radius-small);background:transparent;color:var(--md-ink); }
+[data-meridian] :is(.ordax-dock-shortcut,.ordax-running-app,.desktop-task):hover:not(:disabled) { background:var(--md-subtle); }
+[data-meridian] :is(.ordax-dock-shortcut,.ordax-running-app,.desktop-task):focus-visible { outline:2px solid var(--md-focus);outline-offset:2px; }
+[data-meridian] :is(.ordax-dock-shortcut,.ordax-running-app,.desktop-task):disabled { opacity:.45;cursor:not-allowed; }
+[data-meridian] :is(.ordax-dock-shortcut,.ordax-running-app,.desktop-task)[data-active="true"] { border-color:var(--md-accent);background:var(--md-accent-soft); }
+[data-meridian] :is(.ordax-dock-shortcut,.ordax-running-app,.desktop-task)::after { content:none;position:absolute;left:calc(50% - 2px);bottom:2px;width:4px;height:3px;border-radius:50%;background:var(--md-accent); }
+[data-meridian] :is(.ordax-dock-shortcut[data-open-window],.ordax-running-app[data-open-window],.desktop-task[data-pinned="false"])::after { content:""; }
+[data-meridian] :is(.ordax-dock-shortcut,.ordax-running-app,.desktop-task)[data-active="true"]::after { left:calc(50% - 7px);width:14px;border-radius:3px; }
+[data-meridian] :is(.ordax-dock-shortcut,.ordax-running-app,.desktop-task)[data-minimized="true"]::after { left:calc(50% - 2.5px);width:5px;height:4px;border:1px solid var(--md-muted);background:transparent; }
+[data-meridian] .desktop-task[data-pinned="true"] { background:transparent;border-color:transparent; }
+[data-meridian] :is(.ordax-dock-shortcut .ordax-rail-icon,.ordax-running-app .ordax-rail-icon,.desktop-task .app-icon) { display:grid;place-items:center;width:var(--md-dock-icon-size);height:var(--md-dock-icon-size);flex:0 0 auto;border-radius:var(--md-radius-small); }
+[data-meridian] :is(.ordax-dock-shortcut .ordax-rail-icon,.ordax-running-app .ordax-rail-icon,.desktop-task .app-icon) svg { width:var(--md-dock-glyph-size);height:var(--md-dock-glyph-size);stroke-width:1.65; }
 [data-meridian] :is(.workspace-sidebar,.ordax-rail) {background:var(--md-rail);color:var(--md-rail-text);border-right:1px solid var(--md-rail-border);}
 [data-meridian] :is(.workspace-sidebar,.ordax-rail) :is(.brand,.brand-name,.ordax-brand-word,.ordax-brand-word small,.os-nav-item,.ordax-rail-button,.account-open,.account-identity,.account-storage-value) {color:var(--md-rail-text);}
 [data-meridian] :is(.workspace-sidebar,.ordax-rail) :is(.account-identity>span,.account-storage-footer,.account-actions>button) {color:var(--md-rail-muted);}
@@ -66,9 +81,6 @@
 [data-meridian] :is(.ordax-window-control,.workspace-window .desktop-window-controls button):focus-visible {outline:2px solid var(--md-focus);outline-offset:1px;}
 [data-meridian] :is(.ordax-window-close,.workspace-window .window-close):is(:hover,:focus-visible) {background:var(--md-danger-soft);color:var(--md-danger);}
 [data-meridian] .workspace-navigation {border-top:1px solid var(--md-border);}
-[data-meridian] .desktop-task {border-radius:9px;}
-[data-meridian] .desktop-task[data-active="true"] {box-shadow:inset 0 -3px var(--md-accent);}
-[data-meridian] .desktop-task[data-minimized="true"] {border-bottom:1px dashed var(--md-muted);}
 [data-meridian] :is(.ordax-store-layout,.st-root) {background:var(--md-canvas);color:var(--md-ink);}
 [data-meridian] :is(.ordax-store-sidebar,.st-nav) {background:var(--md-subtle);border-color:var(--md-border);}
 [data-meridian] :is(.ordax-store-app-card,.st-card) {border-radius:14px;background:var(--md-surface);border-color:var(--md-border);}

@@ -174,8 +174,25 @@ test("Web and Native taskbars share one Meridian frame and dock glyph scale", as
   assert.ok(webNavigation.includes('className="desktop-taskbar workspace-navigation meridian-taskbar"'));
   assert.doesNotMatch(nativeStyles, /\.meridian-native-workspace \.ordax-statusbar \{\s*display:grid;\s*grid-template-columns/);
   assert.doesNotMatch(webStyles, /\.meridian-workspace \.meridian-taskbar \{display:grid;grid-template-columns/);
-  assert.ok(nativeStyles.includes("var(--md-dock-glyph-size)"));
-  assert.ok(webStyles.includes("var(--md-dock-glyph-size)"));
+  assert.ok(sharedStyles.includes("var(--md-dock-glyph-size)"));
+  assert.doesNotMatch(nativeStyles, /\.ordax-running-app \.ordax-rail-icon svg \{ width:/);
+  assert.doesNotMatch(webStyles, /\.meridian-dock \.app-icon svg \{width:/);
+});
+test("Web and Native dock items share Meridian geometry and open, active, and minimized states", async () => {
+  const [sharedStyles, nativeStyles, webStyles, nativeRuntime] = await Promise.all([
+    readFile(new URL("../system/surface/ui/meridian.css", import.meta.url), "utf8"),
+    readFile(new URL("../system/surface/ui/identity.css", import.meta.url), "utf8"),
+    readFile(new URL("../system/surface/workspace/components/central/meridian.css", import.meta.url), "utf8"),
+    readFile(new URL("../system/surface/ui/surface.mjs", import.meta.url), "utf8"),
+  ]);
+  assert.ok(sharedStyles.includes(":is(.ordax-dock-shortcut,.ordax-running-app,.desktop-task)"));
+  assert.ok(sharedStyles.includes("var(--md-dock-control-size)"));
+  assert.ok(sharedStyles.includes("[data-active=\"true\"]::after"));
+  assert.ok(sharedStyles.includes("[data-minimized=\"true\"]::after"));
+  assert.ok(nativeRuntime.includes("button.dataset.minimized = String(windowState.minimized)"));
+  assert.doesNotMatch(nativeStyles, /\.meridian-dock-shortcuts \.ordax-dock-shortcut \{ display:grid/);
+  assert.doesNotMatch(nativeStyles, /\.ordax-running-app \{ display:grid/);
+  assert.doesNotMatch(webStyles, /\.meridian-dock \.desktop-task \{display:grid/);
 });
 test("Web and Native windows share the Meridian chrome and titlebar control scale", async () => {
   const [tokens, sharedStyles, nativeStyles, webStyles, webWindowLayer, nativeWindowMarkup] = await Promise.all([
