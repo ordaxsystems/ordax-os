@@ -456,7 +456,7 @@ body { background: var(--md-canvas); font-weight: 400; }
   .ordax-launcher { left: 50%; bottom: calc(var(--ordax-navigation-height) + 8px); width: calc(100% - 24px); }
   .ordax-launcher-grid { grid-template-columns: 1fr; }
   .ordax-statusbar { width: 100%; margin: 0; padding-inline: 8px; gap: 4px; }
-  .ordax-dock-shortcuts { display: none; }
+  .ordax-shell:not(.meridian-native-workspace) .ordax-dock-shortcuts { display: none; }
   .ordax-quick-panel-layer { inset-inline-end: 8px; bottom: calc(var(--ordax-navigation-height) + 8px); width: calc(100vw - 16px); }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -732,20 +732,16 @@ body { background: var(--md-canvas); font-weight: 400; }
 .ordax-sidebar-toggle { position: absolute; z-index: 60; top: calc(var(--ordax-sidebar-padding-top) + var(--ordax-sidebar-logo-height) + var(--ordax-sidebar-row-gap) + 6px); left: calc(var(--ordax-sidebar-visual-width, var(--ordax-rail-width)) - 12px); display: grid; place-items: center; width: 24px; height: 32px; padding: 4px; border: 1px solid var(--md-border); border-radius: var(--md-radius-small); background: var(--md-surface); color: var(--md-ink); cursor: pointer; }
 .ordax-sidebar-toggle[hidden] { display: none; }
 .ordax-statusbar button { min-height: var(--ordax-navigation-control-height); height: var(--ordax-navigation-control-height); }
+/* Keep legacy mobile geometry out of the Meridian shell; its breakpoints are defined above. */
 @media (max-width: 760px) {
-  .ordax-shell { --ordax-rail-width: var(--ordax-sidebar-collapsed-width); grid-template-columns: var(--ordax-rail-width) minmax(0,1fr); grid-template-rows: minmax(0,1fr) calc(var(--ordax-navigation-height) + env(safe-area-inset-bottom)); }
-  [data-native-sidebar] .ordax-shell { --ordax-rail-width: var(--ordax-sidebar-collapsed-width); }
-  .ordax-workspace { grid-column: 2; grid-row: 1; }
-  .ordax-statusbar { grid-column: 2; grid-row: 2; }
-  .ordax-rail { display: flex; grid-row: 1 / 3; padding-inline: 8px; }
-  [data-native-sidebar="expanded"] .ordax-shell { --ordax-sidebar-visual-width: var(--ordax-sidebar-expanded-width); }
-  [data-native-sidebar="expanded"] .ordax-rail { width: var(--ordax-sidebar-expanded-width); background: var(--md-rail); }
-  .ordax-dock-shortcuts, .ordax-system-tray { display: none; }
-}
-
-@media (max-width: 760px) {
-  .meridian-native-workspace .meridian-taskbar-system-tray { display:flex; }
-  .meridian-native-workspace .ordax-dock-shortcuts { display:flex; }
+  .ordax-shell:not(.meridian-native-workspace) { --ordax-rail-width: var(--ordax-sidebar-collapsed-width); grid-template-columns: var(--ordax-rail-width) minmax(0,1fr); grid-template-rows: minmax(0,1fr) calc(var(--ordax-navigation-height) + env(safe-area-inset-bottom)); }
+  [data-native-sidebar] .ordax-shell:not(.meridian-native-workspace) { --ordax-rail-width: var(--ordax-sidebar-collapsed-width); }
+  .ordax-shell:not(.meridian-native-workspace) .ordax-workspace { grid-column: 2; grid-row: 1; }
+  .ordax-shell:not(.meridian-native-workspace) .ordax-statusbar { grid-column: 2; grid-row: 2; }
+  .ordax-shell:not(.meridian-native-workspace) .ordax-rail { display: flex; grid-row: 1 / 3; padding-inline: 8px; }
+  [data-native-sidebar="expanded"] .ordax-shell:not(.meridian-native-workspace) { --ordax-sidebar-visual-width: var(--ordax-sidebar-expanded-width); }
+  [data-native-sidebar="expanded"] .ordax-shell:not(.meridian-native-workspace) .ordax-rail { width: var(--ordax-sidebar-expanded-width); background: var(--md-rail); }
+  .ordax-shell:not(.meridian-native-workspace) :is(.ordax-dock-shortcuts, .ordax-system-tray) { display: none; }
 }
 
 @media (max-width: 600px) {
