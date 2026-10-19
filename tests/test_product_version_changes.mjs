@@ -2,8 +2,8 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { osProductCodeChanged, verifyOsVersionChange } from '../tools/verify/product_version_changes.mjs';
 
-const oldVersion={semanticVersion:'0.1.0',displayVersion:'v0.1.0',stableRelease:false};
-const nextVersion={semanticVersion:'0.1.1-alpha.1',displayVersion:'v0.1.1-alpha.1',stableRelease:false};
+const oldVersion={semanticVersion:'0.1.0',displayVersion:'v0.1.0',displayName:'OrdaX Prototype v0.1.0',stableRelease:false};
+const nextVersion={semanticVersion:'0.1.1-alpha.1',displayVersion:'v0.1.1-alpha.1',displayName:'OrdaX Prototype v0.1.1-alpha.1',stableRelease:false};
 
 test('runtime changes automatically require OS version increase',()=>{
   for(const path of [
@@ -44,7 +44,7 @@ test('OS version changes cannot regress even in docs-only PRs',()=>{
   }),/Version regression/);
   assert.throws(()=>verifyOsVersionChange({
     previous:oldVersion,current:{
-      semanticVersion:'0.1.1-alpha.1',displayVersion:'v0.1.0',stableRelease:false,
+      semanticVersion:'0.1.1-alpha.1',displayVersion:'v0.1.0',displayName:'OrdaX Prototype v0.1.0',stableRelease:false,
     },paths:['system/services/new-feature.mjs'],
   }),/Displayed version must be derived/);
 });
