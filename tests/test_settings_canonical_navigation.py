@@ -18,6 +18,7 @@ class SettingsCanonicalNavigationTests(unittest.TestCase):
         controls = SETTINGS.read_text(encoding="utf-8")
         settings_i18n = SETTINGS_I18N.read_text(encoding="utf-8")
         self.assertIn('id: "appearance"', controls)
+        self.assertIn('id: "display"', controls)
         self.assertIn('id: "accessibility"', controls)
         self.assertIn('id: "regional"', controls)
         self.assertIn('id: "network"', controls)

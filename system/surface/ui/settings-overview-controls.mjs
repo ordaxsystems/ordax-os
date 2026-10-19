@@ -39,6 +39,8 @@ import { COLOR_THEME_OPTIONS, resolveColorAppearance, selectColorTheme } from ".
 import { listPreferenceDefinitions } from "../../services/preferences/catalog.mjs";
 import { assertSurfaceRenderLifecycle } from "../../contracts/surface-render-lifecycle.mjs";
 import { assertProductConnectorPort } from "../../contracts/product-connector.mjs";
+import { assertDisplayOutputsPort } from "../../contracts/display-outputs.mjs";
+import { mountDisplayOutputControls } from "./display-output-controls.mjs";
 
 const SETTINGS_WINDOW_SELECTOR = '[data-window-id="settings"]';
 const SETTINGS_EXTENSION_SELECTOR = '[data-app-extension="settings-overview"]';
@@ -220,6 +222,7 @@ export function mountSettingsOverviewControls(
   localSession = null,
   localAiPort = null,
   productConnectorPort = null,
+  displayOutputs = null,
 ) {
   if (!(root instanceof Element)) {
     throw new TypeError("Settings overview controls require a Surface root Element");
@@ -240,6 +243,7 @@ export function mountSettingsOverviewControls(
     localSession === null ? null : assertLocalSessionPort(localSession);
   const localAi = localAiPort === null ? null : assertLocalAiPort(localAiPort);
   const connectorPort = productConnectorPort === null ? null : assertProductConnectorPort(productConnectorPort);
+  const displayOutputsPort = displayOutputs === null ? null : assertDisplayOutputsPort(displayOutputs);
   const documentObject = root.ownerDocument;
   let settingsExamples = null;
 
@@ -681,20 +685,15 @@ export function mountSettingsOverviewControls(
   };
 
   const renderDisplayCapability = (view) => {
-    const section = node(documentObject, "section", "ordax-settings-section ordax-settings-display-capability");
-    section.append(
-      node(documentObject, "span", "ordax-settings-section-kicker", t("settings.display.host.kicker")),
-      node(documentObject, "h4", "ordax-settings-section-title", t("settings.display.host.title")),
-      node(documentObject, "p", "ordax-settings-section-copy", t("settings.display.host.description")),
-    );
-    const status = node(documentObject, "p", "ordax-settings-display-status", t("settings.display.host.pending"));
-    status.dataset.capabilityState = "unavailable";
-    status.setAttribute("role", "note");
-    const examplesButton = node(documentObject, "button", "ordax-settings-display-examples", t("settings.display.host.examples"));
-    examplesButton.type = "button";
-    examplesButton.dataset.settingsDisplayExamples = "true";
-    section.append(status, examplesButton);
-    view.append(section);
+    const mountPoint = node(documentObject, "div", "ordax-settings-display-host-mount");
+    view.append(mountPoint);
+    mountDisplayOutputControls(mountPoint, {
+      documentObject,
+      translate: t,
+      port: displayOutputsPort,
+      mode: "native",
+      onExamples: () => settingsExamples?.open("display"),
+    });
   };
 
   const renderConnector = (view) => {

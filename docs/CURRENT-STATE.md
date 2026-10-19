@@ -525,11 +525,18 @@ expostas como funções Web disponíveis.
 ## Ajuste de escala da tela — 2026-10-18
 
 Web e Native/USB compartilham a preferência local **Ajustes → Tela → Escala da interface**.
-O modo Automático adapta a escala visual da Surface à largura da janela; o layout Meridian
-também amplia a área principal e o hero em telas ultrawide. Há opções manuais Compacto,
+O modo Automático adapta a escala visual da Surface à largura útil da janela; os tokens
+Meridian de geometria e os componentes principais da sidebar, header, dock e janelas usam
+essa escala nos dois hosts. A área principal e o hero também respondem a telas ultrawide.
+Há opções manuais Compacto,
 Padrão, Confortável e Grande. A escolha é persistida no dispositivo e fica fora
-da allowlist de sync da Conta. Brilho, seleção de monitor, resolução e frequência continuam
-dependentes de uma capacidade real do host; a jornada de referência existente foi mantida.
+da allowlist de sync da Conta. Resolução e frequência física continuam pertencendo ao host:
+Web apenas explica esse limite; Native/USB consulta modos reais por um contrato estável e um
+adaptador opcional do compositor Wayland. Sem o provedor ou suporte de gerenciamento de saída,
+o controle fica indisponível e nenhuma lista fictícia é exibida. O contrato e a UI não dependem
+de Alpine; ao trocar a base, o adaptador do host pode ser substituído sem refazer Surface,
+preferências ou jornada de Ajustes. A jornada de referência para recursos sem capacidade real
+permanece disponível.
 
 workspace/presentation.mjs define uma única política: entrar na Área de trabalho
 mantém a sidebar recolhida nos dois renderers, sem expansão; retornar à Central

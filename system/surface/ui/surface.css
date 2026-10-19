@@ -278,8 +278,8 @@ kbd {
   position: absolute;
   top: calc(50% + var(--ordax-window-offset) / 3);
   left: calc(50% + var(--ordax-window-offset) / 2);
-  width: min(840px, calc(100% - 96px));
-  max-height: calc(100% - 96px);
+  width: min(var(--ordax-window-width, 52.5rem), calc(100% - var(--ordax-window-gutter, 6rem)));
+  max-height: calc(100% - var(--ordax-window-gutter, 6rem));
   overflow: hidden;
   transform: translate(-50%, -50%);
   border: 1px solid var(--ordax-border);
@@ -312,11 +312,11 @@ kbd {
 
 .ordax-window-titlebar {
   display: flex;
-  min-height: 58px;
+  min-height: 3.625rem;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  padding: 10px 12px 10px 16px;
+  gap: 1rem;
+  padding: .625rem .75rem .625rem 1rem;
   border-bottom: 1px solid var(--ordax-border);
   background: var(--ordax-surface-strong);
   user-select: none;
@@ -369,7 +369,7 @@ kbd {
 
 .ordax-window-controls {
   display: flex;
-  gap: 4px;
+  gap: .25rem;
 }
 
 .ordax-window-control {
@@ -402,13 +402,13 @@ kbd {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
-  max-height: calc(100dvh - 220px);
+  max-height: calc(100dvh - 13.75rem);
   overflow: auto;
-  padding: 14px;
+  padding: .875rem;
 }
 
 .ordax-window[data-maximized="true"] .ordax-window-body {
-  height: calc(100% - 58px);
+  height: calc(100% - 3.625rem);
   max-height: none;
 }
 
@@ -1384,7 +1384,7 @@ button.ordax-tray-item:focus-visible {
   }
 
   .ordax-window-body {
-    max-height: calc(100dvh - 210px);
+    max-height: calc(100dvh - 13.125rem);
   }
 
   .ordax-launcher {

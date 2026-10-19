@@ -8,6 +8,11 @@
   box-shadow: var(--ordax-shadow-soft);
 }
 
+.ordax-app-extension[data-app-extension="settings-overview"][data-ordax-settings-overview-view] {
+  min-height: 0;
+  overflow: visible;
+}
+
 .ordax-app-extension[data-app-extension="settings-overview"]:not([data-ordax-settings-overview-view]) {
   padding: var(--ordax-space-5);
 }
@@ -189,6 +194,66 @@
   line-height: 1.5;
 }
 
+.ordax-settings-display-status[data-capability-state="available"] {
+  border-left-color: var(--ordax-accent);
+  background: color-mix(in srgb, var(--ordax-accent) 8%, var(--ordax-panel));
+}
+
+.ordax-settings-display-controls {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.ordax-settings-display-field {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  color: var(--ordax-text);
+  font-size: 0.74rem;
+  font-weight: 600;
+}
+
+.ordax-settings-display-field select {
+  width: 100%;
+  min-height: 38px;
+  padding: 7px 10px;
+  border: 1px solid var(--ordax-border);
+  border-radius: var(--ordax-radius-sm);
+  background: var(--ordax-app-bg);
+  color: var(--ordax-text);
+  font: inherit;
+  font-weight: 500;
+}
+
+.ordax-settings-display-field select:focus-visible {
+  outline: 2px solid var(--ordax-focus);
+  outline-offset: 2px;
+}
+
+.ordax-settings-display-actions {
+  display: flex;
+  grid-column: 1 / -1;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.ordax-settings-display-preview-note {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: var(--ordax-muted);
+  font-size: 0.72rem;
+  line-height: 1.5;
+}
+
+.ordax-settings-display-actions [hidden],
+.ordax-settings-display-controls[hidden],
+.ordax-settings-display-field[hidden],
+.ordax-settings-display-preview-note[hidden] {
+  display: none;
+}
+
 .ordax-settings-display-examples {
   margin-top: 12px;
   padding: 8px 0;
@@ -209,6 +274,10 @@
 
 @media (max-width: 560px) {
   .ordax-settings-section[data-settings-preference="display.scale"] .ordax-settings-options {
+    grid-template-columns: 1fr;
+  }
+
+  .ordax-settings-display-controls {
     grid-template-columns: 1fr;
   }
 }
