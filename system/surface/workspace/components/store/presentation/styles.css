@@ -818,7 +818,9 @@ main{
   gap:10px;
   flex-wrap:wrap
 }
-.filter-selects select{
+.filter-selects select,
+.filters > select{
+  min-height:36px;
   border:1px solid var(--md-border);
   border-radius:7px;
   background:var(--md-surface);
