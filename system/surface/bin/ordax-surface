@@ -864,7 +864,7 @@ sync_runtime_resolver() {
     }
 
     mkdir -p "$RUNTIME_ROOT/etc" || return 1
-    temporary=$RUNTIME_ROOT/etc/.resolv.conf.ordax.$
+    temporary=$RUNTIME_ROOT/etc/.resolv.conf.ordax.$$
     rm -f "$temporary" >/dev/null 2>&1 || true
 
     if ! /bin/busybox cat "$host_resolver" >"$temporary"; then
@@ -889,6 +889,14 @@ sync_runtime_resolver() {
         return 1
     fi
 
+    # Only modify the private graphical overlay when the DNS content changed.
+    # A late DHCP lease must become visible without restarting WebKit/Native;
+    # unchanged snapshots must not churn the overlay or invalidate DNS caches.
+    if [ -f "$runtime_resolver" ] && [ ! -L "$runtime_resolver" ] &&
+       /bin/busybox cmp -s "$temporary" "$runtime_resolver"; then
+        rm -f "$temporary" >/dev/null 2>&1 || true
+        return 0
+    fi
     chmod 644 "$temporary" || {
         rm -f "$temporary" >/dev/null 2>&1 || true
         return 1
@@ -1526,12 +1534,21 @@ START_URI="http://127.0.0.1:8765/composition/native/index.html?source=$SOURCE_SH
     >"$HOST_LOG" 2>&1 &
 GRAPHICS_PID=$!
 host_rc=0
+resolver_refresh_ticks=0
 while kill -0 "$GRAPHICS_PID" >/dev/null 2>&1; do
     if ! kill -0 "$HTTP_PID" >/dev/null 2>&1; then
         echo "ordax-surface: native HTTP/control server exited while graphics remained active" >>"$HOST_LOG"
         terminate_child "$GRAPHICS_PID" "graphics host"
         GRAPHICS_PID=""
         exit 1
+    fi
+    # Reuse the Surface's existing host supervision loop. DNS can arrive
+    # after startup (Wi-Fi DHCP) or change on reconnect. Do not add another
+    # daemon, restart the browser, or require Git/internet for local boot.
+    resolver_refresh_ticks=$((resolver_refresh_ticks + 1))
+    if [ "$resolver_refresh_ticks" -ge 15 ]; then
+        resolver_refresh_ticks=0
+        sync_runtime_resolver || true
     fi
     /bin/busybox sleep 1
 done
