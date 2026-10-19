@@ -1272,6 +1272,9 @@ export function mountFirstRunExperience(
   });
 
   render();
+  if (STEPS[stepIndex] === "account" && sessionSnapshot.state === "unavailable") {
+    void refreshIdentityAvailability();
+  }
   if (keyboardLayoutPort) void refreshKeyboardLayout();
   if (capabilitySnapshot.registrationPolicy) {
     void refreshRegistrationPolicy();
