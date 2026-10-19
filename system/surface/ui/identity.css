@@ -407,12 +407,6 @@ body { background: var(--md-canvas); font-weight: 400; }
   letter-spacing: var(--ordax-tracking-tight);
 }
 
-/* Responsive layouts share the same controls and state owners. */
-@media (max-width: 1100px) {
-  .ordax-home-panel { grid-template-columns: minmax(0, 1fr) minmax(240px, 1fr); gap: 18px; padding-inline: 22px; }
-  .ordax-home-action-grid { gap: 8px; }
-  .ordax-home-action { padding: 12px; }
-}
 @media (prefers-reduced-motion: reduce) {
   .ordax-shell button, .ordax-window { transition: none; }
 }
@@ -455,8 +449,6 @@ body { background: var(--md-canvas); font-weight: 400; }
 .meridian-native-workspace .ordax-native-settings:hover { background: var(--md-subtle); color: var(--md-ink); }
 .meridian-native-workspace .ordax-native-theme-toggle svg,
 .meridian-native-workspace .ordax-native-settings svg { width: 1.1875rem; height: 1.1875rem; }
-.meridian-native-workspace .meridian-mobile-menu { width: 2rem; height: 2rem; }
-.meridian-native-workspace .meridian-mobile-menu svg { width: 1.125rem; height: 1.125rem; }
 .meridian-native-workspace .ordax-home-panel {
   grid-template-columns: minmax(0, 1fr) minmax(230px, 292px);
   grid-template-areas: "intro meta" "hero hero" "session session" "command command" "quick space";

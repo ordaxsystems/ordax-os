@@ -174,11 +174,14 @@ test("Native USB keeps the computer shell instead of switching to mobile geometr
   assert.doesNotMatch(nativeStyles, /@media\s*\(max-width:\s*(?:760|600|560|420)px/i, "Native must not switch to a phone layout at narrow viewport widths");
   assert.doesNotMatch(nativeStyles, /@media\s*\(max-width:\s*760px\)[\s\S]*?\.ordax-home-panel\s*\{[^}]*flex-direction:\s*column/i, "Native Home keeps its desktop information layout");
   assert.doesNotMatch(nativeStyles, /@container\s+meridian-native-home/i, "Native home keeps the desktop information hierarchy at every display width");
+  assert.doesNotMatch(nativeStyles, /@media\s*\(max-width:/i, "Native shell geometry never switches according to a mobile viewport breakpoint");
+  assert.doesNotMatch(nativeStyles, /meridian-mobile-menu/i, "Native has no mobile-only menu styling");
   assert.doesNotMatch(sharedMeridianStyles, /@container\s+meridian-native-home/i);
   assert.doesNotMatch(sharedMeridianStyles, /@media\s*\(max-width:\s*760px\)[\s\S]*?\[data-meridian\]\s*\{[^}]*--md-desktop-shortcut/i, "shared Meridian styles do not shrink Native desktop shortcuts for phones");
   assert.match(sidebarStyles, /@media\(max-width:600px\)\s*\{\s*\.window-workspace\.meridian-workspace \.ordax-product-sidebar \{ display:none!important; \}/i, "Web may hide its rail on mobile without hiding Native's rail");
   assert.doesNotMatch(sidebarStyles, /@media\(max-width:600px\)\s*\{\s*\.meridian-workspace \.ordax-product-sidebar/i, "responsive sidebar rules do not match the Native shell wrapper");
   assert.doesNotMatch(tokens, /@media\s*\(max-width:\s*600px\)\s*\{\s*\[data-meridian\]/i, "shared tokens do not change Native dock geometry by viewport width");
+  assert.doesNotMatch(tokens, /@media\s*\(max-width:\s*1100px\)[\s\S]*?--ordax-rail-width/i, "Native sidebar width follows its explicit user state instead of automatic viewport collapse");
   for (const styles of [nativeSettings, nativeNotifications, nativeSettingsJourney]) {
     assert.doesNotMatch(styles, /@media\s*\(max-width:/i, "Native screens do not switch to phone layouts at narrow viewport widths");
   }
