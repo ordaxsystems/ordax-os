@@ -33,6 +33,11 @@ e DHCP, a configuração é promovida por renomeação atômica e sincronizada
 antes de informar sucesso. O antigo candidato em `/run` não garantia esse
 commit porque atravessava sistemas de arquivos.
 
+O mesmo broker nativo trata DHCP em Ethernet e tethering USB quando houver
+link ativo e nenhum endereço IPv4 global. Assim o dispositivo pode recuperar
+rede cabeada após reboot, inclusive sem ferramentas WPA; o boot gráfico
+permanece offline-first e a interface não aguarda esse DHCP.
+
 Na inicialização da Surface, o broker nativo existente tenta reconectar
 automaticamente usando **apenas** a credencial persistida. Se o supplicant do
 primeiro uso já está ativo, não o encerra: aguarda o estado autenticado e
