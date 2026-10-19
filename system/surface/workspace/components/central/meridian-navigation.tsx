@@ -13,7 +13,7 @@ import { AppIcon } from './primitives';
 import { useWebAccount } from './account-context';
 import { useWebPreferences } from './preferences-context';
 import { HOME_SHORTCUTS_PREFERENCE_ID, readFavoriteShortcutIds } from '../../../../services/preferences/home-shortcuts.mjs';
-import { moveDockFocus } from '../../../../services/surface/dock-navigation.mjs';
+import { moveDockFocus, scrollDockFromWheel } from '../../../../services/surface/dock-navigation.mjs';
 import type { DesktopAction, DesktopState } from './desktop-state';
 
 type Props = {onSidebarChange:(mode:'collapsed'|'expanded')=>void;state:DesktopState;dispatch:Dispatch<DesktopAction>;view:'central'|'desktop';onToggleView:()=>void;onCentral:()=>void};
@@ -53,7 +53,8 @@ export function WorkspaceNavigation({state,dispatch,view,onToggleView,onCentral,
   useLayoutEffect(()=>{
     const host=dock.current;if(!host)return;
     const measure=()=>{const value={start:host.scrollLeft>2,end:host.scrollLeft+host.clientWidth<host.scrollWidth-2};setEdges(previous=>previous.start===value.start&&previous.end===value.end?previous:value);};
-    measure();host.addEventListener('scroll',measure,{passive:true});const observer=new ResizeObserver(measure);observer.observe(host);return()=>{host.removeEventListener('scroll',measure);observer.disconnect();};
+    const onWheel=(event:WheelEvent)=>scrollDockFromWheel(event,host);
+    measure();host.addEventListener('scroll',measure,{passive:true});host.addEventListener('wheel',onWheel,{passive:false});const observer=new ResizeObserver(measure);observer.observe(host);return()=>{host.removeEventListener('scroll',measure);host.removeEventListener('wheel',onWheel);observer.disconnect();};
   },[state.windows]);
   const activeWindow=state.windows.find(window=>window.title===state.active&&!window.minimized);
   const active=activeWindow ? getWindowTitle(activeWindow.title) : undefined;
