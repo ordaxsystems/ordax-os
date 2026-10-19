@@ -157,6 +157,37 @@ test("Web and Native desktop canvas share the Meridian wallpaper and contrast pr
   assert.doesNotMatch(webStyles, /\.desktop-wallpaper|\.desktop-watermark/);
   assert.doesNotMatch(nativeStyles, /brand\/meridian-field\.svg/);
 });
+test("Native USB keeps the computer shell instead of switching to mobile geometry", async () => {
+  const [nativeStyles, sharedMeridianStyles, tokens, nativeSettings, nativeNotifications, nativeSettingsJourney, webStyles] = await Promise.all([
+    readFile(new URL("../system/surface/ui/identity.css", import.meta.url), "utf8"),
+    readFile(new URL("../system/surface/ui/meridian.css", import.meta.url), "utf8"),
+    readFile(new URL("../system/surface/ui/meridian.tokens.css", import.meta.url), "utf8"),
+    readFile(new URL("../system/surface/ui/settings.css", import.meta.url), "utf8"),
+    readFile(new URL("../system/surface/ui/notification-center.css", import.meta.url), "utf8"),
+    readFile(new URL("../system/surface/ui/journeys/settings.css", import.meta.url), "utf8"),
+    readFile(new URL("../system/surface/workspace/components/central/meridian.css", import.meta.url), "utf8"),
+  ]);
+  const nativePhoneLayoutStyles = await Promise.all([
+    "surface.css", "first-run.css", "workspace-areas.css", "system.css", "local-session-lock.css",
+    "space-switcher.css", "files.css", "account.css", "settings.css",
+  ].map(file => readFile(new URL(`../system/surface/ui/${file}`, import.meta.url), "utf8")));
+  assert.doesNotMatch(nativeStyles, /@media\s*\(max-width:\s*(?:760|600|560|420)px/i, "Native must not switch to a phone layout at narrow viewport widths");
+  assert.doesNotMatch(nativeStyles, /@media\s*\(max-width:\s*760px\)[\s\S]*?\.ordax-home-panel\s*\{[^}]*flex-direction:\s*column/i, "Native Home keeps its desktop information layout");
+  assert.doesNotMatch(nativeStyles, /@container\s+meridian-native-home/i, "Native home keeps the desktop information hierarchy at every display width");
+  assert.doesNotMatch(sharedMeridianStyles, /@container\s+meridian-native-home/i);
+  assert.doesNotMatch(tokens, /@media\s*\(max-width:\s*600px\)\s*\{\s*\[data-meridian\]/i, "shared tokens do not change Native dock geometry by viewport width");
+  for (const styles of [nativeSettings, nativeNotifications, nativeSettingsJourney]) {
+    assert.doesNotMatch(styles, /@media\s*\(max-width:/i, "Native screens do not switch to phone layouts at narrow viewport widths");
+  }
+  for (const styles of nativePhoneLayoutStyles) {
+    assert.doesNotMatch(styles, /@media\s*\([^)]*max-width:\s*(?:820|760|650|620|600|560|450)px/i, "Native app surfaces retain computer layouts across their screens");
+  }
+  const nativeJourneys = await readFile(new URL("../system/surface/ui/journeys/styles.css", import.meta.url), "utf8");
+  assert.doesNotMatch(nativeJourneys, /@media\s*\([^)]*max-width:\s*(?:650|620|600|560|450)px/i, "Native journeys do not turn into mobile sheets or vertical trails");
+  assert.match(nativeStyles, /\.ordax-shell\.meridian-native-workspace\[data-view="desktop"\]\s*\{[^}]*--ordax-rail-width:\s*var\(--md-rail-compact\)/);
+  assert.match(webStyles, /@media\s*\(max-width:\s*600px\)/i, "responsive layouts remain a Web capability");
+  assert.match(webStyles, /@media\(max-width:600px\)\s*\{\.meridian-workspace\s*\{--md-dock:4\.5rem;/i, "the Web dock retains its mobile size adjustment");
+});
 test("Web and Native taskbars share one Meridian frame and dock glyph scale", async () => {
   const [tokens, sharedStyles, nativeStyles, webStyles, nativeShell, webNavigation] = await Promise.all([
     readFile(new URL("../system/surface/ui/meridian.tokens.css", import.meta.url), "utf8"),

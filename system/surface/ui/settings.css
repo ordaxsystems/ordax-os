@@ -747,46 +747,6 @@
   font-size: 0.74rem;
 }
 
-@media (max-width: 760px) {
-  .ordax-settings-navigation {
-    padding: 7px 10px;
-  }
-
-  .ordax-settings-header,
-  .ordax-settings-section {
-    padding: 18px;
-  }
-
-  .ordax-settings-options,
-  .ordax-settings-keyboard-options,
-  .ordax-settings-network-list,
-  .ordax-settings-wifi-list {
-    grid-template-columns: 1fr;
-  }
-
-  .ordax-settings-option {
-    grid-template-columns: 76px minmax(0, 1fr) auto;
-  }
-
-  .ordax-settings-theme-preview {
-    width: 76px;
-    height: 56px;
-  }
-
-  .ordax-settings-wifi-heading {
-    align-items: stretch;
-    flex-direction: column;
-  }
-
-  .ordax-settings-wifi-actions {
-    justify-content: flex-start;
-  }
-
-  .ordax-settings-wifi-connect {
-    grid-template-columns: 1fr;
-  }
-}
-
 .ordax-settings-security-form {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr)) auto;
@@ -810,12 +770,6 @@
 .ordax-settings-security-form input:focus-visible {
   outline: 2px solid var(--ordax-focus);
   outline-offset: 1px;
-}
-
-@media (max-width: 760px) {
-  .ordax-settings-security-form {
-    grid-template-columns: 1fr;
-  }
 }
 
 /* Intelligence settings only inspect canonical runtime state; no model install

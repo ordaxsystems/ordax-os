@@ -116,6 +116,7 @@
 @media(max-width:1150px) {.window-workspace.meridian-workspace[data-view=central] {--workspace-rail:var(--md-rail-responsive);--sidebar-visual-width:var(--md-rail-responsive);} }
 @media(max-width:950px) {.window-workspace.meridian-workspace[data-view=central] {--workspace-rail:var(--md-rail-compact);--sidebar-visual-width:var(--md-rail-compact);}.meridian-workspace .meridian-taskbar {padding-inline:12px;gap:10px;grid-template-columns:auto minmax(0,auto) 65px;}.meridian-dock-search {display:none!important;}.meridian-taskbar-end>button:first-child {display:none;} }
 @media(max-width:600px) {.window-workspace.meridian-workspace[data-view] {--workspace-rail:0px;--sidebar-visual-width:0px;}.meridian-workspace .meridian-taskbar {grid-template-columns:74px minmax(0,1fr) 32px;gap:6px;padding-inline:8px;}.meridian-taskbar-start {gap:2px;}.meridian-taskbar-start>button {padding:0;width:34px;min-width:34px;}.meridian-taskbar-end>button {padding:0;width:30px;min-width:30px;}.meridian-taskbar-end span {display:none;}.meridian-workspace .meridian-dock {width:auto;padding-inline:6px;}.meridian-navigation-menu {left:10px!important;width:calc(100% - 20px)!important;bottom:calc(var(--md-dock) + 4px)!important;} }
+@media(max-width:600px) {.meridian-workspace {--md-dock:4.5rem;} }
 
 .meridian-profile-catalog {margin-top:24px;border-top:1px solid var(--md-border);padding-top:20px;}
 .meridian-profile-catalog article {margin-top:16px;padding:18px;border:1px solid var(--md-border);border-radius:14px;background:var(--md-surface);}

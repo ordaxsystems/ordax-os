@@ -152,10 +152,6 @@
   .ordax-notification-scroll { max-height: 28dvh; }
 }
 
-@media (max-width: 620px) {
-  .ordax-quick-panel-notifications { inset-inline: 8px; width: auto; }
-}
-
 .ordax-notification-level {
   border: 1px solid var(--ordax-border-soft); border-radius: 999px;
   padding: 2px 7px; font-size: .65rem; color: var(--ordax-muted);

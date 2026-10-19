@@ -12,13 +12,3 @@
 .ordax-area-button {
   flex: 0 0 auto;
 }
-
-@media (max-width: 760px) {
-  .ordax-area-switcher {
-    max-width: min(54vw, 360px);
-  }
-
-  .ordax-area-button:not([data-active="true"]) {
-    display: inline-flex;
-  }
-}
