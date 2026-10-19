@@ -12,6 +12,10 @@ test('runtime changes automatically require OS version increase',()=>{
     'system/contracts/component-manifest.mjs','bootstrap/release-agent/activate.sh',
     'boot/esp/init.sh','kernel/net.c','src/system/surface/view.ts',
     'system/surface/assets/wallpaper.webp','system/adapters/native/ordax.service',
+    'system/surface/bin/ordax-surface','system/surface/bin/ordax-mvp-smoke',
+    'bootstrap/initramfs/root/init','system/services/runtime/runtime.wasm',
+    'system/surface/workspace/assets/demo-salvador-1.jpg',
+    'system/services/network/provider.yaml',
   ]) assert.equal(osProductCodeChanged([path]),true,path);
   assert.throws(()=>verifyOsVersionChange({
     previous:oldVersion,current:oldVersion,paths:['system/surface/entrypoint.mjs'],
@@ -27,6 +31,8 @@ test('version policy, docs and tests do not force fictional new OS release numbe
     'system/contracts/product-version-governance.mjs',
     'system/contracts/product-version.mjs',
     'system/surface/tests/test_launcher.mjs',
+    'system/surface/docs/CURRENT-STATE.md',
+    'system/surface/ui/README.md','system/surface/bin/.gitkeep',
     '.github/workflows/foundation.yml',
   ]) assert.equal(osProductCodeChanged([path]),false,path);
   const result=verifyOsVersionChange({
