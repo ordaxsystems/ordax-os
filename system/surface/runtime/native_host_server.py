@@ -457,18 +457,34 @@ def start_telemetry_heartbeat(config_path: str) -> bool:
 
 
 def supported_power_actions(power_request_path: str) -> tuple[str, ...]:
+    """Advertise host power only while a private FIFO has a live reader.
+
+    Existence and mode alone are insufficient: the broker can exit while its
+    FIFO remains on disk. Probe O_WRONLY|O_NONBLOCK, so an absent reader fails
+    immediately without blocking the Native HTTP session or sending an action.
+    The open descriptor, rather than a path stat, is checked for identity.
+    """
     try:
-        metadata = os.stat(power_request_path)
+        descriptor = os.open(
+            power_request_path,
+            os.O_WRONLY
+            | getattr(os, "O_NONBLOCK", 0)
+            | getattr(os, "O_CLOEXEC", 0)
+            | getattr(os, "O_NOFOLLOW", 0),
+        )
     except OSError:
         return ()
-    if (
-        not stat.S_ISFIFO(metadata.st_mode)
-        or metadata.st_uid != os.geteuid()
-        or stat.S_IMODE(metadata.st_mode) != 0o600
-        or not os.access(power_request_path, os.W_OK)
-    ):
-        return ()
-    return POWER_ACTIONS
+    try:
+        metadata = os.fstat(descriptor)
+        if (
+            not stat.S_ISFIFO(metadata.st_mode)
+            or metadata.st_uid != os.geteuid()
+            or stat.S_IMODE(metadata.st_mode) != 0o600
+        ):
+            return ()
+        return POWER_ACTIONS
+    finally:
+        os.close(descriptor)
 
 
 def queue_power_action(power_request_path: str, action: str) -> None:
@@ -3397,6 +3413,11 @@ class NativeHostServer(ThreadingHTTPServer):
     daemon_threads = True
     allow_reuse_address = True
 
+    @property
+    def supported_actions(self) -> tuple[str, ...]:
+        # No cached capability: the FIFO reader can disappear after startup.
+        return supported_power_actions(self.power_request_path)
+
     def __init__(
         self,
         server_address,
@@ -3424,7 +3445,6 @@ class NativeHostServer(ThreadingHTTPServer):
         self.diagnostic_token = secrets.token_urlsafe(32)
         self.health_token = secrets.token_urlsafe(32)
         self.power_request_path = power_request_path
-        self.supported_actions = supported_power_actions(power_request_path)
         self.network_paths = network_broker_paths(network_session_dir)
         self.network_lock = threading.Lock()
         self.keyboard_layout_lock = threading.Lock()
