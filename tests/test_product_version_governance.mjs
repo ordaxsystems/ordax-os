@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { PRODUCT_VERSION, PRODUCT_VERSION_IDENTITY } from '../system/contracts/product-version.mjs';
+import { PRODUCT_VERSION } from '../system/contracts/product-version.mjs';
 import {
   productVersionChannel, assertProductVersionIdentity,
   assertVersionAdvance, versionGovernancePolicy,
@@ -10,7 +10,7 @@ test('existing OrdaX OS prototype version remains unchanged and is not a public 
   assert.equal(PRODUCT_VERSION.semanticVersion,'0.1.0');
   assert.equal(PRODUCT_VERSION.displayVersion,'v0.1.0');
   assert.equal(PRODUCT_VERSION.stableRelease,false);
-  assert.deepEqual(PRODUCT_VERSION_IDENTITY, {
+  assert.deepEqual(assertProductVersionIdentity(PRODUCT_VERSION), {
     version:'0.1.0',channel:'unqualified',stableRelease:false,
   });
   assert.equal(versionGovernancePolicy().unqualifiedMeansPublished,false);
