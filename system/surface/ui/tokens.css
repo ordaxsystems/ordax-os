@@ -9,16 +9,16 @@
 
 html {
   --ordax-display-scale-factor: 1;
-  --ordax-text-scale-factor: 1;
-  font-size: calc(100% * var(--ordax-display-scale-factor) * var(--ordax-text-scale-factor));
+  zoom: var(--ordax-display-scale-factor);
+  font-size: 100%;
 }
 
 html[data-ordax-display-scale="compact"] { --ordax-display-scale-factor: 0.9; }
 html[data-ordax-display-scale="comfortable"] { --ordax-display-scale-factor: 1.1; }
 html[data-ordax-display-scale="large"] { --ordax-display-scale-factor: 1.2; }
 
-html[data-ordax-text-scale="large"] { --ordax-text-scale-factor: 1.125; }
-html[data-ordax-text-scale="extra-large"] { --ordax-text-scale-factor: 1.25; }
+html[data-ordax-text-scale="large"] { font-size: 112.5%; }
+html[data-ordax-text-scale="extra-large"] { font-size: 125%; }
 
 @media (min-width: 2560px) {
   html[data-ordax-display-scale="automatic"] { --ordax-display-scale-factor: 1.0625; }
