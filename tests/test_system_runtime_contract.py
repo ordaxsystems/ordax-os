@@ -352,6 +352,20 @@ class SystemRuntimeContractTests(unittest.TestCase):
         self.assertIn("forward_host_power_request()", surface)
         self.assertIn("record_power_request restart pending", surface)
         self.assertIn("record_power_request shutdown pending", surface)
+        # Host power is a fail-closed, durable operation: never forward a
+        # request whose cross-boot audit record could not be persisted.
+        self.assertIn("if ! record_power_request restart pending; then", surface)
+        self.assertIn("if ! record_power_request shutdown pending; then", surface)
+        self.assertIn("refusing restart because pending power proof could not be persisted", surface)
+        self.assertIn("refusing shutdown because pending power proof could not be persisted", surface)
+        self.assertLess(
+            surface.index("if ! record_power_request restart pending; then"),
+            surface.index("forward_host_power_request restart"),
+        )
+        self.assertLess(
+            surface.index("if ! record_power_request shutdown pending; then"),
+            surface.index("forward_host_power_request shutdown"),
+        )
         self.assertNotIn("POWER_TRANSITION_REQUEST", surface)
         self.assertNotIn("perform_host_power_transition()", surface)
         self.assertNotIn("quiesce_root_filesystem_for_power_transition()", surface)
