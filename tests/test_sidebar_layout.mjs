@@ -194,6 +194,18 @@ test("Web and Native dock items share Meridian geometry and open, active, and mi
   assert.doesNotMatch(nativeStyles, /\.ordax-running-app \{ display:grid/);
   assert.doesNotMatch(webStyles, /\.meridian-dock \.desktop-task \{display:grid/);
 });
+test("Web and Native taskbar controls share Meridian focus, hover, and accurate pressed states", async () => {
+  const [sharedStyles, nativeStyles, webStyles] = await Promise.all([
+    readFile(new URL("../system/surface/ui/meridian.css", import.meta.url), "utf8"),
+    readFile(new URL("../system/surface/ui/identity.css", import.meta.url), "utf8"),
+    readFile(new URL("../system/surface/workspace/components/central/meridian.css", import.meta.url), "utf8"),
+  ]);
+  assert.ok(sharedStyles.includes("[data-workspace-switch],[data-presentation-toggle])[aria-pressed=\"true\"]"));
+  assert.ok(sharedStyles.includes(".meridian-taskbar button:focus-visible"));
+  assert.ok(sharedStyles.includes(".ordax-tray-item[aria-expanded=\"true\"]"));
+  assert.doesNotMatch(nativeStyles, /\.ordax-presentation-toggle\[aria-pressed="true"\]/);
+  assert.doesNotMatch(webStyles, /\.meridian-taskbar-start \[data-workspace-switch\] \{background:/);
+});
 test("Web and Native windows share the Meridian chrome and titlebar control scale", async () => {
   const [tokens, sharedStyles, nativeStyles, webStyles, webWindowLayer, nativeWindowMarkup] = await Promise.all([
     readFile(new URL("../system/surface/ui/meridian.tokens.css", import.meta.url), "utf8"),

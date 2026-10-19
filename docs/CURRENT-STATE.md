@@ -96,9 +96,11 @@ Desktop taskbar frame (2026-10-19): Native and Web now share Meridian tokens
 for the bottom bar's three-column balance, side-control minimum, group spacing,
 horizontal inset, dock item targets, glyph size and open/active/minimized
 indicators. Arrow navigation and Home/End share one implementation; each host
-retains its own scroll reveal. Host styles retain only responsive breakpoints
-and platform-specific controls, so dock status and visual scale stay consistent
-while available system actions remain truthful to each host.
+retains its own scroll reveal. Taskbar focus and toggle states now follow shared
+Meridian styling and the actual pressed state. Host styles retain only
+responsive breakpoints and platform-specific controls, so dock status and visual
+scale stay consistent while available system actions remain truthful to each
+host.
 
 Desktop window chrome (2026-10-19): Web and Native application windows share
 the Meridian frame, active-state treatment, titlebar height and insets, app-mark
