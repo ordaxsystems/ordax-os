@@ -4,6 +4,7 @@ import { readFile } from "node:fs/promises";
 
 import { PREFERENCE_RUNTIME_SCHEMA } from "../system/contracts/preference-runtime.mjs";
 import { createDesktopShellMarkup } from "../system/surface/ui/desktop-shell.mjs";
+import { getDesktopShortcutGlyphMarkup } from "../system/services/surface/desktop-shortcut-glyphs.mjs";
 import {
   SURFACE_COMPLETE_LOCALES,
   SURFACE_ENGLISH_TARGET_LOCALE,
@@ -122,6 +123,11 @@ for (const locale of SURFACE_COMPLETE_LOCALES) {
     try {
       const markup = createDesktopShellMarkup(localization);
       const buttons = [...markup.matchAll(/<button\b([^>]*)>([\s\S]*?)<\/button>/g)];
+      for (const appId of ["central", "apps", "files", "studio", "settings"]) {
+        const shortcut = buttons.find(([, attributes]) => attributes.includes(`data-desktop-app="${appId}"`));
+        assert.ok(shortcut, `Desktop shortcut ${appId} is present in ${locale}`);
+        assert.ok(shortcut[2].includes(getDesktopShortcutGlyphMarkup(appId)), `${appId} uses its canonical Meridian glyph`);
+      }
       const brandButtons = buttons.filter(([, attributes]) =>
         attributes.includes('class="meridian-brand-home"'),
       );

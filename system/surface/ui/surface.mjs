@@ -30,6 +30,7 @@ import {
   syncDesktopThemeToggle,
 } from "./desktop-shell.mjs";
 import { createSurfaceLocalization } from "../../services/i18n/surface.mjs";
+import { moveDesktopShortcutFocus, moveDockFocus } from "../../services/surface/dock-navigation.mjs";
 import { syncDocumentLocaleProfile } from "./document-localization.mjs";
 import { SURFACE_RENDER_LIFECYCLE_SCHEMA } from "../../contracts/surface-render-lifecycle.mjs";
 import {
@@ -706,6 +707,7 @@ export function mountSurface(
       if (ICONS[app.id]) icon.innerHTML = ICONS[app.id];
       else icon.textContent = app.monogram;
       button.dataset.active = String(area.activeWindowId === windowState.id && !windowState.minimized);
+      button.dataset.minimized = String(windowState.minimized);
       if (button.dataset.active === "true") button.setAttribute("aria-current", "true");
       else button.removeAttribute("aria-current");
       const localizedTitle = appTitle(localization, app);
@@ -1187,24 +1189,8 @@ export function mountSurface(
   };
 
   const onKeyDown = (event) => {
-    const dockButton = event.target.closest?.(".meridian-native-dock button");
-    if (dockButton && !event.altKey && !event.ctrlKey && !event.metaKey
-      && ["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) {
-      const buttons = Array.from(nativeDock.querySelectorAll("button:not(:disabled)"))
-        .filter((button) => !button.hidden && button.getClientRects().length > 0);
-      const index = buttons.indexOf(dockButton);
-      if (index >= 0) {
-        const nextIndex = event.key === "Home" ? 0
-          : event.key === "End" ? buttons.length - 1
-            : Math.min(buttons.length - 1, Math.max(0, index + (event.key === "ArrowRight" ? 1 : -1)));
-        event.preventDefault();
-        if (nextIndex !== index) {
-          buttons[nextIndex].focus({ preventScroll: true });
-          revealDockButton(buttons[nextIndex]);
-        }
-        return;
-      }
-    }
+    if (moveDockFocus(event, nativeDock, "button", revealDockButton)) return;
+    if (moveDesktopShortcutFocus(event, root, "[data-desktop-app]")) return;
 
     if ((event.ctrlKey || event.metaKey) && event.key.toLocaleLowerCase() === "k") {
       event.preventDefault();
