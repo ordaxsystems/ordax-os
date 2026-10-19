@@ -193,7 +193,7 @@
       },
       {
         "path": "system/contracts/product-version.mjs",
-        "sha256": "863f834810f49f7e9e73ee283672e091cd372509d4f2e3568ab6ff8fb9587e01"
+        "sha256": "298c78073f019ffa50d1cf339709f78019ec99b18975b448bcbdf555016586f7"
       },
       {
         "path": "system/contracts/profile-app-references.mjs",
@@ -305,7 +305,7 @@
       },
       {
         "path": "system/surface/ui/display-output-controls.mjs",
-        "sha256": "b7fe446a5263d7eea4bb57b0d36be9d1e4886efa90cd2011e505bc84010948c4"
+        "sha256": "4f212b88e78106933a0ec9d79b2e32bf3a0cf9478cd28e3e556df8bce51d1558"
       },
       {
         "path": "system/surface/ui/journeys/context.mjs",
@@ -337,7 +337,7 @@
       },
       {
         "path": "system/surface/ui/meridian.css",
-        "sha256": "e92847f42e575f686d5f15a247e1f3d55aae56c2939d99e7fe2df27519a7bcbe"
+        "sha256": "7bd0025612df64430ba5e5d9ca128f2b597a72be763ceadb6c9d72e7cbeeb9c7"
       },
       {
         "path": "system/surface/ui/meridian.tokens.css",
@@ -441,7 +441,7 @@
       },
       {
         "path": "system/surface/workspace/components/central/styles.css",
-        "sha256": "ea03d6ba95d8ccd90fbe72ec0f6f6d3edd1c3b0733c6144c32507cae9dbe390a"
+        "sha256": "b4ce316c120f1545c16cc0f1a0b8a7c7f941248266a951a8780a315a853ae342"
       },
       {
         "path": "system/surface/workspace/components/store/catalog-context.tsx",
@@ -472,6 +472,6 @@
         "sha256": "32fcfaad07deaee9a72391669c3bb285444c9c7a5ba339e66d51278c0d6daffe"
       }
     ],
-    "cssSha256": "3c61d6c0f6bc36442034d196784afe3e4df78c09c56d5082a6d005eff8d7539e"
+    "cssSha256": "5b4a7585bf3636a3c8499aad59df37c0aa7bb4ddb0d7fdc07a78bad554b9bc97"
   }
 }
