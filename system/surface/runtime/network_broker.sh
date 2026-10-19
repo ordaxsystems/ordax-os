@@ -31,10 +31,14 @@ WPA_BIN=$(command -v wpa_supplicant || true)
 WPA_CLI_BIN=$(command -v wpa_cli || true)
 UDHCPC_BIN=$(command -v udhcpc || true)
 
-[ -n "$IP_BIN" ] && [ -n "$IW_BIN" ] && [ -n "$WPA_BIN" ] && [ -n "$WPA_CLI_BIN" ] && [ -n "$UDHCPC_BIN" ] || {
-    echo "ordax-network-broker: required host network tools are unavailable" >&2
+[ -n "$IP_BIN" ] && [ -n "$UDHCPC_BIN" ] || {
+    echo "ordax-network-broker: IP/DHCP host tools are unavailable" >&2
     exit 1
 }
+WIFI_TOOLS_READY=0
+if [ -n "$IW_BIN" ] && [ -n "$WPA_BIN" ] && [ -n "$WPA_CLI_BIN" ]; then
+    WIFI_TOOLS_READY=1
+fi
 
 cleanup() {
     rm -f "$CONTROL" "$REQUEST" "$RESPONSE" "$SCAN_RAW" "$LINK_RAW" "$SAVED_SSID_LINE" "$CANDIDATE"
@@ -154,6 +158,33 @@ have_ipv4() {
     "$IP_BIN" -4 -o addr show dev "$wifi" scope global 2>/dev/null | /bin/busybox grep -q ' inet '
 }
 
+have_any_ipv4() {
+    "$IP_BIN" -4 -o addr show scope global 2>/dev/null | /bin/busybox grep -q ' inet '
+}
+
+# One live network broker restores either a wired/USB-tether lease or saved
+# Wi-Fi. Dev Base boot only initializes hardware; the Surface must not require
+# the interactive first-use script to acquire Ethernet on a later boot.
+restore_wired_network_if_needed() {
+    have_any_ipv4 && return 0
+    for netpath in /sys/class/net/*; do
+        [ -e "$netpath" ] || continue
+        iface=${netpath##*/}
+        [ "$iface" = lo ] && continue
+        [ -d "$netpath/wireless" ] && continue
+        net_type=$(/bin/busybox cat "$netpath/type" 2>/dev/null || true)
+        [ "$net_type" = 1 ] || continue
+        if [ -r "$netpath/carrier" ]; then
+            carrier=$(/bin/busybox cat "$netpath/carrier" 2>/dev/null || true)
+            [ "$carrier" = 1 ] || continue
+        fi
+        if try_dhcp "$iface"; then
+            return 0
+        fi
+    done
+    return 1
+}
+
 try_dhcp() {
     wifi=$1
     "$IP_BIN" link set "$wifi" up >/dev/null 2>&1 || return 1
@@ -185,6 +216,7 @@ restore_saved_network() {
 # The existing Surface IPC broker is the only reconnection scheduler.
 # First Run may already own a WPA supplicant and an IP; preserve its session.
 restore_saved_network_if_needed() {
+    [ "$WIFI_TOOLS_READY" -eq 1 ] || return 1
     [ ! -e "$AUTO_CONNECT_PAUSED" ] || return 0
     [ -s "$WPA_CONF" ] && [ ! -L "$WPA_CONF" ] || return 0
     wifi=$(find_wifi_interface) || return 1
@@ -227,6 +259,10 @@ handle_request() {
         ''|*[!A-Za-z0-9._:-]*) respond unknown error "" invalid-request; return 0 ;;
     esac
 
+    [ "$WIFI_TOOLS_READY" -eq 1 ] || {
+        respond "$request_id" error "" wifi-tools-unavailable
+        return 0
+    }
     wifi=$(find_wifi_interface || true)
     [ -n "$wifi" ] || {
         respond "$request_id" error "" no-wifi-interface
@@ -345,12 +381,14 @@ handle_request() {
 
 exec 9<>"$CONTROL"
 # Boot and reconnect reuse this IPC owner, never a parallel WPA daemon.
+restore_wired_network_if_needed >/dev/null 2>&1 || true
 restore_saved_network_if_needed >/dev/null 2>&1 || true
 while :; do
     signal=""
     if IFS= read -r -t "$RECONNECT_INTERVAL" signal <&9; then
         [ "$signal" = request ] && handle_request
     else
+        restore_wired_network_if_needed >/dev/null 2>&1 || true
         restore_saved_network_if_needed >/dev/null 2>&1 || true
     fi
 done
