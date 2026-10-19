@@ -48,6 +48,16 @@ for (const entry of centralReference.native_files ?? []) {
     assert.match(entry.adaptedSha256, /^[a-f0-9]{64}$/, 'Native adaptation digest must be valid');
     assert.ok(typeof entry.adaptation === 'string' && entry.adaptation.trim(), 'Native adaptation requires an explanation');
     assert.equal(currentDigest, entry.adaptedSha256, 'Native Central adaptation drift: ' + entry.target);
+    const history = entry.adaptationHistory ?? [];
+    assert.ok(Array.isArray(history), 'Native adaptation history must be structured');
+    const digests = new Set([entry.adaptedSha256]);
+    for (const revision of history) {
+      assert.match(revision.sha256, /^[a-f0-9]{64}$/, 'Native historical digest must be valid');
+      if (revision.date !== undefined) assert.match(revision.date, /^[0-9]{4}-[0-9]{2}-[0-9]{2}$/, 'Native history date must be ISO');
+      assert.ok(typeof revision.reason === 'string' && revision.reason.trim().length >= 20, 'Native provenance requires a meaningful historical reason');
+      assert.ok(!digests.has(revision.sha256), 'Native history must not repeat a digest');
+      digests.add(revision.sha256);
+    }
   } else {
     assert.equal(currentDigest, entry.sha256, 'Native Central source drift: ' + entry.target);
   }
