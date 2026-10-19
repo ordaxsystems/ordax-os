@@ -77,11 +77,14 @@ class PhysicalMvpHardeningTests(unittest.TestCase):
         self.assertRegex(footer, r"flex\s*:\s*0\s+0\s+auto")
         self.assertRegex(shell, r"height\s*:\s*min\(\d+px,\s*calc\(100dvh\s*-\s*\d+px\)\)")
 
-        # Eight canonical steps share a responsive column flow; an obsolete
-        # seven-step fixed grid would hide the current navigation.
-        self.assertRegex(text, r"@media\s*\(max-width:\s*820px\)")
-        self.assertRegex(text, r"grid-auto-flow\s*:\s*column")
-        self.assertRegex(text, r"grid-auto-columns\s*:\s*minmax\(0,\s*1fr\)")
+        # USB/Native keep the numbered desktop step rail, including all
+        # eight steps; the scrollable body never consumes the footer row.
+        progress = declarations(".ordax-first-run-progress")
+        steps = declarations(".ordax-first-run-steps")
+        self.assertRegex(shell, r"grid-template-columns\s*:\s*var\(--md-rail-width\)\s+minmax\(0,\s*1fr\)")
+        self.assertRegex(progress, r"flex-direction\s*:\s*column")
+        self.assertRegex(steps, r"counter-reset\s*:\s*ordax-first-run-step")
+        self.assertNotRegex(text, r"grid-auto-flow\s*:\s*column")
 
 
 
