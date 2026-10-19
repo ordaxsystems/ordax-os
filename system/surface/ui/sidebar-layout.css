@@ -168,12 +168,12 @@
   .meridian-workspace .ordax-product-sidebar :is(.ordax-space-switcher-trigger-label,.meridian-rail-space > span:nth-child(2),.ordax-space-switcher-chevron,.meridian-rail-space > svg) { display:none!important; }
 }
 @media(max-width:1150px) and (min-width:951px) {
-  .meridian-workspace .ordax-product-sidebar { padding-inline:.75rem; }
+  .window-workspace.meridian-workspace .ordax-product-sidebar { padding-inline:.75rem; }
 }
 @media(max-width:950px) and (min-width:601px) {
-  .meridian-workspace .ordax-product-sidebar { padding:1.5rem .625rem 1rem; }
-  .meridian-workspace .ordax-product-sidebar :is(.ordax-sidebar-toggle,.sidebar-collapse) { display:none; }
+  .window-workspace.meridian-workspace .ordax-product-sidebar { padding:1.5rem .625rem 1rem; }
+  .window-workspace.meridian-workspace .ordax-product-sidebar :is(.ordax-sidebar-toggle,.sidebar-collapse) { display:none; }
 }
 @media(max-width:600px) {
-  .meridian-workspace .ordax-product-sidebar { display:none!important; }
+  .window-workspace.meridian-workspace .ordax-product-sidebar { display:none!important; }
 }

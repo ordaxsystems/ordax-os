@@ -141,13 +141,6 @@
 [data-meridian] :is(.ordax-desktop-shortcut,.desktop-shortcut):active {transform:scale(.97);}
 [data-meridian] :is(.ordax-desktop-shortcut,.desktop-shortcut):focus-visible {outline:2px solid var(--md-focus);outline-offset:2px;}
 [data-meridian] :is(.ordax-desktop-shortcut,.desktop-shortcut):disabled {opacity:.5;cursor:not-allowed;}
-@media(max-width:760px) {
- [data-meridian] {
-  --md-desktop-shortcut-inset:.625rem;--md-desktop-shortcut-cell:5rem;--md-desktop-shortcut-gap:.125rem;
-  --md-desktop-shortcut-icon:2.25rem;
- }
-}
-
 /* Appearance miniatures use the same material variables as their target. */
 [data-meridian] .ordax-settings-theme-preview[data-material-preview] {
  --ordax-bg:var(--md-canvas);--ordax-app-bg:var(--md-surface);--ordax-panel:var(--md-surface);
@@ -177,12 +170,3 @@
 .meridian-workspace .meridian-integration-status {display:inline-flex;align-items:center;gap:6px;border:1px solid color-mix(in srgb,var(--md-danger) 28%,var(--md-border));border-radius:6px;padding:3px 8px;background:color-mix(in srgb,var(--md-danger) 6%,var(--md-surface));color:var(--md-danger);font-size:.6875rem;line-height:1.5;white-space:normal;max-width:100%;}
 .meridian-workspace .meridian-integration-status::before {content:'';width:5px;height:5px;flex-shrink:0;border-radius:50%;background:currentColor;}
 .meridian-session-strip .ordax-rail-icon {width:15px;height:15px;flex:0 0 auto;color:var(--md-muted);}
-
-@container meridian-native-home (max-width:520px) {
- .meridian-session-strip {gap:12px;}
- .meridian-session-strip>.meridian-mock-badge {margin-left:0;}
- .meridian-command {grid-template-columns:minmax(0,1fr);padding:14px;}
- .meridian-command-icon {display:none;}
- .meridian-command input {font-size:0.6875rem;}
- .meridian-command small button {margin-left:0;}
-}

@@ -10,7 +10,6 @@
 .desktop-window-body:has(>.wm-settings){padding:0}
 @container settings-web (max-width:900px){.wm-topic-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.wm-settings-grid{gap:16px}.wm-settings-panel{padding:20px}}
 @container settings-web (max-width:580px){.wm-topic-grid,.wm-settings-grid{grid-template-columns:minmax(0,1fr)}.wm-topic-card{padding:16px}.wm-settings-heading h1{font-size:30px}}
-@media(max-width:600px){.wm-settings{padding:20px 16px}.wm-settings-panel{padding:18px}}
 
 .wm-display-options button{min-width:94px;justify-content:center}
 .wm-display-host{margin-top:20px;padding:15px 16px;border:1px solid color-mix(in srgb,var(--md-amber) 30%,var(--md-border));border-left:3px solid var(--md-amber);border-radius:10px;background:color-mix(in srgb,var(--md-amber) 8%,var(--md-surface))}
