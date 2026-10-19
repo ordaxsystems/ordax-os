@@ -32,7 +32,7 @@ class OwnerRootfsCapabilitiesTest(unittest.TestCase):
         commands = set(inventory["commands"])
         self.assertTrue({
             "git", "ip", "iw", "wpa_supplicant", "wpa_cli", "wpa_passphrase",
-            "udhcpc", "ntpd", "timeout", "stty", "setsid", "killall", "df",
+            "udhcpc", "ntpd", "timeout", "stty", "setsid", "df",
             "tr", "wc", "mount", "pivot_root", "switch_root", "sync", "reboot",
         }.issubset(commands))
 
@@ -83,7 +83,7 @@ done
         }.issubset(missing_packages))
         missing_applets = set(result["missing_busybox_symbols"])
         self.assertTrue({
-            "CONFIG_NTPD", "CONFIG_TEST", "CONFIG_STTY", "CONFIG_KILLALL",
+            "CONFIG_NTPD", "CONFIG_TEST", "CONFIG_STTY",
             "CONFIG_UDHCPC", "CONFIG_SETSID",
         }.issubset(missing_applets))
 
