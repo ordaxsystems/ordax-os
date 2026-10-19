@@ -168,6 +168,73 @@ class NativeNetworkManagementTests(unittest.TestCase):
         self.assertIn("trap 'exit 0' HUP INT TERM", broker)
         self.assertNotIn('rm -f "$WPA_CONF"\n', broker.split("        disconnect)", 1)[1].split("        forget)", 1)[0])
 
+    def test_saved_wifi_reconnects_after_boot_and_recovers_dhcp_without_replacing_wpa(self):
+        # Execute the checked-in connection policy, not an independent mock
+        # implementation. No real networking, credentials or host state touched.
+        broker = BROKER.read_text(encoding="utf-8")
+        source = broker.split("restore_saved_network_if_needed() {", 1)[1].split("\n}\n", 1)[0]
+        self.assertIn('read -r -t "$RECONNECT_INTERVAL" signal <&9', broker)
+        self.assertIn('restore_saved_network_if_needed >/dev/null 2>&1 || true', broker)
+        self.assertIn("CANDIDATE=$STATE_DIR/wpa.conf.candidate.$", broker)
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            saved = root / "wpa.conf"
+            saved.write_text("network={\nssid=43617361\npsk=0\n}\n")
+            paused = root / "autoconnect-paused"
+            actions = root / "events"
+            wpa = root / "wpa-cli"
+            wpa.write_text(
+                "#!/bin/sh\n"
+                'if [ "$NETWORK_TEST_WPA" = online ]; then\n'
+                '  case "$*" in *status*) echo wpa_state=COMPLETED ;; *ping*) echo PONG ;; esac\n'
+                'else exit 1; fi\n'
+            )
+            wpa.chmod(0o700)
+            script = (
+                'set -eu\n'
+                'find_wifi_interface() { printf "%s\\n" wlan0; }\n'
+                'have_ipv4() { [ "$NETWORK_TEST_IP" = 1 ]; }\n'
+                'try_dhcp() { printf "dhcp\\n" >>"$NETWORK_TEST_EVENTS"; }\n'
+                'restore_saved_network() { printf "restore\\n" >>"$NETWORK_TEST_EVENTS"; }\n'
+                'restore_saved_network_if_needed() {' + source + '\n}\n'
+                'restore_saved_network_if_needed\n'
+            )
+            base = dict(
+                os.environ,
+                WPA_CONF=str(saved), AUTO_CONNECT_PAUSED=str(paused),
+                WPA_CTRL_DIR=str(root / "no-wpa-socket"), WPA_CLI_BIN=str(wpa),
+                NETWORK_TEST_EVENTS=str(actions), NETWORK_TEST_IP="0",
+                NETWORK_TEST_WPA="offline",
+            )
+            for wpa_state, has_ip, paused_by_user, expected in (
+                ("offline", "0", False, "restore\n"),
+                ("online", "0", False, "dhcp\n"),
+                ("online", "1", False, ""),
+                ("offline", "0", True, ""),
+            ):
+                actions.unlink(missing_ok=True)
+                if paused_by_user:
+                    paused.touch()
+                else:
+                    paused.unlink(missing_ok=True)
+                env = dict(base, NETWORK_TEST_WPA=wpa_state, NETWORK_TEST_IP=has_ip)
+                result = subprocess.run(
+                    ["/bin/sh", "-c", script], env=env, text=True,
+                    capture_output=True, timeout=6, check=False,
+                )
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(actions.read_text() if actions.exists() else "", expected)
+
+    def test_manual_disconnect_remains_paused_and_saved_network_is_never_deleted(self):
+        broker = BROKER.read_text(encoding="utf-8")
+        disconnect = broker.split("        disconnect)", 1)[1].split("        forget)", 1)[0]
+        reconnect = broker.split("        reconnect)", 1)[1].split("        *)", 1)[0]
+        self.assertIn('AUTO_CONNECT_PAUSED=$STATE_DIR/autoconnect-paused', broker)
+        self.assertIn('"$AUTO_CONNECT_PAUSED"', disconnect)
+        self.assertNotIn('rm -f "$WPA_CONF"', disconnect)
+        self.assertIn('rm -f "$AUTO_CONNECT_PAUSED"', reconnect)
+        self.assertIn('rm -f "$WPA_CONF" "$AUTO_CONNECT_PAUSED"', broker)
+
     def test_broker_is_shell_valid_private_and_has_no_secret_logging(self):
         subprocess.run(["sh", "-n", str(BROKER)], check=True)
         text = BROKER.read_text(encoding="utf-8")
