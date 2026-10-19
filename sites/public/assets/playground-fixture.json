@@ -296,6 +296,10 @@
         "sha256": "186cff9d4e615d0cbca72e5ff59443ae2cc9141981572d214d07801329142764"
       },
       {
+        "path": "system/services/surface/dock-navigation.mjs",
+        "sha256": "0aa3137fe6ab11d484f51f17a1419b66c67a26a26a1b81fd7c0525a23898c858"
+      },
+      {
         "path": "system/services/surface/meridian-navigation.mjs",
         "sha256": "747744b79e494284382d33c34664c2897c85d98daefc68846cb7643f877410c0"
       },
@@ -337,7 +341,7 @@
       },
       {
         "path": "system/surface/ui/meridian.css",
-        "sha256": "79957689e0ca232423a842b62ee235b8e1429ceff704ae0922e4e99339e813fa"
+        "sha256": "bc1c6eb5d40e6490bfc08311c56872a5723cede8d3d9adc4c3f1c9ce141f1833"
       },
       {
         "path": "system/surface/ui/meridian.tokens.css",
@@ -409,11 +413,11 @@
       },
       {
         "path": "system/surface/workspace/components/central/meridian-navigation.tsx",
-        "sha256": "fe5fb9e6921aa2d2369611819edd4c240759982bb681ec11d9eb833ddbae5359"
+        "sha256": "2124dd4f5383852f8c4ab0a5d8cce4534c2d20e79bfebca289f6e3bb90a687b2"
       },
       {
         "path": "system/surface/workspace/components/central/meridian.css",
-        "sha256": "0639bbe1295d7decc6a84ce502c7be26b8b0a3e754f2f44b3820fedf197da3ed"
+        "sha256": "5a05eebba15e9d05df30fb74e0fb5d2d59d96c98ef1602ddf4dfb4b71a906a94"
       },
       {
         "path": "system/surface/workspace/components/central/primitives.tsx",
@@ -441,7 +445,7 @@
       },
       {
         "path": "system/surface/workspace/components/central/styles.css",
-        "sha256": "32647287be52b01103bdf9288c9bba3c942d9180517457fdaa3d6510e3a105d1"
+        "sha256": "e2b173ce7adf5a38f37ebfdd987df4a3bdb0fb3ff2d414adc6f5985f0ff372eb"
       },
       {
         "path": "system/surface/workspace/components/store/catalog-context.tsx",
@@ -472,6 +476,6 @@
         "sha256": "32fcfaad07deaee9a72391669c3bb285444c9c7a5ba339e66d51278c0d6daffe"
       }
     ],
-    "cssSha256": "f6aafa72b2555b044f6a5d9beace3cc2f971800b856f88a0edf3847d7cb60033"
+    "cssSha256": "5272ee92b644550c801f317e73f6368caa624314a41a8ce9e92d6804db0e6cbf"
   }
 }
