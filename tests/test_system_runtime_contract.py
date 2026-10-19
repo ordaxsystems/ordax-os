@@ -416,7 +416,8 @@ class SystemRuntimeContractTests(unittest.TestCase):
         self.assertIn("record_power_request shutdown pending", text)
         self.assertIn("record_power_request shutdown failed", text)
         self.assertIn("printf '%s|%s|%s|%s\\n'", text)
-        self.assertIn('/bin/busybox sync', text)
+        # Surface only records and forwards; Guardian performs the fsync.
+        self.assertIn('/bin/busybox sync', SYSTEM_ENTRYPOINT.read_text(encoding='utf-8'))
         self.assertIn('forward_host_power_request shutdown', text)
         self.assertLess(
             text.index("record_power_request restart pending"),
