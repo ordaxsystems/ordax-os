@@ -73,10 +73,12 @@ reachable. Window title bars remain the window-management surface. Display-scale
 tokens continue to be shared across desktop presentations.
 
 Surface shortcut placement (2026-10-19): Central quick access, desktop icons,
-and taskbar pins derive from one ordered catalog under `system/services/surface/`.
-Rendered sidebar app labels are localized from their actual app IDs, avoiding a
-stale app-name list. The app runtime catalog and host capabilities remain the
-authority for whether an app can open; shortcut placement does not grant access.
+taskbar pins, and the device-app section in the navigation menu derive from one
+ordered catalog under `system/services/surface/`. Rendered sidebar app labels
+are localized from their actual app IDs, avoiding stale app-name lists. The app
+runtime catalog and host capabilities remain the authority for whether an app
+can open; shortcut placement does not grant access. System Updates remains a
+separate destination within the System app.
 
 Native Central home layout correction (2026-10-18): the persistent local-space
 card remains in the secondary column at desktop widths, while capability-backed

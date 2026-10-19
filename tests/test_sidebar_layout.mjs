@@ -5,6 +5,7 @@ import { SIDEBAR_LAYOUT, createSidebarMarkup, sidebarBrandMarkup, sidebarNavigat
 import { projectSidebarAccount, sidebarAccountMarkup, sidebarProfileButtonMarkup, sidebarProfileMarkup, mountNativeSidebarAccount } from "../system/surface/ui/sidebar-account.mjs";
 import { SIDEBAR_ENGLISH_MESSAGES } from "../system/services/i18n/catalog/sidebar.mjs";
 import { MERIDIAN_RAIL_DESTINATIONS } from "../system/services/surface/meridian-navigation.mjs";
+import { listSurfaceShortcutAppIds } from "../system/services/surface/shortcut-catalog.mjs";
 import { syncDesktopSidebarToggle } from "../system/surface/ui/desktop-shell.mjs";
 
 test("sidebar slots preserve the same brand, home, navigation, account and auxiliary order", () => {
@@ -93,7 +94,9 @@ test("Native rail keeps shared Meridian destinations, area switching, and System
   assert.match(rail, /data-sidebar-app="system" data-launch-app="system"/);
   assert.match(rail, /data-nav-group-label="dispositivo"/);
   assert.ok(menu.includes('data-nav-menu-group="dispositivo"'));
-  assert.match(menu, /const deviceApps = \["files", "studio", "settings", "system"\]/);
+  assert.match(nativeShell, /listSurfaceShortcutAppIds\("navigation-menu"\)/);
+  assert.match(menu, /const deviceApps = NAVIGATION_MENU_APP_IDS\.map\(id =>/);
+  assert.deepEqual(listSurfaceShortcutAppIds("navigation-menu"), ["files", "studio", "settings", "system"]);
   assert.ok(menu.includes('data-nav-menu-app="${id}"'));
   assert.ok(nativeShell.includes('data-current-area>${t("surface.area.label", { ordinal: "01" })}</span>'));
   assert.ok(nativeShell.includes('data-area-switcher aria-label="${t("shell.areas.aria")}"'));
