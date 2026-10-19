@@ -73,7 +73,7 @@ if (process.argv[1] && path.resolve(fileURLToPath(import.meta.url)) === path.res
     // attributing concurrent main changes to this branch.
     let testedBase = base;
     if (process.env.GITHUB_EVENT_NAME === 'pull_request') {
-      const parents = git('rev-list','--parents','-n','1','HEAD').split(/\\s+/);
+      const parents = git('rev-list','--parents','-n','1','HEAD').split(/\s+/);
       if (parents.length !== 3) throw new Error('Expected an attested two-parent GitHub PR merge commit');
       testedBase = parents[1];
     }
