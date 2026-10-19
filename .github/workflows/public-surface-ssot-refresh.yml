@@ -10,6 +10,10 @@ on:
       - 'tools/public-site/surface_snapshot.mjs'
       - 'tools/public-site/surface-snapshot-entry.tsx'
       - 'system/contracts/product-version.mjs'
+      - 'system/contracts/**'
+      - 'system/services/**'
+      - 'system/surface/**'
+      - 'tools/public-site/**'
       - 'system/surface/ui/desktop-shell.mjs'
       - 'system/services/surface/meridian-navigation.mjs'
       - 'system/services/i18n/surface.mjs'
@@ -54,6 +58,9 @@ jobs:
 
       - name: Validate typed Connector adapter before generating presentation
         run: node --test tests/test_product_connector_adapter.mjs
+
+      - name: Guard refresh trigger coverage from the snapshot SSOT
+        run: python -m unittest tests.test_public_surface_refresh_coverage -v
 
       - name: Run canonical snapshot and fixture generators
         run: |
