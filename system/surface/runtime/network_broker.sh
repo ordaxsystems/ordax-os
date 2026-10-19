@@ -17,7 +17,7 @@ WPA_CONF=$STATE_DIR/wpa.conf
 # The Surface broker consumes that owner; it never starts a second namespace.
 WPA_CTRL_DIR=/run/ordax-wpa-supplicant
 WPA_PID_FILE=/run/ordax-wpa-supplicant.pid
-CANDIDATE=$STATE_DIR/wpa.conf.candidate.$
+CANDIDATE=$STATE_DIR/wpa.conf.candidate.$$
 AUTO_CONNECT_PAUSED=$STATE_DIR/autoconnect-paused
 RECONNECT_INTERVAL=15
 
@@ -183,161 +183,17 @@ restore_saved_network() {
 }
 
 # The existing Surface IPC broker is the only reconnection scheduler.
-# First Run may already own an authenticated supplicant and DHCP lease.
-# Do not replace that session or disrupt WPA's built-in re-association.
+# First Run may already own a WPA supplicant and an IP; preserve its session.
 restore_saved_network_if_needed() {
     [ ! -e "$AUTO_CONNECT_PAUSED" ] || return 0
     [ -s "$WPA_CONF" ] && [ ! -L "$WPA_CONF" ] || return 0
     wifi=$(find_wifi_interface) || return 1
     if "$WPA_CLI_BIN" -p "$WPA_CTRL_DIR" -i "$wifi" ping 2>/dev/null |
         /bin/busybox grep -qx PONG; then
+        # WPA itself handles link loss and re-association. Never kill its
+        # running session during an incomplete handshake.
         "$WPA_CLI_BIN" -p "$WPA_CTRL_DIR" -i "$wifi" status 2>/dev/null |
-            /bin/busybox grep -qx '^wpa_state=COMPLETED
-
-valid_hex() {
-    value=$1
-    min_length=$2
-    max_length=$3
-    length=${#value}
-    [ "$length" -ge "$min_length" ] 2>/dev/null || return 1
-    [ "$length" -le "$max_length" ] 2>/dev/null || return 1
-    [ $((length % 2)) -eq 0 ] || return 1
-    case "$value" in
-        *[!0-9A-Fa-f]*|'') return 1 ;;
-    esac
-    return 0
-}
-
-handle_request() {
-    request_id=""
-    action=""
-    IFS= read -r request_id <"$REQUEST" 2>/dev/null || {
-        respond unknown error "" invalid-request
-        return 0
-    }
-    action=$(/bin/busybox sed -n '2p' "$REQUEST" 2>/dev/null || true)
-    case "$request_id" in
-        ''|*[!A-Za-z0-9._:-]*) respond unknown error "" invalid-request; return 0 ;;
-    esac
-
-    wifi=$(find_wifi_interface || true)
-    [ -n "$wifi" ] || {
-        respond "$request_id" error "" no-wifi-interface
-        return 0
-    }
-
-    case "$action" in
-        status)
-            capture_link "$wifi"
-            capture_saved_ssid
-            respond "$request_id" ok "$wifi" status
-            ;;
-        scan)
-            if capture_scan "$wifi"; then
-                capture_link "$wifi"
-                capture_saved_ssid
-                respond "$request_id" ok "$wifi" scanned
-            else
-                capture_link "$wifi"
-                capture_saved_ssid
-                respond "$request_id" error "$wifi" scan-failed
-            fi
-            ;;
-        connect)
-            ssid_hex=$(/bin/busybox sed -n '3p' "$REQUEST" 2>/dev/null || true)
-            psk_hex=$(/bin/busybox sed -n '4p' "$REQUEST" 2>/dev/null || true)
-            if ! valid_hex "$ssid_hex" 2 64 || ! valid_hex "$psk_hex" 64 64; then
-                respond "$request_id" error "$wifi" invalid-credentials
-                return 0
-            fi
-            {
-                printf 'ctrl_interface=%s\n' "$WPA_CTRL_DIR"
-                printf 'update_config=0\n'
-                printf 'network={\n'
-                printf '    ssid=%s\n' "$ssid_hex"
-                printf '    psk=%s\n' "$psk_hex"
-                printf '}\n'
-            } >"$CANDIDATE"
-            chmod 600 "$CANDIDATE"
-
-            if connect_conf "$wifi" "$CANDIDATE"; then
-                # The candidate is private (0600) and in the same directory.
-                # Flush the atomic rename before reporting saved credentials.
-                if ! mv -f "$CANDIDATE" "$WPA_CONF" ||
-                   ! /bin/busybox sync; then
-                    respond "$request_id" error "$wifi" credential-save-failed
-                    return 0
-                fi
-                rm -f "$AUTO_CONNECT_PAUSED"
-                capture_link "$wifi"
-                capture_saved_ssid
-                respond "$request_id" ok "$wifi" connected
-            else
-                rm -f "$CANDIDATE"
-                restore_saved_network "$wifi" >/dev/null 2>&1 || true
-                capture_link "$wifi"
-                capture_saved_ssid
-                respond "$request_id" error "$wifi" connect-failed
-            fi
-            ;;
-        disconnect)
-            if ! stop_wifi "$wifi"; then
-                respond "$request_id" error "$wifi" network-owner-unavailable
-                return 0
-            fi
-            # Manual Disconnect is durable; a crashed broker must not
-            # automatically reconnect against the user's explicit choice.
-            if ! : >"$AUTO_CONNECT_PAUSED" || ! chmod 600 "$AUTO_CONNECT_PAUSED" ||
-               ! /bin/busybox sync; then
-                respond "$request_id" error "$wifi" disconnect-state-failed
-                return 0
-            fi
-            capture_link "$wifi"
-            capture_saved_ssid
-            respond "$request_id" ok "$wifi" disconnected
-            ;;
-        forget)
-            if ! stop_wifi "$wifi"; then
-                respond "$request_id" error "$wifi" network-owner-unavailable
-                return 0
-            fi
-            rm -f "$WPA_CONF" "$AUTO_CONNECT_PAUSED"
-            /bin/busybox sync || true
-            capture_link "$wifi"
-            capture_saved_ssid
-            respond "$request_id" ok "$wifi" forgotten
-            ;;
-        reconnect)
-            rm -f "$AUTO_CONNECT_PAUSED"
-            if restore_saved_network_if_needed; then
-                capture_link "$wifi"
-                capture_saved_ssid
-                respond "$request_id" ok "$wifi" reconnected
-            else
-                capture_link "$wifi"
-                capture_saved_ssid
-                respond "$request_id" error "$wifi" reconnect-failed
-            fi
-            ;;
-        *)
-            respond "$request_id" error "$wifi" unsupported-action
-            ;;
-    esac
-}
-
-exec 9<>"$CONTROL"
-# First use and every later boot restore the saved network without asking for
-# a password. Periodic retries repair transient DHCP or Wi-Fi loss in place.
-restore_saved_network_if_needed >/dev/null 2>&1 || true
-while :; do
-    signal=""
-    if IFS= read -r -t "$RECONNECT_INTERVAL" signal <&9; then
-        [ "$signal" = request ] && handle_request
-    else
-        restore_saved_network_if_needed >/dev/null 2>&1 || true
-    fi
-done
- || return 1
+            /bin/busybox grep -qx '^wpa_state=COMPLETED$' || return 1
         have_ipv4 "$wifi" && return 0
         try_dhcp "$wifi"
         return $?
@@ -412,14 +268,23 @@ handle_request() {
             chmod 600 "$CANDIDATE"
 
             if connect_conf "$wifi" "$CANDIDATE"; then
-                mv -f "$CANDIDATE" "$WPA_CONF"
-                chmod 600 "$WPA_CONF"
+                # Candidate is chmod 0600 before same-directory rename.
+                # Persist the file and its directory before reporting success.
+                if ! mv -f "$CANDIDATE" "$WPA_CONF" ||
+                   ! /bin/busybox sync; then
+                    respond "$request_id" error "$wifi" credential-save-failed
+                    return 0
+                fi
+                rm -f "$AUTO_CONNECT_PAUSED"
+                /bin/busybox sync || true
                 capture_link "$wifi"
                 capture_saved_ssid
                 respond "$request_id" ok "$wifi" connected
             else
                 rm -f "$CANDIDATE"
-                restore_saved_network "$wifi" >/dev/null 2>&1 || true
+                if [ ! -e "$AUTO_CONNECT_PAUSED" ]; then
+                    restore_saved_network_if_needed >/dev/null 2>&1 || true
+                fi
                 capture_link "$wifi"
                 capture_saved_ssid
                 respond "$request_id" error "$wifi" connect-failed
@@ -428,6 +293,16 @@ handle_request() {
         disconnect)
             if ! stop_wifi "$wifi"; then
                 respond "$request_id" error "$wifi" network-owner-unavailable
+                return 0
+            fi
+            # Persist deliberate Disconnect across broker restarts and boots.
+            # The saved secret is retained for a later manual Reconnect.
+            pause_tmp=$AUTO_CONNECT_PAUSED.tmp.$$
+            if ! : >"$pause_tmp" || ! chmod 600 "$pause_tmp" ||
+               ! mv -f "$pause_tmp" "$AUTO_CONNECT_PAUSED" ||
+               ! /bin/busybox sync; then
+                rm -f "$pause_tmp"
+                respond "$request_id" error "$wifi" disconnect-state-failed
                 return 0
             fi
             capture_link "$wifi"
@@ -439,13 +314,19 @@ handle_request() {
                 respond "$request_id" error "$wifi" network-owner-unavailable
                 return 0
             fi
-            rm -f "$WPA_CONF"
+            rm -f "$WPA_CONF" "$AUTO_CONNECT_PAUSED"
+            if ! /bin/busybox sync; then
+                respond "$request_id" error "$wifi" credential-delete-failed
+                return 0
+            fi
             capture_link "$wifi"
             capture_saved_ssid
             respond "$request_id" ok "$wifi" forgotten
             ;;
         reconnect)
-            if restore_saved_network "$wifi"; then
+            rm -f "$AUTO_CONNECT_PAUSED"
+            /bin/busybox sync || true
+            if restore_saved_network_if_needed; then
                 capture_link "$wifi"
                 capture_saved_ssid
                 respond "$request_id" ok "$wifi" reconnected
@@ -462,11 +343,13 @@ handle_request() {
 }
 
 exec 9<>"$CONTROL"
+# Boot and reconnect reuse this IPC owner, never a parallel WPA daemon.
+restore_saved_network_if_needed >/dev/null 2>&1 || true
 while :; do
     signal=""
-    if IFS= read -r signal <&9; then
+    if IFS= read -r -t "$RECONNECT_INTERVAL" signal <&9; then
         [ "$signal" = request ] && handle_request
     else
-        /bin/busybox sleep 1
+        restore_saved_network_if_needed >/dev/null 2>&1 || true
     fi
 done
