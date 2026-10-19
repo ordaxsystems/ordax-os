@@ -82,7 +82,7 @@ class UpdateNomenclatureTests(unittest.TestCase):
 
         semantic = contract["product_version"]["current"]
         display = contract["product_version"]["display"]
-        self.assertRegex(semantic, r"^0\\.1\\.[0-9]+(?:-alpha\\.[0-9]+)?$")
+        self.assertRegex(semantic, r"^0\.1\.[0-9]+(?:-alpha\.[0-9]+)?$")
         self.assertEqual(display, "v" + semantic)
         self.assertIn(f'semanticVersion: "{semantic}"', product)
         self.assertIn(f'displayVersion: "{display}"', product)
