@@ -57,42 +57,42 @@ that a public signed Stable release is available.
 ## Recuperação USB Dev pelo computador — 19/10/2026
 
 Este é um **procedimento Owner/Development de recuperação offline**, usando o
-mesmo contrato e o mesmo binário canônico \`ordax-pull\` da mídia. **Não** é
+mesmo contrato e o mesmo binário canônico `ordax-pull` da mídia. **Não** é
 outro gestor de atualização, gravador físico nem um fluxo Stable/MVP.
 
 ### Ocorrência física e resultado verificado
 
-- Uma imagem Owner USB do commit \`52b7d73dc4e3bd9f3cd5626efa6d48863b66254f\`
-  inicializou no notebook. A interface exibia \`atomic-checkout-failed\`.
+- Uma imagem Owner USB do commit `52b7d73dc4e3bd9f3cd5626efa6d48863b66254f`
+  inicializou no notebook. A interface exibia `atomic-checkout-failed`.
 - O diário diagnóstico persistente confirmou tentativas repetidas de
-  \`fetching → validating → pull-error\` para commits válidos da \`main\`.
-  O journal não contém a causa interna da falha do processo \`ordax-pull\`.
+  `fetching → validating → pull-error` para commits válidos da `main`.
+  O journal não contém a causa interna da falha do processo `ordax-pull`.
   **Não atribuir essa falha a rede, Git, ext4 ou falta de espaço sem o log
   específico do processo.**
 - Com a mídia desligada e transferida ao host Windows, o USB correto foi
   identificado por modelo, serial, barramento e layout de três partições.
   O disco interno foi excluído do escopo. O ext4 pôde ser inspecionado em
-  WSL 2 usando \`usbipd\` e montagem \`ro,noload\`; a tentativa de
-  \`wsl --mount\` direto não funcionou nesse host.
+  WSL 2 usando `usbipd` e montagem `ro,noload`; a tentativa de
+  `wsl --mount` direto não funcionou nesse host.
 - Foi feito backup completo **antes de qualquer montagem RW** em
-  \`tar.gz\`, com verificação posterior de integridade \`gzip -t = 0\`.
+  `tar.gz`, com verificação posterior de integridade `gzip -t = 0`.
   A cópia contém dados locais/credenciais: **não publicar nem anexar
   como artefato GitHub/CI**.
-- No Linux de recuperação, o \`ordax-pull\` existente foi executado com os
+- No Linux de recuperação, o `ordax-pull` existente foi executado com os
   paths canônicos apontando para a partição ext4 **desmontada do notebook**:
-  \`ORDAX_WORKTREE=<montagem>/dev-base/workspace/ordax\`,
-  \`ORDAX_STATE_DIR=<montagem>/dev-base/state/ordax\` e
-  \`ORDAX_UPDATE_RUN_DIR=<diretório temporário no host>\`.
-  O script produziu \`checkout atomico ativado\` em
-  \`329197346239ec673cf49ec83fa93c3298b64d00\`.
-  O estado \`current-commit\` coincidiu com \`HEAD\`;
-  \`previous-commit\` preservou \`52b7d73d\`; o checkout ficou limpo.
-  Os helpers instalados \`ordax-pull\` e \`ordax-run\` foram comparados
-  byte a byte com suas fontes no checkout novo. O \`git fsck
-  --connectivity-only\` terminou com saída zero (objetos dangling não
+  `ORDAX_WORKTREE=<montagem>/dev-base/workspace/ordax`,
+  `ORDAX_STATE_DIR=<montagem>/dev-base/state/ordax` e
+  `ORDAX_UPDATE_RUN_DIR=<diretório temporário no host>`.
+  O script produziu `checkout atomico ativado` em
+  `329197346239ec673cf49ec83fa93c3298b64d00`.
+  O estado `current-commit` coincidiu com `HEAD`;
+  `previous-commit` preservou `52b7d73d`; o checkout ficou limpo.
+  Os helpers instalados `ordax-pull` e `ordax-run` foram comparados
+  byte a byte com suas fontes no checkout novo. O `git fsck
+  --connectivity-only` terminou com saída zero (objetos dangling não
   significam corrupção).
-- Ao finalizar, houve \`sync\`, \`umount\` bem-sucedido e
-  \`usbipd detach\`. O Windows voltou a identificar o mesmo USB; nenhuma
+- Ao finalizar, houve `sync`, `umount` bem-sucedido e
+  `usbipd detach`. O Windows voltou a identificar o mesmo USB; nenhuma
   regravação RAW/Creator ou formatação foi executada.
 
 ### Gates antes de executar novamente em outra mídia
@@ -101,31 +101,31 @@ outro gestor de atualização, gravador físico nem um fluxo Stable/MVP.
    barramento USB, serial e GPT; abortar se o disco estiver em boot,
    for interno, ou não houver correspondência exata.
 2. Montagem inicial **somente leitura e sem replay de journal**
-   (\`ext4 -o ro,noload\`), com cópia do estado e dos dados de usuário
+   (`ext4 -o ro,noload`), com cópia do estado e dos dados de usuário
    para um destino privado no host. Verificar **a conclusão** do backup.
-3. Ler \`current-commit\`, \`previous-commit\`, \`first-run.json\`, o
-   diário diagnóstico e \`.git/HEAD\` sem imprimir credenciais em logs
-   públicos. Confirmar que o source \`main\` é descendente do checkout
+3. Ler `current-commit`, `previous-commit`, `first-run.json`, o
+   diário diagnóstico e `.git/HEAD` sem imprimir credenciais em logs
+   públicos. Confirmar que o source `main` é descendente do checkout
    anterior e que o Git local não possui alterações não preservadas.
 4. Somente depois de backup íntegro e origem confirmada, executar o
-   **\`ordax-pull\` canônico** no Linux de recuperação, fornecendo
-   paths explícitos. Não fazer \`git reset --hard\`, sobrescrever
-   \`.git\`, trocar \`current-commit\` manualmente, desativar validações
+   **`ordax-pull` canônico** no Linux de recuperação, fornecendo
+   paths explícitos. Não fazer `git reset --hard`, sobrescrever
+   `.git`, trocar `current-commit` manualmente, desativar validações
    de origem nem copiar rootfs de outra mídia.
-5. Confirmar \`HEAD == current-commit == dev-helpers-sha\`, worktree
-   limpo, helpers idênticos, \`previous-commit\` preservado, integridade
-   Git e limpeza dos diretórios de transação; \`sync\` e \`umount\`.
+5. Confirmar `HEAD == current-commit == dev-helpers-sha`, worktree
+   limpo, helpers idênticos, `previous-commit` preservado, integridade
+   Git e limpeza dos diretórios de transação; `sync` e `umount`.
    O método de attach do WSL deve ser revertido antes de remover o USB.
 6. **Gate físico pendente:** iniciar o USB no notebook, confirmar SHA
    exibido, Surface, Wi-Fi, atualização e reinício verdadeiro. O
-   \`runtime-surface-sha\` e o \`staged-release-sha\` do último boot podem
+   `runtime-surface-sha` e o `staged-release-sha` do último boot podem
    continuar referindo a versão anterior até o runtime novo passar no
    health gate. **Não forçar esses marcadores.**
 
 A recuperação acima comprova a troca **do checkout Git**, não a causa
-original de \`atomic-checkout-failed\` no hardware, nem promoção
+original de `atomic-checkout-failed` no hardware, nem promoção
 de Base A/B, nem aprovação do USB Stable/MVP. A análise durável da causa
-deve obter o log específico do processo \`ordax-pull\`; o código genérico
+deve obter o log específico do processo `ordax-pull`; o código genérico
 do Supervisor é insuficiente.
 
 ## Goal
