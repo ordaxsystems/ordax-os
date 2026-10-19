@@ -467,22 +467,9 @@ body { background: var(--md-canvas); font-weight: 400; }
 /* Alternate presentation in the same Native workspace and window layer. */
 [data-central-presentation][hidden], [data-desktop-presentation][hidden] { display: none; }
 [data-workspace-presentation="desktop"] .ordax-desktop { overflow: hidden; }
-.ordax-desktop-shortcuts { position: absolute; z-index: 12; inset: var(--md-desktop-shortcut-inset) auto auto var(--md-desktop-shortcut-inset); display: grid; grid-auto-flow: column; grid-template-rows: repeat(6, var(--md-desktop-shortcut-cell)); grid-auto-columns: var(--md-desktop-shortcut-cell); gap: var(--md-desktop-shortcut-gap); max-height: calc(100% - 2rem); overflow: auto; padding: 0; }
-.ordax-desktop-shortcut { position: relative; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: var(--md-desktop-shortcut-gap); width: var(--md-desktop-shortcut-cell); min-height: var(--md-desktop-shortcut-cell); padding: var(--md-desktop-shortcut-padding); border: 1px solid transparent; border-radius: var(--md-desktop-shortcut-radius); background: transparent; color: var(--md-desktop-shortcut-label); cursor: pointer; text-align: center; font-size: var(--md-desktop-shortcut-label-size); font-weight: var(--md-desktop-shortcut-label-weight); line-height: var(--md-desktop-shortcut-label-leading); text-shadow: var(--md-desktop-shortcut-label-shadow); transition: background-color 140ms ease, border-color 140ms ease, transform 140ms ease; }
-.ordax-desktop-shortcut .ordax-rail-icon { display: grid; place-items: center; width: var(--md-desktop-shortcut-icon); height: var(--md-desktop-shortcut-icon); flex: 0 0 var(--md-desktop-shortcut-icon); border-radius: var(--md-desktop-shortcut-icon-radius); background: var(--md-accent-soft); color: var(--md-accent); box-shadow: var(--md-desktop-shortcut-icon-shadow); text-shadow: none; }
-.ordax-desktop-shortcut .ordax-rail-icon svg { width: var(--md-desktop-shortcut-glyph-size); height: var(--md-desktop-shortcut-glyph-size); }
-.ordax-desktop-shortcut:hover, .ordax-desktop-shortcut:focus-visible { border-color: color-mix(in srgb, var(--md-desktop-shortcut-label) 30%, transparent); background: color-mix(in srgb, var(--md-desktop-shortcut-label) 12%, transparent); color: var(--md-desktop-shortcut-label); }
-.ordax-desktop-shortcut:active { transform: scale(.97); }
-.ordax-desktop-shortcut:focus-visible { outline: 2px solid var(--md-focus); outline-offset: 2px; }
-.ordax-desktop-shortcut:disabled { opacity: .5; cursor: not-allowed; }
 .ordax-presentation-toggle { display: grid; place-items: center; width: var(--ordax-navigation-control-height); min-width: var(--ordax-navigation-control-height); height: var(--ordax-navigation-control-height); border: 0; border-radius: var(--md-radius-small); background: var(--md-subtle); color: var(--md-ink); cursor: pointer; }
 .ordax-presentation-toggle[aria-pressed="true"] { color: var(--md-accent); background: var(--md-accent-soft); }
 .ordax-presentation-toggle .ordax-rail-icon { width: 20px; height: 20px; }
-@media (max-width: 760px) {
-  .ordax-desktop-shortcuts { inset: .625rem auto auto .625rem; grid-template-rows: repeat(6, 4.75rem); grid-auto-columns: 5rem; gap: .125rem; }
-  .ordax-desktop-shortcut { width: 5rem; min-height: 4.75rem; gap: .375rem; }
-  .ordax-desktop-shortcut .ordax-rail-icon { width: 2.25rem; height: 2.25rem; flex-basis: 2.25rem; }
-}
 
 /* Native uses the same Meridian shell hierarchy as the Web workspace. */
 .ordax-shell.meridian-native-workspace {

@@ -68,6 +68,46 @@
 [data-meridian] :is(.ordax-desktop-shortcut,.desktop-shortcut)[data-desktop-app="central"] :is(.ordax-rail-icon,.app-icon) {background:var(--md-blue-soft);color:var(--md-blue);}
 [data-meridian] :is(.ordax-desktop-shortcut,.desktop-shortcut)[data-desktop-app="apps"] :is(.ordax-rail-icon,.app-icon) {background:var(--md-amber-soft);color:var(--md-amber);}
 
+/* Desktop shortcut layout and interaction have one owner across Native and Web. */
+[data-meridian] :is(.ordax-desktop-shortcuts,.desktop-shortcuts) {
+ position:absolute;z-index:12;
+ inset:var(--md-desktop-shortcut-inset) auto var(--md-desktop-shortcut-inset) var(--md-desktop-shortcut-inset);
+ display:grid;grid-auto-flow:column;grid-template-rows:repeat(auto-fill,var(--md-desktop-shortcut-cell));
+ grid-auto-columns:var(--md-desktop-shortcut-cell);align-content:start;gap:var(--md-desktop-shortcut-gap);
+ max-width:calc(100% - var(--md-desktop-shortcut-inset) - var(--md-desktop-shortcut-inset));
+ overflow:auto;overscroll-behavior:contain;scrollbar-width:none;padding:0;
+}
+[data-meridian] :is(.ordax-desktop-shortcut,.desktop-shortcut) {
+ position:relative;display:flex;align-items:center;justify-content:center;flex-direction:column;
+ width:var(--md-desktop-shortcut-cell);height:var(--md-desktop-shortcut-cell);min-height:var(--md-desktop-shortcut-cell);
+ gap:var(--md-desktop-shortcut-gap);padding:var(--md-desktop-shortcut-padding);border:1px solid transparent;
+ border-radius:var(--md-desktop-shortcut-radius);background:transparent;color:var(--md-desktop-shortcut-label);
+ cursor:pointer;text-align:center;white-space:normal;font-size:var(--md-desktop-shortcut-label-size);
+ font-weight:var(--md-desktop-shortcut-label-weight);line-height:var(--md-desktop-shortcut-label-leading);
+ text-shadow:var(--md-desktop-shortcut-label-shadow);transition:background-color 140ms ease,border-color 140ms ease,transform 140ms ease;
+}
+[data-meridian] :is(.ordax-desktop-shortcut,.desktop-shortcut) :is(.ordax-rail-icon,.app-icon) {
+ display:grid;place-items:center;width:var(--md-desktop-shortcut-icon);height:var(--md-desktop-shortcut-icon);
+ flex:0 0 var(--md-desktop-shortcut-icon);border-radius:var(--md-desktop-shortcut-icon-radius);
+ box-shadow:var(--md-desktop-shortcut-icon-shadow);text-shadow:none;
+}
+[data-meridian] :is(.ordax-desktop-shortcut,.desktop-shortcut) :is(.ordax-rail-icon,.app-icon) svg {
+ width:var(--md-desktop-shortcut-glyph-size);height:var(--md-desktop-shortcut-glyph-size);
+}
+[data-meridian] :is(.ordax-desktop-shortcut,.desktop-shortcut):is(:hover,:focus-visible) {
+ border-color:color-mix(in srgb,var(--md-desktop-shortcut-label) 30%,transparent);
+ background:color-mix(in srgb,var(--md-desktop-shortcut-label) 12%,transparent);color:var(--md-desktop-shortcut-label);
+}
+[data-meridian] :is(.ordax-desktop-shortcut,.desktop-shortcut):active {transform:scale(.97);}
+[data-meridian] :is(.ordax-desktop-shortcut,.desktop-shortcut):focus-visible {outline:2px solid var(--md-focus);outline-offset:2px;}
+[data-meridian] :is(.ordax-desktop-shortcut,.desktop-shortcut):disabled {opacity:.5;cursor:not-allowed;}
+@media(max-width:760px) {
+ [data-meridian] {
+  --md-desktop-shortcut-inset:.625rem;--md-desktop-shortcut-cell:5rem;--md-desktop-shortcut-gap:.125rem;
+  --md-desktop-shortcut-icon:2.25rem;
+ }
+}
+
 /* Appearance miniatures use the same material variables as their target. */
 [data-meridian] .ordax-settings-theme-preview[data-material-preview] {
  --ordax-bg:var(--md-canvas);--ordax-app-bg:var(--md-surface);--ordax-panel:var(--md-surface);

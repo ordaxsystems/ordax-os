@@ -81,6 +81,9 @@ can open; shortcut placement does not grant access. System Updates remains a
 separate destination within the System app. Native rail and overflow-menu icons
 consume the shared Meridian destination glyph metadata. Web and Native desktop
 shortcut grids now share Meridian spacing, cell, icon, and inset tokens.
+Their grid and shortcut interaction styles now also have one Meridian owner;
+the number of rows adapts to the available vertical workspace height, with
+narrow-workspace sizing shared across both hosts.
 
 Native Central home layout correction (2026-10-18): the persistent local-space
 card remains in the secondary column at desktop widths, while capability-backed
