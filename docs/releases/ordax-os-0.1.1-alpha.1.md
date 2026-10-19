@@ -16,9 +16,17 @@
 
 - A Surface Native usa `state.presentation` como **única autoridade** da troca Central/Desktop. O mesmo valor é projetado no root e no `data-ordax-shell`, para que a geometria CSS Meridian receba o modo realmente selecionado; sem controlador paralelo.
 - O CSS compartilhado da sidebar Meridian mantém as três ações Continuidade, Notificações e Ajustes com área mínima de **44 x 44 CSS px**, mesmo quando `2.75rem` equivale a 38,5 px na fonte-base de 14 px. O token continua sendo utilizado se exigir tamanho maior.
-- A identidade visual preserva os proprietários corretos: o token de wallpaper em `meridian.css`, seu consumo em `identity.css` e o estado ativo de aplicativo no CSS Surface.
+- A identidade visual preserva os proprietários corretos: tanto o token quanto a camada de pintura do wallpaper ficam em `meridian.css`, sem repetição em `identity.css`; o estado ativo dos aplicativos pertence ao CSS Surface.
 - A proveniência de adaptações históricas da Central e do Window Layer preserva os digests anteriores e o upstream em `docs/evidence/web-central-reference-2026-10-11.json`; verificadores continuam comparando os bytes atuais, sem registrar falso sucesso em caso de drift.
 - Estes ajustes ainda são **código candidato em PR**, não versão publicada. O teste de navegador real e todos os required checks da HEAD definitiva são obrigatórios para integração; boot físico, gravação USB e distribuição permanecem fora do escopo.
+
+## Composição visual reconciliada com a main — 19/10/2026
+
+- Merge Git de **dois pais** `4ba9c579` integra a fonte `main@48b1e0a5` na branch experimental sem modificar a `main`. A atualização inclui os owners de interface `account`, `files`, `first-run`, `journeys`, `settings`, `surface`, `system`, `tokens` e a folha Meridian Web.
+- A regra compartilhada de acessibilidade preserva o **piso real de 44 CSS pixels** na sidebar recolhida, mantendo o token `--md-dock-control-size`; os novos testes de layout da `main` e as regressões Native continuam no mesmo arquivo, sem duplicar o seletor proprietário.
+- A política SemVer canônica avalia caminhos NUL-delimitados de `git diff --no-renames --name-only -z`. Renomear código executável, inclusive nomes Unicode ou launchers sem extensão, para documentação não pode contornar o incremento obrigatório. O verificador e seus testes provêm do mesmo owner de OS #2009, não de implementação paralela.
+- O workflow `Public Surface SSOT Refresh` regenerou os quatro artefatos derivados no commit `e9d3c92c`, sem hashes ou snapshots feitos à mão. Essa geração não constitui aprovação dos checks do **HEAD atual**, que precisa de CI própria; o histórico de `action_required` de commits do bot continua bloqueio administrativo registrado em #2022.
+- Esta composição permanece **exclusivamente para CI**. Não foi gravada em USB, instalada no Windows, publicada como Stable ou integrada ao OrdaX Grátis.
 
 ## Validação / rollback
 - Testes dedicados de timeout, erros CLI, ausência de preview ativo após falha, fronteira Native sem `subprocess` e typecheck Web.
