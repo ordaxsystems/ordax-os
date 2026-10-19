@@ -17,7 +17,12 @@ const VERSION_CONTROL_FILES = new Set([
   'system/contracts/product-version.mjs',
   'system/contracts/product-version-governance.mjs',
 ]);
-const FILE_EXTENSION = /\.(?:mjs|js|cjs|ts|tsx|jsx|sh|py|c|h|rs|css|html|json|svg|png|webp|jpe?g|ico|woff2?|ttf|otf|desktop|service|conf)$/;
+// Runtime classification is path/owner based, never filename-extension based:
+// actual boot/Surface launchers and device artifacts are often extensionless.
+const NON_PRODUCT_BASENAMES = new Set([
+  '.gitkeep', '.gitignore', '.editorconfig', 'README', 'README.md',
+  'CHANGELOG', 'CHANGELOG.md', 'LICENSE', 'LICENSE.md', 'NOTICE', 'NOTICE.md',
+]);
 
 export function osProductCodeChanged(paths) {
   if (!Array.isArray(paths)) throw new TypeError('Changed paths must be an array');
@@ -26,7 +31,7 @@ export function osProductCodeChanged(paths) {
     RUNTIME_PREFIXES.some(prefix => path.startsWith(prefix)) &&
     !VERSION_CONTROL_FILES.has(path) &&
     !RUNTIME_EXCLUDED.test(path) &&
-    FILE_EXTENSION.test(path)
+    !NON_PRODUCT_BASENAMES.has(path.split('/').at(-1))
   );
 }
 
