@@ -54,6 +54,16 @@ function git(...args) {
   return execFileSync('git', args,{encoding:'utf8',maxBuffer:8*1024*1024}).trim();
 }
 
+// Disable Git rename detection: a move from system/ to docs/ must still
+// expose the removed runtime path, not only the non-runtime destination.
+// This is intentionally independent of user/repository diff.renames settings.
+export function listOsVersionDiffPaths(testedBase, {head='HEAD',cwd=process.cwd()}={}) {
+  const changed=execFileSync('git',[
+    '-C',cwd,'diff','--no-renames','--name-only',testedBase,head,
+  ],{encoding:'utf8',maxBuffer:8*1024*1024}).trim();
+  return changed ? changed.split('\\n').filter(Boolean) : [];
+}
+
 export function readOsVersionAt(ref) {
   if (typeof ref !== 'string' || !/^[a-f0-9]{40}$/.test(ref)) {
     throw new TypeError('A verified 40-character commit SHA is required');
@@ -83,7 +93,7 @@ if (process.argv[1] && path.resolve(fileURLToPath(import.meta.url)) === path.res
       testedBase = parents[1];
     }
     const previous=readOsVersionAt(testedBase);
-    const paths=git('diff','--name-only',testedBase,'HEAD').split('\n').filter(Boolean);
+    const paths=listOsVersionDiffPaths(testedBase);
     process.stdout.write('ORDAX_OS_VERSION_DIFF_PATHS='+JSON.stringify(paths)+'\n');
     const result=verifyOsVersionChange({previous,current:PRODUCT_VERSION,paths});
     process.stdout.write('ORDAX_OS_VERSION_CHANGE=PASS '+JSON.stringify(result)+'\n');

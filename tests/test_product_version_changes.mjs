@@ -1,6 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { osProductCodeChanged, verifyOsVersionChange } from '../tools/verify/product_version_changes.mjs';
+import { execFileSync } from 'node:child_process';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { osProductCodeChanged, verifyOsVersionChange, listOsVersionDiffPaths } from '../tools/verify/product_version_changes.mjs';
 
 const oldVersion={semanticVersion:'0.1.0',displayVersion:'v0.1.0',displayName:'OrdaX Prototype v0.1.0',stableRelease:false};
 const nextVersion={semanticVersion:'0.1.1-alpha.1',displayVersion:'v0.1.1-alpha.1',displayName:'OrdaX Prototype v0.1.1-alpha.1',stableRelease:false};
@@ -54,4 +58,30 @@ test('OS version changes cannot regress even in docs-only PRs',()=>{
       semanticVersion:'0.1.1-alpha.1',displayVersion:'v0.1.0',displayName:'OrdaX Prototype v0.1.0',stableRelease:false,
     },paths:['system/services/new-feature.mjs'],
   }),/Displayed version must be derived/);
+});
+
+test('moving a Native executable to docs never bypasses the OS SemVer gate',()=>{
+  const worktree=mkdtempSync(join(tmpdir(),'ordax-version-rename-'));
+  const git=(...args)=>execFileSync('git',['-C',worktree,...args],{encoding:'utf8'});
+  try {
+    git('init','-q');
+    git('config','user.email','ci@example.invalid');
+    git('config','user.name','Version Fixture');
+    mkdirSync(join(worktree,'system','surface','bin'),{recursive:true});
+    mkdirSync(join(worktree,'docs'),{recursive:true});
+    writeFileSync(join(worktree,'system','surface','bin','ordax-surface'),'#!/bin/sh\\nexit 0\\n');
+    git('add','.');
+    git('commit','-qm','baseline executable');
+    git('mv','system/surface/bin/ordax-surface','docs/ordax-surface');
+    const detected=listOsVersionDiffPaths('HEAD',{cwd:worktree});
+    assert.deepEqual(detected,[
+      'docs/ordax-surface','system/surface/bin/ordax-surface',
+    ]);
+    assert.equal(osProductCodeChanged(detected),true);
+    assert.throws(()=>verifyOsVersionChange({
+      previous:oldVersion,current:oldVersion,paths:detected,
+    }),/require a version advance/i);
+  } finally {
+    rmSync(worktree,{recursive:true,force:true});
+  }
 });
