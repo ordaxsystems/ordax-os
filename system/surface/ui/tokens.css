@@ -197,10 +197,6 @@ html[data-ordax-text-scale="extra-large"] { --ordax-text-scale-factor: 1.25; }
   :root, [data-ordax-theme] { --ordax-rail-width: var(--ordax-sidebar-collapsed-width); }
 }
 
-@media (max-width: 760px) {
-  :root, [data-ordax-theme] { --ordax-rail-width: var(--ordax-sidebar-collapsed-width); }
-}
-
 @media (prefers-reduced-motion: reduce) {
   :root {
     --ordax-motion-fast: 0ms;
