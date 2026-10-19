@@ -353,6 +353,9 @@ export function mountSystemOverviewControls(
   let destroyed = false;
   let mountedSlot = null;
   let diagnosticsReviewMount = null;
+  // Entering Diagnóstico explicitly requests a local read-only review once.
+  // Repaints must not invalidate a prepared report or trigger repeat collection.
+  let diagnosticReviewStarted = false;
 
   const findSlot = () =>
     root.querySelector(`${SYSTEM_WINDOW_SELECTOR} ${SYSTEM_EXTENSION_SELECTOR}`);
@@ -1460,6 +1463,12 @@ export function mountSystemOverviewControls(
         diagnosticReviewController,
         lifecycle,
       );
+      // Preparing reads only allowlisted local snapshots. No copy, disk write
+      // or remote submission occurs without another explicit user action.
+      if (!diagnosticReviewStarted) {
+        diagnosticReviewStarted = true;
+        void diagnosticReviewController.prepare();
+      }
     }
     restoreInteractionState(slot, interaction);
   };
