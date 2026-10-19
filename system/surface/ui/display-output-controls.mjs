@@ -17,24 +17,15 @@ function formatMode(mode, t) {
   return `${mode.width} × ${mode.height} · ${hz} Hz${current}${recommended}`;
 }
 
-/**
- * Mounts the same host-display control in Native and Web.
- * The translator is required by the canonical UI contract. Runtime still
- * rejects a missing or invalid translator rather than falling back to strings.
- * @param {HTMLElement} container
- * @param {object} options
- * @param {Document} [options.documentObject]
- * @param {(id: string) => string} options.translate
- * @param {ReturnType<typeof assertDisplayOutputsPort> | null} [options.port]
- * @param {"native" | "web"} [options.mode]
- * @param {(() => void) | null} [options.onExamples]
- */
 export function mountDisplayOutputControls(container, {
   documentObject = container?.ownerDocument,
   translate,
   port = null,
   mode = "native",
-  onExamples = /** @type {null | (() => void)} */ (null),
+  onExamples = /** @type {(() => void) | null} */ (null),
+  now = () => Date.now(),
+  setIntervalFn = globalThis.setInterval,
+  clearIntervalFn = globalThis.clearInterval,
 } = {}) {
   if (!container || !documentObject || typeof translate !== "function") {
     throw new TypeError("Display output controls require a container, document, and translator");
@@ -44,6 +35,7 @@ export function mountDisplayOutputControls(container, {
   let pending = false;
   let destroyed = false;
   let statusMessageId = null;
+  let previewCountdown = null;
 
   const section = make(documentObject, "section", "ordax-settings-section ordax-settings-display-capability");
   section.append(
@@ -82,6 +74,23 @@ export function mountDisplayOutputControls(container, {
 
   const selectedOutput = () => snapshot?.outputs.find((output) => output.id === outputSelect.value) ?? null;
   const selectedMode = (output) => output?.modes.find((item) => item.id === modeSelect.value) ?? null;
+
+  const stopPreviewCountdown = () => {
+    if (previewCountdown !== null) {
+      clearIntervalFn(previewCountdown);
+      previewCountdown = null;
+    }
+  };
+
+  const updatePreviewCountdown = () => {
+    if (!snapshot?.preview || destroyed) return;
+    const seconds = Math.max(0, Math.ceil((snapshot.preview.expiresAt - now()) / 1000));
+    previewNote.textContent = translate("settings.display.host.confirmCountdown", { seconds });
+    if (seconds === 0) {
+      stopPreviewCountdown();
+      if (!pending) void refresh();
+    }
+  };
 
   const render = () => {
     if (destroyed) return;
@@ -124,13 +133,18 @@ export function mountDisplayOutputControls(container, {
     }
     if (snapshot?.preview) {
       status.textContent = translate("settings.display.host.previewActive");
-      previewNote.textContent = translate("settings.display.host.confirmNote");
+      updatePreviewCountdown();
+      if (previewCountdown === null && snapshot.preview.expiresAt > now()) {
+        previewCountdown = setIntervalFn(updatePreviewCountdown, 1000);
+      }
       outputSelect.disabled = true;
       modeSelect.disabled = true;
       keepButton.disabled = pending;
       revertButton.disabled = pending;
       return;
     }
+    stopPreviewCountdown();
+    previewNote.textContent = translate("settings.display.host.confirmNote");
     outputSelect.disabled = pending;
     modeSelect.disabled = pending;
     previewButton.disabled = pending;
@@ -200,6 +214,7 @@ export function mountDisplayOutputControls(container, {
     element: section,
     destroy() {
       destroyed = true;
+      stopPreviewCountdown();
       outputSelect.removeEventListener("change", handleOutputChange);
       modeSelect.removeEventListener("change", handleModeChange);
       previewButton.removeEventListener("click", handlePreview);
