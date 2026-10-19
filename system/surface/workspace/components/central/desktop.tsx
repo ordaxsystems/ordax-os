@@ -38,7 +38,7 @@ export function Desktop({ onCentral, dispatch }: Props) {
   ];
   return <main className="classic-desktop" aria-label="Área de trabalho OrdaX">
     <section className="desktop-shortcuts" aria-label="Atalhos da área de trabalho" onKeyDown={event => moveDesktopShortcutFocus(event.nativeEvent, event.currentTarget, '[data-desktop-app]')}>
-      {desktopShortcuts.map(item => <Button variant="ghost" className="desktop-shortcut" data-desktop-app={item.id} key={item.id} onClick={() => item.id === 'central' ? onCentral() : open(item.name)}>
+      {desktopShortcuts.map(item => <Button variant="ghost" className="desktop-shortcut" data-desktop-app={item.id} title={item.name} key={item.id} onClick={() => item.id === 'central' ? onCentral() : open(item.name)}>
         <DesktopShortcutIcon item={item}/><span>{item.name}</span>
       </Button>)}
     </section>

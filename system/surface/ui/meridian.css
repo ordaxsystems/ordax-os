@@ -129,6 +129,10 @@
 [data-meridian] :is(.ordax-desktop-shortcut,.desktop-shortcut) :is(.ordax-rail-icon,.app-icon) svg {
  width:var(--md-desktop-shortcut-glyph-size);height:var(--md-desktop-shortcut-glyph-size);
 }
+[data-meridian] :is(.ordax-desktop-shortcut,.desktop-shortcut) > span:last-child {
+ display:-webkit-box;max-width:100%;overflow:hidden;text-overflow:ellipsis;overflow-wrap:anywhere;
+ -webkit-box-orient:vertical;-webkit-line-clamp:var(--md-desktop-shortcut-label-lines);
+}
 [data-meridian] :is(.ordax-desktop-shortcut,.desktop-shortcut):is(:hover,:focus-visible) {
  border-color:color-mix(in srgb,var(--md-desktop-shortcut-label) 30%,transparent);
  background:color-mix(in srgb,var(--md-desktop-shortcut-label) 12%,transparent);color:var(--md-desktop-shortcut-label);

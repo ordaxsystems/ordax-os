@@ -110,6 +110,7 @@ test("Web and Native desktop shortcuts share Meridian geometry tokens", async ()
     "--md-desktop-shortcut-label-size:.6875rem;",
     "--md-desktop-shortcut-label-weight:500;",
     "--md-desktop-shortcut-label-leading:1.2;",
+    "--md-desktop-shortcut-label-lines:2;",
     "--md-desktop-shortcut-icon-shadow:0 2px 8px rgb(21 35 29 / 15%);",
     "--md-desktop-shortcut-label-shadow:0 1px 3px rgb(20 36 29 / 60%);",
   ]) assert.ok(tokens.includes(definition), `${definition} is owned by the shared Meridian tokens`);
@@ -123,8 +124,10 @@ test("Web and Native desktop shortcuts share Meridian geometry tokens", async ()
   ]) assert.ok(meridianStyles.includes(definition), "Shared Meridian layout is missing " + definition);  assert.ok(meridianStyles.includes(".ordax-desktop-shortcuts,.desktop-shortcuts"));
   assert.ok(meridianStyles.includes("repeat(auto-fill,var(--md-desktop-shortcut-cell))"), "available height determines the shared row count");
   assert.ok(meridianStyles.includes("--md-desktop-shortcut-cell:5rem"), "narrow workspace sizing is shared by both hosts");
+  assert.ok(meridianStyles.includes("-webkit-line-clamp:var(--md-desktop-shortcut-label-lines)"), "long shortcut labels stay within two lines in both hosts");
   assert.ok(nativeShell.includes('class="ordax-desktop-shortcuts"'));
   assert.ok(webDesktop.includes('className="desktop-shortcuts"'));
+  assert.ok(webDesktop.includes("title={item.name}"), "truncated Web labels retain a full-name tooltip");
   assert.ok(nativeEntry.includes('href="../../surface/ui/meridian.css"'));
   assert.ok(webEntry.includes("../../surface/ui/meridian.css"));
   assert.doesNotMatch(nativeStyles, /\.ordax-desktop-shortcuts\s*\{/);
