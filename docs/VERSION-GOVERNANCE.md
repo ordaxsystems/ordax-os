@@ -29,6 +29,22 @@ A forma é **SemVer**: `major.minor.patch`, opcionalmente `-alpha.N`, `-beta.N` 
 6. Apps externos e clientes ainda sem artefato não recebem versão fictícia.
 7. `0.4.12` do Flow/Grátis é a versão de origem congelada do Orchestrator; seu `0.2.0-alpha.N` é outra linha de produto. Source SHA e versão do app ficam juntos em proveniência; não compartilhar perfil/dados no staging.
 
+### Detecção de mudanças do produto OS
+
+O gate `tools/verify/product_version_changes.mjs` classifica alterações pelos
+**diretórios proprietários da execução**, não pela extensão do arquivo.
+Launchers executáveis sem extensão, assets, configurações e código sob
+`system/` (áreas de runtime), `bootstrap/`, `boot/`, `kernel/` e
+`initramfs/` exigem incremento de `PRODUCT_VERSION.semanticVersion` quando
+seus bytes mudam. A classificação reconhece exclusões explícitas de
+documentação/testes e arquivos auxiliares sem efeito de produto, como
+`.gitkeep` e `README.md`, além dos próprios arquivos de governança.
+
+A ausência de sufixo no nome de um arquivo **não** o isenta do versionamento.
+Os testes `tests/test_product_version_changes.mjs` incluem o launcher
+`system/surface/bin/ordax-surface` como regressão obrigatória. Alterações
+apenas nos verificadores e documentação não produzem versões fictícias.
+
 A política não substitui `docs/contracts/release-channel.json`, `docs/contracts/distribution-profiles.json`, o estado de `docs/CURRENT-STATE.md`, nem a SSOT de entrega das apps. Se as versões canônicas já existirem, elas **vencem** números inferidos por nome de branch, data ou UI.
 
 ## Adoção multi-repositório
