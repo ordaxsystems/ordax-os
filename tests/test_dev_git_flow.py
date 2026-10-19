@@ -195,14 +195,24 @@ class DevelopmentGitFlowTest(unittest.TestCase):
         env: dict[str, str] | None = None,
         check: bool = True,
     ) -> subprocess.CompletedProcess[str]:
-        return subprocess.run(
+        completed = subprocess.run(
             ["/bin/sh", str(script)],
-            check=check,
+            check=False,
             capture_output=True,
             text=True,
             env=env or self._env(),
             stdin=subprocess.DEVNULL,
         )
+        if check and completed.returncode != 0:
+            # A failed fixture must preserve the actual subprocess reason.
+            # This suite uses only temporary local Git repositories and no
+            # production tokens, network credentials or user files.
+            self.fail(
+                f"{script.name} exit {completed.returncode}: "
+                f"stdout={completed.stdout[-3000:]!r} "
+                f"stderr={completed.stderr[-3000:]!r}"
+            )
+        return completed
 
     def test_preseeded_checkout_runs_with_remote_git_forbidden(self) -> None:
         env = self._env()
