@@ -7,6 +7,7 @@ import unittest
 ROOT = Path(__file__).resolve().parents[1]
 SURFACE_ENTRYPOINT = ROOT / "system" / "surface" / "entrypoint"
 SURFACE_RUNTIME = ROOT / "system" / "surface" / "bin" / "ordax-surface"
+BOOTSTRAP_ENTRYPOINT = ROOT / "bootstrap" / "entrypoint"
 GATEWAY_CONFIG = ROOT / "system" / "services" / "account" / "gateway-base-url"
 
 
@@ -49,6 +50,22 @@ class NativeAccountGatewayResolutionTests(unittest.TestCase):
             f"https://{project_ref}.supabase.co/functions/v1/ordax-account-gateway",
         )
         self.assertNotIn(hardening["target"]["project_ref"], configured)
+
+    def test_stable_boot_cannot_override_signed_identity_gateway_from_bootstrap_config(self):
+        bootstrap = BOOTSTRAP_ENTRYPOINT.read_text(encoding="utf-8")
+        surface = SURFACE_ENTRYPOINT.read_text(encoding="utf-8")
+        self.assertIn('unset ORDAX_ACCOUNT_GATEWAY_ORIGIN', bootstrap)
+        self.assertNotIn('account-gateway-origin', bootstrap)
+        self.assertNotIn('account_gateway_base_url() {', bootstrap)
+        self.assertIn(
+            'ACCOUNT_GATEWAY_CONFIG=${ORDAX_SYSTEM_ROOT:-}/services/account/gateway-base-url',
+            surface,
+        )
+        self.assertIn(
+            'ORDAX_ACCOUNT_GATEWAY_ORIGIN=$(/bin/busybox cat "$ACCOUNT_GATEWAY_CONFIG"',
+            surface,
+        )
+        subprocess.run(["sh", "-n", str(BOOTSTRAP_ENTRYPOINT)], check=True)
 
     def test_entrypoint_does_not_fetch_identity_configuration_from_network(self):
         text = SURFACE_ENTRYPOINT.read_text(encoding="utf-8")
