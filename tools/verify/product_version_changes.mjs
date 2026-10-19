@@ -9,7 +9,7 @@ import {
 // Product behavior, not tests/docs/build attestations. Existing independently
 // versioned app/component manifests remain their own authority.
 const RUNTIME_PREFIXES = Object.freeze([
-  'system/contracts/','system/surface/','system/services/','system/adapters/','system/apps/',
+  'system/contracts/','system/composition/','system/surface/','system/services/','system/adapters/','system/apps/',
   'src/system/','bootstrap/','boot/','kernel/','initramfs/',
 ]);
 const RUNTIME_EXCLUDED = /(?:^|\/)(?:tests?|__tests__|fixtures|docs)\//;
