@@ -64,6 +64,8 @@ async function submit(windowRef, path, credentials, { registration = false } = {
   if (
     session.authenticated === true
     && session.status === "authenticated"
+    && typeof session.provider === "string"
+    && session.provider.length > 0
     && session.provider !== "unconfigured"
     && session.provider !== "gated"
     && typeof session.subject === "string"
