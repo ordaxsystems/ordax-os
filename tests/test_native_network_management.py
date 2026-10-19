@@ -203,6 +203,7 @@ class NativeNetworkManagementTests(unittest.TestCase):
                 os.environ,
                 WPA_CONF=str(saved), AUTO_CONNECT_PAUSED=str(paused),
                 WPA_CTRL_DIR=str(root / "no-wpa-socket"), WPA_CLI_BIN=str(wpa),
+                WIFI_TOOLS_READY="1",
                 NETWORK_TEST_EVENTS=str(actions), NETWORK_TEST_IP="0",
                 NETWORK_TEST_WPA="offline",
             )
