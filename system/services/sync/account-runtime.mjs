@@ -844,7 +844,11 @@ export function createAccountSyncRuntime({
     if (suppressPreferences || next === lastPreferenceFingerprint) return;
     lastPreferenceFingerprint = next;
     const session = identity.getSnapshot();
-    if (session.state !== "signed-in") return;
+    // Identity-driven changes in device-local presentation are not user edits
+    // and must never mark the incoming account dirty or enqueue a cloud write.
+    // Native workspace owner selection is subscribed before this runtime.
+    if (session.state !== "signed-in"
+      || session.subjectId !== lastIdentitySubject) return;
     if (initialized && activeSubjectId === session.subjectId) {
       queuePreferences();
     } else {
@@ -858,7 +862,11 @@ export function createAccountSyncRuntime({
     if (suppressWorkspace || next === lastWorkspaceFingerprint) return;
     lastWorkspaceFingerprint = next;
     const session = identity.getSnapshot();
-    if (session.state !== "signed-in") return;
+    // Identity-driven changes in device-local presentation are not user edits
+    // and must never mark the incoming account dirty or enqueue a cloud write.
+    // Native workspace owner selection is subscribed before this runtime.
+    if (session.state !== "signed-in"
+      || session.subjectId !== lastIdentitySubject) return;
     if (initialized && activeSubjectId === session.subjectId) {
       queueWorkspace();
     } else {
