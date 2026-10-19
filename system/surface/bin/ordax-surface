@@ -1435,8 +1435,11 @@ prepare_power_broker() {
     kill -0 "$POWER_BROKER_PID" >/dev/null 2>&1 || return 1
 }
 
+# The native Python HTTP server is not a boot blocker until the bounded
+# readiness window expires. Its former 10s bound caused false cold-boot
+# failures under QEMU TCG despite the Guardian's 90s Surface health budget.
 wait_for_native_server() {
-    remaining=${1:-10}
+    remaining=${1:-30}
     while [ "$remaining" -gt 0 ]; do
         [ -n "$HTTP_PID" ] && kill -0 "$HTTP_PID" >/dev/null 2>&1 || return 1
         if /bin/busybox chroot "$RUNTIME_ROOT" /usr/bin/python3 -c 'import socket; s=socket.create_connection(("127.0.0.1", 8765), 0.5); s.close()' >>"$HTTP_LOG" 2>&1; then
@@ -1526,7 +1529,7 @@ export ORDAX_SURFACE_MODE=native-graphical
     --telemetry-config /srv/ordax-system/services/telemetry/relay.json \
     >"$HTTP_LOG" 2>&1 &
 HTTP_PID=$!
-wait_for_native_server 10 || fallback_with_reason "native Surface HTTP/control server failed readiness check"
+wait_for_native_server 30 || fallback_with_reason "native Surface HTTP/control server failed readiness check"
 
 printf '\033[2J\033[H'
 printf 'OrdaX: iniciando Surface grafica...\n'
