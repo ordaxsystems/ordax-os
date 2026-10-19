@@ -2154,6 +2154,18 @@ check_for_update() {
 
     if [ "$remote_sha" = "$current" ]; then
         refresh_dev_helpers "$current"
+        # A post-swap helper failure must not be silently promoted to
+        # "running" on the next poll. The canonical helper receipt is the
+        # only proof that the binaries correspond to the current Git SHA.
+        if [ -f "$WORKTREE/system/services/base-update/dev-helpers.sh" ]; then
+            helper_sha=$(read_state_value "$DEV_HELPERS_SHA_FILE")
+            if [ "$helper_sha" != "$current" ]; then
+                set_update_context error "$current" "" "helper-refresh-failed"
+                write_update_state "$current" pull-error none
+                log "Git checkout $current is active; helper installation is pending canonical retry"
+                return 0
+            fi
+        fi
         if [ -f "$BOOT_REFRESH_FILE" ]; then
             pending_boot_sha=$(read_state_value "$BOOT_REFRESH_FILE")
             [ -n "$pending_boot_sha" ] && request_dev_base_candidate "$pending_boot_sha"
@@ -2194,7 +2206,16 @@ check_for_update() {
         reason=${CHECKOUT_ERROR:-checkout-failed}
         log "automatic supervisor-owned Git update failed ($reason); keeping running Surface"
         set_update_context error "$remote_sha" "$attempt_id" "$reason"
-        write_update_state "$old_sha" pull-error none
+        # A helper failure occurs AFTER the atomic Git checkout was committed.
+        # Do not lie about sourceSha: show the verified active SHA and require
+        # the independent dev-helpers-sha receipt on subsequent retries.
+        active_after_failure=$(current_sha)
+        if [ "$reason" = "pull-helper-refresh-failed" ] &&
+           [ "$active_after_failure" = "$remote_sha" ]; then
+            write_update_state "$active_after_failure" pull-error none
+        else
+            write_update_state "$old_sha" pull-error none
+        fi
         return 0
     fi
 
