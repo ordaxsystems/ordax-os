@@ -20,7 +20,7 @@ for (const entry of centralReference.files) {
     const recorded = new Set([entry.adaptedSha256]);
     for (const version of history) {
       assert.match(version.sha256, /^[a-f0-9]{64}$/, 'Historical digest must remain verifiable');
-      assert.match(version.date, /^\\d{4}-\\d{2}-\\d{2}$/, 'Historical revision requires a date');
+      assert.match(version.date, /^[0-9]{4}-[0-9]{2}-[0-9]{2}$/, 'Historical revision requires a date');
       assert.ok(typeof version.reason === 'string' && version.reason.trim().length >= 20, 'History requires a meaningful reason');
       assert.ok(!recorded.has(version.sha256), 'Central adaptation SHA-256 must not be repeated');
       recorded.add(version.sha256);
