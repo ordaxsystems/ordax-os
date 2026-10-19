@@ -101,6 +101,7 @@ test("same-origin credential adapter posts only to OrdaX auth routes", async () 
             $schema: "prototype-ordax.public-identity-session/1",
             authenticated: true,
             status: "authenticated",
+            provider: "supabase",
             subject: "validated-subject",
             email: "pessoa@example.com",
           }),
