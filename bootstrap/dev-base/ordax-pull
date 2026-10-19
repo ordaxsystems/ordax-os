@@ -150,9 +150,11 @@ release_pull_lock() {
     LOCK_HELD=0
 }
 
-configure_runtime_checkout_at() {
-    checkout=$1
-    git -C "$checkout" sparse-checkout set --no-cone \
+runtime_sparse_paths() {
+    # Single allowlist for the sparse checkout and the exact-commit blob
+    # acquisition gate. Git fetch of a commit does not necessarily contain
+    # promised blobs when the source is a partial clone.
+    printf '%s\n' \
         /system/ \
         /bootstrap/base-update/ \
         /bootstrap/dev-base/ \
@@ -165,6 +167,27 @@ configure_runtime_checkout_at() {
         /docs/evidence/release-trust-ceremony.json \
         /docs/evidence/release-trust-proof-manifest.json \
         /docs/evidence/release-trust-recovery-envelope.json
+}
+
+configure_runtime_checkout_at() {
+    checkout=$1
+    set -- $(runtime_sparse_paths)
+    git -C "$checkout" sparse-checkout set --no-cone "$@"
+}
+
+acquire_runtime_candidate_blobs() {
+    candidate_sha=$1
+    # A partial clone may have the commit/tree but not all referenced blobs.
+    # Force only the shared sparse allowlist into the already validated local
+    # object database; Git lazily acquires missing promisor blobs if required.
+    # The tar stream is discarded; it does not touch the live checkout.
+    candidate_paths=$(runtime_sparse_paths | sed 's@^/@@')
+    set -- $candidate_paths
+    if ! run_bounded_git -C "$WORKTREE" archive --format=tar "$candidate_sha" "$@" >/dev/null; then
+        echo "ordax-git: blobs da entrega nao puderam ser obtidos; checkout local preservado" >&2
+        return 1
+    fi
+    return 0
 }
 
 record_dirty_checkout() {
@@ -381,6 +404,7 @@ clone_runtime_checkout() {
             echo "ordax-git: commit esperado nao foi adquirido; checkout local preservado" >&2
             return 1
         fi
+        acquire_runtime_candidate_blobs "$expected_sha" || return 1
         echo "ordax-git: preparando checkout isolado do commit ja validado em cache"
         seed_runtime_checkout_from_local "$WORKTREE" "$expected_sha" "$destination" fetched
         return $?
