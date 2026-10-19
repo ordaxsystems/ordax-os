@@ -478,6 +478,13 @@ class SystemRuntimeContractTests(unittest.TestCase):
         self.assertIn("/bin/busybox grep -Eq", text)
         self.assertIn("nameserver", text)
         self.assertIn('/bin/busybox mv -f "$temporary" "$runtime_resolver"', text)
+        self.assertIn('temporary=$RUNTIME_ROOT/etc/.resolv.conf.ordax.$$', text)
+        self.assertIn('/bin/busybox cmp -s "$temporary" "$runtime_resolver"', text)
+        self.assertIn('resolver_refresh_ticks=0', text)
+        self.assertIn('resolver_refresh_ticks=$((resolver_refresh_ticks + 1))', text)
+        self.assertIn('if [ "$resolver_refresh_ticks" -ge 15 ]; then', text)
+        self.assertIn('sync_runtime_resolver || true', text)
+        self.assertLess(text.index('GRAPHICS_PID=$!'), text.index('resolver_refresh_ticks=0'))
         self.assertIn(
             "external DNS unavailable inside graphical runtime; continuing local Surface",
             text,
@@ -491,6 +498,53 @@ class SystemRuntimeContractTests(unittest.TestCase):
             text.index('ensure_base_update_agent ||'),
         )
         self.assertNotIn('mount -o bind /etc "$RUNTIME_ROOT/etc"', text)
+
+    def test_dns_refresh_is_atomic_and_fails_without_destroying_good_snapshot(self):
+        # Run the exact production shell function in disposable directories,
+        # substituting only /etc/resolv.conf with a fixture; no network,
+        # mounts, host DNS or physical storage can be modified.
+        import tempfile
+        source = SURFACE_RUNTIME.read_text(encoding="utf-8")
+        body = source.split("sync_runtime_resolver() {", 1)[1].split(
+            "\n}\n", 1
+        )[0]
+        body = body.replace(
+            "host_resolver=/etc/resolv.conf",
+            'host_resolver="$FIXTURE_HOST_RESOLVER"',
+        )
+        function = "sync_runtime_resolver() {" + body + "\n}\n"
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            runtime = root / "runtime"
+            original = root / "host-resolv.conf"
+            log = root / "dns.log"
+            runtime.mkdir()
+            env = dict(
+                os.environ,
+                RUNTIME_ROOT=str(runtime),
+                FIXTURE_HOST_RESOLVER=str(original),
+                HOST_LOG=str(log),
+            )
+            def attempt():
+                return subprocess.run(
+                    ["/bin/sh", "-c", function + "\nsync_runtime_resolver\n"],
+                    env=env, capture_output=True, text=True, timeout=8,
+                    check=False,
+                )
+            target = runtime / "etc" / "resolv.conf"
+            original.write_text("nameserver 1.1.1.1\n", encoding="utf-8")
+            self.assertEqual(attempt().returncode, 0)
+            self.assertEqual(target.read_text(), "nameserver 1.1.1.1\n")
+            previous = target.stat().st_ino
+            self.assertEqual(attempt().returncode, 0)
+            self.assertEqual(target.stat().st_ino, previous, "unchanged DNS rewrote the snapshot")
+            original.write_text("nameserver 9.9.9.9\n", encoding="utf-8")
+            self.assertEqual(attempt().returncode, 0)
+            self.assertEqual(target.read_text(), "nameserver 9.9.9.9\n")
+            original.write_text("search example.org\n", encoding="utf-8")
+            self.assertNotEqual(attempt().returncode, 0)
+            self.assertEqual(target.read_text(), "nameserver 9.9.9.9\n")
+            self.assertFalse(list((runtime / "etc").glob(".resolv.conf.ordax.*")))
 
     def test_wlroots_physical_prerequisites_are_prepared(self):
         text = SURFACE_RUNTIME.read_text(encoding="utf-8")
