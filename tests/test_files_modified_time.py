@@ -51,7 +51,11 @@ class FilesModifiedTimeTests(unittest.TestCase):
     def test_modified_column_is_part_of_real_list_layout(self):
         css = CSS.read_text(encoding="utf-8")
         self.assertIn("minmax(180px, 1fr) 90px 86px 132px", css)
-        self.assertIn("nth-child(3)", css)
+        # All four desktop columns remain accessible through the scrollable list.
+        # Omitting the modified column was a legacy phone-layout exception.
+        self.assertIn(".ordax-files-list {", css)
+        self.assertIn("overflow: auto", css)
+        self.assertNotIn(".ordax-file-row > :nth-child(3)", css)
 
 
 if __name__ == "__main__":
