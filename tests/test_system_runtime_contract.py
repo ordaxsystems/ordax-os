@@ -450,8 +450,8 @@ class SystemRuntimeContractTests(unittest.TestCase):
 
     def test_power_delivery_cannot_hang_without_guardian_fifo_reader(self):
         surface = SURFACE_RUNTIME.read_text(encoding="utf-8")
-        forward = surface.split("forward_host_power_request() {", 1)[1].split("\\n}\\n", 1)[0]
-        broker = surface.split("prepare_power_broker() {", 1)[1].split("\\n}\\n", 1)[0]
+        forward = surface.split("forward_host_power_request() {", 1)[1].split("\n}\n", 1)[0]
+        broker = surface.split("prepare_power_broker() {", 1)[1].split("\n}\n", 1)[0]
         self.assertIn('/bin/busybox timeout -k 1 3 /bin/sh -c', forward)
         self.assertIn('host power owner did not accept $action within timeout', forward)
         self.assertIn('[ -p "$HOST_POWER_REQUEST" ]', broker)
@@ -472,14 +472,14 @@ class SystemRuntimeContractTests(unittest.TestCase):
         surface = SURFACE_RUNTIME.read_text(encoding="utf-8")
         forward = "forward_host_power_request() {" + surface.split(
             "forward_host_power_request() {", 1
-        )[1].split("\\n}\\n", 1)[0] + "\\n}\\n"
+        )[1].split("\n}\n", 1)[0] + "\n}\n"
         with tempfile.TemporaryDirectory() as temporary:
             request = Path(temporary) / "power-request"
             log = Path(temporary) / "host.log"
             os.mkfifo(request, 0o600)
             env = dict(os.environ, HOST_POWER_REQUEST=str(request), HOST_LOG=str(log))
             result = subprocess.run(
-                ["/bin/sh", "-c", forward + "\\nforward_host_power_request restart\\n"],
+                ["/bin/sh", "-c", forward + "\nforward_host_power_request restart\n"],
                 env=env,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
@@ -493,7 +493,7 @@ class SystemRuntimeContractTests(unittest.TestCase):
             descriptor = os.open(request, os.O_RDONLY | os.O_NONBLOCK)
             try:
                 delivered = subprocess.run(
-                    ["/bin/sh", "-c", forward + "\\nforward_host_power_request shutdown\\n"],
+                    ["/bin/sh", "-c", forward + "\nforward_host_power_request shutdown\n"],
                     env=env,
                     stdout=subprocess.PIPE,
                     stderr=subprocess.PIPE,
@@ -501,7 +501,7 @@ class SystemRuntimeContractTests(unittest.TestCase):
                     check=False,
                 )
                 self.assertEqual(delivered.returncode, 0, delivered.stderr)
-                self.assertEqual(os.read(descriptor, 32), b"shutdown\\n")
+                self.assertEqual(os.read(descriptor, 32), b"shutdown\n")
             finally:
                 os.close(descriptor)
 
