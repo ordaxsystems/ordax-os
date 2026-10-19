@@ -271,12 +271,11 @@ handle_request() {
                 # Candidate is chmod 0600 before same-directory rename.
                 # Persist the file and its directory before reporting success.
                 if ! mv -f "$CANDIDATE" "$WPA_CONF" ||
+                   ! rm -f "$AUTO_CONNECT_PAUSED" ||
                    ! /bin/busybox sync; then
                     respond "$request_id" error "$wifi" credential-save-failed
                     return 0
                 fi
-                rm -f "$AUTO_CONNECT_PAUSED"
-                /bin/busybox sync || true
                 capture_link "$wifi"
                 capture_saved_ssid
                 respond "$request_id" ok "$wifi" connected
@@ -324,8 +323,10 @@ handle_request() {
             respond "$request_id" ok "$wifi" forgotten
             ;;
         reconnect)
-            rm -f "$AUTO_CONNECT_PAUSED"
-            /bin/busybox sync || true
+            if ! rm -f "$AUTO_CONNECT_PAUSED" || ! /bin/busybox sync; then
+                respond "$request_id" error "$wifi" reconnect-state-failed
+                return 0
+            fi
             if restore_saved_network_if_needed; then
                 capture_link "$wifi"
                 capture_saved_ssid
