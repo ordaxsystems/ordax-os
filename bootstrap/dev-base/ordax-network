@@ -321,6 +321,10 @@ if [ "$force_choose" -eq 0 ] && [ -s "$WPA_CONF" ]; then
             echo "ordax-network: Wi-Fi salvo autenticou, mas DHCP nao respondeu; credencial preservada" >&2
             exit 1
             ;;
+        owner-unavailable)
+            echo "ordax-network: controlador WPA existente nao responde; conexao e rede salva preservadas" >&2
+            exit 1
+            ;;
         supplicant-start)
             echo "ordax-network: nao foi possivel iniciar o cliente WPA da Base" >&2
             exit 1
@@ -534,6 +538,10 @@ while [ "$setup_attempt" -le "$WIFI_SETUP_ATTEMPTS" ]; do
     case "$wifi_connect_result" in
         dhcp)
             echo "ordax-network: Wi-Fi autenticado, mas DHCP nao respondeu; a senha nao sera solicitada novamente" >&2
+            exit 1
+            ;;
+        owner-unavailable)
+            echo "ordax-network: controlador WPA existente nao responde; conexao e rede salva preservadas" >&2
             exit 1
             ;;
         supplicant-start)
