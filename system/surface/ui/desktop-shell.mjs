@@ -82,6 +82,11 @@ function railButton(appId, label, icon, t, className = "ordax-rail-button") {
     </button>`;
 }
 
+function desktopAppShortcut(appId, t) {
+  const label = t(`app.${appId}.title`);
+  return `<button type="button" class="ordax-desktop-shortcut" data-sidebar-app="${appId}" data-desktop-app="${appId}" data-launch-app="${appId}" title="${label}" aria-label="${t("surface.launcher.open", { app: label })}"><span class="ordax-rail-icon" aria-hidden="true">${ICONS[appId]}</span><span>${label}</span></button>`;
+}
+
 function spaceLink(messageId, target, t) {
   const label = t(messageId);
   return `
@@ -220,8 +225,9 @@ export function createDesktopShellMarkup(localization) {
           </div>
 
           <section class="ordax-desktop-shortcuts" data-desktop-presentation aria-label="${t("shell.presentation.shortcuts")}" hidden>
-            <button type="button" class="ordax-desktop-shortcut" data-show-desktop><span class="ordax-rail-icon">${ICONS.presentation}</span><span data-central-shortcut-label>${t("shell.presentation.centralTitle")}</span></button>
-            ${QUICK_ACCESS_APP_IDS.map(id => railButton(id, t(`app.${id}.title`), ICONS[id], t, "ordax-desktop-shortcut")).join("")}
+            <button type="button" class="ordax-desktop-shortcut ordax-desktop-shortcut-central" data-desktop-action="central" data-show-desktop title="${t("shell.presentation.centralTitle")}" aria-label="${t("shell.presentation.central")}"><span class="ordax-rail-icon" aria-hidden="true">${ICONS.presentation}</span><span data-central-shortcut-label>${t("shell.presentation.centralTitle")}</span></button>
+            ${QUICK_ACCESS_APP_IDS.map(id => desktopAppShortcut(id, t)).join("")}
+            <button type="button" class="ordax-desktop-shortcut ordax-desktop-shortcut-launcher" data-desktop-action="launcher" data-launcher-toggle title="${t("shell.desktop.appsShortcut")}" aria-label="${t("shell.launcher.command")}"><span class="ordax-rail-icon" aria-hidden="true">${ICONS.apps}</span><span>${t("shell.desktop.appsShortcut")}</span></button>
           </section>
         </section>
 
@@ -340,6 +346,11 @@ export function syncDesktopShellLocalization(root, localization) {
     continuityButton.title = english ? "Continuity" : "Continuidade";
   }
   text("[data-central-shortcut-label]", "shell.presentation.centralTitle");
+  aria('[data-desktop-action="central"]', "shell.presentation.central");
+  root.querySelector('[data-desktop-action="central"]')?.setAttribute("title", t("shell.presentation.centralTitle"));
+  text('[data-desktop-action="launcher"] span:last-child', "shell.desktop.appsShortcut");
+  aria('[data-desktop-action="launcher"]', "shell.launcher.command");
+  root.querySelector('[data-desktop-action="launcher"]')?.setAttribute("title", t("shell.desktop.appsShortcut"));
   root.querySelector("[data-desktop-presentation]")?.setAttribute("aria-label", t("shell.presentation.shortcuts"));
   text("[data-home-greeting]", "shell.home.greeting.morning");
   text("[data-home-tagline]", "shell.home.tagline");

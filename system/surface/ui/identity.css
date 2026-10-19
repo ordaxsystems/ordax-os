@@ -467,17 +467,26 @@ body { background: var(--md-canvas); font-weight: 400; }
 /* Alternate presentation in the same Native workspace and window layer. */
 [data-central-presentation][hidden], [data-desktop-presentation][hidden] { display: none; }
 [data-workspace-presentation="desktop"] .ordax-desktop { overflow: hidden; }
-.ordax-desktop-shortcuts { position: relative; z-index: 12; display: grid; grid-template-columns: repeat(auto-fill, 104px); gap: 12px; max-width: 650px; padding: 24px; }
-.ordax-desktop-shortcut { display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 8px; min-height: 100px; width: 104px; padding: 10px; border: 1px solid transparent; border-radius: var(--md-radius-small); background: var(--md-surface); color: var(--md-ink); cursor: pointer; text-align: center; font-size: .8rem; }
-.ordax-desktop-shortcut .ordax-rail-icon { width: 32px; height: 32px; color: var(--md-accent); }
-.ordax-desktop-shortcut:hover { border-color: var(--md-border); background: var(--md-subtle); }
+.ordax-desktop-shortcuts { position: absolute; z-index: 12; inset: 1rem auto auto 1rem; display: grid; grid-auto-flow: column; grid-template-rows: repeat(6, 5.5rem); grid-auto-columns: 5.75rem; gap: .25rem; max-height: calc(100% - 2rem); overflow: auto; padding: 0; }
+.ordax-desktop-shortcut { position: relative; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: .375rem; width: 5.75rem; min-height: 5.5rem; padding: .375rem .25rem; border: 1px solid transparent; border-radius: .625rem; background: transparent; color: var(--md-desktop-shortcut-label); cursor: pointer; text-align: center; font-size: .6875rem; font-weight: 500; line-height: 1.2; text-shadow: 0 1px 3px #14241d99; transition: background-color 140ms ease, border-color 140ms ease, transform 140ms ease; }
+.ordax-desktop-shortcut .ordax-rail-icon { display: grid; place-items: center; width: 2.625rem; height: 2.625rem; flex: 0 0 2.625rem; border-radius: .75rem; background: var(--md-accent-soft); color: var(--md-accent); box-shadow: 0 2px 8px #15231d26; text-shadow: none; }
+.ordax-desktop-shortcut .ordax-rail-icon svg { width: 1.5rem; height: 1.5rem; }
+.ordax-desktop-shortcut[data-desktop-app="studio"] .ordax-rail-icon { background: var(--md-accent-soft); color: var(--md-accent); }
+.ordax-desktop-shortcut[data-desktop-app="files"] .ordax-rail-icon { background: var(--md-sage-soft); color: var(--md-sage); }
+.ordax-desktop-shortcut[data-desktop-app="settings"] .ordax-rail-icon { background: var(--md-slate-soft); color: var(--md-slate); }
+.ordax-desktop-shortcut-central .ordax-rail-icon { background: var(--md-blue-soft); color: var(--md-blue); }
+.ordax-desktop-shortcut-launcher .ordax-rail-icon { background: var(--md-amber-soft); color: var(--md-amber); }
+.ordax-desktop-shortcut:hover, .ordax-desktop-shortcut:focus-visible { border-color: color-mix(in srgb, var(--md-desktop-shortcut-label) 30%, transparent); background: color-mix(in srgb, var(--md-desktop-shortcut-label) 12%, transparent); color: var(--md-desktop-shortcut-label); }
+.ordax-desktop-shortcut:active { transform: scale(.97); }
+.ordax-desktop-shortcut:focus-visible { outline: 2px solid var(--md-focus); outline-offset: 2px; }
 .ordax-desktop-shortcut:disabled { opacity: .5; cursor: not-allowed; }
 .ordax-presentation-toggle { display: grid; place-items: center; width: var(--ordax-navigation-control-height); min-width: var(--ordax-navigation-control-height); height: var(--ordax-navigation-control-height); border: 0; border-radius: var(--md-radius-small); background: var(--md-subtle); color: var(--md-ink); cursor: pointer; }
 .ordax-presentation-toggle[aria-pressed="true"] { color: var(--md-accent); background: var(--md-accent-soft); }
 .ordax-presentation-toggle .ordax-rail-icon { width: 20px; height: 20px; }
 @media (max-width: 760px) {
-  .ordax-desktop-shortcuts { grid-template-columns: repeat(auto-fill,minmax(88px,1fr)); padding: 16px; gap: 10px; }
-  .ordax-desktop-shortcut { width: 100%; min-height: 100px; }
+  .ordax-desktop-shortcuts { inset: .625rem auto auto .625rem; grid-template-rows: repeat(6, 4.75rem); grid-auto-columns: 5rem; gap: .125rem; }
+  .ordax-desktop-shortcut { width: 5rem; min-height: 4.75rem; }
+  .ordax-desktop-shortcut .ordax-rail-icon { width: 2.25rem; height: 2.25rem; flex-basis: 2.25rem; }
 }
 
 /* Native uses the same Meridian shell hierarchy as the Web workspace. */
@@ -549,7 +558,6 @@ body { background: var(--md-canvas); font-weight: 400; }
 .meridian-native-workspace .ordax-home-panel > .ordax-space:not([data-home-continuation]):not([data-home-pending]) { grid-column: 2; grid-row: 5; }
 .meridian-native-workspace .ordax-home-panel > .ordax-space:is([data-home-continuation],[data-home-pending]) { grid-column: 1; }
 .meridian-native-workspace .ordax-space-link { min-height: 2.5rem; }
-.meridian-native-workspace .ordax-desktop-shortcuts { grid-template-columns: repeat(auto-fill, 6rem); }
 .meridian-native-workspace .ordax-statusbar { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,auto) minmax(0,1fr); align-items:center; justify-content:stretch; gap:1rem; padding:0 1.25rem max(0px,env(safe-area-inset-bottom)); }
 .meridian-native-workspace .meridian-taskbar-start,
 .meridian-native-workspace .meridian-taskbar-end { display: flex; align-items: center; gap: .4375rem; min-width: 0; }
