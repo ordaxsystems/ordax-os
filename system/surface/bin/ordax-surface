@@ -1278,7 +1278,14 @@ forward_host_power_request() {
         echo "ordax-surface: host power owner channel is unavailable" >>"$HOST_LOG"
         return 1
     }
-    printf '%s\n' "$action" >"$HOST_POWER_REQUEST" || return 1
+    # A FIFO can survive its Guardian reader. Plain shell redirection would
+    # block indefinitely if the host owner dies after the UI accepts a request.
+    # Keep the destructive handoff bounded and report failure to the broker.
+    if ! /bin/busybox timeout -k 1 3 /bin/sh -c \
+        'printf "%s\\n" "$1" >"$2"' sh "$action" "$HOST_POWER_REQUEST"; then
+        echo "ordax-surface: host power owner did not accept $action within timeout" >>"$HOST_LOG"
+        return 1
+    fi
     return 0
 }
 
@@ -1321,6 +1328,12 @@ prepare_keyboard_session_restart_broker() {
 }
 
 prepare_power_broker() {
+    # Never advertise a functioning power control when its actual root-owned
+    # Guardian channel is missing. The graphical desktop must still boot.
+    [ -p "$HOST_POWER_REQUEST" ] || {
+        echo "ordax-surface: Guardian host power channel absent; controls disabled" >>"$HOST_LOG"
+        return 1
+    }
     rm -f "$POWER_REQUEST" >/dev/null 2>&1 || true
     /bin/busybox mkfifo "$POWER_REQUEST" >>"$HOST_LOG" 2>&1 || return 1
     chmod 600 "$POWER_REQUEST" >>"$HOST_LOG" 2>&1 || return 1
@@ -1434,7 +1447,7 @@ configure_keyboard_layout
 prepare_keyboard_session_restart_broker || echo "ordax-surface: keyboard session restart unavailable; next startup still applies configured layout" >>"$HOST_LOG"
 publish_runtime_proof_context || fallback_with_reason "failed to publish active Surface runtime proof context"
 remove_stale_seatd_socket || fallback_with_reason "failed to clear stale seatd socket before native host startup"
-prepare_power_broker || fallback_with_reason "failed to prepare host power broker"
+prepare_power_broker || echo "ordax-surface: host power broker unavailable; continuing without power actions" >>"$HOST_LOG"
 ensure_base_update_agent || echo "ordax-surface: base update owner unavailable; continuing Surface startup" >>"$HOST_LOG"
 
 export XDG_RUNTIME_DIR="$SESSION_DIR"
