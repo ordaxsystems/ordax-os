@@ -127,7 +127,7 @@
 .meridian-workspace .ordax-product-sidebar .meridian-rail-context small { display:block; margin-top:4px; color:var(--md-rail-muted); font-size:.5rem; }
 .meridian-workspace .ordax-product-sidebar .meridian-rail-utilities { display:flex; align-items:center; justify-content:space-around; gap:0; padding-top:.875rem; border-top:1px solid var(--md-rail-border); }
 .meridian-workspace .ordax-product-sidebar .meridian-rail-utilities > button,
-.meridian-workspace .ordax-product-sidebar :is(.meridian-rail-notification-slot,.meridian-rail-update-slot) { display:grid; place-items:center; width:var(--md-dock-control-size); min-width:var(--md-dock-control-size); height:var(--md-dock-control-size); flex:0 0 var(--md-dock-control-size); border:0; border-radius:var(--md-radius-small); background:transparent; color:var(--md-rail-muted); cursor:pointer; }
+.meridian-workspace .ordax-product-sidebar :is(.meridian-rail-notification-slot,.meridian-rail-update-slot) { display:grid; place-items:center; width:max(44px,var(--md-dock-control-size)); min-width:max(44px,var(--md-dock-control-size)); height:max(44px,var(--md-dock-control-size)); flex:0 0 max(44px,var(--md-dock-control-size)); border:0; border-radius:var(--md-radius-small); background:transparent; color:var(--md-rail-muted); cursor:pointer; }
 .meridian-workspace .ordax-product-sidebar .meridian-rail-utilities > button:hover,
 .meridian-workspace .ordax-product-sidebar :is(.meridian-rail-notification-slot,.meridian-rail-update-slot):has(>button:hover) { background:var(--md-rail-selected); color:var(--md-rail-text); }
 .meridian-workspace .ordax-product-sidebar .meridian-rail-utilities svg { width:1.125rem; height:1.125rem; }

@@ -497,3 +497,23 @@ test("Store removes its duplicate page header and keeps the catalog switch in wi
   assert.match(experience, /toggle\.remove\(\)/);
   assert.match(styles, /\.ordax-store-window-action/);
 });
+
+test("shared Meridian sidebar utilities retain 44px targets when the rem baseline is smaller", async () => {
+  const [styles,tokens]=await Promise.all([
+    readFile(new URL("../system/surface/ui/sidebar-layout.css",import.meta.url),"utf8"),
+    readFile(new URL("../system/surface/ui/meridian.tokens.css",import.meta.url),"utf8"),
+  ]);
+  assert.ok(tokens.includes("--md-dock-control-size:2.75rem;"),"Existing design token remains the owner");
+  const rule=styles.split(".meridian-rail-utilities > button,")[1]?.split("}")[0];
+  assert.ok(rule, "Shared rail utility button/slot rule must exist");
+  for(const declaration of [
+    "width:max(44px,var(--md-dock-control-size))",
+    "min-width:max(44px,var(--md-dock-control-size))",
+    "height:max(44px,var(--md-dock-control-size))",
+    "flex:0 0 max(44px,var(--md-dock-control-size))",
+  ]) assert.ok(rule.includes(declaration),declaration);
+  // A 14px document root resolves 2.75rem to 38.5px: the fixed accessibility
+  // minimum stays at 44px without splitting Native and Web styling.
+  assert.equal(Math.max(44,2.75*14),44);
+  assert.ok(styles.includes(".meridian-rail-notification-slot > button { display:grid; place-items:center; width:100%; height:100%;"),"Slot buttons inherit the accessible hit area");
+});
