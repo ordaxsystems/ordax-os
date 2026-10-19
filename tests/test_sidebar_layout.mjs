@@ -68,6 +68,7 @@ test("Web and Native share the Meridian rail destination order and grouping", as
   assert.deepEqual(MERIDIAN_RAIL_DESTINATIONS.filter(item => item.group === "ecossistema").map(item => item.key), ["profiles", "devices", "store"]);
   assert.match(webConfig, /MERIDIAN_RAIL_DESTINATIONS/);
   assert.match(nativeShell, /MERIDIAN_RAIL_DESTINATIONS/);
+  assert.equal((nativeShell.match(/ICONS\[destination\.glyph\]/g) ?? []).length, 2, "Native navigation and overflow menu use canonical Meridian glyph metadata");
   assert.ok(nativeShell.includes('<p class="meridian-nav-label" data-nav-group-label="ecossistema">Ecossistema</p>'));
   assert.match(sharedSidebarStyles, /\.meridian-workspace \.ordax-product-sidebar \.meridian-native-nav-group \{ display:flex; flex-direction:column; gap:var\(--md-sidebar-nav-gap\);/);
   assert.match(tokens, /--md-sidebar-nav-gap:\.3125rem;/);

@@ -78,7 +78,8 @@ ordered catalog under `system/services/surface/`. Rendered sidebar app labels
 are localized from their actual app IDs, avoiding stale app-name lists. The app
 runtime catalog and host capabilities remain the authority for whether an app
 can open; shortcut placement does not grant access. System Updates remains a
-separate destination within the System app.
+separate destination within the System app. Native rail and overflow-menu icons
+consume the shared Meridian destination glyph metadata.
 
 Native Central home layout correction (2026-10-18): the persistent local-space
 card remains in the secondary column at desktop widths, while capability-backed

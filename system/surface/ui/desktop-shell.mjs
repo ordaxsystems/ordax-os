@@ -126,7 +126,7 @@ function meridianDestinationButton(destination, localization, groupLabel = "") {
   const appTarget = target.target ? ` data-app-target="${target.target}"` : "";
   const planned = destination.key === "intelligence"
     ? `<span class="meridian-planned-mark" aria-label="${localization.translate("meridian.native.plannedFeature")}" title="${localization.translate("meridian.native.notConnected")}">•</span>` : "";
-  return `<div class="meridian-nav-destination" data-meridian-destination-group="${destination.group}">${groupLabel}<button type="button" class="ordax-rail-button os-nav-item" data-sidebar-app="${target.appId}" data-launch-app="${target.appId}" data-meridian-destination="${destination.key}"${appTarget} aria-label="${label}" title="${label}"><span class="ordax-rail-icon">${ICONS[destination.key === "intelligence" ? "aura" : destination.key]}</span><span>${label}</span>${planned}</button></div>`;
+  return `<div class="meridian-nav-destination" data-meridian-destination-group="${destination.group}">${groupLabel}<button type="button" class="ordax-rail-button os-nav-item" data-sidebar-app="${target.appId}" data-launch-app="${target.appId}" data-meridian-destination="${destination.key}"${appTarget} aria-label="${label}" title="${label}"><span class="ordax-rail-icon">${ICONS[destination.glyph]}</span><span>${label}</span>${planned}</button></div>`;
 }
 
 function meridianNavigation(localization, t) {
@@ -151,8 +151,7 @@ function meridianNavigationMenu(localization, t) {
     const target = MERIDIAN_NATIVE_DESTINATION_TARGETS[destination.key];
     if (!target) return "";
     const unavailable = destination.key === "intelligence";
-    const icon = destination.key === "intelligence" ? "aura" : destination.key;
-    return `<button type="button" class="meridian-menu-item" data-nav-menu-item data-meridian-menu-destination="${destination.key}" data-launch-app="${target.appId}" data-nav-menu-app="${target.appId}"${target.target ? ` data-app-target="${target.target}"` : ""}${unavailable ? ` disabled aria-disabled="true" title="${t("meridian.native.notConnected")}"` : ""}><span class="ordax-rail-icon">${ICONS[icon]}</span><span>${label}</span>${unavailable ? `<small>${t("meridian.native.planned")}</small>` : ""}</button>`;
+    return `<button type="button" class="meridian-menu-item" data-nav-menu-item data-meridian-menu-destination="${destination.key}" data-launch-app="${target.appId}" data-nav-menu-app="${target.appId}"${target.target ? ` data-app-target="${target.target}"` : ""}${unavailable ? ` disabled aria-disabled="true" title="${t("meridian.native.notConnected")}"` : ""}><span class="ordax-rail-icon">${ICONS[destination.glyph]}</span><span>${label}</span>${unavailable ? `<small>${t("meridian.native.planned")}</small>` : ""}</button>`;
   };
   const principal = MERIDIAN_RAIL_DESTINATIONS.filter(item => item.key === "home" || item.group === "principal").map(destinationButton).join("");
   const ecosystem = MERIDIAN_RAIL_DESTINATIONS.filter(item => item.group === "ecossistema").map(destinationButton).join("");
