@@ -12,6 +12,7 @@ import { useWebAccount } from './account-context';
 import { WindowResourceLoadError } from './window-resource-error.mjs';
 import type { DesktopAction, DesktopState } from './desktop-state';
 import { getDesktopShortcutGlyphMarkup } from '../../../../services/surface/desktop-shortcut-glyphs.mjs';
+import { moveDesktopShortcutFocus } from '../../../../services/surface/dock-navigation.mjs';
 
 // One stable resource type; no fetch until the Store is actually mounted.
 // Cached module-load failures are recovered by explicit page reload.
@@ -36,7 +37,7 @@ export function Desktop({ onCentral, dispatch }: Props) {
     { id: 'aura', name: 'Aura', icon: Sparkles, tone: 'lime' as const },
   ];
   return <main className="classic-desktop" aria-label="Área de trabalho OrdaX">
-    <section className="desktop-shortcuts" aria-label="Atalhos da área de trabalho">
+    <section className="desktop-shortcuts" aria-label="Atalhos da área de trabalho" onKeyDown={event => moveDesktopShortcutFocus(event.nativeEvent, event.currentTarget, '[data-desktop-app]')}>
       {desktopShortcuts.map(item => <Button variant="ghost" className="desktop-shortcut" data-desktop-app={item.id} key={item.id} onClick={() => item.id === 'central' ? onCentral() : open(item.name)}>
         <DesktopShortcutIcon item={item}/><span>{item.name}</span>
       </Button>)}

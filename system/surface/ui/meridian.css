@@ -37,8 +37,7 @@
 /* Preserve the existing independent high contrast and semantic status policy. */
 [data-meridian][data-ordax-contrast="high"] { --md-border:var(--md-ink);--md-muted:var(--md-ink); }
 [data-meridian] .classic-desktop { background:var(--md-canvas); }
-[data-meridian] .classic-desktop::before { position:absolute;z-index:0;inset:0;content:"";pointer-events:none;background:var(--md-desktop-wallpaper) center/cover no-repeat;opacity:var(--ordax-wallpaper-opacity,1); }
-[data-meridian] .ordax-workspace::before { background:var(--md-desktop-wallpaper) center/cover no-repeat; }
+[data-meridian] :is(.classic-desktop,.ordax-workspace)::before { position:absolute;z-index:0;inset:0;content:"";pointer-events:none;background:var(--md-desktop-wallpaper) center/cover no-repeat;opacity:var(--ordax-wallpaper-opacity,1); }
 [data-meridian] .meridian-taskbar { display:grid;grid-template-columns:minmax(var(--md-taskbar-side-min),1fr) minmax(0,auto) minmax(var(--md-taskbar-side-min),1fr);align-items:center;gap:var(--md-taskbar-layout-gap);padding-inline:var(--md-taskbar-inline-padding);background:var(--md-surface);border-top:1px solid var(--md-border); }
 [data-meridian] :is(.meridian-taskbar-start,.meridian-taskbar-end) { display:flex;align-items:center;gap:var(--md-taskbar-control-gap);min-width:0; }
 [data-meridian] .meridian-taskbar-end { justify-content:flex-end; }

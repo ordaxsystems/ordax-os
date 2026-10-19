@@ -30,7 +30,7 @@ import {
   syncDesktopThemeToggle,
 } from "./desktop-shell.mjs";
 import { createSurfaceLocalization } from "../../services/i18n/surface.mjs";
-import { moveDockFocus } from "../../services/surface/dock-navigation.mjs";
+import { moveDesktopShortcutFocus, moveDockFocus } from "../../services/surface/dock-navigation.mjs";
 import { syncDocumentLocaleProfile } from "./document-localization.mjs";
 import { SURFACE_RENDER_LIFECYCLE_SCHEMA } from "../../contracts/surface-render-lifecycle.mjs";
 import {
@@ -1190,6 +1190,7 @@ export function mountSurface(
 
   const onKeyDown = (event) => {
     if (moveDockFocus(event, nativeDock, "button", revealDockButton)) return;
+    if (moveDesktopShortcutFocus(event, root, "[data-desktop-app]")) return;
 
     if ((event.ctrlKey || event.metaKey) && event.key.toLocaleLowerCase() === "k") {
       event.preventDefault();

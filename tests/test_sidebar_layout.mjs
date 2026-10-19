@@ -142,9 +142,8 @@ test("Web and Native desktop canvas share the Meridian wallpaper and contrast pr
     readFile(new URL("../system/composition/web/main.tsx", import.meta.url), "utf8"),
   ]);
   assert.ok(sharedMeridianStyles.includes('--md-desktop-wallpaper:url("./brand/meridian-field.svg")'));
-  assert.ok(sharedMeridianStyles.includes(".classic-desktop::before"));
-  assert.ok(sharedMeridianStyles.includes(".ordax-workspace::before"));
-  assert.ok(nativeStyles.includes("background:var(--md-desktop-wallpaper) center / cover no-repeat"));
+  assert.ok(sharedMeridianStyles.includes(":is(.classic-desktop,.ordax-workspace)::before"));
+  assert.doesNotMatch(nativeStyles, /\.ordax-workspace::before\s*\{/);
   assert.ok(sharedMeridianStyles.includes("opacity:var(--ordax-wallpaper-opacity,1)"));
   assert.ok(sharedMeridianStyles.includes('[data-ordax-contrast="high"] :is(.ordax-desktop-shortcut,.desktop-shortcut)'));
   assert.ok(tokens.includes("[data-ordax-contrast=\"high\"]"));

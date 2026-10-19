@@ -27,3 +27,52 @@ export function moveDockFocus(event, container, selector, reveal) {
   else next.scrollIntoView({ block: "nearest", inline: "nearest" });
   return true;
 }
+
+/**
+ * Move focus spatially through desktop shortcuts without opening an app.
+ * The DOM layout is authoritative, so columns can adapt to each host's canvas.
+ * @param {any} event
+ * @param {Element | null} container
+ * @param {string} selector
+ */
+export function moveDesktopShortcutFocus(event, container, selector) {
+  if (!container || event.altKey || event.ctrlKey || event.metaKey
+    || !["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Home", "End"].includes(event.key)) return false;
+
+  const items = [...container.querySelectorAll(selector)].filter((item) => (
+    !item.disabled && !item.hidden && item.getClientRects().length > 0
+  ));
+  const current = event.target?.closest?.(selector);
+  const index = items.indexOf(current);
+  if (index < 0 || items.length === 0) return false;
+
+  let next;
+  if (event.key === "Home") next = items[0];
+  else if (event.key === "End") next = items[items.length - 1];
+  else {
+    const bounds = current.getBoundingClientRect();
+    const centerX = bounds.left + bounds.width / 2;
+    const centerY = bounds.top + bounds.height / 2;
+    const directions = {
+      ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1],
+    };
+    const [directionX, directionY] = directions[event.key];
+    const candidates = items.filter((item) => item !== current).map((item) => {
+      const rect = item.getBoundingClientRect();
+      const deltaX = rect.left + rect.width / 2 - centerX;
+      const deltaY = rect.top + rect.height / 2 - centerY;
+      const primary = deltaX * directionX + deltaY * directionY;
+      const perpendicular = Math.abs(deltaX * directionY - deltaY * directionX);
+      return { item, primary, perpendicular };
+    }).filter((candidate) => candidate.primary > 0)
+      .sort((left, right) => (left.primary + left.perpendicular * 1.5)
+        - (right.primary + right.perpendicular * 1.5));
+    next = candidates[0]?.item;
+  }
+
+  if (!next) return false;
+  event.preventDefault();
+  next.focus({ preventScroll: true });
+  next.scrollIntoView({ block: "nearest", inline: "nearest" });
+  return true;
+}

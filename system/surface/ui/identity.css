@@ -9,15 +9,6 @@ body { background: var(--md-canvas); font-weight: 400; }
   background: var(--md-canvas);
 }
 .ordax-workspace { grid-row: 1; }
-.ordax-workspace::before {
-  content: "";
-  position: absolute;
-  z-index: 0;
-  inset: 0;
-  pointer-events: none;
-  background:var(--md-desktop-wallpaper) center / cover no-repeat;
-  opacity:var(--ordax-wallpaper-opacity, 1);
-}
 .meridian-native-workspace .ordax-workspace:has([data-central-presentation]:not([hidden]))::before { opacity:0; }
 .ordax-rail {
   grid-row: 1 / 3;
