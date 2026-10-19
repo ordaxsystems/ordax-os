@@ -37,6 +37,13 @@
 - A PR de testes [#2028](https://github.com/ordaxsystems/ordax-os/pull/2028) guarda as quatro verificações desktop de Arquivos/Primeiro Uso/Configurações; os mesmos blobs são utilizados nesta integração. A PR #2027 guarda a verificação da Conta.
 - A interface Web/Mobile tem capacidades e layouts próprios por modo, mas não criamos um segundo OS, novos providers nem uma alteração de runtime. Qualquer regressão de layout deve ser comprovada nos gates de navegador e boot QEMU antes de promover este candidato.
 
+## Navegação desktop reconciliada — nova prova da main
+
+- O merge de dois pais `d20e2c6424c9f457fb21041ced46ea25ebe23c03` incorporou `main@77afa66e` e preservou as sete alterações de navegação, painel lateral, resolução do desktop e testes de dock.
+- A integração manteve a projeção única de `state.presentation` no shell Native e no root, além da regressão de alvos de 44 CSS px em modo sidebar compacta. Novos testes da main não foram substituídos por versões antigas.
+- Os snapshots públicos foram regenerados pelo workflow oficial após o merge, commit `555cad4b`. Esse commit do bot permaneceu com `action_required`; nenhuma verificação está aprovada por inferência e o problema administrativo está registrado em #2022.
+- Esta revisão exige todos os workflows no mesmo SHA antes de qualquer adoção; nenhuma alteração foi aplicada à main, USB físico, OrdaX Grátis ou publicação Stable.
+
 ## Validação / rollback
 - Testes dedicados de timeout, erros CLI, ausência de preview ativo após falha, fronteira Native sem `subprocess` e typecheck Web.
 - Os artefatos públicos devem ser gerados pelo workflow `Public Surface SSOT Refresh` e passar pela CI.
