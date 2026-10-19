@@ -98,11 +98,29 @@ test("Web and Native desktop shortcuts share Meridian geometry tokens", async ()
     "--md-desktop-shortcut-cell:5.75rem;",
     "--md-desktop-shortcut-gap:.625rem;",
     "--md-desktop-shortcut-icon:2.6875rem;",
+    "--md-desktop-shortcut-glyph-size:1.5rem;",
+    "--md-desktop-shortcut-padding:.375rem .25rem;",
+    "--md-desktop-shortcut-radius:.625rem;",
+    "--md-desktop-shortcut-icon-radius:.75rem;",
+    "--md-desktop-shortcut-label-size:.6875rem;",
+    "--md-desktop-shortcut-label-weight:500;",
+    "--md-desktop-shortcut-label-leading:1.2;",
+    "--md-desktop-shortcut-icon-shadow:0 2px 8px rgb(21 35 29 / 15%);",
+    "--md-desktop-shortcut-label-shadow:0 1px 3px rgb(20 36 29 / 60%);",
   ]) assert.ok(tokens.includes(definition), `${definition} is owned by the shared Meridian tokens`);
   for (const [surface, styles] of [["Native", nativeStyles], ["Web", webStyles]]) {
     assert.ok(styles.includes("var(--md-desktop-shortcut-cell)"), `${surface} uses the shared shortcut cell`);
     assert.ok(styles.includes("var(--md-desktop-shortcut-gap)"), `${surface} uses the shared shortcut spacing`);
     assert.ok(styles.includes("var(--md-desktop-shortcut-icon)"), `${surface} uses the shared shortcut icon size`);
+    assert.ok(styles.includes("var(--md-desktop-shortcut-glyph-size)"), `${surface} uses the shared shortcut glyph size`);
+    assert.ok(styles.includes("var(--md-desktop-shortcut-radius)"), `${surface} uses the shared shortcut radius`);
+    assert.ok(styles.includes("var(--md-desktop-shortcut-icon-radius)"), `${surface} uses the shared icon radius`);
+    assert.ok(styles.includes("var(--md-desktop-shortcut-padding)"), `${surface} uses the shared shortcut padding`);
+    assert.ok(styles.includes("var(--md-desktop-shortcut-label-size)"), `${surface} uses the shared shortcut label size`);
+    assert.ok(styles.includes("var(--md-desktop-shortcut-label-weight)"), `${surface} uses the shared shortcut label weight`);
+    assert.ok(styles.includes("var(--md-desktop-shortcut-label-leading)"), `${surface} uses the shared shortcut label line height`);
+    assert.ok(styles.includes("var(--md-desktop-shortcut-icon-shadow)"), `${surface} uses the shared icon shadow`);
+    assert.ok(styles.includes("var(--md-desktop-shortcut-label-shadow)"), `${surface} uses the shared label shadow`);
   }
   assert.ok(nativeStyles.includes("inset: var(--md-desktop-shortcut-inset)"));
   assert.ok(webStyles.includes("left: var(--md-desktop-shortcut-inset)"));
