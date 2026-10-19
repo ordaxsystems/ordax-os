@@ -516,11 +516,20 @@ não comprova boot físico, serviços autenticados de host ou release assinada.
 ## Ajustes Web e navegação USB — 2026-10-12
 
 Ajustes Web consome settings.css e o catálogo de textos Native diretamente,
-com Aparência/Acessibilidade ligadas ao runtime/store de preferências existente.
+com Aparência, Tela e Acessibilidade ligadas ao runtime/store de preferências existente.
 Entrada Ajustes na sidebar abre a mesma janela Configurações; o atalho de
 engrenagem duplicado foi removido. O painel carrega sob demanda pelo tratamento
 de recursos já existente. As outras seções Native dependentes de host não foram
 expostas como funções Web disponíveis.
+
+## Ajuste de escala da tela — 2026-10-18
+
+Web e Native/USB compartilham a preferência local **Ajustes → Tela → Escala da interface**.
+O modo Automático adapta a escala visual da Surface à largura da janela; o layout Meridian
+também amplia a área principal e o hero em telas ultrawide. Há opções manuais Compacto,
+Padrão, Confortável e Grande. A escolha é persistida no dispositivo e fica fora
+da allowlist de sync da Conta. Brilho, seleção de monitor, resolução e frequência continuam
+dependentes de uma capacidade real do host; a jornada de referência existente foi mantida.
 
 workspace/presentation.mjs define uma única política: entrar na Área de trabalho
 mantém a sidebar recolhida nos dois renderers, sem expansão; retornar à Central

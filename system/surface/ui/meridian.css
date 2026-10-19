@@ -1,10 +1,10 @@
 /* Shared Meridian visual policy. Existing preference IDs and service owners remain unchanged. */
 .meridian-workspace, .meridian-native-workspace {
  font:400 .8125rem/1.5 var(--md-font);
- --md-home-content-max:clamp(1320px,70vw,2400px);
+ --md-home-content-max:clamp(1320px,70vw,4480px);
  --md-home-content-inline:clamp(32px,1.6vw,48px);
  --md-home-heading-size:clamp(1.75rem,3vw,2.625rem);
- --md-home-hero-height:clamp(266px,14vw,360px);
+ --md-home-hero-height:clamp(266px,14vw,560px);
  --md-home-hero-heading-size:clamp(1.625rem,2.8vw,2.25rem);
  --md-home-hero-overlay:linear-gradient(90deg,color-mix(in srgb,var(--md-art-dark) 79%,transparent) 0%,color-mix(in srgb,var(--md-art-dark) 26%,transparent) 65%,color-mix(in srgb,var(--md-art-dark) 6%,transparent) 100%);
 }

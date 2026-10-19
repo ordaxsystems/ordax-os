@@ -45,6 +45,7 @@ const SETTINGS_EXTENSION_SELECTOR = '[data-app-extension="settings-overview"]';
 
 const SETTINGS_SECTIONS = Object.freeze([
   Object.freeze({ id: "appearance", messageId: "settings.section.appearance" }),
+  Object.freeze({ id: "display", messageId: "settings.section.display" }),
   Object.freeze({ id: "accessibility", messageId: "settings.section.accessibility" }),
   Object.freeze({ id: "regional", messageId: "settings.section.regional" }),
   Object.freeze({ id: "network", messageId: "settings.section.network" }),
@@ -92,6 +93,33 @@ const PREFERENCE_PRESENTATION_IDS = Object.freeze({
       native: Object.freeze({
         label: "settings.preference.appearance.option.native",
         description: "settings.preference.appearance.option.native.description",
+      }),
+    }),
+  }),
+  "display.scale": Object.freeze({
+    label: "settings.preference.display.label",
+    title: "settings.preference.display.title",
+    description: "settings.preference.display.description",
+    options: Object.freeze({
+      automatic: Object.freeze({
+        label: "settings.preference.display.option.automatic",
+        description: "settings.preference.display.option.automatic.description",
+      }),
+      compact: Object.freeze({
+        label: "settings.preference.display.option.compact",
+        description: "settings.preference.display.option.compact.description",
+      }),
+      standard: Object.freeze({
+        label: "settings.preference.display.option.standard",
+        description: "settings.preference.display.option.standard.description",
+      }),
+      comfortable: Object.freeze({
+        label: "settings.preference.display.option.comfortable",
+        description: "settings.preference.display.option.comfortable.description",
+      }),
+      large: Object.freeze({
+        label: "settings.preference.display.option.large",
+        description: "settings.preference.display.option.large.description",
       }),
     }),
   }),
@@ -449,6 +477,7 @@ export function mountSettingsOverviewControls(
       if (definition.sectionId !== sectionId) continue;
       const presentation = PREFERENCE_PRESENTATION_IDS[definition.id] ?? null;
       const section = node(documentObject, "section", "ordax-settings-section");
+      section.dataset.settingsPreference = definition.id;
       section.append(
         node(
           documentObject,
@@ -491,6 +520,7 @@ export function mountSettingsOverviewControls(
 
           const preview = node(documentObject, "span", "ordax-settings-theme-preview");
           preview.dataset.themePreview = option.value === "native" ? "dark" : option.value;
+          if (definition.id === "display.scale") preview.hidden = true;
           if (themePreference) {
             preview.dataset.materialPreview = option.value === "light" ? "paper" : "ink";
             preview.dataset.ordaxPalette = option.value === "native" ? "native" : "standard";
@@ -647,6 +677,23 @@ export function mountSettingsOverviewControls(
       options.append(button);
     }
     section.append(options);
+    view.append(section);
+  };
+
+  const renderDisplayCapability = (view) => {
+    const section = node(documentObject, "section", "ordax-settings-section ordax-settings-display-capability");
+    section.append(
+      node(documentObject, "span", "ordax-settings-section-kicker", t("settings.display.host.kicker")),
+      node(documentObject, "h4", "ordax-settings-section-title", t("settings.display.host.title")),
+      node(documentObject, "p", "ordax-settings-section-copy", t("settings.display.host.description")),
+    );
+    const status = node(documentObject, "p", "ordax-settings-display-status", t("settings.display.host.pending"));
+    status.dataset.capabilityState = "unavailable";
+    status.setAttribute("role", "note");
+    const examplesButton = node(documentObject, "button", "ordax-settings-display-examples", t("settings.display.host.examples"));
+    examplesButton.type = "button";
+    examplesButton.dataset.settingsDisplayExamples = "true";
+    section.append(status, examplesButton);
     view.append(section);
   };
 
@@ -1307,8 +1354,9 @@ export function mountSettingsOverviewControls(
       examples.innerHTML = settingsExamples.overview();
       view.append(examples);
     }
-    if (["appearance", "accessibility", "regional"].includes(activeSection)) {
+    if (["appearance", "display", "accessibility", "regional"].includes(activeSection)) {
       renderPreferences(view, activeSection);
+      if (activeSection === "display") renderDisplayCapability(view);
       if (activeSection === "regional") renderKeyboardLayout(view);
     } else if (activeSection === "network") {
       renderNetwork(view);
@@ -1518,6 +1566,15 @@ export function mountSettingsOverviewControls(
     if (openModels && root.contains(openModels) && activeSection === "intelligence"
       && activationPort !== null) {
       activationPort.publish({ appId: "store", target: "models" });
+      return;
+    }
+    const displayExamplesButton = event.target.closest("[data-settings-display-examples]");
+    if (displayExamplesButton && root.contains(displayExamplesButton)) {
+      settingsExamples ??= mountSettingsJourneys(root, {
+        mode: "usb",
+        getLocale: localization.getLocale,
+      });
+      settingsExamples.open("display");
       return;
     }
     const sectionButton = event.target.closest("[data-settings-section]");

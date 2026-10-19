@@ -106,7 +106,7 @@ export function mountStoreWindows(root, catalogPort, surfaceLifecycle,
     }
     const materialRoot = root.closest?.('[data-material]') ?? root.ownerDocument.documentElement;
     instance?.setMaterial(root.dataset.ordaxTheme === 'dark' || materialRoot.dataset.material === 'ink' ? 'ink' : 'paper');
-    if (slot) for (const name of ['data-ordax-contrast', 'data-ordax-motion', 'data-ordax-text-scale']) {
+    if (slot) for (const name of ['data-ordax-contrast', 'data-ordax-motion', 'data-ordax-text-scale', 'data-ordax-display-scale']) {
       const value = root.getAttribute(name);
       if (value !== null) slot.setAttribute(name, value);
     }

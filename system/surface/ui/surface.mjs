@@ -20,6 +20,7 @@ import {
 import { resolveColorAppearance } from "../../services/preferences/color-palette.mjs";
 import { APPEARANCE_PREFERENCE_ID } from "../../services/preferences/appearance.mjs";
 import { COLOR_PALETTE_PREFERENCE_ID } from "../../services/preferences/color-palette.mjs";
+import { DISPLAY_SCALE_PREFERENCE_ID } from "../../services/preferences/display.mjs";
 import {
   createDesktopShellMarkup,
   mountDesktopClock,
@@ -836,6 +837,9 @@ export function mountSurface(
     root.dataset.ordaxMotion = state.preferences[ACCESSIBILITY_MOTION_PREFERENCE_ID];
     documentElement.dataset.ordaxTextScale =
       state.preferences[ACCESSIBILITY_TEXT_SCALE_PREFERENCE_ID];
+    documentElement.dataset.ordaxDisplayScale =
+      state.preferences[DISPLAY_SCALE_PREFERENCE_ID];
+    root.dataset.ordaxDisplayScale = state.preferences[DISPLAY_SCALE_PREFERENCE_ID];
     launcher.hidden = !state.launcherOpen;
     root.querySelectorAll("[data-launcher-toggle]").forEach(button => button.setAttribute("aria-expanded", String(state.launcherOpen)));
     root.querySelectorAll("[data-navigation-menu-toggle]").forEach(button => button.setAttribute("aria-expanded", String(!navigationMenu.hidden)));
@@ -1357,7 +1361,9 @@ export function mountSurface(
       delete root.dataset.ordaxTheme;
       delete root.dataset.ordaxContrast;
       delete root.dataset.ordaxMotion;
+      delete root.dataset.ordaxDisplayScale;
       delete documentElement.dataset.ordaxTextScale;
+      delete documentElement.dataset.ordaxDisplayScale;
       if (originalDocumentLanguage === null) {
         documentElement.removeAttribute("lang");
       } else {
