@@ -1,5 +1,6 @@
 // Localized shared presentation. No account, device or backend authority.
 import {translateSurfaceMessage} from '../../../services/i18n/surface.mjs';
+import {displayScalePreference} from '../../../services/preferences/display.mjs';
 
 
 export function createJourneyScenarios(locale='pt-BR') {
@@ -163,10 +164,14 @@ Object.assign(storyboards, {
             failed: problem(m("meridian.text.0505"), m("meridian.text.0506"), 'review'),
         } },
 });
+const displayScaleOptions = displayScalePreference.options.map(({value}) => [
+    value,
+    m(`settings.preference.display.option.${value}`),
+]);
 const settingsTopics = [
     { id: 'network', name: m("meridian.text.0507"), icon: 'wifi', detail: m("meridian.text.0508"), fields: [choice('network', m("meridian.text.0509"), [['studio', m("meridian.text.0510")], ['offline', m("meridian.text.0511")]], 'studio')] },
     { id: 'audio', name: m("meridian.text.0512"), icon: 'music', detail: m("meridian.text.0513"), fields: [choice('output', m("meridian.text.0514"), [['speakers', m("meridian.text.1051")], ['headset', m("meridian.text.0515")]], 'speakers')] },
-    { id: 'display', name: m("meridian.text.0873"), icon: 'desktop', detail: m("meridian.text.0874"), fields: [choice('scale', m("meridian.text.0875"), [['100', '100%'], ['125', '125%'], ['150', '150%']], '100')] },
+    { id: 'display', name: m("meridian.text.0873"), icon: 'desktop', detail: m("meridian.text.0874"), fields: [choice('scale', m("meridian.text.0875"), displayScaleOptions, displayScalePreference.defaultValue)] },
     { id: 'keyboard', name: m("meridian.text.0516"), icon: 'terminal', detail: m("meridian.text.0517"), fields: [choice('layout', m("meridian.text.1052"), [['abnt2', m("meridian.text.0043")], ['us', m("meridian.text.0915")]], 'abnt2'), choice('language', m("meridian.text.0041"), [['pt', m("meridian.text.0518")], ['en', m("meridian.text.1053")]], 'pt')] },
     { id: 'region', name: m("meridian.text.0519"), icon: 'clock', detail: m("meridian.text.0520"), fields: [choice('zone', m("meridian.text.0521"), [['bahia', "America/Bahia"], ['sp', "America/Sao_Paulo"]], 'bahia')] },
     { id: 'battery', name: m("meridian.text.0522"), icon: 'battery', detail: m("meridian.text.0523"), fields: [choice('battery', m("meridian.text.0524"), [['normal', m("meridian.text.1054")], ['low', m("meridian.text.1055")], ['charging', m("meridian.text.0525")], ['unknown', m("meridian.text.0526")]], 'normal'), choice('powerMode', m("meridian.text.0527"), [['balanced', m("meridian.text.0876")], ['saving', m("meridian.text.1056")], ['performance', m("meridian.text.1057")]], 'balanced')] },
