@@ -209,10 +209,13 @@ class SurfaceVisualIdentityTests(unittest.TestCase):
         self.assertEqual(hashlib.sha256(wallpaper).hexdigest(),
                          '805969ce2fb30001842a545c2dead4516285bcc4973a8673f66aa3599d2601ce')
         css = (SURFACE / 'identity.css').read_text(encoding='utf-8')
-        # The pinned historical artwork stays provenance-bound, while
-        # Meridian deliberately uses the single canonical field artwork.
-        self.assertIn('url("./brand/meridian-field.svg")', css)
-        self.assertNotIn('url("./brand/midnight-landscape.png")', css)
+        meridian = (SURFACE / 'meridian.css').read_text(encoding='utf-8')
+        # Identity owns the wallpaper consumer, while Meridian owns its single
+        # canonical resource token. Do not reintroduce a second paint owner.
+        self.assertIn('background:var(--md-desktop-wallpaper)', css)
+        self.assertNotIn('--md-desktop-wallpaper:', css)
+        self.assertIn('--md-desktop-wallpaper:url("./brand/meridian-field.svg");', meridian)
+        self.assertNotIn('url("./brand/midnight-landscape.png")', css + meridian)
         # Solid black is the opacity stop in dock mask-image gradients, not a
         # theme color. Keep the no-hardcoded-palette check on actual paint CSS.
         paint_css = re.sub(r'mask-image:\s*linear-gradient\([^;]*\);', '', css)
