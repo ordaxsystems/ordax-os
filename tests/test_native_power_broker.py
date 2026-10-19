@@ -19,10 +19,23 @@ class NativePowerBrokerTests(unittest.TestCase):
             request_path = Path(temporary) / "power-request"
             self.assertEqual(native_host.supported_power_actions(str(request_path)), ())
             os.mkfifo(request_path, 0o600)
-            self.assertEqual(
-                native_host.supported_power_actions(str(request_path)),
-                ("restart", "shutdown"),
-            )
+            # A stale FIFO without a broker reader must not advertise power.
+            self.assertEqual(native_host.supported_power_actions(str(request_path)), ())
+            reader = os.open(request_path, os.O_RDONLY | os.O_NONBLOCK)
+            try:
+                self.assertEqual(
+                    native_host.supported_power_actions(str(request_path)),
+                    ("restart", "shutdown"),
+                )
+                # Capability discovery is non-destructive and writes no action.
+                with self.assertRaises(BlockingIOError):
+                    os.read(reader, 64)
+            finally:
+                os.close(reader)
+            self.assertEqual(native_host.supported_power_actions(str(request_path)), ())
+            link = Path(temporary) / "linked-power-request"
+            link.symlink_to(request_path)
+            self.assertEqual(native_host.supported_power_actions(str(link)), ())
 
     def test_power_action_is_queued_to_fifo_not_executed_in_chroot(self):
         with tempfile.TemporaryDirectory() as temporary:
