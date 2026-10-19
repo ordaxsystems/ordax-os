@@ -61,7 +61,7 @@ export function listOsVersionDiffPaths(testedBase, {head='HEAD',cwd=process.cwd(
   const changed=execFileSync('git',[
     '-C',cwd,'diff','--no-renames','--name-only',testedBase,head,
   ],{encoding:'utf8',maxBuffer:8*1024*1024}).trim();
-  return changed ? changed.split('\\n').filter(Boolean) : [];
+  return changed ? changed.split('\n').filter(Boolean) : [];
 }
 
 export function readOsVersionAt(ref) {

@@ -69,7 +69,7 @@ test('moving a Native executable to docs never bypasses the OS SemVer gate',()=>
     git('config','user.name','Version Fixture');
     mkdirSync(join(worktree,'system','surface','bin'),{recursive:true});
     mkdirSync(join(worktree,'docs'),{recursive:true});
-    writeFileSync(join(worktree,'system','surface','bin','ordax-surface'),'#!/bin/sh\\nexit 0\\n');
+    writeFileSync(join(worktree,'system','surface','bin','ordax-surface'),'#!/bin/sh\nexit 0\n');
     git('add','.');
     git('commit','-qm','baseline executable');
     git('mv','system/surface/bin/ordax-surface','docs/ordax-surface');
