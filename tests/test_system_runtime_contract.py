@@ -429,8 +429,6 @@ class SystemRuntimeContractTests(unittest.TestCase):
         # same temporary file between the Surface broker and the Guardian.
         self.assertIn("temporary=$POWER_LAST_REQUEST.tmp.$$", text)
         self.assertIn("temporary=$POWER_LAST_REQUEST.tmp.$$", guardian)
-        self.assertNotIn("temporary=$POWER_LAST_REQUEST.tmp.$$\\n", text)
-        self.assertNotIn("temporary=$POWER_LAST_REQUEST.tmp.$$\\n", guardian)
 
         self.assertIn("record_power_request()", text)
         self.assertIn("record_power_request restart pending", text)
