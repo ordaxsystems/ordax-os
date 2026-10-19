@@ -22,7 +22,10 @@ export function mountDisplayOutputControls(container, {
   translate,
   port = null,
   mode = "native",
-  onExamples = null,
+  // This optional callback is consumed by the Web and Native settings
+  // journeys. Keep it typed as a function-or-null, not the literal null:
+  // otherwise the TSX Surface cannot provide its real navigation handler.
+  onExamples = /** @type {(() => void) | null} */ (null),
 } = {}) {
   if (!container || !documentObject || typeof translate !== "function") {
     throw new TypeError("Display output controls require a container, document, and translator");
