@@ -1,0 +1,68 @@
+import { execFileSync } from 'node:child_process';
+import { PRODUCT_VERSION } from '../../system/contracts/product-version.mjs';
+import {
+  assertProductVersionIdentity, assertVersionAdvance,
+} from '../../system/contracts/product-version-governance.mjs';
+
+// Product behavior, not tests/docs/build attestations. Existing independently
+// versioned app/component manifests remain their own authority.
+const RUNTIME_PREFIXES = Object.freeze([
+  'system/surface/','system/services/','system/adapters/','system/apps/',
+  'src/system/','bootstrap/','boot/','kernel/','initramfs/',
+]);
+const RUNTIME_EXCLUDED = /(?:^|\/)(?:tests?|__tests__|fixtures|docs)\//;
+const FILE_EXTENSION = /\.(?:mjs|js|cjs|ts|tsx|jsx|sh|py|c|h|rs|css|html|json)$/;
+
+export function osProductCodeChanged(paths) {
+  if (!Array.isArray(paths)) throw new TypeError('Changed paths must be an array');
+  return paths.some(path =>
+    typeof path === 'string' &&
+    RUNTIME_PREFIXES.some(prefix => path.startsWith(prefix)) &&
+    !RUNTIME_EXCLUDED.test(path) &&
+    FILE_EXTENSION.test(path)
+  );
+}
+
+export function verifyOsVersionChange({ previous, current, paths }) {
+  const changedRuntime = osProductCodeChanged(paths);
+  assertProductVersionIdentity(current);
+  if (changedRuntime) {
+    assertVersionAdvance(previous.semanticVersion, current.semanticVersion);
+  } else {
+    // Still deny downgrade or malformed channel on non-runtime PRs.
+    assertVersionAdvance(previous.semanticVersion, current.semanticVersion, {changedRuntime:false});
+  }
+  return Object.freeze({
+    changedRuntime, previousVersion:previous.semanticVersion,
+    currentVersion:current.semanticVersion,
+  });
+}
+
+function git(...args) {
+  return execFileSync('git', args,{encoding:'utf8',maxBuffer:8*1024*1024}).trim();
+}
+
+export function readOsVersionAt(ref) {
+  if (typeof ref !== 'string' || !/^[a-f0-9]{40}$/.test(ref)) {
+    throw new TypeError('A verified 40-character commit SHA is required');
+  }
+  const old=git('show',ref+':system/contracts/product-version.mjs');
+  const match=/semanticVersion:\s*["']([^"']+)["']/.exec(old);
+  const label=/displayVersion:\s*["']([^"']+)["']/.exec(old);
+  const stable=/stableRelease:\s*(true|false)/.exec(old);
+  if (!match || !label || !stable) throw new Error('Previous OS version contract cannot be parsed');
+  return {semanticVersion:match[1],displayVersion:label[1],stableRelease:stable[1]==='true'};
+}
+
+if (process.argv[1] && import.meta.url === new URL('file://'+process.argv[1]).href) {
+  const base=process.argv[2];
+  if (!base) {
+    assertProductVersionIdentity(PRODUCT_VERSION);
+    process.stdout.write('ORDAX_OS_VERSION_IDENTITY=PASS '+PRODUCT_VERSION.semanticVersion+'\n');
+  } else {
+    const previous=readOsVersionAt(base);
+    const paths=git('diff','--name-only',base,'HEAD').split('\n').filter(Boolean);
+    const result=verifyOsVersionChange({previous,current:PRODUCT_VERSION,paths});
+    process.stdout.write('ORDAX_OS_VERSION_CHANGE=PASS '+JSON.stringify(result)+'\n');
+  }
+}
