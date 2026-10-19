@@ -10,7 +10,6 @@ RELEASE_AGENT=/ordax/bootstrap/release-acquisition/ordax-release-agent
 RELEASE_TRUST=/ordax/bootstrap/trust/release-ed25519.json
 RELEASE_CHANNEL=/ordax/bootstrap/config/release-envelope-url
 PRODUCT_MODE_FILE=/ordax/bootstrap/config/product-mode
-ACCOUNT_GATEWAY_FILE=/ordax/bootstrap/config/account-gateway-origin
 RECOVERY_ENTRYPOINT=/ordax/bootstrap/recovery/entrypoint
 
 log() {
@@ -48,24 +47,6 @@ product_mode() {
     esac
 }
 
-account_gateway_base_url() {
-    [ -e "$ACCOUNT_GATEWAY_FILE" ] || return 1
-    [ -f "$ACCOUNT_GATEWAY_FILE" ] && [ ! -L "$ACCOUNT_GATEWAY_FILE" ] || return 1
-    value=$(/bin/busybox cat "$ACCOUNT_GATEWAY_FILE" 2>/dev/null || true)
-    case "$value" in
-        https://*) ;;
-        *) return 1 ;;
-    esac
-    remainder=${value#https://}
-    [ -n "$remainder" ] || return 1
-    case "$remainder" in
-        *\?*|*\#*|*@*|*[!A-Za-z0-9._:/-]*|*/) return 1 ;;
-    esac
-    authority=${remainder%%/*}
-    [ -n "$authority" ] || return 1
-    printf '%s' "$value"
-}
-
 current_release_sha() {
     [ -L /ordax/current ] || return 1
     target=$(/bin/busybox readlink /ordax/current 2>/dev/null || true)
@@ -97,13 +78,12 @@ boot_current() {
     verified_sha=$(current_release_sha) || recovery "verified current identity is invalid"
     [ "$verified_sha" = "$source_sha" ] || recovery "current release changed during verification"
     mode=$(product_mode) || recovery "product mode identity is missing or invalid"
-    gateway_origin=$(account_gateway_base_url || true)
-    if [ -n "$gateway_origin" ]; then
-        ORDAX_ACCOUNT_GATEWAY_ORIGIN=$gateway_origin
-        export ORDAX_ACCOUNT_GATEWAY_ORIGIN
-    else
-        unset ORDAX_ACCOUNT_GATEWAY_ORIGIN
-    fi
+    # Account identity is pinned to the EXACT verified release's
+    # system/services/account/gateway-base-url. An optional mutable
+    # bootstrap-file origin must not override that trusted destination or
+    # silently keep sending credentials to a retired identity provider.
+    # The Native Surface loads the signed configuration, fail-soft/offline.
+    unset ORDAX_ACCOUNT_GATEWAY_ORIGIN
     log "booting current verified release without requiring network"
     ORDAX_DISTRIBUTION_PROFILE=stable-mvp \
     ORDAX_PRODUCT_MODE="$mode" \
