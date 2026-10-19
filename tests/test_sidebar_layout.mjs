@@ -177,6 +177,30 @@ test("Web and Native taskbars share one Meridian frame and dock glyph scale", as
   assert.ok(nativeStyles.includes("var(--md-dock-glyph-size)"));
   assert.ok(webStyles.includes("var(--md-dock-glyph-size)"));
 });
+test("Web and Native windows share the Meridian chrome and titlebar control scale", async () => {
+  const [tokens, sharedStyles, nativeStyles, webStyles, webWindowLayer, nativeWindowMarkup] = await Promise.all([
+    readFile(new URL("../system/surface/ui/meridian.tokens.css", import.meta.url), "utf8"),
+    readFile(new URL("../system/surface/ui/meridian.css", import.meta.url), "utf8"),
+    readFile(new URL("../system/surface/ui/surface.css", import.meta.url), "utf8"),
+    readFile(new URL("../system/surface/workspace/components/central/styles.css", import.meta.url), "utf8"),
+    readFile(new URL("../system/surface/workspace/components/central/window-layer.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../system/surface/ui/surface.mjs", import.meta.url), "utf8"),
+  ]);
+  assert.ok(tokens.includes("--ordax-window-titlebar-height:3.375rem"));
+  assert.ok(tokens.includes("--ordax-window-control-size:2.75rem"));
+  assert.ok(tokens.includes("--ordax-window-mark-size:2.125rem"));
+  assert.ok(sharedStyles.includes(":is(.workspace-window,.ordax-window)"));
+  assert.ok(sharedStyles.includes('[data-active="false"] {opacity:1'));
+  assert.ok(sharedStyles.includes(':is([data-maximized="true"],[data-mode="maximized"])'));
+  assert.ok(sharedStyles.includes(":is(.desktop-titlebar,.ordax-window-titlebar)"));
+  assert.ok(sharedStyles.includes("var(--ordax-window-control-size)"));
+  assert.ok(sharedStyles.includes("var(--md-window-title-size)"));
+  assert.ok(webWindowLayer.includes('className="desktop-window-mark"'));
+  assert.ok(nativeWindowMarkup.includes('element("header", "ordax-window-titlebar")'));
+  assert.ok(nativeStyles.includes("width: var(--ordax-window-control-size, 2rem)"));
+  assert.doesNotMatch(webStyles, /\.workspace-window \.desktop-titlebar \{ height: 48px/);
+  assert.doesNotMatch(webStyles, /\.workspace-window \.desktop-window-controls button \{ width: 44px/);
+});
 test("equivalent desktop shortcuts share Meridian identity colors without removing Web destinations", async () => {
   const [tokens, webDesktop, webConfig, nativeShell, shortcutCatalog] = await Promise.all([
     readFile(new URL("../system/surface/ui/meridian.css", import.meta.url), "utf8"),

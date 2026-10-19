@@ -50,8 +50,21 @@
 [data-meridian] :is(.os-nav-item,.ordax-rail-button):hover {background:var(--md-rail-selected);color:var(--md-rail-text);}
 [data-meridian] :is(.os-nav-item,.ordax-rail-button) svg {fill:none;stroke-width:1.65;}
 [data-meridian] .desktop-titlebar {background:var(--md-subtle);border-bottom:1px solid var(--md-border);}
-[data-meridian] .workspace-window[data-active="true"] .desktop-titlebar {background:var(--md-chrome-active);}
-[data-meridian] .workspace-window {background:var(--md-surface);border-color:var(--md-window-edge);box-shadow:var(--md-window-shadow);border-radius:14px;}
+[data-meridian] :is(.workspace-window,.ordax-window) {background:var(--md-surface);border-color:var(--md-window-edge);box-shadow:var(--md-window-shadow);border-radius:var(--md-window-radius);}
+[data-meridian] :is(.workspace-window,.ordax-window)[data-active="false"] {opacity:1;border-color:var(--md-border);box-shadow:var(--md-window-shadow);}
+[data-meridian] :is(.workspace-window,.ordax-window)[data-active="true"] {border-color:color-mix(in srgb,var(--md-accent) 42%,var(--md-border));box-shadow:var(--md-window-shadow),var(--md-shadow-small);}
+[data-meridian] :is(.workspace-window,.ordax-window):is([data-maximized="true"],[data-mode="maximized"]) {border:0;border-radius:0;box-shadow:none;}
+[data-meridian] :is(.workspace-window,.ordax-window) :is(.desktop-titlebar,.ordax-window-titlebar) {box-sizing:border-box;height:var(--ordax-window-titlebar-height);min-height:var(--ordax-window-titlebar-height);padding:var(--ordax-window-titlebar-padding);background:var(--md-subtle);border-bottom:1px solid var(--md-border);}
+[data-meridian] :is(.workspace-window,.ordax-window)[data-active="true"] :is(.desktop-titlebar,.ordax-window-titlebar) {background:var(--md-chrome-active);}
+[data-meridian] :is(.desktop-window-mark,.ordax-app-mark) {display:grid;place-items:center;width:var(--ordax-window-mark-size);height:var(--ordax-window-mark-size);flex:0 0 var(--ordax-window-mark-size);border:1px solid var(--md-border);border-radius:var(--md-radius-small);background:var(--md-subtle);color:var(--md-accent);}
+[data-meridian] .desktop-window-mark svg {width:var(--md-dock-glyph-size);height:var(--md-dock-glyph-size);}
+[data-meridian] .desktop-window-title {align-items:center;gap:var(--md-space-2);color:var(--md-ink);font-size:var(--md-window-title-size);font-weight:560;}
+[data-meridian] .ordax-window-title-group strong {font-size:var(--md-window-title-size);font-weight:560;}
+[data-meridian] .ordax-window-title-group small {font-size:var(--md-window-subtitle-size);}
+[data-meridian] :is(.ordax-window-control,.workspace-window .desktop-window-controls button) {display:grid;place-items:center;width:var(--ordax-window-control-size);min-width:var(--ordax-window-control-size);height:var(--ordax-window-control-size);border-radius:var(--md-radius-small);}
+[data-meridian] :is(.ordax-window-control,.workspace-window .desktop-window-controls button) svg {width:var(--md-window-control-glyph-size);height:var(--md-window-control-glyph-size);}
+[data-meridian] :is(.ordax-window-control,.workspace-window .desktop-window-controls button):focus-visible {outline:2px solid var(--md-focus);outline-offset:1px;}
+[data-meridian] :is(.ordax-window-close,.workspace-window .window-close):is(:hover,:focus-visible) {background:var(--md-danger-soft);color:var(--md-danger);}
 [data-meridian] .workspace-navigation {border-top:1px solid var(--md-border);}
 [data-meridian] .desktop-task {border-radius:9px;}
 [data-meridian] .desktop-task[data-active="true"] {box-shadow:inset 0 -3px var(--md-accent);}

@@ -98,6 +98,11 @@ horizontal inset and dock glyph size. Host styles retain only their own
 responsive breakpoints and platform-specific controls, so visual geometry is
 consistent while available system actions remain truthful to each host.
 
+Desktop window chrome (2026-10-19): Web and Native application windows share
+the Meridian frame, active-state treatment, titlebar height and insets, app-mark
+tile, title typography and control targets. Window placement and available
+window actions remain owned by each host.
+
 Native Central home layout correction (2026-10-18): the persistent local-space
 card remains in the secondary column at desktop widths, while capability-backed
 continuation and pending-service cards occupy successive rows in the main column.
