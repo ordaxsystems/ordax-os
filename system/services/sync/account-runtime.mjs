@@ -246,7 +246,11 @@ export function createAccountSyncRuntime({
   let retryRequested = false;
   let lastPreferenceFingerprint = fingerprint(portablePreferences(preferencePort.getSnapshot()));
   let lastWorkspaceFingerprint = fingerprint(workspaceSource.getSnapshot());
-  let lastIdentitySubject = null;
+  // Seed from the authoritative snapshot: some identity ports subscribe only
+  // to future changes instead of emitting the initial state synchronously.
+  const initialIdentity = identity.getSnapshot();
+  let lastIdentitySubject = initialIdentity.state === "signed-in"
+    ? initialIdentity.subjectId : null;
 
   const persistPortablePending = () => {
     if (syncStateRegistry === null || pendingOwner === null) return true;
