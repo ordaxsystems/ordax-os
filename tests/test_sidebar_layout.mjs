@@ -526,3 +526,15 @@ test("Store removes its duplicate page header and keeps the catalog switch in wi
   assert.match(experience, /toggle\.remove\(\)/);
   assert.match(styles, /\.ordax-store-window-action/);
 });
+
+
+test("Native state projection synchronizes root and Meridian shell for both presentations", async () => {
+  const [runtime,markup,styles]=await Promise.all([
+    readFile(new URL("../system/surface/ui/surface.mjs",import.meta.url),"utf8"),
+    readFile(new URL("../system/surface/ui/desktop-shell.mjs",import.meta.url),"utf8"),
+    readFile(new URL("../system/surface/ui/identity.css",import.meta.url),"utf8"),
+  ]);
+  assert.ok(markup.includes('data-ordax-shell data-meridian-native data-view="central"'),"Native starts in Central");
+  assert.match(runtime,/root\.dataset\.view = state\.presentation;\s*\/\/[^\n]*\n\s*root\.querySelector\("\[data-ordax-shell\]"\)\.dataset\.view = state\.presentation;/);
+  assert.ok(styles.includes('.ordax-shell.meridian-native-workspace[data-view="desktop"]'),"Desktop CSS derives its rail state from shell data-view");
+});
