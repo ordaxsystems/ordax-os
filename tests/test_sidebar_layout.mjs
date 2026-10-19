@@ -110,6 +110,7 @@ test("Web and Native desktop shortcuts share Meridian geometry tokens", async ()
     "--md-desktop-shortcut-label-size:.6875rem;",
     "--md-desktop-shortcut-label-weight:500;",
     "--md-desktop-shortcut-label-leading:1.2;",
+    "--md-desktop-shortcut-label-lines:2;",
     "--md-desktop-shortcut-icon-shadow:0 2px 8px rgb(21 35 29 / 15%);",
     "--md-desktop-shortcut-label-shadow:0 1px 3px rgb(20 36 29 / 60%);",
   ]) assert.ok(tokens.includes(definition), `${definition} is owned by the shared Meridian tokens`);
@@ -123,8 +124,10 @@ test("Web and Native desktop shortcuts share Meridian geometry tokens", async ()
   ]) assert.ok(meridianStyles.includes(definition), "Shared Meridian layout is missing " + definition);  assert.ok(meridianStyles.includes(".ordax-desktop-shortcuts,.desktop-shortcuts"));
   assert.ok(meridianStyles.includes("repeat(auto-fill,var(--md-desktop-shortcut-cell))"), "available height determines the shared row count");
   assert.ok(meridianStyles.includes("--md-desktop-shortcut-cell:5rem"), "narrow workspace sizing is shared by both hosts");
+  assert.ok(meridianStyles.includes("-webkit-line-clamp:var(--md-desktop-shortcut-label-lines)"), "long shortcut labels stay within two lines in both hosts");
   assert.ok(nativeShell.includes('class="ordax-desktop-shortcuts"'));
   assert.ok(webDesktop.includes('className="desktop-shortcuts"'));
+  assert.ok(webDesktop.includes("title={item.name}"), "truncated Web labels retain a full-name tooltip");
   assert.ok(nativeEntry.includes('href="../../surface/ui/meridian.css"'));
   assert.ok(webEntry.includes("../../surface/ui/meridian.css"));
   assert.doesNotMatch(nativeStyles, /\.ordax-desktop-shortcuts\s*\{/);
@@ -142,9 +145,8 @@ test("Web and Native desktop canvas share the Meridian wallpaper and contrast pr
     readFile(new URL("../system/composition/web/main.tsx", import.meta.url), "utf8"),
   ]);
   assert.ok(sharedMeridianStyles.includes('--md-desktop-wallpaper:url("./brand/meridian-field.svg")'));
-  assert.ok(sharedMeridianStyles.includes(".classic-desktop::before"));
-  assert.ok(sharedMeridianStyles.includes(".ordax-workspace::before"));
-  assert.ok(nativeStyles.includes("background:var(--md-desktop-wallpaper) center / cover no-repeat"));
+  assert.ok(sharedMeridianStyles.includes(":is(.classic-desktop,.ordax-workspace)::before"));
+  assert.doesNotMatch(nativeStyles, /\.ordax-workspace::before\s*\{/);
   assert.ok(sharedMeridianStyles.includes("opacity:var(--ordax-wallpaper-opacity,1)"));
   assert.ok(sharedMeridianStyles.includes('[data-ordax-contrast="high"] :is(.ordax-desktop-shortcut,.desktop-shortcut)'));
   assert.ok(tokens.includes("[data-ordax-contrast=\"high\"]"));
@@ -174,8 +176,61 @@ test("Web and Native taskbars share one Meridian frame and dock glyph scale", as
   assert.ok(webNavigation.includes('className="desktop-taskbar workspace-navigation meridian-taskbar"'));
   assert.doesNotMatch(nativeStyles, /\.meridian-native-workspace \.ordax-statusbar \{\s*display:grid;\s*grid-template-columns/);
   assert.doesNotMatch(webStyles, /\.meridian-workspace \.meridian-taskbar \{display:grid;grid-template-columns/);
-  assert.ok(nativeStyles.includes("var(--md-dock-glyph-size)"));
-  assert.ok(webStyles.includes("var(--md-dock-glyph-size)"));
+  assert.ok(sharedStyles.includes("var(--md-dock-glyph-size)"));
+  assert.doesNotMatch(nativeStyles, /\.ordax-running-app \.ordax-rail-icon svg \{ width:/);
+  assert.doesNotMatch(webStyles, /\.meridian-dock \.app-icon svg \{width:/);
+});
+test("Web and Native dock items share Meridian geometry and open, active, and minimized states", async () => {
+  const [sharedStyles, nativeStyles, webStyles, nativeRuntime] = await Promise.all([
+    readFile(new URL("../system/surface/ui/meridian.css", import.meta.url), "utf8"),
+    readFile(new URL("../system/surface/ui/identity.css", import.meta.url), "utf8"),
+    readFile(new URL("../system/surface/workspace/components/central/meridian.css", import.meta.url), "utf8"),
+    readFile(new URL("../system/surface/ui/surface.mjs", import.meta.url), "utf8"),
+  ]);
+  assert.ok(sharedStyles.includes(":is(.ordax-dock-shortcut,.ordax-running-app,.desktop-task)"));
+  assert.ok(sharedStyles.includes("var(--md-dock-control-size)"));
+  assert.ok(sharedStyles.includes("[data-active=\"true\"]::after"));
+  assert.ok(sharedStyles.includes("[data-minimized=\"true\"]::after"));
+  assert.ok(nativeRuntime.includes("button.dataset.minimized = String(windowState.minimized)"));
+  assert.doesNotMatch(nativeStyles, /\.meridian-dock-shortcuts \.ordax-dock-shortcut \{ display:grid/);
+  assert.doesNotMatch(nativeStyles, /\.ordax-running-app \{ display:grid/);
+  assert.doesNotMatch(webStyles, /\.meridian-dock \.desktop-task \{display:grid/);
+});
+test("Web and Native taskbar controls share Meridian focus, hover, and accurate pressed states", async () => {
+  const [sharedStyles, nativeStyles, webStyles] = await Promise.all([
+    readFile(new URL("../system/surface/ui/meridian.css", import.meta.url), "utf8"),
+    readFile(new URL("../system/surface/ui/identity.css", import.meta.url), "utf8"),
+    readFile(new URL("../system/surface/workspace/components/central/meridian.css", import.meta.url), "utf8"),
+  ]);
+  assert.ok(sharedStyles.includes("[data-workspace-switch],[data-presentation-toggle])[aria-pressed=\"true\"]"));
+  assert.ok(sharedStyles.includes(".meridian-taskbar button:focus-visible"));
+  assert.ok(sharedStyles.includes(".ordax-tray-item[aria-expanded=\"true\"]"));
+  assert.doesNotMatch(nativeStyles, /\.ordax-presentation-toggle\[aria-pressed="true"\]/);
+  assert.doesNotMatch(webStyles, /\.meridian-taskbar-start \[data-workspace-switch\] \{background:/);
+});
+test("Web and Native windows share the Meridian chrome and titlebar control scale", async () => {
+  const [tokens, sharedStyles, nativeStyles, webStyles, webWindowLayer, nativeWindowMarkup] = await Promise.all([
+    readFile(new URL("../system/surface/ui/meridian.tokens.css", import.meta.url), "utf8"),
+    readFile(new URL("../system/surface/ui/meridian.css", import.meta.url), "utf8"),
+    readFile(new URL("../system/surface/ui/surface.css", import.meta.url), "utf8"),
+    readFile(new URL("../system/surface/workspace/components/central/styles.css", import.meta.url), "utf8"),
+    readFile(new URL("../system/surface/workspace/components/central/window-layer.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../system/surface/ui/surface.mjs", import.meta.url), "utf8"),
+  ]);
+  assert.ok(tokens.includes("--ordax-window-titlebar-height:3.375rem"));
+  assert.ok(tokens.includes("--ordax-window-control-size:2.75rem"));
+  assert.ok(tokens.includes("--ordax-window-mark-size:2.125rem"));
+  assert.ok(sharedStyles.includes(":is(.workspace-window,.ordax-window)"));
+  assert.ok(sharedStyles.includes('[data-active="false"] {opacity:1'));
+  assert.ok(sharedStyles.includes(':is([data-maximized="true"],[data-mode="maximized"])'));
+  assert.ok(sharedStyles.includes(":is(.desktop-titlebar,.ordax-window-titlebar)"));
+  assert.ok(sharedStyles.includes("var(--ordax-window-control-size)"));
+  assert.ok(sharedStyles.includes("var(--md-window-title-size)"));
+  assert.ok(webWindowLayer.includes('className="desktop-window-mark"'));
+  assert.ok(nativeWindowMarkup.includes('element("header", "ordax-window-titlebar")'));
+  assert.ok(nativeStyles.includes("width: var(--ordax-window-control-size, 2rem)"));
+  assert.doesNotMatch(webStyles, /\.workspace-window \.desktop-titlebar \{ height: 48px/);
+  assert.doesNotMatch(webStyles, /\.workspace-window \.desktop-window-controls button \{ width: 44px/);
 });
 test("equivalent desktop shortcuts share Meridian identity colors without removing Web destinations", async () => {
   const [tokens, webDesktop, webConfig, nativeShell, shortcutCatalog] = await Promise.all([

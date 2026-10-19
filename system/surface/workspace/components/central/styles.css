@@ -316,10 +316,8 @@
 .window-workspace[data-view="desktop"] .workspace-window[data-mode="normal"] { width: min(690px, calc(100% - 40px)); height: min(470px, calc(100% - var(--desktop-top-height) - 24px)); }
 .window-workspace .workspace-window[data-mode="compact"] { grid-row: 2; grid-column: var(--compact-column,1); position: relative; inset: auto; min-width: 0; margin: 8px 0; width: auto; height: auto; container-type: inline-size; }
 
-.workspace-window .desktop-titlebar { height: 48px; min-height: 48px; padding-inline: 12px 4px; }
 .workspace-window .desktop-window-title { overflow: hidden; }
-.workspace-window .desktop-window-title > span { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-.workspace-window .desktop-window-controls button { width: 44px; height: 44px; }
+.workspace-window .desktop-window-title > span:not(.desktop-window-mark) { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .workspace-window .desktop-window-body { min-height: 0; overscroll-behavior: contain; }
 .workspace-window:focus { outline: none; }
 .workspace-window:focus-visible { outline: 2px solid var(--muted-foreground); outline-offset: -2px; }
@@ -336,13 +334,12 @@
   .window-workspace .workspace-window[data-mode="compact"] { margin: 0; border-radius: 8px 8px 0 0; }
   .workspace-window .desktop-window-body { padding: 16px; }
   .workspace-window .desktop-window-title { gap: 6px; }
-  .workspace-window .desktop-window-title > svg { display: none; }
+  .workspace-window .desktop-window-title > .desktop-window-mark { display: none; }
 }
 
 /* One bottom navigation track in both presentations; launcher and toggle never move. */
 .window-workspace .workspace-navigation { grid-row: 3; position: relative; inset: auto; height: 100%; padding-bottom: env(safe-area-inset-bottom); z-index: 50; border: 0; background: var(--card); backdrop-filter: none; box-shadow: none; }
 .workspace-navigation .desktop-start-button { flex-shrink: 0; }
-.workspace-navigation .desktop-task { min-width: 44px; height: var(--dock-control-height); }
 .workspace-navigation .workspace-view-toggle { width: 44px; height: var(--dock-control-height); flex-shrink: 0; }
 .workspace-navigation .workspace-view-toggle[aria-pressed="true"] { background: var(--accent); color: var(--accent-foreground); }
 .window-workspace .desktop-start-menu { z-index: 52; left: calc(var(--workspace-rail) + 10px); width: min(390px,calc(100% - var(--workspace-rail) - 20px)); bottom: calc(var(--running-track) + 10px); }
@@ -367,8 +364,6 @@
   .workspace-sidebar .os-nav-item { justify-content: center; width: 100%; padding: 0; }
   .window-workspace .desktop-topbar { padding-inline: 8px; }
   .desktop-topbar .brand-name { display: none; }
-  .workspace-navigation .desktop-task { width: auto; max-width: 120px; padding-inline: 8px; }
-  .workspace-navigation .desktop-task span { display: inline; max-width: 80px; }
 }
 
 @media (max-height: 280px) { .window-workspace { --sidebar-top-gap: 8px; } .window-workspace { --sidebar-row-gap: 4px; } .window-workspace .workspace-sidebar { padding-bottom: 8px; } }
@@ -626,7 +621,7 @@
 .compact-actions-menu { z-index: 60; }
 .workspace-window[data-mode="compact"] .desktop-titlebar { height: 40px; min-height: 40px; padding: 4px 8px; gap: 8px; }
 .workspace-window[data-mode="compact"] .desktop-window-title { flex: 1; min-width: 0; }
-.workspace-window[data-mode="compact"] .desktop-window-title > svg { display: none; }
+.workspace-window[data-mode="compact"] .desktop-window-title > .desktop-window-mark { display: none; }
 .workspace-window[data-mode="compact"] .desktop-window-controls,
 .workspace-window[data-mode="compact"] .window-secondary-actions { gap: 6px; flex-shrink: 0; }
 .workspace-window[data-mode="compact"] .desktop-window-controls button { width: 28px; min-width: 28px; height: 28px; padding: 0; border-radius: 5px; }
@@ -646,14 +641,6 @@
   .desktop-window-body .aura-search input { flex: 1 1 100%; width: 100%; }
   .desktop-window-body .aura-search .aura-star { display: none; }
 }
-
-/* Running apps retain a distinct minimized marker without dimming their labels. */
-.workspace-navigation .desktop-task span { white-space: nowrap; }
-.workspace-navigation .desktop-task[data-minimized="true"]::after { width: 6px; height: 3px; left: calc(50% - 3px); }
-
-/* Collapse task labels only when their measured row would exceed available width. */
-.workspace-navigation .desktop-running-apps[data-labels="hidden"] .desktop-task { width: 44px; justify-content: center; }
-.workspace-navigation .desktop-running-apps[data-labels="hidden"] .desktop-task > span { display: none; }
 
 /* Service state uses the same bounded cards and theme tokens as the layout. */
 .service-state { margin: 8px 0; color: var(--muted-foreground); font-size: 0.6875rem; line-height: 1.5; overflow-wrap: anywhere; }
@@ -706,7 +693,7 @@
   .workspace-window[data-mode="compact"] .desktop-titlebar { height: 48px; min-height: 48px; padding: 2px 8px; }
   .workspace-window[data-mode="compact"] .window-secondary-actions { display: none; }
   .workspace-window[data-mode="compact"] .compact-actions-overflow { display: flex; }
-  .workspace-window[data-mode="compact"] .desktop-window-controls button { width: 44px; min-width: 44px; height: 44px; }
+  .workspace-window[data-mode="compact"] .desktop-window-controls button { width: var(--ordax-window-control-size); min-width: var(--ordax-window-control-size); height: var(--ordax-window-control-size); }
   .workspace-window[data-mode="compact"] .desktop-window-title[data-switchable="true"] > span { display: none; }
   .compact-window-switcher { display: block; width: 100%; min-width: 0; max-width: 100%; height: 44px; padding: 0 6px; border: 1px solid var(--border); border-radius: 5px; background: var(--card); color: var(--foreground); font: inherit; }
 }
