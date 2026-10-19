@@ -240,6 +240,25 @@ class NativeNetworkManagementTests(unittest.TestCase):
         self.assertIn('wifi-tools-unavailable', broker)
         self.assertIn('timeout -k 1 8 "$UDHCPC_BIN"', broker)
 
+    def test_wired_carrier_is_read_only_after_interface_is_raised(self):
+        # A DOWN NIC can expose an unreadable or 0 carrier. Skipping it
+        # before 'ip link set up' strands wired NAT/USB tether indefinitely.
+        broker = BROKER.read_text(encoding="utf-8")
+        cli = BOOT_NETWORK.read_text(encoding="utf-8")
+        broker_wired = broker.split("restore_wired_network_if_needed() {", 1)[1].split("\n}\n", 1)[0]
+        cli_wired = cli.split("# Only Ethernet-like", 1)[1].split('wifi=""', 1)[0]
+        for name, block, up in (
+            ("native-broker", broker_wired, '"$IP_BIN" link set "$iface" up'),
+            ("dev-base-cli", cli_wired, 'ip link set "$iface" up'),
+        ):
+            with self.subTest(owner=name):
+                self.assertIn('[ "$net_type" = 1 ] || continue', block)
+                self.assertIn('[ -d "$netpath/wireless" ] && continue', block)
+                self.assertIn('[ "$carrier" = 1 ] || continue', block)
+                self.assertLess(block.index('[ "$net_type" = 1 ] || continue'), block.index(up))
+                self.assertLess(block.index(up), block.index('if [ -r "$netpath/carrier" ]; then'))
+                self.assertLess(block.index('[ "$carrier" = 1 ] || continue'), block.index('if try_dhcp "$iface"; then'))
+
     def test_manual_disconnect_remains_paused_and_saved_network_is_never_deleted(self):
         broker = BROKER.read_text(encoding="utf-8")
         disconnect = broker.split("        disconnect)", 1)[1].split("        forget)", 1)[0]
