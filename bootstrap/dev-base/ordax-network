@@ -6,7 +6,7 @@ export PATH
 
 STATE_DIR=/state/network
 WPA_CONF=$STATE_DIR/wpa.conf
-CANDIDATE_CONF=/run/ordax-wpa-candidate.conf
+CANDIDATE_CONF=$STATE_DIR/wpa.conf.candidate.$$
 SCAN_FILE=/run/ordax-wifi-scan.tsv
 SSID_FILE=/run/ordax-wifi-ssids
 WPA_CTRL_DIR=/run/ordax-wpa-supplicant
@@ -20,7 +20,9 @@ GIT_PROBE_TIMEOUT=${ORDAX_GIT_PROBE_TIMEOUT_SECONDS:-8}
 DHCP_TIMEOUT=${ORDAX_DHCP_TIMEOUT_SECONDS:-6}
 WIFI_LINK_TIMEOUT=${ORDAX_WIFI_LINK_TIMEOUT_SECONDS:-8}
 WIFI_SETUP_ATTEMPTS=${ORDAX_WIFI_SETUP_ATTEMPTS:-3}
+umask 077
 mkdir -p "$STATE_DIR" /run
+chmod 700 "$STATE_DIR"
 
 normalize_timeout() {
     value=$1
@@ -529,7 +531,14 @@ while [ "$setup_attempt" -le "$WIFI_SETUP_ATTEMPTS" ]; do
     unset password
 
     if connect_wifi_conf "$CANDIDATE_CONF"; then
-        mv "$CANDIDATE_CONF" "$WPA_CONF"
+        # Candidate and live WPA configuration must reside on the SAME
+        # persistent filesystem. The old /run -> /state move was a copy,
+        # not an atomic commit, and could lose the saved network on reboot.
+        if ! mv -f "$CANDIDATE_CONF" "$WPA_CONF" ||
+           ! /bin/busybox sync; then
+            echo "ordax-network: Wi-Fi autenticado, mas credencial nao foi confirmada no armazenamento" >&2
+            exit 1
+        fi
         finish_network "$wifi"
         exit 0
     fi
