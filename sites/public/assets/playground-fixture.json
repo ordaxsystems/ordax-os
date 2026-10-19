@@ -337,11 +337,11 @@
       },
       {
         "path": "system/surface/ui/meridian.css",
-        "sha256": "7bd0025612df64430ba5e5d9ca128f2b597a72be763ceadb6c9d72e7cbeeb9c7"
+        "sha256": "79957689e0ca232423a842b62ee235b8e1429ceff704ae0922e4e99339e813fa"
       },
       {
         "path": "system/surface/ui/meridian.tokens.css",
-        "sha256": "00ea73b5f20e639febe570a89021de852620806bd51ca0172a297eb7cf34c8f4"
+        "sha256": "6a8f379b2cb63aaa766692d1bdb37b0ddd0edfff4f721d66392f9eba873e0850"
       },
       {
         "path": "system/surface/ui/meridian/icons.mjs",
@@ -413,7 +413,7 @@
       },
       {
         "path": "system/surface/workspace/components/central/meridian.css",
-        "sha256": "28a67743771caf4b9483ca409563ad90936d31cbef87e027f549069abe249d45"
+        "sha256": "0639bbe1295d7decc6a84ce502c7be26b8b0a3e754f2f44b3820fedf197da3ed"
       },
       {
         "path": "system/surface/workspace/components/central/primitives.tsx",
@@ -441,7 +441,7 @@
       },
       {
         "path": "system/surface/workspace/components/central/styles.css",
-        "sha256": "b4ce316c120f1545c16cc0f1a0b8a7c7f941248266a951a8780a315a853ae342"
+        "sha256": "32647287be52b01103bdf9288c9bba3c942d9180517457fdaa3d6510e3a105d1"
       },
       {
         "path": "system/surface/workspace/components/store/catalog-context.tsx",
@@ -472,6 +472,6 @@
         "sha256": "32fcfaad07deaee9a72391669c3bb285444c9c7a5ba339e66d51278c0d6daffe"
       }
     ],
-    "cssSha256": "5b4a7585bf3636a3c8499aad59df37c0aa7bb4ddb0d7fdc07a78bad554b9bc97"
+    "cssSha256": "41f11ba36799bf2a403fc8410bfca4792fba2634d958745bf879728d58be1e8b"
   }
 }
