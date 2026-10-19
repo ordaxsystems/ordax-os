@@ -28,8 +28,7 @@ class NativePowerBrokerTests(unittest.TestCase):
                     ("restart", "shutdown"),
                 )
                 # Capability discovery is non-destructive and writes no action.
-                with self.assertRaises(BlockingIOError):
-                    os.read(reader, 64)
+                self.assertEqual(os.read(reader, 64), b"")
             finally:
                 os.close(reader)
             self.assertEqual(native_host.supported_power_actions(str(request_path)), ())
