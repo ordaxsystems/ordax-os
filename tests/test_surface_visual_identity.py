@@ -212,11 +212,13 @@ class SurfaceVisualIdentityTests(unittest.TestCase):
                          '805969ce2fb30001842a545c2dead4516285bcc4973a8673f66aa3599d2601ce')
         css = (SURFACE / 'identity.css').read_text(encoding='utf-8')
         meridian = (SURFACE / 'meridian.css').read_text(encoding='utf-8')
-        # Identity owns the wallpaper consumer, while Meridian owns its single
-        # canonical resource token. Do not reintroduce a second paint owner.
-        self.assertIn('background:var(--md-desktop-wallpaper)', css)
+        # Meridian owns the wallpaper resource and paint layer. Identity must
+        # not duplicate either; Native and Web consume the same ::before rule.
+        self.assertNotIn('background:var(--md-desktop-wallpaper)', css)
         self.assertNotIn('--md-desktop-wallpaper:', css)
         self.assertIn('--md-desktop-wallpaper:url("./brand/meridian-field.svg");', meridian)
+        self.assertIn('[data-meridian] :is(.classic-desktop,.ordax-workspace)::before', meridian)
+        self.assertIn('background:var(--md-desktop-wallpaper) center/cover no-repeat;', meridian)
         self.assertNotIn('url("./brand/midnight-landscape.png")', css + meridian)
         # Solid black is the opacity stop in dock mask-image gradients, not a
         # theme color. Keep the no-hardcoded-palette check on actual paint CSS.
