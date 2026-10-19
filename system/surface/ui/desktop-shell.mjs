@@ -7,6 +7,7 @@ import {
   REGIONAL_LOCALE_PREFERENCE_ID,
   REGIONAL_TIME_ZONE_PREFERENCE_ID,
 } from "../../services/preferences/regional.mjs";
+import { listSurfaceShortcutAppIds } from "../../services/surface/shortcut-catalog.mjs";
 import { MERIDIAN_RAIL_DESTINATIONS } from "../../services/surface/meridian-navigation.mjs";
 
 export function syncDesktopPresentationToggle(button, presentation, localization) {
@@ -34,8 +35,9 @@ export function syncDesktopThemeToggle(button, appearance, localization) {
 
 const SURFACE_LOCALE = "pt-BR";
 const SURFACE_TIME_ZONE = "America/Bahia";
-const QUICK_ACCESS_APP_IDS = Object.freeze(["studio", "files", "settings"]);
-const DOCK_PINNED_APP_IDS = Object.freeze(["studio", "files", "store", "account", "settings", "system"]);
+const CENTRAL_QUICK_ACCESS_APP_IDS = listSurfaceShortcutAppIds("central");
+const DESKTOP_SHORTCUT_APP_IDS = listSurfaceShortcutAppIds("desktop");
+const DOCK_PINNED_APP_IDS = listSurfaceShortcutAppIds("dock");
 
 const ICONS = Object.freeze({
   presentation: `<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>`,
@@ -212,7 +214,7 @@ export function createDesktopShellMarkup(localization) {
             <section class="ordax-home-actions" aria-labelledby="ordax-home-actions-title">
               <p id="ordax-home-actions-title" class="ordax-section-kicker">${t("shell.home.quickAccess")}</p>
               <div class="ordax-home-action-grid">
-                ${QUICK_ACCESS_APP_IDS.map((id) => railButton(id, t(`app.${id}.title`), ICONS[id], t, "ordax-home-action")).join("")}
+                ${CENTRAL_QUICK_ACCESS_APP_IDS.map((id) => railButton(id, t(`app.${id}.title`), ICONS[id], t, "ordax-home-action")).join("")}
               </div>
             </section>
 
@@ -226,7 +228,7 @@ export function createDesktopShellMarkup(localization) {
 
           <section class="ordax-desktop-shortcuts" data-desktop-presentation aria-label="${t("shell.presentation.shortcuts")}" hidden>
             <button type="button" class="ordax-desktop-shortcut ordax-desktop-shortcut-central" data-desktop-action="central" data-show-desktop title="${t("shell.presentation.centralTitle")}" aria-label="${t("shell.presentation.central")}"><span class="ordax-rail-icon" aria-hidden="true">${ICONS.presentation}</span><span data-central-shortcut-label>${t("shell.presentation.centralTitle")}</span></button>
-            ${QUICK_ACCESS_APP_IDS.map(id => desktopAppShortcut(id, t)).join("")}
+            ${DESKTOP_SHORTCUT_APP_IDS.map(id => desktopAppShortcut(id, t)).join("")}
             <button type="button" class="ordax-desktop-shortcut ordax-desktop-shortcut-launcher" data-desktop-action="launcher" data-launcher-toggle title="${t("shell.desktop.appsShortcut")}" aria-label="${t("shell.launcher.command")}"><span class="ordax-rail-icon" aria-hidden="true">${ICONS.apps}</span><span>${t("shell.desktop.appsShortcut")}</span></button>
           </section>
         </section>
@@ -324,15 +326,14 @@ export function syncDesktopShellLocalization(root, localization) {
   const english = localizationPort.getLocale().toLowerCase().startsWith("en");
 
   aria(".ordax-rail", "shell.rail.aria");
-  for (const appId of ["files", "studio", "notes", "settings", "account", "system"]) {
+  for (const button of root.querySelectorAll("[data-sidebar-app]")) {
+    const appId = button.dataset.sidebarApp;
+    if (!appId || button.hasAttribute("data-sidebar-account-open") || button.hasAttribute("data-meridian-destination")) continue;
     const label = t(`app.${appId}.title`);
-    for (const button of root.querySelectorAll(`[data-sidebar-app="${appId}"]`)) {
-      if (button.hasAttribute("data-sidebar-account-open") || button.hasAttribute("data-meridian-destination")) continue;
-      button.setAttribute("title", label);
-      const labelNode = button.querySelector("span:last-child");
-      if (labelNode) labelNode.textContent = label;
-      button.setAttribute("aria-label", t("surface.launcher.open", { app: label }));
-    }
+    button.setAttribute("title", label);
+    const labelNode = button.querySelector("span:last-child");
+    if (labelNode) labelNode.textContent = label;
+    button.setAttribute("aria-label", t("surface.launcher.open", { app: label }));
   }
   text("[data-home-nav-label]", "shell.home.title");
   root.querySelector(".meridian-home-destination")?.setAttribute("title", t("shell.home.title"));

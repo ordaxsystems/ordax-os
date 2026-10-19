@@ -72,6 +72,12 @@ window controls so both the mock presentation and real-catalog view remain
 reachable. Window title bars remain the window-management surface. Display-scale
 tokens continue to be shared across desktop presentations.
 
+Surface shortcut placement (2026-10-19): Central quick access, desktop icons,
+and taskbar pins derive from one ordered catalog under `system/services/surface/`.
+Rendered sidebar app labels are localized from their actual app IDs, avoiding a
+stale app-name list. The app runtime catalog and host capabilities remain the
+authority for whether an app can open; shortcut placement does not grant access.
+
 Native Central home layout correction (2026-10-18): the persistent local-space
 card remains in the secondary column at desktop widths, while capability-backed
 continuation and pending-service cards occupy successive rows in the main column.
