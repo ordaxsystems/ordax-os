@@ -22,7 +22,7 @@ export function mountDisplayOutputControls(container, {
   translate,
   port = null,
   mode = "native",
-  onExamples = null,
+  onExamples = /** @type {null | (() => void)} */ (null),
 } = {}) {
   if (!container || !documentObject || typeof translate !== "function") {
     throw new TypeError("Display output controls require a container, document, and translator");
