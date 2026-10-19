@@ -26,7 +26,7 @@ class SpacePlatformTerminologyContractTest(unittest.TestCase):
         self.assertTrue(cloud["projects"]["space_scoped"])
         self.assertTrue(cloud["projects"]["local_cloud_link_optional"])
         self.assertTrue(cloud["projects"]["local_project_identity_survives_unlinked"])
-        self.assertFalse(cloud["projects"]["link_does_not_sync_files"] is False)
+        self.assertTrue(cloud["projects"]["link_does_not_sync_files"])
 
     def test_canonical_document_covers_distinct_authority_and_grants(self):
         doc = (ROOT / "docs/SPACES-AND-PROFILES.md").read_text(encoding="utf-8")
