@@ -174,6 +174,10 @@ restore_wired_network_if_needed() {
         [ -d "$netpath/wireless" ] && continue
         net_type=$(/bin/busybox cat "$netpath/type" 2>/dev/null || true)
         [ "$net_type" = 1 ] || continue
+        # A DOWN Ethernet device may report no readable carrier until it is
+        # administratively UP. Probe the actual link before deciding to skip
+        # DHCP, without touching Wi-Fi or non-Ethernet interfaces.
+        "$IP_BIN" link set "$iface" up >/dev/null 2>&1 || continue
         if [ -r "$netpath/carrier" ]; then
             carrier=$(/bin/busybox cat "$netpath/carrier" 2>/dev/null || true)
             [ "$carrier" = 1 ] || continue
