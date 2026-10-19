@@ -237,7 +237,9 @@ class SystemRuntimeContractTests(unittest.TestCase):
         text = SURFACE_RUNTIME.read_text(encoding="utf-8")
         self.assertIn("wait_for_native_server()", text)
         self.assertIn('socket.create_connection(("127.0.0.1", 8765), 0.5)', text)
-        self.assertIn('wait_for_native_server 10', text)
+        self.assertIn('wait_for_native_server 30', text)
+        self.assertIn('remaining=${1:-30}', text)
+        self.assertNotIn('wait_for_native_server 10', text)
         self.assertIn("native HTTP/control server exited while graphics remained active", text)
         self.assertIn('kill -0 "$HTTP_PID"', text)
 
