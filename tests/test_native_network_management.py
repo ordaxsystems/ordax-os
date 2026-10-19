@@ -225,6 +225,20 @@ class NativeNetworkManagementTests(unittest.TestCase):
                 self.assertEqual(result.returncode, 0, result.stderr)
                 self.assertEqual(actions.read_text() if actions.exists() else "", expected)
 
+    def test_same_broker_restores_wired_dhcp_without_wifi_tools(self):
+        broker = BROKER.read_text(encoding="utf-8")
+        self.assertIn("restore_wired_network_if_needed() {", broker)
+        self.assertIn('have_any_ipv4 && return 0', broker)
+        self.assertIn('for netpath in /sys/class/net/*; do', broker)
+        self.assertIn('[ -d "$netpath/wireless" ] && continue', broker)
+        self.assertIn('[ "$net_type" = 1 ] || continue', broker)
+        self.assertIn('[ "$carrier" = 1 ] || continue', broker)
+        self.assertIn('if try_dhcp "$iface"; then', broker)
+        self.assertIn('restore_wired_network_if_needed >/dev/null 2>&1 || true', broker)
+        self.assertIn('WIFI_TOOLS_READY=0', broker)
+        self.assertIn('wifi-tools-unavailable', broker)
+        self.assertIn('timeout -k 1 18 "$UDHCPC_BIN"', broker)
+
     def test_manual_disconnect_remains_paused_and_saved_network_is_never_deleted(self):
         broker = BROKER.read_text(encoding="utf-8")
         disconnect = broker.split("        disconnect)", 1)[1].split("        forget)", 1)[0]
