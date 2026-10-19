@@ -39,13 +39,47 @@ async function submit(windowRef, path, credentials, { registration = false } = {
     },
     body: body.toString(),
   });
-  if (response.status === 202) {
+  if (registration && response.status === 202) {
     return Object.freeze({ authenticated: false, confirmationRequired: true });
   }
-  if (!(response.ok || response.status === 303 || response.status === 0)) {
+  if (response.status !== 200 && response.status !== 303) {
+    // An opaque redirect (status 0), empty success, or transport error is
+    // never account activation. Do not report a signed-in identity without
+    // an independently verified same-origin session.
     throw new Error(`Identity credential request failed: ${response.status}`);
   }
-  return Object.freeze({ authenticated: true, confirmationRequired: false });
+  const sessionResponse = await windowRef.fetch("/auth/session", {
+    method: "GET",
+    credentials: "same-origin",
+    cache: "no-store",
+    headers: { Accept: "application/json" },
+  });
+  if (!sessionResponse.ok || sessionResponse.status !== 200) {
+    throw new Error("Identity session verification unavailable");
+  }
+  const session = await sessionResponse.json();
+  if (!session || session.$schema !== "prototype-ordax.public-identity-session/1") {
+    throw new Error("Identity session verification invalid");
+  }
+  if (
+    session.authenticated === true
+    && session.status === "authenticated"
+    && typeof session.subject === "string"
+    && session.subject.length > 0
+    && typeof session.email === "string"
+    && session.email.length > 0
+  ) {
+    return Object.freeze({ authenticated: true, confirmationRequired: false });
+  }
+  if (
+    registration
+    && session.authenticated === false
+    && session.status === "anonymous"
+  ) {
+    return Object.freeze({ authenticated: false, confirmationRequired: true });
+  }
+  throw new Error("Identity session was not activated");
+
 }
 
 export function createSameOriginIdentityCredentials(windowRef = globalThis.window) {
