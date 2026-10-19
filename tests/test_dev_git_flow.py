@@ -271,6 +271,30 @@ class DevelopmentGitFlowTest(unittest.TestCase):
         self.assertIn("checkout diverge do commit registrado", result.stderr)
         self.assertNotIn("runtime-v1", result.stdout)
 
+    def test_committed_checkout_remains_successful_when_helper_refresh_fails(self) -> None:
+        # A failed helper activation happens after the atomic Git swap.
+        # It must not tell the Supervisor the old SHA is still active.
+        self._script(PULL)
+        self.commit_v2 = self._commit_runtime("runtime-v2")
+        helper = self.source / "system/services/base-update/dev-helpers.sh"
+        helper.parent.mkdir(parents=True, exist_ok=True)
+        helper.write_text("#!/bin/sh\\nexit 23\\n".replace("\\\\n", "\\n"), encoding="utf-8")
+        self._run(["git", "-C", str(self.source), "add", "system"])
+        self._run(["git", "-C", str(self.source), "commit", "-m", "failing helper fixture"])
+        self._run(["git", "-C", str(self.source), "push", "origin", "main"])
+        candidate = self._run(
+            ["git", "-C", str(self.source), "rev-parse", "HEAD"]
+        ).stdout.strip()
+        result = self._script(PULL)
+        self.assertIn("instalacao dos helpers pendente", result.stderr)
+        self.assertIn(f"ORDAX_SOURCE_SHA={candidate}", result.stdout)
+        self.assertEqual(
+            self._run(["git", "-C", str(self.worktree), "rev-parse", "HEAD"]).stdout.strip(),
+            candidate,
+        )
+        self.assertEqual((self.state / "current-commit").read_text().strip(), candidate)
+        self.assertEqual((self.state / "previous-commit").read_text().strip(), self.commit_v1)
+
     def test_supervisor_fetched_commit_applies_without_second_remote_clone(self) -> None:
         # Reproduce a notebook where Supervisor successfully fetched main,
         # but GitHub becomes unreachable before ordax-pull starts staging.
