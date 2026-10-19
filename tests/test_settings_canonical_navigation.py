@@ -89,7 +89,7 @@ class SettingsCanonicalNavigationTests(unittest.TestCase):
         self.assertIn(".ordax-settings-navigation {", css)
         self.assertIn(".ordax-settings-navigation-item", css)
         self.assertIn("overflow-x: auto", css)
-        # Responsive settings use the app's actual window size, not viewport.
+        # Compact layout follows the actual settings window, not host viewport.
         self.assertIn("@container settings-viewport (max-width: 680px)", css)
         self.assertIn("grid-template-columns: repeat(auto-fit", css)
         self.assertIn("@container settings-viewport (max-width: 420px)", css)

@@ -343,7 +343,12 @@ raise SystemExit('Unknown subprocess proof mode')
         css = CSS.read_text(encoding="utf-8")
         self.assertIn(".ordax-first-run", css)
         self.assertIn(":focus-visible", css)
-        self.assertIn("@media (max-width: 820px)", css)
+        # OS USB/Native retain their desktop First Run and scroll the body
+        # rather than switching to phone/tablet navigation.
+        self.assertIn("grid-template-columns:var(--md-rail-width) minmax(0,1fr)", css)
+        self.assertIn("height:min(700px,calc(100dvh - 64px))", css)
+        self.assertIn("overflow:auto; overscroll-behavior:contain", css)
+        self.assertIn("@media (max-height: 800px) and (min-width: 821px)", css)
         self.assertIn("prefers-reduced-motion", css)
 
 
