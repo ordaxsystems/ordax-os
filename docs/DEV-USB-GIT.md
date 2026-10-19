@@ -56,6 +56,45 @@ that a public signed Stable release is available.
 
 ## Recuperação USB Dev pelo computador — 19/10/2026
 
+### Observação do boot físico após o reparo (foto do notebook — 19/10/2026)
+
+Uma foto da Surface do notebook após o reparo mostra a página **Sistema →
+Atualizações**, com o commit técnico **`32919734`**, correspondente ao checkout
+recuperado. A interface gráfica abriu; a tela apresenta **Entrega 1188**,
+**Sem conexão para atualizar**, **Falha** no estado da última verificação,
+**`remote-check-failed`** no diagnóstico e nenhuma ação/base pendente.
+O horário registrado na tela está em **31/12/2015, 21:15** — incompatível
+com a data do ensaio em 2026. A foto por si só não demonstra IP, DNS,
+Wi-Fi funcional, TLS válido, a versão efetivamente ativada de todos os
+componentes, nem sucesso de um reinício físico subsequente.
+
+A consulta remota nesse perfil Owner/Development é realizada pelo
+**Supervisor existente** via `git ls-remote --heads origin`, com timeout
+limitado; na falha, ele registra `remote-check-failed` e mantém a Surface
+funcionando. É incorreto tratar esse código como falha de checkout ou
+diagnosticá-lo automaticamente como queda de Wi-Fi. A diferença de data
+também torna relógio/NTP e validação TLS hipóteses relevantes **não
+confirmadas**. Existe sincronização NTP tanto no helper de rede quanto no
+runtime gráfico; observar seu início não comprova sincronização.
+
+**Próximo diagnóstico, somente leitura e no próprio dispositivo**: confirmar
+`date -u`, o estado publicado em `/run/ordax-network-status`, os registros
+de `/run/ordax-surface/time-sync.log` e
+`/run/ordax-surface/network-broker.log`, e o erro específico em
+`/run/ordax-update/update.log`. Diferenciar link/IP, DNS, NTP,
+TLS/certificados e Git remoto nessa ordem. Esses caminhos em `/run`
+podem desaparecer no reboot; capturar apenas trechos **sem dados
+sensíveis**, não publicar configurações WPA, cookies, tokens ou logs
+brutos de usuário. Não executar `ordax-network` como suposta leitura,
+pois esse helper pode modificar o estado de rede.
+
+A correção do ciclo de vida Wi-Fi está isolada na PR **#2001**, ainda não
+integrada; a recuperação de checkout é a PR **#2003**. A observação
+física **aprova somente Surface visível e SHA exibido**, não saúde da
+rede, pull remoto, ativação integral do runtime, reboot nem Stable/MVP.
+
+
+
 Este é um **procedimento Owner/Development de recuperação offline**, usando o
 mesmo contrato e o mesmo binário canônico `ordax-pull` da mídia. **Não** é
 outro gestor de atualização, gravador físico nem um fluxo Stable/MVP.
