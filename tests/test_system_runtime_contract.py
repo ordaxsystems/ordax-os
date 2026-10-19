@@ -424,6 +424,12 @@ class SystemRuntimeContractTests(unittest.TestCase):
     def test_power_actions_persist_cross_boot_proof_before_destructive_action(self):
         text = SURFACE_RUNTIME.read_text(encoding="utf-8")
         self.assertIn("POWER_LAST_REQUEST=$POWER_STATE_DIR/last-request", text)
+        guardian = SYSTEM_ENTRYPOINT.read_text(encoding="utf-8")
+        # A literal trailing dollar would reuse the same temporary filename
+        # across the Surface broker and the Guardian; $ is the shell PID.
+        self.assertIn("temporary=$POWER_LAST_REQUEST.tmp.$", text)
+        self.assertIn("temporary=$POWER_LAST_REQUEST.tmp.$", guardian)
+
         self.assertIn("record_power_request()", text)
         self.assertIn("record_power_request restart pending", text)
         self.assertIn("record_power_request restart failed", text)
