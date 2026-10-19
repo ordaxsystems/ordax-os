@@ -85,6 +85,24 @@ Their grid and shortcut interaction styles now also have one Meridian owner;
 the number of rows adapts to the available vertical workspace height, with
 narrow-workspace sizing shared across both hosts.
 
+Desktop canvas (2026-10-19): Web and Native resolve the desktop wallpaper
+through one Meridian CSS token and the same local SVG asset. Both presentations
+apply the existing material opacity and high-contrast removal preference to
+the wallpaper; shortcut labels remain legible on the plain canvas. The
+Web-only watermark was removed so the desktop has the same content hierarchy
+across hosts. The wallpaper remains decorative, behind shortcuts and windows.
+
+Desktop taskbar frame (2026-10-19): Native and Web now share Meridian tokens
+for the bottom bar's three-column balance, side-control minimum, group spacing,
+horizontal inset and dock glyph size. Host styles retain only their own
+responsive breakpoints and platform-specific controls, so visual geometry is
+consistent while available system actions remain truthful to each host.
+
+Desktop window chrome (2026-10-19): Web and Native application windows share
+the Meridian frame, active-state treatment, titlebar height and insets, app-mark
+tile, title typography and control targets. Window placement and available
+window actions remain owned by each host.
+
 Native Central home layout correction (2026-10-18): the persistent local-space
 card remains in the secondary column at desktop widths, while capability-backed
 continuation and pending-service cards occupy successive rows in the main column.
@@ -1172,8 +1190,8 @@ PROJECTS_EXTERNAL_AI_ACCESS=GITHUB_DIRECT_PLUS_ORDAX_MCP
 ORDAX_WEB_DEVICE_CONTROL=PASS_SOURCE_SHARED_ACTION_CONTRACT_RUNTIME_DISABLED
 SETTINGS_VISIBLE_LABEL=AJUSTES
 SURFACE_HOME_TECHNICAL_UPDATE_MARKERS=REMOVED
-PRODUCT_VERSION=0.1.1-alpha.1
-PRODUCT_VERSION_LABEL=v0.1.1-alpha.1
+PRODUCT_VERSION=0.1.0
+PRODUCT_VERSION_LABEL=v0.1.0
 PRODUCT_MATURITY=PROTOTYPE
 PRODUCT_V1_RESERVED_FOR_STABLE_RELEASE=YES
 FIRST_PARTY_APP_VERSIONING=PER_COMPONENT

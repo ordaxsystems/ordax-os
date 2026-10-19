@@ -36,6 +36,32 @@ Legacy palette literals must be removed from active contracts when the identity 
 
 Existing `appearance.theme` values (`light`, `dark`), labels (Claro, Escuro), persistence, account synchronization and the light default remain unchanged. Users switch materials in **Ajustes → Aparência**. Settings miniatures inherit the exact theme tokens through `data-theme-preview`, so they cannot drift into independent palettes. Success, warning and error retain independent semantic colors.
 
+### Desktop canvas ownership — 2026-10-19
+
+`system/surface/ui/meridian.css` owns the desktop wallpaper asset and its
+shared treatment for the Web `classic-desktop` and Native `.ordax-workspace`.
+Both consume the existing `--ordax-wallpaper-opacity` preference, so light
+material and high-contrast wallpaper removal stay aligned. Host markup supplies
+the canvas and functional shortcuts/windows but does not select another
+wallpaper or add a Web-only watermark. The SVG remains a decorative background
+behind the working controls.
+
+### Desktop taskbar frame — 2026-10-19
+
+`system/surface/ui/meridian.css` owns the shared three-column taskbar frame,
+group alignment and spacing. Meridian tokens own the side minimum, horizontal
+inset and dock glyph size. Web and Native may arrange their host-specific
+controls and responsive collapse behavior, but must not redefine the shared
+frame geometry or create a second dock scale.
+
+### Desktop window chrome — 2026-10-19
+
+`system/surface/ui/meridian.css` owns the shared Web and Native window frame,
+active state, titlebar, app mark, title type and control target size. Window
+placement and host-specific actions remain with their respective window
+managers. Compact Web windows may reduce their titlebar only while in the
+explicit compact presentation state.
+
 Normal text, secondary text and state labels must maintain at least 4.5:1 contrast on their opaque canvas/panel backgrounds; focus must maintain at least 3:1. High-contrast text maintains at least 7:1. Automated palette checks complement real browser rendering, theme persistence and responsive layout checks; they do not replace assistive-technology or physical-device verification.
 
 Motion is restrained to short UI transitions, normally 150–250 ms, and must honor both the OrdaX reduced-motion preference and the host `prefers-reduced-motion` signal. Focus remains visibly distinct in both themes and in high-contrast mode.

@@ -110,15 +110,13 @@
 .window-workspace.meridian-workspace[data-view=desktop] {--workspace-rail:var(--md-rail-compact);--sidebar-visual-width:var(--md-rail-compact);--running-track:calc(var(--md-dock) + env(safe-area-inset-bottom));}
 .meridian-workspace .os-shell {display:flex;flex-direction:column;}
 .meridian-workspace .central-presentation .os-main {height:auto;flex:1;min-height:0;}
-.meridian-workspace .meridian-taskbar {display:grid;grid-template-columns:minmax(85px,1fr) minmax(0,auto) minmax(85px,1fr);align-items:center;gap:16px;padding:0 20px max(0px,env(safe-area-inset-bottom));background:var(--md-surface);border-top:1px solid var(--md-border);}
-.meridian-taskbar-start,.meridian-taskbar-end {display:flex;align-items:center;gap:7px;min-width:0;}.meridian-taskbar-end {justify-content:flex-end;}
 .meridian-taskbar-start>button,.meridian-taskbar-end>button {display:flex;align-items:center;justify-content:center;gap:6px;flex-shrink:0;height:var(--md-dock-control-size);min-width:var(--md-dock-control-size);padding:0 8px;border:0;border-radius:9px;background:transparent;color:var(--md-muted);cursor:pointer;font:inherit;font-size:0.625rem;}
 .meridian-taskbar-start [data-workspace-switch] {background:var(--md-subtle);color:var(--md-ink);}.meridian-taskbar-start button:hover,.meridian-taskbar-end button:hover {background:var(--md-subtle);color:var(--md-ink);}
 .meridian-dock-frame {position:relative;min-width:0;max-width:100%;}
 .meridian-workspace .meridian-dock {display:flex;align-items:center;gap:var(--md-dock-item-gap);padding:2px 0;max-width:100%;width:max-content;border:0;border-radius:0;background:transparent;box-shadow:none;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;overscroll-behavior-x:contain;touch-action:pan-x;}
 .meridian-dock::-webkit-scrollbar {display:none;}
 .meridian-workspace .meridian-dock .desktop-task {display:grid;place-items:center;position:relative;width:var(--md-dock-control-size);min-width:var(--md-dock-control-size);max-width:var(--md-dock-control-size);height:var(--md-dock-control-size);padding:0 4px;border:1px solid transparent;border-radius:10px;background:transparent;color:var(--md-ink);box-shadow:none;}
-.meridian-workspace .meridian-dock .desktop-task .app-icon {display:grid;place-items:center;width:var(--md-dock-icon-size);height:var(--md-dock-icon-size);border-radius:8px;box-shadow:none;}.meridian-dock .app-icon svg {width:21px;height:21px;stroke-width:1.65;}
+.meridian-workspace .meridian-dock .desktop-task .app-icon {display:grid;place-items:center;width:var(--md-dock-icon-size);height:var(--md-dock-icon-size);border-radius:8px;box-shadow:none;}.meridian-dock .app-icon svg {width:var(--md-dock-glyph-size);height:var(--md-dock-glyph-size);stroke-width:1.65;}
 .meridian-workspace .meridian-dock .meridian-dock-label {display:none!important;}
 .meridian-workspace .meridian-dock .desktop-task[data-active=true] {border-color:var(--md-accent);background:var(--md-accent-soft);}
 .meridian-workspace .meridian-dock .desktop-task::after {width:4px;height:3px;left:calc(50% - 2px);bottom:2px;background:var(--md-accent);border-radius:50%;}
