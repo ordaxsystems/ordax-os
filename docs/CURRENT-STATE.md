@@ -81,6 +81,31 @@ can open; shortcut placement does not grant access. System Updates remains a
 separate destination within the System app. Native rail and overflow-menu icons
 consume the shared Meridian destination glyph metadata. Web and Native desktop
 shortcut grids now share Meridian spacing, cell, icon, and inset tokens.
+Their grid and shortcut interaction styles now also have one Meridian owner;
+the number of rows adapts to the available vertical workspace height, with
+narrow-workspace sizing shared across both hosts.
+
+Desktop canvas (2026-10-19): Web and Native resolve the desktop wallpaper
+through one Meridian CSS token and the same local SVG asset. Both presentations
+apply the existing material opacity and high-contrast removal preference to
+the wallpaper; shortcut labels remain legible on the plain canvas. The
+Web-only watermark was removed so the desktop has the same content hierarchy
+across hosts. The wallpaper remains decorative, behind shortcuts and windows.
+
+Desktop taskbar frame (2026-10-19): Native and Web now share Meridian tokens
+for the bottom bar's three-column balance, side-control minimum, group spacing,
+horizontal inset, dock item targets, glyph size and open/active/minimized
+indicators. Arrow navigation and Home/End share one implementation; each host
+retains its own scroll reveal. Taskbar focus and toggle states now follow shared
+Meridian styling and the actual pressed state. Host styles retain only
+responsive breakpoints and platform-specific controls, so dock status and visual
+scale stay consistent while available system actions remain truthful to each
+host.
+
+Desktop window chrome (2026-10-19): Web and Native application windows share
+the Meridian frame, active-state treatment, titlebar height and insets, app-mark
+tile, title typography and control targets. Window placement and available
+window actions remain owned by each host.
 
 Native Central home layout correction (2026-10-18): the persistent local-space
 card remains in the secondary column at desktop widths, while capability-backed
