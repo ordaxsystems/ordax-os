@@ -23,16 +23,13 @@ class SettingsCanonicalNavigationTests(unittest.TestCase):
         self.assertIn('id: "network"', controls)
         self.assertIn('id: "notifications"', controls)
         self.assertIn("validSettingsSection", controls)
-        self.assertIn(
-            '["appearance", "accessibility", "regional"].includes(activeSection)',
-            controls,
-        )
+        self.assertIn("SETTINGS_SECTIONS.some((section) => section.id === value)", controls)
         self.assertIn('activeSection === "network"', controls)
         self.assertIn('activeSection === "notifications"', controls)
         self.assertIn("renderNotifications(view)", controls)
         self.assertIn("definition.sectionId !== sectionId", controls)
         self.assertNotIn('id: "audio"', controls)
-        self.assertNotIn('id: "display"', controls)
+        self.assertIn('id: "display"', controls)
         self.assertNotIn("detailId", controls)
 
     def test_app_activation_deep_link_is_bounded_to_settings_sections(self):

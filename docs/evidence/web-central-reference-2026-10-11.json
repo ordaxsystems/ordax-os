@@ -1019,9 +1019,13 @@
       "owner": "OrdaX OS preferences",
       "purpose": "Portable observable binding delegating validation and updates to the existing catalog and persistence to the canonical store port",
       "sha256": "84b71ccd21165f196a61690e5b1d760d96a3dd8e12108e4b96d5222f857ebd5c",
-      "adaptedSha256": "5e0212264fc792a5c9981e9b4b19a0d8e8bf050fd3a96c41c2c66cbe2eb672d6",
+      "adaptedSha256": "db6a3092a1b8dece9c2200397ded39dbb64dcfe7f3ae678acb443b7f8eeb1510",
       "adaptation": "2026-10-18: Share one preference persistence confirmation controller across the Native Surface and portable runtime, publishing pending and host-confirmed results through the existing preference port. No new storage owner.",
       "adaptationHistory": [
+        {
+          "sha256": "5e0212264fc792a5c9981e9b4b19a0d8e8bf050fd3a96c41c2c66cbe2eb672d6",
+          "reason": "Previous host-confirmed preference projection before current display scaling support"
+        },
         {
           "sha256": "84b71ccd21165f196a61690e5b1d760d96a3dd8e12108e4b96d5222f857ebd5c",
           "reason": "Previous synchronous persistence-status projection before Native host acknowledgment"
@@ -1037,8 +1041,14 @@
       "owner": "OrdaX OS Surface",
       "purpose": "One mounted theme subscription and document effect shared by Central/Desktop and Appearance",
       "sha256": "4415726f84d0cc44e98ffa9046e215ba87f4463e5a12d36f2cc02414ba69cd74",
-      "adaptedSha256": "ee8e98e939959b94ef929a450c946ee6a564da8565359a8c7946c49a2b2721be",
-      "adaptation": "OS Surface canonical preference consumer. Canonical accessibility preferences apply across Web via shared tokens and runtime, responsive controls and relative typography; no new storage or authority. Shared favorite-shortcut presentation consumes a single persisted preference and metadata owner; no installation or grants. 2026-10-12: selectable USB color profile references Native semantic tokens; layout unchanged. 2026-10-12: shared color-palette service and stylesheet consumed by Web/Native; no copied palette. Notification UX uses one shared renderer/CSS and the canonical preferences; Web explicitly has no authorized delivery adapter. Native updater ownership is unchanged."
+      "adaptedSha256": "63d1be9cfdcaf8f877a114e9a74b8f350f0e865c4c022f4b5322602e7e3978e4",
+      "adaptation": "OS Surface canonical preference consumer. Canonical accessibility preferences apply across Web via shared tokens and runtime, responsive controls and relative typography; no new storage or authority. Shared favorite-shortcut presentation consumes a single persisted preference and metadata owner; no installation or grants. 2026-10-12: selectable USB color profile references Native semantic tokens; layout unchanged. 2026-10-12: shared color-palette service and stylesheet consumed by Web/Native; no copied palette. Notification UX uses one shared renderer/CSS and the canonical preferences; Web explicitly has no authorized delivery adapter. Native updater ownership is unchanged.",
+      "adaptationHistory": [
+        {
+          "sha256": "ee8e98e939959b94ef929a450c946ee6a564da8565359a8c7946c49a2b2721be",
+          "reason": "Previous Central preference context before current display-scale and persistence status projections"
+        }
+      ]
     },
     {
       "target": "system/composition/web/main.tsx",

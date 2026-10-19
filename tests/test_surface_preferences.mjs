@@ -19,6 +19,7 @@ const REGIONAL_DEFAULTS = Object.freeze({
 function expectedPreferences(values = {}) {
   return {
     "appearance.theme": "light",
+    "display.scale": "automatic",
     "surface.color-palette": "standard",
     "memory.auto-capture": "on",
     [HOME_SHORTCUTS_PREFERENCE_ID]: homeShortcutsPreference.defaultValue,
