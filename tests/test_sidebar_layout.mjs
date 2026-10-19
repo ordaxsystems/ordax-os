@@ -87,6 +87,26 @@ test("Native Meridian navigation markup has matching styles and a clean collapse
   assert.match(sharedSidebarStyles, /span:not\(\.ordax-rail-icon\) \{ display: none; \}/);
   assert.ok(nativeShell.includes('<span class="ordax-rail-icon">${ICONS.more}</span>'));
 });
+test("Web and Native desktop shortcuts share Meridian geometry tokens", async () => {
+  const [tokens, nativeStyles, webStyles] = await Promise.all([
+    readFile(new URL("../system/surface/ui/meridian.tokens.css", import.meta.url), "utf8"),
+    readFile(new URL("../system/surface/ui/identity.css", import.meta.url), "utf8"),
+    readFile(new URL("../system/surface/workspace/components/central/styles.css", import.meta.url), "utf8"),
+  ]);
+  for (const definition of [
+    "--md-desktop-shortcut-inset:1.5rem;",
+    "--md-desktop-shortcut-cell:5.75rem;",
+    "--md-desktop-shortcut-gap:.625rem;",
+    "--md-desktop-shortcut-icon:2.6875rem;",
+  ]) assert.ok(tokens.includes(definition), `${definition} is owned by the shared Meridian tokens`);
+  for (const [surface, styles] of [["Native", nativeStyles], ["Web", webStyles]]) {
+    assert.ok(styles.includes("var(--md-desktop-shortcut-cell)"), `${surface} uses the shared shortcut cell`);
+    assert.ok(styles.includes("var(--md-desktop-shortcut-gap)"), `${surface} uses the shared shortcut spacing`);
+    assert.ok(styles.includes("var(--md-desktop-shortcut-icon)"), `${surface} uses the shared shortcut icon size`);
+  }
+  assert.ok(nativeStyles.includes("inset: var(--md-desktop-shortcut-inset)"));
+  assert.ok(webStyles.includes("left: var(--md-desktop-shortcut-inset)"));
+});
 test("Native rail keeps shared Meridian destinations, area switching, and System controls", async () => {
   const nativeShell = await readFile(new URL("../system/surface/ui/desktop-shell.mjs", import.meta.url), "utf8");
   const rail = nativeShell.slice(nativeShell.indexOf("function meridianNavigation("), nativeShell.indexOf("function meridianNavigationMenu("));

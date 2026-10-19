@@ -66,6 +66,10 @@
   --md-dock-control-size:2.75rem;
   --md-dock-icon-size:1.75rem;
   --md-dock-item-gap:.375rem;
+  --md-desktop-shortcut-inset:1.5rem;
+  --md-desktop-shortcut-cell:5.75rem;
+  --md-desktop-shortcut-gap:.625rem;
+  --md-desktop-shortcut-icon:2.6875rem;
   --md-sidebar-gap:1rem;
   --md-sidebar-padding-block:1.6875rem;
   --md-sidebar-padding-inline:1rem;
