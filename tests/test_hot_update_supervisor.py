@@ -42,7 +42,7 @@ class HotUpdateSupervisorContractTests(unittest.TestCase):
         self.assertIn('[ "$DISTRIBUTION_PROFILE" = owner-development ] || return 0', witness)
         self.assertIn('[ "$OWNER_POLL_BOOT_FINISHED" -eq 0 ] || return 0', witness)
         self.assertIn('[ ! -L "$OWNER_POLL_BOOT_FILE" ]', witness)
-        self.assertIn('witness_tmp=$OWNER_POLL_BOOT_FILE.tmp.$', witness)
+        self.assertIn('witness_tmp=$OWNER_POLL_BOOT_FILE.tmp.$$', witness)
         self.assertIn('"ordax.owner-supervisor-first-poll/1"', witness)
         for forbidden in ("git ", "pull ", "reboot ", "mount ", "efi-updatevar", "activation_authorized"):
             self.assertNotIn(forbidden, witness)
