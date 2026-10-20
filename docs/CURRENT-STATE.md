@@ -2360,3 +2360,17 @@ Estado operacional em 2026-10-15: a migration `20261015153000_space_semantics_v1
 `food.pizzeria` e `fabrication.3d-printing` estão estruturados como fundação MVP compatível com os Profile Packs existentes. `product-operations.territorial-platform`, `education.school` e `development.software` estão estruturados, porém `DEFERRED`: o compositor publica zero navegação/widget/capability para eles até promoção explícita posterior. Development modela muitos Projects dentro de um único Space e Studio apenas como ferramenta de abertura do Project. Escola preserva REL-001 e não introduz tracking/câmera irrestritos. Achegue-se permanece operacional, não um Space de desenvolvimento.
 
 Profile Pack continua sendo composição técnica versionada e seus manifests não receberam uma segunda cópia de navigation/dashboard/provider state. A sidebar global continua independente da navegação contextual. Nenhum kernel, base, Creator, physical-write ou workflow físico faz parte desta mudança.
+
+
+## Account display name in the authenticated session — source only — 2026-10-20
+
+The authenticated `/auth/session` projection now optionally reads `ordax_accounts.display_name` with the same user's access token and the table's existing owner-scoped RLS policy. A missing or unavailable profile row does not invalidate login. The Native gateway and Windows emulator preserve only the bounded display-name field; account credentials and provider tokens remain outside Surface JavaScript. The shared identity adapter uses this name when present and keeps its existing email-handle fallback when it is absent.
+
+```text
+ACCOUNT_DISPLAY_NAME_SESSION_PROJECTION=PASS_SOURCE_RLS_BOUND
+ACCOUNT_DISPLAY_NAME_NATIVE_AND_EMULATOR_FORWARDING=PASS_SOURCE
+ACCOUNT_DISPLAY_NAME_PROFILE_PHOTO_OR_COUNTRY=NOT_AVAILABLE
+ACCOUNT_DISPLAY_NAME_EDGE_DEPLOYMENT=PENDING_GATEWAY_DESTINATION_CREDENTIAL
+```
+
+This source change does not claim that the live Supabase Edge Function has been deployed. The existing destination remains on provider revision 13 until the reviewed gateway deployment credential is configured.

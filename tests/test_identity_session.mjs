@@ -75,6 +75,7 @@ test("web identity adapter reports a validated signed-in account", async () => {
         status: "authenticated",
         subject: "user-123",
         email: "pessoa@example.com",
+        displayName: "  Washington Silva  ",
       }),
     }),
   };
@@ -83,9 +84,29 @@ test("web identity adapter reports a validated signed-in account", async () => {
   assert.deepEqual(port.getSnapshot(), {
     state: "signed-in",
     subjectId: "user-123",
-    displayName: "pessoa",
+    displayName: "Washington Silva",
     email: "pessoa@example.com",
   });
+  port.dispose();
+});
+
+test("identity adapter ignores unsafe account display names and keeps its email fallback", async () => {
+  const port = createWebIdentitySession({
+    fetch: async () => ({
+      ok: true,
+      json: async () => ({
+        $schema: "prototype-ordax.public-identity-session/1",
+        authenticated: true,
+        provider: "supabase",
+        status: "authenticated",
+        subject: "user-123",
+        email: "pessoa@example.com",
+        displayName: "bad\nname",
+      }),
+    }),
+  });
+  await port.refresh();
+  assert.equal(port.getSnapshot().displayName, "pessoa");
   port.dispose();
 });
 

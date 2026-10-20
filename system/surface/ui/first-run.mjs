@@ -680,7 +680,7 @@ export function mountFirstRunExperience(
     overview.setAttribute("aria-label", translateFirstRunText(draft.locale, "Resumo da conta"));
     overview.append(el(documentObject, "span", "ordax-first-run-eyebrow", "Uma conta. Seu OrdaX."));
     for (const [title, description] of [
-      ["Perfil e foto", "Nome completo, foto e país aparecerão aqui quando a integração do perfil estiver disponível."],
+      ["Perfil e foto", "O nome de exibição vem da sua Conta OrdaX. Foto e país ainda não estão disponíveis nesta integração."],
       ["Plano e recursos", "O plano desta conta ainda não foi consultado. Nenhuma assinatura ou cobrança é criada nesta configuração."],
       ["Preferências e sincronização", "Restaurar idioma e preferências da Web está em integração. Suas escolhas feitas no início continuam valendo neste dispositivo."],
     ]) {
