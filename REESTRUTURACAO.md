@@ -447,3 +447,29 @@ A falha do Portable v2 ocorreu em `Build exact offline Surface runtime on cache 
 ### Otimização vinculada
 
 A prioridade agora não é ajustar scheduler, kernel ou compressão: a maior ineficiência comprovada neste caminho é gastar tempo de CI com um rebuild de centenas de dependências cujo input fixado nem está disponível. **Primeiro tornar inputs verificáveis e migrar o perfil gráfico; depois medir cache/build, tamanho final, RAM e boot.** Não inventar números de economia sem comparação por commit e artefatos.
+
+
+## 16. Corte gráfico sem Alpine — reconciliação com Fase 3 (2026-10-20)
+
+**Owner existente:** [issue #1730](https://github.com/ordaxsystems/ordax-os/issues/1730). Sua política é reaplicar somente deltas pequenos e promovíveis na `main`, comprovar build/serviços/QEMU gráfico/release/rollback e não remover Alpine antes de hardware/paridade. Este plano não cria issue, build system nem serviço concorrentes.
+
+### A fronteira correta
+
+- `bootstrap/independent-base` **já** compila um rootfs Buildroot sem Alpine, com `iproute2`, BusyBox/musl e boot portátil experimental.
+- `bootstrap/surface-runtime/source.json` **ainda** empacota Cage, WebKitGTK, GTK, Mesa, input e outras dependências a partir de um lock APK; `bootstrap/surface-runtime/build.py` importa `bootstrap/base/alpine_core.py`. Logo, eliminar Alpine somente da base mínima **não** o remove do runtime gráfico final.
+- A falha de CI do dia 20/10 demonstra que reconstruir o pacote legado depende da disponibilidade de `ca-certificates=20260909-r0` no repositório consultado. Re-resolver para `20261020-r0` sem revisão quebraria identidade dos bytes. Não permitir versões flutuantes.
+- `tools/runtime-component-channel` já define um canal assinado para componentes independentes; isso **não** autoriza trocar o protocolo de boot nem promover o runtime gráfico sem saúde e compatibilidade.
+
+### Próximo slice de implementação (pequeno, verificável, sem cutover)
+
+1. Inventariar todos os binários realmente executados no início gráfico: compositor, WebKit, GTK, Mesa, Wayland, Xwayland, seatd, fontes, Python e bindings. Extrair `PT_INTERP`, `DT_NEEDED`, bibliotecas encontradas, versões, caminhos, licenças e bytes por módulo; registrar baseline exata do runtime legado (a ausência de um artefato histórico não é um PASS).
+2. Conferir configurações disponíveis no Buildroot **fixado** antes de habilitar novos pacotes. WebKitGTK pode ter restrições de toolchain, RAM, linkage e dependências significativas: não afirmar suporte nem performance até compilar.
+3. Implementar o **menor perfil gráfico independente que passe no mesmo harness** e execute a Surface; reutilizar o processo Native, handoff, renderização e protocolo existentes, sem nova interface, PID1 ou sistema paralelo.
+4. Gate inicial: composição gráfica funcional e captura/health no QEMU, sem APK no artefato produzido, com logs e SHA-256. Depois paridade de aplicativos e serviços, inicialização offline e testes de GPU/entrada em hardware real.
+5. Só então retirar o runtime Alpine do canal candidato; Dev/Stable seguem transição coordenada, não mudança automática.
+
+### Otimização no momento correto
+
+**Agora:** inventário de dependências e versões, escopo de pacotes de build e cache por inputs exatos, checks de ELF e integridade. **Depois da UI funcional:** comparar EROFS e pacotes por bytes, tempo UEFI→Surface, RAM máxima e CPU em hardware, inclusive teste com GPU limitada. Não reduzir WebKit/Mesa/firmware às cegas nem aceitar QEMU headless como prova de experiência gráfica.
+
+**Gate operacional ao registrar esta seção:** `INDEPENDENT_GRAPHICAL_RUNTIME=NOT_PROVEN`, `ALPINE_GRAPHICAL_RUNTIME=LEGACY`, `PHYSICAL_PROMOTION=FORBIDDEN`. Resultados CI anteriores não equivalem à conclusão da Fase 3.
