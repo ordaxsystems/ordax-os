@@ -303,3 +303,58 @@ Buildroot é ferramenta de construção, não nome ou identidade do sistema fina
 ### Próximo gate prioritário
 
 Confrontar `bootstrap/independent-base` com `bootstrap/stable-base`, `bootstrap/dev-base`, `bootstrap/surface-runtime` e suas dependências APK. Provar ausência de regressões no runtime real antes de alterar o canal por padrão. Não ampliar o plano para reimplementar Linux nem criar abstração universal sem justificativa.
+
+
+## 13. Gate de paridade para substituição efetiva da Base Alpine (auditoria 2026-10-20)
+
+**Status: MATRIZ DEFINIDA, TESTES NÃO EXECUTADOS NESTA ETAPA.** A meta é zero dependência Alpine nos artefatos finais, sem remover evidências históricas nem quebrar o produto.
+
+### Dependências reais por arquivo (inspeção da main)
+
+| Origem atual | Acoplamento concreto | Caminho canônico proposto | Estado |
+|---|---|---|---|
+| `bootstrap/dev-base/build.py` | carrega `bootstrap/base/alpine_core.py`; delega pacote, firmware e poda do rootfs | introduzir **perfil development** no builder independente existente, com paridade Git/CA/rede/firmware e serviços do Dev | PENDENTE |
+| `bootstrap/stable-base/source.json` | pin Alpine 3.22.5, packages, APK, runtime keys; `shared_alpine_core` | usar artefato Buildroot assinado no mesmo protocolo de release; eliminar gerenciador de pacotes do runtime quando não necessário | PENDENTE |
+| `bootstrap/independent-base/build.py` | Buildroot experiment usa formatos do Stable para compatibilidade | evoluir owner existente, sem alterar seletor ou implantar nova distribuição | EXISTE/EXPERIMENTAL |
+| `bootstrap/independent-base/configs/ordax_minimal_defconfig` | musl estática, BusyBox, iproute2 e overlay OrdaX; sem init próprio | ampliar apenas dependências demonstradas para rede, rádio, Native, Surface e runtime | PARIDADE PARCIAL |
+| `bootstrap/independent-base/PHASE2.md` | boot canônico, PID1, EROFS, persistência, rollback, assinatura QEMU | reutilizar o mesmo harness e provas mais amplas; não marcar hardware como validado | PROVA QEMU HISTÓRICA |
+| `bootstrap/kernel/source.json` | Linux 6.6.158, módulos vinculados ao ABI kernel | único owner kernel para todos os perfis, com compatibilidade kernel/módulos/firmware | PRESERVAR |
+
+### Ordem de integração obrigatória
+
+**P1. Inventário dos artefatos finais** — comparar filesystem tree e binários efetivamente embarcados; detectar symlinks, intérpretes ELF, bibliotecas, firmware, módulo `vermagic`, permissões, executáveis e serviços. SBOM originado dos bytes do artefato, não da lista de pacotes pretendida.
+
+**P2. Paridade de infraestrutura mínima** — cold boot; DNS, DHCP, HTTPS/certificados, relógio, Wi-Fi reais (chipsets exigidos), drivers, coldplug, montagem, energia/ACPI, logs, diagnóstico e recuperação offline. Não aceitar apenas Ethernet/NAT QEMU como paridade Wi-Fi.
+
+**P3. Paridade Native e Surface** — verificar entrypoints, todos os contratos HTTP/IPC, permissões, sessão/account, first-run, aplicação gráfica e dependências dinâmicas. Não presumir que `BR2_STATIC_LIBS` torna compatíveis executáveis de terceiros.
+
+**P4. Desenvolvimento** — garantir Git-first Owner/Development, sparse checkout, Pull, rollback de commits, sincronização de helpers e atualização da Base com kernel intacto quando aplicável. Remover suposições de `apk` sem criar mecanismo novo de distribuição.
+
+**P5. Stable** — release assinada e imutável, sem Git operacional, recuperação conhecida, compatibilidade de serviços e sem gerenciador de pacotes legado retido apenas por conveniência.
+
+**P6. Validação completa** — CI de Buildroot, bundle de kernel e módulos, QEMU UEFI/OVMF e fault-injection, USB real autorizado, rede/Wi-Fi, conta, updates, recovery, botão físico ACPI e apps. Regressões bloqueiam promoção.
+
+**P7. Cutover com retirada** — mudar profile selectors/manifestos existentes após gates completos, provar rollback e então remover Alpine/APK dos builds oficiais e artefatos finais. Retirar arquivos legados do source somente quando nenhum owner executável depender deles; preservar documentação e provas históricas.
+
+### Critérios mensuráveis
+
+- `NO_ALPINE_IN_SHIPPED_ROOTFS=PASS`: varredura por provenance de conteúdo, metadados APK, loaders/bibliotecas pertencentes a Alpine; sem rejeitar componentes compartilhados legítimos (musl/BusyBox).
+- `DEV_PARITY=PASS`: Pull funcional antes/depois de reboot, mecanismo de recuperação de commits e ausência de atualização insegura na árvore ativa.
+- `STABLE_PARITY=PASS`: boot e uso sem Git, dependência remota opcional e release verificada.
+- `HARDWARE_PARITY=PASS`: rede, Wi-Fi, vídeo, entrada, energia e filesystem em dispositivos declarados suportados.
+- `BOOT_AND_ROLLBACK=PASS`: power loss e candidata inválida recuperam known-good sem perda de estado.
+- `COMPATIBLE_ABI=PASS`: módulos correspondem ao kernel e binários do produto não possuem intérprete ELF/biblioteca ausente.
+- `PROMOTION_AUTHORIZED=PASS`: autorização separada de artefato físico e do canal de publicação.
+
+Não marcar nenhum desses gates como PASS nesta atualização documental. O experimento já oferece prova de boot QEMU, não paridade geral.
+
+### Decisões de implementação
+
+1. **Não apagar `bootstrap/base/alpine_core.py` antes do cutover** — isso quebraria os builders atuais.
+2. **Não fazer Buildroot baixar um Alpine ou reintroduzir APK** — seria regressão arquitetural.
+3. **Não criar um segundo PID1, seletor, release agent ou fluxo de rollback**.
+4. **Não usar o Windows como dependência do boot** — Windows pode ser host do Creator e inspeção.
+5. **Não mudar GPT type para “OrdaX” só por branding** — manter compatibilidade durante migração.
+6. **Não alterar a geometria do USB em conjunto com esta substituição**, preservando os gates independentes de `storage-architecture`.
+
+A próxima alteração de código elegível é introduzir testes de inventário de ELF/libc, dependências runtime e ausência de Alpine no artefato Buildroot, e só então promover os perfis Dev/Stable com provas independentes.
