@@ -12,7 +12,7 @@ const CONTENT_TYPES = Object.freeze({
   webp: "image/webp",
   woff2: "font/woff2",
 });
-const HASHED_FILE = /^[a-zA-Z0-9][a-zA-Z0-9._-]{0,180}\.(?:js|css|png|svg|webp|woff2)$/;
+const HASHED_FILE = /^[a-zA-Z0-9][a-zA-Z0-9._-]{0,180}\.(?:js|css|html|png|svg|webp|woff2)$/;
 
 export function createDesktopBuiltAssetsMiddleware(root) {
   const base = realpathSync(root);
