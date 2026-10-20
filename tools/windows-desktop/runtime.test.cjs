@@ -38,3 +38,13 @@ test('Electron locks the canonical user profile before requesting a single insta
   const lock = main.indexOf('app.requestSingleInstanceLock()');
   assert.ok(name >= 0 && name < path && path < lock);
 });
+
+test('Development installer defaults to the user profile and preserves application data', () => {
+  const nsis = require('./package.json').build.nsis;
+  assert.equal(nsis.perMachine, false);
+  assert.equal(nsis.oneClick, false);
+  assert.equal(nsis.selectPerMachineByDefault, false);
+  assert.equal(nsis.allowToChangeInstallationDirectory, false);
+  assert.equal(nsis.deleteAppDataOnUninstall, false);
+  assert.equal(nsis.include, 'installer.nsh');
+});
