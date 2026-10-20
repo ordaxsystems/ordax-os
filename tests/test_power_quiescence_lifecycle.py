@@ -77,7 +77,7 @@ class PowerQuiescenceTests(unittest.TestCase):
                 'kill -0 "$SENTINEL_PID"',  # unrelated process is untouched
                 'for p in "$NATIVE_INSTALL_BROKER_PID" "$NETWORK_BROKER_PID" "$TIME_SYNC_PID"; do',
                 '  if kill -0 "$p" 2>/dev/null; then',
-                '    state=$(/bin/busybox awk '\''$1 == "State:" {print $2; exit}'\'' "/proc/$p/status" 2>/dev/null || true)',
+                "    state=$(/bin/busybox awk '$1 == \"State:\" {print $2; exit}' \"/proc/$p/status\" 2>/dev/null || true)",
                 '    [ "$state" = Z ] || exit 4',
                 '  fi',
                 'done',
