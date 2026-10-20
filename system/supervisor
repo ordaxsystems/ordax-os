@@ -975,7 +975,10 @@ stop_surface() {
     if [ -n "$SURFACE_PID" ]; then
         if kill -0 "$SURFACE_PID" >/dev/null 2>&1; then
             kill "$SURFACE_PID" >/dev/null 2>&1 || true
-            remaining=5
+            # Surface stops its brokers together under 4s, then proves no
+            # native-root process remains (up to 5s) before mount teardown.
+            # Give the owner enough time for that bounded sequence.
+            remaining=14
             while kill -0 "$SURFACE_PID" >/dev/null 2>&1 && [ "$remaining" -gt 0 ]; do
                 /bin/busybox sleep 1
                 remaining=$((remaining - 1))
