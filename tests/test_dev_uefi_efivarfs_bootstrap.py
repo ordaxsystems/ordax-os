@@ -38,7 +38,10 @@ class DevUefiMountOwnerTest(unittest.TestCase):
                 else:
                     efivars.mkdir()
             mounts = root / "mounts"
-            mounts.write_text(\n                f"{mounted_fs} {efivars} {mounted_fs} rw 0 0\\n" if mounted_fs else "",\n                encoding="utf-8",\n            )
+            mounts.write_text(
+                f"{mounted_fs} {efivars} {mounted_fs} rw 0 0\n" if mounted_fs else "",
+                encoding="utf-8",
+            )
             marker = root / "mount-invocations"
 
             source = DEV_INIT.read_text(encoding="utf-8")
