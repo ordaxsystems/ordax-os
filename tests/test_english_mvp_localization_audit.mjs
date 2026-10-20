@@ -7,7 +7,10 @@ import {
   surfaceMessageIds,
   translateSurfaceMessage,
 } from "../system/services/i18n/surface.mjs";
-import { translateFirstRunText } from "../system/services/i18n/first-run.mjs";
+import {
+  FIRST_RUN_TRANSLATION_LOCALES,
+  translateFirstRunText,
+} from "../system/services/i18n/first-run.mjs";
 import {
   FIRST_RUN_PUBLIC_MVP_LOCALES,
 } from "../system/contracts/first-run-state-store.mjs";
@@ -188,7 +191,7 @@ test("First Run legal registration copy is explicitly complete in en-US", () => 
   }
 });
 
-test("every Portuguese first-run UI literal with product copy has an en-US translation", async () => {
+test("every Portuguese first-run UI literal has localized copy in every first-run locale", async () => {
   const source = await readFile(
     new URL("../system/surface/ui/first-run.mjs", import.meta.url),
     "utf8",
@@ -200,8 +203,21 @@ test("every Portuguese first-run UI literal with product copy has an en-US trans
   );
   assert.ok(candidates.length > 45, "audit must inspect the real first-run Portuguese copy set");
 
-  const missing = candidates.filter((value) => translateFirstRunText("en-US", value) === value);
-  assert.deepEqual(missing, [], `First Run has untranslated en-US copy: ${missing.join(" | ")}`);
+  const equivalentSpanishCopy = new Set([
+    "Idioma",
+    "Teclado físico",
+    "Conectado",
+    "Conectar",
+    "Documentos vigentes",
+    "Continuar",
+  ]);
+  for (const locale of FIRST_RUN_TRANSLATION_LOCALES) {
+    const missing = candidates.filter((value) => {
+      if (locale === "es-ES" && equivalentSpanishCopy.has(value)) return false;
+      return translateFirstRunText(locale, value) === value;
+    });
+    assert.deepEqual(missing, [], `First Run has untranslated ${locale} copy: ${missing.join(" | ")}`);
+  }
 });
 
 test("First Run legal links never bypass localization with raw PT-BR labels", async () => {
