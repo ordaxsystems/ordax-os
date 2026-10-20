@@ -18,7 +18,7 @@ spec.loader.exec_module(module)
 def sample_elf(interpreter=None):
     size = 128 + (len(interpreter.encode()) + 1 if interpreter else 0)
     data = bytearray(size)
-    data[:6] = b"\\x7fELF\\x02\\x01"
+    data[:6] = b"\x7fELF\x02\x01"
     struct.pack_into("<Q", data, 32, 64)
     struct.pack_into("<H", data, 54, 56)
     struct.pack_into("<H", data, 56, 1 if interpreter else 0)
@@ -26,7 +26,7 @@ def sample_elf(interpreter=None):
         struct.pack_into("<I", data, 64, 3)
         struct.pack_into("<Q", data, 72, 128)
         struct.pack_into("<Q", data, 96, len(interpreter.encode()) + 1)
-        data[128:] = interpreter.encode() + b"\\0"
+        data[128:] = interpreter.encode() + b"\0"
     return bytes(data)
 
 
@@ -46,7 +46,7 @@ class IndependentRootfsInventoryTest(unittest.TestCase):
 
     def test_clean_rootfs_measures_elf_and_bytes(self):
         result = module.audit(self.archive([
-            ("./bin/busybox", b"\x7fELFtest"),
+            ("./bin/busybox", sample_elf()),
             ("./etc/os-release", b"NAME=OrdaX"),
         ]))
         self.assertEqual(result["status"], "pass")
@@ -62,8 +62,8 @@ class IndependentRootfsInventoryTest(unittest.TestCase):
             root.type = tarfile.DIRTYPE
             handle.addfile(root)
             binary = tarfile.TarInfo('./bin/tool')
-            binary.size = 4
-            handle.addfile(binary, io.BytesIO(b'\\x7fELF'))
+            binary.size = len(sample_elf())
+            handle.addfile(binary, io.BytesIO(sample_elf()))
         self.assertEqual(module.audit(str(path))['elf_files'], ['bin/tool'])
 
 
