@@ -121,8 +121,9 @@ class OwnerUsbMaintenanceTests(unittest.TestCase):
         name = "publish_owner_maintenance_receipt() {"
         self.assertEqual(launcher.count(name), 1)
         function = name + launcher.split(name, 1)[1].split("\n}\n", 1)[0] + "\n}\n"
-        self.assertLess(launcher.index("publish_owner_maintenance_receipt\n"),
-                        launcher.index("start_guardian_tail\n"))
+        self.assertLess(launcher.index("ENTRY_PID=$!"),
+                        launcher.index("publish_owner_maintenance_receipt &"))
+        self.assertIn("publish_owner_maintenance_receipt &", launcher)
         helper = self.root / "health-helper"
         helper.write_text("#!/bin/sh\nprintf 'schema=ordax.owner-maintenance/1\\nmaintenance.result=healthy\\n'\n")
         function = function.replace("helper=/usr/local/bin/ordax-maintain",
