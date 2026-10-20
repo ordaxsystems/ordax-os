@@ -199,7 +199,11 @@ test("every Portuguese first-run UI literal has localized copy in every first-ru
   const runtimeLiteralSource = collapseAdjacentStringConcats(source);
   const candidates = unique(
     parseDoubleQuotedLiterals(runtimeLiteralSource)
-      .filter((value) => typeof value === "string" && PORTUGUESE_MARKER.test(value)),
+      .filter((value) =>
+        typeof value === "string" &&
+        PORTUGUESE_MARKER.test(value) &&
+        !/^https?:\/\//i.test(value),
+      ),
   );
   assert.ok(candidates.length > 45, "audit must inspect the real first-run Portuguese copy set");
 
@@ -225,14 +229,8 @@ test("First Run legal links never bypass localization with raw PT-BR labels", as
     new URL("../system/surface/ui/first-run.mjs", import.meta.url),
     "utf8",
   );
-  assert.match(
-    source,
-    /privacy\.textContent\s*=\s*`\$\{translateFirstRunText\(draft\.locale, "Privacidade"\)\}/,
-  );
-  assert.match(
-    source,
-    /terms\.textContent\s*=\s*`\$\{translateFirstRunText\(draft\.locale, "Termos"\)\}/,
-  );
-  assert.doesNotMatch(source, /privacy\.textContent\s*=\s*`Privacidade\s*·/);
-  assert.doesNotMatch(source, /terms\.textContent\s*=\s*`Termos\s*·/);
+  assert.match(source, /translateFirstRunText\(draft\.locale, "Privacidade"\)/);
+  assert.match(source, /translateFirstRunText\(draft\.locale, "Termos"\)/);
+  assert.doesNotMatch(source, /\[\["Termos",\s*"https:/);
+  assert.doesNotMatch(source, /\["Privacidade",\s*"https:/);
 });

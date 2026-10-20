@@ -656,7 +656,13 @@ export function mountFirstRunExperience(
       const legal = el(documentObject, "details", "ordax-first-run-account-documents");
       legal.append(el(documentObject, "summary", "", "Termos e privacidade"));
       const links = el(documentObject, "div", "ordax-first-run-legal-links");
-      for (const [label, url] of [["Termos", "https://ordax.com.br/termos/"], ["Privacidade", "https://ordax.com.br/privacidade/"]]) {
+      for (const [label, url] of [[
+        translateFirstRunText(draft.locale, "Termos"),
+        "https://ordax.com.br/termos/",
+      ], [
+        translateFirstRunText(draft.locale, "Privacidade"),
+        "https://ordax.com.br/privacidade/",
+      ]]) {
         const link = el(documentObject, "a", "", label);
         link.href = url;
         link.target = "_blank";
