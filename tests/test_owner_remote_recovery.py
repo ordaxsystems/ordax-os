@@ -188,6 +188,7 @@ class OwnerRemoteRecoveryTests(unittest.TestCase):
             self.assertEqual(enabled.returncode, 0, enabled.stderr)
             marker = state / "auto-start-enabled"
             self.assertEqual(marker.read_text().strip(), "enabled")
+            self.assertIn("temporary=$AUTO_START_FILE.tmp.$$", self.helper)
             self.assertEqual(marker.stat().st_mode & 0o777, 0o600)
             status = self.run_helper("status", state=state)
             self.assertEqual(status.returncode, 0, status.stderr)
