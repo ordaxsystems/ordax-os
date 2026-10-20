@@ -12,6 +12,10 @@ $readonlyDirectory = $null
 $readonlyIdentity = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
 try {
   if (Test-Path -LiteralPath $dest) { throw "Test destination already exists" }
+  $nsisStageLog = Join-Path $env:TEMP "ordax-desktop-dev-installer-stage.log"
+  $stageBefore = if (Test-Path -LiteralPath $nsisStageLog) {
+    [IO.File]::ReadAllText($nsisStageLog)
+  } else { "" }
   $installationStarted = [DateTime]::UtcNow
   Write-Output "INSTALL_SMOKE_STARTED=$installerPath"
   $proc = Start-Process -FilePath $installerPath -ArgumentList ("/S /D=" + $dest) -PassThru
@@ -42,6 +46,17 @@ try {
     }
   }
   Write-Output ("INSTALL_DURATION_SECONDS=" + [Math]::Round(([DateTime]::UtcNow - $installationStarted).TotalSeconds, 1))
+  $stageAfterInstall = if (Test-Path -LiteralPath $nsisStageLog) {
+    [IO.File]::ReadAllText($nsisStageLog)
+  } else { "" }
+  if ($stageAfterInstall.Length -le $stageBefore.Length) {
+    throw "NSIS stage journal missing after first install"
+  }
+  $installStage = $stageAfterInstall.Substring($stageBefore.Length)
+  if ($installStage -notmatch "init" -or $installStage -notmatch "install-files-complete") {
+    throw ("NSIS installation stage markers incomplete: " + $installStage)
+  }
+  Write-Output "INSTALLER_STAGES_SMOKE=PASS"
   Write-Output "INSTALL_SMOKE=PASS"
   Write-Output ("INSTALLED_DESKTOP_EXE=" + $installedExe)
   # Installer upgrades must be tested, not just first-time installs. A user
@@ -67,6 +82,16 @@ try {
       }
     }
     Write-Output ("UPGRADE_DURATION_SECONDS=" + [Math]::Round(([DateTime]::UtcNow - $upgradeStart).TotalSeconds, 1))
+    $stageAfterUpgrade = if (Test-Path -LiteralPath $nsisStageLog) {
+      [IO.File]::ReadAllText($nsisStageLog)
+    } else { "" }
+    $upgradeStage = if ($stageAfterUpgrade.Length -ge $stageAfterInstall.Length) {
+      $stageAfterUpgrade.Substring($stageAfterInstall.Length)
+    } else { "" }
+    if ($upgradeStage -notmatch "init" -or $upgradeStage -notmatch "install-files-complete") {
+      throw ("NSIS upgrade stage markers incomplete: " + $upgradeStage)
+    }
+    Write-Output "UPGRADE_STAGES_SMOKE=PASS"
     Write-Output "UPGRADE_SMOKE=PASS"
   } finally {
     if ($upgradeProc -and -not $upgradeProc.HasExited) {
