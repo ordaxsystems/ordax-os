@@ -31,15 +31,23 @@ class SurfaceRuntimeSourceContractTests(unittest.TestCase):
             contract["artifact"]["release_manifest_schema"],
             "prototype-ordax.release-manifest/3",
         )
-        self.assertIn(
+        self.assertNotIn(
             "prove-stable-first-surface-boot-with-network-disabled-on-current-head",
+            contract["promotion_blockers"],
+        )
+        self.assertIn(
+            "prove-physical-stable-surface-on-supported-usb-hardware",
+            contract["promotion_blockers"],
+        )
+        self.assertIn(
+            "prove-or-explicitly-defer-secure-boot-boundary-before-public-promotion",
             contract["promotion_blockers"],
         )
 
     def test_current_lock_refresh_is_bound_to_ci_drift_evidence(self):
         contract = json.loads(CONTRACT.read_text(encoding="utf-8"))
         refresh = contract["lock_refresh"]
-        self.assertEqual(refresh["status"], "reproof-required-after-upstream-package-drift")
+        self.assertEqual(refresh["status"], "reproof-passed-on-current-head")
         self.assertEqual(refresh["detected_by_ci_run_id"], 39497041046)
         self.assertEqual(refresh["discovery_run_id"], 39498448185)
         self.assertEqual(refresh["discovery_artifact_id"], 12298438720)
@@ -70,21 +78,41 @@ class SurfaceRuntimeSourceContractTests(unittest.TestCase):
         for entry in expected:
             self.assertEqual(contract["apk_package_lock"][entry["name"]], entry["to"])
             self.assertNotEqual(entry["from"], entry["to"])
-        self.assertTrue(refresh["reproducibility_reproof_required"])
+        self.assertFalse(refresh["reproducibility_reproof_required"])
         self.assertFalse(refresh["physical_artifact_created"])
         self.assertFalse(refresh["physical_write_authorized"])
-        self.assertNotIn("byte-reproducible-erofs-runtime-ci", contract["closed_gates"])
-        self.assertIn(
+        self.assertIn("current-apk-lock-erofs-byte-reproducibility-proven", contract["closed_gates"])
+        self.assertNotIn(
             "repeat-byte-reproducible-erofs-build-on-current-apk-lock",
             contract["promotion_blockers"],
         )
         proof = contract["reproducibility_proof"]
-        self.assertEqual(proof["status"], "historical-pass-reproof-required")
-        self.assertNotEqual(proof["source_commit"], refresh["discovery_source_commit"])
-        self.assertTrue(proof["repeat_digest_passed"])  # historical evidence, never current pass
+        self.assertEqual(proof["status"], "current-head-pass")
+        self.assertEqual(proof["source_commit"], refresh["reproof"]["source_commit"])
+        self.assertEqual(proof["source_commit"], "b84b168f1770be019ad9324bb8b6a2a069eed37c")
+        self.assertTrue(proof["repeat_digest_passed"])
+        self.assertTrue(proof["qemu_surface_runtime_handoff_verified"])
+        self.assertTrue(proof["qemu_network_disabled"])
+        self.assertFalse(proof["network_required_for_first_boot"])
+        self.assertTrue(contract["integration"]["qemu_current_head_proof_passed"])
+        self.assertEqual(
+            proof["candidate_artifact_id"],
+            refresh["reproof"]["surface_runtime_candidate_artifact_id"],
+        )
+        self.assertEqual(proof["qemu_artifact_id"], refresh["reproof"]["qemu_artifact_id"])
+        self.assertEqual(
+            proof["pinned_initramfs_artifact_id"],
+            refresh["reproof"]["pinned_initramfs_artifact_id"],
+        )
         for digest in ("tree_manifest_sha256", "normalized_tar_sha256", "erofs_sha256"):
             self.assertRegex(proof[digest], r"^[0-9a-f]{64}$")
         self.assertGreater(proof["erofs_size"], 0)
+        for digest in (
+            "candidate_artifact_archive_sha256",
+            "qemu_artifact_archive_sha256",
+            "pinned_initramfs_artifact_archive_sha256",
+        ):
+            self.assertRegex(proof[digest], r"^[0-9a-f]{64}$")
 
     def test_candidate_reuses_exact_stable_base_alpine_identity(self):
         contract = json.loads(CONTRACT.read_text(encoding="utf-8"))

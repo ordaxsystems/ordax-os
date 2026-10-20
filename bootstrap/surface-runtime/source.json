@@ -307,13 +307,11 @@
     "purpose": "resolve-and-review-the-full-transitive-apk-lock-before-any-runtime-artifact-is-promotable"
   },
   "promotion_blockers": [
-    "prove-stable-first-surface-boot-with-network-disabled-on-current-head",
     "prove-physical-stable-surface-on-supported-usb-hardware",
-    "prove-or-explicitly-defer-secure-boot-boundary-before-public-promotion",
-    "repeat-byte-reproducible-erofs-build-on-current-apk-lock"
+    "prove-or-explicitly-defer-secure-boot-boundary-before-public-promotion"
   ],
   "apk_package_lock_count": 253,
-  "apk_package_lock_status": "reviewed-253-package-upstream-drift-refresh-from-ci-run-39498448185-pending-reproof",
+  "apk_package_lock_status": "reviewed-253-package-upstream-drift-refresh-reproof-passed-on-current-head",
   "discovery_evidence": {
     "workflow_run_id": 39498448185,
     "source_commit": "c0293cbf6315753e23fc5b1d0164313482d2eae6",
@@ -330,23 +328,36 @@
     "signed-release-manifest-v3-runtime-binding-implemented",
     "creator-content-addressed-runtime-preseed-implemented",
     "initramfs-runtime-erofs-ephemeral-overlay-handoff-implemented",
-    "stable-launcher-network-package-provisioning-disabled"
+    "stable-launcher-network-package-provisioning-disabled",
+    "current-apk-lock-erofs-byte-reproducibility-proven",
+    "current-head-offline-surface-runtime-qemu-handoff-proven"
   ],
   "reproducibility_proof": {
     "workflow": ".github/workflows/surface-runtime-lock-discovery.yml",
-    "workflow_run_id": 37798187669,
-    "source_commit": "16a7515f8596d90bcd0bee463b01c240b34ca0c5",
-    "status": "historical-pass-reproof-required",
-    "tree_manifest_sha256": "7c5bd1eda95451f7e38511b1fd19caad5d62ef434f15930f2fa43971d92f5ec8",
-    "normalized_tar_sha256": "0dfedac3c59fbfb54b0f06669906382cd69c3036f32803ae85a92f1789179f9f",
-    "erofs_sha256": "c8d80ac6704742ac9f2e6708386a0f2e743294fc98ed84d9b09755ffabdef3b5",
+    "workflow_run_id": 39499129666,
+    "source_commit": "b84b168f1770be019ad9324bb8b6a2a069eed37c",
+    "status": "current-head-pass",
+    "tree_manifest_sha256": "08ee3b37caeb0d2a470eecaeb371cc768fd7d2cc341e65e2b1da61cc16174dfc",
+    "normalized_tar_sha256": "a1462ded28fe81a26319171f5ab1ade8841e901fd917ff673a63c7e92159cd40",
+    "erofs_sha256": "7871ff30bf381c3dd63c42f63ebc26eaaf3ce0f2611aaa7c168cdb7744d66ef7",
     "erofs_size": 1052020736,
     "repeat_digest_required": true,
     "repeat_digest_passed": true,
     "runtime_image_retained": false,
     "physical_artifact_authorized": false,
-    "boot_handoff_connected_at_proof_time": false,
-    "scope": "current-2026-10-08-tiff-full-lock-refresh"
+    "candidate_artifact_id": 12299416785,
+    "candidate_artifact_archive_sha256": "bd73cf8a8f5ad1457bee34197219c19547da114e7740eecc1814de5938cfbaa8",
+    "qemu_workflow_run_id": 39499129739,
+    "qemu_artifact_id": 12300111202,
+    "qemu_artifact_archive_sha256": "477c160ef30f3629afd5f284ed333a116a93c7b9197558a59cf2b33033f862d3",
+    "qemu_surface_runtime_handoff_verified": true,
+    "qemu_network_disabled": true,
+    "network_required_for_first_boot": false,
+    "pinned_initramfs_workflow_run_id": 39499129901,
+    "pinned_initramfs_artifact_id": 12299364095,
+    "pinned_initramfs_artifact_archive_sha256": "364817db37cb94fa0c1cb35cf359c0f6d3a497ebf9a22740f6ef3ea79109d571",
+    "boot_handoff_connected_at_proof_time": true,
+    "scope": "current-2026-10-20-ca-certificates-full-lock-refresh"
   },
   "runtime_generated_state": {
     "machine_identity_baked_into_image": false,
@@ -360,12 +371,12 @@
     "creator_content_addressed_preseed_implemented": true,
     "initramfs_verified_mount_handoff_implemented": true,
     "stable_launcher_offline_runtime_required": true,
-    "qemu_current_head_proof_passed": false,
+    "qemu_current_head_proof_passed": true,
     "physical_usb_boot_proven": false,
     "secure_boot_proven": false
   },
   "lock_refresh": {
-    "status": "reproof-required-after-upstream-package-drift",
+    "status": "reproof-passed-on-current-head",
     "detected_by_ci_run_id": 39497041046,
     "discovery_run_id": 39498448185,
     "discovery_source_commit": "c0293cbf6315753e23fc5b1d0164313482d2eae6",
@@ -384,7 +395,24 @@
     ],
     "physical_artifact_created": false,
     "physical_write_authorized": false,
-    "reproducibility_reproof_required": true,
+    "reproducibility_reproof_required": false,
+    "reproof": {
+      "source_commit": "b84b168f1770be019ad9324bb8b6a2a069eed37c",
+      "surface_runtime_candidate_run_id": 39499129666,
+      "surface_runtime_candidate_artifact_id": 12299416785,
+      "surface_runtime_candidate_artifact_archive_sha256": "bd73cf8a8f5ad1457bee34197219c19547da114e7740eecc1814de5938cfbaa8",
+      "qemu_run_id": 39499129739,
+      "qemu_artifact_id": 12300111202,
+      "qemu_artifact_archive_sha256": "477c160ef30f3629afd5f284ed333a116a93c7b9197558a59cf2b33033f862d3",
+      "qemu_surface_runtime_handoff_verified": true,
+      "qemu_network_disabled": true,
+      "network_required_for_first_boot": false,
+      "pinned_initramfs_run_id": 39499129901,
+      "pinned_initramfs_artifact_id": 12299364095,
+      "pinned_initramfs_artifact_archive_sha256": "364817db37cb94fa0c1cb35cf359c0f6d3a497ebf9a22740f6ef3ea79109d571",
+      "physical_artifact_created": false,
+      "physical_write_authorized": false
+    },
     "upstream_drift": {
       "packages": [
         {
