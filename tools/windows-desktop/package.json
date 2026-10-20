@@ -1,7 +1,7 @@
 {
   "name": "ordax-os-desktop-dev",
   "private": true,
-  "version": "0.1.0-alpha.16",
+  "version": "0.1.0-alpha.17",
   "description": "Installable Windows development host for the canonical OrdaX Native Surface",
   "main": "main.cjs",
   "scripts": {
