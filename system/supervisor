@@ -94,9 +94,40 @@ CHECKOUT_ERROR=""
 SURFACE_PID=""
 SURFACE_STARTED_AT=0
 SURFACE_STALE_RECOVERY_ARMED=1
+# Diagnostic-only, one-shot Owner boot witness. This is not update state and
+# never authorizes an operation. It costs at most a few atomic writes per boot.
+OWNER_POLL_BOOT_STAGE=""
+OWNER_POLL_BOOT_FINISHED=0
+OWNER_POLL_BOOT_FILE=$STATE_DIR/native-state/supervisor-boot-witness.json
 
 log() {
     echo "ordax-system: $*" >&2
+}
+
+record_owner_poll_boot_stage() {
+    [ "$DISTRIBUTION_PROFILE" = owner-development ] || return 0
+    [ "$OWNER_POLL_BOOT_FINISHED" -eq 0 ] || return 0
+    stage=$1
+    case "$stage" in
+        initialized|poll-loop-entered|first-run-pending|first-run-verified|git-remote-started|git-remote-failed|git-remote-completed) ;;
+        *) return 0 ;;
+    esac
+    [ "$stage" != "$OWNER_POLL_BOOT_STAGE" ] || return 0
+    witness_dir=${OWNER_POLL_BOOT_FILE%/*}
+    [ -d "$witness_dir" ] && [ ! -L "$witness_dir" ] || return 0
+    [ ! -L "$OWNER_POLL_BOOT_FILE" ] || return 0
+    witness_tmp=$OWNER_POLL_BOOT_FILE.tmp.$
+    stamp=$(utc_now)
+    if printf '{"schema":"ordax.owner-supervisor-first-poll/1","stage":"%s","observedAt":"%s"}\n' "$stage" "$stamp" >"$witness_tmp" &&
+       /bin/busybox chmod 600 "$witness_tmp" &&
+       /bin/busybox mv -f "$witness_tmp" "$OWNER_POLL_BOOT_FILE"
+    then
+        OWNER_POLL_BOOT_STAGE=$stage
+        case "$stage" in git-remote-failed|git-remote-completed) OWNER_POLL_BOOT_FINISHED=1 ;; esac
+    else
+        /bin/busybox rm -f "$witness_tmp" >/dev/null 2>&1 || true
+    fi
+    return 0
 }
 
 supervisor_heartbeat() {
@@ -2104,15 +2135,20 @@ check_for_update() {
     first_run_receipt=$STATE_DIR/native-state/first-run.json
     if [ ! -f "$first_run_receipt" ] || [ -L "$first_run_receipt" ] ||
        ! /bin/busybox grep -q '"completed"[[:space:]]*:[[:space:]]*true' "$first_run_receipt"; then
+        record_owner_poll_boot_stage first-run-pending
         return 0
     fi
+    record_owner_poll_boot_stage first-run-verified
+    record_owner_poll_boot_stage git-remote-started
 
     if ! remote_output=$(run_bounded_git "$REMOTE_TIMEOUT" -C "$WORKTREE" ls-remote --heads origin "refs/heads/$BRANCH" 2>>"$UPDATE_LOG"); then
+        record_owner_poll_boot_stage git-remote-failed
         log "remote check failed or timed out after ${REMOTE_TIMEOUT}s; keeping running Surface"
         set_update_context error "" "" "remote-check-failed"
         write_update_state "$current" network-error none
         return 0
     fi
+    record_owner_poll_boot_stage git-remote-completed
     set -- $remote_output
     remote_sha=${1:-}
     case "$remote_sha" in
@@ -2321,6 +2357,7 @@ fi
 refresh_release_history
 clear_update_context
 write_update_state "$initial_sha" running initial
+record_owner_poll_boot_stage initialized
 clear_surface_health
 if [ "$DISTRIBUTION_PROFILE" = "stable-mvp" ]; then
     log "starting shared OrdaX Surface with Stable/MVP signed-release profile"
@@ -2388,6 +2425,7 @@ else
     fi
 fi
 
+record_owner_poll_boot_stage poll-loop-entered
 while :; do
     supervisor_heartbeat || fail_closed "supervisor liveness checkpoint could not be published"
     /bin/busybox sleep "$UPDATE_INTERVAL"
