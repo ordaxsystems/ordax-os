@@ -227,7 +227,7 @@ O desacoplamento será considerado **comprovado** quando: (a) contratos e owners
 
 **F0-01 — Ponto já resolvido por design:** kernel e runtime são distintos nos owners, e o Pull comum não precisa necessariamente recompilar kernel. **Ação:** preservar fronteira; testar regressões em vez de substituí-la.
 
-**F0-02 — Dependência externa real do bootstrap:** `bootstrap/base/alpine_core.py` fornece userland baseado em Alpine. Não descrever o OrdaX como “somente kernel Linux + código OrdaX”. **Ação:** levantar inventário de binários, pacotes, licenças, API/ABI e runtime; decidir o que permanece como dependência legítima. Reescrever essas peças sem benefício mensurável é antipadrão.
+**F0-02 — Dependência legada em retirada, não arquitetura alvo:** `bootstrap/base/alpine_core.py` ainda fornece userland baseado em Alpine nos perfis atuais, mas **a decisão de produto é remover Alpine**. A migração já tem owner em `bootstrap/independent-base/` (Buildroot + BusyBox + musl), sem Alpine/APK no novo perfil. **Ação:** medir paridade funcional, fechamento de dependências e compatibilidade do substituto; não propor manutenção do Alpine como componente futuro nem começar outro pipeline concorrente. Preservar legado somente durante transição com gates de boot/recovery e segurança.
 
 **F0-03 — Branding versus metadata:** GPT type Linux filesystem é a causa estrutural provável da classificação no Windows; o contrato já define o partition name e filesystem label `ORDAX`. **Ação:** manter GUID compatível; apresentar “OrdaX OS” no Creator, nos relatórios e interfaces proprietárias. Testar sem alegar que o Windows mudará sua classificação.
 
@@ -242,7 +242,7 @@ O desacoplamento será considerado **comprovado** quando: (a) contratos e owners
 `KERNEL_LOGICAL_DECOUPLING=PARTIALLY_PRESENT`  
 `NEW_KERNEL_PARTITION=NOT_RECOMMENDED`  
 `GPT_TYPE_COSMETIC_CHANGE=NOT_RECOMMENDED`  
-`ALPINE_DEV_USERLAND_DEPENDENCY=CONFIRMED_IN_SOURCE`  
+`ALPINE_DEV_USERLAND_DEPENDENCY=LEGACY_PENDING_REMOVAL`  
 `KERNEL_RUNTIME_PHYSICAL_COMPATIBILITY=UNVERIFIED`  
 `USB_MUTATION_PERFORMED=NO`
 
@@ -253,3 +253,53 @@ O desacoplamento será considerado **comprovado** quando: (a) contratos e owners
 3. Auditar verificação automática de correspondência exata de kernel ABI e módulos/rootfs em candidate staging.
 4. Entregar um relatório `PASS/FAIL/BLOCKED` de source e CI; não chamar isso de homologação física.
 5. Solicitar alteração de owner ou ADR **apenas** para falhas comprovadas; evitar refatoração cosmética.
+
+
+## 12. Correção de escopo — retirada do Alpine (2026-10-20)
+
+**Decisão de produto confirmada:** Alpine não pertence à arquitetura alvo do OrdaX. Toda referência anterior a Alpine neste plano documenta **estado legado transitório**, não uma recomendação para mantê-lo. A Fase 0 deve avaliar **a remoção segura do Alpine**, não sua preservação como dependência futura.
+
+### Owner existente — não duplicar
+
+- `bootstrap/independent-base/README.md`: experimento Buildroot 2026.08 produz BusyBox + musl sem Alpine, APK e minirootfs Alpine.
+- `bootstrap/independent-base/PHASE2.md`: caminho portátil reutiliza PID1, handoff, EROFS/ext4/OverlayFS, assinaturas e seletor canônicos; provas QEMU documentadas, mas não equivalência plena de hardware/serviços.
+- `bootstrap/independent-base/source.json`: `experimental-not-promotable`, `candidate_only=true`, `physical_artifact_authorized=false`, `stable_channel_authorized=false`.
+- Referência de acompanhamento: issue #1730 (mencionada pelo README da base independente). Verificar status corrente antes de agir.
+
+### Arquitetura alvo revisada
+
+```text
+OrdaX Surface / Apps / Spaces / Intelligence
+                    |
+         OrdaX Core / Native
+                    |
+        Serviços e ports canônicos
+                    |
+         OrdaX Independent Base
+          (Buildroot como builder)
+       BusyBox / musl + dependências
+       explícitas, mínimas, verificadas
+                    |
+      Kernel Linux + módulos/firmware
+                    |
+                  UEFI
+```
+
+Buildroot é ferramenta de construção, não nome ou identidade do sistema final. A utilização de BusyBox, musl e outras bibliotecas de terceiros continua sendo uma dependência normal e deve ser listada por SBOM/licenças. **Independência não exige reescrever libc e todos os utilitários.**
+
+### Regras corrigidas para fases seguintes
+
+1. **Não investir em novo acoplamento Alpine/APK**; alterações na base legada somente para segurança, operação e paridade necessária até migração.
+2. **Não substituir Stable ou Dev imediatamente**: concluir primeiro paridade de rede/Wi-Fi/firmware, boot real, serviços Native/Surface, aplicativos, assinaturas, persistência e rollback.
+3. **Não criar pipeline alternativo:** reutilizar `bootstrap/independent-base` e owners existentes de kernel, initramfs, base-update e release.
+4. Construir matriz de equivalência feature-by-feature entre imagem legada e candidata independente e evidenciar `PASS/FAIL/BLOCKED`.
+5. Criar gate de ausência de Alpine na **imagem final promovida**: sem `apk`, índices/repositórios APK, bibliotecas/metadados Alpine, serviços ou hardcoded paths Alpine. Cuidado com falso positivo em documentação/proveniência histórica ou ferramentas não embarcadas.
+6. Separar elegibilidade Dev e Stable. Só eliminar componentes legados após a nova base demonstrar os fluxos do canal correspondente.
+7. Preservar a independência de boot em relação ao Windows e serviços remotos.
+8. A substituição de Alpine **não requer partição exclusiva para kernel**, novo tipo GPT ou alteração de layout.
+
+**Estado correto:** `ALPINE_TARGET_ARCHITECTURE=NO`, `INDEPENDENT_BASE_EXISTS=YES_EXPERIMENTAL`, `ALPINE_REMOVAL_COMPLETE=NO`, `PHYSICAL_VALIDATION=BLOCKED`.
+
+### Próximo gate prioritário
+
+Confrontar `bootstrap/independent-base` com `bootstrap/stable-base`, `bootstrap/dev-base`, `bootstrap/surface-runtime` e suas dependências APK. Provar ausência de regressões no runtime real antes de alterar o canal por padrão. Não ampliar o plano para reimplementar Linux nem criar abstração universal sem justificativa.
