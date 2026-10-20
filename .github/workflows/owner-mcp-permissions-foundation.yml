@@ -1,0 +1,63 @@
+name: Owner MCP Permissions Foundation
+
+on:
+  pull_request:
+    paths:
+      - 'system/surface/runtime/native_host_server.py'
+      - 'system/surface/runtime/product_device_runtime.py'
+      - 'system/surface/runtime/product_device_owner_grants.py'
+      - 'system/adapters/native/owner-remote-permissions.mjs'
+      - 'system/contracts/owner-remote-permissions.mjs'
+      - 'system/surface/ui/settings-overview-controls.mjs'
+      - 'system/composition/native/main.mjs'
+      - 'system/services/i18n/catalog/settings.mjs'
+      - 'tests/test_owner_remote_permission_authority.py'
+      - 'tests/test_owner_remote_permissions_native.py'
+      - 'tests/test_owner_remote_permissions_adapter.mjs'
+      - '.github/workflows/owner-mcp-permissions-foundation.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'system/surface/runtime/product_device_owner_grants.py'
+      - 'system/surface/runtime/product_device_runtime.py'
+      - 'system/surface/runtime/native_host_server.py'
+      - 'system/adapters/native/owner-remote-permissions.mjs'
+      - 'system/contracts/owner-remote-permissions.mjs'
+      - 'system/surface/ui/settings-overview-controls.mjs'
+      - 'system/composition/native/main.mjs'
+      - '.github/workflows/owner-mcp-permissions-foundation.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  owner-mcp-permissions:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '24'
+      - name: Validate Native Python modules and JavaScript syntax
+        run: |
+          python -m py_compile system/surface/runtime/product_device_owner_grants.py system/surface/runtime/product_device_runtime.py system/surface/runtime/native_host_server.py
+          node --check system/adapters/native/owner-remote-permissions.mjs
+          node --check system/contracts/owner-remote-permissions.mjs
+          node --check system/surface/ui/settings-overview-controls.mjs
+          node --check system/composition/native/main.mjs
+      - name: Prove canonical Owner grants and Native loopback boundary
+        run: |
+          python -m unittest \
+            tests.test_owner_remote_permission_authority \
+            tests.test_owner_remote_permissions_native \
+            tests.test_product_device_authenticated_login_trigger \
+            tests.test_product_connector_native_endpoint -v
+      - name: Prove Surface port and keep discovery separate from grants
+        run: |
+          node --test tests/test_owner_remote_permissions_adapter.mjs
+          node --test tests/test_product_connector_adapter.mjs
