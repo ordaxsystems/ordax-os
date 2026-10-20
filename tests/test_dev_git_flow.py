@@ -463,9 +463,15 @@ class DevelopmentGitFlowTest(unittest.TestCase):
                     f"log={watch_log.read_text(encoding='utf-8')[-2000:]!r}"
                 )
 
-            self.assertIn(
-                "main aplicada:", watch_log.read_text(encoding="utf-8")
-            )
+            log_deadline = time.monotonic() + 5
+            while time.monotonic() < log_deadline:
+                if "main aplicada:" in watch_log.read_text(encoding="utf-8"):
+                    break
+                if process.poll() is not None:
+                    self.fail(f"watcher exited before recording Pull: {process.returncode}")
+                time.sleep(0.05)
+            else:
+                self.fail("watcher did not log the completed main activation")
             self.assertEqual((self.state / "previous-commit").read_text().strip(), self.commit_v1)
             self.assertEqual((self.state / "current-commit").read_text().strip(), candidate)
             self.assertEqual(
