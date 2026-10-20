@@ -1414,6 +1414,10 @@ start_native_install_broker || echo "ordax-surface: Native install discovery bro
 reap_stale_runtime_processes || fallback_with_reason "stale runtime processes survived bounded termination; refusing mount reuse"
 clear_stale_runtime_mounts
 resolve_source_identity || fallback_with_reason "failed to resolve exact Surface source identity"
+# Bind the existing signed Account gateway after the exact Surface source is
+# resolved, even when the Supervisor starts this runtime without an exported
+# optional environment override. Missing/invalid settings stay offline-first.
+resolve_account_gateway_base_url
 if ! runtime_is_ready; then
     printf 'OrdaX: preparando Surface grafica...\n'
     # Current-boot, exact-SHA marker. Stable/MVP never acquires APK packages.
