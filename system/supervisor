@@ -2517,15 +2517,16 @@ while :; do
     supervisor_heartbeat || fail_closed "supervisor liveness checkpoint could not be published"
     # Owner/Dev button wakes the existing Supervisor promptly. No second
     # process, Git owner or automatic-update toggle is introduced.
-    poll_waited=0
-    while [ "$poll_waited" -lt "$UPDATE_INTERVAL" ]; do
-        if [ "$DISTRIBUTION_PROFILE" = "owner-development" ] &&
-           [ -f "$OWNER_MANUAL_CHECK_REQUEST" ]; then
-            break
-        fi
-        /bin/busybox sleep 1
-        poll_waited=$((poll_waited + 1))
-    done
+    if [ "$DISTRIBUTION_PROFILE" = "owner-development" ]; then
+        poll_waited=0
+        while [ "$poll_waited" -lt "$UPDATE_INTERVAL" ]; do
+            [ -f "$OWNER_MANUAL_CHECK_REQUEST" ] && break
+            /bin/busybox sleep 1
+            poll_waited=$((poll_waited + 1))
+        done
+    else
+        /bin/busybox sleep "$UPDATE_INTERVAL"
+    fi
     if [ "$DISTRIBUTION_PROFILE" = "owner-development" ] &&
        [ -f "$OWNER_MANUAL_CHECK_REQUEST" ]; then
         if [ ! -L "$OWNER_MANUAL_CHECK_REQUEST" ] &&
