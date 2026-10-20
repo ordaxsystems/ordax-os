@@ -25,21 +25,32 @@ jobs:
       - name: Install canonical workspace
         run: npm ci --no-audit --no-fund
       - name: Test Native host and desktop contracts
+        shell: pwsh
         run: |
-          node --test tests/test_desktop_network_status.mjs
-          node --test tests/test_desktop_system_metrics.mjs
-          node --test tests/test_desktop_power_status.mjs
-          node --test tests/test_desktop_file_space.mjs
-          node --test tests/test_desktop_update_status.mjs
-          node --test tests/test_desktop_recovery_status.mjs
-          node --test tests/test_desktop_recovery_surface.mjs
-          node --test tests/test_desktop_boot_gate.mjs
-          node --test tests/test_windows_emulator_native_host.mjs
-          node --test tools/windows-desktop/browser-host.test.cjs
-          node --test tools/windows-desktop/host-startup.test.cjs
-          node --test tools/windows-desktop/native-build.test.cjs
-          node --test tools/windows-desktop/dev-update.test.cjs
-          node --test tools/windows-desktop/runtime.test.cjs tools/windows-desktop/checkout.test.cjs
+          $ErrorActionPreference = 'Stop'
+          $suites = @(
+            "tests/test_desktop_network_status.mjs",
+            "tests/test_desktop_system_metrics.mjs",
+            "tests/test_desktop_power_status.mjs",
+            "tests/test_desktop_file_space.mjs",
+            "tests/test_desktop_update_status.mjs",
+            "tests/test_desktop_recovery_status.mjs",
+            "tests/test_desktop_recovery_surface.mjs",
+            "tests/test_desktop_boot_gate.mjs",
+            "tests/test_windows_emulator_native_host.mjs",
+            "tools/windows-desktop/browser-host.test.cjs",
+            "tools/windows-desktop/host-startup.test.cjs",
+            "tools/windows-desktop/native-build.test.cjs",
+            "tools/windows-desktop/dev-update.test.cjs",
+            "tools/windows-desktop/runtime.test.cjs",
+            "tools/windows-desktop/checkout.test.cjs"
+          )
+          foreach ($suite in $suites) {
+            & node --test $suite
+            if ($LASTEXITCODE -ne 0) {
+              throw "Desktop/Native contract failed: $suite (exit $LASTEXITCODE)"
+            }
+          }
       - name: Install desktop shell toolchain
         working-directory: tools/windows-desktop
         run: npm ci --no-audit --no-fund
