@@ -25,7 +25,9 @@ test('Git bootstrap uses only the canonical OrdaX repository', () => {
   const args = gitArgs('test-target');
   assert.equal(args.at(-2), OFFICIAL_REMOTE);
   assert.equal(args.at(-1), 'test-target');
-  assert.ok(args.includes('--depth'));
+  assert.ok(args.includes('--depth')); // Historical bootstrap helper, not the Desktop staged updater.
+  assert.ok(readFileSync(join(__dirname,'main.cjs'),'utf8').includes('chooseBootVersion'));
+  assert.ok(!readFileSync(join(__dirname,'checkout.cjs'),'utf8').includes('merge\' , \'--ff-only'));
 });
 
 test('installed app mounts canonical Native directly, never an emulator iframe', () => {
