@@ -754,11 +754,6 @@ if [ -z "$remote_sha" ]; then
     fi
     exit 1
 fi
-if [ -n "$EXPECTED_SHA" ] && [ "$remote_sha" != "$EXPECTED_SHA" ]; then
-    echo "ordax-git: main mudou durante a transacao; checkout atual preservado" >&2
-    exit 1
-fi
-
 recovery_pinned=""
 recovery_rejected=""
 if [ "$AUTOMATIC_ROLLBACK_RECOVERY" -eq 1 ]; then
