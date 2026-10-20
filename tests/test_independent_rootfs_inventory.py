@@ -84,7 +84,7 @@ class IndependentRootfsInventoryTest(unittest.TestCase):
 
     def test_malformed_elf_fails_closed(self):
         with self.assertRaisesRegex(ValueError, "malformed ELF"):
-            module.audit(self.archive([("bin/tool", b"\\x7fELFbad")]))
+            module.audit(self.archive([("bin/tool", b"\x7fELFbad")]))
 
     def test_alpine_apk_residue_is_rejected(self):
         result = module.audit(self.archive([("etc/apk/repositories", b"index")]))
