@@ -88,6 +88,8 @@ export function validateUpdateStatusSnapshot(value) {
     rejectedSha: optionalString(value.rejectedSha, ""),
     lastError: optionalString(value.lastError, ""),
     healthToken: optionalString(value.healthToken, ""),
+    manualCheckAvailable: value.manualCheckAvailable === true,
+    manualCheckPending: value.manualCheckPending === true,
   });
 }
 
