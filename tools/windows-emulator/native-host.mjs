@@ -2,6 +2,7 @@
 import { mkdir, readFile, writeFile, rename } from "node:fs/promises";
 import { join } from "node:path";
 import { readDesktopNetworkStatus } from "../../system/adapters/desktop/network-status.mjs";
+import { readDesktopSystemMetrics } from "../../system/adapters/desktop/system-metrics.mjs";
 import { readDesktopUpdateStatus, readDesktopUpdateHistory } from "../../system/adapters/desktop/update-observation.mjs";
 import { createInitialFirstRunState, validateFirstRunState } from "../../system/contracts/first-run-state-store.mjs";
 import { validatePreferenceRecord } from "../../system/contracts/preference-store.mjs";
@@ -92,7 +93,7 @@ export function nativeEmulatorPlugin(stateDirectory, { desktopHost = false } = {
         // Genuine Windows host observation under the canonical Native port.
         server.middlewares.use((request, response, next) => {
           const path = request.url.split("?")[0];
-          if (!["/__ordax/native/network-status", "/__ordax/native/update", "/__ordax/native/update-history"].includes(path)) return next();
+          if (!["/__ordax/native/network-status", "/__ordax/native/metrics", "/__ordax/native/update", "/__ordax/native/update-history"].includes(path)) return next();
           response.setHeader("Content-Type", "application/json");
           response.setHeader("Cache-Control", "no-store");
           if (request.method !== "GET") {
@@ -105,6 +106,15 @@ export function nativeEmulatorPlugin(stateDirectory, { desktopHost = false } = {
           };
           try {
             if (path === "/__ordax/native/network-status") return respond(readDesktopNetworkStatus());
+            if (path === "/__ordax/native/metrics") {
+              const root = process.env.ORDAX_DESKTOP_UPDATE_USER_DATA;
+              if (!root) { response.statusCode=503; return response.end(JSON.stringify({error:"User profile path unavailable"})); }
+              void readDesktopSystemMetrics(root).then(respond).catch(() => {
+                response.statusCode=503;
+                response.end(JSON.stringify({error:"Windows host metrics unavailable"}));
+              });
+              return;
+            }
             if (path === "/__ordax/native/update-history") return respond(readDesktopUpdateHistory());
             const directory = process.env.ORDAX_DESKTOP_UPDATE_USER_DATA;
             if (!directory) {
