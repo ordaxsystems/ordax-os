@@ -13,7 +13,7 @@ export default defineConfig({
   appType: "mpa",
   // Never write optimized deps into a packaged, read-only Program Files runtime.
   cacheDir: resolve(stateDirectory, "vite-cache"),
-  plugins: [nativeEmulatorPlugin(stateDirectory)],
+  plugins: [nativeEmulatorPlugin(stateDirectory, { desktopHost: process.env.ORDAX_DESKTOP_HOST === "1" })],
   optimizeDeps: { noDiscovery: true, include: [] },
   resolve: {
     alias: {
