@@ -758,3 +758,18 @@
   font-family: var(--ordax-font-display);
   font-size: 0.9rem;
 }
+
+/* Viewport fallback complements the app-window container breakpoints. */
+@media (max-width: 760px) {
+  .ordax-account-navigation {
+    display: flex;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+    max-width: 100%;
+    padding: 8px 12px;
+  }
+  .ordax-account-navigation-item { flex: 0 0 auto; min-height: 42px; }
+  .ordax-account-grid { grid-template-columns: minmax(0, 1fr); }
+  .ordax-account-card { min-width: 0; }
+}
