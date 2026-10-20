@@ -24,6 +24,8 @@ def audit(path: str) -> dict:
     total, regular, links = 0, 0, 0
     with tarfile.open(path, "r:*") as archive:
         for member in archive:
+            if member.isdir() and member.name in (".", "./"):
+                continue
             name = normalized(member.name)
             if name in seen:
                 raise ValueError(f"duplicate tar entry: {name}")
