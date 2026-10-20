@@ -528,7 +528,7 @@ class DevelopmentGitFlowTest(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertEqual(
             (self.root / "run/ordax-update/pull-result").read_text().strip(),
-            "remote-discovery",
+            "handoff-validation",
         )
         self.assertEqual(
             self._run(["git", "-C", str(self.worktree), "rev-parse", "HEAD"]).stdout.strip(),
