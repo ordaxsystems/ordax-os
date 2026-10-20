@@ -51,7 +51,7 @@ class PhysicalPowerGuardianTests(unittest.TestCase):
             result = subprocess.run(["sh", str(ACTION)], env=env, capture_output=True, timeout=5)
             reader.join(timeout=5)
             self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertEqual(received, ["shutdown\\n"])
+            self.assertEqual(received, ["shutdown\n"])
 
 if __name__ == "__main__":
     unittest.main()
