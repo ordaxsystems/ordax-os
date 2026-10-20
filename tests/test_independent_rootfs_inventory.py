@@ -112,6 +112,37 @@ class IndependentRootfsInventoryTest(unittest.TestCase):
             handle.addfile(entry)
         self.assertEqual(module.audit(str(path))["status"], "fail")
 
+
+    def test_interpreter_tar_hardlink_to_file_is_accepted(self):
+        path = Path(self.temp.name) / "rootfs.tar"
+        with tarfile.open(path, "w") as handle:
+            binary = sample_elf("/lib/ld-musl.so.1")
+            entry = tarfile.TarInfo("bin/tool")
+            entry.size = len(binary)
+            handle.addfile(entry, io.BytesIO(binary))
+            entry = tarfile.TarInfo("lib/libc.so")
+            entry.size = 4
+            handle.addfile(entry, io.BytesIO(b"data"))
+            entry = tarfile.TarInfo("lib/ld-musl.so.1")
+            entry.type = tarfile.LNKTYPE
+            entry.linkname = "lib/libc.so"
+            handle.addfile(entry)
+        self.assertEqual(module.audit(str(path))["status"], "pass")
+
+    def test_interpreter_hardlink_cycle_is_rejected(self):
+        path = Path(self.temp.name) / "rootfs.tar"
+        with tarfile.open(path, "w") as handle:
+            binary = sample_elf("/lib/a.so")
+            entry = tarfile.TarInfo("bin/tool")
+            entry.size = len(binary)
+            handle.addfile(entry, io.BytesIO(binary))
+            for source, target in (("lib/a.so", "lib/b.so"), ("lib/b.so", "lib/a.so")):
+                entry = tarfile.TarInfo(source)
+                entry.type = tarfile.LNKTYPE
+                entry.linkname = target
+                handle.addfile(entry)
+        self.assertEqual(module.audit(str(path))["status"], "fail")
+
     def test_malformed_elf_fails_closed(self):
         with self.assertRaisesRegex(ValueError, "malformed ELF"):
             module.audit(self.archive([("bin/tool", b"\x7fELFbad")]))
