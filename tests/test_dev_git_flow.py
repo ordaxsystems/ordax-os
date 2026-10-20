@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import os
+import shutil
 from pathlib import Path
 import stat
 import subprocess
@@ -101,6 +102,7 @@ class DevelopmentGitFlowTest(unittest.TestCase):
             "ordax-dev-init",
             "ordax-diagnose",
             "ordax-network",
+            "ordax-main-watch",
             "ordax-pull",
             "ordax-rollback",
             "ordax-run",
@@ -111,6 +113,17 @@ class DevelopmentGitFlowTest(unittest.TestCase):
                 encoding="utf-8",
             )
             script.chmod(0o755)
+        # The production helper and manifest are used, not a fake success stub.
+        # All targets are redirected into the disposable fixture root.
+        helper_dir = self.source / "system/services/base-update"
+        helper_dir.mkdir(parents=True, exist_ok=True)
+        for filename in ("dev-helpers.sh", "dev-helper-manifest.tsv"):
+            shutil.copy2(ROOT / "system/services/base-update" / filename,
+                         helper_dir / filename)
+        remote = self.source / "bootstrap/base-update/owner-development/ordax-remote"
+        remote.parent.mkdir(parents=True, exist_ok=True)
+        remote.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+        remote.chmod(0o755)
         recovery = self.source / "bootstrap/recovery/entrypoint"
         recovery.parent.mkdir(parents=True, exist_ok=True)
         recovery.write_text(
@@ -145,6 +158,7 @@ class DevelopmentGitFlowTest(unittest.TestCase):
                 "ORDAX_REPO_BRANCH": "main",
                 "ORDAX_WORKTREE": str(self.worktree),
                 "ORDAX_STATE_DIR": str(self.state),
+                "ORDAX_DEV_HELPER_TARGET_ROOT": str(self.root / "installed-rootfs"),
                 "ORDAX_UPDATE_RUN_DIR": str(self.root / "run/ordax-update"),
                 "ORDAX_SURFACE_RUNTIME_PROVISION_MARKER": str(
                     self.root / "run/ordax-surface/runtime-provisioning-source-sha"
