@@ -69,6 +69,46 @@ class AuthorityTests(unittest.TestCase):
                      if method != "GET"]
         self.assertEqual([m[0] for m in mutations], ["POST", "DELETE"])
         self.assertTrue(all("/v3/owner/remote-grant-groups" in m[1] for m in mutations))
+    def test_no_success_on_stale_authority_postcondition(self):
+        class NoopOpener(Opener):
+            def open(self, request, timeout):
+                method = request.get_method()
+                if method == "POST":
+                    self.calls.append((method, request.full_url, None))
+                    class Reply:
+                        status = 200
+                        def __enter__(self): return self
+                        def __exit__(self, *args): pass
+                        def read(self, n): return b'{"ok":true}'
+                    return Reply()
+                return super().open(request, timeout)
+        opener = NoopOpener()
+        authority = ProductOwnerRemotePermissions(
+            "https://mcp.ordax.com.br", Gateway(), Identity(), opener=opener)
+        with self.assertRaisesRegex(OwnerRemotePermissionError, "remote-permission-not-confirmed"):
+            authority.configure(CLIENT, True)
+        self.assertEqual([call[0] for call in opener.calls], ["GET", "POST", "GET"])
+
+    def test_oversized_grant_list_fails_closed_before_any_mutation(self):
+        class OversizedOpener(Opener):
+            def open(self, request, timeout):
+                result = {"ok": True, "device_id": DEVICE,
+                          "clients": [{"client_id": CLIENT, "client_name": "ChatGPT"}],
+                          "grant_groups": [{}] * 301}
+                self.calls.append((request.get_method(), request.full_url, None))
+                class Reply:
+                    status = 200
+                    def __enter__(self): return self
+                    def __exit__(self, *args): pass
+                    def read(self, n): return json.dumps(result).encode()
+                return Reply()
+        opener = OversizedOpener()
+        authority = ProductOwnerRemotePermissions(
+            "https://mcp.ordax.com.br", Gateway(), Identity(), opener=opener)
+        with self.assertRaisesRegex(OwnerRemotePermissionError, "remote-authority-invalid-response"):
+            authority.configure(CLIENT, False)
+        self.assertEqual([call[0] for call in opener.calls], ["GET"])
+
     def test_invalid_client_cannot_mutate(self):
         with self.assertRaises(OwnerRemotePermissionError):
             self.authority.configure("chatgpt", True)
