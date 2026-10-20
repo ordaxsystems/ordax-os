@@ -88,6 +88,9 @@ from display_outputs import DisplayOutputError, WaylandDisplayOutputProvider
 SESSION_PATH = "/__ordax/native/session"
 POWER_PATH = "/__ordax/native/power"
 UPDATE_PATH = "/__ordax/native/update"
+UPDATE_CHECK_PATH = "/__ordax/native/update-check"
+UPDATE_MANUAL_REQUEST_FILE = "/run/ordax-update/manual-check-request"
+UPDATE_TOKEN_HEADER = "X-OrdaX-Update-Token"
 HEALTH_PATH = "/__ordax/native/health"
 SURFACE_HEARTBEAT_PATH = "/__ordax/native/surface-heartbeat"
 CLIENT_DIAGNOSTIC_PATH = "/__ordax/native/client-diagnostic"
@@ -515,6 +518,35 @@ def queue_power_action(power_request_path: str, action: str) -> None:
             raise OSError("short write to host power broker")
     finally:
         os.close(descriptor)
+
+
+def manual_update_request_pending(path: str = UPDATE_MANUAL_REQUEST_FILE) -> bool:
+    return os.path.isfile(path) and not os.path.islink(path)
+
+
+def queue_manual_update_check(path: str = UPDATE_MANUAL_REQUEST_FILE) -> bool:
+    """Queue the canonical Supervisor's next main check; never run Git here."""
+    parent = os.path.dirname(path)
+    if not os.path.isdir(parent) or os.path.islink(parent):
+        raise OSError("Supervisor update run directory unavailable")
+    try:
+        fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0), 0o600)
+    except FileExistsError:
+        if manual_update_request_pending(path):
+            return False
+        raise OSError("unsafe update request path")
+    try:
+        with os.fdopen(fd, "w", encoding="ascii") as handle:
+            handle.write("check-main\n")
+            handle.flush()
+            os.fsync(handle.fileno())
+    except BaseException:
+        try:
+            os.unlink(path)
+        except OSError:
+            pass
+        raise
+    return True
 
 
 def read_update_state() -> dict | None:
@@ -3464,6 +3496,8 @@ class NativeHostServer(ThreadingHTTPServer):
         )
         self.diagnostic_token = secrets.token_urlsafe(32)
         self.health_token = secrets.token_urlsafe(32)
+        self.manual_update_token = secrets.token_urlsafe(32)
+        self.manual_update_lock = threading.Lock()
         self.power_request_path = power_request_path
         self.network_paths = network_broker_paths(network_session_dir)
         self.network_lock = threading.Lock()
@@ -4404,6 +4438,13 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
                 update_state = dict(update_state)
                 status = 200
             update_state["healthToken"] = self.server.health_token
+            owner_usb = (
+                self.server.distribution_profile == "owner-development"
+                and self.server.product_mode == "usb"
+            )
+            update_state["manualCheckAvailable"] = owner_usb
+            update_state["manualCheckPending"] = owner_usb and manual_update_request_pending()
+            update_state["manualCheckToken"] = self.server.manual_update_token if owner_usb else ""
             self._write_json(status, update_state)
             return
         if self.path == PREFERENCES_PATH:
@@ -4535,6 +4576,36 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
             return
 
         parsed_path = urlsplit(self.path).path
+        if parsed_path == UPDATE_CHECK_PATH:
+            if self.path != UPDATE_CHECK_PATH:
+                self._empty(400)
+                return
+            if (self.server.distribution_profile != "owner-development"
+                    or self.server.product_mode != "usb"):
+                self._empty(404)
+                return
+            if not hmac.compare_digest(
+                self.headers.get(UPDATE_TOKEN_HEADER, ""),
+                self.server.manual_update_token,
+            ):
+                self._empty(403)
+                return
+            body = self._read_json_body(MAX_CONTROL_BODY)
+            if not isinstance(body, dict) or set(body) != {"action"} or body.get("action") != "check-main":
+                self._empty(400)
+                return
+            try:
+                with self.server.manual_update_lock:
+                    queued = queue_manual_update_check()
+            except OSError as exc:
+                print(f"ordax-native-host: update check queue unavailable: {exc}", file=sys.stderr, flush=True)
+                self._empty(503)
+                return
+            self._write_json(202, {
+                "schema": "ordax.owner-manual-update-request/1",
+                "state": "queued" if queued else "pending",
+            })
+            return
         if parsed_path == PRODUCT_CONNECTOR_SETTINGS_PATH:
             if urlsplit(self.path).query:
                 self._empty(400)

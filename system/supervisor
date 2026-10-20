@@ -48,6 +48,7 @@ ATTEMPT_STARTED_EPOCH_FILE=$UPDATE_RUN_DIR/attempt-started-epoch
 UPDATE_STATE=$UPDATE_RUN_DIR/state.json
 UPDATE_LOG=$UPDATE_RUN_DIR/update.log
 PULL_RESULT_FILE=$UPDATE_RUN_DIR/pull-result
+OWNER_MANUAL_CHECK_REQUEST=$UPDATE_RUN_DIR/manual-check-request
 HEALTH_FILE=$UPDATE_RUN_DIR/healthy-sha
 SURFACE_HEALTH_STATE_FILE=$UPDATE_RUN_DIR/surface-health-state
 SURFACE_HEARTBEAT_FILE=$UPDATE_RUN_DIR/surface-heartbeat.json
@@ -2514,7 +2515,29 @@ fi
 record_owner_poll_boot_stage poll-loop-entered
 while :; do
     supervisor_heartbeat || fail_closed "supervisor liveness checkpoint could not be published"
-    /bin/busybox sleep "$UPDATE_INTERVAL"
+    # Owner/Dev button wakes the existing Supervisor promptly. No second
+    # process, Git owner or automatic-update toggle is introduced.
+    if [ "$DISTRIBUTION_PROFILE" = "owner-development" ]; then
+        poll_waited=0
+        while [ "$poll_waited" -lt "$UPDATE_INTERVAL" ]; do
+            [ -f "$OWNER_MANUAL_CHECK_REQUEST" ] && break
+            /bin/busybox sleep 1
+            poll_waited=$((poll_waited + 1))
+        done
+    else
+        /bin/busybox sleep "$UPDATE_INTERVAL"
+    fi
+    if [ "$DISTRIBUTION_PROFILE" = "owner-development" ] &&
+       [ -f "$OWNER_MANUAL_CHECK_REQUEST" ]; then
+        if [ ! -L "$OWNER_MANUAL_CHECK_REQUEST" ] &&
+           [ "$(/bin/busybox cat "$OWNER_MANUAL_CHECK_REQUEST" 2>/dev/null || true)" = "check-main" ]; then
+            /bin/busybox rm -f "$OWNER_MANUAL_CHECK_REQUEST"
+            log "Owner/Development manual main check requested; using canonical Supervisor"
+        else
+            log "ignoring invalid owner manual update request"
+            /bin/busybox rm -f "$OWNER_MANUAL_CHECK_REQUEST"
+        fi
+    fi
 
     if [ "$OWNER_INITIAL_HEALTH_PENDING" -eq 0 ] &&
        [ -n "$SURFACE_PID" ] && ! kill -0 "$SURFACE_PID" >/dev/null 2>&1; then
