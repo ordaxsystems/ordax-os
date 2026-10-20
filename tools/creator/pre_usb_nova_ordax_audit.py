@@ -142,6 +142,8 @@ def evaluate(repo_root: Path) -> dict[str, Any]:
     hardware = _load_json(root, "docs/contracts/hardware-support-matrix.json", source_errors)
     file_space = _load_text(root, "system/contracts/file-space.mjs", source_errors)
     first_run_ui = _load_text(root, "system/surface/ui/first-run.mjs", source_errors)
+    settings_ui = _load_text(root, "system/surface/ui/settings-overview-controls.mjs", source_errors)
+    preference_catalog = _load_text(root, "system/services/preferences/catalog.mjs", source_errors)
     preference_runtime = _load_text(root, "system/contracts/preference-runtime.mjs", source_errors)
     memory_preference = _load_text(root, "system/services/preferences/memory.mjs", source_errors)
     memory_auto_capture = _load_text(root, "system/services/memory/assistant-auto-capture.mjs", source_errors)
@@ -246,7 +248,10 @@ def evaluate(repo_root: Path) -> dict[str, Any]:
             privacy.get("cloud_sync_enabled_by_this_step") is False,
             _contains_all(preference_runtime, ("ordax.preference-runtime/1", "getSnapshot", "set", "subscribe")),
             _contains_all(memory_preference, ("MEMORY_AUTO_CAPTURE_PREFERENCE_ID", "memory.auto-capture", "memoryAutoCaptureEnabled")),
-            _contains_all(first_run_ui, ("MEMORY_AUTO_CAPTURE_PREFERENCE_ID", "memoryAutoCaptureEnabled(preferencePort.getSnapshot())", "preferencePort.set(")),
+            privacy.get("onboarding_step") is False,
+            "renderPrivacy" not in first_run_ui,
+            _contains_all(settings_ui, ("listPreferenceDefinitions()", "preferences.set(")),
+            _contains_all(preference_catalog, ("memoryAutoCapturePreference", 'from "./memory.mjs"')),
             _contains_all(memory_auto_capture, ("memoryAutoCaptureEnabled", "preferences.getSnapshot()")),
             device_name.get("owner") == "device-profile",
             device_name.get("rename_must_be_confirmed_before_advancing") is True,

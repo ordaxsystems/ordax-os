@@ -804,9 +804,9 @@ def write_first_run_cursor(value: dict) -> None:
 
 
 def valid_first_run_state(value: object) -> bool:
-    if not isinstance(value, dict) or set(value) != {
+    if not isinstance(value, dict) or set(value) not in ({
         "schema", "completed", "locale", "timeZone", "accountMode"
-    }:
+    }, {"schema", "completed", "locale", "timeZone", "accountMode", "systemTerms"}):
         return False
     if value.get("schema") != "ordax.first-run-state/1":
         return False
@@ -816,6 +816,15 @@ def valid_first_run_state(value: object) -> bool:
         return False
     if value.get("timeZone") not in FIRST_RUN_TIME_ZONES:
         return False
+    if "systemTerms" in value:
+        terms = value["systemTerms"]
+        if (value["completed"] is not True or not isinstance(terms, dict)
+                or set(terms) != {"documentId", "version", "status", "accepted"}
+                or terms.get("documentId") != "ordax-os-terms"
+                or terms.get("status") != "draft" or terms.get("accepted") is not True
+                or not isinstance(terms.get("version"), str)
+                or re.fullmatch(r"draft-[A-Za-z0-9._-]{1,64}", terms["version"]) is None):
+            return False
     account_mode = value.get("accountMode")
     if value["completed"]:
         return account_mode in FIRST_RUN_ACCOUNT_MODES

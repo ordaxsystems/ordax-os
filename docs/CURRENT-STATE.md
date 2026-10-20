@@ -1,3 +1,44 @@
+First-use journey redesign (2026-10-20): one
+shared Native/USB/emulator wizard follows welcome (language + time zone), network,
+account, local security, device name and review. No regional or privacy page.
+The former regional cursor maps to welcome; security and later cursors re-enter
+account because identity selection remains transient. Completed receipts remain
+unchanged. New completions add an optional systemTerms acknowledgement containing
+document ID, version, draft status and accepted=true. The final review has a
+separate, initially unchecked OS terms box for local-only and signed-in users;
+entry is disabled until checked. Text is readable inline and explicitly provisional.
+This is development-flow acknowledgement, not the published OS legal document or
+an account-registration consent. The Native host and emulator validate the same
+bounded optional receipt extension, preserving existing completed receipts. A
+published legal document, its approval and later reacceptance remain pending.
+No account, Memory, sync or billing grants are created by the checkbox.
+Keyboard status is a read-only disclosure on welcome. Presentation
+retains the Meridian desktop rail and desktop geometry at all widths; smaller
+computer viewports can scroll rather than switch to a mobile shell. Shorter
+headings use the available width instead of an artificial 18ch line limit.
+Account presents verified name/email/initial avatar and one primary action,
+with password visibility, login/registration separation, explicit switching and
+confirmed sign-out before leaving an authenticated account for local-only use.
+A two-column account workbench includes read-only expandable profile/photo,
+plan/resources and Web-preference restore sections marked as pending integration,
+following the existing My Account areas. No plan, photo, full profile, billing,
+entitlement or synchronization result is fabricated. Those data are not supplied
+by the current Native session contract. The optional email projection remains
+presentation data, never an identity key. Registration keeps gateway-owned legal
+consent before submission; existing login creates no new legal receipt. Local
+privacy/Memory choices stay in Settings; setup does not change memory.auto-capture.
+Welcome now presents contextual Intelligence, Spaces and USB/Web continuity in
+three Meridian feature cards. The existing account legal documents do not yet
+describe Memory; any extension must follow their versioned backend policy owner.
+Login offers links to those documents without inventing a legal acceptance receipt.
+Regional preferences have one owner and are persisted from welcome. Validation
+on 2026-10-20: 58 targeted Node tests passed. Chromium completed all 27 first-use
+assertions and exited successfully. The emulator smoke requires a fresh first-use
+state; the shared 4202 host resumed at Conta, so the smoke stopped before changing
+that state. Python Native HTTP and state-contract tests could not run because this
+Windows environment has no `python`, `python3` or `py` executable. No build was
+run. Source edits do not update packaged USB images.
+
 Physical USB lifecycle interpretation (2026-10-18): the historical `PHYSICAL_OWNER_AUTHORIZATION_RECORDED=NO` and `FIRST_STABLE_MVP_USB_WRITE=HOLD...` snapshot markers below are retained as evidence of the earlier pre-consent gate. For current authorization use `docs/contracts/physical-write-authorization.json` at the exact source commit and `tools/creator/physical_promotion.py`. An approved contract does not prove the v3 signed writer was published or that a physical USB was written, read back, booted or recovered.
 
 Runtime Product MCP source alignment (2026-10-18): `system/services/device-agent/studio-runtime-source-lock.json`
@@ -1689,7 +1730,7 @@ LOCAL_AI_PHYSICAL_STABLE_MVP_PROOF=PENDING
 
 ### First run, regional preferences and physical keyboard
 
-The Native/USB first-use flow is now implemented as a persistent device-owned OOBE rather than a presentation-only screen. It follows `welcome -> regional -> network -> security -> account -> privacy -> ready`, stores completion separately from preferences, local-session credentials and online identity, and does not dismiss until durable state has been written. The Security step can configure an optional offline PIN/passphrase through `ordax.local-session/1`; the secret stays transient in Surface memory and never enters `first-run.json`. When configured, the Native host stores only a salted scrypt verifier in private device state and a new Surface session starts locked. The lock keeps the existing Workspace mounted but makes the Surface inert until local authentication succeeds. This is explicitly a session gate, not USB file encryption. The MVP always offers a local-only route: account creation/sign-in is optional and capability-driven, provider unavailability does not block first use, and cloud sync is not an MVP requirement. Network setup is skippable and reuses the existing Native network-management port; Wi-Fi credentials remain transient and do not enter first-run state.
+The Native/USB first-use flow is now implemented as a persistent device-owned OOBE rather than a presentation-only screen. It follows `welcome -> network -> account -> security -> name -> ready`, stores completion separately from preferences, local-session credentials and online identity, and does not dismiss until durable state has been written. The Security step can configure an optional offline PIN/passphrase through `ordax.local-session/1`; the secret stays transient in Surface memory and never enters `first-run.json`. When configured, the Native host stores only a salted scrypt verifier in private device state and a new Surface session starts locked. The lock keeps the existing Workspace mounted but makes the Surface inert until local authentication succeeds. This is explicitly a session gate, not USB file encryption. The MVP always offers a local-only route: account creation/sign-in is optional and capability-driven, provider unavailability does not block first use, and cloud sync is not an MVP requirement. Network setup is skippable and reuses the existing Native network-management port; Wi-Fi credentials remain transient and do not enter first-run state.
 
 Regional choices are real persisted preferences. The first-use OOBE retains translations for `pt-BR`, `en-US`, `es-ES`, `de-DE` and `fr-FR`, while the public MVP selectors expose only `pt-BR` and `en-US`; both are complete across the shared Surface. Spanish, German and French remain accepted compatibility/future-rollout locales with translated OOBE source but are hidden from the public selectors until their Surface coverage reaches the same launch standard. PT-BR remains the source/default locale. The default time zone is `America/Bahia`, and locale/time zone remain editable later under **Ajustes -> Idioma e região**. Physical keyboard layout is a separate Native device capability, not a Web preference: `br-abnt2` is the Stable/MVP default and `us` is the alternative. The selected layout is stored privately on the USB and mapped to fixed `XKB_DEFAULT_*` values before Cage starts. Arbitrary XKB values and shell input from HTTP are rejected. When the configured layout differs from the layout already applied to the running compositor, Ajustes reports that a new Surface start is required; no fake live-switch behavior is claimed. The OOBE keyboard selector intentionally remains hidden until a safe current-session application or pre-Surface handoff exists.
 
