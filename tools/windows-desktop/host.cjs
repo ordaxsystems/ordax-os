@@ -22,13 +22,14 @@ function isReady(port) {
     request.on('error',()=>resolve(false));
   });
 }
-async function startHost({root,stateDirectory,log}) {
+async function startHost({root,stateDirectory,userData,log}) {
   const port=await freePort();
   const child=fork(join(root,'tools/windows-emulator/dev-supervisor.mjs'),[],{
     cwd:root,execPath:process.execPath,windowsHide:true,
     stdio:['ignore','pipe','pipe','ipc'],
     env:{...process.env,ELECTRON_RUN_AS_NODE:'1',ORDAX_EMULATOR_NO_BROWSER:'1',
       ORDAX_DESKTOP_HOST:'1',
+      ORDAX_DESKTOP_UPDATE_USER_DATA:userData,
       ORDAX_EMULATOR_PORT:String(port),ORDAX_EMULATOR_STATE_DIR:stateDirectory},
   });
   child.stdout.on('data',b=>log('runtime: '+String(b).trim()));
