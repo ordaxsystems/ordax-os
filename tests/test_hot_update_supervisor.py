@@ -198,7 +198,7 @@ class HotUpdateSupervisorContractTests(unittest.TestCase):
         # Supervisor-owned delivery uses local fetched Git objects only.
         # Remote discovery remains available solely to standalone Pull.
         self.assertIn('remote_sha=$(remote_main_sha || true)', pull)
-        self.assertIn('checkout atual preservado', pull)
+        self.assertIn('checkout local sera preservado', pull)
 
     def test_pull_error_stage_and_committed_helper_receipt_are_consistent(self):
         supervisor = SYSTEM_SUPERVISOR.read_text(encoding="utf-8")
