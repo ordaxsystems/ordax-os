@@ -399,7 +399,10 @@ class DevelopmentGitFlowTest(unittest.TestCase):
 
         bin_dir = self.root / "bin"
         bin_dir.mkdir()
-        (bin_dir / "ordax-pull").symlink_to(PULL)
+        # Model the installed 0755 helper, not the source file's archive mode.
+        installed_pull = bin_dir / "ordax-pull"
+        shutil.copy2(PULL, installed_pull)
+        installed_pull.chmod(0o755)
         env = self._env()
         env["ORDAX_BIN_DIR"] = str(bin_dir)
         env["ORDAX_UPDATE_INTERVAL_SECONDS"] = "5"
