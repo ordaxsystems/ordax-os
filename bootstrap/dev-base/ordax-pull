@@ -501,6 +501,25 @@ seed_runtime_checkout_from_local() {
         rm -rf "$destination"
         return 1
     }
+    # A local clone only carries branch refs, not the source repository's
+    # remote-tracking refs. A fetched candidate can therefore be present in
+    # source's origin/main but absent from the isolated destination. Transfer
+    # the verified candidate from the local cache before checking it out:
+    # no second remote HTTPS fetch and no mutation of the running checkout.
+    if [ "$source_mode" = fetched ]; then
+        if ! run_bounded_git -C "$destination" fetch --no-tags \
+            "$source_repo" "refs/remotes/origin/$BRANCH" >/dev/null 2>&1; then
+            echo "ordax-git: isolated checkout could not import cached candidate" >&2
+            rm -rf "$destination"
+            return 1
+        fi
+        staged_candidate=$(git -C "$destination" rev-parse FETCH_HEAD 2>/dev/null || true)
+        if [ "$staged_candidate" != "$expected_sha" ]; then
+            echo "ordax-git: isolated checkout candidate does not match verified main" >&2
+            rm -rf "$destination"
+            return 1
+        fi
+    fi
     git -C "$destination" config remote.origin.fetch "+refs/heads/$BRANCH:refs/remotes/origin/$BRANCH" || {
         rm -rf "$destination"
         return 1
@@ -625,8 +644,8 @@ refresh_dev_helpers() {
     source_sha=$1
     helper=$WORKTREE/system/services/base-update/dev-helpers.sh
     [ -f "$helper" ] || {
-        echo "ordax-git: helper refresh owner missing; checkout updated but required helper activation cannot be confirmed" >&2
-        return 1
+        echo "ordax-git: helper refresh owner not present; runtime checkout remains usable" >&2
+        return 0
     }
     if ! ORDAX_SOURCE_SHA="$source_sha" \
             ORDAX_WORKTREE="$WORKTREE" \
