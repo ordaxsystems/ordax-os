@@ -31,6 +31,7 @@ jobs:
           node --test tests/test_desktop_update_status.mjs
           node --test tests/test_desktop_recovery_status.mjs
           node --test tests/test_desktop_recovery_surface.mjs
+          node --test tests/test_desktop_boot_gate.mjs
           node --test tests/test_windows_emulator_native_host.mjs
           node --test tools/windows-desktop/browser-host.test.cjs
           node --test tools/windows-desktop/host-startup.test.cjs
