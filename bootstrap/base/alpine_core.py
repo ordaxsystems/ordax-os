@@ -618,6 +618,24 @@ def verify_rootfs(rootfs: Path) -> None:
             f"development BusyBox is missing Owner-required applets: {missing_applets}"
         )
 
+    # A mount applet alone does not prove recursive bind capability. The
+    # versioned Owner root pivot uses -o rbind to preserve subordinate EFI,
+    # EROFS/overlay, proc and devpts mounts. Exercise the actual installed
+    # Alpine BusyBox command rather than an unrelated Buildroot profile.
+    stage("verify-rootfs-busybox-recursive-bind")
+    mount_help = subprocess.run(
+        ["chroot", str(rootfs), "/bin/busybox", "mount", "--help"],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    if mount_help.returncode != 0 or "[r]bind" not in (
+        mount_help.stdout + mount_help.stderr
+    ):
+        raise BuildError(
+            "development BusyBox mount lacks verified recursive bind (rbind) support"
+        )
+
     stage("verify-rootfs-native-chroot-git")
     dev_null = rootfs / "dev/null"
     dev_null.touch(mode=0o666)
