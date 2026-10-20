@@ -3,6 +3,7 @@ import { mkdir, readFile, writeFile, rename } from "node:fs/promises";
 import { join } from "node:path";
 import { readDesktopNetworkStatus } from "../../system/adapters/desktop/network-status.mjs";
 import { readDesktopSystemMetrics } from "../../system/adapters/desktop/system-metrics.mjs";
+import { readDesktopPowerStatus } from "../../system/adapters/desktop/power-status.mjs";
 import { readDesktopUpdateStatus, readDesktopUpdateHistory } from "../../system/adapters/desktop/update-observation.mjs";
 import { readDesktopRecovery } from "../../system/adapters/desktop/recovery-observation.mjs";
 import { createDesktopBuiltAssetsMiddleware } from "./desktop-built-assets.mjs";
@@ -99,7 +100,7 @@ export function nativeEmulatorPlugin(stateDirectory, { desktopHost = false } = {
         // Genuine Windows host observation under the canonical Native port.
         server.middlewares.use((request, response, next) => {
           const path = request.url.split("?")[0];
-          if (!["/__ordax/native/network-status", "/__ordax/native/metrics", "/__ordax/native/update", "/__ordax/native/update-history", "/__ordax/desktop/recovery"].includes(path)) return next();
+          if (!["/__ordax/native/network-status", "/__ordax/native/metrics", "/__ordax/native/update", "/__ordax/native/update-history", "/__ordax/desktop/recovery", "/__ordax/native/power-status"].includes(path)) return next();
           response.setHeader("Content-Type", "application/json");
           response.setHeader("Cache-Control", "no-store");
           if (request.method !== "GET") {
@@ -112,6 +113,13 @@ export function nativeEmulatorPlugin(stateDirectory, { desktopHost = false } = {
           };
           try {
             if (path === "/__ordax/native/network-status") return respond(readDesktopNetworkStatus());
+            if (path === "/__ordax/native/power-status") {
+              void readDesktopPowerStatus().then(respond).catch(() => {
+                response.statusCode = 503;
+                response.end(JSON.stringify({error:"Windows power status unavailable"}));
+              });
+              return;
+            }
             if (path === "/__ordax/native/metrics") {
               const root = process.env.ORDAX_DESKTOP_UPDATE_USER_DATA;
               if (!root) { response.statusCode=503; return response.end(JSON.stringify({error:"User profile path unavailable"})); }
