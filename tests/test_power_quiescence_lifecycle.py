@@ -94,6 +94,46 @@ class PowerQuiescenceTests(unittest.TestCase):
             )
             return time.monotonic() - started, result
 
+    def test_guardian_recognizes_exited_but_unreaped_supervisor(self) -> None:
+        """No false timeout on zombie: only the matching quiesce receipt grants power."""
+        source = function_source(
+            GUARDIAN.read_text(encoding="utf-8"), "supervisor_process_active"
+        )
+        zombie = subprocess.Popen(["/bin/true"])
+        try:
+            # Keep this child's PID unreaped deliberately. kill -0 still
+            # succeeds, but the canonical Guardian must not call it active.
+            deadline = time.monotonic() + 2
+            while time.monotonic() < deadline:
+                state_file = Path(f"/proc/{zombie.pid}/status")
+                if state_file.exists() and "\nState:\tZ" in state_file.read_text():
+                    break
+                time.sleep(0.02)
+            else:
+                self.skipTest("runner does not preserve observable zombie state")
+            self.assertEqual(
+                subprocess.run(
+                    ["/bin/sh", "-c", source + f"\nsupervisor_process_active {zombie.pid}\n"],
+                    check=False, capture_output=True, text=True,
+                ).returncode,
+                1,
+            )
+        finally:
+            zombie.wait(timeout=5)
+
+        live = subprocess.Popen(["/bin/busybox", "sleep", "10"])
+        try:
+            self.assertEqual(
+                subprocess.run(
+                    ["/bin/sh", "-c", source + f"\nsupervisor_process_active {live.pid}\n"],
+                    check=False, capture_output=True, text=True,
+                ).returncode,
+                0,
+            )
+        finally:
+            live.terminate()
+            live.wait(timeout=5)
+
     def test_cooperative_children_terminate_as_a_group(self) -> None:
         elapsed, result = self._run_fixture(stubborn=False)
         self.assertEqual(result.returncode, 0, result.stderr)
