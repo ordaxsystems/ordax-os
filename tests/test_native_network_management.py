@@ -139,6 +139,16 @@ class NativeNetworkManagementTests(unittest.TestCase):
         self.assertNotIn('echo "$ssid_hex"', text)
         self.assertNotIn("logger", text)
 
+    def test_cold_boot_restores_persisted_wifi_with_the_single_broker_owner(self):
+        broker = BROKER.read_text(encoding="utf-8")
+        startup = broker.split('exec 9<>"$CONTROL"', 1)[1].split("while :; do", 1)[0]
+        self.assertIn('if [ -s "$WPA_CONF" ] && [ ! -L "$WPA_CONF" ]; then', startup)
+        self.assertIn("boot_wifi=$(find_wifi_interface || true)", startup)
+        self.assertIn('restore_saved_network "$boot_wifi"', startup)
+        self.assertIn("profile preserved", startup)
+        self.assertNotIn("wpa_supplicant -B", startup)
+        self.assertNotIn("udhcpc ", startup)
+
     def test_first_run_wifi_waits_for_wpa_handshake_and_bounded_scan(self):
         text = BROKER.read_text(encoding="utf-8")
         self.assertIn('WPA_CLI_BIN=$(command -v wpa_cli || true)', text)
