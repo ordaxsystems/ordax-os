@@ -1,0 +1,144 @@
+#!/bin/sh
+# Owner/Development maintenance: observe without mutations, repair via ordax-pull.
+set -eu
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+export PATH
+WORKTREE=${ORDAX_WORKTREE:-/workspace/ordax}
+STATE_DIR=${ORDAX_STATE_DIR:-/state/ordax}
+RUN_DIR=${ORDAX_UPDATE_RUN_DIR:-/run/ordax-update}
+TARGET_ROOT=${ORDAX_DEV_HELPER_TARGET_ROOT:-/}
+MANIFEST=$WORKTREE/system/services/base-update/dev-helper-manifest.tsv
+PULL=$TARGET_ROOT/usr/local/bin/ordax-pull
+
+fail() { echo "ordax-maintain: $*" >&2; exit 1; }
+is_sha() {
+    [ "$(printf %s "$1" | /bin/busybox wc -c)" -eq 40 ] || return 1
+    case "$1" in ''|*[!0-9a-f]*) return 1 ;; esac
+}
+read_value() {
+    [ -f "$1" ] && [ ! -L "$1" ] || { printf unavailable; return; }
+    IFS= read -r value <"$1" || true
+    printf %s "$value"
+}
+validate_context() {
+    case "$TARGET_ROOT" in
+        /) ;;
+        /*)
+            [ -d "$TARGET_ROOT" ] && [ ! -L "$TARGET_ROOT" ] || fail "unsafe target root"
+            case "$WORKTREE/" in "$TARGET_ROOT/"*) ;; *) fail "worktree outside target root" ;; esac
+            case "$STATE_DIR/" in "$TARGET_ROOT/"*) ;; *) fail "state outside target root" ;; esac
+            case "$RUN_DIR/" in "$TARGET_ROOT/"*) ;; *) fail "run directory outside target root" ;; esac
+            ;;
+        *) fail "target root must be absolute" ;;
+    esac
+    [ -d "$WORKTREE/.git" ] && [ ! -L "$WORKTREE" ] || fail "Git checkout absent"
+    [ -f "$MANIFEST" ] && [ ! -L "$MANIFEST" ] || fail "canonical helper manifest absent"
+}
+verify_checkout() {
+    head=$(git -C "$WORKTREE" rev-parse HEAD 2>/dev/null || true)
+    is_sha "$head" || fail "invalid checkout SHA"
+    current=$(read_value "$STATE_DIR/current-commit")
+    helpers=$(read_value "$STATE_DIR/dev-helpers-sha")
+    printf 'checkout.head=%s\ncheckout.current=%s\ncheckout.helpers=%s\n' "$head" "$current" "$helpers"
+    printf 'checkout.previous=%s\npull.last_result=%s\n' "$(read_value "$STATE_DIR/previous-commit")" "$(read_value "$RUN_DIR/pull-result")"
+    dirty=$(git -C "$WORKTREE" -c core.fsmonitor=false status --porcelain=v1 -uno 2>/dev/null || printf error)
+    [ -z "$dirty" ] || { echo 'checkout.clean=no'; return 1; }
+    echo 'checkout.clean=yes'
+    [ "$head" = "$current" ] && [ "$head" = "$helpers" ]
+}
+verify_helpers() {
+    failures=0
+    count=0
+    tab=$(printf '\t')
+    while IFS="$tab" read -r source target; do
+        case "$source" in ''|\#*) continue ;; esac
+        case "$source:$target" in
+            bootstrap/dev-base/*:usr/local/bin/ordax-*|bootstrap/dev-base/ordax-dev-init:sbin/ordax-dev-init|bootstrap/base-update/owner-development/*:usr/local/bin/ordax-*|bootstrap/recovery/entrypoint:ordax/bootstrap/recovery/entrypoint) ;;
+            *) failures=$((failures + 1)); continue ;;
+        esac
+        count=$((count + 1))
+        from=$WORKTREE/$source
+        to=$TARGET_ROOT/$target
+        if [ -f "$from" ] && [ ! -L "$from" ] && [ -f "$to" ] && [ ! -L "$to" ] &&
+           /bin/busybox cmp "$from" "$to" >/dev/null 2>&1 && /bin/sh -n "$to"; then
+            :
+        else
+            printf 'helper.mismatch=%s\n' "$target"
+            failures=$((failures + 1))
+        fi
+    done <"$MANIFEST"
+    printf 'helper.count=%s\nhelper.failures=%s\n' "$count" "$failures"
+    [ "$count" -gt 0 ] && [ "$failures" -eq 0 ]
+}
+show_power() {
+    record=$STATE_DIR/power/last-request
+    action=none
+    status=unknown
+    if [ -f "$record" ] && [ ! -L "$record" ]; then
+        IFS='|' read -r action boot epoch status <"$record" || true
+    fi
+    case "$action" in shutdown|restart|none) ;; *) action=unknown ;; esac
+    case "$status" in pending|stopping|syncing|rebooting|powering-off|failed) ;; *) status=unknown ;; esac
+    printf 'power.last_action=%s\npower.last_status=%s\n' "$action" "$status"
+}
+show_remote() {
+    remote=$STATE_DIR/owner-remote
+    provisioned=no
+    if [ -f "$remote/device-id" ] && [ ! -L "$remote/device-id" ] &&
+       [ -f "$remote/device-token" ] && [ ! -L "$remote/device-token" ] &&
+       [ -f "$remote/control-plane-url" ] && [ ! -L "$remote/control-plane-url" ]; then
+        provisioned=unverified
+    fi
+    printf 'remote.credentials=%s\nremote.session=not-tested\n' "$provisioned"
+}
+status() {
+    echo 'schema=ordax.owner-maintenance/1'
+    echo 'mode=read-only'
+    validate_context
+    failed=0
+    verify_checkout || failed=1
+    verify_helpers || failed=1
+    show_power
+    show_remote
+    if [ "$failed" -eq 0 ]; then echo 'maintenance.result=healthy'; else
+        echo 'maintenance.result=attention-required'
+        return 1
+    fi
+}
+self_test() {
+    echo 'schema=ordax.owner-maintenance/1'
+    echo 'mode=offline-self-test'
+    validate_context
+    [ -x /usr/bin/git ] || fail "Git executable absent"
+    /bin/sh -n "$PULL" || fail "installed Pull syntax invalid"
+    verify_checkout || fail "checkout identity or cleanliness invalid"
+    verify_helpers || fail "helpers differ from checkout"
+    echo 'maintenance.self_test=passed'
+}
+repair() {
+    [ "$#" -eq 2 ] || fail "usage: repair SHA --confirm"
+    expected=$1
+    [ "$2" = --confirm ] || fail "explicit confirmation required"
+    is_sha "$expected" || fail "target must be exact 40-digit SHA"
+    validate_context
+    [ -f "$PULL" ] && [ ! -L "$PULL" ] || fail "canonical Pull absent"
+    origin=$(git -C "$WORKTREE" remote get-url origin 2>/dev/null || true)
+    case "$origin" in
+        https://github.com/ordaxsystems/ordax-os|https://github.com/ordaxsystems/ordax-os.git) ;;
+        *) fail "noncanonical origin; refusing repair" ;;
+    esac
+    # No second updater. The canonical Pull enforces locks, transactions,
+    # fast-forward, checkout validation, rollback and helper activation.
+    ORDAX_EXPECTED_SHA=$expected
+    export ORDAX_EXPECTED_SHA
+    /bin/sh "$PULL" || fail "Pull failed; checkout retained for inspection"
+    [ "$(read_value "$STATE_DIR/current-commit")" = "$expected" ] || fail "Pull did not activate the exact SHA"
+    status
+}
+case "$#" in 0) action=status ;; *) action=$1; shift ;; esac
+case "$action" in
+    status) [ "$#" -eq 0 ] || fail "status takes no arguments"; status ;;
+    self-test) [ "$#" -eq 0 ] || fail "self-test takes no arguments"; self_test ;;
+    repair) repair "$@" ;;
+    *) fail "usage: ordax-maintain {status|self-test|repair SHA --confirm}" ;;
+esac
