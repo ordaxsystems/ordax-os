@@ -45,7 +45,10 @@ class PhysicalPowerGuardianTests(unittest.TestCase):
             fifo = Path(directory) / "host-power-request"
             os.mkfifo(fifo, mode=0o600)
             received = []
-            reader = threading.Thread(target=lambda: received.append(fifo.open().readline()))
+            def collect_event():
+                with fifo.open() as handle:
+                    received.append(handle.readline())
+            reader = threading.Thread(target=collect_event, daemon=True)
             reader.start()
             env = {**os.environ, "ORDAX_HOST_POWER_REQUEST": str(fifo)}
             result = subprocess.run(["sh", str(ACTION)], env=env, capture_output=True, timeout=5)
