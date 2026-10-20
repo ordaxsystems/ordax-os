@@ -157,11 +157,12 @@ test("Web and Native desktop canvas share the Meridian wallpaper and contrast pr
   assert.doesNotMatch(nativeStyles, /brand\/meridian-field\.svg/);
 });
 test("Native USB keeps the computer shell instead of switching to mobile geometry", async () => {
-  const [nativeStyles, sharedMeridianStyles, tokens, nativeSettings, nativeNotifications, nativeSettingsJourney, sidebarStyles, webStyles] = await Promise.all([
+  const [nativeStyles, sharedMeridianStyles, tokens, nativeSettings, nativeAccount, nativeNotifications, nativeSettingsJourney, sidebarStyles, webStyles] = await Promise.all([
     readFile(new URL("../system/surface/ui/identity.css", import.meta.url), "utf8"),
     readFile(new URL("../system/surface/ui/meridian.css", import.meta.url), "utf8"),
     readFile(new URL("../system/surface/ui/meridian.tokens.css", import.meta.url), "utf8"),
     readFile(new URL("../system/surface/ui/settings.css", import.meta.url), "utf8"),
+    readFile(new URL("../system/surface/ui/account.css", import.meta.url), "utf8"),
     readFile(new URL("../system/surface/ui/notification-center.css", import.meta.url), "utf8"),
     readFile(new URL("../system/surface/ui/journeys/settings.css", import.meta.url), "utf8"),
     readFile(new URL("../system/surface/ui/sidebar-layout.css", import.meta.url), "utf8"),
@@ -169,7 +170,7 @@ test("Native USB keeps the computer shell instead of switching to mobile geometr
   ]);
   const nativePhoneLayoutStyles = await Promise.all([
     "surface.css", "first-run.css", "workspace-areas.css", "system.css", "local-session-lock.css",
-    "space-switcher.css", "files.css", "account.css", "settings.css",
+    "space-switcher.css", "files.css",
   ].map(file => readFile(new URL(`../system/surface/ui/${file}`, import.meta.url), "utf8")));
   assert.doesNotMatch(nativeStyles, /@media\s*\(max-width:\s*(?:760|600|560|420)px/i, "Native must not switch to a phone layout at narrow viewport widths");
   assert.doesNotMatch(nativeStyles, /@media\s*\(max-width:\s*760px\)[\s\S]*?\.ordax-home-panel\s*\{[^}]*flex-direction:\s*column/i, "Native Home keeps its desktop information layout");
@@ -184,12 +185,24 @@ test("Native USB keeps the computer shell instead of switching to mobile geometr
   assert.doesNotMatch(sidebarStyles, /@media\(max-width:600px\)\s*\{\s*\.meridian-workspace \.ordax-product-sidebar/i, "responsive sidebar rules do not match the Native shell wrapper");
   assert.doesNotMatch(tokens, /@media\s*\(max-width:\s*600px\)\s*\{\s*\[data-meridian\]/i, "shared tokens do not change Native dock geometry by viewport width");
   assert.doesNotMatch(tokens, /@media\s*\(max-width:\s*1100px\)[\s\S]*?--ordax-rail-width/i, "Native sidebar width follows its explicit user state instead of automatic viewport collapse");
-  for (const styles of [nativeSettings, nativeNotifications, nativeSettingsJourney]) {
+  for (const styles of [nativeNotifications, nativeSettingsJourney]) {
     assert.doesNotMatch(styles, /@media\s*\(max-width:/i, "Native screens do not switch to phone layouts at narrow viewport widths");
   }
   for (const styles of nativePhoneLayoutStyles) {
     assert.doesNotMatch(styles, /@media\s*\([^)]*max-width:\s*(?:820|760|650|620|600|560|450)px/i, "Native app surfaces retain computer layouts across their screens");
   }
+  const accountPhoneFallback = nativeAccount.match(/@media\s*\(max-width:\s*760px\)\s*\{([\s\S]*?)\n\}/i)?.[1] ?? "";
+  assert.ok(accountPhoneFallback, "the Web account keeps its narrow-viewport fallback");
+  assert.match(accountPhoneFallback, /\.window-workspace\.meridian-workspace \.ordax-account-navigation/);
+  assert.match(accountPhoneFallback, /\.window-workspace\.meridian-workspace \.ordax-account-grid/);
+  assert.doesNotMatch(accountPhoneFallback, /(^|\n)\s*\.ordax-account-/,
+    "account phone rules are scoped to the Web workspace and cannot change Native geometry");
+  const settingsPhoneFallback = nativeSettings.match(/@media\s*\(max-width:\s*760px\)\s*\{([\s\S]*?)\n\}/i)?.[1] ?? "";
+  assert.ok(settingsPhoneFallback, "the Web settings keep their narrow-viewport fallback");
+  assert.match(settingsPhoneFallback, /\.window-workspace\.meridian-workspace \.ordax-settings-navigation/);
+  assert.match(settingsPhoneFallback, /\.window-workspace\.meridian-workspace \.ordax-settings-network-list/);
+  assert.doesNotMatch(settingsPhoneFallback, /(^|\n)\s*\.ordax-settings-/,
+    "settings phone rules are scoped to the Web workspace and cannot change Native geometry");
   const nativeJourneys = await readFile(new URL("../system/surface/ui/journeys/styles.css", import.meta.url), "utf8");
   assert.doesNotMatch(nativeJourneys, /@media\s*\([^)]*max-width:\s*(?:650|620|600|560|450)px/i, "Native journeys do not turn into mobile sheets or vertical trails");
   assert.match(nativeStyles, /\[data-native-sidebar="collapsed"\] \.ordax-shell \{ --ordax-rail-width: var\(--ordax-sidebar-collapsed-width\); \}/);

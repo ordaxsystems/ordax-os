@@ -155,8 +155,9 @@ Native emulator / Meridian First Run (2026-10-18): the Windows emulator now load
 `system/composition/native/index.html` for both onboarding and desktop, with no
 emulator-owned First Run or Web preview handoff. Development-only persistence
 implements existing Native contracts; unavailable hardware/privileged bridges
-remain unavailable. First Run CSS consumes Meridian tokens directly, uses the
-canonical symbol and fixes narrow-screen step wrapping/empty progress height.
+remain unavailable. First Run CSS consumes Meridian tokens directly and keeps the same desktop
+rail-and-workspace structure at every width; its content area scrolls and short
+screens compact vertically instead of switching to a phone layout.
 This supersedes the previous Web-backed emulator preference wiring below.
 Meridian is the sole accepted product identity; remaining legacy screens are
 migrated in stages while preserving functional ports and planned mocks.

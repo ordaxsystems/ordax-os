@@ -361,11 +361,14 @@ raise SystemExit('Unknown subprocess proof mode')
         self.assertFalse(branding["early_boot"]["graphical_splash_implemented"])
         self.assertTrue(branding["failure_policy"]["first_run_persistence_failure_stays_visible"])
 
-    def test_first_run_styles_cover_focus_mobile_and_reduced_motion(self):
+    def test_first_run_keeps_desktop_geometry_focus_and_reduced_motion(self):
         css = CSS.read_text(encoding="utf-8")
         self.assertIn(".ordax-first-run", css)
         self.assertIn(":focus-visible", css)
-        self.assertIn("@media (max-width: 820px)", css)
+        self.assertIn("grid-template-columns:var(--md-rail-width) minmax(0,1fr)", css)
+        self.assertIn("@media (max-height: 800px)", css)
+        self.assertIn("overflow:auto; overscroll-behavior:contain", css)
+        self.assertNotIn("@media (max-width:", css)
         self.assertIn("prefers-reduced-motion", css)
 
 
