@@ -34,11 +34,23 @@ They validate canonical contracts and persist in `out/windows-emulator-state/`,
 separate from physical USB state. Resetting First Run preserves preferences.
 Unreadable persisted data is not silently overwritten.
 
+Account requests use the same `system/services/account/gateway-base-url` as the
+USB Native host. The development host calls that HTTPS gateway server-side,
+keeps its account cookies in process memory, and exposes only the validated
+same-origin account responses to the Native composition. Passwords and session
+cookies are not written to browser storage or emulator state files. Requests
+remain local-loopback only. Existing-account sign-in uses the real gateway;
+registration stays disabled under the Native product policy until the backend
+legal and activation gates are released.
+
 The emulator does not provide Linux/kernel boot, Wi-Fi control, power actions,
-disk access, local authentication credentials, verified package installation,
-privileged WebKit App Data or Intelligence host IPC. Unsupported endpoints fail
-closed; the existing Native UI reports their capability availability. No fake
-privileged browser bridge or authenticated identity is installed.
+disk access, local-device authentication credentials, verified package
+installation, privileged WebKit App Data or Intelligence host IPC. Unsupported
+endpoints fail closed; the existing Native UI reports their capability
+availability. No fake privileged browser bridge or authenticated identity is
+installed. If the HTTPS account gateway cannot be reached or rejects the
+session, the shared Native account UI remains unavailable rather than showing a
+mock signed-in user.
 
 Existing older emulator browser-storage keys remain untouched; they are no longer
 runtime authorities. The canonical Native adapters now own the UI's ports.
