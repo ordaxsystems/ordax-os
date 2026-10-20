@@ -28,7 +28,8 @@
       "dev-update.cjs",
       "host.cjs",
       "browser-host.cjs",
-      "browser-preload.cjs"
+      "browser-preload.cjs",
+      "native-build.cjs"
     ],
     "extraResources": [
       {
