@@ -82,6 +82,36 @@ class IndependentRootfsInventoryTest(unittest.TestCase):
         self.assertEqual(result["status"], "fail")
         self.assertEqual(result["missing_interpreters"]["bin/tool"], "/lib/ld-musl.so.1")
 
+
+    def test_interpreter_symlink_to_file_is_accepted(self):
+        path = Path(self.temp.name) / "rootfs.tar"
+        with tarfile.open(path, "w") as handle:
+            binary = sample_elf("/lib/ld-musl.so.1")
+            entry = tarfile.TarInfo("bin/tool")
+            entry.size = len(binary)
+            handle.addfile(entry, io.BytesIO(binary))
+            entry = tarfile.TarInfo("lib/ld-musl.so.1")
+            entry.type = tarfile.SYMTYPE
+            entry.linkname = "libc.so"
+            handle.addfile(entry)
+            entry = tarfile.TarInfo("lib/libc.so")
+            entry.size = 4
+            handle.addfile(entry, io.BytesIO(b"data"))
+        self.assertEqual(module.audit(str(path))["status"], "pass")
+
+    def test_interpreter_dangling_symlink_is_rejected(self):
+        path = Path(self.temp.name) / "rootfs.tar"
+        with tarfile.open(path, "w") as handle:
+            binary = sample_elf("/lib/ld-musl.so.1")
+            entry = tarfile.TarInfo("bin/tool")
+            entry.size = len(binary)
+            handle.addfile(entry, io.BytesIO(binary))
+            entry = tarfile.TarInfo("lib/ld-musl.so.1")
+            entry.type = tarfile.SYMTYPE
+            entry.linkname = "missing.so"
+            handle.addfile(entry)
+        self.assertEqual(module.audit(str(path))["status"], "fail")
+
     def test_malformed_elf_fails_closed(self):
         with self.assertRaisesRegex(ValueError, "malformed ELF"):
             module.audit(self.archive([("bin/tool", b"\x7fELFbad")]))
