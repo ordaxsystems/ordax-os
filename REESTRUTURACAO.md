@@ -358,3 +358,59 @@ Não marcar nenhum desses gates como PASS nesta atualização documental. O expe
 6. **Não alterar a geometria do USB em conjunto com esta substituição**, preservando os gates independentes de `storage-architecture`.
 
 A próxima alteração de código elegível é introduzir testes de inventário de ELF/libc, dependências runtime e ausência de Alpine no artefato Buildroot, e só então promover os perfis Dev/Stable com provas independentes.
+
+
+## 14. Política de otimização — quando fazer e quando adiar (2026-10-20)
+
+**Regra:** otimização é requisito estrutural quando evita trabalho redundante, risco de falha ou custo operacional sem afetar comportamento. Otimização de footprint/latência só será promovida após medição em cenário comparável e sem reduzir compatibilidade.
+
+### Otimizações já encontradas — preservar, não duplicar
+
+- `bootstrap/independent-base/build.py`: `run(..., bounded_output=True)` mantém apenas a cauda de saída da compilação, impedindo retenção proporcional de logs longos na RAM do builder; teste `test_large_build_output_stays_bounded_without_losing_failure_tail`.
+- Buildroot tem download cache persistente e verificado, conforme `tests/test_independent_base_experiment.py`.
+- `configs/ordax_minimal_defconfig` e patch versionado de iproute2 limitam build/instalação ao comando `ip` que o contrato consome; builder verifica a identidade do patch e do binário.
+- Kernel/source separado de `system/` evita recompilação do núcleo para alterações simples de Surface; não introduzir segundo pipeline.
+
+Essas provas dizem respeito a funções específicas, **não** são prova de boot mais rápido, menor consumo de RAM do OS ou menor tamanho de USB em hardware.
+
+### Agora — P0, sem mudar semântica
+
+1. **Métrica reproduzível de artefatos:** medir bytes comprimidos de EROFS, kernel, initramfs, firmware, módulos; contar bytes exclusivos versus compartilhados e comparar com baseline pinada por commit.
+2. **Conformidade de bibliotecas e executáveis:** verificar ELF interpreters, `DT_NEEDED`, symlinks, permissões e dependências faltantes no rootfs final da Independent Base.
+3. **Evitar trabalho duplicado no CI:** cache por digests de inputs e hashes, somente quando não burlar builds de proveniência e repetibilidade; diferenciar CI de prova obrigatória de pipeline incremental.
+4. **Registrar métricas separadas de builder e guest:** pico de RAM do builder, tempo de compilação, tamanhos; no guest uptime e memória pontual, sem confundir com pico/tempo total.
+5. **Gate anti-regressão:** nenhum extra de pacote, serviço ou firmware sem justificar contrato/capacidade; limitação de escopo não pode impedir paridade com hardware.
+6. **Compatibilidade:** manter todos os testes de recuperação e rollback e nenhum trabalho adicional permanente no caminho crítico do boot.
+
+### Depois da paridade — P1, mediante medição real
+
+- Otimizar cold boot / tempo até Surface utilizável, com marcos UEFI → kernel → PID1 → Native → Surface, em QEMU e hardware real.
+- Reduzir RAM residente com perfil de serviços, quando todos os serviços essenciais já operarem.
+- Afinar EROFS (LZ4 versus alternativas), tamanho de blocos e leitura do USB, considerando CPU antiga, latência aleatória de flash e custo de decomprimir.
+- Revisar compressão, embalagem e firmware por perfil/hardware; nunca remover drivers necessários baseando-se em um único notebook.
+- Reduzir writes do pendrive e cache persistente, medindo amplificação de escrita e garantindo durabilidade do estado.
+- Medir alocação de CPU e tempo de resposta do Native/Surface antes de consolidar processos.
+
+### Não agora — P2 / somente se hipótese demonstrada
+
+- Escrever nova libc, novo shell ou substituto próprio do Buildroot.
+- Microkernel, HAL universal e camada por syscall.
+- Trocar GUID de partição por estética, nova partição para kernel, ou reformatar mídia só para rotular OrdaX.
+- Abandonar funcionalidades Wi-Fi, sessão, aplicativos ou recuperação em troca de redução de tamanho.
+- Otimizações não instrumentadas e ajustes “mágicos” de sysctl/scheduler.
+
+### Métricas e critérios de aceite
+
+| Métrica | Baseline obrigatória | Gate de otimização |
+|---|---|---|
+| Boot até Surface utilizável | mesmo equipamento/firmware, boot frio, 5 execuções, mediana e dispersão | não piorar nem introduzir desvio em serviços |
+| RAM residente pós-boot | mesmo workload e estado da conta | medir picos e média; sem perda de serviços |
+| Storage/artefatos | SHA-256, bytes, lista de arquivos, versão | redução atribuível a mudança controlada |
+| I/O USB | leituras/escritas e latência medida | persistência íntegra e known-good |
+| Build CI | tempo, pico RAM, acerto cache, fonte exata | economia sem pular prova canônica |
+| Rede/Wi-Fi | interfaces/chipsets e operações de regressão | paridade integral |
+| Recovery | boot inválido, assinatura inválida, energia, offline | zero regressões em rollback |
+
+Medir em `main` e candidata com mesmos parâmetros, registrar commit e evidências; não impor números arbitrários de desempenho antes de obter baseline. Cada otimização que afete bytes assinados exige novo manifest, provenance e teste de regressão.
+
+**Decisão:** otimização estrutural/observabilidade começa **agora**; otimização agressiva de kernel, boot, RAM, compressão e I/O começa **depois da paridade**, mediante benchmarks controlados. Nenhum gate foi promovido por adicionar esta seção.
