@@ -57,7 +57,7 @@ function menu(userData) {
               defaultId:0,cancelId:0,message:'Reverter o OrdaX Desktop Dev?',
               detail:'A versão anterior será fixada. Atualizações automáticas permanecerão suspensas até reativadas.'});
             if(reply.response!==1)return;
-            pinPrevious(userData);
+            await pinPrevious(userData,resolveTemplate(__dirname,process.resourcesPath,true));
             app.relaunch();app.quit();
           }catch(error){log('Rollback rejected: '+error.message);}
         }},
