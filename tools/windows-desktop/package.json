@@ -1,7 +1,7 @@
 {
   "name": "ordax-os-desktop-dev",
   "private": true,
-  "version": "0.1.0-alpha.6",
+  "version": "0.1.0-alpha.7",
   "description": "Installable Windows development host for the canonical OrdaX Native Surface",
   "main": "main.cjs",
   "scripts": {
@@ -78,7 +78,9 @@
       "allowToChangeInstallationDirectory": true,
       "perMachine": false,
       "createDesktopShortcut": true,
-      "createStartMenuShortcut": true
+      "createStartMenuShortcut": true,
+      "include": "installer.nsh",
+      "deleteAppDataOnUninstall": false
     },
     "publish": null
   }
