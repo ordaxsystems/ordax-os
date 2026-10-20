@@ -62,9 +62,9 @@ test("update history contains only actual recorded deliveries, never fabricated 
 
 test("the packaged host is configured to read the same journal used by Desktop Dev",async()=>{
   const {readFileSync} = await import("node:fs");
-  const host = readFileSync("tools/windows-desktop/host.cjs","utf8");
-  const main = readFileSync("tools/windows-desktop/main.cjs","utf8");
-  const nativeHost = readFileSync("tools/windows-emulator/native-host.mjs","utf8");
+  const host = readFileSync(new URL("../tools/windows-desktop/host.cjs", import.meta.url),"utf8");
+  const main = readFileSync(new URL("../tools/windows-desktop/main.cjs", import.meta.url),"utf8");
+  const nativeHost = readFileSync(new URL("../tools/windows-emulator/native-host.mjs", import.meta.url),"utf8");
   assert.ok(host.includes("ORDAX_DESKTOP_UPDATE_USER_DATA:userData"));
   assert.ok(main.includes("userData,log"));
   assert.ok(nativeHost.includes('"/__ordax/native/update"'));
