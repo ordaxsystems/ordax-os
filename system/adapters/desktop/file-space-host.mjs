@@ -1,6 +1,6 @@
 // The canonical OrdaX file-space/11 protocol backed by a private, persistent
 // Windows user-data directory. Never maps "/" to a Windows drive or host HOME.
-import { randomBytes } from "node:crypto";
+import { randomBytes, timingSafeEqual } from "node:crypto";
 import { constants } from "node:fs";
 import {
   mkdir, lstat, readdir, readFile, rename, unlink, rm, copyFile, writeFile, realpath,
@@ -154,8 +154,11 @@ function httpStatus(error) {
   if(error?.code==="EACCES" || error?.code==="EPERM")return 403;
   return 503;
 }
-export function createDesktopFileSpaceMiddleware(filesDirectory) {
+export function createDesktopFileSpaceMiddleware(filesDirectory,{token}={}) {
   if(typeof filesDirectory!=="string" || !filesDirectory)throw TypeError("Desktop files directory required");
+  if(typeof token!=="string" || !/^[0-9a-f]{64}$/.test(token))
+    throw TypeError("Desktop files require an ephemeral, 256-bit host authorization");
+  const expectedToken=Buffer.from(token,"hex");
   const root=resolve(filesDirectory);
   const endpoints=new Set([
     "/__ordax/native/files", "/__ordax/native/file-content",
@@ -172,6 +175,16 @@ export function createDesktopFileSpaceMiddleware(filesDirectory) {
   return function desktopFileSpace(req,res,next) {
     const path=(req.url??"").split("?")[0];
     if(!endpoints.has(path))return next();
+    // Protect both reads and mutations from arbitrary localhost callers.
+    // The Electron host injects this header only for its own Surface window.
+    const claimed=req.headers["x-ordax-file-token"];
+    const presented=typeof claimed==="string" && /^[0-9a-f]{64}$/.test(claimed)
+      ? Buffer.from(claimed,"hex") : null;
+    if(!presented || !timingSafeEqual(expectedToken,presented)) {
+      res.writeHead(401,{"Content-Type":"application/json","Cache-Control":"no-store"});
+      res.end(JSON.stringify({error:"OrdaX Files authorization required"}));
+      return;
+    }
     void serial(async()=>{
       await checkedRoot(root);
       const method=req.method;
