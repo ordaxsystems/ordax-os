@@ -72,3 +72,28 @@ Teste de ativação do MCP: autenticar conta no OrdaX, parear via Device Agent, 
 ## 7. Critério de encerramento
 
 Não marcar `ordax-pull corrigido`, `desligamento corrigido` ou `Runtime MCP liberado` com base apenas em patch, PR integrada, HTTP 202, teste de namespace ou USB atualizado por Windows. Cada declaração exige **prova no fluxo físico real** e artefato verificável guardado no OrdaX. Falhas são apresentadas com fase exata, sem esconder atraso com timeout de interface.
+
+
+## 8. Evidência física — Lidermix USB Dev (2026-10-20)
+
+Este registro substitui **somente** o estado da mídia relatado no item 1. Os gates de boot físico e MCP permanecem pendentes.
+
+- Host de reparo: `DESKTOP-COHT67R` via Remote Desktop Commander, com Git e Linux WSL de manutenção. Mídia positivamente identificada no Windows como **Lidermix, serial `6699E36B`**, Disco 1, USB 8.053.063.680 bytes; disco interno WDC, Disco 0, não utilizado como destino de gravação.
+- Partições existentes mantidas: ESP FAT32 256 MiB, ORDAX ext4 cerca de 6,2 GiB, ORDAX-DATA exFAT cerca de 1 GiB. Nenhuma formatação, novo flash Creator nem gravação na ESP.
+- Antes do reparo: checkout físico `164a7b8d51662149e0414412bed2f849a091df36`, origin canônico, árvore Git limpa, marcador `pinned-commit` ausente. Uma verificação desmontada `e2fsck -fn` encontrou órfãos/inconsistências no ext4 (código 1).
+- Segurança: imagem de recuperação local da partição ORDAX criada no Windows com `e2image -ra` **antes** do reparo, sem upload público; comprimento lógico igual ao da partição. Leitura `e2fsck -fn` da imagem reproduziu as inconsistências pré-reparo. Não foi executado teste de restauração completo dessa imagem.
+- `e2fsck -p` recuperou journal, mas recusou inconsistências adicionais. Reparação interativa `e2fsck -f` aceitou as correções propostas para lista de órfãos e contadores/bitmaps; após reparação, `e2fsck -fn /dev/sde2` aprovou as cinco etapas com código 0.
+- Atualização por `/usr/local/bin/ordax-pull` **real**, dentro do ambiente de sistema da partição física, sem bypass do dono canônico: saída `checkout atomico ativado`, `ORDAX_DEV_HELPERS_SHA=c0293cbf6315753e23fc5b1d0164313482d2eae6`, `ORDAX_SOURCE_SHA=c0293cbf6315753e23fc5b1d0164313482d2eae6`, código 0. Após atualização, `git HEAD`, `/state/ordax/current-commit` e `/state/ordax/dev-helpers-sha` coincidiram no SHA completo; `previous-commit` preservou `164a7b8d...`; `pull-result=completed`, árvore limpa, sem pin de rollback.
+- `ordax-remote` foi instalado como helper, mas **não** existe prova de sessão autorizada, dispositivo pareado ou capacidade MCP ativa. A consulta pelo plugin ainda retorna `product_targets_unavailable`.
+- Fechamento: `sync`, desmontagem do bind `/dev`, desmontagem ORDAX, `e2fsck -fn` pós-Pull **código 0**, `usbipd detach --busid 4-1` código 0; Windows reconheceu o mesmo dispositivo e mostrou `ORDAX-ESP` e `ORDAX-DATA` saudáveis.
+- Prova isolada adicional no WSL, em checkout descartável da mesma `main` (`c0293cbf...`): `test_dev_pull_expected_sha.py` 2/2, `test_dev_pull_helper_refresh_contract.py` 3/3, `test_owner_supervisor_real_git_discovery.py` 2/2, `test_dev_main_watch_single_owner.py` 5/5, `test_dev_base_helper_refresh.py` 6/6. **Total 18/18**. Estes são testes host-side, não E2E de boot físico.
+
+### Gates ainda abertos
+
+1. **Boot físico** do USB atualizado: prova da montagem da Surface, rede e First Run, versão efetivamente executada e ativação dos helpers depois do reboot.
+2. **Pull autônomo**: confirmar `Supervisor/main-watch -> Git -> Pull -> ativação saudável` após mudança real de `main` ou reconexão, sem disparo manual no WSL.
+3. **Energia física**: desligar e reiniciar via interface e botão ACPI, observando retorno de kernel e estado `last-request`; não aceitar HTTP 202 como sucesso.
+4. **Runtime MCP**: ativação por identidade/grant canônicos, consulta remota de `ordax-diagnose`, revogação testada e falha da Surface não comprometendo canal, sem agentes paralelos.
+5. **Base e Creator**: validar separadamente kernel/initramfs/ESP e o workflow Creator; sucesso do Git Pull não prova promoção Base A/B.
+
+**Não declarar OrdaX OS integralmente corrigido nem Pull automático certificado antes desses cinco gates.** O USB está atualizado quanto ao checkout Git e helpers no instante do teste e seu ext4 foi verificado após a atualização.
