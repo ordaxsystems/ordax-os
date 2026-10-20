@@ -3,6 +3,7 @@
 from __future__ import annotations
 import argparse
 import json
+import struct
 import tarfile
 
 ALPINE = ("etc/alpine-release", "sbin/apk", "usr/bin/apk")
@@ -18,9 +19,52 @@ def normalized(path: str) -> str:
     return "/".join(parts)
 
 
+
+def elf_interpreter(stream, size: int) -> str | None:
+    """Parse PT_INTERP read-only; this does not resolve DT_NEEDED libraries."""
+    head = stream.read(min(size, 64))
+    if not head.startswith(b"\x7fELF"):
+        return None
+    if len(head) < 52 or head[4] not in (1, 2) or head[5] not in (1, 2):
+        raise ValueError("malformed ELF header")
+    order = "<" if head[5] == 1 else ">"
+    is64 = head[4] == 2
+    if is64:
+        if len(head) < 64:
+            raise ValueError("truncated ELF64 header")
+        offset = struct.unpack_from(order + "Q", head, 32)[0]
+        entsize, count = struct.unpack_from(order + "HH", head, 54)
+        minimum, offset_field, size_field = 56, 8, 32
+    else:
+        offset = struct.unpack_from(order + "I", head, 28)[0]
+        entsize, count = struct.unpack_from(order + "HH", head, 42)
+        minimum, offset_field, size_field = 32, 4, 16
+    if count == 65535 or count > 1024 or (count and (entsize < minimum or offset + entsize * count > size)):
+        raise ValueError("invalid ELF program headers")
+    for i in range(count):
+        stream.seek(offset + i * entsize)
+        header = stream.read(minimum)
+        if len(header) != minimum:
+            raise ValueError("truncated ELF program header")
+        if struct.unpack_from(order + "I", header)[0] != 3:
+            continue
+        pos = struct.unpack_from(order + ("Q" if is64 else "I"), header, offset_field)[0]
+        length = struct.unpack_from(order + ("Q" if is64 else "I"), header, size_field)[0]
+        if length < 2 or length > 4096 or pos + length > size:
+            raise ValueError("invalid ELF interpreter size")
+        stream.seek(pos)
+        value = stream.read(length)
+        if value[-1:] != b"\0" or b"\0" in value[:-1]:
+            raise ValueError("invalid ELF interpreter terminator")
+        name = value[:-1].decode("utf-8")
+        if not name.startswith("/") or ".." in name.split("/"):
+            raise ValueError("unsafe ELF interpreter")
+        return name
+    return None
+
 def audit(path: str) -> dict:
     seen = set()
-    alpine, elf = [], []
+    alpine, elf, interpreters = [], [], {}
     total, regular, links = 0, 0, 0
     with tarfile.open(path, "r:*") as archive:
         for member in archive:
@@ -42,13 +86,20 @@ def audit(path: str) -> dict:
                 stream = archive.extractfile(member)
                 if stream and stream.read(4) == b"\x7fELF":
                     elf.append(name)
+                    stream.seek(0)
+                    interpreter = elf_interpreter(stream, member.size)
+                    if interpreter:
+                        interpreters[name] = interpreter
             elif not (member.isdir() or member.isdev() or member.isfifo()):
                 raise ValueError(f"unsupported tar entry: {name}")
-    return {"status": "fail" if alpine else "pass",
+    missing = {name: interp for name, interp in interpreters.items() if interp.lstrip("/") not in seen}
+    return {"status": "fail" if alpine or missing else "pass",
             "alpine_paths": sorted(alpine), "elf_files": sorted(elf),
+            "elf_interpreters": dict(sorted(interpreters.items())),
+            "missing_interpreters": dict(sorted(missing.items())),
             "regular_files": regular, "symlinks": links,
             "uncompressed_file_bytes": total,
-            "scope": "tar-path-and-ELF-magic-inventory-only",
+            "scope": "tar-path-and-PT_INTERP-presence-inventory-only",
             "elf_linkage_verified": False, "boot_verified": False}
 
 
