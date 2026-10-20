@@ -515,6 +515,10 @@ class DevelopmentGitFlowTest(unittest.TestCase):
         self.assertEqual((self.state / "current-commit").read_text().strip(), self.commit_v1)
 
     def test_remote_discovery_failures_keep_known_good_and_expose_only_fixed_codes(self) -> None:
+        self.assertIn(
+            "remote_stderr=$RUN_DIR/.pull-remote-discovery.$$.stderr",
+            PULL.read_text(encoding="utf-8"),
+        )
         # Exercise the real Pull on disposable Git data, injecting bounded
         # stderr via a Git wrapper only for ls-remote. No internet is needed,
         # and unknown content is never published into a UI-facing receipt.
