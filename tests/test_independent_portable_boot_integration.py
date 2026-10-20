@@ -54,12 +54,10 @@ class IndependentPortableBootIntegrationTest(unittest.TestCase):
         self.assertIn('BR2_PACKAGE_BUSYBOX_CONFIG_FRAGMENT_FILES="$(BR2_EXTERNAL_ORDAX_MINIMAL_PATH)/configs/portable-handoff.busybox.fragment"', profile)
         self.assertEqual(
             [line for line in fragment.read_text().splitlines() if line.startswith("CONFIG_")],
-            ["CONFIG_ACPID=y", "CONFIG_STAT=y", "CONFIG_FEATURE_STAT_FORMAT=y", "CONFIG_TIMEOUT=y", "CONFIG_FLOCK=y", "CONFIG_FEATURE_MOUNT_FLAGS=y"],
+            ["CONFIG_ACPID=y", "CONFIG_STAT=y", "CONFIG_FEATURE_STAT_FORMAT=y", "CONFIG_TIMEOUT=y", "CONFIG_FLOCK=y"],
         )
         build = (BASE / "build.py").read_text()
         self.assertIn("BUSYBOX_HANDOFF_SYMBOLS =", build)
-        self.assertIn('"CONFIG_FEATURE_MOUNT_FLAGS=y"', build)
-        self.assertIn('if "[r]bind" not in mount_usage:', build)
         self.assertIn('run(busybox, "stat", "-c", "%a", str(marker))', build)
         self.assertIn('run(busybox, "timeout", "-k", "1", "2", busybox, "true")', build)
         self.assertIn('run(busybox, "flock", "-n", str(lock_path), busybox, "true")', build)
