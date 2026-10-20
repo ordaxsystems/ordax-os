@@ -78,14 +78,14 @@ class HotUpdateSupervisorContractTests(unittest.TestCase):
                 )
             )
             execution = subprocess.run(
-                ["/bin/sh", "-c", completed + '\\nprintf "WITNESS_TMP=%s\\\\n" "$witness_tmp"\\n'],
+                ["/bin/sh", "-c", completed + '\nprintf "WITNESS_TMP=%s\\n" "$witness_tmp"\n'],
                 check=True,
                 capture_output=True,
                 text=True,
             )
             self.assertRegex(
                 execution.stdout,
-                r"WITNESS_TMP=" + re.escape(str(destination)) + r"\\.tmp\\.[0-9]+",
+                r"WITNESS_TMP=" + re.escape(str(destination)) + r"\.tmp\.[0-9]+",
             )
             self.assertEqual(stat.S_IMODE(destination.stat().st_mode), 0o600)
             self.assertFalse(list(native.glob("supervisor-boot-witness.json.tmp.*")))
