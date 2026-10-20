@@ -470,18 +470,22 @@ class SystemRuntimeContractTests(unittest.TestCase):
 
     def test_graphical_runtime_receives_bounded_host_dns_configuration(self):
         text = SURFACE_RUNTIME.read_text(encoding="utf-8")
-        self.assertIn("sync_runtime_resolver()", text)
-        self.assertIn("host_resolver=/etc/resolv.conf", text)
-        self.assertIn("runtime_resolver=$RUNTIME_ROOT/etc/resolv.conf", text)
-        self.assertIn("resolver_size=", text)
-        self.assertIn("[ \"$resolver_size\" -gt 16384 ]", text)
-        self.assertIn("/bin/busybox grep -Eq", text)
-        self.assertIn("nameserver", text)
-        self.assertIn('/bin/busybox mv -f "$temporary" "$runtime_resolver"', text)
-        self.assertIn(
-            "external DNS unavailable inside graphical runtime; continuing local Surface",
-            text,
-        )
+        resolver = (ROOT / "system/surface/runtime/resolver_sync.sh").read_text(encoding="utf-8")
+        broker = (ROOT / "system/surface/runtime/network_broker.sh").read_text(encoding="utf-8")
+        self.assertIn("sync_runtime_resolver() {", text)
+        self.assertIn('resolver_sync=$SYSTEM_ROOT/surface/runtime/resolver_sync.sh', text)
+        self.assertIn('/bin/sh "$resolver_sync" "$RUNTIME_ROOT" "$HOST_LOG"', text)
+        self.assertIn('ORDAX_RUNTIME_RESOLVER_SYNC_SCRIPT=', text)
+        self.assertIn('ORDAX_RUNTIME_RESOLVER_ROOT="$RUNTIME_ROOT"', text)
+        self.assertIn('ORDAX_RUNTIME_RESOLVER_LOG="$NETWORK_LOG"', text)
+        self.assertIn('host_resolver=${3:-/etc/resolv.conf}', resolver)
+        self.assertIn('mv -f "$temporary" "$runtime_root/etc/resolv.conf"', resolver)
+        self.assertIn("resolver_size=", resolver)
+        self.assertIn('[ "$resolver_size" -gt 16384 ]', resolver)
+        self.assertIn('no routable nameserver', resolver)
+        self.assertIn('ORDAX_RUNTIME_RESOLVER_SYNC_SCRIPT', broker)
+        self.assertIn('if ! try_dhcp "$wifi"; then', broker)
+        self.assertIn('/bin/sh "$RESOLVER_SYNC_SCRIPT" "$RESOLVER_ROOT" "$RESOLVER_LOG"', broker)
         self.assertLess(
             text.index('ensure_runtime || fallback_with_reason'),
             text.index('sync_runtime_resolver ||'),
