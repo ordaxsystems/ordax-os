@@ -140,6 +140,16 @@ test("every first-party English catalog has the exact source key set and placeho
   }
 });
 
+test("display scaling copy describes the same device-local automatic behavior in both locales", () => {
+  assert.match(SETTINGS_SOURCE_MESSAGES["settings.preference.display.description"], /neste dispositivo/);
+  assert.match(SETTINGS_ENGLISH_MESSAGES["settings.preference.display.description"], /on this device/);
+  assert.match(SETTINGS_SOURCE_MESSAGES["settings.preference.display.description"], /largura e a altura/);
+  assert.match(SETTINGS_ENGLISH_MESSAGES["settings.preference.display.description"], /width and height/);
+  assert.match(SETTINGS_SOURCE_MESSAGES["settings.preference.display.description"], /não sincroniza com a Conta/);
+  assert.match(SETTINGS_ENGLISH_MESSAGES["settings.preference.display.description"], /not synced to Account/);
+  assert.match(SETTINGS_SOURCE_MESSAGES["settings.preference.display.option.automatic.description"], /telas Full HD/);
+  assert.match(SETTINGS_ENGLISH_MESSAGES["settings.preference.display.option.automatic.description"], /Full HD screens/);
+});
 test("aggregate en-US Surface output preserves placeholders and contains no accidental PT-BR UI copy", () => {
   const ids = surfaceMessageIds();
   assert.ok(ids.length > 100, "audit must cover the complete aggregated Surface catalog");
