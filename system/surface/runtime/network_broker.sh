@@ -122,7 +122,17 @@ try_dhcp() {
     wifi=$1
     "$IP_BIN" link set "$wifi" up >/dev/null 2>&1 || return 1
     "$UDHCPC_BIN" -n -q -t 4 -T 3 -i "$wifi" >/dev/null 2>&1 || return 1
-    have_ipv4 "$wifi"
+    have_ipv4 "$wifi" || return 1
+    # First Run may connect Wi-Fi after the Surface boot-time DNS snapshot.
+    # Update the SAME graphical runtime used by Native account HTTPS requests.
+    if [ -n "${ORDAX_RUNTIME_RESOLVER_ROOT:-}" ] &&
+       [ -f "${ORDAX_RESOLVER_SYNC_HELPER:-}" ] &&
+       [ ! -L "$ORDAX_RESOLVER_SYNC_HELPER" ]; then
+        if ! /bin/sh "$ORDAX_RESOLVER_SYNC_HELPER" "$ORDAX_RUNTIME_RESOLVER_ROOT" "$SESSION_DIR/network-broker.log"; then
+            echo "ordax-network-broker: DHCP succeeded but Native resolver synchronization failed" >&2
+        fi
+    fi
+    return 0
 }
 
 connect_conf() {
