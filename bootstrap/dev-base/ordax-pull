@@ -387,11 +387,37 @@ network_failure_hint() {
 }
 
 remote_main_sha() {
-    output=$(run_bounded_git ls-remote --heads "$REPO_URL" "refs/heads/$BRANCH" 2>/dev/null || true)
+    remote_stderr=$1
+    # Keep only a private, short-lived Git error sample. Never surface raw
+    # remote stderr in update-state JSON (it can include credentials/URLs).
+    output=$(run_bounded_git ls-remote --heads "$REPO_URL" "refs/heads/$BRANCH" 2>"$remote_stderr") || return 1
     set -- $output
     value=${1:-}
     is_sha "$value" || return 1
     printf '%s' "$value"
+}
+
+remote_failure_phase() {
+    remote_stderr=$1
+    [ -f "$remote_stderr" ] && [ ! -L "$remote_stderr" ] || {
+        printf '%s' remote-discovery
+        return 0
+    }
+    # Fixed tokens only: diagnostic classification never persists attacker-
+    # controlled Git output. Unknown failures keep the original phase.
+    if /bin/busybox grep -Eqi 'could not resolve host|could not resolve proxy|temporary failure in name resolution|name or service not known' "$remote_stderr"; then
+        printf '%s' remote-discovery-dns
+    elif /bin/busybox grep -Eqi 'SSL certificate problem|certificate verify failed|certificate has expired|unable to get local issuer certificate' "$remote_stderr"; then
+        printf '%s' remote-discovery-tls
+    elif /bin/busybox grep -Eqi 'operation timed out|connection timed out|timed out' "$remote_stderr"; then
+        printf '%s' remote-discovery-timeout
+    elif /bin/busybox grep -Eqi 'network is unreachable|no route to host|failed to connect|connection refused' "$remote_stderr"; then
+        printf '%s' remote-discovery-connectivity
+    elif /bin/busybox grep -Eqi 'authentication failed|http 401|http 403|requested URL returned error: (401|403)' "$remote_stderr"; then
+        printf '%s' remote-discovery-auth
+    else
+        printf '%s' remote-discovery
+    fi
 }
 
 clone_runtime_checkout() {
@@ -732,7 +758,14 @@ if [ -n "$EXPECTED_SHA" ] && checkout_metadata_valid "$WORKTREE"; then
     fi
 fi
 if [ -z "$remote_sha" ]; then
-    remote_sha=$(remote_main_sha || true)
+    remote_stderr=$RUN_DIR/.pull-remote-discovery.$.stderr
+    if remote_sha=$(umask 077; remote_main_sha "$remote_stderr"); then
+        :
+    else
+        PULL_PHASE=$(remote_failure_phase "$remote_stderr")
+        echo "ordax-git: remote discovery failed ($PULL_PHASE); checkout local preserved" >&2
+    fi
+    rm -f "$remote_stderr"
 fi
 
 if [ -z "$remote_sha" ]; then
