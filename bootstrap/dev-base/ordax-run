@@ -148,6 +148,24 @@ watch_owner_provisioning() {
     done
 }
 
+# Owner engineering Runtime is optional and separate from Surface. Only an
+# explicitly paired device with a 0600 local opt-in starts it. The pinned
+# recovery controller owns installation, identity and authenticated transport.
+start_optional_owner_remote() {
+    remote=/usr/local/bin/ordax-remote
+    consent=$STATE_DIR/owner-remote/auto-start-enabled
+    [ -f "$consent" ] && [ ! -L "$consent" ] || return 0
+    [ "$(bb stat -c '%a' "$consent" 2>/dev/null || true)" = 600 ] || return 0
+    first_line=$(bb sed -n '1p' "$consent" 2>/dev/null || true)
+    [ "$first_line" = enabled ] || return 0
+    [ -f "$STATE_DIR/owner-remote/device-token" ] || return 0
+    [ -x "$remote" ] && [ ! -L "$remote" ] || return 0
+    (
+        umask 077
+        /bin/sh "$remote" ensure >>"$STATE_DIR/owner-remote/auto-start.log" 2>&1 || true
+    ) </dev/null &
+}
+
 start_guardian_tail() {
     if [ -x /bin/busybox ]; then
         /bin/busybox tail -n 0 -f "$GUARDIAN_LOG" &
@@ -194,6 +212,10 @@ ORDAX_SOURCE_SHA="$source_sha" \
 ORDAX_STAGE_TIMEOUT_SECONDS="$OWNER_UPDATE_STAGE_TIMEOUT" \
     "$ENTRYPOINT" &
 ENTRY_PID=$!
+
+# Do not wait for remote login or downloads during boot. Remote failure must
+# never hold the Guardian, network setup, First Run or Surface health gate.
+start_optional_owner_remote
 
 watch_owner_provisioning &
 WATCH_PID=$!
