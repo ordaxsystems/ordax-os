@@ -7,6 +7,9 @@ const { resolveTemplate, runtimeStateDirectory } = require('./runtime.cjs');
 const { chooseBootVersion, confirmHealthy, rejectCandidate, stageMain, readState, pinPrevious, unpin } = require('./dev-update.cjs');
 const { startHost, stopHost } = require('./host.cjs');
 let window=null, runtime=null, stream=null, updateTimer=null, staging=false;
+const primaryInstance=app.requestSingleInstanceLock();
+if(!primaryInstance)app.quit();
+else app.on('second-instance',()=>{if(window&&!window.isDestroyed()){if(window.isMinimized())window.restore();window.focus();}});
 const PRODUCT='/system/composition/native/index.html';
 app.setName('OrdaX OS Desktop Dev');
 if (process.platform==='win32') app.setAppUserModelId('dev.ordax.os.desktop');
@@ -74,6 +77,19 @@ function menu(userData) {
     ]},
   ]));
 }
+async function assertNativeShellMounted(browserWindow) {
+  const deadline=Date.now()+30000;
+  while(Date.now()<deadline && !browserWindow.isDestroyed()) {
+    const result=await browserWindow.webContents.executeJavaScript(
+      "({count:document.querySelector('#ordax-root')?.childElementCount||0,"+
+      "phase:document.querySelector('#ordax-boot-screen')?.dataset.state||'missing'})"
+    );
+    if(result.phase==='error')throw Error('Canonical Native composition reported boot error');
+    if(result.count>0 && result.phase==='ready')return true;
+    await new Promise(resolve=>setTimeout(resolve,300));
+  }
+  throw Error('Canonical Native composition did not finish mounting');
+}
 async function stageInBackground(userData,template) {
   if(staging || !app.isPackaged) return;
   staging=true;
@@ -92,6 +108,7 @@ app.on('before-quit',()=>{
 });
 app.on('window-all-closed',()=>app.quit());
 app.whenReady().then(async()=>{
+  if(!primaryInstance)return;
   const userData=app.getPath('userData');
   mkdirSync(userData,{recursive:true});
   stream=createWriteStream(join(userData,'desktop.log'),{flags:'a'});
@@ -118,6 +135,8 @@ app.whenReady().then(async()=>{
       log(root===template?'Bundled OrdaX Surface':'Verified Git-managed OrdaX Surface');
       runtime=await startHost({root,stateDirectory:runtimeStateDirectory(userData),log});
       await window.loadURL(runtime.url+PRODUCT);
+      await assertNativeShellMounted(window);
+      log('Native shell mounted and ready: '+runtime.url);
       log('Native Surface ready: '+runtime.url);
       if(selected.trial) {
         confirmHealthy(userData,selected.sha);
@@ -133,6 +152,8 @@ app.whenReady().then(async()=>{
       root=fallback.root;
       runtime=await startHost({root,stateDirectory:runtimeStateDirectory(userData),log});
       await window.loadURL(runtime.url+PRODUCT);
+      await assertNativeShellMounted(window);
+      log('Native shell mounted and ready after rollback: '+runtime.url);
       log('Native Surface ready after rollback: '+runtime.url);
     }
     navigationPolicy(runtime.url);
