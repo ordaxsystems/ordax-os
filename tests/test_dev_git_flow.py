@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 import shutil
 from pathlib import Path
@@ -432,6 +433,10 @@ class DevelopmentGitFlowTest(unittest.TestCase):
             else:
                 self.fail("watcher did not start")
 
+            # Observe a complete configured 5s polling cycle with no First Run receipt.
+            # A premature Pull must not slip through a startup-only assertion.
+            time.sleep(5.2)
+            self.assertIsNone(process.poll(), "watcher exited while First Run was incomplete")
             self.assertFalse(receipt.exists())
             self.assertEqual(
                 self._run(["git", "-C", str(self.worktree), "rev-parse", "HEAD"]).stdout.strip(),
@@ -442,7 +447,8 @@ class DevelopmentGitFlowTest(unittest.TestCase):
             self.assertEqual(result_file.stat().st_mtime_ns, initial_result_mtime)
 
             receipt.parent.mkdir(parents=True)
-            receipt.write_text('{"completed":true}\\n', encoding="utf-8")
+            receipt.write_text('{"completed":true}\n', encoding="utf-8")
+            self.assertTrue(json.loads(receipt.read_text(encoding="utf-8"))["completed"])
 
             deadline = time.monotonic() + 35
             while time.monotonic() < deadline:
