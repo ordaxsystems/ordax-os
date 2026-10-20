@@ -22,7 +22,7 @@ export function mountDisplayOutputControls(container, {
   translate,
   port = null,
   mode = "native",
-  onExamples = null,
+  onExamples = /** @type {null | (() => void)} */ (null),
   now = () => Date.now(),
   setIntervalFn = globalThis.setInterval,
   clearIntervalFn = globalThis.clearInterval,
