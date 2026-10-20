@@ -62,15 +62,22 @@ class StableBaseContractTests(unittest.TestCase):
             )
         )
         self.assertTrue(self.source["apk_package_versions_pinned"])
-        self.assertTrue(
-            self.source["apk_package_lock_status"].startswith(
-                "pinned-from-verified-candidate-"
-            )
+        self.assertEqual(
+            self.source["apk_package_lock_status"],
+            "candidate-reproof-required-after-ci-detected-drift-refresh",
         )
         lock = self.source["apk_package_lock"]
         self.assertIsInstance(lock, dict)
         self.assertEqual(len(lock), 40)
         self.assertEqual(self.source["apk_package_lock_count"], len(lock))
+        refresh = self.source["apk_package_lock_refresh"]
+        self.assertEqual(refresh["status"], "candidate-reproof-required")
+        self.assertEqual(
+            refresh["changes"],
+            [{"package": "ca-certificates", "from": "20260909-r0", "to": "20261020-r0"}],
+        )
+        self.assertFalse(refresh["candidate_artifact_recorded"])
+        self.assertFalse(refresh["physical_artifact_authorized"])
         self.assertEqual(
             self.source["apk_package_lock_scope"],
             "all-installed-packages-including-transitive-dependencies",

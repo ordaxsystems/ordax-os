@@ -96,7 +96,9 @@
   --md-sidebar-section-padding:.75rem .625rem .375rem;
   --md-sidebar-home-gap:.5rem;
   --md-sidebar-account-gap:.625rem;
-  --md-sidebar-utility-size:2.75rem;
+  /* Rail utility targets are a physical CSS-pixel contract, independent of
+     the product's 13px body type scale and any host font preference. */
+  --md-sidebar-utility-size:44px;
   --ordax-window-titlebar-height:3.375rem;
   --ordax-window-titlebar-padding:.25rem .75rem .25rem .9375rem;
   --ordax-window-mark-size:2.125rem;

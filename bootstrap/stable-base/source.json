@@ -28,7 +28,7 @@
     "zstd"
   ],
   "apk_package_versions_pinned": true,
-  "apk_package_lock_status": "pinned-from-verified-candidate-daf33badda46b82b1d4e3faafcf040ca8dca479c",
+  "apk_package_lock_status": "candidate-reproof-required-after-ci-detected-drift-refresh",
   "git_client_allowed": false,
   "source_checkout_allowed": false,
   "development_helpers_allowed": false,
@@ -101,7 +101,7 @@
     "apk-tools": "2.14.10-r0",
     "busybox": "1.37.0-r20",
     "busybox-binsh": "1.37.0-r20",
-    "ca-certificates": "20260909-r0",
+    "ca-certificates": "20261020-r0",
     "ca-certificates-bundle": "20260611-r0",
     "dbus-libs": "1.16.2-r1",
     "iproute2": "6.15.0-r0",
@@ -138,6 +138,21 @@
   "apk_package_lock_scope": "all-installed-packages-including-transitive-dependencies",
   "apk_package_lock_source": "verified-candidate-daf33badda46b82b1d4e3faafcf040ca8dca479c",
   "apk_package_lock_count": 40,
+  "apk_package_lock_refresh": {
+    "status": "candidate-reproof-required",
+    "detected_by_workflow_run_id": 39476365071,
+    "detected_by_job_id": 118813346675,
+    "detected_on_commit": "73d6923ca2cb9e7c37fcc712f21dda9c20414c48",
+    "changes": [
+      {
+        "package": "ca-certificates",
+        "from": "20260909-r0",
+        "to": "20261020-r0"
+      }
+    ],
+    "candidate_artifact_recorded": false,
+    "physical_artifact_authorized": false
+  },
   "apk_install_policy": "full-transitive-lock-exact-version-specs",
   "discovery_evidence": {
     "workflow": "Stable MVP Base Candidate",
