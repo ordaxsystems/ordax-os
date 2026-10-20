@@ -3,6 +3,7 @@
 from __future__ import annotations
 import argparse
 import json
+import posixpath
 import struct
 import tarfile
 
@@ -64,6 +65,7 @@ def elf_interpreter(stream, size: int) -> str | None:
 
 def audit(path: str) -> dict:
     seen = set()
+    entries = {}
     alpine, elf, interpreters = [], [], {}
     total, regular, links = 0, 0, 0
     with tarfile.open(path, "r:*") as archive:
@@ -74,6 +76,7 @@ def audit(path: str) -> dict:
             if name in seen:
                 raise ValueError(f"duplicate tar entry: {name}")
             seen.add(name)
+            entries[name] = (member.type, member.linkname)
             if name in ALPINE or any(name.startswith(prefix) for prefix in ALPINE_DIRS):
                 alpine.append(name)
             if member.issym() or member.islnk():
@@ -92,7 +95,27 @@ def audit(path: str) -> dict:
                         interpreters[name] = interpreter
             elif not (member.isdir() or member.isdev() or member.isfifo()):
                 raise ValueError(f"unsupported tar entry: {name}")
-    missing = {name: interp for name, interp in interpreters.items() if interp.lstrip("/") not in seen}
+    def resolved_interpreter(interpreter: str) -> bool:
+        path = interpreter.lstrip("/")
+        visited = set()
+        for _ in range(40):
+            if path in visited or path not in entries:
+                return False
+            visited.add(path)
+            kind, target = entries[path]
+            if kind == tarfile.REGTYPE or kind == tarfile.AREGTYPE:
+                return True
+            if kind != tarfile.SYMTYPE:
+                return False
+            if not target:
+                return False
+            base = target.lstrip("/") if target.startswith("/") else posixpath.join(posixpath.dirname(path), target)
+            path = posixpath.normpath(base)
+            if path == ".." or path.startswith("../"):
+                return False
+        return False
+
+    missing = {name: interp for name, interp in interpreters.items() if not resolved_interpreter(interp)}
     return {"status": "fail" if alpine or missing else "pass",
             "alpine_paths": sorted(alpine), "elf_files": sorted(elf),
             "elf_interpreters": dict(sorted(interpreters.items())),
