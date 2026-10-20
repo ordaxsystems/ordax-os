@@ -5,6 +5,7 @@ import { readDesktopNetworkStatus } from "../../system/adapters/desktop/network-
 import { readDesktopSystemMetrics } from "../../system/adapters/desktop/system-metrics.mjs";
 import { readDesktopUpdateStatus, readDesktopUpdateHistory } from "../../system/adapters/desktop/update-observation.mjs";
 import { readDesktopRecovery } from "../../system/adapters/desktop/recovery-observation.mjs";
+import { createDesktopBuiltAssetsMiddleware } from "./desktop-built-assets.mjs";
 import { createInitialFirstRunState, validateFirstRunState } from "../../system/contracts/first-run-state-store.mjs";
 import { validatePreferenceRecord } from "../../system/contracts/preference-store.mjs";
 import { FIRST_RUN_CURSOR_SCHEMA, validateFirstRunCursor } from "../../system/contracts/first-run-cursor.mjs";
@@ -90,6 +91,10 @@ export function nativeEmulatorPlugin(stateDirectory, { desktopHost = false } = {
   return {
     name: "ordax-native-emulator-host",
     configureServer(server) {
+      if (desktopHost && process.env.ORDAX_DESKTOP_ASSETS_ROOT) {
+        // Same compiled Native composition, served before Vite source transforms.
+        server.middlewares.use(createDesktopBuiltAssetsMiddleware(process.env.ORDAX_DESKTOP_ASSETS_ROOT));
+      }
       if (desktopHost) {
         // Genuine Windows host observation under the canonical Native port.
         server.middlewares.use((request, response, next) => {
