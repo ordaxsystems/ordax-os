@@ -12,12 +12,17 @@ function hasNativeBundle(sourceRoot) {
     const htmlPath=join(root,'system','composition','native','index.html');
     if(!lstatSync(htmlPath).isFile()) return false;
     const html=readFileSync(htmlPath,'utf8');
-    if(!html.includes('/__ordax/desktop-assets/assets/') ||
-        /<script\\s+type="module"\\s+src="\\.\\/main\\.mjs"/.test(html)) return false;
+    // A source-tree entry is not an acceptable installed/candidate artifact.
+    if(/<script\s+type="module"\s+src="\.\/main\.mjs"/.test(html))return false;
+    const matches=[...html.matchAll(/\/__ordax\/desktop-assets\/assets\/([a-zA-Z0-9][a-zA-Z0-9._-]{0,180}\.(?:js|css|png|svg|webp|woff2))/g)];
+    if(!matches.some(([,file])=>file.endsWith('.js')))return false;
     const assetRoot=join(root,'assets');
     if(!lstatSync(assetRoot).isDirectory())return false;
-    return readdirSync(assetRoot).some(file=>/^[a-zA-Z0-9][a-zA-Z0-9._-]*\\.js$/.test(file) &&
-      lstatSync(join(assetRoot,file)).isFile());
+    return matches.every(([,file])=>{
+      const item=join(assetRoot,file);
+      const stat=lstatSync(item);
+      return stat.isFile() && stat.size>0;
+    });
   } catch { return false; }
 }
 async function buildNativeCandidate(root,template,{log=()=>{},timeoutMs=120000}={}) {
