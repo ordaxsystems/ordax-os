@@ -5,6 +5,7 @@ on:
     paths:
       - 'bootstrap/independent-base/**'
       - '!bootstrap/independent-base/**/*.md'
+      - 'tests/test_independent_rootfs_inventory.py'
       - 'bootstrap/kernel/build.py'
       - 'bootstrap/kernel/verify.py'
       - 'bootstrap/kernel/verify_upstream_signature.py'
