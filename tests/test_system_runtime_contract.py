@@ -470,14 +470,19 @@ class SystemRuntimeContractTests(unittest.TestCase):
 
     def test_graphical_runtime_receives_bounded_host_dns_configuration(self):
         text = SURFACE_RUNTIME.read_text(encoding="utf-8")
+        resolver = (ROOT / "system/surface/runtime/resolver-sync.sh").read_text(encoding="utf-8")
+        broker = (ROOT / "system/surface/runtime/network_broker.sh").read_text(encoding="utf-8")
         self.assertIn("sync_runtime_resolver()", text)
-        self.assertIn("host_resolver=/etc/resolv.conf", text)
-        self.assertIn("runtime_resolver=$RUNTIME_ROOT/etc/resolv.conf", text)
-        self.assertIn("resolver_size=", text)
-        self.assertIn("[ \"$resolver_size\" -gt 16384 ]", text)
-        self.assertIn("/bin/busybox grep -Eq", text)
-        self.assertIn("nameserver", text)
-        self.assertIn('/bin/busybox mv -f "$temporary" "$runtime_resolver"', text)
+        self.assertIn('host_resolver=${ORDAX_RESOLVER_SOURCE_PATH:-/etc/resolv.conf}', resolver)
+        self.assertIn("runtime_resolver=$runtime_etc/resolv.conf", resolver)
+        self.assertIn("resolver_size=", resolver)
+        self.assertIn('[ "$resolver_size" -le 16384 ]', resolver)
+        self.assertIn("/bin/busybox grep -Eq", resolver)
+        self.assertIn("nameserver", resolver)
+        self.assertIn('/bin/busybox mv -f "$temporary" "$runtime_resolver"', resolver)
+        self.assertIn('ORDAX_RESOLVER_SYNC_HELPER="$SYSTEM_ROOT/surface/runtime/resolver-sync.sh"', text)
+        self.assertIn('ORDAX_RUNTIME_RESOLVER_ROOT="$RUNTIME_ROOT"', text)
+        self.assertIn('if ! /bin/sh "$ORDAX_RESOLVER_SYNC_HELPER"', broker)
         self.assertIn(
             "external DNS unavailable inside graphical runtime; continuing local Surface",
             text,
