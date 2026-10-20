@@ -62,6 +62,13 @@
         "filter": [
           "**/*"
         ]
+      },
+      {
+        "from": "../../out/windows-desktop-native",
+        "to": "runtime-template/desktop-assets",
+        "filter": [
+          "**/*"
+        ]
       }
     ],
     "asar": true,
