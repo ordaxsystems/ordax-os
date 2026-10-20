@@ -30,23 +30,32 @@ class OwnerDevManualUpdateTests(unittest.TestCase):
             request = str(Path(temp) / "manual-check-request")
             self.assertTrue(api["queue_manual_update_check"](request))
             self.assertEqual(Path(request).read_text(), "check-main\n")
-            self.assertEqual(stat.S_IMODE(os.stat(request).st_mode), 0o600)
+            if os.name == "posix":
+                self.assertEqual(stat.S_IMODE(os.stat(request).st_mode), 0o600)
             self.assertTrue(api["manual_update_request_pending"](request))
             self.assertFalse(api["queue_manual_update_check"](request))
             self.assertEqual(Path(request).read_text(), "check-main\n")
 
-    def test_unsafe_path_and_missing_run_dir_fail_closed(self):
+    def test_symlinked_request_is_rejected(self):
         api = queue_functions()
         with tempfile.TemporaryDirectory() as temp:
             parent = Path(temp)
             target = parent / "target"
             target.write_text("private data")
             marker = parent / "manual-check-request"
-            marker.symlink_to(target)
+            try:
+                marker.symlink_to(target)
+            except (NotImplementedError, OSError) as exc:
+                self.skipTest(f"symlink creation unavailable on this platform: {exc}")
             with self.assertRaises(OSError):
                 api["queue_manual_update_check"](str(marker))
             self.assertEqual(target.read_text(), "private data")
             self.assertFalse(api["manual_update_request_pending"](str(marker)))
+
+    def test_missing_run_dir_fails_closed(self):
+        api = queue_functions()
+        with tempfile.TemporaryDirectory() as temp:
+            parent = Path(temp)
             with self.assertRaises(OSError):
                 api["queue_manual_update_check"](str(parent / "missing" / "manual-check-request"))
 
