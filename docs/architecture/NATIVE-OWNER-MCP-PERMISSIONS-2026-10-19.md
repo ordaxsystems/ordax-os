@@ -49,3 +49,15 @@ invent a second MCP server.
 python -m unittest tests.test_owner_remote_permissions_native tests.test_owner_remote_permission_authority
 node --test tests/test_owner_remote_permissions_adapter.mjs
 ```
+
+## Revocation proof matrix
+
+- One client with `full-computer-control`, `computer-observe` and a
+  project-scoped grant: a single explicit revoke-all request removes **all
+  three** groups through the canonical Owner PostgreSQL authority.
+- A stale 200 response that does not change grants is rejected on the
+  postcondition read; the UI never claims success from HTTP alone.
+- More than 300 groups / 100 clients are rejected rather than truncated,
+  preventing an apparently empty panel from hiding active access.
+- An unavailable Native confirmation dialog fails closed for both grant and
+  revoke-all, rather than skipping user intent confirmation.
