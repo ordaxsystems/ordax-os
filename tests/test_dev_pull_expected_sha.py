@@ -73,6 +73,26 @@ class DevPullExpectedShaTests(unittest.TestCase):
         entrypoint.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
         entrypoint.chmod(entrypoint.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
         (self.seed / "system" / "marker.txt").write_text(marker + "\n", encoding="utf-8")
+        # Mirror the canonical runtime sparse allowlist so exact-candidate
+        # materialization exercises all required paths without fake fallbacks.
+        for relative in (
+            "bootstrap/base-update/manifest.txt",
+            "bootstrap/dev-base/manifest.txt",
+            "bootstrap/recovery/entrypoint",
+            "bootstrap/trust/release-ed25519.json",
+            "bootstrap/config/release-envelope-url",
+            "docs/contracts/base-update.json",
+            "docs/contracts/release-trust-policy.json",
+            "docs/contracts/minimal-bootstrap.json",
+            "docs/evidence/release-trust-ceremony.json",
+            "docs/evidence/release-trust-proof-manifest.json",
+            "docs/evidence/release-trust-recovery-envelope.json",
+        ):
+            required = self.seed / relative
+            required.parent.mkdir(parents=True, exist_ok=True)
+            if not required.exists():
+                required.write_text("test fixture\\n", encoding="utf-8")
+
 
     def _publish(self, marker: str) -> str:
         self._write_release(marker)
