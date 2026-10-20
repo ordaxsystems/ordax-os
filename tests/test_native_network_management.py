@@ -139,6 +139,21 @@ class NativeNetworkManagementTests(unittest.TestCase):
         self.assertNotIn('echo "$ssid_hex"', text)
         self.assertNotIn("logger", text)
 
+    def test_cold_boot_restores_persisted_wifi_with_the_single_broker_owner(self):
+        broker = BROKER.read_text(encoding="utf-8")
+        startup = broker.split('exec 9<>"$CONTROL"', 1)[1].split("while :; do", 1)[0]
+        self.assertIn('if [ -s "$WPA_CONF" ] && [ ! -L "$WPA_CONF" ]; then', startup)
+        self.assertIn("boot_wifi=$(find_wifi_interface || true)", startup)
+        self.assertIn('have_ipv4 "$boot_wifi"', startup)
+        self.assertIn('grep -q \'^Connected to \'', startup)
+        self.assertIn("existing Base Wi-Fi adopted on boot", startup)
+        self.assertIn("sync_runtime_resolver", startup)
+        self.assertIn('restore_saved_network "$boot_wifi"', startup)
+        self.assertLess(startup.index('have_ipv4 "$boot_wifi"'), startup.index('restore_saved_network "$boot_wifi"'))
+        self.assertIn("profile preserved", startup)
+        self.assertNotIn("wpa_supplicant -B", startup)
+        self.assertNotIn("udhcpc ", startup)
+
     def test_first_run_wifi_waits_for_wpa_handshake_and_bounded_scan(self):
         text = BROKER.read_text(encoding="utf-8")
         self.assertIn('WPA_CLI_BIN=$(command -v wpa_cli || true)', text)
@@ -151,7 +166,8 @@ class NativeNetworkManagementTests(unittest.TestCase):
             text.index('if ! wait_for_wifi_link "$wifi"; then'),
             text.index('    if ! try_dhcp "$wifi"; then', text.index('connect_conf()')),
         )
-        self.assertNotIn("grep -q '^Connected to '", text)
+        handshake = text.split("wait_for_wifi_link() {", 1)[1].split("\n}\n", 1)[0]
+        self.assertNotIn("grep -q '^Connected to '", handshake)
 
     def test_native_api_is_loopback_tokenized_serialized_and_no_shell_endpoint(self):
         server = SERVER.read_text(encoding="utf-8")
