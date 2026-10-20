@@ -28,7 +28,9 @@ class HotUpdateSupervisorContractTests(unittest.TestCase):
 
     def test_owner_first_poll_witness_is_bounded_diagnostic_not_update_authority(self):
         import json
+        import re
         import shlex
+        import stat
 
         text = SYSTEM_SUPERVISOR.read_text(encoding="utf-8")
         self.assertIn(
@@ -40,6 +42,7 @@ class HotUpdateSupervisorContractTests(unittest.TestCase):
         self.assertIn('[ "$DISTRIBUTION_PROFILE" = owner-development ] || return 0', witness)
         self.assertIn('[ "$OWNER_POLL_BOOT_FINISHED" -eq 0 ] || return 0', witness)
         self.assertIn('[ ! -L "$OWNER_POLL_BOOT_FILE" ]', witness)
+        self.assertIn('witness_tmp=$OWNER_POLL_BOOT_FILE.tmp.$$', witness)
         self.assertIn('"ordax.owner-supervisor-first-poll/1"', witness)
         for forbidden in ("git ", "pull ", "reboot ", "mount ", "efi-updatevar", "activation_authorized"):
             self.assertNotIn(forbidden, witness)
@@ -74,7 +77,18 @@ class HotUpdateSupervisorContractTests(unittest.TestCase):
                     "first-run-pending",
                 )
             )
-            subprocess.run(["/bin/sh", "-c", completed], check=True)
+            execution = subprocess.run(
+                ["/bin/sh", "-c", completed + '\nprintf "WITNESS_TMP=%s\\n" "$witness_tmp"\n'],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            self.assertRegex(
+                execution.stdout,
+                r"WITNESS_TMP=" + re.escape(str(destination)) + r"\.tmp\.[0-9]+",
+            )
+            self.assertEqual(stat.S_IMODE(destination.stat().st_mode), 0o600)
+            self.assertFalse(list(native.glob("supervisor-boot-witness.json.tmp.*")))
             result = json.loads(destination.read_text(encoding="utf-8"))
             self.assertEqual(result["schema"], "ordax.owner-supervisor-first-poll/1")
             self.assertEqual(result["stage"], "git-remote-completed")
