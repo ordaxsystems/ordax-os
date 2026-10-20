@@ -28,6 +28,7 @@ import '../../surface/ui/boot-screen.css';
 import '../../surface/ui/meridian.tokens.css';
 import '../../surface/ui/meridian.css';
 import '../../surface/workspace/components/central/meridian.css';
+import '../../surface/ui/journeys/settings.css';
 const readWebProfileCatalog = (signal: AbortSignal) => import('./profile-catalog').then(module => module.readWebProfileCatalog(signal));
 
 type IdentitySnapshot = {

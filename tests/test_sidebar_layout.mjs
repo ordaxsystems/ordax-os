@@ -213,6 +213,15 @@ test("Native USB keeps the computer shell instead of switching to mobile geometr
   assert.match(webStyles, /@media\(max-width:600px\)\s*\{\.meridian-workspace\s*\{--md-dock:4\.5rem;/i, "the Web dock retains its mobile size adjustment");
   assert.match(webStyles, /@media\(max-width:760px\)\s*\{\.meridian-workspace\s*\{--md-desktop-shortcut-inset/i, "the Web may compact its shortcut grid at phone widths");
 });
+test("Web Settings loads the Meridian presentation used by its rendered component", async () => {
+  const [webEntry, settingsPresentation] = await Promise.all([
+    readFile(new URL("../system/composition/web/main.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../system/surface/ui/journeys/settings.css", import.meta.url), "utf8"),
+  ]);
+  assert.match(webEntry, /import ['"]\.\.\/\.\.\/surface\/ui\/journeys\/settings\.css['"];?/);
+  assert.match(settingsPresentation, /\.wm-settings\s*\{[^}]*container:\s*settings-web\s*\/\s*inline-size/);
+  assert.match(settingsPresentation, /\.wm-settings-grid\s*\{[^}]*display:\s*grid/);
+});
 test("Web and Native taskbars share one Meridian frame and dock glyph scale", async () => {
   const [tokens, sharedStyles, nativeStyles, webStyles, nativeShell, webNavigation] = await Promise.all([
     readFile(new URL("../system/surface/ui/meridian.tokens.css", import.meta.url), "utf8"),
