@@ -25,6 +25,7 @@
       "package.json",
       "runtime.cjs",
       "checkout.cjs",
+      "dev-update.cjs",
       "host.cjs"
     ],
     "extraResources": [
