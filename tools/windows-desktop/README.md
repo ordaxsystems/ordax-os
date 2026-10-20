@@ -1,4 +1,4 @@
-# OrdaX OS Desktop Dev — Windows (Alpha)
+# OrdaX OS Desktop Dev â€” Windows (Alpha)
 
 A local, installable development shell for **the canonical Native Surface**.
 This is not a separate Windows port of OrdaX OS or a fake USB kernel. The Surface,
@@ -34,6 +34,7 @@ The CI workflow `windows-desktop-dev.yml` builds an artifact in pull requests.
   bounded fast-forward Git updates. No reset/discard on divergence or local edits.
 - If Git acquisition fails, the bundled snapshot opens with Pull **inactive**;
   this is documented in the app log and is not presented as successful update.
+- Desktop Host contract v1 is declared by `tools/windows-emulator/desktop-host-contract.json`. Older `main` revisions never replace the tested offline snapshot. A previously cloned clean checkout can be advanced once with `git merge --ff-only` to bootstrap compatibility; subsequent updates belong exclusively to the shared supervisor.
 - Existing partial checkouts are preserved for investigation, never deleted.
 - The installer itself is not automatically replaced by OrdaX Pull: native
   shell upgrades and signed public release update gates remain separate.
