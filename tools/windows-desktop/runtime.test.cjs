@@ -48,3 +48,10 @@ test('Development installer defaults to the user profile and preserves applicati
   assert.equal(nsis.deleteAppDataOnUninstall, false);
   assert.equal(nsis.include, 'installer.nsh');
 });
+
+test('NSIS Owner Dev mode is forced to the current Windows user without a selection page', () => {
+  const nsisScript = readFileSync(join(__dirname,'installer.nsh'),'utf8');
+  assert.match(nsisScript, /!macro customInstallMode/);
+  assert.ok(nsisScript.includes('StrCpy $isForceCurrentInstall "1"'));
+  assert.ok(!nsisScript.includes('StrCpy $isForceMachineInstall "1"'));
+});
