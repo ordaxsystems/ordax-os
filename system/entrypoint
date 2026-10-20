@@ -24,6 +24,9 @@ SUPERVISOR_PID_FILE=$UPDATE_RUN_DIR/supervisor.pid
 SUPERVISOR_POWER_QUIESCED_FILE=$UPDATE_RUN_DIR/supervisor-power-quiesced
 GUARDIAN_LOG=$UPDATE_RUN_DIR/guardian.log
 HOST_POWER_REQUEST=$UPDATE_RUN_DIR/host-power-request
+ACPI_ACTION_SOURCE=$SYSTEM_ROOT/services/power/acpi-button-action.sh
+ACPI_DIR=$UPDATE_RUN_DIR/acpi
+ACPI_BUTTON_PID=""
 POWER_STATE_DIR=${ORDAX_STATE_DIR:-/state/ordax}/power
 POWER_LAST_REQUEST=$POWER_STATE_DIR/last-request
 BASE_TELEMETRY_PID_FILE=${ORDAX_STATE_DIR:-/state/ordax}/telemetry/agent.pid
@@ -388,6 +391,42 @@ prepare_host_power_channel() {
     return 0
 }
 
+start_acpi_button_listener() {
+    [ "$DISTRIBUTION_PROFILE" = "owner-development" ] || return 0
+    if [ -n "$ACPI_BUTTON_PID" ] && kill -0 "$ACPI_BUTTON_PID" >/dev/null 2>&1; then
+        return 0
+    fi
+    ACPI_BUTTON_PID=""
+    [ -f "$ACPI_ACTION_SOURCE" ] && [ ! -L "$ACPI_ACTION_SOURCE" ] || return 1
+    /bin/busybox acpid --help >/dev/null 2>&1 || return 1
+    mkdir -p "$ACPI_DIR" || return 1
+    chmod 700 "$ACPI_DIR" || return 1
+    /bin/busybox cp "$ACPI_ACTION_SOURCE" "$ACPI_DIR/shutdown" || return 1
+    chmod 700 "$ACPI_DIR/shutdown" || return 1
+    # Linux evdev power key press only (value 1); no lid, sleep or release event.
+    printf '%s\n' 'EV_KEY 0x01 KEY_POWER 116 1 "button/power PWRF 00000080"' >"$ACPI_DIR/acpi.map" || return 1
+    printf '%s\n' 'PWRF shutdown' >"$ACPI_DIR/acpid.conf" || return 1
+    chmod 600 "$ACPI_DIR/acpi.map" "$ACPI_DIR/acpid.conf" || return 1
+    ORDAX_HOST_POWER_REQUEST="$HOST_POWER_REQUEST" \
+        /bin/busybox acpid -f -c "$ACPI_DIR" -a "$ACPI_DIR/acpid.conf" -M "$ACPI_DIR/acpi.map" \
+            >>"$GUARDIAN_LOG" 2>&1 &
+    ACPI_BUTTON_PID=$!
+    /bin/busybox sleep 1
+    if ! kill -0 "$ACPI_BUTTON_PID" >/dev/null 2>&1; then
+        wait "$ACPI_BUTTON_PID" 2>/dev/null || true
+        ACPI_BUTTON_PID=""
+        return 1
+    fi
+    log "physical ACPI power button now routes to Guardian shutdown authority"
+}
+
+stop_acpi_button_listener() {
+    [ -n "$ACPI_BUTTON_PID" ] || return 0
+    kill "$ACPI_BUTTON_PID" >/dev/null 2>&1 || true
+    wait "$ACPI_BUTTON_PID" 2>/dev/null || true
+    ACPI_BUTTON_PID=""
+}
+
 close_host_power_channel() {
     exec 8>&- 2>/dev/null || true
     rm -f "$HOST_POWER_REQUEST" >/dev/null 2>&1 || true
@@ -402,6 +441,7 @@ restore_runtime_after_power_failure() {
     if ! start_supervisor; then
         fail_closed "host power transition failed and supervisor could not be restored"
     fi
+    start_acpi_button_listener || log "physical ACPI button listener could not be restored"
     return 1
 }
 
@@ -416,6 +456,7 @@ perform_host_power_transition() {
         return 1
     fi
 
+    stop_acpi_button_listener
     if ! terminate_persistent_host_agents; then
         restore_runtime_after_power_failure "$action" "persistent host agent did not quiesce for $action"
         return 1
@@ -478,6 +519,7 @@ wait_guardian_interval() {
 
 cleanup() {
     STOPPING=1
+    stop_acpi_button_listener
     terminate_supervisor
     close_host_power_channel
     rm -f "$SUPERVISOR_PID_FILE" "$GUARDIAN_PID_FILE" >/dev/null 2>&1 || true
@@ -493,6 +535,7 @@ fail_closed() {
     reason=$1
     log "$reason"
     terminate_supervisor
+    stop_acpi_button_listener
     rm -f "$SUPERVISOR_PID_FILE" "$GUARDIAN_PID_FILE" >/dev/null 2>&1 || true
     close_host_power_channel
     if [ -x "$RECOVERY_ENTRYPOINT" ]; then
@@ -579,6 +622,7 @@ trap cleanup EXIT
 trap terminate HUP INT TERM
 
 prepare_host_power_channel || fail_closed "host power request channel could not be initialized"
+start_acpi_button_listener || log "physical ACPI button listener unavailable; checking base ACPI driver/applet"
 write_pid "$GUARDIAN_PID_FILE" "$$"
 log "guardian started pid=$$"
 ensure_base_boot_id || fail_closed "boot session id could not be initialized"
