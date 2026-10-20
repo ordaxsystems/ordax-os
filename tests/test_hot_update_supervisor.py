@@ -429,7 +429,9 @@ class HotUpdateSupervisorContractTests(unittest.TestCase):
         self.assertIn('ORDAX_EXPECTED_SHA="$source_sha"', refresh)
         self.assertIn('"$PULL_BIN" >>"$UPDATE_LOG" 2>&1', refresh)
         self.assertIn("refresh_dev_helpers()", text)
-        self.assertIn('refresh_dev_helpers "$expected_sha"', text)
+        # Canonical ordax-pull owns initial helper installation, not the Supervisor.
+        apply = text.split("apply_remote_checkout() {", 1)[1].split("\n}\n", 1)[0]
+        self.assertNotIn('refresh_dev_helpers "$expected_sha"', apply)
         self.assertIn('refresh_dev_helpers "$current"', text)
         self.assertIn("DEV_HELPERS_SHA_FILE=$STATE_DIR/dev-helpers-sha", text)
         self.assertIn(
@@ -633,7 +635,9 @@ class HotUpdateSupervisorContractTests(unittest.TestCase):
         self.assertIn('wait_for_surface_health "$expected_sha" "$SURFACE_HEALTH_TIMEOUT"', text)
         self.assertIn('fail_closed "Surface heartbeat recovery restart did not acknowledge healthy state"', text)
         self.assertIn("Surface heartbeat recovery restart acknowledged healthy state", text)
-        self.assertIn("recover_stale_surface_if_needed\n    check_for_update", text)
+        self.assertIn("check_owner_initial_surface_health", text)
+        self.assertIn("recover_stale_surface_if_needed", text)
+        self.assertIn("    check_for_update", text)
 
         recovery = text.split("recover_stale_surface_if_needed() {", 1)[1].split("\n}\n", 1)[0]
         self.assertEqual(recovery.count('stop_surface'), 1)
@@ -647,8 +651,11 @@ class HotUpdateSupervisorContractTests(unittest.TestCase):
         self.assertIn('clear_surface_health\nif [ "$DISTRIBUTION_PROFILE" = "stable-mvp" ]; then', text)
         self.assertIn("starting shared OrdaX Surface with Stable/MVP signed-release profile", text)
         self.assertIn("starting shared OrdaX Surface with Owner/Development Git hot-update supervisor", text)
-        self.assertIn('wait_for_owner_initial_surface_health "$initial_sha" "$INITIAL_SURFACE_HEALTH_TIMEOUT"', text)
-        self.assertIn('wait_for_surface_health "$expected_sha" "$normal_budget"', text)
+        self.assertIn("begin_owner_initial_surface_health", text)
+        self.assertIn("check_owner_initial_surface_health", text)
+        self.assertIn('wait_for_surface_health "$initial_sha" "$INITIAL_SURFACE_HEALTH_TIMEOUT"', text)
+        self.assertIn("owner_monotonic_seconds()", text)
+        self.assertIn("OWNER_INITIAL_PROVISION_SINCE", text)
         self.assertIn('rollback_boot_candidate()', text)
         self.assertIn('validate_candidate_tree "$previous_sha" supervisor-restart', text)
         self.assertIn('reset --hard "$previous_sha"', text)
