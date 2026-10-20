@@ -129,23 +129,26 @@ class EfivarfsPreflightTests(unittest.TestCase):
                     mountinfo=mountinfo,
                 )
 
-    def test_owner_initramfs_mounts_efivarfs_without_activating_or_masquerading_success(self):
+    def test_owner_base_agent_mounts_efivarfs_without_pid1_or_activation_bypass(self):
+        agent = (ROOT / "system/services/base-update/agent.sh").read_text(encoding="utf-8")
         init = (ROOT / "bootstrap/initramfs/root/init").read_text(encoding="utf-8")
-        self.assertIn("prepare_owner_efivarfs_mount() {", init)
-        setup = init.split("prepare_owner_efivarfs_mount() {", 1)[1].split("\n}\n", 1)[0]
-        self.assertIn('[ "$OWNER_DEVELOPMENT" -eq 1 ] || return 0', setup)
-        self.assertIn('[ -d /sys/firmware/efi ]', setup)
-        self.assertIn('[ ! -L /sys/firmware/efi ]', setup)
-        self.assertIn('[ -L "$efivarfs_root" ]', setup)
-        self.assertIn(" /proc/self/mountinfo", setup)
-        self.assertIn('mount -t efivarfs -o rw,nosuid,nodev,noexec efivarfs "$efivarfs_root"', setup)
-        self.assertIn("Base activation remains blocked", setup)
-        for forbidden in ("efi-updatevar", "efibootmgr", "chattr -i", "dd ", "reboot ", "write_authorized=true"):
-            self.assertNotIn(forbidden, setup)
-        self.assertLess(init.index("OWNER_DEVELOPMENT=0"), init.index("prepare_owner_efivarfs_mount\n"))
-        self.assertLess(init.index("prepare_owner_efivarfs_mount\n"), init.index("discover_owner_development_device()"))
+        self.assertNotIn("prepare_owner_efivarfs_mount()", init)
+        self.assertIn("prepare_real_efivarfs_mount_for_preflight() {", agent)
+        helper = agent.split("prepare_real_efivarfs_mount_for_preflight() {", 1)[1].split("\n}\n", 1)[0]
+        self.assertIn('[ "$DISTRIBUTION_PROFILE" = owner-development ] || return 0', helper)
+        self.assertIn('efi_root=$RUNTIME_ROOT/sys/firmware/efi', helper)
+        self.assertIn('efivarfs_root=$efi_root/efivars', helper)
+        self.assertIn('[ ! -L "$efi_root" ]', helper)
+        self.assertIn('[ -L "$efivarfs_root" ]', helper)
+        self.assertIn('mount_record_for "$efivarfs_root"', helper)
+        self.assertIn('mount -t efivarfs -o rw,nosuid,nodev,noexec efivarfs "$efivarfs_root"', helper)
+        self.assertIn("Base activation remains disabled", helper)
+        self.assertIn("prepare_real_efivarfs_mount_for_preflight\n", agent)
+        for forbidden in ("efi-updatevar", "efibootmgr", "chattr -i", "reboot -f", "activation_authorized=true"):
+            self.assertNotIn(forbidden, helper)
         import subprocess
         subprocess.run(["sh", "-n", str(ROOT / "bootstrap/initramfs/root/init")], check=True)
+        subprocess.run(["sh", "-n", str(ROOT / "system/services/base-update/agent.sh")], check=True)
 
     def test_contract_keeps_probe_non_authoritative(self):
         value = CONTRACT["activation"]["efivarfs_preflight"]
