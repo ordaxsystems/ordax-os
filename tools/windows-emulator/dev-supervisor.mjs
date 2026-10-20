@@ -1,10 +1,12 @@
 #!/usr/bin/env node
 import { spawn, spawnSync } from 'node:child_process';
+import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../..');
+const HAS_GIT = existsSync(resolve(REPO_ROOT, '.git'));
 const BRANCH = process.env.ORDAX_REPO_BRANCH ?? 'main';
 const UPDATE_INTERVAL_MS = Math.max(5, Number.parseInt(process.env.ORDAX_UPDATE_INTERVAL_SECONDS ?? '5', 10) || 5) * 1000;
 const REMOTE_TIMEOUT_MS = Math.max(5, Number.parseInt(process.env.ORDAX_REMOTE_TIMEOUT_SECONDS ?? '20', 10) || 20) * 1000;
@@ -119,6 +121,9 @@ const vite = spawn(process.execPath, [
   viteEntry,
   '--config',
   'tools/windows-emulator/vite.config.mjs',
+  // Native ESM loader does not bundle config under node_modules/.vite-temp.
+  // The installed runtime beneath Program Files is intentionally read-only.
+  ...(process.env.ORDAX_EMULATOR_NO_BROWSER === '1' ? ['--configLoader', 'native'] : []),
   ...(process.env.ORDAX_EMULATOR_NO_BROWSER === '1' ? [] : [
     '--open', '/tools/windows-emulator/index.html',
   ]),
@@ -153,7 +158,12 @@ vite.once('exit', (code, signal) => {
 process.once('SIGINT', () => stop('SIGINT'));
 process.once('SIGTERM', () => stop('SIGTERM'));
 
-log(`local-first session started; watching origin/${BRANCH} every ${UPDATE_INTERVAL_MS / 1000}s`);
-syncMainOnce();
-timer = setInterval(syncMainOnce, UPDATE_INTERVAL_MS);
-timer.unref();
+if (HAS_GIT) {
+  log(`local-first session started; watching origin/${BRANCH} every ${UPDATE_INTERVAL_MS / 1000}s`);
+  syncMainOnce();
+  timer = setInterval(syncMainOnce, UPDATE_INTERVAL_MS);
+  timer.unref();
+} else {
+  // Bundled offline fallback has no .git: there is no HEAD to poll or mutate.
+  log('bundled source has no Git checkout; Pull unavailable until a compatible checkout exists');
+}
