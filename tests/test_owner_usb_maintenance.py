@@ -124,6 +124,7 @@ class OwnerUsbMaintenanceTests(unittest.TestCase):
         self.assertLess(launcher.index("ENTRY_PID=$!"),
                         launcher.index("publish_owner_maintenance_receipt &"))
         self.assertIn("publish_owner_maintenance_receipt &", launcher)
+        self.assertIn("temporary=$destination/.last-status.$$", launcher)
         helper = self.root / "health-helper"
         helper.write_text("#!/bin/sh\nprintf 'schema=ordax.owner-maintenance/1\\nmaintenance.result=healthy\\n'\n")
         function = function.replace("helper=/usr/local/bin/ordax-maintain",
