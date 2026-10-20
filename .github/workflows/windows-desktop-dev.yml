@@ -27,6 +27,7 @@ jobs:
       - name: Test Native host and desktop contracts
         run: |
           node --test tests/test_desktop_network_status.mjs
+          node --test tests/test_desktop_update_status.mjs
           node --test tests/test_windows_emulator_native_host.mjs
           node --test tools/windows-desktop/dev-update.test.cjs
           node --test tools/windows-desktop/runtime.test.cjs tools/windows-desktop/checkout.test.cjs
