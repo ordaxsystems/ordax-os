@@ -14,7 +14,6 @@ import os
 import re
 import secrets
 import stat
-import subprocess
 import sys
 import threading
 import time
@@ -5004,7 +5003,7 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
                 print(f"ordax-native-host: display output action unavailable: {message}", file=sys.stderr, flush=True)
                 self._empty(status)
                 return
-            except (OSError, RuntimeError, subprocess.SubprocessError, ValueError) as exc:
+            except Exception as exc:
                 print(f"ordax-native-host: display output action failed safely: {exc}", file=sys.stderr, flush=True)
                 self._empty(503)
                 return
