@@ -1470,7 +1470,21 @@ export function mountSettingsOverviewControls(
     if (!remotePermissionsPort || remotePermissionsPending || destroyed) return;
     // Enabling a whole-computer grant requires deliberate first-party choice;
     // never auto-enable on account sign-in or mere discovery.
-    if (enabled && !documentObject.defaultView.confirm(t("settings.ownerMcp.confirm"))) return;
+    if (enabled) {
+      const confirmWindow = documentObject.defaultView;
+      if (typeof confirmWindow?.confirm !== "function") {
+        remotePermissionsError = true;
+        replaceView();
+        return; // Missing trusted confirmation must never enable full access.
+      }
+      try {
+        if (confirmWindow.confirm(t("settings.ownerMcp.confirm")) !== true) return;
+      } catch {
+        remotePermissionsError = true;
+        replaceView();
+        return;
+      }
+    }
     const ordinal = ++remotePermissionsOrdinal;
     remotePermissionsPending = true;
     remotePermissionsError = false;
