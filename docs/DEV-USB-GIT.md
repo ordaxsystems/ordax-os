@@ -171,6 +171,14 @@ Não criar um segundo transportador remoto nem ativar uma sessão de shell
 arbitrário para contornar o Product PostgreSQL. O Starter deve permanecer
 independente da Surface gráfica.
 
+## Atualização manual dentro do OrdaX — somente USB Owner/Dev
+
+**Sistema → Atualizações → Atualizar agora** solicita um check imediato da `main` ao mesmo Supervisor canônico que já realiza os checks automáticos. Nenhum segundo updater ou shell de comando é ativado pela UI. O Native host expõe o pedido local `POST /__ordax/native/update-check` somente no perfil `owner-development` com `product_mode=usb`, vinculado ao token efêmero da sessão HTTP local; a solicitação aceita registra apenas `check-main` em `/run/ordax-update/manual-check-request` para acordar o polling do Supervisor em cerca de 1 segundo. A própria Surface acompanha o estado existente `/run/ordax-update/state.json`.
+
+O botão **não desliga as atualizações automáticas**, não exige aprovação administrativa extra por check e não executa `git reset --hard`, flash, mutação direta da Base/ESP ou instalação de helpers paralela. O mecanismo único `ordax-pull` conserva origem, fast-forward, staging, verificação de SHA, health gate e rollback. Se First Run ainda não terminou ou a tentativa apresenta falha, o Supervisor publica a fase/erro em vez de alegar sucesso. HTTP 202 confirma somente **pedido aceito**, nunca commit aplicado ou Surface saudável.
+
+A atualização do código da UI em `main` chegará ao USB pelo próprio Pull existente; um build/merge isolado não atualiza automaticamente o dispositivo físico enquanto estiver desligado no Windows. Prova funcional pendente: inicializar o notebook pelo USB, selecionar `Atualizar agora`, observar a consulta remota, o recibo e uma entrega realmente alterada.
+
 ## Daily loop
 
 After the development base has been flashed once and the notebook can boot it:
