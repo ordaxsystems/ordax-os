@@ -118,10 +118,12 @@ async function regularFile(root,logical,limit) {
   return {path,stat};
 }
 function binary(response,bytes,mime,downloadName=null) {
-  response.writeHead(200,{"Content-Type":mime,
-    "Content-Disposition": downloadName ? 'attachment; filename="ordax-download"' : undefined,
+  response.writeHead(200,{
+    "Content-Type":mime,
+    ...(downloadName ? {"Content-Disposition":'attachment; filename="ordax-download"'} : {}),
     "Cache-Control":"no-store","X-Content-Type-Options":"nosniff",
-    "Content-Length":bytes.length});
+    "Content-Length":bytes.length,
+  });
   response.end(bytes);
 }
 function metadataPath(root,id){return join(root,SYSTEM_TRASH,id+".json");}
@@ -133,7 +135,10 @@ async function trashListing(root) {
   for(const name of await readdir(dir)){
     if(!/^[0-9a-f]{32}\.json$/.test(name))continue;
     const id=name.slice(0,32);
-    const json=JSON.parse(await readFile(metadataPath(root,id),"utf8"));
+    const metadata=metadataPath(root,id);
+    const metadataStat=await lstat(metadata);
+    if(!metadataStat.isFile() || metadataStat.isSymbolicLink())reject(503,"Untrusted trash metadata");
+    const json=JSON.parse(await readFile(metadata,"utf8"));
     if(json.id!==id)reject(503,"Trash metadata mismatch");
     const snapshot=validateTrashListing({entries:[json]});
     if(!(await lstat(payloadPath(root,id))).isSymbolicLink())records.push(snapshot.entries[0]);
@@ -264,6 +269,8 @@ export function createDesktopFileSpaceMiddleware(filesDirectory) {
           if(typeof input.id!=="string" || !/^[0-9a-f]{32}$/.test(input.id))
             reject(400,"Invalid trash id");
           const name=metadataPath(root,input.id);
+          const metadataStat=await lstat(name);
+          if(!metadataStat.isFile() || metadataStat.isSymbolicLink())reject(503,"Untrusted trash metadata");
           const record=JSON.parse(await readFile(name,"utf8"));
           const validated=validateTrashListing({entries:[record]}).entries[0];
           if(validated.id!==input.id)reject(503,"Trash identity mismatch");
