@@ -3,12 +3,14 @@
 
 from __future__ import annotations
 
+import json
 import os
 import shutil
 from pathlib import Path
 import stat
 import subprocess
 import tempfile
+import time
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -385,6 +387,106 @@ class DevelopmentGitFlowTest(unittest.TestCase):
             self._run(["git", "-C", str(self.worktree), "status", "--porcelain"]).stdout,
             "",
         )
+
+    def test_watcher_fallback_pulls_main_only_after_first_run(self) -> None:
+        """Run the real polling watcher against a disposable Git remote.
+
+        The running Supervisor is intentionally absent: watcher must defer
+        updates until First Run is durably completed, then invoke ordax-pull
+        rather than simulating success or replacing runtime files directly.
+        """
+        self._script(PULL)
+        candidate = self._commit_runtime("runtime-v2")
+
+        bin_dir = self.root / "bin"
+        bin_dir.mkdir()
+        # Model the installed 0755 helper, not the source file's archive mode.
+        installed_pull = bin_dir / "ordax-pull"
+        shutil.copy2(PULL, installed_pull)
+        installed_pull.chmod(0o755)
+        env = self._env()
+        env["ORDAX_BIN_DIR"] = str(bin_dir)
+        env["ORDAX_UPDATE_INTERVAL_SECONDS"] = "5"
+        receipt = self.state / "native-state/first-run.json"
+        watch_log = self.state / "main-watch.log"
+        result_file = self.root / "run/ordax-update/pull-result"
+        initial_result_mtime = result_file.stat().st_mtime_ns
+        watcher = ROOT / "bootstrap/dev-base/ordax-main-watch"
+
+        process = subprocess.Popen(
+            ["/bin/sh", str(watcher)],
+            env=env,
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        try:
+            startup_deadline = time.monotonic() + 5
+            while time.monotonic() < startup_deadline:
+                if watch_log.exists() and "watch da main iniciado" in watch_log.read_text(
+                    encoding="utf-8"
+                ):
+                    break
+                if process.poll() is not None:
+                    self.fail(f"watcher exited before First Run: {process.returncode}")
+                time.sleep(0.05)
+            else:
+                self.fail("watcher did not start")
+
+            # Observe a complete configured 5s polling cycle with no First Run receipt.
+            # A premature Pull must not slip through a startup-only assertion.
+            time.sleep(5.2)
+            self.assertIsNone(process.poll(), "watcher exited while First Run was incomplete")
+            self.assertFalse(receipt.exists())
+            self.assertEqual(
+                self._run(["git", "-C", str(self.worktree), "rev-parse", "HEAD"]).stdout.strip(),
+                self.commit_v1,
+            )
+            # Seeding already wrote "completed"; First Run must prevent
+            # any further Pull transaction from overwriting that receipt.
+            self.assertEqual(result_file.stat().st_mtime_ns, initial_result_mtime)
+
+            receipt.parent.mkdir(parents=True)
+            receipt.write_text('{"completed":true}\n', encoding="utf-8")
+            self.assertTrue(json.loads(receipt.read_text(encoding="utf-8"))["completed"])
+
+            deadline = time.monotonic() + 35
+            while time.monotonic() < deadline:
+                current = self._run(
+                    ["git", "-C", str(self.worktree), "rev-parse", "HEAD"],
+                ).stdout.strip()
+                result_file = self.root / "run/ordax-update/pull-result"
+                if current == candidate and result_file.exists() and (
+                    result_file.read_text(encoding="utf-8").strip() == "completed"
+                ):
+                    break
+                if process.poll() is not None:
+                    self.fail(f"watcher exited during Pull: {process.returncode}")
+                time.sleep(0.2)
+            else:
+                self.fail(
+                    "watcher did not automatically apply the verified main commit; "
+                    f"log={watch_log.read_text(encoding='utf-8')[-2000:]!r}"
+                )
+
+            log_deadline = time.monotonic() + 5
+            while time.monotonic() < log_deadline:
+                if "main aplicada:" in watch_log.read_text(encoding="utf-8"):
+                    break
+                if process.poll() is not None:
+                    self.fail(f"watcher exited before recording Pull: {process.returncode}")
+                time.sleep(0.05)
+            else:
+                self.fail("watcher did not log the completed main activation")
+            self.assertEqual((self.state / "previous-commit").read_text().strip(), self.commit_v1)
+            self.assertEqual((self.state / "current-commit").read_text().strip(), candidate)
+            self.assertEqual(
+                self._run(["git", "-C", str(self.worktree), "status", "--porcelain"]).stdout,
+                "",
+            )
+        finally:
+            process.terminate()
+            process.wait(timeout=5)
 
     def test_unavailable_promisor_blobs_preserve_checkout_and_report_stage(self) -> None:
         self._script(PULL)
