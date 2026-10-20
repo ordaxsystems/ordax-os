@@ -158,12 +158,14 @@ vite.once('exit', (code, signal) => {
 process.once('SIGINT', () => stop('SIGINT'));
 process.once('SIGTERM', () => stop('SIGTERM'));
 
-if (HAS_GIT) {
+if (HAS_GIT && process.env.ORDAX_DESKTOP_HOST !== '1') {
   log(`local-first session started; watching origin/${BRANCH} every ${UPDATE_INTERVAL_MS / 1000}s`);
   syncMainOnce();
   timer = setInterval(syncMainOnce, UPDATE_INTERVAL_MS);
   timer.unref();
 } else {
   // Bundled offline fallback has no .git: there is no HEAD to poll or mutate.
-  log('bundled source has no Git checkout; Pull unavailable until a compatible checkout exists');
+  log(process.env.ORDAX_DESKTOP_HOST === '1'
+    ? 'Desktop source is immutable while running; Dev updates use staged Windows candidates'
+    : 'bundled source has no Git checkout; Pull unavailable until a compatible checkout exists');
 }
