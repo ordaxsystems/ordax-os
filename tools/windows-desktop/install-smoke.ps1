@@ -70,12 +70,41 @@ try {
     $upgradeStart = [DateTime]::UtcNow
     Write-Output "UPGRADE_SMOKE_STARTED=$dest"
     $upgradeProc = Start-Process -FilePath $installerPath -ArgumentList ("/S /D=" + $dest) -PassThru
-    $upgradeDeadline = [DateTime]::UtcNow.AddSeconds($TimeoutSeconds)
+    # Upgrades may process an existing 15k-file payload twice. The absolute
+    # bound is still finite, but an idle installer fails early. Observe actual
+    # I/O and CPU instead of assuming every upgrade takes <= a fresh install.
+    $upgradeMaxSeconds = [Math]::Min(300, [Math]::Max(180, $TimeoutSeconds * 2))
+    $upgradeDeadline = [DateTime]::UtcNow.AddSeconds($upgradeMaxSeconds)
+    $lastActivity = [DateTime]::UtcNow
+    $lastBytes = -1L
+    $lastCpu = -1.0
     while (-not $upgradeProc.HasExited -and [DateTime]::UtcNow -lt $upgradeDeadline) {
-      Start-Sleep -Milliseconds 500
+      Start-Sleep -Seconds 5
       $upgradeProc.Refresh()
+      if ($upgradeProc.HasExited) { break }
+      $all = @()
+      $current = Get-CimInstance Win32_Process -Filter ("ProcessId = " + $upgradeProc.Id) -ErrorAction SilentlyContinue
+      if ($current) { $all += $current }
+      $children = @(Get-CimInstance Win32_Process -Filter ("ParentProcessId = " + $upgradeProc.Id) -ErrorAction SilentlyContinue)
+      $all += $children
+      $bytes = [long]0
+      foreach ($entry in $all) {
+        $bytes += [long]$entry.ReadTransferCount + [long]$entry.WriteTransferCount
+      }
+      $cpu = [double]$upgradeProc.CPU
+      if ($bytes -gt $lastBytes -or $cpu -gt $lastCpu) {
+        $lastActivity = [DateTime]::UtcNow
+      }
+      $lastBytes = $bytes
+      $lastCpu = $cpu
+      Write-Output ("UPGRADE_PROGRESS_IO_BYTES=" + $bytes)
+      if (([DateTime]::UtcNow - $lastActivity).TotalSeconds -gt 75) {
+        throw ("NSIS upgrade stalled: no CPU or I/O progress for 75 seconds, PID " + $upgradeProc.Id)
+      }
     }
-    if (-not $upgradeProc.HasExited) { throw "NSIS in-place upgrade hung beyond bounded smoke gate" }
+    if (-not $upgradeProc.HasExited) {
+      throw ("NSIS upgrade exceeded hard limit of " + $upgradeMaxSeconds + " seconds")
+    }
     if ($upgradeProc.ExitCode -ne 0) { throw ("NSIS upgrade failed: " + $upgradeProc.ExitCode) }
     foreach ($entry in $required) {
       if (-not (Test-Path -LiteralPath $entry -PathType Leaf)) {
