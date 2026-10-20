@@ -29,6 +29,7 @@ jobs:
           node --test tests/test_desktop_network_status.mjs
           node --test tests/test_desktop_update_status.mjs
           node --test tests/test_windows_emulator_native_host.mjs
+          node --test tools/windows-desktop/browser-host.test.cjs
           node --test tools/windows-desktop/dev-update.test.cjs
           node --test tools/windows-desktop/runtime.test.cjs tools/windows-desktop/checkout.test.cjs
       - name: Install desktop shell toolchain
