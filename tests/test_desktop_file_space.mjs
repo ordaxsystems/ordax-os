@@ -9,7 +9,8 @@ import { createNativeFileSpace } from "../system/adapters/native/file-space.mjs"
 async function harness(t) {
   const isolated=await mkdtemp(join(tmpdir(),"ordax-win-files-"));
   const userFolder=join(isolated,"Files");
-  const serve=createDesktopFileSpaceMiddleware(userFolder);
+  const token="a".repeat(64);
+  const serve=createDesktopFileSpaceMiddleware(userFolder,{token});
   const server=createServer((req,res)=>serve(req,res,()=>{
     res.writeHead(404);res.end("not found");
   }));
@@ -21,13 +22,14 @@ async function harness(t) {
   const origin="http://127.0.0.1:"+server.address().port;
   const request=(path,options={})=>fetch(origin+path,{
     ...options,
-    headers:{...(options.headers??{}), ...(options.method==="POST"?{Origin:origin}:{})},
+    headers:{...(options.headers??{}),"X-OrdaX-File-Token":token,
+      ...(options.method==="POST"?{Origin:origin}:{})},
   });
   const post=(payload)=>request("/__ordax/native/files",{
     method:"POST",headers:{"Content-Type":"application/json"},
     body:JSON.stringify(payload),
   });
-  return {origin,request,post,userFolder};
+  return {origin,request,post,userFolder,token};
 }
 test("Windows files implement canonical file-space/11 with durable mutations and trash",async t=>{
   const h=await harness(t);
@@ -68,7 +70,7 @@ test("Windows files refuse traversal, ADS, symlinks, unsafe writes, and overwrit
   assert.equal(response.status,409);
   assert.equal(await readFile(join(h.userFolder,"owned.txt"),"utf8"),"original");
   response=await fetch(h.origin+"/__ordax/native/files",{
-    method:"POST",headers:{"Content-Type":"application/json"},
+    method:"POST",headers:{"Content-Type":"application/json","X-OrdaX-File-Token":h.token},
     body:JSON.stringify({action:"create-directory",path:"/",name:"csrf"}),
   });
   assert.equal(response.status,403);
@@ -97,4 +99,16 @@ test("Windows files serve bounded binary previews and reject unsupported preview
   const download=await h.request("/__ordax/native/file-export?path=%2Fphoto.png");
   assert.equal(download.status,200);
   assert.equal(download.headers.get("content-disposition"),'attachment; filename="ordax-download"');
+});
+
+test("Private Windows file-space rejects raw loopback GET and bogus credentials",async t=>{
+  assert.throws(()=>createDesktopFileSpaceMiddleware(join(tmpdir(),"fake-files")),TypeError);
+  const h=await harness(t);
+  const missing=await fetch(h.origin+"/__ordax/native/files?path=%2F");
+  assert.equal(missing.status,401);
+  const invalid=await fetch(h.origin+"/__ordax/native/trash",{
+    headers:{"X-OrdaX-File-Token":"b".repeat(64)},
+  });
+  assert.equal(invalid.status,401);
+  assert.equal((await h.request("/__ordax/native/files?path=%2F")).status,200);
 });
