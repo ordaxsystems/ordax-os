@@ -208,6 +208,57 @@ Before updating an existing checkout, `ordax-pull` fails closed when:
 
 Only a successful explicit `ordax-pull` clears a rollback pin.
 
+## Atomic Pull: reuse verified fetched Git objects
+
+The development Supervisor owns remote discovery and fetch for one exact
+`main` candidate. When it invokes `ordax-pull` with
+`ORDAX_EXPECTED_SHA`, that value must equal the existing
+`refs/remotes/origin/main` tracking ref in a valid local checkout and resolve
+to a Git commit object. In that case, the updater must **not** re-query moving
+`main` or perform a second HTTPS clone of the same repository. It prepares
+its isolated candidate from the already fetched local Git objects, cloning
+with `--no-hardlinks` and checking ancestry, sparse sources, remote identity,
+cleanliness and the exact expected SHA before any atomic switch. The stage
+remains an independently owned object directory, not a shared `.git` pointer.
+
+A cold first checkout or an invalid/dirty checkout still uses the existing
+bounded remote-clone recovery. Running `ordax-pull` explicitly without a
+Supervisor-provided SHA continues to discover `main` normally. No source
+validation, fast-forward restriction, transaction journal, backup or rollback
+gate is bypassed.
+
+This specifically removes an avoidable **second** network acquisition from
+the healthy update path. The notebook still requires enough network access to
+fetch missing objects on the **first** acquisition; not all immutable Base,
+graphics, kernel and initramfs bytes are Git source-tree material. The
+Stable/MVP signed release channel is separate and unchanged.
+
+When the canonical Pull owner fails, it writes a bounded phase token into
+`/run/ordax-update/pull-result` (the **existing** Supervisor run directory).
+The Supervisor deletes any stale token before invoking the owner, accepts only
+the known phase vocabulary and incorporates it into the existing
+`state.json.lastError` response. This avoids misdiagnosing network-object
+acquisition, isolated staging, atomic swap and helper activation as one
+`atomic-checkout-failed` condition. An abruptly killed owner with no receipt
+remains a generic failure; untrusted shell stderr is never interpreted as a
+status code.
+
+**Git checkout and installed helper activation are distinct, mandatory
+conditions.** The current Git SHA is durably recorded before invoking the
+existing `dev-helpers.sh` owner. If helpers cannot be activated, the Pull exits
+nonzero; the Supervisor reports the *actual* post-swap Git SHA with
+`pull-helper-refresh-failed`, preserves the running Surface and retries the
+canonical helper refresh on later polls. It does not mark the version
+`running` until `dev-helpers-sha` agrees with the active Git commit. There is
+no second updater or bypass of the helper receipt, and the previous SHA remains
+available for recovery. A host-side successful Pull and an actual QEMU/physical
+Surface activation remain separate validation gates.
+
+A physical boot must confirm the repaired USB no longer cycles through
+`fetching → validating → atomic-checkout-failed`. A successful host-side pull
+proves only checkout semantics, not live runtime health, NTP, Wi-Fi, power or
+remote MCP pairing.
+
 ## Rollback semantics
 
 Before a pull that actually advances `HEAD`, the old commit is remembered as `previous-commit`.
@@ -278,6 +329,8 @@ A base-level change is different. The small shell helper layer used by the devel
 
 For kernel, initramfs **and the development rootfs substrate**, main publishes an immutable candidate bound to the exact Git commit. The candidate contains `vmlinuz`, `initrd.gz` and a deterministic `rootfs.tar` built from the same commit. When the running supervisor observes the matching low-level commit, it keeps the current Surface running and records an exact-SHA Base request. The persistent base-update owner consumes that request through the replaceable native runtime, where Python already exists, then acquires the candidate under `/state/ordax/base-update/dev-candidates/<commit>` and atomically materializes its rootfs in the seed Base version store. Python is therefore **not** added to the minimal development Base just for update acquisition. A temporarily unavailable candidate does not block runtime/app updates; the request remains armed while `boot-refresh-required` remains present.
 
+**UEFI efivarfs mount authority (Owner/Development):** The minimal Dev Base does not run systemd's automatic firmware-variable mount. `bootstrap/dev-base/ordax-dev-init` is the single boot owner that mounts the standard `/sys/firmware/efi/efivars` filesystem when booted with UEFI, before handing off `/sys` and the Git-owned runtime. It never mounts over an occupied target, rejects symlinks, skips non-UEFI boots, and keeps boot usable if the mount is unavailable. The persistent `system/services/base-update/agent.sh` does **not** perform another mount: its independent evidence-only `efivarfs_preflight.py` must still prove a direct, writable mount before any firmware-related activation is eligible. This mount does not write EFI variables, arm a one-shot entry, or establish a physical boot proof. An earlier physical USB log had repeatedly reported `efivarfs target is not a direct mountpoint`; the boot-owner fix is covered by isolated shell tests but still requires a fresh notebook boot and real preflight evidence.
+
 Activation remains deliberately split by layer. The development owner now consumes the exact `dev-base-ready-sha`, revalidates `ORDAX-ESP`, and stages kernel/initramfs into the inactive A/B slot while preserving the known-good current and recovery entries. It then publishes an activation-readiness proof for the same SHA. **Runtime one-shot arming is still intentionally disabled**: `LoaderEntryOneShot` and the reboot handoff remain behind the systemd-boot counting/fallback gates, so staging alone never changes which entry boots next.
 
 The development rootfs is materialized under `/ordax/dev-base/versions/<commit>` and is selected only when an authorized candidate boot supplies matching `ordax.base_candidate=<commit>` and `ordax.base_slot=a|b`. The seed `/ordax/dev-base` starts first; `ordax-dev-init` then pivots into the exact versioned root while preserving `/state`, `/workspace`, `/home`, `/proc`, `/sys` and `/dev`. After a real candidate boot, the persistent owner is already wired to the existing fail-closed promotion gate: cmdline identity, Base heartbeat, checkout SHA, Surface health, Surface heartbeat and boot ID must all agree before the candidate can become current. Promotion preserves the previous slot as recovery, removes the candidate marker and does not request another reboot.
@@ -337,3 +390,52 @@ partial+sparse clone
 ```
 
 This is repository/CI evidence only. Real notebook boot/network behavior remains a separate physical gate.
+
+## Owner/Development: first-boot Git polling sem depender do render (20/10/2026)
+
+No USB Dev, `main` e a fonte de verdade do checkout **sparse** em
+`/workspace/ordax`. O `system/supervisor` e o unico proprietario da
+verificacao automatica e da ativacao em runtime; o `bootstrap/dev-base/ordax-pull`
+e o proprietario da transacao Git atomica e da instalacao dos helpers de Base.
+O `ordax-main-watch` e um fallback de recuperacao quando o Supervisor esta
+realmente inativo, nao um segundo mecanismo de aplicacao simultanea.
+
+A tela do primeiro uso precisa iniciar **offline**. Antes do recibo duravel
+`/state/ordax/native-state/first-run.json` com `completed=true`, o Supervisor
+nao consulta Git. Depois desse recibo, a descoberta de `origin/main` e
+independente da conclusao do primeiro render grafico: o laço de polling continua
+publicando seu estado, mesmo durante provisionamento ou espera de saude.
+Porem **descoberta nao e ativacao**: nenhum candidato e aplicado enquanto a
+Surface inicial nao comprovar o SHA local saudavel. O watchdog do Guardian
+continua recebendo heartbeat; as janelas de provisionamento e de saude sao
+limitadas por relogio monotônico, sem dependencia de NTP. Em caso de falha
+inicial, mantemos a politica canonica de uma tentativa de reinicio da Surface,
+rollback do candidato de boot quando possivel e recuperacao local.
+
+### Contrato de entrega
+
+- `git push` para `main` nao altera instantaneamente o pendrive: o Supervisor
+  precisa estar rodando e online, conferir o commit, buscar os objetos e validar
+  a Surface. O intervalo padrao de descoberta do perfil Dev e cinco segundos;
+  transferencias, validacoes e reinicios da interface levam tempo adicional.
+- Alteracoes no codigo da Surface, Native Host, modulos e configuracoes versionadas
+  chegam pelo checkout Git e recarga/reinicio seletivo do runtime; um USB
+  previamente instalado **nao** e modificado apenas porque a PR foi integrada.
+- Kernel, initramfs, particao de boot, drivers e bootloader nao podem ser
+  substituidos por `git pull` direto: pertencem a Base e aos seus gates A/B,
+  de integridade e rollback, inclusive no perfil Dev.
+- Em `apply_remote_checkout`, o Supervisor nao reinstala os helpers apos o
+  `ordax-pull`. Este ultimo e a unica autoridade de materializacao e de recibo
+  de helpers por SHA; o Supervisor pode reconciliar um recibo pendente em outro
+  ciclo, sem instalacao duplicada na mesma transacao.
+
+### Prova e limite
+
+A imagem QEMU observada anteriormente continha primeiro uso completo, mas
+`supervisor-boot-witness.json` parado em `initialized`: nao havia prova de
+entrada em `poll-loop-entered`. Este reparo corrige a dependencia estrutural
+que impedia o primeiro polling durante a validacao inicial.
+**Testes de contrato isolados e verificacoes de shell nao equivalem a prova de
+Pull no pendrive fisico**: ainda exigimos artefato Creator exato, QEMU UEFI/NAT,
+recibo `git-remote-completed`, aplicacao de commit controlado, teste de
+rejeicao/rollback e novo boot antes de promover a correcao.

@@ -56,8 +56,8 @@ test("First Run presentation consumes Meridian directly and adapts all canonical
   assert.doesNotMatch(css,/var\(--ordax-|repeat\(7,/);
   assert.ok(css.includes("var(--md-canvas)"));
   assert.ok(css.includes("var(--md-font)"));
-  assert.ok(css.includes("grid-template-rows:auto minmax(0,1fr)"));
-  assert.ok(css.includes("grid-auto-flow:column"));
+  assert.match(css, /\.ordax-first-run-card\s*\{[^}]*grid-template-rows\s*:\s*minmax\(0,\s*1fr\)\s+auto/s);
+  assert.match(css, /\.ordax-first-run-steps\s*\{[^}]*display\s*:\s*grid/s);
 });
 
 test("runtime journeys cannot expose another first-run; planned design details remain archived", async () => {

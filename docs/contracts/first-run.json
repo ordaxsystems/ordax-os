@@ -47,14 +47,25 @@
   },
   "flow": [
     "welcome",
-    "regional",
     "network",
-    "security",
     "account",
-    "privacy",
+    "security",
     "name",
     "ready"
   ],
+  "presentation": {
+    "welcome_locale_selector": true,
+    "welcome_time_zone_selector": true,
+    "regional_settings_repeated_after_login": false,
+    "responsive_desktop_only": true,
+    "account_overview_pending_sections": ["profile", "subscription", "web-preferences"],
+    "account_before_personalization": true,
+    "network_before_account": true,
+    "single_primary_action_per_step": true,
+    "registration_consent_before_registration_submission": true,
+    "device_privacy_separate_from_registration_consent": true,
+    "existing_login_does_not_create_new_legal_acceptance": true
+  },
   "regional": {
     "complete_locales": [
       "pt-BR",
@@ -127,10 +138,36 @@
     "identity_selection_requires_current_subject_at_completion": true,
     "identity_selection_requires_fresh_session_read": true,
     "identity_subject_in_first_run_receipt": false,
-    "expired_or_changed_identity_returns_to_account_step": true
+    "expired_or_changed_identity_returns_to_account_step": true,
+    "verified_session_email_display": true,
+    "avatar_presentation": "initial-from-session-display-name",
+    "photo_and_full_profile_available_to_first_run": false,
+    "web_regional_preferences_import_available": false,
+    "cloud_preference_import_must_not_be_simulated": true,
+    "signed_in_local_choice_requires_confirmed_sign_out": true
+  },
+  "system_terms": {
+    "owner": "system/contracts/system-terms.mjs",
+    "separate_from_account_registration": true,
+    "required_in_current_first_run_ui": true,
+    "required_for_local_only_and_identity_modes": true,
+    "acceptance_step": "ready",
+    "checkbox_initially_unchecked": true,
+    "document_status": "draft",
+    "receipt_field": "systemTerms",
+    "receipt_records_document_id_version_status_and_acceptance": true,
+    "existing_completed_receipts_preserved": true,
+    "published_legal_document_available": false,
+    "published_terms_reacceptance_implemented": false,
+    "draft_acknowledgement_is_not_account_legal_receipt": true,
+    "does_not_modify_memory_preferences": true
   },
   "privacy": {
     "owner": "preference-runtime",
+    "onboarding_step": false,
+    "settings_owner": "system/surface/ui/settings-overview-controls.mjs",
+    "login_creates_legal_acceptance": false,
+    "current_account_legal_documents_cover_memory": false,
     "preference_contract": "system/contracts/preference-runtime.mjs",
     "preference_definition": "system/services/preferences/memory.mjs",
     "memory_auto_capture_preference": "memory.auto-capture",

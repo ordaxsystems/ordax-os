@@ -35,7 +35,8 @@ export function createWebIdentitySession(windowRef = globalThis.window) {
     const changed =
       validated.state !== snapshot.state
       || validated.subjectId !== snapshot.subjectId
-      || validated.displayName !== snapshot.displayName;
+      || validated.displayName !== snapshot.displayName
+      || validated.email !== snapshot.email;
     if (!changed) return snapshot;
     snapshot = validated;
     emit();
@@ -71,6 +72,7 @@ export function createWebIdentitySession(windowRef = globalThis.window) {
           state: "signed-in",
           subjectId: value.subject,
           displayName,
+          email: value.email,
         });
       }
       return apply({ state: "signed-out" });

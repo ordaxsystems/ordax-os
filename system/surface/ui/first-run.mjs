@@ -24,10 +24,8 @@ import {
   REGIONAL_TIME_ZONE_PREFERENCE_ID,
   isSupportedRegionalTimeZone,
 } from "../../services/preferences/regional.mjs";
-import {
-  MEMORY_AUTO_CAPTURE_PREFERENCE_ID,
-  memoryAutoCaptureEnabled,
-} from "../../services/preferences/memory.mjs";
+import { icon } from "./meridian/icons.mjs";
+import { SYSTEM_TERMS_DOCUMENT, createSystemTermsAcceptance } from "../../contracts/system-terms.mjs";
 import { translateFirstRunText } from "../../services/i18n/first-run.mjs";
 import { FIRST_RUN_STEP_IDS, FIRST_RUN_STEP_LABELS, getFirstRunStepIndex } from "../../services/first-run/journey.mjs";
 import { deriveFirstRunCapabilities } from "../../services/first-run/capabilities.mjs";
@@ -140,7 +138,7 @@ export function mountFirstRunExperience(
 
   const storedRegional = preferencePort.getSnapshot();
   const resumedStep = safeFirstRunResumeStep(cursorPort?.load().step);
-  const continuingSetup = resumedStep !== "welcome" && resumedStep !== "regional";
+  const continuingSetup = resumedStep !== "welcome";
   const savedLocale = storedRegional[REGIONAL_LOCALE_PREFERENCE_ID];
   const savedTimeZone = storedRegional[REGIONAL_TIME_ZONE_PREFERENCE_ID];
   const draft = {
@@ -184,9 +182,13 @@ export function mountFirstRunExperience(
   let sessionSnapshot = sessionPort.getSnapshot();
   let actionsSnapshot = actionsPort.getSnapshot();
   let identityPending = null;
+  let identityAvailabilityPending = false;
   let identityMessage = "";
   let identityEmailDraft = "";
   let identityPasswordDraft = "";
+  let identityFormMode = "sign-in";
+  let passwordVisible = false;
+  let accountLocalRequested = false;
   let selectedIdentitySubjectId = null;
   let registrationPolicy = null;
   let registrationLegalAccepted = false;
@@ -213,6 +215,7 @@ export function mountFirstRunExperience(
   let keyboardLayoutReadFailed = false;
   let keyboardLayoutOrdinal = 0;
   let completionError = "";
+  let systemTermsAccepted = false;
   let unsubscribeSession = null;
   let unsubscribeActions = null;
   let unsubscribeLocalSession = null;
@@ -248,6 +251,7 @@ export function mountFirstRunExperience(
     const header = el(documentObject, "header", "ordax-first-run-header");
     const titleNode = el(documentObject, "h1", "", title);
     titleNode.id = "ordax-first-run-title";
+    titleNode.tabIndex = -1;
     header.append(
       el(documentObject, "span", "ordax-first-run-eyebrow", eyebrow),
       titleNode,
@@ -272,50 +276,30 @@ export function mountFirstRunExperience(
       if (index === stepIndex) item.setAttribute("aria-current", "step");
       list.append(item);
     });
-    progress.append(brand, list);
+    const guidance = el(documentObject, "p", "ordax-first-run-guidance",
+      "No seu ritmo. Você pode revisar suas escolhas antes de começar.");
+    progress.append(brand, list, guidance);
   };
 
-  const renderWelcome = (body) => {
-    body.append(heading(
-      "Bem-vindo",
-      "Seu OrdaX começa aqui.",
-      "Escolha o idioma e prepare seu OrdaX para começar.",
-    ));
-    const grid = el(documentObject, "div", "ordax-first-run-grid");
-    [
-      ["USB primeiro", "O sistema e seu estado persistente permanecem no pendrive."],
-      ["Conta opcional", "Arquivos, Notas, Internet e Ajustes funcionam sem identidade online."],
-      ["Offline utilizável", "A falta de internet não deve impedir o computador de iniciar."],
-    ].forEach(([title, detail]) => {
-      const item = el(documentObject, "article", "ordax-first-run-tile");
-      item.append(el(documentObject, "strong", "", title), el(documentObject, "p", "", detail));
-      grid.append(item);
-    });
-    body.append(grid);
-  };
-
-  const renderRegional = (body) => {
-    body.append(heading(
-      "Idioma e região",
-      "Ajuste idioma e horário.",
-      "Escolha como o OrdaX apresenta os textos e o horário. Você pode alterar essas opções depois em Ajustes.",
-    ));
-    const form = el(documentObject, "div", "ordax-first-run-form");
-    const localeField = el(documentObject, "label", "ordax-first-run-field");
-    localeField.append(el(documentObject, "span", "", "Idioma"));
-    const locale = documentObject.createElement("select");
-    locale.dataset.firstRunLocale = "";
+  const localeField = () => {
+    const field = el(documentObject, "label", "ordax-first-run-field");
+    field.append(el(documentObject, "span", "", "Idioma"));
+    const select = documentObject.createElement("select");
+    select.dataset.firstRunLocale = "";
     REGIONAL_LOCALE_OPTIONS.forEach((entry) => {
       const option = documentObject.createElement("option");
       option.value = entry.value;
       option.textContent = entry.label;
       option.selected = entry.value === draft.locale;
-      locale.append(option);
+      select.append(option);
     });
-    localeField.append(locale);
+    field.append(select);
+    return field;
+  };
 
-    const zoneField = el(documentObject, "label", "ordax-first-run-field");
-    zoneField.append(el(documentObject, "span", "", "Fuso horário"));
+  const timeZoneField = () => {
+    const field = el(documentObject, "label", "ordax-first-run-field");
+    field.append(el(documentObject, "span", "", "Fuso horário"));
     const zone = documentObject.createElement("select");
     zone.dataset.firstRunTimeZone = "";
     REGIONAL_TIME_ZONE_OPTIONS.forEach((entry) => {
@@ -325,14 +309,42 @@ export function mountFirstRunExperience(
       option.selected = entry.value === draft.timeZone;
       zone.append(option);
     });
-    zoneField.append(zone);
-    form.append(localeField, zoneField);
-    body.append(form);
+    field.append(zone);
+    return field;
+  };
 
+  const renderWelcome = (body) => {
+    body.append(heading(
+      "Bem-vindo",
+      "Bem-vindo ao OrdaX.",
+      "Inteligência, Spaces e um ambiente que acompanha você. Conheça seu OrdaX e prepare-se para começar.",
+    ));
+    const grid = el(documentObject, "div", "ordax-first-run-features");
+    [
+      ["aura", "Intelligence no seu contexto", "Converse com a Aura e trabalhe com o contexto dos seus arquivos, projetos e Spaces, conforme os recursos e permissões disponíveis."],
+      ["spaces", "Um Space para cada mundo", "Separe vida pessoal, projetos e negócios em ambientes com seus próprios aplicativos, ferramentas e contexto."],
+      ["globe", "Seu OrdaX vai com você", "Leve seu ambiente no USB e use a mesma conta no OrdaX Web. Os recursos locais e online acompanham as possibilidades de cada modo."],
+    ].forEach(([glyph, title, detail]) => {
+      const item = el(documentObject, "article", "ordax-first-run-feature");
+      const mark = el(documentObject, "span", "ordax-first-run-feature-icon");
+      mark.innerHTML = icon(glyph, 24);
+      item.append(mark, el(documentObject, "strong", "", title), el(documentObject, "p", "", detail));
+      grid.append(item);
+    });
+    const settings = el(documentObject, "section", "ordax-first-run-welcome-settings");
+    settings.setAttribute("aria-label", translateFirstRunText(draft.locale, "Idioma e região"));
+    const form = el(documentObject, "div", "ordax-first-run-form");
+    form.append(localeField(), timeZoneField());
+    settings.append(form);
+    body.append(settings, grid);
+    renderKeyboardStatus(body);
+  };
+
+  const renderKeyboardStatus = (body) => {
     if (keyboardLayoutPort) {
-      const status = el(documentObject, "section", "ordax-first-run-notice");
+      const status = el(documentObject, "details", "ordax-first-run-notice ordax-first-run-keyboard");
       status.dataset.firstRunKeyboardStatus = "";
-      status.append(el(documentObject, "strong", "", "Teclado físico"));
+      status.append(el(documentObject, "summary", "", "Teclado físico"));
       if (keyboardLayoutSnapshot) {
         const configured = keyboardLayoutOption(keyboardLayoutSnapshot.configuredLayoutId)?.label
           ?? keyboardLayoutSnapshot.configuredLayoutId;
@@ -375,7 +387,7 @@ export function mountFirstRunExperience(
   const renderNetwork = (body) => {
     body.append(heading(
       "Rede",
-      "Conecte-se agora ou continue offline.",
+      "Conecte seu OrdaX.",
       "Escolha uma rede Wi-Fi para acessar os serviços online. Você também pode continuar offline e conectar depois em Ajustes.",
     ));
     if (!capabilitySnapshot.networkManagement) {
@@ -524,168 +536,174 @@ export function mountFirstRunExperience(
   };
 
   const renderAccount = (body) => {
+    const signedIn = sessionSnapshot.state === "signed-in";
+    const registering = identityFormMode === "register" && capabilitySnapshot.identityRegister;
     body.append(heading(
       "Conta OrdaX",
-      "A conta é opcional.",
-      "Entre com sua Conta OrdaX ou comece sem conta. Seus aplicativos locais continuam disponíveis sem internet.",
+      signedIn ? "Sua Conta OrdaX." : registering ? "Crie sua conta." : "Entre na sua conta.",
+      signedIn
+        ? "Confira a conta que será usada neste OrdaX e continue a configuração."
+        : "Entre com a mesma conta que você usa na Web. Se preferir, configure agora e entre depois.",
     ));
-    const state = el(documentObject, "article", "ordax-first-run-account");
-    const copy = sessionSnapshot.state === "signed-in"
-      ? `Conta autenticada como ${sessionSnapshot.displayName}.`
-      : sessionSnapshot.state === "signed-out"
-        ? "Entre para usar sua Conta OrdaX neste dispositivo."
-        : "O acesso à Conta OrdaX ainda não está disponível nesta sessão.";
-    state.append(
-      el(documentObject, "strong", "", sessionSnapshot.state === "signed-in" ? sessionSnapshot.displayName : "Conta OrdaX"),
-      el(documentObject, "p", "", copy),
-    );
-    body.append(state);
-
-    if (identityMessage) {
-      const status = el(documentObject, "p", "ordax-first-run-status", identityMessage);
-      status.setAttribute("role", "status");
-      body.append(status);
-    }
-
-    if (sessionSnapshot.state === "signed-out" && capabilitySnapshot.identityCredentials) {
-      const form = el(documentObject, "div", "ordax-first-run-form");
+    if (signedIn) {
+      const state = el(documentObject, "article", "ordax-first-run-account");
+      const avatar = el(documentObject, "span", "ordax-first-run-avatar");
+      avatar.textContent = Array.from(sessionSnapshot.displayName.trim())[0]?.toLocaleUpperCase() || "O";
+      avatar.setAttribute("aria-hidden", "true");
+      const identity = el(documentObject, "div", "ordax-first-run-account-identity");
+      const name = el(documentObject, "strong");
+      name.textContent = sessionSnapshot.displayName;
+      identity.append(el(documentObject, "span", "ordax-first-run-connected", "Conta conectada"), name);
+      if (sessionSnapshot.email) {
+        const email = el(documentObject, "p");
+        email.textContent = sessionSnapshot.email;
+        identity.append(email);
+      }
+      state.append(avatar, identity);
+      body.append(state);
+      body.append(el(documentObject, "p", "ordax-first-run-account-help",
+        "Sua conta está identificada. A seguir, você configura a proteção local e o nome deste OrdaX."));
+      if (isIdentityActionSupported(actionsSnapshot, "sign-out")) {
+        const change = action(documentObject, identityPending === "sign-out" ? "Saindo…" : "Usar outra conta", "account-switch");
+        change.classList.add("ordax-first-run-action-quiet");
+        change.disabled = identityPending !== null;
+        body.append(change);
+      }
+    } else if (sessionSnapshot.state === "signed-out" && capabilitySnapshot.identityCredentials) {
+      const form = el(documentObject, "div", "ordax-first-run-form ordax-first-run-credentials");
       const emailField = el(documentObject, "label", "ordax-first-run-field");
       emailField.append(el(documentObject, "span", "", "E-mail"));
       const email = documentObject.createElement("input");
       email.type = "email";
-      email.autocomplete = "email";
+      email.autocomplete = "username";
+      email.inputMode = "email";
+      email.spellcheck = false;
+      email.required = true;
       email.maxLength = 320;
       email.value = identityEmailDraft;
       email.dataset.firstRunIdentityEmail = "";
       email.disabled = identityPending !== null;
       emailField.append(email);
-
-      const passwordField = el(documentObject, "label", "ordax-first-run-field");
-      passwordField.append(el(documentObject, "span", "", "Senha"));
+      const passwordField = el(documentObject, "div", "ordax-first-run-field");
+      const passwordLabel = el(documentObject, "label", "", "Senha");
+      passwordLabel.htmlFor = "ordax-first-run-password";
+      const passwordRow = el(documentObject, "div", "ordax-first-run-password-row");
       const password = documentObject.createElement("input");
-      password.type = "password";
-      password.autocomplete = "current-password";
+      password.id = "ordax-first-run-password";
+      password.type = passwordVisible ? "text" : "password";
+      password.autocomplete = registering ? "new-password" : "current-password";
+      password.required = true;
       password.maxLength = 1024;
       password.value = identityPasswordDraft;
       password.dataset.firstRunIdentityPassword = "";
       password.disabled = identityPending !== null;
-      passwordField.append(password);
+      const reveal = action(documentObject, passwordVisible ? "Ocultar" : "Mostrar", "account-password");
+      reveal.setAttribute("aria-label", translateFirstRunText(draft.locale, passwordVisible ? "Ocultar senha" : "Mostrar senha"));
+      reveal.setAttribute("aria-pressed", String(passwordVisible));
+      reveal.setAttribute("aria-controls", password.id);
+      reveal.disabled = identityPending !== null;
+      passwordRow.append(password, reveal);
+      passwordField.append(passwordLabel, passwordRow);
       form.append(emailField, passwordField);
-
-      if (
-        registrationPolicy
-        && capabilitySnapshot.identityRegister
-      ) {
-        const legal = el(documentObject, "div", "ordax-first-run-legal");
-        legal.append(
-          el(documentObject, "strong", "", "Documentos vigentes"),
-          el(documentObject, "p", "", "Leia os Termos e a Política de Privacidade antes de criar sua conta."),
-        );
-        const links = el(documentObject, "div", "ordax-first-run-legal-links");
-        const privacy = documentObject.createElement("a");
-        privacy.href = registrationPolicy.privacy.url;
-        privacy.target = "_blank";
-        privacy.rel = "noopener noreferrer";
-        privacy.textContent = `${translateFirstRunText(draft.locale, "Privacidade")} · v${registrationPolicy.privacy.version} · ${registrationPolicy.privacy.effectiveDate}`;
-        const terms = documentObject.createElement("a");
-        terms.href = registrationPolicy.terms.url;
-        terms.target = "_blank";
-        terms.rel = "noopener noreferrer";
-        terms.textContent = `${translateFirstRunText(draft.locale, "Termos")} · v${registrationPolicy.terms.version} · ${registrationPolicy.terms.effectiveDate}`;
-        links.append(privacy, terms);
-        const acceptance = el(documentObject, "label", "ordax-first-run-legal-acceptance");
-        const checkbox = documentObject.createElement("input");
-        checkbox.type = "checkbox";
-        checkbox.checked = registrationLegalAccepted;
-        checkbox.dataset.firstRunRegistrationLegalAcceptance = "";
-        checkbox.disabled = identityPending !== null;
-        acceptance.append(
-          checkbox,
-          el(documentObject, "span", "", "Li e aceito os documentos vigentes indicados acima."),
-        );
-        legal.append(links, acceptance);
-        form.append(legal);
+      if (registering) {
+        if (registrationPolicy) {
+          const legal = el(documentObject, "div", "ordax-first-run-legal");
+          legal.append(el(documentObject, "strong", "", "Antes de criar sua conta"),
+            el(documentObject, "p", "", "Leia os Termos e a Política de Privacidade. Este aceite pertence ao cadastro, não às preferências do dispositivo."));
+          const links = el(documentObject, "div", "ordax-first-run-legal-links");
+          for (const [label, doc] of [["Termos", registrationPolicy.terms], ["Privacidade", registrationPolicy.privacy]]) {
+            const link = el(documentObject, "a", "", label);
+            link.href = doc.url;
+            link.target = "_blank";
+            link.rel = "noopener noreferrer";
+            links.append(link);
+          }
+          const acceptance = el(documentObject, "label", "ordax-first-run-legal-acceptance");
+          const checkbox = documentObject.createElement("input");
+          checkbox.type = "checkbox";
+          checkbox.checked = registrationLegalAccepted;
+          checkbox.dataset.firstRunRegistrationLegalAcceptance = "";
+          checkbox.disabled = identityPending !== null;
+          acceptance.append(checkbox, el(documentObject, "span", "", "Li e aceito os documentos vigentes indicados acima."));
+          legal.append(links, acceptance);
+          form.append(legal);
+        } else {
+          form.append(el(documentObject, "p", "ordax-first-run-note",
+            registrationPolicyPending ? "Carregando os documentos do cadastro…" : "Cadastro indisponível agora. Você pode entrar em uma conta existente ou continuar sem conta."));
+        }
       }
-
       body.append(form);
-    }
-
-    const buttons = el(documentObject, "div", "ordax-first-run-account-actions");
-    if (sessionSnapshot.state === "signed-in") {
-      buttons.append(action(documentObject, "Usar esta conta", "account-identity", true));
+      const mode = action(documentObject, registering ? "Já tenho conta" : "Criar conta", "account-mode");
+      mode.classList.add("ordax-first-run-action-quiet");
+      mode.disabled = identityPending !== null || (!registering && !capabilitySnapshot.identityRegister);
+      body.append(mode);
+      if (!capabilitySnapshot.identityRegister) {
+        body.append(el(documentObject, "p", "ordax-first-run-account-help",
+          "Novos cadastros ainda não estão disponíveis aqui. Use uma conta existente ou continue sem conta."));
+      }
     } else {
-      const signIn = action(documentObject, identityPending === "sign-in" ? "Entrando…" : "Entrar", "account-sign-in", true);
-      signIn.disabled = identityPending !== null || !capabilitySnapshot.identitySignIn;
-      const register = action(documentObject, identityPending === "register" ? "Criando conta…" : "Criar conta", "account-register");
-      register.disabled = (
-        identityPending !== null
-        || registrationPolicyPending
-        || !registrationPolicy
-        || !registrationLegalAccepted
-        || !capabilitySnapshot.identityRegister
-      );
-      buttons.append(signIn, register);
+      body.append(availabilityPanel(documentObject, "Conta indisponível no momento",
+        "Verifique sua conexão e tente novamente. Você também pode terminar a configuração sem conta."));
+      const retry = action(documentObject, identityAvailabilityPending ? "Verificando conta…" : "Tentar novamente", "account-refresh");
+      retry.disabled = identityAvailabilityPending || identityPending !== null;
+      const network = action(documentObject, "Revisar conexão", "account-network");
+      network.disabled = identityPending !== null;
+      const recovery = el(documentObject, "div", "ordax-first-run-account-actions");
+      recovery.append(retry, network);
+      body.append(recovery);
     }
-    body.append(buttons);
-
-    if (
-      sessionSnapshot.state !== "signed-in"
-      && !capabilitySnapshot.identitySignIn
-      && !capabilitySnapshot.identityRegister
-    ) {
-      body.append(el(
-        documentObject,
-        "p",
-        "ordax-first-run-note",
-        "Você pode começar sem conta e entrar depois em Ajustes. Entrar e criar conta ficam disponíveis quando o serviço de conta estiver conectado.",
-      ));
+    if (!registering) {
+      const legal = el(documentObject, "details", "ordax-first-run-account-documents");
+      legal.append(el(documentObject, "summary", "", "Termos e privacidade"));
+      const links = el(documentObject, "div", "ordax-first-run-legal-links");
+      for (const [label, url] of [["Termos", "https://ordax.com.br/termos/"], ["Privacidade", "https://ordax.com.br/privacidade/"]]) {
+        const link = el(documentObject, "a", "", label);
+        link.href = url;
+        link.target = "_blank";
+        link.rel = "noopener noreferrer";
+        links.append(link);
+      }
+      legal.append(links, el(documentObject, "p", "", "Consulte os documentos da Conta OrdaX. As opções de Memória e privacidade do dispositivo ficam em Ajustes e nos recursos correspondentes."));
+      body.append(legal);
+    }
+    const layout = el(documentObject, "div", "ordax-first-run-account-layout");
+    const primary = el(documentObject, "section", "ordax-first-run-account-primary");
+    primary.setAttribute("aria-label", translateFirstRunText(draft.locale, "Conta OrdaX"));
+    primary.append(...Array.from(body.children).slice(1));
+    const overview = el(documentObject, "aside", "ordax-first-run-account-overview");
+    overview.setAttribute("aria-label", translateFirstRunText(draft.locale, "Resumo da conta"));
+    overview.append(el(documentObject, "span", "ordax-first-run-eyebrow", "Uma conta. Seu OrdaX."));
+    for (const [title, description] of [
+      ["Perfil e foto", "Nome completo, foto e país aparecerão aqui quando a integração do perfil estiver disponível."],
+      ["Plano e recursos", "O plano desta conta ainda não foi consultado. Nenhuma assinatura ou cobrança é criada nesta configuração."],
+      ["Preferências e sincronização", "Restaurar idioma e preferências da Web está em integração. Suas escolhas feitas no início continuam valendo neste dispositivo."],
+    ]) {
+      const detail = el(documentObject, "details", "ordax-first-run-account-detail");
+      const summary = el(documentObject, "summary");
+      summary.append(el(documentObject, "strong", "", title),
+        el(documentObject, "span", "ordax-first-run-integration-badge", "Em integração"));
+      detail.append(summary, el(documentObject, "p", "", description));
+      overview.append(detail);
+    }
+    if (signedIn) {
+      const manage = el(documentObject, "a", "ordax-first-run-account-link", "Abrir Minha conta na Web");
+      manage.href = "https://ordax.com.br/conta/";
+      manage.target = "_blank";
+      manage.rel = "noopener noreferrer";
+      overview.append(manage);
+    }
+    layout.append(primary, overview);
+    body.append(layout);
+    if (identityMessage) {
+      const status = el(documentObject, "p", "ordax-first-run-status", identityMessage);
+      status.setAttribute("role", "status");
+      body.append(status);
     }
   };
-
-  const renderPrivacy = (body) => {
-    body.append(heading(
-      "Privacidade",
-      "Você no controle.",
-      "Escolha como o OrdaX usa a memória local. Esta configuração não ativa sincronização, backup ou cobrança.",
-    ));
-    const grid = el(documentObject, "div", "ordax-first-run-grid");
-    [
-      ["Dados locais", "Arquivos, Notas e preferências continuam no armazenamento persistente do USB."],
-      ["Conta independente", "Seus aplicativos locais continuam disponíveis sem conta e sem internet."],
-      ["Sem disco interno", "Esta configuração não instala o OrdaX no disco interno do computador."],
-    ].forEach(([title, detail]) => {
-      const item = el(documentObject, "article", "ordax-first-run-tile");
-      item.append(el(documentObject, "strong", "", title), el(documentObject, "p", "", detail));
-      grid.append(item);
-    });
-
-    const memory = el(documentObject, "article", "ordax-first-run-memory");
-    memory.dataset.firstRunPrivacyMemory = "";
-    memory.append(
-      el(documentObject, "strong", "", "Memória automática"),
-      el(documentObject, "p", "", "Permite à OrdaX Intelligence registrar memórias úteis localmente, conforme as permissões do dispositivo. Você pode alterar esta opção em Ajustes."),
-    );
-    memory.querySelector("p").id = "ordax-first-run-memory-description";
-    const memoryChoice = el(documentObject, "label", "ordax-first-run-memory-choice");
-    const memoryToggle = documentObject.createElement("input");
-    memoryToggle.type = "checkbox";
-    memoryToggle.setAttribute("role", "switch");
-    memoryToggle.setAttribute("aria-label", translateFirstRunText(draft.locale, "Memória automática"));
-    memoryToggle.setAttribute("aria-describedby", "ordax-first-run-memory-description");
-    memoryToggle.checked = memoryAutoCaptureEnabled(preferencePort.getSnapshot());
-    memoryToggle.dataset.firstRunMemoryAutoCapture = "";
-    memoryChoice.append(
-      memoryToggle,
-      el(documentObject, "span", "", memoryToggle.checked ? "Ativada" : "Desativada"),
-    );
-    memory.append(memoryChoice);
-    body.append(memory, grid);
-  };
-
   const renderName = (body) => {
     body.append(heading(
       "Nome do dispositivo",
-      "Identifique este OrdaX.",
+      "Seu dispositivo.",
       "Dê um nome fácil de reconhecer ao seu dispositivo. Você pode alterá-lo depois em Ajustes.",
     ));
     if (!capabilitySnapshot.deviceProfile || !deviceProfilePort || !deviceProfileSnapshot) {
@@ -717,7 +735,7 @@ export function mountFirstRunExperience(
   const renderReady = (body) => {
     body.append(heading(
       "Tudo pronto",
-      "Revise suas escolhas.",
+      "Tudo pronto.",
       "Confira as opções abaixo. Ao entrar, o OrdaX salva a conclusão desta configuração no pendrive.",
     ));
     const summary = el(documentObject, "dl", "ordax-first-run-summary");
@@ -726,13 +744,38 @@ export function mountFirstRunExperience(
       ["Idioma", localeLabel],
       ["Fuso", draft.timeZone],
       ["Bloqueio", localSessionSnapshot?.credentialConfigured ? "PIN/senha local" : "Não configurado"],
-      ["Conta", draft.accountMode === "identity" ? "Conta OrdaX" : "Somente local"],
+      ["Conta", draft.accountMode === "identity" ? sessionSnapshot.displayName : "Somente local"],
       ["Dispositivo", deviceProfileSnapshot?.displayName ?? "Nome gerenciado pelo sistema"],
       ["Execução", "Pendrive USB"],
     ].forEach(([key, value]) => {
       summary.append(el(documentObject, "dt", "", key), el(documentObject, "dd", "", value));
     });
     body.append(summary);
+    const terms = el(documentObject, "section", "ordax-first-run-system-terms");
+    terms.setAttribute("aria-labelledby", "ordax-system-terms-title");
+    const title = el(documentObject, "strong", "", "Termos de Uso do OrdaX OS");
+    title.id = "ordax-system-terms-title";
+    const document = el(documentObject, "details", "ordax-first-run-terms-document");
+    document.append(el(documentObject, "summary", "", "Ler os termos do sistema"));
+    const version = el(documentObject, "p", "ordax-first-run-terms-version", "Versão provisória · documento em elaboração");
+    version.id = "ordax-system-terms-version";
+    const versionId = el(documentObject, "small");
+    versionId.textContent = SYSTEM_TERMS_DOCUMENT.version;
+    document.append(versionId);
+    for (const section of SYSTEM_TERMS_DOCUMENT.sections) {
+      document.append(el(documentObject, "h2", "", section.title), el(documentObject, "p", "", section.text));
+    }
+    const choice = el(documentObject, "label", "ordax-first-run-system-terms-choice");
+    const checkbox = documentObject.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.required = true;
+    checkbox.checked = systemTermsAccepted;
+    checkbox.disabled = finishing;
+    checkbox.dataset.firstRunSystemTermsAcceptance = "";
+    checkbox.setAttribute("aria-describedby", version.id);
+    choice.append(checkbox, el(documentObject, "span", "", "Li e aceito os Termos de Uso do OrdaX OS nesta versão provisória."));
+    terms.append(title, version, document, choice);
+    body.append(terms);
     if (firstRunAppSelection !== null) {
       const appSummary = el(documentObject, "details", "ordax-first-run-essentials");
       appSummary.dataset.firstRunEssentials = "";
@@ -761,39 +804,67 @@ export function mountFirstRunExperience(
 
   const render = () => {
     if (destroyed) return;
+    const focused = documentObject.activeElement;
+    const focusKey = focused && overlay.contains(focused)
+      ? [...focused.attributes].find((attribute) => attribute.name.startsWith("data-first-run-"))
+      : null;
+    const focusId = focused && overlay.contains(focused) ? focused.id : null;
     renderProgress();
     card.replaceChildren();
     const body = el(documentObject, "div", "ordax-first-run-body");
     const step = STEPS[stepIndex];
     overlay.dataset.firstRunStep = step;
     if (step === "welcome") renderWelcome(body);
-    else if (step === "regional") renderRegional(body);
     else if (step === "network") renderNetwork(body);
     else if (step === "security") renderSecurity(body);
     else if (step === "account") renderAccount(body);
-    else if (step === "privacy") renderPrivacy(body);
     else if (step === "name") renderName(body);
     else renderReady(body);
 
     const footer = el(documentObject, "footer", "ordax-first-run-footer");
-    if (stepIndex > 0 && !finishing) footer.append(action(documentObject, "Voltar", "back"));
+    const busy = identityPending !== null || identityAvailabilityPending || localSessionPending || deviceNamePending || networkPending;
+    if (stepIndex > 0 && !finishing) {
+      const back = action(documentObject, "Voltar", "back");
+      back.disabled = busy;
+      footer.append(back);
+    }
     if (step === "account") {
-      const local = action(documentObject, "Continuar sem conta", "account-local", !capabilitySnapshot.identitySignIn && !capabilitySnapshot.identityRegister);
-      local.disabled = identityPending !== null;
+      const signedIn = sessionSnapshot.state === "signed-in";
+      const registering = identityFormMode === "register" && capabilitySnapshot.identityRegister;
+      const local = action(documentObject, signedIn ? "Sair e continuar sem conta" : "Continuar sem conta", "account-local",
+        !signedIn && !capabilitySnapshot.identitySignIn && !capabilitySnapshot.identityRegister);
+      // A slow or unavailable account probe must not hold the local setup path
+      // hostage. Only an active identity action or a signed-in session that
+      // cannot be ended should block this choice.
+      local.disabled = identityPending !== null
+        || (signedIn && !isIdentityActionSupported(actionsSnapshot, "sign-out"));
       footer.append(local);
+      if (signedIn || (sessionSnapshot.state === "signed-out"
+        && (capabilitySnapshot.identitySignIn || capabilitySnapshot.identityRegister))) {
+        const primary = action(documentObject,
+          signedIn ? "Continuar com esta conta" : identityPending !== null ? "Aguarde…" : registering ? "Criar conta" : "Entrar",
+          signedIn ? "account-identity" : registering ? "account-register" : "account-sign-in", true);
+        primary.disabled = busy || (!signedIn && (registering
+          ? !registrationPolicy || !registrationLegalAccepted || registrationPolicyPending
+          : !capabilitySnapshot.identitySignIn));
+        footer.append(primary);
+      }
     } else {
       const label = step === "ready"
         ? finishing ? "Salvando…" : "Entrar no OrdaX"
-        : "Continuar";
+        : step === "welcome" ? "Vamos começar" : "Continuar";
       const next = action(documentObject, label, step === "ready" ? "finish" : "next", true);
-      next.disabled = (
-        finishing
-        || (step === "security" && localSessionPending)
-        || (step === "name" && deviceNamePending)
-      );
+      next.disabled = finishing || busy || (step === "ready" && !systemTermsAccepted);
       footer.append(next);
     }
     card.append(body, footer);
+    if (focusKey) {
+      const candidate = [...overlay.querySelectorAll(`[${focusKey.name}]`)]
+        .find((node) => node.getAttribute(focusKey.name) === focusKey.value);
+      if (candidate && !candidate.disabled) candidate.focus({ preventScroll: true });
+    } else if (focusId) {
+      documentObject.getElementById(focusId)?.focus({ preventScroll: true });
+    }
   };
 
   const refreshKeyboardLayout = async () => {
@@ -809,17 +880,43 @@ export function mountFirstRunExperience(
       keyboardLayoutSnapshot = null;
       keyboardLayoutReadFailed = true;
     }
-    if (!destroyed && STEPS[stepIndex] === "regional") render();
+    if (!destroyed && STEPS[stepIndex] === "welcome") render();
+  };
+
+  // Wi-Fi may become available only after the initial account probe.
+  // Refresh through the EXISTING identity/session owners when the account
+  // step opens, and allow explicit retry after clock/DNS recover. Never
+  // infer a session from Wi-Fi connectivity or cache provider credentials.
+  const refreshIdentityAvailability = async () => {
+    if (destroyed || identityPending !== null || identityAvailabilityPending) return;
+    identityAvailabilityPending = true;
+    if (STEPS[stepIndex] === "account") render();
+    try {
+      await sessionPort.refresh();
+      await actionsPort.refresh();
+    } catch {
+      // Keep local/offline first use available, without a fake identity.
+    } finally {
+      if (!destroyed) {
+        identityAvailabilityPending = false;
+        if (STEPS[stepIndex] === "account") render();
+      }
+    }
   };
 
   const go = (nextIndex) => {
-    if (STEPS[stepIndex] === "regional" && nextIndex > stepIndex) {
+    if (STEPS[stepIndex] === "welcome" && nextIndex > stepIndex) {
+
       // Region data has one authority: the regular preference runtime.
       // The navigation cursor never duplicates these values.
       preferencePort.set(REGIONAL_LOCALE_PREFERENCE_ID, draft.locale);
       preferencePort.set(REGIONAL_TIME_ZONE_PREFERENCE_ID, draft.timeZone);
     }
     if (STEPS[stepIndex] === "network") passwordDraft = "";
+    if (STEPS[stepIndex] === "account") {
+      identityPasswordDraft = "";
+      passwordVisible = false;
+    }
     if (STEPS[stepIndex] === "security") {
       localSessionSecretDraft = "";
       localSessionConfirmDraft = "";
@@ -833,8 +930,12 @@ export function mountFirstRunExperience(
     }
     completionError = "";
     render();
+    overlay.querySelector("#ordax-first-run-title")?.focus({ preventScroll: true });
     if (STEPS[stepIndex] === "network" && networkPort && networkSnapshot === null) {
       void refreshNetwork(false);
+    }
+    if (STEPS[stepIndex] === "account" && sessionSnapshot.state === "unavailable") {
+      void refreshIdentityAvailability();
     }
   };
 
@@ -928,7 +1029,7 @@ export function mountFirstRunExperience(
     } finally {
       if (!destroyed) {
         localSessionPending = false;
-        if (STEPS[stepIndex] === "security") render();
+        render();
       }
     }
   };
@@ -967,7 +1068,7 @@ export function mountFirstRunExperience(
     } finally {
       if (!destroyed) {
         deviceNamePending = false;
-        if (STEPS[stepIndex] === "name") render();
+        render();
       }
     }
   };
@@ -1009,6 +1110,16 @@ export function mountFirstRunExperience(
 
   const runIdentity = async (kind) => {
     if (destroyed || identityPending || !isIdentityActionSupported(actionsSnapshot, kind)) return;
+    if (kind === "register" && (!registrationPolicy || !registrationLegalAccepted)) return;
+    if (kind === "sign-in" || kind === "register") {
+      for (const field of overlay.querySelectorAll(".ordax-first-run-credentials input")) {
+        if (!field.reportValidity()) return;
+      }
+    }
+    if (kind === "sign-out") {
+      selectedIdentitySubjectId = null;
+      draft.accountMode = null;
+    }
     const credentialInput = credentialsPort && (kind === "sign-in" || kind === "register")
       ? {
           email: identityEmailDraft,
@@ -1017,6 +1128,7 @@ export function mountFirstRunExperience(
         }
       : null;
     identityPasswordDraft = "";
+    passwordVisible = false;
     identityPending = kind;
     identityMessage = "";
     render();
@@ -1035,23 +1147,43 @@ export function mountFirstRunExperience(
       if (destroyed) return;
       sessionSnapshot = sessionPort.getSnapshot();
       actionsSnapshot = actionsPort.getSnapshot();
-      identityMessage = sessionSnapshot.state === "signed-in"
-        ? "Conta autenticada. Você pode usá-la neste pendrive."
+      identityMessage = kind === "sign-out"
+        ? sessionSnapshot.state === "signed-out" ? "" : "Não foi possível sair da conta. Tente novamente."
+        : sessionSnapshot.state === "signed-in"
+        ? ""
         : result?.confirmationRequired
           ? "Cadastro recebido. Confirme seu e-mail para entrar."
-          : "A autenticação foi iniciada. O uso local continua disponível.";
+          : result?.authenticated === true
+            ? "Não foi possível confirmar a sessão da Conta OrdaX. Verifique internet e horário e tente novamente."
+            : "A autenticação não foi confirmada. O uso local continua disponível.";
     } catch {
       if (!destroyed) identityMessage = "A ação de conta não pôde ser concluída. O uso local continua disponível.";
     } finally {
       if (!destroyed) {
         identityPending = null;
+        if (kind === "sign-out" && sessionSnapshot.state === "signed-out") {
+          identityFormMode = "sign-in";
+          identityEmailDraft = "";
+          if (accountLocalRequested) {
+            draft.accountMode = "local-only";
+            accountLocalRequested = false;
+            go(stepIndex + 1);
+            return;
+          }
+        }
+        accountLocalRequested = false;
         render();
+        if (STEPS[stepIndex] === "account") {
+          overlay.querySelector(sessionSnapshot.state === "signed-in"
+            ? '[data-first-run-action="account-identity"]'
+            : "[data-first-run-identity-email]")?.focus({ preventScroll: true });
+        }
       }
     }
   };
 
   const finish = async () => {
-    if (destroyed || finishing || draft.accountMode === null) return;
+    if (destroyed || finishing || draft.accountMode === null || !systemTermsAccepted) return;
     finishing = true;
     completionError = "";
     render();
@@ -1073,6 +1205,7 @@ export function mountFirstRunExperience(
       }
       preferencePort.set(REGIONAL_LOCALE_PREFERENCE_ID, draft.locale);
       preferencePort.set(REGIONAL_TIME_ZONE_PREFERENCE_ID, draft.timeZone);
+      draft.systemTerms = createSystemTermsAcceptance(systemTermsAccepted);
       await store.save(completeFirstRunState(draft));
       close();
     } catch {
@@ -1113,7 +1246,27 @@ export function mountFirstRunExperience(
       } else {
         void connectNetwork(ssid, password);
       }
-    } else if (kind === "account-sign-in") void runIdentity("sign-in");
+    } else if (kind === "account-refresh") void refreshIdentityAvailability();
+    else if (kind === "account-network") go(getFirstRunStepIndex("network"));
+    else if (kind === "account-switch") void runIdentity("sign-out");
+    else if (kind === "account-mode") {
+      identityFormMode = identityFormMode === "register" ? "sign-in" : "register";
+      identityPasswordDraft = "";
+      passwordVisible = false;
+      registrationLegalAccepted = false;
+      identityMessage = "";
+      render();
+      if (identityFormMode === "register") void refreshRegistrationPolicy();
+      overlay.querySelector("[data-first-run-identity-email]")?.focus();
+    } else if (kind === "account-password") {
+      passwordVisible = !passwordVisible;
+      const input = overlay.querySelector("[data-first-run-identity-password]");
+      if (input) input.type = passwordVisible ? "text" : "password";
+      button.textContent = translateFirstRunText(draft.locale, passwordVisible ? "Ocultar" : "Mostrar");
+      button.setAttribute("aria-label", translateFirstRunText(draft.locale, passwordVisible ? "Ocultar senha" : "Mostrar senha"));
+      button.setAttribute("aria-pressed", String(passwordVisible));
+    }
+    else if (kind === "account-sign-in") void runIdentity("sign-in");
     else if (kind === "account-register") void runIdentity("register");
     else if (kind === "account-identity") {
       const currentSession = sessionPort.getSnapshot();
@@ -1126,6 +1279,11 @@ export function mountFirstRunExperience(
       draft.accountMode = "identity";
       go(stepIndex + 1);
     } else if (kind === "account-local") {
+      if (sessionSnapshot.state === "signed-in") {
+        accountLocalRequested = true;
+        void runIdentity("sign-out");
+        return;
+      }
       selectedIdentitySubjectId = null;
       draft.accountMode = "local-only";
       go(stepIndex + 1);
@@ -1158,11 +1316,8 @@ export function mountFirstRunExperience(
       render();
     } else if (event.target.matches("[data-first-run-time-zone]")) {
       draft.timeZone = event.target.value;
-    } else if (event.target.matches("[data-first-run-memory-auto-capture]")) {
-      preferencePort.set(
-        MEMORY_AUTO_CAPTURE_PREFERENCE_ID,
-        event.target.checked === true ? "on" : "off",
-      );
+    } else if (event.target.matches("[data-first-run-system-terms-acceptance]")) {
+      systemTermsAccepted = event.target.checked === true;
       render();
     } else if (event.target.matches("[data-first-run-registration-legal-acceptance]")) {
       registrationLegalAccepted = event.target.checked === true;
@@ -1179,7 +1334,9 @@ export function mountFirstRunExperience(
       overlay.querySelector('[data-first-run-action="network-connect"]')?.click();
     } else if (input.matches("[data-first-run-identity-email], [data-first-run-identity-password]")) {
       event.preventDefault();
-      overlay.querySelector('[data-first-run-action="account-sign-in"]')?.click();
+      overlay.querySelector(identityFormMode === "register" && capabilitySnapshot.identityRegister
+        ? '[data-first-run-action="account-register"]'
+        : '[data-first-run-action="account-sign-in"]')?.click();
     } else if (
       input.matches("[data-first-run-local-session-secret], [data-first-run-local-session-confirm]")
     ) {
@@ -1235,6 +1392,9 @@ export function mountFirstRunExperience(
   });
 
   render();
+  if (STEPS[stepIndex] === "account" && sessionSnapshot.state === "unavailable") {
+    void refreshIdentityAvailability();
+  }
   if (keyboardLayoutPort) void refreshKeyboardLayout();
   if (capabilitySnapshot.registrationPolicy) {
     void refreshRegistrationPolicy();

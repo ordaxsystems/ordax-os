@@ -801,7 +801,7 @@
 .ordax-settings-preference-option { grid-template-columns: minmax(0,1fr) auto; }
 .ordax-settings-persistence { padding: 16px 28px; margin: 0; }
 @container settings-viewport (max-width: 680px) {
-  .ordax-settings-navigation {
+  .window-workspace.meridian-workspace .ordax-settings-navigation {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(min(100%, 6.5rem), 1fr));
     gap: 4px;

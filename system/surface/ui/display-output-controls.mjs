@@ -33,10 +33,10 @@ function formatMode(mode, t) {
  */
 export function mountDisplayOutputControls(container, {
   documentObject = container?.ownerDocument,
-  translate,
+  translate = /** @type {((messageId: string, params?: Record<string, unknown>) => string) | undefined} */ (undefined),
   port = null,
   mode = "native",
-  onExamples = /** @type {(() => void) | null} */ (null),
+  onExamples = /** @type {null | (() => void)} */ (null),
   now = () => Date.now(),
   setIntervalFn = globalThis.setInterval,
   clearIntervalFn = globalThis.clearInterval,

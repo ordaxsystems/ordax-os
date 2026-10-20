@@ -84,6 +84,7 @@ test("web identity adapter reports a validated signed-in account", async () => {
     state: "signed-in",
     subjectId: "user-123",
     displayName: "pessoa",
+    email: "pessoa@example.com",
   });
   port.dispose();
 });

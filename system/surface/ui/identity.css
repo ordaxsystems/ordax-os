@@ -57,7 +57,7 @@ body { background: var(--md-canvas); font-weight: 400; }
 .ordax-home-panel {
   display: grid;
   grid-template-columns: minmax(0, 1.1fr) minmax(260px, 1fr);
-  grid-template-areas:"hero meta" "quick space";
+  grid-template-areas:"intro intro" "hero hero" "quick space";
   align-items: start;
   gap: 18px 28px;
   width: min(1220px, 100%);
@@ -84,7 +84,7 @@ body { background: var(--md-canvas); font-weight: 400; }
 .ordax-home-title { margin:0; color:var(--md-rail-text); font-size: clamp(2.4rem, 3.4vw, 3.4rem); font-weight: 610; letter-spacing: -0.055em; }
 .ordax-home-title span { font-weight: 350; }
 .ordax-home-tagline { margin:14px 0 0; color:var(--md-rail-muted); font-size:.9rem; letter-spacing:normal; }
-.ordax-home-meta, .ordax-space {
+.ordax-space {
   width: 100%;
   margin: 0;
   padding: 20px;
@@ -94,11 +94,8 @@ body { background: var(--md-canvas); font-weight: 400; }
   backdrop-filter:none;
   box-shadow: var(--md-shadow-small);
 }
-.ordax-home-meta { grid-area: meta; }
 .ordax-home-panel > .ordax-space { grid-column: 1; }
 .ordax-home-panel > .ordax-space:not([data-home-continuation]):not([data-home-pending]) { grid-area: space; }
-.ordax-clock { display: block; font-size: 2.1rem; font-weight: 420; line-height: 1.15; letter-spacing: -0.04em; }
-.ordax-date { margin: 8px 0 0; color: var(--md-muted); font-size: 0.72rem; line-height: 1.6; }
 .ordax-section-kicker { font-size: 0.6rem; margin-bottom: 12px; }
 .ordax-space-link { min-height: 44px; gap: 10px; border-bottom-color: var(--md-border); font-size: 0.78rem; }
 .ordax-space-link:hover:not(:disabled), .ordax-space-link:focus-visible:not(:disabled) { border-radius: var(--md-radius-small); }
@@ -421,6 +418,7 @@ body { background: var(--md-canvas); font-weight: 400; }
 
 /* Native uses the same Meridian shell hierarchy as the Web workspace. */
 .ordax-shell.meridian-native-workspace {
+  container: native-shell / size;
   grid-template-columns: var(--ordax-rail-width) minmax(0, 1fr);
   grid-template-rows: minmax(0, 1fr) calc(var(--ordax-navigation-height) + env(safe-area-inset-bottom));
   --workspace-rail: var(--ordax-rail-width);
@@ -450,47 +448,150 @@ body { background: var(--md-canvas); font-weight: 400; }
 .meridian-native-workspace .ordax-native-theme-toggle svg,
 .meridian-native-workspace .ordax-native-settings svg { width: 1.1875rem; height: 1.1875rem; }
 .meridian-native-workspace .ordax-home-panel {
-  grid-template-columns: minmax(0, 1fr) minmax(230px, 292px);
-  grid-template-areas: "intro meta" "hero hero" "session session" "command command" "quick space";
-  align-items: stretch; gap: var(--md-home-row-gap) var(--md-home-column-gap); width: min(var(--md-home-content-max), 100%); padding: var(--md-home-page-block) var(--md-home-content-inline) var(--md-home-page-bottom);
+  grid-template-columns: repeat(2, minmax(0, 1fr)) minmax(14rem, .72fr);
+  grid-template-areas: "intro intro status" "hero hero current" "resume resume current" "quick quick current" "recent projects current" "files files files" "ecosystem ecosystem ecosystem" "session session session";
+  align-items: start; gap: 1.125rem; width: min(116rem, 100%);
+  padding: clamp(1rem, 1.8cqi, 2rem) clamp(1rem, 2cqi, 2.5rem) var(--md-home-page-bottom);
 }
-.meridian-native-workspace .ordax-home-intro { grid-area: intro; min-width: 0; min-height: 6.375rem; padding: .125rem 0 0; }
-.meridian-native-workspace .ordax-home-intro .ordax-area-kicker { margin: 0 0 .625rem; font-size: .625rem; letter-spacing: .13em; }
-.meridian-native-workspace .ordax-home-title { color: var(--md-ink); font-size: var(--md-home-heading-size); font-weight: 520; letter-spacing: -.055em; line-height: 1.16; }
-.meridian-native-workspace .ordax-home-tagline { max-width: 38.75rem; margin-top: .5rem; color: var(--md-muted); font-size: .8125rem; line-height: 1.55; }
-.meridian-native-workspace .ordax-home-hero {
-  position: relative; grid-area: hero; display: flex; min-height: var(--md-home-hero-height); justify-content: flex-start; overflow: hidden;
-  padding: var(--md-home-hero-inset); border-color: transparent; border-radius: 16px; background: var(--md-art-dark); isolation: isolate;
-}
+.meridian-native-workspace .ordax-home-intro { grid-area: intro; display: grid; grid-template-columns: minmax(0, 1fr) minmax(13rem, 18rem); grid-template-areas: "heading search" "tagline tagline"; align-items: center; gap: .25rem 1rem; min-width: 0; }
+.meridian-native-workspace .ordax-home-intro-heading { grid-area: heading; min-width: 0; }
+.meridian-native-workspace .ordax-home-intro .ordax-area-kicker { margin: 0 0 .375rem; font-size: .625rem; letter-spacing: .1em; }
+.meridian-native-workspace .ordax-home-title { overflow: hidden; color: var(--md-ink); font-size: clamp(1.625rem, 2.5cqi, 2.5rem); font-weight: 550; letter-spacing: -.05em; line-height: 1.15; text-overflow: ellipsis; white-space: nowrap; }
+.meridian-native-workspace .ordax-home-tagline { grid-area: tagline; overflow: hidden; margin: .125rem 0 0; color: var(--md-muted); font-size: .8125rem; line-height: 1.4; text-overflow: ellipsis; white-space: nowrap; }
+.meridian-native-workspace .ordax-home-search { display: flex; align-items: center; gap: .625rem; width: 100%; min-width: 0; min-height: 2.625rem; padding: .625rem .75rem; border: 1px solid var(--md-border); border-radius: var(--md-radius); background: var(--md-subtle); color: var(--md-muted); font-size: .6875rem; text-align: start; white-space: nowrap; cursor: pointer; }
+.meridian-native-workspace .ordax-home-search .ordax-rail-icon { flex: 0 0 1rem; width: 1rem; height: 1rem; }
+.meridian-native-workspace .ordax-home-search > span:nth-child(2) { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.meridian-native-workspace .ordax-home-search kbd { flex-shrink: 0; padding: .1875rem .3125rem; border-radius: .25rem; background: var(--md-border); color: var(--md-ink); font: inherit; font-size: .5625rem; }
+.meridian-native-workspace .ordax-home-hero { position: relative; grid-area: hero; min-width: 0; min-height: 19.5rem; align-self: stretch; justify-content: center; overflow: hidden; padding: clamp(1.25rem, 2cqi, 2rem); border: 0; border-radius: var(--md-radius-large); background: var(--md-art-dark); isolation: isolate; }
 .meridian-native-workspace .ordax-home-hero::after { position: absolute; z-index: -1; inset: 0; background: var(--md-home-hero-overlay); content: ""; }
 .meridian-native-workspace .ordax-home-hero-image { position: absolute; z-index: -2; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center 52%; }
-.meridian-native-workspace .ordax-home-hero-copy { display: grid; align-content: center; justify-items: start; width: min(33.75rem, 100%); gap: 0; color: var(--md-on-art); }
-.meridian-native-workspace .ordax-home-hero-label { margin: 0; color: var(--md-art-light); font-size: .625rem; font-weight: 600; letter-spacing: .13em; text-transform: uppercase; }
-.meridian-native-workspace .ordax-home-hero-copy h2 { max-width: 29.375rem; margin: .75rem 0; color: var(--md-on-art); font-size: var(--md-home-hero-heading-size); font-weight: 500; letter-spacing: -.045em; line-height: 1.12; }
-.meridian-native-workspace .ordax-home-hero-copy > p:not(.ordax-home-hero-label) { max-width: 26.875rem; margin: 0; color: color-mix(in srgb, var(--md-on-art) 78%, transparent); font-size: .75rem; line-height: 1.55; }
-.meridian-native-workspace .ordax-home-hero-copy .ordax-welcome-action { min-height: 2.75rem; margin-top: 1.125rem; padding: .625rem .875rem; border: 0; border-radius: .5rem; background: var(--md-canvas); color: var(--md-ink); font-size: .6875rem; }
-.meridian-native-workspace .ordax-home-hero-copy .ordax-rail-icon { width: 1.0625rem; height: 1.0625rem; color: inherit; }
-.meridian-native-workspace .meridian-session-strip { grid-area: session; margin-bottom:0; }
-.meridian-native-workspace .meridian-native-command { grid-area: command; }
-.meridian-native-workspace .ordax-home-meta { grid-area: meta; display: flex; align-self: center; align-items: center; justify-content: flex-end; gap: 14px; min-height: 0; padding: 0; border: 0; background: transparent; box-shadow: none; }
-.meridian-native-workspace .ordax-home-meta-icon { display: grid; place-items: center; width: 3rem; height: 3rem; flex: 0 0 3rem; border-radius: .875rem; background: var(--md-sage-soft); color: var(--md-sage); }
-.meridian-native-workspace .ordax-home-meta-icon svg { width: 1.375rem; height: 1.375rem; }
-.meridian-native-workspace .ordax-home-meta-copy { display: grid; gap: .25rem; min-width: 0; }
-.meridian-native-workspace .ordax-clock { font-size: .75rem; font-weight: 600; line-height: 1.2; letter-spacing: -.01em; }
-.meridian-native-workspace .ordax-date { margin: 0; color: var(--md-muted); font-size: .5625rem; line-height: 1.4; }
-.meridian-native-workspace .ordax-home-actions { grid-area: quick; min-width: 0; padding: 1.0625rem; }
-.meridian-native-workspace .ordax-home-action-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .5rem; }
-.meridian-native-workspace .ordax-home-action { min-height: 4.75rem; gap: .5rem; padding: .625rem; font-size: .68rem; }
-.meridian-native-workspace .ordax-home-action .ordax-rail-icon { width: 1.375rem; height: 1.375rem; }
-.meridian-native-workspace .ordax-space { grid-area: auto; min-width: 0; padding: 1.0625rem; }
-.meridian-native-workspace .ordax-home-panel > .ordax-space:not([data-home-continuation]):not([data-home-pending]) { grid-column: 2; grid-row: 5; }
-.meridian-native-workspace .ordax-home-panel > .ordax-space:is([data-home-continuation],[data-home-pending]) { grid-column: 1; }
-.meridian-native-workspace .ordax-space-link { min-height: 2.5rem; }
+.meridian-native-workspace .ordax-home-hero-copy { width: 100%; min-width: 0; color: var(--md-on-art); }
+.meridian-native-workspace .ordax-home-aura-heading { display: flex; align-items: center; gap: .625rem; }
+.meridian-native-workspace .ordax-home-aura-heading > .ordax-rail-icon { display: grid; place-items: center; width: 2rem; height: 2rem; padding: .4375rem; border-radius: 50%; background: color-mix(in srgb, var(--md-sage) 70%, transparent); color: var(--md-on-art); }
+.meridian-native-workspace .ordax-home-aura-heading > strong { font-size: 1.0625rem; font-weight: 550; }
+.meridian-native-workspace .ordax-home-hero-preview { padding: .25rem .5rem; border: 1px solid color-mix(in srgb, var(--md-on-art) 28%, transparent); border-radius: 999px; color: var(--md-on-art); font-size: .625rem; }
+.meridian-native-workspace .ordax-home-hero-copy h2 { margin: .75rem 0 .5rem; color: var(--md-on-art); font-size: clamp(1.5rem, 2.25cqi, 2.125rem); font-weight: 550; letter-spacing: -.04em; line-height: 1.18; text-wrap: balance; }
+.meridian-native-workspace .ordax-home-hero-copy > p { margin: 0; color: color-mix(in srgb, var(--md-on-art) 88%, transparent); font-size: .8125rem; line-height: 1.55; }
+.meridian-native-workspace .ordax-home-hero .meridian-native-command { display: block; margin: 1rem 0 .75rem; padding: .25rem; border: 1px solid color-mix(in srgb, var(--md-on-art) 45%, transparent); border-radius: var(--md-radius); background: var(--md-surface); box-shadow: var(--md-shadow-small); }
+.meridian-native-workspace .ordax-home-hero .meridian-command-input-row { gap: .25rem; }
+.meridian-native-workspace .ordax-home-hero .meridian-command-input-row input { min-height: 2.75rem; font-size: .8125rem; }
+.meridian-native-workspace .ordax-home-hero .meridian-command-send { background: var(--md-accent); color: var(--md-on-art); }
+.meridian-native-workspace .ordax-home-plus { font-size: 1.5rem; font-weight: 400; line-height: 1; }
+.meridian-native-workspace .ordax-home-suggestions { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .5rem; }
+.meridian-native-workspace .ordax-home-suggestions button { display: flex; align-items: center; justify-content: center; gap: .375rem; min-width: 0; min-height: 2.5rem; padding: .5rem; border: 1px solid color-mix(in srgb, var(--md-on-art) 45%, transparent); border-radius: var(--md-radius); background: color-mix(in srgb, var(--md-art-dark) 55%, transparent); color: var(--md-on-art); font-size: .6875rem; line-height: 1.4; cursor: pointer; }
+.meridian-native-workspace .ordax-home-suggestions .ordax-rail-icon { flex: 0 0 1rem; width: 1rem; height: 1rem; }
+.meridian-native-workspace .ordax-home-suggestions button:hover { background: color-mix(in srgb, var(--md-art-dark) 85%, transparent); }
+.meridian-native-workspace .ordax-home-hero-copy > .ordax-home-hero-note { margin-top: .625rem; font-size: .625rem; }
+.meridian-native-workspace .ordax-home-section-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .375rem .75rem; margin-bottom: .75rem; }
+.meridian-native-workspace .ordax-home-section-heading h2 { margin: 0; min-width: 0; color: var(--md-ink); font-size: .9375rem; font-weight: 550; letter-spacing: -.025em; }
+.meridian-native-workspace .ordax-home-section-heading p { margin: 0; color: var(--md-muted); font-size: .75rem; }
+.meridian-native-workspace .ordax-home-section-heading > button { display: flex; align-items: center; gap: .375rem; min-height: 1.75rem; padding: .25rem 0; border: 0; background: transparent; color: var(--md-accent); font: inherit; font-size: .6875rem; cursor: pointer; }
+.meridian-native-workspace .ordax-home-widget { min-width: 0; padding: 1rem; border: 1px solid var(--md-border); border-radius: var(--md-radius-large); background: var(--md-surface); }
+.meridian-native-workspace .ordax-home-example { display: inline-flex; flex: 0 0 auto; align-items: center; padding: .1875rem .4375rem; border-radius: .375rem; background: var(--md-amber-soft); color: var(--md-amber); font-size: .5625rem; line-height: 1.5; font-weight: 500; }
+.meridian-native-workspace .ordax-home-example-note { margin: .625rem 0 0; color: var(--md-muted); font-size: .625rem; line-height: 1.5; }
+.meridian-native-workspace .ordax-home-status { grid-area: status; align-self: stretch; }
+.meridian-native-workspace .ordax-home-status-list { display: grid; }
+.meridian-native-workspace .ordax-home-status-list > button { display: grid; grid-template-columns: 1.875rem minmax(0, 1fr) minmax(0, auto); align-items: center; gap: .5rem; min-height: 2.875rem; padding: .4375rem 0; border: 0; border-bottom: 1px solid var(--md-border); background: transparent; color: var(--md-ink); text-align: start; font-size: .6875rem; cursor: pointer; }
+.meridian-native-workspace .ordax-home-status-list > button:last-child { border-bottom: 0; }
+.meridian-native-workspace .ordax-home-status-list .ordax-rail-icon { width: 1.875rem; height: 1.875rem; padding: .4375rem; border-radius: var(--md-radius-small); background: var(--md-sage-soft); color: var(--md-sage); }
+.meridian-native-workspace .ordax-home-status-list small { max-width: 6.5rem; color: var(--md-muted); font-size: .625rem; text-align: end; overflow-wrap: anywhere; }
+.meridian-native-workspace .ordax-home-current-space { grid-area: current; }
+.meridian-native-workspace .ordax-home-space-identity, .meridian-native-workspace .ordax-home-space-open { display: flex; align-items: center; gap: .75rem; width: 100%; min-height: 2.875rem; padding: .625rem; border: 0; border-radius: var(--md-radius-small); background: var(--md-subtle); color: var(--md-ink); text-align: start; cursor: pointer; }
+.meridian-native-workspace .ordax-home-space-identity > .ordax-rail-icon { width: 2.5rem; height: 2.5rem; padding: .625rem; border-radius: var(--md-radius-small); background: var(--md-sage-soft); color: var(--md-sage); }
+.meridian-native-workspace .ordax-home-space-identity > span:nth-child(2) { display: grid; flex: 1; gap: .25rem; }
+.meridian-native-workspace .ordax-home-space-identity strong { font-size: .8125rem; font-weight: 550; }
+.meridian-native-workspace .ordax-home-space-identity small { color: var(--md-muted); font-size: .6875rem; }
+.meridian-native-workspace .ordax-home-space-art { position: relative; height: clamp(6.5rem, 9cqi, 10rem); margin: .625rem 0; overflow: hidden; border-radius: var(--md-radius-small); background: linear-gradient(130deg, #263a39 0%, #456059 50%, #9a805e 100%); }
+.meridian-native-workspace .ordax-home-space-window { position: absolute; inset: 9% 9% 25% 62%; border: .3125rem solid #746853; background: linear-gradient(150deg, #c9bc91, #80a7a0 55%, #577564); box-shadow: 0 0 1.5rem #d2b26d40; }
+.meridian-native-workspace .ordax-home-space-screen { position: absolute; top: 18%; left: 24%; width: 35%; height: 49%; border: .3125rem solid #183330; border-radius: .25rem; background: linear-gradient(160deg, #96b6ae, #3b665f 45%, #213a3e); box-shadow: 0 .5rem 1.5rem #122927; }
+.meridian-native-workspace .ordax-home-space-screen::after { position: absolute; content: ""; width: 16%; height: 26%; left: 42%; top: 100%; background: #213a3e; }
+.meridian-native-workspace .ordax-home-space-desk { position: absolute; left: 10%; right: 7%; top: 72%; height: 9%; background: #bd9466; box-shadow: 0 .1875rem .25rem #192f2c; }
+.meridian-native-workspace .ordax-home-space-desk::after { position: absolute; content: ""; top: 100%; left: 8%; right: 8%; height: 3rem; border-inline: .375rem solid #81684d; }
+.meridian-native-workspace .ordax-home-space-plant { position: absolute; left: 14%; top: 41%; width: 10%; height: 30%; border-radius: 50% 0 50% 0; background: #689477; transform: rotate(-24deg); box-shadow: .5rem -.5rem 0 -.0625rem #779c72, -.25rem -.5rem 0 -.125rem #355a43; }
+.meridian-native-workspace .ordax-home-space-open { font-size: .75rem; }
+.meridian-native-workspace .ordax-home-space-open .ordax-rail-icon { width: 1.125rem; height: 1.125rem; }
+.meridian-native-workspace .ordax-home-space-open > span:nth-child(2) { flex: 1; }
+.meridian-native-workspace .ordax-home-resume { grid-area: resume; min-width: 0; }
+.meridian-native-workspace .ordax-home-resume-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .875rem; }
+.meridian-native-workspace .ordax-home-project-card { display: flex; flex-direction: column; min-width: 0; overflow: hidden; padding: 0; border: 1px solid var(--md-border); border-radius: var(--md-radius); background: var(--md-surface); color: var(--md-ink); text-align: start; cursor: pointer; }
+.meridian-native-workspace .ordax-home-project-cover { position: relative; display: block; width: 100%; aspect-ratio: 2.2; overflow: hidden; }
+.meridian-native-workspace .ordax-home-project-art { display: block; width: 100%; height: 100%; }
+.meridian-native-workspace .ordax-home-project-app { position: absolute; display: grid; place-items: center; bottom: .5rem; left: .5rem; width: 1.875rem; height: 1.875rem; padding: .4375rem; border-radius: .5rem; background: var(--md-surface); color: var(--md-accent); box-shadow: var(--md-shadow-small); }
+.meridian-native-workspace .ordax-home-project-copy { display: grid; gap: .25rem; min-width: 0; width: 100%; padding: .625rem .75rem .75rem; }
+.meridian-native-workspace .ordax-home-project-copy strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .75rem; font-weight: 550; }
+.meridian-native-workspace .ordax-home-project-copy small { color: var(--md-muted); font-size: .625rem; line-height: 1.4; }
+.meridian-native-workspace .ordax-home-actions { grid-area: quick; min-width: 0; padding: 0; border: 0; background: transparent; }
+.meridian-native-workspace .ordax-home-action-grid { grid-template-columns: repeat(auto-fit, minmax(4.25rem, 1fr)); align-items: start; gap: .5rem; }
+.meridian-native-workspace .ordax-home-action { position: relative; justify-content: flex-start; align-items: center; min-height: 0; gap: .375rem; padding: .25rem 0; border: 0; border-radius: var(--md-radius-small); background: transparent; font-size: .625rem; line-height: 1.4; font-weight: 450; text-align: center; }
+.meridian-native-workspace .ordax-home-action .ordax-rail-icon { display: grid; place-items: center; width: 3.5rem; height: 3.5rem; padding: .875rem; border: 1px solid var(--md-border); border-radius: var(--md-radius); background: var(--md-accent-soft); color: var(--md-accent); }
+.meridian-native-workspace .ordax-home-action[data-launch-app="files"] .ordax-rail-icon { background: var(--md-sage-soft); color: var(--md-sage); }
+.meridian-native-workspace .ordax-home-action[data-launch-app="settings"] .ordax-rail-icon { background: var(--md-slate-soft); color: var(--md-slate); }
+.meridian-native-workspace .ordax-home-action[data-home-preview-app="notes"] .ordax-rail-icon { background: var(--md-amber-soft); color: var(--md-amber); }
+.meridian-native-workspace .ordax-home-action[data-home-preview-app="browser"] .ordax-rail-icon { background: var(--md-blue-soft); color: var(--md-blue); }
+.meridian-native-workspace .ordax-home-action[data-home-preview-app="blender"] .ordax-rail-icon { background: var(--md-rose-soft); color: var(--md-rose); }
+.meridian-native-workspace .ordax-home-action .ordax-home-app-example { color: var(--md-muted); font-size: .5rem; font-weight: 400; }
+.meridian-native-workspace .ordax-home-action:hover:not(:disabled), .meridian-native-workspace .ordax-home-action[data-active="true"] { border-color: transparent; box-shadow: none; background: var(--md-subtle); }
+.meridian-native-workspace .ordax-home-action.ordax-home-add-app .ordax-rail-icon { background: var(--md-surface); color: var(--md-muted); }
+.meridian-native-workspace .ordax-home-recent { grid-area: recent; }
+.meridian-native-workspace .ordax-home-projects { grid-area: projects; }
+.meridian-native-workspace .ordax-home-recent-list, .meridian-native-workspace .ordax-home-project-list { display: grid; }
+.meridian-native-workspace :is(.ordax-home-recent-list,.ordax-home-project-list) > button { display: flex; align-items: center; gap: .625rem; width: 100%; min-width: 0; min-height: 3.25rem; padding: .5rem 0; border: 0; border-bottom: 1px solid var(--md-border); background: transparent; color: var(--md-ink); text-align: start; cursor: pointer; }
+.meridian-native-workspace :is(.ordax-home-recent-list,.ordax-home-project-list) > button:last-child { border-bottom: 0; }
+.meridian-native-workspace .ordax-home-recent-list > button > .ordax-rail-icon { width: 1.375rem; height: 1.375rem; flex: 0 0 1.375rem; color: var(--md-accent); }
+.meridian-native-workspace :is(.ordax-home-recent-list,.ordax-home-project-list) > button > span:nth-child(2) { display: grid; flex: 1; gap: .25rem; min-width: 0; }
+.meridian-native-workspace :is(.ordax-home-recent-list,.ordax-home-project-list) strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .6875rem; font-weight: 500; }
+.meridian-native-workspace :is(.ordax-home-recent-list,.ordax-home-project-list) small { color: var(--md-muted); font-size: .625rem; line-height: 1.4; }
+.meridian-native-workspace .ordax-home-project-list .ordax-home-project-art { flex: 0 0 4rem; width: 4rem; height: 3rem; border-radius: var(--md-radius-small); }
+.meridian-native-workspace .ordax-home-project-list small b { display: inline-block; margin-inline-end: .25rem; padding: .125rem .375rem; border-radius: .25rem; background: var(--md-sage-soft); color: var(--md-sage); font-weight: 500; }
+.meridian-native-workspace .ordax-home-explore { grid-area: ecosystem; min-width: 0; }
+.meridian-native-workspace .ordax-home-destination-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .75rem; }
+.meridian-native-workspace .ordax-home-destination { position: relative; display: flex; align-items: center; gap: .75rem; min-width: 0; padding: 1rem; border: 1px solid var(--md-border); border-radius: var(--md-radius); background: var(--md-surface); color: var(--md-ink); text-align: start; cursor: pointer; }
+.meridian-native-workspace .ordax-home-destination > .ordax-rail-icon { flex: 0 0 2.25rem; width: 2.25rem; height: 2.25rem; padding: .5rem; border-radius: var(--md-radius-small); background: var(--md-accent-soft); color: var(--md-accent); }
+.meridian-native-workspace .ordax-home-destination-copy { display: grid; gap: .25rem; min-width: 0; overflow-wrap: anywhere; }
+.meridian-native-workspace .ordax-home-destination-copy strong { font-size: .8125rem; font-weight: 550; }
+.meridian-native-workspace .ordax-home-destination-copy small { color: var(--md-muted); font-size: .6875rem; line-height: 1.5; }
+.meridian-native-workspace .ordax-home-destination-arrow { display: none; }
+.meridian-native-workspace .ordax-home-destination:disabled { opacity: .5; cursor: not-allowed; }
+.meridian-native-workspace :is(.ordax-home-project-card,.ordax-home-destination):hover:not(:disabled) { border-color: var(--md-accent); }
+.meridian-native-workspace .ordax-home-panel button:focus-visible, .meridian-native-workspace .ordax-home-panel input:focus-visible { outline: 2px solid var(--md-accent); outline-offset: 3px; }
+.meridian-native-workspace .ordax-home-suggestions button:focus-visible { outline-color: var(--md-on-art); }
+.meridian-native-workspace .ordax-home-panel > .ordax-space { grid-area: auto; grid-column: 1 / -1; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .5rem 1.25rem; min-width: 0; padding: 1rem; }
+.meridian-native-workspace .ordax-home-panel > .ordax-space:not([data-home-continuation]):not([data-home-pending]) { grid-area: files; }
+.meridian-native-workspace .ordax-home-panel > .ordax-space[data-home-continuation] { grid-area: resume; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.meridian-native-workspace .ordax-home-panel:has([data-home-continuation]) [data-home-example="resume"] { display: none; }
+.meridian-native-workspace .ordax-home-panel .ordax-section-kicker { margin: 0 0 .375rem; color: var(--md-ink); font-size: .875rem; font-weight: 550; letter-spacing: -.015em; }
+.meridian-native-workspace .ordax-space > .ordax-section-kicker { grid-column: 1 / -1; }
+.meridian-native-workspace .ordax-space-link { min-width: 0; min-height: 3rem; }
+.meridian-native-workspace .ordax-space-link > span:nth-child(2) { min-width: 0; overflow-wrap: anywhere; }
+.meridian-native-workspace .ordax-space-arrow { flex-shrink: 0; }
+.meridian-native-workspace .meridian-session-strip { grid-area: session; margin-bottom: 0; }
+.meridian-native-workspace .meridian-session-strip button { min-height: 2.5rem; padding: .25rem .375rem; border-radius: var(--md-radius-small); }
+.meridian-native-workspace .meridian-session-strip button:hover { color: var(--md-ink); background: var(--md-subtle); }
+.meridian-native-workspace .ordax-home-preview-feedback { display: flex; align-items: flex-start; gap: .75rem; position: fixed; z-index: 190; inset-inline-end: 1.5rem; bottom: calc(var(--ordax-navigation-height) + 1rem); width: min(26rem, calc(100% - 3rem)); margin: 0; padding: 1rem; border: 1px solid var(--md-border); border-radius: var(--md-radius); background: var(--md-surface); color: var(--md-ink); box-shadow: var(--md-window-shadow); font-size: .8125rem; line-height: 1.5; }
+.meridian-native-workspace .ordax-home-preview-feedback > span { flex: 1; min-width: 0; }
+.meridian-native-workspace .ordax-home-preview-feedback > button { display: grid; place-items: center; flex: 0 0 1.75rem; width: 1.75rem; height: 1.75rem; padding: 0; border: 0; border-radius: var(--md-radius-small); background: var(--md-subtle); color: var(--md-ink); font-size: 1.25rem; cursor: pointer; }
+.meridian-native-workspace .ordax-home-preview-feedback[hidden] { display: none; }
+/* Compact desktop windows keep the same destinations, tools and navigation. */
+@container meridian-native-home (max-width: 66rem) {
+  .meridian-native-workspace .ordax-home-panel { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-areas: "intro status" "hero hero" "resume resume" "quick quick" "recent projects" "current current" "files files" "ecosystem ecosystem" "session session"; }
+  .meridian-native-workspace .ordax-home-destination-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@container meridian-native-home (max-width: 50rem) {
+  .meridian-native-workspace .ordax-home-panel { grid-template-areas: "intro intro" "hero hero" "resume resume" "quick quick" "recent projects" "status current" "files files" "ecosystem ecosystem" "session session"; }
+}
+@container meridian-native-home (max-width: 38rem) {
+  .meridian-native-workspace .ordax-home-intro { grid-template-columns: minmax(0, 1fr) minmax(10rem, .85fr); column-gap: .5rem; }
+  .meridian-native-workspace .ordax-home-title { font-size: clamp(1.125rem, 4cqi, 1.5rem); }
+  .meridian-native-workspace .ordax-home-search { gap: .375rem; min-height: 2.375rem; padding: .5rem; font-size: .625rem; }
+  .meridian-native-workspace .ordax-home-search kbd { font-size: .5rem; }
+  .meridian-native-workspace .ordax-home-tagline { font-size: .75rem; }
+}
 .meridian-native-workspace .ordax-statusbar { padding-block-end:max(0px,env(safe-area-inset-bottom)); }
 .meridian-native-workspace .meridian-native-dock { display:flex; align-items:center; justify-self:center; min-width:0; max-width:min(100%,35.625rem); padding:.125rem .25rem; overflow-x:auto; scroll-padding-inline:.25rem; border:0; border-radius:0; background:transparent; box-shadow:none; }
-.meridian-native-workspace .meridian-native-dock[data-scroll-before="true"][data-scroll-after="true"] { mask-image:linear-gradient(90deg,transparent,#000 18px,#000 calc(100% - 18px),transparent); }
-.meridian-native-workspace .meridian-native-dock[data-scroll-before="true"]:not([data-scroll-after="true"]) { mask-image:linear-gradient(90deg,transparent,#000 18px); }
-.meridian-native-workspace .meridian-native-dock[data-scroll-after="true"]:not([data-scroll-before="true"]) { mask-image:linear-gradient(270deg,transparent,#000 18px); }
+.meridian-native-workspace .meridian-native-dock[data-scroll-before="true"][data-scroll-after="true"] { mask-image:linear-gradient(90deg,transparent,#000 .5rem,#000 calc(100% - .5rem),transparent); }
+.meridian-native-workspace .meridian-native-dock[data-scroll-before="true"]:not([data-scroll-after="true"]) { mask-image:linear-gradient(90deg,transparent,#000 .5rem); }
+.meridian-native-workspace .meridian-native-dock[data-scroll-after="true"]:not([data-scroll-before="true"]) { mask-image:linear-gradient(270deg,transparent,#000 .5rem); }
+.meridian-native-workspace .meridian-native-dock:focus-within { mask-image:none; }
 .meridian-native-workspace .meridian-dock-shortcuts { display:flex; flex:0 0 auto; align-items:center; }
 .meridian-native-workspace [data-dock-pinned-app="studio"] .ordax-rail-icon { background:var(--md-accent-soft); color:var(--md-accent); }
 .meridian-native-workspace [data-dock-pinned-app="files"] .ordax-rail-icon { background:var(--md-sage-soft); color:var(--md-sage); }
@@ -506,6 +607,7 @@ body { background: var(--md-canvas); font-weight: 400; }
 .meridian-native-workspace .meridian-taskbar-system-tray { display:flex; align-items:center; padding:0; border:0; color:var(--md-muted); }
 .meridian-native-workspace .meridian-taskbar-system-tray .ordax-tray-item { min-height:var(--ordax-navigation-control-height); height:var(--ordax-navigation-control-height); padding-inline:.4375rem; border-radius:var(--md-radius-small); font-size:.68rem; }
 .meridian-native-workspace .meridian-taskbar-system-tray .ordax-tray-icon { width:1.0625rem; height:1.0625rem; }
+.meridian-native-workspace .ordax-tray-clock { white-space:nowrap; font-variant-numeric:tabular-nums; }
 .meridian-native-workspace .meridian-taskbar-system-tray .ordax-tray-network { width:var(--ordax-navigation-control-height); min-width:var(--ordax-navigation-control-height); justify-content:center; padding:0; }
 .meridian-native-workspace .meridian-taskbar-system-tray .ordax-tray-network .ordax-tray-label { display:none; }
 .meridian-native-workspace .meridian-taskbar-system-tray .ordax-tray-network .ordax-tray-icon { color:var(--md-ink); }
@@ -538,6 +640,20 @@ body { background: var(--md-canvas); font-weight: 400; }
 .ordax-rail { padding-inline: 12px; }
 [data-native-sidebar="collapsed"] .ordax-rail { padding-inline: 8px; }
 .ordax-rail .ordax-power-slot { padding: 0; margin: 0; }
-.ordax-sidebar-toggle { position: absolute; z-index: 60; top: calc(var(--ordax-sidebar-padding-top) + var(--ordax-sidebar-logo-height) + var(--ordax-sidebar-row-gap) + 6px); left: calc(var(--ordax-sidebar-visual-width, var(--ordax-rail-width)) - 12px); display: grid; place-items: center; width: 24px; height: 32px; padding: 4px; border: 1px solid var(--md-border); border-radius: var(--md-radius-small); background: var(--md-surface); color: var(--md-ink); cursor: pointer; }
+.ordax-sidebar-toggle { position: absolute; z-index: 60; top: calc(var(--md-sidebar-padding-block) + .1875rem); inset-inline-end:-.875rem; display: grid; place-items: center; width:1.75rem; height:2.25rem; padding:.25rem; border:1px solid var(--md-border); border-radius:var(--md-radius-small); background:var(--md-surface); color:var(--md-ink); cursor:pointer; }
 .ordax-sidebar-toggle[hidden] { display: none; }
 .ordax-statusbar button { min-height: var(--ordax-navigation-control-height); height: var(--ordax-navigation-control-height); }
+
+/* Height pressure changes spacing, not the computer navigation model. The
+   container follows the actual canvas after the user's display scale. */
+@container native-shell (max-height: 44rem) {
+  .meridian-native-workspace > .ordax-product-sidebar {
+    --md-sidebar-gap:.5rem;
+    --md-sidebar-padding-block:.75rem;
+    --md-sidebar-home-gap:.25rem;
+    --md-sidebar-account-gap:.375rem;
+    --md-sidebar-section-padding:.5rem .625rem .25rem;
+    --md-sidebar-utility-size:2.25rem;
+  }
+  .meridian-native-workspace > .ordax-rail.ordax-product-sidebar .meridian-rail-context { display:none; }
+}

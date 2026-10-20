@@ -1,6 +1,9 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { ArrowUpRight, ArrowRight, Sparkles, Mic, ShieldCheck, Monitor, Folder, FileText, Clock3, Smartphone, Layers3, ShoppingBag, BriefcaseBusiness, Moon, Sun, Plus, Check } from 'lucide-react';
 import { useWebAccount } from './account-context';
+import { useWebPreferences } from './preferences-context';
+import { resolveRegionalTimeZone } from '../../../../services/preferences/regional.mjs';
+import { resolveHomeScene } from '../../../../services/surface/home-scene.mjs';
 import { useIntelligenceClient } from '../intelligence/client-context';
 import { translateSurfaceMessage, SURFACE_SOURCE_LOCALE } from '../../../../services/i18n/surface.mjs';
 import dayWallpaper from '@/assets/alpine-day.jpg';
@@ -10,8 +13,10 @@ type Props = {theme:'light'|'dark'; onOpen:(title:string)=>void; onExample:(titl
 const exampleFiles = [{name:'Direção visual',kind:'Documento · exemplo',icon:FileText},{name:'Referências do projeto',kind:'Pasta · exemplo',icon:Folder},{name:'Ideias para o próximo passo',kind:'Notas · exemplo',icon:FileText}];
 const ecosystems = [{name:'Spaces',note:'Contextos diferentes. O mesmo fio.',icon:Layers3,target:'Espaços'},{name:'Perfis profissionais',note:'Ferramentas que acompanham seu trabalho.',icon:BriefcaseBusiness,target:'Perfis profissionais'},{name:'Dispositivos',note:'Cada tela pode fazer mais.',icon:Monitor,target:'Dispositivos'},{name:'Descobrir',note:'Novas peças para o seu mundo.',icon:ShoppingBag,target:'Loja'}];
 const homeCopy = (messageId:string) => translateSurfaceMessage(SURFACE_SOURCE_LOCALE, messageId);
-export function MeridianHome({onOpen,onExample,onPrompt,theme}:Props) {
+export function MeridianHome({onOpen,onExample,onPrompt}:Props) {
   const {identity,displayName,authorized,offline}=useWebAccount();
+  const {snapshot:preferences}=useWebPreferences();
+  const timeZone=resolveRegionalTimeZone(preferences);
   const {snapshot:intelligence}=useIntelligenceClient();
   const inferenceAvailable=!offline && intelligence.inferenceAvailable && ['ready','busy'].includes(intelligence.state);
   const inferenceLabel=offline?'Sem conexão':intelligence.state==='error'?'Serviço indisponível':intelligence.state==='busy'?'Em uso':inferenceAvailable?'Disponível nesta sessão':'Backend pendente';
@@ -20,13 +25,14 @@ export function MeridianHome({onOpen,onExample,onPrompt,theme}:Props) {
   const [now,setNow]=useState(()=>new Date());
   const [tasks,setTasks]=useState<string[]>([]);
   useEffect(()=>{const timer=window.setInterval(()=>setNow(new Date()),60000);return()=>window.clearInterval(timer);},[]);
-  const greeting=now.getHours()<12?'Bom dia':now.getHours()<18?'Boa tarde':'Boa noite';
-  const date=new Intl.DateTimeFormat('pt-BR',{weekday:'long',day:'numeric',month:'long'}).format(now);
+  const scene=resolveHomeScene(now,timeZone);
+  const greeting=homeCopy(scene.greetingId).replace(/\.$/,'');
+  const date=new Intl.DateTimeFormat('pt-BR',{timeZone,weekday:'long',day:'numeric',month:'long'}).format(now);
   function submit(event:FormEvent){event.preventDefault();if(prompt.trim())onPrompt(prompt.trim());}
   return <div className="meridian-home">
     <div className="meridian-page">
       <section className="meridian-welcome"><div><p className="meridian-eyebrow"><time dateTime={now.toISOString()}>{date}</time><span>·</span>{authorized.activeSpace?.name??'Seu espaço'}</p><h1>{greeting}{identity.state==='signed-in'?', '+displayName:''}.</h1><p>{homeCopy('shell.home.tagline')}</p></div><button className="meridian-context" onClick={()=>onOpen('Espaços')}><Layers3/><span><small>NO SEU CONTEXTO</small><strong>{authorized.activeSpace?.name??'Escolher um Space'}</strong></span><ArrowUpRight size={16}/></button></section>
-      <section className="meridian-hero" aria-label={homeCopy('shell.home.hero.aria')}><img src={theme==='dark'?nightWallpaper:dayWallpaper} alt={theme==='dark'?'Lago alpino sob a luz da lua':'Lago alpino ao amanhecer'} width={1920} height={768}/><div><p className="meridian-eyebrow">{homeCopy('shell.home.hero.label')}</p><h2>{homeCopy('shell.home.hero.title.first')}<br/>{homeCopy('shell.home.hero.title.second')}</h2><p>{homeCopy('shell.home.hero.description.first')}<br/>{homeCopy('shell.home.hero.description.second')}</p><button onClick={()=>setTab('work')}>Encontre seu próximo passo <ArrowRight size={17}/></button></div><span className="meridian-hero-caption">OrdaX · Central</span></section>
+      <section className="meridian-hero" aria-label={homeCopy('shell.home.hero.aria')}><img src={scene.period==='night'?nightWallpaper:dayWallpaper} alt={scene.period==='night'?'Lago alpino sob a luz da lua':'Lago alpino ao amanhecer'} width={1920} height={768}/><div><p className="meridian-eyebrow">{homeCopy('shell.home.hero.label')}</p><h2>{homeCopy('shell.home.hero.title.first')}<br/>{homeCopy('shell.home.hero.title.second')}</h2><p>{homeCopy('shell.home.hero.description.first')}<br/>{homeCopy('shell.home.hero.description.second')}</p><button onClick={()=>setTab('work')}>Encontre seu próximo passo <ArrowRight size={17}/></button></div><span className="meridian-hero-caption">OrdaX · Central</span></section>
       <div className="meridian-session-strip" aria-label="Estado da sessão"><span><Monitor size={15}/>Web · sessão do navegador</span><button onClick={()=>onOpen('Minha conta')}><ShieldCheck size={15}/>{offline?'Conta sem conexão':identity.state==='signed-in'?'Conta conectada':identity.state==='signed-out'?'Conectar minha conta':'Conexão com a conta pendente'}</button><button onClick={()=>onOpen('Loja')}><ShoppingBag size={15}/>Loja e recursos</button><button className="meridian-integration-status" onClick={()=>onOpen('Configurações')}>Recursos pendentes · consultar Ajustes</button></div>
       <section className="meridian-command" aria-label="Intelligence contextual"><div className="meridian-command-icon"><Sparkles size={26}/></div><form onSubmit={submit}><label className="sr-only" htmlFor="meridian-prompt">Pergunte ao Aura</label><input id="meridian-prompt" value={prompt} onChange={event=>setPrompt(event.target.value)} placeholder="Uma ideia, uma tarefa, um próximo passo…"/><button type="button" aria-label="Explorar interação por voz" onClick={()=>onExample('Interação por voz')}><Mic size={19}/></button><button type="submit" aria-label="Enviar ao Aura"><ArrowRight size={20}/></button></form><small>Intelligence <i/> <span className={inferenceAvailable?undefined:'meridian-integration-status'}>{inferenceLabel}</span> {authorized.activeSpace?.name??'Contexto sob seu controle'}<button onClick={()=>onOpen('Aura')}><ShieldCheck size={13}/>Consultar disponibilidade</button></small></section>
       <nav className="meridian-tabs" aria-label="Perspectivas da Central">{[{id:'day' as const,label:'Visão do dia'},{id:'work' as const,label:'Seu trabalho'},{id:'ecosystem' as const,label:'Ecossistema'}].map(item=><button key={item.id} aria-pressed={tab===item.id} onClick={()=>setTab(item.id)}>{item.label}</button>)}</nav>

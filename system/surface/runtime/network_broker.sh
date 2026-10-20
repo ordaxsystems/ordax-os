@@ -15,6 +15,9 @@ SAVED_SSID_LINE=$SESSION_DIR/network-saved-ssid
 WPA_CONF=$STATE_DIR/wpa.conf
 WPA_CTRL_DIR=/run/wpa_supplicant
 CANDIDATE=$STATE_DIR/wpa.conf.candidate.$$
+RESOLVER_SYNC_SCRIPT=${ORDAX_RUNTIME_RESOLVER_SYNC_SCRIPT:-}
+RESOLVER_ROOT=${ORDAX_RUNTIME_RESOLVER_ROOT:-}
+RESOLVER_LOG=${ORDAX_RUNTIME_RESOLVER_LOG:-$SESSION_DIR/network-broker.log}
 
 umask 077
 mkdir -p "$STATE_DIR" "$SESSION_DIR"
@@ -137,7 +140,22 @@ connect_conf() {
         /bin/busybox killall wpa_supplicant >/dev/null 2>&1 || true
         return 1
     fi
-    try_dhcp "$wifi"
+    # On post-boot Wi-Fi connections, DHCP changes the host resolver after
+    # Native WebKit has already copied its startup DNS configuration. Update
+    # the SAME runtime resolver immediately, without restarting or simulating
+    # an Account provider.
+    if ! try_dhcp "$wifi"; then
+        return 1
+    fi
+    if [ -n "$RESOLVER_SYNC_SCRIPT" ] && [ -n "$RESOLVER_ROOT" ]; then
+        if [ -f "$RESOLVER_SYNC_SCRIPT" ] && [ ! -L "$RESOLVER_SYNC_SCRIPT" ]; then
+            /bin/sh "$RESOLVER_SYNC_SCRIPT" "$RESOLVER_ROOT" "$RESOLVER_LOG" ||
+                echo "ordax-network-broker: DHCP succeeded but Native DNS remains unavailable" >&2
+        else
+            echo "ordax-network-broker: signed resolver sync helper unavailable" >&2
+        fi
+    fi
+    return 0
 }
 
 restore_saved_network() {

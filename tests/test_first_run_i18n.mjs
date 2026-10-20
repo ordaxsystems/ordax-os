@@ -45,9 +45,17 @@ test("Portuguese remains the canonical source language and unknown locales fail 
   assert.equal(translateFirstRunText("it-IT", "Continuar"), "Continuar");
 });
 
-test("changed identity selection warning is translated for each supported first-run locale", () => {
-  const message = "A sessão da Conta OrdaX mudou. Entre novamente ou continue sem conta.";
+test("account status and session messages are translated for each supported first-run locale", () => {
+  const messages = [
+    "A sessão da Conta OrdaX mudou. Entre novamente ou continue sem conta.",
+    "Verificando conta…",
+    "Verificar conexão da Conta",
+    "Não foi possível confirmar a sessão da Conta OrdaX. Verifique internet e horário e tente novamente.",
+    "A autenticação não foi confirmada. O uso local continua disponível.",
+  ];
   for (const locale of LOCALES) {
-    assert.notEqual(translateFirstRunText(locale, message), message);
+    for (const message of messages) {
+      assert.notEqual(translateFirstRunText(locale, message), message, `${locale}: ${message}`);
+    }
   }
 });

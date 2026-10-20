@@ -139,12 +139,21 @@ class CreatorKernelReuseWorkflowTests(unittest.TestCase):
             workflow, "Retain exact-commit verified USB Dev acceptance bundle"
         )
         self.assertIn(
-            "if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == 'ordaxsystems/ordax-os'",
+            "if: (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == 'ordaxsystems/ordax-os')",
             artifact,
         )
         self.assertIn(
             "name: owner-dev-usb-candidate-${{ env.ORDAX_OWNER_SOURCE_COMMIT }}",
             artifact,
+        )
+        self.assertIn(
+            "(github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/main')",
+            artifact,
+        )
+        # A dispatch on a feature branch retains test bytes but may not publish.
+        self.assertIn(
+            "if: github.event_name == 'push' && github.ref == 'refs/heads/main'",
+            self.step_block(workflow, "Publish development Creator bundle"),
         )
         self.assertIn("out/owner-prototype/release/OrdaX-Creator-Owner-Prototype.zip", artifact)
         self.assertIn("out/owner-prototype/release/SHA256SUMS.txt", artifact)
