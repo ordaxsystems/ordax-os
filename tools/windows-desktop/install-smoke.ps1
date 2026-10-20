@@ -12,6 +12,7 @@ $readonlyDirectory = $null
 $readonlyIdentity = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
 try {
   if (Test-Path -LiteralPath $dest) { throw "Test destination already exists" }
+  $installationStarted = [DateTime]::UtcNow
   Write-Output "INSTALL_SMOKE_STARTED=$installerPath"
   $proc = Start-Process -FilePath $installerPath -ArgumentList ("/S /D=" + $dest) -PassThru
   $deadline = [DateTime]::UtcNow.AddSeconds($TimeoutSeconds)
@@ -40,6 +41,7 @@ try {
       throw ("Packaged Native dependency missing: " + $entry)
     }
   }
+  Write-Output ("INSTALL_DURATION_SECONDS=" + [Math]::Round(([DateTime]::UtcNow - $installationStarted).TotalSeconds, 1))
   Write-Output "INSTALL_SMOKE=PASS"
   Write-Output ("INSTALLED_DESKTOP_EXE=" + $installedExe)
   # In CI the installation destination is writable TEMP, unlike Program Files.
@@ -68,6 +70,7 @@ try {
     Get-Content -LiteralPath $logFile -Raw -ErrorAction SilentlyContinue
   } else { "" }
   if ($null -eq $priorLog) { $priorLog = "" }
+  $startupStarted = [DateTime]::UtcNow
   Write-Output "STARTUP_SMOKE_STARTED"
   $appProc = Start-Process -FilePath $installedExe -WorkingDirectory $dest -PassThru
   try {
@@ -106,6 +109,7 @@ try {
       throw "Installed desktop host does not supply canonical network-status snapshot"
     }
     Write-Output "DESKTOP_NETWORK_STATUS_SMOKE=PASS"
+    Write-Output ("STARTUP_DURATION_SECONDS=" + [Math]::Round(([DateTime]::UtcNow - $startupStarted).TotalSeconds, 1))
     Write-Output "STARTUP_SMOKE=PASS"
   }
   finally {
