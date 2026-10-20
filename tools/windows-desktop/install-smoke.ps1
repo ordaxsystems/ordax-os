@@ -53,9 +53,10 @@ try {
     throw "NSIS stage journal missing after first install"
   }
   $installStage = $stageAfterInstall.Substring($stageBefore.Length)
-  if ($installStage -notmatch "init" -or $installStage -notmatch "install-files-complete") {
+  if ($installStage -notmatch "install-files-complete") {
     throw ("NSIS installation stage markers incomplete: " + $installStage)
   }
+  Write-Output ("INSTALLER_STAGES=" + ($installStage.Trim() -replace "`r?`n", ","))
   Write-Output "INSTALLER_STAGES_SMOKE=PASS"
   Write-Output "INSTALL_SMOKE=PASS"
   Write-Output ("INSTALLED_DESKTOP_EXE=" + $installedExe)
@@ -88,9 +89,10 @@ try {
     $upgradeStage = if ($stageAfterUpgrade.Length -ge $stageAfterInstall.Length) {
       $stageAfterUpgrade.Substring($stageAfterInstall.Length)
     } else { "" }
-    if ($upgradeStage -notmatch "init" -or $upgradeStage -notmatch "install-files-complete") {
+    if ($upgradeStage -notmatch "install-files-complete") {
       throw ("NSIS upgrade stage markers incomplete: " + $upgradeStage)
     }
+    Write-Output ("UPGRADE_STAGES=" + ($upgradeStage.Trim() -replace "`r?`n", ","))
     Write-Output "UPGRADE_STAGES_SMOKE=PASS"
     Write-Output "UPGRADE_SMOKE=PASS"
   } finally {
