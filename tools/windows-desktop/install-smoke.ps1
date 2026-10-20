@@ -173,11 +173,14 @@ try {
   $startupStarted = [DateTime]::UtcNow
   Write-Output "STARTUP_SMOKE_STARTED"
   $previousBrowserSmoke = $env:ORDAX_DESKTOP_BROWSER_SMOKE
+  $previousFileSmoke = $env:ORDAX_DESKTOP_FILE_SMOKE
   try {
     $env:ORDAX_DESKTOP_BROWSER_SMOKE = "1"
+    $env:ORDAX_DESKTOP_FILE_SMOKE = "1"
     $appProc = Start-Process -FilePath $installedExe -WorkingDirectory $dest -PassThru
   } finally {
     $env:ORDAX_DESKTOP_BROWSER_SMOKE = $previousBrowserSmoke
+    $env:ORDAX_DESKTOP_FILE_SMOKE = $previousFileSmoke
   }
   try {
     $startupDeadline = [DateTime]::UtcNow.AddSeconds(180)
@@ -190,7 +193,8 @@ try {
           $newLog = $allLog.Substring($priorLog.Length)
           if ($newLog -match "Native shell mounted and ready: http://127\.0\.0\.1:\d+" -and
               $newLog -match "Native Surface ready: http://127\.0\.0\.1:\d+" -and
-              $newLog -match "DESKTOP_INTERNET_SMOKE=PASS") {
+              $newLog -match "DESKTOP_INTERNET_SMOKE=PASS" -and
+              $newLog -match "DESKTOP_FILE_SPACE_SMOKE=PASS") {
             $ready = $true
             break
           }
@@ -254,16 +258,13 @@ try {
       throw "Installed Desktop does not publish actual Windows power status"
     }
     Write-Output "DESKTOP_POWER_STATUS_SMOKE=PASS"
-    $fileSnapshot = Invoke-RestMethod -Uri ($baseUrl + "/__ordax/native/files?path=%2F") -Method GET -TimeoutSec 15
-    if ($null -eq $fileSnapshot -or $fileSnapshot.path -ne "/" -or
-        "entries" -notin $fileSnapshot.PSObject.Properties.Name) {
-      throw "Installed Desktop file-space does not expose the OrdaX user folder"
+    # Localhost callers without the Electron-granted 256-bit capability must
+    # never read profile files, even if they know the ephemeral TCP port.
+    $withoutHostGrant = Invoke-WebRequest -Uri ($baseUrl + "/__ordax/native/files?path=%2F") -Method GET -TimeoutSec 15 -SkipHttpErrorCheck
+    if ($withoutHostGrant.StatusCode -ne 401) {
+      throw "Unauthenticated local process could read private OrdaX files"
     }
-    $trashSnapshot = Invoke-RestMethod -Uri ($baseUrl + "/__ordax/native/trash") -Method GET -TimeoutSec 15
-    if ($null -eq $trashSnapshot -or "entries" -notin $trashSnapshot.PSObject.Properties.Name) {
-      throw "Installed Desktop does not supply durable OrdaX trash"
-    }
-    Write-Output "DESKTOP_FILE_SPACE_SMOKE=PASS"
+    Write-Output "DESKTOP_FILE_AUTHORIZATION_SMOKE=PASS"
     Write-Output "DESKTOP_NETWORK_STATUS_SMOKE=PASS"
     Write-Output ("STARTUP_DURATION_SECONDS=" + [Math]::Round(([DateTime]::UtcNow - $startupStarted).TotalSeconds, 1))
     Write-Output "STARTUP_SMOKE=PASS"
