@@ -1477,8 +1477,8 @@ export function mountSettingsOverviewControls(
 
   const changeOwnerRemotePermission = async (clientId, enabled) => {
     if (!remotePermissionsPort || remotePermissionsPending || destroyed) return;
-    // Enabling a whole-computer grant requires deliberate first-party choice;
-    // never auto-enable on account sign-in or mere discovery.
+    // Both grant escalation and complete revocation need an explicit first-
+    // party choice. Never infer either action from login or discoverability.
     {
       const confirmWindow = documentObject.defaultView;
       if (typeof confirmWindow?.confirm !== "function") {
