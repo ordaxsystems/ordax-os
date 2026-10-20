@@ -69,7 +69,7 @@ test('Native Internet session uses isolated Chromium views, actual tabs, and rej
   assert.equal(f.host.getSnapshot().activeTabId,'tab-1');
   assert.equal(View.all[0].options.webPreferences.sandbox,true);
   assert.equal(View.all[0].options.webPreferences.nodeIntegration,false);
-  assert.equal(View.all[0].popupHandler().action,'deny');
+  assert.equal(View.all[0].webContents.popupHandler().action,'deny');
   f.post({type:'viewport.set',viewport:{visible:true,x:24,y:50,width:800,height:450}});
   assert.deepEqual(View.all[0].bounds,{x:24,y:50,width:800,height:450});
   f.post({type:'tab.navigate',tabId:'tab-1',url:'file:///C:/secret.txt'});
