@@ -52,8 +52,16 @@ porcentagem suficientes; concluir a otimização é um gate pendente.
 **Owner/Dev** acompanha a `main` oficial e precisa oferecer staging,
 verificação, ativação transacional, health, rollback/pin e histórico, conforme
 `docs/DEV-USB-GIT.md` e `system/contracts/update-status.mjs`.
-O supervisor atual usa Git fast-forward sem a paridade de Pull atômico do
-USB. Portanto, não chamá-lo de `ordax-pull` completo.
+O executor Windows em `dev-update.cjs` **não altera a árvore ativa**:
+consulta `main` após abrir a interface, materializa uma candidata isolada,
+valida commit/origem/ancestralidade e compatibilidade, ativa no próximo
+início e conserva a anterior. Uma candidata sem recibo de saúde é revertida;
+o rollback Owner mantém pin até desfixação explícita. O supervisor do emulador
+não executa mais Git merge no aplicativo Desktop. O journal local guarda
+apenas o estado de transação, **não** define outra política, versão ou registro
+de componentes. Ainda falta comprovar Git `main` real no app instalado e
+publicar as observações no contrato público `ordax.update-status/1`.
+Não chamar isso de paridade completa do `ordax-pull` USB.
 
 **MVP/Stable** não pode depender de Git; precisa de distribuição assinada
 do aplicativo e componentes com release verificada, staging, health e
@@ -68,10 +76,10 @@ código. Artefatos e executores de instalação são específicos da plataforma.
 
 ```sh
 node --test tests/test_desktop_network_status.mjs
-node --test tools/windows-desktop/runtime.test.cjs tools/windows-desktop/checkout.test.cjs
+node --test tools/windows-desktop/runtime.test.cjs tools/windows-desktop/checkout.test.cjs tools/windows-desktop/dev-update.test.cjs
 ```
 
-A CI verifica Native boot do pacote e a nova porta de rede instalada.
+A CI verifica o processo Electron instalado, a Surface realmente montada, o runtime imutável e a porta de rede. O instalador alpha.6 passou esse gate: 83,4 s de instalação e 6,5 s de startup no runner Windows, sem promessa de tempo universal.
 Homologação exige, além disso, Conta, internet real, armazenamento, apps,
 Intelligence com inferência real, update Dev/MVP e rollback E2E no Windows
 instalado. O fato de o bootstrap/USB e Desktop consumirem código Git idêntico
