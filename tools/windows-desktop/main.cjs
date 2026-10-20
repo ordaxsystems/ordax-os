@@ -88,9 +88,10 @@ async function assertNativeShellMounted(browserWindow) {
   while(Date.now()<deadline && !browserWindow.isDestroyed()) {
     const result=await browserWindow.webContents.executeJavaScript(
       "({count:document.querySelector('#ordax-root')?.childElementCount||0,"+
-      "phase:document.querySelector('#ordax-boot-screen')?.dataset.state||'missing'})"
+      "phase:document.querySelector('#ordax-boot-screen')?.dataset.state||'missing',"+
+      "status:document.querySelector('[data-ordax-boot-status]')?.textContent?.slice(0,150)||''})"
     );
-    if(result.phase==='error')throw Error('Canonical Native composition reported boot error');
+    if(result.phase==='error')throw Error('Canonical Native composition boot failed: '+result.status);
     if(result.count>0 && result.phase==='ready') {
       const bridge=await browserWindow.webContents.executeJavaScript(
         "typeof window.ordaxDesktopBrowser?.postMessage === 'function'"
@@ -160,6 +161,14 @@ app.whenReady().then(async()=>{
     webPreferences:{nodeIntegration:false,contextIsolation:true,
       preload:join(__dirname,'browser-preload.cjs'),
       sandbox:true,webSecurity:true,allowRunningInsecureContent:false},
+  });
+  window.webContents.on('console-message',(_event,details)=>{
+    const message=typeof details==='object'?String(details.message||''):String(details||'');
+    if(/OrdaX native composition failed|Uncaught|TypeError|ReferenceError|failed/i.test(message))
+      log('renderer: '+message.slice(0,650));
+  });
+  window.webContents.on('render-process-gone',(_event,details)=>{
+    log('Renderer process gone: '+String(details?.reason||'unknown'));
   });
   menu(userData);
   browserHost=createDesktopBrowserHost({window,ipcMain,WebContentsView,session,dialog,log});
