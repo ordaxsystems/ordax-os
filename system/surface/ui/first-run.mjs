@@ -317,13 +317,13 @@ export function mountFirstRunExperience(
     body.append(heading(
       "Bem-vindo",
       "Bem-vindo ao OrdaX.",
-      "Inteligência, Spaces e um ambiente que acompanha você. Conheça seu OrdaX e prepare-se para começar.",
+      "Leve o OrdaX no pendrive, organize seus projetos em Spaces e use a Aura com o contexto permitido.",
     ));
     const grid = el(documentObject, "div", "ordax-first-run-features");
     [
       ["aura", "Intelligence no seu contexto", "Converse com a Aura e trabalhe com o contexto dos seus arquivos, projetos e Spaces, conforme os recursos e permissões disponíveis."],
       ["spaces", "Um Space para cada mundo", "Separe vida pessoal, projetos e negócios em ambientes com seus próprios aplicativos, ferramentas e contexto."],
-      ["globe", "Seu OrdaX vai com você", "Leve seu ambiente no USB e use a mesma conta no OrdaX Web. Os recursos locais e online acompanham as possibilidades de cada modo."],
+      ["globe", "Mesma conta, dois modos", "Use a mesma Conta OrdaX no USB e na Web. A sincronização de idioma, fuso horário e continuidade entre esses modos ainda está em integração."],
     ].forEach(([glyph, title, detail]) => {
       const item = el(documentObject, "article", "ordax-first-run-feature");
       const mark = el(documentObject, "span", "ordax-first-run-feature-icon");
@@ -742,7 +742,7 @@ export function mountFirstRunExperience(
     body.append(heading(
       "Tudo pronto",
       "Tudo pronto.",
-      "Confira as opções abaixo. Ao entrar, o OrdaX salva a conclusão desta configuração no pendrive.",
+      "Confira suas escolhas. Ao concluir, o OrdaX registra a configuração neste pendrive.",
     ));
     const summary = el(documentObject, "dl", "ordax-first-run-summary");
     const localeLabel = REGIONAL_LOCALE_OPTIONS.find((entry) => entry.value === draft.locale)?.label ?? draft.locale;
