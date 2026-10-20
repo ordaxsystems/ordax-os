@@ -8,7 +8,7 @@ import {
 const EVENT_NAME = "ordax-browser-host";
 
 export function createNativeBrowserDownload(windowRef = globalThis.window) {
-  const bridge = windowRef?.webkit?.messageHandlers?.ordaxBrowser;
+  const bridge = windowRef?.webkit?.messageHandlers?.ordaxBrowser\n    ?? windowRef?.ordaxDesktopBrowser;
   if (!bridge || typeof bridge.postMessage !== "function") return null;
   const listeners = new Set();
   let disposed = false;
