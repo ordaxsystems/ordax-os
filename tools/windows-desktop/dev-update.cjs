@@ -7,6 +7,7 @@ const { join, dirname } = require('node:path');
 const { mkdirSync, readFileSync, writeFileSync, renameSync, rmSync, lstatSync, existsSync, openSync, closeSync, fsyncSync } = require('node:fs');
 const { OFFICIAL_REMOTE } = require('./runtime.cjs');
 const { git, isTrusted, hasDesktopHostContract, dependencies } = require('./checkout.cjs');
+const { hasNativeBundle, buildNativeCandidate } = require('./native-build.cjs');
 
 const SHA_RE = /^[0-9a-f]{40}$/;
 const CHANNEL_SCHEMA = 'ordax.desktop-dev-update-state/1';
@@ -74,7 +75,7 @@ async function verifiedVersion(userData, sha, template) {
   if (!sha) return null;
   const path = versionRoot(userData, sha);
   if (!existsSync(path) || !lstatSync(path).isDirectory()) return null;
-  if (!await isTrusted(path) || !hasDesktopHostContract(path)) return null;
+  if (!await isTrusted(path) || !hasDesktopHostContract(path) || !hasNativeBundle(path)) return null;
   const head = await git(['-C',path,'rev-parse','HEAD'],path,10000);
   if (!head.ok || head.stdout !== sha) return null;
   const clean = await git(['-C',path,'status','--porcelain=v1','--untracked-files=all'],path,10000);
@@ -135,7 +136,7 @@ function unpin(userData) {
   return writeState(userData,{...state,pinnedSha:null});
 }
 
-async function stageMain({ userData, template, log = () => {}, remote = OFFICIAL_REMOTE, runGit = git }) {
+async function stageMain({ userData, template, log = () => {}, remote = OFFICIAL_REMOTE, runGit = git, buildCandidate = buildNativeCandidate }) {
   if (remote !== OFFICIAL_REMOTE) throw Error('Untrusted update source');
   const state = readState(userData);
   if (state.pinnedSha) return {status:'pinned',sha:state.pinnedSha};
@@ -159,7 +160,7 @@ async function stageMain({ userData, template, log = () => {}, remote = OFFICIAL
         '--single-branch','--no-tags','--branch','main',OFFICIAL_REMOTE,staging],userData,120000);
       if (!clone.ok) return {status:'unavailable'};
       const sparse = await runGit(['-C',staging,'sparse-checkout','set',
-        'system','tools/windows-emulator','tools/surface-web'],staging,60000);
+        'system','tools/windows-emulator','tools/surface-web','tools/windows-desktop'],staging,60000);
       if (!sparse.ok) return {status:'unavailable'};
       const head = await runGit(['-C',staging,'rev-parse','HEAD'],staging,10000);
       if (!head.ok || head.stdout !== remoteSha || !await isTrusted(staging) ||
@@ -171,6 +172,11 @@ async function stageMain({ userData, template, log = () => {}, remote = OFFICIAL
       }
       const target = versionRoot(userData,remoteSha);
       if (existsSync(target)) return {status:'conflict'};
+      // Never promote source-only updates: an installed Desktop must boot the
+      // bundle compiled from the identical staged SHA, not hundreds of modules
+      // transformed on the first user launch. The staging directory is unique.
+      await buildCandidate(staging,template,{log});
+      if (!hasNativeBundle(staging)) return {status:'incompatible'};
       renameSync(staging,target);
     } finally {
       // Delete ONLY the uniquely owned staging directory, never user/source.
