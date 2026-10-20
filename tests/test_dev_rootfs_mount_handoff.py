@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import os
+import shutil
 from pathlib import Path
 import subprocess
 import tempfile
@@ -97,6 +98,53 @@ class DevRootfsMountHandoffTests(unittest.TestCase):
         self.assertTrue(any(line.startswith("-o rbind /sys ") for line in records))
         self.assertFalse(any(" /dev " in line for line in records))
         self.assertFalse(any(" /run " in line for line in records))
+
+
+    def test_real_linux_recursive_bind_keeps_nested_tmpfs_when_privileged(self) -> None:
+        """Prove the actual kernel mount distinction in an isolated namespace.
+
+        A CI runner lacking CAP_SYS_ADMIN skips only this integration check.
+        No existing device, filesystem, USB partition or EFI variable is used.
+        """
+        if shutil.which("unshare") is None:
+            self.skipTest("mount namespaces unavailable on this runner")
+        with tempfile.TemporaryDirectory() as temp:
+            source = Path(temp) / "source"
+            ordinary = Path(temp) / "ordinary-bind"
+            recursive = Path(temp) / "recursive-bind"
+            for path in (source / "nested", ordinary, recursive):
+                path.mkdir(parents=True)
+
+            script = (
+                'set -eu\n'
+                '/bin/busybox mount -t tmpfs tmpfs "$SOURCE/nested"\n'
+                'printf "nested-proof\\n" > "$SOURCE/nested/proof"\n'
+                '/bin/busybox mount -o bind "$SOURCE" "$ORDINARY"\n'
+                '[ ! -e "$ORDINARY/nested/proof" ] || exit 95\n'
+                '/bin/busybox mount -o rbind "$SOURCE" "$RECURSIVE"\n'
+                '[ -f "$RECURSIVE/nested/proof" ] || exit 96\n'
+                '/bin/busybox grep -q nested-proof "$RECURSIVE/nested/proof"\n'
+            )
+            env = os.environ.copy()
+            env.update({
+                "SOURCE": str(source),
+                "ORDINARY": str(ordinary),
+                "RECURSIVE": str(recursive),
+            })
+            result = subprocess.run(
+                ["unshare", "-m", "--propagation", "private", "/bin/sh", "-c", script],
+                env=env,
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+            if result.returncode != 0 and (
+                "unshare failed: Operation not permitted" in result.stderr
+                or "unshare: unshare failed" in result.stderr
+                and "not permitted" in result.stderr.lower()
+            ):
+                self.skipTest("runner does not permit mount namespaces")
+            self.assertEqual(result.returncode, 0, result.stderr)
 
 
 if __name__ == "__main__":
