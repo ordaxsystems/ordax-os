@@ -7,5 +7,7 @@ CONFIG_STAT=y
 CONFIG_FEATURE_STAT_FORMAT=y
 CONFIG_TIMEOUT=y
 CONFIG_FLOCK=y
+# Required for recursive bind preservation during Owner Dev rootfs A/B pivot.
+CONFIG_FEATURE_MOUNT_FLAGS=y
 # iproute2 owns /sbin/ip: the BusyBox IP applet lacks address replace.
 # CONFIG_IP is not set
