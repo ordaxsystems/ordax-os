@@ -162,7 +162,11 @@ class ProductOwnerRemotePermissions:
                 "space_id": None, "project_id": None, "valid_until": None,
             })
         if not enabled:
-            for group in existing:
+            # Global per-client OFF means no residual device *or* project
+            # grants for this client and this device, not merely no full profile.
+            for group in before["grant_groups"]:
+                if group["client_id"] != client_id:
+                    continue
                 self._call(
                     "DELETE",
                     "/v3/owner/remote-grant-groups/"
@@ -177,8 +181,9 @@ class ProductOwnerRemotePermissions:
             and group["scope_kind"] == "device"
             and group["client_consent_active"] for group in after["grant_groups"]
         )
-        if active is not enabled:
-            # Verify postcondition so a pending/rejected mutation never
-            # looks like success in the Settings switch.
+        remaining = any(group["client_id"] == client_id for group in after["grant_groups"])
+        if (enabled and not active) or (not enabled and remaining):
+            # Verify the exact postcondition. Disabling all access cannot
+            # silently leave a different active grant profile behind.
             raise OwnerRemotePermissionError("remote-permission-not-confirmed", 409)
         return after

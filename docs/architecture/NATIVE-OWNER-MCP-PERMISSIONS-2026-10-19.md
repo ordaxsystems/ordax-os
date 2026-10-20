@@ -16,7 +16,8 @@ invent a second MCP server.
    Native-only proxy. UI gets only client names/IDs and group summaries.
 4. A deliberate "Autorizar controle integral" action uses
    `POST /v3/owner/remote-grant-groups` for the consented client and enrolled
-   device. The reverse switch revokes the exact owned group(s) using
+   device. The explicit "Revoke all MCP access" action revokes every active group belonging
+   to this client and device using
    `DELETE /v3/owner/remote-grant-groups/{group_id}?client_id=...`.
    Every request remains subject to canonical owner, device and OAuth checks.
 5. A grant never removes the Runtime's own local controls or makes unsupported
@@ -29,9 +30,12 @@ invent a second MCP server.
   Stable/MVP enrollment policy intentionally remains inactive until the signed
   Native executor and build-specific security gates are proven.
 - The discovery toggle is separate from an action grant.
-- Only the canonical `full-computer-control` profile is toggled here. Other
-  capability grants are untouched; disabling this profile must **not** be
-  presented as revoking all other possible delegated permissions.
+- The "Authorize full control" action creates only the canonical
+  `full-computer-control` profile for a consented client.
+  "Revoke all MCP access" deletes **every active MCP grant group** for that
+  client and enrolled device (including project-scoped groups). It then
+  re-reads the PostgreSQL authority and fails closed if any group remains.
+  This is deliberately different from disabling mere discoverability.
 - Missing account, invalid device credential, unreachable Platform or rejected
   grant fails closed; never show a synthetic success.
 - Browser receives no access token or device credential. Native Host enforces

@@ -720,31 +720,40 @@ export function mountSettingsOverviewControls(
       section.append(node(documentObject, "p", "ordax-settings-section-copy", t("settings.ownerMcp.noClients")));
     } else {
       for (const client of remotePermissionsSnapshot.clients) {
-        const enabled = remotePermissionsSnapshot.grant_groups.some(group =>
-          group.client_id === client.client_id
-          && group.profile_key === "full-computer-control"
-          && group.scope_kind === "device"
-          && group.client_consent_active
+        const groups = remotePermissionsSnapshot.grant_groups.filter(group =>
+          group.client_id === client.client_id && group.client_consent_active
         );
+        const hasFullAccess = groups.some(group =>
+          group.profile_key === "full-computer-control" && group.scope_kind === "device"
+        );
+        const hasOtherAccess = groups.length > 0;
         const row = node(documentObject, "div", "ordax-settings-section");
         row.dataset.settingsOwnerMcpClient = client.client_id;
         row.append(
           node(documentObject, "strong", "", client.client_name),
           node(documentObject, "p", "ordax-settings-section-copy", t(
-            enabled ? "settings.ownerMcp.enabled" : "settings.ownerMcp.disabled"
+            hasFullAccess ? "settings.ownerMcp.enabled" :
+            hasOtherAccess ? "settings.ownerMcp.partial" : "settings.ownerMcp.disabled"
           )),
         );
-        const button = node(documentObject, "button", "ordax-settings-action", t(
-          remotePermissionsPending ? "settings.ownerMcp.pending"
-          : enabled ? "settings.ownerMcp.disable" : "settings.ownerMcp.enable"
-        ));
-        button.type = "button";
-        button.dataset.settingsOwnerMcpToggle = client.client_id;
-        button.dataset.settingsOwnerMcpEnabled = String(enabled);
-        button.disabled = remotePermissionsPending;
-        button.setAttribute("role", "switch");
-        button.setAttribute("aria-checked", String(enabled));
-        row.append(button);
+        if (!hasFullAccess) {
+          const grant = node(documentObject, "button", "ordax-settings-action", t(
+            remotePermissionsPending ? "settings.ownerMcp.pending" : "settings.ownerMcp.enable"
+          ));
+          grant.type = "button";
+          grant.dataset.settingsOwnerMcpToggle = client.client_id;
+          grant.disabled = remotePermissionsPending;
+          row.append(grant);
+        }
+        if (hasOtherAccess) {
+          const revoke = node(documentObject, "button", "ordax-settings-action", t(
+            remotePermissionsPending ? "settings.ownerMcp.pending" : "settings.ownerMcp.revokeAll"
+          ));
+          revoke.type = "button";
+          revoke.dataset.settingsOwnerMcpRevoke = client.client_id;
+          revoke.disabled = remotePermissionsPending;
+          row.append(revoke);
+        }
         section.append(row);
       }
       if (remotePermissionsError) section.append(
@@ -1470,7 +1479,7 @@ export function mountSettingsOverviewControls(
     if (!remotePermissionsPort || remotePermissionsPending || destroyed) return;
     // Enabling a whole-computer grant requires deliberate first-party choice;
     // never auto-enable on account sign-in or mere discovery.
-    if (enabled) {
+    {
       const confirmWindow = documentObject.defaultView;
       if (typeof confirmWindow?.confirm !== "function") {
         remotePermissionsError = true;
@@ -1478,7 +1487,8 @@ export function mountSettingsOverviewControls(
         return; // Missing trusted confirmation must never enable full access.
       }
       try {
-        if (confirmWindow.confirm(t("settings.ownerMcp.confirm")) !== true) return;
+        const promptKey = enabled ? "settings.ownerMcp.confirm" : "settings.ownerMcp.confirmRevokeAll";
+        if (confirmWindow.confirm(t(promptKey)) !== true) return;
       } catch {
         remotePermissionsError = true;
         replaceView();
@@ -1674,10 +1684,14 @@ export function mountSettingsOverviewControls(
       void refreshOwnerRemotePermissions();
       return;
     }
+    const remoteRevoke = event.target.closest("[data-settings-owner-mcp-revoke]");
+    if (remoteRevoke && root.contains(remoteRevoke)) {
+      void changeOwnerRemotePermission(remoteRevoke.dataset.settingsOwnerMcpRevoke, false);
+      return;
+    }
     const remoteToggle = event.target.closest("[data-settings-owner-mcp-toggle]");
     if (remoteToggle && root.contains(remoteToggle)) {
-      void changeOwnerRemotePermission(remoteToggle.dataset.settingsOwnerMcpToggle,
-        remoteToggle.dataset.settingsOwnerMcpEnabled !== "true");
+      void changeOwnerRemotePermission(remoteToggle.dataset.settingsOwnerMcpToggle, true);
       return;
     }
     const connectorRefresh = event.target.closest("[data-settings-connector-refresh]");

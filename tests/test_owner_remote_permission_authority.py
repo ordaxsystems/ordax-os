@@ -109,6 +109,44 @@ class AuthorityTests(unittest.TestCase):
             authority.configure(CLIENT, False)
         self.assertEqual([call[0] for call in opener.calls], ["GET"])
 
+    def test_revoke_all_covers_other_profiles_and_project_scopes(self):
+        class MultiGrantOpener(Opener):
+            def __init__(self):
+                super().__init__()
+                self.groups = {
+                    GROUP: ("full-computer-control", "device"),
+                    "15d11a83-c9e8-4624-827d-5a33c324fab6": ("computer-observe", "device"),
+                    "aa888ce5-f6a1-4ec9-bf17-7c4d6d249e13": ("project-native-process", "project"),
+                }
+            def open(self, request, timeout):
+                method = request.get_method()
+                self.calls.append((method, request.full_url, None))
+                if method == "DELETE":
+                    key = request.full_url.split("/v3/owner/remote-grant-groups/", 1)[1].split("?", 1)[0]
+                    self.groups.pop(key, None)
+                    payload = {"ok": True}
+                else:
+                    payload = {"ok": True, "device_id": DEVICE,
+                               "clients": [{"client_id": CLIENT, "client_name": "ChatGPT"}],
+                               "grant_groups": [
+                                   {"grant_group_id": key, "client_id": CLIENT,
+                                    "profile_key": profile, "scope_kind": scope,
+                                    "client_consent_active": True, "device_id": DEVICE}
+                                   for key, (profile, scope) in self.groups.items()
+                               ]}
+                class Reply:
+                    status = 200
+                    def __enter__(self): return self
+                    def __exit__(self, *args): pass
+                    def read(self, n): return json.dumps(payload).encode()
+                return Reply()
+        opener = MultiGrantOpener()
+        authority = ProductOwnerRemotePermissions(
+            "https://mcp.ordax.com.br", Gateway(), Identity(), opener=opener)
+        self.assertFalse(authority.configure(CLIENT, False)["grant_groups"])
+        self.assertEqual(len([m for m in opener.calls if m[0] == "DELETE"]), 3)
+        self.assertFalse(opener.groups)
+
     def test_invalid_client_cannot_mutate(self):
         with self.assertRaises(OwnerRemotePermissionError):
             self.authority.configure("chatgpt", True)
