@@ -147,6 +147,15 @@
   .ordax-notification-center .ordax-notification-action { min-height: 44px; }
   .ordax-notification-center .ordax-notification-summary { display: grid; }
 }
+/* On narrow screens the notification overlay must not inherit the desktop
+   sidebar offset: it otherwise shrinks below the panel's content width. */
+@media (max-width: 600px) {
+  .ordax-quick-panel-notifications {
+    inset-inline-start: 12px;
+    width: calc(100dvw - 24px);
+  }
+}
+
 @media (max-height: 540px) {
   .ordax-quick-panel-notifications { overflow: auto; height: auto; }
   .ordax-notification-scroll { max-height: 28dvh; }
