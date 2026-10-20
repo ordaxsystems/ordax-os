@@ -101,7 +101,8 @@ export function nativeEmulatorPlugin(stateDirectory, { desktopHost = false } = {
         // Logical "/" is a private, persistent Windows user-data file-space,
         // not the host drive root. This precedes the emulator 503 fallback.
         server.middlewares.use(createDesktopFileSpaceMiddleware(
-          join(process.env.ORDAX_DESKTOP_UPDATE_USER_DATA,"Files")
+          join(process.env.ORDAX_DESKTOP_UPDATE_USER_DATA,"Files"),
+          {token:process.env.ORDAX_DESKTOP_FILE_TOKEN}
         ));
       }
       if (desktopHost) {
