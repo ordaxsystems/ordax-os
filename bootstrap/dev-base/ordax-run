@@ -160,7 +160,7 @@ publish_owner_maintenance_receipt() {
     destination=$STATE_DIR/maintenance
     bb mkdir -p "$destination" || return 0
     bb chmod 700 "$destination" || return 0
-    temporary=$destination/.last-status.$
+    temporary=$destination/.last-status.$$
     if /bin/sh "$helper" status >"$temporary" 2>&1; then
         printf 'boot_check=passed\n' >>"$temporary"
     else
