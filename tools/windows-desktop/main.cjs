@@ -1,12 +1,12 @@
 'use strict';
 // Installable Windows host: the UI and Git Pull remain owned by OrdaX OS.
-const { app, BrowserWindow, Menu, shell } = require('electron');
+const { app, BrowserWindow, Menu, shell, dialog } = require('electron');
 const { join } = require('node:path');
 const { mkdirSync, createWriteStream, existsSync } = require('node:fs');
 const { resolveTemplate, runtimeStateDirectory } = require('./runtime.cjs');
-const { selectRuntime } = require('./checkout.cjs');
+const { chooseBootVersion, confirmHealthy, rejectCandidate, stageMain, readState, pinPrevious, unpin } = require('./dev-update.cjs');
 const { startHost, stopHost } = require('./host.cjs');
-let window=null, runtime=null, stream=null;
+let window=null, runtime=null, stream=null, updateTimer=null, staging=false;
 const PRODUCT='/system/composition/native/index.html';
 app.setName('OrdaX OS Desktop Dev');
 if (process.platform==='win32') app.setAppUserModelId('dev.ordax.os.desktop');
@@ -46,6 +46,26 @@ function menu(userData) {
     {label:'OrdaX',submenu:[
       {label:'Recarregar interface',accelerator:'Ctrl+R',click:()=>window?.webContents.reload()},
       {label:'Abrir logs',click:()=>shell.openPath(join(userData,'desktop.log'))},
+      ...(app.isPackaged ? [
+        {type:'separator'},
+        {label:'Verificar atualizações Dev',click:()=>void stageInBackground(userData,resolveTemplate(__dirname,process.resourcesPath,true))},
+        {label:'Reverter para versão anterior Dev',click:async()=>{
+          try {
+            const state=readState(userData);
+            if(!state.previousSha){ dialog.showMessageBoxSync(window,{type:'info',message:'Nenhuma versão Dev anterior verificada está disponível.'});return; }
+            const reply=await dialog.showMessageBox(window,{type:'warning',buttons:['Cancelar','Reverter e reiniciar'],
+              defaultId:0,cancelId:0,message:'Reverter o OrdaX Desktop Dev?',
+              detail:'A versão anterior será fixada. Atualizações automáticas permanecerão suspensas até reativadas.'});
+            if(reply.response!==1)return;
+            pinPrevious(userData);
+            app.relaunch();app.quit();
+          }catch(error){log('Rollback rejected: '+error.message);}
+        }},
+        {label:'Retomar atualizações Dev',click:()=>{
+          try {unpin(userData);void stageInBackground(userData,resolveTemplate(__dirname,process.resourcesPath,true));}
+          catch(error){log('Update unpin failed: '+error.message);}
+        }},
+      ] : []),
       {type:'separator'},{role:'quit',label:'Sair'},
     ]},
     {label:'Desenvolvimento',submenu:[
@@ -54,7 +74,19 @@ function menu(userData) {
     ]},
   ]));
 }
+async function stageInBackground(userData,template) {
+  if(staging || !app.isPackaged) return;
+  staging=true;
+  try {
+    const result=await stageMain({userData,template,log});
+    if(result.status==='staged') log('Desktop Dev update prepared for the next application start: '+result.sha);
+    else if(!['current','pending','pinned','rejected'].includes(result.status))
+      log('Desktop Dev update check: '+result.status);
+  }catch(error){log('Desktop Dev update check blocked: '+error.message);}
+  finally{staging=false;}
+}
 app.on('before-quit',()=>{
+  if(updateTimer){clearInterval(updateTimer);updateTimer=null;}
   if(runtime?.child){stopHost(runtime.child);runtime=null;}
   stream?.end();stream=null;
 });
@@ -76,12 +108,42 @@ app.whenReady().then(async()=>{
     const template=resolveTemplate(__dirname,process.resourcesPath,app.isPackaged);
     if(!existsSync(join(template,'tools','windows-emulator','dev-supervisor.mjs')))
       throw Error('Canonical OrdaX runtime snapshot missing');
-    const root=await selectRuntime({isPackaged:app.isPackaged,userData,template,log});
-    log(root===template?'Bundled OrdaX Surface':'Git-managed OrdaX Surface');
-    runtime=await startHost({root,stateDirectory:runtimeStateDirectory(userData),log});
-    navigationPolicy(runtime.url);
-    await window.loadURL(runtime.url+PRODUCT);
-    log('Native Surface ready: '+runtime.url);
+    // Packaged startup never waits for Git/network or mutates a running checkout.
+    // A staged source gets one trial; a missing health receipt rolls it back.
+    const selected=app.isPackaged
+      ? await chooseBootVersion({userData,template,log})
+      : {root:template,sha:null,trial:false};
+    let root=selected.root;
+    try {
+      log(root===template?'Bundled OrdaX Surface':'Verified Git-managed OrdaX Surface');
+      runtime=await startHost({root,stateDirectory:runtimeStateDirectory(userData),log});
+      navigationPolicy(runtime.url);
+      await window.loadURL(runtime.url+PRODUCT);
+      log('Native Surface ready: '+runtime.url);
+      if(selected.trial) {
+        confirmHealthy(userData,selected.sha);
+        log('Desktop Dev candidate committed healthy: '+selected.sha);
+      }
+    } catch(error) {
+      if(!selected.trial)throw error;
+      log('Desktop Dev candidate health failed; reverting to known-good: '+error.message);
+      rejectCandidate(userData,selected.sha);
+      if(runtime?.child)stopHost(runtime.child);
+      runtime=null;
+      const fallback=await chooseBootVersion({userData,template,log});
+      root=fallback.root;
+      runtime=await startHost({root,stateDirectory:runtimeStateDirectory(userData),log});
+      navigationPolicy(runtime.url);
+      await window.loadURL(runtime.url+PRODUCT);
+      log('Native Surface ready after rollback: '+runtime.url);
+    }
+    if(app.isPackaged) {
+      // Safe background discovery, never a startup dependency or live-tree merge.
+      setTimeout(()=>{void stageInBackground(userData,template);},5000);
+      updateTimer=setInterval(()=>{void stageInBackground(userData,template);},10*60*1000);
+      updateTimer.unref?.();
+    }
+
   }catch(error){
     log('Startup failed: '+error.message);
     status('Falha ao iniciar: '+error.message+'. Verifique os logs no menu OrdaX.');
