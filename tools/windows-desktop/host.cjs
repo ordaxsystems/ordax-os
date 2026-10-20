@@ -16,7 +16,7 @@ function freePort() {
 function isReady(port) {
   return new Promise(resolve => {
     const request=http.get({
-      hostname:'127.0.0.1',port,path:'/tools/windows-emulator/index.html',timeout:1200,
+      hostname:'127.0.0.1',port,path:'/system/composition/native/index.html',timeout:1200,
     },r=>{r.resume();resolve(r.statusCode===200);});
     request.on('timeout',()=>request.destroy());
     request.on('error',()=>resolve(false));
