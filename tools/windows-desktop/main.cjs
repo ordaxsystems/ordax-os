@@ -3,6 +3,7 @@
 const { app, BrowserWindow, WebContentsView, ipcMain, session, Menu, shell, dialog } = require('electron');
 const { createDesktopBrowserHost } = require('./browser-host.cjs');
 const { join } = require('node:path');
+const { randomBytes } = require('node:crypto');
 const { mkdirSync, createWriteStream, existsSync } = require('node:fs');
 const { resolveTemplate, runtimeStateDirectory } = require('./runtime.cjs');
 const { chooseBootVersion, confirmHealthy, rejectCandidate, stageMain, readState, pinPrevious, unpin } = require('./dev-update.cjs');
@@ -99,6 +100,46 @@ function nativeBuiltAssetsFor(root, template) {
     return null;
   }
   return built;
+}
+const FILE_ROUTES=new Set([
+  '/__ordax/native/files','/__ordax/native/trash',
+  '/__ordax/native/file-content','/__ordax/native/file-import',
+  '/__ordax/native/file-export','/__ordax/native/image-preview',
+  '/__ordax/native/media-preview','/__ordax/native/document-preview',
+]);
+function authorizeDesktopFileRequests(browserWindow,base,fileToken) {
+  const permittedOrigin=new URL(base).origin;
+  // The secret never enters the renderer or a browser cookie. Only requests
+  // from this trusted Surface's WebContents receive it; external Chromium
+  // tabs never inherit the native file capability.
+  browserWindow.webContents.session.webRequest.onBeforeSendHeaders(
+    {urls:[permittedOrigin+'/__ordax/native/*']},
+    (details,callback)=>{
+      let allowed=false;
+      try {
+        const target=new URL(details.url);
+        allowed=details.webContentsId===browserWindow.webContents.id &&
+          target.origin===permittedOrigin && FILE_ROUTES.has(target.pathname);
+      } catch {}
+      callback({requestHeaders:allowed
+        ? {...details.requestHeaders,'X-OrdaX-File-Token':fileToken}
+        : details.requestHeaders});
+    }
+  );
+}
+async function assertDesktopFileSpaceSmoke(browserWindow) {
+  if(process.env.ORDAX_DESKTOP_FILE_SMOKE!=='1')return;
+  const result=await browserWindow.webContents.executeJavaScript(
+    "(async()=>{const paths=['/__ordax/native/files?path=%2F','/__ordax/native/trash'];"+
+    "return Promise.all(paths.map(async p=>{const r=await fetch(p,{credentials:'same-origin',cache:'no-store'});"+
+    "if(!r.ok)return {status:r.status};const data=await r.json();"+
+    "return {status:r.status,entries:Array.isArray(data.entries),path:data.path??null};}));})()"
+  );
+  if(result.length!==2 || !result.every(x=>x.status===200 && x.entries) ||
+     result[0].path!=='/') {
+    throw Error('Canonical Windows Files were not accessible through Electron Surface');
+  }
+  log('DESKTOP_FILE_SPACE_SMOKE=PASS');
 }
 async function assertNativeShellMounted(browserWindow) {
   const started=Date.now(),deadline=started+90000;
@@ -209,6 +250,7 @@ app.whenReady().then(async()=>{
   window.webContents.on('page-title-updated',event=>{event.preventDefault();window?.setTitle('OrdaX OS Desktop Dev');});
   status('Iniciando a Surface Native compartilhada...');
   try{
+    const fileToken=randomBytes(32).toString('hex');
     const template=resolveTemplate(__dirname,process.resourcesPath,app.isPackaged);
     if(!existsSync(join(template,'tools','windows-emulator','dev-supervisor.mjs')))
       throw Error('Canonical OrdaX runtime snapshot missing');
@@ -220,11 +262,13 @@ app.whenReady().then(async()=>{
     let root=selected.root;
     try {
       log(root===template?'Bundled OrdaX Surface':'Verified Git-managed OrdaX Surface');
-      runtime=await startHost({root,stateDirectory:runtimeStateDirectory(userData),userData,log,
+      runtime=await startHost({root,stateDirectory:runtimeStateDirectory(userData),userData,log,fileToken,
          builtAssetsRoot:nativeBuiltAssetsFor(root,template)});
+      authorizeDesktopFileRequests(window,runtime.url,fileToken);
       await window.loadURL(runtime.url+PRODUCT);
       await assertNativeShellMounted(window);
       await assertDesktopInternetSmoke(window,browserHost);
+      await assertDesktopFileSpaceSmoke(window);
       log('Native shell mounted and ready: '+runtime.url);
       log('Native Surface ready: '+runtime.url);
       if(selected.trial) {
@@ -239,11 +283,13 @@ app.whenReady().then(async()=>{
       runtime=null;
       const fallback=await chooseBootVersion({userData,template,log});
       root=fallback.root;
-      runtime=await startHost({root,stateDirectory:runtimeStateDirectory(userData),userData,log,
+      runtime=await startHost({root,stateDirectory:runtimeStateDirectory(userData),userData,log,fileToken,
          builtAssetsRoot:nativeBuiltAssetsFor(root,template)});
+      authorizeDesktopFileRequests(window,runtime.url,fileToken);
       await window.loadURL(runtime.url+PRODUCT);
       await assertNativeShellMounted(window);
       await assertDesktopInternetSmoke(window,browserHost);
+      await assertDesktopFileSpaceSmoke(window);
       log('Native shell mounted and ready after rollback: '+runtime.url);
       log('Native Surface ready after rollback: '+runtime.url);
     }
