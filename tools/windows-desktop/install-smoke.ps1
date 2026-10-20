@@ -43,7 +43,7 @@ try {
   # The installer is not homologated until its actual packaged Electron host
   # boots the canonical Native Surface from the installed, read-only runtime.
   # A source-tree Vite test cannot catch attempts to write inside Program Files.
-  $logFile = Join-Path $env:APPDATA "OrdaX OS Desktop Dev\\desktop.log"
+  $logFile = Join-Path $env:APPDATA "OrdaX OS Desktop Dev\desktop.log"
   $priorLog = if (Test-Path -LiteralPath $logFile) {
     Get-Content -LiteralPath $logFile -Raw -ErrorAction SilentlyContinue
   } else { "" }
@@ -59,7 +59,7 @@ try {
         $allLog = Get-Content -LiteralPath $logFile -Raw -ErrorAction SilentlyContinue
         if ($allLog -and $allLog.Length -ge $priorLog.Length) {
           $newLog = $allLog.Substring($priorLog.Length)
-          if ($newLog -match "Native Surface ready: http://127\\.0\\.0\\.1:\\d+") {
+          if ($newLog -match "Native Surface ready: http://127\.0\.0\.1:\d+") {
             $ready = $true
             break
           }
