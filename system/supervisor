@@ -560,7 +560,7 @@ apply_remote_checkout() {
             "$PULL_BIN" >>"$UPDATE_LOG" 2>&1; then
         pull_phase=$(read_state_value "$PULL_RESULT_FILE")
         case "$pull_phase" in
-            preflight|remote-discovery|remote-fetch|candidate-objects|isolated-checkout|remote-clone|atomic-switch|candidate-validation|state-commit|helper-refresh)
+            preflight|remote-discovery|remote-discovery-dns|remote-discovery-tls|remote-discovery-timeout|remote-discovery-connectivity|remote-discovery-auth|remote-fetch|candidate-objects|isolated-checkout|remote-clone|atomic-switch|candidate-validation|state-commit|helper-refresh)
                 CHECKOUT_ERROR="pull-$pull_phase-failed"
                 ;;
             *)
