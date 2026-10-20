@@ -142,6 +142,7 @@ function createDesktopBrowserHost({window, ipcMain, WebContentsView, session, di
     try {command=JSON.parse(raw);}catch{return;}
     if(!command||typeof command!=='object'||Array.isArray(command))return;
     const {type,tabId}=command;
+    if(typeof type!=='string')return;
     if(type==='snapshot.request'){publish();return;}
     if(type==='viewport.set'){viewport=viewportBounds(command.viewport,window);layout();return;}
     if(type==='tab.open'){open(tabId,command.url??'');return;}
