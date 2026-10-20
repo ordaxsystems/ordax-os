@@ -49,6 +49,35 @@ case "$CMDLINE" in
     *" ordax.distribution_profile=owner-development "*) OWNER_DEVELOPMENT=1 ;;
 esac
 
+# Owner/Development boot must expose the real UEFI variable filesystem for the
+# Base updater's *evidence-only* preflight. The kernel's sysfs mount does not
+# automatically guarantee a separate efivarfs mount. This function neither
+# reads nor writes EFI variables and must never authorize activation.
+prepare_owner_efivarfs_mount() {
+    [ "$OWNER_DEVELOPMENT" -eq 1 ] || return 0
+    [ -d /sys/firmware/efi ] && [ ! -L /sys/firmware/efi ] || return 0
+    efivarfs_root=/sys/firmware/efi/efivars
+    if [ -L "$efivarfs_root" ]; then
+        echo "ordax-initramfs: UEFI efivars path is a symlink; Base activation remains blocked" >&2
+        return 0
+    fi
+    if [ ! -d "$efivarfs_root" ]; then
+        if ! mkdir "$efivarfs_root"; then
+            echo "ordax-initramfs: UEFI efivars directory unavailable; Base activation remains blocked" >&2
+            return 0
+        fi
+    fi
+    # Never overmount an occupied path. The canonical runtime preflight
+    # rejects wrong filesystem, duplicate mounts and read-only mounts.
+    if awk '$5 == "/sys/firmware/efi/efivars" {found=1} END {exit !found}' /proc/self/mountinfo; then
+        return 0
+    fi
+    if ! mount -t efivarfs -o rw,nosuid,nodev,noexec efivarfs "$efivarfs_root"; then
+        echo "ordax-initramfs: direct efivarfs mount unavailable; Base activation remains blocked" >&2
+    fi
+}
+prepare_owner_efivarfs_mount
+
 discover_owner_development_device() {
     ORDAX_DEVICE=""
     ORDAX_DEVICE_MATCHES=0
