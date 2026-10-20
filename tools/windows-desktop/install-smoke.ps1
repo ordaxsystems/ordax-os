@@ -39,6 +39,52 @@ try {
   }
   Write-Output "INSTALL_SMOKE=PASS"
   Write-Output ("INSTALLED_DESKTOP_EXE=" + $installedExe)
+
+  # The installer is not homologated until its actual packaged Electron host
+  # boots the canonical Native Surface from the installed, read-only runtime.
+  # A source-tree Vite test cannot catch attempts to write inside Program Files.
+  $logFile = Join-Path $env:APPDATA "OrdaX OS Desktop Dev\\desktop.log"
+  $priorLog = if (Test-Path -LiteralPath $logFile) {
+    Get-Content -LiteralPath $logFile -Raw -ErrorAction SilentlyContinue
+  } else { "" }
+  if ($null -eq $priorLog) { $priorLog = "" }
+  Write-Output "STARTUP_SMOKE_STARTED"
+  $appProc = Start-Process -FilePath $installedExe -WorkingDirectory $dest -PassThru
+  try {
+    $startupDeadline = [DateTime]::UtcNow.AddSeconds(180)
+    $ready = $false
+    while ([DateTime]::UtcNow -lt $startupDeadline) {
+      $appProc.Refresh()
+      if (Test-Path -LiteralPath $logFile) {
+        $allLog = Get-Content -LiteralPath $logFile -Raw -ErrorAction SilentlyContinue
+        if ($allLog -and $allLog.Length -ge $priorLog.Length) {
+          $newLog = $allLog.Substring($priorLog.Length)
+          if ($newLog -match "Native Surface ready: http://127\\.0\\.0\\.1:\\d+") {
+            $ready = $true
+            break
+          }
+          if ($newLog -match "Startup failed:") {
+            throw ("Installed Native host failed: " + (($newLog -split "`n") | Select-Object -Last 8 | Out-String))
+          }
+        }
+      }
+      if ($appProc.HasExited) {
+        throw ("Installed Electron host exited before Native startup (code " + $appProc.ExitCode + ")")
+      }
+      Start-Sleep -Seconds 1
+    }
+    if (-not $ready) {
+      throw ("Installed Native Surface did not become ready within 180 seconds. Log: " +
+        (Get-Content -LiteralPath $logFile -Tail 25 -ErrorAction SilentlyContinue | Out-String))
+    }
+    Write-Output "STARTUP_SMOKE=PASS"
+  }
+  finally {
+    $appProc.Refresh()
+    if (-not $appProc.HasExited) {
+      & taskkill.exe /PID $appProc.Id /T /F 2>$null | Out-Null
+    }
+  }
 }
 finally {
   if ($proc -and -not $proc.HasExited) {
