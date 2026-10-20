@@ -743,18 +743,27 @@ fi
 PULL_PHASE=remote-discovery
 remote_sha=""
 SUPERVISOR_VERIFIED_CACHE=0
-if [ -n "$EXPECTED_SHA" ] && checkout_metadata_valid "$WORKTREE"; then
-    # The cached handoff is valid only for a pending forward transition.
-    # A repeated explicit check for an already running SHA must still
-    # observe remote movement (no stale replay of a completed delivery).
-    cached_current=$(git -C "$WORKTREE" rev-parse HEAD 2>/dev/null || true)
-    cached_main=$(git -C "$WORKTREE" rev-parse "refs/remotes/origin/$BRANCH" 2>/dev/null || true)
-    if [ "$cached_current" != "$EXPECTED_SHA" ] &&
-       [ "$cached_main" = "$EXPECTED_SHA" ] &&
-       run_bounded_git -C "$WORKTREE" cat-file -e "$EXPECTED_SHA^{commit}" >/dev/null 2>&1; then
-        remote_sha=$EXPECTED_SHA
-        SUPERVISOR_VERIFIED_CACHE=1
-        echo "ordax-git: usando candidato ja adquirido e fixado pelo Supervisor"
+if [ -n "$EXPECTED_SHA" ]; then
+    # The Supervisor has already discovered/fetched this exact remote ref.
+    # Keep the strict proof of its local cache, but make every rejected
+    # handoff diagnosable without a duplicate HTTP probe or secret-bearing
+    # remote stderr. The fallback below may perform remote discovery.
+    if ! checkout_metadata_valid "$WORKTREE"; then
+        echo "ordax-git: Supervisor cache unavailable (checkout-metadata-invalid)" >&2
+    else
+        cached_current=$(git -C "$WORKTREE" rev-parse HEAD 2>/dev/null || true)
+        cached_main=$(git -C "$WORKTREE" rev-parse "refs/remotes/origin/$BRANCH" 2>/dev/null || true)
+        if [ "$cached_current" = "$EXPECTED_SHA" ]; then
+            echo "ordax-git: Supervisor cache unavailable (candidate-already-active)" >&2
+        elif [ "$cached_main" != "$EXPECTED_SHA" ]; then
+            echo "ordax-git: Supervisor cache unavailable (tracking-ref-mismatch)" >&2
+        elif ! run_bounded_git -C "$WORKTREE" cat-file -e "$EXPECTED_SHA^{commit}" >/dev/null 2>&1; then
+            echo "ordax-git: Supervisor cache unavailable (candidate-object-missing)" >&2
+        else
+            remote_sha=$EXPECTED_SHA
+            SUPERVISOR_VERIFIED_CACHE=1
+            echo "ordax-git: usando candidato ja adquirido e fixado pelo Supervisor"
+        fi
     fi
 fi
 if [ -z "$remote_sha" ]; then
