@@ -76,7 +76,7 @@ código. Artefatos e executores de instalação são específicos da plataforma.
 
 ```sh
 node --test tests/test_desktop_network_status.mjs
-node --test tools/windows-desktop/runtime.test.cjs tools/windows-desktop/checkout.test.cjs tools/windows-desktop/dev-update.test.cjs
+node --test tools/windows-desktop/runtime.test.cjs tools/windows-desktop/checkout.test.cjs tools/windows-desktop/dev-update.test.cjs tools/windows-desktop/dev-update.test.cjs
 ```
 
 A CI verifica o processo Electron instalado, a Surface realmente montada, o runtime imutável e a porta de rede. O instalador alpha.6 passou esse gate: 83,4 s de instalação e 6,5 s de startup no runner Windows, sem promessa de tempo universal.
@@ -87,3 +87,7 @@ não prova atualizações equivalentes.
 
 **Não mesclar/promover até esses gates; nunca sobrescrever o USB por
 atualização do app Windows.**
+
+### Alpha.6 — evidência
+
+CI Windows [#39446071435](https://github.com/ordaxsystems/ordax-os/actions/runs/39446071435) passou NSIS, read-only, rede Desktop e Native montada. Instalação 83,4 s e startup 6,5 s no runner. A porcentagem do instalador e o canal MVP assinado continuam pendentes. O materializador Git só ficará operacional contra `main` após o contrato Desktop ser integrado à fonte oficial, sem promover a PR inacabada.
