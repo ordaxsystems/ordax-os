@@ -27,7 +27,7 @@ jobs:
       - name: Test Native host and desktop contracts
         run: |
           node --test tests/test_windows_emulator_native_host.mjs
-          node --test tools/windows-desktop/runtime.test.cjs
+          node --test tools/windows-desktop/runtime.test.cjs tools/windows-desktop/checkout.test.cjs
       - name: Install desktop shell toolchain
         working-directory: tools/windows-desktop
         run: npm ci --no-audit --no-fund
