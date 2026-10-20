@@ -67,7 +67,12 @@ async function existing(root,path) {
   const filename=await inside(root,path);
   // No reparse-point traversal beyond the bounded logical directory.
   const actual=await realpath(filename);
-  if(actual!==root && !actual.startsWith(root+sep))reject(403,"Escaped file root");
+  // Temp and user-profile ancestors may be Windows junctions. Compare two
+  // canonical physical paths, never a canonical target to a lexical alias.
+  // Internal symlink/reparse points remain rejected by inside().
+  const canonicalRoot=await realpath(root);
+  if(actual!==canonicalRoot && !actual.startsWith(canonicalRoot+sep))
+    reject(403,"Escaped file root");
   return filename;
 }
 async function listing(root,logical) {
