@@ -39,10 +39,12 @@ class OwnerSurfaceHealthBudgetTests(unittest.TestCase):
         supervisor = SUPERVISOR.read_text(encoding="utf-8")
         surface = SURFACE.read_text(encoding="utf-8")
         self.assertIn("OWNER_PROVISION_TIMEOUT=${ORDAX_OWNER_SURFACE_PROVISION_TIMEOUT_SECONDS:-660}", supervisor)
-        self.assertIn('[ "$marker_source" = "$expected_sha" ]', supervisor)
-        self.assertIn('provisioning_elapsed=$((provisioning_elapsed + 1))', supervisor)
-        self.assertIn('[ "$provisioning_elapsed" -gt "$OWNER_PROVISION_TIMEOUT" ]', supervisor)
-        self.assertIn('normal_elapsed=0', supervisor)
+        # First-boot budgets now use one monotonic Supervisor event loop.
+        self.assertIn('[ "$marker_source" = "$initial_sha" ]', supervisor)
+        self.assertIn('OWNER_INITIAL_PROVISION_SINCE=$owner_now', supervisor)
+        self.assertIn('[ $((owner_now - OWNER_INITIAL_PROVISION_SINCE)) -gt "$OWNER_PROVISION_TIMEOUT" ]', supervisor)
+        self.assertIn('OWNER_INITIAL_NORMAL_SINCE=$owner_now', supervisor)
+        self.assertIn('owner_monotonic_seconds()', supervisor)
         for state in ("starting", "provisioning", "waiting-health", "healthy", "failed"):
             self.assertIn(f"write_surface_health_state {state}", supervisor)
         marker_write = surface.index("printf '%s\\n' \"$SOURCE_SHA\" >\"$RUNTIME_PROVISIONING_FILE\"")
