@@ -144,7 +144,12 @@ class NativeNetworkManagementTests(unittest.TestCase):
         startup = broker.split('exec 9<>"$CONTROL"', 1)[1].split("while :; do", 1)[0]
         self.assertIn('if [ -s "$WPA_CONF" ] && [ ! -L "$WPA_CONF" ]; then', startup)
         self.assertIn("boot_wifi=$(find_wifi_interface || true)", startup)
+        self.assertIn('have_ipv4 "$boot_wifi"', startup)
+        self.assertIn('grep -q \'^Connected to \'', startup)
+        self.assertIn("existing Base Wi-Fi adopted on boot", startup)
+        self.assertIn("sync_runtime_resolver", startup)
         self.assertIn('restore_saved_network "$boot_wifi"', startup)
+        self.assertLess(startup.index('have_ipv4 "$boot_wifi"'), startup.index('restore_saved_network "$boot_wifi"'))
         self.assertIn("profile preserved", startup)
         self.assertNotIn("wpa_supplicant -B", startup)
         self.assertNotIn("udhcpc ", startup)
