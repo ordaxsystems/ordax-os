@@ -116,6 +116,35 @@ class OwnerUsbMaintenanceTests(unittest.TestCase):
         self.assertEqual(marker.read_text(), self.sha)
         self.assertIn("helper.mismatch=usr/local/bin/ordax-pull", delegated.stdout)
 
+    def test_owner_boot_publishes_private_health_receipt_without_network(self) -> None:
+        launcher = (ROOT / "bootstrap/dev-base/ordax-run").read_text()
+        name = "publish_owner_maintenance_receipt() {"
+        self.assertEqual(launcher.count(name), 1)
+        function = name + launcher.split(name, 1)[1].split("\n}\n", 1)[0] + "\n}\n"
+        self.assertLess(launcher.index("publish_owner_maintenance_receipt\n"),
+                        launcher.index("start_guardian_tail\n"))
+        helper = self.root / "health-helper"
+        helper.write_text("#!/bin/sh\nprintf 'schema=ordax.owner-maintenance/1\\nmaintenance.result=healthy\\n'\n")
+        function = function.replace("helper=/usr/local/bin/ordax-maintain",
+                                    "helper=" + str(helper))
+        program = (
+            "set -eu\n"
+            "STATE_DIR=" + str(self.state) + "\n"
+            "bb() { /bin/busybox \"$@\"; }\n"
+            + function
+            + "publish_owner_maintenance_receipt\n"
+        )
+        completed = subprocess.run(
+            ["/bin/sh", "-c", program], capture_output=True, text=True, timeout=10,
+        )
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        receipt = self.state / "maintenance/last-status"
+        self.assertTrue(receipt.is_file())
+        self.assertEqual(receipt.stat().st_mode & 0o777, 0o600)
+        self.assertEqual(receipt.parent.stat().st_mode & 0o777, 0o700)
+        self.assertIn("boot_check=passed", receipt.read_text())
+        self.assertFalse(list(receipt.parent.glob(".last-status.*")))
+
     def test_manifest_delivers_maintenance_via_same_helper_activation(self) -> None:
         self.assertIn(
             "bootstrap/dev-base/ordax-maintain\tusr/local/bin/ordax-maintain",
