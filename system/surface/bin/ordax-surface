@@ -856,49 +856,9 @@ ensure_loopback() {
 }
 
 sync_runtime_resolver() {
-    host_resolver=/etc/resolv.conf
-    runtime_resolver=$RUNTIME_ROOT/etc/resolv.conf
-    [ -r "$host_resolver" ] || {
-        echo "ordax-surface: host resolver is unavailable: $host_resolver" >>"$HOST_LOG"
-        return 1
-    }
-
-    mkdir -p "$RUNTIME_ROOT/etc" || return 1
-    temporary=$RUNTIME_ROOT/etc/.resolv.conf.ordax.$
-    rm -f "$temporary" >/dev/null 2>&1 || true
-
-    if ! /bin/busybox cat "$host_resolver" >"$temporary"; then
-        rm -f "$temporary" >/dev/null 2>&1 || true
-        echo "ordax-surface: failed to snapshot host resolver" >>"$HOST_LOG"
-        return 1
-    fi
-
-    resolver_size=$(/bin/busybox stat -c %s "$temporary" 2>/dev/null || printf '0')
-    case "$resolver_size" in
-        ''|*[!0-9]*) resolver_size=0 ;;
-    esac
-    if [ "$resolver_size" -le 0 ] 2>/dev/null || [ "$resolver_size" -gt 16384 ] 2>/dev/null; then
-        rm -f "$temporary" >/dev/null 2>&1 || true
-        echo "ordax-surface: host resolver size is outside the allowed range" >>"$HOST_LOG"
-        return 1
-    fi
-
-    if ! /bin/busybox grep -Eq '^[[:space:]]*nameserver[[:space:]]+[^[:space:]#]+' "$temporary"; then
-        rm -f "$temporary" >/dev/null 2>&1 || true
-        echo "ordax-surface: host resolver has no usable nameserver" >>"$HOST_LOG"
-        return 1
-    fi
-
-    chmod 644 "$temporary" || {
-        rm -f "$temporary" >/dev/null 2>&1 || true
-        return 1
-    }
-    /bin/busybox mv -f "$temporary" "$runtime_resolver" || {
-        rm -f "$temporary" >/dev/null 2>&1 || true
-        return 1
-    }
-    echo "ordax-surface: synchronized host resolver into graphical runtime" >>"$HOST_LOG"
-    return 0
+    resolver_sync=$SYSTEM_ROOT/surface/runtime/resolver_sync.sh
+    [ -f "$resolver_sync" ] && [ ! -L "$resolver_sync" ] || return 1
+    /bin/sh "$resolver_sync" "$RUNTIME_ROOT" "$HOST_LOG"
 }
 
 ensure_shared_memory() {
@@ -1098,6 +1058,9 @@ start_network_broker() {
     rm -f "$NETWORK_CONTROL" "$NETWORK_REQUEST" "$NETWORK_RESPONSE" "$NETWORK_SCAN_RAW" "$NETWORK_LINK_RAW" "$NETWORK_SAVED_SSID" >/dev/null 2>&1 || true
     ORDAX_NETWORK_STATE_DIR=${ORDAX_NETWORK_STATE_DIR:-/state/network} \
     ORDAX_NETWORK_SESSION_DIR="$SESSION_DIR" \
+    ORDAX_RUNTIME_RESOLVER_SYNC_SCRIPT="$SYSTEM_ROOT/surface/runtime/resolver_sync.sh" \
+    ORDAX_RUNTIME_RESOLVER_ROOT="$RUNTIME_ROOT" \
+    ORDAX_RUNTIME_RESOLVER_LOG="$NETWORK_LOG" \
         /bin/sh "$NETWORK_BROKER_SOURCE" >>"$NETWORK_LOG" 2>&1 &
     NETWORK_BROKER_PID=$!
 
