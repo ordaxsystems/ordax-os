@@ -106,18 +106,19 @@ class ProductOwnerRemotePermissions:
             raise OwnerRemotePermissionError("remote-authority-device-mismatch")
         clients = result.get("clients")
         groups = result.get("grant_groups")
-        if not isinstance(clients, list) or not isinstance(groups, list):
+        if (not isinstance(clients, list) or not isinstance(groups, list)
+                or len(clients) > 100 or len(groups) > 300):
             raise OwnerRemotePermissionError("remote-authority-invalid-response")
         # No raw OAuth tokens, contact details or mutable client input reach Surface JS.
         clean_clients = []
-        for client in clients[:100]:
+        for client in clients:
             if isinstance(client, dict) and isinstance(client.get("client_id"), str) and UUID.fullmatch(client["client_id"]):
                 clean_clients.append({
                     "client_id": client["client_id"],
                     "client_name": str(client.get("client_name") or "ChatGPT / MCP")[:120],
                 })
         clean_groups = []
-        for group in groups[:300]:
+        for group in groups:
             if not isinstance(group, dict):
                 continue
             group_id, client_id = group.get("grant_group_id"), group.get("client_id")
@@ -169,4 +170,15 @@ class ProductOwnerRemotePermissions:
                     + "?client_id=" + quote(client_id, safe=""),
                     token,
                 )
-        return self.read()
+        after = self.read()
+        active = any(
+            group["client_id"] == client_id
+            and group["profile_key"] == PROFILE
+            and group["scope_kind"] == "device"
+            and group["client_consent_active"] for group in after["grant_groups"]
+        )
+        if active is not enabled:
+            # Verify postcondition so a pending/rejected mutation never
+            # looks like success in the Settings switch.
+            raise OwnerRemotePermissionError("remote-permission-not-confirmed", 409)
+        return after
