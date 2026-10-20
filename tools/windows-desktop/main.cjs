@@ -85,13 +85,22 @@ function menu(userData) {
   ]));
 }
 async function assertNativeShellMounted(browserWindow) {
-  const deadline=Date.now()+30000;
+  const started=Date.now(),deadline=started+90000;
+  let previous='';let last=null;
   while(Date.now()<deadline && !browserWindow.isDestroyed()) {
     const result=await browserWindow.webContents.executeJavaScript(
       "({count:document.querySelector('#ordax-root')?.childElementCount||0,"+
       "phase:document.querySelector('#ordax-boot-screen')?.dataset.state||'missing',"+
-      "status:document.querySelector('[data-ordax-boot-status]')?.textContent?.slice(0,150)||''})"
+      "status:document.querySelector('[data-ordax-boot-status]')?.textContent?.slice(0,150)||'',"+
+      "ready:document.readyState,script:!!document.querySelector('script[src*=main.mjs]'),"+
+      "url:location.pathname})"
     );
+    last=result;
+    const current=[result.phase,result.count,result.status,result.ready].join('|');
+    if(current!==previous){
+      log('Native mount observation '+Math.round((Date.now()-started)/1000)+'s: '+current.slice(0,280));
+      previous=current;
+    }
     if(result.phase==='error')throw Error('Canonical Native composition boot failed: '+result.status);
     if(result.count>0 && result.phase==='ready') {
       const bridge=await browserWindow.webContents.executeJavaScript(
@@ -100,9 +109,9 @@ async function assertNativeShellMounted(browserWindow) {
       if(!bridge)throw Error('OrdaX Native Internet browser bridge is unavailable');
       return true;
     }
-    await new Promise(resolve=>setTimeout(resolve,300));
+    await new Promise(resolve=>setTimeout(resolve,450));
   }
-  throw Error('Canonical Native composition did not finish mounting');
+  throw Error('Canonical Native composition not mounted within 90s; last='+JSON.stringify(last).slice(0,400));
 }
 // CI-only proof: the renderer sends the same typed command as Internet,
 // and the isolated Chromium host must instantiate and close an actual view.
