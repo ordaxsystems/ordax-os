@@ -29,6 +29,7 @@ jobs:
           node --test tests/test_desktop_network_status.mjs
           node --test tests/test_desktop_system_metrics.mjs
           node --test tests/test_desktop_power_status.mjs
+          node --test tests/test_desktop_file_space.mjs
           node --test tests/test_desktop_update_status.mjs
           node --test tests/test_desktop_recovery_status.mjs
           node --test tests/test_desktop_recovery_surface.mjs
