@@ -174,13 +174,3 @@
   .meridian-workspace .ordax-product-sidebar :is(.ordax-space-switcher-trigger,.meridian-rail-space) { justify-content:center; padding-inline:0; border-color:transparent; }
   .meridian-workspace .ordax-product-sidebar :is(.ordax-space-switcher-trigger-label,.meridian-rail-space > span:nth-child(2),.ordax-space-switcher-chevron,.meridian-rail-space > svg) { display:none!important; }
 }
-@media(max-width:1150px) and (min-width:951px) {
-  .window-workspace.meridian-workspace .ordax-product-sidebar { padding-inline:.75rem; }
-}
-@media(max-width:950px) and (min-width:601px) {
-  .window-workspace.meridian-workspace .ordax-product-sidebar { padding:1.5rem .625rem 1rem; }
-  .window-workspace.meridian-workspace .ordax-product-sidebar :is(.ordax-sidebar-toggle,.sidebar-collapse) { display:none; }
-}
-@media(max-width:600px) {
-  .window-workspace.meridian-workspace .ordax-product-sidebar { display:none!important; }
-}
