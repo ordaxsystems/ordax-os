@@ -67,6 +67,32 @@ record_boot_handoff() {
 }
 
 # Wi-Fi kernel modules are needed by First Run, not an early DHCP/Git session.
+# The minimal development Base has no systemd-efi-boot generator. Before
+# handing /sys to the Git-owned runtime, establish the standard efivarfs mount
+# exactly once on a real UEFI boot. The base-update owner independently checks
+# the mount and its writability; this step never authorizes or writes EFI vars.
+ensure_uefi_efivarfs() {
+    efi_root=/sys/firmware/efi
+    efivars=$efi_root/efivars
+
+    # BIOS/non-UEFI boot must remain bootable for diagnostics/recovery.
+    [ -d "$efi_root" ] || return 0
+    if [ -L "$efi_root" ] || [ ! -d "$efivars" ] || [ -L "$efivars" ]; then
+        printf 'OrdaX: UEFI efivarfs path unavailable or unsafe; Base activation stays blocked.\\n' >&2
+        return 0
+    fi
+
+    # Never mount over an existing filesystem, including unexpected mounts:
+    # the strict efivarfs preflight rejects those independently.
+    if /bin/busybox awk '$2 == "/sys/firmware/efi/efivars" { present=1 } END { exit !present }' /proc/mounts; then
+        return 0
+    fi
+    if ! /bin/busybox mount -t efivarfs efivarfs "$efivars"; then
+        printf 'OrdaX: cannot mount UEFI efivarfs; Base activation stays blocked.\\n' >&2
+    fi
+    return 0
+}
+
 initialize_network_hardware() {
     if ! "$BIN_DIR/ordax-network" --init-hardware >/dev/null 2>&1; then
         printf 'OrdaX: Wi-Fi hardware init failed; local Surface can still start.\n' >&2
@@ -265,6 +291,7 @@ select_development_rootfs() {
 
 mkdir -p "$WORKSPACE_DIR" "$STATE_DIR" "$NETWORK_STATE_DIR" /home /run /tmp /root
 chmod 1777 /tmp 2>/dev/null || true
+ensure_uefi_efivarfs
 select_development_rootfs
 
 printf '\033[2J\033[H'
