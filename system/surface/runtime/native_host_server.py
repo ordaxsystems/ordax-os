@@ -4591,7 +4591,7 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
                 self._empty(403)
                 return
             body = self._read_json_body(MAX_CONTROL_BODY)
-            if body is None or set(body) != {"action"} or body.get("action") != "check-main":
+            if not isinstance(body, dict) or set(body) != {"action"} or body.get("action") != "check-main":
                 self._empty(400)
                 return
             try:
