@@ -98,3 +98,53 @@ remover sua UI, duplicar sua implementação ou afirmar que o OS está completo.
 - Não usar `npm run emulator:windows` como substituto de teste de pacote
   instalado. A versão alpha.2 provou boot HTTP e pacote, mas não essa matriz.
 - Relatar commits, CI, hashes, passos E2E e **gaps remanescentes** por recurso.
+
+## Continuação implementada — 20/10/2026, Desktop Dev alpha.5/alpha.6
+
+A implementação Windows **não** pode reaproveitar o antigo `git merge
+--ff-only` na árvore em execução. O caminho real desta PR agora usa
+`tools/windows-desktop/dev-update.cjs` como executor **Windows** da política
+Owner Dev, sem criar outro OrdaX e sem tratar esse journal como uma nova
+versão de produto.
+
+- Durante o boot, nenhuma aquisição Git é iniciada: abre-se imediatamente
+  a última árvore válida ou o snapshot offline. As operações remotas são
+  adiadas até depois da montagem da Surface.
+- Candidatas são obtidas exclusivamente de `ordaxsystems/ordax-os` `main`,
+  com Git partial+sparse e histórico suficiente para verificar fast-forward.
+  O material é escrito em `runtime-versions/<SHA>`, jamais sobre os
+  arquivos ativos; não há `reset --hard` nem substituição de pastas
+  existentes do usuário.
+- Journal **técnico local** `desktop-dev-update-state.json` registra
+  `activeSha`, `previousSha`, `pendingSha`, `attemptedSha`,
+  `pinnedSha` e `rejectedSha`, sem assumir autoridade de Entrega, SemVer,
+  produto ou release; a projeção pública deve permanecer o contrato
+  `ordax.update-status/1`, cuja ponte Windows ainda falta.
+- Uma tentativa sem recibo de saúde é rejeitada no próximo boot e a
+  árvore anterior é preservada. Rollback manual exige versão anterior
+  verificada e mantém pin; desfixação é explícita.
+- O Electron agora fixa seu `userData` em
+  `%APPDATA%\\OrdaX OS Desktop Dev` **antes** do lock de instância única,
+  para não criar perfis conflitantes ao atualizar o próprio shell.
+- O Supervisor do emulador mantém seu fluxo de desenvolvimento separado;
+  no Desktop instalado, ele não faz `merge` na árvore ativa.
+- O teste de instalação agora verifica **montagem visível** da Surface
+  (`#ordax-root` preenchido e boot `ready`), em vez de se contentar
+  com HTTP 200.
+
+**Evidência:** no DESKTOP-COHT67R, bateria isolada passou 13/13
+testes Node/Git, repetida via OrdaX MCP com retorno zero. CI alpha.5
+[#39444466912](https://github.com/ordaxsystems/ordax-os/actions/runs/39444466912):
+build e `INSTALL_SMOKE=PASS` em 94 s, mas
+`STARTUP_SMOKE` **falhou** por ausência do recibo esperado dentro de
+180 s. O log canônico não apareceu no caminho monitorado, portanto a
+causa foi tratada como não comprovada, não como simples lentidão da UI.
+A correção do diretório estável e o timeout precoce estão na alpha.6;
+CI [#39446071435](https://github.com/ordaxsystems/ordax-os/actions/runs/39446071435)
+em execução no momento deste registro.
+
+**Ainda pendente:** staging contra `main` real e ativação de candidata
+no executável instalado (após contrato v1 estar na main), renderer E2E
+Windows, redução da demora de instalação e porcentagem verdadeira,
+Conta/Apps/Intelligence local e distribuição **MVP assinada sem Git**.
+Nenhuma release Stable foi autorizada, nenhuma alteração USB foi feita.
