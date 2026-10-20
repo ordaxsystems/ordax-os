@@ -22,7 +22,7 @@ class DevUefiMountOwnerTest(unittest.TestCase):
         subprocess.run(["/bin/sh", "-n", str(DEV_INIT)], check=True)
 
     def _exercise(
-        self, *, uefi: bool, mount_entry: str | None = None,
+        self, *, uefi: bool, mounted_fs: str | None = None,
         mount_fails: bool = False, symlinked_efivars: bool = False,
     ) -> tuple[subprocess.CompletedProcess[str], str, str]:
         with tempfile.TemporaryDirectory() as temporary:
@@ -38,7 +38,7 @@ class DevUefiMountOwnerTest(unittest.TestCase):
                 else:
                     efivars.mkdir()
             mounts = root / "mounts"
-            mounts.write_text(mount_entry or "", encoding="utf-8")
+            mounts.write_text(\n                f"{mounted_fs} {efivars} {mounted_fs} rw 0 0\\n" if mounted_fs else "",\n                encoding="utf-8",\n            )
             marker = root / "mount-invocations"
 
             source = DEV_INIT.read_text(encoding="utf-8")
@@ -74,11 +74,11 @@ class DevUefiMountOwnerTest(unittest.TestCase):
     def test_existing_efivarfs_or_other_mount_is_not_overmounted(self) -> None:
         for filesystem in ("efivarfs", "tmpfs"):
             with self.subTest(filesystem=filesystem):
-                with tempfile.TemporaryDirectory() as base:
-                    # mountpoint is substituted to the test root after
-                    # extraction; using a generic record with a distinct
-                    # mountpoint does not trigger the occupied guard.
-                    pass
+                result, recorded, _ = self._exercise(
+                    uefi=True, mounted_fs=filesystem
+                )
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(recorded, "")
         # The shell's awk check must be sensitive to the exact target.
         source = DEV_INIT.read_text(encoding="utf-8")
         self.assertIn('$2 == "/sys/firmware/efi/efivars"', source)
