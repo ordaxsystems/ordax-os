@@ -283,6 +283,36 @@ stop_agent() {
     echo "ordax-remote: recovery agent stopped"
 }
 
+AUTO_START_FILE=$STATE_ROOT/auto-start-enabled
+
+enable_auto_start() {
+    load_pin
+    pairing_ready || fail "authenticated device pairing is required before enabling automatic recovery"
+    ensure_dir "$STATE_ROOT"
+    if [ -e "$AUTO_START_FILE" ] || [ -L "$AUTO_START_FILE" ]; then
+        [ -f "$AUTO_START_FILE" ] && [ ! -L "$AUTO_START_FILE" ] || fail "unsafe auto-start state"
+    fi
+    temporary=$AUTO_START_FILE.tmp.$
+    printf '%s\n' enabled >"$temporary" || fail "cannot stage auto-start consent"
+    bb chmod 600 "$temporary" || fail "cannot secure auto-start consent"
+    bb mv -f "$temporary" "$AUTO_START_FILE" || fail "cannot persist auto-start consent"
+    echo "ordax-remote: paired Owner device opted in to non-boot-critical automatic start"
+}
+
+disable_auto_start() {
+    [ ! -L "$AUTO_START_FILE" ] || fail "unsafe auto-start state"
+    bb rm -f "$AUTO_START_FILE" || fail "cannot disable automatic start"
+    stop_agent
+    echo "ordax-remote: automatic start disabled"
+}
+
+auto_start_ready() {
+    [ -f "$AUTO_START_FILE" ] && [ ! -L "$AUTO_START_FILE" ] || return 1
+    [ "$(bb stat -c '%a' "$AUTO_START_FILE" 2>/dev/null || true)" = 600 ] || return 1
+    content=$(bb sed -n '1p' "$AUTO_START_FILE" 2>/dev/null || true)
+    [ "$content" = enabled ] && pairing_ready
+}
+
 status_agent() {
     load_pin
     installed=no
@@ -291,6 +321,9 @@ status_agent() {
     installed_valid && installed=yes || true
     pairing_ready && paired=yes || true
     agent_running && running=yes || true
+    automatic=no
+    auto_start_ready && automatic=yes || true
+    printf 'ORDAX_OWNER_REMOTE_AUTO_START=%s\n' "$automatic"
     printf 'ORDAX_OWNER_REMOTE_PROFILE=%s\n' "$PIN_PROFILE"
     printf 'ORDAX_OWNER_REMOTE_SOURCE_SHA=%s\n' "$PIN_SOURCE_SHA"
     printf 'ORDAX_OWNER_REMOTE_ARTIFACT_SHA256=%s\n' "$PIN_SHA256"
@@ -319,8 +352,10 @@ case "${1:-status}" in
     start) start_agent ;;
     stop) stop_agent ;;
     ensure) ensure_agent ;;
+    enable-auto) enable_auto_start ;;
+    disable-auto) disable_auto_start ;;
     *)
-        echo "usage: ordax-remote {status|verify-contract|install|start|stop|ensure}" >&2
+        echo "usage: ordax-remote {status|verify-contract|install|start|stop|ensure|enable-auto|disable-auto}" >&2
         exit 2
         ;;
 esac
