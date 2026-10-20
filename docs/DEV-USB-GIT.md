@@ -376,6 +376,8 @@ USB safety gates or treat the historical partial APK output as proof of success.
 
 Normal unpinned boot prefers Ethernet/USB tether because no credentials are required. If neither is available and a supported Wi-Fi interface is detected, the development base asks for SSID/password and stores its WPA configuration under `/state/network/`.
 
+On subsequent boots, the single Native network broker restores a previously saved WPA profile automatically, reusing its existing WPA association, DHCP and runtime DNS synchronization steps. Failure preserves `wpa.conf` for explicit reconnect instead of creating a second network owner or requiring the password again.
+
 Pinned rollback boot deliberately does not require network access: if the pin is internally consistent, the known local runtime is started without an automatic pull.
 
 The current kernel already carries the wireless stack and selected module families. Hardware outside those selected drivers may still need a future base/kernel update. Until then, Ethernet or USB tether remains the deterministic fallback.
@@ -421,6 +423,23 @@ inicial, mantemos a politica canonica de uma tentativa de reinicio da Surface,
 rollback do candidato de boot quando possivel e recuperacao local.
 
 ### Contrato de entrega
+
+**Transacao supervisionada:** o Supervisor valida a main por `ls-remote`, faz
+`fetch` da ref exata e valida o candidato antes de entregar `ORDAX_EXPECTED_SHA`
+ao unico executante atomico `ordax-pull`. Com esse SHA, o Pull **nao**
+repete `ls-remote` nem baixa outra main: confere a identidade do checkout,
+`refs/remotes/origin/main == ORDAX_EXPECTED_SHA` e a existencia local do
+objeto commit. Falha nessa passagem e `pull-handoff-validation-failed`, nao
+`network-error`. Somente o Pull manual independente, sem SHA previamente
+verificado, faz sua propria descoberta remota. Nunca se usa fallback de rede
+para encobrir uma entrega local invalida.
+
+**Teste de regressao:** `tests/test_dev_pull_expected_sha.py` fecha o
+remoto descartavel apos o fetch e exige aplicacao atomica offline; verifica
+tambem referencia divergente e ausencia de fetch. `test_dev_git_flow.py`
+exercita o fluxo completo, falhas, rollback e a convivencia com o watcher.
+Logs de `/run` sao volateis: diagnósticos persistentes devem conservar a
+fase de falha sem guardar credenciais e sem promover sucesso por clique.
 
 - `git push` para `main` nao altera instantaneamente o pendrive: o Supervisor
   precisa estar rodando e online, conferir o commit, buscar os objetos e validar
