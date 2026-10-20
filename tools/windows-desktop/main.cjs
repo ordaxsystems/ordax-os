@@ -117,7 +117,6 @@ app.whenReady().then(async()=>{
     try {
       log(root===template?'Bundled OrdaX Surface':'Verified Git-managed OrdaX Surface');
       runtime=await startHost({root,stateDirectory:runtimeStateDirectory(userData),log});
-      navigationPolicy(runtime.url);
       await window.loadURL(runtime.url+PRODUCT);
       log('Native Surface ready: '+runtime.url);
       if(selected.trial) {
@@ -133,10 +132,10 @@ app.whenReady().then(async()=>{
       const fallback=await chooseBootVersion({userData,template,log});
       root=fallback.root;
       runtime=await startHost({root,stateDirectory:runtimeStateDirectory(userData),log});
-      navigationPolicy(runtime.url);
       await window.loadURL(runtime.url+PRODUCT);
       log('Native Surface ready after rollback: '+runtime.url);
     }
+    navigationPolicy(runtime.url);
     if(app.isPackaged) {
       // Safe background discovery, never a startup dependency or live-tree merge.
       setTimeout(()=>{void stageInBackground(userData,template);},5000);
