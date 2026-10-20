@@ -85,7 +85,7 @@ class SurfaceBootScreenTests(unittest.TestCase):
         self.assertIn(".ordax-boot-spinner", css)
         self.assertIn("prefers-reduced-motion", css)
 
-    def test_native_acknowledges_health_early_but_reveals_after_first_run_stage(self):
+    def test_native_reveals_verified_shell_before_optional_store_loading(self):
         source = NATIVE_MAIN.read_text(encoding="utf-8")
         self.assertIn("createSurfaceBootScreen", source)
         self.assertIn('"surface.boot.loadingSurface"', source)
@@ -103,10 +103,16 @@ class SurfaceBootScreenTests(unittest.TestCase):
         )
         first_run_mount = source.index("mountFirstRunExperience(root")
 
-        self.assertLess(ready, healthy)
+        # Once the shared Surface is mounted, the visual boot gate must not
+        # wait on optional Store or separately installed app runtimes.
+        self.assertLess(ready, first_run_stage)
+        self.assertLess(first_run_stage, healthy)
         self.assertLess(healthy, store)
-        self.assertLess(store, first_run_stage)
-        self.assertLess(first_run_stage, first_run_mount)
+        self.assertLess(store, first_run_mount)
+        self.assertEqual(
+            source.count('bootScreen.setStage(surface.localization.translate("surface.boot.preparingFirstRun"))'),
+            1,
+        )
 
     def test_web_finishes_boot_after_workspace_mount_and_uses_shared_failure_copy(self):
         source = WEB_MAIN.read_text(encoding="utf-8")
