@@ -30,3 +30,11 @@ test('installed Electron opens canonical Native composition without iframe', () 
   assert.ok(main.includes("const PRODUCT='/system/composition/native/index.html'"));
   assert.ok(host.includes("path:'/system/composition/native/index.html'"));
 });
+
+test('Electron locks the canonical user profile before requesting a single instance', () => {
+  const main = readFileSync(join(__dirname,'main.cjs'),'utf8');
+  const name = main.indexOf("app.setName('OrdaX OS Desktop Dev')");
+  const path = main.indexOf("app.setPath('userData',desktopUserData)");
+  const lock = main.indexOf('app.requestSingleInstanceLock()');
+  assert.ok(name >= 0 && name < path && path < lock);
+});
