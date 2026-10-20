@@ -767,7 +767,7 @@ if [ -n "$EXPECTED_SHA" ]; then
     fi
 fi
 if [ -z "$remote_sha" ]; then
-    remote_stderr=$RUN_DIR/.pull-remote-discovery.$.stderr
+    remote_stderr=$RUN_DIR/.pull-remote-discovery.$$.stderr
     if remote_sha=$(umask 077; remote_main_sha "$remote_stderr"); then
         :
     else
