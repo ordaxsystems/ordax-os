@@ -388,3 +388,52 @@ partial+sparse clone
 ```
 
 This is repository/CI evidence only. Real notebook boot/network behavior remains a separate physical gate.
+
+## Owner/Development: first-boot Git polling sem depender do render (20/10/2026)
+
+No USB Dev, `main` e a fonte de verdade do checkout **sparse** em
+`/workspace/ordax`. O `system/supervisor` e o unico proprietario da
+verificacao automatica e da ativacao em runtime; o `bootstrap/dev-base/ordax-pull`
+e o proprietario da transacao Git atomica e da instalacao dos helpers de Base.
+O `ordax-main-watch` e um fallback de recuperacao quando o Supervisor esta
+realmente inativo, nao um segundo mecanismo de aplicacao simultanea.
+
+A tela do primeiro uso precisa iniciar **offline**. Antes do recibo duravel
+`/state/ordax/native-state/first-run.json` com `completed=true`, o Supervisor
+nao consulta Git. Depois desse recibo, a descoberta de `origin/main` e
+independente da conclusao do primeiro render grafico: o laço de polling continua
+publicando seu estado, mesmo durante provisionamento ou espera de saude.
+Porem **descoberta nao e ativacao**: nenhum candidato e aplicado enquanto a
+Surface inicial nao comprovar o SHA local saudavel. O watchdog do Guardian
+continua recebendo heartbeat; as janelas de provisionamento e de saude sao
+limitadas por relogio monotônico, sem dependencia de NTP. Em caso de falha
+inicial, mantemos a politica canonica de uma tentativa de reinicio da Surface,
+rollback do candidato de boot quando possivel e recuperacao local.
+
+### Contrato de entrega
+
+- `git push` para `main` nao altera instantaneamente o pendrive: o Supervisor
+  precisa estar rodando e online, conferir o commit, buscar os objetos e validar
+  a Surface. O intervalo padrao de descoberta do perfil Dev e cinco segundos;
+  transferencias, validacoes e reinicios da interface levam tempo adicional.
+- Alteracoes no codigo da Surface, Native Host, modulos e configuracoes versionadas
+  chegam pelo checkout Git e recarga/reinicio seletivo do runtime; um USB
+  previamente instalado **nao** e modificado apenas porque a PR foi integrada.
+- Kernel, initramfs, particao de boot, drivers e bootloader nao podem ser
+  substituidos por `git pull` direto: pertencem a Base e aos seus gates A/B,
+  de integridade e rollback, inclusive no perfil Dev.
+- Em `apply_remote_checkout`, o Supervisor nao reinstala os helpers apos o
+  `ordax-pull`. Este ultimo e a unica autoridade de materializacao e de recibo
+  de helpers por SHA; o Supervisor pode reconciliar um recibo pendente em outro
+  ciclo, sem instalacao duplicada na mesma transacao.
+
+### Prova e limite
+
+A imagem QEMU observada anteriormente continha primeiro uso completo, mas
+`supervisor-boot-witness.json` parado em `initialized`: nao havia prova de
+entrada em `poll-loop-entered`. Este reparo corrige a dependencia estrutural
+que impedia o primeiro polling durante a validacao inicial.
+**Testes de contrato isolados e verificacoes de shell nao equivalem a prova de
+Pull no pendrive fisico**: ainda exigimos artefato Creator exato, QEMU UEFI/NAT,
+recibo `git-remote-completed`, aplicacao de commit controlado, teste de
+rejeicao/rollback e novo boot antes de promover a correcao.
