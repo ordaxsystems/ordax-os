@@ -203,3 +203,53 @@ Classificação:
 O desacoplamento será considerado **comprovado** quando: (a) contratos e owners reais explicarem a dependência Linux; (b) atualizações independentes de Surface e Base funcionarem como projetado; (c) kernel/módulos/rootfs não puderem divergir silenciosamente; (d) boot, recuperação offline e rollback forem demonstrados em hardware; (e) identidade OrdaX for consistente nas ferramentas que controlamos; (f) nenhuma nova dependência de Windows, serviço remoto ou regravação desnecessária tiver sido introduzida.
 
 **Não confundir:** kernel em partição distinta ≠ desacoplamento; rótulo “Sistema Linux” ≠ dependência do Windows; plano escrito ≠ refatoração concluída.
+
+
+---
+
+## 11. Fase 0 — primeira auditoria de código (2026-10-20)
+
+**Estado: AUDITORIA PARCIAL (código/contratos, sem execução de testes ou prova física).** Este registro complementa o plano, não substitui `docs/CURRENT-STATE.md`.
+
+### Evidências inspecionadas
+
+| Componente | Owner/arquivo concreto | Evidência | Interpretação | Pendência |
+|---|---|---|---|---|
+| Origem do kernel | `bootstrap/kernel/source.json` | Linux 6.6.158, SHA-256 e assinatura upstream, config OrdaX, builder canônico; `physical_artifact_authorized=false` | Kernel é componente versionado e autenticado, não projeto de kernel novo | Auditar pipeline de integração e artefatos reais |
+| Build/proveniência | `bootstrap/kernel/PROVENANCE.md`, `docs/contracts/kernel-build-environment.json` | Compilação fixada, prova histórica de repetição e digests; prova não equivale a aprovação física | Já há separação de identidade do código e de build | Validar gates frente ao commit final e módulos atuais |
+| Dependências Base Dev | `bootstrap/base/alpine_core.py` | Alpine minirootfs 3.22.5 + Git, kmod, rede e firmware, kernel version lido de `source.json` | OrdaX **não contém apenas Linux kernel**; incorpora userland Alpine no bootstrap Dev | Inventariar licenças, ABI, SBOM, superfície de atualização e dependências reais |
+| Pull Dev | `bootstrap/dev-base/ordax-pull` | Worktree Git `/workspace/ordax`, state e lock, staging/transaction, commit pins | Ciclo de aplicações separado do kernel | Provar failover/atomicidade em boot e dispositivos |
+| Ativação Base | `bootstrap/base-update/activate.py` | valida candidata `vmlinuz`/`initrd.gz` em slot; escreve somente `LoaderEntryOneShot`; protege entradas normal/recovery | Há isolamento de boot transacional planejado no código | Comprovar boot/health/rollback no hardware |
+| Mídia preparada | `docs/contracts/physical-prepared-media.json` | Partição 2 `ORDAX`, tipo GPT Linux filesystem, ext4; sistema de três partições transitório | Explica o rótulo “Sistema Linux” em ferramentas que descrevem o GPT type | Não trocar GUID só para renomear |
+| Armazenamento futuro | `docs/contracts/storage-architecture.json`, `docs/PHYSICAL-MEDIA.md` | USB final planejado em duas partições com EROFS e imagem ext4 para estado | Uma quarta partição contrariaria direção de armazenamento existente | Executar gates de migração/storage sem vinculá-los ao kernel |
+
+### Constatações e prioridades
+
+**F0-01 — Ponto já resolvido por design:** kernel e runtime são distintos nos owners, e o Pull comum não precisa necessariamente recompilar kernel. **Ação:** preservar fronteira; testar regressões em vez de substituí-la.
+
+**F0-02 — Dependência externa real do bootstrap:** `bootstrap/base/alpine_core.py` fornece userland baseado em Alpine. Não descrever o OrdaX como “somente kernel Linux + código OrdaX”. **Ação:** levantar inventário de binários, pacotes, licenças, API/ABI e runtime; decidir o que permanece como dependência legítima. Reescrever essas peças sem benefício mensurável é antipadrão.
+
+**F0-03 — Branding versus metadata:** GPT type Linux filesystem é a causa estrutural provável da classificação no Windows; o contrato já define o partition name e filesystem label `ORDAX`. **Ação:** manter GUID compatível; apresentar “OrdaX OS” no Creator, nos relatórios e interfaces proprietárias. Testar sem alegar que o Windows mudará sua classificação.
+
+**F0-04 — Potencial risco Base/Kernel:** candidatos de `vmlinuz`, `initrd`, módulos, firmware e rootfs precisam passar por conjunto compatível. **Ação:** provar explicitamente a matriz de identidades e a rejeição de incompatibilidade, sem abrir contrato paralelo até auditar manifests existentes.
+
+**F0-05 — Espaço físico:** ESP transitória de 256 MiB (268435456 bytes) versus ESP alvo portátil de pelo menos 512 MiB já prevista. **Ação:** medir ocupação e tolerância de candidatos sem modificar partições.
+
+**F0-06 — Recovery incompleto como prova física:** o mecanismo de ativação preserva entradas, mas isso não prova rollback em falha real de energia ou boot. **Ação:** baterias de testes QEMU, depois prova física autorizada.
+
+### Decisão atual
+
+`KERNEL_LOGICAL_DECOUPLING=PARTIALLY_PRESENT`  
+`NEW_KERNEL_PARTITION=NOT_RECOMMENDED`  
+`GPT_TYPE_COSMETIC_CHANGE=NOT_RECOMMENDED`  
+`ALPINE_DEV_USERLAND_DEPENDENCY=CONFIRMED_IN_SOURCE`  
+`KERNEL_RUNTIME_PHYSICAL_COMPATIBILITY=UNVERIFIED`  
+`USB_MUTATION_PERFORMED=NO`
+
+### Próximo corte da Fase 0
+
+1. Ler e cruzar `bootstrap/initramfs/build.py`, `bootstrap/base-update/`, `bootstrap/recovery/`, `system/composition/`, `tools/creator/`, `docs/contracts/{portable-usb-v2,portable-release-image,portable-boot-handoff}.json`.
+2. Mapear scripts que dependem diretamente de Alpine/Linux versus código OrdaX, com tabela de dependência por arquivo e contrato.
+3. Auditar verificação automática de correspondência exata de kernel ABI e módulos/rootfs em candidate staging.
+4. Entregar um relatório `PASS/FAIL/BLOCKED` de source e CI; não chamar isso de homologação física.
+5. Solicitar alteração de owner ou ADR **apenas** para falhas comprovadas; evitar refatoração cosmética.
