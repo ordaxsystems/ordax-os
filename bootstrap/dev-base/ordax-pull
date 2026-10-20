@@ -625,8 +625,8 @@ refresh_dev_helpers() {
     source_sha=$1
     helper=$WORKTREE/system/services/base-update/dev-helpers.sh
     [ -f "$helper" ] || {
-        echo "ordax-git: helper refresh owner not present; runtime checkout remains usable" >&2
-        return 0
+        echo "ordax-git: helper refresh owner missing; checkout updated but required helper activation cannot be confirmed" >&2
+        return 1
     }
     if ! ORDAX_SOURCE_SHA="$source_sha" \
             ORDAX_WORKTREE="$WORKTREE" \
