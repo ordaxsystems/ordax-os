@@ -370,7 +370,10 @@ class HotUpdateSupervisorContractTests(unittest.TestCase):
         self.assertIn("-p time.google.com", text)
         self.assertIn("-p pool.ntp.org", text)
         self.assertIn("TIME_SYNC_PID=$!", text)
-        self.assertIn('terminate_child "$TIME_SYNC_PID" "time sync agent"', text)
+        self.assertIn('"$POWER_BROKER_PID" "$KEYBOARD_SESSION_RESTART_BROKER_PID"', text)
+        self.assertIn('"$NATIVE_INSTALL_BROKER_PID" "$NETWORK_BROKER_PID" "$TIME_SYNC_PID"', text)
+        self.assertIn("quiesce_surface_children()", text)
+        self.assertIn("quiesce_surface_children\n", text.split("cleanup() {", 1)[1])
         self.assertIn("automatic time synchronization unavailable; continuing Surface startup", text)
 
     def test_system_markdown_is_runtime_neutral_before_system_fallback(self):

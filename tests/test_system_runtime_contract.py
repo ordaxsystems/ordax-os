@@ -601,8 +601,9 @@ class SystemRuntimeContractTests(unittest.TestCase):
         self.assertIn('cleanup refused; runtime chroot remains active', text)
         self.assertIn('reap_stale_runtime_processes || fallback_with_reason', text)
         self.assertIn('kill -KILL "$pid"', text)
-        self.assertIn('terminate_child "$GRAPHICS_PID" "graphics host"', text)
-        self.assertIn('terminate_child "$HTTP_PID" "native HTTP host"', text)
+        self.assertIn("quiesce_surface_children()", text)
+        self.assertIn('"$GRAPHICS_PID" "$HTTP_PID"', text)
+        self.assertIn('quiesce_surface_children\n', text.split("cleanup() {", 1)[1])
         self.assertLess(
             text.index('reap_stale_runtime_processes || fallback_with_reason'),
             text.index('ensure_runtime || fallback_with_reason'),

@@ -261,7 +261,7 @@
       },
       {
         "path": "system/services/i18n/surface.mjs",
-        "sha256": "beb59f189b0ce3050afa493ab879bc82142a313c9dc1b6eac5bdebaeae8e07ba"
+        "sha256": "e9cea9ae03074bc55b60674b5f7b5c25c08efefcd385609d152199098385b3df"
       },
       {
         "path": "system/services/local-ai/model-candidate.generated.mjs",
@@ -373,7 +373,7 @@
       },
       {
         "path": "system/surface/ui/sidebar-layout.css",
-        "sha256": "481c75b5a29b0ae8d3c66f9c7c0d3b457090cf31bdd21fc77334b590355510e6"
+        "sha256": "21f8a5629cdef5cd9c4cab7caffad83b1af7b2c93e9cb0bb627135f476ad4a85"
       },
       {
         "path": "system/surface/ui/sidebar-layout.mjs",
@@ -484,6 +484,6 @@
         "sha256": "32fcfaad07deaee9a72391669c3bb285444c9c7a5ba339e66d51278c0d6daffe"
       }
     ],
-    "cssSha256": "a3a406c8fb82a4652bb3709418958a2c0a4501d01538bf987310c9186dd44421"
+    "cssSha256": "4e558b62de63a968bfa79e727dcaa39eb4f063381e80441d34422f6227a8aef7"
   }
 }

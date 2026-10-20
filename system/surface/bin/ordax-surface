@@ -437,6 +437,48 @@ terminate_child() {
     wait "$pid" 2>/dev/null || true
 }
 
+# SIGTERM all the Surface-owned children before waiting for any of them.
+# The previous serial two-second wait per broker could exceed the Supervisor's
+# entire shutdown grace budget even when each child responded promptly.
+# Only PIDs started by this launcher are eligible; never kill by process name.
+quiesce_surface_children() {
+    owned_pids=""
+    for child_pid in "$NATIVE_INSTALL_BROKER_PID" "$NETWORK_BROKER_PID" "$TIME_SYNC_PID" \
+                     "$POWER_BROKER_PID" "$KEYBOARD_SESSION_RESTART_BROKER_PID" \
+                     "$GRAPHICS_PID" "$HTTP_PID"; do
+        case "$child_pid" in
+            ''|*[!0-9]*) continue ;;
+        esac
+        [ "$child_pid" -gt 1 ] 2>/dev/null || continue
+        owned_pids="$owned_pids $child_pid"
+        kill "$child_pid" >/dev/null 2>&1 || true
+    done
+    remaining=4
+    while [ "$remaining" -gt 0 ]; do
+        active=0
+        for child_pid in $owned_pids; do
+            kill -0 "$child_pid" >/dev/null 2>&1 || continue
+            child_state=$(/bin/busybox awk '$1 == "State:" { print $2; exit }' "/proc/$child_pid/status" 2>/dev/null || true)
+            [ "$child_state" = Z ] && continue
+            active=1
+            break
+        done
+        [ "$active" -eq 0 ] && break
+        /bin/busybox sleep 1
+        remaining=$((remaining - 1))
+    done
+    for child_pid in $owned_pids; do
+        if kill -0 "$child_pid" >/dev/null 2>&1; then
+            child_state=$(/bin/busybox awk '$1 == "State:" { print $2; exit }' "/proc/$child_pid/status" 2>/dev/null || true)
+            if [ "$child_state" != Z ]; then
+                echo "ordax-surface: forcing unresponsive owned child pid $child_pid" >>"$HOST_LOG"
+                kill -KILL "$child_pid" >/dev/null 2>&1 || true
+            fi
+        fi
+        wait "$child_pid" 2>/dev/null || true
+    done
+}
+
 runtime_root_processes() {
     [ -d "$RUNTIME_ROOT" ] || [ -d "$LEGACY_RUNTIME_ROOT" ] || return 0
     for root_link in /proc/[0-9]*/root; do
@@ -546,38 +588,17 @@ remove_stale_seatd_socket() {
 
 cleanup() {
     rm -f "$RUNTIME_PROOF_CONTEXT" >/dev/null 2>&1 || true
-    if [ -n "$NATIVE_INSTALL_BROKER_PID" ]; then
-        terminate_child "$NATIVE_INSTALL_BROKER_PID" "Native install broker"
-        NATIVE_INSTALL_BROKER_PID=""
-    fi
+    quiesce_surface_children
+    NATIVE_INSTALL_BROKER_PID=""
+    NETWORK_BROKER_PID=""
+    TIME_SYNC_PID=""
+    POWER_BROKER_PID=""
+    KEYBOARD_SESSION_RESTART_BROKER_PID=""
+    GRAPHICS_PID=""
+    HTTP_PID=""
     rm -f "$NATIVE_INSTALL_CONTROL" "$NATIVE_INSTALL_REQUEST" "$NATIVE_INSTALL_RESPONSE" "$NATIVE_INSTALL_SNAPSHOT" >/dev/null 2>&1 || true
-    if [ -n "$NETWORK_BROKER_PID" ]; then
-        terminate_child "$NETWORK_BROKER_PID" "network broker"
-        NETWORK_BROKER_PID=""
-    fi
     rm -f "$NETWORK_CONTROL" "$NETWORK_REQUEST" "$NETWORK_RESPONSE" "$NETWORK_SCAN_RAW" "$NETWORK_LINK_RAW" "$NETWORK_SAVED_SSID" >/dev/null 2>&1 || true
-    if [ -n "$TIME_SYNC_PID" ]; then
-        terminate_child "$TIME_SYNC_PID" "time sync agent"
-        TIME_SYNC_PID=""
-    fi
-    if [ -n "$POWER_BROKER_PID" ]; then
-        terminate_child "$POWER_BROKER_PID" "power broker"
-        POWER_BROKER_PID=""
-    fi
-    rm -f "$POWER_REQUEST" >/dev/null 2>&1 || true
-    if [ -n "$KEYBOARD_SESSION_RESTART_BROKER_PID" ]; then
-        terminate_child "$KEYBOARD_SESSION_RESTART_BROKER_PID" "keyboard session restart broker"
-        KEYBOARD_SESSION_RESTART_BROKER_PID=""
-    fi
-    rm -f "$KEYBOARD_SESSION_RESTART_REQUEST" >/dev/null 2>&1 || true
-    if [ -n "$GRAPHICS_PID" ]; then
-        terminate_child "$GRAPHICS_PID" "graphics host"
-        GRAPHICS_PID=""
-    fi
-    if [ -n "$HTTP_PID" ]; then
-        terminate_child "$HTTP_PID" "native HTTP host"
-        HTTP_PID=""
-    fi
+    rm -f "$POWER_REQUEST" "$KEYBOARD_SESSION_RESTART_REQUEST" >/dev/null 2>&1 || true
     if ! reap_stale_runtime_processes; then
         # Preserve mounted state rather than unmount resources still used by
         # an unverified live process. The next owner must fail closed too.
