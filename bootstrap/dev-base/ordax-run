@@ -151,6 +151,26 @@ watch_owner_provisioning() {
 # Owner engineering Runtime is optional and separate from Surface. Only an
 # explicitly paired device with a 0600 local opt-in starts it. The pinned
 # recovery controller owns installation, identity and authenticated transport.
+# Publish a bounded read-only diagnosis on each Owner boot, even when the
+# network and Remote MCP pairing are unavailable. The result is a private
+# cross-boot witness, not a substitute for live power or Base A/B proof.
+publish_owner_maintenance_receipt() {
+    helper=/usr/local/bin/ordax-maintain
+    [ -f "$helper" ] && [ ! -L "$helper" ] || return 0
+    destination=$STATE_DIR/maintenance
+    bb mkdir -p "$destination" || return 0
+    bb chmod 700 "$destination" || return 0
+    temporary=$destination/.last-status.$
+    if /bin/sh "$helper" status >"$temporary" 2>&1; then
+        printf 'boot_check=passed\n' >>"$temporary"
+    else
+        printf 'boot_check=attention-required\n' >>"$temporary"
+    fi
+    bb chmod 600 "$temporary" || { bb rm -f "$temporary"; return 0; }
+    bb mv -f "$temporary" "$destination/last-status" || bb rm -f "$temporary"
+    return 0
+}
+
 start_optional_owner_remote() {
     remote=/usr/local/bin/ordax-remote
     consent=$STATE_DIR/owner-remote/auto-start-enabled
@@ -190,6 +210,7 @@ checkout_status=$("$GIT_BIN" -C "$WORKTREE" status --porcelain 2>/dev/null) || \
 [ -z "$checkout_status" ] || fail "checkout local possui alteracoes; execute ordax-pull para preservar diagnostico e restaurar uma versao limpa"
 
 prepare_status_log
+publish_owner_maintenance_receipt
 resolve_product_control_plane_url
 if [ -n "$PRODUCT_CONTROL_PLANE_URL" ]; then
     ORDAX_PRODUCT_CONTROL_PLANE_URL=$PRODUCT_CONTROL_PLANE_URL
