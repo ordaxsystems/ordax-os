@@ -129,6 +129,24 @@ class EfivarfsPreflightTests(unittest.TestCase):
                     mountinfo=mountinfo,
                 )
 
+    def test_owner_initramfs_mounts_efivarfs_without_activating_or_masquerading_success(self):
+        init = (ROOT / "bootstrap/initramfs/root/init").read_text(encoding="utf-8")
+        self.assertIn("prepare_owner_efivarfs_mount() {", init)
+        setup = init.split("prepare_owner_efivarfs_mount() {", 1)[1].split("\n}\n", 1)[0]
+        self.assertIn('[ "$OWNER_DEVELOPMENT" -eq 1 ] || return 0', setup)
+        self.assertIn('[ -d /sys/firmware/efi ]', setup)
+        self.assertIn('[ ! -L /sys/firmware/efi ]', setup)
+        self.assertIn('[ -L "$efivarfs_root" ]', setup)
+        self.assertIn(" /proc/self/mountinfo", setup)
+        self.assertIn('mount -t efivarfs -o rw,nosuid,nodev,noexec efivarfs "$efivarfs_root"', setup)
+        self.assertIn("Base activation remains blocked", setup)
+        for forbidden in ("efi-updatevar", "efibootmgr", "chattr -i", "dd ", "reboot ", "write_authorized=true"):
+            self.assertNotIn(forbidden, setup)
+        self.assertLess(init.index("OWNER_DEVELOPMENT=0"), init.index("prepare_owner_efivarfs_mount\n"))
+        self.assertLess(init.index("prepare_owner_efivarfs_mount\n"), init.index("discover_owner_development_device()"))
+        import subprocess
+        subprocess.run(["sh", "-n", str(ROOT / "bootstrap/initramfs/root/init")], check=True)
+
     def test_contract_keeps_probe_non_authoritative(self):
         value = CONTRACT["activation"]["efivarfs_preflight"]
         self.assertEqual(
