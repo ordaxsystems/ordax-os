@@ -41,7 +41,7 @@ verify_checkout() {
     helpers=$(read_value "$STATE_DIR/dev-helpers-sha")
     printf 'checkout.head=%s\ncheckout.current=%s\ncheckout.helpers=%s\n' "$head" "$current" "$helpers"
     printf 'checkout.previous=%s\npull.last_result=%s\n' "$(read_value "$STATE_DIR/previous-commit")" "$(read_value "$RUN_DIR/pull-result")"
-    dirty=$(git -C "$WORKTREE" -c core.fsmonitor=false status --porcelain=v1 -uno 2>/dev/null || printf error)
+    dirty=$(GIT_OPTIONAL_LOCKS=0 git -C "$WORKTREE" -c core.fsmonitor=false status --porcelain=v1 -uno 2>/dev/null || printf error)
     [ -z "$dirty" ] || { echo 'checkout.clean=no'; return 1; }
     echo 'checkout.clean=yes'
     [ "$head" = "$current" ] && [ "$head" = "$helpers" ]
