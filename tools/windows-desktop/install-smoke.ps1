@@ -95,6 +95,16 @@ try {
       if ($appProc.HasExited) {
         throw ("Installed Electron host exited before Native startup (code " + $appProc.ExitCode + ")")
       }
+      # A missing log is itself a boot-contract failure. Fail early rather than
+      # waiting three minutes for a readiness marker written somewhere else.
+      if ([DateTime]::UtcNow -gt $startupStarted.AddSeconds(45)) {
+        $freshLog = if (Test-Path -LiteralPath $logFile) {
+          Get-Content -LiteralPath $logFile -Raw -ErrorAction SilentlyContinue
+        } else { "" }
+        if (-not $freshLog -or $freshLog.Length -le $priorLog.Length) {
+          throw ("Installed Electron did not open the canonical Desktop log within 45s: " + $logFile)
+        }
+      }
       Start-Sleep -Seconds 1
     }
     if (-not $ready) {
