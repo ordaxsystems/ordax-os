@@ -1,0 +1,39 @@
+{
+  "name": "ordax-os-desktop-dev",
+  "private": true,
+  "version": "0.1.0-alpha.1",
+  "description": "Installable Windows development host for the canonical OrdaX Native Surface",
+  "main": "main.cjs",
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test *.test.cjs",
+    "dist:win": "electron-builder --win nsis --x64"
+  },
+  "devDependencies": {
+    "electron": "^40.0.0",
+    "electron-builder": "^26.0.12"
+  },
+  "build": {
+    "appId": "dev.ordax.os.desktop",
+    "productName": "OrdaX OS Desktop Dev",
+    "artifactName": "OrdaX-OS-Desktop-Dev-${version}-${arch}.${ext}",
+    "directories": { "output": "../../out/windows-desktop-installer" },
+    "files": ["main.cjs", "package.json", "runtime.cjs", "checkout.cjs", "host.cjs"],
+    "extraResources": [
+      {
+        "from": "../../",
+        "to": "runtime-template",
+        "filter": ["**/*", "!.git{,/**}", "!node_modules{,/**}", "!out{,/**}", "!dist{,/**}", "!build{,/**}", "!.github{,/**}", "!*.log", "!tools/windows-desktop/node_modules{,/**}"]
+      },
+      {
+        "from": "../../node_modules",
+        "to": "runtime-template/node_modules",
+        "filter": ["**/*"]
+      }
+    ],
+    "asar": true,
+    "win": { "target": [{ "target": "nsis", "arch": ["x64"] }] },
+    "nsis": { "oneClick": false, "allowToChangeInstallationDirectory": true, "perMachine": false, "createDesktopShortcut": true, "createStartMenuShortcut": true },
+    "publish": null
+  }
+}

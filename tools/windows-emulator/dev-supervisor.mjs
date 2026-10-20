@@ -119,8 +119,9 @@ const vite = spawn(process.execPath, [
   viteEntry,
   '--config',
   'tools/windows-emulator/vite.config.mjs',
-  '--open',
-  '/tools/windows-emulator/index.html',
+  ...(process.env.ORDAX_EMULATOR_NO_BROWSER === '1' ? [] : [
+    '--open', '/tools/windows-emulator/index.html',
+  ]),
 ], {
   cwd: REPO_ROOT,
   stdio: 'inherit',

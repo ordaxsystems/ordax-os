@@ -10,7 +10,7 @@ const surfaceBrand = fileURLToPath(new URL("../../system/surface/ui/brand", impo
 export default defineConfig({
   root: repoRoot,
   appType: "mpa",
-  plugins: [nativeEmulatorPlugin(resolve(repoRoot, "out/windows-emulator-state"))],
+  plugins: [nativeEmulatorPlugin(process.env.ORDAX_EMULATOR_STATE_DIR ?? resolve(repoRoot, "out/windows-emulator-state"))],
   optimizeDeps: { noDiscovery: true, include: [] },
   resolve: {
     alias: {
@@ -20,7 +20,7 @@ export default defineConfig({
   },
   server: {
     host: "127.0.0.1",
-    port: 4202,
+    port: Number.parseInt(process.env.ORDAX_EMULATOR_PORT ?? '4202', 10),
     strictPort: true,
     fs: {
       allow: [repoRoot],

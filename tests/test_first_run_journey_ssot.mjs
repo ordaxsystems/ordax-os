@@ -56,8 +56,10 @@ test("First Run presentation consumes Meridian directly and adapts all canonical
   assert.doesNotMatch(css,/var\(--ordax-|repeat\(7,/);
   assert.ok(css.includes("var(--md-canvas)"));
   assert.ok(css.includes("var(--md-font)"));
-  assert.ok(css.includes("grid-template-rows:auto minmax(0,1fr)"));
-  assert.ok(css.includes("grid-auto-flow:column"));
+  // Compact view uses an adaptive two-row grid and a horizontally scrolling flex stepper.
+  // Formatting whitespace must not invalidate a visual-contract test.
+  assert.match(css,/grid-template-rows:\s*auto\s+minmax\(0,\s*1fr\)/);
+  assert.match(css,/\.ordax-first-run-steps\s*\{[^}]*display:\s*flex;/);
 });
 
 test("runtime journeys cannot expose another first-run; planned design details remain archived", async () => {
