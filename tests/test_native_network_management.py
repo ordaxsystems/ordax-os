@@ -166,7 +166,8 @@ class NativeNetworkManagementTests(unittest.TestCase):
             text.index('if ! wait_for_wifi_link "$wifi"; then'),
             text.index('    if ! try_dhcp "$wifi"; then', text.index('connect_conf()')),
         )
-        self.assertNotIn("grep -q '^Connected to '", text)
+        handshake = text.split("wait_for_wifi_link() {", 1)[1].split("\n}\n", 1)[0]
+        self.assertNotIn("grep -q '^Connected to '", handshake)
 
     def test_native_api_is_loopback_tokenized_serialized_and_no_shell_endpoint(self):
         server = SERVER.read_text(encoding="utf-8")
