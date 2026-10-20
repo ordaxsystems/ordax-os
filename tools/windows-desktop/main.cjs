@@ -12,7 +12,8 @@ const PRODUCT='/system/composition/native/index.html';
 // Explicit stable per-user storage must be set before the instance lock or any
 // Electron internal service can resolve a path from the npm package name.
 app.setName('OrdaX OS Desktop Dev');
-const desktopUserData=join(app.getPath('appData'),'OrdaX OS Desktop Dev');
+const devProfile = !app.isPackaged && process.env.ORDAX_DESKTOP_TEST_PROFILE === '1';
+const desktopUserData=join(app.getPath('appData'),devProfile ? 'OrdaX OS Desktop Dev Test' : 'OrdaX OS Desktop Dev');
 mkdirSync(desktopUserData,{recursive:true});
 app.setPath('userData',desktopUserData);
 if (process.platform==='win32') app.setAppUserModelId('dev.ordax.os.desktop');
