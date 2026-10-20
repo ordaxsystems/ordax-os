@@ -247,6 +247,23 @@ try {
       throw "Desktop Native host does not report actual canonical system metrics"
     }
     Write-Output "DESKTOP_SYSTEM_METRICS_SMOKE=PASS"
+    $powerSnapshot = Invoke-RestMethod -Uri ($baseUrl + "/__ordax/native/power-status") -Method GET -TimeoutSec 15
+    if ($null -eq $powerSnapshot -or
+        "battery" -notin $powerSnapshot.PSObject.Properties.Name -or
+        "externalPower" -notin $powerSnapshot.PSObject.Properties.Name) {
+      throw "Installed Desktop does not publish actual Windows power status"
+    }
+    Write-Output "DESKTOP_POWER_STATUS_SMOKE=PASS"
+    $fileSnapshot = Invoke-RestMethod -Uri ($baseUrl + "/__ordax/native/files?path=%2F") -Method GET -TimeoutSec 15
+    if ($null -eq $fileSnapshot -or $fileSnapshot.path -ne "/" -or
+        "entries" -notin $fileSnapshot.PSObject.Properties.Name) {
+      throw "Installed Desktop file-space does not expose the OrdaX user folder"
+    }
+    $trashSnapshot = Invoke-RestMethod -Uri ($baseUrl + "/__ordax/native/trash") -Method GET -TimeoutSec 15
+    if ($null -eq $trashSnapshot -or "entries" -notin $trashSnapshot.PSObject.Properties.Name) {
+      throw "Installed Desktop does not supply durable OrdaX trash"
+    }
+    Write-Output "DESKTOP_FILE_SPACE_SMOKE=PASS"
     Write-Output "DESKTOP_NETWORK_STATUS_SMOKE=PASS"
     Write-Output ("STARTUP_DURATION_SECONDS=" + [Math]::Round(([DateTime]::UtcNow - $startupStarted).TotalSeconds, 1))
     Write-Output "STARTUP_SMOKE=PASS"
