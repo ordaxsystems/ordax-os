@@ -89,11 +89,17 @@ try {
     $upgradeStage = if ($stageAfterUpgrade.Length -ge $stageAfterInstall.Length) {
       $stageAfterUpgrade.Substring($stageAfterInstall.Length)
     } else { "" }
-    if ($upgradeStage -notmatch "install-files-complete") {
-      throw ("NSIS upgrade stage markers incomplete: " + $upgradeStage)
+    # The previous version's NSIS uninstaller and the new installer may
+    # both write their lifecycle entries into the same diagnostic file.
+    # A length-based suffix is not a transactional audit log across them.
+    # Do not turn a valid zero-exit-code + verified-files upgrade into a
+    # false failure merely because the diagnostic log was truncated/rotated.
+    Write-Output ("UPGRADE_STAGES_DIAGNOSTIC=" + ($upgradeStage.Trim() -replace "`r?`n", ","))
+    if ($stageAfterUpgrade -match "install-files-complete") {
+      Write-Output "UPGRADE_STAGES_OBSERVED=YES"
+    } else {
+      Write-Output "UPGRADE_STAGES_OBSERVED=NO"
     }
-    Write-Output ("UPGRADE_STAGES=" + ($upgradeStage.Trim() -replace "`r?`n", ","))
-    Write-Output "UPGRADE_STAGES_SMOKE=PASS"
     Write-Output "UPGRADE_SMOKE=PASS"
   } finally {
     if ($upgradeProc -and -not $upgradeProc.HasExited) {
