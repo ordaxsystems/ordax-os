@@ -1,12 +1,13 @@
 'use strict';
 // Installable Windows host: the UI and Git Pull remain owned by OrdaX OS.
-const { app, BrowserWindow, Menu, shell, dialog } = require('electron');
+const { app, BrowserWindow, WebContentsView, ipcMain, session, Menu, shell, dialog } = require('electron');
+const { createDesktopBrowserHost } = require('./browser-host.cjs');
 const { join } = require('node:path');
 const { mkdirSync, createWriteStream, existsSync } = require('node:fs');
 const { resolveTemplate, runtimeStateDirectory } = require('./runtime.cjs');
 const { chooseBootVersion, confirmHealthy, rejectCandidate, stageMain, readState, pinPrevious, unpin } = require('./dev-update.cjs');
 const { startHost, stopHost } = require('./host.cjs');
-let window=null, runtime=null, stream=null, updateTimer=null, staging=false;
+let window=null, runtime=null, stream=null, browserHost=null, updateTimer=null, staging=false;
 const PRODUCT='/system/composition/native/index.html';
 // Explicit stable per-user storage must be set before the instance lock or any
 // Electron internal service can resolve a path from the npm package name.
@@ -90,7 +91,13 @@ async function assertNativeShellMounted(browserWindow) {
       "phase:document.querySelector('#ordax-boot-screen')?.dataset.state||'missing'})"
     );
     if(result.phase==='error')throw Error('Canonical Native composition reported boot error');
-    if(result.count>0 && result.phase==='ready')return true;
+    if(result.count>0 && result.phase==='ready') {
+      const bridge=await browserWindow.webContents.executeJavaScript(
+        "typeof window.ordaxDesktopBrowser?.postMessage === 'function'"
+      );
+      if(!bridge)throw Error('OrdaX Native Internet browser bridge is unavailable');
+      return true;
+    }
     await new Promise(resolve=>setTimeout(resolve,300));
   }
   throw Error('Canonical Native composition did not finish mounting');
@@ -108,6 +115,7 @@ async function stageInBackground(userData,template) {
 }
 app.on('before-quit',()=>{
   if(updateTimer){clearInterval(updateTimer);updateTimer=null;}
+  browserHost?.dispose();browserHost=null;
   if(runtime?.child){stopHost(runtime.child);runtime=null;}
   stream?.end();stream=null;
 });
@@ -121,9 +129,11 @@ app.whenReady().then(async()=>{
     width:1350,height:820,minWidth:800,minHeight:570,
     title:'OrdaX OS Desktop Dev',backgroundColor:'#101820',
     webPreferences:{nodeIntegration:false,contextIsolation:true,
+      preload:join(__dirname,'browser-preload.cjs'),
       sandbox:true,webSecurity:true,allowRunningInsecureContent:false},
   });
   menu(userData);
+  browserHost=createDesktopBrowserHost({window,ipcMain,WebContentsView,session,dialog,log});
   window.webContents.on('page-title-updated',event=>{event.preventDefault();window?.setTitle('OrdaX OS Desktop Dev');});
   status('Iniciando a Surface Native compartilhada...');
   try{
