@@ -102,6 +102,35 @@ async function assertNativeShellMounted(browserWindow) {
   }
   throw Error('Canonical Native composition did not finish mounting');
 }
+// CI-only proof: the renderer sends the same typed command as Internet,
+// and the isolated Chromium host must instantiate and close an actual view.
+async function assertDesktopInternetSmoke(browserWindow,host) {
+  if(process.env.ORDAX_DESKTOP_BROWSER_SMOKE!=='1')return;
+  const id='ordax-ci-internet';
+  await browserWindow.webContents.executeJavaScript(
+    "window.ordaxDesktopBrowser.postMessage(JSON.stringify({type:'tab.open',tabId:'ordax-ci-internet',url:'about:blank'}))"
+  );
+  const deadline=Date.now()+10000;
+  while(Date.now()<deadline) {
+    const tabs=host.getSnapshot().tabs;
+    if(tabs.some(tab=>tab.id===id && tab.url==='about:blank')) {
+      await browserWindow.webContents.executeJavaScript(
+        "window.ordaxDesktopBrowser.postMessage(JSON.stringify({type:'tab.close',tabId:'ordax-ci-internet'}))"
+      );
+      const closeDeadline=Date.now()+3000;
+      while(Date.now()<closeDeadline) {
+        if(!host.getSnapshot().tabs.some(tab=>tab.id===id)){
+          log('DESKTOP_INTERNET_SMOKE=PASS');
+          return;
+        }
+        await new Promise(resolve=>setTimeout(resolve,50));
+      }
+      throw Error('Internet smoke tab did not close');
+    }
+    await new Promise(resolve=>setTimeout(resolve,75));
+  }
+  throw Error('Canonical Internet bridge could not instantiate isolated Chromium tab');
+}
 async function stageInBackground(userData,template) {
   if(staging || !app.isPackaged) return;
   staging=true;
@@ -151,6 +180,7 @@ app.whenReady().then(async()=>{
       runtime=await startHost({root,stateDirectory:runtimeStateDirectory(userData),userData,log});
       await window.loadURL(runtime.url+PRODUCT);
       await assertNativeShellMounted(window);
+      await assertDesktopInternetSmoke(window,browserHost);
       log('Native shell mounted and ready: '+runtime.url);
       log('Native Surface ready: '+runtime.url);
       if(selected.trial) {
@@ -168,6 +198,7 @@ app.whenReady().then(async()=>{
       runtime=await startHost({root,stateDirectory:runtimeStateDirectory(userData),userData,log});
       await window.loadURL(runtime.url+PRODUCT);
       await assertNativeShellMounted(window);
+      await assertDesktopInternetSmoke(window,browserHost);
       log('Native shell mounted and ready after rollback: '+runtime.url);
       log('Native Surface ready after rollback: '+runtime.url);
     }
