@@ -275,6 +275,22 @@ handle_request() {
 }
 
 exec 9<>"$CONTROL"
+# On cold boot, restore the saved Wi-Fi profile through the same sole
+# broker-owned WPA -> DHCP -> runtime DNS path as an explicit reconnect.
+# The FIFO is opened first so the Surface can start independently while
+# association runs; requests are processed by this same broker afterwards.
+if [ -s "$WPA_CONF" ] && [ ! -L "$WPA_CONF" ]; then
+    boot_wifi=$(find_wifi_interface || true)
+    if [ -n "$boot_wifi" ]; then
+        if restore_saved_network "$boot_wifi"; then
+            echo "ordax-network-broker: saved Wi-Fi restored on boot" >&2
+        else
+            echo "ordax-network-broker: saved Wi-Fi boot reconnect failed; profile preserved" >&2
+        fi
+    else
+        echo "ordax-network-broker: no Wi-Fi interface detected for saved boot profile" >&2
+    fi
+fi
 while :; do
     signal=""
     if IFS= read -r signal <&9; then
