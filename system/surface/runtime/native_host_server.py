@@ -39,6 +39,7 @@ from native_local_ai_bridge import (
     forward_local_ai,
 )
 from native_account_gateway import NativeAccountGateway, NativeAccountGatewayError
+from product_device_owner_grants import OwnerRemotePermissionError
 from native_component_slots import (
     COMPONENT_MODULE_PREFIX,
     ComponentSlotRequestError,
@@ -111,6 +112,8 @@ SYNC_STATE_PATH = "/__ordax/native/sync-state"
 SYNC_CHECKPOINT_PATH = "/__ordax/native/sync-checkpoint"
 ACCOUNT_SESSION_PATH = "/auth/session"
 PRODUCT_CONNECTOR_SETTINGS_PATH = "/__ordax/native/product-connector"
+OWNER_REMOTE_PERMISSIONS_PATH = "/__ordax/native/remote-permissions"
+MAX_OWNER_REMOTE_PERMISSIONS_BODY = 256
 MAX_PRODUCT_CONNECTOR_SETTINGS_BODY = 128
 ACCOUNT_REGISTRATION_POLICY_PATH = "/auth/registration-policy"
 ACCOUNT_LOGIN_PATH = "/auth/login"
@@ -3811,6 +3814,21 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
 
     def do_GET(self) -> None:  # noqa: N802
         parsed_path = urlsplit(self.path).path
+        if parsed_path == OWNER_REMOTE_PERMISSIONS_PATH:
+            if self.client_address[0] != "127.0.0.1" or urlsplit(self.path).query:
+                self._empty(403)
+                return
+            reader = getattr(self.server.account_gateway, "remote_permissions", None)
+            if not callable(reader):
+                self._empty(503)
+                return
+            try:
+                self._write_json(200, reader())
+            except OwnerRemotePermissionError as error:
+                self._empty(error.status)
+            except (OSError, TypeError, ValueError):
+                self._empty(503)
+            return
         if parsed_path == PRODUCT_CONNECTOR_SETTINGS_PATH:
             if urlsplit(self.path).query or self.client_address[0] != "127.0.0.1":
                 self._empty(403)
@@ -4527,6 +4545,32 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
             return
 
         parsed_path = urlsplit(self.path).path
+        if parsed_path == OWNER_REMOTE_PERMISSIONS_PATH:
+            if urlsplit(self.path).query or self.server.local_session_locked:
+                self._empty(423 if self.server.local_session_locked else 400)
+                return
+            # Browser origin is mandatory for sensitive grant mutations. The
+            # Native request parser already verifies Host and same-origin.
+            expected_origin = "http://" + self.headers.get("Host", "")
+            if self.headers.get("Origin") != expected_origin:
+                self._empty(403)
+                return
+            mutate = getattr(self.server.account_gateway, "configure_remote_permission", None)
+            if not callable(mutate):
+                self._empty(503)
+                return
+            body = self._read_json_body(MAX_OWNER_REMOTE_PERMISSIONS_BODY)
+            if (body is None or set(body) != {"client_id", "enabled"}
+                or not isinstance(body["client_id"], str) or type(body["enabled"]) is not bool):
+                self._empty(400)
+                return
+            try:
+                self._write_json(200, mutate(body["client_id"], body["enabled"]))
+            except OwnerRemotePermissionError as error:
+                self._empty(error.status)
+            except (OSError, TypeError, ValueError):
+                self._empty(503)
+            return
         if parsed_path == PRODUCT_CONNECTOR_SETTINGS_PATH:
             if urlsplit(self.path).query:
                 self._empty(400)

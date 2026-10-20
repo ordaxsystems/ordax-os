@@ -39,6 +39,7 @@ import { COLOR_THEME_OPTIONS, resolveColorAppearance, selectColorTheme } from ".
 import { listPreferenceDefinitions } from "../../services/preferences/catalog.mjs";
 import { assertSurfaceRenderLifecycle } from "../../contracts/surface-render-lifecycle.mjs";
 import { assertProductConnectorPort } from "../../contracts/product-connector.mjs";
+import { assertOwnerRemotePermissionsPort } from "../../contracts/owner-remote-permissions.mjs";
 import { assertDisplayOutputsPort } from "../../contracts/display-outputs.mjs";
 import { mountDisplayOutputControls } from "./display-output-controls.mjs";
 
@@ -223,6 +224,7 @@ export function mountSettingsOverviewControls(
   localAiPort = null,
   productConnectorPort = null,
   displayOutputs = null,
+  ownerRemotePermissions = null,
 ) {
   if (!(root instanceof Element)) {
     throw new TypeError("Settings overview controls require a Surface root Element");
@@ -244,6 +246,7 @@ export function mountSettingsOverviewControls(
   const localAi = localAiPort === null ? null : assertLocalAiPort(localAiPort);
   const connectorPort = productConnectorPort === null ? null : assertProductConnectorPort(productConnectorPort);
   const displayOutputsPort = displayOutputs === null ? null : assertDisplayOutputsPort(displayOutputs);
+  const remotePermissionsPort = ownerRemotePermissions === null ? null : assertOwnerRemotePermissionsPort(ownerRemotePermissions);
   const documentObject = root.ownerDocument;
   let settingsExamples = null;
 
@@ -270,6 +273,10 @@ export function mountSettingsOverviewControls(
   let connectorPending = false;
   let connectorError = false;
   let connectorOrdinal = 0;
+  let remotePermissionsOrdinal = 0;
+  let remotePermissionsSnapshot = null;
+  let remotePermissionsPending = false;
+  let remotePermissionsError = false;
   let networkManagementReadFailed = false;
   let networkManagementLastSuccessAt = null;
   let networkManagementPending = false;
@@ -694,6 +701,63 @@ export function mountSettingsOverviewControls(
       mode: "native",
       onExamples: () => settingsExamples?.open("display"),
     });
+  };
+
+  const renderOwnerRemotePermissions = (view) => {
+    const section = node(documentObject, "section", "ordax-settings-section");
+    section.dataset.settingsOwnerMcp = "";
+    section.append(
+      node(documentObject, "h4", "ordax-settings-section-title", t("settings.ownerMcp.title")),
+      node(documentObject, "p", "ordax-settings-section-copy", t("settings.ownerMcp.description")),
+    );
+    if (!remotePermissionsPort) {
+      section.append(node(documentObject, "p", "ordax-settings-section-copy", t("settings.ownerMcp.unavailable")));
+    } else if (remotePermissionsSnapshot === null) {
+      section.append(node(documentObject, "p", "ordax-settings-section-copy", t(
+        remotePermissionsError ? "settings.ownerMcp.error" : "settings.ownerMcp.loading"
+      )));
+    } else if (remotePermissionsSnapshot.clients.length === 0) {
+      section.append(node(documentObject, "p", "ordax-settings-section-copy", t("settings.ownerMcp.noClients")));
+    } else {
+      for (const client of remotePermissionsSnapshot.clients) {
+        const enabled = remotePermissionsSnapshot.grant_groups.some(group =>
+          group.client_id === client.client_id
+          && group.profile_key === "full-computer-control"
+          && group.scope_kind === "device"
+          && group.client_consent_active
+        );
+        const row = node(documentObject, "div", "ordax-settings-section");
+        row.dataset.settingsOwnerMcpClient = client.client_id;
+        row.append(
+          node(documentObject, "strong", "", client.client_name),
+          node(documentObject, "p", "ordax-settings-section-copy", t(
+            enabled ? "settings.ownerMcp.enabled" : "settings.ownerMcp.disabled"
+          )),
+        );
+        const button = node(documentObject, "button", "ordax-settings-action", t(
+          remotePermissionsPending ? "settings.ownerMcp.pending"
+          : enabled ? "settings.ownerMcp.disable" : "settings.ownerMcp.enable"
+        ));
+        button.type = "button";
+        button.dataset.settingsOwnerMcpToggle = client.client_id;
+        button.dataset.settingsOwnerMcpEnabled = String(enabled);
+        button.disabled = remotePermissionsPending;
+        button.setAttribute("role", "switch");
+        button.setAttribute("aria-checked", String(enabled));
+        row.append(button);
+        section.append(row);
+      }
+      if (remotePermissionsError) section.append(
+        node(documentObject, "p", "ordax-settings-section-copy", t("settings.ownerMcp.error"))
+      );
+    }
+    const refresh = node(documentObject, "button", "ordax-settings-action", t("settings.ownerMcp.refresh"));
+    refresh.type = "button";
+    refresh.dataset.settingsOwnerMcpRefresh = "";
+    refresh.disabled = remotePermissionsPending || !remotePermissionsPort;
+    section.append(refresh);
+    section.append(node(documentObject, "p", "ordax-settings-section-copy", t("settings.ownerMcp.note")));
+    view.append(section);
   };
 
   const renderConnector = (view) => {
@@ -1364,6 +1428,7 @@ export function mountSettingsOverviewControls(
     } else if (activeSection === "security") {
       renderSecurity(view);
       renderConnector(view);
+      renderOwnerRemotePermissions(view);
     } else if (activeSection === "notifications") {
       renderNotifications(view);
     }
@@ -1384,6 +1449,45 @@ export function mountSettingsOverviewControls(
   };
 
   const replaceView = () => renderView(true);
+
+  const refreshOwnerRemotePermissions = async () => {
+    if (!remotePermissionsPort || destroyed || remotePermissionsPending) return;
+    const ordinal = ++remotePermissionsOrdinal;
+    try {
+      const next = await remotePermissionsPort.read();
+      if (destroyed || remotePermissionsOrdinal !== ordinal) return;
+      remotePermissionsSnapshot = next;
+      remotePermissionsError = false;
+    } catch {
+      if (destroyed || remotePermissionsOrdinal !== ordinal) return;
+      remotePermissionsSnapshot = null;
+      remotePermissionsError = true;
+    }
+    if (activeSection === "security") replaceView();
+  };
+
+  const changeOwnerRemotePermission = async (clientId, enabled) => {
+    if (!remotePermissionsPort || remotePermissionsPending || destroyed) return;
+    // Enabling a whole-computer grant requires deliberate first-party choice;
+    // never auto-enable on account sign-in or mere discovery.
+    if (enabled && !documentObject.defaultView.confirm(t("settings.ownerMcp.confirm"))) return;
+    const ordinal = ++remotePermissionsOrdinal;
+    remotePermissionsPending = true;
+    remotePermissionsError = false;
+    replaceView();
+    try {
+      const next = await remotePermissionsPort.configure(clientId, enabled);
+      if (destroyed || remotePermissionsOrdinal !== ordinal) return;
+      remotePermissionsSnapshot = next;
+    } catch {
+      remotePermissionsError = true;
+    } finally {
+      if (!destroyed && remotePermissionsOrdinal === ordinal) {
+        remotePermissionsPending = false;
+        replaceView();
+      }
+    }
+  };
 
   const refreshConnector = async () => {
     if (destroyed || !connectorPort) return;
@@ -1551,6 +1655,17 @@ export function mountSettingsOverviewControls(
   };
 
   const onClick = (event) => {
+    const remoteRefresh = event.target.closest("[data-settings-owner-mcp-refresh]");
+    if (remoteRefresh && root.contains(remoteRefresh)) {
+      void refreshOwnerRemotePermissions();
+      return;
+    }
+    const remoteToggle = event.target.closest("[data-settings-owner-mcp-toggle]");
+    if (remoteToggle && root.contains(remoteToggle)) {
+      void changeOwnerRemotePermission(remoteToggle.dataset.settingsOwnerMcpToggle,
+        remoteToggle.dataset.settingsOwnerMcpEnabled !== "true");
+      return;
+    }
     const connectorRefresh = event.target.closest("[data-settings-connector-refresh]");
     if (connectorRefresh && root.contains(connectorRefresh)) {
       void refreshConnector();
@@ -1582,7 +1697,10 @@ export function mountSettingsOverviewControls(
       && validSettingsSection(sectionButton.dataset.settingsSection)
     ) {
       const nextSection = sectionButton.dataset.settingsSection;
-      if (nextSection === "security") void refreshConnector();
+      if (nextSection === "security") {
+        void refreshConnector();
+        void refreshOwnerRemotePermissions();
+      }
       selectedNetworkSsid = null;
       networkManagementMessageId = null;
       if (activationPort) {
@@ -1811,7 +1929,10 @@ export function mountSettingsOverviewControls(
   const networkManagementPoll = networkManagementPort
     ? setInterval(() => void refreshNetworkManagement(), 5000)
     : null;
-  if (activeSection === "security") void refreshConnector();
+  if (activeSection === "security") {
+    void refreshConnector();
+    void refreshOwnerRemotePermissions();
+  }
   if (keyboardLayoutPort) void refreshKeyboardLayout();
   if (networkPort) void refreshNetwork();
   if (networkManagementPort) void refreshNetworkManagement();
@@ -1825,6 +1946,7 @@ export function mountSettingsOverviewControls(
       networkActionOrdinal += 1;
       keyboardLayoutOrdinal += 1;
       connectorOrdinal += 1;
+      remotePermissionsOrdinal += 1;
       if (networkPoll !== null) clearInterval(networkPoll);
       if (networkManagementPoll !== null) clearInterval(networkManagementPoll);
       unsubscribeNotifications?.();

@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 
 from product_device_enrollment import ProductDeviceEnrollmentClient
+from product_device_owner_grants import ProductOwnerRemotePermissions, OwnerRemotePermissionError
 from product_device_identity import ProductDeviceIdentityStore, UUID_RE
 from product_device_post_login import PostLoginDeviceResult, enroll_product_device_after_login
 from product_device_presence import ProductDevicePresenceClient, ProductDevicePresenceWorker
@@ -171,6 +172,22 @@ class ProductDeviceAccountGatewayProxy:
 
     def connector_status(self) -> dict:
         return self._coordinator.visibility_status(authenticated=self._authenticated, subject=self._subject)
+
+    def remote_permissions(self) -> dict:
+        if not self._authenticated or self._coordinator.client is None or self._coordinator.identity_store is None:
+            raise OwnerRemotePermissionError("account-authentication-required", 401)
+        return ProductOwnerRemotePermissions(
+            self._coordinator.client.origin, self._gateway,
+            self._coordinator.identity_store,
+        ).read()
+
+    def configure_remote_permission(self, client_id: str, enabled: bool) -> dict:
+        if not self._authenticated or self._coordinator.client is None or self._coordinator.identity_store is None:
+            raise OwnerRemotePermissionError("account-authentication-required", 401)
+        return ProductOwnerRemotePermissions(
+            self._coordinator.client.origin, self._gateway,
+            self._coordinator.identity_store,
+        ).configure(client_id, enabled)
 
     def configure_connector_visibility(self, enabled: bool) -> dict:
         if type(enabled) is not bool:
