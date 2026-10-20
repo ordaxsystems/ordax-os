@@ -2,7 +2,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { spawnSync } = require('node:child_process');
-const { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, existsSync } = require('node:fs');
+const { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, existsSync, readdirSync } = require('node:fs');
 const { join } = require('node:path');
 const { tmpdir } = require('node:os');
 const { OFFICIAL_REMOTE } = require('./runtime.cjs');
@@ -155,4 +155,46 @@ test('diverged, dirty or untrusted versions cannot be activated',async t=>{
   assert.equal(boot.trial,false);
   assert.equal(boot.sha,f.first);
   assert.equal(readState(f.userData).rejectedSha,second);
+});
+
+test('incompatible official main SHA does not leak candidates or clone indefinitely', async t=>{
+  const f=fixture(t);
+  const contract=join(f.source,'tools','windows-emulator','desktop-host-contract.json');
+  rmSync(contract);
+  gitCli(['add','-u'],f.source);
+  gitCli(['commit','-qm','upstream source without Desktop Host contract'],f.source);
+  const incompatible=gitCli(['rev-parse','HEAD'],f.source);
+  let clones=0;
+  const trackGit=async (...args)=>{
+    if(args[0][0]==='clone')clones++;
+    return f.offlineGit(...args);
+  };
+  const params={userData:f.userData,template:f.template,runGit:trackGit,buildCandidate:f.offlineBuild};
+  assert.equal((await stageMain(params)).status,'incompatible');
+  assert.equal(readState(f.userData).incompatibleSha,incompatible);
+  assert.deepEqual(readdirSync(join(f.userData,'runtime-versions')),[]);
+  assert.equal((await stageMain(params)).status,'incompatible');
+  assert.equal(clones,1,'same incompatible SHA must not clone again');
+  assert.equal(readState(f.userData).pendingSha,null);
+  f.advance();
+  assert.equal((await stageMain(params)).status,'incompatible');
+  assert.equal(clones,2,'a new official SHA is evaluated once');
+  assert.deepEqual(readdirSync(join(f.userData,'runtime-versions')),[]);
+  writeFileSync(contract,JSON.stringify({schema:1,desktopHost:{contractVersion:1,
+    nativeSource:'system/composition/native/index.html',capabilities:[
+      'no-external-browser','dynamic-loopback-port','external-state-directory']}}));
+  gitCli(['add','.'],f.source);
+  gitCli(['commit','-qm','upstream adds Desktop Host contract'],f.source);
+  assert.equal((await stageMain(params)).status,'staged');
+  assert.equal(readState(f.userData).incompatibleSha,null);
+  assert.equal(clones,3);
+});
+
+test('legacy update state without incompatibleSha remains readable',t=>{
+  const f=fixture(t);
+  const legacy={...readState(f.userData)};
+  delete legacy.incompatibleSha;
+  writeFileSync(join(f.userData,'desktop-dev-update-state.json'),JSON.stringify(legacy));
+  assert.equal(readState(f.userData).incompatibleSha,null);
+  assert.throws(()=>validateState({...legacy,incompatibleSha:'invalid'}),/Untrusted/);
 });
