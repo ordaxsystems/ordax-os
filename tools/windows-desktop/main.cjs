@@ -93,10 +93,11 @@ async function assertNativeShellMounted(browserWindow) {
       "phase:document.querySelector('#ordax-boot-screen')?.dataset.state||'missing',"+
       "status:document.querySelector('[data-ordax-boot-status]')?.textContent?.slice(0,150)||'',"+
       "ready:document.readyState,script:!!document.querySelector('script[src]'),"+
-      "url:location.pathname})"
+      "milestone:document.documentElement.dataset.ordaxNativeMilestone||'module-not-evaluated',"+
+      "resources:performance.getEntriesByType('resource').length,url:location.pathname})"
     );
     last=result;
-    const current=[result.phase,result.count,result.status,result.ready].join('|');
+    const current=[result.phase,result.count,result.status,result.ready,result.milestone,result.resources].join('|');
     if(current!==previous){
       log('Native mount observation '+Math.round((Date.now()-started)/1000)+'s: '+current.slice(0,280));
       previous=current;
