@@ -577,7 +577,7 @@ class DevelopmentGitFlowTest(unittest.TestCase):
         result = self._script(PULL, env=env, check=False)
 
         self.assertNotEqual(result.returncode, 0)
-        self.assertIn("Supervisor cache unavailable (tracking-ref-mismatch)", result.stderr)
+        self.assertIn("Supervisor cache unavailable (candidate-already-active)", result.stderr)
         self.assertEqual(
             (self.root / "run/ordax-update/pull-result").read_text().strip(),
             "remote-discovery",
