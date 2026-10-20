@@ -1,3 +1,10 @@
+; Owner/Dev Windows is a per-user application. Do not show the assisted
+; install-mode selection page: the silent /S path otherwise waits there
+; on the real Windows host before extracting a single file.
+!macro customInstallMode
+  StrCpy $isForceCurrentInstall "1"
+!macroend
+
 ; Instrument only supported electron-builder NSIS extension points. Do not
 ; override installer transaction, elevation, upgrade, progress or rollback.
 ; This diagnostic journal contains stages only (no machine names or credentials).
