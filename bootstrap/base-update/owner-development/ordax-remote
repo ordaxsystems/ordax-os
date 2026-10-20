@@ -292,7 +292,7 @@ enable_auto_start() {
     if [ -e "$AUTO_START_FILE" ] || [ -L "$AUTO_START_FILE" ]; then
         [ -f "$AUTO_START_FILE" ] && [ ! -L "$AUTO_START_FILE" ] || fail "unsafe auto-start state"
     fi
-    temporary=$AUTO_START_FILE.tmp.$
+    temporary=$AUTO_START_FILE.tmp.$$
     printf '%s\n' enabled >"$temporary" || fail "cannot stage auto-start consent"
     bb chmod 600 "$temporary" || fail "cannot secure auto-start consent"
     bb mv -f "$temporary" "$AUTO_START_FILE" || fail "cannot persist auto-start consent"
