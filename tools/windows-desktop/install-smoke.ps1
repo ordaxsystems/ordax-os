@@ -97,6 +97,15 @@ try {
       throw ("Installed Native Surface did not become ready within 180 seconds. Log: " +
         (Get-Content -LiteralPath $logFile -Tail 25 -ErrorAction SilentlyContinue | Out-String))
     }
+    # The installed app must serve the actual Desktop capability contract.
+    $localUrls = [regex]::Matches($newLog, 'Native Surface ready: (http://127\.0\.0\.1:\d+)')
+    if ($localUrls.Count -lt 1) { throw "Native readiness URL missing from log" }
+    $baseUrl = $localUrls[$localUrls.Count - 1].Groups[1].Value
+    $networkSnapshot = Invoke-RestMethod -Uri ($baseUrl + "/__ordax/native/network-status") -Method GET -TimeoutSec 15
+    if ($null -eq $networkSnapshot -or $null -eq $networkSnapshot.interfaces) {
+      throw "Installed desktop host does not supply canonical network-status snapshot"
+    }
+    Write-Output "DESKTOP_NETWORK_STATUS_SMOKE=PASS"
     Write-Output "STARTUP_SMOKE=PASS"
   }
   finally {
