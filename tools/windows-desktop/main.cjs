@@ -138,7 +138,7 @@ app.whenReady().then(async()=>{
     let root=selected.root;
     try {
       log(root===template?'Bundled OrdaX Surface':'Verified Git-managed OrdaX Surface');
-      runtime=await startHost({root,stateDirectory:runtimeStateDirectory(userData),log});
+      runtime=await startHost({root,stateDirectory:runtimeStateDirectory(userData),userData,log});
       await window.loadURL(runtime.url+PRODUCT);
       await assertNativeShellMounted(window);
       log('Native shell mounted and ready: '+runtime.url);
@@ -155,7 +155,7 @@ app.whenReady().then(async()=>{
       runtime=null;
       const fallback=await chooseBootVersion({userData,template,log});
       root=fallback.root;
-      runtime=await startHost({root,stateDirectory:runtimeStateDirectory(userData),log});
+      runtime=await startHost({root,stateDirectory:runtimeStateDirectory(userData),userData,log});
       await window.loadURL(runtime.url+PRODUCT);
       await assertNativeShellMounted(window);
       log('Native shell mounted and ready after rollback: '+runtime.url);
