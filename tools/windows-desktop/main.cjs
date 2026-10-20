@@ -172,10 +172,17 @@ app.whenReady().then(async()=>{
       preload:join(__dirname,'browser-preload.cjs'),
       sandbox:true,webSecurity:true,allowRunningInsecureContent:false},
   });
-  window.webContents.on('console-message',(_event,details)=>{
-    const message=typeof details==='object'?String(details.message||''):String(details||'');
-    if(/OrdaX native composition failed|Uncaught|TypeError|ReferenceError|failed/i.test(message))
-      log('renderer: '+message.slice(0,650));
+  // Electron 40 passes a single details event, not the legacy (event, level,
+  // message) tuple. Without this, actual Native renderer errors were invisible.
+  window.webContents.on('console-message',details=>{
+    const value=String(details?.message??'').replace(/[\\r\\n]+/g,' ').trim();
+    if(!value)return;
+    if(Number(details?.level)>=2 ||
+       /OrdaX native composition failed|Uncaught|TypeError|ReferenceError|failed/i.test(value)){
+      log('renderer ['+String(details?.level??'unknown')+'] '+
+        value.slice(0,900)+' @ '+String(details?.sourceId??'').slice(0,180)+
+        ':'+String(details?.lineNumber??'?'));
+    }
   });
   window.webContents.on('render-process-gone',(_event,details)=>{
     log('Renderer process gone: '+String(details?.reason||'unknown'));
