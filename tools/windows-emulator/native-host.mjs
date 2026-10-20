@@ -2,6 +2,7 @@
 import { mkdir, readFile, writeFile, rename } from "node:fs/promises";
 import { join } from "node:path";
 import { readDesktopNetworkStatus } from "../../system/adapters/desktop/network-status.mjs";
+import { readDesktopUpdateStatus, readDesktopUpdateHistory } from "../../system/adapters/desktop/update-observation.mjs";
 import { createInitialFirstRunState, validateFirstRunState } from "../../system/contracts/first-run-state-store.mjs";
 import { validatePreferenceRecord } from "../../system/contracts/preference-store.mjs";
 import { FIRST_RUN_CURSOR_SCHEMA, validateFirstRunCursor } from "../../system/contracts/first-run-cursor.mjs";
@@ -90,19 +91,33 @@ export function nativeEmulatorPlugin(stateDirectory, { desktopHost = false } = {
       if (desktopHost) {
         // Genuine Windows host observation under the canonical Native port.
         server.middlewares.use((request, response, next) => {
-          if (request.url.split("?")[0] !== "/__ordax/native/network-status") return next();
+          const path = request.url.split("?")[0];
+          if (!["/__ordax/native/network-status", "/__ordax/native/update", "/__ordax/native/update-history"].includes(path)) return next();
           response.setHeader("Content-Type", "application/json");
           response.setHeader("Cache-Control", "no-store");
           if (request.method !== "GET") {
             response.statusCode = 405;
-            return response.end(JSON.stringify({ error: "Method unavailable" }));
+            return response.end(JSON.stringify({ error: "Read-only Desktop capability" }));
           }
-          try {
+          const respond = (payload) => {
             response.statusCode = 200;
-            return response.end(JSON.stringify(readDesktopNetworkStatus()));
+            response.end(JSON.stringify(payload));
+          };
+          try {
+            if (path === "/__ordax/native/network-status") return respond(readDesktopNetworkStatus());
+            if (path === "/__ordax/native/update-history") return respond(readDesktopUpdateHistory());
+            const directory = process.env.ORDAX_DESKTOP_UPDATE_USER_DATA;
+            if (!directory) {
+              response.statusCode = 503;
+              return response.end(JSON.stringify({ error: "Desktop update journal path was not configured" }));
+            }
+            void readDesktopUpdateStatus(directory).then(respond).catch(() => {
+              response.statusCode = 503;
+              response.end(JSON.stringify({ error: "Desktop update observation failed" }));
+            });
           } catch {
             response.statusCode = 503;
-            return response.end(JSON.stringify({ error: "Desktop network status unavailable" }));
+            return response.end(JSON.stringify({ error: "Desktop capability unavailable" }));
           }
         });
       }
