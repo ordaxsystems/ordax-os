@@ -171,6 +171,42 @@ class OwnerRemoteRecoveryTests(unittest.TestCase):
             self.assertIn("ORDAX_OWNER_REMOTE_BOOT_CRITICAL=no", status.stdout)
             self.assertFalse(state.exists(), "status must not create persistent state")
 
+    def test_explicit_paired_owner_autostart_can_be_enabled_and_revoked(self):
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / "state"
+            self.assertNotEqual(
+                self.run_helper("enable-auto", state=state).returncode, 0
+            )
+            self.assertFalse((state / "auto-start-enabled").exists())
+            state.mkdir()
+            (state / "device-id").write_text("only-disposable-test-device\n")
+            token = state / "device-token"
+            token.write_text("dummy-secret-test-token\n")
+            token.chmod(0o600)
+            (state / "control-plane-url").write_text("https://control.example.invalid\n")
+            enabled = self.run_helper("enable-auto", state=state)
+            self.assertEqual(enabled.returncode, 0, enabled.stderr)
+            marker = state / "auto-start-enabled"
+            self.assertEqual(marker.read_text().strip(), "enabled")
+            self.assertEqual(marker.stat().st_mode & 0o777, 0o600)
+            status = self.run_helper("status", state=state)
+            self.assertEqual(status.returncode, 0, status.stderr)
+            self.assertIn("ORDAX_OWNER_REMOTE_AUTO_START=yes", status.stdout)
+            self.assertNotIn("dummy-secret-test-token", status.stdout)
+            disabled = self.run_helper("disable-auto", state=state)
+            self.assertEqual(disabled.returncode, 0, disabled.stderr)
+            self.assertFalse(marker.exists())
+            state.chmod(0o700)
+
+    def test_owner_launcher_starts_optional_runtime_only_with_consent(self):
+        launcher = (ROOT / "bootstrap/dev-base/ordax-run").read_text(encoding="utf-8")
+        self.assertIn("start_optional_owner_remote()", launcher)
+        self.assertIn("auto-start-enabled", launcher)
+        self.assertIn('"$first_line" = enabled', launcher)
+        self.assertIn('/bin/sh "$remote" ensure', launcher)
+        self.assertLess(launcher.index("ENTRY_PID=$!"), launcher.index("\nstart_optional_owner_remote\n"))
+        self.assertNotIn("ORDAX_OWNER_REMOTE_AUTOSTART=1", launcher)
+
     def test_non_owner_missing_or_ambiguous_boot_identity_is_rejected(self):
         with tempfile.TemporaryDirectory() as directory:
             state = Path(directory) / "state"
