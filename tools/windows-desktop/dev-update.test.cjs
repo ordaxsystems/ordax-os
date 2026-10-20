@@ -42,7 +42,7 @@ function fixture(t) {
       nativeSource:'system/composition/native/index.html',
       capabilities:['no-external-browser','dynamic-loopback-port','external-state-directory']}
   }));
-  writeFileSync(join(source,'.gitignore'),'node_modules/\n');
+  writeFileSync(join(source,'.gitignore'),'node_modules/\nout/\n');
   gitCli(['add','.'],source);
   gitCli(['commit','-qm','first canonical Native source'],source);
   const first=gitCli(['rev-parse','HEAD'],source);
@@ -63,7 +63,15 @@ function fixture(t) {
     }
     return git(args,cwd,timeout);
   }
-  return {root,source,userData,template,first,advance,offlineGit};
+  async function offlineBuild(staging) {
+    const bundle = join(staging,'out','windows-desktop-native');
+    mkdirSync(join(bundle,'system','composition','native'),{recursive:true});
+    mkdirSync(join(bundle,'assets'),{recursive:true});
+    writeFileSync(join(bundle,'system','composition','native','index.html'),
+      '<!doctype html><script type="module" src="/__ordax/desktop-assets/assets/index-123.js"></script>');
+    writeFileSync(join(bundle,'assets','index-123.js'),'export const healthy = true;');
+  }
+  return {root,source,userData,template,first,advance,offlineGit,offlineBuild};
 }
 
 test('update state is durable, validated and never silently resets corruption', t=>{
@@ -80,7 +88,7 @@ test('update state is durable, validated and never silently resets corruption', 
 
 test('real Git candidate is isolated, boot-trialled and committed only after health',async t=>{
   const f=fixture(t);
-  const first=await stageMain({userData:f.userData,template:f.template,runGit:f.offlineGit});
+  const first=await stageMain({userData:f.userData,template:f.template,runGit:f.offlineGit,buildCandidate:f.offlineBuild});
   assert.equal(first.status,'staged');
   assert.equal(first.sha,f.first);
   assert.ok(existsSync(versionRoot(f.userData,f.first)));
@@ -100,23 +108,23 @@ test('real Git candidate is isolated, boot-trialled and committed only after hea
 
 test('unconfirmed candidate is rejected on next start, without deleting previous runtime',async t=>{
   const f=fixture(t);
-  await stageMain({userData:f.userData,template:f.template,runGit:f.offlineGit});
+  await stageMain({userData:f.userData,template:f.template,runGit:f.offlineGit,buildCandidate:f.offlineBuild});
   await chooseBootVersion({userData:f.userData,template:f.template});
   const restart=await chooseBootVersion({userData:f.userData,template:f.template});
   assert.equal(restart.root,f.template);
   assert.equal(readState(f.userData).rejectedSha,f.first);
   assert.equal(readState(f.userData).pendingSha,null);
   assert.ok(existsSync(versionRoot(f.userData,f.first)));
-  assert.equal((await stageMain({userData:f.userData,template:f.template,runGit:f.offlineGit})).status,'rejected');
+  assert.equal((await stageMain({userData:f.userData,template:f.template,runGit:f.offlineGit,buildCandidate:f.offlineBuild})).status,'rejected');
 });
 
 test('second fast-forward stages separately; explicit rollback pins previous commit',async t=>{
   const f=fixture(t);
-  await stageMain({userData:f.userData,template:f.template,runGit:f.offlineGit});
+  await stageMain({userData:f.userData,template:f.template,runGit:f.offlineGit,buildCandidate:f.offlineBuild});
   await chooseBootVersion({userData:f.userData,template:f.template});
   confirmHealthy(f.userData,f.first);
   const second=f.advance();
-  const staged=await stageMain({userData:f.userData,template:f.template,runGit:f.offlineGit});
+  const staged=await stageMain({userData:f.userData,template:f.template,runGit:f.offlineGit,buildCandidate:f.offlineBuild});
   assert.equal(staged.status,'staged');
   assert.equal(staged.sha,second);
   assert.ok(existsSync(versionRoot(f.userData,f.first)));
@@ -127,18 +135,18 @@ test('second fast-forward stages separately; explicit rollback pins previous com
   assert.equal(rolled.activeSha,f.first);
   assert.equal(rolled.previousSha,second);
   assert.equal(rolled.pinnedSha,f.first);
-  assert.equal((await stageMain({userData:f.userData,template:f.template,runGit:f.offlineGit})).status,'pinned');
+  assert.equal((await stageMain({userData:f.userData,template:f.template,runGit:f.offlineGit,buildCandidate:f.offlineBuild})).status,'pinned');
   assert.equal((await chooseBootVersion({userData:f.userData,template:f.template})).sha,f.first);
   assert.equal(unpin(f.userData).pinnedSha,null);
 });
 
 test('diverged, dirty or untrusted versions cannot be activated',async t=>{
   const f=fixture(t);
-  await stageMain({userData:f.userData,template:f.template,runGit:f.offlineGit});
+  await stageMain({userData:f.userData,template:f.template,runGit:f.offlineGit,buildCandidate:f.offlineBuild});
   await chooseBootVersion({userData:f.userData,template:f.template});
   confirmHealthy(f.userData,f.first);
   const second=f.advance();
-  const stage=await stageMain({userData:f.userData,template:f.template,runGit:f.offlineGit});
+  const stage=await stageMain({userData:f.userData,template:f.template,runGit:f.offlineGit,buildCandidate:f.offlineBuild});
   assert.equal(stage.status,'staged');
   // A locally modified tracked file is not an acceptable candidate.
   const file=join(versionRoot(f.userData,second),'system','composition','native','index.html');
