@@ -105,11 +105,16 @@ def audit(path: str) -> dict:
             kind, target = entries[path]
             if kind == tarfile.REGTYPE or kind == tarfile.AREGTYPE:
                 return True
-            if kind != tarfile.SYMTYPE:
+            if kind not in (tarfile.SYMTYPE, tarfile.LNKTYPE):
                 return False
             if not target:
                 return False
-            base = target.lstrip("/") if target.startswith("/") else posixpath.join(posixpath.dirname(path), target)
+            # Hardlink names are archive-root relative; symlinks resolve
+            # relative to their containing directory unless absolute.
+            if kind == tarfile.LNKTYPE:
+                base = target.lstrip("/")
+            else:
+                base = target.lstrip("/") if target.startswith("/") else posixpath.join(posixpath.dirname(path), target)
             path = posixpath.normpath(base)
             if path == ".." or path.startswith("../"):
                 return False
