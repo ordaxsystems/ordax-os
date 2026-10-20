@@ -181,6 +181,19 @@ try {
     if ($null -eq $networkSnapshot -or $null -eq $networkSnapshot.interfaces) {
       throw "Installed desktop host does not supply canonical network-status snapshot"
     }
+    $updateSnapshot = Invoke-RestMethod -Uri ($baseUrl + "/__ordax/native/update") -Method GET -TimeoutSec 15
+    if (-not $updateSnapshot.sourceSha -or -not $updateSnapshot.status -or
+        -not $updateSnapshot.phase -or $null -eq $updateSnapshot.deliveryNumber) {
+      throw "Installed Desktop did not publish the canonical update-status contract"
+    }
+    if ($updateSnapshot.sourceSha -eq "bundled-desktop" -and $updateSnapshot.status -eq "applied") {
+      throw "Bundled Desktop was incorrectly marked as an applied main update"
+    }
+    $updateHistory = Invoke-RestMethod -Uri ($baseUrl + "/__ordax/native/update-history") -Method GET -TimeoutSec 15
+    if ($null -eq $updateHistory.releases -or $null -eq $updateHistory.applications) {
+      throw "Installed Desktop did not publish canonical update history"
+    }
+    Write-Output "DESKTOP_UPDATE_STATUS_SMOKE=PASS"
     Write-Output "DESKTOP_NETWORK_STATUS_SMOKE=PASS"
     Write-Output ("STARTUP_DURATION_SECONDS=" + [Math]::Round(([DateTime]::UtcNow - $startupStarted).TotalSeconds, 1))
     Write-Output "STARTUP_SMOKE=PASS"
