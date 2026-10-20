@@ -149,6 +149,7 @@ import { mountLocalSessionLock } from "../../surface/ui/local-session-lock.mjs";
 import { mountSettingsOverviewControls } from "../../surface/ui/settings-overview-controls.mjs";
 import { mountStoreWindows } from "../../surface/ui/store-experience.mjs";
 import { mountSystemOverviewControls } from "../../surface/ui/system-overview-controls.mjs";
+import { createDesktopRecoveryStatus } from "../../adapters/desktop/recovery-port.mjs";
 import { mountSystemTrayQuickPanels } from "../../surface/ui/system-tray-quick-panels.mjs";
 import { mountUpdateControls } from "../../surface/ui/update-controls.mjs";
 
@@ -948,6 +949,10 @@ async function start() {
   let storeCatalogComposition = null;
   let storeCatalog = createUnavailableAppStoreCatalogPort();
   let storeOverviewControls = null;
+  const desktopRecoveryStatus = typeof window.ordaxDesktopBrowser?.postMessage === "function"
+    ? await optionalNativeProbe("OrdaX Desktop recovery unavailable",
+      () => createDesktopRecoveryStatus(window))
+    : null;
   const systemOverviewControls = mountSystemOverviewControls(
     root,
     host,
@@ -960,6 +965,7 @@ async function start() {
     componentManager,
     selectedSpaceIntelligence,
     recoveryStatus,
+    desktopRecoveryStatus,
   );
   const updateControls = mountUpdateControls(root, updateWatcher, appActivation, surface);
   const powerControls = mountPowerControls(root, powerActions, surface);
