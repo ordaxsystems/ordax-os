@@ -7,6 +7,7 @@ import { readDesktopPowerStatus } from "../../system/adapters/desktop/power-stat
 import { readDesktopUpdateStatus, readDesktopUpdateHistory } from "../../system/adapters/desktop/update-observation.mjs";
 import { readDesktopRecovery } from "../../system/adapters/desktop/recovery-observation.mjs";
 import { createDesktopBuiltAssetsMiddleware } from "./desktop-built-assets.mjs";
+import { createDesktopFileSpaceMiddleware } from "../../system/adapters/desktop/file-space-host.mjs";
 import { createInitialFirstRunState, validateFirstRunState } from "../../system/contracts/first-run-state-store.mjs";
 import { validatePreferenceRecord } from "../../system/contracts/preference-store.mjs";
 import { FIRST_RUN_CURSOR_SCHEMA, validateFirstRunCursor } from "../../system/contracts/first-run-cursor.mjs";
@@ -95,6 +96,13 @@ export function nativeEmulatorPlugin(stateDirectory, { desktopHost = false } = {
       if (desktopHost && process.env.ORDAX_DESKTOP_ASSETS_ROOT) {
         // Same compiled Native composition, served before Vite source transforms.
         server.middlewares.use(createDesktopBuiltAssetsMiddleware(process.env.ORDAX_DESKTOP_ASSETS_ROOT));
+      }
+      if (desktopHost && process.env.ORDAX_DESKTOP_UPDATE_USER_DATA) {
+        // Logical "/" is a private, persistent Windows user-data file-space,
+        // not the host drive root. This precedes the emulator 503 fallback.
+        server.middlewares.use(createDesktopFileSpaceMiddleware(
+          join(process.env.ORDAX_DESKTOP_UPDATE_USER_DATA,"Files")
+        ));
       }
       if (desktopHost) {
         // Genuine Windows host observation under the canonical Native port.
