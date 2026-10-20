@@ -3,7 +3,7 @@
 // Never rewrites a running tree. Only exact verified, clean, immutable versions
 // can become boot candidates. MVP/Stable must not use this Git channel.
 const { randomUUID } = require('node:crypto');
-const { join, dirname } = require('node:path');
+const { join } = require('node:path');
 const { mkdirSync, readFileSync, writeFileSync, renameSync, rmSync, lstatSync, existsSync, openSync, closeSync, fsyncSync } = require('node:fs');
 const { OFFICIAL_REMOTE } = require('./runtime.cjs');
 const { git, isTrusted, hasDesktopHostContract, dependencies } = require('./checkout.cjs');
@@ -16,6 +16,7 @@ const VERSIONS_DIR = 'runtime-versions';
 const DEFAULT_STATE = Object.freeze({
   schema: CHANNEL_SCHEMA, activeSha: null, previousSha: null,
   pendingSha: null, attemptedSha: null, pinnedSha: null, rejectedSha: null,
+  incompatibleSha: null,
 });
 
 function shaOrNull(value) {
@@ -26,7 +27,9 @@ function validateState(value) {
       value.schema !== CHANNEL_SCHEMA ||
       !['activeSha','previousSha','pendingSha','attemptedSha','pinnedSha','rejectedSha'].every(
         field => shaOrNull(value[field])
-      )) throw Error('Untrusted Desktop Dev update state; refusing update');
+      ) || !shaOrNull(value.incompatibleSha ?? null)) {
+    throw Error('Untrusted Desktop Dev update state; refusing update');
+  }
   if (value.pinnedSha && value.pinnedSha !== value.activeSha) {
     throw Error('Pinned Desktop Dev SHA must match the running source');
   }
@@ -41,6 +44,8 @@ function validateState(value) {
     activeSha: value.activeSha, previousSha: value.previousSha,
     pendingSha: value.pendingSha, attemptedSha: value.attemptedSha,
     pinnedSha: value.pinnedSha, rejectedSha: value.rejectedSha,
+    // A previously persisted v1 state may not have this optional field.
+    incompatibleSha: value.incompatibleSha ?? null,
   });
 }
 function statePath(userData) { return join(userData, STATE_FILENAME); }
@@ -147,6 +152,9 @@ async function stageMain({ userData, template, log = () => {}, remote = OFFICIAL
   if (!SHA_RE.test(remoteSha)) return {status:'unavailable'};
   if (remoteSha === state.activeSha || remoteSha === state.rejectedSha)
     return {status: remoteSha === state.activeSha ? 'current':'rejected',sha:remoteSha};
+  // A verified source without the Desktop Host contract cannot become bootable
+  // through repeated cloning of the identical official SHA.
+  if (remoteSha === state.incompatibleSha) return {status:'incompatible',sha:remoteSha};
 
   const versions = join(userData,VERSIONS_DIR);
   mkdirSync(versions,{recursive:true});
@@ -163,8 +171,16 @@ async function stageMain({ userData, template, log = () => {}, remote = OFFICIAL
         'system','tools/windows-emulator','tools/surface-web','tools/windows-desktop'],staging,60000);
       if (!sparse.ok) return {status:'unavailable'};
       const head = await runGit(['-C',staging,'rev-parse','HEAD'],staging,10000);
-      if (!head.ok || head.stdout !== remoteSha || !await isTrusted(staging) ||
-          !hasDesktopHostContract(staging)) return {status:'incompatible'};
+      if (!head.ok || head.stdout !== remoteSha || !await isTrusted(staging))
+        return {status:'untrusted'};
+      if (!hasDesktopHostContract(staging)) {
+        const latest = readState(userData);
+        if (!latest.pendingSha && !latest.pinnedSha && latest.activeSha === state.activeSha) {
+          writeState(userData,{...latest,incompatibleSha:remoteSha});
+        }
+        log('Official main '+remoteSha.slice(0,12)+' lacks Desktop Host contract; deferring until main changes');
+        return {status:'incompatible',sha:remoteSha};
+      }
       if (state.activeSha) {
         const ancestry = await runGit(['-C',staging,'merge-base','--is-ancestor',
           state.activeSha,remoteSha],staging,10000);
@@ -180,7 +196,9 @@ async function stageMain({ userData, template, log = () => {}, remote = OFFICIAL
       renameSync(staging,target);
     } finally {
       // Delete ONLY the uniquely owned staging directory, never user/source.
-      if (existsSync(staging)) rmSync(staging,{recursive:true,force:true});
+      // Retry bounded Windows Git-handle contention, only for this transaction's
+      // unique .candidate UUID directory. Never touch active/previous versions.
+      if (existsSync(staging)) rmSync(staging,{recursive:true,force:true,maxRetries:10,retryDelay:200});
     }
   }
   if (!await verifiedVersion(userData,remoteSha,template)) return {status:'untrusted'};
@@ -190,7 +208,7 @@ async function stageMain({ userData, template, log = () => {}, remote = OFFICIAL
   if (latest.pinnedSha || latest.pendingSha || latest.activeSha !== state.activeSha) {
     return {status:'conflict'};
   }
-  writeState(userData,{...latest,pendingSha:remoteSha,attemptedSha:null});
+  writeState(userData,{...latest,pendingSha:remoteSha,attemptedSha:null,incompatibleSha:null});
   log('Validated Desktop Dev update ' + remoteSha.slice(0,12) +
       ' staged; activation requires next app start and health receipt');
   return {status:'staged',sha:remoteSha};
