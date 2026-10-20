@@ -26,6 +26,12 @@ function validateState(value) {
       !['activeSha','previousSha','pendingSha','attemptedSha','pinnedSha','rejectedSha'].every(
         field => shaOrNull(value[field])
       )) throw Error('Untrusted Desktop Dev update state; refusing update');
+  if (value.pinnedSha && value.pinnedSha !== value.activeSha) {
+    throw Error('Pinned Desktop Dev SHA must match the running source');
+  }
+  if (value.pendingSha && value.pendingSha === value.activeSha) {
+    throw Error('A running source cannot be staged as an update');
+  }
   if (value.attemptedSha && value.attemptedSha !== value.pendingSha) {
     throw Error('Desktop Dev attempted SHA is not the pending SHA');
   }
@@ -71,7 +77,7 @@ async function verifiedVersion(userData, sha, template) {
   if (!await isTrusted(path) || !hasDesktopHostContract(path)) return null;
   const head = await git(['-C',path,'rev-parse','HEAD'],path,10000);
   if (!head.ok || head.stdout !== sha) return null;
-  const clean = await git(['-C',path,'status','--porcelain=v1','--untracked-files=no'],path,10000);
+  const clean = await git(['-C',path,'status','--porcelain=v1','--untracked-files=all'],path,10000);
   if (!clean.ok || clean.stdout) return null;
   if (template) dependencies(path, template);
   return path;
@@ -114,9 +120,12 @@ function rejectCandidate(userData, sha) {
   writeState(userData,{...state,pendingSha:null,attemptedSha:null,rejectedSha:sha});
   return true;
 }
-function pinPrevious(userData) {
+async function pinPrevious(userData,template) {
   const state = readState(userData);
   if (!state.previousSha) throw Error('No previous verified Desktop Dev source for rollback');
+  if (!await verifiedVersion(userData,state.previousSha,template)) {
+    throw Error('Previous Desktop Dev source failed verification; rollback refused');
+  }
   return writeState(userData,{...state,activeSha:state.previousSha,
     previousSha:state.activeSha, pendingSha:null,attemptedSha:null,
     pinnedSha:state.previousSha});
