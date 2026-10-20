@@ -93,7 +93,7 @@ Web-only watermark was removed so the desktop has the same content hierarchy
 across hosts. The wallpaper remains decorative, behind shortcuts and windows.
 
 Desktop taskbar frame (2026-10-19): Native and Web now share Meridian tokens
-for the bottom bar's three-column balance, side-control minimum, group spacing,
+for the bottom bar's three-column balance, content-sized side controls, group spacing,
 horizontal inset, dock item targets, glyph size and open/active/minimized
 indicators. Arrow navigation and Home/End share one implementation; each host
 retains its own scroll reveal. Taskbar focus and toggle states now follow shared
@@ -102,14 +102,51 @@ responsive breakpoints and platform-specific controls, so dock status and visual
 scale stay consistent while available system actions remain truthful to each
 host.
 
+Meridian navigation refinement (2026-10-19, source changes awaiting validation):
+Central and desktop use the same sidebar spacing. The shared taskbar reserves
+the intrinsic width of its side controls before giving the remaining space to
+the scrollable dock; its default height is 3.25rem with 2.75rem app targets.
+Native sidebar spacing responds to the scaled canvas height, preserving desktop
+navigation and its overflow menu. Sidebar measurements use layout pixels rather
+than zoomed screen rectangles, and Native dock focus remains visible after
+container resizing. Focused Node regressions were subsequently run on 2026-10-20: Meridian shell,
+desktop resolution, First Run and Home behavior passed (45/45 tests). Diff
+whitespace validation also passed. Visual acceptance and npm/build checks remain
+unrun; these source edits do not update the packaged USB image or published Web bundle.
+
+Central Home refresh (2026-10-19, source changes awaiting validation): Native
+Home follows the supplied dashboard concept: the existing day/night landscape
+contains a local-only Aura command preview, followed by illustrated continuation
+cards, an app strip, recent-file/project examples and side widgets for system
+status and a current Space. Example states, projects and app shortcuts are
+explicitly marked; they are not asserted as host readings, installed apps or real
+files. Command suggestions populate the input; send/example actions only show a
+dismissible preview notice, with keyboard support and focus restoration. This
+preview composition lives in `system/surface/ui/home-concept.mjs`, separately
+from service-owned Home data and without a new backend adapter. Real continuation
+replaces the illustrative resume row when present; pending notices and local file
+shortcuts remain. Current catalog-owned app routes and capability checks still
+apply to real shortcuts. Spaces, profiles, devices and Store remain accessible
+through the existing Meridian destinations below the dashboard.
+Desktop container sizing rearranges content without changing the shell into a
+mobile navigation. Native and Web share the hero day/night resolver: 06:00–17:59
+uses the existing sunny landscape, otherwise the existing moonlit landscape,
+according to the configured time zone, independently of interface color scheme.
+The clock retains the current greeting across shell localization renders.
+Focused Node regressions were subsequently run on 2026-10-20: Meridian shell,
+desktop resolution, First Run and Home behavior passed (45/45 tests). Visual
+acceptance and npm/build checks remain unrun; packaged USB images and published
+Web bundles are not updated by these source edits alone.
+
 Desktop window chrome (2026-10-19): Web and Native application windows share
 the Meridian frame, active-state treatment, titlebar height and insets, app-mark
 tile, title typography and control targets. Window placement and available
 window actions remain owned by each host.
 
-Native Central home layout correction (2026-10-18): the persistent local-space
-card remains in the secondary column at desktop widths, while capability-backed
-continuation and pending-service cards occupy successive rows in the main column.
+Native Central home layout correction (2026-10-18, historical geometry superseded
+by the 2026-10-19 Central Home refresh above): the previous layout kept local-space
+shortcuts in the secondary column and continuation/pending cards in the main
+column. Preserve those services, but use the current dashboard composition.
 At narrow widths these direct `.ordax-space` children flow in document order.
 This preserves the existing lifecycle owners and avoids overlapping grid areas;
 it changes presentation only and does not claim new backend or USB capability.

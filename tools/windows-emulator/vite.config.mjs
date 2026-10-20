@@ -7,6 +7,8 @@ const repoRoot = resolve(fileURLToPath(new URL("../..", import.meta.url)));
 const surfaceWorkspace = fileURLToPath(new URL("../../system/surface/workspace", import.meta.url));
 const surfaceBrand = fileURLToPath(new URL("../../system/surface/ui/brand", import.meta.url));
 
+const emulatorHost = process.env.ORDAX_EMULATOR_HOST ?? "127.0.0.1";
+
 export default defineConfig({
   root: repoRoot,
   appType: "mpa",
@@ -19,7 +21,7 @@ export default defineConfig({
     },
   },
   server: {
-    host: "127.0.0.1",
+    host: emulatorHost,
     port: 4202,
     strictPort: true,
     fs: {

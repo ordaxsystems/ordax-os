@@ -14,6 +14,8 @@ npm run emulator:windows
 ```
 
 Open `http://127.0.0.1:4202/tools/windows-emulator/index.html`.
+
+To test from another computer on the same trusted local network, set `ORDAX_EMULATOR_HOST` to the development PC LAN address before starting Vite (for example `192.168.100.197`). The default remains loopback-only. This exposes the development host and its mock state endpoints to that LAN; it is not a production server or a bridge to USB hardware.
 The existing development supervisor watches origin/main and applies only a clean
 fast-forward. Local edits pause Git updates; Vite continues serving the checkout.
 Network failure or divergence never causes reset/discard of source work.

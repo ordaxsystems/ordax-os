@@ -68,7 +68,7 @@ test("Web and Native share the Meridian rail destination order and grouping", as
   assert.deepEqual(MERIDIAN_RAIL_DESTINATIONS.filter(item => item.group === "ecossistema").map(item => item.key), ["profiles", "devices", "store"]);
   assert.match(webConfig, /MERIDIAN_RAIL_DESTINATIONS/);
   assert.match(nativeShell, /MERIDIAN_RAIL_DESTINATIONS/);
-  assert.equal((nativeShell.match(/ICONS\[destination\.glyph\]/g) ?? []).length, 2, "Native navigation and overflow menu use canonical Meridian glyph metadata");
+  assert.equal((nativeShell.match(/ICONS\[destination\.glyph\]/g) ?? []).length, 3, "Native home, navigation, and overflow menu use canonical Meridian glyph metadata");
   assert.ok(nativeShell.includes('<p class="meridian-nav-label" data-nav-group-label="ecossistema">Ecossistema</p>'));
   assert.match(sharedSidebarStyles, /\.meridian-workspace \.ordax-product-sidebar \.meridian-native-nav-group \{ display:flex; flex-direction:column; gap:var\(--md-sidebar-nav-gap\);/);
   assert.match(tokens, /--md-sidebar-nav-gap:\.3125rem;/);
@@ -173,7 +173,9 @@ test("Native USB keeps the computer shell instead of switching to mobile geometr
   ].map(file => readFile(new URL(`../system/surface/ui/${file}`, import.meta.url), "utf8")));
   assert.doesNotMatch(nativeStyles, /@media\s*\(max-width:\s*(?:760|600|560|420)px/i, "Native must not switch to a phone layout at narrow viewport widths");
   assert.doesNotMatch(nativeStyles, /@media\s*\(max-width:\s*760px\)[\s\S]*?\.ordax-home-panel\s*\{[^}]*flex-direction:\s*column/i, "Native Home keeps its desktop information layout");
-  assert.doesNotMatch(nativeStyles, /@container\s+meridian-native-home/i, "Native home keeps the desktop information hierarchy at every display width");
+  assert.equal((nativeStyles.match(/@container\s+meridian-native-home\s*\(/g) ?? []).length, 3, "Native Home responds to the available computer workspace width");
+  assert.match(nativeStyles, /@container\s+meridian-native-home\s*\(max-width:\s*66rem\)[\s\S]*?\.ordax-home-panel\s*\{\s*grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)/, "medium computer workspaces reflow the existing Home areas");
+  assert.match(nativeStyles, /@container\s+meridian-native-home\s*\(max-width:\s*50rem\)[\s\S]*?\.ordax-home-panel\s*\{\s*grid-template-areas:/, "narrow computer workspaces preserve and reorder the same Home areas");
   assert.doesNotMatch(nativeStyles, /@media\s*\(max-width:/i, "Native shell geometry never switches according to a mobile viewport breakpoint");
   assert.doesNotMatch(nativeStyles, /meridian-mobile-menu/i, "Native has no mobile-only menu styling");
   assert.doesNotMatch(sharedMeridianStyles, /@container\s+meridian-native-home/i);
@@ -211,7 +213,7 @@ test("Web and Native taskbars share one Meridian frame and dock glyph scale", as
   assert.ok(tokens.includes("--md-taskbar-inline-padding:1.25rem"));
   assert.ok(tokens.includes("--md-taskbar-control-gap:.4375rem"));
   assert.ok(tokens.includes("--md-dock-glyph-size:1.3125rem"));
-  assert.ok(sharedStyles.includes("grid-template-columns:minmax(var(--md-taskbar-side-min),1fr) minmax(0,auto) minmax(var(--md-taskbar-side-min),1fr)"));
+  assert.ok(sharedStyles.includes("grid-template-columns:minmax(max-content,1fr) minmax(0,auto) minmax(max-content,1fr)"));
   assert.ok(sharedStyles.includes(".meridian-taskbar-start,.meridian-taskbar-end"));
   assert.ok(nativeShell.includes('class="ordax-dock ordax-statusbar meridian-taskbar"'));
   assert.ok(webNavigation.includes('className="desktop-taskbar workspace-navigation meridian-taskbar"'));
@@ -570,9 +572,9 @@ test("Web and Native load one Meridian sidebar profile stylesheet owner", async 
     read("system/surface/ui/meridian.tokens.css"),
   ]);
   assert.ok(shared.includes(".ordax-product-sidebar .meridian-rail-account {"));
-  assert.ok(shared.includes(".meridian-workspace .ordax-product-sidebar { gap:var(--md-sidebar-gap); padding:var(--md-sidebar-padding-block) var(--md-sidebar-padding-inline) 1.125rem; }"));
-  assert.match(tokens, /--md-sidebar-gap:1rem;/);
-  assert.match(tokens, /--md-sidebar-padding-block:1\.6875rem;/);
+  assert.match(shared, /\.meridian-workspace \.ordax-product-sidebar \{[^}]*gap:var\(--md-sidebar-gap\);[^}]*padding:var\(--md-sidebar-padding-block\)/);
+  assert.match(tokens, /--md-sidebar-gap:\.75rem;/);
+  assert.match(tokens, /--md-sidebar-padding-block:1\.25rem;/);
   assert.match(tokens, /--md-sidebar-padding-inline:1rem;/);
   assert.ok(shared.includes(":is(.ordax-space-switcher-trigger,.meridian-rail-space)"));
   assert.ok(brandStyles.includes('background: url("./ordax-symbol.png")'));

@@ -15,7 +15,7 @@ export function escapeMarkup(value) {
 export function createSidebarMarkup({ id, label, content }) {
   return `<aside id="${escapeMarkup(id)}" class="ordax-rail ordax-product-sidebar" aria-label="${escapeMarkup(label)}">${SIDEBAR_LAYOUT.map(slot => `<${slot.tag} class="${slot.className}" data-sidebar-slot="${slot.key}">${content[slot.key] ?? ""}</${slot.tag}>`).join("")}</aside>`;
 }
-export function sidebarIsExpanded(sidebar) { return sidebar.getBoundingClientRect().width > 100; }
+export function sidebarIsExpanded(sidebar) { return (sidebar.offsetWidth || sidebar.getBoundingClientRect().width) > 100; }
 const measuredSidebarHeadings = new WeakMap();
 export function sidebarItemIsActive(activeWindow, button) {
   if (!activeWindow || !button?.dataset?.sidebarApp || activeWindow.appId !== button.dataset.sidebarApp) return false;
@@ -27,7 +27,10 @@ export function sidebarNavigationCapacity(nav) {
   const button = nav.querySelector("button:not([hidden])");
   if (!button) return 0;
   const gap = parseFloat(style.rowGap) || 0;
-  const pitch = button.getBoundingClientRect().height + gap;
+  const buttonBounds = button.getBoundingClientRect();
+  const buttonHeight = button.offsetHeight || buttonBounds.height;
+  const visualScale = buttonHeight > 0 ? buttonBounds.height / buttonHeight : 1;
+  const pitch = buttonHeight + gap;
   if (pitch <= 0) return 0;
   const labels = [...nav.querySelectorAll(".meridian-nav-label")];
   let headingHeight = 0;
@@ -36,10 +39,10 @@ export function sidebarNavigationCapacity(nav) {
     const labelStyle = nav.ownerDocument.defaultView.getComputedStyle(label);
     if (rect.height > 0) {
       const firstButton = label.parentElement?.querySelector("button:not([hidden])");
-      const followingGap = firstButton ? Math.max(0, firstButton.getBoundingClientRect().top - rect.bottom) : 0;
-      const contribution = rect.height + (parseFloat(labelStyle.marginTop) || 0)
+      const followingGap = firstButton ? Math.max(0, firstButton.getBoundingClientRect().top - rect.bottom) / (visualScale || 1) : 0;
+      const contribution = (label.offsetHeight || rect.height / (visualScale || 1)) + (parseFloat(labelStyle.marginTop) || 0)
         + (parseFloat(labelStyle.marginBottom) || 0) + followingGap;
-      measuredSidebarHeadings.set(label, Math.max(contribution, measuredSidebarHeadings.get(label) || 0));
+      measuredSidebarHeadings.set(label, contribution);
       headingHeight += contribution;
     } else if (label.parentElement?.hidden && labelStyle.display !== "none") {
       // Keep a heading's measured height when its entire group was hidden to
@@ -61,6 +64,11 @@ export function mountNativeSidebarFit(nav, onResize) {
       group.hidden = !group.querySelector(".meridian-nav-destination button:not([hidden])");
     });
     more.hidden = count === buttons.length;
+    // A resize may move the focused destination into the overflow menu.
+    // Keep keyboard users on the control that still exposes that destination.
+    if (!more.hidden && buttons.some(button => button.hidden && button === nav.ownerDocument.activeElement)) {
+      more.focus({ preventScroll: true });
+    }
     onResize();
   }
   const Observer = nav.ownerDocument.defaultView.ResizeObserver;
