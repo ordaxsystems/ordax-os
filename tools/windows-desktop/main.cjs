@@ -113,7 +113,7 @@ function authorizeDesktopFileRequests(browserWindow,base,fileToken) {
   // from this trusted Surface's WebContents receive it; external Chromium
   // tabs never inherit the native file capability.
   browserWindow.webContents.session.webRequest.onBeforeSendHeaders(
-    {urls:[permittedOrigin+'/__ordax/native/*']},
+    {urls:['http://127.0.0.1/*']},
     (details,callback)=>{
       let allowed=false;
       try {
