@@ -84,6 +84,22 @@ function menu(userData) {
     ]},
   ]));
 }
+function nativeBuiltAssetsFor(root, template) {
+  // The build is generated from exactly the selected source revision.
+  // Never show an old Desktop bundle as a freshly updated checkout.
+  const built = app.isPackaged
+    ? root===template ? join(template,'desktop-assets')
+      : join(root,'out','windows-desktop-native')
+    : process.env.ORDAX_DESKTOP_TEST_BUILT_ASSETS==='1'
+      ? join(root,'out','windows-desktop-native') : null;
+  if (!built) return null;
+  const html=join(built,'system','composition','native','index.html');
+  if (!existsSync(html)) {
+    if (app.isPackaged && root===template) throw Error('Packaged canonical Native bundle missing');
+    return null;
+  }
+  return built;
+}
 async function assertNativeShellMounted(browserWindow) {
   const started=Date.now(),deadline=started+90000;
   let previous='';let last=null;
@@ -204,7 +220,8 @@ app.whenReady().then(async()=>{
     let root=selected.root;
     try {
       log(root===template?'Bundled OrdaX Surface':'Verified Git-managed OrdaX Surface');
-      runtime=await startHost({root,stateDirectory:runtimeStateDirectory(userData),userData,log});
+      runtime=await startHost({root,stateDirectory:runtimeStateDirectory(userData),userData,log,
+         builtAssetsRoot:nativeBuiltAssetsFor(root,template)});
       await window.loadURL(runtime.url+PRODUCT);
       await assertNativeShellMounted(window);
       await assertDesktopInternetSmoke(window,browserHost);
@@ -222,7 +239,8 @@ app.whenReady().then(async()=>{
       runtime=null;
       const fallback=await chooseBootVersion({userData,template,log});
       root=fallback.root;
-      runtime=await startHost({root,stateDirectory:runtimeStateDirectory(userData),userData,log});
+      runtime=await startHost({root,stateDirectory:runtimeStateDirectory(userData),userData,log,
+         builtAssetsRoot:nativeBuiltAssetsFor(root,template)});
       await window.loadURL(runtime.url+PRODUCT);
       await assertNativeShellMounted(window);
       await assertDesktopInternetSmoke(window,browserHost);
