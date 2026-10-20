@@ -126,13 +126,13 @@ function unpin(userData) {
   return writeState(userData,{...state,pinnedSha:null});
 }
 
-async function stageMain({ userData, template, log = () => {}, remote = OFFICIAL_REMOTE }) {
+async function stageMain({ userData, template, log = () => {}, remote = OFFICIAL_REMOTE, runGit = git }) {
   if (remote !== OFFICIAL_REMOTE) throw Error('Untrusted update source');
   const state = readState(userData);
   if (state.pinnedSha) return {status:'pinned',sha:state.pinnedSha};
   if (state.pendingSha) return {status:'pending',sha:state.pendingSha};
   // Only lightweight remote discovery when no update is needed.
-  const remoteReply = await git(['ls-remote','--heads',OFFICIAL_REMOTE,'refs/heads/main'],userData,25000);
+  const remoteReply = await runGit(['ls-remote','--heads',OFFICIAL_REMOTE,'refs/heads/main'],userData,25000);
   const remoteSha = remoteReply.ok ? remoteReply.stdout.split(/\s+/)[0] : '';
   if (!SHA_RE.test(remoteSha)) return {status:'unavailable'};
   if (remoteSha === state.activeSha || remoteSha === state.rejectedSha)
@@ -146,17 +146,17 @@ async function stageMain({ userData, template, log = () => {}, remote = OFFICIAL
     try {
       // Partial objects + sparse materialization. Git history is NOT shallow;
       // merge-base must be able to verify ancestry of the running version.
-      const clone = await git(['clone','--filter=blob:none','--sparse',
+      const clone = await runGit(['clone','--filter=blob:none','--sparse',
         '--single-branch','--no-tags','--branch','main',OFFICIAL_REMOTE,staging],userData,120000);
       if (!clone.ok) return {status:'unavailable'};
-      const sparse = await git(['-C',staging,'sparse-checkout','set',
+      const sparse = await runGit(['-C',staging,'sparse-checkout','set',
         'system','tools/windows-emulator','tools/surface-web'],staging,60000);
       if (!sparse.ok) return {status:'unavailable'};
-      const head = await git(['-C',staging,'rev-parse','HEAD'],staging,10000);
+      const head = await runGit(['-C',staging,'rev-parse','HEAD'],staging,10000);
       if (!head.ok || head.stdout !== remoteSha || !await isTrusted(staging) ||
           !hasDesktopHostContract(staging)) return {status:'incompatible'};
       if (state.activeSha) {
-        const ancestry = await git(['-C',staging,'merge-base','--is-ancestor',
+        const ancestry = await runGit(['-C',staging,'merge-base','--is-ancestor',
           state.activeSha,remoteSha],staging,10000);
         if (!ancestry.ok) return {status:'diverged'};
       }
