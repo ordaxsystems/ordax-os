@@ -38,6 +38,17 @@ class IndependentRootfsInventoryTest(unittest.TestCase):
         self.assertFalse(result["boot_verified"])
         self.assertEqual(result["uncompressed_file_bytes"], 18)
 
+    def test_tar_root_directory_is_allowed(self):
+        path = Path(self.temp.name) / 'rootfs.tar'
+        with tarfile.open(path, 'w') as handle:
+            root = tarfile.TarInfo('./')
+            root.type = tarfile.DIRTYPE
+            handle.addfile(root)
+            binary = tarfile.TarInfo('./bin/tool')
+            binary.size = 4
+            handle.addfile(binary, io.BytesIO(b'\\x7fELF'))
+        self.assertEqual(module.audit(str(path))['elf_files'], ['bin/tool'])
+
     def test_alpine_apk_residue_is_rejected(self):
         result = module.audit(self.archive([("etc/apk/repositories", b"index")]))
         self.assertEqual(result["status"], "fail")
