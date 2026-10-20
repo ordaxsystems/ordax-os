@@ -38,7 +38,7 @@ from native_local_ai_bridge import (
     PATHS as LOCAL_AI_BRIDGE_PATHS,
     forward_local_ai,
 )
-from native_account_gateway import NativeAccountGateway, NativeAccountGatewayError
+from native_account_gateway import NativeAccountGateway, NativeAccountGatewayError, verified_account_session_reply
 from native_component_slots import (
     COMPONENT_MODULE_PREFIX,
     ComponentSlotRequestError,
@@ -4641,10 +4641,13 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
                         self._empty(reply.status)
                         return
                     session_reply = self.server.account_gateway.session()
-                    session_payload = json.loads(session_reply.body.decode("utf-8"))
-                    if not isinstance(session_payload, dict):
-                        raise ValueError("invalid session payload")
-                    if parsed_path == ACCOUNT_REGISTER_PATH and not session_payload.get("authenticated"):
+                    session_payload = verified_account_session_reply(
+                        session_reply,
+                        allow_anonymous=(parsed_path == ACCOUNT_REGISTER_PATH),
+                    )
+                    if not session_payload["authenticated"]:
+                        # Registration is an explicit email-confirmation state,
+                        # never a signed-in identity.
                         session_payload["confirmationRequired"] = True
                         self._write_json(202, session_payload)
                     else:

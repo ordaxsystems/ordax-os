@@ -16,6 +16,37 @@ Native
 
 The account owns identity, entitlements and synchronized user state. A device owns only device-local state and secrets.
 
+## Account activation on Native/USB
+
+OrdaX OS is **one product**: Dev and Stable share the same First Run,
+Identity Session contract, Native Account gateway adapter and online-account
+activation. Their update channels differ, not their authentication semantics.
+
+A successful login HTTP response is only a credential-operation acknowledgement.
+The Native Host must fetch a **fresh authenticated** `/auth/session` response
+from the configured HTTPS account gateway, verify the canonical schema, provider,
+subject and email, and return a sanitized public session projection. The Web/USB
+credentials adapter independently requires a fresh same-origin session before
+telling the interface that the account is active. HTTP redirects, opaque
+responses, unavailable backends, missing subject identity and anonymous sessions
+must not be presented as successful logins. Registration awaiting email
+confirmation is explicitly `confirmationRequired`, not signed-in.
+
+First Run is offline-first. An initial failed probe cannot permanently disable
+the login controls after Wi-Fi is connected: entering/resuming the Account step
+refreshes existing Identity Session/Actions owners and displays a bounded user
+retry action. A user can still choose `Continuar sem conta`. The clock, DNS
+and verified gateway availability must be tested separately in QEMU/physical
+hardware before live login activation is declared proven.
+
+The canonical USB/Native credential policy remains
+`docs/contracts/native-account-session.json`: access/refresh tokens live
+only in the Native process, and **do not survive reboot**. Persisted login
+requires a separate reviewed encrypted device-bound vault with authenticated
+encryption and removable-media threat proof. A local PIN alone is not a cloud
+login credential and plain files, cookies in JS/localStorage and unprotected
+USB secrets are prohibited.
+
 ## Spaces and professional Profile Packs
 
 The account profile identifies the user. **Spaces** organize contexts of work, projects, memory and future collaboration.
@@ -172,6 +203,31 @@ No platform gets its own incompatible synchronization model.
 
 The existing `ordax.identity-session/1` adapter (`system/adapters/web/identity.mjs`) is the only session reader for Surface consumers, including OOBE and account actions. Multiple `/auth/session` reads may overlap. Each refresh receives a monotonically increasing local sequence; only the most recently started pending refresh may publish a snapshot. Late older responses and transport errors cannot roll back a newer account/logout observation, and disposed instances cannot publish. This ordering is ephemeral presentation state, not a second session authority, authentication receipt or cross-device session sync. The existing identity-actions adapter also orders registration-policy reads: a stale earlier response cannot re-enable or disable Create account after a newer legal-capability decision, and disposing the adapter invalidates pending policy reads.
 
+## Native USB gateway destination and activation proof (2026-10-19)
+
+The Native USB Account client uses the existing `ordax-account-gateway` on
+`ordax-platform` (`jhfphsjptrpmtnzkpwud`) through the one checked-in
+`system/services/account/gateway-base-url` value. The previous direct
+Native endpoint on `ordax-control-plane` (`eobcxuyvhkvdmkbaihwh`) failed
+DNS resolution from the authorized Windows validation host; the replacement
+returned HTTP 200 for both `/health` and the anonymous `/auth/session`
+projection, without credentials.
+
+This **client endpoint correction is not the global public identity-provider
+cutover**: `docs/contracts/public-auth-hardening.json` still marks the
+destination cutover incomplete; public account registration and production
+activation gates are unchanged. The Native login must still validate a real
+authenticated session after its POST, using the pre-existing gateway and
+memory-only cookie owner. HTTP 200 from an anonymous session does **not**
+prove login or account activation.
+
+Regression: `tests/test_native_account_session_contract.py` pins the
+configured HTTPS endpoint and guards against the dead legacy address,
+while `tests/test_native_account_gateway.py` validates session parsing.
+Verified in isolated Linux (5/5 + 19/19), not with an actual account or
+the physical notebook. The real USB must receive a tested update via its
+existing Dev channel before the client behavior changes on the device.
+
 ## Device-private account session
 
-On Native/USB, provider bearer tokens never enter Surface JavaScript. The local host owns an OrdaX gateway session in private device state (mode `0600`) and exposes only sanitized `/auth/*` and `/sync/*` responses to the loopback Surface. That session is explicitly outside the sync data model.
+On Native/USB, provider bearer tokens never enter Surface JavaScript. The **Native Host process** is the sole owner of access/refresh cookies **in memory** and exposes only sanitized `/auth/*` and `/sync/*` responses to the loopback Surface. Login is accepted only after a fresh authenticated `/auth/session` proof from the configured HTTPS gateway. A restart of Native Host or the notebook clears this cloud session; that is an explicit security gate, **not** successful persistence. The retired `0600` on-disk `account/session.json` is cleanup-only and must never be loaded. Long-lived credentials on removable media remain prohibited until the versioned encrypted-vault, local-unlock and anti-rollback proof gate is approved in `docs/contracts/native-account-session.json`. This session is outside the sync data model, and local-only OS use must continue when no cloud session exists.

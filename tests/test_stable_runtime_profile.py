@@ -46,11 +46,12 @@ class StableRuntimeProfileTests(unittest.TestCase):
         self.assertIn('ORDAX_SOURCE_SHA="$source_sha"', text)
         self.assertIn('ORDAX_PRODUCT_MODE="$mode"', text)
         self.assertIn('PRODUCT_MODE_FILE=/ordax/bootstrap/config/product-mode', text)
-        self.assertIn('ACCOUNT_GATEWAY_FILE=/ordax/bootstrap/config/account-gateway-origin', text)
-        self.assertIn('account_gateway_base_url() {', text)
-        self.assertIn('https://*)', text)
-        self.assertIn('ORDAX_ACCOUNT_GATEWAY_ORIGIN=$gateway_origin', text)
-        self.assertIn('export ORDAX_ACCOUNT_GATEWAY_ORIGIN', text)
+        # Bootstrap configuration is outside the release signing boundary.
+        # It must never override the gateway from the verified system tree.
+        self.assertNotIn('ACCOUNT_GATEWAY_FILE=', text)
+        self.assertNotIn('account_gateway_base_url() {', text)
+        self.assertNotIn('ORDAX_ACCOUNT_GATEWAY_ORIGIN=$gateway_origin', text)
+        self.assertNotIn('export ORDAX_ACCOUNT_GATEWAY_ORIGIN', text)
         self.assertIn('unset ORDAX_ACCOUNT_GATEWAY_ORIGIN', text)
         self.assertIn('boot_current || recovery "verified release handoff failed"', text)
 

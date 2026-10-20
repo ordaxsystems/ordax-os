@@ -208,6 +208,57 @@ Before updating an existing checkout, `ordax-pull` fails closed when:
 
 Only a successful explicit `ordax-pull` clears a rollback pin.
 
+## Atomic Pull: reuse verified fetched Git objects
+
+The development Supervisor owns remote discovery and fetch for one exact
+`main` candidate. When it invokes `ordax-pull` with
+`ORDAX_EXPECTED_SHA`, that value must equal the existing
+`refs/remotes/origin/main` tracking ref in a valid local checkout and resolve
+to a Git commit object. In that case, the updater must **not** re-query moving
+`main` or perform a second HTTPS clone of the same repository. It prepares
+its isolated candidate from the already fetched local Git objects, cloning
+with `--no-hardlinks` and checking ancestry, sparse sources, remote identity,
+cleanliness and the exact expected SHA before any atomic switch. The stage
+remains an independently owned object directory, not a shared `.git` pointer.
+
+A cold first checkout or an invalid/dirty checkout still uses the existing
+bounded remote-clone recovery. Running `ordax-pull` explicitly without a
+Supervisor-provided SHA continues to discover `main` normally. No source
+validation, fast-forward restriction, transaction journal, backup or rollback
+gate is bypassed.
+
+This specifically removes an avoidable **second** network acquisition from
+the healthy update path. The notebook still requires enough network access to
+fetch missing objects on the **first** acquisition; not all immutable Base,
+graphics, kernel and initramfs bytes are Git source-tree material. The
+Stable/MVP signed release channel is separate and unchanged.
+
+When the canonical Pull owner fails, it writes a bounded phase token into
+`/run/ordax-update/pull-result` (the **existing** Supervisor run directory).
+The Supervisor deletes any stale token before invoking the owner, accepts only
+the known phase vocabulary and incorporates it into the existing
+`state.json.lastError` response. This avoids misdiagnosing network-object
+acquisition, isolated staging, atomic swap and helper activation as one
+`atomic-checkout-failed` condition. An abruptly killed owner with no receipt
+remains a generic failure; untrusted shell stderr is never interpreted as a
+status code.
+
+**Git checkout and installed helper activation are distinct, mandatory
+conditions.** The current Git SHA is durably recorded before invoking the
+existing `dev-helpers.sh` owner. If helpers cannot be activated, the Pull exits
+nonzero; the Supervisor reports the *actual* post-swap Git SHA with
+`pull-helper-refresh-failed`, preserves the running Surface and retries the
+canonical helper refresh on later polls. It does not mark the version
+`running` until `dev-helpers-sha` agrees with the active Git commit. There is
+no second updater or bypass of the helper receipt, and the previous SHA remains
+available for recovery. A host-side successful Pull and an actual QEMU/physical
+Surface activation remain separate validation gates.
+
+A physical boot must confirm the repaired USB no longer cycles through
+`fetching → validating → atomic-checkout-failed`. A successful host-side pull
+proves only checkout semantics, not live runtime health, NTP, Wi-Fi, power or
+remote MCP pairing.
+
 ## Rollback semantics
 
 Before a pull that actually advances `HEAD`, the old commit is remembered as `previous-commit`.

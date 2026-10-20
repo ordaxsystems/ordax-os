@@ -7,6 +7,7 @@ import unittest
 ROOT = Path(__file__).resolve().parents[1]
 MODULE = ROOT / "system" / "surface" / "runtime" / "native_account_gateway.py"
 CONTRACT = ROOT / "docs" / "contracts" / "native-account-session.json"
+GUIDE = ROOT / "docs" / "ACCOUNT-SYNC-AND-PLANS.md"
 
 spec = importlib.util.spec_from_file_location("ordax_native_account_session_contract", MODULE)
 gateway = importlib.util.module_from_spec(spec)
@@ -35,6 +36,30 @@ class NativeAccountSessionContractTests(unittest.TestCase):
         self.assertNotIn("json.dump", source)
         self.assertIn("_purge_legacy_plaintext_session", source)
         self.assertIn("self._cookies: dict[str, str] = {}", source)
+
+    def test_documented_native_session_does_not_claim_plaintext_disk_persistence(self):
+        guide = GUIDE.read_text(encoding="utf-8")
+        contract = json.loads(CONTRACT.read_text(encoding="utf-8"))
+        section = guide.split("## Device-private account session", 1)[1]
+        self.assertIn("sole owner of access/refresh cookies **in memory**", section)
+        self.assertIn("restart of Native Host or the notebook clears", section)
+        self.assertIn("cleanup-only and must never be loaded", section)
+        self.assertIn("docs/contracts/native-account-session.json", section)
+        self.assertEqual(contract["status"], "memory-only-until-encrypted-vault")
+        self.assertNotIn("owns an OrdaX gateway session in private device state (mode `0600`)", section)
+
+    def test_native_usb_gateway_targets_existing_approved_platform_endpoint(self):
+        # Native-only client endpoint; this does NOT approve public signup,
+        # migrate the provider authority, or change the memory-only session.
+        endpoint = (ROOT / "system/services/account/gateway-base-url").read_text(
+            encoding="utf-8"
+        ).strip()
+        self.assertEqual(
+            endpoint,
+            "https://jhfphsjptrpmtnzkpwud.supabase.co/functions/v1/ordax-account-gateway",
+        )
+        self.assertEqual(gateway._validated_base_url(endpoint), endpoint)
+        self.assertNotIn("eobcxuyvhkvdmkbaihwh", endpoint)
 
     def test_future_persistence_is_blocked_on_encrypted_vault_gate(self):
         contract = json.loads(CONTRACT.read_text(encoding="utf-8"))

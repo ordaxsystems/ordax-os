@@ -181,6 +181,27 @@ class HotUpdateSupervisorContractTests(unittest.TestCase):
         self.assertIn('[ "$remote_sha" != "$EXPECTED_SHA" ]', pull)
         self.assertIn('checkout atual preservado', pull)
 
+    def test_pull_error_stage_and_committed_helper_receipt_are_consistent(self):
+        supervisor = SYSTEM_SUPERVISOR.read_text(encoding="utf-8")
+        pull = DEV_PULL.read_text(encoding="utf-8")
+        # A stale volatile stage cannot be associated with another attempt.
+        self.assertIn('PULL_RESULT_FILE=$UPDATE_RUN_DIR/pull-result', supervisor)
+        self.assertIn('rm -f "$PULL_RESULT_FILE"', supervisor)
+        self.assertIn('PULL_RESULT_FILE=$RUN_DIR/pull-result', pull)
+        self.assertIn('trap \'record_pull_exit "$?"\' EXIT', pull)
+        self.assertIn('PULL_PHASE=helper-refresh', pull)
+        self.assertIn('refresh_dev_helpers "$current" || exit 1', pull)
+        self.assertIn('CHECKOUT_ERROR="pull-$pull_phase-failed"', supervisor)
+        # Atomic source checkout is durable before helper activation, so the
+        # displayed sourceSha must reflect the actual checkout on error.
+        self.assertIn('active_after_failure=$(current_sha)', supervisor)
+        self.assertIn('[ "$active_after_failure" = "$remote_sha" ]', supervisor)
+        self.assertIn('write_update_state "$active_after_failure" pull-error none', supervisor)
+        # Never mark this SHA healthy until canonical installed helpers agree.
+        self.assertIn('helper_sha=$(read_state_value "$DEV_HELPERS_SHA_FILE")', supervisor)
+        self.assertIn('[ "$helper_sha" != "$current" ]', supervisor)
+        self.assertIn('set_update_context error "$current" "" "helper-refresh-failed"', supervisor)
+
     def test_dirty_runtime_checkout_is_diagnosed_and_atomically_replaced_by_pull_owner(self):
         text = SYSTEM_SUPERVISOR.read_text(encoding="utf-8")
         pull = DEV_PULL.read_text(encoding="utf-8")

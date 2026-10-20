@@ -13,6 +13,7 @@ credential-at-rest boundary for removable USB media.
 
 from __future__ import annotations
 
+import json
 import os
 import re
 import stat
@@ -47,6 +48,56 @@ class GatewayReply:
     status: int
     headers: Mapping[str, tuple[str, ...]]
     body: bytes
+
+
+SESSION_SCHEMA = "prototype-ordax.public-identity-session/1"
+
+
+def verified_account_session_reply(
+    reply: GatewayReply, *, allow_anonymous: bool = False
+) -> dict:
+    """Accept only a fresh canonical session proof from the HTTPS gateway.
+
+    The USB/Native login must never treat POST 200/303 as authentication.
+    No tokens, password or raw gateway errors enter the Surface response.
+    """
+    if reply.status != 200:
+        raise NativeAccountGatewayError("account-session-not-verified", status=503)
+    try:
+        raw = json.loads(reply.body.decode("utf-8"))
+    except (UnicodeError, ValueError) as exc:
+        raise NativeAccountGatewayError("account-session-invalid", status=503) from exc
+    if not isinstance(raw, dict) or raw.get("$schema") != SESSION_SCHEMA:
+        raise NativeAccountGatewayError("account-session-invalid", status=503)
+    if (
+        raw.get("authenticated") is True
+        and raw.get("status") == "authenticated"
+        and isinstance(raw.get("provider"), str)
+        and bool(raw["provider"])
+        and raw["provider"] not in ("unconfigured", "gated")
+    ):
+        subject = raw.get("subject")
+        email = raw.get("email")
+        if not isinstance(subject, str) or not subject or not isinstance(email, str) or not email:
+            raise NativeAccountGatewayError("account-session-invalid", status=503)
+        return {
+            "$schema": SESSION_SCHEMA,
+            "authenticated": True,
+            "status": "authenticated",
+            "subject": subject,
+            "email": email,
+            "provider": raw.get("provider") if isinstance(raw.get("provider"), str) else "unconfigured",
+            "accountCloseEnabled": raw.get("accountCloseEnabled") is True,
+        }
+    if allow_anonymous and raw.get("authenticated") is False and raw.get("status") == "anonymous":
+        return {
+            "$schema": SESSION_SCHEMA,
+            "authenticated": False,
+            "status": "anonymous",
+            "provider": raw.get("provider") if isinstance(raw.get("provider"), str) else "unconfigured",
+            "accountCloseEnabled": False,
+        }
+    raise NativeAccountGatewayError("account-session-not-verified", status=503)
 
 
 def _validated_base_url(value: str) -> str:

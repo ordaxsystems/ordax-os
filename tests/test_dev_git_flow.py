@@ -195,14 +195,24 @@ class DevelopmentGitFlowTest(unittest.TestCase):
         env: dict[str, str] | None = None,
         check: bool = True,
     ) -> subprocess.CompletedProcess[str]:
-        return subprocess.run(
+        completed = subprocess.run(
             ["/bin/sh", str(script)],
-            check=check,
+            check=False,
             capture_output=True,
             text=True,
             env=env or self._env(),
             stdin=subprocess.DEVNULL,
         )
+        if check and completed.returncode != 0:
+            # A failed fixture must preserve the actual subprocess reason.
+            # This suite uses only temporary local Git repositories and no
+            # production tokens, network credentials or user files.
+            self.fail(
+                f"{script.name} exit {completed.returncode}: "
+                f"stdout={completed.stdout[-3000:]!r} "
+                f"stderr={completed.stderr[-3000:]!r}"
+            )
+        return completed
 
     def test_preseeded_checkout_runs_with_remote_git_forbidden(self) -> None:
         env = self._env()
@@ -260,6 +270,155 @@ class DevelopmentGitFlowTest(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("checkout diverge do commit registrado", result.stderr)
         self.assertNotIn("runtime-v1", result.stdout)
+
+    def test_committed_checkout_failure_reports_helper_activation_stage(self) -> None:
+        # Helper activation is required even if the atomic Git swap succeeded.
+        # Preserve the actual active SHA and a machine-readable error stage.
+        self._script(PULL)
+        self.commit_v2 = self._commit_runtime("runtime-v2")
+        helper = self.source / "system/services/base-update/dev-helpers.sh"
+        helper.parent.mkdir(parents=True, exist_ok=True)
+        helper.write_text(
+            chr(10).join((
+                "#!/bin/sh",
+                '[ "${ORDAX_TEST_HELPER_APPROVED:-0}" = 1 ] || exit 23',
+                'printf "%s\\n" "$ORDAX_SOURCE_SHA" > "$ORDAX_STATE_DIR/dev-helpers-sha"',
+                "",
+            )),
+            encoding="utf-8",
+        )
+        self._run(["git", "-C", str(self.source), "add", "system"])
+        self._run(["git", "-C", str(self.source), "commit", "-m", "failing helper fixture"])
+        self._run(["git", "-C", str(self.source), "push", "origin", "main"])
+        candidate = self._run(
+            ["git", "-C", str(self.source), "rev-parse", "HEAD"]
+        ).stdout.strip()
+        result = self._script(PULL, check=False)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertNotIn(f"ORDAX_SOURCE_SHA={candidate}", result.stdout)
+        self.assertEqual(
+            self._run(["git", "-C", str(self.worktree), "rev-parse", "HEAD"]).stdout.strip(),
+            candidate,
+        )
+        self.assertEqual((self.state / "current-commit").read_text().strip(), candidate)
+        self.assertEqual((self.state / "previous-commit").read_text().strip(), self.commit_v1)
+        self.assertEqual(
+            (self.root / "run/ordax-update/pull-result").read_text().strip(),
+            "helper-refresh",
+        )
+
+        # The exact same Git candidate can finish its helper activation on
+        # the next owner retry without another atomic clone or history rewrite.
+        retry_env = self._env()
+        retry_env["ORDAX_TEST_HELPER_APPROVED"] = "1"
+        recovered = self._script(PULL, env=retry_env)
+        self.assertIn(f"ORDAX_SOURCE_SHA={candidate}", recovered.stdout)
+        self.assertEqual((self.state / "dev-helpers-sha").read_text().strip(), candidate)
+        self.assertEqual(
+            (self.root / "run/ordax-update/pull-result").read_text().strip(),
+            "completed",
+        )
+        self.assertEqual(
+            self._run(["git", "-C", str(self.worktree), "rev-parse", "HEAD"]).stdout.strip(),
+            candidate,
+        )
+
+    def test_supervisor_fetched_commit_applies_without_second_remote_clone(self) -> None:
+        # Reproduce a notebook where Supervisor successfully fetched main,
+        # but GitHub becomes unreachable before ordax-pull starts staging.
+        self._script(PULL)
+        self.commit_v2 = self._commit_runtime("runtime-v2")
+        self._run(
+            ["git", "-C", str(self.worktree), "fetch", "--no-tags", "origin",
+             "refs/heads/main:refs/remotes/origin/main"]
+        )
+        self.assertEqual(
+            self._run(
+                ["git", "-C", str(self.worktree), "rev-parse", "refs/remotes/origin/main"]
+            ).stdout.strip(),
+            self.commit_v2,
+        )
+
+        # The Supervisor's candidate preflight also materializes the required
+        # blobs before GitHub disappears. Explicitly prefetch the fixture's
+        # complete sparse payload; a partial Git fetch may contain only trees.
+        subprocess.run(
+            ["git", "-C", str(self.worktree), "archive", "--format=tar",
+             self.commit_v2, "system", "bootstrap", "docs"],
+            check=True, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE,
+        )
+        # No alternate delivery system or network proxy: just remove the
+        # disposable fixture remote after its exact target has been fetched.
+        self.remote.rename(self.root / "temporarily-unreachable-origin.git")
+        env = self._env()
+        env["ORDAX_EXPECTED_SHA"] = self.commit_v2
+        result = self._script(PULL, env=env)
+
+        self.assertEqual(
+            (self.root / "run/ordax-update/pull-result").read_text().strip(),
+            "completed",
+        )
+        self.assertIn("candidato ja adquirido e fixado pelo Supervisor", result.stdout)
+        self.assertIn("preparando checkout isolado do commit ja validado em cache", result.stdout)
+        self.assertIn(f"ORDAX_SOURCE_SHA={self.commit_v2}", result.stdout)
+        self.assertEqual(
+            self._run(["git", "-C", str(self.worktree), "rev-parse", "HEAD"]).stdout.strip(),
+            self.commit_v2,
+        )
+        self.assertEqual((self.state / "previous-commit").read_text().strip(), self.commit_v1)
+        self.assertEqual((self.state / "current-commit").read_text().strip(), self.commit_v2)
+        self.assertEqual(
+            self._run(["git", "-C", str(self.worktree), "status", "--porcelain"]).stdout,
+            "",
+        )
+
+    def test_unavailable_promisor_blobs_preserve_checkout_and_report_stage(self) -> None:
+        self._script(PULL)
+        new_sha = self._commit_runtime("runtime-v2")
+        self._run([
+            "git", "-C", str(self.worktree), "fetch", "--no-tags", "origin",
+            "refs/heads/main:refs/remotes/origin/main",
+        ])
+        # The initial fetch supplies the commit/tree but not necessarily the
+        # sparse contents. GitHub fails before missing promised blobs arrive.
+        self.remote.rename(self.root / "temporarily-unreachable-origin.git")
+        env = self._env()
+        env["ORDAX_EXPECTED_SHA"] = new_sha
+        result = self._script(PULL, env=env, check=False)
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(
+            (self.root / "run/ordax-update/pull-result").read_text().strip(),
+            "candidate-objects",
+        )
+        self.assertEqual(
+            self._run(["git", "-C", str(self.worktree), "rev-parse", "HEAD"]).stdout.strip(),
+            self.commit_v1,
+        )
+        self.assertEqual((self.state / "current-commit").read_text().strip(), self.commit_v1)
+
+    def test_supervisor_expected_sha_must_match_fetched_tracking_ref(self) -> None:
+        self._script(PULL)
+        self.commit_v2 = self._commit_runtime("runtime-v2")
+        self._run(
+            ["git", "-C", str(self.worktree), "fetch", "--no-tags", "origin",
+             "refs/heads/main:refs/remotes/origin/main"]
+        )
+        self.remote.rename(self.root / "temporarily-unreachable-origin.git")
+        env = self._env()
+        env["ORDAX_EXPECTED_SHA"] = self.commit_v1  # stale against fetched main
+        result = self._script(PULL, env=env, check=False)
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(
+            (self.root / "run/ordax-update/pull-result").read_text().strip(),
+            "remote-discovery",
+        )
+        self.assertEqual(
+            self._run(["git", "-C", str(self.worktree), "rev-parse", "HEAD"]).stdout.strip(),
+            self.commit_v1,
+        )
+        self.assertEqual((self.state / "current-commit").read_text().strip(), self.commit_v1)
 
     def test_clone_pull_rollback_pin_and_explicit_unpin(self) -> None:
         first = self._script(PULL)

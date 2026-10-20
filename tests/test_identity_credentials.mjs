@@ -93,6 +93,20 @@ test("same-origin credential adapter posts only to OrdaX auth routes", async () 
   const windowRef = {
     fetch: async (path, options) => {
       calls.push({ path, options });
+      if (path === "/auth/session") {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            $schema: "prototype-ordax.public-identity-session/1",
+            authenticated: true,
+            status: "authenticated",
+            provider: "supabase",
+            subject: "validated-subject",
+            email: "pessoa@example.com",
+          }),
+        };
+      }
       return { ok: true, status: 303 };
     },
   };
@@ -107,12 +121,15 @@ test("same-origin credential adapter posts only to OrdaX auth routes", async () 
     legalAccepted: true,
   });
 
-  assert.deepEqual(calls.map((call) => call.path), ["/auth/login", "/auth/register"]);
+  assert.deepEqual(calls.map((call) => call.path), [
+    "/auth/login", "/auth/session", "/auth/register", "/auth/session",
+  ]);
   assert.equal(calls.every((call) => call.options.credentials === "same-origin"), true);
-  assert.equal(calls.every((call) => call.options.redirect === "manual"), true);
+  assert.equal(calls.filter((call) => call.options.method === "POST").every((call) => call.options.redirect === "manual"), true);
   assert.equal(calls[0].options.body.includes("pessoa%40example.com"), true);
   assert.equal(calls[0].options.body.includes("secret-1"), true);
-  assert.equal(calls[1].options.body.includes("legal_acceptance=accepted"), true);
+  assert.equal(calls[2].options.body.includes("legal_acceptance=accepted"), true);
+  assert.equal(calls.filter((call) => call.path === "/auth/session").every((call) => call.options.cache === "no-store"), true);
 });
 
 test("registration confirmation is explicit and does not claim a session", async () => {
@@ -124,6 +141,64 @@ test("registration confirmation is explicit and does not claim a session", async
       email: "nova@example.com",
       password: "secret",
       legalAccepted: true,
+    }),
+    { authenticated: false, confirmationRequired: true },
+  );
+});
+
+test("credential POST success cannot activate a signed-out or unverified account", async () => {
+  const credentials = { email: "pessoa@example.com", password: "secret-1" };
+  const signedOut = {
+    $schema: "prototype-ordax.public-identity-session/1",
+    authenticated: false, status: "anonymous",
+  };
+  for (const [title, sessionReply] of [
+    ["anonymous", { ok: true, status: 200, json: async () => signedOut }],
+    ["upstream unavailable", { ok: false, status: 503 }],
+    ["opaque", { ok: true, status: 200, json: async () => ({}) }],
+    ["missing subject", {
+      ok: true, status: 200,
+      json: async () => ({
+        $schema: "prototype-ordax.public-identity-session/1",
+        authenticated: true, status: "authenticated", email: "pessoa@example.com",
+      }),
+    }],
+  ]) {
+    const calls = [];
+    const port = createSameOriginIdentityCredentials({
+      fetch: async (path, options) => {
+        calls.push([path, options.method]);
+        return path === "/auth/login" ? { ok: true, status: 200 } : sessionReply;
+      },
+    });
+    await assert.rejects(port.signIn(credentials), /session/i, title);
+    assert.deepEqual(calls, [["/auth/login", "POST"], ["/auth/session", "GET"]], title);
+  }
+});
+
+test("opaque redirect and 202 cannot be accepted as login", async () => {
+  let calls = 0;
+  for (const status of [0, 202]) {
+    const port = createSameOriginIdentityCredentials({
+      fetch: async () => { calls += 1; return { status, ok: status === 202 }; },
+    });
+    await assert.rejects(port.signIn({ email: "pessoa@example.com", password: "secret-1" }));
+  }
+  assert.equal(calls, 2, "unsafe responses never trigger session activation");
+});
+
+test("registration with a verified anonymous session requires confirmation", async () => {
+  const port = createSameOriginIdentityCredentials({
+    fetch: async (path) => path === "/auth/register"
+      ? { status: 200, ok: true }
+      : { status: 200, ok: true, json: async () => ({
+        $schema: "prototype-ordax.public-identity-session/1",
+        authenticated: false, status: "anonymous",
+      }) },
+  });
+  assert.deepEqual(
+    await port.register({
+      email: "nova@example.com", password: "secret-2", legalAccepted: true,
     }),
     { authenticated: false, confirmationRequired: true },
   );
