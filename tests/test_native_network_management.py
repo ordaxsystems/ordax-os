@@ -18,12 +18,19 @@ QUICK_CONTROLS = ROOT / "system" / "surface" / "ui" / "network-quick-panel.mjs"
 NETWORK_RUNTIME = ROOT / "system" / "services" / "network" / "management-runtime.mjs"
 CAPABILITIES = ROOT / "docs" / "contracts" / "product-capabilities.json"
 
-spec = importlib.util.spec_from_file_location("ordax_native_network_management_test", SERVER)
-native_host = importlib.util.module_from_spec(spec)
-assert spec.loader is not None
-spec.loader.exec_module(native_host)
+# The native host uses POSIX file locks. Keep the test module loadable on
+# Windows developer machines; Linux CI still runs the full integration suite.
+NATIVE_HOST_AVAILABLE = importlib.util.find_spec("fcntl") is not None
+if NATIVE_HOST_AVAILABLE:
+    spec = importlib.util.spec_from_file_location("ordax_native_network_management_test", SERVER)
+    native_host = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None
+    spec.loader.exec_module(native_host)
+else:
+    native_host = None
 
 
+@unittest.skipUnless(NATIVE_HOST_AVAILABLE, "native network host tests require POSIX fcntl")
 class NativeNetworkManagementTests(unittest.TestCase):
     def test_wpa_psk_is_derived_locally_without_returning_password(self):
         expected = hashlib.pbkdf2_hmac(
@@ -142,7 +149,7 @@ class NativeNetworkManagementTests(unittest.TestCase):
         self.assertIn('/bin/busybox timeout -k 1 15 "$IW_BIN" dev "$wifi" scan', text)
         self.assertLess(
             text.index('if ! wait_for_wifi_link "$wifi"; then'),
-            text.index('    try_dhcp "$wifi"', text.index('connect_conf()')),
+            text.index('    if ! try_dhcp "$wifi"; then', text.index('connect_conf()')),
         )
         self.assertNotIn("grep -q '^Connected to '", text)
 

@@ -89,7 +89,8 @@ class SettingsCanonicalNavigationTests(unittest.TestCase):
         self.assertIn(".ordax-settings-navigation {", css)
         self.assertIn(".ordax-settings-navigation-item", css)
         self.assertIn("overflow-x: auto", css)
-        self.assertIn("@media (max-width: 760px)", css)
+        self.assertIn("@container settings-viewport (max-width: 680px)", css)
+        self.assertIn("grid-template-columns: repeat(auto-fit", css)
 
     def test_native_wires_activation_and_notification_channels(self):
         native = NATIVE.read_text(encoding="utf-8")

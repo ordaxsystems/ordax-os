@@ -607,6 +607,14 @@ class SurfaceUiContractTests(unittest.TestCase):
                         f'documentObject.createElementNS("http://www.w3.org/2000/svg", "{tag}")',
                         f'documentObject.createElementNS(SVG_NAMESPACE, "{tag}")',
                     )
+            if path == SURFACE / "first-run.mjs":
+                for destination in (
+                    'https://ordax.com.br/termos/',
+                    'https://ordax.com.br/privacidade/',
+                    'https://ordax.com.br/conta/',
+                ):
+                    self.assertIn(destination, text)
+                    text = text.replace(destination, "")
             self.assertNotIn("http://", text, path)
             self.assertNotIn("https://", text, path)
             self.assertNotIn("cdn.", text.lower(), path)
@@ -622,7 +630,8 @@ class SurfaceUiContractTests(unittest.TestCase):
         shell = DESKTOP_SHELL.read_text(encoding="utf-8")
         surface = (SURFACE / "surface.mjs").read_text(encoding="utf-8")
         css = (SURFACE / "surface.css").read_text(encoding="utf-8")
-        tokens = (SURFACE / "tokens.css").read_text(encoding="utf-8")
+        tokens = (SURFACE / "meridian.tokens.css").read_text(encoding="utf-8")
+        meridian = (SURFACE / "meridian.css").read_text(encoding="utf-8")
         # The Node render tests assert actual controls and a single profile.
         # Here validate delegation to their shared UI owners.
         self.assertIn('from "./sidebar-layout.mjs"', shell)
@@ -631,7 +640,6 @@ class SurfaceUiContractTests(unittest.TestCase):
         self.assertIn('sidebarProfileMarkup(projectSidebarAccount(', shell)
         self.assertIn("data-power-slot", shell)
         self.assertIn("data-update-slot", shell)
-        self.assertIn("data-ordax-clock", shell)
         self.assertIn("data-ordax-tray-clock", shell)
         self.assertIn("data-battery-tray", shell)
         self.assertIn("data-battery-icon", shell)
@@ -669,8 +677,10 @@ class SurfaceUiContractTests(unittest.TestCase):
         self.assertIn("ordax-home-hero", shell)
         self.assertIn("data-show-desktop", shell)
         self.assertIn("ordax-home-action-grid", shell)
-        self.assertIn("--ordax-accent: #8dbbff", tokens)
-        self.assertIn("--ordax-font-display", tokens)
+        self.assertIn("--md-accent:#a44426;", tokens)
+        self.assertIn('--md-font:Inter,system-ui,"Segoe UI",sans-serif;', tokens)
+        self.assertIn("--ordax-accent:var(--md-accent)", meridian)
+        self.assertIn("--ordax-font:var(--md-font)", meridian)
         self.assertIn(".ordax-home-panel", (SURFACE / "identity.css").read_text(encoding="utf-8"))
         self.assertIn(".ordax-rail", css)
         self.assertIn(".ordax-statusbar", css)
