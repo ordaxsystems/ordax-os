@@ -607,6 +607,18 @@ class SurfaceUiContractTests(unittest.TestCase):
                         f'documentObject.createElementNS("http://www.w3.org/2000/svg", "{tag}")',
                         f'documentObject.createElementNS(SVG_NAMESPACE, "{tag}")',
                     )
+            if path == SURFACE / "first-run.mjs":
+                # Explicit user-clickable legal/account navigation is allowed,
+                # unlike network-bound imports, fetches, fonts or images.
+                for url in (
+                    "https://ordax.com.br/termos/",
+                    "https://ordax.com.br/privacidade/",
+                    "https://ordax.com.br/conta/",
+                ):
+                    self.assertIn(f'"{url}"', text)
+                    text = text.replace(f'"{url}"', "")
+                self.assertIn('link.target = "_blank"', text)
+                self.assertIn('link.rel = "noopener noreferrer"', text)
             self.assertNotIn("http://", text, path)
             self.assertNotIn("https://", text, path)
             self.assertNotIn("cdn.", text.lower(), path)
@@ -631,7 +643,8 @@ class SurfaceUiContractTests(unittest.TestCase):
         self.assertIn('sidebarProfileMarkup(projectSidebarAccount(', shell)
         self.assertIn("data-power-slot", shell)
         self.assertIn("data-update-slot", shell)
-        self.assertIn("data-ordax-clock", shell)
+        # The taskbar clock is the canonical clock node; no duplicate clock.
+        self.assertNotIn("data-ordax-clock", shell)
         self.assertIn("data-ordax-tray-clock", shell)
         self.assertIn("data-battery-tray", shell)
         self.assertIn("data-battery-icon", shell)

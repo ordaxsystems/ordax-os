@@ -199,7 +199,9 @@ test("every Portuguese first-run UI literal has localized copy in every first-ru
   const runtimeLiteralSource = collapseAdjacentStringConcats(source);
   const candidates = unique(
     parseDoubleQuotedLiterals(runtimeLiteralSource)
-      .filter((value) => typeof value === "string" && PORTUGUESE_MARKER.test(value)),
+      // Canonical HTTPS destinations are URLs, not natural-language UI labels.
+      // Keep checking all actual localized text, including the Ready heading.
+      .filter((value) => typeof value === "string" && !/^https?:\/\//i.test(value) && PORTUGUESE_MARKER.test(value)),
   );
   assert.ok(candidates.length > 45, "audit must inspect the real first-run Portuguese copy set");
 
@@ -225,14 +227,19 @@ test("First Run legal links never bypass localization with raw PT-BR labels", as
     new URL("../system/surface/ui/first-run.mjs", import.meta.url),
     "utf8",
   );
-  assert.match(
-    source,
-    /privacy\.textContent\s*=\s*`\$\{translateFirstRunText\(draft\.locale, "Privacidade"\)\}/,
-  );
-  assert.match(
-    source,
-    /terms\.textContent\s*=\s*`\$\{translateFirstRunText\(draft\.locale, "Termos"\)\}/,
-  );
+  // el() is the one localized text owner: legal links are built with
+  // el(documentObject, "a", "", label), not mutable .textContent assignments.
+  assert.match(source, /node\.textContent = translateFirstRunText\(locale, text\)/);
+  assert.equal((source.match(/const link = el\(documentObject, "a", "", label\)/g) ?? []).length, 2,
+    "Registration and account information must both use the localized link helper");
+  assert.match(source, /\[\["Termos", registrationPolicy\.terms\], \["Privacidade", registrationPolicy\.privacy\]\]/);
+  assert.match(source, /\[\["Termos", "https:\/\/ordax\.com\.br\/termos\/"\], \["Privacidade", "https:\/\/ordax\.com\.br\/privacidade\/"\]\]/);
+  for (const locale of FIRST_RUN_TRANSLATION_LOCALES) {
+    for (const label of ["Termos", "Privacidade"]) {
+      assert.notEqual(translateFirstRunText(locale, label), label,
+        `Legal link label ${label} must be localized in ${locale}`);
+    }
+  }
   assert.doesNotMatch(source, /privacy\.textContent\s*=\s*`Privacidade\s*·/);
   assert.doesNotMatch(source, /terms\.textContent\s*=\s*`Termos\s*·/);
 });

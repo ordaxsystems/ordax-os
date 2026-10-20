@@ -35,6 +35,26 @@
   --md-art-dark:#343b32;
   --md-art-light:#d9dbc2;
   --md-art-clay:#c56c48;
+  /* One shared palette owner for the Home space illustration. */
+  --md-home-space-art-deep:#263a39;
+  --md-home-space-art-middle:#456059;
+  --md-home-space-art-highlight:#9a805e;
+  --md-home-space-window-edge:#746853;
+  --md-home-space-window-light:#c9bc91;
+  --md-home-space-window-mid:#80a7a0;
+  --md-home-space-window-shade:#577564;
+  --md-home-space-window-glow:#d2b26d40;
+  --md-home-space-screen-edge:#183330;
+  --md-home-space-screen-light:#96b6ae;
+  --md-home-space-screen-mid:#3b665f;
+  --md-home-space-screen-deep:#213a3e;
+  --md-home-space-screen-shadow:#122927;
+  --md-home-space-desk-top:#bd9466;
+  --md-home-space-desk-shadow:#192f2c;
+  --md-home-space-desk-leg:#81684d;
+  --md-home-space-plant-main:#689477;
+  --md-home-space-plant-light:#779c72;
+  --md-home-space-plant-dark:#355a43;
   --md-desktop-ink:#28382f;
   --md-desktop-label:#f6f3e7d9;
   --md-desktop-shortcut-ink:#1c2d22;

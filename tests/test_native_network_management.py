@@ -142,7 +142,7 @@ class NativeNetworkManagementTests(unittest.TestCase):
         self.assertIn('/bin/busybox timeout -k 1 15 "$IW_BIN" dev "$wifi" scan', text)
         self.assertLess(
             text.index('if ! wait_for_wifi_link "$wifi"; then'),
-            text.index('    try_dhcp "$wifi"', text.index('connect_conf()')),
+            text.index('if ! try_dhcp "$wifi"; then', text.index('connect_conf()')),
         )
         self.assertNotIn("grep -q '^Connected to '", text)
 
