@@ -1,6 +1,7 @@
 // Development persistence adapter, never a hardware or authentication authority.
 import { mkdir, readFile, writeFile, rename } from "node:fs/promises";
 import { join } from "node:path";
+import { readDesktopNetworkStatus } from "../../system/adapters/desktop/network-status.mjs";
 import { createInitialFirstRunState, validateFirstRunState } from "../../system/contracts/first-run-state-store.mjs";
 import { validatePreferenceRecord } from "../../system/contracts/preference-store.mjs";
 import { FIRST_RUN_CURSOR_SCHEMA, validateFirstRunCursor } from "../../system/contracts/first-run-cursor.mjs";
@@ -82,10 +83,29 @@ export function createEmulatorNativeHost({ stateDirectory }) {
   };
 }
 
-export function nativeEmulatorPlugin(stateDirectory) {
+export function nativeEmulatorPlugin(stateDirectory, { desktopHost = false } = {}) {
   return {
     name: "ordax-native-emulator-host",
     configureServer(server) {
+      if (desktopHost) {
+        // Genuine Windows host observation under the canonical Native port.
+        server.middlewares.use((request, response, next) => {
+          if (request.url.split("?")[0] !== "/__ordax/native/network-status") return next();
+          response.setHeader("Content-Type", "application/json");
+          response.setHeader("Cache-Control", "no-store");
+          if (request.method !== "GET") {
+            response.statusCode = 405;
+            return response.end(JSON.stringify({ error: "Method unavailable" }));
+          }
+          try {
+            response.statusCode = 200;
+            return response.end(JSON.stringify(readDesktopNetworkStatus()));
+          } catch {
+            response.statusCode = 503;
+            return response.end(JSON.stringify({ error: "Desktop network status unavailable" }));
+          }
+        });
+      }
       server.middlewares.use(createEmulatorNativeHost({ stateDirectory }));
       // Native's real host serves system/ as its static root.
       server.middlewares.use((request, _response, next) => {
