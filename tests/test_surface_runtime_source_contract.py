@@ -40,9 +40,9 @@ class SurfaceRuntimeSourceContractTests(unittest.TestCase):
         contract = json.loads(CONTRACT.read_text(encoding="utf-8"))
         refresh = contract["lock_refresh"]
         self.assertEqual(refresh["status"], "reproof-required-after-upstream-package-drift")
-        self.assertEqual(refresh["detected_by_ci_run_id"], 39139622997)
-        self.assertEqual(refresh["discovery_run_id"], 39141123619)
-        self.assertEqual(refresh["discovery_artifact_id"], 12141134662)
+        self.assertEqual(refresh["detected_by_ci_run_id"], 39497041046)
+        self.assertEqual(refresh["discovery_run_id"], 39498448185)
+        self.assertEqual(refresh["discovery_artifact_id"], 12298438720)
         self.assertRegex(refresh["discovery_source_commit"], r"^[0-9a-f]{40}$")
         self.assertEqual(
             contract["discovery_evidence"]["source_commit"],
@@ -62,8 +62,7 @@ class SurfaceRuntimeSourceContractTests(unittest.TestCase):
         self.assertEqual(refresh["missing"], [])
         self.assertEqual(refresh["extra"], [])
         expected = [
-            {"name": "libcurl", "from": "8.14.1-r3", "to": "8.14.1-r4"},
-            {"name": "libexpat", "from": "2.8.5-r0", "to": "2.9.0-r0"},
+            {"name": "ca-certificates", "from": "20260909-r0", "to": "20261020-r0"},
         ]
         self.assertEqual(refresh["changed"], expected)
         self.assertEqual(refresh["upstream_drift"]["packages"], expected)

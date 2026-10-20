@@ -48,7 +48,7 @@
     "busybox": "1.37.0-r20",
     "busybox-binsh": "1.37.0-r20",
     "c-ares": "1.34.8-r0",
-    "ca-certificates": "20260909-r0",
+    "ca-certificates": "20261020-r0",
     "ca-certificates-bundle": "20260611-r0",
     "cage": "0.2.0-r0",
     "cairo": "1.18.4-r0",
@@ -313,16 +313,17 @@
     "repeat-byte-reproducible-erofs-build-on-current-apk-lock"
   ],
   "apk_package_lock_count": 253,
-  "apk_package_lock_status": "reviewed-253-package-upstream-drift-refresh-from-ci-run-39141123619-pending-reproof",
+  "apk_package_lock_status": "reviewed-253-package-upstream-drift-refresh-from-ci-run-39498448185-pending-reproof",
   "discovery_evidence": {
-    "workflow_run_id": 39141123619,
-    "source_commit": "37163fd113fda6e1690cf1c18bc399c25f14c71a",
-    "artifact_name": "surface-runtime-candidate-37163fd113fda6e1690cf1c18bc399c25f14c71a",
-    "artifact_archive_sha256": "ef1f3bf0607d1ecbf757127dda4975dafdee013ea6820fe893ba10f80aafa41d",
+    "workflow_run_id": 39498448185,
+    "source_commit": "c0293cbf6315753e23fc5b1d0164313482d2eae6",
+    "artifact_name": "surface-runtime-candidate-c0293cbf6315753e23fc5b1d0164313482d2eae6",
+    "artifact_id": 12298438720,
+    "artifact_archive_sha256": "53bb6f445852cc79290044970932a37dc3f4652aff719c6c4cde690b5786579b",
     "resolved_package_count": 253,
     "physical_artifact_created": false,
     "physical_write_authorized": false,
-    "scope": "2026-10-18-complete-apk-lock-drift-libcurl-libexpat"
+    "scope": "2026-10-20-complete-apk-lock-drift-ca-certificates"
   },
   "closed_gates": [
     "full-transitive-apk-lock-pinned",
@@ -365,25 +366,20 @@
   },
   "lock_refresh": {
     "status": "reproof-required-after-upstream-package-drift",
-    "detected_by_ci_run_id": 39139622997,
-    "discovery_run_id": 39141123619,
-    "discovery_source_commit": "37163fd113fda6e1690cf1c18bc399c25f14c71a",
-    "discovery_artifact_id": 12141134662,
-    "discovery_artifact_sha256": "ef1f3bf0607d1ecbf757127dda4975dafdee013ea6820fe893ba10f80aafa41d",
+    "detected_by_ci_run_id": 39497041046,
+    "discovery_run_id": 39498448185,
+    "discovery_source_commit": "c0293cbf6315753e23fc5b1d0164313482d2eae6",
+    "discovery_artifact_id": 12298438720,
+    "discovery_artifact_sha256": "53bb6f445852cc79290044970932a37dc3f4652aff719c6c4cde690b5786579b",
     "previous_package_count": 253,
     "resolved_package_count": 253,
     "missing": [],
     "extra": [],
     "changed": [
       {
-        "name": "libcurl",
-        "from": "8.14.1-r3",
-        "to": "8.14.1-r4"
-      },
-      {
-        "name": "libexpat",
-        "from": "2.8.5-r0",
-        "to": "2.9.0-r0"
+        "name": "ca-certificates",
+        "from": "20260909-r0",
+        "to": "20261020-r0"
       }
     ],
     "physical_artifact_created": false,
@@ -392,17 +388,12 @@
     "upstream_drift": {
       "packages": [
         {
-          "name": "libcurl",
-          "from": "8.14.1-r3",
-          "to": "8.14.1-r4"
-        },
-        {
-          "name": "libexpat",
-          "from": "2.8.5-r0",
-          "to": "2.9.0-r0"
+          "name": "ca-certificates",
+          "from": "20260909-r0",
+          "to": "20261020-r0"
         }
       ],
-      "detected_by_ci_run_id": 39139622997
+      "detected_by_ci_run_id": 39497041046
     }
   }
 }
