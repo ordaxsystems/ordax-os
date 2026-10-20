@@ -136,3 +136,26 @@ SSH is not the planned fallback by default.
 Do not import the legacy SSH/QEMU/F7 remote stack into this clean-room repository.
 
 The legacy implementation remains evidence of previous experiments only. Reuse individual security invariants when relevant, not the subsystem itself.
+
+
+## Owner Runtime after authenticated pairing
+
+The existing ordax-remote controller now accepts **enable-auto** and
+**disable-auto** on an Owner/Development physical boot. enable-auto requires
+the canonical device-scoped credential files and persists a 0600 consent marker
+under /state/ordax/owner-remote/auto-start-enabled. disable-auto removes the
+marker and requests the pinned agent to stop. Credential files are never
+printed or embedded in the source tree.
+
+ordax-run checks that explicit marker only **after** starting the Guardian
+and launches ordax-remote ensure asynchronously. The controller continues to
+enforce the physical boot token, pinned artifact source, file digest/size,
+device-scoped pairing and ownership of the running PID. A missing pin, wrong
+identity, unavailable network or rejected Control Plane session cannot block
+the Surface, boot, local Git updates or rollback.
+
+The source-level connection path is not evidence that the notebook is paired
+or reachable through the ChatGPT MCP. Physical activation must still prove
+authenticated device enrollment, verified artifact acquisition, WSS session
+and at least one audited read-only recovery action. The separate Windows
+MCP target does not grant credentials to the Linux USB.
