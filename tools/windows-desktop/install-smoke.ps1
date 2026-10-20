@@ -82,7 +82,8 @@ try {
         $allLog = Get-Content -LiteralPath $logFile -Raw -ErrorAction SilentlyContinue
         if ($allLog -and $allLog.Length -ge $priorLog.Length) {
           $newLog = $allLog.Substring($priorLog.Length)
-          if ($newLog -match "Native Surface ready: http://127\.0\.0\.1:\d+") {
+          if ($newLog -match "Native shell mounted and ready: http://127\.0\.0\.1:\d+" -and
+              $newLog -match "Native Surface ready: http://127\.0\.0\.1:\d+") {
             $ready = $true
             break
           }
