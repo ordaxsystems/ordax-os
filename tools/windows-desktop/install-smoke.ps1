@@ -7,6 +7,9 @@ $installerPath = (Resolve-Path -LiteralPath $Installer).Path
 $base = if ($env:RUNNER_TEMP) { $env:RUNNER_TEMP } else { [IO.Path]::GetTempPath() }
 $dest = Join-Path $base ("ordax-desktop-install-smoke-" + [guid]::NewGuid().ToString("N"))
 $proc = $null
+$readonlyAclApplied = $false
+$readonlyDirectory = $null
+$readonlyIdentity = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
 try {
   if (Test-Path -LiteralPath $dest) { throw "Test destination already exists" }
   Write-Output "INSTALL_SMOKE_STARTED=$installerPath"
@@ -39,6 +42,23 @@ try {
   }
   Write-Output "INSTALL_SMOKE=PASS"
   Write-Output ("INSTALLED_DESKTOP_EXE=" + $installedExe)
+  # In CI the installation destination is writable TEMP, unlike Program Files.
+  # Deny writes to the packaged dependency directory so the exact historical
+  # Vite .vite-temp EPERM bug is reproduced by this installed-app gate.
+  $readonlyDirectory = Join-Path $resources "runtime-template\node_modules"
+  & icacls.exe $readonlyDirectory /deny "${readonlyIdentity}:(W)" | Out-Null
+  if ($LASTEXITCODE -ne 0) { throw "Cannot enforce the installed runtime read-only test" }
+  $readonlyAclApplied = $true
+  $probe = Join-Path $readonlyDirectory (".ordax-probe-" + [guid]::NewGuid().ToString("N"))
+  $writeWasBlocked = $false
+  try {
+    [IO.Directory]::CreateDirectory($probe) | Out-Null
+    [IO.Directory]::Delete($probe)
+  }
+  catch [System.UnauthorizedAccessException] { $writeWasBlocked = $true }
+  if (-not $writeWasBlocked) { throw "Installed runtime test lacks write protection" }
+  Write-Output "READONLY_RUNTIME_SMOKE=PASS"
+
 
   # The installer is not homologated until its actual packaged Electron host
   # boots the canonical Native Surface from the installed, read-only runtime.
@@ -87,6 +107,9 @@ try {
   }
 }
 finally {
+  if ($readonlyAclApplied -and (Test-Path -LiteralPath $readonlyDirectory)) {
+    & icacls.exe $readonlyDirectory /remove:d $readonlyIdentity | Out-Null
+  }
   if ($proc -and -not $proc.HasExited) {
     & taskkill.exe /PID $proc.Id /T /F 2>$null | Out-Null
   }
