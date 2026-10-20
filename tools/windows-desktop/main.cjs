@@ -7,12 +7,17 @@ const { resolveTemplate, runtimeStateDirectory } = require('./runtime.cjs');
 const { chooseBootVersion, confirmHealthy, rejectCandidate, stageMain, readState, pinPrevious, unpin } = require('./dev-update.cjs');
 const { startHost, stopHost } = require('./host.cjs');
 let window=null, runtime=null, stream=null, updateTimer=null, staging=false;
+const PRODUCT='/system/composition/native/index.html';
+// Explicit stable per-user storage must be set before the instance lock or any
+// Electron internal service can resolve a path from the npm package name.
+app.setName('OrdaX OS Desktop Dev');
+const desktopUserData=join(app.getPath('appData'),'OrdaX OS Desktop Dev');
+mkdirSync(desktopUserData,{recursive:true});
+app.setPath('userData',desktopUserData);
+if (process.platform==='win32') app.setAppUserModelId('dev.ordax.os.desktop');
 const primaryInstance=app.requestSingleInstanceLock();
 if(!primaryInstance)app.quit();
 else app.on('second-instance',()=>{if(window&&!window.isDestroyed()){if(window.isMinimized())window.restore();window.focus();}});
-const PRODUCT='/system/composition/native/index.html';
-app.setName('OrdaX OS Desktop Dev');
-if (process.platform==='win32') app.setAppUserModelId('dev.ordax.os.desktop');
 function log(message) {
   const line=new Date().toISOString()+' '+String(message)+'\n';
   stream?.write(line);
