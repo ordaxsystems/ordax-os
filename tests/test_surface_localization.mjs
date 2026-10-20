@@ -106,7 +106,7 @@ test("desktop shell is born in English when regional locale is English", () => {
   const markup = createDesktopShellMarkup(localization);
   assert.match(markup, /aria-label="Main applications"/);
   assert.match(markup, />Files</);
-  assert.match(markup, />Your space</);
+  assert.match(markup, /data-native-context-title>This device</, "English locale renders the Native device context");
   assert.match(markup, /placeholder="Search applications"/);
   assert.match(markup, />Area 01</);
   assert.match(markup, />Connectivity unknown</);
@@ -148,7 +148,10 @@ for (const locale of SURFACE_COMPLETE_LOCALES) {
         expectedMenuApps.some(id => attributes.includes(`data-nav-menu-app="${id}"`)),
       );
       assert.equal(deviceMenuApps.length, expectedMenuApps.length, "Device apps remain available in the destinations menu");
-      assert.equal(buttons.filter(([, attributes]) => attributes.includes('data-app-target="updates"')).length, 1, "System updates remain a separate destination-menu shortcut");
+      assert.equal(buttons.filter(([, attributes]) =>
+        attributes.includes('class="meridian-menu-item"') &&
+        attributes.includes('data-app-target="updates"')).length, 1,
+        "The destinations menu contains one System Updates shortcut, independently of other update controls");
       const systemRail = buttons.filter(([, attributes]) => attributes.includes('data-sidebar-app="system"'));
       assert.equal(systemRail.length, 1, "System remains available in the global rail as the control panel");
       assert.ok(!buttons.some(([, attributes]) => attributes.includes('data-launch-app="internet"')), "Internet stays absent until its portable component is verified");
