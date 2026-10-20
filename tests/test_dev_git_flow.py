@@ -105,6 +105,7 @@ class DevelopmentGitFlowTest(unittest.TestCase):
             "ordax-diagnose",
             "ordax-network",
             "ordax-main-watch",
+            "ordax-maintain",
             "ordax-pull",
             "ordax-rollback",
             "ordax-run",
