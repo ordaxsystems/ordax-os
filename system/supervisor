@@ -126,7 +126,7 @@ record_owner_poll_boot_stage() {
     [ ! -L "$OWNER_POLL_BOOT_FILE" ] || return 0
     # Unique temporary per Supervisor process; different boot instances must
     # never write to the same diagnostic staging file.
-    witness_tmp=$OWNER_POLL_BOOT_FILE.tmp.$
+    witness_tmp=$OWNER_POLL_BOOT_FILE.tmp.$$
     stamp=$(utc_now)
     if printf '{"schema":"ordax.owner-supervisor-first-poll/1","stage":"%s","observedAt":"%s"}\n' "$stage" "$stamp" >"$witness_tmp" &&
        /bin/busybox chmod 600 "$witness_tmp" &&
