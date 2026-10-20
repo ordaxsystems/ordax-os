@@ -134,7 +134,13 @@ try {
   if ($null -eq $priorLog) { $priorLog = "" }
   $startupStarted = [DateTime]::UtcNow
   Write-Output "STARTUP_SMOKE_STARTED"
-  $appProc = Start-Process -FilePath $installedExe -WorkingDirectory $dest -PassThru
+  $previousBrowserSmoke = $env:ORDAX_DESKTOP_BROWSER_SMOKE
+  try {
+    $env:ORDAX_DESKTOP_BROWSER_SMOKE = "1"
+    $appProc = Start-Process -FilePath $installedExe -WorkingDirectory $dest -PassThru
+  } finally {
+    $env:ORDAX_DESKTOP_BROWSER_SMOKE = $previousBrowserSmoke
+  }
   try {
     $startupDeadline = [DateTime]::UtcNow.AddSeconds(180)
     $ready = $false
@@ -145,7 +151,8 @@ try {
         if ($allLog -and $allLog.Length -ge $priorLog.Length) {
           $newLog = $allLog.Substring($priorLog.Length)
           if ($newLog -match "Native shell mounted and ready: http://127\.0\.0\.1:\d+" -and
-              $newLog -match "Native Surface ready: http://127\.0\.0\.1:\d+") {
+              $newLog -match "Native Surface ready: http://127\.0\.0\.1:\d+" -and
+              $newLog -match "DESKTOP_INTERNET_SMOKE=PASS") {
             $ready = $true
             break
           }
