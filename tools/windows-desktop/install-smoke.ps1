@@ -5,7 +5,7 @@ param(
 $ErrorActionPreference = "Stop"
 $installerPath = (Resolve-Path -LiteralPath $Installer).Path
 $base = if ($env:RUNNER_TEMP) { $env:RUNNER_TEMP } else { [IO.Path]::GetTempPath() }
-$dest = Join-Path $base ("ordax-desktop-install-smoke-" + [guid]::NewGuid().ToString("N"))
+$dest = Join-Path $base ("ordax desktop upgrade smoke-" + [guid]::NewGuid().ToString("N"))
 $proc = $null
 $readonlyAclApplied = $false
 $readonlyDirectory = $null
@@ -44,6 +44,35 @@ try {
   Write-Output ("INSTALL_DURATION_SECONDS=" + [Math]::Round(([DateTime]::UtcNow - $installationStarted).TotalSeconds, 1))
   Write-Output "INSTALL_SMOKE=PASS"
   Write-Output ("INSTALLED_DESKTOP_EXE=" + $installedExe)
+  # Installer upgrades must be tested, not just first-time installs. A user
+  # encountered a six-minute NSIS stall while upgrading alpha.2 in Program Files;
+  # this catches repeat-install, target-path-with-spaces, extraction and repair
+  # regressions using the package produced by this exact CI run. A prior-version
+  # cross-release upgrade still requires its own release fixture and gate.
+  $upgradeProc = $null
+  try {
+    $upgradeStart = [DateTime]::UtcNow
+    Write-Output "UPGRADE_SMOKE_STARTED=$dest"
+    $upgradeProc = Start-Process -FilePath $installerPath -ArgumentList ("/S /D=" + $dest) -PassThru
+    $upgradeDeadline = [DateTime]::UtcNow.AddSeconds($TimeoutSeconds)
+    while (-not $upgradeProc.HasExited -and [DateTime]::UtcNow -lt $upgradeDeadline) {
+      Start-Sleep -Milliseconds 500
+      $upgradeProc.Refresh()
+    }
+    if (-not $upgradeProc.HasExited) { throw "NSIS in-place upgrade hung beyond bounded smoke gate" }
+    if ($upgradeProc.ExitCode -ne 0) { throw ("NSIS upgrade failed: " + $upgradeProc.ExitCode) }
+    foreach ($entry in $required) {
+      if (-not (Test-Path -LiteralPath $entry -PathType Leaf)) {
+        throw ("Upgrade removed Native runtime file: " + $entry)
+      }
+    }
+    Write-Output ("UPGRADE_DURATION_SECONDS=" + [Math]::Round(([DateTime]::UtcNow - $upgradeStart).TotalSeconds, 1))
+    Write-Output "UPGRADE_SMOKE=PASS"
+  } finally {
+    if ($upgradeProc -and -not $upgradeProc.HasExited) {
+      & taskkill.exe /PID $upgradeProc.Id /T /F 2>$null | Out-Null
+    }
+  }
   # In CI the installation destination is writable TEMP, unlike Program Files.
   # Deny writes to the packaged dependency directory so the exact historical
   # Vite .vite-temp EPERM bug is reproduced by this installed-app gate.
