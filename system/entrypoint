@@ -268,6 +268,17 @@ terminate_supervisor() {
     wait "$pid" 2>/dev/null || true
 }
 
+# kill -0 also succeeds for zombie processes. A Supervisor may have
+# published its final quiesce receipt and exited, but not yet been reaped by
+# the Guardian parent. Treat that state as exited; the receipt still must
+# match the exact supervised PID before any power transition is allowed.
+supervisor_process_active() {
+    pid=$1
+    kill -0 "$pid" >/dev/null 2>&1 || return 1
+    process_state=$(/bin/busybox awk '$1 == "State:" { print $2; exit }' "/proc/$pid/status" 2>/dev/null || true)
+    [ "$process_state" != Z ]
+}
+
 quiesce_supervisor_for_power_transition() {
     pid=${SUPERVISOR_PID:-}
     is_pid "$pid" || return 1
@@ -283,11 +294,11 @@ quiesce_supervisor_for_power_transition() {
     # the native-host lock has been released. Its parent must outlive both
     # gates, including scheduling/receipt overhead, without a premature KILL.
     remaining=24
-    while kill -0 "$pid" >/dev/null 2>&1 && [ "$remaining" -gt 0 ]; do
+    while supervisor_process_active "$pid" && [ "$remaining" -gt 0 ]; do
         /bin/busybox sleep 1
         remaining=$((remaining - 1))
     done
-    if kill -0 "$pid" >/dev/null 2>&1; then
+    if supervisor_process_active "$pid"; then
         log "supervisor did not produce a bounded power-quiesce handoff; forcing pid $pid"
         kill -KILL "$pid" >/dev/null 2>&1 || true
         wait "$pid" 2>/dev/null || true
