@@ -28,7 +28,7 @@ BUSYBOX_FRAGMENT = HERE / "configs/portable-handoff.busybox.fragment"
 IPROUTE2_PATCH_ROOT = HERE / "patches/iproute2"
 IPROUTE2_PATCH_NAME = "0001-ordax-minimal-ip-only.patch"
 IPROUTE2_PATCH_CONFIG = 'BR2_GLOBAL_PATCH_DIR="$(BR2_EXTERNAL_ORDAX_MINIMAL_PATH)/patches"'
-BUSYBOX_HANDOFF_SYMBOLS = ("CONFIG_STAT=y", "CONFIG_FEATURE_STAT_FORMAT=y", "CONFIG_TIMEOUT=y", "CONFIG_FLOCK=y")
+BUSYBOX_HANDOFF_SYMBOLS = ("CONFIG_STAT=y", "CONFIG_FEATURE_STAT_FORMAT=y", "CONFIG_TIMEOUT=y", "CONFIG_FLOCK=y", "CONFIG_FEATURE_MOUNT_FLAGS=y")
 HASH = re.compile(r"[0-9a-f]{64}\Z")
 
 
@@ -292,6 +292,11 @@ def verify_target(target: Path) -> dict:
         raise BaseError(f"missing required BusyBox applets: {sorted(missing)}")
     if "ip" in applets:
         raise BaseError("redundant BusyBox ip applet conflicts with iproute2 SSOT")
+    # A mount applet can exist without recursive bind flags. The Owner Dev
+    # versioned rootfs must keep /sys/efivars and /run runtime submounts.
+    mount_usage = run(str(target / "bin/busybox"), "mount", "--help")
+    if "[r]bind" not in mount_usage:
+        raise BaseError("BusyBox mount lacks recursive bind (rbind) support")
     # Presence in the applet list is not enough: the official handoff uses
     # stat -c and timeout -k, so exercise those exact feature interfaces.
     busybox = str(target / "bin/busybox")
