@@ -425,6 +425,107 @@
   }
 }
 
+/* Compact First Run is a single-column, internally scrollable experience.
+   No desktop rail or clipped multi-column fields on narrow displays. */
+@media (max-width: 820px) {
+  .ordax-first-run {
+    padding: 0;
+  }
+
+  .ordax-first-run-shell {
+    width: 100%;
+    height: 100dvh;
+    max-height: 100dvh;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+    border: 0;
+    border-radius: 0;
+  }
+
+  .ordax-first-run-progress {
+    flex-direction: row;
+    align-items: center;
+    gap: 18px;
+    min-width: 0;
+    padding: 12px clamp(14px, 4vw, 28px);
+    border-inline-end: 0;
+    border-bottom: 1px solid var(--md-rail-border);
+  }
+
+  .ordax-first-run-brand {
+    flex: 0 0 auto;
+  }
+
+  .ordax-first-run-brand strong {
+    font-size: 1.1rem;
+  }
+
+  .ordax-first-run-steps {
+    display: flex;
+    flex: 1 1 auto;
+    min-width: 0;
+    gap: 4px;
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+  }
+
+  .ordax-first-run-steps li {
+    min-height: 32px;
+    flex: 0 0 auto;
+    padding: 6px 9px;
+    font-size: 0.7rem;
+  }
+
+  .ordax-first-run-steps li::before {
+    display: none;
+  }
+
+  .ordax-first-run-body,
+  .ordax-first-run:is([data-first-run-step="privacy"], [data-first-run-step="ready"]) .ordax-first-run-body {
+    width: 100%;
+    padding: 20px clamp(16px, 4vw, 28px);
+  }
+
+  .ordax-first-run-header {
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+
+  .ordax-first-run-header h1 {
+    font-size: clamp(1.7rem, 6vw, 2.3rem);
+  }
+
+  .ordax-first-run-grid > .ordax-first-run-tile {
+    grid-template-columns: minmax(0, 1fr);
+    align-items: start;
+    gap: 6px;
+  }
+
+  .ordax-first-run-form,
+  .ordax-first-run-connect,
+  .ordax-first-run-memory,
+  .ordax-first-run-summary {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .ordax-first-run-memory > strong,
+  .ordax-first-run-memory > p {
+    grid-column: 1;
+  }
+
+  .ordax-first-run-memory-choice {
+    grid-column: 1;
+    grid-row: auto;
+    justify-self: start;
+  }
+
+  .ordax-first-run-footer {
+    min-height: 64px;
+    padding: 10px clamp(16px, 4vw, 28px);
+    flex-wrap: wrap;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .ordax-first-run *,
   .ordax-first-run *::before,
