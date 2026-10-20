@@ -122,7 +122,7 @@ class OwnerUsbMaintenanceTests(unittest.TestCase):
             MANIFEST.read_text(),
         )
         self._cmd("/bin/sh", "-n", str(MAINTAIN))
-        self.assertIn('"/bin/sh" "$PULL"', MAINTAIN.read_text())
+        self.assertIn('/bin/sh "$PULL"', MAINTAIN.read_text())
 
 
 if __name__ == "__main__":
