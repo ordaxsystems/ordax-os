@@ -279,7 +279,10 @@ quiesce_supervisor_for_power_transition() {
     # Surface stop is bounded to 5s and its Native authority proof to another
     # 4s. Give that existing owner enough time to prove a clean handoff rather
     # than racing it with the guardian's generic 5s termination budget.
-    remaining=12
+    # Supervisor permits 14s for Surface cleanup and up to 5s to prove
+    # the native-host lock has been released. Its parent must outlive both
+    # gates, including scheduling/receipt overhead, without a premature KILL.
+    remaining=24
     while kill -0 "$pid" >/dev/null 2>&1 && [ "$remaining" -gt 0 ]; do
         /bin/busybox sleep 1
         remaining=$((remaining - 1))
