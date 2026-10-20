@@ -92,7 +92,7 @@ async function assertNativeShellMounted(browserWindow) {
       "({count:document.querySelector('#ordax-root')?.childElementCount||0,"+
       "phase:document.querySelector('#ordax-boot-screen')?.dataset.state||'missing',"+
       "status:document.querySelector('[data-ordax-boot-status]')?.textContent?.slice(0,150)||'',"+
-      "ready:document.readyState,script:!!document.querySelector('script[src*=main.mjs]'),"+
+      "ready:document.readyState,script:!!document.querySelector('script[src]'),"+
       "url:location.pathname})"
     );
     last=result;
