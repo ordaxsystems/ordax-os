@@ -20,6 +20,7 @@ import { createNativeProjectCloudLinkStore } from "../../adapters/native/project
 import { createNativeProjectWebReferenceStore } from "../../adapters/native/project-web-references.mjs";
 import { createNativeNetworkManagement } from "../../adapters/native/network-management.mjs";
 import { createNativeProductConnector } from "../../adapters/native/product-connector.mjs";
+import { createNativeOwnerRemotePermissions } from "../../adapters/native/owner-remote-permissions.mjs";
 import { createNativeKeyboardLayout } from "../../adapters/native/keyboard-layout.mjs";
 import { createNativeDisplayOutputs } from "../../adapters/native/display-outputs.mjs";
 import { createNativeDeviceProfile } from "../../adapters/native/device-profile.mjs";
@@ -908,6 +909,8 @@ async function start() {
     surface,
     { recentFiles, projects },
   );
+  // Pure same-origin port; cloud authority is queried only when Security opens.
+  const ownerRemotePermissions = createNativeOwnerRemotePermissions(window);
   let settingsOverviewControls;
   try {
     settingsOverviewControls = mountSettingsOverviewControls(
@@ -924,6 +927,7 @@ async function start() {
       localAi,
       productConnector,
       displayOutputs,
+      ownerRemotePermissions,
     );
   } catch (error) {
     reportClientDiagnostic("settings-network-management", error);
@@ -941,6 +945,7 @@ async function start() {
       localAi,
       productConnector,
       null,
+      ownerRemotePermissions,
     );
   }
   // Store is optional: its asynchronous verified projection must not prevent
