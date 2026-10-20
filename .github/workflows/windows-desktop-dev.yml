@@ -40,6 +40,20 @@ jobs:
       - name: Install desktop shell toolchain
         working-directory: tools/windows-desktop
         run: npm ci --no-audit --no-fund
+      - name: Test built Native asset route
+        run: node --test tools/windows-emulator/desktop-built-assets.test.mjs
+      - name: Compile canonical Native Surface for Windows
+        run: npx vite build --config tools/windows-desktop/vite-native-build.mjs
+      - name: Verify canonical compiled entry
+        shell: pwsh
+        run: |
+          $html = "out/windows-desktop-native/system/composition/native/index.html"
+          if (-not (Test-Path $html -PathType Leaf)) { throw "Native build did not produce HTML" }
+          $contents = Get-Content $html -Raw
+          if ($contents -notmatch '/__ordax/desktop-assets/assets/') { throw "Native bundle references not fingerprinted assets" }
+          $scripts = @(Get-ChildItem "out/windows-desktop-native/assets" -File -Filter "*.js")
+          if ($scripts.Count -eq 0) { throw "Native bundle has no JavaScript" }
+          Write-Output ("NATIVE_BUNDLE_SMOKE=PASS assets=" + $scripts.Count)
       - name: Build unsigned Windows installer
         working-directory: tools/windows-desktop
         run: npm run dist:win
