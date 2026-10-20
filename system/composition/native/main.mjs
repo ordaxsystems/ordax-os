@@ -976,6 +976,10 @@ async function start() {
   // The already-mounted shell is visible before asking the official
   // Supervisor to acknowledge its identity. No synthetic heartbeat is sent.
   bootScreen.ready();
+  // The shell already mounted and is healthy. Advance the verified boot gate
+  // before awaiting optional Store and external apps: those enrichments cannot
+  // keep a successful Native boot trapped in "ready-pending".
+  bootScreen.setStage(surface.localization.translate("surface.boot.preparingFirstRun"));
   componentManager.setCurrentHealth("surface-shell", "healthy");
   void updateWatcher.markHealthy();
   const surfaceHeartbeat = createNativeSurfaceHeartbeat(window);
@@ -1050,7 +1054,6 @@ async function start() {
   );
   surface.replaceAppCatalog(activeExternalCatalog.catalog);
 
-  bootScreen.setStage(surface.localization.translate("surface.boot.preparingFirstRun"));
   // First Run reads the already-verified Store projection and its matching
   // ephemeral Native current observations. It has NO installation authority.
   let firstRunAppSelection = null;
