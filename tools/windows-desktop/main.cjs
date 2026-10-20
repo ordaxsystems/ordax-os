@@ -7,7 +7,7 @@ const { resolveTemplate, runtimeStateDirectory } = require('./runtime.cjs');
 const { selectRuntime } = require('./checkout.cjs');
 const { startHost, stopHost } = require('./host.cjs');
 let window=null, runtime=null, stream=null;
-const PRODUCT='/tools/windows-emulator/index.html';
+const PRODUCT='/system/composition/native/index.html';
 app.setName('OrdaX OS Desktop Dev');
 if (process.platform==='win32') app.setAppUserModelId('dev.ordax.os.desktop');
 function log(message) {
