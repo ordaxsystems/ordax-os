@@ -82,6 +82,28 @@ class FirstRunContractTests(unittest.TestCase):
         )
         self.assertFalse(contract["regional"]["keyboard_layout_selector_exposed"])
 
+    def test_account_step_refreshes_session_after_wifi_and_on_resume(self):
+        ui = UI.read_text(encoding="utf-8")
+        self.assertIn("const refreshIdentityAvailability = async () => {", ui)
+        self.assertIn("await sessionPort.refresh();", ui)
+        self.assertIn("await actionsPort.refresh();", ui)
+        self.assertIn('kind === "account-refresh"', ui)
+        self.assertIn('"Verificar conexão da Conta"', ui)
+        self.assertIn("retry.disabled = identityAvailabilityPending", ui)
+        self.assertIn(
+            'STEPS[stepIndex] === "account" && sessionSnapshot.state === "unavailable"',
+            ui,
+        )
+        self.assertGreaterEqual(
+            ui.count('void refreshIdentityAvailability();'),
+            3,
+            "entry, resume and explicit retry must all use the existing session owners",
+        )
+        self.assertIn("A autenticação não foi confirmada.", ui)
+        self.assertIn("Você pode começar sem conta", ui)
+        self.assertNotIn("localStorage.setItem", ui)
+        self.assertNotIn("sessionStorage.setItem", ui)
+
     def test_regional_choices_remain_editable_after_first_run(self):
         settings = SETTINGS.read_text(encoding="utf-8")
         self.assertIn('Object.freeze({ id: "regional", messageId: "settings.section.regional" })', settings)

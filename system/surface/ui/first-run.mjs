@@ -184,6 +184,7 @@ export function mountFirstRunExperience(
   let sessionSnapshot = sessionPort.getSnapshot();
   let actionsSnapshot = actionsPort.getSnapshot();
   let identityPending = null;
+  let identityAvailabilityPending = false;
   let identityMessage = "";
   let identityEmailDraft = "";
   let identityPasswordDraft = "";
@@ -614,6 +615,15 @@ export function mountFirstRunExperience(
     if (sessionSnapshot.state === "signed-in") {
       buttons.append(action(documentObject, "Usar esta conta", "account-identity", true));
     } else {
+      if (sessionSnapshot.state === "unavailable") {
+        const retry = action(
+          documentObject,
+          identityAvailabilityPending ? "Verificando conta…" : "Verificar conexão da Conta",
+          "account-refresh",
+        );
+        retry.disabled = identityAvailabilityPending || identityPending !== null;
+        buttons.append(retry);
+      }
       const signIn = action(documentObject, identityPending === "sign-in" ? "Entrando…" : "Entrar", "account-sign-in", true);
       signIn.disabled = identityPending !== null || !capabilitySnapshot.identitySignIn;
       const register = action(documentObject, identityPending === "register" ? "Criando conta…" : "Criar conta", "account-register");
@@ -812,6 +822,27 @@ export function mountFirstRunExperience(
     if (!destroyed && STEPS[stepIndex] === "regional") render();
   };
 
+  // Wi-Fi may become available only after the initial account probe.
+  // Refresh through the EXISTING identity/session owners when the account
+  // step opens, and allow explicit retry after clock/DNS recover. Never
+  // infer a session from Wi-Fi connectivity or cache provider credentials.
+  const refreshIdentityAvailability = async () => {
+    if (destroyed || identityPending !== null || identityAvailabilityPending) return;
+    identityAvailabilityPending = true;
+    if (STEPS[stepIndex] === "account") render();
+    try {
+      await sessionPort.refresh();
+      await actionsPort.refresh();
+    } catch {
+      // Keep local/offline first use available, without a fake identity.
+    } finally {
+      if (!destroyed) {
+        identityAvailabilityPending = false;
+        if (STEPS[stepIndex] === "account") render();
+      }
+    }
+  };
+
   const go = (nextIndex) => {
     if (STEPS[stepIndex] === "regional" && nextIndex > stepIndex) {
       // Region data has one authority: the regular preference runtime.
@@ -835,6 +866,9 @@ export function mountFirstRunExperience(
     render();
     if (STEPS[stepIndex] === "network" && networkPort && networkSnapshot === null) {
       void refreshNetwork(false);
+    }
+    if (STEPS[stepIndex] === "account" && sessionSnapshot.state === "unavailable") {
+      void refreshIdentityAvailability();
     }
   };
 
@@ -1039,7 +1073,9 @@ export function mountFirstRunExperience(
         ? "Conta autenticada. Você pode usá-la neste pendrive."
         : result?.confirmationRequired
           ? "Cadastro recebido. Confirme seu e-mail para entrar."
-          : "A autenticação foi iniciada. O uso local continua disponível.";
+          : result?.authenticated === true
+            ? "Não foi possível confirmar a sessão da Conta OrdaX. Verifique internet e horário e tente novamente."
+            : "A autenticação não foi confirmada. O uso local continua disponível.";
     } catch {
       if (!destroyed) identityMessage = "A ação de conta não pôde ser concluída. O uso local continua disponível.";
     } finally {
@@ -1113,7 +1149,8 @@ export function mountFirstRunExperience(
       } else {
         void connectNetwork(ssid, password);
       }
-    } else if (kind === "account-sign-in") void runIdentity("sign-in");
+    } else if (kind === "account-refresh") void refreshIdentityAvailability();
+    else if (kind === "account-sign-in") void runIdentity("sign-in");
     else if (kind === "account-register") void runIdentity("register");
     else if (kind === "account-identity") {
       const currentSession = sessionPort.getSnapshot();
@@ -1235,6 +1272,9 @@ export function mountFirstRunExperience(
   });
 
   render();
+  if (STEPS[stepIndex] === "account" && sessionSnapshot.state === "unavailable") {
+    void refreshIdentityAvailability();
+  }
   if (keyboardLayoutPort) void refreshKeyboardLayout();
   if (capabilitySnapshot.registrationPolicy) {
     void refreshRegistrationPolicy();

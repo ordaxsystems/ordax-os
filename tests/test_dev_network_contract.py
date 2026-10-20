@@ -36,6 +36,18 @@ class DevelopmentNetworkContractTest(unittest.TestCase):
             text.index('echo "ordax-network: tentando DHCP em $iface"'),
         )
 
+    def test_wired_dhcp_raises_link_before_reading_carrier(self) -> None:
+        text = NETWORK.read_text(encoding="utf-8")
+        wired = text.split("# Only Ethernet-like non-wireless interfaces", 1)[1].split("\n"+'wifi=""', 1)[0]
+        type_gate = wired.index('[ "$net_type" = 1 ] || continue')
+        link_up = wired.index('ip link set "$iface" up >/dev/null 2>&1 || continue')
+        carrier = wired.index('if [ -r "$netpath/carrier" ]; then')
+        dhcp = wired.index('if try_dhcp "$iface"; then')
+        self.assertLess(type_gate, link_up)
+        self.assertLess(link_up, carrier)
+        self.assertLess(carrier, dhcp)
+        self.assertIn('[ -d "$netpath/wireless" ] && continue', wired)
+
     def test_wifi_waits_for_completed_wpa_handshake_before_dhcp(self) -> None:
         text = NETWORK.read_text(encoding="utf-8")
         self.assertIn('wpa_state_completed()', text)

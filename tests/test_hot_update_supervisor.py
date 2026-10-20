@@ -26,6 +26,67 @@ class HotUpdateSupervisorContractTests(unittest.TestCase):
         subprocess.run(["sh", "-n", str(SURFACE_RUNTIME)], check=True)
         subprocess.run(["python3", "-m", "py_compile", str(NATIVE_HOST_SERVER)], check=True)
 
+    def test_owner_first_poll_witness_is_bounded_diagnostic_not_update_authority(self):
+        import json
+        import shlex
+
+        text = SYSTEM_SUPERVISOR.read_text(encoding="utf-8")
+        self.assertIn(
+            "OWNER_POLL_BOOT_FILE=$STATE_DIR/native-state/supervisor-boot-witness.json",
+            text,
+        )
+        body = text.split("record_owner_poll_boot_stage() {", 1)[1].split("\n}\n", 1)[0]
+        witness = "record_owner_poll_boot_stage() {" + body + "\n}\n"
+        self.assertIn('[ "$DISTRIBUTION_PROFILE" = owner-development ] || return 0', witness)
+        self.assertIn('[ "$OWNER_POLL_BOOT_FINISHED" -eq 0 ] || return 0', witness)
+        self.assertIn('[ ! -L "$OWNER_POLL_BOOT_FILE" ]', witness)
+        self.assertIn('"ordax.owner-supervisor-first-poll/1"', witness)
+        for forbidden in ("git ", "pull ", "reboot ", "mount ", "efi-updatevar", "activation_authorized"):
+            self.assertNotIn(forbidden, witness)
+
+        self.assertIn("record_owner_poll_boot_stage initialized", text)
+        self.assertIn("record_owner_poll_boot_stage poll-loop-entered", text)
+        self.assertIn("record_owner_poll_boot_stage first-run-pending", text)
+        self.assertIn("record_owner_poll_boot_stage first-run-verified", text)
+        self.assertIn("record_owner_poll_boot_stage git-remote-started", text)
+        self.assertIn("record_owner_poll_boot_stage git-remote-failed", text)
+        self.assertIn("record_owner_poll_boot_stage git-remote-completed", text)
+        if not Path("/bin/busybox").exists():
+            return  # Structural contract still applies to non-BusyBox hosts.
+        with tempfile.TemporaryDirectory() as temporary:
+            native = Path(temporary) / "native-state"
+            native.mkdir()
+            destination = native / "supervisor-boot-witness.json"
+            script = (
+                "set -eu\n"
+                "utc_now() { printf '2026-10-20T00:00:00Z\\n'; }\n"
+                "DISTRIBUTION_PROFILE=owner-development\n"
+                f"OWNER_POLL_BOOT_FILE={shlex.quote(str(destination))}\n"
+                'OWNER_POLL_BOOT_STAGE=""\n'
+                "OWNER_POLL_BOOT_FINISHED=0\n"
+                + witness
+            )
+            completed = script + "\n".join(
+                f"record_owner_poll_boot_stage {stage}"
+                for stage in (
+                    "initialized", "poll-loop-entered", "first-run-pending",
+                    "first-run-verified", "git-remote-started", "git-remote-completed",
+                    "first-run-pending",
+                )
+            )
+            subprocess.run(["/bin/sh", "-c", completed], check=True)
+            result = json.loads(destination.read_text(encoding="utf-8"))
+            self.assertEqual(result["schema"], "ordax.owner-supervisor-first-poll/1")
+            self.assertEqual(result["stage"], "git-remote-completed")
+            self.assertEqual(result["observedAt"], "2026-10-20T00:00:00Z")
+            outside = Path(temporary) / "sentinel"
+            outside.write_text("untouched", encoding="utf-8")
+            destination.unlink()
+            destination.symlink_to(outside)
+            subprocess.run(["/bin/sh", "-c", script + "record_owner_poll_boot_stage initialized\n"], check=True)
+            self.assertTrue(destination.is_symlink())
+            self.assertEqual(outside.read_text(encoding="utf-8"), "untouched")
+
     def test_supervisor_polls_git_without_rebooting_for_normal_updates(self):
         text = SYSTEM_SUPERVISOR.read_text(encoding="utf-8")
         self.assertIn('UPDATE_INTERVAL=${ORDAX_UPDATE_INTERVAL_SECONDS:-5}', text)
@@ -119,6 +180,27 @@ class HotUpdateSupervisorContractTests(unittest.TestCase):
         self.assertIn('EXPECTED_SHA=${ORDAX_EXPECTED_SHA:-}', pull)
         self.assertIn('[ "$remote_sha" != "$EXPECTED_SHA" ]', pull)
         self.assertIn('checkout atual preservado', pull)
+
+    def test_pull_error_stage_and_committed_helper_receipt_are_consistent(self):
+        supervisor = SYSTEM_SUPERVISOR.read_text(encoding="utf-8")
+        pull = DEV_PULL.read_text(encoding="utf-8")
+        # A stale volatile stage cannot be associated with another attempt.
+        self.assertIn('PULL_RESULT_FILE=$UPDATE_RUN_DIR/pull-result', supervisor)
+        self.assertIn('rm -f "$PULL_RESULT_FILE"', supervisor)
+        self.assertIn('PULL_RESULT_FILE=$RUN_DIR/pull-result', pull)
+        self.assertIn('trap \'record_pull_exit "$?"\' EXIT', pull)
+        self.assertIn('PULL_PHASE=helper-refresh', pull)
+        self.assertIn('refresh_dev_helpers "$current" || exit 1', pull)
+        self.assertIn('CHECKOUT_ERROR="pull-$pull_phase-failed"', supervisor)
+        # Atomic source checkout is durable before helper activation, so the
+        # displayed sourceSha must reflect the actual checkout on error.
+        self.assertIn('active_after_failure=$(current_sha)', supervisor)
+        self.assertIn('[ "$active_after_failure" = "$remote_sha" ]', supervisor)
+        self.assertIn('write_update_state "$active_after_failure" pull-error none', supervisor)
+        # Never mark this SHA healthy until canonical installed helpers agree.
+        self.assertIn('helper_sha=$(read_state_value "$DEV_HELPERS_SHA_FILE")', supervisor)
+        self.assertIn('[ "$helper_sha" != "$current" ]', supervisor)
+        self.assertIn('set_update_context error "$current" "" "helper-refresh-failed"', supervisor)
 
     def test_dirty_runtime_checkout_is_diagnosed_and_atomically_replaced_by_pull_owner(self):
         text = SYSTEM_SUPERVISOR.read_text(encoding="utf-8")

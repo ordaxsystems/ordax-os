@@ -97,6 +97,68 @@ class NativeAccountGatewayTests(unittest.TestCase):
             self.assertEqual(second._cookies, {})
             self.assertFalse(path.exists())
 
+    def test_native_login_requires_verified_fresh_gateway_session(self):
+        def reply(payload, status=200):
+            return gateway.GatewayReply(
+                status=status, headers={},
+                body=json.dumps(payload).encode("utf-8"),
+            )
+
+        authenticated = {
+            "$schema": gateway.SESSION_SCHEMA,
+            "authenticated": True,
+            "status": "authenticated",
+            "subject": "verified-subject",
+            "email": "pessoa@example.com",
+            "provider": "supabase",
+            "accountCloseEnabled": False,
+        }
+        accepted = gateway.verified_account_session_reply(reply({
+            **authenticated, "ordax_access": "never-send-me",
+        }))
+        self.assertEqual(accepted["subject"], "verified-subject")
+        self.assertTrue(accepted["authenticated"])
+        self.assertNotIn("ordax_access", accepted)
+
+        for payload, status in (
+            (authenticated, 503),
+            ({"error": "upstream-unavailable"}, 200),
+            ({**authenticated, "authenticated": False, "status": "anonymous"}, 200),
+            ({**authenticated, "subject": ""}, 200),
+            ({**authenticated, "email": None}, 200),
+            ({**authenticated, "$schema": "untrusted.schema/1"}, 200),
+        ):
+            with self.subTest(payload=payload, status=status):
+                with self.assertRaises(gateway.NativeAccountGatewayError):
+                    gateway.verified_account_session_reply(reply(payload, status))
+
+    def test_registration_anonymous_is_confirmation_only_not_login(self):
+        anonymous = {
+            "$schema": gateway.SESSION_SCHEMA,
+            "authenticated": False,
+            "status": "anonymous",
+            "provider": "supabase",
+        }
+        reply = gateway.GatewayReply(
+            status=200, headers={}, body=json.dumps(anonymous).encode("utf-8")
+        )
+        with self.assertRaises(gateway.NativeAccountGatewayError):
+            gateway.verified_account_session_reply(reply)
+        result = gateway.verified_account_session_reply(reply, allow_anonymous=True)
+        self.assertFalse(result["authenticated"])
+        self.assertEqual(result["status"], "anonymous")
+        self.assertFalse(result["accountCloseEnabled"])
+
+    def test_native_http_uses_verified_session_owner_for_login(self):
+        host = (
+            ROOT / "system" / "surface" / "runtime" / "native_host_server.py"
+        ).read_text(encoding="utf-8")
+        self.assertIn("verified_account_session_reply(", host)
+        self.assertIn("allow_anonymous=(parsed_path == ACCOUNT_REGISTER_PATH)", host)
+        self.assertIn('if not session_payload["authenticated"]:', host)
+        self.assertNotIn('if not isinstance(session_payload, dict):', host)
+        self.assertIn('self._write_json(202, session_payload)', host)
+
     def test_product_access_token_is_native_only_and_requires_authenticated_session(self):
         with tempfile.TemporaryDirectory() as temporary:
             path = str(Path(temporary) / "session.json")
