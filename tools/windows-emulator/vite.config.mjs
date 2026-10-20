@@ -6,11 +6,14 @@ import { nativeEmulatorPlugin } from "./native-host.mjs";
 const repoRoot = resolve(fileURLToPath(new URL("../..", import.meta.url)));
 const surfaceWorkspace = fileURLToPath(new URL("../../system/surface/workspace", import.meta.url));
 const surfaceBrand = fileURLToPath(new URL("../../system/surface/ui/brand", import.meta.url));
+const stateDirectory = process.env.ORDAX_EMULATOR_STATE_DIR ?? resolve(repoRoot, "out/windows-emulator-state");
 
 export default defineConfig({
   root: repoRoot,
   appType: "mpa",
-  plugins: [nativeEmulatorPlugin(process.env.ORDAX_EMULATOR_STATE_DIR ?? resolve(repoRoot, "out/windows-emulator-state"))],
+  // Never write optimized deps into a packaged, read-only Program Files runtime.
+  cacheDir: resolve(stateDirectory, "vite-cache"),
+  plugins: [nativeEmulatorPlugin(stateDirectory)],
   optimizeDeps: { noDiscovery: true, include: [] },
   resolve: {
     alias: {
