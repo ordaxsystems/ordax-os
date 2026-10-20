@@ -1,7 +1,7 @@
 'use strict';
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { mkdtempSync, mkdirSync, rmSync } = require('node:fs');
+const { mkdtempSync, mkdirSync, rmSync, readFileSync } = require('node:fs');
 const { tmpdir } = require('node:os');
 const { join, resolve } = require('node:path');
 const { resolveTemplate, existingCheckout, runtimeStateDirectory, OFFICIAL_REMOTE, gitArgs } = require('./runtime.cjs');
@@ -26,4 +26,12 @@ test('Git bootstrap uses only the canonical OrdaX repository', () => {
   assert.equal(args.at(-2), OFFICIAL_REMOTE);
   assert.equal(args.at(-1), 'test-target');
   assert.ok(args.includes('--depth'));
+});
+
+test('installed app mounts canonical Native directly, never an emulator iframe', () => {
+  const main = readFileSync(join(__dirname, 'main.cjs'), 'utf8');
+  const host = readFileSync(join(__dirname, 'host.cjs'), 'utf8');
+  assert.match(main, /const PRODUCT='\\/system\\/composition\\/native\\/index\\.html'/);
+  assert.match(host, /path:'\\/system\\/composition\\/native\\/index\\.html'/);
+  assert.doesNotMatch(main, /PRODUCT='\\/tools\\/windows-emulator/);
 });
