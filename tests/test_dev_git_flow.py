@@ -513,6 +513,57 @@ class DevelopmentGitFlowTest(unittest.TestCase):
         )
         self.assertEqual((self.state / "current-commit").read_text().strip(), self.commit_v1)
 
+    def test_remote_discovery_failures_keep_known_good_and_expose_only_fixed_codes(self) -> None:
+        # Exercise the real Pull on disposable Git data, injecting bounded
+        # stderr via a Git wrapper only for ls-remote. No internet is needed,
+        # and unknown content is never published into a UI-facing receipt.
+        self._script(PULL)
+        head = self._run(
+            ["git", "-C", str(self.worktree), "rev-parse", "HEAD"]
+        ).stdout.strip()
+        mocked_bin = self.root / "mocked-bin"
+        mocked_bin.mkdir()
+        mocked_git = mocked_bin / "git"
+        real_git = shutil.which("git")
+        assert real_git is not None
+        mocked_git.write_text(
+            "#!/bin/sh\n"
+            'for argument in "$@"; do\n'
+            '  if [ "$argument" = "ls-remote" ]; then\n'
+            '    printf "%s\\n" "$ORDAX_TEST_REMOTE_STDERR" >&2\n'
+            '    exit 128\n'
+            '  fi\n'
+            'done\n'
+            f'exec "{real_git}" "$@"\n',
+            encoding="utf-8",
+        )
+        mocked_git.chmod(0o755)
+
+        cases = (
+            ("fatal: Could not resolve host: github.com", "remote-discovery-dns"),
+            ("fatal: SSL certificate problem: certificate has expired", "remote-discovery-tls"),
+            ("fatal: Operation timed out", "remote-discovery-timeout"),
+            ("fatal: Failed to connect to github.com", "remote-discovery-connectivity"),
+            ("fatal: HTTP 403", "remote-discovery-auth"),
+            ("secret=never-publish-this-text", "remote-discovery"),
+        )
+        for stderr, phase in cases:
+            with self.subTest(phase=phase):
+                env = self._env()
+                env["PATH"] = str(mocked_bin) + os.pathsep + env["PATH"]
+                env["ORDAX_TEST_REMOTE_STDERR"] = stderr
+                result = self._script(PULL, env=env, check=False)
+                self.assertNotEqual(result.returncode, 0)
+                receipt = self.root / "run/ordax-update/pull-result"
+                self.assertEqual(receipt.read_text().strip(), phase)
+                self.assertNotIn("secret=never", receipt.read_text())
+                self.assertEqual(
+                    self._run(["git", "-C", str(self.worktree), "rev-parse", "HEAD"]).stdout.strip(),
+                    head,
+                )
+                self.assertEqual((self.state / "current-commit").read_text().strip(), head)
+                self.assertFalse(list((self.root / "run/ordax-update").glob(".pull-remote-discovery.*.stderr")))
+
     def test_supervisor_expected_sha_must_match_fetched_tracking_ref(self) -> None:
         self._script(PULL)
         self.commit_v2 = self._commit_runtime("runtime-v2")
