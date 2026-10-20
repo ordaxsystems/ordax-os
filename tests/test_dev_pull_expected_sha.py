@@ -57,7 +57,7 @@ class DevPullExpectedShaTests(unittest.TestCase):
         )
         run_git("remote", "add", "origin", str(self.remote), cwd=self.seed)
         subprocess.run(
-            ["git", "clone", str(self.remote), str(self.worktree)],
+            ["git", "clone", self.remote.as_uri(), str(self.worktree)],
             check=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
