@@ -414,3 +414,36 @@ Essas provas dizem respeito a funções específicas, **não** são prova de boo
 Medir em `main` e candidata com mesmos parâmetros, registrar commit e evidências; não impor números arbitrários de desempenho antes de obter baseline. Cada otimização que afete bytes assinados exige novo manifest, provenance e teste de regressão.
 
 **Decisão:** otimização estrutural/observabilidade começa **agora**; otimização agressiva de kernel, boot, RAM, compressão e I/O começa **depois da paridade**, mediante benchmarks controlados. Nenhum gate foi promovido por adicionar esta seção.
+
+
+## 15. Evidência de CI e bloqueio do runtime gráfico (2026-10-20)
+
+**PR de verificação ELF:** [#2047](https://github.com/ordaxsystems/ordax-os/pull/2047), head `2ee0df54d495a6063d92ac7438591954d41142fc`, permanece aberta, **sem merge**.
+
+**Resultados observados no GitHub Actions para esse commit:**
+
+| Workflow | Resultado |
+|---|---|
+| Foundation Contract (#39469814126) | PASS |
+| Owner Development Preflight (#39469814127) | PASS |
+| Independent Base Experiment (#39469814128) | PASS |
+| Independent Portable v2 Integration (#39469814222) | FAIL |
+
+A falha do Portable v2 ocorreu em `Build exact offline Surface runtime on cache miss`; log do job `118790702638`: `apk add` não conseguiu instalar `ca-certificates=20260909-r0` porque o repositório disponibilizava `ca-certificates-20261020-r0`. O contrato legado consultado `bootstrap/surface-runtime/source.json` usa `runtime_id=alpine-v3.22-cage-webkitgtk-v2-offline` e lock completo de pacotes; `bootstrap/surface-runtime/build.py` depende de `bootstrap/base/alpine_core.py`. Esta é a evidência de que o **runtime gráfico** também está na migração, além da Base Dev e Stable.
+
+**Não corrigir trocando a versão fixada pela mais nova automaticamente.** Isso elimina a causa aparente mas mantém dependência de um repositório mutável e perde a garantia de artefatos idênticos. Não tratar uma reconstrução inacessível do legado como defeito de ELF/Buildroot. Também não habilitar a base experimental ou ignorar um check obrigatório.
+
+### Decisão de correção estrutural
+
+1. Marcar o runtime gráfico Alpine como **legado em retirada**; inventorizar Cage, WebKitGTK, GTK, Mesa, Wayland/Xwayland, input, serviços e bibliotecas que a Surface consome efetivamente.
+2. Criar/estender o perfil do runtime gráfico no **pipeline Buildroot/Independent Base existente** apenas após uma matriz de dependências e aceitação das licenças. O objetivo é mesma funcionalidade de Surface sem APK/minirootfs Alpine; evitar duplicar compositor, processo Native, PID1 ou mecanismo de releases.
+3. Reaproveitar o mesmo empacotamento EROFS, assinatura, checks de compatibilidade e harness QEMU. Testar primeiro Surface e aplicações reais em QEMU, depois hardware físico autorizado; não confundir boot mínimo com UI funcional.
+4. Enquanto o legado for necessário a um gate canônico, reconstruí-lo somente a partir de um **conjunto imutável, íntegro, com SHA-256 por pacote e proveniência**, dentro de owner já existente; se não houver todos os bytes, registrar BLOCKED e não fabricar um PASS.
+5. Atualizar os workflows para distinguir **verificação independente ELF/Base** de **homologação gráfica completa**, sem remover as verificações de integração obrigatórias à promoção Stable.
+6. Fechar #2047 somente quando os checks mandatórios forem verdes ou quando os próprios owners definirem, por ADR revisada e testes equivalentes, um corte estrutural correto. Não burlar branch protection.
+
+**Estado comprovado:** `INDEPENDENT_BASE_EXPERIMENT_CI=PASS`; `GRAPHICAL_SURFACE_LEGACY_REBUILD=FAIL`; `FULL_PRODUCT_PARITY=NOT_PROVEN`; `PR_2047_MERGED=NO`; `ALPINE_REMOVED=NO`.
+
+### Otimização vinculada
+
+A prioridade agora não é ajustar scheduler, kernel ou compressão: a maior ineficiência comprovada neste caminho é gastar tempo de CI com um rebuild de centenas de dependências cujo input fixado nem está disponível. **Primeiro tornar inputs verificáveis e migrar o perfil gráfico; depois medir cache/build, tamanho final, RAM e boot.** Não inventar números de economia sem comparação por commit e artefatos.
