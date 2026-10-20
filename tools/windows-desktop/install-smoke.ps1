@@ -38,6 +38,7 @@ try {
     (Join-Path $resources "runtime-template\tools\windows-emulator\dev-supervisor.mjs"),
     (Join-Path $resources "runtime-template\tools\windows-emulator\desktop-host-contract.json"),
     (Join-Path $resources "runtime-template\system\composition\native\index.html"),
+    (Join-Path $resources "runtime-template\desktop-assets\system\composition\native\index.html"),
     (Join-Path $resources "runtime-template\node_modules\vite\bin\vite.js")
   )
   foreach ($entry in $required) {
@@ -45,6 +46,14 @@ try {
       throw ("Packaged Native dependency missing: " + $entry)
     }
   }
+  $compiledRoot = Join-Path $resources "runtime-template\\desktop-assets"
+  $compiledHtml = Get-Content (Join-Path $compiledRoot "system\\composition\\native\\index.html") -Raw
+  if ($compiledHtml -notmatch "/__ordax/desktop-assets/assets/") {
+    throw "Installed Desktop did not bundle compiled Native entry"
+  }
+  $compiledScripts = @(Get-ChildItem (Join-Path $compiledRoot "assets") -Filter "*.js" -File -ErrorAction Stop)
+  if ($compiledScripts.Count -lt 1) { throw "Installed Native bundle has no compiled JS" }
+  Write-Output "COMPILED_SURFACE_INSTALL_SMOKE=PASS"
   Write-Output ("INSTALL_DURATION_SECONDS=" + [Math]::Round(([DateTime]::UtcNow - $installationStarted).TotalSeconds, 1))
   $stageAfterInstall = if (Test-Path -LiteralPath $nsisStageLog) {
     [IO.File]::ReadAllText($nsisStageLog)
