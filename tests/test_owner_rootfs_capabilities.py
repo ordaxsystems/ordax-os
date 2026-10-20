@@ -5,6 +5,7 @@ from __future__ import annotations
 import importlib.util
 from pathlib import Path
 import shutil
+import subprocess
 import tempfile
 import tarfile
 import stat
@@ -219,6 +220,43 @@ done
             manifest.write_text("# tampered\n", encoding="utf-8")
             with self.assertRaisesRegex(ValueError, "manifest"):
                 capabilities.verify_owner_stage(stage, ROOT)
+
+    def test_alpine_busybox_recursively_binds_real_owner_rootfs(self) -> None:
+        """Reject missing mount flags in the actual Owner/Alpine image."""
+        spec = importlib.util.spec_from_file_location(
+            "ordax_owner_alpine_core_rbind", ROOT / "bootstrap/base/alpine_core.py",
+        )
+        assert spec is not None and spec.loader is not None
+        core = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(core)
+        rootfs = Path("/nonexistent-isolated-owner-rootfs")
+        for help_text in (
+            "Usage: mount [-o OPT]\\n\\t[r]bind Bind recursively\\n",
+            "Usage: mount\\n[r]bind\\n",
+        ):
+            with self.subTest(help_text=help_text), patch.object(
+                core.subprocess, "run",
+                return_value=subprocess.CompletedProcess([], 0, "", help_text),
+            ) as call:
+                core.verify_busybox_recursive_bind(rootfs)
+                call.assert_called_once_with(
+                    ["chroot", str(rootfs), "/bin/busybox", "mount", "--help"],
+                    check=False, capture_output=True, text=True,
+                )
+
+        for status, stdout, stderr in (
+            (0, "mount present, no recursive bind", ""),
+            (1, "[r]bind", ""),
+        ):
+            with self.subTest(status=status, stdout=stdout), patch.object(
+                core.subprocess, "run",
+                return_value=subprocess.CompletedProcess([], status, stdout, stderr),
+            ):
+                with self.assertRaisesRegex(core.BuildError, "recursive bind"):
+                    core.verify_busybox_recursive_bind(rootfs)
+
+        text = (ROOT / "bootstrap/base/alpine_core.py").read_text(encoding="utf-8")
+        self.assertIn("verify_busybox_recursive_bind(rootfs)", text)
 
     def test_alpine_fallback_verifier_consumes_the_same_inventory(self) -> None:
         text = (ROOT / "bootstrap/base/alpine_core.py").read_text(encoding="utf-8")

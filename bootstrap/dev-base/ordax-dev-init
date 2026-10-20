@@ -185,11 +185,20 @@ activate_versioned_rootfs() {
     mkdir -p "$root/.ordax-base"
     /bin/busybox mount -o bind "$root" "$root" || return 1
 
-    # Retain the ephemeral verified EROFS view across Dev Base A/B pivot.
-    # Without /run the next root would lose the mounted graphical runtime.
+    # Retain nested mount trees across the A/B root pivot. A plain bind
+    # copies only the top mount, hiding efivarfs below /sys, EROFS/overlay
+    # runtime mounts below /run, devpts below /dev, and proc submounts.
+    # Ordinary durable directories intentionally keep nonrecursive bind.
     for shared in state workspace home proc sys dev run; do
         mkdir -p "$root/$shared"
-        /bin/busybox mount -o bind "/$shared" "$root/$shared" || return 1
+        case "$shared" in
+            proc|sys|dev|run)
+                /bin/busybox mount -o rbind "/$shared" "$root/$shared" || return 1
+                ;;
+            *)
+                /bin/busybox mount -o bind "/$shared" "$root/$shared" || return 1
+                ;;
+        esac
     done
 
     ORDAX_DEV_ROOT_SELECTED=1
