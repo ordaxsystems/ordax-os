@@ -318,7 +318,7 @@ ensure_base_update_agent() {
         owner_changed=0
     fi
 
-    temporary=$BASE_UPDATE_AGENT.tmp.$
+    temporary=$BASE_UPDATE_AGENT.tmp.$$
     cp "$BASE_UPDATE_SOURCE" "$temporary" >>"$BASE_UPDATE_LOG" 2>&1 || return 1
     chmod 700 "$temporary" >>"$BASE_UPDATE_LOG" 2>&1 || return 1
     /bin/busybox mv -f "$temporary" "$BASE_UPDATE_AGENT" >>"$BASE_UPDATE_LOG" 2>&1 || return 1
@@ -1032,7 +1032,7 @@ publish_runtime_proof_context() {
             ;;
     esac
 
-    temporary=$RUNTIME_PROOF_CONTEXT.tmp.$
+    temporary=$RUNTIME_PROOF_CONTEXT.tmp.$$
     {
         printf 'distribution_profile=%s\n' "$DISTRIBUTION_PROFILE"
         printf 'runtime_mode=%s\n' "$runtime_mode"
@@ -1170,7 +1170,7 @@ write_power_request_record() {
         *) return 1 ;;
     esac
 
-    temporary=$POWER_LAST_REQUEST.tmp.$
+    temporary=$POWER_LAST_REQUEST.tmp.$$
     printf '%s|%s|%s|%s\n' "$action" "$request_boot_id" "$request_epoch" "$status" >"$temporary" || return 1
     chmod 600 "$temporary" || return 1
     /bin/busybox mv -f "$temporary" "$POWER_LAST_REQUEST" || return 1
@@ -1241,7 +1241,14 @@ forward_host_power_request() {
         echo "ordax-surface: host power owner channel is unavailable" >>"$HOST_LOG"
         return 1
     }
-    printf '%s\n' "$action" >"$HOST_POWER_REQUEST" || return 1
+    # A FIFO can survive its Guardian reader. Plain shell redirection would
+    # block indefinitely if the host owner dies after the UI accepts a request.
+    # Keep the destructive handoff bounded and report failure to the broker.
+    if ! /bin/busybox timeout -k 1 3 /bin/sh -c \
+        'printf "%s\\n" "$1" >"$2"' sh "$action" "$HOST_POWER_REQUEST"; then
+        echo "ordax-surface: host power owner did not accept $action within timeout" >>"$HOST_LOG"
+        return 1
+    fi
     return 0
 }
 
@@ -1284,7 +1291,15 @@ prepare_keyboard_session_restart_broker() {
 }
 
 prepare_power_broker() {
-    rm -f "$POWER_REQUEST" >/dev/null 2>&1 || true
+    # Remove any stale local capability before checking the Guardian.
+    # Otherwise a previous FIFO could still be visible to the Native server.
+    rm -f "$POWER_REQUEST" >/dev/null 2>&1 || return 1
+    # Never advertise a functioning power control when its actual root-owned
+    # Guardian channel is missing. The graphical desktop must still boot.
+    [ -p "$HOST_POWER_REQUEST" ] || {
+        echo "ordax-surface: Guardian host power channel absent; controls disabled" >>"$HOST_LOG"
+        return 1
+    }
     /bin/busybox mkfifo "$POWER_REQUEST" >>"$HOST_LOG" 2>&1 || return 1
     chmod 600 "$POWER_REQUEST" >>"$HOST_LOG" 2>&1 || return 1
 
@@ -1329,8 +1344,11 @@ prepare_power_broker() {
     kill -0 "$POWER_BROKER_PID" >/dev/null 2>&1 || return 1
 }
 
+# The native Python HTTP server is not a boot blocker until the bounded
+# readiness window expires. Its former 10s bound caused false cold-boot
+# failures under QEMU TCG despite the Guardian's 90s Surface health budget.
 wait_for_native_server() {
-    remaining=${1:-10}
+    remaining=${1:-30}
     while [ "$remaining" -gt 0 ]; do
         [ -n "$HTTP_PID" ] && kill -0 "$HTTP_PID" >/dev/null 2>&1 || return 1
         if /bin/busybox chroot "$RUNTIME_ROOT" /usr/bin/python3 -c 'import socket; s=socket.create_connection(("127.0.0.1", 8765), 0.5); s.close()' >>"$HTTP_LOG" 2>&1; then
@@ -1401,7 +1419,7 @@ configure_keyboard_layout
 prepare_keyboard_session_restart_broker || echo "ordax-surface: keyboard session restart unavailable; next startup still applies configured layout" >>"$HOST_LOG"
 publish_runtime_proof_context || fallback_with_reason "failed to publish active Surface runtime proof context"
 remove_stale_seatd_socket || fallback_with_reason "failed to clear stale seatd socket before native host startup"
-prepare_power_broker || fallback_with_reason "failed to prepare host power broker"
+prepare_power_broker || echo "ordax-surface: host power broker unavailable; continuing without power actions" >>"$HOST_LOG"
 ensure_base_update_agent || echo "ordax-surface: base update owner unavailable; continuing Surface startup" >>"$HOST_LOG"
 
 export XDG_RUNTIME_DIR="$SESSION_DIR"
@@ -1424,7 +1442,7 @@ export ORDAX_SURFACE_MODE=native-graphical
     --telemetry-config /srv/ordax-system/services/telemetry/relay.json \
     >"$HTTP_LOG" 2>&1 &
 HTTP_PID=$!
-wait_for_native_server 10 || fallback_with_reason "native Surface HTTP/control server failed readiness check"
+wait_for_native_server 30 || fallback_with_reason "native Surface HTTP/control server failed readiness check"
 
 printf '\033[2J\033[H'
 printf 'OrdaX: iniciando Surface grafica...\n'
