@@ -439,3 +439,37 @@ que impedia o primeiro polling durante a validacao inicial.
 Pull no pendrive fisico**: ainda exigimos artefato Creator exato, QEMU UEFI/NAT,
 recibo `git-remote-completed`, aplicacao de commit controlado, teste de
 rejeicao/rollback e novo boot antes de promover a correcao.
+
+
+## Maintenance and field recovery (Owner/Development)
+
+The Owner/Development USB installs **ordax-maintain** through the existing atomic
+helper manifest. It does not create another updater or raw-disk writer.
+
+- **ordax-maintain status** (read-only): compares Git HEAD, current-commit,
+  dev-helpers-sha and installed source/helper bytes, reports previous rollback
+  SHA, latest Pull receipt and last power action/status. It never exposes boot
+  IDs, device tokens, bearer secrets or raw Git stderr.
+- **ordax-maintain self-test**: checks all installed helpers and the local
+  checkout offline, without pulling updates or modifying persistent files.
+- **ordax-maintain repair EXACT_40_HEX_SHA --confirm**: explicitly delegates
+  to the installed canonical ordax-pull after verifying the official GitHub
+  origin. Only ordax-pull owns the download, transaction, rollback and health gates.
+
+On Windows/WSL, prove the USB serial and exact physical disk first. Mount
+the ext4 partition read-only for diagnosis. Set ORDAX_WORKTREE, ORDAX_STATE_DIR,
+ORDAX_UPDATE_RUN_DIR and ORDAX_DEV_HELPER_TARGET_ROOT to paths on **that same
+mounted USB**, never the Windows system disk. A later operator-approved repair
+needs an ext4 health check and a read/write mount of the same verified medium.
+
+End-to-end tests use disposable Git repositories in tests/test_dev_git_flow.py
+and tests/test_owner_usb_maintenance.py. These exercise Pull, helper activation,
+rollback, unavailable remotes, negative security cases and the maintenance CLI.
+Passing these tests does not prove physical boot or automatic polling on the notebook.
+
+The existing Linux Owner remote controller (ordax-remote) is separate from
+the Windows MCP device. Its official Runtime artifact is pinned to source SHA,
+length and SHA-256, and requires physical Owner boot identity plus a valid
+device-scoped Control Plane pairing. The transport remains **disabled and
+non-boot-critical** until the actual device session is confirmed. Never infer
+successful pairing or remote command authority from token-file presence alone.
