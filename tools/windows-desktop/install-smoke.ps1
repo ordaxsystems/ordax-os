@@ -201,6 +201,14 @@ try {
       throw "Installed Desktop did not publish canonical update history"
     }
     Write-Output "DESKTOP_UPDATE_STATUS_SMOKE=PASS"
+    $metricsSnapshot = Invoke-RestMethod -Uri ($baseUrl + "/__ordax/native/metrics") -Method GET -TimeoutSec 15
+    if ($metricsSnapshot.memoryTotalBytes -le 0 -or
+        $metricsSnapshot.memoryAvailableBytes -gt $metricsSnapshot.memoryTotalBytes -or
+        $metricsSnapshot.userStorageTotalBytes -le 0 -or
+        $metricsSnapshot.userStorageFreeBytes -gt $metricsSnapshot.userStorageTotalBytes) {
+      throw "Desktop Native host does not report actual canonical system metrics"
+    }
+    Write-Output "DESKTOP_SYSTEM_METRICS_SMOKE=PASS"
     Write-Output "DESKTOP_NETWORK_STATUS_SMOKE=PASS"
     Write-Output ("STARTUP_DURATION_SECONDS=" + [Math]::Round(([DateTime]::UtcNow - $startupStarted).TotalSeconds, 1))
     Write-Output "STARTUP_SMOKE=PASS"
