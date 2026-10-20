@@ -22,7 +22,7 @@ function isReady(port) {
     request.on('error',()=>resolve(false));
   });
 }
-async function startHost({root,stateDirectory,userData,log}) {
+async function startHost({root,stateDirectory,userData,log,builtAssetsRoot=null}) {
   const port=await freePort();
   const child=fork(join(root,'tools/windows-emulator/dev-supervisor.mjs'),[],{
     cwd:root,execPath:process.execPath,windowsHide:true,
@@ -30,7 +30,8 @@ async function startHost({root,stateDirectory,userData,log}) {
     env:{...process.env,ELECTRON_RUN_AS_NODE:'1',ORDAX_EMULATOR_NO_BROWSER:'1',
       ORDAX_DESKTOP_HOST:'1',
       ORDAX_DESKTOP_UPDATE_USER_DATA:userData,
-      ORDAX_EMULATOR_PORT:String(port),ORDAX_EMULATOR_STATE_DIR:stateDirectory},
+      ORDAX_EMULATOR_PORT:String(port),ORDAX_EMULATOR_STATE_DIR:stateDirectory,
+      ORDAX_DESKTOP_ASSETS_ROOT:builtAssetsRoot??''},
   });
   const startedAt=Date.now();
   let viteReadyAt=null;
