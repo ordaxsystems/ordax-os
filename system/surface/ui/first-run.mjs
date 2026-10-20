@@ -14,7 +14,7 @@ import {
   assertLocalSessionPort,
   validateLocalSessionSnapshot,
 } from "../../contracts/local-session.mjs";
-import { assertNetworkManagementPort } from "../../contracts/network-management.mjs";
+import { assertNetworkManagementPort, validateWifiCredentials } from "../../contracts/network-management.mjs";
 import { assertPreferenceRuntimePort } from "../../contracts/preference-runtime.mjs";
 import { createLocaleProfile } from "../../contracts/locale-profile.mjs";
 import {
@@ -411,7 +411,7 @@ export function mountFirstRunExperience(
     body.append(toolbar);
 
     if (networkMessage) {
-      const status = el(documentObject, "p", "ordax-first-run-status", networkMessage);
+      const status = el(documentObject, "p", "ordax-first-run-status", translateFirstRunText(draft.locale, networkMessage));
       status.setAttribute("role", "status");
       body.append(status);
     }
@@ -1253,6 +1253,13 @@ export function mountFirstRunExperience(
         networkMessage = "Digite a senha da rede Wi-Fi.";
         render();
       } else {
+        try {
+          validateWifiCredentials({ ssid, password });
+        } catch {
+          networkMessage = "A senha precisa ter de 8 a 63 bytes UTF-8 e não pode conter caracteres de controle.";
+          render();
+          return;
+        }
         void connectNetwork(ssid, password);
       }
     } else if (kind === "account-refresh") void refreshIdentityAvailability();

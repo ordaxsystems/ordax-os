@@ -20,6 +20,7 @@ test("each translated locale changes representative setup, Wi-Fi, account and co
     "Mesma conta, dois modos",
     "Use a mesma Conta OrdaX no USB e na Web. A sincronização de idioma, fuso horário e continuidade entre esses modos ainda está em integração.",
     "Procurando redes Wi-Fi…",
+    "A senha precisa ter de 8 a 63 bytes UTF-8 e não pode conter caracteres de controle.",
     "Disponível",
     "Sinal forte",
     "Continuar sem conta",

@@ -65,6 +65,8 @@ test("optional network work never blocks the first-run journey", async () => {
   assert.match(ui, /const busy = identityPending !== null \|\| identityAvailabilityPending \|\| localSessionPending \|\| deviceNamePending;/);
   assert.match(ui, /scan\.disabled = networkPending;/);
   assert.match(ui, /connect\.disabled = networkPending;/);
+  assert.match(ui, /validateWifiCredentials\(\{ ssid, password \}\)/);
+  assert.ok(ui.indexOf("validateWifiCredentials({ ssid, password })") < ui.indexOf("void connectNetwork(ssid, password)", ui.indexOf("validateWifiCredentials({ ssid, password })")));
 });
 
 test("runtime journeys cannot expose another first-run; planned design details remain archived", async () => {
