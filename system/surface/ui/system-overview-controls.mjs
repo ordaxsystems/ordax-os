@@ -819,7 +819,7 @@ export function mountSystemOverviewControls(
         documentObject,
         "p",
         "ordax-system-section-copy",
-        t("system.recovery.policy"),
+        !recoveryPort && desktopRecoveryPort ? t("system.recovery.desktop.policy") : t("system.recovery.policy"),
       ),
     );
 
@@ -846,7 +846,6 @@ export function mountSystemOverviewControls(
         fact(t("system.recovery.desktop.pin"), desktopRecoverySnapshot.updatePin === "pinned"
           ? t("system.recovery.desktop.pinned") : t("system.recovery.desktop.notPinned"));
         section.append(facts);
-        section.append(node(documentObject, "p", "ordax-system-section-copy", t("system.recovery.desktop.policy")));
         if (desktopRecoverySnapshot.runningKind === "unavailable") {
           section.append(node(documentObject, "p", "ordax-system-warning", t("system.recovery.desktop.unavailable")));
         }
