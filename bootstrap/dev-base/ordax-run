@@ -210,7 +210,6 @@ checkout_status=$("$GIT_BIN" -C "$WORKTREE" status --porcelain 2>/dev/null) || \
 [ -z "$checkout_status" ] || fail "checkout local possui alteracoes; execute ordax-pull para preservar diagnostico e restaurar uma versao limpa"
 
 prepare_status_log
-publish_owner_maintenance_receipt
 resolve_product_control_plane_url
 if [ -n "$PRODUCT_CONTROL_PLANE_URL" ]; then
     ORDAX_PRODUCT_CONTROL_PLANE_URL=$PRODUCT_CONTROL_PLANE_URL
@@ -233,6 +232,10 @@ ORDAX_SOURCE_SHA="$source_sha" \
 ORDAX_STAGE_TIMEOUT_SECONDS="$OWNER_UPDATE_STAGE_TIMEOUT" \
     "$ENTRYPOINT" &
 ENTRY_PID=$!
+
+# Health checks are observations, not boot prerequisites. Publish the private
+# receipt asynchronously after the canonical Guardian is already running.
+publish_owner_maintenance_receipt &
 
 # Do not wait for remote login or downloads during boot. Remote failure must
 # never hold the Guardian, network setup, First Run or Surface health gate.
