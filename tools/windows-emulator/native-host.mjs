@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { readDesktopNetworkStatus } from "../../system/adapters/desktop/network-status.mjs";
 import { readDesktopSystemMetrics } from "../../system/adapters/desktop/system-metrics.mjs";
 import { readDesktopUpdateStatus, readDesktopUpdateHistory } from "../../system/adapters/desktop/update-observation.mjs";
+import { readDesktopRecovery } from "../../system/adapters/desktop/recovery-observation.mjs";
 import { createInitialFirstRunState, validateFirstRunState } from "../../system/contracts/first-run-state-store.mjs";
 import { validatePreferenceRecord } from "../../system/contracts/preference-store.mjs";
 import { FIRST_RUN_CURSOR_SCHEMA, validateFirstRunCursor } from "../../system/contracts/first-run-cursor.mjs";
@@ -93,7 +94,7 @@ export function nativeEmulatorPlugin(stateDirectory, { desktopHost = false } = {
         // Genuine Windows host observation under the canonical Native port.
         server.middlewares.use((request, response, next) => {
           const path = request.url.split("?")[0];
-          if (!["/__ordax/native/network-status", "/__ordax/native/metrics", "/__ordax/native/update", "/__ordax/native/update-history"].includes(path)) return next();
+          if (!["/__ordax/native/network-status", "/__ordax/native/metrics", "/__ordax/native/update", "/__ordax/native/update-history", "/__ordax/desktop/recovery"].includes(path)) return next();
           response.setHeader("Content-Type", "application/json");
           response.setHeader("Cache-Control", "no-store");
           if (request.method !== "GET") {
@@ -116,6 +117,18 @@ export function nativeEmulatorPlugin(stateDirectory, { desktopHost = false } = {
               return;
             }
             if (path === "/__ordax/native/update-history") return respond(readDesktopUpdateHistory());
+            if (path === "/__ordax/desktop/recovery") {
+              const directory = process.env.ORDAX_DESKTOP_UPDATE_USER_DATA;
+              if (!directory) {
+                response.statusCode = 503;
+                return response.end(JSON.stringify({ error: "Desktop recovery profile unavailable" }));
+              }
+              void readDesktopRecovery(directory).then(respond).catch(() => {
+                response.statusCode = 503;
+                response.end(JSON.stringify({ error: "Desktop recovery observation unavailable" }));
+              });
+              return;
+            }
             const directory = process.env.ORDAX_DESKTOP_UPDATE_USER_DATA;
             if (!directory) {
               response.statusCode = 503;
