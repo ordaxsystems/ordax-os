@@ -33,9 +33,9 @@ class NativeAccountGatewayResolutionTests(unittest.TestCase):
         # launcher is also an executable and must resolve it before starting
         # the Native HTTP child. Otherwise /auth/session reports unconfigured.
         text = SURFACE_RUNTIME.read_text(encoding="utf-8")
-        self.assertEqual(text.count("\\nresolve_account_gateway_base_url\\n"), 1)
+        self.assertEqual(text.count("\nresolve_account_gateway_base_url\n"), 1)
         resolved = text.index('resolve_source_identity || fallback_with_reason')
-        invoked = text.index("\\nresolve_account_gateway_base_url\\n", resolved)
+        invoked = text.index("\nresolve_account_gateway_base_url\n", resolved)
         spawned = text.index('--account-gateway-origin "$ACCOUNT_GATEWAY_ORIGIN"', invoked)
         self.assertLess(resolved, invoked)
         self.assertLess(invoked, spawned)
@@ -52,23 +52,23 @@ class NativeAccountGatewayResolutionTests(unittest.TestCase):
         functions = []
         for name in ("valid_account_gateway_base_url", "resolve_account_gateway_base_url"):
             start = source.index(f"{name}() {{")
-            end = source.index("\\n}", start) + 2
+            end = source.index("\n}", start) + 2
             functions.append(source[start:end])
         # Swap only the BusyBox cat applet in this extracted, ephemeral test
         # harness so it runs in the Ubuntu CI image as well as Alpine.
-        isolated_functions = "\\n".join(functions).replace("/bin/busybox cat", "cat")
-        script = isolated_functions + '\\nresolve_account_gateway_base_url\\nprintf "%s" "$ACCOUNT_GATEWAY_ORIGIN"'
+        isolated_functions = "\n".join(functions).replace("/bin/busybox cat", "cat")
+        script = isolated_functions + '\nresolve_account_gateway_base_url\nprintf "%s" "$ACCOUNT_GATEWAY_ORIGIN"'
         with tempfile.TemporaryDirectory() as tmp:
             config = Path(tmp) / "gateway-base-url"
             log = Path(tmp) / "host.log"
             environment = dict(os.environ, ACCOUNT_GATEWAY_ORIGIN="",
                                ACCOUNT_GATEWAY_CONFIG=str(config), HOST_LOG=str(log))
             approved = GATEWAY_CONFIG.read_text(encoding="utf-8").strip()
-            config.write_text(approved + "\\n", encoding="utf-8")
+            config.write_text(approved + "\n", encoding="utf-8")
             run = subprocess.run(["sh", "-c", script], env=environment,
                                  text=True, capture_output=True, check=True)
             self.assertEqual(run.stdout, approved)
-            config.write_text("http://untrusted.example/auth\\n", encoding="utf-8")
+            config.write_text("http://untrusted.example/auth\n", encoding="utf-8")
             run = subprocess.run(["sh", "-c", script], env=environment,
                                  text=True, capture_output=True, check=True)
             self.assertEqual(run.stdout, "")
