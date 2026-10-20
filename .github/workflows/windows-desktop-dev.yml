@@ -75,7 +75,7 @@ jobs:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
       - name: Verify isolated NSIS installation and Native files
         shell: pwsh
-        run: pwsh -NoProfile -File tools/windows-desktop/install-smoke.ps1 -Installer out/windows-desktop-installer/OrdaX-OS-Desktop-Dev-0.1.0-alpha.18-x64.exe
+        run: pwsh -NoProfile -File tools/windows-desktop/install-smoke.ps1 -Installer out/windows-desktop-installer/OrdaX-OS-Desktop-Dev-0.1.0-alpha.19-x64.exe
       - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: ordax-os-desktop-dev-alpha-windows
