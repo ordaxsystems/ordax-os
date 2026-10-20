@@ -123,7 +123,7 @@ test('second fast-forward stages separately; explicit rollback pins previous com
   assert.ok(existsSync(versionRoot(f.userData,second)));
   await chooseBootVersion({userData:f.userData,template:f.template});
   confirmHealthy(f.userData,second);
-  const rolled=pinPrevious(f.userData);
+  const rolled=await pinPrevious(f.userData,f.template);
   assert.equal(rolled.activeSha,f.first);
   assert.equal(rolled.previousSha,second);
   assert.equal(rolled.pinnedSha,f.first);
