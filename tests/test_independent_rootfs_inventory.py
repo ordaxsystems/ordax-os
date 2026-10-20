@@ -46,7 +46,7 @@ class IndependentRootfsInventoryTest(unittest.TestCase):
             handle.addfile(root)
             binary = tarfile.TarInfo('./bin/tool')
             binary.size = 4
-            handle.addfile(binary, io.BytesIO(b'\\x7fELF'))
+            handle.addfile(binary, io.BytesIO(b'\x7fELF'))
         self.assertEqual(module.audit(str(path))['elf_files'], ['bin/tool'])
 
     def test_alpine_apk_residue_is_rejected(self):
