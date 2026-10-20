@@ -18,7 +18,7 @@ const SHORTCUT_ACTIONS = new Set([
 ]);
 
 function nativeBridge(windowRef) {
-  return windowRef?.webkit?.messageHandlers?.[HANDLER_NAME] ?? null;
+  return windowRef?.webkit?.messageHandlers?.[HANDLER_NAME]\n    ?? windowRef?.ordaxDesktopBrowser ?? null;
 }
 
 export function createNativeBrowserSession(windowRef = globalThis.window) {
