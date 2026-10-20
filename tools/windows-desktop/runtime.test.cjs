@@ -31,7 +31,7 @@ test('Git bootstrap uses only the canonical OrdaX repository', () => {
 test('installed app mounts canonical Native directly, never an emulator iframe', () => {
   const main = readFileSync(join(__dirname, 'main.cjs'), 'utf8');
   const host = readFileSync(join(__dirname, 'host.cjs'), 'utf8');
-  assert.match(main, /const PRODUCT='\\/system\\/composition\\/native\\/index\\.html'/);
-  assert.match(host, /path:'\\/system\\/composition\\/native\\/index\\.html'/);
-  assert.doesNotMatch(main, /PRODUCT='\\/tools\\/windows-emulator/);
+  assert.ok(main.includes("const PRODUCT='/system/composition/native/index.html'"));
+  assert.ok(host.includes("path:'/system/composition/native/index.html'"));
+  assert.ok(!main.includes("PRODUCT='/tools/windows-emulator/"));
 });
