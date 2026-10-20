@@ -10,7 +10,8 @@ const CAPTURE_TIMEOUT_MS = 12000;
 const TAB_ID_RE = /^[a-z][a-z0-9-]{0,63}$/;
 
 export function createNativeBrowserPageSelection(windowRef = globalThis.window) {
-  const bridge = windowRef?.webkit?.messageHandlers?.[HANDLER_NAME]\n    ?? windowRef?.ordaxDesktopBrowser;
+  const bridge = windowRef?.webkit?.messageHandlers?.[HANDLER_NAME]
+    ?? windowRef?.ordaxDesktopBrowser;
   if (!bridge || typeof bridge.postMessage !== "function") return null;
   let disposed = false;
   let ordinal = 0;
