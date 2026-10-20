@@ -376,12 +376,38 @@ discover_esp_read_only() {
     return 0
 }
 
+# The Owner/Development Base updater owns the efivarfs evidence lifecycle.
+# Mount inside the already-prepared Native runtime root (whose /sys is bound),
+# not from PID1. This provides a real direct mount for the chrooted preflight;
+# the preflight remains the only validator and authorizes no variable writes.
+prepare_real_efivarfs_mount_for_preflight() {
+    [ "$DISTRIBUTION_PROFILE" = owner-development ] || return 0
+    efi_root=$RUNTIME_ROOT/sys/firmware/efi
+    efivarfs_root=$efi_root/efivars
+    [ -d "$efi_root" ] && [ ! -L "$efi_root" ] || return 0
+    if [ ! -d "$efivarfs_root" ] || [ -L "$efivarfs_root" ]; then
+        log "UEFI efivars target unavailable or unsafe; Base activation remains disabled"
+        return 0
+    fi
+    # Do not overmount another filesystem: the existing Python preflight
+    # rejects wrong type, read-only and duplicate mount records.
+    if [ -n "$(mount_record_for "$efivarfs_root")" ]; then
+        return 0
+    fi
+    if ! /bin/busybox mount -t efivarfs -o rw,nosuid,nodev,noexec efivarfs "$efivarfs_root" 2>>"$EFIVARFS_PREFLIGHT_LOG"; then
+        log "efivarfs mount failed; Base activation remains disabled"
+    fi
+    return 0
+}
+
 prepare_efivarfs_preflight_evidence() {
     helper=/srv/ordax-system/services/base-update/efivarfs_preflight.py
     [ -f "$RUNTIME_ROOT$helper" ] || {
         /bin/busybox rm -f "$EFIVARFS_PREFLIGHT_FILE" >/dev/null 2>&1 || true
         return 0
     }
+
+    prepare_real_efivarfs_mount_for_preflight
 
     directory=${EFIVARFS_PREFLIGHT_FILE%/*}
     /bin/busybox mkdir -p "$directory" >/dev/null 2>&1 || return 0
