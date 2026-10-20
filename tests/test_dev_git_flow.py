@@ -405,6 +405,8 @@ class DevelopmentGitFlowTest(unittest.TestCase):
         env["ORDAX_UPDATE_INTERVAL_SECONDS"] = "5"
         receipt = self.state / "native-state/first-run.json"
         watch_log = self.state / "main-watch.log"
+        result_file = self.root / "run/ordax-update/pull-result"
+        initial_result_mtime = result_file.stat().st_mtime_ns
         watcher = ROOT / "bootstrap/dev-base/ordax-main-watch"
 
         process = subprocess.Popen(
@@ -432,7 +434,9 @@ class DevelopmentGitFlowTest(unittest.TestCase):
                 self._run(["git", "-C", str(self.worktree), "rev-parse", "HEAD"]).stdout.strip(),
                 self.commit_v1,
             )
-            self.assertFalse((self.root / "run/ordax-update/pull-result").exists())
+            # Seeding already wrote "completed"; First Run must prevent
+            # any further Pull transaction from overwriting that receipt.
+            self.assertEqual(result_file.stat().st_mtime_ns, initial_result_mtime)
 
             receipt.parent.mkdir(parents=True)
             receipt.write_text('{"completed":true}\\n', encoding="utf-8")
