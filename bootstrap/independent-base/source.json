@@ -28,5 +28,17 @@
   "update_owner": "existing-ordax-base-update-contract",
   "recovery_owner": "existing-ordax-initramfs-contract",
   "erofs_format_contract": "docs/contracts/portable-boot-handoff.json",
-  "stable_base_layout_compatibility_contract": "bootstrap/stable-base/source.json"
+  "stable_base_layout_compatibility_contract": "bootstrap/stable-base/source.json",
+  "component_profiles": {
+    "native-product-runtime": {
+      "base_defconfig": "bootstrap/independent-base/configs/ordax_minimal_defconfig",
+      "fragment": "bootstrap/independent-base/configs/native-product-runtime.fragment",
+      "purpose": "private-python-component-toolchain-not-base",
+      "source_owner": "ordaxsystems/ordax-runtime",
+      "runtime_service": "ordax-product-agent",
+      "base_rootfs_mutation_allowed": false,
+      "component_artifact_authorized": false,
+      "device_install_authorized": false
+    }
+  }
 }
