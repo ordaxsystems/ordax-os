@@ -137,6 +137,15 @@ IMAGE_PREVIEW_PATH = "/__ordax/native/image-preview"
 MEDIA_PREVIEW_PATH = "/__ordax/native/media-preview"
 DOCUMENT_PREVIEW_PATH = "/__ordax/native/document-preview"
 FILE_IMPORT_PATH = "/__ordax/native/file-import"
+
+# All native user-file HTTP operations use the same host-owned local-session
+# admission lock. This closes the locked-Surface direct-fetch bypass without
+# creating a second filesystem service or pretending same-origin app isolation.
+USER_FILE_PATHS = frozenset({
+    FILES_PATH, TRASH_PATH, FILE_CONTENT_PATH, FILE_EXPORT_PATH,
+    IMAGE_PREVIEW_PATH, MEDIA_PREVIEW_PATH, DOCUMENT_PREVIEW_PATH,
+    FILE_IMPORT_PATH,
+})
 METRICS_PATH = "/__ordax/native/metrics"
 RECOVERY_STATUS_PATH = "/__ordax/native/recovery-status"
 POWER_STATUS_PATH = "/__ordax/native/power-status"
@@ -3974,7 +3983,35 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
         # native control/state APIs through browser preflight.
         self._empty(405)
 
+    def _serve_unlocked_user_file_request(self, handler) -> None:
+        """Hold the session lock through completion, not just an entry check.
+
+        A lock transition waits for admitted I/O to finish; a request that
+        arrives while locked cannot read, import or mutate user files.
+        This does NOT make same-origin app JavaScript a separate principal.
+        """
+        if self.client_address[0] != "127.0.0.1":
+            self._empty(403)
+            return
+        with self.server.local_session_lock:
+            if self.server.local_session_locked:
+                self._empty(423)
+                return
+            handler()
+
+    def do_HEAD(self) -> None:  # noqa: N802
+        if urlsplit(self.path).path in USER_FILE_PATHS:
+            self._serve_unlocked_user_file_request(lambda: self._empty(405))
+            return
+        super().do_HEAD()
+
     def do_GET(self) -> None:  # noqa: N802
+        if urlsplit(self.path).path in USER_FILE_PATHS:
+            self._serve_unlocked_user_file_request(self._do_GET)
+            return
+        self._do_GET()
+
+    def _do_GET(self) -> None:
         parsed_path = urlsplit(self.path).path
         if parsed_path == PRODUCT_CONNECTOR_SETTINGS_PATH:
             if urlsplit(self.path).query or self.client_address[0] != "127.0.0.1":
@@ -4696,6 +4733,12 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
         super().do_GET()
 
     def do_POST(self) -> None:  # noqa: N802
+        if urlsplit(self.path).path in USER_FILE_PATHS:
+            self._serve_unlocked_user_file_request(self._do_POST)
+            return
+        self._do_POST()
+
+    def _do_POST(self) -> None:
         if self.client_address[0] != "127.0.0.1":
             self._empty(403)
             return
