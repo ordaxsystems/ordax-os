@@ -2191,6 +2191,29 @@ func verifyPortableV3ExactCommand(args []string) error {
 	return printJSON(receipt)
 }
 
+func materializeOwnerDevAICommand(args []string) error {
+	fs := flag.NewFlagSet("materialize-owner-dev-local-ai", flag.ContinueOnError)
+	envelopeURL := fs.String("envelope-url", "", "signed v4 release envelope over HTTPS")
+	trustPath := fs.String("trust", "", "canonical public release trust anchor")
+	stateRoot := fs.String("state-root", "/state/ordax", "existing Owner Dev state root")
+	sourceLock := fs.String("source-lock", "", "active Git checkout source-lock.json")
+	repository := fs.String("repository", defaultRepo, "expected source repository")
+	release := fs.String("expected-release-commit", "", "exact signed Stable v4 source commit")
+	aiSHA := fs.String("expected-artifact-sha256", "", "exact authorized AI EROFS SHA-256")
+	aiSize := fs.Int64("expected-artifact-size", 0, "exact authorized AI EROFS size")
+	if err := fs.Parse(args); err != nil { return err }
+	if *envelopeURL == "" || *trustPath == "" || *sourceLock == "" ||
+		*release == "" || *aiSHA == "" || *aiSize <= 0 || fs.NArg() != 0 {
+		return errors.New("materialize-owner-dev-local-ai requires signed envelope, trust, source lock and exact release/artifact pins")
+	}
+	trust, key, err := loadTrust(*trustPath)
+	if err != nil { return err }
+	receipt, err := materializeOwnerDevAI(secureClient(), *envelopeURL, *stateRoot,
+		*sourceLock, trust, key, *repository, *release, *aiSHA, *aiSize)
+	if err != nil { return err }
+	return printJSON(receipt)
+}
+
 func materializePortableV4Command(args []string) error {
 	fs := flag.NewFlagSet("materialize-portable-v4", flag.ContinueOnError)
 	envelopeURL := fs.String("envelope-url", "", "HTTPS URL for signed portable v4 release envelope")
@@ -2337,7 +2360,7 @@ func materializeCommand(args []string) error {
 
 
 func usage() {
-	fmt.Fprintln(os.Stderr, "usage: ordax-release-agent <verify-envelope|verify-trust-transition|inspect|materialize|materialize-portable|verify-portable-exact|materialize-portable-v3|verify-portable-v3-exact|materialize-portable-v4|verify-portable-v4-exact|activate-exact|install> [options]")
+	fmt.Fprintln(os.Stderr, "usage: ordax-release-agent <verify-envelope|verify-trust-transition|inspect|materialize|materialize-portable|verify-portable-exact|materialize-portable-v3|verify-portable-v3-exact|materialize-portable-v4|verify-portable-v4-exact|materialize-owner-dev-local-ai|activate-exact|install> [options]")
 }
 
 func main() {
@@ -2365,6 +2388,8 @@ func main() {
 		err = verifyPortableV3ExactCommand(os.Args[2:])
 	case "materialize-portable-v4":
 		err = materializePortableV4Command(os.Args[2:])
+	case "materialize-owner-dev-local-ai":
+		err = materializeOwnerDevAICommand(os.Args[2:])
 	case "verify-portable-v4-exact":
 		err = verifyPortableV4ExactCommand(os.Args[2:])
 	case "activate-exact":
