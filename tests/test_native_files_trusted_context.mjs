@@ -3,6 +3,7 @@ import test from "node:test";
 import { readFile } from "node:fs/promises";
 
 import { FILE_SPACE_SCHEMA } from "../system/contracts/file-space.mjs";
+import { validateComponentRuntimeMetadata } from "../system/contracts/component-runtime-metadata.mjs";
 import { createRecentFilesRuntime } from "../system/services/files/recent-files.mjs";
 import { createProjectCatalogRuntime } from "../system/services/files/projects.mjs";
 import { createAppActivationChannel } from "../system/services/apps/activation.mjs";
@@ -10,6 +11,12 @@ import { createProjectContinuityFileSpace } from "../system/services/files/proje
 import { createNativeFilesTrustedContextProvider } from "../system/composition/native/files-trusted-context.mjs";
 import { hasNativeExternalFirstPartyModuleRead } from "../system/services/apps/external-first-party-policy.mjs";
 import { getFirstPartyApp } from "../system/apps/catalog.mjs";
+
+const verifiedFilesCurrent = Object.freeze({
+  componentId: "files", state: "current", source: "slot", revision: 7,
+  version: "0.3.0", sourceCommit: "a".repeat(40),
+  entrypoint: "system/apps/files/src/runtime.mjs", pendingHealth: null,
+});
 
 function nativeFilePort() {
   const listing = path => ({ path, entries: [] });
@@ -36,6 +43,7 @@ test("Files trusted context binds only the existing typed host ports with projec
   const fileSpace = createProjectContinuityFileSpace(nativeFilePort(), projects);
   const provider = createNativeFilesTrustedContextProvider({
     fileSpace, recentFiles, projects, appActivation,
+    verifiedCurrent: verifiedFilesCurrent,
   });
   const context = provider("files");
   assert.equal(Object.isFrozen(context), true);
@@ -53,13 +61,14 @@ test("Files trusted context binds only the existing typed host ports with projec
 });
 
 test("Files trusted context fails closed for absent, malformed and mismatched host ports", () => {
-  assert.throws(() => createNativeFilesTrustedContextProvider()("files"), /compatible file-space/);
+  assert.throws(() => createNativeFilesTrustedContextProvider()("files"), /verified current Native slot/);
   const projects = createProjectCatalogRuntime();
   const recentFiles = createRecentFilesRuntime();
   const activation = createAppActivationChannel();
   const ports = {
     fileSpace: createProjectContinuityFileSpace(nativeFilePort(), projects),
     recentFiles, projects, appActivation: activation,
+    verifiedCurrent: verifiedFilesCurrent,
   };
   assert.throws(
     () => createNativeFilesTrustedContextProvider({ ...ports, fileSpace: { schema: FILE_SPACE_SCHEMA } })("files"),
@@ -80,6 +89,44 @@ test("Files trusted context fails closed for absent, malformed and mismatched ho
   assert.equal(createNativeFilesTrustedContextProvider({ fileSpace: {} })("notes"), null);
 });
 
+test("Files host ports require exact verified current slot, not appId or bundled source", () => {
+  const projects = createProjectCatalogRuntime();
+  const ports = {
+    fileSpace: createProjectContinuityFileSpace(nativeFilePort(), projects),
+    recentFiles: createRecentFilesRuntime(),
+    projects,
+    appActivation: createAppActivationChannel(),
+  };
+  assert.equal(validateComponentRuntimeMetadata(verifiedFilesCurrent, {
+    componentId: "files", state: "current",
+  }).source, "slot");
+  assert.throws(
+    () => createNativeFilesTrustedContextProvider(ports)("files"),
+    /verified current Native slot/,
+  );
+  for (const invalid of [
+    { ...verifiedFilesCurrent, componentId: "notes" },
+    { ...verifiedFilesCurrent, state: "pending", pendingHealth: "unknown" },
+    { ...verifiedFilesCurrent, source: "bundled", version: null, sourceCommit: null, entrypoint: null },
+    { ...verifiedFilesCurrent, source: "absent", version: null, sourceCommit: null, entrypoint: null },
+    { ...verifiedFilesCurrent, revision: -1 },
+    { ...verifiedFilesCurrent, sourceCommit: "not-a-commit" },
+    { ...verifiedFilesCurrent, entrypoint: "../../private.mjs" },
+  ]) {
+    assert.throws(
+      () => createNativeFilesTrustedContextProvider({
+        ...ports, verifiedCurrent: invalid,
+      })("files"),
+      /identity mismatch|state mismatch|installed current slot|invalid|component|version|commit|entrypoint/i,
+    );
+  }
+  // Invalid credentials do not affect other app IDs or expose any File Space.
+  const provider = createNativeFilesTrustedContextProvider({
+    fileSpace: {}, verifiedCurrent: { get source() { throw Error("untrusted getter"); } },
+  });
+  assert.equal(provider("notes"), null);
+});
+
 test("Files host binding stays inactive while OS retains the bundled Files source", async () => {
   assert.equal(getFirstPartyApp("files")?.id, "files");
   assert.equal(hasNativeExternalFirstPartyModuleRead("files"), false);
@@ -90,5 +137,6 @@ test("Files host binding stays inactive while OS retains the bundled Files sourc
   assert.match(composition, /!listFirstPartyApps\(\)\.some\(\(app\) => app\.id === "files"\)/);
   assert.match(composition, /installTrustedComponentContextProvider\(\s*createNativeFilesTrustedContextProvider/);
   assert.match(composition, /fileSpace: filesOwnerSpace/);
+  assert.match(composition, /verifiedCurrent: installedAppCatalog\?\.installed\.find\(/);
   assert.match(composition, /installed: installedAppCatalog\?\.installed \?\? \[\]/);
 });
