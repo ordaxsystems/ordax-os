@@ -806,6 +806,50 @@ def verify_target(target: Path, profile: str) -> dict:
     return surface_iproute2
 
 
+def private_component_library(target: Path, directory: str, name: str) -> Path | None:
+    """Resolve the target root's own absolute/relative symlinks, never host /lib.
+
+    Absolute ELF loader links refer to the private component root, not the
+    GitHub runner. Reject links escaping root or cycling. Return only a real
+    x86_64 ELF file; merely seeing a SONAME in a directory is insufficient.
+    """
+    root = target.resolve(strict=True)
+    parts = [*Path(directory).parts, name]
+    resolved: list[str] = []
+    count = 0
+    while parts:
+        part = parts.pop(0)
+        if part in ("", "."):
+            continue
+        if part == "..":
+            if not resolved:
+                raise BaseError("private Python dependency symlink escaped target")
+            resolved.pop()
+            continue
+        candidate = root.joinpath(*resolved, part)
+        if candidate.is_symlink():
+            count += 1
+            if count > 32:
+                raise BaseError("private Python dependency symlink cycle")
+            link = os.readlink(candidate)
+            if link.startswith("/"):
+                resolved = []
+            parts = link.split("/") + parts
+        else:
+            resolved.append(part)
+    resolved_path = root.joinpath(*resolved)
+    if not resolved_path.is_file() or resolved_path.is_symlink():
+        return None
+    if not resolved_path.resolve(strict=True).is_relative_to(root):
+        raise BaseError("private Python dependency escaped target root")
+    with resolved_path.open("rb") as stream:
+        header = stream.read(20)
+    if (len(header) != 20 or header[:7] != b"\x7fELF\x02\x01\x01"
+            or int.from_bytes(header[18:20], "little") != 62):
+        raise BaseError("private Python dependency is not a native x86_64 ELF")
+    return resolved_path
+
+
 def verify_native_python_target(target: Path) -> dict:
     """Audit real Buildroot Python, SSL, zlib, and its dynamic ELF closure.
 
@@ -843,13 +887,13 @@ def verify_native_python_target(target: Path) -> dict:
         raise BaseError("private CPython CA certificate bundle missing")
 
     elf_files: list[Path] = []
-    library_names: set[str] = set()
-    for folder in ("lib", "lib64", "usr/lib", "usr/lib64"):
-        directory = target / folder
-        if directory.is_dir():
-            for path in directory.rglob("*"):
-                if path.is_file() or path.is_symlink():
-                    library_names.add(path.name)
+    library_directories = ("lib", "lib64", "usr/lib", "usr/lib64")
+    def is_private_elf_library(name: str, *, loader: bool = False) -> bool:
+        if not re.fullmatch(r"[A-Za-z0-9_.+-]+", name):
+            raise BaseError("private Python dependency has invalid SONAME")
+        directories = ("lib",) if loader else library_directories
+        return any(private_component_library(target, directory, name) is not None
+                   for directory in directories)
 
     for path in sorted(target.rglob("*")):
         if path.is_symlink() or not path.is_file():
@@ -878,11 +922,11 @@ def verify_native_python_target(target: Path) -> dict:
             # Loader must be part of the PRIVATE musl component, never host.
             if name != "/lib/ld-musl-x86_64.so.1":
                 raise BaseError("unexpected private Python ELF interpreter: " + relative)
-            if Path(name).name not in library_names:
+            if not is_private_elf_library(Path(name).name, loader=True):
                 raise BaseError("private Python musl loader missing from Buildroot target")
             interpreters.add(name)
         for needed in re.findall(r"\(NEEDED\).*?\[([^\]]+)\]", dynamics):
-            if needed not in library_names:
+            if not is_private_elf_library(needed):
                 raise BaseError(f"private Python shared dependency absent: {relative}: {needed}")
             needed_names.add(needed)
     if "/lib/ld-musl-x86_64.so.1" not in interpreters:
