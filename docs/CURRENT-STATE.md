@@ -1,3 +1,13 @@
+Native MCP heartbeat ownership regression (2026-10-21): The existing
+`ProductDevicePresenceWorker.stop(wait=True)` now verifies the worker
+thread has actually exited after its bounded join. A timeout raises a
+fail-closed `device-presence-worker-still-running` error rather than
+allowing `native_product_runtime_handoff` to start the canonical Runtime
+beside an old still-running Product presence sender. Self-thread waits
+also fail. Native unit and handoff tests plus the existing CI job
+cover this invariant on both PR and main. This does not install the
+headless Runtime or activate the native MCP executor.
+
 Native Product Runtime ownership handoff (2026-10-21, source only):
 `system/surface/runtime/native_product_runtime_handoff.py` now composes the
 **canonical installed** `ordax_dev_agent.main.run` with the existing private
