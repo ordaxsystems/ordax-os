@@ -4,6 +4,7 @@
 from pathlib import Path
 import os
 import subprocess
+import time
 import tempfile
 import unittest
 
@@ -18,6 +19,58 @@ def function_source(text, name):
 
 
 class OwnerUsbDurablePowerTransitionTests(unittest.TestCase):
+    def test_all_persistent_agent_idle_children_close_rootfs_log_fds(self):
+        # The real QEMU ACPI proof exposed busybox sleep descendants whose
+        # stdout/stderr still held / (root ext4) writable after the parent
+        # telemetry/rescue agents were terminated. Closing only the parent
+        # does not close the child FDs. Keep agent status logging persistent,
+        # but idle descendants must never inherit persistent launcher logs.
+        for source_path, interval in (
+            ("system/services/telemetry/base-agent.sh", "interval"),
+            ("system/rescue/agent.sh", "INTERVAL"),
+            ("system/services/base-update/agent.sh", "INTERVAL"),
+        ):
+            with self.subTest(agent=source_path):
+                source = (ROOT / source_path).read_text(encoding="utf-8")
+                subprocess.run(["/bin/sh", "-n", str(ROOT / source_path)], check=True)
+                expected = (
+                    f'/bin/busybox sleep "${interval}" '
+                    '</dev/null >/dev/null 2>&1'
+                )
+                self.assertIn(expected, source)
+                self.assertEqual(source.count(expected), 1)
+                # Exercise the exact shell FD redirection on a harmless
+                # disposable log, without a USB, ext4 remount or privileged
+                # test. The only substitution is sleep's binary so this test
+                # works on hosts without BusyBox installed.
+                command = expected.replace("/bin/busybox sleep", "/bin/sleep")
+                with tempfile.TemporaryDirectory(prefix="ordax-power-idle-fd-") as temp:
+                    logfile = Path(temp) / "agent-persistent.log"
+                    with logfile.open("wb") as log:
+                        proc = subprocess.Popen(
+                            ["/bin/sh", "-c", f"{interval}=30; {command}"],
+                            stdin=subprocess.DEVNULL,
+                            stdout=log, stderr=log,
+                            start_new_session=True,
+                        )
+                        try:
+                            deadline = time.monotonic() + 3
+                            observed = False
+                            while time.monotonic() < deadline:
+                                if proc.poll() is not None:
+                                    self.fail(f"idle child exited early: {proc.returncode}")
+                                fd1 = Path(f"/proc/{proc.pid}/fd/1")
+                                fd2 = Path(f"/proc/{proc.pid}/fd/2")
+                                if fd1.exists() and fd2.exists():
+                                    if os.readlink(fd1) == "/dev/null" and os.readlink(fd2) == "/dev/null":
+                                        observed = True
+                                        break
+                                time.sleep(0.05)
+                            self.assertTrue(observed, f"idle child inherits persistent log FDs: {source_path}")
+                        finally:
+                            proc.terminate()
+                            proc.wait(timeout=5)
+
     def test_owner_usb_contract_and_profile_isolation(self):
         source = GUARDIAN.read_text(encoding="utf-8")
         subprocess.run(["/bin/sh", "-n", str(GUARDIAN)], check=True)
