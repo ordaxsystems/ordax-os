@@ -754,5 +754,7 @@ while :; do
         write_preflight_status "${PREPARE_BLOCKER:-physical-root-unavailable}"
     fi
 
-    /bin/busybox sleep "$INTERVAL"
+    # A delayed child can outlive this agent if the Guardian terminates its
+    # parent during shutdown. Never inherit rootfs-backed launcher log FDs.
+    /bin/busybox sleep "$INTERVAL" </dev/null >/dev/null 2>&1
 done
