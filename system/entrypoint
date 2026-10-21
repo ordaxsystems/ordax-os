@@ -420,6 +420,78 @@ remount_root_read_write_after_power_abort() {
     esac
 }
 
+# Owner USB Dev uses one ext4 superblock through multiple bind mounts after
+# switch_root/pivot_root. Sealing only the / bind VFS flag does not seal the
+# ext4 journal. Resolve the *physical block source* of / and require ORDAX
+# identity before touching mount flags. This owner never targets an internal
+# disk or guesses a mount target.
+OWNER_USB_ROOT_SOURCE=""
+
+owner_usb_root_source() {
+    device=$(/bin/busybox awk '$2 == "/" && $3 == "ext4" { print $1; exit }' /proc/mounts 2>/dev/null || true)
+    case "$device" in /dev/*) ;; *) return 1 ;; esac
+    [ -b "$device" ] || return 1
+    identity=$(/bin/busybox blkid "$device" 2>/dev/null || true)
+    case "$identity" in *'LABEL="ORDAX"'*) ;; *) return 1 ;; esac
+    printf '%s\n' "$device"
+}
+
+owner_usb_all_root_mounts_read_only() {
+    # The major:minor identifies *all* aliases of the mounted superblock.
+    # Reading only /proc/mounts at / would miss rw bind mounts elsewhere.
+    mount_id=$(/bin/busybox awk '$5 == "/" { print $3; exit }' /proc/self/mountinfo 2>/dev/null || true)
+    case "$mount_id" in *:*) ;; *) return 1 ;; esac
+    /bin/busybox awk -v root_id="$mount_id" '
+        $3 == root_id {
+            seen = 1
+            if ($6 !~ /(^|,)ro(,|$)/) bad = 1
+            ext4 = 0
+            for (i=1; i<=NF; i++) {
+                if ($i == "-") {
+                    if ($(i+1) == "ext4" && $(i+3) ~ /(^|,)ro(,|$)/) ext4 = 1
+                    break
+                }
+            }
+            if (!ext4) bad = 1
+        }
+        END { exit (!seen || bad) }
+    ' /proc/self/mountinfo
+}
+
+owner_usb_foreign_persistent_mounts_quiesced() {
+    # Dev activation can mount USB ESP/DATA while updating. Those mounts must
+    # not remain writable when the host enters the final kernel transition.
+    # Fail closed instead of disabling their protection or remounting blindly.
+    for volume in ORDAX-ESP ORDAX-DATA; do
+        device=$(/bin/busybox blkid -L "$volume" 2>/dev/null || true)
+        [ -n "$device" ] || continue
+        if /bin/busybox awk -v dev="$device" '$1 == dev && $4 ~ /(^|,)rw(,|$)/ { found=1 } END { exit !found }' /proc/mounts; then
+            return 1
+        fi
+    done
+    return 0
+}
+
+owner_usb_seal_root_for_power() {
+    OWNER_USB_ROOT_SOURCE=""
+    owner_usb_foreign_persistent_mounts_quiesced || return 1
+    device=$(owner_usb_root_source) || return 1
+    OWNER_USB_ROOT_SOURCE=$device
+    # Superblock-wide remount, not remount,bind,ro. The latter leaves the
+    # journal writable through other aliases. No filesystem log FD is kept
+    # open across the transition.
+    /bin/busybox mount -o remount,ro "$device" / >/dev/null 2>&1 || return 1
+    owner_usb_all_root_mounts_read_only
+}
+
+owner_usb_restore_root_after_abort() {
+    [ -n "$OWNER_USB_ROOT_SOURCE" ] || return 0
+    /bin/busybox mount -o remount,rw "$OWNER_USB_ROOT_SOURCE" / >/dev/null 2>&1 || return 1
+    root_filesystem_is_read_only && return 1
+    OWNER_USB_ROOT_SOURCE=""
+    return 0
+}
+
 mark_power_request_failed() {
     expected_action=$1
     [ -s "$POWER_LAST_REQUEST" ] && [ ! -L "$POWER_LAST_REQUEST" ] || return 0
@@ -553,18 +625,22 @@ perform_host_power_transition() {
         return 1
     fi
     if [ "$DISTRIBUTION_PROFILE" = "owner-development" ] && [ "$PRODUCT_MODE" = "usb" ]; then
-        # Owner USB boots from an ext4 subdirectory via switch_root, and can
-        # pivot again into a versioned Base with several writable bind mounts.
-        # Remounting only / is not a valid durability proof for those other
-        # mounts; it has also prevented every tested physical shutdown.
-        # After Supervisor/Native and persistent agents have *proved* exit,
-        # perform the final, mandatory kernel-wide sync. No further persistent
-        # writes are permitted on the successful power path. The kernel owns
-        # the final poweroff; do not introduce a second power controller.
-        if ! /bin/busybox sync >>"$GUARDIAN_LOG" 2>&1; then
-            restore_runtime_after_power_failure "$action" "Owner USB final filesystem sync failed before $action" sync-failed
+        record_host_power_stage root-readonly || true
+        if ! owner_usb_seal_root_for_power; then
+            if ! owner_usb_restore_root_after_abort; then
+                fail_closed "Owner USB ext4 seal failed and rw recovery could not be proven"
+            fi
+            restore_runtime_after_power_failure "$action" "Owner USB ext4 superblock could not be sealed" remount-failed
             return 1
         fi
+        if ! /bin/busybox sync >/dev/null 2>&1; then
+            if ! owner_usb_restore_root_after_abort; then
+                fail_closed "Owner USB final sync failed and writable root could not be restored"
+            fi
+            restore_runtime_after_power_failure "$action" "Owner USB final sync failed after filesystem seal" sync-failed
+            return 1
+        fi
+        # No further persistent writes before the kernel transition.
     else
         # Stable/MVP owns a distinct rootfs and retains its verified
         # read-only barrier. Future non-USB Dev modes keep this conservative
@@ -597,9 +673,9 @@ perform_host_power_transition() {
     esac
 
     if [ "$DISTRIBUTION_PROFILE" = "owner-development" ] && [ "$PRODUCT_MODE" = "usb" ]; then
-        # No remount was done on Owner USB: restoration must not attempt one.
-        # Preserve the same failure receipt and restore supervised operation
-        # if both direct kernel power paths returned.
+        if ! owner_usb_restore_root_after_abort; then
+            fail_closed "Owner USB kernel transition returned and writable root could not be restored"
+        fi
         restore_runtime_after_power_failure "$action" "kernel $action transition returned without crossing a boot boundary" kernel-transition-returned
         return 1
     fi
