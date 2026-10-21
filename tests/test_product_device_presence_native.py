@@ -154,6 +154,35 @@ class ProductDevicePresenceNativeTests(unittest.TestCase):
         self.assertEqual(worker.connection_state(), "disabled")
         self.assertEqual(client.calls, [True, True])
 
+    def test_shutdown_does_not_claim_quiescence_after_join_timeout(self):
+        client = Mock()
+        worker = ProductDevicePresenceWorker(client)
+        unfinished = Mock()
+        unfinished.is_alive.return_value = True
+        worker._thread = unfinished
+        with self.assertRaisesRegex(ProductDevicePresenceError, "device-presence-worker-still-running"):
+            worker.stop(wait=True)
+        unfinished.join.assert_called_once_with(timeout=11.0)
+        self.assertTrue(worker._closed)
+        self.assertFalse(worker._enabled)
+        self.assertEqual(worker.connection_state(), "disabled")
+
+    def test_shutdown_cannot_join_itself_and_cannot_authorize_takeover(self):
+        worker = ProductDevicePresenceWorker(Mock())
+        worker._thread = threading.current_thread()
+        with self.assertRaisesRegex(ProductDevicePresenceError, "device-presence-stop-from-own-thread"):
+            worker.stop(wait=True)
+        self.assertTrue(worker._closed)
+
+    def test_successful_wait_requires_thread_not_alive(self):
+        worker = ProductDevicePresenceWorker(Mock())
+        stopped = Mock()
+        stopped.is_alive.return_value = False
+        worker._thread = stopped
+        worker.stop(wait=True)
+        stopped.join.assert_called_once_with(timeout=11.0)
+        self.assertTrue(worker._closed)
+
     def test_exactly_one_worker_and_offline_on_stop(self):
         class Device:
             def __init__(self):
