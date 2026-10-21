@@ -218,14 +218,22 @@ record_dirty_checkout() {
 
 checkout_metadata_valid() {
     checkout=$1
+    # Preserve a precise *bounded* failure token for the caller. No paths,
+    # remotes, credential material or command output are emitted to UI state.
+    CHECKOUT_METADATA_FAILURE=gitdir
     [ -d "$checkout/.git" ] || return 1
     head=$(git -C "$checkout" rev-parse HEAD 2>/dev/null || true)
+    CHECKOUT_METADATA_FAILURE=head
     is_sha "$head" || return 1
     origin=$(git -C "$checkout" remote get-url origin 2>/dev/null || true)
+    CHECKOUT_METADATA_FAILURE=origin
     [ "$origin" = "$REPO_URL" ] || return 1
     branch=$(git -C "$checkout" symbolic-ref --quiet --short HEAD 2>/dev/null || true)
+    CHECKOUT_METADATA_FAILURE=branch
     [ "$branch" = "$BRANCH" ] || return 1
+    CHECKOUT_METADATA_FAILURE=entrypoint
     [ -x "$checkout/system/entrypoint" ] || return 1
+    CHECKOUT_METADATA_FAILURE=
     return 0
 }
 
@@ -720,15 +728,18 @@ SUPERVISOR_VERIFIED_CACHE=0
 if [ -n "$EXPECTED_SHA" ]; then
     PULL_PHASE=handoff-validation
     if ! checkout_metadata_valid "$WORKTREE"; then
-        echo "ordax-git: Supervisor handoff rejected: invalid local checkout metadata" >&2
+        PULL_PHASE="handoff-metadata-${CHECKOUT_METADATA_FAILURE:-unknown}"
+        echo "ordax-git: Supervisor handoff rejected: invalid checkout metadata ($PULL_PHASE)" >&2
         exit 1
     fi
     cached_main=$(git -C "$WORKTREE" rev-parse "refs/remotes/origin/$BRANCH" 2>/dev/null || true)
     if [ "$cached_main" != "$EXPECTED_SHA" ]; then
+        PULL_PHASE=handoff-ref-mismatch
         echo "ordax-git: Supervisor handoff rejected: tracking ref differs from verified candidate" >&2
         exit 1
     fi
     if ! run_bounded_git -C "$WORKTREE" cat-file -e "$EXPECTED_SHA^{commit}" >/dev/null 2>&1; then
+        PULL_PHASE=handoff-commit-unavailable
         echo "ordax-git: Supervisor handoff rejected: candidate Git object is unavailable" >&2
         exit 1
     fi
