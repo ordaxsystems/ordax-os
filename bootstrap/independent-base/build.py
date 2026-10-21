@@ -552,10 +552,10 @@ def verify_static_userspace_elf_closure(target: Path) -> dict:
                 elf = stream.read(20)
         except OSError as exc:
             raise BaseError("Independent Base userspace file unreadable") from exc
-        if not elf.startswith(b"\\x7fELF"):
+        if not elf.startswith(b"\x7fELF"):
             continue
         relative = file_path.relative_to(target).as_posix()
-        if len(elf) != 20 or elf[4:7] != b"\\x02\\x01\\x01":
+        if len(elf) != 20 or elf[4:7] != b"\x02\x01\x01":
             raise BaseError(f"unsupported Independent Base ELF architecture: {relative}")
         if int.from_bytes(elf[18:20], "little") != 62:
             raise BaseError(f"unexpected Independent Base ELF machine: {relative}")
@@ -573,10 +573,10 @@ def verify_static_userspace_elf_closure(target: Path) -> dict:
         segments = run("readelf", "-l", str(file_path))
         dynamic = run("readelf", "-d", str(file_path))
         if "Requesting program interpreter:" in segments or re.search(
-            r"(?m)^\\s*INTERP\\s", segments
+            r"(?m)^\s*INTERP\s", segments
         ):
             raise BaseError(f"dynamic ELF interpreter forbidden in Independent Base: {relative}")
-        needed = re.findall(r"\\(NEEDED\\).*?\\[(.+?)\\]", dynamic)
+        needed = re.findall(r"\(NEEDED\).*?\[(.+?)\]", dynamic)
         if needed:
             raise BaseError(
                 f"dynamic ELF dependencies forbidden in Independent Base: {relative}: {sorted(set(needed))}"
@@ -585,7 +585,7 @@ def verify_static_userspace_elf_closure(target: Path) -> dict:
     if not checked:
         raise BaseError("Independent Base static userspace ELF proof has no executables")
     fingerprint = hashlib.sha256(
-        "".join(f"{name} {sha}\\n" for name, sha in checked).encode("utf-8")
+        "".join(f"{name} {sha}\n" for name, sha in checked).encode("utf-8")
     ).hexdigest()
     return {
         "linkage": "static",
