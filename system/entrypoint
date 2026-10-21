@@ -383,6 +383,25 @@ root_filesystem_is_read_only() {
     return 1
 }
 
+# Development starts with a bind-mounted ext4 subdirectory as /. A regular
+# remount,ro attempts to change the backing superblock and can return EBUSY
+# while other writable mounts of that filesystem still exist. Lock the active
+# root *mount* instead; verify the resulting ro flag before the kernel call.
+# Stable/MVP retains its separate ordinary-root remount contract.
+remount_root_read_only_for_power() {
+    case "$DISTRIBUTION_PROFILE" in
+        owner-development)
+            /bin/busybox mount -o remount,bind,ro / >>"$GUARDIAN_LOG" 2>&1
+            ;;
+        stable-mvp)
+            /bin/busybox mount -o remount,ro / >>"$GUARDIAN_LOG" 2>&1
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+}
+
 mark_power_request_failed() {
     expected_action=$1
     [ -s "$POWER_LAST_REQUEST" ] && [ ! -L "$POWER_LAST_REQUEST" ] || return 0
@@ -516,7 +535,7 @@ perform_host_power_transition() {
         return 1
     fi
     record_host_power_stage root-readonly || true
-    if ! /bin/busybox mount -o remount,ro / >>"$GUARDIAN_LOG" 2>&1; then
+    if ! remount_root_read_only_for_power; then
         restore_runtime_after_power_failure "$action" "root filesystem could not be remounted read-only for $action" remount-failed
         return 1
     fi
