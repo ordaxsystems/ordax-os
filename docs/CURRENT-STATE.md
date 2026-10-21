@@ -1,4 +1,131 @@
+Native MCP Runtime launch ownership — canonical Linux executable
+(2026-10-21): The source-lock distinguishes the upstream compatibility
+contract's `native_composition_entrypoint=ordax_dev_agent.main.run`
+(dispatch loop) from the Linux binary
+`ordax-product-agent` whose embedded entrypoint is
+`ordax_dev_agent.native_main.main`. The native entrypoint validates
+Owner/Development USB, reads the enrolled OS credential, takes the
+canonical singleton lock and delegates to the dispatch loop. The former
+source-only Python handoff helper is not a runtime entrypoint.
+The unsigned candidate evidence is refreshed from the **successful
+push of ordax-runtime main** at
+`eaf47d2adc1c8be54a4240e1fbe539a3cda44649` (Actions run
+`39572841771`), with verified artifact ZIP and ELF SHA-256. It remains
+only an offline CI proof: no signature, installation or USB execution
+is claimed. The pinned upstream compatibility contract bytes did not
+change, so its SHA-256 is preserved.
+(2026-10-21): The Owner/Development USB Native Host now uses the same
+`product-runtime/instance.lock` as the upstream
+`ordax_dev_agent.native_main` executable. The OS presence worker holds
+the kernel lock during each HTTPS online/offline report; if the verified
+native Runtime process holds it for its entire lifetime, discovery reports
+are suppressed. The worker's bounded stop also requires a confirmed join.
+Unsafe state roots or singleton files fail closed. This prevents
+competing identity heartbeats between processes without a second scheduler,
+credential authority or command bus.
+
+The earlier **source-only, never invoked** in-process helper
+`native_product_runtime_handoff.py` and its isolated test were removed:
+the actual Linux distribution entrypoint is the existing executable
+`ordax-product-agent --run --distribution-profile owner-development
+--product-mode usb`, not an imported Python callback inside the Native
+HTTP host's main thread. The upstream Runtime owns the Product command
+queue, central-session confirmation, action dispatch and singleton lock;
+the OS owns the original `ProductDeviceIdentityStore`, Native policy,
+verified artifact distribution and lifecycle. The signed Runtime component,
+trust anchor, OS service activation, runtime-health receipt and physical
+execution are **not yet present**. No discovery/grant flags are redefined
+as evidence of native action execution. Stable/MVP remains unchanged.
+
+Owner/Development USB Local AI lifecycle (2026-10-21): `ordax-run` now
+uses the existing Native Local AI endpoint with a bounded, fail-closed
+`system/services/local-ai/owner-dev-runtime.sh` lifecycle. When an exact
+pre-staged content-addressed signed v4 EROFS exists, the helper verifies
+size/SHA-256, root ownership, source-lock identity and x86_64 architecture;
+it mounts read-only, generates an ephemeral inference credential in the
+existing Native Host location and supervises the model process until stop.
+Absent, corrupt or incompatible payload never blocks Surface/boot.
+This is a **source-only activation path for a pre-staged artifact**, not a
+delivery implementation: current Git-first `ordax-pull` does not acquire or
+install that 568 MiB EROFS. Publication/acquisition, verified staging,
+rollback, actual USB Dev inference and physical verification remain open in
+#2071. No change to Stable signing/activation or Web remote availability.
+
+Owner/Development USB discovery without account login (2026-10-21): Native
+runtime composition now starts the single existing presence worker whenever the
+private, previously enrolled Product device credential is valid and no local
+opt-out exists. No account login or discovery click is required on subsequent
+starts of this DEV profile. Logout, anonymous session refresh and account-session
+expiry leave this device-authenticated presence running. Native Host shutdown
+still stops it. Local discovery disable/enable works without a cloud session and
+persists in the existing visibility policy file, bound to the enrolled device ID.
+Malformed policy/credential remains unavailable. Missing device enrollment still
+requires authenticated initial enrollment; no account ownership, device token or
+remote grant is fabricated. Stable and Native disk activation are unchanged.
+Connector exposes canEnableWithoutLogin separately from accountAuthenticated;
+the Settings control uses the former without claiming an authenticated user.
+The canonical Account-session recovery added earlier on this date remains for
+enrollment, with a 60-second retry deadline on existing session refreshes.
+This DEV exception replaces the earlier account-bound default-off discovery
+policy below; it does not install remote action execution or change MCP OAuth,
+grants, local action policy or attestation. Physical notebook visibility still
+requires an accepted server presence receipt. Contract:
+docs/contracts/product-device-presence.json.
+
+First-use journey redesign (2026-10-20): one
+shared Native/USB/emulator wizard follows welcome (language + time zone), network,
+account, local security, device name and review. No regional or privacy page.
+The former regional cursor maps to welcome; security and later cursors re-enter
+account because identity selection remains transient. Completed receipts remain
+unchanged. New completions add an optional systemTerms acknowledgement containing
+document ID, version, draft status and accepted=true. The final review has a
+separate, initially unchecked OS terms box for local-only and signed-in users;
+entry is disabled until checked. Text is readable inline and explicitly provisional.
+This is development-flow acknowledgement, not the published OS legal document or
+an account-registration consent. The Native host and emulator validate the same
+bounded optional receipt extension, preserving existing completed receipts. A
+published legal document, its approval and later reacceptance remain pending.
+No account, Memory, sync or billing grants are created by the checkbox.
+Keyboard status is a read-only disclosure on welcome. Presentation
+retains the Meridian desktop rail and desktop geometry at all widths; smaller
+computer viewports can scroll rather than switch to a mobile shell. Shorter
+headings use the available width instead of an artificial 18ch line limit.
+Account presents verified name/email/initial avatar and one primary action,
+with password visibility, login/registration separation, explicit switching and
+confirmed sign-out before leaving an authenticated account for local-only use.
+A two-column account workbench includes read-only expandable profile/photo,
+plan/resources and Web-preference restore sections marked as pending integration,
+following the existing My Account areas. No plan, photo, full profile, billing,
+entitlement or synchronization result is fabricated. Those data are not supplied
+by the current Native session contract. The optional email projection remains
+presentation data, never an identity key. Registration keeps gateway-owned legal
+consent before submission; existing login creates no new legal receipt. Local
+privacy/Memory choices stay in Settings; setup does not change memory.auto-capture.
+Welcome now presents contextual Intelligence, Spaces and USB/Web continuity in
+three Meridian feature cards. The existing account legal documents do not yet
+describe Memory; any extension must follow their versioned backend policy owner.
+Login offers links to those documents without inventing a legal acceptance receipt.
+Regional preferences have one owner and are persisted from welcome. Validation
+on 2026-10-20: 58 targeted Node tests passed. Chromium completed all 27 first-use
+assertions and exited successfully. The emulator smoke requires a fresh first-use
+state; the shared 4202 host resumed at Conta, so the smoke stopped before changing
+that state. Python Native HTTP and state-contract tests could not run because this
+Windows environment has no `python`, `python3` or `py` executable. No build was
+run. Source edits do not update packaged USB images.
+
 Physical USB lifecycle interpretation (2026-10-18): the historical `PHYSICAL_OWNER_AUTHORIZATION_RECORDED=NO` and `FIRST_STABLE_MVP_USB_WRITE=HOLD...` snapshot markers below are retained as evidence of the earlier pre-consent gate. For current authorization use `docs/contracts/physical-write-authorization.json` at the exact source commit and `tools/creator/physical_promotion.py`. An approved contract does not prove the v3 signed writer was published or that a physical USB was written, read back, booted or recovered.
+
+Native Runtime composition source alignment (2026-10-21): the OS source lock now
+pins merged Runtime `9734893697dae7dbb3cef5ca060a531e5fb0cd66` and the
+updated compatibility-contract SHA-256. The existing dispatch loop is available
+as `ordax_dev_agent.main.run` with explicit host configuration and the existing
+private identity-store reader; no duplicate credential file, command transport
+or action authority is introduced. Upstream Linux source integration exercises
+a real temporary-file action with isolated transport and local-policy denial.
+This does not install the Runtime on the notebook. The native executable
+package/slot, lifecycle ownership, health, device grants and session attestation
+remain required before activation. Graphical control must bind to the OS's
+native graphics/input services; no external Linux desktop is required.
 
 Runtime Product MCP source alignment (2026-10-18): `system/services/device-agent/studio-runtime-source-lock.json`
 pins reviewed `ordaxsystems/ordax-runtime` 0.4.7 at an immutable commit and
@@ -33,7 +160,7 @@ worker via the neutral Product Connector port. Source-of-truth contract:
 docs/contracts/product-device-presence.json. Physical USB proof and OS
 action Runtime/attestation remain independently blocked.
 
-Native Connector Settings opt-in (2026-10-18): Owner/Development USB now
+Historical Native Connector Settings opt-in (2026-10-18; DEV discovery policy superseded by the 2026-10-21 entry above): Owner/Development USB now
 uses the private ProductDeviceIdentityStore as SSOT for a separate
 `product-connector-visibility.json` preference, default-off. Native Settings
 calls the loopback-only `/__ordax/native/product-connector` route. The existing
@@ -46,7 +173,7 @@ unavailable, and physical USB proof remains pending. The account session is
 memory-only until the encrypted local vault gate; login may need repeating
 after Native Host restart. Stable is unaffected.
 
-Native Product Connector candidate (2026-10-17): Owner/Development USB
+Historical Native Product Connector candidate (2026-10-17; DEV login lifecycle superseded above): Owner/Development USB
 reuses the existing Native Account login and private Product device
 identity to start one fail-soft HTTPS presence worker after authenticated
 enrollment. Logout and Native Host shutdown stop its lifecycle; no command
@@ -62,9 +189,91 @@ docs/INTELLIGENCE.md.
 
 # Current State
 
-Native Central home layout correction (2026-10-18): the persistent local-space
-card remains in the secondary column at desktop widths, while capability-backed
-continuation and pending-service cards occupy successive rows in the main column.
+Meridian shell (2026-10-19): the persistent workspace header has been removed
+from Web, Native, Central, Área de Trabalho, and app destinations. Workspace
+content begins at the top of the shell; search and appearance remain available
+through the existing navigation and taskbar controls. Native area switching
+now lives in the sidebar, and update status remains available there as well.
+The Store's redundant context banner is removed; its mode switch sits with the
+window controls so both the mock presentation and real-catalog view remain
+reachable. Window title bars remain the window-management surface. Display-scale
+tokens continue to be shared across desktop presentations.
+
+Surface shortcut placement (2026-10-19): Central quick access, desktop icons,
+taskbar pins, and the device-app section in the navigation menu derive from one
+ordered catalog under `system/services/surface/`. Rendered sidebar app labels
+are localized from their actual app IDs, avoiding stale app-name lists. The app
+runtime catalog and host capabilities remain the authority for whether an app
+can open; shortcut placement does not grant access. System Updates remains a
+separate destination within the System app. Native rail and overflow-menu icons
+consume the shared Meridian destination glyph metadata. Web and Native desktop
+shortcut grids now share Meridian spacing, cell, icon, and inset tokens.
+Their grid and shortcut interaction styles now also have one Meridian owner;
+the number of rows adapts to the available vertical workspace height, with
+narrow-workspace sizing shared across both hosts.
+
+Desktop canvas (2026-10-19): Web and Native resolve the desktop wallpaper
+through one Meridian CSS token and the same local SVG asset. Both presentations
+apply the existing material opacity and high-contrast removal preference to
+the wallpaper; shortcut labels remain legible on the plain canvas. The
+Web-only watermark was removed so the desktop has the same content hierarchy
+across hosts. The wallpaper remains decorative, behind shortcuts and windows.
+
+Desktop taskbar frame (2026-10-19): Native and Web now share Meridian tokens
+for the bottom bar's three-column balance, content-sized side controls, group spacing,
+horizontal inset, dock item targets, glyph size and open/active/minimized
+indicators. Arrow navigation and Home/End share one implementation; each host
+retains its own scroll reveal. Taskbar focus and toggle states now follow shared
+Meridian styling and the actual pressed state. Host styles retain only
+responsive breakpoints and platform-specific controls, so dock status and visual
+scale stay consistent while available system actions remain truthful to each
+host.
+
+Meridian navigation refinement (2026-10-19, source changes awaiting validation):
+Central and desktop use the same sidebar spacing. The shared taskbar reserves
+the intrinsic width of its side controls before giving the remaining space to
+the scrollable dock; its default height is 3.25rem with 2.75rem app targets.
+Native sidebar spacing responds to the scaled canvas height, preserving desktop
+navigation and its overflow menu. Sidebar measurements use layout pixels rather
+than zoomed screen rectangles, and Native dock focus remains visible after
+container resizing. Focused Node regressions were subsequently run on 2026-10-20: Meridian shell,
+desktop resolution, First Run and Home behavior passed (45/45 tests). Diff
+whitespace validation also passed. Visual acceptance and npm/build checks remain
+unrun; these source edits do not update the packaged USB image or published Web bundle.
+
+Central Home refresh (2026-10-19, source changes awaiting validation): Native
+Home follows the supplied dashboard concept: the existing day/night landscape
+contains a local-only Aura command preview, followed by illustrated continuation
+cards, an app strip, recent-file/project examples and side widgets for system
+status and a current Space. Example states, projects and app shortcuts are
+explicitly marked; they are not asserted as host readings, installed apps or real
+files. Command suggestions populate the input; send/example actions only show a
+dismissible preview notice, with keyboard support and focus restoration. This
+preview composition lives in `system/surface/ui/home-concept.mjs`, separately
+from service-owned Home data and without a new backend adapter. Real continuation
+replaces the illustrative resume row when present; pending notices and local file
+shortcuts remain. Current catalog-owned app routes and capability checks still
+apply to real shortcuts. Spaces, profiles, devices and Store remain accessible
+through the existing Meridian destinations below the dashboard.
+Desktop container sizing rearranges content without changing the shell into a
+mobile navigation. Native and Web share the hero day/night resolver: 06:00–17:59
+uses the existing sunny landscape, otherwise the existing moonlit landscape,
+according to the configured time zone, independently of interface color scheme.
+The clock retains the current greeting across shell localization renders.
+Focused Node regressions were subsequently run on 2026-10-20: Meridian shell,
+desktop resolution, First Run and Home behavior passed (45/45 tests). Visual
+acceptance and npm/build checks remain unrun; packaged USB images and published
+Web bundles are not updated by these source edits alone.
+
+Desktop window chrome (2026-10-19): Web and Native application windows share
+the Meridian frame, active-state treatment, titlebar height and insets, app-mark
+tile, title typography and control targets. Window placement and available
+window actions remain owned by each host.
+
+Native Central home layout correction (2026-10-18, historical geometry superseded
+by the 2026-10-19 Central Home refresh above): the previous layout kept local-space
+shortcuts in the secondary column and continuation/pending cards in the main
+column. Preserve those services, but use the current dashboard composition.
 At narrow widths these direct `.ordax-space` children flow in document order.
 This preserves the existing lifecycle owners and avoids overlapping grid areas;
 it changes presentation only and does not claim new backend or USB capability.
@@ -73,8 +282,9 @@ Native emulator / Meridian First Run (2026-10-18): the Windows emulator now load
 `system/composition/native/index.html` for both onboarding and desktop, with no
 emulator-owned First Run or Web preview handoff. Development-only persistence
 implements existing Native contracts; unavailable hardware/privileged bridges
-remain unavailable. First Run CSS consumes Meridian tokens directly, uses the
-canonical symbol and fixes narrow-screen step wrapping/empty progress height.
+remain unavailable. First Run CSS consumes Meridian tokens directly and keeps the same desktop
+rail-and-workspace structure at every width; its content area scrolls and short
+screens compact vertically instead of switching to a phone layout.
 This supersedes the previous Web-backed emulator preference wiring below.
 Meridian is the sole accepted product identity; remaining legacy screens are
 migrated in stages while preserving functional ports and planned mocks.
@@ -1606,7 +1816,7 @@ LOCAL_AI_PHYSICAL_STABLE_MVP_PROOF=PENDING
 
 ### First run, regional preferences and physical keyboard
 
-The Native/USB first-use flow is now implemented as a persistent device-owned OOBE rather than a presentation-only screen. It follows `welcome -> regional -> network -> security -> account -> privacy -> ready`, stores completion separately from preferences, local-session credentials and online identity, and does not dismiss until durable state has been written. The Security step can configure an optional offline PIN/passphrase through `ordax.local-session/1`; the secret stays transient in Surface memory and never enters `first-run.json`. When configured, the Native host stores only a salted scrypt verifier in private device state and a new Surface session starts locked. The lock keeps the existing Workspace mounted but makes the Surface inert until local authentication succeeds. This is explicitly a session gate, not USB file encryption. The MVP always offers a local-only route: account creation/sign-in is optional and capability-driven, provider unavailability does not block first use, and cloud sync is not an MVP requirement. Network setup is skippable and reuses the existing Native network-management port; Wi-Fi credentials remain transient and do not enter first-run state.
+The Native/USB first-use flow is now implemented as a persistent device-owned OOBE rather than a presentation-only screen. It follows `welcome -> network -> account -> security -> name -> ready`, stores completion separately from preferences, local-session credentials and online identity, and does not dismiss until durable state has been written. The Security step can configure an optional offline PIN/passphrase through `ordax.local-session/1`; the secret stays transient in Surface memory and never enters `first-run.json`. When configured, the Native host stores only a salted scrypt verifier in private device state and a new Surface session starts locked. The lock keeps the existing Workspace mounted but makes the Surface inert until local authentication succeeds. This is explicitly a session gate, not USB file encryption. The MVP always offers a local-only route: account creation/sign-in is optional and capability-driven, provider unavailability does not block first use, and cloud sync is not an MVP requirement. Network setup is skippable and reuses the existing Native network-management port; Wi-Fi credentials remain transient and do not enter first-run state.
 
 Regional choices are real persisted preferences. The first-use OOBE retains translations for `pt-BR`, `en-US`, `es-ES`, `de-DE` and `fr-FR`, while the public MVP selectors expose only `pt-BR` and `en-US`; both are complete across the shared Surface. Spanish, German and French remain accepted compatibility/future-rollout locales with translated OOBE source but are hidden from the public selectors until their Surface coverage reaches the same launch standard. PT-BR remains the source/default locale. The default time zone is `America/Bahia`, and locale/time zone remain editable later under **Ajustes -> Idioma e região**. Physical keyboard layout is a separate Native device capability, not a Web preference: `br-abnt2` is the Stable/MVP default and `us` is the alternative. The selected layout is stored privately on the USB and mapped to fixed `XKB_DEFAULT_*` values before Cage starts. Arbitrary XKB values and shell input from HTTP are rejected. When the configured layout differs from the layout already applied to the running compositor, Ajustes reports that a new Surface start is required; no fake live-switch behavior is claimed. The OOBE keyboard selector intentionally remains hidden until a safe current-session application or pre-Surface handoff exists.
 
@@ -2236,3 +2446,17 @@ Estado operacional em 2026-10-15: a migration `20261015153000_space_semantics_v1
 `food.pizzeria` e `fabrication.3d-printing` estão estruturados como fundação MVP compatível com os Profile Packs existentes. `product-operations.territorial-platform`, `education.school` e `development.software` estão estruturados, porém `DEFERRED`: o compositor publica zero navegação/widget/capability para eles até promoção explícita posterior. Development modela muitos Projects dentro de um único Space e Studio apenas como ferramenta de abertura do Project. Escola preserva REL-001 e não introduz tracking/câmera irrestritos. Achegue-se permanece operacional, não um Space de desenvolvimento.
 
 Profile Pack continua sendo composição técnica versionada e seus manifests não receberam uma segunda cópia de navigation/dashboard/provider state. A sidebar global continua independente da navegação contextual. Nenhum kernel, base, Creator, physical-write ou workflow físico faz parte desta mudança.
+
+
+## Account display name in the authenticated session — source only — 2026-10-20
+
+The authenticated `/auth/session` projection now optionally reads `ordax_accounts.display_name` with the same user's access token and the table's existing owner-scoped RLS policy. A missing or unavailable profile row does not invalidate login. The Native gateway and Windows emulator preserve only the bounded display-name field; account credentials and provider tokens remain outside Surface JavaScript. The shared identity adapter uses this name when present and keeps its existing email-handle fallback when it is absent.
+
+```text
+ACCOUNT_DISPLAY_NAME_SESSION_PROJECTION=PASS_SOURCE_RLS_BOUND
+ACCOUNT_DISPLAY_NAME_NATIVE_AND_EMULATOR_FORWARDING=PASS_SOURCE
+ACCOUNT_DISPLAY_NAME_PROFILE_PHOTO_OR_COUNTRY=NOT_AVAILABLE
+ACCOUNT_DISPLAY_NAME_EDGE_DEPLOYMENT=PENDING_GATEWAY_DESTINATION_CREDENTIAL
+```
+
+This source change does not claim that the live Supabase Edge Function has been deployed. The existing destination remains on provider revision 13 until the reviewed gateway deployment credential is configured.

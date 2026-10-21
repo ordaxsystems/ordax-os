@@ -217,7 +217,14 @@ try {
         await click('.sidebar-collapse');
         await until("document.querySelector('.sidebar-collapse').getAttribute('aria-expanded')!=="+JSON.stringify(initiallyExpanded));
         await until("document.querySelector('.workspace-sidebar').getBoundingClientRect().width!=="+initialRail);
-        assert.equal(await evaluate("[...document.querySelectorAll('.meridian-rail-utilities button')].every(button=>{const box=button.getBoundingClientRect();return box.width>=44&&box.height>=44;})"),true,'Collapsed sidebar utilities keep usable hit areas');
+        const previousScale=await evaluate("document.documentElement.getAttribute('data-ordax-display-scale')");
+        for(const scale of ['compact','comfortable','large','automatic']){
+          await evaluate('document.documentElement.dataset.ordaxDisplayScale='+JSON.stringify(scale));
+          const utilityGeometry=await evaluate("[...document.querySelectorAll('.meridian-rail-utilities button')].filter(button=>button.getClientRects().length).map(button=>{const box=button.getBoundingClientRect();return {label:button.getAttribute('aria-label'),width:Math.round(box.width*100)/100,height:Math.round(box.height*100)/100};})");
+          assert.ok(utilityGeometry.length>0,'Collapsed sidebar exposes visible utilities at '+scale);
+          assert.deepEqual(utilityGeometry.filter(button=>button.width<44||button.height<44),[],'Collapsed sidebar utilities keep 44px hit areas at '+scale+': '+JSON.stringify(utilityGeometry));
+        }
+        await evaluate('(()=>{const scale='+JSON.stringify(previousScale)+";if(scale===null)document.documentElement.removeAttribute('data-ordax-display-scale');else document.documentElement.setAttribute('data-ordax-display-scale',scale);})()");
         await click('.sidebar-collapse');
         await until("document.querySelector('.sidebar-collapse').getAttribute('aria-expanded')==="+JSON.stringify(initiallyExpanded));
       }

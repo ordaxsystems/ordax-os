@@ -1,5 +1,6 @@
 import { assertAppActivationPort } from "../../contracts/app-activation.mjs";
 import { deriveAuthorizedSpaces } from "../../services/spaces/authorized-view.mjs";
+import { readRememberedLoginEmail } from "../../services/account/remembered-login-email.mjs";
 import { describeSpacePresentation } from "../../services/spaces/presentation.mjs";
 import {
   assertIdentityActionsPort,
@@ -210,7 +211,7 @@ export function mountAccountOverviewControls(
   let profileMessage = "";
   let memoryConflictMessage = "";
   let pendingMemoryConflict = null;
-  let credentialEmailDraft = "";
+  let credentialEmailDraft = readRememberedLoginEmail(documentObject.defaultView);
   let credentialPasswordDraft = "";
   let registrationPolicy = null;
   let registrationLegalAccepted = false;

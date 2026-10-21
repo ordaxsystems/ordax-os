@@ -1,11 +1,13 @@
-// Development persistence adapter, never a hardware or authentication authority.
+// Development host for Native contracts. Account authority stays in the HTTPS gateway.
 import { mkdir, readFile, writeFile, rename } from "node:fs/promises";
 import { join } from "node:path";
 import { createInitialFirstRunState, validateFirstRunState } from "../../system/contracts/first-run-state-store.mjs";
 import { validatePreferenceRecord } from "../../system/contracts/preference-store.mjs";
 import { FIRST_RUN_CURSOR_SCHEMA, validateFirstRunCursor } from "../../system/contracts/first-run-cursor.mjs";
+import { createEmulatorAccountGateway } from "./account-gateway.mjs";
 
-export function createEmulatorNativeHost({ stateDirectory }) {
+export function createEmulatorNativeHost({ stateDirectory, accountGatewayOrigin = "", fetchImpl = globalThis.fetch }) {
+  const accountMiddleware = createEmulatorAccountGateway({ origin: accountGatewayOrigin, fetchImpl });
   const file = join(stateDirectory, "native-state.json");
   const initialCursor = () => ({ schema: FIRST_RUN_CURSOR_SCHEMA, step: "welcome" });
   const defaults = () => ({ firstRun: createInitialFirstRunState(), preferences: validatePreferenceRecord({}), cursor: initialCursor() });
@@ -38,6 +40,7 @@ export function createEmulatorNativeHost({ stateDirectory }) {
   ]);
   return async function middleware(request, response, next) {
     const path = request.url.split("?")[0];
+    if (await accountMiddleware(request, response)) return;
     if (!path.startsWith("/__ordax/")) return next();
     const reply = (status, body) => {
       response.writeHead(status, { "Content-Type": "application/json", "Cache-Control": "no-store" });
@@ -82,11 +85,11 @@ export function createEmulatorNativeHost({ stateDirectory }) {
   };
 }
 
-export function nativeEmulatorPlugin(stateDirectory) {
+export function nativeEmulatorPlugin(stateDirectory, { accountGatewayOrigin = "" } = {}) {
   return {
     name: "ordax-native-emulator-host",
     configureServer(server) {
-      server.middlewares.use(createEmulatorNativeHost({ stateDirectory }));
+      server.middlewares.use(createEmulatorNativeHost({ stateDirectory, accountGatewayOrigin }));
       // Native's real host serves system/ as its static root.
       server.middlewares.use((request, _response, next) => {
         if (/^\/(?:surface|apps|contracts|services|profile-packs|adapters|composition)\//.test(request.url)) request.url = "/system" + request.url;

@@ -722,7 +722,7 @@ export function mountSettingsOverviewControls(
       refresh.disabled = connectorPending;
       section.append(refresh);
     }
-    if (connectorSnapshot?.available === true && !connectorSnapshot.accountAuthenticated && !connectorSnapshot.enabled) {
+    if (connectorSnapshot?.available === true && !connectorSnapshot.accountAuthenticated && !connectorSnapshot.canEnableWithoutLogin && !connectorSnapshot.enabled) {
       section.append(node(documentObject, "p", "ordax-settings-section-copy", t("settings.connector.loginRequired")));
     }
     const control = node(
@@ -735,7 +735,7 @@ export function mountSettingsOverviewControls(
     control.setAttribute("role", "switch");
     control.setAttribute("aria-checked", String(connectorSnapshot?.enabled === true));
     control.disabled = connectorPending || connectorSnapshot?.available !== true
-      || (!connectorSnapshot.accountAuthenticated && !connectorSnapshot.enabled);
+      || (!connectorSnapshot.accountAuthenticated && !connectorSnapshot.canEnableWithoutLogin && !connectorSnapshot.enabled);
     section.append(control);
     if (connectorError) section.append(node(
       documentObject, "p", "ordax-settings-section-copy", t("settings.connector.error"),
@@ -1403,7 +1403,7 @@ export function mountSettingsOverviewControls(
 
   const configureConnector = async () => {
     if (!connectorPort || !connectorSnapshot?.available || connectorPending || destroyed) return;
-    if (!connectorSnapshot.accountAuthenticated && !connectorSnapshot.enabled) return;
+    if (!connectorSnapshot.accountAuthenticated && !connectorSnapshot.canEnableWithoutLogin && !connectorSnapshot.enabled) return;
     const requested = !connectorSnapshot.enabled;
     connectorPending = true;
     connectorError = false;

@@ -13,8 +13,8 @@ CREATOR_WORKFLOW = ROOT / ".github/workflows/creator-payload-candidate.yml"
 FULL_MEDIA_WORKFLOW = ROOT / ".github/workflows/full-bootstrap-media-proof.yml"
 ASSEMBLER = ROOT / "tools/creator/assemble.py"
 
-CURRENT_REFRESH_TARGET = "444e428d33bd4f3c6ef6d3f0ef403cde43e8e31be85369ce3604178d11dfbabd"
-PREVIOUS_REFRESH_TARGET = "e18c4e7eb4b4b73f49e1bf8c1d051e3253789fb6e1b422cebd8db9a74740f2af"
+CURRENT_REFRESH_TARGET = "56c02520fd81d390d6c2d2269aa05be02d6bef68dfba67bead8ad481b983f43b"
+PREVIOUS_REFRESH_TARGET = "444e428d33bd4f3c6ef6d3f0ef403cde43e8e31be85369ce3604178d11dfbabd"
 FORMER_REFRESH_TARGET = "a514b8280cecb0b3f70e681eb4ba2167bf599ac2fa336c546cfbe71f46ea9c8e"
 
 
@@ -49,7 +49,7 @@ class MVPSeedArtifactBindingsTests(unittest.TestCase):
     def test_current_initramfs_binding_matches_transactional_portable_capsule(self):
         artifact = self.artifact("initramfs")
         self.assertEqual(artifact["source_path"], "bootstrap/initramfs/initramfs.cpio.gz")
-        self.assertEqual(artifact["sha256"], "0d179879fed3c5b94b184a01371181069674989256dba581c53a1ffcbca840c6")
+        self.assertEqual(artifact["sha256"], "d95a62aa5b2cc2f287344a2792ce65911c57eab726a046d6de00da7a327695cc")
 
     def test_current_release_agent_seed_is_recognized_source_for_v4_capable_refresh(self):
         artifact = self.artifact("bootstrap-release-acquisition")

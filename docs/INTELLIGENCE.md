@@ -212,6 +212,21 @@ only a client. Files, Notes, Search, Settings, diagnostics and future automation
 may consume the same system intelligence contract without opening an Assistant
 window.
 
+## Owner/Development USB — lifecycle local source (2026-10-21)
+
+O caminho Native mantém o mesmo `ordax.local-ai/1` e
+`ordax.intelligence/1`. O supervisor `ordax-run` pode agora anexar o
+`owner-dev-runtime.sh` quando **e somente quando** o EROFS candidato
+assinado já foi materializado no content-addressed staging local; confere
+hash/tamanho, source lock e arquitetura, monta read-only e mantém token
+efêmero na mesma rota do Native Host. Não introduz modelo paralelo,
+inferência remota ou dependência de boot.
+
+Isto **não** instala o payload no USB Dev: publicação, entrega verificada,
+staging, rollback e prova física continuam em #2071. A composição Web e
+providers externos permanecem fail-closed. Na ausência do EROFS válido,
+a Aura continua indisponível sem simulação de resposta.
+
 ## Layering
 
 ```text

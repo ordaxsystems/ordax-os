@@ -21,6 +21,13 @@ spec.loader.exec_module(promotion)
 AUTHORIZATION_TOOL_PATH = ROOT / "tools" / "creator" / "authorize_physical_write.py"
 PHYSICAL_PROMOTION_WORKFLOW = ROOT / ".github" / "workflows" / "physical-write-promotion.yml"
 PHYSICAL_TEST_SOURCE = ROOT / "tools" / "creator" / "cmd" / "ordax-creator-physical-test" / "main_windows.go"
+PRE_USB_AUDIT_PATH = ROOT / "tools" / "creator" / "pre_usb_nova_ordax_audit.py"
+pre_usb_audit_spec = importlib.util.spec_from_file_location(
+    "ordax_pre_usb_nova_ordax_audit_test", PRE_USB_AUDIT_PATH
+)
+pre_usb_audit = importlib.util.module_from_spec(pre_usb_audit_spec)
+assert pre_usb_audit_spec.loader is not None
+pre_usb_audit_spec.loader.exec_module(pre_usb_audit)
 authorization_spec = importlib.util.spec_from_file_location(
     "ordax_owner_authorization_test", AUTHORIZATION_TOOL_PATH
 )
@@ -217,7 +224,13 @@ class PhysicalPromotionBoundaryTests(unittest.TestCase):
         }
         write_json(root / "docs/contracts/release-trust-policy.json", policy)
 
-        for source in promotion.authorization_context_files(ROOT):
+        fixture_sources = {
+            source.resolve() for source in promotion.authorization_context_files(ROOT)
+        }
+        fixture_sources.update(
+            source.resolve() for source in pre_usb_audit.required_source_paths(ROOT)
+        )
+        for source in sorted(fixture_sources):
             destination = root / source.relative_to(ROOT)
             destination.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(source, destination)

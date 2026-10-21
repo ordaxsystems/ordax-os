@@ -8,7 +8,12 @@ STATE_DIR=${ORDAX_STATE_DIR:-/state/ordax}
 RUN_DIR=${ORDAX_UPDATE_RUN_DIR:-/run/ordax-update}
 PULL_LOCK_DIR=$RUN_DIR/pull.lock
 PULL_LOCK_PID_FILE=$PULL_LOCK_DIR/pid
+# A small bounded phase token consumed by the canonical Supervisor's lastError.
+# Kept in its existing volatile update run directory; not a second history store.
+PULL_RESULT_FILE=$RUN_DIR/pull-result
+PULL_PHASE=preflight
 LOCK_HELD=0
+REMOTE_STDERR_FILE=
 PREVIOUS_FILE=$STATE_DIR/previous-commit
 CURRENT_FILE=$STATE_DIR/current-commit
 PINNED_FILE=$STATE_DIR/pinned-commit
@@ -150,9 +155,11 @@ release_pull_lock() {
     LOCK_HELD=0
 }
 
-configure_runtime_checkout_at() {
-    checkout=$1
-    git -C "$checkout" sparse-checkout set --no-cone \
+runtime_sparse_paths() {
+    # Single allowlist for the sparse checkout and the exact-commit blob
+    # acquisition gate. Git fetch of a commit does not necessarily contain
+    # promised blobs when the source is a partial clone.
+    printf '%s\n' \
         /system/ \
         /bootstrap/base-update/ \
         /bootstrap/dev-base/ \
@@ -165,6 +172,27 @@ configure_runtime_checkout_at() {
         /docs/evidence/release-trust-ceremony.json \
         /docs/evidence/release-trust-proof-manifest.json \
         /docs/evidence/release-trust-recovery-envelope.json
+}
+
+configure_runtime_checkout_at() {
+    checkout=$1
+    set -- $(runtime_sparse_paths)
+    git -C "$checkout" sparse-checkout set --no-cone "$@"
+}
+
+acquire_runtime_candidate_blobs() {
+    candidate_sha=$1
+    # A partial clone may have the commit/tree but not all referenced blobs.
+    # Force only the shared sparse allowlist into the already validated local
+    # object database; Git lazily acquires missing promisor blobs if required.
+    # The tar stream is discarded; it does not touch the live checkout.
+    candidate_paths=$(runtime_sparse_paths | sed 's@^/@@')
+    set -- $candidate_paths
+    if ! run_bounded_git -C "$WORKTREE" archive --format=tar "$candidate_sha" "$@" >/dev/null; then
+        echo "ordax-git: blobs da entrega nao puderam ser obtidos; checkout local preservado" >&2
+        return 1
+    fi
+    return 0
 }
 
 record_dirty_checkout() {
@@ -191,14 +219,22 @@ record_dirty_checkout() {
 
 checkout_metadata_valid() {
     checkout=$1
+    # Preserve a precise *bounded* failure token for the caller. No paths,
+    # remotes, credential material or command output are emitted to UI state.
+    CHECKOUT_METADATA_FAILURE=gitdir
     [ -d "$checkout/.git" ] || return 1
     head=$(git -C "$checkout" rev-parse HEAD 2>/dev/null || true)
+    CHECKOUT_METADATA_FAILURE=head
     is_sha "$head" || return 1
     origin=$(git -C "$checkout" remote get-url origin 2>/dev/null || true)
+    CHECKOUT_METADATA_FAILURE=origin
     [ "$origin" = "$REPO_URL" ] || return 1
     branch=$(git -C "$checkout" symbolic-ref --quiet --short HEAD 2>/dev/null || true)
+    CHECKOUT_METADATA_FAILURE=branch
     [ "$branch" = "$BRANCH" ] || return 1
+    CHECKOUT_METADATA_FAILURE=entrypoint
     [ -x "$checkout/system/entrypoint" ] || return 1
+    CHECKOUT_METADATA_FAILURE=
     return 0
 }
 
@@ -360,17 +396,63 @@ network_failure_hint() {
 }
 
 remote_main_sha() {
-    output=$(run_bounded_git ls-remote --heads "$REPO_URL" "refs/heads/$BRANCH" 2>/dev/null || true)
+    # Retain the bounded Git error only in a private, short-lived scratch file.
+    # It must never appear verbatim in the UI, update-state or pull-result.
+    diagnostic_file=$1
+    output=$(run_bounded_git ls-remote --heads "$REPO_URL" "refs/heads/$BRANCH" 2>"$diagnostic_file") || return 1
     set -- $output
     value=${1:-}
     is_sha "$value" || return 1
     printf '%s' "$value"
 }
 
+remote_failure_phase() {
+    diagnostic_file=$1
+    [ -f "$diagnostic_file" ] && [ ! -L "$diagnostic_file" ] || {
+        printf '%s' remote-discovery
+        return 0
+    }
+    # Fixed, non-secret tokens. Unknown errors retain the existing reason.
+    if /bin/busybox grep -Eqi 'could not resolve host|could not resolve proxy|temporary failure in name resolution|name or service not known' "$diagnostic_file"; then
+        printf '%s' remote-discovery-dns
+    elif /bin/busybox grep -Eqi 'SSL certificate problem|certificate verify failed|certificate has expired|unable to get local issuer certificate' "$diagnostic_file"; then
+        printf '%s' remote-discovery-tls
+    elif /bin/busybox grep -Eqi 'operation timed out|connection timed out|timed out' "$diagnostic_file"; then
+        printf '%s' remote-discovery-timeout
+    elif /bin/busybox grep -Eqi 'network is unreachable|no route to host|failed to connect|connection refused' "$diagnostic_file"; then
+        printf '%s' remote-discovery-connectivity
+    elif /bin/busybox grep -Eqi 'authentication failed|http 401|http 403|requested URL returned error: (401|403)' "$diagnostic_file"; then
+        printf '%s' remote-discovery-auth
+    else
+        printf '%s' remote-discovery
+    fi
+}
+
 clone_runtime_checkout() {
     destination=$1
     expected_sha=$2
+    PULL_PHASE=candidate-objects
 
+    # Supervisor already fetched and verified the exact target into this cache.
+    # Re-cloning over HTTPS needlessly repeats acquisition and can fail even
+    # when the required Git objects are available locally. Materialize a fully
+    # independent staging checkout from those objects instead; --no-hardlinks
+    # prevents the candidate from sharing mutable object files with live Git.
+    if checkout_metadata_valid "$WORKTREE" && checkout_is_clean "$WORKTREE"; then
+        if ! run_bounded_git -C "$WORKTREE" cat-file -e "$expected_sha^{commit}" >/dev/null 2>&1; then
+            echo "ordax-git: commit esperado nao foi adquirido; checkout local preservado" >&2
+            return 1
+        fi
+        acquire_runtime_candidate_blobs "$expected_sha" || return 1
+        PULL_PHASE=isolated-checkout
+        echo "ordax-git: preparando checkout isolado do commit ja validado em cache"
+        seed_runtime_checkout_from_local "$WORKTREE" "$expected_sha" "$destination" fetched
+        return $?
+    fi
+
+    # Cold recovery or invalid cache has no trusted local materialization
+    # source; this is the only case that acquires a full clean remote clone.
+    PULL_PHASE=remote-clone
     rm -rf "$destination"
     echo "ordax-git: preparando checkout novo e isolado de $REPO_URL ($BRANCH)"
     if ! run_bounded_git clone \
@@ -408,6 +490,7 @@ seed_runtime_checkout_from_local() {
     source_repo=$1
     expected_sha=$2
     destination=$3
+    source_mode=${4:-seed}
 
     [ -d "$source_repo/.git" ] || {
         echo "ordax-git: local seed source is not a Git checkout" >&2
@@ -418,10 +501,28 @@ seed_runtime_checkout_from_local() {
         return 1
     }
     source_sha=$(git -C "$source_repo" rev-parse HEAD 2>/dev/null || true)
-    [ "$source_sha" = "$expected_sha" ] || {
-        echo "ordax-git: local seed source does not match requested SHA" >&2
-        return 1
-    }
+    case "$source_mode" in
+        seed)
+            [ "$source_sha" = "$expected_sha" ] || {
+                echo "ordax-git: local seed source does not match requested SHA" >&2
+                return 1
+            }
+            ;;
+        fetched)
+            checkout_metadata_valid "$source_repo" && checkout_is_clean "$source_repo" || {
+                echo "ordax-git: verified source checkout is unavailable or dirty" >&2
+                return 1
+            }
+            git -C "$source_repo" merge-base --is-ancestor "$source_sha" "$expected_sha" >/dev/null 2>&1 || {
+                echo "ordax-git: cached candidate is not a fast-forward from current" >&2
+                return 1
+            }
+            ;;
+        *)
+            echo "ordax-git: unsupported local checkout mode" >&2
+            return 1
+            ;;
+    esac
 
     rm -rf "$destination"
     mkdir -p "$(dirname "$destination")"
@@ -434,6 +535,25 @@ seed_runtime_checkout_from_local() {
         rm -rf "$destination"
         return 1
     }
+    # A local clone only carries branch refs, not the source repository's
+    # remote-tracking refs. A fetched candidate can therefore be present in
+    # source's origin/main but absent from the isolated destination. Transfer
+    # the verified candidate from the local cache before checking it out:
+    # no second remote HTTPS fetch and no mutation of the running checkout.
+    if [ "$source_mode" = fetched ]; then
+        if ! run_bounded_git -C "$destination" fetch --no-tags \
+            "$source_repo" "refs/remotes/origin/$BRANCH" >/dev/null 2>&1; then
+            echo "ordax-git: isolated checkout could not import cached candidate" >&2
+            rm -rf "$destination"
+            return 1
+        fi
+        staged_candidate=$(git -C "$destination" rev-parse FETCH_HEAD 2>/dev/null || true)
+        if [ "$staged_candidate" != "$expected_sha" ]; then
+            echo "ordax-git: isolated checkout candidate does not match verified main" >&2
+            rm -rf "$destination"
+            return 1
+        fi
+    fi
     git -C "$destination" config remote.origin.fetch "+refs/heads/$BRANCH:refs/remotes/origin/$BRANCH" || {
         rm -rf "$destination"
         return 1
@@ -494,6 +614,7 @@ replace_runtime_checkout() {
         return 1
     }
 
+    PULL_PHASE=atomic-switch
     if [ -e "$retired" ] || [ -L "$retired" ]; then
         echo "ordax-git: transaction retirement path already exists; refusing unsafe overwrite" >&2
         rm -rf "$stage"
@@ -525,6 +646,7 @@ replace_runtime_checkout() {
         return 1
     fi
 
+    PULL_PHASE=candidate-validation
     if ! checkout_metadata_valid "$WORKTREE" || ! checkout_is_clean "$WORKTREE"; then
         quarantine_interrupted_checkout "$WORKTREE" "$transaction_id" || {
             echo "ordax-git: checkout novo invalido e nao pode ser isolado; transacao preservada" >&2
@@ -541,6 +663,7 @@ replace_runtime_checkout() {
         return 1
     fi
 
+    PULL_PHASE=state-commit
     if is_sha "$old_sha" && [ "$old_sha" != "$expected_sha" ]; then
         write_state "$PREVIOUS_FILE" "$old_sha"
     fi
@@ -591,7 +714,21 @@ mkdir -p "$WORKSPACE_ROOT" "$STATE_DIR" "$RUN_DIR"
 if ! acquire_pull_lock; then
     exit 75
 fi
-trap 'release_pull_lock' EXIT
+# A failure after lock acquisition is classified at its last trusted phase.
+# Atomic rename avoids torn receipts; only fixed phase tokens are persisted.
+record_pull_exit() {
+    code=$1
+    # Cleanup runs on success, failure and catchable termination signals.
+    if [ -n "$REMOTE_STDERR_FILE" ]; then
+        rm -f "$REMOTE_STDERR_FILE"
+    fi
+    if [ "$code" -eq 0 ]; then
+        PULL_PHASE=completed
+    fi
+    write_state "$PULL_RESULT_FILE" "$PULL_PHASE" || true
+    release_pull_lock
+}
+trap 'record_pull_exit "$?"' EXIT
 trap 'exit 129' HUP
 trap 'exit 130' INT
 trap 'exit 143' TERM
@@ -611,7 +748,51 @@ if [ "$SEED_MODE" -eq 1 ]; then
     exit 0
 fi
 
-remote_sha=$(remote_main_sha || true)
+# A Supervisor-owned transaction arrives with an exact candidate SHA whose
+# tracking ref and Git objects were already fetched and checked by Supervisor.
+# It MUST NOT perform a second remote discovery: that races a moving main and
+# makes an otherwise complete delivery dependent on another HTTPS request.
+# A broken local handoff is a specific failure, not permission to rediscover.
+remote_sha=""
+SUPERVISOR_VERIFIED_CACHE=0
+if [ -n "$EXPECTED_SHA" ]; then
+    PULL_PHASE=handoff-validation
+    if ! checkout_metadata_valid "$WORKTREE"; then
+        PULL_PHASE="handoff-metadata-${CHECKOUT_METADATA_FAILURE:-unknown}"
+        echo "ordax-git: Supervisor handoff rejected: invalid checkout metadata ($PULL_PHASE)" >&2
+        exit 1
+    fi
+    cached_main=$(git -C "$WORKTREE" rev-parse "refs/remotes/origin/$BRANCH" 2>/dev/null || true)
+    if [ "$cached_main" != "$EXPECTED_SHA" ]; then
+        PULL_PHASE=handoff-ref-mismatch
+        echo "ordax-git: Supervisor handoff rejected: tracking ref differs from verified candidate" >&2
+        exit 1
+    fi
+    if ! run_bounded_git -C "$WORKTREE" cat-file -e "$EXPECTED_SHA^{commit}" >/dev/null 2>&1; then
+        PULL_PHASE=handoff-commit-unavailable
+        echo "ordax-git: Supervisor handoff rejected: candidate Git object is unavailable" >&2
+        exit 1
+    fi
+    remote_sha=$EXPECTED_SHA
+    SUPERVISOR_VERIFIED_CACHE=1
+    echo "ordax-git: usando candidato ja adquirido e fixado pelo Supervisor"
+else
+    # Standalone maintenance Pull has no Supervisor witness; in this mode
+    # remote discovery is owned by ordax-pull itself.
+    PULL_PHASE=remote-discovery
+    REMOTE_STDERR_FILE=$(umask 077; mktemp "$RUN_DIR/.pull-remote.XXXXXXXX") || {
+        echo "ordax-git: private remote diagnostic file unavailable; checkout local preserved" >&2
+        exit 1
+    }
+    if remote_sha=$(remote_main_sha "$REMOTE_STDERR_FILE"); then
+        :
+    else
+        PULL_PHASE=$(remote_failure_phase "$REMOTE_STDERR_FILE")
+        echo "ordax-git: remote discovery failed ($PULL_PHASE); checkout local preserved" >&2
+    fi
+    rm -f "$REMOTE_STDERR_FILE"
+    REMOTE_STDERR_FILE=
+fi
 
 if [ -z "$remote_sha" ]; then
     network_failure_hint
@@ -625,11 +806,6 @@ if [ -z "$remote_sha" ]; then
     fi
     exit 1
 fi
-if [ -n "$EXPECTED_SHA" ] && [ "$remote_sha" != "$EXPECTED_SHA" ]; then
-    echo "ordax-git: main mudou durante a transacao; checkout atual preservado" >&2
-    exit 1
-fi
-
 recovery_pinned=""
 recovery_rejected=""
 if [ "$AUTOMATIC_ROLLBACK_RECOVERY" -eq 1 ]; then
@@ -661,10 +837,15 @@ else
         echo "ordax-git: checkout local alterado; substituindo cache por clone limpo validado" >&2
         replace_runtime_checkout "$remote_sha" dirty || exit 1
     elif [ "$current" != "$remote_sha" ]; then
-        if ! run_bounded_git -C "$WORKTREE" fetch --no-tags origin \
-            "refs/heads/$BRANCH:refs/remotes/origin/$BRANCH" >/dev/null 2>&1; then
-            echo "ordax-git: fetch de verificacao falhou; checkout local preservado" >&2
-            exit 1
+        # Supervisor already fetched this exact tracking ref. A repeat fetch
+        # here would reintroduce a remote dependency and race against main.
+        if [ "$SUPERVISOR_VERIFIED_CACHE" -ne 1 ]; then
+            PULL_PHASE=remote-fetch
+            if ! run_bounded_git -C "$WORKTREE" fetch --no-tags origin \
+                "refs/heads/$BRANCH:refs/remotes/origin/$BRANCH" >/dev/null 2>&1; then
+                echo "ordax-git: fetch de verificacao falhou; checkout local preservado" >&2
+                exit 1
+            fi
         fi
         run_bounded_git -C "$WORKTREE" merge-base --is-ancestor "$current" "$remote_sha" >/dev/null 2>&1 || {
             echo "ordax-git: main remota nao e fast-forward do checkout local; substituicao bloqueada" >&2
@@ -695,5 +876,10 @@ if [ "$AUTOMATIC_ROLLBACK_RECOVERY" -eq 1 ]; then
 else
     rm -f "$PINNED_FILE"
 fi
+# Helper installation is a separate required activation gate. A failure may
+# happen after the Git swap and must report nonzero so the Supervisor does not
+# promote an incompletely installed version. The Supervisor reads the exact
+# active SHA and the bounded error phase instead of assuming checkout rollback.
+PULL_PHASE=helper-refresh
 refresh_dev_helpers "$current" || exit 1
 printf 'ORDAX_SOURCE_SHA=%s\n' "$current"

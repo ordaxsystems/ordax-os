@@ -5,6 +5,7 @@ on:
     paths:
       - 'bootstrap/independent-base/**'
       - '!bootstrap/independent-base/**/*.md'
+      - 'tests/test_independent_rootfs_inventory.py'
       - 'bootstrap/kernel/build.py'
       - 'bootstrap/kernel/verify.py'
       - 'bootstrap/kernel/verify_upstream_signature.py'
@@ -47,7 +48,7 @@ jobs:
             erofs-utils e2fsprogs util-linux qemu-system-x86
       - name: Verify isolated contract and regressions
         run: |
-          python3 -m unittest tests.test_independent_base_experiment tests.test_independent_network_parity -v
+          python3 -m unittest tests.test_independent_base_experiment tests.test_independent_network_parity tests.test_independent_rootfs_inventory -v
           python3 -m py_compile bootstrap/independent-base/build.py bootstrap/independent-base/qemu_proof.py
           sh -n bootstrap/independent-base/post-build.sh
           sh -n bootstrap/independent-base/overlay/sbin/ordax-independent-probe-init
@@ -105,6 +106,7 @@ jobs:
             cache_hit=false
           fi
           python3 bootstrap/independent-base/build.py verify --out "$base_dir"
+          python3 bootstrap/independent-base/verify_rootfs.py "$base_dir/rootfs.tar" > "$metadata/independent-rootfs-inventory.json"
           if [ "$cache_hit" = 'false' ]; then
             python3 tools/ci/portable_component_cache.py record \
               --component independent-base \
@@ -180,6 +182,7 @@ jobs:
             ${{ runner.temp }}/ordax-independent/rootfs.cpio.gz
             ${{ runner.temp }}/portable-v2-qemu/kernel/kernel-provenance.json
             ${{ runner.temp }}/portable-v2-qemu/metadata/independent-base-component-reuse.json
+            ${{ runner.temp }}/portable-v2-qemu/metadata/independent-rootfs-inventory.json
             ${{ runner.temp }}/portable-v2-qemu/metadata/kernel-component-reuse.json
             ${{ runner.temp }}/ordax-independent-qemu-result.json
             ${{ runner.temp }}/ordax-independent-qemu-result-serial/*.serial.log

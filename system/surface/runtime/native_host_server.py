@@ -14,7 +14,6 @@ import os
 import re
 import secrets
 import stat
-import subprocess
 import sys
 import threading
 import time
@@ -38,7 +37,7 @@ from native_local_ai_bridge import (
     PATHS as LOCAL_AI_BRIDGE_PATHS,
     forward_local_ai,
 )
-from native_account_gateway import NativeAccountGateway, NativeAccountGatewayError
+from native_account_gateway import NativeAccountGateway, NativeAccountGatewayError, verified_account_session_reply
 from native_component_slots import (
     COMPONENT_MODULE_PREFIX,
     ComponentSlotRequestError,
@@ -89,6 +88,9 @@ from display_outputs import DisplayOutputError, WaylandDisplayOutputProvider
 SESSION_PATH = "/__ordax/native/session"
 POWER_PATH = "/__ordax/native/power"
 UPDATE_PATH = "/__ordax/native/update"
+UPDATE_CHECK_PATH = "/__ordax/native/update-check"
+UPDATE_MANUAL_REQUEST_FILE = "/run/ordax-update/manual-check-request"
+UPDATE_TOKEN_HEADER = "X-OrdaX-Update-Token"
 HEALTH_PATH = "/__ordax/native/health"
 SURFACE_HEARTBEAT_PATH = "/__ordax/native/surface-heartbeat"
 CLIENT_DIAGNOSTIC_PATH = "/__ordax/native/client-diagnostic"
@@ -135,6 +137,15 @@ IMAGE_PREVIEW_PATH = "/__ordax/native/image-preview"
 MEDIA_PREVIEW_PATH = "/__ordax/native/media-preview"
 DOCUMENT_PREVIEW_PATH = "/__ordax/native/document-preview"
 FILE_IMPORT_PATH = "/__ordax/native/file-import"
+
+# All native user-file HTTP operations use the same host-owned local-session
+# admission lock. This closes the locked-Surface direct-fetch bypass without
+# creating a second filesystem service or pretending same-origin app isolation.
+USER_FILE_PATHS = frozenset({
+    FILES_PATH, TRASH_PATH, FILE_CONTENT_PATH, FILE_EXPORT_PATH,
+    IMAGE_PREVIEW_PATH, MEDIA_PREVIEW_PATH, DOCUMENT_PREVIEW_PATH,
+    FILE_IMPORT_PATH,
+})
 METRICS_PATH = "/__ordax/native/metrics"
 RECOVERY_STATUS_PATH = "/__ordax/native/recovery-status"
 POWER_STATUS_PATH = "/__ordax/native/power-status"
@@ -154,6 +165,7 @@ DEFAULT_STORE_CATALOG_ENVELOPE_PATH = "/var/lib/ordax/store/catalog-envelope.jso
 DEFAULT_STORE_CATALOG_WATERMARK_PATH = "/var/lib/ordax/store/catalog-watermark.json"
 DEFAULT_STORE_ARTIFACT_ROOT = DEFAULT_ARTIFACT_ROOT
 UPDATE_STATE_FILE = "/run/ordax-update/state.json"
+OWNER_USB_POWER_RECEIPTS = "/srv/ordax-power-receipts"
 HEALTH_STATE_FILE = "/run/ordax-update/healthy-sha"
 PREFERENCES_FILE = "/var/lib/ordax/preferences.json"
 KEYBOARD_LAYOUT_FILE = "/var/lib/ordax/keyboard-layout"
@@ -518,6 +530,146 @@ def queue_power_action(power_request_path: str, action: str) -> None:
         os.close(descriptor)
 
 
+def manual_update_request_pending(path: str = UPDATE_MANUAL_REQUEST_FILE) -> bool:
+    return os.path.isfile(path) and not os.path.islink(path)
+
+
+def queue_manual_update_check(path: str = UPDATE_MANUAL_REQUEST_FILE) -> bool:
+    """Queue the canonical Supervisor's next main check; never run Git here."""
+    parent = os.path.dirname(path)
+    if not os.path.isdir(parent) or os.path.islink(parent):
+        raise OSError("Supervisor update run directory unavailable")
+    try:
+        fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0), 0o600)
+    except FileExistsError:
+        if manual_update_request_pending(path):
+            return False
+        raise OSError("unsafe update request path")
+    try:
+        with os.fdopen(fd, "w", encoding="ascii") as handle:
+            handle.write("check-main\n")
+            handle.flush()
+            os.fsync(handle.fileno())
+    except BaseException:
+        try:
+            os.unlink(path)
+        except OSError:
+            pass
+        raise
+    return True
+
+
+# Native runtime is chrooted: the host /state/ordax is NOT its /ordax mount.
+# Surface owns a dedicated, verified read-only bind at /srv/ordax-power-receipts.
+# Never disclose boot IDs, timestamps, paths or logs through the update API.
+POWER_ACTION_TOKENS = frozenset(("restart", "shutdown"))
+POWER_REQUEST_STATUS_TOKENS = frozenset(("pending", "stopping", "syncing", "rebooting", "powering-off", "failed"))
+POWER_STAGE_TOKENS = frozenset(("accepted", "supervisor-quiesce", "host-agents", "filesystem-sync", "root-readonly"))
+POWER_FAILURE_TOKENS = frozenset(("supervisor-quiesce-failed", "host-agents-failed", "sync-failed", "remount-failed", "root-still-writable", "kernel-transition-returned"))
+
+# The Guardian already captured BusyBox mount stderr in an ephemeral log.
+# Extract a fixed diagnostic *category* from the existing shutdown attempt;
+# never return any untrusted log line, filesystem path or raw kernel output.
+OWNER_GUARDIAN_LOG = "/run/ordax-update/guardian.log"
+HOST_REMOUNT_ERROR_CODES = (
+    ("device-busy", ("device or resource busy", "target is busy", "mount point is busy", "mountpoint is busy")),
+    ("invalid-argument", ("invalid argument",)),
+    ("permission-denied", ("permission denied", "operation not permitted", "are you root")),
+    ("not-a-mountpoint", ("not a mountpoint", "not a mount point")),
+    ("unsupported-operation", ("operation not supported", "not supported")),
+    ("read-only-filesystem", ("read-only file system", "read only file system")),
+    ("missing-target", ("no such file or directory", "can't find", "not found")),
+)
+
+
+def read_guardian_remount_error(log_path: str = OWNER_GUARDIAN_LOG) -> str:
+    """Classify latest failed shutdown remount in existing, size-bounded log."""
+    try:
+        fd = os.open(log_path, os.O_RDONLY | os.O_CLOEXEC | os.O_NOFOLLOW)
+        with os.fdopen(fd, "rb") as stream:
+            details = os.fstat(stream.fileno())
+            if not stat.S_ISREG(details.st_mode):
+                return "unavailable"
+            stream.seek(max(0, details.st_size - 262144))
+            lines = stream.read(262144).decode("utf-8", "replace").splitlines()
+    except (OSError, ValueError):
+        return "unavailable"
+    target = "root filesystem could not be remounted read-only for shutdown"
+    for index in range(len(lines) - 1, -1, -1):
+        if target not in lines[index]:
+            continue
+        # Match only the error emitted in this exact attempt. The Guardian
+        # records the failed transition right after the mount command returns.
+        for line in reversed(lines[max(0, index - 15):index]):
+            lower = line.lower()
+            if "host power owner accepted shutdown" in lower:
+                break
+            if not lower.lstrip().startswith("mount:"):
+                continue
+            for code, phrases in HOST_REMOUNT_ERROR_CODES:
+                if any(phrase in lower for phrase in phrases):
+                    return code
+            return "unclassified-mount-error"
+        return "no-mount-error-output"
+    return "unavailable"
+
+
+
+
+def _read_owner_power_receipt(root: str, basename: str) -> str | None:
+    """Read a bounded, symlink-resistant local receipt, never arbitrary logs."""
+    if basename not in ("last-request", "last-stage", "last-failure"):
+        raise ValueError("unsupported host power receipt")
+    try:
+        fd = os.open(
+            os.path.join(root, basename),
+            os.O_RDONLY | os.O_CLOEXEC | os.O_NOFOLLOW,
+        )
+        with os.fdopen(fd, "rb") as handle:
+            details = os.fstat(handle.fileno())
+            if not stat.S_ISREG(details.st_mode) or details.st_size > 128:
+                return None
+            content = handle.read(129)
+    except OSError:
+        return None
+    if len(content) > 128 or not content.endswith(b"\n") or content.count(b"\n") != 1:
+        return None
+    try:
+        return content[:-1].decode("ascii")
+    except UnicodeError:
+        return None
+
+
+def read_owner_usb_power_receipts(root: str = OWNER_USB_POWER_RECEIPTS, *, log_path: str = OWNER_GUARDIAN_LOG) -> dict[str, str]:
+    """Return only canonical status enums of the last physical power request."""
+    result = {
+        "lastAction": "unavailable",
+        "lastStatus": "unavailable",
+        "lastStage": "unavailable",
+        "lastFailure": "unavailable",
+        "lastMountError": "unavailable",
+    }
+    request = _read_owner_power_receipt(root, "last-request")
+    if request is not None:
+        fields = request.split("|")
+        if len(fields) == 4:
+            action, _boot_id, _epoch, status = fields
+            result["lastAction"] = action if action in POWER_ACTION_TOKENS else "unknown"
+            result["lastStatus"] = status if status in POWER_REQUEST_STATUS_TOKENS else "unknown"
+        else:
+            result["lastAction"] = "unknown"
+            result["lastStatus"] = "unknown"
+    stage = _read_owner_power_receipt(root, "last-stage")
+    if stage is not None:
+        result["lastStage"] = stage if stage in POWER_STAGE_TOKENS else "unknown"
+    failure = _read_owner_power_receipt(root, "last-failure")
+    if failure is not None:
+        result["lastFailure"] = failure if failure in POWER_FAILURE_TOKENS else "unknown"
+    if result["lastAction"] == "shutdown" and result["lastFailure"] == "remount-failed":
+        result["lastMountError"] = read_guardian_remount_error(log_path)
+    return result
+
+
 def read_update_state() -> dict | None:
     try:
         with open(UPDATE_STATE_FILE, "r", encoding="utf-8") as handle:
@@ -805,9 +957,9 @@ def write_first_run_cursor(value: dict) -> None:
 
 
 def valid_first_run_state(value: object) -> bool:
-    if not isinstance(value, dict) or set(value) != {
+    if not isinstance(value, dict) or set(value) not in ({
         "schema", "completed", "locale", "timeZone", "accountMode"
-    }:
+    }, {"schema", "completed", "locale", "timeZone", "accountMode", "systemTerms"}):
         return False
     if value.get("schema") != "ordax.first-run-state/1":
         return False
@@ -817,6 +969,15 @@ def valid_first_run_state(value: object) -> bool:
         return False
     if value.get("timeZone") not in FIRST_RUN_TIME_ZONES:
         return False
+    if "systemTerms" in value:
+        terms = value["systemTerms"]
+        if (value["completed"] is not True or not isinstance(terms, dict)
+                or set(terms) != {"documentId", "version", "status", "accepted"}
+                or terms.get("documentId") != "ordax-os-terms"
+                or terms.get("status") != "draft" or terms.get("accepted") is not True
+                or not isinstance(terms.get("version"), str)
+                or re.fullmatch(r"draft-[A-Za-z0-9._-]{1,64}", terms["version"]) is None):
+            return False
     account_mode = value.get("accountMode")
     if value["completed"]:
         return account_mode in FIRST_RUN_ACCOUNT_MODES
@@ -1873,16 +2034,27 @@ def network_broker_paths(session_dir: str) -> dict[str, str]:
 
 
 def network_broker_available(paths: dict[str, str]) -> bool:
+    # A FIFO may remain on disk after its broker process exits. Advertise the
+    # capability only while the real broker has opened the read end.
     try:
-        metadata = os.stat(paths["control"])
+        descriptor = os.open(
+            paths["control"],
+            os.O_WRONLY
+            | os.O_NONBLOCK
+            | getattr(os, "O_CLOEXEC", 0)
+            | getattr(os, "O_NOFOLLOW", 0),
+        )
     except OSError:
         return False
-    return (
-        stat.S_ISFIFO(metadata.st_mode)
-        and metadata.st_uid == os.geteuid()
-        and stat.S_IMODE(metadata.st_mode) == 0o600
-        and os.access(paths["control"], os.W_OK)
-    )
+    try:
+        metadata = os.fstat(descriptor)
+        return (
+            stat.S_ISFIFO(metadata.st_mode)
+            and metadata.st_uid == os.geteuid()
+            and stat.S_IMODE(metadata.st_mode) == 0o600
+        )
+    finally:
+        os.close(descriptor)
 
 
 def _read_bounded_bytes(path: str, max_bytes: int) -> bytes:
@@ -3456,6 +3628,8 @@ class NativeHostServer(ThreadingHTTPServer):
         )
         self.diagnostic_token = secrets.token_urlsafe(32)
         self.health_token = secrets.token_urlsafe(32)
+        self.manual_update_token = secrets.token_urlsafe(32)
+        self.manual_update_lock = threading.Lock()
         self.power_request_path = power_request_path
         self.network_paths = network_broker_paths(network_session_dir)
         self.network_lock = threading.Lock()
@@ -3809,7 +3983,35 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
         # native control/state APIs through browser preflight.
         self._empty(405)
 
+    def _serve_unlocked_user_file_request(self, handler) -> None:
+        """Hold the session lock through completion, not just an entry check.
+
+        A lock transition waits for admitted I/O to finish; a request that
+        arrives while locked cannot read, import or mutate user files.
+        This does NOT make same-origin app JavaScript a separate principal.
+        """
+        if self.client_address[0] != "127.0.0.1":
+            self._empty(403)
+            return
+        with self.server.local_session_lock:
+            if self.server.local_session_locked:
+                self._empty(423)
+                return
+            handler()
+
+    def do_HEAD(self) -> None:  # noqa: N802
+        if urlsplit(self.path).path in USER_FILE_PATHS:
+            self._serve_unlocked_user_file_request(lambda: self._empty(405))
+            return
+        super().do_HEAD()
+
     def do_GET(self) -> None:  # noqa: N802
+        if urlsplit(self.path).path in USER_FILE_PATHS:
+            self._serve_unlocked_user_file_request(self._do_GET)
+            return
+        self._do_GET()
+
+    def _do_GET(self) -> None:
         parsed_path = urlsplit(self.path).path
         if parsed_path == PRODUCT_CONNECTOR_SETTINGS_PATH:
             if urlsplit(self.path).query or self.client_address[0] != "127.0.0.1":
@@ -4396,6 +4598,15 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
                 update_state = dict(update_state)
                 status = 200
             update_state["healthToken"] = self.server.health_token
+            owner_usb = (
+                self.server.distribution_profile == "owner-development"
+                and self.server.product_mode == "usb"
+            )
+            update_state["manualCheckAvailable"] = owner_usb
+            update_state["manualCheckPending"] = owner_usb and manual_update_request_pending()
+            update_state["manualCheckToken"] = self.server.manual_update_token if owner_usb else ""
+            if owner_usb:
+                update_state["hostPower"] = read_owner_usb_power_receipts()
             self._write_json(status, update_state)
             return
         if self.path == PREFERENCES_PATH:
@@ -4522,11 +4733,47 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
         super().do_GET()
 
     def do_POST(self) -> None:  # noqa: N802
+        if urlsplit(self.path).path in USER_FILE_PATHS:
+            self._serve_unlocked_user_file_request(self._do_POST)
+            return
+        self._do_POST()
+
+    def _do_POST(self) -> None:
         if self.client_address[0] != "127.0.0.1":
             self._empty(403)
             return
 
         parsed_path = urlsplit(self.path).path
+        if parsed_path == UPDATE_CHECK_PATH:
+            if self.path != UPDATE_CHECK_PATH:
+                self._empty(400)
+                return
+            if (self.server.distribution_profile != "owner-development"
+                    or self.server.product_mode != "usb"):
+                self._empty(404)
+                return
+            if not hmac.compare_digest(
+                self.headers.get(UPDATE_TOKEN_HEADER, ""),
+                self.server.manual_update_token,
+            ):
+                self._empty(403)
+                return
+            body = self._read_json_body(MAX_CONTROL_BODY)
+            if not isinstance(body, dict) or set(body) != {"action"} or body.get("action") != "check-main":
+                self._empty(400)
+                return
+            try:
+                with self.server.manual_update_lock:
+                    queued = queue_manual_update_check()
+            except OSError as exc:
+                print(f"ordax-native-host: update check queue unavailable: {exc}", file=sys.stderr, flush=True)
+                self._empty(503)
+                return
+            self._write_json(202, {
+                "schema": "ordax.owner-manual-update-request/1",
+                "state": "queued" if queued else "pending",
+            })
+            return
         if parsed_path == PRODUCT_CONNECTOR_SETTINGS_PATH:
             if urlsplit(self.path).query:
                 self._empty(400)
@@ -4641,10 +4888,13 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
                         self._empty(reply.status)
                         return
                     session_reply = self.server.account_gateway.session()
-                    session_payload = json.loads(session_reply.body.decode("utf-8"))
-                    if not isinstance(session_payload, dict):
-                        raise ValueError("invalid session payload")
-                    if parsed_path == ACCOUNT_REGISTER_PATH and not session_payload.get("authenticated"):
+                    session_payload = verified_account_session_reply(
+                        session_reply,
+                        allow_anonymous=(parsed_path == ACCOUNT_REGISTER_PATH),
+                    )
+                    if not session_payload["authenticated"]:
+                        # Registration is an explicit email-confirmation state,
+                        # never a signed-in identity.
                         session_payload["confirmationRequired"] = True
                         self._write_json(202, session_payload)
                     else:
@@ -5001,7 +5251,7 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
                 print(f"ordax-native-host: display output action unavailable: {message}", file=sys.stderr, flush=True)
                 self._empty(status)
                 return
-            except (OSError, RuntimeError, subprocess.SubprocessError, ValueError) as exc:
+            except Exception as exc:
                 print(f"ordax-native-host: display output action failed safely: {exc}", file=sys.stderr, flush=True)
                 self._empty(503)
                 return

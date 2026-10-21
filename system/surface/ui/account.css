@@ -322,30 +322,6 @@
   line-height: 1.4;
 }
 
-@media (max-width: 760px) {
-  .ordax-account-header,
-  .ordax-account-section {
-    padding: 18px;
-  }
-
-  .ordax-account-navigation {
-    padding: 7px 10px;
-  }
-
-  .ordax-account-section-heading {
-    align-items: stretch;
-    flex-direction: column;
-  }
-
-  .ordax-account-status {
-    align-self: flex-start;
-  }
-
-  .ordax-account-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
 .ordax-account-action[href] {
   display: inline-flex;
   align-items: center;
@@ -593,25 +569,6 @@
   margin-top: 12px;
 }
 
-@media (max-width: 760px) {
-  .ordax-memory-review-create {
-    grid-template-columns: 1fr;
-  }
-
-  .ordax-memory-review-actions,
-  .ordax-memory-review-pagination {
-    justify-content: stretch;
-  }
-
-  .ordax-memory-review-save,
-  .ordax-memory-review-remove,
-  .ordax-memory-review-remove-confirm,
-  .ordax-memory-review-remove-cancel,
-  .ordax-memory-review-page {
-    flex: 1 1 auto;
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
   .ordax-account-navigation-item,
   .ordax-account-action,
@@ -685,7 +642,6 @@
   margin: 1px 0 0;
   accent-color: var(--ordax-accent);
 }
-
 
 /* Workspaces and professional Profile Packs are catalog views, not mock dashboards. */
 .ordax-app-extension[data-account-active-section="spaces"] .ordax-account-grid,
@@ -774,14 +730,6 @@
 .ordax-account-profile-card[data-availability="blocked"] {
   opacity: 0.78;
 }
-
-@media (max-width: 760px) {
-  .ordax-account-space-card,
-  .ordax-account-profile-card {
-    min-height: 170px;
-  }
-}
-
 
 .ordax-account-space-metrics {
   display: grid;

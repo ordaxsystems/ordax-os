@@ -49,6 +49,7 @@ AUTHORIZATION_CONTEXT_PATTERNS = (
     "system/contracts/local-session.mjs",
     "system/contracts/preference-runtime.mjs",
     "system/services/preferences/memory.mjs",
+    "system/services/preferences/catalog.mjs",
     "system/services/memory/assistant-auto-capture.mjs",
     "system/adapters/native/local-session.mjs",
     "system/contracts/recovery-status.mjs",

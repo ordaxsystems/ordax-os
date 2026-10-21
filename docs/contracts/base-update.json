@@ -293,8 +293,8 @@
     "seed_media_agent_must_be_recognized_migration_source": true,
     "refresh_target_may_advance_without_physical_media_rewrite": true,
     "current_seed_sha256": "550df685679f1bf15a636729960fe6fc3ffc1afda1a346214ce96716f7170a66",
-    "current_refresh_target_sha256": "444e428d33bd4f3c6ef6d3f0ef403cde43e8e31be85369ce3604178d11dfbabd",
-    "previous_refresh_target_sha256": "e18c4e7eb4b4b73f49e1bf8c1d051e3253789fb6e1b422cebd8db9a74740f2af",
+    "current_refresh_target_sha256": "56c02520fd81d390d6c2d2269aa05be02d6bef68dfba67bead8ad481b983f43b",
+    "previous_refresh_target_sha256": "444e428d33bd4f3c6ef6d3f0ef403cde43e8e31be85369ce3604178d11dfbabd",
     "previous_refresh_target_refreshes_without_physical_media_rewrite": true,
     "current_seed_includes_inspect": true,
     "legacy_seed_sha256": [

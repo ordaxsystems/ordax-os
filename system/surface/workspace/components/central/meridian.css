@@ -100,39 +100,24 @@
 @container store-host (max-width:480px) { .meridian-store-context {padding:10px;gap:8px;flex-wrap:wrap;}.meridian-store-context small {font-size:0.5625rem;} }
 @media(prefers-reduced-motion:reduce) { .meridian-home * {scroll-behavior:auto!important;transition:none!important;} }
 
-.meridian-workspace .desktop-task[data-pinned=true] {background:transparent;box-shadow:none;border-color:transparent;}
-.meridian-workspace .desktop-task {flex-shrink:0;}
-
-.meridian-workspace .desktop-task[data-pinned=true]::after {display:none;}
-
 /* Full Meridian chrome: context rail, persistent topbar and a centered icon dock. */
 .window-workspace.meridian-workspace[data-view=central] {--workspace-rail:var(--md-rail-width);--sidebar-visual-width:var(--md-rail-width);--running-track:calc(var(--md-dock) + env(safe-area-inset-bottom));}
 .window-workspace.meridian-workspace[data-view=desktop] {--workspace-rail:var(--md-rail-compact);--sidebar-visual-width:var(--md-rail-compact);--running-track:calc(var(--md-dock) + env(safe-area-inset-bottom));}
 .meridian-workspace .os-shell {display:flex;flex-direction:column;}
 .meridian-workspace .central-presentation .os-main {height:auto;flex:1;min-height:0;}
-.meridian-workspace[data-view=central] .workspace-windows {top:var(--md-bar);}
-.meridian-planned-indicator {display:flex;align-items:center;gap:6px;font-size:0.5625rem;color:var(--md-muted);white-space:nowrap;}.meridian-planned-indicator i {width:4px;height:4px;border-radius:50%;background:var(--md-accent);}
-.meridian-workspace .meridian-taskbar {display:grid;grid-template-columns:minmax(85px,1fr) minmax(0,auto) minmax(85px,1fr);align-items:center;gap:16px;padding:0 20px max(0px,env(safe-area-inset-bottom));background:var(--md-surface);border-top:1px solid var(--md-border);}
-.meridian-taskbar-start,.meridian-taskbar-end {display:flex;align-items:center;gap:7px;min-width:0;}.meridian-taskbar-end {justify-content:flex-end;}
-.meridian-taskbar-start>button,.meridian-taskbar-end>button {display:flex;align-items:center;justify-content:center;gap:6px;flex-shrink:0;height:var(--md-dock-control-size);min-width:var(--md-dock-control-size);padding:0 8px;border:0;border-radius:9px;background:transparent;color:var(--md-muted);cursor:pointer;font:inherit;font-size:0.625rem;}
-.meridian-taskbar-start [data-workspace-switch] {background:var(--md-subtle);color:var(--md-ink);}.meridian-taskbar-start button:hover,.meridian-taskbar-end button:hover {background:var(--md-subtle);color:var(--md-ink);}
+.meridian-taskbar-start>button,.meridian-taskbar-end>button {display:flex;align-items:center;justify-content:center;gap:6px;flex-shrink:0;height:var(--md-dock-control-size);min-width:var(--md-dock-control-size);padding:0 8px;border:0;background:transparent;color:var(--md-muted);cursor:pointer;font:inherit;font-size:0.625rem;}
 .meridian-dock-frame {position:relative;min-width:0;max-width:100%;}
-.meridian-workspace .meridian-dock {display:flex;align-items:center;gap:var(--md-dock-item-gap);padding:2px 0;max-width:100%;width:max-content;border:0;border-radius:0;background:transparent;box-shadow:none;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;overscroll-behavior-x:contain;touch-action:pan-x;}
-.meridian-dock::-webkit-scrollbar {display:none;}
-.meridian-workspace .meridian-dock .desktop-task {display:grid;place-items:center;position:relative;width:var(--md-dock-control-size);min-width:var(--md-dock-control-size);max-width:var(--md-dock-control-size);height:var(--md-dock-control-size);padding:0 4px;border:1px solid transparent;border-radius:10px;background:transparent;color:var(--md-ink);box-shadow:none;}
-.meridian-workspace .meridian-dock .desktop-task .app-icon {display:grid;place-items:center;width:var(--md-dock-icon-size);height:var(--md-dock-icon-size);border-radius:8px;box-shadow:none;}.meridian-dock .app-icon svg {width:21px;height:21px;stroke-width:1.65;}
+.meridian-workspace .meridian-dock {display:flex;align-items:center;padding:2px 0;max-width:100%;width:max-content;border:0;border-radius:0;background:transparent;box-shadow:none;overflow-x:auto;overflow-y:hidden;touch-action:pan-x;}
 .meridian-workspace .meridian-dock .meridian-dock-label {display:none!important;}
-.meridian-workspace .meridian-dock .desktop-task[data-active=true] {border-color:var(--md-accent);background:var(--md-accent-soft);}
-.meridian-workspace .meridian-dock .desktop-task::after {width:4px;height:3px;left:calc(50% - 2px);bottom:2px;background:var(--md-accent);border-radius:50%;}
-.meridian-workspace .meridian-dock .desktop-task[data-active=true]::after {width:14px;left:calc(50% - 7px);border-radius:3px;}
-.meridian-workspace .meridian-dock .desktop-task[data-minimized=true] {border-bottom:1px solid transparent;}.meridian-workspace .meridian-dock .desktop-task[data-minimized=true]::after {background:transparent;border:1px solid var(--md-muted);height:4px;width:5px;}
 .meridian-dock-edge {position:absolute;top:6px;bottom:6px;width:14px;display:none;place-items:center;pointer-events:none;background:var(--md-surface);color:var(--md-muted);font-size:1.25rem;}.meridian-dock-edge.start {left:1px;border-radius:10px 0 0 10px;}.meridian-dock-edge.end {right:1px;border-radius:0 10px 10px 0;}.meridian-dock-frame[data-start=true] .start,.meridian-dock-frame[data-end=true] .end {display:grid;}
 .meridian-navigation-menu {left:calc(var(--workspace-rail) + 20px)!important;bottom:calc(var(--md-dock) + 8px)!important;width:min(420px,calc(100% - var(--workspace-rail) - 40px))!important;border-radius:16px;background:var(--md-surface);border-color:var(--md-border);}
 .meridian-navigation-menu .desktop-menu-search {margin:18px 0 10px;background:var(--md-subtle);border-radius:9px;}
 .meridian-navigation-menu .desktop-menu-apps {max-height:min(430px,55dvh);overflow:auto;}
 @media(max-width:1150px) {.window-workspace.meridian-workspace[data-view=central] {--workspace-rail:var(--md-rail-responsive);--sidebar-visual-width:var(--md-rail-responsive);} }
 @media(max-width:950px) {.window-workspace.meridian-workspace[data-view=central] {--workspace-rail:var(--md-rail-compact);--sidebar-visual-width:var(--md-rail-compact);}.meridian-workspace .meridian-taskbar {padding-inline:12px;gap:10px;grid-template-columns:auto minmax(0,auto) 65px;}.meridian-dock-search {display:none!important;}.meridian-taskbar-end>button:first-child {display:none;} }
-@media(max-width:600px) {.window-workspace.meridian-workspace[data-view] {--workspace-rail:0px;--sidebar-visual-width:0px;}.meridian-workspace[data-view=central] .workspace-windows {top:var(--md-bar);}.meridian-workspace .meridian-taskbar {grid-template-columns:74px minmax(0,1fr) 32px;gap:6px;padding-inline:8px;}.meridian-taskbar-start {gap:2px;}.meridian-taskbar-start>button {padding:0;width:34px;min-width:34px;}.meridian-taskbar-end>button {padding:0;width:30px;min-width:30px;}.meridian-taskbar-end span {display:none;}.meridian-workspace .meridian-dock {width:auto;padding-inline:6px;}.meridian-navigation-menu {left:10px!important;width:calc(100% - 20px)!important;bottom:calc(var(--md-dock) + 4px)!important;} }
+@media(max-width:600px) {.window-workspace.meridian-workspace[data-view] {--workspace-rail:0px;--sidebar-visual-width:0px;}.meridian-workspace .meridian-taskbar {grid-template-columns:74px minmax(0,1fr) 32px;gap:6px;padding-inline:8px;}.meridian-taskbar-start {gap:2px;}.meridian-taskbar-start>button {padding:0;width:34px;min-width:34px;}.meridian-taskbar-end>button {padding:0;width:30px;min-width:30px;}.meridian-taskbar-end span {display:none;}.meridian-workspace .meridian-dock {width:auto;padding-inline:6px;}.meridian-navigation-menu {left:10px!important;width:calc(100% - 20px)!important;bottom:calc(var(--md-dock) + 4px)!important;} }
+@media(max-width:600px) {.meridian-workspace {--md-dock:4.5rem;} }
+@media(max-width:760px) {.meridian-workspace {--md-desktop-shortcut-inset:.625rem;--md-desktop-shortcut-cell:5rem;--md-desktop-shortcut-gap:.125rem;--md-desktop-shortcut-icon:2.25rem;} }
 
 .meridian-profile-catalog {margin-top:24px;border-top:1px solid var(--md-border);padding-top:20px;}
 .meridian-profile-catalog article {margin-top:16px;padding:18px;border:1px solid var(--md-border);border-radius:14px;background:var(--md-surface);}

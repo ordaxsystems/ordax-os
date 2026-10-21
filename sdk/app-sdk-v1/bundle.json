@@ -253,7 +253,7 @@
       "major": 1,
       "name": "identity-session",
       "schema": "ordax.identity-session/1",
-      "source_git_blob": "42de971e341fa746e2e2383120b3132b6f8e913b",
+      "source_git_blob": "1a4d6ceb7aaab482fb77712b3c6bc5a3cf36e5ba",
       "source_path": "system/contracts/identity-session.mjs"
     },
     {
