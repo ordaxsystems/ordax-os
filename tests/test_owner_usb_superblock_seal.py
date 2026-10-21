@@ -270,6 +270,18 @@ if owner_usb_all_root_mounts_read_only; then
     echo BAD_PRE_SEAL_PROOF
     exit 30
 fi
+# This reproduces the kernel's real writable FD mount hold. Closing the
+# descriptor, not retrying/ignoring EBUSY, makes the seal eligible again.
+exec 9>"$scratch/state/held-open-writer"
+if "$MOUNTATTR_BIN" alias-ro "$scratch/state" >"$scratch/expected-busy.log" 2>&1; then
+    echo HELD_WRITER_UNEXPECTEDLY_ALLOWED_READONLY >&2
+    exit 36
+fi
+grep -q 'Resource busy' "$scratch/expected-busy.log" || {
+    cat "$scratch/expected-busy.log" >&2
+    exit 37
+}
+exec 9>&-
 owner_usb_seal_root_for_power || { echo FIRST_SEAL_STAGE=$OWNER_USB_SEAL_FAILURE_STAGE >&2; cat "$GUARDIAN_LOG" >&2; exit 31; }
 owner_usb_all_root_mounts_read_only || exit 32
 owner_usb_restore_root_after_abort || exit 33
