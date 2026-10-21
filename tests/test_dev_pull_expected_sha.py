@@ -160,16 +160,46 @@ class DevPullExpectedShaTests(unittest.TestCase):
         self.assertEqual(run_git("rev-parse", "HEAD", cwd=self.worktree), second)
         self.assertEqual((self.worktree / "system" / "marker.txt").read_text().strip(), "two")
         self.assertIn("tracking ref differs from verified candidate", completed.stderr)
-        self.assertEqual((self.run_dir / "pull-result").read_text().strip(), "handoff-validation")
+        self.assertEqual((self.run_dir / "pull-result").read_text().strip(), "handoff-ref-mismatch")
 
     def test_missing_supervisor_fetch_is_specific_handoff_error_not_remote_retry(self):
         second = self._publish("two")
         completed = self._pull(second)
         self.assertNotEqual(completed.returncode, 0)
-        self.assertEqual((self.run_dir / "pull-result").read_text().strip(), "handoff-validation")
+        self.assertEqual((self.run_dir / "pull-result").read_text().strip(), "handoff-ref-mismatch")
         self.assertIn("tracking ref differs from verified candidate", completed.stderr)
         self.assertEqual(run_git("rev-parse", "HEAD", cwd=self.worktree), self.first)
         self.assertFalse((self.state / "current-commit").exists())
+
+
+    def test_supervisor_handoff_reports_origin_mismatch_without_refetch(self):
+        second = self._publish("two")
+        self._supervisor_fetch()
+        run_git("remote", "set-url", "origin", self.root.joinpath("wrong.git").as_uri(), cwd=self.worktree)
+        completed = self._pull(second)
+        self.assertNotEqual(completed.returncode, 0)
+        self.assertIn("invalid checkout metadata", completed.stderr)
+        self.assertEqual((self.run_dir / "pull-result").read_text().strip(), "handoff-metadata-origin")
+        self.assertEqual(run_git("rev-parse", "HEAD", cwd=self.worktree), self.first)
+
+    def test_supervisor_handoff_reports_wrong_branch_without_mutation(self):
+        second = self._publish("two")
+        self._supervisor_fetch()
+        run_git("checkout", "-b", "temporary-fixture", cwd=self.worktree)
+        completed = self._pull(second)
+        self.assertNotEqual(completed.returncode, 0)
+        self.assertEqual((self.run_dir / "pull-result").read_text().strip(), "handoff-metadata-branch")
+        self.assertEqual(run_git("rev-parse", "HEAD", cwd=self.worktree), self.first)
+
+    def test_supervisor_handoff_reports_missing_entrypoint_without_mutation(self):
+        second = self._publish("two")
+        self._supervisor_fetch()
+        (self.worktree / "system" / "entrypoint").chmod(0o644)
+        completed = self._pull(second)
+        self.assertNotEqual(completed.returncode, 0)
+        self.assertEqual((self.run_dir / "pull-result").read_text().strip(), "handoff-metadata-entrypoint")
+        self.assertEqual(run_git("rev-parse", "HEAD", cwd=self.worktree), self.first)
+
 
 
 if __name__ == "__main__":
