@@ -132,7 +132,7 @@ class OwnerDevelopmentMediaIdentityTests(unittest.TestCase):
 
     def test_corrupt_owner_ext4_is_identified_without_writable_mount(self):
         """Exercise real PID1 discovery against disposable sysfs fixtures."""
-        function = INIT.split("discover_owner_development_device() {\\n", 1)[1].split("\\n}\\n", 1)[0]
+        function = INIT.split("discover_owner_development_device() {\n", 1)[1].split("\n}\n", 1)[0]
         self.assertIn('ORDAX_ROOT_PROBE_FAILED=0', function)
         self.assertIn('root_probe_ok=0', function)
         self.assertIn('ORDAX_DEVICE="/dev/$name"', function)
@@ -145,17 +145,17 @@ class OwnerDevelopmentMediaIdentityTests(unittest.TestCase):
             cls.mkdir(parents=True)
             disk = block / "sdb"
             disk.mkdir(parents=True)
-            (disk / "removable").write_text("1\\n", encoding="ascii")
-            (disk / "dev").write_text("8:16\\n", encoding="ascii")
+            (disk / "removable").write_text("1\n", encoding="ascii")
+            (disk / "dev").write_text("8:16\n", encoding="ascii")
             for index in (1, 2):
                 part = disk / f"sdb{index}"
                 part.mkdir()
-                (part / "partition").write_text(f"{index}\\n", encoding="ascii")
+                (part / "partition").write_text(f"{index}\n", encoding="ascii")
                 (cls / part.name).symlink_to(os.path.relpath(part, cls))
 
             # The ext4 read-only mount fails; the sibling ESP succeeds.
             # No writable operation is available in this shell fixture.
-            script = "\\n".join((
+            script = "\n".join((
                 "set -eu",
                 "blkid() { case \"$1\" in",
                 " */sdb1) echo 'LABEL=\"ORDAX-ESP\"' ;;",
@@ -166,7 +166,7 @@ class OwnerDevelopmentMediaIdentityTests(unittest.TestCase):
                 function.replace("/sys/class/block/*", str(cls) + "/*"),
                 "}",
                 "discover_owner_development_device",
-                "printf '%s|%s|%s\\n' \"$ORDAX_DEVICE_MATCHES\" \"$ORDAX_DEVICE\" \"$ORDAX_ROOT_PROBE_FAILED\"",
+                "printf '%s|%s|%s\n' \"$ORDAX_DEVICE_MATCHES\" \"$ORDAX_DEVICE\" \"$ORDAX_ROOT_PROBE_FAILED\"",
             ))
             run = subprocess.run(["sh", "-c", script], text=True, capture_output=True, timeout=8)
             self.assertEqual(run.returncode, 0, run.stderr)
