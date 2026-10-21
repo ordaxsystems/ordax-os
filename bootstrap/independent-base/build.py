@@ -948,6 +948,48 @@ def build_native_python_component(out: Path, cache: Path, jobs: int) -> dict:
         shutil.rmtree(temp, ignore_errors=True)
 
 
+def verify_native_python_receipt(out: Path) -> dict:
+    """Validate component ABI evidence; never mistake it for an installable ELF."""
+    source, kernel, _, _ = contracts()
+    path = out / "native-python-provenance.json"
+    if path.is_symlink() or not path.is_file():
+        raise BaseError("private Python ABI receipt unavailable")
+    receipt = json.loads(path.read_text(encoding="utf-8"))
+    expected_inputs = source["component_profiles"][NATIVE_COMPONENT_PROFILE]
+    if (receipt.get("$schema") != "ordax.private-native-python-build-proof/1"
+            or receipt.get("status") != "build-proof-only"
+            or receipt.get("buildroot_sha256") != source["buildroot"]["sha256"]
+            or receipt.get("kernel_source_version") != kernel["version"]
+            or receipt.get("component_inputs", {}).get("component") != NATIVE_COMPONENT_PROFILE
+            or receipt.get("component_inputs", {}).get("source_owner") != expected_inputs["source_owner"]
+            or receipt.get("component_inputs", {}).get("base_defconfig_sha256") != digest(BASE_DEFCONFIG)
+            or receipt.get("component_inputs", {}).get("fragment_sha256") != digest(NATIVE_COMPONENT_FRAGMENT)):
+        raise BaseError("private Python ABI receipt does not match canonical source")
+    abi = receipt.get("python_abi")
+    if (not isinstance(abi, dict)
+            or not re.fullmatch(r"usr/bin/python3\.\d+", abi.get("python_executable", ""))
+            or not re.fullmatch(r"usr/lib/python3\.\d+", abi.get("stdlib", ""))
+            or not HASH.fullmatch(str(abi.get("python_sha256", "")))
+            or not HASH.fullmatch(str(abi.get("elf_manifest_sha256", "")))
+            or type(abi.get("compiled_elf_count")) is not int
+            or abi["compiled_elf_count"] < 1
+            or abi.get("required_interpreter") != "/lib/ld-musl-x86_64.so.1"
+            or abi.get("stdlib_ssl_zlib_verified") is not True
+            or not isinstance(abi.get("needed_shared_libraries"), list)
+            or not all(isinstance(lib, str) and re.fullmatch(r"[A-Za-z0-9_.+-]+", lib)
+                       for lib in abi["needed_shared_libraries"])):
+        raise BaseError("private Python ABI closure receipt invalid")
+    for key in ("runtime_agent_packaged", "component_artifact_authorized",
+                "device_install_authorized", "base_rootfs_modified"):
+        if receipt.get(key) is not False:
+            raise BaseError("private Python build proof has unsafe promotion flag")
+    for key in ("runtime_agent_packaged", "component_install_authorized",
+                "device_execution_proven"):
+        if abi.get(key) is not False:
+            raise BaseError("private Python ABI falsely claims executable readiness")
+    return receipt
+
+
 def build(out: Path, cache: Path, jobs: int, profile: str) -> dict:
     source, kernel, stable, network = contracts()
     out = out.resolve()
@@ -1103,7 +1145,7 @@ def verify(out: Path, profile: str) -> dict:
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("action", choices=("check", "resolve", "build", "verify", "check-component", "resolve-component", "build-component"))
+    parser.add_argument("action", choices=("check", "resolve", "build", "verify", "check-component", "resolve-component", "build-component", "verify-component"))
     parser.add_argument("--profile", choices=SUPPORTED_PROFILES, default="minimal")
     parser.add_argument("--out", type=Path)
     parser.add_argument("--cache", type=Path, default=Path("/tmp/ordax-independent-cache"))
@@ -1124,6 +1166,10 @@ def main() -> int:
                 raise BaseError("--out required for component proof")
             print(json.dumps(build_native_python_component(
                 args.out, args.cache, args.jobs), sort_keys=True))
+        elif args.action == "verify-component":
+            if args.out is None:
+                raise BaseError("--out required for component proof")
+            print(json.dumps(verify_native_python_receipt(args.out), sort_keys=True))
         elif args.action == "check":
             source, kernel, stable, network = contracts()
             inputs = profile_inputs(source, args.profile)
