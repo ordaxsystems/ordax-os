@@ -6,6 +6,7 @@ import tarfile
 import json
 import tempfile
 import unittest
+from unittest.mock import patch
 import urllib.error
 
 
@@ -127,6 +128,89 @@ def write_provenance_fixture(root: Path, source_commit: str = SOURCE):
 
 
 class DevBaseProducerTests(unittest.TestCase):
+    @unittest.skipUnless(os.name == "posix", "requires POSIX executable bits")
+    def test_reused_kernel_is_allowed_only_with_fresh_exact_integration_proof(self):
+        cache = load_module(
+            ROOT / "tools" / "ci" / "portable_component_cache.py",
+            "ordax_kernel_reuse_fixture",
+        )
+        original_build = "2" * 40
+        with tempfile.TemporaryDirectory() as temporary, patch.dict(
+            os.environ,
+            {"ORDAX_COMPONENT_CACHE_ENVIRONMENT": "Linux/X64/ubuntu24/owner-proof"},
+        ):
+            root = Path(temporary)
+            kernel_dir, initramfs_dir, rootfs_dir, _kernel, _initramfs = (
+                write_provenance_fixture(root)
+            )
+            provenance_path = kernel_dir / "kernel-provenance.json"
+            provenance = json.loads(provenance_path.read_text(encoding="utf-8"))
+            provenance["source_commit"] = original_build
+            provenance_path.write_text(json.dumps(provenance), encoding="utf-8")
+
+            with self.assertRaisesRegex(
+                builder.CandidateError, "reused kernel requires",
+            ):
+                builder.build(
+                    source_commit=SOURCE,
+                    kernel_dir=kernel_dir,
+                    initramfs_dir=initramfs_dir,
+                    rootfs_dir=rootfs_dir,
+                    out_dir=root / "without-receipt",
+                )
+
+            cache.record_component("kernel", kernel_dir, original_build, root=ROOT)
+            receipt_path = root / "kernel-reuse.json"
+            cache.verify_component(
+                "kernel", kernel_dir, SOURCE, receipt_path,
+                cache_hit=True, root=ROOT,
+            )
+            builder.build(
+                source_commit=SOURCE,
+                kernel_dir=kernel_dir,
+                initramfs_dir=initramfs_dir,
+                rootfs_dir=rootfs_dir,
+                kernel_reuse_receipt=receipt_path,
+                out_dir=root / "verified",
+            )
+            self.assertEqual(
+                builder.verify(root / "verified")["source_commit"], SOURCE,
+            )
+            self.assertEqual(
+                json.loads(provenance_path.read_text(encoding="utf-8"))["source_commit"],
+                original_build,
+            )
+
+            receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
+            receipt["integration_source_commit"] = "3" * 40
+            receipt_path.write_text(json.dumps(receipt), encoding="utf-8")
+            with self.assertRaisesRegex(
+                builder.CandidateError, "receipt identity is invalid",
+            ):
+                builder.build(
+                    source_commit=SOURCE,
+                    kernel_dir=kernel_dir,
+                    initramfs_dir=initramfs_dir,
+                    rootfs_dir=rootfs_dir,
+                    kernel_reuse_receipt=receipt_path,
+                    out_dir=root / "wrong-receipt",
+                )
+
+            receipt["integration_source_commit"] = SOURCE
+            receipt_path.write_text(json.dumps(receipt), encoding="utf-8")
+            (kernel_dir / "vmlinuz-6.6.52").write_bytes(b"tampered-kernel")
+            with self.assertRaisesRegex(
+                builder.CandidateError, "receipt validation failed",
+            ):
+                builder.build(
+                    source_commit=SOURCE,
+                    kernel_dir=kernel_dir,
+                    initramfs_dir=initramfs_dir,
+                    rootfs_dir=rootfs_dir,
+                    kernel_reuse_receipt=receipt_path,
+                    out_dir=root / "tampered-kernel",
+                )
+
     @unittest.skipUnless(os.name == "posix", "requires POSIX executable bits")
     def test_full_build_accepts_flattened_apk_hardlinks_and_pins_unique_provenance(self):
         # Reproduce the real CI failure: 390 references to 1 MiB make the
