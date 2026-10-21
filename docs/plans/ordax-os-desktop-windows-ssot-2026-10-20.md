@@ -148,3 +148,67 @@ no executável instalado (após contrato v1 estar na main), renderer E2E
 Windows, redução da demora de instalação e porcentagem verdadeira,
 Conta/Apps/Intelligence local e distribuição **MVP assinada sem Git**.
 Nenhuma release Stable foi autorizada, nenhuma alteração USB foi feita.
+
+
+## Evidências Owner no notebook — 20/10/2026, alpha.19 (não homologada)
+
+Verificação física no **DESKTOP-COHT67R** com perfil per-user em
+`%LOCALAPPDATA%/Programs/OrdaX OS Desktop Dev`. O artefato da
+[CI #39516457717](https://github.com/ordaxsystems/ordax-os/actions/runs/39516457717)
+foi transferido e teve SHA-256 local
+`b0a5647f5c9fd1c4a0a0172034ed97e7fc22105b18b2b1d81b87d1b7a1505e7d`.
+O executável `0.1.0-alpha.19`, `app.asar`, a Surface compilada e
+`desktop-host-contract.json` estão instalados; NSIS registrou
+`install-files-complete`. **O processo de instalação silenciosa não foi
+observado terminando no limite de 300 segundos**, embora os arquivos tenham
+sido materializados e o processo tenha posteriormente desaparecido. O
+tempo/exit code/upgrade do NSIS no notebook continuam um gate separado.
+
+O **executável instalado** foi iniciado e registrou `Native shell mounted
+and ready` e `Native Surface ready`, com primeiro uso apresentado.
+Respostas observadas no host nativo:
+
+| Endpoint | Resultado |
+| --- | --- |
+| `/__ordax/native/network-status` | HTTP 200; Ethernet conectada e interfaces reais |
+| `/__ordax/native/metrics` | HTTP 200; métricas reais do Windows |
+| `/__ordax/native/update` | HTTP 200; `sourceSha: bundled-desktop`, `status: unavailable`, `phase: blocked` |
+| `/__ordax/native/network` | HTTP 503; gerenciamento de rede não provido |
+| Outras portas nativas (sessão local, teclado, display, recovery) | 503 observados; paridade ainda pendente |
+
+**Navegação HTTPS real:** um segundo processo Electron em perfil de teste
+isolado (`ORDAX_DESKTOP_TEST_PROFILE=1`), usando a mesma implementação
+`browser-host.cjs`, recebeu `tab.open` por
+`window.ordaxDesktopBrowser.postMessage`. Uma `WebContentsView`
+navegou para `https://example.com/`; inspeção da própria WebContents
+confirmou `origin: https://example.com`, `title: Example Domain`,
+`document.readyState: complete` e corpo legível. O script isolado
+apresentou um **falso negativo** apenas por procurar uma frase no corpo
+que o site não mais inclui; os dados capturados confirmam HTTPS dentro do
+navegador real. Esse teste não prova controles Wi-Fi/Conta/Intelligence.
+
+**Atualizações Dev:** na consulta oficial, a `main` estava em
+`24198ec84e37da6ac612b5c7287e125d26bec73a`, mas sem
+`tools/windows-emulator/desktop-host-contract.json`.
+O Desktop **corretamente recusou ativação** e persistiu
+`incompatibleSha`; não está na última `main`. No notebook, a limpeza
+imediata do Git staging deu `EPERM` mesmo depois de retries; um
+diretório órfão foi removido mais tarde sem alteração de permissões.
+O defeito está na separação entre **decisão transacional e limpeza
+eventualmente possível no Windows**, não na disponibilidade de Internet.
+
+**Correção proposta, ainda não instalada:** commits `6f28a8d` e
+`fbbbe79` desacoplam limpeza de decisão, introduzem varredura de
+candidatas envelhecidas nomeadas por UUID, evitam exclusão de versões
+ativáveis e conservam veredito de SHA incompatível. **9/9 testes Node/Git
+aprovados no Windows real**; [CI #39522600506](https://github.com/ordaxsystems/ordax-os/actions/runs/39522600506)
+aprovou testes, build, instalador, upgrade e startup. Como o executável
+instalado é da CI anterior, **a correção de lifecycle não foi ainda
+comprovada no binário instalado**.
+
+Gates restantes: evidenciar encerramento do NSIS no notebook, portar a
+paridade nativa de serviços/Conta/Intelligence, publicar um contrato
+Desktop compatível na `main` **somente após autorização de merge e gates
+reais**, provar SHA ativo após staging e health, e homologar os canais
+Owner Dev / MVP assinados separadamente. Sem promoção Stable/MVP e
+sem intervenção no USB.
