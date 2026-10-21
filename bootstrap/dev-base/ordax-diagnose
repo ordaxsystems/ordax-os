@@ -93,6 +93,30 @@ show_update_power_receipts() {
     fi
 }
 
+# Read only the existing tracking ref: never perform Git discovery or fetch
+# from the maintenance diagnostic. SHA fields are validated before display.
+show_cached_main() {
+    cached_main=""
+    if [ -d "$WORKTREE/.git" ] && [ -x /usr/bin/git ]; then
+        cached_main=$(/usr/bin/git -C "$WORKTREE" rev-parse "refs/remotes/origin/main" 2>/dev/null || true)
+    fi
+    case "$cached_main" in
+        ''|*[!0-9a-f]*) cached_main=unavailable ;;
+    esac
+    if [ "$cached_main" != unavailable ] && [ "${#cached_main}" -ne 40 ]; then
+        cached_main=unavailable
+    fi
+    printf 'pull.cached_main_sha=%s\n' "$cached_main"
+    if [ "$cached_main" = unavailable ] || [ "$sha" = unavailable ]; then
+        relation=unavailable
+    elif [ "$cached_main" = "$sha" ]; then
+        relation=matches-head
+    else
+        relation=differs-from-head
+    fi
+    printf 'pull.cached_main_relation=%s\n' "$relation"
+}
+
 mark_if_log_contains() {
     name=$1
     logfile=$2
@@ -126,6 +150,7 @@ case "$sha" in
 esac
 if [ "$(printf '%s' "$sha" | /bin/busybox wc -c)" -ne 40 ]; then sha=unavailable; fi
 printf 'checkout.sha=%s\n' "$sha"
+show_cached_main
 show_fs root /
 show_fs state /state
 show_fs run /run
