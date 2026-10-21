@@ -177,5 +177,13 @@ class ProductDevicePresenceWorker:
                 self._closed = True
             thread = self._thread
         self._wake.set()
-        if wait and thread is not None and thread is not threading.current_thread():
+        if wait and thread is not None:
+            # Runtime may take over the Product heartbeat only after a
+            # confirmed join. A timed-out join is NOT evidence of shutdown:
+            # allowing the new Runtime to start would create two device
+            # identity owners and competing online/offline writes.
+            if thread is threading.current_thread():
+                raise ProductDevicePresenceError("device-presence-stop-from-own-thread")
             thread.join(timeout=11.0)
+            if thread.is_alive():
+                raise ProductDevicePresenceError("device-presence-worker-still-running")
