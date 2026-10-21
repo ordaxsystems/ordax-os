@@ -64,7 +64,8 @@ class OwnerUsbDurablePowerTransitionTests(unittest.TestCase):
                 'root_filesystem_is_read_only() { echo readonly-proof >>"$TRACE"; return 0; }',
                 'remount_root_read_write_after_power_abort() { echo readonly-reversal >>"$TRACE"; return 0; }',
                 'restore_runtime_after_power_failure() { printf "restored:%s\\n" "$3" >>"$TRACE"; return 1; }',
-                'busybox_mock() { printf "kernel-tool:%s\\n" "$1" >>"$TRACE"; if [ "$1" = sync ] && [ "$SYNC_FAIL" = 1 ]; then return 1; fi; return 0; }',
+                'SYNC_CALLS=0',
+                'busybox_mock() { printf "kernel-tool:%s\\n" "$1" >>"$TRACE"; if [ "$1" = sync ]; then SYNC_CALLS=$((SYNC_CALLS + 1)); [ "$SYNC_FAIL" = 1 ] && [ "$SYNC_CALLS" -eq 2 ] && return 1; fi; return 0; }',
                 transition,
                 "perform_host_power_transition shutdown || :",
             ])
