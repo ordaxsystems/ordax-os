@@ -27,6 +27,8 @@ TESTS = (
     "tests/test_dev_network_contract.py",
     "tests/test_owner_surface_health_budget.py",
     "tests/test_system_runtime_contract.py",
+    "tests/test_owner_usb_durable_power_transition.py",
+    "tests/test_owner_usb_superblock_seal.py",
 )
 
 
