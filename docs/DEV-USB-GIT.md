@@ -194,6 +194,82 @@ Não criar um segundo transportador remoto nem ativar uma sessão de shell
 arbitrário para contornar o Product PostgreSQL. O Starter deve permanecer
 independente da Surface gráfica.
 
+## Recuperação assistida por Windows/WSL — evidência física de 19/10/2026
+
+Este registro é **histórico e restrito ao USB Owner/Development**: documenta
+o reparo de um checkout Git por meio de outro computador. **Não** constitui
+ferramenta de atualização offline assinada nem dispensa Git no computador
+auxiliar. Essa capacidade segue como gate separado na
+[issue #2005](https://github.com/ordaxsystems/ordax-os/issues/2005),
+reutilizando o agente de releases, trust Ed25519, A/B e rollback existentes.
+
+### Diagnóstico observado antes e após o reparo
+
+- O USB inicializou no commit `52b7d73dc4e3bd9f3cd5626efa6d48863b66254f`,
+  mas registrava `atomic-checkout-failed`. O diário mostrava fases de
+  `fetching → validating → pull-error`, **sem o stderr original do Pull**.
+  Não atribuir retrospectivamente o problema a Git, DNS, TLS, ext4, energia ou
+  espaço livre sem evidência específica.
+- O USB foi desligado e conectado ao Windows. A identificação física da
+  mídia pelo modelo, serial, barramento, GPT e partições foi confirmada antes
+  de qualquer montagem; o disco interno ficou fora do escopo. Nesse host,
+  `usbipd` + WSL 2 permitiu leitura ext4 `ro,noload`; `wsl --mount`
+  diretamente não funcionou.
+- Antes de qualquer montagem RW, foi realizado backup privado `tar.gz`,
+  acompanhado de `gzip -t` bem-sucedido. **Esse backup pode conter contas e
+  credenciais e não deve ser enviado a artefatos públicos.**
+- O operador usou o **`ordax-pull` canônico**, com
+  `ORDAX_WORKTREE=<montagem>/dev-base/workspace/ordax`,
+  `ORDAX_STATE_DIR=<montagem>/dev-base/state/ordax` e
+  `ORDAX_UPDATE_RUN_DIR=<diretório-privado-do-host>`. O recibo de
+  transação reportou `329197346239ec673cf49ec83fa93c3298b64d00`.
+  `current-commit` coincidiu com `HEAD`; `previous-commit` reteve
+  `52b7d73d`; worktree e helpers foram verificados; o
+  `git fsck --connectivity-only` concluiu com sucesso.
+- Finalização: `sync`, desmontagem e `usbipd detach`, sem escrever RAW,
+  reformatar ou trocar partições.
+
+Uma observação gráfica posterior mostrou **Entrega 1188**, commit
+`32919734`, `remote-check-failed` e relógio em **31/12/2015**.
+Isso comprova somente abertura da Surface e o SHA exibido, **não**
+Wi-Fi/DNS funcional, TLS confiável, NTP sincronizado, runtime integral,
+reinício físico subsequente ou ativação de Base/Stable. Não promover
+esta observação a certificação de boot físico.
+
+### Gates antes de repetir em outra mídia
+
+1. Desligar o notebook, retirar o USB e **identificar positivamente somente
+   a mídia removível** por serial/modelo/GPT. Não aplicar a procedimento em
+   discos internos, mídia montada pelo notebook ou dispositivo incerto.
+2. Montar ext4 primeiramente **somente leitura**, sem replay de journal
+   (`ro,noload`); preservar dados e comprovantes num backup privado e testar
+   sua integridade **antes** de qualquer operação RW.
+3. Inspecionar `current-commit`, `previous-commit`, `.git/HEAD`,
+   `first-run.json` e os recibos persistidos. Confirmar ancestry do commit
+   pretendido, origem autorizada e ausência de modificações locais não salvas.
+4. Usar **somente o `ordax-pull` oficial** e paths explícitos. Não fazer
+   `git reset --hard`, forçar marcadores de saúde, clonar sobre a mídia,
+   copiar uma rootfs não assinada ou desativar validações para avançar.
+5. Depois da transação, verificar `HEAD == current-commit`, SHA dos helpers,
+   worktree limpa, `previous-commit`, integridade Git e diretórios
+   transacionais. Executar `sync`/unmount/detach antes de desconectar.
+6. Validar separadamente no **mesmo notebook físico** um cold boot, Surface,
+   status de rede, atualização e reinício real; até haver esses recibos,
+   manter o gate físico como **pendente**.
+
+No Owner/Development o Supervisor faz `git ls-remote` com timeout e repassa
+um SHA já verificado ao Pull, que **não repete a descoberta remota** durante
+essa transação. A execução manual isolada tem diagnóstico próprio e pode
+depender do Git remoto. A correção estrutural de Wi-Fi passou por #2052; a
+classificação dos erros Git standalone por #2072. Para investigar um
+`remote-check-failed` antigo, distinguir link/IP, DNS, hora/NTP, HTTPS/TLS e
+Git remoto, preferindo `ordax-diagnose` e observações permitidas em
+`/run/ordax-network-status`, `/run/ordax-surface/time-sync.log`,
+`/run/ordax-surface/network-broker.log` e
+`/run/ordax-update/update.log`. Arquivos em `/run` são voláteis; redigir
+tokens, WPA, cookies e outros segredos antes de compartilhar. Não executar
+`ordax-network` como se fosse um leitor: ele pode alterar o estado de rede.
+
 ## Atualização manual dentro do OrdaX — somente USB Owner/Dev
 
 **Sistema → Atualizações → Atualizar agora** solicita um check imediato da `main` ao mesmo Supervisor canônico que já realiza os checks automáticos. Nenhum segundo updater ou shell de comando é ativado pela UI. O Native host expõe o pedido local `POST /__ordax/native/update-check` somente no perfil `owner-development` com `product_mode=usb`, vinculado ao token efêmero da sessão HTTP local; a solicitação aceita registra apenas `check-main` em `/run/ordax-update/manual-check-request` para acordar o polling do Supervisor em cerca de 1 segundo. A própria Surface acompanha o estado existente `/run/ordax-update/state.json`.
