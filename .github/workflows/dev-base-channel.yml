@@ -231,6 +231,14 @@ jobs:
           set -euo pipefail
           module_tar="$(find out/kernel -maxdepth 1 -type f -name 'kernel-modules-*.tar' -print -quit)"
           test -n "$module_tar"
+          # The native Owner USB mountattr helper compiles against the exact
+          # headers_install exported by the pinned initramfs kernel builder.
+          # Build that canonical UAPI before building the development rootfs.
+          python bootstrap/initramfs/build.py check
+          python bootstrap/initramfs/build.py build --jobs 4
+          python bootstrap/initramfs/build.py verify
+          test -f out/initramfs-work/kernel-uapi-install/include/linux/mount.h
+
           sudo env GITHUB_SHA="$GITHUB_SHA" \
             python bootstrap/dev-base/build.py \
               --kernel-modules "$module_tar" \
@@ -238,10 +246,6 @@ jobs:
           sudo chown -R "$(id -u):$(id -g)" out/dev-rootfs
           test -f out/dev-rootfs/provenance.json
           test -d out/dev-rootfs/rootfs
-
-          python bootstrap/initramfs/build.py check
-          python bootstrap/initramfs/build.py build --jobs 4
-          python bootstrap/initramfs/build.py verify
 
           python tools/dev-base-channel/build.py build \
             --source-commit "$GITHUB_SHA" \
