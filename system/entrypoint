@@ -554,11 +554,15 @@ owner_usb_seal_root_for_power() {
     # First close journal writes at the superblock, then close the VFS write
     # flag of *each* originally writable bind alias. A superblock RO remount
     # alone is insufficient (observed on real Linux mountinfo).
+    # The running root may already be read-only after mount(2) succeeds;
+    # BusyBox must not attempt to maintain the obsolete /etc/mtab file.
+    # /proc/self/mountinfo is authoritative. Diagnostic stderr goes only to
+    # the existing volatile /run guardian log, never persistent ext4.
     OWNER_USB_SEAL_FAILURE_STAGE=superblock-remount
-    /bin/busybox mount -o remount,ro "$device" / >/dev/null 2>&1 || return 1
+    /bin/busybox mount -n -o remount,ro "$device" / >>"$GUARDIAN_LOG" 2>&1 || return 1
     for target in $OWNER_USB_WRITABLE_ALIASES; do
         OWNER_USB_SEAL_FAILURE_STAGE=alias-remount
-        /bin/busybox mount -o remount,bind,ro "$target" "$target" >/dev/null 2>&1 || return 1
+        /bin/busybox mount -n -o remount,bind,ro "$target" "$target" >>"$GUARDIAN_LOG" 2>&1 || return 1
     done
     OWNER_USB_SEAL_FAILURE_STAGE=readonly-proof
     owner_usb_all_root_mounts_read_only || return 1
@@ -568,9 +572,9 @@ owner_usb_seal_root_for_power() {
 
 owner_usb_restore_root_after_abort() {
     [ -n "$OWNER_USB_ROOT_SOURCE" ] || return 0
-    /bin/busybox mount -o remount,rw "$OWNER_USB_ROOT_SOURCE" / >/dev/null 2>&1 || return 1
+    /bin/busybox mount -n -o remount,rw "$OWNER_USB_ROOT_SOURCE" / >>"$GUARDIAN_LOG" 2>&1 || return 1
     for target in $OWNER_USB_WRITABLE_ALIASES; do
-        /bin/busybox mount -o remount,bind,rw "$target" "$target" >/dev/null 2>&1 || return 1
+        /bin/busybox mount -n -o remount,bind,rw "$target" "$target" >>"$GUARDIAN_LOG" 2>&1 || return 1
     done
     owner_usb_writable_aliases_restored || return 1
     OWNER_USB_ROOT_SOURCE=""
