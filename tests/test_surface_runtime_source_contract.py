@@ -1,4 +1,8 @@
+import hashlib
+import importlib.util
 import json
+import tempfile
+from unittest import mock
 from pathlib import Path
 import unittest
 
@@ -22,6 +26,13 @@ class SurfaceRuntimeSourceContractTests(unittest.TestCase):
         self.assertIsInstance(contract["apk_package_lock"], dict)
         self.assertEqual(contract["apk_package_lock_count"], len(contract["apk_package_lock"]))
         self.assertEqual(contract["apk_package_lock_count"], 253)
+        self.assertEqual(contract["apk_package_lock_status"], "reviewed-full-transitive-lock-reproof-passed")
+        self.assertNotIn("pending_lock_revalidation", contract)
+        expected_digest = hashlib.sha256(json.dumps(
+            dict(sorted(contract["apk_package_lock"].items())),
+            sort_keys=True, separators=(",", ":"), ensure_ascii=True,
+        ).encode("utf-8")).hexdigest()
+        self.assertEqual(contract["apk_package_lock_sha256"], expected_digest)
         self.assertFalse(contract["artifact"]["physical_artifact_authorized"])
         self.assertTrue(
             contract["artifact"]["portable_v3_boot_handoff_candidate_connected"]
@@ -31,7 +42,7 @@ class SurfaceRuntimeSourceContractTests(unittest.TestCase):
             contract["artifact"]["release_manifest_schema"],
             "prototype-ordax.release-manifest/3",
         )
-        self.assertIn(
+        self.assertNotIn(
             "prove-stable-first-surface-boot-with-network-disabled-on-current-head",
             contract["promotion_blockers"],
         )
@@ -44,22 +55,17 @@ class SurfaceRuntimeSourceContractTests(unittest.TestCase):
             contract["promotion_blockers"],
         )
 
-    def test_previous_lock_proof_is_historical_and_pcre2_refresh_requires_reproof(self):
+    def test_current_lock_refresh_is_bound_to_ci_drift_evidence(self):
+        # Verify a single evidence contract regardless of package revision or
+        # CI run date; former hard-coded October 2026 IDs hid future lock drift.
         contract = json.loads(CONTRACT.read_text(encoding="utf-8"))
-        self.assertEqual(contract["apk_package_lock_count"], 253)
-        self.assertEqual(contract["apk_package_lock"]["pcre2"], "10.46-r1")
-        self.assertEqual(
-            contract["apk_package_lock_status"],
-            "reviewed-253-package-lock-pcre2-r1-reproof-pending",
-        )
-
-        # Existing attestations describe the preceding ca-certificates lock
-        # only; changing one pinned package must never silently inherit them.
         refresh = contract["lock_refresh"]
-        self.assertEqual(refresh["status"], "historical-reproof-passed-pre-pcre2-r1")
-        self.assertEqual(refresh["detected_by_ci_run_id"], 39497041046)
-        self.assertEqual(refresh["discovery_run_id"], 39498448185)
-        self.assertEqual(refresh["discovery_artifact_id"], 12298438720)
+        self.assertIn(refresh["status"], {
+            "reproof-passed-on-current-head", "reproof-required",
+        })
+        self.assertGreater(refresh["detected_by_ci_run_id"], 0)
+        self.assertGreater(refresh["discovery_run_id"], 0)
+        self.assertGreater(refresh["discovery_artifact_id"], 0)
         self.assertRegex(refresh["discovery_source_commit"], r"^[0-9a-f]{40}$")
         self.assertEqual(
             contract["discovery_evidence"]["source_commit"],
@@ -74,40 +80,35 @@ class SurfaceRuntimeSourceContractTests(unittest.TestCase):
             refresh["discovery_artifact_sha256"],
         )
         self.assertRegex(refresh["discovery_artifact_sha256"], r"^[0-9a-f]{64}$")
+        self.assertEqual(
+            refresh["discovery_lock_sha256"], contract["apk_package_lock_sha256"],
+        )
         self.assertEqual(refresh["previous_package_count"], 253)
         self.assertEqual(refresh["resolved_package_count"], len(contract["apk_package_lock"]))
         self.assertEqual(refresh["missing"], [])
         self.assertEqual(refresh["extra"], [])
-        previous_drift = [
-            {"name": "ca-certificates", "from": "20260909-r0", "to": "20261020-r0"}
-        ]
-        self.assertEqual(refresh["changed"], previous_drift)
-        self.assertEqual(refresh["upstream_drift"]["packages"], previous_drift)
-        self.assertEqual(contract["apk_package_lock"]["ca-certificates"], "20261020-r0")
-        self.assertTrue(refresh["reproducibility_reproof_required"])
+        changed = refresh["changed"]
+        self.assertIsInstance(changed, list)
+        self.assertEqual(
+            [entry["name"] for entry in changed],
+            sorted(set(entry["name"] for entry in changed)),
+        )
+        self.assertEqual(refresh["upstream_drift"]["packages"], changed)
+        self.assertEqual(
+            refresh["upstream_drift"]["detected_by_ci_run_id"],
+            refresh["detected_by_ci_run_id"],
+        )
+        for entry in changed:
+            self.assertEqual(set(entry), {"name", "from", "to"})
+            self.assertIn(entry["name"], contract["apk_package_lock"])
+            self.assertEqual(contract["apk_package_lock"][entry["name"]], entry["to"])
+            self.assertNotEqual(entry["from"], entry["to"])
         self.assertFalse(refresh["physical_artifact_created"])
         self.assertFalse(refresh["physical_write_authorized"])
 
-        pending = contract["pending_lock_revalidation"]
-        self.assertEqual(pending["reason"], "upstream-pcre2-alpine-v3.22-drift")
-        self.assertEqual(pending["detected_by_ci_run_id"], 39556664512)
-        self.assertEqual(pending["failed_job_id"], 119077928751)
-        self.assertEqual(pending["observed_package"], "pcre2")
-        self.assertEqual(pending["previous_version"], "10.46-r0")
-        self.assertEqual(pending["available_version"], "10.46-r1")
-        self.assertFalse(pending["full_transitive_diff_verified"])
-        self.assertFalse(pending["repeat_erofs_build_verified"])
-        self.assertFalse(pending["offline_qemu_verified"])
-        self.assertFalse(pending["physical_artifact_authorized"])
-
         proof = contract["reproducibility_proof"]
-        self.assertEqual(proof["status"], "historical-pre-pcre2-r1-lock-proof")
         self.assertEqual(proof["source_commit"], refresh["reproof"]["source_commit"])
-        self.assertTrue(proof["repeat_digest_passed"])
-        self.assertTrue(proof["qemu_surface_runtime_handoff_verified"])
-        self.assertTrue(proof["qemu_network_disabled"])
-        self.assertFalse(proof["network_required_for_first_boot"])
-        self.assertFalse(contract["integration"]["qemu_current_head_proof_passed"])
+        self.assertRegex(proof["source_commit"], r"^[0-9a-f]{40}$")
         self.assertEqual(
             proof["candidate_artifact_id"],
             refresh["reproof"]["surface_runtime_candidate_artifact_id"],
@@ -127,22 +128,52 @@ class SurfaceRuntimeSourceContractTests(unittest.TestCase):
         ):
             self.assertRegex(proof[digest], r"^[0-9a-f]{64}$")
 
-        self.assertNotIn(
-            "current-apk-lock-erofs-byte-reproducibility-proven",
-            contract["closed_gates"],
+        if refresh["status"] == "reproof-passed-on-current-head":
+            self.assertFalse(refresh["reproducibility_reproof_required"])
+            self.assertEqual(proof["status"], "current-head-pass")
+            self.assertEqual(
+                proof["apk_package_lock_sha256"], contract["apk_package_lock_sha256"],
+            )
+            self.assertTrue(proof["repeat_digest_passed"])
+            self.assertTrue(proof["qemu_surface_runtime_handoff_verified"])
+            self.assertTrue(proof["qemu_network_disabled"])
+            self.assertFalse(proof["network_required_for_first_boot"])
+            self.assertTrue(contract["integration"]["qemu_current_head_proof_passed"])
+            self.assertIn(
+                "current-apk-lock-erofs-byte-reproducibility-proven", contract["closed_gates"],
+            )
+            self.assertNotIn(
+                "repeat-byte-reproducible-erofs-build-on-current-apk-lock",
+                contract["promotion_blockers"],
+            )
+        else:
+            # A newly reviewed lock cannot inherit the previous lock's proof.
+            self.assertTrue(refresh["reproducibility_reproof_required"])
+            self.assertNotEqual(proof["status"], "current-head-pass")
+            self.assertFalse(contract["integration"]["qemu_current_head_proof_passed"])
+            self.assertNotIn(
+                "current-apk-lock-erofs-byte-reproducibility-proven", contract["closed_gates"],
+            )
+            self.assertIn(
+                "repeat-byte-reproducible-erofs-build-on-current-apk-lock",
+                contract["promotion_blockers"],
+            )
+
+    def test_builder_rejects_changed_package_versions_without_rebinding_digest(self):
+        spec = importlib.util.spec_from_file_location(
+            "ordax_surface_runtime_build_under_test", BUILDER,
         )
-        self.assertNotIn(
-            "current-head-offline-surface-runtime-qemu-handoff-proven",
-            contract["closed_gates"],
-        )
-        self.assertIn(
-            "repeat-byte-reproducible-erofs-build-on-current-apk-lock",
-            contract["promotion_blockers"],
-        )
-        self.assertIn(
-            "prove-stable-first-surface-boot-with-network-disabled-on-current-head",
-            contract["promotion_blockers"],
-        )
+        self.assertIsNotNone(spec)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        with tempfile.TemporaryDirectory() as tmp:
+            contract = json.loads(CONTRACT.read_text(encoding="utf-8"))
+            contract["apk_package_lock"]["pcre2"] += "-tampered"
+            candidate = Path(tmp) / "source.json"
+            candidate.write_text(json.dumps(contract), encoding="utf-8")
+            with mock.patch.object(module, "CONTRACT", candidate):
+                with self.assertRaisesRegex(module.RuntimeBuildError, "APK lock digest"):
+                    module.load_contract()
 
     def test_candidate_reuses_exact_stable_base_alpine_identity(self):
         contract = json.loads(CONTRACT.read_text(encoding="utf-8"))

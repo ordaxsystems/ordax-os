@@ -109,6 +109,22 @@ def sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
+def canonical_apk_lock_sha256(lock: dict[str, str]) -> str:
+    """Canonical digest of an exact transitive APK version map.
+
+    Shared by discovery and EROFS builder so a successful artifact proof can
+    never be reused for a different set of package versions.
+    """
+    if not isinstance(lock, dict) or not lock:
+        raise BuildError("canonical APK package lock must be a nonempty mapping")
+    if any(not isinstance(k, str) or not isinstance(v, str) for k, v in lock.items()):
+        raise BuildError("canonical APK package lock contains non-string entries")
+    payload = json.dumps(
+        dict(sorted(lock.items())), sort_keys=True, separators=(",", ":"), ensure_ascii=True,
+    ).encode("utf-8")
+    return hashlib.sha256(payload).hexdigest()
+
+
 def download_text(url: str) -> str:
     try:
         with urllib.request.urlopen(url, timeout=120) as response:
