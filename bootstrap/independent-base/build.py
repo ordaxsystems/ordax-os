@@ -42,6 +42,14 @@ OWNER_BUSYBOX_FRAGMENT_CONFIG = (
 BUSYBOX_HANDOFF_SYMBOLS = ("CONFIG_STAT=y", "CONFIG_FEATURE_STAT_FORMAT=y", "CONFIG_TIMEOUT=y", "CONFIG_FLOCK=y")
 OWNER_BUSYBOX_SYMBOLS = ("CONFIG_NTPD=y",)
 SUPPORTED_PROFILES = ("minimal", "owner-development")
+# Component-private Python must not change the two canonical OS boot profiles.
+NATIVE_COMPONENT_PROFILE = "native-product-runtime"
+NATIVE_COMPONENT_FRAGMENT = HERE / "configs/native-product-runtime.fragment"
+NATIVE_COMPONENT_REQUIRED = (
+    "BR2_SHARED_LIBS=y", "BR2_PACKAGE_PYTHON3=y",
+    "BR2_PACKAGE_PYTHON3_SSL=y", "BR2_PACKAGE_PYTHON3_ZLIB=y",
+    "BR2_PACKAGE_CA_CERTIFICATES=y", "BR2_TARGET_ROOTFS_TAR=y",
+)
 OWNER_USERSPACE_CONFIG = (
     "BR2_PACKAGE_CA_CERTIFICATES=y",
     "BR2_PACKAGE_GIT=y",
@@ -183,6 +191,20 @@ def contracts() -> tuple[dict, dict, dict, dict]:
         "purpose": "owner-development-parity-without-alpine",
     }:
         raise BaseError("Owner/Development profile contract drift")
+    expected_component = {
+        "native-product-runtime": {
+            "base_defconfig": str(BASE_DEFCONFIG.relative_to(ROOT)),
+            "fragment": str(NATIVE_COMPONENT_FRAGMENT.relative_to(ROOT)),
+            "purpose": "private-python-component-toolchain-not-base",
+            "source_owner": "ordaxsystems/ordax-runtime",
+            "runtime_service": "ordax-product-agent",
+            "base_rootfs_mutation_allowed": False,
+            "component_artifact_authorized": False,
+            "device_install_authorized": False,
+        }
+    }
+    if source.get("component_profiles") != expected_component:
+        raise BaseError("private native Runtime component registry drift")
     if kernel.get("$schema") != "prototype-ordax.kernel-source/1":
         raise BaseError("kernel contract mismatch")
     if not re.fullmatch(r"\d+\.\d+\.\d+", kernel.get("version", "")):
@@ -349,6 +371,66 @@ def verify_resolved_config(config: str, kernel: dict, profile: str) -> None:
             raise BaseError(f"minimal profile resolved Owner capabilities: {leaked}")
         if OWNER_BUSYBOX_FRAGMENT_CONFIG in config:
             raise BaseError("minimal profile resolved Owner/Development BusyBox capabilities")
+
+
+def generate_native_component_defconfig(source: dict, kernel: dict, destination: Path) -> dict:
+    """Derive a PRIVATE Python3 component from the pinned Buildroot owner.
+
+    Static OrdaX base stays unchanged. No rootfs, firmware, boot hooks, second
+    Python builder, package manager or duplicate Product command runtime.
+    """
+    spec = source["component_profiles"][NATIVE_COMPONENT_PROFILE]
+    if NATIVE_COMPONENT_FRAGMENT.is_symlink() or not NATIVE_COMPONENT_FRAGMENT.is_file():
+        raise BaseError("private native Runtime Buildroot fragment missing or unsafe")
+    options = config_lines(NATIVE_COMPONENT_FRAGMENT)
+    if options != set(NATIVE_COMPONENT_REQUIRED):
+        raise BaseError("private native Runtime component has unsupported Buildroot capabilities")
+    if any(word in NATIVE_COMPONENT_FRAGMENT.read_text(encoding="utf-8").lower()
+           for word in ("alpine", "apk")):
+        raise BaseError("private native Runtime component reintroduced distribution tooling")
+    inherited = ("BR2_x86_64=y", "BR2_TOOLCHAIN_BUILDROOT_MUSL=y",
+                 "BR2_STATIC_LIBS=y", "BR2_INIT_NONE=y")
+    if not set(inherited).issubset(config_lines(BASE_DEFCONFIG)):
+        raise BaseError("canonical Independent Base arch/libc identity drift")
+    lines = [item for item in inherited if item != "BR2_STATIC_LIBS=y"]
+    lines.extend(NATIVE_COMPONENT_REQUIRED)
+    lines.extend((
+        "BR2_KERNEL_HEADERS_VERSION=y",
+        f'BR2_DEFAULT_KERNEL_VERSION="{kernel["version"]}"',
+        "BR2_PACKAGE_HOST_LINUX_HEADERS_CUSTOM_6_6=y",
+    ))
+    destination.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return {
+        "component": NATIVE_COMPONENT_PROFILE,
+        "source_owner": spec["source_owner"],
+        "base_defconfig_sha256": digest(BASE_DEFCONFIG),
+        "fragment_sha256": digest(NATIVE_COMPONENT_FRAGMENT),
+        "buildroot_sha256": source["buildroot"]["sha256"],
+        "component_artifact_authorized": False,
+        "device_install_authorized": False,
+    }
+
+
+def verify_native_component_config(config: str, kernel: dict) -> None:
+    settings = set(config.splitlines())
+    required = set(NATIVE_COMPONENT_REQUIRED) | {
+        "BR2_x86_64=y", "BR2_TOOLCHAIN_BUILDROOT_MUSL=y",
+        "BR2_INIT_NONE=y", "BR2_KERNEL_HEADERS_VERSION=y",
+        f'BR2_DEFAULT_KERNEL_VERSION="{kernel["version"]}"',
+        "BR2_PACKAGE_HOST_LINUX_HEADERS_CUSTOM_6_6=y",
+    }
+    missing = sorted(required - settings)
+    if missing:
+        raise BaseError(f"Buildroot rejected private Python3 component: {missing}")
+    if "BR2_STATIC_LIBS=y" in settings or "BR2_SHARED_STATIC_LIBS=y" in settings:
+        raise BaseError("private Python3 component must not use static-only base")
+    for forbidden in (
+        "BR2_ROOTFS_OVERLAY=", "BR2_ROOTFS_POST_BUILD_SCRIPT=",
+        "BR2_ROOTFS_POST_IMAGE_SCRIPT=", "BR2_GLOBAL_PATCH_DIR=",
+        "BR2_PACKAGE_IPROUTE2=y",
+    ):
+        if any(line.startswith(forbidden) for line in settings):
+            raise BaseError("private Python3 component inherited OS boot payload: " + forbidden)
 
 
 def source_archive(source: dict, cache: Path) -> Path:
