@@ -35,6 +35,7 @@ on:
       - 'tests/test_independent_rootfs_export.py'
       - 'tests/test_independent_network_parity.py'
       - 'tests/test_independent_owner_profile.py'
+      - 'tests/test_independent_native_component.py'
       - 'tests/test_independent_portable_boot_integration.py'
       - 'tests/test_kernel_module_payload.py'
       - 'tests/test_firmware_policy_neutral.py'
@@ -74,6 +75,7 @@ jobs:
           set -euo pipefail
           python3 bootstrap/independent-base/build.py check --profile minimal
           python3 bootstrap/independent-base/build.py check --profile owner-development
+          python3 bootstrap/independent-base/build.py check-component
           python3 bootstrap/base/kernel_module_payload.py check
           python3 tools/verify/github_actions_supply_chain.py
           python3 -m unittest \
@@ -88,6 +90,7 @@ jobs:
             tests.test_independent_rootfs_export \
             tests.test_independent_network_parity \
             tests.test_independent_owner_profile \
+            tests.test_independent_native_component \
             tests.test_independent_portable_boot_integration \
             tests.test_kernel_module_payload \
             tests.test_firmware_policy_neutral \
@@ -99,6 +102,7 @@ jobs:
           cache="$RUNNER_TEMP/ordax-independent-resolution-cache"
           python3 bootstrap/independent-base/build.py resolve --profile minimal --cache "$cache"
           python3 bootstrap/independent-base/build.py resolve --profile owner-development --cache "$cache"
+          python3 bootstrap/independent-base/build.py resolve-component --cache "$cache"
       - name: Validate scripts without compiling Buildroot
         run: |
           set -euo pipefail
@@ -123,6 +127,7 @@ jobs:
             tests/test_independent_dev_channel_compatibility.py \
             tests/test_independent_rootfs_export.py \
             tests/test_independent_owner_profile.py \
+            tests/test_independent_native_component.py \
             tests/test_independent_portable_boot_integration.py \
             tests/test_kernel_module_payload.py \
             tests/test_firmware_policy_neutral.py \
