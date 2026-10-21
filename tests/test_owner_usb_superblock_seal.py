@@ -149,16 +149,31 @@ class OwnerUsbSuperblockSealTests(unittest.TestCase):
             self.skipTest("requires explicit disposable mount integration gate")
         self.assertEqual(os.geteuid(), 0, "privileged isolated integration required")
         source = GUARDIAN.read_text(encoding="utf-8")
-        function = extract_function(source, "owner_usb_all_root_mounts_read_only")
-        old = (
-            "mount_id=$(/bin/busybox awk '$5 == \"/\" { print $3; exit }' "
-            "/proc/self/mountinfo 2>/dev/null || true)"
+        functions = "\n".join(
+            extract_function(source, name) for name in (
+                "owner_usb_capture_writable_aliases",
+                "owner_usb_all_root_mounts_read_only",
+                "owner_usb_writable_aliases_restored",
+                "owner_usb_seal_root_for_power",
+                "owner_usb_restore_root_after_abort",
+            )
         )
-        self.assertIn(old, function)
-        function = function.replace(
-            old,
-            "mount_id=$(/bin/busybox awk -v target=\"$ROOTMOUNT\" "
-            "'$5 == target { print $3; exit }' /proc/self/mountinfo 2>/dev/null || true)",
+        probe = (
+            "/bin/busybox awk '$5 == \"/\" { print $3; exit }' "
+            "/proc/self/mountinfo"
+        )
+        self.assertEqual(functions.count(probe), 3)
+        functions = functions.replace(
+            probe,
+            "/bin/busybox awk -v target=\"$ROOTMOUNT\" "
+            "'$5 == target { print $3; exit }' /proc/self/mountinfo",
+        )
+        functions = functions.replace(
+            'mount -o remount,ro "$device" /',
+            'mount -o remount,ro "$device" "$ROOTMOUNT"',
+        ).replace(
+            'mount -o remount,rw "$OWNER_USB_ROOT_SOURCE" /',
+            'mount -o remount,rw "$OWNER_USB_ROOT_SOURCE" "$ROOTMOUNT"',
         )
         # unshare -m creates a private Linux mount namespace. The only block
         # device used is a 128 MiB loop of a disposable regular file.
@@ -188,19 +203,20 @@ mount -o bind "$scratch/base/workspace" "$scratch/workspace"
 mount -o bind "$scratch/base/home" "$scratch/home"
 printf 'written-before-seal\n' >"$scratch/state/receipt"
 ROOTMOUNT=$scratch/root
-""" + function + r"""
+owner_usb_root_source() { printf '%s\n' "$loop"; }
+owner_usb_auxiliary_partitions_quiesced() { return 0; }
+OWNER_USB_ROOT_SOURCE=""
+OWNER_USB_WRITABLE_ALIASES=""
+""" + functions + r"""
 if owner_usb_all_root_mounts_read_only; then
     echo BAD_PRE_SEAL_PROOF
     exit 30
 fi
-/bin/busybox mount -o remount,ro "$loop" "$scratch/root"
-owner_usb_all_root_mounts_read_only || {
-    echo POST_SEAL_ALIASES >&2
-    for name in base root state workspace home; do
-        grep -F " $scratch/$name " /proc/self/mountinfo >&2 || true
-    done
-    exit 31
-}
+owner_usb_seal_root_for_power || exit 31
+owner_usb_all_root_mounts_read_only || exit 32
+owner_usb_restore_root_after_abort || exit 33
+owner_usb_seal_root_for_power || exit 34
+owner_usb_all_root_mounts_read_only || exit 35
 for name in workspace state home root base; do
     umount "$scratch/$name"
 done
@@ -208,14 +224,14 @@ e2fsck -fn "$loop" >"$scratch/e2fsck.log" 2>&1 || {
     cat "$scratch/e2fsck.log"
     exit 32
 }
-echo PRIVATE_EXT4_MOUNT_SEAL_AND_FSCK_OK
+echo PRIVATE_EXT4_MOUNT_SEAL_RESTORE_AND_FSCK_OK
 """
         completed = subprocess.run(
             ["unshare", "-m", "/bin/sh", "-c", script],
             capture_output=True, text=True, timeout=90,
         )
         self.assertEqual(completed.returncode, 0, completed.stdout + completed.stderr)
-        self.assertIn("PRIVATE_EXT4_MOUNT_SEAL_AND_FSCK_OK", completed.stdout)
+        self.assertIn("PRIVATE_EXT4_MOUNT_SEAL_RESTORE_AND_FSCK_OK", completed.stdout)
 
 
 if __name__ == "__main__":
