@@ -15,9 +15,10 @@ IMAGE=$IMAGE_DIR/local-ai-runtime.erofs
 RUNTIME_ROOT=/run/ordax/runtime/local-ai
 AUTH_DIR=/run/ordax/local-ai-auth
 RUN_DIR=/run/ordax
-PID_FILE=$RUN_DIR/local-ai.pid
+SERVICE_DIR=$RUN_DIR/local-ai-service
+PID_FILE=$SERVICE_DIR/pid
 KEY_FILE=$AUTH_DIR/key
-LOG_FILE=$RUN_DIR/local-ai.log
+LOG_FILE=$SERVICE_DIR/llama-server.log
 
 bb() {
     if [ -x /bin/busybox ]; then /bin/busybox "$@"; else command "$@"; fi
@@ -48,6 +49,7 @@ release_partial() {
     [ ! -L "$AUTH_DIR" ] && [ -d "$AUTH_DIR" ] && bb rmdir "$AUTH_DIR" 2>/dev/null || true
 }
 stop() {
+    [ -d "$SERVICE_DIR" ] && [ ! -L "$SERVICE_DIR" ] || return 0
     safe_file "$PID_FILE" || return 0
     old_pid=""
     IFS= read -r old_pid <"$PID_FILE" || true
@@ -85,7 +87,11 @@ start() {
         report "verified x86_64 runtime does not match hardware"
         return 0
     esac
-    if safe_file "$PID_FILE"; then
+    if [ -e "$PID_FILE" ] || [ -L "$PID_FILE" ]; then
+        if ! safe_file "$PID_FILE"; then
+            report "unsafe service PID path"
+            return 0
+        fi
         old_pid=""
         IFS= read -r old_pid <"$PID_FILE" || true
         if owned_process "$old_pid"; then
@@ -93,6 +99,10 @@ start() {
             return 0
         fi
         report "stale service ownership; declining ambiguous startup"
+        return 0
+    fi
+    if [ -L "$SERVICE_DIR" ] || { [ -e "$SERVICE_DIR" ] && [ ! -d "$SERVICE_DIR" ]; }; then
+        report "unsafe local AI service directory"
         return 0
     fi
     if mounted_here || [ -e "$KEY_FILE" ] || [ -L "$KEY_FILE" ]; then
@@ -118,8 +128,26 @@ start() {
         return 0
     fi
 
-    bb mkdir -p /run/ordax/runtime "$RUN_DIR"
-    bb chmod 700 "$RUN_DIR"
+    # /run/ordax is shared with other Native services: never tighten its
+    # permissions as a side-effect of starting optional Intelligence.
+    [ ! -L "$RUN_DIR" ] || { report "unsafe shared runtime directory"; return 0; }
+    bb mkdir -p /run/ordax/runtime
+    if [ -e "$SERVICE_DIR" ]; then
+        [ -d "$SERVICE_DIR" ] && [ ! -L "$SERVICE_DIR" ] || {
+            report "unsafe local AI service directory"
+            return 0
+        }
+    else
+        (umask 077; bb mkdir -m 700 "$SERVICE_DIR") || {
+            report "cannot create local AI private service directory"
+            return 0
+        }
+    fi
+    if [ "$(bb stat -c '%u:%a' "$SERVICE_DIR" 2>/dev/null)" != 0:700 ] ||
+       [ -L "$LOG_FILE" ] || { [ -e "$LOG_FILE" ] && ! safe_file "$LOG_FILE"; }; then
+        report "unsafe local AI service ownership or log"
+        return 0
+    fi
     if [ -e "$RUNTIME_ROOT" ] || [ -L "$RUNTIME_ROOT" ]; then
         [ -d "$RUNTIME_ROOT" ] && [ ! -L "$RUNTIME_ROOT" ] || {
             report "unsafe mount point"
