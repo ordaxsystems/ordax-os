@@ -142,8 +142,8 @@ class BuiltNativePythonClosureTests(unittest.TestCase):
         (stdlib / "json/__init__.py").write_text("")
         (self.target / "etc/ssl/certs").mkdir(parents=True)
         (self.target / "etc/ssl/certs/ca-certificates.crt").write_text("certificate")
-        (lib_dir / "ld-musl-x86_64.so.1").write_text("loader")
-        (lib_dir / "libz.so.1").write_text("library")
+        (lib_dir / "ld-musl-x86_64.so.1").write_bytes(binary)
+        (lib_dir / "libz.so.1").write_bytes(binary)
 
     def test_built_interpreter_and_dependency_closure_is_reported(self):
         with patch.object(self.mod, "run", side_effect=[
@@ -167,6 +167,45 @@ class BuiltNativePythonClosureTests(unittest.TestCase):
         ]):
             with self.assertRaisesRegex(self.mod.BaseError, "shared dependency absent"):
                 self.mod.verify_native_python_target(self.target)
+
+    def test_private_absolute_loader_symlink_is_resolved_inside_component(self):
+        libc = self.target / "lib/libc.so"
+        libc.write_bytes(self.exe.read_bytes())
+        loader = self.target / "lib/ld-musl-x86_64.so.1"
+        loader.unlink()
+        loader.symlink_to("/lib/libc.so")
+        self.assertEqual(
+            self.mod.private_component_library(
+                self.target, "lib", "ld-musl-x86_64.so.1"
+            ), libc
+        )
+
+    def test_dangling_and_host_escape_libraries_never_satisfy_needed(self):
+        libz = self.target / "lib/libz.so.1"
+        libz.unlink()
+        libz.symlink_to("libz-missing.so")
+        with patch.object(self.mod, "run", side_effect=[
+            "[Requesting program interpreter: /lib/ld-musl-x86_64.so.1]",
+            "0x00000001 (NEEDED) Shared library: [libz.so.1]",
+        ]):
+            with self.assertRaisesRegex(self.mod.BaseError, "shared dependency absent"):
+                self.mod.verify_native_python_target(self.target)
+        libz.unlink()
+        libz.symlink_to("../../../../etc/passwd")
+        with self.assertRaisesRegex(self.mod.BaseError, "symlink escaped target"):
+            self.mod.private_component_library(self.target, "lib", "libz.so.1")
+
+    def test_cyclic_symlink_library_fails_closed(self):
+        libz = self.target / "lib/libz.so.1"
+        libz.unlink()
+        libz.symlink_to("libz.so.1")
+        with self.assertRaisesRegex(self.mod.BaseError, "symlink cycle"):
+            self.mod.private_component_library(self.target, "lib", "libz.so.1")
+
+    def test_non_elf_file_with_matching_soname_is_rejected(self):
+        (self.target / "lib/libz.so.1").write_text("not an ELF")
+        with self.assertRaisesRegex(self.mod.BaseError, "not a native x86_64 ELF"):
+            self.mod.private_component_library(self.target, "lib", "libz.so.1")
 
     def test_wrong_dynamic_interpreter_is_refused(self):
         with patch.object(self.mod, "run", return_value=(
