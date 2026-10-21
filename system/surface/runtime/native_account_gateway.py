@@ -1,14 +1,13 @@
 """Device-local client for the OrdaX account gateway.
 
-This adapter is intentionally provider-neutral. It speaks only to the OrdaX
-same-origin gateway protocol over HTTPS. Account access/refresh cookies live only
-in this Native Host process: they never enter Surface JS, are never synchronized,
-and are never persisted to removable-media storage in plaintext.
+This adapter is provider-neutral and speaks only to the OrdaX HTTPS gateway.
+Cookies stay in trusted Native memory. On supported Linux-amd64 hosts, the
+kernel user keyring can preserve them across a Surface/Native Host restart
+within the same boot. No cookie is written to USB, exposed to Surface JS, or
+synchronized. A full reboot deliberately requires authentication again.
 
-A legacy session path is accepted only so older plaintext session files can be
-removed during startup. Persistent account sessions require a future encrypted
-vault explicitly bound to device-local unlock; file permissions alone are not a
-credential-at-rest boundary for removable USB media.
+The former plaintext session file is only a cleanup target. Cross-boot session
+persistence still requires a separately proven encrypted device-unlock vault.
 """
 
 from __future__ import annotations
@@ -24,6 +23,8 @@ from typing import Mapping
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode, urlsplit
 from urllib.request import HTTPRedirectHandler, Request, build_opener
+
+from native_account_hot_session import KernelSessionUnavailable, NativeKernelAccountSession
 
 MAX_RESPONSE_BYTES = 2 * 1024 * 1024
 COOKIE_NAMES = frozenset(("ordax_access", "ordax_refresh"))
@@ -87,6 +88,11 @@ def verified_account_session_reply(
             "subject": subject,
             "email": email,
             "provider": raw.get("provider") if isinstance(raw.get("provider"), str) else "unconfigured",
+            **({"displayName": raw["displayName"].strip()}
+               if isinstance(raw.get("displayName"), str)
+               and 0 < len(raw["displayName"].strip()) <= 120
+               and not any(ord(character) < 32 or ord(character) == 127 for character in raw["displayName"])
+               else {}),
             "accountCloseEnabled": raw.get("accountCloseEnabled") is True,
         }
     if allow_anonymous and raw.get("authenticated") is False and raw.get("status") == "anonymous":
@@ -184,6 +190,7 @@ class NativeAccountGateway:
         legacy_session_path: str,
         *,
         timeout_seconds: float = 15.0,
+        hot_session_store=None,
     ) -> None:
         self.base_url = _validated_base_url(origin)
         if not os.path.isabs(legacy_session_path):
@@ -194,6 +201,18 @@ class NativeAccountGateway:
         self._opener = build_opener(_NoRedirect())
         _purge_legacy_plaintext_session(self.legacy_session_path)
         self._cookies: dict[str, str] = {}
+        self._hot_session_store = hot_session_store
+        if self._hot_session_store is None:
+            try:
+                self._hot_session_store = NativeKernelAccountSession(self.base_url)
+            except (KernelSessionUnavailable, OSError):
+                self._hot_session_store = None
+        if self._hot_session_store is not None:
+            try:
+                self._cookies = self._hot_session_store.load()
+            except (KernelSessionUnavailable, OSError, ValueError):
+                # Unsupported kernels remain memory-only; never fall back to USB files.
+                self._cookies = {}
 
     @property
     def configured(self) -> bool:
@@ -239,8 +258,18 @@ class NativeAccountGateway:
         set_cookies = response_headers.get("set-cookie", ())
         if set_cookies:
             self._cookies = _parse_set_cookies(set_cookies, self._cookies)
+            self._sync_hot_session()
 
         return GatewayReply(status=status, headers=response_headers, body=raw)
+
+    def _sync_hot_session(self) -> None:
+        if self._hot_session_store is None:
+            return
+        try:
+            self._hot_session_store.save(self._cookies)
+        except (KernelSessionUnavailable, OSError):
+            # Native login must continue even when kernel keyrings are disabled.
+            pass
 
     def _product_access_token(self) -> str:
         """Return the Native-only account access token to trusted runtime code.
@@ -293,6 +322,7 @@ class NativeAccountGateway:
         with self._lock:
             reply = self._request("POST", "/auth/logout", body=b"", content_type="application/json")
             self._cookies = {}
+            self._sync_hot_session()
             return reply
 
     def account_export(self) -> GatewayReply:

@@ -138,6 +138,28 @@ test("Files probation bind failure rejects waiting probes without creating a hos
   bootstrap.destroy();
 });
 
+test("Files pending context cannot bypass the verified-current host-port gate", async () => {
+  const { createNativeFilesTrustedContextProvider } = await import(
+    "../system/composition/native/files-trusted-context.mjs"
+  );
+  const root = makeSurfaceRoot();
+  const p = ports();
+  const current = createNativeFilesTrustedContextProvider(p);
+  assert.throws(() => current("files"), /verified current Native slot/);
+  let installedProvider;
+  const bootstrap = createNativeFilesProbationContextBootstrap({
+    installProvider(provider) { installedProvider = provider; },
+  });
+  assert.equal(await installedProvider("notes"), null);
+  bootstrap.bind({ root, ...p });
+  const pending = await installedProvider("files");
+  assert.strictEqual(pending.fileSpace, p.fileSpace);
+  assert.strictEqual(pending.projects, p.projects);
+  bootstrap.destroy();
+  await assert.rejects(() => installedProvider("files"), /destroyed/);
+  assert.throws(() => current("files"), /verified current Native slot/);
+});
+
 test("Files probation bind is DOM-neutral without a probe and refuses duplicate binding", () => {
   const root = makeSurfaceRoot();
   let provider = null;

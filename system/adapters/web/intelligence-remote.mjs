@@ -113,6 +113,7 @@ export function createRemoteWebIntelligencePort({ transport, readContext } = {})
   let disposed = false;
   const listeners = new Set();
   const releaseRemote = remote.subscribe((snapshot) => {
+    if (disposed) return;
     const next = validateIntelligenceSnapshot(snapshot);
     if (sameSnapshot(current, next)) return;
     current = next;
@@ -155,11 +156,17 @@ export function createRemoteWebIntelligencePort({ transport, readContext } = {})
         request,
       });
       const raw = await remote.respond(envelope, { signal });
+      // A transport may settle after cancellation or teardown. Neither event
+      // revokes backend computation, but neither may promote a late result.
+      if (disposed) throw new Error("Web Intelligence remote adapter is disposed");
+      if (signal?.aborted) throw abortedError(signal);
       const response = validateResponseEnvelope(raw, context);
       const currentContext = validateWebIntelligenceRemoteContext(readContext());
       if (!sameContext(currentContext, context)) {
         throw new Error("Web Intelligence remote context changed while the request was pending");
       }
+      if (disposed) throw new Error("Web Intelligence remote adapter is disposed");
+      if (signal?.aborted) throw abortedError(signal);
       return response;
     },
     dispose() {

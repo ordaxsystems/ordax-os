@@ -36,6 +36,23 @@ class AccountSyncAndIdentityV1Tests(unittest.TestCase):
             "atomic-snapshot-plus-paged-incremental-cursor",
         )
 
+    def test_sync_contract_does_not_claim_web_or_regional_sync_before_composition_exists(self):
+        contract = json.loads(SYNC_CONTRACT.read_text(encoding="utf-8"))
+        web_composition = (ROOT / "system" / "composition" / "web" / "main.tsx").read_text(encoding="utf-8")
+        native_runtime = (ROOT / "system" / "composition" / "native" / "main.mjs").read_text(encoding="utf-8")
+        self.assertFalse(contract["mvp_availability"]["web_source_integration"])
+        self.assertTrue(contract["mvp_availability"]["web_transport_adapter_available"])
+        self.assertFalse(contract["mvp_availability"]["web_composition_sync_runtime_wired"])
+        self.assertTrue(contract["mvp_availability"]["native_usb_source_integration"])
+        self.assertFalse(contract["backend"]["regional_preferences_in_account_sync"])
+        self.assertEqual(contract["backend"]["native_usb_portable_preference_ids"], [
+            "accessibility.contrast",
+            "accessibility.motion",
+            "accessibility.text-scale",
+        ])
+        self.assertNotIn("createAccountSyncRuntime", web_composition)
+        self.assertIn("createNativeAccountSyncRuntime", native_runtime)
+
     def test_sync_store_is_owner_scoped_and_mutations_are_server_authoritative(self):
         sql = SYNC_MIGRATION.read_text(encoding="utf-8").lower()
         self.assertIn("alter table public.ordax_sync_objects enable row level security", sql)
@@ -305,3 +322,4 @@ class AccountSyncAndIdentityV1Tests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+

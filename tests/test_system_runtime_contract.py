@@ -400,11 +400,14 @@ class SystemRuntimeContractTests(unittest.TestCase):
         self.assertIn("SUPERVISOR_POWER_QUIESCED_FILE=$UPDATE_RUN_DIR/supervisor-power-quiesced", guardian)
         self.assertIn("terminate_persistent_host_agents()", guardian)
         self.assertIn('/bin/busybox mount -o remount,ro /', guardian)
+        self.assertIn('/bin/busybox mount -o remount,bind,ro /', guardian)
         self.assertIn("root_filesystem_is_read_only", guardian)
         self.assertIn('/bin/busybox reboot -f >/dev/null 2>&1', guardian)
         self.assertIn('/bin/busybox poweroff -f >/dev/null 2>&1', guardian)
-        self.assertIn("printf 'b' >/proc/sysrq-trigger", guardian)
-        self.assertIn("printf 'o' >/proc/sysrq-trigger", guardian)
+        # Emergency sysrq b/o reset bypasses clean ext4 teardown and must
+        # never be the Guardian's ordinary fallback after a kernel syscall.
+        self.assertNotIn("/proc/sysrq-trigger", guardian)
+        self.assertIn("kernel-transition-returned", guardian)
         self.assertIn('/bin/busybox mount -o remount,rw /', guardian)
         transition = guardian[
             guardian.index("perform_host_power_transition()") : guardian.index("wait_guardian_interval()")
@@ -415,14 +418,14 @@ class SystemRuntimeContractTests(unittest.TestCase):
         )
         self.assertLess(
             transition.index('/bin/busybox sync >>"$GUARDIAN_LOG"'),
-            transition.index('/bin/busybox mount -o remount,ro /'),
+            transition.index('remount_root_read_only_for_power'),
         )
         self.assertLess(
-            transition.index('/bin/busybox mount -o remount,ro /'),
+            transition.index('remount_root_read_only_for_power'),
             transition.index('/bin/busybox reboot -f'),
         )
         self.assertLess(
-            transition.index('/bin/busybox mount -o remount,ro /'),
+            transition.index('remount_root_read_only_for_power'),
             transition.index('/bin/busybox poweroff -f'),
         )
 
@@ -601,8 +604,9 @@ class SystemRuntimeContractTests(unittest.TestCase):
         self.assertIn('cleanup refused; runtime chroot remains active', text)
         self.assertIn('reap_stale_runtime_processes || fallback_with_reason', text)
         self.assertIn('kill -KILL "$pid"', text)
-        self.assertIn('terminate_child "$GRAPHICS_PID" "graphics host"', text)
-        self.assertIn('terminate_child "$HTTP_PID" "native HTTP host"', text)
+        self.assertIn("quiesce_surface_children()", text)
+        self.assertIn('"$GRAPHICS_PID" "$HTTP_PID"', text)
+        self.assertIn('quiesce_surface_children\n', text.split("cleanup() {", 1)[1])
         self.assertLess(
             text.index('reap_stale_runtime_processes || fallback_with_reason'),
             text.index('ensure_runtime || fallback_with_reason'),

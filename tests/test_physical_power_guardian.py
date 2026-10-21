@@ -26,7 +26,12 @@ class PhysicalPowerGuardianTests(unittest.TestCase):
         self.assertIn("EV_KEY 0x01 KEY_POWER 116 1", guardian)
         self.assertIn("PWRF shutdown", guardian)
         self.assertIn("ORDAX_HOST_POWER_REQUEST=\"$HOST_POWER_REQUEST\"", guardian)
-        self.assertIn("stop_acpi_button_listener\n    if ! terminate_persistent_host_agents", guardian)
+        power_transition = guardian.split("perform_host_power_transition() {", 1)[1]
+        self.assertLess(
+            power_transition.index("    stop_acpi_button_listener"),
+            power_transition.index("    if ! terminate_persistent_host_agents"),
+        )
+        self.assertIn("record_host_power_stage host-agents", power_transition)
         self.assertNotIn("busybox poweroff -f", ACTION.read_text(encoding="utf-8"))
         self.assertNotIn("busybox reboot -f", ACTION.read_text(encoding="utf-8"))
 

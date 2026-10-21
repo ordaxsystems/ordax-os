@@ -79,7 +79,7 @@ test("emulator account uses the configured HTTPS gateway without exposing or per
       return Response.json(authenticated?{
         $schema:"prototype-ordax.public-identity-session/1",
         authenticated:true,status:"authenticated",provider:"supabase",
-        subject:"subject-1",email:"pessoa@example.com",accountCloseEnabled:false,
+        subject:"subject-1",email:"pessoa@example.com",displayName:"Washington Silva",accountCloseEnabled:false,
       }:{
         $schema:"prototype-ordax.public-identity-session/1",
         authenticated:false,status:"anonymous",provider:"supabase",
@@ -125,7 +125,7 @@ test("emulator account uses the configured HTTPS gateway without exposing or per
     await credentials.signIn({email:"pessoa@example.com",password:"nao-e-credencial-real"});
     await identity.refresh();
     assert.deepEqual(identity.getSnapshot(),{
-      state:"signed-in",subjectId:"subject-1",displayName:"pessoa",
+      state:"signed-in",subjectId:"subject-1",displayName:"Washington Silva",email:"pessoa@example.com",
     });
     assert.equal(loginCalls,1);
     const loginResponse=browserResponses.find(entry=>entry.path==="/auth/login")?.response;

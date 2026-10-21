@@ -545,6 +545,30 @@ function authenticated(req: Request) {
   return result;
 }
 
+function safeAccountDisplayName(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const displayName = value.trim();
+  if (!displayName || Array.from(displayName).length > 120 || /[\u0000-\u001f\u007f]/u.test(displayName)) {
+    return null;
+  }
+  return displayName;
+}
+
+async function readAccountDisplayName(access: string, userId: string): Promise<string | null> {
+  try {
+    // Use the user's access token and owner-scoped RLS. Profile-read failure
+    // must not invalidate the authenticated session.
+    const { data, error: profileError } = await client(access)
+      .from("ordax_accounts")
+      .select("display_name")
+      .eq("user_id", userId)
+      .maybeSingle();
+    return profileError ? null : safeAccountDisplayName(data?.display_name);
+  } catch {
+    return null;
+  }
+}
+
 async function authenticatedRecovery(req: Request) {
   const cookies = parseCookies(req);
   if (cookies.get(RECOVERY_COOKIE) !== "1") {
@@ -1202,6 +1226,9 @@ Deno.serve(async (req: Request) => {
           accountCloseEnabled: false,
         }, session.cookies);
       }
+      const displayName = session.access
+        ? await readAccountDisplayName(session.access, session.user.id)
+        : null;
       return json(200, {
         $schema: SESSION_SCHEMA,
         authenticated: true,
@@ -1209,6 +1236,7 @@ Deno.serve(async (req: Request) => {
         status: "authenticated",
         subject: session.user.id,
         email: session.user.email ?? null,
+        ...(displayName ? { displayName } : {}),
         accountCloseEnabled: ACCOUNT_CLOSE_ENABLED,
       }, session.cookies);
     } catch {

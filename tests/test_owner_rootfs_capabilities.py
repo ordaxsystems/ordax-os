@@ -25,6 +25,7 @@ class OwnerRootfsCapabilitiesTest(unittest.TestCase):
         inventory = capabilities.owner_inventory(ROOT)
         self.assertEqual(inventory["missing_sources"], [])
         self.assertEqual(inventory["unknown_commands"], [])
+        self.assertIn("mktemp", inventory["busybox_applets"])
         self.assertIn("ordax-portable-mount", inventory["fixed_initramfs_commands"])
         self.assertEqual(
             capabilities.fixed_initramfs_commands(ROOT),
@@ -33,7 +34,7 @@ class OwnerRootfsCapabilitiesTest(unittest.TestCase):
         commands = set(inventory["commands"])
         self.assertTrue({
             "git", "ip", "iw", "wpa_supplicant", "wpa_cli", "wpa_passphrase",
-            "udhcpc", "ntpd", "timeout", "stty", "setsid", "killall", "df",
+            "udhcpc", "ntpd", "timeout", "stty", "setsid", "df",
             "tr", "wc", "mount", "pivot_root", "switch_root", "sync", "reboot",
         }.issubset(commands))
 
@@ -84,7 +85,7 @@ done
         }.issubset(missing_packages))
         missing_applets = set(result["missing_busybox_symbols"])
         self.assertTrue({
-            "CONFIG_NTPD", "CONFIG_TEST", "CONFIG_STTY", "CONFIG_KILLALL",
+            "CONFIG_NTPD", "CONFIG_TEST", "CONFIG_STTY",
             "CONFIG_UDHCPC", "CONFIG_SETSID",
         }.issubset(missing_applets))
 

@@ -144,6 +144,21 @@
 .meridian-workspace .ordax-product-sidebar .meridian-rail-update-button { position:relative; display:grid; place-items:center; width:100%; height:100%; padding:0; border:0; border-radius:8px; background:transparent; color:inherit; cursor:pointer; }
 .meridian-workspace .ordax-product-sidebar .meridian-rail-update-button:hover { background:transparent; color:var(--md-rail-text); }
 .meridian-workspace .ordax-product-sidebar .meridian-rail-update-button[data-alerting="true"]::after { position:absolute; top:.375rem; right:.375rem; width:.375rem; height:.375rem; border:1px solid var(--md-rail); border-radius:50%; background:var(--md-art-clay); content:""; }
+
+/* The display-scale zoom applies to the whole Surface canvas. Keep utility
+   hit areas at 44 viewport CSS pixels across the supported zoom factors. */
+html[data-ordax-display-scale="compact"] .meridian-rail-utilities { --md-sidebar-utility-size:48.8889px; }
+html[data-ordax-display-scale="comfortable"] .meridian-rail-utilities { --md-sidebar-utility-size:40px; }
+html[data-ordax-display-scale="large"] .meridian-rail-utilities { --md-sidebar-utility-size:36.6667px; }
+@media (min-width:2560px) and (min-height:1200px) {
+  html[data-ordax-display-scale="automatic"] .meridian-rail-utilities { --md-sidebar-utility-size:41.4118px; }
+}
+@media (min-width:3200px) and (min-height:1800px) {
+  html[data-ordax-display-scale="automatic"] .meridian-rail-utilities { --md-sidebar-utility-size:39.1111px; }
+}
+@media (min-width:5120px) and (min-height:2160px) {
+  html[data-ordax-display-scale="automatic"] .meridian-rail-utilities { --md-sidebar-utility-size:35.2px; }
+}
 .meridian-workspace .ordax-product-sidebar :is(.ordax-space-switcher-trigger,.meridian-rail-space) { display:flex; align-items:center; gap:.625rem; width:100%; min-height:3.375rem; padding:.625rem .5rem; border:1px solid var(--md-rail-border); border-radius:var(--md-radius-small); background:transparent; box-shadow:none; color:var(--md-rail-text); text-align:left; cursor:pointer; }
 .meridian-workspace .ordax-product-sidebar :is(.ordax-space-switcher-trigger,.meridian-rail-space):is(:hover,:focus-visible,[aria-expanded="true"]) { border-color:var(--md-rail-muted); background:var(--md-rail-selected); }
 .meridian-workspace .ordax-product-sidebar :is(.ordax-space-switcher-trigger,.meridian-rail-space):focus-visible { outline:2px solid var(--md-focus); outline-offset:2px; }

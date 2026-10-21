@@ -31,6 +31,7 @@ import { PRODUCT_VERSION, productVersionLabel } from "../../contracts/product-ve
 import { createComponentUpdateScopes } from "../../services/components/update-presentation.mjs";
 import { explainSystemStateWithIntelligence } from "../../services/intelligence/client-actions.mjs";
 import {
+  isRepositoryOnlyUpdate,
   shortSha,
   updateIsAlerting,
 } from "../../services/update/presentation.mjs";
@@ -347,6 +348,8 @@ export function mountSystemOverviewControls(
   let recoveryMessageId = null;
   let recoveryOrdinal = 0;
   let historyOrdinal = 0;
+  let manualUpdatePending = false;
+  let manualUpdateMessageId = null;
   let activeSection = validSystemSection(lifecycle.getAppTarget("system"))
     ? lifecycle.getAppTarget("system")
     : "overview";
@@ -369,6 +372,9 @@ export function mountSystemOverviewControls(
     }
     if (element.dataset.systemOverviewRefresh !== undefined) {
       return Object.freeze({ kind: "metrics-refresh", value: "" });
+    }
+    if (element.dataset.systemManualUpdate !== undefined) {
+      return Object.freeze({ kind: "manual-update", value: "" });
     }
     if (element.dataset.systemHistoryRefresh !== undefined) {
       return Object.freeze({ kind: "history-refresh", value: "" });
@@ -697,8 +703,38 @@ export function mountSystemOverviewControls(
       node(documentObject, "span", "ordax-system-section-kicker", t("system.updates.kicker")),
       node(documentObject, "h4", "ordax-system-section-title", t("system.updates.title")),
     );
-    heading.append(headingCopy);
+    if (updateSnapshot?.manualCheckAvailable === true && typeof updatePort?.requestCheck === "function") {
+      const action = node(
+        documentObject,
+        "button",
+        "ordax-system-action",
+        manualUpdatePending || updateSnapshot.manualCheckPending
+          ? t("system.updates.manual.pending")
+          : t("system.updates.manual.action"),
+      );
+      action.type = "button";
+      action.dataset.systemManualUpdate = "";
+      action.disabled = manualUpdatePending || updateSnapshot.manualCheckPending;
+      heading.append(headingCopy, action);
+    } else {
+      heading.append(headingCopy);
+    }
     section.append(heading);
+    if (updateSnapshot?.manualCheckAvailable === true) {
+      section.append(node(
+        documentObject, "p", "ordax-system-section-copy",
+        t("system.updates.manual.description"),
+      ));
+    }
+    if (manualUpdateMessageId) {
+      const message = node(
+        documentObject, "p",
+        manualUpdateMessageId === "system.updates.manual.failed" ? "ordax-system-warning" : "ordax-system-message",
+        t(manualUpdateMessageId),
+      );
+      message.setAttribute("role", "status");
+      section.append(message);
+    }
 
     if (!updateSnapshot) {
       section.append(
@@ -772,7 +808,25 @@ export function mountSystemOverviewControls(
       }
     }
     addFact(t("system.updates.fact.boot"), t(bootMessageId));
+    // These are stable, privacy-safe Owner/Dev diagnostic keys, mirrored
+    // by ordax-diagnose. Never render raw Guardian logs or boot identifiers.
+    if (updateSnapshot.hostPower) {
+      addFact("power.last_action", updateSnapshot.hostPower.lastAction);
+      addFact("power.last_status", updateSnapshot.hostPower.lastStatus);
+      addFact("power.last_stage", updateSnapshot.hostPower.lastStage);
+      addFact("power.last_failure", updateSnapshot.hostPower.lastFailure);
+      addFact("power.last_mount_error", updateSnapshot.hostPower.lastMountError);
+    }
     section.append(facts);
+
+    if (isRepositoryOnlyUpdate(updateSnapshot)) {
+      section.append(node(
+        documentObject,
+        "p",
+        "ordax-system-section-copy",
+        `${t("system.updates.fact.commit")} · ${t("system.overview.update.mode.none")}`,
+      ));
+    }
 
     if (updateIsAlerting(updateSnapshot)) {
       const warningText = updateSnapshot.bootRefreshRequired
@@ -1546,6 +1600,26 @@ export function mountSystemOverviewControls(
   };
 
   const onClick = (event) => {
+    const manualUpdate = event.target.closest("[data-system-manual-update]");
+    if (manualUpdate && root.contains(manualUpdate)) {
+      if (!manualUpdatePending && !updateSnapshot?.manualCheckPending &&
+          updateSnapshot?.manualCheckAvailable === true &&
+          typeof updatePort?.requestCheck === "function") {
+        manualUpdatePending = true;
+        manualUpdateMessageId = null;
+        replaceView();
+        void updatePort.requestCheck().then(() => {
+          if (!destroyed) manualUpdateMessageId = "system.updates.manual.accepted";
+        }).catch(() => {
+          if (!destroyed) manualUpdateMessageId = "system.updates.manual.failed";
+        }).finally(() => {
+          if (destroyed) return;
+          manualUpdatePending = false;
+          replaceView();
+        });
+      }
+      return;
+    }
     const section = event.target.closest("[data-system-section]");
     if (section && root.contains(section) && validSystemSection(section.dataset.systemSection)) {
       const nextSection = section.dataset.systemSection;

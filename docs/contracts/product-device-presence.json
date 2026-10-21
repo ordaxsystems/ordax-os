@@ -43,10 +43,24 @@
     "enrollmentSource": "system/surface/runtime/product_device_runtime.py",
     "enrollmentCondition": "authenticated-native-account-owner-development-usb-only",
     "legacyShellReporterMounted": false,
-    "requiresAuthenticatedLogin": true,
-    "stopsOnAccountLogout": true,
+    "requiresAuthenticatedLogin": false,
+    "stopsOnAccountLogout": false,
     "stopsOnNativeHostShutdown": true,
-    "presenceCondition": "authenticated-enrollment-and-explicit-private-owner-opt-in"
+    "presenceCondition": "owner-development-usb-with-existing-private-enrolled-credential-and-no-local-opt-out",
+    "enrollmentTrigger": "verified-account-session-after-login-registration-or-session-refresh",
+    "enrollmentRetry": "on-existing-session-or-connector-refresh-with-60-second-monotonic-backoff",
+    "stopsOnSessionInvalidation": false,
+    "nativeRuntimeHeartbeatArbitration": {
+      "authority": "ordax-runtime:ordax_dev_agent.native_main",
+      "existingRuntimeLock": "/state/ordax/native-state/product-runtime/instance.lock",
+      "nativeHostBindPath": "/var/lib/ordax/product-runtime/instance.lock",
+      "runtimeOwnsLockForProcessLifetime": true,
+      "discoveryHoldsSameLockOnlyDuringOutboundReport": true,
+      "discoverySkipsOnlineAndOfflineWhenRuntimeOwnsLock": true,
+      "stopWaitRequiresConfirmedThreadExit": true,
+      "separateHeartbeatLockOrSchedulerAllowed": false,
+      "agentDispatchEnabledByThisContract": false
+    }
   },
   "production": {
     "enabled": false,
@@ -55,19 +69,19 @@
   "ownerDevelopment": {
     "canaryAllowedAfterAuthenticatedEnrollment": true,
     "automaticEnrollment": true,
-    "enrollmentTrigger": "after-successful-authenticated-native-account-login",
+    "enrollmentTrigger": "after-successful-verified-native-account-session",
     "requiresConfiguredHttpsControlPlane": true,
-    "presenceAvailableAfterEnrollment": false,
+    "presenceAvailableAfterEnrollment": true,
     "manualPowerShellRequired": false,
-    "discoveryOptInRequired": true,
-    "defaultDiscoverability": false,
+    "discoveryOptInRequired": false,
+    "defaultDiscoverability": true,
     "presenceAvailableAfterOwnerOptIn": true,
     "connectorSettingsPath": "/__ordax/native/product-connector",
     "settingsOwnedBy": "system/surface/runtime/product_device_runtime.py",
     "persistentVisibilityPolicy": "/state/ordax/native-state/device-agent/product-connector-visibility.json",
-    "requiresValidAccountSessionToEnable": true,
+    "requiresValidAccountSessionToEnable": false,
     "offlineDisableAlwaysAllowed": true,
-    "discoveryOptInBoundToAccountSubject": true,
+    "discoveryOptInBoundToAccountSubject": false,
     "otherAccountReuseAllowed": false,
     "legacySubjectlessConsentAccepted": false,
     "nativeSurfaceContract": "system/contracts/product-connector.mjs",
@@ -87,7 +101,18 @@
     "presenceConfirmationMaxAge": "3x managed heartbeat interval (monotonic, memory-only)",
     "statusEndpointUsesExistingWorker": true,
     "secondHeartbeatOrRemoteProbe": false,
-    "remoteActionsRequireIndependentOAuthAndAttestation": true
+    "remoteActionsRequireIndependentOAuthAndAttestation": true,
+    "developmentPresence": {
+      "distributionProfile": "owner-development",
+      "productMode": "usb",
+      "requiresPreviouslyEnrolledDeviceCredential": true,
+      "startsAtNativeHostComposition": true,
+      "continuesAfterLogout": true,
+      "localOptOutPersists": true,
+      "visibilityPolicyBoundToDeviceId": true,
+      "missingOrInvalidCredential": "unavailable-until-authenticated-enrollment",
+      "remoteActionAuthorityChanged": false
+    }
   },
   "externalMcp": {
     "accountLoginAutomaticallyConnectsExternalClient": false,

@@ -1,6 +1,7 @@
 import hashlib
 import importlib.util
 import json
+import os
 from pathlib import Path
 import subprocess
 import tempfile
@@ -9,6 +10,8 @@ import unittest
 ROOT = Path(__file__).resolve().parents[1]
 SERVER = ROOT / "system" / "surface" / "runtime" / "native_host_server.py"
 BROKER = ROOT / "system" / "surface" / "runtime" / "network_broker.sh"
+BOOT_NETWORK = ROOT / "bootstrap" / "dev-base" / "ordax-network"
+SURFACE_LAUNCHER = ROOT / "system" / "surface" / "bin" / "ordax-surface"
 CONTRACT = ROOT / "system" / "contracts" / "network-management.mjs"
 ADAPTER = ROOT / "system" / "adapters" / "native" / "network-management.mjs"
 COMPOSITION = ROOT / "system" / "composition" / "native" / "main.mjs"
@@ -126,6 +129,181 @@ class NativeNetworkManagementTests(unittest.TestCase):
             for forbidden in ("password", "passphrase", "psk=", "secret"):
                 self.assertNotIn(forbidden, flattened)
 
+    @unittest.skipUnless(hasattr(os, "mkfifo"), "FIFO requires POSIX")
+    def test_broker_liveness_requires_private_fifo_with_real_reader(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            paths = native_host.network_broker_paths(temporary)
+            os.mkfifo(paths["control"], 0o600)
+            self.assertFalse(native_host.network_broker_available(paths))
+            reader = os.open(paths["control"], os.O_RDONLY | os.O_NONBLOCK)
+            try:
+                self.assertTrue(native_host.network_broker_available(paths))
+                self.assertEqual(os.read(reader, 32), b"")
+            finally:
+                os.close(reader)
+            self.assertFalse(native_host.network_broker_available(paths))
+            linked = root / "network-linked"
+            linked.symlink_to(paths["control"])
+            self.assertFalse(native_host.network_broker_available(
+                {**paths, "control": str(linked)}
+            ))
+
+    def test_first_run_wifi_handoff_has_one_wpa_owner_and_broker_recovery(self):
+        broker = BROKER.read_text(encoding="utf-8")
+        boot = BOOT_NETWORK.read_text(encoding="utf-8")
+        surface = SURFACE_LAUNCHER.read_text(encoding="utf-8")
+        for assignment in (
+            "WPA_CTRL_DIR=/run/ordax-wpa-supplicant",
+            "WPA_PID_FILE=/run/ordax-wpa-supplicant.pid",
+        ):
+            self.assertIn(assignment, boot)
+            self.assertIn(assignment, broker)
+        self.assertIn("WPA_CONF=$STATE_DIR/wpa.conf", boot)
+        self.assertIn("WPA_CONF=$STATE_DIR/wpa.conf", broker)
+        self.assertNotIn("killall wpa_supplicant", broker)
+        self.assertNotIn("killall wpa_supplicant", boot)
+        self.assertIn("wifi_connect_result=owner-unavailable", boot)
+        self.assertIn('if ! stop_wifi_client; then', boot)
+        self.assertIn('wpa_cli -p "$WPA_CTRL_DIR" -i "$wifi" terminate', boot)
+        self.assertIn("controlador WPA existente nao responde", boot)
+        self.assertIn('"$WPA_CLI_BIN" -p "$WPA_CTRL_DIR" -i "$wifi" terminate', broker)
+        self.assertIn('if ! stop_wifi "$wifi"; then', broker)
+        self.assertIn("supervise_network_broker() (", surface)
+        self.assertIn('wait "$broker_pid" || broker_exit=$?', surface)
+        self.assertIn('kill -TERM "$broker_pid"', surface)
+        self.assertIn("trap 'exit 0' HUP INT TERM", broker)
+        self.assertNotIn('rm -f "$WPA_CONF"\n', broker.split("        disconnect)", 1)[1].split("        forget)", 1)[0])
+
+    def test_saved_wifi_reconnects_after_boot_and_recovers_dhcp_without_replacing_wpa(self):
+        # Execute the checked-in connection policy, not an independent mock
+        # implementation. No real networking, credentials or host state touched.
+        broker = BROKER.read_text(encoding="utf-8")
+        source = broker.split("restore_saved_network_if_needed() {", 1)[1].split("\n}\n", 1)[0]
+        self.assertIn('read -r -t "$RECONNECT_INTERVAL" signal <&9', broker)
+        self.assertIn('restore_saved_network_if_needed >/dev/null 2>&1 || true', broker)
+        self.assertIn("CANDIDATE=$STATE_DIR/wpa.conf.candidate.$$", broker)
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            saved = root / "wpa.conf"
+            saved.write_text("network={\nssid=43617361\npsk=0\n}\n")
+            paused = root / "autoconnect-paused"
+            actions = root / "events"
+            wpa = root / "wpa-cli"
+            wpa.write_text(
+                "#!/bin/sh\n"
+                'if [ "$NETWORK_TEST_WPA" = online ]; then\n'
+                '  case "$*" in *status*) echo wpa_state=COMPLETED ;; *ping*) echo PONG ;; esac\n'
+                'else exit 1; fi\n'
+            )
+            wpa.chmod(0o700)
+            script = (
+                'set -eu\n'
+                'find_wifi_interface() { printf "%s\\n" wlan0; }\n'
+                'have_ipv4() { [ "$NETWORK_TEST_IP" = 1 ]; }\n'
+                'try_dhcp() { printf "dhcp\\n" >>"$NETWORK_TEST_EVENTS"; }\n'
+                'restore_saved_network() { printf "restore\\n" >>"$NETWORK_TEST_EVENTS"; }\n'
+                'sync_runtime_resolver() { printf "dns\\n" >>"$NETWORK_TEST_EVENTS"; }\n'
+                'restore_saved_network_if_needed() {' + source + '\n}\n'
+                'restore_saved_network_if_needed\n'
+            )
+            base = dict(
+                os.environ,
+                WPA_CONF=str(saved), AUTO_CONNECT_PAUSED=str(paused),
+                WPA_CTRL_DIR=str(root / "no-wpa-socket"), WPA_CLI_BIN=str(wpa),
+                WIFI_TOOLS_READY="1",
+                NETWORK_TEST_EVENTS=str(actions), NETWORK_TEST_IP="0",
+                NETWORK_TEST_WPA="offline",
+            )
+            for wpa_state, has_ip, paused_by_user, expected in (
+                ("offline", "0", False, "restore\n"),
+                ("online", "0", False, "dhcp\ndns\n"),
+                ("online", "1", False, "dns\n"),
+                ("offline", "0", True, ""),
+            ):
+                actions.unlink(missing_ok=True)
+                if paused_by_user:
+                    paused.touch()
+                else:
+                    paused.unlink(missing_ok=True)
+                env = dict(base, NETWORK_TEST_WPA=wpa_state, NETWORK_TEST_IP=has_ip)
+                result = subprocess.run(
+                    ["/bin/sh", "-c", script], env=env, text=True,
+                    capture_output=True, timeout=6, check=False,
+                )
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(actions.read_text() if actions.exists() else "", expected)
+
+    def test_same_broker_restores_wired_dhcp_without_wifi_tools(self):
+        broker = BROKER.read_text(encoding="utf-8")
+        self.assertIn("restore_wired_network_if_needed() {", broker)
+        self.assertIn('have_any_ipv4 && return 0', broker)
+        self.assertIn('for netpath in /sys/class/net/*; do', broker)
+        self.assertIn('[ -d "$netpath/wireless" ] && continue', broker)
+        self.assertIn('[ "$net_type" = 1 ] || continue', broker)
+        self.assertIn('[ "$carrier" = 1 ] || continue', broker)
+        self.assertIn('if try_dhcp "$iface"; then', broker)
+        self.assertIn('restore_wired_network_if_needed >/dev/null 2>&1 || true', broker)
+        self.assertIn('WIFI_TOOLS_READY=0', broker)
+        self.assertIn('wifi-tools-unavailable', broker)
+        self.assertIn('timeout -k 1 8 "$UDHCPC_BIN"', broker)
+
+    def test_wired_carrier_is_read_only_after_interface_is_raised(self):
+        # A DOWN NIC can expose an unreadable or 0 carrier. Skipping it
+        # before 'ip link set up' strands wired NAT/USB tether indefinitely.
+        broker = BROKER.read_text(encoding="utf-8")
+        cli = BOOT_NETWORK.read_text(encoding="utf-8")
+        broker_wired = broker.split("restore_wired_network_if_needed() {", 1)[1].split("\n}\n", 1)[0]
+        cli_wired = cli.split("# Only Ethernet-like", 1)[1].split('wifi=""', 1)[0]
+        for name, block, up in (
+            ("native-broker", broker_wired, '"$IP_BIN" link set "$iface" up'),
+            ("dev-base-cli", cli_wired, 'ip link set "$iface" up'),
+        ):
+            with self.subTest(owner=name):
+                self.assertIn('[ "$net_type" = 1 ] || continue', block)
+                self.assertIn('[ -d "$netpath/wireless" ] && continue', block)
+                self.assertIn('[ "$carrier" = 1 ] || continue', block)
+                self.assertLess(block.index('[ "$net_type" = 1 ] || continue'), block.index(up))
+                self.assertLess(block.index(up), block.index('if [ -r "$netpath/carrier" ]; then'))
+                self.assertLess(block.index('[ "$carrier" = 1 ] || continue'), block.index('if try_dhcp "$iface"; then'))
+
+    def test_manual_disconnect_remains_paused_and_saved_network_is_never_deleted(self):
+        broker = BROKER.read_text(encoding="utf-8")
+        disconnect = broker.split("        disconnect)", 1)[1].split("        forget)", 1)[0]
+        reconnect = broker.split("        reconnect)", 1)[1].split("        *)", 1)[0]
+        self.assertIn('AUTO_CONNECT_PAUSED=$STATE_DIR/autoconnect-paused', broker)
+        self.assertIn("pause_tmp=$AUTO_CONNECT_PAUSED.tmp.$$", disconnect)
+        self.assertNotIn("pause_tmp=$AUTO_CONNECT_PAUSED.tmp.$\n", disconnect)
+        self.assertIn('"$AUTO_CONNECT_PAUSED"', disconnect)
+        # The persistent pause receipt must be committed before killing
+        # WPA; an interrupted shutdown can no longer reconnect accidentally.
+        self.assertLess(
+            disconnect.index('mv -f "$pause_tmp" "$AUTO_CONNECT_PAUSED"'),
+            disconnect.index('if ! stop_wifi "$wifi"; then'),
+        )
+        self.assertLess(
+            disconnect.index('/bin/busybox sync'),
+            disconnect.index('if ! stop_wifi "$wifi"; then'),
+        )
+        self.assertNotIn('rm -f "$WPA_CONF"', disconnect)
+        self.assertIn('rm -f "$AUTO_CONNECT_PAUSED"', reconnect)
+        self.assertIn('rm -f "$WPA_CONF" "$AUTO_CONNECT_PAUSED"', broker)
+
+    def test_shared_surface_clock_retry_waits_for_ip_before_ntp(self):
+        surface = SURFACE_LAUNCHER.read_text(encoding="utf-8")
+        section = surface.split("supervise_time_sync_agent() (", 1)[1].split(
+            "\n)\n\nstart_time_sync_agent()", 1
+        )[0]
+        self.assertLess(
+            section.index('/bin/busybox ip -4 addr show scope global'),
+            section.index('/bin/busybox ntpd -n'),
+        )
+        self.assertIn('wait "$ntp_pid"', section)
+        self.assertIn('trap \'stop_clock_supervisor\' HUP INT TERM', section)
+        self.assertIn('kill -TERM "$ntp_pid"', section)
+        self.assertIn('supervise_time_sync_agent &', surface)
+        self.assertEqual(surface.count("start_time_sync_agent() {"), 1)
+
     def test_broker_is_shell_valid_private_and_has_no_secret_logging(self):
         subprocess.run(["sh", "-n", str(BROKER)], check=True)
         text = BROKER.read_text(encoding="utf-8")
@@ -143,7 +321,7 @@ class NativeNetworkManagementTests(unittest.TestCase):
         text = BROKER.read_text(encoding="utf-8")
         self.assertIn('WPA_CLI_BIN=$(command -v wpa_cli || true)', text)
         self.assertIn('[ -n "$WPA_CLI_BIN" ]', text)
-        self.assertIn('WPA_CTRL_DIR=/run/wpa_supplicant', text)
+        self.assertIn('WPA_CTRL_DIR=/run/ordax-wpa-supplicant', text)
         self.assertIn('-O"$WPA_CTRL_DIR" -i "$wifi" -c "$conf"', text)
         self.assertIn('grep -q \'^wpa_state=COMPLETED$\'', text)
         self.assertIn('/bin/busybox timeout -k 1 15 "$IW_BIN" dev "$wifi" scan', text)
@@ -167,9 +345,17 @@ class NativeNetworkManagementTests(unittest.TestCase):
         self.assertIn("queue_network_broker_request", get_section)
         self.assertIn("if self.path == NETWORK_MANAGEMENT_PATH", post_section)
         self.assertIn("with self.server.network_lock:", post_section)
-        self.assertNotIn("subprocess", server)
-        self.assertNotIn("os.system", server)
-        self.assertNotIn("/bin/sh -c", server)
+        # The Native Host may legitimately use subprocess in unrelated,
+        # separately authorized features. The Wi-Fi IPC must never gain
+        # shell/terminal execution authority; verify the actual boundary.
+        network_queue = server.split("def queue_network_broker_request(", 1)[1].split(
+            "\ndef native_install_broker_paths(", 1
+        )[0]
+        for forbidden in ("subprocess", "os.system", "/bin/sh -c", "Popen("):
+            self.assertNotIn(forbidden, network_queue)
+        self.assertIn('os.open(', network_queue)
+        self.assertIn('O_NOFOLLOW', network_queue)
+        self.assertIn('os.fstat(descriptor)', network_queue)
 
     def test_capability_is_native_only_and_composition_probes_fail_soft(self):
         capabilities = json.loads(CAPABILITIES.read_text(encoding="utf-8"))

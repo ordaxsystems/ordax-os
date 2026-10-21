@@ -10,11 +10,12 @@ import {
 } from "../../contracts/identity-actions.mjs";
 import { assertIdentitySessionPort } from "../../contracts/identity-session.mjs";
 import { assertIdentityCredentialsPort, sameRegistrationLegalPolicy } from "../../contracts/identity-credentials.mjs";
+import { readRememberedLoginEmail } from "../../services/account/remembered-login-email.mjs";
 import {
   assertLocalSessionPort,
   validateLocalSessionSnapshot,
 } from "../../contracts/local-session.mjs";
-import { assertNetworkManagementPort } from "../../contracts/network-management.mjs";
+import { assertNetworkManagementPort, validateWifiCredentials } from "../../contracts/network-management.mjs";
 import { assertPreferenceRuntimePort } from "../../contracts/preference-runtime.mjs";
 import { createLocaleProfile } from "../../contracts/locale-profile.mjs";
 import {
@@ -184,7 +185,7 @@ export function mountFirstRunExperience(
   let identityPending = null;
   let identityAvailabilityPending = false;
   let identityMessage = "";
-  let identityEmailDraft = "";
+  let identityEmailDraft = readRememberedLoginEmail(documentObject.defaultView);
   let identityPasswordDraft = "";
   let identityFormMode = "sign-in";
   let passwordVisible = false;
@@ -317,13 +318,13 @@ export function mountFirstRunExperience(
     body.append(heading(
       "Bem-vindo",
       "Bem-vindo ao OrdaX.",
-      "Inteligência, Spaces e um ambiente que acompanha você. Conheça seu OrdaX e prepare-se para começar.",
+      "Leve o OrdaX no pendrive, organize seus projetos em Spaces e use a Aura com o contexto permitido.",
     ));
     const grid = el(documentObject, "div", "ordax-first-run-features");
     [
       ["aura", "Intelligence no seu contexto", "Converse com a Aura e trabalhe com o contexto dos seus arquivos, projetos e Spaces, conforme os recursos e permissões disponíveis."],
       ["spaces", "Um Space para cada mundo", "Separe vida pessoal, projetos e negócios em ambientes com seus próprios aplicativos, ferramentas e contexto."],
-      ["globe", "Seu OrdaX vai com você", "Leve seu ambiente no USB e use a mesma conta no OrdaX Web. Os recursos locais e online acompanham as possibilidades de cada modo."],
+      ["globe", "Mesma conta, dois modos", "Use a mesma Conta OrdaX no USB e na Web. A sincronização de idioma, fuso horário e continuidade entre esses modos ainda está em integração."],
     ].forEach(([glyph, title, detail]) => {
       const item = el(documentObject, "article", "ordax-first-run-feature");
       const mark = el(documentObject, "span", "ordax-first-run-feature-icon");
@@ -411,7 +412,7 @@ export function mountFirstRunExperience(
     body.append(toolbar);
 
     if (networkMessage) {
-      const status = el(documentObject, "p", "ordax-first-run-status", networkMessage);
+      const status = el(documentObject, "p", "ordax-first-run-status", translateFirstRunText(draft.locale, networkMessage));
       status.setAttribute("role", "status");
       body.append(status);
     }
@@ -680,7 +681,7 @@ export function mountFirstRunExperience(
     overview.setAttribute("aria-label", translateFirstRunText(draft.locale, "Resumo da conta"));
     overview.append(el(documentObject, "span", "ordax-first-run-eyebrow", "Uma conta. Seu OrdaX."));
     for (const [title, description] of [
-      ["Perfil e foto", "Nome completo, foto e país aparecerão aqui quando a integração do perfil estiver disponível."],
+      ["Perfil e foto", "O nome de exibição vem da sua Conta OrdaX. Foto e país ainda não estão disponíveis nesta integração."],
       ["Plano e recursos", "O plano desta conta ainda não foi consultado. Nenhuma assinatura ou cobrança é criada nesta configuração."],
       ["Preferências e sincronização", "Restaurar idioma e preferências da Web está em integração. Suas escolhas feitas no início continuam valendo neste dispositivo."],
     ]) {
@@ -742,7 +743,7 @@ export function mountFirstRunExperience(
     body.append(heading(
       "Tudo pronto",
       "Tudo pronto.",
-      "Confira as opções abaixo. Ao entrar, o OrdaX salva a conclusão desta configuração no pendrive.",
+      "Confira suas escolhas. Ao concluir, o OrdaX registra a configuração neste pendrive.",
     ));
     const summary = el(documentObject, "dl", "ordax-first-run-summary");
     const localeLabel = REGIONAL_LOCALE_OPTIONS.find((entry) => entry.value === draft.locale)?.label ?? draft.locale;
@@ -828,7 +829,10 @@ export function mountFirstRunExperience(
     else renderReady(body);
 
     const footer = el(documentObject, "footer", "ordax-first-run-footer");
-    const busy = identityPending !== null || identityAvailabilityPending || localSessionPending || deviceNamePending || networkPending;
+    // Network is optional in First Run. A slow status, scan, or connection
+    // request must not prevent the user from continuing offline or opening
+    // another step; network controls themselves remain disabled while pending.
+    const busy = identityPending !== null || identityAvailabilityPending || localSessionPending || deviceNamePending;
     if (stepIndex > 0 && !finishing) {
       const back = action(documentObject, "Voltar", "back");
       back.disabled = busy;
@@ -1250,6 +1254,13 @@ export function mountFirstRunExperience(
         networkMessage = "Digite a senha da rede Wi-Fi.";
         render();
       } else {
+        try {
+          validateWifiCredentials({ ssid, password });
+        } catch {
+          networkMessage = "A senha precisa ter de 8 a 63 bytes UTF-8 e não pode conter caracteres de controle.";
+          render();
+          return;
+        }
         void connectNetwork(ssid, password);
       }
     } else if (kind === "account-refresh") void refreshIdentityAvailability();

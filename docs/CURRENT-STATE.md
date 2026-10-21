@@ -1,3 +1,77 @@
+Native MCP Runtime launch ownership — canonical Linux executable
+(2026-10-21): The source-lock distinguishes the upstream compatibility
+contract's `native_composition_entrypoint=ordax_dev_agent.main.run`
+(dispatch loop) from the Linux binary
+`ordax-product-agent` whose embedded entrypoint is
+`ordax_dev_agent.native_main.main`. The native entrypoint validates
+Owner/Development USB, reads the enrolled OS credential, takes the
+canonical singleton lock and delegates to the dispatch loop. The former
+source-only Python handoff helper is not a runtime entrypoint.
+The unsigned candidate evidence is refreshed from the **successful
+push of ordax-runtime main** at
+`eaf47d2adc1c8be54a4240e1fbe539a3cda44649` (Actions run
+`39572841771`), with verified artifact ZIP and ELF SHA-256. It remains
+only an offline CI proof: no signature, installation or USB execution
+is claimed. The pinned upstream compatibility contract bytes did not
+change, so its SHA-256 is preserved.
+(2026-10-21): The Owner/Development USB Native Host now uses the same
+`product-runtime/instance.lock` as the upstream
+`ordax_dev_agent.native_main` executable. The OS presence worker holds
+the kernel lock during each HTTPS online/offline report; if the verified
+native Runtime process holds it for its entire lifetime, discovery reports
+are suppressed. The worker's bounded stop also requires a confirmed join.
+Unsafe state roots or singleton files fail closed. This prevents
+competing identity heartbeats between processes without a second scheduler,
+credential authority or command bus.
+
+The earlier **source-only, never invoked** in-process helper
+`native_product_runtime_handoff.py` and its isolated test were removed:
+the actual Linux distribution entrypoint is the existing executable
+`ordax-product-agent --run --distribution-profile owner-development
+--product-mode usb`, not an imported Python callback inside the Native
+HTTP host's main thread. The upstream Runtime owns the Product command
+queue, central-session confirmation, action dispatch and singleton lock;
+the OS owns the original `ProductDeviceIdentityStore`, Native policy,
+verified artifact distribution and lifecycle. The signed Runtime component,
+trust anchor, OS service activation, runtime-health receipt and physical
+execution are **not yet present**. No discovery/grant flags are redefined
+as evidence of native action execution. Stable/MVP remains unchanged.
+
+Owner/Development USB Local AI lifecycle (2026-10-21): `ordax-run` now
+uses the existing Native Local AI endpoint with a bounded, fail-closed
+`system/services/local-ai/owner-dev-runtime.sh` lifecycle. When an exact
+pre-staged content-addressed signed v4 EROFS exists, the helper verifies
+size/SHA-256, root ownership, source-lock identity and x86_64 architecture;
+it mounts read-only, generates an ephemeral inference credential in the
+existing Native Host location and supervises the model process until stop.
+Absent, corrupt or incompatible payload never blocks Surface/boot.
+This is a **source-only activation path for a pre-staged artifact**, not a
+delivery implementation: current Git-first `ordax-pull` does not acquire or
+install that 568 MiB EROFS. Publication/acquisition, verified staging,
+rollback, actual USB Dev inference and physical verification remain open in
+#2071. No change to Stable signing/activation or Web remote availability.
+
+Owner/Development USB discovery without account login (2026-10-21): Native
+runtime composition now starts the single existing presence worker whenever the
+private, previously enrolled Product device credential is valid and no local
+opt-out exists. No account login or discovery click is required on subsequent
+starts of this DEV profile. Logout, anonymous session refresh and account-session
+expiry leave this device-authenticated presence running. Native Host shutdown
+still stops it. Local discovery disable/enable works without a cloud session and
+persists in the existing visibility policy file, bound to the enrolled device ID.
+Malformed policy/credential remains unavailable. Missing device enrollment still
+requires authenticated initial enrollment; no account ownership, device token or
+remote grant is fabricated. Stable and Native disk activation are unchanged.
+Connector exposes canEnableWithoutLogin separately from accountAuthenticated;
+the Settings control uses the former without claiming an authenticated user.
+The canonical Account-session recovery added earlier on this date remains for
+enrollment, with a 60-second retry deadline on existing session refreshes.
+This DEV exception replaces the earlier account-bound default-off discovery
+policy below; it does not install remote action execution or change MCP OAuth,
+grants, local action policy or attestation. Physical notebook visibility still
+requires an accepted server presence receipt. Contract:
+docs/contracts/product-device-presence.json.
+
 First-use journey redesign (2026-10-20): one
 shared Native/USB/emulator wizard follows welcome (language + time zone), network,
 account, local security, device name and review. No regional or privacy page.
@@ -41,6 +115,18 @@ run. Source edits do not update packaged USB images.
 
 Physical USB lifecycle interpretation (2026-10-18): the historical `PHYSICAL_OWNER_AUTHORIZATION_RECORDED=NO` and `FIRST_STABLE_MVP_USB_WRITE=HOLD...` snapshot markers below are retained as evidence of the earlier pre-consent gate. For current authorization use `docs/contracts/physical-write-authorization.json` at the exact source commit and `tools/creator/physical_promotion.py`. An approved contract does not prove the v3 signed writer was published or that a physical USB was written, read back, booted or recovered.
 
+Native Runtime composition source alignment (2026-10-21): the OS source lock now
+pins merged Runtime `9734893697dae7dbb3cef5ca060a531e5fb0cd66` and the
+updated compatibility-contract SHA-256. The existing dispatch loop is available
+as `ordax_dev_agent.main.run` with explicit host configuration and the existing
+private identity-store reader; no duplicate credential file, command transport
+or action authority is introduced. Upstream Linux source integration exercises
+a real temporary-file action with isolated transport and local-policy denial.
+This does not install the Runtime on the notebook. The native executable
+package/slot, lifecycle ownership, health, device grants and session attestation
+remain required before activation. Graphical control must bind to the OS's
+native graphics/input services; no external Linux desktop is required.
+
 Runtime Product MCP source alignment (2026-10-18): `system/services/device-agent/studio-runtime-source-lock.json`
 pins reviewed `ordaxsystems/ordax-runtime` 0.4.7 at an immutable commit and
 SHA-256 of its `ordax-os-runtime-compatibility.json` contract. The upstream
@@ -74,7 +160,7 @@ worker via the neutral Product Connector port. Source-of-truth contract:
 docs/contracts/product-device-presence.json. Physical USB proof and OS
 action Runtime/attestation remain independently blocked.
 
-Native Connector Settings opt-in (2026-10-18): Owner/Development USB now
+Historical Native Connector Settings opt-in (2026-10-18; DEV discovery policy superseded by the 2026-10-21 entry above): Owner/Development USB now
 uses the private ProductDeviceIdentityStore as SSOT for a separate
 `product-connector-visibility.json` preference, default-off. Native Settings
 calls the loopback-only `/__ordax/native/product-connector` route. The existing
@@ -87,7 +173,7 @@ unavailable, and physical USB proof remains pending. The account session is
 memory-only until the encrypted local vault gate; login may need repeating
 after Native Host restart. Stable is unaffected.
 
-Native Product Connector candidate (2026-10-17): Owner/Development USB
+Historical Native Product Connector candidate (2026-10-17; DEV login lifecycle superseded above): Owner/Development USB
 reuses the existing Native Account login and private Product device
 identity to start one fail-soft HTTPS presence worker after authenticated
 enrollment. Logout and Native Host shutdown stop its lifecycle; no command
@@ -2360,3 +2446,17 @@ Estado operacional em 2026-10-15: a migration `20261015153000_space_semantics_v1
 `food.pizzeria` e `fabrication.3d-printing` estão estruturados como fundação MVP compatível com os Profile Packs existentes. `product-operations.territorial-platform`, `education.school` e `development.software` estão estruturados, porém `DEFERRED`: o compositor publica zero navegação/widget/capability para eles até promoção explícita posterior. Development modela muitos Projects dentro de um único Space e Studio apenas como ferramenta de abertura do Project. Escola preserva REL-001 e não introduz tracking/câmera irrestritos. Achegue-se permanece operacional, não um Space de desenvolvimento.
 
 Profile Pack continua sendo composição técnica versionada e seus manifests não receberam uma segunda cópia de navigation/dashboard/provider state. A sidebar global continua independente da navegação contextual. Nenhum kernel, base, Creator, physical-write ou workflow físico faz parte desta mudança.
+
+
+## Account display name in the authenticated session — source only — 2026-10-20
+
+The authenticated `/auth/session` projection now optionally reads `ordax_accounts.display_name` with the same user's access token and the table's existing owner-scoped RLS policy. A missing or unavailable profile row does not invalidate login. The Native gateway and Windows emulator preserve only the bounded display-name field; account credentials and provider tokens remain outside Surface JavaScript. The shared identity adapter uses this name when present and keeps its existing email-handle fallback when it is absent.
+
+```text
+ACCOUNT_DISPLAY_NAME_SESSION_PROJECTION=PASS_SOURCE_RLS_BOUND
+ACCOUNT_DISPLAY_NAME_NATIVE_AND_EMULATOR_FORWARDING=PASS_SOURCE
+ACCOUNT_DISPLAY_NAME_PROFILE_PHOTO_OR_COUNTRY=NOT_AVAILABLE
+ACCOUNT_DISPLAY_NAME_EDGE_DEPLOYMENT=PENDING_GATEWAY_DESTINATION_CREDENTIAL
+```
+
+This source change does not claim that the live Supabase Edge Function has been deployed. The existing destination remains on provider revision 13 until the reviewed gateway deployment credential is configured.

@@ -6,7 +6,7 @@ export PATH
 
 STATE_DIR=/state/network
 WPA_CONF=$STATE_DIR/wpa.conf
-CANDIDATE_CONF=/run/ordax-wpa-candidate.conf
+CANDIDATE_CONF=$STATE_DIR/wpa.conf.candidate.$$
 SCAN_FILE=/run/ordax-wifi-scan.tsv
 SSID_FILE=/run/ordax-wifi-ssids
 WPA_CTRL_DIR=/run/ordax-wpa-supplicant
@@ -20,7 +20,9 @@ GIT_PROBE_TIMEOUT=${ORDAX_GIT_PROBE_TIMEOUT_SECONDS:-8}
 DHCP_TIMEOUT=${ORDAX_DHCP_TIMEOUT_SECONDS:-6}
 WIFI_LINK_TIMEOUT=${ORDAX_WIFI_LINK_TIMEOUT_SECONDS:-8}
 WIFI_SETUP_ATTEMPTS=${ORDAX_WIFI_SETUP_ATTEMPTS:-3}
+umask 077
 mkdir -p "$STATE_DIR" /run
+chmod 700 "$STATE_DIR"
 
 normalize_timeout() {
     value=$1
@@ -216,35 +218,40 @@ require_wifi_tools || exit 1
 ip link set "$wifi" up >/dev/null 2>&1 || true
 
 stop_wifi_client() {
-    pid=""
-    if [ -s "$WPA_PID_FILE" ]; then
-        pid=$(cat "$WPA_PID_FILE" 2>/dev/null || true)
-    fi
-
-    case "$pid" in
-        ''|*[!0-9]*)
-            # The development base owns the only supplicant lifecycle. This
-            # fallback also clears an orphan left by an older seed helper.
-            killall wpa_supplicant >/dev/null 2>&1 || true
-            ;;
-        *)
-            if [ -r "/proc/$pid/comm" ] && [ "$(cat "/proc/$pid/comm" 2>/dev/null || true)" = "wpa_supplicant" ]; then
-                kill "$pid" >/dev/null 2>&1 || true
-                sleep 1
-                if kill -0 "$pid" >/dev/null 2>&1; then
-                    kill -9 "$pid" >/dev/null 2>&1 || true
-                fi
-            else
-                killall wpa_supplicant >/dev/null 2>&1 || true
+    # The Surface and First Run must share one WPA owner. Never kill every
+    # supplicant or an unverified PID just because an old lock file survived.
+    if wpa_cli -p "$WPA_CTRL_DIR" -i "$wifi" ping 2>/dev/null |
+        grep -qx PONG; then
+        wpa_cli -p "$WPA_CTRL_DIR" -i "$wifi" terminate >/dev/null 2>&1 || return 1
+        remaining=5
+        while [ "$remaining" -gt 0 ]; do
+            if ! wpa_cli -p "$WPA_CTRL_DIR" -i "$wifi" ping 2>/dev/null |
+                grep -qx PONG; then
+                break
             fi
-            ;;
-    esac
+            sleep 1
+            remaining=$((remaining - 1))
+        done
+        [ "$remaining" -gt 0 ] || return 1
+    elif [ -s "$WPA_PID_FILE" ]; then
+        owner_pid=""
+        IFS= read -r owner_pid <"$WPA_PID_FILE" || true
+        case "$owner_pid" in
+            ''|*[!0-9]*) return 1 ;;
+        esac
+        if [ -r "/proc/$owner_pid/comm" ] &&
+            [ "$(cat "/proc/$owner_pid/comm" 2>/dev/null || true)" = wpa_supplicant ]; then
+            echo "ordax-network: WPA owner is active without its control socket; preserving connection" >&2
+            return 1
+        fi
+    fi
 
     rm -f "$WPA_PID_FILE"
     rm -rf "$WPA_CTRL_DIR"
     mkdir -p "$WPA_CTRL_DIR"
     iw dev "$wifi" disconnect >/dev/null 2>&1 || true
     ip addr flush dev "$wifi" >/dev/null 2>&1 || true
+    return 0
 }
 
 wpa_state_completed() {
@@ -272,10 +279,13 @@ connect_wifi_conf() {
         return 1
     }
 
-    stop_wifi_client
+    if ! stop_wifi_client; then
+        wifi_connect_result=owner-unavailable
+        return 1
+    fi
     if ! wpa_supplicant -B -P"$WPA_PID_FILE" -O"$WPA_CTRL_DIR" -i "$wifi" -c "$conf" >/dev/null 2>&1; then
         wifi_connect_result=supplicant-start
-        stop_wifi_client
+        stop_wifi_client || true
         return 1
     fi
 
@@ -283,7 +293,7 @@ connect_wifi_conf() {
     # completed the WPA handshake before starting DHCP.
     if ! wait_for_wifi_authentication; then
         wifi_connect_result=authentication
-        stop_wifi_client
+        stop_wifi_client || true
         return 1
     fi
 
@@ -299,7 +309,7 @@ connect_wifi_conf() {
     else
         wifi_connect_result=authentication
     fi
-    stop_wifi_client
+    stop_wifi_client || true
     return 1
 }
 
@@ -315,6 +325,10 @@ if [ "$force_choose" -eq 0 ] && [ -s "$WPA_CONF" ]; then
     case "$wifi_connect_result" in
         dhcp)
             echo "ordax-network: Wi-Fi salvo autenticou, mas DHCP nao respondeu; credencial preservada" >&2
+            exit 1
+            ;;
+        owner-unavailable)
+            echo "ordax-network: controlador WPA existente nao responde; conexao e rede salva preservadas" >&2
             exit 1
             ;;
         supplicant-start)
@@ -521,7 +535,14 @@ while [ "$setup_attempt" -le "$WIFI_SETUP_ATTEMPTS" ]; do
     unset password
 
     if connect_wifi_conf "$CANDIDATE_CONF"; then
-        mv "$CANDIDATE_CONF" "$WPA_CONF"
+        # Candidate and live WPA configuration must reside on the SAME
+        # persistent filesystem. The old /run -> /state move was a copy,
+        # not an atomic commit, and could lose the saved network on reboot.
+        if ! mv -f "$CANDIDATE_CONF" "$WPA_CONF" ||
+           ! /bin/busybox sync; then
+            echo "ordax-network: Wi-Fi autenticado, mas credencial nao foi confirmada no armazenamento" >&2
+            exit 1
+        fi
         finish_network "$wifi"
         exit 0
     fi
@@ -530,6 +551,10 @@ while [ "$setup_attempt" -le "$WIFI_SETUP_ATTEMPTS" ]; do
     case "$wifi_connect_result" in
         dhcp)
             echo "ordax-network: Wi-Fi autenticado, mas DHCP nao respondeu; a senha nao sera solicitada novamente" >&2
+            exit 1
+            ;;
+        owner-unavailable)
+            echo "ordax-network: controlador WPA existente nao responde; conexao e rede salva preservadas" >&2
             exit 1
             ;;
         supplicant-start)

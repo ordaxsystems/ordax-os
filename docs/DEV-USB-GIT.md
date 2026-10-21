@@ -53,6 +53,29 @@ additional promotion/fallback gates. This bundle does **not** imply that every
 Base update has been physically proven, that a fresh notebook boot passed, or
 that a public signed Stable release is available.
 
+## Aura local: lifecycle verificado no Owner/Development (source, 2026-10-21)
+
+O `ordax-run` agora possui um adaptador estrito para iniciar e encerrar a
+inferência local **somente se um EROFS exato já estiver materializado** pelo
+owner autorizado de artefatos. O candidato deve estar em
+`/state/ordax/local-ai/sha256/b244056dad3609357e8a70433f53f41becacd8f3bd93da3d8b23f9e99d86e11a/local-ai-runtime.erofs`,
+em diretório root `0700` e arquivo root `0600`. Antes de montar, o
+adaptador confere o SHA-256 e tamanho da imagem contra a prova canônica
+assinada, valida arquitetura e compara o `source-lock.json` interno com
+o contrato do checkout. Monta EROFS somente leitura e reutiliza
+`/run/ordax/local-ai-auth/key` para o bridge de inferência já existente,
+com segredo efêmero fora da Surface. O processo é iniciado/parado junto ao
+`ordax-run`; nenhum prompt é reproduzido. Health/readiness continuam
+com a Intelligence/Local AI Native já existente.
+
+**Limite:** isto fecha apenas o lifecycle do payload **já instalado**.
+`ordax-pull` continua Git-first e **não** busca o EROFS assinado; o fluxo
+governado de publicação, aquisição, staging content-addressed e rollback do
+artefato para um USB Dev que já está em uso permanece pendente em #2071.
+Sem payload, com bytes divergentes ou ABI incompatível, a Aura fica degradada,
+mas o boot, a Surface, recovery e a atualização permanecem utilizáveis.
+Merge do source ou CI não é prova de inferência real no notebook.
+
 ## Goal
 
 The development USB exists only to cross the boundary that Git cannot cross by itself:
@@ -170,6 +193,14 @@ específico; a mera observação por `ordax_targets` não autentica o Linux.
 Não criar um segundo transportador remoto nem ativar uma sessão de shell
 arbitrário para contornar o Product PostgreSQL. O Starter deve permanecer
 independente da Surface gráfica.
+
+## Atualização manual dentro do OrdaX — somente USB Owner/Dev
+
+**Sistema → Atualizações → Atualizar agora** solicita um check imediato da `main` ao mesmo Supervisor canônico que já realiza os checks automáticos. Nenhum segundo updater ou shell de comando é ativado pela UI. O Native host expõe o pedido local `POST /__ordax/native/update-check` somente no perfil `owner-development` com `product_mode=usb`, vinculado ao token efêmero da sessão HTTP local; a solicitação aceita registra apenas `check-main` em `/run/ordax-update/manual-check-request` para acordar o polling do Supervisor em cerca de 1 segundo. A própria Surface acompanha o estado existente `/run/ordax-update/state.json`.
+
+O botão **não desliga as atualizações automáticas**, não exige aprovação administrativa extra por check e não executa `git reset --hard`, flash, mutação direta da Base/ESP ou instalação de helpers paralela. O mecanismo único `ordax-pull` conserva origem, fast-forward, staging, verificação de SHA, health gate e rollback. Se First Run ainda não terminou ou a tentativa apresenta falha, o Supervisor publica a fase/erro em vez de alegar sucesso. HTTP 202 confirma somente **pedido aceito**, nunca commit aplicado ou Surface saudável.
+
+A atualização do código da UI em `main` chegará ao USB pelo próprio Pull existente; um build/merge isolado não atualiza automaticamente o dispositivo físico enquanto estiver desligado no Windows. Prova funcional pendente: inicializar o notebook pelo USB, selecionar `Atualizar agora`, observar a consulta remota, o recibo e uma entrega realmente alterada.
 
 ## Daily loop
 
@@ -368,6 +399,8 @@ USB safety gates or treat the historical partial APK output as proof of success.
 
 Normal unpinned boot prefers Ethernet/USB tether because no credentials are required. If neither is available and a supported Wi-Fi interface is detected, the development base asks for SSID/password and stores its WPA configuration under `/state/network/`.
 
+On subsequent boots, the single Native network broker restores a previously saved WPA profile automatically, reusing its existing WPA association, DHCP and runtime DNS synchronization steps. Failure preserves `wpa.conf` for explicit reconnect instead of creating a second network owner or requiring the password again.
+
 Pinned rollback boot deliberately does not require network access: if the pin is internally consistent, the known local runtime is started without an automatic pull.
 
 The current kernel already carries the wireless stack and selected module families. Hardware outside those selected drivers may still need a future base/kernel update. Until then, Ethernet or USB tether remains the deterministic fallback.
@@ -413,6 +446,23 @@ inicial, mantemos a politica canonica de uma tentativa de reinicio da Surface,
 rollback do candidato de boot quando possivel e recuperacao local.
 
 ### Contrato de entrega
+
+**Transacao supervisionada:** o Supervisor valida a main por `ls-remote`, faz
+`fetch` da ref exata e valida o candidato antes de entregar `ORDAX_EXPECTED_SHA`
+ao unico executante atomico `ordax-pull`. Com esse SHA, o Pull **nao**
+repete `ls-remote` nem baixa outra main: confere a identidade do checkout,
+`refs/remotes/origin/main == ORDAX_EXPECTED_SHA` e a existencia local do
+objeto commit. Falha nessa passagem e `pull-handoff-validation-failed`, nao
+`network-error`. Somente o Pull manual independente, sem SHA previamente
+verificado, faz sua propria descoberta remota. Nunca se usa fallback de rede
+para encobrir uma entrega local invalida.
+
+**Teste de regressao:** `tests/test_dev_pull_expected_sha.py` fecha o
+remoto descartavel apos o fetch e exige aplicacao atomica offline; verifica
+tambem referencia divergente e ausencia de fetch. `test_dev_git_flow.py`
+exercita o fluxo completo, falhas, rollback e a convivencia com o watcher.
+Logs de `/run` sao volateis: diagnósticos persistentes devem conservar a
+fase de falha sem guardar credenciais e sem promover sucesso por clique.
 
 - `git push` para `main` nao altera instantaneamente o pendrive: o Supervisor
   precisa estar rodando e online, conferir o commit, buscar os objetos e validar

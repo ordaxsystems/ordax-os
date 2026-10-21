@@ -1133,13 +1133,18 @@
       "owner": "OrdaX OS Web adapter",
       "purpose": "Canonical account read lifecycle with bounded shared GET transport; domain validation and command authority remain in existing ports",
       "sha256": "f9d51646cf32d2c0fe2125eac4859df59a5f5d7b8195bfb2b771d161ee04320c",
-      "adaptedSha256": "428c59aa8c75b7d6c116fe1a813c2bb6e7283885874b6b3bfc201359a790db76",
-      "adaptation": "2026-10-20: project the validated account email alongside its existing subject and display name, and emit snapshot changes when email alone changes. No credential or authentication-token data is exposed.",
+      "adaptedSha256": "46de4b824fbc116aef3d5cba3226d7199cc63b74b279646289811d263acec36d",
+      "adaptation": "2026-10-20: project the validated account email alongside its existing subject and display name, and emit snapshot changes when email alone changes. No credential or authentication-token data is exposed. The shared identity adapter now prefers the optional, validated display name from the authenticated user's account row, with the email handle as fallback.",
       "adaptationHistory": [
         {
           "date": "2026-10-20",
           "sha256": "f9d51646cf32d2c0fe2125eac4859df59a5f5d7b8195bfb2b771d161ee04320c",
           "reason": "Before exposing the validated account email in the identity snapshot"
+        },
+        {
+          "date": "2026-10-20",
+          "sha256": "428c59aa8c75b7d6c116fe1a813c2bb6e7283885874b6b3bfc201359a790db76",
+          "reason": "Before projecting the validated account display name from the authenticated session"
         }
       ]
     },

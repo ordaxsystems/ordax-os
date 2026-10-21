@@ -16,12 +16,17 @@ test("each translated locale changes representative setup, Wi-Fi, account and co
   const samples = [
     "Primeiro uso",
     "Idioma e região",
+    "Leve o OrdaX no pendrive, organize seus projetos em Spaces e use a Aura com o contexto permitido.",
+    "Mesma conta, dois modos",
+    "Use a mesma Conta OrdaX no USB e na Web. A sincronização de idioma, fuso horário e continuidade entre esses modos ainda está em integração.",
     "Procurando redes Wi-Fi…",
+    "A senha precisa ter de 8 a 63 bytes UTF-8 e não pode conter caracteres de controle.",
     "Disponível",
     "Sinal forte",
     "Continuar sem conta",
     "Memória automática",
     "Tudo pronto",
+    "Confira suas escolhas. Ao concluir, o OrdaX registra a configuração neste pendrive.",
   ];
   for (const locale of LOCALES) {
     for (const sample of samples) {

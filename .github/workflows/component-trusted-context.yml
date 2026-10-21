@@ -4,6 +4,9 @@ on:
   pull_request:
     paths:
       - 'system/composition/native/files-trusted-context.mjs'
+      - 'system/composition/native/files-probation-context.mjs'
+      - 'tests/test_native_files_probation_context.mjs'
+      - 'tests/test_component_mount_health_probe.mjs'
       - 'tests/test_native_files_trusted_context.mjs'
       - 'system/services/components/runtime-loader.mjs'
       - 'tests/test_component_trusted_context_composition.mjs'
@@ -13,6 +16,9 @@ on:
     branches: [main]
     paths:
       - 'system/composition/native/files-trusted-context.mjs'
+      - 'system/composition/native/files-probation-context.mjs'
+      - 'tests/test_native_files_probation_context.mjs'
+      - 'tests/test_component_mount_health_probe.mjs'
       - 'tests/test_native_files_trusted_context.mjs'
       - 'system/services/components/runtime-loader.mjs'
       - 'tests/test_component_trusted_context_composition.mjs'
@@ -40,7 +46,10 @@ jobs:
           node --check tests/test_component_trusted_context_composition.mjs
           node --check tests/test_native_app_data_composition_bootstrap.mjs
           node --check system/composition/native/files-trusted-context.mjs
+          node --check system/composition/native/files-probation-context.mjs
           node --check tests/test_native_files_trusted_context.mjs
+          node --check tests/test_native_files_probation_context.mjs
+          node --check tests/test_component_mount_health_probe.mjs
 
       - name: Prove bounded trusted context composition
         run: |
@@ -48,3 +57,5 @@ jobs:
           node --test tests/test_component_trusted_context_composition.mjs
           node --test tests/test_native_app_data_composition_bootstrap.mjs
           node --test tests/test_native_files_trusted_context.mjs
+          node --test tests/test_native_files_probation_context.mjs
+          node --test tests/test_component_mount_health_probe.mjs

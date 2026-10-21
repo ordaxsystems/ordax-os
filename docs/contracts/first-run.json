@@ -140,8 +140,10 @@
     "identity_subject_in_first_run_receipt": false,
     "expired_or_changed_identity_returns_to_account_step": true,
     "verified_session_email_display": true,
-    "avatar_presentation": "initial-from-session-display-name",
+    "account_display_name_source": "optional-ordax_accounts.display_name-via-user-rls-session-projection",
+    "avatar_presentation": "initial-from-account-display-name-with-email-handle-fallback",
     "photo_and_full_profile_available_to_first_run": false,
+    "profile_photo_and_country_available_to_first_run": false,
     "web_regional_preferences_import_available": false,
     "cloud_preference_import_must_not_be_simulated": true,
     "signed_in_local_choice_requires_confirmed_sign_out": true

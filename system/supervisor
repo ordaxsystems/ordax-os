@@ -48,6 +48,7 @@ ATTEMPT_STARTED_EPOCH_FILE=$UPDATE_RUN_DIR/attempt-started-epoch
 UPDATE_STATE=$UPDATE_RUN_DIR/state.json
 UPDATE_LOG=$UPDATE_RUN_DIR/update.log
 PULL_RESULT_FILE=$UPDATE_RUN_DIR/pull-result
+OWNER_MANUAL_CHECK_REQUEST=$UPDATE_RUN_DIR/manual-check-request
 HEALTH_FILE=$UPDATE_RUN_DIR/healthy-sha
 SURFACE_HEALTH_STATE_FILE=$UPDATE_RUN_DIR/surface-health-state
 SURFACE_HEARTBEAT_FILE=$UPDATE_RUN_DIR/surface-heartbeat.json
@@ -504,8 +505,8 @@ refresh_dev_helpers() {
 }
 
 apply_remote_checkout() {
-    previous_sha=$1
-    expected_sha=$2
+    checkout_previous_sha=$1
+    checkout_target_sha=$2
     CHECKOUT_ERROR=""
 
     if [ ! -x "$PULL_BIN" ]; then
@@ -521,30 +522,40 @@ apply_remote_checkout() {
         return 1
     fi
 
-    fetched_sha=$("$GIT_BIN" -C "$WORKTREE" rev-parse "refs/remotes/origin/$BRANCH" 2>>"$UPDATE_LOG" || true)
-    [ "$fetched_sha" = "$expected_sha" ] || {
+    checkout_fetched_sha=$("$GIT_BIN" -C "$WORKTREE" rev-parse "refs/remotes/origin/$BRANCH" 2>>"$UPDATE_LOG" || true)
+    [ "$checkout_fetched_sha" = "$checkout_target_sha" ] || {
         CHECKOUT_ERROR=fetched-sha-mismatch
-        log "fetched SHA mismatch: expected $expected_sha, got ${fetched_sha:-unknown}"
+        log "fetched SHA mismatch: expected $checkout_target_sha, got ${checkout_fetched_sha:-unknown}"
         return 1
     }
 
-    "$GIT_BIN" -C "$WORKTREE" merge-base --is-ancestor "$previous_sha" "$expected_sha" >>"$UPDATE_LOG" 2>&1 || {
+    "$GIT_BIN" -C "$WORKTREE" merge-base --is-ancestor "$checkout_previous_sha" "$checkout_target_sha" >>"$UPDATE_LOG" 2>&1 || {
         CHECKOUT_ERROR=non-fast-forward
-        log "remote update is not a fast-forward from $previous_sha"
+        log "remote update is not a fast-forward from $checkout_previous_sha"
         return 1
     }
 
-    classify_changes "$previous_sha" "$expected_sha"
-    set_update_context validating "$expected_sha" "$UPDATE_ATTEMPT_ID" ""
-    write_update_state "$previous_sha" updating "$APPLY_MODE"
-    if ! validate_candidate_tree "$expected_sha" "$APPLY_MODE"; then
+    classify_changes "$checkout_previous_sha" "$checkout_target_sha"
+    set_update_context validating "$checkout_target_sha" "$UPDATE_ATTEMPT_ID" ""
+    write_update_state "$checkout_previous_sha" updating "$APPLY_MODE"
+    if ! validate_candidate_tree "$checkout_target_sha" "$APPLY_MODE"; then
         CHECKOUT_ERROR=candidate-preflight-failed
         log "candidate preflight failed before atomic checkout switch"
         return 1
     fi
-    if ! stage_candidate_release "$expected_sha" "$APPLY_MODE"; then
+    if ! stage_candidate_release "$checkout_target_sha" "$APPLY_MODE"; then
         CHECKOUT_ERROR=candidate-stage-failed
         log "candidate could not be staged outside the live checkout"
+        return 1
+    fi
+
+    # Preserve the exact verified fetch identity across diagnostics/staging.
+    # POSIX shell function variables are global; do not reuse generic SHA
+    # parameter names as transaction ownership, or a nested state writer can
+    # silently replace the target with the old checkout.
+    if [ "$checkout_target_sha" != "$checkout_fetched_sha" ]; then
+        CHECKOUT_ERROR=handoff-target-mutation
+        log "Supervisor candidate identity changed before Pull handoff; checkout preserved"
         return 1
     fi
 
@@ -552,33 +563,33 @@ apply_remote_checkout() {
     # canonical Pull owner. Without this the Supervisor can misattribute
     # stale error details after a killed or unavailable updater.
     rm -f "$PULL_RESULT_FILE"
-    if ! ORDAX_EXPECTED_SHA="$expected_sha" \
+    if ! ORDAX_EXPECTED_SHA="$checkout_target_sha" \
             ORDAX_REPO_URL="$REPO_URL" \
             ORDAX_REPO_BRANCH="$BRANCH" \
             ORDAX_WORKTREE="$WORKTREE" \
             ORDAX_STATE_DIR="$STATE_DIR" \
             "$PULL_BIN" >>"$UPDATE_LOG" 2>&1; then
-        pull_phase=$(read_state_value "$PULL_RESULT_FILE")
-        case "$pull_phase" in
-            preflight|remote-discovery|remote-fetch|candidate-objects|isolated-checkout|remote-clone|atomic-switch|candidate-validation|state-commit|helper-refresh)
-                CHECKOUT_ERROR="pull-$pull_phase-failed"
+        checkout_pull_phase=$(read_state_value "$PULL_RESULT_FILE")
+        case "$checkout_pull_phase" in
+            preflight|remote-discovery|handoff-validation|handoff-metadata-gitdir|handoff-metadata-head|handoff-metadata-origin|handoff-metadata-branch|handoff-metadata-entrypoint|handoff-metadata-unknown|handoff-ref-mismatch|handoff-commit-unavailable|remote-fetch|candidate-objects|isolated-checkout|remote-clone|atomic-switch|candidate-validation|state-commit|helper-refresh)
+                CHECKOUT_ERROR="pull-$checkout_pull_phase-failed"
                 ;;
             *)
                 CHECKOUT_ERROR=atomic-checkout-failed
                 ;;
         esac
-        log "atomic checkout owner failed ($CHECKOUT_ERROR) for exact candidate $expected_sha"
+        log "atomic checkout owner failed ($CHECKOUT_ERROR) for exact candidate $checkout_target_sha"
         return 1
     fi
-    pull_result=$(read_state_value "$PULL_RESULT_FILE")
-    if [ "$pull_result" = helpers-pending ]; then
+    checkout_pull_result=$(read_state_value "$PULL_RESULT_FILE")
+    if [ "$checkout_pull_result" = helpers-pending ]; then
         log "Git candidate activated, but Dev helpers still require canonical retry"
     fi
 
-    activated_sha=$("$GIT_BIN" -C "$WORKTREE" rev-parse HEAD 2>>"$UPDATE_LOG" || true)
-    [ "$activated_sha" = "$expected_sha" ] || {
+    checkout_activated_sha=$("$GIT_BIN" -C "$WORKTREE" rev-parse HEAD 2>>"$UPDATE_LOG" || true)
+    [ "$checkout_activated_sha" = "$checkout_target_sha" ] || {
         CHECKOUT_ERROR=atomic-checkout-sha-mismatch
-        log "atomic checkout activated unexpected SHA: expected $expected_sha, got ${activated_sha:-unknown}"
+        log "atomic checkout activated unexpected SHA: expected $checkout_target_sha, got ${checkout_activated_sha:-unknown}"
         return 1
     }
     # The canonical ordax-pull installed helpers and wrote its receipt.
@@ -786,46 +797,46 @@ clear_update_context() {
 }
 
 derive_base_update_progress() {
-    expected_sha=$1
+    base_progress_target_sha=$1
     BASE_UPDATE_PHASE=none
     BASE_UPDATE_SHA=""
 
     [ -s "$BOOT_REFRESH_FILE" ] || return 0
-    pending_sha=$(read_state_value "$BOOT_REFRESH_FILE")
-    [ -n "$pending_sha" ] || return 0
-    BASE_UPDATE_SHA=$pending_sha
+    base_progress_pending_sha=$(read_state_value "$BOOT_REFRESH_FILE")
+    [ -n "$base_progress_pending_sha" ] || return 0
+    BASE_UPDATE_SHA=$base_progress_pending_sha
 
-    if [ "$pending_sha" != "$expected_sha" ]; then
+    if [ "$base_progress_pending_sha" != "$base_progress_target_sha" ]; then
         BASE_UPDATE_PHASE=waiting-candidate
         return 0
     fi
 
-    readiness_sha=$(read_state_value "$DEV_BASE_ACTIVATION_READINESS_SHA_FILE")
-    if [ "$readiness_sha" = "$expected_sha" ] && [ -s "$DEV_BASE_ACTIVATION_READINESS_FILE" ]; then
+    base_progress_readiness_sha=$(read_state_value "$DEV_BASE_ACTIVATION_READINESS_SHA_FILE")
+    if [ "$base_progress_readiness_sha" = "$base_progress_target_sha" ] && [ -s "$DEV_BASE_ACTIVATION_READINESS_FILE" ]; then
         BASE_UPDATE_PHASE=activation-ready
         return 0
     fi
 
-    staged_sha=$(read_state_value "$DEV_BASE_STAGED_FILE")
-    if [ "$staged_sha" = "$expected_sha" ] && [ -s "$DEV_BASE_STAGE_RESULT_FILE" ]; then
+    base_progress_staged_sha=$(read_state_value "$DEV_BASE_STAGED_FILE")
+    if [ "$base_progress_staged_sha" = "$base_progress_target_sha" ] && [ -s "$DEV_BASE_STAGE_RESULT_FILE" ]; then
         BASE_UPDATE_PHASE=staged
         return 0
     fi
 
-    ready_sha=$(read_state_value "$DEV_BASE_READY_FILE")
-    if [ "$ready_sha" = "$expected_sha" ]; then
+    base_progress_ready_sha=$(read_state_value "$DEV_BASE_READY_FILE")
+    if [ "$base_progress_ready_sha" = "$base_progress_target_sha" ]; then
         BASE_UPDATE_PHASE=candidate-ready
         return 0
     fi
 
-    fetching_sha=$(read_state_value "$DEV_BASE_FETCHING_FILE")
-    if [ "$fetching_sha" = "$expected_sha" ]; then
+    base_progress_fetching_sha=$(read_state_value "$DEV_BASE_FETCHING_FILE")
+    if [ "$base_progress_fetching_sha" = "$base_progress_target_sha" ]; then
         BASE_UPDATE_PHASE=candidate-fetching
         return 0
     fi
 
-    requested_sha=$(read_state_value "$DEV_BASE_REQUEST_FILE")
-    if [ "$requested_sha" = "$expected_sha" ]; then
+    base_progress_requested_sha=$(read_state_value "$DEV_BASE_REQUEST_FILE")
+    if [ "$base_progress_requested_sha" = "$base_progress_target_sha" ]; then
         BASE_UPDATE_PHASE=candidate-requested
         return 0
     fi
@@ -975,7 +986,10 @@ stop_surface() {
     if [ -n "$SURFACE_PID" ]; then
         if kill -0 "$SURFACE_PID" >/dev/null 2>&1; then
             kill "$SURFACE_PID" >/dev/null 2>&1 || true
-            remaining=5
+            # Surface stops its brokers together under 4s, then proves no
+            # native-root process remains (up to 5s) before mount teardown.
+            # Give the owner enough time for that bounded sequence.
+            remaining=14
             while kill -0 "$SURFACE_PID" >/dev/null 2>&1 && [ "$remaining" -gt 0 ]; do
                 /bin/busybox sleep 1
                 remaining=$((remaining - 1))
@@ -2511,7 +2525,29 @@ fi
 record_owner_poll_boot_stage poll-loop-entered
 while :; do
     supervisor_heartbeat || fail_closed "supervisor liveness checkpoint could not be published"
-    /bin/busybox sleep "$UPDATE_INTERVAL"
+    # Owner/Dev button wakes the existing Supervisor promptly. No second
+    # process, Git owner or automatic-update toggle is introduced.
+    if [ "$DISTRIBUTION_PROFILE" = "owner-development" ]; then
+        poll_waited=0
+        while [ "$poll_waited" -lt "$UPDATE_INTERVAL" ]; do
+            [ -f "$OWNER_MANUAL_CHECK_REQUEST" ] && break
+            /bin/busybox sleep 1
+            poll_waited=$((poll_waited + 1))
+        done
+    else
+        /bin/busybox sleep "$UPDATE_INTERVAL"
+    fi
+    if [ "$DISTRIBUTION_PROFILE" = "owner-development" ] &&
+       [ -f "$OWNER_MANUAL_CHECK_REQUEST" ]; then
+        if [ ! -L "$OWNER_MANUAL_CHECK_REQUEST" ] &&
+           [ "$(/bin/busybox cat "$OWNER_MANUAL_CHECK_REQUEST" 2>/dev/null || true)" = "check-main" ]; then
+            /bin/busybox rm -f "$OWNER_MANUAL_CHECK_REQUEST"
+            log "Owner/Development manual main check requested; using canonical Supervisor"
+        else
+            log "ignoring invalid owner manual update request"
+            /bin/busybox rm -f "$OWNER_MANUAL_CHECK_REQUEST"
+        fi
+    fi
 
     if [ "$OWNER_INITIAL_HEALTH_PENDING" -eq 0 ] &&
        [ -n "$SURFACE_PID" ] && ! kill -0 "$SURFACE_PID" >/dev/null 2>&1; then

@@ -113,6 +113,13 @@ function decodeCredentials(body, contentType, expectedKeys) {
   return exactKeys(value, expectedKeys) ? value : null;
 }
 
+function safeDisplayName(value) {
+  if (typeof value !== "string") return null;
+  const normalized = value.trim();
+  if (!normalized || Array.from(normalized).length > 120 || /[\u0000-\u001f\u007f]/u.test(normalized)) return null;
+  return normalized;
+}
+
 function verifiedSession(value, { allowAnonymous = true } = {}) {
   if (!value || value.$schema !== SESSION_SCHEMA) return null;
   if (
@@ -127,6 +134,7 @@ function verifiedSession(value, { allowAnonymous = true } = {}) {
     && typeof value.email === "string"
     && value.email.length > 0
   ) {
+    const displayName = safeDisplayName(value.displayName);
     return {
       $schema: SESSION_SCHEMA,
       authenticated: true,
@@ -134,6 +142,7 @@ function verifiedSession(value, { allowAnonymous = true } = {}) {
       provider: value.provider,
       subject: value.subject,
       email: value.email,
+      ...(displayName ? { displayName } : {}),
       accountCloseEnabled: value.accountCloseEnabled === true,
     };
   }
