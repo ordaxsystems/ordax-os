@@ -71,6 +71,9 @@ _ORIGINAL_INSTALL_RUNTIME = CORE.install_runtime
 _ORIGINAL_VERIFY_ROOTFS = CORE.verify_rootfs
 _POWER_MOUNT_SOURCE = THIS_DIR / "ordax_usb_mountattr.c"
 _POWER_MOUNT_TARGET = Path("usr/local/bin/ordax-usb-mountattr")
+# Reuse the exact kernel UAPI exported by the canonical fixed-initramfs
+# builder. musl-gcc intentionally does not mix glibc /usr/include headers.
+_OWNER_KERNEL_UAPI = THIS_DIR.parent.parent / "out/initramfs-work/kernel-uapi-install/include"
 
 
 def _verify_power_mountattr_binary(rootfs: Path) -> None:
@@ -93,12 +96,16 @@ def install_runtime(rootfs: Path, kernel_modules: Path) -> None:
     compiler = shutil.which("musl-gcc")
     if compiler is None or not _POWER_MOUNT_SOURCE.is_file() or _POWER_MOUNT_SOURCE.is_symlink():
         raise BuildError("Owner USB kernel mount helper source/compiler unavailable")
+    if (_OWNER_KERNEL_UAPI.is_symlink() or
+            not (_OWNER_KERNEL_UAPI / "linux/mount.h").is_file()):
+        raise BuildError("Owner USB mountattr requires canonical exported kernel UAPI")
     destination = rootfs / _POWER_MOUNT_TARGET
     destination.parent.mkdir(parents=True, exist_ok=True)
     result = subprocess.run(
         [
             compiler, "-static", "-Os", "-s", "-Wall", "-Wextra", "-Werror",
             "-Wl,--build-id=none", "-ffile-prefix-map=" + str(THIS_DIR.parent.parent) + "=/ordax",
+            "-I" + str(_OWNER_KERNEL_UAPI),
             "-o", str(destination), str(_POWER_MOUNT_SOURCE),
         ],
         capture_output=True,
