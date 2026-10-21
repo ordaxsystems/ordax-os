@@ -27,9 +27,8 @@ export function mountUpdateControls(root, updatePort, appActivation, surfaceLife
     throw new Error("Surface update controls require the shared shell update slot");
   }
 
-  const button = node(documentObject, "button", "ordax-status-action");
-  const label = node(documentObject, "span", "ordax-status-action-label", t("system.updateShortcut.label"));
-  button.append(label);
+  const button = node(documentObject, "button", "meridian-rail-update-button");
+  button.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v11m-4-4 4 4 4-4"/><path d="M5 16v3a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-3"/></svg>';
   button.type = "button";
   button.dataset.updateOpenSystem = "";
   button.setAttribute("aria-label", t("system.updateShortcut.aria"));
@@ -39,9 +38,6 @@ export function mountUpdateControls(root, updatePort, appActivation, surfaceLife
 
   const render = () => {
     const alerting = updateIsAlerting(snapshot);
-    label.textContent = t(
-      alerting ? "system.updateShortcut.labelAlert" : "system.updateShortcut.label",
-    );
     button.setAttribute("aria-label", t("system.updateShortcut.aria"));
     button.dataset.alerting = String(alerting);
     button.title = t(

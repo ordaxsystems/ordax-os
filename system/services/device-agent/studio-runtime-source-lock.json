@@ -2,11 +2,11 @@
   "$schema": "prototype-ordax.studio-runtime-source-lock/1",
   "source": {
     "repository": "https://github.com/ordaxsystems/ordax-runtime",
-    "commit": "cde1beb45d36507247007fd044ac8584b60095b4",
+    "commit": "eaf47d2adc1c8be54a4240e1fbe539a3cda44649",
     "compatibility_contract": {
       "path": "docs/contracts/ordax-os-runtime-compatibility.json",
       "schema": "ordax.studio-runtime-compatibility/1",
-      "sha256": "45a309190c88a8f0251558c449186128f2b726e0be88a202c454609f27e52497",
+      "sha256": "34d889808e9f79412580422a5d7fa7c182f5d50e9dba07eb07934af5aff790f8",
       "product_version": "0.4.7"
     }
   },
@@ -35,7 +35,14 @@
     "native_identity_provider_supported": true,
     "device_id_match_required": true,
     "duplicate_persisted_token_forbidden": true,
-    "runtime_kind_authority": "upstream-compatibility-contract:ordax_os.native_runtime_kind"
+    "runtime_kind_authority": "upstream-compatibility-contract:ordax_os.native_runtime_kind",
+    "native_composition_entrypoint": "ordax_dev_agent.main.run",
+    "native_composition_explicit_config_required": true,
+    "native_composition_main_thread_required": true,
+    "native_composition_uses_canonical_dispatch_loop": true,
+    "native_executable_name": "ordax-product-agent",
+    "native_executable_entrypoint": "ordax_dev_agent.native_main.main",
+    "native_executable_source": "native/ordax-product-agent/entrypoint.py"
   },
   "distribution": {
     "runtime_packaged_in_stable": false,
@@ -70,5 +77,19 @@
     "intelligence_grants_do_not_authorize_remote_actions": true,
     "single_device_heartbeat_owner_required": true,
     "verified_os_runtime_provenance_required": true
+  },
+  "candidate_evidence": {
+    "kind": "ci-only-unsigned",
+    "source_commit": "eaf47d2adc1c8be54a4240e1fbe539a3cda44649",
+    "platform": "linux-amd64-musl",
+    "workflow_run_id": 39572841771,
+    "artifact_id": 12332557477,
+    "archive_sha256": "791e80facaf07dc9d4a3c5941c5ad4a141614acaf89785c50519fac7cd9e2525",
+    "executable_sha256": "c432ec03bdd01df0eb8c2dbe5bcf147e93a7a94711f536154af14ce5719e6946",
+    "executable_size_bytes": 24995232,
+    "offline_proof_verified": true,
+    "device_execution_proven": false,
+    "signed_distribution_authorized": false,
+    "native_graphical_control_proven": false
   }
 }

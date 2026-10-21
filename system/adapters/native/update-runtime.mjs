@@ -5,6 +5,7 @@ import {
 import { nativeSurfaceSourceSha } from "./surface-heartbeat.mjs";
 
 const UPDATE_STATE_PATH = "/__ordax/native/update";
+const UPDATE_CHECK_PATH = "/__ordax/native/update-check";
 const UPDATE_HEALTH_PATH = "/__ordax/native/health";
 const HEALTH_TOKEN_HEADER = "X-OrdaX-Health-Token";
 const DEFAULT_INTERVAL_MS = 750;
@@ -59,6 +60,7 @@ export function createNativeUpdateWatcher(
   const renderedSourceSha = nativeSurfaceSourceSha(windowRef);
   let observedSha = null;
   let snapshot = null;
+  let manualCheckToken = "";
   let stopped = false;
   let timer = null;
   let healthRequested = false;
@@ -151,6 +153,11 @@ export function createNativeUpdateWatcher(
       const state = await response.json();
       if (!state || typeof state.sourceSha !== "string" || state.sourceSha.length === 0) return;
 
+      manualCheckToken = state.manualCheckAvailable === true
+        && typeof state.manualCheckToken === "string"
+        && state.manualCheckToken.length >= 24
+          ? state.manualCheckToken
+          : "";
       notify(state);
       if (observedSha === null) {
         observedSha = snapshot.sourceSha;
@@ -224,6 +231,30 @@ export function createNativeUpdateWatcher(
     markHealthy() {
       healthRequested = true;
       return submitHealthIfNeeded();
+    },
+    async requestCheck() {
+      if (stopped || snapshot?.manualCheckAvailable !== true || manualCheckToken.length < 24) {
+        throw new Error("Owner/Development manual update is unavailable");
+      }
+      const response = await windowRef.fetch(UPDATE_CHECK_PATH, {
+        method: "POST",
+        cache: "no-store",
+        credentials: "same-origin",
+        headers: {
+          "Content-Type": "application/json",
+          "X-OrdaX-Update-Token": manualCheckToken,
+        },
+        body: JSON.stringify({ action: "check-main" }),
+      });
+      if (response.status !== 202) {
+        throw new Error(`Owner/Development manual update request rejected: ${response.status}`);
+      }
+      const receipt = await response.json();
+      if (receipt?.schema !== "ordax.owner-manual-update-request/1"
+        || !["queued", "pending"].includes(receipt.state)) {
+        throw new Error("Owner/Development manual update receipt is invalid");
+      }
+      return receipt.state;
     },
   });
 }

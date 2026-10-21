@@ -1,5 +1,6 @@
 import { mountNativeSidebarFit, sidebarIsExpanded, sidebarItemIsActive } from "./sidebar-layout.mjs";
 import { mountSidebarHints } from "./sidebar-hints.mjs";
+import { handleHomePreviewClick, handleHomePreviewKeyDown } from "./home-concept.mjs";
 import { assertAppRuntimeCatalog, defaultAppRuntimeCatalog } from "../../apps/runtime-catalog.mjs";
 import { externalAppCopy } from "../../apps/external-app-definition.mjs";
 import { assertAppActivationPort } from "../../contracts/app-activation.mjs";
@@ -30,6 +31,7 @@ import {
   syncDesktopThemeToggle,
 } from "./desktop-shell.mjs";
 import { createSurfaceLocalization } from "../../services/i18n/surface.mjs";
+import { moveDesktopShortcutFocus, moveDockFocus, scrollDockFromWheel } from "../../services/surface/dock-navigation.mjs";
 import { syncDocumentLocaleProfile } from "./document-localization.mjs";
 import { SURFACE_RENDER_LIFECYCLE_SCHEMA } from "../../contracts/surface-render-lifecycle.mjs";
 import {
@@ -485,13 +487,28 @@ export function mountSurface(
     nativeDock.dataset.scrollAfter = String(remaining > 1);
   };
 
+  const onNativeDockWheel = (event) => scrollDockFromWheel(event, nativeDock);
+
   const revealDockButton = (button) => {
     if (!nativeDock || !button) return;
     const viewport = nativeDock.getBoundingClientRect();
     const target = button.getBoundingClientRect();
-    if (target.left < viewport.left) nativeDock.scrollLeft -= viewport.left - target.left;
-    else if (target.right > viewport.right) nativeDock.scrollLeft += target.right - viewport.right;
+    const scale = nativeDock.offsetWidth > 0 ? viewport.width / nativeDock.offsetWidth : 1;
+    if (!(scale > 0)) return;
+    const inset = 4 * scale;
+    if (target.left < viewport.left + inset || target.width > viewport.width - inset * 2) {
+      nativeDock.scrollLeft += (target.left - viewport.left - inset) / scale;
+    } else if (target.right > viewport.right - inset) {
+      nativeDock.scrollLeft += (target.right - viewport.right + inset) / scale;
+    }
     updateDockOverflow();
+  };
+
+  const onDockFocus = (event) => revealDockButton(event.target.closest?.("button"));
+  const onDockResize = () => {
+    const focused = root.ownerDocument.activeElement;
+    if (nativeDock?.contains(focused)) revealDockButton(focused.closest("button"));
+    else updateDockOverflow();
   };
 
   const setAreaMenuOpen = (open, { restoreFocus = false } = {}) => {
@@ -706,6 +723,7 @@ export function mountSurface(
       if (ICONS[app.id]) icon.innerHTML = ICONS[app.id];
       else icon.textContent = app.monogram;
       button.dataset.active = String(area.activeWindowId === windowState.id && !windowState.minimized);
+      button.dataset.minimized = String(windowState.minimized);
       if (button.dataset.active === "true") button.setAttribute("aria-current", "true");
       else button.removeAttribute("aria-current");
       const localizedTitle = appTitle(localization, app);
@@ -737,11 +755,6 @@ export function mountSurface(
       homeButton.dataset.active = String(homeActive);
       if (homeActive) homeButton.setAttribute("aria-current", "page");
       else homeButton.removeAttribute("aria-current");
-    }
-    const currentDestination = root.querySelector("[data-current-destination]");
-    if (currentDestination) {
-      const activeApp = activeWindow ? catalog.get(activeWindow.appId) : null;
-      currentDestination.textContent = activeApp ? appTitle(localization, activeApp) : localization.translate("shell.home.title");
     }
     for (const button of root.querySelectorAll("[data-sidebar-app]")) {
       const appId = button.dataset.sidebarApp;
@@ -824,6 +837,11 @@ export function mountSurface(
     }
     root.dataset.workspacePresentation = state.presentation;
     root.dataset.view = state.presentation;
+    const shell = root.querySelector("[data-ordax-shell]");
+    if (shell) {
+      shell.dataset.workspacePresentation = state.presentation;
+      shell.dataset.view = state.presentation;
+    }
     root.dataset.nativeSidebar = state.sidebarMode;
     const sidebarToggle = root.querySelector("[data-sidebar-toggle]");
     const sidebarExpanded = sidebarIsExpanded(root.querySelector(".ordax-rail"));
@@ -950,6 +968,7 @@ export function mountSurface(
   };
 
   const onClick = (event) => {
+    if (handleHomePreviewClick(event, root, localization)) return;
     const areaMenuButton = event.target.closest("[data-area-menu-toggle]");
     if (areaMenuButton) {
       setAreaMenuOpen(areaMenu.hidden);
@@ -1192,24 +1211,9 @@ export function mountSurface(
   };
 
   const onKeyDown = (event) => {
-    const dockButton = event.target.closest?.(".meridian-native-dock button");
-    if (dockButton && !event.altKey && !event.ctrlKey && !event.metaKey
-      && ["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) {
-      const buttons = Array.from(nativeDock.querySelectorAll("button:not(:disabled)"))
-        .filter((button) => !button.hidden && button.getClientRects().length > 0);
-      const index = buttons.indexOf(dockButton);
-      if (index >= 0) {
-        const nextIndex = event.key === "Home" ? 0
-          : event.key === "End" ? buttons.length - 1
-            : Math.min(buttons.length - 1, Math.max(0, index + (event.key === "ArrowRight" ? 1 : -1)));
-        event.preventDefault();
-        if (nextIndex !== index) {
-          buttons[nextIndex].focus({ preventScroll: true });
-          revealDockButton(buttons[nextIndex]);
-        }
-        return;
-      }
-    }
+    if (handleHomePreviewKeyDown(event, root)) return;
+    if (moveDockFocus(event, nativeDock, "button", revealDockButton)) return;
+    if (moveDesktopShortcutFocus(event, root, "[data-desktop-app]")) return;
 
     if ((event.ctrlKey || event.metaKey) && event.key.toLocaleLowerCase() === "k") {
       event.preventDefault();
@@ -1284,8 +1288,16 @@ export function mountSurface(
   root.addEventListener("dblclick", onDoubleClick);
   root.addEventListener("keydown", onKeyDown);
   nativeDock?.addEventListener("scroll", updateDockOverflow, { passive: true });
+  nativeDock?.addEventListener("wheel", onNativeDockWheel, { passive: false });
+  nativeDock?.addEventListener("focusin", onDockFocus);
   const nativeWindow = root.ownerDocument?.defaultView;
-  nativeWindow?.addEventListener("resize", updateDockOverflow, { passive: true });
+  const DockObserver = nativeWindow?.ResizeObserver;
+  const dockObserver = typeof DockObserver === "function" ? new DockObserver(onDockResize) : null;
+  if (nativeDock) {
+    dockObserver?.observe(nativeDock);
+    for (const child of nativeDock.children) dockObserver?.observe(child);
+  }
+  nativeWindow?.addEventListener("resize", onDockResize, { passive: true });
   updateDockOverflow();
   const unsubscribeActivation = activationPort?.subscribe((activation) => {
     const app = catalog.get(activation.appId);
@@ -1353,7 +1365,10 @@ export function mountSurface(
       root.removeEventListener("dblclick", onDoubleClick);
       root.removeEventListener("keydown", onKeyDown);
       nativeDock?.removeEventListener("scroll", updateDockOverflow);
-      nativeWindow?.removeEventListener("resize", updateDockOverflow);
+      nativeDock?.removeEventListener("wheel", onNativeDockWheel);
+      nativeDock?.removeEventListener("focusin", onDockFocus);
+      dockObserver?.disconnect();
+      nativeWindow?.removeEventListener("resize", onDockResize);
       unsubscribePreferencePersistence();
       preferencePersistence.dispose();
       preferenceListeners.clear();

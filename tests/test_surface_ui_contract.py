@@ -607,6 +607,14 @@ class SurfaceUiContractTests(unittest.TestCase):
                         f'documentObject.createElementNS("http://www.w3.org/2000/svg", "{tag}")',
                         f'documentObject.createElementNS(SVG_NAMESPACE, "{tag}")',
                     )
+            if path == SURFACE / "first-run.mjs":
+                for destination in (
+                    'https://ordax.com.br/termos/',
+                    'https://ordax.com.br/privacidade/',
+                    'https://ordax.com.br/conta/',
+                ):
+                    self.assertIn(destination, text)
+                    text = text.replace(destination, "")
             self.assertNotIn("http://", text, path)
             self.assertNotIn("https://", text, path)
             self.assertNotIn("cdn.", text.lower(), path)
@@ -622,7 +630,8 @@ class SurfaceUiContractTests(unittest.TestCase):
         shell = DESKTOP_SHELL.read_text(encoding="utf-8")
         surface = (SURFACE / "surface.mjs").read_text(encoding="utf-8")
         css = (SURFACE / "surface.css").read_text(encoding="utf-8")
-        tokens = (SURFACE / "tokens.css").read_text(encoding="utf-8")
+        tokens = (SURFACE / "meridian.tokens.css").read_text(encoding="utf-8")
+        meridian = (SURFACE / "meridian.css").read_text(encoding="utf-8")
         # The Node render tests assert actual controls and a single profile.
         # Here validate delegation to their shared UI owners.
         self.assertIn('from "./sidebar-layout.mjs"', shell)
@@ -631,7 +640,6 @@ class SurfaceUiContractTests(unittest.TestCase):
         self.assertIn('sidebarProfileMarkup(projectSidebarAccount(', shell)
         self.assertIn("data-power-slot", shell)
         self.assertIn("data-update-slot", shell)
-        self.assertIn("data-ordax-clock", shell)
         self.assertIn("data-ordax-tray-clock", shell)
         self.assertIn("data-battery-tray", shell)
         self.assertIn("data-battery-icon", shell)
@@ -669,8 +677,10 @@ class SurfaceUiContractTests(unittest.TestCase):
         self.assertIn("ordax-home-hero", shell)
         self.assertIn("data-show-desktop", shell)
         self.assertIn("ordax-home-action-grid", shell)
-        self.assertIn("--ordax-accent: #8dbbff", tokens)
-        self.assertIn("--ordax-font-display", tokens)
+        self.assertIn("--md-accent:#a44426;", tokens)
+        self.assertIn('--md-font:Inter,system-ui,"Segoe UI",sans-serif;', tokens)
+        self.assertIn("--ordax-accent:var(--md-accent)", meridian)
+        self.assertIn("--ordax-font:var(--md-font)", meridian)
         self.assertIn(".ordax-home-panel", (SURFACE / "identity.css").read_text(encoding="utf-8"))
         self.assertIn(".ordax-rail", css)
         self.assertIn(".ordax-statusbar", css)
@@ -748,12 +758,12 @@ class SurfaceUiContractTests(unittest.TestCase):
         self.assertIn('transform: translate(-50%, -50%);', css)
         self.assertIn('.ordax-window[data-maximized="true"] {', css)
         self.assertIn('.ordax-window[data-maximized="true"] .ordax-window-body', css)
-        self.assertIn('height: calc(100% - 58px);', css)
+        self.assertIn('height: calc(100% - var(--ordax-window-titlebar-height, 3.625rem));', css)
         self.assertIn('((placementOrdinal - 1) % 5) * 18', surface)
         self.assertNotIn('inset: 8px 12px;', css)
         self.assertNotIn('transform: translateY(4px);', css)
 
-    def test_surface_baseline_is_accessible_responsive_windowed_and_themeable(self):
+    def test_surface_baseline_is_accessible_desktop_windowed_and_themeable(self):
         surface = (SURFACE / "surface.mjs").read_text(encoding="utf-8")
         shell = DESKTOP_SHELL.read_text(encoding="utf-8")
         power = POWER_CONTROLS.read_text(encoding="utf-8")
@@ -783,7 +793,7 @@ class SurfaceUiContractTests(unittest.TestCase):
         self.assertIn('[data-ordax-theme="light"][data-ordax-contrast="high"]', tokens)
         self.assertIn('[data-ordax-theme="dark"][data-ordax-contrast="high"]', tokens)
         self.assertIn("color-scheme: light", tokens)
-        self.assertIn("@media (max-width: 760px)", css)
+        self.assertNotIn("@media (max-width:", css)
         self.assertIn("prefers-reduced-motion", css)
         self.assertIn('[data-ordax-motion="reduced"] *', tokens)
         self.assertIn("animation: none !important", tokens)
@@ -791,10 +801,13 @@ class SurfaceUiContractTests(unittest.TestCase):
         native_entry = (NATIVE_COMPOSITION / "index.html").read_text(encoding="utf-8")
         self.assertIn('href="../../surface/ui/tokens.css"', native_entry)
         self.assertIn('[data-ordax-motion="standard"] .ordax-window', css)
-        self.assertIn('--ordax-text-scale-factor: 1;', tokens)
-        self.assertIn('html[data-ordax-text-scale="large"] { --ordax-text-scale-factor: 1.125; }', tokens)
-        self.assertIn('html[data-ordax-text-scale="extra-large"] { --ordax-text-scale-factor: 1.25; }', tokens)
-        self.assertIn('font-size: calc(100% * var(--ordax-display-scale-factor) * var(--ordax-text-scale-factor));', tokens)
+        self.assertIn('--ordax-display-scale-factor: 1;', tokens)
+        self.assertIn('html[data-ordax-text-scale="large"] { font-size: 112.5%; }', tokens)
+        self.assertIn('html[data-ordax-text-scale="extra-large"] { font-size: 125%; }', tokens)
+        self.assertIn('zoom: var(--ordax-display-scale-factor);', tokens)
+        self.assertIn('@media (min-width: 2560px) and (min-height: 1200px)', tokens)
+        self.assertIn('@media (min-width: 3200px) and (min-height: 1800px)', tokens)
+        self.assertIn('@media (min-width: 5120px) and (min-height: 2160px)', tokens)
         self.assertIn('.ordax-window[data-maximized="true"]', css)
         self.assertIn('.ordax-preference-choice[data-selected="true"]', css)
 

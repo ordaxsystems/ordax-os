@@ -1,12 +1,28 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { COMPONENT_RUNTIME_SCHEMA } from "../system/contracts/component-runtime.mjs";
+import { FILE_SPACE_SCHEMA } from "../system/contracts/file-space.mjs";
+import { createRevocableFileSpacePort } from "../system/services/files/revocable-file-space.mjs";
 import { createNativeComponentSlotSource } from "../system/adapters/native/component-slot-source.mjs";
 import { loadVerifiedCurrentComponentRuntime as load } from "../system/services/components/current-slot-loader.mjs";
 import { installTrustedComponentContextProvider } from "../system/services/components/runtime-loader.mjs";
 
+let suppliedFileSpace = null;
 installTrustedComponentContextProvider(async (componentId) => componentId === "internet"
-  ? Object.freeze({ nativeAppDataMarker: "bound-by-host" }) : null);
+  ? Object.freeze({
+    nativeAppDataMarker: "bound-by-host",
+    ...(suppliedFileSpace === null ? {} : { fileSpace: suppliedFileSpace }),
+  }) : null);
+
+function filePort(list = async (path) => ({ path, entries: [] })) {
+  const method = async () => ({ entries: [] });
+  return Object.freeze({
+    schema: FILE_SPACE_SCHEMA, list,
+    createDirectory: method, readTextFile: method, renameEntry: method,
+    copyFile: method, moveEntry: method, trashEntry: method, listTrash: method,
+    restoreTrashEntry: method, exportFile: method, importFile: method,
+  });
+}
 
 const revision = Object.freeze({
   componentId: "internet", state: "current", source: "slot", revision: 4,
@@ -251,4 +267,84 @@ test("a forged discovery identity fails before network access", async () => {
   }), /component identity mismatch/);
   assert.equal(f.state().reads, 0);
   assert.equal(f.state().imports, 0);
+});
+
+// The app in this fixture is deliberately not Files: this proves that the
+// generic verified current-slot loader tears down ANY trusted File Space lease.
+test("verified current mount cannot retain File Space after destroy", async () => {
+  const host = filePort();
+  suppliedFileSpace = host;
+  let delivered = null;
+  let destroyCalls = 0;
+  try {
+    const mounted = await fixture().run({
+      importModule: async () => ({ componentRuntime: {
+        schema: COMPONENT_RUNTIME_SCHEMA, componentId: "internet", version: "0.3.0",
+        mount(context) {
+          delivered = context.fileSpace;
+          assert.notStrictEqual(delivered, host);
+          assert.equal(Object.isFrozen(delivered), true);
+          return { destroy() {
+            destroyCalls++;
+            assert.throws(() => delivered.list("/"), /revoked/);
+          } };
+        },
+      } }),
+    });
+    assert.ok(mounted);
+    assert.deepEqual(await delivered.list("/"), { path: "/", entries: [] });
+    mounted.destroy();
+    mounted.destroy();
+    assert.equal(destroyCalls, 1);
+    assert.throws(() => delivered.list("/"), /revoked/);
+    assert.deepEqual(await host.list("/"), { path: "/", entries: [] });
+  } finally {
+    suppliedFileSpace = null;
+  }
+});
+
+test("replaced current slot revokes leaked File Space after failed mount", async () => {
+  const host = filePort();
+  suppliedFileSpace = host;
+  let leaked = null;
+  try {
+    const failed = fixture([revision, revision, { ...revision, revision: 5 }]);
+    const mounted = await failed.run({
+      importModule: async () => ({ componentRuntime: {
+        schema: COMPONENT_RUNTIME_SCHEMA, componentId: "internet", version: "0.3.0",
+        mount(context) {
+          leaked = context.fileSpace;
+          return { destroy() {} };
+        },
+      } }),
+    });
+    assert.equal(mounted, null);
+    assert.match(failed.state().reported.message, /changed during mount/);
+    assert.throws(() => leaked.list("/"), /revoked/);
+    assert.deepEqual(await host.list("/"), { path: "/", entries: [] });
+  } finally {
+    suppliedFileSpace = null;
+  }
+});
+
+test("late File Space results are not delivered after lease revocation", async () => {
+  let complete;
+  const original = filePort(() => new Promise(resolve => { complete = resolve; }));
+  const lease = createRevocableFileSpacePort(original);
+  const pending = lease.port.list("/");
+  lease.revoke();
+  lease.revoke();
+  complete({ path: "/", entries: [] });
+  await assert.rejects(pending, /revoked/);
+  assert.throws(() => lease.port.list("/"), /revoked/);
+  assert.throws(() => lease.port.importFile("/", "x", new Uint8Array()), /revoked/);
+});
+
+test("optional preview methods do not bypass the lease", async () => {
+  const host = { ...filePort(), readImagePreview: async () => ({ size: 0 }) };
+  const lease = createRevocableFileSpacePort(host);
+  assert.deepEqual(await lease.port.readImagePreview("/picture.png"), { size: 0 });
+  lease.revoke();
+  assert.throws(() => lease.port.readImagePreview("/picture.png"), /revoked/);
+  assert.equal(lease.port.readMediaPreview, undefined);
 });

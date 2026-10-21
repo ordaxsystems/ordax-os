@@ -297,12 +297,22 @@ class OrdaXBrowserHost:
         self.external_context.set_preferred_languages(["pt-BR", "en-US"])
         self.external_context.connect("download-started", self.on_download_started)
 
-        self.manager = WebKit2.UserContentManager.new()
+        # The trusted Surface has a dedicated persistent WebKit profile.
+        # External sites retain their separate context and cannot read this data.
+        surface_profile_data = os.path.join(self.profile_root, "surface", "data")
+        surface_profile_cache = os.path.join(self.cache_root, "surface")
+        os.makedirs(surface_profile_data, mode=0o700, exist_ok=True)
+        os.makedirs(surface_profile_cache, mode=0o700, exist_ok=True)
+        surface_data_manager = WebKit2.WebsiteDataManager(
+            base_data_directory=surface_profile_data,
+            base_cache_directory=surface_profile_cache,
+        )
+        self.surface_context = WebKit2.WebContext.new_with_website_data_manager(surface_data_manager)
+        self.surface_view = WebKit2.WebView.new_with_context(self.surface_context)
+        self.manager = self.surface_view.get_user_content_manager()
         self.manager.connect(f"script-message-received::{BRIDGE_NAME}", self.on_surface_message)
         if not self.manager.register_script_message_handler(BRIDGE_NAME):
             raise RuntimeError("failed to register OrdaX browser bridge")
-
-        self.surface_view = WebKit2.WebView.new_with_user_content_manager(self.manager)
         self.surface_view.set_hexpand(True)
         self.surface_view.set_vexpand(True)
         self.surface_view.connect("load-changed", self.on_surface_load_changed)

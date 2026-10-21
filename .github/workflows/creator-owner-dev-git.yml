@@ -670,7 +670,7 @@ jobs:
       # The owner must still select/re-enumerate the physical USB and confirm
       # the destructive action inside the canonical Windows Creator.
       - name: Retain exact-commit verified USB Dev acceptance bundle
-        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == 'ordaxsystems/ordax-os'
+        if: (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == 'ordaxsystems/ordax-os') || (github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/main')
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: owner-dev-usb-candidate-${{ env.ORDAX_OWNER_SOURCE_COMMIT }}

@@ -24,8 +24,13 @@ SUPERVISOR_PID_FILE=$UPDATE_RUN_DIR/supervisor.pid
 SUPERVISOR_POWER_QUIESCED_FILE=$UPDATE_RUN_DIR/supervisor-power-quiesced
 GUARDIAN_LOG=$UPDATE_RUN_DIR/guardian.log
 HOST_POWER_REQUEST=$UPDATE_RUN_DIR/host-power-request
+ACPI_ACTION_SOURCE=$SYSTEM_ROOT/services/power/acpi-button-action.sh
+ACPI_DIR=$UPDATE_RUN_DIR/acpi
+ACPI_BUTTON_PID=""
 POWER_STATE_DIR=${ORDAX_STATE_DIR:-/state/ordax}/power
 POWER_LAST_REQUEST=$POWER_STATE_DIR/last-request
+POWER_LAST_STAGE=$POWER_STATE_DIR/last-stage
+POWER_LAST_FAILURE=$POWER_STATE_DIR/last-failure
 BASE_TELEMETRY_PID_FILE=${ORDAX_STATE_DIR:-/state/ordax}/telemetry/agent.pid
 BASE_TELEMETRY_AGENT=${ORDAX_STATE_DIR:-/state/ordax}/telemetry/agent.sh
 RESCUE_PID_FILE=${ORDAX_STATE_DIR:-/state/ordax}/rescue/agent.pid
@@ -265,6 +270,17 @@ terminate_supervisor() {
     wait "$pid" 2>/dev/null || true
 }
 
+# kill -0 also succeeds for zombie processes. A Supervisor may have
+# published its final quiesce receipt and exited, but not yet been reaped by
+# the Guardian parent. Treat that state as exited; the receipt still must
+# match the exact supervised PID before any power transition is allowed.
+supervisor_process_active() {
+    pid=$1
+    kill -0 "$pid" >/dev/null 2>&1 || return 1
+    process_state=$(/bin/busybox awk '$1 == "State:" { print $2; exit }' "/proc/$pid/status" 2>/dev/null || true)
+    [ "$process_state" != Z ]
+}
+
 quiesce_supervisor_for_power_transition() {
     pid=${SUPERVISOR_PID:-}
     is_pid "$pid" || return 1
@@ -276,12 +292,15 @@ quiesce_supervisor_for_power_transition() {
     # Surface stop is bounded to 5s and its Native authority proof to another
     # 4s. Give that existing owner enough time to prove a clean handoff rather
     # than racing it with the guardian's generic 5s termination budget.
-    remaining=12
-    while kill -0 "$pid" >/dev/null 2>&1 && [ "$remaining" -gt 0 ]; do
+    # Supervisor permits 14s for Surface cleanup and up to 5s to prove
+    # the native-host lock has been released. Its parent must outlive both
+    # gates, including scheduling/receipt overhead, without a premature KILL.
+    remaining=24
+    while supervisor_process_active "$pid" && [ "$remaining" -gt 0 ]; do
         /bin/busybox sleep 1
         remaining=$((remaining - 1))
     done
-    if kill -0 "$pid" >/dev/null 2>&1; then
+    if supervisor_process_active "$pid"; then
         log "supervisor did not produce a bounded power-quiesce handoff; forcing pid $pid"
         kill -KILL "$pid" >/dev/null 2>&1 || true
         wait "$pid" 2>/dev/null || true
@@ -331,20 +350,20 @@ terminate_persistent_agent() {
 
     kill "$pid" >/dev/null 2>&1 || true
     remaining=2
-    while kill -0 "$pid" >/dev/null 2>&1 && [ "$remaining" -gt 0 ]; do
+    while supervisor_process_active "$pid" && [ "$remaining" -gt 0 ]; do
         /bin/busybox sleep 1
         remaining=$((remaining - 1))
     done
-    if kill -0 "$pid" >/dev/null 2>&1; then
+    if supervisor_process_active "$pid"; then
         log "forcing persistent $label pid $pid for host power transition"
         kill -KILL "$pid" >/dev/null 2>&1 || true
     fi
     remaining=2
-    while kill -0 "$pid" >/dev/null 2>&1 && [ "$remaining" -gt 0 ]; do
+    while supervisor_process_active "$pid" && [ "$remaining" -gt 0 ]; do
         /bin/busybox sleep 1
         remaining=$((remaining - 1))
     done
-    kill -0 "$pid" >/dev/null 2>&1 && return 1
+    supervisor_process_active "$pid" && return 1
     rm -f "$pid_file" >/dev/null 2>&1 || true
     return 0
 }
@@ -364,6 +383,43 @@ root_filesystem_is_read_only() {
     return 1
 }
 
+# The Dev root is a bind-mounted ext4 directory, not an /etc/fstab
+# filesystem entry. BusyBox mount with a single operand may attempt to
+# resolve metadata after switch_root/pivot_root. Pass source AND target
+# explicitly to remount precisely the active root mount, not the backing
+# ext4 superblock or one of the other writable binds. Preserve the ro proof.
+# Stable/MVP retains its separately defined ordinary-root transition.
+remount_root_read_only_for_power() {
+    case "$DISTRIBUTION_PROFILE" in
+        owner-development)
+            /bin/busybox mount -o remount,bind,ro / / >>"$GUARDIAN_LOG" 2>&1
+            ;;
+        stable-mvp)
+            /bin/busybox mount -o remount,ro / >>"$GUARDIAN_LOG" 2>&1
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+}
+
+# The abort path must undo only the same bind mount flags. In particular,
+# do not attempt a superblock-wide remount which could leave unrelated
+# writable state inaccessible after a rejected shutdown.
+remount_root_read_write_after_power_abort() {
+    case "$DISTRIBUTION_PROFILE" in
+        owner-development)
+            /bin/busybox mount -o remount,bind,rw / / >>"$GUARDIAN_LOG" 2>&1
+            ;;
+        stable-mvp)
+            /bin/busybox mount -o remount,rw / >>"$GUARDIAN_LOG" 2>&1
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+}
+
 mark_power_request_failed() {
     expected_action=$1
     [ -s "$POWER_LAST_REQUEST" ] && [ ! -L "$POWER_LAST_REQUEST" ] || return 0
@@ -373,11 +429,38 @@ mark_power_request_failed() {
     status=""
     IFS='|' read -r action request_boot_id request_epoch status <"$POWER_LAST_REQUEST" || return 0
     [ "$action" = "$expected_action" ] && [ "$status" = "pending" ] || return 0
-    temporary=$POWER_LAST_REQUEST.tmp.$
+    temporary=$POWER_LAST_REQUEST.tmp.$$
     printf '%s|%s|%s|failed\n' "$action" "$request_boot_id" "$request_epoch" >"$temporary" || return 1
     chmod 600 "$temporary" || return 1
     /bin/busybox mv -f "$temporary" "$POWER_LAST_REQUEST" || return 1
     return 0
+}
+
+# Durable, privacy-safe stage receipts: identify which owner could not
+# complete shutdown. Preserve the last stage and a separate failure reason so
+# the UI cannot confuse a Surface recovery with a real host poweroff.
+record_host_power_stage() {
+    stage=$1
+    case "$stage" in
+        accepted|supervisor-quiesce|host-agents|filesystem-sync|root-readonly) ;;
+        *) return 1 ;;
+    esac
+    temporary=$POWER_LAST_STAGE.tmp.$$
+    printf '%s\n' "$stage" >"$temporary" || return 1
+    chmod 600 "$temporary" || return 1
+    /bin/busybox mv -f "$temporary" "$POWER_LAST_STAGE" || return 1
+}
+
+record_host_power_failure() {
+    failure=$1
+    case "$failure" in
+        supervisor-quiesce-failed|host-agents-failed|sync-failed|remount-failed|root-still-writable|kernel-transition-returned) ;;
+        *) return 1 ;;
+    esac
+    temporary=$POWER_LAST_FAILURE.tmp.$$
+    printf '%s\n' "$failure" >"$temporary" || return 1
+    chmod 600 "$temporary" || return 1
+    /bin/busybox mv -f "$temporary" "$POWER_LAST_FAILURE" || return 1
 }
 
 prepare_host_power_channel() {
@@ -388,6 +471,42 @@ prepare_host_power_channel() {
     return 0
 }
 
+start_acpi_button_listener() {
+    [ "$DISTRIBUTION_PROFILE" = "owner-development" ] || return 0
+    if [ -n "$ACPI_BUTTON_PID" ] && kill -0 "$ACPI_BUTTON_PID" >/dev/null 2>&1; then
+        return 0
+    fi
+    ACPI_BUTTON_PID=""
+    [ -f "$ACPI_ACTION_SOURCE" ] && [ ! -L "$ACPI_ACTION_SOURCE" ] || return 1
+    /bin/busybox acpid --help >/dev/null 2>&1 || return 1
+    mkdir -p "$ACPI_DIR" || return 1
+    chmod 700 "$ACPI_DIR" || return 1
+    /bin/busybox cp "$ACPI_ACTION_SOURCE" "$ACPI_DIR/shutdown" || return 1
+    chmod 700 "$ACPI_DIR/shutdown" || return 1
+    # Linux evdev power key press only (value 1); no lid, sleep or release event.
+    printf '%s\n' 'EV_KEY 0x01 KEY_POWER 116 1 "button/power PWRF 00000080"' >"$ACPI_DIR/acpi.map" || return 1
+    printf '%s\n' 'PWRF shutdown' >"$ACPI_DIR/acpid.conf" || return 1
+    chmod 600 "$ACPI_DIR/acpi.map" "$ACPI_DIR/acpid.conf" || return 1
+    ORDAX_HOST_POWER_REQUEST="$HOST_POWER_REQUEST" \
+        /bin/busybox acpid -f -c "$ACPI_DIR" -a "$ACPI_DIR/acpid.conf" -M "$ACPI_DIR/acpi.map" \
+            >>"$GUARDIAN_LOG" 2>&1 &
+    ACPI_BUTTON_PID=$!
+    /bin/busybox sleep 1
+    if ! kill -0 "$ACPI_BUTTON_PID" >/dev/null 2>&1; then
+        wait "$ACPI_BUTTON_PID" 2>/dev/null || true
+        ACPI_BUTTON_PID=""
+        return 1
+    fi
+    log "physical ACPI power button now routes to Guardian shutdown authority"
+}
+
+stop_acpi_button_listener() {
+    [ -n "$ACPI_BUTTON_PID" ] || return 0
+    kill "$ACPI_BUTTON_PID" >/dev/null 2>&1 || true
+    wait "$ACPI_BUTTON_PID" 2>/dev/null || true
+    ACPI_BUTTON_PID=""
+}
+
 close_host_power_channel() {
     exec 8>&- 2>/dev/null || true
     rm -f "$HOST_POWER_REQUEST" >/dev/null 2>&1 || true
@@ -396,12 +515,15 @@ close_host_power_channel() {
 restore_runtime_after_power_failure() {
     action=$1
     reason=$2
+    failure_code=$3
     mark_power_request_failed "$action" || true
+    record_host_power_failure "$failure_code" || true
     STOPPING=0
     log "$reason; restoring supervised runtime"
     if ! start_supervisor; then
         fail_closed "host power transition failed and supervisor could not be restored"
     fi
+    start_acpi_button_listener || log "physical ACPI button listener could not be restored"
     return 1
 }
 
@@ -410,55 +532,83 @@ perform_host_power_transition() {
     case "$action" in restart|shutdown) ;; *) return 1 ;; esac
 
     STOPPING=1
+    rm -f "$POWER_LAST_FAILURE" >/dev/null 2>&1 || true
+    record_host_power_stage accepted || true
     log "host power owner accepted $action; stopping supervised runtime"
+    record_host_power_stage supervisor-quiesce || true
     if ! quiesce_supervisor_for_power_transition; then
-        restore_runtime_after_power_failure "$action" "supervisor could not prove Surface/Native quiescence for $action"
+        restore_runtime_after_power_failure "$action" "supervisor could not prove Surface/Native quiescence for $action" supervisor-quiesce-failed
         return 1
     fi
 
+    stop_acpi_button_listener
+    record_host_power_stage host-agents || true
     if ! terminate_persistent_host_agents; then
-        restore_runtime_after_power_failure "$action" "persistent host agent did not quiesce for $action"
+        restore_runtime_after_power_failure "$action" "persistent host agent did not quiesce for $action" host-agents-failed
         return 1
     fi
+    record_host_power_stage filesystem-sync || true
     if ! /bin/busybox sync >>"$GUARDIAN_LOG" 2>&1; then
-        restore_runtime_after_power_failure "$action" "filesystem sync failed before $action"
+        restore_runtime_after_power_failure "$action" "filesystem sync failed before $action" sync-failed
         return 1
     fi
-    if ! /bin/busybox mount -o remount,ro / >>"$GUARDIAN_LOG" 2>&1; then
-        restore_runtime_after_power_failure "$action" "root filesystem could not be remounted read-only for $action"
-        return 1
+    if [ "$DISTRIBUTION_PROFILE" = "owner-development" ] && [ "$PRODUCT_MODE" = "usb" ]; then
+        # Owner USB boots from an ext4 subdirectory via switch_root, and can
+        # pivot again into a versioned Base with several writable bind mounts.
+        # Remounting only / is not a valid durability proof for those other
+        # mounts; it has also prevented every tested physical shutdown.
+        # After Supervisor/Native and persistent agents have *proved* exit,
+        # perform the final, mandatory kernel-wide sync. No further persistent
+        # writes are permitted on the successful power path. The kernel owns
+        # the final poweroff; do not introduce a second power controller.
+        if ! /bin/busybox sync >>"$GUARDIAN_LOG" 2>&1; then
+            restore_runtime_after_power_failure "$action" "Owner USB final filesystem sync failed before $action" sync-failed
+            return 1
+        fi
+    else
+        # Stable/MVP owns a distinct rootfs and retains its verified
+        # read-only barrier. Future non-USB Dev modes keep this conservative
+        # route until their filesystem topology is explicitly supported.
+        record_host_power_stage root-readonly || true
+        if ! remount_root_read_only_for_power; then
+            restore_runtime_after_power_failure "$action" "root filesystem could not be remounted read-only for $action" remount-failed
+            return 1
+        fi
+        if ! root_filesystem_is_read_only; then
+            remount_root_read_write_after_power_abort || true
+            restore_runtime_after_power_failure "$action" "root filesystem remained writable after $action quiesce" root-still-writable
+            return 1
+        fi
+        # Persistence is sealed on this profile. No writes to regular files
+        # unless the kernel transition returns and root is restored writable.
+        /bin/busybox sync >/dev/null 2>&1 || true
     fi
-    if ! root_filesystem_is_read_only; then
-        /bin/busybox mount -o remount,rw / >/dev/null 2>&1 || true
-        restore_runtime_after_power_failure "$action" "root filesystem remained writable after $action quiesce"
-        return 1
-    fi
-
-    # Persistence is now sealed. Do not write regular files again unless the
-    # destructive kernel transition fails and root is restored read-write.
-    /bin/busybox sync >/dev/null 2>&1 || true
+    # A sysrq b/o fallback bypasses filesystem shutdown and can corrupt ext4.
+    # Only the canonical kernel transition is allowed after the sync barrier.
+    # If the call returns, record failure and restore the supervised runtime;
+    # never issue an emergency reset as a routine power fallback.
     case "$action" in
         restart)
             /bin/busybox reboot -f >/dev/null 2>&1 || true
-            if [ -w /proc/sysrq-trigger ]; then
-                if printf 'b' >/proc/sysrq-trigger 2>/dev/null; then /bin/busybox sleep 1; fi
-            fi
             ;;
         shutdown)
             /bin/busybox poweroff -f >/dev/null 2>&1 || true
-            if [ -w /proc/sysrq-trigger ]; then
-                if printf 'o' >/proc/sysrq-trigger 2>/dev/null; then /bin/busybox sleep 1; fi
-            fi
             ;;
     esac
 
-    if /bin/busybox mount -o remount,rw / >/dev/null 2>&1; then
-        restore_runtime_after_power_failure "$action" "kernel $action transition returned without crossing a boot boundary"
+    if [ "$DISTRIBUTION_PROFILE" = "owner-development" ] && [ "$PRODUCT_MODE" = "usb" ]; then
+        # No remount was done on Owner USB: restoration must not attempt one.
+        # Preserve the same failure receipt and restore supervised operation
+        # if both direct kernel power paths returned.
+        restore_runtime_after_power_failure "$action" "kernel $action transition returned without crossing a boot boundary" kernel-transition-returned
+        return 1
+    fi
+    if remount_root_read_write_after_power_abort; then
+        restore_runtime_after_power_failure "$action" "kernel $action transition returned without crossing a boot boundary" kernel-transition-returned
         return 1
     fi
 
-    # Root is safely read-only but the kernel refused both transition paths.
-    # Stay alive rather than fabricating success or reopening persistence.
+    # Stable/root-sealed path: do not restart on an unverified writable root.
     while :; do /bin/busybox sleep 3600; done
 }
 
@@ -478,6 +628,7 @@ wait_guardian_interval() {
 
 cleanup() {
     STOPPING=1
+    stop_acpi_button_listener
     terminate_supervisor
     close_host_power_channel
     rm -f "$SUPERVISOR_PID_FILE" "$GUARDIAN_PID_FILE" >/dev/null 2>&1 || true
@@ -493,6 +644,7 @@ fail_closed() {
     reason=$1
     log "$reason"
     terminate_supervisor
+    stop_acpi_button_listener
     rm -f "$SUPERVISOR_PID_FILE" "$GUARDIAN_PID_FILE" >/dev/null 2>&1 || true
     close_host_power_channel
     if [ -x "$RECOVERY_ENTRYPOINT" ]; then
@@ -579,6 +731,7 @@ trap cleanup EXIT
 trap terminate HUP INT TERM
 
 prepare_host_power_channel || fail_closed "host power request channel could not be initialized"
+start_acpi_button_listener || log "physical ACPI button listener unavailable; checking base ACPI driver/applet"
 write_pid "$GUARDIAN_PID_FILE" "$$"
 log "guardian started pid=$$"
 ensure_base_boot_id || fail_closed "boot session id could not be initialized"

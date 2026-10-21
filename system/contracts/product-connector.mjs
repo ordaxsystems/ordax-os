@@ -6,6 +6,9 @@ export function validateProductConnectorSnapshot(value) {
   for (const field of ["available", "enabled", "accountAuthenticated", "requiresClientOAuthAndGrants"]) {
     if (typeof value[field] !== "boolean") throw new TypeError("Invalid Connector state: " + field);
   }
+  if (value.canEnableWithoutLogin !== undefined && typeof value.canEnableWithoutLogin !== "boolean") {
+    throw new TypeError("Invalid Connector login policy");
+  }
   if (value.remoteActionsEnabled !== false || value.mode !== "discovery-only"
       || value.requiresClientOAuthAndGrants !== true) {
     throw new TypeError("Connector cannot advertise ungranted remote actions");
@@ -22,6 +25,7 @@ export function validateProductConnectorSnapshot(value) {
     enabled: value.enabled,
     presenceState: value.presenceState,
     accountAuthenticated: value.accountAuthenticated,
+    canEnableWithoutLogin: value.canEnableWithoutLogin === true,
     requiresClientOAuthAndGrants: true,
     remoteActionsEnabled: false,
     mode: "discovery-only",

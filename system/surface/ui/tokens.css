@@ -69,7 +69,8 @@ html[data-ordax-display-scale] #ordax-root > :is(.ordax-shell, .window-workspace
 html[data-ordax-text-scale="large"] { font-size: 112.5%; }
 html[data-ordax-text-scale="extra-large"] { font-size: 125%; }
 
-@media (min-width: 2560px) {
+/* Automatic enlargement requires enough horizontal and vertical workspace. */
+@media (min-width: 2560px) and (min-height: 1200px) {
   html[data-ordax-display-scale="automatic"] {
     --ordax-display-scale-factor: 1.0625;
     --ordax-display-scale-viewport-width: 94.117647vw;
@@ -77,7 +78,7 @@ html[data-ordax-text-scale="extra-large"] { font-size: 125%; }
   }
 }
 
-@media (min-width: 3200px) {
+@media (min-width: 3200px) and (min-height: 1800px) {
   html[data-ordax-display-scale="automatic"] {
     --ordax-display-scale-factor: 1.125;
     --ordax-display-scale-viewport-width: 88.888889vw;
@@ -85,7 +86,7 @@ html[data-ordax-text-scale="extra-large"] { font-size: 125%; }
   }
 }
 
-@media (min-width: 5120px) {
+@media (min-width: 5120px) and (min-height: 2160px) {
   html[data-ordax-display-scale="automatic"] {
     --ordax-display-scale-factor: 1.25;
     --ordax-display-scale-viewport-width: 80vw;
@@ -160,7 +161,6 @@ html[data-ordax-text-scale="extra-large"] { font-size: 125%; }
   --ordax-navigation-height: 40px;
   --ordax-navigation-control-height: 32px;
   --ordax-rail-width: var(--ordax-sidebar-expanded-width);
-  --ordax-header-height: 64px;
 
   /* Geometry. */
   --ordax-radius-xs: 4px;
@@ -252,10 +252,6 @@ html[data-ordax-text-scale="extra-large"] { font-size: 125%; }
   --ordax-wallpaper-opacity: 0;
   --ordax-glass: var(--ordax-panel);
   --ordax-glow-soft: 0 0 0 transparent;
-}
-
-@media (max-width: 1100px) {
-  :root, [data-ordax-theme] { --ordax-rail-width: var(--ordax-sidebar-collapsed-width); }
 }
 
 @media (prefers-reduced-motion: reduce) {

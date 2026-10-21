@@ -57,17 +57,19 @@ class PublicSurfaceSnapshotTests(unittest.TestCase):
         )
         self.assertEqual(module._surface_home(), fixture["home"])
         source = module.DESKTOP_SHELL.read_text(encoding="utf-8")
-        canonical = '["files", "studio", "settings", "system"]'
-        self.assertIn(canonical, source)
+        shortcut_source = module.SHORTCUT_CATALOG.read_text(encoding="utf-8")
+        self.assertIn('listSurfaceShortcutAppIds("navigation-menu")', source)
+        canonical_entry = '{ appId: "studio", placements: { central: 0, desktop: 0, dock: 0, "navigation-menu": 1 } }'
+        self.assertIn(canonical_entry, shortcut_source)
         with tempfile.TemporaryDirectory(prefix="ordax-native-menu-proof-") as directory:
-            shell = Path(directory) / "desktop-shell.mjs"
+            catalog = Path(directory) / "shortcut-catalog.mjs"
             for changed, issue in (
-                ('["files", "files"]', "duplicated"),
-                ('["files", unknownApp()]', "malformed"),
+                (canonical_entry.replace('"navigation-menu": 1', '"navigation-menu": 0'), "duplicated"),
+                (canonical_entry.replace('"navigation-menu": 1', '"navigation-menu": "first"'), "malformed"),
             ):
                 with self.subTest(changed=changed):
-                    shell.write_text(source.replace(canonical, changed), encoding="utf-8")
-                    with patch.object(module, "DESKTOP_SHELL", shell):
+                    catalog.write_text(shortcut_source.replace(canonical_entry, changed), encoding="utf-8")
+                    with patch.object(module, "SHORTCUT_CATALOG", catalog):
                         with self.assertRaisesRegex(module.PlaygroundFixtureError, issue):
                             module._surface_home()
 

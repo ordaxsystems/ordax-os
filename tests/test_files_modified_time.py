@@ -10,14 +10,20 @@ CONTRACT = ROOT / "system" / "contracts" / "file-space.mjs"
 CONTROLS = ROOT / "system" / "surface" / "ui" / "file-space-controls.mjs"
 CSS = ROOT / "system" / "surface" / "ui" / "files.css"
 
-spec = importlib.util.spec_from_file_location("ordax_native_host_modified_time_test", SERVER)
-native_host = importlib.util.module_from_spec(spec)
-assert spec.loader is not None
-spec.loader.exec_module(native_host)
+NATIVE_HOST_AVAILABLE = importlib.util.find_spec("fcntl") is not None
+if NATIVE_HOST_AVAILABLE:
+    spec = importlib.util.spec_from_file_location("ordax_native_host_modified_time_test", SERVER)
+    native_host = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None
+    spec.loader.exec_module(native_host)
+else:
+    native_host = None
 
 
 class FilesModifiedTimeTests(unittest.TestCase):
     def test_native_listing_exposes_real_epoch_milliseconds(self):
+        if not NATIVE_HOST_AVAILABLE:
+            self.skipTest("native host listing tests require POSIX fcntl")
         with tempfile.TemporaryDirectory() as temporary:
             user_root = Path(temporary) / "home"
             user_root.mkdir()
@@ -51,7 +57,8 @@ class FilesModifiedTimeTests(unittest.TestCase):
     def test_modified_column_is_part_of_real_list_layout(self):
         css = CSS.read_text(encoding="utf-8")
         self.assertIn("minmax(180px, 1fr) 90px 86px 132px", css)
-        self.assertIn("nth-child(3)", css)
+        self.assertIn(".ordax-files-list-header > .ordax-files-sort:nth-child(n + 3)", css)
+        self.assertIn(".ordax-file-row > :nth-child(n + 3)", css)
 
 
 if __name__ == "__main__":
