@@ -277,7 +277,7 @@ if "$MOUNTATTR_BIN" alias-ro "$scratch/state" >"$scratch/expected-busy.log" 2>&1
     echo HELD_WRITER_UNEXPECTEDLY_ALLOWED_READONLY >&2
     exit 36
 fi
-grep -q 'Resource busy' "$scratch/expected-busy.log" || {
+grep -qi 'resource busy' "$scratch/expected-busy.log" || {
     cat "$scratch/expected-busy.log" >&2
     exit 37
 }
