@@ -160,6 +160,46 @@ A ordem deve reduzir duplicação, não criar wrappers permanentes:
 
 Não é permitido reduzir a contagem apenas trocando o nome do arquivo importado, copiando helpers Alpine para outro diretório ou duplicando lógica. A redução só conta quando a dependência real de Alpine/APK diminui ou quando código legado comprovadamente sem consumidor é removido.
 
+### Python do MCP como componente, sem contaminar a base estática
+
+A configuração real do **Buildroot 2026.08** proíbe
+`BR2_PACKAGE_PYTHON3=y` quando `BR2_STATIC_LIBS=y`. O sistema de base do
+OrdaX continua com musl estático. A solução não é adicionar o Python à base
+nem trocar Alpine por outra distribuição: o Python pertence ao **componente
+privado do único `ordax-runtime`**, com musl dinâmico e bibliotecas produzidos
+pela **mesma fonte Buildroot**, sem APK nem gerenciador de pacotes no sistema.
+
+No mesmo owner `bootstrap/independent-base/` foi registrado
+`component_profiles.native-product-runtime`; ele herda arquitetura,
+musl e headers do contrato da base e usa somente
+`configs/native-product-runtime.fragment`, que declara bibliotecas
+compartilhadas, Python3, módulos SSL/zlib e CA. Este perfil **não** faz
+parte de `profiles.minimal` ou `profiles.owner-development` e não pode
+importar overlay, hooks de boot, firmware ou serviços da base.
+
+O fluxo rápido existente executa:
+
+```sh
+python3 bootstrap/independent-base/build.py check-component
+python3 bootstrap/independent-base/build.py resolve-component --cache /tmp/ordax-independent-resolution-cache
+```
+
+O segundo comando usa o Buildroot upstream já pinado com SHA-256 e verifica
+o **Kconfig resolvido de verdade**; não compila Python, não instala nada,
+não modifica USB nem concede permissão de assinatura. Os testes
+`tests/test_independent_native_component.py` impedem que o perfil
+contamine a base ou aceite configuração silenciosamente descartada.
+
+**Ainda necessário para o Runtime de produção:** compilar o Python e sua
+closure a partir da toolchain canônica; incluir os módulos nativos das
+dependências do `ordax-runtime` (não só CPython); provar a resolução
+isolada do ELF loader e `DT_NEEDED` dentro do componente; empacotar em
+artefato imutável com hash, assinar pelo canal oficial; ativar o mesmo
+`ordax-product-agent` supervisionado e comprovar desafio MCP e execução
+no USB. Não produzir symlinks globais para o loader, adicionar minirootfs,
+instalar pip no boot, copiar wheels do host indiscriminadamente ou substituir
+a implementação canônica por outro agente.
+
 ### ABI de todo o userspace e Product Runtime
 
 O builder da Independent Base verifica **todos os ELF de processo no target**
