@@ -462,7 +462,7 @@ jobs:
           echo "$proof/ordax-disposable.raw" > "$RUNNER_TEMP/owner-prototype-seed-path"
 
       - name: Prove actual Owner USB offline handoff in QEMU
-        timeout-minutes: 11
+        timeout-minutes: 15
         run: |
           set -euo pipefail
           proof="$RUNNER_TEMP/owner-prototype-media"
@@ -478,6 +478,7 @@ jobs:
             --serial-out "$RUNNER_TEMP/owner-qemu-serial.log" \
             --second-framebuffer-out "$RUNNER_TEMP/owner-qemu-second-framebuffer.ppm" \
             --second-serial-out "$RUNNER_TEMP/owner-qemu-second-serial.log" \
+            --prove-acpi-shutdown \
             --timeout-seconds 300
           python3 - "$RUNNER_TEMP/owner-qemu-offline-handoff.json" <<'PY'
           import json, sys
@@ -493,6 +494,8 @@ jobs:
           assert proof['welcome_screen_rendered_proven'] is False
           assert proof['notebook_boot_proven'] is False
           assert proof['graphical_framebuffer_varied_proven'] is True
+          assert proof['guest_acpi_shutdown_proven'] is True
+          assert proof['ext4_clean_after_guest_shutdown'] is True
           assert proof['second_offline_boot_proven'] is True
           assert proof['second_boot']['same_disposable_disk_reused'] is True
           assert proof['second_boot']['qemu_process_restarted'] is True
