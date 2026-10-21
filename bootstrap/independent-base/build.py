@@ -971,6 +971,79 @@ def verify_native_python_target(target: Path) -> dict:
     }
 
 
+def smoke_test_private_native_python(target: Path, abi: dict) -> dict:
+    """Actually run Buildroot's Python through its own musl loader.
+
+    Execute on the CI Linux kernel with an explicit private loader and
+    library path. Never modify the host filesystem's /lib, rely on Alpine,
+    install a package or claim that this tests the notebook's boot.
+    """
+    loader = private_component_library(target, "lib", "ld-musl-x86_64.so.1")
+    if loader is None:
+        raise BaseError("compiled private musl loader unavailable for smoke proof")
+    interpreter = (target / abi["python_executable"]).resolve(strict=True)
+    if not interpreter.is_relative_to(target.resolve(strict=True)):
+        raise BaseError("compiled private Python executable escapes target")
+    code = (
+        "import importlib,json,os,pathlib,ssl,sys,zlib;"
+        "root=pathlib.Path(os.environ['ORDAX_NATIVE_PRIVATE_TARGET']).resolve();"
+        "mods=('ssl','_ssl','hashlib','_hashlib','zlib','json');"
+        "paths={n:str(pathlib.Path(importlib.import_module(n).__file__).resolve())"
+        " for n in mods};"
+        "assert all(pathlib.Path(p).is_relative_to(root) for p in paths.values()),paths;"
+        "assert pathlib.Path(sys.prefix).resolve().is_relative_to(root),sys.prefix;"
+        "assert zlib.decompress(zlib.compress(b'ordax-kernel-only-smoke'))"
+        "==b'ordax-kernel-only-smoke';"
+        "assert ssl.OPENSSL_VERSION.startswith('OpenSSL ');"
+        "print(json.dumps({'python_version':sys.version.split()[0],"
+        "'module_names':list(mods),'ssl_version':ssl.OPENSSL_VERSION,"
+        "'all_imports_private':True,'tls_and_zlib_operational':True}))"
+    )
+    env = os.environ.copy()
+    for key in ("PYTHONPATH", "PYTHONSTARTUP", "PYTHONINSPECT", "LD_PRELOAD",
+                "LD_AUDIT", "LD_LIBRARY_PATH", "PYTHONHOME"):
+        env.pop(key, None)
+    env.update({
+        "PYTHONHOME": str(target / "usr"),
+        "LD_LIBRARY_PATH": f"{target}/lib:{target}/usr/lib",
+        "ORDAX_NATIVE_PRIVATE_TARGET": str(target.resolve(strict=True)),
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "PYTHONNOUSERSITE": "1",
+    })
+    try:
+        result = subprocess.run(
+            [str(loader), str(interpreter), "-S", "-s", "-B", "-c", code],
+            env=env, cwd=target, text=True, stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT, check=False, timeout=45,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        raise BaseError("private compiled Python smoke execution unavailable") from exc
+    if result.returncode:
+        raise BaseError("private compiled Python smoke execution failed: " + result.stdout[-1200:])
+    try:
+        smoke = json.loads(result.stdout.strip())
+    except (ValueError, TypeError) as exc:
+        raise BaseError("private compiled Python smoke receipt invalid") from exc
+    if (not isinstance(smoke, dict)
+            or not re.fullmatch(r"3\.\d+\.\d+", str(smoke.get("python_version", "")))
+            or not smoke["python_version"].startswith(interpreter.name.removeprefix("python") + ".")
+            or smoke.get("module_names") != ["ssl", "_ssl", "hashlib", "_hashlib", "zlib", "json"]
+            or smoke.get("all_imports_private") is not True
+            or smoke.get("tls_and_zlib_operational") is not True
+            or not str(smoke.get("ssl_version", "")).startswith("OpenSSL ")):
+        raise BaseError("private compiled Python smoke verification incomplete")
+    return {
+        "status": "kernel-host-smoke-pass",
+        "python_version": smoke["python_version"],
+        "module_names": smoke["module_names"],
+        "all_imports_private": True,
+        "tls_and_zlib_operational": True,
+        "linux_kernel_execution_proven": True,
+        "ordax_usb_execution_proven": False,
+        "runtime_agent_packaged": False,
+    }
+
+
 def build_native_python_component(out: Path, cache: Path, jobs: int) -> dict:
     """Compile isolated Buildroot Python, emit evidence only, no USB payload."""
     source, kernel, _, _ = contracts()
@@ -990,6 +1063,7 @@ def build_native_python_component(out: Path, cache: Path, jobs: int) -> dict:
         )
         run(*cmd[:-1], f"-j{max(1, jobs)}", bounded_output=True)
         evidence = verify_native_python_target(build_dir / "target")
+        smoke = smoke_test_private_native_python(build_dir / "target", evidence)
         receipt = {
             "$schema": "ordax.private-native-python-build-proof/1",
             "status": "build-proof-only",
@@ -997,6 +1071,7 @@ def build_native_python_component(out: Path, cache: Path, jobs: int) -> dict:
             "kernel_source_version": kernel["version"],
             "component_inputs": inputs,
             "python_abi": evidence,
+            "private_python_smoke": smoke,
             "runtime_agent_packaged": False,
             "component_artifact_authorized": False,
             "device_install_authorized": False,
@@ -1042,6 +1117,19 @@ def verify_native_python_receipt(out: Path) -> dict:
             or not all(isinstance(lib, str) and re.fullmatch(r"[A-Za-z0-9_.+-]+", lib)
                        for lib in abi["needed_shared_libraries"])):
         raise BaseError("private Python ABI closure receipt invalid")
+    smoke = receipt.get("private_python_smoke")
+    if (not isinstance(smoke, dict)
+            or smoke.get("status") != "kernel-host-smoke-pass"
+            or not re.fullmatch(r"3\.\d+\.\d+", str(smoke.get("python_version", "")))
+            or smoke.get("module_names") != ["ssl", "_ssl", "hashlib", "_hashlib", "zlib", "json"]
+            or smoke.get("all_imports_private") is not True
+            or smoke.get("tls_and_zlib_operational") is not True
+            or smoke.get("linux_kernel_execution_proven") is not True
+            or smoke.get("ordax_usb_execution_proven") is not False
+            or smoke.get("runtime_agent_packaged") is not False
+            or smoke["python_version"].split(".")[:2] !=
+               abi["python_executable"].removeprefix("usr/bin/python").split(".")):
+        raise BaseError("private Python kernel-host execution receipt invalid")
     for key in ("runtime_agent_packaged", "component_artifact_authorized",
                 "device_install_authorized", "base_rootfs_modified"):
         if receipt.get(key) is not False:
