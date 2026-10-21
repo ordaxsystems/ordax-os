@@ -533,6 +533,69 @@ def verify_surface_ip_identity(target: Path) -> dict:
     }
 
 
+def verify_static_userspace_elf_closure(target: Path) -> dict:
+    """Prove the entire Independent Base userspace has no dynamic loader.
+
+    The Buildroot profile sets BR2_STATIC_LIBS=y. Check ACTUAL output files,
+    not just Kconfig or /sbin/ip, so future native agents cannot quietly add
+    Alpine/glibc/musl dynamic loader requirements. Kernel .ko objects use
+    ET_REL and have no userspace process loader; exclude those by ELF type.
+    No second ELF implementation: the existing host readelf is the authority.
+    """
+    root = target.resolve(strict=True)
+    checked = []
+    for file_path in sorted(target.rglob("*")):
+        if file_path.is_symlink() or not file_path.is_file():
+            continue
+        try:
+            with file_path.open("rb") as stream:
+                elf = stream.read(20)
+        except OSError as exc:
+            raise BaseError("Independent Base userspace file unreadable") from exc
+        if not elf.startswith(b"\\x7fELF"):
+            continue
+        relative = file_path.relative_to(target).as_posix()
+        if len(elf) != 20 or elf[4:7] != b"\\x02\\x01\\x01":
+            raise BaseError(f"unsupported Independent Base ELF architecture: {relative}")
+        if int.from_bytes(elf[18:20], "little") != 62:
+            raise BaseError(f"unexpected Independent Base ELF machine: {relative}")
+        elf_type = int.from_bytes(elf[16:18], "little")
+        if elf_type == 1:
+            # Linux kernel module / .o: not a process with a PT_INTERP ABI.
+            continue
+        if elf_type not in (2, 3):
+            raise BaseError(f"unsupported Independent Base ELF type: {relative}")
+        try:
+            real = file_path.resolve(strict=True)
+            real.relative_to(root)
+        except (OSError, ValueError) as exc:
+            raise BaseError(f"Independent Base ELF escapes target: {relative}") from exc
+        segments = run("readelf", "-l", str(file_path))
+        dynamic = run("readelf", "-d", str(file_path))
+        if "Requesting program interpreter:" in segments or re.search(
+            r"(?m)^\\s*INTERP\\s", segments
+        ):
+            raise BaseError(f"dynamic ELF interpreter forbidden in Independent Base: {relative}")
+        needed = re.findall(r"\\(NEEDED\\).*?\\[(.+?)\\]", dynamic)
+        if needed:
+            raise BaseError(
+                f"dynamic ELF dependencies forbidden in Independent Base: {relative}: {sorted(set(needed))}"
+            )
+        checked.append((relative, digest(file_path)))
+    if not checked:
+        raise BaseError("Independent Base static userspace ELF proof has no executables")
+    fingerprint = hashlib.sha256(
+        "".join(f"{name} {sha}\\n" for name, sha in checked).encode("utf-8")
+    ).hexdigest()
+    return {
+        "linkage": "static",
+        "userspace_elf_files_examined": len(checked),
+        "program_interpreters": [],
+        "needed_libraries": [],
+        "elf_manifest_sha256": fingerprint,
+    }
+
+
 def verify_owner_target(target: Path) -> None:
     required_exec = {
         "usr/bin/git": None,
@@ -672,6 +735,7 @@ def build(out: Path, cache: Path, jobs: int, profile: str) -> dict:
         iproute2_minimal_build = verify_iproute2_minimal_build(build_dir)
         target = build_dir / "target"
         surface_iproute2 = verify_target(target, profile)
+        userspace_elf_closure = verify_static_userspace_elf_closure(target)
         expected_version_prefix = f'ip utility, iproute2-{iproute2_minimal_build["upstream_version"]}'
         if not surface_iproute2["version"].startswith(expected_version_prefix):
             raise BaseError("built /sbin/ip version differs from patched iproute2 source identity")
@@ -705,6 +769,7 @@ def build(out: Path, cache: Path, jobs: int, profile: str) -> dict:
             "owner_development_capabilities_verified": profile == "owner-development",
             "surface_iproute2_identity_verified": True,
             "surface_iproute2": surface_iproute2,
+            "independent_userspace_elf_closure": userspace_elf_closure,
             "surface_iproute2_minimal_build": iproute2_minimal_build,
             "busybox_handoff_config_fragment": str(BUSYBOX_FRAGMENT.relative_to(ROOT)),
             "busybox_handoff_config_sha256": digest(BUSYBOX_FRAGMENT),
@@ -757,6 +822,19 @@ def verify(out: Path, profile: str) -> dict:
         raise BaseError("Surface iproute2 binary digest invalid")
     if not str(surface_iproute2.get("version", "")).startswith("ip utility, iproute2-"):
         raise BaseError("Surface iproute2 version provenance invalid")
+    elf_closure = report.get("independent_userspace_elf_closure")
+    if (not isinstance(elf_closure, dict)
+            or set(elf_closure) != {
+                "linkage", "userspace_elf_files_examined", "program_interpreters",
+                "needed_libraries", "elf_manifest_sha256",
+            }
+            or elf_closure["linkage"] != "static"
+            or type(elf_closure["userspace_elf_files_examined"]) is not int
+            or elf_closure["userspace_elf_files_examined"] <= 0
+            or elf_closure["program_interpreters"] != []
+            or elf_closure["needed_libraries"] != []
+            or not HASH.fullmatch(str(elf_closure["elf_manifest_sha256"]))):
+        raise BaseError("Independent Base static userspace ELF closure provenance invalid")
     minimal_build = report.get("surface_iproute2_minimal_build")
     if not isinstance(minimal_build, dict):
         raise BaseError("Surface iproute2 minimal-build provenance missing")
