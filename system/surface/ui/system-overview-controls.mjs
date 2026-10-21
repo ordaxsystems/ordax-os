@@ -31,6 +31,7 @@ import { PRODUCT_VERSION, productVersionLabel } from "../../contracts/product-ve
 import { createComponentUpdateScopes } from "../../services/components/update-presentation.mjs";
 import { explainSystemStateWithIntelligence } from "../../services/intelligence/client-actions.mjs";
 import {
+  isRepositoryOnlyUpdate,
   shortSha,
   updateIsAlerting,
 } from "../../services/update/presentation.mjs";
@@ -808,6 +809,15 @@ export function mountSystemOverviewControls(
     }
     addFact(t("system.updates.fact.boot"), t(bootMessageId));
     section.append(facts);
+
+    if (isRepositoryOnlyUpdate(updateSnapshot)) {
+      section.append(node(
+        documentObject,
+        "p",
+        "ordax-system-section-copy",
+        t("system.updates.repositoryOnly.explanation"),
+      ));
+    }
 
     if (updateIsAlerting(updateSnapshot)) {
       const warningText = updateSnapshot.bootRefreshRequired
