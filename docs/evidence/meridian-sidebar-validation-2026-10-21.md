@@ -31,3 +31,20 @@ Follow-up checks: 9 JavaScript tests passed and 45 Linux Python tests passed
 The Python filesystem tests require POSIX APIs and failed on Windows before being
 rerun successfully in Linux. The full repository suites were not rerun for this
 follow-up; the earlier full-run counts above remain historical evidence.
+
+## Follow-up: Assistant test ownership and publisher environment
+
+The four orphan Assistant suites were transferred to the existing portable app
+owner, `ordaxsystems/ordax-apps`, commit `2baac4e`. CI wiring is recorded in
+`e205f5f6`. The 49 tests passed against the portable app source and canonical OS
+ports before the old OS copies were removed. Provenance and execution instructions
+are in `apps/assistant/tests/README.md` in the app repository. No app source was
+restored in the OS, and no installation or provider gate was enabled.
+
+The two publication-workflow failures were environment failures: `jq` was absent
+from the disposable Linux environment. With jq installed, all 10 tests in
+`tests.test_canonical_v4_publication_workflow` passed without changing the workflow
+or publishing a release. The earlier characterization of these failures as stale
+assertions was incorrect.
+
+Portable source absence and Native account contract recheck: 7 tests passed.
