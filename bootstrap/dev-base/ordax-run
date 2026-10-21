@@ -15,6 +15,7 @@ OWNER_UPDATE_STAGE_TIMEOUT=${ORDAX_STAGE_TIMEOUT_SECONDS:-60}
 ENTRY_PID=""
 TAIL_PID=""
 WATCH_PID=""
+LOCAL_AI_LIFECYCLE=$WORKTREE/system/services/local-ai/owner-dev-runtime.sh
 
 bb() {
     if [ -x /bin/busybox ]; then
@@ -126,6 +127,22 @@ cleanup_observers() {
     TAIL_PID=""
 }
 
+# The model is a separately delivered, verified EROFS. Source updates alone
+# never imply its presence. Start only from the existing native lifecycle; the
+# local AI service must degrade independently of Surface or update readiness.
+local_ai_lifecycle() {
+    action=$1
+    [ -f "$LOCAL_AI_LIFECYCLE" ] && [ ! -L "$LOCAL_AI_LIFECYCLE" ] || return 0
+    ORDAX_DISTRIBUTION_PROFILE=owner-development ORDAX_PRODUCT_MODE=usb \
+        /bin/sh "$LOCAL_AI_LIFECYCLE" "$action" || \
+        echo "ordax-run: local AI $action failed; Surface continues" >&2
+}
+
+cleanup_runtime() {
+    cleanup_observers
+    local_ai_lifecycle stop
+}
+
 forward_signal() {
     signal=$1
     if process_alive "$ENTRY_PID"; then
@@ -187,6 +204,7 @@ echo "ordax-run: Ctrl+C stops this runtime session cleanly"
 # Observe only the canonical guardian log. TAIL_PID is the actual external tail
 # process, not a background shell-function wrapper, so cleanup can proveably reap it.
 start_guardian_tail
+local_ai_lifecycle start
 
 ORDAX_DISTRIBUTION_PROFILE=owner-development \
 ORDAX_PRODUCT_MODE=usb \
@@ -201,12 +219,12 @@ WATCH_PID=$!
 trap 'forward_signal HUP' HUP
 trap 'forward_signal INT' INT
 trap 'forward_signal TERM' TERM
-trap cleanup_observers EXIT
+trap cleanup_runtime EXIT
 
 entry_rc=0
 wait "$ENTRY_PID" || entry_rc=$?
 ENTRY_PID=""
-cleanup_observers
+cleanup_runtime
 trap - EXIT HUP INT TERM
 
 if [ "$entry_rc" -ne 0 ]; then
