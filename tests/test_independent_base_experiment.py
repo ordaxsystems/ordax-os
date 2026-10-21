@@ -52,13 +52,13 @@ class IndependentBaseTest(unittest.TestCase):
         self.assertIn("if=ide,index=0,format=raw,snapshot=on", qemu)
         self.assertIn("if=ide,index=1,format=raw", qemu)
 
-        body = init.split("find_disk_roles() {\\n", 1)[1].split("\\n}\\n", 1)[0]
+        body = init.split("find_disk_roles() {\n", 1)[1].split("\n}\n", 1)[0]
         script = (
-            'set -eu\\n'
-            'rescue() { printf "RECOVERY=%s\\\\n" "$1" >&2; exit 1; }\\n'
-            'find_disk_roles() {\\n' + body + '\\n}\\n'
-            'find_disk_roles "$1" "$2"\\n'
-            'printf "base=%s state=%s\\\\n" "$base_device" "$state_device"\\n'
+            'set -eu\n'
+            'rescue() { printf "RECOVERY=%s\\\n" "$1" >&2; exit 1; }\n'
+            'find_disk_roles() {\n' + body + '\n}\n'
+            'find_disk_roles "$1" "$2"\n'
+            'printf "base=%s state=%s\\\n" "$base_device" "$state_device"\n'
         )
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
