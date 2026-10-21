@@ -156,7 +156,7 @@ DEFAULT_STORE_CATALOG_ENVELOPE_PATH = "/var/lib/ordax/store/catalog-envelope.jso
 DEFAULT_STORE_CATALOG_WATERMARK_PATH = "/var/lib/ordax/store/catalog-watermark.json"
 DEFAULT_STORE_ARTIFACT_ROOT = DEFAULT_ARTIFACT_ROOT
 UPDATE_STATE_FILE = "/run/ordax-update/state.json"
-OWNER_USB_POWER_RECEIPTS = "/ordax/dev-base/state/ordax/power"
+OWNER_USB_POWER_RECEIPTS = "/srv/ordax-power-receipts"
 HEALTH_STATE_FILE = "/run/ordax-update/healthy-sha"
 PREFERENCES_FILE = "/var/lib/ordax/preferences.json"
 KEYBOARD_LAYOUT_FILE = "/var/lib/ordax/keyboard-layout"
@@ -550,9 +550,9 @@ def queue_manual_update_check(path: str = UPDATE_MANUAL_REQUEST_FILE) -> bool:
     return True
 
 
-# The Native runtime is chrooted: /state/ordax is not mounted here.
-# /ordax is the already-bounded USB volume bind-mount; the Owner's receipts
-# live below dev-base/state/ordax. Never disclose boot ID, time, path or logs.
+# Native runtime is chrooted: the host /state/ordax is NOT its /ordax mount.
+# Surface owns a dedicated, verified read-only bind at /srv/ordax-power-receipts.
+# Never disclose boot IDs, timestamps, paths or logs through the update API.
 POWER_ACTION_TOKENS = frozenset(("restart", "shutdown"))
 POWER_REQUEST_STATUS_TOKENS = frozenset(("pending", "stopping", "syncing", "rebooting", "powering-off", "failed"))
 POWER_STAGE_TOKENS = frozenset(("accepted", "supervisor-quiesce", "host-agents", "filesystem-sync", "root-readonly"))

@@ -56,6 +56,7 @@ HOST_POWER_REQUEST=${ORDAX_HOST_POWER_REQUEST:-/run/ordax-update/host-power-requ
 KEYBOARD_SESSION_RESTART_REQUEST=$SESSION_DIR/keyboard-session-restart-request
 SURFACE_PID=$$
 POWER_STATE_DIR=$STATE_ROOT/power
+POWER_RECEIPTS_MOUNT_RELATIVE=/srv/ordax-power-receipts
 POWER_LAST_REQUEST=$POWER_STATE_DIR/last-request
 POWER_PENDING_STALE_SECONDS=120
 POWER_TERM_GRACE_SECONDS=2
@@ -95,6 +96,7 @@ REPO_BOUND=0
 ORDAX_BOUND=0
 STATE_BOUND=0
 USER_HOME_BOUND=0
+POWER_RECEIPTS_BOUND=0
 UDEV_ACTIVE=0
 
 mkdir -p "$SESSION_DIR" "$PERSISTENT_NATIVE_STATE" "$PERSISTENT_USER_HOME" "$RESCUE_DIR" "$BASE_TELEMETRY_DIR" "$BASE_UPDATE_DIR" "$POWER_STATE_DIR"
@@ -542,6 +544,7 @@ clear_runtime_mounts_at() {
     runtime_root=$1
     [ -d "$runtime_root" ] || return 0
     for target in \
+        "$runtime_root/srv/ordax-power-receipts" \
         "$runtime_root/var/lib/ordax-user" \
         "$runtime_root/var/lib/ordax" \
         "$runtime_root/ordax" \
@@ -611,6 +614,10 @@ cleanup() {
     fi
     if [ -S "$SEATD_SOCKET" ] && ! seatd_process_running; then
         rm -f "$SEATD_SOCKET" >/dev/null 2>&1 || true
+    fi
+    if [ "$POWER_RECEIPTS_BOUND" -eq 1 ]; then
+        /bin/busybox umount "$RUNTIME_ROOT$POWER_RECEIPTS_MOUNT_RELATIVE" >/dev/null 2>&1 || true
+        POWER_RECEIPTS_BOUND=0
     fi
     if [ "$ORDAX_BOUND" -eq 1 ]; then
         /bin/busybox umount "$RUNTIME_ROOT/ordax" >/dev/null 2>&1 || true
@@ -995,6 +1002,24 @@ bind_runtime_mounts() {
     SYS_BOUND=1
     /bin/busybox mount -o bind /run "$RUNTIME_ROOT/run" >>"$HOST_LOG" 2>&1 || return 1
     RUN_BOUND=1
+    # Owner USB receipts are written by the Guardian in /state/ordax/power.
+    # The graphical chroot's /ordax bind is NOT a contract for that host path.
+    # Bind only the dedicated state directory, never the whole host state tree.
+    if [ "$DISTRIBUTION_PROFILE" = "owner-development" ] && [ "$PRODUCT_MODE" = "usb" ]; then
+        [ -d "$POWER_STATE_DIR" ] && [ ! -L "$POWER_STATE_DIR" ] || return 1
+        receipts_target=$RUNTIME_ROOT$POWER_RECEIPTS_MOUNT_RELATIVE
+        [ ! -L "$receipts_target" ] || return 1
+        mkdir -p "$receipts_target" || return 1
+        /bin/busybox mount -o bind "$POWER_STATE_DIR" "$receipts_target" >>"$HOST_LOG" 2>&1 || return 1
+        POWER_RECEIPTS_BOUND=1
+        /bin/busybox mount -o remount,bind,ro "$receipts_target" >>"$HOST_LOG" 2>&1 || return 1
+        # Verify the mount flags, rather than guessing from the superblock.
+        receipts_options=$(/bin/busybox awk -v path="$receipts_target" '$2 == path { print $4; exit }' /proc/mounts 2>/dev/null || true)
+        case ",$receipts_options," in
+            *,ro,*) ;;
+            *) echo "ordax-surface: power receipts mount is not read-only" >>"$HOST_LOG"; return 1 ;;
+        esac
+    fi
 }
 
 bootstrap_verified_app_install_identities() {
