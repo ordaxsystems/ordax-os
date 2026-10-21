@@ -25,6 +25,7 @@ class OwnerRootfsCapabilitiesTest(unittest.TestCase):
         inventory = capabilities.owner_inventory(ROOT)
         self.assertEqual(inventory["missing_sources"], [])
         self.assertEqual(inventory["unknown_commands"], [])
+        self.assertIn("mktemp", inventory["busybox_applets"])
         self.assertIn("ordax-portable-mount", inventory["fixed_initramfs_commands"])
         self.assertEqual(
             capabilities.fixed_initramfs_commands(ROOT),

@@ -7,5 +7,7 @@ CONFIG_STAT=y
 CONFIG_FEATURE_STAT_FORMAT=y
 CONFIG_TIMEOUT=y
 CONFIG_FLOCK=y
+# Private, bounded Git discovery diagnostics in Owner/Development Pull.
+CONFIG_MKTEMP=y
 # iproute2 owns /sbin/ip: the BusyBox IP applet lacks address replace.
 # CONFIG_IP is not set

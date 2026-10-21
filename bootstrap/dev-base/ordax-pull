@@ -13,6 +13,7 @@ PULL_LOCK_PID_FILE=$PULL_LOCK_DIR/pid
 PULL_RESULT_FILE=$RUN_DIR/pull-result
 PULL_PHASE=preflight
 LOCK_HELD=0
+REMOTE_STDERR_FILE=
 PREVIOUS_FILE=$STATE_DIR/previous-commit
 CURRENT_FILE=$STATE_DIR/current-commit
 PINNED_FILE=$STATE_DIR/pinned-commit
@@ -395,11 +396,36 @@ network_failure_hint() {
 }
 
 remote_main_sha() {
-    output=$(run_bounded_git ls-remote --heads "$REPO_URL" "refs/heads/$BRANCH" 2>/dev/null || true)
+    # Retain the bounded Git error only in a private, short-lived scratch file.
+    # It must never appear verbatim in the UI, update-state or pull-result.
+    diagnostic_file=$1
+    output=$(run_bounded_git ls-remote --heads "$REPO_URL" "refs/heads/$BRANCH" 2>"$diagnostic_file") || return 1
     set -- $output
     value=${1:-}
     is_sha "$value" || return 1
     printf '%s' "$value"
+}
+
+remote_failure_phase() {
+    diagnostic_file=$1
+    [ -f "$diagnostic_file" ] && [ ! -L "$diagnostic_file" ] || {
+        printf '%s' remote-discovery
+        return 0
+    }
+    # Fixed, non-secret tokens. Unknown errors retain the existing reason.
+    if /bin/busybox grep -Eqi 'could not resolve host|could not resolve proxy|temporary failure in name resolution|name or service not known' "$diagnostic_file"; then
+        printf '%s' remote-discovery-dns
+    elif /bin/busybox grep -Eqi 'SSL certificate problem|certificate verify failed|certificate has expired|unable to get local issuer certificate' "$diagnostic_file"; then
+        printf '%s' remote-discovery-tls
+    elif /bin/busybox grep -Eqi 'operation timed out|connection timed out|timed out' "$diagnostic_file"; then
+        printf '%s' remote-discovery-timeout
+    elif /bin/busybox grep -Eqi 'network is unreachable|no route to host|failed to connect|connection refused' "$diagnostic_file"; then
+        printf '%s' remote-discovery-connectivity
+    elif /bin/busybox grep -Eqi 'authentication failed|http 401|http 403|requested URL returned error: (401|403)' "$diagnostic_file"; then
+        printf '%s' remote-discovery-auth
+    else
+        printf '%s' remote-discovery
+    fi
 }
 
 clone_runtime_checkout() {
@@ -692,6 +718,10 @@ fi
 # Atomic rename avoids torn receipts; only fixed phase tokens are persisted.
 record_pull_exit() {
     code=$1
+    # Cleanup runs on success, failure and catchable termination signals.
+    if [ -n "$REMOTE_STDERR_FILE" ]; then
+        rm -f "$REMOTE_STDERR_FILE"
+    fi
     if [ "$code" -eq 0 ]; then
         PULL_PHASE=completed
     fi
@@ -750,7 +780,18 @@ else
     # Standalone maintenance Pull has no Supervisor witness; in this mode
     # remote discovery is owned by ordax-pull itself.
     PULL_PHASE=remote-discovery
-    remote_sha=$(remote_main_sha || true)
+    REMOTE_STDERR_FILE=$(umask 077; mktemp "$RUN_DIR/.pull-remote.XXXXXXXX") || {
+        echo "ordax-git: private remote diagnostic file unavailable; checkout local preserved" >&2
+        exit 1
+    }
+    if remote_sha=$(remote_main_sha "$REMOTE_STDERR_FILE"); then
+        :
+    else
+        PULL_PHASE=$(remote_failure_phase "$REMOTE_STDERR_FILE")
+        echo "ordax-git: remote discovery failed ($PULL_PHASE); checkout local preserved" >&2
+    fi
+    rm -f "$REMOTE_STDERR_FILE"
+    REMOTE_STDERR_FILE=
 fi
 
 if [ -z "$remote_sha" ]; then

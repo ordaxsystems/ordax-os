@@ -73,7 +73,7 @@ BUSYBOX_SYMBOLS = {
     "cut": "CONFIG_CUT", "date": "CONFIG_DATE", "df": "CONFIG_DF",
     "dirname": "CONFIG_DIRNAME", "echo": "CONFIG_ECHO", "flock": "CONFIG_FLOCK", "grep": "CONFIG_GREP",
     "head": "CONFIG_HEAD", "kill": "CONFIG_KILL", "killall": "CONFIG_KILLALL",
-    "mkdir": "CONFIG_MKDIR", "mkfifo": "CONFIG_MKFIFO", "modprobe": "CONFIG_MODPROBE",
+    "mkdir": "CONFIG_MKDIR", "mkfifo": "CONFIG_MKFIFO", "mktemp": "CONFIG_MKTEMP", "modprobe": "CONFIG_MODPROBE",
     "mount": "CONFIG_MOUNT", "mv": "CONFIG_MV", "nslookup": "CONFIG_NSLOOKUP", "ntpd": "CONFIG_NTPD",
     "od": "CONFIG_OD", "pivot_root": "CONFIG_PIVOT_ROOT", "poweroff": "CONFIG_POWEROFF",
     "printf": "CONFIG_PRINTF",
