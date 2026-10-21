@@ -16,6 +16,7 @@ ENTRY_PID=""
 TAIL_PID=""
 WATCH_PID=""
 LOCAL_AI_LIFECYCLE=$WORKTREE/system/services/local-ai/owner-dev-runtime.sh
+AURA_READY_MARKER=$STATE_DIR/base-update/aura-ready.sha256
 
 bb() {
     if [ -x /bin/busybox ]; then
@@ -152,6 +153,7 @@ forward_signal() {
 
 watch_owner_provisioning() {
     announced=no
+    aura_announced=no
     while process_alive "$ENTRY_PID"; do
         if [ "$announced" = no ] && [ -f "$SURFACE_RUNTIME_PROVISION_MARKER" ] && [ ! -L "$SURFACE_RUNTIME_PROVISION_MARKER" ]; then
             marker_source=""
@@ -160,6 +162,25 @@ watch_owner_provisioning() {
                 echo "ordax-run: first-boot Surface runtime provisioning is in progress; the runtime remains supervised"
                 announced=yes
             fi
+        fi
+        # The existing Owner Dev update owner materializes the EROFS only
+        # after signature, source-lock and digest verification. A one-line
+        # marker wakes this EXISTING watcher; the Native launcher independently
+        # hashes the image again and owns its one runtime PID.
+        if [ "$aura_announced" = no ] && [ -f "$AURA_READY_MARKER" ] && [ ! -L "$AURA_READY_MARKER" ] &&
+           [ -f "$LOCAL_AI_LIFECYCLE" ] && [ ! -L "$LOCAL_AI_LIFECYCLE" ]; then
+            ready_hash=$(read_state_value "$AURA_READY_MARKER")
+            case "$ready_hash" in
+                ''|*[!0-9a-f]*) ;;
+                *)
+                    if [ "${#ready_hash}" -eq 64 ] &&
+                       bb grep -qx "IMAGE_SHA256=$ready_hash" "$LOCAL_AI_LIFECYCLE"; then
+                        local_ai_lifecycle start
+                        aura_announced=yes
+                        echo "ordax-run: verified Aura model staged; startup delegated to Native local AI lifecycle" >&2
+                    fi
+                    ;;
+            esac
         fi
         bb sleep 1
     done
@@ -215,9 +236,6 @@ ORDAX_STAGE_TIMEOUT_SECONDS="$OWNER_UPDATE_STAGE_TIMEOUT" \
     "$ENTRYPOINT" &
 ENTRY_PID=$!
 
-watch_owner_provisioning &
-WATCH_PID=$!
-
 trap 'forward_signal HUP' HUP
 trap 'forward_signal INT' INT
 trap 'forward_signal TERM' TERM
@@ -225,6 +243,10 @@ trap cleanup_runtime EXIT
 
 # The optional service does not participate in boot-health or update gates.
 local_ai_lifecycle start
+
+# Watching AFTER initial startup prevents competing starts for a pre-staged image.
+watch_owner_provisioning &
+WATCH_PID=$!
 
 entry_rc=0
 wait "$ENTRY_PID" || entry_rc=$?
