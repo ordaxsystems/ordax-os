@@ -92,6 +92,45 @@ class OwnerDiagnosticReceiptTests(unittest.TestCase):
             self.assertIn("pull.cached_main_sha=unavailable", result.stdout)
             self.assertIn("pull.cached_main_relation=unavailable", result.stdout)
 
+    def test_receipt_consistency_is_exact_sha_only_and_read_only(self):
+        source = SCRIPT.read_text(encoding="utf-8")
+        def function(name):
+            marker = name + "() {"
+            # POSIX subshell syntax for the receipt parser is intentional.
+            if name == "read_exact_sha_receipt":
+                marker = name + "() ("
+                return marker + source.split(marker, 1)[1].split("\n)\n", 1)[0] + "\n)\n"
+            return marker + source.split(marker, 1)[1].split("\n}\n", 1)[0] + "\n}\n"
+
+        helper = function("read_exact_sha_receipt") + function("show_checkout_receipt_consistency")
+        self.assertNotIn("fetch ", helper)
+        self.assertNotIn(" ls-remote ", helper)
+        with tempfile.TemporaryDirectory(prefix="ordax-receipts-") as temp:
+            root = Path(temp)
+            current, helpers = root / "current", root / "helpers"
+            old_sha, new_sha = "a" * 40, "b" * 40
+            current.write_text(new_sha + "\n", encoding="ascii")
+            helpers.write_text(old_sha + "\n", encoding="ascii")
+            env = {**os.environ, "CURRENT_COMMIT_RECEIPT": str(current),
+                   "DEV_HELPERS_RECEIPT": str(helpers), "sha": new_sha}
+            def run():
+                return subprocess.run(["/bin/sh", "-c", helper + "\nshow_checkout_receipt_consistency\n"],
+                                      env=env, capture_output=True, text=True, check=True).stdout
+            report = run()
+            self.assertIn("pull.current_receipt_relation=matches-head", report)
+            self.assertIn("pull.helpers_receipt_relation=differs-from-head", report)
+            helpers.write_text(new_sha + "\n", encoding="ascii")
+            self.assertIn("pull.helpers_receipt_relation=matches-head", run())
+            helpers.write_text("SECRET\n", encoding="ascii")
+            report = run()
+            self.assertIn("pull.helpers_receipt_relation=unavailable", report)
+            self.assertNotIn("SECRET", report)
+            helpers.unlink()
+            helpers.symlink_to(current)
+            self.assertIn("pull.helpers_receipt_relation=unavailable", run())
+            env["sha"] = "unavailable"
+            self.assertIn("pull.current_receipt_relation=unavailable", run())
+
     def test_handoff_reason_tokens_are_reported_without_sensitive_values(self):
         text = SCRIPT.read_text(encoding="utf-8")
         for reason in ("handoff-metadata-gitdir", "handoff-metadata-head",
