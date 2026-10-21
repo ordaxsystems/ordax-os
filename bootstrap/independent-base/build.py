@@ -427,10 +427,14 @@ def verify_native_component_config(config: str, kernel: dict) -> None:
     for forbidden in (
         "BR2_ROOTFS_OVERLAY=", "BR2_ROOTFS_POST_BUILD_SCRIPT=",
         "BR2_ROOTFS_POST_IMAGE_SCRIPT=", "BR2_GLOBAL_PATCH_DIR=",
-        "BR2_PACKAGE_IPROUTE2=y",
     ):
-        if any(line.startswith(forbidden) for line in settings):
+        # Buildroot may serialize an *empty* default value for these options.
+        # The private component must never inherit a nonempty OS hook or patch.
+        if any(line.startswith(forbidden) and line[len(forbidden):].strip('"')
+               for line in settings):
             raise BaseError("private Python3 component inherited OS boot payload: " + forbidden)
+    if "BR2_PACKAGE_IPROUTE2=y" in settings:
+        raise BaseError("private Python3 component inherited OS boot payload: BR2_PACKAGE_IPROUTE2=y")
 
 
 def source_archive(source: dict, cache: Path) -> Path:
