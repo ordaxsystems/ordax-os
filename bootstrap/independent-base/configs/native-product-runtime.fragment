@@ -5,6 +5,7 @@
 # owner-development.fragment or change the base's static linking policy.
 BR2_SHARED_LIBS=y
 BR2_PACKAGE_PYTHON3=y
+BR2_PACKAGE_PYTHON3_PYC_ONLY=y
 BR2_PACKAGE_PYTHON3_SSL=y
 BR2_PACKAGE_PYTHON3_ZLIB=y
 BR2_PACKAGE_CA_CERTIFICATES=y
