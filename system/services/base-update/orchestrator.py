@@ -15,6 +15,7 @@ import json
 import os
 from pathlib import Path
 import re
+import signal
 import stat
 import subprocess
 import sys
@@ -1073,21 +1074,37 @@ def _acquire_owner_dev_aura(
         "--expected-artifact-sha256", candidate["sha256"],
         "--expected-artifact-size", str(candidate["size"]),
     ]
+    # An optional 568 MiB transfer must remain a cancellable child of THIS
+    # worker, not an orphan that survives Base owner shutdown or new boot.
     try:
-        outcome = subprocess.run(
+        process = subprocess.Popen(
             command, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE, check=False, timeout=MATERIALIZE_TIMEOUT_SECONDS,
+            stderr=subprocess.PIPE, start_new_session=True, close_fds=True,
         )
-    except subprocess.TimeoutExpired as exc:
-        raise OwnerError("signed Aura acquisition exceeded bounded timeout") from exc
     except OSError as exc:
         raise OwnerError("verified Aura acquisition agent could not start") from exc
-    if len(outcome.stdout) > MAX_RECEIPT_BYTES or len(outcome.stderr) > MAX_RECEIPT_BYTES:
+    try:
+        stdout, stderr = process.communicate(timeout=MATERIALIZE_TIMEOUT_SECONDS)
+    except BaseException as exc:
+        if process.poll() is None:
+            try:
+                os.killpg(process.pid, signal.SIGTERM)
+                process.wait(timeout=5)
+            except (OSError, subprocess.TimeoutExpired):
+                try:
+                    os.killpg(process.pid, signal.SIGKILL)
+                    process.wait(timeout=5)
+                except (OSError, subprocess.TimeoutExpired):
+                    pass
+        if isinstance(exc, subprocess.TimeoutExpired):
+            raise OwnerError("signed Aura acquisition exceeded bounded timeout") from exc
+        raise
+    if len(stdout) > MAX_RECEIPT_BYTES or len(stderr) > MAX_RECEIPT_BYTES:
         raise OwnerError("Aura acquisition output exceeds bounded receipt size")
-    if outcome.returncode != 0:
+    if process.returncode != 0:
         raise OwnerError("signed Aura EROFS acquisition rejected its release or local pins")
     try:
-        receipt = json.loads(outcome.stdout.decode("utf-8"), object_pairs_hook=_no_duplicates)
+        receipt = json.loads(stdout.decode("utf-8"), object_pairs_hook=_no_duplicates)
     except (UnicodeError, json.JSONDecodeError, OwnerError) as exc:
         raise OwnerError("Aura acquisition receipt is invalid JSON") from exc
     if (
@@ -1345,6 +1362,12 @@ def main() -> int:
     profile = os.environ.get("ORDAX_BASE_DISTRIBUTION_PROFILE", "")
     try:
         if args.acquire_aura_only:
+            # SIGTERM from the existing Base owner must unwind communicate(),
+            # kill the signed transfer's process group and preserve boot state.
+            def terminate_optional_aura(_signum: int, _frame: Any) -> None:
+                raise OwnerError("optional Aura acquisition interrupted by Base owner")
+
+            signal.signal(signal.SIGTERM, terminate_optional_aura)
             result = run_aura_once(args.repo_root, args.state_root, args.physical_root, profile)
         else:
             result = run_once(
