@@ -1099,15 +1099,39 @@ publish_runtime_proof_context() {
     return 0
 }
 
+supervise_network_broker() (
+    # A failed broker must not strand network management for the rest of a
+    # graphical session. Keep its lifecycle under the existing Surface owner.
+    broker_pid=""
+    stop_broker_supervisor() {
+        trap - HUP INT TERM
+        if [ -n "$broker_pid" ]; then
+            kill -TERM "$broker_pid" >/dev/null 2>&1 || true
+            wait "$broker_pid" >/dev/null 2>&1 || true
+        fi
+        exit 0
+    }
+    trap 'stop_broker_supervisor' HUP INT TERM
+    while :; do
+        ORDAX_NETWORK_STATE_DIR=${ORDAX_NETWORK_STATE_DIR:-/state/network} \
+        ORDAX_NETWORK_SESSION_DIR="$SESSION_DIR" \
+        ORDAX_RUNTIME_RESOLVER_SYNC_SCRIPT="$SYSTEM_ROOT/surface/runtime/resolver_sync.sh" \
+        ORDAX_RUNTIME_RESOLVER_ROOT="$RUNTIME_ROOT" \
+        ORDAX_RUNTIME_RESOLVER_LOG="$NETWORK_LOG" \
+            /bin/sh "$NETWORK_BROKER_SOURCE" >>"$NETWORK_LOG" 2>&1 &
+        broker_pid=$!
+        broker_exit=0
+        wait "$broker_pid" || broker_exit=$?
+        broker_pid=""
+        echo "ordax-surface: Wi-Fi broker exited (status=$broker_exit); restarting its IPC owner" >>"$NETWORK_LOG"
+        /bin/busybox sleep 3
+    done
+)
+
 start_network_broker() {
-    [ -f "$NETWORK_BROKER_SOURCE" ] || return 1
+    [ -f "$NETWORK_BROKER_SOURCE" ] && [ ! -L "$NETWORK_BROKER_SOURCE" ] || return 1
     rm -f "$NETWORK_CONTROL" "$NETWORK_REQUEST" "$NETWORK_RESPONSE" "$NETWORK_SCAN_RAW" "$NETWORK_LINK_RAW" "$NETWORK_SAVED_SSID" >/dev/null 2>&1 || true
-    ORDAX_NETWORK_STATE_DIR=${ORDAX_NETWORK_STATE_DIR:-/state/network} \
-    ORDAX_NETWORK_SESSION_DIR="$SESSION_DIR" \
-    ORDAX_RUNTIME_RESOLVER_SYNC_SCRIPT="$SYSTEM_ROOT/surface/runtime/resolver_sync.sh" \
-    ORDAX_RUNTIME_RESOLVER_ROOT="$RUNTIME_ROOT" \
-    ORDAX_RUNTIME_RESOLVER_LOG="$NETWORK_LOG" \
-        /bin/sh "$NETWORK_BROKER_SOURCE" >>"$NETWORK_LOG" 2>&1 &
+    supervise_network_broker &
     NETWORK_BROKER_PID=$!
 
     remaining=20
@@ -1117,6 +1141,7 @@ start_network_broker() {
         /bin/busybox sleep 0.1
         remaining=$((remaining - 1))
     done
+    # The supervisor continues bounded retries without blocking boot.
     return 1
 }
 
@@ -1146,12 +1171,41 @@ start_native_install_broker() {
     return 1
 }
 
+supervise_time_sync_agent() (
+    # The clock must recover AFTER network readiness. Launching ntpd once
+    # before a saved Wi-Fi connection exists could leave the 2015 RTC intact
+    # for the entire graphical session after a transient DNS failure.
+    ntp_pid=""
+    stop_clock_supervisor() {
+        trap - HUP INT TERM
+        if [ -n "$ntp_pid" ]; then
+            kill -TERM "$ntp_pid" >/dev/null 2>&1 || true
+            wait "$ntp_pid" >/dev/null 2>&1 || true
+        fi
+        exit 0
+    }
+    trap 'stop_clock_supervisor' HUP INT TERM
+    while :; do
+        if ! /bin/busybox ip -4 addr show scope global 2>/dev/null |
+            /bin/busybox grep -q ' inet '; then
+            /bin/busybox sleep 5
+            continue
+        fi
+        /bin/busybox ntpd -n \
+            -p time.cloudflare.com \
+            -p time.google.com \
+            -p pool.ntp.org \
+            >>"$TIME_SYNC_LOG" 2>&1 &
+        ntp_pid=$!
+        wait "$ntp_pid" >/dev/null 2>&1 || true
+        ntp_pid=""
+        echo "ordax-surface: clock synchronization exited; retrying after network recovery" >>"$TIME_SYNC_LOG"
+        /bin/busybox sleep 15
+    done
+)
+
 start_time_sync_agent() {
-    /bin/busybox ntpd -n \
-        -p time.cloudflare.com \
-        -p time.google.com \
-        -p pool.ntp.org \
-        >>"$TIME_SYNC_LOG" 2>&1 &
+    supervise_time_sync_agent &
     TIME_SYNC_PID=$!
     kill -0 "$TIME_SYNC_PID" >/dev/null 2>&1
 }

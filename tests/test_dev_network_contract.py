@@ -17,6 +17,21 @@ class DevelopmentNetworkContractTest(unittest.TestCase):
         for script in (NETWORK, DEV_INIT):
             subprocess.run(["/bin/sh", "-n", str(script)], check=True)
 
+    def test_first_run_saves_wifi_credentials_atomically_in_persistent_state(self) -> None:
+        text = NETWORK.read_text(encoding="utf-8")
+        self.assertIn("STATE_DIR=/state/network", text)
+        self.assertIn("CANDIDATE_CONF=$STATE_DIR/wpa.conf.candidate.$$", text)
+        self.assertIn("WPA_CONF=$STATE_DIR/wpa.conf", text)
+        self.assertIn('chmod 700 "$STATE_DIR"', text)
+        self.assertIn('umask 077', text)
+        self.assertIn('mv -f "$CANDIDATE_CONF" "$WPA_CONF"', text)
+        self.assertIn('/bin/busybox sync', text)
+        self.assertNotIn('CANDIDATE_CONF=/run/ordax-wpa-candidate.conf', text)
+        self.assertLess(
+            text.index('mv -f "$CANDIDATE_CONF" "$WPA_CONF"'),
+            text.index('        finish_network "$wifi"', text.index('mv -f "$CANDIDATE_CONF" "$WPA_CONF"')),
+        )
+
     def test_network_status_writer_is_defined_before_startup_use(self) -> None:
         text = NETWORK.read_text(encoding="utf-8")
         writer = text.index("\nwrite_network_status() {")
@@ -67,7 +82,10 @@ class DevelopmentNetworkContractTest(unittest.TestCase):
         self.assertIn('WPA_PID_FILE=/run/ordax-wpa-supplicant.pid', text)
         self.assertIn('stop_wifi_client()', text)
         self.assertIn('-P"$WPA_PID_FILE" -O"$WPA_CTRL_DIR"', text)
-        self.assertIn('kill -0 "$pid"', text)
+        self.assertIn('wpa_cli -p "$WPA_CTRL_DIR" -i "$wifi" terminate', text)
+        self.assertIn("wifi_connect_result=owner-unavailable", text)
+        self.assertNotIn("killall wpa_supplicant", text)
+        self.assertNotIn('kill -9 "$pid"', text)
         self.assertIn('iw dev "$wifi" disconnect', text)
         connect = text.index('connect_wifi_conf()')
         stop_before_start = text.index('stop_wifi_client', connect)
@@ -102,10 +120,10 @@ class DevelopmentNetworkContractTest(unittest.TestCase):
         self.assertIn('uso: ordax-network [--choose|--init-hardware]', text)
         self.assertIn('if [ "$force_choose" -eq 0 ] && [ -s "$WPA_CONF" ]; then', text)
         self.assertIn('if connect_saved_wifi; then', text)
-        self.assertIn('CANDIDATE_CONF=/run/ordax-wpa-candidate.conf', text)
+        self.assertIn('CANDIDATE_CONF=$STATE_DIR/wpa.conf.candidate.$$', text)
         candidate_write = text.index('> "$CANDIDATE_CONF"')
         candidate_connect = text.index('connect_wifi_conf "$CANDIDATE_CONF"')
-        promote = text.index('mv "$CANDIDATE_CONF" "$WPA_CONF"')
+        promote = text.index('mv -f "$CANDIDATE_CONF" "$WPA_CONF"')
         self.assertLess(candidate_write, candidate_connect)
         self.assertLess(candidate_connect, promote)
         self.assertIn('a rede salva anteriormente foi preservada', text)
