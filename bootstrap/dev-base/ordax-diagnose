@@ -121,7 +121,7 @@ show_cached_main() {
 
 # Strictly one-line, non-symlinked SHA receipts. Never print arbitrary
 # receipt data or infer success from the Git HEAD alone.
-read_exact_sha_receipt() (
+read_exact_sha_receipt() {
     receipt=$1
     [ -f "$receipt" ] && [ ! -L "$receipt" ] && [ -r "$receipt" ] || return 1
     IFS= read -r receipt_sha <"$receipt" || [ -n "$receipt_sha" ] || return 1
@@ -130,7 +130,7 @@ read_exact_sha_receipt() (
     esac
     [ "${#receipt_sha}" -eq 40 ] || return 1
     printf '%s\n' "$receipt_sha"
-)
+}
 
 show_checkout_receipt_consistency() {
     current_receipt=$(read_exact_sha_receipt "$CURRENT_COMMIT_RECEIPT" || true)
