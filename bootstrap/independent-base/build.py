@@ -494,6 +494,30 @@ def safe_unpack(archive: Path, work: Path, version: str) -> Path:
     return dest
 
 
+def configure_buildroot(source: dict, kernel: dict, cache: Path, temp: Path,
+                        profile: str) -> tuple[Path, list[str], Path, dict]:
+    """Canonical source, defconfig, and Kconfig authority for all build modes."""
+    archive = source_archive(source, cache.resolve())
+    br = safe_unpack(archive, temp, source["buildroot"]["version"])
+    generated = temp / f"ordax_{profile.replace('-', '_')}_defconfig"
+    component = profile == NATIVE_COMPONENT_PROFILE
+    inputs = (generate_native_component_defconfig(source, kernel, generated)
+              if component else generate_defconfig(source, kernel, profile, generated))
+    build_dir = temp / "br-output"
+    cmd = ["make", "-C", str(br), f"O={build_dir}", f"BR2_EXTERNAL={HERE}",
+           f"BR2_DEFCONFIG={generated}"]
+    run(*cmd, "defconfig")
+    config_path = build_dir / ".config"
+    if config_path.is_symlink() or not config_path.is_file():
+        raise BaseError("Buildroot did not materialize resolved .config")
+    config = config_path.read_text(encoding="utf-8")
+    if component:
+        verify_native_component_config(config, kernel)
+    else:
+        verify_resolved_config(config, kernel, profile)
+    return build_dir, cmd, archive, inputs
+
+
 def resolve_profile(cache: Path, profile: str) -> dict:
     source, kernel, stable, network = contracts()
     for prog in ("make", "gcc"):
@@ -501,28 +525,9 @@ def resolve_profile(cache: Path, profile: str) -> dict:
             raise BaseError(f"required Buildroot profile-resolution tool is missing: {prog}")
     temp = Path(tempfile.mkdtemp(prefix="ordax-independent-resolve-"))
     try:
-        archive = source_archive(source, cache.resolve())
-        br = safe_unpack(archive, temp, source["buildroot"]["version"])
-        generated = temp / f"ordax_{profile.replace('-', '_')}_defconfig"
+        build_dir, cmd, archive, inputs = configure_buildroot(
+            source, kernel, cache, temp, profile)
         component = profile == NATIVE_COMPONENT_PROFILE
-        inputs = (
-            generate_native_component_defconfig(source, kernel, generated)
-            if component else generate_defconfig(source, kernel, profile, generated)
-        )
-        build_dir = temp / "br-output"
-        cmd = [
-            "make", "-C", str(br), f"O={build_dir}",
-            f"BR2_EXTERNAL={HERE}", f"BR2_DEFCONFIG={generated}",
-        ]
-        run(*cmd, "defconfig")
-        config_path = build_dir / ".config"
-        if config_path.is_symlink() or not config_path.is_file():
-            raise BaseError("Buildroot did not materialize resolved .config")
-        config = config_path.read_text(encoding="utf-8")
-        if component:
-            verify_native_component_config(config, kernel)
-        else:
-            verify_resolved_config(config, kernel, profile)
         return {
             "status": "component-resolution-pass" if component else "profile-resolution-pass",
             "profile": profile,
@@ -814,16 +819,8 @@ def build(out: Path, cache: Path, jobs: int, profile: str) -> dict:
     out.mkdir(parents=True, exist_ok=True)
     temp = Path(tempfile.mkdtemp(prefix="ordax-independent-build-"))
     try:
-        archive = source_archive(source, cache)
-        br = safe_unpack(archive, temp, source["buildroot"]["version"])
-        generated = temp / f"ordax_{profile.replace('-', '_')}_defconfig"
-        inputs = generate_defconfig(source, kernel, profile, generated)
-        build_dir = temp / "br-output"
-        cmd = ["make", "-C", str(br), f"O={build_dir}",
-               f"BR2_EXTERNAL={HERE}", f"BR2_DEFCONFIG={generated}"]
-        run(*cmd, "defconfig")
-        config = (build_dir / ".config").read_text(encoding="utf-8")
-        verify_resolved_config(config, kernel, profile)
+        build_dir, cmd, archive, inputs = configure_buildroot(
+            source, kernel, cache, temp, profile)
         run(*cmd[:-1], f"-j{max(1, jobs)}", bounded_output=True)
         iproute2_minimal_build = verify_iproute2_minimal_build(build_dir)
         target = build_dir / "target"
