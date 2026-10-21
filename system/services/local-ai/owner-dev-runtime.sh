@@ -19,7 +19,9 @@ PID_FILE=$RUN_DIR/local-ai.pid
 KEY_FILE=$AUTH_DIR/key
 LOG_FILE=$RUN_DIR/local-ai.log
 
-bb() { /bin/busybox "$@"; }
+bb() {
+    if [ -x /bin/busybox ]; then /bin/busybox "$@"; else command "$@"; fi
+}
 report() { printf 'ordax-local-ai-dev: %s\n' "$*" >&2; }
 is_pid() {
     case "$1" in ''|*[!0-9]*) return 1 ;; esac
@@ -40,11 +42,15 @@ safe_file() { [ -f "$1" ] && [ ! -L "$1" ]; }
 remove_private_file() {
     if safe_file "$1"; then bb rm -f "$1"; fi
 }
+release_partial() {
+    if mounted_here; then bb umount "$RUNTIME_ROOT" 2>/dev/null || true; fi
+    remove_private_file "$KEY_FILE"
+    [ ! -L "$AUTH_DIR" ] && [ -d "$AUTH_DIR" ] && bb rmdir "$AUTH_DIR" 2>/dev/null || true
+}
 stop() {
+    safe_file "$PID_FILE" || return 0
     old_pid=""
-    if safe_file "$PID_FILE"; then
-        IFS= read -r old_pid <"$PID_FILE" || true
-    fi
+    IFS= read -r old_pid <"$PID_FILE" || true
     if owned_process "$old_pid"; then
         kill "$old_pid" 2>/dev/null || true
         attempts=0
@@ -143,13 +149,13 @@ start() {
     case "$key" in *[!0-9a-f]*|'') key="" ;; esac
     if [ "${#key}" -ne 64 ]; then
         unset key
-        stop
+        release_partial
         report "ephemeral credential generation failed"
         return 0
     fi
     (umask 077; printf '%s\n' "$key" >"$KEY_FILE") || {
         unset key
-        stop
+        release_partial
         report "could not write ephemeral key"
         return 0
     }
@@ -159,13 +165,13 @@ start() {
       "$RUNTIME_ROOT/bin/ordax-local-ai" >"$LOG_FILE" 2>&1 &
     launched=$!
     if ! is_pid "$launched"; then
-        stop
+        release_partial
         report "backend did not return a valid process identity"
         return 0
     fi
     (umask 077; printf '%s\n' "$launched" >"$PID_FILE") || {
         kill "$launched" 2>/dev/null || true
-        stop
+        release_partial
         report "could not record service ownership"
         return 0
     }
