@@ -19,13 +19,50 @@ try {
   $installationStarted = [DateTime]::UtcNow
   Write-Output "INSTALL_SMOKE_STARTED=$installerPath"
   $proc = Start-Process -FilePath $installerPath -ArgumentList ("/S /D=" + $dest) -PassThru
-  $deadline = [DateTime]::UtcNow.AddSeconds($TimeoutSeconds)
+  # NSIS extracts thousands of Native runtime files. A fixed wall-clock bound
+  # cannot distinguish a slow but active installation from a stalled one.
+  # Keep a finite hard bound, require observable work, and record diagnostics.
+  $installMaxSeconds = [Math]::Min(300, [Math]::Max(180, $TimeoutSeconds * 2))
+  $deadline = [DateTime]::UtcNow.AddSeconds($installMaxSeconds)
+  $lastActivity = [DateTime]::UtcNow
+  $lastBytes = -1L
+  $lastCpu = -1.0
+  $lastStageLength = $stageBefore.Length
   while (-not $proc.HasExited -and [DateTime]::UtcNow -lt $deadline) {
-    Start-Sleep -Milliseconds 500
+    Start-Sleep -Seconds 5
     $proc.Refresh()
+    if ($proc.HasExited) { break }
+    $workers = @()
+    $current = Get-CimInstance Win32_Process -Filter ("ProcessId = " + $proc.Id) -ErrorAction SilentlyContinue
+    if ($current) { $workers += $current }
+    $workers += @(Get-CimInstance Win32_Process -Filter ("ParentProcessId = " + $proc.Id) -ErrorAction SilentlyContinue)
+    $bytes = [long]0
+    foreach ($worker in $workers) {
+      $bytes += [long]$worker.ReadTransferCount + [long]$worker.WriteTransferCount
+    }
+    $cpu = [double]$proc.CPU
+    $stageLength = $lastStageLength
+    try {
+      if (Test-Path -LiteralPath $nsisStageLog) {
+        $stageLength = [IO.File]::ReadAllText($nsisStageLog).Length
+      }
+    } catch [System.IO.IOException] {
+      # NSIS may own the journal briefly while appending one stage marker.
+    }
+    if ($bytes -gt $lastBytes -or $cpu -gt $lastCpu -or $stageLength -gt $lastStageLength) {
+      $lastActivity = [DateTime]::UtcNow
+    }
+    $lastBytes = $bytes
+    $lastCpu = $cpu
+    $lastStageLength = $stageLength
+    Write-Output ("INSTALL_PROGRESS_IO_BYTES=" + $bytes + " STAGE_CHARS=" + $stageLength)
+    if (([DateTime]::UtcNow - $lastActivity).TotalSeconds -gt 75) {
+      throw ("NSIS installation stalled: no CPU, I/O or stage progress for 75 seconds; PID " + $proc.Id)
+    }
   }
   if (-not $proc.HasExited) {
-    throw "Installer did not terminate within bounded installation gate"
+    Write-Output ("INSTALL_TIMEOUT_LAST_IO_BYTES=" + $lastBytes + " STAGE_CHARS=" + $lastStageLength)
+    throw ("NSIS installation exceeded activity-aware hard limit of " + $installMaxSeconds + " seconds")
   }
   if ($proc.ExitCode -ne 0) {
     throw ("NSIS installation failed with exit code " + $proc.ExitCode)
