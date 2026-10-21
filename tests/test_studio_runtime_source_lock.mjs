@@ -57,7 +57,9 @@ test("Studio runtime source lock pins the merged headless compatibility contract
   );
   assert.equal(lock.runtime.native_device_identity_provider, "ProductDeviceIdentityStore.read_enrolled_credential");
   assert.equal(lock.runtime.native_identity_provider_supported, true);
-  assert.equal(lock.runtime.native_composition_entrypoint, "ordax_dev_agent.main.run");
+  assert.equal(lock.runtime.native_composition_entrypoint, "ordax_dev_agent.native_main.main");
+  assert.equal(lock.runtime.native_executable_name, "ordax-product-agent");
+  assert.notEqual(lock.runtime.native_composition_entrypoint, "ordax_dev_agent.main.run");
   assert.equal(lock.runtime.native_composition_explicit_config_required, true);
   assert.equal(lock.runtime.native_composition_main_thread_required, true);
   assert.equal(lock.runtime.native_composition_uses_canonical_dispatch_loop, true);
