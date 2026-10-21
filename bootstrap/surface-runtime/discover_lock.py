@@ -1,9 +1,6 @@
 #!/usr/bin/env python3
 """Resolve or revalidate the full Alpine package lock for the offline Surface runtime.
 
-# Upstream c-ares drift is handled only through this exact full resolver; the
-# review must never infer a 253-package lock from a single apk error.
-
 The tool may use the network in CI to resolve package metadata, but it never
 creates a promotable runtime artifact and never touches a physical device. Once
 the reviewed full transitive lock is committed, the same resolver must reproduce
