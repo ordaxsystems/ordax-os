@@ -53,6 +53,29 @@ additional promotion/fallback gates. This bundle does **not** imply that every
 Base update has been physically proven, that a fresh notebook boot passed, or
 that a public signed Stable release is available.
 
+## Aura local: lifecycle verificado no Owner/Development (source, 2026-10-21)
+
+O `ordax-run` agora possui um adaptador estrito para iniciar e encerrar a
+inferência local **somente se um EROFS exato já estiver materializado** pelo
+owner autorizado de artefatos. O candidato deve estar em
+`/state/ordax/local-ai/sha256/b244056dad3609357e8a70433f53f41becacd8f3bd93da3d8b23f9e99d86e11a/local-ai-runtime.erofs`,
+em diretório root `0700` e arquivo root `0600`. Antes de montar, o
+adaptador confere o SHA-256 e tamanho da imagem contra a prova canônica
+assinada, valida arquitetura e compara o `source-lock.json` interno com
+o contrato do checkout. Monta EROFS somente leitura e reutiliza
+`/run/ordax/local-ai-auth/key` para o bridge de inferência já existente,
+com segredo efêmero fora da Surface. O processo é iniciado/parado junto ao
+`ordax-run`; nenhum prompt é reproduzido. Health/readiness continuam
+com a Intelligence/Local AI Native já existente.
+
+**Limite:** isto fecha apenas o lifecycle do payload **já instalado**.
+`ordax-pull` continua Git-first e **não** busca o EROFS assinado; o fluxo
+governado de publicação, aquisição, staging content-addressed e rollback do
+artefato para um USB Dev que já está em uso permanece pendente em #2071.
+Sem payload, com bytes divergentes ou ABI incompatível, a Aura fica degradada,
+mas o boot, a Surface, recovery e a atualização permanecem utilizáveis.
+Merge do source ou CI não é prova de inferência real no notebook.
+
 ## Goal
 
 The development USB exists only to cross the boundary that Git cannot cross by itself:
