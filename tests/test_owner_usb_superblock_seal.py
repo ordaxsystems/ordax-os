@@ -194,7 +194,13 @@ if owner_usb_all_root_mounts_read_only; then
     exit 30
 fi
 /bin/busybox mount -o remount,ro "$loop" "$scratch/root"
-owner_usb_all_root_mounts_read_only || exit 31
+owner_usb_all_root_mounts_read_only || {
+    echo POST_SEAL_ALIASES >&2
+    for name in base root state workspace home; do
+        grep -F " $scratch/$name " /proc/self/mountinfo >&2 || true
+    done
+    exit 31
+}
 for name in workspace state home root base; do
     umount "$scratch/$name"
 done
