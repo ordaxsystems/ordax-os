@@ -100,21 +100,27 @@ initialize_network_hardware() {
 }
 
 rebind_independent_console() {
-    # switch_root may leave inherited stdout/stderr anchored to a writable
-    # mount in the new ext4 root. Descendant BusyBox jobs then hold MNT_WRITE
-    # on / even after the Surface has stopped. Reopen the kernel console from
-    # the independently mounted /dev before launching any host services.
-    # Never redirect to an ext4 file or introduce a second logging service.
-    root_mount_id=$(/bin/busybox awk '$5 == "/" { print $1; exit }' /proc/self/mountinfo 2>/dev/null || true)
-    dev_mount_id=$(/bin/busybox awk '$5 == "/dev" { print $1; exit }' /proc/self/mountinfo 2>/dev/null || true)
-    [ -n "$root_mount_id" ] && [ -n "$dev_mount_id" ] || return 1
-    [ "$root_mount_id" != "$dev_mount_id" ] && [ -c /dev/console ] || return 1
+    # The ext4 superblock, not the literal /dev mount ID, defines safety.
+    # /dev/console can resolve through an independent nested/bind mount, so
+    # checking equality with the /dev mount ID incorrectly rejects healthy
+    # boots. Use the kernel major:minor for each actual stdout/stderr FD.
+    [ -c /dev/console ] || return 1
+    root_fs=$(/bin/busybox awk '$5 == "/" { fs=$3 } END { print fs }' /proc/self/mountinfo 2>/dev/null || true)
+    [ -n "$root_fs" ] || return 1
     exec 1>/dev/console 2>&1
     out_mount_id=$(/bin/busybox awk '$1 == "mnt_id:" { print $2; exit }' /proc/self/fdinfo/1 2>/dev/null || true)
     err_mount_id=$(/bin/busybox awk '$1 == "mnt_id:" { print $2; exit }' /proc/self/fdinfo/2 2>/dev/null || true)
-    [ "$out_mount_id" = "$dev_mount_id" ] && [ "$err_mount_id" = "$dev_mount_id" ]
+    [ -n "$out_mount_id" ] && [ -n "$err_mount_id" ] || return 1
+    out_fs=$(/bin/busybox awk -v id="$out_mount_id" '$1 == id { fs=$3 } END { print fs }' /proc/self/mountinfo 2>/dev/null || true)
+    err_fs=$(/bin/busybox awk -v id="$err_mount_id" '$1 == id { fs=$3 } END { print fs }' /proc/self/mountinfo 2>/dev/null || true)
+    if [ -z "$out_fs" ] || [ -z "$err_fs" ] ||
+       [ "$out_fs" = "$root_fs" ] || [ "$err_fs" = "$root_fs" ]; then
+        printf 'OrdaX Dev: console/root superblock not isolated root=%s out=%s err=%s\n' \
+            "$root_fs" "$out_fs" "$err_fs" >&2
+        return 1
+    fi
+    return 0
 }
-
 start_local_surface() {
     record_boot_handoff "$1"
     printf 'OrdaX: iniciando a Surface local sem internet...\n'
