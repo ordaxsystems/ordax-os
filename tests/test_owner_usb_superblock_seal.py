@@ -143,5 +143,74 @@ class OwnerUsbSuperblockSealTests(unittest.TestCase):
         self.assertNotEqual(self._probe_mounts("ro,relatime", "rw,errors=remount-ro"), 0)
 
 
+    def test_disposable_ext4_bind_topology_in_private_mount_namespace(self) -> None:
+        """Optional privileged integration: never touches host root or real USB."""
+        if os.environ.get("ORDAX_OWNER_USB_MOUNT_INTEGRATION") != "1":
+            self.skipTest("requires explicit disposable mount integration gate")
+        self.assertEqual(os.geteuid(), 0, "privileged isolated integration required")
+        source = GUARDIAN.read_text(encoding="utf-8")
+        function = extract_function(source, "owner_usb_all_root_mounts_read_only")
+        old = (
+            "mount_id=$(/bin/busybox awk '$5 == \"/\" { print $3; exit }' "
+            "/proc/self/mountinfo 2>/dev/null || true)"
+        )
+        self.assertIn(old, function)
+        function = function.replace(
+            old,
+            "mount_id=$(/bin/busybox awk -v target=\"$ROOTMOUNT\" "
+            "'$5 == target { print $3; exit }' /proc/self/mountinfo 2>/dev/null || true)",
+        )
+        # unshare -m creates a private Linux mount namespace. The only block
+        # device used is a 128 MiB loop of a disposable regular file.
+        script = r"""
+set -eu
+mount --make-rprivate /
+scratch=$(mktemp -d /tmp/ordax-owner-mount-XXXXXXXX)
+loop=""
+cleanup() {
+    set +e
+    for name in workspace state home root base; do
+        umount "$scratch/$name" >/dev/null 2>&1 || true
+    done
+    [ -z "$loop" ] || losetup -d "$loop" >/dev/null 2>&1
+    rm -rf "$scratch"
+}
+trap cleanup EXIT HUP INT TERM
+mkdir -p "$scratch/base" "$scratch/root" "$scratch/state" "$scratch/workspace" "$scratch/home"
+truncate -s 134217728 "$scratch/usb.img"
+mkfs.ext4 -q -F "$scratch/usb.img"
+loop=$(losetup --find --show "$scratch/usb.img")
+mount -t ext4 "$loop" "$scratch/base"
+mkdir -p "$scratch/base/dev-base" "$scratch/base/state" "$scratch/base/workspace" "$scratch/base/home"
+mount -o bind "$scratch/base/dev-base" "$scratch/root"
+mount -o bind "$scratch/base/state" "$scratch/state"
+mount -o bind "$scratch/base/workspace" "$scratch/workspace"
+mount -o bind "$scratch/base/home" "$scratch/home"
+printf 'written-before-seal\n' >"$scratch/state/receipt"
+ROOTMOUNT=$scratch/root
+""" + function + r"""
+if owner_usb_all_root_mounts_read_only; then
+    echo BAD_PRE_SEAL_PROOF
+    exit 30
+fi
+/bin/busybox mount -o remount,ro "$loop" "$scratch/root"
+owner_usb_all_root_mounts_read_only || exit 31
+for name in workspace state home root base; do
+    umount "$scratch/$name"
+done
+e2fsck -fn "$loop" >"$scratch/e2fsck.log" 2>&1 || {
+    cat "$scratch/e2fsck.log"
+    exit 32
+}
+echo PRIVATE_EXT4_MOUNT_SEAL_AND_FSCK_OK
+"""
+        completed = subprocess.run(
+            ["unshare", "-m", "/bin/sh", "-c", script],
+            capture_output=True, text=True, timeout=90,
+        )
+        self.assertEqual(completed.returncode, 0, completed.stdout + completed.stderr)
+        self.assertIn("PRIVATE_EXT4_MOUNT_SEAL_AND_FSCK_OK", completed.stdout)
+
+
 if __name__ == "__main__":
     unittest.main()
