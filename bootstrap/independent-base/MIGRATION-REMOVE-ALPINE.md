@@ -160,6 +160,44 @@ A ordem deve reduzir duplicação, não criar wrappers permanentes:
 
 Não é permitido reduzir a contagem apenas trocando o nome do arquivo importado, copiando helpers Alpine para outro diretório ou duplicando lógica. A redução só conta quando a dependência real de Alpine/APK diminui ou quando código legado comprovadamente sem consumidor é removido.
 
+### Prova de compilação privada do Python — sem distribuição
+
+O subcomando `build-component` reutiliza a **mesma**
+`configure_buildroot` usada pelos dois perfis oficiais de imagem,
+inclusive a origem Buildroot autenticada, o kernel/header pinado e a
+validação do Kconfig. Diferentemente de `build --profile owner-development`,
+o subcomando compila **somente no diretório temporário de prova** e não
+produz EROFS, pacote publicável nem imagem de boot. O único arquivo gerado
+fora desse ambiente é `native-python-provenance.json`.
+
+```sh
+python3 bootstrap/independent-base/build.py build-component \
+  --out /tmp/ordax-native-python-proof --cache /tmp/ordax-buildroot-cache --jobs 4
+python3 bootstrap/independent-base/build.py verify-component \
+  --out /tmp/ordax-native-python-proof
+```
+
+O verificador executa `readelf` no Python e nos ELF reais produzidos pelo
+Buildroot e exige interpretador musl **dentro da configuração privada**,
+`DT_NEEDED` correspondentes a bibliotecas do target, standard library,
+módulos `_ssl`, `_hashlib`, `zlib` e CA. O recibo lista esses requisitos,
+hash do CPython, quantidade de ELF e fingerprint do conjunto examinado.
+Uma execução bem-sucedida é **prova de compilação/ABI**, não prova de
+linkagem dos wheels ou de empacotamento do `ordax-runtime`.
+
+O workflow **Independent Base Experiment** possui um job específico
+`private-native-python` para a branch `platform/remove-alpine`. Ele roda
+o compilador real e publica **somente esse recibo não instalável**; não
+assina nem distribui `rootfs.tar`, loader, módulos ou artefato de serviço.
+O kernel e os perfis estáticos do sistema não são reconstruídos por esse job.
+
+Faltam, antes de remover o builder Alpine do agente: compilar as dependências
+Python nativas do **mesmo** `ordax-runtime` pela toolchain Buildroot,
+empacotar uma closure sem caminhos globais de loader, realizar autoteste
+offline do MCP, auditar assinatura/procedência, instalar pelo supervisor
+canônico e comprovar desafio atestado no dispositivo. Não misturar a
+verificação do CPython isolado com autorização de distribuição.
+
 ### Python do MCP como componente, sem contaminar a base estática
 
 A configuração real do **Buildroot 2026.08** proíbe
