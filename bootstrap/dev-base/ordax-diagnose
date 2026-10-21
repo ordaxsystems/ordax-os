@@ -13,6 +13,8 @@ SURFACE_LOG=/run/ordax-surface/host.log
 GUARDIAN_LOG=/run/ordax-update/guardian.log
 HEALTH_MARKER=/run/ordax-update/healthy-sha
 SURFACE_MARKER=/run/ordax-surface/runtime-provisioning-source-sha
+POWER_LAST_REQUEST=${ORDAX_POWER_LAST_REQUEST:-/state/ordax/power/last-request}
+PULL_RESULT=${ORDAX_PULL_RESULT:-/run/ordax-update/pull-result}
 
 show_fs() {
     label=$1
@@ -36,6 +38,35 @@ show_fs() {
     printf 'fs.%s.used_kib=%s\n' "$label" "$2"
     printf 'fs.%s.available_kib=%s\n' "$label" "$3"
     printf 'fs.%s.used_percent=%s\n' "$label" "$(printf '%s' "$4" | /bin/busybox tr -d '%')"
+}
+
+show_update_power_receipts() {
+    # Read one privately-stored receipt without ever printing boot id,
+    # arbitrary log content, timestamps, OAuth tokens or Git remote URLs.
+    if [ -f "$POWER_LAST_REQUEST" ] && [ ! -L "$POWER_LAST_REQUEST" ] && [ -r "$POWER_LAST_REQUEST" ]; then
+        request_action=""
+        request_boot=""
+        request_epoch=""
+        request_status=""
+        IFS='|' read -r request_action request_boot request_epoch request_status <"$POWER_LAST_REQUEST" || true
+        case "$request_action" in restart|shutdown) ;; *) request_action=unknown ;; esac
+        case "$request_status" in pending|stopping|syncing|rebooting|powering-off|failed) ;; *) request_status=unknown ;; esac
+        printf 'power.last_action=%s\n' "$request_action"
+        printf 'power.last_status=%s\n' "$request_status"
+    else
+        printf 'power.last_action=unavailable\n'
+        printf 'power.last_status=unavailable\n'
+    fi
+    if [ -f "$PULL_RESULT" ] && [ ! -L "$PULL_RESULT" ] && [ -r "$PULL_RESULT" ]; then
+        IFS= read -r pull_phase <"$PULL_RESULT" || pull_phase=""
+        case "$pull_phase" in
+            completed|helpers-pending|preflight|remote-discovery|handoff-validation|remote-fetch|candidate-objects|isolated-checkout|remote-clone|atomic-switch|candidate-validation|state-commit|helper-refresh)
+                printf 'pull.last_phase=%s\n' "$pull_phase" ;;
+            *) printf 'pull.last_phase=unknown\n' ;;
+        esac
+    else
+        printf 'pull.last_phase=unavailable\n'
+    fi
 }
 
 mark_if_log_contains() {
@@ -89,3 +120,5 @@ mark_if_log_contains surface.disk_full "$SURFACE_LOG" "No space left on device"
 mark_if_log_contains surface.apk_failed "$SURFACE_LOG" "graphical runtime provisioning timed out or failed"
 mark_if_log_contains guardian.stale_heartbeat "$GUARDIAN_LOG" "supervisor heartbeat stale"
 mark_if_log_contains guardian.crash_budget "$GUARDIAN_LOG" "supervisor exceeded crash budget"
+
+show_update_power_receipts
