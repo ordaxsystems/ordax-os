@@ -47,16 +47,25 @@ class DevRootfsMountHandoffTests(unittest.TestCase):
             source.index("start_local_surface fast-graphical"),
         )
         self.assertIn("exec 1>/dev/console 2>&1", source)
-        # This is an init(PID1) responsibility, not a general-purpose shell
-        # operation. CI and administrator CLI invocations cannot own /dev/console.
-        # "$" expands to this shell's PID. A bare "$" is literal text and
-        # silently bypasses the console isolation required of real boot PID 1.
+        # The boot authority must be PID 1 as observed by the kernel.
+        # A literal dollar or an environment-provided PID cannot pass this.
         self.assertNotIn('if [ "$" -eq 1 ]; then', source)
-        self.assertEqual(source.count('if [ "$" -eq 1 ]; then'), 1)
+        self.assertIn(
+            "read -r boot_pid _boot_kernel_stat </proc/self/stat || boot_pid=0",
+            source,
+        )
+        self.assertEqual(source.count('if [ "$boot_pid" -eq 1 ]; then'), 1)
         self.assertLess(
-            source.index('if [ "$" -eq 1 ]; then'),
+            source.index('if [ "$boot_pid" -eq 1 ]; then'),
             source.index("rebind_independent_console; then"),
         )
+        check = subprocess.run(
+            ["/bin/sh", "-c",
+             'boot_pid=0; read -r boot_pid tail </proc/self/stat || boot_pid=0; '
+             '[ "$boot_pid" -eq 1 ]'],
+            capture_output=True, text=True, timeout=5,
+        )
+        self.assertNotEqual(check.returncode, 0, "non-PID1 shell must not claim boot authority")
 
     def test_console_refuses_root_backed_or_unverified_fds(self) -> None:
         source = INIT.read_text(encoding="utf-8")
