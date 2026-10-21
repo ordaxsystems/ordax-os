@@ -42,6 +42,7 @@ const HOST_POWER_ACTIONS = new Set(["restart", "shutdown", "unknown", "unavailab
 const HOST_POWER_STATUSES = new Set(["pending", "stopping", "syncing", "rebooting", "powering-off", "failed", "unknown", "unavailable"]);
 const HOST_POWER_STAGES = new Set(["accepted", "supervisor-quiesce", "host-agents", "filesystem-sync", "root-readonly", "unknown", "unavailable"]);
 const HOST_POWER_FAILURES = new Set(["supervisor-quiesce-failed", "host-agents-failed", "sync-failed", "remount-failed", "root-still-writable", "kernel-transition-returned", "unknown", "unavailable"]);
+const HOST_REMOUNT_ERRORS = new Set(["device-busy", "invalid-argument", "permission-denied", "not-a-mountpoint", "unsupported-operation", "read-only-filesystem", "missing-target", "unclassified-mount-error", "no-mount-error-output", "unavailable"]);
 
 function optionalHostPower(value) {
   if (value === undefined || value === null) return null;
@@ -61,6 +62,11 @@ function optionalHostPower(value) {
     }
     snapshot[key] = value[key];
   }
+  const mountError = value.lastMountError ?? "unavailable";
+  if (typeof mountError !== "string" || !HOST_REMOUNT_ERRORS.has(mountError)) {
+    throw new TypeError("Host power diagnostic has unsupported lastMountError");
+  }
+  snapshot.lastMountError = mountError;
   return Object.freeze(snapshot);
 }
 
