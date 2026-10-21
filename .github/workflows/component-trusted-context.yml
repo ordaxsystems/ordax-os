@@ -9,6 +9,9 @@ on:
       - 'tests/test_component_mount_health_probe.mjs'
       - 'tests/test_native_files_trusted_context.mjs'
       - 'system/services/components/runtime-loader.mjs'
+      - 'system/services/components/current-slot-loader.mjs'
+      - 'system/services/files/revocable-file-space.mjs'
+      - 'tests/test_verified_current_component_runtime.mjs'
       - 'tests/test_component_trusted_context_composition.mjs'
       - 'tests/test_native_app_data_composition_bootstrap.mjs'
       - '.github/workflows/component-trusted-context.yml'
@@ -21,6 +24,9 @@ on:
       - 'tests/test_component_mount_health_probe.mjs'
       - 'tests/test_native_files_trusted_context.mjs'
       - 'system/services/components/runtime-loader.mjs'
+      - 'system/services/components/current-slot-loader.mjs'
+      - 'system/services/files/revocable-file-space.mjs'
+      - 'tests/test_verified_current_component_runtime.mjs'
       - 'tests/test_component_trusted_context_composition.mjs'
       - 'tests/test_native_app_data_composition_bootstrap.mjs'
       - '.github/workflows/component-trusted-context.yml'
@@ -43,6 +49,9 @@ jobs:
         run: |
           set -euo pipefail
           node --check system/services/components/runtime-loader.mjs
+          node --check system/services/components/current-slot-loader.mjs
+          node --check system/services/files/revocable-file-space.mjs
+          node --check tests/test_verified_current_component_runtime.mjs
           node --check tests/test_component_trusted_context_composition.mjs
           node --check tests/test_native_app_data_composition_bootstrap.mjs
           node --check system/composition/native/files-trusted-context.mjs
@@ -55,6 +64,7 @@ jobs:
         run: |
           set -euo pipefail
           node --test tests/test_component_trusted_context_composition.mjs
+          node --test tests/test_verified_current_component_runtime.mjs
           node --test tests/test_native_app_data_composition_bootstrap.mjs
           node --test tests/test_native_files_trusted_context.mjs
           node --test tests/test_native_files_probation_context.mjs
