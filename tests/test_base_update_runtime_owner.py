@@ -1120,8 +1120,8 @@ class BaseUpdateRuntimeOwnerTests(unittest.TestCase):
         self.assertIn("--acquire-aura-only", agent)
         self.assertIn("AURA_WORKER_PID=$!", agent)
         self.assertIn("trap stop_aura_worker EXIT", agent)
-        self.assertLess(agent.index("launch_optional_aura_worker\n        discover_esp_read_only"),
-                        agent.index("prepare_dev_base_postboot_promotion"))
+        self.assertLess(agent.rindex("launch_optional_aura_worker\n        discover_esp_read_only"),
+                        agent.rindex("prepare_dev_base_postboot_promotion\n"))
         orchestrator = MODULE_PATH.read_text(encoding="utf-8")
         self.assertIn('parser.add_argument("--acquire-aura-only", action="store_true")', orchestrator)
         self.assertIn("start_new_session=True, close_fds=True", orchestrator)
