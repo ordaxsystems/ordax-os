@@ -55,6 +55,43 @@ class OwnerDiagnosticReceiptTests(unittest.TestCase):
                     self.assertNotIn("1792515039", proc.stdout)
 
 
+    def test_cached_main_is_local_read_only_and_reports_exact_comparison(self):
+        source = SCRIPT.read_text(encoding="utf-8")
+        marker = "show_cached_main() {"
+        self.assertEqual(source.count(marker), 1)
+        func = marker + source.split(marker, 1)[1].split("\n}\n", 1)[0] + "\n}\n"
+        self.assertNotIn("fetch", func.split("\n    cached_main=", 1)[1])
+        self.assertNotIn("ls-remote", func)
+        with tempfile.TemporaryDirectory(prefix="ordax-diagnose-cached-") as temp:
+            repo = Path(temp) / "repo"
+            repo.mkdir()
+            def git(*args):
+                return subprocess.run(["git", "-C", str(repo), *args],
+                                      check=True, text=True, capture_output=True).stdout.strip()
+            git("init", "-b", "main")
+            git("-c", "user.name=Test", "-c", "user.email=test@example.invalid",
+                "commit", "--allow-empty", "-m", "first")
+            first = git("rev-parse", "HEAD")
+            git("-c", "user.name=Test", "-c", "user.email=test@example.invalid",
+                "commit", "--allow-empty", "-m", "second")
+            second = git("rev-parse", "HEAD")
+            git("update-ref", "refs/remotes/origin/main", second)
+            env = {**os.environ, "WORKTREE": str(repo), "sha": first}
+            command = func + "\nshow_cached_main\n"
+            result = subprocess.run(["/bin/sh", "-c", command], env=env,
+                                    check=True, text=True, capture_output=True)
+            self.assertIn(f"pull.cached_main_sha={second}", result.stdout)
+            self.assertIn("pull.cached_main_relation=differs-from-head", result.stdout)
+            env["sha"] = second
+            result = subprocess.run(["/bin/sh", "-c", command], env=env,
+                                    check=True, text=True, capture_output=True)
+            self.assertIn("pull.cached_main_relation=matches-head", result.stdout)
+            git("update-ref", "-d", "refs/remotes/origin/main")
+            result = subprocess.run(["/bin/sh", "-c", command], env=env,
+                                    check=True, text=True, capture_output=True)
+            self.assertIn("pull.cached_main_sha=unavailable", result.stdout)
+            self.assertIn("pull.cached_main_relation=unavailable", result.stdout)
+
     def test_handoff_reason_tokens_are_reported_without_sensitive_values(self):
         text = SCRIPT.read_text(encoding="utf-8")
         for reason in ("handoff-metadata-gitdir", "handoff-metadata-head",
