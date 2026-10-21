@@ -1,6 +1,6 @@
 {
   "$schema": "prototype-ordax.native-account-session/1",
-  "status": "memory-only-until-encrypted-vault",
+  "status": "kernel-memory-hot-restart-without-disk-vault",
   "owner": "system/surface/runtime/native_account_gateway.py",
   "scope": "native-usb-account-session",
   "invariants": {
@@ -8,7 +8,7 @@
     "provider_tokens_synchronized": false,
     "access_token_persisted_plaintext": false,
     "refresh_token_persisted_plaintext": false,
-    "session_survives_native_host_restart": false,
+    "session_survives_native_host_restart": "when-kernel-user-keyring-available",
     "session_survives_device_reboot": false,
     "legacy_plaintext_session_path_is_loaded": false,
     "legacy_plaintext_session_path_is_purged_on_start": true,

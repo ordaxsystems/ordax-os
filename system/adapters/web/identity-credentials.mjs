@@ -5,6 +5,7 @@ import {
   validateRegistrationPolicy,
 } from "../../contracts/identity-credentials.mjs";
 import { createWebJsonReader } from "./json-read.mjs";
+import { rememberVerifiedLoginEmail } from "../../services/account/remembered-login-email.mjs";
 
 // Read-only lifecycle extension. The gateway owns activation and legal metadata.
 export function createWebRegistrationPolicyReader(windowRef = globalThis.window) {
@@ -73,6 +74,7 @@ async function submit(windowRef, path, credentials, { registration = false } = {
     && typeof session.email === "string"
     && session.email.length > 0
   ) {
+    if (!registration) rememberVerifiedLoginEmail(windowRef, session.email);
     return Object.freeze({ authenticated: true, confirmationRequired: false });
   }
   if (

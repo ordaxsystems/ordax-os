@@ -284,3 +284,57 @@ test("OOBE must request fresh legal acceptance when any authoritative document c
     assert.equal(sameRegistrationLegalPolicy(original, validateRegistrationPolicy(altered)), false);
   }
 });
+
+test("verified login remembers only the email in same-origin profile storage", async () => {
+  const storage = new Map();
+  const localStorage = {
+    getItem(key) { return storage.get(key) ?? null; },
+    setItem(key, value) { storage.set(key, value); },
+    removeItem(key) { storage.delete(key); },
+  };
+  const windowRef = {
+    localStorage,
+    fetch: async (path) => path === "/auth/login"
+      ? { status: 200, ok: true }
+      : { status: 200, ok: true, json: async () => ({
+        $schema: "prototype-ordax.public-identity-session/1",
+        authenticated: true, status: "authenticated", provider: "supabase",
+        subject: "session-owner", email: "pessoa@example.com",
+      }) },
+  };
+  await createSameOriginIdentityCredentials(windowRef).signIn({
+    email: "pessoa@example.com", password: "never-save-this-password",
+  });
+  const { readRememberedLoginEmail, forgetRememberedLoginEmail } = await import(
+    "../system/services/account/remembered-login-email.mjs"
+  );
+  assert.equal(readRememberedLoginEmail(windowRef), "pessoa@example.com");
+  assert.equal(storage.size, 1);
+  assert.equal(JSON.stringify([...storage]), JSON.stringify([["ordax.account.remembered-email.v1", "pessoa@example.com"]]));
+  assert.equal(forgetRememberedLoginEmail(windowRef), true);
+  assert.equal(readRememberedLoginEmail(windowRef), "");
+});
+
+test("unverified login and unavailable storage do not create a remembered email", async () => {
+  const stored = new Map();
+  const windowRef = {
+    localStorage: { getItem: (key) => stored.get(key) ?? null, setItem: (key, value) => stored.set(key, value) },
+    fetch: async (path) => path === "/auth/login"
+      ? { status: 200, ok: true }
+      : { status: 200, ok: true, json: async () => ({
+        $schema: "prototype-ordax.public-identity-session/1",
+        authenticated: false, status: "anonymous",
+      }) },
+  };
+  await assert.rejects(
+    createSameOriginIdentityCredentials(windowRef).signIn({email:"pessoa@example.com", password:"secret"}),
+    /session/i,
+  );
+  assert.equal(stored.size, 0);
+  const { readRememberedLoginEmail, rememberVerifiedLoginEmail } = await import(
+    "../system/services/account/remembered-login-email.mjs"
+  );
+  const forbidden = { get localStorage() { throw new Error("storage blocked"); } };
+  assert.equal(readRememberedLoginEmail(forbidden), "");
+  assert.equal(rememberVerifiedLoginEmail(forbidden, "pessoa@example.com"), false);
+});
