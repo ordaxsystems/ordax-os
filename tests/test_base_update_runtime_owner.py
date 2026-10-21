@@ -1089,6 +1089,34 @@ class BaseUpdateRuntimeOwnerTests(unittest.TestCase):
             self.assertEqual(third["state"], "blocked")
             self.assertFalse(third["boot_authority"])
 
+    def test_optional_aura_timeout_terminates_signed_child_group_without_touching_base(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            repo, state, physical, *_rest = self._aura_fixture(Path(temporary))
+            ready = owner.run_once(repo, state, physical, "c" * 40, "owner-development")
+            self.assertEqual(ready["status"], "idle")
+
+            class StalledAgent:
+                pid = 987456
+                returncode = None
+                def communicate(self, timeout):
+                    raise subprocess.TimeoutExpired(cmd="signed Aura agent", timeout=timeout)
+                def poll(self):
+                    return None
+                def wait(self, timeout):
+                    self.returncode = -15
+                    return self.returncode
+
+            calls = []
+            with mock.patch.object(owner.subprocess, "Popen", return_value=StalledAgent()), \
+                 mock.patch.object(owner.os, "killpg", side_effect=lambda pid, sig: calls.append((pid, sig))):
+                result = owner.run_aura_once(repo, state, physical, "owner-development")
+            self.assertEqual(result["state"], "blocked")
+            self.assertIn("bounded timeout", result["detail"])
+            self.assertEqual(calls, [(987456, owner.signal.SIGTERM)])
+            self.assertFalse((state / "base-update/aura-ready.sha256").exists())
+            self.assertEqual(ready["status"], "idle")
+            self.assertFalse(ready["rebootRequested"])
+
     def test_optional_aura_rejects_unpinned_proof_without_invoking_agent(self):
         with tempfile.TemporaryDirectory() as temporary:
             repo, state, physical, digest, size, release, lock = self._aura_fixture(Path(temporary))
