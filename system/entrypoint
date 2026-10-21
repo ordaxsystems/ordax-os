@@ -427,7 +427,7 @@ record_host_power_stage() {
         accepted|supervisor-quiesce|host-agents|filesystem-sync|root-readonly) ;;
         *) return 1 ;;
     esac
-    temporary=$POWER_LAST_STAGE.tmp.$
+    temporary=$POWER_LAST_STAGE.tmp.$$
     printf '%s\n' "$stage" >"$temporary" || return 1
     chmod 600 "$temporary" || return 1
     /bin/busybox mv -f "$temporary" "$POWER_LAST_STAGE" || return 1
@@ -439,7 +439,7 @@ record_host_power_failure() {
         supervisor-quiesce-failed|host-agents-failed|sync-failed|remount-failed|root-still-writable|kernel-transition-returned) ;;
         *) return 1 ;;
     esac
-    temporary=$POWER_LAST_FAILURE.tmp.$
+    temporary=$POWER_LAST_FAILURE.tmp.$$
     printf '%s\n' "$failure" >"$temporary" || return 1
     chmod 600 "$temporary" || return 1
     /bin/busybox mv -f "$temporary" "$POWER_LAST_FAILURE" || return 1
