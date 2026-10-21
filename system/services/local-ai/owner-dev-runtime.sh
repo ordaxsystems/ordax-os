@@ -50,6 +50,7 @@ release_partial() {
 }
 stop() {
     [ -d "$SERVICE_DIR" ] && [ ! -L "$SERVICE_DIR" ] || return 0
+    [ "$(bb stat -c '%u:%a' "$SERVICE_DIR" 2>/dev/null)" = 0:700 ] || return 0
     safe_file "$PID_FILE" || return 0
     old_pid=""
     IFS= read -r old_pid <"$PID_FILE" || true
@@ -87,6 +88,10 @@ start() {
         report "verified x86_64 runtime does not match hardware"
         return 0
     esac
+    if [ -L "$SERVICE_DIR" ] || { [ -e "$SERVICE_DIR" ] && [ ! -d "$SERVICE_DIR" ]; }; then
+        report "unsafe local AI service directory"
+        return 0
+    fi
     if [ -e "$PID_FILE" ] || [ -L "$PID_FILE" ]; then
         if ! safe_file "$PID_FILE"; then
             report "unsafe service PID path"
@@ -99,10 +104,6 @@ start() {
             return 0
         fi
         report "stale service ownership; declining ambiguous startup"
-        return 0
-    fi
-    if [ -L "$SERVICE_DIR" ] || { [ -e "$SERVICE_DIR" ] && [ ! -d "$SERVICE_DIR" ]; }; then
-        report "unsafe local AI service directory"
         return 0
     fi
     if mounted_here || [ -e "$KEY_FILE" ] || [ -L "$KEY_FILE" ]; then
@@ -131,6 +132,10 @@ start() {
     # /run/ordax is shared with other Native services: never tighten its
     # permissions as a side-effect of starting optional Intelligence.
     [ ! -L "$RUN_DIR" ] || { report "unsafe shared runtime directory"; return 0; }
+    [ ! -L "$RUN_DIR/runtime" ] || {
+        report "unsafe runtime mount parent"
+        return 0
+    }
     bb mkdir -p /run/ordax/runtime
     if [ -e "$SERVICE_DIR" ]; then
         [ -d "$SERVICE_DIR" ] && [ ! -L "$SERVICE_DIR" ] || {
