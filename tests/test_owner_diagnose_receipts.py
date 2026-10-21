@@ -96,10 +96,6 @@ class OwnerDiagnosticReceiptTests(unittest.TestCase):
         source = SCRIPT.read_text(encoding="utf-8")
         def function(name):
             marker = name + "() {"
-            # POSIX subshell syntax for the receipt parser is intentional.
-            if name == "read_exact_sha_receipt":
-                marker = name + "() ("
-                return marker + source.split(marker, 1)[1].split("\n)\n", 1)[0] + "\n)\n"
             return marker + source.split(marker, 1)[1].split("\n}\n", 1)[0] + "\n}\n"
 
         helper = function("read_exact_sha_receipt") + function("show_checkout_receipt_consistency")
