@@ -69,9 +69,10 @@ def load_policy(path: Path) -> tuple[dict[str, str], tuple[str, ...], tuple[str,
     scoped_files = value.get("native_files_slot_bound_file_space_enforced")
     if type(scoped_files) is not bool:
         raise PolicyGenerationError("Files Native scoped file-space proof must be boolean")
-    if "files" in native_ids and not scoped_files:
+    if ("files" in normalized or "files" in native_ids) and not scoped_files:
         raise PolicyGenerationError(
-            "Files module-read requires Native slot-bound and Space-scoped file-space enforcement"
+            "Files source transfer or module-read requires Native slot-bound and "
+            "Space-scoped file-space enforcement"
         )
     # These IDs are a necessary (not sufficient) runtime module-read gate.
     # Presence in Store policy or the signed catalog must never invent it.

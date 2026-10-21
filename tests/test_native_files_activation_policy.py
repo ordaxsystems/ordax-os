@@ -26,17 +26,22 @@ class NativeFilesActivationPolicyTests(unittest.TestCase):
         self.assertNotIn("files", original["native_loopback_broker_supported_components"])
         # If someone enables module-read through the SSOT without the Native
         # scope-enforcement gate, CI must fail before generated JS can change.
-        for scoped in (False, None, "true"):
-            mutated = json.loads(json.dumps(original))
-            mutated["native_loopback_broker_supported_components"].append("files")
-            mutated["native_files_slot_bound_file_space_enforced"] = scoped
-            with tempfile.TemporaryDirectory() as temp:
-                target = Path(temp) / "policy.json"
-                target.write_text(json.dumps(mutated), encoding="utf-8")
-                with self.assertRaisesRegex(
-                    generator.PolicyGenerationError, "Files Native scoped|Files module-read",
-                ):
-                    generator.load_policy(target)
+        for kind in ("module-read", "source-owner"):
+            for scoped in (False, None, "true"):
+                mutated = json.loads(json.dumps(original))
+                if kind == "module-read":
+                    mutated["native_loopback_broker_supported_components"].append("files")
+                else:
+                    mutated["canonical_package_source_repository_by_component"]["files"] = "ordaxsystems/ordax-apps"
+                mutated["native_files_slot_bound_file_space_enforced"] = scoped
+                with tempfile.TemporaryDirectory() as temp:
+                    target = Path(temp) / "policy.json"
+                    target.write_text(json.dumps(mutated), encoding="utf-8")
+                    with self.assertRaisesRegex(
+                        generator.PolicyGenerationError,
+                        "Files Native scoped|Files source transfer or module-read",
+                    ):
+                        generator.load_policy(target)
 
     def test_canonical_policy_still_generates_same_external_inventory(self):
         generator = generator_module()
