@@ -209,8 +209,8 @@ class PowerQuiescenceTests(unittest.TestCase):
         guardian = GUARDIAN.read_text(encoding="utf-8")
         stage = function_source(guardian, "record_host_power_stage")
         failure = function_source(guardian, "record_host_power_failure")
-        self.assertIn('temporary=$POWER_LAST_STAGE.tmp.$', stage)
-        self.assertIn('temporary=$POWER_LAST_FAILURE.tmp.$', failure)
+        self.assertIn('temporary=$POWER_LAST_STAGE.tmp.$$', stage)
+        self.assertIn('temporary=$POWER_LAST_FAILURE.tmp.$$', failure)
 
     def test_guardian_recognizes_exited_but_unreaped_supervisor(self) -> None:
         """No false timeout on zombie: only the matching quiesce receipt grants power."""
