@@ -59,6 +59,48 @@ class OwnerUsbSuperblockSealTests(unittest.TestCase):
             )
             return run.returncode
 
+    def _probe_foreign_persistent_mounts(self, *, mount_device: str, identity: str) -> int:
+        source = GUARDIAN.read_text(encoding="utf-8")
+        function = extract_function(source, "owner_usb_foreign_persistent_mounts_quiesced")
+        function = function.replace("/proc/mounts", '"$MOUNTS"')
+        function = function.replace("/bin/busybox awk", "awk")
+        function = function.replace("/bin/busybox blkid", "mock_blkid")
+        with tempfile.TemporaryDirectory(prefix="ordax-mounted-usb-fs-") as directory:
+            mounts = Path(directory) / "mounts"
+            mounts.write_text(
+                f"{mount_device} /ordax-esp vfat rw,relatime 0 0\n",
+                encoding="utf-8",
+            )
+            script = (
+                'mock_blkid() { printf "%s\\n" "$MOCK_IDENTITY"; }\n'
+                + function
+                + "\nowner_usb_foreign_persistent_mounts_quiesced\n"
+            )
+            return subprocess.run(
+                ["sh", "-c", script],
+                env={**os.environ, "MOUNTS": str(mounts), "MOCK_IDENTITY": identity},
+                capture_output=True, text=True, timeout=5,
+            ).returncode
+
+    def test_mounted_ordax_esp_rw_blocks_power(self) -> None:
+        self.assertNotEqual(
+            self._probe_foreign_persistent_mounts(
+                mount_device="/dev/sde1", identity='/dev/sde1: LABEL="ORDAX-ESP" TYPE="vfat"',
+            ), 0,
+        )
+
+    def test_unidentified_fat_source_blocks_power(self) -> None:
+        self.assertNotEqual(
+            self._probe_foreign_persistent_mounts(mount_device="/dev/sde1", identity=""), 0,
+        )
+
+    def test_identified_unrelated_fat_source_does_not_impersonate_ordax(self) -> None:
+        self.assertEqual(
+            self._probe_foreign_persistent_mounts(
+                mount_device="/dev/sdf1", identity='/dev/sdf1: LABEL="OTHER" TYPE="vfat"',
+            ), 0,
+        )
+
     def test_all_aliases_and_superblock_readonly_pass(self) -> None:
         self.assertEqual(self._probe_mounts("ro,relatime"), 0)
 
