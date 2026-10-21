@@ -459,15 +459,19 @@ owner_usb_all_root_mounts_read_only() {
 }
 
 owner_usb_foreign_persistent_mounts_quiesced() {
-    # Dev activation can mount USB ESP/DATA while updating. Those mounts must
-    # not remain writable when the host enters the final kernel transition.
-    # Fail closed instead of disabling their protection or remounting blindly.
-    for volume in ORDAX-ESP ORDAX-DATA; do
-        device=$(/bin/busybox blkid -L "$volume" 2>/dev/null || true)
-        [ -n "$device" ] || continue
-        if /bin/busybox awk -v dev="$device" '$1 == dev && $4 ~ /(^|,)rw(,|$)/ { found=1 } END { exit !found }' /proc/mounts; then
-            return 1
-        fi
+    # Dev activation can mount ESP/DATA while updating. Discover mounted rw
+    # FAT/exFAT from /proc/mounts, not blkid -L, which is not guaranteed by the
+    # fixed BusyBox applet set. A source we cannot identify fails closed.
+    sources=$(/bin/busybox awk '
+        ($3 == "vfat" || $3 == "exfat") && $4 ~ /(^|,)rw(,|$)/ { print $1 }
+    ' /proc/mounts) || return 1
+    for device in $sources; do
+        case "$device" in /dev/*) ;; *) return 1 ;; esac
+        identity=$(/bin/busybox blkid "$device" 2>/dev/null || true)
+        [ -n "$identity" ] || return 1
+        case "$identity" in
+            *'LABEL="ORDAX-ESP"'*|*'LABEL="ORDAX-DATA"'*) return 1 ;;
+        esac
     done
     return 0
 }
