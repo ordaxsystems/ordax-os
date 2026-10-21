@@ -18,6 +18,14 @@ spec.loader.exec_module(gateway)
 
 
 class NativeAccountSessionContractTests(unittest.TestCase):
+    def test_registration_policy_cannot_block_native_surface_mount(self):
+        source = (ROOT / "system/composition/native/main.mjs").read_text(encoding="utf-8")
+        before_mount = source.split("const surface = mountSurface(", 1)[0]
+        self.assertNotIn("await identityActions.refresh()", before_mount)
+        connectivity = source.split("const resumeAccountConnectivity = async", 1)[1].split("\n  };", 1)[0]
+        self.assertIn("await identityActions.refresh()", connectivity)
+        self.assertLess(source.index("bootScreen.ready()"), source.index("void resumeAccountConnectivity().catch"))
+
     def test_contract_requires_memory_only_tokens_on_removable_media(self):
         contract = json.loads(CONTRACT.read_text(encoding="utf-8"))
         invariants = contract["invariants"]

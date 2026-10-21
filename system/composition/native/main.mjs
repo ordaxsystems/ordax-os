@@ -494,7 +494,6 @@ async function start() {
   const identityActions = createWebIdentityActions(window, identitySession, {
     registrationPolicy: () => identityCredentials.registrationPolicy(),
   });
-  await identityActions.refresh();
   const spaces = createWebSpacesCatalog(window);
   const spaceSelection = createSpaceSelectionRuntime({
     identitySession,

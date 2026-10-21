@@ -377,7 +377,7 @@
       },
       {
         "path": "system/surface/ui/sidebar-layout.mjs",
-        "sha256": "18959dce4c111f1c58c82f9c4aa246f4dd764bee8098be0239a5d832eeb0c370"
+        "sha256": "119e684fa30abc235d9898b2e2b8c23add511358266d8a6dfe6ef577e49a95a0"
       },
       {
         "path": "system/surface/ui/spaces/presentation/examples.mjs",
