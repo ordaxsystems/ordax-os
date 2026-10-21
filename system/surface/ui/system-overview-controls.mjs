@@ -808,6 +808,14 @@ export function mountSystemOverviewControls(
       }
     }
     addFact(t("system.updates.fact.boot"), t(bootMessageId));
+    // These are stable, privacy-safe Owner/Dev diagnostic keys, mirrored
+    // by ordax-diagnose. Never render raw Guardian logs or boot identifiers.
+    if (updateSnapshot.hostPower) {
+      addFact("power.last_action", updateSnapshot.hostPower.lastAction);
+      addFact("power.last_status", updateSnapshot.hostPower.lastStatus);
+      addFact("power.last_stage", updateSnapshot.hostPower.lastStage);
+      addFact("power.last_failure", updateSnapshot.hostPower.lastFailure);
+    }
     section.append(facts);
 
     if (isRepositoryOnlyUpdate(updateSnapshot)) {
