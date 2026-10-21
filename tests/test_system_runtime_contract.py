@@ -400,6 +400,7 @@ class SystemRuntimeContractTests(unittest.TestCase):
         self.assertIn("SUPERVISOR_POWER_QUIESCED_FILE=$UPDATE_RUN_DIR/supervisor-power-quiesced", guardian)
         self.assertIn("terminate_persistent_host_agents()", guardian)
         self.assertIn('/bin/busybox mount -o remount,ro /', guardian)
+        self.assertIn('/bin/busybox mount -o remount,bind,ro /', guardian)
         self.assertIn("root_filesystem_is_read_only", guardian)
         self.assertIn('/bin/busybox reboot -f >/dev/null 2>&1', guardian)
         self.assertIn('/bin/busybox poweroff -f >/dev/null 2>&1', guardian)
@@ -415,14 +416,14 @@ class SystemRuntimeContractTests(unittest.TestCase):
         )
         self.assertLess(
             transition.index('/bin/busybox sync >>"$GUARDIAN_LOG"'),
-            transition.index('/bin/busybox mount -o remount,ro /'),
+            transition.index('remount_root_read_only_for_power'),
         )
         self.assertLess(
-            transition.index('/bin/busybox mount -o remount,ro /'),
+            transition.index('remount_root_read_only_for_power'),
             transition.index('/bin/busybox reboot -f'),
         )
         self.assertLess(
-            transition.index('/bin/busybox mount -o remount,ro /'),
+            transition.index('remount_root_read_only_for_power'),
             transition.index('/bin/busybox poweroff -f'),
         )
 
