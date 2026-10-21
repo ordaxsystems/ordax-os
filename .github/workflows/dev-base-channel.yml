@@ -250,6 +250,7 @@ jobs:
           python tools/dev-base-channel/build.py build \
             --source-commit "$GITHUB_SHA" \
             --kernel-dir out/kernel \
+            --kernel-reuse-receipt "$RUNNER_TEMP/dev-base-channel/metadata/kernel-component-reuse.json" \
             --initramfs-dir out/initramfs \
             --rootfs-dir out/dev-rootfs \
             --out-dir out/dev-base
