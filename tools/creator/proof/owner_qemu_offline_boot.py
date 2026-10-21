@@ -286,9 +286,9 @@ def prove_ext4_clean_after_guest_poweroff(disk: Path) -> bool:
 def prove_guest_boot(
     disk: Path, kernel: Path, initramfs: Path, source: str,
     serial: Path, qmp_socket: Path, framebuffer_out: Path, serial_out: Path,
-    timeout_seconds: int,
+    timeout_seconds: int, *, acpi_shutdown: bool = False,
 ) -> dict:
-    """Boot a real isolated guest, prove WebKit and pixels, then close QEMU.
+    """Boot a real isolated guest; optionally prove its own ACPI poweroff.
 
     Both boots in the caller receive the SAME disposable regular-file USB,
     never a host disk and never a newly reseeded image.
@@ -338,7 +338,23 @@ def prove_guest_boot(
                 f"Owner USB offline rendered-health check timed out; checks={checks}; serial-tail={detail!r}"
             )
         framebuffer = capture_qmp_framebuffer(qmp_socket, framebuffer_out)
-        return {"checks": checks, "qemu_framebuffer": framebuffer}
+        if acpi_shutdown:
+            qmp_request(qmp_socket, "system_powerdown")
+            try:
+                guest.wait(timeout=95)
+            except subprocess.TimeoutExpired as exc:
+                raise ProofError("Owner Guest ACPI poweroff timed out") from exc
+            if guest.returncode != 0:
+                raise ProofError(
+                    f"Owner Guest ACPI transition exited abnormally: {guest.returncode}"
+                )
+            guest_serial = serial.read_text(encoding="utf-8", errors="replace")
+            if "reboot: Power down" not in guest_serial:
+                raise ProofError("guest QEMU exited without kernel Power down confirmation")
+        return {
+            "checks": checks, "qemu_framebuffer": framebuffer,
+            "acpi_shutdown_proven": acpi_shutdown,
+        }
     finally:
         # A QEMU process stop and new process constitute a *virtual cold
         # power-cycle*, not a claim of graceful guest shutdown. Wait until
@@ -361,17 +377,23 @@ def prove_guest_boot(
 def prove_boot_pair(
     disk: Path, kernel: Path, initramfs: Path, source: str,
     temporary_root: Path, outputs: tuple[tuple[Path, Path], tuple[Path, Path]],
-    timeout_seconds: int,
+    timeout_seconds: int, *, prove_acpi_shutdown: bool = False,
 ) -> list[dict]:
-    """Two separate real QEMU launches using a single, already-verified disk."""
+    """Two separate real QEMU launches on the same disposable disk."""
     boots = []
     for index, (framebuffer_out, serial_out) in enumerate(outputs, start=1):
-        boots.append(prove_guest_boot(
+        kwargs = {"acpi_shutdown": True} if index == 1 and prove_acpi_shutdown else {}
+        boot = prove_guest_boot(
             disk, kernel, initramfs, source,
             temporary_root / f"boot-{index}.serial",
             temporary_root / f"boot-{index}.qmp.sock",
-            framebuffer_out, serial_out, timeout_seconds,
-        ))
+            framebuffer_out, serial_out, timeout_seconds, **kwargs,
+        )
+        if index == 1 and prove_acpi_shutdown:
+            if boot.get("acpi_shutdown_proven") is not True:
+                raise ProofError("Guest ACPI shutdown proof was not produced")
+            boot["ext4_clean_after_shutdown"] = prove_ext4_clean_after_guest_poweroff(disk)
+        boots.append(boot)
     return boots
 
 
@@ -388,6 +410,7 @@ def main() -> int:
     parser.add_argument("--second-framebuffer-out", type=Path, required=True)
     parser.add_argument("--second-serial-out", type=Path, required=True)
     parser.add_argument("--timeout-seconds", type=int, default=210)
+    parser.add_argument("--prove-acpi-shutdown", action="store_true")
     args = parser.parse_args()
 
     try:
@@ -426,7 +449,7 @@ def main() -> int:
             initramfs = regular(args.initramfs, "initramfs")
             boots = prove_boot_pair(
                 disk, kernel, initramfs, args.source_commit, root, outputs,
-                args.timeout_seconds,
+                args.timeout_seconds, prove_acpi_shutdown=args.prove_acpi_shutdown,
             )
             report = {
                 "$schema": SCHEMA, "status": "pass",
@@ -437,6 +460,8 @@ def main() -> int:
                 "qemu_framebuffer": boots[0]["qemu_framebuffer"],
                 "graphical_framebuffer_varied_proven": True,
                 "second_offline_boot_proven": True,
+                "guest_acpi_shutdown_proven": boots[0].get("acpi_shutdown_proven") is True,
+                "ext4_clean_after_guest_shutdown": boots[0].get("ext4_clean_after_shutdown") is True,
                 "second_boot": {
                     "checks": boots[1]["checks"],
                     "healthy_observation_seconds": STABLE_SECONDS,
@@ -456,6 +481,8 @@ def main() -> int:
             args.output.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
             print("ORDAX_OWNER_QEMU_OFFLINE_HANDOFF=PASS")
             print("ORDAX_OWNER_QEMU_SECOND_BOOT=PASS")
+            if args.prove_acpi_shutdown:
+                print("ORDAX_OWNER_QEMU_GUEST_ACPI_SHUTDOWN_AND_FSCK=PASS")
             return 0
     except (OSError, ProofError, ValueError, json.JSONDecodeError, subprocess.SubprocessError) as exc:
         print(f"ORDAX_OWNER_QEMU_OFFLINE_HANDOFF=FAIL: {exc}", file=sys.stderr)
