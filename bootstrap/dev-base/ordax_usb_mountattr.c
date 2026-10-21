@@ -154,9 +154,40 @@ static void report_busy_writers(const char *target) {
                     fclose(name);
                 }
             }
+            /* The image uses BusyBox for most runtime commands. A bounded
+             * applet witness identifies the real lifecycle owner without
+             * reading file contents or logging arbitrary command arguments.
+             */
+            char command[80] = "unknown";
+            char cmdline_path[PATH_MAX];
+            length = snprintf(cmdline_path, sizeof(cmdline_path),
+                              "/proc/%s/cmdline", process->d_name);
+            if (length > 0 && (size_t)length < sizeof(cmdline_path)) {
+                FILE *cmdline = fopen(cmdline_path, "re");
+                if (cmdline) {
+                    char raw[200] = {0};
+                    size_t n = fread(raw, 1, sizeof(raw) - 1, cmdline);
+                    fclose(cmdline);
+                    if (n > 0) {
+                        const char *start = raw;
+                        const char *second = raw + strlen(raw) + 1;
+                        if (strstr(raw, "busybox") && second < raw + n &&
+                            *second) {
+                            start = second;
+                        }
+                        size_t i = 0;
+                        while (start[i] && i < sizeof(command) - 1) {
+                            unsigned char ch = (unsigned char)start[i];
+                            command[i] = (ch >= 32 && ch <= 126) ? ch : '_';
+                            ++i;
+                        }
+                        command[i] = 0;
+                    }
+                }
+            }
             fprintf(stderr,
-                    "ordax-usb-mountattr: possible writer pid=%s fd=%s mount_id=%lu comm=%s\n",
-                    process->d_name, fd->d_name, fd_mount, comm);
+                    "ordax-usb-mountattr: possible writer pid=%s fd=%s mount_id=%lu comm=%s applet=%s\n",
+                    process->d_name, fd->d_name, fd_mount, comm, command);
             ++reported;
         }
         closedir(fds);
