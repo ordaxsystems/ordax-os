@@ -26,7 +26,15 @@ class SurfaceRuntimeSourceContractTests(unittest.TestCase):
         self.assertIsInstance(contract["apk_package_lock"], dict)
         self.assertEqual(contract["apk_package_lock_count"], len(contract["apk_package_lock"]))
         self.assertEqual(contract["apk_package_lock_count"], 253)
-        self.assertEqual(contract["apk_package_lock_status"], "reviewed-full-transitive-lock-reproof-passed")
+        # A freshly discovered lock is not automatically a proved image.
+        self.assertIn(contract["apk_package_lock_status"], {
+            "reviewed-full-transitive-lock-reproof-passed",
+            "reviewed-full-transitive-lock-reproof-required",
+        })
+        self.assertEqual(
+            contract["apk_package_lock_status"] == "reviewed-full-transitive-lock-reproof-required",
+            contract["lock_refresh"]["reproducibility_reproof_required"],
+        )
         self.assertNotIn("pending_lock_revalidation", contract)
         expected_digest = hashlib.sha256(json.dumps(
             dict(sorted(contract["apk_package_lock"].items())),

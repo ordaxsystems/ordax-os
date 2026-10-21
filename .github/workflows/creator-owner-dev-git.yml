@@ -36,7 +36,6 @@ on:
       - 'system/surface/bin/ordax-surface'
       - 'system/surface/runtime/ordax_browser_host.py'
       - 'tests/test_owner_qemu_offline_handoff.py'
-      - 'tools/creator/proof/owner_qemu_offline_boot.py'
       - 'tools/creator/verify_owner_dev_offline_runtime.py'
       - 'tests/test_owner_dev_offline_runtime_release_gate.py'
       - '.github/workflows/creator-owner-dev-git.yml'
