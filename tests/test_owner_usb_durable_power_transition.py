@@ -30,6 +30,7 @@ class OwnerUsbDurablePowerTransitionTests(unittest.TestCase):
         self.assertIn("owner_usb_seal_root_for_power", transition)
         self.assertIn("owner_usb_restore_root_after_abort", transition)
         self.assertIn("owner_usb_all_root_mounts_read_only", source)
+        self.assertIn("owner_usb_auxiliary_partitions_quiesced", source)
         self.assertIn("if ! remount_root_read_only_for_power; then", transition)
         self.assertIn("if ! root_filesystem_is_read_only; then", transition)
         self.assertIn("if remount_root_read_write_after_power_abort; then", transition)
@@ -92,7 +93,7 @@ class OwnerUsbDurablePowerTransitionTests(unittest.TestCase):
             )
             return result, trace.read_text(encoding="utf-8").splitlines()
 
-    def test_owner_usb_kernel_handoff_after_two_successful_syncs_without_root_remount(self):
+    def test_owner_usb_kernel_handoff_requires_sealed_root_and_two_syncs(self):
         result, trace = self._run_simulated_transition("owner-development", "usb")
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(trace.count("kernel-tool:sync"), 2)
@@ -115,7 +116,6 @@ class OwnerUsbDurablePowerTransitionTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("restored:sync-failed", trace)
         self.assertIn("owner-usb-restore", trace)
-        self.assertNotIn("kernel-tool:poweroff", trace)
         self.assertNotIn("kernel-tool:poweroff", trace)
 
     def test_failed_usb_superblock_seal_prevents_forced_kernel_power(self):
