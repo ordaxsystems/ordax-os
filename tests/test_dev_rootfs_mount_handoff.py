@@ -39,7 +39,7 @@ class DevRootfsMountHandoffTests(unittest.TestCase):
         source = INIT.read_text(encoding="utf-8")
         self.assertIn("rebind_independent_console() {", source)
         self.assertLess(
-            source.index("select_development_rootfs\n# Fail closed"),
+            source.index("select_development_rootfs\n# Only the real boot PID 1"),
             source.index("rebind_independent_console; then"),
         )
         self.assertLess(
@@ -47,6 +47,10 @@ class DevRootfsMountHandoffTests(unittest.TestCase):
             source.index("start_local_surface fast-graphical"),
         )
         self.assertIn("exec 1>/dev/console 2>&1", source)
+        # This is an init(PID1) responsibility, not a general-purpose shell
+        # operation. CI and administrator CLI invocations cannot own /dev/console.
+        self.assertIn('if [ "$" -eq 1 ]; then', source)
+        self.assertLess(source.index('if [ "$" -eq 1 ]; then'), source.index("rebind_independent_console; then"))
 
     def test_console_refuses_root_backed_or_unverified_fds(self) -> None:
         source = INIT.read_text(encoding="utf-8")
