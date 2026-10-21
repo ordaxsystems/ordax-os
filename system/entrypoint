@@ -423,16 +423,23 @@ remount_root_read_write_after_power_abort() {
 # Owner USB Dev uses one ext4 superblock through multiple bind mounts after
 # switch_root/pivot_root. Sealing only the / bind VFS flag does not seal the
 # ext4 journal. Resolve the *physical block source* of / and require ORDAX
-# identity before touching mount flags. This owner never targets an internal
-# disk or guesses a mount target.
+# identity through sysfs and mountinfo before touching flags. The fixed
+# initramfs already verified the ORDAX labels on the same removable USB.
 OWNER_USB_ROOT_SOURCE=""
 
 owner_usb_root_source() {
     device=$(/bin/busybox awk '$2 == "/" && $3 == "ext4" { print $1; exit }' /proc/mounts 2>/dev/null || true)
     case "$device" in /dev/*) ;; *) return 1 ;; esac
     [ -b "$device" ] || return 1
-    identity=$(/bin/busybox blkid "$device" 2>/dev/null || true)
-    case "$identity" in *'LABEL="ORDAX"'*) ;; *) return 1 ;; esac
+    name=${device##*/}
+    sys=/sys/class/block/$name
+    [ -f "$sys/partition" ] && [ -f "$sys/dev" ] || return 1
+    partition=$(/bin/busybox cat "$sys/partition" 2>/dev/null || true)
+    removable=$(/bin/busybox cat "$sys/../removable" 2>/dev/null || true)
+    [ "$partition" = 2 ] && [ "$removable" = 1 ] || return 1
+    root_id=$(/bin/busybox awk '$5 == "/" { print $3; exit }' /proc/self/mountinfo 2>/dev/null || true)
+    device_id=$(/bin/busybox cat "$sys/dev" 2>/dev/null || true)
+    [ -n "$root_id" ] && [ "$root_id" = "$device_id" ] || return 1
     printf '%s\n' "$device"
 }
 
@@ -459,18 +466,19 @@ owner_usb_all_root_mounts_read_only() {
 }
 
 owner_usb_foreign_persistent_mounts_quiesced() {
-    # Dev activation can mount ESP/DATA while updating. Discover mounted rw
-    # FAT/exFAT from /proc/mounts, not blkid -L, which is not guaranteed by the
-    # fixed BusyBox applet set. A source we cannot identify fails closed.
+    # ESP/DATA are partitions 1/3 of the verified removable USB root 2.
+    # Identify siblings directly; the minimal Owner Base has no blkid applet.
+    root_device=$(owner_usb_root_source) || return 1
+    disk_prefix=${root_device%2}
+    [ "$disk_prefix" != "$root_device" ] || return 1
     sources=$(/bin/busybox awk '
         ($3 == "vfat" || $3 == "exfat") && $4 ~ /(^|,)rw(,|$)/ { print $1 }
     ' /proc/mounts) || return 1
     for device in $sources; do
-        case "$device" in /dev/*) ;; *) return 1 ;; esac
-        identity=$(/bin/busybox blkid "$device" 2>/dev/null || true)
-        [ -n "$identity" ] || return 1
-        case "$identity" in
-            *'LABEL="ORDAX-ESP"'*|*'LABEL="ORDAX-DATA"'*) return 1 ;;
+        case "$device" in
+            "$disk_prefix"1|"$disk_prefix"3) return 1 ;;
+            /dev/*) ;;
+            *) return 1 ;;
         esac
     done
     return 0
