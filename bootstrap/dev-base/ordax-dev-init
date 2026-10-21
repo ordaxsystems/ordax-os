@@ -318,11 +318,15 @@ mkdir -p "$WORKSPACE_DIR" "$STATE_DIR" "$NETWORK_STATE_DIR" /home /run /tmp /roo
 chmod 1777 /tmp 2>/dev/null || true
 ensure_uefi_efivarfs
 select_development_rootfs
-# Fail closed before starting Surface if console outputs could keep ext4
-# writable at shutdown. Recovery remains available without network.
-if ! rebind_independent_console; then
-    printf 'OrdaX Dev: console nao independente do ext4; recuperacao local.\n' >&2
-    maintenance_shell
+# Only the real boot PID 1 owns the switch_root console handoff.
+# CLI/CI invocations do not own host console and must not reopen it;
+# the actual kernel boot must establish independent stdout/stderr
+# before starting any Surface or background runtime processes.
+if [ "$" -eq 1 ]; then
+    if ! rebind_independent_console; then
+        printf 'OrdaX Dev: console nao independente do ext4; recuperacao local.\n' >&2
+        maintenance_shell
+    fi
 fi
 
 printf '\033[2J\033[H'
