@@ -62,6 +62,18 @@ run. Source edits do not update packaged USB images.
 
 Physical USB lifecycle interpretation (2026-10-18): the historical `PHYSICAL_OWNER_AUTHORIZATION_RECORDED=NO` and `FIRST_STABLE_MVP_USB_WRITE=HOLD...` snapshot markers below are retained as evidence of the earlier pre-consent gate. For current authorization use `docs/contracts/physical-write-authorization.json` at the exact source commit and `tools/creator/physical_promotion.py`. An approved contract does not prove the v3 signed writer was published or that a physical USB was written, read back, booted or recovered.
 
+Native Runtime composition source alignment (2026-10-21): the OS source lock now
+pins merged Runtime `9734893697dae7dbb3cef5ca060a531e5fb0cd66` and the
+updated compatibility-contract SHA-256. The existing dispatch loop is available
+as `ordax_dev_agent.main.run` with explicit host configuration and the existing
+private identity-store reader; no duplicate credential file, command transport
+or action authority is introduced. Upstream Linux source integration exercises
+a real temporary-file action with isolated transport and local-policy denial.
+This does not install the Runtime on the notebook. The native executable
+package/slot, lifecycle ownership, health, device grants and session attestation
+remain required before activation. Graphical control must bind to the OS's
+native graphics/input services; no external Linux desktop is required.
+
 Runtime Product MCP source alignment (2026-10-18): `system/services/device-agent/studio-runtime-source-lock.json`
 pins reviewed `ordaxsystems/ordax-runtime` 0.4.7 at an immutable commit and
 SHA-256 of its `ordax-os-runtime-compatibility.json` contract. The upstream
