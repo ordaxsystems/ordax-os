@@ -30,7 +30,7 @@ Status: **INVESTIGAÇÃO / BOOT FÍSICO BLOQUEADO**. Não promover a mídia a sa
 - `e2fsck -fy` na cópia: **código 1** (corrigiu metadados e recuperou journal); corrigiu inodes órfãos 623, 7473 e 10422, e inode 10782 com dtime inválido; regularizou bitmaps e contadores. Arquivos: `12.057 → 12.053`, blocos: `364.552 → 364.538`.
 - Verificação completa posterior na mesma cópia com `e2fsck -fn`: **código 0**, `12.053/409.600` arquivos e `364.538/1.637.888` blocos. Sem novas inconsistências detectadas. **Isso valida o método de recuperação, não a durabilidade da mídia ou a causa raiz.**
 - Código: removido fallback automático de `/proc/sysrq-trigger` para `b/o` do Guardian em `system/entrypoint`, com atualização do teste de contrato. Commits `7cae1b7f` e `f3af5f2c`. Eliminar esse caminho de reset não demonstra que `reboot -f` com múltiplos bind mounts duráveis esteja seguro.
-- **Estado físico neste checkpoint:** USB original ainda sem reparo adicional nesta retomada; não marcar como recuperado. Manutenção do host e validação física continuam gates independentes.
+- **Estado naquele checkpoint anterior:** USB físico ainda aguardava reparo. O resultado posterior do reparo físico está registrado abaixo; não confundir integridade offline com segurança de reinício.
 
 ## Gates para liberar novamente o pendrive
 
@@ -47,7 +47,7 @@ Sem `fsck -y` automático indiscriminado, sem montagem `rw` de ext4 sinalizado c
 
 Este registro serve como checkpoint canônico de continuidade. Revisar após obter as evidências dos gates, mantendo separadas prova e hipótese.
 
-## Recuperação física do USB — segunda-feira? NÃO: quarta-feira, 21/10/2026, 12h BRT
+## Recuperação física do USB — quarta-feira, 21/10/2026, 12h BRT
 
 **Resultado de recuperação offline: aprovado. Liberação de boot físico: BLOQUEADA até correção do desligamento.**
 
@@ -58,15 +58,17 @@ Este registro serve como checkpoint canônico de continuidade. Revisar após obt
 - `e2fsck -fn /dev/sde2` pós-reparo: **exit 0**, `12.053/409.600` arquivos e `364.538/1.637.888` blocos. Arquivo de evidência no host: `C:\Users\TONECOS\OrdaXUSBRecovery\e2fsck-physical-noon-{readonly,repair,postcheck}-20261021.log` (nomes exatos no script local `physical-usb-recovery-gated-20261021.sh`).
 - Montagem de inspeção *somente leitura* com `ro,noload,noexec,nodev,nosuid` revelou que o checkout ativo no pendrive ainda é `e390aabdaa25ff8be1ff386e472dcc227e679884` e preserva `reboot -f`, `poweroff -f` e os fallback `/proc/sysrq-trigger`. Portanto os commits de segurança mais recentes da `main` **não** estão no pendrive. Após inspeção, a montagem foi desmontada e a distribuição WSL encerrou, devolvendo o barramento `4-2` ao estado `Shared` no Windows.
 - O kernel WSL reportou na controladora USB `Write cache: disabled, read cache: enabled, doesn't support DPO or FUA`; esse diagnóstico descreve capacidades declaradas, **não** prova defeito físico.
-- Experimentos exclusivamente em imagem ext4 descartável (128 MiB, com bind-mounts de root/state/home): `mount -o remount,ro <dev> <bind-root>`, inclusive via BusyBox, mudou as opções de montagens associadas para `ro`. Após desmontagem, `e2fsck -fn` retornou **0**. Isso confirma uma *abordagem candidata de vedação do superbloco*, mas **não** comprova a topologia de mounts do OrdaX após `switch_root/pivot_root`. O código de produção não foi alterado com base somente nesse ensaio.
+- Experimento inicial de ext4 descartável (128 MiB) confirmou remount do superbloco e `e2fsck -fn=0`, mas **o experimento posterior em mount namespace privado reproduziu um problema importante**: superbloco `ro` pode coexistir com VFS `rw` nos bind-mounts de estado, workspace e home. O Guardian foi corrigido na PR #2088 para vedar separadamente cada alias gravável antes de provar todas as montagens em `ro`, com snapshot e restauração das flags originais em caso de abortar.
 - Próximo gate de engenharia: Guardian deve, depois de encerrados todos os agentes e controles de atualização, provar a identidade do ext4 físico e o fechamento/vedação do **superbloco** e de todas as montagens persistentes (incluindo ESP/DATA quando montadas), com testemunha de `ro` antes da transição do kernel. Falhas devem abortar com restauração comprovada, sem `sysrq`, reinícios de emergência ou segundo controlador. Reproduzir com simulação hermética da topologia real, QEMU e teste físico de ciclos sucessivos antes de autorizar usuário a reiniciar.
 - **Não regravar USB, não formatar, não reiniciar notebook com este dispositivo até passar o gate de encerramento**. O ext4 está íntegro somente no checkpoint offline; qualidade da mídia sob escritas futuras permanece não certificada.
 
 ## Protótipo isolado de correção estrutural — PR #2088 (ainda não liberada)
 
 - PR draft: https://github.com/ordaxsystems/ordax-os/pull/2088, branch `fix/owner-usb-ext4-power-seal-20261021`, cabeça inicial `0b2e6292`. **Não promover automaticamente a main ou ao USB.**
-- Guardian confirma a origem ext4 e `LABEL=ORDAX` antes de tentar `mount -o remount,ro <device> /`; faz prova de todas as montagens da mesma partição por major:minor e recusa encerramento com montagens ORDAX-ESP/ORDAX-DATA ainda graváveis. Falhas de vedação e retorno do kernel exigem tentativa controlada de restauração.
-- Testes locais em checkout isolado, com LF preservado, usando WSL: `sh -n system/entrypoint` e **14/14 testes aprovados** (7 transição de energia + 7 verificações ext4, aliases e FAT/ESP). Ensaio real do BusyBox em imagem descartável também aprovou.
+- Guardian confirma a origem ext4, partição 2 em mídia removível e major:minor via sysfs/mountinfo, reutilizando a validação das labels realizada pelo initramfs. Recusa ESP/DATA com montagens graváveis, usando major:minor sem exigir applets inexistentes; veda superbloco e **todos os aliases VFS graváveis** da partição raiz. Falhas de vedação e retorno do kernel exigem restauração das flags de montagens originalmente graváveis.
+- Testes locais em checkout isolado com LF preservado: `sh -n system/entrypoint` e **18/18 testes aprovados** (7 transição de energia + 11 superbloco/aliases/ESP/DATA, incluindo **1 teste real** com ext4 128 MiB, mount namespace privado, selagem de todos os aliases, restauração de flags e segundo fechamento, seguido de `e2fsck -fn=0`).
 - Gates ainda exigidos: CI completo da PR, teste de topologia real do Owner Dev com `switch_root` e `pivot_root`, QEMU com ciclo de energia e `e2fsck -fn` após desligamento, hardware real em vários ciclos. A integridade comprovada do USB físico decorre apenas do reparo offline; não confundir com aprovação da correção do Guardian.
 
 - PR #2088 atualizada para o commit de cabeça `92fce755`: removeu a dependência de `blkid` (não instalada na Base Owner), passando a conferir origem da raiz por `/sys/class/block`, número da partição e major:minor de `/proc/self/mountinfo`. A verificação da ESP/DATA utiliza partições irmãs da raiz USB em vez de pesquisa de labels não suportada no runtime. **Owner Development Preflight e Release Bundle Tooling passaram** nesta revisão; demais CI e ensaio físico não estavam concluídos no último checkpoint.
+
+- **Automação do gate:** os 17 testes herméticos entram no preflight Owner; a suíte de integração com loop real e namespace privado é acionada obrigatoriamente no workflow oficial Creator Owner Development Git USB para alterações no Guardian, além do boot QEMU Owner. A prova de boot Owner pré-existente verifica boots frios e saúde gráfica, **não** prova por si só a transição de desligamento do Guardian; isso continua um gate distinto.
