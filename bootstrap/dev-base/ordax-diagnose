@@ -17,6 +17,8 @@ POWER_LAST_REQUEST=${ORDAX_POWER_LAST_REQUEST:-/state/ordax/power/last-request}
 POWER_LAST_STAGE=${ORDAX_POWER_LAST_STAGE:-/state/ordax/power/last-stage}
 POWER_LAST_FAILURE=${ORDAX_POWER_LAST_FAILURE:-/state/ordax/power/last-failure}
 PULL_RESULT=${ORDAX_PULL_RESULT:-/run/ordax-update/pull-result}
+CURRENT_COMMIT_RECEIPT=${ORDAX_CURRENT_COMMIT_RECEIPT:-/state/ordax/current-commit}
+DEV_HELPERS_RECEIPT=${ORDAX_DEV_HELPERS_RECEIPT:-/state/ordax/dev-helpers-sha}
 
 show_fs() {
     label=$1
@@ -117,6 +119,45 @@ show_cached_main() {
     printf 'pull.cached_main_relation=%s\n' "$relation"
 }
 
+# Strictly one-line, non-symlinked SHA receipts. Never print arbitrary
+# receipt data or infer success from the Git HEAD alone.
+read_exact_sha_receipt() {
+    receipt=$1
+    [ -f "$receipt" ] && [ ! -L "$receipt" ] && [ -r "$receipt" ] || return 1
+    IFS= read -r receipt_sha <"$receipt" || [ -n "$receipt_sha" ] || return 1
+    case "$receipt_sha" in
+        ''|*[!0-9a-f]*) return 1 ;;
+    esac
+    [ "${#receipt_sha}" -eq 40 ] || return 1
+    printf '%s\n' "$receipt_sha"
+}
+
+show_checkout_receipt_consistency() {
+    current_receipt=$(read_exact_sha_receipt "$CURRENT_COMMIT_RECEIPT" || true)
+    helper_receipt=$(read_exact_sha_receipt "$DEV_HELPERS_RECEIPT" || true)
+    if [ "$sha" = unavailable ]; then
+        current_result=unavailable
+        helper_result=unavailable
+    else
+        if [ -z "$current_receipt" ]; then
+            current_result=unavailable
+        elif [ "$current_receipt" = "$sha" ]; then
+            current_result=matches-head
+        else
+            current_result=differs-from-head
+        fi
+        if [ -z "$helper_receipt" ]; then
+            helper_result=unavailable
+        elif [ "$helper_receipt" = "$sha" ]; then
+            helper_result=matches-head
+        else
+            helper_result=differs-from-head
+        fi
+    fi
+    printf 'pull.current_receipt_relation=%s\n' "$current_result"
+    printf 'pull.helpers_receipt_relation=%s\n' "$helper_result"
+}
+
 mark_if_log_contains() {
     name=$1
     logfile=$2
@@ -151,6 +192,7 @@ esac
 if [ "$(printf '%s' "$sha" | /bin/busybox wc -c)" -ne 40 ]; then sha=unavailable; fi
 printf 'checkout.sha=%s\n' "$sha"
 show_cached_main
+show_checkout_receipt_consistency
 show_fs root /
 show_fs state /state
 show_fs run /run
