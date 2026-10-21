@@ -257,11 +257,69 @@ class BuiltNativePythonClosureTests(unittest.TestCase):
         with self.assertRaisesRegex(self.mod.BaseError, "non-x86_64 ELF"):
             self.mod.verify_native_python_target(self.target)
 
+    def test_kernel_host_smoke_executes_private_loader_and_modules(self):
+        import os
+        from types import SimpleNamespace
+        abi = {"python_executable": "usr/bin/python3.13"}
+        result = SimpleNamespace(
+            returncode=0, stdout=json.dumps({
+                "python_version": "3.13.7",
+                "module_names": ["ssl", "_ssl", "hashlib", "_hashlib", "zlib", "json"],
+                "ssl_version": "OpenSSL 3.5.0",
+                "all_imports_private": True,
+                "tls_and_zlib_operational": True,
+            }),
+        )
+        with patch.object(self.mod.subprocess, "run", return_value=result) as runner:
+            proof = self.mod.smoke_test_private_native_python(self.target, abi)
+        args, kwargs = runner.call_args
+        self.assertEqual(args[0][0], str(self.target / "lib/ld-musl-x86_64.so.1"))
+        self.assertEqual(args[0][1], str(self.exe))
+        self.assertIn("-S", args[0])
+        self.assertIn("-s", args[0])
+        self.assertEqual(kwargs["env"]["PYTHONHOME"], str(self.target / "usr"))
+        self.assertEqual(kwargs["env"]["LD_LIBRARY_PATH"],
+                         str(self.target / "lib") + ":" + str(self.target / "usr/lib"))
+        self.assertFalse(proof["ordax_usb_execution_proven"])
+        self.assertFalse(proof["runtime_agent_packaged"])
+        self.assertTrue(proof["linux_kernel_execution_proven"])
+
+    def test_kernel_host_smoke_cannot_accept_host_python_or_missing_tls(self):
+        from types import SimpleNamespace
+        abi = {"python_executable": "usr/bin/python3.13"}
+        invalid_reports = [
+            {"python_version": "3.12.8", "module_names": ["ssl", "_ssl", "hashlib",
+                 "_hashlib", "zlib", "json"], "ssl_version": "OpenSSL 3.5.0",
+             "all_imports_private": True, "tls_and_zlib_operational": True},
+            {"python_version": "3.13.7", "module_names": ["ssl", "_ssl", "hashlib",
+                 "_hashlib", "zlib", "json"], "ssl_version": "OpenSSL 3.5.0",
+             "all_imports_private": False, "tls_and_zlib_operational": True},
+            {"python_version": "3.13.7", "module_names": ["ssl", "_ssl", "hashlib",
+                 "_hashlib", "zlib", "json"], "ssl_version": "OpenSSL 3.5.0",
+             "all_imports_private": True, "tls_and_zlib_operational": False},
+        ]
+        for report in invalid_reports:
+            with self.subTest(report=report):
+                result = SimpleNamespace(returncode=0, stdout=json.dumps(report))
+                with patch.object(self.mod.subprocess, "run", return_value=result):
+                    with self.assertRaisesRegex(self.mod.BaseError, "smoke verification incomplete"):
+                        self.mod.smoke_test_private_native_python(self.target, abi)
+
+    def test_kernel_host_smoke_fails_closed_on_process_error(self):
+        from types import SimpleNamespace
+        with patch.object(self.mod.subprocess, "run",
+                          return_value=SimpleNamespace(returncode=1, stdout="missing private libz")):
+            with self.assertRaisesRegex(self.mod.BaseError, "smoke execution failed"):
+                self.mod.smoke_test_private_native_python(
+                    self.target, {"python_executable": "usr/bin/python3.13"}
+                )
+
     def test_build_component_uses_single_existing_setup_not_os_ero_fs(self):
         source = (BASE / "build.py").read_text()
         self.assertIn("configure_buildroot(", source)
         self.assertIn("def build_native_python_component(", source)
         self.assertIn('verify_native_python_target(build_dir / "target")', source)
+        self.assertIn('smoke_test_private_native_python(build_dir / "target", evidence)', source)
         self.assertIn('"device_install_authorized": False', source)
 
 
