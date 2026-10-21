@@ -6,7 +6,10 @@ Only the Native Host holds the credential. No Surface route or second account.
 """
 from __future__ import annotations
 
+import fcntl
 import json
+import os
+import stat
 import threading
 import time
 from urllib.error import HTTPError, URLError
@@ -32,11 +35,74 @@ class ProductDevicePresenceClient:
         self._timeout = float(timeout_seconds)
         self._opener = build_opener(_NoRedirect())
 
+    def _acquire_runtime_instance_lock(self) -> int | None:
+        """Use the *existing* canonical native agent singleton lock.
+
+        Native Runtime owns product-runtime/instance.lock while its process
+        handles attested sessions and heartbeats. Discovery takes the same
+        advisory lock only while an HTTPS report is in flight. A busy lock
+        means Runtime is responsible for presence; never send a conflicting
+        offline/online report or create a separate leader-election authority.
+        """
+        runtime_dir = self._store.root.parent / "product-runtime"
+        directory_fd = None
+        lock_fd = None
+        try:
+            runtime_dir.mkdir(mode=0o700, exist_ok=True)
+            directory_fd = os.open(
+                runtime_dir,
+                os.O_RDONLY | os.O_DIRECTORY | getattr(os, "O_NOFOLLOW", 0)
+                | getattr(os, "O_CLOEXEC", 0),
+            )
+            directory = os.fstat(directory_fd)
+            if (not stat.S_ISDIR(directory.st_mode)
+                    or directory.st_uid != os.geteuid()
+                    or stat.S_IMODE(directory.st_mode) != 0o700):
+                raise ProductDevicePresenceError("device-presence-runtime-state-unsafe")
+            lock_fd = os.open(
+                "instance.lock",
+                os.O_RDWR | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0)
+                | getattr(os, "O_CLOEXEC", 0),
+                0o600, dir_fd=directory_fd,
+            )
+            locked = os.fstat(lock_fd)
+            if (not stat.S_ISREG(locked.st_mode)
+                    or locked.st_uid != os.geteuid()
+                    or locked.st_nlink != 1
+                    or stat.S_IMODE(locked.st_mode) != 0o600):
+                raise ProductDevicePresenceError("device-presence-runtime-lock-unsafe")
+            try:
+                fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError:
+                # The one upstream Runtime has exclusive control of this
+                # device identity; discovery simply skips this tick.
+                return None
+            owned = lock_fd
+            lock_fd = None
+            return owned
+        except OSError as exc:
+            raise ProductDevicePresenceError("device-presence-runtime-lock-unavailable") from exc
+        finally:
+            if lock_fd is not None:
+                os.close(lock_fd)
+            if directory_fd is not None:
+                os.close(directory_fd)
+
     def report(self, online: bool) -> bool:
         """A presence signal has no grant, project, Space or action authority."""
         credential = self._store.read_enrolled_credential()
         if credential is None:
             return False
+        lock_fd = self._acquire_runtime_instance_lock()
+        if lock_fd is None:
+            return False
+        try:
+            return self._report_with_owned_lock(online, credential)
+        finally:
+            fcntl.flock(lock_fd, fcntl.LOCK_UN)
+            os.close(lock_fd)
+
+    def _report_with_owned_lock(self, online: bool, credential: dict[str, str]) -> bool:
         device_id = credential["device_id"]
         body = json.dumps({
             "online": bool(online),
