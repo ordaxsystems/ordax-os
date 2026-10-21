@@ -551,19 +551,18 @@ owner_usb_seal_root_for_power() {
     OWNER_USB_SEAL_FAILURE_STAGE=alias-discovery
     owner_usb_capture_writable_aliases || return 1
     OWNER_USB_ROOT_SOURCE=$device
-    # First close journal writes at the superblock, then close the VFS write
-    # flag of *each* originally writable bind alias. A superblock RO remount
-    # alone is insufficient (observed on real Linux mountinfo).
-    # The running root may already be read-only after mount(2) succeeds;
-    # BusyBox must not attempt to maintain the obsolete /etc/mtab file.
-    # /proc/self/mountinfo is authoritative. Diagnostic stderr goes only to
-    # the existing volatile /run guardian log, never persistent ext4.
-    OWNER_USB_SEAL_FAILURE_STAGE=superblock-remount
-    /bin/busybox mount -n -o remount,ro "$device" / >>"$GUARDIAN_LOG" 2>&1 || return 1
+    # First close every writable VFS alias, then seal the ext4 journal.
+    # The real Owner QEMU ACPI proof observed EBUSY on the superblock while
+    # writable bind aliases were still present. Do not retry or bypass EBUSY:
+    # the caller restores only the aliases captured above and refuses power.
+    # -n prevents obsolete /etc/mtab updates; mountinfo is authoritative.
+    # Diagnostic stderr stays in the volatile /run Guardian log.
     for target in $OWNER_USB_WRITABLE_ALIASES; do
         OWNER_USB_SEAL_FAILURE_STAGE=alias-remount
         /bin/busybox mount -n -o remount,bind,ro "$target" "$target" >>"$GUARDIAN_LOG" 2>&1 || return 1
     done
+    OWNER_USB_SEAL_FAILURE_STAGE=superblock-remount
+    /bin/busybox mount -n -o remount,ro "$device" / >>"$GUARDIAN_LOG" 2>&1 || return 1
     OWNER_USB_SEAL_FAILURE_STAGE=readonly-proof
     owner_usb_all_root_mounts_read_only || return 1
     OWNER_USB_SEAL_FAILURE_STAGE=""
