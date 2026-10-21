@@ -136,10 +136,13 @@ class BuiltNativePythonClosureTests(unittest.TestCase):
                      "_hashlib.cpython-313-x86_64-linux-musl.so",
                      "zlib.cpython-313-x86_64-linux-musl.so"):
             (stdlib / "lib-dynload" / name).write_text("not-an-ELF test module")
-        (stdlib / "ssl.py").write_text("")
-        (stdlib / "site.py").write_text("")
-        (stdlib / "json").mkdir()
-        (stdlib / "json/__init__.py").write_text("")
+        (stdlib / "json/__pycache__").mkdir(parents=True)
+        (stdlib / "__pycache__").mkdir(parents=True)
+        # Validate the Buildroot .pyc-only layout, not host Python sources.
+        bytecode = bytes.fromhex("a70d0d0a") + bytes(12) + b"x"
+        for module in ("ssl", "site"):
+            (stdlib / "__pycache__" / (module + ".cpython-313.pyc")).write_bytes(bytecode)
+        (stdlib / "json/__pycache__/__init__.cpython-313.pyc").write_bytes(bytecode)
         (self.target / "etc/ssl/certs").mkdir(parents=True)
         (self.target / "etc/ssl/certs/ca-certificates.crt").write_text("certificate")
         (lib_dir / "ld-musl-x86_64.so.1").write_bytes(binary)
@@ -218,6 +221,23 @@ class BuiltNativePythonClosureTests(unittest.TestCase):
         )):
             with self.assertRaisesRegex(self.mod.BaseError, "unexpected private Python ELF interpreter"):
                 self.mod.verify_native_python_target(self.target)
+
+    def test_stdlib_requires_compiled_modules_not_source_placeholders(self):
+        stdlib = self.target / "usr/lib/python3.13"
+        ssl = stdlib / "__pycache__/ssl.cpython-313.pyc"
+        ssl.unlink()
+        (stdlib / "ssl.py").write_text("pass")
+        with self.assertRaisesRegex(self.mod.BaseError, "compiled standard library incomplete: ssl"):
+            self.mod.verify_native_python_target(self.target)
+
+    def test_corrupt_stdlib_pyc_does_not_pass_closure_audit(self):
+        stdlib = self.target / "usr/lib/python3.13"
+        ssl = stdlib / "__pycache__/ssl.cpython-313.pyc"
+        for payload in (b"bad", bytes.fromhex("a70d0d0a") + bytes.fromhex("ffffffff") + bytes(9)):
+            with self.subTest(size=len(payload)):
+                ssl.write_bytes(payload)
+                with self.assertRaisesRegex(self.mod.BaseError, "compiled standard library incomplete: ssl"):
+                    self.mod.verify_native_python_target(self.target)
 
     def test_missing_tls_and_zlib_extensions_are_blockers(self):
         folder = self.target / "usr/lib/python3.13/lib-dynload"
