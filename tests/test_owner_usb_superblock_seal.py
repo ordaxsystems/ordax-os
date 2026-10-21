@@ -223,11 +223,11 @@ class OwnerUsbSuperblockSealTests(unittest.TestCase):
             "'$5 == target { print $3; exit }' /proc/self/mountinfo",
         )
         functions = functions.replace(
-            'ordax-usb-mountattr superblock-ro "$device" /',
-            'mount -n -o remount,ro "$device" "$ROOTMOUNT"',
+            'superblock-ro "$device" /',
+            'superblock-ro "$device" "$ROOTMOUNT"',
         ).replace(
-            'ordax-usb-mountattr superblock-rw "$OWNER_USB_ROOT_SOURCE" /',
-            'mount -n -o remount,rw "$OWNER_USB_ROOT_SOURCE" "$ROOTMOUNT"',
+            'superblock-rw "$OWNER_USB_ROOT_SOURCE" /',
+            'superblock-rw "$OWNER_USB_ROOT_SOURCE" "$ROOTMOUNT"',
         )
         functions = functions.replace(
             "/usr/local/bin/ordax-usb-mountattr", '"$MOUNTATTR_BIN"',
