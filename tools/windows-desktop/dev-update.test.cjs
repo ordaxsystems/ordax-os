@@ -8,7 +8,8 @@ const { tmpdir } = require('node:os');
 const { OFFICIAL_REMOTE } = require('./runtime.cjs');
 const { git } = require('./checkout.cjs');
 const { readState, writeState, validateState, versionRoot, stageMain,
-  chooseBootVersion, confirmHealthy, pinPrevious, unpin } = require('./dev-update.cjs');
+  chooseBootVersion, confirmHealthy, pinPrevious, unpin,
+  sweepStaleCandidates, removeOwnedCandidate } = require('./dev-update.cjs');
 
 function gitCli(args,cwd) {
   const result=spawnSync('git',args,{cwd,encoding:'utf8',windowsHide:true,
@@ -197,4 +198,47 @@ test('legacy update state without incompatibleSha remains readable',t=>{
   writeFileSync(join(f.userData,'desktop-dev-update-state.json'),JSON.stringify(legacy));
   assert.equal(readState(f.userData).incompatibleSha,null);
   assert.throws(()=>validateState({...legacy,incompatibleSha:'invalid'}),/Untrusted/);
+});
+
+test('Windows busy Git candidate is deferred without suppressing incompatible SHA verdict',async t=>{
+  const f=fixture(t);
+  const contract=join(f.source,'tools','windows-emulator','desktop-host-contract.json');
+  rmSync(contract);
+  gitCli(['add','-u'],f.source);
+  gitCli(['commit','-qm','no Desktop Host contract'],f.source);
+  const expected=gitCli(['rev-parse','HEAD'],f.source);
+  let clones=0;const log=[];
+  const runGit=async (...args)=>{if(args[0][0]==='clone')clones++;return f.offlineGit(...args)};
+  const result=await stageMain({userData:f.userData,template:f.template,runGit,
+    buildCandidate:f.offlineBuild,log:m=>log.push(m),
+    cleanupCandidate:()=>({removed:false,code:'EPERM'})});
+  assert.equal(result.status,'incompatible');
+  assert.equal(readState(f.userData).incompatibleSha,expected);
+  assert.equal(clones,1);
+  assert.equal(readdirSync(join(f.userData,'runtime-versions')).length,1);
+  assert.ok(log.some(m=>m.includes('Deferred Desktop Git candidate cleanup')));
+  assert.equal((await stageMain({userData:f.userData,template:f.template,runGit,
+    buildCandidate:f.offlineBuild})).status,'incompatible');
+  assert.equal(clones,1,'no repeated clone after a transient cleanup failure');
+  const sweep=sweepStaleCandidates(f.userData,{now:Date.now()+180000});
+  assert.equal(sweep.removed,1);
+  assert.equal(sweep.deferred,0);
+  assert.deepEqual(readdirSync(join(f.userData,'runtime-versions')),[]);
+});
+
+test('orphan maintenance never deletes noncandidate, fresh candidate, or verified SHA',t=>{
+  const f=fixture(t);
+  const versions=join(f.userData,'runtime-versions');
+  mkdirSync(versions,{recursive:true});
+  const orphan=join(versions,'.candidate-'+'f'.repeat(8)+'-'+ 'a'.repeat(4)+'-'+ 'b'.repeat(4)+'-'+ 'c'.repeat(4)+'-'+ 'd'.repeat(12));
+  const other=join(versions,'custom-user-data');
+  const sha=join(versions,'e'.repeat(40));
+  for(const item of [orphan,other,sha]){mkdirSync(item);writeFileSync(join(item,'keep'),'data')}
+  assert.deepEqual(sweepStaleCandidates(f.userData,{now:Date.now(),minAgeMs:180000}),{removed:0,deferred:0});
+  const result=sweepStaleCandidates(f.userData,{now:Date.now()+200000,minAgeMs:180000});
+  assert.equal(result.removed,1);
+  assert.equal(existsSync(orphan),false);
+  assert.equal(existsSync(other),true);
+  assert.equal(existsSync(sha),true);
+  assert.throws(()=>removeOwnedCandidate(sha),/Unsafe/);
 });
