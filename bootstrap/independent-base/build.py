@@ -806,6 +806,148 @@ def verify_target(target: Path, profile: str) -> dict:
     return surface_iproute2
 
 
+def verify_native_python_target(target: Path) -> dict:
+    """Audit real Buildroot Python, SSL, zlib, and its dynamic ELF closure.
+
+    A shared-library component is distinct from the immutable static OS base.
+    It is not an installed runtime or a replacement Product/MCP dispatcher.
+    """
+    if not target.is_dir() or target.is_symlink():
+        raise BaseError("private component target directory unavailable")
+    bin_root = target / "usr/bin"
+    python_candidates = sorted(
+        p for p in bin_root.glob("python3*")
+        if p.is_file() and not p.is_symlink()
+    )
+    python_binaries = [p for p in python_candidates
+                       if re.fullmatch(r"python3\.\d+", p.name)]
+    if len(python_binaries) != 1:
+        raise BaseError("expected exactly one compiled private CPython executable")
+    python_path = python_binaries[0]
+    stdlib_dirs = sorted(
+        path for path in (target / "usr/lib").glob("python3.*")
+        if path.is_dir() and not path.is_symlink()
+    )
+    if len(stdlib_dirs) != 1:
+        raise BaseError("expected exactly one private CPython standard library")
+    stdlib = stdlib_dirs[0]
+    for required in ("ssl.py", "json/__init__.py", "site.py"):
+        if not (stdlib / required).is_file():
+            raise BaseError("private CPython standard library incomplete: " + required)
+    for name in ("_ssl", "_hashlib", "zlib"):
+        extensions = list(stdlib.glob(f"lib-dynload/{name}*.so"))
+        if not extensions or any(p.is_symlink() for p in extensions):
+            raise BaseError("private CPython TLS/zlib extension missing: " + name)
+    ca = target / "etc/ssl/certs/ca-certificates.crt"
+    if not ca.is_file() or ca.stat().st_size == 0:
+        raise BaseError("private CPython CA certificate bundle missing")
+
+    elf_files: list[Path] = []
+    library_names: set[str] = set()
+    for folder in ("lib", "lib64", "usr/lib", "usr/lib64"):
+        directory = target / folder
+        if directory.is_dir():
+            for path in directory.rglob("*"):
+                if path.is_file() or path.is_symlink():
+                    library_names.add(path.name)
+
+    for path in sorted(target.rglob("*")):
+        if path.is_symlink() or not path.is_file():
+            continue
+        with path.open("rb") as handle:
+            header = handle.read(20)
+        if not header.startswith(b"\x7fELF"):
+            continue
+        if (len(header) != 20 or header[4:7] != b"\x02\x01\x01"
+                or int.from_bytes(header[18:20], "little") != 62):
+            raise BaseError("independent native Python component contains non-x86_64 ELF")
+        if int.from_bytes(header[16:18], "little") == 1:
+            continue  # ET_REL kernel/development object, not runnable userspace
+        elf_files.append(path)
+    if python_path not in elf_files or not elf_files:
+        raise BaseError("independent native Python component has no executable ELF")
+
+    interpreters: set[str] = set()
+    needed_names: set[str] = set()
+    for path in elf_files:
+        relative = path.relative_to(target).as_posix()
+        program = run("readelf", "-l", str(path))
+        dynamics = run("readelf", "-d", str(path))
+        matches = re.findall(r"Requesting program interpreter:\s*([^\]\s]+)", program)
+        for name in matches:
+            # Loader must be part of the PRIVATE musl component, never host.
+            if name != "/lib/ld-musl-x86_64.so.1":
+                raise BaseError("unexpected private Python ELF interpreter: " + relative)
+            if Path(name).name not in library_names:
+                raise BaseError("private Python musl loader missing from Buildroot target")
+            interpreters.add(name)
+        for needed in re.findall(r"\(NEEDED\).*?\[([^\]]+)\]", dynamics):
+            if needed not in library_names:
+                raise BaseError(f"private Python shared dependency absent: {relative}: {needed}")
+            needed_names.add(needed)
+    if "/lib/ld-musl-x86_64.so.1" not in interpreters:
+        raise BaseError("private Python ELF interpreter not proven")
+    fingerprint = hashlib.sha256(
+        "".join(
+            f"{path.relative_to(target).as_posix()} {digest(path)}\n"
+            for path in elf_files
+        ).encode("utf-8")
+    ).hexdigest()
+    return {
+        "python_executable": python_path.relative_to(target).as_posix(),
+        "python_sha256": digest(python_path),
+        "stdlib": stdlib.relative_to(target).as_posix(),
+        "compiled_elf_count": len(elf_files),
+        "required_interpreter": "/lib/ld-musl-x86_64.so.1",
+        "needed_shared_libraries": sorted(needed_names),
+        "elf_manifest_sha256": fingerprint,
+        "stdlib_ssl_zlib_verified": True,
+        "runtime_agent_packaged": False,
+        "component_install_authorized": False,
+        "device_execution_proven": False,
+    }
+
+
+def build_native_python_component(out: Path, cache: Path, jobs: int) -> dict:
+    """Compile isolated Buildroot Python, emit evidence only, no USB payload."""
+    source, kernel, _, _ = contracts()
+    out = out.resolve()
+    if out == ROOT or ROOT in out.parents or (
+        out.exists() and (not out.is_dir() or any(out.iterdir()))
+    ):
+        raise BaseError("component proof output must be a new or empty external directory")
+    for executable in ("make", "gcc", "readelf"):
+        if not shutil.which(executable):
+            raise BaseError("private Python Buildroot tool missing: " + executable)
+    out.mkdir(parents=True, exist_ok=True)
+    temp = Path(tempfile.mkdtemp(prefix="ordax-native-python-build-"))
+    try:
+        build_dir, cmd, archive, inputs = configure_buildroot(
+            source, kernel, cache, temp, NATIVE_COMPONENT_PROFILE
+        )
+        run(*cmd[:-1], f"-j{max(1, jobs)}", bounded_output=True)
+        evidence = verify_native_python_target(build_dir / "target")
+        receipt = {
+            "$schema": "ordax.private-native-python-build-proof/1",
+            "status": "build-proof-only",
+            "buildroot_sha256": digest(archive),
+            "kernel_source_version": kernel["version"],
+            "component_inputs": inputs,
+            "python_abi": evidence,
+            "runtime_agent_packaged": False,
+            "component_artifact_authorized": False,
+            "device_install_authorized": False,
+            "base_rootfs_modified": False,
+        }
+        (out / "native-python-provenance.json").write_text(
+            json.dumps(receipt, sort_keys=True, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        return receipt
+    finally:
+        shutil.rmtree(temp, ignore_errors=True)
+
+
 def build(out: Path, cache: Path, jobs: int, profile: str) -> dict:
     source, kernel, stable, network = contracts()
     out = out.resolve()
@@ -961,7 +1103,7 @@ def verify(out: Path, profile: str) -> dict:
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("action", choices=("check", "resolve", "build", "verify", "check-component", "resolve-component"))
+    parser.add_argument("action", choices=("check", "resolve", "build", "verify", "check-component", "resolve-component", "build-component"))
     parser.add_argument("--profile", choices=SUPPORTED_PROFILES, default="minimal")
     parser.add_argument("--out", type=Path)
     parser.add_argument("--cache", type=Path, default=Path("/tmp/ordax-independent-cache"))
@@ -977,6 +1119,11 @@ def main() -> int:
             print(json.dumps({"status": "component-contract-pass", "inputs": inputs}, sort_keys=True))
         elif args.action == "resolve-component":
             print(json.dumps(resolve_profile(args.cache, NATIVE_COMPONENT_PROFILE), sort_keys=True))
+        elif args.action == "build-component":
+            if args.out is None:
+                raise BaseError("--out required for component proof")
+            print(json.dumps(build_native_python_component(
+                args.out, args.cache, args.jobs), sort_keys=True))
         elif args.action == "check":
             source, kernel, stable, network = contracts()
             inputs = profile_inputs(source, args.profile)
