@@ -281,6 +281,10 @@ grep -q 'Resource busy' "$scratch/expected-busy.log" || {
     cat "$scratch/expected-busy.log" >&2
     exit 37
 }
+grep -q 'possible writer pid=' "$scratch/expected-busy.log" || {
+    cat "$scratch/expected-busy.log" >&2
+    exit 38
+}
 exec 9>&-
 owner_usb_seal_root_for_power || { echo FIRST_SEAL_STAGE=$OWNER_USB_SEAL_FAILURE_STAGE >&2; cat "$GUARDIAN_LOG" >&2; exit 31; }
 owner_usb_all_root_mounts_read_only || exit 32
