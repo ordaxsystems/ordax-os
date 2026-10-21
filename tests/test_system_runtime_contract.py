@@ -404,8 +404,10 @@ class SystemRuntimeContractTests(unittest.TestCase):
         self.assertIn("root_filesystem_is_read_only", guardian)
         self.assertIn('/bin/busybox reboot -f >/dev/null 2>&1', guardian)
         self.assertIn('/bin/busybox poweroff -f >/dev/null 2>&1', guardian)
-        self.assertIn("printf 'b' >/proc/sysrq-trigger", guardian)
-        self.assertIn("printf 'o' >/proc/sysrq-trigger", guardian)
+        # Emergency sysrq b/o reset bypasses clean ext4 teardown and must
+        # never be the Guardian's ordinary fallback after a kernel syscall.
+        self.assertNotIn("/proc/sysrq-trigger", guardian)
+        self.assertIn("kernel-transition-returned", guardian)
         self.assertIn('/bin/busybox mount -o remount,rw /', guardian)
         transition = guardian[
             guardian.index("perform_host_power_transition()") : guardian.index("wait_guardian_interval()")

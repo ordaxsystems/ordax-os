@@ -897,6 +897,12 @@ async function start() {
     installTrustedComponentContextProvider(
       createNativeFilesTrustedContextProvider({
         fileSpace: filesOwnerSpace, recentFiles, projects, appActivation,
+        // Only metadata from the independently verified current-slot catalog
+        // may authorize host-port composition for the future external Files.
+        // No signed slot, no Files host ports; no bootstrap fallback or grants.
+        verifiedCurrent: installedAppCatalog?.installed.find(
+          (entry) => entry.component.id === "files",
+        )?.metadata ?? null,
       }),
     );
   }

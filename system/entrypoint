@@ -583,18 +583,16 @@ perform_host_power_transition() {
         # unless the kernel transition returns and root is restored writable.
         /bin/busybox sync >/dev/null 2>&1 || true
     fi
+    # A sysrq b/o fallback bypasses filesystem shutdown and can corrupt ext4.
+    # Only the canonical kernel transition is allowed after the sync barrier.
+    # If the call returns, record failure and restore the supervised runtime;
+    # never issue an emergency reset as a routine power fallback.
     case "$action" in
         restart)
             /bin/busybox reboot -f >/dev/null 2>&1 || true
-            if [ -w /proc/sysrq-trigger ]; then
-                if printf 'b' >/proc/sysrq-trigger 2>/dev/null; then /bin/busybox sleep 1; fi
-            fi
             ;;
         shutdown)
             /bin/busybox poweroff -f >/dev/null 2>&1 || true
-            if [ -w /proc/sysrq-trigger ]; then
-                if printf 'o' >/proc/sysrq-trigger 2>/dev/null; then /bin/busybox sleep 1; fi
-            fi
             ;;
     esac
 

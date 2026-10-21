@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
 import shutil
+import shlex
 import stat
 import subprocess
 import tempfile
@@ -103,7 +104,7 @@ class DevPullExpectedShaTests(unittest.TestCase):
         run_git("push", "origin", "main", cwd=self.seed)
         return sha
 
-    def _pull(self, expected_sha: str) -> subprocess.CompletedProcess[str]:
+    def _pull(self, expected_sha: str, git_error=None) -> subprocess.CompletedProcess[str]:
         env = os.environ.copy()
         env.update(
             {
@@ -116,6 +117,24 @@ class DevPullExpectedShaTests(unittest.TestCase):
                 "ORDAX_BOOT_GIT_TIMEOUT_SECONDS": "30",
             }
         )
+        if git_error is not None:
+            shim_dir = self.root / "git-shim"
+            shim_dir.mkdir(exist_ok=True)
+            shim = shim_dir / "git"
+            shim.write_text(
+                "#!/bin/sh\n"
+                "for argument do\n"
+                '    if [ "$argument" = "ls-remote" ]; then\n'
+                '        printf \'%s\\n\' "$ORDAX_TEST_GIT_ERROR" >&2\n'
+                "        exit 128\n"
+                "    fi\n"
+                "done\n"
+                f"exec {shlex.quote(shutil.which('git'))} \"$@\"\n",
+                encoding="utf-8",
+            )
+            shim.chmod(0o755)
+            env["ORDAX_TEST_GIT_ERROR"] = git_error
+            env["PATH"] = str(shim_dir) + os.pathsep + env["PATH"]
         return subprocess.run(
             ["sh", str(PULL)],
             cwd=ROOT,
@@ -201,6 +220,33 @@ class DevPullExpectedShaTests(unittest.TestCase):
         self.assertEqual(run_git("rev-parse", "HEAD", cwd=self.worktree), self.first)
 
 
+
+    def test_standalone_pull_discovers_main_and_updates(self):
+        second = self._publish("two")
+        completed = self._pull("")
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        self.assertEqual(run_git("rev-parse", "HEAD", cwd=self.worktree), second)
+        self.assertEqual((self.run_dir / "pull-result").read_text().strip(), "completed")
+
+    def test_standalone_remote_errors_emit_only_fixed_private_phase_codes(self):
+        cases = (
+            ("dns", "fatal: Could not resolve host: example.invalid", "remote-discovery-dns"),
+            ("tls", "fatal: SSL certificate problem: certificate verify failed", "remote-discovery-tls"),
+            ("timeout", "fatal: Operation timed out", "remote-discovery-timeout"),
+            ("network", "fatal: Network is unreachable", "remote-discovery-connectivity"),
+            ("auth", "fatal: The requested URL returned error: 403", "remote-discovery-auth"),
+            ("unknown", "fatal: secret-sentinel-unclassified", "remote-discovery"),
+        )
+        for case, error, phase in cases:
+            with self.subTest(case=case):
+                completed = self._pull("", git_error=error)
+                self.assertNotEqual(completed.returncode, 0)
+                self.assertEqual((self.run_dir / "pull-result").read_text().strip(), phase)
+                self.assertIn(phase, completed.stderr)
+                self.assertNotIn(error, completed.stderr)
+                self.assertEqual(run_git("rev-parse", "HEAD", cwd=self.worktree), self.first)
+                self.assertFalse(list(self.run_dir.glob(".pull-remote.*")))
+                self.assertFalse((self.state / "current-commit").exists())
 
 if __name__ == "__main__":
     unittest.main()

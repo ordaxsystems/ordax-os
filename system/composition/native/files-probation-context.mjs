@@ -1,6 +1,6 @@
 import { assertComponentMountParent } from "../../services/components/runtime-mount.mjs";
 import { installComponentProbationContextProvider } from "../../services/components/probation-context.mjs";
-import { createNativeFilesTrustedContextProvider } from "./files-trusted-context.mjs";
+import { createNativeFilesHostPorts } from "./files-trusted-context.mjs";
 
 export const NATIVE_FILES_PROBATION_CONTEXT_SCHEMA =
   "ordax.native-files-probation-context/1";
@@ -75,13 +75,12 @@ export function createNativeFilesProbationContextBootstrap({
     }
     try {
       assertComponentMountParent({ root }, { label: "Files probation host" });
-      const trustedProvider = createNativeFilesTrustedContextProvider({
-        fileSpace,
-        recentFiles,
-        projects,
-        appActivation,
+      // Pending probation and verified current installation are separate
+      // lifecycle states. The probation loader verifies pending provenance;
+      // port validation must not assume (or forge) a current installed slot.
+      const context = createNativeFilesHostPorts({
+        fileSpace, recentFiles, projects, appActivation,
       });
-      const context = trustedProvider("files");
       state = "bound";
       resolveReady(Object.freeze({ context, root }));
       return context;

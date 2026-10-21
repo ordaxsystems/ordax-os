@@ -203,7 +203,10 @@ class HotUpdateSupervisorContractTests(unittest.TestCase):
         self.assertIn('cat-file -e "$EXPECTED_SHA^{commit}"', pull)
         # Supervisor-owned delivery uses local fetched Git objects only.
         # Remote discovery remains available solely to standalone Pull.
-        self.assertIn('remote_sha=$(remote_main_sha || true)', pull)
+        self.assertIn('if remote_sha=$(remote_main_sha "$REMOTE_STDERR_FILE"); then', pull)
+        self.assertIn('PULL_PHASE=$(remote_failure_phase "$REMOTE_STDERR_FILE")', pull)
+        self.assertIn('PULL_PHASE=handoff-ref-mismatch', pull)
+        self.assertNotIn('remote_sha=$(remote_main_sha || true)', pull)
         self.assertIn('checkout local sera preservado', pull)
 
     def test_pull_error_stage_and_committed_helper_receipt_are_consistent(self):

@@ -10,7 +10,9 @@ Status: **INVESTIGAÇÃO / BOOT FÍSICO BLOQUEADO**. Não promover a mídia a sa
 - Registro do sistema posterior: aplicação de código por volta de **06:36 UTC**, reinicialização solicitada; último estágio de energia persistido `filesystem-sync`. Registro de montagem do kernel com `ext4_orphan_get` / `EFSCORRUPTED` em **07:00:45 UTC**.
 - Após essa nova falha física de boot, `e2fsck -fn` exclusivamente leitura retornou **código 4**. Encontrou inodes órfãos **623, 7473, 10422**, inode excluído **10782** com `dtime=0`, divergências de bitmaps/contadores e **12.057 arquivos / 364.552 blocos**. Esses inodes diferem dos da primeira ocorrência.
 - Uma segunda imagem forense independente, anterior a novo reparo, foi preservada com **8.053.063.680 bytes**, foi submetida a SHA-256 e promovida de `.partial` para `.img` **após** o cálculo. O recibo de hash está armazenado no host Windows com a imagem; a primeira imagem e a cópia de trabalho anteriores continuam separadas. Não publicar arquivos brutos: podem conter dados de usuário.
-- A enumeração `Win32_DiskDrive` informou **8.052.549.120 bytes**; a dimensão de bloco usada pelo ambiente Linux e nas imagens foi **8.053.063.680 bytes**. Diferença a reconciliar com geometria física e dados do dispositivo; enumeração bem-sucedida **não** comprova qualidade de gravação da flash.
+- O Windows diverge entre interfaces: `Win32_DiskDrive.Size` indicou **8.052.549.120 bytes**, enquanto `Get-Disk -Number 1` indicou **8.053.063.680 bytes**, coincidente com a imagem, a GPT (LBA de reserva 15.728.639) e a leitura física realizada. Logo **não** classificar a GPT como fora da capacidade real só por `Win32_DiskDrive`. Nenhuma das duas respostas prova saúde da flash.
+- Revalidação independente no WSL recuperado: imagem forense aberta por `losetup --read-only --offset 269484032 --sizelimit 6708789248` como loop não montado; UUID `31fae013-727a-4d65-9134-241c34781919` confirmado; `e2fsck -fn` retornou **4**, reproduzindo os inodes 623, 7473, 10422 e 10782 e as divergências de contadores/bitmaps documentadas. Imagem original não alterada.
+- Comprovante SHA-256 registrado antes da promoção da cópia forense: `39e5e768f23451d3dd8d1108775214d7bd5142756d7674aa952310aeafdce791`.
 - O WSL dedicado à recuperação apresenta chamadas presas; as tentativas de consulta e encerramento isolado não forneceram confirmação de sucesso durante esta sessão. Nenhuma escrita física ou novo `fsck` de reparo foi executado nesta retomada.
 
 ## Distinção entre constatação, hipótese e correção
@@ -20,6 +22,15 @@ Status: **INVESTIGAÇÃO / BOOT FÍSICO BLOQUEADO**. Não promover a mídia a sa
 **Hipóteses ainda NÃO comprovadas:** sincronização/encerramento incompleto de montagens ext4 graváveis; falha de write-cache/flush USB; problema físico de flash/controlador; ou interação com o caminho de atualização.
 
 **Código auditado:** `system/entrypoint` (Guardian) realiza quiescência e `sync`, mas o modo Owner USB Dev passa a `/bin/busybox reboot -f` / `poweroff -f` sem testemunha de desmontagem/remontagem somente leitura de **todas** as montagens persistentes; `bootstrap/initramfs/root/init` rejeita ext4 não íntegro e oferece recuperação `ro,noload`, sem reparo automático. É uma proteção importante, porém não uma solução de causa raiz.
+
+## Evidência adicional de 21/10 — ensaio de reparo sobre imagem clonada
+
+- A imagem da recorrência (`8.053.063.680` bytes, SHA-256 `39e5e768f23451d3dd8d1108775214d7bd5142756d7674aa952310aeafdce791`) foi clonada para uma nova **cópia de trabalho**, sem escrever no USB físico. SHA-256 do fluxo de cópia verificado idêntico ao recibo preservado. Imagem forense original permanece intocada.
+- Dispositivo loop **somente da cópia de trabalho**, com offset `269484032` e extensão `6708789248` bytes; UUID ext4 validado antes de reparar.
+- `e2fsck -fy` na cópia: **código 1** (corrigiu metadados e recuperou journal); corrigiu inodes órfãos 623, 7473 e 10422, e inode 10782 com dtime inválido; regularizou bitmaps e contadores. Arquivos: `12.057 → 12.053`, blocos: `364.552 → 364.538`.
+- Verificação completa posterior na mesma cópia com `e2fsck -fn`: **código 0**, `12.053/409.600` arquivos e `364.538/1.637.888` blocos. Sem novas inconsistências detectadas. **Isso valida o método de recuperação, não a durabilidade da mídia ou a causa raiz.**
+- Código: removido fallback automático de `/proc/sysrq-trigger` para `b/o` do Guardian em `system/entrypoint`, com atualização do teste de contrato. Commits `7cae1b7f` e `f3af5f2c`. Eliminar esse caminho de reset não demonstra que `reboot -f` com múltiplos bind mounts duráveis esteja seguro.
+- **Estado físico neste checkpoint:** USB original ainda sem reparo adicional nesta retomada; não marcar como recuperado. Manutenção do host e validação física continuam gates independentes.
 
 ## Gates para liberar novamente o pendrive
 
