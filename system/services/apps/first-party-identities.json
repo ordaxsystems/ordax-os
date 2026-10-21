@@ -11,27 +11,7 @@
       "version": "0.1.0"
     },
     {
-      "appId": "activity",
-      "publisherPrincipalId": "ordax-official",
-      "version": "0.1.0"
-    },
-    {
-      "appId": "assistant",
-      "publisherPrincipalId": "ordax-official",
-      "version": "0.1.1"
-    },
-    {
       "appId": "files",
-      "publisherPrincipalId": "ordax-official",
-      "version": "0.1.0"
-    },
-    {
-      "appId": "internet",
-      "publisherPrincipalId": "ordax-official",
-      "version": "0.3.0"
-    },
-    {
-      "appId": "projects",
       "publisherPrincipalId": "ordax-official",
       "version": "0.1.0"
     },
