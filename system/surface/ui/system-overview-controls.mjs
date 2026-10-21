@@ -815,7 +815,7 @@ export function mountSystemOverviewControls(
         documentObject,
         "p",
         "ordax-system-section-copy",
-        t("system.updates.repositoryOnly.explanation"),
+        `${t("system.updates.fact.commit")} · ${t("system.overview.update.mode.none")}`,
       ));
     }
 
