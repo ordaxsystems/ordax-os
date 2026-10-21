@@ -57,6 +57,35 @@ class OwnerDevLocalAiLifecycleTests(unittest.TestCase):
             self.assertIn("artifact not staged", result.stderr)
             self.assertEqual(list(Path(state).iterdir()), [])
 
+    def test_incomplete_or_corrupted_staging_degrades_without_mount(self):
+        proof = json.loads(PROOF.read_text(encoding="utf-8"))
+        digest = proof["artifacts"]["local-ai-runtime.erofs"]["sha256"]
+        with tempfile.TemporaryDirectory() as state:
+            directory = Path(state) / "local-ai" / "sha256" / digest
+            directory.mkdir(parents=True)
+            directory.chmod(0o700)
+            image = directory / "local-ai-runtime.erofs"
+            image.write_bytes(b"not-a-verified-erofs")
+            image.chmod(0o600)
+            env = dict(os.environ, ORDAX_STATE_DIR=state,
+                       ORDAX_DISTRIBUTION_PROFILE="owner-development",
+                       ORDAX_PRODUCT_MODE="usb")
+            result = subprocess.run(["/bin/sh", str(SCRIPT), "start"], env=env,
+                                    capture_output=True, text=True, timeout=15)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertRegex(result.stderr, r"(artifact size mismatch|untrusted local AI artifact)")
+            self.assertEqual(image.read_bytes(), b"not-a-verified-erofs")
+            self.assertFalse((Path(state) / "local-ai.pid").exists())
+
+    def test_surface_starts_before_optional_full_image_verification(self):
+        source = RUN.read_text(encoding="utf-8")
+        spawn = source.index('    "$ENTRYPOINT" &')
+        start = source.index("local_ai_lifecycle start", spawn)
+        traps = source.index("trap cleanup_runtime EXIT", spawn)
+        self.assertLess(spawn, traps)
+        self.assertLess(traps, start)
+        self.assertIn("Native's bounded probe supervisor discovers readiness", source)
+
     def test_ordax_run_owns_start_and_stop_not_bootstrap_or_surface(self):
         text = RUN.read_text(encoding="utf-8")
         self.assertIn("LOCAL_AI_LIFECYCLE=$WORKTREE/system/services/local-ai/owner-dev-runtime.sh", text)
