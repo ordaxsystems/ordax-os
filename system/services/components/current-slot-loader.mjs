@@ -5,6 +5,7 @@ import { validateComponentRuntime } from "../../contracts/component-runtime.mjs"
 import { composeTrustedComponentContext } from "./runtime-loader.mjs";
 import { assertAppDataPort } from "../../contracts/app-data.mjs";
 import { revokeInstalledAppCapabilityReader } from "../device-agent/installed-app-capability-reader.mjs";
+import { createRevocableFileSpacePort } from "../files/revocable-file-space.mjs";
 import {
   assertComponentMountParent,
   createComponentMountContext,
@@ -112,6 +113,7 @@ export async function loadVerifiedCurrentComponentRuntime({
   let mounted = null;
   let releaseMountRoot = null;
   let trustedContext = null;
+  let fileSpaceLease = null;
   let returnedMount = false;
   try {
     assertComponentMountParent(context, { label: "Current component" });
@@ -147,7 +149,14 @@ export async function loadVerifiedCurrentComponentRuntime({
       () => composeTrustedComponentContext(id, context), limit, "trusted context",
     );
     trustedContext = effectiveContext;
-    const mountContext = createComponentMountContext(effectiveContext, id, {
+    // Apps receive a per-mount lease, not the durable host File Space.
+    if (Object.prototype.hasOwnProperty.call(effectiveContext, "fileSpace")) {
+      fileSpaceLease = createRevocableFileSpacePort(effectiveContext.fileSpace);
+    }
+    const deliveredContext = fileSpaceLease === null ? effectiveContext : Object.freeze({
+      ...effectiveContext, fileSpace: fileSpaceLease.port,
+    });
+    const mountContext = createComponentMountContext(deliveredContext, id, {
       label: "Current component",
     });
     releaseMountRoot = mountContext.releaseRoot;
@@ -172,6 +181,7 @@ export async function loadVerifiedCurrentComponentRuntime({
       destroy() {
         if (destroyed) return;
         destroyed = true;
+        fileSpaceLease?.revoke();
         revokeInstalledAppCapabilityReader(trustedContext?.capabilityReader);
         try { runtimeMount.destroy(); } finally { releaseRoot?.(); }
       },
@@ -185,6 +195,7 @@ export async function loadVerifiedCurrentComponentRuntime({
     // No capability survives failed import, absent slot, mount timeout,
     // replaced slot or an app that never reached a successful mount.
     if (!returnedMount) {
+      fileSpaceLease?.revoke();
       revokeInstalledAppCapabilityReader(trustedContext?.capabilityReader);
     }
   }
