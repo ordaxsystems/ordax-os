@@ -114,8 +114,16 @@ rebind_independent_console() {
         return 1
     }
     exec 1>/dev/console 2>&1
-    out_mount_id=$(/bin/busybox awk '$1 == "mnt_id:" { print $2; exit }' /proc/self/fdinfo/1 2>/dev/null || true)
-    err_mount_id=$(/bin/busybox awk '$1 == "mnt_id:" { print $2; exit }' /proc/self/fdinfo/2 2>/dev/null || true)
+    # Resolve the calling shell's PID with a builtin (no fork). A child awk
+    # opening /proc/self/fdinfo/1 observes its OWN stdout capture pipe,
+    # not init's console, and yields a false missing-mount failure.
+    console_owner_pid=0
+    read -r console_owner_pid _console_owner_stat </proc/self/stat || return 1
+    case "$console_owner_pid" in
+        ''|*[!0-9]*) return 1 ;;
+    esac
+    out_mount_id=$(/bin/busybox awk '$1 == "mnt_id:" { print $2; exit }' "/proc/$console_owner_pid/fdinfo/1" 2>/dev/null || true)
+    err_mount_id=$(/bin/busybox awk '$1 == "mnt_id:" { print $2; exit }' "/proc/$console_owner_pid/fdinfo/2" 2>/dev/null || true)
     [ -n "$out_mount_id" ] && [ -n "$err_mount_id" ] || return 1
     out_fs=$(/bin/busybox awk -v id="$out_mount_id" '$1 == id { fs=$3 } END { print fs }' /proc/self/mountinfo 2>/dev/null || true)
     err_fs=$(/bin/busybox awk -v id="$err_mount_id" '$1 == id { fs=$3 } END { print fs }' /proc/self/mountinfo 2>/dev/null || true)
