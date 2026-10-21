@@ -83,9 +83,15 @@ def run_verified_native_product_runtime(
         ):
             raise NativeProductRuntimeHandoffError("native_device_credentials_not_protected")
 
-        runtime_state = Path(getattr(config, "state_dir", "")).resolve()
-        if runtime_state == state_root or runtime_state in state_root.parents:
+        raw_runtime_state = getattr(config, "state_dir", None)
+        if not isinstance(raw_runtime_state, Path) or not raw_runtime_state.is_absolute():
+            raise NativeProductRuntimeHandoffError("native_runtime_state_invalid")
+        runtime_state = raw_runtime_state.resolve()
+        if (runtime_state == state_root or runtime_state in state_root.parents
+                or state_root in runtime_state.parents):
             raise NativeProductRuntimeHandoffError("native_runtime_state_overlaps_identity")
+        if identity_store.root.parent.resolve() not in runtime_state.parents:
+            raise NativeProductRuntimeHandoffError("native_runtime_state_outside_private_storage")
 
         # No Win32 fallback; the installed OS-owned adapter supplies only the
         # actual Linux/Wayland operations proven by that Native deployment.
