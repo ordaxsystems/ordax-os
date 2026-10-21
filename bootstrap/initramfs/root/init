@@ -10,8 +10,8 @@ OWNER_ROOT_PROBE=/run/ordax-owner-root-probe
 OWNER_ESP_PROBE=/run/ordax-owner-esp-probe
 
 rescue() {
-    echo "ordax-initramfs: local recovery (no automatic filesystem writes): $*" >&2
-    echo "OrdaX cannot safely continue. Keep the USB connected until poweroff." >&2
+    echo "ordax-initramfs: local recovery (no automatic filesystem repair): $*" >&2
+    echo "OrdaX cannot safely continue. Do not remove the USB until the host is fully powered off." >&2
     echo "A previous software version cannot fix damaged ext4 metadata." >&2
     echo "For offline repair, preserve a disk image first and check the unmounted filesystem." >&2
     echo "Type 'poweroff -f' to shut down, or use the local shell for diagnosis." >&2
