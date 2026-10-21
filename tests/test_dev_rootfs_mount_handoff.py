@@ -49,8 +49,14 @@ class DevRootfsMountHandoffTests(unittest.TestCase):
         self.assertIn("exec 1>/dev/console 2>&1", source)
         # This is an init(PID1) responsibility, not a general-purpose shell
         # operation. CI and administrator CLI invocations cannot own /dev/console.
-        self.assertIn('if [ "$" -eq 1 ]; then', source)
-        self.assertLess(source.index('if [ "$" -eq 1 ]; then'), source.index("rebind_independent_console; then"))
+        # "$" expands to this shell's PID. A bare "$" is literal text and
+        # silently bypasses the console isolation required of real boot PID 1.
+        self.assertNotIn('if [ "$" -eq 1 ]; then', source)
+        self.assertEqual(source.count('if [ "$" -eq 1 ]; then'), 1)
+        self.assertLess(
+            source.index('if [ "$" -eq 1 ]; then'),
+            source.index("rebind_independent_console; then"),
+        )
 
     def test_console_refuses_root_backed_or_unverified_fds(self) -> None:
         source = INIT.read_text(encoding="utf-8")
