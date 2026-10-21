@@ -270,10 +270,10 @@ if owner_usb_all_root_mounts_read_only; then
     echo BAD_PRE_SEAL_PROOF
     exit 30
 fi
-owner_usb_seal_root_for_power || exit 31
+owner_usb_seal_root_for_power || { echo FIRST_SEAL_STAGE=$OWNER_USB_SEAL_FAILURE_STAGE >&2; cat "$GUARDIAN_LOG" >&2; exit 31; }
 owner_usb_all_root_mounts_read_only || exit 32
 owner_usb_restore_root_after_abort || exit 33
-owner_usb_seal_root_for_power || exit 34
+owner_usb_seal_root_for_power || { echo SECOND_SEAL_STAGE=$OWNER_USB_SEAL_FAILURE_STAGE >&2; cat "$GUARDIAN_LOG" >&2; exit 34; }
 owner_usb_all_root_mounts_read_only || exit 35
 for name in workspace state home root base; do
     umount "$scratch/$name"
