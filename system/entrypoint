@@ -544,18 +544,26 @@ owner_usb_writable_aliases_restored() {
 owner_usb_seal_root_for_power() {
     OWNER_USB_ROOT_SOURCE=""
     OWNER_USB_WRITABLE_ALIASES=""
+    OWNER_USB_SEAL_FAILURE_STAGE=auxiliary-partitions
     owner_usb_auxiliary_partitions_quiesced || return 1
+    OWNER_USB_SEAL_FAILURE_STAGE=root-identity
     device=$(owner_usb_root_source) || return 1
+    OWNER_USB_SEAL_FAILURE_STAGE=alias-discovery
     owner_usb_capture_writable_aliases || return 1
     OWNER_USB_ROOT_SOURCE=$device
     # First close journal writes at the superblock, then close the VFS write
     # flag of *each* originally writable bind alias. A superblock RO remount
     # alone is insufficient (observed on real Linux mountinfo).
+    OWNER_USB_SEAL_FAILURE_STAGE=superblock-remount
     /bin/busybox mount -o remount,ro "$device" / >/dev/null 2>&1 || return 1
     for target in $OWNER_USB_WRITABLE_ALIASES; do
+        OWNER_USB_SEAL_FAILURE_STAGE=alias-remount
         /bin/busybox mount -o remount,bind,ro "$target" "$target" >/dev/null 2>&1 || return 1
     done
-    owner_usb_all_root_mounts_read_only
+    OWNER_USB_SEAL_FAILURE_STAGE=readonly-proof
+    owner_usb_all_root_mounts_read_only || return 1
+    OWNER_USB_SEAL_FAILURE_STAGE=""
+    return 0
 }
 
 owner_usb_restore_root_after_abort() {
@@ -708,7 +716,7 @@ perform_host_power_transition() {
             if ! owner_usb_restore_root_after_abort; then
                 fail_closed "Owner USB ext4 seal failed and rw recovery could not be proven"
             fi
-            restore_runtime_after_power_failure "$action" "Owner USB ext4 superblock could not be sealed" remount-failed
+            restore_runtime_after_power_failure "$action" "Owner USB ext4 sealing failed at ${OWNER_USB_SEAL_FAILURE_STAGE:-unknown}" remount-failed
             return 1
         fi
         if ! /bin/busybox sync >/dev/null 2>&1; then
