@@ -552,20 +552,37 @@ perform_host_power_transition() {
         restore_runtime_after_power_failure "$action" "filesystem sync failed before $action" sync-failed
         return 1
     fi
-    record_host_power_stage root-readonly || true
-    if ! remount_root_read_only_for_power; then
-        restore_runtime_after_power_failure "$action" "root filesystem could not be remounted read-only for $action" remount-failed
-        return 1
+    if [ "$DISTRIBUTION_PROFILE" = "owner-development" ] && [ "$PRODUCT_MODE" = "usb" ]; then
+        # Owner USB boots from an ext4 subdirectory via switch_root, and can
+        # pivot again into a versioned Base with several writable bind mounts.
+        # Remounting only / is not a valid durability proof for those other
+        # mounts; it has also prevented every tested physical shutdown.
+        # After Supervisor/Native and persistent agents have *proved* exit,
+        # perform the final, mandatory kernel-wide sync. No further persistent
+        # writes are permitted on the successful power path. The kernel owns
+        # the final poweroff; do not introduce a second power controller.
+        if ! /bin/busybox sync >>"$GUARDIAN_LOG" 2>&1; then
+            restore_runtime_after_power_failure "$action" "Owner USB final filesystem sync failed before $action" sync-failed
+            return 1
+        fi
+    else
+        # Stable/MVP owns a distinct rootfs and retains its verified
+        # read-only barrier. Future non-USB Dev modes keep this conservative
+        # route until their filesystem topology is explicitly supported.
+        record_host_power_stage root-readonly || true
+        if ! remount_root_read_only_for_power; then
+            restore_runtime_after_power_failure "$action" "root filesystem could not be remounted read-only for $action" remount-failed
+            return 1
+        fi
+        if ! root_filesystem_is_read_only; then
+            remount_root_read_write_after_power_abort || true
+            restore_runtime_after_power_failure "$action" "root filesystem remained writable after $action quiesce" root-still-writable
+            return 1
+        fi
+        # Persistence is sealed on this profile. No writes to regular files
+        # unless the kernel transition returns and root is restored writable.
+        /bin/busybox sync >/dev/null 2>&1 || true
     fi
-    if ! root_filesystem_is_read_only; then
-        remount_root_read_write_after_power_abort || true
-        restore_runtime_after_power_failure "$action" "root filesystem remained writable after $action quiesce" root-still-writable
-        return 1
-    fi
-
-    # Persistence is now sealed. Do not write regular files again unless the
-    # destructive kernel transition fails and root is restored read-write.
-    /bin/busybox sync >/dev/null 2>&1 || true
     case "$action" in
         restart)
             /bin/busybox reboot -f >/dev/null 2>&1 || true
@@ -581,13 +598,19 @@ perform_host_power_transition() {
             ;;
     esac
 
+    if [ "$DISTRIBUTION_PROFILE" = "owner-development" ] && [ "$PRODUCT_MODE" = "usb" ]; then
+        # No remount was done on Owner USB: restoration must not attempt one.
+        # Preserve the same failure receipt and restore supervised operation
+        # if both direct kernel power paths returned.
+        restore_runtime_after_power_failure "$action" "kernel $action transition returned without crossing a boot boundary" kernel-transition-returned
+        return 1
+    fi
     if remount_root_read_write_after_power_abort; then
         restore_runtime_after_power_failure "$action" "kernel $action transition returned without crossing a boot boundary" kernel-transition-returned
         return 1
     fi
 
-    # Root is safely read-only but the kernel refused both transition paths.
-    # Stay alive rather than fabricating success or reopening persistence.
+    # Stable/root-sealed path: do not restart on an unverified writable root.
     while :; do /bin/busybox sleep 3600; done
 }
 

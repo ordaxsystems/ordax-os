@@ -148,7 +148,7 @@ class PowerQuiescenceTests(unittest.TestCase):
         transition = function_source(guardian, "perform_host_power_transition")
         self.assertIn('mount -o remount,bind,ro / /', remount)
         self.assertIn('mount -o remount,ro /', remount)
-        self.assertIn('    if ! remount_root_read_only_for_power; then', transition)
+        self.assertIn('if ! remount_root_read_only_for_power; then', transition)
         self.assertIn('    if ! root_filesystem_is_read_only; then', transition)
         self.assertIn('remount-failed', transition)
         self.assertIn('root-still-writable', transition)
