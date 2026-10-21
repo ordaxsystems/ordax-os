@@ -109,6 +109,10 @@ def run_verified_native_product_runtime(
                 config,
                 device_credential_provider=identity_store.read_enrolled_credential,
                 computer_adapter=computer_adapter,
+                # Native Host commonly owns 127.0.0.1:8765; a second fixed
+                # status listener would fail or disturb its control API.
+                # Kernel-selected loopback port, no public/inbound binding.
+                status_port=0,
             )
             if type(result) is not int:
                 raise NativeProductRuntimeHandoffError("native_runtime_exit_invalid")
