@@ -1,4 +1,19 @@
 Native MCP Runtime launch ownership — canonical Linux executable
+(2026-10-21): The source-lock distinguishes the upstream compatibility
+contract's `native_composition_entrypoint=ordax_dev_agent.main.run`
+(dispatch loop) from the Linux binary
+`ordax-product-agent` whose embedded entrypoint is
+`ordax_dev_agent.native_main.main`. The native entrypoint validates
+Owner/Development USB, reads the enrolled OS credential, takes the
+canonical singleton lock and delegates to the dispatch loop. The former
+source-only Python handoff helper is not a runtime entrypoint.
+The unsigned candidate evidence is refreshed from the **successful
+push of ordax-runtime main** at
+`eaf47d2adc1c8be54a4240e1fbe539a3cda44649` (Actions run
+`39572841771`), with verified artifact ZIP and ELF SHA-256. It remains
+only an offline CI proof: no signature, installation or USB execution
+is claimed. The pinned upstream compatibility contract bytes did not
+change, so its SHA-256 is preserved.
 (2026-10-21): The Owner/Development USB Native Host now uses the same
 `product-runtime/instance.lock` as the upstream
 `ordax_dev_agent.native_main` executable. The OS presence worker holds

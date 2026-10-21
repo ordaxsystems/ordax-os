@@ -25,7 +25,7 @@ test("Studio runtime source lock pins the merged headless compatibility contract
   assert.equal(lock.$schema, "prototype-ordax.studio-runtime-source-lock/1");
   assert.equal(lock.source.repository, "https://github.com/ordaxsystems/ordax-runtime");
   assert.match(lock.source.commit, /^[0-9a-f]{40}$/);
-  assert.equal(lock.source.commit, "bae6429d8a21fa713272b46d447502aaf40fac58");
+  assert.equal(lock.source.commit, "eaf47d2adc1c8be54a4240e1fbe539a3cda44649");
   assert.deepEqual(lock.source.compatibility_contract, {
     path: "docs/contracts/ordax-os-runtime-compatibility.json",
     schema: "ordax.studio-runtime-compatibility/1",
@@ -57,7 +57,13 @@ test("Studio runtime source lock pins the merged headless compatibility contract
   );
   assert.equal(lock.runtime.native_device_identity_provider, "ProductDeviceIdentityStore.read_enrolled_credential");
   assert.equal(lock.runtime.native_identity_provider_supported, true);
+  // The upstream compatibility contract names the canonical inner dispatcher.
   assert.equal(lock.runtime.native_composition_entrypoint, "ordax_dev_agent.main.run");
+  // The separate Linux executable enters through native_main, then dispatches.
+  assert.equal(lock.runtime.native_executable_name, "ordax-product-agent");
+  assert.equal(lock.runtime.native_executable_source, "native/ordax-product-agent/entrypoint.py");
+  assert.equal(lock.runtime.native_executable_entrypoint, "ordax_dev_agent.native_main.main");
+  assert.notEqual(lock.runtime.native_composition_entrypoint, lock.runtime.native_executable_entrypoint);
   assert.equal(lock.runtime.native_composition_explicit_config_required, true);
   assert.equal(lock.runtime.native_composition_main_thread_required, true);
   assert.equal(lock.runtime.native_composition_uses_canonical_dispatch_loop, true);
@@ -174,11 +180,11 @@ test("Owner DEV CI candidate is recorded as evidence, not unsigned installation 
     kind: "ci-only-unsigned",
     source_commit: lock.source.commit,
     platform: "linux-amd64-musl",
-    workflow_run_id: 39550841322,
-    artifact_id: 12323850615,
-    archive_sha256: "d6d526ef91f7cdb3b3a8fbc6d719c03de260bf9febb2c0060666eddb1af45e4e",
-    executable_sha256: "1903470e1f0a3f8fe669dd6419f4771539fd42cb0128484f3fedbf649cafe31b",
-    executable_size_bytes: 24993200,
+    workflow_run_id: 39572841771,
+    artifact_id: 12332557477,
+    archive_sha256: "791e80facaf07dc9d4a3c5941c5ad4a141614acaf89785c50519fac7cd9e2525",
+    executable_sha256: "c432ec03bdd01df0eb8c2dbe5bcf147e93a7a94711f536154af14ce5719e6946",
+    executable_size_bytes: 24995232,
     offline_proof_verified: true,
     device_execution_proven: false,
     signed_distribution_authorized: false,
