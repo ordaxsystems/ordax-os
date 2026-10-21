@@ -383,18 +383,36 @@ root_filesystem_is_read_only() {
     return 1
 }
 
-# Development starts with a bind-mounted ext4 subdirectory as /. A regular
-# remount,ro attempts to change the backing superblock and can return EBUSY
-# while other writable mounts of that filesystem still exist. Lock the active
-# root *mount* instead; verify the resulting ro flag before the kernel call.
-# Stable/MVP retains its separate ordinary-root remount contract.
+# The Dev root is a bind-mounted ext4 directory, not an /etc/fstab
+# filesystem entry. BusyBox mount with a single operand may attempt to
+# resolve metadata after switch_root/pivot_root. Pass source AND target
+# explicitly to remount precisely the active root mount, not the backing
+# ext4 superblock or one of the other writable binds. Preserve the ro proof.
+# Stable/MVP retains its separately defined ordinary-root transition.
 remount_root_read_only_for_power() {
     case "$DISTRIBUTION_PROFILE" in
         owner-development)
-            /bin/busybox mount -o remount,bind,ro / >>"$GUARDIAN_LOG" 2>&1
+            /bin/busybox mount -o remount,bind,ro / / >>"$GUARDIAN_LOG" 2>&1
             ;;
         stable-mvp)
             /bin/busybox mount -o remount,ro / >>"$GUARDIAN_LOG" 2>&1
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+}
+
+# The abort path must undo only the same bind mount flags. In particular,
+# do not attempt a superblock-wide remount which could leave unrelated
+# writable state inaccessible after a rejected shutdown.
+remount_root_read_write_after_power_abort() {
+    case "$DISTRIBUTION_PROFILE" in
+        owner-development)
+            /bin/busybox mount -o remount,bind,rw / / >>"$GUARDIAN_LOG" 2>&1
+            ;;
+        stable-mvp)
+            /bin/busybox mount -o remount,rw / >>"$GUARDIAN_LOG" 2>&1
             ;;
         *)
             return 1
@@ -540,7 +558,7 @@ perform_host_power_transition() {
         return 1
     fi
     if ! root_filesystem_is_read_only; then
-        /bin/busybox mount -o remount,rw / >/dev/null 2>&1 || true
+        remount_root_read_write_after_power_abort || true
         restore_runtime_after_power_failure "$action" "root filesystem remained writable after $action quiesce" root-still-writable
         return 1
     fi
@@ -563,7 +581,7 @@ perform_host_power_transition() {
             ;;
     esac
 
-    if /bin/busybox mount -o remount,rw / >/dev/null 2>&1; then
+    if remount_root_read_write_after_power_abort; then
         restore_runtime_after_power_failure "$action" "kernel $action transition returned without crossing a boot boundary" kernel-transition-returned
         return 1
     fi
