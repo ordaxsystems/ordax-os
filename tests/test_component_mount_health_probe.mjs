@@ -3,7 +3,7 @@ import test from "node:test";
 
 import { COMPONENT_RUNTIME_SCHEMA } from "../system/contracts/component-runtime.mjs";
 import { FILE_SPACE_SCHEMA } from "../system/contracts/file-space.mjs";
-import { createNativeFilesTrustedContextProvider } from "../system/composition/native/files-trusted-context.mjs";
+import { createNativeFilesHostPorts } from "../system/composition/native/files-trusted-context.mjs";
 import { createAppActivationChannel } from "../system/services/apps/activation.mjs";
 import { hasNativeExternalFirstPartyModuleRead } from "../system/services/apps/external-first-party-policy.mjs";
 import { getFirstPartyApp } from "../system/apps/catalog.mjs";
@@ -81,18 +81,17 @@ function nativeFilePort() {
   });
 }
 
-function filesTrustedContext(root) {
+function filesProbationContext(root) {
   const projects = createProjectCatalogRuntime();
   const recentFiles = createRecentFilesRuntime();
   const appActivation = createAppActivationChannel();
   const fileSpace = createProjectContinuityFileSpace(nativeFilePort(), projects);
-  const provider = createNativeFilesTrustedContextProvider({
-    fileSpace,
-    recentFiles,
-    projects,
-    appActivation,
+  // This is a pending-health fixture: it validates host ports, but must not
+  // claim a verified installed 'current' Files slot.
+  const ports = createNativeFilesHostPorts({
+    fileSpace, recentFiles, projects, appActivation,
   });
-  return Object.freeze({ ...provider("files"), root });
+  return Object.freeze({ ...ports, root });
 }
 
 function runtime(mount) {
@@ -106,7 +105,7 @@ function runtime(mount) {
 
 test("Files mount-health proves a transient dedicated-root mount with host-owned typed ports", async () => {
   const surfaceRoot = makeSurfaceRoot();
-  const context = filesTrustedContext(surfaceRoot);
+  const context = filesProbationContext(surfaceRoot);
   let mounts = 0;
   let destroys = 0;
   let appRoot = null;
@@ -161,7 +160,7 @@ test("Files mount-health failure removes the dedicated root and propagates failu
   let appRoot = null;
   const healthCheck = createRuntimeMountHealthCheck({
     componentId: "files",
-    context: filesTrustedContext(surfaceRoot),
+    context: filesProbationContext(surfaceRoot),
     timeoutMs: 500,
   });
 
@@ -187,7 +186,7 @@ test("Files mount-health timeout releases the root and destroys a late mount", a
   let destroys = 0;
   const healthCheck = createRuntimeMountHealthCheck({
     componentId: "files",
-    context: filesTrustedContext(surfaceRoot),
+    context: filesProbationContext(surfaceRoot),
     timeoutMs: 100,
   });
   const pending = healthCheck({
@@ -209,7 +208,7 @@ test("Files mount-health rejects stale identity and non-canonical module URLs be
   let mounts = 0;
   const healthCheck = createRuntimeMountHealthCheck({
     componentId: "files",
-    context: filesTrustedContext(surfaceRoot),
+    context: filesProbationContext(surfaceRoot),
     timeoutMs: 500,
   });
   const candidate = runtime(async () => {
