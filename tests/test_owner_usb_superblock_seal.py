@@ -32,13 +32,13 @@ class OwnerUsbSuperblockSealTests(unittest.TestCase):
         self.assertIn('[ "$partition" = 2 ] && [ "$removable" = 1 ]', root)
         self.assertIn('[ "$root_id" = "$device_id" ]', root)
         self.assertIn('[ -b "$device" ]', root)
-        self.assertIn('mount -n -o remount,ro "$device" /', seal)
-        self.assertIn('mount -n -o remount,bind,ro "$target" "$target"', seal)
+        self.assertIn('ordax-usb-mountattr superblock-ro "$device" /', seal)
+        self.assertIn('ordax-usb-mountattr alias-ro "$target"', seal)
         # All writable VFS aliases must be sealed before the superblock:
         # real Owner/QEMU ACPI had returned EBUSY with the inverse ordering.
         self.assertLess(
-            seal.index('mount -n -o remount,bind,ro "$target" "$target"'),
-            seal.index('mount -n -o remount,ro "$device" /'),
+            seal.index('ordax-usb-mountattr alias-ro "$target"'),
+            seal.index('ordax-usb-mountattr superblock-ro "$device" /'),
         )
         self.assertLess(
             seal.index("OWNER_USB_SEAL_FAILURE_STAGE=alias-remount"),
@@ -46,8 +46,8 @@ class OwnerUsbSuperblockSealTests(unittest.TestCase):
         )
         self.assertIn("owner_usb_capture_writable_aliases", seal)
         self.assertIn("owner_usb_all_root_mounts_read_only", seal)
-        self.assertIn('mount -n -o remount,rw "$OWNER_USB_ROOT_SOURCE" /', restore)
-        self.assertIn('mount -n -o remount,bind,rw "$target" "$target"', restore)
+        self.assertIn('ordax-usb-mountattr superblock-rw "$OWNER_USB_ROOT_SOURCE" /', restore)
+        self.assertIn('ordax-usb-mountattr alias-rw "$target"', restore)
         self.assertIn("owner_usb_writable_aliases_restored", restore)
         self.assertIn("owner_usb_auxiliary_partitions_quiesced", seal)
         self.assertNotIn("/proc/sysrq-trigger", source)
@@ -223,11 +223,14 @@ class OwnerUsbSuperblockSealTests(unittest.TestCase):
             "'$5 == target { print $3; exit }' /proc/self/mountinfo",
         )
         functions = functions.replace(
-            'mount -n -o remount,ro "$device" /',
+            'ordax-usb-mountattr superblock-ro "$device" /',
             'mount -n -o remount,ro "$device" "$ROOTMOUNT"',
         ).replace(
-            'mount -n -o remount,rw "$OWNER_USB_ROOT_SOURCE" /',
+            'ordax-usb-mountattr superblock-rw "$OWNER_USB_ROOT_SOURCE" /',
             'mount -n -o remount,rw "$OWNER_USB_ROOT_SOURCE" "$ROOTMOUNT"',
+        )
+        functions = functions.replace(
+            "/usr/local/bin/ordax-usb-mountattr", '"$MOUNTATTR_BIN"',
         )
         # unshare -m creates a private Linux mount namespace. The only block
         # device used is a 128 MiB loop of a disposable regular file.
@@ -281,10 +284,19 @@ e2fsck -fn "$loop" >"$scratch/e2fsck.log" 2>&1 || {
 }
 echo PRIVATE_EXT4_MOUNT_SEAL_RESTORE_AND_FSCK_OK
 """
-        completed = subprocess.run(
-            ["unshare", "-m", "/bin/sh", "-c", script],
-            capture_output=True, text=True, timeout=90,
-        )
+        native_source = GUARDIAN.parents[1] / "bootstrap/dev-base/ordax_usb_mountattr.c"
+        with tempfile.TemporaryDirectory(prefix="ordax-native-power-mount-") as folder:
+            helper = Path(folder) / "ordax-usb-mountattr"
+            subprocess.run(
+                ["cc", "-static", "-Os", "-Wall", "-Wextra", "-Werror",
+                 "-o", str(helper), str(native_source)],
+                capture_output=True, text=True, check=True, timeout=80,
+            )
+            completed = subprocess.run(
+                ["unshare", "-m", "/bin/sh", "-c", script],
+                env={**os.environ, "MOUNTATTR_BIN": str(helper)},
+                capture_output=True, text=True, timeout=90,
+            )
         self.assertEqual(completed.returncode, 0, completed.stdout + completed.stderr)
         self.assertIn("PRIVATE_EXT4_MOUNT_SEAL_RESTORE_AND_FSCK_OK", completed.stdout)
 
