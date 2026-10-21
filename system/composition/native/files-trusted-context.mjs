@@ -8,6 +8,22 @@ import { assertProjectCatalogPort } from "../../contracts/project-catalog.mjs";
 import { assertAppActivationPort } from "../../contracts/app-activation.mjs";
 import { validateComponentRuntimeMetadata } from "../../contracts/component-runtime-metadata.mjs";
 
+// Shared validation for the two distinct Native component lifecycle states.
+// The current and pending loaders still own independent slot-identity gates.
+export function createNativeFilesHostPorts({
+  fileSpace = null,
+  recentFiles = null,
+  projects = null,
+  appActivation = null,
+} = {}) {
+  return Object.freeze({
+    fileSpace: assertFileSpacePort(fileSpace),
+    recentFiles: assertRecentFilesPort(recentFiles),
+    projects: assertProjectCatalogPort(projects),
+    appActivation: assertAppActivationPort(appActivation),
+  });
+}
+
 export function createNativeFilesTrustedContextProvider({
   fileSpace = null,
   recentFiles = null,
@@ -35,11 +51,8 @@ export function createNativeFilesTrustedContextProvider({
     if (current.source !== "slot") {
       throw new TypeError("Files host ports require an installed current slot");
     }
-    return Object.freeze({
-      fileSpace: assertFileSpacePort(fileSpace),
-      recentFiles: assertRecentFilesPort(recentFiles),
-      projects: assertProjectCatalogPort(projects),
-      appActivation: assertAppActivationPort(appActivation),
+    return createNativeFilesHostPorts({
+      fileSpace, recentFiles, projects, appActivation,
     });
   };
 }
