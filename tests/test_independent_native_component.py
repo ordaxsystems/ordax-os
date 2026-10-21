@@ -145,13 +145,24 @@ class BuiltNativePythonClosureTests(unittest.TestCase):
         (lib_dir / "ld-musl-x86_64.so.1").write_bytes(binary)
         (lib_dir / "libz.so.1").write_bytes(binary)
 
+    def fake_readelf(self, needed="libz.so.1", interpreter="/lib/ld-musl-x86_64.so.1"):
+        def result(program, mode, path):
+            self.assertEqual(program, "readelf")
+            is_python = path == str(self.exe)
+            if mode == "-l":
+                return (f"[Requesting program interpreter: {interpreter}]"
+                        if is_python else "Program Headers: LOAD")
+            self.assertEqual(mode, "-d")
+            return (f"0x00000001 (NEEDED) Shared library: [{needed}]"
+                    if is_python and needed else "There is no dynamic section")
+        return result
+
     def test_built_interpreter_and_dependency_closure_is_reported(self):
-        with patch.object(self.mod, "run", side_effect=[
-            "[Requesting program interpreter: /lib/ld-musl-x86_64.so.1]",
-            "0x00000001 (NEEDED) Shared library: [libz.so.1]",
-        ]) as readelf:
+        with patch.object(self.mod, "run", side_effect=self.fake_readelf()) as readelf:
             receipt = self.mod.verify_native_python_target(self.target)
-        self.assertEqual(readelf.call_count, 2)
+        self.assertGreaterEqual(readelf.call_count, 6)
+        readelf.assert_any_call("readelf", "-l", str(self.exe))
+        readelf.assert_any_call("readelf", "-d", str(self.exe))
         self.assertEqual(receipt["python_executable"], "usr/bin/python3.13")
         self.assertEqual(receipt["needed_shared_libraries"], ["libz.so.1"])
         self.assertTrue(receipt["stdlib_ssl_zlib_verified"])
@@ -161,10 +172,7 @@ class BuiltNativePythonClosureTests(unittest.TestCase):
         self.assertRegex(receipt["elf_manifest_sha256"], "^[a-f0-9]{64}$")
 
     def test_missing_private_lib_is_never_satisfied_by_host(self):
-        with patch.object(self.mod, "run", side_effect=[
-            "[Requesting program interpreter: /lib/ld-musl-x86_64.so.1]",
-            "0x00000001 (NEEDED) Shared library: [libssl.so.3]",
-        ]):
+        with patch.object(self.mod, "run", side_effect=self.fake_readelf(needed="libssl.so.3")):
             with self.assertRaisesRegex(self.mod.BaseError, "shared dependency absent"):
                 self.mod.verify_native_python_target(self.target)
 
@@ -184,10 +192,7 @@ class BuiltNativePythonClosureTests(unittest.TestCase):
         libz = self.target / "lib/libz.so.1"
         libz.unlink()
         libz.symlink_to("libz-missing.so")
-        with patch.object(self.mod, "run", side_effect=[
-            "[Requesting program interpreter: /lib/ld-musl-x86_64.so.1]",
-            "0x00000001 (NEEDED) Shared library: [libz.so.1]",
-        ]):
+        with patch.object(self.mod, "run", side_effect=self.fake_readelf()):
             with self.assertRaisesRegex(self.mod.BaseError, "shared dependency absent"):
                 self.mod.verify_native_python_target(self.target)
         libz.unlink()
@@ -208,8 +213,8 @@ class BuiltNativePythonClosureTests(unittest.TestCase):
             self.mod.private_component_library(self.target, "lib", "libz.so.1")
 
     def test_wrong_dynamic_interpreter_is_refused(self):
-        with patch.object(self.mod, "run", return_value=(
-            "[Requesting program interpreter: /lib64/ld-linux-x86-64.so.2]"
+        with patch.object(self.mod, "run", side_effect=self.fake_readelf(
+            interpreter="/lib64/ld-linux-x86-64.so.2"
         )):
             with self.assertRaisesRegex(self.mod.BaseError, "unexpected private Python ELF interpreter"):
                 self.mod.verify_native_python_target(self.target)
