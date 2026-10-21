@@ -242,7 +242,7 @@
     "orc": "0.4.40-r1",
     "p11-kit": "0.26.2-r0",
     "pango": "1.56.3-r0",
-    "pcre2": "10.46-r0",
+    "pcre2": "10.46-r1",
     "pixman": "0.46.4-r0",
     "pkgconf": "2.4.3-r0",
     "py3-gobject3": "3.52.3-r1",
@@ -307,11 +307,13 @@
     "purpose": "resolve-and-review-the-full-transitive-apk-lock-before-any-runtime-artifact-is-promotable"
   },
   "promotion_blockers": [
+    "repeat-byte-reproducible-erofs-build-on-current-apk-lock",
+    "prove-stable-first-surface-boot-with-network-disabled-on-current-head",
     "prove-physical-stable-surface-on-supported-usb-hardware",
     "prove-or-explicitly-defer-secure-boot-boundary-before-public-promotion"
   ],
   "apk_package_lock_count": 253,
-  "apk_package_lock_status": "reviewed-253-package-upstream-drift-refresh-reproof-passed-on-current-head",
+  "apk_package_lock_status": "reviewed-253-package-lock-pcre2-r1-reproof-pending",
   "discovery_evidence": {
     "workflow_run_id": 39498448185,
     "source_commit": "c0293cbf6315753e23fc5b1d0164313482d2eae6",
@@ -328,15 +330,13 @@
     "signed-release-manifest-v3-runtime-binding-implemented",
     "creator-content-addressed-runtime-preseed-implemented",
     "initramfs-runtime-erofs-ephemeral-overlay-handoff-implemented",
-    "stable-launcher-network-package-provisioning-disabled",
-    "current-apk-lock-erofs-byte-reproducibility-proven",
-    "current-head-offline-surface-runtime-qemu-handoff-proven"
+    "stable-launcher-network-package-provisioning-disabled"
   ],
   "reproducibility_proof": {
     "workflow": ".github/workflows/surface-runtime-lock-discovery.yml",
     "workflow_run_id": 39499129666,
     "source_commit": "b84b168f1770be019ad9324bb8b6a2a069eed37c",
-    "status": "current-head-pass",
+    "status": "historical-pre-pcre2-r1-lock-proof",
     "tree_manifest_sha256": "08ee3b37caeb0d2a470eecaeb371cc768fd7d2cc341e65e2b1da61cc16174dfc",
     "normalized_tar_sha256": "a1462ded28fe81a26319171f5ab1ade8841e901fd917ff673a63c7e92159cd40",
     "erofs_sha256": "7871ff30bf381c3dd63c42f63ebc26eaaf3ce0f2611aaa7c168cdb7744d66ef7",
@@ -371,12 +371,12 @@
     "creator_content_addressed_preseed_implemented": true,
     "initramfs_verified_mount_handoff_implemented": true,
     "stable_launcher_offline_runtime_required": true,
-    "qemu_current_head_proof_passed": true,
+    "qemu_current_head_proof_passed": false,
     "physical_usb_boot_proven": false,
     "secure_boot_proven": false
   },
   "lock_refresh": {
-    "status": "reproof-passed-on-current-head",
+    "status": "historical-reproof-passed-pre-pcre2-r1",
     "detected_by_ci_run_id": 39497041046,
     "discovery_run_id": 39498448185,
     "discovery_source_commit": "c0293cbf6315753e23fc5b1d0164313482d2eae6",
@@ -395,7 +395,7 @@
     ],
     "physical_artifact_created": false,
     "physical_write_authorized": false,
-    "reproducibility_reproof_required": false,
+    "reproducibility_reproof_required": true,
     "reproof": {
       "source_commit": "b84b168f1770be019ad9324bb8b6a2a069eed37c",
       "surface_runtime_candidate_run_id": 39499129666,
@@ -423,5 +423,17 @@
       ],
       "detected_by_ci_run_id": 39497041046
     }
+  },
+  "pending_lock_revalidation": {
+    "reason": "upstream-pcre2-alpine-v3.22-drift",
+    "detected_by_ci_run_id": 39556664512,
+    "failed_job_id": 119077928751,
+    "observed_package": "pcre2",
+    "previous_version": "10.46-r0",
+    "available_version": "10.46-r1",
+    "full_transitive_diff_verified": false,
+    "repeat_erofs_build_verified": false,
+    "offline_qemu_verified": false,
+    "physical_artifact_authorized": false
   }
 }
