@@ -204,8 +204,10 @@ echo "ordax-run: Ctrl+C stops this runtime session cleanly"
 # Observe only the canonical guardian log. TAIL_PID is the actual external tail
 # process, not a background shell-function wrapper, so cleanup can proveably reap it.
 start_guardian_tail
-local_ai_lifecycle start
 
+# Start the canonical Surface/Guardian first. Checking the signed model EROFS
+# may read hundreds of MiB from a slow USB; optional Intelligence must never
+# delay graphical boot. Native's bounded probe supervisor discovers readiness.
 ORDAX_DISTRIBUTION_PROFILE=owner-development \
 ORDAX_PRODUCT_MODE=usb \
 ORDAX_SOURCE_SHA="$source_sha" \
@@ -220,6 +222,9 @@ trap 'forward_signal HUP' HUP
 trap 'forward_signal INT' INT
 trap 'forward_signal TERM' TERM
 trap cleanup_runtime EXIT
+
+# The optional service does not participate in boot-health or update gates.
+local_ai_lifecycle start
 
 entry_rc=0
 wait "$ENTRY_PID" || entry_rc=$?
