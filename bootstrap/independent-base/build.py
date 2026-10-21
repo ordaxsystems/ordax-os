@@ -500,7 +500,11 @@ def resolve_profile(cache: Path, profile: str) -> dict:
         archive = source_archive(source, cache.resolve())
         br = safe_unpack(archive, temp, source["buildroot"]["version"])
         generated = temp / f"ordax_{profile.replace('-', '_')}_defconfig"
-        inputs = generate_defconfig(source, kernel, profile, generated)
+        component = profile == NATIVE_COMPONENT_PROFILE
+        inputs = (
+            generate_native_component_defconfig(source, kernel, generated)
+            if component else generate_defconfig(source, kernel, profile, generated)
+        )
         build_dir = temp / "br-output"
         cmd = [
             "make", "-C", str(br), f"O={build_dir}",
@@ -511,11 +515,14 @@ def resolve_profile(cache: Path, profile: str) -> dict:
         if config_path.is_symlink() or not config_path.is_file():
             raise BaseError("Buildroot did not materialize resolved .config")
         config = config_path.read_text(encoding="utf-8")
-        verify_resolved_config(config, kernel, profile)
+        if component:
+            verify_native_component_config(config, kernel)
+        else:
+            verify_resolved_config(config, kernel, profile)
         return {
-            "status": "profile-resolution-pass",
+            "status": "component-resolution-pass" if component else "profile-resolution-pass",
             "profile": profile,
-            "profile_inputs": profile_provenance(inputs),
+            "profile_inputs": inputs if component else profile_provenance(inputs),
             "buildroot_sha256": digest(archive),
             "kernel": kernel["version"],
             "erofs": stable["rootfs"]["format"],
@@ -953,14 +960,23 @@ def verify(out: Path, profile: str) -> dict:
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("action", choices=("check", "resolve", "build", "verify"))
+    parser.add_argument("action", choices=("check", "resolve", "build", "verify", "check-component", "resolve-component"))
     parser.add_argument("--profile", choices=SUPPORTED_PROFILES, default="minimal")
     parser.add_argument("--out", type=Path)
     parser.add_argument("--cache", type=Path, default=Path("/tmp/ordax-independent-cache"))
     parser.add_argument("--jobs", type=int, default=2)
     args = parser.parse_args()
     try:
-        if args.action == "check":
+        if args.action == "check-component":
+            source, kernel, _, _ = contracts()
+            with tempfile.TemporaryDirectory(prefix="ordax-component-defconfig-") as temporary:
+                inputs = generate_native_component_defconfig(
+                    source, kernel, Path(temporary) / "component_defconfig"
+                )
+            print(json.dumps({"status": "component-contract-pass", "inputs": inputs}, sort_keys=True))
+        elif args.action == "resolve-component":
+            print(json.dumps(resolve_profile(args.cache, NATIVE_COMPONENT_PROFILE), sort_keys=True))
+        elif args.action == "check":
             source, kernel, stable, network = contracts()
             inputs = profile_inputs(source, args.profile)
             print(json.dumps({
