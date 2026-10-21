@@ -60,7 +60,7 @@ class OwnerPowerReceiptsNativeTests(unittest.TestCase):
 
     def test_power_diagnostics_are_only_added_to_owner_usb_update_endpoint(self):
         text = SERVER.read_text(encoding="utf-8")
-        self.assertIn('OWNER_USB_POWER_RECEIPTS = "/ordax/dev-base/state/ordax/power"', text)
+        self.assertIn('OWNER_USB_POWER_RECEIPTS = "/srv/ordax-power-receipts"', text)
         self.assertIn('if owner_usb:\n                update_state["hostPower"] = read_owner_usb_power_receipts()', text)
         self.assertIn('update_state["manualCheckAvailable"] = owner_usb', text)
 
