@@ -37,3 +37,15 @@ O diagnóstico é local, sem alteração de dispositivos ou chamadas de rede e n
 5. Em teste físico **separado**, solicitar Desligar e observar se o hardware realmente desliga. Se a Surface retornar, coletar `power.last_status`, `power.last_stage` e `power.last_failure`. Não declarar poweroff aprovado com base em confirmação HTTP, stop da Surface ou testes isolados.
 
 Para preservar a confidencialidade, enviar só os tokens allowlist e SHAs necessários. Não incluir senhas de Wi-Fi, tokens OAuth, identificadores de sessão, URLs autenticadas nem diário integral publicamente.
+
+## 2026-10-20 — Causa raiz confirmada por revisão do Supervisor (PR #2057)
+
+A ocorrência `pull-handoff-validation-failed` **não é apenas uma falha indeterminada da rede nem a falta do objeto Git**. O caminho de atualização Owner/Dev possuía uma variável de shell compartilhada por funções sem isolamento. Em `apply_remote_checkout`, `expected_sha=$2` guardava o SHA alvo; posteriormente, `write_update_state "$previous_sha"` chamava `derive_base_update_progress "$source_sha"`, que executava `expected_sha=$1`. Como `/bin/sh` não fornece escopo local automático, o SHA da transação era trocado pelo SHA de origem antes de chamar `ORDAX_EXPECTED_SHA="$expected_sha" "$PULL_BIN"`. O Pull rejeitava, corretamente, a divergência entre `origin/main` já buscado e a referência recebida.
+
+**Mudança estrutural:** `apply_remote_checkout` usa parâmetros `checkout_target_sha` e `checkout_previous_sha`, nunca a variável genérica de outra função. `derive_base_update_progress` usa somente variáveis `base_progress_*`. Um invariante adicional impede avançar quando o SHA alvo diverge do SHA já buscado; não faz descoberta remota extra nem contorna verificação. O novo teste de regressão invoca o código real de `write_update_state`, `derive_base_update_progress`, `apply_remote_checkout` e o Pull real em um Git descartável com versões distintas.
+
+### Limite da prova e recuperação necessária
+
+A correção em GitHub **não repara automaticamente** uma instalação cujo Supervisor antigo destrói o SHA da própria atualização. Portanto, não repetir o boot antigo como teste de sucesso. Primeiro homologar testes/CI e integrar a PR, depois usar uma transação **única e controlada** de manutenção do USB físico para instalar o Supervisor corrigido. Preservar `previous-commit`, `HEAD`, `current-commit` e `dev-helpers-sha` coerentes, com `e2fsck -fn` aprovado após desmontagem. Não usar o Creator para mascarar a falha e não escrever em discos internos.
+
+Para validar o Pull **automático**, publicar **uma alteração posterior e funcional** na `main` depois de o USB conter o Supervisor corrigido. Somente então testar a entrega pelo notebook, observando estado e recibos. Nenhuma aprovação de GitHub Actions, Pull por WSL, nem relato de versão na Surface substitui a prova física.
