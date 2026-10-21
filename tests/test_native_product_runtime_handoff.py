@@ -67,7 +67,8 @@ class HandoffTests(unittest.TestCase):
                 self.assertIs(client, self.old_presence.client)
             def start(me):
                 self.returned = True
-        def execute(config, *, device_credential_provider, computer_adapter):
+        def execute(config, *, device_credential_provider, computer_adapter, status_port):
+            self.assertEqual(status_port, 0)  # Native Host retains its loopback port
             self.old_presence.stop.assert_called_once_with(wait=True)
             self.assertEqual(config.device_id, DEVICE)
             self.assertEqual(device_credential_provider(), self.store.read_enrolled_credential())
