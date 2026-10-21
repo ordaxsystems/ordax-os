@@ -1,73 +1,78 @@
-# Apps
+# Apps — ownership e catálogo atual
 
-`system/apps/` owns first-party application payloads that are currently present in the OrdaX OS source tree. Product identity and delivery policy may also describe external/on-demand apps whose payload is absent.
+`system/apps/` contém somente as implementações first-party ainda pertencentes ao
+OrdaX OS. Identidade, política de entrega e descoberta de aplicativos externos
+podem existir sem um payload de aplicativo embutido.
 
-Apps are product modules, not Web/Mobile/Desktop forks. The Surface imports the shared catalog and renders those app contracts inside the same workspace/window model across every compatible host.
+Os módulos são compartilhados entre Web/Native/Desktop por contratos públicos e
+portas de capacidade, nunca por cópias de UI específicas de cada host.
 
-## Current baseline
+## Catálogo embutido
 
-Each first-party app has one explicit owner:
+A fonte executável é `system/apps/catalog.mjs`, validada por
+`system/contracts/first-party-app.mjs`. No estado atual da `main`, ela registra:
 
-```text
-system/apps/files/app.mjs
-system/apps/internet/app.mjs
-system/apps/settings/app.mjs
-system/apps/account/app.mjs
-system/apps/system/app.mjs
-```
+| App | Fonte local | Natureza / entrega |
+| --- | --- | --- |
+| Arquivos (`files`) | `system/apps/files/` | App removível, `bundled` enquanto não houver handoff bootstrap assinado |
+| Studio (`studio`) | `system/apps/studio/` | Integração local `git-app`; produto portátil canônico em `ordax-apps/apps/studio` |
+| Ajustes (`settings`) | `system/apps/settings/` | Superfície estrutural `bundled` |
+| Conta (`account`) | `system/apps/account/` | Superfície estrutural `bundled` |
+| Loja (`store`) | `system/apps/store/` | Superfície estrutural `bundled` |
+| Sistema (`system`) | `system/apps/system/` | Superfície estrutural `bundled` |
 
-`system/contracts/first-party-app.mjs` validates the stable first-party app shape. `catalog.mjs` is deliberately thin: it composes the current owners, rejects duplicate IDs and exposes lookup/list operations to the Surface.
+Os manifestos do catálogo de componentes pertencem aos seus owners locais:
+`system/apps/files/component.mjs`,
+`system/apps/studio/component.mjs` e
+`system/services/components/manifests/apps.mjs`. Não registrar um mesmo
+`appId` simultaneamente como embutido e como `component-slot` externo:
+`system/apps/runtime-catalog.mjs` rejeita a colisão em vez de esconder uma
+segunda fonte.
 
-The initial owners are:
+Versão de app, versão do OrdaX e commit Git são identidades diferentes. Valores
+correntes de SemVer/`releaseMode` devem ser lidos dos próprios manifestos;
+não manter uma tabela manual de versões neste documento. `0.x` é a linha Beta,
+não uma declaração de instalação independente ou homologação do MVP.
 
-- Arquivos;
-- Internet;
-- Ajustes;
-- Conta;
-- Sistema.
+`system/services/components/update-presentation.mjs` apresenta separadamente
+atualizações do sistema e dos aplicativos. `git-app` representa entrega de
+desenvolvimento pelo Git, não updater autônomo. `component-slot` requer
+assinatura, verificação, health, promoção e rollback comprovados pelo owner
+de lifecycle antes de aparecer como instalado.
 
-App definitions contain platform-neutral metadata, capability requirements and declarative panels. They do not import browser/native adapters and they do not decide which platform is running.
+## Apps já externos e corte pendente
 
-Application availability is capability-driven. A future app that requires a capability declares that capability in `requiredCapabilities`; the Surface fails closed when the host does not expose it. An app may also declare `optionalCapabilities`: these enrich the same app when a host exposes them without turning that app into a platform fork or making the optional feature a launch requirement.
+- **Internet, Assistente, Projetos, Atividade, Rede e Notas** já têm fonte
+  canônica em `ordaxsystems/ordax-apps/apps/<id>/` e não possuem fonte
+  em `system/apps/<id>/`. Os respectivos
+  `ordax-apps/migrations/<id>.externalization.json` governam os gates:
+  source cutover concluído não implica publicação/instalação ativada.
+- **Arquivos** ainda tem fonte canônica no OS. A tentativa isolada de remoção
+  (PR `ordax-os#1742`) não foi
+  mesclada porque quebrava os gates do bootstrap USB. A
+  issue `ordax-os#1743`
+  exige fonte única, pacote assinado, slot verificado e interface funcional no
+  boot antes do handoff. Uma prova de pacote efêmero não autoriza remoção
+  prematura nem a criação permanente de `apps/files` em Apps.
+- **Studio** tem código de produto portátil no owner Apps, mas a integração
+  embutida do OS ainda existe. Seu corte depende de paridade Native/Web,
+  instalação/ativação verificadas e ausência de caminho local residual;
+  componentes host-owned continuam na plataforma.
 
-## Version and update identity
-
-Every first-party app has a component semantic version. This version is different from the OrdaX product version, from the human Entrega number and from the exact Git SHA.
-
-Current app versions are:
-
-```text
-Arquivos  0.1.0
-Projetos  0.1.0
-Ajustes   0.1.0
-Conta     0.1.0
-Sistema   0.1.0
-Internet  0.3.0
-```
-
-For first-party apps, OrdaX treats the `0.x` line as **Beta**. `1.0.0` is reserved for the first stable app release. The Beta label is an app maturity convention; it does not claim that independent production distribution is already enabled.
-
-Updating OrdaX does not require every app version to change. Updating an app version does not create a new OrdaX product version automatically.
-
-Current release modes are intentionally mixed while the MVP hardens:
-
-- `bundled`: Arquivos, Ajustes, Conta and Sistema currently update with the OrdaX system delivery;
-- `git-app`: Projetos and Internet own explicit app versions while the Owner/Development profile still delivers their code through the ordinary Git checkout/reconcile path;
-- `component-slot`: reserved for an app that has completed the signed independent-package path with verification, pending health, promotion and rollback;
-- `git-app` does not claim a production app updater, Store or app-local rollback.
-
-`system/services/components/update-presentation.mjs` derives two update scopes for Sistema: **system** and **applications**. Base, Surface/services and the Sistema app belong to `system`; the other first-party apps belong to `applications`, even when a current app still arrives bundled with the OrdaX delivery.
-
-**Projetos is a remove-first externalization target.** The OS keeps the neutral `ordax.project-catalog/1` domain, read-only cloud link ports and Native project adapters; the app payload, its UI and locale are not platform-owned after Gate A. Until an independently verified signed current slot is installed, no bundled Projects window is presented. Source provenance is pinned in `ordax-apps/migrations/projects.source-snapshot.json`.\n\n**Notas is an external/on-demand app identity, not a Surface/system subsystem.** Its stable app id is `notes`; during the pre-launch remove-first gate its payload is intentionally absent from `system/apps/` and will be sourced from `ordax-apps`.
-
-**Internet follows the same app boundary.** Its stable app id is `internet`. The shared app owns browser chrome, workspace/tab organization and project context; Native/USB provide the optional browser engine capability through an isolated host, while Web fails closed instead of pretending arbitrary sites can be safely embedded.
+Após a externalização, o OS conserva contratos e serviços públicos legítimos:
+File Space, Project Catalog, Identity, Intelligence, Network e Native adapters.
+Não apagar infraestrutura de rede por causa do app Rede (comunidades/mensagens);
+não mover os engines, grants ou políticas do host junto com a UI Internet.
 
 ## Boundary
 
-Apps may depend on shared contracts and services according to `docs/contracts/module-boundaries.json`. They must not import `system/surface/` or concrete adapter implementations.
+Apps não importam `system/surface/` ou adapters concretos como dependências
+privadas; os contratos e a composição do host injetam capacidades. Não criar
+`apps-web`, `apps-mobile`, `apps-desktop` ou catálogos de instalação
+paralelos. `system/services/apps/delivery-policy.mjs` descreve elegibilidade;
+inventário `current` verificado no Native é a evidência de instalação.
 
-Do not create `apps-web`, `apps-mobile`, `apps-desktop`, Android/iOS copies or host-specific UI trees. Genuine host operations belong behind capability contracts and adapters.
-
-The current registry is intentionally first-party and bounded. It is not a plugin marketplace or arbitrary code-loading framework; extension mechanics should only be introduced when there is a concrete product requirement and an explicit trust boundary.
-
-O aplicativo removível Rede (`network`) não mantém fonte em `system/apps/network` após o cutover. Seu owner canônico passa a `ordaxsystems/ordax-apps`; o OS conserva `system/services/professional-network`, os contratos de Space, Wi-Fi e gestão de rede. O catálogo não declara o app instalado sem slot assinado e saúde comprovada.
+Consulte também
+[`docs/APP-PORTFOLIO-AND-PREINSTALL.md`](../../docs/APP-PORTFOLIO-AND-PREINSTALL.md),
+[`docs/contracts/module-boundaries.json`](../../docs/contracts/module-boundaries.json)
+e o portfólio `ordaxsystems/ordax-apps/docs/PORTFOLIO-FIRST-PARTY.md`.
