@@ -1,39 +1,26 @@
-Native MCP heartbeat ownership regression (2026-10-21): The existing
-`ProductDevicePresenceWorker.stop(wait=True)` now verifies the worker
-thread actually exited after its bounded join. A timeout raises
-`device-presence-worker-still-running`; an unverified stop never launches
-the Runtime. Self-thread waits also fail. More importantly, the Native
-discovery HTTPS worker now uses the **same existing instance.lock** as
-`ordax_dev_agent.native_main`:
-`/var/lib/ordax/product-runtime/instance.lock` inside the graphical host
-(binds `/state/ordax/native-state/product-runtime/instance.lock` on the OS).
-The worker briefly holds that shared kernel lock over each online/offline
-report; when the canonical Runtime owns it for its process lifetime, discovery
-skips the report entirely, preventing competing device presence writes even
-across two processes. The private root, regular-file inode, owner and mode
-are checked before use; there is no second heartbeat authority or scheduler.
-Tests cover lock contention, fail-closed unsafe roots, receipt failures,
-thread shutdown, and no Runtime launch after unconfirmed worker exit.
-The existing CI job covers these on PR and main. This **does not install**
-the headless Runtime or activate native MCP execution.
+Native MCP Runtime launch ownership — canonical Linux executable
+(2026-10-21): The Owner/Development USB Native Host now uses the same
+`product-runtime/instance.lock` as the upstream
+`ordax_dev_agent.native_main` executable. The OS presence worker holds
+the kernel lock during each HTTPS online/offline report; if the verified
+native Runtime process holds it for its entire lifetime, discovery reports
+are suppressed. The worker's bounded stop also requires a confirmed join.
+Unsafe state roots or singleton files fail closed. This prevents
+competing identity heartbeats between processes without a second scheduler,
+credential authority or command bus.
 
-Native Product Runtime ownership handoff (2026-10-21, source only):
-`system/surface/runtime/native_product_runtime_handoff.py` now composes the
-**canonical installed** `ordax_dev_agent.main.run` with the existing private
-`ProductDeviceIdentityStore.read_enrolled_credential`, without a duplicate
-Product token, action transport, attestation client or command scheduler.
-The handoff checks the exact enrolled device and canonical HTTPS origin,
-keeps the OS credential directory in Runtime-protected roots, refuses
-runtime-state overlap and untrusted modes, and closes the old Native
-`ProductDevicePresenceWorker` before Runtime owns heartbeats. On normal
-return or Runtime failure it constructs the **same existing** discovery worker
-and respects the Native local opt-out. Tests exercise this handoff offline
-and leave Stable/MVP and other devices unchanged. This composition is not
-automatically invoked: the signed Runtime component, canonical trust anchor,
-OS lifecycle/startup binding, Native policy, health, actual challenge confirmation
-and remote-action execution/receipt are still absent. The user-visible Native
-connector remains `discovery-only`; do not claim the notebook executes MCP
-actions merely because this source and the Platform SQL migration exist.
+The earlier **source-only, never invoked** in-process helper
+`native_product_runtime_handoff.py` and its isolated test were removed:
+the actual Linux distribution entrypoint is the existing executable
+`ordax-product-agent --run --distribution-profile owner-development
+--product-mode usb`, not an imported Python callback inside the Native
+HTTP host's main thread. The upstream Runtime owns the Product command
+queue, central-session confirmation, action dispatch and singleton lock;
+the OS owns the original `ProductDeviceIdentityStore`, Native policy,
+verified artifact distribution and lifecycle. The signed Runtime component,
+trust anchor, OS service activation, runtime-health receipt and physical
+execution are **not yet present**. No discovery/grant flags are redefined
+as evidence of native action execution. Stable/MVP remains unchanged.
 
 Owner/Development USB Local AI lifecycle (2026-10-21): `ordax-run` now
 uses the existing Native Local AI endpoint with a bounded, fail-closed
