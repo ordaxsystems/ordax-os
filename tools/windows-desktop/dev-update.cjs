@@ -3,8 +3,8 @@
 // Never rewrites a running tree. Only exact verified, clean, immutable versions
 // can become boot candidates. MVP/Stable must not use this Git channel.
 const { randomUUID } = require('node:crypto');
-const { join } = require('node:path');
-const { mkdirSync, readFileSync, writeFileSync, renameSync, rmSync, lstatSync, existsSync, openSync, closeSync, fsyncSync } = require('node:fs');
+const { join, basename, dirname } = require('node:path');
+const { mkdirSync, readFileSync, writeFileSync, renameSync, rmSync, readdirSync, lstatSync, existsSync, openSync, closeSync, fsyncSync } = require('node:fs');
 const { OFFICIAL_REMOTE } = require('./runtime.cjs');
 const { git, isTrusted, hasDesktopHostContract, dependencies } = require('./checkout.cjs');
 const { hasNativeBundle, buildNativeCandidate } = require('./native-build.cjs');
@@ -72,6 +72,53 @@ function writeState(userData, state) {
   }
   return value;
 }
+
+const CANDIDATE_NAME = /^\.candidate-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+const TRANSIENT_DELETE_ERRORS = new Set(['EPERM', 'EACCES', 'EBUSY', 'ENOTEMPTY']);
+// A Git clone on Windows can temporarily retain pack-file handles after the
+// Git child process exits. A cleanup failure must not erase the update result.
+// Only transaction-owned UUID directories are eligible: never a live SHA.
+function removeOwnedCandidate(candidate) {
+  if (basename(dirname(candidate)) !== VERSIONS_DIR ||
+      !CANDIDATE_NAME.test(basename(candidate))) {
+    throw Error('Unsafe Desktop candidate cleanup path');
+  }
+  if (!existsSync(candidate)) return {removed:true};
+  const stat = lstatSync(candidate);
+  if (!stat.isDirectory() || stat.isSymbolicLink()) {
+    throw Error('Desktop candidate cleanup refused non-directory or link');
+  }
+  try {
+    rmSync(candidate,{recursive:true,force:true,maxRetries:10,retryDelay:200});
+    return {removed:!existsSync(candidate)};
+  } catch(error) {
+    if (!TRANSIENT_DELETE_ERRORS.has(error?.code)) throw error;
+    return {removed:false,code:error.code};
+  }
+}
+// A bounded maintenance pass runs on later update checks. It deletes only
+// aged, unpromoted candidate UUIDs. Active/previous/pending SHA directories,
+// unrelated user files and links are never traversed or removed.
+function sweepStaleCandidates(userData, {now=Date.now(),minAgeMs=120000,log=()=>{}}={}) {
+  const dir=join(userData,VERSIONS_DIR);
+  const result={removed:0,deferred:0};
+  if (!existsSync(dir)) return result;
+  for(const entry of readdirSync(dir,{withFileTypes:true})) {
+    if (!entry.isDirectory() || !CANDIDATE_NAME.test(entry.name)) continue;
+    const candidate=join(dir,entry.name);
+    const stat=lstatSync(candidate);
+    if (!stat.isDirectory() || stat.isSymbolicLink() ||
+        now-stat.mtimeMs < minAgeMs) continue;
+    const attempt=removeOwnedCandidate(candidate);
+    if (attempt.removed) result.removed++;
+    else {
+      result.deferred++;
+      log('Deferred stale Desktop Git candidate cleanup: '+entry.name+' '+attempt.code);
+    }
+  }
+  return result;
+}
+
 function versionRoot(userData, sha) {
   if (!SHA_RE.test(sha)) throw Error('Invalid runtime version SHA');
   return join(userData, VERSIONS_DIR, sha);
@@ -141,8 +188,11 @@ function unpin(userData) {
   return writeState(userData,{...state,pinnedSha:null});
 }
 
-async function stageMain({ userData, template, log = () => {}, remote = OFFICIAL_REMOTE, runGit = git, buildCandidate = buildNativeCandidate }) {
+async function stageMain({ userData, template, log = () => {}, remote = OFFICIAL_REMOTE, runGit = git, buildCandidate = buildNativeCandidate, cleanupCandidate = removeOwnedCandidate }) {
   if (remote !== OFFICIAL_REMOTE) throw Error('Untrusted update source');
+  // Best-effort orphan maintenance must not prevent a valid state decision.
+  try { sweepStaleCandidates(userData,{log}); }
+  catch(error) { log('Desktop candidate maintenance failed: '+error.message); }
   const state = readState(userData);
   if (state.pinnedSha) return {status:'pinned',sha:state.pinnedSha};
   if (state.pendingSha) return {status:'pending',sha:state.pendingSha};
@@ -195,10 +245,14 @@ async function stageMain({ userData, template, log = () => {}, remote = OFFICIAL
       if (!hasNativeBundle(staging)) return {status:'incompatible'};
       renameSync(staging,target);
     } finally {
-      // Delete ONLY the uniquely owned staging directory, never user/source.
-      // Retry bounded Windows Git-handle contention, only for this transaction's
-      // unique .candidate UUID directory. Never touch active/previous versions.
-      if (existsSync(staging)) rmSync(staging,{recursive:true,force:true,maxRetries:10,retryDelay:200});
+      // Cleanup is independent of accepting/rejecting the verified SHA.
+      // Transient Windows Git/AV handle contention is recovered by the aged
+      // candidate sweeper on later checks, never by disabling verification.
+      if (existsSync(staging)) {
+        const result=cleanupCandidate(staging);
+        if (!result.removed) log('Deferred Desktop Git candidate cleanup: ' +
+          basename(staging)+' '+result.code);
+      }
     }
   }
   if (!await verifiedVersion(userData,remoteSha,template)) return {status:'untrusted'};
@@ -217,4 +271,5 @@ module.exports = {
   CHANNEL_SCHEMA, readState, writeState, validateState, versionRoot,
   chooseBootVersion, confirmedVersion: verifiedVersion,
   stageMain, confirmHealthy, rejectCandidate, pinPrevious, unpin,
+  removeOwnedCandidate, sweepStaleCandidates,
 };
