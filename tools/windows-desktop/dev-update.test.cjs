@@ -242,3 +242,18 @@ test('orphan maintenance never deletes noncandidate, fresh candidate, or verifie
   assert.equal(existsSync(sha),true);
   assert.throws(()=>removeOwnedCandidate(sha),/Unsafe/);
 });
+
+test('hidden Windows Git folder is removable from owned candidate directory',t=>{
+  if(process.platform!=='win32')return t.skip('Windows-specific Git hidden attribute');
+  const f=fixture(t);
+  const {execFileSync}=require('node:child_process');
+  const candidate=join(f.userData,'runtime-versions','.candidate-'+
+    '12ab34cd-1234-1234-1234-123456789abc');
+  const gitDirectory=join(candidate,'.git');
+  mkdirSync(gitDirectory,{recursive:true});
+  writeFileSync(join(gitDirectory,'HEAD'),'ref: refs/heads/main');
+  execFileSync('attrib.exe',['+H',gitDirectory],{windowsHide:true});
+  const cleanup=removeOwnedCandidate(candidate);
+  assert.equal(cleanup.removed,true);
+  assert.equal(existsSync(candidate),false);
+});
