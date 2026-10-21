@@ -84,10 +84,16 @@ class DevRootfsMountHandoffTests(unittest.TestCase):
             mounts = root / "mountinfo"
             out = root / "fd1"
             err = root / "fd2"
-            def probe(*, dev_id: int, fd1_id: int, fd2_id: int) -> int:
+            def probe(*, fd1_id: int, fd2_id: int,
+                      dev_fs: str = "0:8", nested: bool = False) -> int:
+                extra = (
+                    "32 31 0:9 / /dev/console rw - tmpfs console rw\n"
+                    if nested else ""
+                )
                 mounts.write_text(
                     "24 1 8:34 / / rw - ext4 /dev/loop0 rw\n"
-                    f"{dev_id} 24 0:8 / /dev rw - devtmpfs devtmpfs rw\n",
+                    f"31 24 {dev_fs} / /dev rw - devtmpfs devtmpfs rw\n"
+                    + extra,
                     encoding="utf-8",
                 )
                 out.write_text(f"mnt_id:\t{fd1_id}\n", encoding="ascii")
@@ -99,10 +105,18 @@ class DevRootfsMountHandoffTests(unittest.TestCase):
                     capture_output=True, timeout=5,
                 )
                 return result.returncode
-            self.assertEqual(probe(dev_id=31, fd1_id=31, fd2_id=31), 0)
-            self.assertNotEqual(probe(dev_id=24, fd1_id=24, fd2_id=24), 0)
-            self.assertNotEqual(probe(dev_id=31, fd1_id=24, fd2_id=31), 0)
-            self.assertNotEqual(probe(dev_id=31, fd1_id=31, fd2_id=24), 0)
+            # Same VFS mount ID as /dev: normal devtmpfs handoff.
+            self.assertEqual(probe(fd1_id=31, fd2_id=31), 0)
+            # Independent nested mount: VFS mount ID differs, filesystem
+            # identity is still distinct from the writable ext4 root.
+            self.assertEqual(probe(fd1_id=32, fd2_id=32, nested=True), 0)
+            # A bind-alias /dev that reuses the root ext4 superblock is unsafe.
+            self.assertNotEqual(
+                probe(fd1_id=31, fd2_id=31, dev_fs="8:34"), 0,
+            )
+            self.assertNotEqual(probe(fd1_id=24, fd2_id=31), 0)
+            self.assertNotEqual(probe(fd1_id=31, fd2_id=24), 0)
+            self.assertNotEqual(probe(fd1_id=31, fd2_id=77), 0)
 
     def _run_mount_loop(self, *, reject: str = "") -> tuple[subprocess.CompletedProcess[str], list[str]]:
         # Exercise the actual shell loop, only replacing mount(2) with a
