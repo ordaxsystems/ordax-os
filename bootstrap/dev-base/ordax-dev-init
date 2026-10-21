@@ -322,7 +322,11 @@ select_development_rootfs
 # CLI/CI invocations do not own host console and must not reopen it;
 # the actual kernel boot must establish independent stdout/stderr
 # before starting any Surface or background runtime processes.
-if [ "$" -eq 1 ]; then
+# 'read' is a shell builtin: /proc/self/stat resolves the actual init
+# process, never a child "date"/"awk" PID or an inherited environment value.
+boot_pid=0
+read -r boot_pid _boot_kernel_stat </proc/self/stat || boot_pid=0
+if [ "$boot_pid" -eq 1 ]; then
     if ! rebind_independent_console; then
         printf 'OrdaX Dev: console nao independente do ext4; recuperacao local.\n' >&2
         maintenance_shell
