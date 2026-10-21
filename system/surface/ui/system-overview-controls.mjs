@@ -356,6 +356,8 @@ export function mountSystemOverviewControls(
   let destroyed = false;
   let mountedSlot = null;
   let diagnosticsReviewMount = null;
+  // One local read-only snapshot per System owner; repainting must not re-collect.
+  let diagnosticReviewStarted = false;
 
   const findSlot = () =>
     root.querySelector(`${SYSTEM_WINDOW_SELECTOR} ${SYSTEM_EXTENSION_SELECTOR}`);
@@ -1514,6 +1516,13 @@ export function mountSystemOverviewControls(
         diagnosticReviewController,
         lifecycle,
       );
+      // Entering Diagnostics is the user's request for a local review.
+      // No report is exported, no network operation is initiated and a
+      // subsequent repaint does not start a second collection.
+      if (!diagnosticReviewStarted) {
+        diagnosticReviewStarted = true;
+        void diagnosticReviewController.prepare();
+      }
     }
     restoreInteractionState(slot, interaction);
   };
