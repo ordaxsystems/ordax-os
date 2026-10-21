@@ -47,7 +47,7 @@ NATIVE_COMPONENT_PROFILE = "native-product-runtime"
 NATIVE_COMPONENT_FRAGMENT = HERE / "configs/native-product-runtime.fragment"
 NATIVE_COMPONENT_REQUIRED = (
     "BR2_SHARED_LIBS=y", "BR2_PACKAGE_PYTHON3=y",
-    "BR2_PACKAGE_PYTHON3_SSL=y", "BR2_PACKAGE_PYTHON3_ZLIB=y",
+    "BR2_PACKAGE_PYTHON3_PYC_ONLY=y", "BR2_PACKAGE_PYTHON3_SSL=y", "BR2_PACKAGE_PYTHON3_ZLIB=y",
     "BR2_PACKAGE_CA_CERTIFICATES=y", "BR2_TARGET_ROOTFS_TAR=y",
 )
 OWNER_USERSPACE_CONFIG = (
@@ -875,9 +875,28 @@ def verify_native_python_target(target: Path) -> dict:
     if len(stdlib_dirs) != 1:
         raise BaseError("expected exactly one private CPython standard library")
     stdlib = stdlib_dirs[0]
-    for required in ("ssl.py", "json/__init__.py", "site.py"):
-        if not (stdlib / required).is_file():
-            raise BaseError("private CPython standard library incomplete: " + required)
+    # Buildroot's canonical PYC_ONLY format deliberately omits .py sources.
+    # The actual target must contain compiled modules; checking ssl.py alone
+    # incorrectly rejects a complete, compact production Python installation.
+    # Do not confuse a filename with a usable .pyc: inspect its PEP 552 header.
+    for module in ("ssl", "site", "json/__init__"):
+        parent, _, basename = module.rpartition("/")
+        folder = stdlib / parent if parent else stdlib
+        candidates = sorted({
+            *folder.glob(basename + ".pyc"),
+            *(folder / "__pycache__").glob(basename + ".cpython-*.pyc"),
+        })
+        valid = []
+        for compiled in candidates:
+            if compiled.is_symlink() or not compiled.is_file():
+                continue
+            with compiled.open("rb") as bytecode_file:
+                pyc = bytecode_file.read(17)
+            if (len(pyc) == 17 and pyc[2:4] == b"\r\n"
+                    and int.from_bytes(pyc[4:8], "little") in (0, 1, 3)):
+                valid.append(compiled)
+        if len(valid) != 1:
+            raise BaseError("private CPython compiled standard library incomplete: " + module)
     for name in ("_ssl", "_hashlib", "zlib"):
         extensions = list(stdlib.glob(f"lib-dynload/{name}*.so"))
         if not extensions or any(p.is_symlink() for p in extensions):
