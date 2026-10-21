@@ -1,6 +1,12 @@
 name: Independent Base Experiment
 
 on:
+  push:
+    branches: ['platform/remove-alpine']
+    paths:
+      - 'bootstrap/independent-base/**'
+      - 'tests/test_independent_native_component.py'
+      - '.github/workflows/independent-base-experiment.yml'
   pull_request:
     paths:
       - 'bootstrap/base/firmware_policy.py'
@@ -37,10 +43,11 @@ permissions:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  cancel-in-progress: true
 
 jobs:
   buildroot-qemu:
+    if: github.event_name != 'push'
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     steps:
@@ -221,3 +228,58 @@ jobs:
             ${{ runner.temp }}/ordax-independent-qemu-result-serial/*.serial.log
           if-no-files-found: warn
           retention-days: 7
+
+  private-native-python:
+    name: Compile private Buildroot Python component (no USB install)
+    if: github.event_name == 'push' && github.ref == 'refs/heads/platform/remove-alpine'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - name: Checkout exact candidate source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Python for pinned Buildroot owner and provenance
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.12'
+      - name: Install Buildroot host compilers and ELF inspector
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential gcc-13 g++ bc perl bison flex libssl-dev \
+            gawk cpio unzip rsync file binutils wget curl patch git \
+            xz-utils python3
+      - name: Prove native component source and isolation before compilation
+        run: |
+          python3 bootstrap/independent-base/build.py check-component
+          python3 -m unittest tests.test_independent_native_component -v
+      - name: Compile actual pinned musl Python / TLS / zlib closure
+        run: |
+          set -euo pipefail
+          python3 bootstrap/independent-base/build.py build-component \
+            --out "$RUNNER_TEMP/ordax-native-python-proof" \
+            --cache "$RUNNER_TEMP/ordax-independent-buildroot-cache" --jobs 4 \
+            > "$RUNNER_TEMP/native-python-build.log"
+          python3 - "$RUNNER_TEMP/ordax-native-python-proof/native-python-provenance.json" <<'PY'
+          import json
+          import sys
+          from pathlib import Path
+          receipt = json.loads(Path(sys.argv[1]).read_text())
+          assert receipt["status"] == "build-proof-only"
+          assert receipt["python_abi"]["compiled_elf_count"] > 0
+          assert receipt["python_abi"]["required_interpreter"] == "/lib/ld-musl-x86_64.so.1"
+          assert receipt["python_abi"]["stdlib_ssl_zlib_verified"] is True
+          assert receipt["python_abi"]["runtime_agent_packaged"] is False
+          assert receipt["component_artifact_authorized"] is False
+          assert receipt["device_install_authorized"] is False
+          assert receipt["base_rootfs_modified"] is False
+          print(json.dumps(receipt, sort_keys=True))
+          PY
+      - name: Keep only non-installable ABI evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: ordax-independent-python-abi-${{ github.sha }}
+          path: ${{ runner.temp }}/ordax-native-python-proof/native-python-provenance.json
+          if-no-files-found: error
+          retention-days: 14
