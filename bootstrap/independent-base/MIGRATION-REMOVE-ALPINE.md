@@ -160,6 +160,33 @@ A ordem deve reduzir duplicação, não criar wrappers permanentes:
 
 Não é permitido reduzir a contagem apenas trocando o nome do arquivo importado, copiando helpers Alpine para outro diretório ou duplicando lógica. A redução só conta quando a dependência real de Alpine/APK diminui ou quando código legado comprovadamente sem consumidor é removido.
 
+### ABI de todo o userspace e Product Runtime
+
+O builder da Independent Base verifica **todos os ELF de processo no target**
+(compilados e copiados), não apenas `/sbin/ip`. A verificação recusa
+`PT_INTERP` e entradas `DT_NEEDED` e registra
+`independent_userspace_elf_closure` no único `provenance.json` da base,
+com número de executáveis examinados e SHA-256 do manifesto nome/hash dos
+ELF. Arquivos `ET_REL` de módulos do kernel não são programas userspace e
+não requerem um carregador de processos. O gate rápido mantém testes de
+regressão que rejeitam loader dinâmico, bibliotecas externas e arquitetura
+errada. A **comprovação do target real** precisa ocorrer no workflow
+Buildroot/QEMU pesado, não é inferida dos testes sintéticos.
+
+O Product MCP continua sendo um **único** `ordax-runtime`: o candidato
+PyInstaller atual ainda usa Alpine como construtor e depende de musl/zlib
+dinâmicos. Seu auditor upstream (integrado em `ordax-runtime#181`) registra
+`independent_base_abi_ready=false` e as dependências exatas no mesmo
+`candidate.json`; portanto esse binário não pode entrar na base estática,
+nem ser promovido como componente nativo da Independent Base.
+
+O trabalho subsequente é produzir o **mesmo** Runtime a partir da toolchain
+independente, provar sua biblioteca Python e os módulos nativos e validá-lo
+pelo gate ELF **antes** da distribuição assinada, instalação e prova física.
+Não copiar loader Alpine, não adicionar segunda distribuição, não falsificar
+receipt de ABI e não criar um segundo agente/dispatcher para contornar a
+ausência de um binário compatível.
+
 ### Fase D — prova sem Alpine
 
 A candidata deve falhar fechada se contiver qualquer dependência Alpine residual relevante.
