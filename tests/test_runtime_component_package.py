@@ -90,6 +90,8 @@ class RuntimeComponentPackageTests(unittest.TestCase):
         self.assertTrue(policy["native_loopback_broker_read_only"])
         self.assertFalse(policy["failed_pending_runtime_read_allowed"])
         self.assertEqual(policy["native_loopback_broker_supported_components"], ["calculator", "notes", "studio"])
+        self.assertIs(policy["native_files_slot_bound_file_space_enforced"], False)
+        self.assertNotIn("files", policy["native_loopback_broker_supported_components"])
         self.assertNotIn("calculator", policy["native_loopback_broker_health_mutation_components"])
         self.assertFalse(policy["slot_activation_available"])
         self.assertFalse(policy["publish_allowed"])

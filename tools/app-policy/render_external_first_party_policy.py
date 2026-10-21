@@ -62,6 +62,17 @@ def load_policy(path: Path) -> tuple[dict[str, str], tuple[str, ...], tuple[str,
         or len(native_ids) != len(set(native_ids))
     ):
         raise PolicyGenerationError("Native module-read scope in canonical policy is invalid")
+    # The existing native /files, /file-import and /trash endpoints operate on
+    # a host-owned global user root. A verified slot is necessary but cannot
+    # grant Files access until Native enforces exact install/Space scope for
+    # every operation, including revocation and in-flight mutations.
+    scoped_files = value.get("native_files_slot_bound_file_space_enforced")
+    if type(scoped_files) is not bool:
+        raise PolicyGenerationError("Files Native scoped file-space proof must be boolean")
+    if "files" in native_ids and not scoped_files:
+        raise PolicyGenerationError(
+            "Files module-read requires Native slot-bound and Space-scoped file-space enforcement"
+        )
     # These IDs are a necessary (not sufficient) runtime module-read gate.
     # Presence in Store policy or the signed catalog must never invent it.
     module_ready = tuple(sorted(set(normalized).intersection(native_ids)))
