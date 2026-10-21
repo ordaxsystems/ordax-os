@@ -214,6 +214,117 @@ class NativeLocalSessionTests(unittest.TestCase):
                 finally:
                     connection.close()
 
+
+    @unittest.skipUnless(os.name == "posix", "Native HTTP file gate needs POSIX")
+    def test_file_routes_reject_locked_session_before_any_native_filesystem_io(self):
+        host.write_local_session_credential("local-passphrase-42")
+        server = host.NativeHostServer(
+            ("127.0.0.1", 0), host.NativeHostHandler,
+            user_root=self.tempdir.name,
+            power_request_path=str(Path(self.tempdir.name) / "power-request"),
+            network_session_dir=self.tempdir.name,
+        )
+        worker = threading.Thread(target=server.serve_forever, daemon=True)
+        worker.start()
+        self.addCleanup(lambda: (server.shutdown(), server.server_close(), worker.join(timeout=2)))
+        self.assertTrue(server.local_session_locked)
+        Path(self.tempdir.name, "private.txt").write_text("secret", encoding="utf-8")
+
+        for endpoint in sorted(host.USER_FILE_PATHS):
+            for method in ("GET", "HEAD", "POST"):
+                with self.subTest(endpoint=endpoint, method=method):
+                    connection = http.client.HTTPConnection(*server.server_address, timeout=2)
+                    try:
+                        connection.request(method, endpoint)
+                        response = connection.getresponse()
+                        response.read()
+                        self.assertEqual(response.status, 423)
+                    finally:
+                        connection.close()
+
+        # Without a credential, an intentionally unlocked local session keeps
+        # its existing Files surface behavior, including directory listing.
+        with server.local_session_lock:
+            server.local_session_locked = False
+        connection = http.client.HTTPConnection(*server.server_address, timeout=2)
+        try:
+            connection.request("GET", host.FILES_PATH + "?path=/")
+            response = connection.getresponse()
+            payload = response.read()
+            self.assertEqual(response.status, 200)
+            self.assertIn(b"private.txt", payload)
+        finally:
+            connection.close()
+        with server.local_session_lock:
+            server.local_session_locked = True
+        connection = http.client.HTTPConnection(*server.server_address, timeout=2)
+        try:
+            connection.request("GET", host.FILES_PATH + "?path=/")
+            response = connection.getresponse()
+            response.read()
+            self.assertEqual(response.status, 423)
+        finally:
+            connection.close()
+
+    @unittest.skipUnless(os.name == "posix", "Native HTTP file gate needs POSIX")
+    def test_session_lock_waits_for_admitted_file_operation_to_drain(self):
+        server = host.NativeHostServer(
+            ("127.0.0.1", 0), host.NativeHostHandler,
+            user_root=self.tempdir.name,
+            power_request_path=str(Path(self.tempdir.name) / "power-request"),
+            network_session_dir=self.tempdir.name,
+        )
+        worker = threading.Thread(target=server.serve_forever, daemon=True)
+        worker.start()
+        self.addCleanup(lambda: (server.shutdown(), server.server_close(), worker.join(timeout=2)))
+        with server.local_session_lock:
+            server.local_session_locked = False
+        entered = threading.Event()
+        release = threading.Event()
+        lock_applied = threading.Event()
+        original = host.list_user_directory
+
+        def paused_listing(root, logical_path):
+            entered.set()
+            if not release.wait(timeout=3):
+                raise TimeoutError("file operation timed out in test")
+            return original(root, logical_path)
+
+        def request():
+            connection = http.client.HTTPConnection(*server.server_address, timeout=5)
+            try:
+                connection.request("GET", host.FILES_PATH + "?path=/")
+                response = connection.getresponse()
+                body = response.read()
+                return response.status, body
+            finally:
+                connection.close()
+
+        import concurrent.futures
+        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
+            with patch.object(host, "list_user_directory", side_effect=paused_listing):
+                pending = pool.submit(request)
+                self.assertTrue(entered.wait(timeout=2))
+                def lock_session():
+                    with server.local_session_lock:
+                        server.local_session_locked = True
+                        lock_applied.set()
+                applying = pool.submit(lock_session)
+                self.assertFalse(lock_applied.wait(timeout=0.1))
+                release.set()
+                status, _ = pending.result(timeout=4)
+                self.assertEqual(status, 200)
+                applying.result(timeout=4)
+                self.assertTrue(lock_applied.is_set())
+        connection = http.client.HTTPConnection(*server.server_address, timeout=2)
+        try:
+            connection.request("GET", host.FILES_PATH + "?path=/")
+            response = connection.getresponse()
+            response.read()
+            self.assertEqual(response.status, 423)
+        finally:
+            connection.close()
+
     def test_machine_readable_credential_safety_matches_host(self):
         policy = json.loads((ROOT / "docs/contracts/local-session.json").read_text(encoding="utf-8"))
         self.assertEqual(policy["credential"]["maximum_file_bytes"], host.MAX_LOCAL_SESSION_CREDENTIAL_BYTES)

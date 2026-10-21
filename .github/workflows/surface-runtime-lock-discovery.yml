@@ -1,6 +1,13 @@
 name: Surface Runtime Candidate
 
 on:
+  # Revalidate the single approved lock on main after its merge; never infer
+  # that PR-time package availability remains true after an upstream index move.
+  push:
+    branches:
+      - main
+    paths:
+      - 'bootstrap/surface-runtime/source.json'
   pull_request:
     paths:
       - 'bootstrap/surface-runtime/**'

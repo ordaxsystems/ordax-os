@@ -310,20 +310,20 @@
     "prove-physical-stable-surface-on-supported-usb-hardware",
     "prove-or-explicitly-defer-secure-boot-boundary-before-public-promotion",
     "repeat-byte-reproducible-erofs-build-on-current-apk-lock",
-    "prove-current-head-offline-surface-runtime-qemu-handoff"
+    "prove-current-lock-offline-surface-runtime-qemu-handoff"
   ],
   "apk_package_lock_count": 253,
   "apk_package_lock_status": "reviewed-full-transitive-lock-reproof-required",
   "discovery_evidence": {
-    "workflow_run_id": 39656472736,
-    "source_commit": "4f26dbfe59e1e5dcb3d38c7102ded1759c98005e",
-    "artifact_name": "surface-runtime-candidate-4f26dbfe59e1e5dcb3d38c7102ded1759c98005e",
-    "artifact_id": 12370773057,
-    "artifact_archive_sha256": "bacc3a04417a347431b59250ed9b0d40d121d4ecc7df62550e42e0696d96bad4",
+    "workflow_run_id": 39626612753,
+    "source_commit": "d236ec6a14294065d9cfa33d76fb9c95af43edf1",
+    "artifact_name": "surface-runtime-candidate-d236ec6a14294065d9cfa33d76fb9c95af43edf1",
+    "artifact_id": 12358415983,
+    "artifact_archive_sha256": "ac5b54d3bf3b7590ce1994d57a62ede323259c4f725d0ceb210fa2f876db97f9",
     "resolved_package_count": 253,
     "physical_artifact_created": false,
     "physical_write_authorized": false,
-    "scope": "2026-10-21-full-transitive-c-ares-r0-to-r1-discovery"
+    "scope": "2026-10-21-complete-transitive-c-ares-r1-discovery"
   },
   "closed_gates": [
     "full-transitive-apk-lock-pinned",
@@ -357,7 +357,7 @@
     "pinned_initramfs_artifact_id": 12327692572,
     "pinned_initramfs_artifact_archive_sha256": "3cfab3b5dce806dc7d78a17aece7c9faa89c1a5c21bed5cc96fbc8ea1a7c5372",
     "boot_handoff_connected_at_proof_time": true,
-    "scope": "historical-pcre2-r1-proof-pending-current-c-ares-r1-revalidation",
+    "scope": "current-2026-10-21-pcre2-r1-reproducible-surface-and-qemu",
     "apk_package_lock_sha256": "00a2a77d82c664be89e6bff8045039be9f3245094b2844bdf87ae1601f6a68b7",
     "owner_offline_qemu_run_id": 39559534256,
     "owner_offline_qemu_artifact_id": 12327661588,
@@ -381,11 +381,11 @@
   },
   "lock_refresh": {
     "status": "reproof-required",
-    "detected_by_ci_run_id": 39656472736,
-    "discovery_run_id": 39656472736,
-    "discovery_source_commit": "4f26dbfe59e1e5dcb3d38c7102ded1759c98005e",
-    "discovery_artifact_id": 12370773057,
-    "discovery_artifact_sha256": "bacc3a04417a347431b59250ed9b0d40d121d4ecc7df62550e42e0696d96bad4",
+    "detected_by_ci_run_id": 39626612753,
+    "discovery_run_id": 39626612753,
+    "discovery_source_commit": "d236ec6a14294065d9cfa33d76fb9c95af43edf1",
+    "discovery_artifact_id": 12358415983,
+    "discovery_artifact_sha256": "ac5b54d3bf3b7590ce1994d57a62ede323259c4f725d0ceb210fa2f876db97f9",
     "previous_package_count": 253,
     "resolved_package_count": 253,
     "missing": [],
@@ -425,7 +425,7 @@
           "to": "1.34.9-r0"
         }
       ],
-      "detected_by_ci_run_id": 39656472736
+      "detected_by_ci_run_id": 39626612753
     },
     "discovery_lock_sha256": "78a6c06ce751ab93eb59f93a0754fe8b703c1b3f19d6f92ad40f451f0d30ac8d"
   },

@@ -1,6 +1,7 @@
 """Read-only Independent Base TAR inventory regression tests."""
 import io
 import importlib.util
+import struct
 from pathlib import Path
 import tarfile
 import tempfile
@@ -11,6 +12,22 @@ SCRIPT = ROOT / "bootstrap/independent-base/verify_rootfs.py"
 spec = importlib.util.spec_from_file_location("ordax_independent_rootfs_audit", SCRIPT)
 module = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(module)
+
+
+
+def sample_elf(interpreter=None):
+    size = 128 + (len(interpreter.encode()) + 1 if interpreter else 0)
+    data = bytearray(size)
+    data[:6] = b"\x7fELF\x02\x01"
+    struct.pack_into("<Q", data, 32, 64)
+    struct.pack_into("<H", data, 54, 56)
+    struct.pack_into("<H", data, 56, 1 if interpreter else 0)
+    if interpreter:
+        struct.pack_into("<I", data, 64, 3)
+        struct.pack_into("<Q", data, 72, 128)
+        struct.pack_into("<Q", data, 96, len(interpreter.encode()) + 1)
+        data[128:] = interpreter.encode() + b"\0"
+    return bytes(data)
 
 
 class IndependentRootfsInventoryTest(unittest.TestCase):
@@ -29,14 +46,14 @@ class IndependentRootfsInventoryTest(unittest.TestCase):
 
     def test_clean_rootfs_measures_elf_and_bytes(self):
         result = module.audit(self.archive([
-            ("./bin/busybox", b"\x7fELFtest"),
+            ("./bin/busybox", sample_elf()),
             ("./etc/os-release", b"NAME=OrdaX"),
         ]))
         self.assertEqual(result["status"], "pass")
         self.assertEqual(result["elf_files"], ["bin/busybox"])
         self.assertFalse(result["elf_linkage_verified"])
         self.assertFalse(result["boot_verified"])
-        self.assertEqual(result["uncompressed_file_bytes"], 18)
+        self.assertEqual(result["uncompressed_file_bytes"], 128 + len(b"NAME=OrdaX"))
 
     def test_tar_root_directory_is_allowed(self):
         path = Path(self.temp.name) / 'rootfs.tar'
@@ -45,9 +62,132 @@ class IndependentRootfsInventoryTest(unittest.TestCase):
             root.type = tarfile.DIRTYPE
             handle.addfile(root)
             binary = tarfile.TarInfo('./bin/tool')
-            binary.size = 4
-            handle.addfile(binary, io.BytesIO(b'\x7fELF'))
+            binary.size = len(sample_elf())
+            handle.addfile(binary, io.BytesIO(sample_elf()))
         self.assertEqual(module.audit(str(path))['elf_files'], ['bin/tool'])
+
+
+    def test_dynamic_interpreter_present(self):
+        result = module.audit(self.archive([
+            ("bin/tool", sample_elf("/lib/ld-musl.so.1")),
+            ("lib/ld-musl.so.1", b"linker")
+        ]))
+        self.assertEqual(result["status"], "pass")
+        self.assertEqual(result["elf_interpreters"]["bin/tool"], "/lib/ld-musl.so.1")
+
+    def test_dynamic_interpreter_missing(self):
+        result = module.audit(self.archive([
+            ("bin/tool", sample_elf("/lib/ld-musl.so.1"))
+        ]))
+        self.assertEqual(result["status"], "fail")
+        self.assertEqual(result["missing_interpreters"]["bin/tool"], "/lib/ld-musl.so.1")
+
+
+    def test_interpreter_symlink_to_file_is_accepted(self):
+        path = Path(self.temp.name) / "rootfs.tar"
+        with tarfile.open(path, "w") as handle:
+            binary = sample_elf("/lib/ld-musl.so.1")
+            entry = tarfile.TarInfo("bin/tool")
+            entry.size = len(binary)
+            handle.addfile(entry, io.BytesIO(binary))
+            entry = tarfile.TarInfo("lib/ld-musl.so.1")
+            entry.type = tarfile.SYMTYPE
+            entry.linkname = "libc.so"
+            handle.addfile(entry)
+            entry = tarfile.TarInfo("lib/libc.so")
+            entry.size = 4
+            handle.addfile(entry, io.BytesIO(b"data"))
+        self.assertEqual(module.audit(str(path))["status"], "pass")
+
+    def test_interpreter_in_directory_symlink_is_accepted(self):
+        # A real ELF loader often lives below an intermediate /lib64 link.
+        path = Path(self.temp.name) / "rootfs.tar"
+        with tarfile.open(path, "w") as handle:
+            binary = sample_elf("/lib64/ld-musl.so.1")
+            entry = tarfile.TarInfo("bin/tool")
+            entry.size = len(binary)
+            handle.addfile(entry, io.BytesIO(binary))
+            entry = tarfile.TarInfo("lib64")
+            entry.type = tarfile.SYMTYPE
+            entry.linkname = "usr/lib64"
+            handle.addfile(entry)
+            entry = tarfile.TarInfo("usr/lib64/ld-musl.so.1")
+            entry.size = len(b"loader")
+            handle.addfile(entry, io.BytesIO(b"loader"))
+        result = module.audit(str(path))
+        self.assertEqual(result["status"], "pass")
+        self.assertEqual(result["missing_interpreters"], {})
+
+    def test_interpreter_symlink_directory_cannot_escape_root(self):
+        path = Path(self.temp.name) / "rootfs.tar"
+        with tarfile.open(path, "w") as handle:
+            binary = sample_elf("/lib64/ld-musl.so.1")
+            entry = tarfile.TarInfo("bin/tool")
+            entry.size = len(binary)
+            handle.addfile(entry, io.BytesIO(binary))
+            entry = tarfile.TarInfo("lib64")
+            entry.type = tarfile.SYMTYPE
+            entry.linkname = "../../outside"
+            handle.addfile(entry)
+        result = module.audit(str(path))
+        self.assertEqual(result["status"], "fail")
+        self.assertIn("bin/tool", result["missing_interpreters"])
+
+    def test_interpreter_parent_regular_file_cannot_be_directory(self):
+        result = module.audit(self.archive([
+            ("bin/tool", sample_elf("/lib64/ld-musl.so.1")),
+            ("lib64", b"regular-not-a-directory"),
+            ("lib64/ld-musl.so.1", b"malformed-tree-loader"),
+        ]))
+        self.assertEqual(result["status"], "fail")
+
+    def test_interpreter_dangling_symlink_is_rejected(self):
+        path = Path(self.temp.name) / "rootfs.tar"
+        with tarfile.open(path, "w") as handle:
+            binary = sample_elf("/lib/ld-musl.so.1")
+            entry = tarfile.TarInfo("bin/tool")
+            entry.size = len(binary)
+            handle.addfile(entry, io.BytesIO(binary))
+            entry = tarfile.TarInfo("lib/ld-musl.so.1")
+            entry.type = tarfile.SYMTYPE
+            entry.linkname = "missing.so"
+            handle.addfile(entry)
+        self.assertEqual(module.audit(str(path))["status"], "fail")
+
+
+    def test_interpreter_tar_hardlink_to_file_is_accepted(self):
+        path = Path(self.temp.name) / "rootfs.tar"
+        with tarfile.open(path, "w") as handle:
+            binary = sample_elf("/lib/ld-musl.so.1")
+            entry = tarfile.TarInfo("bin/tool")
+            entry.size = len(binary)
+            handle.addfile(entry, io.BytesIO(binary))
+            entry = tarfile.TarInfo("lib/libc.so")
+            entry.size = 4
+            handle.addfile(entry, io.BytesIO(b"data"))
+            entry = tarfile.TarInfo("lib/ld-musl.so.1")
+            entry.type = tarfile.LNKTYPE
+            entry.linkname = "lib/libc.so"
+            handle.addfile(entry)
+        self.assertEqual(module.audit(str(path))["status"], "pass")
+
+    def test_interpreter_hardlink_cycle_is_rejected(self):
+        path = Path(self.temp.name) / "rootfs.tar"
+        with tarfile.open(path, "w") as handle:
+            binary = sample_elf("/lib/a.so")
+            entry = tarfile.TarInfo("bin/tool")
+            entry.size = len(binary)
+            handle.addfile(entry, io.BytesIO(binary))
+            for source, target in (("lib/a.so", "lib/b.so"), ("lib/b.so", "lib/a.so")):
+                entry = tarfile.TarInfo(source)
+                entry.type = tarfile.LNKTYPE
+                entry.linkname = target
+                handle.addfile(entry)
+        self.assertEqual(module.audit(str(path))["status"], "fail")
+
+    def test_malformed_elf_fails_closed(self):
+        with self.assertRaisesRegex(ValueError, "malformed ELF"):
+            module.audit(self.archive([("bin/tool", b"\x7fELFbad")]))
 
     def test_alpine_apk_residue_is_rejected(self):
         result = module.audit(self.archive([("etc/apk/repositories", b"index")]))
