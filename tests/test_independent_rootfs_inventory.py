@@ -99,6 +99,48 @@ class IndependentRootfsInventoryTest(unittest.TestCase):
             handle.addfile(entry, io.BytesIO(b"data"))
         self.assertEqual(module.audit(str(path))["status"], "pass")
 
+    def test_interpreter_in_directory_symlink_is_accepted(self):
+        # A real ELF loader often lives below an intermediate /lib64 link.
+        path = Path(self.temp.name) / "rootfs.tar"
+        with tarfile.open(path, "w") as handle:
+            binary = sample_elf("/lib64/ld-musl.so.1")
+            entry = tarfile.TarInfo("bin/tool")
+            entry.size = len(binary)
+            handle.addfile(entry, io.BytesIO(binary))
+            entry = tarfile.TarInfo("lib64")
+            entry.type = tarfile.SYMTYPE
+            entry.linkname = "usr/lib64"
+            handle.addfile(entry)
+            entry = tarfile.TarInfo("usr/lib64/ld-musl.so.1")
+            entry.size = len(b"loader")
+            handle.addfile(entry, io.BytesIO(b"loader"))
+        result = module.audit(str(path))
+        self.assertEqual(result["status"], "pass")
+        self.assertEqual(result["missing_interpreters"], {})
+
+    def test_interpreter_symlink_directory_cannot_escape_root(self):
+        path = Path(self.temp.name) / "rootfs.tar"
+        with tarfile.open(path, "w") as handle:
+            binary = sample_elf("/lib64/ld-musl.so.1")
+            entry = tarfile.TarInfo("bin/tool")
+            entry.size = len(binary)
+            handle.addfile(entry, io.BytesIO(binary))
+            entry = tarfile.TarInfo("lib64")
+            entry.type = tarfile.SYMTYPE
+            entry.linkname = "../../outside"
+            handle.addfile(entry)
+        result = module.audit(str(path))
+        self.assertEqual(result["status"], "fail")
+        self.assertIn("bin/tool", result["missing_interpreters"])
+
+    def test_interpreter_parent_regular_file_cannot_be_directory(self):
+        result = module.audit(self.archive([
+            ("bin/tool", sample_elf("/lib64/ld-musl.so.1")),
+            ("lib64", b"regular-not-a-directory"),
+            ("lib64/ld-musl.so.1", b"malformed-tree-loader"),
+        ]))
+        self.assertEqual(result["status"], "fail")
+
     def test_interpreter_dangling_symlink_is_rejected(self):
         path = Path(self.temp.name) / "rootfs.tar"
         with tarfile.open(path, "w") as handle:

@@ -96,28 +96,45 @@ def audit(path: str) -> dict:
             elif not (member.isdir() or member.isdev() or member.isfifo()):
                 raise ValueError(f"unsupported tar entry: {name}")
     def resolved_interpreter(interpreter: str) -> bool:
-        path = interpreter.lstrip("/")
+        # Resolve every path component, not only the final PT_INTERP file.
+        # A valid rootfs may use /lib64 -> usr/lib64 or /lib -> usr/lib.
+        # All link expansion stays inside the TAR root and is bounded.
+        path = posixpath.normpath(interpreter.lstrip("/"))
         visited = set()
         for _ in range(40):
-            if path in visited or path not in entries:
+            if path in visited or path in ("", ".", "..") or path.startswith("../"):
                 return False
             visited.add(path)
-            kind, target = entries[path]
-            if kind == tarfile.REGTYPE or kind == tarfile.AREGTYPE:
-                return True
-            if kind not in (tarfile.SYMTYPE, tarfile.LNKTYPE):
-                return False
-            if not target:
-                return False
-            # Hardlink names are archive-root relative; symlinks resolve
-            # relative to their containing directory unless absolute.
-            if kind == tarfile.LNKTYPE:
-                base = target.lstrip("/")
+            parts = path.split("/")
+            for index in range(len(parts)):
+                prefix = "/".join(parts[:index + 1])
+                entry = entries.get(prefix)
+                if entry is None:
+                    # TAR permits implicit parent directories.
+                    continue
+                kind, target = entry
+                if kind not in (tarfile.SYMTYPE, tarfile.LNKTYPE):
+                    # An actual non-directory cannot have children.
+                    if index < len(parts) - 1 and kind != tarfile.DIRTYPE:
+                        return False
+                    continue
+                if not target:
+                    return False
+                # TAR hardlink targets are archive-root relative; POSIX
+                # symlinks are relative to the directory containing the link.
+                if kind == tarfile.LNKTYPE or target.startswith("/"):
+                    replacement = target.lstrip("/")
+                else:
+                    replacement = posixpath.join(posixpath.dirname(prefix), target)
+                path = posixpath.normpath(
+                    posixpath.join(replacement, *parts[index + 1:])
+                )
+                if path in (".", "..") or path.startswith("../") or path.startswith("/"):
+                    return False
+                break
             else:
-                base = target.lstrip("/") if target.startswith("/") else posixpath.join(posixpath.dirname(path), target)
-            path = posixpath.normpath(base)
-            if path == ".." or path.startswith("../"):
-                return False
+                entry = entries.get(path)
+                return entry is not None and entry[0] in (tarfile.REGTYPE, tarfile.AREGTYPE)
         return False
 
     missing = {name: interp for name, interp in interpreters.items() if not resolved_interpreter(interp)}
