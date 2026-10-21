@@ -15,6 +15,7 @@ from pathlib import Path
 import re
 import shutil
 import socket
+import struct
 import stat
 import subprocess
 import sys
@@ -199,9 +200,8 @@ def analyze_ppm(path: Path) -> dict[str, int | float]:
     }
 
 
-def capture_qmp_framebuffer(socket_path: Path, image_path: Path) -> dict[str, int | float]:
-    if image_path.exists() or image_path.is_symlink():
-        raise ProofError("QEMU framebuffer evidence destination already exists")
+def qmp_request(socket_path: Path, command: str, arguments: dict | None = None) -> None:
+    """One bounded local QMP channel for evidence and guest ACPI requests."""
     with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as connection:
         connection.settimeout(8)
         connection.connect(str(socket_path))
@@ -209,10 +209,11 @@ def capture_qmp_framebuffer(socket_path: Path, image_path: Path) -> dict[str, in
             greeting = json.loads(channel.readline())
             if "QMP" not in greeting:
                 raise ProofError("QEMU QMP greeting is invalid")
-            def request(command: str, arguments: dict | None = None) -> None:
-                payload: dict = {"execute": command}
-                if arguments is not None:
-                    payload["arguments"] = arguments
+
+            def request(name: str, args: dict | None = None) -> None:
+                payload: dict = {"execute": name}
+                if args is not None:
+                    payload["arguments"] = args
                 channel.write(json.dumps(payload).encode("utf-8") + b"\r\n")
                 for _ in range(32):
                     line = channel.readline()
@@ -220,15 +221,67 @@ def capture_qmp_framebuffer(socket_path: Path, image_path: Path) -> dict[str, in
                         raise ProofError("QMP disconnected before reply")
                     reply = json.loads(line)
                     if "error" in reply:
-                        raise ProofError(f"QMP {command} refused graphical proof: {reply['error']!r}")
+                        raise ProofError(f"QMP {name} failed: {reply['error']!r}")
                     if "return" in reply:
                         return
-                raise ProofError(f"QMP {command} reply was not observed")
+                raise ProofError(f"QMP {name} reply was not observed")
+
             request("qmp_capabilities")
-            request("screendump", {"filename": str(image_path)})
+            request(command, arguments)
+
+
+def capture_qmp_framebuffer(socket_path: Path, image_path: Path) -> dict[str, int | float]:
+    if image_path.exists() or image_path.is_symlink():
+        raise ProofError("QEMU framebuffer evidence destination already exists")
+    qmp_request(socket_path, "screendump", {"filename": str(image_path)})
     if image_path.is_symlink() or not image_path.is_file():
         raise ProofError("QEMU screenshot was not created as a regular file")
     return analyze_ppm(image_path)
+
+
+def prove_ext4_clean_after_guest_poweroff(disk: Path) -> bool:
+    """Check p2 of a disposable GPT RAW, with no physical-device writes."""
+    regular(disk, "disposable QEMU disk")
+    with disk.open("rb") as stream:
+        stream.seek(512)
+        header = stream.read(512)
+        if header[:8] != b"EFI PART":
+            raise ProofError("QEMU disposable disk has no GPT header")
+        entries_lba = struct.unpack_from("<Q", header, 72)[0]
+        count = struct.unpack_from("<I", header, 80)[0]
+        entry_size = struct.unpack_from("<I", header, 84)[0]
+        if entries_lba < 2 or count < 2 or not 128 <= entry_size <= 512:
+            raise ProofError("disposable GPT partition table dimensions invalid")
+        stream.seek(entries_lba * 512 + entry_size)
+        part = stream.read(entry_size)
+        if len(part) != entry_size or part[:16] == b"\0" * 16:
+            raise ProofError("disposable Owner ext4 p2 missing")
+        first_lba, last_lba = struct.unpack_from("<QQ", part, 32)
+        offset, size = first_lba * 512, (last_lba - first_lba + 1) * 512
+        if first_lba < 34 or last_lba < first_lba or offset + size > disk.stat().st_size:
+            raise ProofError("disposable Owner ext4 p2 outside disk")
+    loop = subprocess.run(
+        ["sudo", "losetup", "--read-only", "--find", "--show",
+         "--offset", str(offset), "--sizelimit", str(size), str(disk)],
+        capture_output=True, text=True, timeout=25, check=True,
+    ).stdout.strip()
+    if re.fullmatch(r"/dev/loop[0-9]+", loop) is None:
+        raise ProofError("loop device identity invalid for disposable QEMU RAW")
+    try:
+        check = subprocess.run(
+            ["sudo", "e2fsck", "-fn", loop],
+            capture_output=True, text=True, timeout=90,
+        )
+        if check.returncode != 0:
+            raise ProofError(
+                "Owner ext4 failed offline check after ACPI shutdown: "
+                f"rc={check.returncode}, tail={check.stdout[-1800:]!r}, "
+                f"stderr={check.stderr[-500:]!r}"
+            )
+    finally:
+        subprocess.run(["sudo", "losetup", "-d", loop], check=True, timeout=20)
+    return True
+
 
 def prove_guest_boot(
     disk: Path, kernel: Path, initramfs: Path, source: str,
