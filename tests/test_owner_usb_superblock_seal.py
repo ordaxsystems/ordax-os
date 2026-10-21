@@ -6,6 +6,7 @@ This deliberately does not remount the CI runner's root filesystem.
 from __future__ import annotations
 
 import os
+import json
 from pathlib import Path
 import subprocess
 import tempfile
@@ -70,7 +71,7 @@ class OwnerUsbSuperblockSealTests(unittest.TestCase):
 
     def _probe_auxiliary_partitions(
         self, *, major_minor: str, vfs: str = "rw", superblock: str = "rw",
-        absent_sysfs: bool = False,
+        absent_sysfs: bool = False, prepared_data: bool = True,
     ) -> int:
         source = GUARDIAN.read_text(encoding="utf-8")
         function = extract_function(source, "owner_usb_auxiliary_partitions_quiesced")
@@ -97,9 +98,10 @@ class OwnerUsbSuperblockSealTests(unittest.TestCase):
             # Sysfs existence is redirected to disposable fixtures, too.
             sysdir = Path(directory) / "sys"
             (sysdir / "sde1").mkdir(parents=True)
-            (sysdir / "sde3").mkdir(parents=True)
-            for part in ("sde1", "sde3"):
-                (sysdir / part / "dev").write_text("unused\n", encoding="ascii")
+            (sysdir / "sde1" / "dev").write_text("unused\n", encoding="ascii")
+            if prepared_data:
+                (sysdir / "sde3").mkdir(parents=True)
+                (sysdir / "sde3" / "dev").write_text("unused\n", encoding="ascii")
             script = script.replace("/sys/class/block/", str(sysdir) + "/")
             run = subprocess.run(
                 ["sh", "-c", script],
@@ -139,6 +141,45 @@ class OwnerUsbSuperblockSealTests(unittest.TestCase):
         self.assertNotEqual(
             self._probe_auxiliary_partitions(major_minor="8:49", absent_sysfs=True), 0,
         )
+
+    def test_seed_two_partition_layout_without_data_is_supported(self) -> None:
+        # docs/contracts/physical-media.json intentionally has only ESP+ORDAX.
+        self.assertEqual(
+            self._probe_auxiliary_partitions(
+                major_minor="8:33", vfs="ro", superblock="ro",
+                prepared_data=False,
+            ),
+            0,
+        )
+
+    def test_seed_without_data_still_blocks_writable_esp(self) -> None:
+        self.assertNotEqual(
+            self._probe_auxiliary_partitions(
+                major_minor="8:33", prepared_data=False,
+            ),
+            0,
+        )
+
+    def test_prepared_three_partition_data_readonly_is_supported(self) -> None:
+        self.assertEqual(
+            self._probe_auxiliary_partitions(
+                major_minor="8:35", vfs="ro", superblock="ro",
+                prepared_data=True,
+            ),
+            0,
+        )
+
+    def test_seed_and_prepared_partition_counts_come_from_canonical_contracts(self) -> None:
+        seed = json.loads(
+            (GUARDIAN.parents[1] / "docs/contracts/physical-media.json").read_text(encoding="utf-8")
+        )
+        prepared = json.loads(
+            (GUARDIAN.parents[1] / "docs/contracts/physical-prepared-media.json").read_text(encoding="utf-8")
+        )
+        self.assertEqual([p["index"] for p in seed["partitions"]], [1, 2])
+        self.assertEqual([p["index"] for p in prepared["partitions"]], [1, 2, 3])
+        self.assertEqual(seed["partitions"][1]["filesystem_label"], "ORDAX")
+        self.assertEqual(prepared["partitions"][2]["filesystem_label"], "ORDAX-DATA")
 
     def test_all_aliases_and_superblock_readonly_pass(self) -> None:
         self.assertEqual(self._probe_mounts("ro,relatime"), 0)
