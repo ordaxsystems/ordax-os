@@ -32,9 +32,16 @@ class OwnerUsbSuperblockSealTests(unittest.TestCase):
         self.assertIn('[ "$root_id" = "$device_id" ]', root)
         self.assertIn('[ -b "$device" ]', root)
         self.assertIn('mount -o remount,ro "$device" /', seal)
-        self.assertNotIn("mount -o remount,bind,ro", seal)
+        self.assertIn('mount -o remount,bind,ro "$target" "$target"', seal)
+        self.assertLess(
+            seal.index('mount -o remount,ro "$device" /'),
+            seal.index('mount -o remount,bind,ro "$target" "$target"'),
+        )
+        self.assertIn("owner_usb_capture_writable_aliases", seal)
         self.assertIn("owner_usb_all_root_mounts_read_only", seal)
         self.assertIn('mount -o remount,rw "$OWNER_USB_ROOT_SOURCE" /', restore)
+        self.assertIn('mount -o remount,bind,rw "$target" "$target"', restore)
+        self.assertIn("owner_usb_writable_aliases_restored", restore)
         self.assertIn("owner_usb_auxiliary_partitions_quiesced", seal)
         self.assertNotIn("/proc/sysrq-trigger", source)
 
