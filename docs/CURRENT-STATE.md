@@ -1,3 +1,17 @@
+Owner/Development USB Local AI lifecycle (2026-10-21): `ordax-run` now
+uses the existing Native Local AI endpoint with a bounded, fail-closed
+`system/services/local-ai/owner-dev-runtime.sh` lifecycle. When an exact
+pre-staged content-addressed signed v4 EROFS exists, the helper verifies
+size/SHA-256, root ownership, source-lock identity and x86_64 architecture;
+it mounts read-only, generates an ephemeral inference credential in the
+existing Native Host location and supervises the model process until stop.
+Absent, corrupt or incompatible payload never blocks Surface/boot.
+This is a **source-only activation path for a pre-staged artifact**, not a
+delivery implementation: current Git-first `ordax-pull` does not acquire or
+install that 568 MiB EROFS. Publication/acquisition, verified staging,
+rollback, actual USB Dev inference and physical verification remain open in
+#2071. No change to Stable signing/activation or Web remote availability.
+
 Owner/Development USB discovery without account login (2026-10-21): Native
 runtime composition now starts the single existing presence worker whenever the
 private, previously enrolled Product device credential is valid and no local
