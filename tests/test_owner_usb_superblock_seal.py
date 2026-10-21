@@ -32,16 +32,16 @@ class OwnerUsbSuperblockSealTests(unittest.TestCase):
         self.assertIn('[ "$partition" = 2 ] && [ "$removable" = 1 ]', root)
         self.assertIn('[ "$root_id" = "$device_id" ]', root)
         self.assertIn('[ -b "$device" ]', root)
-        self.assertIn('mount -o remount,ro "$device" /', seal)
-        self.assertIn('mount -o remount,bind,ro "$target" "$target"', seal)
+        self.assertIn('mount -n -o remount,ro "$device" /', seal)
+        self.assertIn('mount -n -o remount,bind,ro "$target" "$target"', seal)
         self.assertLess(
-            seal.index('mount -o remount,ro "$device" /'),
-            seal.index('mount -o remount,bind,ro "$target" "$target"'),
+            seal.index('mount -n -o remount,ro "$device" /'),
+            seal.index('mount -n -o remount,bind,ro "$target" "$target"'),
         )
         self.assertIn("owner_usb_capture_writable_aliases", seal)
         self.assertIn("owner_usb_all_root_mounts_read_only", seal)
-        self.assertIn('mount -o remount,rw "$OWNER_USB_ROOT_SOURCE" /', restore)
-        self.assertIn('mount -o remount,bind,rw "$target" "$target"', restore)
+        self.assertIn('mount -n -o remount,rw "$OWNER_USB_ROOT_SOURCE" /', restore)
+        self.assertIn('mount -n -o remount,bind,rw "$target" "$target"', restore)
         self.assertIn("owner_usb_writable_aliases_restored", restore)
         self.assertIn("owner_usb_auxiliary_partitions_quiesced", seal)
         self.assertNotIn("/proc/sysrq-trigger", source)
@@ -217,11 +217,11 @@ class OwnerUsbSuperblockSealTests(unittest.TestCase):
             "'$5 == target { print $3; exit }' /proc/self/mountinfo",
         )
         functions = functions.replace(
-            'mount -o remount,ro "$device" /',
-            'mount -o remount,ro "$device" "$ROOTMOUNT"',
+            'mount -n -o remount,ro "$device" /',
+            'mount -n -o remount,ro "$device" "$ROOTMOUNT"',
         ).replace(
-            'mount -o remount,rw "$OWNER_USB_ROOT_SOURCE" /',
-            'mount -o remount,rw "$OWNER_USB_ROOT_SOURCE" "$ROOTMOUNT"',
+            'mount -n -o remount,rw "$OWNER_USB_ROOT_SOURCE" /',
+            'mount -n -o remount,rw "$OWNER_USB_ROOT_SOURCE" "$ROOTMOUNT"',
         )
         # unshare -m creates a private Linux mount namespace. The only block
         # device used is a 128 MiB loop of a disposable regular file.
@@ -255,6 +255,7 @@ owner_usb_root_source() { printf '%s\n' "$loop"; }
 owner_usb_auxiliary_partitions_quiesced() { return 0; }
 OWNER_USB_ROOT_SOURCE=""
 OWNER_USB_WRITABLE_ALIASES=""
+GUARDIAN_LOG=$scratch/guardian-mount.log
 """ + functions + r"""
 if owner_usb_all_root_mounts_read_only; then
     echo BAD_PRE_SEAL_PROOF
