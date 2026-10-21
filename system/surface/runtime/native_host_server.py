@@ -558,6 +558,54 @@ POWER_REQUEST_STATUS_TOKENS = frozenset(("pending", "stopping", "syncing", "rebo
 POWER_STAGE_TOKENS = frozenset(("accepted", "supervisor-quiesce", "host-agents", "filesystem-sync", "root-readonly"))
 POWER_FAILURE_TOKENS = frozenset(("supervisor-quiesce-failed", "host-agents-failed", "sync-failed", "remount-failed", "root-still-writable", "kernel-transition-returned"))
 
+# The Guardian already captured BusyBox mount stderr in an ephemeral log.
+# Extract a fixed diagnostic *category* from the existing shutdown attempt;
+# never return any untrusted log line, filesystem path or raw kernel output.
+OWNER_GUARDIAN_LOG = "/run/ordax-update/guardian.log"
+HOST_REMOUNT_ERROR_CODES = (
+    ("device-busy", ("device or resource busy", "target is busy", "mount point is busy", "mountpoint is busy")),
+    ("invalid-argument", ("invalid argument",)),
+    ("permission-denied", ("permission denied", "operation not permitted", "are you root")),
+    ("not-a-mountpoint", ("not a mountpoint", "not a mount point")),
+    ("unsupported-operation", ("operation not supported", "not supported")),
+    ("read-only-filesystem", ("read-only file system", "read only file system")),
+    ("missing-target", ("no such file or directory", "can't find", "not found")),
+)
+
+
+def read_guardian_remount_error(log_path: str = OWNER_GUARDIAN_LOG) -> str:
+    """Classify latest failed shutdown remount in existing, size-bounded log."""
+    try:
+        fd = os.open(log_path, os.O_RDONLY | os.O_CLOEXEC | os.O_NOFOLLOW)
+        with os.fdopen(fd, "rb") as stream:
+            details = os.fstat(stream.fileno())
+            if not stat.S_ISREG(details.st_mode):
+                return "unavailable"
+            stream.seek(max(0, details.st_size - 262144))
+            lines = stream.read(262144).decode("utf-8", "replace").splitlines()
+    except (OSError, ValueError):
+        return "unavailable"
+    target = "root filesystem could not be remounted read-only for shutdown"
+    for index in range(len(lines) - 1, -1, -1):
+        if target not in lines[index]:
+            continue
+        # Match only the error emitted in this exact attempt. The Guardian
+        # records the failed transition right after the mount command returns.
+        for line in reversed(lines[max(0, index - 15):index]):
+            lower = line.lower()
+            if "host power owner accepted shutdown" in lower:
+                break
+            if not lower.lstrip().startswith("mount:"):
+                continue
+            for code, phrases in HOST_REMOUNT_ERROR_CODES:
+                if any(phrase in lower for phrase in phrases):
+                    return code
+            return "unclassified-mount-error"
+        return "no-mount-error-output"
+    return "unavailable"
+
+
+
 
 def _read_owner_power_receipt(root: str, basename: str) -> str | None:
     """Read a bounded, symlink-resistant local receipt, never arbitrary logs."""
@@ -583,13 +631,14 @@ def _read_owner_power_receipt(root: str, basename: str) -> str | None:
         return None
 
 
-def read_owner_usb_power_receipts(root: str = OWNER_USB_POWER_RECEIPTS) -> dict[str, str]:
+def read_owner_usb_power_receipts(root: str = OWNER_USB_POWER_RECEIPTS, *, log_path: str = OWNER_GUARDIAN_LOG) -> dict[str, str]:
     """Return only canonical status enums of the last physical power request."""
     result = {
         "lastAction": "unavailable",
         "lastStatus": "unavailable",
         "lastStage": "unavailable",
         "lastFailure": "unavailable",
+        "lastMountError": "unavailable",
     }
     request = _read_owner_power_receipt(root, "last-request")
     if request is not None:
@@ -607,6 +656,8 @@ def read_owner_usb_power_receipts(root: str = OWNER_USB_POWER_RECEIPTS) -> dict[
     failure = _read_owner_power_receipt(root, "last-failure")
     if failure is not None:
         result["lastFailure"] = failure if failure in POWER_FAILURE_TOKENS else "unknown"
+    if result["lastAction"] == "shutdown" and result["lastFailure"] == "remount-failed":
+        result["lastMountError"] = read_guardian_remount_error(log_path)
     return result
 
 
