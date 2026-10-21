@@ -149,6 +149,7 @@ import { mountLocalSessionLock } from "../../surface/ui/local-session-lock.mjs";
 import { mountSettingsOverviewControls } from "../../surface/ui/settings-overview-controls.mjs";
 import { mountStoreWindows } from "../../surface/ui/store-experience.mjs";
 import { mountSystemOverviewControls } from "../../surface/ui/system-overview-controls.mjs";
+import { createDesktopRecoveryStatus } from "../../adapters/desktop/recovery-port.mjs";
 import { mountSystemTrayQuickPanels } from "../../surface/ui/system-tray-quick-panels.mjs";
 import { mountUpdateControls } from "../../surface/ui/update-controls.mjs";
 
@@ -173,11 +174,14 @@ function blockedAccountMemoryMutations() {
 }
 
 const bootScreen = createSurfaceBootScreen(document);
+// Read-only boot milestone for host diagnostics. No account or user data.
+document.documentElement.dataset.ordaxNativeMilestone = "entry-evaluated";
 let bootLocale = "pt-BR";
 let filesProbationContextBootstrap = null;
 const bootText = (messageId) => translateSurfaceMessage(bootLocale, messageId);
 
 async function start() {
+  document.documentElement.dataset.ordaxNativeMilestone = "composition-start";
   const root = document.querySelector("#ordax-root");
   if (!root) {
     throw new Error("OrdaX composition root is missing #ordax-root");
@@ -313,12 +317,14 @@ async function start() {
     ),
   ]);
 
+  document.documentElement.dataset.ordaxNativeMilestone = "awaiting-first-run-persistence";
   const [preferenceStore, firstRunStateStore, localSession, bundledProfilePacks] = await Promise.all([
     preferenceStorePromise,
     firstRunStateStorePromise,
     localSessionPromise,
     bundledProfilePacksPromise,
   ]);
+  document.documentElement.dataset.ordaxNativeMilestone = "first-run-persistence-ready";
   const regionalRecovery = seedMissingRegionalPreferencesFromFirstRun(
     preferenceStore.load(),
     firstRunStateStore.load(),
@@ -327,6 +333,7 @@ async function start() {
     preferenceStore.save(regionalRecovery.snapshot);
   }
   bootLocale = regionalRecovery.snapshot["regional.locale"] ?? "pt-BR";
+  document.documentElement.dataset.ordaxNativeMilestone = "awaiting-optional-native-ports";
   bootScreen.setStage(bootText("surface.boot.loadingSurface"));
   const [
     clientDiagnostics,
@@ -350,6 +357,7 @@ async function start() {
     recoveryStatus,
     powerStatus,
   ] = await optionalPortsPromise;
+  document.documentElement.dataset.ordaxNativeMilestone = "native-ports-observed";
 
   const installedAppEntries = await verifiedInstalledAppEntriesPromise ?? [];
   const installedAppCatalog = await optionalNativeProbe(
@@ -948,6 +956,10 @@ async function start() {
   let storeCatalogComposition = null;
   let storeCatalog = createUnavailableAppStoreCatalogPort();
   let storeOverviewControls = null;
+  const desktopRecoveryStatus = typeof window.ordaxDesktopBrowser?.postMessage === "function"
+    ? await optionalNativeProbe("OrdaX Desktop recovery unavailable",
+      () => createDesktopRecoveryStatus(window))
+    : null;
   const systemOverviewControls = mountSystemOverviewControls(
     root,
     host,
@@ -960,6 +972,7 @@ async function start() {
     componentManager,
     selectedSpaceIntelligence,
     recoveryStatus,
+    desktopRecoveryStatus,
   );
   const updateControls = mountUpdateControls(root, updateWatcher, appActivation, surface);
   const powerControls = mountPowerControls(root, powerActions, surface);
@@ -969,7 +982,12 @@ async function start() {
   // import or mount failure cannot turn into a failed OrdaX cold boot.
   // The already-mounted shell is visible before asking the official
   // Supervisor to acknowledge its identity. No synthetic heartbeat is sent.
+  document.documentElement.dataset.ordaxNativeMilestone = "surface-shell-mounted";
   bootScreen.ready();
+  // The shell already mounted and is healthy. Advance the verified boot gate
+  // before awaiting optional Store and external apps: those enrichments cannot
+  // keep a successful Native boot trapped in "ready-pending".
+  bootScreen.setStage(surface.localization.translate("surface.boot.preparingFirstRun"));
   componentManager.setCurrentHealth("surface-shell", "healthy");
   void updateWatcher.markHealthy();
   const surfaceHeartbeat = createNativeSurfaceHeartbeat(window);
@@ -1044,7 +1062,6 @@ async function start() {
   );
   surface.replaceAppCatalog(activeExternalCatalog.catalog);
 
-  bootScreen.setStage(surface.localization.translate("surface.boot.preparingFirstRun"));
   // First Run reads the already-verified Store projection and its matching
   // ephemeral Native current observations. It has NO installation authority.
   let firstRunAppSelection = null;
@@ -1157,6 +1174,7 @@ async function start() {
 }
 
 start().catch((error) => {
+  document.documentElement.dataset.ordaxNativeMilestone = "composition-error";
   filesProbationContextBootstrap?.fail(error);
   bootScreen.fail(bootText("surface.boot.failed"));
   console.error("OrdaX native composition failed", error);

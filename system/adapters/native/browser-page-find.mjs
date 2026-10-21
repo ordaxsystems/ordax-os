@@ -10,7 +10,8 @@ const EVENT_NAME = "ordax-browser-host";
 const HANDLER_NAME = "ordaxBrowser";
 
 export function createNativeBrowserPageFind(windowRef = globalThis.window) {
-  const bridge = windowRef?.webkit?.messageHandlers?.[HANDLER_NAME];
+  const bridge = windowRef?.webkit?.messageHandlers?.[HANDLER_NAME]
+    ?? windowRef?.ordaxDesktopBrowser;
   if (!bridge || typeof bridge.postMessage !== "function") return null;
   const listeners = new Set();
   let disposed = false;

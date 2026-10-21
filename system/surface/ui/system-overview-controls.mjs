@@ -19,6 +19,7 @@ import {
   assertRecoveryStatusPort,
   validateRecoveryStatusSnapshot,
 } from "../../contracts/recovery-status.mjs";
+import { DESKTOP_RECOVERY_SCHEMA, validateDesktopRecoverySnapshot } from "../../contracts/desktop-recovery.mjs";
 import {
   assertUpdateHistoryPort,
   validateUpdateHistorySnapshot,
@@ -305,6 +306,7 @@ export function mountSystemOverviewControls(
   componentManager = null,
   intelligence = null,
   recoveryStatus = null,
+  desktopRecoveryStatus = null,
 ) {
   if (!(root instanceof Element)) {
     throw new TypeError("System overview controls require a Surface root Element");
@@ -318,6 +320,12 @@ export function mountSystemOverviewControls(
   const componentPort = componentManager === null ? null : assertComponentManager(componentManager);
   const intelligencePort = intelligence === null ? null : assertIntelligencePort(intelligence);
   const recoveryPort = recoveryStatus === null ? null : assertRecoveryStatusPort(recoveryStatus);
+  const desktopRecoveryPort = desktopRecoveryStatus === null ? null : (() => {
+    if (desktopRecoveryStatus.schema !== DESKTOP_RECOVERY_SCHEMA || typeof desktopRecoveryStatus.read !== "function") {
+      throw new TypeError("Desktop recovery port must implement the canonical Windows recovery contract");
+    }
+    return desktopRecoveryStatus;
+  })();
   const lifecycle = assertSurfaceRenderLifecycle(surfaceLifecycle);
   const localization = lifecycle.localization;
   const t = localization.translate;
@@ -344,6 +352,7 @@ export function mountSystemOverviewControls(
   let intelligenceAnswer = "";
   let intelligenceMessageId = null;
   let recoverySnapshot = null;
+  let desktopRecoverySnapshot = null;
   let recoveryPending = false;
   let recoveryMessageId = null;
   let recoveryOrdinal = 0;
@@ -855,7 +864,7 @@ export function mountSystemOverviewControls(
     );
     refresh.type = "button";
     refresh.dataset.systemRecoveryRefresh = "";
-    refresh.disabled = recoveryPending || recoveryPort === null;
+    refresh.disabled = recoveryPending || (recoveryPort === null && desktopRecoveryPort === null);
     heading.append(headingCopy, refresh);
     section.append(heading);
 
@@ -864,9 +873,40 @@ export function mountSystemOverviewControls(
         documentObject,
         "p",
         "ordax-system-section-copy",
-        t("system.recovery.policy"),
+        !recoveryPort && desktopRecoveryPort ? t("system.recovery.desktop.policy") : t("system.recovery.policy"),
       ),
     );
+
+    if (!recoveryPort && desktopRecoveryPort) {
+      if (!desktopRecoverySnapshot) {
+        section.append(node(documentObject, "p", recoveryMessageId ? "ordax-system-warning" : "ordax-system-placeholder",
+          recoveryMessageId ? t(recoveryMessageId) : t("system.recovery.desktop.reading")));
+      } else {
+        const facts = node(documentObject, "dl", "ordax-system-facts");
+        const fact = (label, value) => {
+          const item = node(documentObject, "div", "ordax-system-fact");
+          item.append(node(documentObject, "dt", "", label), node(documentObject, "dd", "", value));
+          facts.append(item);
+        };
+        const sha = value => value ? shortSha(value) : t("system.recovery.notObserved");
+        fact(t("system.recovery.desktop.running"), desktopRecoverySnapshot.runningKind === "verified-source"
+          ? t("system.recovery.desktop.verified") : desktopRecoverySnapshot.runningKind === "bundled"
+            ? t("system.recovery.desktop.bundled") : t("system.recovery.desktop.unavailable"));
+        fact(t("system.recovery.fact.current"), sha(desktopRecoverySnapshot.activeSha));
+        fact(t("system.recovery.fact.knownGood"), sha(desktopRecoverySnapshot.previousSha));
+        fact(t("system.recovery.fact.candidate"), sha(desktopRecoverySnapshot.pendingSha));
+        fact(t("system.recovery.desktop.rollback"), desktopRecoverySnapshot.rollbackState === "available"
+          ? t("system.recovery.desktop.rollbackAvailable") : t("system.recovery.desktop.rollbackUnavailable"));
+        fact(t("system.recovery.desktop.pin"), desktopRecoverySnapshot.updatePin === "pinned"
+          ? t("system.recovery.desktop.pinned") : t("system.recovery.desktop.notPinned"));
+        section.append(facts);
+        if (desktopRecoverySnapshot.runningKind === "unavailable") {
+          section.append(node(documentObject, "p", "ordax-system-warning", t("system.recovery.desktop.unavailable")));
+        }
+      }
+      view.append(section);
+      return;
+    }
 
     if (!recoveryPort) {
       section.append(
@@ -1562,18 +1602,20 @@ export function mountSystemOverviewControls(
   };
 
   const refreshRecovery = async () => {
-    if (!recoveryPort || recoveryPending) return;
+    if ((!recoveryPort && !desktopRecoveryPort) || recoveryPending) return;
     const ordinal = ++recoveryOrdinal;
     recoveryPending = true;
     recoveryMessageId = null;
     replaceView();
     try {
-      const next = validateRecoveryStatusSnapshot(await recoveryPort.read());
+      const next = await (recoveryPort ? recoveryPort.read() : desktopRecoveryPort.read());
       if (destroyed || ordinal !== recoveryOrdinal) return;
-      recoverySnapshot = next;
+      if (recoveryPort) recoverySnapshot = validateRecoveryStatusSnapshot(next);
+      else desktopRecoverySnapshot = validateDesktopRecoverySnapshot(next);
     } catch {
       if (destroyed || ordinal !== recoveryOrdinal) return;
       recoverySnapshot = null;
+      desktopRecoverySnapshot = null;
       recoveryMessageId = "system.recovery.readFailed";
     } finally {
       if (!destroyed && ordinal === recoveryOrdinal) {
@@ -1718,7 +1760,7 @@ export function mountSystemOverviewControls(
 
   if (metricsPort) void refreshMetrics();
   if (historyPort) void refreshHistory();
-  if (recoveryPort) void refreshRecovery();
+  if (recoveryPort || desktopRecoveryPort) void refreshRecovery();
 
   return Object.freeze({
     destroy() {

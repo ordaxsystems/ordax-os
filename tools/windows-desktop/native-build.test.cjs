@@ -1,0 +1,31 @@
+'use strict';
+const test=require('node:test');
+const assert=require('node:assert/strict');
+const {mkdtempSync,mkdirSync,writeFileSync,rmSync,unlinkSync}=require('node:fs');
+const {join}=require('node:path');
+const {tmpdir}=require('node:os');
+const {hasNativeBundle}=require('./native-build.cjs');
+
+test('exact Native candidate requires compiled referenced JavaScript',t=>{
+  const root=mkdtempSync(join(tmpdir(),'ordax-native-candidate-'));
+  t.after(()=>rmSync(root,{recursive:true,force:true}));
+  const bundle=join(root,'out','windows-desktop-native');
+  const html=join(bundle,'system','composition','native','index.html');
+  const assets=join(bundle,'assets');
+  mkdirSync(join(bundle,'system','composition','native'),{recursive:true});
+  mkdirSync(assets,{recursive:true});
+  assert.equal(hasNativeBundle(root),false);
+  writeFileSync(html,'<script type="module" src="./main.mjs"></script>');
+  assert.equal(hasNativeBundle(root),false);
+  writeFileSync(html,'<script type="module" crossorigin src="/__ordax/desktop-assets/assets/index-AbC123.js"></script>');
+  assert.equal(hasNativeBundle(root),false);
+  const js=join(assets,'index-AbC123.js');
+  writeFileSync(js,'export const source = "compiled";');
+  assert.equal(hasNativeBundle(root),true);
+  writeFileSync(html,'<script src="/__ordax/desktop-assets/assets/index-AbC123.js"></script><link href="/__ordax/desktop-assets/assets/styles-AbC123.css">');
+  assert.equal(hasNativeBundle(root),false);
+  writeFileSync(join(assets,'styles-AbC123.css'),'body{}');
+  assert.equal(hasNativeBundle(root),true);
+  unlinkSync(js);
+  assert.equal(hasNativeBundle(root),false);
+});
