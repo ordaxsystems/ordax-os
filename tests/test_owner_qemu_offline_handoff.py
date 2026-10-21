@@ -169,6 +169,61 @@ class OwnerQemuHandoffTests(unittest.TestCase):
                     180,
                 )
 
+    def test_first_guest_poweroff_must_precede_offline_fsck_and_second_boot(self):
+        order = []
+
+        def boot_stub(*args, **kwargs):
+            order.append("boot-acpi" if kwargs.get("acpi_shutdown") else "boot-normal")
+            return {
+                "checks": {"real": True},
+                "qemu_framebuffer": {"quantized_colors": 50},
+                "acpi_shutdown_proven": bool(kwargs.get("acpi_shutdown")),
+            }
+
+        def fsck_stub(disk):
+            order.append("e2fsck-after-poweroff")
+            self.assertEqual(disk, Path("/tmp/only-disposable-usb.raw"))
+            return True
+
+        with patch.object(PROOF, "prove_guest_boot", side_effect=boot_stub), \
+                patch.object(PROOF, "prove_ext4_clean_after_guest_poweroff", side_effect=fsck_stub):
+            pair = PROOF.prove_boot_pair(
+                Path("/tmp/only-disposable-usb.raw"),
+                Path("/tmp/kernel"), Path("/tmp/initramfs"),
+                "a" * 40, Path("/tmp"),
+                ((Path("/tmp/first.ppm"), Path("/tmp/first.serial")),
+                 (Path("/tmp/second.ppm"), Path("/tmp/second.serial"))),
+                180, prove_acpi_shutdown=True,
+            )
+        self.assertEqual(order, [
+            "boot-acpi", "e2fsck-after-poweroff", "boot-normal",
+        ])
+        self.assertTrue(pair[0]["ext4_clean_after_shutdown"])
+
+    def test_forged_poweroff_proof_cannot_run_second_guest(self):
+        with patch.object(PROOF, "prove_guest_boot", return_value={
+                "checks": {"real": True},
+                "qemu_framebuffer": {"quantized_colors": 50},
+                "acpi_shutdown_proven": False,
+        }) as boot:
+            with self.assertRaisesRegex(PROOF.ProofError, "ACPI shutdown proof"):
+                PROOF.prove_boot_pair(
+                    Path("/tmp/only-disposable-usb.raw"),
+                    Path("/tmp/kernel"), Path("/tmp/initramfs"),
+                    "a" * 40, Path("/tmp"),
+                    ((Path("/tmp/first.ppm"), Path("/tmp/first.serial")),
+                     (Path("/tmp/second.ppm"), Path("/tmp/second.serial"))),
+                    180, prove_acpi_shutdown=True,
+                )
+        self.assertEqual(boot.call_count, 1)
+
+    def test_disposable_raw_must_have_valid_gpt_before_loop_fsck(self):
+        with tempfile.TemporaryDirectory() as td:
+            disk = Path(td) / "temporary.raw"
+            disk.write_bytes(b"not a GPT" * 100)
+            with self.assertRaisesRegex(PROOF.ProofError, "GPT header"):
+                PROOF.prove_ext4_clean_after_guest_poweroff(disk)
+
     def test_creator_runs_real_qemu_only_after_disposable_raw_proof(self):
         workflow = (ROOT / ".github/workflows/creator-owner-dev-git.yml").read_text(encoding="utf-8")
         materialize = workflow.index("- name: Materialize and verify RAW development seed")
@@ -180,6 +235,9 @@ class OwnerQemuHandoffTests(unittest.TestCase):
         self.assertIn('--serial-out "$RUNNER_TEMP/owner-qemu-serial.log"', workflow)
         self.assertIn('--second-serial-out "$RUNNER_TEMP/owner-qemu-second-serial.log"', workflow)
         self.assertIn("proof['second_offline_boot_proven'] is True", workflow)
+        self.assertIn("--prove-acpi-shutdown", workflow)
+        self.assertIn("proof['guest_acpi_shutdown_proven'] is True", workflow)
+        self.assertIn("proof['ext4_clean_after_guest_shutdown'] is True", workflow)
         self.assertIn("proof['second_boot']['same_disposable_disk_reused'] is True", workflow)
         self.assertIn("${{ runner.temp }}/owner-qemu-serial.log", workflow)
         self.assertIn("if: always()", workflow)
