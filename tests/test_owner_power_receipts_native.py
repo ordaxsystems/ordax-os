@@ -63,21 +63,21 @@ class OwnerPowerReceiptsNativeTests(unittest.TestCase):
     def test_classifies_exact_remount_error_without_exposing_kernel_log(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
-            (root / "last-request").write_text("shutdown|private-boot-id|1234|failed\\n")
-            (root / "last-failure").write_text("remount-failed\\n")
+            (root / "last-request").write_text("shutdown|private-boot-id|1234|failed\n")
+            (root / "last-failure").write_text("remount-failed\n")
             log = root / "guardian.log"
             log.write_text(
-                "2026-10-21 ordax-guardian: host power owner accepted shutdown; stopping supervised runtime\\n"
-                "mount: mounting / on / failed: Device or resource busy TOKEN-SECRET\\n"
-                "2026-10-21 ordax-guardian: root filesystem could not be remounted read-only for shutdown; restoring supervised runtime\\n"
+                "2026-10-21 ordax-guardian: host power owner accepted shutdown; stopping supervised runtime\n"
+                "mount: mounting / on / failed: Device or resource busy TOKEN-SECRET\n"
+                "2026-10-21 ordax-guardian: root filesystem could not be remounted read-only for shutdown; restoring supervised runtime\n"
             )
             result = native_host.read_owner_usb_power_receipts(str(root), log_path=str(log))
             self.assertEqual(result["lastMountError"], "device-busy")
             self.assertNotIn("TOKEN-SECRET", str(result))
             log.write_text(
-                "2026-10-21 ordax-guardian: host power owner accepted shutdown; stopping supervised runtime\\n"
-                "mount: mounting / on / failed: Invalid argument SECRET\\n"
-                "2026-10-21 ordax-guardian: root filesystem could not be remounted read-only for shutdown; restoring supervised runtime\\n"
+                "2026-10-21 ordax-guardian: host power owner accepted shutdown; stopping supervised runtime\n"
+                "mount: mounting / on / failed: Invalid argument SECRET\n"
+                "2026-10-21 ordax-guardian: root filesystem could not be remounted read-only for shutdown; restoring supervised runtime\n"
             )
             self.assertEqual(
                 native_host.read_owner_usb_power_receipts(str(root), log_path=str(log))["lastMountError"],
@@ -89,15 +89,15 @@ class OwnerPowerReceiptsNativeTests(unittest.TestCase):
             root = Path(temp)
             log = root / "guardian.log"
             log.write_text(
-                "mount: Device or resource busy PRIVATE\\n"
-                "2026 ordax-guardian: host power owner accepted shutdown; stopping supervised runtime\\n"
-                "2026 ordax-guardian: root filesystem could not be remounted read-only for shutdown; restoring supervised runtime\\n"
+                "mount: Device or resource busy PRIVATE\n"
+                "2026 ordax-guardian: host power owner accepted shutdown; stopping supervised runtime\n"
+                "2026 ordax-guardian: root filesystem could not be remounted read-only for shutdown; restoring supervised runtime\n"
             )
             self.assertEqual(native_host.read_guardian_remount_error(str(log)), "no-mount-error-output")
             log.write_text(
-                "2026 ordax-guardian: host power owner accepted shutdown; stopping supervised runtime\\n"
-                "mount: INTERNAL SECRET DETAILS\\n"
-                "2026 ordax-guardian: root filesystem could not be remounted read-only for shutdown; restoring supervised runtime\\n"
+                "2026 ordax-guardian: host power owner accepted shutdown; stopping supervised runtime\n"
+                "mount: INTERNAL SECRET DETAILS\n"
+                "2026 ordax-guardian: root filesystem could not be remounted read-only for shutdown; restoring supervised runtime\n"
             )
             self.assertEqual(native_host.read_guardian_remount_error(str(log)), "unclassified-mount-error")
             linked = root / "link.log"
