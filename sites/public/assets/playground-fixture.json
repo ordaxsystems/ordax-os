@@ -253,7 +253,7 @@
       },
       {
         "path": "system/services/i18n/catalog/system.mjs",
-        "sha256": "a19b1f6ffc71860d66308394d5871182d3d2367d7acbc5e94808e09f3f2269da"
+        "sha256": "41d8cfee54c2806be067be4beffba30163a37e67812602c16f616a9a7232d1bb"
       },
       {
         "path": "system/services/i18n/interpolation.mjs",
