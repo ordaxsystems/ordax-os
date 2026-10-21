@@ -223,14 +223,14 @@ class PowerQuiescenceTests(unittest.TestCase):
             calls = path / "calls"
             busybox = path / "busybox"
             busybox.write_text(
-                '#!/bin/sh\\n'
-                'printf "%s" "$*" >"$CALLS"\\n'
-                '[ "$BUSYBOX_FAIL" != 1 ]\\n',
+                '#!/bin/sh\n'
+                'printf "%s" "$*" >"$CALLS"\n'
+                '[ "$BUSYBOX_FAIL" != 1 ]\n',
                 encoding="utf-8",
             )
             busybox.chmod(0o700)
             script = abort.replace('/bin/busybox mount', '"$BUSYBOX" mount')
-            script += "\\nremount_root_read_write_after_power_abort\\n"
+            script += "\nremount_root_read_write_after_power_abort\n"
             for profile, expected in (
                 ("owner-development", "mount -o remount,bind,rw / /"),
                 ("stable-mvp", "mount -o remount,rw /"),
