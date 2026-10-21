@@ -45,6 +45,13 @@ POLICY_RELATIVE = Path("docs/contracts/release-trust-policy.json")
 MINIMAL_RELATIVE = Path("docs/contracts/minimal-bootstrap.json")
 BOOT_REFRESH_RELATIVE = Path("boot-refresh-required")
 STATUS_RELATIVE = Path("base-update/owner-status.json")
+AURA_PROOF_RELATIVE = Path("docs/evidence/canonical-v4-release-proof.json")
+AURA_LOCK_RELATIVE = Path("system/services/local-ai/source-lock.json")
+AURA_LAUNCHER_RELATIVE = Path("system/services/local-ai/owner-dev-runtime.sh")
+AURA_RECEIPT_RELATIVE = Path("base-update/aura-acquisition.json")
+AURA_READY_RELATIVE = Path("base-update/aura-ready.sha256")
+AURA_RECEIPT_SCHEMA = "ordax.owner-dev-aura-acquisition/1"
+AURA_MIN_FREE_RESERVE = 64 * 1024 * 1024
 
 
 class OwnerError(RuntimeError):
@@ -918,7 +925,222 @@ def _atomic_status(state_root: Path, value: dict[str, Any]) -> None:
     _fsync_directory(directory)
 
 
-def run_once(repo_root: Path, state_root: Path, physical_root: Path, source_sha: str | None) -> dict[str, Any]:
+def _aura_candidate(repo_root: Path, trust_sha: str) -> dict[str, Any]:
+    """Bind the pre-published signed release to the active Owner Dev lock."""
+    _raw, proof = _strict_json(
+        repo_root / AURA_PROOF_RELATIVE, "canonical v4 Aura proof",
+    )
+    commit = proof.get("source_commit")
+    if (
+        proof.get("schema") != "prototype-ordax.portable-v4-canonical-release-proof/1"
+        or proof.get("signed_handoff_verified") is not True
+        or proof.get("canonical_materialization_verified") is not True
+        or not isinstance(commit, str)
+        or HEX40.fullmatch(commit) is None
+        or proof.get("canonical_trust_sha256") != trust_sha
+        or proof.get("canonical_envelope_url") != (
+            "https://github.com/ordaxsystems/ordax-os/releases/download/"
+            f"ordax-stable-v4-{commit}/release-envelope.json"
+        )
+    ):
+        raise OwnerError("canonical signed v4 Aura evidence differs from local trust")
+    artifacts = proof.get("artifacts")
+    image = artifacts.get("local-ai-runtime.erofs") if isinstance(artifacts, dict) else None
+    if not isinstance(image, dict) or set(image) != {"sha256", "size"}:
+        raise OwnerError("canonical Aura EROFS image identity is missing")
+    digest, size = image["sha256"], image["size"]
+    if (
+        not isinstance(digest, str) or HEX64.fullmatch(digest) is None
+        or type(size) is not int or not 0 < size < (4 << 30)
+    ):
+        raise OwnerError("canonical Aura EROFS digest or size is invalid")
+    script = _regular_bytes(
+        repo_root / AURA_LAUNCHER_RELATIVE, "active Aura Native launcher", 128 << 10,
+    ).decode("utf-8")
+    if (
+        re.findall(r"(?m)^IMAGE_SHA256=([a-f0-9]{64})$", script) != [digest]
+        or re.findall(r"(?m)^IMAGE_SIZE=([0-9]+)$", script) != [str(size)]
+    ):
+        raise OwnerError("signed Aura image differs from active Native launcher")
+    lock = _regular_bytes(repo_root / AURA_LOCK_RELATIVE, "active Aura lock", 64 << 10)
+    return {
+        "commit": commit,
+        "sha256": digest,
+        "size": size,
+        "source_lock_sha256": _sha256(lock),
+        "envelope_url": proof["canonical_envelope_url"],
+    }
+
+
+def _aura_image_metadata(state_root: Path, digest: str, size: int) -> dict[str, int] | None:
+    store = state_root / "local-ai"
+    index = store / "sha256"
+    candidate = index / digest
+    image = candidate / "local-ai-runtime.erofs"
+    try:
+        for directory in (store, index, candidate):
+            info = directory.lstat()
+            if not stat.S_ISDIR(info.st_mode) or info.st_mode & 0o777 != 0o700:
+                return None
+        info = image.lstat()
+    except OSError:
+        return None
+    if not stat.S_ISREG(info.st_mode) or info.st_mode & 0o777 != 0o600 or info.st_size != size:
+        return None
+    return {
+        "device": info.st_dev,
+        "inode": info.st_ino,
+        "ctime_ns": info.st_ctime_ns,
+        "mtime_ns": info.st_mtime_ns,
+        "size": info.st_size,
+    }
+
+
+def _atomic_aura_state(state_root: Path, relative: Path, payload: bytes) -> None:
+    directory = _require_real_directory(state_root / "base-update", "base-update owner state")
+    target = state_root / relative
+    if target.parent != directory:
+        raise OwnerError("Aura owner state path escapes canonical base-update directory")
+    try:
+        previous = target.lstat()
+    except FileNotFoundError:
+        previous = None
+    if previous is not None and not stat.S_ISREG(previous.st_mode):
+        raise OwnerError("Aura owner state target is not a regular file")
+    temporary = target.with_name(f".{target.name}.ordax-{os.getpid()}")
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0)
+    try:
+        with os.fdopen(os.open(temporary, flags, 0o600), "wb") as output:
+            output.write(payload)
+            output.flush()
+            os.fsync(output.fileno())
+        os.replace(temporary, target)
+        _fsync_directory(directory)
+    finally:
+        try:
+            temporary.unlink()
+        except FileNotFoundError:
+            pass
+
+
+def _aura_cached(state_root: Path, candidate: dict[str, Any]) -> bool:
+    try:
+        _raw, saved = _strict_json(
+            state_root / AURA_RECEIPT_RELATIVE, "last verified Aura acquisition",
+        )
+        marker = _regular_bytes(
+            state_root / AURA_READY_RELATIVE, "Aura readiness marker", 128,
+        )
+    except OwnerError:
+        return False
+    return (
+        saved.get("$schema") == AURA_RECEIPT_SCHEMA
+        and saved.get("release_commit") == candidate["commit"]
+        and saved.get("source_lock_sha256") == candidate["source_lock_sha256"]
+        and saved.get("artifact_sha256") == candidate["sha256"]
+        and marker == (candidate["sha256"] + "\n").encode("ascii")
+        and saved.get("image_metadata") == _aura_image_metadata(
+            state_root, candidate["sha256"], candidate["size"],
+        )
+        and saved.get("image_metadata") is not None
+    )
+
+
+def _acquire_owner_dev_aura(
+    repo_root: Path, state_root: Path, physical_root: Path, trust_sha: str,
+) -> str:
+    candidate = _aura_candidate(repo_root, trust_sha)
+    if _aura_cached(state_root, candidate):
+        return "already-materialized"
+    expected_path = state_root / "local-ai/sha256" / candidate["sha256"] / "local-ai-runtime.erofs"
+    if not expected_path.exists():
+        try:
+            free_space = os.statvfs(state_root)
+        except OSError as exc:
+            raise OwnerError("Aura persistent storage budget is unavailable") from exc
+        available = free_space.f_bavail * free_space.f_frsize
+        if available < candidate["size"] + AURA_MIN_FREE_RESERVE:
+            raise OwnerError("insufficient persistent space for verified Aura EROFS")
+    agent = _require_release_agent(physical_root)
+    command = [
+        str(agent), "materialize-owner-dev-local-ai",
+        "--envelope-url", candidate["envelope_url"],
+        "--trust", str(physical_root / PHYSICAL_TRUST_RELATIVE),
+        "--state-root", str(state_root),
+        "--source-lock", str(repo_root / AURA_LOCK_RELATIVE),
+        "--repository", "ordaxsystems/ordax-os",
+        "--expected-release-commit", candidate["commit"],
+        "--expected-artifact-sha256", candidate["sha256"],
+        "--expected-artifact-size", str(candidate["size"]),
+    ]
+    try:
+        outcome = subprocess.run(
+            command, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE, check=False, timeout=MATERIALIZE_TIMEOUT_SECONDS,
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise OwnerError("signed Aura acquisition exceeded bounded timeout") from exc
+    except OSError as exc:
+        raise OwnerError("verified Aura acquisition agent could not start") from exc
+    if len(outcome.stdout) > MAX_RECEIPT_BYTES or len(outcome.stderr) > MAX_RECEIPT_BYTES:
+        raise OwnerError("Aura acquisition output exceeds bounded receipt size")
+    if outcome.returncode != 0:
+        raise OwnerError("signed Aura EROFS acquisition rejected its release or local pins")
+    try:
+        receipt = json.loads(outcome.stdout.decode("utf-8"), object_pairs_hook=_no_duplicates)
+    except (UnicodeError, json.JSONDecodeError, OwnerError) as exc:
+        raise OwnerError("Aura acquisition receipt is invalid JSON") from exc
+    if (
+        not isinstance(receipt, dict)
+        or set(receipt) != {
+            "status", "release_commit", "source_lock_sha256",
+            "artifact_sha256", "artifact_path", "reused", "activation_allowed",
+        }
+        or receipt["status"] != "materialized-owner-dev-local-ai"
+        or receipt["release_commit"] != candidate["commit"]
+        or receipt["source_lock_sha256"] != candidate["source_lock_sha256"]
+        or receipt["artifact_sha256"] != candidate["sha256"]
+        or receipt["artifact_path"] != str(expected_path)
+        or type(receipt["reused"]) is not bool
+        or receipt["activation_allowed"] is not False
+    ):
+        raise OwnerError("Aura acquisition receipt conflicts with the pinned candidate")
+    metadata = _aura_image_metadata(state_root, candidate["sha256"], candidate["size"])
+    if metadata is None:
+        raise OwnerError("signed Aura EROFS materialized at an unsafe persistent path")
+    durable = {
+        "$schema": AURA_RECEIPT_SCHEMA,
+        "release_commit": candidate["commit"],
+        "source_lock_sha256": candidate["source_lock_sha256"],
+        "artifact_sha256": candidate["sha256"],
+        "image_metadata": metadata,
+    }
+    _atomic_aura_state(
+        state_root, AURA_RECEIPT_RELATIVE,
+        (json.dumps(durable, sort_keys=True, separators=(",", ":")) + "\n").encode("utf-8"),
+    )
+    # A one-line receipt is consumed by the existing ordax-run process. The
+    # Native launcher independently rehashes the EROFS before any execution.
+    _atomic_aura_state(
+        state_root, AURA_READY_RELATIVE, (candidate["sha256"] + "\n").encode("ascii"),
+    )
+    return "already-materialized" if receipt["reused"] else "materialized"
+
+
+def _owner_first_run_completed(state_root: Path) -> bool:
+    try:
+        _raw, receipt = _strict_json(
+            state_root / "native-state/first-run.json", "Owner Dev First Run",
+        )
+    except OwnerError:
+        return False
+    return receipt.get("completed") is True
+
+
+def run_once(
+    repo_root: Path, state_root: Path, physical_root: Path, source_sha: str | None,
+    distribution_profile: str = "",
+) -> dict[str, Any]:
     repo_root = _require_real_directory(repo_root, "repository root")
     state_root = _require_real_directory(state_root, "state root")
     physical_root = _require_real_directory(physical_root, "physical OrdaX root")
@@ -1043,6 +1265,26 @@ def run_once(repo_root: Path, state_root: Path, physical_root: Path, source_sha:
         status["detail"] = message[:512]
 
     _atomic_status(state_root, status)
+
+    # Optional local AI acquisition is delegated to the SAME verified release
+    # agent, only after initial setup and public trust enrollment. A failure
+    # never changes base-update status, Surface health or known-good boot.
+    if distribution_profile == "owner-development":
+        if pending is not None:
+            status["localAiAcquisitionState"] = "deferred-base-update"
+        elif not _owner_first_run_completed(state_root):
+            status["localAiAcquisitionState"] = "first-run-pending"
+        elif status["physicalTrustEnrolled"] is True and status["status"] == "idle":
+            try:
+                status["localAiAcquisitionState"] = _acquire_owner_dev_aura(
+                    repo_root, state_root, physical_root, status["canonicalTrustSha256"],
+                )
+            except (OwnerError, OSError) as exc:
+                status["localAiAcquisitionState"] = "blocked"
+                status["localAiAcquisitionDetail"] = str(exc)[:256]
+        else:
+            status["localAiAcquisitionState"] = "trust-unavailable"
+        _atomic_status(state_root, status)
     return status
 
 
@@ -1059,6 +1301,7 @@ def main() -> int:
             args.state_root,
             args.physical_root,
             source_sha,
+            os.environ.get("ORDAX_BASE_DISTRIBUTION_PROFILE", ""),
         )
         print(json.dumps(result, indent=2, sort_keys=True))
         return 0
