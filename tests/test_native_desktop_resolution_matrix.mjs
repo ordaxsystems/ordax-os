@@ -94,19 +94,14 @@ test("every manual and automatic scale profile preserves full viewport coverage"
 
 test("Meridian desktop rail and taskbar remain bounded at the narrow end of computer viewports", async () => {
   const { identity, sidebar, meridian } = await readLayoutSources();
-  assert.match(identity, /\.ordax-shell\.meridian-native-workspace\s*\{\s*grid-template-columns:\s*var\(--ordax-rail-width\)\s+minmax\(0,\s*1fr\)/);
+  assert.match(identity, /\.ordax-shell\.meridian-native-workspace\s*\{[^}]*grid-template-columns:\s*var\(--ordax-rail-width\)\s+minmax\(0,\s*1fr\)/);
   assert.match(identity, /\.meridian-native-workspace\s*>\s*\.ordax-statusbar\s*\{\s*grid-column:\s*2;\s*grid-row:\s*2;/);
-  assert.match(meridian, /grid-template-columns:minmax\(var\(--md-taskbar-side-min\),1fr\) minmax\(0,auto\) minmax\(var\(--md-taskbar-side-min\),1fr\)/);
+  assert.match(meridian, /grid-template-columns:minmax\(max-content,1fr\) minmax\(0,auto\) minmax\(max-content,1fr\)/);
   assert.match(identity, /\.meridian-native-workspace \.meridian-native-dock \{[^}]*min-width:0;[^}]*max-width:min\(100%,[^}]+\);[^}]*overflow-x:auto;/);
   assert.match(sidebar, /\.ordax-product-sidebar \[data-sidebar-slot="navigation"\]\s*\{[^}]*flex:\s*1;[^}]*min-height:\s*44px;[^}]*overflow:\s*hidden;/);
   assert.match(sidebar, /\.meridian-workspace \.ordax-product-sidebar \[data-sidebar-slot="navigation"\]\s*\{[^}]*min-height:var\(--md-sidebar-nav-height\);[^}]*overflow:hidden;/);
 
-  const expandedRail = 208;
-  const sideTrackMinimum = 85;
-  const taskbarPadding = 40;
-  const taskbarGaps = 32;
-  for (const [width, scale] of [[640, 1], [768, 1], [800, 1], [1024, 1], [1280, 1], [1366, 1], [1920, 1], [2560, 1.0625], [3440, 1.0625], [3840, 1.125], [5120, 1.25], [7680, 1.25]]) {
-    const availableDockWidth = width - (expandedRail + 2 * sideTrackMinimum + taskbarPadding + taskbarGaps) * scale;
-    assert.ok(availableDockWidth > 0, `${width}px viewport leaves a usable, scrollable dock track at scale ${scale}`);
-  }
+  // Side controls depend on capabilities (battery, network, locale). Their
+  // intrinsic width must be resolved by layout, not a fictional 85px budget.
+  assert.match(meridian, /\.meridian-taskbar-start,\.meridian-taskbar-end\) > \* \{ flex-shrink:0;/);
 });

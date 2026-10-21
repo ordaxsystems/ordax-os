@@ -1,4 +1,5 @@
 // Shared presentation only: names come from each existing localized button.
+import { sidebarIsExpanded } from "./sidebar-layout.mjs";
 let nextHintId = 0;
 export function mountSidebarHints(host, sidebar) {
   const document = host.ownerDocument;
@@ -27,7 +28,7 @@ export function mountSidebarHints(host, sidebar) {
     if (event.pointerType === "touch" || (event.type === "focusin" && touchFocus)) return;
     if (event.pointerType) touchFocus = false;
     const button = event.target.closest?.("button");
-    if (!button || !sidebar.contains(button) || button.disabled || sidebar.getBoundingClientRect().width > 100) return;
+    if (!button || !sidebar.contains(button) || button.disabled || sidebarIsExpanded(sidebar)) return;
     if (button === active) return;
     const title = button.getAttribute("title");
     if (!title) return;

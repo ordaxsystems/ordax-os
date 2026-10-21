@@ -37,7 +37,7 @@ export function moveDockFocus(event, container, selector, reveal) {
  * @param {HTMLElement | null} dock
  */
 export function scrollDockFromWheel(event, dock) {
-  if (!dock) return false;
+  if (!dock || event.ctrlKey || event.metaKey || event.altKey || event.defaultPrevented) return false;
   const maxScroll = Math.max(0, dock.scrollWidth - dock.clientWidth);
   if (maxScroll <= 1) return false;
 

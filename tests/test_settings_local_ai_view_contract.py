@@ -40,8 +40,9 @@ class SettingsLocalAiViewTests(unittest.TestCase):
         self.assertIn('next.appId !== "store" || !VIEWS.includes(next.target)', store)
         self.assertIn('activeView = next.target;', store)
         self.assertIn('modelReadState === "idle"', store)
-        self.assertIn("      localAi,\n      productConnector,\n    );", native)
-        self.assertEqual(native.count("      localAi,\n      productConnector,\n    );"), 2)
+        self.assertEqual(native.count("      localAi,\n      productConnector,\n"), 2)
+        self.assertIn("      productConnector,\n      displayOutputs,", native)
+        self.assertIn("      productConnector,\n      null,", native)
         self.assertIn("createNativeProductConnector(window)", native)
         # Native Store uses the canonical window composition, not the retired
         # Store overview mount. Navigation still receives authorized activation.

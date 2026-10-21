@@ -72,6 +72,10 @@ class FirstRunContractTests(unittest.TestCase):
         self.assertTrue(contract["account"]["optional"])
         self.assertTrue(contract["account"]["local_only_always_available"])
         self.assertFalse(contract["account"]["cloud_sync_required_for_mvp"])
+        self.assertTrue(contract["system_terms"]["required_in_current_first_run_ui"])
+        self.assertTrue(contract["system_terms"]["required_for_local_only_and_identity_modes"])
+        self.assertEqual(contract["system_terms"]["document_status"], "draft")
+        self.assertTrue(contract["system_terms"]["draft_acknowledgement_is_not_account_legal_receipt"])
         self.assertTrue(contract["mvp"]["runs_from_usb"])
         self.assertFalse(contract["mvp"]["permanent_internal_disk_install_exposed"])
         self.assertFalse(contract["mvp"]["web_mode_uses_this_device_oobe"])
@@ -88,7 +92,7 @@ class FirstRunContractTests(unittest.TestCase):
         self.assertIn("await sessionPort.refresh();", ui)
         self.assertIn("await actionsPort.refresh();", ui)
         self.assertIn('kind === "account-refresh"', ui)
-        self.assertIn('"Verificar conexão da Conta"', ui)
+        self.assertIn('identityAvailabilityPending ? "Verificando conta…" : "Tentar novamente"', ui)
         self.assertIn("retry.disabled = identityAvailabilityPending", ui)
         self.assertIn(
             'STEPS[stepIndex] === "account" && sessionSnapshot.state === "unavailable"',
@@ -100,7 +104,8 @@ class FirstRunContractTests(unittest.TestCase):
             "entry, resume and explicit retry must all use the existing session owners",
         )
         self.assertIn("A autenticação não foi confirmada.", ui)
-        self.assertIn("Você pode começar sem conta", ui)
+        self.assertIn('"account-local"', ui)
+        self.assertIn('draft.accountMode = "local-only"', ui)
         self.assertNotIn("localStorage.setItem", ui)
         self.assertNotIn("sessionStorage.setItem", ui)
 
@@ -129,6 +134,23 @@ class FirstRunContractTests(unittest.TestCase):
         self.assertTrue(host.valid_first_run_state({**initial, "locale": "de-DE"}))
         self.assertTrue(host.valid_first_run_state({**initial, "locale": "fr-FR"}))
         self.assertFalse(host.valid_first_run_state({**initial, "locale": "it-IT"}))
+        completed = {**initial, "completed": True, "accountMode": "local-only"}
+        terms = {
+            "documentId": "ordax-os-terms",
+            "version": "draft-2026-10-20",
+            "status": "draft",
+            "accepted": True,
+        }
+        self.assertTrue(host.valid_first_run_state({**completed, "systemTerms": terms}))
+        self.assertFalse(host.valid_first_run_state({**initial, "systemTerms": terms}))
+        for invalid_terms in (
+            {**terms, "accepted": False},
+            {**terms, "documentId": "account-terms"},
+            {**terms, "status": "published"},
+            {**terms, "version": "2026-10-20"},
+            {**terms, "unexpected": True},
+        ):
+            self.assertFalse(host.valid_first_run_state({**completed, "systemTerms": invalid_terms}))
 
         with tempfile.TemporaryDirectory() as directory:
             host.FIRST_RUN_FILE = str(Path(directory) / "first-run.json")
@@ -361,11 +383,14 @@ raise SystemExit('Unknown subprocess proof mode')
         self.assertFalse(branding["early_boot"]["graphical_splash_implemented"])
         self.assertTrue(branding["failure_policy"]["first_run_persistence_failure_stays_visible"])
 
-    def test_first_run_styles_cover_focus_mobile_and_reduced_motion(self):
+    def test_first_run_keeps_desktop_geometry_focus_and_reduced_motion(self):
         css = CSS.read_text(encoding="utf-8")
         self.assertIn(".ordax-first-run", css)
         self.assertIn(":focus-visible", css)
-        self.assertIn("@media (max-width: 820px)", css)
+        self.assertIn("grid-template-columns:var(--md-rail-width) minmax(0,1fr)", css)
+        self.assertIn("@media (max-height: 800px)", css)
+        self.assertIn("overflow:auto; overscroll-behavior:contain", css)
+        self.assertNotIn("@media (max-width:", css)
         self.assertIn("prefers-reduced-motion", css)
 
 

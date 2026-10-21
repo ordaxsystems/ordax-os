@@ -86,9 +86,10 @@ class SurfaceResidualLocalizationTests(unittest.TestCase):
 
     def test_update_shortcut_uses_shared_localization_owner(self):
         source = UPDATES.read_text(encoding="utf-8")
+        shell = (ROOT / "system" / "surface" / "ui" / "desktop-shell.mjs").read_text(encoding="utf-8")
         self.assertIn("assertSurfaceRenderLifecycle", source)
         self.assertIn("localization.subscribe", source)
-        self.assertIn('"system.updateShortcut.label"', source)
+        self.assertIn('"system.updateShortcut.label"', shell)
         self.assertIn('"system.updateShortcut.title.basePending"', source)
         self.assertNotIn('"Atualizações"', source)
         self.assertNotIn('"Há uma atualização que requer atenção.', source)

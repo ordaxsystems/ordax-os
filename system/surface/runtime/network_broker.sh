@@ -15,6 +15,9 @@ SAVED_SSID_LINE=$SESSION_DIR/network-saved-ssid
 WPA_CONF=$STATE_DIR/wpa.conf
 WPA_CTRL_DIR=/run/wpa_supplicant
 CANDIDATE=$STATE_DIR/wpa.conf.candidate.$$
+RESOLVER_SYNC_SCRIPT=${ORDAX_RUNTIME_RESOLVER_SYNC_SCRIPT:-}
+RESOLVER_ROOT=${ORDAX_RUNTIME_RESOLVER_ROOT:-}
+RESOLVER_LOG=${ORDAX_RUNTIME_RESOLVER_LOG:-$SESSION_DIR/network-broker.log}
 
 umask 077
 mkdir -p "$STATE_DIR" "$SESSION_DIR"
@@ -125,6 +128,19 @@ try_dhcp() {
     have_ipv4 "$wifi"
 }
 
+# Both an adopted Base connection and a newly restored Native connection
+# must refresh the same WebKit resolver. The Base remains the boot owner.
+sync_runtime_resolver() {
+    if [ -n "$RESOLVER_SYNC_SCRIPT" ] && [ -n "$RESOLVER_ROOT" ]; then
+        if [ -f "$RESOLVER_SYNC_SCRIPT" ] && [ ! -L "$RESOLVER_SYNC_SCRIPT" ]; then
+            /bin/sh "$RESOLVER_SYNC_SCRIPT" "$RESOLVER_ROOT" "$RESOLVER_LOG" ||
+                echo "ordax-network-broker: host network available but Native DNS sync failed" >&2
+        else
+            echo "ordax-network-broker: signed resolver sync helper unavailable" >&2
+        fi
+    fi
+}
+
 connect_conf() {
     wifi=$1
     conf=$2
@@ -137,7 +153,15 @@ connect_conf() {
         /bin/busybox killall wpa_supplicant >/dev/null 2>&1 || true
         return 1
     fi
-    try_dhcp "$wifi"
+    # On post-boot Wi-Fi connections, DHCP changes the host resolver after
+    # Native WebKit has already copied its startup DNS configuration. Update
+    # the SAME runtime resolver immediately, without restarting or simulating
+    # an Account provider.
+    if ! try_dhcp "$wifi"; then
+        return 1
+    fi
+    sync_runtime_resolver
+    return 0
 }
 
 restore_saved_network() {
@@ -257,6 +281,28 @@ handle_request() {
 }
 
 exec 9<>"$CONTROL"
+# On cold boot, adopt an already healthy Base connection or restore the
+# saved profile through the existing WPA -> DHCP -> runtime DNS path.
+# The FIFO is opened first so the Surface can start independently while
+# association runs; requests are processed by this same broker afterwards.
+if [ -s "$WPA_CONF" ] && [ ! -L "$WPA_CONF" ]; then
+    boot_wifi=$(find_wifi_interface || true)
+    if [ -n "$boot_wifi" ]; then
+        if have_ipv4 "$boot_wifi" &&
+           "$IW_BIN" dev "$boot_wifi" link 2>/dev/null | /bin/busybox grep -q '^Connected to '; then
+            # The Base may already have connected via its own WPA control
+            # socket. Never kill that healthy association on Surface start.
+            sync_runtime_resolver
+            echo "ordax-network-broker: existing Base Wi-Fi adopted on boot" >&2
+        elif restore_saved_network "$boot_wifi"; then
+            echo "ordax-network-broker: saved Wi-Fi restored on boot" >&2
+        else
+            echo "ordax-network-broker: saved Wi-Fi boot reconnect failed; profile preserved" >&2
+        fi
+    else
+        echo "ordax-network-broker: no Wi-Fi interface detected for saved boot profile" >&2
+    fi
+fi
 while :; do
     signal=""
     if IFS= read -r signal <&9; then

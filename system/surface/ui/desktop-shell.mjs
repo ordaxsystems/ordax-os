@@ -10,6 +10,8 @@ import {
 import { listSurfaceShortcutAppIds } from "../../services/surface/shortcut-catalog.mjs";
 import { MERIDIAN_RAIL_DESTINATIONS } from "../../services/surface/meridian-navigation.mjs";
 import { getDesktopShortcutGlyphMarkup } from "../../services/surface/desktop-shortcut-glyphs.mjs";
+import { resolveHomeScene } from "../../services/surface/home-scene.mjs";
+import { homeConceptSections } from "./home-concept.mjs";
 
 export function syncDesktopPresentationToggle(button, presentation, localization) {
   const destination = presentationDestination(presentation);
@@ -116,6 +118,21 @@ const MERIDIAN_NATIVE_DESTINATION_TARGETS = Object.freeze({
   store: { appId: "store" },
 });
 
+function homeDestinationCards(localization, t) {
+  return MERIDIAN_RAIL_DESTINATIONS.filter(destination =>
+    ["spaces", "profiles", "devices", "store"].includes(destination.key),
+  ).map(destination => {
+    const target = MERIDIAN_NATIVE_DESTINATION_TARGETS[destination.key];
+    const label = localization.getLocale().toLowerCase().startsWith("en") ? destination.englishName : destination.name;
+    const descriptionId = `shell.home.explore.${destination.key}`;
+    return `<button type="button" class="ordax-home-destination" data-sidebar-app="${target.appId}" data-launch-app="${target.appId}" data-meridian-destination="${destination.key}"${target.target ? ` data-app-target="${target.target}"` : ""}>
+      <span class="ordax-rail-icon" aria-hidden="true">${ICONS[destination.glyph]}</span>
+      <span class="ordax-home-destination-copy"><strong data-home-destination-label>${label}</strong><small data-home-copy="${descriptionId}">${t(descriptionId)}</small></span>
+      <span class="ordax-home-destination-arrow" aria-hidden="true">${ICONS.arrow}</span>
+    </button>`;
+  }).join("");
+}
+
 function meridianDestinationButton(destination, localization, groupLabel = "") {
   const locale = localization.getLocale();
   const label = locale.toLowerCase().startsWith("en") ? destination.englishName : destination.name;
@@ -165,6 +182,7 @@ function meridianNavigationMenu(localization, t) {
 export function createDesktopShellMarkup(localization) {
   const localizationPort = assertLocalizationPort(localization);
   const t = localizationPort.translate;
+  const concept = homeConceptSections(t, ICONS);
   return `
     <div class="ordax-shell meridian-workspace meridian-native-workspace" data-ordax-shell data-meridian-native data-view="central">
       ${createSidebarMarkup({ id: "ordax-native-sidebar", label: t("shell.rail.aria"), content: {
@@ -179,48 +197,55 @@ export function createDesktopShellMarkup(localization) {
         <section class="ordax-desktop" aria-labelledby="surface-home-title">
           <div class="ordax-home-panel" data-central-presentation>
             <div class="ordax-home-intro">
-              <p class="ordax-area-kicker" data-area-kicker>${t("surface.area.label", { ordinal: "01" })}</p>
-              <h1 id="surface-home-title" class="ordax-home-title" data-home-greeting>${t("shell.home.greeting.morning")}</h1>
+              <div class="ordax-home-intro-heading"><p class="ordax-area-kicker" data-area-kicker>${t("surface.area.label", { ordinal: "01" })}</p><h1 id="surface-home-title" class="ordax-home-title" data-home-greeting>${t("shell.home.greeting.morning")}</h1></div>
+              <button type="button" class="ordax-home-search" data-navigation-menu-toggle aria-controls="ordax-native-navigation" aria-expanded="false"><span class="ordax-rail-icon" aria-hidden="true">${ICONS.search}</span><span data-home-copy="shell.home.preview.search">${t("shell.home.preview.search")}</span><kbd>Ctrl K</kbd></button>
               <p class="ordax-home-tagline" data-home-tagline>${t("shell.home.tagline")}</p>
             </div>
-            <div class="ordax-home-meta" role="group" aria-label="${t("shell.home.datetime")}">
-              <span class="ordax-home-meta-icon" aria-hidden="true">${ICONS.clock}</span>
-              <span class="ordax-home-meta-copy"><time class="ordax-clock" data-ordax-clock>--:--</time>
-              <p class="ordax-date" data-ordax-date>${t("shell.home.loadingDate")}</p></span>
-            </div>
             <section class="ordax-home-hero" aria-label="${t("shell.home.hero.aria")}">
-              <img class="ordax-home-hero-image" src="../../surface/workspace/assets/alpine-day.jpg" alt="" loading="eager">
+              <img class="ordax-home-hero-image" data-home-scene src="../../surface/workspace/assets/alpine-day.jpg" alt="" loading="eager">
               <div class="ordax-home-hero-copy">
-                <p class="ordax-home-hero-label" data-home-hero-label>${t("shell.home.hero.label")}</p>
-                <h2><span data-home-hero-title-first>${t("shell.home.hero.title.first")}</span><br><span data-home-hero-title-second>${t("shell.home.hero.title.second")}</span></h2>
-                <p><span data-home-hero-description-first>${t("shell.home.hero.description.first")}</span><br><span data-home-hero-description-second>${t("shell.home.hero.description.second")}</span></p>
-                <button type="button" class="ordax-welcome-action" data-launcher-toggle><span class="ordax-rail-icon">${ICONS.apps}</span><span data-home-hero-action>${t("shell.home.hero.action")}</span></button>
+                <div class="ordax-home-aura-heading"><span class="ordax-rail-icon" aria-hidden="true">${ICONS.aura}</span><strong>Aura</strong><span class="ordax-home-hero-preview" data-home-copy="shell.home.preview.auraStatus">${t("shell.home.preview.auraStatus")}</span></div>
+                <h2 data-home-copy="shell.home.preview.heroTitle">${t("shell.home.preview.heroTitle")}</h2>
+                <p data-home-copy="shell.home.preview.heroDescription">${t("shell.home.preview.heroDescription")}</p>
+                <section class="meridian-command meridian-native-command" aria-label="${t("shell.home.aura.aria")}">
+                  <div class="meridian-command-input-row">
+                    <button type="button" data-home-preview-notice aria-label="${t("shell.home.preview.attach")}"><span class="ordax-home-plus" aria-hidden="true">+</span></button>
+                    <input type="text" data-native-aura-prompt aria-label="${t("shell.home.aura.aria")}" aria-describedby="ordax-home-aura-note" placeholder="${t("shell.home.aura.placeholder")}" autocomplete="off">
+                    <button type="button" data-native-aura-voice disabled aria-label="${t("shell.home.aura.voice")}"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21m-4 0h8"/></svg></button>
+                    <button type="button" class="meridian-command-send" data-home-preview-send data-home-preview-notice aria-label="${t("shell.home.preview.send")}">${ICONS.arrow}</button>
+                  </div>
+                </section>
+                <div class="ordax-home-suggestions">${[["summary","files"],["note","folder"],["plan","clock"],["image","studio"]].map(([key, icon]) => `<button type="button" data-home-preview-command="shell.home.preview.command.${key}"><span class="ordax-rail-icon" aria-hidden="true">${ICONS[icon]}</span><span data-home-copy="shell.home.preview.command.${key}">${t(`shell.home.preview.command.${key}`)}</span></button>`).join("")}</div>
+                <p id="ordax-home-aura-note" class="ordax-home-hero-note" data-home-copy="shell.home.preview.auraNote">${t("shell.home.preview.auraNote")}</p>
               </div>
+            </section>
+            ${concept.status}
+            ${concept.continuation}
+            ${concept.currentSpace}
+            <section class="ordax-home-actions" aria-labelledby="ordax-home-actions-title">
+              <div class="ordax-home-section-heading"><h2 id="ordax-home-actions-title" data-home-copy="shell.home.preview.apps">${t("shell.home.preview.apps")}</h2><button type="button" data-launcher-toggle><span data-home-copy="shell.home.preview.seeAll">${t("shell.home.preview.seeAll")}</span> ↗</button></div>
+              <div class="ordax-home-action-grid">
+                ${CENTRAL_QUICK_ACCESS_APP_IDS.map((id) => railButton(id, t(`app.${id}.title`), ICONS[id], t, "ordax-home-action")).join("")}
+                ${[["notes","folder"],["browser","networkOther"],["blender","studio"],["unity","apps"],["stlforge","spaces"]].map(([key, icon]) => `<button type="button" class="ordax-home-action" data-home-preview-notice data-home-preview-app="${key}"><span class="ordax-rail-icon" aria-hidden="true">${ICONS[icon]}</span><span data-home-copy="shell.home.preview.app.${key}">${t(`shell.home.preview.app.${key}`)}</span><small class="ordax-home-app-example" data-home-copy="shell.home.preview.badge">${t("shell.home.preview.badge")}</small></button>`).join("")}
+                <button type="button" class="ordax-home-action ordax-home-add-app" data-launcher-toggle><span class="ordax-rail-icon ordax-home-plus" aria-hidden="true">+</span><span data-home-copy="shell.home.preview.add">${t("shell.home.preview.add")}</span></button>
+              </div>
+            </section>
+            ${concept.recent}
+            ${concept.activity}
+            <div class="ordax-home-preview-feedback" data-home-preview-feedback role="status" hidden><span data-home-preview-feedback-text></span><button type="button" data-home-preview-dismiss aria-label="${t("shell.home.preview.dismiss")}">×</button></div>
+            <section class="ordax-home-explore" aria-labelledby="ordax-home-explore-title">
+              <div class="ordax-home-section-heading"><h2 id="ordax-home-explore-title" data-home-copy="shell.home.explore.title">${t("shell.home.explore.title")}</h2><p data-home-copy="shell.home.explore.description">${t("shell.home.explore.description")}</p></div>
+              <div class="ordax-home-destination-grid">${homeDestinationCards(localization, t)}</div>
             </section>
             <div class="meridian-session-strip" role="group" aria-label="${t("shell.home.session.aria")}">
               <span><span class="ordax-rail-icon">${ICONS.system}</span><span data-native-session-label>${t("shell.home.session.native")}</span></span>
               <button type="button" data-launch-app="account"><span class="ordax-rail-icon">${ICONS.account}</span><span data-native-session-account>${t("shell.home.session.account")}</span></button>
               <button type="button" data-launch-app="store"><span class="ordax-rail-icon">${ICONS.store}</span><span data-native-session-store>${t("shell.home.session.store")}</span></button>
-              <button type="button" class="meridian-integration-status" data-launch-app="settings"><span data-native-session-pending>${t("shell.home.session.pending")}</span></button>
+              <button type="button" data-launch-app="system"><span class="ordax-rail-icon" aria-hidden="true">${ICONS.system}</span><span data-home-copy="shell.home.system">${t("shell.home.system")}</span></button>
+              <button type="button" data-launch-app="settings"><span data-native-session-pending>${t("shell.home.session.pending")}</span></button>
             </div>
-            <section class="meridian-command meridian-native-command" aria-label="${t("shell.home.aura.aria")}">
-              <span class="meridian-command-icon">${ICONS.aura}</span>
-              <div class="meridian-command-input-row">
-                <input type="text" data-native-aura-prompt aria-label="${t("shell.home.aura.aria")}" placeholder="${t("shell.home.aura.placeholder")}" disabled>
-                <button type="button" data-native-aura-voice disabled aria-label="${t("shell.home.aura.voice")}"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21m-4 0h8"/></svg></button>
-                <button type="button" class="meridian-command-send" data-native-aura-send disabled aria-label="${t("shell.home.aura.send")}">${ICONS.arrow}</button>
-              </div>
-              <small>Intelligence <i aria-hidden="true"></i><span class="meridian-integration-status" data-native-aura-backend>${t("shell.home.aura.backend")}</span><span data-native-aura-description>${t("shell.home.aura.pendingDescription")}</span></small>
-            </section>
-            <section class="ordax-home-actions" aria-labelledby="ordax-home-actions-title">
-              <p id="ordax-home-actions-title" class="ordax-section-kicker">${t("shell.home.quickAccess")}</p>
-              <div class="ordax-home-action-grid">
-                ${CENTRAL_QUICK_ACCESS_APP_IDS.map((id) => railButton(id, t(`app.${id}.title`), ICONS[id], t, "ordax-home-action")).join("")}
-              </div>
-            </section>
-
             <section class="ordax-space" aria-labelledby="ordax-space-title">
-              <p id="ordax-space-title" class="ordax-section-kicker">${t("shell.space.title")}</p>
+              <h2 id="ordax-space-title" class="ordax-section-kicker">${t("shell.space.title")}</h2>
               ${spaceLink("shell.space.documents", "/Documentos", t)}
               ${spaceLink("shell.space.images", "/Imagens", t)}
               ${spaceLink("shell.space.downloads", "/Downloads", t)}
@@ -354,7 +379,9 @@ export function syncDesktopShellLocalization(root, localization) {
   aria('[data-desktop-action="launcher"]', "shell.launcher.command");
   root.querySelector('[data-desktop-action="launcher"]')?.setAttribute("title", t("shell.desktop.appsShortcut"));
   root.querySelector("[data-desktop-presentation]")?.setAttribute("aria-label", t("shell.presentation.shortcuts"));
-  text("[data-home-greeting]", "shell.home.greeting.morning");
+  const greetingNode = root.querySelector("[data-home-greeting]");
+  if (greetingNode) greetingNode.textContent = t(greetingNode.dataset.homeGreeting || "shell.home.greeting.morning");
+  for (const node of root.querySelectorAll("[data-home-copy]")) node.textContent = t(node.dataset.homeCopy);
   text("[data-home-tagline]", "shell.home.tagline");
   root.querySelector(".ordax-home-hero")?.setAttribute("aria-label", t("shell.home.hero.aria"));
   text("[data-home-hero-label]", "shell.home.hero.label");
@@ -363,8 +390,7 @@ export function syncDesktopShellLocalization(root, localization) {
   text("[data-home-hero-description-first]", "shell.home.hero.description.first");
   text("[data-home-hero-description-second]", "shell.home.hero.description.second");
   text("[data-home-hero-action]", "shell.home.hero.action");
-  root.querySelector(".ordax-home-meta")?.setAttribute("aria-label", t("shell.home.datetime"));
-  text("#ordax-home-actions-title", "shell.home.quickAccess");
+  text("#ordax-home-actions-title", "shell.home.preview.apps");
   aria(".meridian-session-strip", "shell.home.session.aria");
   text("[data-native-session-label]", "shell.home.session.native");
   text("[data-native-session-account]", "shell.home.session.account");
@@ -451,7 +477,7 @@ export function syncDesktopShellLocalization(root, localization) {
     const label = locale.startsWith("en") ? destination.englishName : destination.name;
     button.title = label;
     button.setAttribute("aria-label", label);
-    const labelNode = button.querySelector("span:nth-child(2)");
+    const labelNode = button.querySelector("[data-home-destination-label]") ?? button.querySelector("span:nth-child(2)");
     if (labelNode) labelNode.textContent = label;
   }
   for (const label of root.querySelectorAll("[data-nav-group-label]")) {
@@ -493,17 +519,6 @@ function regionalSettings(snapshot = {}) {
   };
 }
 
-function formatDate(date, locale, timeZone) {
-  const formatter = new Intl.DateTimeFormat(locale, {
-    timeZone,
-    weekday: "long",
-    day: "2-digit",
-    month: "long",
-  });
-  const value = formatter.format(date);
-  return value.charAt(0).toUpperCase() + value.slice(1);
-}
-
 export function mountDesktopClock(
   root,
   preferenceRuntime = null,
@@ -514,31 +529,28 @@ export function mountDesktopClock(
     ? null
     : assertPreferenceRuntimePort(preferenceRuntime);
   const localizationPort = localization === null ? null : assertLocalizationPort(localization);
-  const timeNode = root.querySelector("[data-ordax-clock]");
   const trayTimeNode = root.querySelector("[data-ordax-tray-clock]");
   const quickTimeNode = root.querySelector("[data-ordax-quick-clock]");
-  const dateNode = root.querySelector("[data-ordax-date]");
   const quickDateNode = root.querySelector("[data-ordax-quick-date]");
   const timeZoneNode = root.querySelector("[data-ordax-timezone]");
   const greetingNode = root.querySelector("[data-home-greeting]");
-  if (!timeNode || !trayTimeNode || !quickTimeNode || !dateNode || !quickDateNode || !timeZoneNode) {
-    throw new Error("OrdaX desktop clock requires clock, date and timezone nodes");
+  const sceneNode = root.querySelector("[data-home-scene]");
+  if (!trayTimeNode || !quickTimeNode || !quickDateNode || !timeZoneNode) {
+    throw new Error("OrdaX desktop clock requires navigation and quick date/time nodes");
   }
 
   const render = () => {
     const { locale, timeZone } = regionalSettings(preferencePort?.getSnapshot() ?? {});
     const now = new Date();
-    const hour = Number(new Intl.DateTimeFormat(locale, {
-      timeZone,
-      hour: "2-digit",
-      hourCycle: "h23",
-    }).format(now));
-    const greetingId = hour < 12
-      ? "shell.home.greeting.morning"
-      : hour < 18 ? "shell.home.greeting.afternoon" : "shell.home.greeting.evening";
+    const { period, greetingId } = resolveHomeScene(now, timeZone);
+    if (sceneNode && sceneNode.dataset.period !== period) {
+      sceneNode.src = `../../surface/workspace/assets/alpine-${period}.jpg`;
+      sceneNode.dataset.period = period;
+    }
     if (greetingNode) {
+      greetingNode.dataset.homeGreeting = greetingId;
       greetingNode.textContent = localizationPort?.translate(greetingId)
-        ?? (hour < 12 ? "Bom dia." : hour < 18 ? "Boa tarde." : "Boa noite.");
+        ?? ({ "shell.home.greeting.morning": "Bom dia.", "shell.home.greeting.afternoon": "Boa tarde.", "shell.home.greeting.evening": "Boa noite." }[greetingId]);
     }
     const formattedTime = new Intl.DateTimeFormat(locale, {
       timeZone,
@@ -546,10 +558,8 @@ export function mountDesktopClock(
       minute: "2-digit",
       hour12: false,
     }).format(now);
-    timeNode.textContent = formattedTime;
     trayTimeNode.textContent = formattedTime;
     quickTimeNode.textContent = formattedTime;
-    dateNode.textContent = formatDate(now, locale, timeZone);
     quickDateNode.textContent = new Intl.DateTimeFormat(locale, {
       timeZone,
       weekday: "long",
@@ -559,18 +569,16 @@ export function mountDesktopClock(
     }).format(now);
     timeZoneNode.textContent = timeZone;
     const isoNow = now.toISOString();
-    timeNode.setAttribute("datetime", isoNow);
     trayTimeNode.setAttribute("datetime", isoNow);
     quickTimeNode.setAttribute("datetime", isoNow);
     const timeZoneTitle = localizationPort
       ? localizationPort.translate("shell.clock.timeZone", { timeZone })
       : timeZone;
-    timeNode.title = timeZoneTitle;
     trayTimeNode.title = timeZoneTitle;
   };
 
   const unsubscribe = preferencePort?.subscribe(render) ?? null;
-  if (!preferencePort) render();
+  render();
   const timer = clock.setInterval(render, 30_000);
   return Object.freeze({
     destroy() {

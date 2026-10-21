@@ -18,12 +18,19 @@ QUICK_CONTROLS = ROOT / "system" / "surface" / "ui" / "network-quick-panel.mjs"
 NETWORK_RUNTIME = ROOT / "system" / "services" / "network" / "management-runtime.mjs"
 CAPABILITIES = ROOT / "docs" / "contracts" / "product-capabilities.json"
 
-spec = importlib.util.spec_from_file_location("ordax_native_network_management_test", SERVER)
-native_host = importlib.util.module_from_spec(spec)
-assert spec.loader is not None
-spec.loader.exec_module(native_host)
+# The native host uses POSIX file locks. Keep the test module loadable on
+# Windows developer machines; Linux CI still runs the full integration suite.
+NATIVE_HOST_AVAILABLE = importlib.util.find_spec("fcntl") is not None
+if NATIVE_HOST_AVAILABLE:
+    spec = importlib.util.spec_from_file_location("ordax_native_network_management_test", SERVER)
+    native_host = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None
+    spec.loader.exec_module(native_host)
+else:
+    native_host = None
 
 
+@unittest.skipUnless(NATIVE_HOST_AVAILABLE, "native network host tests require POSIX fcntl")
 class NativeNetworkManagementTests(unittest.TestCase):
     def test_wpa_psk_is_derived_locally_without_returning_password(self):
         expected = hashlib.pbkdf2_hmac(
@@ -132,6 +139,21 @@ class NativeNetworkManagementTests(unittest.TestCase):
         self.assertNotIn('echo "$ssid_hex"', text)
         self.assertNotIn("logger", text)
 
+    def test_cold_boot_restores_persisted_wifi_with_the_single_broker_owner(self):
+        broker = BROKER.read_text(encoding="utf-8")
+        startup = broker.split('exec 9<>"$CONTROL"', 1)[1].split("while :; do", 1)[0]
+        self.assertIn('if [ -s "$WPA_CONF" ] && [ ! -L "$WPA_CONF" ]; then', startup)
+        self.assertIn("boot_wifi=$(find_wifi_interface || true)", startup)
+        self.assertIn('have_ipv4 "$boot_wifi"', startup)
+        self.assertIn('grep -q \'^Connected to \'', startup)
+        self.assertIn("existing Base Wi-Fi adopted on boot", startup)
+        self.assertIn("sync_runtime_resolver", startup)
+        self.assertIn('restore_saved_network "$boot_wifi"', startup)
+        self.assertLess(startup.index('have_ipv4 "$boot_wifi"'), startup.index('restore_saved_network "$boot_wifi"'))
+        self.assertIn("profile preserved", startup)
+        self.assertNotIn("wpa_supplicant -B", startup)
+        self.assertNotIn("udhcpc ", startup)
+
     def test_first_run_wifi_waits_for_wpa_handshake_and_bounded_scan(self):
         text = BROKER.read_text(encoding="utf-8")
         self.assertIn('WPA_CLI_BIN=$(command -v wpa_cli || true)', text)
@@ -142,9 +164,10 @@ class NativeNetworkManagementTests(unittest.TestCase):
         self.assertIn('/bin/busybox timeout -k 1 15 "$IW_BIN" dev "$wifi" scan', text)
         self.assertLess(
             text.index('if ! wait_for_wifi_link "$wifi"; then'),
-            text.index('    try_dhcp "$wifi"', text.index('connect_conf()')),
+            text.index('    if ! try_dhcp "$wifi"; then', text.index('connect_conf()')),
         )
-        self.assertNotIn("grep -q '^Connected to '", text)
+        handshake = text.split("wait_for_wifi_link() {", 1)[1].split("\n}\n", 1)[0]
+        self.assertNotIn("grep -q '^Connected to '", handshake)
 
     def test_native_api_is_loopback_tokenized_serialized_and_no_shell_endpoint(self):
         server = SERVER.read_text(encoding="utf-8")

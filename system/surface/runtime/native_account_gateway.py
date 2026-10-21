@@ -87,6 +87,11 @@ def verified_account_session_reply(
             "subject": subject,
             "email": email,
             "provider": raw.get("provider") if isinstance(raw.get("provider"), str) else "unconfigured",
+            **({"displayName": raw["displayName"].strip()}
+               if isinstance(raw.get("displayName"), str)
+               and 0 < len(raw["displayName"].strip()) <= 120
+               and not any(ord(character) < 32 or ord(character) == 127 for character in raw["displayName"])
+               else {}),
             "accountCloseEnabled": raw.get("accountCloseEnabled") is True,
         }
     if allow_anonymous and raw.get("authenticated") is False and raw.get("status") == "anonymous":

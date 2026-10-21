@@ -96,38 +96,46 @@
 }
 
 /* Meridian rail geometry and presentation shared by Web, USB, and Native. */
-.meridian-workspace .ordax-product-sidebar { gap:var(--md-sidebar-gap); padding:var(--md-sidebar-padding-block) var(--md-sidebar-padding-inline) 1.125rem; }
-.meridian-workspace .ordax-product-sidebar [data-sidebar-slot="brand"] { height:2.125rem; min-height:2.125rem; }
+.meridian-workspace .ordax-product-sidebar { gap:var(--md-sidebar-gap); padding:var(--md-sidebar-padding-block) min(var(--md-sidebar-padding-inline),calc(var(--sidebar-visual-width,13rem) * .08)) max(.75rem,env(safe-area-inset-bottom)); }
+.meridian-workspace .ordax-product-sidebar [data-sidebar-slot="brand"] { height:2.625rem; min-height:2.625rem; }
 .meridian-workspace .ordax-product-sidebar .meridian-brand-home { display:block; flex:1 1 auto; min-width:0; padding:0; border:0; background:transparent; color:inherit; text-align:left; cursor:pointer; }
 .meridian-workspace .ordax-product-sidebar .brand { display:flex; align-items:center; gap:10px; min-height:42px; padding:0 8px; }
 .meridian-workspace .ordax-product-sidebar .brand-wordmark { display:block; }
 .meridian-workspace .ordax-product-sidebar .meridian-brand-symbol { display:block; flex:0 0 auto; width:1.875rem; height:1.875rem; }
 .meridian-workspace .ordax-product-sidebar .brand-name { font-size:1.5rem; font-weight:550; letter-spacing:-.06em; line-height:1.05; }
 .meridian-workspace .ordax-product-sidebar .brand-sub { display:block; color:var(--md-rail-muted); font-size:.5rem; font-weight:400; letter-spacing:.2em; }
-.meridian-workspace .ordax-product-sidebar :is(.sidebar-home-row,.meridian-native-home-nav) { display:flex; flex-direction:column; gap:.875rem; min-width:0; }
+.meridian-workspace .ordax-product-sidebar :is(.sidebar-home-row,.meridian-native-home-nav) { display:flex; flex-direction:column; gap:var(--md-sidebar-home-gap); min-width:0; }
 .meridian-workspace .ordax-product-sidebar [data-sidebar-slot="navigation"] { gap:var(--md-sidebar-nav-gap); min-height:var(--md-sidebar-nav-height); overflow:hidden; }
 .meridian-workspace .ordax-product-sidebar .meridian-nav-destination { min-width:0; flex-shrink:0; }
 .meridian-workspace .ordax-product-sidebar .meridian-native-nav-group { display:flex; flex-direction:column; gap:var(--md-sidebar-nav-gap); min-width:0; }
 .meridian-workspace .ordax-product-sidebar .meridian-native-nav-group[hidden] { display:none; }
-.meridian-workspace .ordax-product-sidebar .meridian-nav-label { margin:0; padding:1.1875rem var(--md-sidebar-nav-inline) .625rem; color:var(--md-rail-muted); font-size:.5rem; letter-spacing:.15em; text-transform:uppercase; }
+.meridian-workspace .ordax-product-sidebar .meridian-nav-label { margin:0; padding:var(--md-sidebar-section-padding); color:var(--md-rail-muted); font-size:.5625rem; font-weight:550; letter-spacing:.1em; text-transform:uppercase; }
 .meridian-workspace .ordax-product-sidebar .os-nav-item {
   position:relative; display:flex; align-items:center; width:100%; height:var(--md-sidebar-nav-height); min-height:var(--md-sidebar-nav-height); flex:0 0 var(--md-sidebar-nav-height);
   gap:var(--md-sidebar-icon-gap); padding:0 var(--md-sidebar-nav-inline); border:1px solid transparent; border-radius:var(--md-radius-small); background:transparent;
-  color:var(--md-rail-muted); font:450 .8125rem/1.2 var(--md-font); text-align:left; cursor:pointer;
+  color:var(--md-rail-muted); font:450 .8125rem/1.2 var(--md-font); text-align:left; cursor:pointer; transition:background-color var(--md-duration),border-color var(--md-duration),color var(--md-duration);
 }
 .meridian-workspace .ordax-product-sidebar .os-nav-item > :is(svg,.ordax-rail-icon) { display:block; width:var(--md-sidebar-icon-size); height:var(--md-sidebar-icon-size); flex:0 0 var(--md-sidebar-icon-size); color:currentColor; }
-.meridian-workspace .ordax-product-sidebar .os-nav-item:is(:hover,:focus-visible,[data-active="true"]) { border-color:var(--md-rail-border); background:var(--md-rail-selected); color:var(--md-rail-text); }
-.meridian-workspace .ordax-product-sidebar .os-nav-item[data-active="true"] { box-shadow:inset 3px 0 var(--md-art-clay); }
+.meridian-workspace .ordax-product-sidebar .os-nav-item:is(:hover,:focus-visible):not(:disabled) { border-color:var(--md-rail-border); background:color-mix(in srgb,var(--md-rail-selected) 60%,var(--md-rail)); color:var(--md-rail-text); }
+.meridian-workspace .ordax-product-sidebar .os-nav-item[data-active="true"] { border-color:var(--md-rail-border); background:var(--md-rail-selected); color:var(--md-rail-text); box-shadow:inset 3px 0 var(--md-art-clay); font-weight:600; }
+.meridian-workspace .ordax-product-sidebar .os-nav-item:focus-visible { outline:2px solid var(--md-focus); outline-offset:-2px; }
+.meridian-workspace .ordax-product-sidebar .os-nav-item::before { content:none; }
+.meridian-workspace .ordax-product-sidebar .os-nav-item > span:not(.ordax-rail-icon):not(.meridian-planned-mark) { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .meridian-workspace .ordax-product-sidebar .os-nav-item:disabled { opacity:.58; cursor:not-allowed; }
+@media (prefers-reduced-motion: reduce) {
+  .meridian-workspace .ordax-product-sidebar .os-nav-item { transition:none; }
+}
+[data-ordax-motion="reduced"] .meridian-workspace .ordax-product-sidebar .os-nav-item { transition:none; }
 .meridian-workspace .ordax-product-sidebar .meridian-nav-more { flex-shrink:0; }
 .meridian-workspace .ordax-product-sidebar .meridian-planned-mark { margin-inline-start:auto; color:var(--md-rail-muted); font-size:.9rem; }
-.meridian-workspace .ordax-product-sidebar [data-sidebar-slot="account"] { display:flex; flex-direction:column; gap:.9375rem; }
+.meridian-workspace .ordax-product-sidebar [data-sidebar-slot="account"] { display:flex; flex-direction:column; gap:var(--md-sidebar-account-gap); }
 .meridian-workspace .ordax-product-sidebar .meridian-rail-context { display:flex; align-items:center; gap:8px; padding:0 10px; color:var(--md-rail-text); font-size:.625rem; }
 .meridian-workspace .ordax-product-sidebar .meridian-rail-context i { width:4px; height:4px; flex:0 0 4px; border-radius:50%; background:var(--md-rail-muted); }
 .meridian-workspace .ordax-product-sidebar .meridian-rail-context small { display:block; margin-top:4px; color:var(--md-rail-muted); font-size:.5rem; }
-.meridian-workspace .ordax-product-sidebar .meridian-rail-utilities { display:flex; align-items:center; justify-content:space-around; gap:0; padding-top:.875rem; border-top:1px solid var(--md-rail-border); }
+.meridian-workspace .ordax-product-sidebar .meridian-rail-utilities { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:0; padding-top:.5rem; border-top:1px solid var(--md-rail-border); }
 .meridian-workspace .ordax-product-sidebar .meridian-rail-utilities > button,
-.meridian-workspace .ordax-product-sidebar :is(.meridian-rail-notification-slot,.meridian-rail-update-slot) { display:grid; place-items:center; width:var(--md-dock-control-size); min-width:var(--md-dock-control-size); height:var(--md-dock-control-size); flex:0 0 var(--md-dock-control-size); border:0; border-radius:var(--md-radius-small); background:transparent; color:var(--md-rail-muted); cursor:pointer; }
+.meridian-workspace .ordax-product-sidebar :is(.meridian-rail-notification-slot,.meridian-rail-update-slot) { display:grid; place-items:center; width:var(--md-sidebar-utility-size); min-width:var(--md-sidebar-utility-size); height:var(--md-sidebar-utility-size); flex:0 0 var(--md-sidebar-utility-size); border:0; border-radius:var(--md-radius-small); background:transparent; color:var(--md-rail-muted); cursor:pointer; }
+.meridian-workspace .ordax-product-sidebar :is(.meridian-rail-notification-slot,.meridian-rail-update-slot):empty { display:none; }
 .meridian-workspace .ordax-product-sidebar .meridian-rail-utilities > button:hover,
 .meridian-workspace .ordax-product-sidebar :is(.meridian-rail-notification-slot,.meridian-rail-update-slot):has(>button:hover) { background:var(--md-rail-selected); color:var(--md-rail-text); }
 .meridian-workspace .ordax-product-sidebar .meridian-rail-utilities svg { width:1.125rem; height:1.125rem; }
@@ -136,6 +144,21 @@
 .meridian-workspace .ordax-product-sidebar .meridian-rail-update-button { position:relative; display:grid; place-items:center; width:100%; height:100%; padding:0; border:0; border-radius:8px; background:transparent; color:inherit; cursor:pointer; }
 .meridian-workspace .ordax-product-sidebar .meridian-rail-update-button:hover { background:transparent; color:var(--md-rail-text); }
 .meridian-workspace .ordax-product-sidebar .meridian-rail-update-button[data-alerting="true"]::after { position:absolute; top:.375rem; right:.375rem; width:.375rem; height:.375rem; border:1px solid var(--md-rail); border-radius:50%; background:var(--md-art-clay); content:""; }
+
+/* The display-scale zoom applies to the whole Surface canvas. Keep utility
+   hit areas at 44 viewport CSS pixels across the supported zoom factors. */
+html[data-ordax-display-scale="compact"] .meridian-rail-utilities { --md-sidebar-utility-size:48.8889px; }
+html[data-ordax-display-scale="comfortable"] .meridian-rail-utilities { --md-sidebar-utility-size:40px; }
+html[data-ordax-display-scale="large"] .meridian-rail-utilities { --md-sidebar-utility-size:36.6667px; }
+@media (min-width:2560px) and (min-height:1200px) {
+  html[data-ordax-display-scale="automatic"] .meridian-rail-utilities { --md-sidebar-utility-size:41.4118px; }
+}
+@media (min-width:3200px) and (min-height:1800px) {
+  html[data-ordax-display-scale="automatic"] .meridian-rail-utilities { --md-sidebar-utility-size:39.1111px; }
+}
+@media (min-width:5120px) and (min-height:2160px) {
+  html[data-ordax-display-scale="automatic"] .meridian-rail-utilities { --md-sidebar-utility-size:35.2px; }
+}
 .meridian-workspace .ordax-product-sidebar :is(.ordax-space-switcher-trigger,.meridian-rail-space) { display:flex; align-items:center; gap:.625rem; width:100%; min-height:3.375rem; padding:.625rem .5rem; border:1px solid var(--md-rail-border); border-radius:var(--md-radius-small); background:transparent; box-shadow:none; color:var(--md-rail-text); text-align:left; cursor:pointer; }
 .meridian-workspace .ordax-product-sidebar :is(.ordax-space-switcher-trigger,.meridian-rail-space):is(:hover,:focus-visible,[aria-expanded="true"]) { border-color:var(--md-rail-muted); background:var(--md-rail-selected); }
 .meridian-workspace .ordax-product-sidebar :is(.ordax-space-switcher-trigger,.meridian-rail-space):focus-visible { outline:2px solid var(--md-focus); outline-offset:2px; }
@@ -151,7 +174,6 @@
 .meridian-native-workspace .ordax-product-sidebar .sidebar-collapse:hover,
 .meridian-native-workspace .ordax-product-sidebar .sidebar-collapse:focus-visible { border-color:var(--md-rail-text); background:var(--md-accent); color:var(--md-accent-text); }
 .meridian-native-workspace .ordax-product-sidebar .sidebar-collapse svg { width:16px; height:16px; stroke-width:2.25; }
-.meridian-workspace[data-view="desktop"] .ordax-product-sidebar { gap:1.25rem; padding:1.5rem .625rem 1rem; }
 
 @container sidebar-chrome (max-width:100px) {
   .meridian-workspace .ordax-product-sidebar .brand { justify-content:center; width:100%; padding:0; }
@@ -163,17 +185,7 @@
   .meridian-workspace .ordax-product-sidebar .meridian-nav-label,
   .meridian-workspace .ordax-product-sidebar .meridian-rail-context,
   .meridian-workspace .ordax-product-sidebar .meridian-rail-account>:is(.account-identity,.account-chevron) { display:none!important; }
-  .meridian-workspace .ordax-product-sidebar .meridian-rail-utilities { flex-direction:column; gap:6px; }
+  .meridian-workspace .ordax-product-sidebar .meridian-rail-utilities { flex-direction:column; flex-wrap:nowrap; gap:2px; }
   .meridian-workspace .ordax-product-sidebar :is(.ordax-space-switcher-trigger,.meridian-rail-space) { justify-content:center; padding-inline:0; border-color:transparent; }
   .meridian-workspace .ordax-product-sidebar :is(.ordax-space-switcher-trigger-label,.meridian-rail-space > span:nth-child(2),.ordax-space-switcher-chevron,.meridian-rail-space > svg) { display:none!important; }
-}
-@media(max-width:1150px) and (min-width:951px) {
-  .window-workspace.meridian-workspace .ordax-product-sidebar { padding-inline:.75rem; }
-}
-@media(max-width:950px) and (min-width:601px) {
-  .window-workspace.meridian-workspace .ordax-product-sidebar { padding:1.5rem .625rem 1rem; }
-  .window-workspace.meridian-workspace .ordax-product-sidebar :is(.ordax-sidebar-toggle,.sidebar-collapse) { display:none; }
-}
-@media(max-width:600px) {
-  .window-workspace.meridian-workspace .ordax-product-sidebar { display:none!important; }
 }

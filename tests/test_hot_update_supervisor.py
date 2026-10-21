@@ -28,7 +28,9 @@ class HotUpdateSupervisorContractTests(unittest.TestCase):
 
     def test_owner_first_poll_witness_is_bounded_diagnostic_not_update_authority(self):
         import json
+        import re
         import shlex
+        import stat
 
         text = SYSTEM_SUPERVISOR.read_text(encoding="utf-8")
         self.assertIn(
@@ -40,6 +42,7 @@ class HotUpdateSupervisorContractTests(unittest.TestCase):
         self.assertIn('[ "$DISTRIBUTION_PROFILE" = owner-development ] || return 0', witness)
         self.assertIn('[ "$OWNER_POLL_BOOT_FINISHED" -eq 0 ] || return 0', witness)
         self.assertIn('[ ! -L "$OWNER_POLL_BOOT_FILE" ]', witness)
+        self.assertIn('witness_tmp=$OWNER_POLL_BOOT_FILE.tmp.$$', witness)
         self.assertIn('"ordax.owner-supervisor-first-poll/1"', witness)
         for forbidden in ("git ", "pull ", "reboot ", "mount ", "efi-updatevar", "activation_authorized"):
             self.assertNotIn(forbidden, witness)
@@ -74,7 +77,18 @@ class HotUpdateSupervisorContractTests(unittest.TestCase):
                     "first-run-pending",
                 )
             )
-            subprocess.run(["/bin/sh", "-c", completed], check=True)
+            execution = subprocess.run(
+                ["/bin/sh", "-c", completed + '\nprintf "WITNESS_TMP=%s\\n" "$witness_tmp"\n'],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            self.assertRegex(
+                execution.stdout,
+                r"WITNESS_TMP=" + re.escape(str(destination)) + r"\.tmp\.[0-9]+",
+            )
+            self.assertEqual(stat.S_IMODE(destination.stat().st_mode), 0o600)
+            self.assertFalse(list(native.glob("supervisor-boot-witness.json.tmp.*")))
             result = json.loads(destination.read_text(encoding="utf-8"))
             self.assertEqual(result["schema"], "ordax.owner-supervisor-first-poll/1")
             self.assertEqual(result["stage"], "git-remote-completed")
@@ -166,9 +180,9 @@ class HotUpdateSupervisorContractTests(unittest.TestCase):
         pull = DEV_PULL.read_text(encoding="utf-8")
         self.assertIn("apply_remote_checkout()", text)
         self.assertIn('fetch --no-tags origin', text)
-        self.assertIn('merge-base --is-ancestor "$previous_sha" "$expected_sha"', text)
+        self.assertIn('merge-base --is-ancestor "$checkout_previous_sha" "$checkout_target_sha"', text)
         self.assertIn('PULL_BIN=${ORDAX_PULL_BIN:-/usr/local/bin/ordax-pull}', text)
-        self.assertIn('ORDAX_EXPECTED_SHA="$expected_sha"', text)
+        self.assertIn('ORDAX_EXPECTED_SHA="$checkout_target_sha"', text)
         self.assertIn('"$PULL_BIN" >>"$UPDATE_LOG" 2>&1', text)
         apply = text.split("apply_remote_checkout() {", 1)[1].split("\n}\n\n/bin/busybox mkdir -p", 1)[0]
         self.assertNotIn('reset --hard "$expected_sha"', apply)
@@ -178,8 +192,19 @@ class HotUpdateSupervisorContractTests(unittest.TestCase):
         self.assertIn('mv "$WORKTREE" "$retired"', pull)
         self.assertIn('mv "$stage" "$WORKTREE"', pull)
         self.assertIn('EXPECTED_SHA=${ORDAX_EXPECTED_SHA:-}', pull)
-        self.assertIn('[ "$remote_sha" != "$EXPECTED_SHA" ]', pull)
-        self.assertIn('checkout atual preservado', pull)
+        self.assertIn('checkout_target_sha=$2', apply)
+        self.assertIn('checkout_fetched_sha', apply)
+        self.assertIn('CHECKOUT_ERROR=handoff-target-mutation', apply)
+        base_progress = text.split("derive_base_update_progress() {", 1)[1].split("\n}\n", 1)[0]
+        self.assertIn("base_progress_target_sha=$1", base_progress)
+        self.assertNotIn("expected_sha=$1", base_progress)
+        self.assertIn('PULL_PHASE=handoff-validation', pull)
+        self.assertIn('[ "$cached_main" != "$EXPECTED_SHA" ]', pull)
+        self.assertIn('cat-file -e "$EXPECTED_SHA^{commit}"', pull)
+        # Supervisor-owned delivery uses local fetched Git objects only.
+        # Remote discovery remains available solely to standalone Pull.
+        self.assertIn('remote_sha=$(remote_main_sha || true)', pull)
+        self.assertIn('checkout local sera preservado', pull)
 
     def test_pull_error_stage_and_committed_helper_receipt_are_consistent(self):
         supervisor = SYSTEM_SUPERVISOR.read_text(encoding="utf-8")
@@ -191,7 +216,7 @@ class HotUpdateSupervisorContractTests(unittest.TestCase):
         self.assertIn('trap \'record_pull_exit "$?"\' EXIT', pull)
         self.assertIn('PULL_PHASE=helper-refresh', pull)
         self.assertIn('refresh_dev_helpers "$current" || exit 1', pull)
-        self.assertIn('CHECKOUT_ERROR="pull-$pull_phase-failed"', supervisor)
+        self.assertIn('CHECKOUT_ERROR="pull-$checkout_pull_phase-failed"', supervisor)
         # Atomic source checkout is durable before helper activation, so the
         # displayed sourceSha must reflect the actual checkout on error.
         self.assertIn('active_after_failure=$(current_sha)', supervisor)
@@ -224,17 +249,17 @@ class HotUpdateSupervisorContractTests(unittest.TestCase):
         self.assertIn('reason=${CHECKOUT_ERROR:-checkout-failed}', text)
         self.assertIn('temporary=$UPDATE_RUN_DIR/candidate-shell.tmp', text)
         self.assertLess(
-            text.index('validate_candidate_tree "$expected_sha"'),
-            text.index('ORDAX_EXPECTED_SHA="$expected_sha"'),
+            text.index('validate_candidate_tree "$checkout_target_sha"'),
+            text.index('ORDAX_EXPECTED_SHA="$checkout_target_sha"'),
         )
 
     def test_common_reload_path_uses_fast_staged_preflight(self):
         text = SYSTEM_SUPERVISOR.read_text(encoding="utf-8")
-        self.assertIn('classify_changes "$previous_sha" "$expected_sha"', text)
-        self.assertIn('validate_candidate_tree "$expected_sha" "$APPLY_MODE"', text)
+        self.assertIn('classify_changes "$checkout_previous_sha" "$checkout_target_sha"', text)
+        self.assertIn('validate_candidate_tree "$checkout_target_sha" "$APPLY_MODE"', text)
         self.assertLess(
-            text.index('classify_changes "$previous_sha" "$expected_sha"'),
-            text.index('ORDAX_EXPECTED_SHA="$expected_sha"'),
+            text.index('classify_changes "$checkout_previous_sha" "$checkout_target_sha"'),
+            text.index('ORDAX_EXPECTED_SHA="$checkout_target_sha"'),
         )
         candidate = text.split("validate_candidate_tree() {", 1)[1].split(
             "surface-restart|supervisor-restart)", 1
@@ -269,8 +294,8 @@ class HotUpdateSupervisorContractTests(unittest.TestCase):
         self.assertIn('write_state_value "$STAGED_RELEASE_FILE" "$candidate_sha"', text)
         self.assertIn('CHECKOUT_ERROR=candidate-stage-failed', text)
         self.assertLess(
-            text.index('stage_candidate_release "$expected_sha" "$APPLY_MODE"'),
-            text.index('ORDAX_EXPECTED_SHA="$expected_sha"'),
+            text.index('stage_candidate_release "$checkout_target_sha" "$APPLY_MODE"'),
+            text.index('ORDAX_EXPECTED_SHA="$checkout_target_sha"'),
         )
 
     def test_runtime_neutral_update_does_not_materialize_a_release_slot(self):
@@ -356,7 +381,10 @@ class HotUpdateSupervisorContractTests(unittest.TestCase):
         self.assertIn("-p time.google.com", text)
         self.assertIn("-p pool.ntp.org", text)
         self.assertIn("TIME_SYNC_PID=$!", text)
-        self.assertIn('terminate_child "$TIME_SYNC_PID" "time sync agent"', text)
+        self.assertIn('"$POWER_BROKER_PID" "$KEYBOARD_SESSION_RESTART_BROKER_PID"', text)
+        self.assertIn('"$NATIVE_INSTALL_BROKER_PID" "$NETWORK_BROKER_PID" "$TIME_SYNC_PID"', text)
+        self.assertIn("quiesce_surface_children()", text)
+        self.assertIn("quiesce_surface_children\n", text.split("cleanup() {", 1)[1])
         self.assertIn("automatic time synchronization unavailable; continuing Surface startup", text)
 
     def test_system_markdown_is_runtime_neutral_before_system_fallback(self):
@@ -429,7 +457,9 @@ class HotUpdateSupervisorContractTests(unittest.TestCase):
         self.assertIn('ORDAX_EXPECTED_SHA="$source_sha"', refresh)
         self.assertIn('"$PULL_BIN" >>"$UPDATE_LOG" 2>&1', refresh)
         self.assertIn("refresh_dev_helpers()", text)
-        self.assertIn('refresh_dev_helpers "$expected_sha"', text)
+        # Canonical ordax-pull owns initial helper installation, not the Supervisor.
+        apply = text.split("apply_remote_checkout() {", 1)[1].split("\n}\n", 1)[0]
+        self.assertNotIn('refresh_dev_helpers "$expected_sha"', apply)
         self.assertIn('refresh_dev_helpers "$current"', text)
         self.assertIn("DEV_HELPERS_SHA_FILE=$STATE_DIR/dev-helpers-sha", text)
         self.assertIn(
@@ -633,7 +663,9 @@ class HotUpdateSupervisorContractTests(unittest.TestCase):
         self.assertIn('wait_for_surface_health "$expected_sha" "$SURFACE_HEALTH_TIMEOUT"', text)
         self.assertIn('fail_closed "Surface heartbeat recovery restart did not acknowledge healthy state"', text)
         self.assertIn("Surface heartbeat recovery restart acknowledged healthy state", text)
-        self.assertIn("recover_stale_surface_if_needed\n    check_for_update", text)
+        self.assertIn("check_owner_initial_surface_health", text)
+        self.assertIn("recover_stale_surface_if_needed", text)
+        self.assertIn("    check_for_update", text)
 
         recovery = text.split("recover_stale_surface_if_needed() {", 1)[1].split("\n}\n", 1)[0]
         self.assertEqual(recovery.count('stop_surface'), 1)
@@ -647,8 +679,11 @@ class HotUpdateSupervisorContractTests(unittest.TestCase):
         self.assertIn('clear_surface_health\nif [ "$DISTRIBUTION_PROFILE" = "stable-mvp" ]; then', text)
         self.assertIn("starting shared OrdaX Surface with Stable/MVP signed-release profile", text)
         self.assertIn("starting shared OrdaX Surface with Owner/Development Git hot-update supervisor", text)
-        self.assertIn('wait_for_owner_initial_surface_health "$initial_sha" "$INITIAL_SURFACE_HEALTH_TIMEOUT"', text)
-        self.assertIn('wait_for_surface_health "$expected_sha" "$normal_budget"', text)
+        self.assertIn("begin_owner_initial_surface_health", text)
+        self.assertIn("check_owner_initial_surface_health", text)
+        self.assertIn('wait_for_surface_health "$initial_sha" "$INITIAL_SURFACE_HEALTH_TIMEOUT"', text)
+        self.assertIn("owner_monotonic_seconds()", text)
+        self.assertIn("OWNER_INITIAL_PROVISION_SINCE", text)
         self.assertIn('rollback_boot_candidate()', text)
         self.assertIn('validate_candidate_tree "$previous_sha" supervisor-restart', text)
         self.assertIn('reset --hard "$previous_sha"', text)

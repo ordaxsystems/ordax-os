@@ -1,5 +1,6 @@
 import { mountNativeSidebarFit, sidebarIsExpanded, sidebarItemIsActive } from "./sidebar-layout.mjs";
 import { mountSidebarHints } from "./sidebar-hints.mjs";
+import { handleHomePreviewClick, handleHomePreviewKeyDown } from "./home-concept.mjs";
 import { assertAppRuntimeCatalog, defaultAppRuntimeCatalog } from "../../apps/runtime-catalog.mjs";
 import { externalAppCopy } from "../../apps/external-app-definition.mjs";
 import { assertAppActivationPort } from "../../contracts/app-activation.mjs";
@@ -492,9 +493,22 @@ export function mountSurface(
     if (!nativeDock || !button) return;
     const viewport = nativeDock.getBoundingClientRect();
     const target = button.getBoundingClientRect();
-    if (target.left < viewport.left) nativeDock.scrollLeft -= viewport.left - target.left;
-    else if (target.right > viewport.right) nativeDock.scrollLeft += target.right - viewport.right;
+    const scale = nativeDock.offsetWidth > 0 ? viewport.width / nativeDock.offsetWidth : 1;
+    if (!(scale > 0)) return;
+    const inset = 4 * scale;
+    if (target.left < viewport.left + inset || target.width > viewport.width - inset * 2) {
+      nativeDock.scrollLeft += (target.left - viewport.left - inset) / scale;
+    } else if (target.right > viewport.right - inset) {
+      nativeDock.scrollLeft += (target.right - viewport.right + inset) / scale;
+    }
     updateDockOverflow();
+  };
+
+  const onDockFocus = (event) => revealDockButton(event.target.closest?.("button"));
+  const onDockResize = () => {
+    const focused = root.ownerDocument.activeElement;
+    if (nativeDock?.contains(focused)) revealDockButton(focused.closest("button"));
+    else updateDockOverflow();
   };
 
   const setAreaMenuOpen = (open, { restoreFocus = false } = {}) => {
@@ -823,6 +837,11 @@ export function mountSurface(
     }
     root.dataset.workspacePresentation = state.presentation;
     root.dataset.view = state.presentation;
+    const shell = root.querySelector("[data-ordax-shell]");
+    if (shell) {
+      shell.dataset.workspacePresentation = state.presentation;
+      shell.dataset.view = state.presentation;
+    }
     root.dataset.nativeSidebar = state.sidebarMode;
     const sidebarToggle = root.querySelector("[data-sidebar-toggle]");
     const sidebarExpanded = sidebarIsExpanded(root.querySelector(".ordax-rail"));
@@ -949,6 +968,7 @@ export function mountSurface(
   };
 
   const onClick = (event) => {
+    if (handleHomePreviewClick(event, root, localization)) return;
     const areaMenuButton = event.target.closest("[data-area-menu-toggle]");
     if (areaMenuButton) {
       setAreaMenuOpen(areaMenu.hidden);
@@ -1191,6 +1211,7 @@ export function mountSurface(
   };
 
   const onKeyDown = (event) => {
+    if (handleHomePreviewKeyDown(event, root)) return;
     if (moveDockFocus(event, nativeDock, "button", revealDockButton)) return;
     if (moveDesktopShortcutFocus(event, root, "[data-desktop-app]")) return;
 
@@ -1268,8 +1289,15 @@ export function mountSurface(
   root.addEventListener("keydown", onKeyDown);
   nativeDock?.addEventListener("scroll", updateDockOverflow, { passive: true });
   nativeDock?.addEventListener("wheel", onNativeDockWheel, { passive: false });
+  nativeDock?.addEventListener("focusin", onDockFocus);
   const nativeWindow = root.ownerDocument?.defaultView;
-  nativeWindow?.addEventListener("resize", updateDockOverflow, { passive: true });
+  const DockObserver = nativeWindow?.ResizeObserver;
+  const dockObserver = typeof DockObserver === "function" ? new DockObserver(onDockResize) : null;
+  if (nativeDock) {
+    dockObserver?.observe(nativeDock);
+    for (const child of nativeDock.children) dockObserver?.observe(child);
+  }
+  nativeWindow?.addEventListener("resize", onDockResize, { passive: true });
   updateDockOverflow();
   const unsubscribeActivation = activationPort?.subscribe((activation) => {
     const app = catalog.get(activation.appId);
@@ -1338,7 +1366,9 @@ export function mountSurface(
       root.removeEventListener("keydown", onKeyDown);
       nativeDock?.removeEventListener("scroll", updateDockOverflow);
       nativeDock?.removeEventListener("wheel", onNativeDockWheel);
-      nativeWindow?.removeEventListener("resize", updateDockOverflow);
+      nativeDock?.removeEventListener("focusin", onDockFocus);
+      dockObserver?.disconnect();
+      nativeWindow?.removeEventListener("resize", onDockResize);
       unsubscribePreferencePersistence();
       preferencePersistence.dispose();
       preferenceListeners.clear();

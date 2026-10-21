@@ -121,7 +121,7 @@ export function mountHomeContinuation(
   const t = localization.translate;
   const documentObject = root.ownerDocument;
   const homePanel = root.querySelector(".ordax-home-panel");
-  const space = homePanel?.querySelector(".ordax-space");
+  const space = homePanel?.querySelector("[data-home-example=\"resume\"]") ?? homePanel?.querySelector(".ordax-space");
   if (!homePanel || !space) {
     throw new Error("Home continuation requires the canonical Home panel");
   }

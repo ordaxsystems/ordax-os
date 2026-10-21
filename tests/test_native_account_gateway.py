@@ -110,6 +110,7 @@ class NativeAccountGatewayTests(unittest.TestCase):
             "status": "authenticated",
             "subject": "verified-subject",
             "email": "pessoa@example.com",
+            "displayName": "  Washington Silva  ",
             "provider": "supabase",
             "accountCloseEnabled": False,
         }
@@ -117,8 +118,14 @@ class NativeAccountGatewayTests(unittest.TestCase):
             **authenticated, "ordax_access": "never-send-me",
         }))
         self.assertEqual(accepted["subject"], "verified-subject")
+        self.assertEqual(accepted["displayName"], "Washington Silva")
         self.assertTrue(accepted["authenticated"])
         self.assertNotIn("ordax_access", accepted)
+
+        unsafe_name = gateway.verified_account_session_reply(reply({
+            **authenticated, "displayName": "Washington\nSilva",
+        }))
+        self.assertNotIn("displayName", unsafe_name)
 
         for payload, status in (
             (authenticated, 503),

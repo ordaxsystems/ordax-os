@@ -57,7 +57,7 @@ class DevPullExpectedShaTests(unittest.TestCase):
         )
         run_git("remote", "add", "origin", str(self.remote), cwd=self.seed)
         subprocess.run(
-            ["git", "clone", str(self.remote), str(self.worktree)],
+            ["git", "clone", self.remote.as_uri(), str(self.worktree)],
             check=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -73,6 +73,26 @@ class DevPullExpectedShaTests(unittest.TestCase):
         entrypoint.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
         entrypoint.chmod(entrypoint.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
         (self.seed / "system" / "marker.txt").write_text(marker + "\n", encoding="utf-8")
+        # Mirror the canonical runtime sparse allowlist so exact-candidate
+        # materialization exercises all required paths without fake fallbacks.
+        for relative in (
+            "bootstrap/base-update/manifest.txt",
+            "bootstrap/dev-base/manifest.txt",
+            "bootstrap/recovery/entrypoint",
+            "bootstrap/trust/release-ed25519.json",
+            "bootstrap/config/release-envelope-url",
+            "docs/contracts/base-update.json",
+            "docs/contracts/release-trust-policy.json",
+            "docs/contracts/minimal-bootstrap.json",
+            "docs/evidence/release-trust-ceremony.json",
+            "docs/evidence/release-trust-proof-manifest.json",
+            "docs/evidence/release-trust-recovery-envelope.json",
+        ):
+            required = self.seed / relative
+            required.parent.mkdir(parents=True, exist_ok=True)
+            if not required.exists():
+                required.write_text("test fixture\\n", encoding="utf-8")
+
 
     def _publish(self, marker: str) -> str:
         self._write_release(marker)
@@ -105,8 +125,19 @@ class DevPullExpectedShaTests(unittest.TestCase):
             stderr=subprocess.PIPE,
         )
 
-    def test_exact_candidate_is_atomically_activated(self):
+    def _supervisor_fetch(self) -> None:
+        run_git(
+            "fetch", "--no-tags", "origin",
+            "refs/heads/main:refs/remotes/origin/main",
+            cwd=self.worktree,
+        )
+
+    def test_exact_candidate_is_atomically_activated_with_remote_offline(self):
         second = self._publish("two")
+        self._supervisor_fetch()
+        # Supervisor already fetched this exact commit; removing the fixture
+        # remote proves ordax-pull does not attempt another network discovery.
+        self.remote.rename(self.root / "disconnected-origin.git")
         completed = self._pull(second)
         self.assertEqual(completed.returncode, 0, completed.stderr)
         self.assertEqual(run_git("rev-parse", "HEAD", cwd=self.worktree), second)
@@ -115,18 +146,60 @@ class DevPullExpectedShaTests(unittest.TestCase):
         self.assertEqual((self.state / "previous-commit").read_text().strip(), self.first)
         self.assertIn("checkout atomico ativado", completed.stdout)
 
-    def test_remote_movement_rejects_stale_expected_sha_without_mutating_checkout(self):
+    def test_supervisor_handoff_rejects_expected_sha_not_in_tracking_ref(self):
         second = self._publish("two")
+        self._supervisor_fetch()
         first_update = self._pull(second)
         self.assertEqual(first_update.returncode, 0, first_update.stderr)
         third = self._publish("three")
+        self._supervisor_fetch()
         self.assertNotEqual(third, second)
 
         completed = self._pull(second)
         self.assertNotEqual(completed.returncode, 0)
         self.assertEqual(run_git("rev-parse", "HEAD", cwd=self.worktree), second)
         self.assertEqual((self.worktree / "system" / "marker.txt").read_text().strip(), "two")
-        self.assertIn("main mudou durante a transacao", completed.stderr)
+        self.assertIn("tracking ref differs from verified candidate", completed.stderr)
+        self.assertEqual((self.run_dir / "pull-result").read_text().strip(), "handoff-ref-mismatch")
+
+    def test_missing_supervisor_fetch_is_specific_handoff_error_not_remote_retry(self):
+        second = self._publish("two")
+        completed = self._pull(second)
+        self.assertNotEqual(completed.returncode, 0)
+        self.assertEqual((self.run_dir / "pull-result").read_text().strip(), "handoff-ref-mismatch")
+        self.assertIn("tracking ref differs from verified candidate", completed.stderr)
+        self.assertEqual(run_git("rev-parse", "HEAD", cwd=self.worktree), self.first)
+        self.assertFalse((self.state / "current-commit").exists())
+
+
+    def test_supervisor_handoff_reports_origin_mismatch_without_refetch(self):
+        second = self._publish("two")
+        self._supervisor_fetch()
+        run_git("remote", "set-url", "origin", self.root.joinpath("wrong.git").as_uri(), cwd=self.worktree)
+        completed = self._pull(second)
+        self.assertNotEqual(completed.returncode, 0)
+        self.assertIn("invalid checkout metadata", completed.stderr)
+        self.assertEqual((self.run_dir / "pull-result").read_text().strip(), "handoff-metadata-origin")
+        self.assertEqual(run_git("rev-parse", "HEAD", cwd=self.worktree), self.first)
+
+    def test_supervisor_handoff_reports_wrong_branch_without_mutation(self):
+        second = self._publish("two")
+        self._supervisor_fetch()
+        run_git("checkout", "-b", "temporary-fixture", cwd=self.worktree)
+        completed = self._pull(second)
+        self.assertNotEqual(completed.returncode, 0)
+        self.assertEqual((self.run_dir / "pull-result").read_text().strip(), "handoff-metadata-branch")
+        self.assertEqual(run_git("rev-parse", "HEAD", cwd=self.worktree), self.first)
+
+    def test_supervisor_handoff_reports_missing_entrypoint_without_mutation(self):
+        second = self._publish("two")
+        self._supervisor_fetch()
+        (self.worktree / "system" / "entrypoint").chmod(0o644)
+        completed = self._pull(second)
+        self.assertNotEqual(completed.returncode, 0)
+        self.assertEqual((self.run_dir / "pull-result").read_text().strip(), "handoff-metadata-entrypoint")
+        self.assertEqual(run_git("rev-parse", "HEAD", cwd=self.worktree), self.first)
+
 
 
 if __name__ == "__main__":
