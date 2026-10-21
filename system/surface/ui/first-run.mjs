@@ -10,6 +10,7 @@ import {
 } from "../../contracts/identity-actions.mjs";
 import { assertIdentitySessionPort } from "../../contracts/identity-session.mjs";
 import { assertIdentityCredentialsPort, sameRegistrationLegalPolicy } from "../../contracts/identity-credentials.mjs";
+import { readRememberedLoginEmail } from "../../services/account/remembered-login-email.mjs";
 import {
   assertLocalSessionPort,
   validateLocalSessionSnapshot,
@@ -184,7 +185,7 @@ export function mountFirstRunExperience(
   let identityPending = null;
   let identityAvailabilityPending = false;
   let identityMessage = "";
-  let identityEmailDraft = "";
+  let identityEmailDraft = readRememberedLoginEmail(documentObject.defaultView);
   let identityPasswordDraft = "";
   let identityFormMode = "sign-in";
   let passwordVisible = false;

@@ -100,8 +100,10 @@ class InternetBrowserContractTests(unittest.TestCase):
 
     def test_native_host_separates_privileged_surface_from_external_webviews(self):
         host = self.text(NATIVE_HOST)
-        self.assertIn('UserContentManager.new()', host)
-        self.assertIn('WebView.new_with_user_content_manager(self.manager)', host)
+        self.assertIn('WebView.new_with_context(self.surface_context)', host)
+        self.assertIn('self.manager = self.surface_view.get_user_content_manager()', host)
+        self.assertIn('base_data_directory=surface_profile_data', host)
+        self.assertIn('os.path.join(self.profile_root, "surface", "data")', host)
         self.assertIn('WebsiteDataManager(', host)
         self.assertIn('WebContext.new_with_website_data_manager', host)
         self.assertIn('WebView.new_with_context(self.external_context)', host)
