@@ -104,9 +104,15 @@ rebind_independent_console() {
     # /dev/console can resolve through an independent nested/bind mount, so
     # checking equality with the /dev mount ID incorrectly rejects healthy
     # boots. Use the kernel major:minor for each actual stdout/stderr FD.
-    [ -c /dev/console ] || return 1
+    [ -c /dev/console ] || {
+        printf 'OrdaX Dev: /dev/console character device unavailable\n' >&2
+        return 1
+    }
     root_fs=$(/bin/busybox awk '$5 == "/" { fs=$3 } END { print fs }' /proc/self/mountinfo 2>/dev/null || true)
-    [ -n "$root_fs" ] || return 1
+    [ -n "$root_fs" ] || {
+        printf 'OrdaX Dev: root filesystem identity unavailable\n' >&2
+        return 1
+    }
     exec 1>/dev/console 2>&1
     out_mount_id=$(/bin/busybox awk '$1 == "mnt_id:" { print $2; exit }' /proc/self/fdinfo/1 2>/dev/null || true)
     err_mount_id=$(/bin/busybox awk '$1 == "mnt_id:" { print $2; exit }' /proc/self/fdinfo/2 2>/dev/null || true)
