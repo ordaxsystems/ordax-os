@@ -815,6 +815,7 @@ export function mountSystemOverviewControls(
       addFact("power.last_status", updateSnapshot.hostPower.lastStatus);
       addFact("power.last_stage", updateSnapshot.hostPower.lastStage);
       addFact("power.last_failure", updateSnapshot.hostPower.lastFailure);
+      addFact("power.last_mount_error", updateSnapshot.hostPower.lastMountError);
     }
     section.append(facts);
 
