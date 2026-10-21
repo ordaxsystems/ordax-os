@@ -467,18 +467,26 @@ owner_usb_all_root_mounts_read_only() {
 }
 
 owner_usb_auxiliary_partitions_quiesced() {
-    # Gate *all* aliases of ORDAX-ESP (1) and ORDAX-DATA (3) by kernel
-    # major:minor, independent of /dev path spelling and filesystem type.
+    # Gate all aliases of ORDAX-ESP (1) and, when present, ORDAX-DATA (3)
+    # by kernel major:minor, independent of device path or filesystem type.
     # This excludes unrelated disks rather than guessing based on FAT labels.
     root_device=$(owner_usb_root_source) || return 1
     disk_prefix=${root_device%2}
     [ "$disk_prefix" != "$root_device" ] || return 1
     esp_sys=/sys/class/block/${disk_prefix##*/}1/dev
     data_sys=/sys/class/block/${disk_prefix##*/}3/dev
-    [ -f "$esp_sys" ] && [ -f "$data_sys" ] || return 1
+    # The canonical capacity-independent Creator seed has partitions 1+2;
+    # the authorized prepared Owner USB adds partition 3 (ORDAX-DATA).
+    # Never demand DATA from the seed, but prove it whenever enumerated.
+    [ -f "$esp_sys" ] || return 1
     esp_id=$(/bin/busybox cat "$esp_sys" 2>/dev/null) || return 1
-    data_id=$(/bin/busybox cat "$data_sys" 2>/dev/null) || return 1
-    case "$esp_id:$data_id" in *[!0-9:]*|'') return 1 ;; esac
+    case "$esp_id" in *[!0-9:]*|'') return 1 ;; esac
+    data_id=""
+    if [ -e "$data_sys" ]; then
+        [ -f "$data_sys" ] || return 1
+        data_id=$(/bin/busybox cat "$data_sys" 2>/dev/null) || return 1
+        case "$data_id" in *[!0-9:]*|'') return 1 ;; esac
+    fi
     /bin/busybox awk -v esp="$esp_id" -v data="$data_id" '
         $3 == esp || $3 == data {
             if ($6 ~ /(^|,)rw(,|$)/) writable = 1
