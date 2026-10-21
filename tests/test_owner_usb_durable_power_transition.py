@@ -27,6 +27,9 @@ class OwnerUsbDurablePowerTransitionTests(unittest.TestCase):
         self.assertIn("if ! terminate_persistent_host_agents; then", transition)
         self.assertIn("if ! /bin/busybox sync", transition)
         self.assertIn('record_host_power_stage root-readonly', transition)
+        self.assertIn("owner_usb_seal_root_for_power", transition)
+        self.assertIn("owner_usb_restore_root_after_abort", transition)
+        self.assertIn("owner_usb_all_root_mounts_read_only", source)
         self.assertIn("if ! remount_root_read_only_for_power; then", transition)
         self.assertIn("if ! root_filesystem_is_read_only; then", transition)
         self.assertIn("if remount_root_read_write_after_power_abort; then", transition)
@@ -44,7 +47,7 @@ class OwnerUsbDurablePowerTransitionTests(unittest.TestCase):
             transition.index('/bin/busybox poweroff -f'),
         )
 
-    def _run_simulated_transition(self, profile, mode, *, sync_fails=False, agents_fail=False):
+    def _run_simulated_transition(self, profile, mode, *, sync_fails=False, agents_fail=False, seal_fails=False):
         """Execute the Guardian's actual function; replace only external effects."""
         with tempfile.TemporaryDirectory(prefix="ordax-owner-shutdown-gate-") as temp:
             source = GUARDIAN.read_text(encoding="utf-8")
@@ -61,6 +64,8 @@ class OwnerUsbDurablePowerTransitionTests(unittest.TestCase):
                 'stop_acpi_button_listener() { echo acpi-stopped >>"$TRACE"; }',
                 'terminate_persistent_host_agents() { echo agents-stopped >>"$TRACE"; [ "$AGENT_FAIL" != 1 ]; }',
                 'remount_root_read_only_for_power() { echo readonly-remount >>"$TRACE"; return 1; }',
+                'owner_usb_seal_root_for_power() { echo owner-usb-seal >>"$TRACE"; [ "$SEAL_FAIL" != 1 ]; }',
+                'owner_usb_restore_root_after_abort() { echo owner-usb-restore >>"$TRACE"; return 0; }',
                 'root_filesystem_is_read_only() { echo readonly-proof >>"$TRACE"; return 0; }',
                 'remount_root_read_write_after_power_abort() { echo readonly-reversal >>"$TRACE"; return 0; }',
                 'restore_runtime_after_power_failure() { printf "restored:%s\\n" "$3" >>"$TRACE"; return 1; }',
@@ -79,6 +84,7 @@ class OwnerUsbDurablePowerTransitionTests(unittest.TestCase):
                 "TRACE": str(trace),
                 "SYNC_FAIL": "1" if sync_fails else "0",
                 "AGENT_FAIL": "1" if agents_fail else "0",
+                "SEAL_FAIL": "1" if seal_fails else "0",
             }
             result = subprocess.run(
                 ["/bin/sh", "-c", script],
@@ -92,6 +98,9 @@ class OwnerUsbDurablePowerTransitionTests(unittest.TestCase):
         self.assertEqual(trace.count("kernel-tool:sync"), 2)
         self.assertIn("kernel-tool:poweroff", trace)
         self.assertIn("restored:kernel-transition-returned", trace)
+        self.assertIn("owner-usb-seal", trace)
+        self.assertIn("owner-usb-restore", trace)
+        self.assertLess(trace.index("owner-usb-seal"), trace.index("kernel-tool:poweroff"))
         self.assertNotIn("readonly-remount", trace)
         self.assertNotIn("readonly-proof", trace)
         self.assertNotIn("readonly-reversal", trace)
@@ -105,6 +114,18 @@ class OwnerUsbDurablePowerTransitionTests(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("restored:sync-failed", trace)
+        self.assertIn("owner-usb-restore", trace)
+        self.assertNotIn("kernel-tool:poweroff", trace)
+        self.assertNotIn("kernel-tool:poweroff", trace)
+
+    def test_failed_usb_superblock_seal_prevents_forced_kernel_power(self):
+        result, trace = self._run_simulated_transition(
+            "owner-development", "usb", seal_fails=True,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("owner-usb-seal", trace)
+        self.assertIn("owner-usb-restore", trace)
+        self.assertIn("restored:remount-failed", trace)
         self.assertNotIn("kernel-tool:poweroff", trace)
 
     def test_unquiesced_agents_never_reach_final_sync_or_kernel_power(self):
