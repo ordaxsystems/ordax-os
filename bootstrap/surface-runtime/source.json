@@ -47,7 +47,7 @@
     "bubblewrap": "0.12.0-r0",
     "busybox": "1.37.0-r20",
     "busybox-binsh": "1.37.0-r20",
-    "c-ares": "1.34.8-r0",
+    "c-ares": "1.34.9-r0",
     "ca-certificates": "20261020-r0",
     "ca-certificates-bundle": "20260611-r0",
     "cage": "0.2.0-r0",
@@ -308,35 +308,35 @@
   },
   "promotion_blockers": [
     "prove-physical-stable-surface-on-supported-usb-hardware",
-    "prove-or-explicitly-defer-secure-boot-boundary-before-public-promotion"
+    "prove-or-explicitly-defer-secure-boot-boundary-before-public-promotion",
+    "repeat-byte-reproducible-erofs-build-on-current-apk-lock",
+    "prove-current-head-offline-surface-runtime-qemu-handoff"
   ],
   "apk_package_lock_count": 253,
-  "apk_package_lock_status": "reviewed-full-transitive-lock-reproof-passed",
+  "apk_package_lock_status": "reviewed-full-transitive-lock-reproof-required",
   "discovery_evidence": {
-    "workflow_run_id": 39558571592,
-    "source_commit": "ed539dbf5f16cdeca18426d3c70bef8b7e645524",
-    "artifact_name": "surface-runtime-candidate-ed539dbf5f16cdeca18426d3c70bef8b7e645524",
-    "artifact_id": 12326144349,
-    "artifact_archive_sha256": "42677485107f7ebf46302d8b4a2165777e6683c8297a6ee1a63671ff98c53da4",
+    "workflow_run_id": 39656472736,
+    "source_commit": "4f26dbfe59e1e5dcb3d38c7102ded1759c98005e",
+    "artifact_name": "surface-runtime-candidate-4f26dbfe59e1e5dcb3d38c7102ded1759c98005e",
+    "artifact_id": 12370773057,
+    "artifact_archive_sha256": "bacc3a04417a347431b59250ed9b0d40d121d4ecc7df62550e42e0696d96bad4",
     "resolved_package_count": 253,
     "physical_artifact_created": false,
     "physical_write_authorized": false,
-    "scope": "2026-10-21-complete-transitive-pcre2-r1-discovery"
+    "scope": "2026-10-21-full-transitive-c-ares-r0-to-r1-discovery"
   },
   "closed_gates": [
     "full-transitive-apk-lock-pinned",
     "signed-release-manifest-v3-runtime-binding-implemented",
     "creator-content-addressed-runtime-preseed-implemented",
     "initramfs-runtime-erofs-ephemeral-overlay-handoff-implemented",
-    "stable-launcher-network-package-provisioning-disabled",
-    "current-apk-lock-erofs-byte-reproducibility-proven",
-    "current-head-offline-surface-runtime-qemu-handoff-proven"
+    "stable-launcher-network-package-provisioning-disabled"
   ],
   "reproducibility_proof": {
     "workflow": ".github/workflows/surface-runtime-lock-discovery.yml",
     "workflow_run_id": 39559534078,
     "source_commit": "ca54cf188177ffd5d6f1d24b239a6a1678d01201",
-    "status": "current-head-pass",
+    "status": "historical-only",
     "tree_manifest_sha256": "5c5360f3433e7fb0ea84611b1a6f685873fedf0dc88143723218f9fc7277ca56",
     "normalized_tar_sha256": "00198baee07df15caa34a5643d9f53af01d60609b08f7e97a4c0ebec2ec7b307",
     "erofs_sha256": "93106f541cf3e29b737e43bafd9b51f26b86f688f1b5771bd96dfaee7d5d2436",
@@ -357,7 +357,7 @@
     "pinned_initramfs_artifact_id": 12327692572,
     "pinned_initramfs_artifact_archive_sha256": "3cfab3b5dce806dc7d78a17aece7c9faa89c1a5c21bed5cc96fbc8ea1a7c5372",
     "boot_handoff_connected_at_proof_time": true,
-    "scope": "current-2026-10-21-pcre2-r1-reproducible-surface-and-qemu",
+    "scope": "historical-pcre2-r1-proof-pending-current-c-ares-r1-revalidation",
     "apk_package_lock_sha256": "00a2a77d82c664be89e6bff8045039be9f3245094b2844bdf87ae1601f6a68b7",
     "owner_offline_qemu_run_id": 39559534256,
     "owner_offline_qemu_artifact_id": 12327661588,
@@ -375,31 +375,31 @@
     "creator_content_addressed_preseed_implemented": true,
     "initramfs_verified_mount_handoff_implemented": true,
     "stable_launcher_offline_runtime_required": true,
-    "qemu_current_head_proof_passed": true,
+    "qemu_current_head_proof_passed": false,
     "physical_usb_boot_proven": false,
     "secure_boot_proven": false
   },
   "lock_refresh": {
-    "status": "reproof-passed-on-current-head",
-    "detected_by_ci_run_id": 39558571592,
-    "discovery_run_id": 39558571592,
-    "discovery_source_commit": "ed539dbf5f16cdeca18426d3c70bef8b7e645524",
-    "discovery_artifact_id": 12326144349,
-    "discovery_artifact_sha256": "42677485107f7ebf46302d8b4a2165777e6683c8297a6ee1a63671ff98c53da4",
+    "status": "reproof-required",
+    "detected_by_ci_run_id": 39656472736,
+    "discovery_run_id": 39656472736,
+    "discovery_source_commit": "4f26dbfe59e1e5dcb3d38c7102ded1759c98005e",
+    "discovery_artifact_id": 12370773057,
+    "discovery_artifact_sha256": "bacc3a04417a347431b59250ed9b0d40d121d4ecc7df62550e42e0696d96bad4",
     "previous_package_count": 253,
     "resolved_package_count": 253,
     "missing": [],
     "extra": [],
     "changed": [
       {
-        "name": "pcre2",
-        "from": "10.46-r0",
-        "to": "10.46-r1"
+        "name": "c-ares",
+        "from": "1.34.8-r0",
+        "to": "1.34.9-r0"
       }
     ],
     "physical_artifact_created": false,
     "physical_write_authorized": false,
-    "reproducibility_reproof_required": false,
+    "reproducibility_reproof_required": true,
     "reproof": {
       "source_commit": "ca54cf188177ffd5d6f1d24b239a6a1678d01201",
       "surface_runtime_candidate_run_id": 39559534078,
@@ -420,14 +420,14 @@
     "upstream_drift": {
       "packages": [
         {
-          "name": "pcre2",
-          "from": "10.46-r0",
-          "to": "10.46-r1"
+          "name": "c-ares",
+          "from": "1.34.8-r0",
+          "to": "1.34.9-r0"
         }
       ],
-      "detected_by_ci_run_id": 39558571592
+      "detected_by_ci_run_id": 39656472736
     },
-    "discovery_lock_sha256": "00a2a77d82c664be89e6bff8045039be9f3245094b2844bdf87ae1601f6a68b7"
+    "discovery_lock_sha256": "78a6c06ce751ab93eb59f93a0754fe8b703c1b3f19d6f92ad40f451f0d30ac8d"
   },
-  "apk_package_lock_sha256": "00a2a77d82c664be89e6bff8045039be9f3245094b2844bdf87ae1601f6a68b7"
+  "apk_package_lock_sha256": "78a6c06ce751ab93eb59f93a0754fe8b703c1b3f19d6f92ad40f451f0d30ac8d"
 }
