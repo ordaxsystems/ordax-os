@@ -2,14 +2,14 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { spawnSync } = require('node:child_process');
-const { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, existsSync, readdirSync } = require('node:fs');
+const { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, existsSync, readdirSync, statSync } = require('node:fs');
 const { join } = require('node:path');
 const { tmpdir } = require('node:os');
 const { OFFICIAL_REMOTE } = require('./runtime.cjs');
 const { git } = require('./checkout.cjs');
 const { readState, writeState, validateState, versionRoot, stageMain,
   chooseBootVersion, confirmHealthy, pinPrevious, unpin,
-  sweepStaleCandidates, removeOwnedCandidate } = require('./dev-update.cjs');
+  sweepStaleCandidates, removeOwnedCandidate, prepareWindowsGitDeletion } = require('./dev-update.cjs');
 
 function gitCli(args,cwd) {
   const result=spawnSync('git',args,{cwd,encoding:'utf8',windowsHide:true,
@@ -256,4 +256,40 @@ test('hidden Windows Git folder is removable from owned candidate directory',t=>
   const cleanup=removeOwnedCandidate(candidate);
   assert.equal(cleanup.removed,true);
   assert.equal(existsSync(candidate),false);
+});
+test('Windows read-only Git pack and commit graph are removable from owned candidate',t=>{
+  if(process.platform!=='win32')return t.skip('Windows-only Git readonly objects');
+  const f=fixture(t);
+  const {execFileSync}=require('node:child_process');
+  const candidate=join(f.userData,'runtime-versions',
+    '.candidate-67ab1234-1234-1234-1234-123456789abc');
+  const gitDirectory=join(candidate,'.git');
+  const pack=join(gitDirectory,'objects','pack','pack-fixture.pack');
+  const graph=join(gitDirectory,'objects','info','commit-graphs','graph-fixture.graph');
+  mkdirSync(join(gitDirectory,'objects','pack'),{recursive:true});
+  mkdirSync(join(gitDirectory,'objects','info','commit-graphs'),{recursive:true});
+  for(const file of [pack,graph]) {
+    writeFileSync(file,'fixture Git readonly content');
+    execFileSync('attrib.exe',['+R',file],{windowsHide:true});
+  }
+  execFileSync('attrib.exe',['+H',gitDirectory],{windowsHide:true});
+  try {
+    for(const file of [pack,graph]) {
+      assert.equal(statSync(file).mode & 0o200,0,
+        'Git fixture must be read-only before normalization');
+    }
+    prepareWindowsGitDeletion(gitDirectory);
+    for(const file of [pack,graph]) {
+      assert.notEqual(statSync(file).mode & 0o200,0,
+        'Git metadata must be writable before recursive removal');
+    }
+    assert.equal(removeOwnedCandidate(candidate).removed,true,
+      'owned Windows candidate must clear Git readonly objects before removal');
+    assert.equal(existsSync(candidate),false);
+  } finally {
+    // Keep the isolated test fixture removable if the regression fails.
+    for(const file of [pack,graph]) {
+      if(existsSync(file))execFileSync('attrib.exe',['-R',file],{windowsHide:true});
+    }
+  }
 });

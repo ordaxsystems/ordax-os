@@ -5,7 +5,7 @@
 const { randomUUID } = require('node:crypto');
 const { execFileSync } = require('node:child_process');
 const { join, basename, dirname } = require('node:path');
-const { mkdirSync, readFileSync, writeFileSync, renameSync, rmSync, readdirSync, lstatSync, existsSync, openSync, closeSync, fsyncSync } = require('node:fs');
+const { mkdirSync, readFileSync, writeFileSync, renameSync, rmSync, readdirSync, lstatSync, chmodSync, existsSync, openSync, closeSync, fsyncSync } = require('node:fs');
 const { OFFICIAL_REMOTE } = require('./runtime.cjs');
 const { git, isTrusted, hasDesktopHostContract, dependencies } = require('./checkout.cjs');
 const { hasNativeBundle, buildNativeCandidate } = require('./native-build.cjs');
@@ -79,6 +79,30 @@ const TRANSIENT_DELETE_ERRORS = new Set(['EPERM', 'EACCES', 'EBUSY', 'ENOTEMPTY'
 // A Git clone on Windows can temporarily retain pack-file handles after the
 // Git child process exits. A cleanup failure must not erase the update result.
 // Only transaction-owned UUID directories are eligible: never a live SHA.
+// Git for Windows leaves pack indexes and commit-graph files read-only. The
+// Electron runtime can reject their recursive deletion even when a newer
+// standalone Node build accepts it. Prepare only the already-verified Git
+// directory; never follow reparse points into unrelated paths.
+function prepareWindowsGitDeletion(gitDir) {
+  if (process.platform !== 'win32' || !existsSync(gitDir)) return;
+  const root = lstatSync(gitDir);
+  if (!root.isDirectory() || root.isSymbolicLink()) return;
+  const directories = [gitDir];
+  while (directories.length) {
+    const directory = directories.pop();
+    for (const entry of readdirSync(directory, {withFileTypes:true})) {
+      const path = join(directory,entry.name);
+      const stat = lstatSync(path);
+      if (stat.isSymbolicLink()) continue;
+      if (stat.isDirectory()) directories.push(path);
+      else if (stat.isFile() && stat.nlink === 1) chmodSync(path,0o666);
+    }
+    chmodSync(directory,0o777);
+  }
+  execFileSync('attrib.exe',['-H',gitDir],
+    {windowsHide:true,timeout:10000,stdio:'ignore'});
+}
+
 function removeOwnedCandidate(candidate) {
   if (basename(dirname(candidate)) !== VERSIONS_DIR ||
       !CANDIDATE_NAME.test(basename(candidate))) {
@@ -89,22 +113,15 @@ function removeOwnedCandidate(candidate) {
   if (!stat.isDirectory() || stat.isSymbolicLink()) {
     throw Error('Desktop candidate cleanup refused non-directory or link');
   }
+  let phase='prepare';
   try {
-    // Git for Windows marks .git hidden. Windows refuses recursive removal of
-    // some hidden Git directories (EPERM) even when no handle remains open.
-    // Clear that filesystem attribute only within the verified owned candidate.
-    if (process.platform === 'win32') {
-      const gitDir=join(candidate,'.git');
-      if (existsSync(gitDir) && lstatSync(gitDir).isDirectory() &&
-          !lstatSync(gitDir).isSymbolicLink()) {
-        execFileSync('attrib.exe',['-H',gitDir],{windowsHide:true,timeout:10000,stdio:'ignore'});
-      }
-    }
+    prepareWindowsGitDeletion(join(candidate,'.git'));
+    phase='remove';
     rmSync(candidate,{recursive:true,force:true,maxRetries:10,retryDelay:200});
     return {removed:!existsSync(candidate)};
   } catch(error) {
     if (!TRANSIENT_DELETE_ERRORS.has(error?.code)) throw error;
-    return {removed:false,code:error.code};
+    return {removed:false,code:error.code,phase};
   }
 }
 // A bounded maintenance pass runs on later update checks. It deletes only
@@ -124,7 +141,7 @@ function sweepStaleCandidates(userData, {now=Date.now(),minAgeMs=120000,log=()=>
     if (attempt.removed) result.removed++;
     else {
       result.deferred++;
-      log('Deferred stale Desktop Git candidate cleanup: '+entry.name+' '+attempt.code);
+      log('Deferred stale Desktop Git candidate cleanup: '+entry.name+' '+attempt.code+' phase='+attempt.phase);
     }
   }
   return result;
@@ -262,7 +279,7 @@ async function stageMain({ userData, template, log = () => {}, remote = OFFICIAL
       if (existsSync(staging)) {
         const result=cleanupCandidate(staging);
         if (!result.removed) log('Deferred Desktop Git candidate cleanup: ' +
-          basename(staging)+' '+result.code);
+          basename(staging)+' '+result.code+' phase='+result.phase);
       }
     }
   }
@@ -282,5 +299,5 @@ module.exports = {
   CHANNEL_SCHEMA, readState, writeState, validateState, versionRoot,
   chooseBootVersion, confirmedVersion: verifiedVersion,
   stageMain, confirmHealthy, rejectCandidate, pinPrevious, unpin,
-  removeOwnedCandidate, sweepStaleCandidates,
+  prepareWindowsGitDeletion, removeOwnedCandidate, sweepStaleCandidates,
 };
