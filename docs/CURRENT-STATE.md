@@ -1,3 +1,22 @@
+Native MCP heartbeat ownership regression (2026-10-21): The existing
+`ProductDevicePresenceWorker.stop(wait=True)` now verifies the worker
+thread actually exited after its bounded join. A timeout raises
+`device-presence-worker-still-running`; an unverified stop never launches
+the Runtime. Self-thread waits also fail. More importantly, the Native
+discovery HTTPS worker now uses the **same existing instance.lock** as
+`ordax_dev_agent.native_main`:
+`/var/lib/ordax/product-runtime/instance.lock` inside the graphical host
+(binds `/state/ordax/native-state/product-runtime/instance.lock` on the OS).
+The worker briefly holds that shared kernel lock over each online/offline
+report; when the canonical Runtime owns it for its process lifetime, discovery
+skips the report entirely, preventing competing device presence writes even
+across two processes. The private root, regular-file inode, owner and mode
+are checked before use; there is no second heartbeat authority or scheduler.
+Tests cover lock contention, fail-closed unsafe roots, receipt failures,
+thread shutdown, and no Runtime launch after unconfirmed worker exit.
+The existing CI job covers these on PR and main. This **does not install**
+the headless Runtime or activate native MCP execution.
+
 Native Product Runtime ownership handoff (2026-10-21, source only):
 `system/surface/runtime/native_product_runtime_handoff.py` now composes the
 **canonical installed** `ordax_dev_agent.main.run` with the existing private
