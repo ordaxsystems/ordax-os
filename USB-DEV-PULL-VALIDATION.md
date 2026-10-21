@@ -17,3 +17,23 @@ Estado de partida verificado: a `main` estava em `24198ec84e37da6ac612b5c7287e12
 A integração na `main` prova somente que existe candidato remoto. GitHub Actions aprovadas, Pull manual pelo Windows ou mensagens HTTP aceitas **não** comprovam que o USB aplicou a alteração sozinho. A validação exigida é o recibo do boot no notebook, com SHA e fase de atualização.
 
 O diagnóstico é local, sem alteração de dispositivos ou chamadas de rede e não imprime identificadores de boot, URLs autenticadas, senhas, tokens ou conteúdo arbitrário dos recibos. Não fornece controle remoto MCP.
+
+## Ensaio seguinte: falha confirmada e correção instrumentada (21/10/2026 UTC)
+
+**USB identificado:** Lidermix USB 8 GB, serial `6699E36B`, somente unidade física externa. O ext4 `ORDAX` tinha checkout limpo em `24198ec8` e `refs/remotes/origin/main` em `c3a6e19b`, com objeto Git presente. O witness do primeiro poll atingiu `git-remote-completed`. O diário persistente contou 23 erros `pull-handoff-validation-failed`; não houve ativação autônoma. **A causa individual não pode ser reconstruída da instrumentação antiga**. A última solicitação física de desligamento trazia `shutdown|...|failed`; o Guardian restaurava o Supervisor/Surface quando o desligamento não conseguia completar uma fase. A fase anterior também não era persistida.
+
+**Reparo controlado e auditável:** imagem de recuperação offline da partição ext4 criada em WSL (sem publicar dados pessoais); `e2fsck -p` recuperou journal e contadores, verificação posterior `e2fsck -fn` concluiu sem erro. O `ordax-pull` oficial executado em chroot isolado instalou `581bfc384439448e8c3c414a904348db261c340d`. `HEAD`, `current-commit`, `dev-helpers-sha` e `origin/main` coincidiram, `previous-commit` manteve `24198ec8`, checkout limpo, helper idêntico ao fonte. Com mídia desmontada, `e2fsck -fn` retornou código 0; o USB foi devolvido ao Windows. **Isso é prova de Pull manual de manutenção, não de Pull de boot.**
+
+**Mudança da PR #2055 (`581bfc38`):** o Pull agora indica qual subvalidação do handoff falhou: `handoff-metadata-*`, `handoff-ref-mismatch` ou `handoff-commit-unavailable`. O Guardian grava `power.last_stage` e `power.last_failure` com tokens fixos, preservando dados sensíveis. Também lida com agentes zombie sem interpretar PID existente como tarefa ativa.
+
+**Este novo candidato de teste** acrescenta ao `ordax-diagnose` `pull.cached_main_sha` e `pull.cached_main_relation` calculados só com o Git local, sem rede ou alteração de estado. A diferença entre a `main` instalada no USB (`581bfc38`) e o novo commit deve ser mantida até o ensaio físico.
+
+### Gate físico seguinte
+
+1. Dar boot no notebook pelo **mesmo USB**, sem Creator, sem atualizar previamente via Windows. Confirmar reconexão Wi-Fi.
+2. Abrir Sistema → Atualizações e observar a transação automática; registrar a versão final. Se não houver aplicação automática, repetir como ensaio **separado** com Atualizar agora.
+3. Se falhar, preservar o diário `/state/ordax/native-state/diagnostic-journal.json`, a fase da tentativa no `/run/ordax-update/pull-result` (volátil) e o `ordax-diagnose`. Correlacionar `pull.cached_main_sha`, `pull.cached_main_relation` e o erro específico; **não** reinstalar nem disparar Pull manual antes da coleta.
+4. Provar `HEAD = current-commit = dev-helpers-sha = main` após o Pull, Surface saudável, uma atualização sem fallback de rede e rollback recuperável.
+5. Em teste físico **separado**, solicitar Desligar e observar se o hardware realmente desliga. Se a Surface retornar, coletar `power.last_status`, `power.last_stage` e `power.last_failure`. Não declarar poweroff aprovado com base em confirmação HTTP, stop da Surface ou testes isolados.
+
+Para preservar a confidencialidade, enviar só os tokens allowlist e SHAs necessários. Não incluir senhas de Wi-Fi, tokens OAuth, identificadores de sessão, URLs autenticadas nem diário integral publicamente.
