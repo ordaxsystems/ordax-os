@@ -426,6 +426,7 @@ remount_root_read_write_after_power_abort() {
 # identity through sysfs and mountinfo before touching flags. The fixed
 # initramfs already verified the ORDAX labels on the same removable USB.
 OWNER_USB_ROOT_SOURCE=""
+OWNER_USB_WRITABLE_ALIASES=""
 
 owner_usb_root_source() {
     device=$(/bin/busybox awk '$2 == "/" && $3 == "ext4" { print $1; exit }' /proc/mounts 2>/dev/null || true)
@@ -492,23 +493,72 @@ owner_usb_auxiliary_partitions_quiesced() {
     ' /proc/self/mountinfo
 }
 
+owner_usb_capture_writable_aliases() {
+    # Capture only the aliases writable before the transition. A kernel
+    # superblock remount may leave bind VFS flags rw; each such alias needs a
+    # separate bind-ro remount, and exactly these aliases must be restored
+    # if the kernel call returns.
+    root_id=$(/bin/busybox awk '$5 == "/" { print $3; exit }' /proc/self/mountinfo 2>/dev/null || true)
+    case "$root_id" in *:*) ;; *) return 1 ;; esac
+    aliases=$(/bin/busybox awk -v id="$root_id" '
+        $3 == id && $6 ~ /(^|,)rw(,|$)/ { print $5 }
+    ' /proc/self/mountinfo) || return 1
+    [ -n "$aliases" ] || return 1
+    for target in $aliases; do
+        case "$target" in /*) ;; *) return 1 ;; esac
+        case "$target" in *\\*) return 1 ;; esac
+        [ -d "$target" ] && [ ! -L "$target" ] || return 1
+    done
+    OWNER_USB_WRITABLE_ALIASES=$aliases
+    return 0
+}
+
+owner_usb_writable_aliases_restored() {
+    [ -n "$OWNER_USB_WRITABLE_ALIASES" ] || return 1
+    root_id=$(/bin/busybox awk '$5 == "/" { print $3; exit }' /proc/self/mountinfo 2>/dev/null || true)
+    case "$root_id" in *:*) ;; *) return 1 ;; esac
+    for target in $OWNER_USB_WRITABLE_ALIASES; do
+        /bin/busybox awk -v id="$root_id" -v target="$target" '
+            $3 == id && $5 == target && $6 ~ /(^|,)rw(,|$)/ {
+                for (i=1; i<=NF; i++) {
+                    if ($i == "-") {
+                        if ($(i+1) == "ext4" && $(i+3) ~ /(^|,)rw(,|$)/) healthy=1
+                        break
+                    }
+                }
+            }
+            END { exit !healthy }
+        ' /proc/self/mountinfo || return 1
+    done
+    return 0
+}
+
 owner_usb_seal_root_for_power() {
     OWNER_USB_ROOT_SOURCE=""
+    OWNER_USB_WRITABLE_ALIASES=""
     owner_usb_auxiliary_partitions_quiesced || return 1
     device=$(owner_usb_root_source) || return 1
+    owner_usb_capture_writable_aliases || return 1
     OWNER_USB_ROOT_SOURCE=$device
-    # Superblock-wide remount, not remount,bind,ro. The latter leaves the
-    # journal writable through other aliases. No filesystem log FD is kept
-    # open across the transition.
+    # First close journal writes at the superblock, then close the VFS write
+    # flag of *each* originally writable bind alias. A superblock RO remount
+    # alone is insufficient (observed on real Linux mountinfo).
     /bin/busybox mount -o remount,ro "$device" / >/dev/null 2>&1 || return 1
+    for target in $OWNER_USB_WRITABLE_ALIASES; do
+        /bin/busybox mount -o remount,bind,ro "$target" "$target" >/dev/null 2>&1 || return 1
+    done
     owner_usb_all_root_mounts_read_only
 }
 
 owner_usb_restore_root_after_abort() {
     [ -n "$OWNER_USB_ROOT_SOURCE" ] || return 0
     /bin/busybox mount -o remount,rw "$OWNER_USB_ROOT_SOURCE" / >/dev/null 2>&1 || return 1
-    root_filesystem_is_read_only && return 1
+    for target in $OWNER_USB_WRITABLE_ALIASES; do
+        /bin/busybox mount -o remount,bind,rw "$target" "$target" >/dev/null 2>&1 || return 1
+    done
+    owner_usb_writable_aliases_restored || return 1
     OWNER_USB_ROOT_SOURCE=""
+    OWNER_USB_WRITABLE_ALIASES=""
     return 0
 }
 
