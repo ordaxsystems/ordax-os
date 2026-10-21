@@ -35,6 +35,56 @@ class DevRootfsMountHandoffTests(unittest.TestCase):
         self.assertIn('mount -o rbind "/$shared" "$root/$shared"', source)
         self.assertIn('mount -o bind "/$shared" "$root/$shared"', source)
 
+    def test_dev_console_fds_are_rebound_before_graphical_runtime(self) -> None:
+        source = INIT.read_text(encoding="utf-8")
+        self.assertIn("rebind_independent_console() {", source)
+        self.assertLess(
+            source.index("select_development_rootfs\n# Fail closed"),
+            source.index("rebind_independent_console; then"),
+        )
+        self.assertLess(
+            source.index("rebind_independent_console; then"),
+            source.index("start_local_surface fast-graphical"),
+        )
+        self.assertIn("exec 1>/dev/console 2>&1", source)
+
+    def test_console_refuses_root_backed_or_unverified_fds(self) -> None:
+        source = INIT.read_text(encoding="utf-8")
+        token = "rebind_independent_console() {\n"
+        self.assertEqual(source.count(token), 1)
+        function = token + source.split(token, 1)[1].split("\n}\n", 1)[0] + "\n}\n"
+        function = function.replace("/bin/busybox awk", "awk")
+        function = function.replace("/proc/self/mountinfo", '"$MOUNTINFO"')
+        function = function.replace("/proc/self/fdinfo/1", '"$FDINFO_1"')
+        function = function.replace("/proc/self/fdinfo/2", '"$FDINFO_2"')
+        # Use the harmless /dev/null character device in a child shell only.
+        # Never rebind the CI runner's own stdout or hardware console.
+        function = function.replace("/dev/console", "/dev/null")
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            mounts = root / "mountinfo"
+            out = root / "fd1"
+            err = root / "fd2"
+            def probe(*, dev_id: int, fd1_id: int, fd2_id: int) -> int:
+                mounts.write_text(
+                    "24 1 8:34 / / rw - ext4 /dev/loop0 rw\n"
+                    f"{dev_id} 24 0:8 / /dev rw - devtmpfs devtmpfs rw\n",
+                    encoding="utf-8",
+                )
+                out.write_text(f"mnt_id:\t{fd1_id}\n", encoding="ascii")
+                err.write_text(f"mnt_id:\t{fd2_id}\n", encoding="ascii")
+                result = subprocess.run(
+                    ["/bin/sh", "-c", function + "rebind_independent_console"],
+                    env={**os.environ, "MOUNTINFO": str(mounts),
+                         "FDINFO_1": str(out), "FDINFO_2": str(err)},
+                    capture_output=True, timeout=5,
+                )
+                return result.returncode
+            self.assertEqual(probe(dev_id=31, fd1_id=31, fd2_id=31), 0)
+            self.assertNotEqual(probe(dev_id=24, fd1_id=24, fd2_id=24), 0)
+            self.assertNotEqual(probe(dev_id=31, fd1_id=24, fd2_id=31), 0)
+            self.assertNotEqual(probe(dev_id=31, fd1_id=31, fd2_id=24), 0)
+
     def _run_mount_loop(self, *, reject: str = "") -> tuple[subprocess.CompletedProcess[str], list[str]]:
         # Exercise the actual shell loop, only replacing mount(2) with a
         # recorder; no mount namespace, host files or EFI variables touched.
