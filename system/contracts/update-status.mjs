@@ -38,6 +38,32 @@ function optionalString(value, fallback) {
   return value;
 }
 
+const HOST_POWER_ACTIONS = new Set(["restart", "shutdown", "unknown", "unavailable"]);
+const HOST_POWER_STATUSES = new Set(["pending", "stopping", "syncing", "rebooting", "powering-off", "failed", "unknown", "unavailable"]);
+const HOST_POWER_STAGES = new Set(["accepted", "supervisor-quiesce", "host-agents", "filesystem-sync", "root-readonly", "unknown", "unavailable"]);
+const HOST_POWER_FAILURES = new Set(["supervisor-quiesce-failed", "host-agents-failed", "sync-failed", "remount-failed", "root-still-writable", "kernel-transition-returned", "unknown", "unavailable"]);
+
+function optionalHostPower(value) {
+  if (value === undefined || value === null) return null;
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new TypeError("Host power diagnostic must be a structured snapshot");
+  }
+  const fields = [
+    ["lastAction", HOST_POWER_ACTIONS],
+    ["lastStatus", HOST_POWER_STATUSES],
+    ["lastStage", HOST_POWER_STAGES],
+    ["lastFailure", HOST_POWER_FAILURES],
+  ];
+  const snapshot = {};
+  for (const [key, allowed] of fields) {
+    if (typeof value[key] !== "string" || !allowed.has(value[key])) {
+      throw new TypeError(`Host power diagnostic has unsupported ${key}`);
+    }
+    snapshot[key] = value[key];
+  }
+  return Object.freeze(snapshot);
+}
+
 export function validateUpdateStatusSnapshot(value) {
   if (!value || typeof value !== "object") {
     throw new TypeError("Update status snapshot must be an object");
@@ -90,6 +116,7 @@ export function validateUpdateStatusSnapshot(value) {
     healthToken: optionalString(value.healthToken, ""),
     manualCheckAvailable: value.manualCheckAvailable === true,
     manualCheckPending: value.manualCheckPending === true,
+    hostPower: optionalHostPower(value.hostPower),
   });
 }
 

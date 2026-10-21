@@ -156,6 +156,7 @@ DEFAULT_STORE_CATALOG_ENVELOPE_PATH = "/var/lib/ordax/store/catalog-envelope.jso
 DEFAULT_STORE_CATALOG_WATERMARK_PATH = "/var/lib/ordax/store/catalog-watermark.json"
 DEFAULT_STORE_ARTIFACT_ROOT = DEFAULT_ARTIFACT_ROOT
 UPDATE_STATE_FILE = "/run/ordax-update/state.json"
+OWNER_USB_POWER_RECEIPTS = "/ordax/dev-base/state/ordax/power"
 HEALTH_STATE_FILE = "/run/ordax-update/healthy-sha"
 PREFERENCES_FILE = "/var/lib/ordax/preferences.json"
 KEYBOARD_LAYOUT_FILE = "/var/lib/ordax/keyboard-layout"
@@ -547,6 +548,66 @@ def queue_manual_update_check(path: str = UPDATE_MANUAL_REQUEST_FILE) -> bool:
             pass
         raise
     return True
+
+
+# The Native runtime is chrooted: /state/ordax is not mounted here.
+# /ordax is the already-bounded USB volume bind-mount; the Owner's receipts
+# live below dev-base/state/ordax. Never disclose boot ID, time, path or logs.
+POWER_ACTION_TOKENS = frozenset(("restart", "shutdown"))
+POWER_REQUEST_STATUS_TOKENS = frozenset(("pending", "stopping", "syncing", "rebooting", "powering-off", "failed"))
+POWER_STAGE_TOKENS = frozenset(("accepted", "supervisor-quiesce", "host-agents", "filesystem-sync", "root-readonly"))
+POWER_FAILURE_TOKENS = frozenset(("supervisor-quiesce-failed", "host-agents-failed", "sync-failed", "remount-failed", "root-still-writable", "kernel-transition-returned"))
+
+
+def _read_owner_power_receipt(root: str, basename: str) -> str | None:
+    """Read a bounded, symlink-resistant local receipt, never arbitrary logs."""
+    if basename not in ("last-request", "last-stage", "last-failure"):
+        raise ValueError("unsupported host power receipt")
+    try:
+        fd = os.open(
+            os.path.join(root, basename),
+            os.O_RDONLY | os.O_CLOEXEC | os.O_NOFOLLOW,
+        )
+        with os.fdopen(fd, "rb") as handle:
+            details = os.fstat(handle.fileno())
+            if not stat.S_ISREG(details.st_mode) or details.st_size > 128:
+                return None
+            content = handle.read(129)
+    except OSError:
+        return None
+    if len(content) > 128 or not content.endswith(b"\n") or content.count(b"\n") != 1:
+        return None
+    try:
+        return content[:-1].decode("ascii")
+    except UnicodeError:
+        return None
+
+
+def read_owner_usb_power_receipts(root: str = OWNER_USB_POWER_RECEIPTS) -> dict[str, str]:
+    """Return only canonical status enums of the last physical power request."""
+    result = {
+        "lastAction": "unavailable",
+        "lastStatus": "unavailable",
+        "lastStage": "unavailable",
+        "lastFailure": "unavailable",
+    }
+    request = _read_owner_power_receipt(root, "last-request")
+    if request is not None:
+        fields = request.split("|")
+        if len(fields) == 4:
+            action, _boot_id, _epoch, status = fields
+            result["lastAction"] = action if action in POWER_ACTION_TOKENS else "unknown"
+            result["lastStatus"] = status if status in POWER_REQUEST_STATUS_TOKENS else "unknown"
+        else:
+            result["lastAction"] = "unknown"
+            result["lastStatus"] = "unknown"
+    stage = _read_owner_power_receipt(root, "last-stage")
+    if stage is not None:
+        result["lastStage"] = stage if stage in POWER_STAGE_TOKENS else "unknown"
+    failure = _read_owner_power_receipt(root, "last-failure")
+    if failure is not None:
+        result["lastFailure"] = failure if failure in POWER_FAILURE_TOKENS else "unknown"
+    return result
 
 
 def read_update_state() -> dict | None:
@@ -4445,6 +4506,8 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
             update_state["manualCheckAvailable"] = owner_usb
             update_state["manualCheckPending"] = owner_usb and manual_update_request_pending()
             update_state["manualCheckToken"] = self.server.manual_update_token if owner_usb else ""
+            if owner_usb:
+                update_state["hostPower"] = read_owner_usb_power_receipts()
             self._write_json(status, update_state)
             return
         if self.path == PREFERENCES_PATH:
