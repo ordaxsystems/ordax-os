@@ -51,6 +51,33 @@ class SystemDiagnosticOwnerMountTests(unittest.TestCase):
         self.assertNotIn("diagnosticReviewController.exportPrepared()", source)
         self.assertNotIn("diagnosticReviewController.copyPreparedSummary()", source)
 
+    def test_first_open_diagnostic_policy_is_local_in_both_languages(self):
+        # The review is prepared locally on entry; downloading/exporting it
+        # remains an independent explicit action even when the Surface repaints.
+        policy = (
+            ROOT / "system/services/i18n/catalog/system-diagnostics.mjs"
+        ).read_text(encoding="utf-8")
+        self.assertIn(
+            "Ao abrir Diagnóstico, a revisão é preparada localmente", policy
+        )
+        self.assertIn(
+            "Opening Diagnostics prepares a local review", policy
+        )
+        self.assertIn(
+            "Nenhuma informação é enviada. Copiar e salvar exigem ações separadas.",
+            policy,
+        )
+        self.assertIn(
+            "Nothing is transmitted. Copying and saving require separate actions.",
+            policy,
+        )
+        source = self.source()
+        mounted = source.index("if (diagnosticMount) {")
+        prepared = source.index("void diagnosticReviewController.prepare();", mounted)
+        end_mount = source.index("restoreInteractionState(slot, interaction);", prepared)
+        self.assertLess(mounted, prepared)
+        self.assertLess(prepared, end_mount)
+
     def test_missing_slot_also_releases_diagnostic_subscription(self):
         source = self.source()
         marker = "if (!slot) {\n      disposeDiagnosticsReview();\n      mountedSlot = null;"
