@@ -60,7 +60,7 @@ show_update_power_receipts() {
     if [ -f "$PULL_RESULT" ] && [ ! -L "$PULL_RESULT" ] && [ -r "$PULL_RESULT" ]; then
         IFS= read -r pull_phase <"$PULL_RESULT" || pull_phase=""
         case "$pull_phase" in
-            completed|helpers-pending|preflight|remote-discovery|handoff-validation|remote-fetch|candidate-objects|isolated-checkout|remote-clone|atomic-switch|candidate-validation|state-commit|helper-refresh)
+            completed|helpers-pending|preflight|remote-discovery|handoff-validation|handoff-metadata-gitdir|handoff-metadata-head|handoff-metadata-origin|handoff-metadata-branch|handoff-metadata-entrypoint|handoff-metadata-unknown|handoff-ref-mismatch|handoff-commit-unavailable|remote-fetch|candidate-objects|isolated-checkout|remote-clone|atomic-switch|candidate-validation|state-commit|helper-refresh)
                 printf 'pull.last_phase=%s\n' "$pull_phase" ;;
             *) printf 'pull.last_phase=unknown\n' ;;
         esac
