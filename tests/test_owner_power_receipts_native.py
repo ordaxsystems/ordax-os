@@ -26,6 +26,7 @@ class OwnerPowerReceiptsNativeTests(unittest.TestCase):
                 "lastStatus": "failed",
                 "lastStage": "supervisor-quiesce",
                 "lastFailure": "supervisor-quiesce-failed",
+                "lastMountError": "unavailable",
             })
             self.assertNotIn("private-boot-id", str(status))
             self.assertNotIn("123456789", str(status))
@@ -38,6 +39,7 @@ class OwnerPowerReceiptsNativeTests(unittest.TestCase):
                 "lastStatus": "unavailable",
                 "lastStage": "unavailable",
                 "lastFailure": "unavailable",
+                "lastMountError": "unavailable",
             })
             elsewhere = path / "outside"
             elsewhere.write_text("kernel-transition-returned\n", encoding="ascii")
@@ -57,6 +59,52 @@ class OwnerPowerReceiptsNativeTests(unittest.TestCase):
             self.assertEqual(status["lastFailure"], "unavailable")
             self.assertNotIn("tokens-secret", str(status))
             self.assertNotIn("s" * 300, str(status))
+
+    def test_classifies_exact_remount_error_without_exposing_kernel_log(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / "last-request").write_text("shutdown|private-boot-id|1234|failed\n")
+            (root / "last-failure").write_text("remount-failed\n")
+            log = root / "guardian.log"
+            log.write_text(
+                "2026-10-21 ordax-guardian: host power owner accepted shutdown; stopping supervised runtime\n"
+                "mount: mounting / on / failed: Device or resource busy TOKEN-SECRET\n"
+                "2026-10-21 ordax-guardian: root filesystem could not be remounted read-only for shutdown; restoring supervised runtime\n"
+            )
+            result = native_host.read_owner_usb_power_receipts(str(root), log_path=str(log))
+            self.assertEqual(result["lastMountError"], "device-busy")
+            self.assertNotIn("TOKEN-SECRET", str(result))
+            log.write_text(
+                "2026-10-21 ordax-guardian: host power owner accepted shutdown; stopping supervised runtime\n"
+                "mount: mounting / on / failed: Invalid argument SECRET\n"
+                "2026-10-21 ordax-guardian: root filesystem could not be remounted read-only for shutdown; restoring supervised runtime\n"
+            )
+            self.assertEqual(
+                native_host.read_owner_usb_power_receipts(str(root), log_path=str(log))["lastMountError"],
+                "invalid-argument",
+            )
+
+    def test_log_reader_is_bounded_and_rejects_symlinks_and_stale_errors(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            log = root / "guardian.log"
+            log.write_text(
+                "mount: Device or resource busy PRIVATE\n"
+                "2026 ordax-guardian: host power owner accepted shutdown; stopping supervised runtime\n"
+                "2026 ordax-guardian: root filesystem could not be remounted read-only for shutdown; restoring supervised runtime\n"
+            )
+            self.assertEqual(native_host.read_guardian_remount_error(str(log)), "no-mount-error-output")
+            log.write_text(
+                "2026 ordax-guardian: host power owner accepted shutdown; stopping supervised runtime\n"
+                "mount: INTERNAL SECRET DETAILS\n"
+                "2026 ordax-guardian: root filesystem could not be remounted read-only for shutdown; restoring supervised runtime\n"
+            )
+            self.assertEqual(native_host.read_guardian_remount_error(str(log)), "unclassified-mount-error")
+            linked = root / "link.log"
+            linked.symlink_to(log)
+            self.assertEqual(native_host.read_guardian_remount_error(str(linked)), "unavailable")
+            self.assertEqual(native_host.read_guardian_remount_error(str(root / "missing")), "unavailable")
+            self.assertEqual(native_host.read_guardian_remount_error(str(root)), "unavailable")
 
     def test_power_diagnostics_are_only_added_to_owner_usb_update_endpoint(self):
         text = SERVER.read_text(encoding="utf-8")

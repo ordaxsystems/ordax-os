@@ -14,6 +14,7 @@ const receipt = Object.freeze({
   lastStatus: "failed",
   lastStage: "root-readonly",
   lastFailure: "remount-failed",
+  lastMountError: "device-busy",
 });
 
 test("Surface retains bounded, immutable host power receipts in update watcher state", () => {
@@ -24,6 +25,13 @@ test("Surface retains bounded, immutable host power receipts in update watcher s
 
 test("older or Stable/MVP update snapshots remain compatible", () => {
   assert.equal(validateUpdateStatusSnapshot(base).hostPower, null);
+  assert.equal(validateUpdateStatusSnapshot({
+    ...base,
+    hostPower: {
+      lastAction: "shutdown", lastStatus: "failed",
+      lastStage: "root-readonly", lastFailure: "remount-failed",
+    },
+  }).hostPower.lastMountError, "unavailable");
 });
 
 test("unexpected power code is never accepted into diagnostic presentation", () => {
@@ -32,6 +40,7 @@ test("unexpected power code is never accepted into diagnostic presentation", () 
     ["lastStatus", "success"],
     ["lastStage", "/state/ordax/private"],
     ["lastFailure", "secret-token"],
+    ["lastMountError", "device-busy: PRIVATE_SECRET"],
   ]) {
     assert.throws(
       () => validateUpdateStatusSnapshot({
@@ -48,6 +57,7 @@ test("System updates exposes exact canonical receipt keys without any new power 
     new URL("../system/surface/ui/system-overview-controls.mjs", import.meta.url),
     "utf8",
   );
+  assert.ok(source.includes('addFact("power.last_mount_error", updateSnapshot.hostPower.lastMountError)'));
   for (const field of ["lastAction", "lastStatus", "lastStage", "lastFailure"]) {
     const key = `power.last_${field.slice(4).toLowerCase()}`;
     assert.ok(source.includes(`addFact("${key}", updateSnapshot.hostPower.${field})`));
