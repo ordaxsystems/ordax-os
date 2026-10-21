@@ -968,5 +968,132 @@ class BaseUpdateRuntimeOwnerTests(unittest.TestCase):
         )
 
 
+    def _aura_fixture(self, root: Path):
+        repo, state, physical, trust = self.fixture(root)
+        digest = "a" * 64
+        size = 32
+        release = "b" * 40
+        lock = b'{"schema":"fixture-aura-lock"}\n'
+        launcher = (
+            "IMAGE_SHA256=" + digest + "\n"
+            "IMAGE_SIZE=" + str(size) + "\n"
+        )
+        locker = repo / "system/services/local-ai/source-lock.json"
+        locker.parent.mkdir(parents=True)
+        locker.write_bytes(lock)
+        script = repo / "system/services/local-ai/owner-dev-runtime.sh"
+        script.write_text(launcher, encoding="utf-8")
+        proof = {
+            "schema": "prototype-ordax.portable-v4-canonical-release-proof/1",
+            "source_commit": release,
+            "signed_handoff_verified": True,
+            "canonical_materialization_verified": True,
+            "canonical_trust_sha256": sha256(trust),
+            "canonical_envelope_url": (
+                "https://github.com/ordaxsystems/ordax-os/releases/download/"
+                f"ordax-stable-v4-{release}/release-envelope.json"
+            ),
+            "artifacts": {
+                "local-ai-runtime.erofs": {
+                    "sha256": digest,
+                    "size": size,
+                },
+            },
+        }
+        write_json(repo / "docs/evidence/canonical-v4-release-proof.json", proof)
+        write_json(state / "native-state/first-run.json", {"completed": True})
+        return repo, state, physical, digest, size, release, lock
+
+    def test_optional_aura_never_runs_before_first_run_or_for_stable(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            repo, state, physical, _trust = self.fixture(Path(temporary))
+            with mock.patch.object(owner.subprocess, "run", side_effect=AssertionError("unexpected acquisition")):
+                dev = owner.run_once(repo, state, physical, "c" * 40, "owner-development")
+                stable = owner.run_once(repo, state, physical, "c" * 40, "stable-mvp")
+            self.assertEqual(dev["status"], "idle")
+            self.assertEqual(dev["localAiAcquisitionState"], "first-run-pending")
+            self.assertNotIn("localAiAcquisitionState", stable)
+            self.assertFalse((state / "base-update/aura-ready.sha256").exists())
+
+    def test_optional_aura_exact_signed_acquisition_reuses_private_persisted_receipt(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            repo, state, physical, digest, size, release, lock = self._aura_fixture(Path(temporary))
+            image = state / "local-ai" / "sha256" / digest / "local-ai-runtime.erofs"
+            calls = []
+
+            def materialize(command, **kwargs):
+                calls.append(command)
+                self.assertEqual(command[1], "materialize-owner-dev-local-ai")
+                self.assertIn("--expected-release-commit", command)
+                self.assertEqual(command[command.index("--expected-release-commit") + 1], release)
+                self.assertEqual(command[command.index("--expected-artifact-sha256") + 1], digest)
+                self.assertEqual(command[command.index("--expected-artifact-size") + 1], str(size))
+                self.assertEqual(command[command.index("--source-lock") + 1],
+                                 str(repo / "system/services/local-ai/source-lock.json"))
+                self.assertNotIn("system.erofs", " ".join(command))
+                image.parent.mkdir(parents=True)
+                for directory in [image.parents[2], image.parents[1], image.parent]:
+                    directory.chmod(0o700)
+                image.write_bytes(b"x" * size)
+                image.chmod(0o600)
+                payload = {
+                    "status": "materialized-owner-dev-local-ai",
+                    "release_commit": release,
+                    "source_lock_sha256": sha256(lock),
+                    "artifact_sha256": digest,
+                    "artifact_path": str(image),
+                    "reused": False,
+                    "activation_allowed": False,
+                }
+                return subprocess.CompletedProcess(command, 0, (json.dumps(payload) + "\n").encode(), b"")
+
+            with mock.patch.object(owner.subprocess, "run", side_effect=materialize):
+                first = owner.run_once(repo, state, physical, "c" * 40, "owner-development")
+            self.assertEqual(first["status"], "idle")
+            self.assertEqual(first["localAiAcquisitionState"], "materialized")
+            self.assertEqual(len(calls), 1)
+            marker = state / "base-update/aura-ready.sha256"
+            self.assertEqual(marker.read_text(encoding="ascii"), digest + "\n")
+            self.assertEqual(marker.stat().st_mode & 0o777, 0o600)
+            with mock.patch.object(owner.subprocess, "run", side_effect=AssertionError("should reuse")):
+                second = owner.run_once(repo, state, physical, "d" * 40, "owner-development")
+            self.assertEqual(second["status"], "idle")
+            self.assertEqual(second["localAiAcquisitionState"], "already-materialized")
+            self.assertEqual(len(calls), 1)
+
+            # Same-size tampering invalidates metadata cache; fail closed.
+            image.write_bytes(b"z" * size)
+            with mock.patch.object(owner.subprocess, "run", return_value=subprocess.CompletedProcess([], 1, b"", b"rejected")):
+                third = owner.run_once(repo, state, physical, "d" * 40, "owner-development")
+            self.assertEqual(third["status"], "idle")
+            self.assertEqual(third["localAiAcquisitionState"], "blocked")
+            self.assertFalse(third["rebootRequested"])
+
+    def test_optional_aura_rejects_unpinned_proof_without_invoking_agent(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            repo, state, physical, digest, size, release, lock = self._aura_fixture(Path(temporary))
+            proof_path = repo / "docs/evidence/canonical-v4-release-proof.json"
+            proof = json.loads(proof_path.read_text(encoding="utf-8"))
+            proof["canonical_trust_sha256"] = "f" * 64
+            write_json(proof_path, proof)
+            with mock.patch.object(owner.subprocess, "run", side_effect=AssertionError("untrusted proof")):
+                status = owner.run_once(repo, state, physical, "c" * 40, "owner-development")
+            self.assertEqual(status["status"], "idle")
+            self.assertEqual(status["localAiAcquisitionState"], "blocked")
+            self.assertFalse((state / "base-update/aura-ready.sha256").exists())
+
+    def test_optional_aura_uses_existing_runtime_watch_and_update_owner(self):
+        run = (ROOT / "bootstrap/dev-base/ordax-run").read_text(encoding="utf-8")
+        agent = AGENT.read_text(encoding="utf-8")
+        self.assertIn('ORDAX_BASE_DISTRIBUTION_PROFILE="$DISTRIBUTION_PROFILE"', agent)
+        self.assertIn("AURA_READY_MARKER=$STATE_DIR/base-update/aura-ready.sha256", run)
+        self.assertIn('bb grep -qx "IMAGE_SHA256=$ready_hash" "$LOCAL_AI_LIFECYCLE"', run)
+        self.assertIn("local_ai_lifecycle start", run)
+        self.assertLess(run.index("local_ai_lifecycle start\n\n# Watching AFTER"),
+                        run.index("watch_owner_provisioning &\nWATCH_PID=$!"))
+        subprocess.run(["sh", "-n", str(ROOT / "bootstrap/dev-base/ordax-run")], check=True)
+        subprocess.run(["sh", "-n", str(AGENT)], check=True)
+
+
 if __name__ == "__main__":
     unittest.main()
