@@ -27,7 +27,9 @@ class OwnerUsbSuperblockSealTests(unittest.TestCase):
         root = extract_function(source, "owner_usb_root_source")
         seal = extract_function(source, "owner_usb_seal_root_for_power")
         restore = extract_function(source, "owner_usb_restore_root_after_abort")
-        self.assertIn('LABEL="ORDAX"', root)
+        self.assertIn('sys=/sys/class/block/$name', root)
+        self.assertIn('[ "$partition" = 2 ] && [ "$removable" = 1 ]', root)
+        self.assertIn('[ "$root_id" = "$device_id" ]', root)
         self.assertIn('[ -b "$device" ]', root)
         self.assertIn('mount -o remount,ro "$device" /', seal)
         self.assertNotIn("mount -o remount,bind,ro", seal)
@@ -64,7 +66,7 @@ class OwnerUsbSuperblockSealTests(unittest.TestCase):
         function = extract_function(source, "owner_usb_foreign_persistent_mounts_quiesced")
         function = function.replace("/proc/mounts", '"$MOUNTS"')
         function = function.replace("/bin/busybox awk", "awk")
-        function = function.replace("/bin/busybox blkid", "mock_blkid")
+
         with tempfile.TemporaryDirectory(prefix="ordax-mounted-usb-fs-") as directory:
             mounts = Path(directory) / "mounts"
             mounts.write_text(
@@ -72,7 +74,7 @@ class OwnerUsbSuperblockSealTests(unittest.TestCase):
                 encoding="utf-8",
             )
             script = (
-                'mock_blkid() { printf "%s\\n" "$MOCK_IDENTITY"; }\n'
+                'owner_usb_root_source() { printf "/dev/sde2\\n"; }\n'
                 + function
                 + "\nowner_usb_foreign_persistent_mounts_quiesced\n"
             )
