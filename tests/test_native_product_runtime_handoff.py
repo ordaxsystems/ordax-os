@@ -124,6 +124,20 @@ class HandoffTests(unittest.TestCase):
             self.invoke(adapter="windows-adapter")
         self.old_presence.stop.assert_not_called()
 
+    def test_unconfirmed_presence_shutdown_must_not_start_runtime(self):
+        # Quiescence is an actual lifecycle condition, not a timeout-based
+        # assumption: a still-live HTTP sender could later race Runtime.
+        from product_device_presence import ProductDevicePresenceError
+        self.old_presence.stop.side_effect = ProductDevicePresenceError(
+            "device-presence-worker-still-running"
+        )
+        original = self.coordinator.presence
+        with self.assertRaisesRegex(ProductDevicePresenceError, "device-presence-worker-still-running"):
+            self.invoke()
+        self.assertIs(self.coordinator.presence, original)
+        self.run.assert_not_called()
+        self.assertFalse(self.returned)
+
     def test_runtime_exception_releases_single_owner_and_recovers_presence(self):
         new_worker = Mock()
         new_worker.client.origin = ORIGIN

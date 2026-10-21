@@ -49,7 +49,18 @@
     "presenceCondition": "owner-development-usb-with-existing-private-enrolled-credential-and-no-local-opt-out",
     "enrollmentTrigger": "verified-account-session-after-login-registration-or-session-refresh",
     "enrollmentRetry": "on-existing-session-or-connector-refresh-with-60-second-monotonic-backoff",
-    "stopsOnSessionInvalidation": false
+    "stopsOnSessionInvalidation": false,
+    "nativeRuntimeHeartbeatArbitration": {
+      "authority": "ordax-runtime:ordax_dev_agent.native_main",
+      "existingRuntimeLock": "/state/ordax/native-state/product-runtime/instance.lock",
+      "nativeHostBindPath": "/var/lib/ordax/product-runtime/instance.lock",
+      "runtimeOwnsLockForProcessLifetime": true,
+      "discoveryHoldsSameLockOnlyDuringOutboundReport": true,
+      "discoverySkipsOnlineAndOfflineWhenRuntimeOwnsLock": true,
+      "stopWaitRequiresConfirmedThreadExit": true,
+      "separateHeartbeatLockOrSchedulerAllowed": false,
+      "agentDispatchEnabledByThisContract": false
+    }
   },
   "production": {
     "enabled": false,
