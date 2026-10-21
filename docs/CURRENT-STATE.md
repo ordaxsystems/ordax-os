@@ -1,4 +1,13 @@
 Native MCP Runtime launch ownership — canonical Linux executable
+(2026-10-21): The pinned source-lock now names
+`ordax_dev_agent.native_main.main` as the real embedded entrypoint of
+`ordax-product-agent`. That entrypoint validates Owner/Development USB,
+reads the already enrolled OS device credential, takes the canonical
+singleton lock and delegates to the existing `ordax_dev_agent.main.run`
+dispatch loop. The older lock value naming `main.run` as the *native
+composition entrypoint* was inaccurate and is no longer accepted by
+contract tests. This is a source-lock correction only; it does not
+rebuild, sign or install any executable.
 (2026-10-21): The Owner/Development USB Native Host now uses the same
 `product-runtime/instance.lock` as the upstream
 `ordax_dev_agent.native_main` executable. The OS presence worker holds
