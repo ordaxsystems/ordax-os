@@ -38,15 +38,31 @@ class OwnerDiagnosticReceiptTests(unittest.TestCase):
                     power, result = root / "power", root / "pull"
                     power.write_text(record, encoding="utf-8")
                     result.write_text(phase, encoding="utf-8")
-                    env = {**os.environ, "POWER_LAST_REQUEST": str(power), "PULL_RESULT": str(result)}
+                    stage, failure = root / "stage", root / "failure"
+                    stage.write_text("supervisor-quiesce\n", encoding="utf-8")
+                    failure.write_text("supervisor-quiesce-failed\n", encoding="utf-8")
+                    env = {**os.environ, "POWER_LAST_REQUEST": str(power), "PULL_RESULT": str(result),
+                           "POWER_LAST_STAGE": str(stage), "POWER_LAST_FAILURE": str(failure)}
                     proc = subprocess.run(["/bin/sh", "-c", func + "\nshow_update_power_receipts\n"],
                                           env=env, text=True, capture_output=True, check=True)
                     self.assertIn(action, proc.stdout)
                     self.assertIn(status, proc.stdout)
                     self.assertIn(pull, proc.stdout)
+                    self.assertIn("power.last_stage=supervisor-quiesce", proc.stdout)
+                    self.assertIn("power.last_failure=supervisor-quiesce-failed", proc.stdout)
                     self.assertNotIn("SECRET", proc.stdout)
                     self.assertNotIn("private-boot-id", proc.stdout)
                     self.assertNotIn("1792515039", proc.stdout)
+
+
+    def test_handoff_reason_tokens_are_reported_without_sensitive_values(self):
+        text = SCRIPT.read_text(encoding="utf-8")
+        for reason in ("handoff-metadata-gitdir", "handoff-metadata-head",
+                       "handoff-metadata-origin", "handoff-metadata-branch",
+                       "handoff-metadata-entrypoint", "handoff-ref-mismatch",
+                       "handoff-commit-unavailable"):
+            self.assertIn(reason, text)
+
 
 
 if __name__ == "__main__":
