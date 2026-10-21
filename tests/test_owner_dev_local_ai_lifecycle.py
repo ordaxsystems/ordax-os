@@ -77,6 +77,18 @@ class OwnerDevLocalAiLifecycleTests(unittest.TestCase):
             self.assertEqual(image.read_bytes(), b"not-a-verified-erofs")
             self.assertFalse((Path(state) / "local-ai.pid").exists())
 
+    def test_private_service_state_does_not_modify_shared_run_permissions(self):
+        source = SCRIPT.read_text(encoding="utf-8")
+        self.assertIn("SERVICE_DIR=$RUN_DIR/local-ai-service", source)
+        self.assertIn("PID_FILE=$SERVICE_DIR/pid", source)
+        self.assertIn("LOG_FILE=$SERVICE_DIR/llama-server.log", source)
+        self.assertNotIn('bb chmod 700 "$RUN_DIR"', source)
+        self.assertIn('if [ -e "$PID_FILE" ] || [ -L "$PID_FILE" ]; then', source)
+        self.assertIn('report "unsafe service PID path"', source)
+        self.assertIn('report "unsafe local AI service ownership or log"', source)
+        self.assertIn('report "unsafe shared runtime directory"', source)
+        self.assertIn('report "unsafe runtime mount parent"', source)
+
     def test_surface_starts_before_optional_full_image_verification(self):
         source = RUN.read_text(encoding="utf-8")
         spawn = source.index('    "$ENTRYPOINT" &')
