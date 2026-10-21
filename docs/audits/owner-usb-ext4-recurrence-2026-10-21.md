@@ -102,3 +102,9 @@ Este registro serve como checkpoint canônico de continuidade. Revisar após obt
 - Não classificar a montagem como íntegra ou aprovada apenas pelo log do kernel: é necessário provar a operação inteira, as flags VFS de cada alias e a saúde do ext4 offline. É possível que o BusyBox tente manutenção de `/etc/mtab` após o remount do filesystem, mas isso ainda é hipótese, não causa definitivamente demonstrada.
 - PR #2088 `7cc42eca`: remount Owner passa a usar `busybox mount -n` para não alterar `/etc/mtab`, consultando `/proc/self/mountinfo` como autoridade. Saída de erro agora é preservada apenas no log volátil já existente `/run/ordax-update/guardian.log`; os quatro caminhos (superbloco RO/RW e aliases RO/RW) mantêm a mesma política. Suíte de namespace atualizada para verificar a semântica `-n` e a coleta dos logs.
 - Próximo gate: executar real QEMU Owner ACPI + ext4 offline + segundo boot com a nova revisão. USB físico continua sem escrita, sem novo boot e sem instalação do candidato.
+
+### Validação pós-patch de mtab (head 7cc42eca)
+
+- Via OrdaX MCP no host Windows, checkout isolado reconciliado com a branch: sintaxe shell validada e **33 testes aprovados**: 15 de ext4/aliases, com imagem ext4 descartável e mount namespace privado; 7 de transição Guardian; 11 de QEMU/contrato. Mídia Lidermix não utilizada nesses testes.
+- O workflow **Owner Development Preflight** do GitHub para `7cc42eca` também passou. `Creator Owner Development Git USB` run `39638754792` ainda estava construindo a Base na última consulta, portanto QEMU ACPI/`e2fsck` **não aprovado neste checkpoint**.
+- Nada desta execução foi aplicado na main como código de energia nem escrito no USB físico. PR #2088 permanece draft. A dependência histórica do builder Alpine não foi removida por essa PR; migração independente segue o issue #1730, sem introduzir novo fallback ou código legado para o fechamento do ext4.
