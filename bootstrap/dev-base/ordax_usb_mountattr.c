@@ -1,10 +1,13 @@
 #define _GNU_SOURCE
+#include <ctype.h>
+#include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <linux/mount.h>
 #include <limits.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/mount.h>
 #include <sys/stat.h>
@@ -65,6 +68,102 @@ static int superblock_readonly(const char *source, const char *target,
                  MS_REMOUNT | (readonly ? MS_RDONLY : 0), NULL);
 }
 
+
+/* Best-effort diagnostics only. Never closes another process's descriptors,
+ * remounts an alternate device, or changes the fail-closed power decision.
+ * Report bounded PID/FD/comm/mount-ID metadata, never descriptor paths/data.
+ */
+static unsigned long mount_id_for_target(const char *target) {
+    FILE *file = fopen("/proc/self/mountinfo", "re");
+    if (!file) return 0;
+    char *line = NULL;
+    size_t capacity = 0;
+    unsigned long found = 0;
+    while (getline(&line, &capacity, file) != -1) {
+        unsigned long id = 0, parent = 0;
+        char device[40], root[PATH_MAX], mountpoint[PATH_MAX];
+        if (sscanf(line, "%lu %lu %39s %4095s %4095s",
+                   &id, &parent, device, root, mountpoint) == 5 &&
+            strcmp(mountpoint, target) == 0) {
+            found = id;
+            break;
+        }
+    }
+    free(line);
+    fclose(file);
+    return found;
+}
+
+static int decimal_filename(const char *value) {
+    if (!value || !*value) return 0;
+    for (const unsigned char *p = (const unsigned char *)value; *p; ++p) {
+        if (!isdigit(*p)) return 0;
+    }
+    return 1;
+}
+
+static void report_busy_writers(const char *target) {
+    unsigned long mount_id = mount_id_for_target(target);
+    if (!mount_id) return;
+    DIR *processes = opendir("/proc");
+    if (!processes) return;
+    struct dirent *process;
+    unsigned int reported = 0;
+    while ((process = readdir(processes)) != NULL && reported < 24) {
+        if (!decimal_filename(process->d_name)) continue;
+        char base[PATH_MAX];
+        int length = snprintf(base, sizeof(base), "/proc/%s/fdinfo",
+                              process->d_name);
+        if (length < 0 || (size_t)length >= sizeof(base)) continue;
+        DIR *fds = opendir(base);
+        if (!fds) continue;
+        struct dirent *fd;
+        while ((fd = readdir(fds)) != NULL && reported < 24) {
+            if (!decimal_filename(fd->d_name)) continue;
+            char filename[PATH_MAX];
+            length = snprintf(filename, sizeof(filename), "%s/%s",
+                              base, fd->d_name);
+            if (length < 0 || (size_t)length >= sizeof(filename)) continue;
+            FILE *detail = fopen(filename, "re");
+            if (!detail) continue;
+            char line[256];
+            unsigned long fd_mount = 0;
+            unsigned int flags = 0;
+            int have_flags = 0, have_id = 0;
+            while (fgets(line, sizeof(line), detail)) {
+                if (sscanf(line, "mnt_id:%lu", &fd_mount) == 1) have_id = 1;
+                if (sscanf(line, "flags:%o", &flags) == 1) have_flags = 1;
+            }
+            fclose(detail);
+            if (!have_id || !have_flags || fd_mount != mount_id ||
+                (flags & O_ACCMODE) == O_RDONLY) continue;
+            char command_path[PATH_MAX];
+            char comm[64] = "unknown";
+            length = snprintf(command_path, sizeof(command_path),
+                              "/proc/%s/comm", process->d_name);
+            if (length > 0 && (size_t)length < sizeof(command_path)) {
+                FILE *name = fopen(command_path, "re");
+                if (name) {
+                    if (fgets(comm, sizeof(comm), name)) {
+                        comm[strcspn(comm, "\r\n")] = '\0';
+                        for (char *p = comm; *p; ++p) {
+                            if ((unsigned char)*p < 32 || (unsigned char)*p > 126)
+                                *p = '_';
+                        }
+                    }
+                    fclose(name);
+                }
+            }
+            fprintf(stderr,
+                    "ordax-usb-mountattr: possible writer pid=%s fd=%s mount_id=%lu comm=%s\n",
+                    process->d_name, fd->d_name, fd_mount, comm);
+            ++reported;
+        }
+        closedir(fds);
+    }
+    closedir(processes);
+}
+
 int main(int argc, char **argv) {
     if (geteuid() != 0 || (argc != 3 && argc != 4)) {
         fputs("ordax-usb-mountattr: invalid privilege or arguments\n", stderr);
@@ -84,8 +183,13 @@ int main(int argc, char **argv) {
         return 2;
     }
     if (result != 0) {
+        int failure_errno = errno;
         fprintf(stderr, "ordax-usb-mountattr: %s target=%s: %s\n",
-                argv[1], argv[argc - 1], strerror(errno));
+                argv[1], argv[argc - 1], strerror(failure_errno));
+        if (failure_errno == EBUSY && argc == 3 &&
+            strcmp(argv[1], "alias-ro") == 0) {
+            report_busy_writers(argv[2]);
+        }
         return 1;
     }
     return 0;
