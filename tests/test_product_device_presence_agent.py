@@ -84,7 +84,7 @@ class ProductDevicePresenceReporterTests(unittest.TestCase):
         self.assertEqual(value["transport"]["canonicalIngress"], "https://ordax-mcp.ordaxsystems.workers.dev")
         self.assertTrue(value["externalMcp"]["modelRouterSeparateFromMcp"])
         self.assertTrue(value["ownerDevelopment"]["automaticEnrollment"])
-        self.assertEqual(value["ownerDevelopment"]["enrollmentTrigger"], "after-successful-authenticated-native-account-login")
+        self.assertEqual(value["ownerDevelopment"]["enrollmentTrigger"], "after-successful-verified-native-account-session")
         self.assertEqual(value["status"], "owner-development-usb-native-presence-source-candidate")
 
 

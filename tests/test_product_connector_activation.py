@@ -19,7 +19,10 @@ OTHER_SUBJECT = "123e4567-e89b-42d3-a456-426614174001"
 class Reply:
     def __init__(self, authenticated):
         self.status = 200
-        self.body = json.dumps({"authenticated": authenticated, "subject": SUBJECT}).encode()
+        self.body = json.dumps({"$schema": "prototype-ordax.public-identity-session/1",
+            "authenticated": authenticated, "subject": SUBJECT,
+            "status": "authenticated" if authenticated else "anonymous",
+            "provider": "supabase", "email": "owner@example.test"}).encode()
 
 class Gateway:
     def __init__(self):
@@ -110,6 +113,31 @@ class ProductConnectorActivationTests(unittest.TestCase):
             coordinator.after_authenticated_login(profile, subject=SUBJECT)
             worker.return_value.start.assert_called_once()
 
+    def test_authenticated_session_resumes_only_the_same_accounts_opted_in_worker(self):
+        self.store.set_connector_visibility(True, SUBJECT)
+        gateway = Gateway()
+        with (
+            patch("product_device_runtime.ProductDeviceIdentityStore", return_value=self.store),
+            patch("product_device_runtime.ProductDeviceEnrollmentClient"),
+            patch("product_device_runtime.ProductDevicePresenceWorker") as worker,
+            patch("product_device_runtime.enroll_product_device_after_login",
+                return_value=PostLoginDeviceResult(status="enrolled")) as enroll,
+        ):
+            coordinator = ProductDevicePostLoginCoordinator(gateway,
+                distribution_profile="owner-development", product_mode="usb",
+                control_plane_origin="https://cp.example", state_dir=self.tmp.name)
+            proxy = ProductDeviceAccountGatewayProxy(gateway, coordinator, lambda: {"displayName": "USB"})
+            proxy.session()
+            proxy.session()
+            worker.return_value.start.assert_called_once()
+            enroll.assert_called_once()
+            gateway.authenticated = False
+            status = proxy.connector_status()
+            worker.return_value.stop.assert_called_once_with(wait=False)
+            self.assertFalse(status["accountAuthenticated"])
+            self.assertFalse(status["enabled"])
+            self.assertEqual(status["presenceState"], "disabled")
+
     def test_enable_fails_closed_when_enrollment_is_unavailable(self):
         with (
             patch("product_device_runtime.ProductDeviceIdentityStore", return_value=self.store),
@@ -131,6 +159,7 @@ class ProductConnectorActivationTests(unittest.TestCase):
         coordinator = Mock()
         coordinator.visibility_status.return_value = {"available": True}
         proxy = ProductDeviceAccountGatewayProxy(gateway, coordinator, lambda: {"displayName":"USB"})
+        gateway.authenticated = False
         with self.assertRaises(PermissionError):
             proxy.configure_connector_visibility(True)
         coordinator.configure_visibility.assert_not_called()

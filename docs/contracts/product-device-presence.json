@@ -46,7 +46,10 @@
     "requiresAuthenticatedLogin": true,
     "stopsOnAccountLogout": true,
     "stopsOnNativeHostShutdown": true,
-    "presenceCondition": "authenticated-enrollment-and-explicit-private-owner-opt-in"
+    "presenceCondition": "authenticated-enrollment-and-explicit-private-owner-opt-in",
+    "enrollmentTrigger": "verified-account-session-after-login-registration-or-session-refresh",
+    "enrollmentRetry": "on-existing-session-or-connector-refresh-with-60-second-monotonic-backoff",
+    "stopsOnSessionInvalidation": true
   },
   "production": {
     "enabled": false,
@@ -55,7 +58,7 @@
   "ownerDevelopment": {
     "canaryAllowedAfterAuthenticatedEnrollment": true,
     "automaticEnrollment": true,
-    "enrollmentTrigger": "after-successful-authenticated-native-account-login",
+    "enrollmentTrigger": "after-successful-verified-native-account-session",
     "requiresConfiguredHttpsControlPlane": true,
     "presenceAvailableAfterEnrollment": false,
     "manualPowerShellRequired": false,

@@ -1,3 +1,17 @@
+Native Product presence session recovery (2026-10-21): the existing Account
+proxy now reconciles canonical verified session reads as well as login. An
+already authenticated session (including registration) can enroll without a
+second login. Failed enrollment is retried on existing session/Connector refreshes
+at most once per minute using a monotonic deadline, without another scheduler or
+presence worker. Malformed, failed, anonymous or expired session proofs stop
+presence; account switches discard the prior enrollment state and still require
+the new account's own private discovery consent. Connector refresh verifies the
+account session instead of trusting a stale login flag. Login/session replies
+remain owned by the Account gateway. Discovery remains default-off: use Settings
+> Security > OrdaX Connector > Make device available. This source correction does
+not install OS remote-action execution, create grants, or prove physical notebook
+connectivity. See docs/contracts/product-device-presence.json.
+
 First-use journey redesign (2026-10-20): one
 shared Native/USB/emulator wizard follows welcome (language + time zone), network,
 account, local security, device name and review. No regional or privacy page.
