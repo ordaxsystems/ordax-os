@@ -94,6 +94,53 @@ class PowerQuiescenceTests(unittest.TestCase):
             )
             return time.monotonic() - started, result
 
+    def test_persistent_agent_termination_distinguishes_zombies(self) -> None:
+        guardian = GUARDIAN.read_text(encoding="utf-8")
+        function = function_source(guardian, "terminate_persistent_agent")
+        self.assertEqual(function.count('while supervisor_process_active "$pid"'), 2)
+        self.assertIn('if supervisor_process_active "$pid"; then', function)
+        self.assertIn('supervisor_process_active "$pid" && return 1', function)
+        self.assertNotIn('while kill -0 "$pid"', function)
+
+    def test_power_failure_stages_are_durable_and_whitelisted(self) -> None:
+        guardian = GUARDIAN.read_text(encoding="utf-8")
+        stage_function = function_source(guardian, "record_host_power_stage")
+        failure_function = function_source(guardian, "record_host_power_failure")
+        transition = function_source(guardian, "perform_host_power_transition")
+        self.assertIn("POWER_LAST_STAGE=$POWER_STATE_DIR/last-stage", guardian)
+        self.assertIn("POWER_LAST_FAILURE=$POWER_STATE_DIR/last-failure", guardian)
+        for token in ("accepted", "supervisor-quiesce", "host-agents",
+                      "filesystem-sync", "root-readonly"):
+            self.assertIn("record_host_power_stage " + token, transition)
+        for reason in ("supervisor-quiesce-failed", "host-agents-failed",
+                       "sync-failed", "remount-failed", "root-still-writable",
+                       "kernel-transition-returned"):
+            self.assertIn(reason, guardian)
+        self.assertLess(
+            transition.index("record_host_power_stage root-readonly"),
+            transition.index("mount -o remount,ro /"),
+        )
+        with tempfile.TemporaryDirectory(prefix="ordax-power-receipts-") as temp:
+            path = Path(temp)
+            script = "\n".join([
+                "set -eu",
+                stage_function,
+                failure_function,
+                "POWER_LAST_STAGE=" + repr(str(path / "last-stage")),
+                "POWER_LAST_FAILURE=" + repr(str(path / "last-failure")),
+                "record_host_power_stage supervisor-quiesce",
+                "record_host_power_failure supervisor-quiesce-failed",
+                "record_host_power_stage unexpected && exit 9 || :",
+                "record_host_power_failure private_secret && exit 9 || :",
+            ])
+            completed = subprocess.run(["/bin/sh", "-c", script],
+                                       capture_output=True, text=True)
+            self.assertEqual(completed.returncode, 0, completed.stderr)
+            self.assertEqual((path / "last-stage").read_text().strip(),
+                             "supervisor-quiesce")
+            self.assertEqual((path / "last-failure").read_text().strip(),
+                             "supervisor-quiesce-failed")
+
     def test_guardian_recognizes_exited_but_unreaped_supervisor(self) -> None:
         """No false timeout on zombie: only the matching quiesce receipt grants power."""
         source = function_source(
