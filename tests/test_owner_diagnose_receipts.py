@@ -26,9 +26,9 @@ class OwnerDiagnosticReceiptTests(unittest.TestCase):
              "power.last_action=unknown", "power.last_status=unknown", "pull.last_phase=unknown"),
         ]
         cases += [
-            ("restart|redacted|1792515039|syncing\\n", "completed\\n",
+            ("restart|redacted|1792515039|syncing\n", "completed\n",
              "power.last_action=restart", "power.last_status=syncing", "pull.last_phase=completed"),
-            ("shutdown|redacted|1792515039|pending\\n", "helpers-pending\\n",
+            ("shutdown|redacted|1792515039|pending\n", "helpers-pending\n",
              "power.last_action=shutdown", "power.last_status=pending", "pull.last_phase=helpers-pending"),
         ]
         for record, phase, action, status, pull in cases:
