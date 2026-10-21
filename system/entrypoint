@@ -465,28 +465,36 @@ owner_usb_all_root_mounts_read_only() {
     ' /proc/self/mountinfo
 }
 
-owner_usb_foreign_persistent_mounts_quiesced() {
-    # ESP/DATA are partitions 1/3 of the verified removable USB root 2.
-    # Identify siblings directly; the minimal Owner Base has no blkid applet.
+owner_usb_auxiliary_partitions_quiesced() {
+    # Gate *all* aliases of ORDAX-ESP (1) and ORDAX-DATA (3) by kernel
+    # major:minor, independent of /dev path spelling and filesystem type.
+    # This excludes unrelated disks rather than guessing based on FAT labels.
     root_device=$(owner_usb_root_source) || return 1
     disk_prefix=${root_device%2}
     [ "$disk_prefix" != "$root_device" ] || return 1
-    sources=$(/bin/busybox awk '
-        ($3 == "vfat" || $3 == "exfat") && $4 ~ /(^|,)rw(,|$)/ { print $1 }
-    ' /proc/mounts) || return 1
-    for device in $sources; do
-        case "$device" in
-            "$disk_prefix"1|"$disk_prefix"3) return 1 ;;
-            /dev/*) ;;
-            *) return 1 ;;
-        esac
-    done
-    return 0
+    esp_sys=/sys/class/block/${disk_prefix##*/}1/dev
+    data_sys=/sys/class/block/${disk_prefix##*/}3/dev
+    [ -f "$esp_sys" ] && [ -f "$data_sys" ] || return 1
+    esp_id=$(/bin/busybox cat "$esp_sys" 2>/dev/null) || return 1
+    data_id=$(/bin/busybox cat "$data_sys" 2>/dev/null) || return 1
+    case "$esp_id:$data_id" in *[!0-9:]*|'') return 1 ;; esac
+    /bin/busybox awk -v esp="$esp_id" -v data="$data_id" '
+        $3 == esp || $3 == data {
+            if ($6 ~ /(^|,)rw(,|$)/) writable = 1
+            for (i=1; i<=NF; i++) {
+                if ($i == "-") {
+                    if ($(i+3) ~ /(^|,)rw(,|$)/) writable = 1
+                    break
+                }
+            }
+        }
+        END { exit writable ? 1 : 0 }
+    ' /proc/self/mountinfo
 }
 
 owner_usb_seal_root_for_power() {
     OWNER_USB_ROOT_SOURCE=""
-    owner_usb_foreign_persistent_mounts_quiesced || return 1
+    owner_usb_auxiliary_partitions_quiesced || return 1
     device=$(owner_usb_root_source) || return 1
     OWNER_USB_ROOT_SOURCE=$device
     # Superblock-wide remount, not remount,bind,ro. The latter leaves the
