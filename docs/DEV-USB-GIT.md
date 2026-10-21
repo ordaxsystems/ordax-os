@@ -57,10 +57,16 @@ that a public signed Stable release is available.
 ## Aura local — aquisição assinada pelo Owner Dev
 
 O mesmo `system/services/base-update/orchestrator.py` que valida/enrola
-`ordax-release-agent` e a trust anchor canônica pode agora solicitar
+`ordax-release-agent` e a trust anchor canônica solicita
 `materialize-owner-dev-local-ai` depois do primeiro uso concluído e apenas
-quando não existe atualização Base pendente. O build/release continua CI-owned;
-o modelo não vem de Git, Alpine ou de um gerenciador paralelo.
+quando não existe atualização Base pendente. A operação ocorre no **mesmo
+owner Base Update**, mas em processo filho supervisionado por
+`system/services/base-update/agent.sh`: o ciclo crítico de Base/ESP/rollback
+não espera o download de ~568 MiB. O filho é cancelado, junto com o processo
+de aquisição assinado, no encerramento do owner ou no timeout. Seu status
+fica separado em `/state/ordax/base-update/aura-status.json`.
+O build/release continua CI-owned; o modelo não vem de Git, Alpine ou de
+um gerenciador paralelo.
 
 O owner vincula release imutável, trust SHA-256 e payload da prova
 `docs/evidence/canonical-v4-release-proof.json` ao
