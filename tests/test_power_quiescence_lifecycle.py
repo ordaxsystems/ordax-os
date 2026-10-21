@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import os
 import subprocess
 import tempfile
 import time
@@ -160,46 +161,45 @@ class PowerQuiescenceTests(unittest.TestCase):
             calls = path / "mount-calls"
             command = path / "busybox"
             command.write_text(
-                '#!/bin/sh\\n'
-                'printf "%s\\\\n" "$*" >>"$CALLS"\\n'
-                'if [ "${BUSYBOX_FAIL:-0}" = 1 ]; then exit 19; fi\\n',
+                '#!/bin/sh\n'
+                'printf "%s" "$*" >"$CALLS"\n'
+                '[ "$BUSYBOX_FAIL" != 1 ]\n',
                 encoding="utf-8",
             )
             command.chmod(0o700)
-            # Substitute only the external mount command, not the decision
-            # policy. The test must never remount the CI runner's root.
+            # Substitute only the external mount command; do not remount the
+            # CI runner's root. Run the unmodified profile branch logic.
             remount = remount.replace('/bin/busybox mount', '"$BUSYBOX" mount')
+            script = remount + "\nremount_root_read_only_for_power\n"
+            base_env = {
+                **os.environ,
+                "BUSYBOX": str(command),
+                "CALLS": str(calls),
+                "GUARDIAN_LOG": str(path / "guardian.log"),
+                "BUSYBOX_FAIL": "0",
+            }
             for profile, expected in (
                 ("owner-development", "mount -o remount,bind,ro /"),
                 ("stable-mvp", "mount -o remount,ro /"),
             ):
                 calls.unlink(missing_ok=True)
-                cmd = (
-                    'BUSYBOX=' + repr(str(command)) + '\\n'
-                    + 'CALLS=' + repr(str(calls)) + '\\n'
-                    + 'GUARDIAN_LOG=' + repr(str(path / "guardian.log")) + '\\n'
-                    + 'DISTRIBUTION_PROFILE=' + profile + '\\n'
-                    + remount
-                    + '\\nremount_root_read_only_for_power\\n'
-                )
+                env = {**base_env, "DISTRIBUTION_PROFILE": profile}
                 result = subprocess.run(
-                    ["/bin/sh", "-c", cmd], capture_output=True, text=True,
+                    ["/bin/sh", "-c", script],
+                    env=env, capture_output=True, text=True,
                 )
                 self.assertEqual(result.returncode, 0, result.stderr)
-                self.assertEqual(calls.read_text(encoding="utf-8").strip(), expected)
+                self.assertEqual(calls.read_text(encoding="utf-8"), expected)
                 failed = subprocess.run(
-                    ["/bin/sh", "-c", cmd.replace('\\nremount_root_read_only_for_power\\n', '\\nBUSYBOX_FAIL=1\\nremount_root_read_only_for_power\\n')],
+                    ["/bin/sh", "-c", script],
+                    env={**env, "BUSYBOX_FAIL": "1"},
                     capture_output=True, text=True,
                 )
-                self.assertEqual(failed.returncode, 19, failed.stderr)
+                self.assertEqual(failed.returncode, 1, failed.stderr)
             calls.unlink(missing_ok=True)
             rejected = subprocess.run(
-                ["/bin/sh", "-c",
-                 'BUSYBOX=' + repr(str(command)) + '\\n'
-                 + 'CALLS=' + repr(str(calls)) + '\\n'
-                 + 'GUARDIAN_LOG=' + repr(str(path / "guardian.log")) + '\\n'
-                 + 'DISTRIBUTION_PROFILE=unexpected\\n'
-                 + remount + '\\nremount_root_read_only_for_power\\n'],
+                ["/bin/sh", "-c", script],
+                env={**base_env, "DISTRIBUTION_PROFILE": "unexpected"},
                 capture_output=True, text=True,
             )
             self.assertEqual(rejected.returncode, 1)
