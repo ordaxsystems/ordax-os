@@ -14,6 +14,8 @@ GUARDIAN_LOG=/run/ordax-update/guardian.log
 HEALTH_MARKER=/run/ordax-update/healthy-sha
 SURFACE_MARKER=/run/ordax-surface/runtime-provisioning-source-sha
 POWER_LAST_REQUEST=${ORDAX_POWER_LAST_REQUEST:-/state/ordax/power/last-request}
+POWER_LAST_STAGE=${ORDAX_POWER_LAST_STAGE:-/state/ordax/power/last-stage}
+POWER_LAST_FAILURE=${ORDAX_POWER_LAST_FAILURE:-/state/ordax/power/last-failure}
 PULL_RESULT=${ORDAX_PULL_RESULT:-/run/ordax-update/pull-result}
 
 show_fs() {
@@ -56,6 +58,28 @@ show_update_power_receipts() {
     else
         printf 'power.last_action=unavailable\n'
         printf 'power.last_status=unavailable\n'
+    fi
+    # Stage survives a reboot; a separate fixed-token failure records why
+    # the Guardian restarted the Surface instead of powering off the host.
+    if [ -f "$POWER_LAST_STAGE" ] && [ ! -L "$POWER_LAST_STAGE" ] && [ -r "$POWER_LAST_STAGE" ]; then
+        IFS= read -r power_stage <"$POWER_LAST_STAGE" || power_stage=""
+        case "$power_stage" in
+            accepted|supervisor-quiesce|host-agents|filesystem-sync|root-readonly) ;;
+            *) power_stage=unknown ;;
+        esac
+        printf 'power.last_stage=%s\n' "$power_stage"
+    else
+        printf 'power.last_stage=unavailable\n'
+    fi
+    if [ -f "$POWER_LAST_FAILURE" ] && [ ! -L "$POWER_LAST_FAILURE" ] && [ -r "$POWER_LAST_FAILURE" ]; then
+        IFS= read -r power_failure <"$POWER_LAST_FAILURE" || power_failure=""
+        case "$power_failure" in
+            supervisor-quiesce-failed|host-agents-failed|sync-failed|remount-failed|root-still-writable|kernel-transition-returned) ;;
+            *) power_failure=unknown ;;
+        esac
+        printf 'power.last_failure=%s\n' "$power_failure"
+    else
+        printf 'power.last_failure=unavailable\n'
     fi
     if [ -f "$PULL_RESULT" ] && [ ! -L "$PULL_RESULT" ] && [ -r "$PULL_RESULT" ]; then
         IFS= read -r pull_phase <"$PULL_RESULT" || pull_phase=""
