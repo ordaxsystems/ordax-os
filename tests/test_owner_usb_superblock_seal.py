@@ -34,9 +34,15 @@ class OwnerUsbSuperblockSealTests(unittest.TestCase):
         self.assertIn('[ -b "$device" ]', root)
         self.assertIn('mount -n -o remount,ro "$device" /', seal)
         self.assertIn('mount -n -o remount,bind,ro "$target" "$target"', seal)
+        # All writable VFS aliases must be sealed before the superblock:
+        # real Owner/QEMU ACPI had returned EBUSY with the inverse ordering.
         self.assertLess(
-            seal.index('mount -n -o remount,ro "$device" /'),
             seal.index('mount -n -o remount,bind,ro "$target" "$target"'),
+            seal.index('mount -n -o remount,ro "$device" /'),
+        )
+        self.assertLess(
+            seal.index("OWNER_USB_SEAL_FAILURE_STAGE=alias-remount"),
+            seal.index("OWNER_USB_SEAL_FAILURE_STAGE=superblock-remount"),
         )
         self.assertIn("owner_usb_capture_writable_aliases", seal)
         self.assertIn("owner_usb_all_root_mounts_read_only", seal)
