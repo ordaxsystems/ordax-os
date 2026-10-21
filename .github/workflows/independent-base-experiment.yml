@@ -261,21 +261,8 @@ jobs:
             --out "$RUNNER_TEMP/ordax-native-python-proof" \
             --cache "$RUNNER_TEMP/ordax-independent-buildroot-cache" --jobs 4 \
             > "$RUNNER_TEMP/native-python-build.log"
-          python3 - "$RUNNER_TEMP/ordax-native-python-proof/native-python-provenance.json" <<'PY'
-          import json
-          import sys
-          from pathlib import Path
-          receipt = json.loads(Path(sys.argv[1]).read_text())
-          assert receipt["status"] == "build-proof-only"
-          assert receipt["python_abi"]["compiled_elf_count"] > 0
-          assert receipt["python_abi"]["required_interpreter"] == "/lib/ld-musl-x86_64.so.1"
-          assert receipt["python_abi"]["stdlib_ssl_zlib_verified"] is True
-          assert receipt["python_abi"]["runtime_agent_packaged"] is False
-          assert receipt["component_artifact_authorized"] is False
-          assert receipt["device_install_authorized"] is False
-          assert receipt["base_rootfs_modified"] is False
-          print(json.dumps(receipt, sort_keys=True))
-          PY
+          python3 bootstrap/independent-base/build.py verify-component \
+            --out "$RUNNER_TEMP/ordax-native-python-proof"
       - name: Keep only non-installable ABI evidence
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
