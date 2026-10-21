@@ -157,6 +157,8 @@ class OwnerDevelopmentMediaIdentityTests(unittest.TestCase):
             # No writable operation is available in this shell fixture.
             script = "\n".join((
                 "set -eu",
+                "OWNER_ROOT_PROBE=/tmp/ordax-test-root",
+                "OWNER_ESP_PROBE=/tmp/ordax-test-esp",
                 "blkid() { case \"$1\" in",
                 " */sdb1) echo 'LABEL=\"ORDAX-ESP\"' ;;",
                 " */sdb2) echo 'LABEL=\"ORDAX\"' ;;",
