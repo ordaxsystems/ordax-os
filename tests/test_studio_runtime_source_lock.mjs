@@ -25,7 +25,7 @@ test("Studio runtime source lock pins the merged headless compatibility contract
   assert.equal(lock.$schema, "prototype-ordax.studio-runtime-source-lock/1");
   assert.equal(lock.source.repository, "https://github.com/ordaxsystems/ordax-runtime");
   assert.match(lock.source.commit, /^[0-9a-f]{40}$/);
-  assert.equal(lock.source.commit, "9734893697dae7dbb3cef5ca060a531e5fb0cd66");
+  assert.equal(lock.source.commit, "bae6429d8a21fa713272b46d447502aaf40fac58");
   assert.deepEqual(lock.source.compatibility_contract, {
     path: "docs/contracts/ordax-os-runtime-compatibility.json",
     schema: "ordax.studio-runtime-compatibility/1",
@@ -166,4 +166,26 @@ test("development enrollment trusts only canonical ordax-runtime recovery workfl
   assert.doesNotMatch(source, /const REPOSITORY = "washingtonmsdj\/ordax-runtime";/);
   assert.doesNotMatch(source, /"washingtonmsdj\/ordax-runtime\/\.github\/workflows/);
   assert.doesNotMatch(source, /washingtonmsdj\/mcp-blender/);
+});
+
+test("Owner DEV CI candidate is recorded as evidence, not unsigned installation authority", async () => {
+  const lock = await readJson(SOURCE_LOCK_PATH);
+  assert.deepEqual(lock.candidate_evidence, {
+    kind: "ci-only-unsigned",
+    source_commit: lock.source.commit,
+    platform: "linux-amd64-musl",
+    workflow_run_id: 39550841322,
+    artifact_id: 12323850615,
+    archive_sha256: "d6d526ef91f7cdb3b3a8fbc6d719c03de260bf9febb2c0060666eddb1af45e4e",
+    executable_sha256: "1903470e1f0a3f8fe669dd6419f4771539fd42cb0128484f3fedbf649cafe31b",
+    executable_size_bytes: 24993200,
+    offline_proof_verified: true,
+    device_execution_proven: false,
+    signed_distribution_authorized: false,
+    native_graphical_control_proven: false,
+  });
+  assert.equal(lock.distribution.source_binding_only, true);
+  assert.equal(lock.distribution.signed_runtime_slot_available, false);
+  assert.equal(lock.activation.dispatch_enabled, false);
+  assert.equal(lock.activation.single_device_heartbeat_owner_required, true);
 });
