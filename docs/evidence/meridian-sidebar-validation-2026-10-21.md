@@ -48,3 +48,11 @@ or publishing a release. The earlier characterization of these failures as stale
 assertions was incorrect.
 
 Portable source absence and Native account contract recheck: 7 tests passed.
+
+Full JavaScript follow-up on the Linux snapshot of `9ee1bdaa` with the four
+transferred suites removed: 2504 tests, 2503 passed, 0 failed, 1 skipped
+(48.836 seconds). After rebasing onto concurrent main changes through `dd76d057`,
+all 14 Web Intelligence Canvas tests passed as well. The 49 transferred Assistant
+tests are now counted in the app owner, not duplicated in the OS suite. These
+results supersede the earlier JavaScript failure count; the full Python suite was
+not rerun and its other unresolved findings remain open.
