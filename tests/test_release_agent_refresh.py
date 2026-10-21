@@ -12,8 +12,8 @@ BASE = ROOT / "docs/contracts/base-update.json"
 WORKFLOW = ROOT / ".github/workflows/release-agent-refresh.yml"
 OWNER = ROOT / "system/services/base-update/orchestrator.py"
 
-CURRENT_REFRESH_TARGET = "444e428d33bd4f3c6ef6d3f0ef403cde43e8e31be85369ce3604178d11dfbabd"
-PREVIOUS_REFRESH_TARGET = "e18c4e7eb4b4b73f49e1bf8c1d051e3253789fb6e1b422cebd8db9a74740f2af"
+CURRENT_REFRESH_TARGET = "56c02520fd81d390d6c2d2269aa05be02d6bef68dfba67bead8ad481b983f43b"
+PREVIOUS_REFRESH_TARGET = "444e428d33bd4f3c6ef6d3f0ef403cde43e8e31be85369ce3604178d11dfbabd"
 FORMER_REFRESH_TARGET = "a514b8280cecb0b3f70e681eb4ba2167bf599ac2fa336c546cfbe71f46ea9c8e"
 CURRENT_SEED = "550df685679f1bf15a636729960fe6fc3ffc1afda1a346214ce96716f7170a66"
 
@@ -33,7 +33,7 @@ class ReleaseAgentRefreshTests(unittest.TestCase):
             "/ordax/bootstrap/release-acquisition/ordax-release-agent",
         )
         self.assertEqual(target, CURRENT_REFRESH_TARGET)
-        self.assertEqual(descriptor["target_size"], 7245984)
+        self.assertEqual(descriptor["target_size"], 7262368)
         self.assertEqual(len(target), 64)
         self.assertEqual(descriptor["mode"], "0755")
         self.assertFalse(descriptor["physical_media_rewrite_required"])
