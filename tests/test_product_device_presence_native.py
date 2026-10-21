@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import fcntl
 import json
 import os
 from pathlib import Path
@@ -102,6 +103,54 @@ class ProductDevicePresenceNativeTests(unittest.TestCase):
             self.assertEqual(payload["runtime_kind"], "ordax-os")
             self.assertIsNone(payload["capability_digest"])
             self.assertNotIn(credential["device_token"], request.data.decode())
+
+    def test_runtime_singleton_prevents_conflicting_device_heartbeats(self):
+        client = ProductDevicePresenceClient("https://cp.example", self.store)
+        client._opener = FakeOpener(FakeResponse({
+            "ok": True, "device_id": DEVICE_ID,
+        }))
+        self.assertTrue(client.report(True))
+        # Same exact lock file as native_main.run's instance guard; the
+        # installed Runtime holds this lock across its entire process life.
+        instance_lock = self.store.root.parent / "product-runtime" / "instance.lock"
+        self.assertTrue(instance_lock.is_file())
+        descriptor = os.open(instance_lock, os.O_RDWR | os.O_NOFOLLOW)
+        try:
+            fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            self.assertFalse(client.report(True))
+            self.assertFalse(client.report(False))
+            self.assertEqual(len(client._opener.calls), 1)
+        finally:
+            fcntl.flock(descriptor, fcntl.LOCK_UN)
+            os.close(descriptor)
+        self.assertTrue(client.report(True))
+        self.assertEqual(len(client._opener.calls), 2)
+
+    def test_bad_runtime_lock_never_sends_device_credentials(self):
+        runtime_dir = self.store.root.parent / "product-runtime"
+        runtime_dir.mkdir(mode=0o700)
+        runtime_dir.chmod(0o755)
+        client = ProductDevicePresenceClient("https://cp.example", self.store)
+        client._opener = Mock()
+        with self.assertRaisesRegex(ProductDevicePresenceError, "device-presence-runtime-state-unsafe"):
+            client.report(True)
+        client._opener.open.assert_not_called()
+        runtime_dir.chmod(0o700)
+
+    def test_rejected_server_receipt_releases_shared_runtime_lock(self):
+        client = ProductDevicePresenceClient("https://cp.example", self.store)
+        client._opener = FakeOpener(FakeResponse({
+            "ok": False, "device_id": DEVICE_ID,
+        }))
+        with self.assertRaises(ProductDevicePresenceError):
+            client.report(True)
+        instance_lock = self.store.root.parent / "product-runtime" / "instance.lock"
+        descriptor = os.open(instance_lock, os.O_RDWR | os.O_NOFOLLOW)
+        try:
+            fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        finally:
+            fcntl.flock(descriptor, fcntl.LOCK_UN)
+            os.close(descriptor)
 
     def test_no_credential_means_no_network(self):
         self.store.credential_path.unlink()
