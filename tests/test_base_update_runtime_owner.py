@@ -1007,12 +1007,16 @@ class BaseUpdateRuntimeOwnerTests(unittest.TestCase):
     def test_optional_aura_never_runs_before_first_run_or_for_stable(self):
         with tempfile.TemporaryDirectory() as temporary:
             repo, state, physical, _trust = self.fixture(Path(temporary))
-            with mock.patch.object(owner.subprocess, "run", side_effect=AssertionError("unexpected acquisition")):
+            with mock.patch.object(owner.subprocess, "Popen", side_effect=AssertionError("unexpected acquisition")):
                 dev = owner.run_once(repo, state, physical, "c" * 40, "owner-development")
                 stable = owner.run_once(repo, state, physical, "c" * 40, "stable-mvp")
+                first_run = owner.run_aura_once(repo, state, physical, "owner-development")
+                skipped = owner.run_aura_once(repo, state, physical, "stable-mvp")
             self.assertEqual(dev["status"], "idle")
             self.assertEqual(dev["localAiAcquisitionState"], "first-run-pending")
             self.assertNotIn("localAiAcquisitionState", stable)
+            self.assertEqual(first_run["state"], "first-run-pending")
+            self.assertEqual(skipped["state"], "unsupported-profile")
             self.assertFalse((state / "base-update/aura-ready.sha256").exists())
 
     def test_optional_aura_exact_signed_acquisition_reuses_private_persisted_receipt(self):
@@ -1021,10 +1025,26 @@ class BaseUpdateRuntimeOwnerTests(unittest.TestCase):
             image = state / "local-ai" / "sha256" / digest / "local-ai-runtime.erofs"
             calls = []
 
+            class CompletedAgent:
+                pid = 987654
+                returncode = 0
+
+                def __init__(self, data, rc=0):
+                    self.data = data
+                    self.returncode = rc
+
+                def communicate(self, timeout):
+                    self.timeout = timeout
+                    return self.data, b""
+
+                def poll(self):
+                    return self.returncode
+
             def materialize(command, **kwargs):
                 calls.append(command)
                 self.assertEqual(command[1], "materialize-owner-dev-local-ai")
-                self.assertIn("--expected-release-commit", command)
+                self.assertTrue(kwargs["start_new_session"])
+                self.assertTrue(kwargs["close_fds"])
                 self.assertEqual(command[command.index("--expected-release-commit") + 1], release)
                 self.assertEqual(command[command.index("--expected-artifact-sha256") + 1], digest)
                 self.assertEqual(command[command.index("--expected-artifact-size") + 1], str(size))
@@ -1045,42 +1065,68 @@ class BaseUpdateRuntimeOwnerTests(unittest.TestCase):
                     "reused": False,
                     "activation_allowed": False,
                 }
-                return subprocess.CompletedProcess(command, 0, (json.dumps(payload) + "\n").encode(), b"")
+                return CompletedAgent((json.dumps(payload) + "\n").encode())
 
-            with mock.patch.object(owner.subprocess, "run", side_effect=materialize):
-                first = owner.run_once(repo, state, physical, "c" * 40, "owner-development")
-            self.assertEqual(first["status"], "idle")
-            self.assertEqual(first["localAiAcquisitionState"], "materialized")
+            prepared = owner.run_once(repo, state, physical, "c" * 40, "owner-development")
+            self.assertEqual(prepared["localAiAcquisitionState"], "worker-eligible")
+            with mock.patch.object(owner.subprocess, "Popen", side_effect=materialize):
+                first = owner.run_aura_once(repo, state, physical, "owner-development")
+            self.assertEqual(first["state"], "materialized")
             self.assertEqual(len(calls), 1)
             marker = state / "base-update/aura-ready.sha256"
             self.assertEqual(marker.read_text(encoding="ascii"), digest + "\n")
             self.assertEqual(marker.stat().st_mode & 0o777, 0o600)
-            with mock.patch.object(owner.subprocess, "run", side_effect=AssertionError("should reuse")):
-                second = owner.run_once(repo, state, physical, "d" * 40, "owner-development")
-            self.assertEqual(second["status"], "idle")
-            self.assertEqual(second["localAiAcquisitionState"], "already-materialized")
+            with mock.patch.object(owner.subprocess, "Popen", side_effect=AssertionError("should reuse")):
+                second = owner.run_aura_once(repo, state, physical, "owner-development")
+            self.assertEqual(second["state"], "already-materialized")
             self.assertEqual(len(calls), 1)
 
-            # Same-size tampering invalidates metadata cache; fail closed.
+            # Same-size tampering invalidates the cache; the verified agent
+            # refuses an already existing, inconsistent digest directory.
             image.write_bytes(b"z" * size)
-            with mock.patch.object(owner.subprocess, "run", return_value=subprocess.CompletedProcess([], 1, b"", b"rejected")):
-                third = owner.run_once(repo, state, physical, "d" * 40, "owner-development")
-            self.assertEqual(third["status"], "idle")
-            self.assertEqual(third["localAiAcquisitionState"], "blocked")
-            self.assertFalse(third["rebootRequested"])
+            with mock.patch.object(owner.subprocess, "Popen", return_value=CompletedAgent(b"", 1)):
+                third = owner.run_aura_once(repo, state, physical, "owner-development")
+            self.assertEqual(third["state"], "blocked")
+            self.assertFalse(third["boot_authority"])
 
     def test_optional_aura_rejects_unpinned_proof_without_invoking_agent(self):
         with tempfile.TemporaryDirectory() as temporary:
             repo, state, physical, digest, size, release, lock = self._aura_fixture(Path(temporary))
+            owner.run_once(repo, state, physical, "c" * 40, "owner-development")
             proof_path = repo / "docs/evidence/canonical-v4-release-proof.json"
             proof = json.loads(proof_path.read_text(encoding="utf-8"))
             proof["canonical_trust_sha256"] = "f" * 64
             write_json(proof_path, proof)
-            with mock.patch.object(owner.subprocess, "run", side_effect=AssertionError("untrusted proof")):
-                status = owner.run_once(repo, state, physical, "c" * 40, "owner-development")
-            self.assertEqual(status["status"], "idle")
-            self.assertEqual(status["localAiAcquisitionState"], "blocked")
+            with mock.patch.object(owner.subprocess, "Popen", side_effect=AssertionError("untrusted proof")):
+                status = owner.run_aura_once(repo, state, physical, "owner-development")
+            self.assertEqual(status["state"], "blocked")
             self.assertFalse((state / "base-update/aura-ready.sha256").exists())
+
+    def test_base_owner_never_blocks_on_optional_aura_and_worker_honors_pending_base(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            repo, state, physical, *_other = self._aura_fixture(Path(temporary))
+            with mock.patch.object(owner.subprocess, "Popen", side_effect=AssertionError("Base update must not download Aura")):
+                status = owner.run_once(repo, state, physical, "c" * 40, "owner-development")
+            self.assertEqual(status["localAiAcquisitionState"], "worker-eligible")
+            (state / "boot-refresh-required").write_text("c" * 40 + "\n")
+            blocked = owner.run_aura_once(repo, state, physical, "owner-development")
+            self.assertEqual(blocked["state"], "deferred-base-update")
+            self.assertFalse((state / "base-update/aura-ready.sha256").exists())
+
+    def test_optional_aura_uses_one_supervised_worker_without_stalling_esp(self):
+        agent = AGENT.read_text(encoding="utf-8")
+        self.assertIn("launch_optional_aura_worker()", agent)
+        self.assertIn("stop_aura_worker()", agent)
+        self.assertIn("--acquire-aura-only", agent)
+        self.assertIn("AURA_WORKER_PID=$!", agent)
+        self.assertIn("trap stop_aura_worker EXIT", agent)
+        self.assertLess(agent.index("launch_optional_aura_worker\n        discover_esp_read_only"),
+                        agent.index("prepare_dev_base_postboot_promotion"))
+        orchestrator = MODULE_PATH.read_text(encoding="utf-8")
+        self.assertIn('parser.add_argument("--acquire-aura-only", action="store_true")', orchestrator)
+        self.assertIn("start_new_session=True, close_fds=True", orchestrator)
+        self.assertIn("os.killpg(process.pid, signal.SIGTERM)", orchestrator)
+        self.assertIn("signal.signal(signal.SIGTERM, terminate_optional_aura)", orchestrator)
 
     def test_optional_aura_uses_existing_runtime_watch_and_update_owner(self):
         run = (ROOT / "bootstrap/dev-base/ordax-run").read_text(encoding="utf-8")
