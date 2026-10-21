@@ -84,8 +84,8 @@ int main(int argc, char **argv) {
         return 2;
     }
     if (result != 0) {
-        fprintf(stderr, "ordax-usb-mountattr: %s: %s\n",
-                argv[1], strerror(errno));
+        fprintf(stderr, "ordax-usb-mountattr: %s target=%s: %s\n",
+                argv[1], argv[argc - 1], strerror(errno));
         return 1;
     }
     return 0;
