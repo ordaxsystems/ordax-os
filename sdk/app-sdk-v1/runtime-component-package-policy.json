@@ -46,6 +46,7 @@
   "native_loopback_broker_requires_signed_system_helper": true,
   "native_loopback_broker_requires_component_trust": true,
   "native_loopback_broker_read_only": true,
+  "native_files_slot_bound_file_space_enforced": false,
   "native_loopback_broker_supported_components": [
     "calculator",
     "notes",
