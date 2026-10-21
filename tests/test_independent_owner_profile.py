@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import importlib.util
 import json
 from pathlib import Path
+import tempfile
 import unittest
+from unittest.mock import patch
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -211,6 +214,92 @@ class IndependentOwnerDevelopmentProfileTests(unittest.TestCase):
         self.assertIn("--profile", text)
         self.assertIn("owner-development", text)
         self.assertIn("BR2_ROOTFS_POST_SCRIPT_ARGS", text)
+
+
+
+class IndependentStaticElfClosureTests(unittest.TestCase):
+    """Test the real Buildroot candidate ELF gate, not a duplicated parser."""
+
+    @staticmethod
+    def builder():
+        spec = importlib.util.spec_from_file_location("ordax_independent_static_builder", BUILD)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        return module
+
+    @staticmethod
+    def elf(elf_type=2, machine=62):
+        data = bytearray(20)
+        data[:7] = bytes.fromhex("7f454c46020101")
+        data[16:18] = elf_type.to_bytes(2, "little")
+        data[18:20] = machine.to_bytes(2, "little")
+        return bytes(data)
+
+    def exercise(self, payload, segments, dynamic):
+        builder = self.builder()
+        with tempfile.TemporaryDirectory() as work:
+            root = Path(work)
+            (root / "bin").mkdir()
+            (root / "bin" / "ordax-product-agent").write_bytes(payload)
+            with patch.object(builder, "run", side_effect=[segments, dynamic]) as calls:
+                result = builder.verify_static_userspace_elf_closure(root)
+            self.assertEqual(calls.call_count, 2)
+            self.assertEqual(result["linkage"], "static")
+            self.assertEqual(result["userspace_elf_files_examined"], 1)
+            self.assertEqual(result["program_interpreters"], [])
+            self.assertEqual(result["needed_libraries"], [])
+            self.assertRegex(result["elf_manifest_sha256"], r"^[a-f0-9]{64}$")
+
+    def test_static_elf_closure_with_no_needed_libraries_is_valid(self):
+        self.exercise(self.elf(), "Program Headers:\n  LOAD", "No dynamic section")
+
+    def test_dynamic_loader_is_rejected_even_without_needed_libraries(self):
+        builder = self.builder()
+        with tempfile.TemporaryDirectory() as work:
+            root = Path(work)
+            (root / "agent").write_bytes(self.elf())
+            with patch.object(builder, "run",
+                              return_value="INTERP Requesting program interpreter: /lib/ld-musl-x86_64.so.1"):
+                with self.assertRaisesRegex(builder.BaseError, "dynamic ELF interpreter forbidden"):
+                    builder.verify_static_userspace_elf_closure(root)
+
+    def test_shared_libc_or_zlib_is_rejected(self):
+        builder = self.builder()
+        with tempfile.TemporaryDirectory() as work:
+            root = Path(work)
+            (root / "agent").write_bytes(self.elf())
+            with patch.object(builder, "run", side_effect=[
+                "Program Headers: LOAD", "0x00000001 (NEEDED) Shared library: [libz.so.1]"
+            ]):
+                with self.assertRaisesRegex(builder.BaseError, "dynamic ELF dependencies forbidden"):
+                    builder.verify_static_userspace_elf_closure(root)
+
+    def test_aarch64_is_not_silently_accepted_in_x86_64_base(self):
+        builder = self.builder()
+        with tempfile.TemporaryDirectory() as work:
+            root = Path(work)
+            (root / "agent").write_bytes(self.elf(machine=183))
+            with patch.object(builder, "run") as calls:
+                with self.assertRaisesRegex(builder.BaseError, "unexpected Independent Base ELF machine"):
+                    builder.verify_static_userspace_elf_closure(root)
+            calls.assert_not_called()
+
+    def test_kernel_module_relocatable_is_not_treated_as_userspace_executable(self):
+        builder = self.builder()
+        with tempfile.TemporaryDirectory() as work:
+            root = Path(work)
+            (root / "module.ko").write_bytes(self.elf(elf_type=1))
+            with patch.object(builder, "run") as calls:
+                with self.assertRaisesRegex(builder.BaseError, "no executables"):
+                    builder.verify_static_userspace_elf_closure(root)
+            calls.assert_not_called()
+
+    def test_build_and_verify_pin_static_closure_receipt(self):
+        source = BUILD.read_text(encoding="utf-8")
+        self.assertIn("userspace_elf_closure = verify_static_userspace_elf_closure(target)", source)
+        self.assertIn('"independent_userspace_elf_closure": userspace_elf_closure', source)
+        self.assertIn('elf_closure = report.get("independent_userspace_elf_closure")', source)
+
 
 
 if __name__ == "__main__":
