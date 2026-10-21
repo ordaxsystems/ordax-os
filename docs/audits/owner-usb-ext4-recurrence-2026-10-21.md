@@ -23,6 +23,15 @@ Status: **INVESTIGAÇÃO / BOOT FÍSICO BLOQUEADO**. Não promover a mídia a sa
 
 **Código auditado:** `system/entrypoint` (Guardian) realiza quiescência e `sync`, mas o modo Owner USB Dev passa a `/bin/busybox reboot -f` / `poweroff -f` sem testemunha de desmontagem/remontagem somente leitura de **todas** as montagens persistentes; `bootstrap/initramfs/root/init` rejeita ext4 não íntegro e oferece recuperação `ro,noload`, sem reparo automático. É uma proteção importante, porém não uma solução de causa raiz.
 
+## Evidência adicional de 21/10 — ensaio de reparo sobre imagem clonada
+
+- A imagem da recorrência (`8.053.063.680` bytes, SHA-256 `39e5e768f23451d3dd8d1108775214d7bd5142756d7674aa952310aeafdce791`) foi clonada para uma nova **cópia de trabalho**, sem escrever no USB físico. SHA-256 do fluxo de cópia verificado idêntico ao recibo preservado. Imagem forense original permanece intocada.
+- Dispositivo loop **somente da cópia de trabalho**, com offset `269484032` e extensão `6708789248` bytes; UUID ext4 validado antes de reparar.
+- `e2fsck -fy` na cópia: **código 1** (corrigiu metadados e recuperou journal); corrigiu inodes órfãos 623, 7473 e 10422, e inode 10782 com dtime inválido; regularizou bitmaps e contadores. Arquivos: `12.057 → 12.053`, blocos: `364.552 → 364.538`.
+- Verificação completa posterior na mesma cópia com `e2fsck -fn`: **código 0**, `12.053/409.600` arquivos e `364.538/1.637.888` blocos. Sem novas inconsistências detectadas. **Isso valida o método de recuperação, não a durabilidade da mídia ou a causa raiz.**
+- Código: removido fallback automático de `/proc/sysrq-trigger` para `b/o` do Guardian em `system/entrypoint`, com atualização do teste de contrato. Commits `7cae1b7f` e `f3af5f2c`. Eliminar esse caminho de reset não demonstra que `reboot -f` com múltiplos bind mounts duráveis esteja seguro.
+- **Estado físico neste checkpoint:** USB original ainda sem reparo adicional nesta retomada; não marcar como recuperado. Manutenção do host e validação física continuam gates independentes.
+
 ## Gates para liberar novamente o pendrive
 
 1. Não modificar a segunda imagem forense nem a imagem inicial. Registrar hash do arquivo final e confrontar com o recibo original; verificar se geometria/tamanho de Windows e Linux descrevem exatamente o mesmo dispositivo.
