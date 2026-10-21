@@ -48,9 +48,9 @@ de lifecycle antes de aparecer como instalado.
   `ordax-apps/migrations/<id>.externalization.json` governam os gates:
   source cutover concluído não implica publicação/instalação ativada.
 - **Arquivos** ainda tem fonte canônica no OS. A tentativa isolada de remoção
-  (PR [#1742](https://github.com/ordaxsystems/ordax-os/pull/1742)) não foi
+  (PR `ordax-os#1742`) não foi
   mesclada porque quebrava os gates do bootstrap USB. A
-  [issue #1743](https://github.com/ordaxsystems/ordax-os/issues/1743)
+  issue `ordax-os#1743`
   exige fonte única, pacote assinado, slot verificado e interface funcional no
   boot antes do handoff. Uma prova de pacote efêmero não autoriza remoção
   prematura nem a criação permanente de `apps/files` em Apps.
@@ -75,4 +75,4 @@ inventário `current` verificado no Native é a evidência de instalação.
 Consulte também
 [`docs/APP-PORTFOLIO-AND-PREINSTALL.md`](../../docs/APP-PORTFOLIO-AND-PREINSTALL.md),
 [`docs/contracts/module-boundaries.json`](../../docs/contracts/module-boundaries.json)
-e o [portfólio OrdaX Apps](https://github.com/ordaxsystems/ordax-apps/blob/main/docs/PORTFOLIO-FIRST-PARTY.md).
+e o portfólio `ordaxsystems/ordax-apps/docs/PORTFOLIO-FIRST-PARTY.md`.
