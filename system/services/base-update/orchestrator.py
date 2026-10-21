@@ -1266,25 +1266,71 @@ def run_once(
 
     _atomic_status(state_root, status)
 
-    # Optional local AI acquisition is delegated to the SAME verified release
-    # agent, only after initial setup and public trust enrollment. A failure
-    # never changes base-update status, Surface health or known-good boot.
+    # Slow optional AI acquisition has its OWN invocation and receipt. Never
+    # download hundreds of MiB in the synchronous Base/ESP staging loop.
     if distribution_profile == "owner-development":
-        if pending is not None:
-            status["localAiAcquisitionState"] = "deferred-base-update"
-        elif not _owner_first_run_completed(state_root):
-            status["localAiAcquisitionState"] = "first-run-pending"
-        elif status["physicalTrustEnrolled"] is True and status["status"] == "idle":
-            try:
-                status["localAiAcquisitionState"] = _acquire_owner_dev_aura(
-                    repo_root, state_root, physical_root, status["canonicalTrustSha256"],
-                )
-            except (OwnerError, OSError) as exc:
-                status["localAiAcquisitionState"] = "blocked"
-                status["localAiAcquisitionDetail"] = str(exc)[:256]
-        else:
-            status["localAiAcquisitionState"] = "trust-unavailable"
+        status["localAiAcquisitionState"] = (
+            "deferred-base-update" if pending is not None
+            else "first-run-pending" if not _owner_first_run_completed(state_root)
+            else "worker-eligible" if status["physicalTrustEnrolled"] and status["status"] == "idle"
+            else "trust-unavailable"
+        )
         _atomic_status(state_root, status)
+    return status
+
+
+def run_aura_once(
+    repo_root: Path, state_root: Path, physical_root: Path, distribution_profile: str,
+) -> dict[str, Any]:
+    """Optional Owner Dev component task, separately supervised by agent.sh.
+
+    This is an operation of the SAME Base Update owner and signed release agent.
+    It writes an independent receipt and never modifies boot/ESP owner status.
+    """
+    repo_root = _require_real_directory(repo_root, "repository root")
+    state_root = _require_real_directory(state_root, "state root")
+    physical_root = _require_real_directory(physical_root, "physical root")
+    status: dict[str, Any] = {
+        "$schema": AURA_RECEIPT_SCHEMA,
+        "state": "blocked",
+        "component": "local-ai-runtime",
+        "boot_authority": False,
+        "stable_activation": False,
+    }
+    if distribution_profile != "owner-development":
+        status["state"] = "unsupported-profile"
+    elif _read_pending_sha(state_root) is not None:
+        status["state"] = "deferred-base-update"
+    elif not _owner_first_run_completed(state_root):
+        status["state"] = "first-run-pending"
+    else:
+        try:
+            # Do not trust a previously enrolled or replaced executable simply
+            # because it is executable. Rehash against the refresh owner pin.
+            pin = _validate_release_agent_refresh(repo_root)
+            executable = physical_root / RELEASE_AGENT_RELATIVE
+            actual_sha, actual_size = _hash_regular_file(
+                executable, "verified physical release agent",
+            )
+            if actual_sha != pin["target_sha256"] or actual_size != pin["target_size"]:
+                raise OwnerError("optional Aura agent is not the exact enrolled release binary")
+            trust_bytes, trust_sha = _validate_repository_authority(repo_root)
+            physical_trust = _regular_bytes(
+                physical_root / PHYSICAL_TRUST_RELATIVE,
+                "enrolled canonical Aura public trust", 16 << 10,
+            )
+            if physical_trust != trust_bytes or _sha256(physical_trust) != trust_sha:
+                raise OwnerError("optional Aura physical trust conflicts with repository authority")
+            status["state"] = _acquire_owner_dev_aura(
+                repo_root, state_root, physical_root, trust_sha,
+            )
+        except (OwnerError, OSError) as exc:
+            status["state"] = "blocked"
+            status["detail"] = str(exc)[:256]
+    _atomic_aura_state(
+        state_root, Path("base-update/aura-status.json"),
+        (json.dumps(status, separators=(",", ":"), sort_keys=True) + "\n").encode("utf-8"),
+    )
     return status
 
 
@@ -1293,16 +1339,17 @@ def main() -> int:
     parser.add_argument("--repo-root", type=Path, required=True)
     parser.add_argument("--state-root", type=Path, required=True)
     parser.add_argument("--physical-root", type=Path, required=True)
+    parser.add_argument("--acquire-aura-only", action="store_true")
     args = parser.parse_args()
     source_sha = os.environ.get("ORDAX_BASE_SOURCE_SHA", "")
+    profile = os.environ.get("ORDAX_BASE_DISTRIBUTION_PROFILE", "")
     try:
-        result = run_once(
-            args.repo_root,
-            args.state_root,
-            args.physical_root,
-            source_sha,
-            os.environ.get("ORDAX_BASE_DISTRIBUTION_PROFILE", ""),
-        )
+        if args.acquire_aura_only:
+            result = run_aura_once(args.repo_root, args.state_root, args.physical_root, profile)
+        else:
+            result = run_once(
+                args.repo_root, args.state_root, args.physical_root, source_sha, profile,
+            )
         print(json.dumps(result, indent=2, sort_keys=True))
         return 0
     except OwnerError as exc:
