@@ -53,6 +53,35 @@ additional promotion/fallback gates. This bundle does **not** imply that every
 Base update has been physically proven, that a fresh notebook boot passed, or
 that a public signed Stable release is available.
 
+
+## Aura local — aquisição assinada pelo Owner Dev
+
+O mesmo `system/services/base-update/orchestrator.py` que valida/enrola
+`ordax-release-agent` e a trust anchor canônica pode agora solicitar
+`materialize-owner-dev-local-ai` depois do primeiro uso concluído e apenas
+quando não existe atualização Base pendente. O build/release continua CI-owned;
+o modelo não vem de Git, Alpine ou de um gerenciador paralelo.
+
+O owner vincula release imutável, trust SHA-256 e payload da prova
+`docs/evidence/canonical-v4-release-proof.json` ao
+`system/services/local-ai/source-lock.json` e ao pin do launcher Native.
+Antes de baixar ~568 MiB, verifica capacidade disponível e preserva uma
+reserva para o sistema. A aquisição é verificada pelo binário estático
+publicado por hash; falhas não mudam a autorização de Base/boot/rollback.
+
+O receipt privado `/state/ordax/base-update/aura-acquisition.json` permite
+reuso sem rehash de toda a imagem a cada polling quando tamanho, inode e
+timestamps do EROFS seguem invariáveis. O runtime Native continua
+verificando o SHA-256 integral antes de executar. Apenas após aquisição
+aceita o owner publica `/state/ordax/base-update/aura-ready.sha256`;
+o watcher já existente em `ordax-run` observa este sinal, delegando
+a inicialização ao launcher Native, sem reiniciar a Surface nem criar
+um novo atualizador.
+
+A prova de CI cobre o contrato e simulações de aquisição; não é evidência
+de inferência física bem-sucedida no notebook. O gate USB Dev real da
+issue #2071 continua exigido, incluindo reboot, health e prompt real.
+
 ## Aura local: lifecycle verificado no Owner/Development (source, 2026-10-21)
 
 O `ordax-run` agora possui um adaptador estrito para iniciar e encerrar a
