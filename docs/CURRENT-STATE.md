@@ -1,16 +1,23 @@
-Native Product presence session recovery (2026-10-21): the existing Account
-proxy now reconciles canonical verified session reads as well as login. An
-already authenticated session (including registration) can enroll without a
-second login. Failed enrollment is retried on existing session/Connector refreshes
-at most once per minute using a monotonic deadline, without another scheduler or
-presence worker. Malformed, failed, anonymous or expired session proofs stop
-presence; account switches discard the prior enrollment state and still require
-the new account's own private discovery consent. Connector refresh verifies the
-account session instead of trusting a stale login flag. Login/session replies
-remain owned by the Account gateway. Discovery remains default-off: use Settings
-> Security > OrdaX Connector > Make device available. This source correction does
-not install OS remote-action execution, create grants, or prove physical notebook
-connectivity. See docs/contracts/product-device-presence.json.
+Owner/Development USB discovery without account login (2026-10-21): Native
+runtime composition now starts the single existing presence worker whenever the
+private, previously enrolled Product device credential is valid and no local
+opt-out exists. No account login or discovery click is required on subsequent
+starts of this DEV profile. Logout, anonymous session refresh and account-session
+expiry leave this device-authenticated presence running. Native Host shutdown
+still stops it. Local discovery disable/enable works without a cloud session and
+persists in the existing visibility policy file, bound to the enrolled device ID.
+Malformed policy/credential remains unavailable. Missing device enrollment still
+requires authenticated initial enrollment; no account ownership, device token or
+remote grant is fabricated. Stable and Native disk activation are unchanged.
+Connector exposes canEnableWithoutLogin separately from accountAuthenticated;
+the Settings control uses the former without claiming an authenticated user.
+The canonical Account-session recovery added earlier on this date remains for
+enrollment, with a 60-second retry deadline on existing session refreshes.
+This DEV exception replaces the earlier account-bound default-off discovery
+policy below; it does not install remote action execution or change MCP OAuth,
+grants, local action policy or attestation. Physical notebook visibility still
+requires an accepted server presence receipt. Contract:
+docs/contracts/product-device-presence.json.
 
 First-use journey redesign (2026-10-20): one
 shared Native/USB/emulator wizard follows welcome (language + time zone), network,
@@ -88,7 +95,7 @@ worker via the neutral Product Connector port. Source-of-truth contract:
 docs/contracts/product-device-presence.json. Physical USB proof and OS
 action Runtime/attestation remain independently blocked.
 
-Native Connector Settings opt-in (2026-10-18): Owner/Development USB now
+Historical Native Connector Settings opt-in (2026-10-18; DEV discovery policy superseded by the 2026-10-21 entry above): Owner/Development USB now
 uses the private ProductDeviceIdentityStore as SSOT for a separate
 `product-connector-visibility.json` preference, default-off. Native Settings
 calls the loopback-only `/__ordax/native/product-connector` route. The existing
@@ -101,7 +108,7 @@ unavailable, and physical USB proof remains pending. The account session is
 memory-only until the encrypted local vault gate; login may need repeating
 after Native Host restart. Stable is unaffected.
 
-Native Product Connector candidate (2026-10-17): Owner/Development USB
+Historical Native Product Connector candidate (2026-10-17; DEV login lifecycle superseded above): Owner/Development USB
 reuses the existing Native Account login and private Product device
 identity to start one fail-soft HTTPS presence worker after authenticated
 enrollment. Logout and Native Host shutdown stop its lifecycle; no command

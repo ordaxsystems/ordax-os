@@ -33,12 +33,17 @@ class ProductDevicePostLoginCoordinator:
         product_mode: str,
         control_plane_origin: str,
         state_dir: str = DEFAULT_PRODUCT_DEVICE_STATE_DIR,
+        development_discovery: bool = True,
     ) -> None:
         self.distribution_profile = distribution_profile
         self.product_mode = product_mode
         self.client = None
         self.presence = None
         self.identity_store = None
+        self.development_discovery = bool(
+            development_discovery is True
+            and distribution_profile == "owner-development" and product_mode == "usb"
+        )
 
         if distribution_profile != "owner-development" or product_mode != "usb":
             return
@@ -56,10 +61,23 @@ class ProductDevicePostLoginCoordinator:
             self.presence = ProductDevicePresenceWorker(
                 ProductDevicePresenceClient(control_plane_origin, identity_store),
             )
+            self.refresh_development_presence()
         except (TypeError, ValueError):
             # Configuration errors must never make account login, boot or Surface
             # health depend on the development Control Plane.
             self.client = None
+
+    def refresh_development_presence(self) -> None:
+        if not self.development_discovery or self.identity_store is None or self.presence is None:
+            return
+        try:
+            if self.identity_store.development_visibility_enabled():
+                self.presence.start()
+            else:
+                self.presence.stop()
+        except (OSError, RuntimeError):
+            # Optional development connectivity never blocks boot or account use.
+            pass
 
     def after_authenticated_login(self, device_profile: dict, *, subject: str | None = None) -> PostLoginDeviceResult:
         if self.client is None:
@@ -70,7 +88,9 @@ class ProductDevicePostLoginCoordinator:
             distribution_profile=self.distribution_profile,
             product_mode=self.product_mode,
         )
-        if result.status == "enrolled" and self.presence is not None and (
+        if result.status == "enrolled" and self.development_discovery:
+            self.refresh_development_presence()
+        elif result.status == "enrolled" and self.presence is not None and (
             self.identity_store is not None and self.identity_store.connector_visibility_enabled(subject)
         ):
             # Discovery remains owner opt-in, never implied by account login.
@@ -81,7 +101,10 @@ class ProductDevicePostLoginCoordinator:
         return result
 
     def visibility_status(self, *, authenticated: bool, subject: str | None = None) -> dict:
-        enabled = bool(self.identity_store and self.identity_store.connector_visibility_enabled(subject))
+        enabled = bool(self.identity_store and (
+            self.identity_store.development_visibility_enabled() if self.development_discovery
+            else self.identity_store.connector_visibility_enabled(subject)
+        ))
         presence_state = "disabled"
         if enabled:
             state = self.presence.connection_state() if self.presence is not None else "unavailable"
@@ -91,6 +114,8 @@ class ProductDevicePostLoginCoordinator:
             "enabled": enabled,
             "presenceState": presence_state,
             "accountAuthenticated": bool(authenticated),
+            "canEnableWithoutLogin": bool(self.development_discovery and self.identity_store
+                and self.identity_store.read_enrolled_credential() is not None),
             "remoteActionsEnabled": False,
             "requiresClientOAuthAndGrants": True,
             "mode": "discovery-only",
@@ -101,6 +126,10 @@ class ProductDevicePostLoginCoordinator:
             raise ValueError("invalid-connector-visibility")
         if self.client is None or self.identity_store is None:
             raise RuntimeError("connector-unavailable")
+        if self.development_discovery:
+            self.identity_store.set_development_connector_visibility(enabled)
+            self.refresh_development_presence()
+            return self.visibility_status(authenticated=authenticated, subject=subject)
         if enabled:
             if not isinstance(subject, str) or not UUID_RE.fullmatch(subject):
                 raise PermissionError("connector-account-subject-required")
@@ -145,7 +174,7 @@ class ProductDeviceAccountGatewayProxy:
         return getattr(self._gateway, name)
 
     def _clear_session(self):
-        if self._authenticated:
+        if self._authenticated and getattr(self._coordinator, "development_discovery", False) is not True:
             self._coordinator.stop_presence()
         self._authenticated = False
         self._subject = None
@@ -208,16 +237,19 @@ class ProductDeviceAccountGatewayProxy:
             if getattr(reply, "status", None) in {200, 204, 303}:
                 was_authenticated = self._authenticated
                 self._clear_session()
-                if not was_authenticated:
+                if not was_authenticated and getattr(self._coordinator, "development_discovery", False) is not True:
                     self._coordinator.stop_presence()
             return reply
 
     def connector_status(self) -> dict:
         with self._session_lock:
-            try:
-                self.session()
-            except (OSError, RuntimeError):
-                self._clear_session()
+            if getattr(self._coordinator, "development_discovery", False) is True:
+                self._coordinator.refresh_development_presence()
+            else:
+                try:
+                    self.session()
+                except (OSError, RuntimeError):
+                    self._clear_session()
             return self._coordinator.visibility_status(
                 authenticated=self._authenticated, subject=self._subject,
             )
@@ -226,6 +258,10 @@ class ProductDeviceAccountGatewayProxy:
         with self._session_lock:
             if type(enabled) is not bool:
                 raise ValueError("invalid-connector-visibility")
+            if getattr(self._coordinator, "development_discovery", False) is True:
+                return self._coordinator.configure_visibility(
+                    enabled, {}, authenticated=self._authenticated,
+                )
             if not enabled:
                 # Local privacy opt-out works even when the cloud is offline.
                 return self._coordinator.configure_visibility(False, {}, authenticated=self._authenticated)
