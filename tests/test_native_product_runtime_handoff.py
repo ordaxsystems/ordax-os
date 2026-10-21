@@ -125,6 +125,7 @@ class HandoffTests(unittest.TestCase):
 
     def test_runtime_exception_releases_single_owner_and_recovers_presence(self):
         new_worker = Mock()
+        new_worker.client.origin = ORIGIN
         with patch("product_device_presence.ProductDevicePresenceWorker", return_value=new_worker):
             with self.assertRaisesRegex(RuntimeError, "agent_exited"):
                 self.invoke(run=lambda _cfg, **_k: (_ for _ in ()).throw(RuntimeError("agent_exited")))
@@ -147,6 +148,19 @@ class HandoffTests(unittest.TestCase):
         t.join(timeout=2)
         self.assertFalse(t.is_alive())
         self.assertEqual(errors, ["native_runtime_requires_main_thread"])
+        self.old_presence.stop.assert_not_called()
+
+    def test_untrusted_or_external_runtime_state_is_rejected(self):
+        # The private source root is the parent of /device-agent.
+        self.config.state_dir = Path("/tmp/another-user-runtime")
+        with self.assertRaisesRegex(NativeProductRuntimeHandoffError, "native_runtime_state_outside_private_storage"):
+            self.invoke()
+        self.old_presence.stop.assert_not_called()
+
+    def test_nested_identity_state_is_rejected(self):
+        self.config.state_dir = self.store.root / "runtime"
+        with self.assertRaisesRegex(NativeProductRuntimeHandoffError, "native_runtime_state_overlaps_identity"):
+            self.invoke()
         self.old_presence.stop.assert_not_called()
 
     def test_existing_runtime_state_must_not_overlap_credentials(self):
