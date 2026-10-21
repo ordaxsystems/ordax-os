@@ -1,0 +1,34 @@
+name: Native Product Candidate Handoff
+
+on:
+  pull_request:
+    paths:
+      - "system/services/device-agent/studio-runtime-source-lock.json"
+      - "tests/test_studio_runtime_source_lock.mjs"
+      - "tools/ci/verify_native_product_candidate.py"
+      - "tests/test_native_product_candidate_verifier.py"
+      - ".github/workflows/native-product-candidate-handoff.yml"
+  push:
+    branches: [main]
+    paths:
+      - "system/services/device-agent/studio-runtime-source-lock.json"
+      - "tests/test_studio_runtime_source_lock.mjs"
+      - "tools/ci/verify_native_product_candidate.py"
+      - "tests/test_native_product_candidate_verifier.py"
+      - ".github/workflows/native-product-candidate-handoff.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  candidate-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Verify candidate gate regressions
+        run: python3 -m unittest discover -s tests -p test_native_product_candidate_verifier.py -v
+      - name: Verify canonical source lock and closed dispatch
+        run: node --test tests/test_studio_runtime_source_lock.mjs

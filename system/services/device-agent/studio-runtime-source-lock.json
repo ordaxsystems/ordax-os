@@ -2,7 +2,7 @@
   "$schema": "prototype-ordax.studio-runtime-source-lock/1",
   "source": {
     "repository": "https://github.com/ordaxsystems/ordax-runtime",
-    "commit": "9734893697dae7dbb3cef5ca060a531e5fb0cd66",
+    "commit": "bae6429d8a21fa713272b46d447502aaf40fac58",
     "compatibility_contract": {
       "path": "docs/contracts/ordax-os-runtime-compatibility.json",
       "schema": "ordax.studio-runtime-compatibility/1",
@@ -74,5 +74,19 @@
     "intelligence_grants_do_not_authorize_remote_actions": true,
     "single_device_heartbeat_owner_required": true,
     "verified_os_runtime_provenance_required": true
+  },
+  "candidate_evidence": {
+    "kind": "ci-only-unsigned",
+    "source_commit": "bae6429d8a21fa713272b46d447502aaf40fac58",
+    "platform": "linux-amd64-musl",
+    "workflow_run_id": 39550841322,
+    "artifact_id": 12323850615,
+    "archive_sha256": "d6d526ef91f7cdb3b3a8fbc6d719c03de260bf9febb2c0060666eddb1af45e4e",
+    "executable_sha256": "1903470e1f0a3f8fe669dd6419f4771539fd42cb0128484f3fedbf649cafe31b",
+    "executable_size_bytes": 24993200,
+    "offline_proof_verified": true,
+    "device_execution_proven": false,
+    "signed_distribution_authorized": false,
+    "native_graphical_control_proven": false
   }
 }
