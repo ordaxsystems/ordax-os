@@ -1,3 +1,21 @@
+Native Product Runtime ownership handoff (2026-10-21, source only):
+`system/surface/runtime/native_product_runtime_handoff.py` now composes the
+**canonical installed** `ordax_dev_agent.main.run` with the existing private
+`ProductDeviceIdentityStore.read_enrolled_credential`, without a duplicate
+Product token, action transport, attestation client or command scheduler.
+The handoff checks the exact enrolled device and canonical HTTPS origin,
+keeps the OS credential directory in Runtime-protected roots, refuses
+runtime-state overlap and untrusted modes, and closes the old Native
+`ProductDevicePresenceWorker` before Runtime owns heartbeats. On normal
+return or Runtime failure it constructs the **same existing** discovery worker
+and respects the Native local opt-out. Tests exercise this handoff offline
+and leave Stable/MVP and other devices unchanged. This composition is not
+automatically invoked: the signed Runtime component, canonical trust anchor,
+OS lifecycle/startup binding, Native policy, health, actual challenge confirmation
+and remote-action execution/receipt are still absent. The user-visible Native
+connector remains `discovery-only`; do not claim the notebook executes MCP
+actions merely because this source and the Platform SQL migration exist.
+
 Owner/Development USB discovery without account login (2026-10-21): Native
 runtime composition now starts the single existing presence worker whenever the
 private, previously enrolled Product device credential is valid and no local
