@@ -3,6 +3,7 @@
 // Never rewrites a running tree. Only exact verified, clean, immutable versions
 // can become boot candidates. MVP/Stable must not use this Git channel.
 const { randomUUID } = require('node:crypto');
+const { execFileSync } = require('node:child_process');
 const { join, basename, dirname } = require('node:path');
 const { mkdirSync, readFileSync, writeFileSync, renameSync, rmSync, readdirSync, lstatSync, existsSync, openSync, closeSync, fsyncSync } = require('node:fs');
 const { OFFICIAL_REMOTE } = require('./runtime.cjs');
@@ -89,6 +90,16 @@ function removeOwnedCandidate(candidate) {
     throw Error('Desktop candidate cleanup refused non-directory or link');
   }
   try {
+    // Git for Windows marks .git hidden. Windows refuses recursive removal of
+    // some hidden Git directories (EPERM) even when no handle remains open.
+    // Clear that filesystem attribute only within the verified owned candidate.
+    if (process.platform === 'win32') {
+      const gitDir=join(candidate,'.git');
+      if (existsSync(gitDir) && lstatSync(gitDir).isDirectory() &&
+          !lstatSync(gitDir).isSymbolicLink()) {
+        execFileSync('attrib.exe',['-H',gitDir],{windowsHide:true,timeout:10000,stdio:'ignore'});
+      }
+    }
     rmSync(candidate,{recursive:true,force:true,maxRetries:10,retryDelay:200});
     return {removed:!existsSync(candidate)};
   } catch(error) {
