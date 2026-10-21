@@ -735,6 +735,7 @@ while :; do
         esac
 
         ORDAX_BASE_SOURCE_SHA="$source_sha" \
+        ORDAX_BASE_DISTRIBUTION_PROFILE="$DISTRIBUTION_PROFILE" \
             /bin/busybox chroot "$RUNTIME_ROOT" \
             /usr/bin/python3 /srv/ordax-system/services/base-update/orchestrator.py \
             --repo-root /srv/ordax-repo \
