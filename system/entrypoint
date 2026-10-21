@@ -29,6 +29,8 @@ ACPI_DIR=$UPDATE_RUN_DIR/acpi
 ACPI_BUTTON_PID=""
 POWER_STATE_DIR=${ORDAX_STATE_DIR:-/state/ordax}/power
 POWER_LAST_REQUEST=$POWER_STATE_DIR/last-request
+POWER_LAST_STAGE=$POWER_STATE_DIR/last-stage
+POWER_LAST_FAILURE=$POWER_STATE_DIR/last-failure
 BASE_TELEMETRY_PID_FILE=${ORDAX_STATE_DIR:-/state/ordax}/telemetry/agent.pid
 BASE_TELEMETRY_AGENT=${ORDAX_STATE_DIR:-/state/ordax}/telemetry/agent.sh
 RESCUE_PID_FILE=${ORDAX_STATE_DIR:-/state/ordax}/rescue/agent.pid
@@ -348,20 +350,20 @@ terminate_persistent_agent() {
 
     kill "$pid" >/dev/null 2>&1 || true
     remaining=2
-    while kill -0 "$pid" >/dev/null 2>&1 && [ "$remaining" -gt 0 ]; do
+    while supervisor_process_active "$pid" && [ "$remaining" -gt 0 ]; do
         /bin/busybox sleep 1
         remaining=$((remaining - 1))
     done
-    if kill -0 "$pid" >/dev/null 2>&1; then
+    if supervisor_process_active "$pid"; then
         log "forcing persistent $label pid $pid for host power transition"
         kill -KILL "$pid" >/dev/null 2>&1 || true
     fi
     remaining=2
-    while kill -0 "$pid" >/dev/null 2>&1 && [ "$remaining" -gt 0 ]; do
+    while supervisor_process_active "$pid" && [ "$remaining" -gt 0 ]; do
         /bin/busybox sleep 1
         remaining=$((remaining - 1))
     done
-    kill -0 "$pid" >/dev/null 2>&1 && return 1
+    supervisor_process_active "$pid" && return 1
     rm -f "$pid_file" >/dev/null 2>&1 || true
     return 0
 }
@@ -395,6 +397,33 @@ mark_power_request_failed() {
     chmod 600 "$temporary" || return 1
     /bin/busybox mv -f "$temporary" "$POWER_LAST_REQUEST" || return 1
     return 0
+}
+
+# Durable, privacy-safe stage receipts: identify which owner could not
+# complete shutdown. Preserve the last stage and a separate failure reason so
+# the UI cannot confuse a Surface recovery with a real host poweroff.
+record_host_power_stage() {
+    stage=$1
+    case "$stage" in
+        accepted|supervisor-quiesce|host-agents|filesystem-sync|root-readonly) ;;
+        *) return 1 ;;
+    esac
+    temporary=$POWER_LAST_STAGE.tmp.$
+    printf '%s\n' "$stage" >"$temporary" || return 1
+    chmod 600 "$temporary" || return 1
+    /bin/busybox mv -f "$temporary" "$POWER_LAST_STAGE" || return 1
+}
+
+record_host_power_failure() {
+    failure=$1
+    case "$failure" in
+        supervisor-quiesce-failed|host-agents-failed|sync-failed|remount-failed|root-still-writable|kernel-transition-returned) ;;
+        *) return 1 ;;
+    esac
+    temporary=$POWER_LAST_FAILURE.tmp.$
+    printf '%s\n' "$failure" >"$temporary" || return 1
+    chmod 600 "$temporary" || return 1
+    /bin/busybox mv -f "$temporary" "$POWER_LAST_FAILURE" || return 1
 }
 
 prepare_host_power_channel() {
@@ -449,7 +478,9 @@ close_host_power_channel() {
 restore_runtime_after_power_failure() {
     action=$1
     reason=$2
+    failure_code=$3
     mark_power_request_failed "$action" || true
+    record_host_power_failure "$failure_code" || true
     STOPPING=0
     log "$reason; restoring supervised runtime"
     if ! start_supervisor; then
@@ -464,28 +495,34 @@ perform_host_power_transition() {
     case "$action" in restart|shutdown) ;; *) return 1 ;; esac
 
     STOPPING=1
+    rm -f "$POWER_LAST_FAILURE" >/dev/null 2>&1 || true
+    record_host_power_stage accepted || true
     log "host power owner accepted $action; stopping supervised runtime"
+    record_host_power_stage supervisor-quiesce || true
     if ! quiesce_supervisor_for_power_transition; then
-        restore_runtime_after_power_failure "$action" "supervisor could not prove Surface/Native quiescence for $action"
+        restore_runtime_after_power_failure "$action" "supervisor could not prove Surface/Native quiescence for $action" supervisor-quiesce-failed
         return 1
     fi
 
     stop_acpi_button_listener
+    record_host_power_stage host-agents || true
     if ! terminate_persistent_host_agents; then
-        restore_runtime_after_power_failure "$action" "persistent host agent did not quiesce for $action"
+        restore_runtime_after_power_failure "$action" "persistent host agent did not quiesce for $action" host-agents-failed
         return 1
     fi
+    record_host_power_stage filesystem-sync || true
     if ! /bin/busybox sync >>"$GUARDIAN_LOG" 2>&1; then
-        restore_runtime_after_power_failure "$action" "filesystem sync failed before $action"
+        restore_runtime_after_power_failure "$action" "filesystem sync failed before $action" sync-failed
         return 1
     fi
+    record_host_power_stage root-readonly || true
     if ! /bin/busybox mount -o remount,ro / >>"$GUARDIAN_LOG" 2>&1; then
-        restore_runtime_after_power_failure "$action" "root filesystem could not be remounted read-only for $action"
+        restore_runtime_after_power_failure "$action" "root filesystem could not be remounted read-only for $action" remount-failed
         return 1
     fi
     if ! root_filesystem_is_read_only; then
         /bin/busybox mount -o remount,rw / >/dev/null 2>&1 || true
-        restore_runtime_after_power_failure "$action" "root filesystem remained writable after $action quiesce"
+        restore_runtime_after_power_failure "$action" "root filesystem remained writable after $action quiesce" root-still-writable
         return 1
     fi
 
@@ -508,7 +545,7 @@ perform_host_power_transition() {
     esac
 
     if /bin/busybox mount -o remount,rw / >/dev/null 2>&1; then
-        restore_runtime_after_power_failure "$action" "kernel $action transition returned without crossing a boot boundary"
+        restore_runtime_after_power_failure "$action" "kernel $action transition returned without crossing a boot boundary" kernel-transition-returned
         return 1
     fi
 
