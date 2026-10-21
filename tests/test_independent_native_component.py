@@ -111,5 +111,97 @@ class NativeComponentBuildrootTests(unittest.TestCase):
         self.assertFalse(parsed["inputs"]["device_install_authorized"])
 
 
+
+class BuiltNativePythonClosureTests(unittest.TestCase):
+    """Examine the Buildroot target tree, not a second ELF parser or host Python."""
+
+    def setUp(self):
+        self.mod = builder()
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.target = Path(self.tmp.name) / "target"
+        bin_dir = self.target / "usr/bin"
+        stdlib = self.target / "usr/lib/python3.13"
+        lib_dir = self.target / "lib"
+        (stdlib / "lib-dynload").mkdir(parents=True)
+        bin_dir.mkdir(parents=True)
+        lib_dir.mkdir(parents=True)
+        self.exe = bin_dir / "python3.13"
+        binary = bytearray(20)
+        binary[:7] = bytes.fromhex("7f454c46020101")
+        binary[16:18] = (2).to_bytes(2, "little")
+        binary[18:20] = (62).to_bytes(2, "little")
+        self.exe.write_bytes(binary)
+        for name in ("_ssl.cpython-313-x86_64-linux-musl.so",
+                     "_hashlib.cpython-313-x86_64-linux-musl.so",
+                     "zlib.cpython-313-x86_64-linux-musl.so"):
+            (stdlib / "lib-dynload" / name).write_text("not-an-ELF test module")
+        (stdlib / "ssl.py").write_text("")
+        (stdlib / "site.py").write_text("")
+        (stdlib / "json").mkdir()
+        (stdlib / "json/__init__.py").write_text("")
+        (self.target / "etc/ssl/certs").mkdir(parents=True)
+        (self.target / "etc/ssl/certs/ca-certificates.crt").write_text("certificate")
+        (lib_dir / "ld-musl-x86_64.so.1").write_text("loader")
+        (lib_dir / "libz.so.1").write_text("library")
+
+    def test_built_interpreter_and_dependency_closure_is_reported(self):
+        with patch.object(self.mod, "run", side_effect=[
+            "[Requesting program interpreter: /lib/ld-musl-x86_64.so.1]",
+            "0x00000001 (NEEDED) Shared library: [libz.so.1]",
+        ]) as readelf:
+            receipt = self.mod.verify_native_python_target(self.target)
+        self.assertEqual(readelf.call_count, 2)
+        self.assertEqual(receipt["python_executable"], "usr/bin/python3.13")
+        self.assertEqual(receipt["needed_shared_libraries"], ["libz.so.1"])
+        self.assertTrue(receipt["stdlib_ssl_zlib_verified"])
+        self.assertFalse(receipt["runtime_agent_packaged"])
+        self.assertFalse(receipt["device_execution_proven"])
+        self.assertFalse(receipt["component_install_authorized"])
+        self.assertRegex(receipt["elf_manifest_sha256"], "^[a-f0-9]{64}$")
+
+    def test_missing_private_lib_is_never_satisfied_by_host(self):
+        with patch.object(self.mod, "run", side_effect=[
+            "[Requesting program interpreter: /lib/ld-musl-x86_64.so.1]",
+            "0x00000001 (NEEDED) Shared library: [libssl.so.3]",
+        ]):
+            with self.assertRaisesRegex(self.mod.BaseError, "shared dependency absent"):
+                self.mod.verify_native_python_target(self.target)
+
+    def test_wrong_dynamic_interpreter_is_refused(self):
+        with patch.object(self.mod, "run", return_value=(
+            "[Requesting program interpreter: /lib64/ld-linux-x86-64.so.2]"
+        )):
+            with self.assertRaisesRegex(self.mod.BaseError, "unexpected private Python ELF interpreter"):
+                self.mod.verify_native_python_target(self.target)
+
+    def test_missing_tls_and_zlib_extensions_are_blockers(self):
+        folder = self.target / "usr/lib/python3.13/lib-dynload"
+        for suffix in ("_ssl", "_hashlib", "zlib"):
+            with self.subTest(extension=suffix):
+                path = next(folder.glob(suffix + "*.so"))
+                renamed = path.with_suffix(".absent")
+                path.rename(renamed)
+                with self.assertRaisesRegex(self.mod.BaseError, "extension missing"):
+                    self.mod.verify_native_python_target(self.target)
+                renamed.rename(path)
+
+    def test_rootfs_source_and_incompatible_machine_are_refused(self):
+        data = bytearray(self.exe.read_bytes())
+        data[18:20] = (183).to_bytes(2, "little")
+        self.exe.write_bytes(data)
+        with self.assertRaisesRegex(self.mod.BaseError, "non-x86_64 ELF"):
+            self.mod.verify_native_python_target(self.target)
+
+    def test_build_component_uses_single_existing_setup_not_os_ero_fs(self):
+        source = (BASE / "build.py").read_text()
+        self.assertIn("configure_buildroot(", source)
+        self.assertIn("def build_native_python_component(", source)
+        self.assertIn('verify_native_python_target(build_dir / "target")', source)
+        self.assertIn('"device_install_authorized": False', source)
+
+
+
+
 if __name__ == "__main__":
     unittest.main()
