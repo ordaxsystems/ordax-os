@@ -47,6 +47,15 @@ class DevRootfsMountHandoffTests(unittest.TestCase):
             source.index("start_local_surface fast-graphical"),
         )
         self.assertIn("exec 1>/dev/console 2>&1", source)
+        # /proc/self in a forked awk resolves to awk itself: its stdout is
+        # the command substitution pipe, not the init process console.
+        self.assertIn(
+            "read -r console_owner_pid _console_owner_stat </proc/self/stat",
+            source,
+        )
+        self.assertIn('"/proc/$console_owner_pid/fdinfo/1"', source)
+        self.assertIn('"/proc/$console_owner_pid/fdinfo/2"', source)
+
         # The boot authority must be PID 1 as observed by the kernel.
         # A literal dollar or an environment-provided PID cannot pass this.
         self.assertNotIn('if [ "$" -eq 1 ]; then', source)
@@ -74,8 +83,8 @@ class DevRootfsMountHandoffTests(unittest.TestCase):
         function = token + source.split(token, 1)[1].split("\n}\n", 1)[0] + "\n}\n"
         function = function.replace("/bin/busybox awk", "awk")
         function = function.replace("/proc/self/mountinfo", '"$MOUNTINFO"')
-        function = function.replace("/proc/self/fdinfo/1", '"$FDINFO_1"')
-        function = function.replace("/proc/self/fdinfo/2", '"$FDINFO_2"')
+        function = function.replace('"/proc/$console_owner_pid/fdinfo/1"', '"$FDINFO_1"')
+        function = function.replace('"/proc/$console_owner_pid/fdinfo/2"', '"$FDINFO_2"')
         # Use the harmless /dev/null character device in a child shell only.
         # Never rebind the CI runner's own stdout or hardware console.
         function = function.replace("/dev/console", "/dev/null")
