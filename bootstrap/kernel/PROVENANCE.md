@@ -165,6 +165,11 @@ different build contents, alias/hardlink reuse, or disagreement between
 `docs/contracts/minimal-bootstrap.json` and
 `system/base-update/candidate.json`.
 
+Two distinct directories and matching checksums do **not** attest separate build
+executions. An external, exact-source pinned-CI repeat-build receipt remains a
+mandatory release prerequisite; the preflight explicitly reports that it has
+not independently established this fact.
+
 **The proposal does not authorize or perform a rebind.** It is an input for
 later reviewed canonical artifact replacement, byte-complete Creator build,
 offline release signing and QEMU/physical proof. Historical hashes in
