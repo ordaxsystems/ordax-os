@@ -6,7 +6,6 @@ ENTRYPOINT=$WORKTREE/system/entrypoint
 GIT_BIN=${ORDAX_GIT_BIN:-/usr/bin/git}
 UPDATE_RUN_DIR=${ORDAX_UPDATE_RUN_DIR:-/run/ordax-update}
 GUARDIAN_LOG=$UPDATE_RUN_DIR/guardian.log
-SURFACE_RUNTIME_PROVISION_MARKER=${ORDAX_SURFACE_RUNTIME_PROVISION_MARKER:-/run/ordax-surface/runtime-provisioning-source-sha}
 PRODUCT_CONTROL_PLANE_URL=${ORDAX_PRODUCT_CONTROL_PLANE_URL:-}
 PRODUCT_CONTROL_PLANE_CONFIG=$WORKTREE/bootstrap/base-update/owner-development/product-control-plane-origin
 STATE_DIR=${ORDAX_STATE_DIR:-/state/ordax}
@@ -159,71 +158,64 @@ forward_signal() {
     fi
 }
 
-watch_owner_provisioning() {
-    announced=no
+watch_optional_aura() {
+    # Surface provisioning and health belong to the Guardian/Supervisor.
+    # This observer owns only late delivery and restart of the optional Aura process.
     aura_announced=no
     aura_seen_hash=""
-    aura_poll_ticks=10
-    aura_retry_ticks=60
+    aura_retry_seconds=60
+    watch_sleep_pid=""
+    # Reap the sleep child when Guardian shuts down, without orphaned processes.
+    trap 'stop_observer "$watch_sleep_pid"; exit 0' HUP INT TERM
     while process_alive "$ENTRY_PID"; do
-        if [ "$announced" = no ] && [ -f "$SURFACE_RUNTIME_PROVISION_MARKER" ] && [ ! -L "$SURFACE_RUNTIME_PROVISION_MARKER" ]; then
-            marker_source=""
-            IFS= read -r marker_source <"$SURFACE_RUNTIME_PROVISION_MARKER" || true
-            if [ "$marker_source" = "$source_sha" ]; then
-                echo "ordax-run: first-boot Surface runtime provisioning is in progress; the runtime remains supervised"
-                announced=yes
-            fi
-        fi
-        # Reconcile the same Native process owner, not a second supervisor or
-        # inference backend. Status is a cheap PID/mount/credential check;
-        # launcher start itself re-hashes the signed EROFS before execution.
-        if [ "$aura_poll_ticks" -ge 10 ]; then
-            aura_poll_ticks=0
-            if [ -f "$AURA_READY_MARKER" ] && [ ! -L "$AURA_READY_MARKER" ] &&
-               [ -f "$LOCAL_AI_LIFECYCLE" ] && [ ! -L "$LOCAL_AI_LIFECYCLE" ]; then
-                ready_hash=$(read_state_value "$AURA_READY_MARKER")
-                case "$ready_hash" in
-                    ''|*[!0-9a-f]*) ;;
-                    *)
-                        if [ "${#ready_hash}" -eq 64 ] &&
-                           bb grep -qx "IMAGE_SHA256=$ready_hash" "$LOCAL_AI_LIFECYCLE"; then
-                            if [ "$aura_seen_hash" != "$ready_hash" ]; then
-                                aura_seen_hash=$ready_hash
-                                aura_retry_ticks=60
+        if [ -f "$AURA_READY_MARKER" ] && [ ! -L "$AURA_READY_MARKER" ] &&
+           [ -f "$LOCAL_AI_LIFECYCLE" ] && [ ! -L "$LOCAL_AI_LIFECYCLE" ]; then
+            ready_hash=$(read_state_value "$AURA_READY_MARKER")
+            case "$ready_hash" in
+                ''|*[!0-9a-f]*) ;;
+                *)
+                    if [ "${#ready_hash}" -eq 64 ] &&
+                       bb grep -qx "IMAGE_SHA256=$ready_hash" "$LOCAL_AI_LIFECYCLE"; then
+                        if [ "$aura_seen_hash" != "$ready_hash" ]; then
+                            aura_seen_hash=$ready_hash
+                            aura_retry_seconds=60
+                        fi
+                        if local_ai_running; then
+                            if [ "$aura_announced" != yes ]; then
+                                echo "ordax-run: verified Aura process running; inference readiness is Native-probed" >&2
+                                aura_announced=yes
                             fi
+                            aura_retry_seconds=60
+                        elif [ "$aura_retry_seconds" -ge 60 ]; then
+                            [ "$aura_announced" != yes ] ||
+                                echo "ordax-run: Aura process exited; attempting bounded Native restart" >&2
+                            aura_announced=no
+                            # The Native owner revalidates the image on every actual start.
+                            local_ai_lifecycle stop
+                            local_ai_lifecycle start
+                            aura_retry_seconds=0
                             if local_ai_running; then
-                                if [ "$aura_announced" != yes ]; then
-                                    echo "ordax-run: verified Aura process running; inference readiness is Native-probed" >&2
-                                    aura_announced=yes
-                                fi
-                                aura_retry_ticks=60
-                            elif [ "$aura_retry_ticks" -ge 60 ]; then
-                                [ "$aura_announced" != yes ] || \
-                                    echo "ordax-run: Aura process exited; attempting bounded Native restart" >&2
-                                aura_announced=no
-                                # Native lifecycle stop only owns its PID, mount and
-                                # ephemeral key. Surface and Base update stay alive.
-                                local_ai_lifecycle stop
-                                local_ai_lifecycle start
-                                aura_retry_ticks=0
-                                if local_ai_running; then
-                                    aura_announced=yes
-                                    echo "ordax-run: verified Aura backend process restored; readiness is Native-probed" >&2
-                                else
-                                    echo "ordax-run: Aura startup unavailable; retry limited to once per minute" >&2
-                                fi
+                                aura_announced=yes
+                                echo "ordax-run: verified Aura backend process restored; readiness is Native-probed" >&2
+                            else
+                                echo "ordax-run: Aura startup unavailable; retry limited to once per minute" >&2
                             fi
                         fi
-                        ;;
-                esac
-            fi
+                    fi
+                    ;;
+            esac
         fi
-        bb sleep 1
-        aura_poll_ticks=$((aura_poll_ticks + 1))
-        if [ "$aura_retry_ticks" -lt 60 ]; then
-            aura_retry_ticks=$((aura_retry_ticks + 1))
+        # One bounded check per ten seconds, not one process wakeup per second.
+        # The signed staging marker may arrive after boot; do not assume absence is permanent.
+        bb sleep 10 &
+        watch_sleep_pid=$!
+        wait "$watch_sleep_pid" || true
+        watch_sleep_pid=""
+        if [ "$aura_retry_seconds" -lt 60 ]; then
+            aura_retry_seconds=$((aura_retry_seconds + 10))
         fi
     done
+    trap - HUP INT TERM
 }
 
 start_guardian_tail() {
@@ -284,8 +276,9 @@ trap cleanup_runtime EXIT
 # The optional service does not participate in boot-health or update gates.
 local_ai_lifecycle start
 
-# Watching AFTER initial startup prevents competing starts for a pre-staged image.
-watch_owner_provisioning &
+# Observe late signed Aura staging only after the Surface has started.
+# The Guardian is the only Surface provisioning/health watcher.
+watch_optional_aura &
 WATCH_PID=$!
 
 entry_rc=0
