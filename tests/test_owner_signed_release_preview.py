@@ -11,6 +11,13 @@ SCRIPT = ROOT / "system/services/update/owner-signed-preview.sh"
 SHELL = os.environ.get("ORDAX_TEST_POSIX_SH", "/bin/sh")
 SHA = "0123456789abcdef0123456789abcdef01234567"
 
+def shell_path(path):
+    value = str(path)
+    if os.name != "nt":
+        return value
+    drive, rest = os.path.splitdrive(value)
+    return "/" + drive[0].lower() + rest.replace(chr(92), "/")
+
 
 class OwnerSignedPreviewTests(unittest.TestCase):
     def setUp(self):
@@ -24,7 +31,7 @@ class OwnerSignedPreviewTests(unittest.TestCase):
         self.trust = self.root / "trust.json"
         self.trust.write_text("canonical-fixture-anchor", encoding="utf-8")
         self.channel = self.root / "channel"
-        self.channel.write_text("https://example.invalid/release-envelope.json\n", encoding="utf-8")
+        self.channel.write_text("https://example.invalid/release-envelope.json\n", encoding="utf-8", newline="\n")
         self.agent = self.root / "agent"
         self.agent.write_text(
             '#!/bin/sh\n'
@@ -36,7 +43,7 @@ class OwnerSignedPreviewTests(unittest.TestCase):
             ' verify-portable-v4-exact) printf \'{"status":"verified","source_commit":"'
             + SHA + '"}\\n\' ;;\n'
             ' *) exit 94 ;;\n'
-            'esac\n', encoding="utf-8",
+            'esac\n', encoding="utf-8", newline="\n",
         )
         self.agent.chmod(0o755)
         self.record = self.root / "agent-invocations"
@@ -44,12 +51,12 @@ class OwnerSignedPreviewTests(unittest.TestCase):
         self.stage.mkdir()
         self.env = dict(os.environ,
             ORDAX_DISTRIBUTION_PROFILE="owner-development",
-            ORDAX_WORKTREE=str(self.checkout),
-            ORDAX_OWNER_SIGNED_AGENT=str(self.agent),
-            ORDAX_OWNER_SIGNED_TRUST_FILE=str(self.trust),
-            ORDAX_OWNER_SIGNED_CHANNEL_FILE=str(self.channel),
-            ORDAX_OWNER_SIGNED_STAGE_ROOT=str(self.stage),
-            ORDAX_TEST_RECORD=str(self.record),
+            ORDAX_WORKTREE=shell_path(self.checkout),
+            ORDAX_OWNER_SIGNED_AGENT=shell_path(self.agent),
+            ORDAX_OWNER_SIGNED_TRUST_FILE=shell_path(self.trust),
+            ORDAX_OWNER_SIGNED_CHANNEL_FILE=shell_path(self.channel),
+            ORDAX_OWNER_SIGNED_STAGE_ROOT=shell_path(self.stage),
+            ORDAX_TEST_RECORD=shell_path(self.record),
         )
 
     def call(self, *args, env=None):
@@ -76,7 +83,7 @@ class OwnerSignedPreviewTests(unittest.TestCase):
         commands = self.invoked()
         self.assertEqual(len(commands), 1)
         self.assertTrue(commands[0].startswith("inspect --envelope-url https://example.invalid/"))
-        self.assertIn("--trust " + str(self.trust), commands[0])
+        self.assertIn("--trust " + shell_path(self.trust), commands[0])
         self.assertIn("--repository ordaxsystems/ordax-os", commands[0])
         self.assertNotIn("--root", commands[0])
         self.assert_preserved()
@@ -90,7 +97,7 @@ class OwnerSignedPreviewTests(unittest.TestCase):
         self.assertTrue(commands[1].startswith("verify-portable-v4-exact "))
         for cmd in commands:
             self.assertIn("--expected-commit " + SHA, cmd)
-            self.assertIn("--root " + str(self.stage), cmd)
+            self.assertIn("--root " + shell_path(self.stage), cmd)
             self.assertNotIn("activate-exact", cmd)
             self.assertNotIn(" install ", " " + cmd + " ")
         self.assert_preserved()
@@ -111,9 +118,9 @@ class OwnerSignedPreviewTests(unittest.TestCase):
         self.assert_preserved()
 
     def test_invalid_channel_and_unsafe_trust_are_denied_before_agent(self):
-        self.channel.write_text("http://example.invalid/unsigned\n", encoding="utf-8")
+        self.channel.write_text("http://example.invalid/unsigned\n", encoding="utf-8", newline="\n")
         self.assertNotEqual(self.call("inspect").returncode, 0)
-        self.channel.write_text("https://example.invalid/release-envelope.json\n", encoding="utf-8")
+        self.channel.write_text("https://example.invalid/release-envelope.json\n", encoding="utf-8", newline="\n")
         self.trust.unlink()
         self.trust.symlink_to(self.channel)
         self.assertNotEqual(self.call("inspect").returncode, 0)
@@ -122,14 +129,14 @@ class OwnerSignedPreviewTests(unittest.TestCase):
     def test_cannot_stage_on_live_or_unapproved_root(self):
         for root in (self.checkout, self.root, Path("/"), Path("/state"),
                      Path("/ordax"), Path("/workspace")):
-            result = self.call("stage", SHA, env=dict(self.env, ORDAX_OWNER_SIGNED_STAGE_ROOT=str(root)))
+            result = self.call("stage", SHA, env=dict(self.env, ORDAX_OWNER_SIGNED_STAGE_ROOT=shell_path(root)))
             self.assertNotEqual(result.returncode, 0, str(root))
         self.assertEqual(self.invoked(), [])
 
     def test_symlink_stage_directory_is_denied(self):
         alias = self.root / "alternate"
         alias.symlink_to(self.stage, target_is_directory=True)
-        result = self.call("stage", SHA, env=dict(self.env, ORDAX_OWNER_SIGNED_STAGE_ROOT=str(alias)))
+        result = self.call("stage", SHA, env=dict(self.env, ORDAX_OWNER_SIGNED_STAGE_ROOT=shell_path(alias)))
         self.assertNotEqual(result.returncode, 0)
         self.assertEqual(self.invoked(), [])
 
