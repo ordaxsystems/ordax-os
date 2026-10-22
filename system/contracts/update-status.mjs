@@ -12,6 +12,8 @@ const UPDATE_PHASES = new Set([
   "error",
 ]);
 
+const UPDATE_TRANSPORTS = new Set(["git-main", "official-signed-release-channel", "unavailable"]);
+
 const BASE_UPDATE_PHASES = new Set([
   "none",
   "waiting-candidate",
@@ -87,6 +89,10 @@ export function validateUpdateStatusSnapshot(value) {
   if (!UPDATE_PHASES.has(phase)) {
     throw new TypeError(`Unsupported update phase: ${phase}`);
   }
+  const updateTransport = optionalString(value.updateTransport, "unavailable");
+  if (!UPDATE_TRANSPORTS.has(updateTransport)) {
+    throw new TypeError("Update status has unsupported transport");
+  }
   const deliveryNumber = optionalNonNegativeInteger(
     value.deliveryNumber ?? value.versionNumber,
     0,
@@ -108,6 +114,7 @@ export function validateUpdateStatusSnapshot(value) {
     status: value.status,
     phase,
     applyMode: value.applyMode,
+    updateTransport,
     attemptId: optionalString(value.attemptId, ""),
     bootRefreshRequired: value.bootRefreshRequired === true,
     baseUpdatePhase,
