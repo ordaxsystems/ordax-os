@@ -9,12 +9,21 @@ canonical singleton lock and delegates to the dispatch loop. The former
 source-only Python handoff helper is not a runtime entrypoint.
 The unsigned candidate evidence is refreshed from the **successful
 native CI on ordax-runtime main** at
-`1bbb6a0c45468fced3f1cdc0a7ffeda5a143bba8` (Actions run
-`39725908808`), with independently matched artifact ZIP and ELF SHA-256.
-The ELF is 25,036,072 bytes and has an external musl interpreter
+`d3cecce1abfe542a50795b72d98d6a15fa25803a` (Actions run
+`39732421629`), with independently matched artifact ZIP and ELF SHA-256.
+The ELF is 25,034,544 bytes and has an external musl interpreter
 `/lib/ld-musl-x86_64.so.1`, DT_NEEDED `libc.musl-x86_64.so.1`
 and `libz.so.1`. Source provenance also uses Alpine; the embedded Python
 dependency closure is not verified against the Independent Base.
+The upstream canonical PyInstaller CArchive auditor now identifies **90**
+embedded ELF members (40,611,847 uncompressed bytes) and binds a
+deterministic inventory fingerprint to the same immutable CI candidate.
+Declared native dependencies not supplied by identically named embedded
+members include `libc.musl-x86_64.so.1` and `libc.so`. This is **not** a
+complete loader resolution proof; the OS checks the pinned manifest's
+structure, fingerprint and non-activation semantics, but does **not** fork
+the canonical Runtime's PyInstaller parser. The current unsigned CI ZIP
+does not authorize installation or a change to the system trust anchor.
 The OS CI verifier reads PT_INTERP and DT_NEEDED from executable bytes,
 matches the source lock and reports `independent_base_abi_ready=false`
 without pretending a signed/installable component. The Independent Base minimal Buildroot defconfig currently uses

@@ -62,6 +62,18 @@ class CandidateVerifierTests(unittest.TestCase):
                 "embedded-python-runtime-closure-unverified"],
             "elf_interpreter": "/lib/ld-musl-x86_64.so.1",
             "elf_needed_libraries": ["libc.musl-x86_64.so.1", "libz.so.1"],
+            "embedded_elf_inventory": {
+                "schema": "ordax.native-embedded-elf-inventory/1",
+                "native_entry_count": 1,
+                "native_uncompressed_bytes": len(ELF),
+                "inventory_sha256": "b" * 64,
+                "needed_libraries": ["libc.so", "libz.so.1"],
+                "unprovided_needed_names": ["libc.so"],
+                "embedded_interpreters": [],
+                "read_only_audit": True,
+                "independent_base_compatibility_proven": False,
+                "install_authorized": False,
+            },
         }
         self.proof = dict(PROOF)
         self.lock = {
@@ -78,6 +90,13 @@ class CandidateVerifierTests(unittest.TestCase):
                 "independent_base_abi_blockers": list(self.manifest["independent_base_abi_blockers"]),
                 "elf_interpreter": self.manifest["elf_interpreter"],
                 "elf_needed_libraries": list(self.manifest["elf_needed_libraries"]),
+                "embedded_elf_inventory": {
+                    key: self.manifest["embedded_elf_inventory"][key] for key in (
+                        "schema", "native_entry_count", "native_uncompressed_bytes",
+                        "inventory_sha256", "unprovided_needed_names",
+                        "independent_base_compatibility_proven", "install_authorized"
+                    )
+                },
             },
             "distribution": {"runtime_artifact_claimed": False, "runtime_packaged_in_stable": False,
                              "source_binding_only": True},
@@ -164,6 +183,45 @@ class CandidateVerifierTests(unittest.TestCase):
         self.lock["candidate_evidence"]["elf_needed_libraries"] = ["libnotreally.so.1"]
         self.write_fixture()
         with self.assertRaisesRegex(verifier.CandidateError, "native ELF loader"):
+            self.verify()
+
+    def test_embedded_native_inventory_is_bound_to_zip_and_source_lock(self):
+        result = self.verify()
+        self.assertEqual(result["embedded_elf_inventory"]["native_entry_count"], 1)
+        self.assertEqual(result["embedded_elf_inventory"]["inventory_sha256"], "b" * 64)
+        self.assertFalse(result["embedded_elf_inventory"]["install_authorized"])
+
+    def test_rejects_missing_embedded_native_inventory(self):
+        self.manifest.pop("embedded_elf_inventory")
+        self.write_fixture()
+        with self.assertRaisesRegex(verifier.CandidateError, "inventory is missing"):
+            self.verify()
+
+    def test_rejects_changed_embedded_elf_inventory_fingerprint(self):
+        self.manifest["embedded_elf_inventory"]["inventory_sha256"] = "c" * 64
+        self.write_fixture()
+        with self.assertRaisesRegex(verifier.CandidateError, "pinned evidence"):
+            self.verify()
+
+    def test_rejects_embedded_native_install_authority(self):
+        self.manifest["embedded_elf_inventory"]["install_authorized"] = True
+        self.lock["candidate_evidence"]["embedded_elf_inventory"]["install_authorized"] = True
+        self.write_fixture()
+        with self.assertRaisesRegex(verifier.CandidateError, "cannot authorize"):
+            self.verify()
+
+    def test_rejects_false_independent_base_compatibility(self):
+        self.manifest["embedded_elf_inventory"]["independent_base_compatibility_proven"] = True
+        self.lock["candidate_evidence"]["embedded_elf_inventory"]["independent_base_compatibility_proven"] = True
+        self.write_fixture()
+        with self.assertRaisesRegex(verifier.CandidateError, "cannot authorize"):
+            self.verify()
+
+    def test_rejects_unbound_embedded_dependency_names(self):
+        self.manifest["embedded_elf_inventory"]["unprovided_needed_names"] = ["fake.so"]
+        self.lock["candidate_evidence"]["embedded_elf_inventory"]["unprovided_needed_names"] = ["fake.so"]
+        self.write_fixture()
+        with self.assertRaisesRegex(verifier.CandidateError, "dependencies are invalid"):
             self.verify()
 
     def test_dispatch_must_remain_off(self):
