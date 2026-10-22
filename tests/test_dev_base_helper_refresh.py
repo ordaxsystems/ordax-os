@@ -168,7 +168,7 @@ class DevBaseHelperRefreshTests(unittest.TestCase):
             self.assertEqual(outside.read_text(encoding="utf-8"), "keep\n")
             self.assertFalse((state / "dev-helpers-sha").exists())
 
-    def test_ordax_run_streams_guardian_status_and_exact_sha_provisioning(self):
+    def test_ordax_run_streams_guardian_status_without_second_provisioning_watcher(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             worktree = root / "worktree"
@@ -228,7 +228,7 @@ class DevBaseHelperRefreshTests(unittest.TestCase):
             self.assertIn(f"starting Owner/Development runtime at {SOURCE_SHA}", combined)
             self.assertIn(f"canonical log: {run_dir / 'guardian.log'}", combined)
             self.assertIn("ordax-guardian: fake-start", combined)
-            self.assertIn("first-boot Surface runtime provisioning is in progress", combined)
+            self.assertNotIn("first-boot Surface runtime provisioning is in progress", combined)
             self.assertIn("cold-boot Surface acknowledged healthy state", combined)
             self.assertFalse(marker.exists())
 

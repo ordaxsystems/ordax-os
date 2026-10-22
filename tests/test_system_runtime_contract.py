@@ -1,4 +1,5 @@
 import os
+import re
 from pathlib import Path
 import stat
 import subprocess
@@ -134,6 +135,18 @@ class SystemRuntimeContractTests(unittest.TestCase):
         self.assertIn("console_fallback", text)
         for forbidden in ("curl ", "wget ", "udhcpc", "ssh ", "exec sh"):
             self.assertNotIn(forbidden, text)
+
+    def test_native_composition_imports_have_live_consumers(self):
+        """ESM imports are evaluated before boot even when their values are unused."""
+        source = (NATIVE_COMPOSITION / "main.mjs").read_text(encoding="utf-8")
+        groups = re.findall(r'import\s*\{([^}]+)\}\s*from\s*["\'][^"\']+["\'];', source, re.S)
+        self.assertTrue(groups)
+        for group in groups:
+            for specifier in group.split(","):
+                symbol = specifier.strip().split(" as ")[-1]
+                if symbol:
+                    mentions = re.findall(r"\b" + re.escape(symbol) + r"\b", source)
+                    self.assertGreater(len(mentions), 1, f"Unused eager Native import: {symbol}")
 
     def test_native_graphical_runtime_is_provisioned_from_pulled_system(self):
         text = SURFACE_RUNTIME.read_text(encoding="utf-8")
