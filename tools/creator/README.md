@@ -266,6 +266,40 @@ ordax-creator stage-tree \
 
 See `docs/CREATOR-INSTALLATION.md`, `docs/PHYSICAL-MEDIA.md`, `docs/RELEASE-TRUST-CEREMONY.md` and `docs/PROMOTION-GATES.md`.
 
+## Existing USB inspection — read-only first slice
+
+The Creator now has an explicitly **read-only** installed-media inspection
+entrypoint in the existing Windows targets CLI:
+
+```powershell
+ordax-creator-targets.exe
+ordax-creator-targets.exe --confirm <fresh USB confirmation token> --inspect
+```
+
+The second command re-enumerates the removable USB, checks the existing
+confirmed PhysicalDrive identity and target-volume isolation, then reads the
+GPT through a `GENERIC_READ` handle. The Creator Core verifies protective MBR,
+both GPT header and entry-array CRCs, primary/backup agreement, physical
+capacity and non-overlapping partition ranges. It recognizes only **candidate
+layouts** (`owner-development-candidate`, `owner-seed-candidate`,
+`portable-stable-candidate`) and reports unknown but valid GPTs as
+`unrecognized`. Damaged GPTs fail closed.
+
+The `verification=gpt-primary-backup-crc-and-geometry-only` field is deliberate:
+GPT labels cannot prove OrdaX installation authenticity, filesystem health,
+bootability, installed version, update eligibility or repair safety. This
+command **never mounts, repairs, downloads, elevates or writes**, and
+`physical_write=false` is a fixed contract. It does not alter or bypass the
+separate signed physical release and target-specific destructive gates.
+
+Next maintenance slices should use the same confirmed-target and Core policy
+boundary: read-only ESP/bootstrap inspection, safe detection of offline
+transaction receipts and update status, then a separately authorized backup
+and recovery runtime with independent ext4 validation. Owner/Development Git
+updates must keep using the canonical `ordax-pull` owner; Stable/MVP updates
+must use signed release material. Neither may add a parallel updater or
+infer "repairable" from GPT labels.
+
 ## Native installation foundation — post-MVP
 
 The durable Native target geometry, target-identity binding, boot assets and non-destructive planners remain implemented and covered by engineering proofs.
