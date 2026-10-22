@@ -3,6 +3,8 @@ package main
 import (
 	"archive/zip"
 	"crypto/sha256"
+	"debug/elf"
+	"encoding/binary"
 	"encoding/hex"
 	"os"
 	"path/filepath"
@@ -12,18 +14,35 @@ import (
 )
 
 func nativeExecutableBytes() []byte {
-	// Slightly above the generic 2 MiB app limit; a synthetic amd64 ELF,
-	// never a real build, and never executed by these tests.
+	// A minimal structurally valid x86-64 ELF64 with executable PT_LOAD and
+	// bound entrypoint. This is ONLY a packaging fixture and never executes:
+	// actual kernel/Buildroot ABI proof remains a separate prerequisite.
 	data := make([]byte, (2<<20)+4096)
-	copy(data[:6], []byte{0x7f, 'E', 'L', 'F', 2, 1})
-	data[18] = 62
+	copy(data[:16], []byte{0x7f, 'E', 'L', 'F', 2, 1, 1})
+	binary.LittleEndian.PutUint16(data[16:], uint16(elf.ET_EXEC))
+	binary.LittleEndian.PutUint16(data[18:], uint16(elf.EM_X86_64))
+	binary.LittleEndian.PutUint32(data[20:], uint32(elf.EV_CURRENT))
+	binary.LittleEndian.PutUint64(data[24:], 0x400000)
+	binary.LittleEndian.PutUint64(data[32:], 64)
+	binary.LittleEndian.PutUint16(data[52:], 64)
+	binary.LittleEndian.PutUint16(data[54:], 56)
+	binary.LittleEndian.PutUint16(data[56:], 1)
+	binary.LittleEndian.PutUint32(data[64:], uint32(elf.PT_LOAD))
+	binary.LittleEndian.PutUint32(data[68:], uint32(elf.PF_R|elf.PF_X))
+	binary.LittleEndian.PutUint64(data[80:], 0x400000)
+	binary.LittleEndian.PutUint64(data[96:], uint64(len(data)))
+	binary.LittleEndian.PutUint64(data[104:], uint64(len(data)))
+	binary.LittleEndian.PutUint64(data[112:], 0x1000)
 	return data
 }
 
 func nativePackageFixture(t *testing.T, executable bool, zipMode os.FileMode) testFixture {
+	return nativePackageFixtureWithPayload(t, executable, zipMode, nativeExecutableBytes())
+}
+
+func nativePackageFixtureWithPayload(t *testing.T, executable bool, zipMode os.FileMode, body []byte) testFixture {
 	t.Helper()
 	dir := t.TempDir()
-	body := nativeExecutableBytes()
 	digest := sha256.Sum256(body)
 	manifest := componentPackageManifest{
 		Schema: packageSchema,
@@ -89,6 +108,60 @@ func nativePackageFixture(t *testing.T, executable bool, zipMode os.FileMode) te
 		dir: dir, packagePath: packagePath, releasePath: releasePath,
 		privatePath: privatePath, trustPath: trustPath, envelopePath: envelopePath,
 		release: release,
+	}
+}
+
+func TestNativeProductRuntimeELFStructuralPreflightRejectsMalformedPayload(t *testing.T) {
+	mutations := map[string]func([]byte){
+		"header-only fake": func(data []byte) {
+			for n := 24; n < 120; n++ { data[n] = 0 }
+		},
+		"nonexecutable object": func(data []byte) {
+			binary.LittleEndian.PutUint16(data[16:], uint16(elf.ET_REL))
+		},
+		"foreign architecture": func(data []byte) {
+			binary.LittleEndian.PutUint16(data[18:], uint16(elf.EM_AARCH64))
+		},
+		"missing program table": func(data []byte) {
+			binary.LittleEndian.PutUint16(data[56:], 0)
+		},
+		"invalid program header stride": func(data []byte) {
+			binary.LittleEndian.PutUint16(data[54:], 2)
+		},
+		"segment outside payload": func(data []byte) {
+			binary.LittleEndian.PutUint64(data[96:], uint64(len(data))+1)
+		},
+		"segment grows beyond memory": func(data []byte) {
+			binary.LittleEndian.PutUint64(data[104:], 1)
+		},
+		"entrypoint not mapped": func(data []byte) {
+			binary.LittleEndian.PutUint64(data[24:], 0x7ffffffff)
+		},
+		"entrypoint segment not executable": func(data []byte) {
+			binary.LittleEndian.PutUint32(data[68:], uint32(elf.PF_R))
+		},
+	}
+	for name, mutate := range mutations {
+		t.Run(name, func(t *testing.T) {
+			payload := nativeExecutableBytes()
+			mutate(payload)
+			if err := validateNativeProductRuntimeELF(payload); err == nil {
+				t.Fatal("structurally invalid ELF passed native preflight")
+			}
+		})
+	}
+	if err := validateNativeProductRuntimeELF(nativeExecutableBytes()); err != nil {
+		t.Fatalf("well-formed synthetic ELF rejected: %v", err)
+	}
+}
+
+func TestNativeSignedPackageRejectsELFWithValidSignatureAndBrokenHeaders(t *testing.T) {
+	body := nativeExecutableBytes()
+	binary.LittleEndian.PutUint64(body[24:], 0x7ffffffff) // invalid entry, signed hash still matches
+	fixture := nativePackageFixtureWithPayload(t, true, 0o555, body)
+	_, err := inspectPackage(fixture.packagePath, fixture.release)
+	if err == nil || !strings.Contains(err.Error(), "entrypoint is not mapped executable") {
+		t.Fatalf("signed package with invalid ELF structure should fail closed: %v", err)
 	}
 }
 
