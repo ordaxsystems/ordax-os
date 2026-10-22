@@ -261,7 +261,7 @@ run_bounded_git() {
             wait "$timer_sleep_pid" || exit 0
             # Only the isolated session is signalled on an expired deadline.
             # In this shell $ is the session leader and process-group ID.
-            kill -TERM "-$" 2>/dev/null || true
+            kill -TERM "-$$" 2>/dev/null || true
         ) &
         watchdog_pid=$!
         worker_rc=0
