@@ -7,3 +7,14 @@ export const HOSTED_ACCOUNT_SIGNUP_URL = new URL(
   "/cadastro/",
   PRODUCT_FAMILY_PUBLIC_ENDPOINTS.site.origin,
 ).href;
+
+// The trusted Native Surface explicitly asks its host to open an isolated
+// account portal. On Web, an ordinary HTTPS anchor remains the navigation owner.
+// Never pass arbitrary URLs or credentials through the privileged bridge.
+export function requestNativeHostedSignup(event, windowRef = globalThis.window) {
+  const bridge = windowRef?.webkit?.messageHandlers?.ordaxBrowser;
+  if (!bridge || typeof bridge.postMessage !== "function") return false;
+  bridge.postMessage(JSON.stringify({ type: "account.signup.open" }));
+  event.preventDefault();
+  return true;
+}
