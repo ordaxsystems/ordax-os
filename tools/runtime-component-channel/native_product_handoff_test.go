@@ -25,6 +25,11 @@ func nativeProductHandoffFixture(t *testing.T) (string, string, string, string, 
     lock.Source.Repository = productRuntimeSourceURL
     lock.Source.Commit = testSourceCommit
     lock.CandidateEvidence.SourceCommit = testSourceCommit
+    executable, err := os.ReadFile(filepath.Join(slot, filepath.FromSlash(productRuntimeExecutablePath)))
+    if err != nil { t.Fatal(err) }
+    binaryDigest := sha256.Sum256(executable)
+    lock.CandidateEvidence.ExecutableSHA256 = hex.EncodeToString(binaryDigest[:])
+    lock.CandidateEvidence.ExecutableSizeBytes = int64(len(executable))
     lock.CandidateEvidence.IndependentBaseABIReady = true // fixture only; never physical evidence
     lock.CandidateEvidence.SignedDistributionAuthorized = true
     lock.CandidateEvidence.EmbeddedELFInventory.IndependentBaseCompatibilityProven = true
@@ -108,6 +113,15 @@ func TestNativeProductHandoffVerifiesCurrentIdentityAndAnchor(t *testing.T) {
     }
 
     candidate.CandidateEvidence.IndependentBaseABIReady = true
+    candidate.CandidateEvidence.ExecutableSHA256 = strings.Repeat("0", 64)
+    mutation, _ = json.Marshal(candidate)
+    if err := os.WriteFile(lock, mutation, 0o600); err != nil { t.Fatal(err) }
+    if _, err := verifiedNativeProductHandoff(lock, policy, trust, root); err == nil ||
+        !strings.Contains(err.Error(), "binary differs from pinned provenance") {
+        t.Fatalf("different signed binary from pinned CI provenance accepted: %v", err)
+    }
+
+    candidate.CandidateEvidence.ExecutableSHA256 = hex.EncodeToString(sha256SumForHandoffFixture(t, result.Executable))
     candidate.Source.Commit = strings.Repeat("e", 40)
     candidate.CandidateEvidence.SourceCommit = candidate.Source.Commit
     mutation, _ = json.Marshal(candidate)
@@ -143,4 +157,12 @@ func TestNativeProductHandoffRejectsUnpinnedOrWrongTrust(t *testing.T) {
         !strings.Contains(err.Error(), "fingerprint mismatch") {
         t.Fatalf("wrong trust fingerprint authorized Product runtime: %v", err)
     }
+}
+
+func sha256SumForHandoffFixture(t *testing.T, path string) []byte {
+    t.Helper()
+    value, err := os.ReadFile(path)
+    if err != nil { t.Fatal(err) }
+    sum := sha256.Sum256(value)
+    return sum[:]
 }
