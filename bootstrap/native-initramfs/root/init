@@ -19,6 +19,9 @@ log() {
 # The hardware-only tty0 unlock remains unchanged. A missing serial device
 # cannot prevent a physical boot; no UUID, password, key or command is logged.
 signal_boot_stage() {
+    # This trace is opt-in only for the disposable QEMU proof entry.
+    # A real laptop must never try to open a phantom ttyS0 during boot.
+    [ "$(cmdline_value ordax.qemu_proof 2>/dev/null || true)" = "serial-stages" ] || return 0
     [ -c /dev/ttyS0 ] || return 0
     printf 'ORDAX_NATIVE_BOOT_STAGE=%s\n' "$1" > /dev/ttyS0 2>/dev/null || true
 }
