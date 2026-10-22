@@ -1059,24 +1059,31 @@ class DevelopmentGitFlowTest(unittest.TestCase):
 
     def test_update_keeps_worktree_visible_to_continuous_readers(self) -> None:
         self._script(PULL)
-        self._commit_runtime("runtime-v2")
+        new_sha = self._commit_runtime("runtime-v2")
         errors: list[str] = []
+        observed = [0]
         stopping = threading.Event()
+        started = threading.Event()
         def reader() -> None:
+            started.set()
             while not stopping.is_set():
-                try:
-                    if not self.worktree.is_dir():
-                        errors.append("missing-live-worktree")
-                except OSError as exc:
-                    errors.append(type(exc).__name__)
+                # Reproduce the original 128 exit, not only a stat() witness.
+                result = self._run([
+                    "git", "-C", str(self.worktree), "rev-parse", "HEAD",
+                ], check=False)
+                observed[0] += 1
+                if result.returncode != 0 or result.stdout.strip() not in (self.commit_v1, new_sha):
+                    errors.append("invalid-git-read:" + str(result.returncode))
         thread = threading.Thread(target=reader, daemon=True)
         thread.start()
+        self.assertTrue(started.wait(timeout=5))
         try:
             updated = self._script(PULL)
         finally:
             stopping.set()
             thread.join(timeout=10)
         self.assertIn("checkout atomico ativado", updated.stdout)
+        self.assertGreater(observed[0], 0)
         self.assertFalse(errors, errors[:10])
         self.assertTrue(self.worktree.is_dir())
 
@@ -1103,12 +1110,17 @@ class DevelopmentGitFlowTest(unittest.TestCase):
         # path, then emulate a crash immediately following the kernel swap.
         candidate = self.worktree.parent / ".ordax-staging.4242"
         self._run(["git", "clone", "--quiet", "--branch", "main", self.remote.as_uri(), str(candidate)])
-        # One exact kernel exchange, without touching the running process.
-        self._run([str(self.exchange_bin), str(self.worktree), str(candidate)])
+        # Simulate a crash after the durable journal and one kernel exchange,
+        # before the Pull has published its final state receipt.
         self.state.mkdir(parents=True, exist_ok=True)
-        (self.state / "pull-transaction.tsv").write_text(
+        journal = self.state / "pull-transaction.tsv"
+        journal.write_text(
             f"4242|prepared|{next_sha}|{previous}|update\n", encoding="utf-8",
         )
+        self._run([
+            str(self.exchange_bin), "--exchange",
+            str(self.worktree), str(candidate), str(journal),
+        ])
         unavailable = self.root / "offline.git"
         self.remote.rename(unavailable)
         try:
