@@ -219,8 +219,10 @@ A entrega do `local-ai-runtime.erofs` usa o release-agent do Base owner,
 o mesmo envelope Ed25519 e a prova v4 canônica. A Surface não busca nem
 instala modelos. O owner tenta adquirir o artefato somente após a conclusão
 do First Run e quando não há atualização Base pendente, por um processo
-opcional e cancelável do seu próprio `agent.sh`, **sem bloquear** o loop
-crítico de Base/ESP. Uma falha permanece restrita à IA local, com status
+opcional e cancelável do seu próprio `agent.sh`, **depois** das operações
+críticas de Base/ESP e suspenso se `boot-refresh-required` estiver pendente.
+A espera de parada é limitada e não bloqueia indefinidamente o owner.
+Uma falha permanece restrita à IA local, com status
 privado separado (`aura-status.json`). Um receipt privado autoriza
 reaproveitamento eficiente e o watcher do `ordax-run` pode iniciar o
 launcher Native depois da entrega, preservando validação independente do
