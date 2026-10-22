@@ -314,7 +314,7 @@ function buildProofExpression(moduleSources, styles, assetUrls) {
     result.settingsHiddenHostUpdateSkipsRepaint = settingsProofSlot.firstElementChild === settingsProofView;
     root.querySelector('[data-open-window="settings"]').click();
     result.settingsFocusFlushesPendingRepaint = settingsProofSlot.firstElementChild !== settingsProofView
-      && settingsProofSlot.querySelector('[data-settings-active-section]') !== null;
+      && settingsProofSlot.dataset.settingsActiveSection === 'appearance';
     settingsProofControls.destroy();
     settingsProofWindow.querySelector('[data-window-action="close"]').click();
 
@@ -329,7 +329,7 @@ function buildProofExpression(moduleSources, styles, assetUrls) {
     result.systemHiddenHostUpdateSkipsRepaint = systemProofSlot.firstElementChild === systemProofView;
     root.querySelector('[data-open-window="system"]').click();
     result.systemFocusFlushesPendingRepaint = systemProofSlot.firstElementChild !== systemProofView
-      && systemProofSlot.querySelector('[data-system-active-section]') !== null;
+      && systemProofSlot.dataset.systemActiveSection === 'overview';
     systemProofControls.destroy();
     systemProofWindow.querySelector('[data-window-action="close"]').click();
 
