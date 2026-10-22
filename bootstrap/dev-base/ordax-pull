@@ -388,7 +388,7 @@ recover_interrupted_swap() {
         write_state "$CURRENT_FILE" "$TX_OLD"
         rm -rf "$stage" 2>/dev/null || true
         clear_pull_transaction
-        echo "ordax-git: interrupted transaction safely restored $TX_OLD" >&2
+        echo "ordax-git: atualizacao anterior foi interrompida; versao local $TX_OLD restaurada" >&2
         return 0
     fi
 
@@ -746,7 +746,7 @@ replace_runtime_checkout() {
         rm -rf "$retired" || return 1
     fi
     clear_pull_transaction
-    echo "ordax-git: atomic checkout exchange activated at $expected_sha"
+    echo "ordax-git: checkout atomico ativado em $expected_sha"
     return 0
 }
 
