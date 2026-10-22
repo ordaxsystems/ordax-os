@@ -7,6 +7,7 @@ from types import MappingProxyType
 
 STORE_METADATA_COMPONENT_IDS = frozenset({
     "activity",
+    "assistant",
     "calculator",
     "calendar",
     "character-map",
@@ -14,6 +15,7 @@ STORE_METADATA_COMPONENT_IDS = frozenset({
     "colors",
     "converter",
     "image-viewer",
+    "internet",
     "media-player",
     "network",
     "notes",

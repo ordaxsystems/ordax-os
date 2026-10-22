@@ -1,6 +1,6 @@
-"""SSOT: six pre-cutover app source graphs may depend only on their own code
-and OS public contracts. No other app's source or privileged OS services may
-be pulled across the future runtime-component package boundary.
+"""SSOT for remove-first candidates: migrated apps have no OS source copy,
+and the remaining Files source imports only itself and public OS contracts.
+Privileged platform services stay outside portable app packages.
 """
 from pathlib import Path
 import json
@@ -17,7 +17,7 @@ STATIC_IMPORT = re.compile(
 
 
 class PortableSourceBoundaryTests(unittest.TestCase):
-    def test_all_six_app_source_graphs_restrict_static_imports(self):
+    def test_migrated_candidates_have_no_os_copy_and_remaining_source_is_portable(self):
         policy = json.loads(
             (ROOT / "docs/contracts/runtime-component-package.json").read_text(encoding="utf-8")
         )

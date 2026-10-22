@@ -59,6 +59,79 @@ from native_security_prompt_i18n import (
 )
 
 BRIDGE_NAME = "ordaxBrowser"
+BRIDGE_WORLD_NAME = "ordax-native-host-bridge-v1"
+BRIDGE_READY_ATTRIBUTE = "data-ordax-native-host-bridge"
+BRIDGE_READY_VALUE = "v1"
+BRIDGE_MAX_MESSAGE_CHARS = 131072
+NATIVE_HOST_BRIDGE_SCRIPT = r"""(() => {
+  const expectedOrigin = __ORDAX_NATIVE_HOST_ORIGIN__;
+  if (window.location.origin !== expectedOrigin) return;
+
+  const markReady = () => {
+    const root = document.documentElement;
+    if (!root) return false;
+    root.setAttribute(__ORDAX_NATIVE_HOST_READY_ATTRIBUTE__, __ORDAX_NATIVE_HOST_READY_VALUE__);
+    return true;
+  };
+  if (!markReady()) {
+    const observer = new MutationObserver(() => {
+      if (markReady()) observer.disconnect();
+    });
+    observer.observe(document, { childList: true, subtree: true });
+  }
+
+  window.addEventListener("message", (event) => {
+    if (event.source !== window || event.origin !== expectedOrigin) return;
+    if (typeof event.data !== "string" || event.data.length > __ORDAX_NATIVE_HOST_MAX_MESSAGE_CHARS__) return;
+    try {
+      const payload = JSON.parse(event.data);
+      if (!payload || typeof payload !== "object" || Array.isArray(payload)) return;
+    } catch {
+      return;
+    }
+    window.webkit.messageHandlers[__ORDAX_NATIVE_HOST_BRIDGE_NAME__].postMessage(event.data);
+  });
+})();"""
+
+
+def native_surface_origin(start_uri: str) -> str:
+    parsed = urlsplit(start_uri)
+    try:
+        port = parsed.port
+    except ValueError as exc:
+        raise ValueError("Native Surface start URI has an invalid loopback port") from exc
+    if parsed.scheme == "http" and port is None:
+        port = 80
+    if (
+        parsed.scheme != "http"
+        or parsed.hostname != "127.0.0.1"
+        or port is None
+        or port == 0
+        or parsed.username is not None
+        or parsed.password is not None
+    ):
+        raise ValueError("Native Surface bridge requires an exact HTTP loopback origin")
+    return "http://127.0.0.1" if port == 80 else f"http://127.0.0.1:{port}"
+
+
+def native_host_bridge_user_script(surface_origin: str) -> str:
+    if native_surface_origin(surface_origin + "/") != surface_origin:
+        raise ValueError("Native Surface bridge origin is not canonical")
+    script = NATIVE_HOST_BRIDGE_SCRIPT.replace(
+        "__ORDAX_NATIVE_HOST_ORIGIN__", json.dumps(surface_origin)
+    )
+    script = script.replace(
+        "__ORDAX_NATIVE_HOST_BRIDGE_NAME__", json.dumps(BRIDGE_NAME)
+    )
+    script = script.replace(
+        "__ORDAX_NATIVE_HOST_READY_ATTRIBUTE__", json.dumps(BRIDGE_READY_ATTRIBUTE)
+    )
+    script = script.replace(
+        "__ORDAX_NATIVE_HOST_READY_VALUE__", json.dumps(BRIDGE_READY_VALUE)
+    )
+    return script.replace(
+        "__ORDAX_NATIVE_HOST_MAX_MESSAGE_CHARS__", str(BRIDGE_MAX_MESSAGE_CHARS)
+    )
 # A distinct GTK view uses the unprivileged external context, never Surface's.
 OFFICIAL_ACCOUNT_SIGNUP_URL = "https://ordax.com.br/cadastro/"
 APP_DATA_COMPOSITION_BOOTSTRAP_SCHEMA = "ordax.native-app-data-composition-bootstrap/1"
@@ -254,6 +327,7 @@ class OrdaXBrowserHost:
         distribution_profile: str,
     ) -> None:
         self.start_uri = start_uri
+        self.surface_origin = native_surface_origin(start_uri)
         self.profile_root = os.path.abspath(profile_root)
         self.component_channel_bin = component_channel_bin
         self.component_slot_root = component_slot_root
@@ -327,8 +401,19 @@ class OrdaXBrowserHost:
         self.surface_view = WebKit2.WebView.new_with_context(self.surface_context)
         self.manager = self.surface_view.get_user_content_manager()
         self.manager.connect(f"script-message-received::{BRIDGE_NAME}", self.on_surface_message)
-        if not self.manager.register_script_message_handler(BRIDGE_NAME):
-            raise RuntimeError("failed to register OrdaX browser bridge")
+        if not self.manager.register_script_message_handler_in_world(
+            BRIDGE_NAME, BRIDGE_WORLD_NAME
+        ):
+            raise RuntimeError("failed to register OrdaX isolated browser bridge")
+        bridge_script = WebKit2.UserScript.new_for_world(
+            native_host_bridge_user_script(self.surface_origin),
+            WebKit2.UserContentInjectedFrames.TOP_FRAME,
+            WebKit2.UserScriptInjectionTime.START,
+            BRIDGE_WORLD_NAME,
+            [f"{self.surface_origin}/*"],
+            None,
+        )
+        self.manager.add_script(bridge_script)
         self.surface_view.set_hexpand(True)
         self.surface_view.set_vexpand(True)
         self.surface_view.connect("load-changed", self.on_surface_load_changed)
@@ -698,11 +783,11 @@ class OrdaXBrowserHost:
         error: error instanceof Error ? error.message : 'System component probation failed',
       }};
     }}
-    window.webkit.messageHandlers.ordaxBrowser.postMessage(JSON.stringify({{
+    window.postMessage(JSON.stringify({{
       type: 'component.probation.result',
       nonce,
       result,
-    }}));
+    }}), window.location.origin);
   }}
 }})();
 """

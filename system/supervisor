@@ -1223,6 +1223,16 @@ native_host_quiesced() {
 }
 
 stop_surface() {
+    # Native MCP is optional but MUST release its child before any checkout,
+    # rollback or mount cutover; otherwise the previous signed Runtime could
+    # continue to dispatch against a new OS identity/slot.
+    if command -v native_product_stop >/dev/null 2>&1; then
+        if ! native_product_stop; then
+            log "Native Product Runtime did not quiesce; refusing OS transition"
+            trap - EXIT HUP INT TERM
+            exit 1
+        fi
+    fi
     if [ -n "$SURFACE_PID" ]; then
         if kill -0 "$SURFACE_PID" >/dev/null 2>&1; then
             kill "$SURFACE_PID" >/dev/null 2>&1 || true
@@ -1635,7 +1645,10 @@ classify_changes() {
             boot/*|bootstrap/*)
                 LOW_LEVEL_CHANGED=1
                 ;;
-            system/entrypoint|system/supervisor)
+            system/entrypoint|system/supervisor|system/services/device-agent/native-product-lifecycle.sh)
+                # The Supervisor sources this library at startup. A live
+                # reload would retain old function bodies and lose lifecycle
+                # changes until reboot; use the canonical restart/rollback.
                 supervisor_changed=1
                 ;;
             system/surface/bin/*|system/surface/runtime/*|system/surface/entrypoint|system/services/telemetry/base-agent.sh|system/services/telemetry/relay.json|system/services/base-update/agent.sh)
@@ -2682,6 +2695,17 @@ check_for_update() {
     esac
 }
 
+# The Native Product Runtime has no second daemon or scheduler: compose only
+# its OS-owned lifecycle functions inside this existing Supervisor. Stable/
+# MVP and native-disk never import a development-only control agent. An
+# unavailable source only disables the optional MCP path, not boot.
+if [ "$DISTRIBUTION_PROFILE" = owner-development ] && [ "$PRODUCT_MODE" = usb ]; then
+    native_product_lifecycle=$SYSTEM_ROOT/services/device-agent/native-product-lifecycle.sh
+    if [ -f "$native_product_lifecycle" ] && [ ! -L "$native_product_lifecycle" ]; then
+        . "$native_product_lifecycle"
+    fi
+fi
+
 trap stop_surface EXIT
 trap terminate HUP INT TERM
 
@@ -2846,4 +2870,16 @@ while :; do
         recover_stale_surface_if_needed
     fi
     check_for_update
+    # One owner and one event loop. Recheck the pinned signed current slot,
+    # local consent and the sole Runtime child only after first Surface
+    # health has completed. The Runtime itself checks revocation before every
+    # action, so this periodic lifecycle check never grants remote access.
+    if [ "$DISTRIBUTION_PROFILE" = owner-development ] &&
+       [ "$PRODUCT_MODE" = usb ] &&
+       [ "$OWNER_INITIAL_HEALTH_PENDING" -eq 0 ] &&
+       command -v native_product_reconcile >/dev/null 2>&1; then
+        if ! native_product_reconcile; then
+            log "Native Product Runtime reconcile unavailable; local OS remains healthy"
+        fi
+    fi
  done
