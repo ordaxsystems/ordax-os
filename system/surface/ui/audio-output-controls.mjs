@@ -24,7 +24,7 @@ export function mountAudioOutputControls(root, {
   translate = (id) => id,
   port = null,
   mode = "native",
-  onExamples = null,
+  onExamples = /** @type {null | (() => void)} */ (null),
 } = {}) {
   if (!root || typeof root.append !== "function") {
     throw new TypeError("Audio output controls require a mount element");
