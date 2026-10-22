@@ -15,6 +15,14 @@ log() {
     echo "ordax-native-initramfs: $*" >&2
 }
 
+# Fixed, non-secret boot stages for the existing serial diagnostic channel.
+# The hardware-only tty0 unlock remains unchanged. A missing serial device
+# cannot prevent a physical boot; no UUID, password, key or command is logged.
+signal_boot_stage() {
+    [ -c /dev/ttyS0 ] || return 0
+    printf 'ORDAX_NATIVE_BOOT_STAGE=%s\n' "$1" > /dev/ttyS0 2>/dev/null || true
+}
+
 unmount_runtime() {
     for target in \
         /home \
@@ -32,6 +40,7 @@ unmount_runtime() {
 rescue() {
     reason=$1
     log "$reason; entering local recovery shell"
+    signal_boot_stage rescue
     unmount_runtime
     if [ "$MAPPER_OPEN" -eq 1 ]; then
         cryptsetup close "$MAPPER_NAME" >/dev/null 2>&1 || true
@@ -106,6 +115,7 @@ mkdir -p /proc /sys /dev /run /ordax /var /home
 mount -t proc proc /proc || rescue "cannot mount /proc"
 mount -t sysfs sysfs /sys || rescue "cannot mount /sys"
 mount -t devtmpfs devtmpfs /dev || rescue "cannot mount /dev"
+signal_boot_stage init-ready
 
 BOOT_MODE=$(cmdline_value ordax.mode 2>/dev/null || true)
 case "$BOOT_MODE" in
@@ -156,6 +166,9 @@ OBSERVED_UUID=$(cryptsetup luksUUID "$POOL_DEVICE" 2>/dev/null | tr 'A-F' 'a-f' 
     || rescue "LUKS UUID changed after device selection"
 
 log "unlocking Native pool; passphrase or recovery key is required"
+# Guest has passed UEFI/kernel selection and validated the exact LUKS UUID.
+# QEMU must never type a generated secret while firmware/boot menus own PS/2.
+signal_boot_stage unlock-ready
 if [ "$BOOT_MODE" = "recovery" ]; then
     cryptsetup open --readonly --type luks2 --tries 3 "$POOL_DEVICE" "$MAPPER_NAME" \
         || rescue "Native pool unlock failed"
@@ -164,6 +177,7 @@ else
         || rescue "Native pool unlock failed"
 fi
 MAPPER_OPEN=1
+signal_boot_stage pool-unlocked
 [ -b "$MAPPER_DEVICE" ] || rescue "Native pool mapper did not appear"
 
 mount -t btrfs -o ro,subvolid=5 "$MAPPER_DEVICE" /ordax \
