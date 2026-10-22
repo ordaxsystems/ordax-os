@@ -216,6 +216,7 @@ on:
       - 'tests/test_update_*.mjs'
       - 'tests/test_update_service_ci_ownership.py'
       - 'tests/test_account_runtime.mjs'
+      - 'tests/test_account_connectivity_recovery.mjs'
       - 'tests/test_ecosystem_contracts.mjs'
       - 'tests/test_personal_ordax_contracts.mjs'
       - 'tests/test_personal_ordax_runtime.mjs'
@@ -449,6 +450,7 @@ on:
       - 'tests/test_update_*.mjs'
       - 'tests/test_update_service_ci_ownership.py'
       - 'tests/test_account_runtime.mjs'
+      - 'tests/test_account_connectivity_recovery.mjs'
       - 'tests/test_ecosystem_contracts.mjs'
       - 'tests/test_personal_ordax_contracts.mjs'
       - 'tests/test_personal_ordax_runtime.mjs'
@@ -583,6 +585,7 @@ jobs:
           node --test tests/test_power_status.mjs
           node --test tests/test_update_*.mjs
           node --test tests/test_account_runtime.mjs
+          node --test tests/test_account_connectivity_recovery.mjs
           node --test tests/test_space_selection.mjs
           node --test tests/test_ecosystem_contracts.mjs
           node --test tests/test_personal_ordax_contracts.mjs
