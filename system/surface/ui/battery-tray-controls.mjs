@@ -18,7 +18,7 @@ function batteryLevel(percent) {
 }
 
 // Validated power snapshots have a bounded, fixed shape. Compare the exact
-// visible battery/external-power values without serialization or caches.
+// visible battery/external-power values without JSON conversion or caches.
 export function samePowerTraySnapshot(previous, next) {
   if (previous === null || next === null) return false;
   if (previous.externalPower !== next.externalPower) return false;
