@@ -3,7 +3,7 @@ import {readFile} from 'node:fs/promises';
 import {existsSync} from 'node:fs';
 import {dirname,isAbsolute,join,normalize,relative,resolve,sep} from 'node:path';
 import {runBrowser, sleep} from '../browser-proof/chromium.mjs';
-const ROOT_MODULES = ['system/surface/ui/surface.mjs', 'system/surface/ui/notification-center-controls.mjs', 'system/surface/ui/system-tray-quick-panels.mjs', 'system/services/notifications/runtime.mjs'];
+const ROOT_MODULES = ['system/surface/ui/surface.mjs', 'system/surface/ui/settings-overview-controls.mjs', 'system/surface/ui/system-overview-controls.mjs', 'system/surface/ui/notification-center-controls.mjs', 'system/surface/ui/system-tray-quick-panels.mjs', 'system/services/notifications/runtime.mjs'];
 const STATIC_IMPORT_RE = /\b(?:import|export)\s+(?:[^;]*?\s+from\s*)?["']([^"']+)["']/g;
 const DYNAMIC_IMPORT_RE = /\bimport\(\s*["']([^"']+)["']\s*\)/g;
 const ASSET_HREF_RE = /\bnew\s+URL\(\s*["']([^"']+)["']\s*,\s*import\.meta\.url\s*\)\.href/g;
@@ -297,6 +297,42 @@ function buildProofExpression(moduleSources, styles, assetUrls) {
     storeWindow?.querySelector('[data-window-action="close"]')?.click();
     result.storeWindowClosesCleanly = root.querySelector('[data-window-id="store"]') === null;
 
+    // Exercise the actual mounted Settings and System owners, not a synthetic
+    // visibility helper: snapshots arriving while minimized must not rebuild
+    // their retained DOM, and the existing Surface render callback must flush
+    // the newest state when the same window is restored.
+    const { mountSettingsOverviewControls } = await import(urls['system/surface/ui/settings-overview-controls.mjs']);
+    const { mountSystemOverviewControls } = await import(urls['system/surface/ui/system-overview-controls.mjs']);
+    root.querySelector('[data-launch-app="settings"]').click();
+    const settingsProofWindow = root.querySelector('[data-window-id="settings"]');
+    const settingsProofControls = mountSettingsOverviewControls(root, host, surface.preferences, surface);
+    const settingsProofSlot = settingsProofWindow.querySelector('[data-app-extension="settings-overview"]');
+    const settingsProofView = settingsProofSlot.firstElementChild;
+    result.settingsRealOwnerInitiallyPainted = Boolean(settingsProofView);
+    settingsProofWindow.querySelector('[data-window-action="minimize"]').click();
+    host.emit({ capabilityIds: [], connectivity: 'online' });
+    result.settingsHiddenHostUpdateSkipsRepaint = settingsProofSlot.firstElementChild === settingsProofView;
+    root.querySelector('[data-open-window="settings"]').click();
+    result.settingsFocusFlushesPendingRepaint = settingsProofSlot.firstElementChild !== settingsProofView
+      && settingsProofSlot.querySelector('[data-settings-active-section]') !== null;
+    settingsProofControls.destroy();
+    settingsProofWindow.querySelector('[data-window-action="close"]').click();
+
+    root.querySelector('[data-launch-app="system"]').click();
+    const systemProofWindow = root.querySelector('[data-window-id="system"]');
+    const systemProofControls = mountSystemOverviewControls(root, host, null, null, surface);
+    const systemProofSlot = systemProofWindow.querySelector('[data-app-extension="system-overview"]');
+    const systemProofView = systemProofSlot.firstElementChild;
+    result.systemRealOwnerInitiallyPainted = Boolean(systemProofView);
+    systemProofWindow.querySelector('[data-window-action="minimize"]').click();
+    host.emit({ capabilityIds: [], connectivity: 'offline' });
+    result.systemHiddenHostUpdateSkipsRepaint = systemProofSlot.firstElementChild === systemProofView;
+    root.querySelector('[data-open-window="system"]').click();
+    result.systemFocusFlushesPendingRepaint = systemProofSlot.firstElementChild !== systemProofView
+      && systemProofSlot.querySelector('[data-system-active-section]') !== null;
+    systemProofControls.destroy();
+    systemProofWindow.querySelector('[data-window-action="close"]').click();
+
     const { createNotificationsRuntime } = await import(urls['system/services/notifications/runtime.mjs']);
     const { mountNotificationCenterControls } = await import(urls['system/surface/ui/notification-center-controls.mjs']);
     const { mountSystemTrayQuickPanels } = await import(urls['system/surface/ui/system-tray-quick-panels.mjs']);
@@ -366,6 +402,9 @@ function buildProofExpression(moduleSources, styles, assetUrls) {
       'desktopPresentationHasNoGlobalHeader', 'centralAppStillHasNoGlobalHeader',
       'centralHomeStillHasNoGlobalHeaderAfterClose', 'storeLaunchPresent',
       'storeOpensWithoutGlobalHeader', 'storeWindowClosesCleanly',
+      'settingsRealOwnerInitiallyPainted', 'settingsHiddenHostUpdateSkipsRepaint',
+      'settingsFocusFlushesPendingRepaint', 'systemRealOwnerInitiallyPainted',
+      'systemHiddenHostUpdateSkipsRepaint', 'systemFocusFlushesPendingRepaint',
       'sameWindowAfterSnapshot', 'sameSlotAfterSnapshot', 'sameInputAfterSnapshot',
       'focusAfterSnapshot', 'scrollPreservedAfterSnapshot', 'draftPreservedAfterSnapshot',
       'sameWindowAfterPreference', 'sameInputAfterPreference', 'focusAfterPreference',
