@@ -98,6 +98,47 @@ class OwnerDevLocalAiLifecycleTests(unittest.TestCase):
         self.assertLess(traps, start)
         self.assertIn("Native's bounded probe supervisor discovers readiness", source)
 
+    def test_liveness_status_is_read_only_and_fail_closed_without_service(self):
+        with tempfile.TemporaryDirectory() as state:
+            env = dict(os.environ, ORDAX_STATE_DIR=state,
+                       ORDAX_DISTRIBUTION_PROFILE="owner-development",
+                       ORDAX_PRODUCT_MODE="usb")
+            result = subprocess.run(["/bin/sh", str(SCRIPT), "status"], env=env,
+                                    capture_output=True, text=True, timeout=15)
+            self.assertEqual(result.returncode, 1, result.stderr)
+            self.assertEqual(list(Path(state).iterdir()), [])
+
+    def test_liveness_requires_actual_owned_process_mount_and_ephemeral_key(self):
+        source = SCRIPT.read_text(encoding="utf-8")
+        watcher = RUN.read_text(encoding="utf-8")
+        self.assertIn("    status) status ;;", source)
+        self.assertIn('owned_process "$pid" || return 1', source)
+        self.assertIn('mounted_here || return 1', source)
+        self.assertIn('safe_file "$KEY_FILE" || return 1', source)
+        self.assertIn("= 0:600 ] || return 1", source)
+        self.assertIn("local_ai_running() {", watcher)
+        self.assertIn('/bin/sh "$LOCAL_AI_LIFECYCLE" status >/dev/null 2>&1', watcher)
+        self.assertIn("inference readiness is Native-probed", watcher)
+
+    def test_watcher_retries_failed_or_crashed_backend_without_busy_rehash(self):
+        watcher = RUN.read_text(encoding="utf-8")
+        self.assertIn('aura_poll_ticks=10', watcher)
+        self.assertIn('if [ "$aura_poll_ticks" -ge 10 ]; then', watcher)
+        self.assertIn('if [ "$aura_retry_ticks" -ge 60 ]; then', watcher)
+        self.assertIn('if [ "$aura_seen_hash" != "$ready_hash" ]; then', watcher)
+        self.assertIn('bb grep -qx "IMAGE_SHA256=$ready_hash" "$LOCAL_AI_LIFECYCLE"', watcher)
+        self.assertIn('local_ai_lifecycle stop\n                                local_ai_lifecycle start', watcher)
+        self.assertIn('if local_ai_running; then', watcher)
+        self.assertIn('aura_retry_ticks=0', watcher)
+        self.assertIn('if [ "$aura_retry_ticks" -lt 60 ]; then', watcher)
+        self.assertIn('Aura process exited; attempting bounded Native restart', watcher)
+        self.assertNotIn('if [ "$aura_announced" = no ] && [ -f "$AURA_READY_MARKER" ]', watcher)
+        self.assertIn("while process_alive \"$ENTRY_PID\"; do", watcher)
+        self.assertIn("trap cleanup_runtime EXIT", watcher)
+        syntax = subprocess.run(["/bin/sh", "-n", str(RUN)],
+                                capture_output=True, text=True, timeout=15)
+        self.assertEqual(syntax.returncode, 0, syntax.stderr)
+
     def test_ordax_run_owns_start_and_stop_not_bootstrap_or_surface(self):
         text = RUN.read_text(encoding="utf-8")
         self.assertIn("LOCAL_AI_LIFECYCLE=$WORKTREE/system/services/local-ai/owner-dev-runtime.sh", text)

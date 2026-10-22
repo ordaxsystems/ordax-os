@@ -139,6 +139,14 @@ local_ai_lifecycle() {
         echo "ordax-run: local AI $action failed; Surface continues" >&2
 }
 
+# Read-only ownership probe. It must not hash the 568 MiB image on each
+# polling tick; model readiness remains owned by the Native Intelligence probe.
+local_ai_running() {
+    [ -f "$LOCAL_AI_LIFECYCLE" ] && [ ! -L "$LOCAL_AI_LIFECYCLE" ] || return 1
+    ORDAX_DISTRIBUTION_PROFILE=owner-development ORDAX_PRODUCT_MODE=usb \
+        /bin/sh "$LOCAL_AI_LIFECYCLE" status >/dev/null 2>&1
+}
+
 cleanup_runtime() {
     cleanup_observers
     local_ai_lifecycle stop
@@ -154,6 +162,9 @@ forward_signal() {
 watch_owner_provisioning() {
     announced=no
     aura_announced=no
+    aura_seen_hash=""
+    aura_poll_ticks=10
+    aura_retry_ticks=60
     while process_alive "$ENTRY_PID"; do
         if [ "$announced" = no ] && [ -f "$SURFACE_RUNTIME_PROVISION_MARKER" ] && [ ! -L "$SURFACE_RUNTIME_PROVISION_MARKER" ]; then
             marker_source=""
@@ -163,26 +174,55 @@ watch_owner_provisioning() {
                 announced=yes
             fi
         fi
-        # The existing Owner Dev update owner materializes the EROFS only
-        # after signature, source-lock and digest verification. A one-line
-        # marker wakes this EXISTING watcher; the Native launcher independently
-        # hashes the image again and owns its one runtime PID.
-        if [ "$aura_announced" = no ] && [ -f "$AURA_READY_MARKER" ] && [ ! -L "$AURA_READY_MARKER" ] &&
-           [ -f "$LOCAL_AI_LIFECYCLE" ] && [ ! -L "$LOCAL_AI_LIFECYCLE" ]; then
-            ready_hash=$(read_state_value "$AURA_READY_MARKER")
-            case "$ready_hash" in
-                ''|*[!0-9a-f]*) ;;
-                *)
-                    if [ "${#ready_hash}" -eq 64 ] &&
-                       bb grep -qx "IMAGE_SHA256=$ready_hash" "$LOCAL_AI_LIFECYCLE"; then
-                        local_ai_lifecycle start
-                        aura_announced=yes
-                        echo "ordax-run: verified Aura model staged; startup delegated to Native local AI lifecycle" >&2
-                    fi
-                    ;;
-            esac
+        # Reconcile the same Native process owner, not a second supervisor or
+        # inference backend. Status is a cheap PID/mount/credential check;
+        # launcher start itself re-hashes the signed EROFS before execution.
+        if [ "$aura_poll_ticks" -ge 10 ]; then
+            aura_poll_ticks=0
+            if [ -f "$AURA_READY_MARKER" ] && [ ! -L "$AURA_READY_MARKER" ] &&
+               [ -f "$LOCAL_AI_LIFECYCLE" ] && [ ! -L "$LOCAL_AI_LIFECYCLE" ]; then
+                ready_hash=$(read_state_value "$AURA_READY_MARKER")
+                case "$ready_hash" in
+                    ''|*[!0-9a-f]*) ;;
+                    *)
+                        if [ "${#ready_hash}" -eq 64 ] &&
+                           bb grep -qx "IMAGE_SHA256=$ready_hash" "$LOCAL_AI_LIFECYCLE"; then
+                            if [ "$aura_seen_hash" != "$ready_hash" ]; then
+                                aura_seen_hash=$ready_hash
+                                aura_retry_ticks=60
+                            fi
+                            if local_ai_running; then
+                                if [ "$aura_announced" != yes ]; then
+                                    echo "ordax-run: verified Aura process running; inference readiness is Native-probed" >&2
+                                    aura_announced=yes
+                                fi
+                                aura_retry_ticks=60
+                            elif [ "$aura_retry_ticks" -ge 60 ]; then
+                                [ "$aura_announced" != yes ] || \
+                                    echo "ordax-run: Aura process exited; attempting bounded Native restart" >&2
+                                aura_announced=no
+                                # Native lifecycle stop only owns its PID, mount and
+                                # ephemeral key. Surface and Base update stay alive.
+                                local_ai_lifecycle stop
+                                local_ai_lifecycle start
+                                aura_retry_ticks=0
+                                if local_ai_running; then
+                                    aura_announced=yes
+                                    echo "ordax-run: verified Aura backend process restored; readiness is Native-probed" >&2
+                                else
+                                    echo "ordax-run: Aura startup unavailable; retry limited to once per minute" >&2
+                                fi
+                            fi
+                        fi
+                        ;;
+                esac
+            fi
         fi
         bb sleep 1
+        aura_poll_ticks=$((aura_poll_ticks + 1))
+        if [ "$aura_retry_ticks" -lt 60 ]; then
+            aura_retry_ticks=$((aura_retry_ticks + 1))
+        fi
     done
 }
 

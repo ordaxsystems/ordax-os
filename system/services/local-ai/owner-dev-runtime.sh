@@ -75,6 +75,22 @@ stop() {
     fi
 }
 
+# Liveness is a Native ownership check, not a claim that the model is
+# ready for inference. The existing Intelligence probe owns readiness.
+status() {
+    [ -d "$SERVICE_DIR" ] && [ ! -L "$SERVICE_DIR" ] || return 1
+    [ "$(bb stat -c '%u:%a' "$SERVICE_DIR" 2>/dev/null)" = 0:700 ] || return 1
+    safe_file "$PID_FILE" || return 1
+    pid=""
+    IFS= read -r pid <"$PID_FILE" || return 1
+    owned_process "$pid" || return 1
+    mounted_here || return 1
+    [ -d "$AUTH_DIR" ] && [ ! -L "$AUTH_DIR" ] || return 1
+    [ "$(bb stat -c '%u:%a' "$AUTH_DIR" 2>/dev/null)" = 0:700 ] || return 1
+    safe_file "$KEY_FILE" || return 1
+    [ "$(bb stat -c '%u:%a' "$KEY_FILE" 2>/dev/null)" = 0:600 ] || return 1
+}
+
 start() {
     [ "${ORDAX_DISTRIBUTION_PROFILE:-}" = owner-development ] || {
         report "unsupported distribution profile"
@@ -214,5 +230,6 @@ start() {
 case "${1:-}" in
     start) start ;;
     stop) stop ;;
-    *) report "usage: owner-dev-runtime.sh start|stop"; exit 2 ;;
+    status) status ;;
+    *) report "usage: owner-dev-runtime.sh start|stop|status"; exit 2 ;;
 esac
