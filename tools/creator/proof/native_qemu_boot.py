@@ -43,6 +43,7 @@ SUBVOLUMES = (
 )
 SUCCESS_MARKER = "ORDAX_NATIVE_QEMU_HANDOFF=PASS"
 PERSISTENCE_MARKER = "ORDAX_NATIVE_QEMU_PERSISTENCE=PASS"
+QEMU_PROOF_TOKEN = "ordax.qemu_proof=serial-stages"
 NATIVE_READY_MARKER = "ORDAX_NATIVE_BOOT_STAGE=unlock-ready"
 NATIVE_RESCUE_MARKER = "ORDAX_NATIVE_BOOT_STAGE=rescue"
 NATIVE_START_MARKER = "ORDAX_NATIVE_BOOT_STAGE=init-ready"
@@ -272,6 +273,18 @@ def stage_esp(
         destination = mountpoint / relative
         destination.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(source, destination)
+
+    # Only the disposable QEMU guest ESP opts into serial readiness traces.
+    # The exact rendered Creator templates and physical Native boot stay intact.
+    normal = mountpoint / "loader/entries/ordax-native.conf"
+    lines = normal.read_text(encoding="utf-8").splitlines(keepends=True)
+    options = [index for index, line in enumerate(lines) if line.startswith("options ")]
+    if len(options) != 1 or QEMU_PROOF_TOKEN in "".join(lines):
+        raise ProofError("disposable Native loader entry cannot accept a unique proof opt-in")
+    index = options[0]
+    suffix = "\n" if lines[index].endswith("\n") else ""
+    lines[index] = lines[index].rstrip("\r\n") + " " + QEMU_PROOF_TOKEN + suffix
+    normal.write_text("".join(lines), encoding="utf-8")
 
 
 def connect_monitor(path: Path, timeout: float = 10.0) -> socket.socket:
