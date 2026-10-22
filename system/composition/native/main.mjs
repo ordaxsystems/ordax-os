@@ -4,13 +4,7 @@ import {
   renderedSourceSha,
 } from "../../adapters/native/client-diagnostics.mjs";
 import { createNativeBrowserSession } from "../../adapters/native/browser-session.mjs";
-import { createNativeBrowserPageSelection } from "../../adapters/native/browser-page-selection.mjs";
-import { createNativeBrowserPageFind } from "../../adapters/native/browser-page-find.mjs";
-import { createNativeBrowserDownload } from "../../adapters/native/browser-download.mjs";
 import { createNativeComponentStateStore } from "../../adapters/native/component-state.mjs";
-import { createNativeBrowserFavoritesStore } from "../../adapters/native/browser-favorites.mjs";
-import { createNativeBrowserHistoryStore } from "../../adapters/native/browser-history.mjs";
-import { createNativeBrowserSearchPreferencesStore } from "../../adapters/native/browser-search-preferences.mjs";
 import { createNativeDiagnosticJournalStore } from "../../adapters/native/diagnostic-journal-store.mjs";
 import { createNativeFileSpace } from "../../adapters/native/file-space.mjs";
 import { createNativePersonalOrdaxFileActions } from "../../adapters/native/personal-ordax-file-actions.mjs";
