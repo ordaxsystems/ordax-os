@@ -43,6 +43,13 @@ SUBVOLUMES = (
 )
 SUCCESS_MARKER = "ORDAX_NATIVE_QEMU_HANDOFF=PASS"
 PERSISTENCE_MARKER = "ORDAX_NATIVE_QEMU_PERSISTENCE=PASS"
+NATIVE_READY_MARKER = "ORDAX_NATIVE_BOOT_STAGE=unlock-ready"
+NATIVE_RESCUE_MARKER = "ORDAX_NATIVE_BOOT_STAGE=rescue"
+NATIVE_START_MARKER = "ORDAX_NATIVE_BOOT_STAGE=init-ready"
+NATIVE_UNLOCKED_MARKER = "ORDAX_NATIVE_BOOT_STAGE=pool-unlocked"
+UNLOCK_READY_GRACE_SECONDS = 5.0
+UNLOCK_RETRY_INTERVAL_SECONDS = 15.0
+MAX_UNLOCK_INJECTIONS = 3  # Match cryptsetup --tries 3; never spam firmware/console.
 ALPHABET = "abcdefghijkmnopqrstuvwxyz"
 
 
@@ -346,10 +353,12 @@ def boot_qemu(
 
     client: socket.socket | None = None
     keyboard_injections = 0
+    ready_at: float | None = None
+    next_injection: float | None = None
+    last_stage = "no-initramfs-signal"
     try:
         client = connect_monitor(monitor)
         started = time.monotonic()
-        next_injection = started + 15.0
         deadline = started + 120.0
         while time.monotonic() < deadline:
             text = serial.read_text(encoding="utf-8", errors="replace") if serial.exists() else ""
@@ -368,20 +377,35 @@ def boot_qemu(
                 }
                 return text, sha256_file(vars_copy), checks
 
+            if NATIVE_RESCUE_MARKER in text:
+                raise ProofError("Native initramfs reported rescue before verified handoff " 
+                                 f"(last_stage=rescue, keyboard_injections={keyboard_injections})")
             if process.poll() is not None:
                 break
             now = time.monotonic()
-            if now >= next_injection:
+            if NATIVE_START_MARKER in text:
+                last_stage = "init-ready"
+            if NATIVE_READY_MARKER in text:
+                last_stage = "unlock-ready"
+                if ready_at is None:
+                    ready_at = now
+                    next_injection = now + UNLOCK_READY_GRACE_SECONDS
+            if NATIVE_UNLOCKED_MARKER in text:
+                last_stage = "pool-unlocked"
+            if (ready_at is not None and next_injection is not None
+                    and keyboard_injections < MAX_UNLOCK_INJECTIONS
+                    and now >= next_injection and NATIVE_UNLOCKED_MARKER not in text):
                 type_passphrase(client, passphrase)
                 keyboard_injections += 1
-                next_injection = now + 10.0
+                next_injection = now + UNLOCK_RETRY_INTERVAL_SECONDS
             time.sleep(0.25)
 
         process.poll()
         tail = stderr.read_text(encoding="utf-8", errors="replace")[-4000:] if stderr.exists() else ""
         raise ProofError(
             "QEMU did not reach the Native handoff marker "
-            f"(exit={process.returncode}, keyboard_injections={keyboard_injections}, stderr_tail={tail!r})"
+            f"(exit={process.returncode}, last_stage={last_stage}, "
+            f"keyboard_injections={keyboard_injections}, stderr_tail={tail!r})"
         )
     finally:
         if client is not None:
