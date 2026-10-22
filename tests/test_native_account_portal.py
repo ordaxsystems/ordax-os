@@ -101,7 +101,11 @@ class AccountPortalNativeTests(unittest.TestCase):
         self.assertIn("WebKit2.WebView.new_with_context(self.external_context)", self.source)
         self.assertIn('OFFICIAL_ACCOUNT_SIGNUP_URL = "https://ordax.com.br/cadastro/"', self.source)
         self.assertIn('view.connect("decide-policy", self.on_account_portal_policy)', self.source)
-        self.assertNotIn('view = WebKit2.WebView.new_with_context(self.surface_context)', self.source)
+        tree = ast.parse(self.source)
+        host = next(node for node in tree.body if isinstance(node, ast.ClassDef) and node.name == "OrdaXBrowserHost")
+        portal = next(node for node in host.body if isinstance(node, ast.FunctionDef) and node.name == "open_official_account_portal")
+        portal_source = ast.get_source_segment(self.source, portal)
+        self.assertNotIn("self.surface_context", portal_source)
 
 
 if __name__ == "__main__":
