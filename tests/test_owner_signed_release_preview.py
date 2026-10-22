@@ -41,6 +41,8 @@ class OwnerSignedPreviewTests(unittest.TestCase):
             'case "$1" in\n'
             ' inspect) printf \'{"status":"verified","source_commit":"'
             + SHA + '"}\\n\' ;;\n'
+            ' verify-envelope) printf \'{"status":"verified","source_commit":"'
+            + SHA + '"}\\n\' ;;\n'
             ' materialize-portable-v4) [ "${ORDAX_TEST_FAIL_STAGE:-0}" != 1 ] ;;\n'
             ' verify-portable-v4-exact) printf \'{"status":"verified","source_commit":"'
             + SHA + '"}\\n\' ;;\n'
