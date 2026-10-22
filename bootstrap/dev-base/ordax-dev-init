@@ -193,7 +193,7 @@ rootfs_version_valid() {
     [ -f "$root/.ordax-rootfs-commit" ] && [ ! -L "$root/.ordax-rootfs-commit" ] || return 1
     marker=$(cat "$root/.ordax-rootfs-commit" 2>/dev/null || true)
     [ "$marker" = "$source_sha" ] || return 1
-    for required in bin/busybox bin/sh usr/bin/git sbin/ordax-dev-init usr/local/bin/ordax-run; do
+    for required in bin/busybox bin/sh usr/bin/git sbin/ordax-dev-init usr/local/bin/ordax-run usr/local/bin/ordax-checkout-exchange; do
         [ -x "$root/$required" ] && [ ! -L "$root/$required" ] || return 1
     done
     return 0
