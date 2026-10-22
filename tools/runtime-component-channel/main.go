@@ -7,6 +7,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"crypto/x509"
+	"debug/elf"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
@@ -726,6 +727,59 @@ func sha256File(path string, max int64) (string, int64, error) {
 	return hex.EncodeToString(hash.Sum(nil)), n, nil
 }
 
+// validateNativeProductRuntimeELF checks the executable file *structure*
+// before a signed component enters a slot. Complete ELF dependency/Buildroot
+// ABI audits remain exclusively owned by the canonical ordax-runtime auditor;
+// passing this check does not authorize execution or OS activation.
+func validateNativeProductRuntimeELF(payload []byte) error {
+	if len(payload) < 64 {
+		return errors.New("native Product Runtime ELF is truncated")
+	}
+	binary, err := elf.NewFile(bytes.NewReader(payload))
+	if err != nil {
+		return fmt.Errorf("native Product Runtime ELF structure invalid: %w", err)
+	}
+	defer binary.Close()
+	if binary.Class != elf.ELFCLASS64 || binary.Data != elf.ELFDATA2LSB ||
+		binary.Version != elf.EV_CURRENT || binary.Machine != elf.EM_X86_64 ||
+		(binary.Type != elf.ET_EXEC && binary.Type != elf.ET_DYN) {
+		return errors.New("native Product Runtime must be an amd64 ELF64 executable")
+	}
+	if len(binary.Progs) == 0 || len(binary.Progs) > 256 || binary.Entry == 0 {
+		return errors.New("native Product Runtime ELF executable program headers are invalid")
+	}
+	var executableEntryMapped bool
+	var interpreterCount int
+	fileSize := uint64(len(payload))
+	for _, prog := range binary.Progs {
+		if prog.Filesz > prog.Memsz || prog.Off > fileSize ||
+			prog.Filesz > fileSize-prog.Off {
+			return errors.New("native Product Runtime ELF segment extent is invalid")
+		}
+		switch prog.Type {
+		case elf.PT_LOAD:
+			if prog.Flags&elf.PF_X != 0 && prog.Vaddr <= binary.Entry &&
+				binary.Entry-prog.Vaddr < prog.Memsz {
+				executableEntryMapped = true
+			}
+		case elf.PT_INTERP:
+			interpreterCount++
+			if interpreterCount > 1 || prog.Filesz < 2 || prog.Filesz > 4096 {
+				return errors.New("native Product Runtime ELF interpreter is invalid")
+			}
+			raw := payload[prog.Off : prog.Off+prog.Filesz]
+			if raw[0] != '/' || raw[len(raw)-1] != 0 ||
+				bytes.IndexByte(raw[:len(raw)-1], 0) >= 0 {
+				return errors.New("native Product Runtime ELF interpreter is invalid")
+			}
+		}
+	}
+	if !executableEntryMapped {
+		return errors.New("native Product Runtime ELF entrypoint is not mapped executable")
+	}
+	return nil
+}
+
 func inspectPackage(packagePath string, release releaseDescriptor) (verifiedPackage, error) {
 	actualHash, actualSize, err := sha256File(packagePath, maxPackageBytes)
 	if err != nil {
@@ -841,11 +895,8 @@ func inspectPackage(packagePath string, release releaseDescriptor) (verifiedPack
 			return verifiedPackage{}, fmt.Errorf("runtime component file integrity mismatch: %s", record.Path)
 		}
 		if executablePackageFile(manifest.Component.ID, record) {
-			// An executable slot must never be populated from a shell script,
-			// foreign ISA or a random byte stream even with matching hashes.
-			if len(payload) < 64 || !bytes.Equal(payload[:6], []byte{0x7f, 'E', 'L', 'F', 2, 1}) ||
-				payload[18] != 62 || payload[19] != 0 {
-				return verifiedPackage{}, fmt.Errorf("native Product Runtime file is not an amd64 ELF64: %s", record.Path)
+			if err := validateNativeProductRuntimeELF(payload); err != nil {
+				return verifiedPackage{}, fmt.Errorf("native Product Runtime file %s: %w", record.Path, err)
 			}
 		}
 		files[record.Path] = payload

@@ -449,8 +449,14 @@ and bind exactly one path:
 Its signed file record has `executable:true`; the ZIP member MUST have mode
 `0555`, and the verified immutable POSIX slot retains mode `0555` (non-writable).
 That permission and the exact SHA-256 are rechecked when resolving a v1/v2
-signed slot. The payload must be an ELF64 little-endian amd64 executable; the
-channel deliberately does not infer a complete Buildroot ABI from its header.
+signed slot. The payload must be a structurally valid ELF64 little-endian amd64 executable:
+the built-in Go ELF decoder checks file type, nonempty program headers, valid
+loadable segment extents, an executable mapping for its entrypoint, and an
+optional well-formed interpreter path. A forged magic number/machine-id alone
+is insufficient to pass signed staging. This is a **format/integrity** gate;
+it cannot demonstrate dynamic loader availability, Python frozen-module ABI,
+symbol relocations or execution in the Independent Base, which must instead
+be proved by the canonical `ordax-runtime` audit and QEMU/hardware tests.
 Only this one native payload may exceed the ordinary 2 MiB file and 16 MiB
 unpacked limits, capped at **28 MiB per file** and **30 MiB total**. The
 existing compressed ZIP cap of **32 MiB** is unchanged, and app components
