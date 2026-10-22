@@ -207,7 +207,12 @@ watch_optional_aura() {
         fi
         # One bounded check per ten seconds, not one process wakeup per second.
         # The signed staging marker may arrive after boot; do not assume absence is permanent.
-        bb sleep 10 &
+        # Spawn the executable directly so the recorded PID is the actual sleeper.
+        if [ -x /bin/busybox ]; then
+            /bin/busybox sleep 10 &
+        else
+            sleep 10 &
+        fi
         watch_sleep_pid=$!
         wait "$watch_sleep_pid" || true
         watch_sleep_pid=""
