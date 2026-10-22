@@ -295,7 +295,7 @@ test("caller-supplied File Space never reaches an imported component", async () 
   assert.equal(mounted, null);
   assert.equal(f.state().imports, 0);
   assert.equal(f.state().mounts, 0);
-  assert.match(f.state().reported.message, /cannot add field: fileSpace/);
+  assert.match(f.state().reported.message, /Same-origin component cannot receive Native File Space/);
 });
 
 test("injected File Space blocks untrusted import after verified current identity", async () => {
