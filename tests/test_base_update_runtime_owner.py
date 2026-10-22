@@ -1204,8 +1204,9 @@ class BaseUpdateRuntimeOwnerTests(unittest.TestCase):
         self.assertIn("AURA_READY_MARKER=$STATE_DIR/base-update/aura-ready.sha256", run)
         self.assertIn('bb grep -qx "IMAGE_SHA256=$ready_hash" "$LOCAL_AI_LIFECYCLE"', run)
         self.assertIn("local_ai_lifecycle start", run)
-        self.assertLess(run.index("local_ai_lifecycle start\n\n# Watching AFTER"),
-                        run.index("watch_owner_provisioning &\nWATCH_PID=$!"))
+        self.assertLess(run.index("local_ai_lifecycle start\n\n# Observe late"),
+                        run.index("watch_optional_aura &\nWATCH_PID=$!"))
+        self.assertNotIn("SURFACE_RUNTIME_PROVISION_MARKER", run)
         subprocess.run(["sh", "-n", str(ROOT / "bootstrap/dev-base/ordax-run")], check=True)
         subprocess.run(["sh", "-n", str(AGENT)], check=True)
 
