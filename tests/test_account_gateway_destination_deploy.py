@@ -50,6 +50,16 @@ class AccountGatewayDestinationDeployTests(unittest.TestCase):
         self.assertIn("SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}", text)
         self.assertIn("ACCOUNT_GATEWAY_DESTINATION=NOT_DEPLOYED", text)
         self.assertIn("enabled=false", text)
+        # Missing production credentials must fail the workflow instead of
+        # reporting a green run in which deployment and verification were skipped.
+        missing_credential_step = text.split(
+            "      - name: Resolve management credential availability without printing it",
+            1,
+        )[1].split("      - name: Set up pinned Supabase CLI", 1)[0]
+        self.assertIn("::error::ACCOUNT_GATEWAY_DESTINATION=NOT_DEPLOYED", missing_credential_step)
+        self.assertIn("exit 2", missing_credential_step)
+        self.assertNotIn("exit 0", missing_credential_step)
+
         self.assertIn("enabled=true", text)
         self.assertEqual(text.count("if: steps.credential.outputs.enabled == 'true'"), 4)
         self.assertNotIn("SUPABASE_ACCESS_TOKEN repository secret is required.", text)
