@@ -531,7 +531,10 @@ def read_native_httpx_buildroot_versions(buildroot: Path) -> dict[str, str]:
 def configure_buildroot(source: dict, kernel: dict, cache: Path, temp: Path,
                         profile: str) -> tuple[Path, Path, list[str], Path, dict]:
     """Canonical source, defconfig, and Kconfig authority for all build modes."""
-    archive = source_archive(source, cache.resolve())
+    cache = cache.resolve()
+    archive = source_archive(source, cache)
+    download_cache = cache / "buildroot-downloads"
+    download_cache.mkdir(parents=True, exist_ok=True)
     br = safe_unpack(archive, temp, source["buildroot"]["version"])
     generated = temp / f"ordax_{profile.replace('-', '_')}_defconfig"
     component = profile == NATIVE_COMPONENT_PROFILE
@@ -539,7 +542,7 @@ def configure_buildroot(source: dict, kernel: dict, cache: Path, temp: Path,
               if component else generate_defconfig(source, kernel, profile, generated))
     build_dir = temp / "br-output"
     cmd = ["make", "-C", str(br), f"O={build_dir}", f"BR2_EXTERNAL={HERE}",
-           f"BR2_DEFCONFIG={generated}"]
+           f"BR2_DL_DIR={download_cache}", f"BR2_DEFCONFIG={generated}"]
     run(*cmd, "defconfig")
     config_path = build_dir / ".config"
     if config_path.is_symlink() or not config_path.is_file():

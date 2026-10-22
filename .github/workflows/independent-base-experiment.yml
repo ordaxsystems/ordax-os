@@ -193,6 +193,12 @@ jobs:
           python3 bootstrap/independent-base/build.py verify \
             --profile "$ORDAX_INDEPENDENT_PROFILE" \
             --out "$RUNNER_TEMP/ordax-independent"
+      - name: Save Buildroot source/package download cache
+        if: steps.buildroot-download-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/ordax-independent-cache
+          key: ordax-buildroot-download-v1-${{ runner.os }}-${{ hashFiles('bootstrap/independent-base/source.json', 'bootstrap/independent-base/configs/**', 'bootstrap/independent-base/patches/**') }}
       - name: Prove Owner rootfs against the real Dev Channel consumer
         if: env.ORDAX_INDEPENDENT_PROFILE == 'owner-development'
         env:
