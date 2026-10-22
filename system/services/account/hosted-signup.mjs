@@ -13,7 +13,15 @@ export const HOSTED_ACCOUNT_SIGNUP_URL = new URL(
 // Never pass arbitrary URLs or credentials through the privileged bridge.
 export function requestNativeHostedSignup(event, windowRef = globalThis.window) {
   const bridge = windowRef?.webkit?.messageHandlers?.ordaxBrowser;
-  if (!bridge || typeof bridge.postMessage !== "function") return false;
+  if (!bridge || typeof bridge.postMessage !== "function") {
+    // Native Surface is loopback-served. Do not let a missing bridge turn an
+    // external link into top-level navigation inside its privileged WebView.
+    if (windowRef?.location?.protocol === "http:"
+      && windowRef?.location?.hostname === "127.0.0.1") {
+      event.preventDefault();
+    }
+    return false;
+  }
   // Prevent any fallback that could navigate the privileged Surface if the
   // native host rejects the command or the browser bridge throws.
   event.preventDefault();
