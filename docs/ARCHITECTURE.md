@@ -403,6 +403,19 @@ of each responsibility must be identified before an optimization:
   No extra observer, timer, event queue, parallel UI state or background
   process may be added for this optimization. Active windows still repaint
   immediately on changes and every owner unsubscribes on destroy.
+- **Files inactive rendering:** `system/surface/ui/file-space-controls.mjs`
+  keeps its already validated navigation/Recents/Projects and async operation
+  state current, but defers expensive full DOM repaint while its Surface
+  window is minimized or inactive. The existing Surface render subscription
+  flushes the latest state when the window regains focus; no new poll, worker
+  or renderer is introduced. The *same* Files owner is also mounted by the
+  standalone signed `files-component-runtime.mjs`: its own dedicated
+  `ordax-files-component-frame` has no Surface `data-active` marker, so
+  only explicit `data-active="false"` (or a hidden window) can suppress its
+  paint. First mount and focused interactions remain immediate; in-flight
+  operations, logical path validation, keyboard focus, selection and scroll
+  restoration retain their original guards. Both entry modes are exercised
+  by the Chromium shared-shell proof.
 - **On-demand optional panels:** `system/surface/ui/system-overview-controls.mjs`
   only fetches metrics for a visible active Overview/Storage/Diagnostics
   section and history/recovery for a visible active Updates section. First
