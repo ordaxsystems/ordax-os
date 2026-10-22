@@ -107,6 +107,23 @@ class CreatorKernelReuseWorkflowTests(unittest.TestCase):
         build = self.step_block(workflow, "Build exact-commit development Base and initramfs")
         self.assertNotIn("bootstrap/kernel/build.py", build)
         self.assertIn("bootstrap/initramfs/build.py build --jobs 4", build)
+        # Owner mountattr is compiled with the pinned kernel UAPI exported
+        # by the initramfs builder, never system /usr/include headers.
+        self.assertLess(
+            build.index("python bootstrap/initramfs/build.py build --jobs 4"),
+            build.index("python bootstrap/dev-base/build.py"),
+        )
+        self.assertLess(
+            build.index("python bootstrap/initramfs/build.py verify"),
+            build.index("python bootstrap/dev-base/build.py"),
+        )
+        self.assertIn(
+            "test -f out/initramfs-work/kernel-uapi-install/include/linux/mount.h",
+            build,
+        )
+        self.assertIn("owner_validation_pr", workflow)
+        self.assertIn("DEV_BASE_OWNER_VALIDATION_EXACT_HEAD=PASS", detector)
+        self.assertIn("github.actor == 'ordaxos-admin'", workflow)
 
     def test_owner_dev_diagnose_is_dev_base_only_and_reuses_kernel(self):
         workflow = self.assert_verified_kernel_reuse(OWNER_DEV_DIAGNOSE)
