@@ -158,5 +158,48 @@ class OwnerFetchPowerRegressionTests(unittest.TestCase):
                     supervisor.communicate(timeout=5)
 
 
+    @unittest.skipUnless(shutil.which("setsid") and shutil.which("timeout"), "Linux session tools unavailable")
+    def test_real_git_deadline_terminates_worker_and_watchdog(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            worker_script = root / "stalled-git"
+            worker_pid = root / "worker.pid"
+            child_pid = root / "child.pid"
+            worker_script.write_text(
+                "#!/bin/sh\\n"
+                f"echo $ > {shlex.quote(str(worker_pid))}\\n"
+                "sleep 90 &\\n"
+                f"echo $! > {shlex.quote(str(child_pid))}\\n"
+                "wait\\n", encoding="utf-8",
+            )
+            worker_script.chmod(0o700)
+            shell = "\\n".join([
+                "set -eu",
+                portable_shell(("run_bounded_git",)),
+                "GIT_BIN=" + shlex.quote(str(worker_script)),
+                'GIT_LOW_SPEED_TIME=15',
+                'GIT_JOB_PID=""',
+                "if run_bounded_git 2 fetch; then exit 27; fi",
+                "printf 'DEADLINE_EXPIRED\\n'",
+            ])
+            started = time.monotonic()
+            result = subprocess.run(
+                ["/bin/sh", "-c", shell], capture_output=True, text=True, timeout=7,
+            )
+            self.assertLess(time.monotonic() - started, 6)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("DEADLINE_EXPIRED", result.stdout)
+            self.assertTrue(worker_pid.exists())
+            self.assertTrue(child_pid.exists())
+            child = int(child_pid.read_text().strip())
+            worker = int(worker_pid.read_text().strip())
+            for _ in range(30):
+                if not active_process(worker) and not active_process(child):
+                    break
+                time.sleep(0.05)
+            self.assertFalse(active_process(worker), "timeout orphaned Git worker")
+            self.assertFalse(active_process(child), "timeout orphaned Git child")
+
+
 if __name__ == "__main__":
     unittest.main()
