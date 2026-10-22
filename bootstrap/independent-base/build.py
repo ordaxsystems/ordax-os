@@ -39,7 +39,7 @@ OWNER_BUSYBOX_FRAGMENT_CONFIG = (
     'portable-handoff.busybox.fragment $(BR2_EXTERNAL_ORDAX_MINIMAL_PATH)/configs/'
     'owner-development.busybox.fragment"'
 )
-BUSYBOX_HANDOFF_SYMBOLS = ("CONFIG_STAT=y", "CONFIG_FEATURE_STAT_FORMAT=y", "CONFIG_TIMEOUT=y", "CONFIG_FLOCK=y")
+BUSYBOX_HANDOFF_SYMBOLS = ("CONFIG_STAT=y", "CONFIG_FEATURE_STAT_FORMAT=y", "CONFIG_TIMEOUT=y", "CONFIG_FLOCK=y", "CONFIG_MKTEMP=y")
 OWNER_BUSYBOX_SYMBOLS = ("CONFIG_NTPD=y",)
 SUPPORTED_PROFILES = ("minimal", "owner-development")
 # Component-private Python must not change the two canonical OS boot profiles.
@@ -790,7 +790,7 @@ def verify_target(target: Path, profile: str) -> dict:
     required_applets = {"sh", "mount", "umount", "ifconfig", "route", "udhcpc",
                         "poweroff", "grep", "sync", "modprobe", "timeout",
                         "od", "tr", "stat", "uname", "sleep", "true",
-                        "cat", "mkdir", "chmod", "flock"}
+                        "cat", "mkdir", "chmod", "flock", "mktemp"}
     if profile == "owner-development":
         # Runtime closure for the canonical Owner helpers. Keep this list tied
         # to commands those scripts execute directly; built target verification

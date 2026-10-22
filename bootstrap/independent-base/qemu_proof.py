@@ -103,8 +103,8 @@ def qemu(
         # IDE emulation requires a writable block backend. QEMU snapshot=on
         # redirects guest writes to disposable COW while leaving base bytes intact.
         # The guest EROFS mount is independently verified read-only by PID1.
-        "-drive", f"file={base},if=ide,format=raw,snapshot=on",
-        "-drive", f"file={state},if=ide,format=raw",
+        "-drive", f"file={base},if=ide,index=0,format=raw,snapshot=on",
+        "-drive", f"file={state},if=ide,index=1,format=raw",
         "-netdev", "user,id=n0", "-device", "e1000,netdev=n0",
     ]
     log_dir.mkdir(parents=True, exist_ok=True)

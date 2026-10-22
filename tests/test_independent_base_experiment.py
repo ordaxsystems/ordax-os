@@ -67,6 +67,55 @@ class IndependentBaseTest(unittest.TestCase):
         self.assertNotIn('"-m", "384M"', proof)
         self.assertIn("not a product RAM requirement", proof)
 
+    def test_guest_identifies_disposable_disk_roles_even_when_order_is_reversed(self):
+        # Pure fixture test for the actual PID1 discovery function; QEMU CI
+        # separately proves real immutable EROFS and persistent ext4 mounts.
+        init = (BASE / "overlay/sbin/ordax-independent-probe-init").read_text()
+        self.assertIn("find_disk_roles /dev/sda /dev/sdb", init)
+        self.assertIn('mount -t erofs -o ro "$base_device"', init)
+        self.assertIn('mount -t ext4 -o rw "$state_device"', init)
+        self.assertNotIn("mount -t erofs -o ro /dev/sda", init)
+        qemu = (BASE / "qemu_proof.py").read_text()
+        self.assertIn("if=ide,index=0,format=raw,snapshot=on", qemu)
+        self.assertIn("if=ide,index=1,format=raw", qemu)
+
+        body = init.split("find_disk_roles() {\n", 1)[1].split("\n}\n", 1)[0]
+        script = (
+            'set -eu\n'
+            'rescue() { printf "RECOVERY=%s\\n" "$1" >&2; exit 1; }\n'
+            'find_disk_roles() {\n' + body + '\n}\n'
+            'find_disk_roles "$1" "$2"\n'
+            'printf "base=%s state=%s\\n" "$base_device" "$state_device"\n'
+        )
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            base, state, unknown = (root / name for name in ("base.img", "state.img", "unknown.img"))
+            erofs_bytes = bytearray(4096)
+            erofs_bytes[1024:1028] = bytes.fromhex("e2e1f5e0")
+            base.write_bytes(erofs_bytes)
+            ext4_bytes = bytearray(4096)
+            ext4_bytes[1080:1082] = bytes.fromhex("53ef")
+            state.write_bytes(ext4_bytes)
+            unknown.write_bytes(bytes(4096))
+
+            def run(first, second):
+                return subprocess.run(
+                    ["sh", "-c", script, "guest-discovery", str(first), str(second)],
+                    capture_output=True, text=True, check=False,
+                )
+
+            for disks in ((base, state), (state, base)):
+                with self.subTest(order=disks):
+                    result = run(*disks)
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                    self.assertEqual(result.stdout.strip(), f"base={base} state={state}")
+            ambiguous = run(base, base)
+            self.assertNotEqual(ambiguous.returncode, 0)
+            self.assertIn("RECOVERY=erofs-ambiguous", ambiguous.stderr)
+            missing = run(unknown, state)
+            self.assertNotEqual(missing.returncode, 0)
+            self.assertIn("RECOVERY=erofs", missing.stderr)
+
     def test_canonical_input_contracts(self):
         result = subprocess.run(
             [sys.executable, str(BASE / "build.py"), "check"],
