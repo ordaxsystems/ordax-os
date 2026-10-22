@@ -401,6 +401,17 @@ of each responsibility must be identified before an optimization:
   following read may reuse that response; subsequent reads always contact
   the Host. A request with an AbortSignal never reuses the initial sample.
   No additional polling, global cache or UI-specific transport is introduced.
+- **Native bootstrap session:** `system/adapters/native/session-read.mjs` is
+  the sole GET transport owner for simultaneous startup session reads by
+  native Power, Network Management, Display Outputs and Client Diagnostics
+  adapters. Their permission/token validation and authenticated mutations
+  remain independent. The reader deduplicates only a promise **while in
+  flight for the same window**; it never retains successful tokens, HTTP
+  errors, rejected JSON or authorization across completed requests. Session
+  refresh following a denied power command therefore always contacts the
+  Native Host again. Other explicit privileged workflows retain their own
+  fresh-session semantics. No background process, timer or credential store
+  is introduced.
 - **Native update status:** `system/adapters/native/update-runtime.mjs` is the
   sole Surface watcher for the host update endpoint. Preserve its fast 750 ms
   cadence during active update transactions/manual checks, use a slower
