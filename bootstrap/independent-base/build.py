@@ -45,6 +45,8 @@ SUPPORTED_PROFILES = ("minimal", "owner-development")
 # Component-private Python must not change the two canonical OS boot profiles.
 NATIVE_COMPONENT_PROFILE = "native-product-runtime"
 NATIVE_COMPONENT_FRAGMENT = HERE / "configs/native-product-runtime.fragment"
+# Module names are probe inputs only, NEVER copied version pins.
+NATIVE_HTTPX_PROBE_PACKAGES = ("httpx", "httpcore", "anyio", "certifi", "idna", "h11")
 NATIVE_COMPONENT_REQUIRED = (
     "BR2_SHARED_LIBS=y", "BR2_PACKAGE_PYTHON3=y",
     "BR2_PACKAGE_PYTHON3_PYC_ONLY=y", "BR2_PACKAGE_PYTHON3_SSL=y", "BR2_PACKAGE_PYTHON3_ZLIB=y",
@@ -495,8 +497,39 @@ def safe_unpack(archive: Path, work: Path, version: str) -> Path:
     return dest
 
 
+def read_native_httpx_buildroot_versions(buildroot: Path) -> dict[str, str]:
+    """Use exact source versions from the already authenticated Buildroot tree.
+
+    This is a source-only *inventory*, not reconciliation of the Runtime lock.
+    A name or version absent from the pinned Buildroot tree fails closed. No
+    external package index, copied version list or Alpine packages are used.
+    """
+    versions: dict[str, str] = {}
+    for name in NATIVE_HTTPX_PROBE_PACKAGES:
+        package = buildroot / "package" / f"python-{name}"
+        mk = package / f"python-{name}.mk"
+        config = package / "Config.in"
+        if (mk.is_symlink() or not mk.is_file() or config.is_symlink()
+                or not config.is_file()):
+            raise BaseError("pinned Buildroot HTTPX package unavailable: " + name)
+        variable = "PYTHON_" + name.upper().replace("-", "_")
+        options = re.findall(
+            rf"(?m)^config\s+BR2_PACKAGE_{variable}\s*$",
+            config.read_text(encoding="utf-8"),
+        )
+        values = re.findall(
+            rf"(?m)^{variable}_VERSION\s*=\s*([^\s#]+)\s*$",
+            mk.read_text(encoding="utf-8"),
+        )
+        if (len(options) != 1 or len(values) != 1 or
+                not re.fullmatch(r"\d+(?:\.\d+){1,3}", values[0])):
+            raise BaseError("pinned Buildroot HTTPX package version invalid: " + name)
+        versions[name] = values[0]
+    return versions
+
+
 def configure_buildroot(source: dict, kernel: dict, cache: Path, temp: Path,
-                        profile: str) -> tuple[Path, list[str], Path, dict]:
+                        profile: str) -> tuple[Path, Path, list[str], Path, dict]:
     """Canonical source, defconfig, and Kconfig authority for all build modes."""
     archive = source_archive(source, cache.resolve())
     br = safe_unpack(archive, temp, source["buildroot"]["version"])
@@ -516,7 +549,7 @@ def configure_buildroot(source: dict, kernel: dict, cache: Path, temp: Path,
         verify_native_component_config(config, kernel)
     else:
         verify_resolved_config(config, kernel, profile)
-    return build_dir, cmd, archive, inputs
+    return br, build_dir, cmd, archive, inputs
 
 
 def resolve_profile(cache: Path, profile: str) -> dict:
@@ -526,7 +559,7 @@ def resolve_profile(cache: Path, profile: str) -> dict:
             raise BaseError(f"required Buildroot profile-resolution tool is missing: {prog}")
     temp = Path(tempfile.mkdtemp(prefix="ordax-independent-resolve-"))
     try:
-        build_dir, cmd, archive, inputs = configure_buildroot(
+        br, build_dir, cmd, archive, inputs = configure_buildroot(
             source, kernel, cache, temp, profile)
         component = profile == NATIVE_COMPONENT_PROFILE
         return {
@@ -1088,12 +1121,15 @@ def build_native_python_component(out: Path, cache: Path, jobs: int) -> dict:
     out.mkdir(parents=True, exist_ok=True)
     temp = Path(tempfile.mkdtemp(prefix="ordax-native-python-build-"))
     try:
-        build_dir, cmd, archive, inputs = configure_buildroot(
+        br, build_dir, cmd, archive, inputs = configure_buildroot(
             source, kernel, cache, temp, NATIVE_COMPONENT_PROFILE
         )
+        source_versions = read_native_httpx_buildroot_versions(br)
         run(*cmd[:-1], f"-j{max(1, jobs)}", bounded_output=True)
         evidence = verify_native_python_target(build_dir / "target")
         smoke = smoke_test_private_native_python(build_dir / "target", evidence)
+        if smoke["httpx_version"] != source_versions["httpx"]:
+            raise BaseError("compiled private HTTPX version mismatches pinned Buildroot recipe")
         receipt = {
             "$schema": "ordax.private-native-python-build-proof/1",
             "status": "build-proof-only",
@@ -1102,6 +1138,7 @@ def build_native_python_component(out: Path, cache: Path, jobs: int) -> dict:
             "component_inputs": inputs,
             "python_abi": evidence,
             "private_python_smoke": smoke,
+            "httpx_buildroot_source_versions": source_versions,
             "runtime_agent_packaged": False,
             "component_artifact_authorized": False,
             "device_install_authorized": False,
@@ -1147,6 +1184,13 @@ def verify_native_python_receipt(out: Path) -> dict:
             or not all(isinstance(lib, str) and re.fullmatch(r"[A-Za-z0-9_.+-]+", lib)
                        for lib in abi["needed_shared_libraries"])):
         raise BaseError("private Python ABI closure receipt invalid")
+    source_versions = receipt.get("httpx_buildroot_source_versions")
+    if (not isinstance(source_versions, dict)
+            or set(source_versions) != set(NATIVE_HTTPX_PROBE_PACKAGES)
+            or any(not isinstance(value, str) or
+                   not re.fullmatch(r"\d+(?:\.\d+){1,3}", value)
+                   for value in source_versions.values())):
+        raise BaseError("private HTTPX Buildroot source-version receipt invalid")
     smoke = receipt.get("private_python_smoke")
     if (not isinstance(smoke, dict)
             or smoke.get("status") != "kernel-host-smoke-pass"
@@ -1159,6 +1203,7 @@ def verify_native_python_receipt(out: Path) -> dict:
             or not re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+",
                                 str(smoke.get("httpx_version", "")))
             or smoke.get("runtime_dependency_versions_reconciled") is not False
+            or smoke.get("httpx_version") != source_versions["httpx"]
             or smoke.get("linux_kernel_execution_proven") is not True
             or smoke.get("ordax_usb_execution_proven") is not False
             or smoke.get("runtime_agent_packaged") is not False
@@ -1189,7 +1234,7 @@ def build(out: Path, cache: Path, jobs: int, profile: str) -> dict:
     out.mkdir(parents=True, exist_ok=True)
     temp = Path(tempfile.mkdtemp(prefix="ordax-independent-build-"))
     try:
-        build_dir, cmd, archive, inputs = configure_buildroot(
+        br, build_dir, cmd, archive, inputs = configure_buildroot(
             source, kernel, cache, temp, profile)
         run(*cmd[:-1], f"-j{max(1, jobs)}", bounded_output=True)
         iproute2_minimal_build = verify_iproute2_minimal_build(build_dir)
