@@ -212,7 +212,7 @@ class CreatorPhysicalPublisherBoundaryTests(unittest.TestCase):
         self.assertIn("system/services/preferences/catalog.mjs", governed)
         self.assertIn("tools/creator/core/portable_sources.go", governed)
         self.assertIn("tools/creator/core/installed_media_inspection.go", governed)
-        self.assertIn("tools/creator/core/installed_media_inspection_test.go", governed)
+        self.assertIn("tools/creator/host/windows/installed_media_inspection_windows.go", governed)
         self.assertIn("tools/creator/physicalchannel/portable_payload.go", governed)
         self.assertNotIn("docs/contracts/creator-consumer-flow.json", governed)
         self.assertNotIn("tools/release-signing/windows/8-Sign-Publish-CreatorPhysical.ps1", governed)
