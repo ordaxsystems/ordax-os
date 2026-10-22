@@ -47,5 +47,32 @@
     "short_pin_policy": "screen-lock-only-never-persist-refresh-on-copyable-usb",
     "fail_closed_on_unavailable_crypto": true,
     "physical_proof": "pending"
+  },
+  "tpm2_foundation": {
+    "status": "read-only-hardware-diagnostic-only",
+    "owner": "system/surface/runtime/native_account_vault.py",
+    "kernel_prerequisites": [
+      "CONFIG_KEYS=y",
+      "CONFIG_TCG_TPM=y",
+      "CONFIG_TCG_TIS=y",
+      "CONFIG_TCG_CRB=y",
+      "CONFIG_TRUSTED_KEYS=y",
+      "CONFIG_TRUSTED_KEYS_TPM=y"
+    ],
+    "hardware_probe": "tpm2_pin_preflight",
+    "diagnostic_entrypoint": "tools/account-sync/probe_native_tpm2.py",
+    "probe_requires_tpm2_resource_manager": true,
+    "probe_reads_version_and_device_metadata_only": true,
+    "pin_enrollment_implemented": false,
+    "hardware_key_seal_unseal_implemented": false,
+    "tpm_dictionary_attack_policy_proven": false,
+    "measured_boot_policy_proven": false,
+    "device_transfer_recovery_proven": false,
+    "physical_proof_passed": false,
+    "short_pin_reboot_enabled": false,
+    "usb_without_hardware": "strong-passphrase-vault-or-interactive-gateway-login",
+    "kernel_prerequisites_in_current_shipped_kernel": false,
+    "kernel_build_and_signed_artifact_proof": "pending-canonical-kernel-rebuild-and-manifest-rebinding",
+    "hardware_probe_does_not_establish_kernel_capability": true
   }
 }
