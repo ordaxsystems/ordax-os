@@ -32,7 +32,8 @@ SHELL_ONLY = {
 INTERNAL_COMMANDS = {
     "ordax-dev-init", "ordax-network", "ordax-pull", "ordax-rollback",
     "ordax-run", "ordax-diagnose", "ordax-main-watch", "ordax-release-agent",
-    "ordax-portable-state", "ordax-remote", "ordax-usb-mountattr", "entrypoint",
+    "ordax-portable-state", "ordax-remote", "ordax-usb-mountattr",
+    "ordax-checkout-exchange", "entrypoint",
 }
 # Fixed initramfs utilities are not Dev rootfs packages or helper-manifest
 # entries. A use from bootstrap/dev/entrypoint is accepted only when the
