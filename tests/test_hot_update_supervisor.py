@@ -191,8 +191,13 @@ class HotUpdateSupervisorContractTests(unittest.TestCase):
         self.assertNotIn('sparse-checkout set --no-cone', apply)
         self.assertNotIn("repair_dirty_checkout", apply)
         self.assertIn("replace_runtime_checkout()", pull)
-        self.assertIn('mv "$WORKTREE" "$retired"', pull)
-        self.assertIn('mv "$stage" "$WORKTREE"', pull)
+        # The live directory must never vanish between two independent mv calls.
+        # Only a single kernel exchange may replace an existing checkout.
+        self.assertIn('atomic_checkout_exchange "$WORKTREE" "$stage"', pull)
+        self.assertIn('atomic_checkout_exchange "$WORKTREE" "$retired"', pull)
+        self.assertIn('EXCHANGE_BIN=${ORDAX_CHECKOUT_EXCHANGE_BIN:-/usr/local/bin/ordax-checkout-exchange}', pull)
+        self.assertNotIn('mv "$WORKTREE" "$retired"', pull)
+        self.assertIn('mv "$stage" "$WORKTREE"', pull)  # first installation only
         self.assertIn('EXPECTED_SHA=${ORDAX_EXPECTED_SHA:-}', pull)
         self.assertIn('checkout_target_sha=$2', apply)
         self.assertIn('checkout_fetched_sha', apply)
