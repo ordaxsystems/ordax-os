@@ -25,7 +25,7 @@ test("Studio runtime source lock pins the merged headless compatibility contract
   assert.equal(lock.$schema, "prototype-ordax.studio-runtime-source-lock/1");
   assert.equal(lock.source.repository, "https://github.com/ordaxsystems/ordax-runtime");
   assert.match(lock.source.commit, /^[0-9a-f]{40}$/);
-  assert.equal(lock.source.commit, "1bbb6a0c45468fced3f1cdc0a7ffeda5a143bba8");
+  assert.equal(lock.source.commit, "d3cecce1abfe542a50795b72d98d6a15fa25803a");
   assert.deepEqual(lock.source.compatibility_contract, {
     path: "docs/contracts/ordax-os-runtime-compatibility.json",
     schema: "ordax.studio-runtime-compatibility/1",
@@ -180,11 +180,11 @@ test("Owner DEV CI candidate is recorded as evidence, not unsigned installation 
     kind: "ci-only-unsigned",
     source_commit: lock.source.commit,
     platform: "linux-amd64-musl",
-    workflow_run_id: 39725908808,
-    artifact_id: 12402644216,
-    archive_sha256: "1fa10740c41fd532db010ca0072f6d536e0cb3daaf36d8a67ac3d4a3001995bc",
-    executable_sha256: "fd9690846951816f20c5d0d72b28c085cd6aac5d34b6999befa0be7969da9462",
-    executable_size_bytes: 25036072,
+    workflow_run_id: 39732421629,
+    artifact_id: 12406001168,
+    archive_sha256: "2344c035f29755ca445c826060287a62c864dcaf6b1f9bfaf8c749f82bf095e8",
+    executable_sha256: "ecb30cacc2e4be09b6f7dd48768a93943149105bfab9a8339475697f109040e0",
+    executable_size_bytes: 25034544,
     offline_proof_verified: true,
     device_execution_proven: false,
     signed_distribution_authorized: false,
@@ -198,6 +198,15 @@ test("Owner DEV CI candidate is recorded as evidence, not unsigned installation 
       "alpine-build-provenance",
       "embedded-python-runtime-closure-unverified",
     ],
+    embedded_elf_inventory: {
+      schema: "ordax.native-embedded-elf-inventory/1",
+      native_entry_count: 90,
+      native_uncompressed_bytes: 40611847,
+      inventory_sha256: "16d8553cd00dbebd98eda0ff0ae5553b1c240360a511caa30974d0cd9ef6a108",
+      unprovided_needed_names: ["libc.musl-x86_64.so.1", "libc.so"],
+      independent_base_compatibility_proven: false,
+      install_authorized: false,
+    },
   });
   assert.equal(lock.distribution.source_binding_only, true);
   assert.equal(lock.distribution.signed_runtime_slot_available, false);
