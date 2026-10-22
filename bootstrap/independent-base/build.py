@@ -997,12 +997,22 @@ def smoke_test_private_native_python(target: Path, abi: dict) -> dict:
         "assert zlib.decompress(zlib.compress(b'ordax-kernel-only-smoke'))"
         "==b'ordax-kernel-only-smoke';"
         "assert ssl.OPENSSL_VERSION.startswith('OpenSSL ');"
-        "req=importlib.import_module('httpx').Request('GET','https://example.invalid/probe');"
+        "httpx=importlib.import_module('httpx');"
+        "req=httpx.Request('GET','https://example.invalid/probe');"
         "assert req.method=='GET' and req.url.host=='example.invalid';"
+        "mock=httpx.MockTransport(lambda r:httpx.Response(200,json={'ok':"
+        "r.headers.get('x-ordax-proof')=='private'}));"
+        "client=httpx.Client(transport=mock,follow_redirects=False);"
+        "res=client.get('https://example.invalid/probe',"
+        "headers={'X-Ordax-Proof':'private'});"
+        "client.close();"
+        "assert res.status_code==200 and res.json()=={'ok':True};"
         "print(json.dumps({'python_version':sys.version.split()[0],"
         "'module_names':list(mods),'ssl_version':ssl.OPENSSL_VERSION,"
         "'all_imports_private':True,'tls_and_zlib_operational':True,"
+        "'httpx_version':httpx.__version__,"
         "'httpx_offline_request_construction_proven':True,"
+        "'httpx_mock_transport_proven':True,"
         "'runtime_dependency_versions_reconciled':False}))"
     )
     env = os.environ.copy()
@@ -1041,6 +1051,9 @@ def smoke_test_private_native_python(target: Path, abi: dict) -> dict:
             or smoke.get("all_imports_private") is not True
             or smoke.get("tls_and_zlib_operational") is not True
             or smoke.get("httpx_offline_request_construction_proven") is not True
+            or smoke.get("httpx_mock_transport_proven") is not True
+            or not re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+",
+                                str(smoke.get("httpx_version", "")))
             or smoke.get("runtime_dependency_versions_reconciled") is not False
             or not str(smoke.get("ssl_version", "")).startswith("OpenSSL ")):
         raise BaseError("private compiled Python smoke verification incomplete")
@@ -1051,6 +1064,8 @@ def smoke_test_private_native_python(target: Path, abi: dict) -> dict:
         "all_imports_private": True,
         "tls_and_zlib_operational": True,
         "httpx_offline_request_construction_proven": True,
+        "httpx_mock_transport_proven": True,
+        "httpx_version": smoke["httpx_version"],
         # The transitive dependencies do not all match the Runtime lock.
         "runtime_dependency_versions_reconciled": False,
         "linux_kernel_execution_proven": True,
@@ -1140,6 +1155,9 @@ def verify_native_python_receipt(out: Path) -> dict:
             or smoke.get("all_imports_private") is not True
             or smoke.get("tls_and_zlib_operational") is not True
             or smoke.get("httpx_offline_request_construction_proven") is not True
+            or smoke.get("httpx_mock_transport_proven") is not True
+            or not re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+",
+                                str(smoke.get("httpx_version", "")))
             or smoke.get("runtime_dependency_versions_reconciled") is not False
             or smoke.get("linux_kernel_execution_proven") is not True
             or smoke.get("ordax_usb_execution_proven") is not False
