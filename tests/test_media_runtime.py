@@ -16,6 +16,7 @@ def module(name, path):
 
 
 CONFIG = module("media_package_config_test", "bootstrap/surface-runtime/package_config.py")
+BUILDER = module("media_runtime_builder_test", "bootstrap/surface-runtime/build.py")
 PROBE = module("media_runtime_probe_test", "system/surface/runtime/media_runtime_probe.py")
 
 
@@ -47,6 +48,21 @@ class MediaRuntimeTests(unittest.TestCase):
             path.write_text("gst-libav\n")
             with self.assertRaises(ValueError):
                 CONFIG.requested_packages({**contract, "packages": ["other"]}, root)
+
+    def test_builder_runs_guest_visible_probe_and_always_removes_build_script(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            def execute(actual_root, command):
+                self.assertEqual(actual_root, root)
+                guest_path = command.split()[1]
+                self.assertFalse(guest_path.startswith("/tmp/"))
+                script = root / guest_path.lstrip("/")
+                self.assertEqual(script.read_bytes(), (ROOT / "system/surface/runtime/media_runtime_probe.py").read_bytes())
+                raise RuntimeError("decoder failure")
+            with mock.patch.object(BUILDER.CORE, "proot_rootfs", side_effect=execute):
+                with self.assertRaisesRegex(RuntimeError, "decoder failure"):
+                    BUILDER.probe_runtime_media(root)
+            self.assertEqual(list(root.iterdir()), [])
 
     def test_probe_tests_container_decoding_and_never_opens_capture_or_speakers(self):
         with mock.patch.object(PROBE.subprocess, "run", return_value=mock.Mock(returncode=0)) as run:
