@@ -8,12 +8,28 @@ Owner/Development USB, reads the enrolled OS credential, takes the
 canonical singleton lock and delegates to the dispatch loop. The former
 source-only Python handoff helper is not a runtime entrypoint.
 The unsigned candidate evidence is refreshed from the **successful
-push of ordax-runtime main** at
-`eaf47d2adc1c8be54a4240e1fbe539a3cda44649` (Actions run
-`39572841771`), with verified artifact ZIP and ELF SHA-256. It remains
-only an offline CI proof: no signature, installation or USB execution
-is claimed. The pinned upstream compatibility contract bytes did not
-change, so its SHA-256 is preserved.
+native CI on ordax-runtime main** at
+`1bbb6a0c45468fced3f1cdc0a7ffeda5a143bba8` (Actions run
+`39725908808`), with independently matched artifact ZIP and ELF SHA-256.
+The ELF is 25,036,072 bytes and has an external musl interpreter
+`/lib/ld-musl-x86_64.so.1`, DT_NEEDED `libc.musl-x86_64.so.1`
+and `libz.so.1`. Source provenance also uses Alpine; the embedded Python
+dependency closure is not verified against the Independent Base.
+The OS CI verifier reads PT_INTERP and DT_NEEDED from executable bytes,
+matches the source lock and reports `independent_base_abi_ready=false`
+without pretending a signed/installable component. The Independent Base minimal Buildroot defconfig currently uses
+`BR2_TOOLCHAIN_BUILDROOT_MUSL=y` and `BR2_STATIC_LIBS=y`; it does not
+establish the external dynamic loader/library ABI this candidate needs.
+A successful Alpine-based CI executable test is therefore not a boot
+proof on that Base. A reviewed build/ABI closure against the canonical
+Buildroot owner must precede installation; do not copy Alpine libraries
+into a second userspace or claim kernel-only Python execution.
+The existing Runtime Component Channel currently limits a file to
+2 MiB and an unpacked package to 16 MiB; this 25 MB executable cannot be activated through it
+without a reviewed, component-specific binary packaging contract.
+No signature, installation, launch or physical USB execution is claimed.
+The pinned upstream compatibility contract bytes did not change, so its
+SHA-256 is preserved.
 (2026-10-21): The Owner/Development USB Native Host now uses the same
 `product-runtime/instance.lock` as the upstream
 `ordax_dev_agent.native_main` executable. The OS presence worker holds

@@ -25,7 +25,7 @@ test("Studio runtime source lock pins the merged headless compatibility contract
   assert.equal(lock.$schema, "prototype-ordax.studio-runtime-source-lock/1");
   assert.equal(lock.source.repository, "https://github.com/ordaxsystems/ordax-runtime");
   assert.match(lock.source.commit, /^[0-9a-f]{40}$/);
-  assert.equal(lock.source.commit, "eaf47d2adc1c8be54a4240e1fbe539a3cda44649");
+  assert.equal(lock.source.commit, "1bbb6a0c45468fced3f1cdc0a7ffeda5a143bba8");
   assert.deepEqual(lock.source.compatibility_contract, {
     path: "docs/contracts/ordax-os-runtime-compatibility.json",
     schema: "ordax.studio-runtime-compatibility/1",
@@ -180,18 +180,28 @@ test("Owner DEV CI candidate is recorded as evidence, not unsigned installation 
     kind: "ci-only-unsigned",
     source_commit: lock.source.commit,
     platform: "linux-amd64-musl",
-    workflow_run_id: 39572841771,
-    artifact_id: 12332557477,
-    archive_sha256: "791e80facaf07dc9d4a3c5941c5ad4a141614acaf89785c50519fac7cd9e2525",
-    executable_sha256: "c432ec03bdd01df0eb8c2dbe5bcf147e93a7a94711f536154af14ce5719e6946",
-    executable_size_bytes: 24995232,
+    workflow_run_id: 39725908808,
+    artifact_id: 12402644216,
+    archive_sha256: "1fa10740c41fd532db010ca0072f6d536e0cb3daaf36d8a67ac3d4a3001995bc",
+    executable_sha256: "fd9690846951816f20c5d0d72b28c085cd6aac5d34b6999befa0be7969da9462",
+    executable_size_bytes: 25036072,
     offline_proof_verified: true,
     device_execution_proven: false,
     signed_distribution_authorized: false,
     native_graphical_control_proven: false,
+    independent_base_abi_ready: false,
+    elf_interpreter: "/lib/ld-musl-x86_64.so.1",
+    elf_needed_libraries: ["libc.musl-x86_64.so.1", "libz.so.1"],
+    independent_base_abi_blockers: [
+      "external-dynamic-elf-interpreter",
+      "external-shared-libraries",
+      "alpine-build-provenance",
+      "embedded-python-runtime-closure-unverified",
+    ],
   });
   assert.equal(lock.distribution.source_binding_only, true);
   assert.equal(lock.distribution.signed_runtime_slot_available, false);
   assert.equal(lock.activation.dispatch_enabled, false);
   assert.equal(lock.activation.single_device_heartbeat_owner_required, true);
+  assert.equal(lock.candidate_evidence.independent_base_abi_ready, false);
 });
