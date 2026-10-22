@@ -16,6 +16,7 @@ O produto continua em desenvolvimento e homologação: a promoção/renomeação
 ## 2. Fonte de verdade
 
 - `main` e o unico source authority deste prototipo.
+- Preservar a ancestralidade de commits da `main` já consumidos por dispositivos Owner/Development: preferir merge commit nas PRs; nunca reescrever/forçar `main` nem transformar por squash/rebase um HEAD publicado para esses dispositivos. A recuperação automática de divergência é uma proteção transacional do Supervisor, não autorização para quebrar o histórico intencionalmente.
 - Midia fisica, notebook, imagens, backups e copias locais nao sao source authority.
 - Nenhuma alteracao fisica sem equivalente reproduzivel no source.
 - Nao criar caminhos paralelos para a mesma responsabilidade.

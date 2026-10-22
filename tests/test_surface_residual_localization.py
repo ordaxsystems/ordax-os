@@ -25,7 +25,8 @@ class SurfaceResidualLocalizationTests(unittest.TestCase):
             "assertSurfaceRenderLifecycle",
             "localization.getLocale()",
             "localization.subscribe",
-            '"home.continuation.heading"',
+            '"home.continuation.title"',
+            '"home.continuation.openFiles"',
             '"home.continuation.projectDetail"',
             '"home.continuation.recentDetail"',
             '"home.continuation.projectAction"',
@@ -142,7 +143,8 @@ class SurfaceResidualLocalizationTests(unittest.TestCase):
         power = POWER_I18N.read_text(encoding="utf-8")
         system = SYSTEM_I18N.read_text(encoding="utf-8")
         pairs = (
-            (surface, '"home.continuation.heading": "Continuar trabalho"', '"home.continuation.heading": "Continue working"'),
+            (surface, '"home.continuation.title": "Continue de onde parou"', '"home.continuation.title": "Pick up where you left off"'),
+            (surface, '"home.continuation.openFiles": "Abrir arquivos"', '"home.continuation.openFiles": "Open files"'),
             (surface, '"home.pending.heading": "Pendências"', '"home.pending.heading": "Pending"'),
             (power, '"power.controls.restart.label": "Reiniciar"', '"power.controls.restart.label": "Restart"'),
             (power, '"power.controls.shutdown.label": "Desligar"', '"power.controls.shutdown.label": "Shut down"'),

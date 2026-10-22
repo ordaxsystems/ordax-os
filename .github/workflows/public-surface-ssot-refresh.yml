@@ -13,6 +13,8 @@ on:
       - 'system/surface/ui/audio-output-controls.mjs'
       - 'system/surface/workspace/components/central/settings.tsx'
       - 'system/surface/ui/desktop-shell.mjs'
+      - 'system/surface/ui/home-continuation.mjs'
+      - 'system/surface/ui/home-pending.mjs'
       - 'system/services/surface/meridian-navigation.mjs'
       - 'system/services/i18n/surface.mjs'
       - 'system/services/i18n/catalog/**'
@@ -57,32 +59,39 @@ jobs:
       - name: Validate typed Connector adapter before generating presentation
         run: node --test tests/test_product_connector_adapter.mjs
 
-      - name: Run canonical snapshot and fixture generators
-        run: |
-          set -euo pipefail
-          node tools/public-site/surface_snapshot.mjs
-          python tools/public-site/playground_fixture.py --write
-          python tools/public-site/playground_fixture.py
-
-      - name: Commit only generated public artifacts
+      - name: Regenerate and publish canonical artifacts from latest branch
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          git add -- sites/public/assets/surface-snapshot.json sites/public/assets/surface-snapshot.css \
-            sites/public/assets/public-surface-day.jpg sites/public/assets/public-surface-night.jpg \
-            sites/public/assets/public-space-city.jpg sites/public/assets/playground-fixture.json \
-            sites/public/index.html sites/public/i18n/catalog.js
-          git diff --cached --check
-          if git diff --cached --quiet; then
-            echo 'PUBLIC_SURFACE_SSOT=ALREADY_CURRENT'
-            exit 0
-          fi
           git config user.name 'ordax-ssot-bot'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git commit -m 'chore(public): regenerate canonical Surface artifacts'
-          # A short-lived GitHub CLI credential helper uses the job token from
-          # environment. Checkout never persists credentials into the worktree.
+          # A short-lived credential helper is scoped to this runner.
           gh auth setup-git --hostname github.com
-          git push origin HEAD:"${GITHUB_REF_NAME}"
-          echo 'PUBLIC_SURFACE_SSOT=UPDATED'
+          # Other agents may advance this PR branch during generation.
+          # Always regenerate after fetching the current tip; never publish
+          # artifacts whose source hashes came from a stale branch.
+          for attempt in 1 2 3; do
+            git fetch --no-tags origin "refs/heads/${GITHUB_REF_NAME}:refs/remotes/origin/${GITHUB_REF_NAME}"
+            git switch -C ordax-public-surface-ssot "refs/remotes/origin/${GITHUB_REF_NAME}"
+            node tools/public-site/surface_snapshot.mjs
+            python tools/public-site/playground_fixture.py --write
+            python tools/public-site/playground_fixture.py
+            git add -- sites/public/assets/surface-snapshot.json sites/public/assets/surface-snapshot.css \
+              sites/public/assets/public-surface-day.jpg sites/public/assets/public-surface-night.jpg \
+              sites/public/assets/public-space-city.jpg sites/public/assets/playground-fixture.json \
+              sites/public/index.html sites/public/i18n/catalog.js
+            git diff --cached --check
+            if git diff --cached --quiet; then
+              echo 'PUBLIC_SURFACE_SSOT=ALREADY_CURRENT'
+              exit 0
+            fi
+            git commit -m 'chore(public): regenerate canonical Surface artifacts'
+            if git push origin HEAD:"${GITHUB_REF_NAME}"; then
+              echo 'PUBLIC_SURFACE_SSOT=UPDATED'
+              exit 0
+            fi
+            echo "PUBLIC_SURFACE_SSOT=RETRY_BRANCH_MOVED attempt=${attempt}"
+          done
+          echo 'PUBLIC_SURFACE_SSOT=BLOCKED_CONCURRENT_UPDATES' >&2
+          exit 1

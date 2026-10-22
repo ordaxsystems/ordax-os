@@ -1610,7 +1610,7 @@
   register("surface.a308840fa486", "Seu trabalho, seus produtos e seus projetos em um lugar.", "Your work, products and projects in one place.");
   register("surface.daaa681c3048", "Criar novo espaço", "Create new space");
   register("surface.7743aeb4e682", "ESPAÇO EM USO", "SPACE IN USE");
-  register("surface.84c0539f149a", "Abrir espaço", "Open space");
+  register("surface.84c0539f149a", "Abrir espaço", "Open Space");
   register("surface.0a1e5cf1617e", "Achegue-se", "Achegue-se");
   register("surface.40e49271ddad", "Operação", "Operation");
   register("surface.ddfe7700c37c", "Empresas, serviços e oportunidades locais.", "Local companies, services and opportunities.");
@@ -1698,7 +1698,6 @@
   register("surface.6d15f59df0d1", "Abra suas ferramentas, encontre seus arquivos", "Open your tools, find your files");
   register("surface.a50c93e7b420", "e dê espaço à próxima ideia.", "and make room for the next idea.");
   register("surface.e1a558cec483", "Loja e recursos", "Store and resources");
-  register("surface.dcc985fcad64", "Backend pendente", "Backend pending");
   register("surface.6af3ef6ba0a1", "Exemplo", "Example");
   register("surface.7d29239e60f5", "Planejado", "Planned");
   register("surface.49a586ddbb8a", "Rede e Wi-Fi", "Network and Wi-Fi");
