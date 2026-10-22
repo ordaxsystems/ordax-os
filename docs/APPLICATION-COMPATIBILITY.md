@@ -93,6 +93,20 @@ EXE / PE / MSI candidate
 
 Wine, Proton or another implementation remains replaceable behind the OrdaX contract. None of those technologies is Foundation authority.
 
+The **OrdaX Runtime** owns application identity, capability mediation, lifecycle
+and audit. A Windows compatibility engine is an optional per-application
+implementation behind that Runtime, not another OrdaX Runtime, a new background
+agent, or a dependency of the boot path. OrdaX-native applications use the
+native application pipeline; foreign binaries retain their origin and isolated
+state. Windows API translation (for example Wine) does not imply that all
+Windows applications, drivers, DRM or kernel-integrated software work.
+
+When more than one verified runtime descriptor matches a foreign executable,
+the manager returns `runtime-selection-required` until the caller supplies an
+explicit runtime id. Inventory ordering must not silently change a profile's
+engine or source version. This is still **planning only**, never install or
+execution authorization.
+
 ## 3. Trust boundary
 
 Foreign executable bytes are untrusted application payloads by default.

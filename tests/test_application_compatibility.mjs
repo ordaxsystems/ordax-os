@@ -165,6 +165,56 @@ test("only an explicit verified runtime descriptor can satisfy launch planning",
   assert.equal(requestedMissing.reason, "requested-runtime-unavailable");
 });
 
+test("multiple compatible runtimes require explicit selection regardless of inventory order", async () => {
+  const wine = runtime();
+  const proton = runtime({
+    id: "windows-proton-test",
+    engine: "proton",
+    version: "2.0.0",
+    source: {
+      identity: "fixture://verified/windows-proton-test",
+      digest: `sha256:${"02".repeat(32)}`,
+    },
+  });
+
+  for (const runtimes of [[wine, proton], [proton, wine]]) {
+    const manager = createApplicationCompatibilityManager({ runtimes });
+    const bytes = peFixture();
+    const inspection = await manager.inspectVerified({ name: "editor.exe", bytes });
+    const digest = `sha256:${createHash("sha256").update(bytes).digest("hex")}`;
+    assert.deepEqual(manager.planLaunch({ inspection }), {
+      schema: "ordax.application-compatibility-plan/1",
+      ready: false,
+      runtimeId: null,
+      reason: "runtime-selection-required",
+    });
+    const planner = createApplicationCompatibilityProfilePlanner({ compatibility: manager });
+    assert.deepEqual(planner.planCreate({
+      inspection,
+      profileId: "editor",
+      payloadDigest: digest,
+    }), {
+      schema: "ordax.application-compatibility-profile-plan/1",
+      ready: false,
+      reason: "runtime-selection-required",
+      profile: null,
+    });
+    for (const requested of ["windows-wine-test", "windows-proton-test"]) {
+      const selected = manager.planLaunch({ inspection, runtimeId: requested });
+      assert.equal(selected.ready, true);
+      assert.equal(selected.runtimeId, requested);
+      const profilePlan = planner.planCreate({
+        inspection,
+        runtimeId: requested,
+        profileId: "editor",
+        payloadDigest: digest,
+      });
+      assert.equal(profilePlan.ready, true);
+      assert.equal(profilePlan.profile.runtimeId, requested);
+    }
+  }
+});
+
 test("runtime descriptors reject placeholders, unsandboxed providers and hidden command authority", () => {
   for (const overrides of [
     { available: false },

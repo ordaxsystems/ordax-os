@@ -93,6 +93,16 @@ export function createApplicationCompatibilityManager({ runtimes = [] } = {}) {
       });
     }
 
+    // Runtime inventory order is not an application selection policy.
+    // Require an explicit runtime id rather than changing engines silently.
+    if (matching.length > 1) {
+      return validateApplicationCompatibilityPlan({
+        ready: false,
+        runtimeId: null,
+        reason: "runtime-selection-required",
+      });
+    }
+
     return validateApplicationCompatibilityPlan({
       ready: true,
       runtimeId: matching[0].id,
