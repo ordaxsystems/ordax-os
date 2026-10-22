@@ -191,13 +191,21 @@ class OwnerDevLocalAiLifecycleTests(unittest.TestCase):
                     if pid_path.exists() and pid_path.read_text().strip():
                         watcher_pid = int(pid_path.read_text().strip())
                         children = Path(f"/proc/{watcher_pid}/task/{watcher_pid}/children")
-                        if children.exists() and children.read_text().strip():
-                            sleep_pid = int(children.read_text().split()[0])
-                            break
+                        if children.exists():
+                            # A newly forked child may briefly still be /bin/sh
+                            # before execing the exact sleep executable.
+                            for candidate in children.read_text().split():
+                                try:
+                                    argv = Path(f"/proc/{candidate}/cmdline").read_bytes().split(b"\0")
+                                except FileNotFoundError:
+                                    continue
+                                if b"10" in argv:
+                                    sleep_pid = int(candidate)
+                                    break
+                            if sleep_pid is not None:
+                                break
                     time.sleep(0.02)
-                self.assertIsNotNone(sleep_pid, "Aura watcher must own one sleep child")
-                command = Path(f"/proc/{sleep_pid}/cmdline").read_bytes()
-                self.assertIn(b"10", command.split(b"\0"))
+                self.assertIsNotNone(sleep_pid, "Aura watcher must own an execed sleep child")
                 os.kill(watcher_pid, signal.SIGTERM)
                 stdout, stderr = process.communicate(timeout=4)
                 self.assertEqual(process.returncode, 0, stdout + stderr)
