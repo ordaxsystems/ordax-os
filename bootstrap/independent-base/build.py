@@ -1040,6 +1040,8 @@ def smoke_test_private_native_python(target: Path, abi: dict) -> dict:
             or smoke.get("module_names") != ["ssl", "_ssl", "hashlib", "_hashlib", "zlib", "json", "httpx", "httpcore", "anyio", "certifi", "idna", "h11"]
             or smoke.get("all_imports_private") is not True
             or smoke.get("tls_and_zlib_operational") is not True
+            or smoke.get("httpx_offline_request_construction_proven") is not True
+            or smoke.get("runtime_dependency_versions_reconciled") is not False
             or not str(smoke.get("ssl_version", "")).startswith("OpenSSL ")):
         raise BaseError("private compiled Python smoke verification incomplete")
     return {
