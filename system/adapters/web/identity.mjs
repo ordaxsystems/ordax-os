@@ -67,7 +67,10 @@ export function createWebIdentitySession(windowRef = globalThis.window) {
     try {
       const response = await reader.read(SESSION_ENDPOINT);
       if (!response.ok) {
-        return apply({ state: "unavailable" }, response.status === 423 ? "locked" : "gateway-unreachable");
+        const reason = response.status === 423 ? "locked"
+          : [401, 403, 404].includes(response.status) ? "unsupported-host"
+            : "gateway-unreachable";
+        return apply({ state: "unavailable" }, reason);
       }
       const value = response.value;
       if (!value || value.$schema !== SESSION_SCHEMA) {
