@@ -224,6 +224,13 @@ async function start() {
       fetchImpl: typeof window.fetch === "function" ? window.fetch.bind(window) : null,
     }),
   );
+  // Profile inventory is a read-only, independent Native Host observation.
+  // Start it with the other optional probes instead of serializing it after
+  // Intelligence, app semantics and Personal OrdaX composition.
+  const profileComponentInventoryPromise = optionalNativeProbe(
+    "OrdaX Profile component inventory unavailable; using empty session inventory",
+    () => createNativeProfileComponentInventory(window),
+  );
   const optionalPortsPromise = Promise.all([
     optionalNativeProbe(
       "OrdaX native client diagnostics unavailable",
@@ -612,10 +619,8 @@ async function start() {
       expectedApplicationActionProviderOwner: EXTERNAL_FIRST_PARTY_OWNER,
     }),
   );
-  const profileComponentInventory = await optionalNativeProbe(
-    "OrdaX Profile component inventory unavailable; using empty session inventory",
-    () => createNativeProfileComponentInventory(window),
-  ) ?? createSessionProfileComponentInventory();
+  const profileComponentInventory = await profileComponentInventoryPromise
+    ?? createSessionProfileComponentInventory();
   let profileDistributions = [];
   let profileTaxonomy = null;
   if (bundledProfilePacks !== null) {
