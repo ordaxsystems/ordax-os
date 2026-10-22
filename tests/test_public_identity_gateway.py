@@ -566,6 +566,15 @@ class PublicIdentityGatewayTests(unittest.TestCase):
         self.assertEqual(policy.status, 200)
         self.assertFalse(self.payload(policy)["registrationEnabled"])
         self.assertFalse(self.payload(policy)["publicRegistrationEnabled"])
+        # An approved future Web-only release may expose hosted signup to a
+        # Native client WITHOUT authorizing Native credential submission.
+        with patch.object(gateway_module, "PUBLIC_WEB_REGISTRATION_ENABLED", True):
+            native = self.payload(gateway.handle("GET", "/auth/registration-policy"))
+            public = self.payload(gateway.handle("GET", "/auth/registration-policy", marker))
+            self.assertFalse(native["registrationEnabled"])
+            self.assertTrue(native["publicRegistrationEnabled"])
+            self.assertTrue(public["registrationEnabled"])
+            self.assertTrue(public["publicRegistrationEnabled"])
 
         register = gateway.handle(
             "POST",
