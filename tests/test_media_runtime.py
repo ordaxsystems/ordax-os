@@ -83,6 +83,14 @@ class MediaRuntimeTests(unittest.TestCase):
                     BUILDER.probe_runtime_audio_session(root)
             self.assertEqual(list(root.iterdir()), [])
 
+    def test_pipewire_runtime_does_not_replace_wayland_runtime_directory(self):
+        launcher = (ROOT / "system/surface/bin/ordax-surface").read_text()
+        session = (ROOT / "system/surface/runtime/audio-session.sh").read_text()
+        self.assertIn('export XDG_RUNTIME_DIR="$SESSION_DIR"', launcher)
+        self.assertIn('XDG_RUNTIME_DIR=${XDG_RUNTIME_DIR:-/run/ordax-surface}', session)
+        self.assertIn('export PIPEWIRE_RUNTIME_DIR=$audio_session_dir', session)
+        self.assertNotIn('XDG_RUNTIME_DIR=$audio_session_dir', session)
+
     def test_probe_tests_container_decoding_and_never_opens_capture_or_speakers(self):
         with mock.patch.object(PROBE.subprocess, "run", return_value=mock.Mock(returncode=0)) as run:
             result = PROBE.probe()

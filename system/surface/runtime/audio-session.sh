@@ -55,6 +55,7 @@ fi
 umask 077
 XDG_RUNTIME_DIR=${XDG_RUNTIME_DIR:-/run/ordax-surface}
 export XDG_RUNTIME_DIR
+mkdir -p "$XDG_RUNTIME_DIR" || run_graphical_without_audio "$@"
 export PIPEWIRE_RUNTIME_DIR=$audio_session_dir
 mkdir -p "$PIPEWIRE_RUNTIME_DIR" || run_graphical_without_audio "$@"
 chmod 700 "$PIPEWIRE_RUNTIME_DIR" || run_graphical_without_audio "$@"
