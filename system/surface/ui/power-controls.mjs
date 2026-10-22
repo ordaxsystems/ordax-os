@@ -94,9 +94,9 @@ export function mountPowerControls(root, powerActions = null, surfaceLifecycle =
   let open = false;
   let confirming = null;
   let pending = null;
-  let messageId = updatePort?.getSnapshot()?.hostPower?.lastStatus === "failed"
-    ? "power.controls.failed" : null;
+  let messageId = null;
   let lastPowerReceipt = updatePort?.getSnapshot()?.hostPower ?? null;
+  if (lastPowerReceipt?.lastStatus === "failed") messageId = "power.controls.failed";
   let observedCurrentRequest = false;
   let resetTimer = null;
   let actionOrdinal = 0;
