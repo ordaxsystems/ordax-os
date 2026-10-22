@@ -16,11 +16,7 @@ NATIVE_PRODUCT_ACTIVE_IDENTITY=""
 native_product_stop() {
     [ -n "$NATIVE_PRODUCT_PID" ] || return 0
     native_product_owned=$NATIVE_PRODUCT_PID
-    NATIVE_PRODUCT_PID=""
-    NATIVE_PRODUCT_ACTIVE_IDENTITY=""
-    case "$native_product_owned" in
-        ''|*[!0-9]*) return 1 ;;
-    esac
+    case "$native_product_owned" in ''|*[!0-9]*) return 1 ;; esac
     [ "$native_product_owned" -gt 1 ] 2>/dev/null || return 1
     if kill -0 "$native_product_owned" 2>/dev/null; then
         kill "$native_product_owned" 2>/dev/null || :
@@ -31,14 +27,28 @@ native_product_stop() {
             /bin/busybox sleep 1
             native_product_remaining=$((native_product_remaining - 1))
         done
-        if kill -0 "$native_product_owned" 2>/dev/null; then
-            native_product_state=$(/bin/busybox awk '$1 == "State:" {print $2; exit}' "/proc/$native_product_owned/status" 2>/dev/null || :)
-            [ "$native_product_state" = Z ] || kill -KILL "$native_product_owned" 2>/dev/null || :
+        native_product_state=$(/bin/busybox awk '$1 == "State:" {print $2; exit}' "/proc/$native_product_owned/status" 2>/dev/null || :)
+        if kill -0 "$native_product_owned" 2>/dev/null && [ "$native_product_state" != Z ]; then
+            kill -KILL "$native_product_owned" 2>/dev/null || :
+            native_product_remaining=2
+            while kill -0 "$native_product_owned" 2>/dev/null && [ "$native_product_remaining" -gt 0 ]; do
+                native_product_state=$(/bin/busybox awk '$1 == "State:" {print $2; exit}' "/proc/$native_product_owned/status" 2>/dev/null || :)
+                [ "$native_product_state" = Z ] && break
+                /bin/busybox sleep 1
+                native_product_remaining=$((native_product_remaining - 1))
+            done
         fi
     fi
-    # This PID was forked by this same Supervisor and cannot be reused before
+    native_product_state=$(/bin/busybox awk '$1 == "State:" {print $2; exit}' "/proc/$native_product_owned/status" 2>/dev/null || :)
+    if kill -0 "$native_product_owned" 2>/dev/null && [ "$native_product_state" != Z ]; then
+        # Never erase ownership while this process can still dispatch.
+        return 1
+    fi
+    # This PID was forked by this Supervisor and cannot be reused before
     # reaping. Never kill by image name, PID file or arbitrary /proc scan.
     wait "$native_product_owned" 2>/dev/null || :
+    NATIVE_PRODUCT_PID=""
+    NATIVE_PRODUCT_ACTIVE_IDENTITY=""
 }
 
 native_product_reap_if_exited() {
@@ -136,25 +146,25 @@ native_product_local_enabled() {
 native_product_reconcile() {
     native_product_reap_if_exited
     if [ "$DISTRIBUTION_PROFILE" != owner-development ] || [ "$PRODUCT_MODE" != usb ]; then
-        native_product_stop
+        native_product_stop || return 1
         return 0
     fi
     # Everything below is optional. Fail closed for remote actions, but never
     # degrade OS boot, update, graphics or local filesystem operations.
     if ! native_product_verified_plan; then
-        native_product_stop
+        native_product_stop || return 1
         return 0
     fi
     native_product_first_plan=$NATIVE_PRODUCT_VERIFIED_PLAN
     if ! native_product_local_enabled; then
-        native_product_stop
+        native_product_stop || return 1
         return 0
     fi
     if [ -n "$NATIVE_PRODUCT_PID" ]; then
         if [ "$NATIVE_PRODUCT_ACTIVE_IDENTITY" = "$native_product_first_plan" ]; then
             return 0
         fi
-        native_product_stop
+        native_product_stop || return 1
     fi
     # OS pin/current slot may have changed while local policy was checked.
     # Compare the complete verifier reply before launching. The immutable
