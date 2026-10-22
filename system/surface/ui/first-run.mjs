@@ -1104,6 +1104,7 @@ export function mountFirstRunExperience(
     if (
       destroyed
       || registrationPolicyPending
+      || sessionSnapshot.state !== "signed-out"
       || typeof credentialsPort?.registrationPolicy !== "function"
     ) {
       if (!capabilitySnapshot.identityRegister) {
@@ -1115,7 +1116,7 @@ export function mountFirstRunExperience(
     registrationPolicyPending = true;
     try {
       const policy = await credentialsPort.registrationPolicy();
-      if (destroyed) return;
+      if (destroyed || sessionSnapshot.state !== "signed-out") return;
       hostedSignupAllowed = isHostedSignupEnabled(policy);
       const nextPolicy = (
         policy.registrationEnabled === true
@@ -1406,6 +1407,9 @@ export function mountFirstRunExperience(
     if (sessionSnapshot.state === "signed-in") {
       registrationPolicy = null;
       registrationLegalAccepted = false;
+      hostedSignupAllowed = false;
+    } else if (sessionSnapshot.state === "signed-out" && typeof credentialsPort?.registrationPolicy === "function") {
+      void refreshRegistrationPolicy();
     }
     if (!destroyed && STEPS[stepIndex] === "account") render();
   });
