@@ -24,8 +24,12 @@ func TestOwnerSignedOfflinePreviewRealAgent(t *testing.T) {
 		}
 	}
 	script, err := filepath.Abs("../../system/services/update/owner-signed-preview.sh")
-	if err != nil { t.Fatal(err) }
-	if _, err := os.Stat(script); err != nil { t.Fatal(err) }
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(script); err != nil {
+		t.Fatal(err)
+	}
 
 	agent := filepath.Join(t.TempDir(), "ordax-release-agent")
 	build := exec.Command("go", "build", "-o", agent, ".")
@@ -34,9 +38,13 @@ func TestOwnerSignedOfflinePreviewRealAgent(t *testing.T) {
 	}
 	trust, _, private := testKeys(t)
 	trustBytes, err := json.Marshal(trust)
-	if err != nil { t.Fatal(err) }
+	if err != nil {
+		t.Fatal(err)
+	}
 	trustPath := filepath.Join(t.TempDir(), "trust.json")
-	if err := os.WriteFile(trustPath, trustBytes, 0o600); err != nil { t.Fatal(err) }
+	if err := os.WriteFile(trustPath, trustBytes, 0o600); err != nil {
+		t.Fatal(err)
+	}
 
 	system := validPortableEROFS()
 	surface := validPortableEROFS()
@@ -50,15 +58,19 @@ func TestOwnerSignedOfflinePreviewRealAgent(t *testing.T) {
 		system, surface, ai,
 	)
 	bundle := offlineFixture(t, trust, private, manifest, map[string][]byte{
-		"system.erofs": system,
+		"system.erofs":                 system,
 		"native-surface-runtime.erofs": surface,
-		"local-ai-runtime.erofs": ai,
+		"local-ai-runtime.erofs":       ai,
 	})
 	root := filepath.Join(t.TempDir(), "owner-signed-preview")
-	if err := os.Mkdir(root, 0o700); err != nil { t.Fatal(err) }
+	if err := os.Mkdir(root, 0o700); err != nil {
+		t.Fatal(err)
+	}
 	worktree := t.TempDir()
 	marker := filepath.Join(worktree, "current-git-runtime")
-	if err := os.WriteFile(marker, []byte("unchanged"), 0o600); err != nil { t.Fatal(err) }
+	if err := os.WriteFile(marker, []byte("unchanged"), 0o600); err != nil {
+		t.Fatal(err)
+	}
 
 	// The URL selector is deliberately absent. A valid offline candidate MUST
 	// never discover or fall back to the remote HTTP release channel.
@@ -81,7 +93,9 @@ func TestOwnerSignedOfflinePreviewRealAgent(t *testing.T) {
 		t.Helper()
 		for _, name := range []string{"current", "known-good", "pending", "activation-guard"} {
 			_, err := os.Lstat(filepath.Join(stageRoot, name))
-			if !os.IsNotExist(err) { t.Fatalf("nonactivating preview wrote %q: %v", name, err) }
+			if !os.IsNotExist(err) {
+				t.Fatalf("nonactivating preview wrote %q: %v", name, err)
+			}
 		}
 		data, err := os.ReadFile(marker)
 		if err != nil || string(data) != "unchanged" {
@@ -95,7 +109,9 @@ func TestOwnerSignedOfflinePreviewRealAgent(t *testing.T) {
 			!strings.Contains(string(output), "verified") {
 			t.Fatalf("canonical inspect failed: %v\n%s", err, output)
 		}
-		if _, err := os.ReadDir(root); err != nil { t.Fatal(err) }
+		if _, err := os.ReadDir(root); err != nil {
+			t.Fatal(err)
+		}
 		assertNotActivated(root)
 	})
 
@@ -118,10 +134,14 @@ func TestOwnerSignedOfflinePreviewRealAgent(t *testing.T) {
 
 	t.Run("wrong exact SHA cannot stage or activate", func(t *testing.T) {
 		fresh := filepath.Join(t.TempDir(), "owner-signed-preview")
-		if err := os.Mkdir(fresh, 0o700); err != nil { t.Fatal(err) }
+		if err := os.Mkdir(fresh, 0o700); err != nil {
+			t.Fatal(err)
+		}
 		badEnv := append(append([]string(nil), env...), "ORDAX_OWNER_SIGNED_STAGE_ROOT="+fresh)
 		output, err := run(badEnv, "stage-offline", strings.Repeat("f", 40))
-		if err == nil { t.Fatalf("accepted unsigned SHA: %s", output) }
+		if err == nil {
+			t.Fatalf("accepted unsigned SHA: %s", output)
+		}
 		if entries, err := os.ReadDir(fresh); err != nil || len(entries) != 0 {
 			t.Fatalf("rejected release populated staging root: %v %+v", err, entries)
 		}
@@ -130,21 +150,25 @@ func TestOwnerSignedOfflinePreviewRealAgent(t *testing.T) {
 
 	t.Run("tampered payload is rejected before staging or network", func(t *testing.T) {
 		tampered := offlineFixture(t, trust, private, manifest, map[string][]byte{
-			"system.erofs": append([]byte(nil), system...),
+			"system.erofs":                 append([]byte(nil), system...),
 			"native-surface-runtime.erofs": surface,
-			"local-ai-runtime.erofs": ai,
+			"local-ai-runtime.erofs":       ai,
 		})
 		if err := os.WriteFile(filepath.Join(tampered, "system.erofs"), []byte("tampered"), 0o600); err != nil {
 			t.Fatal(err)
 		}
 		fresh := filepath.Join(t.TempDir(), "owner-signed-preview")
-		if err := os.Mkdir(fresh, 0o700); err != nil { t.Fatal(err) }
+		if err := os.Mkdir(fresh, 0o700); err != nil {
+			t.Fatal(err)
+		}
 		badEnv := append(append([]string(nil), env...),
 			"ORDAX_OWNER_SIGNED_BUNDLE_DIR="+tampered,
 			"ORDAX_OWNER_SIGNED_STAGE_ROOT="+fresh,
 		)
 		output, err := run(badEnv, "stage-offline", testCommit)
-		if err == nil { t.Fatalf("tampered payload accepted: %s", output) }
+		if err == nil {
+			t.Fatalf("tampered payload accepted: %s", output)
+		}
 		if _, err := os.Lstat(filepath.Join(fresh, "releases", testCommit)); !os.IsNotExist(err) {
 			t.Fatalf("tampered bundle materialized signed release: %v", err)
 		}
@@ -154,7 +178,9 @@ func TestOwnerSignedOfflinePreviewRealAgent(t *testing.T) {
 	t.Run("public profile cannot use Dev transport", func(t *testing.T) {
 		denied := append(append([]string(nil), env...), "ORDAX_DISTRIBUTION_PROFILE=stable-mvp")
 		output, err := run(denied, "stage-offline", testCommit)
-		if err == nil { t.Fatalf("Stable/MVP entered Dev preview: %s", output) }
+		if err == nil {
+			t.Fatalf("Stable/MVP entered Dev preview: %s", output)
+		}
 		assertNotActivated(root)
 	})
 }
