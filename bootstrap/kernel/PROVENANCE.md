@@ -158,6 +158,10 @@ python bootstrap/kernel/build.py build --jobs 4   --config-overlay bootstrap/ker
 python bootstrap/kernel/verify.py out/kernel-tpm2-candidate
 ```
 
+This overlay has **no pinned-environment repeat-build attestation**; its
+build provenance must explicitly set `immutable_environment_pinned=false`
+even when the production source contract has a pinned environment.
+
 The optional overlay must be a regular file within the kernel config owner
 and cannot overwrite selectors from the canonical fragment. The builder
 verifies Kconfig acceptance of **every** requested symbol after olddefconfig,

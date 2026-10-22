@@ -26,6 +26,8 @@ class TPM2StagedKernelTests(unittest.TestCase):
         self.assertEqual(len(staged["overlay_fragment_sha256"]), 64)
         self.assertFalse(baseline["physical_artifact_authorized"])
         self.assertFalse(staged["physical_artifact_authorized"])
+        self.assertTrue(baseline["pinned_environment_resolved"])
+        self.assertFalse(staged["pinned_environment_resolved"])
 
     def test_tpm_options_additive_and_not_in_shipping_fragment(self):
         baseline = BUILDER.parse_fragment(KERNEL / "config/ordax.fragment")

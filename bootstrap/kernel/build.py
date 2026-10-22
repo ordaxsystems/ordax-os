@@ -221,7 +221,7 @@ def check_contract(config_overlay: Path | None = None) -> dict:
         "overlay_fragment_sha256": sha256_file(overlay) if overlay else None,
         "candidate_config_only": overlay is not None,
         "assignment_count": len(assignments),
-        "pinned_environment_resolved": bool(contract["build"]["pinned_environment_resolved"]),
+        "pinned_environment_resolved": bool(contract["build"]["pinned_environment_resolved"]) and overlay is None,
         "physical_artifact_authorized": bool(contract["build"]["physical_artifact_authorized"]),
     }
     return result
@@ -626,7 +626,9 @@ def build(work_dir: Path, out_dir: Path, jobs: int, config_overlay: Path | None 
     final_config = out_dir / f"kernel-{contract['version']}.config"
     shutil.copy2(build_dir / ".config", final_config)
 
-    environment_pinned = bool(contract["build"]["pinned_environment_resolved"])
+    # An opt-in Kconfig overlay has not passed the pinned-environment repeat proof.
+    # Do not inherit production reproducibility evidence for different bytes.
+    environment_pinned = bool(contract["build"]["pinned_environment_resolved"]) and overlay is None
     physical_authorized = bool(contract["build"]["physical_artifact_authorized"]) and overlay is None
     provenance = {
         "$schema": "prototype-ordax.kernel-provenance/1",

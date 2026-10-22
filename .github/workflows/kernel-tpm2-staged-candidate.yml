@@ -66,6 +66,7 @@ jobs:
           assert provenance['status'] == 'candidate-config-overlay-unpromotable'
           assert provenance['physical_artifact_authorized'] is False
           assert provenance['promotable_to_physical'] is False
+          assert provenance['build_environment']['immutable_environment_pinned'] is False
           overlay = root/'bootstrap/kernel/config/overlays/tpm2.fragment'
           assert provenance['config_overlay']['sha256'] == hashlib.sha256(overlay.read_bytes()).hexdigest()
           assert provenance['config_overlay']['promotable_to_physical'] is False
