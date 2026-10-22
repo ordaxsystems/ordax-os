@@ -134,7 +134,10 @@ import { mountNotificationCenterControls } from "../../surface/ui/notification-c
 import { mountBatteryQuickPanel } from "../../surface/ui/battery-quick-panel.mjs";
 import { mountBatteryTrayControls } from "../../surface/ui/battery-tray-controls.mjs";
 import { mountHomeContinuation } from "../../surface/ui/home-continuation.mjs";
+import { mountHomeAuraComposer } from "../../surface/ui/home-aura-composer.mjs";
 import { mountHomePending } from "../../surface/ui/home-pending.mjs";
+import { mountHomeSpaceCard } from "../../surface/ui/home-space-card.mjs";
+import { mountHomeStatus } from "../../surface/ui/home-status.mjs";
 import { mountPowerControls } from "../../surface/ui/power-controls.mjs";
 import { mountSurface } from "../../surface/ui/surface.mjs";
 import { createSurfaceBootScreen } from "../../surface/ui/boot-screen.mjs";
@@ -890,6 +893,19 @@ async function start() {
   );
   const homeContinuation = mountHomeContinuation(root, { projects, recentFiles, surfaceLifecycle: surface });
   const homePending = mountHomePending(root, { notifications, syncRuntime: accountSync, surfaceLifecycle: surface });
+  const homeAuraComposer = mountHomeAuraComposer(root, {
+    intelligence: selectedSpaceIntelligence,
+    surfaceLifecycle: surface,
+  });
+  const homeStatus = mountHomeStatus(root, {
+    networkStatus,
+    identitySession,
+    syncRuntime: accountSync,
+    systemMetrics,
+    updateStatus: updateWatcher,
+    surfaceLifecycle: surface,
+  });
+  const homeSpaceCard = mountHomeSpaceCard(root, { spaceSelection, surfaceLifecycle: surface });
   const filesOwnerSpace = fileSpace === null
     ? null
     : createProjectContinuityFileSpace(fileSpace, projects, {
@@ -1136,6 +1152,9 @@ async function start() {
       surfaceHeartbeat.dispose();
       homePending.dispose();
       homeContinuation.dispose();
+      homeAuraComposer.dispose();
+      homeStatus.dispose();
+      homeSpaceCard.dispose();
       powerControls.destroy();
       updateControls.destroy();
       systemOverviewControls.destroy();
