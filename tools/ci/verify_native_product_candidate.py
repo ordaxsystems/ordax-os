@@ -199,6 +199,48 @@ def verify(archive: Path, source_lock: Path) -> dict:
                 not isinstance(manifest.get("elf_interpreter"), str) or
                 manifest.get("elf_interpreter") != evidence.get("elf_interpreter")):
                 raise CandidateError("ELF ABI bindings do not match OS evidence")
+            # The Runtime is the sole parser/owner of the PyInstaller CArchive.
+            # The OS binds its immutable CI result to the pinned ZIP and checks
+            # denial semantics; it does not fork an extractor or assume that
+            # matched dependency basenames prove loader compatibility.
+            inventory = manifest.get("embedded_elf_inventory")
+            binding = evidence.get("embedded_elf_inventory")
+            if not isinstance(inventory, dict) or not isinstance(binding, dict):
+                raise CandidateError("embedded native inventory is missing")
+            if (inventory.get("schema") != "ordax.native-embedded-elf-inventory/1" or
+                binding.get("schema") != inventory["schema"] or
+                type(inventory.get("native_entry_count")) is not int or
+                not 1 <= inventory["native_entry_count"] <= 4096 or
+                type(inventory.get("native_uncompressed_bytes")) is not int or
+                inventory["native_uncompressed_bytes"] < inventory["native_entry_count"] * 64 or
+                inventory["native_uncompressed_bytes"] > 512 * 1024 * 1024 or
+                not isinstance(inventory.get("inventory_sha256"), str) or
+                not SHA256.fullmatch(inventory["inventory_sha256"])):
+                raise CandidateError("embedded native inventory is structurally invalid")
+            missing = inventory.get("unprovided_needed_names")
+            needed = inventory.get("needed_libraries")
+            interpreters = inventory.get("embedded_interpreters")
+            if (not isinstance(needed, list) or not 1 <= len(needed) <= 256 or
+                not isinstance(missing, list) or not isinstance(interpreters, list) or
+                len(needed) != len(set(map(str, needed))) or
+                any(not isinstance(value, str) or
+                    not re.fullmatch(r"[A-Za-z0-9_.+-]{1,255}", value)
+                    for value in needed + missing) or
+                len(missing) != len(set(missing)) or
+                not set(missing).issubset(set(needed)) or
+                len(interpreters) > 16 or
+                any(not isinstance(value, str) or not value.startswith("/")
+                    for value in interpreters)):
+                raise CandidateError("embedded native dependencies are invalid")
+            if (inventory.get("read_only_audit") is not True or
+                inventory.get("independent_base_compatibility_proven") is not False or
+                inventory.get("install_authorized") is not False):
+                raise CandidateError("embedded native inventory cannot authorize activation")
+            for key in ("schema", "native_entry_count", "native_uncompressed_bytes",
+                        "inventory_sha256", "unprovided_needed_names",
+                        "independent_base_compatibility_proven", "install_authorized"):
+                if inventory[key] != binding.get(key):
+                    raise CandidateError("embedded native inventory does not match pinned evidence")
             if (proof.get("ok") is not True or proof.get("network_used") is not False or
                 proof.get("device_credential_used") is not False or proof.get("graphical_actions") != [] or
                 proof.get("probes") != ["filesystem", "terminal", "supervised-process"] or
@@ -224,7 +266,8 @@ def verify(archive: Path, source_lock: Path) -> dict:
             "activation_authorized": False, "device_execution_proven": False,
             "independent_base_abi_ready": False,
             "elf_interpreter": interpreter, "elf_needed_libraries": actual_libraries,
-            "independent_base_abi_blockers": blockers}
+            "independent_base_abi_blockers": blockers,
+            "embedded_elf_inventory": binding}
 
 
 def main() -> int:
