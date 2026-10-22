@@ -66,8 +66,8 @@ class NativeQemuReadinessTests(unittest.TestCase):
             root = Path(temp)
             rendered = root / "rendered"
             (rendered / "loader/entries").mkdir(parents=True)
-            normal = "title Native\\noptions console=tty0 ordax.mode=normal\\n"
-            recovery = "title Recovery\\noptions console=tty0 ordax.mode=recovery\\n"
+            normal = "title Native\noptions console=tty0 ordax.mode=normal\n"
+            recovery = "title Recovery\noptions console=tty0 ordax.mode=recovery\n"
             (rendered / "loader/entries/ordax-native.conf").write_text(normal)
             (rendered / "loader/entries/ordax-native-recovery.conf").write_text(recovery)
             source = root / "inputs"
@@ -102,7 +102,7 @@ class NativeQemuReadinessTests(unittest.TestCase):
             (rendered / "loader/entries").mkdir(parents=True)
             for name in ("ordax-native.conf", "ordax-native-recovery.conf"):
                 (rendered / "loader/entries" / name).write_text(
-                    "title Test\\noptions console=tty0\\noptions console=tty1\\n"
+                    "title Test\noptions console=tty0\noptions console=tty1\n"
                 )
             inputs = {}
             for key in ("bootloader", "kernel", "initramfs", "loader_conf"):
