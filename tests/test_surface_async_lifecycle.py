@@ -26,7 +26,7 @@ class SurfaceAsyncLifecycleTests(unittest.TestCase):
         self.assertIn('kind: "section"', controls)
         self.assertIn('kind: "identity-action"', controls)
         self.assertIn("preventScroll: true", controls)
-        self.assertIn("force && slot === mountedSlot ? captureInteractionState(slot) : null", controls)
+        self.assertIn("repaint && slot === mountedSlot ? captureInteractionState(slot) : null", controls)
 
     def test_settings_discards_stale_poll_and_action_results(self):
         controls = self.read("settings-overview-controls.mjs")
@@ -180,7 +180,7 @@ class SurfaceAsyncLifecycleTests(unittest.TestCase):
         self.assertIn('kind: "metrics-refresh"', controls)
         self.assertIn('kind: "history-refresh"', controls)
         self.assertIn("preventScroll: true", controls)
-        self.assertIn("force && slot === mountedSlot ? captureInteractionState(slot) : null", controls)
+        self.assertIn("repaint && slot === mountedSlot ? captureInteractionState(slot) : null", controls)
 
     def test_existing_file_and_system_async_owners_keep_ordinal_guards(self):
         files = self.read("file-space-controls.mjs")
