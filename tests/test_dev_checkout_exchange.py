@@ -36,8 +36,10 @@ class NativeAtomicCheckoutTests(unittest.TestCase):
             cls.build.cleanup()
 
     def exchange(self, a: Path, b: Path) -> subprocess.CompletedProcess[str]:
+        receipt = a.parent / "pull-transaction.tsv"
+        receipt.write_text("test|prepared|candidate|known-good|update\n", encoding="utf-8")
         return subprocess.run(
-            [str(self.binary), str(a), str(b)],
+            [str(self.binary), "--exchange", str(a), str(b), str(receipt)],
             capture_output=True, text=True, timeout=10, check=False,
         )
 
