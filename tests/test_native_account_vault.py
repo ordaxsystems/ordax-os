@@ -252,6 +252,13 @@ class NativeAccountVaultTests(unittest.TestCase):
             self.assertTrue(Path(path).is_file())
             self.assertEqual(account._cookies, COOKIES)
 
+            # A 200 transport response alone cannot authorize credential teardown.
+            account._request = lambda *_args, **_kwargs: gateway.GatewayReply(
+                status=200, headers={}, body=b'{"closed":false}')
+            self.assertEqual(account.close_account("password", "close-account").status, 200)
+            self.assertTrue(Path(path).is_file())
+            self.assertEqual(account._cookies, COOKIES)
+
             account._request = lambda *_args, **_kwargs: gateway.GatewayReply(
                 status=200, headers={}, body=b'{"closed":true}')
             self.assertEqual(account.close_account("password", "close-account").status, 200)
