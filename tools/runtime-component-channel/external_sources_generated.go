@@ -17,6 +17,7 @@ var canonicalExternalComponentSourceRepositories = map[string]string{
 	"notes": appsSourceRepository,
 	"paint": appsSourceRepository,
 	"pdf-viewer": appsSourceRepository,
+	"product-runtime": productRuntimeSourceRepository,
 	"projects": appsSourceRepository,
 	"studio": appsSourceRepository,
 	"text-viewer": appsSourceRepository,
