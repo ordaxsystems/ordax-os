@@ -100,6 +100,120 @@ class NativeComponentBuildrootTests(unittest.TestCase):
                         self.source, self.kernel, Path(temp) / "candidate"
                     )
 
+    def test_httpx_versions_are_read_from_verified_buildroot_recipes(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            versions = {
+                "httpx": "0.28.1", "httpcore": "1.0.9",
+                "anyio": "4.13.0", "certifi": "2026.4.22",
+                "idna": "3.11", "h11": "0.16.0",
+            }
+            for name, version in versions.items():
+                directory = root / "package" / f"python-{name}"
+                directory.mkdir(parents=True)
+                variable = name.upper().replace("-", "_")
+                (directory / "Config.in").write_text(
+                    f"config BR2_PACKAGE_PYTHON_{variable}\n", encoding="utf-8"
+                )
+                (directory / f"python-{name}.mk").write_text(
+                    f"PYTHON_{variable}_VERSION = {version}\n", encoding="utf-8"
+                )
+            self.assertEqual(
+                self.mod.read_native_httpx_buildroot_versions(root), versions
+            )
+            mismatched = root / "package/python-anyio/python-anyio.mk"
+            mismatched.write_text(
+                "PYTHON_ANYIO_VERSION = $(BR2_HOST_VERSION)\n", encoding="utf-8"
+            )
+            with self.assertRaisesRegex(self.mod.BaseError, "version invalid: anyio"):
+                self.mod.read_native_httpx_buildroot_versions(root)
+            mismatched.write_text(
+                "PYTHON_ANYIO_VERSION = 4.13.0\n"
+                "PYTHON_ANYIO_VERSION = 4.14.0\n", encoding="utf-8"
+            )
+            with self.assertRaisesRegex(self.mod.BaseError, "version invalid: anyio"):
+                self.mod.read_native_httpx_buildroot_versions(root)
+            mismatched.unlink()
+            mismatched.symlink_to("/etc/passwd")
+            with self.assertRaisesRegex(self.mod.BaseError, "package unavailable: anyio"):
+                self.mod.read_native_httpx_buildroot_versions(root)
+
+    def test_httpx_source_receipt_requires_exact_modules_and_versions(self):
+        version_map = {
+            "httpx": "0.28.1", "httpcore": "1.0.9",
+            "anyio": "4.13.0", "certifi": "2026.4.22",
+            "idna": "3.11", "h11": "0.16.0",
+        }
+        digest = "a" * 64
+        with tempfile.TemporaryDirectory() as temporary:
+            proof = Path(temporary)
+            receipt = {
+                "$schema": "ordax.private-native-python-build-proof/1",
+                "status": "build-proof-only",
+                "buildroot_sha256": self.source["buildroot"]["sha256"],
+                "kernel_source_version": self.kernel["version"],
+                "component_inputs": {
+                    "component": "native-product-runtime",
+                    "source_owner": "ordaxsystems/ordax-runtime",
+                    "base_defconfig_sha256": self.mod.digest(self.mod.BASE_DEFCONFIG),
+                    "fragment_sha256": self.mod.digest(self.mod.NATIVE_COMPONENT_FRAGMENT),
+                },
+                "python_abi": {
+                    "python_executable": "usr/bin/python3.14",
+                    "stdlib": "usr/lib/python3.14",
+                    "python_sha256": digest,
+                    "elf_manifest_sha256": digest,
+                    "compiled_elf_count": 56,
+                    "required_interpreter": "/lib/ld-musl-x86_64.so.1",
+                    "stdlib_ssl_zlib_verified": True,
+                    "needed_shared_libraries": ["libc.so", "libssl.so.3"],
+                    "runtime_agent_packaged": False,
+                    "component_install_authorized": False,
+                    "device_execution_proven": False,
+                },
+                "private_python_smoke": {
+                    "status": "kernel-host-smoke-pass",
+                    "python_version": "3.14.7",
+                    "module_names": ["ssl", "_ssl", "hashlib", "_hashlib",
+                                     "zlib", "json", "httpx", "httpcore",
+                                     "anyio", "certifi", "idna", "h11"],
+                    "all_imports_private": True,
+                    "tls_and_zlib_operational": True,
+                    "httpx_offline_request_construction_proven": True,
+                    "httpx_mock_transport_proven": True,
+                    "httpx_version": "0.28.1",
+                    "runtime_dependency_versions_reconciled": False,
+                    "linux_kernel_execution_proven": True,
+                    "ordax_usb_execution_proven": False,
+                    "runtime_agent_packaged": False,
+                },
+                "httpx_buildroot_source_versions": version_map,
+                "runtime_agent_packaged": False,
+                "component_artifact_authorized": False,
+                "device_install_authorized": False,
+                "base_rootfs_modified": False,
+            }
+            output = proof / "native-python-provenance.json"
+            def verify(candidate):
+                output.write_text(json.dumps(candidate), encoding="utf-8")
+                return self.mod.verify_native_python_receipt(proof)
+            self.assertEqual(
+                verify(receipt)["httpx_buildroot_source_versions"], version_map
+            )
+            for poisoned in (
+                {**version_map, "httpx": "0.29.0"},
+                {**version_map, "mcp": "1.30.0"},
+                {**version_map, "httpcore": "$(unresolved)"},
+            ):
+                with self.subTest(poisoned=poisoned):
+                    with self.assertRaisesRegex(self.mod.BaseError, "source-version|execution receipt"):
+                        verify({**receipt, "httpx_buildroot_source_versions": poisoned})
+            with self.assertRaisesRegex(self.mod.BaseError, "execution receipt"):
+                verify({**receipt, "private_python_smoke": {
+                    **receipt["private_python_smoke"],
+                    "runtime_dependency_versions_reconciled": True,
+                }})
+
     def test_check_component_never_builds_or_authorizes_a_device(self):
         result = subprocess.run(
             [sys.executable, str(BASE / "build.py"), "check-component"],
