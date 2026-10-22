@@ -355,6 +355,11 @@ export function mountSystemOverviewControls(
     : "overview";
   let destroyed = false;
   let mountedSlot = null;
+  // Each optional System dataset is read only when its visible section needs
+  // it. A hidden System window must not spend three Host requests at boot.
+  let metricsPrimed = false;
+  let historyPrimed = false;
+  let recoveryPrimed = false;
   let diagnosticsReviewMount = null;
   // One local read-only snapshot per System owner; repainting must not re-collect.
   let diagnosticReviewStarted = false;
@@ -1608,6 +1613,29 @@ export function mountSystemOverviewControls(
     }
   };
 
+  const refreshVisibleSection = () => {
+    const windowNode = findSlot()?.closest(SYSTEM_WINDOW_SELECTOR);
+    // Minimized windows remain mounted. Hidden or unfocused apps have no
+    // reason to collect these optional snapshots in the background.
+    if (destroyed || !windowNode || windowNode.hidden
+      || windowNode.dataset.active !== "true") return;
+    if (["overview", "storage", "diagnostics"].includes(activeSection)
+      && metricsPort && !metricsPrimed) {
+      metricsPrimed = true;
+      void refreshMetrics();
+    }
+    if (activeSection === "updates") {
+      if (historyPort && !historyPrimed) {
+        historyPrimed = true;
+        void refreshHistory();
+      }
+      if (recoveryPort && !recoveryPrimed) {
+        recoveryPrimed = true;
+        void refreshRecovery();
+      }
+    }
+  };
+
   const onClick = (event) => {
     const manualUpdate = event.target.closest("[data-system-manual-update]");
     if (manualUpdate && root.contains(manualUpdate)) {
@@ -1637,6 +1665,7 @@ export function mountSystemOverviewControls(
       } else {
         activeSection = nextSection;
         replaceView();
+        refreshVisibleSection();
       }
       return;
     }
@@ -1693,6 +1722,7 @@ export function mountSystemOverviewControls(
     const nextSection = validSystemSection(persistedTarget) ? persistedTarget : "overview";
     activeSection = nextSection;
     renderView(false);
+    refreshVisibleSection();
   });
   const unsubscribeHost = hostPort.subscribe((snapshot) => {
     hostSnapshot = validateSurfaceSnapshot(snapshot);
@@ -1706,6 +1736,7 @@ export function mountSystemOverviewControls(
     ) {
       activeSection = activation.target;
       replaceView();
+      refreshVisibleSection();
     }
   });
   const unsubscribeComponents = componentPort?.subscribe((snapshot) => {
@@ -1721,13 +1752,14 @@ export function mountSystemOverviewControls(
     updateSnapshot = validateUpdateStatusSnapshot(snapshot);
     replaceView();
     if (historyPort && updateSnapshot.lastAppliedSha !== previousAppliedSha) {
-      void refreshHistory();
+      // Defer updated history until the user sees Updates; no background GET
+      // for an unopened/minimized System window.
+      historyPrimed = false;
+      refreshVisibleSection();
     }
   });
 
-  if (metricsPort) void refreshMetrics();
-  if (historyPort) void refreshHistory();
-  if (recoveryPort) void refreshRecovery();
+  refreshVisibleSection();
 
   return Object.freeze({
     destroy() {

@@ -81,6 +81,41 @@ class SurfaceUiContractTests(unittest.TestCase):
         self.assertIn("preferencePort?.subscribe(render)", section)
         self.assertIn("clock.clearInterval(timer)", section)
 
+    def test_optional_system_data_reads_require_visible_relevant_section(self):
+        source = SYSTEM_OVERVIEW_CONTROLS.read_text(encoding="utf-8")
+        self.assertIn("const refreshVisibleSection = () => {", source)
+        self.assertIn("findSlot()?.closest(SYSTEM_WINDOW_SELECTOR)", source)
+        self.assertIn('windowNode.dataset.active !== "true"', source)
+        self.assertIn("windowNode.hidden", source)
+        self.assertIn("let metricsPrimed = false", source)
+        self.assertIn("let historyPrimed = false", source)
+        self.assertIn("let recoveryPrimed = false", source)
+        self.assertIn('["overview", "storage", "diagnostics"].includes(activeSection)', source)
+        self.assertIn('if (activeSection === "updates")', source)
+        self.assertIn("historyPrimed = false;\n      refreshVisibleSection();", source)
+        tail = source.split("const unsubscribeUpdate = updatePort?.subscribe(", 1)[1]
+        self.assertIn("refreshVisibleSection();", tail)
+        self.assertNotIn("if (metricsPort) void refreshMetrics();", tail)
+        self.assertNotIn("if (historyPort) void refreshHistory();", tail)
+        self.assertNotIn("if (recoveryPort) void refreshRecovery();", tail)
+        self.assertIn("void refreshMetrics();", source)
+        self.assertIn("void refreshHistory();", source)
+        self.assertIn("void refreshRecovery();", source)
+
+    def test_keyboard_layout_read_waits_for_visible_regional_settings(self):
+        source = SETTINGS_OVERVIEW_CONTROLS.read_text(encoding="utf-8")
+        self.assertIn("let keyboardLayoutPrimed = false", source)
+        self.assertIn("const refreshVisibleKeyboardLayout = () => {", source)
+        self.assertIn("findSlot()?.closest(SETTINGS_WINDOW_SELECTOR)", source)
+        self.assertIn('activeSection !== "regional"', source)
+        self.assertIn("windowNode.hidden", source)
+        self.assertIn('windowNode.dataset.active !== "true"', source)
+        self.assertIn("keyboardLayoutPrimed = true", source)
+        self.assertIn("void refreshKeyboardLayout();", source)
+        self.assertIn("refreshVisibleKeyboardLayout();", source)
+        self.assertNotIn("if (keyboardLayoutPort) void refreshKeyboardLayout();", source)
+        self.assertIn("keyboardLayoutPort.configure(layoutId)", source)
+
     def test_visual_surface_app_preference_and_store_sources_exist(self):
         for path in (
             SURFACE / "surface.mjs",
