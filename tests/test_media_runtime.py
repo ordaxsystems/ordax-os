@@ -68,20 +68,31 @@ class MediaRuntimeTests(unittest.TestCase):
             self.assertEqual(list(root.iterdir()), [])
 
     def test_builder_starts_pipewire_session_without_a_physical_device(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp)
-            def execute(actual_root, command):
-                self.assertEqual(actual_root, root)
-                self.assertIn("/bin/busybox sh /ordax-audio-session.sh", command)
-                self.assertIn("XDG_RUNTIME_DIR=/run/ordax-media-probe", command)
-                self.assertIn("--runtime-dir /run/ordax-media-probe -- /usr/bin/pactl info", command)
-                script = root / "ordax-audio-session.sh"
-                self.assertEqual(script.read_bytes(), (ROOT / "system/surface/runtime/audio-session.sh").read_bytes())
-                raise RuntimeError("audio service failure")
-            with mock.patch.object(BUILDER.CORE, "proot_rootfs", side_effect=execute):
-                with self.assertRaisesRegex(BUILDER.RuntimeBuildError, "device-less startup probe"):
-                    BUILDER.probe_runtime_audio_session(root)
-            self.assertEqual(list(root.iterdir()), [])
+        for failure in (None, RuntimeError("audio service failure")):
+            with self.subTest(failure=failure), tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp)
+
+                def execute(actual_root, command):
+                    self.assertEqual(actual_root, root)
+                    self.assertIn("/bin/busybox sh /ordax-audio-session.sh", command)
+                    self.assertIn("XDG_RUNTIME_DIR=/run/ordax-media-probe", command)
+                    self.assertIn("--runtime-dir /run/ordax-media-probe -- /usr/bin/pactl info", command)
+                    script = root / "ordax-audio-session.sh"
+                    self.assertEqual(script.read_bytes(), (ROOT / "system/surface/runtime/audio-session.sh").read_bytes())
+                    transient_pid = root / "run/ordax-media-probe/pulse/pid"
+                    transient_pid.parent.mkdir(parents=True)
+                    transient_pid.write_text("1234\n", encoding="utf-8")
+                    if failure is not None:
+                        raise failure
+
+                with mock.patch.object(BUILDER.CORE, "proot_rootfs", side_effect=execute):
+                    if failure is None:
+                        BUILDER.probe_runtime_audio_session(root)
+                    else:
+                        with self.assertRaisesRegex(BUILDER.RuntimeBuildError, "device-less startup probe"):
+                            BUILDER.probe_runtime_audio_session(root)
+                self.assertFalse((root / "ordax-audio-session.sh").exists())
+                self.assertFalse((root / "run/ordax-media-probe").exists())
 
     def test_pipewire_runtime_does_not_replace_wayland_runtime_directory(self):
         launcher = (ROOT / "system/surface/bin/ordax-surface").read_text()

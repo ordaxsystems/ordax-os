@@ -282,6 +282,7 @@ def probe_runtime_audio_session(rootfs: Path) -> None:
     # live Pulse-compatible socket proves the software route without opening
     # an ALSA device or claiming physical playback.
     script_path = rootfs / "ordax-audio-session.sh"
+    probe_runtime_dir = rootfs / "run/ordax-media-probe"
     shutil.copyfile(ROOT / "system/surface/runtime/audio-session.sh", script_path)
     try:
         CORE.proot_rootfs(
@@ -294,6 +295,12 @@ def probe_runtime_audio_session(rootfs: Path) -> None:
         raise RuntimeBuildError("PipeWire audio session failed its device-less startup probe") from exc
     finally:
         script_path.unlink(missing_ok=True)
+        if probe_runtime_dir.is_symlink():
+            probe_runtime_dir.unlink(missing_ok=True)
+        elif probe_runtime_dir.is_dir():
+            shutil.rmtree(probe_runtime_dir)
+        elif probe_runtime_dir.exists():
+            probe_runtime_dir.unlink()
 
 
 def build(out_dir: Path, cache_dir: Path) -> dict:
