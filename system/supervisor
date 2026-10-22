@@ -246,8 +246,31 @@ export GIT_TERMINAL_PROMPT
 run_bounded_git() {
     timeout_seconds=$1
     shift
-    /bin/busybox setsid /bin/busybox timeout -k 5 "$timeout_seconds" \
-        "$GIT_BIN" -c http.lowSpeedLimit=1 \
+    # BusyBox timeout forks a detached watchdog that may outlive an aborted
+    # fetch, retain writable FDs and block the ext4 power seal. Keep both the
+    # Git worker AND its bounded watchdog in one session we can always reap.
+    /bin/busybox setsid /bin/sh -c '
+        deadline=$1
+        shift
+        "$@" &
+        worker_pid=$!
+        (
+            /bin/busybox sleep "$deadline" &
+            timer_sleep_pid=$!
+            trap "kill $timer_sleep_pid 2>/dev/null || :; wait $timer_sleep_pid 2>/dev/null || :; exit 0" HUP INT TERM
+            wait "$timer_sleep_pid" || exit 0
+            # Only the isolated session is signalled on an expired deadline.
+            # In this shell $ is the session leader and process-group ID.
+            kill -TERM "-$" 2>/dev/null || true
+        ) &
+        watchdog_pid=$!
+        worker_rc=0
+        wait "$worker_pid" || worker_rc=$?
+        kill "$watchdog_pid" 2>/dev/null || true
+        wait "$watchdog_pid" 2>/dev/null || true
+        exit "$worker_rc"
+    ' ordax-git "$timeout_seconds" "$GIT_BIN" \
+        -c http.lowSpeedLimit=1 \
         -c "http.lowSpeedTime=$GIT_LOW_SPEED_TIME" "$@" &
     GIT_JOB_PID=$!
     git_job_rc=0
@@ -259,7 +282,7 @@ run_bounded_git() {
 cancel_active_git() {
     active_git_pid=${GIT_JOB_PID:-}
     case "$active_git_pid" in ''|*[!0-9]*) return 0 ;; esac
-    # Process-group signalling also reaches children of the timeout wrapper.
+    # Process-group signalling reaches Git, its children and the bounded watchdog.
     # This group was created by setsid, never by the Guardian or the Surface.
     kill -TERM "-$active_git_pid" 2>/dev/null || true
     /bin/busybox sleep 1
@@ -272,7 +295,7 @@ cancel_active_git() {
 classify_fetch_error() {
     diagnostic=$1
     result_code=$2
-    case "$result_code" in 124|137) printf 'timeout'; return 0 ;; esac
+    case "$result_code" in 124|137|143) printf 'timeout'; return 0 ;; esac
     if /bin/busybox grep -Eqi 'could not resolve host|could not resolve proxy|temporary failure in name resolution|name or service not known' "$diagnostic"; then
         printf 'dns'
     elif /bin/busybox grep -Eqi 'SSL certificate problem|certificate verify failed|certificate has expired|unable to get local issuer certificate' "$diagnostic"; then
