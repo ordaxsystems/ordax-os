@@ -56,7 +56,8 @@ function validPolicy(policy) {
   const dev = policy.profiles["owner-development"];
   const stable = policy.profiles["stable-mvp"];
   return dev.default === "git-main"
-    && dev.enabled.includes("git-main")
+    && dev.enabled.length === 1
+    && dev.enabled[0] === "git-main"
     && !dev.enabled.includes("official-signed-release-channel")
     && dev.gated.includes("official-signed-release-channel")
     && stable.default === "official-signed-release-channel"
