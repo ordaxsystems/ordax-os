@@ -726,6 +726,15 @@ runtime_media_is_ready() {
     done
 }
 
+runtime_audio_is_ready() {
+    [ -x "$RUNTIME_ROOT/usr/bin/dbus-run-session" ] &&
+        [ -x "$RUNTIME_ROOT/usr/bin/pipewire" ] &&
+        [ -x "$RUNTIME_ROOT/usr/bin/wireplumber" ] &&
+        [ -x "$RUNTIME_ROOT/usr/bin/pipewire-pulse" ] &&
+        [ -x "$RUNTIME_ROOT/usr/bin/pactl" ] &&
+        [ -f "$RUNTIME_ROOT/usr/lib/gstreamer-1.0/libgstpipewire.so" ]
+}
+
 runtime_base_is_ready() {
     if [ "$DISTRIBUTION_PROFILE" = "stable-mvp" ] ||
        [ "$VERIFIED_RUNTIME_MODE" = "verified-erofs-overlay" ]; then
@@ -869,7 +878,7 @@ upgrade_existing_runtime() {
         echo "ordax-surface: graphical runtime upgrade timed out or failed" >>"$HOST_LOG"
         return 1
     fi
-    runtime_is_ready && runtime_media_is_ready
+    runtime_is_ready && runtime_media_is_ready && runtime_audio_is_ready
 }
 
 ensure_runtime() {
@@ -894,9 +903,9 @@ ensure_runtime() {
     fi
 
     if runtime_is_ready; then
-        if ! runtime_media_is_ready; then
+        if ! runtime_media_is_ready || ! runtime_audio_is_ready; then
             if ! upgrade_existing_runtime; then
-                echo "ordax-surface: media codec upgrade incomplete; preserving the usable Surface" >>"$HOST_LOG"
+                echo "ordax-surface: optional media runtime upgrade incomplete; preserving the usable Surface" >>"$HOST_LOG"
                 runtime_is_ready || return 1
             fi
         fi
@@ -1639,6 +1648,8 @@ select_owner_virtio_webkit_transport
 
 START_URI="http://127.0.0.1:8765/composition/native/index.html?source=$SOURCE_SHA"
 /bin/busybox chroot "$RUNTIME_ROOT" \
+    /bin/busybox sh /srv/ordax-system/surface/runtime/audio-session.sh \
+    --runtime-dir /run/ordax-surface/audio -- \
     /usr/bin/seatd-launch -- /usr/bin/cage -s -- \
     /usr/bin/python3 /srv/ordax-system/surface/runtime/ordax_browser_host.py \
     --start-uri "$START_URI" --profile-root /var/lib/ordax-user/browser \
