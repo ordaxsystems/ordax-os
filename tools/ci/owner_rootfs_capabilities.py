@@ -131,8 +131,8 @@ def owner_runtime_helpers(root: Path = ROOT) -> tuple[tuple[str, str], ...]:
                     or required_path != "usr/local/bin/ordax-checkout-exchange"
                     or not re.fullmatch(r"[a-z0-9.-]+/[0-9]+", required_abi)):
                 raise ValueError(f"invalid native helper prerequisite on line {lineno}")
-        elif len(parts) == 3:
-            raise ValueError(f"empty native helper prerequisite on line {lineno}")
+        elif len(parts) == 3 or source == "bootstrap/dev-base/ordax-pull":
+            raise ValueError(f"required native helper prerequisite is missing on line {lineno}")
         for value in (source, target):
             if (not value or value.startswith("/") or "\\" in value
                     or any(part in ("", ".", "..") for part in value.split("/"))):
