@@ -37,7 +37,7 @@ class HomeContinuationContractTests(unittest.TestCase):
         self.assertIn("target: folder", source)
         self.assertIn('"home.continuation.recentAction"', source)
         self.assertNotIn("Abrir arquivo recente", source)
-        self.assertNotIn("openFile", source)
+        self.assertNotRegex(source, r"\\bopenFile\\b")
 
     def test_home_uses_safe_dom_and_disappears_when_there_is_no_context(self):
         source = self.source()
@@ -45,7 +45,7 @@ class HomeContinuationContractTests(unittest.TestCase):
         self.assertIn("textContent", source)
         self.assertIn("section?.remove()", source)
         self.assertNotIn("innerHTML", source)
-        self.assertIn('t("home.continuation.heading")', source)
+        self.assertIn('t("home.continuation.title")', source)\n        self.assertIn('t("home.continuation.openFiles")', source)
         self.assertIn("data-home-continuation-key", source.replace("dataset.homeContinuationKey", "data-home-continuation-key"))
 
     def test_home_mount_is_disposable_and_unsubscribes_both_sources(self):
