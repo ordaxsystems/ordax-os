@@ -1705,6 +1705,7 @@
   register("surface.ddcd378ecaa7", "Conexão, rede protegida e uso offline.", "Connection, secure networks and offline use.");
   register("surface.195c60bb2325", "Áudio", "Audio");
   register("surface.fb499a13e34a", "Escolha a saída de áudio e ajuste o volume.", "Choose audio output and adjust volume.");
+  register("surface.3be6bb65bdfc", "Controles prontos · saída física requer validação", "Controls ready · physical output requires validation");
   register("surface.2d31efc9c2ed", "Tela", "Display");
   register("surface.1c84b52a82f2", "Ajuste o tamanho dos elementos e o brilho da tela.", "Adjust element size and display brightness.");
   register("surface.75b931baddfa", "Escala pronta · controles do monitor pendentes", "Scaling ready · monitor controls pending");
@@ -1733,6 +1734,7 @@
   register("surface.0758c00e6ea0", "Padrão", "Standard");
   register("surface.789b0f7fb962", "Confortável", "Comfortable");
   register("surface.45fbe99b103c", "Grande", "Large");
+  register("surface.fd231bd3c557", "Saída do sistema e volume desta sessão.", "System output and volume for this session.");
   register("surface.83d0d814f360", "Continuidade entre dispositivos", "Continuity across devices");
   register("surface.a0e6c1e59152", "Escolha como seu trabalho acompanha você.", "Choose how your work follows you.");
   register("surface.7cfb945aa92e", "Contraste", "Contrast");
