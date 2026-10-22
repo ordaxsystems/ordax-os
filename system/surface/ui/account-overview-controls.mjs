@@ -1229,6 +1229,7 @@ export function mountAccountOverviewControls(
     if (
       destroyed
       || registrationPolicyPending
+      || sessionSnapshot.state !== "signed-out"
       || credentialsPort === null
       || typeof credentialsPort.registrationPolicy !== "function"
     ) {
@@ -1241,7 +1242,7 @@ export function mountAccountOverviewControls(
     registrationPolicyPending = true;
     try {
       const policy = await credentialsPort.registrationPolicy();
-      if (destroyed) return;
+      if (destroyed || sessionSnapshot.state !== "signed-out") return;
       hostedSignupAllowed = isHostedSignupEnabled(policy);
       registrationPolicy = policy.registrationEnabled === true && isIdentityActionSupported(actionsSnapshot, "register") ? policy : null;
       if (registrationPolicy === null) registrationLegalAccepted = false;
@@ -1613,7 +1614,9 @@ export function mountAccountOverviewControls(
     } else {
       registrationPolicy = null;
       registrationLegalAccepted = false;
+      hostedSignupAllowed = false;
     }
+    if (sessionSnapshot.state === "signed-out") void refreshRegistrationPolicy();
     actionMessage = "";
     replaceView();
     if (activeSection === "spaces" && sessionSnapshot.state === "signed-in") {
