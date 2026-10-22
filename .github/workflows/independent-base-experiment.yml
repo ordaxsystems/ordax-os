@@ -98,6 +98,7 @@ jobs:
             tests.test_dev_base_symlink_policy \
             tests.test_independent_dev_channel_compatibility \
             tests.test_independent_base_experiment \
+            tests.test_independent_rootfs_inventory \
             tests.test_independent_rootfs_export \
             tests.test_independent_network_parity \
             tests.test_independent_owner_profile \
@@ -183,22 +184,66 @@ jobs:
           printf 'ORDAX_KERNEL_MODULES_ARCHIVE=%s\n' "$module_archive" >> "$GITHUB_ENV"
           printf 'ORDAX_KERNEL_MODULES_RECEIPT=%s\n' "$RUNNER_TEMP/ordax-independent/kernel-module-payload.json" >> "$GITHUB_ENV"
           printf 'ORDAX_FIRMWARE_COVERAGE_RECEIPT=%s\n' "$RUNNER_TEMP/ordax-independent/firmware-coverage.json" >> "$GITHUB_ENV"
+      # Only the minimal profile can reuse the canonical component cache.
+      # Owner embeds kernel modules/firmware receipts that must be rebuilt and
+      # proven against the exact integration kernel before any publication.
+      - name: Restore verified independent base component
+        if: env.ORDAX_INDEPENDENT_PROFILE == 'minimal'
+        id: independent-base-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/ordax-independent
+          key: ordax-portable-component-v1-${{ runner.os }}-${{ runner.arch }}-independent-base-${{ steps.component-fingerprints.outputs.independent_base }}
       - name: Build rootfs from official Buildroot source
+        if: env.ORDAX_INDEPENDENT_PROFILE != 'minimal' || steps.independent-base-cache.outputs.cache-hit != 'true'
         run: |
           set -euo pipefail
           python3 bootstrap/independent-base/build.py build \
             --profile "$ORDAX_INDEPENDENT_PROFILE" \
             --out "$RUNNER_TEMP/ordax-independent" \
             --cache "$RUNNER_TEMP/ordax-independent-cache" --jobs 4
-          python3 bootstrap/independent-base/build.py verify \
-            --profile "$ORDAX_INDEPENDENT_PROFILE" \
-            --out "$RUNNER_TEMP/ordax-independent"
       - name: Save Buildroot source/package download cache
-        if: steps.buildroot-download-cache.outputs.cache-hit != 'true'
+        if: steps.buildroot-download-cache.outputs.cache-hit != 'true' && (env.ORDAX_INDEPENDENT_PROFILE != 'minimal' || steps.independent-base-cache.outputs.cache-hit != 'true')
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ runner.temp }}/ordax-independent-cache
           key: ordax-buildroot-download-v1-${{ runner.os }}-${{ hashFiles('bootstrap/independent-base/source.json', 'bootstrap/independent-base/configs/**', 'bootstrap/independent-base/patches/**') }}
+      - name: Verify independent base component and exact integration binding
+        env:
+          ORDAX_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          base_dir="$RUNNER_TEMP/ordax-independent"
+          metadata="$RUNNER_TEMP/portable-v2-qemu/metadata"
+          python3 bootstrap/independent-base/build.py verify \
+            --profile "$ORDAX_INDEPENDENT_PROFILE" --out "$base_dir"
+          # Main's verified component cache is intentionally minimal-only.
+          # Owner's exact kernel-module and firmware closure cannot be skipped.
+          if [ "$ORDAX_INDEPENDENT_PROFILE" = minimal ]; then
+            cache_hit='${{ steps.independent-base-cache.outputs.cache-hit }}'
+            if [ "$cache_hit" != true ]; then cache_hit=false; fi
+            python3 bootstrap/independent-base/verify_rootfs.py \
+              "$base_dir/rootfs.tar" > "$metadata/independent-rootfs-inventory.json"
+            if [ "$cache_hit" = false ]; then
+              python3 tools/ci/portable_component_cache.py record \
+                --component independent-base \
+                --out-dir "$base_dir" \
+                --source-commit "$ORDAX_SOURCE_COMMIT" \
+                > "$metadata/independent-base-cache-record.json"
+            fi
+            python3 tools/ci/portable_component_cache.py verify \
+              --component independent-base \
+              --out-dir "$base_dir" \
+              --integration-commit "$ORDAX_SOURCE_COMMIT" \
+              --cache-hit "$cache_hit" \
+              --receipt "$metadata/independent-base-component-reuse.json"
+          fi
+      - name: Save verified independent base component
+        if: env.ORDAX_INDEPENDENT_PROFILE == 'minimal' && steps.independent-base-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/ordax-independent
+          key: ordax-portable-component-v1-${{ runner.os }}-${{ runner.arch }}-independent-base-${{ steps.component-fingerprints.outputs.independent_base }}
       - name: Prove Owner rootfs against the real Dev Channel consumer
         if: env.ORDAX_INDEPENDENT_PROFILE == 'owner-development'
         env:

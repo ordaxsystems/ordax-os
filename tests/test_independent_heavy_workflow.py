@@ -12,6 +12,31 @@ class IndependentHeavyWorkflowTests(unittest.TestCase):
     def text(self) -> str:
         return WORKFLOW.read_text(encoding="utf-8")
 
+    def test_minimal_component_cache_never_reuses_owner_rootfs(self) -> None:
+        text = self.text()
+        restore = text.index("- name: Restore verified independent base component")
+        build = text.index("- name: Build rootfs from official Buildroot source")
+        verify = text.index("- name: Verify independent base component and exact integration binding")
+        save = text.index("- name: Save verified independent base component")
+        bind = text.index("- name: Bind verified kernel modules to Independent Base")
+        prove = text.index("- name: Prove Owner rootfs against the real Dev Channel consumer")
+        self.assertLess(bind, restore)
+        self.assertLess(restore, build)
+        self.assertLess(build, verify)
+        self.assertLess(verify, save)
+        self.assertLess(save, prove)
+        self.assertEqual(sum(line.strip().startswith("python3 bootstrap/independent-base/build.py build ") for line in text.splitlines()), 1)
+        cache_restore = text[restore:build]
+        self.assertIn("if: env.ORDAX_INDEPENDENT_PROFILE == 'minimal'", cache_restore)
+        build_step = text[build:text.index("- name: Save Buildroot source/package download cache", build)]
+        self.assertIn("env.ORDAX_INDEPENDENT_PROFILE != 'minimal' || steps.independent-base-cache.outputs.cache-hit != 'true'", build_step)
+        verify_step = text[verify:save]
+        self.assertIn('if [ "$ORDAX_INDEPENDENT_PROFILE" = minimal ]; then', verify_step)
+        self.assertIn("portable_component_cache.py verify", verify_step)
+        save_step = text[save:prove]
+        self.assertIn("env.ORDAX_INDEPENDENT_PROFILE == 'minimal'", save_step)
+        self.assertIn("tests.test_independent_rootfs_inventory", text)
+
     def test_owner_profile_is_explicit_and_dispatchable(self) -> None:
         text = self.text()
         self.assertIn("workflow_dispatch:", text)
