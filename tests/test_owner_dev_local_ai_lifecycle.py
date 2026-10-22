@@ -124,7 +124,8 @@ class OwnerDevLocalAiLifecycleTests(unittest.TestCase):
         watcher = RUN.read_text(encoding="utf-8")
         self.assertIn('aura_retry_seconds=60', watcher)
         self.assertIn('if [ "$aura_retry_seconds" -ge 60 ]; then', watcher)
-        self.assertIn("bb sleep 10 &", watcher)
+        self.assertIn("/bin/busybox sleep 10 &", watcher)
+        self.assertIn("            sleep 10 &", watcher)
         self.assertIn("watch_sleep_pid=$!", watcher)
         self.assertIn('trap \'stop_observer "$watch_sleep_pid"; exit 0\' HUP INT TERM', watcher)
         self.assertNotIn("SURFACE_RUNTIME_PROVISION_MARKER", watcher)
@@ -172,7 +173,6 @@ class OwnerDevLocalAiLifecycleTests(unittest.TestCase):
                 "ENTRY_PID=$$\n"
                 f"AURA_READY_MARKER='{root / 'not-staged'}'\n"
                 f"LOCAL_AI_LIFECYCLE='{root / 'not-installed'}'\n"
-                'bb() { exec /bin/sleep "$2"; }\n'
                 + helpers
                 + "\nwatch_optional_aura &\n"
                 + f"""printf '%s\\n' "$!" >'{pid_path}'\n"""
