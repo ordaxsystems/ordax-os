@@ -539,8 +539,23 @@ export function mountDesktopClock(
     throw new Error("OrdaX desktop clock requires navigation and quick date/time nodes");
   }
 
+  // Cache ICU formatters per active regional preference rather than allocating
+  // two new formatters on every 30-second clock tick.
+  let formattingKey = null;
+  let timeFormatter = null;
+  let dateFormatter = null;
   const render = () => {
     const { locale, timeZone } = regionalSettings(preferencePort?.getSnapshot() ?? {});
+    const nextKey = JSON.stringify([locale, timeZone]);
+    if (nextKey !== formattingKey) {
+      timeFormatter = new Intl.DateTimeFormat(locale, {
+        timeZone, hour: "2-digit", minute: "2-digit", hour12: false,
+      });
+      dateFormatter = new Intl.DateTimeFormat(locale, {
+        timeZone, weekday: "long", day: "2-digit", month: "long", year: "numeric",
+      });
+      formattingKey = nextKey;
+    }
     const now = new Date();
     const { period, greetingId } = resolveHomeScene(now, timeZone);
     if (sceneNode && sceneNode.dataset.period !== period) {
@@ -552,21 +567,10 @@ export function mountDesktopClock(
       greetingNode.textContent = localizationPort?.translate(greetingId)
         ?? ({ "shell.home.greeting.morning": "Bom dia.", "shell.home.greeting.afternoon": "Boa tarde.", "shell.home.greeting.evening": "Boa noite." }[greetingId]);
     }
-    const formattedTime = new Intl.DateTimeFormat(locale, {
-      timeZone,
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: false,
-    }).format(now);
+    const formattedTime = timeFormatter.format(now);
     trayTimeNode.textContent = formattedTime;
     quickTimeNode.textContent = formattedTime;
-    quickDateNode.textContent = new Intl.DateTimeFormat(locale, {
-      timeZone,
-      weekday: "long",
-      day: "2-digit",
-      month: "long",
-      year: "numeric",
-    }).format(now);
+    quickDateNode.textContent = dateFormatter.format(now);
     timeZoneNode.textContent = timeZone;
     const isoNow = now.toISOString();
     trayTimeNode.setAttribute("datetime", isoNow);
