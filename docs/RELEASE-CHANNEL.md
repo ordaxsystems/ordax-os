@@ -10,6 +10,61 @@ This channel is the delivery authority for the **Stable/MVP** distribution. Owne
 
 Repository CI owns build/sign/publication. The device consumes a compact signed release envelope and immutable artifacts over HTTPS.
 
+## Dual transport rollout: Development + public OrdaX (2026-10-22)
+
+**Decision:** retain the existing Supervisor as the sole runtime transaction,
+health, known-good and rollback owner. Delivery *methods* are not alternative
+update engines. Their canonical selection policy is
+`docs/contracts/distribution-profiles.json#update_delivery_selection`.
+The side-effect-free resolver at
+`system/services/update/transport-selection.mjs` provides a fail-closed
+routing boundary for clients; it is not yet wired to the live Supervisor.
+
+| Profile | Current enabled method | Future gated alternative |
+| --- | --- | --- |
+| Owner/Development USB | `git-main` via the existing `ordax-pull` | `official-signed-release-channel`, for real tests of signed releases on Development hardware |
+| Public Stable/MVP USB | `official-signed-release-channel` (signed and exact-commit) | `signed-exact-git`, Git object acquisition pinned to a *previously authenticated* official release; **never** unreviewed `main` |
+
+A public Git option is **not** an authorization to run Development's
+`ordax-pull` verbatim on consumer devices. It must validate the signed
+release envelope first, bind the exact candidate commit, acquire only objects
+for that immutable source identity and pass through the existing signed
+candidate / health / rollback owners. Consumers must never need a Git client
+to boot or update through the standard channel.
+
+### Incremental delivery / acceptance gates
+
+1. **Policy and tests (current PR):** express enabled and gated routes in the
+   distribution SSOT, ship a pure, fail-closed resolver and regression tests.
+   Neither a UI toggle nor runtime transport switch is enabled in this stage.
+2. **Development signed-release testing:** add a verified-release handoff to
+   the same Supervisor transaction owner. Prove signed envelope, exact
+   source commit, non-destructive staging, health and offline rollback in
+   disposable fixtures. Enable an explicit signed-release Dev selection only
+   after this evidence, without breaking Git-first default.
+3. **Public signed-Git acquisition:** design optional Git object fetch around
+   the *signed* immutable release source identity; maintain the existing
+   signed-release fallback only on an explicit new transaction, never silently
+   after trust failure. No operational Git prerequisite for public boot.
+4. **User consent and notifications:** use the shared Surface and native
+   update-status owner. Public default: notify before download/install;
+   allow defer/download preference and require notice before reboot. Security
+   and release authenticity cannot be overridden by UI choice. Development
+   default remains fast Git-first.
+5. **Mode switching and migration:** persist a validated device preference
+   outside immutable releases; switch only while no update transaction is
+   active, with no base-slot/EFI writes. Support disabling public Git and
+   removing it after a separately validated signed-release migration. Always
+   preserve userdata, local offline known-good boot and existing A/B gates.
+6. **Promotion:** run unit, integration, release signing, interruption, health,
+   rollback and QEMU tests; then separately prove USB Dev and Stable physical
+   recovery. A CI green check does not authorize Creator writes or public
+   release promotion.
+
+**No fake feature:** the current stage does **not** make either gated method
+operational, does not enable public Git polling and does not replace the
+canonical Base update mechanism. Defaults and operational paths are unchanged.
+
 ## Source vs delivery
 
 ```text
