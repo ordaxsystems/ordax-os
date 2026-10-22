@@ -160,6 +160,30 @@ A ordem deve reduzir duplicação, não criar wrappers permanentes:
 
 Não é permitido reduzir a contagem apenas trocando o nome do arquivo importado, copiando helpers Alpine para outro diretório ou duplicando lógica. A redução só conta quando a dependência real de Alpine/APK diminui ou quando código legado comprovadamente sem consumidor é removido.
 
+### Primeira dependência Python do Runtime — prova HTTPX, não promoção
+
+O `ordax-runtime` integrou a auditoria canônica de versões na PR #183
+(commit `3d8f06211c1b991b9ac79604eff2e11bb14f47db`). Ela confirma a
+incompatibilidade do lock Python 3.12 com CPython 3.14 e diferenças de
+versões de dependências, inclusive o SDK MCP ausente no Buildroot.
+
+Como avanço verificável **sem ignorar essas incompatibilidades**, o
+`native-product-runtime.fragment` privado inclui
+`BR2_PACKAGE_PYTHON_HTTPX=y`, cuja receita oficial Buildroot 2026.08
+contém a versão `httpx 0.28.1` também presente no lock do Runtime. A
+compilação e o smoke test exercitam os imports de `httpx`, `httpcore`,
+`anyio`, `certifi`, `idna` e `h11` dentro do target do Buildroot, e
+constroem uma requisição HTTPS **sem efetuar conexão de rede**.
+
+Esta é uma **prova de dependência isolada**, não um upgrade arbitrário do
+Runtime: versões transitivas podem divergir (por exemplo, `anyio` e
+`certifi`). O recibo sempre registra
+`httpx_offline_request_construction_proven` separadamente e
+`runtime_dependency_versions_reconciled=false`. Não são gerados pacotes
+instaláveis, carregadores globais, tokens nem uma segunda implementação
+de agente/transportes MCP. Faltam compatibilizar os locks, a closure
+completa C/Rust e o SDK MCP ausente antes do corte do Alpine.
+
 ### Prova de compilação privada do Python — sem distribuição
 
 O subcomando `build-component` reutiliza a **mesma**
