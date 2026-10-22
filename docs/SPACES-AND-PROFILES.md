@@ -309,7 +309,7 @@ Invite is not membership. Pending invites are separate temporary entities; only 
 
 The product backend now has explicit, bounded server-authoritative mutation boundaries instead of relying on direct client table writes:
 
-- Space creation uses `ordax_create_space_v1`; creation authority, type resolution, quota and idempotency are checked below the client, and the owner membership is created by the same server-side flow.
+- Space creation is intended to use `ordax_create_space_v1` with server-side type/quota/idempotency validation. **Deployment gate (2026-10-19):** the source RPC still attempts to insert an `owner` membership, whereas the active Product PostgreSQL `ordax_space_members_role_check` permits only `admin/member/viewer`. Until a forward-only reconciliation migration and PostgreSQL regression pass, this create path is **blocked**, not a verified success. `ordax_spaces.owner_user_id` must remain the one persisted Owner identity; a visible owner entry must be projected without a second membership row (see ordax-os#2007).
 - Space rename/archive/restore use `ordax_mutate_space_lifecycle_v1`; direct authenticated `UPDATE`/`DELETE` on `ordax_spaces` is revoked.
 - direct authenticated `INSERT`/`UPDATE`/`DELETE` on `ordax_space_members` is revoked and the historical membership write policies are removed;
 - actions over an **existing** membership use `ordax_mutate_space_membership_v1` and the versioned `ordax.space-membership-actions/1` contract for `change-role`, `suspend`, `reactivate` and `remove`.
@@ -357,3 +357,49 @@ This division is machine-readable under `update_ownership` in the existing `docs
 ### Inventory enforcement — Store remains the only app delivery owner
 
 The Profile component inventory contract refuses `kind: "app"` records. Such records are not proof of Store installation, availability, entitlement or trust, and cannot satisfy Profile provisioning. Profile inventory continues to cover only knowledge/skill/model packs and connectors. Installed applications and individual updates remain projections of the canonical App Store/Native lifecycle, never inferred from Profile manifests or receipts.
+
+## Interoperabilidade canônica: Platform, MCP, Studio, Flow — 2026-10-19
+
+Esta seção complementa as definições de Space/Profile Pack acima; **não** cria outra autoridade nem altera a identidade de Spaces existentes. Aplicável aos contratos `ordax.spaces/1`, `ordax.project-catalog/1` e às tabelas/RPCs canônicas de produto.
+
+| Termo de produto (PT-BR) | Nome técnico / identidade | Responsabilidade e fonte de verdade |
+| --- | --- | --- |
+| Conta OrdaX | Identity subject / `session.subject_id` | identidade única autenticada pela Platform; não é Space, Perfil ou dispositivo |
+| Perfil do usuário | Account preferences/profile | preferências do usuário, não modelo de composição de um Space |
+| Pacote de perfil | `Profile Pack`, `ordax.profile-packs/1` | composição técnica **versionada**; sem dados de negócio nem identidade nova |
+| Espaço | `Space`, `ordax_spaces.space_id` | ambiente estável de trabalho/dados/membros, compartilhado logicamente por OS e Platform; fonte persistente: autoridade de Conta/Space da Platform |
+| Tipo de espaço | `ordax_spaces.domain + subtype` | semântica de domínio definida em `system/services/spaces/type-catalog.mjs`, não um segundo Space |
+| Projeto | `ordax_projects.project_id` | recurso da autoridade de Projeto ligado a um Space; um Space pode ter vários projetos |
+| Projeto local | `ordax.project-catalog/1`, IDs `project-N` e caminhos lógicos locais | estado **do dispositivo/sessão**; não é identidade `ordax_projects.project_id`; vínculos com nuvem são explícitos e não sincronizam arquivos automaticamente |
+| Repositório | `ordax_project_connections` / GitHub repository ID | origem externa opcional verificada; nome GitHub não substitui ID nem prova de autorização |
+| Dispositivo (target) | identidade de equipamento autorizada | identidade, presença e grants distintos; pode ser usado no MCP sem cadastro artificial de Space para funções de dispositivo |
+| Associação Space–dispositivo | `ordax_space_devices` | autoriza participação do dispositivo naquele Space; não equivale a permissão para qualquer ação |
+| Associação Projeto–dispositivo | `ordax_device_project_bindings` | liga um projeto canônico a um executor autorizado; não equivale a grant |
+| Permissão | grant de capability e escopo no Owner/Platform | autorização por operação/cliente/dispositivo, revogável; política local do Runtime é outro gate obrigatório |
+| Aplicativo | App verificado distribuído pela Loja | instalável e versionado independentemente, não é Space, módulo ou MCP tool |
+| Módulo | componente de um aplicativo/serviço | implementação funcional sem identidade de aplicativo obrigatória |
+| Capacidade | capability declarada e pronta via provider | disponibilidade funcional real; não equivale a app instalado, autorização, entitlement ou grant |
+| Ferramenta MCP | MCP tool publicada pela Platform | projeção de entrada para capacidade autorizável, não serviço, Space ou executor independente |
+| Serviço / Runtime | autoridade de backend / OrdaX Runtime local | autoridade remota mantém identidades e decisões; Runtime executa apenas ações autorizadas e aplica política local |
+
+### Regra de integração (não duplicação)
+
+- `ordax_spaces` da Platform e os Spaces exibidos pelo OrdaX OS devem designar **a mesma identidade de produto** quando sincronizados. O port `ordax.spaces/1` é projeção do Space autorizado, não segunda tabela, segunda conta ou segundo serviço de criação.
+- `ordax_projects` não é automaticamente o mesmo registro de `ordax.project-catalog/1`. O catálogo local pode existir offline; o projeto canônico pode existir sem checkout no dispositivo. O vínculo explícito usa identificadores verificados. Não mapear por coincidência de slug, diretório ou nome.
+- `ordax_profile`, tool MCP de compatibilidade, devolve `session.subject_id` da **Conta** para apresentação da identidade do conector ChatGPT: **não** representa Perfil, Profile Pack ou Space. Não renomear ou alterar esse output sem versionamento e inventário de consumidores.
+- `Owner` é papel/autoridade contextual; o proprietário de um Space é determinado pelo vínculo persistente `ordax_spaces.owner_user_id`, não pela presença de uma membership com rótulo `owner` nem por configuração local do Studio.
+- `Workspace` pode designar diretório ou área visual do Studio/Runtime, mas **não** é sinônimo técnico de `Space` em contratos. Na experiência do usuário, usar “Espaço” quando o recurso for o Space de produto e “pasta de trabalho” ou “área de trabalho” para contexto local.
+- Flow e Studio são produtos independentes do boot, disponibilidade e ciclo de vida do OS. Flow pode ter projetos de conversa de domínio próprio; tais IDs não podem ser promovidos implicitamente a `ordax_projects` ou grants Runtime.
+- `ordax_session`, `ordax_profile`, `ordax_targets`, `ordax_action_status` e observação autorizada do dispositivo no MCP não exigem Projeto ou Space por mera conveniência de implementação. Cada uma conserva OAuth, atestação (quando aplicável), grants e política local. `process_list` e `terminal_exec` continuam projetados como operações **de projeto** e exigem contexto canônico, bindings, grant e runtime attestation.
+- A issue `ordax-platform#220` e PR `#222` são gates do onboarding Owner; antes de criar novos vínculos ou migrations é preciso provar equivalência dos IDs/autoridades do OS com os da Platform. Não criar segundo cadastro, não inserir tabelas diretamente e não interpretar teste de fonte como autorização de produção.
+
+### Compatibilidade e promoção
+
+As definições desta seção **não** afirmam que fluxos de onboarding, sincronização OS↔Platform, grants ou E2E já estejam implantados. Mudanças futuras de esquema exigem migrations versionadas, teste de dados legados, isolamento multi-Owner/Space, revogação, concorrência e teste físico de Runtime. Manter os ports de leitura e ferramentas públicas compatíveis enquanto as autoridades evoluem.
+
+**Prova de implantação pendente (consulta somente leitura 19/10/2026):** no PostgreSQL ativo da Platform, os identificadores persistentes são `ordax_spaces.space_id` e `ordax_projects.project_id`. As funções públicas `ordax_mutate_space_lifecycle_v1` e `ordax_mutate_space_membership_v1` descritas acima **não apareceram** na inspeção de rotinas implantadas; a existência das migrations no repositório do OS não comprova seu deploy. Não inferir um segundo backend nem executar migrations até reconciliar registry, adapter e autoridade de implantação.
+
+
+### Bloqueio da autoridade de proprietário — 2026-10-19
+
+A inspeção read-only da instância Platform confirmou `ordax_space_members_role_check` limitado a `admin/member/viewer` **e** função implantada `ordax_create_space_v1` que tenta inserir `role='owner'`. Os testes isolados de criação do OS utilizam fixtures históricas que permitem `owner`; por isso passar nesses testes não comprova compatibilidade do banco implantado. Regra canônica: `ordax_spaces.owner_user_id` é a única propriedade persistida; Owner pode aparecer como papel **derivado de leitura** para a interface, jamais como segunda linha de autoridade. A correção será versionada em `ordax-os#2007`, sem reescrever a migration já aplicada, e inclui reconciliação de `ordax_policy`/RPCs ausentes. Este estado não autoriza onboarding automático do MCP nem enfraquecimento de RLS.

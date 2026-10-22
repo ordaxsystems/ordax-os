@@ -1336,15 +1336,16 @@ Deno.serve(async (req: Request) => {
       if (
         typeof raw.space_id !== "string" ||
         typeof raw.pack_slug !== "string" ||
-        raw.pack_slug.length < 1 ||
-        raw.pack_slug.length > 160 ||
-        !Number.isSafeInteger(Number(raw.pack_version)) ||
-        Number(raw.pack_version) < 1 ||
+        !/^[a-z0-9][a-z0-9-]{1,79}$/.test(raw.pack_slug) ||
+        typeof raw.pack_version !== "number" ||
+        !Number.isSafeInteger(raw.pack_version) ||
+        raw.pack_version < 1 ||
+        `${raw.pack_slug}@${raw.pack_version}`.length > 160 ||
         packBySpace.has(raw.space_id)
       ) {
         return error(502, "spaces-read-failed", "Não foi possível validar seus Spaces.");
       }
-      packBySpace.set(raw.space_id, raw.pack_slug);
+      packBySpace.set(raw.space_id, `${raw.pack_slug}@${raw.pack_version}`);
     }
 
     const spaces = [];

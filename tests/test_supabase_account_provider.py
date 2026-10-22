@@ -110,7 +110,7 @@ class SupabaseAccountProviderTests(unittest.TestCase):
             "name": "Developer",
             "kind": "professional",
             "state": "active",
-            "profilePack": "developer",
+            "profilePack": "developer@1",
             "domain": "development",
             "subtype": "software",
         }])
@@ -171,6 +171,37 @@ class SupabaseAccountProviderTests(unittest.TestCase):
         provider, _ = self.provider([(200, spaces), (200, duplicate_packs)])
         with self.assertRaises(account_module.SupabaseAccountError):
             provider.list_spaces("user-access-token")
+
+
+    def test_spaces_profile_pack_uses_exact_version_and_rejects_ambiguous_rows(self):
+        space = {
+            "space_id": "space-1", "owner_user_id": "owner-1",
+            "name": "Work", "kind": "professional", "state": "active",
+        }
+        for version, expected in ((1, "pizzaria-br@1"), (2, "pizzaria-br@2"), (10, "pizzaria-br@10")):
+            with self.subTest(version=version):
+                provider, _ = self.provider([
+                    (200, [space]),
+                    (200, [{"space_id": "space-1", "pack_slug": "pizzaria-br", "pack_version": version}]),
+                ])
+                self.assertEqual(provider.list_spaces("session")[0]["profilePack"], expected)
+
+        for slug, version in (
+            ("pizzaria-br", 0),
+            ("pizzaria-br", True),
+            ("pizzaria-br", "1"),
+            ("pizzaria-br", 9007199254740992),
+            ("Pizzaria", 1),
+            ("bad@1", 1),
+            ("x", 1),
+        ):
+            with self.subTest(slug=slug, version=version):
+                provider, _ = self.provider([
+                    (200, [space]),
+                    (200, [{"space_id": "space-1", "pack_slug": slug, "pack_version": version}]),
+                ])
+                with self.assertRaises(account_module.SupabaseAccountError):
+                    provider.list_spaces("session")
 
     def test_provider_error_does_not_echo_bearer_token(self):
         provider, _ = self.provider([(500, {"message": "failure"})])
