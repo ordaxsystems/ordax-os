@@ -167,7 +167,7 @@ class OwnerFetchPowerRegressionTests(unittest.TestCase):
             child_pid = root / "child.pid"
             worker_script.write_text(
                 "#!/bin/sh\n"
-                f"echo $ > {shlex.quote(str(worker_pid))}\n"
+                f"echo $$ > {shlex.quote(str(worker_pid))}\n"
                 "sleep 90 &\n"
                 f"echo $! > {shlex.quote(str(child_pid))}\n"
                 "wait\n", encoding="utf-8",
