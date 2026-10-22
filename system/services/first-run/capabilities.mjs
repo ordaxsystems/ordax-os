@@ -31,7 +31,6 @@ export function deriveFirstRunCapabilities({
     identityRegister: credentials !== null && registerAction,
     registrationPolicy: (
       credentials !== null
-      && registerAction
       && typeof credentials.registrationPolicy === "function"
     ),
   });
