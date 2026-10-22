@@ -28,6 +28,16 @@ class PublicSurfaceSnapshotTests(unittest.TestCase):
             payload=(ROOT/path).read_bytes()
             if Path(path).suffix in {'.ts','.tsx','.js','.jsx','.mjs','.css','.json','.svg'}: payload=payload.replace(b'\r\n',b'\n')
             self.assertEqual(hashlib.sha256(payload).hexdigest(),digest,path)
+
+    def test_surface_refresh_tracks_audio_sources_used_by_the_web_snapshot(self):
+        workflow=(ROOT/'.github/workflows/public-surface-ssot-refresh.yml').read_text(encoding='utf-8')
+        for path in (
+            'system/contracts/audio-outputs.mjs',
+            'system/surface/ui/audio-output-controls.mjs',
+            'system/surface/workspace/components/central/settings.tsx',
+        ):
+            self.assertIn(f"      - '{path}'", workflow)
+
     def test_source_provenance_accepts_windows_and_linux_text_checkouts(self):
         spec=importlib.util.spec_from_file_location('public_demo_fixture',ROOT/'tools/public-site/playground_fixture.py')
         module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
