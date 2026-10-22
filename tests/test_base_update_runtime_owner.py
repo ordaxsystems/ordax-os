@@ -1148,13 +1148,54 @@ class BaseUpdateRuntimeOwnerTests(unittest.TestCase):
         self.assertIn("--acquire-aura-only", agent)
         self.assertIn("AURA_WORKER_PID=$!", agent)
         self.assertIn("trap stop_aura_worker EXIT", agent)
-        self.assertLess(agent.rindex("launch_optional_aura_worker\n        discover_esp_read_only"),
-                        agent.rindex("prepare_dev_base_postboot_promotion\n"))
+        self.assertIn("base_update_priority_pending() {", agent)
+        self.assertIn("reconcile_optional_aura_worker() {", agent)
+        self.assertIn('if [ "$DISTRIBUTION_PROFILE" != owner-development ] ||', agent)
+        self.assertIn('if base_update_priority_pending; then\n            stop_aura_worker\n        fi', agent)
+        self.assertIn('        reconcile_optional_aura_worker\n    else', agent)
+        self.assertIn('        stop_aura_worker\n        write_preflight_status', agent)
+        self.assertIn('[ ! -L "$HOST_STATE_ROOT/boot-refresh-required" ] || return 0', agent)
+        self.assertIn('[ "$aura_stop_ticks" -lt 8 ]', agent)
+        self.assertIn('kill -KILL "$AURA_WORKER_PID"', agent)
+        self.assertIn('"/proc/$AURA_WORKER_PID/stat"', agent)
+        self.assertIn("Z|X) break", agent)
+        self.assertIn("Z|X) ;;", agent)
+        self.assertLess(
+            agent.rindex("discover_esp_read_only\n        prepare_efivarfs_preflight_evidence"),
+            agent.rindex("reconcile_optional_aura_worker\n    else"),
+        )
+        self.assertLess(
+            agent.rindex("prepare_dev_base_postboot_promotion\n        fi"),
+            agent.rindex("reconcile_optional_aura_worker\n    else"),
+        )
         orchestrator = MODULE_PATH.read_text(encoding="utf-8")
         self.assertIn('parser.add_argument("--acquire-aura-only", action="store_true")', orchestrator)
         self.assertIn("start_new_session=True, close_fds=True", orchestrator)
         self.assertIn("os.killpg(process.pid, signal.SIGTERM)", orchestrator)
         self.assertIn("signal.signal(signal.SIGTERM, terminate_optional_aura)", orchestrator)
+
+    def test_optional_aura_priority_is_bound_to_canonical_base_pending_marker(self):
+        agent = AGENT.read_text(encoding="utf-8")
+        self.assertEqual(agent.count("base_update_priority_pending() {"), 1)
+        self.assertEqual(agent.count("reconcile_optional_aura_worker() {"), 1)
+        self.assertIn(
+            '    [ -e "$HOST_STATE_ROOT/boot-refresh-required" ] ||\n'
+            '        [ -L "$HOST_STATE_ROOT/boot-refresh-required" ]',
+            agent,
+        )
+        self.assertIn(
+            "    if [ \"$DISTRIBUTION_PROFILE\" != owner-development ] ||\n"
+            "       base_update_priority_pending; then\n"
+            "        stop_aura_worker\n"
+            "        return 0\n"
+            "    fi\n"
+            "    launch_optional_aura_worker",
+            agent,
+        )
+        # This is deliberately one owner process and one pending-Base marker,
+        # not a second job queue, updater or retry daemon.
+        self.assertNotIn("aura-background-updater", agent)
+        subprocess.run(["sh", "-n", str(AGENT)], check=True)
 
     def test_optional_aura_uses_existing_runtime_watch_and_update_owner(self):
         run = (ROOT / "bootstrap/dev-base/ordax-run").read_text(encoding="utf-8")

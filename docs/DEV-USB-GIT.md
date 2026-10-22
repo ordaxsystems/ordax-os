@@ -61,8 +61,11 @@ O mesmo `system/services/base-update/orchestrator.py` que valida/enrola
 quando não existe atualização Base pendente. A operação ocorre no **mesmo
 owner Base Update**, mas em processo filho supervisionado por
 `system/services/base-update/agent.sh`: o ciclo crítico de Base/ESP/rollback
-não espera o download de ~568 MiB. O filho é cancelado, junto com o processo
-de aquisição assinado, no encerramento do owner ou no timeout. Seu status
+é executado **antes** de qualquer novo download de ~568 MiB. Se o
+marcador canônico `boot-refresh-required` aparecer, o mesmo owner suspende
+o worker opcional e prioriza staging e recuperação da Base. O filho é
+cancelado junto com o processo de aquisição assinado, no encerramento do
+owner, em atualização pendente ou no timeout, com espera de parada limitada. Seu status
 fica separado em `/state/ordax/base-update/aura-status.json`.
 O build/release continua CI-owned; o modelo não vem de Git, Alpine ou de
 um gerenciador paralelo.

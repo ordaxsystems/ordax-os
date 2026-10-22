@@ -79,7 +79,14 @@ class OwnerUsbDurablePowerTransitionTests(unittest.TestCase):
         source = (ROOT / "system/services/base-update/agent.sh").read_text(encoding="utf-8")
         self.assertEqual(source.count("stop_aura_worker() {"), 1)
         self.assertEqual(source.count("launch_optional_aura_worker() {"), 1)
-        self.assertEqual(source.splitlines().count("        launch_optional_aura_worker"), 1)
+        self.assertEqual(source.splitlines().count("    launch_optional_aura_worker"), 1)
+        self.assertEqual(source.count("reconcile_optional_aura_worker() {"), 1)
+        self.assertEqual(source.splitlines().count("        reconcile_optional_aura_worker"), 1)
+        self.assertLess(
+            source.rindex("prepare_dev_base_postboot_promotion\n        fi"),
+            source.rindex("reconcile_optional_aura_worker\n    else"),
+        )
+        self.assertIn('if base_update_priority_pending; then\n            stop_aura_worker', source)
         self.assertEqual(source.count("trap stop_aura_worker EXIT"), 1)
         for signal, code in (("TERM", 143), ("INT", 130), ("HUP", 129)):
             self.assertIn(f"trap 'stop_aura_worker; exit {code}' {signal}", source)
