@@ -2,6 +2,23 @@
 
 Status: **CANONICAL FOR THE CURRENT DEVELOPMENT USB**
 
+## Repetição inteligente após falhas de checkout
+
+Depois de uma falha **posterior ao fetch**, o Supervisor guarda um recibo
+atômico `native-state/git-checkout-retry` por identidade de checkout atual,
+SHA candidato e motivo controlado do erro. Repetições da **mesma**
+combinação seguem 15, 30, 60, 120, 240 e no máximo 300 segundos entre
+tentativas; o usuário continua na última Surface saudável. A checagem da
+`main` permanece ativa, e uma versão ou estado novo não herda o atraso
+de outro candidato.
+
+O botão **Atualizar agora** autoriza uma checagem manual do mesmo Supervisor
+sem esperar o atraso de checkout; não força troca de versão, não contorna
+preflight, saúde, confiança no Git ou rollback. Problemas no fetch conservam
+o mecanismo separado de classificação/backoff de rede, e divergências
+sem proveniência continuam bloqueadas pelo guard de `non-fast-forward`.
+O recibo é diagnóstico local e **nunca** uma permissão de atualização.
+
 ## Recuperação automática de divergência da main (Owner/Dev)
 
 O Supervisor continua sendo o **único owner** da transação Git-first. Uma
