@@ -217,7 +217,7 @@
       },
       {
         "path": "system/services/i18n/catalog/files.mjs",
-        "sha256": "c8eb4b526dff600c0742edacbb292f208b2ac5489dc08d15bf5cb9c077f87eab"
+        "sha256": "891b7a7a582ab799b17c971d7bd136b6c31a41c3bd32699d14086b6bdef570d4"
       },
       {
         "path": "system/services/i18n/catalog/local-session.mjs",

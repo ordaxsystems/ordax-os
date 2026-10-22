@@ -1917,6 +1917,24 @@ FILES_PERMANENT_DELETE_MVP=NO
 FILES_TRASH_PHYSICAL_PROOF=PENDING
 ```
 
+### Arquivos device-local broker candidate — 2026-10-22
+
+Na branch `codex/files-host-broker-20261022`, o contrato Native acrescenta
+`ordax.file-space-scope/1` com escopo fixo `device-local`. O broker entrega ao
+iframe isolado somente os métodos explícitos de Arquivos, Recentes, Projetos e
+ativação necessários ao app `files`; caminhos, payloads e previews são limitados,
+e cada chamada/notificação revalida a identidade/revisão exatas do slot atual.
+Notificações coalescem por inscrição e a revogação drena operações pendentes.
+O controller compartilhado agora também aguarda as mutações assíncronas do bridge,
+sem perder compatibilidade com ports Native síncronos.
+
+Isso continua separado de arquivos pertencentes à Conta ou a um Space. A
+composição do slot Native externo permanece desativada enquanto a fonte bundled
+`system/apps/files/` existir; nenhuma implementação de app foi copiada para Apps
+e nenhum gate de corte ou distribuição foi aberto. Verificação focada: 72 testes
+Node e 16 contratos estáticos Python passaram. Não é prova de USB/QEMU, bootstrap assinado, instalação offline,
+rollback ou publicação.
+
 ### Ordax Intelligence and local inference
 
 The canonical Memory-to-Intelligence composition now guards account/Space

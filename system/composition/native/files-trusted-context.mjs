@@ -2,7 +2,7 @@
 // This provider is installed only after the canonical signed-slot policy
 // admits Files AND the bundled Files source has been removed. The canonical
 // verified-current loader checks signed slot identity before mount.
-import { assertFileSpacePort } from "../../contracts/file-space.mjs";
+import { assertDeviceLocalFileSpacePort } from "../../contracts/file-space.mjs";
 import { assertRecentFilesPort } from "../../contracts/recent-files.mjs";
 import { assertProjectCatalogPort } from "../../contracts/project-catalog.mjs";
 import { assertAppActivationPort } from "../../contracts/app-activation.mjs";
@@ -17,7 +17,7 @@ export function createNativeFilesHostPorts({
   appActivation = null,
 } = {}) {
   return Object.freeze({
-    fileSpace: assertFileSpacePort(fileSpace),
+    fileSpace: assertDeviceLocalFileSpacePort(fileSpace),
     recentFiles: assertRecentFilesPort(recentFiles),
     projects: assertProjectCatalogPort(projects),
     appActivation: assertAppActivationPort(appActivation),

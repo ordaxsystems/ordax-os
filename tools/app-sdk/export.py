@@ -524,7 +524,7 @@ CONTRACTS = (
     },
 )
 
-BUNDLE_VERSION = "1.19.0"
+BUNDLE_VERSION = "1.20.0"
 
 
 def git_blob(path: Path) -> str:

@@ -9,6 +9,10 @@ import {
 } from "../system/adapters/native/isolated-component-executor.mjs";
 import { createNativeComponentSlotSource } from "../system/adapters/native/component-slot-source.mjs";
 import { APP_DATA_SCHEMA } from "../system/contracts/app-data.mjs";
+import { DEVICE_LOCAL_FILE_SPACE_SCOPE, FILE_SPACE_SCHEMA } from "../system/contracts/file-space.mjs";
+import { createAppActivationChannel } from "../system/services/apps/activation.mjs";
+import { PROJECT_CATALOG_SCHEMA } from "../system/contracts/project-catalog.mjs";
+import { RECENT_FILES_SCHEMA } from "../system/contracts/recent-files.mjs";
 import { createLocaleProfile } from "../system/contracts/locale-profile.mjs";
 import { SURFACE_RENDER_LIFECYCLE_SCHEMA } from "../system/contracts/surface-render-lifecycle.mjs";
 import { runNativePendingComponentProbation } from "../system/composition/native/component-probation.mjs";
@@ -92,7 +96,7 @@ class FakeElement {
           });
         });
         queueMicrotask(() => this.childPort?.postMessage({
-          schema: BRIDGE, type: "mounted", componentId: "notes", version: "0.4.2",
+          schema: BRIDGE, type: "mounted", componentId: _data.componentId, version: _data.version,
         }));
       },
     };
@@ -117,7 +121,8 @@ class FakeElement {
   }
 }
 
-function setup({ timeoutMs = 500 } = {}) {
+function setup({ timeoutMs = 500, componentId = "notes", version = "0.4.2" } = {}) {
+  let currentSlot = Object.freeze({ ...CURRENT_SLOT, componentId, version });
   const createdElements = [];
   const documentObject = {
     createElement(tag) {
@@ -141,7 +146,7 @@ function setup({ timeoutMs = 500 } = {}) {
     schema: SURFACE_RENDER_LIFECYCLE_SCHEMA,
     localization,
     getAppTarget: () => "draft",
-    setAppTarget(appId, target) { assert.equal(appId, "notes"); return target; },
+    setAppTarget(appId, target) { assert.equal(appId, componentId); return target; },
     subscribeRender(listener) { subscribers.add(listener); return () => subscribers.delete(listener); },
   });
   const calls = [];
@@ -149,7 +154,7 @@ function setup({ timeoutMs = 500 } = {}) {
   let getStarted = null;
   let releaseGet = null;
   const appData = Object.freeze({
-    schema: APP_DATA_SCHEMA, identity: IDENTITY,
+    schema: APP_DATA_SCHEMA, identity: Object.freeze({ ...IDENTITY, appId: componentId }),
     async get(identity, key) {
       calls.push({ operation: "get", identity, key });
       getStarted?.();
@@ -167,7 +172,6 @@ function setup({ timeoutMs = 500 } = {}) {
     MessageChannel: FakeMessageChannel,
     setTimeout, clearTimeout,
   };
-  let currentSlot = CURRENT_SLOT;
   let currentSlotFailure = null;
   let currentSlotHanging = false;
   let abortedCurrentSlotSignal = null;
@@ -175,12 +179,12 @@ function setup({ timeoutMs = 500 } = {}) {
   const currentSlotSource = createNativeComponentSlotSource(windowRef);
   const importer = createNativeIsolatedComponentModuleImporter({
     windowRef,
-    allowedComponentIds: ["notes"],
+    allowedComponentIds: [componentId],
     currentSlotSource,
     currentSlotTimeoutMs: timeoutMs,
     async fetchImpl(url, options) {
       currentSlotReads += 1;
-      assert.equal(url, currentSlotSource.metadataUrl("notes", "current"));
+      assert.equal(url, currentSlotSource.metadataUrl(componentId, "current"));
       assert.equal(options.method, "GET");
       assert.equal(options.cache, "no-store");
       assert.equal(options.credentials, "same-origin");
@@ -200,6 +204,7 @@ function setup({ timeoutMs = 500 } = {}) {
   });
   return {
     importer, windowRef, documentObject, createdElements, root, lifecycle, appData, calls, subscribers, localeSubscribers,
+    get currentSlot() { return currentSlot; },
     get currentSlotReads() { return currentSlotReads; },
     setCurrentSlot(value) { currentSlot = value; },
     failCurrentSlot(error = new Error("Native host unavailable")) { currentSlotFailure = error; },
@@ -251,7 +256,7 @@ test("Native external module execution is represented by an opaque-origin iframe
   assert.equal(env.root.childNodes.length, 0);
 });
 
-test("the host broker binds App Data to the verified app and exposes no File Space", async () => {
+test("the non-Files host broker binds App Data and exposes no File Space", async () => {
   const env = setup();
   const imported = await env.importer(MODULE, CURRENT_SLOT);
   const mounted = await imported.componentRuntime.mount({ root: env.root, surfaceLifecycle: env.lifecycle, appData: env.appData });
@@ -347,7 +352,7 @@ test("revocation blocks new bridge calls and awaits in-flight App Data operation
   assert.equal(env.calls.length, 1);
 });
 
-test("module identity is exact and file capabilities cannot cross the sandbox boundary", async () => {
+test("module identity is exact and non-Files slots cannot receive device-local File Space", async () => {
   const env = setup();
   await assert.rejects(() => env.importer(MODULE.replace("notes/current", "studio/current"), CURRENT_SLOT), /slot namespace/);
   await assert.rejects(() => env.importer(MODULE.replace("current", "pending"), CURRENT_SLOT), /slot namespace/);
@@ -357,8 +362,255 @@ test("module identity is exact and file capabilities cannot cross the sandbox bo
     surfaceLifecycle: env.lifecycle,
     appData: env.appData,
     fileSpace: { list() {} },
-  }), /per-Space host authorization/);
+  }), /available only to the verified Files slot/);
   assert.equal(env.root.childNodes.length, 0);
+});
+
+function deviceLocalFileSpace(calls = []) {
+  const listing = (path) => ({ path, entries: [] });
+  return Object.freeze({
+    schema: FILE_SPACE_SCHEMA,
+    scope: DEVICE_LOCAL_FILE_SPACE_SCOPE,
+    async list(path) { calls.push(["list", path]); return listing(path); },
+    async createDirectory(path, name) { calls.push(["createDirectory", path, name]); return listing(path); },
+    async readTextFile(path) { return { path, size: 0, text: "" }; },
+    async readImagePreview(path) { return { path, size: 0, mime: "image/png", bytes: new Uint8Array() }; },
+    async readMediaPreview(path) { return { path, size: 0, mime: "audio/wav", bytes: new Uint8Array() }; },
+    async readDocumentPreview(path) { return { path, size: 0, mime: "application/pdf", bytes: new Uint8Array() }; },
+    async copyFile(_sourcePath, _name, destinationPath) { return listing(destinationPath); },
+    async renameEntry(path) { return listing(path); },
+    async moveEntry(_sourcePath, _name, destinationPath) { return listing(destinationPath); },
+    async trashEntry(path) { return listing(path); },
+    async listTrash() { return { entries: [] }; },
+    async restoreTrashEntry() { return { entries: [] }; },
+    async exportFile() {},
+    async importFile(path) { return listing(path); },
+  });
+}
+
+function filesHostPorts() {
+  let recentSnapshot = { persistence: "device", entries: [] };
+  let projectSnapshot = { persistence: "device", projects: [] };
+  let projectOrdinal = 0;
+  const recentListeners = new Set();
+  const projectListeners = new Set();
+  const updateRecent = (entries) => {
+    recentSnapshot = { persistence: "device", entries };
+    for (const listener of [...recentListeners]) listener(recentSnapshot);
+    return recentSnapshot;
+  };
+  const updateProjects = (projects) => {
+    projectSnapshot = { persistence: "device", projects };
+    for (const listener of [...projectListeners]) listener(projectSnapshot);
+    return projectSnapshot;
+  };
+  const recentFiles = Object.freeze({
+    schema: RECENT_FILES_SCHEMA,
+    getSnapshot: () => recentSnapshot,
+    subscribe(listener) { recentListeners.add(listener); return () => recentListeners.delete(listener); },
+    recordOpened(path) {
+      const name = path.slice(path.lastIndexOf("/") + 1);
+      return updateRecent([{ path, name, openedAt: 10 }, ...recentSnapshot.entries.filter((entry) => entry.path !== path)]);
+    },
+    remove(path) { return updateRecent(recentSnapshot.entries.filter((entry) => entry.path !== path)); },
+    clear() { return updateRecent([]); },
+    relocate(from, to) {
+      return updateRecent(recentSnapshot.entries.map((entry) => entry.path === from
+        ? { path: to, name: to.slice(to.lastIndexOf("/") + 1), openedAt: entry.openedAt }
+        : entry));
+    },
+  });
+  const projects = Object.freeze({
+    schema: PROJECT_CATALOG_SCHEMA,
+    getSnapshot: () => projectSnapshot,
+    subscribe(listener) { projectListeners.add(listener); return () => projectListeners.delete(listener); },
+    create({ name, path }) {
+      const timestamp = 10;
+      return updateProjects([{ id: `project-${++projectOrdinal}`, name, path,
+        createdAt: timestamp, lastOpenedAt: timestamp, lastFilePath: null }, ...projectSnapshot.projects]);
+    },
+    rename() { return projectSnapshot; },
+    recordOpened() { return projectSnapshot; },
+    recordFileOpened() { return projectSnapshot; },
+    clearLastFile() { return projectSnapshot; },
+    relocateLastFilePath() { return projectSnapshot; },
+    remove() { return projectSnapshot; },
+  });
+  return {
+    context: { recentFiles, projects, appActivation: createAppActivationChannel() },
+    emitProjectUpdate: updateProjects,
+    recentSnapshot: () => recentSnapshot,
+    projectSnapshot: () => projectSnapshot,
+    projectListenerCount: () => projectListeners.size,
+  };
+}
+
+function fileModuleUrl(version = "0.3.0") {
+  return `${ORIGIN}/__ordax/native/component-module/files/current/${version}/`
+    + `${"a".repeat(40)}/src/runtime.mjs`;
+}
+
+test("the verified Files slot receives the fixed device-local File Space broker", async () => {
+  const env = setup({ componentId: "files", version: "0.3.0" });
+  const imported = await env.importer(fileModuleUrl(), env.currentSlot);
+  const calls = [];
+  const hostPorts = filesHostPorts();
+  const mounted = await imported.componentRuntime.mount({
+    root: env.root,
+    surfaceLifecycle: env.lifecycle,
+    appData: env.appData,
+    fileSpace: deviceLocalFileSpace(calls),
+    ...hostPorts.context,
+  });
+  const frame = env.root.childNodes[0];
+  assert.deepEqual(frame.receivedBootstrap.fileSpaceScope, DEVICE_LOCAL_FILE_SPACE_SCOPE);
+  assert.deepEqual(frame.receivedBootstrap.recentFilesSnapshot, { persistence: "device", entries: [] });
+  assert.deepEqual(frame.receivedBootstrap.projectCatalogSnapshot, { persistence: "device", projects: [] });
+  const reply = mountedMessage(frame);
+  frame.childPort.postMessage({
+    schema: BRIDGE, type: "call", id: 1, operation: "fileSpace.list", args: ["/Downloads"],
+  });
+  assert.deepEqual((await reply).value, { path: "/Downloads", entries: [] });
+  assert.deepEqual(calls, [["list", "/Downloads"]]);
+
+  const recentReply = mountedMessage(frame);
+  frame.childPort.postMessage({
+    schema: BRIDGE, type: "call", id: 2, operation: "recentFiles.recordOpened", args: ["/Downloads/relatorio.txt"],
+  });
+  assert.deepEqual((await recentReply).value, {
+    persistence: "device", entries: [{ path: "/Downloads/relatorio.txt", name: "relatorio.txt", openedAt: 10 }],
+  });
+  const projectReply = mountedMessage(frame);
+  frame.childPort.postMessage({
+    schema: BRIDGE, type: "call", id: 3, operation: "projects.create", args: [{ name: "Projeto local", path: "/Documentos/Projeto" }],
+  });
+  assert.deepEqual((await projectReply).value.projects[0], {
+    id: "project-1", name: "Projeto local", path: "/Documentos/Projeto",
+    createdAt: 10, lastOpenedAt: 10, lastFilePath: null,
+  });
+  const activationReply = mountedMessage(frame);
+  frame.childPort.postMessage({
+    schema: BRIDGE, type: "call", id: 4, operation: "appActivation.publish", args: [{ appId: "files", target: "/Downloads" }],
+  });
+  assert.deepEqual((await activationReply).value, { appId: "files", target: "/Downloads" });
+  await mounted.destroy();
+  assert.equal(env.root.childNodes.length, 0);
+});
+
+test("Files requires the exact local scope and cannot select an account Space", async () => {
+  const env = setup({ componentId: "files", version: "0.3.0" });
+  const imported = await env.importer(fileModuleUrl(), env.currentSlot);
+  await assert.rejects(() => imported.componentRuntime.mount({
+    root: env.root, surfaceLifecycle: env.lifecycle, appData: env.appData,
+  }), /requires its complete device-local host context/);
+  await assert.rejects(() => imported.componentRuntime.mount({
+    root: env.root,
+    surfaceLifecycle: env.lifecycle,
+    appData: env.appData,
+    fileSpace: Object.freeze({
+      ...deviceLocalFileSpace(),
+      scope: Object.freeze({ schema: "ordax.file-space-scope/1", kind: "account-space" }),
+    }),
+    ...filesHostPorts().context,
+  }), /fixed device-local file-space scope/);
+  assert.equal(env.root.childNodes.length, 0);
+});
+
+test("Files validates paths and rechecks exact slot identity before every operation", async () => {
+  const env = setup({ componentId: "files", version: "0.3.0" });
+  const imported = await env.importer(fileModuleUrl(), env.currentSlot);
+  const calls = [];
+  const hostPorts = filesHostPorts();
+  const mounted = await imported.componentRuntime.mount({
+    root: env.root,
+    surfaceLifecycle: env.lifecycle,
+    appData: env.appData,
+    fileSpace: deviceLocalFileSpace(calls),
+    ...hostPorts.context,
+  });
+  const frame = env.root.childNodes[0];
+
+  const badPathReply = mountedMessage(frame);
+  frame.childPort.postMessage({
+    schema: BRIDGE, type: "call", id: 1, operation: "fileSpace.list", args: ["/../other-account"],
+  });
+  assert.equal((await badPathReply).ok, false);
+  assert.deepEqual(calls, []);
+
+  const firstReply = mountedMessage(frame);
+  frame.childPort.postMessage({ schema: BRIDGE, type: "call", id: 2, operation: "fileSpace.list", args: ["/"] });
+  assert.equal((await firstReply).ok, true);
+  env.setCurrentSlot({ ...env.currentSlot, revision: env.currentSlot.revision + 1 });
+  const staleReply = mountedMessage(frame);
+  frame.childPort.postMessage({
+    schema: BRIDGE, type: "call", id: 3, operation: "fileSpace.createDirectory", args: ["/", "Privado"],
+  });
+  assert.equal((await staleReply).ok, false);
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.deepEqual(calls, [["list", "/"]]);
+  assert.equal(env.root.childNodes.length, 0);
+  await mounted.destroy();
+});
+
+test("Files state subscriptions deliver only slot-authorized updates and drain on revocation", async () => {
+  const env = setup({ componentId: "files", version: "0.3.0" });
+  const imported = await env.importer(fileModuleUrl(), env.currentSlot);
+  const hostPorts = filesHostPorts();
+  const mounted = await imported.componentRuntime.mount({
+    root: env.root,
+    surfaceLifecycle: env.lifecycle,
+    appData: env.appData,
+    fileSpace: deviceLocalFileSpace(),
+    ...hostPorts.context,
+  });
+  const frame = env.root.childNodes[0];
+  const reply = mountedMessage(frame);
+  frame.childPort.postMessage({
+    schema: BRIDGE, type: "call", id: 1, operation: "projects.subscribe", args: [1],
+  });
+  assert.equal((await reply).value, true);
+  assert.equal(hostPorts.projectListenerCount(), 1);
+
+  const update = new Promise((resolve) => {
+    frame.childPort.addEventListener("message", (event) => {
+      if (event.data?.type === "service.update" && event.data.service === "projects") resolve(event.data);
+    });
+  });
+  const project = {
+    id: "project-1", name: "Local", path: "/Documentos/Local",
+    createdAt: 10, lastOpenedAt: 10, lastFilePath: null,
+  };
+  hostPorts.emitProjectUpdate([project]);
+  const notification = await update;
+  assert.equal(notification.subscriptionId, 1);
+  assert.deepEqual(notification.value.projects, [project]);
+  await mounted.destroy();
+  assert.equal(hostPorts.projectListenerCount(), 0);
+
+  const staleEnv = setup({ componentId: "files", version: "0.3.0" });
+  const staleImporter = await staleEnv.importer(fileModuleUrl(), staleEnv.currentSlot);
+  const staleHostPorts = filesHostPorts();
+  const staleMounted = await staleImporter.componentRuntime.mount({
+    root: staleEnv.root,
+    surfaceLifecycle: staleEnv.lifecycle,
+    appData: staleEnv.appData,
+    fileSpace: deviceLocalFileSpace(),
+    ...staleHostPorts.context,
+  });
+  const staleFrame = staleEnv.root.childNodes[0];
+  const staleSubscribe = mountedMessage(staleFrame);
+  staleFrame.childPort.postMessage({
+    schema: BRIDGE, type: "call", id: 1, operation: "projects.subscribe", args: [1],
+  });
+  assert.equal((await staleSubscribe).value, true);
+  staleEnv.setCurrentSlot({ ...staleEnv.currentSlot, revision: staleEnv.currentSlot.revision + 1 });
+  staleHostPorts.emitProjectUpdate([project]);
+  for (let attempt = 0; attempt < 10 && staleEnv.root.childNodes.length !== 0; attempt++) {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  }
+  assert.equal(staleEnv.root.childNodes.length, 0);
+  assert.equal(staleHostPorts.projectListenerCount(), 0);
+  await staleMounted.destroy();
 });
 
 test("executor accepts only the canonical loopback Native origin and requires current metadata", async () => {
