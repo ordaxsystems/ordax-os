@@ -159,7 +159,7 @@ test("mobile navigation and More partition every account section without repeate
 
 
 test("session revalidation preserves unrelated controls while still replacing identity-bearing content", () => {
-  for (const section of ["suporte", "preferencias", "consumo", "atividade"]) {
+  for (const section of ["suporte", "preferencias", "atividade"]) {
     const f = fixture(`#${section}`);
     const content = f.get("account-content");
     const initialWrites = content.markupWrites;
@@ -168,6 +168,14 @@ test("session revalidation preserves unrelated controls while still replacing id
       assert.equal(content.markupWrites, initialWrites, `${section}: ${status} must preserve its controls`);
     }
   }
+  // Consumo is now an authenticated and identity-scoped data panel. It must
+  // invalidate privately observed usage rather than preserve old markup.
+  const usage = fixture("#consumo");
+  usage.emit("authenticated", "person@example.test");
+  const whenAuthenticated = usage.get("account-content").markupWrites;
+  usage.emit("anonymous");
+  assert.ok(usage.get("account-content").markupWrites > whenAuthenticated);
+  assert.ok(usage.get("account-content").innerHTML.includes("Medição ainda não disponível"));
   for (const section of ["visao-geral", "dados-pessoais", "seguranca"]) {
     const f = fixture(`#${section}`);
     f.emit("authenticated", "person@example.test");
