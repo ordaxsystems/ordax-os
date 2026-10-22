@@ -532,6 +532,7 @@ class PublicIdentityGatewayTests(unittest.TestCase):
         self.assertEqual(payload["$schema"], "prototype-ordax.registration-legal-policy/1")
         self.assertTrue(payload["active"])
         self.assertFalse(payload["registrationEnabled"])
+        self.assertFalse(payload["publicRegistrationEnabled"])
         self.assertEqual(payload["privacy"]["version"], "2026-10-02")
         self.assertEqual(payload["privacy"]["url"], "https://ordax.example/privacidade/")
         self.assertEqual(payload["terms"]["sha256"], "b" * 64)
@@ -564,6 +565,7 @@ class PublicIdentityGatewayTests(unittest.TestCase):
         policy = gateway.handle("GET", "/auth/registration-policy", marker)
         self.assertEqual(policy.status, 200)
         self.assertFalse(self.payload(policy)["registrationEnabled"])
+        self.assertFalse(self.payload(policy)["publicRegistrationEnabled"])
 
         register = gateway.handle(
             "POST",
