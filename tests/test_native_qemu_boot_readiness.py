@@ -59,6 +59,22 @@ class NativeQemuReadinessTests(unittest.TestCase):
         self.assertEqual(MODULE.MAX_UNLOCK_INJECTIONS, 3)
         self.assertEqual(MODULE.NATIVE_READY_MARKER, "ORDAX_NATIVE_BOOT_STAGE=unlock-ready")
 
+    def test_serial_trace_contract_is_qemu_only_and_not_a_secret_transport(self):
+        import json
+
+        contract = json.loads(
+            (ROOT / "docs/contracts/native-qemu-boot-proof.json").read_text(encoding="utf-8")
+        )
+        trace = contract["guest_stage_trace"]
+        self.assertEqual(trace["kernel_cmdline_opt_in"], MODULE.QEMU_PROOF_TOKEN)
+        self.assertTrue(trace["injected_into_disposable_qemu_normal_entry_only"])
+        self.assertTrue(trace["stage_markers_secret_free"])
+        self.assertFalse(trace["physical_native_boot_entry_modified"])
+        self.assertFalse(trace["physical_serial_trace_enabled_by_default"])
+        for name in ("ordax-native.conf.in", "ordax-native-recovery.conf.in"):
+            template = (ROOT / "boot/native/loader" / name).read_text(encoding="utf-8")
+            self.assertNotIn(MODULE.QEMU_PROOF_TOKEN, template)
+
     def test_proof_instruments_only_disposable_normal_entry(self):
         from tempfile import TemporaryDirectory
 
