@@ -65,9 +65,9 @@ func TestOwnerSignedPreviewPortableStateHandoff(t *testing.T) {
 		system, surface, ai,
 	)
 	payloads := map[string][]byte{
-		"system.erofs": system,
+		"system.erofs":                 system,
 		"native-surface-runtime.erofs": surface,
-		"local-ai-runtime.erofs": ai,
+		"local-ai-runtime.erofs":       ai,
 	}
 	previousManifest := manifest
 	previousManifest.SourceCommit = prev
