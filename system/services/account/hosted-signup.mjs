@@ -8,6 +8,13 @@ export const HOSTED_ACCOUNT_SIGNUP_URL = new URL(
   PRODUCT_FAMILY_PUBLIC_ENDPOINTS.site.origin,
 ).href;
 
+// Optional server projection defaults to denied for older gateway versions or
+// a failed read. This is only a navigation signal; the registration endpoint
+// enforces its own authorization and legal requirements independently.
+export function isHostedSignupEnabled(policy) {
+  return policy?.publicRegistrationEnabled === true;
+}
+
 // The trusted Native Surface explicitly asks its host to open an isolated
 // account portal. On Web, an ordinary HTTPS anchor remains the navigation owner.
 // Never pass arbitrary URLs or credentials through the privileged bridge.
