@@ -726,13 +726,13 @@ stop_aura_worker() {
             # kill -0 succeeds for an exited, unreaped child too. Do not
             # delay ESP work or send SIGKILL to a zombie; reap it below.
             aura_process_state=$(/bin/busybox awk '{print $3}' "/proc/$AURA_WORKER_PID/stat" 2>/dev/null || true)
-            case "$aura_process_state" in Z|X|'') break ;; esac
+            case "$aura_process_state" in Z|X) break ;; esac
             /bin/busybox sleep 1
             aura_stop_ticks=$((aura_stop_ticks + 1))
         done
         aura_process_state=$(/bin/busybox awk '{print $3}' "/proc/$AURA_WORKER_PID/stat" 2>/dev/null || true)
         case "$aura_process_state" in
-            Z|X|'') ;;
+            Z|X) ;;
             *) kill -KILL "$AURA_WORKER_PID" 2>/dev/null || true ;;
         esac
     fi
