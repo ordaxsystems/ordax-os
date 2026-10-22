@@ -860,6 +860,24 @@ if [ "$AUTOMATIC_ROLLBACK_RECOVERY" -eq 1 ]; then
     fi
 fi
 
+# Strictly validate this exceptional handoff BEFORE either the dirty-checkout
+# recovery or invalid-checkout clone path can replace the live tree.
+if [ -n "$RECONCILE_PREVIOUS_SHA" ]; then
+    PULL_PHASE=handoff-validation
+    reconciliation_current=$(git -C "$WORKTREE" rev-parse HEAD 2>/dev/null || true)
+    if [ "$SUPERVISOR_VERIFIED_CACHE" -ne 1 ] ||
+       [ "$AUTOMATIC_ROLLBACK_RECOVERY" -ne 0 ] ||
+       [ "$reconciliation_current" != "$RECONCILE_PREVIOUS_SHA" ] ||
+       [ "$remote_sha" = "$RECONCILE_PREVIOUS_SHA" ] ||
+       [ "$(read_state "$CURRENT_FILE")" != "$RECONCILE_PREVIOUS_SHA" ] ||
+       [ -s "$PINNED_FILE" ] || [ -s "$BOOT_REJECTED_FILE" ] ||
+       ! checkout_metadata_valid "$WORKTREE" ||
+       ! checkout_is_clean "$WORKTREE"; then
+        echo "ordax-git: unsafe lineage recovery denied before checkout mutation" >&2
+        exit 1
+    fi
+fi
+
 if ! checkout_metadata_valid "$WORKTREE"; then
     echo "ordax-git: checkout ausente ou inconsistente; reconstruindo sem reutilizar estado Git local" >&2
     replace_runtime_checkout "$remote_sha" invalid || exit 1
