@@ -192,6 +192,13 @@ class SurfaceRuntimeSourceContractTests(unittest.TestCase):
         self.assertNotIn("/dev/nvme", text)
 
 
+    def test_repeat_proof_uses_contract_package_count_without_fixed_snapshot(self):
+        text = WORKFLOW.read_text(encoding="utf-8")
+        proof = text.split("- name: Prove byte-reproducible EROFS runtime", 1)[1].split("- name:", 1)[0]
+        self.assertIn("a['apk_package_lock_count'] == b['apk_package_lock_count'] == contract['apk_package_lock_count']", proof)
+        self.assertIn("contract['apk_package_lock_count'] == len(contract['apk_package_lock'])", proof)
+        self.assertNotRegex(proof, r"apk_package_lock_count'\] == [0-9]+")
+
     def test_workflow_uploads_drift_report_even_when_revalidation_fails(self):
         text = WORKFLOW.read_text(encoding="utf-8")
         self.assertIn("- name: Upload proof metadata only\n        if: always()", text)

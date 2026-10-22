@@ -139,8 +139,9 @@ jobs:
           assert a['normalized_tar_sha256'] == b['normalized_tar_sha256']
           assert a['image']['sha256'] == b['image']['sha256']
           assert a['image']['size'] == b['image']['size']
-          assert a['apk_package_lock_count'] == b['apk_package_lock_count'] == 253
           contract = json.loads(pathlib.Path('bootstrap/surface-runtime/source.json').read_text())
+          assert a['apk_package_lock_count'] == b['apk_package_lock_count'] == contract['apk_package_lock_count']
+          assert contract['apk_package_lock_count'] == len(contract['apk_package_lock'])
           assert a['apk_package_lock_sha256'] == b['apk_package_lock_sha256'] == contract['apk_package_lock_sha256']
           assert a['first_boot_offline_required'] is True
           assert a['network_package_install_during_stable_boot_allowed'] is False
