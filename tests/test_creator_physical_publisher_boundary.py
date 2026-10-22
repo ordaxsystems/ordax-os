@@ -172,7 +172,9 @@ class CreatorPhysicalPublisherBoundaryTests(unittest.TestCase):
         context_sha, file_count = module.authorization_context_sha256(ROOT)
 
         self.assertRegex(context_sha, r"^[0-9a-f]{64}$")
-        self.assertEqual(file_count, 80)
+        # Two inspected-media Core sources are now governed by the same physical
+        # authorization context; adding them never grants write authorization.
+        self.assertEqual(file_count, 82)
 
         if auth["status"] == "authorized":
             self.assertIs(auth["physical_write_allowed"], True)
@@ -209,6 +211,8 @@ class CreatorPhysicalPublisherBoundaryTests(unittest.TestCase):
         self.assertIn(".github/workflows/first-physical-usb-payload.yml", governed)
         self.assertIn("system/services/preferences/catalog.mjs", governed)
         self.assertIn("tools/creator/core/portable_sources.go", governed)
+        self.assertIn("tools/creator/core/installed_media_inspection.go", governed)
+        self.assertIn("tools/creator/core/installed_media_inspection_test.go", governed)
         self.assertIn("tools/creator/physicalchannel/portable_payload.go", governed)
         self.assertNotIn("docs/contracts/creator-consumer-flow.json", governed)
         self.assertNotIn("tools/release-signing/windows/8-Sign-Publish-CreatorPhysical.ps1", governed)
