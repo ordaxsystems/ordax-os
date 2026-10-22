@@ -14,6 +14,7 @@ var canonicalExternalComponentSourceRepositories = map[string]string{
 	"clock": appsSourceRepository,
 	"colors": appsSourceRepository,
 	"converter": appsSourceRepository,
+	"files": appsSourceRepository,
 	"image-viewer": appsSourceRepository,
 	"internet": appsSourceRepository,
 	"media-player": appsSourceRepository,
