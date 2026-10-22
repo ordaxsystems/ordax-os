@@ -311,6 +311,13 @@ def type_passphrase(client: socket.socket, passphrase: str) -> None:
     hmp(client, "sendkey ret")
 
 
+def unlock_input_due(*, ready: bool, next_at: float | None, now: float,
+                     attempts: int, unlocked: bool) -> bool:
+    """Never send an unlock secret before a real Native guest readiness signal."""
+    return (ready and next_at is not None and now >= next_at
+            and 0 <= attempts < MAX_UNLOCK_INJECTIONS and not unlocked)
+
+
 def qemu_version() -> str:
     first = capture(["qemu-system-x86_64", "--version"]).splitlines()
     return first[0] if first else "unknown"
@@ -392,9 +399,9 @@ def boot_qemu(
                     next_injection = now + UNLOCK_READY_GRACE_SECONDS
             if NATIVE_UNLOCKED_MARKER in text:
                 last_stage = "pool-unlocked"
-            if (ready_at is not None and next_injection is not None
-                    and keyboard_injections < MAX_UNLOCK_INJECTIONS
-                    and now >= next_injection and NATIVE_UNLOCKED_MARKER not in text):
+            if unlock_input_due(ready=ready_at is not None, next_at=next_injection,
+                                now=now, attempts=keyboard_injections,
+                                unlocked=NATIVE_UNLOCKED_MARKER in text):
                 type_passphrase(client, passphrase)
                 keyboard_injections += 1
                 next_injection = now + UNLOCK_RETRY_INTERVAL_SECONDS
