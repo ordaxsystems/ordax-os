@@ -259,6 +259,7 @@ export function mountSettingsOverviewControls(
   let keyboardLayoutPending = false;
   let keyboardLayoutMessageId = null;
   let keyboardLayoutOrdinal = 0;
+  let keyboardLayoutPrimed = false;
   let localSessionSnapshot = localSessionPort === null
     ? null
     : validateLocalSessionSnapshot(localSessionPort.getSnapshot());
@@ -1441,6 +1442,17 @@ export function mountSettingsOverviewControls(
     }
   };
 
+  const refreshVisibleKeyboardLayout = () => {
+    const windowNode = findSlot()?.closest(SETTINGS_WINDOW_SELECTOR);
+    // Keyboard preferences are not a global boot requirement. The native
+    // adapter already proved its capability; fetch its live state on demand.
+    if (destroyed || !keyboardLayoutPort || keyboardLayoutPrimed
+      || activeSection !== "regional" || !windowNode || windowNode.hidden
+      || windowNode.dataset.active !== "true") return;
+    keyboardLayoutPrimed = true;
+    void refreshKeyboardLayout();
+  };
+
   const configureKeyboardLayout = async (layoutId) => {
     if (!keyboardLayoutPort || keyboardLayoutPending || destroyed) return;
     const ordinal = ++keyboardLayoutOrdinal;
@@ -1610,6 +1622,7 @@ export function mountSettingsOverviewControls(
         activeSection = nextSection;
         replaceView();
         refreshActiveNetwork();
+        refreshVisibleKeyboardLayout();
       }
       return;
     }
@@ -1794,6 +1807,7 @@ export function mountSettingsOverviewControls(
     activeSection = nextSection;
     renderView(sectionChanged);
     if (sectionChanged) refreshActiveNetwork();
+    refreshVisibleKeyboardLayout();
   });
   const unsubscribeActivation = activationPort?.subscribe((activation) => {
     if (
@@ -1806,6 +1820,7 @@ export function mountSettingsOverviewControls(
       networkManagementMessageId = null;
       replaceView();
       refreshActiveNetwork();
+      refreshVisibleKeyboardLayout();
     }
   });
   const unsubscribeHost = hostPort.subscribe((snapshot) => {
@@ -1832,7 +1847,7 @@ export function mountSettingsOverviewControls(
     ? setInterval(refreshActiveNetwork, 5000)
     : null;
   if (activeSection === "security") void refreshConnector();
-  if (keyboardLayoutPort) void refreshKeyboardLayout();
+  refreshVisibleKeyboardLayout();
   refreshActiveNetwork();
 
   return Object.freeze({
