@@ -53,3 +53,6 @@ jobs:
 
       - name: Validate product family version identities
         run: node --test tests/test_product_family.mjs
+
+      - name: Validate dual update transport selection policy
+        run: node --test tests/test_update_transport_selection.mjs
