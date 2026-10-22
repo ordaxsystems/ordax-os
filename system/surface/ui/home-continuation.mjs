@@ -84,10 +84,12 @@ export function createHomeContinuationPresentation({
     : [];
 
   const items = [...projectItems, ...recentItems].slice(0, MAX_HOME_CONTINUATION_ITEMS);
-  return Object.freeze({
-    visible: items.length > 0,
-    items: Object.freeze(items),
-  });
+  // No project or recent file means there is no continuation to present.
+  // Keep first-use Home focused and free of placeholder cards.
+  if (items.length === 0) {
+    return Object.freeze({ visible: false, items: Object.freeze([]) });
+  }
+  return Object.freeze({ visible: true, items: Object.freeze(items) });
 }
 
 function node(documentObject, tag, className = "", text = undefined) {
@@ -121,7 +123,7 @@ export function mountHomeContinuation(
   const t = localization.translate;
   const documentObject = root.ownerDocument;
   const homePanel = root.querySelector(".ordax-home-panel");
-  const space = homePanel?.querySelector("[data-home-example=\"resume\"]") ?? homePanel?.querySelector(".ordax-space");
+  const space = homePanel?.querySelector(".ordax-space");
   if (!homePanel || !space) {
     throw new Error("Home continuation requires the canonical Home panel");
   }
@@ -133,7 +135,9 @@ export function mountHomeContinuation(
 
   const render = () => {
     if (destroyed) return;
-    const focusedKey = documentObject.activeElement?.dataset?.homeContinuationKey ?? null;
+    const activeElement = documentObject.activeElement;
+    const focusedKey = activeElement?.dataset?.homeContinuationKey ?? null;
+    const focusedAction = activeElement?.dataset?.homeContinuationAction ?? null;
     const presentation = createHomeContinuationPresentation({
       projects: projectSnapshot,
       recentFiles: recentSnapshot,
@@ -148,13 +152,14 @@ export function mountHomeContinuation(
     const next = node(documentObject, "section", "ordax-space");
     next.dataset.homeContinuation = "";
     next.setAttribute("aria-labelledby", "ordax-home-continuation-title");
-    const heading = node(
-      documentObject,
-      "p",
-      "ordax-section-kicker",
-      t("home.continuation.heading"),
-    );
-    heading.id = "ordax-home-continuation-title";
+    const heading = node(documentObject, "div", "ordax-home-section-heading");
+    const title = node(documentObject, "h2", "", t("home.continuation.title"));
+    title.id = "ordax-home-continuation-title";
+    const openFiles = node(documentObject, "button", "", t("home.continuation.openFiles"));
+    openFiles.type = "button";
+    openFiles.dataset.launchApp = "files";
+    openFiles.dataset.homeContinuationAction = "open-files";
+    heading.append(title, openFiles);
     next.append(heading);
 
     for (const item of presentation.items) {
@@ -211,6 +216,9 @@ export function mountHomeContinuation(
       const target = Array.from(section.querySelectorAll("[data-home-continuation-key]"))
         .find((element) => element.dataset.homeContinuationKey === focusedKey) ?? null;
       target?.focus({ preventScroll: true });
+    } else if (focusedAction === "open-files") {
+      section.querySelector("[data-home-continuation-action='open-files']")
+        ?.focus({ preventScroll: true });
     }
   };
 
