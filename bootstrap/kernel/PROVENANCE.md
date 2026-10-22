@@ -143,6 +143,40 @@ Workflow artifact IDs, runner paths and `out/` paths are provenance only. They m
 
 The payload assembler must preserve the exact proven bytes. Rebuilding the kernel implicitly while assembling the payload is forbidden; rebuilds belong to the kernel candidate pipeline and must produce new provenance.
 
+## Kernel SHA rebind admission (read-only)
+
+The canonical kernel output remains owned by `bootstrap/kernel/build.py`, with
+`bootstrap/kernel/verify.py` responsible for the SHA256SUMS/provenance/byte proof.
+Before proposing to change the Creator and A/B kernel pins, run:
+
+```sh
+python bootstrap/kernel/rebind_preflight.py \
+  --first /path/to/first/exact-build \
+  --second /path/to/independent/repeat-build \
+  --source-commit EXACT_40_HEX_REVIEWED_BUILD_HEAD \
+  --out /path/to/new-kernel-rebind-proposal.json
+```
+
+Both input directories must contain complete and independently created verified
+kernel candidates: three bytes-on-disk artifacts, SHA256SUMS and
+kernel-provenance.json. The preflight rejects stale source-contract/fragment
+hashes, unverified upstream authentication, missing pinned environment,
+different build contents, alias/hardlink reuse, or disagreement between
+`docs/contracts/minimal-bootstrap.json` and
+`system/base-update/candidate.json`.
+
+Two distinct directories and matching checksums do **not** attest separate build
+executions. An external, exact-source pinned-CI repeat-build receipt remains a
+mandatory release prerequisite; the preflight explicitly reports that it has
+not independently established this fact.
+
+**The proposal does not authorize or perform a rebind.** It is an input for
+later reviewed canonical artifact replacement, byte-complete Creator build,
+offline release signing and QEMU/physical proof. Historical hashes in
+`docs/contracts/kernel-build-environment.json` are evidence and must **not**
+be rewritten to silence build failures. No private signing key is touched,
+and the checked-in Creator manifest remains unchanged by this command.
+
 ## Prototype decision
 
 ```text
