@@ -776,7 +776,12 @@ class HotUpdateSupervisorContractTests(unittest.TestCase):
 
     def test_supervisor_updates_refresh_guardian_through_exit_75(self):
         text = SYSTEM_SUPERVISOR.read_text(encoding="utf-8")
-        self.assertIn("system/entrypoint|system/supervisor)", text)
+        # The Native Product lifecycle library is sourced by the Supervisor,
+        # so updating it must use the same guardian-mediated restart path.
+        self.assertIn(
+            "system/entrypoint|system/supervisor|system/services/device-agent/native-product-lifecycle.sh)",
+            text,
+        )
         self.assertIn("SUPERVISOR_SCRIPT=$SYSTEM_ROOT/supervisor", text)
         self.assertIn('/bin/sh -n "$SUPERVISOR_SCRIPT"', text)
         self.assertIn("asking guardian to restart supervisor without reboot", text)

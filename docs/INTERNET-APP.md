@@ -1,8 +1,8 @@
 # OrdaX Internet
 
-Status: HISTORICAL PRODUCT DESIGN — PORTABLE SOURCE MIGRATION IN PROGRESS
+Status: **produto com fonte portátil canônica em `ordax-apps`; distribuição Native assinada ainda não habilitada**
 
-**Current owner:** Browser engine, native isolation and download/security controls remain in `ordaxsystems/ordax-os`. The old bundled Internet product implementation has been removed in the Gate A candidate; its application source must be transferred to `ordaxsystems/ordax-apps/apps/internet` only after the OS main absence proof. Until a verified, signed component is installed, Internet is **not installed, launchable or distributed**. The product description and `git-app` references below describe the former implementation, not a currently active runtime.
+**Owners:** A UI e a lógica do produto Internet pertencem a `ordaxsystems/ordax-apps/apps/internet`; o repositório do OS mantém o motor WebKit, o host Native, o isolamento do conteúdo, os controles de rede/downloads e o lifecycle de componentes. A fonte foi transferida e o OS não mantém uma cópia executável em `system/apps/internet/`. O manifesto de migração permite o corte de fonte, mas mantém instalação/distribuição bloqueadas: o pacote é unsigned, o Native não autoriza leitura de módulo para Internet e bootstrap/rollback não foram comprovados. A ausência de fonte no OS não deve ser confundida com instalação do app.
 
 ## Goal
 
@@ -45,20 +45,17 @@ The shared Surface only owns browser chrome and orchestration. The native adapte
 
 ## Ownership do produto e da plataforma (SSOT)
 
-**Hoje:** `system/apps/internet/` e o manifesto
-`system/apps/internet/component.mjs` pertencem a este repositório.
-O componente roda como `git-app` opcional (`0.3.0 Beta`) no fluxo
-Native da plataforma. Não há uma segunda implementação em
-`ordaxsystems/ordax-apps/apps/internet`.
-
-**Destino do produto:** `ordaxsystems/ordax-apps/apps/internet`, mas somente
-após o corte remove-first. O SSOT da migração é
+**Estado atual:** `ordaxsystems/ordax-apps/apps/internet` é a fonte canônica.
+O manifesto do Apps registra `source_cutover_allowed=true`,
+`distribution_activation_allowed=false`, fonte materializada sem assinatura e
+instalação Native, rollback e bootstrap ainda não verificados. O SSOT da
+migração é
 [`migrations/internet.externalization.json`](https://github.com/ordaxsystems/ordax-apps/blob/main/migrations/internet.externalization.json)
-no repositório de aplicativos. Enquanto
-`source_cutover_allowed=false`, é proibido copiar a UI/runtime do Internet
-para o outro repositório, inclusive como skeleton sem manifesto.
+no repositório de aplicativos. Não recriar `system/apps/internet/`, nem manter
+um segundo manifesto/runtime no OS. O snapshot histórico da fonte pré-corte é
+evidência de migração e auditoria, não uma fonte ativa.
 
-Após o cutover, a separação precisa ser:
+Com a fonte já externalizada, a separação de responsabilidades é:
 
 - **ordax-apps:** UI, tema, favoritos, histórico e preferências do
   produto; lógica de navegação/busca no nível do app; i18n; manifesto de
@@ -71,10 +68,12 @@ Após o cutover, a separação precisa ser:
   pinada; nenhuma cópia do motor, gerenciador de permissões, updater ou
   serviços da plataforma dentro de `ordax-apps`.
 
-### Auditoria executável do App SDK (sem antecipar a migração)
+### Auditoria executável do snapshot pré-corte do App SDK
 
-`python3 tools/verify/internet_sdk_readiness.py --check` lê todos os
-`system/apps/internet/**/*.mjs`, resolve imports e assets, percorre
+`python3 tools/verify/internet_sdk_readiness.py --check` é um auditor
+histórico do snapshot pré-corte do Internet. Na CI do Apps, o snapshot exato
+é materializado em `.ordax-internet-source/` antes da execução; o verificador
+lê seus `system/apps/internet/**/*.mjs`, resolve imports e assets, percorre
 recursivamente as dependências dos contratos, lê o
 `sdk/app-sdk-v1/bundle.json` **publicado** e reporta os contratos
 necessários que ainda não aparecem no SDK. Imports de módulos internos
@@ -82,37 +81,33 @@ do OS aparecem em `privatePlatformImports` e não podem virar dependências
 externas do app. Imports remotos, caminhos inexistentes ou dinâmicos sem
 literal falham fechados.
 
-O inventário JSON `ordax.internet-sdk-readiness/1` é derivado; não há
-uma segunda lista editável de contratos. A CI do Surface Web Candidate
-executa a auditoria e `tests/test_internet_sdk_readiness.py`.
-A opção `--require-public` permite usar o mesmo verificador como
-Gate estrito em uma migração futura: enquanto houver imports privados
-ou contratos não publicados, retorna falha em vez de autorizar o cutover.
+Esse snapshot não é restaurado no checkout atual do OS. A CI do Surface Web
+no OS também executa um teste negativo que exige que a fonte ativa esteja
+ausente. O inventário JSON `ordax.internet-sdk-readiness/1` é derivado; não há
+uma segunda lista editável de contratos. A CI do Apps e o OS executam testes
+do auditor e da ausência da fonte ativa, respectivamente. A opção
+`--require-public` serve para auditar o snapshot e seus contratos; não altera
+o manifesto de migração nem autoriza instalação.
 
 **Importante:** `sdkBoundaryClean` não é autorização de instalação.
-`sourceCutoverAuthorized` e `distributionActivated` continuam
-`false` neste relatório; apenas os owners de migração e release podem
-mudar essas condições após os testes completos. O SDK 1.14 publica também os contratos de identidade, espaços, ativação
-de perfis e referências de projetos, incluindo a dependência transitiva
-`spaces.mjs`. O contrato `first-party-app.mjs` agora pertence somente a
-`system/contracts` e está publicado no App SDK 1.16.0; não há cópia
-legada. A auditoria dos imports públicos é condição necessária, mas
-não autoriza o corte sem prova de empacotamento, instalação e rollback. Publicar schemas não autoriza mutações; a plataforma deve entregar
-ports autorizados e restritos ao usuário, Space e projeto. A migração não deve
-copiar serviços nativos nem criar uma segunda implementação. A migração não deve copiar esses módulos
-nem criar uma segunda implementação.
+O relatório continua com `sourceCutoverAuthorized=false` porque audita um
+snapshot congelado e não governa o manifesto corrente; `distributionActivated`
+também permanece `false`. O Apps registra o corte concluído em sua migração,
+mas pacote assinado, instalação, rollback e bootstrap continuam gates
+independentes. O manifesto fixa a versão do bundle SDK usado pelo auditor;
+contratos públicos são necessários para empacotar, mas não autorizam mutação.
+A plataforma deve entregar ports autorizados e restritos ao usuário, Space e
+projeto. Não copiar serviços nativos nem criar uma segunda implementação.
 
-O `git-app` atual **não é um `component-slot` de distribuição
-independente já comprovada**. O cutover requer prova de remoção do source
-antigo e boot do OS sem o aplicativo, um snapshot reprodutível, ports
-publicados, empacotamento determinístico, instalação/saúde,
-reinstalação offline, atualização com rollback e preservação de dados.
-A atualização de `source_cutover_allowed` e a distribuição assinada
-são gates distintos; não adiantar a ativação com flags.
+A versão de produto `0.3.0 Beta` identifica o Internet em Apps; não descreve
+um `git-app` ativo no OS. O modo de entrega independente continua sendo
+`component-slot`, mas a leitura Native, a ativação, a assinatura, o bootstrap
+e o rollback de Internet não estão habilitados/provados. Não abrir esses gates
+alterando apenas uma flag: cada um exige prova do respectivo owner.
 
 ## Native engine
 
-The USB/native-disk runtime uses the WebKitGTK 4.1 engine already appropriate to the Alpine graphical runtime, but the OrdaX host owns the application integration instead of delegating product behavior to a generic browser shell.
+The current USB/native-disk host uses WebKitGTK 4.1 as an OS-owned engine. The portable app consumes the `browser-session` contract and does not own or depend on the Linux distribution; keeping the engine in the host lets the base distribution evolve independently.
 
 `system/surface/runtime/ordax_browser_host.py` owns:
 
@@ -155,11 +150,11 @@ This closes the previously documented source-level Host/origin gap. Hardware val
 The product shell lives in shared source:
 
 ```text
-system/apps/internet/app.mjs
+ordax-apps/apps/internet/src/app.mjs
 system/contracts/browser-session.mjs
-system/apps/internet/runtime.mjs
-system/apps/internet/internet.css
-system/apps/internet/ui/browser-controls.mjs
+ordax-apps/apps/internet/src/runtime.mjs
+ordax-apps/apps/internet/assets/internet.css
+ordax-apps/apps/internet/src/ui/browser-controls.mjs
 ```
 
 Adapters:
@@ -177,7 +172,7 @@ system/surface/runtime/browser_session_store.py
 
 The shared app does not import native/Web adapters, call loopback control endpoints directly, or create an iframe for arbitrary sites.
 
-The Surface composition no longer loads Internet JavaScript or CSS as a static boot dependency. The version-checked optional component runtime owns the browser UI lifecycle and loads its own stylesheet only after the Surface health boundary. A runtime or stylesheet failure marks Internet unhealthy without converting the Surface into a failed cold boot. Internet is currently **`0.3.0 Beta` with `releaseMode: "git-app"`**: in Owner/Development its app-owned version is delivered through the ordinary Git checkout/reconcile path. This runtime isolation and version identity must not be confused with a production-independent updater, Store or component-local rollback. The production-independent path remains `component-slot`, gated on signed verification, pending health, promotion and rollback.
+The OS composition does not import the Internet product UI or CSS as a boot dependency. Its optional verified component loader consumes a package only through the Native broker when the component is independently authorized. The canonical package owner map includes Internet for provenance and discovery metadata, but `native_loopback_broker_supported_components`, probation, health mutation and activation remain narrower, independent gates. Internet is not currently enabled for Native module reads or package activation. The Web Surface exposes an unavailable browser-session port rather than implying that the browser product is installed there. Do not infer runtime availability from the source manifest or repository checkout.
 
 ## Capability
 
@@ -309,7 +304,7 @@ A preferência é armazenada somente no perfil privilegiado Native,
 via `ordax.native.browser-search-preferences.v1`; salva apenas `providerId`
 e não armazena consultas nem tokens. Os contratos ficam em
 `system/contracts/browser-search-preferences.mjs` e a lógica em
-`system/apps/internet/services/search-preferences.mjs`. Quando o storage
+`ordax-apps/apps/internet/src/services/search-preferences.mjs`. Quando o storage
 nativo não está disponível, a preferência vale para a sessão e é sinalizada
 como tal. O modo Web não simula um motor de navegação: a seleção fica
 desabilitada quando o Browser Session não está disponível.
@@ -421,18 +416,23 @@ Download and offline-copy semantics remain separate operations and still need se
 
 ## Native delivery to the notebook
 
-The notebook already materializes the Surface from the checked-out OrdaX source. Internet's current `git-app` mode means Owner/Development receives its app/runtime source through that Git-first path; this does not define the Stable/MVP production channel.
+The notebook materializes the OrdaX OS Surface from the OS source. `ordax-pull`
+updates that OS checkout; it does not currently install or reconcile the
+separate Internet source from Apps. The Native broker does not permit Internet
+module reads and no signed bootstrap package or rollback proof exists. Until
+those gates pass, a newer Apps source does not become an installed notebook app.
 
 Normal Owner/Development delivery remains:
 
 ```text
-main
- -> ordax-pull / normal update path
- -> affected Surface/native-host materialization
- -> Surface/component restart when required
+ordax-apps main
+ -> verified signed component/bootstrap release (not available for Internet yet)
+ -> OS Native lifecycle and slot verification
+ -> component restart after a healthy activation
 ```
 
-No kernel rebuild or USB reflash is required solely for this application/runtime source change.
+The OS `main`/`ordax-pull` path separately updates the browser host and public
+contracts. Do not imply that source checkout alone makes Internet available.
 
 Physical hardware validation is still required before this slice can be called proven on the notebook. Until that proof exists, repository tests and CI validate structure and contracts but do not substitute for real keyboard/touchpad/GPU/network/WebKit behavior.
 
@@ -441,7 +441,9 @@ Physical hardware validation is still required before this slice can be called p
 On the notebook, validate in this order:
 
 1. Surface starts under Cage with `ordax_browser_host.py` and reaches the normal desktop.
-2. Internet app opens without changing another first-party app.
+2. After signed package, module-read and lifecycle gates are enabled, Internet
+   opens without changing another first-party app. Until then, runtime
+   unavailability is the expected fail-closed state.
 3. Address entry retains keyboard focus while a page is already visible.
 4. External HTTPS page loads and scrolls in the center viewport only.
 5. Top/left/right OrdaX browser chrome remains interactive around the page.
@@ -456,15 +458,17 @@ On the notebook, validate in this order:
 14. Existing Files, Ajustes, Conta, Sistema, network, power and update paths remain healthy.
 15. Update/health rollback still recovers if the new graphical host cannot remain healthy.
 
-## Carregamento de componente instalado (preparação do Gate A)
+## Carregamento de componente instalado
 
 O serviço genérico `system/services/components/current-slot-loader.mjs` agora consome o slot `current` verificado pelo host Native. Obtém metadata pela origem local, confirma ID, versão, commit, estado e revisão, exige módulo sob namespace imutável, revalida antes/depois do mount e destrói uma montagem que perdeu a ativação. Ausência retorna `null`; fontes bundled, metadata inconsistente e URLs externas falham fechados. O serviço não assina, instala, altera grants, publica nem promove componentes.
 
-A composição do Internet **ainda não usa este carregador**: preserva o runtime embutido até o Gate A remove-first. Esta preparação isolada não autoriza fonte duplicada no repositório de apps nem instalação de produção.
+O executor Native desse loader é `system/adapters/native/isolated-component-executor.mjs`: ele monta o módulo verificado em um iframe `sandbox="allow-scripts"` de origem opaca, limita CSP ao diretório imutável do pacote e não dá acesso de rede, File Space ou APIs Native diretas. Uma `MessagePort` privada encaminha somente App Data do próprio app e o ciclo de vida Surface permitido. A revogação fecha chamadas novas, aguarda operações em curso e solicita o encerramento do runtime isolado. A probation de slots `pending` não pode usar esse importer de `current`; permanece fechada até ter um probe isolado próprio.
+
+Esse carregador não reintroduz o runtime do Internet no OS. Ele só poderá montar o componente quando o broker Native liberar leitura do pacote `current` verificado e o lifecycle autorizar sua instalação; esses gates continuam fechados para Internet.
 
 ## Catálogo Native de aplicativos externos instalados
 
-Na composição Native, `discoverVerifiedExternalApplications` usa exclusivamente o broker do slot `current` para ler o manifesto do componente e o manifesto de apresentação; o catálogo único é derivado dessas leituras por `createNativeVerifiedInstalledAppCatalog` e injetado na Surface. A montagem usa `loadVerifiedCurrentComponentRuntime` e o mesmo contexto protegido por App Data, com rechecagem de revisão, versão, commit e origem antes e depois do mount. Remoção ou falha no slot não permite fallback para o source embutido. Colisões de IDs com apps ainda built-in permanecem com o OS; portanto, Internet ainda é carregado da fonte do OS até a remoção Gate A, sem instalação paralela. Os componentes externos montados são destruídos com a Surface.
+Na composição Native, `discoverVerifiedExternalApplications` usa exclusivamente o broker do slot `current` para ler o manifesto do componente e o manifesto de apresentação; o catálogo único é derivado dessas leituras por `createNativeVerifiedInstalledAppCatalog` e injetado na Surface. A montagem usa `loadVerifiedCurrentComponentRuntime` e o mesmo contexto protegido por App Data, com rechecagem de revisão, versão, commit e origem antes e depois do mount. Remoção ou falha no slot não permite fallback para fonte de produto embutida. Internet permanece indisponível por esse caminho enquanto não tiver module-read, pacote assinado e lifecycle habilitados. Os componentes externos montados são destruídos com a Surface.
 
 Esta conexão consome slots que o host **já** tenha validado e ativado; não cria slots, não autoriza assinatura, publicação ou promoção, nem transforma o catálogo da Store em origem de execução.
 

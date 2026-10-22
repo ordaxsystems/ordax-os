@@ -31,6 +31,7 @@ func nativeProductHandoffFixture(t *testing.T) (string, string, string, string, 
     lock.CandidateEvidence.ExecutableSHA256 = hex.EncodeToString(binaryDigest[:])
     lock.CandidateEvidence.ExecutableSizeBytes = int64(len(executable))
     lock.CandidateEvidence.IndependentBaseABIReady = true // fixture only; never physical evidence
+    lock.CandidateEvidence.IndependentBaseABIBlockers = []string{}
     lock.CandidateEvidence.SignedDistributionAuthorized = true
     lock.CandidateEvidence.EmbeddedELFInventory.IndependentBaseCompatibilityProven = true
     lock.CandidateEvidence.EmbeddedELFInventory.InstallAuthorized = true
@@ -47,6 +48,7 @@ func nativeProductHandoffFixture(t *testing.T) (string, string, string, string, 
     digest := sha256.Sum256(trust)
     policy := nativeProductTrustPolicy{}
     policy.Schema = productRuntimeTrustPolicySchema
+    policy.Status = "canonical-public-trust-pinned"
     policy.TrustDomain = "runtime-components"
     policy.PublicAnchor.Pinned = true
     policy.PublicAnchor.SHA256 = hex.EncodeToString(digest[:])
@@ -73,6 +75,26 @@ func TestNativeProductHandoffCurrentSourceLockStaysClosed(t *testing.T) {
     if err := validateNativeProductSourceLock(lock); err == nil ||
         !strings.Contains(err.Error(), "ABI/distribution not proven") {
         t.Fatalf("unsigned, non-ABI-ready OS source lock authorized handoff: %v", err)
+    }
+}
+
+func TestNativeProductHandoffRejectsContradictoryABIEvidence(t *testing.T) {
+    lockPath, _, _, _, _ := nativeProductHandoffFixture(t)
+    data, err := os.ReadFile(lockPath)
+    if err != nil { t.Fatal(err) }
+    var lock nativeProductSourceLock
+    if err := json.Unmarshal(data, &lock); err != nil { t.Fatal(err) }
+    // ABI success flags must not erase an explicitly recorded blocker.
+    lock.CandidateEvidence.IndependentBaseABIBlockers = []string{"external-shared-libraries"}
+    if err := validateNativeProductSourceLock(lock); err == nil ||
+        !strings.Contains(err.Error(), "unresolved independent base ABI blockers") {
+        t.Fatalf("contradictory ABI proof accepted: %v", err)
+    }
+    // Omitting the evidence array is not an affirmative zero-blocker proof.
+    lock.CandidateEvidence.IndependentBaseABIBlockers = nil
+    if err := validateNativeProductSourceLock(lock); err == nil ||
+        !strings.Contains(err.Error(), "unresolved independent base ABI blockers") {
+        t.Fatalf("missing zero-blocker proof accepted: %v", err)
     }
 }
 
@@ -150,6 +172,15 @@ func TestNativeProductHandoffRejectsUnpinnedOrWrongTrust(t *testing.T) {
         t.Fatalf("untrusted anchor authorized Product runtime: %v", err)
     }
     candidate.PublicAnchor.Pinned = true
+    candidate.Status = "operator-ceremony-pending"
+    mutation, _ = json.Marshal(candidate)
+    if err := os.WriteFile(policy, mutation, 0o600); err != nil { t.Fatal(err) }
+    if _, err := verifiedNativeProductHandoff(lock, policy, trust, root); err == nil ||
+        !strings.Contains(err.Error(), "not pinned") {
+        t.Fatalf("unpromoted trust ceremony authorized Product runtime: %v", err)
+    }
+
+    candidate.Status = "canonical-public-trust-pinned"
     candidate.PublicAnchor.SHA256 = strings.Repeat("0", 64)
     mutation, _ = json.Marshal(candidate)
     if err := os.WriteFile(policy, mutation, 0o600); err != nil { t.Fatal(err) }

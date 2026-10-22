@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { HOSTED_ACCOUNT_SIGNUP_URL, isHostedSignupEnabled, requestNativeHostedSignup } from "../system/services/account/hosted-signup.mjs";
 import { PRODUCT_FAMILY_PUBLIC_ENDPOINTS } from "../system/contracts/product-family.mjs";
+import { hasNativeHostBridge, postNativeHostMessage } from "../system/adapters/native/host-bridge.mjs";
+import { createNativeHostWindow } from "./support/native-host-window.mjs";
 
 const read = (path) => readFile(new URL("../" + path, import.meta.url), "utf8");
 
@@ -58,9 +60,9 @@ test("Native Account settings offers the same hosted flow only when direct regis
 
 test("hosted signup uses the privileged Native broker only for explicit user clicks", () => {
   const messages = [];
-  const nativeWindow = { webkit: { messageHandlers: { ordaxBrowser: {
-    postMessage(value) { messages.push(JSON.parse(value)); },
-  } } } };
+  const { windowRef: nativeWindow } = createNativeHostWindow({
+    onPostMessage(value) { messages.push(JSON.parse(value)); },
+  });
   let prevented = 0;
   const event = { preventDefault() { prevented += 1; } };
   assert.equal(requestNativeHostedSignup(event, {}), false);
@@ -75,15 +77,16 @@ test("hosted signup uses the privileged Native broker only for explicit user cli
     location: { protocol: "http:", hostname: "127.0.0.1" },
   }), false);
   assert.equal(prevented, 1);
-  assert.equal(requestNativeHostedSignup(event, nativeWindow), true);
+  const bridge = { isAvailable: hasNativeHostBridge, postMessage: postNativeHostMessage };
+  assert.equal(requestNativeHostedSignup(event, nativeWindow, bridge), true);
   assert.deepEqual(messages, [{ type: "account.signup.open" }]);
   assert.equal(prevented, 2);
   // Neither credentials nor caller-controlled URLs cross the privileged bridge.
   assert.deepEqual(Object.keys(messages[0]), ["type"]);
   // Failed host bridging must not fall back to top-level Surface navigation.
-  const brokenWindow = { webkit: { messageHandlers: { ordaxBrowser: {
-    postMessage() { throw new Error("host offline"); },
-  } } } };
-  assert.equal(requestNativeHostedSignup(event, brokenWindow), false);
+  const { windowRef: brokenWindow } = createNativeHostWindow({
+    onPostMessage() { throw new Error("host offline"); },
+  });
+  assert.equal(requestNativeHostedSignup(event, brokenWindow, bridge), false);
   assert.equal(prevented, 3);
 });
