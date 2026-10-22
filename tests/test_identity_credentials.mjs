@@ -64,6 +64,7 @@ test("registration policy validates server-owned canonical metadata", () => {
     },
   });
   assert.equal(policy.registrationEnabled, false);
+  assert.equal(policy.publicRegistrationEnabled, false); // older Gateway fails closed
   assert.equal(policy.privacy.version, "2026-10-02");
   assert.throws(
     () => validateRegistrationPolicy({
@@ -86,6 +87,20 @@ test("registration policy validates server-owned canonical metadata", () => {
     }),
     TypeError,
   );
+});
+
+test("explicit hosted registration capability validates strict Boolean and remains separate from Native", () => {
+  const data = { $schema: "prototype-ordax.registration-legal-policy/1", active: true,
+    registrationEnabled: false, publicRegistrationEnabled: true,
+    policyId: "11111111-1111-4111-8111-111111111111",
+    privacy: { version: "2026-10-02", effectiveDate: "2026-10-02", sha256: "a".repeat(64), url: "https://ordax.example/privacidade/" },
+    terms: { version: "2026-10-02", effectiveDate: "2026-10-02", sha256: "b".repeat(64), url: "https://ordax.example/termos/" },
+  };
+  const parsed = validateRegistrationPolicy(data);
+  assert.equal(parsed.registrationEnabled, false);
+  assert.equal(parsed.publicRegistrationEnabled, true);
+  assert.throws(() => validateRegistrationPolicy({ ...data, publicRegistrationEnabled: "true" }), TypeError);
+  assert.equal(validateRegistrationPolicy({ ...data, publicRegistrationEnabled: false }).publicRegistrationEnabled, false);
 });
 
 test("same-origin credential adapter posts only to OrdaX auth routes", async () => {
