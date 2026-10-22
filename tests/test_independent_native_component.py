@@ -4,6 +4,7 @@ from __future__ import annotations
 import importlib.util
 import io
 import json
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -303,6 +304,40 @@ class NativeComponentBuildrootTests(unittest.TestCase):
             copied.write_bytes(b"not-a-tar")
             with self.assertRaises((tarfile.TarError, self.mod.BaseError)):
                 self.mod.inspect_native_python_build_input(copied, abi)
+
+    def test_private_build_input_detects_archive_path_replacement(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            original_tar = root / "source.tar"
+            replacement_tar = root / "replacement.tar"
+            python_bytes = b"verified-buildroot-python"
+            abi = {"python_executable": "usr/bin/python3.14",
+                   "python_sha256": self.mod.hashlib.sha256(python_bytes).hexdigest()}
+            with tarfile.open(original_tar, "w") as archive:
+                for name, content in (
+                    ("usr/bin/python3.14", python_bytes),
+                    ("etc/ssl/certs/ca-certificates.crt", b"certificate"),
+                    ("lib/ld-musl-x86_64.so.1", b"musl-loader"),
+                ):
+                    member = tarfile.TarInfo(name)
+                    member.size = len(content)
+                    archive.addfile(member, io.BytesIO(content))
+            replacement_tar.write_bytes(b"untrusted replacement")
+            original_open = tarfile.open
+            operations = []
+
+            def substitute_after_hash(*args, **kwargs):
+                os.replace(replacement_tar, original_tar)
+                operations.append("replaced")
+                return original_open(*args, **kwargs)
+
+            with patch.object(self.mod.tarfile, "open", side_effect=substitute_after_hash):
+                with self.assertRaisesRegex(
+                    self.mod.BaseError, "changed during verification"
+                ):
+                    self.mod.inspect_native_python_build_input(original_tar, abi)
+            self.assertEqual(operations, ["replaced"])
+            self.assertEqual(original_tar.read_bytes(), b"untrusted replacement")
 
     def test_private_build_input_rejects_symlink_and_missing_loader(self):
         with tempfile.TemporaryDirectory() as temporary:
