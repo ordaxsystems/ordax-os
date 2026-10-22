@@ -26,7 +26,7 @@ class SurfaceAsyncLifecycleTests(unittest.TestCase):
         self.assertIn('kind: "section"', controls)
         self.assertIn('kind: "identity-action"', controls)
         self.assertIn("preventScroll: true", controls)
-        self.assertIn("repaint && slot === mountedSlot ? captureInteractionState(slot) : null", controls)
+        self.assertIn("force && slot === mountedSlot ? captureInteractionState(slot) : null", controls)
 
     def test_settings_discards_stale_poll_and_action_results(self):
         controls = self.read("settings-overview-controls.mjs")
