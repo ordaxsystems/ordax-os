@@ -282,7 +282,7 @@ jobs:
 
   private-native-python:
     name: Compile private Buildroot Python component (no USB install)
-    if: github.event_name == 'push' && github.ref == 'refs/heads/platform/remove-alpine'
+    if: (github.event_name == 'push' && github.ref == 'refs/heads/platform/remove-alpine') || (github.event_name == 'pull_request' && github.base_ref == 'platform/remove-alpine')
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     steps:
