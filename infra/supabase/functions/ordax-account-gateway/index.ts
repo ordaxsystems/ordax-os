@@ -312,6 +312,8 @@ async function registrationLegalPolicy(publicRequest = false) {
     $schema: REGISTRATION_POLICY_SCHEMA,
     active: true,
     registrationEnabled: ACCOUNT_REGISTRATION_ENABLED || (publicRequest && PUBLIC_WEB_REGISTRATION_ENABLED),
+    // Read-only, server-owned capability for clients that cannot register natively.
+    publicRegistrationEnabled: PUBLIC_WEB_REGISTRATION_ENABLED,
     policyId: item.policy_id,
     privacy: {
       version: item.privacy_version,

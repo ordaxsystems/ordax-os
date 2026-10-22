@@ -1,7 +1,7 @@
 import { assertAppActivationPort } from "../../contracts/app-activation.mjs";
 import { deriveAuthorizedSpaces } from "../../services/spaces/authorized-view.mjs";
 import { readRememberedLoginEmail } from "../../services/account/remembered-login-email.mjs";
-import { HOSTED_ACCOUNT_SIGNUP_URL, requestNativeHostedSignup } from "../../services/account/hosted-signup.mjs";
+import { HOSTED_ACCOUNT_SIGNUP_URL, isHostedSignupEnabled, requestNativeHostedSignup } from "../../services/account/hosted-signup.mjs";
 import { describeSpacePresentation } from "../../services/spaces/presentation.mjs";
 import {
   assertIdentityActionsPort,
@@ -215,6 +215,7 @@ export function mountAccountOverviewControls(
   let credentialEmailDraft = readRememberedLoginEmail(documentObject.defaultView);
   let credentialPasswordDraft = "";
   let registrationPolicy = null;
+  let hostedSignupAllowed = false;
   let registrationLegalAccepted = false;
   let registrationPolicyPending = false;
   let closePasswordDraft = "";
@@ -475,13 +476,15 @@ export function mountAccountOverviewControls(
           || !registrationLegalAccepted
         );
         actions.append(register);
-      } else {
-        const hostedRegistration = node(documentObject, "a", "ordax-account-action", t("account.action.register"));
+      } else if (hostedSignupAllowed) {
+        const hostedRegistration = node(documentObject, "a", "ordax-account-action", t("account.action.hostedRegister"));
         hostedRegistration.href = HOSTED_ACCOUNT_SIGNUP_URL;
         hostedRegistration.target = "_blank";
         hostedRegistration.rel = "noopener noreferrer";
         hostedRegistration.dataset.accountHostedSignup = "";
         actions.append(hostedRegistration);
+      } else {
+        actions.append(node(documentObject, "small", "ordax-account-status", t("account.registration.unavailable")));
       }
     } else if (action) {
       const label = pendingAction === action
@@ -1226,9 +1229,9 @@ export function mountAccountOverviewControls(
     if (
       destroyed
       || registrationPolicyPending
+      || sessionSnapshot.state !== "signed-out"
       || credentialsPort === null
       || typeof credentialsPort.registrationPolicy !== "function"
-      || !isIdentityActionSupported(actionsSnapshot, "register")
     ) {
       if (!isIdentityActionSupported(actionsSnapshot, "register")) {
         registrationPolicy = null;
@@ -1239,13 +1242,15 @@ export function mountAccountOverviewControls(
     registrationPolicyPending = true;
     try {
       const policy = await credentialsPort.registrationPolicy();
-      if (destroyed) return;
-      registrationPolicy = policy.registrationEnabled === true ? policy : null;
+      if (destroyed || sessionSnapshot.state !== "signed-out") return;
+      hostedSignupAllowed = isHostedSignupEnabled(policy);
+      registrationPolicy = policy.registrationEnabled === true && isIdentityActionSupported(actionsSnapshot, "register") ? policy : null;
       if (registrationPolicy === null) registrationLegalAccepted = false;
     } catch {
       if (!destroyed) {
         registrationPolicy = null;
         registrationLegalAccepted = false;
+        hostedSignupAllowed = false;
       }
     } finally {
       registrationPolicyPending = false;
@@ -1609,7 +1614,9 @@ export function mountAccountOverviewControls(
     } else {
       registrationPolicy = null;
       registrationLegalAccepted = false;
+      hostedSignupAllowed = false;
     }
+    if (sessionSnapshot.state === "signed-out") void refreshRegistrationPolicy();
     actionMessage = "";
     replaceView();
     if (activeSection === "spaces" && sessionSnapshot.state === "signed-in") {
@@ -1635,7 +1642,7 @@ export function mountAccountOverviewControls(
       registrationLegalAccepted = false;
     }
     replaceView();
-    if (isIdentityActionSupported(actionsSnapshot, "register") && registrationPolicy === null) {
+    if (sessionSnapshot.state === "signed-out" && registrationPolicy === null) {
       void refreshRegistrationPolicy();
     }
   });
@@ -1669,7 +1676,7 @@ export function mountAccountOverviewControls(
   if (activeSection === "spaces" && sessionSnapshot.state === "signed-in") {
     refreshSpaces();
   }
-  if (isIdentityActionSupported(actionsSnapshot, "register")) {
+  if (sessionSnapshot.state === "signed-out" && credentialsPort) {
     void refreshRegistrationPolicy();
   }
 

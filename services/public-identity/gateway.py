@@ -562,6 +562,7 @@ class PublicIdentityGateway:
                 "$schema": REGISTRATION_POLICY_SCHEMA,
                 "active": True,
                 "registrationEnabled": ACCOUNT_REGISTRATION_ENABLED or (public_request and PUBLIC_WEB_REGISTRATION_ENABLED),
+                "publicRegistrationEnabled": PUBLIC_WEB_REGISTRATION_ENABLED,
                 "policyId": policy.policy_id,
                 "privacy": {
                     "version": policy.privacy_version,
