@@ -97,7 +97,7 @@ def source_web_auth_only(root: Path) -> bool:
         legal = load_json(root, LEGAL)
         snapshots = load_json(root, Path("docs/contracts/public-legal-snapshots.json"))
         if legal.get("registration_binding", {}).get("registration_activation_allowed") is not True \
-                or snapshots.get("status") != "approved-snapshots":
+                or snapshots.get("status") != "approved-versioned-snapshots":
             raise ValueError("public-registration-requires-approved-legal-snapshots")
     if edge[0] == "true":
         # A positive source switch is not enough to enable every Account
