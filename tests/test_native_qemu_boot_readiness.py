@@ -42,6 +42,8 @@ class NativeQemuReadinessTests(unittest.TestCase):
         self.assertLess(INIT.index('signal_boot_stage unlock-ready'), INIT.index('cryptsetup open --readonly'))
         self.assertLess(INIT.index('MAPPER_OPEN=1'), INIT.index('signal_boot_stage pool-unlocked'))
         self.assertIn('[ -c /dev/ttyS0 ] || return 0', INIT)
+        self.assertIn('cmdline_value ordax.qemu_proof', INIT)
+        self.assertIn('= "serial-stages" ] || return 0', INIT)
         self.assertIn("ORDAX_NATIVE_BOOT_STAGE=%s", INIT)
 
     def test_no_secret_is_logged_or_carried_via_serial(self):
@@ -56,6 +58,60 @@ class NativeQemuReadinessTests(unittest.TestCase):
         self.assertNotIn('--key-file', INIT)
         self.assertEqual(MODULE.MAX_UNLOCK_INJECTIONS, 3)
         self.assertEqual(MODULE.NATIVE_READY_MARKER, "ORDAX_NATIVE_BOOT_STAGE=unlock-ready")
+
+    def test_proof_instruments_only_disposable_normal_entry(self):
+        from tempfile import TemporaryDirectory
+
+        with TemporaryDirectory() as temp:
+            root = Path(temp)
+            rendered = root / "rendered"
+            (rendered / "loader/entries").mkdir(parents=True)
+            normal = "title Native\\noptions console=tty0 ordax.mode=normal\\n"
+            recovery = "title Recovery\\noptions console=tty0 ordax.mode=recovery\\n"
+            (rendered / "loader/entries/ordax-native.conf").write_text(normal)
+            (rendered / "loader/entries/ordax-native-recovery.conf").write_text(recovery)
+            source = root / "inputs"
+            source.mkdir()
+            kw = {}
+            for key in ("bootloader", "kernel", "initramfs", "loader_conf"):
+                file = source / key
+                file.write_bytes(key.encode())
+                kw[key] = file
+            esp = root / "esp"
+            esp.mkdir()
+            MODULE.stage_esp(esp, rendered_root=rendered, **kw)
+            actual = (esp / "loader/entries/ordax-native.conf").read_text()
+            self.assertEqual(actual.count(MODULE.QEMU_PROOF_TOKEN), 1)
+            self.assertIn("console=tty0", actual)
+            self.assertEqual(
+                (rendered / "loader/entries/ordax-native.conf").read_text(), normal
+            )
+            self.assertEqual(
+                (esp / "loader/entries/ordax-native-recovery.conf").read_text(), recovery
+            )
+            self.assertEqual(
+                (esp / "ordax/vmlinuz").read_bytes(), kw["kernel"].read_bytes()
+            )
+
+    def test_duplicate_loader_options_rejected(self):
+        from tempfile import TemporaryDirectory
+
+        with TemporaryDirectory() as temp:
+            root = Path(temp)
+            rendered = root / "rendered"
+            (rendered / "loader/entries").mkdir(parents=True)
+            for name in ("ordax-native.conf", "ordax-native-recovery.conf"):
+                (rendered / "loader/entries" / name).write_text(
+                    "title Test\\noptions console=tty0\\noptions console=tty1\\n"
+                )
+            inputs = {}
+            for key in ("bootloader", "kernel", "initramfs", "loader_conf"):
+                f = root / key
+                f.write_bytes(key.encode())
+                inputs[key] = f
+            (root / "esp").mkdir()
+            with self.assertRaisesRegex(MODULE.ProofError, "unique proof opt-in"):
+                MODULE.stage_esp(root / "esp", rendered_root=rendered, **inputs)
 
 
 if __name__ == "__main__":
