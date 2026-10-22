@@ -56,4 +56,10 @@ test("hosted signup uses the privileged Native broker only for explicit user cli
   assert.equal(prevented, 1);
   // Neither credentials nor caller-controlled URLs cross the privileged bridge.
   assert.deepEqual(Object.keys(messages[0]), ["type"]);
+  // Failed host bridging must not fall back to top-level Surface navigation.
+  const brokenWindow = { webkit: { messageHandlers: { ordaxBrowser: {
+    postMessage() { throw new Error("host offline"); },
+  } } } };
+  assert.equal(requestNativeHostedSignup(event, brokenWindow), false);
+  assert.equal(prevented, 2);
 });
