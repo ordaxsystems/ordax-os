@@ -132,7 +132,7 @@ class OwnerDevLocalAiLifecycleTests(unittest.TestCase):
         self.assertNotIn("bb sleep 1", watcher)
         self.assertIn('if [ "$aura_seen_hash" != "$ready_hash" ]; then', watcher)
         self.assertIn('bb grep -qx "IMAGE_SHA256=$ready_hash" "$LOCAL_AI_LIFECYCLE"', watcher)
-        self.assertIn('local_ai_lifecycle stop\n                                local_ai_lifecycle start', watcher)
+        self.assertRegex(watcher, r'local_ai_lifecycle stop\\n[ ]+local_ai_lifecycle start')
         self.assertIn('if local_ai_running; then', watcher)
         self.assertIn('aura_retry_seconds=0', watcher)
         self.assertIn('if [ "$aura_retry_seconds" -lt 60 ]; then', watcher)
