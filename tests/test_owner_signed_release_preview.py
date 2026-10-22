@@ -149,11 +149,9 @@ class OwnerSignedPreviewTests(unittest.TestCase):
 
 
     def offline_env(self, **overrides):
-        return dict(
-            self.env,
-            ORDAX_OWNER_SIGNED_BUNDLE_DIR=shell_path(self.bundle),
-            **overrides,
-        )
+        env = dict(self.env, ORDAX_OWNER_SIGNED_BUNDLE_DIR=shell_path(self.bundle))
+        env.update(overrides)
+        return env
 
     def test_offline_inspect_uses_existing_agent_and_no_network(self):
         self.channel.write_text("http://invalid/online\n", encoding="utf-8", newline="\n")
