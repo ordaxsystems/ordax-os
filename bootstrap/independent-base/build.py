@@ -11,6 +11,7 @@ from pathlib import Path
 import posixpath
 import re
 import shutil
+import stat
 import subprocess
 import sys
 import tarfile
@@ -1114,15 +1115,12 @@ def smoke_test_private_native_python(target: Path, abi: dict) -> dict:
 
 
 def inspect_native_python_build_input(archive: Path, abi: dict) -> dict:
-    """Bind an existing Buildroot target tar to the verified private CPython.
+    """Bind original Buildroot target bytes to the verified private CPython.
 
-    This is a build *input*, not an executable Runtime package or an OS
-    rootfs. Read members without extracting; a consumer must independently
-    validate extraction/link semantics and its eventual full agent closure.
+    The SHA-256 and TAR members MUST come from one open regular-file
+    descriptor. This input is not an installed Runtime or OS rootfs.
+    The Runtime consumer independently owns any safe extraction policy.
     """
-    if (archive.is_symlink() or not archive.is_file()
-            or not 0 < archive.stat().st_size <= NATIVE_BUILD_INPUT_MAX_BYTES):
-        raise BaseError("private Python build input tar missing or unsafe")
     python_name = abi.get("python_executable")
     if not isinstance(python_name, str) or not re.fullmatch(r"usr/bin/python3\.\d+", python_name):
         raise BaseError("private Python build input has invalid executable identity")
@@ -1131,41 +1129,63 @@ def inspect_native_python_build_input(archive: Path, abi: dict) -> dict:
         "lib/ld-musl-x86_64.so.1": "loader",
         "etc/ssl/certs/ca-certificates.crt": "ca",
     }
+    try:
+        descriptor = os.open(
+            archive, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
+            | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NONBLOCK", 0)
+        )
+    except OSError as exc:
+        raise BaseError("private Python build input tar missing or unsafe") from exc
     present = {}
-    with tarfile.open(archive, mode="r:") as members:
-        for count, member in enumerate(members, 1):
-            if count > 200000:
-                raise BaseError("private Python build input tar has too many entries")
-            normalized = posixpath.normpath(member.name.removeprefix("./"))
-            if normalized not in required:
-                continue
-            if normalized in present:
-                raise BaseError("private Python build input has duplicate mandatory entry: " + normalized)
-            role = required[normalized]
-            if role == "python":
-                if not member.isfile() or not 0 < member.size <= 128 * 1024 * 1024:
-                    raise BaseError("private Python build input executable invalid")
-                handle = members.extractfile(member)
-                if handle is None:
-                    raise BaseError("private Python build input executable unreadable")
-                with handle:
-                    h = hashlib.sha256()
-                    for part in iter(lambda: handle.read(1024 * 1024), b""):
-                        h.update(part)
-                if h.hexdigest() != abi.get("python_sha256"):
-                    raise BaseError("private Python build input executable SHA-256 mismatch")
-            elif role == "loader" and not (member.isfile() or member.issym()):
-                raise BaseError("private Python build input loader invalid")
-            elif role == "ca" and not (member.isfile() or member.issym()):
-                raise BaseError("private Python build input certificate bundle invalid")
-            present[normalized] = True
+    with os.fdopen(descriptor, "rb") as source:
+        before = os.fstat(source.fileno())
+        if (not stat.S_ISREG(before.st_mode)
+                or not 0 < before.st_size <= NATIVE_BUILD_INPUT_MAX_BYTES):
+            raise BaseError("private Python build input tar missing or unsafe")
+        hasher = hashlib.sha256()
+        for block in iter(lambda: source.read(1024 * 1024), b""):
+            hasher.update(block)
+        source.seek(0)
+        with tarfile.open(fileobj=source, mode="r:") as members:
+            for count, member in enumerate(members, 1):
+                if count > 200000:
+                    raise BaseError("private Python build input tar has too many entries")
+                normalized = posixpath.normpath(member.name.removeprefix("./"))
+                if normalized not in required:
+                    continue
+                if normalized in present:
+                    raise BaseError("private Python build input has duplicate mandatory entry: " + normalized)
+                role = required[normalized]
+                if role == "python":
+                    if not member.isfile() or not 0 < member.size <= 128 * 1024 * 1024:
+                        raise BaseError("private Python build input executable invalid")
+                    handle = members.extractfile(member)
+                    if handle is None:
+                        raise BaseError("private Python build input executable unreadable")
+                    with handle:
+                        h = hashlib.sha256()
+                        for part in iter(lambda: handle.read(1024 * 1024), b""):
+                            h.update(part)
+                    if h.hexdigest() != abi.get("python_sha256"):
+                        raise BaseError("private Python build input executable SHA-256 mismatch")
+                elif role == "loader" and not (member.isfile() or member.issym()):
+                    raise BaseError("private Python build input loader invalid")
+                elif role == "ca" and not (member.isfile() or member.issym()):
+                    raise BaseError("private Python build input certificate bundle invalid")
+                present[normalized] = True
+        after = os.fstat(source.fileno())
+        if ((before.st_dev, before.st_ino, before.st_size,
+             before.st_mtime_ns, before.st_ctime_ns) !=
+            (after.st_dev, after.st_ino, after.st_size,
+             after.st_mtime_ns, after.st_ctime_ns)):
+            raise BaseError("private Python build input changed during verification")
     if set(present) != set(required):
         raise BaseError("private Python build input missing verified interpreter, loader or certificates")
     return {
         "schema": "ordax.private-buildroot-python-build-input/1",
         "file_name": NATIVE_BUILD_INPUT_TAR,
-        "sha256": digest(archive),
-        "size_bytes": archive.stat().st_size,
+        "sha256": hasher.hexdigest(),
+        "size_bytes": before.st_size,
         "python_sha256": abi["python_sha256"],
         "purpose": "native-runtime-build-input-only",
         "runtime_agent_packaged": False,
