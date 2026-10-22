@@ -138,7 +138,7 @@ func TestInspectInstalledMediaRejectsDamagedOrUnsafeGPT(t *testing.T) {
 		})
 	}
 	for name, ranges := range map[string][][2]uint64{
-		"overlapping": {{40, 50}, {50, 180}, {181, 253}},
+		"overlapping":  {{40, 50}, {50, 180}, {181, 253}},
 		"out-of-range": {{40, 50}, {51, 180}, {181, 254}},
 	} {
 		t.Run(name, func(t *testing.T) {
