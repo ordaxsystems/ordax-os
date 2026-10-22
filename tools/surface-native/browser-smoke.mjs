@@ -393,7 +393,7 @@ function buildProofExpression(moduleSources, styles, assetUrls) {
     for (let i = 0; i < 12; i += 1) await Promise.resolve();
     result.filesStandalonePaintsWithoutSurfaceActiveMarker =
       isolatedFrame.dataset.active === undefined
-      && isolatedSlot.dataset.fileSpacePath === '/'
+      && isolatedSlot.dataset.fileSpacePath?.startsWith('/')
       && Boolean(isolatedSlot.firstElementChild);
     isolatedControls.destroy();
     isolatedRoot.remove();
