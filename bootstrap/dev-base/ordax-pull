@@ -271,7 +271,7 @@ clear_pull_transaction() {
 
 transaction_record_valid() {
     case "$TX_ID" in ''|*[!0-9]*) return 1 ;; esac
-    case "$TX_PHASE" in prepared|retired) ;; *) return 1 ;; esac
+    case "$TX_PHASE" in prepared|retired|committed) ;; *) return 1 ;; esac
     is_sha "$TX_EXPECTED" || return 1
     if [ -n "$TX_OLD" ]; then
         is_sha "$TX_OLD" || return 1
@@ -332,6 +332,24 @@ recover_interrupted_swap() {
     # signal or fsync error. The old tree is then at stage OR retired.
     if checkout_metadata_valid "$WORKTREE" && checkout_is_clean "$WORKTREE" &&
        [ "$active_sha" = "$TX_EXPECTED" ]; then
+        # A durable committed marker means the new checkout and state were
+        # sealed BEFORE retiring the old copy. An interrupted rm -rf may have
+        # left an incomplete retired Git directory; no rollback is attempted.
+        if [ "$TX_PHASE" = committed ]; then
+            [ "$(read_state "$CURRENT_FILE")" = "$TX_EXPECTED" ] || return 1
+            if [ -n "$TX_OLD" ] && [ "$TX_OLD" != "$TX_EXPECTED" ]; then
+                [ "$(read_state "$PREVIOUS_FILE")" = "$TX_OLD" ] || return 1
+            fi
+            [ ! -e "$stage" ] && [ ! -L "$stage" ] || return 1
+            if [ -e "$retired" ] || [ -L "$retired" ]; then
+                [ -d "$retired" ] && [ ! -L "$retired" ] || return 1
+                rm -rf "$retired" || return 1
+            fi
+            clear_pull_transaction
+            atomic_seal_state || return 1
+            echo "ordax-git: committed exchange cleanup reconciled at $TX_EXPECTED" >&2
+            return 0
+        fi
         if [ -e "$stage" ] && [ -e "$retired" ]; then
             echo "ordax-git: conflicting old checkout witnesses; refusing cleanup" >&2
             return 1
@@ -757,6 +775,10 @@ replace_runtime_checkout() {
         write_state "$PREVIOUS_FILE" "$old_sha"
     fi
     write_state "$CURRENT_FILE" "$expected_sha"
+    atomic_seal_state || return 1
+    # Durable final state precedes cleanup; if power fails while removing the
+    # retired directory, the committed journal permits safe idempotent GC.
+    write_pull_transaction "$transaction_id" committed "$expected_sha" "$old_sha" "$reason" || return 1
     atomic_seal_state || return 1
     if [ -e "$retired" ]; then
         rm -rf "$retired" || return 1
