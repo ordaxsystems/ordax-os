@@ -43,6 +43,9 @@ const (
 	maxPackageBytes  = int64(32 << 20)
 	maxFileBytes     = int64(2 << 20)
 	maxTotalBytes    = int64(16 << 20)
+	maxProductRuntimeFileBytes  = int64(28 << 20)
+	maxProductRuntimeTotalBytes = int64(30 << 20)
+	productRuntimeExecutablePath = "system/components/product-runtime/ordax-product-agent"
 	maxFiles         = 256
 )
 
@@ -128,6 +131,7 @@ type packageFile struct {
 	Path   string `json:"path"`
 	SHA256 string `json:"sha256"`
 	Size   int64  `json:"size"`
+	Executable bool `json:"executable,omitempty"`
 }
 
 type componentPackageManifest struct {
@@ -585,6 +589,36 @@ func componentOwnedPackagePath(path, componentID string) bool {
 	return true
 }
 
+// Executable metadata is signed as part of the package manifest. It is
+// exclusively meaningful for this OS-owned signed component slot, never for
+// the ordinary app/module distribution policy. This is not an ABI readiness
+// or activation decision.
+func executablePackageFile(componentID string, record packageFile) bool {
+	return componentID == "product-runtime" &&
+		record.Path == productRuntimeExecutablePath && record.Executable
+}
+
+func productRuntimeFileLimit(componentID string, record packageFile) int64 {
+	if executablePackageFile(componentID, record) {
+		return maxProductRuntimeFileBytes
+	}
+	return maxFileBytes
+}
+
+func productRuntimeTotalLimit(componentID string) int64 {
+	if componentID == "product-runtime" {
+		return maxProductRuntimeTotalBytes
+	}
+	return maxTotalBytes
+}
+
+func verifiedFileMode(componentID string, record packageFile) os.FileMode {
+	if executablePackageFile(componentID, record) {
+		return 0o555
+	}
+	return 0o444
+}
+
 func validatePackageManifest(manifest componentPackageManifest, release releaseDescriptor) error {
 	if manifest.Schema != packageSchema || manifest.Status != "candidate" {
 		return errors.New("unsupported runtime component package manifest")
@@ -621,6 +655,15 @@ func validatePackageManifest(manifest componentPackageManifest, release releaseD
 	if len(manifest.Files) == 0 || len(manifest.Files) > maxFiles {
 		return errors.New("runtime component package file count is invalid")
 	}
+	if manifest.Component.ID == "product-runtime" {
+		if manifest.Component.Kind != "service" ||
+			manifest.Component.Owner != productRuntimeSourceRepository ||
+			manifest.Component.ReleaseMode != "component-slot" ||
+			manifest.Entrypoint != productRuntimeExecutablePath ||
+			len(manifest.Files) != 1 {
+			return errors.New("native Product Runtime package shape is not canonical")
+		}
+	}
 	seen := make(map[string]struct{}, len(manifest.Files))
 	var total int64
 	for _, record := range manifest.Files {
@@ -635,12 +678,18 @@ func validatePackageManifest(manifest componentPackageManifest, release releaseD
 			return errors.New("runtime component package file paths must be unique")
 		}
 		seen[path] = struct{}{}
+		if record.Executable && !executablePackageFile(manifest.Component.ID, record) {
+			return errors.New("executable package files are restricted to native Product Runtime")
+		}
+		if manifest.Component.ID == "product-runtime" && !executablePackageFile(manifest.Component.ID, record) {
+			return errors.New("native Product Runtime binary must be executable in signed manifest")
+		}
 		if !shaPattern.MatchString(record.SHA256) ||
-			record.Size <= 0 || record.Size > maxFileBytes {
+			record.Size <= 0 || record.Size > productRuntimeFileLimit(manifest.Component.ID, record) {
 			return fmt.Errorf("runtime component file binding is invalid: %s", path)
 		}
 		total += record.Size
-		if total > maxTotalBytes {
+		if total > productRuntimeTotalLimit(manifest.Component.ID) {
 			return errors.New("runtime component package exceeds total size limit")
 		}
 	}
@@ -763,11 +812,19 @@ func inspectPackage(packagePath string, release releaseDescriptor) (verifiedPack
 		if entry == nil || int64(entry.UncompressedSize64) != record.Size {
 			return verifiedPackage{}, fmt.Errorf("runtime component file size mismatch: %s", record.Path)
 		}
+		expectedMode := os.FileMode(0o644)
+		if executablePackageFile(manifest.Component.ID, record) {
+			expectedMode = 0o555
+		}
+		zipMode := entry.Mode().Perm()
+		if zipMode != expectedMode {
+			return verifiedPackage{}, fmt.Errorf("runtime component ZIP file mode mismatch: %s", record.Path)
+		}
 		reader, err := entry.Open()
 		if err != nil {
 			return verifiedPackage{}, err
 		}
-		payload, readErr := io.ReadAll(io.LimitReader(reader, maxFileBytes+1))
+		payload, readErr := io.ReadAll(io.LimitReader(reader, productRuntimeFileLimit(manifest.Component.ID, record)+1))
 		closeErr := reader.Close()
 		if readErr != nil {
 			return verifiedPackage{}, readErr
@@ -778,6 +835,14 @@ func inspectPackage(packagePath string, release releaseDescriptor) (verifiedPack
 		digest := sha256.Sum256(payload)
 		if int64(len(payload)) != record.Size || hex.EncodeToString(digest[:]) != record.SHA256 {
 			return verifiedPackage{}, fmt.Errorf("runtime component file integrity mismatch: %s", record.Path)
+		}
+		if executablePackageFile(manifest.Component.ID, record) {
+			// An executable slot must never be populated from a shell script,
+			// foreign ISA or a random byte stream even with matching hashes.
+			if len(payload) < 64 || !bytes.Equal(payload[:6], []byte{0x7f, 'E', 'L', 'F', 2, 1}) ||
+				payload[18] != 62 || payload[19] != 0 {
+				return verifiedPackage{}, fmt.Errorf("native Product Runtime file is not an amd64 ELF64: %s", record.Path)
+			}
 		}
 		files[record.Path] = payload
 	}
@@ -857,7 +922,14 @@ func materializeSlot(tempDir string, verified verifiedPackage, envelopeBytes []b
 		if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
 			return err
 		}
-		if err := writeFileSynced(target, verified.Files[name], 0o644); err != nil {
+		mode := os.FileMode(0o644)
+		for _, record := range verified.Manifest.Files {
+			if record.Path == name && executablePackageFile(verified.Manifest.Component.ID, record) {
+				mode = 0o755
+				break
+			}
+		}
+		if err := writeFileSynced(target, verified.Files[name], mode); err != nil {
 			return err
 		}
 	}
@@ -887,7 +959,7 @@ func removeStagingTree(root string) {
 	_ = os.RemoveAll(root)
 }
 
-func makeSlotReadOnly(root string) error {
+func makeSlotReadOnly(root string, manifest componentPackageManifest) error {
 	directories := []string{}
 	if err := filepath.WalkDir(root, func(path string, entry os.DirEntry, err error) error {
 		if err != nil {
@@ -908,7 +980,18 @@ func makeSlotReadOnly(root string) error {
 			return errors.New("runtime component slot contains a non-regular file")
 		}
 		if runtime.GOOS != "windows" {
-			return os.Chmod(path, 0o444)
+			relative, err := filepath.Rel(root, path)
+			if err != nil {
+				return err
+			}
+			mode := os.FileMode(0o444)
+			for _, record := range manifest.Files {
+				if record.Path == filepath.ToSlash(relative) {
+					mode = verifiedFileMode(manifest.Component.ID, record)
+					break
+				}
+			}
+			return os.Chmod(path, mode)
 		}
 		return nil
 	}); err != nil {
@@ -1014,7 +1097,17 @@ func verifySlotWithTrustBytes(slot string, trustBytes []byte) (releaseDescriptor
 		}
 	}
 	for _, record := range manifest.Files {
-		payload, err := readRegular(filepath.Join(absolute, filepath.FromSlash(record.Path)), maxFileBytes, false)
+		filePath := filepath.Join(absolute, filepath.FromSlash(record.Path))
+		if runtime.GOOS != "windows" {
+			info, err := os.Lstat(filePath)
+			if err != nil {
+				return releaseDescriptor{}, err
+			}
+			if info.Mode().Perm() != verifiedFileMode(manifest.Component.ID, record) {
+				return releaseDescriptor{}, fmt.Errorf("installed runtime component file mode mismatch: %s", record.Path)
+			}
+		}
+		payload, err := readRegular(filePath, productRuntimeFileLimit(manifest.Component.ID, record), false)
 		if err != nil {
 			return releaseDescriptor{}, err
 		}
@@ -1083,7 +1176,7 @@ func stageComponent(envelopePath, trustPath, packagePath, root string) (releaseD
 	if err := materializeSlot(tempDir, verified, envelopeBytes); err != nil {
 		return releaseDescriptor{}, "", false, err
 	}
-	if err := makeSlotReadOnly(tempDir); err != nil {
+	if err := makeSlotReadOnly(tempDir, verified.Manifest); err != nil {
 		return releaseDescriptor{}, "", false, err
 	}
 	if _, err := verifySlotWithTrustBytes(tempDir, trustBytes); err != nil {
