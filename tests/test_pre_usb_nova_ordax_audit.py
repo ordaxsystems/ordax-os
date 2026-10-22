@@ -85,6 +85,25 @@ class PreUsbNovaOrdaxAuditTests(unittest.TestCase):
             self.assertFalse(status["physical_target_selected"])
             self.assertFalse(status["physical_write_performed"])
 
+    def test_device_name_receipt_regression_blocks_oobe_persistence_gate(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            self.copy_audited_sources(root)
+            first_run_path = root / "docs/contracts/first-run.json"
+            first_run = json.loads(first_run_path.read_text(encoding="utf-8"))
+            first_run["device_name"]["must_not_enter_first_run_state"] = False
+            first_run_path.write_text(
+                json.dumps(first_run, indent=2) + "\n",
+                encoding="utf-8",
+            )
+
+            status = audit.evaluate(root)
+
+            self.assertFalse(status["source_ready"])
+            self.assertIn("gate-failed:OOBE_PERSISTENCE", status["blockers"])
+            self.assertFalse(status["physical_target_selected"])
+            self.assertFalse(status["physical_write_performed"])
+
     def test_physical_promotion_consumes_audit_as_pre_authorization_gate(self):
         status = promotion.evaluate(ROOT)
 
@@ -101,9 +120,21 @@ class PreUsbNovaOrdaxAuditTests(unittest.TestCase):
         self.assertTrue(status["canonical_v4_release_proof_valid"])
         self.assertTrue(status["canonical_v4_release_binding_resolved"])
         self.assertEqual(status["pre_authorization_blockers"], [])
-        self.assertTrue(status["owner_authorization_required"])
-        self.assertFalse(status["authorized_candidate_materialization_allowed"])
-        self.assertFalse(status["ready"])
+        auth = json.loads(
+            (ROOT / "docs/contracts/physical-write-authorization.json").read_text(encoding="utf-8")
+        )
+        if auth["status"] == "authorized":
+            # Consent is now recorded, but this is still source-level proof:
+            # no CI result claims selection, USB writing, or UEFI boot.
+            self.assertFalse(status["owner_authorization_required"])
+            self.assertTrue(status["authorized_candidate_materialization_allowed"])
+            self.assertTrue(status["ready"])
+            self.assertTrue(status["authorization_context_matches_current_source"])
+        else:
+            self.assertEqual(auth["status"], "blocked-explicit-physical-authorization-pending")
+            self.assertTrue(status["owner_authorization_required"])
+            self.assertFalse(status["authorized_candidate_materialization_allowed"])
+            self.assertFalse(status["ready"])
 
     def test_audited_sources_are_bound_to_owner_authorization_context(self):
         context_paths = {

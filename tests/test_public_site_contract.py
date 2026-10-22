@@ -1,4 +1,5 @@
 import json
+import re
 import unittest
 from pathlib import Path
 
@@ -158,7 +159,7 @@ class PublicSiteContractTests(unittest.TestCase):
         self.assertIn('id="profile-menu-trigger"', account)
         portal = (SITE / "assets/account-portal.js").read_text(encoding="utf-8")
         self.assertIn('account.bindProfileMenu', portal)
-        self.assertIn('href="/web/"', account)
+        self.assertIn('href="https://web.ordax.com.br/"', account)
         config = json.loads((SITE / "config/public-site.json").read_text(encoding="utf-8"))
         self.assertFalse(config["product"]["web"]["enabled"])
         self.assertIsNone(config["product"]["web"]["entry_url"])
@@ -185,6 +186,13 @@ class PublicSiteContractTests(unittest.TestCase):
             text = path.read_text(encoding="utf-8")
             relative = path.relative_to(SITE).as_posix()
             sanitized = text
+            if path.suffix.lower() == ".html":
+                sanitized = re.sub(
+                    r'<a\b[^>]*\bhref="https://web\.ordax\.com\.br/"[^>]*>',
+                    lambda match: match.group(0).replace(
+                        'href="https://web.ordax.com.br/"', 'href="/"'),
+                    sanitized,
+                )
             if relative == "assets/site.js":
                 count = sanitized.count(allowed)
                 self.assertEqual(count, 1)
@@ -332,8 +340,9 @@ class PublicSiteContractTests(unittest.TestCase):
 
         self.assertIn('id="experimente"', landing)
         self.assertIn("Demonstração interativa, sem instalar.", landing)
-        self.assertIn("dados fictícios e respostas de IA predefinidas; não executa inferência", landing)
-        self.assertIn("Sincronização simulada nesta prévia.", landing)
+        self.assertIn("Interface do produto com dados fictícios.", landing)
+        self.assertIn("não acessa arquivos e não executa IA", landing)
+        self.assertIn("O cenário Aurora contém respostas predefinidas.", landing)
         self.assertIn("data-reset", landing)
 
         self.assertIn("Public marketing simulation only", script)

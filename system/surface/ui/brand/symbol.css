@@ -1,5 +1,6 @@
 /* Canonical symbol presentation. Public builds derive these rules unchanged. */
 .ordax-brand-symbol,
+.meridian-brand-symbol,
 .ordax-boot-mark,
 .ordax-symbol,
 .brand-mark {
@@ -12,7 +13,7 @@
   display: none;
 }
 
-[data-ordax-contrast="high"] :is(.ordax-brand-symbol, .ordax-boot-mark, .ordax-symbol, .brand-mark) {
+[data-ordax-contrast="high"] :is(.ordax-brand-symbol, .meridian-brand-symbol, .ordax-boot-mark, .ordax-symbol, .brand-mark) {
   background: var(--ordax-text);
   mask: url("./ordax-symbol.png") center / contain no-repeat;
   -webkit-mask: url("./ordax-symbol.png") center / contain no-repeat;
@@ -20,7 +21,7 @@
 }
 
 @media (forced-colors: active) {
-  :is(.ordax-brand-symbol, .ordax-boot-mark, .ordax-symbol, .brand-mark) {
+  :is(.ordax-brand-symbol, .meridian-brand-symbol, .ordax-boot-mark, .ordax-symbol, .brand-mark) {
     background: CanvasText;
     mask: url("./ordax-symbol.png") center / contain no-repeat;
     -webkit-mask: url("./ordax-symbol.png") center / contain no-repeat;

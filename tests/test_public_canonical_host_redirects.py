@@ -40,7 +40,35 @@ class CanonicalPublicHostTests(unittest.TestCase):
         self.assertEqual(migration["canonical_public_alias_redirect_http_status"], 307)
         self.assertEqual(set(migration["canonical_public_alias_redirects"]), EXPECTED_HOSTS)
         self.assertNotIn(CANONICAL, EXPECTED_HOSTS)
-        self.assertNotIn("redirects", self.config)
+        # Only the retired product entry may redirect in repository policy;
+        # canonical host aliases remain owned by Vercel project routing.
+        self.assertEqual(self.config.get("redirects"), [{
+            "source": source,
+            "has": [{"type": "host", "value": CANONICAL}],
+            "destination": f"https://{WEB_CANONICAL}/",
+            "permanent": True,
+        } for source in ("/web/", "/web/:path*")])
+
+    def test_landing_web_links_use_the_product_origin_directly(self):
+        from html.parser import HTMLParser
+
+        class Links(HTMLParser):
+            def __init__(self):
+                super().__init__()
+                self.hrefs = []
+
+            def handle_starttag(self, tag, attrs):
+                if tag == "a":
+                    self.hrefs.append(dict(attrs).get("href"))
+
+        parser = Links()
+        parser.feed((ROOT / "sites/public/index.html").read_text(encoding="utf-8"))
+        self.assertNotIn("/web/", parser.hrefs)
+        self.assertEqual(parser.hrefs.count(f"https://{WEB_CANONICAL}/"), 3)
+        account = Links()
+        account.feed((ROOT / "sites/public/conta/index.html").read_text(encoding="utf-8"))
+        self.assertNotIn("/web/", account.hrefs)
+        self.assertEqual(account.hrefs.count(f"https://{WEB_CANONICAL}/"), 3)
 
     def test_host_scoped_web_proxy_precedes_public_account_proxy_without_overlap(self):
         rewrites = self.config["rewrites"]

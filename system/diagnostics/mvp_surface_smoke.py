@@ -14,6 +14,7 @@ from urllib.parse import quote
 
 SCHEMA = "ordax.mvp-surface-smoke/1"
 COMPARE_SCHEMA = "ordax.mvp-surface-smoke-comparison/1"
+PREFERENCE_REBOOT_SCHEMA = "ordax.mvp-surface-preference-reboot/1"
 TOUR_SCHEMA = "ordax.mvp-surface-tour-checklist/1"
 FINAL_SCHEMA = "ordax.mvp-surface-smoke-final/1"
 SOURCE_ROOT = Path("/srv/ordax-system")
@@ -26,6 +27,7 @@ MAX_BODY = 2 * 1024 * 1024
 MAX_REPORT = 4 * 1024 * 1024
 EVIDENCE_CONTEXTS = {
     ("owner-development", "dynamic-native-runtime"): "development",
+    ("owner-development", "verified-erofs-overlay"): "development",
     ("stable-mvp", "verified-erofs-overlay"): "canonical-stable-mvp",
 }
 UPDATE_PHASES = frozenset({
@@ -116,7 +118,7 @@ def evidence_context_from_environment() -> dict:
     if expected_scope is None or evidence_scope != expected_scope:
         raise ValueError("physical proof evidence context is invalid")
 
-    if evidence_scope == "canonical-stable-mvp":
+    if runtime_mode == "verified-erofs-overlay":
         if not (
             len(runtime_sha256) == 64
             and all(char in "0123456789abcdef" for char in runtime_sha256)
@@ -474,6 +476,27 @@ def live_surface_checks(host: str = DEFAULT_HOST, port: int = DEFAULT_PORT, time
     return observed, checks
 
 
+def preference_theme_witness(expected_theme: str, host: str, port: int, timeout: float) -> tuple[dict, list[dict]]:
+    """Read-only cosmetic witness. Never serialize the preference response."""
+    if expected_theme not in ("light", "dark"):
+        raise ValueError("only appearance.theme may be probed")
+    witness = {"preference_id": "appearance.theme", "expected_theme": expected_theme, "matched": False}
+    try:
+        status, _headers, body = _http_get(host, port, "/__ordax/native/preferences", timeout)
+        if status != 200:
+            return witness, [_check("preference_theme_witness", False, f"HTTP {status}")]
+        record = _bounded_json(body)
+        if not isinstance(record, dict) or len(record) > 128:
+            raise ValueError("invalid response shape")
+        witness["matched"] = record.get("appearance.theme") == expected_theme
+    except (OSError, ValueError, UnicodeError, json.JSONDecodeError) as exc:
+        return witness, [_check("preference_theme_witness", False, f"read-only probe failed: {type(exc).__name__}")]
+    return witness, [_check(
+        "preference_theme_witness", witness["matched"],
+        "cosmetic choice matches local host" if witness["matched"] else "cosmetic choice not recovered",
+    )]
+
+
 def host_log_snapshot(run_root: Path = RUN_ROOT) -> tuple[dict, list[dict]]:
     path = run_root / "host.log"
     try:
@@ -502,11 +525,16 @@ def collect(
     source_root: Path = SOURCE_ROOT,
     run_root: Path = RUN_ROOT,
     proc_root: Path = PROC_ROOT,
+    expected_theme: str | None = None,
 ) -> dict:
     source, source_checks = source_snapshot(source_root)
     observed, live_checks = live_surface_checks(host, port, timeout)
     host_log, log_checks = host_log_snapshot(run_root)
     checks = [*source_checks, *live_checks, *log_checks]
+    if expected_theme is not None:
+        witness, witness_checks = preference_theme_witness(expected_theme, host, port, timeout)
+        observed["preference_theme_witness"] = witness
+        checks.extend(witness_checks)
     report = {
         "schema": SCHEMA,
         "captured_at": _timestamp(),
@@ -538,7 +566,7 @@ def _evidence_context(report: dict) -> tuple[str, str, str, str | None] | None:
     expected_scope = EVIDENCE_CONTEXTS.get((distribution_profile, runtime_mode))
     if expected_scope is None or evidence_scope != expected_scope:
         return None
-    if evidence_scope == "canonical-stable-mvp":
+    if runtime_mode == "verified-erofs-overlay":
         if not _valid_sha256(runtime_sha256):
             return None
     elif runtime_sha256 is not None:
@@ -673,6 +701,42 @@ def compare_reports(baseline: dict, after: dict, label: str = "mvp-surface-compa
         "checks": checks,
     }
     report["summary"] = _summary(checks)
+    return report
+
+
+def compare_preference_reboots(baseline: dict, after: dict, label: str = "preference-reboot") -> dict:
+    """Share tour checks but require different boots and the same cosmetic witness."""
+    report = compare_reports(baseline, after, label)
+    before_id, after_id = baseline.get("boot_id"), after.get("boot_id")
+    different_boot = (
+        isinstance(before_id, str) and bool(before_id)
+        and isinstance(after_id, str) and bool(after_id) and before_id != after_id
+    )
+    report["checks"] = [
+        _check("different_boot", different_boot, "different boot IDs confirmed" if different_boot else "boot IDs missing or identical")
+        if check["id"] == "same_boot" else check for check in report["checks"]
+    ]
+    before = baseline.get("observed")
+    after_observed = after.get("observed")
+    b = before.get("preference_theme_witness") if isinstance(before, dict) else None
+    a = after_observed.get("preference_theme_witness") if isinstance(after_observed, dict) else None
+    shape = (
+        isinstance(b, dict) and isinstance(a, dict)
+        and b.get("preference_id") == "appearance.theme"
+        and a.get("preference_id") == "appearance.theme"
+        and b.get("expected_theme") in ("light", "dark")
+        and a.get("expected_theme") in ("light", "dark")
+        and type(b.get("matched")) is bool and type(a.get("matched")) is bool
+    )
+    same = shape and b["expected_theme"] == a["expected_theme"]
+    matched = same and b["matched"] and a["matched"]
+    report["checks"].extend((
+        _check("preference_witness_shape", shape, "two valid cosmetic witnesses" if shape else "witness missing or malformed"),
+        _check("same_expected_preference", same, "same selected theme" if same else "selected theme differs"),
+        _check("preference_continuity", matched, "host returned selected theme on both boots" if matched else "theme did not persist"),
+    ))
+    report["schema"] = PREFERENCE_REBOOT_SCHEMA
+    report["summary"] = _summary(report["checks"])
     return report
 
 
@@ -853,12 +917,13 @@ def main(argv: list[str] | None = None) -> int:
         "command",
         nargs="?",
         default="collect",
-        choices=["collect", "compare", "tour-template", "finalize"],
+        choices=["collect", "compare", "reboot-compare", "tour-template", "finalize"],
     )
     parser.add_argument("--label", default="mvp-surface-smoke")
     parser.add_argument("--host", default=DEFAULT_HOST)
     parser.add_argument("--port", type=int, default=DEFAULT_PORT)
     parser.add_argument("--timeout", type=float, default=1.5)
+    parser.add_argument("--expected-theme", choices=("light", "dark"))
     parser.add_argument("--baseline", type=Path)
     parser.add_argument("--after", type=Path)
     parser.add_argument("--comparison", type=Path)
@@ -866,19 +931,21 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--output", type=Path)
     args = parser.parse_args(argv)
 
-    if args.command == "compare":
+    if args.command in ("compare", "reboot-compare"):
         if args.baseline is None or args.after is None:
-            parser.error("compare requires --baseline and --after")
-        if args.comparison is not None or args.checklist is not None:
-            parser.error("--comparison/--checklist are only valid with finalize")
+            parser.error(f"{args.command} requires --baseline and --after")
+        if args.comparison is not None or args.checklist is not None or args.expected_theme is not None:
+            parser.error("invalid arguments for comparison")
         try:
             baseline = load_report(args.baseline)
             after = load_report(args.after)
         except ValueError as exc:
             parser.error(str(exc))
-        report = compare_reports(baseline, after, args.label)
-        path = write_report(report, args.output, prefix="mvp-smoke-comparison")
+        report = compare_preference_reboots(baseline, after, args.label) if args.command == "reboot-compare" else compare_reports(baseline, after, args.label)
+        path = write_report(report, args.output, prefix="mvp-preference-reboot" if args.command == "reboot-compare" else "mvp-smoke-comparison")
     elif args.command == "tour-template":
+        if args.expected_theme is not None:
+            parser.error("--expected-theme is only valid with collect")
         if any(value is not None for value in (args.baseline, args.after, args.comparison, args.checklist)):
             parser.error("tour-template does not accept evidence input paths")
         report = tour_template(args.label)
@@ -887,6 +954,8 @@ def main(argv: list[str] | None = None) -> int:
         print("TOUR_TEMPLATE=CREATED")
         return 0
     elif args.command == "finalize":
+        if args.expected_theme is not None:
+            parser.error("--expected-theme is only valid with collect")
         if None in (args.baseline, args.after, args.comparison, args.checklist):
             parser.error("finalize requires --baseline, --after, --comparison and --checklist")
         try:
@@ -901,7 +970,10 @@ def main(argv: list[str] | None = None) -> int:
     else:
         if any(value is not None for value in (args.baseline, args.after, args.comparison, args.checklist)):
             parser.error("evidence input paths are only valid with compare/finalize")
-        report = collect(args.label, host=args.host, port=args.port, timeout=args.timeout)
+        report = collect(
+            args.label, host=args.host, port=args.port, timeout=args.timeout,
+            expected_theme=args.expected_theme,
+        )
         path = write_report(report, args.output)
 
     _print_summary(report, path)

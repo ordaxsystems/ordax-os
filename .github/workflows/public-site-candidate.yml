@@ -30,6 +30,8 @@ on:
       - 'docs/RELEASE-COMPLIANCE.md'
       - 'docs/PUBLIC-LEGAL-READINESS.md'
       - 'docs/contracts/public-site.json'
+      - 'docs/contracts/entitlements.json'
+      - 'tests/test_commercial_catalog.py'
       - 'docs/contracts/public-site-deployment.json'
       - 'docs/contracts/public-identity.json'
       - 'docs/contracts/account-lifecycle.json'
@@ -121,6 +123,8 @@ on:
       - 'docs/RELEASE-COMPLIANCE.md'
       - 'docs/PUBLIC-LEGAL-READINESS.md'
       - 'docs/contracts/public-site.json'
+      - 'docs/contracts/entitlements.json'
+      - 'tests/test_commercial_catalog.py'
       - 'docs/contracts/public-site-deployment.json'
       - 'docs/contracts/public-identity.json'
       - 'docs/contracts/account-lifecycle.json'
@@ -208,6 +212,7 @@ jobs:
       - name: Validate public site source and contracts
         run: |
           set -euo pipefail
+          python -m unittest tests.test_commercial_catalog -v
           python tools/public-site/build.py check
           python tools/brand/build.py check
           python -m unittest tests.test_brand_pipeline -v
@@ -225,6 +230,7 @@ jobs:
           node --test tests/test_public_proxy_vercel_oidc.mjs
           node --test tests/test_public_auth_edge_rate_limit.mjs
           node --test tests/test_public_account_edge_bounded_body.mjs
+          node --test tests/test_closed_account_boundary.mjs
           node --test tests/test_account_service_bridge.mjs
           node --test tests/test_account_privileged_rpc.mjs
           node --test tests/test_account_transport_admission.mjs

@@ -302,3 +302,6 @@ Um chat/agente não pode promover sua própria frente, criar tarefa de implement
 - ACHEGUESE-002 não ativa módulos pausados, não substitui os owners do Achegue-se e começa por read models/actions explicitamente autorizados.
 - TALENT/EDU/MARKET não ativam verticais nem publicação.
 - HEALTH-001 permanece `TRIAGED` até pesquisa regulatória/segurança e owner explícito.
+## COMMERCE-001 — escopo autorizado pelo operador (2026-10-22)
+
+Solicitação explícita de registrar e iniciar assinaturas/benefícios e atualizar o site. A execução atual fecha catálogo de referência e apresentação nos owners existentes, sem interferir nos gates físicos do OS. Billing, alocação paga e disponibilidade dos serviços cloud seguem incrementos e provas próprios. Ver `plans/COMMERCE-001-SUBSCRIPTIONS-AND-BENEFITS.md`. Esta autorização não promove os demais planos adiados.

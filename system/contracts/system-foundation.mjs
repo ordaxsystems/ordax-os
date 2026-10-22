@@ -21,6 +21,12 @@ function id(value, label) {
   return normalized;
 }
 
+// One stable grammar for capability identities in both the foundation registry
+// and Surface host snapshots. A capability ID never grants operational authority.
+export function validateSystemCapabilityId(value) {
+  return id(value, "System capability id");
+}
+
 function optionalText(value, label, max = 240) {
   return value === null || value === undefined ? null : text(value, label, max);
 }
@@ -44,7 +50,7 @@ export function validateSystemCapabilityState(value) {
   }
   return Object.freeze({
     schema: SYSTEM_CAPABILITY_STATE_SCHEMA,
-    id: id(value.id, "System capability id"),
+    id: validateSystemCapabilityId(value.id),
     available: value.available,
     source: id(value.source, "System capability source"),
     reason: optionalText(value.reason, "System capability reason", 240),

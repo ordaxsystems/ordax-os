@@ -100,8 +100,10 @@ class InternetBrowserContractTests(unittest.TestCase):
 
     def test_native_host_separates_privileged_surface_from_external_webviews(self):
         host = self.text(NATIVE_HOST)
-        self.assertIn('UserContentManager.new()', host)
-        self.assertIn('WebView.new_with_user_content_manager(self.manager)', host)
+        self.assertIn('WebView.new_with_context(self.surface_context)', host)
+        self.assertIn('self.manager = self.surface_view.get_user_content_manager()', host)
+        self.assertIn('base_data_directory=surface_profile_data', host)
+        self.assertIn('os.path.join(self.profile_root, "surface", "data")', host)
         self.assertIn('WebsiteDataManager(', host)
         self.assertIn('WebContext.new_with_website_data_manager', host)
         self.assertIn('WebView.new_with_context(self.external_context)', host)
@@ -196,7 +198,10 @@ class InternetBrowserContractTests(unittest.TestCase):
     def test_native_surface_runtime_owns_webkit_dependencies_directly(self):
         launcher = self.text(SURFACE_LAUNCHER)
         self.assertIn('RUNTIME_ID=alpine-v3.22-cage-webkitgtk-v1', launcher)
-        self.assertIn('python3 py3-gobject3 gtk+3.0 webkit2gtk-4.1', launcher)
+        self.assertTrue({
+            'python3', 'py3-gobject3', 'gtk+3.0', 'webkit2gtk-4.1',
+            'pipewire-pulse', 'pipewire-alsa', 'wireplumber', 'gst-plugin-pipewire', 'dbus',
+        }.issubset((ROOT / 'system/surface/runtime/packages.txt').read_text().splitlines()))
         self.assertIn('/srv/ordax-system/surface/runtime/ordax_browser_host.py', launcher)
         self.assertIn('--profile-root /var/lib/ordax-user/browser', launcher)
         self.assertNotIn('barkery-browser', launcher)

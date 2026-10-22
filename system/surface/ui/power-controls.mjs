@@ -4,6 +4,7 @@ import {
   validatePowerActionsSnapshot,
 } from "../../contracts/power-actions.mjs";
 import { assertSurfaceRenderLifecycle } from "../../contracts/surface-render-lifecycle.mjs";
+import { assertUpdateStatusPort } from "../../contracts/update-status.mjs";
 
 const ACTIONS = Object.freeze([
   Object.freeze({
@@ -35,7 +36,7 @@ function node(documentObject, tag, className, text) {
   return element;
 }
 
-export function mountPowerControls(root, powerActions = null, surfaceLifecycle = null) {
+export function mountPowerControls(root, powerActions = null, surfaceLifecycle = null, updateStatusPort = null) {
   if (!(root instanceof Element)) {
     throw new TypeError("Power controls root must be a DOM Element");
   }
@@ -44,6 +45,7 @@ export function mountPowerControls(root, powerActions = null, surfaceLifecycle =
   }
 
   const port = assertPowerActionsPort(powerActions);
+  const updatePort = updateStatusPort === null ? null : assertUpdateStatusPort(updateStatusPort);
   const lifecycle = assertSurfaceRenderLifecycle(surfaceLifecycle);
   const localization = lifecycle.localization;
   const t = localization.translate;
@@ -93,6 +95,9 @@ export function mountPowerControls(root, powerActions = null, surfaceLifecycle =
   let confirming = null;
   let pending = null;
   let messageId = null;
+  let lastPowerReceipt = updatePort?.getSnapshot()?.hostPower ?? null;
+  if (lastPowerReceipt?.lastStatus === "failed") messageId = "power.controls.failed";
+  let observedCurrentRequest = false;
   let resetTimer = null;
   let actionOrdinal = 0;
   let destroyed = false;
@@ -172,6 +177,9 @@ export function mountPowerControls(root, powerActions = null, surfaceLifecycle =
     const ordinal = ++actionOrdinal;
     confirming = null;
     pending = action;
+    observedCurrentRequest = false;
+    // A stale failure for the same action is not proof that this request failed.
+    lastPowerReceipt = updatePort?.getSnapshot()?.hostPower ?? null;
     messageId = action === "restart" ? "power.controls.request.restart" : "power.controls.request.shutdown";
     render();
     Promise.resolve()
@@ -184,7 +192,8 @@ export function mountPowerControls(root, powerActions = null, surfaceLifecycle =
         resetTimer = globalThis.setTimeout(() => {
           if (destroyed || ordinal !== actionOrdinal) return;
           pending = null;
-          messageId = "power.controls.hostStillActive";
+          messageId = lastPowerReceipt?.lastAction === action && lastPowerReceipt?.lastStatus === "failed"
+            ? "power.controls.failed" : "power.controls.accepted";
           render();
         }, POWER_ACTION_SETTLE_MS);
       })
@@ -244,6 +253,26 @@ export function mountPowerControls(root, powerActions = null, surfaceLifecycle =
     }
     render();
   });
+  const unsubscribePowerStatus = updatePort?.subscribe((nextSnapshot) => {
+    if (destroyed) return;
+    lastPowerReceipt = nextSnapshot?.hostPower ?? null;
+    if (pending !== null && lastPowerReceipt?.lastAction === pending) {
+      if (["pending", "stopping", "syncing", "rebooting", "powering-off"].includes(lastPowerReceipt.lastStatus)) {
+        observedCurrentRequest = true;
+      } else if (lastPowerReceipt.lastStatus === "failed" && observedCurrentRequest) {
+        clearResetTimer();
+        pending = null;
+        observedCurrentRequest = false;
+        messageId = "power.controls.failed";
+        render();
+      }
+    } else if (pending === null && lastPowerReceipt?.lastStatus === "failed") {
+      // The Surface can have restarted after Guardian aborted a power request.
+      // Reflect its durable failure instead of claiming the host is still busy.
+      messageId = "power.controls.failed";
+      render();
+    }
+  });
   const unsubscribeLocalization = localization.subscribe(() => render());
   render();
 
@@ -253,6 +282,7 @@ export function mountPowerControls(root, powerActions = null, surfaceLifecycle =
       actionOrdinal += 1;
       clearResetTimer();
       unsubscribeLocalization?.();
+      unsubscribePowerStatus?.();
       unsubscribe?.();
       root.removeEventListener("click", onRootClick);
       root.removeEventListener("keydown", onRootKeyDown);

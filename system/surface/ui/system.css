@@ -511,59 +511,6 @@
   }
 }
 
-@media (max-width: 760px) {
-  .ordax-system-navigation {
-    padding: 7px 10px;
-  }
-
-  .ordax-system-header {
-    align-items: stretch;
-    flex-direction: column;
-    padding: 18px;
-  }
-
-  .ordax-system-health {
-    align-self: flex-start;
-  }
-
-  .ordax-system-summary,
-  .ordax-system-resource-grid,
-  .ordax-system-facts,
-  .ordax-system-capabilities,
-  .ordax-system-version-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .ordax-system-card,
-  .ordax-system-card:nth-child(2),
-  .ordax-system-resource-grid .ordax-system-card {
-    border-right: 0;
-    border-bottom: 1px solid var(--ordax-border-soft);
-  }
-
-  .ordax-system-card:last-child,
-  .ordax-system-resource-grid .ordax-system-card:last-child {
-    border-bottom: 0;
-  }
-
-  .ordax-system-section {
-    padding: 17px 18px 19px;
-  }
-
-  .ordax-system-fact,
-  .ordax-system-fact:nth-child(even) {
-    border-right: 0;
-  }
-
-  .ordax-system-history-item {
-    grid-template-columns: 1fr;
-  }
-
-  .ordax-system-history-item span {
-    white-space: normal;
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
   .ordax-system-navigation-item,
   .ordax-system-action {

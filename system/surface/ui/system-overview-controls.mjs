@@ -31,6 +31,7 @@ import { PRODUCT_VERSION, productVersionLabel } from "../../contracts/product-ve
 import { createComponentUpdateScopes } from "../../services/components/update-presentation.mjs";
 import { explainSystemStateWithIntelligence } from "../../services/intelligence/client-actions.mjs";
 import {
+  isRepositoryOnlyUpdate,
   shortSha,
   updateIsAlerting,
 } from "../../services/update/presentation.mjs";
@@ -60,6 +61,11 @@ const OVERVIEW_UPDATE_STATUS_MESSAGE_IDS = Object.freeze({
   pinned: "system.overview.update.status.pinned",
   disabled: "system.overview.update.status.disabled",
   unavailable: "system.overview.update.status.unavailable",
+});
+
+const UPDATE_TRANSPORT_MESSAGE_IDS = Object.freeze({
+  "git-main": "system.updates.transport.gitMain",
+  "official-signed-release-channel": "system.updates.transport.signedRelease",
 });
 
 const OVERVIEW_UPDATE_MODE_MESSAGE_IDS = Object.freeze({
@@ -347,12 +353,22 @@ export function mountSystemOverviewControls(
   let recoveryMessageId = null;
   let recoveryOrdinal = 0;
   let historyOrdinal = 0;
+  let manualUpdatePending = false;
+  let manualUpdateMessageId = null;
   let activeSection = validSystemSection(lifecycle.getAppTarget("system"))
     ? lifecycle.getAppTarget("system")
     : "overview";
   let destroyed = false;
   let mountedSlot = null;
+  let paintPending = false;
+  // Each optional System dataset is read only when its visible section needs
+  // it. A hidden System window must not spend three Host requests at boot.
+  let metricsPrimed = false;
+  let historyPrimed = false;
+  let recoveryPrimed = false;
   let diagnosticsReviewMount = null;
+  // One local read-only snapshot per System owner; repainting must not re-collect.
+  let diagnosticReviewStarted = false;
 
   const findSlot = () =>
     root.querySelector(`${SYSTEM_WINDOW_SELECTOR} ${SYSTEM_EXTENSION_SELECTOR}`);
@@ -369,6 +385,9 @@ export function mountSystemOverviewControls(
     }
     if (element.dataset.systemOverviewRefresh !== undefined) {
       return Object.freeze({ kind: "metrics-refresh", value: "" });
+    }
+    if (element.dataset.systemManualUpdate !== undefined) {
+      return Object.freeze({ kind: "manual-update", value: "" });
     }
     if (element.dataset.systemHistoryRefresh !== undefined) {
       return Object.freeze({ kind: "history-refresh", value: "" });
@@ -697,8 +716,38 @@ export function mountSystemOverviewControls(
       node(documentObject, "span", "ordax-system-section-kicker", t("system.updates.kicker")),
       node(documentObject, "h4", "ordax-system-section-title", t("system.updates.title")),
     );
-    heading.append(headingCopy);
+    if (updateSnapshot?.manualCheckAvailable === true && typeof updatePort?.requestCheck === "function") {
+      const action = node(
+        documentObject,
+        "button",
+        "ordax-system-action",
+        manualUpdatePending || updateSnapshot.manualCheckPending
+          ? t("system.updates.manual.pending")
+          : t("system.updates.manual.action"),
+      );
+      action.type = "button";
+      action.dataset.systemManualUpdate = "";
+      action.disabled = manualUpdatePending || updateSnapshot.manualCheckPending;
+      heading.append(headingCopy, action);
+    } else {
+      heading.append(headingCopy);
+    }
     section.append(heading);
+    if (updateSnapshot?.manualCheckAvailable === true) {
+      section.append(node(
+        documentObject, "p", "ordax-system-section-copy",
+        t("system.updates.manual.description"),
+      ));
+    }
+    if (manualUpdateMessageId) {
+      const message = node(
+        documentObject, "p",
+        manualUpdateMessageId === "system.updates.manual.failed" ? "ordax-system-warning" : "ordax-system-message",
+        t(manualUpdateMessageId),
+      );
+      message.setAttribute("role", "status");
+      section.append(message);
+    }
 
     if (!updateSnapshot) {
       section.append(
@@ -740,6 +789,10 @@ export function mountSystemOverviewControls(
     addFact(t("system.updates.fact.status"), t(statusMessageId));
     addFact(t("system.updates.fact.phase"), t(phaseMessageId));
     addFact(t("system.updates.fact.applyMode"), t(modeMessageId));
+    const transportMessageId = UPDATE_TRANSPORT_MESSAGE_IDS[updateSnapshot.updateTransport];
+    if (transportMessageId) {
+      addFact(t("system.updates.fact.transport"), t(transportMessageId));
+    }
     if (updateSnapshot.targetSha) {
       addFact(t("system.updates.fact.target"), shortSha(updateSnapshot.targetSha));
     }
@@ -772,7 +825,25 @@ export function mountSystemOverviewControls(
       }
     }
     addFact(t("system.updates.fact.boot"), t(bootMessageId));
+    // These are stable, privacy-safe Owner/Dev diagnostic keys, mirrored
+    // by ordax-diagnose. Never render raw Guardian logs or boot identifiers.
+    if (updateSnapshot.hostPower) {
+      addFact("power.last_action", updateSnapshot.hostPower.lastAction);
+      addFact("power.last_status", updateSnapshot.hostPower.lastStatus);
+      addFact("power.last_stage", updateSnapshot.hostPower.lastStage);
+      addFact("power.last_failure", updateSnapshot.hostPower.lastFailure);
+      addFact("power.last_mount_error", updateSnapshot.hostPower.lastMountError);
+    }
     section.append(facts);
+
+    if (isRepositoryOnlyUpdate(updateSnapshot)) {
+      section.append(node(
+        documentObject,
+        "p",
+        "ordax-system-section-copy",
+        `${t("system.updates.fact.commit")} · ${t("system.overview.update.mode.none")}`,
+      ));
+    }
 
     if (updateIsAlerting(updateSnapshot)) {
       const warningText = updateSnapshot.bootRefreshRequired
@@ -1460,6 +1531,13 @@ export function mountSystemOverviewControls(
         diagnosticReviewController,
         lifecycle,
       );
+      // Entering Diagnostics is the user's request for a local review.
+      // No report is exported, no network operation is initiated and a
+      // subsequent repaint does not start a second collection.
+      if (!diagnosticReviewStarted) {
+        diagnosticReviewStarted = true;
+        void diagnosticReviewController.prepare();
+      }
     }
     restoreInteractionState(slot, interaction);
   };
@@ -1470,12 +1548,22 @@ export function mountSystemOverviewControls(
     if (!slot) {
       disposeDiagnosticsReview();
       mountedSlot = null;
+      paintPending = false;
       return;
     }
-    if (!force && mountedSlot === slot) return;
+    const windowNode = slot.closest(SYSTEM_WINDOW_SELECTOR);
+    // Minimized and inactive windows stay mounted; defer costly DOM rebuilds
+    // until the existing Surface render lifecycle focuses the window.
+    if (!windowNode || windowNode.hidden || windowNode.dataset.active !== "true") {
+      paintPending = paintPending || force || slot !== mountedSlot;
+      return;
+    }
+    const repaint = force || paintPending;
+    if (!repaint && mountedSlot === slot) return;
     const interaction =
-      force && slot === mountedSlot ? captureInteractionState(slot) : null;
+      repaint && slot === mountedSlot ? captureInteractionState(slot) : null;
     mountedSlot = slot;
+    paintPending = false;
     paint(slot, interaction);
   };
 
@@ -1545,7 +1633,50 @@ export function mountSystemOverviewControls(
     }
   };
 
+  const refreshVisibleSection = () => {
+    const windowNode = findSlot()?.closest(SYSTEM_WINDOW_SELECTOR);
+    // Minimized windows remain mounted. Hidden or unfocused apps have no
+    // reason to collect these optional snapshots in the background.
+    if (destroyed || !windowNode || windowNode.hidden
+      || windowNode.dataset.active !== "true") return;
+    if (["overview", "storage", "diagnostics"].includes(activeSection)
+      && metricsPort && !metricsPrimed) {
+      metricsPrimed = true;
+      void refreshMetrics();
+    }
+    if (activeSection === "updates") {
+      if (historyPort && !historyPrimed) {
+        historyPrimed = true;
+        void refreshHistory();
+      }
+      if (recoveryPort && !recoveryPrimed) {
+        recoveryPrimed = true;
+        void refreshRecovery();
+      }
+    }
+  };
+
   const onClick = (event) => {
+    const manualUpdate = event.target.closest("[data-system-manual-update]");
+    if (manualUpdate && root.contains(manualUpdate)) {
+      if (!manualUpdatePending && !updateSnapshot?.manualCheckPending &&
+          updateSnapshot?.manualCheckAvailable === true &&
+          typeof updatePort?.requestCheck === "function") {
+        manualUpdatePending = true;
+        manualUpdateMessageId = null;
+        replaceView();
+        void updatePort.requestCheck().then(() => {
+          if (!destroyed) manualUpdateMessageId = "system.updates.manual.accepted";
+        }).catch(() => {
+          if (!destroyed) manualUpdateMessageId = "system.updates.manual.failed";
+        }).finally(() => {
+          if (destroyed) return;
+          manualUpdatePending = false;
+          replaceView();
+        });
+      }
+      return;
+    }
     const section = event.target.closest("[data-system-section]");
     if (section && root.contains(section) && validSystemSection(section.dataset.systemSection)) {
       const nextSection = section.dataset.systemSection;
@@ -1554,6 +1685,7 @@ export function mountSystemOverviewControls(
       } else {
         activeSection = nextSection;
         replaceView();
+        refreshVisibleSection();
       }
       return;
     }
@@ -1608,8 +1740,10 @@ export function mountSystemOverviewControls(
   const unsubscribeRender = lifecycle.subscribeRender(() => {
     const persistedTarget = lifecycle.getAppTarget("system");
     const nextSection = validSystemSection(persistedTarget) ? persistedTarget : "overview";
+    const sectionChanged = activeSection !== nextSection;
     activeSection = nextSection;
-    renderView(false);
+    renderView(sectionChanged);
+    refreshVisibleSection();
   });
   const unsubscribeHost = hostPort.subscribe((snapshot) => {
     hostSnapshot = validateSurfaceSnapshot(snapshot);
@@ -1623,6 +1757,7 @@ export function mountSystemOverviewControls(
     ) {
       activeSection = activation.target;
       replaceView();
+      refreshVisibleSection();
     }
   });
   const unsubscribeComponents = componentPort?.subscribe((snapshot) => {
@@ -1638,13 +1773,14 @@ export function mountSystemOverviewControls(
     updateSnapshot = validateUpdateStatusSnapshot(snapshot);
     replaceView();
     if (historyPort && updateSnapshot.lastAppliedSha !== previousAppliedSha) {
-      void refreshHistory();
+      // Defer updated history until the user sees Updates; no background GET
+      // for an unopened/minimized System window.
+      historyPrimed = false;
+      refreshVisibleSection();
     }
   });
 
-  if (metricsPort) void refreshMetrics();
-  if (historyPort) void refreshHistory();
-  if (recoveryPort) void refreshRecovery();
+  refreshVisibleSection();
 
   return Object.freeze({
     destroy() {

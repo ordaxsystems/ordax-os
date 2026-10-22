@@ -13,6 +13,7 @@ export const PRODUCT_FAMILY_PUBLIC_ENDPOINTS = Object.freeze({
   web: Object.freeze({
     displayName: "OrdaX Web",
     origin: "https://web.ordax.com.br",
+    // Legacy presentation address, retained for compatibility; production redirects to origin.
     presentationUrl: "https://ordax.com.br/web/",
     role: "product-runtime",
     availabilityOwner: "web-deployment",

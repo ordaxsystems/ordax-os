@@ -138,3 +138,7 @@ FUTURE_CUSTODY_TARGET=managed non-exportable KMS/HSM
 ```
 
 The future managed backend is provider-neutral and intentionally deferred. The same-host encrypted backup copy is sufficient for the first controlled prototype because cryptographic recovery was proven, but it is not treated as independent off-device custody; an external/off-device encrypted copy remains required before broad public distribution.
+
+### Assinaturas e benefícios
+
+Owner: `ACCOUNT-SYNC-AND-PLANS.md` e `contracts/entitlements.json`; a apresentação de referência é compartilhada pela landing/Conta. O plano de execução é `../00-PLANOS-PRIORITARIOS/plans/COMMERCE-001-SUBSCRIPTIONS-AND-BENEFITS.md`. Catálogo não ativa billing ou serviços.

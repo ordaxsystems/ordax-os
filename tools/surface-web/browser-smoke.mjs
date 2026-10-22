@@ -133,7 +133,7 @@ try {
       await client.send('Page.navigate',{url:runtimeUrl});await ready();
       await until("!!document.querySelector('.os-shell')");
       assert.equal(await evaluate("!document.querySelector('.web-workspace')"),true,'Previous page must not be mounted');
-      assert.equal(await evaluate("/\\bWEB\\b/.test(document.querySelector('.brand-sub').textContent)"),true);
+      assert.equal(await evaluate("document.querySelector('.brand-name')?.textContent.trim()==='OrdaX' && document.querySelector('.brand-sub')?.textContent.trim()==='OS'"),true,'Shared Meridian product wordmark is stable across Web and Native');
       assert.equal(await evaluate('document.documentElement.scrollWidth<=innerWidth+1'),true,'No horizontal document overflow');
       assert.equal(await evaluate("(()=>{const main=document.querySelector('.central-presentation .os-main');return main.clientHeight>0&&main.scrollWidth<=main.clientWidth+1&&['auto','scroll','hidden'].includes(getComputedStyle(main).overflowY);})()"),true,'Central fits horizontally and retains its bounded content area');
       assert.equal(await evaluate("!document.querySelector('.home-overflow')"),true,'Home overflow button is removed');
@@ -178,8 +178,13 @@ try {
       }
       if(width===1440){
         await openSidebarDestination('Loja');
-        await until("!!document.querySelector('.meridian-store-presentation')?.shadowRoot?.querySelector('[data-meridian]')");
-        assert.equal(await evaluate("(()=>{const root=document.querySelector('.meridian-store-presentation').shadowRoot;return root.adoptedStyleSheets.length===1&&!root.querySelector('style')&&getComputedStyle(root.querySelector('[data-meridian]')).getPropertyValue('--md-canvas').trim()==='#f4f2ed';})()"),true,'Store examples use the canonical bundled stylesheet without inline style elements');
+        await until("!!document.querySelector('.ordax-store-experience[data-meridian][data-store-mode]')");
+        // The official Store catalog takes precedence. Enter the explicitly
+        // labeled planned preview before asserting its isolated stylesheet.
+        if(await evaluate("document.querySelector('.ordax-store-experience')?.dataset.storeMode==='official'"))
+          await click('.ordax-store-experience [data-store-switch]');
+        await until("!!document.querySelector('.ordax-store-experience[data-store-mode=planned] [data-store-preview-host]')?.shadowRoot?.querySelector('[data-meridian]')");
+        assert.equal(await evaluate("(()=>{const root=document.querySelector('.ordax-store-experience [data-store-preview-host]').shadowRoot;return root.adoptedStyleSheets.length===1&&!root.querySelector('style')&&getComputedStyle(root.querySelector('[data-meridian]')).getPropertyValue('--md-canvas').trim()==='#f4f2ed';})()"),true,'Store planned preview uses the canonical bundled stylesheet without inline styles');
         await click('[aria-label="Fechar Loja"]');
         await openSidebarDestination('Espaços');
         await clickByText('.meridian-spaces-context-actions button','Ver exemplos completos');
@@ -212,7 +217,14 @@ try {
         await click('.sidebar-collapse');
         await until("document.querySelector('.sidebar-collapse').getAttribute('aria-expanded')!=="+JSON.stringify(initiallyExpanded));
         await until("document.querySelector('.workspace-sidebar').getBoundingClientRect().width!=="+initialRail);
-        assert.equal(await evaluate("[...document.querySelectorAll('.meridian-rail-utilities button')].every(button=>{const box=button.getBoundingClientRect();return box.width>=44&&box.height>=44;})"),true,'Collapsed sidebar utilities keep usable hit areas');
+        const previousScale=await evaluate("document.documentElement.getAttribute('data-ordax-display-scale')");
+        for(const scale of ['compact','comfortable','large','automatic']){
+          await evaluate('document.documentElement.dataset.ordaxDisplayScale='+JSON.stringify(scale));
+          const utilityGeometry=await evaluate("[...document.querySelectorAll('.meridian-rail-utilities button')].filter(button=>button.getClientRects().length).map(button=>{const box=button.getBoundingClientRect();return {label:button.getAttribute('aria-label'),width:Math.round(box.width*100)/100,height:Math.round(box.height*100)/100};})");
+          assert.ok(utilityGeometry.length>0,'Collapsed sidebar exposes visible utilities at '+scale);
+          assert.deepEqual(utilityGeometry.filter(button=>button.width<44||button.height<44),[],'Collapsed sidebar utilities keep 44px hit areas at '+scale+': '+JSON.stringify(utilityGeometry));
+        }
+        await evaluate('(()=>{const scale='+JSON.stringify(previousScale)+";if(scale===null)document.documentElement.removeAttribute('data-ordax-display-scale');else document.documentElement.setAttribute('data-ordax-display-scale',scale);})()");
         await click('.sidebar-collapse');
         await until("document.querySelector('.sidebar-collapse').getAttribute('aria-expanded')==="+JSON.stringify(initiallyExpanded));
       }

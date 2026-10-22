@@ -48,5 +48,11 @@ jobs:
       - name: Run foundation regressions
         run: python -m unittest discover -s tests -p 'test_*.py' -v
 
+      - name: Validate canonical Native Product Connector port
+        run: node --test tests/test_product_connector_adapter.mjs
+
       - name: Validate product family version identities
         run: node --test tests/test_product_family.mjs
+
+      - name: Validate dual update transport selection policy
+        run: node --test tests/test_update_transport_selection.mjs tests/test_update_status.mjs

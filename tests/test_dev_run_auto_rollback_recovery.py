@@ -6,22 +6,24 @@ RUN = ROOT / "bootstrap" / "dev-base" / "ordax-run"
 PULL = ROOT / "bootstrap" / "dev-base" / "ordax-pull"
 
 
-def test_ordax_run_recovers_only_explicit_automatic_rollback_pin():
+def test_ordax_run_never_checks_remote_main_before_surface_boot():
     text = RUN.read_text(encoding="utf-8")
-    recovery = text.split("recover_automatic_rollback_pin() {", 1)[1].split("\n}", 1)[0]
+    watcher = (ROOT / "bootstrap/dev-base/ordax-main-watch").read_text(encoding="utf-8")
+    supervisor = (ROOT / "system/supervisor").read_text(encoding="utf-8")
+    init = (ROOT / "bootstrap/dev-base/ordax-dev-init").read_text(encoding="utf-8")
 
-    assert 'PINNED_FILE=$STATE_DIR/pinned-commit' in text
-    assert 'BOOT_REJECTED_FILE=$STATE_DIR/boot-rejected-commit' in text
-    assert '[ -s "$PINNED_FILE" ] && [ ! -L "$PINNED_FILE" ] || return 0' in recovery
-    assert '[ -s "$BOOT_REJECTED_FILE" ] && [ ! -L "$BOOT_REJECTED_FILE" ] || return 0' in recovery
-    assert '[ "$current" = "$pinned" ] || return 0' in recovery
-    assert '[ "$rejected" != "$pinned" ] || return 0' in recovery
-    assert 'ORDAX_AUTOMATIC_ROLLBACK_RECOVERY=1' in recovery
-    assert '"$PULL_BIN"' in recovery
-    assert '[ "$refreshed" != "$pinned" ]' in recovery
-    assert '[ "$refreshed" != "$rejected" ]' in recovery
-    assert '[ ! -e "$PINNED_FILE" ]' in recovery
-    assert '[ ! -e "$BOOT_REJECTED_FILE" ]' in recovery
+    # The rollback pin starts the exact local checkout first, without a Git
+    # fetch. Online recovery belongs to the one runtime update owner.
+    assert "recover_automatic_rollback_pin" not in text
+    assert "ORDAX_AUTOMATIC_ROLLBACK_RECOVERY" not in text
+    assert "ordax-pull" not in text
+    assert "PULL_BIN" not in text
+    assert 'if [ -s "$PINNED_FILE" ]; then' in init
+    assert "start_local_surface pinned-graphical" in init
+    assert 'first_run_receipt=$STATE_DIR/native-state/first-run.json' in watcher
+    assert 'first_run_receipt=$STATE_DIR/native-state/first-run.json' in supervisor
+    assert 'ORDAX_AUTOMATIC_ROLLBACK_RECOVERY=1 "$BIN_DIR/ordax-pull"' in watcher
+    assert "check_for_update" in supervisor
 
 
 def test_automatic_pull_refuses_same_known_good_or_rejected_delivery():
@@ -42,17 +44,19 @@ def test_manual_pull_keeps_explicit_manual_unpin_semantics():
     assert 'else\n    rm -f "$PINNED_FILE"\nfi' in final
 
 
-def test_failed_automatic_recovery_preserves_known_good_runtime_start():
+def test_offline_boot_checks_local_identity_before_graphical_entrypoint():
     text = RUN.read_text(encoding="utf-8")
-    recovery_call = text.index("recover_automatic_rollback_pin\n")
     source_read = text.index('source_sha=$("$GIT_BIN" -C "$WORKTREE" rev-parse HEAD')
+    recorded = text.index('recorded_sha=$(read_state_value "$CURRENT_FILE")')
     entry_start = text.index('ORDAX_DISTRIBUTION_PROFILE=owner-development')
-
-    assert recovery_call < source_read < entry_start
-    assert "main ainda indisponivel ou sem entrega nova segura; mantendo known-good" in text
-    assert "return 0" in text.split(
-        "main ainda indisponivel ou sem entrega nova segura; mantendo known-good", 1
-    )[1]
+    assert source_read < recorded < entry_start
+    assert '[ "$recorded_sha" = "$source_sha" ]' in text
+    assert 'checkout_status=$("$GIT_BIN" -C "$WORKTREE" status --porcelain' in text
+    # The fast boot may initialize wireless hardware locally, but can never
+    # contact remote main until the supervisor confirms First Run completion.
+    start = text.index('echo "ordax-run: starting Owner/Development runtime')
+    assert 'git fetch' not in text[:start]
+    assert 'git ls-remote' not in text[:start]
 
 
 def test_dev_helpers_shell_syntax():

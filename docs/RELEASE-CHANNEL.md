@@ -10,6 +10,141 @@ This channel is the delivery authority for the **Stable/MVP** distribution. Owne
 
 Repository CI owns build/sign/publication. The device consumes a compact signed release envelope and immutable artifacts over HTTPS.
 
+## Dual transport rollout: Development + public OrdaX (2026-10-22)
+
+**Decision:** retain the existing Supervisor as the sole runtime transaction,
+health, known-good and rollback owner. Delivery *methods* are not alternative
+update engines. Their canonical selection policy is
+`docs/contracts/distribution-profiles.json#update_delivery_selection`.
+The side-effect-free resolver at
+`system/services/update/transport-selection.mjs` provides a fail-closed
+routing boundary for clients; it is not yet wired to the live Supervisor.
+
+| Profile | Current enabled method | Future gated alternative |
+| --- | --- | --- |
+| Owner/Development USB | `git-main` via the existing `ordax-pull` | `official-signed-release-channel`, for real tests of signed releases on Development hardware |
+| Public Stable/MVP USB | `official-signed-release-channel` (signed and exact-commit) | `signed-exact-git`, Git object acquisition pinned to a *previously authenticated* official release; **never** unreviewed `main` |
+
+A public Git option is **not** an authorization to run Development's
+`ordax-pull` verbatim on consumer devices. It must validate the signed
+release envelope first, bind the exact candidate commit, acquire only objects
+for that immutable source identity and pass through the existing signed
+candidate / health / rollback owners. Consumers must never need a Git client
+to boot or update through the standard channel.
+
+### Effective transport status (increment 2)
+
+The current Supervisor emits `updateTransport` in the existing native
+`ordax.update-status/1` snapshot, using the *actual validated runtime
+distribution profile*: `git-main` for Development, or
+`official-signed-release-channel` for Stable. The shared validator treats
+the missing field from an older image as `unavailable`; unknown methods
+fail validation. System → Updates displays this as a read-only localized fact
+and omits it for older snapshots. This does not switch transport, approve an
+update, sign a release or change Base/ESP/boot behavior.
+
+### Incremental delivery / acceptance gates
+
+1. **Policy and tests (current PR):** express enabled and gated routes in the
+   distribution SSOT, ship a pure, fail-closed resolver and regression tests.
+   Neither a UI toggle nor runtime transport switch is enabled in this stage.
+2. **Development signed-release testing:** add a verified-release handoff to
+   the same Supervisor transaction owner. Prove signed envelope, exact
+   source commit, non-destructive staging, health and offline rollback in
+   disposable fixtures. Enable an explicit signed-release Dev selection only
+   after this evidence, without breaking Git-first default.
+3. **Public signed-Git acquisition:** design optional Git object fetch around
+   the *signed* immutable release source identity; maintain the existing
+   signed-release fallback only on an explicit new transaction, never silently
+   after trust failure. No operational Git prerequisite for public boot.
+4. **User consent and notifications:** use the shared Surface and native
+   update-status owner. Public default: notify before download/install;
+   allow defer/download preference and require notice before reboot. Security
+   and release authenticity cannot be overridden by UI choice. Development
+   default remains fast Git-first.
+5. **Mode switching and migration:** persist a validated device preference
+   outside immutable releases; switch only while no update transaction is
+   active, with no base-slot/EFI writes. Support disabling public Git and
+   removing it after a separately validated signed-release migration. Always
+   preserve userdata, local offline known-good boot and existing A/B gates.
+6. **Promotion:** run unit, integration, release signing, interruption, health,
+   rollback and QEMU tests; then separately prove USB Dev and Stable physical
+   recovery. A CI green check does not authorize Creator writes or public
+   release promotion.
+
+**No fake feature:** the current stage does **not** make either gated method
+operational, does not enable public Git polling and does not replace the
+canonical Base update mechanism. Defaults and operational paths are unchanged.
+
+## Owner/Development signed-v4 opt-in preview (non-activating)
+
+`system/services/update/owner-signed-preview.sh` is a **manual test entry
+point**, not a second update engine, firmware writer or a public update route.
+It calls the existing `bootstrap/release-acquisition` agent and pinned trust
+anchor to inspect a signed channel and optionally materialize/verify an **exact
+v4** candidate in an explicit isolated test directory.
+
+For a Dev checkout with an already provisioned, provenance-verified release
+agent (the script refuses to build or fetch an absent agent automatically):
+
+```sh
+ORDAX_DISTRIBUTION_PROFILE=owner-development \
+  sh system/services/update/owner-signed-preview.sh inspect
+
+# Explicit, isolated testing only: never use /ordax, /workspace/ordax,
+# the active /state tree or any production/current release root.
+mkdir -p /mnt/disposable/owner-signed-preview
+ORDAX_DISTRIBUTION_PROFILE=owner-development \
+ORDAX_OWNER_SIGNED_STAGE_ROOT=/mnt/disposable/owner-signed-preview \
+  sh system/services/update/owner-signed-preview.sh stage <exact-signed-40hex-sha>
+```
+
+### Signed v4 bundle tests without a published HTTPS release
+
+Until the official channel publishes the exact signed v4 release, Dev can use
+the **same** acquisition agent with a previously obtained signed offline
+bundle. This is not a second signing authority, update engine or downgrade:
+the bundle must contain `release-envelope.json` and all artifacts named in
+the signed manifest, and the Ed25519 key must match the pinned local trust.
+
+```sh
+# An explicit trusted offline source, independent of the online channel:
+ORDAX_DISTRIBUTION_PROFILE=owner-development \
+ORDAX_OWNER_SIGNED_BUNDLE_DIR=/mnt/disposable/signed-v4-input \
+  sh system/services/update/owner-signed-preview.sh inspect-offline
+
+# Staging output is isolated and disjoint from the signed input.
+mkdir -p /mnt/disposable/owner-signed-preview
+ORDAX_DISTRIBUTION_PROFILE=owner-development \
+ORDAX_OWNER_SIGNED_BUNDLE_DIR=/mnt/disposable/signed-v4-input \
+ORDAX_OWNER_SIGNED_STAGE_ROOT=/mnt/disposable/owner-signed-preview \
+  sh system/services/update/owner-signed-preview.sh stage-offline <exact-signed-40hex-sha>
+```
+
+The established agent `verify-envelope` handles offline inspection. Offline
+stage uses `materialize-portable-v4 --local-bundle` and then the *same*
+`verify-portable-v4-exact` call as HTTPS staging. No HTTP fallback is allowed
+when a local signature, artifact or commit check fails. Simultaneously
+specifying online and offline delivery is rejected. There are no changes to
+`current`, boot slots, Git checkout or the Supervisor's active transport.
+Unverified local test keys must never authorize public/physical releases.
+
+The inspect operation obtains only a signed release envelope. The stage
+operation requires the exact expected commit, delegates all Ed25519 and
+artifact-size/hash checks to the canonical Go agent, then invokes
+`verify-portable-v4-exact` against the *same* isolated root. The wrapper
+never calls `install`, `activate-exact`, `prepare`, `commit`, changes the
+working Git tree, or touches boot slots. A failed materialize does not fall
+back to Git or call the verifier. Offline staging, device activation, mode
+selection and signed-agent provisioning remain separate blocked gates.
+An absent agent must yield a visible error, not an implied successful test.
+
+Acceptance still requires the canonical Supervisor to own any future
+commit/health/rollback transaction and the selected delivery transport to
+remain pinned for the whole transaction. In particular, **this preview is
+not evidence that signed-release mode is operational on the Dev USB** and
+must not flip `owner_signed_release_transport_implemented` in the SSOT.
+
 ## Source vs delivery
 
 ```text

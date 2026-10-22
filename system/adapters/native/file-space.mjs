@@ -89,6 +89,70 @@ function importEndpointFor(path, name) {
   return `${FILE_IMPORT_ENDPOINT}?path=${encodeURIComponent(path)}&name=${encodeURIComponent(name)}`;
 }
 
+// One bounded transport for raster images, audio/video and documents. Enforce
+// the limit while receiving bytes, including responses without Content-Length.
+async function readPreview(windowRef, path, endpoint, operation, maxBytes, validate) {
+  validateFileSpacePath(path);
+  const response = await windowRef.fetch(endpoint(path), {
+    redirect: "error",
+    method: "GET",
+    cache: "no-store",
+    credentials: "same-origin",
+  });
+  let reader;
+  try {
+    requireSuccess(response, operation);
+    const mime = response.headers.get("Content-Type")?.split(";", 1)[0]?.trim()?.toLowerCase() ?? "";
+    // Validate the media type before accepting or allocating the response body.
+    validate({ path, size: 0, mime, bytes: new Uint8Array() });
+    const declared = response.headers.get("Content-Length");
+    if (declared !== null && (!/^[0-9]+$/.test(declared)
+      || !Number.isSafeInteger(Number(declared)))) {
+      throw new TypeError("Preview response has an invalid Content-Length");
+    }
+    if (declared !== null && Number(declared) > maxBytes) {
+      throw new FileSpaceOperationError(operation, 413);
+    }
+    if (!response.body || typeof response.body.getReader !== "function") {
+      throw new TypeError("Preview response requires a readable byte stream");
+    }
+    reader = response.body.getReader();
+    const chunks = [];
+    let size = 0;
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (!(value instanceof Uint8Array)) {
+        throw new TypeError("Preview response must contain byte chunks");
+      }
+      if (value.byteLength > maxBytes - size) {
+        throw new FileSpaceOperationError(operation, 413);
+      }
+      size += value.byteLength;
+      chunks.push(value);
+    }
+    if (declared !== null && Number(declared) !== size) {
+      throw new TypeError("Preview response differs from its Content-Length");
+    }
+    const bytes = new Uint8Array(size);
+    let offset = 0;
+    for (const chunk of chunks) {
+      bytes.set(chunk, offset);
+      offset += chunk.byteLength;
+    }
+    return validate({ path, size, mime, bytes });
+  } catch (error) {
+    // Cancellation failure must never replace the useful transport/type error.
+    try {
+      if (reader) await reader.cancel();
+      else await response.body?.cancel?.();
+    } catch { /* the connection may already have failed */ }
+    throw error;
+  } finally {
+    reader?.releaseLock();
+  }
+}
+
 export async function createNativeFileSpace(windowRef = globalThis.window) {
   if (!windowRef || typeof windowRef.fetch !== "function") {
     throw new TypeError("Native file-space adapter requires window.fetch");
@@ -121,62 +185,17 @@ export async function createNativeFileSpace(windowRef = globalThis.window) {
       requireSuccess(response, "text-read");
       return validateResponseText(response, path);
     },
-    async readImagePreview(path) {
-      const response = await windowRef.fetch(imagePreviewEndpointFor(path), {
-        method: "GET",
-        cache: "no-store",
-        credentials: "same-origin",
-      });
-      requireSuccess(response, "image-preview");
-      const mime = response.headers.get("Content-Type")?.split(";", 1)[0]?.trim()?.toLowerCase() ?? "";
-      const buffer = await response.arrayBuffer();
-      if (buffer.byteLength > MAX_IMAGE_PREVIEW_BYTES) {
-        throw new FileSpaceOperationError("image-preview", 413);
-      }
-      return validateImagePreview({
-        path,
-        size: buffer.byteLength,
-        mime,
-        bytes: new Uint8Array(buffer),
-      });
+    readImagePreview(path) {
+      return readPreview(windowRef, path, imagePreviewEndpointFor, "image-preview",
+        MAX_IMAGE_PREVIEW_BYTES, validateImagePreview);
     },
-    async readMediaPreview(path) {
-      const response = await windowRef.fetch(mediaPreviewEndpointFor(path), {
-        method: "GET",
-        cache: "no-store",
-        credentials: "same-origin",
-      });
-      requireSuccess(response, "media-preview");
-      const mime = response.headers.get("Content-Type")?.split(";", 1)[0]?.trim()?.toLowerCase() ?? "";
-      const buffer = await response.arrayBuffer();
-      if (buffer.byteLength > MAX_MEDIA_PREVIEW_BYTES) {
-        throw new FileSpaceOperationError("media-preview", 413);
-      }
-      return validateMediaPreview({
-        path,
-        size: buffer.byteLength,
-        mime,
-        bytes: new Uint8Array(buffer),
-      });
+    readMediaPreview(path) {
+      return readPreview(windowRef, path, mediaPreviewEndpointFor, "media-preview",
+        MAX_MEDIA_PREVIEW_BYTES, validateMediaPreview);
     },
-    async readDocumentPreview(path) {
-      const response = await windowRef.fetch(documentPreviewEndpointFor(path), {
-        method: "GET",
-        cache: "no-store",
-        credentials: "same-origin",
-      });
-      requireSuccess(response, "document-preview");
-      const mime = response.headers.get("Content-Type")?.split(";", 1)[0]?.trim()?.toLowerCase() ?? "";
-      const buffer = await response.arrayBuffer();
-      if (buffer.byteLength > MAX_DOCUMENT_PREVIEW_BYTES) {
-        throw new FileSpaceOperationError("document-preview", 413);
-      }
-      return validateDocumentPreview({
-        path,
-        size: buffer.byteLength,
-        mime,
-        bytes: new Uint8Array(buffer),
-      });
+    readDocumentPreview(path) {
+      return readPreview(windowRef, path, documentPreviewEndpointFor, "document-preview",
+        MAX_DOCUMENT_PREVIEW_BYTES, validateDocumentPreview);
     },
     async copyFile(sourcePath, name, destinationPath, newName) {
       const response = await windowRef.fetch(FILES_ENDPOINT, {

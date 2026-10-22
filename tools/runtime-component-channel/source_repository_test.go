@@ -37,6 +37,10 @@ func TestCanonicalComponentSourceRepositoryPolicy(t *testing.T) {
 		{name: "platform component stays in OS repository", component: "internet", repository: sourceRepository, wantOK: true},
 		{name: "Notes is sourced from ordax-apps", component: "notes", repository: appsSourceRepository, wantOK: true},
 		{name: "Studio is sourced from ordax-apps", component: "studio", repository: appsSourceRepository, wantOK: true},
+		{name: "Product Runtime is sourced from canonical Runtime", component: "product-runtime", repository: productRuntimeSourceRepository, wantOK: true},
+		{name: "Product Runtime cannot claim OS repository", component: "product-runtime", repository: sourceRepository, wantOK: false},
+		{name: "Product Runtime cannot claim apps repository", component: "product-runtime", repository: appsSourceRepository, wantOK: false},
+		{name: "Other platform component cannot claim Runtime repository", component: "internet", repository: productRuntimeSourceRepository, wantOK: false},
 		{name: "Notes cannot claim OS repository", component: "notes", repository: sourceRepository, wantOK: false},
 		{name: "platform component cannot claim ordax-apps", component: "internet", repository: appsSourceRepository, wantOK: false},
 	}

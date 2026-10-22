@@ -37,9 +37,34 @@ class CreatorPhysicalPublisherBoundaryTests(unittest.TestCase):
         self.assertIs(publisher["active_alias_may_move_only_after_archive_readback"], True)
         self.assertIs(publisher["rotation_failure_requires_byte_exact_rollback"], True)
 
+        media = data["media_acquisition"]
+        self.assertEqual(media["owner"], "tools/creator/physicalchannel")
+        self.assertIs(media["consumer_selects_iso_or_image"], False)
+        self.assertIs(media["owner_development_offline_raw_seed_is_separate"], True)
+        self.assertIs(media["previous_version_source_reuse"], True)
+        self.assertIs(media["reject_size_mismatch_before_hashing"], True)
+        self.assertIs(media["revalidate_bytes_during_copy"], True)
+        self.assertIs(media["new_candidate_final_validation_required"], True)
+        self.assertIs(media["exact_17_flat_sources_rechecked_for_offline_and_online_candidates"], True)
+        self.assertIs(media["windows_gui_core_verification_before_elevation"], True)
+        self.assertIs(media["each_portable_asset_url_bound_to_signed_release_commit"], True)
+        self.assertIs(media["cross_release_asset_url_rejected_by_consumer_and_signer"], True)
+        self.assertIs(media["additional_media_catalog_or_cache_allowed"], False)
+        self.assertIs(media["physical_write_authority_unchanged"], True)
+        self.assertIs(media["portable_v3_provenance_separates_writer_and_release_source"], True)
+        self.assertIs(media["portable_v3_provenance_requires_signed_release_proof_and_envelope"], True)
+        self.assertIs(media["portable_v3_consumer_validates_signed_authorization_and_exact_release_proof_bindings"], True)
+        self.assertIs(media["signed_envelope_pointer_prior_state_preserved_on_replace_failure"], True)
+
         integrity = data["physical_candidate_integrity"]
         self.assertIs(integrity["whole_disk_raw_image_required"], False)
         self.assertEqual(integrity["portable_artifact_count"], 17)
+        self.assertIs(integrity["offline_writer_slot_rejects_unbound_root_entries"], True)
+        self.assertIs(integrity["cached_writer_size_checked_before_hashing"], True)
+        self.assertIs(integrity["version_root_must_be_real_directory"], True)
+        self.assertIs(integrity["pre_uac_portable_preparation_confirms_device_capacity_and_serial"], True)
+        self.assertIs(integrity["pre_uac_portable_authorization_requires_lowercase_sha256_shape"], True)
+        self.assertIs(integrity["windows_gui_revalidates_signed_candidate_before_prepare_and_uac"], True)
         self.assertEqual(integrity["portable_application_operation_count"], 39)
         self.assertNotIn("ordax-bootstrap-seed.raw", integrity["critical_files_bound_by_sha256_and_size"])
         self.assertEqual(
@@ -147,7 +172,9 @@ class CreatorPhysicalPublisherBoundaryTests(unittest.TestCase):
         context_sha, file_count = module.authorization_context_sha256(ROOT)
 
         self.assertRegex(context_sha, r"^[0-9a-f]{64}$")
-        self.assertEqual(file_count, 76)
+        # Two inspected-media Core sources are now governed by the same physical
+        # authorization context; adding them never grants write authorization.
+        self.assertEqual(file_count, 82)
 
         if auth["status"] == "authorized":
             self.assertIs(auth["physical_write_allowed"], True)
@@ -182,7 +209,10 @@ class CreatorPhysicalPublisherBoundaryTests(unittest.TestCase):
         }
         self.assertEqual(len(governed), file_count)
         self.assertIn(".github/workflows/first-physical-usb-payload.yml", governed)
+        self.assertIn("system/services/preferences/catalog.mjs", governed)
         self.assertIn("tools/creator/core/portable_sources.go", governed)
+        self.assertIn("tools/creator/core/installed_media_inspection.go", governed)
+        self.assertIn("tools/creator/host/windows/installed_media_inspection_windows.go", governed)
         self.assertIn("tools/creator/physicalchannel/portable_payload.go", governed)
         self.assertNotIn("docs/contracts/creator-consumer-flow.json", governed)
         self.assertNotIn("tools/release-signing/windows/8-Sign-Publish-CreatorPhysical.ps1", governed)

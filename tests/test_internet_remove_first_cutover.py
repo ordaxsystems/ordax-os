@@ -48,7 +48,12 @@ class InternetRemoveFirstCutoverTests(unittest.TestCase):
             self.assertTrue((ROOT / name).is_file(), name)
         native = (ROOT / "system/composition/native/main.mjs").read_text(encoding="utf-8")
         self.assertIn("createNativeBrowserSession", native)
-        self.assertIn("createNativeBrowserDownload", native)
+        # A preserved Host adapter is not the same as an eager Native import.
+        # The Internet app may use the canonical adapter when independently delivered.
+        download = (ROOT / "system/adapters/native/browser-download.mjs").read_text(encoding="utf-8")
+        self.assertIn("export function createNativeBrowserDownload", download)
+        self.assertIn("assertBrowserDownloadPort", download)
+        self.assertNotIn("createNativeBrowserDownload", native)
 
 
 if __name__ == "__main__":

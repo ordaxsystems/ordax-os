@@ -1,9 +1,11 @@
-import { mountNativeSidebarFit, sidebarIsExpanded } from "./sidebar-layout.mjs";
+import { mountNativeSidebarFit, sidebarIsExpanded, sidebarItemIsActive } from "./sidebar-layout.mjs";
 import { mountSidebarHints } from "./sidebar-hints.mjs";
+import { handleHomePreviewClick, handleHomePreviewKeyDown } from "./home-concept.mjs";
 import { assertAppRuntimeCatalog, defaultAppRuntimeCatalog } from "../../apps/runtime-catalog.mjs";
 import { externalAppCopy } from "../../apps/external-app-definition.mjs";
 import { assertAppActivationPort } from "../../contracts/app-activation.mjs";
 import { PREFERENCE_RUNTIME_SCHEMA } from "../../contracts/preference-runtime.mjs";
+import { createPreferencePersistence } from "../../services/preferences/runtime.mjs";
 import { assertPreferenceStore, validatePreferenceRecord } from "../../contracts/preference-store.mjs";
 import { assertSurfaceHost } from "../../contracts/surface-host.mjs";
 import {
@@ -17,13 +19,19 @@ import {
   ACCESSIBILITY_TEXT_SCALE_PREFERENCE_ID,
 } from "../../services/preferences/accessibility.mjs";
 import { resolveColorAppearance } from "../../services/preferences/color-palette.mjs";
+import { APPEARANCE_PREFERENCE_ID } from "../../services/preferences/appearance.mjs";
+import { COLOR_PALETTE_PREFERENCE_ID } from "../../services/preferences/color-palette.mjs";
+import { DISPLAY_SCALE_PREFERENCE_ID } from "../../services/preferences/display.mjs";
 import {
   createDesktopShellMarkup,
   mountDesktopClock,
   syncDesktopShellLocalization,
   syncDesktopPresentationToggle,
+  syncDesktopSidebarToggle,
+  syncDesktopThemeToggle,
 } from "./desktop-shell.mjs";
 import { createSurfaceLocalization } from "../../services/i18n/surface.mjs";
+import { moveDesktopShortcutFocus, moveDockFocus, scrollDockFromWheel } from "../../services/surface/dock-navigation.mjs";
 import { syncDocumentLocaleProfile } from "./document-localization.mjs";
 import { SURFACE_RENDER_LIFECYCLE_SCHEMA } from "../../contracts/surface-render-lifecycle.mjs";
 import {
@@ -413,12 +421,24 @@ export function mountSurface(
   let dragSession = null;
   const renderListeners = new Set();
   const preferenceListeners = new Set();
+  const preferencePersistence = createPreferencePersistence(store);
+  let preferenceDispatching = false;
 
   let state = createSurfaceState(host.getSnapshot(), preferenceSeed, workspaceSeed, catalog);
+  const unsubscribePreferencePersistence = preferencePersistence.subscribe(() => {
+    // The reducer publishes a synchronous preference change after render.
+    // Only a later host ACK needs an independent UI notification.
+    if (!preferenceDispatching) {
+      for (const listener of [...preferenceListeners]) listener(state.preferences);
+    }
+  });
   const preferences = Object.freeze({
     schema: PREFERENCE_RUNTIME_SCHEMA,
     getSnapshot() {
       return state.preferences;
+    },
+    getPersistenceSnapshot() {
+      return preferencePersistence.getSnapshot();
     },
     set(preferenceId, value) {
       dispatch({ type: "preference.set", preferenceId, value });
@@ -441,20 +461,61 @@ export function mountSurface(
   function syncSidebarToggle() {
     const toggle = root.querySelector("[data-sidebar-toggle]");
     const expanded = sidebarIsExpanded(root.querySelector(".ordax-rail"));
-    toggle.setAttribute("aria-expanded", String(expanded));
-    toggle.setAttribute("aria-label", localization.translate(expanded ? "shell.sidebar.collapse" : "shell.sidebar.expand"));
+    syncDesktopSidebarToggle(toggle, expanded, localization);
   }
   const sidebarFit = mountNativeSidebarFit(root.querySelector('[data-sidebar-slot="navigation"]'), syncSidebarToggle);
 
   const workspace = root.querySelector("[data-workspace]");
   const launcher = root.querySelector("[data-launcher]");
+  const navigationMenu = root.querySelector("[data-native-navigation-menu]");
+  const navigationQuery = root.querySelector("[data-native-navigation-query]");
   const launcherToggle = root.querySelector("[data-launcher-toggle]");
   const launcherQuery = root.querySelector("[data-launcher-query]");
   const appLauncher = root.querySelector("[data-app-launcher]");
   const windowLayer = root.querySelector("[data-window-layer]");
+  const nativeDock = root.querySelector(".meridian-native-dock");
   const runningApps = root.querySelector("[data-running-apps]");
   const areaSwitcher = root.querySelector("[data-area-switcher]");
+  const areaMenu = root.querySelector("[data-native-area-menu]");
+  const areaMenuToggle = root.querySelector("[data-area-menu-toggle]");
   const areaKicker = root.querySelector("[data-area-kicker]");
+
+  const updateDockOverflow = () => {
+    if (!nativeDock) return;
+    const remaining = Math.max(0, nativeDock.scrollWidth - nativeDock.clientWidth - nativeDock.scrollLeft);
+    nativeDock.dataset.scrollBefore = String(nativeDock.scrollLeft > 1);
+    nativeDock.dataset.scrollAfter = String(remaining > 1);
+  };
+
+  const onNativeDockWheel = (event) => scrollDockFromWheel(event, nativeDock);
+
+  const revealDockButton = (button) => {
+    if (!nativeDock || !button) return;
+    const viewport = nativeDock.getBoundingClientRect();
+    const target = button.getBoundingClientRect();
+    const scale = nativeDock.offsetWidth > 0 ? viewport.width / nativeDock.offsetWidth : 1;
+    if (!(scale > 0)) return;
+    const inset = 4 * scale;
+    if (target.left < viewport.left + inset || target.width > viewport.width - inset * 2) {
+      nativeDock.scrollLeft += (target.left - viewport.left - inset) / scale;
+    } else if (target.right > viewport.right - inset) {
+      nativeDock.scrollLeft += (target.right - viewport.right + inset) / scale;
+    }
+    updateDockOverflow();
+  };
+
+  const onDockFocus = (event) => revealDockButton(event.target.closest?.("button"));
+  const onDockResize = () => {
+    const focused = root.ownerDocument.activeElement;
+    if (nativeDock?.contains(focused)) revealDockButton(focused.closest("button"));
+    else updateDockOverflow();
+  };
+
+  const setAreaMenuOpen = (open, { restoreFocus = false } = {}) => {
+    areaMenu.hidden = !open;
+    areaMenuToggle.setAttribute("aria-expanded", String(open));
+    if (restoreFocus) areaMenuToggle.focus();
+  };
 
   const findRenderedWindow = (windowId) => {
     const areaId = getActiveArea(state).id;
@@ -601,10 +662,48 @@ export function mountSurface(
   const renderDock = () => {
     const area = getActiveArea(state);
     const retained = new Set();
+    const pinnedButtons = Array.from(root.querySelectorAll("[data-dock-pinned-app]"));
+    const pinnedAppIds = new Set(pinnedButtons.map((button) => button.dataset.dockPinnedApp));
+    for (const button of pinnedButtons) {
+      const appId = button.dataset.dockPinnedApp;
+      const app = catalog.get(appId);
+      const windowState = area.windows.find((item) => item.appId === appId) ?? null;
+      if (!app) {
+        button.hidden = true;
+        continue;
+      }
+      button.hidden = false;
+      const localizedTitle = appTitle(localization, app);
+      if (windowState) {
+        button.dataset.openWindow = windowState.id;
+        button.dataset.active = String(area.activeWindowId === windowState.id && !windowState.minimized);
+        button.dataset.minimized = String(windowState.minimized);
+        button.removeAttribute("data-launch-app");
+        button.setAttribute("aria-label", localization.translate(
+          windowState.minimized ? "surface.dock.restore" : "surface.dock.focus",
+          { app: localizedTitle },
+        ));
+        button.title = `${localizedTitle} · ${localization.translate(
+          windowState.minimized ? "surface.dock.restore" : "surface.dock.focus",
+          { app: localizedTitle },
+        )}`;
+        if (button.dataset.active === "true") button.setAttribute("aria-current", "true");
+        else button.removeAttribute("aria-current");
+      } else {
+        delete button.dataset.openWindow;
+        delete button.dataset.active;
+        delete button.dataset.minimized;
+        button.dataset.launchApp = appId;
+        button.setAttribute("aria-label", localization.translate("surface.launcher.open", { app: localizedTitle }));
+        button.title = localizedTitle;
+        button.removeAttribute("aria-current");
+      }
+    }
     let index = 0;
     for (const windowState of area.windows) {
       const app = catalog.get(windowState.appId);
       if (!app) continue;
+      if (pinnedAppIds.has(app.id)) continue;
       let button = Array.from(runningApps.children).find(
         (child) => child.dataset?.openWindow === windowState.id,
       ) ?? null;
@@ -613,8 +712,20 @@ export function mountSurface(
         button.type = "button";
         button.dataset.openWindow = windowState.id;
       }
-      button.textContent = app.monogram;
+      let icon = button.querySelector(".ordax-rail-icon");
+      if (!icon) {
+        // Preserve existing, potentially focused controls and their children
+        // when repairing an absent icon during incremental reconciliation.
+        icon = element("span", "ordax-rail-icon");
+        icon.setAttribute("aria-hidden", "true");
+        button.prepend(icon);
+      }
+      if (ICONS[app.id]) icon.innerHTML = ICONS[app.id];
+      else icon.textContent = app.monogram;
       button.dataset.active = String(area.activeWindowId === windowState.id && !windowState.minimized);
+      button.dataset.minimized = String(windowState.minimized);
+      if (button.dataset.active === "true") button.setAttribute("aria-current", "true");
+      else button.removeAttribute("aria-current");
       const localizedTitle = appTitle(localization, app);
       button.setAttribute(
         "aria-label",
@@ -631,13 +742,15 @@ export function mountSurface(
     for (const child of Array.from(runningApps.children)) {
       if (child.dataset?.openWindow && !retained.has(child)) child.remove();
     }
+    updateDockOverflow();
   };
 
   const renderSidebar = () => {
     const area = getActiveArea(state);
     const activeWindow = area.windows.find((item) => item.id === area.activeWindowId) ?? null;
-    const homeButton = root.querySelector("[data-show-desktop]");
+    const homeButton = root.querySelector(".meridian-home-destination");
     if (homeButton) {
+      homeButton.hidden = state.presentation !== "central";
       const homeActive = activeWindow === null && state.presentation === "central";
       homeButton.dataset.active = String(homeActive);
       if (homeActive) homeButton.setAttribute("aria-current", "page");
@@ -647,7 +760,10 @@ export function mountSurface(
       const appId = button.dataset.sidebarApp;
       const app = catalog.get(appId);
       button.disabled = !catalog.isAvailable(app, state.capabilityIds);
-      button.dataset.active = String(activeWindow?.appId === appId);
+      const active = sidebarItemIsActive(activeWindow, button);
+      button.dataset.active = String(active);
+      if (active) button.setAttribute("aria-current", "page");
+      else button.removeAttribute("aria-current");
     }
   };
 
@@ -705,6 +821,7 @@ export function mountSurface(
       if (!retained.has(child)) child.remove();
     }
     areaKicker.textContent = areaLabel(activeArea, localization);
+    root.querySelector("[data-current-area]").textContent = areaLabel(activeArea, localization);
   };
 
   const render = () => {
@@ -714,13 +831,22 @@ export function mountSurface(
     root.dataset.ordaxTheme = appearance.scheme;
     root.dataset.theme = appearance.colorTheme;
     root.dataset.ordaxPalette = appearance.colorTheme === "native" ? "native" : "standard";
+    const themeToggle = root.querySelector("[data-native-theme-toggle]");
+    if (themeToggle) {
+      syncDesktopThemeToggle(themeToggle, appearance, localization);
+    }
     root.dataset.workspacePresentation = state.presentation;
+    root.dataset.view = state.presentation;
+    const shell = root.querySelector("[data-ordax-shell]");
+    if (shell) {
+      shell.dataset.workspacePresentation = state.presentation;
+      shell.dataset.view = state.presentation;
+    }
     root.dataset.nativeSidebar = state.sidebarMode;
     const sidebarToggle = root.querySelector("[data-sidebar-toggle]");
     const sidebarExpanded = sidebarIsExpanded(root.querySelector(".ordax-rail"));
     sidebarToggle.hidden = state.presentation === "desktop";
-    sidebarToggle.setAttribute("aria-expanded", String(sidebarExpanded));
-    sidebarToggle.setAttribute("aria-label", localization.translate(sidebarExpanded ? "shell.sidebar.collapse" : "shell.sidebar.expand"));
+    syncDesktopSidebarToggle(sidebarToggle, sidebarExpanded, localization);
     root.querySelector("[data-central-presentation]").hidden = state.presentation !== "central";
     root.querySelector("[data-desktop-presentation]").hidden = state.presentation !== "desktop";
     const presentationToggle = root.querySelector("[data-presentation-toggle]");
@@ -729,8 +855,20 @@ export function mountSurface(
     root.dataset.ordaxMotion = state.preferences[ACCESSIBILITY_MOTION_PREFERENCE_ID];
     documentElement.dataset.ordaxTextScale =
       state.preferences[ACCESSIBILITY_TEXT_SCALE_PREFERENCE_ID];
+    documentElement.dataset.ordaxDisplayScale =
+      state.preferences[DISPLAY_SCALE_PREFERENCE_ID];
+    root.dataset.ordaxDisplayScale = state.preferences[DISPLAY_SCALE_PREFERENCE_ID];
     launcher.hidden = !state.launcherOpen;
     root.querySelectorAll("[data-launcher-toggle]").forEach(button => button.setAttribute("aria-expanded", String(state.launcherOpen)));
+    root.querySelectorAll("[data-navigation-menu-toggle]").forEach(button => button.setAttribute("aria-expanded", String(!navigationMenu.hidden)));
+    const moreDestinations = root.querySelector("[data-nav-menu-more]");
+    if (moreDestinations) {
+      const label = localization.translate("shell.sidebar.more");
+      moreDestinations.setAttribute("aria-label", label);
+      moreDestinations.title = label;
+      const labelNode = moreDestinations.querySelector("span:last-child");
+      if (labelNode) labelNode.textContent = label;
+    }
 
     const connectivityMessage =
       CONNECTIVITY_MESSAGE_IDS[state.connectivity] ?? CONNECTIVITY_MESSAGE_IDS.unknown;
@@ -757,6 +895,15 @@ export function mountSurface(
         : localization.translate("surface.capability.destinationRequired");
     }
 
+    const activeNavigationWindow = getActiveArea(state).windows.find(item => item.id === getActiveArea(state).activeWindowId) ?? null;
+    for (const targetButton of navigationMenu.querySelectorAll("[data-nav-menu-app]")) {
+      const app = catalog.get(targetButton.dataset.navMenuApp);
+      const available = catalog.isAvailable(app, state.capabilityIds);
+      targetButton.disabled = !available;
+      targetButton.setAttribute("aria-disabled", String(!available));
+      targetButton.dataset.active = String(activeNavigationWindow?.appId === targetButton.dataset.navMenuApp);
+    }
+
     renderLauncher();
     renderWindows();
     renderDock();
@@ -771,8 +918,10 @@ export function mountSurface(
     if (next === state) return;
     state = next;
     const preferencesChanged = state.preferences !== previousPreferences;
-    if (preferencesChanged && store) {
-      store.save(state.preferences);
+    if (preferencesChanged) {
+      preferenceDispatching = true;
+      try { preferencePersistence.save(state.preferences); }
+      finally { preferenceDispatching = false; }
     }
     if (workspacePort && WORKSPACE_PERSIST_ACTIONS.has(action?.type)) {
       workspacePort.save(createWorkspaceSnapshot(state));
@@ -790,11 +939,50 @@ export function mountSurface(
       launcherQuery.select();
     });
   };
+  let navigationMenuTrigger = null;
+  const openNativeNavigation = (trigger = document.activeElement) => {
+    navigationMenuTrigger = trigger instanceof HTMLElement ? trigger : null;
+    navigationQuery.value = "";
+    filterNativeNavigation("");
+    navigationMenu.hidden = false;
+    root.querySelectorAll("[data-navigation-menu-toggle]").forEach(button => button.setAttribute("aria-expanded", "true"));
+    queueMicrotask(() => navigationQuery.focus());
+  };
+  const closeNativeNavigation = ({ restoreFocus = false } = {}) => {
+    if (navigationMenu.hidden) return;
+    navigationMenu.hidden = true;
+    root.querySelectorAll("[data-navigation-menu-toggle]").forEach(button => button.setAttribute("aria-expanded", "false"));
+    if (restoreFocus && navigationMenuTrigger?.isConnected) navigationMenuTrigger.focus({ preventScroll: true });
+    navigationMenuTrigger = null;
+  };
+  const filterNativeNavigation = query => {
+    const locale = localization.getLocale();
+    const normalized = String(query).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase(locale).trim();
+    for (const button of navigationMenu.querySelectorAll("[data-nav-menu-item]")) {
+      const value = button.textContent.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase(locale);
+      button.hidden = normalized !== "" && !value.includes(normalized);
+    }
+    for (const group of navigationMenu.querySelectorAll("[data-nav-menu-group]")) {
+      group.hidden = !group.querySelector("[data-nav-menu-item]:not([hidden])");
+    }
+  };
 
   const onClick = (event) => {
+    if (handleHomePreviewClick(event, root, localization)) return;
+    const areaMenuButton = event.target.closest("[data-area-menu-toggle]");
+    if (areaMenuButton) {
+      setAreaMenuOpen(areaMenu.hidden);
+      return;
+    }
+
+    if (!areaMenu.hidden && !event.target.closest("[data-native-area-menu]")) {
+      setAreaMenuOpen(false);
+    }
+
     const areaButton = event.target.closest("[data-area-id]");
     if (areaButton) {
       dispatch({ type: "area.switch", areaId: areaButton.dataset.areaId });
+      setAreaMenuOpen(false);
       workspace.focus({ preventScroll: true });
       return;
     }
@@ -802,12 +990,14 @@ export function mountSurface(
     const areaCreate = event.target.closest("[data-area-create]");
     if (areaCreate) {
       dispatch({ type: "area.create" });
+      setAreaMenuOpen(false);
       workspace.focus({ preventScroll: true });
       return;
     }
 
     const launcherButton = event.target.closest("[data-launcher-toggle]");
     if (launcherButton) {
+      closeNativeNavigation();
       if (state.launcherOpen) {
         dispatch({ type: "launcher.close" });
       } else {
@@ -816,8 +1006,44 @@ export function mountSurface(
       return;
     }
 
+    const navigationToggle = event.target.closest("[data-navigation-menu-toggle]");
+    if (navigationToggle) {
+      if (navigationMenu.hidden) openNativeNavigation(navigationToggle);
+      else closeNativeNavigation({ restoreFocus: true });
+      return;
+    }
+
+    if (event.target.closest("[data-navigation-menu-close]")) {
+      closeNativeNavigation({ restoreFocus: true });
+      return;
+    }
+
+    if (event.target.closest("[data-native-navigation-home]")) {
+      closeNativeNavigation();
+      dispatch({ type: "workspace.presentation", value: "central" });
+      dispatch({ type: "workspace.show-desktop" });
+      workspace.focus({ preventScroll: true });
+      return;
+    }
+
+    if (!navigationMenu.hidden && !event.target.closest("[data-native-navigation-menu]")) {
+      closeNativeNavigation();
+    }
+
+    const themeToggle = event.target.closest("[data-native-theme-toggle]");
+    if (themeToggle) {
+      const appearance = resolveColorAppearance(state.preferences);
+      const nextScheme = appearance.scheme === "dark" ? "light" : "dark";
+      dispatch({ type: "preference.set", preferenceId: APPEARANCE_PREFERENCE_ID, value: nextScheme });
+      if (state.preferences[COLOR_PALETTE_PREFERENCE_ID] === "native") {
+        dispatch({ type: "preference.set", preferenceId: COLOR_PALETTE_PREFERENCE_ID, value: "standard" });
+      }
+      return;
+    }
+
     const appButton = event.target.closest("[data-launch-app]");
     if (appButton) {
+      closeNativeNavigation();
       const appId = appButton.dataset.launchApp;
       const requiredCapability = appButton.dataset.requiresCapability;
       const app = catalog.get(appId);
@@ -895,6 +1121,7 @@ export function mountSurface(
 
   const onInput = (event) => {
     if (event.target === launcherQuery) renderLauncher();
+    if (event.target === navigationQuery) filterNativeNavigation(navigationQuery.value);
   };
 
   // The embedded browser is an implementation detail of the native Surface.
@@ -984,9 +1211,23 @@ export function mountSurface(
   };
 
   const onKeyDown = (event) => {
+    if (handleHomePreviewKeyDown(event, root)) return;
+    if (moveDockFocus(event, nativeDock, "button", revealDockButton)) return;
+    if (moveDesktopShortcutFocus(event, root, "[data-desktop-app]")) return;
+
     if ((event.ctrlKey || event.metaKey) && event.key.toLocaleLowerCase() === "k") {
       event.preventDefault();
-      openLauncher();
+      openNativeNavigation(event.target);
+      return;
+    }
+
+    if (event.key === "Escape" && !navigationMenu.hidden) {
+      closeNativeNavigation({ restoreFocus: true });
+      return;
+    }
+
+    if (event.key === "Escape" && !areaMenu.hidden) {
+      setAreaMenuOpen(false, { restoreFocus: true });
       return;
     }
 
@@ -1046,6 +1287,18 @@ export function mountSurface(
   root.addEventListener("pointercancel", onPointerCancel);
   root.addEventListener("dblclick", onDoubleClick);
   root.addEventListener("keydown", onKeyDown);
+  nativeDock?.addEventListener("scroll", updateDockOverflow, { passive: true });
+  nativeDock?.addEventListener("wheel", onNativeDockWheel, { passive: false });
+  nativeDock?.addEventListener("focusin", onDockFocus);
+  const nativeWindow = root.ownerDocument?.defaultView;
+  const DockObserver = nativeWindow?.ResizeObserver;
+  const dockObserver = typeof DockObserver === "function" ? new DockObserver(onDockResize) : null;
+  if (nativeDock) {
+    dockObserver?.observe(nativeDock);
+    for (const child of nativeDock.children) dockObserver?.observe(child);
+  }
+  nativeWindow?.addEventListener("resize", onDockResize, { passive: true });
+  updateDockOverflow();
   const unsubscribeActivation = activationPort?.subscribe((activation) => {
     const app = catalog.get(activation.appId);
     if (!catalog.isAvailable(app, state.capabilityIds)) return;
@@ -1111,12 +1364,21 @@ export function mountSurface(
       root.removeEventListener("pointercancel", onPointerCancel);
       root.removeEventListener("dblclick", onDoubleClick);
       root.removeEventListener("keydown", onKeyDown);
+      nativeDock?.removeEventListener("scroll", updateDockOverflow);
+      nativeDock?.removeEventListener("wheel", onNativeDockWheel);
+      nativeDock?.removeEventListener("focusin", onDockFocus);
+      dockObserver?.disconnect();
+      nativeWindow?.removeEventListener("resize", onDockResize);
+      unsubscribePreferencePersistence();
+      preferencePersistence.dispose();
       preferenceListeners.clear();
       renderListeners.clear();
       delete root.dataset.ordaxTheme;
       delete root.dataset.ordaxContrast;
       delete root.dataset.ordaxMotion;
+      delete root.dataset.ordaxDisplayScale;
       delete documentElement.dataset.ordaxTextScale;
+      delete documentElement.dataset.ordaxDisplayScale;
       if (originalDocumentLanguage === null) {
         documentElement.removeAttribute("lang");
       } else {

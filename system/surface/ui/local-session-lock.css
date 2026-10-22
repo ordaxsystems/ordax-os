@@ -148,16 +148,6 @@
   line-height: 1.45;
 }
 
-@media (max-width: 560px) {
-  .ordax-local-session-lock {
-    padding: 12px;
-  }
-
-  .ordax-local-session-lock-card {
-    border-radius: var(--ordax-radius-lg);
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
   .ordax-local-session-lock-form input,
   .ordax-local-session-lock-form button {

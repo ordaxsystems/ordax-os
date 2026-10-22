@@ -20,15 +20,17 @@ class ProductDeviceRuntimeTests(unittest.TestCase):
                 gateway,
                 distribution_profile="stable-mvp",
                 product_mode="usb",
-                control_plane_origin="https://cp.example",
+                development_discovery=True, control_plane_origin="https://cp.example",
             )
             native_disk = runtime.ProductDevicePostLoginCoordinator(
                 gateway,
                 distribution_profile="owner-development",
                 product_mode="native-disk",
-                control_plane_origin="https://cp.example",
+                development_discovery=True, control_plane_origin="https://cp.example",
             )
         identity_store.assert_not_called()
+        self.assertFalse(stable.development_discovery)
+        self.assertFalse(native_disk.development_discovery)
         self.assertEqual(stable.after_authenticated_login({}).status, "inactive")
         self.assertEqual(native_disk.after_authenticated_login({}).status, "inactive")
 
@@ -38,13 +40,13 @@ class ProductDeviceRuntimeTests(unittest.TestCase):
                 None,
                 distribution_profile="owner-development",
                 product_mode="usb",
-                control_plane_origin="https://cp.example",
+                development_discovery=False, control_plane_origin="https://cp.example",
             )
             no_origin = runtime.ProductDevicePostLoginCoordinator(
                 object(),
                 distribution_profile="owner-development",
                 product_mode="usb",
-                control_plane_origin="",
+                development_discovery=False, control_plane_origin="",
             )
         identity_store.assert_not_called()
         self.assertEqual(no_gateway.after_authenticated_login({}).status, "inactive")
@@ -57,16 +59,18 @@ class ProductDeviceRuntimeTests(unittest.TestCase):
         with (
             patch.object(runtime, "ProductDeviceIdentityStore", return_value=fake_store) as identity_store,
             patch.object(runtime, "ProductDeviceEnrollmentClient", return_value=fake_client) as client,
+            patch.object(runtime, "ProductDevicePresenceWorker") as presence_worker,
         ):
             coordinator = runtime.ProductDevicePostLoginCoordinator(
                 gateway,
                 distribution_profile="owner-development",
                 product_mode="usb",
-                control_plane_origin="https://cp.example",
+                development_discovery=False, control_plane_origin="https://cp.example",
             )
         identity_store.assert_called_once_with("/var/lib/ordax")
         client.assert_called_once_with("https://cp.example", gateway, fake_store)
         self.assertIs(coordinator.client, fake_client)
+        presence_worker.assert_called_once()
 
     def test_invalid_control_plane_configuration_fails_soft(self):
         gateway = object()
@@ -75,7 +79,7 @@ class ProductDeviceRuntimeTests(unittest.TestCase):
                 gateway,
                 distribution_profile="owner-development",
                 product_mode="usb",
-                control_plane_origin="http://unsafe.example",
+                development_discovery=False, control_plane_origin="http://unsafe.example",
                 state_dir="/tmp/ordax-test-state",
             )
         self.assertEqual(coordinator.after_authenticated_login({}).status, "inactive")
@@ -86,18 +90,20 @@ class ProductDeviceRuntimeTests(unittest.TestCase):
         expected = runtime.PostLoginDeviceResult(status="enrolled", device_id="00000000-0000-4000-8000-000000000001")
         profile = {"displayName": "Surface Dev"}
         with (
-            patch.object(runtime, "ProductDeviceIdentityStore", return_value=object()),
+            patch.object(runtime, "ProductDeviceIdentityStore", return_value=Mock(connector_visibility_enabled=Mock(return_value=False))),
             patch.object(runtime, "ProductDeviceEnrollmentClient", return_value=fake_client),
             patch.object(runtime, "enroll_product_device_after_login", return_value=expected) as enroll,
+            patch.object(runtime, "ProductDevicePresenceWorker") as worker,
         ):
             coordinator = runtime.ProductDevicePostLoginCoordinator(
                 gateway,
                 distribution_profile="owner-development",
                 product_mode="usb",
-                control_plane_origin="https://cp.example",
+                development_discovery=False, control_plane_origin="https://cp.example",
             )
             result = coordinator.after_authenticated_login(profile)
         self.assertEqual(result, expected)
+        worker.return_value.start.assert_not_called()
         enroll.assert_called_once_with(
             fake_client,
             profile,

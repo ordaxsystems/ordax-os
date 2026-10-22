@@ -9,7 +9,7 @@ Routes:
 - `/login/` — sign-in entry point;
 - `/cadastro/` — account creation entry point;
 - `/conta/` — account overview using verified identity/session, with availability of services and a Web entry.
-- `/web/` — product-entry page; authenticated launch is gated by approved destination configuration. The hosted product runtime remains disabled.
+- `https://web.ordax.com.br/` — canonical hosted product entry; the Web runtime owns its session and login. The legacy portal `/web/` redirects there in production; its presentation source is retained for local reference only.
 
 The baseline is dependency-free HTML/CSS/JavaScript. Runtime integration is configured by `config/public-site.json` and fails closed when identity or public release services are not authorized for public activation. The real account forms remain hidden and disabled until those gates pass. The public login and registration entry pages present a neutral loading state while the live gateway is consulted, show credential fields only after server readiness (and legal policy for registration) is verified, and suppress gated-only guidance when available. Neither the home-page registration link nor this presentation state is authority to create an account.
 
@@ -60,3 +60,27 @@ The route `/` is always the public landing page. The authenticated OrdaX/account
 The public MVP prepares and boots OrdaX from removable USB media. It does not advertise or expose installation to internal SSD/NVMe/HDD. Native installation remains a post-MVP foundation.
 
 Web, Mobile, synchronization, backup and cross-device continuity may be presented only as **Em breve** while unavailable. No billing, pricing, commercial tier names or device-count limits are defined at this stage.
+
+## Source-rendered device demonstration
+
+The notebook and compact phone viewport consume static markup rendered from the
+current Meridian components at build-authoring time. The public bundle contains
+no React, Surface runtime, account adapter or service transport. Its existing
+local controller switches source-rendered views and preserves the fictional
+Aurora scenario separately. The phone shows responsive OrdaX Web, not a claim
+that an OrdaX Mobile package has shipped.
+
+Owners: `tools/public-site/surface-snapshot-entry.tsx` selects presentation;
+`surface_snapshot.mjs` renders it with unavailable, read-only adapters and scopes
+the emitted CSS. `playground_fixture.py` validates source hashes and embeds the
+result in the existing fixture. Refresh after changing these presentation owners:
+
+```sh
+node tools/public-site/surface_snapshot.mjs
+python tools/public-site/playground_fixture.py --write
+python tools/public-site/build.py check
+```
+
+`assets/surface-snapshot.json` and `.css` are derived artifacts, not separate UI
+implementations. Source wallpapers are byte-checked against their Surface owners.
+The prototype never submits credentials, forms, device actions or AI requests.

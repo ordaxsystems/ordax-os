@@ -1,11 +1,14 @@
 // Localized shared presentation. No account, device or backend authority.
 import {translateSurfaceMessage} from '../../../services/i18n/surface.mjs';
+import {displayScalePreference} from '../../../services/preferences/display.mjs';
 
 
 export function createJourneyScenarios(locale='pt-BR') {
  const m=id=>translateSurfaceMessage(locale,id);
 
-// Shared fictional screen scenarios for Web, USB and the Meridian design reference.
+// Shared fictional Settings/resource scenarios for Web and USB.
+// First Run is owned only by ../first-run.mjs; its old design storyboard is
+// preserved in docs/evidence/first-run-ssot-2026-10-17, outside runtime imports.
 // Presentation only: completion/effect fields never authorize backend commands.
 // Names/measurements/versions here are examples, never runtime discoveries.
 // Canonical owner mapping: docs/evidence/meridian-round2/coverage.md.
@@ -23,27 +26,6 @@ const systemFixture = Object.freeze({
     persistence: [row(m("meridian.text.0010"), m("meridian.text.0011")), row(m("meridian.text.0012"), m("meridian.text.0907")), row(m("meridian.text.0013"), m("meridian.text.0014")), row(m("meridian.text.0015"), m("meridian.text.0016")), row(m("meridian.text.0908"), m("meridian.text.0017"))],
 });
 const storyboards = {
-    setup: { label: m("meridian.text.0848"), icon: 'sun', owner: m("meridian.text.0018"), summaryFields: [choice('accountChoice', m("meridian.text.0019"), [['connected', m("meridian.text.0020")], ['local', m("meridian.text.0022")]], 'local'), choice('networkChoice', m("meridian.text.0023"), [['connected', m("meridian.text.0024")], ['offline', m("meridian.text.0025")]], 'offline')], start: 'welcome', fullscreen: true, screens: {
-            boot: screen(m("meridian.text.0026"), m("meridian.text.0027"), 'welcome', { phase: 12, nextLabel: m("meridian.text.0028"), conditions: [action(m("meridian.text.0029"), 'boot-error')] }),
-            'boot-error': problem(m("meridian.text.0030"), m("meridian.text.0031"), 'boot', { links: [{ label: m("meridian.text.0032"), action: 'journey:recovery' }] }),
-            welcome: screen(m("meridian.text.0033"), m("meridian.text.0034"), 'language', { nextLabel: m("meridian.text.0035"), conditions: [action(m("meridian.text.0036"), 'boot-error')], rows: [row(m("meridian.text.0909"), m("meridian.text.0037")), row(m("meridian.text.0910"), m("meridian.text.0038"))] }),
-            language: screen(m("meridian.text.0039"), m("meridian.text.0040"), 'keyboard', { fields: [choice('language', m("meridian.text.0041"), [['pt-BR', m("meridian.text.0042")], ['en-US', m("meridian.text.0911")]], 'pt-BR')] }),
-            keyboard: screen(m("meridian.text.0912"), m("meridian.text.0913"), 'region', { fields: [choice('keyboard', m("meridian.text.0914"), [['abnt2', m("meridian.text.0043")], ['us', m("meridian.text.0915")]], 'abnt2')] }),
-            region: screen(m("meridian.text.0916"), m("meridian.text.0044"), 'network', { fields: [choice('zone', m("meridian.text.0045"), [["America/Bahia", m("meridian.text.0918")], ["America/Sao_Paulo", m("meridian.text.0046")], ["Europe/Lisbon", m("meridian.text.0921")]], "America/Bahia")] }),
-            network: screen(m("meridian.text.0047"), m("meridian.text.0048"), 'security', { network: true, nextLabel: m("meridian.text.0049"), actions: [action(m("meridian.text.0050"), 'network-connecting')] }),
-            'network-connecting': screen(m("meridian.text.0051"), m("meridian.text.0052"), 'security', { phase: 65, nextLabel: m("meridian.text.0028"), conditions: [action(m("meridian.text.0053"), 'network-error')] }),
-            'network-error': problem(m("meridian.text.0054"), m("meridian.text.0055"), 'network', { actions: [action(m("meridian.text.0049"), 'security')] }),
-            security: screen(m("meridian.text.0056"), m("meridian.text.0057"), 'account', { fields: [choice('lock', m("meridian.text.0058"), [['configured', m("meridian.text.0059")], ['none', m("meridian.text.0025")]], 'configured')], note: m("meridian.text.0060") }),
-            account: screen(m("meridian.text.0061"), m("meridian.text.0062"), 'privacy', { nextLabel: m("meridian.text.0063"), primaryAction: 'sign-in', actions: [action(m("meridian.text.0064"), 'sign-in'), action(m("meridian.text.0065"), 'sign-up')] }),
-            'sign-in': screen(m("meridian.text.0066"), m("meridian.text.0067"), 'privacy', { nextLabel: m("meridian.text.0068"), conditions: [action(m("meridian.text.0922"), 'identity-error')] }),
-            'sign-up': screen(m("meridian.text.0069"), m("meridian.text.0923"), 'privacy', { nextLabel: m("meridian.text.0028"), actions: [action(m("meridian.text.0070"), 'sign-in')] }),
-            'identity-error': problem(m("meridian.text.0071"), m("meridian.text.0072"), 'account', { actions: [action(m("meridian.text.0073"), 'privacy')] }),
-            privacy: screen(m("meridian.text.0924"), m("meridian.text.0074"), 'name', { fields: [choice('sync', m("meridian.text.0075"), [['local', m("meridian.text.0925")], ['review', m("meridian.text.0076")]], 'local'), choice('memory', m("meridian.text.0077"), [['review', m("meridian.text.0078")], ['off', m("meridian.text.0079")]], 'review')] }),
-            name: screen(m("meridian.text.0926"), m("meridian.text.0080"), 'review', { fields: [{ id: 'deviceName', label: m("meridian.text.0081"), value: m("meridian.text.0927"), max: 48 }] }),
-            review: screen(m("meridian.text.0082"), m("meridian.text.0083"), 'complete', { summary: true, nextLabel: m("meridian.text.0084"), conditions: [action(m("meridian.text.0085"), 'save-error')] }),
-            'save-error': problem(m("meridian.text.0086"), m("meridian.text.0849"), 'review'),
-            complete: screen(m("meridian.text.0087"), m("meridian.text.0088"), null, { tone: 'success', finish: m("meridian.text.0089"), effect: 'setup-complete', links: [{ label: m("meridian.text.0090"), action: 'journey-desktop' }] }),
-        } },
     update: { label: m("meridian.text.0091"), icon: 'refresh', owner: m("meridian.text.0928"), start: 'idle', screens: {
             idle: screen(m("meridian.text.0092"), m("meridian.text.0929"), 'checking', { nextLabel: m("meridian.text.0093"), rows: [row(m("meridian.text.0930"), m("meridian.text.0931")), row(m("meridian.text.0932"), m("meridian.text.0094")), row(m("meridian.text.0095"), m("meridian.text.0096")), row(m("meridian.text.0097"), m("meridian.text.0098"))] }),
             checking: screen(m("meridian.text.0933"), m("meridian.text.0934"), 'available', { phase: 8, nextLabel: m("meridian.text.0099"), conditions: [action(m("meridian.text.0100"), 'current'), action(m("meridian.text.0101"), 'offline')] }),
@@ -182,10 +164,14 @@ Object.assign(storyboards, {
             failed: problem(m("meridian.text.0505"), m("meridian.text.0506"), 'review'),
         } },
 });
+const displayScaleOptions = displayScalePreference.options.map(({value}) => [
+    value,
+    m(`settings.preference.display.option.${value}`),
+]);
 const settingsTopics = [
     { id: 'network', name: m("meridian.text.0507"), icon: 'wifi', detail: m("meridian.text.0508"), fields: [choice('network', m("meridian.text.0509"), [['studio', m("meridian.text.0510")], ['offline', m("meridian.text.0511")]], 'studio')] },
     { id: 'audio', name: m("meridian.text.0512"), icon: 'music', detail: m("meridian.text.0513"), fields: [choice('output', m("meridian.text.0514"), [['speakers', m("meridian.text.1051")], ['headset', m("meridian.text.0515")]], 'speakers')] },
-    { id: 'display', name: m("meridian.text.0873"), icon: 'desktop', detail: m("meridian.text.0874"), fields: [choice('scale', m("meridian.text.0875"), [['100', '100%'], ['125', '125%'], ['150', '150%']], '100')] },
+    { id: 'display', name: m("meridian.text.0873"), icon: 'desktop', detail: m("meridian.text.0874"), fields: [choice('scale', m("meridian.text.0875"), displayScaleOptions, displayScalePreference.defaultValue)] },
     { id: 'keyboard', name: m("meridian.text.0516"), icon: 'terminal', detail: m("meridian.text.0517"), fields: [choice('layout', m("meridian.text.1052"), [['abnt2', m("meridian.text.0043")], ['us', m("meridian.text.0915")]], 'abnt2'), choice('language', m("meridian.text.0041"), [['pt', m("meridian.text.0518")], ['en', m("meridian.text.1053")]], 'pt')] },
     { id: 'region', name: m("meridian.text.0519"), icon: 'clock', detail: m("meridian.text.0520"), fields: [choice('zone', m("meridian.text.0521"), [['bahia', "America/Bahia"], ['sp', "America/Sao_Paulo"]], 'bahia')] },
     { id: 'battery', name: m("meridian.text.0522"), icon: 'battery', detail: m("meridian.text.0523"), fields: [choice('battery', m("meridian.text.0524"), [['normal', m("meridian.text.1054")], ['low', m("meridian.text.1055")], ['charging', m("meridian.text.0525")], ['unknown', m("meridian.text.0526")]], 'normal'), choice('powerMode', m("meridian.text.0527"), [['balanced', m("meridian.text.0876")], ['saving', m("meridian.text.1056")], ['performance', m("meridian.text.1057")]], 'balanced')] },

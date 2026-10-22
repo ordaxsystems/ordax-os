@@ -38,12 +38,19 @@ import { KEYBOARD_LAYOUT_OPTIONS } from "../../services/input/keyboard-layout.mj
 import { COLOR_THEME_OPTIONS, resolveColorAppearance, selectColorTheme } from "../../services/preferences/color-palette.mjs";
 import { listPreferenceDefinitions } from "../../services/preferences/catalog.mjs";
 import { assertSurfaceRenderLifecycle } from "../../contracts/surface-render-lifecycle.mjs";
+import { assertProductConnectorPort } from "../../contracts/product-connector.mjs";
+import { assertDisplayOutputsPort } from "../../contracts/display-outputs.mjs";
+import { mountDisplayOutputControls } from "./display-output-controls.mjs";
+import { assertAudioOutputsPort } from "../../contracts/audio-outputs.mjs";
+import { mountAudioOutputControls } from "./audio-output-controls.mjs";
 
 const SETTINGS_WINDOW_SELECTOR = '[data-window-id="settings"]';
 const SETTINGS_EXTENSION_SELECTOR = '[data-app-extension="settings-overview"]';
 
 const SETTINGS_SECTIONS = Object.freeze([
   Object.freeze({ id: "appearance", messageId: "settings.section.appearance" }),
+  Object.freeze({ id: "audio", messageId: "settings.section.audio" }),
+  Object.freeze({ id: "display", messageId: "settings.section.display" }),
   Object.freeze({ id: "accessibility", messageId: "settings.section.accessibility" }),
   Object.freeze({ id: "regional", messageId: "settings.section.regional" }),
   Object.freeze({ id: "network", messageId: "settings.section.network" }),
@@ -91,6 +98,33 @@ const PREFERENCE_PRESENTATION_IDS = Object.freeze({
       native: Object.freeze({
         label: "settings.preference.appearance.option.native",
         description: "settings.preference.appearance.option.native.description",
+      }),
+    }),
+  }),
+  "display.scale": Object.freeze({
+    label: "settings.preference.display.label",
+    title: "settings.preference.display.title",
+    description: "settings.preference.display.description",
+    options: Object.freeze({
+      automatic: Object.freeze({
+        label: "settings.preference.display.option.automatic",
+        description: "settings.preference.display.option.automatic.description",
+      }),
+      compact: Object.freeze({
+        label: "settings.preference.display.option.compact",
+        description: "settings.preference.display.option.compact.description",
+      }),
+      standard: Object.freeze({
+        label: "settings.preference.display.option.standard",
+        description: "settings.preference.display.option.standard.description",
+      }),
+      comfortable: Object.freeze({
+        label: "settings.preference.display.option.comfortable",
+        description: "settings.preference.display.option.comfortable.description",
+      }),
+      large: Object.freeze({
+        label: "settings.preference.display.option.large",
+        description: "settings.preference.display.option.large.description",
       }),
     }),
   }),
@@ -190,6 +224,9 @@ export function mountSettingsOverviewControls(
   keyboardLayout = null,
   localSession = null,
   localAiPort = null,
+  productConnectorPort = null,
+  displayOutputs = null,
+  audioOutputs = null,
 ) {
   if (!(root instanceof Element)) {
     throw new TypeError("Settings overview controls require a Surface root Element");
@@ -209,6 +246,9 @@ export function mountSettingsOverviewControls(
   const localSessionPort =
     localSession === null ? null : assertLocalSessionPort(localSession);
   const localAi = localAiPort === null ? null : assertLocalAiPort(localAiPort);
+  const connectorPort = productConnectorPort === null ? null : assertProductConnectorPort(productConnectorPort);
+  const displayOutputsPort = displayOutputs === null ? null : assertDisplayOutputsPort(displayOutputs);
+  const audioOutputsPort = audioOutputs === null ? null : assertAudioOutputsPort(audioOutputs);
   const documentObject = root.ownerDocument;
   let settingsExamples = null;
 
@@ -224,18 +264,26 @@ export function mountSettingsOverviewControls(
   let keyboardLayoutPending = false;
   let keyboardLayoutMessageId = null;
   let keyboardLayoutOrdinal = 0;
+  let keyboardLayoutPrimed = false;
   let localSessionSnapshot = localSessionPort === null
     ? null
     : validateLocalSessionSnapshot(localSessionPort.getSnapshot());
   let localAiSnapshot = localAi === null ? null : validateLocalAiSnapshot(localAi.getSnapshot());
   let localSessionPending = false;
   let localSessionMessageId = null;
+  let connectorSnapshot = null;
+  let connectorReadFailed = false;
+  let connectorPending = false;
+  let connectorError = false;
+  let connectorOrdinal = 0;
   let networkManagementReadFailed = false;
   let networkManagementLastSuccessAt = null;
   let networkManagementPending = false;
   let networkManagementMessageId = null;
   let networkReadOrdinal = 0;
   let networkManagementReadOrdinal = 0;
+  let networkReadInFlight = false;
+  let networkManagementReadInFlight = false;
   let networkActionOrdinal = 0;
   let selectedNetworkSsid = null;
   let activeSection = validSettingsSection(lifecycle.getAppTarget("settings"))
@@ -243,6 +291,7 @@ export function mountSettingsOverviewControls(
     : "appearance";
   let destroyed = false;
   let mountedSlot = null;
+  let paintPending = false;
 
   const findSlot = () =>
     root.querySelector(`${SETTINGS_WINDOW_SELECTOR} ${SETTINGS_EXTENSION_SELECTOR}`);
@@ -282,6 +331,9 @@ export function mountSettingsOverviewControls(
     }
     if (element.dataset.settingsLocalSessionCurrent !== undefined) {
       return Object.freeze({ kind: "local-session-current", value: "current" });
+    }
+    if (element.dataset.settingsConnectorToggle !== undefined) {
+      return Object.freeze({ kind: "connector-toggle", value: "discovery" });
     }
     if (element.dataset.settingsLocalSessionAction) {
       return Object.freeze({
@@ -438,6 +490,7 @@ export function mountSettingsOverviewControls(
       if (definition.sectionId !== sectionId) continue;
       const presentation = PREFERENCE_PRESENTATION_IDS[definition.id] ?? null;
       const section = node(documentObject, "section", "ordax-settings-section");
+      section.dataset.settingsPreference = definition.id;
       section.append(
         node(
           documentObject,
@@ -480,7 +533,9 @@ export function mountSettingsOverviewControls(
 
           const preview = node(documentObject, "span", "ordax-settings-theme-preview");
           preview.dataset.themePreview = option.value === "native" ? "dark" : option.value;
+          if (definition.id === "display.scale") preview.hidden = true;
           if (themePreference) {
+            preview.dataset.materialPreview = option.value === "light" ? "paper" : "ink";
             preview.dataset.ordaxPalette = option.value === "native" ? "native" : "standard";
             preview.dataset.palettePreview = option.value === "native" ? "native" : "standard-" + option.value;
           }
@@ -518,6 +573,22 @@ export function mountSettingsOverviewControls(
         section.append(options);
       }
       view.append(section);
+    }
+    // Current device durability is observed, never inferred from a selected value.
+    const persistence = typeof preferences.getPersistenceSnapshot === "function"
+      ? preferences.getPersistenceSnapshot()
+      : null;
+    if (["pending", "saved", "session-only"].includes(persistence)) {
+      const status = node(
+        documentObject,
+        "p",
+        "ordax-settings-preference-persistence",
+        t(`settings.preference.persistence.${persistence}`),
+      );
+      status.dataset.settingsPreferencePersistence = persistence;
+      status.setAttribute("role", "status");
+      status.setAttribute("aria-live", "polite");
+      view.append(status);
     }
   };
 
@@ -619,6 +690,78 @@ export function mountSettingsOverviewControls(
       options.append(button);
     }
     section.append(options);
+    view.append(section);
+  };
+
+  const renderDisplayCapability = (view) => {
+    const mountPoint = node(documentObject, "div", "ordax-settings-display-host-mount");
+    view.append(mountPoint);
+    mountDisplayOutputControls(mountPoint, {
+      documentObject,
+      translate: t,
+      port: displayOutputsPort,
+      mode: "native",
+      onExamples: () => settingsExamples?.open("display"),
+    });
+  };
+
+  const renderAudioCapability = (view) => {
+    const mountPoint = node(documentObject, "div", "ordax-settings-audio-host-mount");
+    view.append(mountPoint);
+    mountAudioOutputControls(mountPoint, {
+      documentObject,
+      translate: t,
+      port: audioOutputsPort,
+      mode: "native",
+      onExamples: () => settingsExamples?.open("audio"),
+    });
+  };
+
+  const renderConnector = (view) => {
+    const section = node(documentObject, "section", "ordax-settings-section");
+    section.dataset.settingsConnector = "";
+    section.append(
+      node(documentObject, "h4", "ordax-settings-section-title", t("settings.connector.title")),
+      node(documentObject, "p", "ordax-settings-section-copy", t("settings.connector.description")),
+    );
+    const status = connectorSnapshot?.available === true
+      ? connectorSnapshot.enabled
+        ? "settings.connector.enabled" : "settings.connector.disabled"
+      : connectorReadFailed ? "settings.connector.unavailable" : "settings.connector.unavailable";
+    section.append(node(documentObject, "p", "ordax-settings-section-copy", t(status)));
+    if (connectorSnapshot?.available === true && connectorSnapshot.enabled) {
+      section.append(node(
+        documentObject, "p", "ordax-settings-section-copy",
+        t("settings.connector.presence." + connectorSnapshot.presenceState),
+      ));
+      const refresh = node(
+        documentObject, "button", "ordax-settings-action",
+        t("settings.connector.refresh"),
+      );
+      refresh.type = "button";
+      refresh.dataset.settingsConnectorRefresh = "";
+      refresh.disabled = connectorPending;
+      section.append(refresh);
+    }
+    if (connectorSnapshot?.available === true && !connectorSnapshot.accountAuthenticated && !connectorSnapshot.canEnableWithoutLogin && !connectorSnapshot.enabled) {
+      section.append(node(documentObject, "p", "ordax-settings-section-copy", t("settings.connector.loginRequired")));
+    }
+    const control = node(
+      documentObject, "button", "ordax-settings-action",
+      connectorPending ? t("settings.connector.pending")
+        : t(connectorSnapshot?.enabled ? "settings.connector.disable" : "settings.connector.enable"),
+    );
+    control.type = "button";
+    control.dataset.settingsConnectorToggle = "";
+    control.setAttribute("role", "switch");
+    control.setAttribute("aria-checked", String(connectorSnapshot?.enabled === true));
+    control.disabled = connectorPending || connectorSnapshot?.available !== true
+      || (!connectorSnapshot.accountAuthenticated && !connectorSnapshot.canEnableWithoutLogin && !connectorSnapshot.enabled);
+    section.append(control);
+    if (connectorError) section.append(node(
+      documentObject, "p", "ordax-settings-section-copy", t("settings.connector.error"),
+    ));
+    section.append(node(documentObject, "p", "ordax-settings-section-copy", t("settings.connector.note")));
     view.append(section);
   };
 
@@ -1227,19 +1370,23 @@ export function mountSettingsOverviewControls(
     renderSectionNavigation(view);
     if (activeSection === "appearance") {
       const examples = node(documentObject, "div", "wm-shared-native-settings");
-      settingsExamples ??= mountSettingsJourneys(root, {mode:"usb",getLocale:localization.getLocale});
+      settingsExamples ??= mountSettingsJourneys(root, {getLocale:localization.getLocale});
       examples.innerHTML = settingsExamples.overview();
       view.append(examples);
     }
-    if (["appearance", "accessibility", "regional"].includes(activeSection)) {
+    if (["appearance", "display", "accessibility", "regional"].includes(activeSection)) {
       renderPreferences(view, activeSection);
+      if (activeSection === "display") renderDisplayCapability(view);
       if (activeSection === "regional") renderKeyboardLayout(view);
     } else if (activeSection === "network") {
       renderNetwork(view);
+    } else if (activeSection === "audio") {
+      renderAudioCapability(view);
     } else if (activeSection === "intelligence") {
       renderIntelligence(view);
     } else if (activeSection === "security") {
       renderSecurity(view);
+      renderConnector(view);
     } else if (activeSection === "notifications") {
       renderNotifications(view);
     }
@@ -1252,14 +1399,57 @@ export function mountSettingsOverviewControls(
     const slot = findSlot();
     if (!slot) {
       mountedSlot = null;
+      paintPending = false;
       return;
     }
-    if (!force && slot === mountedSlot) return;
+    const windowNode = slot.closest(SETTINGS_WINDOW_SELECTOR);
+    // Inactive windows retain their controls without background DOM rebuilds.
+    // The existing Surface render callback flushes deferred state on focus.
+    if (!windowNode || windowNode.hidden || windowNode.dataset.active !== "true") {
+      paintPending = paintPending || force || slot !== mountedSlot;
+      return;
+    }
+    if (!force && !paintPending && slot === mountedSlot) return;
     mountedSlot = slot;
+    paintPending = false;
     paint(slot);
   };
 
   const replaceView = () => renderView(true);
+
+  const refreshConnector = async () => {
+    if (destroyed || !connectorPort) return;
+    const ordinal = ++connectorOrdinal;
+    try {
+      const value = await connectorPort.status();
+      if (destroyed || connectorOrdinal !== ordinal) return;
+      connectorSnapshot = value;
+      connectorReadFailed = false;
+    } catch {
+      if (destroyed || connectorOrdinal !== ordinal) return;
+      connectorSnapshot = null;
+      connectorReadFailed = true;
+    }
+    if (activeSection === "security") replaceView();
+  };
+
+  const configureConnector = async () => {
+    if (!connectorPort || !connectorSnapshot?.available || connectorPending || destroyed) return;
+    if (!connectorSnapshot.accountAuthenticated && !connectorSnapshot.canEnableWithoutLogin && !connectorSnapshot.enabled) return;
+    const requested = !connectorSnapshot.enabled;
+    connectorPending = true;
+    connectorError = false;
+    replaceView();
+    try {
+      connectorSnapshot = await connectorPort.configure(requested);
+      connectorReadFailed = false;
+    } catch {
+      connectorError = true;
+    } finally {
+      connectorPending = false;
+      if (!destroyed) replaceView();
+    }
+  };
 
   const refreshKeyboardLayout = async () => {
     if (!keyboardLayoutPort || destroyed || keyboardLayoutPending) return;
@@ -1279,6 +1469,17 @@ export function mountSettingsOverviewControls(
       keyboardLayoutReadFailed = true;
       if (changed && activeSection === "regional") replaceView();
     }
+  };
+
+  const refreshVisibleKeyboardLayout = () => {
+    const windowNode = findSlot()?.closest(SETTINGS_WINDOW_SELECTOR);
+    // Keyboard preferences are not a global boot requirement. The native
+    // adapter already proved its capability; fetch its live state on demand.
+    if (destroyed || !keyboardLayoutPort || keyboardLayoutPrimed
+      || activeSection !== "regional" || !windowNode || windowNode.hidden
+      || windowNode.dataset.active !== "true") return;
+    keyboardLayoutPrimed = true;
+    void refreshKeyboardLayout();
   };
 
   const configureKeyboardLayout = async (layoutId) => {
@@ -1308,7 +1509,8 @@ export function mountSettingsOverviewControls(
   };
 
   const refreshNetwork = async () => {
-    if (!networkPort || destroyed) return;
+    if (!networkPort || destroyed || networkReadInFlight) return;
+    networkReadInFlight = true;
     const ordinal = ++networkReadOrdinal;
     let changed = false;
     try {
@@ -1324,12 +1526,15 @@ export function mountSettingsOverviewControls(
       if (destroyed || ordinal !== networkReadOrdinal) return;
       changed = !networkReadFailed;
       networkReadFailed = true;
+    } finally {
+      networkReadInFlight = false;
     }
-    if (changed && !destroyed && ordinal === networkReadOrdinal) replaceView();
+    if (changed && !destroyed && ordinal === networkReadOrdinal && activeSection === "network") replaceView();
   };
 
   const refreshNetworkManagement = async () => {
-    if (!networkManagementPort || destroyed || networkManagementPending) return;
+    if (!networkManagementPort || destroyed || networkManagementPending || networkManagementReadInFlight) return;
+    networkManagementReadInFlight = true;
     const ordinal = ++networkManagementReadOrdinal;
     let changed = false;
     try {
@@ -1354,8 +1559,21 @@ export function mountSettingsOverviewControls(
       if (destroyed || ordinal !== networkManagementReadOrdinal) return;
       changed = !networkManagementReadFailed;
       networkManagementReadFailed = true;
+    } finally {
+      networkManagementReadInFlight = false;
     }
-    if (changed && !destroyed && ordinal === networkManagementReadOrdinal) replaceView();
+    if (changed && !destroyed && ordinal === networkManagementReadOrdinal && activeSection === "network") replaceView();
+  };
+
+  // Network observations belong to the visible Settings/Network journey, not every Surface frame.
+  // A single scheduler also prevents duplicate timers for status and management.
+  const refreshActiveNetwork = () => {
+    const windowNode = findSlot()?.closest(SETTINGS_WINDOW_SELECTOR);
+    // Surface retains minimized windows in the DOM, so a mounted slot alone is not visible.
+    if (destroyed || activeSection !== "network" || !windowNode
+      || windowNode.hidden || windowNode.dataset.active !== "true") return;
+    if (networkPort) void refreshNetwork();
+    if (networkManagementPort) void refreshNetworkManagement();
   };
 
   const runNetworkAction = async (action, { ssid = null, password = null } = {}) => {
@@ -1393,10 +1611,28 @@ export function mountSettingsOverviewControls(
   };
 
   const onClick = (event) => {
+    const connectorRefresh = event.target.closest("[data-settings-connector-refresh]");
+    if (connectorRefresh && root.contains(connectorRefresh)) {
+      void refreshConnector();
+      return;
+    }
+    const connectorToggle = event.target.closest("[data-settings-connector-toggle]");
+    if (connectorToggle && root.contains(connectorToggle)) {
+      void configureConnector();
+      return;
+    }
     const openModels = event.target.closest("[data-settings-open-model-store]");
     if (openModels && root.contains(openModels) && activeSection === "intelligence"
       && activationPort !== null) {
       activationPort.publish({ appId: "store", target: "models" });
+      return;
+    }
+    const displayExamplesButton = event.target.closest("[data-settings-display-examples]");
+    if (displayExamplesButton && root.contains(displayExamplesButton)) {
+      settingsExamples ??= mountSettingsJourneys(root, {
+        getLocale: localization.getLocale,
+      });
+      settingsExamples.open("display");
       return;
     }
     const sectionButton = event.target.closest("[data-settings-section]");
@@ -1406,6 +1642,7 @@ export function mountSettingsOverviewControls(
       && validSettingsSection(sectionButton.dataset.settingsSection)
     ) {
       const nextSection = sectionButton.dataset.settingsSection;
+      if (nextSection === "security") void refreshConnector();
       selectedNetworkSsid = null;
       networkManagementMessageId = null;
       if (activationPort) {
@@ -1413,6 +1650,8 @@ export function mountSettingsOverviewControls(
       } else {
         activeSection = nextSection;
         replaceView();
+        refreshActiveNetwork();
+        refreshVisibleKeyboardLayout();
       }
       return;
     }
@@ -1593,8 +1832,11 @@ export function mountSettingsOverviewControls(
       selectedNetworkSsid = null;
       networkManagementMessageId = null;
     }
+    const sectionChanged = activeSection !== nextSection;
     activeSection = nextSection;
-    renderView(false);
+    renderView(sectionChanged);
+    if (sectionChanged) refreshActiveNetwork();
+    refreshVisibleKeyboardLayout();
   });
   const unsubscribeActivation = activationPort?.subscribe((activation) => {
     if (
@@ -1606,6 +1848,8 @@ export function mountSettingsOverviewControls(
       selectedNetworkSsid = null;
       networkManagementMessageId = null;
       replaceView();
+      refreshActiveNetwork();
+      refreshVisibleKeyboardLayout();
     }
   });
   const unsubscribeHost = hostPort.subscribe((snapshot) => {
@@ -1628,15 +1872,12 @@ export function mountSettingsOverviewControls(
     notificationSnapshot = snapshot;
     if (activeSection === "notifications") replaceView();
   });
-  const networkPoll = networkPort
-    ? setInterval(() => void refreshNetwork(), 5000)
+  const networkPoll = networkPort || networkManagementPort
+    ? setInterval(refreshActiveNetwork, 5000)
     : null;
-  const networkManagementPoll = networkManagementPort
-    ? setInterval(() => void refreshNetworkManagement(), 5000)
-    : null;
-  if (keyboardLayoutPort) void refreshKeyboardLayout();
-  if (networkPort) void refreshNetwork();
-  if (networkManagementPort) void refreshNetworkManagement();
+  if (activeSection === "security") void refreshConnector();
+  refreshVisibleKeyboardLayout();
+  refreshActiveNetwork();
 
   return Object.freeze({
     destroy() {
@@ -1646,8 +1887,8 @@ export function mountSettingsOverviewControls(
       networkManagementReadOrdinal += 1;
       networkActionOrdinal += 1;
       keyboardLayoutOrdinal += 1;
+      connectorOrdinal += 1;
       if (networkPoll !== null) clearInterval(networkPoll);
-      if (networkManagementPoll !== null) clearInterval(networkManagementPoll);
       unsubscribeNotifications?.();
       unsubscribeLocalAi?.();
       unsubscribeLocalSession?.();

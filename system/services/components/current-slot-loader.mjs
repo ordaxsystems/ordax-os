@@ -4,6 +4,7 @@ import { validateComponentRuntimeMetadata } from "../../contracts/component-runt
 import { validateComponentRuntime } from "../../contracts/component-runtime.mjs";
 import { composeTrustedComponentContext } from "./runtime-loader.mjs";
 import { assertAppDataPort } from "../../contracts/app-data.mjs";
+import { revokeInstalledAppCapabilityReader } from "../device-agent/installed-app-capability-reader.mjs";
 import {
   assertComponentMountParent,
   createComponentMountContext,
@@ -110,6 +111,8 @@ export async function loadVerifiedCurrentComponentRuntime({
   }
   let mounted = null;
   let releaseMountRoot = null;
+  let trustedContext = null;
+  let returnedMount = false;
   try {
     assertComponentMountParent(context, { label: "Current component" });
     // The privileged Native bootstrap is the only owner of App Data binding.
@@ -117,6 +120,7 @@ export async function loadVerifiedCurrentComponentRuntime({
     const trustedBeforeImport = requireTrustedAppData
       ? await bounded(() => composeTrustedComponentContext(id, context), limit, "trusted context")
       : null;
+    trustedContext = trustedBeforeImport;
     if (trustedBeforeImport !== null) {
       const appData = assertAppDataPort(trustedBeforeImport.appData);
       if (appData.identity.appId !== id) {
@@ -131,6 +135,18 @@ export async function loadVerifiedCurrentComponentRuntime({
     if (current.source !== "slot") {
       throw new TypeError("Bundled source cannot be used as an installed component slot");
     }
+    // An ESM import executes immediately in the privileged Surface realm.
+    // Bind/inspect the host context BEFORE importing any current-slot code:
+    // an unscoped File Space cannot be made safe by a JS revocation wrapper.
+    // Only a separate opaque-origin execution boundary plus host-side
+    // authorization and draining may allow this capability in the future.
+    const effectiveContext = trustedBeforeImport ?? await bounded(
+      () => composeTrustedComponentContext(id, context), limit, "trusted context",
+    );
+    trustedContext = effectiveContext;
+    if (Object.prototype.hasOwnProperty.call(effectiveContext, "fileSpace")) {
+      throw new TypeError("Same-origin component cannot receive Native File Space without isolated host authority");
+    }
     const url = verifiedModuleUrl(slotSource, current);
     const imported = await bounded(() => importModule(url), limit, "import");
     const runtime = validateComponentRuntime(imported?.componentRuntime, {
@@ -139,9 +155,6 @@ export async function loadVerifiedCurrentComponentRuntime({
     if (!identityMatches(current, await readCurrent(slotSource, id, fetchImpl, limit))) {
       throw new Error("Current slot changed before mount");
     }
-    const effectiveContext = trustedBeforeImport ?? await bounded(
-      () => composeTrustedComponentContext(id, context), limit, "trusted context",
-    );
     const mountContext = createComponentMountContext(effectiveContext, id, {
       label: "Current component",
     });
@@ -162,10 +175,12 @@ export async function loadVerifiedCurrentComponentRuntime({
     let destroyed = false;
     mounted = null;
     releaseMountRoot = null;
+    returnedMount = true;
     return Object.freeze({
       destroy() {
         if (destroyed) return;
         destroyed = true;
+        revokeInstalledAppCapabilityReader(trustedContext?.capabilityReader);
         try { runtimeMount.destroy(); } finally { releaseRoot?.(); }
       },
     });
@@ -174,5 +189,11 @@ export async function loadVerifiedCurrentComponentRuntime({
     try { releaseMountRoot?.(); } catch { /* mount root cleanup is isolated */ }
     onError?.(error);
     return null;
+  } finally {
+    // No capability survives failed import, absent slot, mount timeout,
+    // replaced slot or an app that never reached a successful mount.
+    if (!returnedMount) {
+      revokeInstalledAppCapabilityReader(trustedContext?.capabilityReader);
+    }
   }
 }

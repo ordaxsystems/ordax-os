@@ -22,6 +22,7 @@ from public_release_catalog import (
 )
 from playground_fixture import PlaygroundFixtureError, validate_fixture
 from public_html_render import render_public_html
+from plan_catalog import load_catalog, render_catalog
 from legal_snapshots import validate_immutable_legal_snapshots, LegalSnapshotError
 
 # Load the brand compiler by an isolated module identity. Importing a generic
@@ -90,6 +91,11 @@ REQUIRED_FILES = (
     "i18n/catalog.js",
     "i18n/runtime.js",
     "assets/playground-fixture.json",
+    "assets/surface-snapshot.json",
+    "assets/surface-snapshot.css",
+    "assets/public-surface-day.jpg",
+    "assets/public-surface-night.jpg",
+    "assets/public-space-city.jpg",
     "config/public-site.json",
 )
 
@@ -178,6 +184,16 @@ def validate_source(root: Path = SOURCE) -> list[Path]:
                     or sha256_bytes(payload) != illustration["sha256"]):
                 raise PublicSiteError("account layout illustration differs from recorded provenance")
             continue
+        if relative_path == "assets/public-space-city.jpg":
+            if path.read_bytes() != (ROOT / "system/surface/workspace/assets/demo-salvador-1.jpg").read_bytes():
+                raise PublicSiteError("public Space illustration diverged from Surface source")
+            continue
+        if relative_path in {"assets/public-surface-day.jpg", "assets/public-surface-night.jpg"}:
+            kind = "day" if relative_path.endswith("-day.jpg") else "night"
+            owner = ROOT / f"system/surface/workspace/assets/alpine-{kind}.jpg"
+            if path.read_bytes() != owner.read_bytes():
+                raise PublicSiteError("public demo wallpaper diverged from Surface source")
+            continue
         if suffix not in {".html", ".css", ".js", ".json", ".md", ".png"}:
             raise PublicSiteError(
                 f"unexpected public site source type: {path.relative_to(root).as_posix()}"
@@ -186,6 +202,15 @@ def validate_source(root: Path = SOURCE) -> list[Path]:
             text = path.read_text(encoding="utf-8")
             relative_path = path.relative_to(root).as_posix()
             sanitized = text
+            if suffix == ".html":
+                # Navigation to our product is not a remote runtime dependency.
+                # Only anchor hrefs qualify; scripts, styles and embeds still fail.
+                sanitized = re.sub(
+                    r'<a\b[^>]*\bhref="https://web\.ordax\.com\.br/"[^>]*>',
+                    lambda match: match.group(0).replace(
+                        'href="https://web.ordax.com.br/"', 'href="/"'),
+                    sanitized,
+                )
             for allowed_url in REMOTE_RUNTIME_ALLOWLIST.get(relative_path, ()):
                 sanitized = sanitized.replace(allowed_url, "")
             if "http://" in sanitized or "https://" in sanitized:
@@ -360,22 +385,19 @@ def build_bundle(out_dir: Path, source_commit: str, root: Path = SOURCE) -> dict
                 for asset in (
                     "assets/account-dashboard.css", "assets/account-portal.js",
                     "assets/ordax-design-tokens.css", "assets/ordax-font.css",
-                    "assets/web-entry.css", "assets/site.js",
+                    "assets/web-entry.css", "assets/site.js", "assets/plans.css", "i18n/catalog.js",
                 ):
                     version = sha256_bytes((stage / asset).read_bytes())[:16]
                     pattern = r'(["\'])/' + re.escape(asset) + r'(?:\?[^"\']*)?(["\'])'
                     markup = re.sub(pattern, lambda match: match[1] + "/" + asset + "?v=" + version + match[2], markup)
-                marker = "<!-- ORDAX_ACCOUNT_PLAN_CATALOG -->"
-                if marker in markup:
-                    plans = json.loads((ROOT / "docs/contracts/entitlements.json").read_text(encoding="utf-8"))["plan_catalog"]["plans"]
-                    if page.relative_to(stage).as_posix() != "conta/index.html" or markup.count(marker) != 1:
-                        raise PublicSiteError("plan catalog has one public account presentation")
-                    labels = [plan["display_name"] for plan in plans]
-                    if not labels or any(not isinstance(label, str) or len(label) > 64 for label in labels):
-                        raise PublicSiteError("invalid canonical account plan names")
-                    markup = markup.replace(marker, '<ul class="plan-catalog">' + "".join(
-                        "<li>" + html.escape(label) + "</li>" for label in labels
-                    ) + "</ul>")
+                for marker, expected_page in (
+                    ("<!-- ORDAX_ACCOUNT_PLAN_CATALOG -->", "conta/index.html"),
+                    ("<!-- ORDAX_PUBLIC_PLAN_CATALOG -->", "index.html"),
+                ):
+                    if marker in markup:
+                        if page.relative_to(stage).as_posix() != expected_page or markup.count(marker) != 1:
+                            raise PublicSiteError("commercial catalog marker outside its owned page")
+                        markup = markup.replace(marker, render_catalog(load_catalog()))
             except ValueError as exc:
                 raise PublicSiteError(str(exc)) from exc
             page.write_text(markup, encoding="utf-8")

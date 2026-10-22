@@ -135,6 +135,26 @@ class PortableComponentCacheTests(unittest.TestCase):
             self.assertEqual(receipt["component"], "independent-base")
             self.assertEqual(provenance.read_bytes(), before)
 
+    def test_surface_cache_invalidates_for_package_selection_and_decoder_probe(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            for relative in CACHE.COMPONENTS["surface"]["inputs"]:
+                path = root / relative
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text("input-v1\n")
+            initial = CACHE.component_fingerprint("surface", root)
+            for relative in (
+                "bootstrap/surface-runtime/package_config.py",
+                "system/surface/runtime/packages.txt",
+                "system/surface/runtime/media_runtime_probe.py",
+            ):
+                with self.subTest(input=relative):
+                    path = root / relative
+                    path.write_text("input-v2\n")
+                    self.assertNotEqual(initial, CACHE.component_fingerprint("surface", root))
+                    path.write_text("input-v1\n")
+                    self.assertEqual(initial, CACHE.component_fingerprint("surface", root))
+
     def test_runner_environment_is_part_of_fingerprint(self):
         with tempfile.TemporaryDirectory() as td:
             root = self.make_kernel_root(Path(td))

@@ -4,13 +4,7 @@ import {
   renderedSourceSha,
 } from "../../adapters/native/client-diagnostics.mjs";
 import { createNativeBrowserSession } from "../../adapters/native/browser-session.mjs";
-import { createNativeBrowserPageSelection } from "../../adapters/native/browser-page-selection.mjs";
-import { createNativeBrowserPageFind } from "../../adapters/native/browser-page-find.mjs";
-import { createNativeBrowserDownload } from "../../adapters/native/browser-download.mjs";
 import { createNativeComponentStateStore } from "../../adapters/native/component-state.mjs";
-import { createNativeBrowserFavoritesStore } from "../../adapters/native/browser-favorites.mjs";
-import { createNativeBrowserHistoryStore } from "../../adapters/native/browser-history.mjs";
-import { createNativeBrowserSearchPreferencesStore } from "../../adapters/native/browser-search-preferences.mjs";
 import { createNativeDiagnosticJournalStore } from "../../adapters/native/diagnostic-journal-store.mjs";
 import { createNativeFileSpace } from "../../adapters/native/file-space.mjs";
 import { createNativePersonalOrdaxFileActions } from "../../adapters/native/personal-ordax-file-actions.mjs";
@@ -19,7 +13,11 @@ import { createNativeProjectStore } from "../../adapters/native/projects.mjs";
 import { createNativeProjectCloudLinkStore } from "../../adapters/native/project-cloud-links.mjs";
 import { createNativeProjectWebReferenceStore } from "../../adapters/native/project-web-references.mjs";
 import { createNativeNetworkManagement } from "../../adapters/native/network-management.mjs";
+import { createNativeProductConnector } from "../../adapters/native/product-connector.mjs";
 import { createNativeKeyboardLayout } from "../../adapters/native/keyboard-layout.mjs";
+import { createNativeDisplayOutputs } from "../../adapters/native/display-outputs.mjs";
+import { createNativeAudioOutputs } from "../../adapters/native/audio-outputs.mjs";
+import { createNativeDeviceProfile } from "../../adapters/native/device-profile.mjs";
 import { createNativeNotificationStore } from "../../adapters/native/notifications.mjs";
 import { createNativeNetworkStatus } from "../../adapters/native/network-status.mjs";
 import { createNativePowerActions } from "../../adapters/native/power-actions.mjs";
@@ -141,9 +139,10 @@ import { mountPowerControls } from "../../surface/ui/power-controls.mjs";
 import { mountSurface } from "../../surface/ui/surface.mjs";
 import { createSurfaceBootScreen } from "../../surface/ui/boot-screen.mjs";
 import { mountFirstRunExperience } from "../../surface/ui/first-run.mjs";
+import { createNativeFirstRunCursor } from "../../adapters/native/first-run-cursor.mjs";
 import { mountLocalSessionLock } from "../../surface/ui/local-session-lock.mjs";
 import { mountSettingsOverviewControls } from "../../surface/ui/settings-overview-controls.mjs";
-import { mountStoreOverviewControls } from "../../surface/ui/store-overview-controls.mjs";
+import { mountStoreWindows } from "../../surface/ui/store-experience.mjs";
 import { mountSystemOverviewControls } from "../../surface/ui/system-overview-controls.mjs";
 import { mountSystemTrayQuickPanels } from "../../surface/ui/system-tray-quick-panels.mjs";
 import { mountUpdateControls } from "../../surface/ui/update-controls.mjs";
@@ -226,6 +225,32 @@ async function start() {
       fetchImpl: typeof window.fetch === "function" ? window.fetch.bind(window) : null,
     }),
   );
+  // Taxonomy is independent read-only navigation metadata. Once the verified
+  // Profile catalog exists, load it concurrently with the remaining Native
+  // capabilities. Never fetch it if the canonical catalog is unavailable.
+  const bundledProfileTaxonomyPromise = bundledProfilePacksPromise.then((packs) => (
+    packs === null
+      ? null
+      : optionalNativeProbe(
+          "OrdaX Profile taxonomy unavailable; preserving ungrouped catalog",
+          () => loadBundledProfileTaxonomy({
+            fetchImpl: typeof window.fetch === "function" ? window.fetch.bind(window) : null,
+          }),
+        )
+  ));
+  // Profile inventory is a read-only, independent Native Host observation.
+  // Start it with the other optional probes instead of serializing it after
+  // Intelligence, app semantics and Personal OrdaX composition.
+  const profileComponentInventoryPromise = optionalNativeProbe(
+    "OrdaX Profile component inventory unavailable; using empty session inventory",
+    () => createNativeProfileComponentInventory(window),
+  );
+  // Device identity is only needed by First Run, mounted after real Surface
+  // health. Start its verified read now but do not gate shell readiness on it.
+  const deviceProfilePromise = optionalNativeProbe(
+    "OrdaX native device profile unavailable",
+    () => createNativeDeviceProfile(window),
+  );
   const optionalPortsPromise = Promise.all([
     optionalNativeProbe(
       "OrdaX native client diagnostics unavailable",
@@ -280,8 +305,20 @@ async function start() {
       () => createNativeNetworkManagement(window),
     ),
     optionalNativeProbe(
+      "OrdaX native Product Connector unavailable",
+      () => createNativeProductConnector(window),
+    ),
+    optionalNativeProbe(
       "OrdaX native keyboard layout unavailable",
       () => createNativeKeyboardLayout(window),
+    ),
+    optionalNativeProbe(
+      "OrdaX native display output controls unavailable",
+      () => createNativeDisplayOutputs(window),
+    ),
+    optionalNativeProbe(
+      "OrdaX native audio output controls unavailable",
+      () => createNativeAudioOutputs(window),
     ),
     optionalNativeProbe(
       "OrdaX native system metrics unavailable",
@@ -326,7 +363,10 @@ async function start() {
     fileSpace,
     networkStatus,
     networkManagement,
+    productConnector,
     keyboardLayout,
+    displayOutputs,
+    audioOutputs,
     systemMetrics,
     recoveryStatus,
     powerStatus,
@@ -371,7 +411,6 @@ async function start() {
   updateLocalAiHealth(localAi.getSnapshot());
   updateIntelligenceHealth(intelligence.getSnapshot());
   const localAiProbeSupervisor = createLocalAiProbeSupervisor({ localPort: localAi });
-  localAiProbeSupervisor.start();
 
   const localWorkspaceStore = createNativeWorkspaceStore(window);
   const recentFiles = fileSpace === null ? null : createRecentFilesRuntime({
@@ -475,7 +514,6 @@ async function start() {
   const identityActions = createWebIdentityActions(window, identitySession, {
     registrationPolicy: () => identityCredentials.registrationPolicy(),
   });
-  await identityActions.refresh();
   const spaces = createWebSpacesCatalog(window);
   const spaceSelection = createSpaceSelectionRuntime({
     identitySession,
@@ -551,12 +589,16 @@ async function start() {
   const spaceExperience = createSpaceExperienceSource({
     providers: [selectedSpaceAuraCapability],
   });
-  installNativeIntelligenceHostBridge({
-    windowRef: window,
-    intelligencePort: selectedSpaceIntelligence,
-    identitySessionPort: identitySession,
-    spaceSelectionPort: spaceSelection,
-  });
+  // The shared Native UI may run in an unprivileged development browser.
+  // Only a real host bridge may expose Intelligence to privileged consumers.
+  if (typeof window.webkit?.messageHandlers?.ordaxBrowser?.postMessage === "function") {
+    installNativeIntelligenceHostBridge({
+      windowRef: window,
+      intelligencePort: selectedSpaceIntelligence,
+      identitySessionPort: identitySession,
+      spaceSelectionPort: spaceSelection,
+    });
+  }
   const personalOrdaxFileActions = fileSpace === null
     ? null
     : await optionalNativeProbe(
@@ -596,30 +638,29 @@ async function start() {
       expectedApplicationActionProviderOwner: EXTERNAL_FIRST_PARTY_OWNER,
     }),
   );
-  const profileComponentInventory = await optionalNativeProbe(
-    "OrdaX Profile component inventory unavailable; using empty session inventory",
-    () => createNativeProfileComponentInventory(window),
-  ) ?? createSessionProfileComponentInventory();
+  const profileComponentInventory = await profileComponentInventoryPromise
+    ?? createSessionProfileComponentInventory();
   let profileDistributions = [];
   let profileTaxonomy = null;
   if (bundledProfilePacks !== null) {
     try {
       profileDistributions = createLocalProfileDistributions(bundledProfilePacks.packs);
-      try {
-        profileTaxonomy = Object.freeze({
-          catalogPort: createProfilePackCatalogFromPacks({ packs: bundledProfilePacks.packs }),
-          taxonomy: await loadBundledProfileTaxonomy({
-            fetchImpl: typeof window.fetch === "function" ? window.fetch.bind(window) : null,
-          }),
-        });
-        // Fail closed on unknown categories before the UI can open.
-        createProfileTaxonomyView({
-          catalogPort: profileTaxonomy.catalogPort,
-          taxonomy: profileTaxonomy.taxonomy,
-        });
-      } catch (error) {
-        profileTaxonomy = null;
-        console.warn("OrdaX Profile taxonomy unavailable; preserving ungrouped catalog", error);
+      const taxonomy = await bundledProfileTaxonomyPromise;
+      if (taxonomy !== null) {
+        try {
+          profileTaxonomy = Object.freeze({
+            catalogPort: createProfilePackCatalogFromPacks({ packs: bundledProfilePacks.packs }),
+            taxonomy,
+          });
+          // Fail closed on unknown categories before the UI can open.
+          createProfileTaxonomyView({
+            catalogPort: profileTaxonomy.catalogPort,
+            taxonomy: profileTaxonomy.taxonomy,
+          });
+        } catch (error) {
+          profileTaxonomy = null;
+          console.warn("OrdaX Profile taxonomy unavailable; preserving ungrouped catalog", error);
+        }
       }
     } catch (error) {
       console.warn("OrdaX Profile distribution metadata unavailable; continuing without Profiles", error);
@@ -875,6 +916,12 @@ async function start() {
     installTrustedComponentContextProvider(
       createNativeFilesTrustedContextProvider({
         fileSpace: filesOwnerSpace, recentFiles, projects, appActivation,
+        // Only metadata from the independently verified current-slot catalog
+        // may authorize host-port composition for the future external Files.
+        // No signed slot, no Files host ports; no bootstrap fallback or grants.
+        verifiedCurrent: installedAppCatalog?.installed.find(
+          (entry) => entry.component.id === "files",
+        )?.metadata ?? null,
       }),
     );
   }
@@ -899,6 +946,9 @@ async function start() {
       keyboardLayout,
       localSession,
       localAi,
+      productConnector,
+      displayOutputs,
+      audioOutputs,
     );
   } catch (error) {
     reportClientDiagnostic("settings-network-management", error);
@@ -914,6 +964,9 @@ async function start() {
       keyboardLayout,
       localSession,
       localAi,
+      productConnector,
+      null,
+      audioOutputs,
     );
   }
   // Store is optional: its asynchronous verified projection must not prevent
@@ -935,7 +988,7 @@ async function start() {
     recoveryStatus,
   );
   const updateControls = mountUpdateControls(root, updateWatcher, appActivation, surface);
-  const powerControls = mountPowerControls(root, powerActions, surface);
+  const powerControls = mountPowerControls(root, powerActions, surface, updateWatcher);
 
   // Reaching this point proves that the shared Surface composition mounted.
   // Optional app runtimes load only after this acknowledgement so an app-level
@@ -946,6 +999,11 @@ async function start() {
   componentManager.setCurrentHealth("surface-shell", "healthy");
   void updateWatcher.markHealthy();
   const surfaceHeartbeat = createNativeSurfaceHeartbeat(window);
+
+  // Optional Aura discovery can compete for the Native Host while booting.
+  // Keep its existing bounded, read-only retry supervisor; start it only
+  // after the shared shell and official health/heartbeat paths are live.
+  localAiProbeSupervisor.start();
 
   // Account/continuity is online enrichment, not a boot-health dependency.
   // Start it only after the real shared Surface has mounted and acknowledged
@@ -965,13 +1023,16 @@ async function start() {
       storeLifecycleRequests = createAppLifecycleRequestService({
         catalogPort: storeCatalog,
         verifiedCatalogPort: storeCatalogComposition.verifiedCatalogPort,
+        // Read the exact ephemeral Native observations belonging to the
+        // currently published Store projection, never a second inventory.
+        getCurrentObservations: () => storeCatalogComposition.getCurrentObservations(),
         lifecycleDelegate: createNativeAppLifecycleDelegate(window),
       });
     } catch (error) {
       reportClientDiagnostic("store-lifecycle-composition", error);
     }
   }
-  storeOverviewControls = mountStoreOverviewControls(
+  storeOverviewControls = mountStoreWindows(
     root,
     storeCatalog,
     surface,
@@ -1031,6 +1092,9 @@ async function start() {
     // or prevent first boot. First Run proceeds without a guessed plan.
     reportClientDiagnostic("first-run-app-selection", error);
   }
+  // The slow/missing optional Device Profile can no longer delay the real
+  // shell health acknowledgement. First Run still receives the verified port.
+  const deviceProfile = await deviceProfilePromise;
   let firstRun = null;
   try {
     firstRun = mountFirstRunExperience(root, {
@@ -1042,6 +1106,12 @@ async function start() {
       identityActions,
       identityCredentials,
       localSession,
+      deviceProfile,
+      keyboardLayout,
+      resumeCursor: await optionalNativeProbe(
+        "OrdaX native First Run cursor unavailable",
+        () => createNativeFirstRunCursor(window),
+      ),
     });
   } catch (error) {
     reportClientDiagnostic("first-run", error);

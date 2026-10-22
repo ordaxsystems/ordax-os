@@ -175,3 +175,15 @@ Uninstall must not implicitly delete documents, Projects, Space data, App Data o
 ## Localization
 
 There is one OrdaX localization architecture, but message catalogs remain component-scoped. An independently delivered app must carry/resolve compatible localization content without forcing an unrelated Base update.
+
+## Idempotency ledger capacity (Store lifecycle)
+
+The authority-free Store lifecycle request service remembers **all** request IDs
+(decisions accepted, rejected, or pending) within the lifetime of one mounted
+instance, with a bounded maximum of 256 identities. Known IDs replay the original
+promise and a reused ID with a different operation/target fails closed.
+Once the ledger is full, **new** IDs receive
+`lifecycle-request-capacity-exhausted`; no prior decisions are evicted and no
+Native delegation is attempted. The UI must establish a fresh service session
+for additional operations rather than reusing an old ID. This is a request
+admission policy, not proof of installation or a persistent Native receipt.

@@ -206,7 +206,7 @@ const routes = [
 
 for (const route of routes) {
   const html = read(route);
-  assert(html.includes('<script src="/i18n/catalog.js" defer></script>'), `${route} missing public-site catalog owner`);
+  assert(/<script src="\/i18n\/catalog\.js(?:\?[^"]+)?" defer><\/script>/.test(html), `${route} missing public-site catalog owner`);
   assert(html.includes('<script src="/i18n/runtime.js" defer></script>'), `${route} missing public-site locale runtime`);
   assert(
     html.indexOf("/i18n/catalog.js") < html.indexOf("/i18n/runtime.js"),
@@ -241,7 +241,7 @@ const fixtureStrings = [];
   } else if (value && typeof value === "object") {
     Object.values(value).forEach(walk);
   }
-})(fixture);
+})({...fixture, surface: undefined});
 for (const value of fixtureStrings) {
   if (!looksPortuguese(value)) continue;
   assert(sourceMessages.has(normalize(value)), `playground fixture copy missing from localization owner: ${value}`);

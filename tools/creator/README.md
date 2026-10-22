@@ -32,6 +32,12 @@ The shared Core owns:
 
 Platform adapters own only unavoidable host API integration. They may not define another OrdaX layout or security policy.
 
+## Unsigned review bundle versus signed Portable v3 distribution
+
+`Physical Write Promotion` can preflight and build a Windows writer review input, but currently packages only `prototype-ordax.creator-physical-manifest/2` without the signed v3 release envelope. That bundle must never be installed as a physical-media-ready Stable release. The public Creator's existing v3 verifier requires 17 canonical source files, each with a release-commit-bound URL, SHA-256 and size, plus valid purpose-bound Ed25519 provenance. The workflow explicitly reports `PORTABLE_V3_17_SOURCE_RELEASE_READY=NO`, `PORTABLE_V3_SIGNED_WRITER_PUBLISHED=NO` and `PHYSICAL_USB_WRITE_READY=NO` while it emits v2; these indicators describe publication readiness, not consent or completed hardware proof.
+
+Source-scoped owner consent is governed **only** by `docs/contracts/physical-write-authorization.json` and `physical_promotion.py`. Historical permission cannot survive changes to the protected context; renew authorization through the official owner ceremony once the v3 publisher inputs are final. The publisher signs with its legitimately held offline key, verifies exact asset readback, and never ships the private key. Live removable-target re-enumeration, destructive confirmation, UAC, physical 17/17 readback and boot/recovery evidence remain separate mandatory gates.
+
 ## Creator payload boundary
 
 `source_path` in `docs/contracts/minimal-bootstrap.json` means a slash-separated path **relative to the assembled Creator payload root**, never an arbitrary developer/runner path.
@@ -152,7 +158,7 @@ POST_WRITE_READBACK=IMPLEMENTED_GATED
 PHYSICAL_SIGNED_CHANNEL=IMPLEMENTED
 OFFLINE_LAST_KNOWN_GOOD_PHYSICAL_BACKEND=IMPLEMENTED
 CREATOR_DEV_CHANNEL=READ_ONLY
-EXPLICIT_OWNER_AUTHORIZATION_STABLE_MVP=YES_SOURCE_CONTRACT
+EXPLICIT_OWNER_AUTHORIZATION_STABLE_MVP=SEE_CANONICAL_CONTRACT
 CANONICAL_RELEASE_TRUST=PASS_CANONICAL_PUBLIC_ANCHOR_PINNED
 MINIMAL_BOOTSTRAP_ALL_ARTIFACTS_RESOLVED=YES
 PHYSICAL_AUTHORIZATION_ELIGIBLE=YES
@@ -174,6 +180,16 @@ NATIVE_INSTALL_FOUNDATION_PHASE=POST_MVP
 ```
 
 The development `OrdaX-Creator.exe` is intentionally useful for the graphical workflow, signed bundle update discovery and safe USB discovery. The current split-bundle channel does not perform automatic in-app installation; bundle replacement remains explicit until a complete multi-file staging/rollback updater exists. The ordinary GUI also cannot acquire a raw writer by itself: canonical public trust is resolved, while explicit Stable/MVP owner authorization and the public physical-apply boundary remain closed. This separation prevents an ordinary development build from becoming destructive by accident.
+
+The official Creator has three independently signed/versioned concerns: the Creator app itself (`appchannel`), read-only inspection components (`componentchannel`), and the physical Portable release (`physicalchannel`). The **Owner/Development** ZIP deliberately includes an offline RAW bootstrap seed; it is not the Stable/MVP image-acquisition model. The official Portable channel acquires 17 signed, SHA-256/size-bound artifacts rather than a target-sized full-disk RAW image. For a new signed candidate, `physicalchannel` may reuse unchanged artifacts already present in an existing version slot **only after checking the expected signed size first and independently verifying SHA-256**; corrupt, oversized or unsafe donor files are ignored and must be acquired again from the canonical release. The final candidate is reverified before atomic publication. The signed physical writer slot also rejects unbound root entries and non-real root directories. Before SHA-256 streaming, each of its eight signed critical files must have the exact bound size; an oversized cached donor is not hashed. The signed physical candidate's source-directory verification now delegates to the existing Creator Core `VerifyPortableSources` gate for **exactly 17 flat regular files**; a cached candidate containing extra files, directories or links is not considered a valid offline source even if every signed artifact hash still matches. This optimization never changes the signed source, never activates an unverified release and never authorizes writes. `docs/contracts/creator-consumer-flow.json#media_acquisition` owns this consumer policy; neither a second cache index nor a second release manifest is permitted.
+
+Each Portable artifact URL is required to point to a single canonical HTTPS release asset under the **exact** `ordax-stable-v4-<release_source_commit>` tag in the already signed v3 payload. The consumer and offline signer both reject other OrdaX versions, similar-looking tags, nested paths and encoded separators; the Windows signing preflight checks the same boundary before private-key use. Bytes remain SHA-256/size pinned, without introducing a release catalog or image selector.
+
+The Portable v3 cached/online consumer also verifies the **signed, embedded** `physical-write-authorization.json` against `provenance.json`: exact SHA-256 of the authorization bytes, explicit approved state, sequence/context, public-trust and contract hashes, and canonical Stable v4 proof/source/envelope. This reuses the existing eight manifest-bound files and publisher contract; well-formed but mismatched SHA-256 fields cannot authorize a candidate. Legacy v2 compatibility is unchanged.
+
+Portable physical candidate provenance now consumes the exact four additional fields produced by the canonical physical-promotion workflow. A v3 candidate binds its writer commit separately from the canonical Stable v4 release commit, exact release proof hash and canonical HTTPS envelope; a missing/mismatched field blocks use of the signed cached candidate. No permission to write USB is implied.
+
+All signed current/pending/previous Creator channel pointers share `tools/creator/internal/atomicfile`: stage beside the destination, sync, then replace without unlinking the previous signed pointer first. If the pointer commit fails, the last signed offline reference stays intact, subject to each channel's signature, sequence and byte-verification rules. This is not a second trust authority, cache or update channel.
 
 The final Portable physical flow is implemented behind the isolated tagged/publisher boundary, but it is not yet a public Creator capability:
 
@@ -249,6 +265,40 @@ ordax-creator stage-tree \
 ```
 
 See `docs/CREATOR-INSTALLATION.md`, `docs/PHYSICAL-MEDIA.md`, `docs/RELEASE-TRUST-CEREMONY.md` and `docs/PROMOTION-GATES.md`.
+
+## Existing USB inspection — read-only first slice
+
+The Creator now has an explicitly **read-only** installed-media inspection
+entrypoint in the existing Windows targets CLI:
+
+```powershell
+ordax-creator-targets.exe
+ordax-creator-targets.exe --confirm <fresh USB confirmation token> --inspect
+```
+
+The second command re-enumerates the removable USB, checks the existing
+confirmed PhysicalDrive identity and target-volume isolation, then reads the
+GPT through a `GENERIC_READ` handle. The Creator Core verifies protective MBR,
+both GPT header and entry-array CRCs, primary/backup agreement, physical
+capacity and non-overlapping partition ranges. It recognizes only **candidate
+layouts** (`owner-development-candidate`, `owner-seed-candidate`,
+`portable-stable-candidate`) and reports unknown but valid GPTs as
+`unrecognized`. Damaged GPTs fail closed.
+
+The `verification=gpt-primary-backup-crc-and-geometry-only` field is deliberate:
+GPT labels cannot prove OrdaX installation authenticity, filesystem health,
+bootability, installed version, update eligibility or repair safety. This
+command **never mounts, repairs, downloads, elevates or writes**, and
+`physical_write=false` is a fixed contract. It does not alter or bypass the
+separate signed physical release and target-specific destructive gates.
+
+Next maintenance slices should use the same confirmed-target and Core policy
+boundary: read-only ESP/bootstrap inspection, safe detection of offline
+transaction receipts and update status, then a separately authorized backup
+and recovery runtime with independent ext4 validation. Owner/Development Git
+updates must keep using the canonical `ordax-pull` owner; Stable/MVP updates
+must use signed release material. Neither may add a parallel updater or
+infer "repairable" from GPT labels.
 
 ## Native installation foundation — post-MVP
 
