@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { HOSTED_ACCOUNT_SIGNUP_URL, requestNativeHostedSignup } from "../system/services/account/hosted-signup.mjs";
+import { HOSTED_ACCOUNT_SIGNUP_URL, isHostedSignupEnabled, requestNativeHostedSignup } from "../system/services/account/hosted-signup.mjs";
 import { PRODUCT_FAMILY_PUBLIC_ENDPOINTS } from "../system/contracts/product-family.mjs";
 
 const read = (path) => readFile(new URL("../" + path, import.meta.url), "utf8");
@@ -17,6 +17,13 @@ test("hosted signup derives only from the canonical OrdaX public origin", () => 
   assert.equal(url.hash, "");
 });
 
+test("hosted signup requires explicit server-owned public authorization", () => {
+  for (const policy of [undefined, null, {}, { registrationEnabled: true }, { publicRegistrationEnabled: false }, { publicRegistrationEnabled: "true" }]) {
+    assert.equal(isHostedSignupEnabled(policy), false);
+  }
+  assert.equal(isHostedSignupEnabled({ registrationEnabled: false, publicRegistrationEnabled: true }), true);
+});
+
 test("Native First Run offers hosted registration without spoofing account authority", async () => {
   const [ui, css] = await Promise.all([
     read("system/surface/ui/first-run.mjs"),
@@ -27,6 +34,9 @@ test("Native First Run offers hosted registration without spoofing account autho
   assert.match(ui, /hostedRegistration\.target = "_blank"/);
   assert.match(ui, /hostedRegistration\.rel = "noopener noreferrer"/);
   assert.match(ui, /dataset\.firstRunHostedSignup/);
+  assert.match(ui, /else if \(hostedSignupAllowed\)/);
+  assert.match(ui, /hostedSignupAllowed = isHostedSignupEnabled\(policy\)/);
+  assert.match(ui, /Novos cadastros ainda não estão disponíveis/);
   assert.match(ui, /Após confirmar seu e-mail, volte ao OrdaX e entre/);
   assert.match(ui, /"account-local"/);
   assert.match(css, /\.ordax-first-run-action\[href\]/);
@@ -39,6 +49,10 @@ test("Native Account settings offers the same hosted flow only when direct regis
   assert.match(source, /hostedRegistration\.target = "_blank"/);
   assert.match(source, /hostedRegistration\.rel = "noopener noreferrer"/);
   assert.match(source, /dataset\.accountHostedSignup/);
+  assert.match(source, /else if \(hostedSignupAllowed\)/);
+  assert.match(source, /hostedSignupAllowed = isHostedSignupEnabled\(policy\)/);
+  assert.match(source, /t\("account.action.hostedRegister"\)/);
+  assert.match(source, /t\("account.registration.unavailable"\)/);
   assert.doesNotMatch(source, /window\.location\.assign\(HOSTED_ACCOUNT_SIGNUP_URL\)/);
 });
 
