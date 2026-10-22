@@ -3,6 +3,8 @@
 
 package main
 
+const productRuntimeSourceRepository = "ordaxsystems/ordax-runtime"
+
 var canonicalExternalComponentSourceRepositories = map[string]string{
 	"activity": appsSourceRepository,
 	"calculator": appsSourceRepository,
