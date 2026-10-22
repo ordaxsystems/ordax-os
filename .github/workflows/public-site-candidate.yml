@@ -230,6 +230,7 @@ jobs:
           node --test tests/test_public_proxy_vercel_oidc.mjs
           node --test tests/test_public_auth_edge_rate_limit.mjs
           node --test tests/test_public_account_edge_bounded_body.mjs
+          node --test tests/test_closed_account_boundary.mjs
           node --test tests/test_account_service_bridge.mjs
           node --test tests/test_account_privileged_rpc.mjs
           node --test tests/test_account_transport_admission.mjs
