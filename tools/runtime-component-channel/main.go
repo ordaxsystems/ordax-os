@@ -1339,7 +1339,7 @@ func verifySlotCommand(args []string) error {
 }
 
 func usage() {
-	fmt.Fprintln(os.Stderr, "usage: ordax-runtime-component-channel <generate-key|derive-trust|sign|verify-envelope|stage|verify-slot|sign-v2|verify-envelope-v2|stage-v2|verify-slot-v2|inspect-slot-compatibility-v2|inspect-activation-compatibility-v2|inspect-active-compatibility-catalog-v2|sign-store-catalog|verify-store-catalog|arm-pending|record-health|promote-state|reject-pending|rollback-state|uninstall-state|resolve-current|resolve-pending|read-runtime-file|status> [options]")
+	fmt.Fprintln(os.Stderr, "usage: ordax-runtime-component-channel <generate-key|derive-trust|sign|verify-envelope|stage|verify-slot|sign-v2|verify-envelope-v2|stage-v2|verify-slot-v2|inspect-slot-compatibility-v2|inspect-activation-compatibility-v2|inspect-active-compatibility-catalog-v2|sign-store-catalog|verify-store-catalog|arm-pending|record-health|promote-state|reject-pending|rollback-state|uninstall-state|resolve-current|resolve-pending|inspect-native-product-handoff|read-runtime-file|status> [options]")
 }
 
 func main() {
@@ -1391,6 +1391,8 @@ func main() {
 		err = rollbackStateCommand(os.Args[2:])
 	case "uninstall-state":
 		err = uninstallStateCommand(os.Args[2:])
+	case "inspect-native-product-handoff":
+		err = inspectNativeProductHandoffCommand(os.Args[2:])
 	case "resolve-current":
 		err = resolveCurrentCommand(os.Args[2:])
 	case "resolve-pending":

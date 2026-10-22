@@ -464,3 +464,36 @@ Independent Base profile. No public component signer/trust anchor, runtime
 health promotion, USB delivery, or remote authorization is established by
 this packaging contract. Do not stage the unsigned CI artifact as a signed
 component or execute it on hardware.
+
+
+### Verified native Product Runtime handoff (read-only)
+
+The *existing* `ordax-runtime-component-channel` is also the owner of the
+read-only handoff inspection; no new package installer, credential parser, or
+action dispatcher is introduced.
+
+```sh
+ordax-runtime-component-channel inspect-native-product-handoff \
+  --source-lock /srv/ordax-system/services/device-agent/studio-runtime-source-lock.json \
+  --trust-policy /srv/ordax-system/contracts/runtime-component-trust-policy.json \
+  --trust /srv/ordax-system/trust/runtime-components-ed25519.json \
+  --root /var/lib/ordax/components
+```
+
+The command **only** returns an exact signed-current slot path, version,
+source commit and activation revision after the OS-owned Runtime lock states
+that the Independent Base ABI/embedded dependency closure and signed
+distribution are proven; the canonical component trust anchor is pinned
+to an exact SHA-256; and the same Go channel verifies the current slot,
+component-specific executable entrypoint and immutable mode. It rejects
+unsigned CI ZIPs, staged-but-not-installed packages, mismatched pinned
+commits, missing ABI proof, and missing component trust. It never calls
+`exec`, attests a Central session, opens a port, turns on remote actions or
+persists a separate installed-state record. The caller must still guard
+against slot identity changes before execution, observe the existing local
+Product Connector permission, supervise the process and record real health.
+
+At present the OS source lock explicitly denies this handoff. Unit tests
+use a **synthetic ELF with an ephemeral signing key** solely to exercise
+metadata validation; they do not provide evidence of an installable
+Buildroot Runtime or actual MCP control on USB hardware.
