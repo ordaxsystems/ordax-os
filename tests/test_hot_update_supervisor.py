@@ -607,13 +607,18 @@ class HotUpdateSupervisorContractTests(unittest.TestCase):
         self.assertIn('HEALTH_TOKEN_HEADER = "X-OrdaX-Health-Token"', text)
         self.assertIn("record_surface_health", text)
         self.assertIn("bootRefreshRequired", text)
-        self.assertNotIn("Access-Control-Allow-Origin", text)
+        self.assertIn(
+            'if opaque_signed_module_read_is_trusted(self.headers, self.path, self.command):',
+            text,
+        )
+        self.assertIn('self.send_header("Access-Control-Allow-Origin", "null")', text)
+        self.assertNotIn('self.send_header("Access-Control-Allow-Origin", "*")', text)
 
     def test_native_server_disables_static_surface_cache(self):
         text = NATIVE_HOST_SERVER.read_text(encoding="utf-8")
         self.assertIn('self.send_header("Cache-Control", "no-store, max-age=0")', text)
         self.assertIn('self.send_header("Pragma", "no-cache")', text)
-        self.assertIn('not urlsplit(self.path).path.startswith("/__ordax/native/")', text)
+        self.assertIn('if not parsed_path.startswith("/__ordax/native/"):', text)
 
     def test_native_composition_owns_reload_watcher_and_update_center(self):
         adapter = NATIVE_UPDATE_ADAPTER.read_text(encoding="utf-8")

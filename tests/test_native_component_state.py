@@ -101,7 +101,12 @@ class NativeComponentStateTests(unittest.TestCase):
             loopback_guard_found,
             "Component-state endpoint must remain inside a loopback-only native guard",
         )
-        self.assertNotIn("Access-Control-Allow-Origin", text)
+        self.assertIn(
+            'if opaque_signed_module_read_is_trusted(self.headers, self.path, self.command):',
+            text,
+        )
+        self.assertIn('self.send_header("Access-Control-Allow-Origin", "null")', text)
+        self.assertNotIn('self.send_header("Access-Control-Allow-Origin", "*")', text)
 
     def test_component_manager_preserves_platform_boundaries(self):
         manifest = MANIFEST.read_text(encoding="utf-8")
