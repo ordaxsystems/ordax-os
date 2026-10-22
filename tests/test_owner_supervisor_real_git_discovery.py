@@ -85,6 +85,7 @@ class OwnerSupervisorRealGitDiscoveryTests(unittest.TestCase):
         assert actual_git
         declarations = {
             "WORKTREE": self.worktree, "STATE_DIR": self.state,
+            "UPDATE_RUN_DIR": self.run,
             "UPDATE_LOG": self.run / "update.log",
             "UPDATE_STATE": self.state_file,
             "OWNER_POLL_BOOT_FILE": self.state / "native-state/supervisor-boot-witness.json",
