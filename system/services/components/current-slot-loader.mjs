@@ -135,11 +135,9 @@ export async function loadVerifiedCurrentComponentRuntime({
     if (current.source !== "slot") {
       throw new TypeError("Bundled source cannot be used as an installed component slot");
     }
-    // An ESM import executes immediately in the privileged Surface realm.
-    // Bind/inspect the host context BEFORE importing any current-slot code:
-    // an unscoped File Space cannot be made safe by a JS revocation wrapper.
-    // Only a separate opaque-origin execution boundary plus host-side
-    // authorization and draining may allow this capability in the future.
+    // Compose host-owned context before the isolated importer is called.
+    // The default loader refuses File Space because no per-Space Native host
+    // authority exists; only a future broker may add it to the opaque bridge.
     const effectiveContext = trustedBeforeImport ?? await bounded(
       () => composeTrustedComponentContext(id, context), limit, "trusted context",
     );
@@ -148,7 +146,10 @@ export async function loadVerifiedCurrentComponentRuntime({
       throw new TypeError("Same-origin component cannot receive Native File Space without isolated host authority");
     }
     const url = verifiedModuleUrl(slotSource, current);
-    const imported = await bounded(() => importModule(url), limit, "import");
+    // The importer receives the exact verified current-slot observation so a
+    // Native isolated runtime can revalidate revision and identity before each
+    // privileged operation. The module URL alone does not carry revision.
+    const imported = await bounded(() => importModule(url, current), limit, "import");
     const runtime = validateComponentRuntime(imported?.componentRuntime, {
       componentId: id, version: current.version,
     });
@@ -177,15 +178,15 @@ export async function loadVerifiedCurrentComponentRuntime({
     releaseMountRoot = null;
     returnedMount = true;
     return Object.freeze({
-      destroy() {
+      async destroy() {
         if (destroyed) return;
         destroyed = true;
         revokeInstalledAppCapabilityReader(trustedContext?.capabilityReader);
-        try { runtimeMount.destroy(); } finally { releaseRoot?.(); }
+        try { await runtimeMount.destroy(); } finally { releaseRoot?.(); }
       },
     });
   } catch (error) {
-    try { mounted?.destroy(); } catch { /* component errors cannot crash Surface */ }
+    try { await mounted?.destroy(); } catch { /* component errors cannot crash Surface */ }
     try { releaseMountRoot?.(); } catch { /* mount root cleanup is isolated */ }
     onError?.(error);
     return null;

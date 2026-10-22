@@ -4325,6 +4325,26 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
                 mime = "text/css; charset=utf-8"
             elif request.requested_path.endswith(".json"):
                 mime = "application/json; charset=utf-8"
+            elif request.requested_path.endswith(".svg"):
+                mime = "image/svg+xml"
+            elif request.requested_path.endswith(".png"):
+                mime = "image/png"
+            elif request.requested_path.endswith((".jpg", ".jpeg")):
+                mime = "image/jpeg"
+            elif request.requested_path.endswith(".webp"):
+                mime = "image/webp"
+            elif request.requested_path.endswith(".avif"):
+                mime = "image/avif"
+            elif request.requested_path.endswith(".gif"):
+                mime = "image/gif"
+            elif request.requested_path.endswith(".woff2"):
+                mime = "font/woff2"
+            elif request.requested_path.endswith(".woff"):
+                mime = "font/woff"
+            elif request.requested_path.endswith(".ttf"):
+                mime = "font/ttf"
+            elif request.requested_path.endswith(".otf"):
+                mime = "font/otf"
 
             self.send_response(200)
             self.send_header("Content-Type", mime)

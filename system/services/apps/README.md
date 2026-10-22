@@ -12,7 +12,7 @@ The first-party external component registry is **generated**, never hand-maintai
 `tools/app-policy/render_external_first_party_policy.py` →
 `system/services/apps/external-first-party-policy.mjs`.
 
-The 16 current IDs consist of 15 canonical component-package sources (including Rede and Projetos, whose source cutovers are complete but whose Native probation and production activation remain blocked) plus Studio's separate distribution path. Candidate packaging is not an installed or signed release. The older, narrower `canonical_external_source_repository_by_component` must remain a consistent subset; it **cannot** silently override the canonical package source set. Regeneration is checked in CI. This also keeps previously installed optional apps visible as potential *installed entries* even if a subsequent signed catalog omits them, once the runtime's verified activation state is available.
+The canonical owner map is the full source-provenance registry for first-party package identities. It is not an install catalog: entries can describe apps whose package, Native module-read, probation, signature, activation or rollback gates are still closed. The Native module-read set is independently derived from the intersection with `native_loopback_broker_supported_components`; health, probation and activation are narrower gates again. `canonical_external_source_repository_by_component` is a separate, narrower allowlist used by the unsigned-candidate verifier; it must agree with the owner map but does not broaden Native reads or override canonical ownership. Regeneration is checked in CI.
 
 A known app ID is not an installation grant. A verified signed catalog, runtime `current` state, first-party delivery policy and platform lifecycle authority remain independent fail-closed gates; no helper can manufacture those. Native broker component support and production distribution are separately gated.
 
@@ -28,7 +28,7 @@ A signed-catalog candidate cannot invent executable-read capability. The verifie
 
 O conjunto de componentes que pode executar o probe `import-contract` pertence exclusivamente a `docs/contracts/runtime-component-package.json` → `runtime_health_bridge_supported_components`. O gerador `tools/app-policy/render_native_store_metadata_policy.py` emite tanto `NATIVE_PROBATION_COMPONENT_IDS` (Python Native) quanto `NATIVE_COMPONENT_PROBATION_IDS` e `NATIVE_COMPONENT_PROBE_MODE` (JavaScript Surface). Não manter allowlists manuscritas nos bridges. O gerador valida a relação `probation ⊆ health mutation ⊆ signed module read`, identidade/duplicatas e probe mode. Os artefatos gerados são verificados no CI e não são fontes independentes.
 
-**Escopo atual permanece Internet e Notas.** A Calculadora continua somente com leitura de módulo verificado; sua instalação fica bloqueada por `runtime-probation-unavailable`. Ampliar probation exigirá testes completos do import, receipt com nonce, revisão exata, registro de saúde e não promoção, seguidos da publicação assinada e prova em host. Gerar uma lista não instala, promove nem habilita distribuição.
+**Escopo atual de probation é Notas.** Internet não tem leitura de módulo Native habilitada; a Calculadora e o Studio têm leitura verificada, mas não probation. Instalação continua bloqueada sem o lifecycle de ativação/publicação. Ampliar probation exige testes do import, receipt com nonce, revisão exata, registro de saúde e não promoção, seguidos de pacote assinado e prova no host. Gerar uma lista não instala, promove nem habilita distribuição.
 
 ## Native installed Surface runtime: verified before display
 
@@ -44,7 +44,11 @@ The implementation has two distinct checks:
   to the existing `current-slot-loader.mjs`. Native's trusted component
   bootstrap supplies a bound `ordax.app-data/1` port for exactly that app;
   `expectedCurrent` must match the discovery revision before code import and
-  is checked again before/after mount. The app may not provide its own App Data.
+  is checked again before/after mount. `isolated-component-executor.mjs` runs
+  the signed runtime in an opaque-origin sandbox whose CSP is scoped to that
+  exact package path. Its private `MessagePort` brokers only the app's own App
+  Data and the minimal Surface lifecycle; it denies File Space and arbitrary
+  network access. The app may not provide its own App Data.
 
 The Surface starts with bundled apps and updates its single runtime catalog
 **only with mounted IDs**. A failed, absent, removed or unbound app must not
@@ -52,7 +56,19 @@ appear as launchable. Catalog reconciliation removes obsolete external windows
 from persisted workspace state. The external app receives a restricted
 `SurfaceRenderLifecycle` projection; it cannot update the host catalog or
 receive unrestricted File Space, Intelligence or other device grants through
-presentation metadata.
+  presentation metadata. The exact-slot check is bounded and abortable; if
+  Native verification times out, the operation fails closed and teardown can
+  finish draining without waiting indefinitely on the verifier.
+
+The isolated executor's teardown revokes the broker, drains in-flight calls,
+requests runtime cleanup in the child, and removes the iframe. Native pending
+probation uses a separate opaque-origin import-contract probe: it revalidates
+the exact unknown-health pending revision before and after import, exposes no
+host port, and never mounts or returns a launchable runtime. Its `healthy`
+receipt means only that the signed candidate satisfied the import/export
+contract. A mount-health probe is still absent; any `mount-contract` mode fails
+closed until that host-owned path exists. Canonical trust, signed publication,
+activation, promotion, rollback and distribution remain closed independently.
 
 Apps retain their own packaged source and UI slot. The Notes source in
 `ordax-apps` uses `data-app-extension="notes"`, derived from its component

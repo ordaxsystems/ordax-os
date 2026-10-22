@@ -169,8 +169,10 @@ contrato, estado, resposta tardia e Memory vivem nos testes da Intelligence.
 ### Canvas read-only de Work/Activity/Result (P0 de #1572)
 
 A primeira composição funcional de resultado adaptativo está em
-`system/services/intelligence/work-canvas.mjs`, consumida por
-`system/apps/activity/view-model.mjs` e pela UI **Activity já existente**.
+`system/services/intelligence/work-canvas.mjs`, consumida pelo app canônico
+`ordaxsystems/ordax-apps/apps/activity/src/view-model.mjs` e por sua UI. O OS
+mantém o serviço neutro de plataforma; a projeção e a interface Activity têm
+fonte única em Apps.
 Seu input é somente o snapshot validado de `ordax.personal-runtime/1`;
 ela não cria um novo Work, store, ação, router, autorização ou receipt.
 Os contratos canônicos permanecem `ordax.personal-work-item/1`,

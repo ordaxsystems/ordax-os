@@ -44,8 +44,9 @@ def load_policy(path: Path) -> tuple[dict[str, str], tuple[str, ...], tuple[str,
             )
         normalized[app_id] = repository
 
-    # Retain the narrower historical external-source declaration only as a
-    # consistency assertion. It is not a second candidate-discovery source.
+    # The unsigned-candidate verifier has its own narrower source allowlist.
+    # Keep it consistent with ownership, without treating it as the registry
+    # of every app source or as a Native permission grant.
     historical = value.get("canonical_external_source_repository_by_component")
     if not isinstance(historical, dict):
         raise PolicyGenerationError("legacy external source declaration is invalid")

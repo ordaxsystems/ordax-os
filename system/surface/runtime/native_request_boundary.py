@@ -15,9 +15,26 @@ NATIVE_API_PREFIX = "/__ordax/native/"
 ACCOUNT_API_PREFIXES = ("/auth/", "/sync/", "/account/", "/network/")
 TRUSTED_BIND_HOST = "127.0.0.1"
 _ALLOWED_FETCH_SITES = frozenset({"same-origin", "none"})
-# Code bytes only. An opaque-origin iframe must never be authorized as the
-# trusted Surface or gain metadata, file, identity, or other Native API ports.
+# Immutable signed package code and presentation assets only. An opaque-origin
+# iframe must never be authorized as the trusted Surface or gain metadata,
+# file, identity, or other Native API ports.
 OPAQUE_MODULE_PREFIX = "/__ordax/native/component-module/"
+_OPAQUE_DESTINATIONS = {
+    ".mjs": ("script", frozenset({"cors"})),
+    ".js": ("script", frozenset({"cors"})),
+    ".css": ("style", frozenset({"cors", "no-cors"})),
+    ".svg": ("image", frozenset({"no-cors"})),
+    ".png": ("image", frozenset({"no-cors"})),
+    ".jpg": ("image", frozenset({"no-cors"})),
+    ".jpeg": ("image", frozenset({"no-cors"})),
+    ".webp": ("image", frozenset({"no-cors"})),
+    ".avif": ("image", frozenset({"no-cors"})),
+    ".gif": ("image", frozenset({"no-cors"})),
+    ".woff": ("font", frozenset({"cors"})),
+    ".woff2": ("font", frozenset({"cors"})),
+    ".ttf": ("font", frozenset({"cors"})),
+    ".otf": ("font", frozenset({"cors"})),
+}
 
 
 def _ascii_equal(left: object, right: str) -> bool:
@@ -106,10 +123,10 @@ def browser_context_is_trusted(headers, trusted_origin: str) -> bool:
 
 
 def opaque_signed_module_read_is_trusted(headers, request_target: str, method: str) -> bool:
-    """Allow only CORS script GETs from an opaque sandbox, never Native APIs.
+    """Allow signed code/assets from an opaque sandbox, never Native APIs.
 
-    This grants access to verified component *code bytes*, not to host data or
-    authority. The canonical signed-slot reader still validates every file.
+    This grants access to verified component *package bytes*, not to host data
+    or authority. The canonical signed-slot reader still validates every file.
     Untrusted JavaScript cannot set Sec-Fetch-* headers in normal browsers.
     """
     if method != "GET" or not isinstance(request_target, str):
@@ -119,14 +136,28 @@ def opaque_signed_module_read_is_trusted(headers, request_target: str, method: s
     except (TypeError, ValueError):
         return False
     if (not parsed.path.startswith(OPAQUE_MODULE_PREFIX)
-            or not parsed.path.endswith((".mjs", ".js"))
             or parsed.query or parsed.fragment or "?" in request_target):
         return False
-    if _header_values(headers, "Origin") != ("null",):
+    extension = parsed.path.rsplit("/", 1)[-1].rsplit(".", 1)[-1].lower()
+    extension = f".{extension}" if "." in parsed.path.rsplit("/", 1)[-1] else ""
+    expected = _OPAQUE_DESTINATIONS.get(extension)
+    if expected is None:
         return False
-    if _header_values(headers, "Sec-Fetch-Mode") != ("cors",):
+    origins = _header_values(headers, "Origin")
+    fetch_mode = _header_values(headers, "Sec-Fetch-Mode")
+    fetch_dest = _header_values(headers, "Sec-Fetch-Dest")
+    # Non-CORS image/style GETs commonly omit Origin. They remain public
+    # package assets and are accepted only with opaque-frame fetch metadata.
+    if origins != ("null",) and not (
+        not origins
+        and fetch_mode == ("no-cors",)
+        and fetch_dest in (("image",), ("style",))
+    ):
         return False
-    if _header_values(headers, "Sec-Fetch-Dest") != ("script",):
+    fetch_modes = _header_values(headers, "Sec-Fetch-Mode")
+    if len(fetch_modes) != 1 or fetch_modes[0] not in expected[1]:
+        return False
+    if _header_values(headers, "Sec-Fetch-Dest") != (expected[0],):
         return False
     if _header_values(headers, "Sec-Fetch-Site") != ("cross-site",):
         return False
@@ -149,6 +180,13 @@ def request_is_trusted(headers, server_address, request_target: str, method: str
 
     if not host_header_is_trusted(headers, authority):
         return False
+    # Signed component code must execute from an opaque sandbox. Do not let
+    # same-origin Surface code fetch it and import it into the privileged page
+    # realm: that would give app code ambient access to every Native endpoint,
+    # bypassing any capability projection passed to componentRuntime.mount().
+    if path.startswith(OPAQUE_MODULE_PREFIX):
+        return opaque_signed_module_read_is_trusted(headers, request_target, method)
+
     if path.startswith(NATIVE_API_PREFIX) or any(
         path.startswith(prefix) for prefix in ACCOUNT_API_PREFIXES
     ):

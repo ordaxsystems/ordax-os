@@ -7,6 +7,7 @@ const productRuntimeSourceRepository = "ordaxsystems/ordax-runtime"
 
 var canonicalExternalComponentSourceRepositories = map[string]string{
 	"activity": appsSourceRepository,
+	"assistant": appsSourceRepository,
 	"calculator": appsSourceRepository,
 	"calendar": appsSourceRepository,
 	"character-map": appsSourceRepository,
@@ -14,6 +15,7 @@ var canonicalExternalComponentSourceRepositories = map[string]string{
 	"colors": appsSourceRepository,
 	"converter": appsSourceRepository,
 	"image-viewer": appsSourceRepository,
+	"internet": appsSourceRepository,
 	"media-player": appsSourceRepository,
 	"network": appsSourceRepository,
 	"notes": appsSourceRepository,

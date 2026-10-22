@@ -155,7 +155,7 @@ test("verified Native component is rechecked before mount and cleaned on shutdow
   assert.deepEqual(mounts.mountedIds, ["notes"]);
   assert.equal(fetched.length, 3);
   assert.equal(surfaceRoot.childNodes.length, 1);
-  mounts.destroy();
+  await mounts.destroy();
   assert.equal(destroyed, 1);
   assert.equal(surfaceRoot.childNodes.length, 0);
 });
@@ -211,7 +211,7 @@ test("calculator Native slot is discoverable and mountable only with reverified 
     assert.equal(result.mountedCount, 1);
     assert.deepEqual(result.mountedIds, ["calculator"]);
     assert.match(loadedUrls[0], /\/__ordax\/native\/component-module\/calculator\/current\/0\.2\.0\//);
-    result.destroy();
+    await result.destroy();
     assert.equal(destroys, 1);
     assert.equal(surfaceRoot.childNodes.length, 0);
   } finally {
@@ -405,7 +405,7 @@ test("valid minimal Surface context passes the broker without device grants", as
   assert.equal(sawMounted, true);
   assert.deepEqual(mounts.mountedIds, ["notes"]);
   assert.equal(surfaceRoot.childNodes.length, 1);
-  mounts.destroy();
+  await mounts.destroy();
   assert.equal(surfaceRoot.childNodes.length, 0);
 });
 

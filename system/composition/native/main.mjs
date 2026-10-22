@@ -1,3 +1,5 @@
+import { hasNativeHostBridge, postNativeHostMessage } from "../../adapters/native/host-bridge.mjs";
+import { createNativeIsolatedComponentModuleImporter } from "../../adapters/native/isolated-component-executor.mjs";
 import { mountNativeSidebarAccount } from "../../surface/ui/sidebar-account.mjs";
 import {
   createNativeClientDiagnostics,
@@ -594,7 +596,7 @@ async function start() {
   });
   // The shared Native UI may run in an unprivileged development browser.
   // Only a real host bridge may expose Intelligence to privileged consumers.
-  if (typeof window.webkit?.messageHandlers?.ordaxBrowser?.postMessage === "function") {
+  if (hasNativeHostBridge(window)) {
     installNativeIntelligenceHostBridge({
       windowRef: window,
       intelligencePort: selectedSpaceIntelligence,
@@ -890,6 +892,7 @@ async function start() {
     accountLifecycle,
     profileTaxonomy,
     spaceExperience,
+    { isAvailable: hasNativeHostBridge, postMessage: postNativeHostMessage },
   );
   const homeContinuation = mountHomeContinuation(root, { projects, recentFiles, surfaceLifecycle: surface });
   const homePending = mountHomePending(root, { notifications, syncRuntime: accountSync, surfaceLifecycle: surface });
@@ -1070,13 +1073,21 @@ async function start() {
     getAppTarget: surface.getAppTarget,
     setAppTarget: surface.setAppTarget,
   });
+  const nativeCurrentSlotSource = createNativeComponentSlotSource(window);
   const externalAppMounts = await optionalNativeProbe(
     "OrdaX installed component runtime mounting unavailable",
     () => mountNativeVerifiedInstalledApps({
       installed: installedAppCatalog?.installed ?? [],
-      source: createNativeComponentSlotSource(window),
+      source: nativeCurrentSlotSource,
       fetchImpl: verifiedComponentFetch,
-      importModule: (url) => import(url),
+      importModule: createNativeIsolatedComponentModuleImporter({
+        windowRef: window,
+        allowedComponentIds: EXTERNAL_FIRST_PARTY_COMPONENT_IDS.filter(
+          (appId) => hasNativeExternalFirstPartyModuleRead(appId),
+        ),
+        currentSlotSource: nativeCurrentSlotSource,
+        fetchImpl: verifiedComponentFetch,
+      }),
       context: {
         root, surfaceLifecycle: externalAppSurfaceLifecycle,
       },
@@ -1128,6 +1139,10 @@ async function start() {
         "OrdaX native First Run cursor unavailable",
         () => createNativeFirstRunCursor(window),
       ),
+      hostedSignupBridge: {
+        isAvailable: hasNativeHostBridge,
+        postMessage: postNativeHostMessage,
+      },
     });
   } catch (error) {
     reportClientDiagnostic("first-run", error);

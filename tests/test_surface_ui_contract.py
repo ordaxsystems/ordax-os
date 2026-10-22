@@ -288,20 +288,18 @@ class SurfaceUiContractTests(unittest.TestCase):
         self.assertIn('.ordax-files-view', css)
         self.assertIn("../../surface/ui/files.css", native_html)
 
-    def test_assistant_remove_first_gate_is_explicit_and_never_implies_installation(self):
+    def test_assistant_external_source_never_implies_native_installation(self):
         import json
         policy = json.loads(
             (ROOT / "docs/contracts/runtime-component-package.json").read_text(encoding="utf-8")
         )
         self.assertEqual(
-            policy["prelaunch_remove_first_pending"].get("assistant"),
-            {
-                "state": "platform-source-removed-app-source-pending",
-                "expected_repository": "ordaxsystems/ordax-apps",
-                "platform_source_absence_required": True,
-                "distribution_activation_allowed": False,
-            },
+            policy["canonical_package_source_repository_by_component"].get("assistant"),
+            "ordaxsystems/ordax-apps",
         )
+        self.assertNotIn("assistant", policy["prelaunch_remove_first_pending"])
+        self.assertNotIn("assistant", policy["canonical_external_source_repository_by_component"])
+        self.assertFalse(policy["slot_activation_available"])
         self.assertFalse((APPS / "assistant").exists())
         self.assertFalse((ROOT / "system/services/i18n/catalog/assistant.mjs").exists())
         self.assertNotIn('./assistant/app.mjs', APP_CATALOG.read_text(encoding="utf-8"))

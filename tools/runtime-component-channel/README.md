@@ -26,7 +26,7 @@ The package payload remains `prototype-ordax.runtime-component-package/1`.
 - **Release/2 com estado persistente:** o writer Go bloqueia `uninstall-state` antes de alterar `activation-state.json`, mesmo com pacote assinado, revisão correta e sem dependentes. O contrato assinado `compatibility.state` indica dados que precisam permanecer seguros, mas não demonstra que o processo foi encerrado ou que existe uma transação recuperável de App Data. O mesmo bloqueio vale para retry de uma desinstalação stateful histórica: reencontrar um tombstone assinado não pode produzir um falso comprovante de quiescência. Releases/2 assinadas com `state=null` preservam o fluxo de remoção atual; release/1 de desenvolvimento mantém as semânticas próprias e não recebe autorização de produção. A proteção é aplicada sob os locks existentes do grafo Go, com leitura do contrato Ed25519 já verificado, sem novo SSOT, permissão ou serviço.
 - Uninstall never deletes App Data, documents, Memory, Projects or other user state. User-data deletion is a separate product action owned by the relevant data owner.
 - An immutable verified slot may remain as a local package cache after uninstall. Cache garbage collection is separate from installation state and must never make an app appear installed.
-- When an externally sourced component such as `notes` or `studio` has no current activation, resolution reports it as absent. Only platform-owned components may resolve `current=nil` as a real bundled fallback.
+- When an externally sourced component such as `internet`, `notes` or `studio` has no current activation, resolution reports it as absent. Only platform-owned components may resolve `current=nil` as a real bundled fallback.
 
 ## Commands
 
