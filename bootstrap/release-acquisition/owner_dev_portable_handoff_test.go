@@ -149,11 +149,11 @@ func TestOwnerSignedPreviewPortableStateHandoff(t *testing.T) {
 	inspect := func(t *testing.T, stateRoot string, expectedPhase string, expectedCurrent string) {
 		t.Helper()
 		type status struct {
-			Schema string `json:"schema"`
-			Phase string `json:"phase"`
-			Current string `json:"current"`
-			KnownGood string `json:"knownGood"`
-			MaterializedShapeChecked bool `json:"materializedShapeChecked"`
+			Schema                   string `json:"schema"`
+			Phase                    string `json:"phase"`
+			Current                  string `json:"current"`
+			KnownGood                string `json:"knownGood"`
+			MaterializedShapeChecked bool   `json:"materializedShapeChecked"`
 		}
 		var result status
 		raw := runState(t, stateRoot, "inspect", stateRoot, root)
