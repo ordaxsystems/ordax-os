@@ -140,6 +140,28 @@ class SurfaceAsyncLifecycleTests(unittest.TestCase):
         self.assertIn('slot.dataset.fileSpacePath = recentMode || trashMode ? "" : (listing?.path ?? "")', files)
         self.assertNotIn("queueMicrotask(() => input.isConnected && input.focus())", files)
 
+    def test_files_defer_surface_inactive_paints_but_keep_isolated_component_live(self):
+        files = self.read("file-space-controls.mjs")
+        self.assertIn("let paintPending = false;", files)
+        self.assertIn("const windowNode = slot.closest(FILE_WINDOW_SELECTOR);", files)
+        self.assertIn("windowNode.hidden", files)
+        self.assertIn('windowNode.dataset.active === "false"', files)
+        self.assertIn("paintPending = paintPending || force || slot !== mountedSlot;", files)
+        self.assertIn("const repaint = force || paintPending;", files)
+        self.assertIn(
+            "repaint && slot === mountedSlot ? captureInteractionState(slot) : null",
+            files,
+        )
+        self.assertIn("const unsubscribeRender = lifecycle.subscribeRender(() => renderView(false));", files)
+        self.assertIn("paint(slot, interaction);", files)
+        isolated = self.read("files-component-runtime.mjs")
+        self.assertIn('frame.className = "ordax-files-component-frame"', isolated)
+        self.assertNotIn("frame.dataset.active", isolated)
+        smoke = (ROOT / "tools/surface-native/browser-smoke.mjs").read_text(encoding="utf-8")
+        self.assertIn("filesHiddenNavigationSkipsRepaint", smoke)
+        self.assertIn("filesRestoreFlushesLatestPath", smoke)
+        self.assertIn("filesStandalonePaintsWithoutSurfaceActiveMarker", smoke)
+
     def test_system_and_settings_defer_inactive_repaints_until_surface_focus(self):
         system = self.read("system-overview-controls.mjs")
         settings = self.read("settings-overview-controls.mjs")
