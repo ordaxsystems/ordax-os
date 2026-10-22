@@ -132,7 +132,7 @@ class OwnerDevLocalAiLifecycleTests(unittest.TestCase):
         self.assertNotRegex(watcher, r"(?m)^\\s*bb sleep 1\\s*$")
         self.assertIn('if [ "$aura_seen_hash" != "$ready_hash" ]; then', watcher)
         self.assertIn('bb grep -qx "IMAGE_SHA256=$ready_hash" "$LOCAL_AI_LIFECYCLE"', watcher)
-        self.assertRegex(watcher, r'local_ai_lifecycle stop\\n[ ]+local_ai_lifecycle start')
+        self.assertRegex(watcher, r'local_ai_lifecycle stop\n[ ]+local_ai_lifecycle start')
         self.assertIn('if local_ai_running; then', watcher)
         self.assertIn('aura_retry_seconds=0', watcher)
         self.assertIn('if [ "$aura_retry_seconds" -lt 60 ]; then', watcher)
@@ -172,7 +172,7 @@ class OwnerDevLocalAiLifecycleTests(unittest.TestCase):
                 "ENTRY_PID=$$\n"
                 f"AURA_READY_MARKER='{root / 'not-staged'}'\n"
                 f"LOCAL_AI_LIFECYCLE='{root / 'not-installed'}'\n"
-                'bb() { /bin/sleep "$2"; }\n'
+                'bb() { exec /bin/sleep "$2"; }\n'
                 + helpers
                 + "\nwatch_optional_aura &\n"
                 + f"""printf '%s\\n' "$!" >'{pid_path}'\n"""
