@@ -145,12 +145,15 @@ export function mountNetworkTrayControls(
   root,
   networkStatus,
   surfaceLifecycle,
-  { pollIntervalMs = POLL_INTERVAL_MS } = {},
+  { pollIntervalMs = POLL_INTERVAL_MS, onNetworkObservation = null } = {},
 ) {
   if (!(root instanceof Element)) {
     throw new TypeError("Network tray controls require a Surface root Element");
   }
   const port = assertNetworkStatusPort(networkStatus);
+  if (onNetworkObservation !== null && typeof onNetworkObservation !== "function") {
+    throw new TypeError("Network observation callback must be a function");
+  }
   const lifecycle = assertSurfaceRenderLifecycle(surfaceLifecycle);
   const localization = lifecycle.localization;
   const t = localization.translate;
@@ -213,6 +216,8 @@ export function mountNetworkTrayControls(
       lastSnapshot = snapshot;
       lastSuccessAt = Date.now();
       render(snapshot);
+      // Share this validated observation without a second Network/status poll.
+      onNetworkObservation?.(snapshot);
     } catch {
       if (destroyed) return;
       if (lastSnapshot) {
