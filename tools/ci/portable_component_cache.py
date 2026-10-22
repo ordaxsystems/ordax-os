@@ -84,6 +84,7 @@ COMPONENTS = {
             "bootstrap/surface-runtime/package_config.py",
             "system/surface/runtime/packages.txt",
             "system/surface/runtime/media_runtime_probe.py",
+            "system/surface/runtime/audio-session.sh",
             "bootstrap/base/alpine_core.py",
         ),
     },

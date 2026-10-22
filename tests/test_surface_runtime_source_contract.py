@@ -201,6 +201,7 @@ class SurfaceRuntimeSourceContractTests(unittest.TestCase):
 
     def test_workflow_uploads_drift_report_even_when_revalidation_fails(self):
         text = WORKFLOW.read_text(encoding="utf-8")
+        self.assertIn("- name: Revalidate full transitive Alpine package lock\n        if: always()", text)
         self.assertIn("- name: Upload proof metadata only\n        if: always()", text)
         self.assertIn("surface-runtime-lock.json", text)
 

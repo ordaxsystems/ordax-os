@@ -41,12 +41,15 @@ import { assertSurfaceRenderLifecycle } from "../../contracts/surface-render-lif
 import { assertProductConnectorPort } from "../../contracts/product-connector.mjs";
 import { assertDisplayOutputsPort } from "../../contracts/display-outputs.mjs";
 import { mountDisplayOutputControls } from "./display-output-controls.mjs";
+import { assertAudioOutputsPort } from "../../contracts/audio-outputs.mjs";
+import { mountAudioOutputControls } from "./audio-output-controls.mjs";
 
 const SETTINGS_WINDOW_SELECTOR = '[data-window-id="settings"]';
 const SETTINGS_EXTENSION_SELECTOR = '[data-app-extension="settings-overview"]';
 
 const SETTINGS_SECTIONS = Object.freeze([
   Object.freeze({ id: "appearance", messageId: "settings.section.appearance" }),
+  Object.freeze({ id: "audio", messageId: "settings.section.audio" }),
   Object.freeze({ id: "display", messageId: "settings.section.display" }),
   Object.freeze({ id: "accessibility", messageId: "settings.section.accessibility" }),
   Object.freeze({ id: "regional", messageId: "settings.section.regional" }),
@@ -223,6 +226,7 @@ export function mountSettingsOverviewControls(
   localAiPort = null,
   productConnectorPort = null,
   displayOutputs = null,
+  audioOutputs = null,
 ) {
   if (!(root instanceof Element)) {
     throw new TypeError("Settings overview controls require a Surface root Element");
@@ -244,6 +248,7 @@ export function mountSettingsOverviewControls(
   const localAi = localAiPort === null ? null : assertLocalAiPort(localAiPort);
   const connectorPort = productConnectorPort === null ? null : assertProductConnectorPort(productConnectorPort);
   const displayOutputsPort = displayOutputs === null ? null : assertDisplayOutputsPort(displayOutputs);
+  const audioOutputsPort = audioOutputs === null ? null : assertAudioOutputsPort(audioOutputs);
   const documentObject = root.ownerDocument;
   let settingsExamples = null;
 
@@ -697,6 +702,18 @@ export function mountSettingsOverviewControls(
       port: displayOutputsPort,
       mode: "native",
       onExamples: () => settingsExamples?.open("display"),
+    });
+  };
+
+  const renderAudioCapability = (view) => {
+    const mountPoint = node(documentObject, "div", "ordax-settings-audio-host-mount");
+    view.append(mountPoint);
+    mountAudioOutputControls(mountPoint, {
+      documentObject,
+      translate: t,
+      port: audioOutputsPort,
+      mode: "native",
+      onExamples: () => settingsExamples?.open("audio"),
     });
   };
 
@@ -1363,6 +1380,8 @@ export function mountSettingsOverviewControls(
       if (activeSection === "regional") renderKeyboardLayout(view);
     } else if (activeSection === "network") {
       renderNetwork(view);
+    } else if (activeSection === "audio") {
+      renderAudioCapability(view);
     } else if (activeSection === "intelligence") {
       renderIntelligence(view);
     } else if (activeSection === "security") {

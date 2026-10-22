@@ -116,7 +116,10 @@ class ThirdPartyInventoryTests(unittest.TestCase):
         self.assertEqual(item["source_authority"], "system/surface/runtime/packages.txt")
         self.assertNotIn("packages", item)
         packages = (ROOT / item["source_authority"]).read_text().splitlines()
-        self.assertTrue({"webkit2gtk-4.1", "gst-plugins-good", "gst-libav"}.issubset(packages))
+        self.assertTrue({
+            "webkit2gtk-4.1", "gst-plugins-good", "gst-libav", "pipewire-pulse",
+            "pipewire-alsa", "wireplumber", "gst-plugin-pipewire", "dbus",
+        }.issubset(packages))
         self.assertIn("packages=$(runtime_packages)", text)
         source = json.loads((ROOT / "bootstrap/surface-runtime/source.json").read_text())
         self.assertEqual(source["packages_file"], item["source_authority"])
