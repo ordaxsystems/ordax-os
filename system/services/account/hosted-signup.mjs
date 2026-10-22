@@ -14,7 +14,13 @@ export const HOSTED_ACCOUNT_SIGNUP_URL = new URL(
 export function requestNativeHostedSignup(event, windowRef = globalThis.window) {
   const bridge = windowRef?.webkit?.messageHandlers?.ordaxBrowser;
   if (!bridge || typeof bridge.postMessage !== "function") return false;
-  bridge.postMessage(JSON.stringify({ type: "account.signup.open" }));
+  // Prevent any fallback that could navigate the privileged Surface if the
+  // native host rejects the command or the browser bridge throws.
   event.preventDefault();
-  return true;
+  try {
+    bridge.postMessage(JSON.stringify({ type: "account.signup.open" }));
+    return true;
+  } catch {
+    return false;
+  }
 }
