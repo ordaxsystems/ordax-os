@@ -144,6 +144,28 @@ func TestOwnerSignedPreviewPortableStateHandoff(t *testing.T) {
 		}
 		return strings.TrimSpace(got)
 	}
+	// The same read-only status primitive will gate future Dev boot handoff.
+	// It never authorizes a candidate, signs content or changes activation.
+	inspect := func(t *testing.T, stateRoot string, expectedPhase string, expectedCurrent string) {
+		t.Helper()
+		type status struct {
+			Schema                   string `json:"schema"`
+			Phase                    string `json:"phase"`
+			Current                  string `json:"current"`
+			KnownGood                string `json:"knownGood"`
+			MaterializedShapeChecked bool   `json:"materializedShapeChecked"`
+		}
+		var result status
+		raw := runState(t, stateRoot, "inspect", stateRoot, root)
+		if err := json.Unmarshal([]byte(raw), &result); err != nil {
+			t.Fatalf("invalid native inspect receipt: %v\n%s", err, raw)
+		}
+		if result.Schema != "ordax.portable-state-inspection/1" ||
+			result.Phase != expectedPhase || result.Current != expectedCurrent ||
+			result.KnownGood != prev || !result.MaterializedShapeChecked {
+			t.Fatalf("unexpected native inspect receipt: %+v", result)
+		}
+	}
 	assertAbsent := func(t *testing.T, stateDir string, names ...string) {
 		t.Helper()
 		for _, name := range names {
@@ -158,6 +180,7 @@ func TestOwnerSignedPreviewPortableStateHandoff(t *testing.T) {
 		if got := runState(t, stateRoot, "prepare", stateRoot, root, candidate); got != candidate {
 			t.Fatalf("prepare receipt: %q", got)
 		}
+		inspect(t, stateRoot, "armed", prev)
 		if got := runState(t, stateRoot, "select-boot", stateRoot, root); got != "candidate "+candidate {
 			t.Fatalf("first boot selection: %q", got)
 		}
@@ -173,6 +196,7 @@ func TestOwnerSignedPreviewPortableStateHandoff(t *testing.T) {
 		if got := runState(t, stateRoot, stateRoot, "rejected"); got != candidate {
 			t.Fatalf("rejection not persisted: %q", got)
 		}
+		inspect(t, stateRoot, "idle", prev)
 		assertAbsent(t, stateDir, "candidate", "activation-transaction.json")
 		bad, err := runCommand(stateHelper, os.Environ(), "prepare", stateRoot, root, candidate)
 		if err == nil {
@@ -185,6 +209,7 @@ func TestOwnerSignedPreviewPortableStateHandoff(t *testing.T) {
 		stateRoot, stateDir := mkState(t)
 		runState(t, stateRoot, "prepare", stateRoot, root, candidate)
 		runState(t, stateRoot, "select-boot", stateRoot, root)
+		inspect(t, stateRoot, "armed", prev)
 		if got := runState(t, stateRoot, stateRoot, "current"); got != prev {
 			t.Fatalf("candidate was committed before health acknowledgement: %q", got)
 		}
@@ -197,6 +222,7 @@ func TestOwnerSignedPreviewPortableStateHandoff(t *testing.T) {
 		if got := runState(t, stateRoot, stateRoot, "known-good"); got != prev {
 			t.Fatalf("commit destroyed rollback previous: %q", got)
 		}
+		inspect(t, stateRoot, "idle", candidate)
 		assertAbsent(t, stateDir, "candidate", "activation-transaction.json")
 		assertGit(t)
 	})

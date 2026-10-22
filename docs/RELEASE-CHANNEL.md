@@ -99,6 +99,25 @@ ORDAX_OWNER_SIGNED_STAGE_ROOT=/mnt/disposable/owner-signed-preview \
   sh system/services/update/owner-signed-preview.sh stage <exact-signed-40hex-sha>
 ```
 
+### Native portable activation inspection (read-only; no new update owner)
+
+The canonical `ordax-portable-state inspect <state-root> <portable-root>`
+command returns `ordax.portable-state-inspection/1` JSON with exact validated
+`current`, `knownGood`, optional `candidate` and `rejected` identities,
+plus a read-only phase: `idle`, `armed`, `orphan-advisory`, or
+`commit-interrupted`. `attempt` is `0` or `1` only for an armed
+transaction; otherwise it is `null`.
+
+This is an **observation**, not a new authority: the native helper checks the
+shape of materialized release directories and durable activation state.
+It does **not** verify Ed25519 signatures or authorize the Dev USB to boot a
+release. The canonical Go release agent must authenticate each exact
+candidate; `prepare`, `select-boot` and Supervisor cold-health ownership
+remain separate. Inconsistent or malformed state fails closed (exit 4),
+without rewriting, cleaning or repairing any on-disk slot. This provides a
+reusable diagnostic gate for future Dev boot-profile handoff while keeping
+Git-first the only active Dev method.
+
 ### Native one-shot state handoff proof (development CI, no physical activation)
 
 The real Go release-agent integration test at
