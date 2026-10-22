@@ -64,6 +64,49 @@ test("web identity adapter reports signed-out when the real gateway is configure
   port.dispose();
 });
 
+test("unavailable session identifies host-not-configured separately from transient transport", async () => {
+  const configured = createWebIdentitySession({ fetch: async () => ({
+    ok: true, status: 200, json: async () => ({
+      $schema: "prototype-ordax.public-identity-session/1",
+      authenticated: false, status: "anonymous", provider: "unconfigured",
+    }),
+  }) });
+  assert.equal(configured.getUnavailableReason(), "pending");
+  await configured.refresh();
+  assert.equal(configured.getSnapshot().state, "unavailable");
+  assert.equal(configured.getUnavailableReason(), "unconfigured");
+  configured.dispose();
+
+  const timeout = createWebIdentitySession({ fetch: async () => { throw new Error("timed out"); } });
+  await timeout.refresh();
+  assert.equal(timeout.getSnapshot().state, "unavailable");
+  assert.equal(timeout.getUnavailableReason(), "gateway-unreachable");
+  timeout.dispose();
+
+  const locked = createWebIdentitySession({ fetch: async () => ({ ok: false, status: 423 }) });
+  await locked.refresh();
+  assert.equal(locked.getUnavailableReason(), "locked");
+  locked.dispose();
+
+  const invalid = createWebIdentitySession({ fetch: async () => ({
+    ok: true, status: 200, json: async () => ({ $schema: "wrong" }),
+  }) });
+  await invalid.refresh();
+  assert.equal(invalid.getUnavailableReason(), "invalid-response");
+  invalid.dispose();
+
+  const available = createWebIdentitySession({ fetch: async () => ({
+    ok: true, status: 200, json: async () => ({
+      $schema: "prototype-ordax.public-identity-session/1",
+      authenticated: false, status: "anonymous", provider: "supabase",
+    }),
+  }) });
+  await available.refresh();
+  assert.equal(available.getUnavailableReason(), null);
+  assert.equal(available.getSnapshot().state, "signed-out");
+  available.dispose();
+});
+
 test("web identity adapter reports a validated signed-in account", async () => {
   const windowRef = {
     fetch: async () => ({
