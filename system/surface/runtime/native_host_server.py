@@ -11,6 +11,7 @@ import hmac
 import json
 import math
 import os
+import platform
 import re
 import secrets
 import stat
@@ -297,6 +298,7 @@ DEFAULT_POWER_REQUEST_PATH = "/run/ordax-surface/power-request"
 DEFAULT_NETWORK_SESSION_DIR = "/run/ordax-surface"
 SURFACE_HOST_RECOVERY_GENERATION = 1
 RENAME_NOREPLACE = 1
+_SYS_RENAMEAT2_X86_64 = 316
 
 
 def read_small_text(path: str, max_chars: int = 4096) -> str:
@@ -3234,22 +3236,47 @@ def _renameat2_noreplace_between(
 ) -> None:
     libc = ctypes.CDLL(None, use_errno=True)
     renameat2 = getattr(libc, "renameat2", None)
-    if renameat2 is None:
-        raise OSError(errno.ENOSYS, "renameat2 is unavailable")
-    renameat2.argtypes = [
-        ctypes.c_int,
-        ctypes.c_char_p,
-        ctypes.c_int,
-        ctypes.c_char_p,
-        ctypes.c_uint,
-    ]
-    renameat2.restype = ctypes.c_int
-    result = renameat2(
-        source_directory_fd,
-        os.fsencode(old_name),
-        destination_directory_fd,
-        os.fsencode(new_name),
-        RENAME_NOREPLACE,
+    if renameat2 is not None:
+        renameat2.argtypes = [
+            ctypes.c_int,
+            ctypes.c_char_p,
+            ctypes.c_int,
+            ctypes.c_char_p,
+            ctypes.c_uint,
+        ]
+        renameat2.restype = ctypes.c_int
+        result = renameat2(
+            source_directory_fd,
+            os.fsencode(old_name),
+            destination_directory_fd,
+            os.fsencode(new_name),
+            RENAME_NOREPLACE,
+        )
+        if result == 0:
+            return
+        error_number = ctypes.get_errno()
+        if error_number != errno.ENOSYS:
+            if error_number == errno.EEXIST:
+                raise FileExistsError(error_number, os.strerror(error_number), new_name)
+            raise OSError(error_number, os.strerror(error_number), new_name)
+
+    # Alpine's musl libc may omit the renameat2 wrapper even though its Linux
+    # kernel supports the operation. Use the x86_64 syscall directly (the only
+    # architecture currently shipped for the Native USB), preserving the
+    # kernel's atomic RENAME_NOREPLACE behavior. Unknown platforms fail closed.
+    if sys.platform != "linux" or platform.machine().lower() not in ("x86_64", "amd64"):
+        raise OSError(errno.ENOSYS, "renameat2 is unavailable on this platform", new_name)
+    syscall = getattr(libc, "syscall", None)
+    if syscall is None:
+        raise OSError(errno.ENOSYS, "Linux syscall interface is unavailable", new_name)
+    syscall.restype = ctypes.c_long
+    result = syscall(
+        ctypes.c_long(_SYS_RENAMEAT2_X86_64),
+        ctypes.c_long(source_directory_fd),
+        ctypes.c_char_p(os.fsencode(old_name)),
+        ctypes.c_long(destination_directory_fd),
+        ctypes.c_char_p(os.fsencode(new_name)),
+        ctypes.c_long(RENAME_NOREPLACE),
     )
     if result == 0:
         return
