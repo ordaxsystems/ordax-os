@@ -420,6 +420,168 @@ remount_root_read_write_after_power_abort() {
     esac
 }
 
+# Owner USB Dev uses one ext4 superblock through multiple bind mounts after
+# switch_root/pivot_root. Sealing only the / bind VFS flag does not seal the
+# ext4 journal. Resolve the *physical block source* of / and require ORDAX
+# identity through sysfs and mountinfo before touching flags. The fixed
+# initramfs already verified the ORDAX labels on the same removable USB.
+OWNER_USB_ROOT_SOURCE=""
+OWNER_USB_WRITABLE_ALIASES=""
+
+owner_usb_root_source() {
+    device=$(/bin/busybox awk '$2 == "/" && $3 == "ext4" { print $1; exit }' /proc/mounts 2>/dev/null || true)
+    case "$device" in /dev/*) ;; *) return 1 ;; esac
+    [ -b "$device" ] || return 1
+    name=${device##*/}
+    sys=/sys/class/block/$name
+    [ -f "$sys/partition" ] && [ -f "$sys/dev" ] || return 1
+    partition=$(/bin/busybox cat "$sys/partition" 2>/dev/null || true)
+    removable=$(/bin/busybox cat "$sys/../removable" 2>/dev/null || true)
+    [ "$partition" = 2 ] && [ "$removable" = 1 ] || return 1
+    root_id=$(/bin/busybox awk '$5 == "/" { print $3; exit }' /proc/self/mountinfo 2>/dev/null || true)
+    device_id=$(/bin/busybox cat "$sys/dev" 2>/dev/null || true)
+    [ -n "$root_id" ] && [ "$root_id" = "$device_id" ] || return 1
+    printf '%s\n' "$device"
+}
+
+owner_usb_all_root_mounts_read_only() {
+    # The major:minor identifies *all* aliases of the mounted superblock.
+    # Reading only /proc/mounts at / would miss rw bind mounts elsewhere.
+    mount_id=$(/bin/busybox awk '$5 == "/" { print $3; exit }' /proc/self/mountinfo 2>/dev/null || true)
+    case "$mount_id" in *:*) ;; *) return 1 ;; esac
+    /bin/busybox awk -v root_id="$mount_id" '
+        $3 == root_id {
+            seen = 1
+            if ($6 !~ /(^|,)ro(,|$)/) bad = 1
+            ext4 = 0
+            for (i=1; i<=NF; i++) {
+                if ($i == "-") {
+                    if ($(i+1) == "ext4" && $(i+3) ~ /(^|,)ro(,|$)/) ext4 = 1
+                    break
+                }
+            }
+            if (!ext4) bad = 1
+        }
+        END { exit (!seen || bad) }
+    ' /proc/self/mountinfo
+}
+
+owner_usb_auxiliary_partitions_quiesced() {
+    # Gate all aliases of ORDAX-ESP (1) and, when present, ORDAX-DATA (3)
+    # by kernel major:minor, independent of device path or filesystem type.
+    # This excludes unrelated disks rather than guessing based on FAT labels.
+    root_device=$(owner_usb_root_source) || return 1
+    disk_prefix=${root_device%2}
+    [ "$disk_prefix" != "$root_device" ] || return 1
+    esp_sys=/sys/class/block/${disk_prefix##*/}1/dev
+    data_sys=/sys/class/block/${disk_prefix##*/}3/dev
+    # The canonical capacity-independent Creator seed has partitions 1+2;
+    # the authorized prepared Owner USB adds partition 3 (ORDAX-DATA).
+    # Never demand DATA from the seed, but prove it whenever enumerated.
+    [ -f "$esp_sys" ] || return 1
+    esp_id=$(/bin/busybox cat "$esp_sys" 2>/dev/null) || return 1
+    case "$esp_id" in *[!0-9:]*|'') return 1 ;; esac
+    data_id=""
+    if [ -e "$data_sys" ]; then
+        [ -f "$data_sys" ] || return 1
+        data_id=$(/bin/busybox cat "$data_sys" 2>/dev/null) || return 1
+        case "$data_id" in *[!0-9:]*|'') return 1 ;; esac
+    fi
+    /bin/busybox awk -v esp="$esp_id" -v data="$data_id" '
+        $3 == esp || $3 == data {
+            if ($6 ~ /(^|,)rw(,|$)/) writable = 1
+            for (i=1; i<=NF; i++) {
+                if ($i == "-") {
+                    if ($(i+3) ~ /(^|,)rw(,|$)/) writable = 1
+                    break
+                }
+            }
+        }
+        END { exit writable ? 1 : 0 }
+    ' /proc/self/mountinfo
+}
+
+owner_usb_capture_writable_aliases() {
+    # Capture only the aliases writable before the transition. A kernel
+    # superblock remount may leave bind VFS flags rw; each such alias needs a
+    # separate bind-ro remount, and exactly these aliases must be restored
+    # if the kernel call returns.
+    root_id=$(/bin/busybox awk '$5 == "/" { print $3; exit }' /proc/self/mountinfo 2>/dev/null || true)
+    case "$root_id" in *:*) ;; *) return 1 ;; esac
+    aliases=$(/bin/busybox awk -v id="$root_id" '
+        $3 == id && $6 ~ /(^|,)rw(,|$)/ { print $5 }
+    ' /proc/self/mountinfo) || return 1
+    [ -n "$aliases" ] || return 1
+    for target in $aliases; do
+        case "$target" in /*) ;; *) return 1 ;; esac
+        case "$target" in *\\*) return 1 ;; esac
+        [ -d "$target" ] && [ ! -L "$target" ] || return 1
+    done
+    OWNER_USB_WRITABLE_ALIASES=$aliases
+    return 0
+}
+
+owner_usb_writable_aliases_restored() {
+    [ -n "$OWNER_USB_WRITABLE_ALIASES" ] || return 1
+    root_id=$(/bin/busybox awk '$5 == "/" { print $3; exit }' /proc/self/mountinfo 2>/dev/null || true)
+    case "$root_id" in *:*) ;; *) return 1 ;; esac
+    for target in $OWNER_USB_WRITABLE_ALIASES; do
+        /bin/busybox awk -v id="$root_id" -v target="$target" '
+            $3 == id && $5 == target && $6 ~ /(^|,)rw(,|$)/ {
+                for (i=1; i<=NF; i++) {
+                    if ($i == "-") {
+                        if ($(i+1) == "ext4" && $(i+3) ~ /(^|,)rw(,|$)/) healthy=1
+                        break
+                    }
+                }
+            }
+            END { exit !healthy }
+        ' /proc/self/mountinfo || return 1
+    done
+    return 0
+}
+
+owner_usb_seal_root_for_power() {
+    OWNER_USB_ROOT_SOURCE=""
+    OWNER_USB_WRITABLE_ALIASES=""
+    OWNER_USB_SEAL_FAILURE_STAGE=auxiliary-partitions
+    owner_usb_auxiliary_partitions_quiesced || return 1
+    OWNER_USB_SEAL_FAILURE_STAGE=root-identity
+    device=$(owner_usb_root_source) || return 1
+    OWNER_USB_SEAL_FAILURE_STAGE=alias-discovery
+    owner_usb_capture_writable_aliases || return 1
+    OWNER_USB_ROOT_SOURCE=$device
+    # First close every writable VFS alias, then seal the ext4 journal.
+    # The real Owner QEMU ACPI proof observed EBUSY on the superblock while
+    # writable bind aliases were still present. Do not retry or bypass EBUSY:
+    # the caller restores only the aliases captured above and refuses power.
+    # The native static Owner helper uses mount_setattr for VFS aliases
+    # and mount(2) for the superblock, never BusyBox, mtab or a fallback.
+    # Diagnostic stderr stays in the volatile /run Guardian log.
+    for target in $OWNER_USB_WRITABLE_ALIASES; do
+        OWNER_USB_SEAL_FAILURE_STAGE=alias-remount
+        /usr/local/bin/ordax-usb-mountattr alias-ro "$target" >>"$GUARDIAN_LOG" 2>&1 || return 1
+    done
+    OWNER_USB_SEAL_FAILURE_STAGE=superblock-remount
+    /usr/local/bin/ordax-usb-mountattr superblock-ro "$device" / >>"$GUARDIAN_LOG" 2>&1 || return 1
+    OWNER_USB_SEAL_FAILURE_STAGE=readonly-proof
+    owner_usb_all_root_mounts_read_only || return 1
+    OWNER_USB_SEAL_FAILURE_STAGE=""
+    return 0
+}
+
+owner_usb_restore_root_after_abort() {
+    [ -n "$OWNER_USB_ROOT_SOURCE" ] || return 0
+    /usr/local/bin/ordax-usb-mountattr superblock-rw "$OWNER_USB_ROOT_SOURCE" / >>"$GUARDIAN_LOG" 2>&1 || return 1
+    for target in $OWNER_USB_WRITABLE_ALIASES; do
+        /usr/local/bin/ordax-usb-mountattr alias-rw "$target" >>"$GUARDIAN_LOG" 2>&1 || return 1
+    done
+    owner_usb_writable_aliases_restored || return 1
+    OWNER_USB_ROOT_SOURCE=""
+    OWNER_USB_WRITABLE_ALIASES=""
+    return 0
+}
+
 mark_power_request_failed() {
     expected_action=$1
     [ -s "$POWER_LAST_REQUEST" ] && [ ! -L "$POWER_LAST_REQUEST" ] || return 0
@@ -553,18 +715,22 @@ perform_host_power_transition() {
         return 1
     fi
     if [ "$DISTRIBUTION_PROFILE" = "owner-development" ] && [ "$PRODUCT_MODE" = "usb" ]; then
-        # Owner USB boots from an ext4 subdirectory via switch_root, and can
-        # pivot again into a versioned Base with several writable bind mounts.
-        # Remounting only / is not a valid durability proof for those other
-        # mounts; it has also prevented every tested physical shutdown.
-        # After Supervisor/Native and persistent agents have *proved* exit,
-        # perform the final, mandatory kernel-wide sync. No further persistent
-        # writes are permitted on the successful power path. The kernel owns
-        # the final poweroff; do not introduce a second power controller.
-        if ! /bin/busybox sync >>"$GUARDIAN_LOG" 2>&1; then
-            restore_runtime_after_power_failure "$action" "Owner USB final filesystem sync failed before $action" sync-failed
+        record_host_power_stage root-readonly || true
+        if ! owner_usb_seal_root_for_power; then
+            if ! owner_usb_restore_root_after_abort; then
+                fail_closed "Owner USB ext4 seal failed and rw recovery could not be proven"
+            fi
+            restore_runtime_after_power_failure "$action" "Owner USB ext4 sealing failed at ${OWNER_USB_SEAL_FAILURE_STAGE:-unknown}" remount-failed
             return 1
         fi
+        if ! /bin/busybox sync >/dev/null 2>&1; then
+            if ! owner_usb_restore_root_after_abort; then
+                fail_closed "Owner USB final sync failed and writable root could not be restored"
+            fi
+            restore_runtime_after_power_failure "$action" "Owner USB final sync failed after filesystem seal" sync-failed
+            return 1
+        fi
+        # No further persistent writes before the kernel transition.
     else
         # Stable/MVP owns a distinct rootfs and retains its verified
         # read-only barrier. Future non-USB Dev modes keep this conservative
@@ -597,9 +763,9 @@ perform_host_power_transition() {
     esac
 
     if [ "$DISTRIBUTION_PROFILE" = "owner-development" ] && [ "$PRODUCT_MODE" = "usb" ]; then
-        # No remount was done on Owner USB: restoration must not attempt one.
-        # Preserve the same failure receipt and restore supervised operation
-        # if both direct kernel power paths returned.
+        if ! owner_usb_restore_root_after_abort; then
+            fail_closed "Owner USB kernel transition returned and writable root could not be restored"
+        fi
         restore_runtime_after_power_failure "$action" "kernel $action transition returned without crossing a boot boundary" kernel-transition-returned
         return 1
     fi

@@ -35,6 +35,98 @@ class DevRootfsMountHandoffTests(unittest.TestCase):
         self.assertIn('mount -o rbind "/$shared" "$root/$shared"', source)
         self.assertIn('mount -o bind "/$shared" "$root/$shared"', source)
 
+    def test_dev_console_fds_are_rebound_before_graphical_runtime(self) -> None:
+        source = INIT.read_text(encoding="utf-8")
+        self.assertIn("rebind_independent_console() {", source)
+        self.assertLess(
+            source.index("select_development_rootfs\n# Only the real boot PID 1"),
+            source.index("rebind_independent_console; then"),
+        )
+        self.assertLess(
+            source.index("rebind_independent_console; then"),
+            source.index("start_local_surface fast-graphical"),
+        )
+        self.assertIn("exec 1>/dev/console 2>&1", source)
+        # /proc/self in a forked awk resolves to awk itself: its stdout is
+        # the command substitution pipe, not the init process console.
+        self.assertIn(
+            "read -r console_owner_pid _console_owner_stat </proc/self/stat",
+            source,
+        )
+        self.assertIn('"/proc/$console_owner_pid/fdinfo/1"', source)
+        self.assertIn('"/proc/$console_owner_pid/fdinfo/2"', source)
+
+        # The boot authority must be PID 1 as observed by the kernel.
+        # A literal dollar or an environment-provided PID cannot pass this.
+        self.assertNotIn('if [ "$" -eq 1 ]; then', source)
+        self.assertIn(
+            "read -r boot_pid _boot_kernel_stat </proc/self/stat || boot_pid=0",
+            source,
+        )
+        self.assertEqual(source.count('if [ "$boot_pid" -eq 1 ]; then'), 1)
+        self.assertLess(
+            source.index('if [ "$boot_pid" -eq 1 ]; then'),
+            source.index("rebind_independent_console; then"),
+        )
+        check = subprocess.run(
+            ["/bin/sh", "-c",
+             'boot_pid=0; read -r boot_pid tail </proc/self/stat || boot_pid=0; '
+             '[ "$boot_pid" -eq 1 ]'],
+            capture_output=True, text=True, timeout=5,
+        )
+        self.assertNotEqual(check.returncode, 0, "non-PID1 shell must not claim boot authority")
+
+    def test_console_refuses_root_backed_or_unverified_fds(self) -> None:
+        source = INIT.read_text(encoding="utf-8")
+        token = "rebind_independent_console() {\n"
+        self.assertEqual(source.count(token), 1)
+        function = token + source.split(token, 1)[1].split("\n}\n", 1)[0] + "\n}\n"
+        function = function.replace("/bin/busybox awk", "awk")
+        function = function.replace("/proc/self/mountinfo", '"$MOUNTINFO"')
+        function = function.replace('"/proc/$console_owner_pid/fdinfo/1"', '"$FDINFO_1"')
+        function = function.replace('"/proc/$console_owner_pid/fdinfo/2"', '"$FDINFO_2"')
+        # Use the harmless /dev/null character device in a child shell only.
+        # Never rebind the CI runner's own stdout or hardware console.
+        function = function.replace("/dev/console", "/dev/null")
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            mounts = root / "mountinfo"
+            out = root / "fd1"
+            err = root / "fd2"
+            def probe(*, fd1_id: int, fd2_id: int,
+                      dev_fs: str = "0:8", nested: bool = False) -> int:
+                extra = (
+                    "32 31 0:9 / /dev/console rw - tmpfs console rw\n"
+                    if nested else ""
+                )
+                mounts.write_text(
+                    "24 1 8:34 / / rw - ext4 /dev/loop0 rw\n"
+                    f"31 24 {dev_fs} / /dev rw - devtmpfs devtmpfs rw\n"
+                    + extra,
+                    encoding="utf-8",
+                )
+                out.write_text(f"mnt_id:\t{fd1_id}\n", encoding="ascii")
+                err.write_text(f"mnt_id:\t{fd2_id}\n", encoding="ascii")
+                result = subprocess.run(
+                    ["/bin/sh", "-c", function + "rebind_independent_console"],
+                    env={**os.environ, "MOUNTINFO": str(mounts),
+                         "FDINFO_1": str(out), "FDINFO_2": str(err)},
+                    capture_output=True, timeout=5,
+                )
+                return result.returncode
+            # Same VFS mount ID as /dev: normal devtmpfs handoff.
+            self.assertEqual(probe(fd1_id=31, fd2_id=31), 0)
+            # Independent nested mount: VFS mount ID differs, filesystem
+            # identity is still distinct from the writable ext4 root.
+            self.assertEqual(probe(fd1_id=32, fd2_id=32, nested=True), 0)
+            # A bind-alias /dev that reuses the root ext4 superblock is unsafe.
+            self.assertNotEqual(
+                probe(fd1_id=31, fd2_id=31, dev_fs="8:34"), 0,
+            )
+            self.assertNotEqual(probe(fd1_id=24, fd2_id=31), 0)
+            self.assertNotEqual(probe(fd1_id=31, fd2_id=24), 0)
+            self.assertNotEqual(probe(fd1_id=31, fd2_id=77), 0)
+
     def _run_mount_loop(self, *, reject: str = "") -> tuple[subprocess.CompletedProcess[str], list[str]]:
         # Exercise the actual shell loop, only replacing mount(2) with a
         # recorder; no mount namespace, host files or EFI variables touched.
