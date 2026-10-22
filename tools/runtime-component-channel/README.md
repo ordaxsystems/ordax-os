@@ -436,3 +436,31 @@ does **not** assert a live instance, create authority, grant access or bypass
 Native mount/probation. The real host must inject typed ports and reject
 missing/invalid ports before reporting runtime healthy. It is not a substitute
 for a real installer/boot/health proof.
+
+### Native Product Runtime executable payload (signed slot, not activation)
+
+The signed component channel now has a **component-scoped**, fail-closed binary
+file contract for `product-runtime`, sourced exclusively from the OS
+`studio-runtime-source-lock.json` binding to `ordaxsystems/ordax-runtime`.
+The package must be signed by the *existing runtime-components trust domain*,
+use `component-slot` release mode, describe a `service` owned by that repository,
+and bind exactly one path:
+`system/components/product-runtime/ordax-product-agent`.
+Its signed file record has `executable:true`; the ZIP member MUST have mode
+`0555`, and the verified immutable POSIX slot retains mode `0555` (non-writable).
+That permission and the exact SHA-256 are rechecked when resolving a v1/v2
+signed slot. The payload must be an ELF64 little-endian amd64 executable; the
+channel deliberately does not infer a complete Buildroot ABI from its header.
+Only this one native payload may exceed the ordinary 2 MiB file and 16 MiB
+unpacked limits, capped at **28 MiB per file** and **30 MiB total**. The
+existing compressed ZIP cap of **32 MiB** is unchanged, and app components
+cannot claim the executable flag. This does not create a separate installer.
+
+**Staging is not activation.** In the current OS source lock,
+`independent_base_abi_ready=false`, `dispatch_enabled=false`, and
+`signed_runtime_slot_available=false`. The current PyInstaller candidate
+still requires the musl loader and libraries absent from the proven static
+Independent Base profile. No public component signer/trust anchor, runtime
+health promotion, USB delivery, or remote authorization is established by
+this packaging contract. Do not stage the unsigned CI artifact as a signed
+component or execute it on hardware.
