@@ -3,3 +3,5 @@
 # fragment restricted to capabilities that must not widen the minimal profile.
 # ordax-network uses one-shot client mode before Git/HTTPS bootstrap.
 CONFIG_NTPD=y
+CONFIG_NSLOOKUP=y
+CONFIG_WGET=y

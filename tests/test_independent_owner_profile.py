@@ -70,13 +70,13 @@ class IndependentOwnerDevelopmentProfileTests(unittest.TestCase):
         self.assertNotIn("alpine", text)
         self.assertNotIn("apk", text)
 
-    def test_owner_busybox_fragment_adds_only_clock_recovery(self) -> None:
+    def test_owner_busybox_fragment_adds_only_network_diagnostics(self) -> None:
         lines = [
             line.strip()
             for line in OWNER_BUSYBOX_FRAGMENT.read_text(encoding="utf-8").splitlines()
             if line.strip() and not line.lstrip().startswith("#")
         ]
-        self.assertEqual(lines, ["CONFIG_NTPD=y"])
+        self.assertEqual(lines, ["CONFIG_NTPD=y", "CONFIG_NSLOOKUP=y", "CONFIG_WGET=y"])
         self.assertNotIn("CONFIG_TIMEOUT=y", lines)
         self.assertNotIn("CONFIG_IP=y", lines)
 
@@ -84,7 +84,10 @@ class IndependentOwnerDevelopmentProfileTests(unittest.TestCase):
         helper = NETWORK_HELPER.read_text(encoding="utf-8")
         self.assertIn("/bin/busybox ntpd -q -n", helper)
         self.assertIn("CLOCK_SYNC_TIMEOUT", helper)
-        self.assertIn("Git validara HTTPS independentemente", helper)
+        self.assertIn("probe_dns() {", helper)
+        self.assertIn("probe_https() {", helper)
+        self.assertIn("probe_git_remote() {", helper)
+        self.assertIn('write_network_status ready "$iface"', helper)
     def test_owner_wifi_cli_capability_has_a_real_runtime_consumer(self) -> None:
         helper = NETWORK_HELPER.read_text(encoding="utf-8")
         self.assertIn("for tool in iw wpa_supplicant wpa_cli wpa_passphrase", helper)
@@ -98,7 +101,7 @@ class IndependentOwnerDevelopmentProfileTests(unittest.TestCase):
         for applet in (
             "awk", "date", "df", "dirname", "head", "killall", "mv", "ntpd",
             "pivot_root", "reboot", "rm", "sed", "setsid", "stty", "tail",
-            "test", "touch", "wc", "flock",
+            "test", "touch", "wc", "flock", "nslookup", "wget",
         ):
             self.assertIn(f'"{applet}"', builder)
 
@@ -107,7 +110,7 @@ class IndependentOwnerDevelopmentProfileTests(unittest.TestCase):
         self.assertIn('OWNER_FIRMWARE_CONFIG_PREFIX = "BR2_PACKAGE_LINUX_FIRMWARE"', text)
         self.assertIn("validate_owner_fragment", text)
         self.assertIn('owner["fragment_config"]', text)
-        self.assertIn('OWNER_BUSYBOX_SYMBOLS = ("CONFIG_NTPD=y",)', text)
+        self.assertIn('OWNER_BUSYBOX_SYMBOLS = ("CONFIG_NTPD=y", "CONFIG_NSLOOKUP=y", "CONFIG_WGET=y")', text)
         self.assertIn("OWNER_BUSYBOX_FRAGMENT_CONFIG", text)
         self.assertNotIn("OWNER_FIRMWARE_CONFIG = (", text)
         self.assertNotIn("IWLWIFI_22000", text)
