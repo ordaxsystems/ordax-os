@@ -195,6 +195,8 @@ class HotUpdateSupervisorContractTests(unittest.TestCase):
         # Only a single kernel exchange may replace an existing checkout.
         self.assertIn('atomic_checkout_exchange "$WORKTREE" "$stage"', pull)
         self.assertIn('atomic_checkout_exchange "$WORKTREE" "$retired"', pull)
+        self.assertIn('"$EXCHANGE_BIN" --exchange "$atomic_left" "$atomic_right" "$TRANSACTION_FILE"', pull)
+        self.assertIn('"$EXCHANGE_BIN" --seal-state "$STATE_DIR"', pull)
         self.assertIn('EXCHANGE_BIN=${ORDAX_CHECKOUT_EXCHANGE_BIN:-/usr/local/bin/ordax-checkout-exchange}', pull)
         self.assertNotIn('mv "$WORKTREE" "$retired"', pull)
         self.assertIn('mv "$stage" "$WORKTREE"', pull)  # first installation only
