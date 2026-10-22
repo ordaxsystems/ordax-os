@@ -1,13 +1,14 @@
 """Device-local client for the OrdaX account gateway.
 
 This adapter is provider-neutral and speaks only to the OrdaX HTTPS gateway.
-Cookies stay in trusted Native memory. On supported Linux-amd64 hosts, the
-kernel user keyring can preserve them across a Surface/Native Host restart
-within the same boot. No cookie is written to USB, exposed to Surface JS, or
-synchronized. A full reboot deliberately requires authentication again.
+Cookies stay in trusted Native memory; the kernel user keyring optionally
+preserves them across Native Host restarts within one boot. The canonical Native
+account vault can persist encrypted refresh credentials across a full reboot
+only when unlocked with a strong local passphrase and revalidated by the HTTPS
+gateway. Short PINs cannot enable this on copyable USB media without a separate
+hardware-backed proof. Provider credentials never enter Surface JavaScript.
 
-The former plaintext session file is only a cleanup target. Cross-boot session
-persistence still requires a separately proven encrypted device-unlock vault.
+The former plaintext session file is cleanup-only, not session authority.
 """
 
 from __future__ import annotations
@@ -25,6 +26,7 @@ from urllib.parse import urlencode, urlsplit
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 from native_account_hot_session import KernelSessionUnavailable, NativeKernelAccountSession
+from native_account_vault import AccountVaultError, NativeAccountVault
 
 MAX_RESPONSE_BYTES = 2 * 1024 * 1024
 COOKIE_NAMES = frozenset(("ordax_access", "ordax_refresh"))
@@ -191,6 +193,7 @@ class NativeAccountGateway:
         *,
         timeout_seconds: float = 15.0,
         hot_session_store=None,
+        vault_path: str | None = None,
     ) -> None:
         self.base_url = _validated_base_url(origin)
         if not os.path.isabs(legacy_session_path):
@@ -201,6 +204,8 @@ class NativeAccountGateway:
         self._opener = build_opener(_NoRedirect())
         _purge_legacy_plaintext_session(self.legacy_session_path)
         self._cookies: dict[str, str] = {}
+        self._vault = NativeAccountVault(vault_path, self.base_url) if vault_path else None
+        self._vault_confirmed = False
         self._hot_session_store = hot_session_store
         if self._hot_session_store is None:
             try:
@@ -259,6 +264,12 @@ class NativeAccountGateway:
         if set_cookies:
             self._cookies = _parse_set_cookies(set_cookies, self._cookies)
             self._sync_hot_session()
+            if self._vault_confirmed and self._vault is not None:
+                try:
+                    self._vault.save(self._cookies)
+                except (AccountVaultError, OSError, ValueError):
+                    # Network session remains usable; no unencrypted fallback.
+                    self._vault.lock()
 
         return GatewayReply(status=status, headers=response_headers, body=raw)
 
@@ -284,12 +295,66 @@ class NativeAccountGateway:
                 raise NativeAccountGatewayError("authentication-required", status=401)
             return token
 
+    def unlock_local_session(self, secret: str) -> None:
+        """Called ONLY after the Native Host verified its existing local credential."""
+        with self._lock:
+            if self._vault is None:
+                return
+            try:
+                restored = self._vault.unlock(secret)
+            except (AccountVaultError, OSError, ValueError):
+                # Corrupt/invalid vault cannot authenticate. Clear only a safe
+                # file; the next cloud login may create a new encrypted vault.
+                try:
+                    self._vault.clear()
+                    restored = self._vault.unlock(secret)
+                except (AccountVaultError, OSError, ValueError):
+                    self._vault.lock()
+                    return
+            if restored and not self._cookies:
+                self._cookies = restored
+                self._sync_hot_session()
+            elif self._vault_confirmed:
+                try:
+                    self._vault.save(self._cookies)
+                except (AccountVaultError, OSError, ValueError):
+                    self._vault.lock()
+
+    def lock_local_session(self) -> None:
+        with self._lock:
+            if self._vault is not None:
+                self._vault.lock()
+
+    def clear_local_session_vault(self) -> None:
+        with self._lock:
+            if self._vault is not None:
+                self._vault.clear()
+
     def session(self) -> GatewayReply:
         with self._lock:
-            return self._request("GET", "/auth/session")
+            reply = self._request("GET", "/auth/session")
+            if self._vault is not None and reply.status == 200:
+                try:
+                    proof = verified_account_session_reply(reply, allow_anonymous=True)
+                except NativeAccountGatewayError:
+                    return reply
+                if proof["authenticated"]:
+                    self._vault_confirmed = True
+                    try:
+                        self._vault.save(self._cookies)
+                    except (AccountVaultError, OSError, ValueError):
+                        self._vault.lock()
+                elif proof.get("provider") not in ("unconfigured", "gated"):
+                    self._vault_confirmed = False
+                    try:
+                        self._vault.clear()
+                    except (AccountVaultError, OSError, ValueError):
+                        pass
+            return reply
 
     def login(self, email: str, password: str) -> GatewayReply:
         with self._lock:
+            self._vault_confirmed = False
             payload = urlencode({"email": email, "password": password}).encode("utf-8")
             return self._request(
                 "POST",
@@ -306,6 +371,7 @@ class NativeAccountGateway:
         if legal_accepted is not True:
             raise NativeAccountGatewayError("legal-acceptance-required")
         with self._lock:
+            self._vault_confirmed = False
             payload = urlencode({
                 "email": email,
                 "password": password,
@@ -318,12 +384,24 @@ class NativeAccountGateway:
                 content_type="application/x-www-form-urlencoded",
             )
 
+    def _erase_local_account_session(self) -> None:
+        """One Native-only teardown for logout and confirmed account closure."""
+        self._cookies = {}
+        self._vault_confirmed = False
+        try:
+            self._sync_hot_session()
+        finally:
+            if self._vault is not None:
+                self._vault.clear()
+
     def logout(self) -> GatewayReply:
         with self._lock:
-            reply = self._request("POST", "/auth/logout", body=b"", content_type="application/json")
-            self._cookies = {}
-            self._sync_hot_session()
-            return reply
+            try:
+                return self._request("POST", "/auth/logout", body=b"", content_type="application/json")
+            finally:
+                # Local logout always completes; remote revocation is only
+                # confirmed when the Gateway accepts the online request.
+                self._erase_local_account_session()
 
     def account_export(self) -> GatewayReply:
         with self._lock:
@@ -344,12 +422,20 @@ class NativeAccountGateway:
                 "password": password,
                 "confirmation": confirmation,
             }).encode("utf-8")
-            return self._request(
+            reply = self._request(
                 "POST",
                 "/account/close",
                 body=payload,
                 content_type="application/x-www-form-urlencoded",
             )
+            if reply.status == 200:
+                try:
+                    closed = json.loads(reply.body.decode("utf-8")).get("closed") is True
+                except (UnicodeError, ValueError, AttributeError):
+                    closed = False
+                if closed:
+                    self._erase_local_account_session()
+            return reply
 
     def spaces(self) -> GatewayReply:
         with self._lock:

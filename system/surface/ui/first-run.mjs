@@ -528,6 +528,12 @@ export function mountFirstRunExperience(
       documentObject,
       "p",
       "ordax-first-run-note",
+      "Para manter a Conta OrdaX conectada após reiniciar o USB, use uma senha local forte com pelo menos 16 caracteres. PIN curto desbloqueia apenas a tela.",
+    ));
+    body.append(el(
+      documentObject,
+      "p",
+      "ordax-first-run-note",
       "Deixe os dois campos vazios para continuar sem bloqueio autenticado. Você poderá configurar depois em Ajustes.",
     ));
     if (localSessionMessage) {
