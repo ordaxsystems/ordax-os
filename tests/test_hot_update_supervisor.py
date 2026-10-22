@@ -165,26 +165,37 @@ class HotUpdateSupervisorContractTests(unittest.TestCase):
             'INITIAL_SURFACE_HEALTH_TIMEOUT=${ORDAX_INITIAL_SURFACE_HEALTH_TIMEOUT_SECONDS:-180}',
             text,
         )
-    def test_remote_main_behind_current_checkout_is_not_treated_as_an_update(self):
+    def test_non_fast_forward_remote_is_blocked_before_checkout_and_retry(self):
         text = SYSTEM_SUPERVISOR.read_text(encoding="utf-8")
         check = text.split("check_for_update() {", 1)[1].split("\n}\n", 1)[0]
-        guard_start = 'if "$GIT_BIN" -C "$WORKTREE" cat-file -e "$remote_sha^{commit}"'
-        ancestor_check = (
+        guard = 'if non_ff_target_blocked "$current" "$remote_sha"; then'
+        self.assertIn(guard, check)
+        self.assertLess(check.index(guard), check.index("    old_sha=$current"))
+        blocked = check[check.index(guard):check.index("    old_sha=$current")]
+        self.assertIn('set_update_context blocked "$remote_sha" "" "non-fast-forward"', blocked)
+        self.assertIn('write_update_state "$current" pull-error none', blocked)
+        self.assertIn("return 0", blocked)
+
+        # A newly discovered divergent/older SHA is rejected before any
+        # staging or Pull mutation. The persisted pair suppresses repeated
+        # attempts while the same remote target remains advertised.
+        apply = text.split("apply_remote_checkout() {", 1)[1].split("\n}\n", 1)[0]
+        ancestor = (
             '"$GIT_BIN" -C "$WORKTREE" merge-base --is-ancestor '
-            '"$remote_sha" "$current"'
+            '"$checkout_previous_sha" "$checkout_target_sha"'
         )
-        self.assertIn(guard_start, check)
-        self.assertIn(ancestor_check, check)
-        guard_pos = check.index(guard_start)
-        old_sha_pos = check.index("    old_sha=$current")
-        self.assertLess(guard_pos, old_sha_pos)
-        behind = check[guard_pos:old_sha_pos]
-        self.assertIn('refresh_dev_helpers "$current"', behind)
-        self.assertIn("clear_update_context", behind)
-        self.assertIn('write_update_state "$current" running none', behind)
-        self.assertIn("return 0", behind)
-        self.assertNotIn("apply_remote_checkout", behind)
-        self.assertNotIn("fetch --no-tags", behind)
+        self.assertIn(ancestor, apply)
+        self.assertIn('record_non_ff_target "$checkout_previous_sha" "$checkout_target_sha"', apply)
+        self.assertIn("CHECKOUT_ERROR=non-fast-forward", apply)
+        self.assertLess(apply.index(ancestor), apply.index('stage_candidate_release "$checkout_target_sha"'))
+        self.assertLess(apply.index(ancestor), apply.index('"$PULL_BIN" >>"$UPDATE_LOG"'))
+
+        stored = text.split("non_ff_target_blocked() {", 1)[1].split("\n}\n", 1)[0]
+        self.assertIn('[ -f "$NON_FF_BLOCKED_FILE" ] && [ ! -L "$NON_FF_BLOCKED_FILE" ]', stored)
+        self.assertIn('read -r blocked_old_sha blocked_target_sha', stored)
+        self.assertIn('[ "$blocked_old_sha" = "$blocked_old" ]', stored)
+        self.assertIn('[ "$blocked_target_sha" = "$blocked_target" ]', stored)
+
     def test_git_update_operations_are_bounded(self):
         text = SYSTEM_SUPERVISOR.read_text(encoding="utf-8")
         self.assertIn('/bin/busybox setsid /bin/sh -c', text)
