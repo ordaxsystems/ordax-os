@@ -63,6 +63,11 @@ const OVERVIEW_UPDATE_STATUS_MESSAGE_IDS = Object.freeze({
   unavailable: "system.overview.update.status.unavailable",
 });
 
+const UPDATE_TRANSPORT_MESSAGE_IDS = Object.freeze({
+  "git-main": "system.updates.transport.gitMain",
+  "official-signed-release-channel": "system.updates.transport.signedRelease",
+});
+
 const OVERVIEW_UPDATE_MODE_MESSAGE_IDS = Object.freeze({
   reload: "system.overview.update.mode.reload",
   "surface-restart": "system.overview.update.mode.surfaceRestart",
@@ -784,6 +789,10 @@ export function mountSystemOverviewControls(
     addFact(t("system.updates.fact.status"), t(statusMessageId));
     addFact(t("system.updates.fact.phase"), t(phaseMessageId));
     addFact(t("system.updates.fact.applyMode"), t(modeMessageId));
+    const transportMessageId = UPDATE_TRANSPORT_MESSAGE_IDS[updateSnapshot.updateTransport];
+    if (transportMessageId) {
+      addFact(t("system.updates.fact.transport"), t(transportMessageId));
+    }
     if (updateSnapshot.targetSha) {
       addFact(t("system.updates.fact.target"), shortSha(updateSnapshot.targetSha));
     }

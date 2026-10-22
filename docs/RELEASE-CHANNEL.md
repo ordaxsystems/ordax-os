@@ -32,6 +32,17 @@ for that immutable source identity and pass through the existing signed
 candidate / health / rollback owners. Consumers must never need a Git client
 to boot or update through the standard channel.
 
+### Effective transport status (increment 2)
+
+The current Supervisor emits `updateTransport` in the existing native
+`ordax.update-status/1` snapshot, using the *actual validated runtime
+distribution profile*: `git-main` for Development, or
+`official-signed-release-channel` for Stable. The shared validator treats
+the missing field from an older image as `unavailable`; unknown methods
+fail validation. System → Updates displays this as a read-only localized fact
+and omits it for older snapshots. This does not switch transport, approve an
+update, sign a release or change Base/ESP/boot behavior.
+
 ### Incremental delivery / acceptance gates
 
 1. **Policy and tests (current PR):** express enabled and gated routes in the
