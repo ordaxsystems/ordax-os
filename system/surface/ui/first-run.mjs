@@ -961,7 +961,7 @@ export function mountFirstRunExperience(
     if (STEPS[stepIndex] === "account" && sessionSnapshot.state === "unavailable") {
       void refreshIdentityAvailability();
     }
-    if (STEPS[stepIndex] === "account" && sessionSnapshot.state === "signed-out") {
+    if (STEPS[stepIndex] === "account" && sessionSnapshot.state === "signed-out" && capabilitySnapshot.registrationPolicy) {
       void refreshRegistrationPolicy();
     }
   };
@@ -1105,7 +1105,7 @@ export function mountFirstRunExperience(
       destroyed
       || registrationPolicyPending
       || sessionSnapshot.state !== "signed-out"
-      || typeof credentialsPort?.registrationPolicy !== "function"
+      || !capabilitySnapshot.registrationPolicy
     ) {
       if (!capabilitySnapshot.identityRegister) {
         registrationPolicy = null;
@@ -1408,7 +1408,7 @@ export function mountFirstRunExperience(
       registrationPolicy = null;
       registrationLegalAccepted = false;
       hostedSignupAllowed = false;
-    } else if (sessionSnapshot.state === "signed-out" && typeof credentialsPort?.registrationPolicy === "function") {
+    } else if (sessionSnapshot.state === "signed-out" && capabilitySnapshot.registrationPolicy) {
       void refreshRegistrationPolicy();
     }
     if (!destroyed && STEPS[stepIndex] === "account") render();
@@ -1427,7 +1427,7 @@ export function mountFirstRunExperience(
       registrationLegalAccepted = false;
     }
     if (!destroyed && STEPS[stepIndex] === "account") render();
-    if (typeof credentialsPort?.registrationPolicy === "function" && registrationPolicy === null) {
+    if (capabilitySnapshot.registrationPolicy && registrationPolicy === null) {
       void refreshRegistrationPolicy();
     }
   });
@@ -1441,7 +1441,7 @@ export function mountFirstRunExperience(
     void refreshIdentityAvailability();
   }
   if (keyboardLayoutPort) void refreshKeyboardLayout();
-  if (sessionSnapshot.state === "signed-out" && typeof credentialsPort?.registrationPolicy === "function") {
+  if (sessionSnapshot.state === "signed-out" && capabilitySnapshot.registrationPolicy) {
     void refreshRegistrationPolicy();
   }
   queueMicrotask(() => overlay.querySelector("button, select, input")?.focus?.());
