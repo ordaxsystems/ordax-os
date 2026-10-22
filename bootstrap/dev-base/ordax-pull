@@ -20,6 +20,8 @@ PINNED_FILE=$STATE_DIR/pinned-commit
 BOOT_REJECTED_FILE=$STATE_DIR/boot-rejected-commit
 AUTOMATIC_ROLLBACK_RECOVERY=${ORDAX_AUTOMATIC_ROLLBACK_RECOVERY:-0}
 EXPECTED_SHA=${ORDAX_EXPECTED_SHA:-}
+# Only the Supervisor may opt into an exact, provenance-checked main lineage recovery.
+RECONCILE_PREVIOUS_SHA=${ORDAX_RECONCILE_PREVIOUS_SHA:-}
 DIRTY_CHECKOUT_DIR=$STATE_DIR/dirty-checkout
 GIT_TIMEOUT_SECONDS=${ORDAX_BOOT_GIT_TIMEOUT_SECONDS:-45}
 GIT_LOW_SPEED_TIME=${ORDAX_BOOT_GIT_LOW_SPEED_SECONDS:-15}
@@ -85,6 +87,12 @@ is_pid() {
 }
 if [ -n "$EXPECTED_SHA" ] && ! is_sha "$EXPECTED_SHA"; then
     echo "ordax-git: expected SHA is invalid" >&2
+    exit 2
+fi
+if [ -n "$RECONCILE_PREVIOUS_SHA" ] && {
+    [ -z "$EXPECTED_SHA" ] || ! is_sha "$RECONCILE_PREVIOUS_SHA";
+}; then
+    echo "ordax-git: lineage recovery requires two exact verified commits" >&2
     exit 2
 fi
 
@@ -446,7 +454,9 @@ clone_runtime_checkout() {
         acquire_runtime_candidate_blobs "$expected_sha" || return 1
         PULL_PHASE=isolated-checkout
         echo "ordax-git: preparando checkout isolado do commit ja validado em cache"
-        seed_runtime_checkout_from_local "$WORKTREE" "$expected_sha" "$destination" fetched
+        candidate_mode=fetched
+        [ -z "$RECONCILE_PREVIOUS_SHA" ] || candidate_mode=reconciled
+        seed_runtime_checkout_from_local "$WORKTREE" "$expected_sha" "$destination" "$candidate_mode"
         return $?
     fi
 
@@ -508,15 +518,28 @@ seed_runtime_checkout_from_local() {
                 return 1
             }
             ;;
-        fetched)
+        fetched|reconciled)
             checkout_metadata_valid "$source_repo" && checkout_is_clean "$source_repo" || {
                 echo "ordax-git: verified source checkout is unavailable or dirty" >&2
                 return 1
             }
-            git -C "$source_repo" merge-base --is-ancestor "$source_sha" "$expected_sha" >/dev/null 2>&1 || {
-                echo "ordax-git: cached candidate is not a fast-forward from current" >&2
-                return 1
-            }
+            if [ "$source_mode" = reconciled ]; then
+                # Main is authoritative, but never discard an unverified local
+                # commit or accept a downgrade/unrelated replacement.
+                [ "$source_sha" = "$RECONCILE_PREVIOUS_SHA" ] &&
+                [ "$(read_state "$CURRENT_FILE")" = "$source_sha" ] &&
+                [ ! -s "$PINNED_FILE" ] &&
+                git -C "$source_repo" merge-base "$source_sha" "$expected_sha" >/dev/null 2>&1 &&
+                ! git -C "$source_repo" merge-base --is-ancestor "$expected_sha" "$source_sha" >/dev/null 2>&1 || {
+                    echo "ordax-git: untrusted or backwards lineage recovery refused" >&2
+                    return 1
+                }
+            else
+                git -C "$source_repo" merge-base --is-ancestor "$source_sha" "$expected_sha" >/dev/null 2>&1 || {
+                    echo "ordax-git: cached candidate is not a fast-forward from current" >&2
+                    return 1
+                }
+            fi
             ;;
         *)
             echo "ordax-git: unsupported local checkout mode" >&2
@@ -540,7 +563,7 @@ seed_runtime_checkout_from_local() {
     # source's origin/main but absent from the isolated destination. Transfer
     # the verified candidate from the local cache before checking it out:
     # no second remote HTTPS fetch and no mutation of the running checkout.
-    if [ "$source_mode" = fetched ]; then
+    if [ "$source_mode" = fetched ] || [ "$source_mode" = reconciled ]; then
         if ! run_bounded_git -C "$destination" fetch --no-tags \
             "$source_repo" "refs/remotes/origin/$BRANCH" >/dev/null 2>&1; then
             echo "ordax-git: isolated checkout could not import cached candidate" >&2
@@ -550,6 +573,16 @@ seed_runtime_checkout_from_local() {
         staged_candidate=$(git -C "$destination" rev-parse FETCH_HEAD 2>/dev/null || true)
         if [ "$staged_candidate" != "$expected_sha" ]; then
             echo "ordax-git: isolated checkout candidate does not match verified main" >&2
+            rm -rf "$destination"
+            return 1
+        fi
+    fi
+    if [ "$source_mode" = reconciled ]; then
+        # The old commit is not an ancestor of new main. Pin its Git object
+        # before checkout: reset/rollback must work even after a reboot or GC.
+        if ! git -C "$destination" cat-file -e "$source_sha^{commit}" 2>/dev/null ||
+           ! git -C "$destination" update-ref refs/ordax/known-good "$source_sha"; then
+            echo "ordax-git: rollback object cannot be retained; preserving live checkout" >&2
             rm -rf "$destination"
             return 1
         fi
@@ -837,6 +870,24 @@ else
         echo "ordax-git: checkout local alterado; substituindo cache por clone limpo validado" >&2
         replace_runtime_checkout "$remote_sha" dirty || exit 1
     elif [ "$current" != "$remote_sha" ]; then
+        if [ -n "$RECONCILE_PREVIOUS_SHA" ]; then
+            # The Supervisor is the sole authority to authorize this path.
+            # A local maintenance Pull, dirty checkout, stale receipt or
+            # unresolved rollback pin cannot silently discard history.
+            PULL_PHASE=handoff-validation
+            if [ "$SUPERVISOR_VERIFIED_CACHE" -ne 1 ] ||
+               [ "$AUTOMATIC_ROLLBACK_RECOVERY" -ne 0 ] ||
+               [ "$current" != "$RECONCILE_PREVIOUS_SHA" ] ||
+               [ "$(read_state "$CURRENT_FILE")" != "$current" ] ||
+               [ -s "$PINNED_FILE" ] ||
+               [ -s "$BOOT_REJECTED_FILE" ] ||
+               ! git -C "$WORKTREE" merge-base "$current" "$remote_sha" >/dev/null 2>&1 ||
+               git -C "$WORKTREE" merge-base --is-ancestor "$remote_sha" "$current" >/dev/null 2>&1; then
+                echo "ordax-git: unsafe lineage recovery denied; current checkout preserved" >&2
+                exit 1
+            fi
+            replace_runtime_checkout "$remote_sha" reconciled || exit 1
+        else
         # Supervisor already fetched this exact tracking ref. A repeat fetch
         # here would reintroduce a remote dependency and race against main.
         if [ "$SUPERVISOR_VERIFIED_CACHE" -ne 1 ]; then
@@ -852,6 +903,7 @@ else
             exit 1
         }
         replace_runtime_checkout "$remote_sha" update || exit 1
+        fi
     else
         configure_runtime_checkout_at "$WORKTREE" || {
             echo "ordax-git: sparse checkout local inconsistente; reconstruindo cache" >&2
