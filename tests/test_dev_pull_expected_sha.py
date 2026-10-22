@@ -28,6 +28,25 @@ def run_git(*args, cwd: Path) -> str:
     "requires POSIX shell, git and timeout",
 )
 class DevPullExpectedShaTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        # Same production C source as the static Base helper; no fake syscall.
+        compiler = shutil.which("cc")
+        if not compiler:
+            raise unittest.SkipTest("Linux C compiler required for atomic checkout E2E")
+        cls.exchange_build = tempfile.TemporaryDirectory()
+        cls.exchange_binary = Path(cls.exchange_build.name) / "ordax-checkout-exchange"
+        subprocess.run([
+            compiler, "-O2", "-Wall", "-Wextra", "-Werror",
+            "-o", str(cls.exchange_binary),
+            str(ROOT / "bootstrap/dev-base/ordax_checkout_exchange.c"),
+        ], check=True, capture_output=True, text=True, timeout=30)
+
+    @classmethod
+    def tearDownClass(cls):
+        if hasattr(cls, "exchange_build"):
+            cls.exchange_build.cleanup()
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.root = Path(self.temp.name)
@@ -115,6 +134,7 @@ class DevPullExpectedShaTests(unittest.TestCase):
                 "ORDAX_UPDATE_RUN_DIR": str(self.run_dir),
                 "ORDAX_EXPECTED_SHA": expected_sha,
                 "ORDAX_BOOT_GIT_TIMEOUT_SECONDS": "30",
+                "ORDAX_CHECKOUT_EXCHANGE_BIN": str(self.exchange_binary),
             }
         )
         if reconcile_previous_sha is not None:
