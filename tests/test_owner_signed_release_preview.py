@@ -8,6 +8,7 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "system/services/update/owner-signed-preview.sh"
+SHELL = os.environ.get("ORDAX_TEST_POSIX_SH", "/bin/sh")
 SHA = "0123456789abcdef0123456789abcdef01234567"
 
 
@@ -53,7 +54,7 @@ class OwnerSignedPreviewTests(unittest.TestCase):
 
     def call(self, *args, env=None):
         return subprocess.run(
-            ["/bin/sh", str(SCRIPT), *args],
+            [SHELL, str(SCRIPT), *args],
             env=env or self.env, capture_output=True, text=True,
             check=False, timeout=15,
         )
@@ -66,7 +67,7 @@ class OwnerSignedPreviewTests(unittest.TestCase):
         self.assertFalse((self.checkout / "releases").exists())
 
     def test_shell_syntax(self):
-        subprocess.run(["/bin/sh", "-n", str(SCRIPT)], check=True)
+        subprocess.run([SHELL, "-n", str(SCRIPT)], check=True)
 
     def test_inspect_uses_the_canonical_release_agent_without_mutation(self):
         result = self.call("inspect")
