@@ -169,7 +169,8 @@ func verifySlotV2WithTrustBytes(slot string, trustBytes []byte) (releaseDescript
 			if err != nil {
 				return releaseDescriptorV2{}, err
 			}
-			if info.Mode().Perm() != verifiedFileMode(manifest.Component.ID, record) {
+			if executablePackageFile(manifest.Component.ID, record) &&
+				info.Mode().Perm() != verifiedFileMode(manifest.Component.ID, record) {
 				return releaseDescriptorV2{}, fmt.Errorf("installed runtime component release/2 file mode mismatch: %s", record.Path)
 			}
 		}
