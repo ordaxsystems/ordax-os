@@ -153,6 +153,28 @@ Shared code depends on stable capability IDs, not platform-name conditionals. Th
 
 This lets future features such as delta updates, new hardware integrations, richer mobile APIs or remote-management capabilities grow through adapters and contracts instead of forcing a rewrite of shared product code.
 
+## Background execution and resource ownership
+
+Background work is part of the runtime contract, not an incidental UI detail.
+Every periodic task must have one named owner, a reason to run when inactive,
+a bounded cadence/concurrency policy and a tested teardown path.
+
+| Concern | Sole execution/authority owner | Boundary |
+| --- | --- | --- |
+| Owner/Development Git discovery, activation and Surface boot health | `system/supervisor` | Other processes consume its status and logs; they do not poll provisioning or recreate health policy |
+| Base/ESP staging and optional signed Aura acquisition | `system/services/base-update/agent.sh` with its canonical orchestrator | Optional download must yield to Base and recovery |
+| Local Aura process start/stop/retry on Owner USB | `bootstrap/dev-base/ordax-run` delegating to `system/services/local-ai/owner-dev-runtime.sh` | No second model server, no second update agent; the Native probe is health/read-only |
+| Surface network status | Native network adapter/tray | Settings may request additional details only while its Network view is active; no permanent duplicate inactive polling |
+
+Never add a second polling loop for an observation already owned by one of these
+components. Prefer an existing state/receipt/subscription and stop inactive UI
+timers rather than reducing an interval without removing redundant work.
+Long-running children must be stopped and reaped together with their owner.
+These rules do not authorize suppressing security, boot/recovery or data
+integrity gates. Performance claims require an exact source revision and
+measured CPU, RSS, I/O and cold-boot data on supported hardware; tests of
+source structure alone do not prove a physical speedup.
+
 ## Layers
 
 ### 1. ESP
