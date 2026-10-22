@@ -193,7 +193,7 @@ export function mountPowerControls(root, powerActions = null, surfaceLifecycle =
           if (destroyed || ordinal !== actionOrdinal) return;
           pending = null;
           messageId = lastPowerReceipt?.lastAction === action && lastPowerReceipt?.lastStatus === "failed"
-            ? "power.controls.failed" : "power.controls.hostStillActive";
+            ? "power.controls.failed" : "power.controls.accepted";
           render();
         }, POWER_ACTION_SETTLE_MS);
       })
