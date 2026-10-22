@@ -51,6 +51,7 @@ import { createWebIdentitySession } from "../../adapters/web/identity.mjs";
 import { createWebSpacesCatalog } from "../../adapters/web/spaces.mjs";
 import { createWebSyncTransport } from "../../adapters/web/sync-transport.mjs";
 import { validateAccountRuntime } from "../../services/account/runtime.mjs";
+import { createAccountConnectivityRecovery } from "../../services/account/connectivity-recovery.mjs";
 import { createAppActivationChannel } from "../../services/apps/activation.mjs";
 import { createAppLifecycleRequestService } from "../../services/apps/store-lifecycle-request-service.mjs";
 import { listFirstRunDefaultAppIds, planFirstRunAppSelectionFromStore } from "../../services/apps/first-run-selection.mjs";
@@ -806,10 +807,15 @@ async function start() {
       reportClientDiagnostic("battery-quick-panel", error);
     }
   }
+  // Reuse the existing Network Tray read loop: localhost keeps WebKit
+  // navigator.onLine=true even when the physical USB Wi-Fi is disconnected.
+  let onAccountNetworkObservation = () => {};
   let networkTrayControls = null;
   if (networkStatus) {
     try {
-      networkTrayControls = mountNetworkTrayControls(root, networkStatus, surface);
+      networkTrayControls = mountNetworkTrayControls(root, networkStatus, surface, {
+        onNetworkObservation: (snapshot) => onAccountNetworkObservation(snapshot),
+      });
     } catch (error) {
       reportClientDiagnostic("network-tray-status", error);
     }
@@ -845,6 +851,15 @@ async function start() {
     await identityActions.refresh();
     await accountLifecycle.refresh();
     await accountSync.refresh();
+  };
+  const accountConnectivityRecovery = createAccountConnectivityRecovery({
+    readIdentityState: () => identitySession.getSnapshot().state,
+    refresh: resumeAccountConnectivity,
+  });
+  onAccountNetworkObservation = (snapshot) => {
+    void accountConnectivityRecovery.observe(snapshot).catch((error) => {
+      reportClientDiagnostic("account-network-recovery", error);
+    });
   };
   const onOnline = () => {
     void resumeAccountConnectivity();
@@ -1134,6 +1149,7 @@ async function start() {
       storeOverviewControls?.destroy();
       storeCatalogComposition?.destroy();
       settingsOverviewControls.destroy();
+      accountConnectivityRecovery.dispose();
       networkTrayControls?.destroy();
       networkQuickPanel?.destroy();
       quickPanelControls?.destroy();
