@@ -124,7 +124,10 @@ func TestOwnerSignedPreviewPortableStateHandoff(t *testing.T) {
 	}
 	mkState := func(t *testing.T) (string, string) {
 		t.Helper()
-		stateRoot := t.TempDir()
+		stateRoot := filepath.Join(t.TempDir(), "owner-signed-state")
+		if err := os.Mkdir(stateRoot, 0o700); err != nil {
+			t.Fatal(err)
+		}
 		stateDir := filepath.Join(stateRoot, "ordax", "portable-release")
 		if err := os.MkdirAll(stateDir, 0o700); err != nil {
 			t.Fatal(err)
@@ -143,6 +146,33 @@ func TestOwnerSignedPreviewPortableStateHandoff(t *testing.T) {
 			t.Fatalf("portable-state %v failed: %v\n%s", args, err, got)
 		}
 		return strings.TrimSpace(got)
+	}
+	// Exercise the same Owner preview command with both real authorities:
+	// exact signed release validation by Go, state observation by native C.
+	// This is a disposable audit, never a Dev boot transport switch.
+	audit := func(t *testing.T, stateRoot, expectedPhase, expectedCurrent string) {
+		t.Helper()
+		env := append(append([]string(nil), baseEnv...),
+			"ORDAX_OWNER_SIGNED_STATE_ROOT="+stateRoot,
+			"ORDAX_OWNER_SIGNED_STATE_HELPER="+stateHelper,
+		)
+		raw, err := runCommand("sh", env, shell, "audit-state", candidate)
+		if err != nil {
+			t.Fatalf("native signed audit failed: %v\n%s", err, raw)
+		}
+		var receipt struct {
+			Schema string `json:"schema"`
+			Phase string `json:"phase"`
+			Current string `json:"current"`
+		}
+		if err := json.Unmarshal([]byte(raw), &receipt); err != nil {
+			t.Fatalf("invalid signed native audit receipt: %v\n%s", err, raw)
+		}
+		if receipt.Schema != "ordax.portable-state-inspection/1" ||
+			receipt.Phase != expectedPhase || receipt.Current != expectedCurrent {
+			t.Fatalf("unexpected signed native audit state: %+v", receipt)
+		}
+		assertGit(t)
 	}
 	// The same read-only status primitive will gate future Dev boot handoff.
 	// It never authorizes a candidate, signs content or changes activation.
@@ -177,10 +207,12 @@ func TestOwnerSignedPreviewPortableStateHandoff(t *testing.T) {
 
 	t.Run("one-shot candidate falls back and pins rejected commit", func(t *testing.T) {
 		stateRoot, stateDir := mkState(t)
+		audit(t, stateRoot, "idle", prev)
 		if got := runState(t, stateRoot, "prepare", stateRoot, root, candidate); got != candidate {
 			t.Fatalf("prepare receipt: %q", got)
 		}
 		inspect(t, stateRoot, "armed", prev)
+		audit(t, stateRoot, "armed", prev)
 		if got := runState(t, stateRoot, "select-boot", stateRoot, root); got != "candidate "+candidate {
 			t.Fatalf("first boot selection: %q", got)
 		}
@@ -223,7 +255,29 @@ func TestOwnerSignedPreviewPortableStateHandoff(t *testing.T) {
 			t.Fatalf("commit destroyed rollback previous: %q", got)
 		}
 		inspect(t, stateRoot, "idle", candidate)
+		audit(t, stateRoot, "idle", candidate)
 		assertAbsent(t, stateDir, "candidate", "activation-transaction.json")
 		assertGit(t)
 	})
+	t.Run("signed audit refuses tampered exact candidate before state inspection", func(t *testing.T) {
+		stateRoot, _ := mkState(t)
+		artifact := filepath.Join(root, "releases", candidate, "system.erofs")
+		content, err := os.ReadFile(artifact)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(artifact, append(content, 0), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		env := append(append([]string(nil), baseEnv...),
+			"ORDAX_OWNER_SIGNED_STATE_ROOT="+stateRoot,
+			"ORDAX_OWNER_SIGNED_STATE_HELPER="+stateHelper,
+		)
+		raw, err := runCommand("sh", env, shell, "audit-state", candidate)
+		if err == nil || strings.Contains(raw, "ordax.portable-state-inspection/1") {
+			t.Fatalf("tampered signed release passed audit: %v\n%s", err, raw)
+		}
+		assertGit(t)
+	})
+
 }

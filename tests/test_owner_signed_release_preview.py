@@ -44,7 +44,7 @@ class OwnerSignedPreviewTests(unittest.TestCase):
             ' verify-envelope) printf \'{"status":"verified","source_commit":"'
             + SHA + '"}\\n\' ;;\n'
             ' materialize-portable-v4) [ "${ORDAX_TEST_FAIL_STAGE:-0}" != 1 ] ;;\n'
-            ' verify-portable-v4-exact) printf \'{"status":"verified","source_commit":"'
+            ' verify-portable-v4-exact) [ "${ORDAX_TEST_FAIL_VERIFY:-0}" != 1 ] || exit 97; printf \'{"status":"verified","source_commit":"'
             + SHA + '"}\\n\' ;;\n'
             ' *) exit 94 ;;\n'
             'esac\n', encoding="utf-8", newline="\n",
@@ -148,6 +148,73 @@ class OwnerSignedPreviewTests(unittest.TestCase):
         result = self.call("stage", SHA, env=dict(self.env, ORDAX_OWNER_SIGNED_STAGE_ROOT=shell_path(alias)))
         self.assertNotEqual(result.returncode, 0)
         self.assertEqual(self.invoked(), [])
+
+
+
+    def audit_fixture(self, **overrides):
+        state = self.root / "owner-signed-state"
+        state.mkdir(exist_ok=True)
+        marker = state / "known-good-marker"
+        marker.write_text("unchanged", encoding="utf-8")
+        inspector = self.root / "ordax-portable-state"
+        inspector.write_text(
+            '#!/bin/sh\n'
+            '[ "$#" -eq 3 ] && [ "$1" = inspect ] || exit 88\n'
+            'printf "%s\\n" "$*" > "$ORDAX_TEST_STATE_RECORD"\n'
+            'printf \'{"schema":"ordax.portable-state-inspection/1","phase":"idle"}\\n\'\n',
+            encoding="utf-8", newline="\n",
+        )
+        inspector.chmod(0o755)
+        record = self.root / "state-inspections"
+        env = dict(
+            self.env,
+            ORDAX_OWNER_SIGNED_STATE_ROOT=shell_path(state),
+            ORDAX_OWNER_SIGNED_STATE_HELPER=shell_path(inspector),
+            ORDAX_TEST_STATE_RECORD=shell_path(record),
+        )
+        env.update(overrides)
+        return state, marker, record, env
+
+    def test_state_audit_reuses_exact_agent_and_native_inspector_without_writing(self):
+        state, marker, record, env = self.audit_fixture()
+        result = self.call("audit-state", SHA, env=env)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn('"phase":"idle"', result.stdout)
+        calls = self.invoked()
+        self.assertEqual(len(calls), 1)
+        self.assertTrue(calls[0].startswith("verify-portable-v4-exact "))
+        self.assertIn("--expected-commit " + SHA, calls[0])
+        self.assertIn("--root " + shell_path(self.stage), calls[0])
+        self.assertEqual(
+            record.read_text(encoding="utf-8").strip(),
+            "inspect " + shell_path(state) + " " + shell_path(self.stage),
+        )
+        self.assertEqual(marker.read_text(encoding="utf-8"), "unchanged")
+        self.assert_preserved()
+
+    def test_state_audit_blocks_unsafe_paths_missing_inspector_and_wrong_sha(self):
+        state, marker, record, env = self.audit_fixture()
+        for invalid_env in (
+            dict(env, ORDAX_OWNER_SIGNED_STATE_ROOT="/state/owner-signed-state"),
+            dict(env, ORDAX_OWNER_SIGNED_STATE_ROOT=shell_path(self.checkout)),
+            dict(env, ORDAX_OWNER_SIGNED_STATE_ROOT=shell_path(self.stage)),
+            dict(env, ORDAX_OWNER_SIGNED_STATE_HELPER=shell_path(self.root / "missing")),
+        ):
+            result = self.call("audit-state", SHA, env=invalid_env)
+            self.assertNotEqual(result.returncode, 0, result.stderr)
+        self.assertNotEqual(self.call("audit-state", SHA[:-1], env=env).returncode, 0)
+        self.assertFalse(record.exists())
+        self.assertEqual(self.invoked(), [])
+        self.assertEqual(marker.read_text(encoding="utf-8"), "unchanged")
+
+    def test_state_audit_does_not_inspect_after_signature_failure(self):
+        state, marker, record, env = self.audit_fixture(ORDAX_TEST_FAIL_VERIFY="1")
+        result = self.call("audit-state", SHA, env=env)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(len(self.invoked()), 1)
+        self.assertFalse(record.exists())
+        self.assertEqual(marker.read_text(encoding="utf-8"), "unchanged")
+        self.assert_preserved()
 
 
     def offline_env(self, **overrides):
