@@ -961,6 +961,9 @@ export function mountFirstRunExperience(
     if (STEPS[stepIndex] === "account" && sessionSnapshot.state === "unavailable") {
       void refreshIdentityAvailability();
     }
+    if (STEPS[stepIndex] === "account" && sessionSnapshot.state === "signed-out") {
+      void refreshRegistrationPolicy();
+    }
   };
 
   const refreshNetwork = async (scan) => {
@@ -1434,7 +1437,7 @@ export function mountFirstRunExperience(
     void refreshIdentityAvailability();
   }
   if (keyboardLayoutPort) void refreshKeyboardLayout();
-  if (capabilitySnapshot.registrationPolicy) {
+  if (sessionSnapshot.state === "signed-out" && typeof credentialsPort?.registrationPolicy === "function") {
     void refreshRegistrationPolicy();
   }
   queueMicrotask(() => overlay.querySelector("button, select, input")?.focus?.());
