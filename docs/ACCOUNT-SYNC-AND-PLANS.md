@@ -158,14 +158,44 @@ Synchronization requires:
 
 Platform biometric APIs may protect local session access, but biometrics do not replace canonical account authentication or server authorization.
 
-## Monetization architecture — commercial policy deferred
+## Plans, benefits and additional products
 
-No billing, price table, commercial tier name or device-count paywall is defined for the MVP.
+The canonical commercial catalog is `docs/contracts/entitlements.json`. Free,
+Personal, Professional and Team retain their stable IDs and structural benefits.
+The operator authorized implementation on 2026-10-22. The first increment records
+reference BRL prices, storage/history/MCP capacities and additional offers in that
+same owner; no checkout, paid assignment or cloud quota allocation is enabled.
 
-The account/domain architecture keeps an entitlement boundary so future services can be authorized server-side without fragmenting identity. Potential value-bearing categories include synchronization capacity/history, cloud storage, backup/restore, PC/Web/Mobile continuity, collaboration, premium compute/features and enhanced recovery/support.
+The public landing page and Account consume the same deterministic build-time
+projection. They show planned benefits and reference values, without claiming
+an active subscription, confirmed consumption or availability of future services.
+Changing a reference value is not a payment receipt or entitlement grant.
 
-The direction is to charge for **ecosystem value and service capacity**, not to impose an arbitrary fee merely because a user connects a second device.
+Free preserves local OS use, local first-party apps, local Intelligence/Memory,
+identity, official update/recovery and own-data access. Personal targets continuity,
+cloud memory, supported sync/backup and small-scale sharing. Professional expands
+professional capacity, connectors, automations and support. Team targets shared
+Spaces, access administration and pooled organizational capacity.
 
+MCP can be standalone and included in paid bundles; buying a bundle must not
+charge twice for the same MCP capacity. Flow central AI, research/compute, storage
+and MCP top-ups, commercial content/connectors, vertical business modules and
+implementation services are distinct offers when actually delivered. GPT used by
+the customer's external MCP client is paid by that customer; Flow/API inference
+has its own provider budget and is not implicitly included. Profile category names
+never create a paywall. A business Profile does not itself supply a complete ERP.
+
+Space-member capacity is not a paid-seat count. Team seats, execution budgets,
+structured cloud-memory limits, retention after cancellation and provider fees
+must be specified before purchase. The reference storage pool covers personal
+files, versions and backups; it does not authorize unbounded database rows,
+semantic indexes, inference, media processing or permanent cloud VMs.
+
+The execution plan is registered as COMMERCE-001 in the existing planning hub.
+Real payment activation requires verified idempotent provider events, server-side
+assignment, reconciliation and real cancellation/downgrade tests. Public cloud
+benefits additionally require each service's existing authorization, measurement,
+restore and availability gates. No billing provider is selected by this increment.
 
 ## Downgrade safety
 

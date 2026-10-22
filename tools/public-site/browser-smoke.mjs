@@ -143,13 +143,42 @@ async function provePublicAccount(client, url, evidenceDir) {
     await evaluate('location.hash = "#preferencias"');
     await sleep(50);
     if (!await evaluate('!document.querySelector("[role=switch]") && document.querySelector("#account-locale").options.length === 2')) throw new Error('preferences invented an account service');
+    await evaluate('location.hash = "#assinatura"');
+    await sleep(100);
+    if (!await evaluate(`document.querySelectorAll('#account-content .commercial-plan').length === 4
+      && document.querySelectorAll('#account-content .commercial-additions > li').length === 7
+      && document.querySelector('#account-content .commercial-catalog').textContent.includes('R$ 49,90')
+      && document.documentElement.scrollWidth <= innerWidth
+      && !document.querySelector('#account-content .commercial-catalog button, #account-content .commercial-catalog form')`)) throw new Error(`${name} reference subscription catalog failed`);
+    await evaluate('window.OrdaXPublicI18n.setLocale("en-US")');
+    await sleep(100);
+    if (!await evaluate(`document.querySelector('#account-content .commercial-notice').textContent.includes('Plans in preparation')
+      && document.querySelector('#account-content .commercial-features').textContent.includes('Active Spaces')
+      && document.documentElement.scrollWidth <= innerWidth`)) throw new Error(`${name} English subscription catalog failed`);
+    const catalogShot = await client.send('Page.captureScreenshot', { format:'png', captureBeyondViewport:false });
+    await writeFile(join(evidenceDir, `account-${name}-plans-en.png`), Buffer.from(catalogShot.data, 'base64'));
     await evaluate('location.hash = "#visao-geral"; window.OrdaXPublicI18n.setLocale("en-US")');
     await sleep(100);
     if (!await evaluate('document.documentElement.scrollWidth <= innerWidth && document.querySelector(".topbar").getBoundingClientRect().height <= 80 && document.documentElement.lang === "en-US"')) throw new Error(`${name} English layout overflowed`);
     const englishShot = await client.send('Page.captureScreenshot', { format:'png', captureBeyondViewport:false });
     await writeFile(join(evidenceDir, `account-${name}-en.png`), Buffer.from(englishShot.data, 'base64'));
     await evaluate('window.OrdaXPublicI18n.setLocale("pt-BR")');
-    reports.push({ name, ...report, dialogsAndFocus: true, sectionRouting: true, keyboardTabs: true, englishFits: true });
+    reports.push({ name, ...report, dialogsAndFocus: true, sectionRouting: true, keyboardTabs: true, englishFits: true, referenceCatalog: true });
+  }
+  for (const width of [1440, 390, 320]) {
+    await client.send('Emulation.setDeviceMetricsOverride', { width, height:900, deviceScaleFactor:1, mobile:width < 600 });
+    await client.send('Page.navigate', { url:new URL('/#planos', url).href });
+    const deadline = Date.now() + 30000;
+    while (!await evaluate('document.readyState === "complete" && !!document.querySelector("#planos .commercial-catalog")')) {
+      if (Date.now() > deadline) throw new Error('landing commercial catalog readiness timed out');
+      await sleep(50);
+    }
+    await evaluate('window.OrdaXPublicI18n.setLocale("en-US")');
+    await sleep(100);
+    if (!await evaluate(`document.querySelectorAll('#planos .commercial-plan').length === 4
+      && document.querySelector('#planos .commercial-notice').textContent.includes('Plans in preparation')
+      && !document.querySelector('#planos button, #planos form')
+      && document.documentElement.scrollWidth <= innerWidth`)) throw new Error(`${width}px landing reference catalog failed`);
   }
   if (client.events.some(event => event.method === 'Runtime.exceptionThrown')) throw new Error('public account emitted a JavaScript exception');
   await writeFile(join(evidenceDir, 'report.json'), JSON.stringify(reports, null, 2));

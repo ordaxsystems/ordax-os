@@ -245,7 +245,7 @@ an unpowered device online.
 
 ## Plans and future monetization
 
-Pricing, billing, commercial tier names and device-count limits are intentionally undefined at MVP stage.
+The canonical commercial tier IDs and reference offers are defined in `docs/contracts/entitlements.json`. Billing, paid assignment and commercial capacity allocation remain disabled. No commercial device-count limit is defined.
 
 The entitlement architecture remains prepared for future value-bearing services such as synchronization capacity, cloud storage, backup/restore, cross-device continuity, collaboration, premium compute and support. The product direction is to monetize ecosystem value, not to charge arbitrarily for a second device.
 

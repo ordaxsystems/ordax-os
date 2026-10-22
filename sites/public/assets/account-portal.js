@@ -377,10 +377,8 @@
   }
   function planCatalog() {
     const template = document.getElementById("account-plan-catalog");
-    // Names come exclusively from the catalog inserted by the existing public builder.
-    const names = Array.from(template?.content?.querySelectorAll(".plan-catalog li") ?? [], node => node.textContent.trim()).filter(Boolean);
-    if (!names.length) return empty("Catálogo de planos indisponível", "Os planos e benefícios serão exibidos aqui quando o catálogo oficial estiver disponível.", "crown", true);
-    return `<ul class="plan-catalog">${names.map(name => `<li><span class="status-tag">${tx("Em preparação")}</span><h3 translate="no">${esc(name)}</h3><p class="plan-price">${tx("Preço não publicado")}</p><p class="plan-detail">${tx("Os benefícios e limites comerciais ainda não estão disponíveis para consulta.")}</p>${action("Selecionar plano", null, { small: true })}</li>`).join("")}</ul>`;
+    if (!template?.content?.querySelector(".commercial-catalog")) return empty("Catálogo de planos indisponível", "Os planos e benefícios serão exibidos aqui quando o catálogo oficial estiver disponível.", "crown", true);
+    return template.innerHTML;
   }
 
   function overview() {
@@ -419,7 +417,7 @@
   function subscription() {
     return `<section class="settings-section subscription-summary" aria-labelledby="subscription-heading">${panelHeading("Assinatura atual", { id: "subscription-heading", iconName: "crown", tone: "violet", end: capabilityBadge("subscription") })}<div class="subscription-plan"><span>${tx(capabilityDefinitions.subscription.title)}</span><h3>${tx("Plano não disponível")}</h3><p>${tx("Seu plano será exibido quando os dados da assinatura estiverem disponíveis.")}</p></div><dl class="subscription-facts">${["Ciclo de cobrança", "Próxima renovação", "Valor da assinatura"].map(label => `<div><dt>${tx(label)}</dt><dd>${tx("Não disponível")}</dd></div>`).join("")}</dl><div class="panel-actions subscription-actions"><p>${icon("info")}${tx("Alterações e cancelamento aguardam a conexão com o serviço de assinatura.")}</p><div>${action("Alterar plano", "crown")}${action("Cancelar assinatura", null, { variant: "ghost" })}</div></div></section>
       <section class="settings-section subscription-limits">${panelHeading("Limites da conta", { iconName: "chart", tone: "cyan", end: link("consumo", "", "text-link", `${tx("Ver consumo")}${icon("arrow-right")}`) })}<p class="panel-description">${tx("Consulte a capacidade disponível para cada recurso da sua conta.")}</p>${resourceTable({ showUsage: false })}<p class="data-note">${icon("info")}${tx("Os limites serão exibidos quando os benefícios da conta estiverem conectados.")}</p></section>
-      <section class="settings-section subscription-catalog">${panelHeading("Planos e benefícios", { iconName: "sparkles", tone: "cyan" })}<p class="panel-description">${tx("Compare as opções quando o catálogo oficial estiver disponível.")}</p>${planCatalog()}<div class="catalog-availability"><p>${icon("info")}${tx("Assinaturas pagas ainda não estão disponíveis.")}</p><p><span>${tx("Preços e limites comerciais")}</span><strong>${tx("Não disponível")}</strong></p></div></section>${relatedAreas(["consumo", "faturamento"], "Consumo e faturamento")}`;
+      <section class="settings-section subscription-catalog">${panelHeading("Planos e benefícios", { iconName: "sparkles", tone: "cyan" })}<p class="panel-description">${tx("Consulte os benefícios previstos e os valores de referência.")}</p>${planCatalog()}<div class="catalog-availability"><p>${icon("info")}${tx("Assinaturas pagas ainda não estão disponíveis.")}</p><p><span>${tx("Contratação")}</span><strong>${tx("Em preparação")}</strong></p></div></section>${relatedAreas(["consumo", "faturamento"], "Consumo e faturamento")}`;
   }
   function consumption() {
     const selectedResources = resources.filter(resource => state.tab === "overview" || resource.id === state.tab);
