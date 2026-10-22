@@ -185,6 +185,56 @@ def _write(path: str, value: dict) -> None:
             pass
 
 
+def tpm2_pin_preflight(
+    version_path: str = "/sys/class/tpm/tpm0/tpm_version_major",
+    resource_manager_path: str = "/dev/tpmrm0",
+) -> dict[str, bool | str]:
+    """Read-only hardware inventory; deliberately NOT authorization to use a PIN.
+
+    A TPM device and kernel driver are only prerequisites. They do not prove
+    a nonexportable sealing key, TPM dictionary-attack protection, trusted
+    boot measurements, device recovery, or safe USB transfer. A separate
+    reviewed enrollment/unseal protocol is mandatory before enabling PIN
+    persistence. Do not add credentials to this diagnostic or open the TPM.
+    """
+    result: dict[str, bool | str] = {
+        "tpm2_detected": False,
+        "resource_manager_accessible": False,
+        "hardware_key_enrolled": False,
+        "short_pin_reboot_enabled": False,
+        "status": "tpm2-unavailable",
+    }
+    if os.name != "posix":
+        return result
+    try:
+        flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_CLOEXEC", 0)
+        fd = os.open(version_path, flags)
+        try:
+            info = os.fstat(fd)
+            if not stat.S_ISREG(info.st_mode):
+                return result
+            version = os.read(fd, 8).strip()
+        finally:
+            os.close(fd)
+    except (OSError, ValueError):
+        return result
+    if version != b"2":
+        return result
+    result["tpm2_detected"] = True
+    result["status"] = "tpm2-resource-manager-unavailable"
+    try:
+        info = os.lstat(resource_manager_path)
+        if not stat.S_ISCHR(info.st_mode) or not os.access(
+            resource_manager_path, os.R_OK | os.W_OK
+        ):
+            return result
+    except OSError:
+        return result
+    result["resource_manager_accessible"] = True
+    result["status"] = "tpm2-hardware-candidate-only-not-enrolled"
+    return result
+
+
 class NativeAccountVault:
     """Stores only account cookies, unlocked by a strong device-local passphrase."""
 
