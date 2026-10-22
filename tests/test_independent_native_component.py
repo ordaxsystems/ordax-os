@@ -68,6 +68,7 @@ class NativeComponentBuildrootTests(unittest.TestCase):
             text = output.read_text()
         for critical in ("BR2_SHARED_LIBS=y", "BR2_PACKAGE_PYTHON3_SSL=y",
                          "BR2_PACKAGE_PYTHON3_ZLIB=y",
+                         "BR2_PACKAGE_PYTHON_HTTPX=y",
                          "BR2_TOOLCHAIN_BUILDROOT_MUSL=y"):
             with self.subTest(missing=critical):
                 with self.assertRaisesRegex(self.mod.BaseError, "rejected"):
@@ -260,14 +261,16 @@ class BuiltNativePythonClosureTests(unittest.TestCase):
     def test_kernel_host_smoke_executes_private_loader_and_modules(self):
         import os
         from types import SimpleNamespace
-        abi = {"python_executable": "usr/bin/python3.13"}
+        abi = {"python_executable": "usr/bin/python3.13", "stdlib": "usr/lib/python3.13"}
         result = SimpleNamespace(
             returncode=0, stdout=json.dumps({
                 "python_version": "3.13.7",
-                "module_names": ["ssl", "_ssl", "hashlib", "_hashlib", "zlib", "json"],
+                "module_names": ["ssl", "_ssl", "hashlib", "_hashlib", "zlib", "json", "httpx", "httpcore", "anyio", "certifi", "idna", "h11"],
                 "ssl_version": "OpenSSL 3.5.0",
                 "all_imports_private": True,
                 "tls_and_zlib_operational": True,
+                "httpx_offline_request_construction_proven": True,
+                "runtime_dependency_versions_reconciled": False,
             }),
         )
         with patch.object(self.mod.subprocess, "run", return_value=result) as runner:
@@ -283,10 +286,14 @@ class BuiltNativePythonClosureTests(unittest.TestCase):
         self.assertFalse(proof["ordax_usb_execution_proven"])
         self.assertFalse(proof["runtime_agent_packaged"])
         self.assertTrue(proof["linux_kernel_execution_proven"])
+        self.assertTrue(proof["httpx_offline_request_construction_proven"])
+        self.assertFalse(proof["runtime_dependency_versions_reconciled"])
+        self.assertEqual(kwargs["env"]["PYTHONPATH"],
+                         str(self.target / "usr/lib/python3.13/site-packages"))
 
     def test_kernel_host_smoke_cannot_accept_host_python_or_missing_tls(self):
         from types import SimpleNamespace
-        abi = {"python_executable": "usr/bin/python3.13"}
+        abi = {"python_executable": "usr/bin/python3.13", "stdlib": "usr/lib/python3.13"}
         invalid_reports = [
             {"python_version": "3.12.8", "module_names": ["ssl", "_ssl", "hashlib",
                  "_hashlib", "zlib", "json"], "ssl_version": "OpenSSL 3.5.0",
@@ -296,7 +303,9 @@ class BuiltNativePythonClosureTests(unittest.TestCase):
              "all_imports_private": False, "tls_and_zlib_operational": True},
             {"python_version": "3.13.7", "module_names": ["ssl", "_ssl", "hashlib",
                  "_hashlib", "zlib", "json"], "ssl_version": "OpenSSL 3.5.0",
-             "all_imports_private": True, "tls_and_zlib_operational": False},
+             "all_imports_private": True, "tls_and_zlib_operational": False,
+             "httpx_offline_request_construction_proven": True,
+             "runtime_dependency_versions_reconciled": False},
         ]
         for report in invalid_reports:
             with self.subTest(report=report):
@@ -305,13 +314,33 @@ class BuiltNativePythonClosureTests(unittest.TestCase):
                     with self.assertRaisesRegex(self.mod.BaseError, "smoke verification incomplete"):
                         self.mod.smoke_test_private_native_python(self.target, abi)
 
+    def test_httpx_probe_never_reconciles_full_runtime_versions(self):
+        from types import SimpleNamespace
+        report = {
+            "python_version": "3.13.7",
+            "module_names": ["ssl", "_ssl", "hashlib", "_hashlib", "zlib", "json",
+                             "httpx", "httpcore", "anyio", "certifi", "idna", "h11"],
+            "ssl_version": "OpenSSL 3.5.0",
+            "all_imports_private": True,
+            "tls_and_zlib_operational": True,
+            "httpx_offline_request_construction_proven": True,
+            "runtime_dependency_versions_reconciled": True,
+        }
+        with patch.object(self.mod.subprocess, "run",
+                          return_value=SimpleNamespace(returncode=0, stdout=json.dumps(report))):
+            with self.assertRaisesRegex(self.mod.BaseError, "smoke verification incomplete"):
+                self.mod.smoke_test_private_native_python(
+                    self.target, {"python_executable": "usr/bin/python3.13",
+                                  "stdlib": "usr/lib/python3.13"}
+                )
+
     def test_kernel_host_smoke_fails_closed_on_process_error(self):
         from types import SimpleNamespace
         with patch.object(self.mod.subprocess, "run",
                           return_value=SimpleNamespace(returncode=1, stdout="missing private libz")):
             with self.assertRaisesRegex(self.mod.BaseError, "smoke execution failed"):
                 self.mod.smoke_test_private_native_python(
-                    self.target, {"python_executable": "usr/bin/python3.13"}
+                    self.target, {"python_executable": "usr/bin/python3.13", "stdlib": "usr/lib/python3.13"}
                 )
 
     def test_build_component_uses_single_existing_setup_not_os_ero_fs(self):
