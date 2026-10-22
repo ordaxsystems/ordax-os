@@ -9,4 +9,7 @@ BR2_PACKAGE_PYTHON3_PYC_ONLY=y
 BR2_PACKAGE_PYTHON3_SSL=y
 BR2_PACKAGE_PYTHON3_ZLIB=y
 BR2_PACKAGE_CA_CERTIFICATES=y
+# Probe only: HTTPX source version matches upstream Runtime; its indirect
+# dependencies are NOT all lock-compatible. Never activate from this profile.
+BR2_PACKAGE_PYTHON_HTTPX=y
 BR2_TARGET_ROOTFS_TAR=y
