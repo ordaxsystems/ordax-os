@@ -121,7 +121,6 @@ MAX_PRODUCT_CONNECTOR_SETTINGS_BODY = 128
 ACCOUNT_REGISTRATION_POLICY_PATH = "/auth/registration-policy"
 ACCOUNT_LOGIN_PATH = "/auth/login"
 ACCOUNT_REGISTER_PATH = "/auth/register"
-ACCOUNT_REGISTRATION_ENABLED = False
 ACCOUNT_LOGOUT_PATH = "/auth/logout"
 ACCOUNT_CLOSE_PATH = "/account/close"
 ACCOUNT_EXPORT_PATH = "/account/export"
@@ -4092,11 +4091,6 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
                 payload = json.loads(reply.body.decode("utf-8"))
                 if not isinstance(payload, dict):
                     raise ValueError("gateway JSON object required")
-                if parsed_path == ACCOUNT_REGISTRATION_POLICY_PATH:
-                    payload["registrationEnabled"] = bool(
-                        payload.get("registrationEnabled") is True
-                        and ACCOUNT_REGISTRATION_ENABLED
-                    )
             except NativeMemoryEntitlementProxyError:
                 self._empty(503)
                 return
@@ -4874,9 +4868,6 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
                 self._empty(503)
                 return
             try:
-                if parsed_path == ACCOUNT_REGISTER_PATH and not ACCOUNT_REGISTRATION_ENABLED:
-                    self._empty(503)
-                    return
                 if parsed_path in {ACCOUNT_LOGIN_PATH, ACCOUNT_REGISTER_PATH}:
                     payload = self._read_account_credentials()
                     expected_keys = (
