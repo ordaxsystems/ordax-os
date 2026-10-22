@@ -88,6 +88,17 @@ def source_web_auth_only(root: Path) -> bool:
     ref = re.findall(r"^PUBLIC_WEB_AUTH_ENABLED = (True|False)$", ref_text, re.MULTILINE)
     if len(edge) != 1 or len(ref) != 1 or (edge[0] == "true") != (ref[0] == "True"):
         raise ValueError("web-only-auth-switch-mismatch")
+    public_signup = re.findall(r"^const PUBLIC_WEB_REGISTRATION_ENABLED = (true|false);$", edge_text, re.MULTILINE)
+    reference_signup = re.findall(r"^PUBLIC_WEB_REGISTRATION_ENABLED = (True|False)$", ref_text, re.MULTILINE)
+    if (len(public_signup) != 1 or len(reference_signup) != 1
+            or (public_signup[0] == "true") != (reference_signup[0] == "True")):
+        raise ValueError("public-registration-switch-mismatch")
+    if public_signup[0] == "true":
+        legal = load_json(root, LEGAL)
+        snapshots = load_json(root, Path("docs/contracts/public-legal-snapshots.json"))
+        if legal.get("registration_binding", {}).get("registration_activation_allowed") is not True \
+                or snapshots.get("status") != "approved-snapshots":
+            raise ValueError("public-registration-requires-approved-legal-snapshots")
     if edge[0] == "true":
         # A positive source switch is not enough to enable every Account
         # surface. Check that the exact method/path admission exists.
