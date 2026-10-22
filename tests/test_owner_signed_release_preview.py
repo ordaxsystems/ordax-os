@@ -41,6 +41,8 @@ class OwnerSignedPreviewTests(unittest.TestCase):
             'case "$1" in\n'
             ' inspect) printf \'{"status":"verified","source_commit":"'
             + SHA + '"}\\n\' ;;\n'
+            ' verify-envelope) printf \'{"status":"verified","source_commit":"'
+            + SHA + '"}\\n\' ;;\n'
             ' materialize-portable-v4) [ "${ORDAX_TEST_FAIL_STAGE:-0}" != 1 ] ;;\n'
             ' verify-portable-v4-exact) printf \'{"status":"verified","source_commit":"'
             + SHA + '"}\\n\' ;;\n'
@@ -51,6 +53,11 @@ class OwnerSignedPreviewTests(unittest.TestCase):
         self.record = self.root / "agent-invocations"
         self.stage = self.root / "owner-signed-preview"
         self.stage.mkdir()
+        self.bundle = self.root / "signed-offline"
+        self.bundle.mkdir()
+        (self.bundle / "release-envelope.json").write_text(
+            '{"fixture":"only-agent-validates"}', encoding="utf-8", newline="\n",
+        )
         self.env = dict(os.environ,
             ORDAX_DISTRIBUTION_PROFILE="owner-development",
             ORDAX_WORKTREE=shell_path(self.checkout),
@@ -140,6 +147,79 @@ class OwnerSignedPreviewTests(unittest.TestCase):
         alias.symlink_to(self.stage, target_is_directory=True)
         result = self.call("stage", SHA, env=dict(self.env, ORDAX_OWNER_SIGNED_STAGE_ROOT=shell_path(alias)))
         self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(self.invoked(), [])
+
+
+    def offline_env(self, **overrides):
+        env = dict(self.env, ORDAX_OWNER_SIGNED_BUNDLE_DIR=shell_path(self.bundle))
+        env.update(overrides)
+        return env
+
+    def test_offline_inspect_uses_existing_agent_and_no_network(self):
+        self.channel.write_text("http://invalid/online\n", encoding="utf-8", newline="\n")
+        result = self.call("inspect-offline", env=self.offline_env())
+        self.assertEqual(result.returncode, 0, result.stderr)
+        calls = self.invoked()
+        self.assertEqual(len(calls), 1)
+        self.assertTrue(calls[0].startswith("verify-envelope --envelope "))
+        self.assertIn(shell_path(self.bundle / "release-envelope.json"), calls[0])
+        self.assertNotIn("--envelope-url", calls[0])
+        self.assertNotIn("--root", calls[0])
+        self.assert_preserved()
+
+    def test_offline_stage_uses_same_exact_agent_and_verifier(self):
+        self.channel.unlink()  # no network/channel selector needed for offline bytes
+        result = self.call("stage-offline", SHA, env=self.offline_env())
+        self.assertEqual(result.returncode, 0, result.stderr)
+        calls = self.invoked()
+        self.assertEqual(len(calls), 2)
+        self.assertTrue(calls[0].startswith("materialize-portable-v4 --local-bundle "))
+        self.assertIn("--local-bundle " + shell_path(self.bundle), calls[0])
+        self.assertNotIn("--envelope-url", calls[0])
+        self.assertTrue(calls[1].startswith("verify-portable-v4-exact "))
+        for command in calls:
+            self.assertIn("--expected-commit " + SHA, command)
+            self.assertIn("--root " + shell_path(self.stage), command)
+        self.assert_preserved()
+
+    def test_failed_offline_stage_does_not_attempt_online_or_verify(self):
+        result = self.call(
+            "stage-offline", SHA,
+            env=self.offline_env(ORDAX_TEST_FAIL_STAGE="1"),
+        )
+        self.assertNotEqual(result.returncode, 0)
+        calls = self.invoked()
+        self.assertEqual(len(calls), 1)
+        self.assertIn("--local-bundle", calls[0])
+        self.assertNotIn("--envelope-url", calls[0])
+        self.assert_preserved()
+
+    def test_offline_requires_explicit_real_bundle_with_envelope(self):
+        self.assertNotEqual(self.call("inspect-offline").returncode, 0)
+        self.assertNotEqual(
+            self.call("stage-offline", SHA, env=self.offline_env(
+                ORDAX_OWNER_SIGNED_BUNDLE_DIR="relative/path",
+            )).returncode, 0,
+        )
+        (self.bundle / "release-envelope.json").unlink()
+        self.assertNotEqual(
+            self.call("stage-offline", SHA, env=self.offline_env()).returncode, 0,
+        )
+        self.assertEqual(self.invoked(), [])
+
+    def test_online_path_cannot_silently_use_offline_bundle(self):
+        self.assertNotEqual(
+            self.call("inspect", env=self.offline_env()).returncode, 0,
+        )
+        self.assertNotEqual(
+            self.call("stage", SHA, env=self.offline_env()).returncode, 0,
+        )
+        self.assertEqual(self.invoked(), [])
+
+    def test_unset_profile_denied_for_offline_staging(self):
+        env = self.offline_env()
+        env.pop("ORDAX_DISTRIBUTION_PROFILE")
+        self.assertNotEqual(self.call("stage-offline", SHA, env=env).returncode, 0)
         self.assertEqual(self.invoked(), [])
 
 

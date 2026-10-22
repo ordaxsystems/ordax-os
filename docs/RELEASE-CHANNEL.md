@@ -99,6 +99,36 @@ ORDAX_OWNER_SIGNED_STAGE_ROOT=/mnt/disposable/owner-signed-preview \
   sh system/services/update/owner-signed-preview.sh stage <exact-signed-40hex-sha>
 ```
 
+### Signed v4 bundle tests without a published HTTPS release
+
+Until the official channel publishes the exact signed v4 release, Dev can use
+the **same** acquisition agent with a previously obtained signed offline
+bundle. This is not a second signing authority, update engine or downgrade:
+the bundle must contain `release-envelope.json` and all artifacts named in
+the signed manifest, and the Ed25519 key must match the pinned local trust.
+
+```sh
+# An explicit trusted offline source, independent of the online channel:
+ORDAX_DISTRIBUTION_PROFILE=owner-development \
+ORDAX_OWNER_SIGNED_BUNDLE_DIR=/mnt/disposable/signed-v4-input \
+  sh system/services/update/owner-signed-preview.sh inspect-offline
+
+# Staging output is isolated and disjoint from the signed input.
+mkdir -p /mnt/disposable/owner-signed-preview
+ORDAX_DISTRIBUTION_PROFILE=owner-development \
+ORDAX_OWNER_SIGNED_BUNDLE_DIR=/mnt/disposable/signed-v4-input \
+ORDAX_OWNER_SIGNED_STAGE_ROOT=/mnt/disposable/owner-signed-preview \
+  sh system/services/update/owner-signed-preview.sh stage-offline <exact-signed-40hex-sha>
+```
+
+The established agent `verify-envelope` handles offline inspection. Offline
+stage uses `materialize-portable-v4 --local-bundle` and then the *same*
+`verify-portable-v4-exact` call as HTTPS staging. No HTTP fallback is allowed
+when a local signature, artifact or commit check fails. Simultaneously
+specifying online and offline delivery is rejected. There are no changes to
+`current`, boot slots, Git checkout or the Supervisor's active transport.
+Unverified local test keys must never authorize public/physical releases.
+
 The inspect operation obtains only a signed release envelope. The stage
 operation requires the exact expected commit, delegates all Ed25519 and
 artifact-size/hash checks to the canonical Go agent, then invokes

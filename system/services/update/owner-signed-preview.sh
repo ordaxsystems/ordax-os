@@ -10,7 +10,7 @@ fail() {
 }
 
 usage() {
-    fail 'usage: ordax-owner-signed-preview inspect | stage <exact-lowercase-40-hex-sha>'
+    fail 'usage: ordax-owner-signed-preview inspect | inspect-offline | stage <exact-40hex-sha> | stage-offline <exact-40hex-sha>'
 }
 
 is_sha() {
@@ -18,7 +18,7 @@ is_sha() {
     case "$1" in ''|*[!0-9a-f]*) return 1 ;; esac
 }
 
-[ "${ORDAX_DISTRIBUTION_PROFILE:-owner-development}" = owner-development ] ||
+[ "${ORDAX_DISTRIBUTION_PROFILE:-}" = owner-development ] ||
     fail 'only Owner/Development may run this opt-in preview'
 
 WORKTREE=${ORDAX_WORKTREE:-/workspace/ordax}
@@ -31,16 +31,34 @@ REPOSITORY=ordaxsystems/ordax-os
     fail 'canonical signed release agent is absent or unsafe (never build/download one automatically)'
 [ -f "$TRUST" ] && [ -r "$TRUST" ] && [ ! -L "$TRUST" ] ||
     fail 'pinned local release trust anchor is missing or unsafe'
-[ -f "$CHANNEL" ] && [ -r "$CHANNEL" ] && [ ! -L "$CHANNEL" ] ||
-    fail 'canonical release channel selector is missing or unsafe'
+load_https_channel() {
+    [ -z "${ORDAX_OWNER_SIGNED_BUNDLE_DIR:-}" ] ||
+        fail 'HTTPS and offline bundle sources cannot be combined'
+    [ -f "$CHANNEL" ] && [ -r "$CHANNEL" ] && [ ! -L "$CHANNEL" ] ||
+        fail 'canonical release channel selector is missing or unsafe'
+    url=""
+    IFS= read -r url < "$CHANNEL" || [ -n "$url" ] ||
+        fail 'release channel is empty'
+    case "$url" in https://*) ;; *) fail 'release channel must use HTTPS' ;; esac
+    case "$url" in *[[:space:]]*) fail 'release channel has whitespace' ;; esac
+}
 
-IFS= read -r url < "$CHANNEL" || [ -n "${url:-}" ] ||
-    fail 'release channel is empty'
-case "$url" in
-    https://*) ;;
-    *) fail 'release channel must use HTTPS' ;;
-esac
-case "$url" in *[[:space:]]*) fail 'release channel has whitespace' ;; esac
+load_offline_bundle() {
+    bundle=${ORDAX_OWNER_SIGNED_BUNDLE_DIR:-}
+    case "$bundle" in /*) ;; *) fail 'offline bundle must be an explicit absolute directory' ;; esac
+    [ -d "$bundle" ] && [ ! -L "$bundle" ] ||
+        fail 'offline bundle must be an existing real directory'
+    physical_bundle=$(cd -P "$bundle" && pwd -P) ||
+        fail 'cannot validate offline bundle directory'
+    [ "$physical_bundle" = "$bundle" ] ||
+        fail 'offline bundle path must be canonical without aliases'
+    [ -f "$bundle/release-envelope.json" ] &&
+        [ ! -L "$bundle/release-envelope.json" ] ||
+        fail 'offline bundle needs a real signed release-envelope.json'
+    # The canonical Go agent checks every ancestor, signature, source commit
+    # and artifact, including source/destination overlap. Never copy the
+    # verifier into shell or allow HTTP fallback on failed offline materialize.
+}
 
 if [ -x /bin/busybox ]; then
     timeout_exec='/bin/busybox'
@@ -65,14 +83,26 @@ bounded_agent() {
 case "${1:-}" in
     inspect)
         [ "$#" -eq 1 ] || usage
-        # Fetches ONLY the signed envelope. Does not stage or activate.
+        load_https_channel
         bounded_agent inspect --envelope-url "$url" \
             --trust "$TRUST" --repository "$REPOSITORY"
         ;;
-    stage)
+    inspect-offline)
+        [ "$#" -eq 1 ] || usage
+        load_offline_bundle
+        bounded_agent verify-envelope --envelope "$bundle/release-envelope.json" \
+            --trust "$TRUST" --repository "$REPOSITORY"
+        ;;
+    stage|stage-offline)
         [ "$#" -eq 2 ] || usage
+        method=$1
         is_sha "$2" || fail 'exact signed commit must be lowercase 40-hex'
         expected=$2
+        if [ "$method" = stage-offline ]; then
+            load_offline_bundle
+        else
+            load_https_channel
+        fi
         root=${ORDAX_OWNER_SIGNED_STAGE_ROOT:-}
         [ -n "$root" ] || fail 'explicit isolated staging directory is required'
         case "$root" in
@@ -97,11 +127,19 @@ case "${1:-}" in
             fail 'cannot validate physical staging path'
         [ "$physical_root" = "$root" ] ||
             fail 'staging path must be canonical without traversal or symlink parents'
-        # Exact signed v4 artifact acquisition; this NEVER calls install,
-        # activate-exact, changes /ordax/current, or touches A/B firmware.
-        bounded_agent materialize-portable-v4 --envelope-url "$url" \
-            --trust "$TRUST" --root "$root" \
-            --repository "$REPOSITORY" --expected-commit "$expected" >/dev/null
+        # Both delivery paths reach the exact SAME agent and immutable
+        # staging/verification owner; only acquisition input differs.
+        if [ "$method" = stage-offline ]; then
+            # The Go agent must reject overlapping directories, symlinks,
+            # altered signatures and missing objects without going online.
+            bounded_agent materialize-portable-v4 --local-bundle "$bundle" \
+                --trust "$TRUST" --root "$root" \
+                --repository "$REPOSITORY" --expected-commit "$expected" >/dev/null
+        else
+            bounded_agent materialize-portable-v4 --envelope-url "$url" \
+                --trust "$TRUST" --root "$root" \
+                --repository "$REPOSITORY" --expected-commit "$expected" >/dev/null
+        fi
         # Require a second exact verification of the persisted candidate.
         bounded_agent verify-portable-v4-exact \
             --trust "$TRUST" --root "$root" \
