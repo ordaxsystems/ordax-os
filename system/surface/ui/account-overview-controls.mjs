@@ -1,6 +1,7 @@
 import { assertAppActivationPort } from "../../contracts/app-activation.mjs";
 import { deriveAuthorizedSpaces } from "../../services/spaces/authorized-view.mjs";
 import { readRememberedLoginEmail } from "../../services/account/remembered-login-email.mjs";
+import { HOSTED_ACCOUNT_SIGNUP_URL } from "../../services/account/hosted-signup.mjs";
 import { describeSpacePresentation } from "../../services/spaces/presentation.mjs";
 import {
   assertIdentityActionsPort,
@@ -458,22 +459,30 @@ export function mountAccountOverviewControls(
       signIn.disabled = pendingAction !== null || !isIdentityActionSupported(actionsSnapshot, "sign-in");
       actions.append(signIn);
 
-      const register = node(
-        documentObject,
-        "button",
-        "ordax-account-action",
-        pendingAction === "register" ? t("account.action.registering") : t("account.action.register"),
-      );
-      register.type = "button";
-      register.dataset.accountIdentityAction = "register";
-      register.disabled = (
-        pendingAction !== null
-        || registrationPolicyPending
-        || !registrationPolicy
-        || !registrationLegalAccepted
-        || !isIdentityActionSupported(actionsSnapshot, "register")
-      );
-      actions.append(register);
+      if (isIdentityActionSupported(actionsSnapshot, "register")) {
+        const register = node(
+          documentObject,
+          "button",
+          "ordax-account-action",
+          pendingAction === "register" ? t("account.action.registering") : t("account.action.register"),
+        );
+        register.type = "button";
+        register.dataset.accountIdentityAction = "register";
+        register.disabled = (
+          pendingAction !== null
+          || registrationPolicyPending
+          || !registrationPolicy
+          || !registrationLegalAccepted
+        );
+        actions.append(register);
+      } else {
+        const hostedRegistration = node(documentObject, "a", "ordax-account-action", "Criar conta no site OrdaX");
+        hostedRegistration.href = HOSTED_ACCOUNT_SIGNUP_URL;
+        hostedRegistration.target = "_blank";
+        hostedRegistration.rel = "noopener noreferrer";
+        hostedRegistration.dataset.accountHostedSignup = "";
+        actions.append(hostedRegistration);
+      }
     } else if (action) {
       const label = pendingAction === action
         ? action === "sign-in"
