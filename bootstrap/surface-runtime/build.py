@@ -47,6 +47,8 @@ def load_module(name: str, path: Path):
 CORE = load_module("ordax_surface_runtime_build_core", ROOT / "bootstrap/base/alpine_core.py")
 
 
+PACKAGE_CONFIG = load_module("ordax_surface_package_config", ROOT / "bootstrap/surface-runtime/package_config.py")
+
 def load_contract() -> dict:
     try:
         value = json.loads(CONTRACT.read_text(encoding="utf-8"))
@@ -78,7 +80,7 @@ def load_contract() -> dict:
             or any(ch.isspace() for ch in version)
         ):
             raise RuntimeBuildError("Surface runtime APK lock contains unsafe entry")
-    requested = value.get("packages")
+    requested = PACKAGE_CONFIG.requested_packages(value, ROOT)
     if not isinstance(requested, list) or not set(requested).issubset(lock):
         raise RuntimeBuildError("Surface runtime requested packages are not all locked")
     artifact = value.get("artifact", {})
@@ -313,6 +315,15 @@ def build(out_dir: Path, cache_dir: Path) -> dict:
             raise RuntimeBuildError(
                 f"Surface runtime APK lock mismatch: missing={missing[:8]} extra={extra[:8]} changed={changed[:8]}"
             )
+
+        # Test the installed codec pipeline before packaging immutable bytes.
+        # The probe creates only disposable fixtures and never accesses devices.
+        media_probe = rootfs / "tmp/ordax-media-runtime-probe.py"
+        shutil.copyfile(ROOT / "system/surface/runtime/media_runtime_probe.py", media_probe)
+        try:
+            CORE.proot_rootfs(rootfs, "python3 /tmp/ordax-media-runtime-probe.py")
+        finally:
+            media_probe.unlink(missing_ok=True)
 
         for transient in ("etc/resolv.conf",):
             path = rootfs / transient

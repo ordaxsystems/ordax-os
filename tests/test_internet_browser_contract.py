@@ -198,7 +198,7 @@ class InternetBrowserContractTests(unittest.TestCase):
     def test_native_surface_runtime_owns_webkit_dependencies_directly(self):
         launcher = self.text(SURFACE_LAUNCHER)
         self.assertIn('RUNTIME_ID=alpine-v3.22-cage-webkitgtk-v1', launcher)
-        self.assertIn('python3 py3-gobject3 gtk+3.0 webkit2gtk-4.1', launcher)
+        self.assertTrue({'python3', 'py3-gobject3', 'gtk+3.0', 'webkit2gtk-4.1'}.issubset((ROOT / 'system/surface/runtime/packages.txt').read_text().splitlines()))
         self.assertIn('/srv/ordax-system/surface/runtime/ordax_browser_host.py', launcher)
         self.assertIn('--profile-root /var/lib/ordax-user/browser', launcher)
         self.assertNotIn('barkery-browser', launcher)

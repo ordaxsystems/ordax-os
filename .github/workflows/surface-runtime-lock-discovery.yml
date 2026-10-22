@@ -8,9 +8,13 @@ on:
       - main
     paths:
       - 'bootstrap/surface-runtime/source.json'
+      - 'system/surface/runtime/packages.txt'
+      - 'system/surface/runtime/media_runtime_probe.py'
   pull_request:
     paths:
       - 'bootstrap/surface-runtime/**'
+      - 'system/surface/runtime/packages.txt'
+      - 'system/surface/runtime/media_runtime_probe.py'
       - 'bootstrap/base/alpine_core.py'
       - 'bootstrap/stable-base/source.json'
       - 'tests/test_surface_runtime_source_contract.py'

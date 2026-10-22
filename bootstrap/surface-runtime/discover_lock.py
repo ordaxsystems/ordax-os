@@ -39,6 +39,8 @@ def load_module(name: str, path: Path):
 CORE = load_module("ordax_surface_runtime_alpine_core", ROOT / "bootstrap/base/alpine_core.py")
 
 
+PACKAGE_CONFIG = load_module("ordax_surface_package_config", ROOT / "bootstrap/surface-runtime/package_config.py")
+
 def load_json(path: Path) -> dict:
     try:
         value = json.loads(path.read_text(encoding="utf-8"))
@@ -78,7 +80,7 @@ def validate_contract() -> tuple[dict, dict]:
         raise DiscoveryError("discovery contract lost the portable v3 candidate handoff binding")
     if artifact.get("physical_boot_connected") is not False:
         raise DiscoveryError("discovery contract may not claim physical boot integration")
-    packages = contract.get("packages")
+    packages = PACKAGE_CONFIG.requested_packages(contract, ROOT)
     if not isinstance(packages, list) or not packages or len(packages) != len(set(packages)):
         raise DiscoveryError("Surface runtime package request must be a non-empty unique list")
     for package in packages:
@@ -154,7 +156,7 @@ def discover(out: Path, cache: Path) -> dict:
         if host_resolv.is_file():
             shutil.copy2(host_resolv, rootfs / "etc/resolv.conf", follow_symlinks=True)
 
-        requested = list(contract["packages"])
+        requested = PACKAGE_CONFIG.requested_packages(contract, ROOT)
         CORE.proot_rootfs(rootfs, "apk add --no-cache " + " ".join(requested))
         lock = installed_lock(rootfs)
         missing = sorted(set(requested) - set(lock))
