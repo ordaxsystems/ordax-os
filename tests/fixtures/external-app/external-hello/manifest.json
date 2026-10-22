@@ -7,6 +7,6 @@
   "supported_modes": ["web"],
   "required_contracts": [],
   "requested_capabilities": [],
-  "content_hash": "4b46d40d6e30cbac99a5795b31f1386e75e1502934f460062233a6f21229d0e2",
+  "content_hash": "fa050632a5740a2ebfd50a5ebdd03a4b051cc540bd189890adc01795b9512904",
   "update_policy": "manual-test-only"
 }

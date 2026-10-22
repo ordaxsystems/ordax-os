@@ -40,6 +40,14 @@ const PENDING_SLOT = Object.freeze({
   pendingHealth: "unknown",
 });
 const PENDING_MODULE = MODULE.replace("/current/", "/pending/");
+const PENDING_FILES_SLOT = Object.freeze({
+  ...PENDING_SLOT,
+  componentId: "files",
+  version: "0.3.0",
+  entrypoint: "system/surface/ui/files-component-runtime.mjs",
+});
+const PENDING_FILES_MODULE = `${ORIGIN}/__ordax/native/component-module/files/pending/0.3.0/`
+  + `${"a".repeat(40)}/system/surface/ui/files-component-runtime.mjs`;
 
 class FakePort {
   constructor() { this.listeners = new Set(); this.peer = null; this.closed = false; }
@@ -266,7 +274,7 @@ test("the non-Files host broker binds App Data and exposes no File Space", async
   const result = await reply;
   assert.equal(result.ok, true);
   assert.equal(result.value.found, true);
-  assert.equal(env.currentSlotReads, 1);
+  assert.equal(env.currentSlotReads, 3, "mount pins identity before and after readiness, then each operation rechecks");
   assert.deepEqual(env.calls[0], { operation: "get", identity: IDENTITY, key: "notes.key" });
   await mounted.destroy();
 });
@@ -289,7 +297,7 @@ test("every host operation revalidates the exact slot revision and revokes a sta
   assert.equal(result.ok, false);
   assert.match(result.error, /authority has been revoked|no longer current/);
   await new Promise((resolve) => setTimeout(resolve, 0));
-  assert.equal(env.currentSlotReads, 2);
+  assert.equal(env.currentSlotReads, 4);
   assert.equal(env.calls.length, 1);
   assert.equal(env.root.childNodes.length, 0);
   await mounted.destroy();
@@ -611,6 +619,106 @@ test("Files state subscriptions deliver only slot-authorized updates and drain o
   assert.equal(staleEnv.root.childNodes.length, 0);
   assert.equal(staleHostPorts.projectListenerCount(), 0);
   await staleMounted.destroy();
+});
+
+test("pending Files mount is opaque, empty-root-only, and never receives host user data", async () => {
+  const env = setup({ componentId: "files", version: "0.3.0" });
+  const source = createNativeComponentSlotSource(env.windowRef);
+  let pendingIdentity = PENDING_FILES_SLOT;
+  let verifiedReads = 0;
+  const importer = createNativeIsolatedPendingComponentModuleImporter({
+    windowRef: env.windowRef,
+    allowedComponentIds: ["files"],
+    mountableComponentIds: ["files"],
+    componentSlotSource: source,
+    timeoutMs: 300,
+    fetchImpl: async (url) => {
+      verifiedReads += 1;
+      assert.equal(url, source.metadataUrl("files", "pending"));
+      return { ok: true, json: async () => pendingIdentity };
+    },
+  });
+
+  const imported = await importer(PENDING_FILES_MODULE, PENDING_FILES_SLOT);
+  const hostPorts = filesHostPorts();
+  hostPorts.context.recentFiles.recordOpened("/Private/financials.txt");
+  hostPorts.context.projects.create({ name: "Private Project", path: "/Private/Project" });
+  const realFileSpaceCalls = [];
+  const realFileSpace = Object.freeze({
+    ...deviceLocalFileSpace(realFileSpaceCalls),
+    async list(path) {
+      realFileSpaceCalls.push(["list", path]);
+      return { path, entries: [{ name: "financials.txt", kind: "file", size: 1024, modifiedAt: 10 }] };
+    },
+  });
+  const mounted = await imported.componentRuntime.mount({
+    root: env.root,
+    surfaceLifecycle: env.lifecycle,
+    fileSpace: realFileSpace,
+    ...hostPorts.context,
+  });
+  const frame = env.root.childNodes[0];
+  assert.equal(frame.attributes.get("sandbox"), "allow-scripts");
+  assert.equal(frame.attributes.has("allow-same-origin"), false);
+  assert.equal(frame.receivedBootstrap.appDataIdentity, null);
+  assert.equal(frame.receivedBootstrap.appTarget, null);
+  assert.deepEqual(frame.receivedBootstrap.recentFilesSnapshot, { persistence: "session", entries: [] });
+  assert.deepEqual(frame.receivedBootstrap.projectCatalogSnapshot, { persistence: "session", projects: [] });
+
+  const listReply = mountedMessage(frame);
+  frame.childPort.postMessage({ schema: BRIDGE, type: "call", id: 1, operation: "fileSpace.list", args: ["/"] });
+  assert.deepEqual((await listReply).value, { path: "/", entries: [] });
+  assert.deepEqual(realFileSpaceCalls, [], "probation reads synthetic data, never the device File Space");
+
+  const recentReply = mountedMessage(frame);
+  frame.childPort.postMessage({ schema: BRIDGE, type: "call", id: 2, operation: "recentFiles.getSnapshot", args: [] });
+  assert.deepEqual((await recentReply).value, { persistence: "session", entries: [] });
+  const projectsReply = mountedMessage(frame);
+  frame.childPort.postMessage({ schema: BRIDGE, type: "call", id: 3, operation: "projects.getSnapshot", args: [] });
+  assert.deepEqual((await projectsReply).value, { persistence: "session", projects: [] });
+
+  const nestedReply = mountedMessage(frame);
+  frame.childPort.postMessage({ schema: BRIDGE, type: "call", id: 4, operation: "fileSpace.list", args: ["/Private"] });
+  assert.equal((await nestedReply).ok, false);
+  const mutationReply = mountedMessage(frame);
+  frame.childPort.postMessage({
+    schema: BRIDGE, type: "call", id: 5, operation: "fileSpace.createDirectory", args: ["/", "Probe"],
+  });
+  assert.equal((await mutationReply).ok, false);
+  const recentMutationReply = mountedMessage(frame);
+  frame.childPort.postMessage({
+    schema: BRIDGE, type: "call", id: 6, operation: "recentFiles.recordOpened", args: ["/Private/new.txt"],
+  });
+  assert.equal((await recentMutationReply).ok, false);
+  const projectMutationReply = mountedMessage(frame);
+  frame.childPort.postMessage({
+    schema: BRIDGE, type: "call", id: 7, operation: "projects.create",
+    args: [{ name: "Probe", path: "/Probe" }],
+  });
+  assert.equal((await projectMutationReply).ok, false);
+  const activationMutationReply = mountedMessage(frame);
+  frame.childPort.postMessage({
+    schema: BRIDGE, type: "call", id: 8, operation: "appActivation.publish",
+    args: [{ appId: "files", target: "/Private" }],
+  });
+  assert.equal((await activationMutationReply).ok, false);
+  const appDataReply = mountedMessage(frame);
+  frame.childPort.postMessage({ schema: BRIDGE, type: "call", id: 9, operation: "appData.get", args: ["files.key"] });
+  assert.equal((await appDataReply).ok, false);
+
+  pendingIdentity = { ...PENDING_FILES_SLOT, revision: PENDING_FILES_SLOT.revision + 1 };
+  const staleReply = mountedMessage(frame);
+  frame.childPort.postMessage({ schema: BRIDGE, type: "call", id: 10, operation: "fileSpace.list", args: ["/"] });
+  assert.equal((await staleReply).ok, false);
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.equal(verifiedReads, 9, "each allowed read revalidates the exact pending revision");
+  assert.deepEqual(realFileSpaceCalls, []);
+  assert.deepEqual(hostPorts.recentSnapshot().entries, [
+    { path: "/Private/financials.txt", name: "financials.txt", openedAt: 10 },
+  ]);
+  assert.deepEqual(hostPorts.projectSnapshot().projects.map(({ name }) => name), ["Private Project"]);
+  assert.equal(env.root.childNodes.length, 0, "revision replacement revokes and removes the pending frame");
+  await mounted.destroy();
 });
 
 test("executor accepts only the canonical loopback Native origin and requires current metadata", async () => {

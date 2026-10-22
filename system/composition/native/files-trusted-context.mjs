@@ -37,9 +37,9 @@ export function createNativeFilesTrustedContextProvider({
   // The canonical current-slot loader independently rechecks this exact
   // identity immediately before and after mount.
   //
-  // Files stays bundled today, so Native does not install this provider while
-  // the OS still owns its source. A future handoff must not expose File Space
-  // merely because a caller asks for "files".
+  // Native installs this provider only from the host-owned boot composition.
+  // The verified-current catalog still has to supply the exact installed slot;
+  // probation uses a separate, synthetic read-only context.
   return function nativeFilesTrustedContext(componentId) {
     if (componentId !== "files") return null;
     if (verifiedCurrent === null) {

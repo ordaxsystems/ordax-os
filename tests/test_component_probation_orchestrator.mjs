@@ -29,7 +29,9 @@ function metadataResponse({
   version = componentId === "notes" ? "0.4.1" : "0.4.0",
   entrypoint = componentId === "notes"
     ? "system/apps/notes/src/runtime.mjs"
-    : `system/apps/${componentId}/runtime.mjs`,
+    : componentId === "files"
+      ? "system/surface/ui/files-component-runtime.mjs"
+      : `system/apps/${componentId}/runtime.mjs`,
   ...overrides
 } = {}) {
   return {
@@ -83,7 +85,7 @@ test("Native and Surface probation use exactly the same canonical policy", () =>
       NATIVE_COMPONENT_PROBE_MODE_BY_ID[id],
     );
   }
-  for (const id of ["calculator", "studio", "assistant", "clock", "files"]) {
+  for (const id of ["calculator", "studio", "assistant", "clock"]) {
     assert.throws(() => systemComponentProbationProbeMode(id),
       /Unsupported system component probation probe/);
   }
@@ -94,10 +96,7 @@ test("system probation exposes fixed probes only for explicit supported componen
   assert.throws(() => systemComponentProbationProbeMode("internet"),
     /Unsupported system component probation probe/);
   assert.equal(systemComponentProbationProbeMode("notes"), "import-contract");
-  assert.throws(
-    () => systemComponentProbationProbeMode("files"),
-    /Unsupported system component probation probe/,
-  );
+  assert.equal(systemComponentProbationProbeMode("files"), "mount-contract");
   assert.throws(
     () => systemComponentProbationProbeMode("assistant"),
     /Unsupported system component probation probe/,
@@ -122,29 +121,6 @@ test("unavailable Internet cannot trigger a probation probe or materialize nativ
       importModule: async (url) => {
         imported.push(url);
         return runtimeModule({ componentId: "internet" });
-      },
-      timeoutMs: 500,
-    }),
-    /Unsupported system component probation probe/,
-  );
-  assert.deepEqual(fetched, []);
-  assert.deepEqual(imported, []);
-});
-
-test("Files cannot trigger system probation before its explicit cutover grant", async () => {
-  const fetched = [];
-  const imported = [];
-  await assert.rejects(
-    () => runSystemPendingComponentProbation({
-      componentId: "files",
-      source: createNativeComponentSlotSource(windowRef()),
-      fetchImpl: async (url) => {
-        fetched.push(url);
-        return metadataResponse({ componentId: "files" });
-      },
-      importModule: async (url) => {
-        imported.push(url);
-        return runtimeModule({ componentId: "files" });
       },
       timeoutMs: 500,
     }),
