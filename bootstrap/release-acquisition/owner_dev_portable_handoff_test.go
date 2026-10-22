@@ -124,7 +124,10 @@ func TestOwnerSignedPreviewPortableStateHandoff(t *testing.T) {
 	}
 	mkState := func(t *testing.T) (string, string) {
 		t.Helper()
-		stateRoot := t.TempDir()
+		stateRoot := filepath.Join(t.TempDir(), "owner-signed-state")
+		if err := os.Mkdir(stateRoot, 0o700); err != nil {
+			t.Fatal(err)
+		}
 		stateDir := filepath.Join(stateRoot, "ordax", "portable-release")
 		if err := os.MkdirAll(stateDir, 0o700); err != nil {
 			t.Fatal(err)
