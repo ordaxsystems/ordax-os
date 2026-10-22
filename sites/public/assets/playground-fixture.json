@@ -317,7 +317,7 @@
       },
       {
         "path": "system/surface/ui/audio-output-controls.mjs",
-        "sha256": "83d47da3dd20ff5ea333833e128bb5a2188b5b08119f004eb3d8dc918d3abb01"
+        "sha256": "282e492eb0c39e9050f3fdb4afa3deb74ee4202cc2950a185ccab801d595382a"
       },
       {
         "path": "system/surface/ui/color-palettes.css",
