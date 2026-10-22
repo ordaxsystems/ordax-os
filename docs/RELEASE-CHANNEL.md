@@ -65,6 +65,45 @@ to boot or update through the standard channel.
 operational, does not enable public Git polling and does not replace the
 canonical Base update mechanism. Defaults and operational paths are unchanged.
 
+## Owner/Development signed-v4 opt-in preview (non-activating)
+
+`system/services/update/owner-signed-preview.sh` is a **manual test entry
+point**, not a second update engine, firmware writer or a public update route.
+It calls the existing `bootstrap/release-acquisition` agent and pinned trust
+anchor to inspect a signed channel and optionally materialize/verify an **exact
+v4** candidate in an explicit isolated test directory.
+
+For a Dev checkout with an already provisioned, provenance-verified release
+agent (the script refuses to build or fetch an absent agent automatically):
+
+```sh
+ORDAX_DISTRIBUTION_PROFILE=owner-development \
+  sh system/services/update/owner-signed-preview.sh inspect
+
+# Explicit, isolated testing only: never use /ordax, /workspace/ordax,
+# the active /state tree or any production/current release root.
+mkdir -p /mnt/disposable/owner-signed-preview
+ORDAX_DISTRIBUTION_PROFILE=owner-development \
+ORDAX_OWNER_SIGNED_STAGE_ROOT=/mnt/disposable/owner-signed-preview \
+  sh system/services/update/owner-signed-preview.sh stage <exact-signed-40hex-sha>
+```
+
+The inspect operation obtains only a signed release envelope. The stage
+operation requires the exact expected commit, delegates all Ed25519 and
+artifact-size/hash checks to the canonical Go agent, then invokes
+`verify-portable-v4-exact` against the *same* isolated root. The wrapper
+never calls `install`, `activate-exact`, `prepare`, `commit`, changes the
+working Git tree, or touches boot slots. A failed materialize does not fall
+back to Git or call the verifier. Offline staging, device activation, mode
+selection and signed-agent provisioning remain separate blocked gates.
+An absent agent must yield a visible error, not an implied successful test.
+
+Acceptance still requires the canonical Supervisor to own any future
+commit/health/rollback transaction and the selected delivery transport to
+remain pinned for the whole transaction. In particular, **this preview is
+not evidence that signed-release mode is operational on the Dev USB** and
+must not flip `owner_signed_release_transport_implemented` in the SSOT.
+
 ## Source vs delivery
 
 ```text
