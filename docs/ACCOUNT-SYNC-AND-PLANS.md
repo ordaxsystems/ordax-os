@@ -39,13 +39,20 @@ retry action. A user can still choose `Continuar sem conta`. The clock, DNS
 and verified gateway availability must be tested separately in QEMU/physical
 hardware before live login activation is declared proven.
 
-The canonical USB/Native credential policy remains
-`docs/contracts/native-account-session.json`: access/refresh tokens live
-only in the Native process, and **do not survive reboot**. Persisted login
-requires a separate reviewed encrypted device-bound vault with authenticated
-encryption and removable-media threat proof. A local PIN alone is not a cloud
-login credential and plain files, cookies in JS/localStorage and unprotected
-USB secrets are prohibited.
+The canonical USB/Native credential policy is `docs/contracts/native-account-session.json`.
+The Native Account Gateway remains the single account-session owner. The same Native
+Host PIN/password verifier can unlock an AES-256-GCM encrypted refresh-cookie vault
+only when the local secret is a strong passphrase (at least 16 characters),
+using memory-hard scrypt with a distinct random salt. Short PINs remain
+screen locks only: a copied USB has no hardware-backed rate limiting, so
+persisting an offline-guessable refresh token would be unsafe.
+The kernel keyring remains the current-boot cache. Once unlocked, the Gateway
+revalidates and renews the restored session online; a revoked or permanently
+expired account session requires login, and no offline cloud session is invented.
+Explicit logout deletes the encrypted vault and revokes the Gateway session.
+Legacy plaintext `session.json` is cleanup-only. This conditional capability
+does not claim short-PIN persistence, TPM enrollment or physical USB proof.
+Dev and Stable share the same session implementation and differ only in update channels.
 
 ## Spaces and professional Profile Packs
 

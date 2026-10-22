@@ -42,6 +42,7 @@ from native_local_ai_bridge import (
     forward_local_ai,
 )
 from native_account_gateway import NativeAccountGateway, NativeAccountGatewayError, verified_account_session_reply
+from native_account_vault import AccountVaultError
 from native_component_slots import (
     COMPONENT_MODULE_PREFIX,
     ComponentSlotRequestError,
@@ -183,6 +184,7 @@ COMPONENT_STATE_FILE = "/var/lib/ordax/component-state.json"
 SYNC_STATE_FILE = "/var/lib/ordax/sync-state.json"
 SYNC_CHECKPOINT_FILE = "/var/lib/ordax/sync-checkpoint.json"
 ACCOUNT_SESSION_FILE = "/var/lib/ordax/account/session.json"
+ACCOUNT_VAULT_FILE = "/var/lib/ordax/account/session.vault"
 DIAGNOSTIC_JOURNAL_FILE = "/var/lib/ordax/diagnostic-journal.json"
 UPDATE_HISTORY_FILE = "/var/lib/ordax/update-history.tsv"
 RELEASE_HISTORY_FILE = "/var/lib/ordax/release-history.tsv"
@@ -3711,6 +3713,7 @@ class NativeHostServer(ThreadingHTTPServer):
                 self.account_gateway = NativeAccountGateway(
                     account_gateway_origin,
                     ACCOUNT_SESSION_FILE,
+                    vault_path=ACCOUNT_VAULT_FILE,
                 )
             except (TypeError, ValueError):
                 self.account_gateway = None
@@ -4045,6 +4048,9 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
             self._serve_local_ai("GET", parsed_path)
             return
         if parsed_path in {ACCOUNT_SESSION_PATH, ACCOUNT_REGISTRATION_POLICY_PATH, ACCOUNT_EXPORT_PATH, ACCOUNT_SPACES_PATH, ACCOUNT_MEMORY_ENTITLEMENT_PATH, ACCOUNT_SYNC_OBJECTS_PATH, ACCOUNT_SYNC_SNAPSHOT_PATH, ACCOUNT_SYNC_CHANGES_PATH}:
+            if self.server.local_session_locked:
+                self._empty(423)
+                return
             if self.client_address[0] != "127.0.0.1":
                 self._empty(403)
                 return
@@ -4864,6 +4870,9 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
             return
 
         if parsed_path in {ACCOUNT_LOGIN_PATH, ACCOUNT_REGISTER_PATH, ACCOUNT_LOGOUT_PATH, ACCOUNT_CLOSE_PATH, ACCOUNT_SYNC_MUTATE_PATH, NETWORK_MESSAGE_SEND_PATH}:
+            if self.server.local_session_locked:
+                self._empty(423)
+                return
             if self.server.account_gateway is None:
                 self._empty(503)
                 return
@@ -5056,6 +5065,8 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
                             self._empty(409)
                             return
                         write_local_session_credential(secret)
+                        if self.server.account_gateway is not None:
+                            self.server.account_gateway.unlock_local_session(secret)
                         self.server.local_session_locked = False
                         self.server.local_session_failures = 0
                         self.server.local_session_retry_after = 0.0
@@ -5069,6 +5080,8 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
                         if not verify_local_session_secret(secret):
                             self._empty(401)
                             return
+                        if self.server.account_gateway is not None:
+                            self.server.account_gateway.clear_local_session_vault()
                         remove_local_session_credential()
                         self.server.local_session_locked = False
                         self.server.local_session_failures = 0
@@ -5078,6 +5091,8 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
                             self._empty(409)
                             return
                         self.server.local_session_locked = True
+                        if self.server.account_gateway is not None:
+                            self.server.account_gateway.lock_local_session()
                     elif action == "unlock":
                         if credential is None:
                             self._empty(409)
@@ -5096,6 +5111,8 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
                             self.server.local_session_retry_after = now + delay
                             self._empty(401)
                             return
+                        if self.server.account_gateway is not None:
+                            self.server.account_gateway.unlock_local_session(secret)
                         self.server.local_session_locked = False
                         self.server.local_session_failures = 0
                         self.server.local_session_retry_after = 0.0
@@ -5103,9 +5120,9 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
                         self._empty(400)
                         return
                     snapshot = local_session_snapshot(self.server)
-            except (OSError, ValueError) as exc:
+            except (OSError, ValueError, AccountVaultError) as exc:
                 print(
-                    f"ordax-native-host: local session action failed safely: {exc}",
+                    "ordax-native-host: local session action failed safely",
                     file=sys.stderr,
                     flush=True,
                 )
