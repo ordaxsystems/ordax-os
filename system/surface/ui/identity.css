@@ -469,7 +469,9 @@ body { background: var(--md-canvas); font-weight: 400; }
 .meridian-native-workspace .ordax-home-aura-heading { display: flex; align-items: center; gap: .625rem; }
 .meridian-native-workspace .ordax-home-aura-heading > .ordax-rail-icon { display: grid; place-items: center; width: 2rem; height: 2rem; padding: .4375rem; border-radius: 50%; background: color-mix(in srgb, var(--md-sage) 70%, transparent); color: var(--md-on-art); }
 .meridian-native-workspace .ordax-home-aura-heading > strong { font-size: 1.0625rem; font-weight: 550; }
-.meridian-native-workspace .ordax-home-hero-preview { padding: .25rem .5rem; border: 1px solid color-mix(in srgb, var(--md-on-art) 28%, transparent); border-radius: 999px; color: var(--md-on-art); font-size: .625rem; }
+.meridian-native-workspace .ordax-home-aura-state { padding: .25rem .5rem; border: 1px solid color-mix(in srgb, var(--md-on-art) 28%, transparent); border-radius: 999px; color: var(--md-on-art); font-size: .625rem; }
+.meridian-native-workspace .ordax-home-aura-state[data-state="loading"], .meridian-native-workspace .ordax-home-aura-state[data-state="busy"] { background: color-mix(in srgb, var(--md-amber) 22%, transparent); }
+.meridian-native-workspace .ordax-home-aura-state[data-state="unavailable"], .meridian-native-workspace .ordax-home-aura-state[data-state="error"] { background: color-mix(in srgb, var(--md-amber) 32%, transparent); }
 .meridian-native-workspace .ordax-home-hero-copy h2 { margin: .75rem 0 .5rem; color: var(--md-on-art); font-size: clamp(1.5rem, 2.25cqi, 2.125rem); font-weight: 550; letter-spacing: -.04em; line-height: 1.18; text-wrap: balance; }
 .meridian-native-workspace .ordax-home-hero-copy > p { margin: 0; color: color-mix(in srgb, var(--md-on-art) 88%, transparent); font-size: .8125rem; line-height: 1.55; }
 .meridian-native-workspace .ordax-home-hero .meridian-native-command { display: block; margin: 1rem 0 .75rem; padding: .25rem; border: 1px solid color-mix(in srgb, var(--md-on-art) 45%, transparent); border-radius: var(--md-radius); background: var(--md-surface); box-shadow: var(--md-shadow-small); }
@@ -482,6 +484,11 @@ body { background: var(--md-canvas); font-weight: 400; }
 .meridian-native-workspace .ordax-home-suggestions .ordax-rail-icon { flex: 0 0 1rem; width: 1rem; height: 1rem; }
 .meridian-native-workspace .ordax-home-suggestions button:hover { background: color-mix(in srgb, var(--md-art-dark) 85%, transparent); }
 .meridian-native-workspace .ordax-home-hero-copy > .ordax-home-hero-note { margin-top: .625rem; font-size: .625rem; }
+.meridian-native-workspace .ordax-home-aura-response { max-height: 15rem; margin-top: .875rem; padding: .75rem .875rem; border: 1px solid color-mix(in srgb, var(--md-on-art) 24%, transparent); border-radius: var(--md-radius); background: color-mix(in srgb, var(--md-art-dark) 72%, transparent); color: var(--md-on-art); }
+.meridian-native-workspace .ordax-home-aura-response[hidden] { display: none; }
+.meridian-native-workspace .ordax-home-aura-response > strong { display: block; margin-bottom: .375rem; font-size: .6875rem; font-weight: 600; }
+.meridian-native-workspace .ordax-home-aura-response > p { max-height: 11rem; margin: 0; overflow: auto; overflow-wrap: anywhere; white-space: pre-wrap; font-size: .75rem; line-height: 1.5; }
+.meridian-native-workspace .ordax-home-aura-response[data-state="error"] > p { color: color-mix(in srgb, var(--md-on-art) 78%, var(--md-amber)); }
 .meridian-native-workspace .ordax-home-section-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .375rem .75rem; margin-bottom: .75rem; }
 .meridian-native-workspace .ordax-home-section-heading h2 { margin: 0; min-width: 0; color: var(--md-ink); font-size: .9375rem; font-weight: 550; letter-spacing: -.025em; }
 .meridian-native-workspace .ordax-home-section-heading p { margin: 0; color: var(--md-muted); font-size: .75rem; }
@@ -495,6 +502,11 @@ body { background: var(--md-canvas); font-weight: 400; }
 .meridian-native-workspace .ordax-home-status-list > button:last-child { border-bottom: 0; }
 .meridian-native-workspace .ordax-home-status-list .ordax-rail-icon { width: 1.875rem; height: 1.875rem; padding: .4375rem; border-radius: var(--md-radius-small); background: var(--md-sage-soft); color: var(--md-sage); }
 .meridian-native-workspace .ordax-home-status-list small { max-width: 6.5rem; color: var(--md-muted); font-size: .625rem; text-align: end; overflow-wrap: anywhere; }
+.meridian-native-workspace .ordax-home-status-connection { flex: 0 0 auto; padding: .1875rem .4375rem; border-radius: .375rem; background: var(--md-sage-soft); color: var(--md-sage); font-size: .5625rem; line-height: 1.5; }
+.meridian-native-workspace .ordax-home-status-connection[data-state="loading"], .meridian-native-workspace .ordax-home-status-connection[data-state="partial"], .meridian-native-workspace .ordax-home-status-connection[data-state="unavailable"] { background: var(--md-amber-soft); color: var(--md-amber); }
+.meridian-native-workspace .ordax-home-status-list small[data-state="success"] { color: var(--md-sage); }
+.meridian-native-workspace .ordax-home-status-list small[data-state="pending"], .meridian-native-workspace .ordax-home-status-list small[data-state="warning"] { color: var(--md-amber); }
+.meridian-native-workspace .ordax-home-status-list small[data-state="loading"], .meridian-native-workspace .ordax-home-status-list small[data-state="unavailable"] { color: var(--md-muted); }
 .meridian-native-workspace .ordax-home-current-space { grid-area: current; }
 .meridian-native-workspace .ordax-home-space-identity, .meridian-native-workspace .ordax-home-space-open { display: flex; align-items: center; gap: .75rem; width: 100%; min-height: 2.875rem; padding: .625rem; border: 0; border-radius: var(--md-radius-small); background: var(--md-subtle); color: var(--md-ink); text-align: start; cursor: pointer; }
 .meridian-native-workspace .ordax-home-space-identity > .ordax-rail-icon { width: 2.5rem; height: 2.5rem; padding: .625rem; border-radius: var(--md-radius-small); background: var(--md-sage-soft); color: var(--md-sage); }

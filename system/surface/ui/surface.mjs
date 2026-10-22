@@ -1,6 +1,6 @@
 import { mountNativeSidebarFit, sidebarIsExpanded, sidebarItemIsActive } from "./sidebar-layout.mjs";
 import { mountSidebarHints } from "./sidebar-hints.mjs";
-import { handleHomePreviewClick, handleHomePreviewKeyDown } from "./home-concept.mjs";
+import { handleHomeConceptClick, handleHomeConceptKeyDown } from "./home-concept.mjs";
 import { assertAppRuntimeCatalog, defaultAppRuntimeCatalog } from "../../apps/runtime-catalog.mjs";
 import { externalAppCopy } from "../../apps/external-app-definition.mjs";
 import { assertAppActivationPort } from "../../contracts/app-activation.mjs";
@@ -968,7 +968,7 @@ export function mountSurface(
   };
 
   const onClick = (event) => {
-    if (handleHomePreviewClick(event, root, localization)) return;
+    if (handleHomeConceptClick(event, root, localization)) return;
     const areaMenuButton = event.target.closest("[data-area-menu-toggle]");
     if (areaMenuButton) {
       setAreaMenuOpen(areaMenu.hidden);
@@ -1211,7 +1211,7 @@ export function mountSurface(
   };
 
   const onKeyDown = (event) => {
-    if (handleHomePreviewKeyDown(event, root)) return;
+    if (handleHomeConceptKeyDown(event, root)) return;
     if (moveDockFocus(event, nativeDock, "button", revealDockButton)) return;
     if (moveDesktopShortcutFocus(event, root, "[data-desktop-app]")) return;
 

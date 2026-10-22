@@ -204,19 +204,20 @@ export function createDesktopShellMarkup(localization) {
             <section class="ordax-home-hero" aria-label="${t("shell.home.hero.aria")}">
               <img class="ordax-home-hero-image" data-home-scene src="../../surface/workspace/assets/alpine-day.jpg" alt="" loading="eager">
               <div class="ordax-home-hero-copy">
-                <div class="ordax-home-aura-heading"><span class="ordax-rail-icon" aria-hidden="true">${ICONS.aura}</span><strong>Aura</strong><span class="ordax-home-hero-preview" data-home-copy="shell.home.preview.auraStatus">${t("shell.home.preview.auraStatus")}</span></div>
-                <h2 data-home-copy="shell.home.preview.heroTitle">${t("shell.home.preview.heroTitle")}</h2>
-                <p data-home-copy="shell.home.preview.heroDescription">${t("shell.home.preview.heroDescription")}</p>
+                <div class="ordax-home-aura-heading"><span class="ordax-rail-icon" aria-hidden="true">${ICONS.aura}</span><strong>Aura</strong><span class="ordax-home-aura-state" data-home-aura-status data-state="loading" aria-live="polite">${t("home.aura.status.loading")}</span></div>
+                <h2 data-home-copy="home.aura.title">${t("home.aura.title")}</h2>
+                <p data-home-copy="home.aura.description">${t("home.aura.description")}</p>
                 <section class="meridian-command meridian-native-command" aria-label="${t("shell.home.aura.aria")}">
                   <div class="meridian-command-input-row">
                     <button type="button" data-home-preview-notice aria-label="${t("shell.home.preview.attach")}"><span class="ordax-home-plus" aria-hidden="true">+</span></button>
-                    <input type="text" data-native-aura-prompt aria-label="${t("shell.home.aura.aria")}" aria-describedby="ordax-home-aura-note" placeholder="${t("shell.home.aura.placeholder")}" autocomplete="off">
+                    <input type="text" data-native-aura-prompt aria-label="${t("shell.home.aura.aria")}" aria-describedby="ordax-home-aura-note" placeholder="${t("shell.home.aura.placeholder")}" autocomplete="off" maxlength="32000">
                     <button type="button" data-native-aura-voice disabled aria-label="${t("shell.home.aura.voice")}"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21m-4 0h8"/></svg></button>
-                    <button type="button" class="meridian-command-send" data-home-preview-send data-home-preview-notice aria-label="${t("shell.home.preview.send")}">${ICONS.arrow}</button>
+                    <button type="button" class="meridian-command-send" data-home-aura-submit data-native-aura-send aria-label="${t("shell.home.aura.send")}" disabled>${ICONS.arrow}</button>
                   </div>
                 </section>
-                <div class="ordax-home-suggestions">${[["summary","files"],["note","folder"],["plan","clock"],["image","studio"]].map(([key, icon]) => `<button type="button" data-home-preview-command="shell.home.preview.command.${key}"><span class="ordax-rail-icon" aria-hidden="true">${ICONS[icon]}</span><span data-home-copy="shell.home.preview.command.${key}">${t(`shell.home.preview.command.${key}`)}</span></button>`).join("")}</div>
-                <p id="ordax-home-aura-note" class="ordax-home-hero-note" data-home-copy="shell.home.preview.auraNote">${t("shell.home.preview.auraNote")}</p>
+                <div class="ordax-home-suggestions">${[["summary","files"],["note","folder"],["plan","clock"],["image","studio"]].map(([key, icon]) => `<button type="button" data-home-aura-suggestion="home.aura.suggestion.${key}"><span class="ordax-rail-icon" aria-hidden="true">${ICONS[icon]}</span><span data-home-copy="home.aura.suggestion.${key}">${t(`home.aura.suggestion.${key}`)}</span></button>`).join("")}</div>
+                <div class="ordax-home-aura-response" data-home-aura-response data-state="busy" aria-live="polite" aria-atomic="true" hidden><strong data-home-copy="home.aura.response.title">${t("home.aura.response.title")}</strong><p data-home-aura-response-text></p></div>
+                <p id="ordax-home-aura-note" class="ordax-home-hero-note" data-home-aura-note aria-live="polite">${t("home.aura.note.loading")}</p>
               </div>
             </section>
             ${concept.status}
@@ -404,8 +405,6 @@ export function syncDesktopShellLocalization(root, localization) {
   }
   aria("[data-native-aura-voice]", "shell.home.aura.voice");
   aria("[data-native-aura-send]", "shell.home.aura.send");
-  text("[data-native-aura-backend]", "shell.home.aura.backend");
-  text("[data-native-aura-description]", "shell.home.aura.pendingDescription");
   for (const button of root.querySelectorAll("[data-launcher-toggle]")) {
     if (button.hasAttribute("data-meridian-search")) continue;
     if (button.hasAttribute("data-meridian-application-launcher")) {
