@@ -1,3 +1,4 @@
+import { hasNativeHostBridge, postNativeHostMessage } from "../../adapters/native/host-bridge.mjs";
 import { PRODUCT_FAMILY_PUBLIC_ENDPOINTS } from "../../contracts/product-family.mjs";
 
 // A Native client may offer the canonical hosted signup when its direct
@@ -19,8 +20,7 @@ export function isHostedSignupEnabled(policy) {
 // account portal. On Web, an ordinary HTTPS anchor remains the navigation owner.
 // Never pass arbitrary URLs or credentials through the privileged bridge.
 export function requestNativeHostedSignup(event, windowRef = globalThis.window) {
-  const bridge = windowRef?.webkit?.messageHandlers?.ordaxBrowser;
-  if (!bridge || typeof bridge.postMessage !== "function") {
+  if (!hasNativeHostBridge(windowRef)) {
     // Native Surface is loopback-served. Do not let a missing bridge turn an
     // external link into top-level navigation inside its privileged WebView.
     if (windowRef?.location?.protocol === "http:"
@@ -33,7 +33,7 @@ export function requestNativeHostedSignup(event, windowRef = globalThis.window) 
   // native host rejects the command or the browser bridge throws.
   event.preventDefault();
   try {
-    bridge.postMessage(JSON.stringify({ type: "account.signup.open" }));
+    postNativeHostMessage(windowRef, { type: "account.signup.open" });
     return true;
   } catch {
     return false;

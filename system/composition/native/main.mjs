@@ -1,3 +1,5 @@
+import { hasNativeHostBridge } from "../../adapters/native/host-bridge.mjs";
+import { createNativeIsolatedComponentModuleImporter } from "../../adapters/native/isolated-component-executor.mjs";
 import { mountNativeSidebarAccount } from "../../surface/ui/sidebar-account.mjs";
 import {
   createNativeClientDiagnostics,
@@ -594,7 +596,7 @@ async function start() {
   });
   // The shared Native UI may run in an unprivileged development browser.
   // Only a real host bridge may expose Intelligence to privileged consumers.
-  if (typeof window.webkit?.messageHandlers?.ordaxBrowser?.postMessage === "function") {
+  if (hasNativeHostBridge(window)) {
     installNativeIntelligenceHostBridge({
       windowRef: window,
       intelligencePort: selectedSpaceIntelligence,
@@ -1070,13 +1072,21 @@ async function start() {
     getAppTarget: surface.getAppTarget,
     setAppTarget: surface.setAppTarget,
   });
+  const nativeCurrentSlotSource = createNativeComponentSlotSource(window);
   const externalAppMounts = await optionalNativeProbe(
     "OrdaX installed component runtime mounting unavailable",
     () => mountNativeVerifiedInstalledApps({
       installed: installedAppCatalog?.installed ?? [],
-      source: createNativeComponentSlotSource(window),
+      source: nativeCurrentSlotSource,
       fetchImpl: verifiedComponentFetch,
-      importModule: (url) => import(url),
+      importModule: createNativeIsolatedComponentModuleImporter({
+        windowRef: window,
+        allowedComponentIds: EXTERNAL_FIRST_PARTY_COMPONENT_IDS.filter(
+          (appId) => hasNativeExternalFirstPartyModuleRead(appId),
+        ),
+        currentSlotSource: nativeCurrentSlotSource,
+        fetchImpl: verifiedComponentFetch,
+      }),
       context: {
         root, surfaceLifecycle: externalAppSurfaceLifecycle,
       },

@@ -33,6 +33,15 @@ test("App SDK runs for exported contracts and its explicit non-contract owners",
   assert.equal(classifyAppSdkImpact([".github/workflows/app-sdk-contract.yml"], exported).required, true);
 });
 
+test("Internet source reintroduction triggers the fail-closed absence proof", () => {
+  assert.equal(
+    classifyAppSdkImpact(["system/apps/internet/runtime.mjs"], exported).required,
+    true,
+  );
+  const workflow = read(".github/workflows/app-sdk-contract.yml");
+  assert.equal(workflow.split('"system/apps/internet/**"').length - 1, 2);
+});
+
 test("service inventory skips content-only changes inside an existing service domain", () => {
   const result = classifyServiceUpdateImpact([
     "system/services/spaces/creation-preflight.mjs",

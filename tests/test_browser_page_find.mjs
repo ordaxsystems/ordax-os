@@ -7,13 +7,17 @@ import {
   validatePageFindResult,
 } from "../system/contracts/browser-page-find.mjs";
 import { createNativeBrowserPageFind } from "../system/adapters/native/browser-page-find.mjs";
+import { createNativeHostWindow } from "./support/native-host-window.mjs";
 
 function fakeWindow() {
   const listeners = new Map();
   const commands = [];
+  const { windowRef } = createNativeHostWindow({
+    onPostMessage(payload){commands.push(JSON.parse(payload));},
+  });
   return {
+    ...windowRef,
     commands, listeners,
-    webkit: {messageHandlers:{ordaxBrowser:{postMessage(payload){commands.push(JSON.parse(payload));}}}},
     addEventListener(name, callback){listeners.set(name,callback);},
     removeEventListener(name, callback){if(listeners.get(name)===callback)listeners.delete(name);},
     emit(detail){listeners.get("ordax-browser-host")?.({detail});},

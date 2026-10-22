@@ -7,6 +7,7 @@ import { validateComponentId } from "../../contracts/component-manifest.mjs";
 export const EXTERNAL_FIRST_PARTY_OWNER = "ordaxsystems/ordax-apps";
 export const EXTERNAL_FIRST_PARTY_SOURCE_REPOSITORY_BY_COMPONENT = Object.freeze({
   "activity": "ordaxsystems/ordax-apps",
+  "assistant": "ordaxsystems/ordax-apps",
   "calculator": "ordaxsystems/ordax-apps",
   "calendar": "ordaxsystems/ordax-apps",
   "character-map": "ordaxsystems/ordax-apps",
@@ -14,6 +15,7 @@ export const EXTERNAL_FIRST_PARTY_SOURCE_REPOSITORY_BY_COMPONENT = Object.freeze
   "colors": "ordaxsystems/ordax-apps",
   "converter": "ordaxsystems/ordax-apps",
   "image-viewer": "ordaxsystems/ordax-apps",
+  "internet": "ordaxsystems/ordax-apps",
   "media-player": "ordaxsystems/ordax-apps",
   "network": "ordaxsystems/ordax-apps",
   "notes": "ordaxsystems/ordax-apps",

@@ -572,6 +572,24 @@ export function translateSurfaceMessage(locale, messageId, values = {}) {
   return interpolateLocalizationMessage(translated, values);
 }
 
+/** Serializable public locale projection for the opaque installed-app runtime. */
+/**
+ * Public, serializable localization projection for an isolated installed app.
+ * The snapshot contains only the active locale's public UI strings; it never
+ * exposes preference, account, or host state beyond the selected locale.
+ */
+export function createSurfaceLocalizationSnapshot(localization) {
+  const port = assertLocalizationPort(localization);
+  const locale = port.getLocale();
+  const profile = port.getProfile();
+  return Object.freeze({
+    schema: LOCALIZATION_SCHEMA,
+    locale,
+    profile,
+    messages: TABLES[locale] ?? SOURCE,
+  });
+}
+
 export function createSurfaceLocalization(preferenceRuntime) {
   const preferences = assertPreferenceRuntimePort(preferenceRuntime);
   let observedLocale = preferences.getSnapshot()[REGIONAL_LOCALE_PREFERENCE_ID] ?? SURFACE_SOURCE_LOCALE;

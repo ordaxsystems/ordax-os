@@ -12,6 +12,7 @@ import {
 import {
   createNativeAppLifecycleDelegate,
 } from "../system/adapters/native/app-lifecycle-delegate.mjs";
+import { createNativeHostWindow } from "./support/native-host-window.mjs";
 
 const COMMIT = "a".repeat(40);
 
@@ -175,15 +176,11 @@ test("accepted install requests platform-owned probation for supported component
     async fetch() {
       return response(acceptedFor(value));
     },
-    webkit: {
-      messageHandlers: {
-        ordaxBrowser: {
-          postMessage(message) {
-            messages.push(JSON.parse(message));
-          },
-        },
+    ...createNativeHostWindow({
+      onPostMessage(message) {
+        messages.push(JSON.parse(message));
       },
-    },
+    }).windowRef,
   });
 
   const result = await delegate.executeLifecycle(value);
@@ -218,15 +215,11 @@ test("remove and unsupported apps never request probation", async () => {
       async fetch() {
         return response(acceptedFor(value));
       },
-      webkit: {
-        messageHandlers: {
-          ordaxBrowser: {
-            postMessage(message) {
-              messages.push(JSON.parse(message));
-            },
-          },
+      ...createNativeHostWindow({
+        onPostMessage(message) {
+          messages.push(JSON.parse(message));
         },
-      },
+      }).windowRef,
     });
     const result = await delegate.executeLifecycle(value);
     assert.equal(result.state, "accepted");
@@ -252,13 +245,9 @@ test("rejected or identity-drifted lifecycle replies never dispatch probation", 
   const value = plan("install");
   const messages = [];
   const windowRef = {
-    webkit: {
-      messageHandlers: {
-        ordaxBrowser: {
-          postMessage(message) { messages.push(message); },
-        },
-      },
-    },
+    ...createNativeHostWindow({
+      onPostMessage(message) { messages.push(message); },
+    }).windowRef,
   };
 
   const denied = createNativeAppLifecycleDelegate({
@@ -293,13 +282,9 @@ test("probation bridge exception cannot change a platform-accepted staging recei
     async fetch() {
       return response(acceptedFor(value));
     },
-    webkit: {
-      messageHandlers: {
-        ordaxBrowser: {
-          postMessage() { throw new Error("bridge is temporarily unavailable"); },
-        },
-      },
-    },
+    ...createNativeHostWindow({
+      onPostMessage() { throw new Error("bridge is temporarily unavailable"); },
+    }).windowRef,
   });
   try {
     console.warn = () => { warnings += 1; };

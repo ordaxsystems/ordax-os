@@ -97,7 +97,7 @@ test("current verified slot mounts without a local app import", async () => {
   const mounted = await f.run();
   assert.ok(mounted);
   assert.deepEqual({ ...f.state(), reported: null }, { reads: 3, imports: 1, mounts: 1, destroys: 0, reported: null });
-  mounted.destroy();
+  await mounted.destroy();
   assert.equal(f.state().destroys, 1);
 });
 
@@ -129,8 +129,8 @@ test("DOM app runtime receives an empty per-component root and releases it on de
   assert.ok(mounted);
   assert.equal(surfaceRoot.childNodes.length, 1);
   assert.equal(appRoot.childNodes.length, 1);
-  mounted.destroy();
-  mounted.destroy();
+  await mounted.destroy();
+  await mounted.destroy();
   assert.equal(destroyed, 1);
   assert.equal(surfaceRoot.childNodes.length, 0);
   assert.equal(appRoot.removed, true);

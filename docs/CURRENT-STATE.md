@@ -216,6 +216,96 @@ docs/INTELLIGENCE.md.
 
 # Current State
 
+## First-party app source ownership — 2026-10-22
+
+`ordax-apps` is the canonical source owner for Internet, Assistente, Projetos,
+Atividade, Rede and Notas; these six app sources are absent from
+`ordax-os/system/apps/`. That source transfer is complete, but it does not prove
+package signing, installation, Store inventory, offline bootstrap or independent
+updates. `system/apps/files/` remains the canonical Files source until the
+signed bootstrap handoff, Native slot-to-Space/File Space isolation, and USB
+boot/recovery gates pass. The portable Studio product is canonical in Apps;
+`system/apps/studio/` remains an OS-owned local integration until Native/Web
+parity and verified lifecycle are proven. Loja, Ajustes, Conta and Sistema are
+structural OS surfaces and stay in `ordax-os`. Keep those boundaries distinct:
+do not remove the active Files source or activate external packages by changing
+documentation flags alone.
+
+Upstream `ordax-os/main` at `a2eee8ea` (PR #2150) also hardens the Native
+Product Runtime handoff: ABI readiness now requires an explicit empty
+`independent_base_abi_blockers` list, and trust requires the canonical
+`canonical-public-trust-pinned` ceremony status. The two Go source/test blobs
+are mirrored exactly in this worktree; all nine PR checks passed. This closes
+only that trust-evidence gap and does not enable Files or Studio cutover.
+
+Studio externalization remains a separate blocked gate. The verified
+`ordax-apps/main` snapshot (`ba1d2df1`, 2026-10-22) declares Studio `0.15.9`
+and `component-slot` in `apps/studio/app.json`, but the canonical executable
+entrypoint `apps/studio/src/runtime.mjs` and compatibility descriptor (at
+either `apps/studio/compatibility.json` or
+`migrations/studio.compatibility.json`) are absent. Apps' own readiness audit reports
+`not-assessed-no-package-boundary`, and its
+`migrations/studio.externalization.json` keeps `cutover_allowed:false`. The
+OS-local `system/apps/studio/runtime.mjs` is a separate Native `git-app`
+integration (`STUDIO_VERSION=0.1.0`), not a compatible copy of the portable
+Studio product. Keep it until Apps supplies a package boundary and OS proves
+Native/Web parity, verified activation, isolation, health, rollback, offline
+reinstall and USB boot without Studio. The historical `mcp-blender` retirement
+gate in Apps is not proof that this OS integration can be removed.
+
+Full first-party package inventory audit against the same Apps `main` snapshot
+on 2026-10-22: the workspace lists 20 targets. Nineteen have an Apps
+`app.json`; 18 also have `apps/<id>/src/runtime.mjs`; 16 have a compatibility
+descriptor in one of the two locations accepted by the Apps readiness auditor.
+`files` is intentionally absent pending remove-first handoff. `studio` is
+missing both runtime and descriptor. `internet` and `assistant` each have a
+manifest and runtime but no compatibility descriptor in either canonical
+location; both externalization plans allow source cutover but keep distribution
+activation false. The other 16 targets have manifest, runtime and descriptor.
+This inventory proves source/package structure only, not signed release,
+installation, promotion, rollback, offline reinstall or USB availability.
+
+Native isolation candidate on branch `codex/apps-externalization-20261022`
+(not yet in OS `main`, 2026-10-22): verified `current` slot code executes
+inside a sandboxed iframe with an opaque origin. Its CSP confines scripts,
+styles, images and fonts to the exact signed component path, blocks network
+connections, nested frames and workers, and the Native HTTP boundary refuses
+same-origin module reads. The parent transfers a private `MessagePort`; its
+allowlist binds App Data to that app identity and exposes only the minimal
+Surface lifecycle. **Every privileged bridge operation** revalidates the exact
+Native `current` slot, including its revision, version, source commit and
+entrypoint. A changed slot or unavailable Native verifier rejects the request,
+revokes further calls, drains in-flight work, asks the child runtime to destroy,
+then removes the frame. The sandbox never receives File Space.
+If exact-slot verification times out, Native aborts the metadata request and
+fails the app operation closed so teardown does not hang on a dead host.
+
+This candidate closes the privileged ESM execution path, but it does not
+complete Files cutover: Native Files still uses the session-wide `user_root`.
+OS `main` remains fail-closed after #2100 when a current component context
+contains `fileSpace`; it does not yet mount a component in the isolated runtime
+with a File Space broker. Space selection
+is persisted in the client, while the Native file routes do not validate the
+authenticated subject or selected Space and do not resolve a per-Space root.
+The account gateway forwards `/account/spaces`, but no host-owned mapping from
+those Space IDs to storage exists; deriving one from Space kind would mix
+distinct workspaces. Existing `user_root` content is device-local and remains
+offline-capable, so it must not be assigned to an account Space or moved by an
+implicit migration. Pending Notes probation is now a separate isolated
+`import-contract` probe: an opaque-origin iframe imports the exact signed
+pending entrypoint without host capabilities, then revalidates the exact
+revision. It never mounts the app; `healthy` proves only the import/export
+contract. A host-owned mount-health probe, signed publication, canonical trust,
+activation and rollback proof are still absent. See
+`docs/APP-PORTFOLIO-AND-PREINSTALL.md`, “Bloqueio comprovado do File Space por
+Space”, for the migration boundary and safe cutover requirements. Keep
+`native_files_slot_bound_file_space_enforced` and Files cutover disabled until
+the host validates slot + session + active Space on every operation, the data
+owner defines per-Space storage and explicit reversible migration from the
+device root, and signed offline bootstrap, pending health, USB boot/recovery
+and real-host verification are proven. Do not treat the App Data broker as a
+substitute for File Space authorization.
+
 Meridian shell (2026-10-19): the persistent workspace header has been removed
 from Web, Native, Central, Área de Trabalho, and app destinations. Workspace
 content begins at the top of the shell; search and appearance remain available
@@ -1408,10 +1498,18 @@ APP_SYSTEM_VERSION=0.1.0
 APP_SYSTEM_MATURITY=BETA
 APP_SYSTEM_RELEASE_MODE=bundled
 INTERNET_GATE_A=PLATFORM_SOURCE_REMOVED
-INTERNET_PORTABLE_SOURCE=NOT_YET_IN_ORDAX_APPS
+INTERNET_PORTABLE_SOURCE=CANONICAL_IN_ORDAX_APPS
 INTERNET_DISTRIBUTION_ENABLED=NO
 APP_NOTES_DELIVERY=ON_DEMAND_STORE_ONLY
-APP_NOTES_LOCAL_PAYLOAD=ABSENT_PRELAUNCH_EXTERNALIZATION
+APP_NOTES_PORTABLE_SOURCE=CANONICAL_IN_ORDAX_APPS
+APP_NOTES_LOCAL_PAYLOAD=ABSENT_CANONICAL_SOURCE_EXTERNALIZED
+ASSISTANT_PORTABLE_SOURCE=CANONICAL_IN_ORDAX_APPS
+PROJECTS_PORTABLE_SOURCE=CANONICAL_IN_ORDAX_APPS
+ACTIVITY_PORTABLE_SOURCE=CANONICAL_IN_ORDAX_APPS
+NETWORK_PORTABLE_SOURCE=CANONICAL_IN_ORDAX_APPS
+FILES_PORTABLE_SOURCE=OS_ONLY_CUTOVER_BLOCKED
+STUDIO_PORTABLE_SOURCE=CANONICAL_IN_ORDAX_APPS
+STUDIO_OS_INTEGRATION=RETAINED_PENDING_NATIVE_WEB_LIFECYCLE_PARITY
 PRODUCTION_INDEPENDENT_APP_UPDATES_ENABLED=NO
 SYSTEM_UPDATE_SCOPE=BASE,SURFACE,SERVICES,SYSTEM
 APPLICATION_UPDATE_SCOPE=FILES,PROJECTS,NOTES,INTERNET,SETTINGS,ACCOUNT
@@ -1451,11 +1549,11 @@ CANONICAL_SYSTEM_RUNTIME_COMPLETE=NO
 
 The canonical prototype trust ceremony and public handoff are complete. The eligible toolkit bound to `2172eb6a18430910afd036199ec492ad63dc185d` passed read-only preflight; canonical Ed25519 key material was generated locally, independent public derivation matched, the proof signature passed, recovery was verified from a distinct restored copy, and the recovered signing envelope passed public verification. The exact public anchor is pinned in Git and the minimal-bootstrap trust binding remains resolved. An earlier owner authorization existed for the first Stable/MVP USB proof, release sequence 1, but it was bound to a previous physical-writer context and is no longer valid after the writer changed. On 2026-09-26 the owner-controlled v4 candidate was signed and published as a prerelease, then materialized and verified from its exact versioned HTTPS URL in CI run `36234573905`; aggregate proof SHA-256 `2dd17580ddbf5a0fd0433a912e97e6bded04fd0a44ea0849e9da15e13df01e4b` is bound in the repository. This prerelease did not become GitHub's stable `latest` release. The authorization contract is now `blocked-explicit-physical-authorization-pending`, with `physical_write_allowed=false`, `explicit_owner_authorization=false` and no authorization-context hash. A fresh explicit owner authorization must be recorded against the current writer context before any destructive physical flow becomes eligible. No target-specific consent has been recorded and no USB is selected or authorized for a new write; live target revalidation, Windows UAC and target-specific destructive confirmation remain separate later gates. The local PEM remains a controlled prototype signing backend rather than the intended long-term production custody model; independent off-device custody and managed non-exportable KMS/HSM remain broad-distribution hardening requirements, with signed trust rotation required before broad public distribution.
 
-The first formal human product version is **OrdaX Prototype v0.1.0**. Product version, Entrega, Git SHA and component/app versions are separate identities: v0.1.0 identifies the prototype product milestone, Entrega identifies the notebook-facing delivery sequence, the SHA remains the exact technical build identity, and each component may evolve its own SemVer. First-party apps on the `0.x` line are **Beta**; `1.0.0` remains reserved for the first stable release of each app. Internet is currently `0.3.0 Beta` and uses `git-app` in Owner/Development. Projetos is a remove-first externalization target: its original 0.1.0 app source is pinned in `ordax-apps`, and its bundled UI/runtime is absent until a signed package is verified. Notes remains a known first-party product identity but its local payload is intentionally absent during the pre-launch externalization gate. Arquivos, Ajustes, Conta and Sistema are `0.1.0 Beta` and remain `bundled`. A component having its own version does not mean it already has a production-independent update channel: `git-app` is a development delivery mode, while production-independent activation remains gated behind the signed `component-slot` path with pending health, promotion and rollback. Product v1.0 remains reserved for the stable product rather than being inferred from prototype maturity, component versions or delivery count.
+The first formal human product version is **OrdaX Prototype v0.1.0**. Product version, Entrega, Git SHA and app SemVer are separate identities; first-party apps on the 0.x line are Beta, and a component version does not imply an independent update channel. Source ownership is now: Internet, Assistente, Projetos, Atividade, Rede and Notas in `ordax-apps`; Arquivos remains bundled with its only active app source in `ordax-os` until the signed bootstrap and Native isolation/USB recovery gates pass; Studio has portable product source in `ordax-apps` while the OS retains its local `git-app` integration pending Native/Web parity and verified lifecycle. Loja, Ajustes, Conta and Sistema remain structural OS surfaces. Product v1.0 remains reserved for the stable product.
 
 `system/` is the shared product source. The native development path is physically proven through `system/entrypoint (guardian) -> system/supervisor -> system/surface/entrypoint -> system/surface/bin/ordax-surface`; repository CI also proves that the actual `system/` tree can be bundled deterministically as `system.tar`.
 
-The shared graphical source remains under `system/surface/ui/` with platform-neutral contracts, workspace/window lifecycle and capability-driven app availability. Projetos remains a first-party product identity, but no longer has a bundled application source in the OS during Gate A; its future portable runtime belongs to `ordax-apps` and installation is still blocked. It consumes the existing neutral local project catalog and optional `ordax.project-cloud-links-reader/1` read-only overlay over `ordax.project-cloud-links/1` data; it does not create a second project store, require an account, upload local files by default or change local project identity. Web currently degrades honestly when no local/cloud project catalog is supplied. Notes remains a known first-party product with stable app id `notes`, classified as `on-demand` and `store-only`. During the pre-launch remove-first externalization gate its payload is intentionally absent from `system/`: there is no local Notes runtime, fixed launcher path, app-owned localization payload or legacy `/__ordax/native/notes` persistence endpoint. Its future package is sourced from `ordax-apps` and will consume public platform contracts such as `ordax.app-data/1`, `ordax.intelligence/1` and `ordax.file-space/11`. The Store is discovery/request UI only; its authority-free lifecycle request contract now models install, update and remove while refusing artifact/version selection, trust changes, permission grants, verification bypass and implicit user-data deletion. Verified acquisition, install/update staging, health, promotion, rollback, uninstall execution and inventory remain platform lifecycle authority, and the Native executor stays unmounted while canonical component trust/publication/activation gates remain closed. Internet is the first-party browser app with stable id `internet`, version `0.3.0 Beta` and `git-app` delivery in Owner/Development; this version identity does not claim a production Store/updater. Its shared Surface owns the approved concept structure (navigation toolbar, workspace/tab rail, central web viewport and project-context panel), while Native/USB provide `browser.web-content` through a separate unprivileged WebKit context and one external WebView per tab. The native slice supports up to 16 tabs, back/forward/reload, tab search, keyboard accelerators, persisted public tab URLs/order/active tab, project-context selection, explicit saved web references with bounded per-reference notes, automatic reference cleanup after project removal, public-network filtering and an exact loopback Host/browser-provenance boundary. Saved project references are owned by a neutral project-domain runtime and persist in the Native privileged profile with honest session fallback; the external page never receives project storage capability. Web intentionally exposes an unavailable browser-session port rather than pretending arbitrary sites can be safely embedded. Notes web references activate this same `internet` app. Internet also owns bounded device-local favorites through a neutral `ordax.browser-favorites/1` port; the Native privileged profile persists them while external website WebViews receive no access to that store. Native hardware proof for the new WebKit host remains pending, so the browser slice is implemented in source but not yet marked physically proven. Ajustes now owns persisted Surface-level contrast, motion and text-scale preferences; text scale changes the shared typographic base without claiming host-level accessibility control. Platform-specific behavior belongs in adapters/compositions, not in forks of the shared Surface. The normal Home now keeps technical delivery/recovery markers out of the area label; real delivery identity and update details live in Sistema. The visible settings identity is standardized as **Ajustes** while preserving the stable internal app id `settings`.
+The shared graphical source remains under `system/surface/ui/` with platform-neutral contracts, workspace/window lifecycle and capability-driven app availability. Projetos remains a first-party product with canonical portable source in `ordax-apps` and no bundled app source in the OS; verified package installation remains gated. It consumes the existing neutral local project catalog and optional `ordax.project-cloud-links-reader/1` read-only overlay over `ordax.project-cloud-links/1` data; it does not create a second project store, require an account, upload local files by default or change local project identity. Web currently degrades honestly when no local/cloud project catalog is supplied. Notes remains a known first-party product with stable app id `notes`, classified as `on-demand` and `store-only`. After the completed source transfer, its app payload is intentionally absent from `system/`: there is no local Notes runtime, fixed launcher path, app-owned localization payload or legacy `/__ordax/native/notes` persistence endpoint. Its canonical app source is already in `ordax-apps`; a future verified package will consume public platform contracts such as `ordax.app-data/1`, `ordax.intelligence/1` and `ordax.file-space/11`. The Store is discovery/request UI only; its authority-free lifecycle request contract now models install, update and remove while refusing artifact/version selection, trust changes, permission grants, verification bypass and implicit user-data deletion. Verified acquisition, install/update staging, health, promotion, rollback, uninstall execution and inventory remain platform lifecycle authority, and the Native executor stays unmounted while canonical component trust/publication/activation gates remain closed. Internet is the first-party browser app with stable id `internet` and canonical source in `ordax-apps`; version `0.3.0 Beta` does not claim production Store installation or an independent updater. Its shared Surface owns the approved concept structure (navigation toolbar, workspace/tab rail, central web viewport and project-context panel), while Native/USB provide `browser.web-content` through a separate unprivileged WebKit context and one external WebView per tab. The native slice supports up to 16 tabs, back/forward/reload, tab search, keyboard accelerators, persisted public tab URLs/order/active tab, project-context selection, explicit saved web references with bounded per-reference notes, automatic reference cleanup after project removal, public-network filtering and an exact loopback Host/browser-provenance boundary. Saved project references are owned by a neutral project-domain runtime and persist in the Native privileged profile with honest session fallback; the external page never receives project storage capability. Web intentionally exposes an unavailable browser-session port rather than pretending arbitrary sites can be safely embedded. Notes web references activate this same `internet` app. Internet also owns bounded device-local favorites through a neutral `ordax.browser-favorites/1` port; the Native privileged profile persists them while external website WebViews receive no access to that store. Native hardware proof for the new WebKit host remains pending, so the browser slice is implemented in source but not yet marked physically proven. Ajustes now owns persisted Surface-level contrast, motion and text-scale preferences; text scale changes the shared typographic base without claiming host-level accessibility control. Platform-specific behavior belongs in adapters/compositions, not in forks of the shared Surface. The normal Home now keeps technical delivery/recovery markers out of the area label; real delivery identity and update details live in Sistema. The visible settings identity is standardized as **Ajustes** while preserving the stable internal app id `settings`.
 
 ### Nova OrdaX pre-USB functional closure
 
@@ -2285,15 +2383,19 @@ The Native Surface now has a fail-closed, read-only component-slot broker backed
 by the signed `ordax-runtime-component-channel` helper. It is available only for
 Stable/MVP USB when both the helper and a real component trust file exist, and it
 revalidates component bytes through the verifier rather than trusting writable
-slot paths directly. Source also implements the next non-activation layers: a
-pending probation loader, an internal Native health recorder bound to the exact
-component identity and probation revision, a system-owned nonce-bound health
-bridge, and a fail-closed promotion policy that can only return hold/reject/promote
-decisions. The bridge does not expose generic HTTP mutation authority and neither
-the recorder nor the policy executes promotion, rejection or rollback. Because the
-canonical component trust file is not pinned, the broker remains unavailable in
-the current product and production component-slot activation is still blocked.
-The next authority boundary is a separate Native executor consuming exact
+slot paths directly. Source also implements non-activation probation: Notes'
+`import-contract` candidate is imported only inside a temporary opaque-origin
+frame, with no host port, and the exact unknown-health pending revision is checked
+before and after import. The candidate is never mounted and the result cannot
+launch it; `healthy` here proves only the import/export contract, not runtime
+health. No host-owned mount-health probe is wired. The Native health recorder is
+bound to the exact component identity and probation revision, the system-owned
+nonce-bound health bridge exposes no generic HTTP mutation authority, and the
+promotion policy can only return hold/reject/promote decisions. Neither the
+recorder nor policy executes promotion, rejection or rollback. The canonical
+component trust file is not pinned, so the broker remains unavailable in the
+current product and production component-slot activation remains blocked. The
+next authority boundary is a separate Native executor consuming exact
 revision+identity policy decisions only after canonical component trust and the
 promotion/rollback proof gates are satisfied.
 
