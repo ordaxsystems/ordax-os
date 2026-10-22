@@ -42,6 +42,8 @@ type nativeProductSourceLock struct {
     } `json:"activation"`
     CandidateEvidence struct {
         SourceCommit string `json:"source_commit"`
+        ExecutableSHA256 string `json:"executable_sha256"`
+        ExecutableSizeBytes int64 `json:"executable_size_bytes"`
         IndependentBaseABIReady bool `json:"independent_base_abi_ready"`
         SignedDistributionAuthorized bool `json:"signed_distribution_authorized"`
         EmbeddedELFInventory struct {
@@ -78,6 +80,7 @@ func validateNativeProductSourceLock(lock nativeProductSourceLock) error {
         lock.Source.Repository != productRuntimeSourceURL ||
         !commitPattern.MatchString(lock.Source.Commit) ||
         lock.CandidateEvidence.SourceCommit != lock.Source.Commit {
+
         return errors.New("native Product Runtime source provenance invalid")
     }
     a := lock.Activation
@@ -88,6 +91,10 @@ func validateNativeProductSourceLock(lock nativeProductSourceLock) error {
     }
     d := lock.Distribution
     c := lock.CandidateEvidence
+    if !shaPattern.MatchString(c.ExecutableSHA256) || c.ExecutableSizeBytes <= 0 ||
+        c.ExecutableSizeBytes > maxProductRuntimeFileBytes {
+        return errors.New("native Product Runtime binary provenance missing")
+    }
     if !d.RuntimeArtifactClaimed || d.SourceBindingOnly || !d.SignedRuntimeSlotAvailable ||
         !c.IndependentBaseABIReady || !c.SignedDistributionAuthorized ||
         !c.EmbeddedELFInventory.IndependentBaseCompatibilityProven ||
@@ -136,6 +143,12 @@ func verifiedNativeProductHandoff(lockPath, policyPath, trustPath, slotRoot stri
         len(manifest.Files) != 1 ||
         !executablePackageFile("product-runtime", manifest.Files[0]) {
         return result, errors.New("installed Product Runtime does not match the canonical pinned source")
+    }
+    // The signed package digest and the OS-owned CI provenance must bind the
+    // exact *same bytes*. Matching the source commit alone is insufficient.
+    if manifest.Files[0].SHA256 != lock.CandidateEvidence.ExecutableSHA256 ||
+        manifest.Files[0].Size != lock.CandidateEvidence.ExecutableSizeBytes {
+        return result, errors.New("signed Product Runtime binary differs from pinned provenance")
     }
     entry := filepath.Join(slot, filepath.FromSlash(productRuntimeExecutablePath))
     if strings.ContainsAny(entry, "\r\n\x00") {
