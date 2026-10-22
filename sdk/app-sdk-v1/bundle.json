@@ -225,7 +225,7 @@
       "major": 11,
       "name": "file-space",
       "schema": "ordax.file-space/11",
-      "source_git_blob": "e775c22080e40dc3fb8ab8d2e2f00ccf312825d0",
+      "source_git_blob": "133d40904f48bbf981dbdfe7e34d275d1a7b1cd1",
       "source_path": "system/contracts/file-space.mjs"
     },
     {

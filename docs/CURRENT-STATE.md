@@ -1931,7 +1931,7 @@ sem perder compatibilidade com ports Native síncronos.
 Isso continua separado de arquivos pertencentes à Conta ou a um Space. A
 composição do slot Native externo permanece desativada enquanto a fonte bundled
 `system/apps/files/` existir; nenhuma implementação de app foi copiada para Apps
-e nenhum gate de corte ou distribuição foi aberto. Verificação focada: 68 testes
+e nenhum gate de corte ou distribuição foi aberto. Verificação focada: 72 testes
 Node e 16 contratos estáticos Python passaram. Não é prova de USB/QEMU, bootstrap assinado, instalação offline,
 rollback ou publicação.
 
