@@ -101,6 +101,7 @@ on:
       - 'system/adapters/web/**'
       - 'system/adapters/mobile/**'
       - 'system/adapters/native/**'
+      - 'tests/test_native_preview_transport.mjs'
       - 'system/composition/web/**'
       - 'system/composition/native/**'
       - 'tools/surface-web/**'
@@ -340,6 +341,7 @@ on:
       - 'system/adapters/web/**'
       - 'system/adapters/mobile/**'
       - 'system/adapters/native/**'
+      - 'tests/test_native_preview_transport.mjs'
       - 'system/composition/web/**'
       - 'system/composition/native/**'
       - 'tools/surface-web/**'
@@ -551,7 +553,7 @@ jobs:
           node --test tests/test_browser_download.mjs
           node --test tests/test_native_browser_page_selection.mjs
           node --test tests/test_project_file_space_continuity.mjs
-          node --test tests/test_native_file_space_response_identity.mjs
+          node --test tests/test_native_file_space_response_identity.mjs tests/test_native_preview_transport.mjs
           node --test tests/test_files_async_activation.mjs
           node --test tests/test_files_component_ownership.mjs
           node --test tests/test_files_component_runtime.mjs
