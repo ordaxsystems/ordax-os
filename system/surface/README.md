@@ -85,9 +85,10 @@ are explicit requirements for native output routing. One session wrapper starts
 the D-Bus, PipeWire and WirePlumber owners alongside Cage and stops only the
 processes it started in a private audio runtime directory, preserving the
 established Wayland `XDG_RUNTIME_DIR`. Native Settings routes physical ALSA or
-Bluetooth sinks and changes output volume or
+Bluetooth sinks, migrates active playback streams, and changes output volume or
 mute through one session-token-protected host provider; settings apply to the
-current session. If the service or a physical output is absent, Settings reports
+current session. A failed stream migration restores the previous default route
+and any streams already moved. If the service or a physical output is absent, Settings reports
 that state and the graphical Surface still starts.
 
 The development launcher checks the codec and audio-control payload and extends

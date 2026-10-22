@@ -14,8 +14,11 @@ from typing import Any, Callable
 AUDIO_OUTPUTS_SCHEMA = "ordax.audio-outputs/1"
 MAX_OUTPUTS = 16
 MAX_OUTPUT_JSON_BYTES = 512 * 1024
+MAX_ACTIVE_STREAMS = 64
+MAX_ACTIVE_STREAMS_BYTES = 64 * 1024
 OUTPUT_ID = re.compile(r"^[A-Za-z0-9_.:@-]{1,192}$")
 VOLUME_PERCENT = re.compile(r"^(\d{1,3})(?:\.\d+)?%$")
+SINK_INDEX = re.compile(r"^\d{1,10}$")
 PHYSICAL_DEVICE_APIS = frozenset({"alsa", "bluez5"})
 
 
@@ -37,6 +40,7 @@ class PipeWirePulseOutputProvider:
         self.binary = binary or shutil.which("pactl", path=self.environ.get("PATH"))
         self.runner = runner
         self._lock = threading.RLock()
+        self._sink_names_by_index: dict[str, str] = {}
 
     def _unavailable(self, reason: str) -> dict[str, Any]:
         return {
@@ -98,9 +102,23 @@ class PipeWirePulseOutputProvider:
                 return self._unavailable("no-output-device")
             result: list[dict[str, Any]] = []
             seen: set[str] = set()
+            sink_names_by_index: dict[str, str] = {}
             for sink in raw_sinks:
                 if not isinstance(sink, dict):
                     raise AudioOutputError("audio sink entry is malformed")
+                sink_id = sink.get("name")
+                if not isinstance(sink_id, str) or not OUTPUT_ID.fullmatch(sink_id):
+                    raise AudioOutputError("audio sink identity is invalid")
+                if sink_id in seen:
+                    raise AudioOutputError("audio sink identities are duplicated")
+                sink_index = sink.get("index")
+                if isinstance(sink_index, bool) or not isinstance(sink_index, int) or not 0 <= sink_index <= 9_999_999_999:
+                    raise AudioOutputError("audio sink index is invalid")
+                index_key = str(sink_index)
+                if index_key in sink_names_by_index:
+                    raise AudioOutputError("audio sink indexes are duplicated")
+                seen.add(sink_id)
+                sink_names_by_index[index_key] = sink_id
                 properties = sink.get("properties")
                 if not isinstance(properties, dict):
                     continue
@@ -112,12 +130,6 @@ class PipeWirePulseOutputProvider:
                     # when no hardware is present. Settings controls only show
                     # outputs owned by a physical ALSA or Bluetooth device.
                     continue
-                sink_id = sink.get("name")
-                if not isinstance(sink_id, str) or not OUTPUT_ID.fullmatch(sink_id):
-                    raise AudioOutputError("audio sink identity is invalid")
-                if sink_id in seen:
-                    raise AudioOutputError("audio sink identities are duplicated")
-                seen.add(sink_id)
                 description = sink.get("description")
                 if not isinstance(description, str) or not description.strip():
                     description = sink_id
@@ -127,6 +139,7 @@ class PipeWirePulseOutputProvider:
                     "muted": sink.get("mute") is True,
                     "volumePercent": self._volume_percent(sink.get("volume")),
                 })
+            self._sink_names_by_index = sink_names_by_index
             if not result:
                 return self._unavailable("no-output-device")
             default_result = self._run(["get-default-sink"])
@@ -164,15 +177,87 @@ class PipeWirePulseOutputProvider:
             raise AudioOutputError("audio output is not currently available")
         return output
 
+    def _active_streams_locked(self) -> list[tuple[str, str]]:
+        result = self._run(["list", "short", "sink-inputs"])
+        if len(result.stdout.encode("utf-8")) > MAX_ACTIVE_STREAMS_BYTES:
+            raise AudioOutputError("active audio stream report exceeds the size limit")
+        streams: list[tuple[str, str]] = []
+        seen: set[str] = set()
+        for line in result.stdout.splitlines():
+            if not line.strip():
+                continue
+            fields = line.split()
+            if len(fields) < 2 or not SINK_INDEX.fullmatch(fields[0]) or not SINK_INDEX.fullmatch(fields[1]):
+                raise AudioOutputError("active audio stream report is malformed")
+            stream_id, sink_index = fields[0], fields[1]
+            if stream_id in seen:
+                raise AudioOutputError("active audio stream identities are duplicated")
+            if sink_index not in self._sink_names_by_index:
+                raise AudioOutputError("active audio stream refers to an unknown output")
+            seen.add(stream_id)
+            streams.append((stream_id, self._sink_names_by_index[sink_index]))
+            if len(streams) > MAX_ACTIVE_STREAMS:
+                raise AudioOutputError("active audio stream count exceeds the safety limit")
+        return streams
+
+    def _restore_output_route_locked(
+        self,
+        previous_default: str,
+        moved_streams: list[tuple[str, str]],
+    ) -> None:
+        for stream_id, previous_sink in reversed(moved_streams):
+            try:
+                self._run(["move-sink-input", stream_id, previous_sink])
+            except (FileNotFoundError, subprocess.SubprocessError, OSError):
+                pass
+        try:
+            self._run(["set-default-sink", previous_default])
+        except (FileNotFoundError, subprocess.SubprocessError, OSError):
+            pass
+
     def set_default_output(self, output_id: str) -> dict[str, Any]:
         with self._lock:
-            self._require_output_locked(output_id)
+            current = self._read_locked()
+            if not isinstance(output_id, str) or not OUTPUT_ID.fullmatch(output_id):
+                raise AudioOutputError("audio output identity is invalid")
+            if not current["available"]:
+                raise AudioOutputError("audio output capability is unavailable")
+            if not any(output["id"] == output_id for output in current["outputs"]):
+                raise AudioOutputError("audio output is not currently available")
+            previous_default = current.get("defaultOutputId")
+            if not isinstance(previous_default, str):
+                raise AudioOutputError("current audio output route is unavailable")
+            streams = self._active_streams_locked()
+            moved_streams: list[tuple[str, str]] = []
             try:
                 self._run(["set-default-sink", output_id])
+                for stream_id, previous_sink in streams:
+                    if previous_sink == output_id:
+                        continue
+                    self._run(["move-sink-input", stream_id, output_id])
+                    moved_streams.append((stream_id, previous_sink))
+                # Re-read streams that raced with the switch and route them to
+                # the same output. A bounded count keeps hot-plug churn safe.
+                remaining = [
+                    (stream_id, sink_id)
+                    for stream_id, sink_id in self._active_streams_locked()
+                    if sink_id != output_id
+                ]
+                if remaining:
+                    for stream_id, previous_sink in remaining:
+                        self._run(["move-sink-input", stream_id, output_id])
+                        moved_streams.append((stream_id, previous_sink))
+                if any(sink_id != output_id for _, sink_id in self._active_streams_locked()):
+                    raise AudioOutputError("active audio streams did not follow the selected output")
             except (FileNotFoundError, subprocess.SubprocessError, OSError) as exc:
+                self._restore_output_route_locked(previous_default, moved_streams)
                 raise AudioOutputError("audio output route could not be changed") from exc
+            except AudioOutputError:
+                self._restore_output_route_locked(previous_default, moved_streams)
+                raise
             snapshot = self._read_locked()
             if not snapshot["available"] or snapshot["defaultOutputId"] != output_id:
+                self._restore_output_route_locked(previous_default, moved_streams)
                 raise AudioOutputError("audio server did not confirm the selected output")
             return snapshot
 
