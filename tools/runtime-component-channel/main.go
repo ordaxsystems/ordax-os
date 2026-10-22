@@ -817,8 +817,12 @@ func inspectPackage(packagePath string, release releaseDescriptor) (verifiedPack
 			expectedMode = 0o555
 		}
 		zipMode := entry.Mode().Perm()
-		if zipMode != expectedMode {
-			return verifiedPackage{}, fmt.Errorf("runtime component ZIP file mode mismatch: %s", record.Path)
+		if executablePackageFile(manifest.Component.ID, record) {
+			if zipMode != expectedMode {
+				return verifiedPackage{}, fmt.Errorf("runtime component ZIP file mode mismatch: %s", record.Path)
+			}
+		} else if zipMode&0o111 != 0 {
+			return verifiedPackage{}, fmt.Errorf("ordinary component ZIP cannot claim executable permissions: %s", record.Path)
 		}
 		reader, err := entry.Open()
 		if err != nil {
@@ -1103,7 +1107,8 @@ func verifySlotWithTrustBytes(slot string, trustBytes []byte) (releaseDescriptor
 			if err != nil {
 				return releaseDescriptor{}, err
 			}
-			if info.Mode().Perm() != verifiedFileMode(manifest.Component.ID, record) {
+			if executablePackageFile(manifest.Component.ID, record) &&
+				info.Mode().Perm() != verifiedFileMode(manifest.Component.ID, record) {
 				return releaseDescriptor{}, fmt.Errorf("installed runtime component file mode mismatch: %s", record.Path)
 			}
 		}
