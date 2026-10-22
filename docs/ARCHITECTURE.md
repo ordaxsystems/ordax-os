@@ -393,6 +393,17 @@ of each responsibility must be identified before an optimization:
 - **Always-visible indicators:** a single mounted tray owner may observe a
   capability at a bounded interval; a Settings panel should refresh on entry
   and only poll while actively visible, without competing with the tray.
+- **On-demand optional panels:** `system/surface/ui/system-overview-controls.mjs`
+  only fetches metrics for a visible active Overview/Storage/Diagnostics
+  section and history/recovery for a visible active Updates section. First
+  entry is read once; a newly applied update invalidates history, which is
+  fetched only when Updates is visible. Manual refreshes remain explicit and
+  functional. `system/surface/ui/settings-overview-controls.mjs` reads live
+  keyboard layout only upon first entry to a visible active Regional section;
+  the Native capability probe remains authoritative. Minimized/background
+  windows do not fetch either panel's optional information at cold boot.
+  Both owners use the existing Surface render lifecycle rather than adding
+  a second watcher, timer, cache or data authority.
 - **Native boot capability probes:** `system/adapters/native/boot-probe-reader.mjs`
   owns the single-use, at-most-3-second reuse of the first validated response
   for the read-only network, power, system metrics and recovery adapters.
