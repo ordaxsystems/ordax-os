@@ -118,6 +118,10 @@ static int exchange(const char *first, const char *second, const char *receipt) 
 }
 
 int main(int argc, char **argv) {
+    if (argc == 2 && strcmp(argv[1], "--abi") == 0) {
+        puts("prototype-ordax.checkout-exchange/1");
+        return 0;
+    }
     if (argc == 3 && strcmp(argv[1], "--seal-state") == 0)
         return seal_state(argv[2]);
     if (argc == 5 && strcmp(argv[1], "--exchange") == 0)
