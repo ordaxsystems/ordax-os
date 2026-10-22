@@ -853,7 +853,10 @@ async function start() {
     await accountSync.refresh();
   };
   const accountConnectivityRecovery = createAccountConnectivityRecovery({
-    readIdentityState: () => identitySession.getSnapshot().state,
+    // A signed gateway file missing on this exact USB release cannot be
+    // repaired by repeated HTTPS retries. Retry ONLY transport failures.
+    readIdentityState: () => identitySession.getUnavailableReason() === "gateway-unreachable"
+      ? identitySession.getSnapshot().state : "not-retryable",
     refresh: resumeAccountConnectivity,
   });
   onAccountNetworkObservation = (snapshot) => {
