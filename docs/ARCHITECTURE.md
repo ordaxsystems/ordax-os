@@ -410,7 +410,13 @@ of each responsibility must be identified before an optimization:
   These are client-side polling budgets, not the interval of Git fetches.
 - **Intelligence:** local model acquisition and inference are subordinate to
   Base/ESP maintenance; optional background work must never block a usable
-  desktop or recovery.
+  desktop or recovery. The single `createLocalAiProbeSupervisor` is composed
+  with Intelligence ports but must not start its read-only Aura discovery or
+  retry timer until `bootScreen.ready()`, the real Surface health request
+  and the Native heartbeat startup have occurred. The existing 2s-to-60s
+  bounded retry and `pagehide` disposal remain owned by that supervisor;
+  moving the first probe does not create another worker or relax health
+  acknowledgement/rollback.
 - **Personal/background work:** use the existing bounded background runtime;
   creating another scheduler or independent work queue requires an explicit
   architectural decision and lifecycle tests.
