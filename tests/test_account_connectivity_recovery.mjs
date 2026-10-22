@@ -38,7 +38,7 @@ test("stale and unknown link observations never authorize a network retry", asyn
   assert.equal(await recovery.observe(unknown), false);
   assert.equal(await recovery.observe({ interfaces: [] }), false);
   assert.equal(count, 0);
-  assert.throws(() => recovery.observe({ interfaces: [{ name: "../invalid", kind: "wifi", state: "connected" }] }), /Network interface name/);
+  await assert.rejects(recovery.observe({ interfaces: [{ name: "../invalid", kind: "wifi", state: "connected" }] }), /Network interface name/);
   recovery.dispose();
 });
 
