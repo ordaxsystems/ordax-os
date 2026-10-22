@@ -17,6 +17,18 @@ function batteryLevel(percent) {
   return 4;
 }
 
+// Validated power snapshots have a bounded, fixed shape. Compare the exact
+// visible battery/external-power values without serialization or caches.
+export function samePowerTraySnapshot(previous, next) {
+  if (previous === null || next === null) return false;
+  if (previous.externalPower !== next.externalPower) return false;
+  if (previous.battery === null || next.battery === null) {
+    return previous.battery === next.battery;
+  }
+  return previous.battery.percent === next.battery.percent
+    && previous.battery.state === next.battery.state;
+}
+
 function stateKey(state) {
   return state === "not-charging" ? "notCharging" : state;
 }
@@ -143,14 +155,18 @@ export function mountBatteryTrayControls(
     try {
       const snapshot = validatePowerStatusSnapshot(await port.read());
       if (destroyed) return;
+      const unchanged = samePowerTraySnapshot(lastSnapshot, snapshot)
+        && lastObservation === "current";
       lastSnapshot = snapshot;
+      // Keep the most recent successful observation time, even when the
+      // visible values do not change. A later failure must use this time.
       lastSuccessAt = Date.now();
-      render(snapshot);
+      if (!unchanged) render(snapshot);
     } catch {
       if (destroyed) return;
       if (lastSnapshot) {
-        render(lastSnapshot, { stale: true });
-      } else {
+        if (lastObservation !== "stale") render(lastSnapshot, { stale: true });
+      } else if (lastObservation !== "unavailable") {
         renderUnavailable();
       }
     } finally {
