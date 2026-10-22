@@ -723,12 +723,18 @@ stop_aura_worker() {
         aura_stop_ticks=0
         while kill -0 "$AURA_WORKER_PID" 2>/dev/null &&
               [ "$aura_stop_ticks" -lt 8 ]; do
+            # kill -0 succeeds for an exited, unreaped child too. Do not
+            # delay ESP work or send SIGKILL to a zombie; reap it below.
+            aura_process_state=$(/bin/busybox awk '{print $3}' "/proc/$AURA_WORKER_PID/stat" 2>/dev/null || true)
+            case "$aura_process_state" in Z|X|'') break ;; esac
             /bin/busybox sleep 1
             aura_stop_ticks=$((aura_stop_ticks + 1))
         done
-        if kill -0 "$AURA_WORKER_PID" 2>/dev/null; then
-            kill -KILL "$AURA_WORKER_PID" 2>/dev/null || true
-        fi
+        aura_process_state=$(/bin/busybox awk '{print $3}' "/proc/$AURA_WORKER_PID/stat" 2>/dev/null || true)
+        case "$aura_process_state" in
+            Z|X|'') ;;
+            *) kill -KILL "$AURA_WORKER_PID" 2>/dev/null || true ;;
+        esac
     fi
     wait "$AURA_WORKER_PID" 2>/dev/null || true
     AURA_WORKER_PID=
