@@ -16,6 +16,8 @@ def shell_path(path):
     if os.name != "nt":
         return value
     drive, rest = os.path.splitdrive(value)
+    if not drive:
+        return value.replace(chr(92), "/")
     return "/" + drive[0].lower() + rest.replace(chr(92), "/")
 
 
