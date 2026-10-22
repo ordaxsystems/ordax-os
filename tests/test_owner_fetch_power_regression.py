@@ -166,21 +166,21 @@ class OwnerFetchPowerRegressionTests(unittest.TestCase):
             worker_pid = root / "worker.pid"
             child_pid = root / "child.pid"
             worker_script.write_text(
-                "#!/bin/sh\\n"
-                f"echo $ > {shlex.quote(str(worker_pid))}\\n"
-                "sleep 90 &\\n"
-                f"echo $! > {shlex.quote(str(child_pid))}\\n"
-                "wait\\n", encoding="utf-8",
+                "#!/bin/sh\n"
+                f"echo $ > {shlex.quote(str(worker_pid))}\n"
+                "sleep 90 &\n"
+                f"echo $! > {shlex.quote(str(child_pid))}\n"
+                "wait\n", encoding="utf-8",
             )
             worker_script.chmod(0o700)
-            shell = "\\n".join([
+            shell = "\n".join([
                 "set -eu",
                 portable_shell(("run_bounded_git",)),
                 "GIT_BIN=" + shlex.quote(str(worker_script)),
                 'GIT_LOW_SPEED_TIME=15',
                 'GIT_JOB_PID=""',
                 "if run_bounded_git 2 fetch; then exit 27; fi",
-                "printf 'DEADLINE_EXPIRED\\n'",
+                "printf 'DEADLINE_EXPIRED\n'",
             ])
             started = time.monotonic()
             result = subprocess.run(
