@@ -6,23 +6,53 @@ import { assertFileSpacePort } from "../../contracts/file-space.mjs";
 import { assertRecentFilesPort } from "../../contracts/recent-files.mjs";
 import { assertProjectCatalogPort } from "../../contracts/project-catalog.mjs";
 import { assertAppActivationPort } from "../../contracts/app-activation.mjs";
+import { validateComponentRuntimeMetadata } from "../../contracts/component-runtime-metadata.mjs";
+
+// Shared validation for the two distinct Native component lifecycle states.
+// The current and pending loaders still own independent slot-identity gates.
+export function createNativeFilesHostPorts({
+  fileSpace = null,
+  recentFiles = null,
+  projects = null,
+  appActivation = null,
+} = {}) {
+  return Object.freeze({
+    fileSpace: assertFileSpacePort(fileSpace),
+    recentFiles: assertRecentFilesPort(recentFiles),
+    projects: assertProjectCatalogPort(projects),
+    appActivation: assertAppActivationPort(appActivation),
+  });
+}
 
 export function createNativeFilesTrustedContextProvider({
   fileSpace = null,
   recentFiles = null,
   projects = null,
   appActivation = null,
+  verifiedCurrent = null,
 } = {}) {
-  // Do not access any native capability until the trusted loader requests
-  // Files specifically. Missing ports fail the optional component's mount,
-  // never grant an unrelated app access or block OS startup.
+  // The ONLY legitimate provenance for verifiedCurrent is the Native verified
+  // installed-app catalog. This provider does not trust a package manifest,
+  // unverified Store entry, caller-supplied component ID or synthetic receipt.
+  // The canonical current-slot loader independently rechecks this exact
+  // identity immediately before and after mount.
+  //
+  // Files stays bundled today, so Native does not install this provider while
+  // the OS still owns its source. A future handoff must not expose File Space
+  // merely because a caller asks for "files".
   return function nativeFilesTrustedContext(componentId) {
     if (componentId !== "files") return null;
-    return Object.freeze({
-      fileSpace: assertFileSpacePort(fileSpace),
-      recentFiles: assertRecentFilesPort(recentFiles),
-      projects: assertProjectCatalogPort(projects),
-      appActivation: assertAppActivationPort(appActivation),
+    if (verifiedCurrent === null) {
+      throw new TypeError("Files requires a verified current Native slot identity");
+    }
+    const current = validateComponentRuntimeMetadata(verifiedCurrent, {
+      componentId: "files", state: "current",
+    });
+    if (current.source !== "slot") {
+      throw new TypeError("Files host ports require an installed current slot");
+    }
+    return createNativeFilesHostPorts({
+      fileSpace, recentFiles, projects, appActivation,
     });
   };
 }

@@ -14,6 +14,7 @@ ROOT = Path(__file__).resolve().parents[2]
 APPS_ROOT = ROOT / "system" / "apps"
 APP_CATALOG = APPS_ROOT / "catalog.mjs"
 DESKTOP_SHELL = ROOT / "system" / "surface" / "ui" / "desktop-shell.mjs"
+SHORTCUT_CATALOG = ROOT / "system" / "services" / "surface" / "shortcut-catalog.mjs"
 SURFACE_LOCALIZATION = ROOT / "system" / "services" / "i18n" / "surface.mjs"
 PUBLIC_ROOT = ROOT / "sites" / "public"
 FIXTURE_PATH = PUBLIC_ROOT / "assets" / "playground-fixture.json"
@@ -147,24 +148,53 @@ def _surface_home() -> dict[str, object]:
     """
     text = DESKTOP_SHELL.read_text(encoding="utf-8")
     messages = _surface_source_messages()
-    # The Native menu owns the real device-app list. Never fall back to the
-    # removed pre-Meridian rail layout or to a locally duplicated app catalog.
-    match = re.search(
-        r'const deviceApps = \[([^\]]+)\]\.map\(id\s*=>\s*',
-        text, re.DOTALL,
-    )
-    if not match or 't(`app.${id}.title`)' not in text:
+    # Native shell consumes the shared shortcut catalog. The public fixture
+    # reads that same catalog rather than parsing a rendered list or carrying
+    # a second copy of the app order.
+    if not re.search(
+        r'const NAVIGATION_MENU_APP_IDS = listSurfaceShortcutAppIds\("navigation-menu"\);',
+        text,
+    ) or "NAVIGATION_MENU_APP_IDS.map(id =>" not in text:
         raise PlaygroundFixtureError(
-            "Native Meridian menu is missing its canonical device-app shortcuts"
+            "Native Meridian menu is not bound to the canonical shortcut catalog"
         )
-    # Reject unexpected expressions instead of silently ignoring them and
-    # producing a public menu that differs from the actual Native menu.
-    raw_ids = match.group(1).strip()
-    if not re.fullmatch(r'"[a-z][a-z0-9-]*"(?:\s*,\s*"[a-z][a-z0-9-]*")*', raw_ids):
-        raise PlaygroundFixtureError("Native Meridian device-app list is malformed")
-    app_ids = re.findall(r'"([a-z][a-z0-9-]*)"', raw_ids)
-    if not app_ids or len(app_ids) != len(set(app_ids)):
-        raise PlaygroundFixtureError("Native Meridian device-app list is empty or duplicated")
+    catalog = SHORTCUT_CATALOG.read_text(encoding="utf-8")
+    entries_match = re.search(r"const entries = \[(.*?)\];", catalog, re.DOTALL)
+    if not entries_match:
+        raise PlaygroundFixtureError("Surface shortcut catalog has no readable entries")
+    entries_source = entries_match.group(1)
+    entries = re.findall(
+        r'\{\s*appId:\s*"([a-z][a-z0-9-]*)",\s*placements:\s*\{([^}]+)\}\s*\}',
+        entries_source,
+    )
+    if len(entries) != len(re.findall(r"\bappId\s*:", entries_source)):
+        raise PlaygroundFixtureError("Surface shortcut catalog entries are malformed")
+    app_ids_seen: set[str] = set()
+    positioned: list[tuple[int, str]] = []
+    occupied_positions: set[int] = set()
+    for app_id, placements_source in entries:
+        if app_id in app_ids_seen:
+            raise PlaygroundFixtureError("Surface shortcut catalog contains duplicated app ids")
+        app_ids_seen.add(app_id)
+        position_match = re.search(
+            r'"navigation-menu"\s*:\s*([^,}\s]+)', placements_source,
+        )
+        if not position_match:
+            continue
+        try:
+            position = int(position_match.group(1))
+        except ValueError as error:
+            raise PlaygroundFixtureError("Surface shortcut catalog placement is malformed") from error
+        if position < 0:
+            raise PlaygroundFixtureError("Surface shortcut catalog placement is malformed")
+        if position in occupied_positions:
+            raise PlaygroundFixtureError("Surface shortcut catalog placement is duplicated")
+        occupied_positions.add(position)
+        positioned.append((position, app_id))
+    positioned.sort()
+    if not positioned or [position for position, _ in positioned] != list(range(len(positioned))):
+        raise PlaygroundFixtureError("Surface shortcut catalog placement is malformed")
+    app_ids = [app_id for _, app_id in positioned]
 
     rail = [
         {"id": app_id, "label": _message(messages, f"app.{app_id}.title")}

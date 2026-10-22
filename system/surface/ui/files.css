@@ -409,6 +409,12 @@
   outline-offset: 1px;
 }
 
+.ordax-files-list-header > .ordax-files-sort:nth-child(n + 3) {
+  width: 100%;
+  justify-content: flex-end;
+  text-align: end;
+}
+
 .ordax-files-sort-indicator {
   min-width: 0.8em;
   color: var(--ordax-accent);
@@ -520,6 +526,10 @@ button.ordax-file-row:focus-visible {
   font-size: 0.72rem;
 }
 
+.ordax-file-row > :nth-child(n + 3) {
+  text-align: end;
+}
+
 .ordax-files-empty {
   display: grid;
   min-height: 150px;
@@ -534,83 +544,6 @@ button.ordax-file-row:focus-visible {
   color: var(--ordax-muted);
   font-size: 0.68rem;
   line-height: 1.45;
-}
-
-@media (max-width: 760px) {
-  .ordax-files-view {
-    grid-template-columns: 1fr;
-  }
-
-  .ordax-files-locations {
-    flex-direction: row;
-    gap: 4px;
-    overflow-x: auto;
-    padding: 8px 10px;
-    border-right: 0;
-    border-bottom: 1px solid var(--ordax-border-soft);
-  }
-
-  .ordax-files-section-label {
-    display: none;
-  }
-
-  .ordax-files-location {
-    flex: 0 0 auto;
-  }
-
-  .ordax-files-location[data-active="true"]::before {
-    left: 8px;
-    right: 8px;
-    top: auto;
-    bottom: 0;
-    width: auto;
-    height: 2px;
-  }
-
-  .ordax-files-content {
-    padding: 12px;
-  }
-
-  .ordax-files-toolbar {
-    align-items: stretch;
-    flex-direction: column;
-  }
-
-  .ordax-files-navigation {
-    align-self: flex-start;
-  }
-
-  .ordax-files-breadcrumb {
-    width: 100%;
-  }
-
-  .ordax-files-search {
-    width: 100%;
-    max-width: none;
-    flex-basis: auto;
-  }
-
-  .ordax-files-actions {
-    align-self: flex-end;
-  }
-
-  .ordax-files-create {
-    grid-template-columns: 1fr 1fr;
-  }
-
-  .ordax-files-create-input {
-    grid-column: 1 / -1;
-  }
-
-  .ordax-files-list-header,
-  .ordax-file-row {
-    grid-template-columns: minmax(140px, 1fr) 72px 116px;
-  }
-
-  .ordax-files-list-header > :nth-child(3),
-  .ordax-file-row > :nth-child(3) {
-    display: none;
-  }
 }
 
 .ordax-files-preview {
@@ -719,26 +652,6 @@ button.ordax-file-row:focus-visible {
   gap: 6px;
 }
 
-@media (max-width: 560px) {
-  .ordax-files-transfer {
-    align-items: stretch;
-    flex-direction: column;
-  }
-
-  .ordax-files-transfer-actions {
-    justify-content: flex-end;
-  }
-
-  .ordax-files-details {
-    align-items: stretch;
-    flex-direction: column;
-  }
-
-  .ordax-files-details-actions {
-    justify-content: flex-end;
-  }
-}
-
 .ordax-files-rename,
 .ordax-files-copy {
   display: grid;
@@ -768,16 +681,4 @@ button.ordax-file-row:focus-visible {
 .ordax-files-copy-input:focus {
   border-color: var(--ordax-focus);
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--ordax-focus) 32%, transparent);
-}
-
-@media (max-width: 560px) {
-  .ordax-files-rename,
-  .ordax-files-copy {
-    grid-template-columns: 1fr 1fr;
-  }
-
-  .ordax-files-rename-input,
-  .ordax-files-copy-input {
-    grid-column: 1 / -1;
-  }
 }

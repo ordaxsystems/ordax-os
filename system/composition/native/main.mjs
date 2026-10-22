@@ -21,6 +21,7 @@ import { createNativeProjectWebReferenceStore } from "../../adapters/native/proj
 import { createNativeNetworkManagement } from "../../adapters/native/network-management.mjs";
 import { createNativeProductConnector } from "../../adapters/native/product-connector.mjs";
 import { createNativeKeyboardLayout } from "../../adapters/native/keyboard-layout.mjs";
+import { createNativeDisplayOutputs } from "../../adapters/native/display-outputs.mjs";
 import { createNativeDeviceProfile } from "../../adapters/native/device-profile.mjs";
 import { createNativeNotificationStore } from "../../adapters/native/notifications.mjs";
 import { createNativeNetworkStatus } from "../../adapters/native/network-status.mjs";
@@ -291,6 +292,10 @@ async function start() {
       () => createNativeKeyboardLayout(window),
     ),
     optionalNativeProbe(
+      "OrdaX native display output controls unavailable",
+      () => createNativeDisplayOutputs(window),
+    ),
+    optionalNativeProbe(
       "OrdaX native device profile unavailable",
       () => createNativeDeviceProfile(window),
     ),
@@ -339,6 +344,7 @@ async function start() {
     networkManagement,
     productConnector,
     keyboardLayout,
+    displayOutputs,
     deviceProfile,
     systemMetrics,
     recoveryStatus,
@@ -488,7 +494,6 @@ async function start() {
   const identityActions = createWebIdentityActions(window, identitySession, {
     registrationPolicy: () => identityCredentials.registrationPolicy(),
   });
-  await identityActions.refresh();
   const spaces = createWebSpacesCatalog(window);
   const spaceSelection = createSpaceSelectionRuntime({
     identitySession,
@@ -892,6 +897,12 @@ async function start() {
     installTrustedComponentContextProvider(
       createNativeFilesTrustedContextProvider({
         fileSpace: filesOwnerSpace, recentFiles, projects, appActivation,
+        // Only metadata from the independently verified current-slot catalog
+        // may authorize host-port composition for the future external Files.
+        // No signed slot, no Files host ports; no bootstrap fallback or grants.
+        verifiedCurrent: installedAppCatalog?.installed.find(
+          (entry) => entry.component.id === "files",
+        )?.metadata ?? null,
       }),
     );
   }
@@ -917,6 +928,7 @@ async function start() {
       localSession,
       localAi,
       productConnector,
+      displayOutputs,
     );
   } catch (error) {
     reportClientDiagnostic("settings-network-management", error);
@@ -933,6 +945,7 @@ async function start() {
       localSession,
       localAi,
       productConnector,
+      null,
     );
   }
   // Store is optional: its asynchronous verified projection must not prevent

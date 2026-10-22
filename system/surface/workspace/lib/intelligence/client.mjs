@@ -67,6 +67,14 @@ export function createIntelligenceClient(input) {
         maxTokens: 512,
       });
       const response = await port.respond(request, { signal });
+      // A provider may ignore AbortSignal and still return a result. Never
+      // expose that result to a consumer after the presentation cancelled it.
+      if (signal?.aborted) {
+        if (signal.reason instanceof Error) throw signal.reason;
+        const error = new Error("Intelligence client request was aborted");
+        error.name = "AbortError";
+        throw error;
+      }
       return validateIntelligenceResponse(response);
     },
   });

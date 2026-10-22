@@ -135,6 +135,18 @@ export async function loadVerifiedCurrentComponentRuntime({
     if (current.source !== "slot") {
       throw new TypeError("Bundled source cannot be used as an installed component slot");
     }
+    // An ESM import executes immediately in the privileged Surface realm.
+    // Bind/inspect the host context BEFORE importing any current-slot code:
+    // an unscoped File Space cannot be made safe by a JS revocation wrapper.
+    // Only a separate opaque-origin execution boundary plus host-side
+    // authorization and draining may allow this capability in the future.
+    const effectiveContext = trustedBeforeImport ?? await bounded(
+      () => composeTrustedComponentContext(id, context), limit, "trusted context",
+    );
+    trustedContext = effectiveContext;
+    if (Object.prototype.hasOwnProperty.call(effectiveContext, "fileSpace")) {
+      throw new TypeError("Same-origin component cannot receive Native File Space without isolated host authority");
+    }
     const url = verifiedModuleUrl(slotSource, current);
     const imported = await bounded(() => importModule(url), limit, "import");
     const runtime = validateComponentRuntime(imported?.componentRuntime, {
@@ -143,10 +155,6 @@ export async function loadVerifiedCurrentComponentRuntime({
     if (!identityMatches(current, await readCurrent(slotSource, id, fetchImpl, limit))) {
       throw new Error("Current slot changed before mount");
     }
-    const effectiveContext = trustedBeforeImport ?? await bounded(
-      () => composeTrustedComponentContext(id, context), limit, "trusted context",
-    );
-    trustedContext = effectiveContext;
     const mountContext = createComponentMountContext(effectiveContext, id, {
       label: "Current component",
     });

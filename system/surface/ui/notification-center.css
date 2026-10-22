@@ -60,9 +60,9 @@
 /* One notification presentation for Native quick panels and Web app panes. */
 .ordax-quick-panel-notifications {
   position: fixed;
-  inset-inline-start: calc(var(--notification-sidebar-edge, 0px) + 12px);
+  inset-inline-start: clamp(12px, calc(var(--notification-sidebar-edge, 0px) + 12px), calc(100dvw - min(380px, 100dvw - 24px) - 12px));
   bottom: calc(var(--ordax-navigation-height) + 12px);
-  width: min(380px, calc(100dvw - var(--notification-sidebar-edge, 0px) - 24px));
+  width: min(380px, calc(100dvw - 24px));
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -150,10 +150,6 @@
 @media (max-height: 540px) {
   .ordax-quick-panel-notifications { overflow: auto; height: auto; }
   .ordax-notification-scroll { max-height: 28dvh; }
-}
-
-@media (max-width: 620px) {
-  .ordax-quick-panel-notifications { inset-inline: 8px; width: auto; }
 }
 
 .ordax-notification-level {

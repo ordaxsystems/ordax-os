@@ -1,12 +1,27 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { COMPONENT_RUNTIME_SCHEMA } from "../system/contracts/component-runtime.mjs";
+import { FILE_SPACE_SCHEMA } from "../system/contracts/file-space.mjs";
 import { createNativeComponentSlotSource } from "../system/adapters/native/component-slot-source.mjs";
 import { loadVerifiedCurrentComponentRuntime as load } from "../system/services/components/current-slot-loader.mjs";
 import { installTrustedComponentContextProvider } from "../system/services/components/runtime-loader.mjs";
 
+let suppliedFileSpace = null;
 installTrustedComponentContextProvider(async (componentId) => componentId === "internet"
-  ? Object.freeze({ nativeAppDataMarker: "bound-by-host" }) : null);
+  ? Object.freeze({
+    nativeAppDataMarker: "bound-by-host",
+    ...(suppliedFileSpace === null ? {} : { fileSpace: suppliedFileSpace }),
+  }) : null);
+
+function filePort(list = async (path) => ({ path, entries: [] })) {
+  const method = async () => ({ entries: [] });
+  return Object.freeze({
+    schema: FILE_SPACE_SCHEMA, list,
+    createDirectory: method, readTextFile: method, renameEntry: method,
+    copyFile: method, moveEntry: method, trashEntry: method, listTrash: method,
+    restoreTrashEntry: method, exportFile: method, importFile: method,
+  });
+}
 
 const revision = Object.freeze({
   componentId: "internet", state: "current", source: "slot", revision: 4,
@@ -251,4 +266,48 @@ test("a forged discovery identity fails before network access", async () => {
   }), /component identity mismatch/);
   assert.equal(f.state().reads, 0);
   assert.equal(f.state().imports, 0);
+});
+
+// Signed source identity is not an isolation boundary. Reject the Native
+// File Space BEFORE executing any app module in the privileged Surface realm.
+test("current slot denies trusted File Space before module import", async () => {
+  const host = filePort();
+  suppliedFileSpace = host;
+  try {
+    const f = fixture();
+    const parent = makeSurfaceRoot();
+    const mounted = await f.run({ context: { root: parent } });
+    assert.equal(mounted, null);
+    assert.equal(f.state().imports, 0);
+    assert.equal(f.state().mounts, 0);
+    assert.equal(f.state().reads, 1);
+    assert.equal(parent.childNodes.length, 0);
+    assert.match(f.state().reported.message, /Same-origin component cannot receive Native File Space/);
+    assert.deepEqual(await host.list("/"), { path: "/", entries: [] });
+  } finally {
+    suppliedFileSpace = null;
+  }
+});
+
+test("caller-supplied File Space never reaches an imported component", async () => {
+  const f = fixture();
+  const mounted = await f.run({ context: { fileSpace: filePort() } });
+  assert.equal(mounted, null);
+  assert.equal(f.state().imports, 0);
+  assert.equal(f.state().mounts, 0);
+  assert.match(f.state().reported.message, /Same-origin component cannot receive Native File Space/);
+});
+
+test("injected File Space blocks untrusted import after verified current identity", async () => {
+  suppliedFileSpace = filePort();
+  try {
+    const f = fixture([revision, { ...revision, revision: 5 }]);
+    const mounted = await f.run();
+    assert.equal(mounted, null);
+    assert.equal(f.state().imports, 0);
+    assert.equal(f.state().reads, 1);
+    assert.match(f.state().reported.message, /Same-origin component cannot receive Native File Space/);
+  } finally {
+    suppliedFileSpace = null;
+  }
 });

@@ -104,19 +104,19 @@ func runPlanPortableMedia(args []string) int {
 	return 0
 }
 func runBindPortableSources(args []string) int {
-    fs := flag.NewFlagSet("bind-portable-sources", flag.ContinueOnError)
-    root := fs.String("sources-root", "", "exact flat 17-source directory")
-    if err := fs.Parse(args); err != nil { return 2 }
-    if fs.NArg() != 0 || *root == "" { usage(); return 2 }
-    bindings, err := creatorcore.BindPortableSources(*root)
-    if err != nil {
-        fmt.Fprintf(os.Stderr, "ordax-creator: bind portable sources: %v\n", err)
-        return 1
-    }
-    encoder := json.NewEncoder(os.Stdout)
-    encoder.SetIndent("", "  ")
-    if err := encoder.Encode(bindings); err != nil { return 1 }
-    return 0
+	fs := flag.NewFlagSet("bind-portable-sources", flag.ContinueOnError)
+	root := fs.String("sources-root", "", "exact flat directory of canonical Portable sources")
+	if err := fs.Parse(args); err != nil { return 2 }
+	if fs.NArg() != 0 || *root == "" { usage(); return 2 }
+	bindings, err := creatorcore.BindPortableSources(*root)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "ordax-creator: bind portable sources: %v\n", err)
+		return 1
+	}
+	enc := json.NewEncoder(os.Stdout)
+	enc.SetIndent("", "  ")
+	if err := enc.Encode(bindings); err != nil { return 1 }
+	return 0
 }
 
 func runVerifyPortableSources(args []string) int {

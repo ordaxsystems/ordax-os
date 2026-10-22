@@ -203,6 +203,7 @@ def discover(out: Path, cache: Path) -> dict:
             "requested_packages": requested,
             "resolved_package_count": len(lock),
             "apk_package_lock": lock,
+            "apk_package_lock_sha256": CORE.canonical_apk_lock_sha256(lock),
             "first_boot_offline_required": True,
             "physical_artifact_created": False,
             "physical_write_authorized": False,

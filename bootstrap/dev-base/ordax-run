@@ -11,13 +11,12 @@ PRODUCT_CONTROL_PLANE_URL=${ORDAX_PRODUCT_CONTROL_PLANE_URL:-}
 PRODUCT_CONTROL_PLANE_CONFIG=$WORKTREE/bootstrap/base-update/owner-development/product-control-plane-origin
 STATE_DIR=${ORDAX_STATE_DIR:-/state/ordax}
 CURRENT_FILE=$STATE_DIR/current-commit
-PINNED_FILE=$STATE_DIR/pinned-commit
-BOOT_REJECTED_FILE=$STATE_DIR/boot-rejected-commit
-PULL_BIN=${ORDAX_PULL_BIN:-/usr/local/bin/ordax-pull}
 OWNER_UPDATE_STAGE_TIMEOUT=${ORDAX_STAGE_TIMEOUT_SECONDS:-60}
 ENTRY_PID=""
 TAIL_PID=""
 WATCH_PID=""
+LOCAL_AI_LIFECYCLE=$WORKTREE/system/services/local-ai/owner-dev-runtime.sh
+AURA_READY_MARKER=$STATE_DIR/base-update/aura-ready.sha256
 
 bb() {
     if [ -x /bin/busybox ]; then
@@ -56,39 +55,6 @@ read_state_value() {
     }
     IFS= read -r value <"$path" || true
     printf '%s' "$value"
-}
-
-recover_automatic_rollback_pin() {
-    [ -x "$PULL_BIN" ] || return 0
-    [ -s "$PINNED_FILE" ] && [ ! -L "$PINNED_FILE" ] || return 0
-    [ -s "$BOOT_REJECTED_FILE" ] && [ ! -L "$BOOT_REJECTED_FILE" ] || return 0
-
-    pinned=$(read_state_value "$PINNED_FILE")
-    rejected=$(read_state_value "$BOOT_REJECTED_FILE")
-    current=$("$GIT_BIN" -C "$WORKTREE" rev-parse HEAD 2>/dev/null || true)
-    is_sha "$pinned" || return 0
-    is_sha "$rejected" || return 0
-    is_sha "$current" || return 0
-    [ "$current" = "$pinned" ] || return 0
-    [ "$rejected" != "$pinned" ] || return 0
-
-    echo "ordax-run: rollback automatico detectado; procurando uma main mais nova sem abandonar o known-good"
-    if ORDAX_AUTOMATIC_ROLLBACK_RECOVERY=1 \
-            ORDAX_WORKTREE="$WORKTREE" \
-            ORDAX_STATE_DIR="$STATE_DIR" \
-            "$PULL_BIN"; then
-        refreshed=$("$GIT_BIN" -C "$WORKTREE" rev-parse HEAD 2>/dev/null || true)
-        if is_sha "$refreshed" && [ "$refreshed" != "$pinned" ] && [ "$refreshed" != "$rejected" ] && \
-           [ ! -e "$PINNED_FILE" ] && [ ! -e "$BOOT_REJECTED_FILE" ]; then
-            echo "ordax-run: rollback automatico liberado por uma main mais nova: $refreshed"
-            return 0
-        fi
-        echo "ordax-run: sincronizacao nao confirmou uma entrega nova segura; mantendo protecao de rollback" >&2
-        return 0
-    fi
-
-    echo "ordax-run: main ainda indisponivel ou sem entrega nova segura; mantendo known-good $pinned" >&2
-    return 0
 }
 
 valid_https_origin() {
@@ -162,6 +128,30 @@ cleanup_observers() {
     TAIL_PID=""
 }
 
+# The model is a separately delivered, verified EROFS. Source updates alone
+# never imply its presence. Start only from the existing native lifecycle; the
+# local AI service must degrade independently of Surface or update readiness.
+local_ai_lifecycle() {
+    action=$1
+    [ -f "$LOCAL_AI_LIFECYCLE" ] && [ ! -L "$LOCAL_AI_LIFECYCLE" ] || return 0
+    ORDAX_DISTRIBUTION_PROFILE=owner-development ORDAX_PRODUCT_MODE=usb \
+        /bin/sh "$LOCAL_AI_LIFECYCLE" "$action" || \
+        echo "ordax-run: local AI $action failed; Surface continues" >&2
+}
+
+# Read-only ownership probe. It must not hash the 568 MiB image on each
+# polling tick; model readiness remains owned by the Native Intelligence probe.
+local_ai_running() {
+    [ -f "$LOCAL_AI_LIFECYCLE" ] && [ ! -L "$LOCAL_AI_LIFECYCLE" ] || return 1
+    ORDAX_DISTRIBUTION_PROFILE=owner-development ORDAX_PRODUCT_MODE=usb \
+        /bin/sh "$LOCAL_AI_LIFECYCLE" status >/dev/null 2>&1
+}
+
+cleanup_runtime() {
+    cleanup_observers
+    local_ai_lifecycle stop
+}
+
 forward_signal() {
     signal=$1
     if process_alive "$ENTRY_PID"; then
@@ -171,6 +161,10 @@ forward_signal() {
 
 watch_owner_provisioning() {
     announced=no
+    aura_announced=no
+    aura_seen_hash=""
+    aura_poll_ticks=10
+    aura_retry_ticks=60
     while process_alive "$ENTRY_PID"; do
         if [ "$announced" = no ] && [ -f "$SURFACE_RUNTIME_PROVISION_MARKER" ] && [ ! -L "$SURFACE_RUNTIME_PROVISION_MARKER" ]; then
             marker_source=""
@@ -180,7 +174,55 @@ watch_owner_provisioning() {
                 announced=yes
             fi
         fi
+        # Reconcile the same Native process owner, not a second supervisor or
+        # inference backend. Status is a cheap PID/mount/credential check;
+        # launcher start itself re-hashes the signed EROFS before execution.
+        if [ "$aura_poll_ticks" -ge 10 ]; then
+            aura_poll_ticks=0
+            if [ -f "$AURA_READY_MARKER" ] && [ ! -L "$AURA_READY_MARKER" ] &&
+               [ -f "$LOCAL_AI_LIFECYCLE" ] && [ ! -L "$LOCAL_AI_LIFECYCLE" ]; then
+                ready_hash=$(read_state_value "$AURA_READY_MARKER")
+                case "$ready_hash" in
+                    ''|*[!0-9a-f]*) ;;
+                    *)
+                        if [ "${#ready_hash}" -eq 64 ] &&
+                           bb grep -qx "IMAGE_SHA256=$ready_hash" "$LOCAL_AI_LIFECYCLE"; then
+                            if [ "$aura_seen_hash" != "$ready_hash" ]; then
+                                aura_seen_hash=$ready_hash
+                                aura_retry_ticks=60
+                            fi
+                            if local_ai_running; then
+                                if [ "$aura_announced" != yes ]; then
+                                    echo "ordax-run: verified Aura process running; inference readiness is Native-probed" >&2
+                                    aura_announced=yes
+                                fi
+                                aura_retry_ticks=60
+                            elif [ "$aura_retry_ticks" -ge 60 ]; then
+                                [ "$aura_announced" != yes ] || \
+                                    echo "ordax-run: Aura process exited; attempting bounded Native restart" >&2
+                                aura_announced=no
+                                # Native lifecycle stop only owns its PID, mount and
+                                # ephemeral key. Surface and Base update stay alive.
+                                local_ai_lifecycle stop
+                                local_ai_lifecycle start
+                                aura_retry_ticks=0
+                                if local_ai_running; then
+                                    aura_announced=yes
+                                    echo "ordax-run: verified Aura backend process restored; readiness is Native-probed" >&2
+                                else
+                                    echo "ordax-run: Aura startup unavailable; retry limited to once per minute" >&2
+                                fi
+                            fi
+                        fi
+                        ;;
+                esac
+            fi
+        fi
         bb sleep 1
+        aura_poll_ticks=$((aura_poll_ticks + 1))
+        if [ "$aura_retry_ticks" -lt 60 ]; then
+            aura_retry_ticks=$((aura_retry_ticks + 1))
+        fi
     done
 }
 
@@ -193,8 +235,9 @@ start_guardian_tail() {
     TAIL_PID=$!
 }
 
-recover_automatic_rollback_pin
-
+# The local checkout must boot without network, including on a pinned rollback.
+# The running supervisor/main watcher already owns automatic recovery after
+# the durable First Run receipt; ordax-run must never pull before the UI starts.
 [ -x "$ENTRYPOINT" ] || fail "$ENTRYPOINT nao existe ou nao e executavel"
 
 source_sha=$("$GIT_BIN" -C "$WORKTREE" rev-parse HEAD 2>/dev/null || true)
@@ -223,6 +266,9 @@ echo "ordax-run: Ctrl+C stops this runtime session cleanly"
 # process, not a background shell-function wrapper, so cleanup can proveably reap it.
 start_guardian_tail
 
+# Start the canonical Surface/Guardian first. Checking the signed model EROFS
+# may read hundreds of MiB from a slow USB; optional Intelligence must never
+# delay graphical boot. Native's bounded probe supervisor discovers readiness.
 ORDAX_DISTRIBUTION_PROFILE=owner-development \
 ORDAX_PRODUCT_MODE=usb \
 ORDAX_SOURCE_SHA="$source_sha" \
@@ -230,18 +276,22 @@ ORDAX_STAGE_TIMEOUT_SECONDS="$OWNER_UPDATE_STAGE_TIMEOUT" \
     "$ENTRYPOINT" &
 ENTRY_PID=$!
 
-watch_owner_provisioning &
-WATCH_PID=$!
-
 trap 'forward_signal HUP' HUP
 trap 'forward_signal INT' INT
 trap 'forward_signal TERM' TERM
-trap cleanup_observers EXIT
+trap cleanup_runtime EXIT
+
+# The optional service does not participate in boot-health or update gates.
+local_ai_lifecycle start
+
+# Watching AFTER initial startup prevents competing starts for a pre-staged image.
+watch_owner_provisioning &
+WATCH_PID=$!
 
 entry_rc=0
 wait "$ENTRY_PID" || entry_rc=$?
 ENTRY_PID=""
-cleanup_observers
+cleanup_runtime
 trap - EXIT HUP INT TERM
 
 if [ "$entry_rc" -ne 0 ]; then

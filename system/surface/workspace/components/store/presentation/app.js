@@ -290,7 +290,15 @@ listen(viewWindow,'pagehide',()=>{clearInterval(timer);timer=null;clearTimeout(t
 listen(viewWindow,'pageshow',startQueue);
 listen(root,'click',event=>{const link=event.target.closest('a[href^="#"]');if(embedded&&link&&!event.defaultPrevented){event.preventDefault();setHash(link.getAttribute('href'));}});
 materialRoot.dataset.material=material;
-if(embedded){$('material-toggle').hidden=true;root.querySelector('.skip').textContent='Ir para o conteúdo da Loja';}
+if(embedded){
+ $('material-toggle').hidden=true;
+ root.querySelector('.presentation-scroll').dataset.embedded='true';
+ const topbar=root.querySelector('.topbar');
+ const toolbar=root.querySelector('.preview-strip');
+ toolbar.prepend(root.querySelector('.global-search'));
+ topbar.hidden=true;
+ root.querySelector('.skip').textContent='Ir para o conteúdo da Loja';
+}
 startQueue();
 readHash();
 return {

@@ -109,6 +109,22 @@ def sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
+def canonical_apk_lock_sha256(lock: dict[str, str]) -> str:
+    """Canonical digest of an exact transitive APK version map.
+
+    Shared by discovery and EROFS builder so a successful artifact proof can
+    never be reused for a different set of package versions.
+    """
+    if not isinstance(lock, dict) or not lock:
+        raise BuildError("canonical APK package lock must be a nonempty mapping")
+    if any(not isinstance(k, str) or not isinstance(v, str) for k, v in lock.items()):
+        raise BuildError("canonical APK package lock contains non-string entries")
+    payload = json.dumps(
+        dict(sorted(lock.items())), sort_keys=True, separators=(",", ":"), ensure_ascii=True,
+    ).encode("utf-8")
+    return hashlib.sha256(payload).hexdigest()
+
+
 def download_text(url: str) -> str:
     try:
         with urllib.request.urlopen(url, timeout=120) as response:
@@ -560,6 +576,22 @@ def owner_rootfs_inventory() -> dict[str, object]:
     return inventory
 
 
+def verify_busybox_recursive_bind(rootfs: Path) -> None:
+    """Reject any Alpine Base whose real BusyBox cannot preserve submounts."""
+    completed = subprocess.run(
+        ["chroot", str(rootfs), "/bin/busybox", "mount", "--help"],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    if completed.returncode != 0 or "[r]bind" not in (
+        completed.stdout + completed.stderr
+    ):
+        raise BuildError(
+            "development BusyBox mount lacks verified recursive bind (rbind) support"
+        )
+
+
 def verify_rootfs(rootfs: Path) -> None:
     stage("verify-rootfs-objects")
     bad = []
@@ -588,9 +620,12 @@ def verify_rootfs(rootfs: Path) -> None:
     search_roots = ("bin", "sbin", "usr/bin", "usr/sbin", "usr/local/bin", "usr/local/sbin")
     internal_commands = set(inventory["internal_commands"])
     explicit_busybox = set(inventory["explicit_busybox_applets"])
+    # Binaries provided by the verified fixed initramfs remain there until
+    # switch_root; do not duplicate them into the development rootfs.
+    fixed_initramfs = set(inventory["fixed_initramfs_commands"])
     missing_commands = []
     for command in inventory["commands"]:
-        if command in internal_commands or command in explicit_busybox:
+        if command in internal_commands or command in explicit_busybox or command in fixed_initramfs:
             continue
         candidates = [rootfs / directory / command for directory in search_roots]
         if not any(path.is_file() and os.access(path, os.X_OK) for path in candidates):
@@ -614,6 +649,9 @@ def verify_rootfs(rootfs: Path) -> None:
         raise BuildError(
             f"development BusyBox is missing Owner-required applets: {missing_applets}"
         )
+
+    stage("verify-rootfs-busybox-recursive-bind")
+    verify_busybox_recursive_bind(rootfs)
 
     stage("verify-rootfs-native-chroot-git")
     dev_null = rootfs / "dev/null"

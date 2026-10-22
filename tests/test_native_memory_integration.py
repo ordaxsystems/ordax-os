@@ -22,7 +22,15 @@ class NativeMemoryIntegrationTests(unittest.TestCase):
         self.assertIn("read_memory_endpoint()", host)
         self.assertIn("write_memory_endpoint(", host)
         self.assertIn("MEMORY_PATH, FILES_PATH", host)
-        self.assertNotIn("Access-Control-Allow-Origin", host)
+        # Native memory remains outside the sole CORS-eligible signed-code
+        # route. Actual opaque-origin HTTP denial is proven in the canonical
+        # request-boundary integration tests.
+        self.assertIn(
+            'if opaque_signed_module_read_is_trusted(self.headers, self.path, self.command):',
+            host,
+        )
+        self.assertIn('self.send_header("Access-Control-Allow-Origin", "null")', host)
+        self.assertNotIn('self.send_header("Access-Control-Allow-Origin", "*")', host)
 
     def test_native_composition_probes_memory_fail_soft_and_keeps_memory_authorization_in_composition(self):
         composition = COMPOSITION.read_text(encoding="utf-8")

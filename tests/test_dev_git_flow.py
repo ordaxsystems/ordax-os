@@ -3,11 +3,15 @@
 
 from __future__ import annotations
 
+import json
 import os
+import shutil
+import shlex
 from pathlib import Path
 import stat
 import subprocess
 import tempfile
+import time
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -101,6 +105,7 @@ class DevelopmentGitFlowTest(unittest.TestCase):
             "ordax-dev-init",
             "ordax-diagnose",
             "ordax-network",
+            "ordax-main-watch",
             "ordax-pull",
             "ordax-rollback",
             "ordax-run",
@@ -111,6 +116,17 @@ class DevelopmentGitFlowTest(unittest.TestCase):
                 encoding="utf-8",
             )
             script.chmod(0o755)
+        # The production helper and manifest are used, not a fake success stub.
+        # All targets are redirected into the disposable fixture root.
+        helper_dir = self.source / "system/services/base-update"
+        helper_dir.mkdir(parents=True, exist_ok=True)
+        for filename in ("dev-helpers.sh", "dev-helper-manifest.tsv"):
+            shutil.copy2(ROOT / "system/services/base-update" / filename,
+                         helper_dir / filename)
+        remote = self.source / "bootstrap/base-update/owner-development/ordax-remote"
+        remote.parent.mkdir(parents=True, exist_ok=True)
+        remote.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+        remote.chmod(0o755)
         recovery = self.source / "bootstrap/recovery/entrypoint"
         recovery.parent.mkdir(parents=True, exist_ok=True)
         recovery.write_text(
@@ -145,6 +161,7 @@ class DevelopmentGitFlowTest(unittest.TestCase):
                 "ORDAX_REPO_BRANCH": "main",
                 "ORDAX_WORKTREE": str(self.worktree),
                 "ORDAX_STATE_DIR": str(self.state),
+                "ORDAX_DEV_HELPER_TARGET_ROOT": str(self.root / "installed-rootfs"),
                 "ORDAX_UPDATE_RUN_DIR": str(self.root / "run/ordax-update"),
                 "ORDAX_SURFACE_RUNTIME_PROVISION_MARKER": str(
                     self.root / "run/ordax-surface/runtime-provisioning-source-sha"
@@ -195,14 +212,24 @@ class DevelopmentGitFlowTest(unittest.TestCase):
         env: dict[str, str] | None = None,
         check: bool = True,
     ) -> subprocess.CompletedProcess[str]:
-        return subprocess.run(
+        completed = subprocess.run(
             ["/bin/sh", str(script)],
-            check=check,
+            check=False,
             capture_output=True,
             text=True,
             env=env or self._env(),
             stdin=subprocess.DEVNULL,
         )
+        if check and completed.returncode != 0:
+            # A failed fixture must preserve the actual subprocess reason.
+            # This suite uses only temporary local Git repositories and no
+            # production tokens, network credentials or user files.
+            self.fail(
+                f"{script.name} exit {completed.returncode}: "
+                f"stdout={completed.stdout[-3000:]!r} "
+                f"stderr={completed.stderr[-3000:]!r}"
+            )
+        return completed
 
     def test_preseeded_checkout_runs_with_remote_git_forbidden(self) -> None:
         env = self._env()
@@ -260,6 +287,347 @@ class DevelopmentGitFlowTest(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("checkout diverge do commit registrado", result.stderr)
         self.assertNotIn("runtime-v1", result.stdout)
+
+    def test_committed_checkout_failure_reports_helper_activation_stage(self) -> None:
+        # Helper activation is required even if the atomic Git swap succeeded.
+        # Preserve the actual active SHA and a machine-readable error stage.
+        self._script(PULL)
+        self.commit_v2 = self._commit_runtime("runtime-v2")
+        helper = self.source / "system/services/base-update/dev-helpers.sh"
+        helper.parent.mkdir(parents=True, exist_ok=True)
+        helper.write_text(
+            chr(10).join((
+                "#!/bin/sh",
+                '[ "${ORDAX_TEST_HELPER_APPROVED:-0}" = 1 ] || exit 23',
+                'printf "%s\\n" "$ORDAX_SOURCE_SHA" > "$ORDAX_STATE_DIR/dev-helpers-sha"',
+                "",
+            )),
+            encoding="utf-8",
+        )
+        self._run(["git", "-C", str(self.source), "add", "system"])
+        self._run(["git", "-C", str(self.source), "commit", "-m", "failing helper fixture"])
+        self._run(["git", "-C", str(self.source), "push", "origin", "main"])
+        candidate = self._run(
+            ["git", "-C", str(self.source), "rev-parse", "HEAD"]
+        ).stdout.strip()
+        result = self._script(PULL, check=False)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertNotIn(f"ORDAX_SOURCE_SHA={candidate}", result.stdout)
+        self.assertEqual(
+            self._run(["git", "-C", str(self.worktree), "rev-parse", "HEAD"]).stdout.strip(),
+            candidate,
+        )
+        self.assertEqual((self.state / "current-commit").read_text().strip(), candidate)
+        self.assertEqual((self.state / "previous-commit").read_text().strip(), self.commit_v1)
+        self.assertEqual(
+            (self.root / "run/ordax-update/pull-result").read_text().strip(),
+            "helper-refresh",
+        )
+
+        # The exact same Git candidate can finish its helper activation on
+        # the next owner retry without another atomic clone or history rewrite.
+        retry_env = self._env()
+        retry_env["ORDAX_TEST_HELPER_APPROVED"] = "1"
+        recovered = self._script(PULL, env=retry_env)
+        self.assertIn(f"ORDAX_SOURCE_SHA={candidate}", recovered.stdout)
+        self.assertEqual((self.state / "dev-helpers-sha").read_text().strip(), candidate)
+        self.assertEqual(
+            (self.root / "run/ordax-update/pull-result").read_text().strip(),
+            "completed",
+        )
+        self.assertEqual(
+            self._run(["git", "-C", str(self.worktree), "rev-parse", "HEAD"]).stdout.strip(),
+            candidate,
+        )
+
+    def test_supervisor_update_state_cannot_replace_verified_pull_sha(self) -> None:
+        """Reproduce actual Supervisor -> state writer -> real Pull handoff.
+
+        This failed on the physical notebook: both the previous and target
+        commit exist, but a nested progress formatter changed expected_sha.
+        Exercise the production function bodies with real Git and real Pull,
+        not a string-only or mocked success assertion.
+        """
+        self._script(PULL)
+        candidate = self._commit_runtime("runtime-v2")
+        supervisor = (ROOT / "system/supervisor").read_text(encoding="utf-8")
+
+        def function_body(name: str) -> str:
+            marker = name + "() {\n"
+            self.assertEqual(supervisor.count(marker), 1, name)
+            return marker + supervisor.split(marker, 1)[1].split("\n}\n", 1)[0] + "\n}\n"
+
+        script = "\n".join([
+            "set -eu",
+            function_body("apply_remote_checkout"),
+            function_body("write_update_state"),
+            function_body("derive_base_update_progress"),
+            function_body("set_update_context"),
+            "REPO_URL=$ORDAX_REPO_URL",
+            "BRANCH=main",
+            "WORKTREE=$ORDAX_WORKTREE",
+            "STATE_DIR=$ORDAX_STATE_DIR",
+            "UPDATE_RUN_DIR=$ORDAX_UPDATE_RUN_DIR",
+            "UPDATE_LOG=$UPDATE_RUN_DIR/update.log",
+            "UPDATE_STATE=$UPDATE_RUN_DIR/state.json",
+            "PULL_RESULT_FILE=$UPDATE_RUN_DIR/pull-result",
+            "PULL_BIN=" + shlex.quote(str(PULL)),
+            "GIT_BIN=git",
+            "FETCH_TIMEOUT=25",
+            "BOOT_REFRESH_FILE=$STATE_DIR/boot-refresh-required",
+            "LAST_APPLIED_SHA_FILE=$STATE_DIR/last-applied-sha",
+            "LAST_APPLIED_AT_FILE=$STATE_DIR/last-applied-at",
+            "RUNTIME_SURFACE_SHA_FILE=$STATE_DIR/runtime-surface-sha",
+            "REJECTED_FILE=$STATE_DIR/rejected-commit",
+            "STAGED_RELEASE_FILE=$STATE_DIR/staged-release-sha",
+            "LAST_APPLY_DURATION_FILE=$STATE_DIR/last-apply-duration-seconds",
+            "LAST_STAGE_DURATION_FILE=$STATE_DIR/last-stage-duration-seconds",
+            "DEV_BASE_ACTIVATION_READINESS_SHA_FILE=$STATE_DIR/base-update/readiness-sha",
+            "DEV_BASE_ACTIVATION_READINESS_FILE=$STATE_DIR/base-update/readiness.json",
+            "DEV_BASE_STAGED_FILE=$STATE_DIR/base-update/staged-sha",
+            "DEV_BASE_STAGE_RESULT_FILE=$STATE_DIR/base-update/staged-result.json",
+            "DEV_BASE_READY_FILE=$STATE_DIR/dev-base-ready-sha",
+            "DEV_BASE_FETCHING_FILE=$STATE_DIR/dev-base-fetching-sha",
+            "DEV_BASE_REQUEST_FILE=$STATE_DIR/dev-base-request-sha",
+            "UPDATE_PHASE=idle",
+            "UPDATE_TARGET_SHA=",
+            "UPDATE_ATTEMPT_ID=",
+            "UPDATE_ERROR=",
+            "BASE_UPDATE_PHASE=none",
+            "BASE_UPDATE_SHA=",
+            "read_state_value() { [ -s \"$1\" ] && cat \"$1\" || true; }",
+            "utc_now() { printf '2026-10-20T22:00:00Z\\n'; }",
+            "delivery_number_for_sha() { printf '1\\n'; }",
+            "log() { printf '%s\\n' \"$*\" >>\"$UPDATE_LOG\"; }",
+            "run_bounded_git() { limit=$1; shift; timeout \"$limit\" git \"$@\"; }",
+            # The smoke fixture deliberately has no graphical Surface; the
+            # checkout, staged candidate and helper activation remain real.
+            "classify_changes() { APPLY_MODE=none; }",
+            "validate_candidate_tree() { [ \"$1\" = \"$target_sha\" ]; }",
+            "stage_candidate_release() { [ \"$1\" = \"$target_sha\" ]; }",
+            "previous_sha=" + shlex.quote(self.commit_v1),
+            "target_sha=" + shlex.quote(candidate),
+            "expected_sha=$target_sha",
+            "set_update_context fetching \"$target_sha\" smoke ''",
+            "write_update_state \"$previous_sha\" updating none",
+            "[ \"$expected_sha\" = \"$target_sha\" ] || exit 61",
+            "apply_remote_checkout \"$previous_sha\" \"$target_sha\"",
+            "test \"$(git -C \"$WORKTREE\" rev-parse HEAD)\" = \"$target_sha\"",
+        ])
+        result = self._run(["/bin/sh", "-c", script], env=self._env(), check=False)
+        self.assertEqual(result.returncode, 0, result.stderr + result.stdout)
+        snapshot = json.loads(
+            (self.root / "run/ordax-update/state.json").read_text(encoding="utf-8")
+        )
+        self.assertEqual(snapshot["sourceSha"], self.commit_v1)
+        self.assertEqual(snapshot["targetSha"], candidate)
+        self.assertEqual(
+            (self.root / "run/ordax-update/pull-result").read_text().strip(),
+            "completed",
+        )
+        self.assertEqual(
+            self._run(["git", "-C", str(self.worktree), "rev-parse", "HEAD"]).stdout.strip(),
+            candidate,
+        )
+        self.assertEqual((self.state / "current-commit").read_text().strip(), candidate)
+        self.assertEqual((self.state / "dev-helpers-sha").read_text().strip(), candidate)
+
+    def test_supervisor_fetched_commit_applies_without_second_remote_clone(self) -> None:
+        # Reproduce a notebook where Supervisor successfully fetched main,
+        # but GitHub becomes unreachable before ordax-pull starts staging.
+        self._script(PULL)
+        self.commit_v2 = self._commit_runtime("runtime-v2")
+        self._run(
+            ["git", "-C", str(self.worktree), "fetch", "--no-tags", "origin",
+             "refs/heads/main:refs/remotes/origin/main"]
+        )
+        self.assertEqual(
+            self._run(
+                ["git", "-C", str(self.worktree), "rev-parse", "refs/remotes/origin/main"]
+            ).stdout.strip(),
+            self.commit_v2,
+        )
+
+        # The Supervisor's candidate preflight also materializes the required
+        # blobs before GitHub disappears. Explicitly prefetch the fixture's
+        # complete sparse payload; a partial Git fetch may contain only trees.
+        subprocess.run(
+            ["git", "-C", str(self.worktree), "archive", "--format=tar",
+             self.commit_v2, "system", "bootstrap", "docs"],
+            check=True, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE,
+        )
+        # No alternate delivery system or network proxy: just remove the
+        # disposable fixture remote after its exact target has been fetched.
+        self.remote.rename(self.root / "temporarily-unreachable-origin.git")
+        env = self._env()
+        env["ORDAX_EXPECTED_SHA"] = self.commit_v2
+        result = self._script(PULL, env=env)
+
+        self.assertEqual(
+            (self.root / "run/ordax-update/pull-result").read_text().strip(),
+            "completed",
+        )
+        self.assertIn("candidato ja adquirido e fixado pelo Supervisor", result.stdout)
+        self.assertIn("preparando checkout isolado do commit ja validado em cache", result.stdout)
+        self.assertIn(f"ORDAX_SOURCE_SHA={self.commit_v2}", result.stdout)
+        self.assertEqual(
+            self._run(["git", "-C", str(self.worktree), "rev-parse", "HEAD"]).stdout.strip(),
+            self.commit_v2,
+        )
+        self.assertEqual((self.state / "previous-commit").read_text().strip(), self.commit_v1)
+        self.assertEqual((self.state / "current-commit").read_text().strip(), self.commit_v2)
+        self.assertEqual(
+            self._run(["git", "-C", str(self.worktree), "status", "--porcelain"]).stdout,
+            "",
+        )
+
+    def test_watcher_fallback_pulls_main_only_after_first_run(self) -> None:
+        """Run the real polling watcher against a disposable Git remote.
+
+        The running Supervisor is intentionally absent: watcher must defer
+        updates until First Run is durably completed, then invoke ordax-pull
+        rather than simulating success or replacing runtime files directly.
+        """
+        self._script(PULL)
+        candidate = self._commit_runtime("runtime-v2")
+
+        bin_dir = self.root / "bin"
+        bin_dir.mkdir()
+        # Model the installed 0755 helper, not the source file's archive mode.
+        installed_pull = bin_dir / "ordax-pull"
+        shutil.copy2(PULL, installed_pull)
+        installed_pull.chmod(0o755)
+        env = self._env()
+        env["ORDAX_BIN_DIR"] = str(bin_dir)
+        env["ORDAX_UPDATE_INTERVAL_SECONDS"] = "5"
+        receipt = self.state / "native-state/first-run.json"
+        watch_log = self.state / "main-watch.log"
+        result_file = self.root / "run/ordax-update/pull-result"
+        initial_result_mtime = result_file.stat().st_mtime_ns
+        watcher = ROOT / "bootstrap/dev-base/ordax-main-watch"
+
+        process = subprocess.Popen(
+            ["/bin/sh", str(watcher)],
+            env=env,
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        try:
+            startup_deadline = time.monotonic() + 5
+            while time.monotonic() < startup_deadline:
+                if watch_log.exists() and "watch da main iniciado" in watch_log.read_text(
+                    encoding="utf-8"
+                ):
+                    break
+                if process.poll() is not None:
+                    self.fail(f"watcher exited before First Run: {process.returncode}")
+                time.sleep(0.05)
+            else:
+                self.fail("watcher did not start")
+
+            # Observe a complete configured 5s polling cycle with no First Run receipt.
+            # A premature Pull must not slip through a startup-only assertion.
+            time.sleep(5.2)
+            self.assertIsNone(process.poll(), "watcher exited while First Run was incomplete")
+            self.assertFalse(receipt.exists())
+            self.assertEqual(
+                self._run(["git", "-C", str(self.worktree), "rev-parse", "HEAD"]).stdout.strip(),
+                self.commit_v1,
+            )
+            # Seeding already wrote "completed"; First Run must prevent
+            # any further Pull transaction from overwriting that receipt.
+            self.assertEqual(result_file.stat().st_mtime_ns, initial_result_mtime)
+
+            receipt.parent.mkdir(parents=True)
+            receipt.write_text('{"completed":true}\n', encoding="utf-8")
+            self.assertTrue(json.loads(receipt.read_text(encoding="utf-8"))["completed"])
+
+            deadline = time.monotonic() + 35
+            while time.monotonic() < deadline:
+                current = self._run(
+                    ["git", "-C", str(self.worktree), "rev-parse", "HEAD"],
+                ).stdout.strip()
+                result_file = self.root / "run/ordax-update/pull-result"
+                if current == candidate and result_file.exists() and (
+                    result_file.read_text(encoding="utf-8").strip() == "completed"
+                ):
+                    break
+                if process.poll() is not None:
+                    self.fail(f"watcher exited during Pull: {process.returncode}")
+                time.sleep(0.2)
+            else:
+                self.fail(
+                    "watcher did not automatically apply the verified main commit; "
+                    f"log={watch_log.read_text(encoding='utf-8')[-2000:]!r}"
+                )
+
+            log_deadline = time.monotonic() + 5
+            while time.monotonic() < log_deadline:
+                if "main aplicada:" in watch_log.read_text(encoding="utf-8"):
+                    break
+                if process.poll() is not None:
+                    self.fail(f"watcher exited before recording Pull: {process.returncode}")
+                time.sleep(0.05)
+            else:
+                self.fail("watcher did not log the completed main activation")
+            self.assertEqual((self.state / "previous-commit").read_text().strip(), self.commit_v1)
+            self.assertEqual((self.state / "current-commit").read_text().strip(), candidate)
+            self.assertEqual(
+                self._run(["git", "-C", str(self.worktree), "status", "--porcelain"]).stdout,
+                "",
+            )
+        finally:
+            process.terminate()
+            process.wait(timeout=5)
+
+    def test_unavailable_promisor_blobs_preserve_checkout_and_report_stage(self) -> None:
+        self._script(PULL)
+        new_sha = self._commit_runtime("runtime-v2")
+        self._run([
+            "git", "-C", str(self.worktree), "fetch", "--no-tags", "origin",
+            "refs/heads/main:refs/remotes/origin/main",
+        ])
+        # The initial fetch supplies the commit/tree but not necessarily the
+        # sparse contents. GitHub fails before missing promised blobs arrive.
+        self.remote.rename(self.root / "temporarily-unreachable-origin.git")
+        env = self._env()
+        env["ORDAX_EXPECTED_SHA"] = new_sha
+        result = self._script(PULL, env=env, check=False)
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(
+            (self.root / "run/ordax-update/pull-result").read_text().strip(),
+            "candidate-objects",
+        )
+        self.assertEqual(
+            self._run(["git", "-C", str(self.worktree), "rev-parse", "HEAD"]).stdout.strip(),
+            self.commit_v1,
+        )
+        self.assertEqual((self.state / "current-commit").read_text().strip(), self.commit_v1)
+
+    def test_supervisor_expected_sha_must_match_fetched_tracking_ref(self) -> None:
+        self._script(PULL)
+        self.commit_v2 = self._commit_runtime("runtime-v2")
+        self._run(
+            ["git", "-C", str(self.worktree), "fetch", "--no-tags", "origin",
+             "refs/heads/main:refs/remotes/origin/main"]
+        )
+        self.remote.rename(self.root / "temporarily-unreachable-origin.git")
+        env = self._env()
+        env["ORDAX_EXPECTED_SHA"] = self.commit_v1  # stale against fetched main
+        result = self._script(PULL, env=env, check=False)
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(
+            (self.root / "run/ordax-update/pull-result").read_text().strip(),
+            "handoff-ref-mismatch",
+        )
+        self.assertEqual(
+            self._run(["git", "-C", str(self.worktree), "rev-parse", "HEAD"]).stdout.strip(),
+            self.commit_v1,
+        )
+        self.assertEqual((self.state / "current-commit").read_text().strip(), self.commit_v1)
 
     def test_clone_pull_rollback_pin_and_explicit_unpin(self) -> None:
         first = self._script(PULL)

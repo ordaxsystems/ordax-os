@@ -67,6 +67,8 @@ def load_contract() -> dict:
         raise RuntimeBuildError("Surface runtime full transitive APK lock is missing")
     if value.get("apk_package_lock_count") != len(lock):
         raise RuntimeBuildError("Surface runtime APK lock count disagrees with lock")
+    if value.get("apk_package_lock_sha256") != CORE.canonical_apk_lock_sha256(lock):
+        raise RuntimeBuildError("Surface runtime APK lock digest differs from canonical version map")
     for name, version in lock.items():
         if (
             not isinstance(name, str)
@@ -361,6 +363,7 @@ def build(out_dir: Path, cache_dir: Path) -> dict:
             "runtime_id": contract["runtime_id"],
             "alpine_archive_sha256": actual_sha,
             "apk_package_lock_count": len(installed),
+            "apk_package_lock_sha256": CORE.canonical_apk_lock_sha256(installed),
             "tree_manifest_sha256": tree_manifest_sha,
             "normalized_tar_sha256": tar_sha,
             "image": {
@@ -409,6 +412,8 @@ def verify(out_dir: Path) -> dict:
         raise RuntimeBuildError("Surface runtime provenance crossed promotion boundary")
     if provenance.get("runtime_id") != contract["runtime_id"]:
         raise RuntimeBuildError("Surface runtime id differs from contract")
+    if provenance.get("apk_package_lock_sha256") != contract["apk_package_lock_sha256"]:
+        raise RuntimeBuildError("Surface runtime installed APK versions differ from source lock")
     if provenance.get("image", {}).get("sha256") != sha256_file(image):
         raise RuntimeBuildError("Surface runtime image SHA-256 differs from provenance")
     if provenance.get("tree_manifest_sha256") != sha256_file(tree_manifest_path):

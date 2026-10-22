@@ -278,8 +278,8 @@ kbd {
   position: absolute;
   top: calc(50% + var(--ordax-window-offset) / 3);
   left: calc(50% + var(--ordax-window-offset) / 2);
-  width: min(840px, calc(100% - 96px));
-  max-height: calc(100% - 96px);
+  width: min(var(--ordax-window-width, 52.5rem), calc(100% - var(--ordax-window-gutter, 6rem)));
+  max-height: calc(100% - var(--ordax-window-gutter, 6rem));
   overflow: hidden;
   transform: translate(-50%, -50%);
   border: 1px solid var(--ordax-border);
@@ -312,11 +312,11 @@ kbd {
 
 .ordax-window-titlebar {
   display: flex;
-  min-height: 58px;
+  min-height: var(--ordax-window-titlebar-height, 3.625rem);
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  padding: 10px 12px 10px 16px;
+  gap: 1rem;
+  padding: var(--ordax-window-titlebar-padding, .625rem .75rem .625rem 1rem);
   border-bottom: 1px solid var(--ordax-border);
   background: var(--ordax-surface-strong);
   user-select: none;
@@ -331,8 +331,8 @@ kbd {
 
 .ordax-app-mark {
   display: grid;
-  width: 36px;
-  height: 36px;
+  width: var(--ordax-window-mark-size, 2.25rem);
+  height: var(--ordax-window-mark-size, 2.25rem);
   flex: 0 0 auto;
   place-items: center;
   border: 1px solid var(--ordax-border);
@@ -369,13 +369,13 @@ kbd {
 
 .ordax-window-controls {
   display: flex;
-  gap: 4px;
+  gap: .25rem;
 }
 
 .ordax-window-control {
   display: grid;
-  width: 32px;
-  height: 32px;
+  width: var(--ordax-window-control-size, 2rem);
+  height: var(--ordax-window-control-size, 2rem);
   place-items: center;
   border: 1px solid transparent;
   border-radius: var(--ordax-radius-sm);
@@ -402,13 +402,13 @@ kbd {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
-  max-height: calc(100dvh - 220px);
+  max-height: calc(100dvh - 13.75rem);
   overflow: auto;
-  padding: 14px;
+  padding: .875rem;
 }
 
 .ordax-window[data-maximized="true"] .ordax-window-body {
-  height: calc(100% - 58px);
+  height: calc(100% - var(--ordax-window-titlebar-height, 3.625rem));
   max-height: none;
 }
 
@@ -1199,7 +1199,6 @@ button.ordax-tray-item:focus-visible {
   line-height: 1.5;
 }
 
-
 .ordax-area-button:hover:not(:disabled),
 .ordax-area-button:focus-visible:not(:disabled),
 .ordax-status-action:hover,
@@ -1220,205 +1219,6 @@ button.ordax-tray-item:focus-visible {
 
 [hidden] {
   display: none !important;
-}
-
-@media (max-width: 980px) {
-  .ordax-shell {
-    grid-template-columns: 84px minmax(0, 1fr);
-  }
-
-  .ordax-rail-button {
-    width: 66px;
-  }
-
-  .ordax-home-panel {
-    width: min(470px, 55vw);
-    padding-left: 42px;
-  }
-
-  .ordax-launcher {
-    left: calc(84px + (100vw - 84px) * 0.42);
-    width: min(580px, calc(100vw - 112px));
-  }
-
-  .ordax-statusbar {
-    grid-column: 2;
-  }
-}
-
-@media (max-width: 760px) {
-  .ordax-shell {
-    grid-template-columns: 1fr;
-    grid-template-rows: 64px minmax(0, 1fr) 48px;
-  }
-
-  .ordax-rail {
-    grid-column: 1;
-    grid-row: 1;
-    flex-direction: row;
-    align-items: center;
-    border-right: 0;
-    border-bottom: 1px solid var(--ordax-border);
-  }
-
-  .ordax-rail-button {
-    width: auto;
-    min-width: 54px;
-    min-height: 54px;
-    flex: 1;
-    gap: 2px;
-    padding: 4px;
-    font-size: 0.58rem;
-  }
-
-  .ordax-rail-button::before {
-    left: 12px;
-    right: 12px;
-    top: auto;
-    bottom: -5px;
-    width: auto;
-    height: 3px;
-  }
-
-  .ordax-rail-icon,
-  .ordax-rail-power-icon {
-    width: 24px;
-    height: 24px;
-    font-size: 1.2rem;
-  }
-
-  .ordax-power-slot {
-    padding: 4px 6px 4px 0;
-  }
-
-  .ordax-rail-power {
-    min-width: 54px;
-  }
-
-  .ordax-workspace {
-    grid-column: 1;
-    grid-row: 2;
-  }
-
-  .ordax-statusbar {
-    grid-column: 1;
-    grid-row: 3;
-    padding-inline: 8px;
-    gap: 4px;
-  }
-
-  .ordax-system-tray {
-    gap: 2px;
-    padding-left: 4px;
-  }
-
-  .ordax-tray-item {
-    gap: 4px;
-    padding-inline: 5px;
-  }
-
-  .ordax-tray-label {
-    display: none;
-  }
-
-  .ordax-quick-panel-layer {
-    right: 8px;
-    bottom: 56px;
-    width: min(390px, calc(100vw - 16px));
-  }
-
-  .ordax-quick-panel,
-  .ordax-quick-panel-battery,
-  .ordax-quick-panel-datetime {
-    width: 100%;
-    max-height: calc(100vh - 132px);
-  }
-
-  .ordax-brand-symbol {
-    width: 45px;
-    transform: scale(0.82);
-    transform-origin: left center;
-  }
-
-  .ordax-brand-word {
-    font-size: 1.5rem;
-  }
-
-  .ordax-home-panel {
-    width: 100%;
-    padding: 110px 22px 60px;
-  }
-
-  .ordax-clock {
-    font-size: clamp(4.5rem, 24vw, 6.8rem);
-  }
-  .ordax-space {
-    width: min(430px, 100%);
-  }
-
-  .ordax-window-layer {
-    inset: 0;
-  }
-
-  .ordax-window {
-    top: 8px;
-    left: 8px;
-    right: 8px;
-    width: auto;
-    max-height: calc(100% - 16px);
-    transform: none;
-  }
-
-  .ordax-window[data-maximized="true"] {
-    inset: 0;
-    border-radius: 0;
-  }
-
-  .ordax-window-title-group small {
-    display: none;
-  }
-
-  .ordax-window-body,
-  .ordax-launcher-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .ordax-window-body {
-    max-height: calc(100dvh - 210px);
-  }
-
-  .ordax-launcher {
-    left: 50%;
-    top: 48%;
-    width: calc(100vw - 24px);
-  }
-
-  .ordax-launcher-panel {
-    max-height: 72vh;
-    overflow: auto;
-  }
-
-  .ordax-preference-choices {
-    width: 100%;
-  }
-
-  .ordax-preference-choice {
-    flex: 1;
-  }
-
-  .ordax-area-button:not([data-active="true"]),
-  .ordax-status-actions {
-    display: none;
-  }
-
-  .ordax-running-apps {
-    padding-left: 4px;
-    border-left: 0;
-  }
-
-  .ordax-status {
-    padding-left: 8px;
-  }
 }
 
 /* Shared motion preference policy lives in tokens.css for every Surface host. */

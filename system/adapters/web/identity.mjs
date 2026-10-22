@@ -8,7 +8,16 @@ import { createWebJsonReader } from "./json-read.mjs";
 const SESSION_ENDPOINT = "/auth/session";
 const SESSION_SCHEMA = "prototype-ordax.public-identity-session/1";
 
-function publicDisplayName(value) {
+function safeDisplayName(value) {
+  if (typeof value !== "string") return null;
+  const normalized = value.trim();
+  if (!normalized || Array.from(normalized).length > 120 || /[\u0000-\u001f\u007f]/u.test(normalized)) return null;
+  return normalized;
+}
+
+function publicDisplayName(value, accountDisplayName = null) {
+  const profileName = safeDisplayName(accountDisplayName);
+  if (profileName) return profileName;
   if (typeof value !== "string" || !value) return null;
   const at = value.indexOf("@");
   return at > 0 ? value.slice(0, at) : value;
@@ -35,7 +44,8 @@ export function createWebIdentitySession(windowRef = globalThis.window) {
     const changed =
       validated.state !== snapshot.state
       || validated.subjectId !== snapshot.subjectId
-      || validated.displayName !== snapshot.displayName;
+      || validated.displayName !== snapshot.displayName
+      || validated.email !== snapshot.email;
     if (!changed) return snapshot;
     snapshot = validated;
     emit();
@@ -63,7 +73,7 @@ export function createWebIdentitySession(windowRef = globalThis.window) {
         return apply({ state: "unavailable" });
       }
       if (value.authenticated === true && value.status === "authenticated") {
-        const displayName = publicDisplayName(value.email);
+        const displayName = publicDisplayName(value.email, value.displayName);
         if (typeof value.subject !== "string" || !value.subject || !displayName) {
           return apply({ state: "unavailable" });
         }
@@ -71,6 +81,7 @@ export function createWebIdentitySession(windowRef = globalThis.window) {
           state: "signed-in",
           subjectId: value.subject,
           displayName,
+          email: value.email,
         });
       }
       return apply({ state: "signed-out" });

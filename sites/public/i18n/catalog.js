@@ -13,6 +13,7 @@
     ["Explore a Central, os espaços e os aplicativos com dados de exemplo.", "Explore Central, spaces and apps with example data."],
     ["Arquivos de exemplo", "Example files"],
     ["Explore o OrdaX por dentro.", "Explore inside OrdaX."],
+    ["Seus arquivos", "Your files"],
     ["Navegue pela Central, abra Espaços e confira os aplicativos. A interface é a mesma do produto, com dados de exemplo.", "Explore Central, open Spaces and browse the apps. The interface matches the product, with example data."],
     ["02 / WEB COMPACTO", "02 / COMPACT WEB"],
     ["Interface responsiva", "Responsive interface"],
@@ -1654,15 +1655,15 @@
   register("surface.a19efb971ab4", "Uso pessoal", "Personal use");
   register("surface.967bcf34a913", "Adicionar", "Add");
   register("surface.d03e41baf842", "Uso e limite de armazenamento indisponíveis.", "Storage usage and limit unavailable.");
-  register("surface.fafff14810a3", "O que importa, mais perto. O resto, no seu tempo.", "Keep what matters close. Let the rest wait.");
-  register("surface.b8156ea69df0", "SEU ESPAÇO PARA FAZER", "YOUR SPACE TO MAKE");
-  register("surface.cdabe6145230", "Uma ideia abre", "An idea opens");
-  register("surface.840d1a84187a", "novos caminhos.", "new paths.");
-  register("surface.1728c742cc00", "Suas ferramentas, seu contexto.", "Your tools, your context.");
-  register("surface.4997177a6591", "Um lugar para continuar.", "A place to continue.");
+  register("surface.477def827a83", "Seu trabalho, suas ferramentas e seus espaços. Tudo começa aqui.", "Your work, your tools and your spaces. Start here.");
+  register("surface.b590d47ebe8d", "NO SEU RITMO", "AT YOUR OWN PACE");
+  register("surface.66de043a87ff", "Um lugar para começar.", "A place to begin.");
+  register("surface.4f4b2244ac0b", "E continuar.", "And pick up again.");
+  register("surface.6d15f59df0d1", "Abra suas ferramentas, encontre seus arquivos", "Open your tools, find your files");
+  register("surface.a50c93e7b420", "e dê espaço à próxima ideia.", "and make room for the next idea.");
   register("surface.e1a558cec483", "Loja e recursos", "Store and resources");
-  register("surface.cbeb99619b03", "Recursos pendentes · consultar Ajustes", "Pending resources · open Settings");
   register("surface.dcc985fcad64", "Backend pendente", "Backend pending");
+  register("surface.6af3ef6ba0a1", "Exemplo", "Example");
   register("surface.7d29239e60f5", "Planejado", "Planned");
   register("surface.49a586ddbb8a", "Rede e Wi-Fi", "Network and Wi-Fi");
   register("surface.ddcd378ecaa7", "Conexão, rede protegida e uso offline.", "Connection, secure networks and offline use.");
@@ -1670,6 +1671,7 @@
   register("surface.fb499a13e34a", "Escolha a saída de áudio e ajuste o volume.", "Choose audio output and adjust volume.");
   register("surface.2d31efc9c2ed", "Tela", "Display");
   register("surface.1c84b52a82f2", "Ajuste o tamanho dos elementos e o brilho da tela.", "Adjust element size and display brightness.");
+  register("surface.75b931baddfa", "Escala pronta · controles do monitor pendentes", "Scaling ready · monitor controls pending");
   register("surface.bd1f7a9a4d4b", "Teclado e idioma", "Keyboard and language");
   register("surface.4b891392f43c", "Escolha seu idioma e o layout do teclado.", "Choose your language and keyboard layout.");
   register("surface.409a3921ba1c", "Região, data e hora", "Region, date and time");
@@ -1687,18 +1689,24 @@
   register("surface.337d8f8e868f", "Acessibilidade", "Accessibility");
   register("surface.e194a887edf5", "Melhore a leitura e reduza as animações.", "Improve readability and reduce animation.");
   register("surface.a40f57d20fc5", "OrdaX USB", "OrdaX USB");
+  register("surface.29a26f05617d", "Ajuste o tamanho da interface neste dispositivo. Controles físicos dependem do suporte do host.", "Adjust the interface size on this device. Physical controls depend on host support.");
+  register("surface.aa5cb1b412a5", "Escala da interface", "Interface scale");
+  register("surface.0e50627ed28c", "Ajuste a escala da interface neste dispositivo sem alterar o zoom do navegador. Automático considera a largura e a altura úteis; a escolha é local e não sincroniza com a Conta.", "Adjust the Surface scale on this device without changing browser zoom. Automatic considers both available width and height; this choice stays local and is not synced to Account.");
+  register("surface.b803f24d52ed", "Automático", "Automatic");
+  register("surface.c617f19e1a86", "Compacto", "Compact");
+  register("surface.0758c00e6ea0", "Padrão", "Standard");
+  register("surface.789b0f7fb962", "Confortável", "Comfortable");
+  register("surface.45fbe99b103c", "Grande", "Large");
   register("surface.83d0d814f360", "Continuidade entre dispositivos", "Continuity across devices");
   register("surface.a0e6c1e59152", "Escolha como seu trabalho acompanha você.", "Choose how your work follows you.");
   register("surface.7cfb945aa92e", "Contraste", "Contrast");
   register("surface.0b90a7cb184d", "Reforce separadores, texto secundário e foco dentro da Surface sem alterar o tema escolhido.", "Strengthen separators, secondary text, and focus inside the Surface without changing the selected theme.");
-  register("surface.0758c00e6ea0", "Padrão", "Standard");
   register("surface.2d4b63464c38", "Reforçado", "Enhanced");
   register("surface.d6a1e793bc4c", "Movimento", "Motion");
   register("surface.bbcbcfd7d52d", "Reduza animações e transições não essenciais da Surface.", "Reduce non-essential Surface animations and transitions.");
   register("surface.381a60f991ae", "Reduzido", "Reduced");
   register("surface.243cf75e8126", "Tamanho do texto", "Text size");
   register("surface.c10ed19b4334", "Aumente a escala tipográfica da Surface sem alterar o zoom do navegador ou do sistema.", "Increase Surface text scale without changing browser or system zoom.");
-  register("surface.45fbe99b103c", "Grande", "Large");
   register("surface.539522d79385", "Muito grande", "Extra large");
   register("surface.ee70956e2d21", "Estado do sistema", "System status");
   register("surface.02f98a4621b2", "Continuidade", "Continuity");

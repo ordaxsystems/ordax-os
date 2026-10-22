@@ -46,11 +46,12 @@ class StableRuntimeProfileTests(unittest.TestCase):
         self.assertIn('ORDAX_SOURCE_SHA="$source_sha"', text)
         self.assertIn('ORDAX_PRODUCT_MODE="$mode"', text)
         self.assertIn('PRODUCT_MODE_FILE=/ordax/bootstrap/config/product-mode', text)
-        self.assertIn('ACCOUNT_GATEWAY_FILE=/ordax/bootstrap/config/account-gateway-origin', text)
-        self.assertIn('account_gateway_base_url() {', text)
-        self.assertIn('https://*)', text)
-        self.assertIn('ORDAX_ACCOUNT_GATEWAY_ORIGIN=$gateway_origin', text)
-        self.assertIn('export ORDAX_ACCOUNT_GATEWAY_ORIGIN', text)
+        # Bootstrap configuration is outside the release signing boundary.
+        # It must never override the gateway from the verified system tree.
+        self.assertNotIn('ACCOUNT_GATEWAY_FILE=', text)
+        self.assertNotIn('account_gateway_base_url() {', text)
+        self.assertNotIn('ORDAX_ACCOUNT_GATEWAY_ORIGIN=$gateway_origin', text)
+        self.assertNotIn('export ORDAX_ACCOUNT_GATEWAY_ORIGIN', text)
         self.assertIn('unset ORDAX_ACCOUNT_GATEWAY_ORIGIN', text)
         self.assertIn('boot_current || recovery "verified release handoff failed"', text)
 
@@ -207,6 +208,9 @@ class StableRuntimeProfileTests(unittest.TestCase):
         self.assertIn("dynamic-native-runtime", publish)
         self.assertIn("verified-erofs-overlay", publish)
         self.assertIn("canonical-stable-mvp", publish)
+        self.assertIn("evidence_scope=development", publish)
+        self.assertIn("runtime_sha256=$VERIFIED_RUNTIME_SHA256", publish)
+        self.assertIn('if [ "$VERIFIED_RUNTIME_MODE" = "verified-erofs-overlay" ]; then', publish)
         self.assertIn('chmod 600 "$temporary"', publish)
         self.assertIn('rm -f "$RUNTIME_PROOF_CONTEXT"', text)
         self.assertLess(
@@ -223,6 +227,7 @@ class StableRuntimeProfileTests(unittest.TestCase):
         self.assertIn("duplicate distribution profile", resolver)
         self.assertIn("unknown field in runtime proof context", resolver)
         self.assertIn("canonical-stable-mvp", resolver)
+        self.assertIn("owner-development:verified-erofs-overlay:development", resolver)
         self.assertIn("ORDAX_PROOF_RUNTIME_SHA256", resolver)
 
     def test_stable_base_owner_does_not_run_development_candidate_pipeline(self):

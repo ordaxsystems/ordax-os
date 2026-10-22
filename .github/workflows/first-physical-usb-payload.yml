@@ -447,15 +447,14 @@ jobs:
           cp "$release/release-manifest.json" "$out/sources/release-manifest"
           cp "$release/release-envelope.json" "$out/sources/release-envelope"
 
-          # Use only the Creator Core inventory, not an inline Python ID list.
+          # Bind identity/size/digests through the existing Creator Core SSOT.
           (
             cd operator/tools/creator
             go run ./cmd/ordax-creator bind-portable-sources --sources-root "$out/sources" > "$out/bindings.json"
           )
           test -s "$out/bindings.json"
           echo 'PHYSICAL_PAYLOAD_SOURCE_COUNT=17'
-          echo 'PHYSICAL_PAYLOAD_SOURCE_BINDINGS=CORE_SSOT'
-
+          echo 'PHYSICAL_PAYLOAD_SOURCE_BINDINGS=CORE_SSOT'Y
 
       - name: Generate exact target-specific media and application plans
         shell: bash

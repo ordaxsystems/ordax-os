@@ -230,43 +230,6 @@
   top:auto; bottom:calc(100% + 8px); width:100%; max-height:min(60vh,420px); overflow:auto;
 }
 
-@media (max-width: 760px) {
-  .ordax-brand {
-    gap: 5px;
-  }
-
-  .ordax-brand-word {
-    font-size: 1.32rem;
-  }
-
-  .ordax-brand-symbol {
-    width: 38px;
-    transform: scale(0.68);
-    transform-origin: left center;
-  }
-
-  .ordax-brand-rule {
-    display: none;
-  }
-
-  .ordax-space-switcher {
-    width: 44px;
-  }
-  .ordax-space-switcher-trigger {
-    min-height: 44px;
-    justify-content: center;
-    padding: 4px;
-  }
-  .ordax-space-switcher-mark {
-    width: 28px;
-    height: 28px;
-  }
-  .ordax-space-switcher-trigger-label,
-  .ordax-space-switcher-chevron {
-    display: none;
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
   .ordax-space-switcher-trigger,
   .ordax-space-switcher-option {
