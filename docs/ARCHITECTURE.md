@@ -375,6 +375,14 @@ of each responsibility must be identified before an optimization:
 - **Always-visible indicators:** a single mounted tray owner may observe a
   capability at a bounded interval; a Settings panel should refresh on entry
   and only poll while actively visible, without competing with the tray.
+- **Native boot capability probes:** `system/adapters/native/boot-probe-reader.mjs`
+  owns the single-use, at-most-3-second reuse of the first validated response
+  for the read-only network, power, system metrics and recovery adapters.
+  Each port still probes its actual Native Host endpoint before capability
+  publication: missing/invalid results fail as before. Only the immediately
+  following read may reuse that response; subsequent reads always contact
+  the Host. A request with an AbortSignal never reuses the initial sample.
+  No additional polling, global cache or UI-specific transport is introduced.
 - **Native update status:** `system/adapters/native/update-runtime.mjs` is the
   sole Surface watcher for the host update endpoint. Preserve its fast 750 ms
   cadence during active update transactions/manual checks, use a slower
