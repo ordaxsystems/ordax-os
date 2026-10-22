@@ -143,6 +143,37 @@ Workflow artifact IDs, runner paths and `out/` paths are provenance only. They m
 
 The payload assembler must preserve the exact proven bytes. Rebuilding the kernel implicitly while assembling the payload is forbidden; rebuilds belong to the kernel candidate pipeline and must produce new provenance.
 
+## Isolated TPM2 configuration candidate (not shipped)
+
+The canonical shared kernel fragment remains
+`bootstrap/kernel/config/ordax.fragment`. For the hardware-backed account
+session foundation, `bootstrap/kernel/config/overlays/tpm2.fragment`
+contains **only** the additional TPM2/trusted-key Kconfig selectors. It is
+consumed by the same signed-source `bootstrap/kernel/build.py` owner
+and only by explicit opt-in:
+
+```sh
+python bootstrap/kernel/build.py check   --config-overlay bootstrap/kernel/config/overlays/tpm2.fragment
+python bootstrap/kernel/build.py build --jobs 4   --config-overlay bootstrap/kernel/config/overlays/tpm2.fragment   --work-dir out/kernel-tpm2-work   --out-dir out/kernel-tpm2-candidate
+python bootstrap/kernel/verify.py out/kernel-tpm2-candidate
+```
+
+The optional overlay must be a regular file within the kernel config owner
+and cannot overwrite selectors from the canonical fragment. The builder
+verifies Kconfig acceptance of **every** requested symbol after olddefconfig,
+and emits a provenance record with the overlay SHA-256 and
+`candidate-config-overlay-unpromotable` status. The default
+builder/fragment, Creator and A/B SHA-256 pins, signed release and physical
+USB/Native installation stay unchanged. The dedicated CI workflow verifies
+the real candidate build; its output is only experimental evidence, not a
+release candidate admitted for physical installation.
+
+A valid TPM2 kernel build alone **does not** demonstrate enrolled sealed keys,
+dictionary-attack protections, measured boot, safe migration of a portable
+USB between host TPMs, successful account unlock, or physical cold boot.
+`short_pin_reboot_gate.enabled` remains false until independent
+hardware/account proofs and a separately reviewed canonical rebind.
+
 ## Kernel SHA rebind admission (read-only)
 
 The canonical kernel output remains owned by `bootstrap/kernel/build.py`, with
