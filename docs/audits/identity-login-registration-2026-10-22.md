@@ -39,3 +39,14 @@ Auditoria de login, registro, sessão e consentimento em USB Dev/MVP, Surface Na
 
 ## Estado desta execução
 PR dedicada: https://github.com/ordaxsystems/ordax-os/pull/2104. A remoção das duas proibições locais e os testes foram preparados em branch; até aprovação de CI e provas de canal nativo, **não afirmar cadastro Native funcional em produção, não publicar nova Base e não atualizar USB físico**.
+
+## Verificação adicional (2026-10-22) — depois do merge #2104
+- PR #2104 integrada na main no commit `296d809d77cc3464f2c6cc8f40aeae563717dfa9`, com 13/13 workflows concluídos em sucesso, inclusive QEMU.
+- HTTP de produção consultado pelo OrdaX MCP: `https://ordax.com.br/cadastro/` → 200; `https://ordax.com.br/auth/registration-policy` → 200, `active=true`, `registrationEnabled=true`; `https://ordax.com.br/auth/session` → 200, sessão anônima correta.
+- Gateway Native assinado `https://jhfphsjptrpmtnzkpwud.supabase.co/functions/v1/ordax-account-gateway/auth/registration-policy` → 200, `active=true`, `registrationEnabled=false`. Portanto a divergência restante está na **admissão de registro do servidor**, não no cliente USB. A política legal ativa é compartilhada; disponibilidade por canal é diferente.
+- O último deployment automático Vercel referente ao merge #2104 foi `CANCELED` pelo `Ignored Build Step`; a versão `READY` associada aos aliases `ordax.com.br` e `www.ordax.com.br` continua a ser a implantação `5e8f1d1b`. Não republicar o site por uma alteração somente Native.
+- PR de continuação #2107: enquanto Native permanece bloqueado, a Surface oferece **navegação explícita ao cadastro público canônico** na primeira execução e na Conta, usando `HOSTED_ACCOUNT_SIGNUP_URL` derivado do contrato `PRODUCT_FAMILY_PUBLIC_ENDPOINTS.site.origin`. Isso mantém o sistema sem cadastro falso ou duplicação de identidade; o usuário confirma o e-mail no fluxo de domínio oficial e então pode voltar e entrar. O registro direto Native não é habilitado nesta PR.
+- Provas E2E de SMTP/confirmar e-mail e cadastro real com credenciais autorizadas **não realizadas**, assim como abertura de navegador em USB físico e atualização da mídia. Não promover esses estados como comprovados.
+
+## Próximo gate para registro direto Native
+Comprovar primeiro a configuração **atual** do provedor (Site URL, allowlist de redirects, template oficial com token-hash, entrega SMTP, confirmação e revogação) e o controle antibot proporcional ao canal; só depois habilitar servidor Native mediante alteração versionada única no Account Gateway e testes negativos. Nenhum frontend deve converter `registrationEnabled=false` em autorização.
