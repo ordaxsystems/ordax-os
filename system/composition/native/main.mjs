@@ -1,4 +1,4 @@
-import { hasNativeHostBridge } from "../../adapters/native/host-bridge.mjs";
+import { hasNativeHostBridge, postNativeHostMessage } from "../../adapters/native/host-bridge.mjs";
 import { createNativeIsolatedComponentModuleImporter } from "../../adapters/native/isolated-component-executor.mjs";
 import { mountNativeSidebarAccount } from "../../surface/ui/sidebar-account.mjs";
 import {
@@ -892,6 +892,7 @@ async function start() {
     accountLifecycle,
     profileTaxonomy,
     spaceExperience,
+    { isAvailable: hasNativeHostBridge, postMessage: postNativeHostMessage },
   );
   const homeContinuation = mountHomeContinuation(root, { projects, recentFiles, surfaceLifecycle: surface });
   const homePending = mountHomePending(root, { notifications, syncRuntime: accountSync, surfaceLifecycle: surface });
@@ -1138,6 +1139,10 @@ async function start() {
         "OrdaX native First Run cursor unavailable",
         () => createNativeFirstRunCursor(window),
       ),
+      hostedSignupBridge: {
+        isAvailable: hasNativeHostBridge,
+        postMessage: postNativeHostMessage,
+      },
     });
   } catch (error) {
     reportClientDiagnostic("first-run", error);

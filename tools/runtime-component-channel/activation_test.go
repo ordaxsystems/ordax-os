@@ -96,7 +96,7 @@ func writeComponentSlotCandidate(
 	}
 	release := releaseDescriptor{
 		Schema:            releaseSchema,
-		SourceRepository:  sourceRepository,
+		SourceRepository:  canonicalSourceRepository("internet"),
 		SourceCommit:      sourceCommit,
 		CreatedFromRecipe: createdFromRecipe,
 		Component: releaseComponent{
