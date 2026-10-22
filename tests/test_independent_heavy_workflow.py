@@ -21,6 +21,16 @@ class IndependentHeavyWorkflowTests(unittest.TestCase):
         self.assertIn("profile=owner-development", text)
         self.assertIn("ORDAX_INDEPENDENT_PROFILE", text)
 
+    def test_push_and_dispatched_qemu_have_isolated_concurrency(self) -> None:
+        text = self.text()
+        group = next(line for line in text.splitlines() if line.startswith("  group:"))
+        self.assertIn("${{ github.event_name }}", group)
+        self.assertIn("${{ inputs.profile || 'none' }}", group)
+        self.assertIn("${{ github.event.pull_request.number || github.ref }}", group)
+        self.assertIn("  cancel-in-progress: true", text)
+        self.assertIn("if: github.event_name != 'push'", text)
+        self.assertIn("if: github.event_name == 'push'", text)
+
     def test_verified_kernel_precedes_rootfs_consumer_proof_and_qemu(self) -> None:
         text = self.text()
         verify = text.index("- name: Verify kernel component and exact integration binding")
