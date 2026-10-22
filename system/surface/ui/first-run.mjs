@@ -11,7 +11,7 @@ import {
 import { assertIdentitySessionPort } from "../../contracts/identity-session.mjs";
 import { assertIdentityCredentialsPort, sameRegistrationLegalPolicy } from "../../contracts/identity-credentials.mjs";
 import { readRememberedLoginEmail } from "../../services/account/remembered-login-email.mjs";
-import { HOSTED_ACCOUNT_SIGNUP_URL, requestNativeHostedSignup } from "../../services/account/hosted-signup.mjs";
+import { HOSTED_ACCOUNT_SIGNUP_URL, isHostedSignupEnabled, requestNativeHostedSignup } from "../../services/account/hosted-signup.mjs";
 import {
   assertLocalSessionPort,
   validateLocalSessionSnapshot,
@@ -193,6 +193,7 @@ export function mountFirstRunExperience(
   let accountLocalRequested = false;
   let selectedIdentitySubjectId = null;
   let registrationPolicy = null;
+  let hostedSignupAllowed = false;
   let registrationLegalAccepted = false;
   let registrationPolicyPending = false;
   let localSessionSnapshot = localSessionPort === null
@@ -640,7 +641,7 @@ export function mountFirstRunExperience(
         mode.classList.add("ordax-first-run-action-quiet");
         mode.disabled = identityPending !== null;
         body.append(mode);
-      } else {
+      } else if (hostedSignupAllowed) {
         const hostedRegistration = el(
           documentObject, "a", "ordax-first-run-action ordax-first-run-action-quiet", "Criar conta no site OrdaX",
         );
@@ -651,6 +652,9 @@ export function mountFirstRunExperience(
         body.append(hostedRegistration);
         body.append(el(documentObject, "p", "ordax-first-run-account-help",
           "O cadastro é protegido pelo site oficial. Após confirmar seu e-mail, volte ao OrdaX e entre na sua conta. Você também pode continuar sem conta."));
+      } else {
+        body.append(el(documentObject, "p", "ordax-first-run-account-help",
+          "Novos cadastros ainda não estão disponíveis. Entre em uma conta existente ou continue sem conta."));
       }
     } else {
       body.append(availabilityPanel(documentObject, "Conta indisponível no momento",
@@ -1097,7 +1101,7 @@ export function mountFirstRunExperience(
     if (
       destroyed
       || registrationPolicyPending
-      || !capabilitySnapshot.registrationPolicy
+      || typeof credentialsPort?.registrationPolicy !== "function"
     ) {
       if (!capabilitySnapshot.identityRegister) {
         registrationPolicy = null;
@@ -1109,6 +1113,7 @@ export function mountFirstRunExperience(
     try {
       const policy = await credentialsPort.registrationPolicy();
       if (destroyed) return;
+      hostedSignupAllowed = isHostedSignupEnabled(policy);
       const nextPolicy = (
         policy.registrationEnabled === true
         && capabilitySnapshot.identityRegister
@@ -1121,6 +1126,7 @@ export function mountFirstRunExperience(
       if (!destroyed) {
         registrationPolicy = null;
         registrationLegalAccepted = false;
+        hostedSignupAllowed = false;
       }
     } finally {
       registrationPolicyPending = false;
@@ -1414,7 +1420,7 @@ export function mountFirstRunExperience(
       registrationLegalAccepted = false;
     }
     if (!destroyed && STEPS[stepIndex] === "account") render();
-    if (capabilitySnapshot.registrationPolicy && registrationPolicy === null) {
+    if (typeof credentialsPort?.registrationPolicy === "function" && registrationPolicy === null) {
       void refreshRegistrationPolicy();
     }
   });
