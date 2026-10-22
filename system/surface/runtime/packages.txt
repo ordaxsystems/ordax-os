@@ -2,6 +2,7 @@ alpine-baselayout
 busybox
 ca-certificates
 cage
+dbus
 xwayland
 python3
 py3-gobject3
@@ -17,3 +18,7 @@ libinput-udev
 gst-plugins-good
 gst-libav
 gstreamer-tools
+gst-plugin-pipewire
+pipewire-alsa
+pipewire-pulse
+wireplumber

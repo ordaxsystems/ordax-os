@@ -267,6 +267,139 @@
   cursor: pointer;
 }
 
+.ordax-settings-audio-capability {
+  background: color-mix(in srgb, var(--ordax-warning) 5%, var(--ordax-panel));
+}
+
+.ordax-settings-audio-status {
+  margin: 16px 0 0;
+  padding: 10px 12px;
+  border-left: 3px solid var(--ordax-warning);
+  border-radius: 0 var(--ordax-radius-sm) var(--ordax-radius-sm) 0;
+  background: var(--ordax-warning-bg);
+  color: var(--ordax-text);
+  font-size: 0.74rem;
+  line-height: 1.5;
+}
+
+.ordax-settings-audio-status[data-capability-state="available"] {
+  border-left-color: var(--ordax-accent);
+  background: color-mix(in srgb, var(--ordax-accent) 8%, var(--ordax-panel));
+}
+
+.ordax-settings-audio-controls {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.ordax-settings-audio-field {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  color: var(--ordax-text);
+  font-size: 0.74rem;
+  font-weight: 600;
+}
+
+.ordax-settings-audio-label {
+  display: block;
+}
+
+.ordax-settings-audio-select {
+  width: 100%;
+  min-height: 38px;
+  padding: 7px 10px;
+  border: 1px solid var(--ordax-border);
+  border-radius: var(--ordax-radius-sm);
+  background: var(--ordax-app-bg);
+  color: var(--ordax-text);
+  font: inherit;
+  font-weight: 500;
+}
+
+.ordax-settings-audio-volume-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 42px;
+  align-items: center;
+  gap: 10px;
+  min-height: 38px;
+}
+
+.ordax-settings-audio-volume {
+  width: 100%;
+  accent-color: var(--ordax-accent);
+}
+
+.ordax-settings-audio-volume-value {
+  color: var(--ordax-muted);
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.ordax-settings-audio-actions {
+  display: flex;
+  grid-column: 1 / -1;
+}
+
+.ordax-settings-audio-mute {
+  min-height: 36px;
+  padding: 7px 11px;
+  border: 1px solid var(--ordax-border);
+  border-radius: var(--ordax-radius-sm);
+  background: var(--ordax-app-bg);
+  color: var(--ordax-text);
+  font: inherit;
+  font-size: 0.74rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.ordax-settings-audio-refresh {
+  min-height: 34px;
+  margin-top: 10px;
+  padding: 6px 10px;
+  border: 1px solid var(--ordax-border);
+  border-radius: var(--ordax-radius-sm);
+  background: var(--ordax-app-bg);
+  color: var(--ordax-text);
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.ordax-settings-audio-refresh:focus-visible,
+.ordax-settings-audio-mute:focus-visible {
+  outline: 2px solid var(--ordax-focus);
+  outline-offset: 2px;
+}
+
+.ordax-settings-audio-refresh:disabled,
+.ordax-settings-audio-mute:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.ordax-settings-audio-examples {
+  margin-top: 12px;
+  padding: 8px 0;
+  border: 0;
+  background: transparent;
+  color: var(--ordax-accent);
+  font: inherit;
+  font-size: 0.74rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.ordax-settings-audio-controls[hidden],
+.ordax-settings-audio-examples[hidden] {
+  display: none;
+}
+
 @container settings-viewport (max-width: 720px) {
   .ordax-settings-section[data-settings-preference="display.scale"] .ordax-settings-options {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -279,6 +412,10 @@
   }
 
   .ordax-settings-display-controls {
+    grid-template-columns: 1fr;
+  }
+
+  .ordax-settings-audio-controls {
     grid-template-columns: 1fr;
   }
 }

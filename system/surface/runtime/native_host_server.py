@@ -89,6 +89,7 @@ from native_app_lifecycle_executor import (
     validate_lifecycle_plan,
 )
 from display_outputs import DisplayOutputError, WaylandDisplayOutputProvider
+from audio_outputs import AudioOutputError, PipeWirePulseOutputProvider
 
 SESSION_PATH = "/__ordax/native/session"
 POWER_PATH = "/__ordax/native/power"
@@ -157,6 +158,7 @@ HARDWARE_INVENTORY_PATH = "/__ordax/native/hardware-inventory"
 NETWORK_STATUS_PATH = "/__ordax/native/network-status"
 NETWORK_MANAGEMENT_PATH = "/__ordax/native/network-management"
 DISPLAY_OUTPUTS_PATH = "/__ordax/native/display-outputs"
+AUDIO_OUTPUTS_PATH = "/__ordax/native/audio-outputs"
 UPDATE_HISTORY_PATH = "/__ordax/native/update-history"
 NATIVE_INSTALL_TARGETS_PATH = "/__ordax/native/native-install-targets"
 COMPONENT_RUNTIME_PATH = "/__ordax/native/component-runtime"
@@ -196,6 +198,7 @@ BOOT_ID_FILE = "/run/ordax-update/base-boot-id"
 TOKEN_HEADER = "X-OrdaX-Power-Token"
 NETWORK_TOKEN_HEADER = "X-OrdaX-Network-Token"
 DISPLAY_OUTPUTS_TOKEN_HEADER = "X-OrdaX-Display-Token"
+AUDIO_OUTPUTS_TOKEN_HEADER = "X-OrdaX-Audio-Token"
 NATIVE_INSTALL_TOKEN_HEADER = "X-OrdaX-Native-Install-Token"
 PROFILE_ACTIVATION_TOKEN_HEADER = "X-OrdaX-Profile-Activation-Token"
 DIAGNOSTIC_TOKEN_HEADER = "X-OrdaX-Diagnostic-Token"
@@ -204,6 +207,7 @@ MAX_CONTROL_BODY = 512
 MAX_STORE_LIFECYCLE_BODY = 16 * 1024
 MAX_NETWORK_ACTION_BODY = 1024
 MAX_DISPLAY_OUTPUT_ACTION_BODY = 512
+MAX_AUDIO_OUTPUT_ACTION_BODY = 512
 MAX_NETWORK_SCAN_BYTES = 512 * 1024
 MAX_NETWORKS = 32
 MAX_NATIVE_INSTALL_SNAPSHOT_BYTES = 256 * 1024
@@ -3621,6 +3625,7 @@ class NativeHostServer(ThreadingHTTPServer):
         store_artifact_base_origin: str = "",
         account_gateway_origin: str = "",
         display_outputs_provider=None,
+        audio_outputs_provider=None,
     ):
         super().__init__(server_address, handler_class)
         self.power_token = secrets.token_urlsafe(32)
@@ -3630,6 +3635,12 @@ class NativeHostServer(ThreadingHTTPServer):
             display_outputs_provider
             if display_outputs_provider is not None
             else WaylandDisplayOutputProvider()
+        )
+        self.audio_outputs_token = secrets.token_urlsafe(32)
+        self.audio_outputs_provider = (
+            audio_outputs_provider
+            if audio_outputs_provider is not None
+            else PipeWirePulseOutputProvider()
         )
         self.diagnostic_token = secrets.token_urlsafe(32)
         self.health_token = secrets.token_urlsafe(32)
@@ -3760,13 +3771,20 @@ class NativeHostServer(ThreadingHTTPServer):
 
     def server_close(self) -> None:
         close_display_provider = getattr(self.display_outputs_provider, "close", None)
+        close_audio_provider = getattr(self.audio_outputs_provider, "close", None)
         try:
             if callable(close_display_provider):
                 close_display_provider()
         except Exception as exc:
             print(f"ordax-native-host: display provider shutdown failed: {exc}", file=sys.stderr, flush=True)
         finally:
-            super().server_close()
+            try:
+                if callable(close_audio_provider):
+                    close_audio_provider()
+            except Exception as exc:
+                print(f"ordax-native-host: audio provider shutdown failed: {exc}", file=sys.stderr, flush=True)
+            finally:
+                super().server_close()
 
 
 class NativeHostHandler(SimpleHTTPRequestHandler):
@@ -4105,7 +4123,7 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
                 return
             self._write_json(reply.status, payload)
             return
-        if parsed_path in {SESSION_PATH, MEMORY_PATH, FILES_PATH, TRASH_PATH, FILE_CONTENT_PATH, FILE_EXPORT_PATH, IMAGE_PREVIEW_PATH, MEDIA_PREVIEW_PATH, DOCUMENT_PREVIEW_PATH, METRICS_PATH, RECOVERY_STATUS_PATH, POWER_STATUS_PATH, HARDWARE_INVENTORY_PATH, NETWORK_STATUS_PATH, NETWORK_MANAGEMENT_PATH, DISPLAY_OUTPUTS_PATH, KEYBOARD_LAYOUT_PATH, NATIVE_INSTALL_TARGETS_PATH, COMPONENT_RUNTIME_PATH, STORE_CATALOG_PATH, UPDATE_HISTORY_PATH, DIAGNOSTIC_JOURNAL_PATH} and self.client_address[0] != "127.0.0.1":
+        if parsed_path in {SESSION_PATH, MEMORY_PATH, FILES_PATH, TRASH_PATH, FILE_CONTENT_PATH, FILE_EXPORT_PATH, IMAGE_PREVIEW_PATH, MEDIA_PREVIEW_PATH, DOCUMENT_PREVIEW_PATH, METRICS_PATH, RECOVERY_STATUS_PATH, POWER_STATUS_PATH, HARDWARE_INVENTORY_PATH, NETWORK_STATUS_PATH, NETWORK_MANAGEMENT_PATH, DISPLAY_OUTPUTS_PATH, AUDIO_OUTPUTS_PATH, KEYBOARD_LAYOUT_PATH, NATIVE_INSTALL_TARGETS_PATH, COMPONENT_RUNTIME_PATH, STORE_CATALOG_PATH, UPDATE_HISTORY_PATH, DIAGNOSTIC_JOURNAL_PATH} and self.client_address[0] != "127.0.0.1":
             self._empty(403)
             return
         if parsed_path.startswith(COMPONENT_MODULE_PREFIX) and self.client_address[0] != "127.0.0.1":
@@ -4197,6 +4215,20 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
                 self._write_json(200, self.server.display_outputs_provider.read())
             except (OSError, RuntimeError, TypeError, ValueError) as exc:
                 print(f"ordax-native-host: display output discovery unavailable: {exc}", file=sys.stderr, flush=True)
+                self._empty(503)
+            return
+        if parsed_path == AUDIO_OUTPUTS_PATH:
+            if urlsplit(self.path).query:
+                self._empty(400)
+                return
+            supplied_token = self.headers.get(AUDIO_OUTPUTS_TOKEN_HEADER, "")
+            if not hmac.compare_digest(supplied_token, self.server.audio_outputs_token):
+                self._empty(403)
+                return
+            try:
+                self._write_json(200, self.server.audio_outputs_provider.read())
+            except (OSError, RuntimeError, TypeError, ValueError) as exc:
+                print(f"ordax-native-host: audio output discovery unavailable: {exc}", file=sys.stderr, flush=True)
                 self._empty(503)
             return
         if parsed_path == NATIVE_INSTALL_TARGETS_PATH:
@@ -4581,6 +4613,7 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
                     "token": self.server.power_token,
                     "networkToken": self.server.network_token,
                     "displayOutputsToken": self.server.display_outputs_token,
+                    "audioOutputsToken": self.server.audio_outputs_token,
                     "diagnosticToken": self.server.diagnostic_token,
                     "productMode": self.server.product_mode,
                     "nativeInstallAvailable": self.server.native_install_available,
@@ -5277,6 +5310,60 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
                 return
             except Exception as exc:
                 print(f"ordax-native-host: display output action failed safely: {exc}", file=sys.stderr, flush=True)
+                self._empty(503)
+                return
+            self._write_json(200, snapshot)
+            return
+
+        if parsed_path == AUDIO_OUTPUTS_PATH:
+            if urlsplit(self.path).query:
+                self._empty(400)
+                return
+            supplied_token = self.headers.get(AUDIO_OUTPUTS_TOKEN_HEADER, "")
+            if not hmac.compare_digest(supplied_token, self.server.audio_outputs_token):
+                self._empty(403)
+                return
+            payload = self._read_json_body(MAX_AUDIO_OUTPUT_ACTION_BODY)
+            if payload is None or not isinstance(payload.get("action"), str):
+                self._empty(400)
+                return
+            action = payload["action"]
+            try:
+                if action == "set-default-output" and set(payload) == {"action", "outputId"}:
+                    if not isinstance(payload["outputId"], str):
+                        self._empty(400)
+                        return
+                    snapshot = self.server.audio_outputs_provider.set_default_output(payload["outputId"])
+                elif action == "set-volume" and set(payload) == {"action", "outputId", "volumePercent"}:
+                    if (
+                        not isinstance(payload["outputId"], str)
+                        or isinstance(payload["volumePercent"], bool)
+                        or not isinstance(payload["volumePercent"], int)
+                        or not 0 <= payload["volumePercent"] <= 100
+                    ):
+                        self._empty(400)
+                        return
+                    snapshot = self.server.audio_outputs_provider.set_volume(
+                        payload["outputId"], payload["volumePercent"],
+                    )
+                elif action == "set-muted" and set(payload) == {"action", "outputId", "muted"}:
+                    if not isinstance(payload["outputId"], str) or not isinstance(payload["muted"], bool):
+                        self._empty(400)
+                        return
+                    snapshot = self.server.audio_outputs_provider.set_muted(
+                        payload["outputId"], payload["muted"],
+                    )
+                else:
+                    self._empty(400)
+                    return
+            except AudioOutputError as exc:
+                message = str(exc)
+                status = 503 if "unavailable" in message or "server" in message else 409
+                print(f"ordax-native-host: audio output action unavailable: {message}", file=sys.stderr, flush=True)
+                self._empty(status)
+                return
+            except Exception as exc:
+                print(f"ordax-native-host: audio output action failed safely: {exc}", file=sys.stderr, flush=True)
                 self._empty(503)
                 return
             self._write_json(200, snapshot)

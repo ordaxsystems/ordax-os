@@ -277,6 +277,25 @@ def probe_runtime_media(rootfs: Path) -> None:
         probe_path.unlink(missing_ok=True)
 
 
+def probe_runtime_audio_session(rootfs: Path) -> None:
+    # Start the same session owner used by Surface in a device-less guest. A
+    # live Pulse-compatible socket proves the software route without opening
+    # an ALSA device or claiming physical playback.
+    script_path = rootfs / "ordax-audio-session.sh"
+    shutil.copyfile(ROOT / "system/surface/runtime/audio-session.sh", script_path)
+    try:
+        CORE.proot_rootfs(
+            rootfs,
+            "XDG_RUNTIME_DIR=/run/ordax-media-probe "
+            "/bin/busybox sh /ordax-audio-session.sh "
+            "--runtime-dir /run/ordax-media-probe -- /usr/bin/pactl info",
+        )
+    except Exception as exc:
+        raise RuntimeBuildError("PipeWire audio session failed its device-less startup probe") from exc
+    finally:
+        script_path.unlink(missing_ok=True)
+
+
 def build(out_dir: Path, cache_dir: Path) -> dict:
     contract = load_contract()
     if platform.system() != "Linux" or platform.machine() not in {"x86_64", "amd64"}:
@@ -330,6 +349,7 @@ def build(out_dir: Path, cache_dir: Path) -> dict:
         # Test the installed codec pipeline before packaging immutable bytes.
         # The probe creates only disposable fixtures and never accesses devices.
         probe_runtime_media(rootfs)
+        probe_runtime_audio_session(rootfs)
 
         for transient in ("etc/resolv.conf",):
             path = rootfs / transient

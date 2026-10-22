@@ -70,7 +70,7 @@ class SurfaceRuntimeSourceContractTests(unittest.TestCase):
             "reproof-passed-on-current-head", "reproof-required",
         })
         evidence = contract["discovery_evidence"]
-        self.assertEqual(evidence["executor"], "local-apk-signed-index-solver")
+        self.assertEqual(evidence["executor"], "github-actions-apk-tools-signed-index-resolution")
         self.assertRegex(refresh["discovery_source_commit"], r"^[0-9a-f]{40}$")
         self.assertEqual(evidence["source_commit"], refresh["discovery_source_commit"])
         self.assertEqual(evidence["report_path"], refresh["report_path"])
@@ -80,7 +80,14 @@ class SurfaceRuntimeSourceContractTests(unittest.TestCase):
         self.assertEqual(hashlib.sha256(raw).hexdigest(), evidence["report_sha256"])
         self.assertEqual(evidence["report_sha256"], refresh["report_sha256"])
         report = json.loads(raw)
-        self.assertEqual(report["resolver"], "apk-tools-2.14.10-signed-index-simulation")
+        self.assertEqual(report["$schema"], "ordax.surface-runtime-package-resolution/2")
+        self.assertEqual(report["resolver"], "apk-tools install against signed Alpine v3.22 main/community indexes")
+        self.assertEqual(report["status"], "drift-detected-not-promotable")
+        self.assertEqual(report["source_commit"], evidence["source_commit"])
+        self.assertEqual(report["workflow_run_id"], evidence["workflow_run_id"])
+        self.assertEqual(report["artifact_id"], evidence["artifact_id"])
+        self.assertEqual(report["artifact_archive_sha256"], evidence["artifact_archive_sha256"])
+        self.assertEqual(report["artifact_report_sha256"], evidence["artifact_report_sha256"])
         self.assertEqual(report["apk_package_lock"], contract["apk_package_lock"])
         self.assertEqual(report["apk_package_lock_sha256"], contract["apk_package_lock_sha256"])
         self.assertEqual(refresh["discovery_lock_sha256"], contract["apk_package_lock_sha256"])
@@ -92,12 +99,14 @@ class SurfaceRuntimeSourceContractTests(unittest.TestCase):
             self.assertEqual(refresh[key], report[key])
         self.assertEqual(refresh["resolved_package_count"], len(contract["apk_package_lock"]))
         self.assertEqual(refresh["missing"], [])
-        self.assertIn("gst-plugins-good", refresh["extra"])
-        self.assertIn("gst-libav", refresh["extra"])
+        self.assertIn("gst-plugin-pipewire", refresh["extra"])
+        self.assertIn("pipewire-pulse", refresh["extra"])
+        self.assertIn("wireplumber", refresh["extra"])
         for entry in refresh["changed"]:
             self.assertEqual(contract["apk_package_lock"][entry["name"]], entry["to"])
             self.assertNotEqual(entry["from"], entry["to"])
         self.assertFalse(report["installed_runtime_built"])
+        self.assertTrue(report["reproducibility_reproof_required"])
         self.assertFalse(refresh["physical_artifact_created"])
         self.assertFalse(refresh["physical_write_authorized"])
 
@@ -201,6 +210,7 @@ class SurfaceRuntimeSourceContractTests(unittest.TestCase):
 
     def test_workflow_uploads_drift_report_even_when_revalidation_fails(self):
         text = WORKFLOW.read_text(encoding="utf-8")
+        self.assertIn("- name: Revalidate full transitive Alpine package lock\n        if: always()", text)
         self.assertIn("- name: Upload proof metadata only\n        if: always()", text)
         self.assertIn("surface-runtime-lock.json", text)
 

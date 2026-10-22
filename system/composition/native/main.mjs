@@ -16,6 +16,7 @@ import { createNativeNetworkManagement } from "../../adapters/native/network-man
 import { createNativeProductConnector } from "../../adapters/native/product-connector.mjs";
 import { createNativeKeyboardLayout } from "../../adapters/native/keyboard-layout.mjs";
 import { createNativeDisplayOutputs } from "../../adapters/native/display-outputs.mjs";
+import { createNativeAudioOutputs } from "../../adapters/native/audio-outputs.mjs";
 import { createNativeDeviceProfile } from "../../adapters/native/device-profile.mjs";
 import { createNativeNotificationStore } from "../../adapters/native/notifications.mjs";
 import { createNativeNetworkStatus } from "../../adapters/native/network-status.mjs";
@@ -316,6 +317,10 @@ async function start() {
       () => createNativeDisplayOutputs(window),
     ),
     optionalNativeProbe(
+      "OrdaX native audio output controls unavailable",
+      () => createNativeAudioOutputs(window),
+    ),
+    optionalNativeProbe(
       "OrdaX native system metrics unavailable",
       () => createNativeSystemMetrics(window),
     ),
@@ -361,6 +366,7 @@ async function start() {
     productConnector,
     keyboardLayout,
     displayOutputs,
+    audioOutputs,
     systemMetrics,
     recoveryStatus,
     powerStatus,
@@ -942,6 +948,7 @@ async function start() {
       localAi,
       productConnector,
       displayOutputs,
+      audioOutputs,
     );
   } catch (error) {
     reportClientDiagnostic("settings-network-management", error);
@@ -959,6 +966,7 @@ async function start() {
       localAi,
       productConnector,
       null,
+      audioOutputs,
     );
   }
   // Store is optional: its asynchronous verified projection must not prevent
