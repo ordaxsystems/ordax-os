@@ -227,8 +227,8 @@
       "mount_path": "/",
       "static_output_directory": "out/vercel",
       "build_dispatcher": "tools/vercel/build.py",
-      "domain_project_move_pending": true,
-      "domain_current_project": "ordax-os-public",
+      "domain_project_move_pending": false,
+      "domain_current_project": "ordax-web",
       "domain_target_project": "ordax-web"
     }
   },
@@ -478,7 +478,9 @@
     "widget_name": "OrdaX OS - public account production",
     "sitekey": "0x4AAAAAAFR-Kz0Uc9rNW_iE",
     "hostname_allowlist": [
-      "ordax.com.br"
+      "ordax.com.br",
+      "web.ordax.com.br",
+      "www.ordax.com.br"
     ],
     "widget_mode": "managed",
     "action": "ordax-account",
@@ -496,7 +498,7 @@
     "production_secret_configured": true,
     "production_e2e_verified": false,
     "production_hostname_verified": true,
-    "production_hostname_verification_evidence": "Cloudflare dedicated OrdaX account GET /accounts/{account_id}/challenges/widgets returned this managed widget with domains ordax.com.br and www.ordax.com.br on 2026-10-09; real Siteverify E2E remains pending"
+    "production_hostname_verification_evidence": "Cloudflare authoritative Turnstile widget details observed on 2026-10-16 list exactly ordax.com.br, web.ordax.com.br and www.ordax.com.br; real Siteverify E2E remains pending"
   },
   "cloudflare_dns_migration": {
     "status": "dedicated-zone-active-post-delegation-http-revalidation-pending",
