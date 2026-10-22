@@ -5,6 +5,7 @@ import {
   validateApplicationCompatibilityPlan,
 } from "../../contracts/application-compatibility.mjs";
 import { inspectWindowsPayload } from "./windows.mjs";
+import { inspectLinuxPayload } from "./linux.mjs";
 
 export function createApplicationCompatibilityManager({ runtimes = [] } = {}) {
   if (!Array.isArray(runtimes)) {
@@ -21,7 +22,7 @@ export function createApplicationCompatibilityManager({ runtimes = [] } = {}) {
   }
 
   function inspect(request = {}) {
-    const inspection = inspectWindowsPayload(request);
+    const inspection = inspectLinuxPayload(request) ?? inspectWindowsPayload(request);
     issuedInspections.add(inspection);
     return inspection;
   }
