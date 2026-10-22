@@ -50,6 +50,11 @@ class DevelopmentGitFlowTest(unittest.TestCase):
         self.source = self.root / "source"
         self.worktree = self.root / "workspace/ordax"
         self.state = self.root / "state/ordax"
+        # The disposable installed Base must supply the *real* native ABI,
+        # independently of the Git-owned shell checkout.
+        installed = self.root / "installed-rootfs/usr/local/bin/ordax-checkout-exchange"
+        installed.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(self.exchange_bin, installed)
 
         self._run(["git", "init", "--bare", "--initial-branch=main", str(self.remote)])
         self._run(["git", "-C", str(self.remote), "config", "uploadpack.allowFilter", "true"])
