@@ -270,6 +270,8 @@ class BuiltNativePythonClosureTests(unittest.TestCase):
                 "all_imports_private": True,
                 "tls_and_zlib_operational": True,
                 "httpx_offline_request_construction_proven": True,
+                "httpx_mock_transport_proven": True,
+                "httpx_version": "0.28.1",
                 "runtime_dependency_versions_reconciled": False,
             }),
         )
@@ -287,6 +289,8 @@ class BuiltNativePythonClosureTests(unittest.TestCase):
         self.assertFalse(proof["runtime_agent_packaged"])
         self.assertTrue(proof["linux_kernel_execution_proven"])
         self.assertTrue(proof["httpx_offline_request_construction_proven"])
+        self.assertTrue(proof["httpx_mock_transport_proven"])
+        self.assertEqual(proof["httpx_version"], "0.28.1")
         self.assertFalse(proof["runtime_dependency_versions_reconciled"])
         self.assertEqual(kwargs["env"]["PYTHONPATH"],
                          str(self.target / "usr/lib/python3.13/site-packages"))
@@ -314,6 +318,35 @@ class BuiltNativePythonClosureTests(unittest.TestCase):
                     with self.assertRaisesRegex(self.mod.BaseError, "smoke verification incomplete"):
                         self.mod.smoke_test_private_native_python(self.target, abi)
 
+    def test_httpx_mock_transport_and_version_are_required(self):
+        from types import SimpleNamespace
+        report = {
+            "python_version": "3.13.7",
+            "module_names": ["ssl", "_ssl", "hashlib", "_hashlib", "zlib", "json",
+                             "httpx", "httpcore", "anyio", "certifi", "idna", "h11"],
+            "ssl_version": "OpenSSL 3.5.0",
+            "all_imports_private": True,
+            "tls_and_zlib_operational": True,
+            "httpx_offline_request_construction_proven": True,
+            "httpx_mock_transport_proven": True,
+            "httpx_version": "0.28.1",
+            "runtime_dependency_versions_reconciled": False,
+        }
+        for change in ({"httpx_mock_transport_proven": False},
+                       {"httpx_version": "unknown"},
+                       {"httpx_version": "0.28.1-alpine"}):
+            with self.subTest(change=change):
+                candidate = {**report, **change}
+                with patch.object(self.mod.subprocess, "run",
+                                  return_value=SimpleNamespace(returncode=0,
+                                    stdout=json.dumps(candidate))):
+                    with self.assertRaisesRegex(self.mod.BaseError, "smoke verification incomplete"):
+                        self.mod.smoke_test_private_native_python(
+                            self.target,
+                            {"python_executable": "usr/bin/python3.13",
+                             "stdlib": "usr/lib/python3.13"}
+                        )
+
     def test_httpx_probe_never_reconciles_full_runtime_versions(self):
         from types import SimpleNamespace
         report = {
@@ -324,6 +357,8 @@ class BuiltNativePythonClosureTests(unittest.TestCase):
             "all_imports_private": True,
             "tls_and_zlib_operational": True,
             "httpx_offline_request_construction_proven": True,
+            "httpx_mock_transport_proven": True,
+            "httpx_version": "0.28.1",
             "runtime_dependency_versions_reconciled": True,
         }
         with patch.object(self.mod.subprocess, "run",
