@@ -1137,6 +1137,40 @@ class DevelopmentGitFlowTest(unittest.TestCase):
         )
         self.assertEqual((self.state / "previous-commit").read_text().strip(), previous)
 
+    def test_committed_exchange_recovers_partial_retired_cleanup_offline(self) -> None:
+        self._script(PULL)
+        old_sha = self.commit_v1
+        new_sha = self._commit_runtime("runtime-v2")
+        self._script(PULL)
+        self.assertEqual(
+            self._run(["git", "-C", str(self.worktree), "rev-parse", "HEAD"]).stdout.strip(),
+            new_sha,
+        )
+        # Emulate a crash during garbage-collection after both current and
+        # previous state were made durable and the committed marker was sealed.
+        retired = self.worktree.parent / ".ordax-retired.4242"
+        retired.mkdir()
+        (retired / "partial-old-git").write_text("interrupted deletion", encoding="utf-8")
+        txn = self.state / "pull-transaction.tsv"
+        txn.write_text(
+            f"4242|committed|{new_sha}|{old_sha}|update\n", encoding="utf-8",
+        )
+        offline = self.root / "disconnected-origin.git"
+        self.remote.rename(offline)
+        try:
+            result = self._script(PULL, check=False)
+        finally:
+            offline.rename(self.remote)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("committed exchange cleanup reconciled", result.stderr)
+        self.assertFalse(retired.exists())
+        self.assertFalse(txn.exists())
+        self.assertEqual(
+            self._run(["git", "-C", str(self.worktree), "rev-parse", "HEAD"]).stdout.strip(),
+            new_sha,
+        )
+        self.assertEqual((self.state / "previous-commit").read_text().strip(), old_sha)
+
     def test_interrupted_atomic_swap_restores_last_checkout_before_remote_access(self) -> None:
         self._script(PULL)
         old_sha = self.commit_v1
