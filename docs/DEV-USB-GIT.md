@@ -82,9 +82,15 @@ reuso sem rehash de toda a imagem a cada polling quando tamanho, inode e
 timestamps do EROFS seguem invariáveis. O runtime Native continua
 verificando o SHA-256 integral antes de executar. Apenas após aquisição
 aceita o owner publica `/state/ordax/base-update/aura-ready.sha256`;
-o watcher já existente em `ordax-run` observa este sinal, delegando
-a inicialização ao launcher Native, sem reiniciar a Surface nem criar
-um novo atualizador.
+o observador opcional em `ordax-run` observa este sinal a cada
+10 segundos, delegando a inicialização ao launcher Native, sem reiniciar
+a Surface nem criar um novo atualizador. O próprio `system/supervisor`
+é o **único owner do provisionamento/health da Surface**: `ordax-run`
+não consulta nem anuncia novamente seu marcador. O observador de Aura
+não roda verificações a cada segundo, preserva o retry de 60 segundos
+e encerra seu processo de sleep no desligamento, sem deixar filho órfão.
+Ausência inicial de modelo não desabilita a observação de uma entrega
+assinada posterior durante a mesma sessão; o boot continua independente.
 
 A prova de CI cobre o contrato e simulações de aquisição; não é evidência
 de inferência física bem-sucedida no notebook. O gate USB Dev real da
