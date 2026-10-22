@@ -51,9 +51,19 @@ test("hosted signup uses the privileged Native broker only for explicit user cli
   const event = { preventDefault() { prevented += 1; } };
   assert.equal(requestNativeHostedSignup(event, {}), false);
   assert.equal(prevented, 0);
+  // External pages retain normal browser navigation; a privileged loopback
+  // Surface with a lost bridge never navigates to the Internet as fallback.
+  assert.equal(requestNativeHostedSignup(event, {
+    location: { protocol: "https:", hostname: "web.ordax.com.br" },
+  }), false);
+  assert.equal(prevented, 0);
+  assert.equal(requestNativeHostedSignup(event, {
+    location: { protocol: "http:", hostname: "127.0.0.1" },
+  }), false);
+  assert.equal(prevented, 1);
   assert.equal(requestNativeHostedSignup(event, nativeWindow), true);
   assert.deepEqual(messages, [{ type: "account.signup.open" }]);
-  assert.equal(prevented, 1);
+  assert.equal(prevented, 2);
   // Neither credentials nor caller-controlled URLs cross the privileged bridge.
   assert.deepEqual(Object.keys(messages[0]), ["type"]);
   // Failed host bridging must not fall back to top-level Surface navigation.
@@ -61,5 +71,5 @@ test("hosted signup uses the privileged Native broker only for explicit user cli
     postMessage() { throw new Error("host offline"); },
   } } } };
   assert.equal(requestNativeHostedSignup(event, brokenWindow), false);
-  assert.equal(prevented, 2);
+  assert.equal(prevented, 3);
 });
