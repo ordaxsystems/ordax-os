@@ -45,7 +45,8 @@ class HomeContinuationContractTests(unittest.TestCase):
         self.assertIn("textContent", source)
         self.assertIn("section?.remove()", source)
         self.assertNotIn("innerHTML", source)
-        self.assertIn('t("home.continuation.title")', source)\n        self.assertIn('t("home.continuation.openFiles")', source)
+        self.assertIn('t("home.continuation.title")', source)
+        self.assertIn('t("home.continuation.openFiles")', source)
         self.assertIn("data-home-continuation-key", source.replace("dataset.homeContinuationKey", "data-home-continuation-key"))
 
     def test_home_mount_is_disposable_and_unsubscribes_both_sources(self):
