@@ -41,6 +41,26 @@ func checkRealLocalDirectory(directory string) error {
 	}
 }
 
+// checkOfflineDestinationAncestors refuses aliases and non-directory parents
+// before the signed source is read. An output reached through a symlink may
+// resolve *inside* the bundle despite passing the lexical disjointness test.
+// Missing suffixes are valid because the canonical writer creates them later.
+func checkOfflineDestinationAncestors(destination string) error {
+	for path := destination; ; path = filepath.Dir(path) {
+		info, err := os.Lstat(path)
+		if err == nil {
+			if !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
+				return fmt.Errorf("offline destination ancestor is not a real directory: %s", path)
+			}
+		} else if !errors.Is(err, os.ErrNotExist) {
+			return fmt.Errorf("inspect offline destination ancestor %s: %w", path, err)
+		}
+		if parent := filepath.Dir(path); parent == path {
+			return nil
+		}
+	}
+}
+
 func localDirectoryContains(parent, candidate string) bool {
 	relative, err := filepath.Rel(parent, candidate)
 	return err == nil && (relative == "." || relative != ".." && !strings.HasPrefix(relative, ".."+string(filepath.Separator)))
@@ -137,6 +157,9 @@ func prepareLocalBundle(directory, envelopeURL, root string, trust TrustAnchor, 
 		return nil, errors.New("offline bundle and destination must be disjoint directories")
 	}
 	if err := checkRealLocalDirectory(source); err != nil {
+		return nil, err
+	}
+	if err := checkOfflineDestinationAncestors(destination); err != nil {
 		return nil, err
 	}
 	bundle := &localReleaseBundle{directory: source}
