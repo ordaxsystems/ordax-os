@@ -11,6 +11,8 @@ import sys
 
 POLICY_SCHEMA = "prototype-ordax.runtime-component-package-policy/1"
 CANONICAL_APPS_REPOSITORY = "ordaxsystems/ordax-apps"
+CANONICAL_PRODUCT_RUNTIME_REPOSITORY = "ordaxsystems/ordax-runtime"
+PRODUCT_RUNTIME_COMPONENT_ID = "product-runtime"
 APP_ID_RE = re.compile(r"^[a-z][a-z0-9-]{0,63}$")
 
 class GenerationError(RuntimeError):
@@ -30,7 +32,12 @@ def load_sources(path: Path) -> dict[str, str]:
     for component_id, repository in sorted(sources.items()):
         if not isinstance(component_id, str) or APP_ID_RE.fullmatch(component_id) is None:
             raise GenerationError(f"invalid component id in package source policy: {component_id!r}")
-        if repository != CANONICAL_APPS_REPOSITORY:
+        expected_repository = (
+            CANONICAL_PRODUCT_RUNTIME_REPOSITORY
+            if component_id == PRODUCT_RUNTIME_COMPONENT_ID
+            else CANONICAL_APPS_REPOSITORY
+        )
+        if repository != expected_repository:
             raise GenerationError(f"unexpected package source repository for {component_id}")
         normalized[component_id] = repository
     return normalized
@@ -64,7 +71,12 @@ def render(sources: dict[str, str], host_contracts: dict[str, int]) -> str:
         "var canonicalExternalComponentSourceRepositories = map[string]string{",
     ]
     for component_id in sources:
-        lines.append(f'\t"{component_id}": appsSourceRepository,')
+        constant = (
+            "productRuntimeSourceRepository"
+            if sources[component_id] == CANONICAL_PRODUCT_RUNTIME_REPOSITORY
+            else "appsSourceRepository"
+        )
+        lines.append(f'\t"{component_id}": {constant},')
     lines.extend(["}", "", "// Platform-owned ABI declarations, not signed app providers or capability grants.", "var nativeHostInterfaceContractMajors = map[string]int64{"])
     for contract, major in host_contracts.items():
         lines.append(f'\t"{contract}": {major},')
