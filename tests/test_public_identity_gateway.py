@@ -563,7 +563,7 @@ class PublicIdentityGatewayTests(unittest.TestCase):
         marker = {"X-OrdaX-Public-Site": "1"}
         policy = gateway.handle("GET", "/auth/registration-policy", marker)
         self.assertEqual(policy.status, 200)
-        self.assertTrue(self.payload(policy)["registrationEnabled"])
+        self.assertFalse(self.payload(policy)["registrationEnabled"])
 
         register = gateway.handle(
             "POST",
@@ -575,7 +575,7 @@ class PublicIdentityGatewayTests(unittest.TestCase):
             b"email=pessoa%40example.com&password=new-password-12&legal_acceptance=accepted",
         )
         self.assertEqual(register.status, 503)
-        self.assertEqual(self.payload(register)["error"], "identity-provider-unavailable")
+        self.assertEqual(self.payload(register)["error"], "account-registration-disabled")
 
     def test_public_web_registration_requires_own_explicit_legal_acceptance(self):
         class NoSignUpProvider:
@@ -589,10 +589,11 @@ class PublicIdentityGatewayTests(unittest.TestCase):
             "X-OrdaX-Public-Site": "1",
             "content-type": "application/x-www-form-urlencoded",
         }
-        result = gateway.handle(
-            "POST", "/auth/register", headers,
-            b"email=person%40example.com&password=strong-password-example-12",
-        )
+        with patch.object(gateway_module, "PUBLIC_WEB_REGISTRATION_ENABLED", True):
+            result = gateway.handle(
+                "POST", "/auth/register", headers,
+                b"email=person%40example.com&password=strong-password-example-12",
+            )
         self.assertEqual(result.status, 400)
         self.assertEqual(self.payload(result)["error"], "legal-acceptance-required")
 
