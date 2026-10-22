@@ -1,7 +1,7 @@
 import { assertAppActivationPort } from "../../contracts/app-activation.mjs";
 import { deriveAuthorizedSpaces } from "../../services/spaces/authorized-view.mjs";
 import { readRememberedLoginEmail } from "../../services/account/remembered-login-email.mjs";
-import { HOSTED_ACCOUNT_SIGNUP_URL } from "../../services/account/hosted-signup.mjs";
+import { HOSTED_ACCOUNT_SIGNUP_URL, requestNativeHostedSignup } from "../../services/account/hosted-signup.mjs";
 import { describeSpacePresentation } from "../../services/spaces/presentation.mjs";
 import {
   assertIdentityActionsPort,
@@ -1401,6 +1401,11 @@ export function mountAccountOverviewControls(
   };
 
   const onClick = (event) => {
+    const hostedSignup = event.target.closest("[data-account-hosted-signup]");
+    if (hostedSignup && root.contains(hostedSignup)) {
+      requestNativeHostedSignup(event, root.ownerDocument.defaultView);
+      return;
+    }
     const sectionButton = event.target.closest("[data-account-section]");
     if (
       sectionButton
