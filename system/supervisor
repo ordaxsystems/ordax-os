@@ -261,9 +261,9 @@ cancel_active_git() {
     case "$active_git_pid" in ''|*[!0-9]*) return 0 ;; esac
     # Process-group signalling also reaches children of the timeout wrapper.
     # This group was created by setsid, never by the Guardian or the Surface.
-    kill -TERM -- "-$active_git_pid" 2>/dev/null || true
+    kill -TERM "-$active_git_pid" 2>/dev/null || true
     /bin/busybox sleep 1
-    kill -KILL -- "-$active_git_pid" 2>/dev/null || true
+    kill -KILL "-$active_git_pid" 2>/dev/null || true
     wait "$active_git_pid" 2>/dev/null || true
     GIT_JOB_PID=""
 }
