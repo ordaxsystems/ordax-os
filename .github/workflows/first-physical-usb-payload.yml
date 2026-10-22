@@ -454,7 +454,7 @@ jobs:
           )
           test -s "$out/bindings.json"
           echo 'PHYSICAL_PAYLOAD_SOURCE_COUNT=17'
-          echo 'PHYSICAL_PAYLOAD_SOURCE_BINDINGS=CORE_SSOT'Y
+          echo 'PHYSICAL_PAYLOAD_SOURCE_BINDINGS=CORE_SSOT'
 
       - name: Generate exact target-specific media and application plans
         shell: bash
