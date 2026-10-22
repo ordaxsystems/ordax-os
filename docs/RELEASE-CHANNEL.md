@@ -99,6 +99,34 @@ ORDAX_OWNER_SIGNED_STAGE_ROOT=/mnt/disposable/owner-signed-preview \
   sh system/services/update/owner-signed-preview.sh stage <exact-signed-40hex-sha>
 ```
 
+### Native one-shot state handoff proof (development CI, no physical activation)
+
+The real Go release-agent integration test at
+`bootstrap/release-acquisition/owner_dev_portable_handoff_test.go`
+exercises the **existing** `system/services/update/owner-signed-preview.sh`
+and native `bootstrap/initramfs/portable_state.c` together in disposable
+Linux directories. Two v4 envelopes are signed by the **same temporary
+Ed25519 key** under CI; the real agent materializes and verifies their
+exact artifacts in the preview staging root.
+
+The native `ordax-portable-state` binary then proves two distinct outcomes
+with isolated activation records (never the physical USB):
+
+- **Unhealthy candidate:** `prepare` -> first `select-boot` (candidate)
+  -> second `select-boot` (known-good), rejected SHA persisted, activation
+  transaction removed, same rejected SHA cannot be armed again.
+- **Healthy candidate:** `prepare` -> first `select-boot` -> no change
+  to `current` until explicit `commit`; then `current` advances while
+  `known-good` stays pinned for recovery.
+
+The preflight itself must create **no** activation records and preserve the
+live Dev Git checkout. This validates the *native state machine and signed
+acquisition compatibility*, not a candidate running in an actual boot.
+It does not add another writer or updater, allow users to select a new method,
+promote public keys, or imply physical SSD/USB authorization. The remaining
+gate is safe boot-profile handoff and Supervisor cold-health ownership with
+real signed USB candidates, validated first on disposable QEMU media.
+
 ### Signed v4 bundle tests without a published HTTPS release
 
 Until the official channel publishes the exact signed v4 release, Dev can use
