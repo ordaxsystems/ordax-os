@@ -88,6 +88,11 @@ test("unavailable session identifies host-not-configured separately from transie
   assert.equal(locked.getUnavailableReason(), "locked");
   locked.dispose();
 
+  const unsupported = createWebIdentitySession({ fetch: async () => ({ ok: false, status: 404 }) });
+  await unsupported.refresh();
+  assert.equal(unsupported.getUnavailableReason(), "unsupported-host");
+  unsupported.dispose();
+
   const invalid = createWebIdentitySession({ fetch: async () => ({
     ok: true, status: 200, json: async () => ({ $schema: "wrong" }),
   }) });
