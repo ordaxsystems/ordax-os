@@ -140,6 +140,35 @@ class SurfaceAsyncLifecycleTests(unittest.TestCase):
         self.assertIn('slot.dataset.fileSpacePath = recentMode || trashMode ? "" : (listing?.path ?? "")', files)
         self.assertNotIn("queueMicrotask(() => input.isConnected && input.focus())", files)
 
+    def test_system_and_settings_defer_inactive_repaints_until_surface_focus(self):
+        system = self.read("system-overview-controls.mjs")
+        settings = self.read("settings-overview-controls.mjs")
+        for source, selector in (
+            (system, "SYSTEM_WINDOW_SELECTOR"),
+            (settings, "SETTINGS_WINDOW_SELECTOR"),
+        ):
+            self.assertIn("let paintPending = false;", source)
+            self.assertIn(f"const windowNode = slot.closest({selector});", source)
+            self.assertIn("windowNode.hidden", source)
+            self.assertIn('windowNode.dataset.active !== "true"', source)
+            self.assertIn(
+                "paintPending = paintPending || force || slot !== mountedSlot;",
+                source,
+            )
+            self.assertIn("const unsubscribeRender = lifecycle.subscribeRender(() => {", source)
+            self.assertIn("paintPending = false;", source)
+            self.assertIn("const replaceView = () => renderView(true);", source)
+        self.assertIn("const repaint = force || paintPending;", system)
+        self.assertIn("renderView(sectionChanged);", system)
+        self.assertIn("renderView(sectionChanged);", settings)
+        self.assertIn("paint(slot, interaction);", system)
+        self.assertIn("paint(slot);", settings)
+        smoke = (ROOT / "tools/surface-native/browser-smoke.mjs").read_text(encoding="utf-8")
+        self.assertIn("settingsHiddenHostUpdateSkipsRepaint", smoke)
+        self.assertIn("systemHiddenHostUpdateSkipsRepaint", smoke)
+        self.assertIn("settingsFocusFlushesPendingRepaint", smoke)
+        self.assertIn("systemFocusFlushesPendingRepaint", smoke)
+
     def test_system_preserves_read_only_interaction_across_repaints(self):
         controls = self.read("system-overview-controls.mjs")
         self.assertIn("captureInteractionState", controls)
