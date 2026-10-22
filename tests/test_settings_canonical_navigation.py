@@ -42,6 +42,20 @@ class SettingsCanonicalNavigationTests(unittest.TestCase):
         self.assertIn('lifecycle.getAppTarget("settings")', controls)
         self.assertIn('activationPort.publish({ appId: "settings", target: nextSection })', controls)
 
+    def test_settings_network_polls_are_scoped_and_non_overlapping(self):
+        controls = SETTINGS.read_text(encoding="utf-8")
+        # Network tray remains the always-on owner; Settings must not duplicate reads
+        # while another Settings section is selected.
+        self.assertIn('activeSection !== "network" || !findSlot()', controls)
+        self.assertIn("setInterval(refreshActiveNetwork, 5000)", controls)
+        self.assertEqual(controls.count("setInterval(refreshActiveNetwork, 5000)"), 1)
+        self.assertNotIn("networkManagementPoll", controls)
+        self.assertIn("if (sectionChanged) refreshActiveNetwork()", controls)
+        self.assertIn("networkReadInFlight", controls)
+        self.assertIn("networkManagementReadInFlight", controls)
+        self.assertIn("networkReadInFlight = false", controls)
+        self.assertIn("networkManagementReadInFlight = false", controls)
+
     def test_quick_wifi_opens_canonical_network_section(self):
         quick = QUICK_NETWORK.read_text(encoding="utf-8")
         network_i18n = NETWORK_I18N.read_text(encoding="utf-8")

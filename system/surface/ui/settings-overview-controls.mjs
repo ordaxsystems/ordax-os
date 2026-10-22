@@ -276,6 +276,8 @@ export function mountSettingsOverviewControls(
   let networkManagementMessageId = null;
   let networkReadOrdinal = 0;
   let networkManagementReadOrdinal = 0;
+  let networkReadInFlight = false;
+  let networkManagementReadInFlight = false;
   let networkActionOrdinal = 0;
   let selectedNetworkSsid = null;
   let activeSection = validSettingsSection(lifecycle.getAppTarget("settings"))
@@ -1466,7 +1468,8 @@ export function mountSettingsOverviewControls(
   };
 
   const refreshNetwork = async () => {
-    if (!networkPort || destroyed) return;
+    if (!networkPort || destroyed || networkReadInFlight) return;
+    networkReadInFlight = true;
     const ordinal = ++networkReadOrdinal;
     let changed = false;
     try {
@@ -1482,12 +1485,15 @@ export function mountSettingsOverviewControls(
       if (destroyed || ordinal !== networkReadOrdinal) return;
       changed = !networkReadFailed;
       networkReadFailed = true;
+    } finally {
+      networkReadInFlight = false;
     }
-    if (changed && !destroyed && ordinal === networkReadOrdinal) replaceView();
+    if (changed && !destroyed && ordinal === networkReadOrdinal && activeSection === "network") replaceView();
   };
 
   const refreshNetworkManagement = async () => {
-    if (!networkManagementPort || destroyed || networkManagementPending) return;
+    if (!networkManagementPort || destroyed || networkManagementPending || networkManagementReadInFlight) return;
+    networkManagementReadInFlight = true;
     const ordinal = ++networkManagementReadOrdinal;
     let changed = false;
     try {
@@ -1512,8 +1518,18 @@ export function mountSettingsOverviewControls(
       if (destroyed || ordinal !== networkManagementReadOrdinal) return;
       changed = !networkManagementReadFailed;
       networkManagementReadFailed = true;
+    } finally {
+      networkManagementReadInFlight = false;
     }
-    if (changed && !destroyed && ordinal === networkManagementReadOrdinal) replaceView();
+    if (changed && !destroyed && ordinal === networkManagementReadOrdinal && activeSection === "network") replaceView();
+  };
+
+  // Network observations belong to the visible Settings/Network journey, not every Surface frame.
+  // A single scheduler also prevents duplicate timers for status and management.
+  const refreshActiveNetwork = () => {
+    if (destroyed || activeSection !== "network" || !findSlot()) return;
+    if (networkPort) void refreshNetwork();
+    if (networkManagementPort) void refreshNetworkManagement();
   };
 
   const runNetworkAction = async (action, { ssid = null, password = null } = {}) => {
@@ -1590,6 +1606,7 @@ export function mountSettingsOverviewControls(
       } else {
         activeSection = nextSection;
         replaceView();
+        refreshActiveNetwork();
       }
       return;
     }
@@ -1770,8 +1787,10 @@ export function mountSettingsOverviewControls(
       selectedNetworkSsid = null;
       networkManagementMessageId = null;
     }
+    const sectionChanged = activeSection !== nextSection;
     activeSection = nextSection;
-    renderView(false);
+    renderView(sectionChanged);
+    if (sectionChanged) refreshActiveNetwork();
   });
   const unsubscribeActivation = activationPort?.subscribe((activation) => {
     if (
@@ -1783,6 +1802,7 @@ export function mountSettingsOverviewControls(
       selectedNetworkSsid = null;
       networkManagementMessageId = null;
       replaceView();
+      refreshActiveNetwork();
     }
   });
   const unsubscribeHost = hostPort.subscribe((snapshot) => {
@@ -1805,16 +1825,12 @@ export function mountSettingsOverviewControls(
     notificationSnapshot = snapshot;
     if (activeSection === "notifications") replaceView();
   });
-  const networkPoll = networkPort
-    ? setInterval(() => void refreshNetwork(), 5000)
-    : null;
-  const networkManagementPoll = networkManagementPort
-    ? setInterval(() => void refreshNetworkManagement(), 5000)
+  const networkPoll = networkPort || networkManagementPort
+    ? setInterval(refreshActiveNetwork, 5000)
     : null;
   if (activeSection === "security") void refreshConnector();
   if (keyboardLayoutPort) void refreshKeyboardLayout();
-  if (networkPort) void refreshNetwork();
-  if (networkManagementPort) void refreshNetworkManagement();
+  refreshActiveNetwork();
 
   return Object.freeze({
     destroy() {
@@ -1826,7 +1842,6 @@ export function mountSettingsOverviewControls(
       keyboardLayoutOrdinal += 1;
       connectorOrdinal += 1;
       if (networkPoll !== null) clearInterval(networkPoll);
-      if (networkManagementPoll !== null) clearInterval(networkManagementPoll);
       unsubscribeNotifications?.();
       unsubscribeLocalAi?.();
       unsubscribeLocalSession?.();
