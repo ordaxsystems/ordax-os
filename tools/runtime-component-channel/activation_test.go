@@ -331,7 +331,7 @@ func TestPendingRequiresExactHealthBeforePromotion(t *testing.T) {
 	}
 }
 
-func TestFirstRollbackReturnsToBundledFallback(t *testing.T) {
+func TestFirstRollbackReturnsToAbsentExternalRuntime(t *testing.T) {
 	fixture := makeActivationFixture(t, "0.4.0", strings.Repeat("3", 40))
 	if _, err := armPendingState(fixture.slot, fixture.trustPath, fixture.root); err != nil {
 		t.Fatal(err)
@@ -353,7 +353,7 @@ func TestFirstRollbackReturnsToBundledFallback(t *testing.T) {
 		t.Fatal(err)
 	}
 	if state.Current != nil || state.Previous != nil || state.Rejected == nil {
-		t.Fatalf("rollback did not return to bundled fallback: %+v", state)
+		t.Fatalf("rollback did not leave the external runtime absent: %+v", state)
 	}
 	if state.Rejected.Version != "0.4.0" {
 		t.Fatalf("rejected version = %q", state.Rejected.Version)
@@ -367,8 +367,8 @@ func TestFirstRollbackReturnsToBundledFallback(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !bundled || slot != "" || resolved.Current != nil {
-		t.Fatalf("bundled fallback did not resolve: bundled=%t slot=%q state=%+v", bundled, slot, resolved)
+	if bundled || slot != "" || resolved.Current != nil {
+		t.Fatalf("external runtime did not resolve as absent: bundled=%t slot=%q state=%+v", bundled, slot, resolved)
 	}
 }
 
@@ -742,7 +742,7 @@ func TestExternalComponentWithoutCurrentSlotResolvesAsAbsent(t *testing.T) {
 	}
 }
 
-func TestCurrentBundledFallbackIsNotExposedAsSlotBytes(t *testing.T) {
+func TestCurrentExternalRuntimeDoesNotExposeBundledBytes(t *testing.T) {
 	dir := t.TempDir()
 	root := filepath.Join(dir, "slots")
 	if _, err := ensureSecureDirectory(root, 0o755); err != nil {
@@ -757,8 +757,8 @@ func TestCurrentBundledFallbackIsNotExposedAsSlotBytes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !bundled || slot != "" || state.Current != nil {
-		t.Fatalf("unexpected bundled resolution: bundled=%t slot=%q current=%+v", bundled, slot, state.Current)
+	if bundled || slot != "" || state.Current != nil {
+		t.Fatalf("unexpected external runtime resolution: bundled=%t slot=%q current=%+v", bundled, slot, state.Current)
 	}
 	if _, err := readVerifiedRuntimeFile(
 		root,
@@ -766,8 +766,8 @@ func TestCurrentBundledFallbackIsNotExposedAsSlotBytes(t *testing.T) {
 		filepath.Join(dir, "missing-trust.json"),
 		"current",
 		"system/apps/internet/runtime.mjs",
-	); err == nil || !strings.Contains(err.Error(), "bundled") {
-		t.Fatalf("bundled runtime read error = %v", err)
+	); err == nil || !strings.Contains(err.Error(), "identity is unavailable") {
+		t.Fatalf("absent external runtime read error = %v", err)
 	}
 }
 
