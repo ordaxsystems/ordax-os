@@ -75,7 +75,7 @@ export const SYSTEM_SOURCE_MESSAGES = Object.freeze({
   "system.updates.manual.failed": "Não foi possível solicitar a verificação manual. O checkout atual foi preservado.",
   "system.updates.fact.delivery": "Entrega",
   "system.updates.fact.commit": "Commit técnico",
-  "system.updates.identity.explainer": "O commit técnico identifica o código instalado. A Surface em execução indica a interface que confirmou funcionamento. Eles podem ser diferentes sem haver erro.",
+  "system.updates.identity.explainer": "O commit técnico identifica o código instalado. A Surface em execução indica a interface gráfica que confirmou funcionamento. Eles podem ser diferentes sem haver erro.",
   "system.updates.identity.repositoryOnly": "O código foi sincronizado, mas essa entrega não exige recarregar a Surface.",
   "system.updates.identity.pending": "O código local e a interface em execução são diferentes. Acompanhe a fase e a confirmação de saúde antes de considerar a atualização concluída.",
   "system.updates.diagnostic.reconciling": "Históricos de desenvolvimento divergiram. O OrdaX está preparando automaticamente a versão oficial da main, mantendo a anterior disponível para recuperação.",
