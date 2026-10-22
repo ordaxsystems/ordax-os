@@ -205,7 +205,7 @@
       },
       {
         "path": "system/services/i18n/catalog/account.mjs",
-        "sha256": "a3a60868ada142867afdaa99a539231051363e793548d167934bc09ecd7130d8"
+        "sha256": "e7a1d01ce05bc9f14eab86f40f899393b89902cab64f19af15b630a1ebb04726"
       },
       {
         "path": "system/services/i18n/catalog/boot.mjs",
