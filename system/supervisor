@@ -654,7 +654,7 @@ apply_remote_checkout() {
     # credentials: they must never be copied to persistent state.
     rm -f "$FETCH_ERROR_FILE"
     if run_bounded_git "$FETCH_TIMEOUT" -C "$WORKTREE" fetch --no-tags origin \
-        "refs/heads/$BRANCH:refs/remotes/origin/$BRANCH" >>"$UPDATE_LOG" 2>"$FETCH_ERROR_FILE"; then
+        "+refs/heads/$BRANCH:refs/remotes/origin/$BRANCH" >>"$UPDATE_LOG" 2>"$FETCH_ERROR_FILE"; then
         rm -f "$FETCH_ERROR_FILE" "$FETCH_RETRY_FILE"
     else
         fetch_rc=$?
