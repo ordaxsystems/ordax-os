@@ -1,3 +1,17 @@
+Native Product MCP lifecycle source integration (2026-10-22): Owner/Development
+USB `system/supervisor` now sources the sole OS-owned
+`system/services/device-agent/native-product-lifecycle.sh`, reconciles it
+through its existing event loop after the first Surface-health check, and
+stops its owned Native Runtime child before OS update/rollback/power cutover.
+Changing that sourced library is a `supervisor-restart`, never an unsafe
+live reload. The existing Owner rootfs inventory derives shell function names
+from the actual sourced file while auditing its external BusyBox/Buildroot
+requirements. This is **source lifecycle wiring only**: signed/current
+Product Runtime distribution, the independent Base ELF/Python ABI,
+runtime health, client grants, Native graphical adapters and real Central
+session attestation are **not yet proven on the notebook**. The OS source
+lock continues to deny Runtime activation; no media modification occurred.
+
 Commercial reference catalog (2026-10-22): `docs/contracts/entitlements.json` now records reference BRL prices, storage/history/MCP capacities and additional offers. Landing and Account use one read-only build projection (`tools/public-site/plan_catalog.py`), with PT/EN copy and no checkout. Paid assignment, billing and commercial quota allocation remain disabled; catalog display proves neither subscription nor cloud service availability. Execution plan: COMMERCE-001. Source/CI and production deployment require separate verification.
 
 Native MCP Runtime launch ownership — canonical Linux executable

@@ -16,7 +16,12 @@ OWNER_NON_HELPER_SHELL_SOURCES = (
     "bootstrap/dev/entrypoint",
     "system/entrypoint",
     "system/supervisor",
+    "system/services/device-agent/native-product-lifecycle.sh",
 )
+# This service library is owned by the OS and sourced into the Supervisor.
+# Its functions are not host binaries, but every external command within
+# the library still belongs to the same audited Owner rootfs closure.
+SUPERVISOR_NATIVE_PRODUCT_LIBRARY = "system/services/device-agent/native-product-lifecycle.sh"
 SHELL_ONLY = {
     ".", ":", "[", "alias", "break", "cd", "continue", "echo", "eval", "exec",
     "exit", "export", "getopts", "hash", "printf", "pwd", "read", "readonly",
@@ -266,9 +271,11 @@ def explicit_busybox_applets(path: Path) -> set[str]:
     return result
 
 
-def extract_commands(path: Path) -> set[str]:
+def extract_commands(
+    path: Path, *, sourced_functions: frozenset[str] = frozenset(),
+) -> set[str]:
     text = path.read_text(encoding="utf-8")
-    functions = set(_FUNCTION_RE.findall(text))
+    functions = set(_FUNCTION_RE.findall(text)) | set(sourced_functions)
     defaults = _defaults(text)
     tokens = _tokens(text)
     commands = set(_dynamic_tools(text))
@@ -389,6 +396,25 @@ def extract_commands(path: Path) -> set[str]:
     return commands
 
 
+def _supervisor_sourced_functions(root: Path) -> frozenset[str]:
+    """Derive shell functions from the *actual* OS-owned sourced library.
+
+    No function name is allowlisted by hand: a missing/symlinked source or
+    removed import cannot make an unknown command disappear from the audit.
+    """
+    supervisor = root / "system/supervisor"
+    library = root / SUPERVISOR_NATIVE_PRODUCT_LIBRARY
+    if any(path.is_symlink() or not path.is_file() for path in (supervisor, library)):
+        return frozenset()
+    source = supervisor.read_text(encoding="utf-8")
+    if (
+        'native_product_lifecycle=$SYSTEM_ROOT/services/device-agent/native-product-lifecycle.sh' not in source
+        or '. "$native_product_lifecycle"' not in source
+    ):
+        return frozenset()
+    return frozenset(_FUNCTION_RE.findall(library.read_text(encoding="utf-8")))
+
+
 def owner_inventory(root: Path = ROOT) -> dict[str, object]:
     per_source: dict[str, list[str]] = {}
     all_commands: set[str] = set()
@@ -396,12 +422,16 @@ def owner_inventory(root: Path = ROOT) -> dict[str, object]:
     missing_sources: list[str] = []
     runtime_helpers = owner_runtime_helpers(root)
     sources = (*OWNER_NON_HELPER_SHELL_SOURCES, *(source for source, _ in runtime_helpers))
+    sourced_functions = _supervisor_sourced_functions(root)
     for relative in sources:
         path = root / relative
         if path.is_symlink() or not path.is_file():
             missing_sources.append(relative)
             continue
-        found = extract_commands(path)
+        found = extract_commands(
+            path,
+            sourced_functions=sourced_functions if relative == "system/supervisor" else frozenset(),
+        )
         per_source[relative] = sorted(found)
         all_commands.update(found)
         explicit_busybox.update(explicit_busybox_applets(path))
