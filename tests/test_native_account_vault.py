@@ -122,6 +122,74 @@ class NativeAccountVaultTests(unittest.TestCase):
             third.unlock_local_session(STRONG)
             self.assertEqual(third._cookies, {})
 
+    def test_failed_local_unlock_preserves_vault_for_recovery(self):
+        """A wrong vault passphrase is not user-authorized account logout."""
+        with tempfile.TemporaryDirectory() as directory:
+            legacy = str(Path(directory) / "old.json")
+            path = Path(directory) / "account" / "session.vault"
+
+            def client():
+                return gateway.NativeAccountGateway(
+                    ORIGIN, legacy, hot_session_store=NoHotSession(),
+                    vault_path=str(path))
+
+            first = client()
+            first.unlock_local_session(STRONG)
+            first._cookies = dict(COOKIES)
+            first._request = lambda *_args, **_kwargs: verified()
+            first.session()
+            saved = path.read_bytes()
+
+            wrong = client()
+            wrong.unlock_local_session("another-long-device-password")
+            self.assertEqual(wrong._cookies, {})
+            self.assertEqual(path.read_bytes(), saved)
+
+            # The original encrypted refresh session is still recoverable.
+            restored = client()
+            restored.unlock_local_session(STRONG)
+            self.assertEqual(restored._cookies, COOKIES)
+
+    def test_tampered_vault_is_not_erased_or_treated_as_authenticated(self):
+        """A corrupt vault must remain intact for diagnostics and recovery."""
+        with tempfile.TemporaryDirectory() as directory:
+            legacy = str(Path(directory) / "old.json")
+            path = Path(directory) / "account" / "session.vault"
+            account = gateway.NativeAccountGateway(
+                ORIGIN, legacy, hot_session_store=NoHotSession(),
+                vault_path=str(path))
+            account.unlock_local_session(STRONG)
+            account._cookies = dict(COOKIES)
+            account._request = lambda *_args, **_kwargs: verified()
+            account.session()
+            value = json.loads(path.read_text(encoding="utf-8"))
+            value["nonce"] = "AAAAAAAAAAAAAAAA"
+            path.write_text(json.dumps(value), encoding="utf-8")
+            tampered = path.read_bytes()
+
+            rebooted = gateway.NativeAccountGateway(
+                ORIGIN, legacy, hot_session_store=NoHotSession(),
+                vault_path=str(path))
+            rebooted.unlock_local_session(STRONG)
+            self.assertEqual(rebooted._cookies, {})
+            self.assertEqual(path.read_bytes(), tampered)
+
+    def test_symlink_vault_failure_does_not_destroy_unrelated_file(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            root.joinpath("account").mkdir(mode=0o700)
+            target = root / "other.txt"
+            target.write_text("keep other data intact", encoding="utf-8")
+            path = root / "account" / "session.vault"
+            path.symlink_to(target)
+            account = gateway.NativeAccountGateway(
+                ORIGIN, str(root / "legacy.json"),
+                hot_session_store=NoHotSession(), vault_path=str(path))
+            account.unlock_local_session(STRONG)
+            self.assertEqual(account._cookies, {})
+            self.assertTrue(path.is_symlink())
+            self.assertEqual(target.read_text(encoding="utf-8"), "keep other data intact")
+
     def test_explicit_logout_purges_vault_even_if_remote_is_unavailable(self):
         with tempfile.TemporaryDirectory() as directory:
             legacy = str(Path(directory) / "old.json")

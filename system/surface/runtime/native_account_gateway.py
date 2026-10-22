@@ -303,14 +303,13 @@ class NativeAccountGateway:
             try:
                 restored = self._vault.unlock(secret)
             except (AccountVaultError, OSError, ValueError):
-                # Corrupt/invalid vault cannot authenticate. Clear only a safe
-                # file; the next cloud login may create a new encrypted vault.
-                try:
-                    self._vault.clear()
-                    restored = self._vault.unlock(secret)
-                except (AccountVaultError, OSError, ValueError):
-                    self._vault.lock()
-                    return
+                # A verified local PIN/passphrase unlock is NOT authority to
+                # delete an unreadable account vault. Wrong vault passphrases,
+                # tampering and temporary I/O failure all fail closed without
+                # destroying encrypted refresh material. Only explicit logout,
+                # local credential removal or verified server revocation clears it.
+                self._vault.lock()
+                return
             if restored and not self._cookies:
                 self._cookies = restored
                 self._sync_hot_session()
