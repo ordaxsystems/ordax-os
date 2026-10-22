@@ -152,12 +152,13 @@ class OwnerDevLocalAiLifecycleTests(unittest.TestCase):
         import time
 
         source = RUN.read_text(encoding="utf-8")
+
         def function(name, next_name):
             start = source.index(name + "() {")
-            end = source.index("\\n" + next_name + "() {", start)
+            end = source.index("\n" + next_name + "() {", start)
             return source[start:end]
 
-        helpers = "\\n".join((
+        helpers = "\n".join((
             function("process_alive", "stop_observer"),
             function("stop_observer", "cleanup_observers"),
             function("watch_optional_aura", "start_guardian_tail"),
@@ -167,15 +168,15 @@ class OwnerDevLocalAiLifecycleTests(unittest.TestCase):
             pid_path = root / "watch.pid"
             shell = root / "observer.sh"
             shell.write_text(
-                "#!/bin/sh\\nset -eu\\n"
-                "ENTRY_PID=$\\n"
-                f"AURA_READY_MARKER='{root / 'not-staged'}'\\n"
-                f"LOCAL_AI_LIFECYCLE='{root / 'not-installed'}'\\n"
-                "bb() { /bin/sleep \\"$2\\"; }\\n"
+                "#!/bin/sh\nset -eu\n"
+                "ENTRY_PID=$$\n"
+                f"AURA_READY_MARKER='{root / 'not-staged'}'\n"
+                f"LOCAL_AI_LIFECYCLE='{root / 'not-installed'}'\n"
+                'bb() { /bin/sleep "$2"; }\n'
                 + helpers
-                + "\\nwatch_optional_aura &\\n"
-                + f"printf '%s\\\\n' \\"$!\\" >'{pid_path}'\\n"
-                + 'wait "$!"\\n',
+                + "\nwatch_optional_aura &\n"
+                + f"""printf '%s\\n' "$!" >'{pid_path}'\n"""
+                + 'wait "$!"\n',
                 encoding="utf-8",
             )
             process = subprocess.Popen(
@@ -196,7 +197,7 @@ class OwnerDevLocalAiLifecycleTests(unittest.TestCase):
                     time.sleep(0.02)
                 self.assertIsNotNone(sleep_pid, "Aura watcher must own one sleep child")
                 command = Path(f"/proc/{sleep_pid}/cmdline").read_bytes()
-                self.assertIn(b"10", command.split(b"\\0"))
+                self.assertIn(b"10", command.split(b"\0"))
                 os.kill(watcher_pid, signal.SIGTERM)
                 stdout, stderr = process.communicate(timeout=4)
                 self.assertEqual(process.returncode, 0, stdout + stderr)
