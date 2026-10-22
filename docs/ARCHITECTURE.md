@@ -368,7 +368,17 @@ of each responsibility must be identified before an optimization:
   rollback retain their integrity gates.
 - **Native composition:** `system/composition/native/main.mjs` wires the
   shared ports, not independent implementations of polling, account, network,
-  memory or update policy.
+  memory or update policy. Independent, read-only Profile component inventory
+  discovery starts alongside optional Host probes rather than awaiting unrelated
+  Intelligence/Personal composition; its existing fail-soft session fallback is
+  preserved.
+- **Bundled Profile catalog:** `system/services/profile-packs/bundled-source.mjs`
+  is the sole loader of same-origin versioned Profile manifests. After validating
+  the catalog index, read independent manifests in batches of at most four
+  concurrent GET requests (currently four bundled manifests). Preserve index
+  order, exact identity/path checks, immutable normalized results and fail-closed
+  policy even when responses complete out of order. No additional worker,
+  scheduler, catalog authority or background polling is created.
 - **Surface rendering:** `system/surface/ui/` owns the shared view and lifecycle;
   platform adapters expose only capabilities. An unopened/minimized window must
   not keep performing its own optional network discovery.
