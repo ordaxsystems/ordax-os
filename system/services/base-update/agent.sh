@@ -717,6 +717,18 @@ stop_aura_worker() {
     [ -n "$AURA_WORKER_PID" ] || return 0
     if kill -0 "$AURA_WORKER_PID" 2>/dev/null; then
         kill "$AURA_WORKER_PID" 2>/dev/null || true
+        # Python's SIGTERM handler terminates the signed transfer's process
+        # group (with a five-second graceful deadline). Do not wait forever
+        # in the boot-critical owner if that handler itself becomes stuck.
+        aura_stop_ticks=0
+        while kill -0 "$AURA_WORKER_PID" 2>/dev/null &&
+              [ "$aura_stop_ticks" -lt 8 ]; do
+            /bin/busybox sleep 1
+            aura_stop_ticks=$((aura_stop_ticks + 1))
+        done
+        if kill -0 "$AURA_WORKER_PID" 2>/dev/null; then
+            kill -KILL "$AURA_WORKER_PID" 2>/dev/null || true
+        fi
     fi
     wait "$AURA_WORKER_PID" 2>/dev/null || true
     AURA_WORKER_PID=
@@ -735,7 +747,8 @@ launch_optional_aura_worker() {
     # Base pending marker, physical trust and exact release-agent hash itself.
     [ -f "$AURA_FIRST_RUN_RECEIPT" ] && [ ! -L "$AURA_FIRST_RUN_RECEIPT" ] || return 0
     /bin/busybox grep -q '"completed"[[:space:]]*:[[:space:]]*true' "$AURA_FIRST_RUN_RECEIPT" || return 0
-    [ ! -f "$HOST_STATE_ROOT/boot-refresh-required" ] || return 0
+    [ ! -e "$HOST_STATE_ROOT/boot-refresh-required" ] &&
+        [ ! -L "$HOST_STATE_ROOT/boot-refresh-required" ] || return 0
     ORDAX_BASE_DISTRIBUTION_PROFILE=owner-development \
         /bin/busybox chroot "$RUNTIME_ROOT" \
         /usr/bin/python3 /srv/ordax-system/services/base-update/orchestrator.py \
@@ -745,6 +758,23 @@ launch_optional_aura_worker() {
         --physical-root "$PHYSICAL_MOUNT_CHROOT" \
         >/dev/null 2>&1 &
     AURA_WORKER_PID=$!
+}
+
+# Base/ESP update always owns priority over optional model acquisition.
+# The same durable boot-refresh marker governs this decision both before
+# critical staging and after it. Unsafe marker paths also fail closed.
+base_update_priority_pending() {
+    [ -e "$HOST_STATE_ROOT/boot-refresh-required" ] ||
+        [ -L "$HOST_STATE_ROOT/boot-refresh-required" ]
+}
+
+reconcile_optional_aura_worker() {
+    if [ "$DISTRIBUTION_PROFILE" != owner-development ] ||
+       base_update_priority_pending; then
+        stop_aura_worker
+        return 0
+    fi
+    launch_optional_aura_worker
 }
 
 trap stop_aura_worker EXIT
@@ -778,6 +808,11 @@ while :; do
                 ;;
         esac
 
+        # If a Base candidate is armed, free the optional download's I/O
+        # budget before entering the critical physical/ESP update transaction.
+        if base_update_priority_pending; then
+            stop_aura_worker
+        fi
         ORDAX_BASE_SOURCE_SHA="$source_sha" \
         ORDAX_BASE_DISTRIBUTION_PROFILE="$DISTRIBUTION_PROFILE" \
             /bin/busybox chroot "$RUNTIME_ROOT" \
@@ -786,9 +821,8 @@ while :; do
             --state-root "$OWNER_STATE_CHROOT" \
             --physical-root "$PHYSICAL_MOUNT_CHROOT" \
             >/dev/null 2>&1 || true
-        # Launch only after the critical Base owner invocation has returned.
-        # A 568 MiB download cannot delay ESP checks, staging or recovery.
-        launch_optional_aura_worker
+        # Never compete with the critical ESP staging and recovery sequence.
+        # Optional download starts only after all synchronous owner work.
         discover_esp_read_only
         prepare_efivarfs_preflight_evidence
         if [ "$DISTRIBUTION_PROFILE" = "owner-development" ]; then
@@ -798,7 +832,10 @@ while :; do
             prepare_dev_base_activation_readiness
             prepare_dev_base_postboot_promotion
         fi
+        reconcile_optional_aura_worker
     else
+        # Do not retain a worker tied to an unavailable physical root.
+        stop_aura_worker
         write_preflight_status "${PREPARE_BLOCKER:-physical-root-unavailable}"
     fi
 
