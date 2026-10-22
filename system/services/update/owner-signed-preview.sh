@@ -87,6 +87,10 @@ case "${1:-}" in
         case "$root" in
             "$WORKTREE"|"$WORKTREE"/*) fail 'staging cannot overwrite the Git checkout' ;;
         esac
+        case "$root" in
+            */owner-signed-preview) ;;
+            *) fail 'staging root must be a dedicated owner-signed-preview directory' ;;
+        esac
         [ -d "$root" ] && [ ! -L "$root" ] ||
             fail 'isolated staging directory must already exist as a real directory'
         physical_root=$(cd -P "$root" && pwd -P) ||
