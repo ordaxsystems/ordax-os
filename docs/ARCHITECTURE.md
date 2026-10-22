@@ -393,6 +393,13 @@ of each responsibility must be identified before an optimization:
 - **Always-visible indicators:** a single mounted tray owner may observe a
   capability at a bounded interval; a Settings panel should refresh on entry
   and only poll while actively visible, without competing with the tray.
+  The battery tray retains its canonical 30-second read-only observation
+  cadence, but repeated *validated* percent, charging state and external power
+  do not repaint an unchanged indicator. The last-success timestamp still
+  advances for stale reporting; a first failure, transition to stale,
+  recovery, locale or regional time-zone change must repaint. The same
+  existing tray owner performs these comparisons without a timer, cache,
+  competing battery poller or Native Host change.
 - **Inactive window rendering:** the existing `SurfaceRenderLifecycle.subscribeRender`
   is the sole focus/restore notification for System and Settings panels. A
   minimized or inactive window remains mounted, but state/locale/preference
