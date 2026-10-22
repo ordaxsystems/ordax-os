@@ -19,7 +19,7 @@ def load_policy():
     allowed = next(n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == "allowed_account_portal_uri")
     host = next(n for n in tree.body if isinstance(n, ast.ClassDef) and n.name == "OrdaXBrowserHost")
     methods = [n for n in host.body if isinstance(n, ast.FunctionDef) and n.name in {
-        "on_account_portal_policy", "on_account_portal_destroyed",
+        "on_account_portal_policy", "on_account_portal_destroyed", "open_official_account_portal",
     }]
     namespace = {
         "urlsplit": urlsplit,
@@ -93,6 +93,85 @@ class AccountPortalNativeTests(unittest.TestCase):
         self.assertTrue(host.on_account_portal_policy(view, gesture, 2))
         self.assertEqual(gesture.ignored, 1)
         self.assertEqual(view.opened, ["https://ordax.com.br/termos/"])
+
+    def test_real_portal_method_creates_one_unprivileged_webview_and_reuses_window(self):
+        # Executes the production method against bounded GTK/WebKit API fakes,
+        # instead of accepting an untested source-level declaration.
+        created = {"views": [], "windows": []}
+
+        class Widget:
+            def __init__(self, **kwargs):
+                self.kwargs = kwargs
+                self.callbacks = {}
+                self.loaded = []
+                self.presented = 0
+                self.children = []
+                self.sensitive = None
+            def set_default_size(self, *args):
+                self.size = args
+            def set_transient_for(self, parent):
+                self.parent = parent
+            def set_destroy_with_parent(self, value):
+                self.destroy_with_parent = value
+            def connect(self, name, cb, *args):
+                self.callbacks[name] = (cb, args)
+            def add(self, widget):
+                self.children.append(widget)
+            def pack_start(self, widget, *_args):
+                self.children.append(widget)
+            def set_sensitive(self, value):
+                self.sensitive = value
+            def can_go_back(self):
+                return False
+            def load_uri(self, url):
+                self.loaded.append(url)
+            def show_all(self):
+                self.shown = True
+            def present(self):
+                self.presented += 1
+
+        class WebView:
+            @staticmethod
+            def new_with_context(context):
+                view = Widget()
+                view.context = context
+                created["views"].append(view)
+                return view
+
+        def new_window(**kwargs):
+            popup = Widget(**kwargs)
+            created["windows"].append(popup)
+            return popup
+
+        runtime = self.Host.open_official_account_portal.__globals__
+        runtime["Gtk"] = SimpleNamespace(
+            Window=new_window,
+            Box=lambda **kwargs: Widget(**kwargs),
+            Button=lambda **kwargs: Widget(**kwargs),
+            Orientation=SimpleNamespace(VERTICAL=1, HORIZONTAL=2),
+        )
+        runtime["WebKit2"].WebView = WebView
+        runtime["OFFICIAL_ACCOUNT_SIGNUP_URL"] = "https://ordax.com.br/cadastro/"
+        runtime["allowed_account_portal_uri"] = self.is_allowed
+
+        portal = self.Host()
+        portal.window = Widget()
+        portal.surface_context = object()
+        portal.external_context = object()
+        portal.account_portal_window = None
+        portal.open_official_account_portal()
+        self.assertEqual(len(created["views"]), 1)
+        self.assertEqual(len(created["windows"]), 1)
+        self.assertIs(created["views"][0].context, portal.external_context)
+        self.assertIsNot(created["views"][0].context, portal.surface_context)
+        self.assertEqual(created["views"][0].loaded, ["https://ordax.com.br/cadastro/"])
+        self.assertIn("decide-policy", created["views"][0].callbacks)
+        self.assertIs(portal.account_portal_window, created["windows"][0])
+        portal.open_official_account_portal()
+        self.assertEqual(len(created["views"]), 1)
+        self.assertEqual(portal.account_portal_window.presented, 2)
+        portal.on_account_portal_destroyed(portal.account_portal_window)
+        self.assertIsNone(portal.account_portal_window)
 
     def test_privileged_surface_command_has_no_caller_url_and_external_context_only(self):
         self.assertIn('elif command == "account.signup.open":', self.source)
