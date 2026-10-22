@@ -260,7 +260,7 @@ run_bounded_git() {
             trap "kill $timer_sleep_pid 2>/dev/null || :; wait $timer_sleep_pid 2>/dev/null || :; exit 0" HUP INT TERM
             wait "$timer_sleep_pid" || exit 0
             # Only the isolated session is signalled on an expired deadline.
-            # In this shell $ is the session leader and process-group ID.
+            # In this shell $$ is the session leader and process-group ID.
             kill -TERM "-$$" 2>/dev/null || true
         ) &
         watchdog_pid=$!
@@ -339,11 +339,11 @@ record_fetch_failure() {
     if [ "$fetch_now" -ge "$fetch_started" ] 2>/dev/null; then
         fetch_elapsed=$((fetch_now - fetch_started))
     fi
-    retry_tmp=$FETCH_RETRY_FILE.tmp.$
+    retry_tmp=$FETCH_RETRY_FILE.tmp.$$
     printf '%s %s %s\n' "$fetch_target" "$fetch_count" "$fetch_next" >"$retry_tmp"
     chmod 600 "$retry_tmp"
     /bin/busybox mv -f "$retry_tmp" "$FETCH_RETRY_FILE"
-    receipt_tmp=$FETCH_FAILURE_RECEIPT.tmp.$
+    receipt_tmp=$FETCH_FAILURE_RECEIPT.tmp.$$
     printf 'ordax.git-fetch-failure/1\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
         "$fetch_target" "$fetch_started" "$fetch_elapsed" "$fetch_rc" \
         "$fetch_reason" "$fetch_count" "$fetch_next" >"$receipt_tmp"
@@ -369,7 +369,7 @@ non_ff_target_blocked() {
 }
 
 record_non_ff_target() {
-    blocked_temp=$NON_FF_BLOCKED_FILE.tmp.$
+    blocked_temp=$NON_FF_BLOCKED_FILE.tmp.$$
     printf '%s %s\n' "$1" "$2" >"$blocked_temp"
     chmod 600 "$blocked_temp"
     /bin/busybox mv -f "$blocked_temp" "$NON_FF_BLOCKED_FILE"
@@ -2353,7 +2353,7 @@ check_for_update() {
 
     # Do not enter a command substitution around a blocking Git operation:
     # the parent shell must handle TERM immediately during an active fetch.
-    remote_output_file=$UPDATE_RUN_DIR/remote-head.$
+    remote_output_file=$UPDATE_RUN_DIR/remote-head.$$
     rm -f "$remote_output_file"
     if ! run_bounded_git "$REMOTE_TIMEOUT" -C "$WORKTREE" ls-remote --heads origin "refs/heads/$BRANCH" >"$remote_output_file" 2>>"$UPDATE_LOG"; then
         rm -f "$remote_output_file"
