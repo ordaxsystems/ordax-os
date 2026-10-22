@@ -1527,7 +1527,10 @@ export function mountSettingsOverviewControls(
   // Network observations belong to the visible Settings/Network journey, not every Surface frame.
   // A single scheduler also prevents duplicate timers for status and management.
   const refreshActiveNetwork = () => {
-    if (destroyed || activeSection !== "network" || !findSlot()) return;
+    const windowNode = findSlot()?.closest(SETTINGS_WINDOW_SELECTOR);
+    // Surface retains minimized windows in the DOM, so a mounted slot alone is not visible.
+    if (destroyed || activeSection !== "network" || !windowNode
+      || windowNode.hidden || windowNode.dataset.active !== "true") return;
     if (networkPort) void refreshNetwork();
     if (networkManagementPort) void refreshNetworkManagement();
   };

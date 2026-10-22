@@ -46,7 +46,10 @@ class SettingsCanonicalNavigationTests(unittest.TestCase):
         controls = SETTINGS.read_text(encoding="utf-8")
         # Network tray remains the always-on owner; Settings must not duplicate reads
         # while another Settings section is selected.
-        self.assertIn('activeSection !== "network" || !findSlot()', controls)
+        self.assertIn('findSlot()?.closest(SETTINGS_WINDOW_SELECTOR)', controls)
+        self.assertIn('activeSection !== "network" || !windowNode', controls)
+        self.assertIn('windowNode.hidden', controls)
+        self.assertIn('windowNode.dataset.active !== "true"', controls)
         self.assertIn("setInterval(refreshActiveNetwork, 5000)", controls)
         self.assertEqual(controls.count("setInterval(refreshActiveNetwork, 5000)"), 1)
         self.assertNotIn("networkManagementPoll", controls)
