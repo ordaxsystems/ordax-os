@@ -54,6 +54,24 @@ test("update status contract normalizes optional fields", () => {
   assert.equal(snapshot.rejectedSha, "");
   assert.equal(snapshot.lastError, "");
   assert.equal(snapshot.healthToken, "");
+  assert.equal(snapshot.updateTransport, "unavailable", "older runtime status remains compatible");
+});
+
+test("update status validates current transport without treating it as installation consent", () => {
+  const make = (updateTransport) => validateUpdateStatusSnapshot({
+    sourceSha: "0123456789012345678901234567890123456789",
+    status: "running",
+    applyMode: "initial",
+    updateTransport,
+  });
+  assert.equal(make("git-main").updateTransport, "git-main");
+  assert.equal(
+    make("official-signed-release-channel").updateTransport,
+    "official-signed-release-channel",
+  );
+  assert.throws(() => make("signed-exact-git"), TypeError);
+  assert.throws(() => make("git-main;rm -rf /"), TypeError);
+  assert.throws(() => make(false), TypeError);
 });
 
 test("update status preserves runtime-effective Surface identity separately from Git HEAD", () => {

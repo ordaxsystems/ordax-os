@@ -94,6 +94,8 @@ RELOAD_FALLBACK_HEALTH_TIMEOUT=${ORDAX_RELOAD_FALLBACK_HEALTH_TIMEOUT_SECONDS:-$
 SURFACE_STALE_SECONDS=${ORDAX_SURFACE_STALE_SECONDS:-90}
 UPDATE_TARGET_SHA=""
 UPDATE_PHASE=idle
+# Selected from the already-authorized runtime profile, never from untrusted UI input.
+UPDATE_TRANSPORT=""
 UPDATE_ATTEMPT_ID=""
 UPDATE_ERROR=""
 CHECKOUT_ERROR=""
@@ -1010,8 +1012,8 @@ write_update_state() {
     case "$last_stage_duration" in ''|*[!0-9]*) last_stage_duration=0 ;; esac
     delivery_number=$(delivery_number_for_sha "$source_sha")
     temporary=$UPDATE_STATE.tmp.$$
-    printf '{"sourceSha":"%s","deliveryNumber":%s,"versionNumber":%s,"runtimeSurfaceSha":"%s","targetSha":"%s","status":"%s","phase":"%s","applyMode":"%s","attemptId":"%s","bootRefreshRequired":%s,"baseUpdatePhase":"%s","baseUpdateSha":"%s","checkedAt":"%s","lastAppliedSha":"%s","lastAppliedAt":"%s","stagedReleaseSha":"%s","lastApplyDurationSeconds":%s,"lastStageDurationSeconds":%s,"rejectedSha":"%s","lastError":"%s"}\n' \
-        "$source_sha" "$delivery_number" "$delivery_number" "$runtime_surface_sha" "$UPDATE_TARGET_SHA" "$status" "$UPDATE_PHASE" "$apply_mode" "$UPDATE_ATTEMPT_ID" \
+    printf '{"sourceSha":"%s","deliveryNumber":%s,"versionNumber":%s,"runtimeSurfaceSha":"%s","targetSha":"%s","status":"%s","phase":"%s","applyMode":"%s","updateTransport":"%s","attemptId":"%s","bootRefreshRequired":%s,"baseUpdatePhase":"%s","baseUpdateSha":"%s","checkedAt":"%s","lastAppliedSha":"%s","lastAppliedAt":"%s","stagedReleaseSha":"%s","lastApplyDurationSeconds":%s,"lastStageDurationSeconds":%s,"rejectedSha":"%s","lastError":"%s"}\n' \
+        "$source_sha" "$delivery_number" "$delivery_number" "$runtime_surface_sha" "$UPDATE_TARGET_SHA" "$status" "$UPDATE_PHASE" "$apply_mode" "$UPDATE_TRANSPORT" "$UPDATE_ATTEMPT_ID" \
         "$boot_refresh" "$BASE_UPDATE_PHASE" "$BASE_UPDATE_SHA" "$checked_at" "$last_applied_sha" "$last_applied_at" "$staged_release_sha" "$last_apply_duration" "$last_stage_duration" "$rejected_sha" "$UPDATE_ERROR" >"$temporary"
     /bin/busybox mv -f "$temporary" "$UPDATE_STATE"
 }
@@ -2582,8 +2584,10 @@ esac
 
 case "$DISTRIBUTION_PROFILE" in
     owner-development)
+        UPDATE_TRANSPORT=git-main
         ;;
     stable-mvp)
+        UPDATE_TRANSPORT=official-signed-release-channel
         is_sha "$SOURCE_SHA_HINT" || fail_closed "Stable/MVP runtime source SHA is missing or invalid"
         case "$STABLE_LAYOUT" in
             legacy-tree)

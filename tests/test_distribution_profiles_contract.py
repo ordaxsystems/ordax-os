@@ -320,5 +320,25 @@ class DistributionProfilesContractTests(unittest.TestCase):
         self.assertFalse(policy["user_experience"]["implemented"])
 
 
+    def test_runtime_status_transport_matches_the_distribution_ssot(self):
+        supervisor = (ROOT / "system/supervisor").read_text(encoding="utf-8")
+        for profile, transport in (
+            ("owner-development", "git-main"),
+            ("stable-mvp", "official-signed-release-channel"),
+        ):
+            self.assertEqual(
+                CONTRACT["profiles"][profile]["normal_update_transport"], transport
+            )
+            self.assertEqual(
+                CONTRACT["update_delivery_selection"]["profiles"][profile]["default"], transport
+            )
+            self.assertIn("UPDATE_TRANSPORT=" + transport, supervisor)
+        self.assertIn('"updateTransport":"%s"', supervisor)
+        self.assertIn('"$UPDATE_TRANSPORT" "$UPDATE_ATTEMPT_ID"', supervisor)
+        self.assertIn('check_stable_signed_update "$current"', supervisor)
+        self.assertIn('check_stable_portable_update "$current"', supervisor)
+        self.assertIn('check_for_update() {', supervisor)
+
+
 if __name__ == "__main__":
     unittest.main()

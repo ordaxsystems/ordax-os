@@ -392,6 +392,8 @@ class DevelopmentGitFlowTest(unittest.TestCase):
             "DEV_BASE_FETCHING_FILE=$STATE_DIR/dev-base-fetching-sha",
             "DEV_BASE_REQUEST_FILE=$STATE_DIR/dev-base-request-sha",
             "UPDATE_PHASE=idle",
+            # The extracted Supervisor writer uses the already-validated Dev profile.
+            "UPDATE_TRANSPORT=git-main",
             "UPDATE_TARGET_SHA=",
             "UPDATE_ATTEMPT_ID=",
             "UPDATE_ERROR=",
@@ -423,6 +425,7 @@ class DevelopmentGitFlowTest(unittest.TestCase):
             (self.root / "run/ordax-update/state.json").read_text(encoding="utf-8")
         )
         self.assertEqual(snapshot["sourceSha"], self.commit_v1)
+        self.assertEqual(snapshot["updateTransport"], "git-main")
         self.assertEqual(snapshot["targetSha"], candidate)
         self.assertEqual(
             (self.root / "run/ordax-update/pull-result").read_text().strip(),
