@@ -22,6 +22,7 @@ from public_release_catalog import (
 )
 from playground_fixture import PlaygroundFixtureError, validate_fixture
 from public_html_render import render_public_html
+from plan_catalog import load_catalog, render_catalog
 from legal_snapshots import validate_immutable_legal_snapshots, LegalSnapshotError
 
 # Load the brand compiler by an isolated module identity. Importing a generic
@@ -384,22 +385,19 @@ def build_bundle(out_dir: Path, source_commit: str, root: Path = SOURCE) -> dict
                 for asset in (
                     "assets/account-dashboard.css", "assets/account-portal.js",
                     "assets/ordax-design-tokens.css", "assets/ordax-font.css",
-                    "assets/web-entry.css", "assets/site.js",
+                    "assets/web-entry.css", "assets/site.js", "assets/plans.css", "i18n/catalog.js",
                 ):
                     version = sha256_bytes((stage / asset).read_bytes())[:16]
                     pattern = r'(["\'])/' + re.escape(asset) + r'(?:\?[^"\']*)?(["\'])'
                     markup = re.sub(pattern, lambda match: match[1] + "/" + asset + "?v=" + version + match[2], markup)
-                marker = "<!-- ORDAX_ACCOUNT_PLAN_CATALOG -->"
-                if marker in markup:
-                    plans = json.loads((ROOT / "docs/contracts/entitlements.json").read_text(encoding="utf-8"))["plan_catalog"]["plans"]
-                    if page.relative_to(stage).as_posix() != "conta/index.html" or markup.count(marker) != 1:
-                        raise PublicSiteError("plan catalog has one public account presentation")
-                    labels = [plan["display_name"] for plan in plans]
-                    if not labels or any(not isinstance(label, str) or len(label) > 64 for label in labels):
-                        raise PublicSiteError("invalid canonical account plan names")
-                    markup = markup.replace(marker, '<ul class="plan-catalog">' + "".join(
-                        "<li>" + html.escape(label) + "</li>" for label in labels
-                    ) + "</ul>")
+                for marker, expected_page in (
+                    ("<!-- ORDAX_ACCOUNT_PLAN_CATALOG -->", "conta/index.html"),
+                    ("<!-- ORDAX_PUBLIC_PLAN_CATALOG -->", "index.html"),
+                ):
+                    if marker in markup:
+                        if page.relative_to(stage).as_posix() != expected_page or markup.count(marker) != 1:
+                            raise PublicSiteError("commercial catalog marker outside its owned page")
+                        markup = markup.replace(marker, render_catalog(load_catalog()))
             except ValueError as exc:
                 raise PublicSiteError(str(exc)) from exc
             page.write_text(markup, encoding="utf-8")

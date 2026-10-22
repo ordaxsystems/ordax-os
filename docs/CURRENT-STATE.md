@@ -1,3 +1,5 @@
+Commercial reference catalog (2026-10-22): `docs/contracts/entitlements.json` now records reference BRL prices, storage/history/MCP capacities and additional offers. Landing and Account use one read-only build projection (`tools/public-site/plan_catalog.py`), with PT/EN copy and no checkout. Paid assignment, billing and commercial quota allocation remain disabled; catalog display proves neither subscription nor cloud service availability. Execution plan: COMMERCE-001. Source/CI and production deployment require separate verification.
+
 Native MCP Runtime launch ownership — canonical Linux executable
 (2026-10-21): The source-lock distinguishes the upstream compatibility
 contract's `native_composition_entrypoint=ordax_dev_agent.main.run`
