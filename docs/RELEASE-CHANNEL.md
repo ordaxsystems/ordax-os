@@ -120,14 +120,14 @@ Git-first the only active Dev method.
 
 ### Owner signed portable state audit (disposable only; no boot switch)
 
-The existing \`owner-signed-preview.sh\` now supports \`audit-state <exact-40hex-sha>\`
+The existing `owner-signed-preview.sh` now supports `audit-state <exact-40hex-sha>`
 for a **previously staged** v4 release and a separately provisioned **disposable**
 persistent-state fixture. It combines two existing and distinct authorities:
-the canonical Go release agent performs \`verify-portable-v4-exact\` with the
+the canonical Go release agent performs `verify-portable-v4-exact` with the
 pinned trust anchor and expected commit, then the existing native
-\`ordax-portable-state inspect\` observes the fixture without writing.
+`ordax-portable-state inspect` observes the fixture without writing.
 
-\`\`\`sh
+```sh
 # Both directories must already exist, be canonical, distinct and isolated.
 # State must be a dedicated owner-signed-state directory, never /state.
 ORDAX_DISTRIBUTION_PROFILE=owner-development \
@@ -135,9 +135,9 @@ ORDAX_OWNER_SIGNED_STAGE_ROOT=/mnt/disposable/owner-signed-preview \
 ORDAX_OWNER_SIGNED_STATE_ROOT=/mnt/disposable/owner-signed-state \
 ORDAX_OWNER_SIGNED_STATE_HELPER=/mnt/disposable/ordax-portable-state \
   sh system/services/update/owner-signed-preview.sh audit-state <signed-40hex-sha>
-\`\`\`
+```
 
-The native helper must be the real compiled \`bootstrap/initramfs/portable_state.c\`,
+The native helper must be the real compiled `bootstrap/initramfs/portable_state.c`,
 not a replacement verifier. Signature or SHA mismatch prevents native
 inspection. Corrupt or inconsistent state is rejected by the native reader.
 The audit only signs off on **candidate authenticity and observed fixture
