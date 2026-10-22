@@ -449,7 +449,7 @@ body { background: var(--md-canvas); font-weight: 400; }
 .meridian-native-workspace .ordax-native-settings svg { width: 1.1875rem; height: 1.1875rem; }
 .meridian-native-workspace .ordax-home-panel {
   grid-template-columns: repeat(2, minmax(0, 1fr)) minmax(14rem, .72fr);
-  grid-template-areas: "intro intro status" "hero hero current" "resume resume current" "quick quick current" "recent projects current" "files files files" "ecosystem ecosystem ecosystem" "session session session";
+  grid-template-areas: "intro intro ." "hero hero status" "resume resume current" "quick quick current" "recent projects current" "files files files" "ecosystem ecosystem ecosystem" "session session session";
   align-items: start; gap: 1.125rem; width: min(116rem, 100%);
   padding: clamp(1rem, 1.8cqi, 2rem) clamp(1rem, 2cqi, 2.5rem) var(--md-home-page-bottom);
 }
@@ -573,7 +573,7 @@ body { background: var(--md-canvas); font-weight: 400; }
 .meridian-native-workspace .ordax-home-preview-feedback[hidden] { display: none; }
 /* Compact desktop windows keep the same destinations, tools and navigation. */
 @container meridian-native-home (max-width: 66rem) {
-  .meridian-native-workspace .ordax-home-panel { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-areas: "intro status" "hero hero" "resume resume" "quick quick" "recent projects" "current current" "files files" "ecosystem ecosystem" "session session"; }
+  .meridian-native-workspace .ordax-home-panel { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-areas: "intro intro" "hero status" "resume current" "quick current" "recent projects" "files files" "ecosystem ecosystem" "session session"; }
   .meridian-native-workspace .ordax-home-destination-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @container meridian-native-home (max-width: 50rem) {
@@ -656,3 +656,4 @@ body { background: var(--md-canvas); font-weight: 400; }
   }
   .meridian-native-workspace > .ordax-rail.ordax-product-sidebar .meridian-rail-context { display:none; }
 }
+
