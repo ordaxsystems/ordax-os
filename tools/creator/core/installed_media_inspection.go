@@ -12,18 +12,18 @@ import (
 // It cannot establish filesystem health, installed Git SHA, bootability,
 // signature provenance, or authorization for an update/repair/write.
 type InstalledMediaInspection struct {
-	Schema        string                   `json:"$schema"`
-	Mode          string                   `json:"mode"`
-	PhysicalWrite bool                     `json:"physical_write"`
-	Profile       string                   `json:"profile"`
-	Verification  string                   `json:"verification"`
+	Schema        string                    `json:"$schema"`
+	Mode          string                    `json:"mode"`
+	PhysicalWrite bool                      `json:"physical_write"`
+	Profile       string                    `json:"profile"`
+	Verification  string                    `json:"verification"`
 	Partitions    []InstalledMediaPartition `json:"partitions"`
 }
 
 type InstalledMediaPartition struct {
-	Name       string `json:"name"`
-	FirstLBA   uint64 `json:"first_lba"`
-	LastLBA    uint64 `json:"last_lba"`
+	Name     string `json:"name"`
+	FirstLBA uint64 `json:"first_lba"`
+	LastLBA  uint64 `json:"last_lba"`
 }
 
 // InspectInstalledMedia inspects an already-opened, read-only disk handle.
