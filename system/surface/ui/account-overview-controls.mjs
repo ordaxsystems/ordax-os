@@ -476,7 +476,7 @@ export function mountAccountOverviewControls(
         );
         actions.append(register);
       } else {
-        const hostedRegistration = node(documentObject, "a", "ordax-account-action", t("account.action.hostedRegister"));
+        const hostedRegistration = node(documentObject, "a", "ordax-account-action", t("account.action.register"));
         hostedRegistration.href = HOSTED_ACCOUNT_SIGNUP_URL;
         hostedRegistration.target = "_blank";
         hostedRegistration.rel = "noopener noreferrer";
