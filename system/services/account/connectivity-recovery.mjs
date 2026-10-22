@@ -9,7 +9,8 @@ import { validateNetworkStatusSnapshot } from "../../contracts/network-status.mj
 export function createAccountConnectivityRecovery({
   readIdentityState,
   refresh,
-  now = () => Date.now(),
+  // Monotonic clock: USB time synchronization can jump the wall clock at boot.
+  now = () => globalThis.performance?.now?.() ?? Date.now(),
   minimumRetryMs = 30000,
 }) {
   if (typeof readIdentityState !== "function" || typeof refresh !== "function"
