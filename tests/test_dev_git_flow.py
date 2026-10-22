@@ -1101,15 +1101,13 @@ class DevelopmentGitFlowTest(unittest.TestCase):
         next_sha = self._commit_runtime("runtime-v2")
         # Prepare a second validated checkout using the canonical local seed
         # path, then emulate a crash immediately following the kernel swap.
-        sibling = self.root / "candidate-repository"
-        self._run(["git", "clone", "--quiet", "--branch", "main", self.remote.as_uri(), str(sibling)])
         candidate = self.worktree.parent / ".ordax-staging.4242"
         self._run(["git", "clone", "--quiet", "--branch", "main", self.remote.as_uri(), str(candidate)])
         # One exact kernel exchange, without touching the running process.
         self._run([str(self.exchange_bin), str(self.worktree), str(candidate)])
         self.state.mkdir(parents=True, exist_ok=True)
         (self.state / "pull-transaction.tsv").write_text(
-            f"4242|prepared|{next_sha}|{previous}|update\\n", encoding="utf-8",
+            f"4242|prepared|{next_sha}|{previous}|update\n", encoding="utf-8",
         )
         unavailable = self.root / "offline.git"
         self.remote.rename(unavailable)
