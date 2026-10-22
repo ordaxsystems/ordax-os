@@ -286,6 +286,7 @@ export function mountSettingsOverviewControls(
     : "appearance";
   let destroyed = false;
   let mountedSlot = null;
+  let paintPending = false;
 
   const findSlot = () =>
     root.querySelector(`${SETTINGS_WINDOW_SELECTOR} ${SETTINGS_EXTENSION_SELECTOR}`);
@@ -1379,10 +1380,19 @@ export function mountSettingsOverviewControls(
     const slot = findSlot();
     if (!slot) {
       mountedSlot = null;
+      paintPending = false;
       return;
     }
-    if (!force && slot === mountedSlot) return;
+    const windowNode = slot.closest(SETTINGS_WINDOW_SELECTOR);
+    // Inactive windows retain their controls without background DOM rebuilds.
+    // The existing Surface render callback flushes deferred state on focus.
+    if (!windowNode || windowNode.hidden || windowNode.dataset.active !== "true") {
+      paintPending = paintPending || force || slot !== mountedSlot;
+      return;
+    }
+    if (!force && !paintPending && slot === mountedSlot) return;
     mountedSlot = slot;
+    paintPending = false;
     paint(slot);
   };
 

@@ -355,6 +355,7 @@ export function mountSystemOverviewControls(
     : "overview";
   let destroyed = false;
   let mountedSlot = null;
+  let paintPending = false;
   // Each optional System dataset is read only when its visible section needs
   // it. A hidden System window must not spend three Host requests at boot.
   let metricsPrimed = false;
@@ -1538,12 +1539,22 @@ export function mountSystemOverviewControls(
     if (!slot) {
       disposeDiagnosticsReview();
       mountedSlot = null;
+      paintPending = false;
       return;
     }
-    if (!force && mountedSlot === slot) return;
+    const windowNode = slot.closest(SYSTEM_WINDOW_SELECTOR);
+    // Minimized and inactive windows stay mounted; defer costly DOM rebuilds
+    // until the existing Surface render lifecycle focuses the window.
+    if (!windowNode || windowNode.hidden || windowNode.dataset.active !== "true") {
+      paintPending = paintPending || force || slot !== mountedSlot;
+      return;
+    }
+    const repaint = force || paintPending;
+    if (!repaint && mountedSlot === slot) return;
     const interaction =
-      force && slot === mountedSlot ? captureInteractionState(slot) : null;
+      repaint && slot === mountedSlot ? captureInteractionState(slot) : null;
     mountedSlot = slot;
+    paintPending = false;
     paint(slot, interaction);
   };
 
@@ -1720,8 +1731,9 @@ export function mountSystemOverviewControls(
   const unsubscribeRender = lifecycle.subscribeRender(() => {
     const persistedTarget = lifecycle.getAppTarget("system");
     const nextSection = validSystemSection(persistedTarget) ? persistedTarget : "overview";
+    const sectionChanged = activeSection !== nextSection;
     activeSection = nextSection;
-    renderView(false);
+    renderView(sectionChanged);
     refreshVisibleSection();
   });
   const unsubscribeHost = hostPort.subscribe((snapshot) => {

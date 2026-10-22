@@ -393,6 +393,16 @@ of each responsibility must be identified before an optimization:
 - **Always-visible indicators:** a single mounted tray owner may observe a
   capability at a bounded interval; a Settings panel should refresh on entry
   and only poll while actively visible, without competing with the tray.
+- **Inactive window rendering:** the existing `SurfaceRenderLifecycle.subscribeRender`
+  is the sole focus/restore notification for System and Settings panels. A
+  minimized or inactive window remains mounted, but state/locale/preference
+  changes mark its current view dirty instead of reconstructing its DOM.
+  On the next foreground Surface render, the canonical owner flushes exactly
+  one repaint with the latest state; section changes, first mount, keyboard
+  editing and System focus/scroll restoration retain their current contracts.
+  No extra observer, timer, event queue, parallel UI state or background
+  process may be added for this optimization. Active windows still repaint
+  immediately on changes and every owner unsubscribes on destroy.
 - **On-demand optional panels:** `system/surface/ui/system-overview-controls.mjs`
   only fetches metrics for a visible active Overview/Storage/Diagnostics
   section and history/recovery for a visible active Updates section. First
