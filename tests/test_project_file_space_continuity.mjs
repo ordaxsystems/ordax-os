@@ -197,3 +197,30 @@ test("without a project catalog the decorator preserves the original file-space 
   assert.equal(createProjectContinuityFileSpace(port, null), port);
 });
 
+test("project continuity preserves device scope and bounded preview capabilities", async () => {
+  const { port } = createFileSpace();
+  const scope = Object.freeze({ schema: "ordax.file-space-scope/1", kind: "device-local" });
+  const image = Object.freeze({
+    path: "/Documentos/foto.png", size: 1, mime: "image/png", bytes: new Uint8Array([1]),
+  });
+  const media = Object.freeze({
+    path: "/Documentos/audio.wav", size: 1, mime: "audio/wav", bytes: new Uint8Array([2]),
+  });
+  const document = Object.freeze({
+    path: "/Documentos/arquivo.pdf", size: 1, mime: "application/pdf", bytes: new Uint8Array([3]),
+  });
+  const previews = Object.freeze({
+    ...port,
+    scope,
+    async readImagePreview() { return image; },
+    async readMediaPreview() { return media; },
+    async readDocumentPreview() { return document; },
+  });
+  const files = createProjectContinuityFileSpace(previews, createProjectWithLastFile());
+
+  assert.equal(files.scope, scope);
+  assert.deepEqual(await files.readImagePreview(image.path), image);
+  assert.deepEqual(await files.readMediaPreview(media.path), media);
+  assert.deepEqual(await files.readDocumentPreview(document.path), document);
+});
+

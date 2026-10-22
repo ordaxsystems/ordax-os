@@ -74,6 +74,7 @@ export const FILES_SOURCE_MESSAGES = Object.freeze({
   "files.recents.files": "arquivos",
   "files.recents.persisted": "histórico salvo neste dispositivo",
   "files.recents.session": "histórico somente nesta sessão",
+  "files.recents.updateFailed": "Não foi possível atualizar o histórico de Recentes. A lista pode estar desatualizada; seus arquivos continuam no dispositivo.",
   "files.recents.boundary": "Recentes registra somente arquivos abertos pelo OrdaX. Remover ou limpar este histórico não apaga arquivos.",
 
   "files.trash.aria": "Itens recuperáveis da Lixeira",
@@ -330,6 +331,7 @@ export const FILES_ENGLISH_MESSAGES = Object.freeze({
   "files.recents.files": "files",
   "files.recents.persisted": "history saved on this device",
   "files.recents.session": "history only for this session",
+  "files.recents.updateFailed": "Recent history could not be updated. The list may be out of date; your files remain on this device.",
   "files.recents.boundary": "Recents only tracks files opened by OrdaX. Removing or clearing this history does not delete files.",
 
   "files.trash.aria": "Recoverable Trash items",

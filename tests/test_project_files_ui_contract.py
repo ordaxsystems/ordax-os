@@ -24,20 +24,20 @@ class ProjectFilesUiContractTests(unittest.TestCase):
         self.assertIn("dataset.fileProjectRenameConfirm", controls)
         self.assertIn("dataset.fileProjectRenameCancel", controls)
         self.assertIn("dataset.fileProjectRemove", controls)
-        self.assertIn("projectPort.rename(renamingProjectId, projectRenameDraft)", controls)
-        self.assertIn("projectPort.recordOpened(projectId)", controls)
-        self.assertIn("projectPort.recordFileOpened(project.id, next.path)", controls)
-        self.assertIn("projectPort.clearLastFile(projectId)", controls)
-        self.assertIn("projectPort.remove(projectId)", controls)
+        self.assertIn('updateProjectSnapshot("rename", renamingProjectId, projectRenameDraft)', controls)
+        self.assertIn('updateProjectSnapshot("recordOpened", projectId)', controls)
+        self.assertIn('updateProjectSnapshot("recordFileOpened", project.id, next.path)', controls)
+        self.assertIn('updateProjectSnapshot("clearLastFile", projectId)', controls)
+        self.assertIn('updateProjectSnapshot("remove", projectId)', controls)
         self.assertNotIn("localStorage", controls)
         self.assertNotIn("/__ordax/native/", controls)
 
     def test_project_rename_changes_catalog_label_without_renaming_folder(self):
         controls = CONTROLS.read_text(encoding="utf-8")
-        rename_block = controls.split("  const renameProject = () => {", 1)[1].split(
+        rename_block = controls.split("  const renameProject = async () => {", 1)[1].split(
             "  const openProject =", 1
         )[0]
-        self.assertIn("projectPort.rename(renamingProjectId, projectRenameDraft)", rename_block)
+        self.assertIn('await updateProjectSnapshot("rename", renamingProjectId, projectRenameDraft)', rename_block)
         self.assertNotIn("port.renameEntry(", rename_block)
         self.assertIn("project.path !== listing.path", rename_block)
         self.assertIn('setMessage("files.project.renamed"', rename_block)
@@ -71,7 +71,7 @@ class ProjectFilesUiContractTests(unittest.TestCase):
             "  const activateSelectedPath =", 1
         )[0]
         validated = "const next = validateTextForRequest(await port.readTextFile(path), path);"
-        recorded = "projectPort.recordFileOpened(project.id, next.path)"
+        recorded = 'updateProjectSnapshot("recordFileOpened", project.id, next.path)'
         self.assertIn(validated, open_block)
         self.assertIn(recorded, open_block)
         self.assertLess(open_block.index(validated), open_block.index(recorded))
@@ -122,12 +122,12 @@ class ProjectFilesUiContractTests(unittest.TestCase):
             controls,
         )
         recovery_block = controls.split(
-            "  const clearFailedProjectResume = (projectId) => {", 1
+            "  const clearFailedProjectResume = async (projectId) => {", 1
         )[1].split(
             "  const enterRecentMode =", 1
         )[0]
         guard = "project.lastFilePath !== failedProjectResume.path"
-        clear = "projectPort.clearLastFile(projectId)"
+        clear = 'updateProjectSnapshot("clearLastFile", projectId)'
         self.assertIn(guard, recovery_block)
         self.assertIn(clear, recovery_block)
         self.assertLess(recovery_block.index(guard), recovery_block.index(clear))
@@ -173,6 +173,13 @@ class ProjectFilesUiContractTests(unittest.TestCase):
             "python -m unittest tests.test_project_files_ui_contract -v",
             workflow,
         )
+
+    def test_shared_files_ui_awaits_project_mutations_from_isolated_host_bridge(self):
+        controls = CONTROLS.read_text(encoding="utf-8")
+        self.assertIn("const updateProjectSnapshot = async", controls)
+        for method in ("create", "rename", "recordOpened", "recordFileOpened", "clearLastFile", "remove"):
+            self.assertIn(f'await updateProjectSnapshot("{method}"', controls)
+        self.assertNotRegex(controls, r"projectPort\.(create|rename|recordOpened|recordFileOpened|clearLastFile|remove)\(")
 
 
 if __name__ == "__main__":

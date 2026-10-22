@@ -126,6 +126,7 @@ export function mountFileSpaceControls(
   let navigationIndex = -1;
   let focusRequest = null;
   let recentSnapshot = recentPort?.getSnapshot() ?? null;
+  let recentMutationPending = false;
   let recentMode = false;
   let selectedRecentPath = null;
   let trashListing = null;
@@ -134,10 +135,27 @@ export function mountFileSpaceControls(
   let recentSearchQuery = "";
   let projectSnapshot = projectPort?.getSnapshot() ?? null;
   let creatingProject = false;
+  let projectMutationPending = false;
   let projectDraft = "";
   let renamingProjectId = null;
   let projectRenameDraft = "";
   let failedProjectResume = null;
+
+  const updateRecentSnapshot = async (method, ...args) => {
+    if (!recentPort) return recentSnapshot;
+    const next = await recentPort[method](...args);
+    if (destroyed) return null;
+    recentSnapshot = validateRecentFilesSnapshot(next ?? recentPort.getSnapshot());
+    return recentSnapshot;
+  };
+
+  const updateProjectSnapshot = async (method, ...args) => {
+    if (!projectPort) return projectSnapshot;
+    const next = await projectPort[method](...args);
+    if (destroyed) return null;
+    projectSnapshot = validateProjectCatalogSnapshot(next ?? projectPort.getSnapshot());
+    return projectSnapshot;
+  };
 
   const findSlot = () =>
     root.querySelector(`${FILE_WINDOW_SELECTOR} ${FILE_EXTENSION_SELECTOR}`);
@@ -1346,21 +1364,25 @@ export function mountFileSpaceControls(
     );
   };
 
-  const createProject = () => {
-    if (!projectPort || !listing || listing.path === "/" || pending) return;
+  const createProject = async () => {
+    if (!projectPort || !listing || listing.path === "/" || pending || projectMutationPending) return;
+    projectMutationPending = true;
     try {
-      projectSnapshot = projectPort.create({ name: projectDraft, path: listing.path });
+      await updateProjectSnapshot("create", { name: projectDraft, path: listing.path });
+      if (destroyed) return;
       creatingProject = false;
       projectDraft = "";
       setMessage("files.project.added");
     } catch {
-      setMessage("files.project.addFailed");
+      if (!destroyed) setMessage("files.project.addFailed");
+    } finally {
+      projectMutationPending = false;
+      if (!destroyed) replaceView();
     }
-    replaceView();
   };
 
-  const renameProject = () => {
-    if (!projectPort || !renamingProjectId || !listing) return;
+  const renameProject = async () => {
+    if (!projectPort || !renamingProjectId || !listing || projectMutationPending) return;
     const project = projectSnapshot?.projects.find((candidate) => candidate.id === renamingProjectId);
     if (!project || project.path !== listing.path) {
       renamingProjectId = null;
@@ -1369,16 +1391,20 @@ export function mountFileSpaceControls(
       replaceView();
       return;
     }
+    projectMutationPending = true;
     try {
-      projectSnapshot = projectPort.rename(renamingProjectId, projectRenameDraft);
+      await updateProjectSnapshot("rename", renamingProjectId, projectRenameDraft);
+      if (destroyed) return;
       const renamed = projectSnapshot.projects.find((candidate) => candidate.id === project.id);
       renamingProjectId = null;
       projectRenameDraft = "";
       setMessage("files.project.renamed", { name: renamed?.name ?? project.name, path: project.path });
     } catch {
-      setMessage("files.project.renameFailed");
+      if (!destroyed) setMessage("files.project.renameFailed");
+    } finally {
+      projectMutationPending = false;
+      if (!destroyed) replaceView();
     }
-    replaceView();
   };
 
   const openProject = async (projectId) => {
@@ -1394,17 +1420,21 @@ export function mountFileSpaceControls(
       return;
     }
     try {
-      projectSnapshot = projectPort.recordOpened(projectId);
+      await updateProjectSnapshot("recordOpened", projectId);
+      if (!destroyed) replaceView();
     } catch {
+      if (destroyed) return;
       setMessage("files.project.activityUpdateFailed");
       replaceView();
     }
   };
 
-  const removeProject = (projectId) => {
-    if (!projectPort) return;
+  const removeProject = async (projectId) => {
+    if (!projectPort || projectMutationPending) return;
+    projectMutationPending = true;
     try {
-      projectSnapshot = projectPort.remove(projectId);
+      await updateProjectSnapshot("remove", projectId);
+      if (destroyed) return;
       if (renamingProjectId === projectId) {
         renamingProjectId = null;
         projectRenameDraft = "";
@@ -1414,13 +1444,16 @@ export function mountFileSpaceControls(
       }
       setMessage("files.project.removed");
     } catch {
-      setMessage("files.project.removeFailed");
+      if (!destroyed) setMessage("files.project.removeFailed");
+    } finally {
+      projectMutationPending = false;
+      if (!destroyed) replaceView();
     }
-    replaceView();
   };
 
-  const clearFailedProjectResume = (projectId) => {
-    if (!projectPort || !failedProjectResume || failedProjectResume.projectId !== projectId) return;
+  const clearFailedProjectResume = async (projectId) => {
+    if (!projectPort || !failedProjectResume || failedProjectResume.projectId !== projectId
+      || projectMutationPending) return;
     const project = projectSnapshot?.projects.find((candidate) => candidate.id === projectId);
     if (!project || project.lastFilePath !== failedProjectResume.path) {
       failedProjectResume = null;
@@ -1428,14 +1461,18 @@ export function mountFileSpaceControls(
       replaceView();
       return;
     }
+    projectMutationPending = true;
     try {
-      projectSnapshot = projectPort.clearLastFile(projectId);
+      await updateProjectSnapshot("clearLastFile", projectId);
+      if (destroyed) return;
       failedProjectResume = null;
       setMessage("files.project.lastFileForgotten");
     } catch {
-      setMessage("files.project.lastFileForgetFailed");
+      if (!destroyed) setMessage("files.project.lastFileForgetFailed");
+    } finally {
+      projectMutationPending = false;
+      if (!destroyed) replaceView();
     }
-    replaceView();
   };
 
   const enterRecentMode = () => {
@@ -1460,6 +1497,45 @@ export function mountFileSpaceControls(
     previewPending = false;
     textPreview = null;
     replaceView();
+  };
+
+  const removeSelectedRecent = async () => {
+    const selected = selectedRecentEntry();
+    if (!recentPort || !selected || recentMutationPending) return;
+    recentMutationPending = true;
+    try {
+      await updateRecentSnapshot("remove", selected.path);
+      if (destroyed) return;
+      setMessage("files.recents.removedMessage", { name: selected.name });
+      selectedRecentPath = null;
+      previewRequestOrdinal += 1;
+      previewPending = false;
+      textPreview = null;
+    } catch {
+      if (!destroyed) setMessage("files.recents.updateFailed");
+    } finally {
+      recentMutationPending = false;
+      if (!destroyed) replaceView();
+    }
+  };
+
+  const clearRecentHistory = async () => {
+    if (!recentPort || recentMutationPending) return;
+    recentMutationPending = true;
+    try {
+      await updateRecentSnapshot("clear");
+      if (destroyed) return;
+      setMessage("files.recents.clearedMessage");
+      selectedRecentPath = null;
+      previewRequestOrdinal += 1;
+      previewPending = false;
+      textPreview = null;
+    } catch {
+      if (!destroyed) setMessage("files.recents.updateFailed");
+    } finally {
+      recentMutationPending = false;
+      if (!destroyed) replaceView();
+    }
   };
 
   const enterTrashMode = async () => {
@@ -1864,13 +1940,19 @@ export function mountFileSpaceControls(
       const next = validateTextForRequest(await port.readTextFile(path), path);
       if (destroyed || ordinal !== previewRequestOrdinal) return;
       textPreview = next;
-      if (recentPort) recentPort.recordOpened(next.path);
+      if (recentPort) {
+        try {
+          await updateRecentSnapshot("recordOpened", next.path);
+        } catch {
+          if (!destroyed) setMessage("files.recents.updateFailed");
+        }
+      }
       const project = projectForFilePath(next.path);
       if (projectPort && project) {
         try {
-          projectSnapshot = projectPort.recordFileOpened(project.id, next.path);
+          await updateProjectSnapshot("recordFileOpened", project.id, next.path);
         } catch {
-          setMessage("files.preview.projectActivityFailed");
+          if (!destroyed) setMessage("files.preview.projectActivityFailed");
         }
       }
     } catch (error) {
@@ -1944,8 +2026,13 @@ export function mountFileSpaceControls(
       const next = validateListingForRequest(await operation, destinationPath);
       if (destroyed || ordinal !== requestOrdinal) return;
       listing = next;
+      let recentUpdateFailed = false;
       if (source.mode === "move" && recentPort) {
-        recentPort.relocate(source.sourceFullPath, nextPath);
+        try {
+          await updateRecentSnapshot("relocate", source.sourceFullPath, nextPath);
+        } catch {
+          recentUpdateFailed = true;
+        }
       }
       transferEntry = null;
       selectedPath = nextPath;
@@ -1957,7 +2044,8 @@ export function mountFileSpaceControls(
       previewRequestOrdinal += 1;
       previewPending = false;
       textPreview = null;
-      setMessage(
+      if (recentUpdateFailed) setMessage("files.recents.updateFailed");
+      else setMessage(
         source.mode === "copy" ? "files.transfer.copied" : "files.transfer.moved",
         { name: source.name, path: destinationPath },
       );
@@ -2075,13 +2163,18 @@ export function mountFileSpaceControls(
       );
       if (destroyed || ordinal !== requestOrdinal) return;
       listing = next;
+      let recentUpdateFailed = false;
       if (recentPort) {
         for (const recent of recentSnapshot?.entries ?? []) {
           if (
             recent.path === previousPath
             || recent.path.startsWith(`${previousPath}/`)
           ) {
-            recentPort.remove(recent.path);
+            try {
+              await updateRecentSnapshot("remove", recent.path);
+            } catch {
+              recentUpdateFailed = true;
+            }
           }
         }
       }
@@ -2095,7 +2188,8 @@ export function mountFileSpaceControls(
       previewRequestOrdinal += 1;
       previewPending = false;
       textPreview = null;
-      setMessage("files.trash.moved", { name: selected.name });
+      if (recentUpdateFailed) setMessage("files.recents.updateFailed");
+      else setMessage("files.trash.moved", { name: selected.name });
     } catch (error) {
       if (destroyed || ordinal !== requestOrdinal) return;
       const status = operationStatus(error);
@@ -2298,7 +2392,14 @@ export function mountFileSpaceControls(
       );
       if (destroyed || ordinal !== requestOrdinal) return;
       listing = next;
-      if (recentPort) recentPort.relocate(previousPath, nextPath);
+      let recentUpdateFailed = false;
+      if (recentPort) {
+        try {
+          await updateRecentSnapshot("relocate", previousPath, nextPath);
+        } catch {
+          recentUpdateFailed = true;
+        }
+      }
       selectedPath = nextPath;
       if (!selectionIsVisible()) selectedPath = null;
       renamingPath = null;
@@ -2308,7 +2409,8 @@ export function mountFileSpaceControls(
         previewPending = false;
         textPreview = null;
       }
-      setMessage("files.rename.renamed", { oldName: selected.name, newName });
+      if (recentUpdateFailed) setMessage("files.recents.updateFailed");
+      else setMessage("files.rename.renamed", { oldName: selected.name, newName });
     } catch (error) {
       if (destroyed || ordinal !== requestOrdinal) return;
       const status = operationStatus(error);
@@ -2507,27 +2609,12 @@ export function mountFileSpaceControls(
     }
     const recentRemove = event.target.closest("[data-file-recent-remove]");
     if (recentRemove && root.contains(recentRemove) && recentPort) {
-      const selected = selectedRecentEntry();
-      if (selected) {
-        setMessage("files.recents.removedMessage", { name: selected.name });
-        selectedRecentPath = null;
-        previewRequestOrdinal += 1;
-        previewPending = false;
-        textPreview = null;
-        recentPort.remove(selected.path);
-        replaceView();
-      }
+      void removeSelectedRecent();
       return;
     }
     const recentClear = event.target.closest("[data-file-recent-clear]");
     if (recentClear && root.contains(recentClear) && recentPort) {
-      setMessage("files.recents.clearedMessage");
-      selectedRecentPath = null;
-      previewRequestOrdinal += 1;
-      previewPending = false;
-      textPreview = null;
-      recentPort.clear();
-      replaceView();
+      void clearRecentHistory();
       return;
     }
     const recentSearchClear = event.target.closest("[data-file-recent-search-clear]");
