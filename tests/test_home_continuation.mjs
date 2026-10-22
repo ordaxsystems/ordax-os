@@ -124,14 +124,24 @@ test("Home continuation presents two recent projects and two recent files withou
   assert.ok(Object.isFrozen(presentation.items));
 });
 
-test("Home continuation stays absent on first use instead of rendering an empty dashboard card", () => {
-  const presentation = createHomeContinuationPresentation({
+test("Home continuation distinguishes initialized empty owners from unavailable context", () => {
+  const initialized = createHomeContinuationPresentation({
     projects: { persistence: "device", projects: [] },
     recentFiles: { persistence: "device", entries: [] },
   });
 
-  assert.deepEqual(presentation, {
+  // Initialized canonical owners may present their normal empty state;
+  // absence of recorded activity is not absence of an available source.
+  assert.deepEqual(initialized, {
+    visible: true,
+    empty: true,
+    items: [],
+  });
+
+  const unavailable = createHomeContinuationPresentation();
+  assert.deepEqual(unavailable, {
     visible: false,
+    empty: true,
     items: [],
   });
 });
