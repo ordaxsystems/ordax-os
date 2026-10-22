@@ -6,6 +6,13 @@
 
   const STATIC_PAIRS = [
     ["Planos e benefícios", "Plans and benefits"],
+    ["Chamadas MCP observadas", "Observed MCP tool calls"],
+    ["Medição ainda não disponível", "Measurement not yet available"],
+    ["Consultando registros", "Retrieving records"],
+    ["Nenhuma amostra disponível", "No samples available"],
+    ["Somente registros observados no mês UTC. Não representam franquia, cobrança ou uso completo.", "Only observed records for the UTC month. They are not a quota, charge or complete usage."],
+    ["A coleta MCP está desativada neste momento.", "MCP collection is currently disabled."],
+    ["Os demais recursos e limites continuam indisponíveis até a integração dos serviços oficiais.", "Other resources and limits remain unavailable until official services are integrated."],
     ["Consulte os benefícios previstos e os valores de referência.", "Review planned benefits and reference prices."],
     ["Contratação", "Purchasing"],
     ["Spaces ativos", "Active Spaces"],
