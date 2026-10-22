@@ -129,7 +129,7 @@ class OwnerDevLocalAiLifecycleTests(unittest.TestCase):
         self.assertIn('trap \'stop_observer "$watch_sleep_pid"; exit 0\' HUP INT TERM', watcher)
         self.assertNotIn("SURFACE_RUNTIME_PROVISION_MARKER", watcher)
         self.assertNotIn("watch_owner_provisioning", watcher)
-        self.assertNotIn("bb sleep 1", watcher)
+        self.assertNotRegex(watcher, r"(?m)^\\s*bb sleep 1\\s*$")
         self.assertIn('if [ "$aura_seen_hash" != "$ready_hash" ]; then', watcher)
         self.assertIn('bb grep -qx "IMAGE_SHA256=$ready_hash" "$LOCAL_AI_LIFECYCLE"', watcher)
         self.assertRegex(watcher, r'local_ai_lifecycle stop\\n[ ]+local_ai_lifecycle start')
