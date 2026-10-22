@@ -375,6 +375,13 @@ of each responsibility must be identified before an optimization:
 - **Always-visible indicators:** a single mounted tray owner may observe a
   capability at a bounded interval; a Settings panel should refresh on entry
   and only poll while actively visible, without competing with the tray.
+- **Native update status:** `system/adapters/native/update-runtime.mjs` is the
+  sole Surface watcher for the host update endpoint. Preserve its fast 750 ms
+  cadence during active update transactions/manual checks, use a slower
+  3-second cadence for an observed idle host, and publish only changes to the
+  fully validated status contract. Pending asynchronous reads must not publish
+  after disposal; health-acknowledgement and rollback gates remain intact.
+  These are client-side polling budgets, not the interval of Git fetches.
 - **Intelligence:** local model acquisition and inference are subordinate to
   Base/ESP maintenance; optional background work must never block a usable
   desktop or recovery.

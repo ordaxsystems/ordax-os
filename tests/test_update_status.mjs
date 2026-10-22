@@ -160,6 +160,99 @@ test("native update watcher implements neutral update status port", () => {
   watcher.dispose();
 });
 
+test("native update watcher polls less often at idle and publishes only changes", async () => {
+  const scheduled = [];
+  const sourceSha = "a".repeat(40);
+  const update = {
+    sourceSha,
+    status: "running",
+    phase: "idle",
+    applyMode: "initial",
+  };
+  let reads = 0;
+  const observed = [];
+  const windowRef = {
+    async fetch() {
+      reads += 1;
+      return { ok: true, async json() { return { ...update }; } };
+    },
+    location: { href: "http://127.0.0.1:8765/", reload() {}, replace() {} },
+    setTimeout(callback, delay) {
+      scheduled.push({ callback, delay });
+      return scheduled.length;
+    },
+    clearTimeout() {},
+  };
+  const watcher = createNativeUpdateWatcher(windowRef, {
+    intervalMs: 750,
+    idleIntervalMs: 3000,
+    onState: (value) => observed.push(value),
+  });
+  const notifications = [];
+  const unsubscribe = watcher.subscribe((value) => notifications.push(value));
+  const flush = () => new Promise((resolve) => setImmediate(resolve));
+
+  try {
+    await flush();
+    assert.equal(reads, 1);
+    assert.equal(scheduled[0].delay, 3000);
+    assert.equal(observed.length, 1);
+    assert.equal(notifications.length, 1);
+
+    scheduled[0].callback();
+    await flush();
+    assert.equal(reads, 2);
+    assert.equal(scheduled[1].delay, 3000);
+    assert.equal(observed.length, 1, "unchanged status must not rebroadcast");
+    assert.equal(notifications.length, 1);
+
+    update.phase = "checking";
+    scheduled[1].callback();
+    await flush();
+    assert.equal(scheduled[2].delay, 750);
+    assert.equal(observed.length, 2, "active state change must reach listeners");
+
+    update.phase = "idle";
+    update.manualCheckPending = true;
+    scheduled[2].callback();
+    await flush();
+    assert.equal(scheduled[3].delay, 750, "manual checks remain responsive");
+    assert.equal(observed.length, 3);
+    assert.equal(watcher.getSnapshot().manualCheckPending, true);
+  } finally {
+    unsubscribe();
+    watcher.dispose();
+  }
+});
+
+test("disposed native update watcher ignores a late asynchronous response", async () => {
+  const sourceSha = "a".repeat(40);
+  let release;
+  let reloads = 0;
+  let broadcasts = 0;
+  let scheduled = 0;
+  const windowRef = {
+    fetch() { return new Promise((resolve) => { release = resolve; }); },
+    location: { href: "http://127.0.0.1:8765/", reload() { reloads += 1; } },
+    setTimeout() { scheduled += 1; return scheduled; },
+    clearTimeout() {},
+  };
+  const watcher = createNativeUpdateWatcher(windowRef, {
+    onState() { broadcasts += 1; },
+  });
+  watcher.dispose();
+  release({
+    ok: true,
+    async json() {
+      return { sourceSha, status: "applied", applyMode: "reload" };
+    },
+  });
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(broadcasts, 0);
+  assert.equal(reloads, 0);
+  assert.equal(scheduled, 0);
+});
+
 test("native reload URL carries target SHA and bounded retry marker", () => {
   const url = buildReloadUrl(
     "http://127.0.0.1:8765/composition/native/index.html?source=old#surface",
