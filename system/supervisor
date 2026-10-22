@@ -2455,6 +2455,12 @@ check_for_update() {
     rejected_sha=$(read_state_value "$REJECTED_FILE")
 
     if [ "$remote_sha" = "$current" ]; then
+        # An acquired checkout may still be waiting for its versioned native
+        # Base. Never block the canonical Base request behind helper receipt.
+        if [ -f "$BOOT_REFRESH_FILE" ] && [ ! -L "$BOOT_REFRESH_FILE" ]; then
+            pending_base_sha=$(read_state_value "$BOOT_REFRESH_FILE")
+            [ "$pending_base_sha" = "$current" ] && request_dev_base_candidate "$current"
+        fi
         refresh_dev_helpers "$current"
         # A post-swap helper failure must not be silently promoted to
         # "running" on the next poll. The canonical helper receipt is the
@@ -2526,6 +2532,15 @@ check_for_update() {
         active_after_failure=$(current_sha)
         if [ "$reason" = "pull-helper-refresh-failed" ] &&
            [ "$active_after_failure" = "$remote_sha" ]; then
+            # The checkout was committed but helper activation is waiting for
+            # the versioned Base. Arm the existing acquisition owner despite
+            # returning an honest failure to the update UI.
+            if [ "$LOW_LEVEL_CHANGED" -eq 1 ] &&
+               validate_updated_tree "$APPLY_MODE"; then
+                mark_boot_refresh_required "$active_after_failure"
+                request_dev_base_candidate "$active_after_failure"
+                log "Git checkout committed; native Base candidate requested before helper installation"
+            fi
             write_update_state "$active_after_failure" pull-error none
         else
             write_update_state "$old_sha" pull-error none
