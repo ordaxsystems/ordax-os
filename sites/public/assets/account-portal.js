@@ -236,7 +236,9 @@
           || value.billable !== false || value.observed_only !== true
           || value.coverage !== "partial_observational"
           || typeof value.collection_active_now !== "boolean"
+          || value.quota !== null || value.charge !== null
           || !/^\d{4}-(?:0[1-9]|1[0-2])-01$/.test(value.current_month)
+          || !/^\d{4}-(?:0[1-9]|1[0-2])-01$/.test(value.previous_month)
           || !Array.isArray(value.entries) || value.entries.length > 256
           || !value.entries.every(row => row && (row.month === value.current_month || row.month === value.previous_month)
             && /^[a-z][a-z0-9._-]{1,95}$/.test(row.tool_name)
