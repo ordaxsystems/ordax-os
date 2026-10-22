@@ -71,6 +71,21 @@ class OwnerUsbDurablePowerTransitionTests(unittest.TestCase):
                             proc.terminate()
                             proc.wait(timeout=5)
 
+    def test_base_update_aura_child_remains_owned_during_usb_shutdown(self):
+        # The Owner USB safety patch must not replace or regress the single
+        # canonical Base Update agent when Aura is updated on main. The agent
+        # terminates its Aura child before closing its own rootfs-backed logs;
+        # meanwhile its idle sleep children must keep independent null FDs.
+        source = (ROOT / "system/services/base-update/agent.sh").read_text(encoding="utf-8")
+        self.assertEqual(source.count("stop_aura_worker() {"), 1)
+        self.assertEqual(source.count("launch_optional_aura_worker() {"), 1)
+        self.assertEqual(source.count("        launch_optional_aura_worker\\n"), 1)
+        self.assertEqual(source.count("trap stop_aura_worker EXIT"), 1)
+        for signal, code in (("TERM", 143), ("INT", 130), ("HUP", 129)):
+            self.assertIn(f"trap 'stop_aura_worker; exit {code}' {signal}", source)
+        self.assertIn('AURA_WORKER_PID=$!', source)
+        self.assertIn('/bin/busybox sleep "$INTERVAL" </dev/null >/dev/null 2>&1', source)
+
     def test_owner_usb_contract_and_profile_isolation(self):
         source = GUARDIAN.read_text(encoding="utf-8")
         subprocess.run(["/bin/sh", "-n", str(GUARDIAN)], check=True)
