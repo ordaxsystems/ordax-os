@@ -2,6 +2,7 @@
 import hashlib
 import importlib.util
 import json
+import struct
 from pathlib import Path
 import tempfile
 import unittest
@@ -13,7 +14,28 @@ verifier = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(verifier)
 
 COMMIT = "a" * 40
-ELF = b"\x7fELF\x02" + b"\x00" * 13 + b"\x3e\x00" + b"mock-binary"
+def make_elf():
+    """Minimal ELF64 x86_64 with actual PT_INTERP, PT_DYNAMIC and DT_NEEDED."""
+    elf = bytearray(4096)
+    elf[:6] = b"\x7fELF\x02\x01"
+    elf[18:20] = b"\x3e\x00"
+    struct.pack_into("<Q", elf, 32, 64)
+    struct.pack_into("<HH", elf, 54, 56, 3)
+    interpreter = b"/lib/ld-musl-x86_64.so.1\x00"
+    elf[512:512 + len(interpreter)] = interpreter
+    table = b"\x00libc.musl-x86_64.so.1\x00libz.so.1\x00"
+    elf[768:768 + len(table)] = table
+    struct.pack_into("<IIQQQQQQ", elf, 64, 1, 0, 0, 0, 0, 4096, 4096, 4096)
+    struct.pack_into("<IIQQQQQQ", elf, 120, 3, 0, 512, 512, 512,
+                     len(interpreter), len(interpreter), 1)
+    struct.pack_into("<IIQQQQQQ", elf, 176, 2, 0, 640, 640, 640, 64, 64, 8)
+    entries = ((1, 1), (1, table.index(b"libz.so.1")), (5, 768), (10, len(table)))
+    for offset, entry in enumerate(entries):
+        struct.pack_into("<qQ", elf, 640 + offset * 16, *entry)
+    return bytes(elf)
+
+
+ELF = make_elf()
 PROOF = {"ok": True, "network_used": False, "device_credential_used": False,
          "graphical_actions": [], "probes": ["filesystem", "terminal", "supervised-process"],
          "profile": "owner-development-usb"}
@@ -34,6 +56,12 @@ class CandidateVerifierTests(unittest.TestCase):
             "python_required_on_device": False, "graphical_control_implemented": False,
             "signature_present": False, "installation_authorized_by_candidate": False,
             "stable_activation_authorized": False,
+            "independent_base_abi_ready": False,
+            "independent_base_abi_blockers": ["external-dynamic-elf-interpreter",
+                "external-shared-libraries", "alpine-build-provenance",
+                "embedded-python-runtime-closure-unverified"],
+            "elf_interpreter": "/lib/ld-musl-x86_64.so.1",
+            "elf_needed_libraries": ["libc.musl-x86_64.so.1", "libz.so.1"],
         }
         self.proof = dict(PROOF)
         self.lock = {
@@ -46,6 +74,10 @@ class CandidateVerifierTests(unittest.TestCase):
                 "executable_size_bytes": len(ELF), "offline_proof_verified": True,
                 "device_execution_proven": False, "signed_distribution_authorized": False,
                 "native_graphical_control_proven": False,
+                "independent_base_abi_ready": False,
+                "independent_base_abi_blockers": list(self.manifest["independent_base_abi_blockers"]),
+                "elf_interpreter": self.manifest["elf_interpreter"],
+                "elf_needed_libraries": list(self.manifest["elf_needed_libraries"]),
             },
             "distribution": {"runtime_artifact_claimed": False, "runtime_packaged_in_stable": False,
                              "source_binding_only": True},
@@ -72,6 +104,10 @@ class CandidateVerifierTests(unittest.TestCase):
         self.assertEqual(result["source_commit"], COMMIT)
         self.assertFalse(result["activation_authorized"])
         self.assertFalse(result["device_execution_proven"])
+        self.assertFalse(result["independent_base_abi_ready"])
+        self.assertEqual(result["elf_interpreter"], "/lib/ld-musl-x86_64.so.1")
+        self.assertEqual(result["elf_needed_libraries"],
+                         ["libc.musl-x86_64.so.1", "libz.so.1"])
 
     def test_tampered_archive_fails_sha(self):
         with self.archive.open("ab") as out:
@@ -100,6 +136,34 @@ class CandidateVerifierTests(unittest.TestCase):
     def test_zip_may_not_include_extra_path(self):
         self.write_fixture(extras=[("../../outside", "data")])
         with self.assertRaisesRegex(verifier.CandidateError, "ZIP members"):
+            self.verify()
+
+    def test_manifest_cannot_claim_independent_base_ready(self):
+        self.manifest["independent_base_abi_ready"] = True
+        self.lock["candidate_evidence"]["independent_base_abi_ready"] = True
+        self.write_fixture()
+        with self.assertRaisesRegex(verifier.CandidateError, "Independent Base ABI"):
+            self.verify()
+
+    def test_manifest_cannot_drop_unresolved_abi_blockers(self):
+        self.manifest["independent_base_abi_blockers"] = []
+        self.lock["candidate_evidence"]["independent_base_abi_blockers"] = []
+        self.write_fixture()
+        with self.assertRaisesRegex(verifier.CandidateError, "Independent Base ABI"):
+            self.verify()
+
+    def test_elf_interpreter_is_verified_from_executable_bytes(self):
+        self.manifest["elf_interpreter"] = "/lib/fake-loader"
+        self.lock["candidate_evidence"]["elf_interpreter"] = "/lib/fake-loader"
+        self.write_fixture()
+        with self.assertRaisesRegex(verifier.CandidateError, "native ELF loader"):
+            self.verify()
+
+    def test_elf_libraries_are_verified_from_executable_bytes(self):
+        self.manifest["elf_needed_libraries"] = ["libnotreally.so.1"]
+        self.lock["candidate_evidence"]["elf_needed_libraries"] = ["libnotreally.so.1"]
+        self.write_fixture()
+        with self.assertRaisesRegex(verifier.CandidateError, "native ELF loader"):
             self.verify()
 
     def test_dispatch_must_remain_off(self):
