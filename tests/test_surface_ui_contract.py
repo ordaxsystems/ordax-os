@@ -70,6 +70,17 @@ WEB_WORKFLOW = ROOT / ".github" / "workflows" / "surface-web-candidate.yml"
 
 
 class SurfaceUiContractTests(unittest.TestCase):
+    def test_desktop_clock_reuses_regional_formatters(self):
+        source = DESKTOP_SHELL.read_text(encoding="utf-8")
+        section = source.split("export function mountDesktopClock(", 1)[1]
+        self.assertIn("const nextKey = JSON.stringify([locale, timeZone]);", section)
+        self.assertIn("if (nextKey !== formattingKey)", section)
+        self.assertEqual(section.count("new Intl.DateTimeFormat("), 2)
+        self.assertIn("timeFormatter.format(now)", section)
+        self.assertIn("dateFormatter.format(now)", section)
+        self.assertIn("preferencePort?.subscribe(render)", section)
+        self.assertIn("clock.clearInterval(timer)", section)
+
     def test_visual_surface_app_preference_and_store_sources_exist(self):
         for path in (
             SURFACE / "surface.mjs",
