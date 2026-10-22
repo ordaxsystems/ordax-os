@@ -176,7 +176,8 @@ def plan(root: Path, first: Path, second: Path, source_commit: str) -> dict:
         "source_contract_sha256": source_digest,
         "kernel_fragment_sha256": fragment_digest,
         "kernel_version": version,
-        "independent_byte_identical_builds": True,
+        "matching_verified_artifact_bytes": True,
+        "independent_build_process_attested": False,
         "candidate_artifacts_sha256": dict(sorted(first_artifacts.items())),
         "current_kernel_sha256": old,
         "candidate_kernel_sha256": latest,
@@ -190,6 +191,7 @@ def plan(root: Path, first: Path, second: Path, source_commit: str) -> dict:
         "physical_write_authorized": False,
         "remaining_release_gates": [
             "reviewed-exact-source-ci-attestation",
+            "independent-build-process-and-pinned-environment-evidence",
             "byte-complete-creator-payload-with-exact-kernel",
             "signed-release-and-canonical-manifest-rebinding",
             "qemu-uefi-fallback-and-physical-proof",
