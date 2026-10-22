@@ -153,6 +153,67 @@ For the prototype, `release_id` equals `source_commit`, so immutable release ide
 See `docs/RELEASE-CHANNEL.md` for the system-wide delivery contract.
 
 
+## Signed release bundles from removable media (offline, non-activating)
+
+The same canonical `ordax-release-agent` materializers accept one of two
+mutually exclusive sources: `--envelope-url` (HTTPS) or `--local-bundle`
+(absolute path to a read-only, separate input directory). This is an **input
+transport**, not a second updater and not permission to arm a boot slot.
+
+A portable package directory contains the unmodified canonical files:
+
+```text
+<offline-bundle>/
+  release-envelope.json             # signed Ed25519 envelope (all schemas)
+  system.tar                        # release-manifest/1 only
+  system.erofs                      # release-manifest/2, /3, /4
+  native-surface-runtime.erofs      # release-manifest/3, /4
+  local-ai-runtime.erofs            # release-manifest/4 only
+```
+
+Only files required by the **exact signed schema** should be needed for the
+operation. Artifact names, roles, HTTPS provenance URLs, sizes and SHA-256 are
+checked against the signed manifest. The HTTPS URLs remain signed provenance;
+the offline command **does not request those URLs**. The package directory and
+output root must not overlap. Symlinked ancestors, symlinked envelope/artifact
+files, malformed files, wrong repository/commit/schema, truncated or changed
+artifacts fail closed **before** release staging; the copy path rechecks the
+same artifact hash and size. A mixed `--local-bundle`/`--envelope-url`
+request is rejected.
+
+For example, with an already trusted public Ed25519 key installed locally
+and a pinned, authorized 40-hex release SHA:
+
+```sh
+ordax-release-agent materialize-portable-v4 \
+  --local-bundle /media/ORDAX-DATA/verified-package \
+  --trust /ordax/bootstrap/trust/release-ed25519.json \
+  --root /ordax-data/.ordax \
+  --expected-commit <pinned-signed-40-hex-SHA>
+ordax-release-agent verify-portable-v4-exact \
+  --trust /ordax/bootstrap/trust/release-ed25519.json \
+  --root /ordax-data/.ordax \
+  --expected-commit <pinned-signed-40-hex-SHA>
+```
+
+Use `materialize` for the legacy signed system.tar schema,
+`materialize-portable` for v2, `materialize-portable-v3` for v3 and
+`materialize-portable-v4` for v4. The existing exact verification and
+Portable `ordax-portable-state` health/rollback owners are unchanged.
+No `current`, `known-good`, BootNext or ESP pointer is modified by
+materialization. An old signed SHA remains subject to the *separate* activation
+policy, anti-downgrade and health gates: possession of a valid signature
+**alone** is not authorization to downgrade.
+
+A host/Windows tool may **transport** those signed bytes to removable media,
+but it must still independently identify the intended disk, preserve the data,
+check write/readback, and safely detach it. This CLI does not perform partition
+repair, Creator reflashing or hardware identity checks. In particular a bundle
+stored on the same corrupt ext4 cannot recover that filesystem: the recovery
+runtime must be bootable independently of the damaged state partition.
+This capability is a software/CI gate of issue #2005, **not** physical USB
+certification.
+
 ## Exact offline activation
 
 A Stable/MVP update must not resolve `latest` again after staged health succeeds. The release agent therefore exposes an offline exact activation primitive:

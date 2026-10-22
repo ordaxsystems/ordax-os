@@ -13,8 +13,8 @@ CREATOR_WORKFLOW = ROOT / ".github/workflows/creator-payload-candidate.yml"
 FULL_MEDIA_WORKFLOW = ROOT / ".github/workflows/full-bootstrap-media-proof.yml"
 ASSEMBLER = ROOT / "tools/creator/assemble.py"
 
-CURRENT_REFRESH_TARGET = "56c02520fd81d390d6c2d2269aa05be02d6bef68dfba67bead8ad481b983f43b"
-PREVIOUS_REFRESH_TARGET = "444e428d33bd4f3c6ef6d3f0ef403cde43e8e31be85369ce3604178d11dfbabd"
+CURRENT_REFRESH_TARGET = "1de2e4a55a4c69d003ea32ca9f23f34a62ba9501c14859c2e9ea41bf6a74de38"
+PREVIOUS_REFRESH_TARGET = "56c02520fd81d390d6c2d2269aa05be02d6bef68dfba67bead8ad481b983f43b"
 FORMER_REFRESH_TARGET = "a514b8280cecb0b3f70e681eb4ba2167bf599ac2fa336c546cfbe71f46ea9c8e"
 
 
