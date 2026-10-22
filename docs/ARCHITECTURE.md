@@ -334,6 +334,42 @@ Remote management is intentionally **not** a bootstrap dependency or daily-devel
 
 If a later product requirement appears for remote device management, diagnostics or recovery, an OrdaX-owned Remote Core may be added as a normal release capability using mature standard transport/cryptography. SSH remains unnecessary unless explicitly justified later.
 
+## Runtime footprint and ownership discipline
+
+Performance is an architectural contract, not a reason to invent a second
+runtime, disable diagnostics, or weaken integrity/recovery. The canonical owner
+of each responsibility must be identified before an optimization:
+
+- **Boot and Base:** `bootstrap/` and the existing Base-update owner. Only
+  boot-critical work may block Surface readiness. Signed acquisition and
+  rollback retain their integrity gates.
+- **Native composition:** `system/composition/native/main.mjs` wires the
+  shared ports, not independent implementations of polling, account, network,
+  memory or update policy.
+- **Surface rendering:** `system/surface/ui/` owns the shared view and lifecycle;
+  platform adapters expose only capabilities. An unopened/minimized window must
+  not keep performing its own optional network discovery.
+- **Always-visible indicators:** a single mounted tray owner may observe a
+  capability at a bounded interval; a Settings panel should refresh on entry
+  and only poll while actively visible, without competing with the tray.
+- **Intelligence:** local model acquisition and inference are subordinate to
+  Base/ESP maintenance; optional background work must never block a usable
+  desktop or recovery.
+- **Personal/background work:** use the existing bounded background runtime;
+  creating another scheduler or independent work queue requires an explicit
+  architectural decision and lifecycle tests.
+
+For every new timer, daemon or watcher, require: a named canonical owner,
+documented necessity and activation condition, non-overlapping requests,
+bounded failure/backoff, teardown on close/shutdown, and a regression test.
+Prefer events/subscriptions to repeated reads where the source provides
+reliable change notifications. Cache derived presentation objects by the
+preferences they depend on, invalidating them when those preferences change.
+Never claim a lower CPU/RAM/boot footprint solely from fewer source files or
+fewer timers: compare measurements on the same hardware/build before and
+after, including boot-to-ready, resident memory, idle CPU and active polling.
+Existing signed-release and physical-write gates remain unchanged.
+
 ## Failure model
 
 Integrity, canonical release verification, unknown required capabilities, Git checkout invariants and physical-target selection fail closed. Loss of network must not make the machine unbootable once a known-good canonical release or a valid local development checkout exists.
