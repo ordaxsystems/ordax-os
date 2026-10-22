@@ -310,7 +310,12 @@ atomic_checkout_exchange() {
         echo "ordax-git: native atomic checkout exchange unavailable; existing checkout preserved" >&2
         return 1
     fi
-    "$EXCHANGE_BIN" "$atomic_left" "$atomic_right"
+    "$EXCHANGE_BIN" --exchange "$atomic_left" "$atomic_right" "$TRANSACTION_FILE"
+}
+
+atomic_seal_state() {
+    [ -x "$EXCHANGE_BIN" ] && [ ! -L "$EXCHANGE_BIN" ] || return 1
+    "$EXCHANGE_BIN" --seal-state "$STATE_DIR"
 }
 
 recover_interrupted_swap() {
@@ -348,6 +353,9 @@ recover_interrupted_swap() {
         if is_sha "$TX_OLD" && [ "$TX_OLD" != "$TX_EXPECTED" ]; then
             write_state "$PREVIOUS_FILE" "$TX_OLD"
         fi
+        # Persist the authoritative current/previous receipts before
+        # retiring the only known-good old checkout.
+        atomic_seal_state || return 1
         if [ -n "$old_location" ]; then
             if [ -z "$TX_OLD" ] || [ "$TX_REASON" = invalid ]; then
                 quarantine_interrupted_checkout "$old_location" "$TX_ID" || return 1
@@ -356,6 +364,7 @@ recover_interrupted_swap() {
             fi
         fi
         clear_pull_transaction
+        atomic_seal_state || return 1
         echo "ordax-git: interrupted exchange already activated at $TX_EXPECTED; reconciled" >&2
         return 0
     fi
@@ -386,8 +395,10 @@ recover_interrupted_swap() {
             mv "$old_location" "$WORKTREE" || return 1
         fi
         write_state "$CURRENT_FILE" "$TX_OLD"
+        atomic_seal_state || return 1
         rm -rf "$stage" 2>/dev/null || true
         clear_pull_transaction
+        atomic_seal_state || return 1
         echo "ordax-git: atualizacao anterior foi interrompida; versao local $TX_OLD restaurada" >&2
         return 0
     fi
@@ -396,7 +407,9 @@ recover_interrupted_swap() {
        [ "$active_sha" = "$TX_OLD" ]; then
         rm -rf "$stage" 2>/dev/null || true
         write_state "$CURRENT_FILE" "$TX_OLD"
+        atomic_seal_state || return 1
         clear_pull_transaction
+        atomic_seal_state || return 1
         echo "ordax-git: candidate not activated; keeping $TX_OLD" >&2
         return 0
     fi
@@ -732,7 +745,9 @@ replace_runtime_checkout() {
         if is_sha "$old_sha"; then
             write_state "$CURRENT_FILE" "$old_sha"
         fi
+        atomic_seal_state || return 1
         clear_pull_transaction
+        atomic_seal_state || return 1
         echo "ordax-git: candidate validation failed; previous checkout preserved" >&2
         return 1
     fi
@@ -742,10 +757,12 @@ replace_runtime_checkout() {
         write_state "$PREVIOUS_FILE" "$old_sha"
     fi
     write_state "$CURRENT_FILE" "$expected_sha"
+    atomic_seal_state || return 1
     if [ -e "$retired" ]; then
         rm -rf "$retired" || return 1
     fi
     clear_pull_transaction
+    atomic_seal_state || return 1
     echo "ordax-git: checkout atomico ativado em $expected_sha"
     return 0
 }
