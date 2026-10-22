@@ -224,12 +224,31 @@ async function start() {
       fetchImpl: typeof window.fetch === "function" ? window.fetch.bind(window) : null,
     }),
   );
+  // Taxonomy is independent read-only navigation metadata. Once the verified
+  // Profile catalog exists, load it concurrently with the remaining Native
+  // capabilities. Never fetch it if the canonical catalog is unavailable.
+  const bundledProfileTaxonomyPromise = bundledProfilePacksPromise.then((packs) => (
+    packs === null
+      ? null
+      : optionalNativeProbe(
+          "OrdaX Profile taxonomy unavailable; preserving ungrouped catalog",
+          () => loadBundledProfileTaxonomy({
+            fetchImpl: typeof window.fetch === "function" ? window.fetch.bind(window) : null,
+          }),
+        )
+  ));
   // Profile inventory is a read-only, independent Native Host observation.
   // Start it with the other optional probes instead of serializing it after
   // Intelligence, app semantics and Personal OrdaX composition.
   const profileComponentInventoryPromise = optionalNativeProbe(
     "OrdaX Profile component inventory unavailable; using empty session inventory",
     () => createNativeProfileComponentInventory(window),
+  );
+  // Device identity is only needed by First Run, mounted after real Surface
+  // health. Start its verified read now but do not gate shell readiness on it.
+  const deviceProfilePromise = optionalNativeProbe(
+    "OrdaX native device profile unavailable",
+    () => createNativeDeviceProfile(window),
   );
   const optionalPortsPromise = Promise.all([
     optionalNativeProbe(
@@ -297,10 +316,6 @@ async function start() {
       () => createNativeDisplayOutputs(window),
     ),
     optionalNativeProbe(
-      "OrdaX native device profile unavailable",
-      () => createNativeDeviceProfile(window),
-    ),
-    optionalNativeProbe(
       "OrdaX native system metrics unavailable",
       () => createNativeSystemMetrics(window),
     ),
@@ -346,7 +361,6 @@ async function start() {
     productConnector,
     keyboardLayout,
     displayOutputs,
-    deviceProfile,
     systemMetrics,
     recoveryStatus,
     powerStatus,
@@ -626,21 +640,22 @@ async function start() {
   if (bundledProfilePacks !== null) {
     try {
       profileDistributions = createLocalProfileDistributions(bundledProfilePacks.packs);
-      try {
-        profileTaxonomy = Object.freeze({
-          catalogPort: createProfilePackCatalogFromPacks({ packs: bundledProfilePacks.packs }),
-          taxonomy: await loadBundledProfileTaxonomy({
-            fetchImpl: typeof window.fetch === "function" ? window.fetch.bind(window) : null,
-          }),
-        });
-        // Fail closed on unknown categories before the UI can open.
-        createProfileTaxonomyView({
-          catalogPort: profileTaxonomy.catalogPort,
-          taxonomy: profileTaxonomy.taxonomy,
-        });
-      } catch (error) {
-        profileTaxonomy = null;
-        console.warn("OrdaX Profile taxonomy unavailable; preserving ungrouped catalog", error);
+      const taxonomy = await bundledProfileTaxonomyPromise;
+      if (taxonomy !== null) {
+        try {
+          profileTaxonomy = Object.freeze({
+            catalogPort: createProfilePackCatalogFromPacks({ packs: bundledProfilePacks.packs }),
+            taxonomy,
+          });
+          // Fail closed on unknown categories before the UI can open.
+          createProfileTaxonomyView({
+            catalogPort: profileTaxonomy.catalogPort,
+            taxonomy: profileTaxonomy.taxonomy,
+          });
+        } catch (error) {
+          profileTaxonomy = null;
+          console.warn("OrdaX Profile taxonomy unavailable; preserving ungrouped catalog", error);
+        }
       }
     } catch (error) {
       console.warn("OrdaX Profile distribution metadata unavailable; continuing without Profiles", error);
@@ -1065,6 +1080,9 @@ async function start() {
     // or prevent first boot. First Run proceeds without a guessed plan.
     reportClientDiagnostic("first-run-app-selection", error);
   }
+  // The slow/missing optional Device Profile can no longer delay the real
+  // shell health acknowledgement. First Run still receives the verified port.
+  const deviceProfile = await deviceProfilePromise;
   let firstRun = null;
   try {
     firstRun = mountFirstRunExperience(root, {
