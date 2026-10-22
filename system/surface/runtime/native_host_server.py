@@ -28,7 +28,11 @@ _RUNTIME_DIR = os.path.dirname(os.path.abspath(__file__))
 if _RUNTIME_DIR not in sys.path:
     sys.path.insert(0, _RUNTIME_DIR)
 
-from native_request_boundary import expected_surface_authority, request_is_trusted
+from native_request_boundary import (
+    expected_surface_authority,
+    opaque_signed_module_read_is_trusted,
+    request_is_trusted,
+)
 from native_local_ai_bridge import (
     MAX_REQUEST_BYTES as MAX_LOCAL_AI_REQUEST_BYTES,
     NATIVE_LOCAL_AI_PREFIX,
@@ -3781,15 +3785,27 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
         return self._request_is_trusted()
 
     def _request_is_trusted(self) -> bool:
-        if request_is_trusted(self.headers, self.server.server_address, self.path):
+        if request_is_trusted(
+            self.headers, self.server.server_address, self.path, self.command,
+        ):
             return True
         self._empty(403)
         return False
 
     def end_headers(self) -> None:
-        if not urlsplit(self.path).path.startswith("/__ordax/native/"):
+        parsed_path = urlsplit(self.path).path
+        if not parsed_path.startswith("/__ordax/native/"):
             self.send_header("Cache-Control", "no-store, max-age=0")
             self.send_header("Pragma", "no-cache")
+        if parsed_path in USER_FILE_PATHS:
+            # Reject no-cors cross-origin embeds in addition to ingress checks.
+            self.send_header("Cross-Origin-Resource-Policy", "same-origin")
+        if opaque_signed_module_read_is_trusted(self.headers, self.path, self.command):
+            # Only signed script bytes may be imported from an isolated,
+            # sandboxed document with an opaque origin. Never use wildcard
+            # CORS or allow credentials on the privileged Native API.
+            self.send_header("Access-Control-Allow-Origin", "null")
+            self.send_header("Vary", "Origin")
         super().end_headers()
 
     def _write_local_ai_result(self, status: int, payload: bytes) -> None:

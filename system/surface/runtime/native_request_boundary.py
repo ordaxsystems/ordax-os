@@ -15,6 +15,9 @@ NATIVE_API_PREFIX = "/__ordax/native/"
 ACCOUNT_API_PREFIXES = ("/auth/", "/sync/", "/account/", "/network/")
 TRUSTED_BIND_HOST = "127.0.0.1"
 _ALLOWED_FETCH_SITES = frozenset({"same-origin", "none"})
+# Code bytes only. An opaque-origin iframe must never be authorized as the
+# trusted Surface or gain metadata, file, identity, or other Native API ports.
+OPAQUE_MODULE_PREFIX = "/__ordax/native/component-module/"
 
 
 def _ascii_equal(left: object, right: str) -> bool:
@@ -102,7 +105,39 @@ def browser_context_is_trusted(headers, trusted_origin: str) -> bool:
     return True
 
 
-def request_is_trusted(headers, server_address, request_target: str) -> bool:
+def opaque_signed_module_read_is_trusted(headers, request_target: str, method: str) -> bool:
+    """Allow only CORS script GETs from an opaque sandbox, never Native APIs.
+
+    This grants access to verified component *code bytes*, not to host data or
+    authority. The canonical signed-slot reader still validates every file.
+    Untrusted JavaScript cannot set Sec-Fetch-* headers in normal browsers.
+    """
+    if method != "GET" or not isinstance(request_target, str):
+        return False
+    try:
+        parsed = urlsplit(request_target)
+    except (TypeError, ValueError):
+        return False
+    if (not parsed.path.startswith(OPAQUE_MODULE_PREFIX)
+            or not parsed.path.endswith((".mjs", ".js"))
+            or parsed.query or parsed.fragment or "?" in request_target):
+        return False
+    if _header_values(headers, "Origin") != ("null",):
+        return False
+    if _header_values(headers, "Sec-Fetch-Mode") != ("cors",):
+        return False
+    if _header_values(headers, "Sec-Fetch-Dest") != ("script",):
+        return False
+    if _header_values(headers, "Sec-Fetch-Site") != ("cross-site",):
+        return False
+    if _header_values(headers, "Cookie") or _header_values(headers, "Authorization"):
+        return False
+    if _header_values(headers, "Referer"):
+        return False
+    return True
+
+
+def request_is_trusted(headers, server_address, request_target: str, method: str = "GET") -> bool:
     """Apply authority pinning to every request and provenance checks to APIs."""
 
     try:
@@ -117,5 +152,7 @@ def request_is_trusted(headers, server_address, request_target: str) -> bool:
     if path.startswith(NATIVE_API_PREFIX) or any(
         path.startswith(prefix) for prefix in ACCOUNT_API_PREFIXES
     ):
-        return browser_context_is_trusted(headers, origin)
+        if browser_context_is_trusted(headers, origin):
+            return True
+        return opaque_signed_module_read_is_trusted(headers, request_target, method)
     return True

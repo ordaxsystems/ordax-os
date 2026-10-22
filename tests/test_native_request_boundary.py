@@ -4,6 +4,7 @@ import http.client
 import importlib.util
 from pathlib import Path
 import tempfile
+from unittest.mock import patch
 import threading
 import unittest
 
@@ -117,6 +118,50 @@ class NativeRequestBoundaryPolicyTests(unittest.TestCase):
             with self.subTest(headers=list(headers.items())):
                 self.assertFalse(boundary.browser_context_is_trusted(headers, trusted))
 
+    def test_opaque_script_module_read_is_the_only_foreign_native_api_exception(self):
+        address = ("127.0.0.1", 8765)
+        signed_js = "/__ordax/native/component-module/notes/current/0.3.0/" + "a" * 40 + "/src/runtime.mjs"
+        opaque = self.headers(
+            ("Host", "127.0.0.1:8765"),
+            ("Origin", "null"),
+            ("Sec-Fetch-Mode", "cors"),
+            ("Sec-Fetch-Dest", "script"),
+            ("Sec-Fetch-Site", "cross-site"),
+        )
+        self.assertFalse(boundary.browser_context_is_trusted(
+            opaque, "http://127.0.0.1:8765",
+        ))
+        self.assertTrue(boundary.request_is_trusted(opaque, address, signed_js, "GET"))
+        for path in (
+            "/__ordax/native/files", "/__ordax/native/file-content",
+            "/__ordax/native/file-import", "/__ordax/native/trash",
+            "/__ordax/native/component-runtime?component=notes&state=current",
+            "/__ordax/native/app-data/secret", "/auth/session",
+            signed_js + "?unsafe=1", signed_js.replace(".mjs", ".css"),
+        ):
+            with self.subTest(path=path):
+                self.assertFalse(boundary.request_is_trusted(opaque, address, path, "GET"))
+        for method in ("HEAD", "POST", "PUT", "OPTIONS"):
+            self.assertFalse(boundary.request_is_trusted(opaque, address, signed_js, method))
+        for name, value in (
+            ("Host", "evil.example:8765"),
+            ("Origin", "https://evil.example"),
+            ("Sec-Fetch-Mode", "no-cors"),
+            ("Sec-Fetch-Dest", "image"),
+            ("Sec-Fetch-Site", "same-origin"),
+            ("Cookie", "sid=private"),
+            ("Authorization", "Bearer secret"),
+            ("Referer", "http://127.0.0.1:8765/"),
+        ):
+            with self.subTest(header=name):
+                changed = [(key, val) for key, val in opaque.items() if key.lower() != name.lower()]
+                changed.append((name, value))
+                self.assertFalse(boundary.request_is_trusted(
+                    self.headers(*changed), address, signed_js, "GET",
+                ))
+        duplicate = self.headers(*opaque.items(), ("Origin", "null"))
+        self.assertFalse(boundary.request_is_trusted(duplicate, address, signed_js, "GET"))
+
     def test_account_and_sync_routes_are_privileged_loopback_apis(self):
         address = ("127.0.0.1", 8765)
         host = "127.0.0.1:8765"
@@ -201,12 +246,18 @@ class NativeRequestBoundaryIntegrationTests(unittest.TestCase):
         self.temporary.cleanup()
 
     def request(self, path, *, headers=None, method="GET"):
+        status, body, _headers = self.request_with_headers(
+            path, headers=headers, method=method,
+        )
+        return status, body
+
+    def request_with_headers(self, path, *, headers=None, method="GET"):
         connection = http.client.HTTPConnection("127.0.0.1", self.port, timeout=2)
         try:
             connection.request(method, path, headers=headers or {})
             response = connection.getresponse()
             body = response.read()
-            return response.status, body
+            return response.status, body, dict(response.getheaders())
         finally:
             connection.close()
 
@@ -305,6 +356,45 @@ class NativeRequestBoundaryIntegrationTests(unittest.TestCase):
             },
         )
         self.assertEqual(status, 403)
+
+    def test_opaque_module_origin_can_read_verified_code_but_not_native_files(self):
+        signed_js = "/__ordax/native/component-module/notes/current/0.3.0/" + "a" * 40 + "/src/runtime.mjs"
+        opaque = {
+            "Origin": "null", "Sec-Fetch-Mode": "cors",
+            "Sec-Fetch-Dest": "script", "Sec-Fetch-Site": "cross-site",
+        }
+        self.server.component_slot_read_available = True
+        # Integration isolates ingress/HTTP headers. Native signed-slot file
+        # hash/revision verification is covered by its own separate tests.
+        with patch.object(native_host, "read_component_runtime_file", return_value=b"export const ok = true;") as read:
+            status, body, headers = self.request_with_headers(signed_js, headers=opaque)
+            self.assertEqual(status, 200)
+            self.assertEqual(body, b"export const ok = true;")
+            self.assertEqual(headers.get("Access-Control-Allow-Origin"), "null")
+            self.assertEqual(headers.get("Vary"), "Origin")
+            self.assertNotIn("Access-Control-Allow-Credentials", headers)
+            read.assert_called_once()
+            for method, path in (
+                ("POST", signed_js),
+                ("GET", native_host.FILES_PATH),
+                ("GET", native_host.COMPONENT_RUNTIME_PATH + "?component=notes&state=current"),
+                ("GET", signed_js.replace(".mjs", ".json")),
+            ):
+                with self.subTest(method=method, path=path):
+                    status, _body, denied_headers = self.request_with_headers(
+                        path, headers=opaque, method=method,
+                    )
+                    self.assertEqual(status, 403)
+                    self.assertNotIn("Access-Control-Allow-Origin", denied_headers)
+            self.assertEqual(read.call_count, 1)
+
+    def test_no_cors_file_preview_has_same_origin_resource_policy(self):
+        # An ordinary Surface file response is retained; a browser in a
+        # cross-origin/no-cors context must not embed its bytes.
+        status, _body, headers = self.request_with_headers(native_host.FILES_PATH + "?path=/")
+        self.assertEqual(status, 200)
+        self.assertEqual(headers.get("Cross-Origin-Resource-Policy"), "same-origin")
+        self.assertNotIn("Access-Control-Allow-Origin", headers)
 
     def test_dns_rebinding_style_host_alias_cannot_reach_native_api(self):
         status, _body = self.request(
