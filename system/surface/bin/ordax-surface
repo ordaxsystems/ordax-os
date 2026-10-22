@@ -699,6 +699,33 @@ fallback_with_reason() {
     console_fallback
 }
 
+runtime_packages() {
+    package_manifest=$SYSTEM_ROOT/surface/runtime/packages.txt
+    [ -f "$package_manifest" ] && [ ! -L "$package_manifest" ] || return 1
+    package_count=0
+    seen_packages=
+    while IFS= read -r package || [ -n "$package" ]; do
+        case "$package" in
+            ''|[!A-Za-z0-9]*|*[!A-Za-z0-9+_.-]*) return 1 ;;
+        esac
+        case " $seen_packages " in
+            *" $package "*) return 1 ;;
+        esac
+        seen_packages="$seen_packages $package"
+        package_count=$((package_count + 1))
+        printf '%s\n' "$package"
+    done <"$package_manifest"
+    [ "$package_count" -gt 0 ]
+}
+
+runtime_media_is_ready() {
+    # Baseline demuxers/decoders used by the platform's advertised file types.
+    # This checks the runtime payload, not physical audio/acceleration health.
+    for plugin in alsa playback isomp4 matroska mpg123 wavparse flac libav; do
+        [ -f "$RUNTIME_ROOT/usr/lib/gstreamer-1.0/libgst$plugin.so" ] || return 1
+    done
+}
+
 runtime_base_is_ready() {
     if [ "$DISTRIBUTION_PROFILE" = "stable-mvp" ] ||
        [ "$VERIFIED_RUNTIME_MODE" = "verified-erofs-overlay" ]; then
@@ -781,9 +808,11 @@ migrate_legacy_runtime() {
         return 1
     fi
 
+    packages=$(runtime_packages) || return 1
+    # Intentional word splitting of validated package names, never shell code.
     if ! run_bounded_apk "$RUNTIME_UPGRADE_TIMEOUT" \
         --root "$STAGING_DIR/rootfs" --keys-dir /etc/apk/keys --no-cache add \
-        xwayland eudev libinput-udev python3 py3-gobject3 gtk+3.0 webkit2gtk-4.1 \
+        $packages \
         >>"$HOST_LOG" 2>&1; then
         echo "ordax-surface: legacy runtime migration timed out or failed" >>"$HOST_LOG"
         rm -rf "$STAGING_DIR"
@@ -816,12 +845,11 @@ REPOSITORIES
 
     printf 'OrdaX: preparando novo runtime grafico...\n'
     echo "ordax-surface: provisioning replaceable graphical runtime in $RUNTIME_STATE" >>"$HOST_LOG"
+    packages=$(runtime_packages) || return 1
+    # The same source manifest feeds the immutable CI build and dev provisioning.
     if ! run_bounded_apk "$RUNTIME_INSTALL_TIMEOUT" \
         --root "$STAGING_DIR/rootfs" --keys-dir /etc/apk/keys --no-cache --initdb add \
-        alpine-baselayout busybox ca-certificates cage xwayland \
-        python3 py3-gobject3 gtk+3.0 webkit2gtk-4.1 \
-        seatd-launch mesa-dri-gallium mesa-egl mesa-gbm font-dejavu \
-        eudev libinput-udev >>"$HOST_LOG" 2>&1; then
+        $packages >>"$HOST_LOG" 2>&1; then
         echo "ordax-surface: graphical runtime provisioning timed out or failed" >>"$HOST_LOG"
         rm -rf "$STAGING_DIR"
         STAGING_DIR=""
@@ -834,13 +862,14 @@ REPOSITORIES
 upgrade_existing_runtime() {
     printf 'OrdaX: atualizando runtime grafico existente...\n'
     echo "ordax-surface: extending existing graphical runtime with WebKit browser host support" >>"$HOST_LOG"
+    packages=$(runtime_packages) || return 1
     if ! run_bounded_apk "$RUNTIME_UPGRADE_TIMEOUT" \
         --root "$RUNTIME_ROOT" --keys-dir /etc/apk/keys --no-cache add \
-        xwayland eudev libinput-udev python3 py3-gobject3 gtk+3.0 webkit2gtk-4.1 >>"$HOST_LOG" 2>&1; then
+        $packages >>"$HOST_LOG" 2>&1; then
         echo "ordax-surface: graphical runtime upgrade timed out or failed" >>"$HOST_LOG"
         return 1
     fi
-    runtime_is_ready
+    runtime_is_ready && runtime_media_is_ready
 }
 
 ensure_runtime() {
@@ -864,7 +893,15 @@ ensure_runtime() {
         return 0
     fi
 
-    runtime_is_ready && return 0
+    if runtime_is_ready; then
+        if ! runtime_media_is_ready; then
+            if ! upgrade_existing_runtime; then
+                echo "ordax-surface: media codec upgrade incomplete; preserving the usable Surface" >>"$HOST_LOG"
+                runtime_is_ready || return 1
+            fi
+        fi
+        return 0
+    fi
     if runtime_base_is_ready; then
         upgrade_existing_runtime || return 1
         return 0

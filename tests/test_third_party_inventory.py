@@ -112,14 +112,15 @@ class ThirdPartyInventoryTests(unittest.TestCase):
 
     def test_native_surface_runtime_matches_apk_request(self):
         text = SURFACE.read_text(encoding="utf-8")
-        match = re.search(
-            r"--initdb add \\\n(?P<body>(?:\s+[^\n]+ \\\n)*\s+[^\n]+?) >>\"\$HOST_LOG\"",
-            text,
-        )
-        self.assertIsNotNone(match)
-        packages = match.group("body").replace("\\\n", " ").split()
         item = self.by_id["alpine-native-surface-runtime"]
-        self.assertEqual(item["packages"], packages)
+        self.assertEqual(item["source_authority"], "system/surface/runtime/packages.txt")
+        self.assertNotIn("packages", item)
+        packages = (ROOT / item["source_authority"]).read_text().splitlines()
+        self.assertTrue({"webkit2gtk-4.1", "gst-plugins-good", "gst-libav"}.issubset(packages))
+        self.assertIn("packages=$(runtime_packages)", text)
+        source = json.loads((ROOT / "bootstrap/surface-runtime/source.json").read_text())
+        self.assertEqual(source["packages_file"], item["source_authority"])
+        self.assertTrue(set(packages).issubset(source["apk_package_lock"]))
         self.assertIn("https://dl-cdn.alpinelinux.org/alpine/v3.22/main", text)
         self.assertIn("https://dl-cdn.alpinelinux.org/alpine/v3.22/community", text)
 
