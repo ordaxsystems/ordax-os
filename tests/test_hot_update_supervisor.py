@@ -167,7 +167,9 @@ class HotUpdateSupervisorContractTests(unittest.TestCase):
         )
     def test_git_update_operations_are_bounded(self):
         text = SYSTEM_SUPERVISOR.read_text(encoding="utf-8")
-        self.assertIn('/bin/busybox timeout -k 5 "$timeout_seconds"', text)
+        self.assertIn('/bin/busybox setsid /bin/sh -c', text)
+        self.assertIn('wait "$watchdog_pid" 2>/dev/null || true', text)
+        self.assertIn('kill -TERM "-$"', text)
         self.assertIn('-c http.lowSpeedLimit=1', text)
         self.assertIn('-c "http.lowSpeedTime=$GIT_LOW_SPEED_TIME"', text)
         self.assertIn('remote check failed or timed out after ${REMOTE_TIMEOUT}s', text)
