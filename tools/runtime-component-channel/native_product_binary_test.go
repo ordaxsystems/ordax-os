@@ -130,6 +130,48 @@ func TestNativeSignedSlotAllowsBoundELFWithoutActivation(t *testing.T) {
 	}
 }
 
+func TestNativeSignedReleaseV2ChecksExecutableSlotMode(t *testing.T) {
+	fixture := nativePackageFixture(t, true, 0o555)
+	dir := fixture.dir
+	compatibilityPath := filepath.Join(dir, "product-runtime.compatibility.json")
+	compatibility := canonicalCompatibilityFor(t, "product-runtime", "0.3.0")
+	if err := os.WriteFile(compatibilityPath, compatibility, 0o644); err != nil { t.Fatal(err) }
+	digest := sha256.Sum256(compatibility)
+	v2 := releaseDescriptorV2{
+		Schema: releaseSchemaV2, SourceRepository: productRuntimeSourceRepository,
+		SourceCommit: fixture.release.SourceCommit, CreatedFromRecipe: createdFromRecipe,
+		Component: fixture.release.Component, Package: fixture.release.Package,
+		Activation: fixture.release.Activation,
+		Compatibility: compatibilityBinding{
+			Name: filepath.Base(compatibilityPath), Schema: compatibilitySchemaV1,
+			SHA256: hex.EncodeToString(digest[:]), Size: int64(len(compatibility)),
+		},
+	}
+	bytes, err := marshalJSON(v2)
+	if err != nil { t.Fatal(err) }
+	releasePath := filepath.Join(dir, "runtime-component-release-v2.json")
+	if err := os.WriteFile(releasePath, bytes, 0o644); err != nil { t.Fatal(err) }
+	envelopePath := filepath.Join(dir, "envelope-v2.json")
+	if _, err := signReleaseV2(releasePath, compatibilityPath, fixture.privatePath,
+		fixture.trustPath, envelopePath, "native-runtime-test"); err != nil { t.Fatal(err) }
+	root := filepath.Join(dir, "slots-v2")
+	t.Cleanup(func(){allowTestTreeCleanup(root)})
+	_, slot, changed, err := stageComponentV2(envelopePath, fixture.trustPath,
+		fixture.packagePath, compatibilityPath, root)
+	if err != nil || !changed { t.Fatalf("signed native v2 stage changed=%v err=%v", changed, err) }
+	trust, err := os.ReadFile(fixture.trustPath)
+	if err != nil { t.Fatal(err) }
+	if _, err := verifySlotV2WithTrustBytes(slot, trust); err != nil { t.Fatal(err) }
+	if runtime.GOOS != "windows" {
+		path := filepath.Join(slot, filepath.FromSlash(productRuntimeExecutablePath))
+		if err := os.Chmod(path, 0o444); err != nil { t.Fatal(err) }
+		_, err := verifySlotV2WithTrustBytes(slot, trust)
+		if err == nil || !strings.Contains(err.Error(), "file mode mismatch") {
+			t.Fatalf("release/2 executable mode tampering was accepted: %v", err)
+		}
+	}
+}
+
 func TestNativeSignedSlotRejectsUnboundExecutableMode(t *testing.T) {
 	fixture := nativePackageFixture(t, true, 0o644)
 	_, err := inspectPackage(fixture.packagePath, fixture.release)
