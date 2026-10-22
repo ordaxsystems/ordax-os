@@ -146,8 +146,16 @@ class SurfaceRuntimeSourceContractTests(unittest.TestCase):
             self.assertIn(
                 "current-apk-lock-erofs-byte-reproducibility-proven", contract["closed_gates"],
             )
+            self.assertIn(
+                "current-apk-lock-offline-surface-runtime-qemu-handoff-proven",
+                contract["closed_gates"],
+            )
             self.assertNotIn(
                 "repeat-byte-reproducible-erofs-build-on-current-apk-lock",
+                contract["promotion_blockers"],
+            )
+            self.assertNotIn(
+                "prove-current-lock-offline-surface-runtime-qemu-handoff",
                 contract["promotion_blockers"],
             )
         else:
@@ -158,8 +166,16 @@ class SurfaceRuntimeSourceContractTests(unittest.TestCase):
             self.assertNotIn(
                 "current-apk-lock-erofs-byte-reproducibility-proven", contract["closed_gates"],
             )
+            self.assertNotIn(
+                "current-apk-lock-offline-surface-runtime-qemu-handoff-proven",
+                contract["closed_gates"],
+            )
             self.assertIn(
                 "repeat-byte-reproducible-erofs-build-on-current-apk-lock",
+                contract["promotion_blockers"],
+            )
+            self.assertIn(
+                "prove-current-lock-offline-surface-runtime-qemu-handoff",
                 contract["promotion_blockers"],
             )
 
