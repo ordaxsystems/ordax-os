@@ -49,6 +49,7 @@ NATIVE_COMPONENT_REQUIRED = (
     "BR2_SHARED_LIBS=y", "BR2_PACKAGE_PYTHON3=y",
     "BR2_PACKAGE_PYTHON3_PYC_ONLY=y", "BR2_PACKAGE_PYTHON3_SSL=y", "BR2_PACKAGE_PYTHON3_ZLIB=y",
     "BR2_PACKAGE_CA_CERTIFICATES=y", "BR2_TARGET_ROOTFS_TAR=y",
+    "BR2_PACKAGE_PYTHON_HTTPX=y",
 )
 OWNER_USERSPACE_CONFIG = (
     "BR2_PACKAGE_CA_CERTIFICATES=y",
@@ -987,7 +988,8 @@ def smoke_test_private_native_python(target: Path, abi: dict) -> dict:
     code = (
         "import importlib,json,os,pathlib,ssl,sys,zlib;"
         "root=pathlib.Path(os.environ['ORDAX_NATIVE_PRIVATE_TARGET']).resolve();"
-        "mods=('ssl','_ssl','hashlib','_hashlib','zlib','json');"
+        "mods=('ssl','_ssl','hashlib','_hashlib','zlib','json',"
+        "'httpx','httpcore','anyio','certifi','idna','h11');"
         "paths={n:str(pathlib.Path(importlib.import_module(n).__file__).resolve())"
         " for n in mods};"
         "assert all(pathlib.Path(p).is_relative_to(root) for p in paths.values()),paths;"
@@ -995,9 +997,13 @@ def smoke_test_private_native_python(target: Path, abi: dict) -> dict:
         "assert zlib.decompress(zlib.compress(b'ordax-kernel-only-smoke'))"
         "==b'ordax-kernel-only-smoke';"
         "assert ssl.OPENSSL_VERSION.startswith('OpenSSL ');"
+        "req=importlib.import_module('httpx').Request('GET','https://example.invalid/probe');"
+        "assert req.method=='GET' and req.url.host=='example.invalid';"
         "print(json.dumps({'python_version':sys.version.split()[0],"
         "'module_names':list(mods),'ssl_version':ssl.OPENSSL_VERSION,"
-        "'all_imports_private':True,'tls_and_zlib_operational':True}))"
+        "'all_imports_private':True,'tls_and_zlib_operational':True,"
+        "'httpx_offline_request_construction_proven':True,"
+        "'runtime_dependency_versions_reconciled':False}))"
     )
     env = os.environ.copy()
     for key in ("PYTHONPATH", "PYTHONSTARTUP", "PYTHONINSPECT", "LD_PRELOAD",
@@ -1005,6 +1011,10 @@ def smoke_test_private_native_python(target: Path, abi: dict) -> dict:
         env.pop(key, None)
     env.update({
         "PYTHONHOME": str(target / "usr"),
+        # -S suppresses .pth/site hooks. Explicit private site-packages are
+        # therefore supplied without allowing the CI runner's Python modules.
+        "PYTHONPATH": str(target / "usr/lib" /
+                          Path(abi["stdlib"]).name / "site-packages"),
         "LD_LIBRARY_PATH": f"{target}/lib:{target}/usr/lib",
         "ORDAX_NATIVE_PRIVATE_TARGET": str(target.resolve(strict=True)),
         "PYTHONDONTWRITEBYTECODE": "1",
@@ -1027,7 +1037,7 @@ def smoke_test_private_native_python(target: Path, abi: dict) -> dict:
     if (not isinstance(smoke, dict)
             or not re.fullmatch(r"3\.\d+\.\d+", str(smoke.get("python_version", "")))
             or not smoke["python_version"].startswith(interpreter.name.removeprefix("python") + ".")
-            or smoke.get("module_names") != ["ssl", "_ssl", "hashlib", "_hashlib", "zlib", "json"]
+            or smoke.get("module_names") != ["ssl", "_ssl", "hashlib", "_hashlib", "zlib", "json", "httpx", "httpcore", "anyio", "certifi", "idna", "h11"]
             or smoke.get("all_imports_private") is not True
             or smoke.get("tls_and_zlib_operational") is not True
             or not str(smoke.get("ssl_version", "")).startswith("OpenSSL ")):
@@ -1038,6 +1048,9 @@ def smoke_test_private_native_python(target: Path, abi: dict) -> dict:
         "module_names": smoke["module_names"],
         "all_imports_private": True,
         "tls_and_zlib_operational": True,
+        "httpx_offline_request_construction_proven": True,
+        # The transitive dependencies do not all match the Runtime lock.
+        "runtime_dependency_versions_reconciled": False,
         "linux_kernel_execution_proven": True,
         "ordax_usb_execution_proven": False,
         "runtime_agent_packaged": False,
@@ -1121,9 +1134,11 @@ def verify_native_python_receipt(out: Path) -> dict:
     if (not isinstance(smoke, dict)
             or smoke.get("status") != "kernel-host-smoke-pass"
             or not re.fullmatch(r"3\.\d+\.\d+", str(smoke.get("python_version", "")))
-            or smoke.get("module_names") != ["ssl", "_ssl", "hashlib", "_hashlib", "zlib", "json"]
+            or smoke.get("module_names") != ["ssl", "_ssl", "hashlib", "_hashlib", "zlib", "json", "httpx", "httpcore", "anyio", "certifi", "idna", "h11"]
             or smoke.get("all_imports_private") is not True
             or smoke.get("tls_and_zlib_operational") is not True
+            or smoke.get("httpx_offline_request_construction_proven") is not True
+            or smoke.get("runtime_dependency_versions_reconciled") is not False
             or smoke.get("linux_kernel_execution_proven") is not True
             or smoke.get("ordax_usb_execution_proven") is not False
             or smoke.get("runtime_agent_packaged") is not False
