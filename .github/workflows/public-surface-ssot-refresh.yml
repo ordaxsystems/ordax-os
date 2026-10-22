@@ -13,6 +13,8 @@ on:
       - 'system/surface/ui/audio-output-controls.mjs'
       - 'system/surface/workspace/components/central/settings.tsx'
       - 'system/surface/ui/desktop-shell.mjs'
+      - 'system/surface/ui/home-continuation.mjs'
+      - 'system/surface/ui/home-pending.mjs'
       - 'system/services/surface/meridian-navigation.mjs'
       - 'system/services/i18n/surface.mjs'
       - 'system/services/i18n/catalog/**'

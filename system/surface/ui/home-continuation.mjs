@@ -84,11 +84,12 @@ export function createHomeContinuationPresentation({
     : [];
 
   const items = [...projectItems, ...recentItems].slice(0, MAX_HOME_CONTINUATION_ITEMS);
-  return Object.freeze({
-    visible: projectSnapshot !== null || recentSnapshot !== null,
-    empty: items.length === 0,
-    items: Object.freeze(items),
-  });
+  // No project or recent file means there is no continuation to present.
+  // Keep first-use Home focused and free of placeholder cards.
+  if (items.length === 0) {
+    return Object.freeze({ visible: false, items: Object.freeze([]) });
+  }
+  return Object.freeze({ visible: true, items: Object.freeze(items) });
 }
 
 function node(documentObject, tag, className = "", text = undefined) {
@@ -160,15 +161,6 @@ export function mountHomeContinuation(
     openFiles.dataset.homeContinuationAction = "open-files";
     heading.append(title, openFiles);
     next.append(heading);
-
-    if (presentation.empty) {
-      next.append(node(
-        documentObject,
-        "p",
-        "ordax-home-continuation-empty",
-        t("home.continuation.empty"),
-      ));
-    }
 
     for (const item of presentation.items) {
       const button = node(documentObject, "button", "ordax-space-link");
