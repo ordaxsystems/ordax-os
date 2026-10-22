@@ -11,7 +11,7 @@ import {
 import { assertIdentitySessionPort } from "../../contracts/identity-session.mjs";
 import { assertIdentityCredentialsPort, sameRegistrationLegalPolicy } from "../../contracts/identity-credentials.mjs";
 import { readRememberedLoginEmail } from "../../services/account/remembered-login-email.mjs";
-import { HOSTED_ACCOUNT_SIGNUP_URL } from "../../services/account/hosted-signup.mjs";
+import { HOSTED_ACCOUNT_SIGNUP_URL, requestNativeHostedSignup } from "../../services/account/hosted-signup.mjs";
 import {
   assertLocalSessionPort,
   validateLocalSessionSnapshot,
@@ -1237,6 +1237,11 @@ export function mountFirstRunExperience(
   };
 
   const onClick = (event) => {
+    const hostedSignup = event.target.closest("[data-first-run-hosted-signup]");
+    if (hostedSignup && overlay.contains(hostedSignup)) {
+      requestNativeHostedSignup(event, documentObject.defaultView);
+      return;
+    }
     const button = event.target.closest("[data-first-run-action]");
     if (!button || !overlay.contains(button) || button.disabled) return;
     const kind = button.dataset.firstRunAction;
