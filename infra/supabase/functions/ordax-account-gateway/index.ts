@@ -56,6 +56,9 @@ const PWNED_PASSWORDS_USER_AGENT = "OrdaX-Account-Gateway/1";
 const PUBLIC_SITE_ACCOUNT_ENABLED = false;
 const ACCOUNT_REGISTRATION_ENABLED = false;
 const PUBLIC_WEB_AUTH_ENABLED = true;
+// Public login stays available. Signup requires separately approved immutable
+// legal documents; an active database policy alone is not release proof.
+const PUBLIC_WEB_REGISTRATION_ENABLED = false;
 // Limit public login/registration to explicit methods and routes; sync,
 // memory, Network and account-data operations remain behind their own gates.
 const PUBLIC_WEB_AUTH_ROUTES = new Set([
@@ -308,7 +311,7 @@ async function registrationLegalPolicy(publicRequest = false) {
   return {
     $schema: REGISTRATION_POLICY_SCHEMA,
     active: true,
-    registrationEnabled: ACCOUNT_REGISTRATION_ENABLED || (publicRequest && PUBLIC_WEB_AUTH_ENABLED),
+    registrationEnabled: ACCOUNT_REGISTRATION_ENABLED || (publicRequest && PUBLIC_WEB_REGISTRATION_ENABLED),
     policyId: item.policy_id,
     privacy: {
       version: item.privacy_version,
@@ -890,7 +893,7 @@ async function confirmPublicSignup(url: URL) {
 }
 
 async function credentials(req: Request, register: boolean) {
-  if (register && !(ACCOUNT_REGISTRATION_ENABLED || (PUBLIC_WEB_AUTH_ENABLED && publicSiteRequest(req)))) {
+  if (register && !(ACCOUNT_REGISTRATION_ENABLED || (PUBLIC_WEB_REGISTRATION_ENABLED && publicSiteRequest(req)))) {
     return error(
       503,
       "account-registration-disabled",

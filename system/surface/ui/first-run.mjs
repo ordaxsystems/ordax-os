@@ -11,6 +11,7 @@ import {
 import { assertIdentitySessionPort } from "../../contracts/identity-session.mjs";
 import { assertIdentityCredentialsPort, sameRegistrationLegalPolicy } from "../../contracts/identity-credentials.mjs";
 import { readRememberedLoginEmail } from "../../services/account/remembered-login-email.mjs";
+import { HOSTED_ACCOUNT_SIGNUP_URL, requestNativeHostedSignup } from "../../services/account/hosted-signup.mjs";
 import {
   assertLocalSessionPort,
   validateLocalSessionSnapshot,
@@ -634,13 +635,22 @@ export function mountFirstRunExperience(
         }
       }
       body.append(form);
-      const mode = action(documentObject, registering ? "Já tenho conta" : "Criar conta", "account-mode");
-      mode.classList.add("ordax-first-run-action-quiet");
-      mode.disabled = identityPending !== null || (!registering && !capabilitySnapshot.identityRegister);
-      body.append(mode);
-      if (!capabilitySnapshot.identityRegister) {
+      if (capabilitySnapshot.identityRegister) {
+        const mode = action(documentObject, registering ? "Já tenho conta" : "Criar conta", "account-mode");
+        mode.classList.add("ordax-first-run-action-quiet");
+        mode.disabled = identityPending !== null;
+        body.append(mode);
+      } else {
+        const hostedRegistration = el(
+          documentObject, "a", "ordax-first-run-action ordax-first-run-action-quiet", "Criar conta no site OrdaX",
+        );
+        hostedRegistration.href = HOSTED_ACCOUNT_SIGNUP_URL;
+        hostedRegistration.target = "_blank";
+        hostedRegistration.rel = "noopener noreferrer";
+        hostedRegistration.dataset.firstRunHostedSignup = "";
+        body.append(hostedRegistration);
         body.append(el(documentObject, "p", "ordax-first-run-account-help",
-          "Novos cadastros ainda não estão disponíveis aqui. Use uma conta existente ou continue sem conta."));
+          "O cadastro é protegido pelo site oficial. Após confirmar seu e-mail, volte ao OrdaX e entre na sua conta. Você também pode continuar sem conta."));
       }
     } else {
       body.append(availabilityPanel(documentObject, "Conta indisponível no momento",
@@ -1227,6 +1237,11 @@ export function mountFirstRunExperience(
   };
 
   const onClick = (event) => {
+    const hostedSignup = event.target.closest("[data-first-run-hosted-signup]");
+    if (hostedSignup && overlay.contains(hostedSignup)) {
+      requestNativeHostedSignup(event, documentObject.defaultView);
+      return;
+    }
     const button = event.target.closest("[data-first-run-action]");
     if (!button || !overlay.contains(button) || button.disabled) return;
     const kind = button.dataset.firstRunAction;

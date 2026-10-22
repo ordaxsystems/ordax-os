@@ -194,7 +194,9 @@ on:
       - 'tests/test_internet_popup_policy.py'
       - 'tests/test_internet_project_context_contract.py'
       - 'tests/test_native_host_module_integrity.py'
+      - 'tests/test_native_account_portal.py'
       - 'tests/test_windows_emulator_native_host.mjs'
+      - 'tests/test_native_hosted_registration.mjs'
       - 'tools/windows-emulator/account-gateway.mjs'
       - 'tests/test_native_account_gateway.py'
       - 'tests/test_native_request_boundary.py'
@@ -425,7 +427,9 @@ on:
       - 'tests/test_internet_popup_policy.py'
       - 'tests/test_internet_project_context_contract.py'
       - 'tests/test_native_host_module_integrity.py'
+      - 'tests/test_native_account_portal.py'
       - 'tests/test_windows_emulator_native_host.mjs'
+      - 'tests/test_native_hosted_registration.mjs'
       - 'tools/windows-emulator/account-gateway.mjs'
       - 'tests/test_native_request_boundary.py'
       - 'tests/test_first_run_native_http.py'
@@ -571,6 +575,7 @@ jobs:
           node --test tests/test_identity_actions.mjs
           node --test tests/test_identity_credentials.mjs
           node --test tests/test_windows_emulator_native_host.mjs
+          node --test tests/test_native_hosted_registration.mjs
           node --test tests/test_account_lifecycle.mjs
           node --test tests/test_power_actions.mjs
           node --test tests/test_power_status.mjs
@@ -648,6 +653,7 @@ jobs:
           python -m unittest tests.test_internet_favorites_contract -v
           python -m unittest tests.test_internet_history_contract -v
           python -m unittest tests.test_native_host_module_integrity -v
+          python -m unittest tests.test_native_account_portal -v
           python -m unittest tests.test_native_account_gateway -v
           python -m unittest tests.test_native_request_boundary -v
           python -m unittest tests.test_first_run_native_http -v

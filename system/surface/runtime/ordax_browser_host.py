@@ -59,6 +59,8 @@ from native_security_prompt_i18n import (
 )
 
 BRIDGE_NAME = "ordaxBrowser"
+# A distinct GTK view uses the unprivileged external context, never Surface's.
+OFFICIAL_ACCOUNT_SIGNUP_URL = "https://ordax.com.br/cadastro/"
 APP_DATA_COMPOSITION_BOOTSTRAP_SCHEMA = "ordax.native-app-data-composition-bootstrap/1"
 TRUSTED_STATE_UID = 0
 TAB_ID_RE = re.compile(r"^[a-z][a-z0-9-]{0,63}$")
@@ -179,6 +181,19 @@ def allowed_external_uri(uri: str) -> bool:
     return public_network_uri(uri, TOP_LEVEL_NETWORK_SCHEMES)
 
 
+def allowed_account_portal_uri(uri: str) -> bool:
+    if not allowed_external_uri(uri):
+        return False
+    try:
+        target = urlsplit(uri)
+        return (target.scheme.lower() == "https"
+                and target.hostname in {"ordax.com.br", "www.ordax.com.br"}
+                and target.port in (None, 443)
+                and not target.username and not target.password)
+    except ValueError:
+        return False
+
+
 def allowed_external_resource_uri(uri: str) -> bool:
     if not isinstance(uri, str) or not uri or len(uri) > MAX_URI_LENGTH:
         return False
@@ -263,6 +278,7 @@ class OrdaXBrowserHost:
         self.component_probation_rerun_requested: set[str] = set()
         self.session_path = os.path.join(self.profile_root, "session.json")
         self.tabs: dict[str, BrowserTab] = {}
+        self.account_portal_window = None
         self.active_tab_id: str | None = None
         self.find_active_tab_id: str | None = None
         self.find_query = ""
@@ -879,6 +895,62 @@ class OrdaXBrowserHost:
             return None
         return payload if isinstance(payload, dict) else None
 
+    def open_official_account_portal(self) -> None:
+        """User-triggered official signup in a separate, unprivileged WebKit view."""
+        if self.account_portal_window is not None:
+            self.account_portal_window.present()
+            return
+        if not allowed_account_portal_uri(OFFICIAL_ACCOUNT_SIGNUP_URL):
+            raise ValueError("official account destination is invalid")
+        popup = Gtk.Window(title="Conta OrdaX — cadastro oficial")
+        popup.set_default_size(1024, 740)
+        popup.set_transient_for(self.window)
+        popup.set_destroy_with_parent(True)
+        view = WebKit2.WebView.new_with_context(self.external_context)
+        view.connect("decide-policy", self.on_account_portal_policy)
+        container = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        toolbar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        back = Gtk.Button(label="Voltar")
+        back.set_sensitive(False)
+        back.connect("clicked", lambda _button: view.go_back() if view.can_go_back() else None)
+        view.connect("load-changed", lambda *_args: back.set_sensitive(view.can_go_back()))
+        toolbar.pack_start(back, False, False, 8)
+        container.pack_start(toolbar, False, False, 0)
+        container.pack_start(view, True, True, 0)
+        popup.add(container)
+        popup.connect("destroy", self.on_account_portal_destroyed)
+        self.account_portal_window = popup
+        view.load_uri(OFFICIAL_ACCOUNT_SIGNUP_URL)
+        popup.show_all()
+        popup.present()
+
+    def on_account_portal_destroyed(self, _window: object) -> None:
+        self.account_portal_window = None
+
+    def on_account_portal_policy(self, view: object, decision: object, decision_type: object) -> bool:
+        if decision_type not in {
+            WebKit2.PolicyDecisionType.NAVIGATION_ACTION,
+            WebKit2.PolicyDecisionType.NEW_WINDOW_ACTION,
+        }:
+            return False
+        try:
+            action = decision.get_navigation_action()
+            uri = action.get_request().get_uri()
+        except Exception:
+            decision.ignore()
+            return True
+        if not allowed_account_portal_uri(uri):
+            decision.ignore()
+            return True
+        if decision_type == WebKit2.PolicyDecisionType.NEW_WINDOW_ACTION:
+            # Legal-document links remain reachable without creating a WebKit
+            # related view or inheriting Surface permissions.
+            decision.ignore()
+            if action.is_user_gesture():
+                view.load_uri(uri)
+            return True
+        return False
+
     def on_surface_message(self, _manager: object, result: object) -> None:
         payload = self.decode_message(result)
         if payload is None:
@@ -891,6 +963,10 @@ class OrdaXBrowserHost:
                 self.emit_app_data_bootstrap()
             elif command == "snapshot.request":
                 self.emit_snapshot()
+            elif command == "account.signup.open":
+                if set(payload) != {"type"}:
+                    raise ValueError("account portal command fields are invalid")
+                self.open_official_account_portal()
             elif command == "tab.open":
                 self.open_tab(payload.get("tabId"), payload.get("url", ""))
             elif command == "page-selection.capture":

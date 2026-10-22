@@ -55,6 +55,8 @@ RECOVERY_SESSION_MAX_AGE = 10 * 60
 PUBLIC_SITE_ACCOUNT_ENABLED = False
 ACCOUNT_REGISTRATION_ENABLED = False
 PUBLIC_WEB_AUTH_ENABLED = True
+# Public registration is an independent, fail-closed release gate.
+PUBLIC_WEB_REGISTRATION_ENABLED = False
 PUBLIC_WEB_AUTH_ROUTES = frozenset({
     ("GET", "/auth/session"),
     ("GET", "/auth/registration-policy"),
@@ -559,7 +561,7 @@ class PublicIdentityGateway:
             {
                 "$schema": REGISTRATION_POLICY_SCHEMA,
                 "active": True,
-                "registrationEnabled": ACCOUNT_REGISTRATION_ENABLED or (public_request and PUBLIC_WEB_AUTH_ENABLED),
+                "registrationEnabled": ACCOUNT_REGISTRATION_ENABLED or (public_request and PUBLIC_WEB_REGISTRATION_ENABLED),
                 "policyId": policy.policy_id,
                 "privacy": {
                     "version": policy.privacy_version,
@@ -583,7 +585,7 @@ class PublicIdentityGateway:
         request_headers: Mapping[str, str],
         body: bytes,
     ) -> GatewayResponse:
-        if registration and not (ACCOUNT_REGISTRATION_ENABLED or (PUBLIC_WEB_AUTH_ENABLED and _public_site_request(request_headers))):
+        if registration and not (ACCOUNT_REGISTRATION_ENABLED or (PUBLIC_WEB_REGISTRATION_ENABLED and _public_site_request(request_headers))):
             return _error(
                 503,
                 "account-registration-disabled",
