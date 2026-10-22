@@ -165,6 +165,7 @@ a bounded cadence/concurrency policy and a tested teardown path.
 | Base/ESP staging and optional signed Aura acquisition | `system/services/base-update/agent.sh` with its canonical orchestrator | Optional download must yield to Base and recovery |
 | Local Aura process start/stop/retry on Owner USB | `bootstrap/dev-base/ordax-run` delegating to `system/services/local-ai/owner-dev-runtime.sh` | No second model server, no second update agent; the Native probe is health/read-only |
 | Surface network status | Native network adapter/tray | Settings may request additional details only while its Network view is active; no permanent duplicate inactive polling |
+| Native Surface entrypoint dependencies | `system/composition/native/main.mjs` | Eager imports must have real runtime consumers; nonparticipating adapters remain in their canonical modules but are not loaded by the boot entrypoint |
 
 Never add a second polling loop for an observation already owned by one of these
 components. Prefer an existing state/receipt/subscription and stop inactive UI
