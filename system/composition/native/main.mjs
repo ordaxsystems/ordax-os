@@ -405,7 +405,6 @@ async function start() {
   updateLocalAiHealth(localAi.getSnapshot());
   updateIntelligenceHealth(intelligence.getSnapshot());
   const localAiProbeSupervisor = createLocalAiProbeSupervisor({ localPort: localAi });
-  localAiProbeSupervisor.start();
 
   const localWorkspaceStore = createNativeWorkspaceStore(window);
   const recentFiles = fileSpace === null ? null : createRecentFilesRuntime({
@@ -992,6 +991,11 @@ async function start() {
   componentManager.setCurrentHealth("surface-shell", "healthy");
   void updateWatcher.markHealthy();
   const surfaceHeartbeat = createNativeSurfaceHeartbeat(window);
+
+  // Optional Aura discovery can compete for the Native Host while booting.
+  // Keep its existing bounded, read-only retry supervisor; start it only
+  // after the shared shell and official health/heartbeat paths are live.
+  localAiProbeSupervisor.start();
 
   // Account/continuity is online enrichment, not a boot-health dependency.
   // Start it only after the real shared Surface has mounted and acknowledged
