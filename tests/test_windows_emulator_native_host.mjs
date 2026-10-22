@@ -121,7 +121,7 @@ test("emulator account uses the configured HTTPS gateway without exposing or per
   try{
     await identity.refresh();
     assert.equal(identity.getSnapshot().state,"signed-out");
-    assert.equal((await credentials.registrationPolicy()).registrationEnabled,false);
+    assert.equal((await credentials.registrationPolicy()).registrationEnabled,true);
     await credentials.signIn({email:"pessoa@example.com",password:"nao-e-credencial-real"});
     await identity.refresh();
     assert.deepEqual(identity.getSnapshot(),{
@@ -138,14 +138,68 @@ test("emulator account uses the configured HTTPS gateway without exposing or per
     const registration=await request("/auth/register",{
       method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:"email=pessoa%40example.com&password=senha&legal_acceptance=accepted",
     });
-    assert.equal(registration.status,503);
-    assert.equal(registrationCalls,0);
+    assert.equal(registration.status,404);
+    assert.equal(registrationCalls,1);
     assert.deepEqual(await readdir(directory),[]);
   }finally{
     identity.dispose();
     server.closeAllConnections();
     await new Promise(resolve=>server.close(resolve));
     assert.ok(directory.startsWith(prefix));
+    await rm(directory,{recursive:true,force:true});
+  }
+});
+
+test("emulator registration reflects gateway policy and preserves email-confirmation semantics",async()=>{
+  const directory=await mkdtemp(join(tmpdir(),"ordax-emulator-register-"));
+  let enabled=false;
+  let calls=0;
+  const fetchImpl=async(url,options={})=>{
+    const path=new URL(url).pathname;
+    if(path.endsWith("/auth/registration-policy"))return Response.json({
+      $schema:"prototype-ordax.registration-legal-policy/1",
+      active:true,registrationEnabled:enabled,policyId:"123e4567-e89b-42d3-a456-426614174000",
+      privacy:{version:"1",effectiveDate:"2026-10-01",sha256:"a".repeat(64),url:"https://ordax.com.br/privacidade/"},
+      terms:{version:"1",effectiveDate:"2026-10-01",sha256:"b".repeat(64),url:"https://ordax.com.br/termos/"},
+    });
+    if(path.endsWith("/auth/register")){
+      calls++;
+      assert.match(options.body,/legal_acceptance=accepted/);
+      assert.match(options.body,/email=pessoa%40example\.com/);
+      return new Response(null,{status:enabled?202:503});
+    }
+    if(path.endsWith("/auth/session"))return Response.json({
+      $schema:"prototype-ordax.public-identity-session/1",
+      authenticated:false,status:"anonymous",provider:"supabase",
+    });
+    return new Response(null,{status:404});
+  };
+  const middleware=createEmulatorNativeHost({
+    stateDirectory:directory,
+    accountGatewayOrigin:"https://account.example.test/functions/v1/ordax-account-gateway",
+    fetchImpl,
+  });
+  const server=createServer((req,res)=>middleware(req,res,()=>{res.writeHead(404);res.end();}));
+  await new Promise(resolve=>server.listen(0,"127.0.0.1",resolve));
+  const origin="http://127.0.0.1:"+server.address().port;
+  const credentials=createSameOriginIdentityCredentials({fetch:(path,options={})=>
+    fetch(origin+path,{...options,headers:{Origin:origin,...options.headers}})});
+  try{
+    assert.equal((await credentials.registrationPolicy()).registrationEnabled,false);
+    await assert.rejects(()=>credentials.register({
+      email:"pessoa@example.com",password:"longa-senha-apenas-para-teste",legalAccepted:true,
+    }),/503/);
+    assert.equal(calls,1);
+    enabled=true;
+    assert.equal((await credentials.registrationPolicy()).registrationEnabled,true);
+    assert.deepEqual(await credentials.register({
+      email:"pessoa@example.com",password:"longa-senha-apenas-para-teste",legalAccepted:true,
+    }),{authenticated:false,confirmationRequired:true});
+    assert.equal(calls,2);
+    assert.deepEqual(await readdir(directory),[]);
+  }finally{
+    server.closeAllConnections();
+    await new Promise(resolve=>server.close(resolve));
     await rm(directory,{recursive:true,force:true});
   }
 });
