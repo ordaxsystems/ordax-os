@@ -107,20 +107,54 @@ class CreatorKernelReuseWorkflowTests(unittest.TestCase):
         build = self.step_block(workflow, "Build exact-commit development Base and initramfs")
         self.assertNotIn("bootstrap/kernel/build.py", build)
         self.assertIn("bootstrap/initramfs/build.py build --jobs 4", build)
+        # Owner mountattr is compiled with the pinned kernel UAPI exported
+        # by the initramfs builder, never system /usr/include headers.
+        self.assertLess(
+            build.index("python bootstrap/initramfs/build.py build --jobs 4"),
+            build.index("python bootstrap/dev-base/build.py"),
+        )
+        self.assertLess(
+            build.index("python bootstrap/initramfs/build.py verify"),
+            build.index("python bootstrap/dev-base/build.py"),
+        )
+        self.assertIn(
+            "test -f out/initramfs-work/kernel-uapi-install/include/linux/mount.h",
+            build,
+        )
+        self.assertIn("owner_validation_pr", workflow)
+        self.assertIn("DEV_BASE_OWNER_VALIDATION_EXACT_HEAD=PASS", detector)
+        self.assertIn("github.actor == 'ordaxos-admin'", workflow)
 
-    def test_owner_dev_diagnose_is_dev_base_only_and_reuses_kernel(self):
+    def test_owner_dev_diagnose_is_manual_and_uses_canonical_kernel_uapi(self):
         workflow = self.assert_verified_kernel_reuse(OWNER_DEV_DIAGNOSE)
         trigger = workflow.split("permissions:", 1)[0]
-        self.assertNotIn("      - 'bootstrap/dev-base/**'", trigger)
-        for path in (
-            "bootstrap/base/alpine_core.py",
-            "bootstrap/base/firmware_policy.py",
-            "bootstrap/base/runtime_policy.py",
-            "bootstrap/dev-base/build.py",
-        ):
-            self.assertIn(f"      - '{path}'", trigger)
+        # The diagnostic is not another push-driven Owner build authority.
+        # The verified Creator and Dev Base workflows publish the real bytes.
+        self.assertIn("  workflow_dispatch:", trigger)
+        self.assertNotIn("  push:", trigger)
+        self.assertNotIn("  pull_request:", trigger)
         self.assertNotIn("Build and verify boot ESP", workflow)
         self.assertNotIn("Build and verify initramfs", workflow)
+        deps = self.step_block(
+            workflow, "Install tools for pinned kernel UAPI and Development Base",
+        )
+        for tool in ("musl-tools", "gcc", "make", "binutils", "gpg", "gpg-agent"):
+            self.assertIn(tool, deps)
+        self.assertNotIn("if: steps.kernel-cache", deps)
+        uapi = self.step_block(
+            workflow, "Export and verify canonical pinned kernel UAPI",
+        )
+        for command in (
+            "python bootstrap/initramfs/build.py check",
+            "python bootstrap/initramfs/build.py build --jobs 4",
+            "python bootstrap/initramfs/build.py verify",
+            "test -f out/initramfs-work/kernel-uapi-install/include/linux/mount.h",
+        ):
+            self.assertIn(command, uapi)
+        self.assertLess(
+            workflow.index("      - name: Export and verify canonical pinned kernel UAPI"),
+            workflow.index("      - name: Build and verify Git development base"),
+        )
         dev_base = self.step_block(workflow, "Build and verify Git development base")
         self.assertNotIn("bootstrap/kernel/build.py", dev_base)
         self.assertNotIn("bootstrap/initramfs/build.py", dev_base)

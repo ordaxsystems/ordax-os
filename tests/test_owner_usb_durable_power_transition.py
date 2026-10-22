@@ -4,6 +4,7 @@
 from pathlib import Path
 import os
 import subprocess
+import time
 import tempfile
 import unittest
 
@@ -18,6 +19,73 @@ def function_source(text, name):
 
 
 class OwnerUsbDurablePowerTransitionTests(unittest.TestCase):
+    def test_all_persistent_agent_idle_children_close_rootfs_log_fds(self):
+        # The real QEMU ACPI proof exposed busybox sleep descendants whose
+        # stdout/stderr still held / (root ext4) writable after the parent
+        # telemetry/rescue agents were terminated. Closing only the parent
+        # does not close the child FDs. Keep agent status logging persistent,
+        # but idle descendants must never inherit persistent launcher logs.
+        for source_path, interval in (
+            ("system/services/telemetry/base-agent.sh", "interval"),
+            ("system/rescue/agent.sh", "INTERVAL"),
+            ("system/services/base-update/agent.sh", "INTERVAL"),
+        ):
+            with self.subTest(agent=source_path):
+                source = (ROOT / source_path).read_text(encoding="utf-8")
+                subprocess.run(["/bin/sh", "-n", str(ROOT / source_path)], check=True)
+                expected = (
+                    f'/bin/busybox sleep "${interval}" '
+                    '</dev/null >/dev/null 2>&1'
+                )
+                self.assertIn(expected, source)
+                self.assertEqual(source.count(expected), 1)
+                # Exercise the exact shell FD redirection on a harmless
+                # disposable log, without a USB, ext4 remount or privileged
+                # test. The only substitution is sleep's binary so this test
+                # works on hosts without BusyBox installed.
+                command = expected.replace("/bin/busybox sleep", "/bin/sleep")
+                with tempfile.TemporaryDirectory(prefix="ordax-power-idle-fd-") as temp:
+                    logfile = Path(temp) / "agent-persistent.log"
+                    with logfile.open("wb") as log:
+                        proc = subprocess.Popen(
+                            ["/bin/sh", "-c", f"{interval}=30; {command}"],
+                            stdin=subprocess.DEVNULL,
+                            stdout=log, stderr=log,
+                            start_new_session=True,
+                        )
+                        try:
+                            deadline = time.monotonic() + 3
+                            observed = False
+                            while time.monotonic() < deadline:
+                                if proc.poll() is not None:
+                                    self.fail(f"idle child exited early: {proc.returncode}")
+                                fd1 = Path(f"/proc/{proc.pid}/fd/1")
+                                fd2 = Path(f"/proc/{proc.pid}/fd/2")
+                                if fd1.exists() and fd2.exists():
+                                    if os.readlink(fd1) == "/dev/null" and os.readlink(fd2) == "/dev/null":
+                                        observed = True
+                                        break
+                                time.sleep(0.05)
+                            self.assertTrue(observed, f"idle child inherits persistent log FDs: {source_path}")
+                        finally:
+                            proc.terminate()
+                            proc.wait(timeout=5)
+
+    def test_base_update_aura_child_remains_owned_during_usb_shutdown(self):
+        # The Owner USB safety patch must not replace or regress the single
+        # canonical Base Update agent when Aura is updated on main. The agent
+        # terminates its Aura child before closing its own rootfs-backed logs;
+        # meanwhile its idle sleep children must keep independent null FDs.
+        source = (ROOT / "system/services/base-update/agent.sh").read_text(encoding="utf-8")
+        self.assertEqual(source.count("stop_aura_worker() {"), 1)
+        self.assertEqual(source.count("launch_optional_aura_worker() {"), 1)
+        self.assertEqual(source.splitlines().count("        launch_optional_aura_worker"), 1)
+        self.assertEqual(source.count("trap stop_aura_worker EXIT"), 1)
+        for signal, code in (("TERM", 143), ("INT", 130), ("HUP", 129)):
+            self.assertIn(f"trap 'stop_aura_worker; exit {code}' {signal}", source)
+        self.assertIn('AURA_WORKER_PID=$!', source)
+        self.assertIn('/bin/busybox sleep "$INTERVAL" </dev/null >/dev/null 2>&1', source)
+
     def test_owner_usb_contract_and_profile_isolation(self):
         source = GUARDIAN.read_text(encoding="utf-8")
         subprocess.run(["/bin/sh", "-n", str(GUARDIAN)], check=True)
@@ -27,6 +95,10 @@ class OwnerUsbDurablePowerTransitionTests(unittest.TestCase):
         self.assertIn("if ! terminate_persistent_host_agents; then", transition)
         self.assertIn("if ! /bin/busybox sync", transition)
         self.assertIn('record_host_power_stage root-readonly', transition)
+        self.assertIn("owner_usb_seal_root_for_power", transition)
+        self.assertIn("owner_usb_restore_root_after_abort", transition)
+        self.assertIn("owner_usb_all_root_mounts_read_only", source)
+        self.assertIn("owner_usb_auxiliary_partitions_quiesced", source)
         self.assertIn("if ! remount_root_read_only_for_power; then", transition)
         self.assertIn("if ! root_filesystem_is_read_only; then", transition)
         self.assertIn("if remount_root_read_write_after_power_abort; then", transition)
@@ -44,7 +116,7 @@ class OwnerUsbDurablePowerTransitionTests(unittest.TestCase):
             transition.index('/bin/busybox poweroff -f'),
         )
 
-    def _run_simulated_transition(self, profile, mode, *, sync_fails=False, agents_fail=False):
+    def _run_simulated_transition(self, profile, mode, *, sync_fails=False, agents_fail=False, seal_fails=False):
         """Execute the Guardian's actual function; replace only external effects."""
         with tempfile.TemporaryDirectory(prefix="ordax-owner-shutdown-gate-") as temp:
             source = GUARDIAN.read_text(encoding="utf-8")
@@ -61,6 +133,8 @@ class OwnerUsbDurablePowerTransitionTests(unittest.TestCase):
                 'stop_acpi_button_listener() { echo acpi-stopped >>"$TRACE"; }',
                 'terminate_persistent_host_agents() { echo agents-stopped >>"$TRACE"; [ "$AGENT_FAIL" != 1 ]; }',
                 'remount_root_read_only_for_power() { echo readonly-remount >>"$TRACE"; return 1; }',
+                'owner_usb_seal_root_for_power() { echo owner-usb-seal >>"$TRACE"; [ "$SEAL_FAIL" != 1 ]; }',
+                'owner_usb_restore_root_after_abort() { echo owner-usb-restore >>"$TRACE"; return 0; }',
                 'root_filesystem_is_read_only() { echo readonly-proof >>"$TRACE"; return 0; }',
                 'remount_root_read_write_after_power_abort() { echo readonly-reversal >>"$TRACE"; return 0; }',
                 'restore_runtime_after_power_failure() { printf "restored:%s\\n" "$3" >>"$TRACE"; return 1; }',
@@ -79,6 +153,7 @@ class OwnerUsbDurablePowerTransitionTests(unittest.TestCase):
                 "TRACE": str(trace),
                 "SYNC_FAIL": "1" if sync_fails else "0",
                 "AGENT_FAIL": "1" if agents_fail else "0",
+                "SEAL_FAIL": "1" if seal_fails else "0",
             }
             result = subprocess.run(
                 ["/bin/sh", "-c", script],
@@ -86,12 +161,15 @@ class OwnerUsbDurablePowerTransitionTests(unittest.TestCase):
             )
             return result, trace.read_text(encoding="utf-8").splitlines()
 
-    def test_owner_usb_kernel_handoff_after_two_successful_syncs_without_root_remount(self):
+    def test_owner_usb_kernel_handoff_requires_sealed_root_and_two_syncs(self):
         result, trace = self._run_simulated_transition("owner-development", "usb")
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(trace.count("kernel-tool:sync"), 2)
         self.assertIn("kernel-tool:poweroff", trace)
         self.assertIn("restored:kernel-transition-returned", trace)
+        self.assertIn("owner-usb-seal", trace)
+        self.assertIn("owner-usb-restore", trace)
+        self.assertLess(trace.index("owner-usb-seal"), trace.index("kernel-tool:poweroff"))
         self.assertNotIn("readonly-remount", trace)
         self.assertNotIn("readonly-proof", trace)
         self.assertNotIn("readonly-reversal", trace)
@@ -105,6 +183,17 @@ class OwnerUsbDurablePowerTransitionTests(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("restored:sync-failed", trace)
+        self.assertIn("owner-usb-restore", trace)
+        self.assertNotIn("kernel-tool:poweroff", trace)
+
+    def test_failed_usb_superblock_seal_prevents_forced_kernel_power(self):
+        result, trace = self._run_simulated_transition(
+            "owner-development", "usb", seal_fails=True,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("owner-usb-seal", trace)
+        self.assertIn("owner-usb-restore", trace)
+        self.assertIn("restored:remount-failed", trace)
         self.assertNotIn("kernel-tool:poweroff", trace)
 
     def test_unquiesced_agents_never_reach_final_sync_or_kernel_power(self):

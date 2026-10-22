@@ -30,6 +30,9 @@ on:
       - 'bootstrap/dev/**'
       - 'bootstrap/dev-base/**'
       - 'bootstrap/surface-runtime/**'
+      - 'system/entrypoint'
+      - 'tests/test_owner_usb_durable_power_transition.py'
+      - 'tests/test_owner_usb_superblock_seal.py'
       - 'system/surface/bin/ordax-surface'
       - 'system/surface/runtime/ordax_browser_host.py'
       - 'tests/test_owner_qemu_offline_handoff.py'
@@ -114,6 +117,15 @@ jobs:
             liblz4-dev libzstd-dev liblzma-dev libpcre2-dev \
             gdisk dosfstools e2fsprogs mtools util-linux proot erofs-utils qemu-system-x86
           python -m pip install --disable-pip-version-check --no-cache-dir jinja2 pyelftools
+
+      - name: Prove Owner USB ext4 alias sealing in isolated mount namespace
+        timeout-minutes: 3
+        run: |
+          set -euo pipefail
+          # Only a disposable 128 MiB loop-backed file is mounted; the test
+          # runs in its own mount namespace, never against a host block disk.
+          sudo env ORDAX_OWNER_USB_MOUNT_INTEGRATION=1 \
+            python3 -m unittest tests.test_owner_usb_superblock_seal -v
 
       - name: Resolve reusable kernel fingerprint
         id: component-fingerprints
@@ -450,7 +462,7 @@ jobs:
           echo "$proof/ordax-disposable.raw" > "$RUNNER_TEMP/owner-prototype-seed-path"
 
       - name: Prove actual Owner USB offline handoff in QEMU
-        timeout-minutes: 11
+        timeout-minutes: 15
         run: |
           set -euo pipefail
           proof="$RUNNER_TEMP/owner-prototype-media"
@@ -466,6 +478,7 @@ jobs:
             --serial-out "$RUNNER_TEMP/owner-qemu-serial.log" \
             --second-framebuffer-out "$RUNNER_TEMP/owner-qemu-second-framebuffer.ppm" \
             --second-serial-out "$RUNNER_TEMP/owner-qemu-second-serial.log" \
+            --prove-acpi-shutdown \
             --timeout-seconds 300
           python3 - "$RUNNER_TEMP/owner-qemu-offline-handoff.json" <<'PY'
           import json, sys
@@ -481,6 +494,8 @@ jobs:
           assert proof['welcome_screen_rendered_proven'] is False
           assert proof['notebook_boot_proven'] is False
           assert proof['graphical_framebuffer_varied_proven'] is True
+          assert proof['guest_acpi_shutdown_proven'] is True
+          assert proof['ext4_clean_after_guest_shutdown'] is True
           assert proof['second_offline_boot_proven'] is True
           assert proof['second_boot']['same_disposable_disk_reused'] is True
           assert proof['second_boot']['qemu_process_restarted'] is True

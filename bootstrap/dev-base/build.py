@@ -4,6 +4,9 @@
 from __future__ import annotations
 
 import importlib.util
+import os
+import shutil
+import subprocess
 from pathlib import Path
 
 THIS_DIR = Path(__file__).resolve().parent
@@ -61,9 +64,71 @@ def _prune_firmware_then_build_only_runtime(rootfs: Path, required: set[str]) ->
     prune_build_only_runtime(rootfs)
 
 
+# Power transitions use a tiny static native kernel API helper. The Owner
+# runtime never installs an alternative mount utility or downloads binaries.
+# This is built from canonical source once, alongside the normal Dev Base.
+_ORIGINAL_INSTALL_RUNTIME = CORE.install_runtime
+_ORIGINAL_VERIFY_ROOTFS = CORE.verify_rootfs
+_POWER_MOUNT_SOURCE = THIS_DIR / "ordax_usb_mountattr.c"
+_POWER_MOUNT_TARGET = Path("usr/local/bin/ordax-usb-mountattr")
+# Reuse the exact kernel UAPI exported by the canonical fixed-initramfs
+# builder. musl-gcc intentionally does not mix glibc /usr/include headers.
+_OWNER_KERNEL_UAPI = THIS_DIR.parent.parent / "out/initramfs-work/kernel-uapi-install/include"
+
+
+def _verify_power_mountattr_binary(rootfs: Path) -> None:
+    target = rootfs / _POWER_MOUNT_TARGET
+    if not target.is_file() or target.is_symlink() or not os.access(target, os.X_OK):
+        raise BuildError("Owner USB native mountattr helper missing or unsafe")
+    inspected = subprocess.run(
+        ["readelf", "-l", str(target)],
+        capture_output=True,
+        text=True,
+        timeout=30,
+        check=False,
+    )
+    if inspected.returncode != 0 or "INTERP" in inspected.stdout:
+        raise BuildError("Owner USB mountattr helper is not a static executable")
+
+
+def install_runtime(rootfs: Path, kernel_modules: Path) -> None:
+    _ORIGINAL_INSTALL_RUNTIME(rootfs, kernel_modules)
+    compiler = shutil.which("musl-gcc")
+    if compiler is None or not _POWER_MOUNT_SOURCE.is_file() or _POWER_MOUNT_SOURCE.is_symlink():
+        raise BuildError("Owner USB kernel mount helper source/compiler unavailable")
+    if (_OWNER_KERNEL_UAPI.is_symlink() or
+            not (_OWNER_KERNEL_UAPI / "linux/mount.h").is_file()):
+        raise BuildError("Owner USB mountattr requires canonical exported kernel UAPI")
+    destination = rootfs / _POWER_MOUNT_TARGET
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    result = subprocess.run(
+        [
+            compiler, "-static", "-Os", "-s", "-Wall", "-Wextra", "-Werror",
+            "-Wl,--build-id=none", "-ffile-prefix-map=" + str(THIS_DIR.parent.parent) + "=/ordax",
+            "-I" + str(_OWNER_KERNEL_UAPI),
+            "-o", str(destination), str(_POWER_MOUNT_SOURCE),
+        ],
+        capture_output=True,
+        text=True,
+        timeout=120,
+        check=False,
+    )
+    if result.returncode != 0:
+        raise BuildError("Owner USB native mountattr helper compilation failed: " + result.stderr[-1500:])
+    destination.chmod(0o755)
+    _verify_power_mountattr_binary(rootfs)
+
+
+def verify_rootfs(rootfs: Path) -> None:
+    _ORIGINAL_VERIFY_ROOTFS(rootfs)
+    _verify_power_mountattr_binary(rootfs)
+
+
 # The core builder resolves these symbols from its own module globals at runtime.
 CORE.required_firmware_names = required_firmware_names
 CORE.prune_firmware = _prune_firmware_then_build_only_runtime
+CORE.install_runtime = install_runtime
+CORE.verify_rootfs = verify_rootfs
 
 
 def main() -> int:
