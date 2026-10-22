@@ -33,6 +33,8 @@ export function createWebIdentitySession(windowRef = globalThis.window) {
   const listeners = new Set();
   let disposed = false;
   let refreshSequence = 0;
+  // Diagnostic only: never turns an unverified session into authentication.
+  let unavailableReason = "pending";
 
   const emit = () => {
     if (disposed) return;
@@ -57,25 +59,30 @@ export function createWebIdentitySession(windowRef = globalThis.window) {
     // Ignore late responses from earlier requests. One session port owns the
     // ordering for every consumer (OOBE, Surface and account actions).
     const sequence = ++refreshSequence;
-    const apply = (next) => (
-      disposed || sequence !== refreshSequence ? snapshot : setSnapshot(next)
-    );
+    const apply = (next, reason = null) => {
+      if (disposed || sequence !== refreshSequence) return snapshot;
+      unavailableReason = next.state === "unavailable" ? reason : null;
+      return setSnapshot(next);
+    };
     try {
       const response = await reader.read(SESSION_ENDPOINT);
       if (!response.ok) {
-        return apply({ state: "unavailable" });
+        const reason = response.status === 423 ? "locked"
+          : [401, 403, 404].includes(response.status) ? "unsupported-host"
+            : "gateway-unreachable";
+        return apply({ state: "unavailable" }, reason);
       }
       const value = response.value;
       if (!value || value.$schema !== SESSION_SCHEMA) {
-        return apply({ state: "unavailable" });
+        return apply({ state: "unavailable" }, "invalid-response");
       }
       if (value.provider === "unconfigured") {
-        return apply({ state: "unavailable" });
+        return apply({ state: "unavailable" }, "unconfigured");
       }
       if (value.authenticated === true && value.status === "authenticated") {
         const displayName = publicDisplayName(value.email, value.displayName);
         if (typeof value.subject !== "string" || !value.subject || !displayName) {
-          return apply({ state: "unavailable" });
+          return apply({ state: "unavailable" }, "invalid-response");
         }
         return apply({
           state: "signed-in",
@@ -86,7 +93,7 @@ export function createWebIdentitySession(windowRef = globalThis.window) {
       }
       return apply({ state: "signed-out" });
     } catch {
-      return apply({ state: "unavailable" });
+      return apply({ state: "unavailable" }, "gateway-unreachable");
     }
   };
 
@@ -94,6 +101,9 @@ export function createWebIdentitySession(windowRef = globalThis.window) {
     schema: IDENTITY_SESSION_SCHEMA,
     getSnapshot() {
       return snapshot;
+    },
+    getUnavailableReason() {
+      return snapshot.state === "unavailable" ? unavailableReason : null;
     },
     subscribe(listener) {
       if (typeof listener !== "function") {
