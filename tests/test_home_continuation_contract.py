@@ -37,7 +37,7 @@ class HomeContinuationContractTests(unittest.TestCase):
         self.assertIn("target: folder", source)
         self.assertIn('"home.continuation.recentAction"', source)
         self.assertNotIn("Abrir arquivo recente", source)
-        self.assertNotRegex(source, r"\\bopenFile\\b")
+        self.assertNotRegex(source, r"\bopenFile\b")
 
     def test_home_uses_safe_dom_and_disappears_when_there_is_no_context(self):
         source = self.source()
