@@ -1158,8 +1158,8 @@ class BaseUpdateRuntimeOwnerTests(unittest.TestCase):
         self.assertIn('[ "$aura_stop_ticks" -lt 8 ]', agent)
         self.assertIn('kill -KILL "$AURA_WORKER_PID"', agent)
         self.assertIn('"/proc/$AURA_WORKER_PID/stat"', agent)
-        self.assertIn("Z|X|'') break", agent)
-        self.assertIn("Z|X|'') ;;", agent)
+        self.assertIn("Z|X) break", agent)
+        self.assertIn("Z|X) ;;", agent)
         self.assertLess(
             agent.rindex("discover_esp_read_only\n        prepare_efivarfs_preflight_evidence"),
             agent.rindex("reconcile_optional_aura_worker\n    else"),
