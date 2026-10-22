@@ -107,6 +107,7 @@ export function mountFileSpaceControls(
   let destroyed = false;
   let requestOrdinal = 0;
   let mountedSlot = null;
+  let paintPending = false;
   let creatingDirectory = false;
   let directoryDraft = "";
   let textPreview = null;
@@ -1755,12 +1756,24 @@ export function mountFileSpaceControls(
     const slot = findSlot();
     if (!slot) {
       mountedSlot = null;
+      paintPending = false;
       return;
     }
-    if (!force && slot === mountedSlot) return;
+    const windowNode = slot.closest(FILE_WINDOW_SELECTOR);
+    // Native Surface keeps inactive/minimized windows mounted. Keep the latest
+    // validated Files state but avoid rebuilding a hidden 3,000-line view.
+    // The standalone signed Files component owns its own frame: its window
+    // has no Surface active marker and must remain independently renderable.
+    if (!windowNode || windowNode.hidden || windowNode.dataset.active === "false") {
+      paintPending = paintPending || force || slot !== mountedSlot;
+      return;
+    }
+    const repaint = force || paintPending;
+    if (!repaint && slot === mountedSlot) return;
     const interaction =
-      force && slot === mountedSlot ? captureInteractionState(slot) : null;
+      repaint && slot === mountedSlot ? captureInteractionState(slot) : null;
     mountedSlot = slot;
+    paintPending = false;
     paint(slot, interaction);
   };
 
@@ -3037,6 +3050,7 @@ export function mountFileSpaceControls(
         delete slot.dataset.fileSpaceContext;
       }
       mountedSlot = null;
+      paintPending = false;
     },
   });
 }
