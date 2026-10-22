@@ -61,6 +61,53 @@ class NativeComponentBuildrootTests(unittest.TestCase):
             self.assertNotIn(forbidden, text)
         self.mod.verify_native_component_config(text, self.kernel)
 
+    def test_base_and_private_python_share_one_buildroot_download_cache(self):
+        # Verify the existing canonical configuration path, not a second builder.
+        with tempfile.TemporaryDirectory() as temporary:
+            cache = Path(temporary) / "cache"
+            archive = Path(temporary) / "source.tar.xz"
+            archive.write_bytes(b"fixture")
+            observed = []
+
+            def fake_archive(source, actual_cache):
+                self.assertEqual(actual_cache, cache.resolve())
+                return archive
+
+            def fake_run(*arguments):
+                self.assertEqual(arguments[-1], "defconfig")
+                generated = Path(next(
+                    arg.partition("=")[2]
+                    for arg in arguments if arg.startswith("BR2_DEFCONFIG=")
+                ))
+                build_dir = Path(next(
+                    arg.partition("=")[2]
+                    for arg in arguments if arg.startswith("O=")
+                ))
+                build_dir.mkdir(parents=True, exist_ok=True)
+                (build_dir / ".config").write_text(
+                    generated.read_text(encoding="utf-8"), encoding="utf-8"
+                )
+                observed.append(arguments)
+                return ""
+
+            with patch.object(self.mod, "source_archive", side_effect=fake_archive), \
+                 patch.object(self.mod, "safe_unpack", return_value=Path(temporary) / "buildroot"), \
+                 patch.object(self.mod, "run", side_effect=fake_run):
+                for profile in ("minimal", "owner-development", "native-product-runtime"):
+                    with self.subTest(profile=profile):
+                        work = Path(temporary) / profile
+                        work.mkdir()
+                        _, _, command, actual_archive, _ = self.mod.configure_buildroot(
+                            self.source, self.kernel, cache, work, profile
+                        )
+                        self.assertEqual(actual_archive, archive)
+                        self.assertEqual(
+                            command.count(f"BR2_DL_DIR={cache.resolve() / 'buildroot-downloads'}"),
+                            1,
+                        )
+            self.assertEqual(len(observed), 3)
+            self.assertTrue((cache / "buildroot-downloads").is_dir())
+
     def test_missing_shared_runtime_or_tls_fails_closed(self):
         with tempfile.TemporaryDirectory() as temp:
             output = Path(temp) / "component_defconfig"
