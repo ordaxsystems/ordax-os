@@ -3,7 +3,7 @@ import {readFile} from 'node:fs/promises';
 import {existsSync} from 'node:fs';
 import {dirname,isAbsolute,join,normalize,relative,resolve,sep} from 'node:path';
 import {runBrowser, sleep} from '../browser-proof/chromium.mjs';
-const ROOT_MODULES = ['system/surface/ui/surface.mjs', 'system/surface/ui/settings-overview-controls.mjs', 'system/surface/ui/system-overview-controls.mjs', 'system/surface/ui/notification-center-controls.mjs', 'system/surface/ui/system-tray-quick-panels.mjs', 'system/services/notifications/runtime.mjs'];
+const ROOT_MODULES = ['system/surface/ui/surface.mjs', 'system/surface/ui/settings-overview-controls.mjs', 'system/surface/ui/system-overview-controls.mjs', 'system/surface/ui/file-space-controls.mjs', 'system/surface/ui/notification-center-controls.mjs', 'system/surface/ui/system-tray-quick-panels.mjs', 'system/services/notifications/runtime.mjs'];
 const STATIC_IMPORT_RE = /\b(?:import|export)\s+(?:[^;]*?\s+from\s*)?["']([^"']+)["']/g;
 const DYNAMIC_IMPORT_RE = /\bimport\(\s*["']([^"']+)["']\s*\)/g;
 const ASSET_HREF_RE = /\bnew\s+URL\(\s*["']([^"']+)["']\s*,\s*import\.meta\.url\s*\)\.href/g;
@@ -333,6 +333,71 @@ function buildProofExpression(moduleSources, styles, assetUrls) {
     systemProofControls.destroy();
     systemProofWindow.querySelector('[data-window-action="close"]').click();
 
+    // Real Files owner: background file navigation must update the validated
+    // model without rebuilding a minimized DOM; focus flushes it once. This
+    // owner also serves the standalone signed Files component without a
+    // Surface active marker, where painting must never be deferred.
+    const { mountFileSpaceControls } = await import(urls['system/surface/ui/file-space-controls.mjs']);
+    const listFiles = (path) => ({ path, entries: [] });
+    const filesPort = {
+      schema: 'ordax.file-space/11',
+      list: async (path) => listFiles(path),
+      createDirectory: async (path) => listFiles(path),
+      readTextFile: async (path) => ({ path, size: 0, text: '' }),
+      renameEntry: async (path) => listFiles(path),
+      copyFile: async (_src, _name, target) => listFiles(target),
+      moveEntry: async (_src, _name, target) => listFiles(target),
+      trashEntry: async (path) => listFiles(path),
+      listTrash: async () => ({ entries: [] }),
+      restoreTrashEntry: async () => ({ entries: [] }),
+      exportFile: async () => true,
+      importFile: async (path) => listFiles(path),
+    };
+    let filesActivationListener = null;
+    const filesActivation = {
+      schema: 'ordax.app-activation/1',
+      publish() {},
+      subscribe(listener) {
+        filesActivationListener = listener;
+        return () => { filesActivationListener = null; };
+      },
+    };
+    root.querySelector('[data-launch-app="files"]').click();
+    const filesWindow = root.querySelector('[data-window-id="files"]');
+    const filesControls = mountFileSpaceControls(root, filesPort, filesActivation, surface);
+    for (let i = 0; i < 12; i += 1) await Promise.resolve();
+    const filesSlot = filesWindow.querySelector('[data-app-extension="file-space"]');
+    const filesView = filesSlot.firstElementChild;
+    result.filesInitiallyPainted = Boolean(filesView && filesSlot.dataset.fileSpacePath === '/');
+    filesWindow.querySelector('[data-window-action="minimize"]').click();
+    filesActivationListener({ appId: 'files', target: '/Documentos' });
+    for (let i = 0; i < 12; i += 1) await Promise.resolve();
+    result.filesHiddenNavigationSkipsRepaint = filesSlot.firstElementChild === filesView;
+    root.querySelector('[data-open-window="files"]').click();
+    result.filesRestoreFlushesLatestPath = filesSlot.firstElementChild !== filesView
+      && filesSlot.dataset.fileSpacePath === '/Documentos';
+    filesControls.destroy();
+    filesWindow.querySelector('[data-window-action="close"]').click();
+    result.filesActivationReleased = filesActivationListener === null;
+
+    const isolatedRoot = document.createElement('div');
+    const isolatedFrame = document.createElement('section');
+    isolatedFrame.className = 'ordax-files-component-frame';
+    isolatedFrame.dataset.windowId = 'files';
+    const isolatedSlot = document.createElement('div');
+    isolatedSlot.dataset.appExtension = 'file-space';
+    isolatedFrame.append(isolatedSlot);
+    isolatedRoot.append(isolatedFrame);
+    document.body.append(isolatedRoot);
+    const isolatedControls = mountFileSpaceControls(isolatedRoot, filesPort, null, surface);
+    for (let i = 0; i < 12; i += 1) await Promise.resolve();
+    result.filesStandalonePaintsWithoutSurfaceActiveMarker =
+      isolatedFrame.dataset.active === undefined
+      && isolatedSlot.dataset.fileSpacePath === '/'
+      && Boolean(isolatedSlot.firstElementChild);
+    isolatedControls.destroy();
+    isolatedRoot.remove();
+
     const { createNotificationsRuntime } = await import(urls['system/services/notifications/runtime.mjs']);
     const { mountNotificationCenterControls } = await import(urls['system/surface/ui/notification-center-controls.mjs']);
     const { mountSystemTrayQuickPanels } = await import(urls['system/surface/ui/system-tray-quick-panels.mjs']);
@@ -405,6 +470,9 @@ function buildProofExpression(moduleSources, styles, assetUrls) {
       'settingsRealOwnerInitiallyPainted', 'settingsHiddenHostUpdateSkipsRepaint',
       'settingsFocusFlushesPendingRepaint', 'systemRealOwnerInitiallyPainted',
       'systemHiddenHostUpdateSkipsRepaint', 'systemFocusFlushesPendingRepaint',
+      'filesInitiallyPainted', 'filesHiddenNavigationSkipsRepaint',
+      'filesRestoreFlushesLatestPath', 'filesActivationReleased',
+      'filesStandalonePaintsWithoutSurfaceActiveMarker',
       'sameWindowAfterSnapshot', 'sameSlotAfterSnapshot', 'sameInputAfterSnapshot',
       'focusAfterSnapshot', 'scrollPreservedAfterSnapshot', 'draftPreservedAfterSnapshot',
       'sameWindowAfterPreference', 'sameInputAfterPreference', 'focusAfterPreference',
