@@ -48,6 +48,10 @@ ATTEMPT_STARTED_EPOCH_FILE=$UPDATE_RUN_DIR/attempt-started-epoch
 UPDATE_STATE=$UPDATE_RUN_DIR/state.json
 UPDATE_LOG=$UPDATE_RUN_DIR/update.log
 PULL_RESULT_FILE=$UPDATE_RUN_DIR/pull-result
+FETCH_ERROR_FILE=$UPDATE_RUN_DIR/fetch-stderr
+FETCH_RETRY_FILE=$STATE_DIR/native-state/git-fetch-retry
+FETCH_FAILURE_RECEIPT=$STATE_DIR/native-state/git-fetch-last.tsv
+NON_FF_BLOCKED_FILE=$STATE_DIR/native-state/git-non-ff-target
 OWNER_MANUAL_CHECK_REQUEST=$UPDATE_RUN_DIR/manual-check-request
 HEALTH_FILE=$UPDATE_RUN_DIR/healthy-sha
 SURFACE_HEALTH_STATE_FILE=$UPDATE_RUN_DIR/surface-health-state
@@ -93,6 +97,7 @@ UPDATE_PHASE=idle
 UPDATE_ATTEMPT_ID=""
 UPDATE_ERROR=""
 CHECKOUT_ERROR=""
+GIT_JOB_PID=""
 SURFACE_PID=""
 SURFACE_STARTED_AT=0
 SURFACE_STALE_RECOVERY_ARMED=1
@@ -235,10 +240,116 @@ esac
 GIT_TERMINAL_PROMPT=0
 export GIT_TERMINAL_PROMPT
 
+# Each Git command owns a distinct session/process group. The shell waits for
+# that group as a background job so TERM interrupts wait immediately, rather
+# than deferring Guardian power-quiesce until a 45-second network timeout.
 run_bounded_git() {
     timeout_seconds=$1
     shift
-    /bin/busybox timeout -k 5 "$timeout_seconds"         "$GIT_BIN"         -c http.lowSpeedLimit=1         -c "http.lowSpeedTime=$GIT_LOW_SPEED_TIME"         "$@"
+    /bin/busybox setsid /bin/busybox timeout -k 5 "$timeout_seconds" \
+        "$GIT_BIN" -c http.lowSpeedLimit=1 \
+        -c "http.lowSpeedTime=$GIT_LOW_SPEED_TIME" "$@" &
+    GIT_JOB_PID=$!
+    git_job_rc=0
+    wait "$GIT_JOB_PID" || git_job_rc=$?
+    GIT_JOB_PID=""
+    return "$git_job_rc"
+}
+
+cancel_active_git() {
+    active_git_pid=${GIT_JOB_PID:-}
+    case "$active_git_pid" in ''|*[!0-9]*) return 0 ;; esac
+    # Process-group signalling also reaches children of the timeout wrapper.
+    # This group was created by setsid, never by the Guardian or the Surface.
+    kill -TERM -- "-$active_git_pid" 2>/dev/null || true
+    /bin/busybox sleep 1
+    kill -KILL -- "-$active_git_pid" 2>/dev/null || true
+    wait "$active_git_pid" 2>/dev/null || true
+    GIT_JOB_PID=""
+}
+
+# Only typed, allowlisted diagnostics cross the volatile /run boundary.
+classify_fetch_error() {
+    diagnostic=$1
+    result_code=$2
+    case "$result_code" in 124|137) printf 'timeout'; return 0 ;; esac
+    if /bin/busybox grep -Eqi 'could not resolve host|could not resolve proxy|temporary failure in name resolution|name or service not known' "$diagnostic"; then
+        printf 'dns'
+    elif /bin/busybox grep -Eqi 'SSL certificate problem|certificate verify failed|certificate has expired|unable to get local issuer certificate' "$diagnostic"; then
+        printf 'tls'
+    elif /bin/busybox grep -Eqi 'authentication failed|http 401|http 403|requested URL returned error: (401|403)' "$diagnostic"; then
+        printf 'auth'
+    elif /bin/busybox grep -Eqi 'timed out|timeout|operation too slow' "$diagnostic"; then
+        printf 'timeout'
+    elif /bin/busybox grep -Eqi 'network is unreachable|no route to host|failed to connect|connection refused|connection reset' "$diagnostic"; then
+        printf 'connectivity'
+    else
+        printf 'unknown'
+    fi
+}
+
+record_fetch_failure() {
+    fetch_target=$1
+    fetch_started=$2
+    fetch_rc=$3
+    fetch_reason=$4
+    fetch_previous_count=0
+    if [ -f "$FETCH_RETRY_FILE" ] && [ ! -L "$FETCH_RETRY_FILE" ]; then
+        read -r last_target last_count last_retry <"$FETCH_RETRY_FILE" || true
+        if [ "${last_target:-}" = "$fetch_target" ]; then
+            case "${last_count:-}" in ''|*[!0-9]*) ;; *) fetch_previous_count=$last_count ;; esac
+        fi
+    fi
+    [ "$fetch_previous_count" -lt 8 ] 2>/dev/null || fetch_previous_count=8
+    fetch_count=$((fetch_previous_count + 1))
+    # 15, 30, 60, 120, 240, then max 300s. Persist across restarts.
+    fetch_delay=15
+    fetch_index=1
+    while [ "$fetch_index" -lt "$fetch_count" ]; do
+        fetch_delay=$((fetch_delay * 2))
+        [ "$fetch_delay" -le 300 ] || { fetch_delay=300; break; }
+        fetch_index=$((fetch_index + 1))
+    done
+    fetch_now=$(epoch_now)
+    fetch_next=$((fetch_now + fetch_delay))
+    fetch_elapsed=0
+    if [ "$fetch_now" -ge "$fetch_started" ] 2>/dev/null; then
+        fetch_elapsed=$((fetch_now - fetch_started))
+    fi
+    retry_tmp=$FETCH_RETRY_FILE.tmp.$
+    printf '%s %s %s\n' "$fetch_target" "$fetch_count" "$fetch_next" >"$retry_tmp"
+    chmod 600 "$retry_tmp"
+    /bin/busybox mv -f "$retry_tmp" "$FETCH_RETRY_FILE"
+    receipt_tmp=$FETCH_FAILURE_RECEIPT.tmp.$
+    printf 'ordax.git-fetch-failure/1\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+        "$fetch_target" "$fetch_started" "$fetch_elapsed" "$fetch_rc" \
+        "$fetch_reason" "$fetch_count" "$fetch_next" >"$receipt_tmp"
+    chmod 600 "$receipt_tmp"
+    /bin/busybox mv -f "$receipt_tmp" "$FETCH_FAILURE_RECEIPT"
+}
+
+fetch_retry_pending() {
+    retry_target=$1
+    [ -f "$FETCH_RETRY_FILE" ] && [ ! -L "$FETCH_RETRY_FILE" ] || return 1
+    read -r pending_sha pending_count pending_epoch <"$FETCH_RETRY_FILE" || return 1
+    [ "$pending_sha" = "$retry_target" ] || return 1
+    case "$pending_count:$pending_epoch" in *[!0-9:]*|:*) return 1 ;; esac
+    [ "$(epoch_now)" -lt "$pending_epoch" ] 2>/dev/null
+}
+
+non_ff_target_blocked() {
+    blocked_old=$1
+    blocked_target=$2
+    [ -f "$NON_FF_BLOCKED_FILE" ] && [ ! -L "$NON_FF_BLOCKED_FILE" ] || return 1
+    read -r blocked_old_sha blocked_target_sha <"$NON_FF_BLOCKED_FILE" || return 1
+    [ "$blocked_old_sha" = "$blocked_old" ] && [ "$blocked_target_sha" = "$blocked_target" ]
+}
+
+record_non_ff_target() {
+    blocked_temp=$NON_FF_BLOCKED_FILE.tmp.$
+    printf '%s %s\n' "$1" "$2" >"$blocked_temp"
+    chmod 600 "$blocked_temp"
+    /bin/busybox mv -f "$blocked_temp" "$NON_FF_BLOCKED_FILE"
 }
 
 write_state_value() {
@@ -515,10 +626,20 @@ apply_remote_checkout() {
         return 1
     fi
 
-    if ! run_bounded_git "$FETCH_TIMEOUT" -C "$WORKTREE" fetch --no-tags origin \
-        "refs/heads/$BRANCH:refs/remotes/origin/$BRANCH" >>"$UPDATE_LOG" 2>&1; then
-        CHECKOUT_ERROR=fetch-failed
-        log "Git fetch failed or timed out after ${FETCH_TIMEOUT}s"
+    fetch_started=$(epoch_now)
+    # Capture stderr only in /run. Raw Git diagnostics can include URLs or
+    # credentials: they must never be copied to persistent state.
+    rm -f "$FETCH_ERROR_FILE"
+    if run_bounded_git "$FETCH_TIMEOUT" -C "$WORKTREE" fetch --no-tags origin \
+        "refs/heads/$BRANCH:refs/remotes/origin/$BRANCH" >>"$UPDATE_LOG" 2>"$FETCH_ERROR_FILE"; then
+        rm -f "$FETCH_ERROR_FILE" "$FETCH_RETRY_FILE"
+    else
+        fetch_rc=$?
+        fetch_reason=$(classify_fetch_error "$FETCH_ERROR_FILE" "$fetch_rc")
+        rm -f "$FETCH_ERROR_FILE"
+        record_fetch_failure "$checkout_target_sha" "$fetch_started" "$fetch_rc" "$fetch_reason"
+        CHECKOUT_ERROR=fetch-$fetch_reason-failed
+        log "Git fetch failed or timed out after ${FETCH_TIMEOUT}s (category=$fetch_reason, exit=$fetch_rc); retry deferred"
         return 1
     fi
 
@@ -531,6 +652,7 @@ apply_remote_checkout() {
 
     "$GIT_BIN" -C "$WORKTREE" merge-base --is-ancestor "$checkout_previous_sha" "$checkout_target_sha" >>"$UPDATE_LOG" 2>&1 || {
         CHECKOUT_ERROR=non-fast-forward
+        record_non_ff_target "$checkout_previous_sha" "$checkout_target_sha"
         log "remote update is not a fast-forward from $checkout_previous_sha"
         return 1
     }
@@ -1220,8 +1342,9 @@ recover_reload_with_surface_restart() {
 
 terminate() {
     trap - EXIT HUP INT TERM
+    cancel_active_git
     stop_surface
-    temporary=$SUPERVISOR_POWER_QUIESCED_FILE.tmp.$$
+    temporary=$SUPERVISOR_POWER_QUIESCED_FILE.tmp.$
     printf '%s\n' "$$" >"$temporary" || exit 1
     chmod 600 "$temporary" || exit 1
     /bin/busybox mv -f "$temporary" "$SUPERVISOR_POWER_QUIESCED_FILE" || exit 1
@@ -2205,7 +2328,12 @@ check_for_update() {
     record_owner_poll_boot_stage first-run-verified
     record_owner_poll_boot_stage git-remote-started
 
-    if ! remote_output=$(run_bounded_git "$REMOTE_TIMEOUT" -C "$WORKTREE" ls-remote --heads origin "refs/heads/$BRANCH" 2>>"$UPDATE_LOG"); then
+    # Do not enter a command substitution around a blocking Git operation:
+    # the parent shell must handle TERM immediately during an active fetch.
+    remote_output_file=$UPDATE_RUN_DIR/remote-head.$
+    rm -f "$remote_output_file"
+    if ! run_bounded_git "$REMOTE_TIMEOUT" -C "$WORKTREE" ls-remote --heads origin "refs/heads/$BRANCH" >"$remote_output_file" 2>>"$UPDATE_LOG"; then
+        rm -f "$remote_output_file"
         record_owner_poll_boot_stage git-remote-failed
         log "remote check failed or timed out after ${REMOTE_TIMEOUT}s; keeping running Surface"
         set_update_context error "" "" "remote-check-failed"
@@ -2213,6 +2341,8 @@ check_for_update() {
         return 0
     fi
     record_owner_poll_boot_stage git-remote-completed
+    remote_output=$(/bin/busybox cat "$remote_output_file" 2>/dev/null || true)
+    rm -f "$remote_output_file"
     set -- $remote_output
     remote_sha=${1:-}
     case "$remote_sha" in
@@ -2283,6 +2413,17 @@ check_for_update() {
     fi
     if [ -n "$rejected_sha" ] && [ "$remote_sha" != "$rejected_sha" ]; then
         rm -f "$REJECTED_FILE"
+    fi
+
+    if non_ff_target_blocked "$current" "$remote_sha"; then
+        set_update_context blocked "$remote_sha" "" "non-fast-forward"
+        write_update_state "$current" pull-error none
+        return 0
+    fi
+    if fetch_retry_pending "$remote_sha"; then
+        set_update_context error "$remote_sha" "" "fetch-retry-wait"
+        write_update_state "$current" network-error none
+        return 0
     fi
 
     old_sha=$current
