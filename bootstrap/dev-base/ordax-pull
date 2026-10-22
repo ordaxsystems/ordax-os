@@ -842,7 +842,7 @@ else
         if [ "$SUPERVISOR_VERIFIED_CACHE" -ne 1 ]; then
             PULL_PHASE=remote-fetch
             if ! run_bounded_git -C "$WORKTREE" fetch --no-tags origin \
-                "refs/heads/$BRANCH:refs/remotes/origin/$BRANCH" >/dev/null 2>&1; then
+                "+refs/heads/$BRANCH:refs/remotes/origin/$BRANCH" >/dev/null 2>&1; then
                 echo "ordax-git: fetch de verificacao falhou; checkout local preservado" >&2
                 exit 1
             fi

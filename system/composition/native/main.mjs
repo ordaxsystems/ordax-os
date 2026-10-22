@@ -967,7 +967,7 @@ async function start() {
     recoveryStatus,
   );
   const updateControls = mountUpdateControls(root, updateWatcher, appActivation, surface);
-  const powerControls = mountPowerControls(root, powerActions, surface);
+  const powerControls = mountPowerControls(root, powerActions, surface, updateWatcher);
 
   // Reaching this point proves that the shared Surface composition mounted.
   // Optional app runtimes load only after this acknowledgement so an app-level

@@ -465,7 +465,7 @@ class SurfaceUiContractTests(unittest.TestCase):
         self.assertIn("contracts/surface-render-lifecycle.mjs", controls)
         self.assertIn("assertSurfaceRenderLifecycle", controls)
         self.assertIn("localization.subscribe", controls)
-        self.assertIn("mountPowerControls(root, powerActions, surface)", native_main)
+        self.assertIn("mountPowerControls(root, powerActions, surface, updateWatcher)", native_main)
         self.assertIn("/__ordax/native/session", adapter)
         self.assertIn("/__ordax/native/power", adapter)
         self.assertNotIn("surface/ui", adapter)
