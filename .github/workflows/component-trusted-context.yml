@@ -10,7 +10,6 @@ on:
       - 'tests/test_native_files_trusted_context.mjs'
       - 'system/services/components/runtime-loader.mjs'
       - 'system/services/components/current-slot-loader.mjs'
-      - 'system/services/files/revocable-file-space.mjs'
       - 'tests/test_verified_current_component_runtime.mjs'
       - 'tests/test_component_trusted_context_composition.mjs'
       - 'tests/test_native_app_data_composition_bootstrap.mjs'
@@ -25,7 +24,6 @@ on:
       - 'tests/test_native_files_trusted_context.mjs'
       - 'system/services/components/runtime-loader.mjs'
       - 'system/services/components/current-slot-loader.mjs'
-      - 'system/services/files/revocable-file-space.mjs'
       - 'tests/test_verified_current_component_runtime.mjs'
       - 'tests/test_component_trusted_context_composition.mjs'
       - 'tests/test_native_app_data_composition_bootstrap.mjs'
@@ -50,7 +48,6 @@ jobs:
           set -euo pipefail
           node --check system/services/components/runtime-loader.mjs
           node --check system/services/components/current-slot-loader.mjs
-          node --check system/services/files/revocable-file-space.mjs
           node --check tests/test_verified_current_component_runtime.mjs
           node --check tests/test_component_trusted_context_composition.mjs
           node --check tests/test_native_app_data_composition_bootstrap.mjs
