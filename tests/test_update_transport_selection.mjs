@@ -55,6 +55,10 @@ test("corrupt policy, unsigned public channel or altered gates fail closed", () 
   altered.rules.no_transport_fallback_on_verification_failure = true;
   altered.profiles["stable-mvp"].enabled.push("git-main");
   assert.equal(route("stable-mvp", undefined, true, altered).reason, "invalid-policy");
+
+  const devDrift = structuredClone(policy);
+  devDrift.profiles["owner-development"].enabled.push("signed-exact-git");
+  assert.equal(route("owner-development", "signed-exact-git", true, devDrift).reason, "invalid-policy");
 });
 
 test("legacy distribution defaults match the selection SSOT", () => {
