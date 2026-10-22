@@ -371,7 +371,15 @@ of each responsibility must be identified before an optimization:
   memory or update policy. Independent, read-only Profile component inventory
   discovery starts alongside optional Host probes rather than awaiting unrelated
   Intelligence/Personal composition; its existing fail-soft session fallback is
-  preserved.
+  preserved. The optional Device Profile is probed once alongside the other
+  read-only ports, but its result is awaited only by First Run after the real
+  shared Surface has been mounted and its health acknowledged. A slow or
+  missing device-profile endpoint cannot prevent the initial shell health gate;
+  device rename still requires the validated original port and never a guessed
+  identity. Bundled Profile taxonomy is fetched only if the canonical bundled
+  Profile catalog loaded successfully; that read is overlapped with unrelated
+  Native probes while category validation and ungrouped fallback remain owned
+  by the same composition.
 - **Bundled Profile catalog:** `system/services/profile-packs/bundled-source.mjs`
   is the sole loader of same-origin versioned Profile manifests. After validating
   the catalog index, read independent manifests in batches of at most four
