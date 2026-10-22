@@ -195,6 +195,61 @@ func TestOfflineBundleRejectsWrongIdentityOverlapAndNetworkFallback(t *testing.T
 	}
 }
 
+func TestOfflineBundleRejectsSymlinkedDestinationAncestors(t *testing.T) {
+	trust, pub, key := testKeys(t)
+	system := validPortableEROFS()
+	manifest := manifestForPortable("https://example.invalid/system.erofs", system)
+	bundle := offlineFixture(t, trust, key, manifest, map[string][]byte{"system.erofs": system})
+	outside := t.TempDir()
+
+	t.Run("destination itself aliases signed bundle", func(t *testing.T) {
+		alias := filepath.Join(outside, "same-bundle")
+		if err := os.Symlink(bundle, alias); err != nil {
+			t.Skipf("platform cannot create test symlink: %v", err)
+		}
+		if _, err := prepareLocalBundle(bundle, "", alias, trust, pub, defaultRepo, testCommit, manifestSchemaV2); err == nil {
+			t.Fatal("symlink alias of input accepted as output root")
+		}
+		if _, err := os.Lstat(filepath.Join(bundle, "releases")); !os.IsNotExist(err) {
+			t.Fatal("rejected alias modified signed source")
+		}
+	})
+
+	t.Run("symlinked parent aliases source parent", func(t *testing.T) {
+		aliasParent := filepath.Join(outside, "parent")
+		if err := os.Symlink(filepath.Dir(bundle), aliasParent); err != nil {
+			t.Skipf("platform cannot create test symlink: %v", err)
+		}
+		alias := filepath.Join(aliasParent, filepath.Base(bundle), "nested-release-root")
+		if _, err := prepareLocalBundle(bundle, "", alias, trust, pub, defaultRepo, testCommit, manifestSchemaV2); err == nil {
+			t.Fatal("symlinked ancestor targeting signed input accepted")
+		}
+		if _, err := os.Lstat(filepath.Join(bundle, "nested-release-root")); !os.IsNotExist(err) {
+			t.Fatal("rejected ancestor alias modified signed source")
+		}
+	})
+
+	t.Run("non-directory output parent", func(t *testing.T) {
+		regular := filepath.Join(outside, "regular")
+		if err := os.WriteFile(regular, []byte("not a directory"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := prepareLocalBundle(bundle, "", filepath.Join(regular, "root"), trust, pub, defaultRepo, testCommit, manifestSchemaV2); err == nil {
+			t.Fatal("regular-file ancestor accepted as a release directory")
+		}
+	})
+
+	t.Run("nonexistent directory suffix is valid", func(t *testing.T) {
+		plain := filepath.Join(outside, "new-parent", "release-root")
+		if _, err := prepareLocalBundle(bundle, "", plain, trust, pub, defaultRepo, testCommit, manifestSchemaV2); err != nil {
+			t.Fatalf("legitimate new release output was rejected: %v", err)
+		}
+		if _, err := os.Lstat(plain); !os.IsNotExist(err) {
+			t.Fatal("preflight created output directory")
+		}
+	})
+}
+
 func TestOfflineBundleCommandRejectsInvalidTrustOrMixedSource(t *testing.T) {
 	trust, pub, key := testKeys(t)
 	_ = pub
