@@ -103,6 +103,22 @@ class NativeProductLifecycleTests(unittest.TestCase):
         return subprocess.run(["sh", "-c", script], env=env, text=True,
                               capture_output=True, timeout=20)
 
+    def test_supervisor_owns_runtime_and_restarts_on_lifecycle_source_update(self):
+        supervisor = (ROOT / "system/supervisor").read_text(encoding="utf-8")
+        self.assertIn('. "$native_product_lifecycle"', supervisor)
+        self.assertIn('command -v native_product_reconcile', supervisor)
+        self.assertIn('if ! native_product_reconcile;', supervisor)
+        self.assertIn('if ! native_product_stop;', supervisor)
+        self.assertIn(
+            'system/entrypoint|system/supervisor|system/services/device-agent/native-product-lifecycle.sh)',
+            supervisor,
+        )
+        self.assertLess(
+            supervisor.index('if ! native_product_stop;'),
+            supervisor.index('if [ -n "$SURFACE_PID" ]; then', supervisor.index('stop_surface() {')),
+        )
+        self.assertIn('[ "$OWNER_INITIAL_HEALTH_PENDING" -eq 0 ]', supervisor)
+
     def test_shell_syntax(self):
         check = subprocess.run(["sh", "-n", str(LIBRARY)], capture_output=True)
         self.assertEqual(check.returncode, 0, check.stderr)
