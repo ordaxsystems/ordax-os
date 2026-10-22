@@ -11,6 +11,7 @@ from pathlib import Path
 import stat
 import subprocess
 import tempfile
+import threading
 import time
 import unittest
 
@@ -23,6 +24,25 @@ NETWORK = ROOT / "bootstrap/dev-base/ordax-network"
 
 
 class DevelopmentGitFlowTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        # Compile the actual native syscall primitive, not a fake success shim.
+        # Production builds the same source statically under the Dev Base owner.
+        compiler = shutil.which("cc")
+        if not compiler:
+            raise unittest.SkipTest("Linux C compiler required for native swap E2E")
+        cls.exchange_build = tempfile.TemporaryDirectory()
+        cls.exchange_bin = Path(cls.exchange_build.name) / "ordax-checkout-exchange"
+        subprocess.run([
+            compiler, "-O2", "-Wall", "-Wextra", "-Werror",
+            "-o", str(cls.exchange_bin),
+            str(ROOT / "bootstrap/dev-base/ordax_checkout_exchange.c"),
+        ], check=True, capture_output=True, text=True, timeout=30)
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        if hasattr(cls, "exchange_build"):
+            cls.exchange_build.cleanup()
     def setUp(self) -> None:
         self.temp = tempfile.TemporaryDirectory()
         self.root = Path(self.temp.name)
@@ -163,6 +183,7 @@ class DevelopmentGitFlowTest(unittest.TestCase):
                 "ORDAX_STATE_DIR": str(self.state),
                 "ORDAX_DEV_HELPER_TARGET_ROOT": str(self.root / "installed-rootfs"),
                 "ORDAX_UPDATE_RUN_DIR": str(self.root / "run/ordax-update"),
+                "ORDAX_CHECKOUT_EXCHANGE_BIN": str(self.exchange_bin),
                 "ORDAX_SURFACE_RUNTIME_PROVISION_MARKER": str(
                     self.root / "run/ordax-surface/runtime-provisioning-source-sha"
                 ),
@@ -964,7 +985,9 @@ class DevelopmentGitFlowTest(unittest.TestCase):
         self.assertIn('recover_legacy_retired_checkout()', pull)
         self.assertIn('cleanup_transaction_artifacts()', pull)
         self.assertIn('/bootstrap/dev-base/', pull)
-        self.assertIn('mv "$stage" "$WORKTREE"', pull)
+        self.assertIn('atomic_checkout_exchange "$WORKTREE" "$stage"', pull)
+        self.assertNotIn('mv "$WORKTREE" "$retired"', pull)
+        self.assertIn('mv "$stage" "$WORKTREE"', pull)  # empty initial install only
         self.assertNotIn('pull --ff-only', pull)
 
         self.assertIn("BOOT_REJECTED_FILE=$STATE_DIR/boot-rejected-commit", dev_init)
@@ -1033,6 +1056,76 @@ class DevelopmentGitFlowTest(unittest.TestCase):
             self._run(["git", "-C", str(self.worktree), "rev-parse", "HEAD"]).stdout.strip(),
             self.commit_v2,
         )
+
+    def test_update_keeps_worktree_visible_to_continuous_readers(self) -> None:
+        self._script(PULL)
+        self._commit_runtime("runtime-v2")
+        errors: list[str] = []
+        stopping = threading.Event()
+        def reader() -> None:
+            while not stopping.is_set():
+                try:
+                    if not self.worktree.is_dir():
+                        errors.append("missing-live-worktree")
+                except OSError as exc:
+                    errors.append(type(exc).__name__)
+        thread = threading.Thread(target=reader, daemon=True)
+        thread.start()
+        try:
+            updated = self._script(PULL)
+        finally:
+            stopping.set()
+            thread.join(timeout=10)
+        self.assertIn("checkout atomico ativado", updated.stdout)
+        self.assertFalse(errors, errors[:10])
+        self.assertTrue(self.worktree.is_dir())
+
+    def test_missing_native_exchange_preserves_verified_live_checkout(self) -> None:
+        self._script(PULL)
+        previous = self.commit_v1
+        self._commit_runtime("runtime-v2")
+        env = self._env()
+        env["ORDAX_CHECKOUT_EXCHANGE_BIN"] = str(self.root / "missing-helper")
+        denied = self._script(PULL, env=env, check=False)
+        self.assertNotEqual(denied.returncode, 0)
+        self.assertIn("native atomic exchange unavailable", denied.stderr)
+        self.assertEqual(
+            self._run(["git", "-C", str(self.worktree), "rev-parse", "HEAD"]).stdout.strip(),
+            previous,
+        )
+        self.assertFalse((self.state / "pull-transaction.tsv").exists())
+
+    def test_interrupted_post_exchange_state_commits_exact_head_offline(self) -> None:
+        self._script(PULL)
+        previous = self.commit_v1
+        next_sha = self._commit_runtime("runtime-v2")
+        # Prepare a second validated checkout using the canonical local seed
+        # path, then emulate a crash immediately following the kernel swap.
+        sibling = self.root / "candidate-repository"
+        self._run(["git", "clone", "--quiet", "--branch", "main", self.remote.as_uri(), str(sibling)])
+        candidate = self.worktree.parent / ".ordax-staging.4242"
+        self._run(["git", "clone", "--quiet", "--branch", "main", self.remote.as_uri(), str(candidate)])
+        # One exact kernel exchange, without touching the running process.
+        self._run([str(self.exchange_bin), str(self.worktree), str(candidate)])
+        self.state.mkdir(parents=True, exist_ok=True)
+        (self.state / "pull-transaction.tsv").write_text(
+            f"4242|prepared|{next_sha}|{previous}|update\\n", encoding="utf-8",
+        )
+        unavailable = self.root / "offline.git"
+        self.remote.rename(unavailable)
+        try:
+            probe = self._script(PULL, check=False)
+        finally:
+            unavailable.rename(self.remote)
+        self.assertNotEqual(probe.returncode, 0)
+        self.assertIn("interrupted exchange already activated", probe.stderr)
+        self.assertFalse(candidate.exists())
+        self.assertFalse((self.state / "pull-transaction.tsv").exists())
+        self.assertEqual(
+            self._run(["git", "-C", str(self.worktree), "rev-parse", "HEAD"]).stdout.strip(),
+            next_sha,
+        )
+        self.assertEqual((self.state / "previous-commit").read_text().strip(), previous)
 
     def test_interrupted_atomic_swap_restores_last_checkout_before_remote_access(self) -> None:
         self._script(PULL)
