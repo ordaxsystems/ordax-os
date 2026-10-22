@@ -199,6 +199,12 @@ class SystemRuntimeContractTests(unittest.TestCase):
         self.assertIn("upgrade_existing_runtime", text)
         self.assertIn('run_bounded_apk "$RUNTIME_UPGRADE_TIMEOUT"', text)
         self.assertIn("packages=$(runtime_packages)", text)
+        self.assertIn("runtime_audio_is_ready()", text)
+        self.assertIn("/usr/bin/wireplumber", text)
+        self.assertRegex(
+            text,
+            r"/bin/busybox sh /srv/ordax-system/surface/runtime/audio-session\.sh[ \t]*\\\n[ \t]*--runtime-dir /run/ordax-surface/audio --",
+        )
         self.assertIn("extending existing graphical runtime with WebKit browser host support", text)
         self.assertIn("RUNTIME_ID=alpine-v3.22-cage-webkitgtk-v1", text)
         self.assertIn("LEGACY_RUNTIME_ID=alpine-v3.22-cage-barkery-v1", text)

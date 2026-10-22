@@ -59,6 +59,7 @@ The product foundation also defines narrow provider-neutral ports for the next a
 - `profile-content-pack.mjs` — declarative Knowledge/Skill payload structure with per-entry hashes, per-source provenance, no executable media, and no Skill authority/tools in the current foundation.
 - `operational-realtime.mjs` — Space-scoped live operational events plus typed Device Action request/receipt validation; account sync, notifications and action authorization remain separate authorities.
 - `mobile-companion.mjs` — explicit, expiring phone/tablet capability grants for camera, microphone, location/presence, sensors, sharing and notifications; silent sensor activation is forbidden.
+- `audio-outputs.mjs` — bounded, session-scoped output selection, volume and mute snapshots; native host actions remain behind the per-session loopback token.
 - `application-compatibility.mjs` — fail-closed inspection and runtime-selection boundary for foreign desktop formats; no install/execute authority and no implicit Wine/Proton provider.
 - `application-compatibility-profile.mjs` — payload/runtime-bound isolated profile identity and side-effect-free creation planning; no absolute host path or profile mutation authority.
 

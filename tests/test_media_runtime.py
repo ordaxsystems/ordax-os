@@ -24,7 +24,10 @@ class MediaRuntimeTests(unittest.TestCase):
     def test_packages_have_one_owner_for_native_and_offline_builds(self):
         contract = {"packages_file": CONFIG.PACKAGES_FILE}
         packages = CONFIG.requested_packages(contract, ROOT)
-        self.assertTrue({"gst-plugins-good", "gst-libav", "webkit2gtk-4.1"}.issubset(packages))
+        self.assertTrue({
+            "dbus", "gst-plugins-good", "gst-libav", "gst-plugin-pipewire",
+            "pipewire-alsa", "pipewire-pulse", "webkit2gtk-4.1", "wireplumber",
+        }.issubset(packages))
         launcher = (ROOT / "system/surface/bin/ordax-surface").read_text()
         function = launcher[launcher.index("runtime_packages() {"):launcher.index("runtime_media_is_ready() {")]
         with tempfile.TemporaryDirectory() as tmp:
@@ -64,12 +67,48 @@ class MediaRuntimeTests(unittest.TestCase):
                     BUILDER.probe_runtime_media(root)
             self.assertEqual(list(root.iterdir()), [])
 
+    def test_builder_starts_pipewire_session_without_a_physical_device(self):
+        for failure in (None, RuntimeError("audio service failure")):
+            with self.subTest(failure=failure), tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp)
+
+                def execute(actual_root, command):
+                    self.assertEqual(actual_root, root)
+                    self.assertIn("/bin/busybox sh /ordax-audio-session.sh", command)
+                    self.assertIn("XDG_RUNTIME_DIR=/run/ordax-media-probe", command)
+                    self.assertIn("--runtime-dir /run/ordax-media-probe -- /usr/bin/pactl info", command)
+                    script = root / "ordax-audio-session.sh"
+                    self.assertEqual(script.read_bytes(), (ROOT / "system/surface/runtime/audio-session.sh").read_bytes())
+                    transient_pid = root / "run/ordax-media-probe/pulse/pid"
+                    transient_pid.parent.mkdir(parents=True)
+                    transient_pid.write_text("1234\n", encoding="utf-8")
+                    if failure is not None:
+                        raise failure
+
+                with mock.patch.object(BUILDER.CORE, "proot_rootfs", side_effect=execute):
+                    if failure is None:
+                        BUILDER.probe_runtime_audio_session(root)
+                    else:
+                        with self.assertRaisesRegex(BUILDER.RuntimeBuildError, "device-less startup probe"):
+                            BUILDER.probe_runtime_audio_session(root)
+                self.assertFalse((root / "ordax-audio-session.sh").exists())
+                self.assertFalse((root / "run/ordax-media-probe").exists())
+
+    def test_pipewire_runtime_does_not_replace_wayland_runtime_directory(self):
+        launcher = (ROOT / "system/surface/bin/ordax-surface").read_text()
+        session = (ROOT / "system/surface/runtime/audio-session.sh").read_text()
+        self.assertIn('export XDG_RUNTIME_DIR="$SESSION_DIR"', launcher)
+        self.assertIn('XDG_RUNTIME_DIR=${XDG_RUNTIME_DIR:-/run/ordax-surface}', session)
+        self.assertIn('export PIPEWIRE_RUNTIME_DIR=$audio_session_dir', session)
+        self.assertNotIn('XDG_RUNTIME_DIR=$audio_session_dir', session)
+
     def test_probe_tests_container_decoding_and_never_opens_capture_or_speakers(self):
         with mock.patch.object(PROBE.subprocess, "run", return_value=mock.Mock(returncode=0)) as run:
             result = PROBE.probe()
         self.assertTrue(result["passed"])
         self.assertFalse(result["physicalPlaybackProven"])
         self.assertFalse(result["captureActivated"])
+        self.assertTrue({"pulsesink", "pipewiresink", "pipewiresrc"}.issubset(PROBE.REQUIRED_ELEMENTS))
         self.assertEqual(len(result["checks"]), len(PROBE.REQUIRED_ELEMENTS) + 2 * len(PROBE.FIXTURES))
         for call in run.call_args_list:
             args = call.args[0]

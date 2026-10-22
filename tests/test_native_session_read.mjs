@@ -5,16 +5,18 @@ import { readNativeSession, NATIVE_SESSION_ENDPOINT } from "../system/adapters/n
 import { createNativePowerActions } from "../system/adapters/native/power-actions.mjs";
 import { createNativeNetworkManagement } from "../system/adapters/native/network-management.mjs";
 import { createNativeDisplayOutputs } from "../system/adapters/native/display-outputs.mjs";
+import { createNativeAudioOutputs } from "../system/adapters/native/audio-outputs.mjs";
 import { createNativeClientDiagnostics } from "../system/adapters/native/client-diagnostics.mjs";
 
 const sessionPayload = () => ({
   token: "p".repeat(32), supportedActions: ["restart", "shutdown"],
   networkToken: "n".repeat(24),
   displayOutputsToken: "d".repeat(24),
+  audioOutputsToken: "a".repeat(24),
   diagnosticToken: "x".repeat(24),
 });
 
-test("four Native boot adapters share one in-flight session read, not their capability checks", async () => {
+test("Native boot adapters share one in-flight session read, not their capability checks", async () => {
   let release;
   let sessionReads = 0;
   const requests = [];
@@ -37,6 +39,12 @@ test("four Native boot adapters share one in-flight session read, not their capa
           reason: "host-unavailable", outputs: [], preview: null,
         }) };
       }
+      if (url === "/__ordax/native/audio-outputs") {
+        return { ok: true, json: async () => ({
+          schema: "ordax.audio-outputs/1", available: false,
+          reason: "provider-missing", defaultOutputId: null, outputs: [],
+        }) };
+      }
       if (url === "/__ordax/native/power") return { ok: true, status: 202 };
       if (url === "/__ordax/native/client-diagnostic") return { ok: true, status: 202 };
       throw new Error("unexpected Native Host endpoint: " + url);
@@ -46,15 +54,17 @@ test("four Native boot adapters share one in-flight session read, not their capa
     createNativePowerActions(windowRef),
     createNativeNetworkManagement(windowRef),
     createNativeDisplayOutputs(windowRef),
+    createNativeAudioOutputs(windowRef),
     createNativeClientDiagnostics(windowRef),
   ]);
   await new Promise((resolve) => setImmediate(resolve));
   assert.equal(sessionReads, 1, "only one identical session GET is in flight");
   release();
-  const [power, network, display, diagnostics] = await boot;
+  const [power, network, display, audio, diagnostics] = await boot;
   assert.deepEqual(power.getSnapshot().supportedActions, ["restart", "shutdown"]);
   assert.equal((await network.status()).wifiInterface, "wlan0");
   assert.equal((await display.read()).available, false);
+  assert.equal((await audio.read()).available, false);
   assert.equal(typeof diagnostics.report, "function");
   assert.equal(sessionReads, 1, "each capability still has its own validation and transport");
   await power.execute("restart");
@@ -62,6 +72,9 @@ test("four Native boot adapters share one in-flight session read, not their capa
   assert.equal(requests[0].options.method, "GET");
   assert.equal(requests[0].options.credentials, "same-origin");
   assert.equal(requests[0].options.cache, "no-store");
+  const audioRequest = requests.find((r) => r.url === "/__ordax/native/audio-outputs");
+  assert.equal(audioRequest.options.credentials, "same-origin");
+  assert.equal(audioRequest.options.headers["X-OrdaX-Audio-Token"], "a".repeat(24));
 });
 
 test("completed Native sessions do not persist: sequential reads obtain new host session", async () => {
@@ -126,17 +139,26 @@ test("a missing capability token remains unavailable even if another session tok
           reason: "host-unavailable", outputs: [], preview: null,
         }) };
       }
+      if (url === "/__ordax/native/audio-outputs") {
+        return { ok: true, json: async () => ({
+          schema: "ordax.audio-outputs/1", available: false,
+          reason: "provider-missing", defaultOutputId: null, outputs: [],
+        }) };
+      }
       throw new Error("unexpected request");
     },
   };
-  const [power, network, display, diagnostics] = await Promise.allSettled([
+  const [power, network, display, audio, diagnostics] = await Promise.allSettled([
     createNativePowerActions(windowRef),
     createNativeNetworkManagement(windowRef),
     createNativeDisplayOutputs(windowRef),
+    createNativeAudioOutputs(windowRef),
     createNativeClientDiagnostics(windowRef),
   ]);
   assert.equal(power.status, "fulfilled");
   assert.equal(display.status, "fulfilled");
+  assert.equal(audio.status, "rejected");
+  assert.match(audio.reason.message, /audio output token is unavailable/);
   assert.equal(network.status, "rejected");
   assert.match(network.reason.message, /network token is unavailable/);
   assert.equal(diagnostics.status, "rejected");

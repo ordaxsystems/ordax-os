@@ -9,7 +9,8 @@ import tempfile
 
 
 REQUIRED_ELEMENTS = (
-    "alsasink", "playbin", "qtdemux", "matroskademux", "mpg123audiodec",
+    "alsasink", "pulsesink", "pipewiresink", "pipewiresrc", "playbin",
+    "qtdemux", "matroskademux", "mpg123audiodec",
     "wavparse", "flacdec", "avdec_h264", "vp8dec", "vp9dec", "pngdec", "jpegdec",
 )
 
