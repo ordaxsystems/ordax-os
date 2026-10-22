@@ -168,9 +168,21 @@ class HotUpdateSupervisorContractTests(unittest.TestCase):
     def test_non_fast_forward_remote_is_blocked_before_checkout_and_retry(self):
         text = SYSTEM_SUPERVISOR.read_text(encoding="utf-8")
         check = text.split("check_for_update() {", 1)[1].split("\n}\n", 1)[0]
-        guard = 'if non_ff_target_blocked "$current" "$remote_sha"; then'
+        guard = (
+            'if non_ff_target_blocked "$current" "$remote_sha" &&'
+            '\n       ! automatic_main_reconcile_allowed "$current" "$remote_sha"; then'
+        )
         self.assertIn(guard, check)
         self.assertLess(check.index(guard), check.index("    old_sha=$current"))
+        # Only a receipted, healthy Owner/Dev checkout may reconcile a
+        # rewritten canonical main. Other profiles remain fail-closed.
+        allowed = text.split("automatic_main_reconcile_allowed() {", 1)[1].split("\n}\n", 1)[0]
+        self.assertIn('[ "$DISTRIBUTION_PROFILE" = owner-development ]', allowed)
+        self.assertIn('[ "$BRANCH" = main ]', allowed)
+        self.assertIn('[ "$REPO_URL" = "https://github.com/ordaxsystems/ordax-os.git" ]', allowed)
+        self.assertIn('[ "$OWNER_INITIAL_HEALTH_PENDING" -eq 0 ]', allowed)
+        self.assertIn('[ -z "$reconcile_dirty" ]', allowed)
+        self.assertIn('surface_health_matches "$reconcile_surface"', allowed)
         blocked = check[check.index(guard):check.index("    old_sha=$current")]
         self.assertIn('set_update_context blocked "$remote_sha" "" "non-fast-forward"', blocked)
         self.assertIn('write_update_state "$current" pull-error none', blocked)
@@ -185,6 +197,7 @@ class HotUpdateSupervisorContractTests(unittest.TestCase):
             '"$checkout_previous_sha" "$checkout_target_sha"'
         )
         self.assertIn(ancestor, apply)
+        self.assertIn('automatic_main_reconcile_allowed "$checkout_previous_sha" "$checkout_target_sha"', apply)
         self.assertIn('record_non_ff_target "$checkout_previous_sha" "$checkout_target_sha"', apply)
         self.assertIn("CHECKOUT_ERROR=non-fast-forward", apply)
         self.assertLess(apply.index(ancestor), apply.index('stage_candidate_release "$checkout_target_sha"'))
