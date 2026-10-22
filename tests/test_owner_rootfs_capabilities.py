@@ -25,6 +25,9 @@ class OwnerRootfsCapabilitiesTest(unittest.TestCase):
         inventory = capabilities.owner_inventory(ROOT)
         self.assertEqual(inventory["missing_sources"], [])
         self.assertEqual(inventory["unknown_commands"], [])
+        self.assertIn("system/services/device-agent/native-product-lifecycle.sh", inventory["sources"])
+        self.assertNotIn("native_product_reconcile", inventory["commands"])
+        self.assertNotIn("native_product_stop", inventory["commands"])
         self.assertIn("mktemp", inventory["busybox_applets"])
         self.assertIn("ordax-portable-mount", inventory["fixed_initramfs_commands"])
         self.assertEqual(
@@ -37,6 +40,22 @@ class OwnerRootfsCapabilitiesTest(unittest.TestCase):
             "udhcpc", "ntpd", "timeout", "stty", "setsid", "df",
             "tr", "wc", "mount", "pivot_root", "switch_root", "sync", "reboot",
         }.issubset(commands))
+
+    def test_sourced_native_lifecycle_functions_are_derived_not_allowlisted(self) -> None:
+        source = ROOT / "system/services/device-agent/native-product-lifecycle.sh"
+        supervisor = ROOT / "system/supervisor"
+        functions = capabilities._supervisor_sourced_functions(ROOT)
+        self.assertIn("native_product_reconcile", functions)
+        self.assertIn("native_product_stop", functions)
+        self.assertNotIn("native_product_reconcile", capabilities.extract_commands(
+            supervisor, sourced_functions=functions,
+        ))
+        # Scanning without the verified import still surfaces the unresolved
+        # shell command; a missing library cannot invent an executable.
+        self.assertIn("native_product_reconcile", capabilities.extract_commands(supervisor))
+        self.assertTrue(capabilities.extract_commands(source).issubset(
+            set(capabilities.owner_inventory(ROOT)["commands"])
+        ))
 
     def test_explicit_busybox_calls_are_separately_proven(self) -> None:
         inventory = capabilities.owner_inventory(ROOT)
