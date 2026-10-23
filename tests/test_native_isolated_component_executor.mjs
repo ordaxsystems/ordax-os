@@ -328,6 +328,67 @@ test("Aura Native slot receives only typed host snapshots and consultative bound
   await mounted.destroy();
 });
 
+test("Aura aborts old local inference across rapid Identity switches and rejects a stale response", async () => {
+  const env = setup({ componentId: "assistant", version: "0.1.2" });
+  const url = MODULE.replace("notes/current/0.4.2", "assistant/current/0.1.2");
+  let identityState = { state: "signed-in", subjectId: "owner-1", displayName: "Owner" };
+  const identityListeners = new Set();
+  const identity = {
+    schema: "ordax.identity-session/1",
+    getSnapshot: () => identityState,
+    subscribe(listener) {
+      identityListeners.add(listener);
+      return () => identityListeners.delete(listener);
+    },
+  };
+  const selection = {
+    schema: "ordax.space-selection/1",
+    getSnapshot: () => ({ schema: "ordax.space-selection/1", state: "unavailable", subjectId: null, selectedSpace: null }),
+    subscribe: () => () => {}, select() {}, clear() {},
+  };
+  let inferenceStarted;
+  const started = new Promise(resolve => { inferenceStarted = resolve; });
+  let wasAborted = false;
+  const intelligence = {
+    schema: "ordax.intelligence/1",
+    getSnapshot: () => ({
+      schema: "ordax.intelligence/1", state: "ready", inferenceAvailable: true,
+      authority: "none", toolExecution: false, engineId: "local", modelId: "model",
+    }),
+    subscribe: () => () => {},
+    respond(_request, options) {
+      inferenceStarted();
+      return new Promise((resolve, reject) => {
+        options.signal.addEventListener("abort", () => {
+          wasAborted = true;
+          reject(new Error("Inference cancelled by trusted host"));
+        }, { once: true });
+      });
+    },
+  };
+  const imported = await env.importer(url, env.currentSlot);
+  const mounted = await imported.componentRuntime.mount({
+    root: env.root, surfaceLifecycle: env.lifecycle, appData: env.appData,
+    identitySessionPort: identity, spaceSelectionPort: selection, intelligence,
+  });
+  const frame = env.root.childNodes[0];
+  const result = mountedMessage(frame);
+  frame.childPort.postMessage({
+    schema: BRIDGE, type: "call", id: 1, operation: "intelligence.respond",
+    args: [{ prompt: "One private turn" }],
+  });
+  await started;
+  identityState = { state: "signed-out", subjectId: null, displayName: null };
+  for (const listener of [...identityListeners]) listener(identityState);
+  identityState = { state: "signed-in", subjectId: "owner-1", displayName: "Owner" };
+  for (const listener of [...identityListeners]) listener(identityState);
+  const reply = await result;
+  assert.equal(reply.ok, false);
+  assert.equal(wasAborted, true);
+  await mounted.destroy();
+  assert.equal(identityListeners.size, 0);
+});
+
 test("non-Aura signed slots cannot request or obtain Aura's privileged host snapshots", async () => {
   const env = setup();
   const imported = await env.importer(MODULE, env.currentSlot);
