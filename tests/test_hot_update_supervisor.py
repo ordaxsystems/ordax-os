@@ -218,6 +218,34 @@ class HotUpdateSupervisorContractTests(unittest.TestCase):
         self.assertNotIn('remote_sha=$(remote_main_sha || true)', pull)
         self.assertIn('checkout local sera preservado', pull)
 
+    def test_native_base_request_is_not_blocked_by_pending_helper_installation(self):
+        supervisor = SYSTEM_SUPERVISOR.read_text(encoding="utf-8")
+        manifest = (ROOT / "system/services/base-update/dev-helper-manifest.tsv").read_text(encoding="utf-8")
+        installer = (ROOT / "system/services/base-update/dev-helpers.sh").read_text(encoding="utf-8")
+        self.assertIn(
+            "bootstrap/dev-base/ordax-pull\\tusr/local/bin/ordax-pull\\t"
+            "usr/local/bin/ordax-checkout-exchange@prototype-ordax.checkout-exchange/1",
+            manifest,
+        )
+        self.assertIn('native_actual_abi=$("$native_target" --abi 2>/dev/null)', installer)
+        self.assertLess(
+            installer.index('require_native_prerequisite "$native_prerequisite"'),
+            installer.index('stage_helper "$source_relative" "$target_relative"'),
+        )
+        poll = supervisor.split('    if [ "$remote_sha" = "$current" ]; then', 1)[1]
+        poll = poll.split('    if [ -n "$rejected_sha" ]', 1)[0]
+        self.assertLess(
+            poll.index('request_dev_base_candidate "$current"'),
+            poll.index('refresh_dev_helpers "$current"'),
+        )
+        failed = supervisor.split('if ! apply_remote_checkout "$old_sha" "$remote_sha"; then', 1)[1]
+        failed = failed.split('    new_sha=$(current_sha)', 1)[0]
+        self.assertIn('if [ "$LOW_LEVEL_CHANGED" -eq 1 ]', failed)
+        self.assertIn('validate_updated_tree "$APPLY_MODE"', failed)
+        self.assertIn('mark_boot_refresh_required "$active_after_failure"', failed)
+        self.assertIn('request_dev_base_candidate "$active_after_failure"', failed)
+        self.assertIn('write_update_state "$active_after_failure" pull-error none', failed)
+
     def test_pull_error_stage_and_committed_helper_receipt_are_consistent(self):
         supervisor = SYSTEM_SUPERVISOR.read_text(encoding="utf-8")
         pull = DEV_PULL.read_text(encoding="utf-8")
