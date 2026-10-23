@@ -1,6 +1,9 @@
 """Owner QEMU boot uses verified disposable media; no simulated pass markers."""
 from __future__ import annotations
+import ast
 import hashlib
+import os
+import re
 import importlib.util
 import json
 from pathlib import Path
@@ -117,6 +120,45 @@ class OwnerQemuHandoffTests(unittest.TestCase):
             with patch.object(PROOF.subprocess, "run", side_effect=responses):
                 result = PROOF.owner_qemu_failure_diagnostic(Path("/tmp/qemu-copy.raw"), source)
         self.assertEqual(result, {"status": "unavailable"})
+
+    def test_owner_webkit_error_probe_only_emits_redacted_boot_identity(self):
+        # Compile only the QEMU serial helpers: WebKit/GTK is intentionally
+        # absent on normal CI runners, and must not be mocked as healthy.
+        source = ROOT / "system/surface/runtime/ordax_browser_host.py"
+        parsed = ast.parse(source.read_text(encoding="utf-8"), filename=str(source))
+        methods = {"_emit_owner_qemu_serial", "emit_owner_graphics_probe",
+                   "emit_owner_boot_error_probe"}
+        definitions = [
+            node for node in parsed.body
+            if isinstance(node, ast.FunctionDef) and node.name in methods
+        ]
+        self.assertEqual({node.name for node in definitions}, methods)
+        namespace = {"os": os, "re": re, "json": json,
+                     "OWNER_GRAPHICS_PROBE_EVENTS": frozenset(
+                         {"surface-page-load-finished"})}
+        exec(compile(ast.Module(body=definitions, type_ignores=[]),
+                     str(source), "exec"), namespace)
+        emit = namespace["emit_owner_boot_error_probe"]
+        with patch.object(os, "open", return_value=61) as opened, \\
+                patch.object(os, "write") as wrote, \\
+                patch.object(os, "close"):
+            emit(True, "TypeError", "main.mjs:123:5")
+            opened.assert_called_once_with(
+                "/dev/ttyS0", os.O_WRONLY | os.O_NOCTTY | os.O_NONBLOCK)
+            payload = wrote.call_args.args[1].decode("ascii").strip()
+            prefix = "ORDAX_OWNER_WEBKIT_BOOT_DIAGNOSTIC="
+            self.assertTrue(payload.startswith(prefix))
+            self.assertEqual(json.loads(payload[len(prefix):]), {
+                "errorName": "TypeError", "source": "main.mjs:123:5",
+            })
+            wrote.reset_mock()
+            opened.reset_mock()
+            emit(False, "TypeError", "main.mjs:123:5")
+            emit(True, "TypeError", "https://unsafe.invalid/private")
+            emit(True, "Error\\nLEAK", "main.mjs:1:2")
+            emit(True, "Error", "secret.json:1:2")
+            opened.assert_not_called()
+            wrote.assert_not_called()
 
     def test_actual_qmp_framebuffer_checks_color_distribution(self):
         with tempfile.TemporaryDirectory() as tmp:
