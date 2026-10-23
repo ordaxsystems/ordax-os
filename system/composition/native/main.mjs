@@ -77,6 +77,7 @@ import { createProjectWebReferenceRuntime } from "../../services/projects/web-re
 import { createProjectContinuityFileSpace } from "../../services/files/project-continuity-file-space.mjs";
 import { installTrustedComponentContextProvider } from "../../services/components/runtime-loader.mjs";
 import { createNativeFilesTrustedContextProvider } from "./files-trusted-context.mjs";
+import { createNativeIntelligenceClientTrustedContextProvider } from "./intelligence-client-trusted-context.mjs";
 import { createNativeFilesProbationContextBootstrap } from "./files-probation-context.mjs";
 import { createPersonalActionCatalog } from "../../services/personal-ordax/action-catalog.mjs";
 import { createNotificationsRuntime } from "../../services/notifications/runtime.mjs";
@@ -941,6 +942,21 @@ async function start() {
         verifiedCurrent: installedAppCatalog?.installed.find(
           (entry) => entry.component.id === "files",
         )?.metadata ?? null,
+      }),
+    );
+  }
+  // The existing verified-current loader revalidates this same slot before
+  // import and mount. Missing/removed Aura cannot obtain these host ports.
+  if (hasNativeExternalFirstPartyModuleRead("assistant")
+    && !listFirstPartyApps().some((app) => app.id === "assistant")) {
+    installTrustedComponentContextProvider(
+      createNativeIntelligenceClientTrustedContextProvider({
+        verifiedCurrent: installedAppCatalog?.installed.find(
+          (entry) => entry.component.id === "assistant",
+        )?.metadata ?? null,
+        identitySessionPort: identitySession,
+        spaceSelectionPort: spaceSelection,
+        intelligencePort: selectedSpaceIntelligence,
       }),
     );
   }

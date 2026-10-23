@@ -36,6 +36,20 @@ import {
   validateRecentFilePath,
   validateRecentFilesSnapshot,
 } from "../../contracts/recent-files.mjs";
+import {
+  assertIdentitySessionPort,
+  validateIdentitySessionSnapshot,
+} from "../../contracts/identity-session.mjs";
+import {
+  assertSpaceSelectionPort,
+  validateSpaceSelectionSnapshot,
+} from "../../contracts/space-selection.mjs";
+import {
+  assertIntelligencePort,
+  validateIntelligenceSnapshot,
+  validateIntelligenceRequest,
+  validateIntelligenceResponse,
+} from "../../contracts/intelligence.mjs";
 import { createSurfaceLocalizationSnapshot } from "../../services/i18n/surface.mjs";
 import {
   createNativeComponentSlotAuthority,
@@ -116,23 +130,38 @@ const FRAME_BOOTSTRAP = String.raw`(() => {
   let recentFiles = null;
   let projects = null;
   let appActivation = null;
+  let identitySession = null;
+  let spaceSelection = null;
+  let intelligence = null;
   let nextRequest = 0;
   const pending = new Map();
   const renderListeners = new Set();
   const localeListeners = new Set();
 
   const send = (payload) => host?.postMessage({ schema: bridgeSchema, ...payload });
-  const call = (operation, args = []) => new Promise((resolve, reject) => {
+  const call = (operation, args = [], signal = null) => new Promise((resolve, reject) => {
     if (!host || pending.size >= 64) { reject(new Error("Native app bridge is unavailable")); return; }
+    if (signal?.aborted) { reject(new Error("Native app request cancelled")); return; }
     const id = ++nextRequest;
-    pending.set(id, { resolve, reject });
+    const finish = (callback, value) => {
+      signal?.removeEventListener?.("abort", onAbort);
+      callback(value);
+    };
+    const onAbort = () => {
+      if (!pending.delete(id)) return;
+      try { send({ type: "cancel", id }); } catch {}
+      finish(reject, new Error("Native app request cancelled"));
+    };
+    pending.set(id, {
+      resolve: (value) => finish(resolve, value),
+      reject: (error) => finish(reject, error),
+    });
+    signal?.addEventListener?.("abort", onAbort, { once: true });
     try {
       send({ type: "call", id, operation, args });
     } catch (error) {
-      // Structured-clone errors must not strand a request in the bounded
-      // pending table until the entire component is torn down.
       pending.delete(id);
-      reject(error);
+      finish(reject, error);
     }
   });
   const assertLocale = (snapshot) => {
@@ -266,6 +295,9 @@ const FRAME_BOOTSTRAP = String.raw`(() => {
     });
   };
   const fileServices = Object.freeze({
+    identitySession: { apply(id, snapshot) { identitySession?.applySnapshot(id, snapshot); } },
+    spaceSelection: { apply(id, snapshot) { spaceSelection?.applySnapshot(id, snapshot); } },
+    intelligence: { apply(id, snapshot) { intelligence?.applySnapshot(id, snapshot); } },
     recentFiles: {
       apply(id, snapshot) { recentFiles?.applySnapshot(id, snapshot); },
     },
@@ -344,6 +376,49 @@ const FRAME_BOOTSTRAP = String.raw`(() => {
             "clearLastFile", "relocateLastFilePath", "remove"]);
         appActivation = createActivationPort();
       }
+      if (data.componentId === "assistant") {
+        if (data.identitySessionSnapshot?.state === undefined
+          || data.spaceSelectionSnapshot?.schema !== "ordax.space-selection/1"
+          || data.intelligenceSnapshot?.schema !== "ordax.intelligence/1") {
+          throw new TypeError("Intelligence client host snapshots are unavailable");
+        }
+        identitySession = createSnapshotPort(
+          "identitySession", "ordax.identity-session/1", data.identitySessionSnapshot, [],
+        );
+        const selection = createSnapshotPort(
+          "spaceSelection", "ordax.space-selection/1", data.spaceSelectionSnapshot, [],
+        );
+        const denySelectionMutation = () => {
+          throw new TypeError("Intelligence client cannot select or clear the system Space");
+        };
+        spaceSelection = Object.freeze({
+          schema: selection.schema,
+          getSnapshot: selection.getSnapshot,
+          subscribe: selection.subscribe,
+          applySnapshot: selection.applySnapshot,
+          select: denySelectionMutation,
+          clear: denySelectionMutation,
+        });
+        const inference = createSnapshotPort(
+          "intelligence", "ordax.intelligence/1", data.intelligenceSnapshot, [],
+        );
+        intelligence = Object.freeze({
+          schema: inference.schema,
+          getSnapshot: inference.getSnapshot,
+          subscribe: inference.subscribe,
+          applySnapshot: inference.applySnapshot,
+          respond(request, options = {}) {
+            if (options?.signal?.aborted) {
+              return Promise.reject(new Error("Inference request was cancelled"));
+            }
+            return call("intelligence.respond", [request], options?.signal ?? null);
+          },
+        });
+      } else if (data.identitySessionSnapshot !== null
+        || data.spaceSelectionSnapshot !== null
+        || data.intelligenceSnapshot !== null) {
+        throw new TypeError("Only the verified Intelligence client may receive Intelligence ports");
+      }
       appTarget = data.appTarget ?? null;
       lifecycle = Object.freeze({
         schema: "ordax.surface-render-lifecycle/5",
@@ -384,6 +459,9 @@ const FRAME_BOOTSTRAP = String.raw`(() => {
         ...(recentFiles === null ? {} : { recentFiles }),
         ...(projects === null ? {} : { projects }),
         ...(appActivation === null ? {} : { appActivation }),
+        ...(identitySession === null ? {} : { identitySessionPort: identitySession }),
+        ...(spaceSelection === null ? {} : { spaceSelectionPort: spaceSelection }),
+        ...(intelligence === null ? {} : { intelligence }),
       });
       if (!runtimeMount || typeof runtimeMount.destroy !== "function") throw new TypeError("Sandbox component mount is invalid");
       mounted = true;
@@ -522,11 +600,26 @@ function assertContext(context, componentId, { allowMissingAppData = false } = {
   const recentFiles = hasRecentFiles ? assertRecentFilesPort(context.recentFiles) : null;
   const projects = hasProjects ? assertProjectCatalogPort(context.projects) : null;
   const appActivation = hasAppActivation ? assertAppActivationPort(context.appActivation) : null;
+  const auraPorts = ["identitySessionPort", "spaceSelectionPort", "intelligence"];
+  const hasAnyAuraPort = auraPorts.some((key) => Object.prototype.hasOwnProperty.call(context, key));
+  if (hasAnyAuraPort && componentId !== "assistant") {
+    throw new TypeError("Intelligence host context belongs only to verified Aura slots");
+  }
+  if (componentId === "assistant" && !auraPorts.every((key) =>
+    Object.prototype.hasOwnProperty.call(context, key))) {
+    throw new TypeError("Intelligence client requires all trusted Identity, Space and Intelligence ports");
+  }
+  const identitySession = componentId === "assistant"
+    ? assertIdentitySessionPort(context.identitySessionPort) : null;
+  const spaceSelection = componentId === "assistant"
+    ? assertSpaceSelectionPort(context.spaceSelectionPort) : null;
+  const intelligence = componentId === "assistant"
+    ? assertIntelligencePort(context.intelligence) : null;
   if (componentId === "files" && (fileSpace === null || recentFiles === null
     || projects === null || appActivation === null)) {
     throw new TypeError("Verified Files slot requires its complete device-local host context");
   }
-  return Object.freeze({ lifecycle, appData, fileSpace, recentFiles, projects, appActivation });
+  return Object.freeze({ lifecycle, appData, fileSpace, recentFiles, projects, appActivation, identitySession, spaceSelection, intelligence });
 }
 
 function createPendingFilesReadOnlyContext(validated) {
@@ -578,6 +671,22 @@ function makeBroker({ port, componentId, context, onRevoke, onInvalidated }) {
   const recentFilesUnsubscribes = new Map();
   const projectUnsubscribes = new Map();
   const activationUnsubscribes = new Map();
+  const identityUnsubscribes = new Map();
+  const selectionUnsubscribes = new Map();
+  const intelligenceUnsubscribes = new Map();
+  const inferenceControllers = new Set();
+  const inferenceByRequest = new Map();
+  let scopeEpoch = 0;
+  const onTrustedScopeChange = () => {
+    scopeEpoch += 1;
+    for (const controller of inferenceControllers) controller.abort();
+  };
+  const trustedScopeUnsubscribes = componentId === "assistant"
+    ? [
+        context.identitySession.subscribe(onTrustedScopeChange),
+        context.spaceSelection.subscribe(onTrustedScopeChange),
+      ]
+    : [];
   const queuedUpdates = new Map();
   let revoked = false;
   let highestRequestId = 0;
@@ -597,6 +706,14 @@ function makeBroker({ port, componentId, context, onRevoke, onInvalidated }) {
       projectUnsubscribes.clear();
       for (const unsubscribe of activationUnsubscribes.values()) { try { unsubscribe(); } catch {} }
       activationUnsubscribes.clear();
+      for (const unsubscribe of identityUnsubscribes.values()) { try { unsubscribe(); } catch {} }
+      identityUnsubscribes.clear();
+      for (const unsubscribe of selectionUnsubscribes.values()) { try { unsubscribe(); } catch {} }
+      selectionUnsubscribes.clear();
+      for (const unsubscribe of intelligenceUnsubscribes.values()) { try { unsubscribe(); } catch {} }
+      intelligenceUnsubscribes.clear();
+      for (const unsubscribe of trustedScopeUnsubscribes) { try { unsubscribe(); } catch {} }
+      for (const controller of inferenceControllers) controller.abort();
       queuedUpdates.clear();
     }
     finishIfDrained();
@@ -610,7 +727,8 @@ function makeBroker({ port, componentId, context, onRevoke, onInvalidated }) {
     ? { type: "reply", id, ok: true, value }
     : { type: "reply", id, ok: false, error: String(value?.message || value || "Native app request failed").slice(0, 1024) });
   const subscriptionCount = () => renderUnsubscribes.size + recentFilesUnsubscribes.size
-    + projectUnsubscribes.size + activationUnsubscribes.size;
+    + projectUnsubscribes.size + activationUnsubscribes.size
+    + identityUnsubscribes.size + selectionUnsubscribes.size + intelligenceUnsubscribes.size;
   const flushAuthorizedUpdates = () => {
     if (revoked || updatePump !== null || queuedUpdates.size === 0) return;
     let task;
@@ -620,8 +738,14 @@ function makeBroker({ port, componentId, context, onRevoke, onInvalidated }) {
         queuedUpdates.delete(key);
         await context.authorizeOperation();
         if (revoked) return;
-        const subscriptions = update.service === "recentFiles" ? recentFilesUnsubscribes
-          : update.service === "projects" ? projectUnsubscribes : activationUnsubscribes;
+        const subscriptions = {
+          recentFiles: recentFilesUnsubscribes,
+          projects: projectUnsubscribes,
+          appActivation: activationUnsubscribes,
+          identitySession: identityUnsubscribes,
+          spaceSelection: selectionUnsubscribes,
+          intelligence: intelligenceUnsubscribes,
+        }[update.service];
         if (!subscriptions.has(update.subscriptionId)) continue;
         send({ type: "service.update", ...update });
       }
@@ -669,6 +793,15 @@ function makeBroker({ port, componentId, context, onRevoke, onInvalidated }) {
     const recentFiles = context.recentFiles;
     const projects = context.projects;
     const appActivation = context.appActivation;
+    const identitySession = context.identitySession;
+    const spaceSelection = context.spaceSelection;
+    const intelligence = context.intelligence;
+    const requireAuraService = (service) => {
+      if (componentId !== "assistant"
+        || identitySession === null || spaceSelection === null || intelligence === null) {
+        throw new TypeError("Native " + service + " is unavailable to this signed app");
+      }
+    };
     const oneArgument = (label) => {
       if (request.args.length !== 1) throw new TypeError(`Native ${label} request is malformed`);
     };
@@ -682,6 +815,113 @@ function makeBroker({ port, componentId, context, onRevoke, onInvalidated }) {
       return listing;
     };
     switch (request.operation) {
+      case "identitySession.subscribe":
+      case "spaceSelection.subscribe":
+      case "intelligence.subscribe": {
+        requireAuraService("subscription");
+        const service = request.operation.split(".")[0];
+        const binding = {
+          identitySession: {
+            port: identitySession, subscriptions: identityUnsubscribes,
+            validate: validateIdentitySessionSnapshot,
+          },
+          spaceSelection: {
+            port: spaceSelection, subscriptions: selectionUnsubscribes,
+            validate: validateSpaceSelectionSnapshot,
+          },
+          intelligence: {
+            port: intelligence, subscriptions: intelligenceUnsubscribes,
+            validate: validateIntelligenceSnapshot,
+          },
+        }[service];
+        const id = validateSubscription(request, service, binding.subscriptions);
+        const unsubscribe = binding.port.subscribe(() => {
+          if (service !== "intelligence") {
+            for (const controller of inferenceControllers) controller.abort();
+          }
+          // Only owner-controlled snapshots are authoritative; event arguments
+          // are notifications, not trusted replacements of a system snapshot.
+          queueAuthorizedUpdate(service, id, binding.validate(binding.port.getSnapshot()));
+        });
+        binding.subscriptions.set(id, unsubscribe);
+        return true;
+      }
+      case "identitySession.unsubscribe":
+      case "spaceSelection.unsubscribe":
+      case "intelligence.unsubscribe": {
+        requireAuraService("unsubscribe");
+        const service = request.operation.split(".")[0];
+        if (request.args.length !== 1 || !Number.isSafeInteger(request.args[0])) {
+          throw new TypeError("Aura subscription ID is malformed");
+        }
+        const subscriptions = {
+          identitySession: identityUnsubscribes,
+          spaceSelection: selectionUnsubscribes,
+          intelligence: intelligenceUnsubscribes,
+        }[service];
+        const id = request.args[0];
+        queuedUpdates.delete(service + ":" + id);
+        const unsubscribe = subscriptions.get(id);
+        if (unsubscribe) { subscriptions.delete(id); unsubscribe(); }
+        return true;
+      }
+      case "intelligence.respond": {
+        requireAuraService("inference");
+        oneArgument("inference");
+        if (inferenceControllers.size !== 0) {
+          throw new TypeError("Intelligence client already has a pending inference request");
+        }
+        const requestPayload = validateIntelligenceRequest(request.args[0]);
+        const state = validateIntelligenceSnapshot(intelligence.getSnapshot());
+        if (state.state !== "ready" || state.authority !== "none" || state.toolExecution !== false) {
+          throw new TypeError("Consultative Intelligence is unavailable");
+        }
+        const readScope = () => {
+          const identity = validateIdentitySessionSnapshot(identitySession.getSnapshot());
+          const space = validateSpaceSelectionSnapshot(spaceSelection.getSnapshot());
+          if (identity.state === "signed-in" && space.state !== "unavailable"
+            && space.subjectId !== identity.subjectId) {
+            throw new TypeError("Intelligence client Identity/Space scope is incompatible");
+          }
+          return JSON.stringify([identity, space]);
+        };
+        const initialScope = readScope();
+        const initialEpoch = scopeEpoch;
+        const controller = new AbortController();
+        inferenceControllers.add(controller);
+        inferenceByRequest.set(request.id, controller);
+        let timeout;
+        let unsubscribeAbort;
+        try {
+          const aborted = new Promise((_, reject) => {
+            const onAbort = () => reject(new Error("Intelligence client inference scope was revoked"));
+            controller.signal.addEventListener("abort", onAbort, { once: true });
+            unsubscribeAbort = () => controller.signal.removeEventListener("abort", onAbort);
+          });
+          const deadline = new Promise((_, reject) => {
+            timeout = setTimeout(() => {
+              controller.abort();
+              reject(new Error("Intelligence client inference exceeded the bounded host deadline"));
+            }, 90_000);
+          });
+          const response = await Promise.race([
+            intelligence.respond(requestPayload, { signal: controller.signal }),
+            aborted,
+            deadline,
+          ]);
+          await context.authorizeOperation();
+          if (revoked || controller.signal.aborted || scopeEpoch !== initialEpoch || readScope() !== initialScope) {
+            throw new Error("Inference belongs to a revoked Identity/Space or slot");
+          }
+          return validateIntelligenceResponse(response);
+        } finally {
+          controller.abort();
+          inferenceControllers.delete(controller);
+          inferenceByRequest.delete(request.id);
+          if (timeout !== undefined) clearTimeout(timeout);
+          unsubscribeAbort?.();
+        }
+      }
       case "appData.get":
         if (request.args.length !== 1) throw new TypeError("App Data get request is malformed");
         return appData.get(appData.identity, validateAppDataKey(request.args[0]));
@@ -981,6 +1221,13 @@ function makeBroker({ port, componentId, context, onRevoke, onInvalidated }) {
     const request = event.data;
     if (revoked || !request || request.schema !== BRIDGE_SCHEMA) return;
     if (request.type === "runtime.error") return;
+    if (request.type === "cancel") {
+      if (Object.keys(request).sort().join(",") === "id,schema,type"
+        && Number.isSafeInteger(request.id) && request.id > 0) {
+        inferenceByRequest.get(request.id)?.abort();
+      }
+      return;
+    }
     const exactKeys = ["args", "id", "operation", "schema", "type"];
     if (request.type !== "call" || Object.keys(request).sort().join(",") !== exactKeys.join(",")
       || !Number.isSafeInteger(request.id) || request.id <= highestRequestId
@@ -1036,7 +1283,7 @@ async function mountIsolatedRuntime({
   const mountContext = pending
     ? createPendingFilesReadOnlyContext(verifiedContext)
     : verifiedContext;
-  const { lifecycle, appData, fileSpace, recentFiles, projects, appActivation } = mountContext;
+  const { lifecycle, appData, fileSpace, recentFiles, projects, appActivation, identitySession, spaceSelection, intelligence } = mountContext;
   const authorizeSlot = () => pending
     ? slotAuthority.assertPending(expected)
     : slotAuthority.assertCurrent(expected);
@@ -1072,6 +1319,9 @@ async function mountIsolatedRuntime({
       recentFiles,
       projects,
       appActivation,
+      identitySession,
+      spaceSelection,
+      intelligence,
       allowedOperations: pending ? PENDING_FILES_MOUNT_OPERATIONS : null,
       pendingReadOnlyMount: pending,
       authorizeOperation: authorizeSlot,
@@ -1113,6 +1363,12 @@ async function mountIsolatedRuntime({
           : validateRecentFilesSnapshot(recentFiles.getSnapshot()),
         projectCatalogSnapshot: projects === null ? null
           : validateProjectCatalogSnapshot(projects.getSnapshot()),
+        identitySessionSnapshot: identitySession === null ? null
+          : validateIdentitySessionSnapshot(identitySession.getSnapshot()),
+        spaceSelectionSnapshot: spaceSelection === null ? null
+          : validateSpaceSelectionSnapshot(spaceSelection.getSnapshot()),
+        intelligenceSnapshot: intelligence === null ? null
+          : validateIntelligenceSnapshot(intelligence.getSnapshot()),
         localizationSnapshot, appTarget,
       }, "*", [channel.port2]);
     } catch (error) { readyReject(error); }
