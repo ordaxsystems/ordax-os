@@ -3,17 +3,28 @@ name: Surface External Source Consumer
 on:
   push:
     branches:
+      - main
       - integration/surface-source-consumer-20261023
     paths:
       - 'docs/contracts/surface-source.json'
       - 'tools/surface-source/**'
       - 'tests/test_surface_source_materialization.py'
+      - 'system/composition/**'
+      - 'system/surface/runtime/**'
+      - 'system/surface/entrypoint'
+      - 'system/surface/bin/**'
+      - 'tools/release-bundle/**'
       - '.github/workflows/surface-source-consumer.yml'
   pull_request:
     paths:
       - 'docs/contracts/surface-source.json'
       - 'tools/surface-source/**'
       - 'tests/test_surface_source_materialization.py'
+      - 'system/composition/**'
+      - 'system/surface/runtime/**'
+      - 'system/surface/entrypoint'
+      - 'system/surface/bin/**'
+      - 'tools/release-bundle/**'
       - '.github/workflows/surface-source-consumer.yml'
 
 permissions:
