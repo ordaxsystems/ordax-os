@@ -63,6 +63,44 @@ jobs:
           python3 -m tools.ci.probe_native_buildroot_agent --receipt "$PROOF_ROOT/native-python-provenance.json" --private-target-tar "$PROOF_ROOT/native-python-build-input.rootfs.tar" --stage-private-target > "$RUNNER_TEMP/ordax-native-bootstrap-result.json"
           status=$?
           set -e
+          if [ "$status" -eq 1 ]; then
+            python3 - <<'PY'
+          import hashlib, json, os, subprocess, tempfile
+          from pathlib import Path
+          from tools.ci.probe_native_buildroot_agent import CHILD, stage_verified_target
+          receipt_dir = Path(os.environ["PROOF_ROOT"])
+          receipt = json.loads((receipt_dir / "native-python-provenance.json").read_text())
+          private_tar = receipt_dir / "native-python-build-input.rootfs.tar"
+          digest = receipt["private_target_build_input"]["sha256"]
+          # Reuse the one canonical bounded TAR stage; never extract over the OS.
+          with tempfile.TemporaryDirectory(prefix="ordax-native-elf-diagnostic-") as temp:
+              root = Path(temp) / "target"
+              stage_verified_target(private_tar, digest, root)
+              loader = (root / "lib/ld-musl-x86_64.so.1").resolve(strict=True)
+              interpreter = root / receipt["python_abi"]["python_executable"]
+              env = {
+                  "PATH": "/usr/bin:/bin", "HOME": temp, "LANG": "C",
+                  "PYTHONDONTWRITEBYTECODE": "1",
+                  "PYTHONHOME": str(root / "usr"),
+                  "LD_LIBRARY_PATH": str(root / "lib") + ":" + str(root / "usr/lib"),
+              }
+              probes = (
+                  ("python_version", "import sys; print(sys.version)"),
+                  ("os_private_dependencies", "import ssl, sqlite3, httpx; print('os_native_dependencies_loaded')"),
+                  ("real_canonical_agent", CHILD),
+              )
+              for label, script in probes:
+                  result = subprocess.run(
+                      [str(loader), str(interpreter), "-I", "-B", "-c", script, str(Path.cwd())],
+                      cwd=temp, env=env, capture_output=True, text=True, timeout=30,
+                  )
+                  print("OS_NATIVE_DIAGNOSTIC=" + json.dumps({
+                      "probe": label, "exit_code": result.returncode,
+                      "stderr_tail": result.stderr[-2600:].replace("a" * 64, "[synthetic-token]"),
+                      "stdout_tail": result.stdout[-700:].replace("a" * 64, "[synthetic-token]"),
+                  }, sort_keys=True))
+          PY
+          fi
           python3 - "$RUNNER_TEMP/ordax-native-bootstrap-result.json" "$status" <<'PY'
           import json, os, sys
           from pathlib import Path
