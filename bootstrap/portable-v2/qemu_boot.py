@@ -34,6 +34,7 @@ DISK_BYTES = 3 * 1024 * 1024 * 1024
 DEV_GEOMETRY_DISK_BYTES = 5 * 1024 * 1024 * 1024
 ROOT = Path(__file__).resolve().parents[2]
 OWNER_MEDIA_CONTRACT = ROOT / "docs/contracts/physical-prepared-media.json"
+PORTABLE_MEDIA_CONTRACT = ROOT / "docs/contracts/portable-usb-v2.json"
 ESP_BYTES = 512 * 1024 * 1024
 SUCCESS = "ORDAX_PORTABLE_V2_HANDOFF=VERIFIED"
 STABLE = "ORDAX_STABLE_INIT_HANDOFF=VERIFIED"
@@ -351,51 +352,99 @@ def validate_inputs(args: argparse.Namespace) -> dict[str, Any]:
     }
 
 
-def dev_transitional_geometry() -> tuple[int, int, int]:
-    """Derive disposable QEMU partition minima from the Creator's existing SSOT.
+def qemu_media_layout(dev_geometry: bool) -> tuple[int, int, int, list[dict[str, Any]]]:
+    """Read the selected canonical Creator/Portable GPT layout exactly once.
 
-    The intermediate ORDAX ext4 filesystem is deliberately EMPTY: this proves
-    Portable PID1 discovery on Dev-style geometry, not Owner Git continuity.
+    The Dev ORDAX ext4 partition is intentionally empty. This function only
+    defines a disposable boot fixture, never a physical writer authorization.
     """
-    contract = load_json(OWNER_MEDIA_CONTRACT, "transitional prepared USB contract")
-    if (contract.get("$schema") != "prototype-ordax.physical-prepared-media/1"
+    contract_path = OWNER_MEDIA_CONTRACT if dev_geometry else PORTABLE_MEDIA_CONTRACT
+    contract = load_json(contract_path, "canonical QEMU media contract")
+    parts = contract.get("partitions")
+    expected_names = (
+        ["ORDAX-ESP", "ORDAX", "ORDAX-DATA"] if dev_geometry
+        else ["ORDAX-ESP", "ORDAX-DATA"]
+    )
+    expected_fs = (
+        ["fat32", "ext4", "exfat"] if dev_geometry else ["fat32", "exfat"]
+    )
+    if not isinstance(parts, list) or len(parts) != len(expected_names):
+        raise ProofError("canonical QEMU partition count changed")
+    if (
+        [p.get("name") for p in parts] != expected_names
+        or [p.get("index") for p in parts] != list(range(1, len(parts) + 1))
+        or [p.get("filesystem") for p in parts] != expected_fs
+        or any(p.get("filesystem_label") != p.get("name") for p in parts)
+        or any(
+            not isinstance(p.get("gpt_type_guid"), str)
+            or re.fullmatch(r"[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}",
+                            p["gpt_type_guid"]) is None
+            for p in parts
+        )
+        or len({p["gpt_type_guid"] for p in parts}) != len(parts)
+    ):
+        raise ProofError("canonical QEMU partition identity or filesystem drift")
+
+    esp = parts[0]
+    if (esp.get("start_lba") != 2048
+            or type(esp.get("size_bytes")) is not int
+            or esp["size_bytes"] % (1024 * 1024) != 0):
+        raise ProofError("canonical QEMU ESP geometry changed")
+    if dev_geometry:
+        if (
+            contract.get("$schema") != "prototype-ordax.physical-prepared-media/1"
             or contract.get("physical_write_authorized_by_this_contract") is not False
             or contract.get("partition_table") != "gpt"
-            or contract.get("logical_sector_bytes") != 512):
-        raise ProofError("transitional media contract is not an authorized geometry fixture")
-    parts = contract.get("partitions")
-    if not isinstance(parts, list) or len(parts) != 3:
-        raise ProofError("expected exactly three canonical transitional partitions")
-    esp, owner, data = parts
-    if ([p.get("name") for p in parts] != ["ORDAX-ESP", "ORDAX", "ORDAX-DATA"]
-            or [p.get("filesystem") for p in parts] != ["fat32", "ext4", "exfat"]
-            or [p.get("index") for p in parts] != [1, 2, 3]
-            or esp.get("start_lba") != 2048
-            or esp.get("size_bytes") != 256 * 1024 * 1024
-            or owner.get("start_lba") != 526336):
-        raise ProofError("transitional partition order or ESP geometry changed")
-    policy = owner.get("size_policy")
-    if not isinstance(policy, dict) or policy.get("mode") != "bounded-adaptive":
-        raise ProofError("transitional ORDAX ext4 size policy is missing")
-    owner_bytes = policy.get("minimum_bytes")
-    minimum_data = data.get("minimum_bytes")
-    if (type(owner_bytes) is not int or type(minimum_data) is not int
-            or owner_bytes < 2 * 1024 * 1024 * 1024
-            or minimum_data < 1024 * 1024 * 1024
-            or owner_bytes % (1024 * 1024) != 0
-            or DEV_GEOMETRY_DISK_BYTES <= (
-                (esp["start_lba"] * 512) + esp["size_bytes"]
-                + owner_bytes + minimum_data + 1024 * 1024
-            )):
-        raise ProofError("transitional geometry lacks safe QEMU payload capacity")
-    return (DEV_GEOMETRY_DISK_BYTES, esp["size_bytes"], owner_bytes)
+            or contract.get("logical_sector_bytes") != 512
+            or esp["size_bytes"] != 256 * 1024 * 1024
+        ):
+            raise ProofError("transitional media contract is not an authorized geometry fixture")
+        owner, data = parts[1:]
+        policy = owner.get("size_policy")
+        if (
+            owner.get("start_lba") != 526336
+            or not isinstance(policy, dict)
+            or policy.get("mode") != "bounded-adaptive"
+            or data.get("size_policy") != "fill-remaining-usable-after-aligned-ORDAX"
+        ):
+            raise ProofError("transitional partition order or ESP geometry changed")
+        owner_bytes = policy.get("minimum_bytes")
+        minimum_data = data.get("minimum_bytes")
+        if (type(owner_bytes) is not int or type(minimum_data) is not int
+                or owner_bytes < 2 * 1024 * 1024 * 1024
+                or minimum_data < 1024 * 1024 * 1024
+                or owner_bytes % (1024 * 1024) != 0
+                or DEV_GEOMETRY_DISK_BYTES <= (
+                    (esp["start_lba"] * 512) + esp["size_bytes"]
+                    + owner_bytes + minimum_data + 1024 * 1024
+                )):
+            raise ProofError("transitional geometry lacks safe QEMU payload capacity")
+        return (DEV_GEOMETRY_DISK_BYTES, esp["size_bytes"], owner_bytes, parts)
+
+    if (
+        contract.get("$schema") != "prototype-ordax.portable-usb-v2/1"
+        or contract.get("physical_write_authorized") is not False
+        or contract.get("physical_device_paths_allowed") is not False
+        or contract.get("logical_sector_bytes") != 512
+        or contract.get("target_bytes") != DISK_BYTES
+        or esp["size_bytes"] != ESP_BYTES
+        or parts[1].get("size_policy") != "fill-all-remaining-usable-capacity"
+    ):
+        raise ProofError("final Portable media contract no longer matches QEMU fixture")
+    return (DISK_BYTES, esp["size_bytes"], 0, parts)
+
+
+def dev_transitional_geometry() -> tuple[int, int, int]:
+    """Compatibility accessor for the validated Owner/Dev geometry contract."""
+    disk_bytes, esp_bytes, owner_bytes, _ = qemu_media_layout(True)
+    return (disk_bytes, esp_bytes, owner_bytes)
 
 
 def stage_disk(args: argparse.Namespace, inputs: dict[str, Any], work: Path) -> Path:
     dev_geometry = bool(getattr(args, "dev_transitional_geometry", False))
-    disk_bytes, esp_bytes, owner_bytes = (
-        dev_transitional_geometry() if dev_geometry else (DISK_BYTES, ESP_BYTES, 0)
-    )
+    disk_bytes, esp_bytes, owner_bytes, partitions = qemu_media_layout(dev_geometry)
+    esp_spec = partitions[0]
+    data_spec = partitions[-1]
     disk = work / "portable-v2-qemu.raw"
     with disk.open("wb") as handle:
         handle.truncate(disk_bytes)
@@ -404,26 +453,26 @@ def stage_disk(args: argparse.Namespace, inputs: dict[str, Any], work: Path) -> 
     run(["sgdisk", "--zap-all", str(disk)])
     run([
         "sgdisk",
-        f"--new=1:2048:+{esp_bytes // (1024 * 1024)}M",
-        "--typecode=1:c12a7328-f81f-11d2-ba4b-00a0c93ec93b",
-        "--change-name=1:ORDAX-ESP",
+        f"--new=1:{esp_spec['start_lba']}:+{esp_bytes // (1024 * 1024)}M",
+        f"--typecode=1:{esp_spec['gpt_type_guid']}",
+        f"--change-name=1:{esp_spec['name']}",
         str(disk),
     ])
-    data_index = 2
     if dev_geometry:
+        owner_spec = partitions[1]
         run([
             "sgdisk",
-            f"--new=2:0:+{owner_bytes // (1024 * 1024)}M",
-            "--typecode=2:0fc63daf-8483-4772-8e79-3d69d8477de4",
-            "--change-name=2:ORDAX",
+            f"--new=2:{owner_spec['start_lba']}:+{owner_bytes // (1024 * 1024)}M",
+            f"--typecode=2:{owner_spec['gpt_type_guid']}",
+            f"--change-name=2:{owner_spec['name']}",
             str(disk),
         ])
-        data_index = 3
+    data_index = data_spec["index"]
     run([
         "sgdisk",
         f"--new={data_index}:0:0",
-        f"--typecode={data_index}:ebd0a0a2-b9e5-4433-87c0-68b6b72699c7",
-        f"--change-name={data_index}:ORDAX-DATA",
+        f"--typecode={data_index}:{data_spec['gpt_type_guid']}",
+        f"--change-name={data_index}:{data_spec['name']}",
         str(disk),
     ])
     run(["sgdisk", "--verify", str(disk)])
@@ -446,13 +495,13 @@ def stage_disk(args: argparse.Namespace, inputs: dict[str, Any], work: Path) -> 
         # Revalidate each node immediately before its formatter. This closes
         # the stale-node removal race when a loop number is rapidly reused.
         wait_block(esp)
-        run(["mkfs.vfat", "-F", "32", "-n", "ORDAX-ESP", str(esp)])
+        run(["mkfs.vfat", "-F", "32", "-n", esp_spec["filesystem_label"], str(esp)])
         if dev_geometry:
             owner_partition = Path(loop + "p2")
             wait_block(owner_partition)
-            run(["mkfs.ext4", "-F", "-q", "-L", "ORDAX", str(owner_partition)])
+            run(["mkfs.ext4", "-F", "-q", "-L", owner_spec["filesystem_label"], str(owner_partition)])
         wait_block(data)
-        run(["mkfs.exfat", "-L", "ORDAX-DATA", str(data)])
+        run(["mkfs.exfat", "-L", data_spec["filesystem_label"], str(data)])
 
         run(["mount", "-t", "vfat", "-o", "rw,umask=0022", str(esp), str(esp_mount)])
         esp_mounted = True
