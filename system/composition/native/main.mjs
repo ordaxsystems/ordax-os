@@ -92,6 +92,7 @@ import { createApplicationSemanticRouter } from "../../services/intelligence/app
 import {
   EXTERNAL_FIRST_PARTY_COMPONENT_IDS,
   EXTERNAL_FIRST_PARTY_OWNER,
+  EXTERNAL_FIRST_PARTY_NATIVE_PROBATION_IDS,
   hasNativeExternalFirstPartyModuleRead,
 } from "../../services/apps/external-first-party-policy.mjs";
 import {
@@ -706,7 +707,24 @@ async function start() {
   }
   const syncTransport = createWebSyncTransport(window);
   const appActivation = createAppActivationChannel();
-  const updateWatcher = createNativeUpdateWatcher(window);
+  const updateWatcher = createNativeUpdateWatcher(window, {
+    onHealthConfirmed: () => {
+      // Pending component probation belongs after the real shell is healthy,
+      // not WebKit document-load completion. The Native Host has already
+      // authenticated and recorded this exact Surface health receipt.
+      if (!hasNativeHostBridge(window)) return;
+      for (const componentId of EXTERNAL_FIRST_PARTY_NATIVE_PROBATION_IDS) {
+        try {
+          postNativeHostMessage(window, {
+            type: "component.probation.request",
+            componentId,
+          });
+        } catch (error) {
+          console.warn("OrdaX optional component probation remains pending", error);
+        }
+      }
+    },
+  });
   const notifications = createNotificationsRuntime({
     store: createNativeNotificationStore(window),
   });
