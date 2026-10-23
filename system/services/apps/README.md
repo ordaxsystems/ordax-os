@@ -30,6 +30,21 @@ O conjunto de componentes que pode executar o probe `import-contract` pertence e
 
 **Escopo atual de probation é Files/Notas.** Internet não tem leitura de módulo Native habilitada; a Calculadora, o Studio e a **Aura** (ID técnico `assistant`) têm leitura verificada do slot, mas **não** probation. A Aura consome `ordax.intelligence/1`, sem duplicar o motor. O nome de produto vem do `app.json#title` e, no catálogo publicado, do título verificado assinado; `assistant` permanece o único ID estável de instalação. Instalação continua bloqueada sem o lifecycle de ativação/publicação. Ampliar probation exige testes do import, receipt com nonce, revisão exata, registro de saúde e não promoção, seguidos de pacote assinado e prova no host. Gerar uma lista não instala, promove nem habilita distribuição.
 
+### Aura: montagem isolada e contexto de conversa
+
+O provider do host Native agora fornece as portas públicas preexistentes para
+montagem **apenas** de `assistant` quando seu slot corrente está instalado e
+verificado. O iframe usa snapshots Identity/Space e chamadas consultivas
+`Intelligence.respond` pelo broker fechado, sem rede arbitrária, credenciais,
+Memory, ferramentas, File Space ou mutação do Space. O host valida a identidade
+do slot antes/depois do pedido e invalida resultados após trocas de conta/Space;
+o cancelamento interrompe a inferência que suportar `AbortSignal`.
+
+**Limite factual:** os testes de source/isolamento não provam que exista slot
+assinado da Aura no USB. O gate de trust canônico, probation do runtime real,
+publicação e ativação continua fechado. Não marcar Gate B ou preinstall como
+aprovado antes da prova física e da promoção/rollback.
+
 ### Gate Aura: apenas leitura assinada
 
 O pacote canônico `ordax-apps/apps/assistant` é exportado para o namespace
@@ -71,7 +86,16 @@ appear as launchable. Catalog reconciliation removes obsolete external windows
 from persisted workspace state. The external app receives a restricted
 `SurfaceRenderLifecycle` projection; it cannot update the host catalog or
 receive unrestricted File Space, Intelligence or other device grants through
-  presentation metadata. The exact-slot check is bounded and abortable; if
+  presentation metadata. The **single Aura component** (`assistant`) is a
+  narrowly scoped exception for *public consultative ports*: only its exact
+  signed current slot may receive Identity/Space read-only snapshots and
+  `ordax.intelligence/1` through the existing isolated MessagePort broker.
+  The dedicated host-owned provider is `system/composition/native/intelligence-client-trusted-context.mjs`;
+  it is not a second Intelligence service, model router or permission authority.
+  The broker revalidates slot identity on every request, bounds inference to one
+  pending turn, aborts on cancellation/revocation/Identity/Space changes and
+  drops late results from outdated scopes. Space selection changes and
+  privileged grants are **not** exposed to Aura. The exact-slot check is bounded and abortable; if
   Native verification times out, the operation fails closed and teardown can
   finish draining without waiting indefinitely on the verifier.
 
