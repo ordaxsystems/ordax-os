@@ -14,9 +14,9 @@ import { createProjectCatalogRuntime } from "../system/services/files/projects.m
 import { createRecentFilesRuntime } from "../system/services/files/recent-files.mjs";
 import { NATIVE_COMPONENT_PROBATION_IDS } from "../system/services/components/probation-policy.generated.mjs";
 import {
-  NATIVE_FILES_PROBATION_CONTEXT_SCHEMA,
-  createNativeFilesProbationContextBootstrap,
-} from "../system/composition/native/files-probation-context.mjs";
+  NATIVE_COMPONENT_PENDING_HOST_SCHEMA,
+} from "../system/composition/native/component-pending-host.mjs";
+import { createNativeWorkspacePendingBootstrap, createNativeWorkspaceHostPorts, installNativeWorkspaceVerifiedContext } from "../system/composition/native/component-workspace-ports.mjs";
 
 class FakeElement {
   constructor(documentObject) {
@@ -86,11 +86,11 @@ function ports() {
 test("Files probation provider installs before bind and creates host only for an actual Files probe", async () => {
   const root = makeSurfaceRoot();
   let provider = null;
-  const bootstrap = createNativeFilesProbationContextBootstrap({
+  const bootstrap = createNativeWorkspacePendingBootstrap({
     installProvider(candidate) { provider = candidate; },
   });
 
-  assert.equal(bootstrap.schema, NATIVE_FILES_PROBATION_CONTEXT_SCHEMA);
+  assert.equal(bootstrap.schema, NATIVE_COMPONENT_PENDING_HOST_SCHEMA);
   assert.equal(typeof provider, "function");
   assert.equal(root.childNodes.length, 0);
   assert.equal(await provider("notes"), null);
@@ -105,7 +105,7 @@ test("Files probation provider installs before bind and creates host only for an
   assert.equal(root.childNodes.length, 0);
 
   const expected = ports();
-  bootstrap.bind({ root, ...expected });
+  bootstrap.bind({ root, ports: expected });
   const context = await pending;
   assert.equal(settled, true);
   assert.strictEqual(context.fileSpace, expected.fileSpace);
@@ -131,13 +131,13 @@ test("Files probation provider installs before bind and creates host only for an
 test("Files probation bind failure rejects waiting probes without creating a host", async () => {
   const root = makeSurfaceRoot();
   let provider = null;
-  const bootstrap = createNativeFilesProbationContextBootstrap({
+  const bootstrap = createNativeWorkspacePendingBootstrap({
     installProvider(candidate) { provider = candidate; },
   });
   const pending = provider("files");
 
   assert.throws(
-    () => bootstrap.bind({ root, ...ports(), fileSpace: null }),
+    () => bootstrap.bind({ root, ports: { ...ports(), fileSpace: null } }),
     /file-space/i,
   );
   await assert.rejects(() => pending, /file-space/i);
@@ -146,19 +146,17 @@ test("Files probation bind failure rejects waiting probes without creating a hos
 });
 
 test("Files pending context cannot bypass the verified-current host-port gate", async () => {
-  const { createNativeFilesTrustedContextProvider } = await import(
-    "../system/composition/native/files-trusted-context.mjs"
-  );
   const root = makeSurfaceRoot();
   const p = ports();
-  const current = createNativeFilesTrustedContextProvider(p);
+  let current;
+  installNativeWorkspaceVerifiedContext({ ...p, installProvider(provider) { current = provider; } });
   assert.throws(() => current("files"), /verified current Native slot/);
   let installedProvider;
-  const bootstrap = createNativeFilesProbationContextBootstrap({
+  const bootstrap = createNativeWorkspacePendingBootstrap({
     installProvider(provider) { installedProvider = provider; },
   });
   assert.equal(await installedProvider("notes"), null);
-  bootstrap.bind({ root, ...p });
+  bootstrap.bind({ root, ports: p });
   const pending = await installedProvider("files");
   assert.strictEqual(pending.fileSpace, p.fileSpace);
   assert.strictEqual(pending.projects, p.projects);
@@ -170,11 +168,11 @@ test("Files pending context cannot bypass the verified-current host-port gate", 
 test("Files probation bind is DOM-neutral without a probe and refuses duplicate binding", () => {
   const root = makeSurfaceRoot();
   let provider = null;
-  const bootstrap = createNativeFilesProbationContextBootstrap({
+  const bootstrap = createNativeWorkspacePendingBootstrap({
     installProvider(candidate) { provider = candidate; },
   });
   assert.equal(typeof provider, "function");
-  bootstrap.bind({ root, ...ports() });
+  bootstrap.bind({ root, ports: ports() });
   assert.equal(root.childNodes.length, 0);
   assert.throws(
     () => bootstrap.bind({ root, ...ports() }),
@@ -193,17 +191,17 @@ test("Native Files probation wiring installs before async boot and binds only af
   );
   const startIndex = source.indexOf("async function start() {");
   const installIndex = source.indexOf(
-    "filesProbationContextBootstrap = createNativeFilesProbationContextBootstrap();",
+    "workspaceComponentBootstrap = createNativeWorkspacePendingBootstrap();",
     startIndex,
   );
   const firstAwaitIndex = source.indexOf("await ", startIndex);
   const surfaceIndex = source.indexOf("const surface = mountSurface(", startIndex);
-  const bindIndex = source.indexOf("filesProbationContextBootstrap.bind({", surfaceIndex);
+  const bindIndex = source.indexOf("workspaceComponentBootstrap?.bind({", surfaceIndex);
   const currentGateIndex = source.indexOf(
-    'if (hasNativeExternalFirstPartyModuleRead("files")',
+    'installNativeWorkspaceVerifiedContext({',
     bindIndex,
   );
-  const teardownIndex = source.indexOf("filesProbationContextBootstrap?.destroy();", bindIndex);
+  const teardownIndex = source.indexOf("workspaceComponentBootstrap?.destroy();", bindIndex);
 
   assert.ok(startIndex >= 0);
   assert.ok(installIndex > startIndex);

@@ -6,7 +6,7 @@ import {
   DEVICE_LOCAL_FILE_SPACE_SCOPE,
   FILE_SPACE_SCHEMA,
 } from "../system/contracts/file-space.mjs";
-import { createNativeFilesHostPorts } from "../system/composition/native/files-trusted-context.mjs";
+import { createNativeWorkspaceHostPorts } from "../system/composition/native/component-workspace-ports.mjs";
 import { createAppActivationChannel } from "../system/services/apps/activation.mjs";
 import { hasNativeExternalFirstPartyModuleRead } from "../system/services/apps/external-first-party-policy.mjs";
 import { getFirstPartyApp } from "../system/apps/catalog.mjs";
@@ -95,7 +95,7 @@ function filesProbationContext(root) {
   const fileSpace = createProjectContinuityFileSpace(nativeFilePort(), projects);
   // This is a pending-health fixture: it validates host ports, but must not
   // claim a verified installed 'current' Files slot.
-  const ports = createNativeFilesHostPorts({
+  const ports = createNativeWorkspaceHostPorts({
     fileSpace, recentFiles, projects, appActivation,
   });
   return Object.freeze({ ...ports, root });
