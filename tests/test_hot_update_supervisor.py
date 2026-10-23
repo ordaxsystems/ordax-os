@@ -222,10 +222,17 @@ class HotUpdateSupervisorContractTests(unittest.TestCase):
         supervisor = SYSTEM_SUPERVISOR.read_text(encoding="utf-8")
         manifest = (ROOT / "system/services/base-update/dev-helper-manifest.tsv").read_text(encoding="utf-8")
         installer = (ROOT / "system/services/base-update/dev-helpers.sh").read_text(encoding="utf-8")
+        native_requirements = [
+            tuple(line.split(chr(9))) for line in manifest.splitlines()
+            if line and not line.startswith("#")
+        ]
         self.assertIn(
-            "bootstrap/dev-base/ordax-pull\\tusr/local/bin/ordax-pull\\t"
-            "usr/local/bin/ordax-checkout-exchange@prototype-ordax.checkout-exchange/1",
-            manifest,
+            (
+                "bootstrap/dev-base/ordax-pull",
+                "usr/local/bin/ordax-pull",
+                "usr/local/bin/ordax-checkout-exchange@prototype-ordax.checkout-exchange/1",
+            ),
+            native_requirements,
         )
         self.assertIn('native_actual_abi=$("$native_target" --abi 2>/dev/null)', installer)
         self.assertLess(
