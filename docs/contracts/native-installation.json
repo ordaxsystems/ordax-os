@@ -48,20 +48,20 @@
     "promote-known-good"
   ],
   "current_implementation": {
-    "native_geometry_planner": "tools/creator/core/storage_profiles.go#PlanNativeDiskTargetStorage",
-    "native_install_plan": "tools/creator/core/native_install.go#PlanNativeInstallation",
+    "native_geometry_planner": "creator:core/storage_profiles.go#PlanNativeDiskTargetStorage",
+    "native_install_plan": "creator:core/native_install.go#PlanNativeInstallation",
     "non_destructive_cli": "ordax-creator plan-native --target-bytes <bytes>",
     "physical_apply_implemented": false,
     "physical_apply_authorized": false,
     "first_boot_health_connected": false,
-    "native_target_identity_binding": "tools/creator/core/native_install_target.go#FinalizeNativeInstallTarget",
-    "native_target_confirmation": "tools/creator/core/native_install_target.go#MatchConfirmedNativeInstallTarget",
-    "native_target_bound_plan": "tools/creator/core/native_install_target.go#PlanNativeInstallationForTarget",
-    "native_target_adapter_discovery": "tools/creator/host/linux/native_targets.go#EnumerateNativeInstallTargets",
+    "native_target_identity_binding": "creator:core/native_install_target.go#FinalizeNativeInstallTarget",
+    "native_target_confirmation": "creator:core/native_install_target.go#MatchConfirmedNativeInstallTarget",
+    "native_target_bound_plan": "creator:core/native_install_target.go#PlanNativeInstallationForTarget",
+    "native_target_adapter_discovery": "creator:host/linux/native_targets.go#EnumerateNativeInstallTargets",
     "native_target_apply_binding": false,
     "native_source_boot_identity_handoff": false,
-    "native_target_discovery_command": "tools/creator/cmd/ordax-creator-native-targets",
-    "native_source_boot_mount_discovery": "tools/creator/host/linux/source_mount.go#DiscoverMountedBlockDevice",
+    "native_target_discovery_command": "creator:cmd/ordax-creator-native-targets",
+    "native_source_boot_mount_discovery": "creator:host/linux/source_mount.go#DiscoverMountedBlockDevice",
     "native_product_mode_identity": {
       "source": "bootstrap/config/product-mode",
       "usb_value": "usb",
@@ -122,7 +122,8 @@
       "stable_mvp_session_token_exposed": false,
       "stable_mvp_internal_disk_apply_allowed": false,
       "owner_development_post_mvp_preview_requires_explicit_opt_in": true
-    }
+    },
+    "creator_source_contract": "docs/contracts/native-release-assembly.json#creator_source"
   },
   "fail_closed": [
     "mvp-never-exposes-native-install-capability",
