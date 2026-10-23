@@ -580,6 +580,11 @@ jobs:
             --out-dir "$work/initramfs" \
             > "$work/metadata/initramfs-verify.json"
 
+      - name: Assemble pinned Surface into the QEMU candidate system source
+        uses: ./.github/actions/assemble-surface
+        with:
+          out-root: ${{ runner.temp }}/portable-v2-qemu/assembled-source
+
       - name: Build candidate v4 with local AI and previous signed portable release v3
         run: |
           set -euo pipefail
@@ -620,7 +625,7 @@ jobs:
           )
 
           "$work/bin/release-bundle" \
-            --root "$PWD" \
+            --root "$work/assembled-source" \
             --out "$work/system.tar"
           python tools/portable-release-image/build.py build \
             --tar "$work/system.tar" \
