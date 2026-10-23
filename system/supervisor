@@ -1341,6 +1341,18 @@ begin_owner_initial_surface_health() {
 }
 
 owner_initial_surface_health_failed() {
+    # Record only whether the canonical Native Host receipts match this
+    # checkout. WebKit load-finished alone is not a rendered Surface witness.
+    # No tokens, URLs, raw payloads or synthetic health are published here.
+    health_ack=missing
+    heartbeat_ack=missing
+    if [ "$(read_state_value "$HEALTH_FILE")" = "$initial_sha" ]; then
+        health_ack=matched
+    fi
+    if [ "$(surface_heartbeat_sha)" = "$initial_sha" ]; then
+        heartbeat_ack=matched
+    fi
+    log "cold-boot Surface evidence: native_health=$health_ack surface_heartbeat=$heartbeat_ack phase=$OWNER_INITIAL_HEALTH_STATE"
     write_surface_health_state failed "$initial_sha" || true
     if rollback_boot_candidate "$boot_runtime_sha" "$initial_sha" "cold-boot Surface did not become healthy"; then
         exit 75
