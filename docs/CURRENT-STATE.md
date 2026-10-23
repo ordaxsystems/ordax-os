@@ -1915,12 +1915,16 @@ Notificações coalescem por inscrição e a revogação drena operações pende
 O controller compartilhado agora também aguarda as mutações assíncronas do bridge,
 sem perder compatibilidade com ports Native síncronos.
 
-Isso continua separado de arquivos pertencentes à Conta ou a um Space. A
-composição do slot Native externo permanece desativada enquanto a fonte bundled
-`system/apps/files/` existir; nenhuma implementação de app foi copiada para Apps
-e nenhum gate de corte ou distribuição foi aberto. Verificação focada: 72 testes
-Node e 16 contratos estáticos Python passaram. Não é prova de USB/QEMU, bootstrap assinado, instalação offline,
-rollback ou publicação.
+Isso continua separado de arquivos pertencentes à Conta ou a um Space. O
+estado de 2026-10-22 foi superado no source: a PR #2184 removeu a fonte bundled
+`system/apps/files/`, e a PR #2186 substituiu os providers exclusivos do boot
+Native por providers genéricos de slots verificados (11 workflows aprovados,
+incluindo QEMU). Não há implementação de Files embutida nem instalação externa
+por essas mudanças. File Space, Recentes e Projetos seguem nativos; a prova
+`pending` utiliza contexto isolado, e portas de uso normal exigem o slot
+`current` verificado. Distribuição externa em `ordax-apps`, bootstrap
+assinado, lifecycle, rollback e prova física permanecem pendentes. O QEMU
+aprovado não comprova boot no USB ou notebook reais.
 
 ### Ordax Intelligence and local inference
 
