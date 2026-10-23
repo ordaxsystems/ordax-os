@@ -6,7 +6,7 @@ import {
   DEVICE_LOCAL_FILE_SPACE_SCOPE,
   FILE_SPACE_SCHEMA,
 } from "../system/contracts/file-space.mjs";
-import { createNativeFilesHostPorts } from "../system/composition/native/files-trusted-context.mjs";
+import { createNativeWorkspaceHostPorts } from "../system/composition/native/component-workspace-ports.mjs";
 import { createAppActivationChannel } from "../system/services/apps/activation.mjs";
 import { hasNativeExternalFirstPartyModuleRead } from "../system/services/apps/external-first-party-policy.mjs";
 import { getFirstPartyApp } from "../system/apps/catalog.mjs";
@@ -95,7 +95,7 @@ function filesProbationContext(root) {
   const fileSpace = createProjectContinuityFileSpace(nativeFilePort(), projects);
   // This is a pending-health fixture: it validates host ports, but must not
   // claim a verified installed 'current' Files slot.
-  const ports = createNativeFilesHostPorts({
+  const ports = createNativeWorkspaceHostPorts({
     fileSpace, recentFiles, projects, appActivation,
   });
   return Object.freeze({ ...ports, root });
@@ -156,7 +156,7 @@ test("Files mount-health proves a transient dedicated-root mount with host-owned
   assert.equal(appRoot.removed, true);
 
   // Pending mount proof does not displace the bundled bootstrap owner.
-  assert.equal(getFirstPartyApp("files")?.id, "files");
+  assert.equal(getFirstPartyApp("files"), null);
   assert.equal(hasNativeExternalFirstPartyModuleRead("files"), true);
   assert.equal(NATIVE_COMPONENT_PROBATION_IDS.includes("files"), true);
 });

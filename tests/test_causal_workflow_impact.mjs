@@ -104,7 +104,6 @@ test("Notes absence workflow is scoped to the files the proof actually reads", (
     "system/adapters/native/notes.mjs",
     "system/adapters/web/notes.mjs",
     "system/services/i18n/catalog/notes.mjs",
-    "system/surface/ui/file-space-controls.mjs",
     "system/apps/catalog.mjs",
     "system/apps/component-catalog.mjs",
     "system/composition/web/main.tsx",

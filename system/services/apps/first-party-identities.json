@@ -11,22 +11,12 @@
       "version": "0.1.0"
     },
     {
-      "appId": "files",
-      "publisherPrincipalId": "ordax-official",
-      "version": "0.1.0"
-    },
-    {
       "appId": "settings",
       "publisherPrincipalId": "ordax-official",
       "version": "0.1.0"
     },
     {
       "appId": "store",
-      "publisherPrincipalId": "ordax-official",
-      "version": "0.1.0"
-    },
-    {
-      "appId": "studio",
       "publisherPrincipalId": "ordax-official",
       "version": "0.1.0"
     },

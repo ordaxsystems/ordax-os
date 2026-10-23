@@ -14,6 +14,10 @@ on:
       - 'bootstrap/dev-base/**'
       - 'bootstrap/surface-runtime/**'
       - 'bootstrap/recovery/**'
+      # Creator's published USB must cover the actual boot/Guardian/Surface
+      # source snapshot. Previously a system-only main commit (including
+      # Supervisor rollback fixes) did NOT refresh the Creator bundle.
+      - 'system/**'
       - 'tools/creator/**'
       - 'tools/release-signing/**'
       - '!tools/release-signing/windows/**'
@@ -31,6 +35,12 @@ on:
       - 'bootstrap/dev-base/**'
       - 'bootstrap/surface-runtime/**'
       - 'system/entrypoint'
+      # Boot health and update handoff must prove the real Owner USB on PRs,
+      # not only on the subsequent main push (when the rollback risk is live).
+      # Keep this scoped to the actual cold-boot composition entrypoints.
+      - 'system/supervisor'
+      - 'system/composition/native/main.mjs'
+      - 'system/adapters/native/update-runtime.mjs'
       - 'tests/test_owner_usb_durable_power_transition.py'
       - 'tests/test_owner_usb_superblock_seal.py'
       - 'system/surface/bin/ordax-surface'
@@ -45,7 +55,10 @@ permissions:
 
 concurrency:
   group: creator-owner-dev-git-${{ github.ref }}
-  cancel-in-progress: true
+  # The full Owner USB proof is expensive. A new main push must not cancel
+  # an ongoing publishable build; GitHub keeps only the latest queued run.
+  # PR supersessions may still cancel obsolete validation work.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   build-and-publish:
@@ -95,6 +108,7 @@ jobs:
           python -m unittest tests.test_owner_dev_offline_runtime_release_gate -v
           python -m unittest tests.test_owner_qemu_offline_handoff -v
           python -m unittest tests.test_first_run_contract.FirstRunContractTests.test_native_first_run_completion_survives_fresh_native_process -v
+          node --test tests/test_surface_boot_screen_runtime.mjs
           node --test tests/test_browser_proof_shutdown.mjs
           python -m unittest tests.test_first_run_contract -v
           python -m unittest tests.test_owner_first_run_http_restart -v
@@ -698,6 +712,7 @@ jobs:
           retention-days: 3
 
       - name: Publish development Creator bundle
+        # Only exact main pushes may publish a full proved Creator bundle.
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ github.token }}

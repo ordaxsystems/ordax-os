@@ -2,6 +2,23 @@
 
 Status: **CANONICAL FOR THE CURRENT DEVELOPMENT USB**
 
+## Repetição inteligente após falhas de checkout
+
+Depois de uma falha **posterior ao fetch**, o Supervisor guarda um recibo
+atômico `native-state/git-checkout-retry` por identidade de checkout atual,
+SHA candidato e motivo controlado do erro. Repetições da **mesma**
+combinação seguem 15, 30, 60, 120, 240 e no máximo 300 segundos entre
+tentativas; o usuário continua na última Surface saudável. A checagem da
+`main` permanece ativa, e uma versão ou estado novo não herda o atraso
+de outro candidato.
+
+O botão **Atualizar agora** autoriza uma checagem manual do mesmo Supervisor
+sem esperar o atraso de checkout; não força troca de versão, não contorna
+preflight, saúde, confiança no Git ou rollback. Problemas no fetch conservam
+o mecanismo separado de classificação/backoff de rede, e divergências
+sem proveniência continuam bloqueadas pelo guard de `non-fast-forward`.
+O recibo é diagnóstico local e **nunca** uma permissão de atualização.
+
 ## Recuperação automática de divergência da main (Owner/Dev)
 
 O Supervisor continua sendo o **único owner** da transação Git-first. Uma
@@ -94,6 +111,21 @@ Base update has been physically proven, that a fresh notebook boot passed, or
 that a public signed Stable release is available.
 
 ## Aura local — aquisição assinada pelo Owner Dev
+
+**Estado de entrega versus política de produto (2026-10-23).** O download
+assinado após First Run descrito abaixo continua sendo o caminho de aquisição
+implementado para o USB Owner/Development, **não** a meta definitiva para
+instalação nova. O Creator deve pré-semeiar os mesmos bytes v4 assinados e
+verificados, com Aura disponível no primeiro boot offline; reparo,
+reinstalação e atualização poderão reutilizar a aquisição governada existente.
+Não adicionar modelo ao checkout Git nem iniciar uma segunda instalação por
+script da Surface. O pré-semeio físico Dev e a inferência no notebook seguem
+sem prova conclusiva na issue #2071. O contrato pós-instalação para remoção
+explícita e reinstalação está em
+`docs/contracts/local-ai.json#post_install_lifecycle`; a remoção do EROFS
+atual **não pode ser habilitada** antes da correção versionada da verificação
+v4 de boot, que hoje exige esse arquivo.
+
 
 O mesmo `system/services/base-update/orchestrator.py` que valida/enrola
 `ordax-release-agent` e a trust anchor canônica solicita
@@ -443,6 +475,31 @@ canonical helper refresh on later polls. It does not mark the version
 no second updater or bypass of the helper receipt, and the previous SHA remains
 available for recovery. A host-side successful Pull and an actual QEMU/physical
 Surface activation remain separate validation gates.
+
+**Versioned Native exchange prerequisite (Owner/Development only):** the
+canonical Dev Base builder installs the static `ordax-checkout-exchange` helper
+into its rootfs. Before replacing `ordax-pull`, the existing helper installer
+verifies the executable and exact `--abi` declared in the **same** manifest
+(`system/services/base-update/dev-helper-manifest.tsv`). A missing or
+incompatible binary is a failed helper activation, **not** permission to use
+two `mv` operations or copy another executable into the running rootfs.
+The existing Base Update owner acquires and verifies a Base candidate while
+the healthy Surface and known-good stay in place.
+
+If the Git checkout was committed but helpers are still pending for its
+**current SHA**, the Supervisor reuses `native-state/git-checkout-retry` from
+its existing post-fetch retry policy, with source=target=current SHA and
+reason=`helper-refresh-failed`. The same 15–300s bounded delay applies to
+repeated installations; it does **not** defer the request for a compatible
+Base candidate. `Atualizar agora` bypasses only the delay, not the ABI
+or health checks. The existing UI reason `checkout-retry-wait` is reused;
+success is acknowledged only after `dev-helpers-sha` matches the active
+checkout. No additional retry state file, polling owner or updater exists.
+
+Before any physical rollout, verify that the Base **actually booted on the
+target notebook**, that its native helper responds with the declared ABI,
+and that rollback/known-good recovery remains available. CI/QEMU and a
+successful Creator ZIP are not proof of that physical prerequisite.
 
 A physical boot must confirm the repaired USB no longer cycles through
 `fetching → validating → atomic-checkout-failed`. A successful host-side pull

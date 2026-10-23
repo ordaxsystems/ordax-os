@@ -1,16 +1,17 @@
-Native Product MCP lifecycle source integration (2026-10-22): Owner/Development
-USB `system/supervisor` now sources the sole OS-owned
-`system/services/device-agent/native-product-lifecycle.sh`, reconciles it
-through its existing event loop after the first Surface-health check, and
-stops its owned Native Runtime child before OS update/rollback/power cutover.
-Changing that sourced library is a `supervisor-restart`, never an unsafe
-live reload. The existing Owner rootfs inventory derives shell function names
-from the actual sourced file while auditing its external BusyBox/Buildroot
-requirements. This is **source lifecycle wiring only**: signed/current
-Product Runtime distribution, the independent Base ELF/Python ABI,
-runtime health, client grants, Native graphical adapters and real Central
-session attestation are **not yet proven on the notebook**. The OS source
-lock continues to deny Runtime activation; no media modification occurred.
+Native Product MCP lifecycle integration (2026-10-23): Owner/Development USB
+`system/supervisor` reconciles the OS-owned
+`system/services/device-agent/native-product-lifecycle.sh` after the first
+Surface-health check and stops its child before OS update/rollback/power
+cutover. It prefers the verified signed Runtime plan, then permits a
+development-only fallback to the pre-staged Buildroot Python tree at
+`/state/ordax/native-state/owner-dev-runtime`; the canonical
+`ordax_dev_agent.native_main` entrypoint still requires the existing local
+access consent and Owner/Development USB profile. A lifecycle source update
+uses `supervisor-restart`, never a live reload. `ordax-pull` delivers this
+source change but does not acquire or stage the Runtime payload. Complete
+payload ABI/dependency closure, remote grants/session, native adapters and
+physical notebook execution remain unverified. Stable/MVP and native-disk
+activation are unchanged.
 
 Commercial reference catalog (2026-10-22): `docs/contracts/entitlements.json` now records reference BRL prices, storage/history/MCP capacities and additional offers. Landing and Account use one read-only build projection (`tools/public-site/plan_catalog.py`), with PT/EN copy and no checkout. Paid assignment, billing and commercial quota allocation remain disabled; catalog display proves neither subscription nor cloud service availability. Execution plan: COMMERCE-001. Source/CI and production deployment require separate verification.
 
@@ -236,18 +237,12 @@ docs/INTELLIGENCE.md.
 Atividade, Rede and Notas; these six app sources are absent from
 `ordax-os/system/apps/`. That source transfer is complete, but it does not prove
 package signing, installation, Store inventory, offline bootstrap or independent
-updates. `system/apps/files/` remains the canonical Files source until the
-signed bootstrap handoff, Native slot-to-Space/File Space isolation, and USB
-boot/recovery gates pass. Native can mount an unknown-health Files candidate
-transiently in an opaque iframe with an empty synthetic File Space and no user
-data; bundled-source filtering still prevents it from shadowing the active OS
-owner. This contract probe neither promotes nor distributes the candidate. The
-portable Studio product is canonical in Apps;
-`system/apps/studio/` remains an OS-owned local integration until Native/Web
-parity and verified lifecycle are proven. Loja, Ajustes, Conta and Sistema are
-structural OS surfaces and stay in `ordax-os`. Keep those boundaries distinct:
-do not remove the active Files source or activate external packages by changing
-documentation flags alone.
+updates. The Files product source and its bundled Surface UI were removed on 2026-10-23 for clean-OS testing. The OS retains File Space, project continuity, native user-root isolation, typed host ports and the signed-slot framework. Files is not preinstalled; no unsigned or unverified app will be activated. Distribution/health/rollback/physical boot gates remain pending. The
+portable Studio product is canonical in Apps; the old OS-local Studio UI and
+fixed launchers were removed on 2026-10-23 for clean-OS development. No
+external Studio package is installed or activated by this source cleanup.
+Loja, Ajustes, Conta and Sistema are structural OS surfaces in `ordax-os`. Keep those boundaries distinct:
+do not activate external packages by changing documentation flags alone.
 
 Upstream `ordax-os/main` at `a2eee8ea` (PR #2150) also hardens the Native
 Product Runtime handoff: ABI readiness now requires an explicit empty
@@ -256,20 +251,11 @@ Product Runtime handoff: ABI readiness now requires an explicit empty
 are mirrored exactly in this worktree; all nine PR checks passed. This closes
 only that trust-evidence gap and does not enable Files or Studio cutover.
 
-Studio externalization remains a separate blocked gate. The verified
-`ordax-apps/main` snapshot (`ba1d2df1`, 2026-10-22) declares Studio `0.15.9`
-and `component-slot` in `apps/studio/app.json`, but the canonical executable
-entrypoint `apps/studio/src/runtime.mjs` and compatibility descriptor (at
-either `apps/studio/compatibility.json` or
-`migrations/studio.compatibility.json`) are absent. Apps' own readiness audit reports
-`not-assessed-no-package-boundary`, and its
-`migrations/studio.externalization.json` keeps `cutover_allowed:false`. The
-OS-local `system/apps/studio/runtime.mjs` is a separate Native `git-app`
-integration (`STUDIO_VERSION=0.1.0`), not a compatible copy of the portable
-Studio product. Keep it until Apps supplies a package boundary and OS proves
-Native/Web parity, verified activation, isolation, health, rollback, offline
-reinstall and USB boot without Studio. The historical `mcp-blender` retirement
-gate in Apps is not proof that this OS integration can be removed.
+Studio packaging and installation remain separate blocked gates. The 2026-10-22
+Apps snapshot lacked the expected portable runtime and compatibility descriptor.
+On 2026-10-23 the former OS-local git-app Studio UI was removed without enabling
+an external package. A signed package, Native/Web parity, isolation, health,
+rollback, offline reinstall and clean USB boot remain prerequisites.
 
 Full first-party package inventory audit against the same Apps `main` snapshot
 on 2026-10-22: the workspace lists 20 targets. Nineteen have an Apps
@@ -1388,7 +1374,7 @@ See `docs/PUBLIC-SITE.md` for ownership, acceptance and remaining gates.
 
 ## Studio Web availability — 2026-10-09 source candidate
 
-The shared rail now opens the existing Studio host integration panel. The panel distinguishes read discovery from an operational workspace, suppresses misleading zero capability metrics when the reader is absent, delegates project data to its canonical platform service owner and links to the public ChatGPT site with explicit mode/quota guidance. The full portable conversation/preview source belongs to `ordaxsystems/ordax-apps` and is **not yet composed into OS Web**. The bundled `system/apps/studio` version identifies the legacy integration component, not the current canonical portable product version. No external payload, provider session, Runtime execution or production installation has been activated. See [STUDIO-WEB-AVAILABILITY.md](STUDIO-WEB-AVAILABILITY.md).
+The historical Studio host panel was removed from OS app source and built-in shortcuts on 2026-10-23. The portable product belongs to ordaxsystems/ordax-apps and is not yet installed by the OS. Shared host contracts may remain for future verified integration; no bundled Studio UI is active.
 
 
 ## Surface visual identity — 2026-10-09 source candidate
@@ -1475,7 +1461,7 @@ SYSTEM_ENTRYPOINT_IMPLEMENTED=YES
 SURFACE_BOOTSTRAP_RUNTIME=YES
 GRAPHICAL_SURFACE_SOURCE=IMPLEMENTED
 SHARED_WORKSPACE_WINDOW_MODEL=IMPLEMENTED
-FIRST_PARTY_APP_REGISTRY=FILES,STUDIO,SETTINGS,ACCOUNT,STORE,SYSTEM
+FIRST_PARTY_APP_REGISTRY=SETTINGS,ACCOUNT,STORE,SYSTEM
 DEVICE_AGENT_PRODUCT_NAME=OrdaX_Device_Agent
 DEVICE_AGENT_FOUNDATION=PASS_SOURCE_CONTRACT
 DEVICE_AGENT_PROJECTS_CAPABILITY_READER=PASS_SOURCE_READ_ONLY_NO_EXECUTE
@@ -1500,9 +1486,6 @@ PRODUCT_MATURITY=PROTOTYPE
 PRODUCT_V1_RESERVED_FOR_STABLE_RELEASE=YES
 FIRST_PARTY_APP_VERSIONING=PER_COMPONENT
 FIRST_PARTY_APP_PRE_1_0_MATURITY=BETA
-APP_FILES_VERSION=0.1.0
-APP_FILES_MATURITY=BETA
-APP_FILES_RELEASE_MODE=bundled
 APP_SETTINGS_VERSION=0.1.0
 APP_SETTINGS_MATURITY=BETA
 APP_SETTINGS_RELEASE_MODE=bundled
@@ -1525,12 +1508,12 @@ ASSISTANT_PORTABLE_SOURCE=CANONICAL_IN_ORDAX_APPS
 PROJECTS_PORTABLE_SOURCE=CANONICAL_IN_ORDAX_APPS
 ACTIVITY_PORTABLE_SOURCE=CANONICAL_IN_ORDAX_APPS
 NETWORK_PORTABLE_SOURCE=CANONICAL_IN_ORDAX_APPS
-FILES_PORTABLE_SOURCE=OS_ONLY_CUTOVER_BLOCKED
+FILES_PORTABLE_SOURCE=OS_SOURCE_REMOVED_EXTERNAL_PACKAGE_PENDING
 STUDIO_PORTABLE_SOURCE=CANONICAL_IN_ORDAX_APPS
-STUDIO_OS_INTEGRATION=RETAINED_PENDING_NATIVE_WEB_LIFECYCLE_PARITY
+STUDIO_OS_INTEGRATION=OS_BUNDLED_SOURCE_REMOVED
 PRODUCTION_INDEPENDENT_APP_UPDATES_ENABLED=NO
 SYSTEM_UPDATE_SCOPE=BASE,SURFACE,SERVICES,SYSTEM
-APPLICATION_UPDATE_SCOPE=FILES,PROJECTS,NOTES,INTERNET,SETTINGS,ACCOUNT
+APPLICATION_UPDATE_SCOPE=OPTIONAL_VERIFIED_COMPONENT_SLOTS
 UPDATE_HUMAN_IDENTITY=DELIVERY_NUMBER
 UPDATE_PR_NUMBER_IS_PRODUCT_IDENTITY=NO
 UPDATE_RUNNING_LABEL=EM_EXECUCAO
@@ -1567,7 +1550,7 @@ CANONICAL_SYSTEM_RUNTIME_COMPLETE=NO
 
 The canonical prototype trust ceremony and public handoff are complete. The eligible toolkit bound to `2172eb6a18430910afd036199ec492ad63dc185d` passed read-only preflight; canonical Ed25519 key material was generated locally, independent public derivation matched, the proof signature passed, recovery was verified from a distinct restored copy, and the recovered signing envelope passed public verification. The exact public anchor is pinned in Git and the minimal-bootstrap trust binding remains resolved. An earlier owner authorization existed for the first Stable/MVP USB proof, release sequence 1, but it was bound to a previous physical-writer context and is no longer valid after the writer changed. On 2026-09-26 the owner-controlled v4 candidate was signed and published as a prerelease, then materialized and verified from its exact versioned HTTPS URL in CI run `36234573905`; aggregate proof SHA-256 `2dd17580ddbf5a0fd0433a912e97e6bded04fd0a44ea0849e9da15e13df01e4b` is bound in the repository. This prerelease did not become GitHub's stable `latest` release. The authorization contract is now `blocked-explicit-physical-authorization-pending`, with `physical_write_allowed=false`, `explicit_owner_authorization=false` and no authorization-context hash. A fresh explicit owner authorization must be recorded against the current writer context before any destructive physical flow becomes eligible. No target-specific consent has been recorded and no USB is selected or authorized for a new write; live target revalidation, Windows UAC and target-specific destructive confirmation remain separate later gates. The local PEM remains a controlled prototype signing backend rather than the intended long-term production custody model; independent off-device custody and managed non-exportable KMS/HSM remain broad-distribution hardening requirements, with signed trust rotation required before broad public distribution.
 
-The first formal human product version is **OrdaX Prototype v0.1.0**. Product version, Entrega, Git SHA and app SemVer are separate identities; first-party apps on the 0.x line are Beta, and a component version does not imply an independent update channel. Source ownership is now: Internet, Assistente, Projetos, Atividade, Rede and Notas in `ordax-apps`; Arquivos remains bundled with its only active app source in `ordax-os` until the signed bootstrap and Native isolation/USB recovery gates pass; Studio has portable product source in `ordax-apps` while the OS retains its local `git-app` integration pending Native/Web parity and verified lifecycle. Loja, Ajustes, Conta and Sistema remain structural OS surfaces. Product v1.0 remains reserved for the stable product.
+The first formal human product version is **OrdaX Prototype v0.1.0**. Product version, Entrega, Git SHA and app SemVer are separate identities; first-party apps on the 0.x line are Beta, and a component version does not imply an independent update channel. Source ownership is now: Internet, Assistente, Projetos, Atividade, Rede and Notas in `ordax-apps`; Arquivos remains bundled with its only active app source in `ordax-os` until the signed bootstrap and Native isolation/USB recovery gates pass; Studio has portable product source in ordax-apps, while the OS-local git-app integration was removed on 2026-10-23; future activation requires a compatible signed external package. Loja, Ajustes, Conta and Sistema remain structural OS surfaces. Product v1.0 remains reserved for the stable product.
 
 `system/` is the shared product source. The native development path is physically proven through `system/entrypoint (guardian) -> system/supervisor -> system/surface/entrypoint -> system/surface/bin/ordax-surface`; repository CI also proves that the actual `system/` tree can be bundled deterministically as `system.tar`.
 
@@ -1932,12 +1915,16 @@ Notificações coalescem por inscrição e a revogação drena operações pende
 O controller compartilhado agora também aguarda as mutações assíncronas do bridge,
 sem perder compatibilidade com ports Native síncronos.
 
-Isso continua separado de arquivos pertencentes à Conta ou a um Space. A
-composição do slot Native externo permanece desativada enquanto a fonte bundled
-`system/apps/files/` existir; nenhuma implementação de app foi copiada para Apps
-e nenhum gate de corte ou distribuição foi aberto. Verificação focada: 72 testes
-Node e 16 contratos estáticos Python passaram. Não é prova de USB/QEMU, bootstrap assinado, instalação offline,
-rollback ou publicação.
+Isso continua separado de arquivos pertencentes à Conta ou a um Space. O
+estado de 2026-10-22 foi superado no source: a PR #2184 removeu a fonte bundled
+`system/apps/files/`, e a PR #2186 substituiu os providers exclusivos do boot
+Native por providers genéricos de slots verificados (11 workflows aprovados,
+incluindo QEMU). Não há implementação de Files embutida nem instalação externa
+por essas mudanças. File Space, Recentes e Projetos seguem nativos; a prova
+`pending` utiliza contexto isolado, e portas de uso normal exigem o slot
+`current` verificado. Distribuição externa em `ordax-apps`, bootstrap
+assinado, lifecycle, rollback e prova física permanecem pendentes. O QEMU
+aprovado não comprova boot no USB ou notebook reais.
 
 ### Ordax Intelligence and local inference
 

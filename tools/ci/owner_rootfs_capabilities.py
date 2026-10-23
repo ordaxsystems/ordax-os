@@ -32,7 +32,8 @@ SHELL_ONLY = {
 INTERNAL_COMMANDS = {
     "ordax-dev-init", "ordax-network", "ordax-pull", "ordax-rollback",
     "ordax-run", "ordax-diagnose", "ordax-main-watch", "ordax-release-agent",
-    "ordax-portable-state", "ordax-remote", "ordax-usb-mountattr", "entrypoint",
+    "ordax-portable-state", "ordax-remote", "ordax-usb-mountattr",
+    "ordax-checkout-exchange", "entrypoint",
 }
 # Fixed initramfs utilities are not Dev rootfs packages or helper-manifest
 # entries. A use from bootstrap/dev/entrypoint is accepted only when the
@@ -119,9 +120,19 @@ def owner_runtime_helpers(root: Path = ROOT) -> tuple[tuple[str, str], ...]:
         if not raw or raw.startswith("#"):
             continue
         parts = raw.split("\t")
-        if len(parts) != 2:
+        if len(parts) not in (2, 3):
             raise ValueError(f"malformed Owner helper manifest line {lineno}")
-        source, target = parts
+        source, target = parts[:2]
+        native_prerequisite = parts[2] if len(parts) == 3 else ""
+        if native_prerequisite:
+            required_path, separator, required_abi = native_prerequisite.partition("@")
+            if (source != "bootstrap/dev-base/ordax-pull"
+                    or separator != "@" or "@" in required_abi
+                    or required_path != "usr/local/bin/ordax-checkout-exchange"
+                    or not re.fullmatch(r"[a-z0-9.-]+/[0-9]+", required_abi)):
+                raise ValueError(f"invalid native helper prerequisite on line {lineno}")
+        elif len(parts) == 3 or source == "bootstrap/dev-base/ordax-pull":
+            raise ValueError(f"required native helper prerequisite is missing on line {lineno}")
         for value in (source, target):
             if (not value or value.startswith("/") or "\\" in value
                     or any(part in ("", ".", "..") for part in value.split("/"))):

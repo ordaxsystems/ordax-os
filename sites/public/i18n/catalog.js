@@ -1634,7 +1634,7 @@
   register("surface.23c0ed4ee4a7", "Seus espaços", "Your spaces");
   register("surface.bd02b9a7d71d", "Todos", "All");
   register("surface.ad2c8ba9ac94", "Favoritos", "Favorites");
-  register("surface.3068eba03d59", "Recentes", "Recents");
+  register("surface.3068eba03d59", "Recentes", "Recent");
   register("surface.cb1b248516da", "Pizzaria", "Pizzeria");
   register("surface.fe02f48e2819", "Pizzaria Bella Napoli", "Pizzaria Bella Napoli");
   register("surface.5ffa64841719", "Sabor italiano no seu bairro.", "Italian flavor in your neighborhood.");
@@ -1767,7 +1767,6 @@
   register("surface.e61fd5d70b8d", "Sua central OrdaX OS", "Your OrdaX OS home");
   register("surface.5f4754991bbc", "Intelligence contextual", "Contextual Intelligence");
   register("surface.e0459b8dc4cf", "Uma ideia, uma tarefa, um próximo passo…", "An idea, a task, a next step…");
-  register("surface.c7e072bd4fbd", "Enviar ao Aura", "Send to Aura");
   // END GENERATED SURFACE COPY
   STATIC_PAIRS.forEach(([ptBR, enUS], index) => {
     register(`static.${String(index + 1).padStart(4, "0")}`, ptBR, enUS);

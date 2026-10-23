@@ -69,6 +69,7 @@ The current execution window is **MVP closure first**. Until the current MVP is 
 | --- | --- | --- | --- |
 | Planning/priorities router | `../00-PLANOS-PRIORITARIOS/README.md` | Active planning index; non-canonical | Documentation/triage only; follow `ROADMAP.md` |
 | Root historical/active plans | `../00-PLANOS-PRIORITARIOS/REGISTRY.md` | Classified centrally as reference/ready/guide/etc. | Per registry; future-plan execution deferred until MVP closure unless a canonical MVP owner already requires it |
+| OS foundation audit and consolidation handoff | `../00-PLANOS-PRIORITARIOS/plans/FOUNDATION-001-OS-ARCHITECTURE-CONSOLIDATION.md` | ACTIVE planning/handoff; not canonical implementation status | Only canonical MVP-integrity scope; no independent physical authorization |
 | OrdaX Web Research | `../00-PLANOS-PRIORITARIOS/plans/WEB-001-WEB-RESEARCH.md` | P1 READY / not implemented | **DEFERRED FOR EXECUTION** until MVP closure and revalidation |
 | Meridian visual integration | `docs/architecture/MERIDIAN-PROVENANCE.md` | Audited C; PR-01 only | No production/default/release authority |
 

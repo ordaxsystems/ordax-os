@@ -15,10 +15,6 @@ import {
   FIRST_RUN_PUBLIC_MVP_LOCALES,
 } from "../system/contracts/first-run-state-store.mjs";
 import {
-  FILES_SOURCE_MESSAGES,
-  FILES_ENGLISH_MESSAGES,
-} from "../system/services/i18n/catalog/files.mjs";
-import {
   SETTINGS_SOURCE_MESSAGES,
   SETTINGS_ENGLISH_MESSAGES,
 } from "../system/services/i18n/catalog/settings.mjs";
@@ -52,7 +48,6 @@ import {
 } from "../system/services/i18n/catalog/local-session.mjs";
 
 const CATALOG_PAIRS = Object.freeze([
-  ["files", FILES_SOURCE_MESSAGES, FILES_ENGLISH_MESSAGES],
   ["settings", SETTINGS_SOURCE_MESSAGES, SETTINGS_ENGLISH_MESSAGES],
   ["system", SYSTEM_SOURCE_MESSAGES, SYSTEM_ENGLISH_MESSAGES],
   ["system-diagnostics", SYSTEM_DIAGNOSTICS_SOURCE_MESSAGES, SYSTEM_DIAGNOSTICS_ENGLISH_MESSAGES],

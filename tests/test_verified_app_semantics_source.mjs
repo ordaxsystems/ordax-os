@@ -247,73 +247,18 @@ test("verified app semantics binds identity, AI and Actions to the exact current
   }
 });
 
-test("bundled Files does not read external package semantics before source cutover", async () => {
-  const source = createNativeVerifiedComponentPackageSource(windowRef());
-  let reads = 0;
-  const entries = await loadVerifiedFirstPartyApplicationSemantics({
-    appIds: ["files"],
-    source,
-    async fetchImpl() {
-      reads += 1;
-      throw new Error("bundled Files must not read a competing slot");
-    },
-  });
-  assert.deepEqual(entries, []);
-  assert.equal(reads, 0);
+test("verified external Files, Studio and Notes use a single slot-backed source", () => {
+  const overlaid = overlayVerifiedFirstPartyApplications([], [
+    verifiedEntry("files", "0.4.3"), verifiedEntry("studio", "0.4.3"), verifiedEntry("notes", "0.4.1")
+  ]);
+  assert.deepEqual(overlaid.map(app=>app.id), ["files", "studio", "notes"]);
+  for (const entry of overlaid) assert.equal(entry.component.owner, "ordaxsystems/ordax-apps");
 });
-
-test("verified external app identity replaces same-id development app and appends externalized apps", () => {
-  const base = [
-    {
-      id: "studio",
-      title: "ORDAX Studio",
-      component: {
-        id: "studio",
-        title: "ORDAX Studio",
-        kind: "app",
-        version: "0.4.0",
-        releaseMode: "git-app",
-        criticality: "optional",
-        failureDomain: "app",
-        restartScope: "component",
-        healthMode: "runtime",
-        owner: "system/apps/studio",
-        dependencies: ["surface-shell"],
-      },
-    },
-    {
-      id: "files",
-      title: "Arquivos",
-      component: {
-        id: "files",
-        title: "Arquivos",
-        kind: "app",
-        version: "0.1.0",
-        releaseMode: "bundled",
-        criticality: "optional",
-        failureDomain: "app",
-        restartScope: "surface",
-        healthMode: "surface",
-        owner: "system/apps/files",
-        dependencies: ["surface-shell"],
-      },
-    },
-  ];
-  const overlaid = overlayVerifiedFirstPartyApplications(
-    base,
-    [verifiedEntry("studio", "0.4.3"), verifiedEntry("notes", "0.4.1")],
-  );
-  assert.deepEqual(overlaid.map((app) => app.id), ["studio", "files", "notes"]);
-  assert.equal(overlaid[0].component.releaseMode, "component-slot");
-  assert.equal(overlaid[0].component.version, "0.4.3");
-  assert.equal(overlaid[2].component.owner, "ordaxsystems/ordax-apps");
-});
-
 test("verified application overlay rejects arbitrary or incompletely verified replacements", () => {
   const foreignId = verifiedEntry("notes");
-  foreignId.application.id = "files";
-  foreignId.application.component = appManifest("files", "0.4.1");
-  foreignId.intelligenceManifest = semantics("files", "0.4.1");
+  foreignId.application.id = "untrusted";
+  foreignId.application.component = appManifest("untrusted", "0.4.1");
+  foreignId.intelligenceManifest = semantics("untrusted", "0.4.1");
   assert.throws(
     () => overlayVerifiedFirstPartyApplications([], [foreignId]),
     /not an available external first-party app/,

@@ -4,6 +4,7 @@ import { mountNativeSidebarAccount } from "../../surface/ui/sidebar-account.mjs"
 import {
   createNativeClientDiagnostics,
   renderedSourceSha,
+  sanitizeClientDiagnostic,
 } from "../../adapters/native/client-diagnostics.mjs";
 import { createNativeBrowserSession } from "../../adapters/native/browser-session.mjs";
 import { createNativeComponentStateStore } from "../../adapters/native/component-state.mjs";
@@ -75,8 +76,8 @@ import { createProjectCloudLinksReader } from "../../services/projects/cloud-lin
 import { createProjectWebReferenceRuntime } from "../../services/projects/web-references.mjs";
 import { createProjectContinuityFileSpace } from "../../services/files/project-continuity-file-space.mjs";
 import { installTrustedComponentContextProvider } from "../../services/components/runtime-loader.mjs";
-import { createNativeFilesTrustedContextProvider } from "./files-trusted-context.mjs";
-import { createNativeFilesProbationContextBootstrap } from "./files-probation-context.mjs";
+import { createNativeWorkspacePendingBootstrap, installNativeWorkspaceVerifiedContext } from "./component-workspace-ports.mjs";
+import { createNativeIntelligenceClientTrustedContextProvider } from "./intelligence-client-trusted-context.mjs";
 import { createPersonalActionCatalog } from "../../services/personal-ordax/action-catalog.mjs";
 import { createNotificationsRuntime } from "../../services/notifications/runtime.mjs";
 import { createUpdateNotificationBridge } from "../../services/notifications/update-bridge.mjs";
@@ -129,7 +130,6 @@ import { createNativeStoreCatalogComposition } from "./store-catalog.mjs";
 import { installNativeIntelligenceHostBridge } from "./intelligence-host-bridge.mjs";
 import { mountAccountOverviewControls } from "../../surface/ui/account-overview-controls.mjs";
 import { mountSpaceSwitcherControls } from "../../surface/ui/space-switcher-controls.mjs";
-import { mountFileSpaceControls } from "../../surface/ui/file-space-controls.mjs";
 import { mountNetworkQuickPanel } from "../../surface/ui/network-quick-panel.mjs";
 import { mountNetworkTrayControls } from "../../surface/ui/network-tray-controls.mjs";
 import { mountNotificationCenterControls } from "../../surface/ui/notification-center-controls.mjs";
@@ -174,7 +174,7 @@ function blockedAccountMemoryMutations() {
 
 const bootScreen = createSurfaceBootScreen(document);
 let bootLocale = "pt-BR";
-let filesProbationContextBootstrap = null;
+let workspaceComponentBootstrap = null;
 const bootText = (messageId) => translateSurfaceMessage(bootLocale, messageId);
 
 async function start() {
@@ -182,7 +182,7 @@ async function start() {
   if (!root) {
     throw new Error("OrdaX composition root is missing #ordax-root");
   }
-  filesProbationContextBootstrap = createNativeFilesProbationContextBootstrap();
+  workspaceComponentBootstrap = createNativeWorkspacePendingBootstrap();
 
   const browserSession = createNativeBrowserSession(window);
   const verifiedComponentPackageSource = createNativeVerifiedComponentPackageSource(window);
@@ -917,40 +917,34 @@ async function start() {
         },
       });
   try {
-    filesProbationContextBootstrap.bind({
+    workspaceComponentBootstrap?.bind({
       root,
-      fileSpace: filesOwnerSpace,
-      recentFiles,
-      projects,
-      appActivation,
+      ports: { fileSpace: filesOwnerSpace, recentFiles, projects, appActivation },
     });
   } catch (error) {
-    console.warn("OrdaX Files probation context unavailable", error);
-    filesProbationContextBootstrap.fail(error);
+    console.warn("OrdaX optional workspace component probation unavailable", error);
+    workspaceComponentBootstrap?.fail(error);
   }
-  // This binding is dormant while Files is bundled or the Native signed-slot
-  // read policy excludes it. No alternative Files source is mounted here.
-  if (hasNativeExternalFirstPartyModuleRead("files")
-    && !listFirstPartyApps().some((app) => app.id === "files")) {
+  // Verified-current slot metadata is the only authority for workspace ports.
+  installNativeWorkspaceVerifiedContext({
+    installed: installedAppCatalog?.installed ?? [],
+    fileSpace: filesOwnerSpace, recentFiles, projects, appActivation,
+  });
+  // The existing verified-current loader revalidates this same slot before
+  // import and mount. Missing/removed Aura cannot obtain these host ports.
+  if (hasNativeExternalFirstPartyModuleRead("assistant")
+    && !listFirstPartyApps().some((app) => app.id === "assistant")) {
     installTrustedComponentContextProvider(
-      createNativeFilesTrustedContextProvider({
-        fileSpace: filesOwnerSpace, recentFiles, projects, appActivation,
-        // Only metadata from the independently verified current-slot catalog
-        // may authorize host-port composition for the future external Files.
-        // No signed slot, no Files host ports; no bootstrap fallback or grants.
+      createNativeIntelligenceClientTrustedContextProvider({
         verifiedCurrent: installedAppCatalog?.installed.find(
-          (entry) => entry.component.id === "files",
+          (entry) => entry.component.id === "assistant",
         )?.metadata ?? null,
+        identitySessionPort: identitySession,
+        spaceSelectionPort: spaceSelection,
+        intelligencePort: selectedSpaceIntelligence,
       }),
     );
   }
-  const fileSpaceControls = mountFileSpaceControls(
-    root,
-    filesOwnerSpace,
-    appActivation,
-    surface,
-    { recentFiles, projects },
-  );
   let settingsOverviewControls;
   try {
     settingsOverviewControls = mountSettingsOverviewControls(
@@ -1018,6 +1012,18 @@ async function start() {
   componentManager.setCurrentHealth("surface-shell", "healthy");
   void updateWatcher.markHealthy();
   const surfaceHeartbeat = createNativeSurfaceHeartbeat(window);
+  // WebKit's load-finished event precedes ES module composition. Starting
+  // component probation at that point can seal the context-provider registry
+  // before its canonical Native providers have installed. Reuse the single
+  // privileged host bridge after the real shell/heartbeat is established.
+  // This message never claims Supervisor health or grants component access.
+  if (hasNativeHostBridge(window)) {
+    try {
+      postNativeHostMessage(window, { type: "surface.shell.ready" });
+    } catch (error) {
+      reportClientDiagnostic("component-probation-start", error);
+    }
+  }
 
   // Optional Aura discovery can compete for the Native Host while booting.
   // Keep its existing bounded, read-only retry supervisor; start it only
@@ -1102,7 +1108,6 @@ async function start() {
   );
   surface.replaceAppCatalog(activeExternalCatalog.catalog);
 
-  bootScreen.setStage(surface.localization.translate("surface.boot.preparingFirstRun"));
   // First Run reads the already-verified Store projection and its matching
   // ephemeral Native current observations. It has NO installation authority.
   let firstRunAppSelection = null;
@@ -1182,8 +1187,7 @@ async function start() {
       notificationCenter.destroy();
       batteryTrayControls?.destroy();
       batteryQuickPanel?.destroy();
-      fileSpaceControls.destroy();
-      filesProbationContextBootstrap?.destroy();
+      workspaceComponentBootstrap?.destroy();
       externalAppMounts?.destroy();
       projectReferences?.destroy();
       projectCloudLinks?.destroy();
@@ -1225,7 +1229,24 @@ async function start() {
 }
 
 start().catch((error) => {
-  filesProbationContextBootstrap?.fail(error);
+  workspaceComponentBootstrap?.fail(error);
   bootScreen.fail(bootText("surface.boot.failed"));
+  // The Native diagnostic POST may be unavailable during a failed bootstrap.
+  // Keep only its existing sanitized, bounded identity on the local boot
+  // element so the isolated Owner QEMU WebKit probe can report the real
+  // failure without accessing page text, tokens or untrusted URLs.
+  const { errorName, source } = sanitizeClientDiagnostic("composition-bootstrap", error);
+  const bootElement = document.getElementById("ordax-boot-screen");
+  if (bootElement) {
+    bootElement.dataset.errorName = errorName;
+    bootElement.dataset.errorSource = source;
+  }
   console.error("OrdaX native composition failed", error);
+  // A failed composition may never reach the normal diagnostic port binding.
+  // Reuse the authorized Native diagnostic token and its redacted error schema
+  // so the next offline audit can identify the exception behind a rollback.
+  // This is observation only: never assert healthy or retry boot here.
+  void createNativeClientDiagnostics(window)
+    .then((diagnostics) => diagnostics.report(renderedSourceSha(window), "composition-bootstrap", error))
+    .catch(() => {});
 });
