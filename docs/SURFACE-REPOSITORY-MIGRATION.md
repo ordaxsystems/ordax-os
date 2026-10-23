@@ -18,6 +18,29 @@
 4. `ordax-os#2192` introduz lock de source, materialização de checkout exato, teste de recusa de mutações/symlinks/revisão incorreta e prova de build Web+Native com a fonte externa.
 5. O consumer em CI remove as árvores antigas **somente em checkout descartável**, materializa a versão externa e monta as mesmas interfaces esperadas por `system/composition`. A saída do empacotador canônico `tools/release-bundle` é gate desta PR.
 
+## Supervisor Owner/Development — preparação fail-closed (PR #2195)
+
+A receita `system/services/surface-source/owner-stage.sh` é um **adapter**
+BusyBox + Git do Supervisor já existente, não um daemon/updater autônomo.
+Ela resolve `docs/contracts/surface-source.json` a partir do **commit exato
+do OS candidato**, verifica repositório e SHA pinados, recusa paths/modos
+Git não regulares, obtém a revisão imutável de `ordax-surface` e materializa
+`ui/` e `workspace/` somente na árvore de release staged, **antes** do
+checkout OS passar para o novo commit. Falha de rede ou árvore inválida
+rejeita a tentativa sem alterar a Surface ativa. A confirmação de commit
+continua pertencendo a `ordax-pull` e à saúde do Supervisor existente.
+
+O Supervisor, quando o lock estiver em `canonical`, exige um slot
+preparado para o SHA exato do OS com receipt do commit visual antes de
+iniciar/reiniciar a Surface, sem fallback para a UI antiga. Com o lock
+`integration-candidate` atual, o comportamento antigo permanece;
+portanto, é possível distribuir esta capacidade de staging **antes**
+do cutover e remover as cópias do OS numa etapa posterior.
+
+Limite desta PR: a prova integrada de Owner update/rollback com checkout
+efetivamente sem árvores visuais, boot a frio e hooks de Guardian ainda
+é gate obrigatório; testes Git isolados não substituem a prova do dispositivo.
+
 ## Falta para remover a implementação antiga
 
 Os itens abaixo são **gates**, não autorizações de pular testes.
