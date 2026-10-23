@@ -1,7 +1,7 @@
 # Apps — ownership e catálogo atual
 
 `system/apps/` concentra os catálogos de apresentação e as implementações
-removíveis cujo corte ainda está pendente (Arquivos e integração local do Studio).
+removíveis cujo corte ainda está pendente (Arquivos).
 Conta, Ajustes, Loja e Sistema pertencem a `system/services/system-ui/`, pois são interfaces
 integradas ao sistema e não produtos distribuíveis pela Loja. A descoberta de
 aplicativos externos não exige código de produto embutido no OrdaX OS.
@@ -17,15 +17,13 @@ A fonte executável é `system/apps/catalog.mjs`, validada por
 | App | Fonte local | Natureza / entrega |
 | --- | --- | --- |
 | Arquivos (`files`) | `system/apps/files/` | App removível, `bundled` enquanto não houver handoff bootstrap assinado |
-| Studio (`studio`) | `system/apps/studio/` | Integração local `git-app`; produto portátil canônico em `ordax-apps/apps/studio` |
 | Ajustes (`settings`) | `system/services/system-ui/settings/` | Superfície estrutural `bundled` |
 | Conta (`account`) | `system/services/system-ui/account/` | Superfície estrutural `bundled` |
 | Loja (`store`) | `system/services/system-ui/store/` | Superfície estrutural `bundled` |
 | Sistema (`system`) | `system/services/system-ui/system/` | Superfície estrutural `bundled` |
 
 Os manifestos do catálogo de componentes pertencem aos seus owners locais:
-`system/apps/files/component.mjs`,
-`system/apps/studio/component.mjs` e
+`system/apps/files/component.mjs` e
 `system/services/components/manifests/apps.mjs`. Não registrar um mesmo
 `appId` simultaneamente como embutido e como `component-slot` externo:
 `system/apps/runtime-catalog.mjs` rejeita a colisão em vez de esconder uma

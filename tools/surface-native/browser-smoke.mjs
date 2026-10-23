@@ -25,9 +25,7 @@ const CSS_FILES = [
   'system/surface/ui/sidebar-layout.css',
   'system/surface/ui/brand/symbol.css',
 ];
-const COMPONENT_ASSET_FILES = Object.freeze({
-  'system/apps/studio/studio.css': 'text/css',
-});
+const COMPONENT_ASSET_FILES = Object.freeze({});
 
 function assertInside(root, candidate) {
   const rel = relative(root, candidate);
