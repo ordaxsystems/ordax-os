@@ -46,7 +46,12 @@ export function shouldReloadForUpdate(previousSha, state) {
 
 export function createNativeUpdateWatcher(
   windowRef,
-  { intervalMs = DEFAULT_INTERVAL_MS, idleIntervalMs = DEFAULT_IDLE_INTERVAL_MS, onState = () => {} } = {},
+  {
+    intervalMs = DEFAULT_INTERVAL_MS,
+    idleIntervalMs = DEFAULT_IDLE_INTERVAL_MS,
+    onState = () => {},
+    onHealthConfirmed = () => {},
+  } = {},
 ) {
   if (!windowRef || typeof windowRef.fetch !== "function") {
     throw new Error("native update watcher requires window.fetch");
@@ -56,6 +61,10 @@ export function createNativeUpdateWatcher(
   }
   if (typeof windowRef.setTimeout !== "function" || typeof windowRef.clearTimeout !== "function") {
     throw new Error("native update watcher requires timer APIs");
+  }
+
+  if (typeof onHealthConfirmed !== "function") {
+    throw new TypeError("Native health acknowledgement observer must be a function");
   }
 
   const renderedSourceSha = nativeSurfaceSourceSha(windowRef);
@@ -110,6 +119,13 @@ export function createNativeUpdateWatcher(
       });
       if (!response.ok) return false;
       healthSubmittedSha = renderedSourceSha;
+      // Only the existing authorized Native Host 2xx receipt may release
+      // post-boot optional work. This callback has no health-write authority.
+      try {
+        onHealthConfirmed(renderedSourceSha);
+      } catch {
+        // Optional component startup cannot veto the real Surface health ack.
+      }
       return true;
     } catch {
       return false;
