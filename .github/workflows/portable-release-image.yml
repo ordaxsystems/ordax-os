@@ -78,6 +78,11 @@ jobs:
           set -euo pipefail
           python -m unittest tests.test_portable_release_image_contract -v
 
+      - name: Assemble release source with pinned external Surface
+        uses: ./.github/actions/assemble-surface
+        with:
+          out-root: ${{ runner.temp }}/ordax-assembled-system
+
       - name: Build canonical deterministic system tar
         run: |
           set -euo pipefail
@@ -89,7 +94,7 @@ jobs:
               -o "$RUNNER_TEMP/portable-release/ordax-release-bundle" .
           )
           "$RUNNER_TEMP/portable-release/ordax-release-bundle" \
-            --root "$PWD" \
+            --root "$RUNNER_TEMP/ordax-assembled-system" \
             --out "$RUNNER_TEMP/portable-release/system.tar" \
             | tee "$RUNNER_TEMP/portable-release/bundle.txt"
 

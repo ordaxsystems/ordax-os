@@ -84,10 +84,10 @@ def ensure_clean_destination(destination: Path) -> Path:
     return absolute
 
 
-def validate_source_tree() -> None:
-    if not SYSTEM.is_dir() or SYSTEM.is_symlink():
+def validate_source_tree(system_source: Path = SYSTEM) -> None:
+    if not system_source.is_dir() or system_source.is_symlink():
         raise AssemblyError("system source root is missing or unsafe")
-    entrypoint = SYSTEM / "entrypoint"
+    entrypoint = system_source / "entrypoint"
     if not entrypoint.is_file() or entrypoint.is_symlink():
         raise AssemblyError("system entrypoint is missing or unsafe")
     if stat.S_IMODE(entrypoint.stat().st_mode) != 0o755:
@@ -98,15 +98,56 @@ def validate_source_tree() -> None:
             raise AssemblyError(
                 f"Native helper Go module is missing: {module.relative_to(ROOT)}"
             )
-    for path in SYSTEM.rglob("*"):
+    for path in system_source.rglob("*"):
         if path.is_symlink():
             raise AssemblyError(f"symlink is forbidden in Native release source: {path}")
 
 
-def copy_system_tree(destination: Path) -> Path:
+
+def verify_external_surface_system(system_source: Path) -> dict:
+    """A Native release can only extend a fully verified cross-repo source."""
+    lock_file = ROOT / "docs/contracts/surface-source.json"
+    lock = json.loads(lock_file.read_text(encoding="utf-8"))
+    receipt_path = system_source / "surface/source-provenance.json"
+    if not receipt_path.is_file() or receipt_path.is_symlink():
+        raise AssemblyError("external Native source requires verified Surface provenance")
+    receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
+    if (
+        receipt.get("$schema") != "prototype-ordax.surface-assembly/1"
+        or receipt.get("old_os_visual_source_packaged") is not False
+        or receipt.get("os_commit") != git_head()
+        or receipt.get("surface_source_repository") != lock.get("source_repository")
+        or receipt.get("surface_source_commit") != lock.get("source_commit")
+        or receipt.get("visual_paths") != lock.get("visual_source_paths")
+    ):
+        raise AssemblyError("external Native source is not bound to current OS/Surface")
+    fingerprint = hashlib.sha256()
+    files = []
+    for dirname in ("ui", "workspace"):
+        base = system_source / "surface" / dirname
+        if not base.is_dir() or base.is_symlink():
+            raise AssemblyError("Native Surface source tree is missing or linked")
+        for file in base.rglob("*"):
+            if not file.is_file() or file.is_symlink():
+                if not file.is_dir():
+                    raise AssemblyError("Native visual source contains unsafe entry")
+                continue
+            files.append(file)
+    # The same lexical Git-path order as tools/surface-source/materialize.py.
+    files.sort(key=lambda file: file.relative_to(system_source.parent).as_posix())
+    for file in files:
+        relative = file.relative_to(system_source.parent).as_posix()
+        payload = file.read_bytes()
+        fingerprint.update(relative.encode("utf-8") + b"\0")
+        fingerprint.update(hashlib.sha256(payload).digest())
+    if receipt.get("visual_file_count") != len(files) or receipt.get("visual_source_sha256") != fingerprint.hexdigest():
+        raise AssemblyError("external Native visual source fingerprint mismatch")
+    return receipt
+
+def copy_system_tree(destination: Path, system_source: Path = SYSTEM) -> Path:
     target = destination / "system"
     shutil.copytree(
-        SYSTEM,
+        system_source,
         target,
         symlinks=False,
         copy_function=shutil.copy2,
@@ -193,11 +234,13 @@ def write_provenance(
     return path
 
 
-def assemble(destination: Path) -> dict:
-    validate_source_tree()
+def assemble(destination: Path, system_source: Path = SYSTEM) -> dict:
+    validate_source_tree(system_source)
+    if system_source != SYSTEM:
+        verify_external_surface_system(system_source)
     destination = ensure_clean_destination(destination)
     destination.mkdir(mode=0o755)
-    copy_system_tree(destination)
+    copy_system_tree(destination, system_source)
     built_helpers = [(spec, build_helper(destination, spec)) for spec in HELPERS]
     source_commit = git_head()
     provenance = write_provenance(destination, built_helpers, source_commit)
@@ -283,11 +326,12 @@ def main() -> int:
     sub = parser.add_subparsers(dest="command", required=True)
     assemble_parser = sub.add_parser("assemble")
     assemble_parser.add_argument("--out", type=Path, required=True)
+    assemble_parser.add_argument("--system-source", type=Path, default=SYSTEM)
     verify_parser = sub.add_parser("verify")
     verify_parser.add_argument("--root", type=Path, required=True)
     args = parser.parse_args()
     try:
-        result = assemble(args.out) if args.command == "assemble" else verify(args.root)
+        result = assemble(args.out, args.system_source) if args.command == "assemble" else verify(args.root)
         print(json.dumps(result, indent=2, sort_keys=True))
         return 0
     except (AssemblyError, OSError) as exc:
