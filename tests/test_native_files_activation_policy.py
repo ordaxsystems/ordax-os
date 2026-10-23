@@ -27,7 +27,7 @@ class NativeFilesActivationPolicyTests(unittest.TestCase):
         self.assertEqual(sources["files"], "ordaxsystems/ordax-apps")
         self.assertIn("files", module_ids)
         self.assertIn("files", probation_ids)
-        self.assertEqual(bundled_owner_blocked, ("files",))
+        self.assertEqual(bundled_owner_blocked, ())
         self.assertEqual(original["runtime_health_bridge_probe_mode_by_component"]["files"], "mount-contract")
         self.assertFalse(original["files_component_distribution_activation_enabled"])
 
