@@ -18,6 +18,28 @@
 4. `ordax-os#2192` introduz lock de source, materialização de checkout exato, teste de recusa de mutações/symlinks/revisão incorreta e prova de build Web+Native com a fonte externa.
 5. O consumer em CI remove as árvores antigas **somente em checkout descartável**, materializa a versão externa e monta as mesmas interfaces esperadas por `system/composition`. A saída do empacotador canônico `tools/release-bundle` é gate desta PR.
 
+## Montagem canônica de release em validação (PR #2194)
+
+O novo `tools/surface-source/assemble.py` prepara uma árvore **descartável**
+`system/` com uma única cópia dos arquivos visuais, cuja fonte e revisão
+são identificadas no contrato `docs/contracts/surface-source.json`.
+Os arquivos visuais historicamente rastreados em `ordax-os` são excluídos
+somente da saída do staging; os serviços Native são mantidos.
+
+A receita reutilizável `.github/actions/assemble-surface` alimenta os
+workflows de release bundle, portable EROFS e a montagem Native. O
+`tools/native-release-assembly/build.py` aceita a árvore pré-montada por
+`--system-source` e verifica novamente a proveniência e fingerprint antes
+de acrescentar os **mesmos dois helpers Native já existentes**. Não existe
+um segundo empacotador, segundo host, segundo canal de atualização ou
+checkout de UI na inicialização do dispositivo.
+
+Essa evolução **ainda não altera** o Supervisor Owner/Development, nem
+comprova cold-health, QEMU ou rollback. O source visual antigo continua
+rastreado no OS até a prova de boot sem essa cópia e a reconciliação
+do ownership formal no cutover. O pipeline Native oficial exige validação
+CI antes de integração dessa etapa.
+
 ## Falta para remover a implementação antiga
 
 Os itens abaixo são **gates**, não autorizações de pular testes.
