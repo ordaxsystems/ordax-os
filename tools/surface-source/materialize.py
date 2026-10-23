@@ -54,7 +54,7 @@ def load_lock(path: Path = LOCK_PATH) -> dict:
 
 
 def git_blob_sha(content: bytes) -> str:
-    return hashlib.sha1(b"blob " + str(len(content)).encode("ascii") + b"\\0" + content).hexdigest()
+    return hashlib.sha1(b"blob " + str(len(content)).encode("ascii") + b"\0" + content).hexdigest()
 
 
 def verify_source(source: Path, lock: dict) -> tuple[list[tuple[str, bytes]], dict]:
@@ -70,11 +70,11 @@ def verify_source(source: Path, lock: dict) -> tuple[list[tuple[str, bytes]], di
     raw = git(source, "ls-tree", "-rz", "HEAD", "--", *VISUAL_PATHS)
     records = []
     fingerprint = hashlib.sha256()
-    for entry in raw.split(b"\\0"):
+    for entry in raw.split(b"\0"):
         if not entry:
             continue
         try:
-            meta, name = entry.split(b"\\t", 1)
+            meta, name = entry.split(b"\t", 1)
             mode, kind, expected = meta.decode("ascii").split()
             relative = name.decode("utf-8")
         except (ValueError, UnicodeDecodeError) as exc:
@@ -91,7 +91,7 @@ def verify_source(source: Path, lock: dict) -> tuple[list[tuple[str, bytes]], di
         payload = path.read_bytes()
         if git_blob_sha(payload) != expected:
             raise SurfaceSourceError("source bytes differ from pinned Git blob: " + relative)
-        fingerprint.update(relative.encode("utf-8") + b"\\0")
+        fingerprint.update(relative.encode("utf-8") + b"\0")
         fingerprint.update(hashlib.sha256(payload).digest())
         records.append((relative, payload))
     if not records:
@@ -124,7 +124,7 @@ def stage_source(records: list[tuple[str, bytes]], receipt: dict, output: Path) 
             destination.parent.mkdir(parents=True, exist_ok=True)
             destination.write_bytes(payload)
         (staging / "surface-source-receipt.json").write_text(
-            json.dumps(receipt, ensure_ascii=False, indent=2) + "\\n", encoding="utf-8"
+            json.dumps(receipt, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
         )
         if output.exists() or output.is_symlink():
             raise SurfaceSourceError("staging output appeared concurrently")
