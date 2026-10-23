@@ -45,6 +45,31 @@ assinado da Aura no USB. O gate de trust canônico, probation do runtime real,
 publicação e ativação continua fechado. Não marcar Gate B ou preinstall como
 aprovado antes da prova física e da promoção/rollback.
 
+### Prova de montagem pending do cliente Intelligence (sem ativação)
+
+O executor isolado existente aceita `assistant` como **candidato explícito**
+para `mount-contract` de um slot `pending` com `pendingHealth: unknown`
+e identidade exata verificada antes/depois do import e de cada operação.
+A capacidade técnica permanece desligada no registro de probation do OS:
+`runtime_health_bridge_supported_components` **não** inclui `assistant`;
+nenhum recibo oficial de saúde é produzido por esta alteração.
+
+A montagem de teste ocorre num iframe de origem opaca e usa apenas portas
+sintéticas com `identitySession: unavailable`, `spaceSelection: unavailable`
+e `intelligence: degraded`, sem usuário, Space, modelo, credenciais, App Data
+ou File Space. `intelligence.respond`, mutações de Space e App Data são
+negadas no broker antes de usar qualquer serviço Native. A perda da revisão
+do slot cancela a montagem, revoga o canal e remove o iframe.
+
+Esse mecanismo compartilha o loader, verificador, `MessagePort` e os contratos
+públicos com a montagem `current` existente, mas jamais altera o conjunto de
+apps lançáveis. **O teste de código com runtime simulado não é prova de que o
+pacote real do Apps já funciona no USB.** Para abrir o Gate B, executar primeiro
+o runtime `apps/assistant/src/runtime.mjs` empacotado/assinado no sandbox,
+montagem e destroy com provas de nonce/revision; depois habilitar o modo de
+probation no **contrato canônico gerado**, sem antecipar trust, publish,
+install, promotion ou rollback.
+
 ### Gate Aura: apenas leitura assinada
 
 O pacote canônico `ordax-apps/apps/assistant` é exportado para o namespace
