@@ -347,7 +347,6 @@ class OrdaXBrowserHost:
         else:
             self.app_data_bootstrap_bindings = ()
         self.app_data_bootstrap_served = False
-        self.component_probation_started = False
         self.component_probation_nonces: dict[str, str] = {}
         self.component_probation_rerun_requested: set[str] = set()
         self.session_path = os.path.join(self.profile_root, "session.json")
@@ -823,10 +822,9 @@ class OrdaXBrowserHost:
         if load_event != WebKit2.LoadEvent.FINISHED:
             return
         self.record_surface_loading_event("surface-page-load-finished")
-        if self.component_probation_started:
-            return
-        self.component_probation_started = True
-        self.start_component_probation(SUPPORTED_PROBATION_COMPONENTS)
+        # Document load is NOT Surface health. The JS composition explicitly
+        # requests the already-authorized probation only after its Native
+        # update watcher receives the real health acknowledgement.
 
     def on_surface_load_failed(
         self, _view: object, _event: object, _failing_uri: str, _error: object
