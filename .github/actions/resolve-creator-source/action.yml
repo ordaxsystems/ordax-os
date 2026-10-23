@@ -36,26 +36,14 @@ runs:
         print(source['tree'])
         PY
         )"
-        # Windows Python emits CRLF even under Git Bash. Strip the transport CR
-        # only, then validate every resolved value before it reaches Git.
-        pin="${pin//        test "${#pinned[@]}" -eq 3
-        git clone --quiet --single-branch --filter=blob:none --no-checkout "https://github.com/${pinned[0]}.git" "$CREATOR_CHECKOUT_ROOT"
-        git -C "$CREATOR_CHECKOUT_ROOT" checkout --quiet --detach "${pinned[1]}"
-        test "$(git -C "$CREATOR_CHECKOUT_ROOT" rev-parse HEAD)" = "${pinned[1]}"
-        test "$(git -C "$CREATOR_CHECKOUT_ROOT" rev-parse 'HEAD^{tree}')" = "${pinned[2]}"
-        test -z "$(git -C "$CREATOR_CHECKOUT_ROOT" status --porcelain --untracked-files=all)"
-        test "$(head -n 1 "$CREATOR_CHECKOUT_ROOT/go.mod")" = "module github.com/ordaxsystems/ordax-creator"
-        test -f "$CREATOR_CHECKOUT_ROOT/cmd/ordax-creator-native-targets/main.go"
-        printf '%s\n' "ORDAX_CREATOR_NATIVE_SOURCE=$CREATOR_CHECKOUT_ROOT" "ORDAX_CREATOR_SOURCE_COMMIT=${pinned[1]}" "ORDAX_CREATOR_SOURCE_TREE=${pinned[2]}" "ORDAX_CREATOR_SOURCE_REPOSITORY=${pinned[0]}" >> "$GITHUB_ENV"
-        echo "CREATOR_SOURCE_PIN=${pinned[1]}"
-        echo "CREATOR_SOURCE_TREE=${pinned[2]}"
-        echo 'CREATOR_SOURCE_PHYSICAL_WRITE_AUTHORIZED=NO'
-\\r'/}"
+        # Windows Python produces CRLF. Strip only CR before validating
+        # the immutable Git source identity; never relax the SHA/tree checks.
+        pin="${pin//$'\r'/}"
         mapfile -t pinned <<< "$pin"
+        test "${#pinned[@]}" -eq 3
         test "${pinned[0]}" = "ordaxsystems/ordax-creator"
         [[ "${pinned[1]}" =~ ^[0-9a-f]{40}$ ]]
         [[ "${pinned[2]}" =~ ^[0-9a-f]{40}$ ]]
-        test "${#pinned[@]}" -eq 3
         git clone --quiet --single-branch --filter=blob:none --no-checkout "https://github.com/${pinned[0]}.git" "$CREATOR_CHECKOUT_ROOT"
         git -C "$CREATOR_CHECKOUT_ROOT" checkout --quiet --detach "${pinned[1]}"
         test "$(git -C "$CREATOR_CHECKOUT_ROOT" rev-parse HEAD)" = "${pinned[1]}"
