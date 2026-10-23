@@ -75,6 +75,11 @@ jobs:
           (cd tools/release-signing && go test -count=1 ./... && CGO_ENABLED=0 go build -trimpath -buildvcs=false -o ../../out/release-pipeline/ordax-release-signing .)
           (cd bootstrap/release-acquisition && CGO_ENABLED=0 go build -trimpath -buildvcs=false -o ../../out/release-pipeline/ordax-release-agent .)
 
+      - name: Assemble single external Surface for Native signed release candidate
+        uses: ./.github/actions/assemble-surface
+        with:
+          out-root: ${{ runner.temp }}/ordax-assembled-system
+
       - name: Prove real repository Native system assembly and bundle
         run: |
           set -euo pipefail
@@ -84,14 +89,17 @@ jobs:
           source_b="$work/source-b"
           mkdir -p "$work"
 
-          python tools/native-release-assembly/build.py assemble --out "$source_a" | tee "$work/assemble-a.json"
+          python tools/native-release-assembly/build.py assemble --out "$source_a" --system-source "$RUNNER_TEMP/ordax-assembled-system/system" | tee "$work/assemble-a.json"
           python tools/native-release-assembly/build.py verify --root "$source_a" | tee "$work/verify-a.json"
-          python tools/native-release-assembly/build.py assemble --out "$source_b" | tee "$work/assemble-b.json"
+          python tools/native-release-assembly/build.py assemble --out "$source_b" --system-source "$RUNNER_TEMP/ordax-assembled-system/system" | tee "$work/assemble-b.json"
           python tools/native-release-assembly/build.py verify --root "$source_b" | tee "$work/verify-b.json"
 
           cmp "$source_a/system/bin/ordax-native-install-targets" "$source_b/system/bin/ordax-native-install-targets"
           cmp "$source_a/system/bin/ordax-runtime-component-channel" "$source_b/system/bin/ordax-runtime-component-channel"
           cmp "$source_a/system/.ordax/native-release-tools.json" "$source_b/system/.ordax/native-release-tools.json"
+          cmp "$source_a/system/surface/source-provenance.json" "$source_b/system/surface/source-provenance.json"
+          cmp "$source_a/system/surface/ui/surface.mjs" "$source_b/system/surface/ui/surface.mjs"
+          cmp "$source_a/system/surface/workspace/components/central/central.tsx" "$source_b/system/surface/workspace/components/central/central.tsx"
 
           "$bundle" --root "$source_a" --out "$work/system-a.tar"
           "$bundle" --root "$source_b" --out "$work/system-b.tar"
