@@ -80,6 +80,44 @@ class OwnerQemuHandoffTests(unittest.TestCase):
         self.assertFalse(PROOF.observed("Checkout local verificado: " + "b" * 40, "a" * 40)["exact_local_checkout"])
         self.assertFalse(PROOF.observed("ordax-dev-bootstrap: entering local recovery shell", "a" * 40)["recovery_not_entered"])
 
+    def test_failure_uses_redacted_native_receipt_only(self):
+        source = "a" * 40
+        valid = json.dumps({
+            "sourceSha": source, "stage": "composition-bootstrap",
+            "errorName": "TypeError", "source": "main.mjs:41:7",
+            "observedEpoch": 12345,
+        })
+        responses = [
+            PROOF.subprocess.CompletedProcess([], 0, stdout="/dev/loop17\n", stderr=""),
+            PROOF.subprocess.CompletedProcess([], 0, stdout=valid, stderr=""),
+            PROOF.subprocess.CompletedProcess([], 0, stdout="", stderr=""),
+        ]
+        with patch.object(PROOF, "owner_ext4_partition_bounds", return_value=(1024, 4096)):
+            with patch.object(PROOF.subprocess, "run", side_effect=responses) as execute:
+                result = PROOF.owner_qemu_failure_diagnostic(Path("/tmp/qemu-copy.raw"), source)
+        self.assertEqual(result, {
+            "status": "recorded", "stage": "composition-bootstrap",
+            "errorName": "TypeError", "source": "main.mjs:41:7",
+        })
+        self.assertIn("--read-only", execute.call_args_list[0].args[0])
+        self.assertEqual(execute.call_args_list[-1].args[0][-2:], ["-d", "/dev/loop17"])
+
+    def test_failure_diagnostic_does_not_export_untrusted_file_content(self):
+        source = "b" * 40
+        unsafe = json.dumps({
+            "sourceSha": source, "stage": "bootstrap",
+            "errorName": "Error", "source": "https://unsafe.invalid/private",
+        })
+        responses = [
+            PROOF.subprocess.CompletedProcess([], 0, stdout="/dev/loop3\n", stderr=""),
+            PROOF.subprocess.CompletedProcess([], 0, stdout=unsafe, stderr=""),
+            PROOF.subprocess.CompletedProcess([], 0, stdout="", stderr=""),
+        ]
+        with patch.object(PROOF, "owner_ext4_partition_bounds", return_value=(1024, 4096)):
+            with patch.object(PROOF.subprocess, "run", side_effect=responses):
+                result = PROOF.owner_qemu_failure_diagnostic(Path("/tmp/qemu-copy.raw"), source)
+        self.assertEqual(result, {"status": "unavailable"})
+
     def test_actual_qmp_framebuffer_checks_color_distribution(self):
         with tempfile.TemporaryDirectory() as tmp:
             image = Path(tmp) / "qemu.ppm"
