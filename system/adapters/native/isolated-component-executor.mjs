@@ -838,6 +838,60 @@ function makeBroker({ port, componentId, context, onRevoke, onInvalidated }) {
         if (unsubscribe) { subscriptions.delete(id); unsubscribe(); }
         return true;
       }
+      case "intelligence.respond": {
+        requireAuraService("inference");
+        oneArgument("inference");
+        if (inferenceControllers.size !== 0) {
+          throw new TypeError("Aura already has a pending inference request");
+        }
+        const requestPayload = validateIntelligenceRequest(request.args[0]);
+        const state = validateIntelligenceSnapshot(intelligence.getSnapshot());
+        if (state.state !== "ready" || state.authority !== "none" || state.toolExecution !== false) {
+          throw new TypeError("Consultative Intelligence is unavailable");
+        }
+        const readScope = () => {
+          const identity = validateIdentitySessionSnapshot(identitySession.getSnapshot());
+          const space = validateSpaceSelectionSnapshot(spaceSelection.getSnapshot());
+          if (identity.state === "signed-in" && space.state !== "unavailable"
+            && space.subjectId !== identity.subjectId) {
+            throw new TypeError("Aura Identity/Space scope is incompatible");
+          }
+          return JSON.stringify([identity, space]);
+        };
+        const initialScope = readScope();
+        const controller = new AbortController();
+        inferenceControllers.add(controller);
+        let timeout;
+        let unsubscribeAbort;
+        try {
+          const aborted = new Promise((_, reject) => {
+            const onAbort = () => reject(new Error("Aura inference scope was revoked"));
+            controller.signal.addEventListener("abort", onAbort, { once: true });
+            unsubscribeAbort = () => controller.signal.removeEventListener("abort", onAbort);
+          });
+          const deadline = new Promise((_, reject) => {
+            timeout = setTimeout(() => {
+              controller.abort();
+              reject(new Error("Aura inference exceeded the bounded host deadline"));
+            }, 90_000);
+          });
+          const response = await Promise.race([
+            intelligence.respond(requestPayload, { signal: controller.signal }),
+            aborted,
+            deadline,
+          ]);
+          await context.authorizeOperation();
+          if (revoked || controller.signal.aborted || readScope() !== initialScope) {
+            throw new Error("Aura inference belongs to a revoked Identity/Space or slot");
+          }
+          return validateIntelligenceResponse(response);
+        } finally {
+          controller.abort();
+          inferenceControllers.delete(controller);
+          if (timeout !== undefined) clearTimeout(timeout);
+          unsubscribeAbort?.();
+        }
+      }
       case "appData.get":
         if (request.args.length !== 1) throw new TypeError("App Data get request is malformed");
         return appData.get(appData.identity, validateAppDataKey(request.args[0]));
