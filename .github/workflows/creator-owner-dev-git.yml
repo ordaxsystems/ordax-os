@@ -14,6 +14,10 @@ on:
       - 'bootstrap/dev-base/**'
       - 'bootstrap/surface-runtime/**'
       - 'bootstrap/recovery/**'
+      # Creator's published USB must cover the actual boot/Guardian/Surface
+      # source snapshot. Previously a system-only main commit (including
+      # Supervisor rollback fixes) did NOT refresh the Creator bundle.
+      - 'system/**'
       - 'tools/creator/**'
       - 'tools/release-signing/**'
       - '!tools/release-signing/windows/**'
