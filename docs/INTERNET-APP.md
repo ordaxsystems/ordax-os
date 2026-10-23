@@ -2,7 +2,7 @@
 
 Status: **produto com fonte portátil canônica em `ordax-apps`; distribuição Native assinada ainda não habilitada**
 
-**Owners:** A UI e a lógica do produto Internet pertencem a `ordaxsystems/ordax-apps/apps/internet`; o repositório do OS mantém o motor WebKit, o host Native, o isolamento do conteúdo, os controles de rede/downloads e o lifecycle de componentes. A fonte foi transferida e o OS não mantém uma cópia executável em `system/apps/internet/`. O manifesto de migração permite o corte de fonte, mas mantém instalação/distribuição bloqueadas: o pacote ainda não tem artefato assinado/rollback comprovado, e o Native não autoriza sua ativação. Internet é on-demand/store-only, nunca uma dependência de boot. A ausência de fonte no OS não deve ser confundida com instalação do app.
+**Owners:** A UI e a lógica do produto Internet pertencem a `ordaxsystems/ordax-apps/apps/internet`; o repositório do OS mantém o motor WebKit, o host Native, o isolamento do conteúdo, os controles de rede/downloads e o lifecycle de componentes. A fonte foi transferida e o OS não mantém uma cópia executável em `system/apps/internet/`. O manifesto de migração permite o corte de fonte, mas mantém instalação/distribuição bloqueadas: o pacote ainda não tem artefato assinado/rollback comprovado, e o Native não autoriza leitura de módulo para Internet nem sua ativação. Internet é on-demand/store-only, nunca uma dependência de boot. A ausência de fonte no OS não deve ser confundida com instalação do app.
 
 ## Goal
 
