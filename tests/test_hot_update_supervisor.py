@@ -239,7 +239,7 @@ class HotUpdateSupervisorContractTests(unittest.TestCase):
             installer.index('require_native_prerequisite "$native_prerequisite"'),
             installer.index('stage_helper "$source_relative" "$target_relative"'),
         )
-        poll = supervisor.split('    if [ "$remote_sha" = "$current" ]; then', 1)[1]
+        poll = supervisor.rsplit('    if [ "$remote_sha" = "$current" ]; then', 1)[1]
         poll = poll.split('    if [ -n "$rejected_sha" ]', 1)[0]
         self.assertLess(
             poll.index('request_dev_base_candidate "$current"'),
