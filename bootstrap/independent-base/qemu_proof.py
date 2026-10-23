@@ -18,6 +18,16 @@ import time
 
 from build import contracts, digest, BaseError, ROOT
 
+# This is a proof-lab budget, not a product RAM requirement. The direct smoke
+# intentionally unpacks a complete Buildroot rootfs into initramfs RAM while
+# also attaching the authenticated EROFS candidate. Owner/Development carries
+# firmware and developer acquisition tools, so it needs more temporary headroom
+# than the minimal profile even though the official portable boot uses EROFS.
+QEMU_MEMORY_MIB_BY_PROFILE = {
+    "minimal": 384,
+    "owner-development": 768,
+}
+
 
 def regular(path: Path, label: str) -> Path:
     if str(path).startswith("/dev/"):
@@ -25,6 +35,12 @@ def regular(path: Path, label: str) -> Path:
     if path.is_symlink() or not path.is_file():
         raise BaseError(f"{label} must be a regular file")
     return path.resolve()
+
+
+def qemu_memory_mib(profile: object) -> int:
+    if not isinstance(profile, str) or profile not in QEMU_MEMORY_MIB_BY_PROFILE:
+        raise BaseError("QEMU proof requires a supported Independent Base profile")
+    return QEMU_MEMORY_MIB_BY_PROFILE[profile]
 
 
 def parse_guest_metrics(log: str) -> dict:
@@ -70,9 +86,17 @@ def parse_surface_ip_proof(log: str) -> dict:
     }
 
 
-def qemu(kernel: Path, initrd: Path, base: Path, state: Path, label: str, log_dir: Path) -> dict:
+def qemu(
+    kernel: Path,
+    initrd: Path,
+    base: Path,
+    state: Path,
+    label: str,
+    log_dir: Path,
+    memory_mib: int,
+) -> dict:
     argv = [
-        "qemu-system-x86_64", "-machine", "pc", "-m", "384M", "-smp", "1",
+        "qemu-system-x86_64", "-machine", "pc", "-m", f"{memory_mib}M", "-smp", "1",
         "-nographic", "-monitor", "none", "-no-reboot", "-serial", "stdio",
         "-kernel", str(kernel), "-initrd", str(initrd),
         "-append", "console=ttyS0 loglevel=4 rdinit=/sbin/ordax-independent-probe-init",
@@ -117,6 +141,7 @@ def qemu(kernel: Path, initrd: Path, base: Path, state: Path, label: str, log_di
     return {"mode": label, "exit_code": complete.returncode, "markers": expected,
             "serial_log_sha256": serial_hash, "serial_log": serial_file.name,
             "serial_tail": log[-800:], "qemu_wall_seconds": elapsed_seconds,
+            "qemu_memory_mib": memory_mib,
             "guest_resource_metrics": metrics, "surface_iproute2": surface_ip}
 
 
@@ -124,6 +149,8 @@ def prove(out: Path, kernel_dir: Path, result_path: Path) -> dict:
     source, kernel_contract, _, _ = contracts()
     out = out.resolve()
     report = json.loads((out / "provenance.json").read_text())
+    profile = report.get("profile")
+    memory_mib = qemu_memory_mib(profile)
     if report.get("physical_artifact_authorized") is not False:
         raise BaseError("promotable candidate forbidden in QEMU proof")
     if report.get("surface_iproute2_identity_verified") is not True:
@@ -172,8 +199,8 @@ def prove(out: Path, kernel_dir: Path, result_path: Path) -> dict:
         if mkfs.returncode:
             raise BaseError("cannot create disposable state image")
         receipts = [
-            qemu(kernel, initrd, base, state, "first", serial_dir),
-            qemu(kernel, initrd, base, state, "second", serial_dir),
+            qemu(kernel, initrd, base, state, "first", serial_dir, memory_mib),
+            qemu(kernel, initrd, base, state, "second", serial_dir, memory_mib),
         ]
         debugfs = subprocess.run(["debugfs", "-R", "cat /ordax-independent-marker", str(state)],
                                  text=True, stdout=subprocess.PIPE,
@@ -187,12 +214,14 @@ def prove(out: Path, kernel_dir: Path, result_path: Path) -> dict:
             f.write(b"\x00" * 4096)
         if digest(corrupt) == base_before:
             raise BaseError("fault injection did not modify candidate")
-        receipts.append(qemu(kernel, initrd, corrupt, state, "corrupt-base", serial_dir))
+        receipts.append(qemu(kernel, initrd, corrupt, state, "corrupt-base", serial_dir, memory_mib))
     if digest(base) != base_before:
         raise BaseError("original EROFS changed during QEMU proof")
     receipt = {
         "$schema": "prototype-ordax.independent-base-qemu-result/1",
         "status": "pass",
+        "profile": profile,
+        "qemu_memory_mib": memory_mib,
         "kernel_version": version,
         "kernel_sha256": digest(kernel),
         "base_sha256": base_before,

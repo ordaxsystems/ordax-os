@@ -102,6 +102,26 @@ Prefer one permanent branch: `main`.
 
 A temporary work branch is acceptable for isolated validation, but should be short-lived and integrated only after tests pass. Do not create a forest of long-lived feature branches as alternate source authorities.
 
+### Long-running platform migration exception
+
+A platform replacement may use one explicitly named temporary integration branch when the alternative would make multi-hour platform builds block unrelated product work. The branch remains subordinate to `main`, must be periodically reconciled with `main`, and must be deleted after integration.
+
+The active Alpine-removal migration uses `platform/remove-alpine` and reuses the existing `bootstrap/independent-base/` owner; it does not create a second OS, release channel or source authority. Its detailed migration ledger is `bootstrap/independent-base/MIGRATION-REMOVE-ALPINE.md`.
+
+For this migration the development loop is deliberately split:
+
+```text
+normal push on platform/remove-alpine
+ -> fast contract/unit/syntax gate
+ -> no Buildroot/kernel/full USB build
+
+structural platform milestone or final integration PR
+ -> heavy Buildroot + verified kernel + QEMU proof
+ -> promotion gates remain independent
+```
+
+The fast gate is `.github/workflows/remove-alpine-fast.yml`. The heavy proof remains `.github/workflows/independent-base-experiment.yml`. A change restricted to Surface, apps, accounts, Spaces or Web must not inherit the multi-hour platform build merely because the migration branch exists.
+
 ## Release model
 
 Every deployed system version must be addressable by source commit.

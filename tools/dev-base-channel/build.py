@@ -32,6 +32,7 @@ REQUIRED_ROOTFS_PATHS = (
     "usr/local/bin/ordax-network",
     "usr/local/bin/ordax-pull",
     "usr/local/bin/ordax-checkout-exchange",
+    "usr/local/bin/ordax-usb-mountattr",
     "usr/local/bin/ordax-rollback",
     "usr/local/bin/ordax-run",
 )

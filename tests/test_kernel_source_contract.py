@@ -102,6 +102,11 @@ class KernelSourceContractTest(unittest.TestCase):
 
     def test_every_kernel_build_workflow_binds_exact_source_identity(self):
         identity = "${{ github.event.pull_request.head.sha || github.sha }}"
+        source_binding = f"ORDAX_SOURCE_COMMIT: {identity}"
+        checkout_bindings = (
+            f"ref: {identity}",
+            "ref: ${{ env.ORDAX_SOURCE_COMMIT }}",
+        )
         workflow_root = ROOT / ".github/workflows"
         offenders = []
         workflows = sorted(workflow_root.glob("*.yml")) + sorted(workflow_root.glob("*.yaml"))
@@ -109,10 +114,10 @@ class KernelSourceContractTest(unittest.TestCase):
             text = path.read_text(encoding="utf-8")
             if "bootstrap/kernel/build.py build" not in text:
                 continue
-            if f"ref: {identity}" not in text:
-                offenders.append(f"{path.name}:missing-exact-checkout")
-            if f"ORDAX_SOURCE_COMMIT: {identity}" not in text:
+            if source_binding not in text:
                 offenders.append(f"{path.name}:missing-source-identity")
+            if not any(binding in text for binding in checkout_bindings):
+                offenders.append(f"{path.name}:missing-exact-checkout")
         self.assertEqual(offenders, [])
 
     def test_portable_usb_v2_filesystems_are_builtin_before_release_handoff(self):

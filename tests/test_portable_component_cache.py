@@ -59,6 +59,7 @@ class PortableComponentCacheTests(unittest.TestCase):
             "bootstrap/independent-base/overlay/sbin/ordax-independent-probe-init": "#!/bin/sh\n",
             "bootstrap/independent-base/patches/iproute2/7.1.0/0001.patch": "patch-v1\n",
             "bootstrap/independent-base/post-build.sh": "#!/bin/sh\n",
+            "bootstrap/independent-base/post-image.sh": "#!/bin/sh\n",
             "bootstrap/kernel/source.json": '{"version":"6.6.0"}\n',
             "bootstrap/stable-base/source.json": '{"rootfs":{"format":"erofs"}}\n',
             "bootstrap/network/source.json": '{"network":"v1"}\n',
@@ -100,6 +101,15 @@ class PortableComponentCacheTests(unittest.TestCase):
 
             (root / "bootstrap/network/bring-up").write_text("#!/bin/sh\necho changed\n", encoding="utf-8")
             self.assertNotEqual(first, CACHE.component_fingerprint("independent-base", root))
+
+    def test_independent_base_post_image_change_invalidates_cache(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = self.make_independent_root(Path(td))
+            initial = CACHE.component_fingerprint("independent-base", root)
+            (root / "bootstrap/independent-base/post-image.sh").write_text(
+                "#!/bin/sh\\necho changed\\n", encoding="utf-8"
+            )
+            self.assertNotEqual(initial, CACHE.component_fingerprint("independent-base", root))
 
     def test_independent_base_cache_keeps_original_provenance_on_reuse(self):
         with tempfile.TemporaryDirectory() as td:

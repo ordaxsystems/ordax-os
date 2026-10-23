@@ -90,6 +90,12 @@ jobs:
 
       - name: Restore canonical release-agent seed for bootstrap assembly
         run: bash bootstrap/release-acquisition/restore_pinned_seed.sh
+      - name: Preflight immutable bootstrap bindings
+        run: |
+          set -euo pipefail
+          for group in bootstrap-orchestrator bootstrap-release-acquisition bootstrap-release-trust bootstrap-release-channel bootstrap-product-mode bootstrap-recovery; do
+            python tools/creator/assemble.py check-group --group "$group"
+          done
 
       - name: Install bounded build dependencies
         run: |
@@ -101,6 +107,22 @@ jobs:
             liblz4-dev libzstd-dev liblzma-dev libpcre2-dev
           python -m pip install --disable-pip-version-check --no-cache-dir \
             jinja2 pyelftools
+
+      - name: Build and verify initramfs candidate
+        run: |
+          set -euo pipefail
+          python bootstrap/initramfs/build.py check
+          python bootstrap/initramfs/build.py build --jobs 4
+          python bootstrap/initramfs/build.py verify
+          python tools/creator/assemble.py check-group --group initramfs
+
+      - name: Build and verify network bootstrap candidate
+        run: |
+          set -euo pipefail
+          python bootstrap/network/build.py check
+          python bootstrap/network/build.py build --jobs 4
+          python bootstrap/network/build.py verify
+          python tools/creator/assemble.py check-group --group bootstrap-network
 
       - name: Resolve reusable kernel fingerprint
         id: component-fingerprints
@@ -126,6 +148,7 @@ jobs:
           python boot/esp/build.py check
           python boot/esp/build.py build
           python boot/esp/build.py verify
+          python tools/creator/assemble.py check-group --group uefi-boot
 
       - name: Build kernel candidate on verified cache miss
         if: steps.kernel-cache.outputs.cache-hit != 'true'
@@ -147,6 +170,7 @@ jobs:
             cache_hit=false
           fi
           python bootstrap/kernel/verify.py out/kernel
+          python tools/creator/assemble.py check-group --group kernel
           if [ "$cache_hit" = 'false' ]; then
             python3 tools/ci/portable_component_cache.py record \
               --component kernel \
@@ -167,20 +191,6 @@ jobs:
         with:
           path: out/kernel
           key: ordax-portable-component-v1-${{ runner.os }}-${{ runner.arch }}-kernel-${{ steps.component-fingerprints.outputs.kernel }}
-
-      - name: Build and verify initramfs candidate
-        run: |
-          set -euo pipefail
-          python bootstrap/initramfs/build.py check
-          python bootstrap/initramfs/build.py build --jobs 4
-          python bootstrap/initramfs/build.py verify
-
-      - name: Build and verify network bootstrap candidate
-        run: |
-          set -euo pipefail
-          python bootstrap/network/build.py check
-          python bootstrap/network/build.py build --jobs 4
-          python bootstrap/network/build.py verify
 
       - name: Build and verify static release acquisition agent
         run: |

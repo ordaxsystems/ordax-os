@@ -1,0 +1,18 @@
+# Private native Product Runtime BUILDROOT toolchain (not a second OS base).
+# Derives architecture, musl and kernel headers from the canonical Independent
+# Base defconfig. Python3 in Buildroot 2026.08 cannot be built with BR2_STATIC_LIBS.
+# A component-private shared closure is required; NEVER add these lines to
+# owner-development.fragment or change the base's static linking policy.
+BR2_SHARED_LIBS=y
+BR2_PACKAGE_PYTHON3=y
+BR2_PACKAGE_PYTHON3_PYC_ONLY=y
+BR2_PACKAGE_PYTHON3_SSL=y
+BR2_PACKAGE_PYTHON3_ZLIB=y
+# Canonical ordax_core MemoryStore/OrchestratorStore require private SQLite.
+BR2_PACKAGE_PYTHON3_SQLITE=y
+BR2_PACKAGE_SQLITE=y
+BR2_PACKAGE_CA_CERTIFICATES=y
+# Probe only: HTTPX source version matches upstream Runtime; its indirect
+# dependencies are NOT all lock-compatible. Never activate from this profile.
+BR2_PACKAGE_PYTHON_HTTPX=y
+BR2_TARGET_ROOTFS_TAR=y
