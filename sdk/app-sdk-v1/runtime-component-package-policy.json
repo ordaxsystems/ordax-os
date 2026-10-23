@@ -59,6 +59,7 @@
   "native_pending_import_probe_mounts_runtime": false,
   "native_files_slot_bound_file_space_enforced": true,
   "native_loopback_broker_supported_components": [
+    "assistant",
     "calculator",
     "files",
     "notes",
