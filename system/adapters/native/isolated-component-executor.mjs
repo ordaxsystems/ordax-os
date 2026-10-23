@@ -139,17 +139,29 @@ const FRAME_BOOTSTRAP = String.raw`(() => {
   const localeListeners = new Set();
 
   const send = (payload) => host?.postMessage({ schema: bridgeSchema, ...payload });
-  const call = (operation, args = []) => new Promise((resolve, reject) => {
+  const call = (operation, args = [], signal = null) => new Promise((resolve, reject) => {
     if (!host || pending.size >= 64) { reject(new Error("Native app bridge is unavailable")); return; }
+    if (signal?.aborted) { reject(new Error("Native app request cancelled")); return; }
     const id = ++nextRequest;
-    pending.set(id, { resolve, reject });
+    const finish = (callback, value) => {
+      signal?.removeEventListener?.("abort", onAbort);
+      callback(value);
+    };
+    const onAbort = () => {
+      if (!pending.delete(id)) return;
+      try { send({ type: "cancel", id }); } catch {}
+      finish(reject, new Error("Native app request cancelled"));
+    };
+    pending.set(id, {
+      resolve: (value) => finish(resolve, value),
+      reject: (error) => finish(reject, error),
+    });
+    signal?.addEventListener?.("abort", onAbort, { once: true });
     try {
       send({ type: "call", id, operation, args });
     } catch (error) {
-      // Structured-clone errors must not strand a request in the bounded
-      // pending table until the entire component is torn down.
       pending.delete(id);
-      reject(error);
+      finish(reject, error);
     }
   });
   const assertLocale = (snapshot) => {
@@ -399,7 +411,7 @@ const FRAME_BOOTSTRAP = String.raw`(() => {
             if (options?.signal?.aborted) {
               return Promise.reject(new Error("Inference request was cancelled"));
             }
-            return call("intelligence.respond", [request]);
+            return call("intelligence.respond", [request], options?.signal ?? null);
           },
         });
       } else if (data.identitySessionSnapshot !== null
