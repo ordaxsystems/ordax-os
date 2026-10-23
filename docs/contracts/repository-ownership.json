@@ -7,7 +7,8 @@
       "owns": [
         "base",
         "boot",
-        "surface-shell",
+        "surface-native-host",
+        "surface-composition",
         "identity",
         "global-memory",
         "intelligence",
@@ -25,6 +26,22 @@
         "windows-runtime",
         "product-mcp-remote",
         "provider-connectors"
+      ]
+    },
+    "surface": {
+      "repo": "ordaxsystems/ordax-surface",
+      "owns": [
+        "surface-visual-shell",
+        "surface-workspace-ui",
+        "surface-presentation-assets"
+      ],
+      "must_not_own": [
+        "native-os-host",
+        "kernel-boot-base",
+        "system-capability-authority",
+        "product-grants",
+        "native-composition",
+        "physical-release-activation"
       ]
     },
     "apps": {
@@ -123,7 +140,8 @@
       "platform": "ordaxsystems/ordax-os",
       "apps": "ordaxsystems/ordax-apps",
       "runtime": "ordaxsystems/ordax-runtime",
-      "control_plane": "ordaxsystems/ordax-platform"
+      "control_plane": "ordaxsystems/ordax-platform",
+      "surface": "ordaxsystems/ordax-surface"
     },
     "cutover_order": [
       "runtime",
