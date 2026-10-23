@@ -1,6 +1,5 @@
 const BOOT_SCREEN_ID = "ordax-boot-screen";
 const STATUS_SELECTOR = "[data-ordax-boot-status]";
-const READY_GATE_NEXT_STAGE = "next-stage";
 
 export function createSurfaceBootScreen(documentObject = globalThis.document) {
   if (!documentObject || typeof documentObject.querySelector !== "function") {
@@ -15,31 +14,7 @@ export function createSurfaceBootScreen(documentObject = globalThis.document) {
     throw new TypeError("Surface boot screen status element is missing");
   }
 
-  const readyGate = element.dataset.readyGate ?? "";
   let finished = false;
-  let readyPending = false;
-  let revealGeneration = 0;
-
-  const finishReady = () => {
-    if (finished) return false;
-    finished = true;
-    readyPending = false;
-    revealGeneration += 1;
-    element.dataset.state = "ready";
-    element.setAttribute("aria-hidden", "true");
-    element.hidden = true;
-    return true;
-  };
-
-  const scheduleReadyReveal = () => {
-    if (finished || !readyPending) return false;
-    const generation = ++revealGeneration;
-    queueMicrotask(() => {
-      if (finished || !readyPending || generation !== revealGeneration) return;
-      finishReady();
-    });
-    return true;
-  };
 
   const setStage = (message) => {
     if (finished) return false;
@@ -47,27 +22,21 @@ export function createSurfaceBootScreen(documentObject = globalThis.document) {
     if (!text) return false;
     status.textContent = text;
     element.dataset.state = "loading";
-    if (readyPending && readyGate === READY_GATE_NEXT_STAGE) {
-      scheduleReadyReveal();
-    }
     return true;
   };
 
   return Object.freeze({
     setStage,
     ready() {
-      if (finished || readyPending) return false;
-      if (readyGate !== READY_GATE_NEXT_STAGE) {
-        return finishReady();
-      }
-      readyPending = true;
-      element.dataset.state = "ready-pending";
+      if (finished) return false;
+      finished = true;
+      element.dataset.state = "ready";
+      element.setAttribute("aria-hidden", "true");
+      element.hidden = true;
       return true;
     },
     fail(message = "OrdaX") {
       if (finished) return false;
-      readyPending = false;
-      revealGeneration += 1;
       const text = String(message ?? "").trim() || "OrdaX";
       status.textContent = text;
       element.dataset.state = "error";
