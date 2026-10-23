@@ -54,6 +54,10 @@ class OwnerFetchPowerRegressionTests(unittest.TestCase):
         self.assertIn('checkout_reconcile_previous=$checkout_previous_sha', script)
         self.assertIn('ORDAX_RECONCILE_PREVIOUS_SHA="$checkout_reconcile_previous"', script)
         self.assertIn('write_state_value "$CURRENT_FILE" "$previous_sha"', script)
+        self.assertIn('if [ "$OWNER_MANUAL_CHECK" -ne 1 ] &&', script)
+        self.assertIn('checkout_retry_pending "$current" "$remote_sha"', script)
+        self.assertIn('record_checkout_failure "$old_sha" "$remote_sha" "$reason"', script)
+        self.assertIn('OWNER_MANUAL_CHECK=1', script)
         self.assertIn('is_sha "$reconcile_surface" && surface_health_matches "$reconcile_surface"', script)
         self.assertIn('record_non_ff_target "$checkout_previous_sha" "$checkout_target_sha"', script)
         self.assertIn('if fetch_retry_pending "$remote_sha"; then', script)
@@ -75,6 +79,7 @@ class OwnerFetchPowerRegressionTests(unittest.TestCase):
                 "epoch_now() { date +%s; }",
                 portable_shell((
                     "classify_fetch_error",
+                    "retry_backoff_seconds",
                     "record_fetch_failure",
                     "fetch_retry_pending",
                     "non_ff_target_blocked",
@@ -106,6 +111,48 @@ class OwnerFetchPowerRegressionTests(unittest.TestCase):
             self.assertEqual(stat.S_IMODE(receipt_file.stat().st_mode), 0o600)
             self.assertGreater(int(fields[7]), int(time.time()))
             self.assertEqual((state / "git-non-ff-target").read_text().strip(), "deadbeef abc123")
+
+    def test_post_fetch_retry_is_scoped_and_has_bounded_exponential_delay(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            receipt = Path(tmp) / "native-state" / "git-checkout-retry"
+            receipt.parent.mkdir()
+            old = "a" * 40
+            target = "b" * 40
+            next_target = "c" * 40
+            script = "\n".join([
+                "set -eu",
+                "epoch_now() { date +%s; }",
+                "log() { :; }",
+                portable_shell((
+                    "retry_backoff_seconds",
+                    "record_checkout_failure",
+                    "checkout_retry_pending",
+                )),
+                f"CHECKOUT_RETRY_FILE={shlex.quote(str(receipt))}",
+                '[ "$(retry_backoff_seconds 1)" = 15 ]',
+                '[ "$(retry_backoff_seconds 3)" = 60 ]',
+                '[ "$(retry_backoff_seconds 9)" = 300 ]',
+                f'record_checkout_failure {old} {target} candidate-preflight-failed',
+                f'checkout_retry_pending {old} {target}',
+                f'if checkout_retry_pending {old} {next_target}; then exit 21; fi',
+                f'if checkout_retry_pending {next_target} {target}; then exit 22; fi',
+                f'record_checkout_failure {old} {target} candidate-preflight-failed',
+                """[ "$(awk '{print $3}' "$CHECKOUT_RETRY_FILE")" = 2 ]""",
+                f'record_checkout_failure {old} {target} candidate-stage-failed',
+                """[ "$(awk '{print $3}' "$CHECKOUT_RETRY_FILE")" = 1 ]""",
+                """[ "$(awk '{print $5}' "$CHECKOUT_RETRY_FILE")" = candidate-stage-failed ]""",
+            ])
+            subprocess.run(["/bin/sh", "-c", script], check=True, timeout=5)
+            self.assertEqual(stat.S_IMODE(receipt.stat().st_mode), 0o600)
+            receipt.write_text("invalid state\n", encoding="ascii")
+            check = "\n".join([
+                "set -eu",
+                "epoch_now() { date +%s; }",
+                portable_shell(("checkout_retry_pending",)),
+                f"CHECKOUT_RETRY_FILE={shlex.quote(str(receipt))}",
+                f'if checkout_retry_pending {old} {target}; then exit 23; fi',
+            ])
+            subprocess.run(["/bin/sh", "-c", check], check=True, timeout=5)
 
     @unittest.skipUnless(shutil.which("setsid") and shutil.which("timeout"), "Linux session tools unavailable")
     def test_term_during_real_blocking_git_kills_its_process_group(self) -> None:
