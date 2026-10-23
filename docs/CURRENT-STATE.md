@@ -1550,7 +1550,7 @@ CANONICAL_SYSTEM_RUNTIME_COMPLETE=NO
 
 The canonical prototype trust ceremony and public handoff are complete. The eligible toolkit bound to `2172eb6a18430910afd036199ec492ad63dc185d` passed read-only preflight; canonical Ed25519 key material was generated locally, independent public derivation matched, the proof signature passed, recovery was verified from a distinct restored copy, and the recovered signing envelope passed public verification. The exact public anchor is pinned in Git and the minimal-bootstrap trust binding remains resolved. An earlier owner authorization existed for the first Stable/MVP USB proof, release sequence 1, but it was bound to a previous physical-writer context and is no longer valid after the writer changed. On 2026-09-26 the owner-controlled v4 candidate was signed and published as a prerelease, then materialized and verified from its exact versioned HTTPS URL in CI run `36234573905`; aggregate proof SHA-256 `2dd17580ddbf5a0fd0433a912e97e6bded04fd0a44ea0849e9da15e13df01e4b` is bound in the repository. This prerelease did not become GitHub's stable `latest` release. The authorization contract is now `blocked-explicit-physical-authorization-pending`, with `physical_write_allowed=false`, `explicit_owner_authorization=false` and no authorization-context hash. A fresh explicit owner authorization must be recorded against the current writer context before any destructive physical flow becomes eligible. No target-specific consent has been recorded and no USB is selected or authorized for a new write; live target revalidation, Windows UAC and target-specific destructive confirmation remain separate later gates. The local PEM remains a controlled prototype signing backend rather than the intended long-term production custody model; independent off-device custody and managed non-exportable KMS/HSM remain broad-distribution hardening requirements, with signed trust rotation required before broad public distribution.
 
-The first formal human product version is **OrdaX Prototype v0.1.0**. Product version, Entrega, Git SHA and app SemVer are separate identities; first-party apps on the 0.x line are Beta, and a component version does not imply an independent update channel. Source ownership is now: Internet, Assistente, Projetos, Atividade, Rede and Notas in `ordax-apps`; Arquivos had its bundled product source removed on 2026-10-23; the OS retains neutral File Space services and typed verified-slot host contracts while unsigned external packages remain disabled; Studio has portable product source in ordax-apps, while the OS-local git-app integration was removed on 2026-10-23; future activation requires a compatible signed external package. Loja, Ajustes, Conta and Sistema remain structural OS surfaces. Product v1.0 remains reserved for the stable product.
+The first formal human product version is **OrdaX Prototype v0.1.0**. Product version, Entrega, Git SHA and app SemVer are separate identities; first-party apps on the 0.x line are Beta, and a component version does not imply an independent update channel. Source ownership is now: Internet, Assistente, Projetos, Atividade, Rede and Notas in `ordax-apps`; Arquivos had its bundled product source removed on 2026-10-23; the OS retains File Space services and verified-slot host contracts, with external installation still gated by signed packages and health/rollback proof; Studio has portable product source in ordax-apps, while the OS-local git-app integration was removed on 2026-10-23; future activation requires a compatible signed external package. Loja, Ajustes, Conta and Sistema remain structural OS surfaces. Product v1.0 remains reserved for the stable product.
 
 `system/` is the shared product source. The native development path is physically proven through `system/entrypoint (guardian) -> system/supervisor -> system/surface/entrypoint -> system/surface/bin/ordax-surface`; repository CI also proves that the actual `system/` tree can be bundled deterministically as `system.tar`.
 
@@ -1915,12 +1915,16 @@ Notificações coalescem por inscrição e a revogação drena operações pende
 O controller compartilhado agora também aguarda as mutações assíncronas do bridge,
 sem perder compatibilidade com ports Native síncronos.
 
-Isso continua separado de arquivos pertencentes à Conta ou a um Space. A
-composição do slot Native externo permanece desativada enquanto a fonte bundled
-`system/apps/files/` existir; nenhuma implementação de app foi copiada para Apps
-e nenhum gate de corte ou distribuição foi aberto. Verificação focada: 72 testes
-Node e 16 contratos estáticos Python passaram. Não é prova de USB/QEMU, bootstrap assinado, instalação offline,
-rollback ou publicação.
+Isso continua separado de arquivos pertencentes à Conta ou a um Space. O
+estado de 2026-10-22 foi superado no source: a PR #2184 removeu a fonte bundled
+`system/apps/files/`, e a PR #2186 substituiu os providers exclusivos do boot
+Native por providers genéricos de slots verificados (11 workflows aprovados,
+incluindo QEMU). Não há implementação de Files embutida nem instalação externa
+por essas mudanças. File Space, Recentes e Projetos seguem nativos; a prova
+`pending` utiliza contexto isolado, e portas de uso normal exigem o slot
+`current` verificado. Distribuição externa em `ordax-apps`, bootstrap
+assinado, lifecycle, rollback e prova física permanecem pendentes. O QEMU
+aprovado não comprova boot no USB ou notebook reais.
 
 ### Ordax Intelligence and local inference
 

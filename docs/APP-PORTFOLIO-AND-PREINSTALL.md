@@ -1,6 +1,6 @@
 # Portfólio first-party e aplicativos iniciais
 
-Status: **boot canônico com zero apps removíveis no bootstrap; catálogo recomendado sem autoridade de instalação; distribuição física pendente de comprovação**. Esta decisão não altera o payload USB atual nem a instalação dos usuários. A implementação de seleção sem autoridade está em `system/services/apps/first-run-selection.mjs`, com testes em `tests/test_first_run_selection.mjs`.
+Status: **boot canônico com zero aplicativos removíveis no bootstrap; recomendações sem instalação automática; distribuição física pendente de comprovação**. Esta decisão não altera o payload USB atual nem a instalação dos usuários. A implementação de seleção sem autoridade está em `system/services/apps/first-run-selection.mjs`, com testes em `tests/test_first_run_selection.mjs`.
 
 ## Prova isolada do ciclo Native assinado
 
@@ -95,7 +95,7 @@ pendência ausente, revisão/saúde divergente e tombstone ausente.
 ## Regra definitiva de ownership
 
 - `ordaxsystems/ordax-os`: sistema/base, Surface, App SDK, Identity, Intelligence, Memory, permissões, Loja estrutural, Conta, Ajustes, Sistema, verificação, ativação e desinstalação de pacotes.
-- `ordaxsystems/ordax-apps`: **fonte canônica dos aplicativos first-party removíveis**, que são on-demand e não entram no bootstrap limpo. Versão e artefato pertencem ao produto; instalar posteriormente não cria cópia executável no OS.
+- `ordaxsystems/ordax-apps`: **fonte canônica dos aplicativos first-party removíveis**, todos sob demanda e ausentes do bootstrap limpo. Versão e artefato pertencem ao produto; instalação posterior não duplica sua implementação dentro do OS.
 - **Fonte já externalizada**: Internet, Assistente, Projetos, Atividade, Rede e Notas têm fonte canônica em `ordax-apps/apps/<id>/` e não têm fonte de app em `ordax-os/system/apps/<id>/`. Os seis cortes de fonte já estão concluídos na `main`; isso não habilita distribuição, instalação ou atualização independente.
 - **Arquivos (Files)**: a implementação embutida foi removida em 2026-10-23 para testar o OS limpo. O aplicativo será recriado exclusivamente em ordax-apps; nenhum pacote assinado foi instalado por esta remoção. Os serviços File Space continuam no OS.
 
@@ -108,7 +108,7 @@ Há dois escopos diferentes e eles não devem ser combinados implicitamente:
 - **Arquivos locais do dispositivo** continuam disponíveis offline no `user_root`. Um candidato no OS acrescenta o escopo imutável `ordax.file-space-scope/1` com `kind=device-local` e encaminha as operações ao slot Native `files` somente depois de validar sua identidade/revisão exatas. Esse escopo nunca representa Conta, Space compartilhado ou grant de recurso.
 - **Arquivos de Conta/Space** ainda exigem um broker diferente que, em cada operação, vincule identidade autenticada, seleção de Space validada por autoridade do host e armazenamento provisionado com identidade estável. O app não pode escolher livremente `subjectId`, `spaceId`, raiz ou caminho físico. A seleção local persistida não substitui essa validação; `ordax.file-space/11` ainda não implementa esse vínculo.
 
-O componente Files embutido foi removido em 2026-10-23 e seus providers Native exclusivos foram substituídos por um validador genérico de slot atual e um host de probation. A ativação externa continua condicionada à identidade do pacote assinado, ao catálogo Native verificado, às capacidades tipadas e à prova de instalação/health/rollback. A remoção da fonte não instala nem publica o app, não duplica a UI e não libera o executor da Loja. O probe pendente só acessa uma raiz sintética vazia.
+A fonte bundled `system/apps/files/` foi removida da `main` em 2026-10-23, sem copiar o produto para outro diretório do OS nem instalar pacote externo. O Host conserva File Space, Recentes e Projetos; no Native, providers genéricos de componentes validados mantêm separados o slot `current` assinado (portas normais) e a prova `pending` isolada (dados sintéticos). A remoção do app embutido não concede autorização de distribuição: pacote externo first-party em `ordax-apps`, assinatura, instalação offline, health/rollback e provas físicas são gates independentes. O corte de fonte já ocorreu; `distribution_activation_allowed` segue fechado.
 
 Arquivos existentes no `user_root` são dados locais do dispositivo: não inferir que pertencem ao Space pessoal, copiá-los automaticamente, movê-los na primeira leitura nem apagar a raiz antiga. Qualquer migração futura entre armazenamento local e storage de Space exige decisão do owner de dados e fluxo explícito, verificável, sem sobrescrita e reversível que preserve a raiz antiga até confirmação.
 - **Studio**: a integração local git-app foi retirada do OrdaX OS no corte remove-first de desenvolvimento (2026-10-23). O produto continua sob responsabilidade de ordaxsystems/ordax-apps; sem pacote assinado, entrypoint e descriptor de compatibilidade verificados, Studio não deve aparecer como instalado na Surface nem no inventário. As provas Native/Web, health, rollback, instalação e reinstalação continuam pendentes para ativação futura. A retirada do painel embutido não equivale a distribuir Studio.
@@ -161,8 +161,8 @@ A lista executável de **intenção de seleção** fica exclusivamente em `listF
 ## Fases de integração (não equivale a release pronta)
 
 1. **Feito:** inventário de owners, decisões de nome, seleção declarativa e seção Essenciais filtrada pelo catálogo verificado, com testes de status real e negação de reinstalação.
-2. **Fonte:** os cortes remove-first de Files e Studio estão concluídos na main; a fonte executável externa de cada produto permanece sob `ordax-apps`. **A executar:** comprovar seus pacotes, health, lifecycle e boot físico, sem reintroduzir versões embutidas.
-3. **A executar:** produzir/verificar artefatos assinados e entrega de instalação sob demanda, mantendo o inventário Native e a autoridade de lifecycle como SSOT. Nenhum app removível faz parte do bootstrap padrão.
+2. **Fonte:** os seis cortes iniciais para Apps foram concluídos; Files embutido e Studio local foram retirados da `main` em 2026-10-23. Providers específicos do Files foram substituídos pela borda genérica de slots verificados. **A executar:** produzir/verificar pacotes externos, bootstrap, lifecycle, rollback e instalação física antes de distribuição. Nunca publicar duas fontes.
+3. **A executar:** produzir/verificar artefatos assinados e entrega sob demanda, mantendo o inventário Native e o lifecycle do OS como autoridades únicas; nenhum app removível é pré-instalado no bootstrap padrão.
 4. **A executar:** fazer Loja mostrar apps bundled e externos com inventário verificado e permissões de desinstalação reais, preservando App Data.
 5. **A executar:** E2E de primeira instalação, desinstalação persistente, reboot, reconexão, reinstall voluntário, rollback e Store; então promover release.
 
