@@ -1,0 +1,51 @@
+name: Resolve immutable Creator source
+description: Checkout and verify the one OS-owned canonical Creator source pin; no publication or physical access
+
+inputs:
+  checkout-root:
+    description: Destination for a clean, exact-Git-SHA Creator checkout outside the OS source tree
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Verify source contract and materialize an immutable standalone checkout
+      shell: bash
+      env:
+        CREATOR_CHECKOUT_ROOT: ${{ inputs.checkout-root }}
+      run: |
+        set -euo pipefail
+        test ! -e "$CREATOR_CHECKOUT_ROOT"
+        pin="$(python3 - <<'PY'
+        import json,re
+        from pathlib import Path
+        contract=json.loads(Path('docs/contracts/native-release-assembly.json').read_text(encoding='utf-8'))
+        source=contract.get('creator_source',{})
+        if (contract.get('$schema')!='prototype-ordax.native-release-assembly/2'
+            or source.get('repository')!='ordaxsystems/ordax-creator'
+            or source.get('module')!='github.com/ordaxsystems/ordax-creator'
+            or source.get('helper_package')!='./cmd/ordax-creator-native-targets'
+            or source.get('publisher_authority')!='ordaxsystems/ordax-os'
+            or source.get('physical_apply_authorized') is not False):
+            raise SystemExit('Creator source authority or authorization mismatch')
+        for field in ('commit','tree'):
+            if not re.fullmatch('[0-9a-f]{40}',str(source.get(field,''))):
+                raise SystemExit('Unpinned or invalid Creator Git '+field)
+        print(source['repository'])
+        print(source['commit'])
+        print(source['tree'])
+        PY
+        )"
+        mapfile -t pinned <<< "$pin"
+        test "${#pinned[@]}" -eq 3
+        git clone --quiet --single-branch --filter=blob:none --no-checkout "https://github.com/${pinned[0]}.git" "$CREATOR_CHECKOUT_ROOT"
+        git -C "$CREATOR_CHECKOUT_ROOT" checkout --quiet --detach "${pinned[1]}"
+        test "$(git -C "$CREATOR_CHECKOUT_ROOT" rev-parse HEAD)" = "${pinned[1]}"
+        test "$(git -C "$CREATOR_CHECKOUT_ROOT" rev-parse 'HEAD^{tree}')" = "${pinned[2]}"
+        test -z "$(git -C "$CREATOR_CHECKOUT_ROOT" status --porcelain --untracked-files=all)"
+        test "$(head -n 1 "$CREATOR_CHECKOUT_ROOT/go.mod")" = "module github.com/ordaxsystems/ordax-creator"
+        test -f "$CREATOR_CHECKOUT_ROOT/cmd/ordax-creator-native-targets/main.go"
+        printf '%s\n' "ORDAX_CREATOR_NATIVE_SOURCE=$CREATOR_CHECKOUT_ROOT" "ORDAX_CREATOR_SOURCE_COMMIT=${pinned[1]}" "ORDAX_CREATOR_SOURCE_TREE=${pinned[2]}" "ORDAX_CREATOR_SOURCE_REPOSITORY=${pinned[0]}" >> "$GITHUB_ENV"
+        echo "CREATOR_SOURCE_PIN=${pinned[1]}"
+        echo "CREATOR_SOURCE_TREE=${pinned[2]}"
+        echo 'CREATOR_SOURCE_PHYSICAL_WRITE_AUTHORIZED=NO'
