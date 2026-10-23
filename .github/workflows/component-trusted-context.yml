@@ -3,11 +3,12 @@ name: Component Trusted Context
 on:
   pull_request:
     paths:
-      - 'system/composition/native/files-trusted-context.mjs'
-      - 'system/composition/native/files-probation-context.mjs'
+      - 'system/composition/native/component-workspace-ports.mjs'
+      - 'system/composition/native/component-pending-host.mjs'
       - 'tests/test_native_files_probation_context.mjs'
       - 'tests/test_component_mount_health_probe.mjs'
       - 'tests/test_native_files_trusted_context.mjs'
+      - 'system/services/components/verified-host-context.mjs'
       - 'system/services/components/runtime-loader.mjs'
       - 'system/services/components/current-slot-loader.mjs'
       - 'tests/test_verified_current_component_runtime.mjs'
@@ -17,11 +18,12 @@ on:
   push:
     branches: [main]
     paths:
-      - 'system/composition/native/files-trusted-context.mjs'
-      - 'system/composition/native/files-probation-context.mjs'
+      - 'system/composition/native/component-workspace-ports.mjs'
+      - 'system/composition/native/component-pending-host.mjs'
       - 'tests/test_native_files_probation_context.mjs'
       - 'tests/test_component_mount_health_probe.mjs'
       - 'tests/test_native_files_trusted_context.mjs'
+      - 'system/services/components/verified-host-context.mjs'
       - 'system/services/components/runtime-loader.mjs'
       - 'system/services/components/current-slot-loader.mjs'
       - 'tests/test_verified_current_component_runtime.mjs'
@@ -46,13 +48,14 @@ jobs:
       - name: Validate trusted context modules
         run: |
           set -euo pipefail
+          node --check system/services/components/verified-host-context.mjs
           node --check system/services/components/runtime-loader.mjs
           node --check system/services/components/current-slot-loader.mjs
           node --check tests/test_verified_current_component_runtime.mjs
           node --check tests/test_component_trusted_context_composition.mjs
           node --check tests/test_native_app_data_composition_bootstrap.mjs
-          node --check system/composition/native/files-trusted-context.mjs
-          node --check system/composition/native/files-probation-context.mjs
+          node --check system/composition/native/component-workspace-ports.mjs
+          node --check system/composition/native/component-pending-host.mjs
           node --check tests/test_native_files_trusted_context.mjs
           node --check tests/test_native_files_probation_context.mjs
           node --check tests/test_component_mount_health_probe.mjs
