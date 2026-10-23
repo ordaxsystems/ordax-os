@@ -238,7 +238,11 @@ Atividade, Rede and Notas; these six app sources are absent from
 package signing, installation, Store inventory, offline bootstrap or independent
 updates. `system/apps/files/` remains the canonical Files source until the
 signed bootstrap handoff, Native slot-to-Space/File Space isolation, and USB
-boot/recovery gates pass. The portable Studio product is canonical in Apps;
+boot/recovery gates pass. Native can mount an unknown-health Files candidate
+transiently in an opaque iframe with an empty synthetic File Space and no user
+data; bundled-source filtering still prevents it from shadowing the active OS
+owner. This contract probe neither promotes nor distributes the candidate. The
+portable Studio product is canonical in Apps;
 `system/apps/studio/` remains an OS-owned local integration until Native/Web
 parity and verified lifecycle are proven. Loja, Ajustes, Conta and Sistema are
 structural OS surfaces and stay in `ordax-os`. Keep those boundaries distinct:

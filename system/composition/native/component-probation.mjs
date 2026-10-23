@@ -59,6 +59,7 @@ export async function runNativePendingComponentProbation({
   const isolatedImport = importModule ?? createNativeIsolatedPendingComponentModuleImporter({
     windowRef,
     allowedComponentIds: probationComponentIds,
+    mountableComponentIds: probeMode === mountProbeMode ? [componentId] : [],
     componentSlotSource: source,
     fetchImpl: verifiedFetch,
     timeoutMs,

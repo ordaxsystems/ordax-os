@@ -57,12 +57,22 @@
   "native_pending_import_probe_revalidates_exact_pending_revision": true,
   "native_pending_import_probe_exposes_host_capabilities": false,
   "native_pending_import_probe_mounts_runtime": false,
-  "native_files_slot_bound_file_space_enforced": false,
+  "native_files_slot_bound_file_space_enforced": true,
   "native_loopback_broker_supported_components": [
     "calculator",
+    "files",
     "notes",
     "studio"
   ],
+  "native_external_current_slot_blocked_by_bundled_owner_components": [
+    "files"
+  ],
+  "native_pending_files_mount_probe_available": true,
+  "native_pending_files_mount_probe_opaque_origin": true,
+  "native_pending_files_mount_probe_revalidates_exact_pending_revision": true,
+  "native_pending_files_mount_probe_file_space_scope": "empty-synthetic-root",
+  "native_pending_files_mount_probe_exposes_user_data": false,
+  "native_pending_files_mount_probe_mutates_user_data": false,
   "failed_pending_runtime_read_allowed": false,
   "runtime_file_read_requires_exact_version_and_source_commit": true,
   "runtime_file_read_rejects_state_identity_change": true,
@@ -97,9 +107,11 @@
   "runtime_health_bridge_transport": "native-webkit-message-nonce",
   "runtime_health_bridge_probe_registry": "system/services/components/probation-orchestrator.mjs",
   "runtime_health_bridge_supported_components": [
+    "files",
     "notes"
   ],
   "runtime_health_bridge_probe_mode_by_component": {
+    "files": "mount-contract",
     "notes": "import-contract"
   },
   "runtime_health_bridge_requires_host_nonce": true,
@@ -133,8 +145,17 @@
   },
   "source_repository_policy": "component-bound-fail-closed",
   "native_loopback_broker_health_mutation_components": [
+    "files",
     "notes"
   ],
+  "native_pending_decision_supported_components": [
+    "notes"
+  ],
+  "files_component_slot_read_available": true,
+  "files_component_probation_available": true,
+  "files_component_distribution_activation_enabled": false,
+  "files_component_promotion_proven": false,
+  "files_component_rollback_proven": false,
   "notes_component_slot_read_available": true,
   "notes_component_probation_available": true,
   "notes_component_distribution_activation_enabled": false,
@@ -149,6 +170,7 @@
     "clock": "ordaxsystems/ordax-apps",
     "colors": "ordaxsystems/ordax-apps",
     "converter": "ordaxsystems/ordax-apps",
+    "files": "ordaxsystems/ordax-apps",
     "image-viewer": "ordaxsystems/ordax-apps",
     "internet": "ordaxsystems/ordax-apps",
     "media-player": "ordaxsystems/ordax-apps",

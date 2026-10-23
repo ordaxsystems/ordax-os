@@ -29,6 +29,10 @@ class PortableSourceBoundaryTests(unittest.TestCase):
         self.assertIsInstance(pending, dict)
         self.assertTrue(set(pending).issubset(CANDIDATES))
         self.assertFalse(set(pending).intersection(external_owners))
+        bundled_owner_blocked = set(
+            policy.get("native_external_current_slot_blocked_by_bundled_owner_components", [])
+        )
+        self.assertTrue(bundled_owner_blocked.issubset(CANDIDATES))
         for app_id in CANDIDATES:
             owner = APP_ROOT / app_id
             external = external_owners.get(app_id)
@@ -37,6 +41,16 @@ class PortableSourceBoundaryTests(unittest.TestCase):
                     external, "ordaxsystems/ordax-apps",
                     f"{app_id}: unrecognized source repository in canonical package policy",
                 )
+                if app_id in bundled_owner_blocked:
+                    self.assertTrue(
+                        owner.is_dir(),
+                        f"{app_id}: bundled source must remain until its external owner passes Gate A",
+                    )
+                    self.assertFalse(
+                        policy.get(f"{app_id}_component_distribution_activation_enabled", False),
+                        f"{app_id}: an external owner blocked by a bundled implementation cannot activate",
+                    )
+                    continue
                 self.assertFalse(
                     owner.exists(),
                     f"{app_id}: OS bundled source must be removed once external source is canonical",

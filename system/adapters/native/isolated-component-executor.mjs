@@ -48,6 +48,22 @@ const BRIDGE_SCHEMA = "ordax.native.isolated-component-bridge/1";
 const PENDING_PROBE_SCHEMA = "ordax.native.isolated-component-probe/1";
 const MAX_PENDING_CALLS = 64;
 const MAX_SUBSCRIPTIONS = 16;
+const PENDING_FILES_MOUNT_OPERATIONS = new Set([
+  "surface.subscribeRender",
+  "surface.unsubscribeRender",
+  "fileSpace.list",
+  "recentFiles.getSnapshot",
+  "recentFiles.subscribe",
+  "recentFiles.unsubscribe",
+  "projects.getSnapshot",
+  "projects.subscribe",
+  "projects.unsubscribe",
+  "appActivation.subscribe",
+  "appActivation.unsubscribe",
+]);
+const denyPendingFilesMutation = () => {
+  throw new TypeError("Pending Files probation has no user-data mutation authority");
+};
 const COMPONENT_ID_RE = /^[a-z][a-z0-9-]{0,63}$/;
 const VERSION_RE = /^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-[0-9A-Za-z.-]+)?$/;
 const ENTRY_RE = /^[A-Za-z0-9._/-]+\.mjs$/;
@@ -305,7 +321,12 @@ const FRAME_BOOTSTRAP = String.raw`(() => {
     host.start?.();
     try {
       const identity = data.appDataIdentity;
-      if (!identity || !data.localizationSnapshot) throw new TypeError("Verified app context is incomplete");
+      if (!data.localizationSnapshot
+        || (identity === null
+          ? data.componentId !== "files"
+          : !identity || identity.appId !== data.componentId)) {
+        throw new TypeError("Verified app context is incomplete");
+      }
       assertLocale(data.localizationSnapshot);
       if (data.fileSpaceScope !== null && data.fileSpaceScope !== undefined) {
         if (data.fileSpaceScope.schema !== "ordax.file-space-scope/1"
@@ -358,7 +379,7 @@ const FRAME_BOOTSTRAP = String.raw`(() => {
       runtimeMount = await runtime.mount({
         root: document.getElementById("ordax-app-root"),
         surfaceLifecycle: lifecycle,
-        appData: appData(identity),
+        ...(identity === null ? {} : { appData: appData(identity) }),
         ...(fileSpace === null ? {} : { fileSpace }),
         ...(recentFiles === null ? {} : { recentFiles }),
         ...(projects === null ? {} : { projects }),
@@ -480,12 +501,16 @@ function createPendingProbeFrameDocument({ nonce, parentOrigin, resourceRoot }) 
     + "</body></html>";
 }
 
-function assertContext(context, componentId) {
+function assertContext(context, componentId, { allowMissingAppData = false } = {}) {
   if (!context || typeof context !== "object" || !context.root
     || !context.surfaceLifecycle) throw new TypeError("Isolated app mount requires its Surface root and lifecycle");
   const lifecycle = assertSurfaceRenderLifecycle(context.surfaceLifecycle);
-  const appData = assertAppDataPort(context.appData);
-  if (appData.identity.appId !== componentId) throw new TypeError("App Data identity does not match the isolated slot");
+  const appData = allowMissingAppData && context.appData == null
+    ? null
+    : assertAppDataPort(context.appData);
+  if (appData !== null && appData.identity.appId !== componentId) {
+    throw new TypeError("App Data identity does not match the isolated slot");
+  }
   const hasFileSpace = Object.prototype.hasOwnProperty.call(context, "fileSpace");
   const hasRecentFiles = Object.prototype.hasOwnProperty.call(context, "recentFiles");
   const hasProjects = Object.prototype.hasOwnProperty.call(context, "projects");
@@ -502,6 +527,49 @@ function assertContext(context, componentId) {
     throw new TypeError("Verified Files slot requires its complete device-local host context");
   }
   return Object.freeze({ lifecycle, appData, fileSpace, recentFiles, projects, appActivation });
+}
+
+function createPendingFilesReadOnlyContext(validated) {
+  const recentFilesSnapshot = Object.freeze({ persistence: "session", entries: Object.freeze([]) });
+  const projectCatalogSnapshot = Object.freeze({ persistence: "session", projects: Object.freeze([]) });
+  const subscribeWithoutState = () => () => {};
+  const fileSpace = Object.freeze({
+    schema: validated.fileSpace.schema,
+    scope: validated.fileSpace.scope,
+    async list(path) {
+      if (path !== "/") {
+        throw new TypeError("Pending Files probation may inspect only the File Space root");
+      }
+      return Object.freeze({ path: "/", entries: Object.freeze([]) });
+    },
+  });
+  const recentFiles = Object.freeze({
+    schema: validated.recentFiles.schema,
+    getSnapshot: () => recentFilesSnapshot,
+    subscribe: subscribeWithoutState,
+    recordOpened: denyPendingFilesMutation,
+    remove: denyPendingFilesMutation,
+    clear: denyPendingFilesMutation,
+    relocate: denyPendingFilesMutation,
+  });
+  const projects = Object.freeze({
+    schema: validated.projects.schema,
+    getSnapshot: () => projectCatalogSnapshot,
+    subscribe: subscribeWithoutState,
+    create: denyPendingFilesMutation,
+    rename: denyPendingFilesMutation,
+    recordOpened: denyPendingFilesMutation,
+    recordFileOpened: denyPendingFilesMutation,
+    clearLastFile: denyPendingFilesMutation,
+    relocateLastFilePath: denyPendingFilesMutation,
+    remove: denyPendingFilesMutation,
+  });
+  const appActivation = Object.freeze({
+    schema: validated.appActivation.schema,
+    publish: denyPendingFilesMutation,
+    subscribe: subscribeWithoutState,
+  });
+  return Object.freeze({ ...validated, fileSpace, recentFiles, projects, appActivation });
 }
 
 function makeBroker({ port, componentId, context, onRevoke, onInvalidated }) {
@@ -590,6 +658,10 @@ function makeBroker({ port, componentId, context, onRevoke, onInvalidated }) {
   };
   const execute = async (request) => {
     if (revoked) throw new Error("Native app authority has been revoked");
+    if (context.allowedOperations !== null
+      && !context.allowedOperations.has(request.operation)) {
+      throw new TypeError("Native pending Files mount operation is read-only");
+    }
     await context.authorizeOperation();
     if (revoked) throw new Error("Native app authority has been revoked");
     const appData = context.appData;
@@ -649,6 +721,9 @@ function makeBroker({ port, componentId, context, onRevoke, onInvalidated }) {
         if (fileSpace === null) throw new TypeError("Native File Space operation is unavailable");
         oneArgument("File Space list");
         const path = validateFileSpacePath(request.args[0]);
+        if (context.pendingReadOnlyMount && path !== "/") {
+          throw new TypeError("Native pending Files mount may inspect only the File Space root");
+        }
         return listingAt(fileSpace.list(path), path);
       }
       case "fileSpace.createDirectory": {
@@ -939,16 +1014,33 @@ function makeBroker({ port, componentId, context, onRevoke, onInvalidated }) {
 }
 
 async function mountIsolatedRuntime({
-  windowRef, identity, context, timeoutMs, expectedCurrent, slotAuthority,
+  windowRef, identity, context, timeoutMs, expectedCurrent, expectedPending, slotAuthority,
 }) {
-  const { lifecycle, appData, fileSpace, recentFiles, projects, appActivation } = assertContext(context, identity.componentId);
-  if (!expectedCurrent || expectedCurrent.componentId !== identity.componentId
-    || expectedCurrent.state !== "current" || expectedCurrent.source !== "slot"
-    || expectedCurrent.version !== identity.version
-    || expectedCurrent.sourceCommit !== identity.sourceCommit
-    || expectedCurrent.entrypoint !== identity.entrypoint) {
-    throw new TypeError("Native isolated app requires its exact verified current-slot identity");
+  const pending = expectedPending !== undefined && expectedPending !== null;
+  const expected = pending ? expectedPending : expectedCurrent;
+  if (!expected || expected.componentId !== identity.componentId
+    || expected.state !== (pending ? "pending" : "current") || expected.source !== "slot"
+    || expected.version !== identity.version
+    || expected.sourceCommit !== identity.sourceCommit
+    || expected.entrypoint !== identity.entrypoint
+    || (pending && (identity.componentId !== "files" || expected.pendingHealth !== "unknown"))) {
+    throw new TypeError(pending
+      ? "Native pending mount requires its exact unknown-health Files slot identity"
+      : "Native isolated app requires its exact verified current-slot identity");
   }
+  const verifiedContext = assertContext(
+    context,
+    identity.componentId,
+    { allowMissingAppData: pending },
+  );
+  const mountContext = pending
+    ? createPendingFilesReadOnlyContext(verifiedContext)
+    : verifiedContext;
+  const { lifecycle, appData, fileSpace, recentFiles, projects, appActivation } = mountContext;
+  const authorizeSlot = () => pending
+    ? slotAuthority.assertPending(expected)
+    : slotAuthority.assertCurrent(expected);
+  await authorizeSlot();
   const root = context.root;
   const documentObject = root.ownerDocument;
   if (!documentObject || typeof documentObject.createElement !== "function") {
@@ -980,7 +1072,9 @@ async function mountIsolatedRuntime({
       recentFiles,
       projects,
       appActivation,
-      authorizeOperation: () => slotAuthority.assertCurrent(expectedCurrent),
+      allowedOperations: pending ? PENDING_FILES_MOUNT_OPERATIONS : null,
+      pendingReadOnlyMount: pending,
+      authorizeOperation: authorizeSlot,
     },
     onInvalidated() { invalidateMount?.(); },
   });
@@ -994,7 +1088,9 @@ async function mountIsolatedRuntime({
   const shutdownPromise = new Promise((resolve) => { shutdownResolve = resolve; });
   const timer = windowRef.setTimeout(() => readyReject(new Error("Native isolated app mount timed out")), timeoutMs);
   const localizationSnapshot = createSurfaceLocalizationSnapshot(lifecycle.localization);
-  const appTarget = validateWorkspaceTarget(lifecycle.getAppTarget(identity.componentId));
+  const appTarget = pending ? null : validateWorkspaceTarget(
+    lifecycle.getAppTarget(identity.componentId),
+  );
   const unsubscribeLocale = lifecycle.localization.subscribe(() => {
     if (destroyed || !loaded) return;
     try {
@@ -1011,7 +1107,7 @@ async function mountIsolatedRuntime({
       frame.contentWindow.postMessage({
         schema: BRIDGE_SCHEMA, type: "initialize", nonce,
         componentId: identity.componentId, version: identity.version,
-        moduleUrl: identity.moduleUrl, appDataIdentity: appData.identity,
+        moduleUrl: identity.moduleUrl, appDataIdentity: appData?.identity ?? null,
         fileSpaceScope: fileSpace?.scope ?? null,
         recentFilesSnapshot: recentFiles === null ? null
           : validateRecentFilesSnapshot(recentFiles.getSnapshot()),
@@ -1085,6 +1181,12 @@ async function mountIsolatedRuntime({
     throw error;
   }
   windowRef.clearTimeout(timer);
+  try {
+    await authorizeSlot();
+  } catch (error) {
+    try { await destroy(); } catch { /* slot replacement still fails closed */ }
+    throw error;
+  }
   return Object.freeze({ destroy });
 }
 
@@ -1152,15 +1254,16 @@ export function createNativeIsolatedComponentModuleImporter({
 export const NATIVE_ISOLATED_COMPONENT_EXECUTOR_SCHEMA = EXECUTOR_SCHEMA;
 
 /**
- * Create the import-only pending-slot probe used by Native component probation.
- * The candidate runs in an opaque-origin iframe with no host bridge; the probe
- * validates exact pending metadata both before and after importing the signed
- * module, then destroys the frame. Its returned mount function is deliberately
- * unusable: this path proves the import contract, never candidate activation.
+ * Create the pending-slot probe used by Native component probation. Candidate
+ * bytes are first imported in an opaque-origin frame with no host bridge and
+ * exact pending metadata checks. Only explicitly mountable Files then gets a
+ * second opaque frame with synthetic empty data and a read-only allowlist;
+ * neither path activates, promotes or exposes the pending slot to the Surface.
  */
 export function createNativeIsolatedPendingComponentModuleImporter({
   windowRef = globalThis.window,
   allowedComponentIds,
+  mountableComponentIds = [],
   componentSlotSource,
   fetchImpl = windowRef?.fetch?.bind(windowRef),
   timeoutMs = 8_000,
@@ -1177,6 +1280,8 @@ export function createNativeIsolatedPendingComponentModuleImporter({
     || surfaceUrl.search || surfaceUrl.hash
     || !Array.isArray(allowedComponentIds) || allowedComponentIds.length === 0
     || allowedComponentIds.some((id) => typeof id !== "string" || !COMPONENT_ID_RE.test(id))
+    || !Array.isArray(mountableComponentIds)
+    || mountableComponentIds.some((id) => id !== "files" || !allowedComponentIds.includes(id))
     || !componentSlotSource || typeof fetchImpl !== "function"
     || !Number.isSafeInteger(timeoutMs) || timeoutMs < 100 || timeoutMs > 30_000
     || !Number.isSafeInteger(slotAuthorityTimeoutMs) || slotAuthorityTimeoutMs < 100 || slotAuthorityTimeoutMs > 30_000) {
@@ -1295,8 +1400,18 @@ export function createNativeIsolatedPendingComponentModuleImporter({
         schema: COMPONENT_RUNTIME_SCHEMA,
         componentId: identity.componentId,
         version: identity.version,
-        mount() {
-          throw new TypeError("Import-contract probation cannot mount or activate a pending component");
+        mount(context) {
+          if (!mountableComponentIds.includes(identity.componentId)) {
+            throw new TypeError("Import-contract probation cannot mount or activate a pending component");
+          }
+          return mountIsolatedRuntime({
+            windowRef,
+            identity,
+            context,
+            timeoutMs,
+            expectedPending: expected,
+            slotAuthority,
+          });
         },
       }),
     });
