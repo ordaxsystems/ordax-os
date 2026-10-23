@@ -69,13 +69,13 @@ class PublicSurfaceSnapshotTests(unittest.TestCase):
         source = module.DESKTOP_SHELL.read_text(encoding="utf-8")
         shortcut_source = module.SHORTCUT_CATALOG.read_text(encoding="utf-8")
         self.assertIn('listSurfaceShortcutAppIds("navigation-menu")', source)
-        canonical_entry = '{ appId: "studio", placements: { central: 0, desktop: 0, dock: 0, "navigation-menu": 1 } }'
+        canonical_entry = '{ appId: "files", placements: { central: 0, desktop: 0, dock: 0, "navigation-menu": 0 } }'
         self.assertIn(canonical_entry, shortcut_source)
         with tempfile.TemporaryDirectory(prefix="ordax-native-menu-proof-") as directory:
             catalog = Path(directory) / "shortcut-catalog.mjs"
             for changed, issue in (
-                (canonical_entry.replace('"navigation-menu": 1', '"navigation-menu": 0'), "duplicated"),
-                (canonical_entry.replace('"navigation-menu": 1', '"navigation-menu": "first"'), "malformed"),
+                (canonical_entry.replace('"navigation-menu": 0', '"navigation-menu": 1'), "duplicated"),
+                (canonical_entry.replace('"navigation-menu": 0', '"navigation-menu": "first"'), "malformed"),
             ):
                 with self.subTest(changed=changed):
                     catalog.write_text(shortcut_source.replace(canonical_entry, changed), encoding="utf-8")
