@@ -101,6 +101,9 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Prepare pinned Surface source in disposable CI checkout
+        uses: ./.github/actions/prepare-verified-surface
+
       - name: Check Space contracts
         run: |
           set -euo pipefail
