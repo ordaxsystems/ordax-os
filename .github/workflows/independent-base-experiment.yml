@@ -311,7 +311,7 @@ jobs:
           python3 bootstrap/independent-base/build.py build-component \
             --out "$RUNNER_TEMP/ordax-native-python-proof" \
             --cache "$RUNNER_TEMP/ordax-independent-buildroot-cache" --jobs 4 \
-            --export-private-build-input \
+            --export-private-build-input --export-private-sdk \
             > "$RUNNER_TEMP/native-python-build.log"
           python3 bootstrap/independent-base/build.py verify-component \
             --out "$RUNNER_TEMP/ordax-native-python-proof"
@@ -322,5 +322,6 @@ jobs:
           path: |
             ${{ runner.temp }}/ordax-native-python-proof/native-python-provenance.json
             ${{ runner.temp }}/ordax-native-python-proof/native-python-build-input.rootfs.tar
+            ${{ runner.temp }}/ordax-native-python-proof/ordax-native-product-runtime-sdk.tar.gz
           if-no-files-found: error
           retention-days: 14
