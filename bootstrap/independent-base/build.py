@@ -1231,11 +1231,16 @@ def inspect_native_sdk_build_input(archive: Path, abi: dict) -> dict:
             for count, member in enumerate(sdk, 1):
                 if count > 350000:
                     raise BaseError("private SDK archive entry count exceeds limit")
-                name = member.name.removeprefix("./")
+                name = member.name.removeprefix("./").rstrip("/")
                 canonical = posixpath.normpath(name)
-                if (name.startswith("/") or canonical != name
-                        or not canonical.startswith(NATIVE_SDK_PREFIX + "/")):
+                if (member.name.startswith("/") or canonical != name
+                        or (canonical != NATIVE_SDK_PREFIX
+                            and not canonical.startswith(NATIVE_SDK_PREFIX + "/"))):
                     raise BaseError("private SDK archive path is noncanonical")
+                if canonical == NATIVE_SDK_PREFIX:
+                    if not member.isdir():
+                        raise BaseError("private SDK archive root is not a directory")
+                    continue
                 if name in required:
                     if required[name] or not member.isfile() or member.size <= 0:
                         raise BaseError("private SDK required metadata missing or repeated")
