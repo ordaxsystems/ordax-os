@@ -251,6 +251,43 @@ canônica do *mesmo Buildroot*; nenhum consumidor deve descompactá-lo sobre
 `/`, `/lib`, o slot do OS ou USB. Gates de assinatura, supervisor, QEMU do
 agente e sessão MCP permanecem bloqueados.
 
+### SQLite privado obrigatório para o Runtime Native
+
+O `ordax_core` canônico importa `sqlite3` em `MemoryStore` e
+`OrchestratorStore`. A execução isolada do Python privado Buildroot 3.14.7
+publicado anteriormente falhou com `ModuleNotFoundError: No module named
+'sqlite3'`. A configuração **exclusivamente do componente privado** passa
+a exigir `BR2_PACKAGE_PYTHON3_SQLITE=y` e `BR2_PACKAGE_SQLITE=y`, sem
+modificar o OS estático ou instalar outro banco.
+
+O auditor exige os bytecodes `sqlite3`, a extensão ELF `_sqlite3` e
+o smoke executa criação/inserção/consulta num banco `':memory:'` usando
+o loader musl privado. `sqlite_memory_operational=true` é obrigatório
+no recibo, sem conceder autorização para instalar ou ativar o MCP.
+
+### SDK privado para compilar o agente, sem duplicar Buildroot
+
+A mesma execução canônica de `build-component` pode exportar o SDK oficial
+do Buildroot com `--export-private-build-input --export-private-sdk`.
+Depois de compilar o componente, o owner executa `make sdk` **no mesmo
+`O=br-output`**, usando `BR2_SDK_PREFIX=ordax-native-product-runtime-sdk`.
+Esse alvo upstream exporta compilador cruzado, headers e sysroot em
+`ordax-native-product-runtime-sdk.tar.gz`; não há outra toolchain.
+
+O recibo `private_sdk_build_input` vincula SHA-256, tamanho, identificador
+de SDK e SHA do Python privado já comprovado. O verificador lê TAR e SHA pelo
+mesmo descritor, exige `relocate-sdk.sh`, metadata de relocation, compilador
+x86_64/musl e header no sysroot, e falha em caso de alteração ou falta de
+arquivos obrigatórios. O SDK fica restrito ao artefato privado do CI, é um
+**insumo de compilação**, e jamais deve ser instalado no OS, empacotado no
+USB ou autorizado como Runtime.
+
+O consumer `ordax-runtime` deverá fazer extração segura em diretório
+de build isolado, executar `relocate-sdk.sh` dentro dele, conferir o
+contrato de SDK e compilar o mesmo agente contra esses headers e bibliotecas.
+A existência do SDK não comprova o grafo de imports, a compatibilidade
+Python 3.14, a assinatura do agente, a execução em QEMU ou a sessão MCP.
+
 ### Python do MCP como componente, sem contaminar a base estática
 
 A configuração real do **Buildroot 2026.08** proíbe
