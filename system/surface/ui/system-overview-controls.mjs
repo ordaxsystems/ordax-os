@@ -760,6 +760,7 @@ export function mountSystemOverviewControls(
     // Translate reason codes without hiding the existing technical diagnostic.
     const updateReasonMessageId = {
       "reconciling-main-history": "system.updates.diagnostic.reconciling",
+      "checkout-retry-wait": "system.updates.diagnostic.retryWait",
       "non-fast-forward": "system.updates.diagnostic.diverged",
       "pull-helper-refresh-failed": "system.updates.diagnostic.helpers",
       "helper-refresh-failed": "system.updates.diagnostic.helpers",
