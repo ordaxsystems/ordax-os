@@ -148,21 +148,27 @@ class IndependentOwnerDevelopmentProfileTests(unittest.TestCase):
         self.assertNotIn("apk add", script)
         self.assertNotIn("alpine_core.py", script)
 
-    def test_owner_atomic_checkout_exchange_uses_canonical_static_toolchain(self) -> None:
+    def test_owner_native_helpers_use_same_static_buildroot_toolchain(self) -> None:
         script = POST_BUILD.read_text(encoding="utf-8")
         builder = BUILD.read_text(encoding="utf-8")
-        source = ROOT / "bootstrap/dev-base/ordax_checkout_exchange.c"
-        self.assertTrue(source.is_file())
-        self.assertIn('exchange_source="$ROOT/bootstrap/dev-base/ordax_checkout_exchange.c"', script)
+        consumer = (ROOT / "system/entrypoint").read_text(encoding="utf-8")
+        for source, executable in (
+            ("ordax_checkout_exchange", "ordax-checkout-exchange"),
+            ("ordax_usb_mountattr", "ordax-usb-mountattr"),
+        ):
+            self.assertTrue((ROOT / f"bootstrap/dev-base/{source}.c").is_file())
+            self.assertIn(f"{source}:{executable}", script)
+            self.assertIn(f'"usr/local/bin/{executable}": None', builder)
+        self.assertIn("ordax-usb-mountattr", consumer)
+        self.assertIn('native_source="$ROOT/bootstrap/dev-base/$source_name.c"', script)
         self.assertIn('HOST_DIR', script)
         self.assertIn('x86_64-buildroot-linux-musl-gcc', script)
-        self.assertIn('"$exchange_compiler" -static', script)
+        self.assertIn('"$native_compiler" -static', script)
         self.assertIn('ordax-checkout-exchange" --abi', script)
         self.assertIn('prototype-ordax.checkout-exchange/1', script)
         self.assertNotIn('musl-gcc -static', script)
-        self.assertIn('"usr/local/bin/ordax-checkout-exchange": None', builder)
         self.assertIn('run(str(exchange), "--abi")', builder)
-        self.assertIn('minimal target unexpectedly contains Owner atomic exchange helper', builder)
+        self.assertIn('minimal target unexpectedly contains Owner native helper', builder)
 
     def test_owner_helpers_are_fail_closed_on_complete_capability_set(self) -> None:
         script = POST_BUILD.read_text(encoding="utf-8")

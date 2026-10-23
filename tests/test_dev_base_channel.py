@@ -276,6 +276,7 @@ class DevBaseProducerTests(unittest.TestCase):
         )
         self.assertEqual(builder.REQUIRED_ROOTFS_PATHS, consumer.REQUIRED_ROOTFS_PATHS)
         self.assertIn(native, builder.REQUIRED_ROOTFS_PATHS)
+        self.assertIn("usr/local/bin/ordax-usb-mountattr", builder.REQUIRED_ROOTFS_PATHS)
 
     def test_missing_native_exchange_helper_cannot_enter_signed_base_consumer(self):
         with tempfile.TemporaryDirectory() as temporary:

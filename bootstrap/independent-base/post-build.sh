@@ -167,20 +167,33 @@ if test "$PROFILE" = owner-development; then
         cp "$ROOT/bootstrap/dev-base/$helper" "$TARGET_DIR/usr/local/bin/$helper"
         chmod 0755 "$TARGET_DIR/usr/local/bin/$helper"
     done
-    # Compile the EXISTING atomic checkout helper using THIS Buildroot output's
-    # static x86_64 musl toolchain. Never copy host-compiled/native-glibc bytes
-    # or resurrect the unsafe two-rename checkout sequence.
-    exchange_source="$ROOT/bootstrap/dev-base/ordax_checkout_exchange.c"
-    exchange_compiler="${HOST_DIR:-}/bin/x86_64-buildroot-linux-musl-gcc"
-    if test -L "$exchange_source" || ! test -f "$exchange_source" ||
-       test -z "${HOST_DIR:-}" || ! test -x "$exchange_compiler"; then
-        echo "Owner/Development canonical atomic exchange source/toolchain unavailable" >&2
+    # These are the SAME two native helpers compiled by the canonical Dev
+    # Base owner. Both are consumed by Owner runtime: mountattr seals the USB
+    # superblock and checkout-exchange commits the verified Git transaction.
+    # Build from source with THIS Buildroot's static target compiler, not host
+    # glibc, local developer executables or an alternative native backend.
+    native_compiler="${HOST_DIR:-}/bin/x86_64-buildroot-linux-musl-gcc"
+    if test -z "${HOST_DIR:-}" || ! test -x "$native_compiler"; then
+        echo "Owner/Development static Buildroot compiler unavailable" >&2
         exit 1
     fi
-    "$exchange_compiler" -static -Os -s -Wall -Wextra -Werror \
-        -Wl,--build-id=none \
-        -o "$TARGET_DIR/usr/local/bin/ordax-checkout-exchange" "$exchange_source"
-    chmod 0755 "$TARGET_DIR/usr/local/bin/ordax-checkout-exchange"
+    for native in \
+        ordax_usb_mountattr:ordax-usb-mountattr \
+        ordax_checkout_exchange:ordax-checkout-exchange
+    do
+        source_name=${native%%:*}
+        binary_name=${native#*:}
+        native_source="$ROOT/bootstrap/dev-base/$source_name.c"
+        native_target="$TARGET_DIR/usr/local/bin/$binary_name"
+        if test -L "$native_source" || ! test -f "$native_source"; then
+            echo "Canonical Owner/Development native helper source unavailable: $source_name" >&2
+            exit 1
+        fi
+        "$native_compiler" -static -Os -s -Wall -Wextra -Werror \
+            -Wl,--build-id=none -o "$native_target" "$native_source"
+        chmod 0755 "$native_target"
+        test -x "$native_target"
+    done
     if test "$("$TARGET_DIR/usr/local/bin/ordax-checkout-exchange" --abi)" != \
         "prototype-ordax.checkout-exchange/1"; then
         echo "Owner/Development native atomic exchange ABI mismatch" >&2
@@ -201,7 +214,8 @@ else
         "$TARGET_DIR/usr/bin/git" \
         "$TARGET_DIR/usr/sbin/wpa_supplicant" \
         "$TARGET_DIR/etc/ordax/owner-development" \
-        "$TARGET_DIR/usr/local/bin/ordax-checkout-exchange"
+        "$TARGET_DIR/usr/local/bin/ordax-checkout-exchange" \
+        "$TARGET_DIR/usr/local/bin/ordax-usb-mountattr"
     do
         if test -e "$unexpected"; then
             echo "Owner/Development capability leaked into minimal profile: $unexpected" >&2

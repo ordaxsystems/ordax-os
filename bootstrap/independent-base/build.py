@@ -750,6 +750,7 @@ def verify_owner_target(target: Path) -> None:
         "usr/local/bin/ordax-network": ROOT / "bootstrap/dev-base/ordax-network",
         "usr/local/bin/ordax-pull": ROOT / "bootstrap/dev-base/ordax-pull",
         "usr/local/bin/ordax-checkout-exchange": None,
+        "usr/local/bin/ordax-usb-mountattr": None,
         "usr/local/bin/ordax-rollback": ROOT / "bootstrap/dev-base/ordax-rollback",
         "usr/local/bin/ordax-run": ROOT / "bootstrap/dev-base/ordax-run",
         "usr/local/bin/ordax-diagnose": ROOT / "bootstrap/dev-base/ordax-diagnose",
@@ -852,8 +853,10 @@ def verify_target(target: Path, profile: str) -> dict:
                 fcntl.flock(locked, fcntl.LOCK_UN)
     if profile == "owner-development":
         verify_owner_target(target)
-    elif (target / "usr/local/bin/ordax-checkout-exchange").exists():
-        raise BaseError("minimal target unexpectedly contains Owner atomic exchange helper")
+    elif any((target / f"usr/local/bin/{name}").exists() for name in (
+        "ordax-checkout-exchange", "ordax-usb-mountattr"
+    )):
+        raise BaseError("minimal target unexpectedly contains Owner native helper")
     elif (target / "etc/ordax/owner-development").exists():
         raise BaseError("minimal target unexpectedly contains Owner/Development marker")
     return surface_iproute2
