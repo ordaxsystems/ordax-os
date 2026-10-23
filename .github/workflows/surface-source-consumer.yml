@@ -7,6 +7,8 @@ on:
       - integration/surface-source-consumer-20261023
     paths:
       - 'docs/contracts/surface-source.json'
+      - 'system/surface/ui/**'
+      - 'system/surface/workspace/**'
       - 'tools/surface-source/**'
       - 'tests/test_surface_source_materialization.py'
       - 'tests/test_surface_source_assembly.py'
@@ -21,6 +23,8 @@ on:
   pull_request:
     paths:
       - 'docs/contracts/surface-source.json'
+      - 'system/surface/ui/**'
+      - 'system/surface/workspace/**'
       - 'tools/surface-source/**'
       - 'tests/test_surface_source_materialization.py'
       - 'tests/test_surface_source_assembly.py'
@@ -84,7 +88,7 @@ jobs:
           test -s "$RUNNER_TEMP/surface-source-stage/surface-source-receipt.json"
           for part in ui workspace; do
             test -d "$RUNNER_TEMP/surface-source-stage/system/surface/$part"
-            test -d "system/surface/$part"
+            test ! -e "system/surface/$part" && test ! -L "system/surface/$part"
             # Only this disposable CI checkout is overlaid. Production and USB
             # activation are deliberately NOT authorized by this workflow.
             rm -rf "system/surface/$part"
