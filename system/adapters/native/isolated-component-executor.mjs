@@ -36,6 +36,20 @@ import {
   validateRecentFilePath,
   validateRecentFilesSnapshot,
 } from "../../contracts/recent-files.mjs";
+import {
+  assertIdentitySessionPort,
+  validateIdentitySessionSnapshot,
+} from "../../contracts/identity-session.mjs";
+import {
+  assertSpaceSelectionPort,
+  validateSpaceSelectionSnapshot,
+} from "../../contracts/space-selection.mjs";
+import {
+  assertIntelligencePort,
+  validateIntelligenceSnapshot,
+  validateIntelligenceRequest,
+  validateIntelligenceResponse,
+} from "../../contracts/intelligence.mjs";
 import { createSurfaceLocalizationSnapshot } from "../../services/i18n/surface.mjs";
 import {
   createNativeComponentSlotAuthority,
@@ -522,11 +536,26 @@ function assertContext(context, componentId, { allowMissingAppData = false } = {
   const recentFiles = hasRecentFiles ? assertRecentFilesPort(context.recentFiles) : null;
   const projects = hasProjects ? assertProjectCatalogPort(context.projects) : null;
   const appActivation = hasAppActivation ? assertAppActivationPort(context.appActivation) : null;
+  const auraPorts = ["identitySessionPort", "spaceSelectionPort", "intelligence"];
+  const hasAnyAuraPort = auraPorts.some((key) => Object.prototype.hasOwnProperty.call(context, key));
+  if (hasAnyAuraPort && componentId !== "assistant") {
+    throw new TypeError("Intelligence host context belongs only to verified Aura slots");
+  }
+  if (componentId === "assistant" && !auraPorts.every((key) =>
+    Object.prototype.hasOwnProperty.call(context, key))) {
+    throw new TypeError("Aura requires all trusted Identity, Space and Intelligence ports");
+  }
+  const identitySession = componentId === "assistant"
+    ? assertIdentitySessionPort(context.identitySessionPort) : null;
+  const spaceSelection = componentId === "assistant"
+    ? assertSpaceSelectionPort(context.spaceSelectionPort) : null;
+  const intelligence = componentId === "assistant"
+    ? assertIntelligencePort(context.intelligence) : null;
   if (componentId === "files" && (fileSpace === null || recentFiles === null
     || projects === null || appActivation === null)) {
     throw new TypeError("Verified Files slot requires its complete device-local host context");
   }
-  return Object.freeze({ lifecycle, appData, fileSpace, recentFiles, projects, appActivation });
+  return Object.freeze({ lifecycle, appData, fileSpace, recentFiles, projects, appActivation, identitySession, spaceSelection, intelligence });
 }
 
 function createPendingFilesReadOnlyContext(validated) {
@@ -1036,7 +1065,7 @@ async function mountIsolatedRuntime({
   const mountContext = pending
     ? createPendingFilesReadOnlyContext(verifiedContext)
     : verifiedContext;
-  const { lifecycle, appData, fileSpace, recentFiles, projects, appActivation } = mountContext;
+  const { lifecycle, appData, fileSpace, recentFiles, projects, appActivation, identitySession, spaceSelection, intelligence } = mountContext;
   const authorizeSlot = () => pending
     ? slotAuthority.assertPending(expected)
     : slotAuthority.assertCurrent(expected);
@@ -1072,6 +1101,9 @@ async function mountIsolatedRuntime({
       recentFiles,
       projects,
       appActivation,
+      identitySession,
+      spaceSelection,
+      intelligence,
       allowedOperations: pending ? PENDING_FILES_MOUNT_OPERATIONS : null,
       pendingReadOnlyMount: pending,
       authorizeOperation: authorizeSlot,
@@ -1113,6 +1145,12 @@ async function mountIsolatedRuntime({
           : validateRecentFilesSnapshot(recentFiles.getSnapshot()),
         projectCatalogSnapshot: projects === null ? null
           : validateProjectCatalogSnapshot(projects.getSnapshot()),
+        identitySessionSnapshot: identitySession === null ? null
+          : validateIdentitySessionSnapshot(identitySession.getSnapshot()),
+        spaceSelectionSnapshot: spaceSelection === null ? null
+          : validateSpaceSelectionSnapshot(spaceSelection.getSnapshot()),
+        intelligenceSnapshot: intelligence === null ? null
+          : validateIntelligenceSnapshot(intelligence.getSnapshot()),
         localizationSnapshot, appTarget,
       }, "*", [channel.port2]);
     } catch (error) { readyReject(error); }
