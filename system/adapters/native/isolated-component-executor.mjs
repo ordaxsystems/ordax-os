@@ -790,6 +790,54 @@ function makeBroker({ port, componentId, context, onRevoke, onInvalidated }) {
       return listing;
     };
     switch (request.operation) {
+      case "identitySession.subscribe":
+      case "spaceSelection.subscribe":
+      case "intelligence.subscribe": {
+        requireAuraService("subscription");
+        const service = request.operation.split(".")[0];
+        const binding = {
+          identitySession: {
+            port: identitySession, subscriptions: identityUnsubscribes,
+            validate: validateIdentitySessionSnapshot,
+          },
+          spaceSelection: {
+            port: spaceSelection, subscriptions: selectionUnsubscribes,
+            validate: validateSpaceSelectionSnapshot,
+          },
+          intelligence: {
+            port: intelligence, subscriptions: intelligenceUnsubscribes,
+            validate: validateIntelligenceSnapshot,
+          },
+        }[service];
+        const id = validateSubscription(request, service, binding.subscriptions);
+        const unsubscribe = binding.port.subscribe((value) => {
+          if (service !== "intelligence") {
+            for (const controller of inferenceControllers) controller.abort();
+          }
+          queueAuthorizedUpdate(service, id, binding.validate(value ?? binding.port.getSnapshot()));
+        });
+        binding.subscriptions.set(id, unsubscribe);
+        return true;
+      }
+      case "identitySession.unsubscribe":
+      case "spaceSelection.unsubscribe":
+      case "intelligence.unsubscribe": {
+        requireAuraService("unsubscribe");
+        const service = request.operation.split(".")[0];
+        if (request.args.length !== 1 || !Number.isSafeInteger(request.args[0])) {
+          throw new TypeError("Aura subscription ID is malformed");
+        }
+        const subscriptions = {
+          identitySession: identityUnsubscribes,
+          spaceSelection: selectionUnsubscribes,
+          intelligence: intelligenceUnsubscribes,
+        }[service];
+        const id = request.args[0];
+        queuedUpdates.delete(service + ":" + id);
+        const unsubscribe = subscriptions.get(id);
+        if (unsubscribe) { subscriptions.delete(id); unsubscribe(); }
+        return true;
+      }
       case "appData.get":
         if (request.args.length !== 1) throw new TypeError("App Data get request is malformed");
         return appData.get(appData.identity, validateAppDataKey(request.args[0]));
