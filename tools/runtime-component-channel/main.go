@@ -66,6 +66,13 @@ var forbiddenPackagePrefixes = []string{
 }
 
 func canonicalSourceRepository(componentID string) string {
+	// The package owner map names the canonical external package source, but a
+	// bundled platform owner remains authoritative for signing until Gate A
+	// removes that source. This keeps temporary candidates from becoming signed
+	// slots while both implementations still exist.
+	if _, blocked := nativeExternalCurrentSlotBlockedByBundledOwnerComponents[componentID]; blocked {
+		return sourceRepository
+	}
 	if repository, ok := canonicalExternalComponentSourceRepositories[componentID]; ok {
 		return repository
 	}
