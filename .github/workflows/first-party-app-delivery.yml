@@ -4,7 +4,8 @@ on:
   push:
     branches: [main]
     paths:
-      - 'system/apps/files/**'
+      - 'system/composition/native/component-workspace-ports.mjs'
+      - 'system/services/components/verified-host-context.mjs'
       - 'system/apps/projects/**'
       - 'system/apps/internet/**'
       - 'system/apps/assistant/**'
@@ -72,7 +73,8 @@ on:
       - '.github/workflows/first-party-app-delivery.yml'
   pull_request:
     paths:
-      - 'system/apps/files/**'
+      - 'system/composition/native/component-workspace-ports.mjs'
+      - 'system/services/components/verified-host-context.mjs'
       - 'system/apps/projects/**'
       - 'system/apps/internet/**'
       - 'system/apps/assistant/**'
