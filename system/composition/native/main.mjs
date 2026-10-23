@@ -1102,7 +1102,6 @@ async function start() {
   );
   surface.replaceAppCatalog(activeExternalCatalog.catalog);
 
-  bootScreen.setStage(surface.localization.translate("surface.boot.preparingFirstRun"));
   // First Run reads the already-verified Store projection and its matching
   // ephemeral Native current observations. It has NO installation authority.
   let firstRunAppSelection = null;
