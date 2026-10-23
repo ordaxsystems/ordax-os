@@ -313,7 +313,7 @@
       },
       {
         "path": "system/services/surface/meridian-navigation.mjs",
-        "sha256": "747744b79e494284382d33c34664c2897c85d98daefc68846cb7643f877410c0"
+        "sha256": "4d325c211e1adf34f539a6e5c46961f085a2babc772841d2e0787fc24c3c796f"
       },
       {
         "path": "system/surface/ui/audio-output-controls.mjs",
