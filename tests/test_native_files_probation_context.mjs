@@ -124,8 +124,8 @@ test("Files probation provider installs before bind and creates host only for an
   assert.equal(context.root.removed, true);
 
   assert.equal(getFirstPartyApp("files")?.id, "files");
-  assert.equal(hasNativeExternalFirstPartyModuleRead("files"), false);
-  assert.equal(NATIVE_COMPONENT_PROBATION_IDS.includes("files"), false);
+  assert.equal(hasNativeExternalFirstPartyModuleRead("files"), true);
+  assert.equal(NATIVE_COMPONENT_PROBATION_IDS.includes("files"), true);
 });
 
 test("Files probation bind failure rejects waiting probes without creating a host", async () => {
@@ -216,6 +216,6 @@ test("Native Files probation wiring installs before async boot and binds only af
   assert.match(source.slice(bindIndex, currentGateIndex), /recentFiles/);
   assert.match(source.slice(bindIndex, currentGateIndex), /projects/);
   assert.match(source.slice(bindIndex, currentGateIndex), /appActivation/);
-  assert.equal(NATIVE_COMPONENT_PROBATION_IDS.includes("files"), false);
-  assert.equal(hasNativeExternalFirstPartyModuleRead("files"), false);
+  assert.equal(NATIVE_COMPONENT_PROBATION_IDS.includes("files"), true);
+  assert.equal(hasNativeExternalFirstPartyModuleRead("files"), true);
 });

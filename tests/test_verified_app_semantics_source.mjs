@@ -247,6 +247,21 @@ test("verified app semantics binds identity, AI and Actions to the exact current
   }
 });
 
+test("bundled Files does not read external package semantics before source cutover", async () => {
+  const source = createNativeVerifiedComponentPackageSource(windowRef());
+  let reads = 0;
+  const entries = await loadVerifiedFirstPartyApplicationSemantics({
+    appIds: ["files"],
+    source,
+    async fetchImpl() {
+      reads += 1;
+      throw new Error("bundled Files must not read a competing slot");
+    },
+  });
+  assert.deepEqual(entries, []);
+  assert.equal(reads, 0);
+});
+
 test("verified external app identity replaces same-id development app and appends externalized apps", () => {
   const base = [
     {
@@ -301,7 +316,7 @@ test("verified application overlay rejects arbitrary or incompletely verified re
   foreignId.intelligenceManifest = semantics("files", "0.4.1");
   assert.throws(
     () => overlayVerifiedFirstPartyApplications([], [foreignId]),
-    /not an allowed external first-party app/,
+    /not an available external first-party app/,
   );
 
   const ownerDrift = verifiedEntry("notes");

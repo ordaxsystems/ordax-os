@@ -155,11 +155,10 @@ test("Files mount-health proves a transient dedicated-root mount with host-owned
   assert.equal(surfaceRoot.childNodes.length, 0);
   assert.equal(appRoot.removed, true);
 
-  // This proof is deliberately pre-cutover: it must not grant Native read or
-  // probation authority while the bundled Files owner is still canonical.
+  // Pending mount proof does not displace the bundled bootstrap owner.
   assert.equal(getFirstPartyApp("files")?.id, "files");
-  assert.equal(hasNativeExternalFirstPartyModuleRead("files"), false);
-  assert.equal(NATIVE_COMPONENT_PROBATION_IDS.includes("files"), false);
+  assert.equal(hasNativeExternalFirstPartyModuleRead("files"), true);
+  assert.equal(NATIVE_COMPONENT_PROBATION_IDS.includes("files"), true);
 });
 
 test("Files mount-health failure removes the dedicated root and propagates failure", async () => {
