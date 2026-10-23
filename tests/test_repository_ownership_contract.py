@@ -10,9 +10,13 @@ class RepositoryOwnershipContractTests(unittest.TestCase):
     def setUpClass(cls):
         cls.contract = json.loads(CONTRACT.read_text(encoding="utf-8"))
 
-    def test_four_canonical_repositories(self):
+    def test_canonical_repositories_include_separate_surface_visual_owner(self):
         repos = self.contract["repositories"]
-        self.assertEqual(set(repos), {"platform", "apps", "runtime", "control_plane"})
+        self.assertEqual(set(repos), {"platform", "surface", "apps", "runtime", "control_plane"})
+        self.assertEqual(repos["surface"]["repo"], "ordaxsystems/ordax-surface")
+        self.assertIn("surface-visual-shell", repos["surface"]["owns"])
+        self.assertIn("surface-native-host", repos["platform"]["owns"])
+        self.assertNotIn("surface-shell", repos["platform"]["owns"])
         self.assertEqual(repos["platform"]["repo"], "ordaxsystems/ordax-os")
         self.assertEqual(repos["apps"]["repo"], "ordaxsystems/ordax-apps")
         self.assertEqual(repos["runtime"]["repo"], "ordaxsystems/ordax-runtime")
@@ -41,12 +45,12 @@ class RepositoryOwnershipContractTests(unittest.TestCase):
         self.assertIn(f"Status de migração: `{migration['status']}`", document)
         self.assertEqual(
             migration["canonical_repositories"],
-            {role: data["repo"] for role, data in self.contract["repositories"].items()},
+            {role: self.contract["repositories"][role]["repo"] for role in migration["canonical_repositories"]},
         )
         active = document.split("## Fluxos oficiais", 1)[1].split(
             "## Regra para o legado mcp-blender", 1
         )[0]
-        for role in ("platform", "apps", "runtime", "control_plane"):
+        for role in ("platform", "apps", "runtime", "control_plane", "surface"):
             self.assertIn(self.contract["repositories"][role]["repo"], active)
         # Use the historical repository identity from the canonical migration
         # record rather than hard-coding an obsolete operational name inside
