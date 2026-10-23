@@ -351,6 +351,8 @@ class NativeComponentSlotTests(unittest.TestCase):
             "PENDING_VERSION=0.4.0\n"
             f"PENDING_SOURCE_COMMIT={commit}\n"
             "PENDING_HEALTH=unknown\n"
+            "RELEASE_MODE=component-slot\n"
+            "HEALTH_MODE=runtime\n"
             f"SLOT={slot_path}\n"
             "ENTRYPOINT=system/apps/notes/runtime.mjs\n"
             "RUNTIME_SERVED_FROM_SLOT=NO\n"
@@ -367,6 +369,8 @@ class NativeComponentSlotTests(unittest.TestCase):
         self.assertEqual(resolution.version, "0.4.0")
         self.assertEqual(resolution.source_commit, commit)
         self.assertEqual(resolution.pending_health, "unknown")
+        self.assertEqual(resolution.release_mode, "component-slot")
+        self.assertEqual(resolution.health_mode, "runtime")
         self.assertEqual(resolution.entrypoint, "system/apps/notes/runtime.mjs")
         self.assertEqual(resolution.slot, slot_path)
 
