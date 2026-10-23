@@ -265,6 +265,7 @@ owner_usb_auxiliary_partitions_quiesced() { return 0; }
 OWNER_USB_ROOT_SOURCE=""
 OWNER_USB_WRITABLE_ALIASES=""
 GUARDIAN_LOG=$scratch/guardian-mount.log
+OWNER_USB_HELPER_ERROR=$scratch/guardian-seal-helper-error
 """ + functions + r"""
 if owner_usb_all_root_mounts_read_only; then
     echo BAD_PRE_SEAL_PROOF

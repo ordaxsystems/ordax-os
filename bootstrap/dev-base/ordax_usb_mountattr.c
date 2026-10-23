@@ -215,8 +215,8 @@ int main(int argc, char **argv) {
     }
     if (result != 0) {
         int failure_errno = errno;
-        fprintf(stderr, "ordax-usb-mountattr: %s target=%s: %s\n",
-                argv[1], argv[argc - 1], strerror(failure_errno));
+        fprintf(stderr, "ordax-usb-mountattr: %s target=%s: %s errno=%d\n",
+                argv[1], argv[argc - 1], strerror(failure_errno), failure_errno);
         if (failure_errno == EBUSY && argc == 3 &&
             strcmp(argv[1], "alias-ro") == 0) {
             report_busy_writers(argv[2]);
