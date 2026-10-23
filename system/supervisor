@@ -1480,6 +1480,19 @@ validate_updated_tree() {
     esac
 }
 
+restore_dev_helpers_after_rollback() {
+    source_sha=$1
+    [ "$DISTRIBUTION_PROFILE" = owner-development ] || return 0
+    # The Git rollback only swaps the repository tree. The installed Base
+    # helper executables are separate persistent bytes and MUST be reconciled
+    # to the same exact commit before the restored Surface starts.
+    refresh_dev_helpers "$source_sha"
+    [ "$(read_state_value "$DEV_HELPERS_SHA_FILE")" = "$source_sha" ] || {
+        log "rollback helper receipt still differs from restored Git checkout $source_sha"
+        return 1
+    }
+}
+
 rollback_boot_candidate() {
     previous_sha=$1
     failed_sha=$2
@@ -1515,6 +1528,8 @@ rollback_boot_candidate() {
     fi
 
     write_state_value "$CURRENT_FILE" "$previous_sha"
+    restore_dev_helpers_after_rollback "$previous_sha" ||
+        fail_closed "cold-boot rollback restored Git but could not restore Base helpers"
     record_runtime_surface_sha "$previous_sha"
     write_update_state "$previous_sha" rolled-back supervisor-restart
     log "cold-boot rollback restored $previous_sha; guardian refresh required"
@@ -1544,6 +1559,8 @@ rollback_update() {
         fail_closed "automatic rollback to $previous_sha failed"
     fi
     write_state_value "$CURRENT_FILE" "$previous_sha"
+    restore_dev_helpers_after_rollback "$previous_sha" ||
+        fail_closed "rollback restored Git but could not restore Base helpers"
     start_surface || fail_closed "rolled-back Surface could not be started"
     surface_stays_running 4 || fail_closed "rolled-back Surface did not stay running"
     record_runtime_surface_sha "$previous_sha"
