@@ -583,7 +583,7 @@ class HotUpdateSupervisorContractTests(unittest.TestCase):
                 body.index('write_state_value "$CURRENT_FILE" "$previous_sha"'),
                 body.index('restore_dev_helpers_after_rollback "$previous_sha"'),
             )
-            self.assertIn('fail_closed "rollback', body)
+            self.assertIn('could not restore Base helpers"', body)
         hot = supervisor.split("rollback_update() {", 1)[1].split("\n}\n", 1)[0]
         self.assertLess(hot.index('restore_dev_helpers_after_rollback "$previous_sha"'),
                         hot.index('start_surface || fail_closed'))
