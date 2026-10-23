@@ -38,8 +38,8 @@ Pronto significa: layout reproduzível, cold boot previsível, Surface e sessão
 | USB Dev preparado | Layout **transitório** de 3 partições | `docs/contracts/physical-prepared-media.json`: ESP FAT32, ORDAX ext4, DATA exFAT |
 | Portable MVP final | Alvo de 2 partições; escrita física ainda gated | `docs/contracts/portable-usb-v2.json`: ESP FAT32 + DATA exFAT; EROFS e imagem ext4 interna |
 | Base independente | Migração incompleta | PR #1860 (draft na fotografia), checar CI, ABI, inicialização e consumidores antes de remover Alpine |
-| Desenvolvimento transacional | PR concorrente | PR #2161 (draft); checkout atômico, helpers e Supervisor; não criar segunda solução |
-| Diagnóstico de boot/power | PRs concorrentes | PRs #2168 e #2169; validar contra `main` atual |
+| Desenvolvimento transacional | **Código integrado na main@85ac5fe8** | PR #2161 mesclada por merge commit, 11 workflows da PR aprovados (Creator offline QEMU + Portable QEMU + Foundation + Preflight). `ordax-pull`, helper Native `RENAME_EXCHANGE`, ABI e Supervisor no mesmo SSOT; **Base do notebook ainda NOT-PROVEN** |
+| Diagnóstico de boot/power | **Código integrado** | PR #2169 (`8bdea25a`) e #2168 (`cf38cfa2`) mescladas após QEMU/Creator; confirmação física de ext4/UEFI/boot continua separada |
 | Superfícies estruturais | PR concorrente | PR #2177; na fotografia `web-client` falhou, rever checks atuais |
 | Creator / geometria QEMU | PRs concorrentes | PRs #2167 e #2000; não duplicar inventário de artefatos |
 | Testes locais de atualização | 28 testes Node passaram na fotografia | Testes de contrato, status e UX; NÃO são boot/rollback físico |
@@ -128,7 +128,7 @@ Esta é uma **organização lógica**, não uma autorização para mover diretó
 
 ### Fase 4 — boot, Supervisor e desligamento (P0)
 
-- [ ] Reconciliar PRs #2168, #2169 e dependências do checkout #2161 no mesmo owner de boot; evitar PR conflitante.
+- [x] Reconciliar PRs #2168, #2169 e checkout #2161 nos owners existentes; commits de merge `8bdea25a`, `cf38cfa2`, `85ac5fe8`. **Somente integração de código, sem homologação física**.
 - [ ] Eliminar loops sem diagnóstico; distinguir falha de display, Surface, networking, Base e estado de update.
 - [ ] Provar ordem, readiness, boot offline known-good, timeout bounded, manutenção só por erro real e logs estruturados.
 - [ ] Validar reinício/desligamento sem esperar indefinidamente, sem mascarar falha de flush/remount.
@@ -137,7 +137,7 @@ Esta é uma **organização lógica**, não uma autorização para mover diretó
 
 ### Fase 5 — atualizações/rollback (P0)
 
-- [ ] Reconciliar PRs #2161/#2155, sem segundo `ordax-pull` ou Supervisor; resolver causa de ciclos de download/falha e locks.
+- [x] Reconciliar #2155 (retry no Supervisor) e #2161 (checkout atômico no `ordax-pull`), sem segundo owner, por merges `2a661988` e `85ac5fe8`. A causa do read race observada na `main@caa309a7` (`git rev-parse HEAD` erro 128 no watcher) foi coberta por prova concorrente; **funcionamento da Base instalada fisicamente continua pendente**.
 - [ ] Provar state machine download→verify→stage→ready→activate→cold-health→promote / reject→rollback com SHAs exatos.
 - [ ] Manter Dev Git-first e Stable assinado como transports; validar Base separadamente de Surface/app sem controles conflitantes.
 - [ ] Testar interrupção em cada commit point, energia/reboot, transação persistente, no-op, failed same SHA e retry limitado.
@@ -187,7 +187,7 @@ A autorização física/trust/EFI é controlada exclusivamente por seus contrato
 
 ## Próxima ação de execução (handoff imediato)
 
-**Fase 1 → Fase 2, sem mudança física:** revalidar `main`/PRs #2161, #2168, #2169, #2177, #1860, #2000 e #2167; gerar mapa objetivo de boot/update/Creator com dependências e concorrência; identificar uma correção de causa raiz pequena e sem conflito, implementar no owner existente, executar testes e propor merge com evidência. `ordax-apps` PR #330 já está mesclada; não reproduzir a correção. Prosseguir nas fases seguintes somente após os respectivos gates.
+**Próxima prova P0 — fonte mesclada, hardware ainda não comprovado:** revalidar `main@85ac5fe8` (não é pin), os checks pós-merge de Owner Preflight, Foundation, Creator USB e QEMU, e as PRs paralelas ainda abertas. Quando o notebook Owner/Dev estiver acessível, coletar **somente leitura**: SHA Git ativo, versão da Base, recibos de known-good, `dev-helpers-sha`, resposta real de `/usr/local/bin/ordax-checkout-exchange --abi`, estado de boot/update e ext4; não presumir que o USB físico foi atualizado. Verificar a transição Base-first e o rollback com gates e autorização adequados antes de qualquer gravação, reboot ou promoção física. A integração do código é **PASS-CI/PASS-QEMU**, nunca PASS-PHYSICAL. Não abrir outra PR de checkout, restaurar Files removido ou reaplicar snapshots públicos antigos. Prosseguir em outras fases somente após seus gates.
 
 **Handoff para novo chat/agente:** "No repositório `ordaxsystems/ordax-os`, leia `AGENTS.md` e `00-PLANOS-PRIORITARIOS/plans/FOUNDATION-001-OS-ARCHITECTURE-CONSOLIDATION.md`. Revalide contratos, `main`, PRs concorrentes e provas. Continue a próxima fase elegível pelo owner existente; não crie SSOT/planos/updaters paralelos. Diferencie merge/CI/QEMU/USB físico e atualize os owners com evidências." 
 
