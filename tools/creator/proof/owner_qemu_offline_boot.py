@@ -298,7 +298,7 @@ def owner_qemu_failure_diagnostic(disk: Path, source: str) -> dict[str, str]:
                 re.fullmatch(r"[A-Za-z][A-Za-z0-9]{0,63}", name) is None or
                 not isinstance(origin, str) or
                 (origin and re.fullmatch(
-                    r"[A-Za-z0-9_.-]+\\.mjs:[1-9][0-9]{0,5}:[1-9][0-9]{0,5}", origin
+                    r"[A-Za-z0-9_.-]+\.mjs:[1-9][0-9]{0,5}:[1-9][0-9]{0,5}", origin
                 ) is None)):
             return {"status": "unavailable"}
         return {"status": "recorded", "stage": stage, "errorName": name, "source": origin}
