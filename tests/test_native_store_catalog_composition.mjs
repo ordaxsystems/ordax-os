@@ -131,6 +131,15 @@ test("Native Store composition derives installability only from verified catalog
   assert.deepEqual(observations.map(item => item.componentId).sort(), [...listExternalFirstPartyComponentIds()].sort());
   assert.equal(observations.find(item => item.componentId === "notes").source, "absent");
   assert.equal(Object.isFrozen(observations), true);
+  const nativeMetadataReads = () => calls.filter(
+    (call) => String(call.url).includes("/__ordax/native/component-runtime"),
+  ).length;
+  const expectedReads = listExternalFirstPartyComponentIds().length;
+  assert.equal(nativeMetadataReads(), expectedReads,
+    "initial Store setup must reuse the one Native metadata sweep");
+  await composition.refresh();
+  assert.equal(nativeMetadataReads(), expectedReads * 2,
+    "one signed catalog refresh must run one additional metadata sweep, not two");
   composition.destroy();
   assert.deepEqual(composition.getCurrentObservations(), []);
 });
@@ -216,4 +225,52 @@ test("Native first-run selection shares Store current-state reads and never rest
   assert.deepEqual(observe(false).eligibleCandidateAppIds, []);
   assert.ok(observe(false).suppressedAppIds.includes("notes"));
   composition.destroy();
+});
+
+test("Native Store revokes install actions and transient current observations while signed catalog refresh is pending", async () => {
+  let releaseCatalog;
+  let catalogReads = 0;
+  const windowRef = {
+    async fetch(url) {
+      if (url === "/__ordax/native/store-catalog") {
+        catalogReads += 1;
+        if (catalogReads === 2) {
+          return new Promise((resolve) => { releaseCatalog = resolve; });
+        }
+        return response(verifiedCatalog());
+      }
+      const parsed = new URL(url);
+      if (parsed.pathname === "/__ordax/native/component-runtime") {
+        return response(metadata(parsed.searchParams.get("component")));
+      }
+      return response({}, 404);
+    },
+  };
+  const composition = await createNativeStoreCatalogComposition({
+    windowRef,
+    componentSource: componentSource(),
+  });
+  const initial = composition.port.getSnapshot();
+  assert.equal(initial.entries.find((entry) => entry.appId === "notes").installable, true);
+  assert.ok(composition.getCurrentObservations().length > 0);
+
+  const updating = composition.refresh();
+  assert.equal(catalogReads, 2);
+  assert.equal(composition.verifiedCatalogPort.getSnapshot().state, "unavailable");
+  assert.equal(
+    composition.verifiedCatalogPort.getSnapshot().reason,
+    "native-store-catalog-refreshing",
+  );
+  assert.equal(composition.port.getSnapshot().state, "unavailable");
+  assert.deepEqual(composition.port.getSnapshot().entries, []);
+  assert.deepEqual(composition.getCurrentObservations(), []);
+
+  releaseCatalog(response(verifiedCatalog()));
+  await updating;
+  const refreshed = composition.port.getSnapshot();
+  assert.equal(refreshed.state, "ready");
+  assert.equal(refreshed.entries.find((entry) => entry.appId === "notes").installable, true);
+  composition.destroy();
+  assert.equal(composition.port.getSnapshot().state, "unavailable");
+  assert.equal(composition.verifiedCatalogPort.getSnapshot().state, "unavailable");
 });
