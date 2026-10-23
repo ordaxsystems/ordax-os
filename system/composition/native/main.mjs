@@ -76,9 +76,8 @@ import { createProjectCloudLinksReader } from "../../services/projects/cloud-lin
 import { createProjectWebReferenceRuntime } from "../../services/projects/web-references.mjs";
 import { createProjectContinuityFileSpace } from "../../services/files/project-continuity-file-space.mjs";
 import { installTrustedComponentContextProvider } from "../../services/components/runtime-loader.mjs";
-import { createNativeFilesTrustedContextProvider } from "./files-trusted-context.mjs";
+import { createNativeWorkspacePendingBootstrap, installNativeWorkspaceVerifiedContext } from "./component-workspace-ports.mjs";
 import { createNativeIntelligenceClientTrustedContextProvider } from "./intelligence-client-trusted-context.mjs";
-import { createNativeFilesProbationContextBootstrap } from "./files-probation-context.mjs";
 import { createPersonalActionCatalog } from "../../services/personal-ordax/action-catalog.mjs";
 import { createNotificationsRuntime } from "../../services/notifications/runtime.mjs";
 import { createUpdateNotificationBridge } from "../../services/notifications/update-bridge.mjs";
@@ -175,7 +174,7 @@ function blockedAccountMemoryMutations() {
 
 const bootScreen = createSurfaceBootScreen(document);
 let bootLocale = "pt-BR";
-let filesProbationContextBootstrap = null;
+let workspaceComponentBootstrap = null;
 const bootText = (messageId) => translateSurfaceMessage(bootLocale, messageId);
 
 async function start() {
@@ -183,7 +182,7 @@ async function start() {
   if (!root) {
     throw new Error("OrdaX composition root is missing #ordax-root");
   }
-  filesProbationContextBootstrap = createNativeFilesProbationContextBootstrap();
+  workspaceComponentBootstrap = createNativeWorkspacePendingBootstrap();
 
   const browserSession = createNativeBrowserSession(window);
   const verifiedComponentPackageSource = createNativeVerifiedComponentPackageSource(window);
@@ -918,33 +917,19 @@ async function start() {
         },
       });
   try {
-    filesProbationContextBootstrap.bind({
+    workspaceComponentBootstrap?.bind({
       root,
-      fileSpace: filesOwnerSpace,
-      recentFiles,
-      projects,
-      appActivation,
+      ports: { fileSpace: filesOwnerSpace, recentFiles, projects, appActivation },
     });
   } catch (error) {
-    console.warn("OrdaX Files probation context unavailable", error);
-    filesProbationContextBootstrap.fail(error);
+    console.warn("OrdaX optional workspace component probation unavailable", error);
+    workspaceComponentBootstrap?.fail(error);
   }
-  // This binding is dormant while Files is bundled or the Native signed-slot
-  // read policy excludes it. No alternative Files source is mounted here.
-  if (hasNativeExternalFirstPartyModuleRead("files")
-    && !listFirstPartyApps().some((app) => app.id === "files")) {
-    installTrustedComponentContextProvider(
-      createNativeFilesTrustedContextProvider({
-        fileSpace: filesOwnerSpace, recentFiles, projects, appActivation,
-        // Only metadata from the independently verified current-slot catalog
-        // may authorize host-port composition for the future external Files.
-        // No signed slot, no Files host ports; no bootstrap fallback or grants.
-        verifiedCurrent: installedAppCatalog?.installed.find(
-          (entry) => entry.component.id === "files",
-        )?.metadata ?? null,
-      }),
-    );
-  }
+  // Verified-current slot metadata is the only authority for workspace ports.
+  installNativeWorkspaceVerifiedContext({
+    installed: installedAppCatalog?.installed ?? [],
+    fileSpace: filesOwnerSpace, recentFiles, projects, appActivation,
+  });
   // The existing verified-current loader revalidates this same slot before
   // import and mount. Missing/removed Aura cannot obtain these host ports.
   if (hasNativeExternalFirstPartyModuleRead("assistant")
@@ -1202,7 +1187,7 @@ async function start() {
       notificationCenter.destroy();
       batteryTrayControls?.destroy();
       batteryQuickPanel?.destroy();
-      filesProbationContextBootstrap?.destroy();
+      workspaceComponentBootstrap?.destroy();
       externalAppMounts?.destroy();
       projectReferences?.destroy();
       projectCloudLinks?.destroy();
@@ -1244,7 +1229,7 @@ async function start() {
 }
 
 start().catch((error) => {
-  filesProbationContextBootstrap?.fail(error);
+  workspaceComponentBootstrap?.fail(error);
   bootScreen.fail(bootText("surface.boot.failed"));
   // The Native diagnostic POST may be unavailable during a failed bootstrap.
   // Keep only its existing sanitized, bounded identity on the local boot

@@ -1,17 +1,18 @@
 import { assertComponentMountParent } from "../../services/components/runtime-mount.mjs";
 import { installComponentProbationContextProvider } from "../../services/components/probation-context.mjs";
-import { createNativeFilesHostPorts } from "./files-trusted-context.mjs";
+import { validateComponentId } from "../../contracts/component-manifest.mjs";
+import { systemComponentProbationProbeMode } from "../../services/components/probation-orchestrator.mjs";
 
-export const NATIVE_FILES_PROBATION_CONTEXT_SCHEMA =
-  "ordax.native-files-probation-context/1";
+export const NATIVE_COMPONENT_PENDING_HOST_SCHEMA =
+  "ordax.native-component-pending-host/1";
 
 function normalizeError(error, fallback) {
   if (error instanceof Error) return error;
   return new Error(fallback);
 }
 
-function createHiddenProbationHost(root) {
-  assertComponentMountParent({ root }, { label: "Files probation host" });
+function createHiddenProbationHost(root, targetId) {
+  assertComponentMountParent({ root }, { label: "Component probation host" });
   const host = root.ownerDocument.createElement("div");
   if (
     !host
@@ -22,25 +23,33 @@ function createHiddenProbationHost(root) {
     || !host.style
   ) {
     try { host?.remove?.(); } catch { /* invalid DOM factory output is isolated */ }
-    throw new TypeError("Files probation host must be a removable Surface Element");
+    throw new TypeError("Component probation host must be a removable Surface Element");
   }
   host.className = "ordax-native-component-probation-host";
-  host.dataset.ordaxComponentProbationHost = "files";
+  host.dataset.ordaxComponentProbationHost = targetId;
   host.hidden = true;
   host.style.display = "none";
   root.append(host);
   if (host.parentNode !== root) {
     try { host.remove(); } catch { /* failed attachment cleanup is best effort */ }
-    throw new TypeError("Files probation host was not attached to its Surface");
+    throw new TypeError("Component probation host was not attached to its Surface");
   }
   return host;
 }
 
-export function createNativeFilesProbationContextBootstrap({
+export function createNativePendingComponentHostBootstrap({
+  componentId, createPorts,
   installProvider = installComponentProbationContextProvider,
 } = {}) {
+  const targetId = validateComponentId(componentId);
+  if (systemComponentProbationProbeMode(targetId) !== "mount-contract") {
+    throw new TypeError("Component probation requires mount-contract mode");
+  }
+  if (typeof createPorts !== "function") {
+    throw new TypeError("Component probation requires typed host-port validation");
+  }
   if (typeof installProvider !== "function") {
-    throw new TypeError("Files probation context requires a provider installer");
+    throw new TypeError("Component probation context requires a provider installer");
   }
   let resolveReady;
   let state = "pending";
@@ -50,42 +59,34 @@ export function createNativeFilesProbationContextBootstrap({
     resolveReady = resolve;
   });
 
-  const provider = async (componentId) => {
-    if (componentId !== "files") return null;
+  const provider = async (requestedId) => {
+    if (requestedId !== targetId) return null;
     const outcome = await ready;
     if (terminalError !== null) throw terminalError;
     if (!outcome?.context || !outcome?.root) {
-      throw normalizeError(outcome?.error, "Files probation context is unavailable");
+      throw normalizeError(outcome?.error, "Component probation context is unavailable");
     }
-    host ??= createHiddenProbationHost(outcome.root);
+    host ??= createHiddenProbationHost(outcome.root, targetId);
     return Object.freeze({ ...outcome.context, root: host });
   };
 
   installProvider(provider);
 
-  const bind = ({
-    root,
-    fileSpace = null,
-    recentFiles = null,
-    projects = null,
-    appActivation = null,
-  } = {}) => {
+  const bind = ({ root, ports } = {}) => {
     if (state !== "pending") {
-      throw new Error("Files probation context can only be bound once");
+      throw new Error("Component probation context can only be bound once");
     }
     try {
-      assertComponentMountParent({ root }, { label: "Files probation host" });
+      assertComponentMountParent({ root }, { label: "Component probation host" });
       // Pending probation and verified current installation are separate
       // lifecycle states. The probation loader verifies pending provenance;
       // port validation must not assume (or forge) a current installed slot.
-      const context = createNativeFilesHostPorts({
-        fileSpace, recentFiles, projects, appActivation,
-      });
+      const context = createPorts(ports);
       state = "bound";
       resolveReady(Object.freeze({ context, root }));
       return context;
     } catch (error) {
-      terminalError = normalizeError(error, "Files probation context binding failed");
+      terminalError = normalizeError(error, "Component probation context binding failed");
       state = "failed";
       resolveReady(Object.freeze({ error: terminalError }));
       throw terminalError;
@@ -94,7 +95,7 @@ export function createNativeFilesProbationContextBootstrap({
 
   const fail = (error) => {
     if (state === "destroyed") return;
-    terminalError = normalizeError(error, "Files probation context failed");
+    terminalError = normalizeError(error, "Component probation context failed");
     if (state === "pending") {
       resolveReady(Object.freeze({ error: terminalError }));
     }
@@ -104,15 +105,15 @@ export function createNativeFilesProbationContextBootstrap({
   const destroy = () => {
     if (state === "destroyed") return;
     if (state === "pending") {
-      fail(new Error("Files probation context was destroyed before binding"));
+      fail(new Error("Component probation context was destroyed before binding"));
     }
-    terminalError ??= new Error("Files probation context is destroyed");
+    terminalError ??= new Error("Component probation context is destroyed");
     state = "destroyed";
     try { host?.remove?.(); } finally { host = null; }
   };
 
   return Object.freeze({
-    schema: NATIVE_FILES_PROBATION_CONTEXT_SCHEMA,
+    schema: NATIVE_COMPONENT_PENDING_HOST_SCHEMA,
     bind,
     fail,
     destroy,
