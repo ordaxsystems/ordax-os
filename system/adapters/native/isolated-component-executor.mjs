@@ -675,6 +675,7 @@ function makeBroker({ port, componentId, context, onRevoke, onInvalidated }) {
   const selectionUnsubscribes = new Map();
   const intelligenceUnsubscribes = new Map();
   const inferenceControllers = new Set();
+  const inferenceByRequest = new Map();
   let scopeEpoch = 0;
   const onTrustedScopeChange = () => {
     scopeEpoch += 1;
@@ -886,6 +887,7 @@ function makeBroker({ port, componentId, context, onRevoke, onInvalidated }) {
         const initialEpoch = scopeEpoch;
         const controller = new AbortController();
         inferenceControllers.add(controller);
+        inferenceByRequest.set(request.id, controller);
         let timeout;
         let unsubscribeAbort;
         try {
@@ -913,6 +915,7 @@ function makeBroker({ port, componentId, context, onRevoke, onInvalidated }) {
         } finally {
           controller.abort();
           inferenceControllers.delete(controller);
+          inferenceByRequest.delete(request.id);
           if (timeout !== undefined) clearTimeout(timeout);
           unsubscribeAbort?.();
         }
@@ -1216,6 +1219,13 @@ function makeBroker({ port, componentId, context, onRevoke, onInvalidated }) {
     const request = event.data;
     if (revoked || !request || request.schema !== BRIDGE_SCHEMA) return;
     if (request.type === "runtime.error") return;
+    if (request.type === "cancel") {
+      if (Object.keys(request).sort().join(",") === "id,schema,type"
+        && Number.isSafeInteger(request.id) && request.id > 0) {
+        inferenceByRequest.get(request.id)?.abort();
+      }
+      return;
+    }
     const exactKeys = ["args", "id", "operation", "schema", "type"];
     if (request.type !== "call" || Object.keys(request).sort().join(",") !== exactKeys.join(",")
       || !Number.isSafeInteger(request.id) || request.id <= highestRequestId
