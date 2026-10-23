@@ -1019,6 +1019,18 @@ async function start() {
   componentManager.setCurrentHealth("surface-shell", "healthy");
   void updateWatcher.markHealthy();
   const surfaceHeartbeat = createNativeSurfaceHeartbeat(window);
+  // WebKit's load-finished event precedes ES module composition. Starting
+  // component probation at that point can seal the context-provider registry
+  // before its canonical Native providers have installed. Reuse the single
+  // privileged host bridge after the real shell/heartbeat is established.
+  // This message never claims Supervisor health or grants component access.
+  if (hasNativeHostBridge(window)) {
+    try {
+      postNativeHostMessage(window, { type: "surface.shell.ready" });
+    } catch (error) {
+      reportClientDiagnostic("component-probation-start", error);
+    }
+  }
 
   // Optional Aura discovery can compete for the Native Host while booting.
   // Keep its existing bounded, read-only retry supervisor; start it only
