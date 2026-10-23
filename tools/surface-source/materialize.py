@@ -40,7 +40,7 @@ def git(source: Path, *args: str) -> bytes:
 
 def load_lock(path: Path = LOCK_PATH) -> dict:
     raw = json.loads(path.read_text(encoding="utf-8"))
-    if raw.get("$schema") != "ordax.surface-source/1":
+    if raw.get("$schema") != "prototype-ordax.surface-source/1":
         raise SurfaceSourceError("unrecognized Surface source lock schema")
     if raw.get("status") not in {"integration-candidate", "canonical"}:
         raise SurfaceSourceError("invalid source lock status")
