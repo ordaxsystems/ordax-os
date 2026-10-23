@@ -153,6 +153,29 @@ active Dev transport remains Git-first, with no runtime method selector.
 This auditable boundary precedes a distinct disposable mixed-profile
 QEMU boot and Supervisor cold-health/rollback proof.
 
+### Signed Portable QEMU on the transitional Dev partition geometry
+
+The **existing** `bootstrap/portable-v2/qemu_boot.py` has an explicit,
+non-default `--dev-transitional-geometry` proof. It derives the ESP and
+ORDAX-ext4 size minima from the canonical
+`docs/contracts/physical-prepared-media.json`, creates a **disposable sparse
+5 GiB RAW**, and formats `ORDAX-ESP` (FAT32), `ORDAX` (ext4) and
+`ORDAX-DATA` (exFAT). The intermediate ORDAX partition is intentionally
+**empty**: it is not a preseeded Git checkout. The signed v4 Portable runtime,
+bootstrap capsule, exact Base, Ed25519 trust and persistent-state image reuse
+the existing materialization and QEMU PID1/Surface proof.
+
+The new stable-base CI step must obtain the *real* Portable PID1 and Surface
+handoff markers on that three-partition disk with network disabled, then
+destroy the disposable RAW. A successful result proves **only** the Portable
+boot's compatibility with the Dev-style partition geometry; it does not prove
+a Git-first Owner boot on that same disk, an EFI one-shot boot entry, a
+boot-profile selector, Git fallback after failed signed boot, Secure Boot,
+physical USB migration, or consent/reboot behavior. These are separate
+mandatory mixed-profile QEMU/physical gates. It changes no Creator default,
+no Supervisor transport, no `ordax-pull`, no physical partition table or
+current/known-good boot authority.
+
 ### Native one-shot state handoff proof (development CI, no physical activation)
 
 The real Go release-agent integration test at

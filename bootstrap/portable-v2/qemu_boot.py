@@ -3,6 +3,8 @@
 
 This proof deliberately does not prove UEFI. It creates one sparse regular RAW
 disk with ORDAX-ESP + ORDAX-DATA, stages already-built real candidate artifacts,
+or explicitly exercises the transitional Dev three-partition geometry using the
+same signed Portable candidate. This is not an Owner Git boot or mode switch.
 boots the exact OrdaX kernel/initramfs with rdinit=/sbin/ordax-portable-init,
 requires the portable PID1 and Stable Base handoff serial markers, disables
 networking, and destroys the guest disk afterward. No physical target device is
@@ -29,6 +31,9 @@ SCHEMA = "prototype-ordax.portable-v2-qemu-boot-proof-result/1"
 COMMIT_RE = re.compile(r"^[0-9a-f]{40}$")
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 DISK_BYTES = 3 * 1024 * 1024 * 1024
+DEV_GEOMETRY_DISK_BYTES = 5 * 1024 * 1024 * 1024
+ROOT = Path(__file__).resolve().parents[2]
+OWNER_MEDIA_CONTRACT = ROOT / "docs/contracts/physical-prepared-media.json"
 ESP_BYTES = 512 * 1024 * 1024
 SUCCESS = "ORDAX_PORTABLE_V2_HANDOFF=VERIFIED"
 STABLE = "ORDAX_STABLE_INIT_HANDOFF=VERIFIED"
@@ -115,7 +120,7 @@ def load_json(path: Path, label: str) -> dict[str, Any]:
 
 def require_programs() -> None:
     names = (
-        "sgdisk", "losetup", "mkfs.vfat", "mkfs.exfat", "mount.exfat-fuse",
+        "sgdisk", "losetup", "mkfs.vfat", "mkfs.exfat", "mkfs.ext4", "mount.exfat-fuse",
         "mount", "umount", "qemu-system-x86_64", "e2fsck",
     )
     missing = [name for name in names if shutil.which(name) is None]
@@ -346,25 +351,79 @@ def validate_inputs(args: argparse.Namespace) -> dict[str, Any]:
     }
 
 
+def dev_transitional_geometry() -> tuple[int, int, int]:
+    """Derive disposable QEMU partition minima from the Creator's existing SSOT.
+
+    The intermediate ORDAX ext4 filesystem is deliberately EMPTY: this proves
+    Portable PID1 discovery on Dev-style geometry, not Owner Git continuity.
+    """
+    contract = load_json(OWNER_MEDIA_CONTRACT, "transitional prepared USB contract")
+    if (contract.get("$schema") != "prototype-ordax.physical-prepared-media/1"
+            or contract.get("physical_write_authorized_by_this_contract") is not False
+            or contract.get("partition_table") != "gpt"
+            or contract.get("logical_sector_bytes") != 512):
+        raise ProofError("transitional media contract is not an authorized geometry fixture")
+    parts = contract.get("partitions")
+    if not isinstance(parts, list) or len(parts) != 3:
+        raise ProofError("expected exactly three canonical transitional partitions")
+    esp, owner, data = parts
+    if ([p.get("name") for p in parts] != ["ORDAX-ESP", "ORDAX", "ORDAX-DATA"]
+            or [p.get("filesystem") for p in parts] != ["fat32", "ext4", "exfat"]
+            or [p.get("index") for p in parts] != [1, 2, 3]
+            or esp.get("start_lba") != 2048
+            or esp.get("size_bytes") != 256 * 1024 * 1024
+            or owner.get("start_lba") != 526336):
+        raise ProofError("transitional partition order or ESP geometry changed")
+    policy = owner.get("size_policy")
+    if not isinstance(policy, dict) or policy.get("mode") != "bounded-adaptive":
+        raise ProofError("transitional ORDAX ext4 size policy is missing")
+    owner_bytes = policy.get("minimum_bytes")
+    minimum_data = data.get("minimum_bytes")
+    if (type(owner_bytes) is not int or type(minimum_data) is not int
+            or owner_bytes < 2 * 1024 * 1024 * 1024
+            or minimum_data < 1024 * 1024 * 1024
+            or owner_bytes % (1024 * 1024) != 0
+            or DEV_GEOMETRY_DISK_BYTES <= (
+                (esp["start_lba"] * 512) + esp["size_bytes"]
+                + owner_bytes + minimum_data + 1024 * 1024
+            )):
+        raise ProofError("transitional geometry lacks safe QEMU payload capacity")
+    return (DEV_GEOMETRY_DISK_BYTES, esp["size_bytes"], owner_bytes)
+
+
 def stage_disk(args: argparse.Namespace, inputs: dict[str, Any], work: Path) -> Path:
+    dev_geometry = bool(getattr(args, "dev_transitional_geometry", False))
+    disk_bytes, esp_bytes, owner_bytes = (
+        dev_transitional_geometry() if dev_geometry else (DISK_BYTES, ESP_BYTES, 0)
+    )
     disk = work / "portable-v2-qemu.raw"
     with disk.open("wb") as handle:
-        handle.truncate(DISK_BYTES)
-    regular(disk, "disposable guest disk", minimum=DISK_BYTES)
+        handle.truncate(disk_bytes)
+    regular(disk, "disposable guest disk", minimum=disk_bytes)
 
     run(["sgdisk", "--zap-all", str(disk)])
     run([
         "sgdisk",
-        "--new=1:2048:+512M",
+        f"--new=1:2048:+{esp_bytes // (1024 * 1024)}M",
         "--typecode=1:c12a7328-f81f-11d2-ba4b-00a0c93ec93b",
         "--change-name=1:ORDAX-ESP",
         str(disk),
     ])
+    data_index = 2
+    if dev_geometry:
+        run([
+            "sgdisk",
+            f"--new=2:0:+{owner_bytes // (1024 * 1024)}M",
+            "--typecode=2:0fc63daf-8483-4772-8e79-3d69d8477de4",
+            "--change-name=2:ORDAX",
+            str(disk),
+        ])
+        data_index = 3
     run([
         "sgdisk",
-        "--new=2:0:0",
-        "--typecode=2:ebd0a0a2-b9e5-4433-87c0-68b6b72699c7",
-        "--change-name=2:ORDAX-DATA",
+        f"--new={data_index}:0:0",
+        f"--typecode={data_index}:ebd0a0a2-b9e5-4433-87c0-68b6b72699c7",
+        f"--change-name={data_index}:ORDAX-DATA",
         str(disk),
     ])
     run(["sgdisk", "--verify", str(disk)])
@@ -381,13 +440,17 @@ def stage_disk(args: argparse.Namespace, inputs: dict[str, Any], work: Path) -> 
         if not loop.startswith("/dev/loop"):
             raise ProofError("disposable guest disk did not map to a host loop device")
         esp = Path(loop + "p1")
-        data = Path(loop + "p2")
+        data = Path(loop + f"p{data_index}")
         wait_block(esp)
         wait_block(data)
         # Revalidate each node immediately before its formatter. This closes
         # the stale-node removal race when a loop number is rapidly reused.
         wait_block(esp)
         run(["mkfs.vfat", "-F", "32", "-n", "ORDAX-ESP", str(esp)])
+        if dev_geometry:
+            owner_partition = Path(loop + "p2")
+            wait_block(owner_partition)
+            run(["mkfs.ext4", "-F", "-q", "-L", "ORDAX", str(owner_partition)])
         wait_block(data)
         run(["mkfs.exfat", "-L", "ORDAX-DATA", str(data)])
 
@@ -768,10 +831,13 @@ def prove(args: argparse.Namespace) -> dict[str, Any]:
     inputs = validate_inputs(args)
     work = Path(tempfile.mkdtemp(prefix="ordax-portable-v2-qemu-"))
     disk: Path | None = None
+    dev_geometry = bool(getattr(args, "dev_transitional_geometry", False))
+    if dev_geometry and getattr(args, "previous_commit", None):
+        raise ProofError("Dev geometry gate is baseline only; no mixed-profile recovery claim")
     checks = {
         "real_pinned_inputs_bound": True,
         "regular_sparse_guest_disk_only": False,
-        "final_two_partition_layout": False,
+        ("dev_transitional_three_partition_layout" if dev_geometry else "final_two_partition_layout"): False,
         "portable_pid1_handoff_marker": False,
         "stable_init_handoff_marker": False,
         "activation_state_durable_marker": False,
@@ -794,7 +860,7 @@ def prove(args: argparse.Namespace) -> dict[str, Any]:
     try:
         disk = stage_disk(args, inputs, work)
         checks["regular_sparse_guest_disk_only"] = True
-        checks["final_two_partition_layout"] = True
+        checks["dev_transitional_three_partition_layout" if dev_geometry else "final_two_partition_layout"] = True
         activation = None
         if args.previous_commit:
             first_serial, first_checks = boot_qemu_expected(
@@ -952,13 +1018,21 @@ def prove(args: argparse.Namespace) -> dict[str, Any]:
             "public_physical_promotion_allowed": False,
             "candidate_pid1_default_changed": False,
             "network_required_for_first_boot": False,
+            "owner_git_boot_proven": False,
+            "owner_git_fallback_proven": False,
+            "boot_mode_switch_proven": False,
+            "portable_on_transitional_dev_geometry_proven": dev_geometry,
             "armed_candidate_one_shot_proven": bool(activation),
             "activation_one_shot": activation,
             "serial_markers": serial_markers,
             "guest_disk": {
                 "sha256_before_destruction": disk_sha,
                 "retained": False,
-                "layout": ["ORDAX-ESP", "ORDAX-DATA"],
+                "layout": (
+                    ["ORDAX-ESP", "ORDAX", "ORDAX-DATA"]
+                    if dev_geometry else ["ORDAX-ESP", "ORDAX-DATA"]
+                ),
+                "intermediate_ordax_contains_owner_checkout": False,
             },
             "artifacts": {
                 "kernel_sha256": sha256_file(inputs["kernel"]),
@@ -997,6 +1071,10 @@ def main() -> int:
     parser.add_argument("--trust", required=True, type=Path)
     parser.add_argument("--source-commit", required=True)
     parser.add_argument("--previous-commit")
+    parser.add_argument(
+        "--dev-transitional-geometry", action="store_true",
+        help="boot signed Portable on disposable Dev-style 3-partition geometry; no Owner Git handoff",
+    )
     parser.add_argument("--out", required=True, type=Path)
     args = parser.parse_args()
     for name in (
