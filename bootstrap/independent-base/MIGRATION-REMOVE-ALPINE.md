@@ -251,6 +251,20 @@ canônica do *mesmo Buildroot*; nenhum consumidor deve descompactá-lo sobre
 `/`, `/lib`, o slot do OS ou USB. Gates de assinatura, supervisor, QEMU do
 agente e sessão MCP permanecem bloqueados.
 
+### SQLite privado obrigatório para o Runtime Native
+
+O `ordax_core` canônico importa `sqlite3` em `MemoryStore` e
+`OrchestratorStore`. A execução isolada do Python privado Buildroot 3.14.7
+publicado anteriormente falhou com `ModuleNotFoundError: No module named
+'sqlite3'`. A configuração **exclusivamente do componente privado** passa
+a exigir `BR2_PACKAGE_PYTHON3_SQLITE=y` e `BR2_PACKAGE_SQLITE=y`, sem
+modificar o OS estático ou instalar outro banco.
+
+O auditor exige os bytecodes `sqlite3`, a extensão ELF `_sqlite3` e
+o smoke executa criação/inserção/consulta num banco `':memory:'` usando
+o loader musl privado. `sqlite_memory_operational=true` é obrigatório
+no recibo, sem conceder autorização para instalar ou ativar o MCP.
+
 ### SDK privado para compilar o agente, sem duplicar Buildroot
 
 A mesma execução canônica de `build-component` pode exportar o SDK oficial
