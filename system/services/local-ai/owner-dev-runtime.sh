@@ -211,6 +211,7 @@ start() {
     unset key
     LLAMA_ARG_API_KEY_FILE="$KEY_FILE" \
       ORDAX_LOCAL_AI_RUNTIME_ROOT="$RUNTIME_ROOT" \
+      /bin/sh "$WORKTREE/system/services/local-ai/run-low-priority.sh" \
       "$RUNTIME_ROOT/bin/ordax-local-ai" >"$LOG_FILE" 2>&1 &
     launched=$!
     if ! is_pid "$launched"; then

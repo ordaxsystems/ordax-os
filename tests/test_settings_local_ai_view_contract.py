@@ -12,7 +12,7 @@ STORE = ROOT / "system/surface/ui/store-overview-controls.mjs"
 NATIVE = ROOT / "system/composition/native/main.mjs"
 SETTINGS_MESSAGES = ROOT / "system/services/i18n/catalog/settings.mjs"
 STORE_MESSAGES = ROOT / "system/services/i18n/catalog/store.mjs"
-SETTINGS_APP = ROOT / "system/apps/settings/ai/manifest.mjs"
+SETTINGS_APP = ROOT / "system/services/system-ui/settings/ai/manifest.mjs"
 
 
 class SettingsLocalAiViewTests(unittest.TestCase):

@@ -47,7 +47,7 @@ export const unavailableServices = {
   activity: 'O serviço de atividade ainda não está conectado a esta sessão.',
   devices: 'Não foi possível consultar seus dispositivos. A conexão com dispositivos ainda não está disponível nesta sessão.',
   storage: 'Uso e limite de armazenamento indisponíveis.',
-  intelligence: 'Aura ainda não está conectada a um serviço de inteligência artificial.',
+  intelligence: `${getSurfaceDestination('intelligence').windowTitle} ainda não está conectada a um serviço de inteligência artificial.`,
 } as const;
 
 // Window chrome reuses destination metadata instead of keeping a second identity catalog.

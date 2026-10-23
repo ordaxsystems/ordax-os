@@ -12,7 +12,7 @@ The first-party external component registry is **generated**, never hand-maintai
 `tools/app-policy/render_external_first_party_policy.py` →
 `system/services/apps/external-first-party-policy.mjs`.
 
-The canonical owner map is the full source-provenance registry for first-party package identities. It is not an install catalog: entries can describe apps whose package, Native module-read, probation, signature, activation or rollback gates are still closed. The Native module-read set is independently derived from the intersection with `native_loopback_broker_supported_components`; health, probation and activation are narrower gates again. `canonical_external_source_repository_by_component` is a separate, narrower allowlist used by the unsigned-candidate verifier; it must agree with the owner map but does not broaden Native reads or override canonical ownership. Regeneration is checked in CI.
+The canonical owner map is the full source-provenance registry for first-party package identities. It is not an install catalog: entries can describe apps whose package, Native module-read, probation, signature, activation or rollback gates are still closed. While an app remains bundled in the OS, `native_external_current_slot_blocked_by_bundled_owner_components` keeps the platform as the only source accepted by the Native signer; the generated Go source gate enforces this until Gate A removes the bundled implementation. The Native module-read set is independently derived from the intersection with `native_loopback_broker_supported_components`; health, probation and activation are narrower gates again. `canonical_external_source_repository_by_component` is a separate, narrower allowlist used by the unsigned-candidate verifier; it must agree with the owner map but does not broaden Native reads or override canonical ownership. Regeneration is checked in CI.
 
 A known app ID is not an installation grant. A verified signed catalog, runtime `current` state, first-party delivery policy and platform lifecycle authority remain independent fail-closed gates; no helper can manufacture those. Native broker component support and production distribution are separately gated.
 
@@ -28,7 +28,22 @@ A signed-catalog candidate cannot invent executable-read capability. The verifie
 
 O conjunto de componentes que pode executar o probe `import-contract` pertence exclusivamente a `docs/contracts/runtime-component-package.json` → `runtime_health_bridge_supported_components`. O gerador `tools/app-policy/render_native_store_metadata_policy.py` emite tanto `NATIVE_PROBATION_COMPONENT_IDS` (Python Native) quanto `NATIVE_COMPONENT_PROBATION_IDS` e `NATIVE_COMPONENT_PROBE_MODE` (JavaScript Surface). Não manter allowlists manuscritas nos bridges. O gerador valida a relação `probation ⊆ health mutation ⊆ signed module read`, identidade/duplicatas e probe mode. Os artefatos gerados são verificados no CI e não são fontes independentes.
 
-**Escopo atual de probation é Notas.** Internet não tem leitura de módulo Native habilitada; a Calculadora e o Studio têm leitura verificada, mas não probation. Instalação continua bloqueada sem o lifecycle de ativação/publicação. Ampliar probation exige testes do import, receipt com nonce, revisão exata, registro de saúde e não promoção, seguidos de pacote assinado e prova no host. Gerar uma lista não instala, promove nem habilita distribuição.
+**Escopo atual de probation é Files/Notas.** Internet não tem leitura de módulo Native habilitada; a Calculadora, o Studio e a **Aura** (ID técnico `assistant`) têm leitura verificada do slot, mas **não** probation. A Aura consome `ordax.intelligence/1`, sem duplicar o motor. O nome de produto vem do `app.json#title` e, no catálogo publicado, do título verificado assinado; `assistant` permanece o único ID estável de instalação. Instalação continua bloqueada sem o lifecycle de ativação/publicação. Ampliar probation exige testes do import, receipt com nonce, revisão exata, registro de saúde e não promoção, seguidos de pacote assinado e prova no host. Gerar uma lista não instala, promove nem habilita distribuição.
+
+### Gate Aura: apenas leitura assinada
+
+O pacote canônico `ordax-apps/apps/assistant` é exportado para o namespace
+`system/apps/assistant/` pelo builder comum de componentes. O broker Native
+pode solicitar apenas bytes da versão/commit/revisão do slot exato, após a
+verificação de assinatura e integridade pelo helper canônico; não contém nem
+interpreta o nome público "Aura" como identidade de segurança. Isso **não**
+distribui, instala, inicia, promove ou autoriza ferramentas da IA.
+
+A prova de saúde, o import em sandbox sem poderes, o atualizador e o
+rollback ainda precisam ser validados antes de habilitar a ativação. Até lá,
+Store e First Run continuam bloqueando instalar quando faltar probation
+compatível, inclusive na presença de catálogo verificado. O modelo local,
+Memory e OrdaX Intelligence permanecem system-owned.
 
 ## Native installed Surface runtime: verified before display
 
@@ -127,7 +142,7 @@ A adição da Calculadora **não** altera o conjunto de health mutation (Interne
 
 ## Surface da Loja: experiência e contrato
 
-A Loja estrutural permanece sob `system/apps/store` e `system/surface/ui/store-overview-controls.mjs`, usando estilos em `store.css` e mensagens component-scoped em `system/services/i18n/catalog/store.mjs`. Este frontend **não** é um segundo catálogo nem um gerenciador de pacotes: consome somente o snapshot validado `ordax.app-store-catalog/2`.
+A Loja estrutural permanece sob `system/services/system-ui/store` e `system/surface/ui/store-overview-controls.mjs`, usando estilos em `store.css` e mensagens component-scoped em `system/services/i18n/catalog/store.mjs`. Este frontend **não** é um segundo catálogo nem um gerenciador de pacotes: consome somente o snapshot validado `ordax.app-store-catalog/2`.
 
 - **Descobrir**: apresenta apenas entradas fornecidas pelo catálogo verificado. A busca local funciona por título/ID com normalização de acentos e não altera o snapshot. A apresentação tem ordenação alfabética natural, independente da ordem do catálogo assinado.
 - **Instalados**: deriva da versão instalada confirmada pelo owner canônico, nunca de arquivos em cache.
