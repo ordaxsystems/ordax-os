@@ -3,6 +3,7 @@ import { Send, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { unavailableServices } from '../central/config';
 import { useIntelligenceClient } from './client-context';
+import { getSurfaceWindowTitle } from '../../../../services/surface/destination-catalog.mjs';
 
 type Props = { initialPrompt?: { text: string } | undefined };
 type ResultState =
@@ -15,6 +16,7 @@ type ResultState =
 /** Aura is a client of `ordax.intelligence/1`; it never discovers or executes providers itself. */
 export function AuraContent({ initialPrompt }: Props) {
   const { client, snapshot } = useIntelligenceClient();
+  const productName = getSurfaceWindowTitle('intelligence');
   const [prompt, setPrompt] = useState('');
   const [result, setResult] = useState<ResultState>({ state: 'idle' });
   const activeRequest = useRef<AbortController | null>(null);
@@ -61,15 +63,15 @@ export function AuraContent({ initialPrompt }: Props) {
 
   const pending = result.state === 'pending';
   return <>
-    <div className="desktop-content-heading"><Sparkles/><h2>Aura</h2></div>
+    <div className="desktop-content-heading"><Sparkles/><h2>{productName}</h2></div>
     <form className="aura-search" onSubmit={submit}>
       <Sparkles className="aura-star"/>
-      <input aria-label="Pergunte ao Aura" placeholder="Pergunte ao Aura ou descreva uma tarefa..." value={prompt} onChange={event => setPrompt(event.target.value)} disabled={pending}/>
-      <Button type="submit" className="send-button" aria-label="Enviar ao Aura" disabled={pending || !prompt.trim()}><Send/></Button>
+      <input aria-label="Pergunta para a inteligência" placeholder="Faça uma pergunta ou descreva uma tarefa..." value={prompt} onChange={event => setPrompt(event.target.value)} disabled={pending}/>
+      <Button type="submit" className="send-button" aria-label="Enviar pergunta" disabled={pending || !prompt.trim()}><Send/></Button>
     </form>
     {snapshot.state === 'ready' && <p className="service-state" role="status">Modelo disponível: {snapshot.modelId}</p>}
-    {pending && <p className="service-state" role="status">Aura está processando sua solicitação.</p>}
-    {result.state === 'ready' && <article aria-label="Resposta da Aura"><p>{result.text}</p><p className="service-state">{result.engineId} · {result.modelId}</p></article>}
+    {pending && <p className="service-state" role="status">Processando sua solicitação.</p>}
+    {result.state === 'ready' && <article aria-label="Resposta da inteligência"><p>{result.text}</p><p className="service-state">{result.engineId} · {result.modelId}</p></article>}
     {result.state === 'unavailable' && <p className="desktop-unconnected" role="status">{unavailableServices.intelligence}</p>}
     {result.state === 'error' && <p className="desktop-unconnected" role="alert">Não foi possível concluir a solicitação. Tente novamente.</p>}
   </>;

@@ -5,6 +5,7 @@ import { SIDEBAR_LAYOUT, createSidebarMarkup, sidebarBrandMarkup, sidebarNavigat
 import { projectSidebarAccount, sidebarAccountMarkup, sidebarProfileButtonMarkup, sidebarProfileMarkup, mountNativeSidebarAccount } from "../system/surface/ui/sidebar-account.mjs";
 import { SIDEBAR_ENGLISH_MESSAGES } from "../system/services/i18n/catalog/sidebar.mjs";
 import { MERIDIAN_RAIL_DESTINATIONS } from "../system/services/surface/meridian-navigation.mjs";
+import { getSurfaceWindowTitle } from "../system/services/surface/destination-catalog.mjs";
 import { listSurfaceShortcutAppIds } from "../system/services/surface/shortcut-catalog.mjs";
 import { syncDesktopSidebarToggle } from "../system/surface/ui/desktop-shell.mjs";
 
@@ -73,6 +74,24 @@ test("Web and Native share the Meridian rail destination order and grouping", as
   assert.match(sharedSidebarStyles, /\.meridian-workspace \.ordax-product-sidebar \.meridian-native-nav-group \{ display:flex; flex-direction:column; gap:var\(--md-sidebar-nav-gap\);/);
   assert.match(tokens, /--md-sidebar-nav-gap:\.3125rem;/);
 });
+test("OS Surface intelligence presentation reuses its canonical destination title", async () => {
+  const title = getSurfaceWindowTitle("intelligence");
+  const rail = MERIDIAN_RAIL_DESTINATIONS.find(item => item.key === "intelligence");
+  assert.equal(rail.name, title);
+  assert.equal(rail.englishName, title);
+  for (const path of [
+    "../system/surface/workspace/components/intelligence/aura-content.tsx",
+    "../system/surface/workspace/components/central/window-content.tsx",
+    "../system/surface/workspace/lib/web/model.ts",
+    "../system/surface/workspace/components/central/desktop.tsx",
+    "../system/surface/workspace/components/central/meridian-home.tsx",
+  ]) {
+    const source = await readFile(new URL(path, import.meta.url), "utf8");
+    assert.match(source, /getSurfaceWindowTitle|getSurfaceDestination/, path);
+    assert.doesNotMatch(source, /(?:'Aura'|"Aura"|>Aura<)/, path);
+  }
+});
+
 test("Native Meridian navigation markup has matching styles and a clean collapsed rail", async () => {
   const [nativeShell, nativeStyles, sharedSidebarStyles] = await Promise.all([
     readFile(new URL("../system/surface/ui/desktop-shell.mjs", import.meta.url), "utf8"),
