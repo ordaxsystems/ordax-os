@@ -357,6 +357,72 @@ class NativeComponentBuildrootTests(unittest.TestCase):
             with self.assertRaisesRegex(self.mod.BaseError, "missing or unsafe"):
                 self.mod.inspect_native_python_build_input(link, abi)
 
+    def test_private_sdk_requires_same_private_buildroot_target(self):
+        with self.assertRaisesRegex(self.mod.BaseError, "same exported Buildroot target"):
+            self.mod.build_native_python_component(
+                Path("/unused"), Path("/unused"), 1,
+                export_private_sdk=True,
+            )
+
+    def test_private_sdk_official_archive_has_cross_compiler_sysroot_and_relocator(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            archive = root / self.mod.NATIVE_SDK_ARCHIVE
+            prefix = self.mod.NATIVE_SDK_PREFIX
+            python_hash = "a" * 64
+            abi = {"python_sha256": python_hash}
+            def write_tar(*, compiler=True, header=True):
+                with tarfile.open(archive, "w:gz") as data:
+                    paths = [
+                        prefix + "/relocate-sdk.sh",
+                        prefix + "/share/buildroot/sdk-location",
+                    ]
+                    if compiler:
+                        paths.append(prefix + "/bin/x86_64-buildroot-linux-musl-gcc")
+                    if header:
+                        paths.append(prefix + "/x86_64-buildroot-linux-musl/sysroot/usr/include/stdio.h")
+                    for name in paths:
+                        member = tarfile.TarInfo(name)
+                        payload = b"verified-buildroot-sdk"
+                        member.size = len(payload)
+                        data.addfile(member, io.BytesIO(payload))
+            write_tar()
+            proof = self.mod.inspect_native_sdk_build_input(archive, abi)
+            self.assertEqual(proof["python_sha256"], python_hash)
+            self.assertFalse(proof["device_install_authorized"])
+            self.assertFalse(proof["runtime_agent_packaged"])
+            self.assertEqual(proof["purpose"], "native-runtime-cross-compile-input-only")
+            with self.assertRaisesRegex(self.mod.BaseError, "no audited CPython"):
+                self.mod.inspect_native_sdk_build_input(
+                    archive, {"python_sha256": "not-a-hash"}
+                )
+            write_tar(compiler=False)
+            with self.assertRaisesRegex(self.mod.BaseError, "compiler/sysroot"):
+                self.mod.inspect_native_sdk_build_input(archive, abi)
+            write_tar(header=False)
+            with self.assertRaisesRegex(self.mod.BaseError, "compiler/sysroot"):
+                self.mod.inspect_native_sdk_build_input(archive, abi)
+            link = root / "symlink.tar.gz"
+            link.symlink_to(archive)
+            with self.assertRaisesRegex(self.mod.BaseError, "missing or unsafe"):
+                self.mod.inspect_native_sdk_build_input(link, abi)
+
+    def test_native_sdk_cli_is_never_an_independent_build_mode(self):
+        invalid = subprocess.run(
+            [sys.executable, str(BASE / "build.py"), "check",
+             "--export-private-sdk"],
+            capture_output=True, text=True, cwd=ROOT, timeout=20,
+        )
+        self.assertEqual(invalid.returncode, 1, invalid.stdout)
+        self.assertIn("only valid with build-component", invalid.stderr)
+        unpaired = subprocess.run(
+            [sys.executable, str(BASE / "build.py"), "build-component",
+             "--export-private-sdk"],
+            capture_output=True, text=True, cwd=ROOT, timeout=20,
+        )
+        self.assertEqual(unpaired.returncode, 1)
+        self.assertIn("requires --export-private-build-input", unpaired.stderr)
+
     def test_check_component_never_builds_or_authorizes_a_device(self):
         result = subprocess.run(
             [sys.executable, str(BASE / "build.py"), "check-component"],
