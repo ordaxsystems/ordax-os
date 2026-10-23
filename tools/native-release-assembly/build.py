@@ -333,16 +333,9 @@ def verify_tool(destination: Path, spec: dict, record: object) -> dict:
         raise AssemblyError(f"assembled Native helper is missing or unsafe: {spec['relative']}")
     if stat.S_IMODE(helper.stat().st_mode) != 0o755:
         raise AssemblyError(f"assembled Native helper must be mode 0755: {spec['relative']}")
-    expected = {
-        "path": spec["relative"].as_posix(),
-        "role": spec["role"],
-        "source_package": spec["source_package"],
-        "sha256": sha256_file(helper),
-        "size": helper.stat().st_size,
-        "mode": "0755",
-        "physical_apply_authorized": spec["physical_apply_authorized"],
-        "component_publish_authorized": spec["component_publish_authorized"],
-    }
+    # Use the same single provenance policy as assembly, including the
+    # exact external Creator commit and Git tree for the Native helper.
+    expected = tool_provenance(spec, helper)
     if record != expected:
         raise AssemblyError(
             f"Native helper provenance does not match assembled bytes: {spec['relative']}"
