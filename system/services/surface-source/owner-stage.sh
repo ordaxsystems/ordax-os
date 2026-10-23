@@ -45,6 +45,30 @@ case "$stage_dir" in /*) ;; *) exit 2 ;; esac
 [ -d "$stage_dir" ] && [ ! -L "$stage_dir" ] || exit 2
 [ -d "$stage_dir/system" ] && [ ! -L "$stage_dir/system" ] || exit 2
 
+# Detect changed, missing, injected or linked files on every canonical start.
+# The manifest records the exact staged *relative* paths so a slot may be
+# atomically moved from .staging to releases/<SHA> without invalidating it.
+source_integrity() {
+    expected=$stage_dir/.surface-file-hashes
+    [ -f "$expected" ] && [ ! -L "$expected" ] || return 1
+    (
+        cd "$stage_dir" || exit 1
+        for part in system/surface/ui system/surface/workspace; do
+            [ -d "$part" ] && [ ! -L "$part" ] || exit 1
+            [ -z "$(/bin/busybox find "$part" ! -type d ! -type f -print)" ] || exit 1
+        done
+        expected_paths=.surface-expected-paths.$
+        found_paths=.surface-actual-paths.$
+        trap 'rm -f "$expected_paths" "$found_paths"' EXIT
+        /bin/busybox awk '{ print substr($0, 67) }' "$expected" |
+            LC_ALL=C /bin/busybox sort > "$expected_paths" || exit 1
+        /bin/busybox find system/surface/ui system/surface/workspace -type f -print |
+            LC_ALL=C /bin/busybox sort > "$found_paths" || exit 1
+        /bin/busybox cmp -s "$expected_paths" "$found_paths" || exit 1
+        /bin/busybox sha256sum -c "$expected" >/dev/null 2>&1
+    )
+}
+
 if [ "$command" = ready ]; then
     [ "$status" = canonical ] || exit 1
     [ -f "$stage_dir/.ready" ] && [ ! -L "$stage_dir/.ready" ] || exit 1
@@ -59,6 +83,7 @@ if [ "$command" = ready ]; then
     [ -d "$stage_dir/system/surface/workspace" ] || exit 1
     [ ! -L "$stage_dir/system/surface/ui" ] || exit 1
     [ ! -L "$stage_dir/system/surface/workspace" ] || exit 1
+    source_integrity || exit 1
     exit 0
 fi
 
@@ -102,6 +127,15 @@ rm -rf "$surface_root/ui" "$surface_root/workspace" || exit 1
 /bin/busybox tar -xf "$archive" -C "$stage_dir" || exit 1
 [ -f "$surface_root/ui/surface.mjs" ] || exit 1
 [ -d "$surface_root/workspace" ] || exit 1
+(
+    cd "$stage_dir" || exit 1
+    /bin/busybox find system/surface/ui system/surface/workspace -type f -print |
+        LC_ALL=C /bin/busybox sort |
+        while IFS= read -r visual_file; do
+            /bin/busybox sha256sum "$visual_file" || exit 1
+        done > .surface-file-hashes
+) || exit 1
+source_integrity || exit 1
 printf '%s\n' "$visual_sha" >"$stage_dir/.surface-source-sha"
 rm -rf "$git_root"
 rm -f "$archive"
