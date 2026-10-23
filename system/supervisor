@@ -5,6 +5,7 @@ SYSTEM_ROOT=${0%/*}
 SYSTEM_ENTRYPOINT=$SYSTEM_ROOT/entrypoint
 SUPERVISOR_SCRIPT=$SYSTEM_ROOT/supervisor
 SURFACE_ENTRYPOINT=$SYSTEM_ROOT/surface/entrypoint
+OWNER_SURFACE_STAGE_HELPER=$SYSTEM_ROOT/services/surface-source/owner-stage.sh
 RECOVERY_ENTRYPOINT=/ordax/bootstrap/recovery/entrypoint
 WORKTREE=${ORDAX_WORKTREE:-/workspace/ordax}
 STATE_DIR=${ORDAX_STATE_DIR:-/state/ordax}
@@ -628,9 +629,14 @@ stage_candidate_release() {
     stage_started=$(epoch_now)
     release_slot=$RELEASES_DIR/$candidate_sha
     if [ -f "$release_slot/.ready" ] && [ -d "$release_slot/system" ]; then
-        write_state_value "$STAGED_RELEASE_FILE" "$candidate_sha"
-        write_state_value "$LAST_STAGE_DURATION_FILE" "0"
-        return 0
+        existing_surface_status=$(/bin/sh "$OWNER_SURFACE_STAGE_HELPER" status "$WORKTREE" "$candidate_sha" 2>>"$UPDATE_LOG" || true)
+        if [ "$existing_surface_status" != canonical ] || ORDAX_GIT_BIN="$GIT_BIN" /bin/sh "$OWNER_SURFACE_STAGE_HELPER" ready "$WORKTREE" "$candidate_sha" "$release_slot" >>"$UPDATE_LOG" 2>&1; then
+            write_state_value "$STAGED_RELEASE_FILE" "$candidate_sha"
+            write_state_value "$LAST_STAGE_DURATION_FILE" "0"
+            return 0
+        fi
+        log "stale or unverified Surface release slot invalidated for $candidate_sha"
+        rm -rf "$release_slot"
     fi
 
     stage_dir=$RELEASES_DIR/.staging-$candidate_sha-$(epoch_now)
@@ -655,6 +661,16 @@ stage_candidate_release() {
         return 1
     fi
     rm -f "$stage_archive"
+
+    # The same Owner Supervisor owns the exact cross-repository candidate.
+    # On noncanonical locks the helper is a no-op; after cutover a failed
+    # fetch or mismatched Git SHA rejects this candidate BEFORE live checkout.
+    if ! ORDAX_GIT_BIN="$GIT_BIN" /bin/sh "$OWNER_SURFACE_STAGE_HELPER" stage "$WORKTREE" "$candidate_sha" "$stage_dir" >>"$UPDATE_LOG" 2>&1; then
+        log "pinned external Surface staging failed for $candidate_sha; keeping current checkout"
+        rm -rf "$stage_dir"
+        record_elapsed_seconds "$stage_started" "$LAST_STAGE_DURATION_FILE"
+        return 1
+    fi
 
     if ! staged_release_tree_is_valid "$stage_dir/system" "$candidate_mode"; then
         log "staged candidate release validation failed for $candidate_sha"
@@ -1194,7 +1210,20 @@ start_surface_from_system() {
 }
 
 start_surface() {
-    start_surface_from_system "$SYSTEM_ROOT" "$(current_sha)"
+    active_os_sha=$(current_sha)
+    if [ "$DISTRIBUTION_PROFILE" = owner-development ] && [ -f "$OWNER_SURFACE_STAGE_HELPER" ]; then
+        source_status=$(ORDAX_GIT_BIN="$GIT_BIN" /bin/sh "$OWNER_SURFACE_STAGE_HELPER" status "$WORKTREE" "$active_os_sha" 2>>"$UPDATE_LOG") || return 1
+        if [ "$source_status" = canonical ]; then
+            active_slot=$RELEASES_DIR/$active_os_sha
+            if ORDAX_GIT_BIN="$GIT_BIN" /bin/sh "$OWNER_SURFACE_STAGE_HELPER" ready "$WORKTREE" "$active_os_sha" "$active_slot" >>"$UPDATE_LOG" 2>&1; then
+                start_surface_from_system "$active_slot/system" "$active_os_sha"
+                return $?
+            fi
+            log "canonical Surface release for $active_os_sha was not fully staged; refusing legacy fallback"
+            return 1
+        fi
+    fi
+    start_surface_from_system "$SYSTEM_ROOT" "$active_os_sha"
 }
 
 # Surface owns the Native HTTP process until the Supervisor/mount cutover.
@@ -1693,6 +1722,17 @@ classify_changes() {
 $changed_paths
 EOF
     rm -f "$helper_manifest"
+
+    # A canonical external visual source must be staged for the exact OS
+    # revision even when only a live-reload/metadata path changed. Do not
+    # restart from a checkout whose visual directories are no longer tracked.
+    candidate_surface_status=$(ORDAX_GIT_BIN="$GIT_BIN" /bin/sh "$OWNER_SURFACE_STAGE_HELPER" status "$WORKTREE" "$new_sha" 2>>"$UPDATE_LOG" || true)
+    if [ "$candidate_surface_status" = canonical ]; then
+        surface_host_changed=1
+    elif [ -z "$candidate_surface_status" ]; then
+        # Unknown source contract is not a live-reload-safe candidate.
+        surface_host_changed=1
+    fi
 
     if [ "$supervisor_changed" -eq 1 ]; then
         APPLY_MODE=supervisor-restart
