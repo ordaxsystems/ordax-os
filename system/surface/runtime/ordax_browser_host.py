@@ -886,6 +886,11 @@ class OrdaXBrowserHost:
         if load_event == WebKit2.LoadEvent.STARTED:
             self.record_surface_loading_event("surface-page-load-started")
             self.suspend_intelligence_listener()
+            # A new privileged page is a new boot lifecycle. Results from a
+            # previous page/nonce must not attest pending components now.
+            self.component_probation_started = False
+            self.component_probation_nonces.clear()
+            self.component_probation_rerun_requested.clear()
             return
         if load_event == WebKit2.LoadEvent.COMMITTED:
             self.record_surface_loading_event("surface-page-load-committed")
@@ -898,10 +903,9 @@ class OrdaXBrowserHost:
             # whose Native health request is not reaching the Supervisor.
             GLib.timeout_add_seconds(7, self.emit_qemu_surface_boot_observation)
             GLib.timeout_add_seconds(25, self.emit_qemu_surface_boot_observation)
-        if self.component_probation_started:
-            return
-        self.component_probation_started = True
-        self.start_component_probation(SUPPORTED_PROBATION_COMPONENTS)
+        # HTML load completion is NOT Surface readiness: ES module bootstrap
+        # still registers probation/trusted-context providers asynchronously.
+        # The real shell-ready event below owns the only automatic start.
 
     def on_surface_load_failed(
         self, _view: object, _event: object, _failing_uri: str, _error: object
@@ -915,9 +919,22 @@ class OrdaXBrowserHost:
         self.surface_web_process_failed = True
         Gtk.main_quit()
 
+    def handle_surface_shell_ready(self, payload: dict) -> None:
+        if set(payload) != {"type"}:
+            raise ValueError("Surface shell ready fields are invalid")
+        if self.component_probation_started:
+            return
+        # This notification comes through the existing isolated, same-origin
+        # Native host bridge only after the real Surface shell has mounted.
+        # It does not create a health receipt or bypass the Supervisor.
+        self.component_probation_started = True
+        self.start_component_probation(SUPPORTED_PROBATION_COMPONENTS)
+
     def handle_component_probation_request(self, payload: dict) -> None:
         if set(payload) != {"type", "componentId"}:
             raise ValueError("component probation request fields are invalid")
+        if not self.component_probation_started:
+            raise PermissionError("Component probation requires mounted Surface shell")
         component_id = payload.get("componentId")
         if component_id not in SUPPORTED_PROBATION_COMPONENTS:
             raise ValueError("unsupported component probation request")
@@ -1156,6 +1173,8 @@ class OrdaXBrowserHost:
                 self.history_action(payload.get("tabId"), "reload")
             elif command == "viewport.set":
                 self.set_viewport(payload.get("viewport"))
+            elif command == "surface.shell.ready":
+                self.handle_surface_shell_ready(payload)
             elif command == "component.probation.request":
                 self.handle_component_probation_request(payload)
             elif command == "component.probation.result":

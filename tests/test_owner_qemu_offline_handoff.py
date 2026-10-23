@@ -160,6 +160,66 @@ class OwnerQemuHandoffTests(unittest.TestCase):
             opened.assert_not_called()
             wrote.assert_not_called()
 
+    def test_native_component_probation_is_gated_on_real_surface_ready(self):
+        source = ROOT / "system/surface/runtime/ordax_browser_host.py"
+        parsed = ast.parse(source.read_text(encoding="utf-8"), filename=str(source))
+        method_names = {"handle_surface_shell_ready",
+                        "handle_component_probation_request"}
+        methods = [
+            method for cls in parsed.body if isinstance(cls, ast.ClassDef)
+            for method in cls.body
+            if isinstance(method, ast.FunctionDef) and method.name in method_names
+        ]
+        self.assertEqual({method.name for method in methods}, method_names)
+        scope = {"SUPPORTED_PROBATION_COMPONENTS": ("files",)}
+        exec(compile(ast.Module(body=methods, type_ignores=[]),
+                     str(source), "exec"), scope)
+
+        class Host:
+            component_probation_started = False
+
+            def __init__(self):
+                self.probations = []
+
+            def start_component_probation(self, components):
+                self.probations.append(components)
+                return True
+
+        host = Host()
+        request = scope["handle_component_probation_request"]
+        ready = scope["handle_surface_shell_ready"]
+        with self.assertRaisesRegex(PermissionError, "mounted Surface shell"):
+            request(host, {"type": "component.probation.request",
+                           "componentId": "files"})
+        self.assertEqual(host.probations, [])
+        with self.assertRaisesRegex(ValueError, "fields"):
+            ready(host, {"type": "surface.shell.ready", "forged": "1"})
+        ready(host, {"type": "surface.shell.ready"})
+        ready(host, {"type": "surface.shell.ready"})
+        self.assertEqual(host.probations, [("files",)])
+        request(host, {"type": "component.probation.request",
+                       "componentId": "files"})
+        self.assertEqual(host.probations, [("files",), ("files",)])
+
+        browser = source.read_text(encoding="utf-8")
+        on_loaded = browser.split("def on_surface_load_changed(", 1)[1].split(
+            "\n    def on_surface_load_failed(", 1
+        )[0]
+        self.assertNotIn("start_component_probation(", on_loaded)
+        self.assertIn("self.component_probation_nonces.clear()", on_loaded)
+        self.assertIn("self.component_probation_rerun_requested.clear()", on_loaded)
+        composition = (
+            ROOT / "system/composition/native/main.mjs"
+        ).read_text(encoding="utf-8")
+        ready_at = composition.index("bootScreen.ready()")
+        heartbeat_at = composition.index(
+            "const surfaceHeartbeat = createNativeSurfaceHeartbeat(window)")
+        probation_at = composition.index(
+            'postNativeHostMessage(window, { type: "surface.shell.ready" })')
+        self.assertLess(ready_at, heartbeat_at)
+        self.assertLess(heartbeat_at, probation_at)
+        self.assertIn('elif command == "surface.shell.ready":', browser)
+
     def test_actual_qmp_framebuffer_checks_color_distribution(self):
         with tempfile.TemporaryDirectory() as tmp:
             image = Path(tmp) / "qemu.ppm"
