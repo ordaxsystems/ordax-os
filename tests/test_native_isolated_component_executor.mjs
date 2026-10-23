@@ -389,6 +389,58 @@ test("Aura aborts old local inference across rapid Identity switches and rejects
   assert.equal(identityListeners.size, 0);
 });
 
+test("foreground cancellation aborts only the matching Native inference request", async () => {
+  const env = setup({ componentId: "assistant", version: "0.1.2" });
+  const url = MODULE.replace("notes/current/0.4.2", "assistant/current/0.1.2");
+  const identity = {
+    schema: "ordax.identity-session/1",
+    getSnapshot: () => ({ state: "unavailable", subjectId: null, displayName: null }),
+    subscribe: () => () => {},
+  };
+  const selection = {
+    schema: "ordax.space-selection/1",
+    getSnapshot: () => ({ schema: "ordax.space-selection/1", state: "unavailable", subjectId: null, selectedSpace: null }),
+    subscribe: () => () => {}, select() {}, clear() {},
+  };
+  let started;
+  let aborted = false;
+  const startedPromise = new Promise(resolve => { started = resolve; });
+  const intelligence = {
+    schema: "ordax.intelligence/1",
+    getSnapshot: () => ({
+      state: "ready", inferenceAvailable: true, authority: "none",
+      toolExecution: false, engineId: "local", modelId: "test-model",
+    }),
+    subscribe: () => () => {},
+    respond(_request, options) {
+      started();
+      return new Promise((resolve, reject) => {
+        options.signal.addEventListener("abort", () => {
+          aborted = true;
+          reject(new Error("Native inference cancelled"));
+        }, { once: true });
+      });
+    },
+  };
+  const imported = await env.importer(url, env.currentSlot);
+  const mounted = await imported.componentRuntime.mount({
+    root: env.root, surfaceLifecycle: env.lifecycle, appData: env.appData,
+    identitySessionPort: identity, spaceSelectionPort: selection, intelligence,
+  });
+  const frame = env.root.childNodes[0];
+  const replyPromise = mountedMessage(frame);
+  frame.childPort.postMessage({
+    schema: BRIDGE, type: "call", id: 1,
+    operation: "intelligence.respond", args: [{ prompt: "Cancelar geração" }],
+  });
+  await startedPromise;
+  frame.childPort.postMessage({ schema: BRIDGE, type: "cancel", id: 1 });
+  const reply = await replyPromise;
+  assert.equal(reply.ok, false);
+  assert.equal(aborted, true);
+  await mounted.destroy();
+});
+
 test("non-Aura signed slots cannot request or obtain Aura's privileged host snapshots", async () => {
   const env = setup();
   const imported = await env.importer(MODULE, env.currentSlot);
