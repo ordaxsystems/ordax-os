@@ -59,6 +59,9 @@ jobs:
       - name: Validate typed Connector adapter before generating presentation
         run: node --test tests/test_product_connector_adapter.mjs
 
+      - name: Prepare verified Surface from external owner for disposable CI
+        uses: ./.github/actions/prepare-verified-surface
+
       - name: Regenerate and publish canonical artifacts from latest branch
         env:
           GH_TOKEN: ${{ github.token }}
