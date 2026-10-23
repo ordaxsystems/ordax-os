@@ -21,6 +21,8 @@ on:
       - 'tools/creator/cmd/ordax-creator/**'
       - 'tools/creator/proof/native_esp.py'
       - 'tools/creator/proof/native_qemu_boot.py'
+      - 'tests/test_native_qemu_boot_readiness.py'
+      - 'tests/test_native_qemu_boot_proof_contract.py'
       - '.github/workflows/native-esp-candidate.yml'
   pull_request:
     paths:
@@ -41,6 +43,8 @@ on:
       - 'tools/creator/cmd/ordax-creator/**'
       - 'tools/creator/proof/native_esp.py'
       - 'tools/creator/proof/native_qemu_boot.py'
+      - 'tests/test_native_qemu_boot_readiness.py'
+      - 'tests/test_native_qemu_boot_proof_contract.py'
       - '.github/workflows/native-esp-candidate.yml'
   workflow_dispatch:
 
