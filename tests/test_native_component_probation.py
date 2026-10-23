@@ -53,39 +53,6 @@ def message(
 
 
 class NativeComponentProbationTests(unittest.TestCase):
-    def test_auto_probation_waits_for_authenticated_native_surface_health(self):
-        browser = (
-            ROOT / "system/surface/runtime/ordax_browser_host.py"
-        ).read_text(encoding="utf-8")
-        native_main = (
-            ROOT / "system/composition/native/main.mjs"
-        ).read_text(encoding="utf-8")
-        watcher = (
-            ROOT / "system/adapters/native/update-runtime.mjs"
-        ).read_text(encoding="utf-8")
-        load = browser.split("def on_surface_load_changed(", 1)[1]
-        load = load.split("def on_surface_load_failed(", 1)[0]
-        self.assertNotIn("start_component_probation(", load)
-        self.assertIn("surface-page-load-finished", load)
-        self.assertIn('command == "component.probation.request"', browser)
-        self.assertIn(
-            'self.start_component_probation((component_id,))',
-            browser,
-        )
-        self.assertIn("onHealthConfirmed: () => {", native_main)
-        self.assertIn(
-            "EXTERNAL_FIRST_PARTY_NATIVE_PROBATION_IDS",
-            native_main,
-        )
-        self.assertIn('type: "component.probation.request"', native_main)
-        self.assertIn('if (!response.ok) return false;', watcher)
-        self.assertLess(
-            watcher.index("healthSubmittedSha = renderedSourceSha;"),
-            watcher.index("onHealthConfirmed(renderedSourceSha);"),
-        )
-        self.assertIn('void updateWatcher.markHealthy();', native_main)
-        self.assertIn('createNativeSurfaceHeartbeat(window)', native_main)
-
     def test_system_probation_scope_is_canonical_and_read_only_until_authorized(self):
         policy = json.loads(
             (ROOT / "docs/contracts/runtime-component-package.json").read_text(encoding="utf-8")

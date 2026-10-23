@@ -4,6 +4,7 @@ import { mountNativeSidebarAccount } from "../../surface/ui/sidebar-account.mjs"
 import {
   createNativeClientDiagnostics,
   renderedSourceSha,
+  sanitizeClientDiagnostic,
 } from "../../adapters/native/client-diagnostics.mjs";
 import { createNativeBrowserSession } from "../../adapters/native/browser-session.mjs";
 import { createNativeComponentStateStore } from "../../adapters/native/component-state.mjs";
@@ -92,7 +93,6 @@ import { createApplicationSemanticRouter } from "../../services/intelligence/app
 import {
   EXTERNAL_FIRST_PARTY_COMPONENT_IDS,
   EXTERNAL_FIRST_PARTY_OWNER,
-  EXTERNAL_FIRST_PARTY_NATIVE_PROBATION_IDS,
   hasNativeExternalFirstPartyModuleRead,
 } from "../../services/apps/external-first-party-policy.mjs";
 import {
@@ -707,24 +707,7 @@ async function start() {
   }
   const syncTransport = createWebSyncTransport(window);
   const appActivation = createAppActivationChannel();
-  const updateWatcher = createNativeUpdateWatcher(window, {
-    onHealthConfirmed: () => {
-      // Pending component probation belongs after the real shell is healthy,
-      // not WebKit document-load completion. The Native Host has already
-      // authenticated and recorded this exact Surface health receipt.
-      if (!hasNativeHostBridge(window)) return;
-      for (const componentId of EXTERNAL_FIRST_PARTY_NATIVE_PROBATION_IDS) {
-        try {
-          postNativeHostMessage(window, {
-            type: "component.probation.request",
-            componentId,
-          });
-        } catch (error) {
-          console.warn("OrdaX optional component probation remains pending", error);
-        }
-      }
-    },
-  });
+  const updateWatcher = createNativeUpdateWatcher(window);
   const notifications = createNotificationsRuntime({
     store: createNativeNotificationStore(window),
   });
@@ -1036,6 +1019,18 @@ async function start() {
   componentManager.setCurrentHealth("surface-shell", "healthy");
   void updateWatcher.markHealthy();
   const surfaceHeartbeat = createNativeSurfaceHeartbeat(window);
+  // WebKit's load-finished event precedes ES module composition. Starting
+  // component probation at that point can seal the context-provider registry
+  // before its canonical Native providers have installed. Reuse the single
+  // privileged host bridge after the real shell/heartbeat is established.
+  // This message never claims Supervisor health or grants component access.
+  if (hasNativeHostBridge(window)) {
+    try {
+      postNativeHostMessage(window, { type: "surface.shell.ready" });
+    } catch (error) {
+      reportClientDiagnostic("component-probation-start", error);
+    }
+  }
 
   // Optional Aura discovery can compete for the Native Host while booting.
   // Keep its existing bounded, read-only retry supervisor; start it only
@@ -1120,7 +1115,6 @@ async function start() {
   );
   surface.replaceAppCatalog(activeExternalCatalog.catalog);
 
-  bootScreen.setStage(surface.localization.translate("surface.boot.preparingFirstRun"));
   // First Run reads the already-verified Store projection and its matching
   // ephemeral Native current observations. It has NO installation authority.
   let firstRunAppSelection = null;
@@ -1245,5 +1239,22 @@ async function start() {
 start().catch((error) => {
   filesProbationContextBootstrap?.fail(error);
   bootScreen.fail(bootText("surface.boot.failed"));
+  // The Native diagnostic POST may be unavailable during a failed bootstrap.
+  // Keep only its existing sanitized, bounded identity on the local boot
+  // element so the isolated Owner QEMU WebKit probe can report the real
+  // failure without accessing page text, tokens or untrusted URLs.
+  const { errorName, source } = sanitizeClientDiagnostic("composition-bootstrap", error);
+  const bootElement = document.getElementById("ordax-boot-screen");
+  if (bootElement) {
+    bootElement.dataset.errorName = errorName;
+    bootElement.dataset.errorSource = source;
+  }
   console.error("OrdaX native composition failed", error);
+  // A failed composition may never reach the normal diagnostic port binding.
+  // Reuse the authorized Native diagnostic token and its redacted error schema
+  // so the next offline audit can identify the exception behind a rollback.
+  // This is observation only: never assert healthy or retry boot here.
+  void createNativeClientDiagnostics(window)
+    .then((diagnostics) => diagnostics.report(renderedSourceSha(window), "composition-bootstrap", error))
+    .catch(() => {});
 });

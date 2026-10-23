@@ -15,6 +15,7 @@ export const FIRST_RUN_APP_SELECTION_SCHEMA = "ordax.first-run-app-selection/1";
 const DEFAULT_APP_IDS = Object.freeze([
   "files",
   "internet",
+  "assistant", // Aura app UI; only eligible after verified package + current Native absence.
   "notes",
   "calculator",
   "clock",

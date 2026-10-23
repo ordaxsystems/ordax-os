@@ -140,9 +140,14 @@ ORDAX_OWNER_SIGNED_STATE_HELPER=/mnt/disposable/ordax-portable-state \
 The native helper must be the real compiled `bootstrap/initramfs/portable_state.c`,
 not a replacement verifier. Signature or SHA mismatch prevents native
 inspection. Corrupt or inconsistent state is rejected by the native reader.
-The audit only signs off on **candidate authenticity and observed fixture
-shape**; it does not authenticate every historical slot through its JSON,
-prove the Owner Git boot can enter Portable, arm or commit a transaction,
+This v4-only audit first authenticates the staged candidate, then reads
+`current` and `known-good` from the native state helper and independently
+revalidates each distinct signed v4 release through the **same** Go agent
+before the read-only state snapshot. A missing, malformed or tampered recovery
+slot blocks the audit. This is signed Portable fixture validation, **not**
+proof that an Owner/Development Git checkout is a signed Portable slot.
+The audit does not authenticate every historical/rejected slot, prove the
+Owner Git boot can enter Portable, arm or commit a transaction,
 modify a live USB, start a VM, or authorize Stable release promotion. The
 active Dev transport remains Git-first, with no runtime method selector.
 This auditable boundary precedes a distinct disposable mixed-profile

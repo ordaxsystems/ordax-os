@@ -9,7 +9,7 @@ HISTORY_ADAPTER = ROOT / "system" / "adapters" / "native" / "update-history.mjs"
 CONTROLS = ROOT / "system" / "surface" / "ui" / "system-overview-controls.mjs"
 NATIVE_COMPOSITION = ROOT / "system" / "composition" / "native" / "main.mjs"
 WEB_COMPOSITION = ROOT / "system" / "composition" / "web" / "main.tsx"
-SYSTEM_APP = ROOT / "system" / "apps" / "system" / "app.mjs"
+SYSTEM_APP = ROOT / "system" / "services" / "system-ui" / "system" / "app.mjs"
 SYSTEM_CSS = ROOT / "system" / "surface" / "ui" / "system.css"
 UPDATE_PRESENTATION = ROOT / "system" / "services" / "update" / "presentation.mjs"
 
@@ -84,10 +84,7 @@ class SystemRuntimeStatusTests(unittest.TestCase):
 
     def test_native_composition_reuses_one_update_watcher_and_one_system_view(self):
         composition = NATIVE_COMPOSITION.read_text(encoding="utf-8")
-        self.assertEqual(composition.count("createNativeUpdateWatcher(window,"), 1)
-        self.assertIn("onHealthConfirmed: () => {", composition)
-        self.assertIn('type: "component.probation.request"', composition)
-        self.assertIn("EXTERNAL_FIRST_PARTY_NATIVE_PROBATION_IDS", composition)
+        self.assertEqual(composition.count("createNativeUpdateWatcher(window)"), 1)
         self.assertIn("mountSystemOverviewControls(", composition)
         self.assertIn("root,\n    host,\n    updateWatcher,\n    systemMetrics,\n    surface,\n    updateHistory,\n    appActivation,", composition)
         self.assertIn("createNativeUpdateHistory(window)", composition)

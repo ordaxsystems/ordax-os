@@ -1,8 +1,10 @@
 # Apps — ownership e catálogo atual
 
-`system/apps/` contém somente as implementações first-party ainda pertencentes ao
-OrdaX OS. Identidade, política de entrega e descoberta de aplicativos externos
-podem existir sem um payload de aplicativo embutido.
+`system/apps/` concentra os catálogos de apresentação e as implementações
+removíveis cujo corte ainda está pendente (Arquivos).
+Conta, Ajustes, Loja e Sistema pertencem a `system/services/system-ui/`, pois são interfaces
+integradas ao sistema e não produtos distribuíveis pela Loja. A descoberta de
+aplicativos externos não exige código de produto embutido no OrdaX OS.
 
 Os módulos são compartilhados entre Web/Native/Desktop por contratos públicos e
 portas de capacidade, nunca por cópias de UI específicas de cada host.
@@ -15,15 +17,13 @@ A fonte executável é `system/apps/catalog.mjs`, validada por
 | App | Fonte local | Natureza / entrega |
 | --- | --- | --- |
 | Arquivos (`files`) | `system/apps/files/` | App removível, `bundled` enquanto não houver handoff bootstrap assinado |
-| Studio (`studio`) | `system/apps/studio/` | Integração local `git-app`; produto portátil canônico em `ordax-apps/apps/studio` |
-| Ajustes (`settings`) | `system/apps/settings/` | Superfície estrutural `bundled` |
-| Conta (`account`) | `system/apps/account/` | Superfície estrutural `bundled` |
-| Loja (`store`) | `system/apps/store/` | Superfície estrutural `bundled` |
-| Sistema (`system`) | `system/apps/system/` | Superfície estrutural `bundled` |
+| Ajustes (`settings`) | `system/services/system-ui/settings/` | Superfície estrutural `bundled` |
+| Conta (`account`) | `system/services/system-ui/account/` | Superfície estrutural `bundled` |
+| Loja (`store`) | `system/services/system-ui/store/` | Superfície estrutural `bundled` |
+| Sistema (`system`) | `system/services/system-ui/system/` | Superfície estrutural `bundled` |
 
 Os manifestos do catálogo de componentes pertencem aos seus owners locais:
-`system/apps/files/component.mjs`,
-`system/apps/studio/component.mjs` e
+`system/apps/files/component.mjs` e
 `system/services/components/manifests/apps.mjs`. Não registrar um mesmo
 `appId` simultaneamente como embutido e como `component-slot` externo:
 `system/apps/runtime-catalog.mjs` rejeita a colisão em vez de esconder uma
@@ -66,7 +66,7 @@ não mover os engines, grants ou políticas do host junto com a UI Internet.
 
 ## Boundary
 
-Apps não importam `system/surface/` ou adapters concretos como dependências
+Apps não importam `system/services/system-ui/` ou adapters concretos como dependências
 privadas; os contratos e a composição do host injetam capacidades. Não criar
 `apps-web`, `apps-mobile`, `apps-desktop` ou catálogos de instalação
 paralelos. `system/services/apps/delivery-policy.mjs` descreve elegibilidade;

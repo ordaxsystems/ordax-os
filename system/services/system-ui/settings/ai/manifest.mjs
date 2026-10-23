@@ -1,4 +1,4 @@
-import { validateAppIntelligenceManifest } from "../../../contracts/app-intelligence-manifest.mjs";
+import { validateAppIntelligenceManifest } from "../../../../contracts/app-intelligence-manifest.mjs";
 import { settingsApp } from "../app.mjs";
 
 export const settingsIntelligenceManifest = validateAppIntelligenceManifest({

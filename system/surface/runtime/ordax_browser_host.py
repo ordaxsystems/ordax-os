@@ -161,6 +161,11 @@ OWNER_GRAPHICS_PROBE_EVENTS = frozenset({
     "surface-page-load-finished",
     "surface-page-load-failed",
     "surface-web-process-terminated",
+    "surface-boot-loading",
+    "surface-boot-error",
+    "surface-boot-ready",
+    "surface-boot-missing",
+    "surface-boot-probe-unavailable",
 })
 
 
@@ -174,19 +179,41 @@ def owner_qemu_graphics_probe_enabled(distribution_profile: str) -> bool:
         return False
 
 
-def emit_owner_graphics_probe(enabled: bool, event: str) -> None:
-    if not enabled or event not in OWNER_GRAPHICS_PROBE_EVENTS:
+def _emit_owner_qemu_serial(enabled: bool, line: str) -> None:
+    if not enabled or not isinstance(line, str) or len(line) > 240 or not line.isascii():
         return
-    # Debug output is disabled on ordinary boots. In the isolated Owner QEMU
-    # gate, emit only genuine WebKit callbacks via the kernel serial device.
+    # One QEMU-only serial authority. Ordinary physical boots emit nothing.
     try:
         descriptor = os.open("/dev/ttyS0", os.O_WRONLY | os.O_NOCTTY | os.O_NONBLOCK)
         try:
-            os.write(descriptor, f"ORDAX_OWNER_WEBKIT_EVENT={event}\n".encode("ascii"))
+            os.write(descriptor, (line + "\n").encode("ascii"))
         finally:
             os.close(descriptor)
     except OSError:
         pass
+
+
+def emit_owner_graphics_probe(enabled: bool, event: str) -> None:
+    if event not in OWNER_GRAPHICS_PROBE_EVENTS:
+        return
+    _emit_owner_qemu_serial(enabled, f"ORDAX_OWNER_WEBKIT_EVENT={event}")
+
+
+def emit_owner_boot_error_probe(enabled: bool, error_name: str, source: str) -> None:
+    # Match the already-authorized Native client-diagnostic schema exactly.
+    # The exception message, stack, page HTML and user data never leave WebKit.
+    if (not isinstance(error_name, str)
+            or re.fullmatch(r"[A-Za-z][A-Za-z0-9]{0,63}", error_name) is None
+            or not isinstance(source, str)
+            or (source and re.fullmatch(
+                r"[A-Za-z0-9_.-]+\.mjs:[1-9][0-9]{0,5}:[1-9][0-9]{0,5}", source
+            ) is None)):
+        return
+    report = json.dumps(
+        {"errorName": error_name, "source": source},
+        separators=(",", ":"), sort_keys=True, ensure_ascii=True,
+    )
+    _emit_owner_qemu_serial(enabled, "ORDAX_OWNER_WEBKIT_BOOT_DIAGNOSTIC=" + report)
 
 
 HOST_SHORTCUTS = (
@@ -347,6 +374,7 @@ class OrdaXBrowserHost:
         else:
             self.app_data_bootstrap_bindings = ()
         self.app_data_bootstrap_served = False
+        self.component_probation_started = False
         self.component_probation_nonces: dict[str, str] = {}
         self.component_probation_rerun_requested: set[str] = set()
         self.session_path = os.path.join(self.profile_root, "session.json")
@@ -811,10 +839,58 @@ class OrdaXBrowserHost:
         print(f"ordax-browser-host: {event}", file=sys.stderr, flush=True)
         emit_owner_graphics_probe(self.owner_graphics_probe_enabled, event)
 
+    def emit_qemu_surface_boot_observation(self) -> bool:
+        """QEMU-only, bounded observation of the EXISTING boot overlay.
+
+        Read one fixed vocabulary from the trusted Surface WebView. No HTML,
+        URLs, user content, exceptions or privilege tokens leave the host.
+        Never acknowledge health or change its failure/rollback policy.
+        """
+        if not self.owner_graphics_probe_enabled:
+            return False
+
+        def complete(view: object, result: object, _user_data: object) -> None:
+            state = "probe-unavailable"
+            try:
+                answer = view.run_javascript_finish(result)
+                raw = answer.get_js_value().to_string()
+                if len(raw) <= 240:
+                    value = json.loads(raw)
+                    if isinstance(value, dict) and value.get("state") in {
+                        "loading", "error", "ready", "missing",
+                    }:
+                        state = value["state"]
+                        if state == "error":
+                            emit_owner_boot_error_probe(
+                                self.owner_graphics_probe_enabled,
+                                value.get("errorName", ""),
+                                value.get("source", ""),
+                            )
+            except Exception:
+                pass
+            self.record_surface_loading_event(f"surface-boot-{state}")
+
+        try:
+            self.surface_view.run_javascript(
+                "(function(){const el=document.getElementById('ordax-boot-screen');"
+                "const d=el&&el.dataset;"
+                "return JSON.stringify({state:d&&d.state||'missing',"
+                "errorName:d&&d.errorName||'',source:d&&d.errorSource||''});})()",
+                None, complete, None,
+            )
+        except Exception:
+            self.record_surface_loading_event("surface-boot-probe-unavailable")
+        return False
+
     def on_surface_load_changed(self, _view: object, load_event: object) -> None:
         if load_event == WebKit2.LoadEvent.STARTED:
             self.record_surface_loading_event("surface-page-load-started")
             self.suspend_intelligence_listener()
+            # A new privileged page is a new boot lifecycle. Results from a
+            # previous page/nonce must not attest pending components now.
+            self.component_probation_started = False
+            self.component_probation_nonces.clear()
+            self.component_probation_rerun_requested.clear()
             return
         if load_event == WebKit2.LoadEvent.COMMITTED:
             self.record_surface_loading_event("surface-page-load-committed")
@@ -822,9 +898,14 @@ class OrdaXBrowserHost:
         if load_event != WebKit2.LoadEvent.FINISHED:
             return
         self.record_surface_loading_event("surface-page-load-finished")
-        # Document load is NOT Surface health. The JS composition explicitly
-        # requests the already-authorized probation only after its Native
-        # update watcher receives the real health acknowledgement.
+        if self.owner_graphics_probe_enabled:
+            # Differentiate a JS import/bootstrap failure from a healthy shell
+            # whose Native health request is not reaching the Supervisor.
+            GLib.timeout_add_seconds(7, self.emit_qemu_surface_boot_observation)
+            GLib.timeout_add_seconds(25, self.emit_qemu_surface_boot_observation)
+        # HTML load completion is NOT Surface readiness: ES module bootstrap
+        # still registers probation/trusted-context providers asynchronously.
+        # The real shell-ready event below owns the only automatic start.
 
     def on_surface_load_failed(
         self, _view: object, _event: object, _failing_uri: str, _error: object
@@ -838,9 +919,22 @@ class OrdaXBrowserHost:
         self.surface_web_process_failed = True
         Gtk.main_quit()
 
+    def handle_surface_shell_ready(self, payload: dict) -> None:
+        if set(payload) != {"type"}:
+            raise ValueError("Surface shell ready fields are invalid")
+        if self.component_probation_started:
+            return
+        # This notification comes through the existing isolated, same-origin
+        # Native host bridge only after the real Surface shell has mounted.
+        # It does not create a health receipt or bypass the Supervisor.
+        self.component_probation_started = True
+        self.start_component_probation(SUPPORTED_PROBATION_COMPONENTS)
+
     def handle_component_probation_request(self, payload: dict) -> None:
         if set(payload) != {"type", "componentId"}:
             raise ValueError("component probation request fields are invalid")
+        if not self.component_probation_started:
+            raise PermissionError("Component probation requires mounted Surface shell")
         component_id = payload.get("componentId")
         if component_id not in SUPPORTED_PROBATION_COMPONENTS:
             raise ValueError("unsupported component probation request")
@@ -1079,6 +1173,8 @@ class OrdaXBrowserHost:
                 self.history_action(payload.get("tabId"), "reload")
             elif command == "viewport.set":
                 self.set_viewport(payload.get("viewport"))
+            elif command == "surface.shell.ready":
+                self.handle_surface_shell_ready(payload)
             elif command == "component.probation.request":
                 self.handle_component_probation_request(payload)
             elif command == "component.probation.result":

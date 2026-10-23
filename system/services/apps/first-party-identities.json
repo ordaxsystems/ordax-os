@@ -26,11 +26,6 @@
       "version": "0.1.0"
     },
     {
-      "appId": "studio",
-      "publisherPrincipalId": "ordax-official",
-      "version": "0.1.0"
-    },
-    {
       "appId": "system",
       "publisherPrincipalId": "ordax-official",
       "version": "0.1.0"

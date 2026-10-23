@@ -269,6 +269,7 @@ func TestOwnerSignedPreviewPortableStateHandoff(t *testing.T) {
 		if err := os.WriteFile(artifact, append(content, 0), 0o600); err != nil {
 			t.Fatal(err)
 		}
+		defer func() { _ = os.WriteFile(artifact, content, 0o600) }()
 		env := append(append([]string(nil), baseEnv...),
 			"ORDAX_OWNER_SIGNED_STATE_ROOT="+stateRoot,
 			"ORDAX_OWNER_SIGNED_STATE_HELPER="+stateHelper,
@@ -276,6 +277,28 @@ func TestOwnerSignedPreviewPortableStateHandoff(t *testing.T) {
 		raw, err := runCommand("sh", env, shell, "audit-state", candidate)
 		if err == nil || strings.Contains(raw, "ordax.portable-state-inspection/1") {
 			t.Fatalf("tampered signed release passed audit: %v\n%s", err, raw)
+		}
+		assertGit(t)
+	})
+
+	t.Run("signed audit refuses tampered known-good before native inspection", func(t *testing.T) {
+		stateRoot, _ := mkState(t)
+		artifact := filepath.Join(root, "releases", prev, "system.erofs")
+		content, err := os.ReadFile(artifact)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(artifact, append(content, 0), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		defer func() { _ = os.WriteFile(artifact, content, 0o600) }()
+		env := append(append([]string(nil), baseEnv...),
+			"ORDAX_OWNER_SIGNED_STATE_ROOT="+stateRoot,
+			"ORDAX_OWNER_SIGNED_STATE_HELPER="+stateHelper,
+		)
+		raw, err := runCommand("sh", env, shell, "audit-state", candidate)
+		if err == nil || strings.Contains(raw, "ordax.portable-state-inspection/1") {
+			t.Fatalf("tampered known-good passed signed audit: %v\n%s", err, raw)
 		}
 		assertGit(t)
 	})

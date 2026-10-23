@@ -88,6 +88,8 @@ class NativeProductLifecycleTests(unittest.TestCase):
             "NATIVE_TEST_GATE": str(self.eligibility),
             "NATIVE_TEST_CONSENT": str(self.consent),
             "NATIVE_TEST_STARTED": str(self.started),
+            "NATIVE_TEST_ARGS": str(self.root / "runtime-args"),
+            "NATIVE_TEST_ENV": str(self.root / "runtime-env"),
             "NATIVE_TEST_BAD": str(self.bad),
         }
         script = (
@@ -102,6 +104,33 @@ class NativeProductLifecycleTests(unittest.TestCase):
         )
         return subprocess.run(["sh", "-c", script], env=env, text=True,
                               capture_output=True, timeout=20)
+
+    def install_private_buildroot_runtime_fixture(self):
+        root = self.state / "native-state/owner-dev-runtime"
+        python = root / "usr/bin/python3.14"
+        site = root / "usr/lib/python3.14/site-packages"
+        entry = site / "ordax_dev_agent/native_main.py"
+        python.parent.mkdir(parents=True, exist_ok=True)
+        entry.parent.mkdir(parents=True, exist_ok=True)
+        python.write_text(
+            "#!/bin/sh\n"
+            "printf '%s\\n' \"$*\" > \"$NATIVE_TEST_ARGS\"\n"
+            "case \" $* \" in\n"
+            "  *' --local-access-status '*)\n"
+            "    if [ \"$(cat \"$NATIVE_TEST_CONSENT\")\" = on ]; then\n"
+            "      printf 'NATIVE_PRODUCT_LOCAL_ACCESS=ENABLED\\n'; exit 0\n"
+            "    fi\n"
+            "    printf 'NATIVE_PRODUCT_LOCAL_ACCESS=DISABLED\\n'; exit 3 ;;\n"
+            "  *' --run '*)\n"
+            "    printf 'PYTHONHOME=%s\\nPYTHONPATH=%s\\nLD_LIBRARY_PATH=%s\\n' \"$PYTHONHOME\" \"$PYTHONPATH\" \"$LD_LIBRARY_PATH\" > \"$NATIVE_TEST_ENV\"\n"
+            "    printf '%s\\n' \"$$\" >> \"$NATIVE_TEST_STARTED\"\n"
+            "    trap 'exit 0' TERM INT\n"
+            "    while :; do sleep 1; done ;;\n"
+            "  *) exit 2 ;;\n"
+            "esac\n"
+        )
+        python.chmod(0o755)
+        entry.write_text("# Buildroot Owner/Development fixture\n")
 
     def test_supervisor_owns_runtime_and_restarts_on_lifecycle_source_update(self):
         supervisor = (ROOT / "system/supervisor").read_text(encoding="utf-8")
@@ -131,6 +160,7 @@ class NativeProductLifecycleTests(unittest.TestCase):
         self.assertFalse(self.started.exists())
 
     def test_wrong_profile_never_launches(self):
+        self.install_private_buildroot_runtime_fixture()
         for profile, mode in (("stable-mvp", "usb"), ("owner-development", "native-disk")):
             with self.subTest(profile=profile, mode=mode):
                 result = self.run_lifecycle(
@@ -138,6 +168,52 @@ class NativeProductLifecycleTests(unittest.TestCase):
                     profile=profile, mode=mode,
                 )
                 self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertFalse(self.started.exists())
+
+    def test_owner_dev_buildroot_runtime_starts_only_after_local_consent(self):
+        self.install_private_buildroot_runtime_fixture()
+        result = self.run_lifecycle(
+            "native_product_reconcile\n"
+            "[ -n \"$NATIVE_PRODUCT_PID\" ] || exit 5\n"
+            "sleep 1\n"
+            "native_product_stop\n"
+            "[ -z \"$NATIVE_PRODUCT_PID\" ]\n",
+            grant=False,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertTrue(self.started.exists())
+        self.assertEqual(len(self.started.read_text().splitlines()), 1)
+        args = (self.root / "runtime-args").read_text()
+        self.assertIn("-m ordax_dev_agent.native_main", args)
+        self.assertIn("--run --full-access --distribution-profile owner-development --product-mode usb", args)
+        env = (self.root / "runtime-env").read_text()
+        root = self.state / "native-state/owner-dev-runtime"
+        self.assertIn(f"PYTHONHOME={root}/usr", env)
+        self.assertIn(f"PYTHONPATH={root}/usr/lib/python3.14/site-packages", env)
+        self.assertIn(f"LD_LIBRARY_PATH={root}/lib:{root}/usr/lib", env)
+
+    def test_owner_dev_buildroot_runtime_stays_idle_after_local_opt_out(self):
+        self.install_private_buildroot_runtime_fixture()
+        self.consent.write_text("off")
+        result = self.run_lifecycle(
+            "native_product_reconcile\n[ -z \"$NATIVE_PRODUCT_PID\" ]",
+            grant=False,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertFalse(self.started.exists())
+
+    def test_buildroot_runtime_requires_real_module_and_rejects_symlink(self):
+        self.install_private_buildroot_runtime_fixture()
+        entry = (self.state / "native-state/owner-dev-runtime/usr/lib/python3.14"
+                 / "site-packages/ordax_dev_agent/native_main.py")
+        target = entry.with_suffix(".real")
+        entry.rename(target)
+        entry.symlink_to(target.name)
+        result = self.run_lifecycle(
+            "native_product_reconcile\n[ -z \"$NATIVE_PRODUCT_PID\" ]",
+            grant=False,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
         self.assertFalse(self.started.exists())
 
     def test_partial_verifier_reply_does_not_launch(self):

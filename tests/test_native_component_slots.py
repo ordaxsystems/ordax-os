@@ -137,7 +137,7 @@ class NativeComponentSlotTests(unittest.TestCase):
         self.assertIs(slots.HEALTH_MUTATION_COMPONENTS, NATIVE_HEALTH_MUTATION_COMPONENT_IDS)
         self.assertEqual(
             slots.SUPPORTED_COMPONENTS,
-            frozenset({"calculator", "files", "notes", "studio"}),
+            frozenset({"assistant", "calculator", "files", "notes", "studio"}),
         )
         self.assertEqual(slots.HEALTH_MUTATION_COMPONENTS, frozenset({"files", "notes"}))
         self.assertTrue(slots.HEALTH_MUTATION_COMPONENTS < slots.SUPPORTED_COMPONENTS)
@@ -321,12 +321,45 @@ class NativeComponentSlotTests(unittest.TestCase):
         self.assertEqual(request.source_commit, commit)
         self.assertEqual(request.requested_path, "system/apps/notes/ai/manifest.json")
 
+        # Aura's product name does not change the signed component ID or
+        # its canonical package namespace.
+        aura = slots.parse_component_module_path(
+            "/__ordax/native/component-module/assistant/current/0.1.2/"
+            + commit
+            + "/system/apps/assistant/src/runtime.mjs"
+        )
+        self.assertEqual(aura.component_id, "assistant")
+        self.assertEqual(aura.state, "current")
+        self.assertEqual(aura.requested_path, "system/apps/assistant/src/runtime.mjs")
         with self.assertRaises(slots.ComponentSlotRequestError):
             slots.parse_component_module_path(
-                "/__ordax/native/component-module/assistant/current/0.4.1/"
+                "/__ordax/native/component-module/unapproved/current/0.4.1/"
                 + commit
-                + "/system/apps/assistant/ai/manifest.json"
+                + "/system/apps/unapproved/ai/manifest.json"
             )
+
+        # The module broker only reads already-verified bytes from the
+        # canonical signed component helper; no ability to install/promote.
+        payload = b'export const componentRuntime = Object.freeze({});\\n'
+        response = subprocess.CompletedProcess([], 0, stdout=payload, stderr=b"")
+        with mock.patch.object(slots.subprocess, "run", return_value=response) as helper:
+            data = slots.read_component_runtime_file(
+                helper_path="/signed/bin/ordax-runtime-component-channel",
+                trust_path="/signed/trust/runtime-components-ed25519.json",
+                component_id="assistant",
+                state="current",
+                version="0.1.2",
+                source_commit=commit,
+                requested_path="system/apps/assistant/src/runtime.mjs",
+            )
+        self.assertEqual(data, payload)
+        argv = helper.call_args.args[0]
+        self.assertEqual(argv[1], "read-runtime-file")
+        self.assertIn("--source-commit", argv)
+        self.assertIn(commit, argv)
+        self.assertNotIn("arm-pending", argv)
+        self.assertNotIn("record-pending-health", argv)
+        self.assertNotIn("promote", argv)
 
     def test_pending_resolution_is_exact_and_keeps_probation_health(self):
         commit = "7" * 40
@@ -400,9 +433,9 @@ class NativeComponentSlotTests(unittest.TestCase):
             + "/system/apps/notes/runtime.mjs",
             "/__ordax/native/component-module/notes/pending/0.4.0/not-a-sha/"
             "system/apps/notes/runtime.mjs",
-            "/__ordax/native/component-module/assistant/pending/0.4.0/"
+            "/__ordax/native/component-module/unknown-app/pending/0.4.0/"
             + commit
-            + "/system/apps/assistant/runtime.mjs",
+            + "/system/apps/unknown-app/runtime.mjs",
         )
         for path in bad:
             with self.subTest(path=path):
@@ -441,11 +474,11 @@ class NativeComponentSlotTests(unittest.TestCase):
                 slots.read_component_runtime_file(
                     helper_path="/signed/bin/helper",
                     trust_path="/signed/trust.json",
-                    component_id="assistant",
+                    component_id="unknown-app",
                     state="pending",
                     version="0.4.0",
                     source_commit="7777777777777777777777777777777777777777",
-                    requested_path="system/apps/assistant/runtime.mjs",
+                    requested_path="system/apps/unknown-app/runtime.mjs",
                 )
             with self.assertRaises(slots.ComponentSlotRequestError):
                 slots.read_component_runtime_file(

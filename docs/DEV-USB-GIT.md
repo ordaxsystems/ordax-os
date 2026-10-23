@@ -95,6 +95,21 @@ that a public signed Stable release is available.
 
 ## Aura local — aquisição assinada pelo Owner Dev
 
+**Estado de entrega versus política de produto (2026-10-23).** O download
+assinado após First Run descrito abaixo continua sendo o caminho de aquisição
+implementado para o USB Owner/Development, **não** a meta definitiva para
+instalação nova. O Creator deve pré-semeiar os mesmos bytes v4 assinados e
+verificados, com Aura disponível no primeiro boot offline; reparo,
+reinstalação e atualização poderão reutilizar a aquisição governada existente.
+Não adicionar modelo ao checkout Git nem iniciar uma segunda instalação por
+script da Surface. O pré-semeio físico Dev e a inferência no notebook seguem
+sem prova conclusiva na issue #2071. O contrato pós-instalação para remoção
+explícita e reinstalação está em
+`docs/contracts/local-ai.json#post_install_lifecycle`; a remoção do EROFS
+atual **não pode ser habilitada** antes da correção versionada da verificação
+v4 de boot, que hoje exige esse arquivo.
+
+
 O mesmo `system/services/base-update/orchestrator.py` que valida/enrola
 `ordax-release-agent` e a trust anchor canônica solicita
 `materialize-owner-dev-local-ai` depois do primeiro uso concluído e apenas

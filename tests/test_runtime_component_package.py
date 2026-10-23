@@ -100,7 +100,7 @@ class RuntimeComponentPackageTests(unittest.TestCase):
         self.assertFalse(policy["native_pending_import_probe_exposes_host_capabilities"])
         self.assertFalse(policy["native_pending_import_probe_mounts_runtime"])
         self.assertFalse(policy["failed_pending_runtime_read_allowed"])
-        self.assertEqual(policy["native_loopback_broker_supported_components"], ["calculator", "files", "notes", "studio"])
+        self.assertEqual(policy["native_loopback_broker_supported_components"], ["assistant", "calculator", "files", "notes", "studio"])
         self.assertIs(policy["native_files_slot_bound_file_space_enforced"], True)
         self.assertIn("files", policy["native_loopback_broker_supported_components"])
         self.assertNotIn("calculator", policy["native_loopback_broker_health_mutation_components"])

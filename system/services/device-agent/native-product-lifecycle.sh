@@ -12,6 +12,10 @@
 
 NATIVE_PRODUCT_PID=""
 NATIVE_PRODUCT_ACTIVE_IDENTITY=""
+NATIVE_PRODUCT_PLAN_KIND=""
+NATIVE_PRODUCT_RUNTIME_ROOT=""
+NATIVE_PRODUCT_RUNTIME_PYTHON=""
+NATIVE_PRODUCT_RUNTIME_SITE=""
 
 native_product_stop() {
     [ -n "$NATIVE_PRODUCT_PID" ] || return 0
@@ -22,24 +26,24 @@ native_product_stop() {
         kill "$native_product_owned" 2>/dev/null || :
         native_product_remaining=3
         while kill -0 "$native_product_owned" 2>/dev/null && [ "$native_product_remaining" -gt 0 ]; do
-            native_product_state=$(/bin/busybox awk '$1 == "State:" {print $2; exit}' "/proc/$native_product_owned/status" 2>/dev/null || :)
+            native_product_state=$(native_product_pid_state "$native_product_owned")
             [ "$native_product_state" = Z ] && break
-            /bin/busybox sleep 1
+            sleep 1
             native_product_remaining=$((native_product_remaining - 1))
         done
-        native_product_state=$(/bin/busybox awk '$1 == "State:" {print $2; exit}' "/proc/$native_product_owned/status" 2>/dev/null || :)
+        native_product_state=$(native_product_pid_state "$native_product_owned")
         if kill -0 "$native_product_owned" 2>/dev/null && [ "$native_product_state" != Z ]; then
             kill -KILL "$native_product_owned" 2>/dev/null || :
             native_product_remaining=2
             while kill -0 "$native_product_owned" 2>/dev/null && [ "$native_product_remaining" -gt 0 ]; do
-                native_product_state=$(/bin/busybox awk '$1 == "State:" {print $2; exit}' "/proc/$native_product_owned/status" 2>/dev/null || :)
+                native_product_state=$(native_product_pid_state "$native_product_owned")
                 [ "$native_product_state" = Z ] && break
-                /bin/busybox sleep 1
+                sleep 1
                 native_product_remaining=$((native_product_remaining - 1))
             done
         fi
     fi
-    native_product_state=$(/bin/busybox awk '$1 == "State:" {print $2; exit}' "/proc/$native_product_owned/status" 2>/dev/null || :)
+    native_product_state=$(native_product_pid_state "$native_product_owned")
     if kill -0 "$native_product_owned" 2>/dev/null && [ "$native_product_state" != Z ]; then
         # Never erase ownership while this process can still dispatch.
         return 1
@@ -51,6 +55,17 @@ native_product_stop() {
     NATIVE_PRODUCT_ACTIVE_IDENTITY=""
 }
 
+native_product_pid_state() {
+    native_product_status="/proc/$1/status"
+    [ -r "$native_product_status" ] || return 0
+    while read -r native_product_state_key native_product_state_value native_product_state_rest; do
+        if [ "$native_product_state_key" = State: ]; then
+            printf '%s' "$native_product_state_value"
+            return 0
+        fi
+    done <"$native_product_status"
+}
+
 native_product_reap_if_exited() {
     [ -n "$NATIVE_PRODUCT_PID" ] || return 0
     if ! kill -0 "$NATIVE_PRODUCT_PID" 2>/dev/null; then
@@ -59,7 +74,7 @@ native_product_reap_if_exited() {
         NATIVE_PRODUCT_ACTIVE_IDENTITY=""
         return 0
     fi
-    native_product_state=$(/bin/busybox awk '$1 == "State:" {print $2; exit}' "/proc/$NATIVE_PRODUCT_PID/status" 2>/dev/null || :)
+    native_product_state=$(native_product_pid_state "$NATIVE_PRODUCT_PID")
     if [ "$native_product_state" = Z ]; then
         wait "$NATIVE_PRODUCT_PID" 2>/dev/null || :
         NATIVE_PRODUCT_PID=""
@@ -134,9 +149,83 @@ native_product_verified_plan() {
     NATIVE_PRODUCT_VERIFIED_PLAN=$native_product_verified_output
 }
 
+native_product_owner_dev_buildroot_plan() {
+    # Development USBs may use the same canonical Runtime source through the
+    # privately staged Buildroot Python target. This path is deliberately
+    # unavailable to Stable/MVP and native-disk; the normal signed component
+    # handoff above remains preferred whenever it is ready.
+    [ "$DISTRIBUTION_PROFILE" = owner-development ] && [ "$PRODUCT_MODE" = usb ] || return 1
+    native_product_dev_root=$STATE_DIR/native-state/owner-dev-runtime
+    native_product_dev_python=$native_product_dev_root/usr/bin/python3.14
+    native_product_dev_site=$native_product_dev_root/usr/lib/python3.14/site-packages
+    native_product_dev_entry=$native_product_dev_site/ordax_dev_agent/native_main.py
+    [ -d "$native_product_dev_root" ] && [ ! -L "$native_product_dev_root" ] &&
+        [ -d "$native_product_dev_root/usr" ] && [ ! -L "$native_product_dev_root/usr" ] &&
+        [ -d "$native_product_dev_root/usr/lib/python3.14" ] &&
+        [ ! -L "$native_product_dev_root/usr/lib/python3.14" ] &&
+        [ -d "$native_product_dev_site" ] && [ ! -L "$native_product_dev_site" ] &&
+        [ -x "$native_product_dev_python" ] && [ -f "$native_product_dev_python" ] &&
+        [ ! -L "$native_product_dev_python" ] &&
+        [ -f "$native_product_dev_entry" ] && [ ! -L "$native_product_dev_entry" ] || return 1
+    NATIVE_PRODUCT_RUNTIME_ROOT=$native_product_dev_root
+    NATIVE_PRODUCT_RUNTIME_PYTHON=$native_product_dev_python
+    NATIVE_PRODUCT_RUNTIME_SITE=$native_product_dev_site
+    NATIVE_PRODUCT_VERIFIED_PLAN="OWNER_DEV_BUILDROOT_RUNTIME=YES
+EXECUTABLE=$native_product_dev_python
+ENTRYPOINT=$native_product_dev_entry"
+}
+
+native_product_resolve_plan() {
+    NATIVE_PRODUCT_PLAN_KIND=""
+    NATIVE_PRODUCT_VERIFIED_PLAN=""
+    NATIVE_PRODUCT_EXECUTABLE=""
+    NATIVE_PRODUCT_RUNTIME_ROOT=""
+    NATIVE_PRODUCT_RUNTIME_PYTHON=""
+    NATIVE_PRODUCT_RUNTIME_SITE=""
+    if native_product_verified_plan; then
+        NATIVE_PRODUCT_PLAN_KIND=signed
+        return 0
+    fi
+    if native_product_owner_dev_buildroot_plan; then
+        NATIVE_PRODUCT_PLAN_KIND=owner-development-buildroot
+        return 0
+    fi
+    return 1
+}
+
+native_product_run_private_buildroot() {
+    (
+        native_product_dev_root=$NATIVE_PRODUCT_RUNTIME_ROOT
+        native_product_dev_python=$NATIVE_PRODUCT_RUNTIME_PYTHON
+        native_product_dev_site=$NATIVE_PRODUCT_RUNTIME_SITE
+        PYTHONHOME=$native_product_dev_root/usr
+        PYTHONPATH=$native_product_dev_site
+        PYTHONNOUSERSITE=1
+        PYTHONDONTWRITEBYTECODE=1
+        LD_LIBRARY_PATH=$native_product_dev_root/lib:$native_product_dev_root/usr/lib
+        PATH=$native_product_dev_root/usr/bin:/usr/bin:/bin
+        export PYTHONHOME PYTHONPATH PYTHONNOUSERSITE PYTHONDONTWRITEBYTECODE LD_LIBRARY_PATH PATH
+        exec "$native_product_dev_python" -m ordax_dev_agent.native_main "$@"
+    )
+}
+
+native_product_run_selected() {
+    case "$NATIVE_PRODUCT_PLAN_KIND" in
+        signed)
+            [ -n "$NATIVE_PRODUCT_EXECUTABLE" ] || return 1
+            exec "$NATIVE_PRODUCT_EXECUTABLE" "$@"
+            ;;
+        owner-development-buildroot)
+            [ -n "$NATIVE_PRODUCT_RUNTIME_PYTHON" ] || return 1
+            native_product_run_private_buildroot "$@"
+            ;;
+        *) return 1 ;;
+    esac
+}
+
 native_product_local_enabled() {
-    [ -n "$NATIVE_PRODUCT_EXECUTABLE" ] || return 1
-    native_product_consent=$("$NATIVE_PRODUCT_EXECUTABLE" \
+    [ -n "$NATIVE_PRODUCT_PLAN_KIND" ] || return 1
+    native_product_consent=$(native_product_run_selected \
         --local-access-status --distribution-profile owner-development \
         --product-mode usb --system-root "$SYSTEM_ROOT" \
         --state-root "$STATE_DIR/native-state" --workspace "$WORKTREE" 2>/dev/null) || return 1
@@ -151,11 +240,12 @@ native_product_reconcile() {
     fi
     # Everything below is optional. Fail closed for remote actions, but never
     # degrade OS boot, update, graphics or local filesystem operations.
-    if ! native_product_verified_plan; then
+    if ! native_product_resolve_plan; then
         native_product_stop || return 1
         return 0
     fi
     native_product_first_plan=$NATIVE_PRODUCT_VERIFIED_PLAN
+    native_product_first_kind=$NATIVE_PRODUCT_PLAN_KIND
     if ! native_product_local_enabled; then
         native_product_stop || return 1
         return 0
@@ -169,12 +259,13 @@ native_product_reconcile() {
     # OS pin/current slot may have changed while local policy was checked.
     # Compare the complete verifier reply before launching. The immutable
     # signed slot remains subject to the canonical component trust protocol.
-    if ! native_product_verified_plan ||
+    if ! native_product_resolve_plan ||
         [ "$NATIVE_PRODUCT_VERIFIED_PLAN" != "$native_product_first_plan" ] ||
+        [ "$NATIVE_PRODUCT_PLAN_KIND" != "$native_product_first_kind" ] ||
         ! native_product_local_enabled; then
         return 0
     fi
-    "$NATIVE_PRODUCT_EXECUTABLE" \
+    native_product_run_selected \
         --run --full-access --distribution-profile owner-development --product-mode usb \
         --system-root "$SYSTEM_ROOT" --state-root "$STATE_DIR/native-state" \
         --workspace "$WORKTREE" --status-port 8766 >/dev/null 2>&1 &

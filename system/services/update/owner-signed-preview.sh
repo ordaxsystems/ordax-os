@@ -189,6 +189,25 @@ case "${1:-}" in
         bounded_agent verify-portable-v4-exact \
             --trust "$TRUST" --root "$root" \
             --repository "$REPOSITORY" --expected-commit "$expected" >/dev/null
+        # Existing native reader owns durable state parsing, not this shell.
+        # The verified candidate does not authenticate the recovery slots:
+        # independently verify every distinct exact v4 slot before inspection.
+        current_slot=$(bounded_command 30 "$helper" "$state_root" current) ||
+            fail 'current portable slot is unreadable'
+        known_good_slot=$(bounded_command 30 "$helper" "$state_root" known-good) ||
+            fail 'known-good portable slot is unreadable'
+        is_sha "$current_slot" && is_sha "$known_good_slot" ||
+            fail 'portable recovery slots have invalid identities'
+        if [ "$current_slot" != "$expected" ]; then
+            bounded_agent verify-portable-v4-exact \
+                --trust "$TRUST" --root "$root" \
+                --repository "$REPOSITORY" --expected-commit "$current_slot" >/dev/null
+        fi
+        if [ "$known_good_slot" != "$expected" ] && [ "$known_good_slot" != "$current_slot" ]; then
+            bounded_agent verify-portable-v4-exact \
+                --trust "$TRUST" --root "$root" \
+                --repository "$REPOSITORY" --expected-commit "$known_good_slot" >/dev/null
+        fi
         bounded_command 30 "$helper" inspect "$state_root" "$root"
         ;;
     *) usage ;;
