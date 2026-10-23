@@ -37,14 +37,17 @@ import {
   validateRecentFilesSnapshot,
 } from "../../contracts/recent-files.mjs";
 import {
+  IDENTITY_SESSION_SCHEMA,
   assertIdentitySessionPort,
   validateIdentitySessionSnapshot,
 } from "../../contracts/identity-session.mjs";
 import {
+  SPACE_SELECTION_SCHEMA,
   assertSpaceSelectionPort,
   validateSpaceSelectionSnapshot,
 } from "../../contracts/space-selection.mjs";
 import {
+  INTELLIGENCE_PORT_SCHEMA,
   assertIntelligencePort,
   validateIntelligenceSnapshot,
   validateIntelligenceRequest,
@@ -62,6 +65,18 @@ const BRIDGE_SCHEMA = "ordax.native.isolated-component-bridge/1";
 const PENDING_PROBE_SCHEMA = "ordax.native.isolated-component-probe/1";
 const MAX_PENDING_CALLS = 64;
 const MAX_SUBSCRIPTIONS = 16;
+const PENDING_INTELLIGENCE_CLIENT_MOUNT_OPERATIONS = new Set([
+  "surface.subscribeRender",
+  "surface.unsubscribeRender",
+  "identitySession.subscribe",
+  "identitySession.unsubscribe",
+  "spaceSelection.subscribe",
+  "spaceSelection.unsubscribe",
+  "intelligence.subscribe",
+  "intelligence.unsubscribe",
+]);
+// The synthetic pending client can render an offline state but must never
+// call the real model, observe real identity/Space, or mutate app data.
 const PENDING_FILES_MOUNT_OPERATIONS = new Set([
   "surface.subscribeRender",
   "surface.unsubscribeRender",
@@ -355,8 +370,10 @@ const FRAME_BOOTSTRAP = String.raw`(() => {
       const identity = data.appDataIdentity;
       if (!data.localizationSnapshot
         || (identity === null
-          ? data.componentId !== "files"
-          : !identity || identity.appId !== data.componentId)) {
+          ? data.pendingMount !== true
+            || !["files", "assistant"].includes(data.componentId)
+          : data.pendingMount === true
+            || !identity || identity.appId !== data.componentId)) {
         throw new TypeError("Verified app context is incomplete");
       }
       assertLocale(data.localizationSnapshot);
@@ -579,7 +596,10 @@ function createPendingProbeFrameDocument({ nonce, parentOrigin, resourceRoot }) 
     + "</body></html>";
 }
 
-function assertContext(context, componentId, { allowMissingAppData = false } = {}) {
+function assertContext(context, componentId, {
+  allowMissingAppData = false,
+  syntheticIntelligenceClient = false,
+} = {}) {
   if (!context || typeof context !== "object" || !context.root
     || !context.surfaceLifecycle) throw new TypeError("Isolated app mount requires its Surface root and lifecycle");
   const lifecycle = assertSurfaceRenderLifecycle(context.surfaceLifecycle);
@@ -605,21 +625,62 @@ function assertContext(context, componentId, { allowMissingAppData = false } = {
   if (hasAnyAuraPort && componentId !== "assistant") {
     throw new TypeError("Intelligence host context belongs only to verified Aura slots");
   }
-  if (componentId === "assistant" && !auraPorts.every((key) =>
+  if (componentId === "assistant" && !syntheticIntelligenceClient && !auraPorts.every((key) =>
     Object.prototype.hasOwnProperty.call(context, key))) {
     throw new TypeError("Intelligence client requires all trusted Identity, Space and Intelligence ports");
   }
-  const identitySession = componentId === "assistant"
+  if (syntheticIntelligenceClient
+    && (hasAnyAuraPort || Object.prototype.hasOwnProperty.call(context, "appData"))) {
+    throw new TypeError("Pending Intelligence client cannot receive host ports or user App Data");
+  }
+  const identitySession = componentId === "assistant" && !syntheticIntelligenceClient
     ? assertIdentitySessionPort(context.identitySessionPort) : null;
-  const spaceSelection = componentId === "assistant"
+  const spaceSelection = componentId === "assistant" && !syntheticIntelligenceClient
     ? assertSpaceSelectionPort(context.spaceSelectionPort) : null;
-  const intelligence = componentId === "assistant"
+  const intelligence = componentId === "assistant" && !syntheticIntelligenceClient
     ? assertIntelligencePort(context.intelligence) : null;
   if (componentId === "files" && (fileSpace === null || recentFiles === null
     || projects === null || appActivation === null)) {
     throw new TypeError("Verified Files slot requires its complete device-local host context");
   }
   return Object.freeze({ lifecycle, appData, fileSpace, recentFiles, projects, appActivation, identitySession, spaceSelection, intelligence });
+}
+
+function createPendingIntelligenceClientContext(validated) {
+  const subscribeWithoutState = () => () => {};
+  const denyInference = () => Promise.reject(
+    new TypeError("Pending Intelligence client cannot invoke inference"),
+  );
+  const identitySession = Object.freeze({
+    schema: IDENTITY_SESSION_SCHEMA,
+    getSnapshot: () => Object.freeze({
+      state: "unavailable", subjectId: null, displayName: null,
+    }),
+    subscribe: subscribeWithoutState,
+  });
+  const spaceSelection = Object.freeze({
+    schema: SPACE_SELECTION_SCHEMA,
+    getSnapshot: () => Object.freeze({
+      schema: SPACE_SELECTION_SCHEMA, state: "unavailable",
+      subjectId: null, selectedSpace: null,
+    }),
+    subscribe: subscribeWithoutState,
+    select: () => { throw new TypeError("Pending Intelligence client cannot select Space"); },
+    clear: () => { throw new TypeError("Pending Intelligence client cannot clear Space"); },
+  });
+  const intelligence = Object.freeze({
+    schema: INTELLIGENCE_PORT_SCHEMA,
+    getSnapshot: () => Object.freeze({
+      schema: INTELLIGENCE_PORT_SCHEMA, state: "degraded",
+      inferenceAvailable: false, engineId: null, modelId: null,
+      authority: "none", toolExecution: false,
+    }),
+    subscribe: subscribeWithoutState,
+    respond: denyInference,
+  });
+  return Object.freeze({
+    ...validated, identitySession, spaceSelection, intelligence,
+  });
 }
 
 function createPendingFilesReadOnlyContext(validated) {
@@ -1270,19 +1331,24 @@ async function mountIsolatedRuntime({
     || expected.version !== identity.version
     || expected.sourceCommit !== identity.sourceCommit
     || expected.entrypoint !== identity.entrypoint
-    || (pending && (identity.componentId !== "files" || expected.pendingHealth !== "unknown"))) {
+    || (pending && (!["files", "assistant"].includes(identity.componentId)
+      || expected.pendingHealth !== "unknown"))) {
     throw new TypeError(pending
-      ? "Native pending mount requires its exact unknown-health Files slot identity"
+      ? "Native pending mount requires its exact unknown-health supported slot identity"
       : "Native isolated app requires its exact verified current-slot identity");
   }
   const verifiedContext = assertContext(
     context,
     identity.componentId,
-    { allowMissingAppData: pending },
+    {
+      allowMissingAppData: pending,
+      syntheticIntelligenceClient: pending && identity.componentId === "assistant",
+    },
   );
-  const mountContext = pending
-    ? createPendingFilesReadOnlyContext(verifiedContext)
-    : verifiedContext;
+  const mountContext = !pending ? verifiedContext
+    : identity.componentId === "assistant"
+      ? createPendingIntelligenceClientContext(verifiedContext)
+      : createPendingFilesReadOnlyContext(verifiedContext);
   const { lifecycle, appData, fileSpace, recentFiles, projects, appActivation, identitySession, spaceSelection, intelligence } = mountContext;
   const authorizeSlot = () => pending
     ? slotAuthority.assertPending(expected)
@@ -1322,7 +1388,10 @@ async function mountIsolatedRuntime({
       identitySession,
       spaceSelection,
       intelligence,
-      allowedOperations: pending ? PENDING_FILES_MOUNT_OPERATIONS : null,
+      allowedOperations: !pending ? null
+        : identity.componentId === "assistant"
+          ? PENDING_INTELLIGENCE_CLIENT_MOUNT_OPERATIONS
+          : PENDING_FILES_MOUNT_OPERATIONS,
       pendingReadOnlyMount: pending,
       authorizeOperation: authorizeSlot,
     },
@@ -1357,6 +1426,7 @@ async function mountIsolatedRuntime({
       frame.contentWindow.postMessage({
         schema: BRIDGE_SCHEMA, type: "initialize", nonce,
         componentId: identity.componentId, version: identity.version,
+        pendingMount: pending,
         moduleUrl: identity.moduleUrl, appDataIdentity: appData?.identity ?? null,
         fileSpaceScope: fileSpace?.scope ?? null,
         recentFilesSnapshot: recentFiles === null ? null
@@ -1512,8 +1582,9 @@ export const NATIVE_ISOLATED_COMPONENT_EXECUTOR_SCHEMA = EXECUTOR_SCHEMA;
 /**
  * Create the pending-slot probe used by Native component probation. Candidate
  * bytes are first imported in an opaque-origin frame with no host bridge and
- * exact pending metadata checks. Only explicitly mountable Files then gets a
- * second opaque frame with synthetic empty data and a read-only allowlist;
+ * exact pending metadata checks. Only explicitly mountable Files or the
+ * Intelligence client then gets a second opaque frame with synthetic data
+ * and a read-only allowlist;
  * neither path activates, promotes or exposes the pending slot to the Surface.
  */
 export function createNativeIsolatedPendingComponentModuleImporter({
@@ -1537,7 +1608,8 @@ export function createNativeIsolatedPendingComponentModuleImporter({
     || !Array.isArray(allowedComponentIds) || allowedComponentIds.length === 0
     || allowedComponentIds.some((id) => typeof id !== "string" || !COMPONENT_ID_RE.test(id))
     || !Array.isArray(mountableComponentIds)
-    || mountableComponentIds.some((id) => id !== "files" || !allowedComponentIds.includes(id))
+    || mountableComponentIds.some((id) =>
+      !["files", "assistant"].includes(id) || !allowedComponentIds.includes(id))
     || !componentSlotSource || typeof fetchImpl !== "function"
     || !Number.isSafeInteger(timeoutMs) || timeoutMs < 100 || timeoutMs > 30_000
     || !Number.isSafeInteger(slotAuthorityTimeoutMs) || slotAuthorityTimeoutMs < 100 || slotAuthorityTimeoutMs > 30_000) {

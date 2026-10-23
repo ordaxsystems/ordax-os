@@ -820,6 +820,87 @@ test("Files state subscriptions deliver only slot-authorized updates and drain o
   await staleMounted.destroy();
 });
 
+test("pending Intelligence client mounts only with synthetic unavailable ports in opaque sandbox", async () => {
+  const env = setup({ componentId: "assistant", version: "0.1.2" });
+  const slot = Object.freeze({
+    ...PENDING_SLOT, componentId: "assistant", version: "0.1.2",
+    entrypoint: "system/apps/assistant/src/runtime.mjs",
+  });
+  const url = `${ORIGIN}/__ordax/native/component-module/assistant/pending/0.1.2/`
+    + `${"a".repeat(40)}/system/apps/assistant/src/runtime.mjs`;
+  const source = createNativeComponentSlotSource(env.windowRef);
+  let observed = slot;
+  let reads = 0;
+  const importer = createNativeIsolatedPendingComponentModuleImporter({
+    windowRef: env.windowRef,
+    allowedComponentIds: ["assistant"],
+    mountableComponentIds: ["assistant"],
+    componentSlotSource: source,
+    timeoutMs: 300,
+    fetchImpl: async (_url) => {
+      reads += 1;
+      assert.equal(_url, source.metadataUrl("assistant", "pending"));
+      return { ok: true, json: async () => observed };
+    },
+  });
+  const imported = await importer(url, slot);
+  assert.equal(reads, 2);
+  const context = { root: env.root, surfaceLifecycle: env.lifecycle };
+  await assert.rejects(() => imported.componentRuntime.mount({
+    ...context, appData: env.appData,
+  }), /cannot receive host ports or user App Data/);
+  await assert.rejects(() => imported.componentRuntime.mount({
+    ...context, intelligence: {},
+  }), /cannot receive host ports/);
+  const mounted = await imported.componentRuntime.mount(context);
+  const frame = env.root.childNodes[0];
+  assert.equal(frame.attributes.get("sandbox"), "allow-scripts");
+  assert.equal(frame.attributes.has("allow-same-origin"), false);
+  assert.equal(frame.receivedBootstrap.pendingMount, true);
+  assert.equal(frame.receivedBootstrap.appDataIdentity, null);
+  assert.equal(frame.receivedBootstrap.fileSpaceScope, null);
+  assert.equal(frame.receivedBootstrap.appTarget, null);
+  assert.deepEqual(frame.receivedBootstrap.identitySessionSnapshot,
+    { state: "unavailable", subjectId: null, displayName: null });
+  assert.deepEqual(frame.receivedBootstrap.spaceSelectionSnapshot,
+    { schema: "ordax.space-selection/1", state: "unavailable", subjectId: null, selectedSpace: null });
+  assert.deepEqual(frame.receivedBootstrap.intelligenceSnapshot,
+    { schema: "ordax.intelligence/1", state: "degraded", inferenceAvailable: false,
+      engineId: null, modelId: null, authority: "none", toolExecution: false });
+
+  for (const operation of ["intelligence.respond", "appData.get",
+    "spaceSelection.select", "surface.setAppTarget", "appData.put"]) {
+    const reply = mountedMessage(frame);
+    frame.childPort.postMessage({
+      schema: BRIDGE, type: "call", id: 20 + ["intelligence.respond", "appData.get",
+        "spaceSelection.select", "surface.setAppTarget", "appData.put"].indexOf(operation),
+      operation, args: operation === "intelligence.respond" ? [{ prompt: "probe" }] : [],
+    });
+    assert.equal((await reply).ok, false, operation + " may not escape the probation sandbox");
+  }
+  const subscribeReply = mountedMessage(frame);
+  frame.childPort.postMessage({ schema: BRIDGE, type: "call", id: 26,
+    operation: "identitySession.subscribe", args: [1] });
+  assert.equal((await subscribeReply).ok, true);
+  observed = { ...slot, revision: slot.revision + 1 };
+  const stale = mountedMessage(frame);
+  frame.childPort.postMessage({ schema: BRIDGE, type: "call", id: 27,
+    operation: "spaceSelection.subscribe", args: [2] });
+  assert.equal((await stale).ok, false);
+  await new Promise(resolve => setTimeout(resolve, 0));
+  assert.equal(env.root.childNodes.length, 0, "stale pending slot revokes the frame");
+  await mounted.destroy();
+});
+
+test("unapproved pending components cannot request an Intelligence client mount", () => {
+  const env = setup();
+  const source = createNativeComponentSlotSource(env.windowRef);
+  assert.throws(() => createNativeIsolatedPendingComponentModuleImporter({
+    windowRef: env.windowRef, allowedComponentIds: ["notes"],
+    mountableComponentIds: ["assistant"], componentSlotSource: source,
+  }), /probe configuration is invalid/);
+});
+
 test("pending Files mount is opaque, empty-root-only, and never receives host user data", async () => {
   const env = setup({ componentId: "files", version: "0.3.0" });
   const source = createNativeComponentSlotSource(env.windowRef);
