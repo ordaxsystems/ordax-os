@@ -3,9 +3,12 @@
 
 from __future__ import annotations
 
+import importlib.util
 import json
 from pathlib import Path
+import tempfile
 import unittest
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 CONTRACT = json.loads(
@@ -53,7 +56,9 @@ class PortableV2QEMUBootProofTests(unittest.TestCase):
     def test_harness_uses_final_two_partition_layout_and_candidate_rdinit(self):
         text = SCRIPT.read_text(encoding="utf-8")
         self.assertIn("--change-name=1:ORDAX-ESP", text)
-        self.assertIn("--change-name=2:ORDAX-DATA", text)
+        self.assertIn('f"--change-name={data_index}:ORDAX-DATA"', text)
+        self.assertIn("data_index = 2", text)
+        self.assertIn("data_index = 3", text)
         self.assertIn("rdinit=/sbin/ordax-portable-init", text)
         self.assertIn("if=ide,index=0", text)
         self.assertNotIn("if=virtio", text)
@@ -67,6 +72,43 @@ class PortableV2QEMUBootProofTests(unittest.TestCase):
         self.assertIn('"local-ai-runtime.sha256"', text)
         self.assertIn('"ai-runtimes"', text)
         self.assertIn('"local-ai-runtime.erofs"', text)
+
+    def test_dev_three_partition_gate_reads_creator_ssot_and_rejects_contract_drift(self):
+        spec = importlib.util.spec_from_file_location("portable_qemu_probe", SCRIPT)
+        self.assertIsNotNone(spec)
+        self.assertIsNotNone(spec.loader)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        size, esp_bytes, owner_bytes = module.dev_transitional_geometry()
+        self.assertEqual(size, 5 * 1024**3)
+        self.assertEqual(esp_bytes, 256 * 1024**2)
+        self.assertEqual(owner_bytes, 2 * 1024**3)
+
+        current = json.loads(module.OWNER_MEDIA_CONTRACT.read_text(encoding="utf-8"))
+        with tempfile.TemporaryDirectory() as tmp:
+            altered = Path(tmp) / "prepared-media.json"
+            current["partitions"][2]["filesystem"] = "ext4"
+            altered.write_text(json.dumps(current), encoding="utf-8")
+            with patch.object(module, "OWNER_MEDIA_CONTRACT", altered):
+                with self.assertRaisesRegex(module.ProofError, "partition order"):
+                    module.dev_transitional_geometry()
+
+    def test_dev_geometry_is_an_explicit_nonpromotable_signed_qemu_proof(self):
+        text = SCRIPT.read_text(encoding="utf-8")
+        self.assertIn("--dev-transitional-geometry", text)
+        self.assertIn("DEV_GEOMETRY_DISK_BYTES", text)
+        self.assertIn("--change-name=2:ORDAX", text)
+        self.assertIn('run(["mkfs.ext4"', text)
+        self.assertIn('f"p{data_index}"', text)
+        self.assertIn('"owner_git_boot_proven": False', text)
+        self.assertIn('"owner_git_fallback_proven": False', text)
+        self.assertIn('"boot_mode_switch_proven": False', text)
+        self.assertIn('["ORDAX-ESP", "ORDAX", "ORDAX-DATA"]', text)
+        self.assertIn('if dev_geometry and getattr(args, "previous_commit", None):', text)
+        self.assertIn('"intermediate_ordax_contains_owner_checkout": False', text)
+        self.assertNotIn("PhysicalDrive", text)
+        self.assertIn("Boot signed Portable v4 on transitional Dev geometry in QEMU", WORKFLOW)
+        self.assertIn("--dev-transitional-geometry", WORKFLOW)
 
     def test_loop_partition_wait_requires_stable_identity_before_formatting(self):
         text = SCRIPT.read_text(encoding="utf-8")
