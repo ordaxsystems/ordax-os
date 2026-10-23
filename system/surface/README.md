@@ -1,6 +1,6 @@
 # Surface
 
-`system/surface/` is the single user-facing Surface source for OrdaX shell, windows/workspaces, explorer, settings, design tokens and shared interaction behavior.
+The visual Surface source is independently versioned in `ordaxsystems/ordax-surface`. This OS folder remains the **native host/runtime boundary**. The exact external visual revision is pinned by `docs/contracts/surface-source.json` and supplied to the composed `system/surface/{ui,workspace}` release tree, not duplicated as Git-tracked OS source.
 
 The same product Surface serves every applicable execution mode:
 
@@ -16,7 +16,7 @@ Those modes may host/render the Surface differently, but they do not own separat
 
 ## Visual source
 
-The first graphical source lives under `system/surface/ui/` as standards-first HTML/CSS/JavaScript modules with no remote asset or framework dependency. This is an implementation baseline, not a permanent framework choice.
+The graphical modules live under the **external Surface owner** at `system/surface/ui/` and `system/surface/workspace/` for compatible release-layout paths. They are mounted only into verified staging/build trees; `ordax-os` does not keep a second visual source.
 
 `surface-state.mjs` keeps interaction state independent from DOM rendering. `surface.mjs` mounts the shared UI against the platform-neutral `ordax.surface-host/1` contract. Design tokens and responsive behavior remain shared CSS.
 
