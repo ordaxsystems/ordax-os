@@ -659,6 +659,10 @@ function makeBroker({ port, componentId, context, onRevoke, onInvalidated }) {
   const recentFilesUnsubscribes = new Map();
   const projectUnsubscribes = new Map();
   const activationUnsubscribes = new Map();
+  const identityUnsubscribes = new Map();
+  const selectionUnsubscribes = new Map();
+  const intelligenceUnsubscribes = new Map();
+  const inferenceControllers = new Set();
   const queuedUpdates = new Map();
   let revoked = false;
   let highestRequestId = 0;
