@@ -134,6 +134,11 @@ on:
         description: 'stable (default) or isolated independent Buildroot candidate'
         required: false
         default: stable
+      surface_source:
+        type: string
+        description: 'stable (default) or same-run verified independent Buildroot Surface artifact'
+        required: false
+        default: stable
       force_run:
         type: boolean
         description: 'force heavy Portable/QEMU proof for explicit reusable-workflow callers'
@@ -144,11 +149,12 @@ on:
 concurrency:
   # Called workflows inherit github.workflow from their caller. Use a distinct
   # namespace so the official proof cannot cancel its invoking workflow.
-  group: canonical-portable-v2-${{ inputs.base_source || 'stable' }}-${{ github.event_name == 'workflow_dispatch' && github.run_id || github.event.pull_request.number || github.ref }}
+  group: canonical-portable-v2-${{ inputs.base_source || 'stable' }}-${{ inputs.surface_source || 'stable' }}-${{ github.event_name == 'workflow_dispatch' && github.run_id || github.event.pull_request.number || github.ref }}
   cancel-in-progress: ${{ github.event_name != 'workflow_dispatch' }}
 
 permissions:
   contents: read
+  actions: read
 
 jobs:
   impact:
@@ -225,8 +231,17 @@ jobs:
             binutils cmake curl erofs-utils g++ git iproute2 libc6-dev ninja-build openssl util-linux
 
       - name: Validate portable-v2 QEMU contract
+        env:
+          ORDAX_BASE_PROOF_SOURCE: ${{ inputs.base_source || 'stable' }}
+          ORDAX_SURFACE_PROOF_SOURCE: ${{ inputs.surface_source || 'stable' }}
         run: |
           set -euo pipefail
+          case "$ORDAX_BASE_PROOF_SOURCE" in stable|independent) ;; *) echo 'unsupported portable base proof source' >&2; exit 1 ;; esac
+          case "$ORDAX_SURFACE_PROOF_SOURCE" in stable|independent) ;; *) echo 'unsupported Surface proof source' >&2; exit 1 ;; esac
+          if [ "$ORDAX_SURFACE_PROOF_SOURCE" = independent ] && [ "$ORDAX_BASE_PROOF_SOURCE" != independent ]; then
+            echo 'independent Surface proof currently requires the independent base candidate' >&2
+            exit 1
+          fi
           python -m unittest tests.test_portable_v2_qemu_boot_proof_contract -v
           python -m unittest tests.test_initramfs_upstream_authentication -v
           python -m unittest tests.test_portable_qemu_kernel_source_ssot -v
@@ -436,6 +451,7 @@ jobs:
           esac
 
       - name: Restore verified Surface runtime component
+        if: ${{ (inputs.surface_source || 'stable') == 'stable' }}
         id: surface-cache
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
@@ -443,7 +459,7 @@ jobs:
           key: ordax-portable-component-v1-${{ runner.os }}-${{ runner.arch }}-surface-${{ steps.component-fingerprints.outputs.surface }}
 
       - name: Build exact offline Surface runtime on cache miss
-        if: steps.surface-cache.outputs.cache-hit != 'true'
+        if: ${{ (inputs.surface_source || 'stable') == 'stable' && steps.surface-cache.outputs.cache-hit != 'true' }}
         env:
           ORDAX_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
@@ -457,6 +473,7 @@ jobs:
           sudo chown -R "$(id -u):$(id -g)" "$work/surface-runtime"
 
       - name: Verify Surface component and exact integration binding
+        if: ${{ (inputs.surface_source || 'stable') == 'stable' }}
         env:
           ORDAX_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
@@ -485,11 +502,66 @@ jobs:
             --receipt "$work/metadata/surface-component-reuse.json"
 
       - name: Save verified Surface runtime component
-        if: steps.surface-cache.outputs.cache-hit != 'true'
+        if: ${{ (inputs.surface_source || 'stable') == 'stable' && steps.surface-cache.outputs.cache-hit != 'true' }}
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ runner.temp }}/portable-v2-qemu/surface-runtime
           key: ordax-portable-component-v1-${{ runner.os }}-${{ runner.arch }}-surface-${{ steps.component-fingerprints.outputs.surface }}
+
+      - name: Download same-run independent Surface runtime
+        if: ${{ inputs.surface_source == 'independent' }}
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: ordax-independent-surface-runtime-${{ github.run_id }}
+          path: ${{ runner.temp }}/portable-v2-qemu/independent-surface-runtime
+
+      - name: Verify and bind exact independent Surface runtime
+        if: ${{ inputs.surface_source == 'independent' }}
+        env:
+          ORDAX_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          work="$RUNNER_TEMP/portable-v2-qemu"
+          artifact_root="$work/independent-surface-runtime"
+          independent="$artifact_root/ordax-independent-surface"
+          test -d "$independent"
+          test ! -e "$artifact_root/provenance.json"
+          source_image="$independent/native-surface-runtime-buildroot.erofs"
+          target="$work/surface-runtime/native-surface-runtime.erofs"
+          python3 bootstrap/independent-surface-runtime/build.py verify \
+            --out "$independent" \
+            > "$work/metadata/independent-surface-runtime-verify.json"
+          python3 tools/ci/independent_surface_component_cache.py verify \
+            --out "$independent" \
+            --integration-commit "$ORDAX_SOURCE_COMMIT" \
+            --cache-hit true \
+            --consumer \
+            --receipt "$work/metadata/independent-surface-component-binding.json"
+          python3 - "$independent/provenance.json" <<'PY'
+          import json, pathlib, re, sys
+          provenance = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding='utf-8'))
+          assert provenance['$schema'] == 'prototype-ordax.independent-surface-runtime-provenance/1'
+          assert provenance['status'] == 'experimental-not-promotable'
+          assert re.fullmatch(r'[0-9a-f]{40}', provenance['source_commit'])
+          assert provenance['image']['name'] == 'native-surface-runtime-buildroot.erofs'
+          assert re.fullmatch(r'[0-9a-f]{64}', provenance['image']['sha256'])
+          assert provenance['package_manager_present'] is False
+          assert provenance['alpine_present'] is False
+          assert provenance['physical_artifact_authorized'] is False
+          assert provenance['stable_promotion_authorized'] is False
+          print('ORDAX_INDEPENDENT_SURFACE_PROVENANCE=VERIFIED')
+          PY
+          mkdir -p "$work/surface-runtime"
+          cp -- "$source_image" "$target"
+          source_sha="$(sha256sum "$source_image" | awk '{print $1}')"
+          target_sha="$(sha256sum "$target" | awk '{print $1}')"
+          provenance_sha="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["image"]["sha256"])' "$independent/provenance.json")"
+          test "$source_sha" = "$target_sha"
+          test "$source_sha" = "$provenance_sha"
+          cp -- "$independent/provenance.json" \
+            "$work/metadata/independent-surface-runtime-provenance.json"
+          echo "ORDAX_INDEPENDENT_SURFACE_RUNTIME_SHA256=$target_sha"
+          echo 'ORDAX_INDEPENDENT_SURFACE_ARTIFACT_BINDING=VERIFIED'
 
       - name: Restore verified release-agent component
         id: release-agent-cache

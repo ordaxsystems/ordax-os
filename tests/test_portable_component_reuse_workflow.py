@@ -38,12 +38,15 @@ class PortableComponentReuseWorkflowTests(unittest.TestCase):
         expected = {
             "Build and verify exact local AI runtime on cache miss": "steps.local-ai-cache.outputs.cache-hit != 'true'",
             "Build exact kernel and kernel modules on cache miss": "steps.kernel-cache.outputs.cache-hit != 'true'",
-            "Build exact offline Surface runtime on cache miss": "steps.surface-cache.outputs.cache-hit != 'true'",
             "Build exact release agent on cache miss": "steps.release-agent-cache.outputs.cache-hit != 'true'",
         }
         for step, condition in expected.items():
             with self.subTest(step=step):
                 self.assertIn(f"if: {condition}", self.step_block(step))
+
+        surface = self.step_block("Build exact offline Surface runtime on cache miss")
+        self.assertIn("(inputs.surface_source || 'stable') == 'stable'", surface)
+        self.assertIn("steps.surface-cache.outputs.cache-hit != 'true'", surface)
 
     def test_base_initramfs_and_runtime_proofs_remain_unconditional(self):
         for step in (
