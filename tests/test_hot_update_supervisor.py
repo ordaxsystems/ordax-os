@@ -191,8 +191,15 @@ class HotUpdateSupervisorContractTests(unittest.TestCase):
         self.assertNotIn('sparse-checkout set --no-cone', apply)
         self.assertNotIn("repair_dirty_checkout", apply)
         self.assertIn("replace_runtime_checkout()", pull)
-        self.assertIn('mv "$WORKTREE" "$retired"', pull)
-        self.assertIn('mv "$stage" "$WORKTREE"', pull)
+        # The live directory must never vanish between two independent mv calls.
+        # Only a single kernel exchange may replace an existing checkout.
+        self.assertIn('atomic_checkout_exchange "$WORKTREE" "$stage"', pull)
+        self.assertIn('atomic_checkout_exchange "$WORKTREE" "$retired"', pull)
+        self.assertIn('"$EXCHANGE_BIN" --exchange "$atomic_left" "$atomic_right" "$TRANSACTION_FILE"', pull)
+        self.assertIn('"$EXCHANGE_BIN" --seal-state "$STATE_DIR"', pull)
+        self.assertIn('EXCHANGE_BIN=${ORDAX_CHECKOUT_EXCHANGE_BIN:-/usr/local/bin/ordax-checkout-exchange}', pull)
+        self.assertNotIn('mv "$WORKTREE" "$retired"', pull)
+        self.assertIn('mv "$stage" "$WORKTREE"', pull)  # first installation only
         self.assertIn('EXPECTED_SHA=${ORDAX_EXPECTED_SHA:-}', pull)
         self.assertIn('checkout_target_sha=$2', apply)
         self.assertIn('checkout_fetched_sha', apply)
@@ -210,6 +217,65 @@ class HotUpdateSupervisorContractTests(unittest.TestCase):
         self.assertIn('PULL_PHASE=handoff-ref-mismatch', pull)
         self.assertNotIn('remote_sha=$(remote_main_sha || true)', pull)
         self.assertIn('checkout local sera preservado', pull)
+
+    def test_native_base_request_is_not_blocked_by_pending_helper_installation(self):
+        supervisor = SYSTEM_SUPERVISOR.read_text(encoding="utf-8")
+        manifest = (ROOT / "system/services/base-update/dev-helper-manifest.tsv").read_text(encoding="utf-8")
+        installer = (ROOT / "system/services/base-update/dev-helpers.sh").read_text(encoding="utf-8")
+        native_requirements = [
+            tuple(line.split(chr(9))) for line in manifest.splitlines()
+            if line and not line.startswith("#")
+        ]
+        self.assertIn(
+            (
+                "bootstrap/dev-base/ordax-pull",
+                "usr/local/bin/ordax-pull",
+                "usr/local/bin/ordax-checkout-exchange@prototype-ordax.checkout-exchange/1",
+            ),
+            native_requirements,
+        )
+        self.assertIn('native_actual_abi=$("$native_target" --abi 2>/dev/null)', installer)
+        self.assertLess(
+            installer.index('require_native_prerequisite "$native_prerequisite"'),
+            installer.index('stage_helper "$source_relative" "$target_relative"'),
+        )
+        poll = supervisor.rsplit('    if [ "$remote_sha" = "$current" ]; then', 1)[1]
+        poll = poll.split('    if [ -n "$rejected_sha" ]', 1)[0]
+        self.assertLess(
+            poll.index('request_dev_base_candidate "$current"'),
+            poll.index('refresh_dev_helpers "$current"'),
+        )
+        failed = supervisor.split('if ! apply_remote_checkout "$old_sha" "$remote_sha"; then', 1)[1]
+        failed = failed.split('    new_sha=$(current_sha)', 1)[0]
+        self.assertIn('if [ "$LOW_LEVEL_CHANGED" -eq 1 ]', failed)
+        self.assertIn('validate_updated_tree "$APPLY_MODE"', failed)
+        self.assertIn('mark_boot_refresh_required "$active_after_failure"', failed)
+        self.assertIn('request_dev_base_candidate "$active_after_failure"', failed)
+        self.assertIn('write_update_state "$active_after_failure" pull-error none', failed)
+
+    def test_existing_checkout_backoff_also_bounds_current_sha_helper_refresh(self):
+        supervisor = SYSTEM_SUPERVISOR.read_text(encoding="utf-8")
+        same_sha = supervisor.rsplit('    if [ "$remote_sha" = "$current" ]; then', 1)[1]
+        same_sha = same_sha.split('    if [ -n "$rejected_sha" ]', 1)[0]
+        # A pending Base request is still issued before throttling the helper.
+        self.assertLess(
+            same_sha.index('request_dev_base_candidate "$current"'),
+            same_sha.index('checkout_retry_pending "$current" "$current"'),
+        )
+        self.assertLess(
+            same_sha.index('checkout_retry_pending "$current" "$current"'),
+            same_sha.index('refresh_dev_helpers "$current"'),
+        )
+        self.assertIn('if [ "$OWNER_MANUAL_CHECK" -ne 1 ] &&', same_sha)
+        self.assertIn('record_checkout_failure "$current" "$current" "helper-refresh-failed"', same_sha)
+        self.assertIn('set_update_context error "$current" "" "checkout-retry-wait"', same_sha)
+        self.assertLess(
+            same_sha.index('record_checkout_failure "$current" "$current" "helper-refresh-failed"'),
+            same_sha.index('rm -f "$CHECKOUT_RETRY_FILE"'),
+        )
+        self.assertEqual(
+            supervisor.count('CHECKOUT_RETRY_FILE=$STATE_DIR/native-state/git-checkout-retry'), 1,
+        )
 
     def test_pull_error_stage_and_committed_helper_receipt_are_consistent(self):
         supervisor = SYSTEM_SUPERVISOR.read_text(encoding="utf-8")

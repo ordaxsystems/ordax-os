@@ -1392,6 +1392,17 @@ begin_owner_initial_surface_health() {
 }
 
 owner_initial_surface_health_failed() {
+    # Observe only canonical Native Host health/heartbeat witnesses.
+    # This is diagnostic: no synthetic receipt, timeout or state change.
+    health_ack=missing
+    heartbeat_ack=missing
+    if [ "$(read_state_value "$HEALTH_FILE")" = "$initial_sha" ]; then
+        health_ack=matched
+    fi
+    if [ "$(surface_heartbeat_sha)" = "$initial_sha" ]; then
+        heartbeat_ack=matched
+    fi
+    log "cold-boot Surface evidence: native_health=$health_ack surface_heartbeat=$heartbeat_ack phase=$OWNER_INITIAL_HEALTH_STATE"
     write_surface_health_state failed "$initial_sha" || true
     if rollback_boot_candidate "$boot_runtime_sha" "$initial_sha" "cold-boot Surface did not become healthy"; then
         exit 75
@@ -2523,7 +2534,21 @@ check_for_update() {
     rejected_sha=$(read_state_value "$REJECTED_FILE")
 
     if [ "$remote_sha" = "$current" ]; then
-        rm -f "$CHECKOUT_RETRY_FILE"
+        # Install the versioned Base prerequisite before retrying a pending
+        # checkout helper. The canonical request owner is unchanged.
+        if [ -f "$BOOT_REFRESH_FILE" ] && [ ! -L "$BOOT_REFRESH_FILE" ]; then
+            pending_base_sha=$(read_state_value "$BOOT_REFRESH_FILE")
+            [ "$pending_base_sha" = "$current" ] && request_dev_base_candidate "$current"
+        fi
+        # Bound repeated helper installation failures using the existing
+        # SHA-scoped checkout retry receipt. Base candidate acquisition above
+        # is independent of this cooldown; manual checks bypass the wait.
+        if [ "$OWNER_MANUAL_CHECK" -ne 1 ] &&
+           checkout_retry_pending "$current" "$current"; then
+            set_update_context error "$current" "" "checkout-retry-wait"
+            write_update_state "$current" pull-error none
+            return 0
+        fi
         refresh_dev_helpers "$current"
         # A post-swap helper failure must not be silently promoted to
         # "running" on the next poll. The canonical helper receipt is the
@@ -2531,15 +2556,23 @@ check_for_update() {
         if [ -f "$WORKTREE/system/services/base-update/dev-helpers.sh" ]; then
             helper_sha=$(read_state_value "$DEV_HELPERS_SHA_FILE")
             if [ "$helper_sha" != "$current" ]; then
+                record_checkout_failure "$current" "$current" "helper-refresh-failed"
                 set_update_context error "$current" "" "helper-refresh-failed"
                 write_update_state "$current" pull-error none
                 log "Git checkout $current is active; helper installation is pending canonical retry"
                 return 0
             fi
         fi
+        # Clear the retry receipt only after helper identity matches.
+        rm -f "$CHECKOUT_RETRY_FILE"
         if [ -f "$BOOT_REFRESH_FILE" ]; then
             pending_boot_sha=$(read_state_value "$BOOT_REFRESH_FILE")
-            [ -n "$pending_boot_sha" ] && request_dev_base_candidate "$pending_boot_sha"
+            # Current SHA was already requested before helper refresh.
+            # Preserve older/other pending receipts without issuing a second
+            # identical Base request in the same Supervisor iteration.
+            if [ -n "$pending_boot_sha" ] && [ "$pending_boot_sha" != "$current" ]; then
+                request_dev_base_candidate "$pending_boot_sha"
+            fi
         fi
         healthy_sha=$(read_state_value "$HEALTH_FILE")
         if [ -n "$rejected_sha" ] && [ "$rejected_sha" = "$current" ] && [ "$healthy_sha" = "$current" ]; then
@@ -2601,6 +2634,15 @@ check_for_update() {
         active_after_failure=$(current_sha)
         if [ "$reason" = "pull-helper-refresh-failed" ] &&
            [ "$active_after_failure" = "$remote_sha" ]; then
+            # Atomic Git commit succeeded, but this Base may not yet have
+            # the native exchange ABI. Arm only the existing Base owner and
+            # report the real helper failure; never fake running state.
+            if [ "$LOW_LEVEL_CHANGED" -eq 1 ] &&
+               validate_updated_tree "$APPLY_MODE"; then
+                mark_boot_refresh_required "$active_after_failure"
+                request_dev_base_candidate "$active_after_failure"
+                log "Git checkout committed; native Base candidate requested before helper installation"
+            fi
             write_update_state "$active_after_failure" pull-error none
         else
             # Non-FF has its own durable target guard and fetch failures

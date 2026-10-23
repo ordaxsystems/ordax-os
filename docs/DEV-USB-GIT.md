@@ -476,6 +476,31 @@ no second updater or bypass of the helper receipt, and the previous SHA remains
 available for recovery. A host-side successful Pull and an actual QEMU/physical
 Surface activation remain separate validation gates.
 
+**Versioned Native exchange prerequisite (Owner/Development only):** the
+canonical Dev Base builder installs the static `ordax-checkout-exchange` helper
+into its rootfs. Before replacing `ordax-pull`, the existing helper installer
+verifies the executable and exact `--abi` declared in the **same** manifest
+(`system/services/base-update/dev-helper-manifest.tsv`). A missing or
+incompatible binary is a failed helper activation, **not** permission to use
+two `mv` operations or copy another executable into the running rootfs.
+The existing Base Update owner acquires and verifies a Base candidate while
+the healthy Surface and known-good stay in place.
+
+If the Git checkout was committed but helpers are still pending for its
+**current SHA**, the Supervisor reuses `native-state/git-checkout-retry` from
+its existing post-fetch retry policy, with source=target=current SHA and
+reason=`helper-refresh-failed`. The same 15–300s bounded delay applies to
+repeated installations; it does **not** defer the request for a compatible
+Base candidate. `Atualizar agora` bypasses only the delay, not the ABI
+or health checks. The existing UI reason `checkout-retry-wait` is reused;
+success is acknowledged only after `dev-helpers-sha` matches the active
+checkout. No additional retry state file, polling owner or updater exists.
+
+Before any physical rollout, verify that the Base **actually booted on the
+target notebook**, that its native helper responds with the declared ABI,
+and that rollback/known-good recovery remains available. CI/QEMU and a
+successful Creator ZIP are not proof of that physical prerequisite.
+
 A physical boot must confirm the repaired USB no longer cycles through
 `fetching → validating → atomic-checkout-failed`. A successful host-side pull
 proves only checkout semantics, not live runtime health, NTP, Wi-Fi, power or
