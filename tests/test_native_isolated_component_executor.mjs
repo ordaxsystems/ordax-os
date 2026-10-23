@@ -264,6 +264,92 @@ test("Native external module execution is represented by an opaque-origin iframe
   assert.equal(env.root.childNodes.length, 0);
 });
 
+test("Aura Native slot receives only typed host snapshots and consultative bounded inference", async () => {
+  const env = setup({ componentId: "assistant", version: "0.1.2" });
+  const url = MODULE.replace("notes/current/0.4.2", "assistant/current/0.1.2");
+  const identity = {
+    schema: "ordax.identity-session/1",
+    getSnapshot: () => ({ state: "signed-in", subjectId: "account-1", displayName: "Account" }),
+    subscribe: () => () => {},
+  };
+  const selection = {
+    schema: "ordax.space-selection/1",
+    getSnapshot: () => ({
+      schema: "ordax.space-selection/1", state: "unavailable",
+      subjectId: null, selectedSpace: null,
+    }),
+    subscribe: () => () => {},
+    select() { throw Error("not authorized"); },
+    clear() { throw Error("not authorized"); },
+  };
+  const intelligence = {
+    schema: "ordax.intelligence/1",
+    getSnapshot: () => ({
+      schema: "ordax.intelligence/1", state: "ready", inferenceAvailable: true,
+      engineId: "local", modelId: "test-model", authority: "none", toolExecution: false,
+    }),
+    subscribe: () => () => {},
+    async respond(request) {
+      assert.equal(request.intent, "ask");
+      return {
+        schema: "ordax.intelligence-response/1", text: "Resposta local",
+        engineId: "local", modelId: "test-model", authority: "none",
+      };
+    },
+  };
+  const importer = await env.importer(url, env.currentSlot);
+  await assert.rejects(
+    () => importer.componentRuntime.mount({
+      root: env.root, surfaceLifecycle: env.lifecycle, appData: env.appData,
+    }),
+    /requires all trusted Identity, Space and Intelligence ports/,
+  );
+  const mounted = await importer.componentRuntime.mount({
+    root: env.root, surfaceLifecycle: env.lifecycle, appData: env.appData,
+    identitySessionPort: identity, spaceSelectionPort: selection, intelligence,
+  });
+  const frame = env.root.childNodes[0];
+  assert.equal(frame.receivedBootstrap.identitySessionSnapshot.subjectId, "account-1");
+  assert.equal(frame.receivedBootstrap.spaceSelectionSnapshot.state, "unavailable");
+  assert.equal(frame.receivedBootstrap.intelligenceSnapshot.authority, "none");
+  assert.equal(frame.receivedBootstrap.fileSpaceScope, null);
+  assert.equal(frame.receivedBootstrap.projectCatalogSnapshot, null);
+
+  const reply = mountedMessage(frame);
+  frame.childPort.postMessage({
+    schema: BRIDGE, type: "call", id: 1,
+    operation: "intelligence.respond",
+    args: [{ prompt: "Olá", intent: "ask", context: [], maxTokens: 80 }],
+  });
+  const answer = await reply;
+  assert.equal(answer.ok, true);
+  assert.equal(answer.value.text, "Resposta local");
+  assert.equal(answer.value.authority, "none");
+  await mounted.destroy();
+});
+
+test("non-Aura signed slots cannot request or obtain Aura's privileged host snapshots", async () => {
+  const env = setup();
+  const imported = await env.importer(MODULE, env.currentSlot);
+  await assert.rejects(() => imported.componentRuntime.mount({
+    root: env.root, surfaceLifecycle: env.lifecycle, appData: env.appData,
+    identitySessionPort: {},
+  }), /belongs only to verified Aura slots/);
+  const mounted = await imported.componentRuntime.mount({
+    root: env.root, surfaceLifecycle: env.lifecycle, appData: env.appData,
+  });
+  const frame = env.root.childNodes[0];
+  assert.equal(frame.receivedBootstrap.identitySessionSnapshot, null);
+  const reply = mountedMessage(frame);
+  frame.childPort.postMessage({
+    schema: BRIDGE, type: "call", id: 1,
+    operation: "intelligence.respond",
+    args: [{ prompt: "Olá" }],
+  });
+  assert.equal((await reply).ok, false);
+  await mounted.destroy();
+});
+
 test("the non-Files host broker binds App Data and exposes no File Space", async () => {
   const env = setup();
   const imported = await env.importer(MODULE, CURRENT_SLOT);
