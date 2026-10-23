@@ -6,7 +6,7 @@ import { assertIdentitySessionPort } from "../../contracts/identity-session.mjs"
 import { assertSpaceSelectionPort } from "../../contracts/space-selection.mjs";
 import { assertIntelligencePort } from "../../contracts/intelligence.mjs";
 
-export function createNativeAuraTrustedContextProvider({
+export function createNativeIntelligenceClientTrustedContextProvider({
   verifiedCurrent = null,
   identitySessionPort = null,
   spaceSelectionPort = null,

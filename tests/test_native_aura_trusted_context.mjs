@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createNativeAuraTrustedContextProvider } from "../system/composition/native/aura-trusted-context.mjs";
+import { createNativeIntelligenceClientTrustedContextProvider } from "../system/composition/native/intelligence-client-trusted-context.mjs";
 
 const CURRENT = Object.freeze({
   componentId: "assistant", state: "current", source: "slot",
@@ -31,7 +31,7 @@ const intelligencePort = Object.freeze({
 const ports = Object.freeze({ identitySessionPort, spaceSelectionPort, intelligencePort });
 
 test("Aura's host-owned context uses three existing public ports and exact signed current slot", () => {
-  const provider = createNativeAuraTrustedContextProvider({ ...ports, verifiedCurrent: CURRENT });
+  const provider = createNativeIntelligenceClientTrustedContextProvider({ ...ports, verifiedCurrent: CURRENT });
   const context = provider("assistant");
   assert.equal(Object.isFrozen(context), true);
   assert.deepEqual(Object.keys(context).sort(), ["identitySessionPort", "intelligence", "spaceSelectionPort"]);
@@ -44,7 +44,7 @@ test("Aura's host-owned context uses three existing public ports and exact signe
 });
 
 test("Aura cannot receive trusted ports from absent, removed, pending or bundled slots", () => {
-  assert.throws(() => createNativeAuraTrustedContextProvider(ports)("assistant"), /verified current/);
+  assert.throws(() => createNativeIntelligenceClientTrustedContextProvider(ports)("assistant"), /verified current/);
   for (const current of [
     { ...CURRENT, source: "absent", version: null, sourceCommit: null, entrypoint: null },
     { ...CURRENT, source: "removed", version: null, sourceCommit: null, entrypoint: null },
@@ -54,20 +54,20 @@ test("Aura cannot receive trusted ports from absent, removed, pending or bundled
     { ...CURRENT, revision: -1 },
   ]) {
     assert.throws(
-      () => createNativeAuraTrustedContextProvider({ ...ports, verifiedCurrent: current })("assistant"),
+      () => createNativeIntelligenceClientTrustedContextProvider({ ...ports, verifiedCurrent: current })("assistant"),
       /current|installed|slot|metadata|revision/i,
     );
   }
   for (const missing of ["identitySessionPort", "spaceSelectionPort", "intelligencePort"]) {
     const invalid = { ...ports, verifiedCurrent: CURRENT, [missing]: null };
-    assert.throws(() => createNativeAuraTrustedContextProvider(invalid)("assistant"), /required|compatible|port/i);
+    assert.throws(() => createNativeIntelligenceClientTrustedContextProvider(invalid)("assistant"), /required|compatible|port/i);
   }
 });
 
 test("Native composition installs only this verified binding; it is not an app or new authority", async () => {
   const { readFile } = await import("node:fs/promises");
   const composition = await readFile(new URL("../system/composition/native/main.mjs", import.meta.url), "utf8");
-  assert.match(composition, /installTrustedComponentContextProvider\(\s*createNativeAuraTrustedContextProvider/);
+  assert.match(composition, /installTrustedComponentContextProvider\(\s*createNativeIntelligenceClientTrustedContextProvider/);
   assert.match(composition, /hasNativeExternalFirstPartyModuleRead\("assistant"\)/);
   assert.match(composition, /verifiedCurrent: installedAppCatalog\?\.installed\.find/);
   assert.match(composition, /intelligencePort: selectedSpaceIntelligence/);

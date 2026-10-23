@@ -90,7 +90,7 @@ receive unrestricted File Space, Intelligence or other device grants through
   narrowly scoped exception for *public consultative ports*: only its exact
   signed current slot may receive Identity/Space read-only snapshots and
   `ordax.intelligence/1` through the existing isolated MessagePort broker.
-  The dedicated host-owned provider is `system/composition/native/aura-trusted-context.mjs`;
+  The dedicated host-owned provider is `system/composition/native/intelligence-client-trusted-context.mjs`;
   it is not a second Intelligence service, model router or permission authority.
   The broker revalidates slot identity on every request, bounds inference to one
   pending turn, aborts on cancellation/revocation/Identity/Space changes and

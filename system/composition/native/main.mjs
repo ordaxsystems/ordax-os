@@ -77,7 +77,7 @@ import { createProjectWebReferenceRuntime } from "../../services/projects/web-re
 import { createProjectContinuityFileSpace } from "../../services/files/project-continuity-file-space.mjs";
 import { installTrustedComponentContextProvider } from "../../services/components/runtime-loader.mjs";
 import { createNativeFilesTrustedContextProvider } from "./files-trusted-context.mjs";
-import { createNativeAuraTrustedContextProvider } from "./aura-trusted-context.mjs";
+import { createNativeIntelligenceClientTrustedContextProvider } from "./intelligence-client-trusted-context.mjs";
 import { createNativeFilesProbationContextBootstrap } from "./files-probation-context.mjs";
 import { createPersonalActionCatalog } from "../../services/personal-ordax/action-catalog.mjs";
 import { createNotificationsRuntime } from "../../services/notifications/runtime.mjs";
@@ -951,7 +951,7 @@ async function start() {
   if (hasNativeExternalFirstPartyModuleRead("assistant")
     && !listFirstPartyApps().some((app) => app.id === "assistant")) {
     installTrustedComponentContextProvider(
-      createNativeAuraTrustedContextProvider({
+      createNativeIntelligenceClientTrustedContextProvider({
         verifiedCurrent: installedAppCatalog?.installed.find(
           (entry) => entry.component.id === "assistant",
         )?.metadata ?? null,
