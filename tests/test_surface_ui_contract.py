@@ -312,8 +312,19 @@ class SurfaceUiContractTests(unittest.TestCase):
         self.assertNotIn('assistantMemoryCapture', native)
         self.assertNotIn('railButton("assistant"', DESKTOP_SHELL.read_text(encoding="utf-8"))
         self.assertNotIn('ASSISTANT_SOURCE_MESSAGES', SURFACE_LOCALIZATION.read_text(encoding="utf-8"))
-        self.assertNotIn("assistant", policy["native_loopback_broker_supported_components"])
+        # The only packaged Aura source is in Apps; the OS broker may read
+        # its exact verified current slot without bundling another app or
+        # obtaining health, installation, promotion or model authority.
+        self.assertIn("assistant", policy["native_loopback_broker_supported_components"])
+        self.assertTrue(policy["native_loopback_broker_read_only"])
+        self.assertTrue(policy["native_loopback_broker_requires_component_trust"])
+        self.assertTrue(policy["runtime_file_read_revalidates_slot_and_hash"])
+        self.assertNotIn("assistant", policy["native_loopback_broker_health_mutation_components"])
         self.assertNotIn("assistant", policy["runtime_health_bridge_supported_components"])
+        self.assertNotIn("assistant", policy["native_pending_decision_supported_components"])
+        self.assertFalse(policy["canonical_component_trust_anchor_pinned"])
+        self.assertFalse(policy["pending_health_promotion_available"])
+        self.assertFalse(policy["publish_allowed"])
 
 
     def test_browser_engine_stays_in_platform_without_bundled_internet_app(self):
