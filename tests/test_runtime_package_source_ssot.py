@@ -28,6 +28,7 @@ class RuntimePackageSourceSsotTests(unittest.TestCase):
         with self.assertRaisesRegex(generator.GenerationError, "may not be registered"):
             generator.render(
                 {"notes": "ordaxsystems/ordax-apps", "product-runtime": "ordaxsystems/ordax-apps"},
+                (),
                 {"ordax.app-activation": 1},
                 "ordaxsystems/ordax-runtime",
             )
@@ -45,6 +46,15 @@ class RuntimePackageSourceSsotTests(unittest.TestCase):
             )
         }
         self.assertEqual(found, expected)
+        blocked = json.loads(POLICY.read_text(encoding="utf-8"))[
+            "native_external_current_slot_blocked_by_bundled_owner_components"
+        ]
+        generated_blocks = set(re.findall(
+            r'^\t"([a-z][a-z0-9-]*)": \{\},$',
+            source,
+            re.MULTILINE,
+        ))
+        self.assertEqual(generated_blocks, set(blocked))
         runtime_lock = json.loads(
             (ROOT / "system/services/device-agent/studio-runtime-source-lock.json").read_text(encoding="utf-8")
         )
