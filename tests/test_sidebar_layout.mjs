@@ -83,6 +83,8 @@ test("OS Surface intelligence presentation reuses its canonical destination titl
     "../system/surface/workspace/components/intelligence/aura-content.tsx",
     "../system/surface/workspace/components/central/window-content.tsx",
     "../system/surface/workspace/lib/web/model.ts",
+    "../system/surface/workspace/components/central/desktop.tsx",
+    "../system/surface/workspace/components/central/meridian-home.tsx",
   ]) {
     const source = await readFile(new URL(path, import.meta.url), "utf8");
     assert.match(source, /getSurfaceWindowTitle|getSurfaceDestination/, path);
