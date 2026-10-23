@@ -29,6 +29,7 @@ STORE_METADATA_COMPONENT_IDS = frozenset({
 })
 
 NATIVE_MODULE_READ_COMPONENT_IDS = frozenset({
+    "assistant",
     "calculator",
     "files",
     "notes",
