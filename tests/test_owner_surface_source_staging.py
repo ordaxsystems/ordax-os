@@ -132,12 +132,26 @@ class OwnerSurfaceSourceTests(unittest.TestCase):
         self.assertFalse((self.slot / ".surface-source-sha").exists())
 
 
-    def supervisor_start(self, profile: str):
+    def supervisor_start(self, profile: str, provision_missing: bool = False):
         supervisor = (ROOT / "system/supervisor").read_text(encoding="utf-8")
         section = "start_surface() {" + supervisor.split("start_surface() {", 1)[1].split("\n}\n", 1)[0] + "\n}\n"
         receipt = self.root / "started-from.txt"
         work = self.root / "update.log"
         work.touch()
+        stage_stub = ""
+        if provision_missing:
+            stage_stub = """
+stage_candidate_release() {
+  [ "$1" = "$EXPECTED_SHA" ] && [ "$2" = surface-restart ] || return 1
+  slot="$RELEASES_DIR/$EXPECTED_SHA"
+  mkdir -p "$slot/system/surface/ui" "$slot/system/surface/workspace"
+  cp "$SYSTEM_ROOT/surface/entrypoint" "$slot/system/surface/entrypoint"
+  : > "$slot/system/surface/ui/surface.mjs"
+  printf '%s\\n' "$EXPECTED_SHA" > "$slot/.sha"
+  printf '%s\\n' "$VISUAL_SHA" > "$slot/.surface-source-sha"
+  printf 'ready\\n' > "$slot/.ready"
+}
+"""
         shell = (
             "set -eu\n"
             "WORKTREE=$1\n"
@@ -149,17 +163,32 @@ class OwnerSurfaceSourceTests(unittest.TestCase):
             "DISTRIBUTION_PROFILE=$6\n"
             "EXPECTED_SHA=$7\n"
             "RECEIPT=$8\n"
+            "VISUAL_SHA=$9\n"
             "current_sha() { printf '%s\\n' \"$EXPECTED_SHA\"; }\n"
             "start_surface_from_system() { printf '%s\\n' \"$1\" > \"$RECEIPT\"; }\n"
             "log() { :; }\n"
-            + section + "start_surface\n"
+            + stage_stub + section + "start_surface\n"
         )
         proc = subprocess.run([
             "/bin/sh", "-c", shell, "sh", str(self.os_root),
             str(self.root / "releases"), str(self.os_root / "system"),
             str(HELPER), str(work), profile, self.os_sha, str(receipt),
+            self.source_sha,
         ], env=self.env, text=True, capture_output=True)
         return proc, receipt
+
+    def test_clean_owner_install_can_stage_on_first_cold_boot(self):
+        # No legacy source or slot is available; the original Supervisor
+        # transaction must be invoked before launching the canonical Surface.
+        for part in ("ui", "workspace"):
+            shutil.rmtree(self.os_root / "system/surface" / part)
+        self.set_lock("canonical")
+        self.assertFalse((self.os_root / "system/surface/ui").exists())
+        proc, marker = self.supervisor_start("owner-development", provision_missing=True)
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        slot = self.root / "releases" / self.os_sha
+        self.assertEqual(marker.read_text().strip(), str(slot / "system"))
+        self.assertEqual((slot / ".surface-source-sha").read_text().strip(), self.source_sha)
 
     def test_cold_boot_uses_only_verified_canonical_slot(self):
         self.call("stage", check=True)
