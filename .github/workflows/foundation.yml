@@ -51,6 +51,9 @@ jobs:
       - name: Validate canonical Native Product Connector port
         run: node --test tests/test_product_connector_adapter.mjs
 
+      - name: Validate signed Runtime and MCP authority SSOT
+        run: node --test tests/test_studio_runtime_source_lock.mjs
+
       - name: Validate product family version identities
         run: node --test tests/test_product_family.mjs
 

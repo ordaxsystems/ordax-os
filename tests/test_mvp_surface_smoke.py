@@ -578,7 +578,7 @@ class MvpSurfaceSmokeTests(unittest.TestCase):
             self._source_tree(root)
             snapshot, checks = proof.source_snapshot(root)
         self.assertEqual(len(snapshot["files"]), len(proof.REQUIRED_SOURCE_FILES))
-        self.assertIn("apps/account/app.mjs", snapshot["files"])
+        self.assertIn("services/system-ui/account/app.mjs", snapshot["files"])
         self.assertIn("surface/ui/account-overview-controls.mjs", snapshot["files"])
         self.assertIn("surface/ui/memory-review-controls.mjs", snapshot["files"])
         self.assertTrue(all(item["status"] == "pass" for item in checks))

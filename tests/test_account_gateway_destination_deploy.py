@@ -72,7 +72,10 @@ class AccountGatewayDestinationDeployTests(unittest.TestCase):
         self.assertNotIn("apply_migration", text)
         self.assertNotIn("functional_provider_cutover_complete = true", text.lower())
         self.assertIn('"version": 17', text)
-        self.assertIn('value.get("error") == "authentication-required"', text)
+        self.assertIn('value.get("error") == "native-account-session-required"', text)
+        self.assertIn("ACCOUNT_GATEWAY_MCP_USAGE_UNAUTH=PASS", text)
+        self.assertIn('Deno.env.get("ORDAX_MCP_USAGE_READ_ENABLED")', text)
+        self.assertIn("node --test tests/test_account_mcp_usage_bridge.mjs", text)
 
     def test_workflow_pins_approved_cli_action_and_version(self):
         text = WORKFLOW.read_text(encoding="utf-8")
@@ -92,6 +95,8 @@ class AccountGatewayDestinationDeployTests(unittest.TestCase):
             ".github/workflows/ordax-account-gateway-destination.yml",
             "infra/supabase/functions/ordax-account-gateway/**",
             "infra/supabase/functions/_shared/account_transport_admission.mjs",
+            "infra/supabase/functions/_shared/account_mcp_usage.mjs",
+            "tests/test_account_mcp_usage_bridge.mjs",
             "tools/account/resolve_account_gateway_destination.py",
         ):
             self.assertIn(required, text)

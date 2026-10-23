@@ -97,6 +97,7 @@ export function mountFirstRunExperience(
     deviceProfile = null,
     keyboardLayout = null,
     resumeCursor = null,
+    hostedSignupBridge = null,
   },
 ) {
   if (!(root instanceof Element)) {
@@ -1255,7 +1256,7 @@ export function mountFirstRunExperience(
   const onClick = (event) => {
     const hostedSignup = event.target.closest("[data-first-run-hosted-signup]");
     if (hostedSignup && overlay.contains(hostedSignup)) {
-      requestNativeHostedSignup(event, documentObject.defaultView);
+      requestNativeHostedSignup(event, documentObject.defaultView, hostedSignupBridge);
       return;
     }
     const button = event.target.closest("[data-first-run-action]");

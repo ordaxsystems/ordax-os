@@ -167,6 +167,25 @@ if test "$PROFILE" = owner-development; then
         cp "$ROOT/bootstrap/dev-base/$helper" "$TARGET_DIR/usr/local/bin/$helper"
         chmod 0755 "$TARGET_DIR/usr/local/bin/$helper"
     done
+    # Compile the EXISTING atomic checkout helper using THIS Buildroot output's
+    # static x86_64 musl toolchain. Never copy host-compiled/native-glibc bytes
+    # or resurrect the unsafe two-rename checkout sequence.
+    exchange_source="$ROOT/bootstrap/dev-base/ordax_checkout_exchange.c"
+    exchange_compiler="${HOST_DIR:-}/bin/x86_64-buildroot-linux-musl-gcc"
+    if test -L "$exchange_source" || ! test -f "$exchange_source" ||
+       test -z "${HOST_DIR:-}" || ! test -x "$exchange_compiler"; then
+        echo "Owner/Development canonical atomic exchange source/toolchain unavailable" >&2
+        exit 1
+    fi
+    "$exchange_compiler" -static -Os -s -Wall -Wextra -Werror \
+        -Wl,--build-id=none \
+        -o "$TARGET_DIR/usr/local/bin/ordax-checkout-exchange" "$exchange_source"
+    chmod 0755 "$TARGET_DIR/usr/local/bin/ordax-checkout-exchange"
+    if test "$("$TARGET_DIR/usr/local/bin/ordax-checkout-exchange" --abi)" != \
+        "prototype-ordax.checkout-exchange/1"; then
+        echo "Owner/Development native atomic exchange ABI mismatch" >&2
+        exit 1
+    fi
     test -f "$ROOT/bootstrap/dev-base/ordax-dev-init"
     cp "$ROOT/bootstrap/dev-base/ordax-dev-init" "$TARGET_DIR/sbin/ordax-dev-init"
     chmod 0755 "$TARGET_DIR/sbin/ordax-dev-init"
@@ -181,7 +200,8 @@ else
     for unexpected in \
         "$TARGET_DIR/usr/bin/git" \
         "$TARGET_DIR/usr/sbin/wpa_supplicant" \
-        "$TARGET_DIR/etc/ordax/owner-development"
+        "$TARGET_DIR/etc/ordax/owner-development" \
+        "$TARGET_DIR/usr/local/bin/ordax-checkout-exchange"
     do
         if test -e "$unexpected"; then
             echo "Owner/Development capability leaked into minimal profile: $unexpected" >&2

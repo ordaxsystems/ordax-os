@@ -14,6 +14,7 @@ from http.cookies import SimpleCookie
 from typing import Mapping
 from urllib.parse import parse_qs, urlsplit
 
+from mcp_usage import ProductMcpUsageError, ProductMcpUsageReader, validated_usage
 from memory_entitlements import AccountMemoryEntitlementAuthority
 from pwned_passwords import PwnedPasswordChecker, PwnedPasswordsError
 from supabase_account import SupabaseAccountError, SupabaseAccountProvider
@@ -155,6 +156,13 @@ def _memory_provider_from_environment() -> SupabaseMemoryProvider | None:
         return SupabaseMemoryProvider(*config)
     except (TypeError, ValueError):
         return None
+
+
+def _mcp_usage_reader_from_environment() -> ProductMcpUsageReader | None:
+    # No public-account read, forwarding or bearer egress without explicit activation.
+    if os.environ.get("ORDAX_MCP_USAGE_READ_ENABLED", "0") != "1":
+        return None
+    return ProductMcpUsageReader()
 
 
 def _recovery_redirect_from_environment() -> str | None:
@@ -372,6 +380,7 @@ class PublicIdentityGateway:
         memory_provider: SupabaseMemoryProvider | None = None,
         password_checker: PwnedPasswordChecker | None = None,
         registration_legal_authority: SupabaseRegistrationLegalAuthority | None = None,
+        mcp_usage_reader: ProductMcpUsageReader | None = None,
     ) -> None:
         self.provider = provider if provider is not None else _provider_from_environment()
         self.sync_provider = (
@@ -387,6 +396,10 @@ class PublicIdentityGateway:
         )
         self.memory_provider = (
             memory_provider if memory_provider is not None else _memory_provider_from_environment()
+        )
+        self.mcp_usage_reader = (
+            mcp_usage_reader if mcp_usage_reader is not None
+            else _mcp_usage_reader_from_environment()
         )
         self.password_checker = password_checker or PwnedPasswordChecker()
         self.registration_legal_authority = (
@@ -974,6 +987,31 @@ class PublicIdentityGateway:
             )
         return _json_response(200, export, set_cookies=set_cookies)
 
+    def _account_mcp_usage(
+        self,
+        request_headers: Mapping[str, str],
+    ) -> GatewayResponse:
+        if not self.provider:
+            return self._provider_unavailable()
+        access, set_cookies = self._authenticated_access(request_headers)
+        if not access:
+            return _json_response(
+                401,
+                {
+                    "$schema": ERROR_SCHEMA,
+                    "error": "authentication-required",
+                    "message": "Entre na Conta OrdaX para consultar o consumo MCP.",
+                },
+                set_cookies=set_cookies,
+            )
+        if self.mcp_usage_reader is None:
+            return _error(503, "mcp-usage-unavailable", "A medição MCP ainda não está disponível nesta Conta.")
+        try:
+            usage = validated_usage(self.mcp_usage_reader.read(access))
+        except (ProductMcpUsageError, TypeError, ValueError):
+            return _error(503, "mcp-usage-unavailable", "Não foi possível consultar a medição MCP.")
+        return _json_response(200, usage, set_cookies=set_cookies)
+
     def _account_spaces(
         self,
         request_headers: Mapping[str, str],
@@ -1259,6 +1297,11 @@ class PublicIdentityGateway:
             if method != "GET":
                 return self._method_not_allowed("GET")
             return self._account_export(request_headers)
+
+        if path == "/account/usage/mcp":
+            if method != "GET":
+                return self._method_not_allowed("GET")
+            return self._account_mcp_usage(request_headers)
 
         if path == "/account/spaces":
             if method != "GET":

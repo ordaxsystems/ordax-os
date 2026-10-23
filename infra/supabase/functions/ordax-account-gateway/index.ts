@@ -6,6 +6,7 @@ import {
   validateRateLimitRpcResult,
 } from "../_shared/auth_rate_limit.mjs";
 import { readBoundedBody } from "../_shared/bounded_body.mjs";
+import { ACCOUNT_MCP_USAGE_PATH, readAccountMcpUsage } from "../_shared/account_mcp_usage.mjs";
 import { accountPrivilegedRpc } from "../_shared/account_privileged_rpc.mjs";
 import { authorizeAccountTransport, accountGatewayRoutePath, isPublicAccountPreActivationRoute } from "../_shared/account_transport_admission.mjs";
 import { PUBLIC_CONFIRMATION_PATH, PUBLIC_SIGNUP_REDIRECT, PUBLIC_RECOVERY_VERIFY_PATH, PUBLIC_RECOVERY_VERIFY_URL, parseSignupConfirmation, parseRecoveryLink } from "../_shared/account_email_confirmation.mjs";
@@ -1295,6 +1296,29 @@ Deno.serve(async (req: Request) => {
       return error(502, "account-export-failed", "Não foi possível gerar a exportação da Conta OrdaX.");
     }
     return json(200, data, session.cookies);
+  }
+
+  if (path === ACCOUNT_MCP_USAGE_PATH && req.method === "GET") {
+    const session = await authenticated(req);
+    if (!session.user || !session.access) {
+      return json(401, {
+        $schema: ERROR_SCHEMA,
+        error: "authentication-required",
+        message: "Entre na Conta OrdaX para consultar o consumo MCP.",
+      }, session.cookies);
+    }
+    // Separate activation from identity and MCP subscription. A live session
+    // cannot implicitly enable external bearer forwarding or shadow collection.
+    if (Deno.env.get("ORDAX_MCP_USAGE_READ_ENABLED") !== "1") {
+      return error(503, "mcp-usage-unavailable", "A medição MCP ainda não está disponível nesta Conta.");
+    }
+    try {
+      const usage = await readAccountMcpUsage(session.access);
+      return json(200, usage, session.cookies);
+    } catch {
+      // Never expose bearer, provider response, SQL or upstream diagnostics.
+      return error(503, "mcp-usage-unavailable", "Não foi possível consultar a medição MCP.");
+    }
   }
 
   if (path === "/account/spaces" && req.method === "GET") {

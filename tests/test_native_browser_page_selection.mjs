@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createNativeBrowserPageSelection } from "../system/adapters/native/browser-page-selection.mjs";
 import { BROWSER_PAGE_SELECTION_SCHEMA } from "../system/contracts/browser-page-selection.mjs";
+import { createNativeHostWindow } from "./support/native-host-window.mjs";
 
 const sample = {
   schema: BROWSER_PAGE_SELECTION_SCHEMA,
@@ -18,10 +19,13 @@ function fakeNativeWindow() {
   const events = new Map();
   const messages = [];
   const timers = new Map();
+  const { windowRef } = createNativeHostWindow({
+    onPostMessage(value){messages.push(JSON.parse(value));},
+  });
   let timerId = 0;
   return {
+    ...windowRef,
     messages, events, timers,
-    webkit: {messageHandlers: {ordaxBrowser:{postMessage(value){messages.push(JSON.parse(value));}}}},
     addEventListener(name, fn){events.set(name,fn);},
     removeEventListener(name, fn){if(events.get(name)===fn)events.delete(name);},
     setTimeout(fn){const id=++timerId;timers.set(id,fn);return id;},

@@ -46,12 +46,32 @@
   "native_loopback_broker_requires_signed_system_helper": true,
   "native_loopback_broker_requires_component_trust": true,
   "native_loopback_broker_read_only": true,
-  "native_files_slot_bound_file_space_enforced": false,
+  "native_isolated_component_executor_available": true,
+  "native_isolated_component_executor_opaque_origin": true,
+  "native_isolated_component_operation_revalidates_exact_current_slot": true,
+  "native_isolated_component_operation_revokes_on_slot_change": true,
+  "native_isolated_component_operation_aborts_on_authority_timeout": true,
+  "native_isolated_component_operation_waits_for_inflight_drain": true,
+  "native_pending_import_probe_available": true,
+  "native_pending_import_probe_opaque_origin": true,
+  "native_pending_import_probe_revalidates_exact_pending_revision": true,
+  "native_pending_import_probe_exposes_host_capabilities": false,
+  "native_pending_import_probe_mounts_runtime": false,
+  "native_files_slot_bound_file_space_enforced": true,
   "native_loopback_broker_supported_components": [
+    "assistant",
     "calculator",
+    "files",
     "notes",
     "studio"
   ],
+  "native_external_current_slot_blocked_by_bundled_owner_components": [],
+  "native_pending_files_mount_probe_available": true,
+  "native_pending_files_mount_probe_opaque_origin": true,
+  "native_pending_files_mount_probe_revalidates_exact_pending_revision": true,
+  "native_pending_files_mount_probe_file_space_scope": "empty-synthetic-root",
+  "native_pending_files_mount_probe_exposes_user_data": false,
+  "native_pending_files_mount_probe_mutates_user_data": false,
   "failed_pending_runtime_read_allowed": false,
   "runtime_file_read_requires_exact_version_and_source_commit": true,
   "runtime_file_read_rejects_state_identity_change": true,
@@ -86,9 +106,11 @@
   "runtime_health_bridge_transport": "native-webkit-message-nonce",
   "runtime_health_bridge_probe_registry": "system/services/components/probation-orchestrator.mjs",
   "runtime_health_bridge_supported_components": [
+    "files",
     "notes"
   ],
   "runtime_health_bridge_probe_mode_by_component": {
+    "files": "mount-contract",
     "notes": "import-contract"
   },
   "runtime_health_bridge_requires_host_nonce": true,
@@ -122,8 +144,17 @@
   },
   "source_repository_policy": "component-bound-fail-closed",
   "native_loopback_broker_health_mutation_components": [
+    "files",
     "notes"
   ],
+  "native_pending_decision_supported_components": [
+    "notes"
+  ],
+  "files_component_slot_read_available": true,
+  "files_component_probation_available": true,
+  "files_component_distribution_activation_enabled": false,
+  "files_component_promotion_proven": false,
+  "files_component_rollback_proven": false,
   "notes_component_slot_read_available": true,
   "notes_component_probation_available": true,
   "notes_component_distribution_activation_enabled": false,
@@ -131,13 +162,16 @@
   "notes_component_rollback_proven": false,
   "canonical_package_source_repository_by_component": {
     "activity": "ordaxsystems/ordax-apps",
+    "assistant": "ordaxsystems/ordax-apps",
     "calculator": "ordaxsystems/ordax-apps",
     "calendar": "ordaxsystems/ordax-apps",
     "character-map": "ordaxsystems/ordax-apps",
     "clock": "ordaxsystems/ordax-apps",
     "colors": "ordaxsystems/ordax-apps",
     "converter": "ordaxsystems/ordax-apps",
+    "files": "ordaxsystems/ordax-apps",
     "image-viewer": "ordaxsystems/ordax-apps",
+    "internet": "ordaxsystems/ordax-apps",
     "media-player": "ordaxsystems/ordax-apps",
     "network": "ordaxsystems/ordax-apps",
     "notes": "ordaxsystems/ordax-apps",
@@ -148,20 +182,7 @@
     "text-viewer": "ordaxsystems/ordax-apps",
     "toolbox": "ordaxsystems/ordax-apps"
   },
-  "prelaunch_remove_first_pending": {
-    "assistant": {
-      "state": "platform-source-removed-app-source-pending",
-      "expected_repository": "ordaxsystems/ordax-apps",
-      "platform_source_absence_required": true,
-      "distribution_activation_allowed": false
-    },
-    "internet": {
-      "state": "platform-source-removed-app-source-pending",
-      "expected_repository": "ordaxsystems/ordax-apps",
-      "platform_source_absence_required": true,
-      "distribution_activation_allowed": false
-    }
-  },
+  "prelaunch_remove_first_pending": {},
   "native_host_contract_major_versions": {
     "ordax.app-activation": 1,
     "ordax.app-data": 1,

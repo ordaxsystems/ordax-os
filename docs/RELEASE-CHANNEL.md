@@ -99,6 +99,83 @@ ORDAX_OWNER_SIGNED_STAGE_ROOT=/mnt/disposable/owner-signed-preview \
   sh system/services/update/owner-signed-preview.sh stage <exact-signed-40hex-sha>
 ```
 
+### Native portable activation inspection (read-only; no new update owner)
+
+The canonical `ordax-portable-state inspect <state-root> <portable-root>`
+command returns `ordax.portable-state-inspection/1` JSON with exact validated
+`current`, `knownGood`, optional `candidate` and `rejected` identities,
+plus a read-only phase: `idle`, `armed`, `orphan-advisory`, or
+`commit-interrupted`. `attempt` is `0` or `1` only for an armed
+transaction; otherwise it is `null`.
+
+This is an **observation**, not a new authority: the native helper checks the
+shape of materialized release directories and durable activation state.
+It does **not** verify Ed25519 signatures or authorize the Dev USB to boot a
+release. The canonical Go release agent must authenticate each exact
+candidate; `prepare`, `select-boot` and Supervisor cold-health ownership
+remain separate. Inconsistent or malformed state fails closed (exit 4),
+without rewriting, cleaning or repairing any on-disk slot. This provides a
+reusable diagnostic gate for future Dev boot-profile handoff while keeping
+Git-first the only active Dev method.
+
+### Owner signed portable state audit (disposable only; no boot switch)
+
+The existing `owner-signed-preview.sh` now supports `audit-state <exact-40hex-sha>`
+for a **previously staged** v4 release and a separately provisioned **disposable**
+persistent-state fixture. It combines two existing and distinct authorities:
+the canonical Go release agent performs `verify-portable-v4-exact` with the
+pinned trust anchor and expected commit, then the existing native
+`ordax-portable-state inspect` observes the fixture without writing.
+
+```sh
+# Both directories must already exist, be canonical, distinct and isolated.
+# State must be a dedicated owner-signed-state directory, never /state.
+ORDAX_DISTRIBUTION_PROFILE=owner-development \
+ORDAX_OWNER_SIGNED_STAGE_ROOT=/mnt/disposable/owner-signed-preview \
+ORDAX_OWNER_SIGNED_STATE_ROOT=/mnt/disposable/owner-signed-state \
+ORDAX_OWNER_SIGNED_STATE_HELPER=/mnt/disposable/ordax-portable-state \
+  sh system/services/update/owner-signed-preview.sh audit-state <signed-40hex-sha>
+```
+
+The native helper must be the real compiled `bootstrap/initramfs/portable_state.c`,
+not a replacement verifier. Signature or SHA mismatch prevents native
+inspection. Corrupt or inconsistent state is rejected by the native reader.
+This v4-only audit first authenticates the staged candidate, then reads
+`current` and `known-good` from the native state helper and independently
+revalidates each distinct signed v4 release through the **same** Go agent
+before the read-only state snapshot. A missing, malformed or tampered recovery
+slot blocks the audit. This is signed Portable fixture validation, **not**
+proof that an Owner/Development Git checkout is a signed Portable slot.
+The audit does not authenticate every historical/rejected slot, prove the
+Owner Git boot can enter Portable, arm or commit a transaction,
+modify a live USB, start a VM, or authorize Stable release promotion. The
+active Dev transport remains Git-first, with no runtime method selector.
+This auditable boundary precedes a distinct disposable mixed-profile
+QEMU boot and Supervisor cold-health/rollback proof.
+
+### Signed Portable QEMU on the transitional Dev partition geometry
+
+The **existing** `bootstrap/portable-v2/qemu_boot.py` has an explicit,
+non-default `--dev-transitional-geometry` proof. It derives the ESP and
+ORDAX-ext4 size minima from the canonical
+`docs/contracts/physical-prepared-media.json`, creates a **disposable sparse
+5 GiB RAW**, and formats `ORDAX-ESP` (FAT32), `ORDAX` (ext4) and
+`ORDAX-DATA` (exFAT). The intermediate ORDAX partition is intentionally
+**empty**: it is not a preseeded Git checkout. The signed v4 Portable runtime,
+bootstrap capsule, exact Base, Ed25519 trust and persistent-state image reuse
+the existing materialization and QEMU PID1/Surface proof.
+
+The new stable-base CI step must obtain the *real* Portable PID1 and Surface
+handoff markers on that three-partition disk with network disabled, then
+destroy the disposable RAW. A successful result proves **only** the Portable
+boot's compatibility with the Dev-style partition geometry; it does not prove
+a Git-first Owner boot on that same disk, an EFI one-shot boot entry, a
+boot-profile selector, Git fallback after failed signed boot, Secure Boot,
+physical USB migration, or consent/reboot behavior. These are separate
+mandatory mixed-profile QEMU/physical gates. It changes no Creator default,
+no Supervisor transport, no `ordax-pull`, no physical partition table or
+current/known-good boot authority.
+
 ### Native one-shot state handoff proof (development CI, no physical activation)
 
 The real Go release-agent integration test at

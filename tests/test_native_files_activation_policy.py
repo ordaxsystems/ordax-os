@@ -1,4 +1,4 @@
-"""Files cannot enter Native module-read before per-operation host scoping exists."""
+"""Files signed-slot reads and read-only pending mount probation are explicit gates."""
 
 import importlib.util
 import json
@@ -19,37 +19,46 @@ def generator_module():
 
 
 class NativeFilesActivationPolicyTests(unittest.TestCase):
-    def test_files_module_read_rejects_unscoped_native_backend(self):
+    def test_files_reads_require_slot_bound_device_local_scope(self):
         generator = generator_module()
         original = json.loads(POLICY.read_text(encoding="utf-8"))
-        self.assertFalse(original["native_files_slot_bound_file_space_enforced"])
-        self.assertNotIn("files", original["native_loopback_broker_supported_components"])
-        # If someone enables module-read through the SSOT without the Native
-        # scope-enforcement gate, CI must fail before generated JS can change.
-        for kind in ("module-read", "source-owner"):
-            for scoped in (False, None, "true"):
-                mutated = json.loads(json.dumps(original))
-                if kind == "module-read":
-                    mutated["native_loopback_broker_supported_components"].append("files")
-                else:
-                    mutated["canonical_package_source_repository_by_component"]["files"] = "ordaxsystems/ordax-apps"
-                mutated["native_files_slot_bound_file_space_enforced"] = scoped
-                with tempfile.TemporaryDirectory() as temp:
-                    target = Path(temp) / "policy.json"
-                    target.write_text(json.dumps(mutated), encoding="utf-8")
-                    with self.assertRaisesRegex(
-                        generator.PolicyGenerationError,
-                        "Files Native scoped|Files source transfer or module-read",
-                    ):
-                        generator.load_policy(target)
+        self.assertTrue(original["native_files_slot_bound_file_space_enforced"])
+        sources, module_ids, probation_ids, bundled_owner_blocked = generator.load_policy(POLICY)
+        self.assertEqual(sources["files"], "ordaxsystems/ordax-apps")
+        self.assertIn("files", module_ids)
+        self.assertIn("files", probation_ids)
+        self.assertEqual(bundled_owner_blocked, ())
+        self.assertEqual(original["runtime_health_bridge_probe_mode_by_component"]["files"], "mount-contract")
+        self.assertFalse(original["files_component_distribution_activation_enabled"])
 
-    def test_canonical_policy_still_generates_same_external_inventory(self):
-        generator = generator_module()
-        sources, module_ids, probation_ids = generator.load_policy(POLICY)
-        self.assertNotIn("files", sources)
-        self.assertNotIn("files", module_ids)
-        self.assertNotIn("files", probation_ids)
-        self.assertEqual(module_ids, ("calculator", "notes", "studio"))
+        # Canonical owner or Native module-read metadata cannot open Files
+        # unless the exact signed-slot/device-local boundary remains enabled.
+        mutated = json.loads(json.dumps(original))
+        mutated["native_files_slot_bound_file_space_enforced"] = False
+        with tempfile.TemporaryDirectory() as temp:
+            target = Path(temp) / "policy.json"
+            target.write_text(json.dumps(mutated), encoding="utf-8")
+            with self.assertRaisesRegex(
+                generator.PolicyGenerationError,
+                "Files source transfer or module-read",
+            ):
+                generator.load_policy(target)
+
+    def test_files_activation_and_publication_stay_closed_until_lifecycle_proof(self):
+        # Candidate mount probation does not transfer source ownership or open
+        # current-slot activation. Promotion and publication remain separate.
+        policy = json.loads(POLICY.read_text(encoding="utf-8"))
+        self.assertFalse(policy["files_component_distribution_activation_enabled"])
+        self.assertFalse(policy["files_component_promotion_proven"])
+        self.assertFalse(policy["files_component_rollback_proven"])
+        self.assertFalse(policy["publish_allowed"])
+        self.assertTrue(policy["native_pending_files_mount_probe_opaque_origin"])
+        self.assertFalse(policy["native_pending_files_mount_probe_exposes_user_data"])
+        self.assertFalse(policy["native_pending_files_mount_probe_mutates_user_data"])
+        self.assertEqual(
+            policy["native_pending_files_mount_probe_file_space_scope"],
+            "empty-synthetic-root",
+        )
 
 
 if __name__ == "__main__":

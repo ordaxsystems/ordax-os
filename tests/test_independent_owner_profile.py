@@ -148,6 +148,22 @@ class IndependentOwnerDevelopmentProfileTests(unittest.TestCase):
         self.assertNotIn("apk add", script)
         self.assertNotIn("alpine_core.py", script)
 
+    def test_owner_atomic_checkout_exchange_uses_canonical_static_toolchain(self) -> None:
+        script = POST_BUILD.read_text(encoding="utf-8")
+        builder = BUILD.read_text(encoding="utf-8")
+        source = ROOT / "bootstrap/dev-base/ordax_checkout_exchange.c"
+        self.assertTrue(source.is_file())
+        self.assertIn('exchange_source="$ROOT/bootstrap/dev-base/ordax_checkout_exchange.c"', script)
+        self.assertIn('HOST_DIR', script)
+        self.assertIn('x86_64-buildroot-linux-musl-gcc', script)
+        self.assertIn('"$exchange_compiler" -static', script)
+        self.assertIn('ordax-checkout-exchange" --abi', script)
+        self.assertIn('prototype-ordax.checkout-exchange/1', script)
+        self.assertNotIn('musl-gcc -static', script)
+        self.assertIn('"usr/local/bin/ordax-checkout-exchange": None', builder)
+        self.assertIn('run(str(exchange), "--abi")', builder)
+        self.assertIn('minimal target unexpectedly contains Owner atomic exchange helper', builder)
+
     def test_owner_helpers_are_fail_closed_on_complete_capability_set(self) -> None:
         script = POST_BUILD.read_text(encoding="utf-8")
         for target in (

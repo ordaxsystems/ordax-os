@@ -749,6 +749,7 @@ def verify_owner_target(target: Path) -> None:
         "sbin/ordax-dev-init": ROOT / "bootstrap/dev-base/ordax-dev-init",
         "usr/local/bin/ordax-network": ROOT / "bootstrap/dev-base/ordax-network",
         "usr/local/bin/ordax-pull": ROOT / "bootstrap/dev-base/ordax-pull",
+        "usr/local/bin/ordax-checkout-exchange": None,
         "usr/local/bin/ordax-rollback": ROOT / "bootstrap/dev-base/ordax-rollback",
         "usr/local/bin/ordax-run": ROOT / "bootstrap/dev-base/ordax-run",
         "usr/local/bin/ordax-diagnose": ROOT / "bootstrap/dev-base/ordax-diagnose",
@@ -760,6 +761,11 @@ def verify_owner_target(target: Path) -> None:
             raise BaseError(f"Owner/Development executable missing: /{relative}")
         if canonical is not None and digest(path) != digest(canonical):
             raise BaseError(f"Owner/Development helper differs from canonical source: /{relative}")
+    # Running the built static x86_64 helper here validates its actual ABI,
+    # not just its filename; ELF closure is separately checked on the target.
+    exchange = target / "usr/local/bin/ordax-checkout-exchange"
+    if run(str(exchange), "--abi").strip() != "prototype-ordax.checkout-exchange/1":
+        raise BaseError("Owner/Development atomic checkout exchange ABI mismatch")
     ca_store = target / "etc/ssl/certs/ca-certificates.crt"
     if not ca_store.is_file() or ca_store.stat().st_size == 0:
         raise BaseError("Owner/Development CA trust store is missing")
@@ -846,6 +852,8 @@ def verify_target(target: Path, profile: str) -> dict:
                 fcntl.flock(locked, fcntl.LOCK_UN)
     if profile == "owner-development":
         verify_owner_target(target)
+    elif (target / "usr/local/bin/ordax-checkout-exchange").exists():
+        raise BaseError("minimal target unexpectedly contains Owner atomic exchange helper")
     elif (target / "etc/ordax/owner-development").exists():
         raise BaseError("minimal target unexpectedly contains Owner/Development marker")
     return surface_iproute2

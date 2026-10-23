@@ -73,7 +73,6 @@ def app_owned_manifest(app_id):
 
 def expected_apps():
     result = bundled_apps()
-    result["files"] = app_owned_manifest("files")
     if (ROOT / "system/apps/projects/component.mjs").is_file():
         result["projects"] = app_owned_manifest("projects")
     return result
@@ -114,7 +113,7 @@ class CanonicalDocumentFreshnessTests(unittest.TestCase):
     def test_first_party_app_snapshot_matches_real_manifests(self):
         state = assignment_map(CURRENT_STATE.read_text(encoding="utf-8"))
         apps = expected_apps()
-        self.assertEqual(set(apps), {"files", "settings", "account", "store", "system"})
+        self.assertEqual(set(apps), {"settings", "account", "store", "system"})
         self.assertFalse((ROOT / "system/apps/projects").exists(),
                          "Gate A must remove the entire obsolete bundled Projects source")
 
@@ -125,15 +124,43 @@ class CanonicalDocumentFreshnessTests(unittest.TestCase):
             expected_maturity = "BETA" if int(app["version"].split(".", 1)[0]) == 0 else "STABLE"
             self.assertEqual(state[f"{prefix}_MATURITY"], expected_maturity)
 
-    def test_internet_app_doc_marks_source_removed_and_never_claims_install(self):
+    def test_internet_app_doc_marks_external_owner_and_closed_native_delivery(self):
         state = assignment_map(CURRENT_STATE.read_text(encoding="utf-8"))
         document = INTERNET_DOC.read_text(encoding="utf-8")
         self.assertFalse((ROOT / "system/apps/internet").exists())
         self.assertEqual(state["INTERNET_GATE_A"], "PLATFORM_SOURCE_REMOVED")
-        self.assertEqual(state["INTERNET_PORTABLE_SOURCE"], "NOT_YET_IN_ORDAX_APPS")
+        self.assertEqual(state["INTERNET_PORTABLE_SOURCE"], "CANONICAL_IN_ORDAX_APPS")
         self.assertEqual(state["INTERNET_DISTRIBUTION_ENABLED"], "NO")
         self.assertIn("ordaxsystems/ordax-apps/apps/internet", document)
-        self.assertIn("not installed, launchable or distributed", document)
+        self.assertIn("distribution_activation_allowed=false", document)
+        self.assertIn("Native não autoriza leitura de módulo para Internet", document)
+
+    def test_intelligence_app_owners_follow_the_external_source_of_truth(self):
+        canvas = (ROOT / "docs/INTELLIGENCE-CANVAS.md").read_text(encoding="utf-8")
+        intelligence = (ROOT / "docs/INTELLIGENCE.md").read_text(encoding="utf-8")
+        capabilities = json.loads(
+            (ROOT / "docs/contracts/intelligence-conversation-capabilities.json")
+            .read_text(encoding="utf-8")
+        )
+
+        self.assertIn(
+            "ordaxsystems/ordax-apps/apps/assistant/src/conversation.mjs",
+            canvas,
+        )
+        self.assertIn(
+            "ordaxsystems/ordax-apps/apps/assistant/src/ui/result-view-model.mjs",
+            canvas,
+        )
+        self.assertIn(
+            "ordaxsystems/ordax-apps/apps/activity/src/view-model.mjs",
+            canvas + intelligence,
+        )
+        self.assertEqual(
+            capabilities["conversation_owner"],
+            "ordaxsystems/ordax-apps/apps/assistant/src/conversation.mjs",
+        )
+        self.assertNotIn("system/apps/assistant/", canvas + intelligence)
+        self.assertNotIn("system/apps/activity/", canvas + intelligence)
 
     def test_physical_snapshot_distinguishes_seed_from_prepared_usb(self):
         state = assignment_map(CURRENT_STATE.read_text(encoding="utf-8"))

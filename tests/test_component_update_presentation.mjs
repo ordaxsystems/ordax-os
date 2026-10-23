@@ -24,21 +24,13 @@ assert.equal(appVersionStage("1.0.0"), "stable");
 
 assert.deepEqual(
   new Set(apps.keys()),
-  new Set(["files", "studio", "settings", "account", "store"]),
+  new Set(["settings", "account", "store"]),
 );
 assert.equal(system.has("system"), true, "Sistema belongs to the system update scope");
 assert.equal(system.has("ordax-base"), true);
 assert.equal(system.has("surface-shell"), true);
 
-assert.equal(apps.get("files").version, "0.1.0");
-assert.equal(apps.get("files").versionStage, "beta");
-assert.equal(apps.get("files").updateChannel.id, "system-bundle");
-assert.equal(apps.get("files").independentUpdate, false);
 
-assert.equal(apps.get("studio").version, "0.1.0");
-assert.equal(apps.get("studio").versionStage, "beta");
-assert.equal(apps.get("studio").updateChannel.id, "development-git");
-assert.equal(apps.get("studio").independentUpdate, false);
 assert.equal(apps.get("settings").version, "0.1.0");
 assert.equal(apps.get("account").version, "0.1.0");
 assert.equal(apps.get("store").version, "0.1.0");
@@ -55,7 +47,7 @@ manager.destroy();
 console.log("component update presentation: PASS");
 
 test("delivery channel and version maturity remain separate for installed app components", () => {
-  const template = listSystemComponents().find(({ id }) => id === "files");
+  const template = listSystemComponents().find(({ id }) => id === "settings");
   for (const [releaseMode, channelId, independentUpdate] of [
     ["bundled", "system-bundle", false],
     ["git-app", "development-git", false],

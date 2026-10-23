@@ -31,6 +31,9 @@ POWER_STATE_DIR=${ORDAX_STATE_DIR:-/state/ordax}/power
 POWER_LAST_REQUEST=$POWER_STATE_DIR/last-request
 POWER_LAST_STAGE=$POWER_STATE_DIR/last-stage
 POWER_LAST_FAILURE=$POWER_STATE_DIR/last-failure
+# Error detail remains diagnostic only; existing power stage/failure own the state.
+OWNER_USB_SEAL_DIAGNOSTIC=$POWER_STATE_DIR/last-seal-diagnostic
+OWNER_USB_HELPER_ERROR=$UPDATE_RUN_DIR/guardian-seal-helper-error
 BASE_TELEMETRY_PID_FILE=${ORDAX_STATE_DIR:-/state/ordax}/telemetry/agent.pid
 BASE_TELEMETRY_AGENT=${ORDAX_STATE_DIR:-/state/ordax}/telemetry/agent.sh
 RESCUE_PID_FILE=${ORDAX_STATE_DIR:-/state/ordax}/rescue/agent.pid
@@ -544,6 +547,9 @@ owner_usb_writable_aliases_restored() {
 owner_usb_seal_root_for_power() {
     OWNER_USB_ROOT_SOURCE=""
     OWNER_USB_WRITABLE_ALIASES=""
+    # Volatile per-attempt stderr is captured before any mount change. A durable
+    # bounded receipt can be written only *after* verified RW restoration.
+    : >"$OWNER_USB_HELPER_ERROR" || return 1
     OWNER_USB_SEAL_FAILURE_STAGE=auxiliary-partitions
     owner_usb_auxiliary_partitions_quiesced || return 1
     OWNER_USB_SEAL_FAILURE_STAGE=root-identity
@@ -560,10 +566,18 @@ owner_usb_seal_root_for_power() {
     # Diagnostic stderr stays in the volatile /run Guardian log.
     for target in $OWNER_USB_WRITABLE_ALIASES; do
         OWNER_USB_SEAL_FAILURE_STAGE=alias-remount
-        /usr/local/bin/ordax-usb-mountattr alias-ro "$target" >>"$GUARDIAN_LOG" 2>&1 || return 1
+        : >"$OWNER_USB_HELPER_ERROR" || return 1
+        /usr/local/bin/ordax-usb-mountattr alias-ro "$target" >>"$GUARDIAN_LOG" 2>"$OWNER_USB_HELPER_ERROR" || {
+            /bin/busybox cat "$OWNER_USB_HELPER_ERROR" >>"$GUARDIAN_LOG" 2>&1 || true
+            return 1
+        }
     done
     OWNER_USB_SEAL_FAILURE_STAGE=superblock-remount
-    /usr/local/bin/ordax-usb-mountattr superblock-ro "$device" / >>"$GUARDIAN_LOG" 2>&1 || return 1
+    : >"$OWNER_USB_HELPER_ERROR" || return 1
+    /usr/local/bin/ordax-usb-mountattr superblock-ro "$device" / >>"$GUARDIAN_LOG" 2>"$OWNER_USB_HELPER_ERROR" || {
+        /bin/busybox cat "$OWNER_USB_HELPER_ERROR" >>"$GUARDIAN_LOG" 2>&1 || true
+        return 1
+    }
     OWNER_USB_SEAL_FAILURE_STAGE=readonly-proof
     owner_usb_all_root_mounts_read_only || return 1
     OWNER_USB_SEAL_FAILURE_STAGE=""
@@ -623,6 +637,47 @@ record_host_power_failure() {
     printf '%s\n' "$failure" >"$temporary" || return 1
     chmod 600 "$temporary" || return 1
     /bin/busybox mv -f "$temporary" "$POWER_LAST_FAILURE" || return 1
+}
+
+# Diagnostic-only, bounded proof for the rejected *same* power attempt.
+# The caller may invoke this only after RW restoration has been proven.
+# No free-form helper output, process cmdline, path or credential is persisted.
+record_owner_usb_seal_failure_detail() {
+    stage=$1
+    case "$stage" in
+        auxiliary-partitions|root-identity|alias-discovery|alias-remount|superblock-remount|readonly-proof) ;;
+        *) stage=unknown ;;
+    esac
+    errno_value=unavailable
+    case "$stage" in
+        alias-remount|superblock-remount)
+            errno_candidate=$(/bin/busybox awk '
+                match($0, /errno=[0-9]+/) {
+                    print substr($0, RSTART + 6, RLENGTH - 6)
+                    exit
+                }
+            ' "$OWNER_USB_HELPER_ERROR" 2>/dev/null || true)
+            case "$errno_candidate" in
+                ''|*[!0-9]*) ;;
+                *) errno_value=$errno_candidate ;;
+            esac
+            ;;
+    esac
+    root_mount_id=$(/bin/busybox awk '$5 == "/" {print $3; exit}' /proc/self/mountinfo 2>/dev/null || true)
+    case "$root_mount_id" in
+        *:*)
+            case "$root_mount_id" in
+                *[!0-9:]*|'') root_mount_id=unavailable ;;
+            esac
+            ;;
+        *) root_mount_id=unavailable ;;
+    esac
+    temporary=$OWNER_USB_SEAL_DIAGNOSTIC.tmp.$
+    printf 'schema=ordax.power-seal-diagnostic/1\nstage=%s\nerrno=%s\nmount_major_minor=%s\nrecovery=restored\n' \
+        "$stage" "$errno_value" "$root_mount_id" >"$temporary" || return 1
+    chmod 600 "$temporary" || return 1
+    /bin/busybox mv -f "$temporary" "$OWNER_USB_SEAL_DIAGNOSTIC" || return 1
+    /bin/busybox sync >/dev/null 2>&1 || return 1
 }
 
 prepare_host_power_channel() {
@@ -694,7 +749,7 @@ perform_host_power_transition() {
     case "$action" in restart|shutdown) ;; *) return 1 ;; esac
 
     STOPPING=1
-    rm -f "$POWER_LAST_FAILURE" >/dev/null 2>&1 || true
+    rm -f "$POWER_LAST_FAILURE" "$OWNER_USB_SEAL_DIAGNOSTIC" >/dev/null 2>&1 || true
     record_host_power_stage accepted || true
     log "host power owner accepted $action; stopping supervised runtime"
     record_host_power_stage supervisor-quiesce || true
@@ -717,10 +772,14 @@ perform_host_power_transition() {
     if [ "$DISTRIBUTION_PROFILE" = "owner-development" ] && [ "$PRODUCT_MODE" = "usb" ]; then
         record_host_power_stage root-readonly || true
         if ! owner_usb_seal_root_for_power; then
+            failed_seal_stage=$OWNER_USB_SEAL_FAILURE_STAGE
             if ! owner_usb_restore_root_after_abort; then
                 fail_closed "Owner USB ext4 seal failed and rw recovery could not be proven"
             fi
-            restore_runtime_after_power_failure "$action" "Owner USB ext4 sealing failed at ${OWNER_USB_SEAL_FAILURE_STAGE:-unknown}" remount-failed
+            # Only the restored RW filesystem may receive a durable record.
+            # On any failed restoration, fail_closed above prevents all writes.
+            record_owner_usb_seal_failure_detail "$failed_seal_stage" || log "Owner USB seal diagnostic could not be persisted"
+            restore_runtime_after_power_failure "$action" "Owner USB ext4 sealing failed at $failed_seal_stage" remount-failed
             return 1
         fi
         if ! /bin/busybox sync >/dev/null 2>&1; then

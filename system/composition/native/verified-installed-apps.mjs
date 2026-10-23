@@ -124,10 +124,8 @@ export async function mountNativeVerifiedInstalledApps({
   }));
   const mountedIds = Object.freeze(results.filter(Boolean).map((value) => value.appId));
   return Object.freeze({
-    destroy() {
-      for (const result of results) {
-        try { result?.mounted.destroy(); } catch { /* component teardown is isolated */ }
-      }
+    async destroy() {
+      await Promise.allSettled(results.map((result) => result?.mounted.destroy()));
     },
     mountedIds,
     mountedCount: mountedIds.length,

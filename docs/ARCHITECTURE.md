@@ -164,6 +164,7 @@ a bounded cadence/concurrency policy and a tested teardown path.
 | Owner/Development Git discovery, activation and Surface boot health | `system/supervisor` | Other processes consume its status and logs; they do not poll provisioning or recreate health policy |
 | Base/ESP staging and optional signed Aura acquisition | `system/services/base-update/agent.sh` with its canonical orchestrator | Optional download must yield to Base and recovery |
 | Local Aura process start/stop/retry on Owner USB | `bootstrap/dev-base/ordax-run` delegating to `system/services/local-ai/owner-dev-runtime.sh` | No second model server, no second update agent; the Native probe is health/read-only |
+| Local AI backend CPU scheduling in Dev + Stable | `system/services/local-ai/run-low-priority.sh` | Shared optional positive niceness before exec; no second daemon, memory policy or separate backend |
 | Surface network status | Native network adapter/tray | Settings may request additional details only while its Network view is active; no permanent duplicate inactive polling |
 | Native Surface entrypoint dependencies | `system/composition/native/main.mjs` | Eager imports must have real runtime consumers; nonparticipating adapters remain in their canonical modules but are not loaded by the boot entrypoint |
 
@@ -410,19 +411,17 @@ of each responsibility must be identified before an optimization:
   No extra observer, timer, event queue, parallel UI state or background
   process may be added for this optimization. Active windows still repaint
   immediately on changes and every owner unsubscribes on destroy.
-- **Files inactive rendering:** `system/surface/ui/file-space-controls.mjs`
-  keeps its already validated navigation/Recents/Projects and async operation
-  state current, but defers expensive full DOM repaint while its Surface
-  window is minimized or inactive. The existing Surface render subscription
-  flushes the latest state when the window regains focus; no new poll, worker
-  or renderer is introduced. The *same* Files owner is also mounted by the
-  standalone signed `files-component-runtime.mjs`: its own dedicated
-  `ordax-files-component-frame` has no Surface `data-active` marker, so
-  only explicit `data-active="false"` (or a hidden window) can suppress its
-  paint. First mount and focused interactions remain immediate; in-flight
-  operations, logical path validation, keyboard focus, selection and scroll
-  restoration retain their original guards. Both entry modes are exercised
-  by the Chromium shared-shell proof.
+- **File Space after Files remove-first:** `system/services/files/` and
+  `system/contracts/file-space.mjs` remain OS-owned services for authorized
+  local files, Recents, Projects and continuity. The bundled Files panel,
+  CSS and `files-component-runtime.mjs` were removed; no Files window or
+  renderer remains to optimize inside the OS. Native binds typed workspace
+  capabilities through `system/composition/native/component-workspace-ports.mjs`
+  only after verifying the exact signed `current` slot. The reusable
+  `component-pending-host.mjs` supplies a separate isolated pending probe,
+  not installed-app authority. A future Files UI belongs exclusively to
+  `ordax-apps` and requires a separately verified package and activation.
+  No physical installation or measured performance gain is implied.
 - **On-demand optional panels:** `system/surface/ui/system-overview-controls.mjs`
   only fetches metrics for a visible active Overview/Storage/Diagnostics
   section and history/recovery for a visible active Updates section. First

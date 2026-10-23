@@ -3,6 +3,7 @@ import test from "node:test";
 
 import { COMPONENT_RUNTIME_SCHEMA } from "../system/contracts/component-runtime.mjs";
 import { APP_DATA_SCHEMA } from "../system/contracts/app-data.mjs";
+import { createNativeHostWindow } from "./support/native-host-window.mjs";
 import { listSystemComponents } from "../system/apps/component-catalog.mjs";
 import { createComponentManager } from "../system/services/components/manager.mjs";
 import {
@@ -26,21 +27,22 @@ test("privileged bootstrap injects only ordax.app-data/1 without a DOM event cha
   const previous = {
     clearTimeout: globalThis.clearTimeout,
     setTimeout: globalThis.setTimeout,
-    webkit: globalThis.webkit,
+    document: globalThis.document,
+    location: globalThis.location,
+    postMessage: globalThis.postMessage,
     fetch: globalThis.fetch,
     btoa: globalThis.btoa,
     atob: globalThis.atob,
   };
 
-  globalThis.webkit = {
-    messageHandlers: {
-      ordaxBrowser: {
-        postMessage(raw) {
-          bridgeRequests.push(JSON.parse(raw));
-        },
-      },
+  const { windowRef } = createNativeHostWindow({
+    onPostMessage(raw) {
+      bridgeRequests.push(JSON.parse(raw));
     },
-  };
+  });
+  globalThis.document = windowRef.document;
+  globalThis.location = windowRef.location;
+  globalThis.postMessage = windowRef.postMessage;
   globalThis.fetch = async (url, options) => {
     transportRequests.push({ url, options });
     return {
@@ -70,7 +72,7 @@ test("privileged bootstrap injects only ordax.app-data/1 without a DOM event cha
       schema: "ordax.native-app-data-composition-bootstrap/1",
       bindings: [
         {
-          appId: "files",
+          appId: "settings",
           endpoint: `/__ordax/native/app-data/${"a".repeat(43)}`,
           ownerScope: "device",
           publisherId: "ordax-official",
@@ -86,7 +88,7 @@ test("privileged bootstrap injects only ordax.app-data/1 without a DOM event cha
     );
 
     installTrustedComponentContextProvider((componentId) => (
-      componentId === "files"
+      componentId === "settings"
         ? Object.freeze({
             companionPort: Object.freeze({
               schema: "test.trusted-companion/1",
@@ -98,17 +100,17 @@ test("privileged bootstrap injects only ordax.app-data/1 without a DOM event cha
 
     const manager = createManager();
     const files = manager.getSnapshot().components.find(
-      (component) => component.manifest.id === "files",
+      (component) => component.manifest.id === "settings",
     );
     let mountedContext = null;
     const mounted = await loadOptionalComponentRuntime({
-      componentId: "files",
+      componentId: "settings",
       componentManager: manager,
       context: Object.freeze({ marker: "caller-context" }),
       importer: async () => ({
         componentRuntime: {
           schema: COMPONENT_RUNTIME_SCHEMA,
-          componentId: "files",
+          componentId: "settings",
           version: files.manifest.version,
           async mount(context) {
             mountedContext = context;
@@ -122,11 +124,11 @@ test("privileged bootstrap injects only ordax.app-data/1 without a DOM event cha
     assert.equal(mountedContext.marker, "caller-context");
     assert.equal(Object.isFrozen(mountedContext), true);
     assert.equal(mountedContext.appData.schema, APP_DATA_SCHEMA);
-    assert.equal(mountedContext.appData.identity.appId, "files");
+    assert.equal(mountedContext.appData.identity.appId, "settings");
     assert.equal(mountedContext.appData.identity.publisherId, "ordax-official");
     assert.deepEqual(mountedContext.companionPort, {
       schema: "test.trusted-companion/1",
-      componentId: "files",
+      componentId: "settings",
     });
     assert.equal("endpoint" in mountedContext.appData, false);
     assert.equal("store" in mountedContext.appData, false);
@@ -144,8 +146,10 @@ test("privileged bootstrap injects only ordax.app-data/1 without a DOM event cha
   } finally {
     globalThis.clearTimeout = previous.clearTimeout;
     globalThis.setTimeout = previous.setTimeout;
-    if (previous.webkit === undefined) delete globalThis.webkit;
-    else globalThis.webkit = previous.webkit;
+    for (const key of ["document", "location", "postMessage"]) {
+      if (previous[key] === undefined) delete globalThis[key];
+      else globalThis[key] = previous[key];
+    }
     globalThis.fetch = previous.fetch;
     if (previous.btoa === undefined) delete globalThis.btoa;
     else globalThis.btoa = previous.btoa;
