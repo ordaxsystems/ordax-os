@@ -27,6 +27,10 @@ class WindowsToolkitExternalCreatorSourceTests(unittest.TestCase):
         self.assertEqual(pin["module"], "github.com/ordaxsystems/ordax-creator")
         self.assertFalse(pin["physical_apply_authorized"])
         self.assertIn("docs/contracts/native-release-assembly.json", self.action)
+        # Exact source action handles CRLF safely for native Windows runners.
+        self.assertIn("pin=", self.action)
+        self.assertIn("mapfile -t pinned", self.action)
+        self.assertIn('test "${pinned[0]}" = "ordaxsystems/ordax-creator"', self.action)
         self.assertEqual(
             self.workflow.count("uses: ./.github/actions/resolve-creator-source"), 2
         )
