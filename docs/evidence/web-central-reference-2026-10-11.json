@@ -1168,7 +1168,7 @@
       "purpose": "Single data-only boot catalog shared by full Surface localization and thin pt-BR Web startup",
       "sha256": "85c5a5559cc9d9beddec9aec9da9e2ccf65ecf1dbd61b7f27e4bc085fdb267d9",
       "adaptedSha256": "8a46b337bc07cc02a645c3f2b0123ad893fddea0b791752125cd6224e7d942f0",
-      "adaptation": "2026-10-23: the data-only shared boot catalog now includes surface.boot.loadingApps while preserving the existing Native/Web shared localization owner. The original provenance sha256 is retained as the historical reference; adaptedSha256 is verified against the current LF-normalized source by tools/surface-web/checks/verify.mjs."
+      "adaptation": "2026-10-23: commit c0be849c removed the unused deferred First Run boot message (pt-BR and en-US) from the canonical data-only boot catalog. The original upstream SHA-256 is retained for historical provenance; this adapted digest pins the exact current code without weakening the Native Central verifier."
     },
     {
       "target": "system/surface/workspace/components/central/window-content.tsx",
