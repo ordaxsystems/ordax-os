@@ -91,3 +91,39 @@ jobs:
             tests/test_surface_workspace.mjs \
             tests/test_surface_localization.mjs \
             tests/test_sidebar_layout.mjs
+
+      - name: Set up pinned release bundler Go toolchain
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version: '1.27.1'
+          cache: false
+
+      - name: Build canonical system.tar from verified cross-repository source
+        shell: bash
+        run: |
+          set -euo pipefail
+          (
+            cd tools/release-bundle
+            go test ./...
+            go run . --root ../.. --out "$RUNNER_TEMP/system.tar"
+          )
+          test -s "$RUNNER_TEMP/system.tar"
+          python3 - <<'PY'
+          import os
+          import tarfile
+          from pathlib import Path
+          archive = Path(os.environ["RUNNER_TEMP"]) / "system.tar"
+          with tarfile.open(archive, "r:") as bundle:
+              names = bundle.getnames()
+          for path in (
+              "system/entrypoint",
+              "system/surface/ui/surface.mjs",
+              "system/surface/ui/notification-center.css",
+              "system/surface/workspace/components/central/central.tsx",
+              "system/surface/runtime/native_host_server.py",
+              "system/composition/native/main.mjs",
+          ):
+              if names.count(path) != 1:
+                  raise SystemExit(f"canonical release must contain exactly one {path}")
+          print("Cross-repository Surface and OS Native host packaged by existing release-bundle owner")
+          PY
