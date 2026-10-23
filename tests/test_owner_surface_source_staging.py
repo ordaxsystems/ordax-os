@@ -176,6 +176,33 @@ class OwnerSurfaceSourceTests(unittest.TestCase):
         self.assertNotEqual(proc.returncode, 0)
         self.assertFalse(marker.exists(), "no fallback to tracked OS visuals")
 
+    def test_git_rollback_restores_exact_previous_legacy_source(self):
+        # Simulate two immutable OS revisions and a durable prepared slot.
+        self.set_lock("integration-candidate")
+        old_sha = self.os_sha
+        self.set_lock("canonical")
+        new_sha = self.os_sha
+        self.call("stage", check=True)
+        releases = self.root / "releases"
+        releases.mkdir()
+        self.make_file(self.slot / ".sha", new_sha + "\n")
+        self.make_file(self.slot / ".ready", "ready\n")
+        self.slot.rename(releases / new_sha)
+        proc, marker = self.supervisor_start("owner-development")
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertEqual(marker.read_text().strip(), str(releases / new_sha / "system"))
+        marker.unlink()
+
+        # Existing ordax-pull rollback owner restores Git HEAD; the stage
+        # adapter has no authority to change it. Old visuals remain active.
+        git(self.os_root, "checkout", "-q", "--detach", old_sha)
+        self.os_sha = old_sha
+        proc, marker = self.supervisor_start("owner-development")
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertEqual(marker.read_text().strip(), str(self.os_root / "system"))
+        self.assertEqual((self.os_root / "system/surface/ui/surface.mjs").read_text(), "OLD_VISUAL\n")
+        self.assertEqual((releases / new_sha / ".surface-source-sha").read_text().strip(), self.source_sha)
+
     def test_legacy_owner_boot_remains_unmodified_before_cutover(self):
         self.set_lock("integration-candidate")
         proc, marker = self.supervisor_start("owner-development")
