@@ -72,6 +72,7 @@ jobs:
         run: |
           python -m unittest tests.test_portable_v4_ai_handoff_contract -v
           python -m unittest tests.test_native_release_assembly_contract -v
+          python -m unittest tests.test_native_release_creator_source -v
           python -m unittest tests.test_native_release_surface_source tests.test_surface_source_assembly -v
           python -m unittest tests.test_build_autonomy_contract -v
 
@@ -83,6 +84,29 @@ jobs:
           (cd tools/release-manifest && CGO_ENABLED=0 go build -trimpath -buildvcs=false -o ../../out/release-pipeline/ordax-release-manifest .)
           (cd tools/release-signing && go test -count=1 ./... && CGO_ENABLED=0 go build -trimpath -buildvcs=false -o ../../out/release-pipeline/ordax-release-signing .)
           (cd bootstrap/release-acquisition && CGO_ENABLED=0 go build -trimpath -buildvcs=false -o ../../out/release-pipeline/ordax-release-agent .)
+
+      - name: Resolve exact standalone Creator source for Native helper (read-only)
+        shell: bash
+        run: |
+          set -euo pipefail
+          readarray -t pinned < <(python3 - <<'PY'
+          import json
+          source=json.load(open("docs/contracts/native-release-assembly.json"))["creator_source"]
+          for field in ("repository","commit","tree"):
+              print(source[field])
+          PY
+          )
+          test "${pinned[0]}" = "ordaxsystems/ordax-creator"
+          root="$RUNNER_TEMP/ordax-creator-native-source"
+          git clone --quiet --single-branch --filter=blob:none --no-checkout "https://github.com/${pinned[0]}.git" "$root"
+          git -C "$root" checkout --quiet --detach "${pinned[1]}"
+          test "$(git -C "$root" rev-parse HEAD)" = "${pinned[1]}"
+          test "$(git -C "$root" rev-parse 'HEAD^{tree}')" = "${pinned[2]}"
+          test -z "$(git -C "$root" status --porcelain --untracked-files=all)"
+          test "$(head -n 1 "$root/go.mod")" = "module github.com/ordaxsystems/ordax-creator"
+          echo "ORDAX_CREATOR_NATIVE_SOURCE=$root" >> "$GITHUB_ENV"
+          echo "PINNED_CREATOR_SOURCE=${pinned[1]}"
+          echo 'CREATOR_SOURCE_PHYSICAL_WRITE_AUTHORIZED=NO'
 
       - name: Assemble single external Surface for Native signed release candidate
         uses: ./.github/actions/assemble-surface
@@ -98,9 +122,9 @@ jobs:
           source_b="$work/source-b"
           mkdir -p "$work"
 
-          python tools/native-release-assembly/build.py assemble --out "$source_a" --system-source "$RUNNER_TEMP/ordax-assembled-system/system" | tee "$work/assemble-a.json"
+          python tools/native-release-assembly/build.py assemble --out "$source_a" --system-source "$RUNNER_TEMP/ordax-assembled-system/system" --creator-source "$ORDAX_CREATOR_NATIVE_SOURCE" | tee "$work/assemble-a.json"
           python tools/native-release-assembly/build.py verify --root "$source_a" | tee "$work/verify-a.json"
-          python tools/native-release-assembly/build.py assemble --out "$source_b" --system-source "$RUNNER_TEMP/ordax-assembled-system/system" | tee "$work/assemble-b.json"
+          python tools/native-release-assembly/build.py assemble --out "$source_b" --system-source "$RUNNER_TEMP/ordax-assembled-system/system" --creator-source "$ORDAX_CREATOR_NATIVE_SOURCE" | tee "$work/assemble-b.json"
           python tools/native-release-assembly/build.py verify --root "$source_b" | tee "$work/verify-b.json"
 
           cmp "$source_a/system/bin/ordax-native-install-targets" "$source_b/system/bin/ordax-native-install-targets"

@@ -20,7 +20,7 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[2]
 SYSTEM = ROOT / "system"
-CREATOR = ROOT / "tools" / "creator"
+CREATOR_SOURCE_CONTRACT = ROOT / "docs" / "contracts" / "native-release-assembly.json"
 RUNTIME_COMPONENT_CHANNEL = ROOT / "tools" / "runtime-component-channel"
 PROVENANCE_RELATIVE = Path("system/.ordax/native-release-tools.json")
 SCHEMA = "prototype-ordax.native-release-assembly/2"
@@ -28,10 +28,11 @@ SCHEMA = "prototype-ordax.native-release-assembly/2"
 HELPERS = (
     {
         "relative": Path("system/bin/ordax-native-install-targets"),
-        "module": CREATOR,
+        "module": None,  # Bound only to verified external Creator source.
         "package": "./cmd/ordax-creator-native-targets",
         "role": "native-install-read-only-target-discovery",
-        "source_package": "tools/creator/cmd/ordax-creator-native-targets",
+        "source_package": "github.com/ordaxsystems/ordax-creator/cmd/ordax-creator-native-targets",
+        "external_creator_source": True,
         "physical_apply_authorized": False,
         "component_publish_authorized": False,
     },
@@ -84,7 +85,64 @@ def ensure_clean_destination(destination: Path) -> Path:
     return absolute
 
 
-def validate_source_tree(system_source: Path = SYSTEM) -> None:
+def creator_source_pin() -> dict:
+    """Read the one authoritative OS Native assembly source contract."""
+    try:
+        contract = json.loads(CREATOR_SOURCE_CONTRACT.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        raise AssemblyError("canonical Creator source contract is unreadable") from exc
+    pin = contract.get("creator_source")
+    if not isinstance(pin, dict) or contract.get("$schema") != SCHEMA:
+        raise AssemblyError("canonical Creator source lock is missing or invalid")
+    if (
+        pin.get("repository") != "ordaxsystems/ordax-creator"
+        or pin.get("module") != "github.com/ordaxsystems/ordax-creator"
+        or pin.get("helper_package") != "./cmd/ordax-creator-native-targets"
+        or pin.get("physical_apply_authorized") is not False
+        or pin.get("publisher_authority") != "ordaxsystems/ordax-os"
+    ):
+        raise AssemblyError("Creator source authority or physical policy mismatch")
+    for field in ("commit", "tree"):
+        value = pin.get(field)
+        if not isinstance(value, str) or len(value) != 40 or any(c not in "0123456789abcdef" for c in value):
+            raise AssemblyError(f"Creator source {field} must be immutable lowercase Git SHA")
+    return pin
+
+
+def checked_git(source: Path, *args: str) -> str:
+    try:
+        return subprocess.run(
+            ["git", "-C", str(source), *args],
+            capture_output=True, check=True, text=True,
+        ).stdout.strip()
+    except (OSError, subprocess.CalledProcessError) as exc:
+        raise AssemblyError("cannot verify immutable external Creator source") from exc
+
+
+def verify_external_creator_source(source: Path) -> dict:
+    """Reject mutable, dirty, wrong-owner or floating Creator trees before Go build."""
+    pin = creator_source_pin()
+    if not source.is_dir() or source.is_symlink():
+        raise AssemblyError("external Creator source must be a real directory")
+    absolute = source.resolve()
+    if Path(checked_git(absolute, "rev-parse", "--show-toplevel")).resolve() != absolute:
+        raise AssemblyError("Creator source must be a standalone Git checkout root")
+    if checked_git(absolute, "rev-parse", "HEAD") != pin["commit"]:
+        raise AssemblyError("Creator source Git commit differs from canonical OS pin")
+    if checked_git(absolute, "rev-parse", "HEAD^{tree}") != pin["tree"]:
+        raise AssemblyError("Creator source Git tree differs from canonical OS pin")
+    if checked_git(absolute, "status", "--porcelain", "--untracked-files=all"):
+        raise AssemblyError("Creator source checkout is dirty or contains extra untrusted files")
+    mod = absolute / "go.mod"
+    package = absolute / "cmd/ordax-creator-native-targets/main.go"
+    if not mod.is_file() or mod.is_symlink() or not package.is_file() or package.is_symlink():
+        raise AssemblyError("Creator module or Native helper source is missing or linked")
+    if f"module {pin['module']}" not in mod.read_text(encoding="utf-8").splitlines():
+        raise AssemblyError("Creator Go module does not match canonical source owner")
+    return pin
+
+
+def validate_source_tree(system_source: Path = SYSTEM, creator_source: Path | None = None) -> None:
     if not system_source.is_dir() or system_source.is_symlink():
         raise AssemblyError("system source root is missing or unsafe")
     entrypoint = system_source / "entrypoint"
@@ -93,11 +151,9 @@ def validate_source_tree(system_source: Path = SYSTEM) -> None:
     if stat.S_IMODE(entrypoint.stat().st_mode) != 0o755:
         raise AssemblyError("system entrypoint must be mode 0755")
     for helper in HELPERS:
-        module = helper["module"]
+        module = creator_source if helper.get("external_creator_source") else helper["module"]
         if not isinstance(module, Path) or not (module / "go.mod").is_file():
-            raise AssemblyError(
-                f"Native helper Go module is missing: {module.relative_to(ROOT)}"
-            )
+            raise AssemblyError("Native helper Go module is missing or unverified")
     for path in system_source.rglob("*"):
         if path.is_symlink():
             raise AssemblyError(f"symlink is forbidden in Native release source: {path}")
@@ -158,9 +214,9 @@ def copy_system_tree(destination: Path, system_source: Path = SYSTEM) -> Path:
     return target
 
 
-def build_helper(destination: Path, spec: dict) -> Path:
+def build_helper(destination: Path, spec: dict, creator_source: Path) -> Path:
     relative = spec["relative"]
-    module = spec["module"]
+    module = creator_source if spec.get("external_creator_source") else spec["module"]
     package = spec["package"]
     output = destination / relative
     output.parent.mkdir(parents=True, exist_ok=True)
@@ -192,7 +248,7 @@ def build_helper(destination: Path, spec: dict) -> Path:
 
 
 def tool_provenance(spec: dict, helper: Path) -> dict:
-    return {
+    record = {
         "path": spec["relative"].as_posix(),
         "role": spec["role"],
         "source_package": spec["source_package"],
@@ -202,6 +258,14 @@ def tool_provenance(spec: dict, helper: Path) -> dict:
         "physical_apply_authorized": spec["physical_apply_authorized"],
         "component_publish_authorized": spec["component_publish_authorized"],
     }
+    if spec.get("external_creator_source"):
+        pin = creator_source_pin()
+        record.update({
+            "source_repository": pin["repository"],
+            "source_commit": pin["commit"],
+            "source_tree": pin["tree"],
+        })
+    return record
 
 
 def write_provenance(
@@ -234,14 +298,17 @@ def write_provenance(
     return path
 
 
-def assemble(destination: Path, system_source: Path = SYSTEM) -> dict:
-    validate_source_tree(system_source)
+def assemble(destination: Path, system_source: Path = SYSTEM, creator_source: Path | None = None) -> dict:
+    if creator_source is None:
+        raise AssemblyError('Native assembly requires an explicit pinned external Creator source')
+    verify_external_creator_source(creator_source)
+    validate_source_tree(system_source, creator_source)
     if system_source != SYSTEM:
         verify_external_surface_system(system_source)
     destination = ensure_clean_destination(destination)
     destination.mkdir(mode=0o755)
     copy_system_tree(destination, system_source)
-    built_helpers = [(spec, build_helper(destination, spec)) for spec in HELPERS]
+    built_helpers = [(spec, build_helper(destination, spec, creator_source)) for spec in HELPERS]
     source_commit = git_head()
     provenance = write_provenance(destination, built_helpers, source_commit)
     tools = [tool_provenance(spec, helper) for spec, helper in built_helpers]
@@ -327,11 +394,12 @@ def main() -> int:
     assemble_parser = sub.add_parser("assemble")
     assemble_parser.add_argument("--out", type=Path, required=True)
     assemble_parser.add_argument("--system-source", type=Path, default=SYSTEM)
+    assemble_parser.add_argument("--creator-source", type=Path, required=True, help="standalone exact-commit Creator checkout; must match canonical OS Native contract")
     verify_parser = sub.add_parser("verify")
     verify_parser.add_argument("--root", type=Path, required=True)
     args = parser.parse_args()
     try:
-        result = assemble(args.out, args.system_source) if args.command == "assemble" else verify(args.root)
+        result = assemble(args.out, args.system_source, args.creator_source) if args.command == "assemble" else verify(args.root)
         print(json.dumps(result, indent=2, sort_keys=True))
         return 0
     except (AssemblyError, OSError) as exc:
