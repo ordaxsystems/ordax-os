@@ -682,6 +682,13 @@ function makeBroker({ port, componentId, context, onRevoke, onInvalidated }) {
       projectUnsubscribes.clear();
       for (const unsubscribe of activationUnsubscribes.values()) { try { unsubscribe(); } catch {} }
       activationUnsubscribes.clear();
+      for (const unsubscribe of identityUnsubscribes.values()) { try { unsubscribe(); } catch {} }
+      identityUnsubscribes.clear();
+      for (const unsubscribe of selectionUnsubscribes.values()) { try { unsubscribe(); } catch {} }
+      selectionUnsubscribes.clear();
+      for (const unsubscribe of intelligenceUnsubscribes.values()) { try { unsubscribe(); } catch {} }
+      intelligenceUnsubscribes.clear();
+      for (const controller of inferenceControllers) controller.abort();
       queuedUpdates.clear();
     }
     finishIfDrained();
