@@ -139,8 +139,8 @@ class OwnerQemuHandoffTests(unittest.TestCase):
         exec(compile(ast.Module(body=definitions, type_ignores=[]),
                      str(source), "exec"), namespace)
         emit = namespace["emit_owner_boot_error_probe"]
-        with patch.object(os, "open", return_value=61) as opened, \\
-                patch.object(os, "write") as wrote, \\
+        with patch.object(os, "open", return_value=61) as opened, \
+                patch.object(os, "write") as wrote, \
                 patch.object(os, "close"):
             emit(True, "TypeError", "main.mjs:123:5")
             opened.assert_called_once_with(
