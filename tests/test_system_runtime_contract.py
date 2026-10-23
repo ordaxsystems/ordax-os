@@ -331,7 +331,14 @@ class SystemRuntimeContractTests(unittest.TestCase):
             "SUPPORTED_PROBATION_COMPONENTS = tuple(sorted(SUPPORTED_NATIVE_PROBATION_COMPONENTS))",
             browser_host,
         )
-        self.assertIn("self.start_component_probation(SUPPORTED_PROBATION_COMPONENTS)", browser_host)
+        # WebKit FINISHED is not the Native shell health acknowledgement.
+        # Optional probation must be requested only after the authenticated
+        # update watcher observed real health for the rendered checkout.
+        self.assertNotIn("self.start_component_probation(SUPPORTED_PROBATION_COMPONENTS)", browser_host)
+        self.assertIn("self.start_component_probation((component_id,))", browser_host)
+        native_main = (ROOT / "system/composition/native/main.mjs").read_text(encoding="utf-8")
+        self.assertIn("onHealthConfirmed: () => {", native_main)
+        self.assertIn('type: "component.probation.request"', native_main)
         self.assertIn("component_probation_rerun_requested", browser_host)
         self.assertIn("self.component_probation_rerun_requested.add(component_id)", browser_host)
         self.assertIn("secrets.token_urlsafe(32)", browser_host)
