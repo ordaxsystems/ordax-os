@@ -164,6 +164,63 @@ class BranchHygieneTests(unittest.TestCase):
         self.assertEqual(api.deleted, [])
         self.assertEqual(summary, {"deleted": 0, "already_absent": 1, "changed": 0})
 
+    def test_transient_502_on_compare_retries_exact_immutable_sha(self):
+        import subprocess
+        from unittest import mock
+
+        sha = "a" * 40
+        failed = subprocess.CompletedProcess(["gh"], 1, "", "gh: Server Error (HTTP 502)")
+        good = subprocess.CompletedProcess(["gh"], 0, "2\n", "")
+        with mock.patch.object(branch_hygiene.subprocess, "run", side_effect=[failed, good]) as run:
+            with mock.patch.object(branch_hygiene.time, "sleep") as sleep:
+                actual = branch_hygiene.GitHubApi(REPO).compare_ahead_by("feature/test", sha)
+        self.assertEqual(actual, 2)
+        self.assertEqual(run.call_count, 2)
+        self.assertEqual(run.call_args_list[0].args[0], run.call_args_list[1].args[0])
+        self.assertIn("compare/main..." + sha, run.call_args_list[0].args[0])
+        sleep.assert_called_once_with(0.5)
+
+    def test_exhausted_transient_compare_never_marks_branch_contained(self):
+        import subprocess
+        from unittest import mock
+
+        sha = "b" * 40
+        unavailable = subprocess.CompletedProcess(["gh"], 1, "", "gh: Server Error (HTTP 502)")
+        api = branch_hygiene.GitHubApi(REPO)
+        with mock.patch.object(branch_hygiene.subprocess, "run", return_value=unavailable) as run:
+            with mock.patch.object(branch_hygiene.time, "sleep") as sleep:
+                with self.assertRaisesRegex(RuntimeError, "HTTP 502"):
+                    branch_hygiene.plan_deletions(
+                        REPO, [], [], [branch("feature/unconfirmed", sha)],
+                        api.compare_ahead_by,
+                    )
+        self.assertEqual(run.call_count, branch_hygiene.MAX_READ_ATTEMPTS)
+        self.assertEqual(sleep.call_count, branch_hygiene.MAX_READ_ATTEMPTS - 1)
+
+    def test_permanent_read_failure_is_not_retried(self):
+        import subprocess
+        from unittest import mock
+
+        forbidden = subprocess.CompletedProcess(["gh"], 1, "", "HTTP 403")
+        with mock.patch.object(branch_hygiene.subprocess, "run", return_value=forbidden) as run:
+            with mock.patch.object(branch_hygiene.time, "sleep") as sleep:
+                with self.assertRaisesRegex(RuntimeError, "HTTP 403"):
+                    branch_hygiene.GitHubApi(REPO).compare_ahead_by("feature", "c" * 40)
+        run.assert_called_once()
+        sleep.assert_not_called()
+
+    def test_mutating_delete_is_never_retried_even_on_transient_error(self):
+        import subprocess
+        from unittest import mock
+
+        failure = subprocess.CompletedProcess(["gh"], 1, "", "HTTP 502")
+        with mock.patch.object(branch_hygiene.subprocess, "run", return_value=failure) as run:
+            with mock.patch.object(branch_hygiene.time, "sleep") as sleep:
+                with self.assertRaisesRegex(RuntimeError, "HTTP 502"):
+                    branch_hygiene.GitHubApi(REPO).delete_branch("feature")
+        run.assert_called_once()
+        sleep.assert_not_called()
+
     def test_workflow_uses_single_pruner_and_no_error_masking(self):
         workflow = (ROOT / ".github" / "workflows" / "branch-hygiene.yml").read_text(encoding="utf-8")
         self.assertIn("python tools/ops/branch_hygiene.py prune", workflow)
