@@ -84,6 +84,19 @@
       "planner_has_mutation_authority": false
     }
   },
+  "linux": {
+    "elf_inspection": "source-only",
+    "architectures": ["x86", "x86_64", "aarch64"],
+    "little_endian_only": true,
+    "bounded_program_headers_required": true,
+    "executable_entry_in_load_segment_required": true,
+    "dynamic_pie_requires_interpreter": true,
+    "static_pie_without_interpreter_launchable": false,
+    "appimage_type1_type2_candidate_recognition": true,
+    "appimage_execution_available": false,
+    "external_linux_execution_available": false,
+    "implicit_system_runtime_allowed": false
+  },
   "security": {
     "extension_grants_trust": false,
     "launch_plan_requires_manager_issued_inspection": true,

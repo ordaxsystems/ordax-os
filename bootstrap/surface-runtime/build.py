@@ -47,6 +47,8 @@ def load_module(name: str, path: Path):
 CORE = load_module("ordax_surface_runtime_build_core", ROOT / "bootstrap/base/alpine_core.py")
 
 
+PACKAGE_CONFIG = load_module("ordax_surface_package_config", ROOT / "bootstrap/surface-runtime/package_config.py")
+
 def load_contract() -> dict:
     try:
         value = json.loads(CONTRACT.read_text(encoding="utf-8"))
@@ -78,7 +80,7 @@ def load_contract() -> dict:
             or any(ch.isspace() for ch in version)
         ):
             raise RuntimeBuildError("Surface runtime APK lock contains unsafe entry")
-    requested = value.get("packages")
+    requested = PACKAGE_CONFIG.requested_packages(value, ROOT)
     if not isinstance(requested, list) or not set(requested).issubset(lock):
         raise RuntimeBuildError("Surface runtime requested packages are not all locked")
     artifact = value.get("artifact", {})
@@ -264,6 +266,43 @@ def run(argv: list[str]) -> None:
         raise RuntimeBuildError(f"command failed: {' '.join(argv)}") from exc
 
 
+def probe_runtime_media(rootfs: Path) -> None:
+    # proot -S binds the host /tmp over guest /tmp; place the build-only
+    # script at the guest root so that it is visible in the actual build.
+    probe_path = rootfs / "ordax-media-runtime-probe.py"
+    shutil.copyfile(ROOT / "system/surface/runtime/media_runtime_probe.py", probe_path)
+    try:
+        CORE.proot_rootfs(rootfs, "python3 /ordax-media-runtime-probe.py")
+    finally:
+        probe_path.unlink(missing_ok=True)
+
+
+def probe_runtime_audio_session(rootfs: Path) -> None:
+    # Start the same session owner used by Surface in a device-less guest. A
+    # live Pulse-compatible socket proves the software route without opening
+    # an ALSA device or claiming physical playback.
+    script_path = rootfs / "ordax-audio-session.sh"
+    probe_runtime_dir = rootfs / "run/ordax-media-probe"
+    shutil.copyfile(ROOT / "system/surface/runtime/audio-session.sh", script_path)
+    try:
+        CORE.proot_rootfs(
+            rootfs,
+            "XDG_RUNTIME_DIR=/run/ordax-media-probe "
+            "/bin/busybox sh /ordax-audio-session.sh "
+            "--runtime-dir /run/ordax-media-probe -- /usr/bin/pactl info",
+        )
+    except Exception as exc:
+        raise RuntimeBuildError("PipeWire audio session failed its device-less startup probe") from exc
+    finally:
+        script_path.unlink(missing_ok=True)
+        if probe_runtime_dir.is_symlink():
+            probe_runtime_dir.unlink(missing_ok=True)
+        elif probe_runtime_dir.is_dir():
+            shutil.rmtree(probe_runtime_dir)
+        elif probe_runtime_dir.exists():
+            probe_runtime_dir.unlink()
+
+
 def build(out_dir: Path, cache_dir: Path) -> dict:
     contract = load_contract()
     if platform.system() != "Linux" or platform.machine() not in {"x86_64", "amd64"}:
@@ -313,6 +352,11 @@ def build(out_dir: Path, cache_dir: Path) -> dict:
             raise RuntimeBuildError(
                 f"Surface runtime APK lock mismatch: missing={missing[:8]} extra={extra[:8]} changed={changed[:8]}"
             )
+
+        # Test the installed codec pipeline before packaging immutable bytes.
+        # The probe creates only disposable fixtures and never accesses devices.
+        probe_runtime_media(rootfs)
+        probe_runtime_audio_session(rootfs)
 
         for transient in ("etc/resolv.conf",):
             path = rootfs / transient

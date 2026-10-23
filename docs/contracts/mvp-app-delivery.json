@@ -9,7 +9,6 @@
       "system"
     ],
     "bootstrap_app_ids": [
-      "files",
       "internet"
     ],
     "on_demand_app_ids": [
@@ -18,7 +17,8 @@
       "network",
       "notes",
       "projects",
-      "studio"
+      "studio",
+      "files"
     ],
     "optional_apps_block_public_launch": false,
     "physical_payload_shrink_required_before_public_launch": false,

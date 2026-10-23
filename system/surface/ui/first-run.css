@@ -245,6 +245,11 @@
   font-size:.85rem; text-transform:none; letter-spacing:normal; color:var(--md-ink);
 }
 .ordax-first-run-credentials + .ordax-first-run-action-quiet { margin-top:12px; }
+.ordax-first-run-action[href] {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+}
 .ordax-first-run-action.ordax-first-run-action-quiet {
   border-color:transparent; background:transparent; color:var(--md-accent); padding-inline:0;
 }

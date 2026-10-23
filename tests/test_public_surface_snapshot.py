@@ -28,6 +28,16 @@ class PublicSurfaceSnapshotTests(unittest.TestCase):
             payload=(ROOT/path).read_bytes()
             if Path(path).suffix in {'.ts','.tsx','.js','.jsx','.mjs','.css','.json','.svg'}: payload=payload.replace(b'\r\n',b'\n')
             self.assertEqual(hashlib.sha256(payload).hexdigest(),digest,path)
+
+    def test_surface_refresh_tracks_audio_sources_used_by_the_web_snapshot(self):
+        workflow=(ROOT/'.github/workflows/public-surface-ssot-refresh.yml').read_text(encoding='utf-8')
+        for path in (
+            'system/contracts/audio-outputs.mjs',
+            'system/surface/ui/audio-output-controls.mjs',
+            'system/surface/workspace/components/central/settings.tsx',
+        ):
+            self.assertIn(f"      - '{path}'", workflow)
+
     def test_source_provenance_accepts_windows_and_linux_text_checkouts(self):
         spec=importlib.util.spec_from_file_location('public_demo_fixture',ROOT/'tools/public-site/playground_fixture.py')
         module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
@@ -59,13 +69,13 @@ class PublicSurfaceSnapshotTests(unittest.TestCase):
         source = module.DESKTOP_SHELL.read_text(encoding="utf-8")
         shortcut_source = module.SHORTCUT_CATALOG.read_text(encoding="utf-8")
         self.assertIn('listSurfaceShortcutAppIds("navigation-menu")', source)
-        canonical_entry = '{ appId: "studio", placements: { central: 0, desktop: 0, dock: 0, "navigation-menu": 1 } }'
+        canonical_entry = '{ appId: "settings", placements: { central: 0, desktop: 0, dock: 0, "navigation-menu": 0 } }'
         self.assertIn(canonical_entry, shortcut_source)
         with tempfile.TemporaryDirectory(prefix="ordax-native-menu-proof-") as directory:
             catalog = Path(directory) / "shortcut-catalog.mjs"
             for changed, issue in (
-                (canonical_entry.replace('"navigation-menu": 1', '"navigation-menu": 0'), "duplicated"),
-                (canonical_entry.replace('"navigation-menu": 1', '"navigation-menu": "first"'), "malformed"),
+                (canonical_entry.replace('"navigation-menu": 0', '"navigation-menu": 1'), "duplicated"),
+                (canonical_entry.replace('"navigation-menu": 0', '"navigation-menu": "first"'), "malformed"),
             ):
                 with self.subTest(changed=changed):
                     catalog.write_text(shortcut_source.replace(canonical_entry, changed), encoding="utf-8")
@@ -88,8 +98,24 @@ class PublicSurfaceSnapshotTests(unittest.TestCase):
             actual.append(labels[destination_id])
         shared=(ROOT/'system/services/surface/meridian-navigation.mjs').read_text(encoding='utf-8')
         self.assertIn('MERIDIAN_RAIL_DESTINATIONS.map(',block)
-        shared_names=re.findall(r"\{key:'[^']+',name:'([^']+)'",shared)
-        self.assertEqual(len(shared_names),7,'shared Meridian navigation owner must remain explicit')
+        # The Intelligence destination title is derived from the one OS-owned
+        # destination catalog; a regex for literals alone would miss it and
+        # incentivize a second hardcoded product name in the Meridian rail.
+        canonical_titles=dict(re.findall(
+            r"\{ id: '([^']+)', label: '[^']+', windowTitle: '([^']+)'",catalog
+        ))
+        shared_rows=re.findall(
+            r"\{key:'([^']+)',name:(?:'([^']+)'|getSurfaceWindowTitle\('([^']+)'\))",shared
+        )
+        self.assertEqual(len(shared_rows),7,'shared Meridian navigation owner must remain explicit')
+        self.assertEqual(len({key for key,_,_ in shared_rows}),7,'Meridian destination ids must be unique')
+        shared_names=[]
+        for _,literal,destination_id in shared_rows:
+            if destination_id:
+                self.assertIn(destination_id,canonical_titles)
+                shared_names.append(canonical_titles[destination_id])
+            else:
+                shared_names.append(literal)
         self.assertEqual([row['name'] for row in self.snapshot['navigation']],shared_names+actual)
         for destination_id in [destination_id for _,destination_id in tokens if destination_id]:
             self.assertNotIn("name: '"+labels[destination_id]+"'",block)

@@ -204,35 +204,29 @@ export function createDesktopShellMarkup(localization) {
             <section class="ordax-home-hero" aria-label="${t("shell.home.hero.aria")}">
               <img class="ordax-home-hero-image" data-home-scene src="../../surface/workspace/assets/alpine-day.jpg" alt="" loading="eager">
               <div class="ordax-home-hero-copy">
-                <div class="ordax-home-aura-heading"><span class="ordax-rail-icon" aria-hidden="true">${ICONS.aura}</span><strong>Aura</strong><span class="ordax-home-hero-preview" data-home-copy="shell.home.preview.auraStatus">${t("shell.home.preview.auraStatus")}</span></div>
-                <h2 data-home-copy="shell.home.preview.heroTitle">${t("shell.home.preview.heroTitle")}</h2>
-                <p data-home-copy="shell.home.preview.heroDescription">${t("shell.home.preview.heroDescription")}</p>
+                <div class="ordax-home-aura-heading"><span class="ordax-rail-icon" aria-hidden="true">${ICONS.aura}</span><strong>Aura</strong><span class="ordax-home-aura-state" data-home-aura-status data-state="loading" aria-live="polite">${t("home.aura.status.loading")}</span></div>
+                <h2 data-home-copy="home.aura.title">${t("home.aura.title")}</h2>
+                <p data-home-copy="home.aura.description">${t("home.aura.description")}</p>
                 <section class="meridian-command meridian-native-command" aria-label="${t("shell.home.aura.aria")}">
                   <div class="meridian-command-input-row">
-                    <button type="button" data-home-preview-notice aria-label="${t("shell.home.preview.attach")}"><span class="ordax-home-plus" aria-hidden="true">+</span></button>
-                    <input type="text" data-native-aura-prompt aria-label="${t("shell.home.aura.aria")}" aria-describedby="ordax-home-aura-note" placeholder="${t("shell.home.aura.placeholder")}" autocomplete="off">
-                    <button type="button" data-native-aura-voice disabled aria-label="${t("shell.home.aura.voice")}"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21m-4 0h8"/></svg></button>
-                    <button type="button" class="meridian-command-send" data-home-preview-send data-home-preview-notice aria-label="${t("shell.home.preview.send")}">${ICONS.arrow}</button>
+                    <input type="text" data-native-aura-prompt aria-label="${t("shell.home.aura.aria")}" aria-describedby="ordax-home-aura-note" placeholder="${t("shell.home.aura.placeholder")}" autocomplete="off" maxlength="32000">
+                    <button type="button" class="meridian-command-send" data-home-aura-submit data-native-aura-send aria-label="${t("shell.home.aura.send")}" disabled>${ICONS.arrow}</button>
                   </div>
                 </section>
-                <div class="ordax-home-suggestions">${[["summary","files"],["note","folder"],["plan","clock"],["image","studio"]].map(([key, icon]) => `<button type="button" data-home-preview-command="shell.home.preview.command.${key}"><span class="ordax-rail-icon" aria-hidden="true">${ICONS[icon]}</span><span data-home-copy="shell.home.preview.command.${key}">${t(`shell.home.preview.command.${key}`)}</span></button>`).join("")}</div>
-                <p id="ordax-home-aura-note" class="ordax-home-hero-note" data-home-copy="shell.home.preview.auraNote">${t("shell.home.preview.auraNote")}</p>
+                <div class="ordax-home-suggestions">${[["summary","files"],["note","folder"],["plan","clock"],["image","studio"]].map(([key, icon]) => `<button type="button" data-home-aura-suggestion="home.aura.suggestion.${key}"><span class="ordax-rail-icon" aria-hidden="true">${ICONS[icon]}</span><span data-home-copy="home.aura.suggestion.${key}">${t(`home.aura.suggestion.${key}`)}</span></button>`).join("")}</div>
+                <div class="ordax-home-aura-response" data-home-aura-response data-state="busy" aria-live="polite" aria-atomic="true" hidden><strong data-home-copy="home.aura.response.title">${t("home.aura.response.title")}</strong><p data-home-aura-response-text></p></div>
+                <p id="ordax-home-aura-note" class="ordax-home-hero-note" data-home-aura-note aria-live="polite">${t("home.aura.note.loading")}</p>
               </div>
             </section>
             ${concept.status}
-            ${concept.continuation}
             ${concept.currentSpace}
             <section class="ordax-home-actions" aria-labelledby="ordax-home-actions-title">
-              <div class="ordax-home-section-heading"><h2 id="ordax-home-actions-title" data-home-copy="shell.home.preview.apps">${t("shell.home.preview.apps")}</h2><button type="button" data-launcher-toggle><span data-home-copy="shell.home.preview.seeAll">${t("shell.home.preview.seeAll")}</span> ↗</button></div>
+              <div class="ordax-home-section-heading"><h2 id="ordax-home-actions-title" data-home-copy="home.apps.title">${t("home.apps.title")}</h2><button type="button" data-launcher-toggle><span data-home-copy="home.apps.openAll">${t("home.apps.openAll")}</span> ↗</button></div>
               <div class="ordax-home-action-grid">
                 ${CENTRAL_QUICK_ACCESS_APP_IDS.map((id) => railButton(id, t(`app.${id}.title`), ICONS[id], t, "ordax-home-action")).join("")}
-                ${[["notes","folder"],["browser","networkOther"],["blender","studio"],["unity","apps"],["stlforge","spaces"]].map(([key, icon]) => `<button type="button" class="ordax-home-action" data-home-preview-notice data-home-preview-app="${key}"><span class="ordax-rail-icon" aria-hidden="true">${ICONS[icon]}</span><span data-home-copy="shell.home.preview.app.${key}">${t(`shell.home.preview.app.${key}`)}</span><small class="ordax-home-app-example" data-home-copy="shell.home.preview.badge">${t("shell.home.preview.badge")}</small></button>`).join("")}
-                <button type="button" class="ordax-home-action ordax-home-add-app" data-launcher-toggle><span class="ordax-rail-icon ordax-home-plus" aria-hidden="true">+</span><span data-home-copy="shell.home.preview.add">${t("shell.home.preview.add")}</span></button>
+                <button type="button" class="ordax-home-action ordax-home-add-app" data-launcher-toggle><span class="ordax-rail-icon ordax-home-plus" aria-hidden="true">+</span><span data-home-copy="home.apps.add">${t("home.apps.add")}</span></button>
               </div>
             </section>
-            ${concept.recent}
-            ${concept.activity}
-            <div class="ordax-home-preview-feedback" data-home-preview-feedback role="status" hidden><span data-home-preview-feedback-text></span><button type="button" data-home-preview-dismiss aria-label="${t("shell.home.preview.dismiss")}">×</button></div>
             <section class="ordax-home-explore" aria-labelledby="ordax-home-explore-title">
               <div class="ordax-home-section-heading"><h2 id="ordax-home-explore-title" data-home-copy="shell.home.explore.title">${t("shell.home.explore.title")}</h2><p data-home-copy="shell.home.explore.description">${t("shell.home.explore.description")}</p></div>
               <div class="ordax-home-destination-grid">${homeDestinationCards(localization, t)}</div>
@@ -390,7 +384,7 @@ export function syncDesktopShellLocalization(root, localization) {
   text("[data-home-hero-description-first]", "shell.home.hero.description.first");
   text("[data-home-hero-description-second]", "shell.home.hero.description.second");
   text("[data-home-hero-action]", "shell.home.hero.action");
-  text("#ordax-home-actions-title", "shell.home.preview.apps");
+  text("#ordax-home-actions-title", "home.apps.title");
   aria(".meridian-session-strip", "shell.home.session.aria");
   text("[data-native-session-label]", "shell.home.session.native");
   text("[data-native-session-account]", "shell.home.session.account");
@@ -402,10 +396,7 @@ export function syncDesktopShellLocalization(root, localization) {
     nativeAuraPrompt.placeholder = t("shell.home.aura.placeholder");
     nativeAuraPrompt.setAttribute("aria-label", t("shell.home.aura.aria"));
   }
-  aria("[data-native-aura-voice]", "shell.home.aura.voice");
   aria("[data-native-aura-send]", "shell.home.aura.send");
-  text("[data-native-aura-backend]", "shell.home.aura.backend");
-  text("[data-native-aura-description]", "shell.home.aura.pendingDescription");
   for (const button of root.querySelectorAll("[data-launcher-toggle]")) {
     if (button.hasAttribute("data-meridian-search")) continue;
     if (button.hasAttribute("data-meridian-application-launcher")) {
@@ -539,8 +530,23 @@ export function mountDesktopClock(
     throw new Error("OrdaX desktop clock requires navigation and quick date/time nodes");
   }
 
+  // Cache ICU formatters per active regional preference rather than allocating
+  // two new formatters on every 30-second clock tick.
+  let formattingKey = null;
+  let timeFormatter = null;
+  let dateFormatter = null;
   const render = () => {
     const { locale, timeZone } = regionalSettings(preferencePort?.getSnapshot() ?? {});
+    const nextKey = JSON.stringify([locale, timeZone]);
+    if (nextKey !== formattingKey) {
+      timeFormatter = new Intl.DateTimeFormat(locale, {
+        timeZone, hour: "2-digit", minute: "2-digit", hour12: false,
+      });
+      dateFormatter = new Intl.DateTimeFormat(locale, {
+        timeZone, weekday: "long", day: "2-digit", month: "long", year: "numeric",
+      });
+      formattingKey = nextKey;
+    }
     const now = new Date();
     const { period, greetingId } = resolveHomeScene(now, timeZone);
     if (sceneNode && sceneNode.dataset.period !== period) {
@@ -552,21 +558,10 @@ export function mountDesktopClock(
       greetingNode.textContent = localizationPort?.translate(greetingId)
         ?? ({ "shell.home.greeting.morning": "Bom dia.", "shell.home.greeting.afternoon": "Boa tarde.", "shell.home.greeting.evening": "Boa noite." }[greetingId]);
     }
-    const formattedTime = new Intl.DateTimeFormat(locale, {
-      timeZone,
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: false,
-    }).format(now);
+    const formattedTime = timeFormatter.format(now);
     trayTimeNode.textContent = formattedTime;
     quickTimeNode.textContent = formattedTime;
-    quickDateNode.textContent = new Intl.DateTimeFormat(locale, {
-      timeZone,
-      weekday: "long",
-      day: "2-digit",
-      month: "long",
-      year: "numeric",
-    }).format(now);
+    quickDateNode.textContent = dateFormatter.format(now);
     timeZoneNode.textContent = timeZone;
     const isoNow = now.toISOString();
     trayTimeNode.setAttribute("datetime", isoNow);

@@ -48,6 +48,11 @@ ATTEMPT_STARTED_EPOCH_FILE=$UPDATE_RUN_DIR/attempt-started-epoch
 UPDATE_STATE=$UPDATE_RUN_DIR/state.json
 UPDATE_LOG=$UPDATE_RUN_DIR/update.log
 PULL_RESULT_FILE=$UPDATE_RUN_DIR/pull-result
+FETCH_ERROR_FILE=$UPDATE_RUN_DIR/fetch-stderr
+FETCH_RETRY_FILE=$STATE_DIR/native-state/git-fetch-retry
+FETCH_FAILURE_RECEIPT=$STATE_DIR/native-state/git-fetch-last.tsv
+NON_FF_BLOCKED_FILE=$STATE_DIR/native-state/git-non-ff-target
+CHECKOUT_RETRY_FILE=$STATE_DIR/native-state/git-checkout-retry
 OWNER_MANUAL_CHECK_REQUEST=$UPDATE_RUN_DIR/manual-check-request
 HEALTH_FILE=$UPDATE_RUN_DIR/healthy-sha
 SURFACE_HEALTH_STATE_FILE=$UPDATE_RUN_DIR/surface-health-state
@@ -90,9 +95,12 @@ RELOAD_FALLBACK_HEALTH_TIMEOUT=${ORDAX_RELOAD_FALLBACK_HEALTH_TIMEOUT_SECONDS:-$
 SURFACE_STALE_SECONDS=${ORDAX_SURFACE_STALE_SECONDS:-90}
 UPDATE_TARGET_SHA=""
 UPDATE_PHASE=idle
+# Selected from the already-authorized runtime profile, never from untrusted UI input.
+UPDATE_TRANSPORT=""
 UPDATE_ATTEMPT_ID=""
 UPDATE_ERROR=""
 CHECKOUT_ERROR=""
+GIT_JOB_PID=""
 SURFACE_PID=""
 SURFACE_STARTED_AT=0
 SURFACE_STALE_RECOVERY_ARMED=1
@@ -104,6 +112,7 @@ OWNER_POLL_BOOT_FILE=$STATE_DIR/native-state/supervisor-boot-witness.json
 # One event loop owns both initial Surface validation and Git discovery.
 OWNER_INITIAL_HEALTH_PENDING=0
 OWNER_INITIAL_HEALTH_RETRIES=0
+OWNER_MANUAL_CHECK=0
 OWNER_INITIAL_NORMAL_SINCE=0
 OWNER_INITIAL_PROVISION_SINCE=0
 OWNER_INITIAL_PROVISION_PHASE=0
@@ -235,10 +244,213 @@ esac
 GIT_TERMINAL_PROMPT=0
 export GIT_TERMINAL_PROMPT
 
+# Each Git command owns a distinct session/process group. The shell waits for
+# that group as a background job so TERM interrupts wait immediately, rather
+# than deferring Guardian power-quiesce until a 45-second network timeout.
 run_bounded_git() {
     timeout_seconds=$1
     shift
-    /bin/busybox timeout -k 5 "$timeout_seconds"         "$GIT_BIN"         -c http.lowSpeedLimit=1         -c "http.lowSpeedTime=$GIT_LOW_SPEED_TIME"         "$@"
+    # BusyBox timeout forks a detached watchdog that may outlive an aborted
+    # fetch, retain writable FDs and block the ext4 power seal. Keep both the
+    # Git worker AND its bounded watchdog in one session we can always reap.
+    /bin/busybox setsid /bin/sh -c '
+        deadline=$1
+        shift
+        "$@" &
+        worker_pid=$!
+        (
+            /bin/busybox sleep "$deadline" &
+            timer_sleep_pid=$!
+            trap "kill $timer_sleep_pid 2>/dev/null || :; wait $timer_sleep_pid 2>/dev/null || :; exit 0" HUP INT TERM
+            wait "$timer_sleep_pid" || exit 0
+            # Only the isolated session is signalled on an expired deadline.
+            # In this shell $$ is the session leader and process-group ID.
+            kill -TERM "-$$" 2>/dev/null || true
+        ) &
+        watchdog_pid=$!
+        worker_rc=0
+        wait "$worker_pid" || worker_rc=$?
+        kill "$watchdog_pid" 2>/dev/null || true
+        wait "$watchdog_pid" 2>/dev/null || true
+        exit "$worker_rc"
+    ' ordax-git "$timeout_seconds" "$GIT_BIN" \
+        -c http.lowSpeedLimit=1 \
+        -c "http.lowSpeedTime=$GIT_LOW_SPEED_TIME" "$@" &
+    GIT_JOB_PID=$!
+    git_job_rc=0
+    wait "$GIT_JOB_PID" || git_job_rc=$?
+    GIT_JOB_PID=""
+    return "$git_job_rc"
+}
+
+cancel_active_git() {
+    active_git_pid=${GIT_JOB_PID:-}
+    case "$active_git_pid" in ''|*[!0-9]*) return 0 ;; esac
+    # Process-group signalling reaches Git, its children and the bounded watchdog.
+    # This group was created by setsid, never by the Guardian or the Surface.
+    kill -TERM "-$active_git_pid" 2>/dev/null || true
+    /bin/busybox sleep 1
+    kill -KILL "-$active_git_pid" 2>/dev/null || true
+    wait "$active_git_pid" 2>/dev/null || true
+    GIT_JOB_PID=""
+}
+
+# Only typed, allowlisted diagnostics cross the volatile /run boundary.
+classify_fetch_error() {
+    diagnostic=$1
+    result_code=$2
+    case "$result_code" in 124|137|143) printf 'timeout'; return 0 ;; esac
+    if /bin/busybox grep -Eqi 'could not resolve host|could not resolve proxy|temporary failure in name resolution|name or service not known' "$diagnostic"; then
+        printf 'dns'
+    elif /bin/busybox grep -Eqi 'SSL certificate problem|certificate verify failed|certificate has expired|unable to get local issuer certificate' "$diagnostic"; then
+        printf 'tls'
+    elif /bin/busybox grep -Eqi 'authentication failed|http 401|http 403|requested URL returned error: (401|403)' "$diagnostic"; then
+        printf 'auth'
+    elif /bin/busybox grep -Eqi 'timed out|timeout|operation too slow' "$diagnostic"; then
+        printf 'timeout'
+    elif /bin/busybox grep -Eqi 'network is unreachable|no route to host|failed to connect|connection refused|connection reset' "$diagnostic"; then
+        printf 'connectivity'
+    else
+        printf 'unknown'
+    fi
+}
+
+# Canonical bounded exponential delay shared by fetch and checkout retries.
+retry_backoff_seconds() {
+    retry_count=$1
+    case "$retry_count" in ''|*[!0-9]*) return 1 ;; esac
+    [ "$retry_count" -ge 1 ] 2>/dev/null || return 1
+    retry_delay=15
+    retry_index=1
+    while [ "$retry_index" -lt "$retry_count" ]; do
+        retry_delay=$((retry_delay * 2))
+        [ "$retry_delay" -le 300 ] || { retry_delay=300; break; }
+        retry_index=$((retry_index + 1))
+    done
+    printf '%s' "$retry_delay"
+}
+
+record_fetch_failure() {
+    fetch_target=$1
+    fetch_started=$2
+    fetch_rc=$3
+    fetch_reason=$4
+    fetch_previous_count=0
+    if [ -f "$FETCH_RETRY_FILE" ] && [ ! -L "$FETCH_RETRY_FILE" ]; then
+        read -r last_target last_count last_retry <"$FETCH_RETRY_FILE" || true
+        if [ "${last_target:-}" = "$fetch_target" ]; then
+            case "${last_count:-}" in ''|*[!0-9]*) ;; *) fetch_previous_count=$last_count ;; esac
+        fi
+    fi
+    [ "$fetch_previous_count" -lt 8 ] 2>/dev/null || fetch_previous_count=8
+    fetch_count=$((fetch_previous_count + 1))
+    # 15, 30, 60, 120, 240, then max 300s. Persist across restarts.
+    fetch_delay=$(retry_backoff_seconds "$fetch_count")
+    fetch_now=$(epoch_now)
+    fetch_next=$((fetch_now + fetch_delay))
+    fetch_elapsed=0
+    if [ "$fetch_now" -ge "$fetch_started" ] 2>/dev/null; then
+        fetch_elapsed=$((fetch_now - fetch_started))
+    fi
+    retry_tmp=$FETCH_RETRY_FILE.tmp.$$
+    printf '%s %s %s\n' "$fetch_target" "$fetch_count" "$fetch_next" >"$retry_tmp"
+    chmod 600 "$retry_tmp"
+    /bin/busybox mv -f "$retry_tmp" "$FETCH_RETRY_FILE"
+    receipt_tmp=$FETCH_FAILURE_RECEIPT.tmp.$$
+    printf 'ordax.git-fetch-failure/1\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+        "$fetch_target" "$fetch_started" "$fetch_elapsed" "$fetch_rc" \
+        "$fetch_reason" "$fetch_count" "$fetch_next" >"$receipt_tmp"
+    chmod 600 "$receipt_tmp"
+    /bin/busybox mv -f "$receipt_tmp" "$FETCH_FAILURE_RECEIPT"
+}
+
+fetch_retry_pending() {
+    retry_target=$1
+    [ -f "$FETCH_RETRY_FILE" ] && [ ! -L "$FETCH_RETRY_FILE" ] || return 1
+    read -r pending_sha pending_count pending_epoch <"$FETCH_RETRY_FILE" || return 1
+    [ "$pending_sha" = "$retry_target" ] || return 1
+    case "$pending_count:$pending_epoch" in *[!0-9:]*|:*) return 1 ;; esac
+    [ "$(epoch_now)" -lt "$pending_epoch" ] 2>/dev/null
+}
+
+# A post-fetch preflight/staging error must not refetch and fail every 5s.
+# Exact (old HEAD, target SHA, error) scopes retries; new main always retries
+# immediately, and a deliberate UI request bypasses this automatic cooldown.
+record_checkout_failure() {
+    checkout_retry_source=$1
+    checkout_retry_target=$2
+    checkout_retry_reason=$3
+    checkout_retry_previous_count=0
+    if [ -f "$CHECKOUT_RETRY_FILE" ] && [ ! -L "$CHECKOUT_RETRY_FILE" ]; then
+        read -r retry_old retry_target retry_count retry_epoch retry_reason <"$CHECKOUT_RETRY_FILE" || true
+        if [ "${retry_old:-}" = "$checkout_retry_source" ] &&
+           [ "${retry_target:-}" = "$checkout_retry_target" ] &&
+           [ "${retry_reason:-}" = "$checkout_retry_reason" ]; then
+            case "${retry_count:-}" in ''|*[!0-9]*) ;; *) checkout_retry_previous_count=$retry_count ;; esac
+        fi
+    fi
+    [ "$checkout_retry_previous_count" -lt 8 ] 2>/dev/null || checkout_retry_previous_count=8
+    checkout_retry_count=$((checkout_retry_previous_count + 1))
+    checkout_retry_delay=$(retry_backoff_seconds "$checkout_retry_count")
+    checkout_retry_at=$(($(epoch_now) + checkout_retry_delay))
+    checkout_retry_tmp=$CHECKOUT_RETRY_FILE.tmp.$
+    printf '%s %s %s %s %s\n' "$checkout_retry_source" "$checkout_retry_target" \
+        "$checkout_retry_count" "$checkout_retry_at" "$checkout_retry_reason" >"$checkout_retry_tmp"
+    chmod 600 "$checkout_retry_tmp"
+    /bin/busybox mv -f "$checkout_retry_tmp" "$CHECKOUT_RETRY_FILE"
+    log "checkout retry throttled for ${checkout_retry_delay}s (reason=$checkout_retry_reason; target=$checkout_retry_target)"
+}
+
+checkout_retry_pending() {
+    checkout_pending_source=$1
+    checkout_pending_target=$2
+    [ -f "$CHECKOUT_RETRY_FILE" ] && [ ! -L "$CHECKOUT_RETRY_FILE" ] || return 1
+    read -r saved_source saved_target saved_count saved_epoch saved_reason <"$CHECKOUT_RETRY_FILE" || return 1
+    [ "$saved_source" = "$checkout_pending_source" ] &&
+    [ "$saved_target" = "$checkout_pending_target" ] || return 1
+    case "$saved_count:$saved_epoch" in *[!0-9:]*|:*|*:) return 1 ;; esac
+    [ "$saved_count" -ge 1 ] 2>/dev/null || return 1
+    [ "$(epoch_now)" -lt "$saved_epoch" ] 2>/dev/null
+}
+
+non_ff_target_blocked() {
+    blocked_old=$1
+    blocked_target=$2
+    [ -f "$NON_FF_BLOCKED_FILE" ] && [ ! -L "$NON_FF_BLOCKED_FILE" ] || return 1
+    read -r blocked_old_sha blocked_target_sha <"$NON_FF_BLOCKED_FILE" || return 1
+    [ "$blocked_old_sha" = "$blocked_old" ] && [ "$blocked_target_sha" = "$blocked_target" ]
+}
+
+record_non_ff_target() {
+    blocked_temp=$NON_FF_BLOCKED_FILE.tmp.$
+    printf '%s %s\n' "$1" "$2" >"$blocked_temp"
+    chmod 600 "$blocked_temp"
+    /bin/busybox mv -f "$blocked_temp" "$NON_FF_BLOCKED_FILE"
+}
+
+automatic_main_reconcile_allowed() {
+    reconcile_old=$1
+    reconcile_target=$2
+    # Only a healthy, already-receipted Owner/Dev checkout may recover from
+    # a main rewrite/squash. Stable, custom repos, modified worktrees and
+    # pinned/rejected runtime candidates keep the normal fail-closed path.
+    [ "$DISTRIBUTION_PROFILE" = owner-development ] &&
+    [ "$BRANCH" = main ] &&
+    [ "$REPO_URL" = "https://github.com/ordaxsystems/ordax-os.git" ] &&
+    is_sha "$reconcile_old" && is_sha "$reconcile_target" &&
+    [ "$reconcile_old" != "$reconcile_target" ] &&
+    [ ! -s "$PINNED_FILE" ] && [ ! -s "$BOOT_REJECTED_FILE" ] &&
+    [ ! -s "$REJECTED_FILE" ] &&
+    [ "$OWNER_INITIAL_HEALTH_PENDING" -eq 0 ] &&
+    [ "$(read_state_value "$CURRENT_FILE")" = "$reconcile_old" ] &&
+    [ "$("$GIT_BIN" -C "$WORKTREE" rev-parse HEAD 2>/dev/null || true)" = "$reconcile_old" ] &&
+    [ "$("$GIT_BIN" -C "$WORKTREE" symbolic-ref --short HEAD 2>/dev/null || true)" = main ] &&
+    [ "$("$GIT_BIN" -C "$WORKTREE" remote get-url origin 2>/dev/null || true)" = "$REPO_URL" ] || return 1
+
+    reconcile_dirty=$("$GIT_BIN" -C "$WORKTREE" status --porcelain 2>/dev/null) || return 1
+    [ -z "$reconcile_dirty" ] || return 1
+    reconcile_surface=$(read_state_value "$RUNTIME_SURFACE_SHA_FILE")
+    is_sha "$reconcile_surface" && surface_health_matches "$reconcile_surface"
 }
 
 write_state_value() {
@@ -515,10 +727,20 @@ apply_remote_checkout() {
         return 1
     fi
 
-    if ! run_bounded_git "$FETCH_TIMEOUT" -C "$WORKTREE" fetch --no-tags origin \
-        "refs/heads/$BRANCH:refs/remotes/origin/$BRANCH" >>"$UPDATE_LOG" 2>&1; then
-        CHECKOUT_ERROR=fetch-failed
-        log "Git fetch failed or timed out after ${FETCH_TIMEOUT}s"
+    fetch_started=$(epoch_now)
+    # Capture stderr only in /run. Raw Git diagnostics can include URLs or
+    # credentials: they must never be copied to persistent state.
+    rm -f "$FETCH_ERROR_FILE"
+    if run_bounded_git "$FETCH_TIMEOUT" -C "$WORKTREE" fetch --no-tags origin \
+        "+refs/heads/$BRANCH:refs/remotes/origin/$BRANCH" >>"$UPDATE_LOG" 2>"$FETCH_ERROR_FILE"; then
+        rm -f "$FETCH_ERROR_FILE" "$FETCH_RETRY_FILE"
+    else
+        fetch_rc=$?
+        fetch_reason=$(classify_fetch_error "$FETCH_ERROR_FILE" "$fetch_rc")
+        rm -f "$FETCH_ERROR_FILE"
+        record_fetch_failure "$checkout_target_sha" "$fetch_started" "$fetch_rc" "$fetch_reason"
+        CHECKOUT_ERROR=fetch-$fetch_reason-failed
+        log "Git fetch failed or timed out after ${FETCH_TIMEOUT}s (category=$fetch_reason, exit=$fetch_rc); retry deferred"
         return 1
     fi
 
@@ -529,14 +751,27 @@ apply_remote_checkout() {
         return 1
     }
 
-    "$GIT_BIN" -C "$WORKTREE" merge-base --is-ancestor "$checkout_previous_sha" "$checkout_target_sha" >>"$UPDATE_LOG" 2>&1 || {
-        CHECKOUT_ERROR=non-fast-forward
-        log "remote update is not a fast-forward from $checkout_previous_sha"
-        return 1
-    }
+    checkout_reconcile_previous=""
+    if ! "$GIT_BIN" -C "$WORKTREE" merge-base --is-ancestor "$checkout_previous_sha" "$checkout_target_sha" >>"$UPDATE_LOG" 2>&1; then
+        if automatic_main_reconcile_allowed "$checkout_previous_sha" "$checkout_target_sha" &&
+           "$GIT_BIN" -C "$WORKTREE" merge-base "$checkout_previous_sha" "$checkout_target_sha" >/dev/null 2>&1 &&
+           ! "$GIT_BIN" -C "$WORKTREE" merge-base --is-ancestor "$checkout_target_sha" "$checkout_previous_sha" >/dev/null 2>&1; then
+            checkout_reconcile_previous=$checkout_previous_sha
+            log "verified main divergence: staging exact candidate with pinned known-good rollback"
+        else
+            CHECKOUT_ERROR=non-fast-forward
+            record_non_ff_target "$checkout_previous_sha" "$checkout_target_sha"
+            log "unsafe or unverified main divergence; preserving current checkout"
+            return 1
+        fi
+    fi
 
     classify_changes "$checkout_previous_sha" "$checkout_target_sha"
-    set_update_context validating "$checkout_target_sha" "$UPDATE_ATTEMPT_ID" ""
+    if [ -n "$checkout_reconcile_previous" ]; then
+        set_update_context validating "$checkout_target_sha" "$UPDATE_ATTEMPT_ID" "reconciling-main-history"
+    else
+        set_update_context validating "$checkout_target_sha" "$UPDATE_ATTEMPT_ID" ""
+    fi
     write_update_state "$checkout_previous_sha" updating "$APPLY_MODE"
     if ! validate_candidate_tree "$checkout_target_sha" "$APPLY_MODE"; then
         CHECKOUT_ERROR=candidate-preflight-failed
@@ -563,7 +798,8 @@ apply_remote_checkout() {
     # canonical Pull owner. Without this the Supervisor can misattribute
     # stale error details after a killed or unavailable updater.
     rm -f "$PULL_RESULT_FILE"
-    if ! ORDAX_EXPECTED_SHA="$checkout_target_sha" \
+    if ! ORDAX_RECONCILE_PREVIOUS_SHA="$checkout_reconcile_previous" \
+            ORDAX_EXPECTED_SHA="$checkout_target_sha" \
             ORDAX_REPO_URL="$REPO_URL" \
             ORDAX_REPO_BRANCH="$BRANCH" \
             ORDAX_WORKTREE="$WORKTREE" \
@@ -594,6 +830,10 @@ apply_remote_checkout() {
     }
     # The canonical ordax-pull installed helpers and wrote its receipt.
     # A second refresh in the Supervisor duplicates installation authority.
+    if [ -n "$checkout_reconcile_previous" ]; then
+        rm -f "$NON_FF_BLOCKED_FILE"
+        log "main lineage reconciled via atomic Pull; old Git commit pinned for rollback"
+    fi
     return 0
 }
 
@@ -865,8 +1105,8 @@ write_update_state() {
     case "$last_stage_duration" in ''|*[!0-9]*) last_stage_duration=0 ;; esac
     delivery_number=$(delivery_number_for_sha "$source_sha")
     temporary=$UPDATE_STATE.tmp.$$
-    printf '{"sourceSha":"%s","deliveryNumber":%s,"versionNumber":%s,"runtimeSurfaceSha":"%s","targetSha":"%s","status":"%s","phase":"%s","applyMode":"%s","attemptId":"%s","bootRefreshRequired":%s,"baseUpdatePhase":"%s","baseUpdateSha":"%s","checkedAt":"%s","lastAppliedSha":"%s","lastAppliedAt":"%s","stagedReleaseSha":"%s","lastApplyDurationSeconds":%s,"lastStageDurationSeconds":%s,"rejectedSha":"%s","lastError":"%s"}\n' \
-        "$source_sha" "$delivery_number" "$delivery_number" "$runtime_surface_sha" "$UPDATE_TARGET_SHA" "$status" "$UPDATE_PHASE" "$apply_mode" "$UPDATE_ATTEMPT_ID" \
+    printf '{"sourceSha":"%s","deliveryNumber":%s,"versionNumber":%s,"runtimeSurfaceSha":"%s","targetSha":"%s","status":"%s","phase":"%s","applyMode":"%s","updateTransport":"%s","attemptId":"%s","bootRefreshRequired":%s,"baseUpdatePhase":"%s","baseUpdateSha":"%s","checkedAt":"%s","lastAppliedSha":"%s","lastAppliedAt":"%s","stagedReleaseSha":"%s","lastApplyDurationSeconds":%s,"lastStageDurationSeconds":%s,"rejectedSha":"%s","lastError":"%s"}\n' \
+        "$source_sha" "$delivery_number" "$delivery_number" "$runtime_surface_sha" "$UPDATE_TARGET_SHA" "$status" "$UPDATE_PHASE" "$apply_mode" "$UPDATE_TRANSPORT" "$UPDATE_ATTEMPT_ID" \
         "$boot_refresh" "$BASE_UPDATE_PHASE" "$BASE_UPDATE_SHA" "$checked_at" "$last_applied_sha" "$last_applied_at" "$staged_release_sha" "$last_apply_duration" "$last_stage_duration" "$rejected_sha" "$UPDATE_ERROR" >"$temporary"
     /bin/busybox mv -f "$temporary" "$UPDATE_STATE"
 }
@@ -983,6 +1223,16 @@ native_host_quiesced() {
 }
 
 stop_surface() {
+    # Native MCP is optional but MUST release its child before any checkout,
+    # rollback or mount cutover; otherwise the previous signed Runtime could
+    # continue to dispatch against a new OS identity/slot.
+    if command -v native_product_stop >/dev/null 2>&1; then
+        if ! native_product_stop; then
+            log "Native Product Runtime did not quiesce; refusing OS transition"
+            trap - EXIT HUP INT TERM
+            exit 1
+        fi
+    fi
     if [ -n "$SURFACE_PID" ]; then
         if kill -0 "$SURFACE_PID" >/dev/null 2>&1; then
             kill "$SURFACE_PID" >/dev/null 2>&1 || true
@@ -1142,6 +1392,17 @@ begin_owner_initial_surface_health() {
 }
 
 owner_initial_surface_health_failed() {
+    # Observe only canonical Native Host health/heartbeat witnesses.
+    # This is diagnostic: no synthetic receipt, timeout or state change.
+    health_ack=missing
+    heartbeat_ack=missing
+    if [ "$(read_state_value "$HEALTH_FILE")" = "$initial_sha" ]; then
+        health_ack=matched
+    fi
+    if [ "$(surface_heartbeat_sha)" = "$initial_sha" ]; then
+        heartbeat_ack=matched
+    fi
+    log "cold-boot Surface evidence: native_health=$health_ack surface_heartbeat=$heartbeat_ack phase=$OWNER_INITIAL_HEALTH_STATE"
     write_surface_health_state failed "$initial_sha" || true
     if rollback_boot_candidate "$boot_runtime_sha" "$initial_sha" "cold-boot Surface did not become healthy"; then
         exit 75
@@ -1220,8 +1481,9 @@ recover_reload_with_surface_restart() {
 
 terminate() {
     trap - EXIT HUP INT TERM
+    cancel_active_git
     stop_surface
-    temporary=$SUPERVISOR_POWER_QUIESCED_FILE.tmp.$$
+    temporary=$SUPERVISOR_POWER_QUIESCED_FILE.tmp.$
     printf '%s\n' "$$" >"$temporary" || exit 1
     chmod 600 "$temporary" || exit 1
     /bin/busybox mv -f "$temporary" "$SUPERVISOR_POWER_QUIESCED_FILE" || exit 1
@@ -1280,6 +1542,19 @@ validate_updated_tree() {
     esac
 }
 
+restore_dev_helpers_after_rollback() {
+    source_sha=$1
+    [ "$DISTRIBUTION_PROFILE" = owner-development ] || return 0
+    # The Git rollback only swaps the repository tree. The installed Base
+    # helper executables are separate persistent bytes and MUST be reconciled
+    # to the same exact commit before the restored Surface starts.
+    refresh_dev_helpers "$source_sha"
+    [ "$(read_state_value "$DEV_HELPERS_SHA_FILE")" = "$source_sha" ] || {
+        log "rollback helper receipt still differs from restored Git checkout $source_sha"
+        return 1
+    }
+}
+
 rollback_boot_candidate() {
     previous_sha=$1
     failed_sha=$2
@@ -1314,6 +1589,9 @@ rollback_boot_candidate() {
         return 1
     fi
 
+    write_state_value "$CURRENT_FILE" "$previous_sha"
+    restore_dev_helpers_after_rollback "$previous_sha" ||
+        fail_closed "cold-boot rollback restored Git but could not restore Base helpers"
     record_runtime_surface_sha "$previous_sha"
     write_update_state "$previous_sha" rolled-back supervisor-restart
     log "cold-boot rollback restored $previous_sha; guardian refresh required"
@@ -1342,6 +1620,9 @@ rollback_update() {
     if ! "$GIT_BIN" -C "$WORKTREE" reset --hard "$previous_sha" >>"$UPDATE_LOG" 2>&1; then
         fail_closed "automatic rollback to $previous_sha failed"
     fi
+    write_state_value "$CURRENT_FILE" "$previous_sha"
+    restore_dev_helpers_after_rollback "$previous_sha" ||
+        fail_closed "rollback restored Git but could not restore Base helpers"
     start_surface || fail_closed "rolled-back Surface could not be started"
     surface_stays_running 4 || fail_closed "rolled-back Surface did not stay running"
     record_runtime_surface_sha "$previous_sha"
@@ -1392,7 +1673,10 @@ classify_changes() {
             boot/*|bootstrap/*)
                 LOW_LEVEL_CHANGED=1
                 ;;
-            system/entrypoint|system/supervisor)
+            system/entrypoint|system/supervisor|system/services/device-agent/native-product-lifecycle.sh)
+                # The Supervisor sources this library at startup. A live
+                # reload would retain old function bodies and lose lifecycle
+                # changes until reboot; use the canonical restart/rollback.
                 supervisor_changed=1
                 ;;
             system/surface/bin/*|system/surface/runtime/*|system/surface/entrypoint|system/services/telemetry/base-agent.sh|system/services/telemetry/relay.json|system/services/base-update/agent.sh)
@@ -2205,7 +2489,12 @@ check_for_update() {
     record_owner_poll_boot_stage first-run-verified
     record_owner_poll_boot_stage git-remote-started
 
-    if ! remote_output=$(run_bounded_git "$REMOTE_TIMEOUT" -C "$WORKTREE" ls-remote --heads origin "refs/heads/$BRANCH" 2>>"$UPDATE_LOG"); then
+    # Do not enter a command substitution around a blocking Git operation:
+    # the parent shell must handle TERM immediately during an active fetch.
+    remote_output_file=$UPDATE_RUN_DIR/remote-head.$$
+    rm -f "$remote_output_file"
+    if ! run_bounded_git "$REMOTE_TIMEOUT" -C "$WORKTREE" ls-remote --heads origin "refs/heads/$BRANCH" >"$remote_output_file" 2>>"$UPDATE_LOG"; then
+        rm -f "$remote_output_file"
         record_owner_poll_boot_stage git-remote-failed
         log "remote check failed or timed out after ${REMOTE_TIMEOUT}s; keeping running Surface"
         set_update_context error "" "" "remote-check-failed"
@@ -2213,6 +2502,8 @@ check_for_update() {
         return 0
     fi
     record_owner_poll_boot_stage git-remote-completed
+    remote_output=$(/bin/busybox cat "$remote_output_file" 2>/dev/null || true)
+    rm -f "$remote_output_file"
     set -- $remote_output
     remote_sha=${1:-}
     case "$remote_sha" in
@@ -2243,6 +2534,21 @@ check_for_update() {
     rejected_sha=$(read_state_value "$REJECTED_FILE")
 
     if [ "$remote_sha" = "$current" ]; then
+        # Install the versioned Base prerequisite before retrying a pending
+        # checkout helper. The canonical request owner is unchanged.
+        if [ -f "$BOOT_REFRESH_FILE" ] && [ ! -L "$BOOT_REFRESH_FILE" ]; then
+            pending_base_sha=$(read_state_value "$BOOT_REFRESH_FILE")
+            [ "$pending_base_sha" = "$current" ] && request_dev_base_candidate "$current"
+        fi
+        # Bound repeated helper installation failures using the existing
+        # SHA-scoped checkout retry receipt. Base candidate acquisition above
+        # is independent of this cooldown; manual checks bypass the wait.
+        if [ "$OWNER_MANUAL_CHECK" -ne 1 ] &&
+           checkout_retry_pending "$current" "$current"; then
+            set_update_context error "$current" "" "checkout-retry-wait"
+            write_update_state "$current" pull-error none
+            return 0
+        fi
         refresh_dev_helpers "$current"
         # A post-swap helper failure must not be silently promoted to
         # "running" on the next poll. The canonical helper receipt is the
@@ -2250,15 +2556,23 @@ check_for_update() {
         if [ -f "$WORKTREE/system/services/base-update/dev-helpers.sh" ]; then
             helper_sha=$(read_state_value "$DEV_HELPERS_SHA_FILE")
             if [ "$helper_sha" != "$current" ]; then
+                record_checkout_failure "$current" "$current" "helper-refresh-failed"
                 set_update_context error "$current" "" "helper-refresh-failed"
                 write_update_state "$current" pull-error none
                 log "Git checkout $current is active; helper installation is pending canonical retry"
                 return 0
             fi
         fi
+        # Clear the retry receipt only after helper identity matches.
+        rm -f "$CHECKOUT_RETRY_FILE"
         if [ -f "$BOOT_REFRESH_FILE" ]; then
             pending_boot_sha=$(read_state_value "$BOOT_REFRESH_FILE")
-            [ -n "$pending_boot_sha" ] && request_dev_base_candidate "$pending_boot_sha"
+            # Current SHA was already requested before helper refresh.
+            # Preserve older/other pending receipts without issuing a second
+            # identical Base request in the same Supervisor iteration.
+            if [ -n "$pending_boot_sha" ] && [ "$pending_boot_sha" != "$current" ]; then
+                request_dev_base_candidate "$pending_boot_sha"
+            fi
         fi
         healthy_sha=$(read_state_value "$HEALTH_FILE")
         if [ -n "$rejected_sha" ] && [ "$rejected_sha" = "$current" ] && [ "$healthy_sha" = "$current" ]; then
@@ -2285,6 +2599,24 @@ check_for_update() {
         rm -f "$REJECTED_FILE"
     fi
 
+    if non_ff_target_blocked "$current" "$remote_sha" &&
+       ! automatic_main_reconcile_allowed "$current" "$remote_sha"; then
+        set_update_context blocked "$remote_sha" "" "non-fast-forward"
+        write_update_state "$current" pull-error none
+        return 0
+    fi
+    if fetch_retry_pending "$remote_sha"; then
+        set_update_context error "$remote_sha" "" "fetch-retry-wait"
+        write_update_state "$current" network-error none
+        return 0
+    fi
+    if [ "$OWNER_MANUAL_CHECK" -ne 1 ] &&
+       checkout_retry_pending "$current" "$remote_sha"; then
+        set_update_context error "$remote_sha" "" "checkout-retry-wait"
+        write_update_state "$current" pull-error none
+        return 0
+    fi
+
     old_sha=$current
     attempt_id=$(utc_now)
     write_state_value "$ATTEMPT_STARTED_EPOCH_FILE" "$(epoch_now)"
@@ -2302,8 +2634,23 @@ check_for_update() {
         active_after_failure=$(current_sha)
         if [ "$reason" = "pull-helper-refresh-failed" ] &&
            [ "$active_after_failure" = "$remote_sha" ]; then
+            # Atomic Git commit succeeded, but this Base may not yet have
+            # the native exchange ABI. Arm only the existing Base owner and
+            # report the real helper failure; never fake running state.
+            if [ "$LOW_LEVEL_CHANGED" -eq 1 ] &&
+               validate_updated_tree "$APPLY_MODE"; then
+                mark_boot_refresh_required "$active_after_failure"
+                request_dev_base_candidate "$active_after_failure"
+                log "Git checkout committed; native Base candidate requested before helper installation"
+            fi
             write_update_state "$active_after_failure" pull-error none
         else
+            # Non-FF has its own durable target guard and fetch failures
+            # already have the existing canonical retry receipt.
+            case "$reason" in
+                non-fast-forward|fetch-*-failed) ;;
+                *) record_checkout_failure "$old_sha" "$remote_sha" "$reason" ;;
+            esac
             write_update_state "$old_sha" pull-error none
         fi
         return 0
@@ -2312,9 +2659,11 @@ check_for_update() {
     new_sha=$(current_sha)
     if [ "$new_sha" = "$old_sha" ] || [ "$new_sha" = unknown ]; then
         set_update_context error "$remote_sha" "$attempt_id" "checkout-sha-invalid"
+        record_checkout_failure "$old_sha" "$remote_sha" "checkout-sha-invalid"
         write_update_state "$old_sha" pull-error none
         return 0
     fi
+    rm -f "$CHECKOUT_RETRY_FILE"
 
     set_update_context validating "$new_sha" "$attempt_id" ""
     write_update_state "$new_sha" updating none
@@ -2405,6 +2754,17 @@ check_for_update() {
     esac
 }
 
+# The Native Product Runtime has no second daemon or scheduler: compose only
+# its OS-owned lifecycle functions inside this existing Supervisor. Stable/
+# MVP and native-disk never import a development-only control agent. An
+# unavailable source only disables the optional MCP path, not boot.
+if [ "$DISTRIBUTION_PROFILE" = owner-development ] && [ "$PRODUCT_MODE" = usb ]; then
+    native_product_lifecycle=$SYSTEM_ROOT/services/device-agent/native-product-lifecycle.sh
+    if [ -f "$native_product_lifecycle" ] && [ ! -L "$native_product_lifecycle" ]; then
+        . "$native_product_lifecycle"
+    fi
+fi
+
 trap stop_surface EXIT
 trap terminate HUP INT TERM
 
@@ -2418,8 +2778,10 @@ esac
 
 case "$DISTRIBUTION_PROFILE" in
     owner-development)
+        UPDATE_TRANSPORT=git-main
         ;;
     stable-mvp)
+        UPDATE_TRANSPORT=official-signed-release-channel
         is_sha "$SOURCE_SHA_HINT" || fail_closed "Stable/MVP runtime source SHA is missing or invalid"
         case "$STABLE_LAYOUT" in
             legacy-tree)
@@ -2537,11 +2899,13 @@ while :; do
     else
         /bin/busybox sleep "$UPDATE_INTERVAL"
     fi
+    OWNER_MANUAL_CHECK=0
     if [ "$DISTRIBUTION_PROFILE" = "owner-development" ] &&
        [ -f "$OWNER_MANUAL_CHECK_REQUEST" ]; then
         if [ ! -L "$OWNER_MANUAL_CHECK_REQUEST" ] &&
            [ "$(/bin/busybox cat "$OWNER_MANUAL_CHECK_REQUEST" 2>/dev/null || true)" = "check-main" ]; then
             /bin/busybox rm -f "$OWNER_MANUAL_CHECK_REQUEST"
+            OWNER_MANUAL_CHECK=1
             log "Owner/Development manual main check requested; using canonical Supervisor"
         else
             log "ignoring invalid owner manual update request"
@@ -2565,4 +2929,16 @@ while :; do
         recover_stale_surface_if_needed
     fi
     check_for_update
+    # One owner and one event loop. Recheck the pinned signed current slot,
+    # local consent and the sole Runtime child only after first Surface
+    # health has completed. The Runtime itself checks revocation before every
+    # action, so this periodic lifecycle check never grants remote access.
+    if [ "$DISTRIBUTION_PROFILE" = owner-development ] &&
+       [ "$PRODUCT_MODE" = usb ] &&
+       [ "$OWNER_INITIAL_HEALTH_PENDING" -eq 0 ] &&
+       command -v native_product_reconcile >/dev/null 2>&1; then
+        if ! native_product_reconcile; then
+            log "Native Product Runtime reconcile unavailable; local OS remains healthy"
+        fi
+    fi
  done

@@ -1,6 +1,7 @@
 import { Component, useState, type ComponentProps, type ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import { AuraContent } from '../intelligence/aura-content';
+import { getSurfaceDestination } from '../../../../services/surface/destination-catalog.mjs';
 import { DesktopContent } from './desktop';
 import { WindowResourceLoadError } from './window-resource-error.mjs';
 
@@ -25,7 +26,7 @@ class WindowContentBoundary extends Component<
 // Modes/view changes never remount content. Only explicit error recovery does.
 export function WindowContent(props: ComponentProps<typeof DesktopContent>) {
   const [attempt, setAttempt] = useState(0);
-  const content = props.title === 'Aura' || props.title === 'Inteligência'
+  const content = props.title === getSurfaceDestination('intelligence').windowTitle || props.title === getSurfaceDestination('intelligence').label
     ? <AuraContent initialPrompt={props.initialPrompt}/>
     : <DesktopContent {...props}/>;
   return <WindowContentBoundary key={attempt} onRetry={() => setAttempt(previous => previous + 1)}>

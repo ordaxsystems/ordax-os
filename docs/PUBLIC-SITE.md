@@ -77,7 +77,7 @@ As quatro telas de identidade podem ser vistas localmente com `?preview=layout`:
 
 A apresentação continua em `assets/account-dashboard.css` e `assets/account-portal.js`, consumindo os tokens Meridian da Surface pelo mesmo bridge de marca. `/conta/?preview=layout` é uma apresentação local em loopback: navegação, busca e filtros podem ser explorados, mas nenhuma sessão autenticada, plano, cobrança ou consumo é fabricado. O menu de sessão e as alterações de conta ficam bloqueados; as capacidades e seus estados pendentes permanecem visíveis. A abertura normal de `/conta/` mantém o cliente e a leitura de sessão oficiais.
 
-A composição da Conta agrupa a navegação por assunto e concentra a visão geral em perfil, serviços, consumo e segurança. As telas internas separam a tarefa principal do inventário de integrações; assinatura e faturamento usam estados indisponíveis explícitos, e os filtros de consumo mudam somente a apresentação enquanto a medição não estiver conectada. Os planos continuam vindo do catálogo canônico injetado pelo build: a prévia de source sem esse catálogo exibe o estado pendente, sem duplicar preços ou benefícios. As opções do catálogo usam os nomes gerados por esse owner, sem presumir um plano contratado. A visão geral e os limites da assinatura reutilizam a mesma apresentação de recursos; capacidade, cobrança e renovação permanecem indisponíveis até seus serviços estarem conectados. Pagamentos separa o resumo de cobrança, os documentos e a identificação fiscal; os campos e as ações mantêm os mesmos componentes da Conta e explicam sua indisponibilidade sem presumir ausência de cobranças ou métodos cadastrados.
+A composição da Conta agrupa a navegação por assunto e concentra a visão geral em perfil, serviços, consumo e segurança. As telas internas separam a tarefa principal do inventário de integrações; assinatura e faturamento usam estados indisponíveis explícitos, e os filtros de consumo mudam somente a apresentação enquanto a medição não estiver conectada. Preços e capacidades de referência dos planos e adicionais vêm do catálogo canônico injetado pelo build por `tools/public-site/plan_catalog.py`, reutilizado na landing e na Conta. A apresentação é somente leitura, informa preparação e não ativa billing, checkout, assinaturas ou cotas. Os planos continuam vindo do catálogo canônico injetado pelo build: a prévia de source sem esse catálogo exibe o estado pendente, sem duplicar preços ou benefícios. As opções do catálogo usam os nomes gerados por esse owner, sem presumir um plano contratado. A visão geral e os limites da assinatura reutilizam a mesma apresentação de recursos; capacidade, cobrança e renovação permanecem indisponíveis até seus serviços estarem conectados. Pagamentos separa o resumo de cobrança, os documentos e a identificação fiscal; os campos e as ações mantêm os mesmos componentes da Conta e explicam sua indisponibilidade sem presumir ausência de cobranças ou métodos cadastrados.
 
 O catálogo de apresentação em `account-portal.js` usa IDs estáveis de capacidades, compartilhados pela busca, pelo inventário de integrações e pelos indicadores dos controles, incluindo as categorias de consumo. Cabeçalhos, campos, linhas de configuração e estados sem dados usam os mesmos renderizadores; as descrições dos campos são vinculadas por IDs estáveis. Dados pessoais separa foto, identificação e contato, mantendo o e-mail da sessão em somente leitura. Segurança e dispositivos usam o mesmo cartão de sessão: a verificação deste navegador não confirma senha, verificação em duas etapas ou outros acessos. Estados de proteção e ações de exportação, exclusão e revogação vêm dos mesmos IDs de capacidades. Dispositivos, faturas e conexões compartilham a tabela de registros indisponíveis; indisponibilidade não é tratada como lista vazia confirmada. A disponibilidade de sessão/e-mail deriva exclusivamente do snapshot de `OrdaXPublicAccount`; idioma e aparência são apresentados como locais a este navegador, e as demais capacidades continuam pendentes. Esse catálogo descreve a UI e não implementa readiness, autorização, persistência ou outro backend de conta. Os atalhos contextuais e as respostas de ajuda apontam para o mesmo catálogo de seções da navegação. A navegação móvel usa o mesmo catálogo de seções, e o atalho de acessibilidade mantém a seção atual sem substituir a rota. A visão geral não presume tipo de conta nem dados cadastrais sem consulta oficial. A busca global e a busca de ajuda compartilham o controle com opção de limpar e contagem acessível. A busca global também permite navegar pelos resultados com as setas e abrir uma área com Enter; os rótulos do menu compacto acompanham o estado e o idioma. A busca de ajuda filtra o conteúdo local; o histórico indisponível não equivale a ausência de eventos, e a entrada de atendimento preserva o estado pendente sem enviar solicitações.
 
@@ -178,6 +178,39 @@ site público
 ```
 
 Conta online não é requisito para download público autorizado nem para o primeiro uso do MVP. Instalação em disco interno permanece fora do MVP enquanto o owner de produto não mudar esse contrato.
+
+## Medição MCP na Conta — observacional e fechada por padrão
+
+A experiência `Consumo e limites` possui a apresentação para as **chamadas
+MCP observadas**, separadas de armazenamento, IA, assinatura e valores a
+pagar. A única fonte numérica é o agregado privado do
+`ordax-platform` (`ordax_get_product_mcp_usage_v1`), acessado pela
+projeção assinada `GET /v3/product/usage`; nenhum catálogo paralelo
+atribui saldos, franquias ou direitos.
+
+O navegador solicita somente `GET /account/usage/mcp` com cookies
+HttpOnly same-origin, pelo transporte público existente (Vercel →
+Public Account Gateway → Account Gateway). A allowlist compartilhada
+`account_transport_admission.mjs` admite essa rota exata, mas **não**
+a libera antes da ativação pública da Conta. O gateway de identidade
+verifica a sessão e envia o JWT unicamente **server-side** à URL HTTPS
+canônica fixa da Platform, sem repassá-lo à Surface. A implementação
+Python mantém a mesma fronteira para a composição correspondente;
+a rota Edge TypeScript é a autoridade de produção, sem segundo medidor.
+
+A leitura remota precisa da flag separada
+`ORDAX_MCP_USAGE_READ_ENABLED=1`, desligada por padrão. Isso é
+independente da flag de **coleta** MCP e nunca ativa billing. Quando
+indisponível, anônima, desconectada ou em prévia de layout, a interface
+mostra indisponibilidade, não zero. Mesmo com resposta real,
+`coverage=partial_observational` e `billable=false` impedem
+confundir amostras por mês UTC com franquia completa ou fatura.
+A UI invalida os dados em logout/troca de sessão; nenhuma amostra é
+persistida no browser.
+
+Testes de fonte, bridge/isolamento, validação de respostas e
+apresentação fazem parte do Public Site Candidate. Isso **não**
+comprova implantação, ativação das flags, coleta real nem E2E público.
 
 ## Build e validação
 

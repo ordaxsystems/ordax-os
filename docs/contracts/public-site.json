@@ -212,7 +212,10 @@
     ],
     "default_plan_id": "free",
     "paid_plans_purchasable": false,
-    "plan_contract": "docs/contracts/entitlements.json"
+    "plan_contract": "docs/contracts/entitlements.json",
+    "reference_prices_published": true,
+    "reference_prices_are_purchase_offer": false,
+    "catalog_presentation": "tools/public-site/plan_catalog.py"
   },
   "localization": {
     "owner": "public-site",

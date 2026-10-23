@@ -96,7 +96,7 @@ test("structural surfaces fail closed when their payload is missing", () => {
 });
 
 test("bootstrap apps remain initial-image intent but removable after a real installed observation", () => {
-  for (const appId of ["files", "internet"]) {
+  for (const appId of ["internet"]) {
     const policy = getFirstPartyAppDeliveryPolicy(appId);
     assert.equal(policy.deliveryClass, "bootstrap");
     assert.equal(policy.removable, true);

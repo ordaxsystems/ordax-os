@@ -1,4 +1,5 @@
 import os
+import re
 from pathlib import Path
 import stat
 import subprocess
@@ -135,6 +136,18 @@ class SystemRuntimeContractTests(unittest.TestCase):
         for forbidden in ("curl ", "wget ", "udhcpc", "ssh ", "exec sh"):
             self.assertNotIn(forbidden, text)
 
+    def test_native_composition_imports_have_live_consumers(self):
+        """ESM imports are evaluated before boot even when their values are unused."""
+        source = (NATIVE_COMPOSITION / "main.mjs").read_text(encoding="utf-8")
+        groups = re.findall(r'import\s*\{([^}]+)\}\s*from\s*["\'][^"\']+["\'];', source, re.S)
+        self.assertTrue(groups)
+        for group in groups:
+            for specifier in group.split(","):
+                symbol = specifier.strip().split(" as ")[-1]
+                if symbol:
+                    mentions = re.findall(r"\b" + re.escape(symbol) + r"\b", source)
+                    self.assertGreater(len(mentions), 1, f"Unused eager Native import: {symbol}")
+
     def test_native_graphical_runtime_is_provisioned_from_pulled_system(self):
         text = SURFACE_RUNTIME.read_text(encoding="utf-8")
         self.assertIn("runtime/native-surface", text)
@@ -146,14 +159,14 @@ class SystemRuntimeContractTests(unittest.TestCase):
         self.assertIn("--keys-dir /etc/apk/keys", text)
         self.assertIn("alpine/v3.22/main", text)
         self.assertIn("alpine/v3.22/community", text)
-        self.assertIn("python3 py3-gobject3 gtk+3.0 webkit2gtk-4.1", text)
+        self.assertTrue({"python3", "py3-gobject3", "gtk+3.0", "webkit2gtk-4.1"}.issubset((ROOT / "system/surface/runtime/packages.txt").read_text().splitlines()))
         self.assertNotIn("barkery-browser", text)
-        self.assertIn("xwayland", text)
-        self.assertIn("eudev", text)
-        self.assertIn("libinput-udev", text)
+        self.assertIn("xwayland", (ROOT / "system/surface/runtime/packages.txt").read_text().splitlines())
+        self.assertIn("eudev", (ROOT / "system/surface/runtime/packages.txt").read_text().splitlines())
+        self.assertIn("libinput-udev", (ROOT / "system/surface/runtime/packages.txt").read_text().splitlines())
         self.assertNotIn("\n        cog ", text)
         self.assertIn("/bin/busybox chroot", text)
-        self.assertIn("mesa-dri-gallium", text)
+        self.assertIn("mesa-dri-gallium", (ROOT / "system/surface/runtime/packages.txt").read_text().splitlines())
         self.assertIn("$RUNTIME_ROOT/usr/bin/python3", text)
         self.assertIn("$RUNTIME_ROOT/usr/lib/girepository-1.0/Gtk-3.0.typelib", text)
         self.assertIn("$RUNTIME_ROOT/usr/lib/girepository-1.0/WebKit2-4.1.typelib", text)
@@ -185,7 +198,13 @@ class SystemRuntimeContractTests(unittest.TestCase):
         self.assertIn("runtime_base_is_ready", text)
         self.assertIn("upgrade_existing_runtime", text)
         self.assertIn('run_bounded_apk "$RUNTIME_UPGRADE_TIMEOUT"', text)
-        self.assertIn("xwayland eudev libinput-udev python3 py3-gobject3 gtk+3.0 webkit2gtk-4.1", text)
+        self.assertIn("packages=$(runtime_packages)", text)
+        self.assertIn("runtime_audio_is_ready()", text)
+        self.assertIn("/usr/bin/wireplumber", text)
+        self.assertRegex(
+            text,
+            r"/bin/busybox sh /srv/ordax-system/surface/runtime/audio-session\.sh[ \t]*\\\n[ \t]*--runtime-dir /run/ordax-surface/audio --",
+        )
         self.assertIn("extending existing graphical runtime with WebKit browser host support", text)
         self.assertIn("RUNTIME_ID=alpine-v3.22-cage-webkitgtk-v1", text)
         self.assertIn("LEGACY_RUNTIME_ID=alpine-v3.22-cage-barkery-v1", text)

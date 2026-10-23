@@ -11,6 +11,7 @@ import {
 import { assertIdentitySessionPort } from "../../contracts/identity-session.mjs";
 import { assertIdentityCredentialsPort, sameRegistrationLegalPolicy } from "../../contracts/identity-credentials.mjs";
 import { readRememberedLoginEmail } from "../../services/account/remembered-login-email.mjs";
+import { HOSTED_ACCOUNT_SIGNUP_URL, isHostedSignupEnabled, requestNativeHostedSignup } from "../../services/account/hosted-signup.mjs";
 import {
   assertLocalSessionPort,
   validateLocalSessionSnapshot,
@@ -96,6 +97,7 @@ export function mountFirstRunExperience(
     deviceProfile = null,
     keyboardLayout = null,
     resumeCursor = null,
+    hostedSignupBridge = null,
   },
 ) {
   if (!(root instanceof Element)) {
@@ -192,6 +194,7 @@ export function mountFirstRunExperience(
   let accountLocalRequested = false;
   let selectedIdentitySubjectId = null;
   let registrationPolicy = null;
+  let hostedSignupAllowed = false;
   let registrationLegalAccepted = false;
   let registrationPolicyPending = false;
   let localSessionSnapshot = localSessionPort === null
@@ -526,6 +529,12 @@ export function mountFirstRunExperience(
       documentObject,
       "p",
       "ordax-first-run-note",
+      "Para manter a Conta OrdaX conectada após reiniciar o USB, use uma senha local forte com pelo menos 16 caracteres. PIN curto desbloqueia apenas a tela.",
+    ));
+    body.append(el(
+      documentObject,
+      "p",
+      "ordax-first-run-note",
       "Deixe os dois campos vazios para continuar sem bloqueio autenticado. Você poderá configurar depois em Ajustes.",
     ));
     if (localSessionMessage) {
@@ -634,13 +643,25 @@ export function mountFirstRunExperience(
         }
       }
       body.append(form);
-      const mode = action(documentObject, registering ? "Já tenho conta" : "Criar conta", "account-mode");
-      mode.classList.add("ordax-first-run-action-quiet");
-      mode.disabled = identityPending !== null || (!registering && !capabilitySnapshot.identityRegister);
-      body.append(mode);
-      if (!capabilitySnapshot.identityRegister) {
+      if (capabilitySnapshot.identityRegister) {
+        const mode = action(documentObject, registering ? "Já tenho conta" : "Criar conta", "account-mode");
+        mode.classList.add("ordax-first-run-action-quiet");
+        mode.disabled = identityPending !== null;
+        body.append(mode);
+      } else if (hostedSignupAllowed) {
+        const hostedRegistration = el(
+          documentObject, "a", "ordax-first-run-action ordax-first-run-action-quiet", "Criar conta no site OrdaX",
+        );
+        hostedRegistration.href = HOSTED_ACCOUNT_SIGNUP_URL;
+        hostedRegistration.target = "_blank";
+        hostedRegistration.rel = "noopener noreferrer";
+        hostedRegistration.dataset.firstRunHostedSignup = "";
+        body.append(hostedRegistration);
         body.append(el(documentObject, "p", "ordax-first-run-account-help",
-          "Novos cadastros ainda não estão disponíveis aqui. Use uma conta existente ou continue sem conta."));
+          "O cadastro é protegido pelo site oficial. Após confirmar seu e-mail, volte ao OrdaX e entre na sua conta. Você também pode continuar sem conta."));
+      } else {
+        body.append(el(documentObject, "p", "ordax-first-run-account-help",
+          "Novos cadastros ainda não estão disponíveis. Entre em uma conta existente ou continue sem conta."));
       }
     } else {
       body.append(availabilityPanel(documentObject, "Conta indisponível no momento",
@@ -947,6 +968,9 @@ export function mountFirstRunExperience(
     if (STEPS[stepIndex] === "account" && sessionSnapshot.state === "unavailable") {
       void refreshIdentityAvailability();
     }
+    if (STEPS[stepIndex] === "account" && sessionSnapshot.state === "signed-out" && capabilitySnapshot.registrationPolicy) {
+      void refreshRegistrationPolicy();
+    }
   };
 
   const refreshNetwork = async (scan) => {
@@ -1087,6 +1111,7 @@ export function mountFirstRunExperience(
     if (
       destroyed
       || registrationPolicyPending
+      || sessionSnapshot.state !== "signed-out"
       || !capabilitySnapshot.registrationPolicy
     ) {
       if (!capabilitySnapshot.identityRegister) {
@@ -1098,7 +1123,8 @@ export function mountFirstRunExperience(
     registrationPolicyPending = true;
     try {
       const policy = await credentialsPort.registrationPolicy();
-      if (destroyed) return;
+      if (destroyed || sessionSnapshot.state !== "signed-out") return;
+      hostedSignupAllowed = isHostedSignupEnabled(policy);
       const nextPolicy = (
         policy.registrationEnabled === true
         && capabilitySnapshot.identityRegister
@@ -1111,6 +1137,7 @@ export function mountFirstRunExperience(
       if (!destroyed) {
         registrationPolicy = null;
         registrationLegalAccepted = false;
+        hostedSignupAllowed = false;
       }
     } finally {
       registrationPolicyPending = false;
@@ -1227,6 +1254,11 @@ export function mountFirstRunExperience(
   };
 
   const onClick = (event) => {
+    const hostedSignup = event.target.closest("[data-first-run-hosted-signup]");
+    if (hostedSignup && overlay.contains(hostedSignup)) {
+      requestNativeHostedSignup(event, documentObject.defaultView, hostedSignupBridge);
+      return;
+    }
     const button = event.target.closest("[data-first-run-action]");
     if (!button || !overlay.contains(button) || button.disabled) return;
     const kind = button.dataset.firstRunAction;
@@ -1382,6 +1414,9 @@ export function mountFirstRunExperience(
     if (sessionSnapshot.state === "signed-in") {
       registrationPolicy = null;
       registrationLegalAccepted = false;
+      hostedSignupAllowed = false;
+    } else if (sessionSnapshot.state === "signed-out" && capabilitySnapshot.registrationPolicy) {
+      void refreshRegistrationPolicy();
     }
     if (!destroyed && STEPS[stepIndex] === "account") render();
   });
@@ -1413,7 +1448,7 @@ export function mountFirstRunExperience(
     void refreshIdentityAvailability();
   }
   if (keyboardLayoutPort) void refreshKeyboardLayout();
-  if (capabilitySnapshot.registrationPolicy) {
+  if (sessionSnapshot.state === "signed-out" && capabilitySnapshot.registrationPolicy) {
     void refreshRegistrationPolicy();
   }
   queueMicrotask(() => overlay.querySelector("button, select, input")?.focus?.());

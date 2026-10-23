@@ -41,12 +41,15 @@ import { assertSurfaceRenderLifecycle } from "../../contracts/surface-render-lif
 import { assertProductConnectorPort } from "../../contracts/product-connector.mjs";
 import { assertDisplayOutputsPort } from "../../contracts/display-outputs.mjs";
 import { mountDisplayOutputControls } from "./display-output-controls.mjs";
+import { assertAudioOutputsPort } from "../../contracts/audio-outputs.mjs";
+import { mountAudioOutputControls } from "./audio-output-controls.mjs";
 
 const SETTINGS_WINDOW_SELECTOR = '[data-window-id="settings"]';
 const SETTINGS_EXTENSION_SELECTOR = '[data-app-extension="settings-overview"]';
 
 const SETTINGS_SECTIONS = Object.freeze([
   Object.freeze({ id: "appearance", messageId: "settings.section.appearance" }),
+  Object.freeze({ id: "audio", messageId: "settings.section.audio" }),
   Object.freeze({ id: "display", messageId: "settings.section.display" }),
   Object.freeze({ id: "accessibility", messageId: "settings.section.accessibility" }),
   Object.freeze({ id: "regional", messageId: "settings.section.regional" }),
@@ -223,6 +226,7 @@ export function mountSettingsOverviewControls(
   localAiPort = null,
   productConnectorPort = null,
   displayOutputs = null,
+  audioOutputs = null,
 ) {
   if (!(root instanceof Element)) {
     throw new TypeError("Settings overview controls require a Surface root Element");
@@ -244,6 +248,7 @@ export function mountSettingsOverviewControls(
   const localAi = localAiPort === null ? null : assertLocalAiPort(localAiPort);
   const connectorPort = productConnectorPort === null ? null : assertProductConnectorPort(productConnectorPort);
   const displayOutputsPort = displayOutputs === null ? null : assertDisplayOutputsPort(displayOutputs);
+  const audioOutputsPort = audioOutputs === null ? null : assertAudioOutputsPort(audioOutputs);
   const documentObject = root.ownerDocument;
   let settingsExamples = null;
 
@@ -259,6 +264,7 @@ export function mountSettingsOverviewControls(
   let keyboardLayoutPending = false;
   let keyboardLayoutMessageId = null;
   let keyboardLayoutOrdinal = 0;
+  let keyboardLayoutPrimed = false;
   let localSessionSnapshot = localSessionPort === null
     ? null
     : validateLocalSessionSnapshot(localSessionPort.getSnapshot());
@@ -276,6 +282,8 @@ export function mountSettingsOverviewControls(
   let networkManagementMessageId = null;
   let networkReadOrdinal = 0;
   let networkManagementReadOrdinal = 0;
+  let networkReadInFlight = false;
+  let networkManagementReadInFlight = false;
   let networkActionOrdinal = 0;
   let selectedNetworkSsid = null;
   let activeSection = validSettingsSection(lifecycle.getAppTarget("settings"))
@@ -283,6 +291,7 @@ export function mountSettingsOverviewControls(
     : "appearance";
   let destroyed = false;
   let mountedSlot = null;
+  let paintPending = false;
 
   const findSlot = () =>
     root.querySelector(`${SETTINGS_WINDOW_SELECTOR} ${SETTINGS_EXTENSION_SELECTOR}`);
@@ -693,6 +702,18 @@ export function mountSettingsOverviewControls(
       port: displayOutputsPort,
       mode: "native",
       onExamples: () => settingsExamples?.open("display"),
+    });
+  };
+
+  const renderAudioCapability = (view) => {
+    const mountPoint = node(documentObject, "div", "ordax-settings-audio-host-mount");
+    view.append(mountPoint);
+    mountAudioOutputControls(mountPoint, {
+      documentObject,
+      translate: t,
+      port: audioOutputsPort,
+      mode: "native",
+      onExamples: () => settingsExamples?.open("audio"),
     });
   };
 
@@ -1359,6 +1380,8 @@ export function mountSettingsOverviewControls(
       if (activeSection === "regional") renderKeyboardLayout(view);
     } else if (activeSection === "network") {
       renderNetwork(view);
+    } else if (activeSection === "audio") {
+      renderAudioCapability(view);
     } else if (activeSection === "intelligence") {
       renderIntelligence(view);
     } else if (activeSection === "security") {
@@ -1376,10 +1399,19 @@ export function mountSettingsOverviewControls(
     const slot = findSlot();
     if (!slot) {
       mountedSlot = null;
+      paintPending = false;
       return;
     }
-    if (!force && slot === mountedSlot) return;
+    const windowNode = slot.closest(SETTINGS_WINDOW_SELECTOR);
+    // Inactive windows retain their controls without background DOM rebuilds.
+    // The existing Surface render callback flushes deferred state on focus.
+    if (!windowNode || windowNode.hidden || windowNode.dataset.active !== "true") {
+      paintPending = paintPending || force || slot !== mountedSlot;
+      return;
+    }
+    if (!force && !paintPending && slot === mountedSlot) return;
     mountedSlot = slot;
+    paintPending = false;
     paint(slot);
   };
 
@@ -1439,6 +1471,17 @@ export function mountSettingsOverviewControls(
     }
   };
 
+  const refreshVisibleKeyboardLayout = () => {
+    const windowNode = findSlot()?.closest(SETTINGS_WINDOW_SELECTOR);
+    // Keyboard preferences are not a global boot requirement. The native
+    // adapter already proved its capability; fetch its live state on demand.
+    if (destroyed || !keyboardLayoutPort || keyboardLayoutPrimed
+      || activeSection !== "regional" || !windowNode || windowNode.hidden
+      || windowNode.dataset.active !== "true") return;
+    keyboardLayoutPrimed = true;
+    void refreshKeyboardLayout();
+  };
+
   const configureKeyboardLayout = async (layoutId) => {
     if (!keyboardLayoutPort || keyboardLayoutPending || destroyed) return;
     const ordinal = ++keyboardLayoutOrdinal;
@@ -1466,7 +1509,8 @@ export function mountSettingsOverviewControls(
   };
 
   const refreshNetwork = async () => {
-    if (!networkPort || destroyed) return;
+    if (!networkPort || destroyed || networkReadInFlight) return;
+    networkReadInFlight = true;
     const ordinal = ++networkReadOrdinal;
     let changed = false;
     try {
@@ -1482,12 +1526,15 @@ export function mountSettingsOverviewControls(
       if (destroyed || ordinal !== networkReadOrdinal) return;
       changed = !networkReadFailed;
       networkReadFailed = true;
+    } finally {
+      networkReadInFlight = false;
     }
-    if (changed && !destroyed && ordinal === networkReadOrdinal) replaceView();
+    if (changed && !destroyed && ordinal === networkReadOrdinal && activeSection === "network") replaceView();
   };
 
   const refreshNetworkManagement = async () => {
-    if (!networkManagementPort || destroyed || networkManagementPending) return;
+    if (!networkManagementPort || destroyed || networkManagementPending || networkManagementReadInFlight) return;
+    networkManagementReadInFlight = true;
     const ordinal = ++networkManagementReadOrdinal;
     let changed = false;
     try {
@@ -1512,8 +1559,21 @@ export function mountSettingsOverviewControls(
       if (destroyed || ordinal !== networkManagementReadOrdinal) return;
       changed = !networkManagementReadFailed;
       networkManagementReadFailed = true;
+    } finally {
+      networkManagementReadInFlight = false;
     }
-    if (changed && !destroyed && ordinal === networkManagementReadOrdinal) replaceView();
+    if (changed && !destroyed && ordinal === networkManagementReadOrdinal && activeSection === "network") replaceView();
+  };
+
+  // Network observations belong to the visible Settings/Network journey, not every Surface frame.
+  // A single scheduler also prevents duplicate timers for status and management.
+  const refreshActiveNetwork = () => {
+    const windowNode = findSlot()?.closest(SETTINGS_WINDOW_SELECTOR);
+    // Surface retains minimized windows in the DOM, so a mounted slot alone is not visible.
+    if (destroyed || activeSection !== "network" || !windowNode
+      || windowNode.hidden || windowNode.dataset.active !== "true") return;
+    if (networkPort) void refreshNetwork();
+    if (networkManagementPort) void refreshNetworkManagement();
   };
 
   const runNetworkAction = async (action, { ssid = null, password = null } = {}) => {
@@ -1590,6 +1650,8 @@ export function mountSettingsOverviewControls(
       } else {
         activeSection = nextSection;
         replaceView();
+        refreshActiveNetwork();
+        refreshVisibleKeyboardLayout();
       }
       return;
     }
@@ -1770,8 +1832,11 @@ export function mountSettingsOverviewControls(
       selectedNetworkSsid = null;
       networkManagementMessageId = null;
     }
+    const sectionChanged = activeSection !== nextSection;
     activeSection = nextSection;
-    renderView(false);
+    renderView(sectionChanged);
+    if (sectionChanged) refreshActiveNetwork();
+    refreshVisibleKeyboardLayout();
   });
   const unsubscribeActivation = activationPort?.subscribe((activation) => {
     if (
@@ -1783,6 +1848,8 @@ export function mountSettingsOverviewControls(
       selectedNetworkSsid = null;
       networkManagementMessageId = null;
       replaceView();
+      refreshActiveNetwork();
+      refreshVisibleKeyboardLayout();
     }
   });
   const unsubscribeHost = hostPort.subscribe((snapshot) => {
@@ -1805,16 +1872,12 @@ export function mountSettingsOverviewControls(
     notificationSnapshot = snapshot;
     if (activeSection === "notifications") replaceView();
   });
-  const networkPoll = networkPort
-    ? setInterval(() => void refreshNetwork(), 5000)
-    : null;
-  const networkManagementPoll = networkManagementPort
-    ? setInterval(() => void refreshNetworkManagement(), 5000)
+  const networkPoll = networkPort || networkManagementPort
+    ? setInterval(refreshActiveNetwork, 5000)
     : null;
   if (activeSection === "security") void refreshConnector();
-  if (keyboardLayoutPort) void refreshKeyboardLayout();
-  if (networkPort) void refreshNetwork();
-  if (networkManagementPort) void refreshNetworkManagement();
+  refreshVisibleKeyboardLayout();
+  refreshActiveNetwork();
 
   return Object.freeze({
     destroy() {
@@ -1826,7 +1889,6 @@ export function mountSettingsOverviewControls(
       keyboardLayoutOrdinal += 1;
       connectorOrdinal += 1;
       if (networkPoll !== null) clearInterval(networkPoll);
-      if (networkManagementPoll !== null) clearInterval(networkManagementPoll);
       unsubscribeNotifications?.();
       unsubscribeLocalAi?.();
       unsubscribeLocalSession?.();

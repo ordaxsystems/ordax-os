@@ -63,6 +63,11 @@ const OVERVIEW_UPDATE_STATUS_MESSAGE_IDS = Object.freeze({
   unavailable: "system.overview.update.status.unavailable",
 });
 
+const UPDATE_TRANSPORT_MESSAGE_IDS = Object.freeze({
+  "git-main": "system.updates.transport.gitMain",
+  "official-signed-release-channel": "system.updates.transport.signedRelease",
+});
+
 const OVERVIEW_UPDATE_MODE_MESSAGE_IDS = Object.freeze({
   reload: "system.overview.update.mode.reload",
   "surface-restart": "system.overview.update.mode.surfaceRestart",
@@ -355,6 +360,12 @@ export function mountSystemOverviewControls(
     : "overview";
   let destroyed = false;
   let mountedSlot = null;
+  let paintPending = false;
+  // Each optional System dataset is read only when its visible section needs
+  // it. A hidden System window must not spend three Host requests at boot.
+  let metricsPrimed = false;
+  let historyPrimed = false;
+  let recoveryPrimed = false;
   let diagnosticsReviewMount = null;
   // One local read-only snapshot per System owner; repainting must not re-collect.
   let diagnosticReviewStarted = false;
@@ -746,6 +757,24 @@ export function mountSystemOverviewControls(
       return;
     }
 
+    // Translate reason codes without hiding the existing technical diagnostic.
+    const updateReasonMessageId = {
+      "reconciling-main-history": "system.updates.diagnostic.reconciling",
+      "checkout-retry-wait": "system.updates.diagnostic.retryWait",
+      "non-fast-forward": "system.updates.diagnostic.diverged",
+      "pull-helper-refresh-failed": "system.updates.diagnostic.helpers",
+      "helper-refresh-failed": "system.updates.diagnostic.helpers",
+    }[updateSnapshot.lastError];
+    if (updateReasonMessageId) {
+      const explanation = node(
+        documentObject, "p",
+        updateSnapshot.lastError === "non-fast-forward" ? "ordax-system-warning" : "ordax-system-message",
+        t(updateReasonMessageId),
+      );
+      explanation.setAttribute("role", "status");
+      section.append(explanation);
+    }
+
     const facts = node(documentObject, "dl", "ordax-system-facts");
     const addFact = (label, value) => {
       const item = node(documentObject, "div", "ordax-system-fact");
@@ -778,6 +807,10 @@ export function mountSystemOverviewControls(
     addFact(t("system.updates.fact.status"), t(statusMessageId));
     addFact(t("system.updates.fact.phase"), t(phaseMessageId));
     addFact(t("system.updates.fact.applyMode"), t(modeMessageId));
+    const transportMessageId = UPDATE_TRANSPORT_MESSAGE_IDS[updateSnapshot.updateTransport];
+    if (transportMessageId) {
+      addFact(t("system.updates.fact.transport"), t(transportMessageId));
+    }
     if (updateSnapshot.targetSha) {
       addFact(t("system.updates.fact.target"), shortSha(updateSnapshot.targetSha));
     }
@@ -820,13 +853,24 @@ export function mountSystemOverviewControls(
       addFact("power.last_mount_error", updateSnapshot.hostPower.lastMountError);
     }
     section.append(facts);
-
+    if (updateSnapshot.runtimeSurfaceSha) {
+      section.append(node(
+        documentObject, "p", "ordax-system-section-copy",
+        t("system.updates.identity.explainer"),
+      ));
+    }
     if (isRepositoryOnlyUpdate(updateSnapshot)) {
       section.append(node(
-        documentObject,
-        "p",
-        "ordax-system-section-copy",
-        `${t("system.updates.fact.commit")} · ${t("system.overview.update.mode.none")}`,
+        documentObject, "p", "ordax-system-message",
+        t("system.updates.identity.repositoryOnly"),
+      ));
+    } else if (
+      updateSnapshot.runtimeSurfaceSha &&
+      updateSnapshot.runtimeSurfaceSha !== updateSnapshot.sourceSha
+    ) {
+      section.append(node(
+        documentObject, "p", "ordax-system-section-copy",
+        t("system.updates.identity.pending"),
       ));
     }
 
@@ -834,7 +878,9 @@ export function mountSystemOverviewControls(
       const warningText = updateSnapshot.bootRefreshRequired
         ? t(overviewUpdateDetailMessageId(updateSnapshot) ?? "system.overview.update.detail.pending")
         : t("system.updates.attention.generic");
-      section.append(node(documentObject, "p", "ordax-system-warning", warningText));
+      if (!updateReasonMessageId) {
+        section.append(node(documentObject, "p", "ordax-system-warning", warningText));
+      }
     }
 
     view.append(section);
@@ -1533,12 +1579,22 @@ export function mountSystemOverviewControls(
     if (!slot) {
       disposeDiagnosticsReview();
       mountedSlot = null;
+      paintPending = false;
       return;
     }
-    if (!force && mountedSlot === slot) return;
+    const windowNode = slot.closest(SYSTEM_WINDOW_SELECTOR);
+    // Minimized and inactive windows stay mounted; defer costly DOM rebuilds
+    // until the existing Surface render lifecycle focuses the window.
+    if (!windowNode || windowNode.hidden || windowNode.dataset.active !== "true") {
+      paintPending = paintPending || force || slot !== mountedSlot;
+      return;
+    }
+    const repaint = force || paintPending;
+    if (!repaint && mountedSlot === slot) return;
     const interaction =
-      force && slot === mountedSlot ? captureInteractionState(slot) : null;
+      repaint && slot === mountedSlot ? captureInteractionState(slot) : null;
     mountedSlot = slot;
+    paintPending = false;
     paint(slot, interaction);
   };
 
@@ -1608,6 +1664,29 @@ export function mountSystemOverviewControls(
     }
   };
 
+  const refreshVisibleSection = () => {
+    const windowNode = findSlot()?.closest(SYSTEM_WINDOW_SELECTOR);
+    // Minimized windows remain mounted. Hidden or unfocused apps have no
+    // reason to collect these optional snapshots in the background.
+    if (destroyed || !windowNode || windowNode.hidden
+      || windowNode.dataset.active !== "true") return;
+    if (["overview", "storage", "diagnostics"].includes(activeSection)
+      && metricsPort && !metricsPrimed) {
+      metricsPrimed = true;
+      void refreshMetrics();
+    }
+    if (activeSection === "updates") {
+      if (historyPort && !historyPrimed) {
+        historyPrimed = true;
+        void refreshHistory();
+      }
+      if (recoveryPort && !recoveryPrimed) {
+        recoveryPrimed = true;
+        void refreshRecovery();
+      }
+    }
+  };
+
   const onClick = (event) => {
     const manualUpdate = event.target.closest("[data-system-manual-update]");
     if (manualUpdate && root.contains(manualUpdate)) {
@@ -1637,6 +1716,7 @@ export function mountSystemOverviewControls(
       } else {
         activeSection = nextSection;
         replaceView();
+        refreshVisibleSection();
       }
       return;
     }
@@ -1691,8 +1771,10 @@ export function mountSystemOverviewControls(
   const unsubscribeRender = lifecycle.subscribeRender(() => {
     const persistedTarget = lifecycle.getAppTarget("system");
     const nextSection = validSystemSection(persistedTarget) ? persistedTarget : "overview";
+    const sectionChanged = activeSection !== nextSection;
     activeSection = nextSection;
-    renderView(false);
+    renderView(sectionChanged);
+    refreshVisibleSection();
   });
   const unsubscribeHost = hostPort.subscribe((snapshot) => {
     hostSnapshot = validateSurfaceSnapshot(snapshot);
@@ -1706,6 +1788,7 @@ export function mountSystemOverviewControls(
     ) {
       activeSection = activation.target;
       replaceView();
+      refreshVisibleSection();
     }
   });
   const unsubscribeComponents = componentPort?.subscribe((snapshot) => {
@@ -1721,13 +1804,14 @@ export function mountSystemOverviewControls(
     updateSnapshot = validateUpdateStatusSnapshot(snapshot);
     replaceView();
     if (historyPort && updateSnapshot.lastAppliedSha !== previousAppliedSha) {
-      void refreshHistory();
+      // Defer updated history until the user sees Updates; no background GET
+      // for an unopened/minimized System window.
+      historyPrimed = false;
+      refreshVisibleSection();
     }
   });
 
-  if (metricsPort) void refreshMetrics();
-  if (historyPort) void refreshHistory();
-  if (recoveryPort) void refreshRecovery();
+  refreshVisibleSection();
 
   return Object.freeze({
     destroy() {

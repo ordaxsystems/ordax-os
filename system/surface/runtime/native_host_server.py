@@ -11,6 +11,7 @@ import hmac
 import json
 import math
 import os
+import platform
 import re
 import secrets
 import stat
@@ -42,6 +43,7 @@ from native_local_ai_bridge import (
     forward_local_ai,
 )
 from native_account_gateway import NativeAccountGateway, NativeAccountGatewayError, verified_account_session_reply
+from native_account_vault import AccountVaultError
 from native_component_slots import (
     COMPONENT_MODULE_PREFIX,
     ComponentSlotRequestError,
@@ -88,6 +90,7 @@ from native_app_lifecycle_executor import (
     validate_lifecycle_plan,
 )
 from display_outputs import DisplayOutputError, WaylandDisplayOutputProvider
+from audio_outputs import AudioOutputError, PipeWirePulseOutputProvider
 
 SESSION_PATH = "/__ordax/native/session"
 POWER_PATH = "/__ordax/native/power"
@@ -121,7 +124,6 @@ MAX_PRODUCT_CONNECTOR_SETTINGS_BODY = 128
 ACCOUNT_REGISTRATION_POLICY_PATH = "/auth/registration-policy"
 ACCOUNT_LOGIN_PATH = "/auth/login"
 ACCOUNT_REGISTER_PATH = "/auth/register"
-ACCOUNT_REGISTRATION_ENABLED = False
 ACCOUNT_LOGOUT_PATH = "/auth/logout"
 ACCOUNT_CLOSE_PATH = "/account/close"
 ACCOUNT_EXPORT_PATH = "/account/export"
@@ -157,6 +159,7 @@ HARDWARE_INVENTORY_PATH = "/__ordax/native/hardware-inventory"
 NETWORK_STATUS_PATH = "/__ordax/native/network-status"
 NETWORK_MANAGEMENT_PATH = "/__ordax/native/network-management"
 DISPLAY_OUTPUTS_PATH = "/__ordax/native/display-outputs"
+AUDIO_OUTPUTS_PATH = "/__ordax/native/audio-outputs"
 UPDATE_HISTORY_PATH = "/__ordax/native/update-history"
 NATIVE_INSTALL_TARGETS_PATH = "/__ordax/native/native-install-targets"
 COMPONENT_RUNTIME_PATH = "/__ordax/native/component-runtime"
@@ -184,6 +187,7 @@ COMPONENT_STATE_FILE = "/var/lib/ordax/component-state.json"
 SYNC_STATE_FILE = "/var/lib/ordax/sync-state.json"
 SYNC_CHECKPOINT_FILE = "/var/lib/ordax/sync-checkpoint.json"
 ACCOUNT_SESSION_FILE = "/var/lib/ordax/account/session.json"
+ACCOUNT_VAULT_FILE = "/var/lib/ordax/account/session.vault"
 DIAGNOSTIC_JOURNAL_FILE = "/var/lib/ordax/diagnostic-journal.json"
 UPDATE_HISTORY_FILE = "/var/lib/ordax/update-history.tsv"
 RELEASE_HISTORY_FILE = "/var/lib/ordax/release-history.tsv"
@@ -195,6 +199,7 @@ BOOT_ID_FILE = "/run/ordax-update/base-boot-id"
 TOKEN_HEADER = "X-OrdaX-Power-Token"
 NETWORK_TOKEN_HEADER = "X-OrdaX-Network-Token"
 DISPLAY_OUTPUTS_TOKEN_HEADER = "X-OrdaX-Display-Token"
+AUDIO_OUTPUTS_TOKEN_HEADER = "X-OrdaX-Audio-Token"
 NATIVE_INSTALL_TOKEN_HEADER = "X-OrdaX-Native-Install-Token"
 PROFILE_ACTIVATION_TOKEN_HEADER = "X-OrdaX-Profile-Activation-Token"
 DIAGNOSTIC_TOKEN_HEADER = "X-OrdaX-Diagnostic-Token"
@@ -203,6 +208,7 @@ MAX_CONTROL_BODY = 512
 MAX_STORE_LIFECYCLE_BODY = 16 * 1024
 MAX_NETWORK_ACTION_BODY = 1024
 MAX_DISPLAY_OUTPUT_ACTION_BODY = 512
+MAX_AUDIO_OUTPUT_ACTION_BODY = 512
 MAX_NETWORK_SCAN_BYTES = 512 * 1024
 MAX_NETWORKS = 32
 MAX_NATIVE_INSTALL_SNAPSHOT_BYTES = 256 * 1024
@@ -296,6 +302,7 @@ DEFAULT_POWER_REQUEST_PATH = "/run/ordax-surface/power-request"
 DEFAULT_NETWORK_SESSION_DIR = "/run/ordax-surface"
 SURFACE_HOST_RECOVERY_GENERATION = 1
 RENAME_NOREPLACE = 1
+_SYS_RENAMEAT2_X86_64 = 316
 
 
 def read_small_text(path: str, max_chars: int = 4096) -> str:
@@ -3233,22 +3240,47 @@ def _renameat2_noreplace_between(
 ) -> None:
     libc = ctypes.CDLL(None, use_errno=True)
     renameat2 = getattr(libc, "renameat2", None)
-    if renameat2 is None:
-        raise OSError(errno.ENOSYS, "renameat2 is unavailable")
-    renameat2.argtypes = [
-        ctypes.c_int,
-        ctypes.c_char_p,
-        ctypes.c_int,
-        ctypes.c_char_p,
-        ctypes.c_uint,
-    ]
-    renameat2.restype = ctypes.c_int
-    result = renameat2(
-        source_directory_fd,
-        os.fsencode(old_name),
-        destination_directory_fd,
-        os.fsencode(new_name),
-        RENAME_NOREPLACE,
+    if renameat2 is not None:
+        renameat2.argtypes = [
+            ctypes.c_int,
+            ctypes.c_char_p,
+            ctypes.c_int,
+            ctypes.c_char_p,
+            ctypes.c_uint,
+        ]
+        renameat2.restype = ctypes.c_int
+        result = renameat2(
+            source_directory_fd,
+            os.fsencode(old_name),
+            destination_directory_fd,
+            os.fsencode(new_name),
+            RENAME_NOREPLACE,
+        )
+        if result == 0:
+            return
+        error_number = ctypes.get_errno()
+        if error_number != errno.ENOSYS:
+            if error_number == errno.EEXIST:
+                raise FileExistsError(error_number, os.strerror(error_number), new_name)
+            raise OSError(error_number, os.strerror(error_number), new_name)
+
+    # Alpine's musl libc may omit the renameat2 wrapper even though its Linux
+    # kernel supports the operation. Use the x86_64 syscall directly (the only
+    # architecture currently shipped for the Native USB), preserving the
+    # kernel's atomic RENAME_NOREPLACE behavior. Unknown platforms fail closed.
+    if sys.platform != "linux" or platform.machine().lower() not in ("x86_64", "amd64"):
+        raise OSError(errno.ENOSYS, "renameat2 is unavailable on this platform", new_name)
+    syscall = getattr(libc, "syscall", None)
+    if syscall is None:
+        raise OSError(errno.ENOSYS, "Linux syscall interface is unavailable", new_name)
+    syscall.restype = ctypes.c_long
+    result = syscall(
+        ctypes.c_long(_SYS_RENAMEAT2_X86_64),
+        ctypes.c_long(source_directory_fd),
+        ctypes.c_char_p(os.fsencode(old_name)),
+        ctypes.c_long(destination_directory_fd),
+        ctypes.c_char_p(os.fsencode(new_name)),
+        ctypes.c_long(RENAME_NOREPLACE),
     )
     if result == 0:
         return
@@ -3620,6 +3652,7 @@ class NativeHostServer(ThreadingHTTPServer):
         store_artifact_base_origin: str = "",
         account_gateway_origin: str = "",
         display_outputs_provider=None,
+        audio_outputs_provider=None,
     ):
         super().__init__(server_address, handler_class)
         self.power_token = secrets.token_urlsafe(32)
@@ -3629,6 +3662,12 @@ class NativeHostServer(ThreadingHTTPServer):
             display_outputs_provider
             if display_outputs_provider is not None
             else WaylandDisplayOutputProvider()
+        )
+        self.audio_outputs_token = secrets.token_urlsafe(32)
+        self.audio_outputs_provider = (
+            audio_outputs_provider
+            if audio_outputs_provider is not None
+            else PipeWirePulseOutputProvider()
         )
         self.diagnostic_token = secrets.token_urlsafe(32)
         self.health_token = secrets.token_urlsafe(32)
@@ -3712,6 +3751,7 @@ class NativeHostServer(ThreadingHTTPServer):
                 self.account_gateway = NativeAccountGateway(
                     account_gateway_origin,
                     ACCOUNT_SESSION_FILE,
+                    vault_path=ACCOUNT_VAULT_FILE,
                 )
             except (TypeError, ValueError):
                 self.account_gateway = None
@@ -3758,13 +3798,20 @@ class NativeHostServer(ThreadingHTTPServer):
 
     def server_close(self) -> None:
         close_display_provider = getattr(self.display_outputs_provider, "close", None)
+        close_audio_provider = getattr(self.audio_outputs_provider, "close", None)
         try:
             if callable(close_display_provider):
                 close_display_provider()
         except Exception as exc:
             print(f"ordax-native-host: display provider shutdown failed: {exc}", file=sys.stderr, flush=True)
         finally:
-            super().server_close()
+            try:
+                if callable(close_audio_provider):
+                    close_audio_provider()
+            except Exception as exc:
+                print(f"ordax-native-host: audio provider shutdown failed: {exc}", file=sys.stderr, flush=True)
+            finally:
+                super().server_close()
 
 
 class NativeHostHandler(SimpleHTTPRequestHandler):
@@ -4046,6 +4093,9 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
             self._serve_local_ai("GET", parsed_path)
             return
         if parsed_path in {ACCOUNT_SESSION_PATH, ACCOUNT_REGISTRATION_POLICY_PATH, ACCOUNT_EXPORT_PATH, ACCOUNT_SPACES_PATH, ACCOUNT_MEMORY_ENTITLEMENT_PATH, ACCOUNT_SYNC_OBJECTS_PATH, ACCOUNT_SYNC_SNAPSHOT_PATH, ACCOUNT_SYNC_CHANGES_PATH}:
+            if self.server.local_session_locked:
+                self._empty(423)
+                return
             if self.client_address[0] != "127.0.0.1":
                 self._empty(403)
                 return
@@ -4092,11 +4142,6 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
                 payload = json.loads(reply.body.decode("utf-8"))
                 if not isinstance(payload, dict):
                     raise ValueError("gateway JSON object required")
-                if parsed_path == ACCOUNT_REGISTRATION_POLICY_PATH:
-                    payload["registrationEnabled"] = bool(
-                        payload.get("registrationEnabled") is True
-                        and ACCOUNT_REGISTRATION_ENABLED
-                    )
             except NativeMemoryEntitlementProxyError:
                 self._empty(503)
                 return
@@ -4105,7 +4150,7 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
                 return
             self._write_json(reply.status, payload)
             return
-        if parsed_path in {SESSION_PATH, MEMORY_PATH, FILES_PATH, TRASH_PATH, FILE_CONTENT_PATH, FILE_EXPORT_PATH, IMAGE_PREVIEW_PATH, MEDIA_PREVIEW_PATH, DOCUMENT_PREVIEW_PATH, METRICS_PATH, RECOVERY_STATUS_PATH, POWER_STATUS_PATH, HARDWARE_INVENTORY_PATH, NETWORK_STATUS_PATH, NETWORK_MANAGEMENT_PATH, DISPLAY_OUTPUTS_PATH, KEYBOARD_LAYOUT_PATH, NATIVE_INSTALL_TARGETS_PATH, COMPONENT_RUNTIME_PATH, STORE_CATALOG_PATH, UPDATE_HISTORY_PATH, DIAGNOSTIC_JOURNAL_PATH} and self.client_address[0] != "127.0.0.1":
+        if parsed_path in {SESSION_PATH, MEMORY_PATH, FILES_PATH, TRASH_PATH, FILE_CONTENT_PATH, FILE_EXPORT_PATH, IMAGE_PREVIEW_PATH, MEDIA_PREVIEW_PATH, DOCUMENT_PREVIEW_PATH, METRICS_PATH, RECOVERY_STATUS_PATH, POWER_STATUS_PATH, HARDWARE_INVENTORY_PATH, NETWORK_STATUS_PATH, NETWORK_MANAGEMENT_PATH, DISPLAY_OUTPUTS_PATH, AUDIO_OUTPUTS_PATH, KEYBOARD_LAYOUT_PATH, NATIVE_INSTALL_TARGETS_PATH, COMPONENT_RUNTIME_PATH, STORE_CATALOG_PATH, UPDATE_HISTORY_PATH, DIAGNOSTIC_JOURNAL_PATH} and self.client_address[0] != "127.0.0.1":
             self._empty(403)
             return
         if parsed_path.startswith(COMPONENT_MODULE_PREFIX) and self.client_address[0] != "127.0.0.1":
@@ -4199,6 +4244,20 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
                 print(f"ordax-native-host: display output discovery unavailable: {exc}", file=sys.stderr, flush=True)
                 self._empty(503)
             return
+        if parsed_path == AUDIO_OUTPUTS_PATH:
+            if urlsplit(self.path).query:
+                self._empty(400)
+                return
+            supplied_token = self.headers.get(AUDIO_OUTPUTS_TOKEN_HEADER, "")
+            if not hmac.compare_digest(supplied_token, self.server.audio_outputs_token):
+                self._empty(403)
+                return
+            try:
+                self._write_json(200, self.server.audio_outputs_provider.read())
+            except (OSError, RuntimeError, TypeError, ValueError) as exc:
+                print(f"ordax-native-host: audio output discovery unavailable: {exc}", file=sys.stderr, flush=True)
+                self._empty(503)
+            return
         if parsed_path == NATIVE_INSTALL_TARGETS_PATH:
             if self.server.product_mode != "usb" or not self.server.native_install_available:
                 self._empty(404)
@@ -4266,6 +4325,26 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
                 mime = "text/css; charset=utf-8"
             elif request.requested_path.endswith(".json"):
                 mime = "application/json; charset=utf-8"
+            elif request.requested_path.endswith(".svg"):
+                mime = "image/svg+xml"
+            elif request.requested_path.endswith(".png"):
+                mime = "image/png"
+            elif request.requested_path.endswith((".jpg", ".jpeg")):
+                mime = "image/jpeg"
+            elif request.requested_path.endswith(".webp"):
+                mime = "image/webp"
+            elif request.requested_path.endswith(".avif"):
+                mime = "image/avif"
+            elif request.requested_path.endswith(".gif"):
+                mime = "image/gif"
+            elif request.requested_path.endswith(".woff2"):
+                mime = "font/woff2"
+            elif request.requested_path.endswith(".woff"):
+                mime = "font/woff"
+            elif request.requested_path.endswith(".ttf"):
+                mime = "font/ttf"
+            elif request.requested_path.endswith(".otf"):
+                mime = "font/otf"
 
             self.send_response(200)
             self.send_header("Content-Type", mime)
@@ -4581,6 +4660,7 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
                     "token": self.server.power_token,
                     "networkToken": self.server.network_token,
                     "displayOutputsToken": self.server.display_outputs_token,
+                    "audioOutputsToken": self.server.audio_outputs_token,
                     "diagnosticToken": self.server.diagnostic_token,
                     "productMode": self.server.product_mode,
                     "nativeInstallAvailable": self.server.native_install_available,
@@ -4870,13 +4950,13 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
             return
 
         if parsed_path in {ACCOUNT_LOGIN_PATH, ACCOUNT_REGISTER_PATH, ACCOUNT_LOGOUT_PATH, ACCOUNT_CLOSE_PATH, ACCOUNT_SYNC_MUTATE_PATH, NETWORK_MESSAGE_SEND_PATH}:
+            if self.server.local_session_locked:
+                self._empty(423)
+                return
             if self.server.account_gateway is None:
                 self._empty(503)
                 return
             try:
-                if parsed_path == ACCOUNT_REGISTER_PATH and not ACCOUNT_REGISTRATION_ENABLED:
-                    self._empty(503)
-                    return
                 if parsed_path in {ACCOUNT_LOGIN_PATH, ACCOUNT_REGISTER_PATH}:
                     payload = self._read_account_credentials()
                     expected_keys = (
@@ -5065,6 +5145,8 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
                             self._empty(409)
                             return
                         write_local_session_credential(secret)
+                        if self.server.account_gateway is not None:
+                            self.server.account_gateway.unlock_local_session(secret)
                         self.server.local_session_locked = False
                         self.server.local_session_failures = 0
                         self.server.local_session_retry_after = 0.0
@@ -5078,6 +5160,8 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
                         if not verify_local_session_secret(secret):
                             self._empty(401)
                             return
+                        if self.server.account_gateway is not None:
+                            self.server.account_gateway.clear_local_session_vault()
                         remove_local_session_credential()
                         self.server.local_session_locked = False
                         self.server.local_session_failures = 0
@@ -5087,6 +5171,8 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
                             self._empty(409)
                             return
                         self.server.local_session_locked = True
+                        if self.server.account_gateway is not None:
+                            self.server.account_gateway.lock_local_session()
                     elif action == "unlock":
                         if credential is None:
                             self._empty(409)
@@ -5105,6 +5191,8 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
                             self.server.local_session_retry_after = now + delay
                             self._empty(401)
                             return
+                        if self.server.account_gateway is not None:
+                            self.server.account_gateway.unlock_local_session(secret)
                         self.server.local_session_locked = False
                         self.server.local_session_failures = 0
                         self.server.local_session_retry_after = 0.0
@@ -5112,9 +5200,9 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
                         self._empty(400)
                         return
                     snapshot = local_session_snapshot(self.server)
-            except (OSError, ValueError) as exc:
+            except (OSError, ValueError, AccountVaultError) as exc:
                 print(
-                    f"ordax-native-host: local session action failed safely: {exc}",
+                    "ordax-native-host: local session action failed safely",
                     file=sys.stderr,
                     flush=True,
                 )
@@ -5269,6 +5357,60 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
                 return
             except Exception as exc:
                 print(f"ordax-native-host: display output action failed safely: {exc}", file=sys.stderr, flush=True)
+                self._empty(503)
+                return
+            self._write_json(200, snapshot)
+            return
+
+        if parsed_path == AUDIO_OUTPUTS_PATH:
+            if urlsplit(self.path).query:
+                self._empty(400)
+                return
+            supplied_token = self.headers.get(AUDIO_OUTPUTS_TOKEN_HEADER, "")
+            if not hmac.compare_digest(supplied_token, self.server.audio_outputs_token):
+                self._empty(403)
+                return
+            payload = self._read_json_body(MAX_AUDIO_OUTPUT_ACTION_BODY)
+            if payload is None or not isinstance(payload.get("action"), str):
+                self._empty(400)
+                return
+            action = payload["action"]
+            try:
+                if action == "set-default-output" and set(payload) == {"action", "outputId"}:
+                    if not isinstance(payload["outputId"], str):
+                        self._empty(400)
+                        return
+                    snapshot = self.server.audio_outputs_provider.set_default_output(payload["outputId"])
+                elif action == "set-volume" and set(payload) == {"action", "outputId", "volumePercent"}:
+                    if (
+                        not isinstance(payload["outputId"], str)
+                        or isinstance(payload["volumePercent"], bool)
+                        or not isinstance(payload["volumePercent"], int)
+                        or not 0 <= payload["volumePercent"] <= 100
+                    ):
+                        self._empty(400)
+                        return
+                    snapshot = self.server.audio_outputs_provider.set_volume(
+                        payload["outputId"], payload["volumePercent"],
+                    )
+                elif action == "set-muted" and set(payload) == {"action", "outputId", "muted"}:
+                    if not isinstance(payload["outputId"], str) or not isinstance(payload["muted"], bool):
+                        self._empty(400)
+                        return
+                    snapshot = self.server.audio_outputs_provider.set_muted(
+                        payload["outputId"], payload["muted"],
+                    )
+                else:
+                    self._empty(400)
+                    return
+            except AudioOutputError as exc:
+                message = str(exc)
+                status = 503 if "unavailable" in message or "server" in message else 409
+                print(f"ordax-native-host: audio output action unavailable: {message}", file=sys.stderr, flush=True)
+                self._empty(status)
+                return
+            except Exception as exc:
+                print(f"ordax-native-host: audio output action failed safely: {exc}", file=sys.stderr, flush=True)
                 self._empty(503)
                 return
             self._write_json(200, snapshot)

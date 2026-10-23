@@ -212,6 +212,71 @@
   const state = { section: "visao-geral", period: "month", activityPeriod: "month", tab: "overview", faq: "plan", helpQuery: "", searchQuery: "", dialog: null };
   let session = account.getSnapshot();
   let disposeMenu = () => {};
+  // Observational data only. Never an entitlement, quota or invoice.
+  let mcpUsage = null;
+  let mcpUsageStatus = "unavailable";
+  let mcpUsageIdentity = null;
+  let mcpUsageRevision = 0;
+
+  async function loadMcpUsage() {
+    const revision = ++mcpUsageRevision;
+    if (!signedIn()) return;
+    mcpUsageStatus = "loading";
+    if (state.section === "consumo") renderContent();
+    try {
+      const response = await fetch("/account/usage/mcp", {
+        method: "GET", credentials: "same-origin", cache: "no-store", redirect: "error",
+        headers: { Accept: "application/json" },
+        ...(typeof AbortSignal !== "undefined" && typeof AbortSignal.timeout === "function"
+          ? { signal: AbortSignal.timeout(10000) } : {}),
+      });
+      if (!response.ok) throw new Error("mcp-usage-unavailable");
+      const value = await response.json();
+      if (!value || value.ok !== true || value.schema !== "ordax.product-mcp-usage/1"
+          || value.billable !== false || value.observed_only !== true
+          || value.coverage !== "partial_observational"
+          || typeof value.collection_active_now !== "boolean"
+          || value.quota !== null || value.charge !== null
+          || !/^\d{4}-(?:0[1-9]|1[0-2])-01$/.test(value.current_month)
+          || !/^\d{4}-(?:0[1-9]|1[0-2])-01$/.test(value.previous_month)
+          || !Array.isArray(value.entries) || value.entries.length > 256
+          || !value.entries.every(row => row && (row.month === value.current_month || row.month === value.previous_month)
+            && /^[a-z][a-z0-9._-]{1,95}$/.test(row.tool_name)
+            && Number.isSafeInteger(row.tool_calls) && row.tool_calls >= 0)) {
+        throw new Error("mcp-usage-invalid");
+      }
+      if (revision !== mcpUsageRevision || !signedIn()) return;
+      mcpUsage = value;
+      mcpUsageStatus = "ready";
+    } catch {
+      if (revision !== mcpUsageRevision || !signedIn()) return;
+      mcpUsage = null;
+      mcpUsageStatus = "unavailable";
+    }
+    if (state.section === "consumo") renderContent();
+  }
+
+  function mcpUsagePanel() {
+    const title = tx("Chamadas MCP observadas");
+    let measurement = tx("Medição ainda não disponível");
+    if (mcpUsageStatus === "loading") measurement = tx("Consultando registros");
+    if (mcpUsageStatus === "ready" && mcpUsage) {
+      const rows = mcpUsage.entries.filter(item => item.month === mcpUsage.current_month);
+      const total = rows.reduce((value, item) => value + item.tool_calls, 0);
+      measurement = rows.length && Number.isSafeInteger(total)
+        ? esc(new Intl.NumberFormat(i18n.getLocale()).format(total))
+        : tx("Nenhuma amostra disponível");
+    }
+    return `<section class="settings-section usage-mcp-panel" aria-label="${title}">
+      <div class="panel-heading"><div><span class="icon-tile cyan">${icon("activity")}</span><h3>${title}</h3></div></div>
+      <p class="billing-large" aria-live="polite">${measurement}</p>
+      <p class="panel-description">${tx("Somente registros observados no mês UTC. Não representam franquia, cobrança ou uso completo.")}</p>
+      ${mcpUsageStatus === "ready" && mcpUsage && !mcpUsage.collection_active_now
+        ? `<p class="data-note">${tx("A coleta MCP está desativada neste momento.")}</p>` : ""}
+      <p class="data-note">${tx("Os demais recursos e limites continuam indisponíveis até a integração dos serviços oficiais.")}</p>
+    </section>`;
+  }
+
   const signedIn = () => !layoutPreview && session.status === "authenticated";
   const sessionKey = () => session.status === "authenticated" ? "active" : session.status;
   const sessionTitle = () => layoutPreview ? tx("Prévia local da Conta") : message(`account.session.${sessionKey()}.title`);
@@ -377,10 +442,8 @@
   }
   function planCatalog() {
     const template = document.getElementById("account-plan-catalog");
-    // Names come exclusively from the catalog inserted by the existing public builder.
-    const names = Array.from(template?.content?.querySelectorAll(".plan-catalog li") ?? [], node => node.textContent.trim()).filter(Boolean);
-    if (!names.length) return empty("Catálogo de planos indisponível", "Os planos e benefícios serão exibidos aqui quando o catálogo oficial estiver disponível.", "crown", true);
-    return `<ul class="plan-catalog">${names.map(name => `<li><span class="status-tag">${tx("Em preparação")}</span><h3 translate="no">${esc(name)}</h3><p class="plan-price">${tx("Preço não publicado")}</p><p class="plan-detail">${tx("Os benefícios e limites comerciais ainda não estão disponíveis para consulta.")}</p>${action("Selecionar plano", null, { small: true })}</li>`).join("")}</ul>`;
+    if (!template?.content?.querySelector(".commercial-catalog")) return empty("Catálogo de planos indisponível", "Os planos e benefícios serão exibidos aqui quando o catálogo oficial estiver disponível.", "crown", true);
+    return template.innerHTML;
   }
 
   function overview() {
@@ -419,7 +482,7 @@
   function subscription() {
     return `<section class="settings-section subscription-summary" aria-labelledby="subscription-heading">${panelHeading("Assinatura atual", { id: "subscription-heading", iconName: "crown", tone: "violet", end: capabilityBadge("subscription") })}<div class="subscription-plan"><span>${tx(capabilityDefinitions.subscription.title)}</span><h3>${tx("Plano não disponível")}</h3><p>${tx("Seu plano será exibido quando os dados da assinatura estiverem disponíveis.")}</p></div><dl class="subscription-facts">${["Ciclo de cobrança", "Próxima renovação", "Valor da assinatura"].map(label => `<div><dt>${tx(label)}</dt><dd>${tx("Não disponível")}</dd></div>`).join("")}</dl><div class="panel-actions subscription-actions"><p>${icon("info")}${tx("Alterações e cancelamento aguardam a conexão com o serviço de assinatura.")}</p><div>${action("Alterar plano", "crown")}${action("Cancelar assinatura", null, { variant: "ghost" })}</div></div></section>
       <section class="settings-section subscription-limits">${panelHeading("Limites da conta", { iconName: "chart", tone: "cyan", end: link("consumo", "", "text-link", `${tx("Ver consumo")}${icon("arrow-right")}`) })}<p class="panel-description">${tx("Consulte a capacidade disponível para cada recurso da sua conta.")}</p>${resourceTable({ showUsage: false })}<p class="data-note">${icon("info")}${tx("Os limites serão exibidos quando os benefícios da conta estiverem conectados.")}</p></section>
-      <section class="settings-section subscription-catalog">${panelHeading("Planos e benefícios", { iconName: "sparkles", tone: "cyan" })}<p class="panel-description">${tx("Compare as opções quando o catálogo oficial estiver disponível.")}</p>${planCatalog()}<div class="catalog-availability"><p>${icon("info")}${tx("Assinaturas pagas ainda não estão disponíveis.")}</p><p><span>${tx("Preços e limites comerciais")}</span><strong>${tx("Não disponível")}</strong></p></div></section>${relatedAreas(["consumo", "faturamento"], "Consumo e faturamento")}`;
+      <section class="settings-section subscription-catalog">${panelHeading("Planos e benefícios", { iconName: "sparkles", tone: "cyan" })}<p class="panel-description">${tx("Consulte os benefícios previstos e os valores de referência.")}</p>${planCatalog()}<div class="catalog-availability"><p>${icon("info")}${tx("Assinaturas pagas ainda não estão disponíveis.")}</p><p><span>${tx("Contratação")}</span><strong>${tx("Em preparação")}</strong></p></div></section>${relatedAreas(["consumo", "faturamento"], "Consumo e faturamento")}`;
   }
   function consumption() {
     const selectedResources = resources.filter(resource => state.tab === "overview" || resource.id === state.tab);
@@ -429,6 +492,7 @@
       <div id="usage-panel" role="tabpanel" aria-labelledby="usage-tab-${state.tab}" tabindex="0">
         <div class="usage-summary${selectedResources.length === 1 ? " is-single" : ""}">${selectedResources.map(resource => `<article class="usage-stat"><div class="usage-stat-heading">${icon(resource.icon, resource.tone)}<h3>${tx(resource.name)}</h3></div><dl>${["Uso", "Limite"].map(label => `<div><dt>${tx(label)}</dt><dd aria-label="${tx("Não disponível")}">—</dd></div>`).join("")}</dl>${capabilityBadge(resource.capabilityId)}</article>`).join("")}</div>
         <section class="usage-chart-panel" aria-labelledby="usage-history-heading"><header class="chart-heading"><div><h3 id="usage-history-heading">${tx("Histórico de utilização")}</h3><p>${tx(resourceTabs[state.tab])} · ${tx(periods[state.period])}</p></div><div class="chart-actions">${capabilityBadge("usageHistory")}${action("Exportar", "download", { small: true, describedBy: "usage-data-status" })}</div></header><div class="chart-legend">${selectedResources.map(resource => `<span><i class="legend-${resource.tone}"></i>${tx(resource.label)}</span>`).join("")}</div>${chart(state.period, resourceTabs[state.tab])}</section>
+        ${(state.tab === "apis" || state.tab === "overview") ? mcpUsagePanel() : ""}
       </div><p class="usage-data-note" id="usage-data-status">${icon("info")}${tx("Selecione um recurso e um período. Os valores serão exibidos quando a medição estiver conectada.")}</p>
     </section>${relatedAreas(["assinatura", "faturamento"], "Plano e pagamentos")}`;
   }
@@ -725,10 +789,18 @@
     account.subscribe(value => {
       const focused = document.activeElement?.id;
       session = value;
+      const nextUsageIdentity = signedIn() ? session.email || "verified-session" : null;
+      if (mcpUsageIdentity !== nextUsageIdentity) {
+        mcpUsageIdentity = nextUsageIdentity;
+        mcpUsageRevision += 1;
+        mcpUsage = null;
+        mcpUsageStatus = "unavailable";
+        if (nextUsageIdentity) void loadMcpUsage();
+      }
       renderSession();
       // Revalidation must clear personal data, but not replace unrelated controls
       // while someone is typing in Help or changing presentation preferences.
-      if (byId.get(state.section).sessionDependent) renderContent();
+      if (byId.get(state.section).sessionDependent || state.section === "consumo") renderContent();
       if (focused && !document.activeElement?.id) (document.getElementById(focused) || document.getElementById("session-status-title"))?.focus({ preventScroll: true });
     });
     void account.readSession();

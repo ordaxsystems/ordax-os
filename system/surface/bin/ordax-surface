@@ -90,6 +90,7 @@ STAGING_DIR=""
 DEV_BOUND=0
 PROC_BOUND=0
 SYS_BOUND=0
+EFIVARFS_BOUND=0
 RUN_BOUND=0
 SYSTEM_BOUND=0
 REPO_BOUND=0
@@ -551,6 +552,7 @@ clear_runtime_mounts_at() {
         "$runtime_root/srv/ordax-repo" \
         "$runtime_root/srv/ordax-system" \
         "$runtime_root/run" \
+        "$runtime_root/sys/firmware/efi/efivars" \
         "$runtime_root/sys" \
         "$runtime_root/proc" \
         "$runtime_root/dev"
@@ -643,6 +645,15 @@ cleanup() {
         /bin/busybox umount "$RUNTIME_ROOT/run" >/dev/null 2>&1 || true
         RUN_BOUND=0
     fi
+    # Nested EFI bind must go away before /sys, including when shutdown
+    # failed and the Surface is being restarted by the Guardian.
+    if [ "$EFIVARFS_BOUND" -eq 1 ]; then
+        /bin/busybox umount "$RUNTIME_ROOT/sys/firmware/efi/efivars" >>"$HOST_LOG" 2>&1 || {
+            echo "ordax-surface: cannot release runtime efivarfs mount" >>"$HOST_LOG"
+            return 1
+        }
+        EFIVARFS_BOUND=0
+    fi
     if [ "$SYS_BOUND" -eq 1 ]; then
         /bin/busybox umount "$RUNTIME_ROOT/sys" >/dev/null 2>&1 || true
         SYS_BOUND=0
@@ -697,6 +708,42 @@ console_fallback() {
 fallback_with_reason() {
     printf 'ordax-surface: %s\n' "$*" >>"$HOST_LOG"
     console_fallback
+}
+
+runtime_packages() {
+    package_manifest=$SYSTEM_ROOT/surface/runtime/packages.txt
+    [ -f "$package_manifest" ] && [ ! -L "$package_manifest" ] || return 1
+    package_count=0
+    seen_packages=
+    while IFS= read -r package || [ -n "$package" ]; do
+        case "$package" in
+            ''|[!A-Za-z0-9]*|*[!A-Za-z0-9+_.-]*) return 1 ;;
+        esac
+        case " $seen_packages " in
+            *" $package "*) return 1 ;;
+        esac
+        seen_packages="$seen_packages $package"
+        package_count=$((package_count + 1))
+        printf '%s\n' "$package"
+    done <"$package_manifest"
+    [ "$package_count" -gt 0 ]
+}
+
+runtime_media_is_ready() {
+    # Baseline demuxers/decoders used by the platform's advertised file types.
+    # This checks the runtime payload, not physical audio/acceleration health.
+    for plugin in alsa playback isomp4 matroska mpg123 wavparse flac libav; do
+        [ -f "$RUNTIME_ROOT/usr/lib/gstreamer-1.0/libgst$plugin.so" ] || return 1
+    done
+}
+
+runtime_audio_is_ready() {
+    [ -x "$RUNTIME_ROOT/usr/bin/dbus-run-session" ] &&
+        [ -x "$RUNTIME_ROOT/usr/bin/pipewire" ] &&
+        [ -x "$RUNTIME_ROOT/usr/bin/wireplumber" ] &&
+        [ -x "$RUNTIME_ROOT/usr/bin/pipewire-pulse" ] &&
+        [ -x "$RUNTIME_ROOT/usr/bin/pactl" ] &&
+        [ -f "$RUNTIME_ROOT/usr/lib/gstreamer-1.0/libgstpipewire.so" ]
 }
 
 runtime_base_is_ready() {
@@ -781,9 +828,11 @@ migrate_legacy_runtime() {
         return 1
     fi
 
+    packages=$(runtime_packages) || return 1
+    # Intentional word splitting of validated package names, never shell code.
     if ! run_bounded_apk "$RUNTIME_UPGRADE_TIMEOUT" \
         --root "$STAGING_DIR/rootfs" --keys-dir /etc/apk/keys --no-cache add \
-        xwayland eudev libinput-udev python3 py3-gobject3 gtk+3.0 webkit2gtk-4.1 \
+        $packages \
         >>"$HOST_LOG" 2>&1; then
         echo "ordax-surface: legacy runtime migration timed out or failed" >>"$HOST_LOG"
         rm -rf "$STAGING_DIR"
@@ -816,12 +865,11 @@ REPOSITORIES
 
     printf 'OrdaX: preparando novo runtime grafico...\n'
     echo "ordax-surface: provisioning replaceable graphical runtime in $RUNTIME_STATE" >>"$HOST_LOG"
+    packages=$(runtime_packages) || return 1
+    # The same source manifest feeds the immutable CI build and dev provisioning.
     if ! run_bounded_apk "$RUNTIME_INSTALL_TIMEOUT" \
         --root "$STAGING_DIR/rootfs" --keys-dir /etc/apk/keys --no-cache --initdb add \
-        alpine-baselayout busybox ca-certificates cage xwayland \
-        python3 py3-gobject3 gtk+3.0 webkit2gtk-4.1 \
-        seatd-launch mesa-dri-gallium mesa-egl mesa-gbm font-dejavu \
-        eudev libinput-udev >>"$HOST_LOG" 2>&1; then
+        $packages >>"$HOST_LOG" 2>&1; then
         echo "ordax-surface: graphical runtime provisioning timed out or failed" >>"$HOST_LOG"
         rm -rf "$STAGING_DIR"
         STAGING_DIR=""
@@ -834,13 +882,14 @@ REPOSITORIES
 upgrade_existing_runtime() {
     printf 'OrdaX: atualizando runtime grafico existente...\n'
     echo "ordax-surface: extending existing graphical runtime with WebKit browser host support" >>"$HOST_LOG"
+    packages=$(runtime_packages) || return 1
     if ! run_bounded_apk "$RUNTIME_UPGRADE_TIMEOUT" \
         --root "$RUNTIME_ROOT" --keys-dir /etc/apk/keys --no-cache add \
-        xwayland eudev libinput-udev python3 py3-gobject3 gtk+3.0 webkit2gtk-4.1 >>"$HOST_LOG" 2>&1; then
+        $packages >>"$HOST_LOG" 2>&1; then
         echo "ordax-surface: graphical runtime upgrade timed out or failed" >>"$HOST_LOG"
         return 1
     fi
-    runtime_is_ready
+    runtime_is_ready && runtime_media_is_ready && runtime_audio_is_ready
 }
 
 ensure_runtime() {
@@ -864,7 +913,15 @@ ensure_runtime() {
         return 0
     fi
 
-    runtime_is_ready && return 0
+    if runtime_is_ready; then
+        if ! runtime_media_is_ready || ! runtime_audio_is_ready; then
+            if ! upgrade_existing_runtime; then
+                echo "ordax-surface: optional media runtime upgrade incomplete; preserving the usable Surface" >>"$HOST_LOG"
+                runtime_is_ready || return 1
+            fi
+        fi
+        return 0
+    fi
     if runtime_base_is_ready; then
         upgrade_existing_runtime || return 1
         return 0
@@ -950,6 +1007,50 @@ configure_graphics_host() {
     mkdir -p "$RUNTIME_ROOT/tmp/ordax-web-cache-$SOURCE_SHA" || return 1
 }
 
+# The ordinary /sys bind intentionally does not include its submounts.
+# A real UEFI boot mounts efivarfs beneath /sys; without an explicit bind,
+# the Base Update preflight inside the graphical runtime's chroot always
+# sees a directory instead of a *direct efivarfs mount*. Do not mount a new
+# efivarfs filesystem, spoof a receipt, or grant firmware access on BIOS.
+bind_owner_efivarfs_into_runtime() {
+    [ "$DISTRIBUTION_PROFILE" = owner-development ] && [ "$PRODUCT_MODE" = usb ] || return 0
+    host_efivars=/sys/firmware/efi/efivars
+    [ -d /sys/firmware/efi ] || return 0
+    if [ ! -d "$host_efivars" ] || [ -L "$host_efivars" ]; then
+        echo "ordax-surface: UEFI variables directory unavailable or unsafe; Base activation blocked" >>"$HOST_LOG"
+        return 0
+    fi
+    # The exact host mount must be a single root-backed efivarfs instance.
+    # No overmount and no nested/inferred path: the Python owner rechecks
+    # writable mount flags, UEFI identity and all activation constraints.
+    if ! /bin/busybox awk '
+        $5 == "/sys/firmware/efi/efivars" {
+            count++
+            for (i = 7; i <= NF; i++) {
+                if ($i == "-") {
+                    if ($4 == "/" && $(i+1) == "efivarfs" && $(i+2) == "efivarfs")
+                        valid++
+                    break
+                }
+            }
+        }
+        END { exit !(count == 1 && valid == 1) }
+    ' /proc/self/mountinfo; then
+        echo "ordax-surface: direct host efivarfs mount not proven; Base activation blocked" >>"$HOST_LOG"
+        return 0
+    fi
+    target=$RUNTIME_ROOT$host_efivars
+    [ -d "$target" ] && [ ! -L "$target" ] || return 1
+    # Never stack a bind over an existing mount of unknown provenance.
+    if /bin/busybox awk -v target="$target" '$5 == target { found=1 } END { exit !found }' /proc/self/mountinfo; then
+        echo "ordax-surface: runtime efivarfs destination already mounted" >>"$HOST_LOG"
+        return 1
+    fi
+    /bin/busybox mount -o bind "$host_efivars" "$target" >>"$HOST_LOG" 2>&1 || return 1
+    EFIVARFS_BOUND=1
+    return 0
+}
+
 bind_runtime_mounts() {
     repo_root=${SYSTEM_ROOT%/system}
     case "$DISTRIBUTION_PROFILE" in
@@ -1000,6 +1101,7 @@ bind_runtime_mounts() {
     PROC_BOUND=1
     /bin/busybox mount -o bind /sys "$RUNTIME_ROOT/sys" >>"$HOST_LOG" 2>&1 || return 1
     SYS_BOUND=1
+    bind_owner_efivarfs_into_runtime || return 1
     /bin/busybox mount -o bind /run "$RUNTIME_ROOT/run" >>"$HOST_LOG" 2>&1 || return 1
     RUN_BOUND=1
     # Owner USB receipts are written by the Guardian in /state/ordax/power.
@@ -1602,6 +1704,8 @@ select_owner_virtio_webkit_transport
 
 START_URI="http://127.0.0.1:8765/composition/native/index.html?source=$SOURCE_SHA"
 /bin/busybox chroot "$RUNTIME_ROOT" \
+    /bin/busybox sh /srv/ordax-system/surface/runtime/audio-session.sh \
+    --runtime-dir /run/ordax-surface/audio -- \
     /usr/bin/seatd-launch -- /usr/bin/cage -s -- \
     /usr/bin/python3 /srv/ordax-system/surface/runtime/ordax_browser_host.py \
     --start-uri "$START_URI" --profile-root /var/lib/ordax-user/browser \

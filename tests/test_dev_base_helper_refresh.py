@@ -5,6 +5,7 @@ from pathlib import Path
 import shutil
 import stat
 import subprocess
+import sys
 import tempfile
 import unittest
 
@@ -21,7 +22,9 @@ def load_source_to_target() -> dict[str, str]:
     for raw in MANIFEST.read_text(encoding="utf-8").splitlines():
         if not raw or raw.startswith("#"):
             continue
-        source, target = raw.split("\t")
+        source, target, *requirements = raw.split("\t")
+        if requirements:
+            assert len(requirements) == 1 and requirements[0]
         entries[source] = target
     return entries
 
@@ -31,12 +34,32 @@ SOURCE_SHA = "a" * 40
 
 
 class DevBaseHelperRefreshTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        if not sys.platform.startswith("linux") or not shutil.which("cc"):
+            raise unittest.SkipTest("native Linux compiler required for Base helper ABI E2E")
+        cls.native_build = tempfile.TemporaryDirectory()
+        cls.native_binary = Path(cls.native_build.name) / "ordax-checkout-exchange"
+        subprocess.run([
+            shutil.which("cc"), "-O2", "-Wall", "-Wextra", "-Werror",
+            "-o", str(cls.native_binary),
+            str(ROOT / "bootstrap/dev-base/ordax_checkout_exchange.c"),
+        ], check=True, capture_output=True, text=True, timeout=30)
+
+    @classmethod
+    def tearDownClass(cls):
+        if hasattr(cls, "native_build"):
+            cls.native_build.cleanup()
+
     def make_fixture(self, root: Path) -> tuple[Path, Path, Path]:
         worktree = root / "worktree"
         target = root / "target"
         state = root / "state"
         target.mkdir()
         state.mkdir()
+        native = target / "usr/local/bin/ordax-checkout-exchange"
+        native.parent.mkdir(parents=True)
+        shutil.copy2(self.native_binary, native)
         for relative in SOURCE_TO_TARGET:
             source = ROOT / relative
             destination = worktree / relative
@@ -99,6 +122,7 @@ class DevBaseHelperRefreshTests(unittest.TestCase):
                 for path in target.rglob("*")
                 if path.is_file()
             }
+            expected_targets.add(target / "usr/local/bin/ordax-checkout-exchange")
             self.assertEqual(actual_files, expected_targets)
             self.assertFalse((target / "bootstrap/dev-base/not-owned").exists())
 
@@ -123,6 +147,36 @@ class DevBaseHelperRefreshTests(unittest.TestCase):
                 installed.read_bytes(),
                 (worktree / "bootstrap/dev-base/ordax-pull").read_bytes(),
             )
+
+    def test_missing_or_incompatible_native_base_preserves_existing_pull_and_receipt(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            worktree, target, state = self.make_fixture(root)
+            pull = target / "usr/local/bin/ordax-pull"
+            pull.write_text("#!/bin/sh\necho known-good\n", encoding="utf-8")
+            prior = pull.read_bytes()
+            prerequisite = target / "usr/local/bin/ordax-checkout-exchange"
+            prerequisite.unlink()
+            unavailable = self.run_refresh(worktree, target, state)
+            self.assertNotEqual(unavailable.returncode, 0)
+            self.assertIn("required native Base helper unavailable", unavailable.stderr)
+            self.assertEqual(pull.read_bytes(), prior)
+            self.assertFalse((state / "dev-helpers-sha").exists())
+
+            prerequisite.write_text("#!/bin/sh\nprintf '%s\\n' incompatible-abi\n", encoding="utf-8")
+            prerequisite.chmod(0o755)
+            mismatch = self.run_refresh(worktree, target, state)
+            self.assertNotEqual(mismatch.returncode, 0)
+            self.assertIn("native Base helper ABI mismatch", mismatch.stderr)
+            self.assertEqual(pull.read_bytes(), prior)
+            self.assertFalse((state / "dev-helpers-sha").exists())
+
+    def test_native_abi_matches_rootfs_owned_helper(self):
+        result = subprocess.run(
+            [str(self.native_binary), "--abi"], check=True,
+            capture_output=True, text=True,
+        )
+        self.assertEqual(result.stdout.strip(), "prototype-ordax.checkout-exchange/1")
 
     def test_source_symlink_is_rejected_before_any_helper_is_committed(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -168,7 +222,7 @@ class DevBaseHelperRefreshTests(unittest.TestCase):
             self.assertEqual(outside.read_text(encoding="utf-8"), "keep\n")
             self.assertFalse((state / "dev-helpers-sha").exists())
 
-    def test_ordax_run_streams_guardian_status_and_exact_sha_provisioning(self):
+    def test_ordax_run_streams_guardian_status_without_second_provisioning_watcher(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             worktree = root / "worktree"
@@ -228,7 +282,7 @@ class DevBaseHelperRefreshTests(unittest.TestCase):
             self.assertIn(f"starting Owner/Development runtime at {SOURCE_SHA}", combined)
             self.assertIn(f"canonical log: {run_dir / 'guardian.log'}", combined)
             self.assertIn("ordax-guardian: fake-start", combined)
-            self.assertIn("first-boot Surface runtime provisioning is in progress", combined)
+            self.assertNotIn("first-boot Surface runtime provisioning is in progress", combined)
             self.assertIn("cold-boot Surface acknowledged healthy state", combined)
             self.assertFalse(marker.exists())
 

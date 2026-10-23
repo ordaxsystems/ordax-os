@@ -5,6 +5,49 @@
   const SUPPORTED_LOCALES = Object.freeze(["pt-BR", "en-US"]);
 
   const STATIC_PAIRS = [
+    ["Planos e benefícios", "Plans and benefits"],
+    ["Chamadas MCP observadas", "Observed MCP tool calls"],
+    ["Medição ainda não disponível", "Measurement not yet available"],
+    ["Consultando registros", "Retrieving records"],
+    ["Nenhuma amostra disponível", "No samples available"],
+    ["Somente registros observados no mês UTC. Não representam franquia, cobrança ou uso completo.", "Only observed records for the UTC month. They are not a quota, charge or complete usage."],
+    ["A coleta MCP está desativada neste momento.", "MCP collection is currently disabled."],
+    ["Os demais recursos e limites continuam indisponíveis até a integração dos serviços oficiais.", "Other resources and limits remain unavailable until official services are integrated."],
+    ["Consulte os benefícios previstos e os valores de referência.", "Review planned benefits and reference prices."],
+    ["Contratação", "Purchasing"],
+    ["Spaces ativos", "Active Spaces"],
+    ["Armazenamento previsto (GB)", "Planned storage (GB)"],
+    ["Chamadas MCP por mês", "MCP calls per month"],
+    ["Histórico previsto (dias)", "Planned history (days)"],
+    ["Conectores gerenciados", "Managed connectors"],
+    ["Automações ativas", "Active automations"],
+    ["Capacidade de membros por Space", "Member capacity per Space"],
+    ["Experiência local", "Local experience"],
+    ["por organização / mês", "per organization / month"],
+    ["por mês", "per month"],
+    ["Uso local conforme a disponibilidade do produto.", "Local use subject to product availability."],
+    ["Benefícios online previstos; contratação indisponível.", "Planned online benefits; purchasing unavailable."],
+    ["Planos em preparação. Valores e capacidades de referência; nenhuma cobrança é realizada.", "Plans in preparation. Reference prices and capacities; no charges are made."],
+    ["IA paga pelo cliente ou por créditos separados. Versões e backups pessoais compartilham a capacidade de arquivos. Assentos e cotas de memória serão definidos antes da contratação.", "AI is paid by the customer or with separate credits. Versions and personal backups share file capacity. Seats and memory quotas will be defined before purchasing."],
+    ["Produtos e adicionais", "Products and add-ons"],
+    ["Preço a definir", "Price to be defined"],
+    ["Sem mensalidade", "No subscription fee"],
+    ["Sistema, apps essenciais e memória locais, com dois Spaces privados.", "Local system, essential apps and memory, with two private Spaces."],
+    ["Continuidade pessoal, memória em nuvem, sincronização, backup e pequeno compartilhamento.", "Personal continuity, cloud memory, sync, backup and small-scale sharing."],
+    ["Maior capacidade para projetos profissionais, conectores, automações e suporte prioritário.", "More capacity for professional projects, connectors, automations and priority support."],
+    ["Spaces de equipe, administração de acesso e capacidade compartilhada por organização.", "Team Spaces, access administration and shared organizational capacity."],
+    ["10 mil chamadas por mês. Incluído nos planos pagos. A IA é contratada pelo cliente.", "10,000 calls per month. Included in paid plans. AI is purchased by the customer."],
+    ["Armazenamento adicional", "Additional storage"],
+    ["Mais 100 GB para arquivos, versões e backups pessoais.", "An additional 100 GB for files, versions and personal backups."],
+    ["Chamadas MCP adicionais", "Additional MCP calls"],
+    ["Pacote opcional de 10 mil chamadas. Sem cobrança automática por excedente.", "Optional 10,000-call package. No automatic overage charges."],
+    ["Conversas e projetos com IA por API autorizada e créditos próprios.", "Conversations and projects with AI through authorized APIs and separate credits."],
+    ["Pesquisa e computação", "Research and computing"],
+    ["Pesquisa web paga, processamento de mídia e computação com orçamento próprio.", "Paid web research, media processing and computing with separate budgets."],
+    ["Módulos empresariais", "Business modules"],
+    ["Food, Fabrication e outros módulos possuem benefícios, implantação e contratos próprios.", "Food, Fabrication and other modules have their own benefits, deployment and contracts."],
+    ["Conteúdo especializado", "Specialized content"],
+    ["Packs comerciais e conectores premium conforme licença e disponibilidade.", "Commercial packs and premium connectors subject to licensing and availability."],
     ["Fechar aviso", "Dismiss notice"],
     ["Esta ação não é executada na demonstração. Nenhuma alteração foi aplicada.", "This action is not performed in the demo. No changes were applied."],
     ["Ampliar telefone", "Expand phone"],
@@ -1574,7 +1617,7 @@
   register("surface.a308840fa486", "Seu trabalho, seus produtos e seus projetos em um lugar.", "Your work, products and projects in one place.");
   register("surface.daaa681c3048", "Criar novo espaço", "Create new space");
   register("surface.7743aeb4e682", "ESPAÇO EM USO", "SPACE IN USE");
-  register("surface.84c0539f149a", "Abrir espaço", "Open space");
+  register("surface.84c0539f149a", "Abrir espaço", "Open Space");
   register("surface.0a1e5cf1617e", "Achegue-se", "Achegue-se");
   register("surface.40e49271ddad", "Operação", "Operation");
   register("surface.ddfe7700c37c", "Empresas, serviços e oportunidades locais.", "Local companies, services and opportunities.");
@@ -1591,7 +1634,7 @@
   register("surface.23c0ed4ee4a7", "Seus espaços", "Your spaces");
   register("surface.bd02b9a7d71d", "Todos", "All");
   register("surface.ad2c8ba9ac94", "Favoritos", "Favorites");
-  register("surface.3068eba03d59", "Recentes", "Recents");
+  register("surface.3068eba03d59", "Recentes", "Recent");
   register("surface.cb1b248516da", "Pizzaria", "Pizzeria");
   register("surface.fe02f48e2819", "Pizzaria Bella Napoli", "Pizzaria Bella Napoli");
   register("surface.5ffa64841719", "Sabor italiano no seu bairro.", "Italian flavor in your neighborhood.");
@@ -1662,13 +1705,13 @@
   register("surface.6d15f59df0d1", "Abra suas ferramentas, encontre seus arquivos", "Open your tools, find your files");
   register("surface.a50c93e7b420", "e dê espaço à próxima ideia.", "and make room for the next idea.");
   register("surface.e1a558cec483", "Loja e recursos", "Store and resources");
-  register("surface.dcc985fcad64", "Backend pendente", "Backend pending");
   register("surface.6af3ef6ba0a1", "Exemplo", "Example");
   register("surface.7d29239e60f5", "Planejado", "Planned");
   register("surface.49a586ddbb8a", "Rede e Wi-Fi", "Network and Wi-Fi");
   register("surface.ddcd378ecaa7", "Conexão, rede protegida e uso offline.", "Connection, secure networks and offline use.");
   register("surface.195c60bb2325", "Áudio", "Audio");
   register("surface.fb499a13e34a", "Escolha a saída de áudio e ajuste o volume.", "Choose audio output and adjust volume.");
+  register("surface.3be6bb65bdfc", "Controles prontos · saída física requer validação", "Controls ready · physical output requires validation");
   register("surface.2d31efc9c2ed", "Tela", "Display");
   register("surface.1c84b52a82f2", "Ajuste o tamanho dos elementos e o brilho da tela.", "Adjust element size and display brightness.");
   register("surface.75b931baddfa", "Escala pronta · controles do monitor pendentes", "Scaling ready · monitor controls pending");
@@ -1697,6 +1740,7 @@
   register("surface.0758c00e6ea0", "Padrão", "Standard");
   register("surface.789b0f7fb962", "Confortável", "Comfortable");
   register("surface.45fbe99b103c", "Grande", "Large");
+  register("surface.fd231bd3c557", "Saída do sistema e volume desta sessão.", "System output and volume for this session.");
   register("surface.83d0d814f360", "Continuidade entre dispositivos", "Continuity across devices");
   register("surface.a0e6c1e59152", "Escolha como seu trabalho acompanha você.", "Choose how your work follows you.");
   register("surface.7cfb945aa92e", "Contraste", "Contrast");
@@ -1723,7 +1767,6 @@
   register("surface.e61fd5d70b8d", "Sua central OrdaX OS", "Your OrdaX OS home");
   register("surface.5f4754991bbc", "Intelligence contextual", "Contextual Intelligence");
   register("surface.e0459b8dc4cf", "Uma ideia, uma tarefa, um próximo passo…", "An idea, a task, a next step…");
-  register("surface.c7e072bd4fbd", "Enviar ao Aura", "Send to Aura");
   // END GENERATED SURFACE COPY
   STATIC_PAIRS.forEach(([ptBR, enUS], index) => {
     register(`static.${String(index + 1).padStart(4, "0")}`, ptBR, enUS);

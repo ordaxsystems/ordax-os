@@ -25,7 +25,7 @@ class SurfaceRuntimeSourceContractTests(unittest.TestCase):
         self.assertTrue(contract["apk_package_versions_pinned"])
         self.assertIsInstance(contract["apk_package_lock"], dict)
         self.assertEqual(contract["apk_package_lock_count"], len(contract["apk_package_lock"]))
-        self.assertEqual(contract["apk_package_lock_count"], 253)
+        self.assertTrue(set((ROOT / contract["packages_file"]).read_text().splitlines()).issubset(contract["apk_package_lock"]))
         # A freshly discovered lock is not automatically a proved image.
         self.assertIn(contract["apk_package_lock_status"], {
             "reviewed-full-transitive-lock-reproof-passed",
@@ -63,54 +63,50 @@ class SurfaceRuntimeSourceContractTests(unittest.TestCase):
             contract["promotion_blockers"],
         )
 
-    def test_current_lock_refresh_is_bound_to_ci_drift_evidence(self):
-        # Verify a single evidence contract regardless of package revision or
-        # CI run date; former hard-coded October 2026 IDs hid future lock drift.
+    def test_current_lock_refresh_is_bound_to_source_resolution_evidence(self):
         contract = json.loads(CONTRACT.read_text(encoding="utf-8"))
         refresh = contract["lock_refresh"]
         self.assertIn(refresh["status"], {
             "reproof-passed-on-current-head", "reproof-required",
         })
-        self.assertGreater(refresh["detected_by_ci_run_id"], 0)
-        self.assertGreater(refresh["discovery_run_id"], 0)
-        self.assertGreater(refresh["discovery_artifact_id"], 0)
+        evidence = contract["discovery_evidence"]
+        self.assertEqual(evidence["executor"], "github-actions-apk-tools-signed-index-resolution")
         self.assertRegex(refresh["discovery_source_commit"], r"^[0-9a-f]{40}$")
-        self.assertEqual(
-            contract["discovery_evidence"]["source_commit"],
-            refresh["discovery_source_commit"],
-        )
-        self.assertEqual(
-            contract["discovery_evidence"]["workflow_run_id"],
-            refresh["discovery_run_id"],
-        )
-        self.assertEqual(
-            contract["discovery_evidence"]["artifact_archive_sha256"],
-            refresh["discovery_artifact_sha256"],
-        )
-        self.assertRegex(refresh["discovery_artifact_sha256"], r"^[0-9a-f]{64}$")
-        self.assertEqual(
-            refresh["discovery_lock_sha256"], contract["apk_package_lock_sha256"],
-        )
-        self.assertEqual(refresh["previous_package_count"], 253)
+        self.assertEqual(evidence["source_commit"], refresh["discovery_source_commit"])
+        self.assertEqual(evidence["report_path"], refresh["report_path"])
+        report_path = ROOT / evidence["report_path"]
+        self.assertTrue(report_path.resolve().is_relative_to(ROOT / "docs/evidence"))
+        raw = report_path.read_bytes()
+        self.assertEqual(hashlib.sha256(raw).hexdigest(), evidence["report_sha256"])
+        self.assertEqual(evidence["report_sha256"], refresh["report_sha256"])
+        report = json.loads(raw)
+        self.assertEqual(report["$schema"], "ordax.surface-runtime-package-resolution/2")
+        self.assertEqual(report["resolver"], "apk-tools install against signed Alpine v3.22 main/community indexes")
+        self.assertEqual(report["status"], "drift-detected-not-promotable")
+        self.assertEqual(report["source_commit"], evidence["source_commit"])
+        self.assertEqual(report["workflow_run_id"], evidence["workflow_run_id"])
+        self.assertEqual(report["artifact_id"], evidence["artifact_id"])
+        self.assertEqual(report["artifact_archive_sha256"], evidence["artifact_archive_sha256"])
+        self.assertEqual(report["artifact_report_sha256"], evidence["artifact_report_sha256"])
+        self.assertEqual(report["apk_package_lock"], contract["apk_package_lock"])
+        self.assertEqual(report["apk_package_lock_sha256"], contract["apk_package_lock_sha256"])
+        self.assertEqual(refresh["discovery_lock_sha256"], contract["apk_package_lock_sha256"])
+        self.assertEqual(report["alpine_archive_sha256"], contract["alpine"]["archive_sha256"])
+        manifest = ROOT / contract["packages_file"]
+        self.assertEqual(report["package_manifest_sha256"], hashlib.sha256(manifest.read_bytes()).hexdigest())
+        self.assertEqual(report["requested_packages"], manifest.read_text().splitlines())
+        for key in ("previous_package_count", "resolved_package_count", "missing", "extra", "changed"):
+            self.assertEqual(refresh[key], report[key])
         self.assertEqual(refresh["resolved_package_count"], len(contract["apk_package_lock"]))
         self.assertEqual(refresh["missing"], [])
-        self.assertEqual(refresh["extra"], [])
-        changed = refresh["changed"]
-        self.assertIsInstance(changed, list)
-        self.assertEqual(
-            [entry["name"] for entry in changed],
-            sorted(set(entry["name"] for entry in changed)),
-        )
-        self.assertEqual(refresh["upstream_drift"]["packages"], changed)
-        self.assertEqual(
-            refresh["upstream_drift"]["detected_by_ci_run_id"],
-            refresh["detected_by_ci_run_id"],
-        )
-        for entry in changed:
-            self.assertEqual(set(entry), {"name", "from", "to"})
-            self.assertIn(entry["name"], contract["apk_package_lock"])
+        self.assertIn("gst-plugin-pipewire", refresh["extra"])
+        self.assertIn("pipewire-pulse", refresh["extra"])
+        self.assertIn("wireplumber", refresh["extra"])
+        for entry in refresh["changed"]:
             self.assertEqual(contract["apk_package_lock"][entry["name"]], entry["to"])
             self.assertNotEqual(entry["from"], entry["to"])
+        self.assertFalse(report["installed_runtime_built"])
+        self.assertTrue(report["reproducibility_reproof_required"])
         self.assertFalse(refresh["physical_artifact_created"])
         self.assertFalse(refresh["physical_write_authorized"])
 
@@ -150,8 +146,16 @@ class SurfaceRuntimeSourceContractTests(unittest.TestCase):
             self.assertIn(
                 "current-apk-lock-erofs-byte-reproducibility-proven", contract["closed_gates"],
             )
+            self.assertIn(
+                "current-apk-lock-offline-surface-runtime-qemu-handoff-proven",
+                contract["closed_gates"],
+            )
             self.assertNotIn(
                 "repeat-byte-reproducible-erofs-build-on-current-apk-lock",
+                contract["promotion_blockers"],
+            )
+            self.assertNotIn(
+                "prove-current-lock-offline-surface-runtime-qemu-handoff",
                 contract["promotion_blockers"],
             )
         else:
@@ -162,8 +166,16 @@ class SurfaceRuntimeSourceContractTests(unittest.TestCase):
             self.assertNotIn(
                 "current-apk-lock-erofs-byte-reproducibility-proven", contract["closed_gates"],
             )
+            self.assertNotIn(
+                "current-apk-lock-offline-surface-runtime-qemu-handoff-proven",
+                contract["closed_gates"],
+            )
             self.assertIn(
                 "repeat-byte-reproducible-erofs-build-on-current-apk-lock",
+                contract["promotion_blockers"],
+            )
+            self.assertIn(
+                "prove-current-lock-offline-surface-runtime-qemu-handoff",
                 contract["promotion_blockers"],
             )
 
@@ -205,8 +217,16 @@ class SurfaceRuntimeSourceContractTests(unittest.TestCase):
         self.assertNotIn("/dev/nvme", text)
 
 
+    def test_repeat_proof_uses_contract_package_count_without_fixed_snapshot(self):
+        text = WORKFLOW.read_text(encoding="utf-8")
+        proof = text.split("- name: Prove byte-reproducible EROFS runtime", 1)[1].split("- name:", 1)[0]
+        self.assertIn("a['apk_package_lock_count'] == b['apk_package_lock_count'] == contract['apk_package_lock_count']", proof)
+        self.assertIn("contract['apk_package_lock_count'] == len(contract['apk_package_lock'])", proof)
+        self.assertNotRegex(proof, r"apk_package_lock_count'\] == [0-9]+")
+
     def test_workflow_uploads_drift_report_even_when_revalidation_fails(self):
         text = WORKFLOW.read_text(encoding="utf-8")
+        self.assertIn("- name: Revalidate full transitive Alpine package lock\n        if: always()", text)
         self.assertIn("- name: Upload proof metadata only\n        if: always()", text)
         self.assertIn("surface-runtime-lock.json", text)
 

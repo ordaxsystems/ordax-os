@@ -1,6 +1,6 @@
 {
   "$schema": "prototype-ordax.native-account-session/1",
-  "status": "kernel-memory-hot-restart-without-disk-vault",
+  "status": "conditional-encrypted-passphrase-vault",
   "owner": "system/surface/runtime/native_account_gateway.py",
   "scope": "native-usb-account-session",
   "invariants": {
@@ -9,7 +9,7 @@
     "access_token_persisted_plaintext": false,
     "refresh_token_persisted_plaintext": false,
     "session_survives_native_host_restart": "when-kernel-user-keyring-available",
-    "session_survives_device_reboot": false,
+    "session_survives_device_reboot": "strong-local-passphrase-and-verified-online-gateway-only",
     "legacy_plaintext_session_path_is_loaded": false,
     "legacy_plaintext_session_path_is_purged_on_start": true,
     "offline_local_os_use_requires_cloud_session": false
@@ -20,21 +20,59 @@
     "filesystem_links_followed": false,
     "purge_failure": "fail-closed"
   },
-  "future_persistent_session_gate": {
+  "short_pin_reboot_gate": {
     "enabled": false,
     "requires": [
-      "encrypted-credential-vault",
-      "device-local-unlock-binding",
-      "authenticated-encryption",
+      "hardware-backed-nonexportable-key",
+      "device-local-pin-unlock-binding",
       "anti-rollback-or-revocation-policy",
       "no-secret-surface-js-boundary",
       "physical-removable-media-threat-proof"
     ],
-    "pin_role": "unlock-local-vault-never-cloud-account-password-substitute"
+    "pin_role": "short-pin-only-with-future-hardware-backed-key-proof"
   },
   "non_goals": [
     "disk-encryption",
     "cloud-password-storage",
     "silent-offline-cloud-authentication"
-  ]
+  ],
+  "conditional_persistent_vault": {
+    "enabled": true,
+    "owner": "system/surface/runtime/native_account_vault.py",
+    "encrypted_path": "/var/lib/ordax/account/session.vault",
+    "cipher": "AES-256-GCM via system OpenSSL libcrypto",
+    "kdf": "scrypt N=65536 r=8 p=1 with independent random salt",
+    "local_unlock_owner": "system/surface/runtime/native_host_server.py",
+    "minimum_local_passphrase_characters": 16,
+    "short_pin_policy": "screen-lock-only-never-persist-refresh-on-copyable-usb",
+    "fail_closed_on_unavailable_crypto": true,
+    "physical_proof": "pending"
+  },
+  "tpm2_foundation": {
+    "status": "read-only-hardware-diagnostic-only",
+    "owner": "system/surface/runtime/native_account_vault.py",
+    "kernel_prerequisites": [
+      "CONFIG_KEYS=y",
+      "CONFIG_TCG_TPM=y",
+      "CONFIG_TCG_TIS=y",
+      "CONFIG_TCG_CRB=y",
+      "CONFIG_TRUSTED_KEYS=y",
+      "CONFIG_TRUSTED_KEYS_TPM=y"
+    ],
+    "hardware_probe": "tpm2_pin_preflight",
+    "diagnostic_entrypoint": "tools/account-sync/probe_native_tpm2.py",
+    "probe_requires_tpm2_resource_manager": true,
+    "probe_reads_version_and_device_metadata_only": true,
+    "pin_enrollment_implemented": false,
+    "hardware_key_seal_unseal_implemented": false,
+    "tpm_dictionary_attack_policy_proven": false,
+    "measured_boot_policy_proven": false,
+    "device_transfer_recovery_proven": false,
+    "physical_proof_passed": false,
+    "short_pin_reboot_enabled": false,
+    "usb_without_hardware": "strong-passphrase-vault-or-interactive-gateway-login",
+    "kernel_prerequisites_in_current_shipped_kernel": false,
+    "kernel_build_and_signed_artifact_proof": "pending-canonical-kernel-rebuild-and-manifest-rebinding",
+    "hardware_probe_does_not_establish_kernel_capability": true
+  }
 }

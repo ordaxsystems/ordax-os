@@ -100,26 +100,8 @@
     {
       "id": "alpine-native-surface-runtime",
       "kind": "runtime-package-set",
-      "source_authority": "system/surface/bin/ordax-surface",
+      "source_authority": "system/surface/runtime/packages.txt",
       "branch": "v3.22",
-      "packages": [
-        "alpine-baselayout",
-        "busybox",
-        "ca-certificates",
-        "cage",
-        "xwayland",
-        "python3",
-        "py3-gobject3",
-        "gtk+3.0",
-        "webkit2gtk-4.1",
-        "seatd-launch",
-        "mesa-dri-gallium",
-        "mesa-egl",
-        "mesa-gbm",
-        "font-dejavu",
-        "eudev",
-        "libinput-udev"
-      ],
       "delivery_scope": [
         "native-surface-runtime"
       ],

@@ -803,8 +803,8 @@
       "source": "src/components/central/config.ts",
       "target": "system/surface/workspace/components/central/config.ts",
       "sha256": "fba00caf21c141ed761600ad32d0816657b8d857bfa40587b6588d24fd61c0ca",
-      "adaptedSha256": "3a6e96ab448f4a64a10d8b46c806087557b4c2d60f1ef54f99d069d38175c8a8",
-      "adaptation": "Authorized OS Surface adaptation: shared windows/sidebar and approved responsive layout; canonical session/catalog and explicit session-only Space selection, other backend integrations deferred Shared favorite-shortcut presentation consumes a single persisted preference and metadata owner; no installation or grants. 2026-10-14: explicit user adoption of Meridian editorial Central, canonical hero imagery, preserved planned examples, shared Store presentation and canonical symbol. Existing account/preferences/window owners retained. Full Meridian chrome correction: context/grouped rail, utility/account footer, persistent header search and centered icon dock; existing slots, providers and desktop reducer retained. Shared planned-service presentation preserves existing notes and gates; navigation search includes canonical target labels and routes Continuity to its own existing window. 2026-10-17: destination labels and managed window identity consume the canonical data-only Surface destination catalog; preferences reuse the same owner while icons, tones and layout remain presentation-owned. 2026-10-17: Central resolves label and managed window aliases through the Surface destination owner directly, independent of the favorites preference; inherited prototype names fail closed at destination lookup. 2026-10-18: Shared Meridian rail destinations and canonical Web/Native window label ownership. 2026-10-19: desktop shortcut metadata now carries stable canonical IDs, keeping shortcut identity and appearance tied to the shared destination model.",
+      "adaptedSha256": "cf6ef7e080d82464ef8b8dbfda0ba33a001918218d5e12e60f8e9441d758fe48",
+      "adaptation": "Authorized OS Surface adaptation: shared windows/sidebar and approved responsive layout; canonical session/catalog and explicit session-only Space selection, other backend integrations deferred Shared favorite-shortcut presentation consumes a single persisted preference and metadata owner; no installation or grants. 2026-10-14: explicit user adoption of Meridian editorial Central, canonical hero imagery, preserved planned examples, shared Store presentation and canonical symbol. Existing account/preferences/window owners retained. Full Meridian chrome correction: context/grouped rail, utility/account footer, persistent header search and centered icon dock; existing slots, providers and desktop reducer retained. Shared planned-service presentation preserves existing notes and gates; navigation search includes canonical target labels and routes Continuity to its own existing window. 2026-10-17: destination labels and managed window identity consume the canonical data-only Surface destination catalog; preferences reuse the same owner while icons, tones and layout remain presentation-owned. 2026-10-17: Central resolves label and managed window aliases through the Surface destination owner directly, independent of the favorites preference; inherited prototype names fail closed at destination lookup. 2026-10-18: Shared Meridian rail destinations and canonical Web/Native window label ownership. 2026-10-19: desktop shortcut metadata now carries stable canonical IDs, keeping shortcut identity and appearance tied to the shared destination model. 2026-10-23: unavailable Intelligence presentation now derives the display title from the canonical Surface destination registry; no new UI owner, install state or inference authority.",
       "adaptationHistory": [
         {
           "date": "2026-10-14",
@@ -835,6 +835,11 @@
           "date": "2026-10-19",
           "sha256": "7971512d056853c543b69292f179aa4ec0fccad89c5c9e5735477cf9ee709346",
           "reason": "Before adding stable IDs to desktop shortcut metadata"
+        },
+        {
+          "date": "2026-10-23",
+          "sha256": "3a6e96ab448f4a64a10d8b46c806087557b4c2d60f1ef54f99d069d38175c8a8",
+          "reason": "Previous reviewed Surface adaptation before canonical name binding."
         }
       ]
     },
@@ -861,8 +866,8 @@
       "source": "src/components/central/desktop.tsx",
       "target": "system/surface/workspace/components/central/desktop.tsx",
       "sha256": "94a04a3b31089cb251c59308f90365390b2113cfd148b06d463a63c0b395e8fa",
-      "adaptedSha256": "ac8057290805ba5ee6f7ef201950243070475345e1653bef92846426859e9159",
-      "adaptation": "Shared modal navigation uses the existing Dialog focus owner and canonical app window state; search/return-to-home work without custom overlay or Escape listener. Approved layout and unavailable services preserved. Native search label and 44-pixel close target improve menu touch access without new controls or palette. Canonical accessibility preferences apply across Web via shared tokens and runtime, responsive controls and relative typography; no new storage or authority. Shared favorite-shortcut presentation consumes a single persisted preference and metadata owner; no installation or grants. 2026-10-12: selectable USB color profile references Native semantic tokens; layout unchanged. 2026-10-12: shared color-palette service and stylesheet consumed by Web/Native; no copied palette.; contextual Central/Desktop destination feedback and canonical sidebar width preserved (2026-10-12) Notification UX uses one shared renderer/CSS and the canonical preferences; Web explicitly has no authorized delivery adapter. Native updater ownership is unchanged. 2026-10-13: duplicate Aura/Intelligence presentation state and submit UI removed from DesktopContent after the canonical WindowContent -> AuraContent route passed deterministic build and real Chromium; Store/account/navigation ownership remains unchanged. 2026-10-14: explicit user adoption of Meridian editorial Central, canonical hero imagery, preserved planned examples, shared Store presentation and canonical symbol. Existing account/preferences/window owners retained. 2026-10-14: user-requested Meridian presentation; shared tokens, explicit planned examples and existing canonical owners retained. Full Meridian chrome correction: context/grouped rail, utility/account footer, persistent header search and centered icon dock; existing slots, providers and desktop reducer retained. Additive canonical Profile catalog reader, composed by Web; original planned copy and no activation retained. Add explicit pending-parity notes without reducing planned features or changing service authority. 2026-10-16: reviewed existing shared Meridian Spaces presentation and lazy Settings journey integration; real account/selection and planned examples remain separate. Account-backed Spaces now render the existing authorized read/selection ports in Meridian cards, with pending/error/empty states and no operational metrics; full examples remain explicit and separate. 2026-10-16: catalog failure copy no longer implies that an authenticated account is disconnected. Account redesign: in-system session/context and local shortcuts, canonical portal management in a labelled new tab; readable rail profile and status, without duplicating account authority. Shared planned-service presentation preserves existing notes and gates; navigation search includes canonical target labels and routes Continuity to its own existing window. 2026-10-19: desktop shortcut buttons use stable destination IDs, canonical glyph ownership and keyboard navigation, with full-label tooltips for clipped names.",
+      "adaptedSha256": "c0373dfb7add9caa2177b707f06343e68bd3213905c1c4fd2dfbf71cdad6e8d8",
+      "adaptation": "Shared modal navigation uses the existing Dialog focus owner and canonical app window state; search/return-to-home work without custom overlay or Escape listener. Approved layout and unavailable services preserved. Native search label and 44-pixel close target improve menu touch access without new controls or palette. Canonical accessibility preferences apply across Web via shared tokens and runtime, responsive controls and relative typography; no new storage or authority. Shared favorite-shortcut presentation consumes a single persisted preference and metadata owner; no installation or grants. 2026-10-12: selectable USB color profile references Native semantic tokens; layout unchanged. 2026-10-12: shared color-palette service and stylesheet consumed by Web/Native; no copied palette.; contextual Central/Desktop destination feedback and canonical sidebar width preserved (2026-10-12) Notification UX uses one shared renderer/CSS and the canonical preferences; Web explicitly has no authorized delivery adapter. Native updater ownership is unchanged. 2026-10-13: duplicate Aura/Intelligence presentation state and submit UI removed from DesktopContent after the canonical WindowContent -> AuraContent route passed deterministic build and real Chromium; Store/account/navigation ownership remains unchanged. 2026-10-14: explicit user adoption of Meridian editorial Central, canonical hero imagery, preserved planned examples, shared Store presentation and canonical symbol. Existing account/preferences/window owners retained. 2026-10-14: user-requested Meridian presentation; shared tokens, explicit planned examples and existing canonical owners retained. Full Meridian chrome correction: context/grouped rail, utility/account footer, persistent header search and centered icon dock; existing slots, providers and desktop reducer retained. Additive canonical Profile catalog reader, composed by Web; original planned copy and no activation retained. Add explicit pending-parity notes without reducing planned features or changing service authority. 2026-10-16: reviewed existing shared Meridian Spaces presentation and lazy Settings journey integration; real account/selection and planned examples remain separate. Account-backed Spaces now render the existing authorized read/selection ports in Meridian cards, with pending/error/empty states and no operational metrics; full examples remain explicit and separate. 2026-10-16: catalog failure copy no longer implies that an authenticated account is disconnected. Account redesign: in-system session/context and local shortcuts, canonical portal management in a labelled new tab; readable rail profile and status, without duplicating account authority. Shared planned-service presentation preserves existing notes and gates; navigation search includes canonical target labels and routes Continuity to its own existing window. 2026-10-19: desktop shortcut buttons use stable destination IDs, canonical glyph ownership and keyboard navigation, with full-label tooltips for clipped names. 2026-10-23: the desktop Aura shortcut now derives its visible title from the existing Surface destination catalog instead of a copied product string; all window and shortcut lifecycle owners remain unchanged.",
       "adaptationHistory": [
         {
           "date": "2026-10-14",
@@ -893,6 +898,11 @@
           "date": "2026-10-19",
           "sha256": "b577cf6712bc23924cb14d96b0f590c95c4e826e6aa1d6fc1ece26c3cca9a291",
           "reason": "Before stable shortcut identity, keyboard grid navigation and clipped-label titles"
+        },
+        {
+          "date": "2026-10-23",
+          "sha256": "ac8057290805ba5ee6f7ef201950243070475345e1653bef92846426859e9159",
+          "reason": "Previous reviewed desktop integration before consuming canonical intelligence destination title."
         }
       ]
     },
@@ -1166,15 +1176,24 @@
       "target": "system/services/i18n/catalog/boot.mjs",
       "owner": "OrdaX OS localization",
       "purpose": "Single data-only boot catalog shared by full Surface localization and thin pt-BR Web startup",
-      "sha256": "85c5a5559cc9d9beddec9aec9da9e2ccf65ecf1dbd61b7f27e4bc085fdb267d9"
+      "sha256": "85c5a5559cc9d9beddec9aec9da9e2ccf65ecf1dbd61b7f27e4bc085fdb267d9",
+      "adaptedSha256": "8a46b337bc07cc02a645c3f2b0123ad893fddea0b791752125cd6224e7d942f0",
+      "adaptation": "2026-10-23: commit c0be849c removed the unused deferred First Run boot message (pt-BR and en-US) from the canonical data-only boot catalog. The original upstream SHA-256 is retained for historical provenance; this adapted digest pins the exact current code without weakening the Native Central verifier."
     },
     {
       "target": "system/surface/workspace/components/central/window-content.tsx",
       "owner": "OrdaX OS Surface",
       "purpose": "Canonical per-window recovery or shared Store styles, without duplicated app/domain authority",
       "sha256": "8b23ed58a8c8ab15dd04d6142e5d8ec27e80d548eeec464693d063c79508a31a",
-      "adaptedSha256": "c5e312d688f30938cc3c230a49d2a0fdbe71c6bea3f5b5e02775762af9f7f5eb",
-      "adaptation": "Canonical Store loaded on demand; resource load failures offer explicit warned page reload because browsers cache failed module loads, while content retry resets only its own window. 2026-10-13: WindowContent routes Aura/Intelig?ncia to the canonical AuraContent consumer while preserving the existing per-window error boundary; provider ownership and execution authority remain outside the Surface."
+      "adaptedSha256": "882b5b086d74b943a7b9ae6194343f49410101706e7b4dcc1641c5b85f21ff6f",
+      "adaptation": "Canonical Store loaded on demand; resource load failures offer explicit warned page reload because browsers cache failed module loads, while content retry resets only its own window. 2026-10-13: WindowContent routes Aura/Intelig?ncia to the canonical AuraContent consumer while preserving the existing per-window error boundary; provider ownership and execution authority remain outside the Surface. 2026-10-23: window content now resolves the Intelligence/Aura destination title and compatibility alias from the existing canonical Surface destination-catalog.mjs instead of hardcoding duplicate names; no new window or provider is created.",
+      "adaptationHistory": [
+        {
+          "date": "2026-10-23",
+          "sha256": "c5e312d688f30938cc3c230a49d2a0fdbe71c6bea3f5b5e02775762af9f7f5eb",
+          "reason": "Previous reviewed Surface adaptation before canonical name binding."
+        }
+      ]
     },
     {
       "target": "system/surface/workspace/components/store/styles.css",

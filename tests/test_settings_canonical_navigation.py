@@ -7,7 +7,7 @@ SETTINGS_CSS = ROOT / "system" / "surface" / "ui" / "settings.css"
 QUICK_NETWORK = ROOT / "system" / "surface" / "ui" / "network-quick-panel.mjs"
 NATIVE = ROOT / "system" / "composition" / "native" / "main.mjs"
 WEB = ROOT / "system" / "composition" / "web" / "main.tsx"
-APP = ROOT / "system" / "apps" / "settings" / "app.mjs"
+APP = ROOT / "system" / "services" / "system-ui" / "settings" / "app.mjs"
 SETTINGS_I18N = ROOT / "system" / "services" / "i18n" / "catalog" / "settings.mjs"
 NOTIFICATIONS_I18N = ROOT / "system" / "services" / "i18n" / "catalog" / "notifications.mjs"
 NETWORK_I18N = ROOT / "system" / "services" / "i18n" / "catalog" / "network.mjs"
@@ -23,13 +23,15 @@ class SettingsCanonicalNavigationTests(unittest.TestCase):
         self.assertIn('id: "regional"', controls)
         self.assertIn('id: "network"', controls)
         self.assertIn('id: "notifications"', controls)
+        self.assertIn('id: "audio"', controls)
+        self.assertIn('activeSection === "audio"', controls)
+        self.assertIn("renderAudioCapability(view)", controls)
         self.assertIn("validSettingsSection", controls)
         self.assertIn("SETTINGS_SECTIONS.some((section) => section.id === value)", controls)
         self.assertIn('activeSection === "network"', controls)
         self.assertIn('activeSection === "notifications"', controls)
         self.assertIn("renderNotifications(view)", controls)
         self.assertIn("definition.sectionId !== sectionId", controls)
-        self.assertNotIn('id: "audio"', controls)
         self.assertIn('id: "display"', controls)
         self.assertNotIn("detailId", controls)
 
@@ -41,6 +43,23 @@ class SettingsCanonicalNavigationTests(unittest.TestCase):
         self.assertIn("unsubscribeActivation?.()", controls)
         self.assertIn('lifecycle.getAppTarget("settings")', controls)
         self.assertIn('activationPort.publish({ appId: "settings", target: nextSection })', controls)
+
+    def test_settings_network_polls_are_scoped_and_non_overlapping(self):
+        controls = SETTINGS.read_text(encoding="utf-8")
+        # Network tray remains the always-on owner; Settings must not duplicate reads
+        # while another Settings section is selected.
+        self.assertIn('findSlot()?.closest(SETTINGS_WINDOW_SELECTOR)', controls)
+        self.assertIn('activeSection !== "network" || !windowNode', controls)
+        self.assertIn('windowNode.hidden', controls)
+        self.assertIn('windowNode.dataset.active !== "true"', controls)
+        self.assertIn("setInterval(refreshActiveNetwork, 5000)", controls)
+        self.assertEqual(controls.count("setInterval(refreshActiveNetwork, 5000)"), 1)
+        self.assertNotIn("networkManagementPoll", controls)
+        self.assertIn("if (sectionChanged) refreshActiveNetwork()", controls)
+        self.assertIn("networkReadInFlight", controls)
+        self.assertIn("networkManagementReadInFlight", controls)
+        self.assertIn("networkReadInFlight = false", controls)
+        self.assertIn("networkManagementReadInFlight = false", controls)
 
     def test_quick_wifi_opens_canonical_network_section(self):
         quick = QUICK_NETWORK.read_text(encoding="utf-8")

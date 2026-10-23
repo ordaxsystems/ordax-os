@@ -1,3 +1,4 @@
+import { postNativeHostMessage } from "../../adapters/native/host-bridge.mjs";
 import { createNativeIntelligenceService } from "../../services/intelligence/native-service.mjs";
 
 export const NATIVE_INTELLIGENCE_HOST_REQUEST_EVENT =
@@ -36,16 +37,8 @@ function validateHostRequest(value) {
   });
 }
 
-function resolveBrowserBridge(windowRef) {
-  const bridge = windowRef?.webkit?.messageHandlers?.ordaxBrowser;
-  if (!bridge || typeof bridge.postMessage !== "function") {
-    throw new Error("Native Intelligence privileged browser bridge is unavailable");
-  }
-  return bridge;
-}
-
 function postMessage(windowRef, payload) {
-  resolveBrowserBridge(windowRef).postMessage(JSON.stringify(payload));
+  postNativeHostMessage(windowRef, payload);
 }
 
 /**

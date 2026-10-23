@@ -169,8 +169,10 @@ contrato, estado, resposta tardia e Memory vivem nos testes da Intelligence.
 ### Canvas read-only de Work/Activity/Result (P0 de #1572)
 
 A primeira composição funcional de resultado adaptativo está em
-`system/services/intelligence/work-canvas.mjs`, consumida por
-`system/apps/activity/view-model.mjs` e pela UI **Activity já existente**.
+`system/services/intelligence/work-canvas.mjs`, consumida pelo app canônico
+`ordaxsystems/ordax-apps/apps/activity/src/view-model.mjs` e por sua UI. O OS
+mantém o serviço neutro de plataforma; a projeção e a interface Activity têm
+fonte única em Apps.
 Seu input é somente o snapshot validado de `ordax.personal-runtime/1`;
 ela não cria um novo Work, store, ação, router, autorização ou receipt.
 Os contratos canônicos permanecem `ordax.personal-work-item/1`,
@@ -219,8 +221,10 @@ A entrega do `local-ai-runtime.erofs` usa o release-agent do Base owner,
 o mesmo envelope Ed25519 e a prova v4 canônica. A Surface não busca nem
 instala modelos. O owner tenta adquirir o artefato somente após a conclusão
 do First Run e quando não há atualização Base pendente, por um processo
-opcional e cancelável do seu próprio `agent.sh`, **sem bloquear** o loop
-crítico de Base/ESP. Uma falha permanece restrita à IA local, com status
+opcional e cancelável do seu próprio `agent.sh`, **depois** das operações
+críticas de Base/ESP e suspenso se `boot-refresh-required` estiver pendente.
+A espera de parada é limitada e não bloqueia indefinidamente o owner.
+Uma falha permanece restrita à IA local, com status
 privado separado (`aura-status.json`). Um receipt privado autoriza
 reaproveitamento eficiente e o watcher do `ordax-run` pode iniciar o
 launcher Native depois da entrega, preservando validação independente do

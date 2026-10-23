@@ -57,7 +57,8 @@ class PublicSiteRuntimeSmokeTests(unittest.TestCase):
         account = (self.out / "conta/index.html").read_text(encoding="utf-8")
         plans = json.loads((ROOT / "docs/contracts/entitlements.json").read_text(encoding="utf-8"))["plan_catalog"]["plans"]
         for plan in plans:
-            self.assertIn("<li>" + plan["display_name"] + "</li>", account)
+            self.assertIn('<h3 translate="no">' + plan["display_name"] + "</h3>", account)
+            self.assertIn('data-plan-id="' + plan["id"] + '"', account)
         self.assertNotIn("<!-- ORDAX_ACCOUNT_PLAN_CATALOG -->", account)
         for asset in ("account-dashboard.css", "account-portal.js", "ordax-design-tokens.css", "ordax-font.css"):
             fingerprint = build.sha256_bytes((self.out / "assets" / asset).read_bytes())[:16]

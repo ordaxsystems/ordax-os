@@ -79,7 +79,14 @@ class OwnerUsbDurablePowerTransitionTests(unittest.TestCase):
         source = (ROOT / "system/services/base-update/agent.sh").read_text(encoding="utf-8")
         self.assertEqual(source.count("stop_aura_worker() {"), 1)
         self.assertEqual(source.count("launch_optional_aura_worker() {"), 1)
-        self.assertEqual(source.splitlines().count("        launch_optional_aura_worker"), 1)
+        self.assertEqual(source.splitlines().count("    launch_optional_aura_worker"), 1)
+        self.assertEqual(source.count("reconcile_optional_aura_worker() {"), 1)
+        self.assertEqual(source.splitlines().count("        reconcile_optional_aura_worker"), 1)
+        self.assertLess(
+            source.rindex("prepare_dev_base_postboot_promotion\n        fi"),
+            source.rindex("reconcile_optional_aura_worker\n    else"),
+        )
+        self.assertIn('if base_update_priority_pending; then\n            stop_aura_worker', source)
         self.assertEqual(source.count("trap stop_aura_worker EXIT"), 1)
         for signal, code in (("TERM", 143), ("INT", 130), ("HUP", 129)):
             self.assertIn(f"trap 'stop_aura_worker; exit {code}' {signal}", source)
@@ -97,6 +104,11 @@ class OwnerUsbDurablePowerTransitionTests(unittest.TestCase):
         self.assertIn('record_host_power_stage root-readonly', transition)
         self.assertIn("owner_usb_seal_root_for_power", transition)
         self.assertIn("owner_usb_restore_root_after_abort", transition)
+        self.assertIn('record_owner_usb_seal_failure_detail "$failed_seal_stage"', transition)
+        self.assertLess(
+            transition.index("owner_usb_restore_root_after_abort"),
+            transition.index('record_owner_usb_seal_failure_detail "$failed_seal_stage"'),
+        )
         self.assertIn("owner_usb_all_root_mounts_read_only", source)
         self.assertIn("owner_usb_auxiliary_partitions_quiesced", source)
         self.assertIn("if ! remount_root_read_only_for_power; then", transition)
@@ -133,7 +145,8 @@ class OwnerUsbDurablePowerTransitionTests(unittest.TestCase):
                 'stop_acpi_button_listener() { echo acpi-stopped >>"$TRACE"; }',
                 'terminate_persistent_host_agents() { echo agents-stopped >>"$TRACE"; [ "$AGENT_FAIL" != 1 ]; }',
                 'remount_root_read_only_for_power() { echo readonly-remount >>"$TRACE"; return 1; }',
-                'owner_usb_seal_root_for_power() { echo owner-usb-seal >>"$TRACE"; [ "$SEAL_FAIL" != 1 ]; }',
+                'owner_usb_seal_root_for_power() { OWNER_USB_SEAL_FAILURE_STAGE=superblock-remount; echo owner-usb-seal >>"$TRACE"; [ "$SEAL_FAIL" != 1 ]; }',
+                'record_owner_usb_seal_failure_detail() { printf "detail:%s\\n" "$1" >>"$TRACE"; }',
                 'owner_usb_restore_root_after_abort() { echo owner-usb-restore >>"$TRACE"; return 0; }',
                 'root_filesystem_is_read_only() { echo readonly-proof >>"$TRACE"; return 0; }',
                 'remount_root_read_write_after_power_abort() { echo readonly-reversal >>"$TRACE"; return 0; }',
@@ -150,6 +163,7 @@ class OwnerUsbDurablePowerTransitionTests(unittest.TestCase):
                 "PRODUCT_MODE": mode,
                 "GUARDIAN_LOG": str(Path(temp) / "guardian.log"),
                 "POWER_LAST_FAILURE": str(Path(temp) / "last-failure"),
+                "OWNER_USB_SEAL_DIAGNOSTIC": str(Path(temp) / "last-seal-diagnostic"),
                 "TRACE": str(trace),
                 "SYNC_FAIL": "1" if sync_fails else "0",
                 "AGENT_FAIL": "1" if agents_fail else "0",
@@ -169,6 +183,7 @@ class OwnerUsbDurablePowerTransitionTests(unittest.TestCase):
         self.assertIn("restored:kernel-transition-returned", trace)
         self.assertIn("owner-usb-seal", trace)
         self.assertIn("owner-usb-restore", trace)
+        self.assertFalse(any(item.startswith("detail:") for item in trace))
         self.assertLess(trace.index("owner-usb-seal"), trace.index("kernel-tool:poweroff"))
         self.assertNotIn("readonly-remount", trace)
         self.assertNotIn("readonly-proof", trace)
@@ -194,6 +209,8 @@ class OwnerUsbDurablePowerTransitionTests(unittest.TestCase):
         self.assertIn("owner-usb-seal", trace)
         self.assertIn("owner-usb-restore", trace)
         self.assertIn("restored:remount-failed", trace)
+        self.assertIn("detail:superblock-remount", trace)
+        self.assertLess(trace.index("owner-usb-restore"), trace.index("detail:superblock-remount"))
         self.assertNotIn("kernel-tool:poweroff", trace)
 
     def test_unquiesced_agents_never_reach_final_sync_or_kernel_power(self):
@@ -217,6 +234,56 @@ class OwnerUsbDurablePowerTransitionTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("readonly-remount", trace)
         self.assertNotIn("kernel-tool:poweroff", trace)
+
+    def test_failed_seal_detail_records_only_bounded_numeric_errno_after_recovery(self):
+        # Exercise the Guardian's real receipt writer without privileged mounts.
+        source = GUARDIAN.read_text(encoding="utf-8")
+        detail = function_source(source, "record_owner_usb_seal_failure_detail")
+        detail = detail.replace("/bin/busybox awk", "awk")
+        detail = detail.replace("/bin/busybox mv", "mv")
+        detail = detail.replace("/bin/busybox sync", "true")
+        with tempfile.TemporaryDirectory(prefix="ordax-power-seal-receipt-") as temp:
+            root = Path(temp)
+            info = root / "mountinfo"
+            info.write_text("11 1 8:34 / / rw - ext4 /dev/sda2 rw\n", encoding="utf-8")
+            detail = detail.replace("/proc/self/mountinfo", str(info))
+            stderr = root / "helper.stderr"
+            stderr.write_text(
+                "ordax-usb-mountattr: superblock-ro target=/: Device or resource busy errno=16\n"
+                "ordax-usb-mountattr: possible writer pid=123 fd=4 mount_id=11 comm=private\n",
+                encoding="utf-8",
+            )
+            receipt = root / "last-seal-diagnostic"
+            env = {
+                **os.environ,
+                "OWNER_USB_HELPER_ERROR": str(stderr),
+                "OWNER_USB_SEAL_DIAGNOSTIC": str(receipt),
+            }
+            success = subprocess.run(
+                ["sh", "-c", detail + "\nrecord_owner_usb_seal_failure_detail superblock-remount"],
+                env=env, text=True, capture_output=True, check=False,
+            )
+            self.assertEqual(success.returncode, 0, success.stderr)
+            data = receipt.read_text(encoding="utf-8")
+            self.assertIn("schema=ordax.power-seal-diagnostic/1\n", data)
+            self.assertIn("stage=superblock-remount\n", data)
+            self.assertIn("errno=16\n", data)
+            self.assertIn("mount_major_minor=8:34\n", data)
+            self.assertIn("recovery=restored\n", data)
+            self.assertNotIn("pid=", data)
+            self.assertNotIn("Device or resource busy", data)
+            self.assertEqual(receipt.stat().st_mode & 0o777, 0o600)
+            unknown = subprocess.run(
+                ["sh", "-c", detail + "\nrecord_owner_usb_seal_failure_detail alias-discovery"],
+                env=env, text=True, capture_output=True, check=False,
+            )
+            self.assertEqual(unknown.returncode, 0, unknown.stderr)
+            self.assertIn("errno=unavailable\n", receipt.read_text(encoding="utf-8"))
+
+    def test_mountattr_reports_stable_numeric_errno_for_power_diagnostics(self):
+        source = (ROOT / "bootstrap/dev-base/ordax_usb_mountattr.c").read_text(encoding="utf-8")
+        self.assertIn("strerror(failure_errno), failure_errno", source)
+        self.assertIn("errno=%d", source)
 
 
 if __name__ == "__main__":

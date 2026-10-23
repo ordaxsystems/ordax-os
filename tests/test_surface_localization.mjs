@@ -105,8 +105,8 @@ test("desktop shell is born in English when regional locale is English", () => {
   const localization = createSurfaceLocalization(preferenceRuntime("en-US"));
   const markup = createDesktopShellMarkup(localization);
   assert.match(markup, /aria-label="Main applications"/);
-  assert.match(markup, />Files</);
-  assert.match(markup, />Your files</);
+  assert.match(markup, /data-launch-app="settings"/);
+  assert.ok(markup.includes("Main applications"));
   assert.match(markup, /placeholder="Search applications"/);
   assert.match(markup, />Area 01</);
   assert.match(markup, />Connectivity unknown</);
@@ -123,7 +123,7 @@ for (const locale of SURFACE_COMPLETE_LOCALES) {
     try {
       const markup = createDesktopShellMarkup(localization);
       const buttons = [...markup.matchAll(/<button\b([^>]*)>([\s\S]*?)<\/button>/g)];
-      for (const appId of ["central", "apps", "files", "studio", "settings"]) {
+      for (const appId of ["central", "apps", "settings"]) {
         const shortcut = buttons.find(([, attributes]) => attributes.includes(`data-desktop-app="${appId}"`));
         assert.ok(shortcut, `Desktop shortcut ${appId} is present in ${locale}`);
         assert.ok(shortcut[2].includes(getDesktopShortcutGlyphMarkup(appId)), `${appId} uses its canonical Meridian glyph`);
@@ -135,7 +135,7 @@ for (const locale of SURFACE_COMPLETE_LOCALES) {
       const [, brand] = brandButtons[0];
       assert.ok(brand.includes('data-show-desktop'));
       assert.ok(brand.includes('aria-label="OrdaX OS"'));
-      const railExcluded = ["files", "studio", "settings"];
+      const railExcluded = ["settings"];
       const expectedMenuApps = [...railExcluded, "system"];
       const navigation = buttons.filter(([, attributes]) =>
         attributes.includes('class="ordax-rail-button os-nav-item"') &&

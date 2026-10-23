@@ -186,13 +186,47 @@ EOF
     fi
 }
 
+# Native dependencies belong to the same canonical helper manifest.
+# A Git checkout may arrive before an A/B Base boot, but never install a
+# shell which needs an absent or incompatible rootfs-owned executable.
+# There is no alternate download, local copy, shadow installer or bypass.
+require_native_prerequisite() {
+    requirement=$1
+    [ -n "$requirement" ] || return 0
+    case "$requirement" in
+        usr/local/bin/ordax-*@*/*) ;;
+        *) echo "ordax-dev-helpers: invalid native prerequisite" >&2; return 1 ;;
+    esac
+    native_relative=${requirement%%@*}
+    native_expected_abi=${requirement#*@}
+    case "$native_relative:$native_expected_abi" in
+        *..*|*//*|*\\*|*' '*|*'?'*|*'#'*|*'%'*) return 1 ;;
+    esac
+    native_parent=$root_prefix/usr/local/bin
+    native_target=$root_prefix/$native_relative
+    if [ ! -d "$native_parent" ] || [ -L "$native_parent" ] ||
+       [ ! -f "$native_target" ] || [ -L "$native_target" ] ||
+       [ ! -x "$native_target" ]; then
+        echo "ordax-dev-helpers: required native Base helper unavailable: $native_relative" >&2
+        return 1
+    fi
+    native_actual_abi=$("$native_target" --abi 2>/dev/null) || {
+        echo "ordax-dev-helpers: native Base helper ABI probe failed: $native_relative" >&2
+        return 1
+    }
+    if [ "$native_actual_abi" != "$native_expected_abi" ]; then
+        echo "ordax-dev-helpers: native Base helper ABI mismatch: $native_relative" >&2
+        return 1
+    fi
+}
+
 [ -f "$HELPER_MANIFEST" ] && [ ! -L "$HELPER_MANIFEST" ] || {
     echo "ordax-dev-helpers: canonical helper manifest is missing or unsafe" >&2
     exit 1
 }
 
 helper_count=0
-while IFS="$(printf '\t')" read -r source_relative target_relative; do
+while IFS="$(printf '\t')" read -r source_relative target_relative native_prerequisite; do
     case "$source_relative" in
         ""|\#*) continue ;;
         /*|*".."*)
@@ -216,6 +250,7 @@ while IFS="$(printf '\t')" read -r source_relative target_relative; do
             exit 1
             ;;
     esac
+    require_native_prerequisite "$native_prerequisite" || exit 1
     stage_helper "$source_relative" "$target_relative"
     helper_count=$((helper_count + 1))
 done <"$HELPER_MANIFEST"

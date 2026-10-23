@@ -14,9 +14,18 @@ import (
 func main() {
 	confirm := flag.String("confirm", "", "re-enumerate and confirm one previously listed target token")
 	planWrite := flag.Bool("plan-write", false, "emit the blocked future raw-disk write plan for a confirmed target")
+	inspect := flag.Bool("inspect", false, "inspect the confirmed existing USB GPT read-only; no repair or update")
 	flag.Parse()
 	if flag.NArg() != 0 {
 		fmt.Fprintln(os.Stderr, "ordax-creator-targets: unexpected positional arguments")
+		os.Exit(2)
+	}
+	if *inspect && *planWrite {
+		fmt.Fprintln(os.Stderr, "ordax-creator-targets: --inspect and --plan-write are mutually exclusive")
+		os.Exit(2)
+	}
+	if *inspect && *confirm == "" {
+		fmt.Fprintln(os.Stderr, "ordax-creator-targets: --inspect requires --confirm")
 		os.Exit(2)
 	}
 	if *planWrite && *confirm == "" {
@@ -55,6 +64,18 @@ func main() {
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "ordax-creator-targets:", err)
 		os.Exit(1)
+	}
+	if *inspect {
+		inspection, err := windowsadapter.InspectRemovableTargetReadOnly(target)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "ordax-creator-targets:", err)
+			os.Exit(1)
+		}
+		if err := encoder.Encode(inspection); err != nil {
+			fmt.Fprintln(os.Stderr, "ordax-creator-targets:", err)
+			os.Exit(1)
+		}
+		return
 	}
 	if *planWrite {
 		plan, err := windowsadapter.BuildBlockedRawDiskWritePlan(target, *confirm)

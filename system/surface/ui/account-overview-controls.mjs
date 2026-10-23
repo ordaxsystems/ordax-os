@@ -1,6 +1,7 @@
 import { assertAppActivationPort } from "../../contracts/app-activation.mjs";
 import { deriveAuthorizedSpaces } from "../../services/spaces/authorized-view.mjs";
 import { readRememberedLoginEmail } from "../../services/account/remembered-login-email.mjs";
+import { HOSTED_ACCOUNT_SIGNUP_URL, isHostedSignupEnabled, requestNativeHostedSignup } from "../../services/account/hosted-signup.mjs";
 import { describeSpacePresentation } from "../../services/spaces/presentation.mjs";
 import {
   assertIdentityActionsPort,
@@ -128,6 +129,7 @@ export function mountAccountOverviewControls(
   accountLifecycle = null,
   profileTaxonomy = null,
   spaceExperience = null,
+  hostedSignupBridge = null,
 ) {
   if (!(root instanceof Element)) {
     throw new TypeError("Account overview controls require a Surface root Element");
@@ -214,6 +216,7 @@ export function mountAccountOverviewControls(
   let credentialEmailDraft = readRememberedLoginEmail(documentObject.defaultView);
   let credentialPasswordDraft = "";
   let registrationPolicy = null;
+  let hostedSignupAllowed = false;
   let registrationLegalAccepted = false;
   let registrationPolicyPending = false;
   let closePasswordDraft = "";
@@ -458,22 +461,32 @@ export function mountAccountOverviewControls(
       signIn.disabled = pendingAction !== null || !isIdentityActionSupported(actionsSnapshot, "sign-in");
       actions.append(signIn);
 
-      const register = node(
-        documentObject,
-        "button",
-        "ordax-account-action",
-        pendingAction === "register" ? t("account.action.registering") : t("account.action.register"),
-      );
-      register.type = "button";
-      register.dataset.accountIdentityAction = "register";
-      register.disabled = (
-        pendingAction !== null
-        || registrationPolicyPending
-        || !registrationPolicy
-        || !registrationLegalAccepted
-        || !isIdentityActionSupported(actionsSnapshot, "register")
-      );
-      actions.append(register);
+      if (isIdentityActionSupported(actionsSnapshot, "register")) {
+        const register = node(
+          documentObject,
+          "button",
+          "ordax-account-action",
+          pendingAction === "register" ? t("account.action.registering") : t("account.action.register"),
+        );
+        register.type = "button";
+        register.dataset.accountIdentityAction = "register";
+        register.disabled = (
+          pendingAction !== null
+          || registrationPolicyPending
+          || !registrationPolicy
+          || !registrationLegalAccepted
+        );
+        actions.append(register);
+      } else if (hostedSignupAllowed) {
+        const hostedRegistration = node(documentObject, "a", "ordax-account-action", t("account.action.hostedRegister"));
+        hostedRegistration.href = HOSTED_ACCOUNT_SIGNUP_URL;
+        hostedRegistration.target = "_blank";
+        hostedRegistration.rel = "noopener noreferrer";
+        hostedRegistration.dataset.accountHostedSignup = "";
+        actions.append(hostedRegistration);
+      } else {
+        actions.append(node(documentObject, "small", "ordax-account-status", t("account.registration.unavailable")));
+      }
     } else if (action) {
       const label = pendingAction === action
         ? action === "sign-in"
@@ -1217,9 +1230,9 @@ export function mountAccountOverviewControls(
     if (
       destroyed
       || registrationPolicyPending
+      || sessionSnapshot.state !== "signed-out"
       || credentialsPort === null
       || typeof credentialsPort.registrationPolicy !== "function"
-      || !isIdentityActionSupported(actionsSnapshot, "register")
     ) {
       if (!isIdentityActionSupported(actionsSnapshot, "register")) {
         registrationPolicy = null;
@@ -1230,13 +1243,15 @@ export function mountAccountOverviewControls(
     registrationPolicyPending = true;
     try {
       const policy = await credentialsPort.registrationPolicy();
-      if (destroyed) return;
-      registrationPolicy = policy.registrationEnabled === true ? policy : null;
+      if (destroyed || sessionSnapshot.state !== "signed-out") return;
+      hostedSignupAllowed = isHostedSignupEnabled(policy);
+      registrationPolicy = policy.registrationEnabled === true && isIdentityActionSupported(actionsSnapshot, "register") ? policy : null;
       if (registrationPolicy === null) registrationLegalAccepted = false;
     } catch {
       if (!destroyed) {
         registrationPolicy = null;
         registrationLegalAccepted = false;
+        hostedSignupAllowed = false;
       }
     } finally {
       registrationPolicyPending = false;
@@ -1392,6 +1407,11 @@ export function mountAccountOverviewControls(
   };
 
   const onClick = (event) => {
+    const hostedSignup = event.target.closest("[data-account-hosted-signup]");
+    if (hostedSignup && root.contains(hostedSignup)) {
+      requestNativeHostedSignup(event, root.ownerDocument.defaultView, hostedSignupBridge);
+      return;
+    }
     const sectionButton = event.target.closest("[data-account-section]");
     if (
       sectionButton
@@ -1595,7 +1615,9 @@ export function mountAccountOverviewControls(
     } else {
       registrationPolicy = null;
       registrationLegalAccepted = false;
+      hostedSignupAllowed = false;
     }
+    if (sessionSnapshot.state === "signed-out") void refreshRegistrationPolicy();
     actionMessage = "";
     replaceView();
     if (activeSection === "spaces" && sessionSnapshot.state === "signed-in") {
@@ -1621,7 +1643,7 @@ export function mountAccountOverviewControls(
       registrationLegalAccepted = false;
     }
     replaceView();
-    if (isIdentityActionSupported(actionsSnapshot, "register") && registrationPolicy === null) {
+    if (sessionSnapshot.state === "signed-out" && registrationPolicy === null) {
       void refreshRegistrationPolicy();
     }
   });
@@ -1655,7 +1677,7 @@ export function mountAccountOverviewControls(
   if (activeSection === "spaces" && sessionSnapshot.state === "signed-in") {
     refreshSpaces();
   }
-  if (isIdentityActionSupported(actionsSnapshot, "register")) {
+  if (sessionSnapshot.state === "signed-out" && credentialsPort) {
     void refreshRegistrationPolicy();
   }
 

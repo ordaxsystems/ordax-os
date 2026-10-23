@@ -4,6 +4,7 @@ import { validateComponentRuntimeMetadata } from "../../contracts/component-runt
 import { validateComponentRuntime } from "../../contracts/component-runtime.mjs";
 import { composeTrustedComponentContext } from "./runtime-loader.mjs";
 import { assertAppDataPort } from "../../contracts/app-data.mjs";
+import { assertDeviceLocalFileSpacePort } from "../../contracts/file-space.mjs";
 import { revokeInstalledAppCapabilityReader } from "../device-agent/installed-app-capability-reader.mjs";
 import {
   assertComponentMountParent,
@@ -115,6 +116,9 @@ export async function loadVerifiedCurrentComponentRuntime({
   let returnedMount = false;
   try {
     assertComponentMountParent(context, { label: "Current component" });
+    if (Object.prototype.hasOwnProperty.call(context, "fileSpace")) {
+      throw new TypeError("Caller-supplied Native File Space is not trusted");
+    }
     // The privileged Native bootstrap is the only owner of App Data binding.
     // External apps cannot be read/imported when its expected binding is absent.
     const trustedBeforeImport = requireTrustedAppData
@@ -135,20 +139,24 @@ export async function loadVerifiedCurrentComponentRuntime({
     if (current.source !== "slot") {
       throw new TypeError("Bundled source cannot be used as an installed component slot");
     }
-    // An ESM import executes immediately in the privileged Surface realm.
-    // Bind/inspect the host context BEFORE importing any current-slot code:
-    // an unscoped File Space cannot be made safe by a JS revocation wrapper.
-    // Only a separate opaque-origin execution boundary plus host-side
-    // authorization and draining may allow this capability in the future.
+    // Compose host-owned context before the isolated importer is called.
+    // Files may receive only the fixed device-local scope through its host
+    // provider; account/shared Spaces remain a distinct, unsupported owner.
     const effectiveContext = trustedBeforeImport ?? await bounded(
       () => composeTrustedComponentContext(id, context), limit, "trusted context",
     );
     trustedContext = effectiveContext;
     if (Object.prototype.hasOwnProperty.call(effectiveContext, "fileSpace")) {
-      throw new TypeError("Same-origin component cannot receive Native File Space without isolated host authority");
+      if (id !== "files") {
+        throw new TypeError("Native File Space is available only to the verified Files slot");
+      }
+      assertDeviceLocalFileSpacePort(effectiveContext.fileSpace);
     }
     const url = verifiedModuleUrl(slotSource, current);
-    const imported = await bounded(() => importModule(url), limit, "import");
+    // The importer receives the exact verified current-slot observation so a
+    // Native isolated runtime can revalidate revision and identity before each
+    // privileged operation. The module URL alone does not carry revision.
+    const imported = await bounded(() => importModule(url, current), limit, "import");
     const runtime = validateComponentRuntime(imported?.componentRuntime, {
       componentId: id, version: current.version,
     });
@@ -177,15 +185,15 @@ export async function loadVerifiedCurrentComponentRuntime({
     releaseMountRoot = null;
     returnedMount = true;
     return Object.freeze({
-      destroy() {
+      async destroy() {
         if (destroyed) return;
         destroyed = true;
         revokeInstalledAppCapabilityReader(trustedContext?.capabilityReader);
-        try { runtimeMount.destroy(); } finally { releaseRoot?.(); }
+        try { await runtimeMount.destroy(); } finally { releaseRoot?.(); }
       },
     });
   } catch (error) {
-    try { mounted?.destroy(); } catch { /* component errors cannot crash Surface */ }
+    try { await mounted?.destroy(); } catch { /* component errors cannot crash Surface */ }
     try { releaseMountRoot?.(); } catch { /* mount root cleanup is isolated */ }
     onError?.(error);
     return null;

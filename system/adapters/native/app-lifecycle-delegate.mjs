@@ -1,3 +1,4 @@
+import { hasNativeHostBridge, postNativeHostMessage } from "./host-bridge.mjs";
 import { hasNativeExternalFirstPartyProbation } from "../../services/apps/external-first-party-policy.mjs";
 import {
   validateAppLifecyclePlan,
@@ -18,8 +19,6 @@ const REQUEST_OPTIONS = Object.freeze({
   redirect: "error",
 });
 
-const BROWSER_BRIDGE_HANDLER = "ordaxBrowser";
-
 function requestPostLifecycleProbation(windowRef, plan, result) {
   if (
     result.state !== "accepted"
@@ -28,14 +27,13 @@ function requestPostLifecycleProbation(windowRef, plan, result) {
   ) {
     return false;
   }
-  const bridge = windowRef?.webkit?.messageHandlers?.[BROWSER_BRIDGE_HANDLER] ?? null;
-  if (!bridge || typeof bridge.postMessage !== "function") {
+  if (!hasNativeHostBridge(windowRef)) {
     return false;
   }
-  bridge.postMessage(JSON.stringify({
+  postNativeHostMessage(windowRef, {
     type: "component.probation.request",
     componentId: plan.request.appId,
-  }));
+  });
   return true;
 }
 

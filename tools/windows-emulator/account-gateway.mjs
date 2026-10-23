@@ -1,4 +1,4 @@
-import { validateIdentityCredentialInput } from "../../system/contracts/identity-credentials.mjs";
+import { validateIdentityCredentialInput, validateIdentityRegistrationInput } from "../../system/contracts/identity-credentials.mjs";
 import { validateEntitlementDecision } from "../../system/contracts/entitlements.mjs";
 import { validateAccountCloseRequest } from "../../system/contracts/account-lifecycle.mjs";
 
@@ -248,13 +248,36 @@ export function createEmulatorAccountGateway({ origin = "", fetchImpl = globalTh
       if (result.status !== 200 || policy === null || policy.$schema !== "prototype-ordax.registration-legal-policy/1") {
         return { status: 503, value: null };
       }
-      // Native Stable/MVP keeps account creation closed until legal and email
-      // activation proofs are complete. The emulator mirrors that policy.
-      return { status: result.status, value: { ...policy, registrationEnabled: false } };
+      // The server is the only authority for registration availability.
+      return { status: result.status, value: policy };
     }
 
     if (method === "POST" && path === "/auth/register") {
-      return { status: 503, value: null };
+      let credentials;
+      try {
+        if (body.byteLength > MAX_CREDENTIAL_BYTES) return { status: 413, value: null };
+        const form = decodeCredentials(body, "application/x-www-form-urlencoded", ["email", "password", "legal_acceptance"]);
+        if (form === null) return { status: 400, value: null };
+        credentials = validateIdentityRegistrationInput({
+          email: form.email,
+          password: form.password,
+          legalAccepted: form.legal_acceptance === "accepted",
+        });
+      } catch {
+        return { status: 400, value: null };
+      }
+      const form = new URLSearchParams({
+        email: credentials.email,
+        password: credentials.password,
+        legal_acceptance: "accepted",
+      });
+      const registration = await upstream("POST", path, form.toString(), "application/x-www-form-urlencoded");
+      if (![200, 202, 303].includes(registration.status)) return { status: registration.status, value: null };
+      const session = await readVerifiedSession();
+      if (session === null) return { status: 503, value: null };
+      return session.authenticated === true
+        ? { status: 200, value: session }
+        : { status: 202, value: { ...session, confirmationRequired: true } };
     }
 
     if (method === "POST" && path === "/auth/login") {

@@ -4,14 +4,14 @@ import unittest
 ROOT = Path(__file__).resolve().parents[1]
 SURFACE = ROOT / "system" / "surface" / "ui"
 APPS = ROOT / "system" / "apps"
+SYSTEM_UI = ROOT / "system" / "services" / "system-ui"
 PREFERENCES = ROOT / "system" / "services" / "preferences"
 APP_CATALOG = APPS / "catalog.mjs"
 APP_CONTRACT = ROOT / "system" / "contracts" / "first-party-app.mjs"
 APP_OWNERS = {
-    "files": APPS / "files" / "app.mjs",
-    "settings": APPS / "settings" / "app.mjs",
-    "account": APPS / "account" / "app.mjs",
-    "system": APPS / "system" / "app.mjs",
+    "settings": SYSTEM_UI / "settings" / "app.mjs",
+    "account": SYSTEM_UI / "account" / "app.mjs",
+    "system": SYSTEM_UI / "system" / "app.mjs",
 }
 APPEARANCE = PREFERENCES / "appearance.mjs"
 ACCESSIBILITY = PREFERENCES / "accessibility.mjs"
@@ -50,7 +50,6 @@ UPDATE_PRESENTATION = ROOT / "system" / "services" / "update" / "presentation.mj
 DESKTOP_SHELL = SURFACE / "desktop-shell.mjs"
 SURFACE_LOCALIZATION = ROOT / "system" / "services" / "i18n" / "surface.mjs"
 SURFACE_LIFECYCLE = ROOT / "system" / "contracts" / "surface-render-lifecycle.mjs"
-FILE_SPACE_CONTROLS = SURFACE / "file-space-controls.mjs"
 
 
 
@@ -70,6 +69,52 @@ WEB_WORKFLOW = ROOT / ".github" / "workflows" / "surface-web-candidate.yml"
 
 
 class SurfaceUiContractTests(unittest.TestCase):
+    def test_desktop_clock_reuses_regional_formatters(self):
+        source = DESKTOP_SHELL.read_text(encoding="utf-8")
+        section = source.split("export function mountDesktopClock(", 1)[1]
+        self.assertIn("const nextKey = JSON.stringify([locale, timeZone]);", section)
+        self.assertIn("if (nextKey !== formattingKey)", section)
+        self.assertEqual(section.count("new Intl.DateTimeFormat("), 2)
+        self.assertIn("timeFormatter.format(now)", section)
+        self.assertIn("dateFormatter.format(now)", section)
+        self.assertIn("preferencePort?.subscribe(render)", section)
+        self.assertIn("clock.clearInterval(timer)", section)
+
+    def test_optional_system_data_reads_require_visible_relevant_section(self):
+        source = SYSTEM_OVERVIEW_CONTROLS.read_text(encoding="utf-8")
+        self.assertIn("const refreshVisibleSection = () => {", source)
+        self.assertIn("findSlot()?.closest(SYSTEM_WINDOW_SELECTOR)", source)
+        self.assertIn('windowNode.dataset.active !== "true"', source)
+        self.assertIn("windowNode.hidden", source)
+        self.assertIn("let metricsPrimed = false", source)
+        self.assertIn("let historyPrimed = false", source)
+        self.assertIn("let recoveryPrimed = false", source)
+        self.assertIn('["overview", "storage", "diagnostics"].includes(activeSection)', source)
+        self.assertIn('if (activeSection === "updates")', source)
+        self.assertIn("historyPrimed = false;\n      refreshVisibleSection();", source)
+        tail = source.split("const unsubscribeUpdate = updatePort?.subscribe(", 1)[1]
+        self.assertIn("refreshVisibleSection();", tail)
+        self.assertNotIn("if (metricsPort) void refreshMetrics();", tail)
+        self.assertNotIn("if (historyPort) void refreshHistory();", tail)
+        self.assertNotIn("if (recoveryPort) void refreshRecovery();", tail)
+        self.assertIn("void refreshMetrics();", source)
+        self.assertIn("void refreshHistory();", source)
+        self.assertIn("void refreshRecovery();", source)
+
+    def test_keyboard_layout_read_waits_for_visible_regional_settings(self):
+        source = SETTINGS_OVERVIEW_CONTROLS.read_text(encoding="utf-8")
+        self.assertIn("let keyboardLayoutPrimed = false", source)
+        self.assertIn("const refreshVisibleKeyboardLayout = () => {", source)
+        self.assertIn("findSlot()?.closest(SETTINGS_WINDOW_SELECTOR)", source)
+        self.assertIn('activeSection !== "regional"', source)
+        self.assertIn("windowNode.hidden", source)
+        self.assertIn('windowNode.dataset.active !== "true"', source)
+        self.assertIn("keyboardLayoutPrimed = true", source)
+        self.assertIn("void refreshKeyboardLayout();", source)
+        self.assertIn("refreshVisibleKeyboardLayout();", source)
+        self.assertNotIn("if (keyboardLayoutPort) void refreshKeyboardLayout();", source)
+        self.assertIn("keyboardLayoutPort.configure(layoutId)", source)
+
     def test_visual_surface_app_preference_and_store_sources_exist(self):
         for path in (
             SURFACE / "surface.mjs",
@@ -77,7 +122,6 @@ class SurfaceUiContractTests(unittest.TestCase):
             DESKTOP_SHELL,
             SURFACE_LOCALIZATION,
             SURFACE_LIFECYCLE,
-            FILE_SPACE_CONTROLS,
             SYSTEM_OVERVIEW_CONTROLS,
             ACCOUNT_OVERVIEW_CONTROLS,
             SETTINGS_OVERVIEW_CONTROLS,
@@ -85,8 +129,7 @@ class SurfaceUiContractTests(unittest.TestCase):
             NETWORK_QUICK_PANEL,
             SURFACE / "tokens.css",
             SURFACE / "surface.css",
-            SURFACE / "files.css",
-            SURFACE / "system.css",
+                        SURFACE / "system.css",
             SURFACE / "account.css",
             SURFACE / "settings.css",
             POWER_CONTROLS,
@@ -179,7 +222,7 @@ class SurfaceUiContractTests(unittest.TestCase):
         self.assertIn("getAppTarget(appId)", surface)
         self.assertIn("setAppTarget(appId, target)", surface)
         self.assertIn('type: "app.target"', surface)
-        for path in (FILE_SPACE_CONTROLS, SYSTEM_OVERVIEW_CONTROLS, ACCOUNT_OVERVIEW_CONTROLS, SETTINGS_OVERVIEW_CONTROLS):
+        for path in (SYSTEM_OVERVIEW_CONTROLS, ACCOUNT_OVERVIEW_CONTROLS, SETTINGS_OVERVIEW_CONTROLS):
             text = path.read_text(encoding="utf-8")
             self.assertIn("contracts/surface-render-lifecycle.mjs", text, path)
             self.assertIn("assertSurfaceRenderLifecycle", text, path)
@@ -187,14 +230,6 @@ class SurfaceUiContractTests(unittest.TestCase):
             self.assertNotIn("MutationObserver", text, path)
         self.assertFalse(INTERNET_BROWSER_CONTROLS.exists())
         self.assertFalse(INTERNET_BROWSER_SHORTCUTS.exists())
-
-        files = FILE_SPACE_CONTROLS.read_text(encoding="utf-8")
-        self.assertIn('lifecycle.setAppTarget("files", next.path)', files)
-        self.assertIn('const initialTarget = lifecycle.getAppTarget("files") ?? "/"', files)
-        self.assertIn("loadWithFallback(activation.target)", files)
-        self.assertIn('lifecycle.setAppTarget("files", listing.path)', files)
-        self.assertIn('lifecycle.setAppTarget("files", null)', files)
-        self.assertNotIn("localStorage", files)
 
     def test_first_party_apps_have_independent_owners_and_thin_catalog(self):
         catalog = APP_CATALOG.read_text(encoding="utf-8")
@@ -208,8 +243,9 @@ class SurfaceUiContractTests(unittest.TestCase):
             if app_id in {"files"}:
                 self.assertIn("./component.mjs", owner)
             else:
-                self.assertIn("../../services/components/manifests/apps.mjs", owner)
-            self.assertIn(f'./{app_id}/app.mjs', catalog)
+                self.assertIn("../../components/manifests/apps.mjs", owner)
+            source_import = f'../services/system-ui/{app_id}/app.mjs'
+            self.assertIn(source_import, catalog)
         self.assertNotIn('./network/app.mjs', catalog)
         self.assertFalse((APPS / "network").exists())
         self.assertIn("listFirstPartyApps", catalog)
@@ -229,33 +265,18 @@ class SurfaceUiContractTests(unittest.TestCase):
         self.assertNotIn('"identity-session"', text)
         self.assertNotIn('"identity-actions"', text)
 
-    def test_files_uses_formal_shared_extension_slot(self):
-        files = APP_OWNERS["files"].read_text(encoding="utf-8")
-        surface = (SURFACE / "surface.mjs").read_text(encoding="utf-8")
-        css = (SURFACE / "files.css").read_text(encoding="utf-8")
-        web_html = (COMPOSITION / "index.html").read_text(encoding="utf-8")
-        native_html = (NATIVE_COMPOSITION / "index.html").read_text(encoding="utf-8")
-        self.assertIn('kind: "extension"', files)
-        self.assertIn('extensionId: "file-space"', files)
-        self.assertIn('panel.kind === "extension"', surface)
-        self.assertIn("dataset.appExtension", surface)
-        self.assertIn('.ordax-files-view', css)
-        self.assertIn("../../surface/ui/files.css", native_html)
-
-    def test_assistant_remove_first_gate_is_explicit_and_never_implies_installation(self):
+    def test_assistant_external_source_never_implies_native_installation(self):
         import json
         policy = json.loads(
             (ROOT / "docs/contracts/runtime-component-package.json").read_text(encoding="utf-8")
         )
         self.assertEqual(
-            policy["prelaunch_remove_first_pending"].get("assistant"),
-            {
-                "state": "platform-source-removed-app-source-pending",
-                "expected_repository": "ordaxsystems/ordax-apps",
-                "platform_source_absence_required": True,
-                "distribution_activation_allowed": False,
-            },
+            policy["canonical_package_source_repository_by_component"].get("assistant"),
+            "ordaxsystems/ordax-apps",
         )
+        self.assertNotIn("assistant", policy["prelaunch_remove_first_pending"])
+        self.assertNotIn("assistant", policy["canonical_external_source_repository_by_component"])
+        self.assertFalse(policy["slot_activation_available"])
         self.assertFalse((APPS / "assistant").exists())
         self.assertFalse((ROOT / "system/services/i18n/catalog/assistant.mjs").exists())
         self.assertNotIn('./assistant/app.mjs', APP_CATALOG.read_text(encoding="utf-8"))
@@ -266,8 +287,19 @@ class SurfaceUiContractTests(unittest.TestCase):
         self.assertNotIn('assistantMemoryCapture', native)
         self.assertNotIn('railButton("assistant"', DESKTOP_SHELL.read_text(encoding="utf-8"))
         self.assertNotIn('ASSISTANT_SOURCE_MESSAGES', SURFACE_LOCALIZATION.read_text(encoding="utf-8"))
-        self.assertNotIn("assistant", policy["native_loopback_broker_supported_components"])
+        # The only packaged Aura source is in Apps; the OS broker may read
+        # its exact verified current slot without bundling another app or
+        # obtaining health, installation, promotion or model authority.
+        self.assertIn("assistant", policy["native_loopback_broker_supported_components"])
+        self.assertTrue(policy["native_loopback_broker_read_only"])
+        self.assertTrue(policy["native_loopback_broker_requires_component_trust"])
+        self.assertTrue(policy["runtime_file_read_revalidates_slot_and_hash"])
+        self.assertNotIn("assistant", policy["native_loopback_broker_health_mutation_components"])
         self.assertNotIn("assistant", policy["runtime_health_bridge_supported_components"])
+        self.assertNotIn("assistant", policy["native_pending_decision_supported_components"])
+        self.assertFalse(policy["canonical_component_trust_anchor_pinned"])
+        self.assertFalse(policy["pending_health_promotion_available"])
+        self.assertFalse(policy["publish_allowed"])
 
 
     def test_browser_engine_stays_in_platform_without_bundled_internet_app(self):
@@ -465,8 +497,9 @@ class SurfaceUiContractTests(unittest.TestCase):
         self.assertIn("contracts/surface-render-lifecycle.mjs", controls)
         self.assertIn("assertSurfaceRenderLifecycle", controls)
         self.assertIn("localization.subscribe", controls)
-        self.assertIn("mountPowerControls(root, powerActions, surface)", native_main)
-        self.assertIn("/__ordax/native/session", adapter)
+        self.assertIn("mountPowerControls(root, powerActions, surface, updateWatcher)", native_main)
+        self.assertIn('from "./session-read.mjs"', adapter)
+        self.assertIn("/__ordax/native/session", (ROOT / "system/adapters/native/session-read.mjs").read_text(encoding="utf-8"))
         self.assertIn("/__ordax/native/power", adapter)
         self.assertNotIn("surface/ui", adapter)
         self.assertNotIn("innerHTML", adapter)

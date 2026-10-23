@@ -264,6 +264,48 @@ class DevBaseProducerTests(unittest.TestCase):
             ):
                 builder.validate_rootfs_source(rootfs_dir, SOURCE)
 
+    def test_builder_and_consumer_agree_on_native_atomic_exchange_base_requirement(self):
+        native = "usr/local/bin/ordax-checkout-exchange"
+        manifest = (ROOT / "system/services/base-update/dev-helper-manifest.tsv").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn(
+            "bootstrap/dev-base/ordax-pull\tusr/local/bin/ordax-pull\t"
+            "usr/local/bin/ordax-checkout-exchange@prototype-ordax.checkout-exchange/1",
+            manifest,
+        )
+        self.assertEqual(builder.REQUIRED_ROOTFS_PATHS, consumer.REQUIRED_ROOTFS_PATHS)
+        self.assertIn(native, builder.REQUIRED_ROOTFS_PATHS)
+
+    def test_missing_native_exchange_helper_cannot_enter_signed_base_consumer(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            rootfs = write_rootfs_fixture(root) / "rootfs"
+            helper = rootfs / "usr/local/bin/ordax-checkout-exchange"
+            helper.unlink()
+            archive = root / "unsigned-malformed-rootfs.tar"
+            with tarfile.open(archive, "w:") as output:
+                for child in sorted(rootfs.rglob("*")):
+                    output.add(
+                        child,
+                        arcname=child.relative_to(rootfs).as_posix(),
+                        recursive=False,
+                    )
+            with self.assertRaisesRegex(
+                consumer.DevBaseChannelError,
+                "missing required files.*usr/local/bin/ordax-checkout-exchange",
+            ):
+                consumer._validate_rootfs_archive(archive)
+            (rootfs / consumer.ROOTFS_MARKER).write_text(
+                SOURCE + "\n", encoding="ascii"
+            )
+            (rootfs / ".ordax-base").mkdir(exist_ok=True)
+            with self.assertRaisesRegex(
+                consumer.DevBaseChannelError,
+                "required file is missing: usr/local/bin/ordax-checkout-exchange",
+            ):
+                consumer.verify_versioned_rootfs(rootfs, SOURCE)
+
     def test_large_hardlink_fanout_is_serialized_once_and_verified_by_both_sides(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

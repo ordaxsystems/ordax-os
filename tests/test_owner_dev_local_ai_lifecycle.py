@@ -122,15 +122,22 @@ class OwnerDevLocalAiLifecycleTests(unittest.TestCase):
 
     def test_watcher_retries_failed_or_crashed_backend_without_busy_rehash(self):
         watcher = RUN.read_text(encoding="utf-8")
-        self.assertIn('aura_poll_ticks=10', watcher)
-        self.assertIn('if [ "$aura_poll_ticks" -ge 10 ]; then', watcher)
-        self.assertIn('if [ "$aura_retry_ticks" -ge 60 ]; then', watcher)
+        self.assertIn('aura_retry_seconds=60', watcher)
+        self.assertIn('if [ "$aura_retry_seconds" -ge 60 ]; then', watcher)
+        self.assertIn("/bin/busybox sleep 10 &", watcher)
+        self.assertIn("            sleep 10 &", watcher)
+        self.assertIn("watch_sleep_pid=$!", watcher)
+        self.assertIn('trap \'stop_observer "$watch_sleep_pid"; exit 0\' HUP INT TERM', watcher)
+        self.assertNotIn("SURFACE_RUNTIME_PROVISION_MARKER", watcher)
+        self.assertNotIn("watch_owner_provisioning", watcher)
+        self.assertNotRegex(watcher, r"(?m)^\\s*bb sleep 1\\s*$")
         self.assertIn('if [ "$aura_seen_hash" != "$ready_hash" ]; then', watcher)
         self.assertIn('bb grep -qx "IMAGE_SHA256=$ready_hash" "$LOCAL_AI_LIFECYCLE"', watcher)
-        self.assertIn('local_ai_lifecycle stop\n                                local_ai_lifecycle start', watcher)
+        self.assertRegex(watcher, r'local_ai_lifecycle stop\n[ ]+local_ai_lifecycle start')
         self.assertIn('if local_ai_running; then', watcher)
-        self.assertIn('aura_retry_ticks=0', watcher)
-        self.assertIn('if [ "$aura_retry_ticks" -lt 60 ]; then', watcher)
+        self.assertIn('aura_retry_seconds=0', watcher)
+        self.assertIn('if [ "$aura_retry_seconds" -lt 60 ]; then', watcher)
+        self.assertIn('aura_retry_seconds=$((aura_retry_seconds + 10))', watcher)
         self.assertIn('Aura process exited; attempting bounded Native restart', watcher)
         self.assertNotIn('if [ "$aura_announced" = no ] && [ -f "$AURA_READY_MARKER" ]', watcher)
         self.assertIn("while process_alive \"$ENTRY_PID\"; do", watcher)
@@ -138,6 +145,79 @@ class OwnerDevLocalAiLifecycleTests(unittest.TestCase):
         syntax = subprocess.run(["/bin/sh", "-n", str(RUN)],
                                 capture_output=True, text=True, timeout=15)
         self.assertEqual(syntax.returncode, 0, syntax.stderr)
+
+    @unittest.skipUnless(os.name == "posix" and Path("/proc").is_dir(), "Linux procfs required")
+    def test_aura_observer_reaps_sleep_child_on_shutdown(self):
+        """Run the actual launcher observer functions; SIGTERM must not orphan sleep."""
+        import signal
+        import time
+
+        source = RUN.read_text(encoding="utf-8")
+
+        def function(name, next_name):
+            start = source.index(name + "() {")
+            end = source.index("\n" + next_name + "() {", start)
+            return source[start:end]
+
+        helpers = "\n".join((
+            function("process_alive", "stop_observer"),
+            function("stop_observer", "cleanup_observers"),
+            function("watch_optional_aura", "start_guardian_tail"),
+        ))
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            pid_path = root / "watch.pid"
+            shell = root / "observer.sh"
+            shell.write_text(
+                "#!/bin/sh\nset -eu\n"
+                "ENTRY_PID=$$\n"
+                f"AURA_READY_MARKER='{root / 'not-staged'}'\n"
+                f"LOCAL_AI_LIFECYCLE='{root / 'not-installed'}'\n"
+                + helpers
+                + "\nwatch_optional_aura &\n"
+                + f"""printf '%s\\n' "$!" >'{pid_path}'\n"""
+                + 'wait "$!"\n',
+                encoding="utf-8",
+            )
+            process = subprocess.Popen(
+                ["/bin/sh", str(shell)], start_new_session=True,
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+            )
+            watcher_pid = None
+            sleep_pid = None
+            try:
+                deadline = time.monotonic() + 5
+                while time.monotonic() < deadline:
+                    if pid_path.exists() and pid_path.read_text().strip():
+                        watcher_pid = int(pid_path.read_text().strip())
+                        children = Path(f"/proc/{watcher_pid}/task/{watcher_pid}/children")
+                        if children.exists():
+                            # A newly forked child may briefly still be /bin/sh
+                            # before execing the exact sleep executable.
+                            for candidate in children.read_text().split():
+                                try:
+                                    argv = Path(f"/proc/{candidate}/cmdline").read_bytes().split(b"\0")
+                                except FileNotFoundError:
+                                    continue
+                                if b"10" in argv:
+                                    sleep_pid = int(candidate)
+                                    break
+                            if sleep_pid is not None:
+                                break
+                    time.sleep(0.02)
+                self.assertIsNotNone(sleep_pid, "Aura watcher must own an execed sleep child")
+                os.kill(watcher_pid, signal.SIGTERM)
+                stdout, stderr = process.communicate(timeout=4)
+                self.assertEqual(process.returncode, 0, stdout + stderr)
+                self.assertFalse(Path(f"/proc/{sleep_pid}").exists(),
+                                 "sleep child survived observer shutdown")
+            finally:
+                try:
+                    os.killpg(process.pid, signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
+                if process.poll() is None:
+                    process.communicate(timeout=4)
 
     def test_ordax_run_owns_start_and_stop_not_bootstrap_or_surface(self):
         text = RUN.read_text(encoding="utf-8")

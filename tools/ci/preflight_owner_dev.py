@@ -23,7 +23,9 @@ FORBIDDEN_OWNER_TOKENS = (
 TESTS = (
     "tests/test_owner_rootfs_capabilities.py",
     "tests/test_dev_git_flow.py",
+    "tests/test_dev_checkout_exchange.py",
     "tests/test_dev_pull_expected_sha.py",
+    "tests/test_owner_fetch_power_regression.py",
     "tests/test_dev_network_contract.py",
     "tests/test_owner_surface_health_budget.py",
     "tests/test_system_runtime_contract.py",

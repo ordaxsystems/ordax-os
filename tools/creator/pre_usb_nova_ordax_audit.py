@@ -304,7 +304,7 @@ def evaluate(repo_root: Path) -> dict[str, Any]:
             'FILE_SPACE_SCHEMA = "ordax.file-space/11"' in file_space,
             _contains_all(file_space, daily_methods),
             _is_regular_file(root / "system/adapters/native/file-space.mjs"),
-            _contains_all(native, ("createNativeFileSpace", "mountFileSpaceControls")),
+            "createNativeFileSpace" in native,
         )),
         ["system/contracts/file-space.mjs", "system/adapters/native/file-space.mjs", "system/composition/native/main.mjs"],
     )

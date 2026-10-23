@@ -14,7 +14,7 @@ function assertDisabledAction(markup, label) {
 
 // The fixture supplies only the contracted presentation port. Identity and
 // native menu behavior are exercised separately with the real portal client.
-function fixture(hash = "#dados-pessoais") {
+function fixture(hash = "#dados-pessoais", { usageResponse = null } = {}) {
   const nodes = new Map();
   const get = id => {
     if (!nodes.has(id)) nodes.set(id, { id, innerHTML: "", textContent: "", dataset: {},
@@ -61,8 +61,13 @@ function fixture(hash = "#dados-pessoais") {
       subscribe(callback) { observer = callback; callback(snapshot); return () => {}; },
     },
   };
-  vm.runInNewContext(source, { window, document, location });
-  return { nodes, get, emit(status, email = "") { snapshot = Object.freeze({ status, email }); observer(snapshot); },
+  const usageFetches = [];
+  const fetch = async (url, options) => {
+    usageFetches.push({ url, options });
+    return { ok: usageResponse !== null, json: async () => usageResponse };
+  };
+  vm.runInNewContext(source, { window, document, location, fetch });
+  return { nodes, get, usageFetches, emit(status, email = "") { snapshot = Object.freeze({ status, email }); observer(snapshot); },
     get reads() { return reads; }, get binds() { return binds; }, get disposals() { return disposals; } };
 }
 
@@ -154,7 +159,7 @@ test("mobile navigation and More partition every account section without repeate
 
 
 test("session revalidation preserves unrelated controls while still replacing identity-bearing content", () => {
-  for (const section of ["suporte", "preferencias", "consumo", "atividade"]) {
+  for (const section of ["suporte", "preferencias", "atividade"]) {
     const f = fixture(`#${section}`);
     const content = f.get("account-content");
     const initialWrites = content.markupWrites;
@@ -163,6 +168,14 @@ test("session revalidation preserves unrelated controls while still replacing id
       assert.equal(content.markupWrites, initialWrites, `${section}: ${status} must preserve its controls`);
     }
   }
+  // Consumo is now an authenticated and identity-scoped data panel. It must
+  // invalidate privately observed usage rather than preserve old markup.
+  const usage = fixture("#consumo");
+  usage.emit("authenticated", "person@example.test");
+  const whenAuthenticated = usage.get("account-content").markupWrites;
+  usage.emit("anonymous");
+  assert.ok(usage.get("account-content").markupWrites > whenAuthenticated);
+  assert.ok(usage.get("account-content").innerHTML.includes("Medição ainda não disponível"));
   for (const section of ["visao-geral", "dados-pessoais", "seguranca"]) {
     const f = fixture(`#${section}`);
     f.emit("authenticated", "person@example.test");
@@ -172,4 +185,47 @@ test("session revalidation preserves unrelated controls while still replacing id
     assert.ok(f.get("account-content").markupWrites > before);
     assert.ok(!f.get("account-content").innerHTML.includes("person@example.test"));
   }
+});
+
+test("MCP consumption shows only same-origin authenticated partial measurements and clears on logout", async () => {
+  const response = {
+    ok: true, schema: "ordax.product-mcp-usage/1",
+    observed_only: true, billable: false, coverage: "partial_observational",
+    quota: null, charge: null, collection_active_now: true,
+    current_month: "2026-10-01", previous_month: "2026-09-01",
+    entries: [{ month: "2026-10-01", tool_name: "ordax_targets", tool_calls: 3 }],
+  };
+  const f = fixture("#consumo", { usageResponse: response });
+  assert.equal(f.usageFetches.length, 0, "anonymous page never queries private measurements");
+  f.emit("authenticated", "proof@example.invalid");
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(f.usageFetches.length, 1);
+  assert.equal(f.usageFetches[0].url, "/account/usage/mcp");
+  assert.equal(f.usageFetches[0].options.credentials, "same-origin");
+  assert.equal(f.usageFetches[0].options.cache, "no-store");
+  assert.equal(f.usageFetches[0].options.headers.Authorization, undefined);
+  let html = f.get("account-content").innerHTML;
+  assert.ok(html.includes("Chamadas MCP observadas"));
+  assert.match(html, /class="billing-large" aria-live="polite">3<\/p>/);
+  assert.ok(html.includes("Não representam franquia, cobrança ou uso completo"));
+  f.emit("anonymous");
+  html = f.get("account-content").innerHTML;
+  assert.ok(html.includes("Medição ainda não disponível"));
+  assert.doesNotMatch(html, /class="billing-large" aria-live="polite">3<\/p>/);
+});
+
+test("MCP observations never turn forged bills or missing data into a usage-zero claim", async () => {
+  const forged = {
+    ok: true, schema: "ordax.product-mcp-usage/1",
+    observed_only: true, billable: true, coverage: "partial_observational",
+    quota: null, charge: null, collection_active_now: true,
+    current_month: "2026-10-01", previous_month: "2026-09-01",
+    entries: [{ month: "2026-10-01", tool_name: "ordax_targets", tool_calls: 7 }],
+  };
+  const f = fixture("#consumo", { usageResponse: forged });
+  f.emit("authenticated", "proof@example.invalid");
+  await new Promise(resolve => setImmediate(resolve));
+  const html = f.get("account-content").innerHTML;
+  assert.ok(html.includes("Medição ainda não disponível"));
+  assert.doesNotMatch(html, /class="billing-large" aria-live="polite">7<\/p>/);
 });

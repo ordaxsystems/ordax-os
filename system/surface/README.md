@@ -73,6 +73,48 @@ The machine-readable boundaries are:
 - `docs/contracts/module-boundaries.json`;
 - `docs/contracts/runtime-configuration.json`.
 
+## Multimedia runtime
+
+`runtime/packages.txt` is the package selection owner for both development
+provisioning and the immutable offline runtime. GStreamer Base/Bad are brought
+by WebKit; Good and libav are explicit requirements for the formats exposed by
+File Space (including MP3, WAV, FLAC, MP4 and WebM). The development launcher
+File Space (including MP3, WAV, FLAC, MP4 and WebM). PipeWire, WirePlumber,
+Pulse-compatible controls, ALSA compatibility and the GStreamer PipeWire plugin
+are explicit requirements for native output routing. One session wrapper starts
+the D-Bus, PipeWire and WirePlumber owners alongside Cage and stops only the
+processes it started in a private audio runtime directory, preserving the
+established Wayland `XDG_RUNTIME_DIR`. Native Settings routes physical ALSA or
+Bluetooth sinks, migrates active playback streams, and changes output volume or
+mute through one session-token-protected host provider; settings apply to the
+current session. A failed stream migration restores the previous default route
+and any streams already moved. If the service or a physical output is absent, Settings reports
+that state and the graphical Surface still starts.
+
+The development launcher checks the codec and audio-control payload and extends
+an existing dynamic runtime when needed. Verified EROFS runtimes remain immutable
+and offline: they receive these dependencies through a newly built, verified
+runtime artifact, never an APK install at boot. An older verified runtime can
+still boot the Surface; its presence alone does not prove multimedia readiness.
+The offline builder runs `runtime/media_runtime_probe.py` against the installed
+dependencies before packaging: plugin discovery plus encode/decode round trips
+for WAV, WebM, MP4, PNG and JPEG, then starts the session server in a device-less
+guest and reads its Pulse-compatible socket. Decode checks use disposable files
+and `fakesink`; the software session probe opens no physical device.
+
+Image, media and PDF previews share one bounded streaming reader in the Native
+File Space adapter. It validates MIME before consuming bytes, checks advertised
+length, enforces the limit while receiving unknown-length bodies, cancels failed
+transfers and rejects truncated responses. Supported formats describe preview
+input, not a guarantee that a particular host can decode every codec profile.
+
+Player and Image Viewer remain app-owned in `ordax-apps`, consuming the public
+File Space ports and verified app lifecycle. No second player/viewer is embedded
+in the OS. Physical speaker/headphone output, microphone/camera permission,
+GPU decoding and actual playback still need independent device validation.
+Camera and microphone requests remain denied until a user-facing permission
+flow is connected; installing capture-capable plugins does not activate capture.
+
 ## Rendering/runtime technology
 
 The owner/development USB currently uses Cage + Barkery/WebKitGTK as the native host candidate because that keeps the graphical host replaceable while reusing the same Surface source. That host choice is not architectural authority: it may be replaced if physical evidence shows a better runtime.
