@@ -36,8 +36,14 @@ runs:
         print(source['tree'])
         PY
         )"
+        # Windows Python produces CRLF. Strip only CR before validating
+        # the immutable Git source identity; never relax the SHA/tree checks.
+        pin="${pin//$'\r'/}"
         mapfile -t pinned <<< "$pin"
         test "${#pinned[@]}" -eq 3
+        test "${pinned[0]}" = "ordaxsystems/ordax-creator"
+        [[ "${pinned[1]}" =~ ^[0-9a-f]{40}$ ]]
+        [[ "${pinned[2]}" =~ ^[0-9a-f]{40}$ ]]
         git clone --quiet --single-branch --filter=blob:none --no-checkout "https://github.com/${pinned[0]}.git" "$CREATOR_CHECKOUT_ROOT"
         git -C "$CREATOR_CHECKOUT_ROOT" checkout --quiet --detach "${pinned[1]}"
         test "$(git -C "$CREATOR_CHECKOUT_ROOT" rev-parse HEAD)" = "${pinned[1]}"
