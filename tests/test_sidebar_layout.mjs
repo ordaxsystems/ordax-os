@@ -191,7 +191,7 @@ test("Native USB keeps the computer shell instead of switching to mobile geometr
   ]);
   const nativePhoneLayoutStyles = await Promise.all([
     "surface.css", "first-run.css", "workspace-areas.css", "system.css", "local-session-lock.css",
-    "space-switcher.css", "files.css",
+    "space-switcher.css",
   ].map(file => readFile(new URL(`../system/surface/ui/${file}`, import.meta.url), "utf8")));
   assert.doesNotMatch(nativeStyles, /@media\s*\(max-width:\s*(?:760|600|560|420)px/i, "Native must not switch to a phone layout at narrow viewport widths");
   assert.doesNotMatch(nativeStyles, /@media\s*\(max-width:\s*760px\)[\s\S]*?\.ordax-home-panel\s*\{[^}]*flex-direction:\s*column/i, "Native Home keeps its desktop information layout");
@@ -327,7 +327,7 @@ test("equivalent desktop shortcuts share Meridian identity colors without removi
   assert.ok(nativeShell.includes('data-desktop-app="central"'));
   assert.ok(nativeShell.includes('data-desktop-app="apps"'));
   assert.ok(nativeShell.includes('data-desktop-app="${appId}"'));
-  assert.ok(shortcutCatalog.includes('appId: "files"'));
+  assert.ok(!shortcutCatalog.includes('appId: "files"'));
   assert.ok(shortcutCatalog.includes('appId: "settings"'));
   assert.ok(webConfig.includes("id: 'projects'"));
   assert.ok(webConfig.includes("id: 'internet'"));
@@ -355,7 +355,7 @@ test("Native rail keeps shared Meridian destinations, area switching, and System
   assert.ok(menu.includes('data-nav-menu-group="dispositivo"'));
   assert.match(nativeShell, /listSurfaceShortcutAppIds\("navigation-menu"\)/);
   assert.match(menu, /const deviceApps = NAVIGATION_MENU_APP_IDS\.map\(id =>/);
-  assert.deepEqual(listSurfaceShortcutAppIds("navigation-menu"), ["files", "settings", "system"]);
+  assert.deepEqual(listSurfaceShortcutAppIds("navigation-menu"), ["settings", "system"]);
   assert.ok(menu.includes('data-nav-menu-app="${id}"'));
   assert.ok(nativeShell.includes('data-current-area>${t("surface.area.label", { ordinal: "01" })}</span>'));
   assert.ok(nativeShell.includes('data-area-switcher aria-label="${t("shell.areas.aria")}"'));

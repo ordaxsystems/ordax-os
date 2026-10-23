@@ -123,7 +123,7 @@ test("Files probation provider installs before bind and creates host only for an
   assert.equal(root.childNodes.length, 0);
   assert.equal(context.root.removed, true);
 
-  assert.equal(getFirstPartyApp("files")?.id, "files");
+  assert.equal(getFirstPartyApp("files"), null);
   assert.equal(hasNativeExternalFirstPartyModuleRead("files"), true);
   assert.equal(NATIVE_COMPONENT_PROBATION_IDS.includes("files"), true);
 });

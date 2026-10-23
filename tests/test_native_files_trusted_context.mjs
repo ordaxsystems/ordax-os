@@ -134,8 +134,8 @@ test("Files host ports require exact verified current slot, not appId or bundled
   assert.equal(provider("notes"), null);
 });
 
-test("Files host binding stays inactive while OS retains the bundled Files source", async () => {
-  assert.equal(getFirstPartyApp("files")?.id, "files");
+test("Files host binding requires exact verified slot after bundled source removal", async () => {
+  assert.equal(getFirstPartyApp("files"), null);
   assert.equal(hasNativeExternalFirstPartyModuleRead("files"), true);
   const composition = await readFile(
     new URL("../system/composition/native/main.mjs", import.meta.url), "utf8",

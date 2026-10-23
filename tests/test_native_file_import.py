@@ -7,7 +7,6 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 SERVER = ROOT / "system" / "surface" / "runtime" / "native_host_server.py"
 ADAPTER = ROOT / "system" / "adapters" / "native" / "file-space.mjs"
-CONTROLS = ROOT / "system" / "surface" / "ui" / "file-space-controls.mjs"
 CONTRACT = ROOT / "system" / "contracts" / "file-space.mjs"
 
 spec = importlib.util.spec_from_file_location("ordax_native_host_import_test", SERVER)
@@ -92,7 +91,6 @@ class NativeFileImportTests(unittest.TestCase):
     def test_contract_adapter_and_surface_require_explicit_user_selected_bytes(self):
         contract = CONTRACT.read_text(encoding="utf-8")
         adapter = ADAPTER.read_text(encoding="utf-8")
-        controls = CONTROLS.read_text(encoding="utf-8")
         self.assertIn('ordax.file-space/11', contract)
         self.assertIn("MAX_FILE_IMPORT_BYTES = 64 * 1024 * 1024", contract)
         self.assertIn("importFile()", contract)
@@ -100,11 +98,6 @@ class NativeFileImportTests(unittest.TestCase):
         self.assertIn("bytes instanceof Uint8Array", adapter)
         self.assertIn('"Content-Type": "application/octet-stream"', adapter)
         self.assertIn('credentials: "same-origin"', adapter)
-        self.assertIn('importPicker.type = "file"', controls)
-        self.assertIn("importPicker.multiple = false", controls)
-        self.assertIn("file.arrayBuffer()", controls)
-        self.assertIn("new Uint8Array(buffer)", controls)
-        self.assertIn("MAX_FILE_IMPORT_BYTES", controls)
 
     def test_server_streams_import_and_requires_binary_content_type(self):
         server = SERVER.read_text(encoding="utf-8")

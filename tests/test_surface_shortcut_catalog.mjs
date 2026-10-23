@@ -15,9 +15,9 @@ test("surface shortcut placements reference real first-party app owners", () => 
 });
 
 test("central, desktop, and dock shortcuts derive from the same ordered catalog", () => {
-  assert.deepEqual(listSurfaceShortcutAppIds("central"), ["files", "settings"]);
-  assert.deepEqual(listSurfaceShortcutAppIds("desktop"), ["files", "settings"]);
-  assert.deepEqual(listSurfaceShortcutAppIds("dock"), ["files", "settings", "store", "account", "system"]);
-  assert.deepEqual(listSurfaceShortcutAppIds("navigation-menu"), ["files", "settings", "system"]);
+  assert.deepEqual(listSurfaceShortcutAppIds("central"), ["settings"]);
+  assert.deepEqual(listSurfaceShortcutAppIds("desktop"), ["settings"]);
+  assert.deepEqual(listSurfaceShortcutAppIds("dock"), ["settings", "store", "account", "system"]);
+  assert.deepEqual(listSurfaceShortcutAppIds("navigation-menu"), ["settings", "system"]);
   assert.throws(() => listSurfaceShortcutAppIds("notes"), /Unknown Surface shortcut placement/);
 });

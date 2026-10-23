@@ -237,18 +237,12 @@ docs/INTELLIGENCE.md.
 Atividade, Rede and Notas; these six app sources are absent from
 `ordax-os/system/apps/`. That source transfer is complete, but it does not prove
 package signing, installation, Store inventory, offline bootstrap or independent
-updates. `system/apps/files/` remains the canonical Files source until the
-signed bootstrap handoff, Native slot-to-Space/File Space isolation, and USB
-boot/recovery gates pass. Native can mount an unknown-health Files candidate
-transiently in an opaque iframe with an empty synthetic File Space and no user
-data; bundled-source filtering still prevents it from shadowing the active OS
-owner. This contract probe neither promotes nor distributes the candidate. The
+updates. The Files product source and its bundled Surface UI were removed on 2026-10-23 for clean-OS testing. The OS retains File Space, project continuity, native user-root isolation, typed host ports and the signed-slot framework. Files is not preinstalled; no unsigned or unverified app will be activated. Distribution/health/rollback/physical boot gates remain pending. The
 portable Studio product is canonical in Apps; the old OS-local Studio UI and
 fixed launchers were removed on 2026-10-23 for clean-OS development. No
 external Studio package is installed or activated by this source cleanup.
 Loja, Ajustes, Conta and Sistema are structural OS surfaces in `ordax-os`. Keep those boundaries distinct:
-do not remove the active Files source or activate external packages by changing
-documentation flags alone.
+do not activate external packages by changing documentation flags alone.
 
 Upstream `ordax-os/main` at `a2eee8ea` (PR #2150) also hardens the Native
 Product Runtime handoff: ABI readiness now requires an explicit empty
@@ -1467,7 +1461,7 @@ SYSTEM_ENTRYPOINT_IMPLEMENTED=YES
 SURFACE_BOOTSTRAP_RUNTIME=YES
 GRAPHICAL_SURFACE_SOURCE=IMPLEMENTED
 SHARED_WORKSPACE_WINDOW_MODEL=IMPLEMENTED
-FIRST_PARTY_APP_REGISTRY=FILES,SETTINGS,ACCOUNT,STORE,SYSTEM
+FIRST_PARTY_APP_REGISTRY=SETTINGS,ACCOUNT,STORE,SYSTEM
 DEVICE_AGENT_PRODUCT_NAME=OrdaX_Device_Agent
 DEVICE_AGENT_FOUNDATION=PASS_SOURCE_CONTRACT
 DEVICE_AGENT_PROJECTS_CAPABILITY_READER=PASS_SOURCE_READ_ONLY_NO_EXECUTE
@@ -1492,9 +1486,6 @@ PRODUCT_MATURITY=PROTOTYPE
 PRODUCT_V1_RESERVED_FOR_STABLE_RELEASE=YES
 FIRST_PARTY_APP_VERSIONING=PER_COMPONENT
 FIRST_PARTY_APP_PRE_1_0_MATURITY=BETA
-APP_FILES_VERSION=0.1.0
-APP_FILES_MATURITY=BETA
-APP_FILES_RELEASE_MODE=bundled
 APP_SETTINGS_VERSION=0.1.0
 APP_SETTINGS_MATURITY=BETA
 APP_SETTINGS_RELEASE_MODE=bundled
@@ -1517,12 +1508,12 @@ ASSISTANT_PORTABLE_SOURCE=CANONICAL_IN_ORDAX_APPS
 PROJECTS_PORTABLE_SOURCE=CANONICAL_IN_ORDAX_APPS
 ACTIVITY_PORTABLE_SOURCE=CANONICAL_IN_ORDAX_APPS
 NETWORK_PORTABLE_SOURCE=CANONICAL_IN_ORDAX_APPS
-FILES_PORTABLE_SOURCE=OS_ONLY_CUTOVER_BLOCKED
+FILES_PORTABLE_SOURCE=OS_SOURCE_REMOVED_EXTERNAL_PACKAGE_PENDING
 STUDIO_PORTABLE_SOURCE=CANONICAL_IN_ORDAX_APPS
-STUDIO_OS_INTEGRATION=RETAINED_PENDING_NATIVE_WEB_LIFECYCLE_PARITY
+STUDIO_OS_INTEGRATION=OS_BUNDLED_SOURCE_REMOVED
 PRODUCTION_INDEPENDENT_APP_UPDATES_ENABLED=NO
 SYSTEM_UPDATE_SCOPE=BASE,SURFACE,SERVICES,SYSTEM
-APPLICATION_UPDATE_SCOPE=FILES,PROJECTS,NOTES,INTERNET,SETTINGS,ACCOUNT
+APPLICATION_UPDATE_SCOPE=OPTIONAL_VERIFIED_COMPONENT_SLOTS
 UPDATE_HUMAN_IDENTITY=DELIVERY_NUMBER
 UPDATE_PR_NUMBER_IS_PRODUCT_IDENTITY=NO
 UPDATE_RUNNING_LABEL=EM_EXECUCAO
