@@ -49,7 +49,10 @@ permissions:
 
 concurrency:
   group: creator-owner-dev-git-${{ github.ref }}
-  cancel-in-progress: true
+  # The full Owner USB proof is expensive. A new main push must not cancel
+  # an ongoing publishable build; GitHub keeps only the latest queued run.
+  # PR supersessions may still cancel obsolete validation work.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   build-and-publish:
