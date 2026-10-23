@@ -7,13 +7,16 @@ const productRuntimeSourceRepository = "ordaxsystems/ordax-runtime"
 
 var canonicalExternalComponentSourceRepositories = map[string]string{
 	"activity": appsSourceRepository,
+	"assistant": appsSourceRepository,
 	"calculator": appsSourceRepository,
 	"calendar": appsSourceRepository,
 	"character-map": appsSourceRepository,
 	"clock": appsSourceRepository,
 	"colors": appsSourceRepository,
 	"converter": appsSourceRepository,
+	"files": appsSourceRepository,
 	"image-viewer": appsSourceRepository,
+	"internet": appsSourceRepository,
 	"media-player": appsSourceRepository,
 	"network": appsSourceRepository,
 	"notes": appsSourceRepository,
@@ -24,6 +27,10 @@ var canonicalExternalComponentSourceRepositories = map[string]string{
 	"studio": appsSourceRepository,
 	"text-viewer": appsSourceRepository,
 	"toolbox": appsSourceRepository,
+}
+
+// A bundled platform owner remains the only signable source until its cutover gate completes.
+var nativeExternalCurrentSlotBlockedByBundledOwnerComponents = map[string]struct{}{
 }
 
 // Platform-owned ABI declarations, not signed app providers or capability grants.

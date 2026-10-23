@@ -111,7 +111,7 @@ func writeRelease(t *testing.T, directory string, packagePath string, manifestHa
 	t.Helper()
 	release := releaseDescriptor{
 		Schema:            releaseSchema,
-		SourceRepository:  sourceRepository,
+		SourceRepository:  canonicalSourceRepository("internet"),
 		SourceCommit:      testSourceCommit,
 		CreatedFromRecipe: createdFromRecipe,
 		Component: releaseComponent{

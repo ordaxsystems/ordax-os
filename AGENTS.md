@@ -16,6 +16,7 @@ O produto continua em desenvolvimento e homologação: a promoção/renomeação
 ## 2. Fonte de verdade
 
 - `main` e o unico source authority deste prototipo.
+- Preservar a ancestralidade de commits da `main` já consumidos por dispositivos Owner/Development: preferir merge commit nas PRs; nunca reescrever/forçar `main` nem transformar por squash/rebase um HEAD publicado para esses dispositivos. A recuperação automática de divergência é uma proteção transacional do Supervisor, não autorização para quebrar o histórico intencionalmente.
 - Midia fisica, notebook, imagens, backups e copias locais nao sao source authority.
 - Nenhuma alteracao fisica sem equivalente reproduzivel no source.
 - Nao criar caminhos paralelos para a mesma responsabilidade.
@@ -64,6 +65,8 @@ Antes de **abrir uma nova frente**, criar task/issue/PR de implementacao a parti
 O hub de planejamento e **nao canonico**. Ele separa maturidade documental de elegibilidade de execucao. Durante a janela atual de fechamento do MVP, planos futuros ficam `DEFERRED FOR EXECUTION` por padrao: podem ser documentados, auditados e reconciliados, mas nao devem abrir implementacao apenas por estarem `READY`, P1/P2/P3 ou detalhados.
 
 Se `MVP.md`, um contrato, `docs/CURRENT-STATE.md`, `docs/PROMOTION-GATES.md` ou outro owner canonico ja exigir uma capacidade, o trabalho pertence a esse owner. O plano correspondente nao cria uma segunda fila nem uma segunda autoridade.
+
+**Fundação arquitetural, boot, atualizações e Creator:** para retomar a auditoria/consolidação entre agentes sem depender de histórico de conversa, consulte [`FOUNDATION-001`](00-PLANOS-PRIORITARIOS/plans/FOUNDATION-001-OS-ARCHITECTURE-CONSOLIDATION.md) após a leitura canônica e do roadmap. É roteiro/handoff, não novo SSOT, nem consentimento para gravação física; revalide sempre o source e as PRs.
 
 ### Plano funcional da Surface e dos aplicativos
 

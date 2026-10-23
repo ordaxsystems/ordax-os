@@ -179,6 +179,39 @@ site público
 
 Conta online não é requisito para download público autorizado nem para o primeiro uso do MVP. Instalação em disco interno permanece fora do MVP enquanto o owner de produto não mudar esse contrato.
 
+## Medição MCP na Conta — observacional e fechada por padrão
+
+A experiência `Consumo e limites` possui a apresentação para as **chamadas
+MCP observadas**, separadas de armazenamento, IA, assinatura e valores a
+pagar. A única fonte numérica é o agregado privado do
+`ordax-platform` (`ordax_get_product_mcp_usage_v1`), acessado pela
+projeção assinada `GET /v3/product/usage`; nenhum catálogo paralelo
+atribui saldos, franquias ou direitos.
+
+O navegador solicita somente `GET /account/usage/mcp` com cookies
+HttpOnly same-origin, pelo transporte público existente (Vercel →
+Public Account Gateway → Account Gateway). A allowlist compartilhada
+`account_transport_admission.mjs` admite essa rota exata, mas **não**
+a libera antes da ativação pública da Conta. O gateway de identidade
+verifica a sessão e envia o JWT unicamente **server-side** à URL HTTPS
+canônica fixa da Platform, sem repassá-lo à Surface. A implementação
+Python mantém a mesma fronteira para a composição correspondente;
+a rota Edge TypeScript é a autoridade de produção, sem segundo medidor.
+
+A leitura remota precisa da flag separada
+`ORDAX_MCP_USAGE_READ_ENABLED=1`, desligada por padrão. Isso é
+independente da flag de **coleta** MCP e nunca ativa billing. Quando
+indisponível, anônima, desconectada ou em prévia de layout, a interface
+mostra indisponibilidade, não zero. Mesmo com resposta real,
+`coverage=partial_observational` e `billable=false` impedem
+confundir amostras por mês UTC com franquia completa ou fatura.
+A UI invalida os dados em logout/troca de sessão; nenhuma amostra é
+persistida no browser.
+
+Testes de fonte, bridge/isolamento, validação de respostas e
+apresentação fazem parte do Public Site Candidate. Isso **não**
+comprova implantação, ativação das flags, coleta real nem E2E público.
+
 ## Build e validação
 
 Comandos canônicos do artefato:

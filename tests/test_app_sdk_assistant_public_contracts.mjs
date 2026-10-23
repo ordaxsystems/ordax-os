@@ -61,7 +61,7 @@ const required = [
 ];
 
 test("Assistant and Personal OrdaX schemas are published only as versioned App SDK data contracts", () => {
-  assert.equal(bundle.bundle_version, "1.19.0");
+  assert.equal(bundle.bundle_version, "1.20.0");
   assert.equal(bundle.authority, "none");
   const byName = new Map(bundle.contracts.map(x => [x.name, x]));
   assert.equal(byName.size, bundle.contracts.length);
@@ -73,7 +73,8 @@ test("Assistant and Personal OrdaX schemas are published only as versioned App S
     assert.match(entry.source_path, /^system\/contracts\//);
     const sourcePath = fileURLToPath(new URL("../" + entry.source_path, import.meta.url));
     const source = readFileSync(sourcePath);
-    const gitBlob = createHash("sha1").update("blob " + source.length + "\0").update(source).digest("hex");
+    const normalizedSource = Buffer.from(source.toString("utf8").replace(/\r\n/g, "\n"));
+    const gitBlob = createHash("sha1").update("blob " + normalizedSource.length + "\0").update(normalizedSource).digest("hex");
     assert.equal(entry.source_git_blob, gitBlob, expected.name + " must pin the exact owner blob");
   }
 });

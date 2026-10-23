@@ -239,8 +239,8 @@ def capture_qmp_framebuffer(socket_path: Path, image_path: Path) -> dict[str, in
     return analyze_ppm(image_path)
 
 
-def prove_ext4_clean_after_guest_poweroff(disk: Path) -> bool:
-    """Check p2 of a disposable GPT RAW, with no physical-device writes."""
+def owner_ext4_partition_bounds(disk: Path) -> tuple[int, int]:
+    """Resolve the Owner p2 offset/size from the checked disposable GPT."""
     regular(disk, "disposable QEMU disk")
     with disk.open("rb") as stream:
         stream.seek(512)
@@ -260,6 +260,55 @@ def prove_ext4_clean_after_guest_poweroff(disk: Path) -> bool:
         offset, size = first_lba * 512, (last_lba - first_lba + 1) * 512
         if first_lba < 34 or last_lba < first_lba or offset + size > disk.stat().st_size:
             raise ProofError("disposable Owner ext4 p2 outside disk")
+    return offset, size
+
+
+def owner_qemu_failure_diagnostic(disk: Path, source: str) -> dict[str, str]:
+    """Read the existing redacted Native receipt, never guest files/content.
+
+    QEMU has already stopped; a disposable RAW copy is the only source.
+    No journal replay, no guest filesystem writes and no host disk access.
+    """
+    offset, size = owner_ext4_partition_bounds(disk)
+    loop = subprocess.run(
+        ["sudo", "losetup", "--read-only", "--find", "--show",
+         "--offset", str(offset), "--sizelimit", str(size), str(disk)],
+        capture_output=True, text=True, timeout=20, check=True,
+    ).stdout.strip()
+    if re.fullmatch(r"/dev/loop[0-9]+", loop) is None:
+        raise ProofError("QEMU diagnostic loop device identity invalid")
+    try:
+        result = subprocess.run(
+            ["sudo", "debugfs", "-R",
+             "cat /dev-base/state/ordax/native-state/client-diagnostic.json", loop],
+            capture_output=True, text=True, timeout=20,
+        )
+        if result.returncode != 0 or len(result.stdout) > 1024:
+            return {"status": "unavailable"}
+        try:
+            value = json.loads(result.stdout)
+        except json.JSONDecodeError:
+            return {"status": "unavailable"}
+        if not isinstance(value, dict) or value.get("sourceSha") != source:
+            return {"status": "unavailable"}
+        stage, name, origin = (value.get(k) for k in ("stage", "errorName", "source"))
+        if (not isinstance(stage, str) or
+                re.fullmatch(r"[a-z][a-z0-9.-]{0,63}", stage) is None or
+                not isinstance(name, str) or
+                re.fullmatch(r"[A-Za-z][A-Za-z0-9]{0,63}", name) is None or
+                not isinstance(origin, str) or
+                (origin and re.fullmatch(
+                    r"[A-Za-z0-9_.-]+\.mjs:[1-9][0-9]{0,5}:[1-9][0-9]{0,5}", origin
+                ) is None)):
+            return {"status": "unavailable"}
+        return {"status": "recorded", "stage": stage, "errorName": name, "source": origin}
+    finally:
+        subprocess.run(["sudo", "losetup", "-d", loop], check=True, timeout=20)
+
+
+def prove_ext4_clean_after_guest_poweroff(disk: Path) -> bool:
+    """Check p2 of a disposable GPT RAW, with no physical-device writes."""
+    offset, size = owner_ext4_partition_bounds(disk)
     loop = subprocess.run(
         ["sudo", "losetup", "--read-only", "--find", "--show",
          "--offset", str(offset), "--sizelimit", str(size), str(disk)],
@@ -447,10 +496,24 @@ def main() -> int:
                 raise ProofError("QEMU guest disk copy does not match verified Owner seed")
             kernel = regular(args.kernel, "kernel")
             initramfs = regular(args.initramfs, "initramfs")
-            boots = prove_boot_pair(
-                disk, kernel, initramfs, args.source_commit, root, outputs,
-                args.timeout_seconds, prove_acpi_shutdown=args.prove_acpi_shutdown,
-            )
+            try:
+                boots = prove_boot_pair(
+                    disk, kernel, initramfs, args.source_commit, root, outputs,
+                    args.timeout_seconds, prove_acpi_shutdown=args.prove_acpi_shutdown,
+                )
+            except ProofError:
+                # Preserve only the already-authorized, bounded Native error
+                # identity. Never downgrade the QEMU health gate on failure.
+                try:
+                    diagnostic = owner_qemu_failure_diagnostic(disk, args.source_commit)
+                except (OSError, ProofError, subprocess.SubprocessError):
+                    diagnostic = {"status": "unavailable"}
+                print(
+                    "ORDAX_OWNER_QEMU_CLIENT_DIAGNOSTIC="
+                    + json.dumps(diagnostic, separators=(",", ":"), sort_keys=True),
+                    file=sys.stderr,
+                )
+                raise
             report = {
                 "$schema": SCHEMA, "status": "pass",
                 "source_commit": args.source_commit,

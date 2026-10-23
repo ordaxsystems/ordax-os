@@ -6,7 +6,6 @@ import { createLocaleProfile } from "../../contracts/locale-profile.mjs";
 import { assertPreferenceRuntimePort } from "../../contracts/preference-runtime.mjs";
 import { REGIONAL_LOCALE_PREFERENCE_ID } from "../preferences/regional.mjs";
 import { interpolateLocalizationMessage } from "./interpolation.mjs";
-import { FILES_SOURCE_MESSAGES, FILES_ENGLISH_MESSAGES } from "./catalog/files.mjs";
 import { SETTINGS_SOURCE_MESSAGES, SETTINGS_ENGLISH_MESSAGES } from "./catalog/settings.mjs";
 import { STORE_SOURCE_MESSAGES, STORE_ENGLISH_MESSAGES } from "./catalog/store.mjs";
 import { SYSTEM_SOURCE_MESSAGES, SYSTEM_ENGLISH_MESSAGES } from "./catalog/system.mjs";
@@ -246,11 +245,6 @@ const SOURCE = Object.freeze({
   "app.files.panel.0.label": "Espaço do usuário",
   "app.files.panel.0.title": "Arquivos",
   "app.files.panel.0.body": "Este host não expõe um espaço local de arquivos para esta Surface.",
-  "app.studio.title": "ORDAX Studio",
-  "app.studio.description": "Acesse seus projetos e confira a integração do Studio com este host.",
-  "app.studio.panel.0.label": "Studio",
-  "app.studio.panel.0.title": "ORDAX Studio",
-  "app.studio.panel.0.body": "O runtime do Studio ainda não está disponível nesta composição.",
   "app.notes.title": "Notas",
   "app.notes.description": "Escrita local, projetos, tarefas e referências disponíveis offline.",
   "app.notes.panel.0.label": "Notas",
@@ -276,7 +270,6 @@ const SOURCE = Object.freeze({
   "app.system.panel.0.label": "Sistema",
   "app.system.panel.0.title": "Visão geral",
   "app.system.panel.0.body": "O estado detalhado do sistema não está disponível neste host.",
-  ...FILES_SOURCE_MESSAGES,
   ...SETTINGS_SOURCE_MESSAGES,
   ...STORE_SOURCE_MESSAGES,
   ...SYSTEM_SOURCE_MESSAGES,
@@ -513,11 +506,6 @@ const ENGLISH = Object.freeze({
   "app.files.panel.0.label": "User space",
   "app.files.panel.0.title": "Files",
   "app.files.panel.0.body": "This host does not expose local file storage to this Surface.",
-  "app.studio.title": "ORDAX Studio",
-  "app.studio.description": "Access your projects and check Studio integration with this host.",
-  "app.studio.panel.0.label": "Studio",
-  "app.studio.panel.0.title": "ORDAX Studio",
-  "app.studio.panel.0.body": "The Studio runtime is not yet available in this composition.",
   "app.notes.title": "Notes",
   "app.notes.description": "Local writing, projects, tasks, and references available offline.",
   "app.notes.panel.0.label": "Notes",
@@ -543,7 +531,6 @@ const ENGLISH = Object.freeze({
   "app.system.panel.0.label": "System",
   "app.system.panel.0.title": "Overview",
   "app.system.panel.0.body": "Detailed system status is unavailable on this host.",
-  ...FILES_ENGLISH_MESSAGES,
   ...SETTINGS_ENGLISH_MESSAGES,
   ...STORE_ENGLISH_MESSAGES,
   ...SYSTEM_ENGLISH_MESSAGES,
@@ -570,6 +557,24 @@ export function translateSurfaceMessage(locale, messageId, values = {}) {
   }
   const translated = TABLES[locale]?.[messageId] ?? source;
   return interpolateLocalizationMessage(translated, values);
+}
+
+/** Serializable public locale projection for the opaque installed-app runtime. */
+/**
+ * Public, serializable localization projection for an isolated installed app.
+ * The snapshot contains only the active locale's public UI strings; it never
+ * exposes preference, account, or host state beyond the selected locale.
+ */
+export function createSurfaceLocalizationSnapshot(localization) {
+  const port = assertLocalizationPort(localization);
+  const locale = port.getLocale();
+  const profile = port.getProfile();
+  return Object.freeze({
+    schema: LOCALIZATION_SCHEMA,
+    locale,
+    profile,
+    messages: TABLES[locale] ?? SOURCE,
+  });
 }
 
 export function createSurfaceLocalization(preferenceRuntime) {

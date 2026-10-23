@@ -45,6 +45,7 @@ type nativeProductSourceLock struct {
         ExecutableSHA256 string `json:"executable_sha256"`
         ExecutableSizeBytes int64 `json:"executable_size_bytes"`
         IndependentBaseABIReady bool `json:"independent_base_abi_ready"`
+        IndependentBaseABIBlockers []string `json:"independent_base_abi_blockers"`
         SignedDistributionAuthorized bool `json:"signed_distribution_authorized"`
         EmbeddedELFInventory struct {
             IndependentBaseCompatibilityProven bool `json:"independent_base_compatibility_proven"`
@@ -55,6 +56,7 @@ type nativeProductSourceLock struct {
 
 type nativeProductTrustPolicy struct {
     Schema string `json:"$schema"`
+    Status string `json:"status"`
     TrustDomain string `json:"trust_domain"`
     PublicAnchor struct {
         Pinned bool `json:"pinned"`
@@ -101,6 +103,12 @@ func validateNativeProductSourceLock(lock nativeProductSourceLock) error {
         !c.EmbeddedELFInventory.InstallAuthorized {
         return errors.New("native Product Runtime independent base ABI/distribution not proven")
     }
+    // The ABI compatibility flags are a positive proof only when the same
+    // canonical source lock explicitly records no outstanding ABI blockers.
+    // A missing array is not proof of zero blockers.
+    if c.IndependentBaseABIBlockers == nil || len(c.IndependentBaseABIBlockers) != 0 {
+        return errors.New("native Product Runtime unresolved independent base ABI blockers")
+    }
     return nil
 }
 
@@ -120,7 +128,10 @@ func verifiedNativeProductHandoff(lockPath, policyPath, trustPath, slotRoot stri
     if err := json.Unmarshal(policyBytes, &policy); err != nil {
         return result, errors.New("canonical component trust policy invalid")
     }
+    // Canonical promotion sets this status after the external-key ceremony.
+    // An edited pinned boolean alone cannot constitute completed trust.
     if policy.Schema != productRuntimeTrustPolicySchema ||
+        policy.Status != "canonical-public-trust-pinned" ||
         policy.TrustDomain != "runtime-components" ||
         !policy.PublicAnchor.Pinned ||
         !policy.CurrentGates.CanonicalComponentTrustAnchorPinned ||

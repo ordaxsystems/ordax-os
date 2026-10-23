@@ -129,6 +129,7 @@ export function mountAccountOverviewControls(
   accountLifecycle = null,
   profileTaxonomy = null,
   spaceExperience = null,
+  hostedSignupBridge = null,
 ) {
   if (!(root instanceof Element)) {
     throw new TypeError("Account overview controls require a Surface root Element");
@@ -1408,7 +1409,7 @@ export function mountAccountOverviewControls(
   const onClick = (event) => {
     const hostedSignup = event.target.closest("[data-account-hosted-signup]");
     if (hostedSignup && root.contains(hostedSignup)) {
-      requestNativeHostedSignup(event, root.ownerDocument.defaultView);
+      requestNativeHostedSignup(event, root.ownerDocument.defaultView, hostedSignupBridge);
       return;
     }
     const sectionButton = event.target.closest("[data-account-section]");

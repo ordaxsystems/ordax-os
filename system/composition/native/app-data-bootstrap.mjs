@@ -1,3 +1,4 @@
+import { hasNativeHostBridge, postNativeHostMessage } from "../../adapters/native/host-bridge.mjs";
 import { createNativeBoundAppDataPort } from "../../adapters/native/bound-app-data.mjs";
 import { installTrustedComponentContextProvider } from "../../services/components/runtime-loader.mjs";
 
@@ -98,8 +99,7 @@ export function createTrustedNativeAppDataContextBootstrap({
   if (!windowRef || typeof windowRef.setTimeout !== "function" || typeof windowRef.clearTimeout !== "function") {
     throw new TypeError("Native App Data bootstrap requires a timer-capable privileged window");
   }
-  const bridge = windowRef.webkit?.messageHandlers?.ordaxBrowser;
-  if (!bridge || typeof bridge.postMessage !== "function") {
+  if (!hasNativeHostBridge(windowRef)) {
     throw new TypeError("Native App Data bootstrap requires the privileged OrdaX browser bridge");
   }
 
@@ -121,11 +121,11 @@ export function createTrustedNativeAppDataContextBootstrap({
   // The request carries no identity. The privileged Python host answers by
   // directly importing this module and calling acceptTrustedNativeAppDataBootstrap().
   // Opaque endpoints therefore never travel through DOM events or global state.
-  bridge.postMessage(JSON.stringify({ type: BOOTSTRAP_REQUEST }));
+  postNativeHostMessage(windowRef, { type: BOOTSTRAP_REQUEST });
   return Object.freeze({ schema: BOOTSTRAP_SCHEMA });
 }
 
 // A normal browser can render Native UI, but cannot bootstrap privileged App Data.
-if (typeof globalThis.webkit?.messageHandlers?.ordaxBrowser?.postMessage === "function") {
+if (hasNativeHostBridge(globalThis)) {
   createTrustedNativeAppDataContextBootstrap();
 }

@@ -757,6 +757,24 @@ export function mountSystemOverviewControls(
       return;
     }
 
+    // Translate reason codes without hiding the existing technical diagnostic.
+    const updateReasonMessageId = {
+      "reconciling-main-history": "system.updates.diagnostic.reconciling",
+      "checkout-retry-wait": "system.updates.diagnostic.retryWait",
+      "non-fast-forward": "system.updates.diagnostic.diverged",
+      "pull-helper-refresh-failed": "system.updates.diagnostic.helpers",
+      "helper-refresh-failed": "system.updates.diagnostic.helpers",
+    }[updateSnapshot.lastError];
+    if (updateReasonMessageId) {
+      const explanation = node(
+        documentObject, "p",
+        updateSnapshot.lastError === "non-fast-forward" ? "ordax-system-warning" : "ordax-system-message",
+        t(updateReasonMessageId),
+      );
+      explanation.setAttribute("role", "status");
+      section.append(explanation);
+    }
+
     const facts = node(documentObject, "dl", "ordax-system-facts");
     const addFact = (label, value) => {
       const item = node(documentObject, "div", "ordax-system-fact");
@@ -835,13 +853,24 @@ export function mountSystemOverviewControls(
       addFact("power.last_mount_error", updateSnapshot.hostPower.lastMountError);
     }
     section.append(facts);
-
+    if (updateSnapshot.runtimeSurfaceSha) {
+      section.append(node(
+        documentObject, "p", "ordax-system-section-copy",
+        t("system.updates.identity.explainer"),
+      ));
+    }
     if (isRepositoryOnlyUpdate(updateSnapshot)) {
       section.append(node(
-        documentObject,
-        "p",
-        "ordax-system-section-copy",
-        `${t("system.updates.fact.commit")} · ${t("system.overview.update.mode.none")}`,
+        documentObject, "p", "ordax-system-message",
+        t("system.updates.identity.repositoryOnly"),
+      ));
+    } else if (
+      updateSnapshot.runtimeSurfaceSha &&
+      updateSnapshot.runtimeSurfaceSha !== updateSnapshot.sourceSha
+    ) {
+      section.append(node(
+        documentObject, "p", "ordax-system-section-copy",
+        t("system.updates.identity.pending"),
       ));
     }
 
@@ -849,7 +878,9 @@ export function mountSystemOverviewControls(
       const warningText = updateSnapshot.bootRefreshRequired
         ? t(overviewUpdateDetailMessageId(updateSnapshot) ?? "system.overview.update.detail.pending")
         : t("system.updates.attention.generic");
-      section.append(node(documentObject, "p", "ordax-system-warning", warningText));
+      if (!updateReasonMessageId) {
+        section.append(node(documentObject, "p", "ordax-system-warning", warningText));
+      }
     }
 
     view.append(section);

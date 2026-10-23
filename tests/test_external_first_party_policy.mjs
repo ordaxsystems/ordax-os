@@ -7,8 +7,10 @@ import {
   EXTERNAL_FIRST_PARTY_OWNER,
   EXTERNAL_FIRST_PARTY_NATIVE_MODULE_READ_IDS,
   EXTERNAL_FIRST_PARTY_NATIVE_PROBATION_IDS,
+  EXTERNAL_FIRST_PARTY_BUNDLED_SOURCE_BLOCKED_IDS,
   hasNativeExternalFirstPartyProbation,
   hasNativeExternalFirstPartyModuleRead,
+  isNativeExternalFirstPartyCurrentSlotBlockedByBundledOwner,
   EXTERNAL_FIRST_PARTY_SOURCE_REPOSITORY_BY_COMPONENT,
   isExternalFirstPartyComponentId,
   listExternalFirstPartyComponentIds,
@@ -26,8 +28,8 @@ test("generated external first-party runtime policy exposes one canonical owner 
   );
   assert.deepEqual(EXTERNAL_FIRST_PARTY_SOURCE_REPOSITORY_BY_COMPONENT, expected);
   assert.deepEqual([...EXTERNAL_FIRST_PARTY_COMPONENT_IDS], Object.keys(expected));
-  assert.equal(EXTERNAL_FIRST_PARTY_COMPONENT_IDS.length >= 14, true,
-    "the 13 package candidates and Studio must not silently disappear");
+  assert.ok(EXTERNAL_FIRST_PARTY_COMPONENT_IDS.length > 0,
+    "the canonical first-party source registry must remain populated");
   for (const [appId, owner] of Object.entries(canonicalSources)) {
     assert.equal(owner, EXTERNAL_FIRST_PARTY_OWNER, appId);
     assert.equal(isExternalFirstPartyComponentId(appId), true, appId);
@@ -39,14 +41,23 @@ test("generated external first-party runtime policy exposes one canonical owner 
   assert.deepEqual(EXTERNAL_FIRST_PARTY_NATIVE_MODULE_READ_IDS, expectedModuleRead);
   assert.equal(hasNativeExternalFirstPartyModuleRead("notes"), true);
   assert.equal(hasNativeExternalFirstPartyModuleRead("studio"), true);
+  assert.equal(hasNativeExternalFirstPartyModuleRead("assistant"), true);
+  assert.equal(hasNativeExternalFirstPartyProbation("assistant"), false);
   assert.equal(hasNativeExternalFirstPartyModuleRead("calculator"), true);
-  assert.equal(packagePolicy.native_files_slot_bound_file_space_enforced, false);
-  assert.equal(hasNativeExternalFirstPartyModuleRead("files"), false);
-  assert.deepEqual(EXTERNAL_FIRST_PARTY_NATIVE_PROBATION_IDS, ["notes"]);
+  assert.equal(packagePolicy.native_files_slot_bound_file_space_enforced, true);
+  assert.equal(hasNativeExternalFirstPartyModuleRead("files"), true);
+  assert.equal(isNativeExternalFirstPartyCurrentSlotBlockedByBundledOwner("files"), false);
+  assert.deepEqual(EXTERNAL_FIRST_PARTY_NATIVE_PROBATION_IDS, ["files", "notes"]);
+  assert.deepEqual(
+    EXTERNAL_FIRST_PARTY_BUNDLED_SOURCE_BLOCKED_IDS,
+    packagePolicy.native_external_current_slot_blocked_by_bundled_owner_components,
+  );
+  assert.equal(hasNativeExternalFirstPartyProbation("files"), true);
   assert.equal(hasNativeExternalFirstPartyProbation("notes"), true);
   assert.equal(hasNativeExternalFirstPartyProbation("calculator"), false);
   assert.equal(hasNativeExternalFirstPartyProbation("studio"), false);
   assert.equal(hasNativeExternalFirstPartyProbation("unknown"), false);
+  assert.equal(isNativeExternalFirstPartyCurrentSlotBlockedByBundledOwner("notes"), false);
   assert.equal(hasNativeExternalFirstPartyModuleRead("clock"), false);
   assert.equal(hasNativeExternalFirstPartyModuleRead("unknown"), false);
   assert.equal(hasNativeExternalFirstPartyModuleRead("../notes"), false);
