@@ -57,6 +57,7 @@ NATIVE_HTTPX_PROBE_PACKAGES = ("httpx", "httpcore", "anyio", "certifi", "idna", 
 NATIVE_COMPONENT_REQUIRED = (
     "BR2_SHARED_LIBS=y", "BR2_PACKAGE_PYTHON3=y",
     "BR2_PACKAGE_PYTHON3_PYC_ONLY=y", "BR2_PACKAGE_PYTHON3_SSL=y", "BR2_PACKAGE_PYTHON3_ZLIB=y",
+    "BR2_PACKAGE_PYTHON3_SQLITE=y", "BR2_PACKAGE_SQLITE=y",
     "BR2_PACKAGE_CA_CERTIFICATES=y", "BR2_TARGET_ROOTFS_TAR=y",
     "BR2_PACKAGE_PYTHON_HTTPX=y",
 )
@@ -923,7 +924,7 @@ def verify_native_python_target(target: Path) -> dict:
     # The actual target must contain compiled modules; checking ssl.py alone
     # incorrectly rejects a complete, compact production Python installation.
     # Do not confuse a filename with a usable .pyc: inspect its PEP 552 header.
-    for module in ("ssl", "site", "json/__init__"):
+    for module in ("ssl", "site", "json/__init__", "sqlite3/__init__"):
         parent, _, basename = module.rpartition("/")
         folder = stdlib / parent if parent else stdlib
         candidates = sorted({
@@ -941,7 +942,7 @@ def verify_native_python_target(target: Path) -> dict:
                 valid.append(compiled)
         if len(valid) != 1:
             raise BaseError("private CPython compiled standard library incomplete: " + module)
-    for name in ("_ssl", "_hashlib", "zlib"):
+    for name in ("_ssl", "_hashlib", "zlib", "_sqlite3"):
         extensions = list(stdlib.glob(f"lib-dynload/{name}*.so"))
         if not extensions or any(p.is_symlink() for p in extensions):
             raise BaseError("private CPython TLS/zlib extension missing: " + name)
@@ -1040,6 +1041,15 @@ def smoke_test_private_native_python(target: Path, abi: dict) -> dict:
         "assert zlib.decompress(zlib.compress(b'ordax-kernel-only-smoke'))"
         "==b'ordax-kernel-only-smoke';"
         "assert ssl.OPENSSL_VERSION.startswith('OpenSSL ');"
+        "sqlite=importlib.import_module('sqlite3');"
+        "native_sqlite=importlib.import_module('_sqlite3');"
+        "assert pathlib.Path(sqlite.__file__).resolve().is_relative_to(root);"
+        "assert pathlib.Path(native_sqlite.__file__).resolve().is_relative_to(root);"
+        "db=sqlite.connect(':memory:');"
+        "db.execute('CREATE TABLE probe (value TEXT NOT NULL)');"
+        "db.execute('INSERT INTO probe VALUES (?)',('ordax',));"
+        "assert db.execute('SELECT value FROM probe').fetchone()[0]=='ordax';"
+        "db.close();"
         "httpx=importlib.import_module('httpx');"
         "req=httpx.Request('GET','https://example.invalid/probe');"
         "assert req.method=='GET' and req.url.host=='example.invalid';"
@@ -1053,6 +1063,7 @@ def smoke_test_private_native_python(target: Path, abi: dict) -> dict:
         "print(json.dumps({'python_version':sys.version.split()[0],"
         "'module_names':list(mods),'ssl_version':ssl.OPENSSL_VERSION,"
         "'all_imports_private':True,'tls_and_zlib_operational':True,"
+        "'sqlite_memory_operational':True,"
         "'httpx_version':httpx.__version__,"
         "'httpx_offline_request_construction_proven':True,"
         "'httpx_mock_transport_proven':True,"
@@ -1093,6 +1104,7 @@ def smoke_test_private_native_python(target: Path, abi: dict) -> dict:
             or smoke.get("module_names") != ["ssl", "_ssl", "hashlib", "_hashlib", "zlib", "json", "httpx", "httpcore", "anyio", "certifi", "idna", "h11"]
             or smoke.get("all_imports_private") is not True
             or smoke.get("tls_and_zlib_operational") is not True
+            or smoke.get("sqlite_memory_operational") is not True
             or smoke.get("httpx_offline_request_construction_proven") is not True
             or smoke.get("httpx_mock_transport_proven") is not True
             or not re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+",
@@ -1106,6 +1118,7 @@ def smoke_test_private_native_python(target: Path, abi: dict) -> dict:
         "module_names": smoke["module_names"],
         "all_imports_private": True,
         "tls_and_zlib_operational": True,
+        "sqlite_memory_operational": True,
         "httpx_offline_request_construction_proven": True,
         "httpx_mock_transport_proven": True,
         "httpx_version": smoke["httpx_version"],
@@ -1411,6 +1424,7 @@ def verify_native_python_receipt(out: Path) -> dict:
             or smoke.get("module_names") != ["ssl", "_ssl", "hashlib", "_hashlib", "zlib", "json", "httpx", "httpcore", "anyio", "certifi", "idna", "h11"]
             or smoke.get("all_imports_private") is not True
             or smoke.get("tls_and_zlib_operational") is not True
+            or smoke.get("sqlite_memory_operational") is not True
             or smoke.get("httpx_offline_request_construction_proven") is not True
             or smoke.get("httpx_mock_transport_proven") is not True
             or not re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+",
