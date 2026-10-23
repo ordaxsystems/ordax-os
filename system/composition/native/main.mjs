@@ -130,7 +130,6 @@ import { createNativeStoreCatalogComposition } from "./store-catalog.mjs";
 import { installNativeIntelligenceHostBridge } from "./intelligence-host-bridge.mjs";
 import { mountAccountOverviewControls } from "../../surface/ui/account-overview-controls.mjs";
 import { mountSpaceSwitcherControls } from "../../surface/ui/space-switcher-controls.mjs";
-import { mountFileSpaceControls } from "../../surface/ui/file-space-controls.mjs";
 import { mountNetworkQuickPanel } from "../../surface/ui/network-quick-panel.mjs";
 import { mountNetworkTrayControls } from "../../surface/ui/network-tray-controls.mjs";
 import { mountNotificationCenterControls } from "../../surface/ui/notification-center-controls.mjs";
@@ -945,13 +944,6 @@ async function start() {
       }),
     );
   }
-  const fileSpaceControls = mountFileSpaceControls(
-    root,
-    filesOwnerSpace,
-    appActivation,
-    surface,
-    { recentFiles, projects },
-  );
   let settingsOverviewControls;
   try {
     settingsOverviewControls = mountSettingsOverviewControls(
@@ -1194,7 +1186,6 @@ async function start() {
       notificationCenter.destroy();
       batteryTrayControls?.destroy();
       batteryQuickPanel?.destroy();
-      fileSpaceControls.destroy();
       filesProbationContextBootstrap?.destroy();
       externalAppMounts?.destroy();
       projectReferences?.destroy();

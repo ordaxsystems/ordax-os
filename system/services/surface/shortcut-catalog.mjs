@@ -4,11 +4,10 @@ const placements = new Set(["central", "desktop", "dock", "navigation-menu"]);
 // Placement values are zero-based positions; order may differ by destination.
 // App availability remains owned by the runtime catalog and host capabilities.
 const entries = [
-  { appId: "files", placements: { central: 0, desktop: 0, dock: 0, "navigation-menu": 0 } },
-  { appId: "settings", placements: { central: 1, desktop: 1, dock: 1, "navigation-menu": 1 } },
-  { appId: "store", placements: { dock: 2 } },
-  { appId: "account", placements: { dock: 3 } },
-  { appId: "system", placements: { dock: 4, "navigation-menu": 2 } },
+  { appId: "settings", placements: { central: 0, desktop: 0, dock: 0, "navigation-menu": 0 } },
+  { appId: "store", placements: { dock: 1 } },
+  { appId: "account", placements: { dock: 2 } },
+  { appId: "system", placements: { dock: 3, "navigation-menu": 1 } },
 ];
 
 const appIds = new Set();

@@ -44,9 +44,7 @@ export const EXTERNAL_FIRST_PARTY_NATIVE_PROBATION_IDS = Object.freeze([
   "files",
   "notes",
 ]);
-export const EXTERNAL_FIRST_PARTY_BUNDLED_SOURCE_BLOCKED_IDS = Object.freeze([
-  "files",
-]);
+export const EXTERNAL_FIRST_PARTY_BUNDLED_SOURCE_BLOCKED_IDS = Object.freeze([]);
 
 const IDS = new Set(EXTERNAL_FIRST_PARTY_COMPONENT_IDS);
 const MODULE_READ_IDS = new Set(EXTERNAL_FIRST_PARTY_NATIVE_MODULE_READ_IDS);

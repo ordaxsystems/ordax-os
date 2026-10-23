@@ -411,7 +411,7 @@ of each responsibility must be identified before an optimization:
   No extra observer, timer, event queue, parallel UI state or background
   process may be added for this optimization. Active windows still repaint
   immediately on changes and every owner unsubscribes on destroy.
-- **Files inactive rendering:** `system/surface/ui/file-space-controls.mjs`
+- **Files inactive rendering:** `host File Space service (bundled Files UI removed)`
   keeps its already validated navigation/Recents/Projects and async operation
   state current, but defers expensive full DOM repaint while its Surface
   window is minimized or inactive. The existing Surface render subscription

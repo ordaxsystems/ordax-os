@@ -40,7 +40,7 @@ function installed(id = "installed-example") {
 test("first-party and installed apps share one presentation list without sharing trust class", () => {
   const catalog = createInstalledApplicationCatalog([installed()]);
   const presentations = composeApplicationPresentations(listFirstPartyApps(), catalog);
-  const firstParty = presentations.find((app) => app.id === "files");
+  const firstParty = presentations.find((app) => app.id === "settings");
   const foreign = presentations.find((app) => app.id === "installed-example");
 
   assert.ok(firstParty);
@@ -54,7 +54,7 @@ test("first-party and installed apps share one presentation list without sharing
 });
 
 test("installed application cannot shadow a first-party launcher identity", () => {
-  const catalog = createInstalledApplicationCatalog([installed("files")]);
+  const catalog = createInstalledApplicationCatalog([installed("settings")]);
   assert.throws(
     () => composeApplicationPresentations(listFirstPartyApps(), catalog),
     /id collision/,
