@@ -48,6 +48,9 @@ SUPPORTED_PROFILES = ("minimal", "owner-development")
 NATIVE_COMPONENT_PROFILE = "native-product-runtime"
 NATIVE_BUILD_INPUT_TAR = "native-python-build-input.rootfs.tar"
 NATIVE_BUILD_INPUT_MAX_BYTES = 1024 * 1024 * 1024
+NATIVE_SDK_PREFIX = "ordax-native-product-runtime-sdk"
+NATIVE_SDK_ARCHIVE = NATIVE_SDK_PREFIX + ".tar.gz"
+NATIVE_SDK_MAX_BYTES = 1536 * 1024 * 1024
 NATIVE_COMPONENT_FRAGMENT = HERE / "configs/native-product-runtime.fragment"
 # Module names are probe inputs only, NEVER copied version pins.
 NATIVE_HTTPX_PROBE_PACKAGES = ("httpx", "httpcore", "anyio", "certifi", "idna", "h11")
@@ -1193,9 +1196,90 @@ def inspect_native_python_build_input(archive: Path, abi: dict) -> dict:
     }
 
 
+def inspect_native_sdk_build_input(archive: Path, abi: dict) -> dict:
+    """Read-only provenance of the official SAME-BUILD Buildroot make sdk tar.
+
+    An SDK is a compiler and sysroot input for Runtime, never a component
+    that the OS, USB, or Product MCP may execute or install. No extraction.
+    """
+    if (not isinstance(abi.get("python_sha256"), str)
+            or not HASH.fullmatch(abi["python_sha256"])):
+        raise BaseError("private SDK has no audited CPython target binding")
+    try:
+        fd = os.open(
+            archive, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
+            | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NONBLOCK", 0),
+        )
+    except OSError as exc:
+        raise BaseError("private SDK archive missing or unsafe") from exc
+    required = {
+        NATIVE_SDK_PREFIX + "/relocate-sdk.sh": False,
+        NATIVE_SDK_PREFIX + "/share/buildroot/sdk-location": False,
+    }
+    compiler_found = False
+    sysroot_found = False
+    with os.fdopen(fd, "rb") as stream:
+        before = os.fstat(stream.fileno())
+        if (not stat.S_ISREG(before.st_mode)
+                or not 0 < before.st_size <= NATIVE_SDK_MAX_BYTES):
+            raise BaseError("private SDK archive size/type invalid")
+        hasher = hashlib.sha256()
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            hasher.update(chunk)
+        stream.seek(0)
+        with tarfile.open(fileobj=stream, mode="r:gz") as sdk:
+            for count, member in enumerate(sdk, 1):
+                if count > 350000:
+                    raise BaseError("private SDK archive entry count exceeds limit")
+                name = member.name.removeprefix("./")
+                canonical = posixpath.normpath(name)
+                if (name.startswith("/") or canonical != name
+                        or not canonical.startswith(NATIVE_SDK_PREFIX + "/")):
+                    raise BaseError("private SDK archive path is noncanonical")
+                if name in required:
+                    if required[name] or not member.isfile() or member.size <= 0:
+                        raise BaseError("private SDK required metadata missing or repeated")
+                    required[name] = True
+                if re.fullmatch(
+                    re.escape(NATIVE_SDK_PREFIX) + r"/bin/x86_64-[A-Za-z0-9_.+-]*linux-musl-gcc",
+                    name,
+                ):
+                    if not (member.isfile() or member.issym()) or compiler_found:
+                        raise BaseError("private SDK compiler identity invalid")
+                    compiler_found = True
+                if (re.fullmatch(
+                    re.escape(NATIVE_SDK_PREFIX)
+                    + r"/x86_64-[A-Za-z0-9_.+-]*linux-musl/sysroot/usr/include/stdio\.h",
+                    name,
+                ) and member.isfile()):
+                    sysroot_found = True
+        after = os.fstat(stream.fileno())
+        if ((before.st_dev, before.st_ino, before.st_size,
+             before.st_mtime_ns, before.st_ctime_ns) !=
+            (after.st_dev, after.st_ino, after.st_size,
+             after.st_mtime_ns, after.st_ctime_ns)):
+            raise BaseError("private SDK archive changed during verification")
+    if not all(required.values()) or not compiler_found or not sysroot_found:
+        raise BaseError("private SDK compiler/sysroot/relocation closure incomplete")
+    return {
+        "schema": "ordax.private-buildroot-runtime-sdk-input/1",
+        "file_name": NATIVE_SDK_ARCHIVE,
+        "sdk_prefix": NATIVE_SDK_PREFIX,
+        "sha256": hasher.hexdigest(),
+        "size_bytes": before.st_size,
+        "python_sha256": abi["python_sha256"],
+        "purpose": "native-runtime-cross-compile-input-only",
+        "runtime_agent_packaged": False,
+        "device_install_authorized": False,
+    }
+
+
 def build_native_python_component(out: Path, cache: Path, jobs: int,
-                                  export_private_build_input: bool = False) -> dict:
+                                  export_private_build_input: bool = False,
+                                  export_private_sdk: bool = False) -> dict:
     """Compile isolated Buildroot Python, emit evidence only, no USB payload."""
+    if export_private_sdk and not export_private_build_input:
+        raise BaseError("private SDK must bind to the same exported Buildroot target")
     source, kernel, _, _ = contracts()
     out = out.resolve()
     if out == ROOT or ROOT in out.parents or (
@@ -1213,6 +1297,10 @@ def build_native_python_component(out: Path, cache: Path, jobs: int,
         )
         source_versions = read_native_httpx_buildroot_versions(br)
         run(*cmd[:-1], f"-j{max(1, jobs)}", bounded_output=True)
+        if export_private_sdk:
+            # Buildroot is the ONE toolchain owner. `make sdk` exports the
+            # host cross-compiler and sysroot from this SAME O= build tree.
+            run(*cmd[:-1], f"BR2_SDK_PREFIX={NATIVE_SDK_PREFIX}", "sdk", bounded_output=True)
         evidence = verify_native_python_target(build_dir / "target")
         smoke = smoke_test_private_native_python(build_dir / "target", evidence)
         if smoke["httpx_version"] != source_versions["httpx"]:
@@ -1242,6 +1330,14 @@ def build_native_python_component(out: Path, cache: Path, jobs: int,
             if output_proof != source_proof:
                 raise BaseError("private Python build input bytes changed during export")
             receipt["private_target_build_input"] = output_proof
+        if export_private_sdk:
+            sdk_source = build_dir / "images" / NATIVE_SDK_ARCHIVE
+            sdk_evidence = inspect_native_sdk_build_input(sdk_source, evidence)
+            sdk_output = out / NATIVE_SDK_ARCHIVE
+            shutil.copyfile(sdk_source, sdk_output)
+            if inspect_native_sdk_build_input(sdk_output, evidence) != sdk_evidence:
+                raise BaseError("private Buildroot SDK bytes changed during export")
+            receipt["private_sdk_build_input"] = sdk_evidence
         (out / "native-python-provenance.json").write_text(
             json.dumps(receipt, sort_keys=True, indent=2) + "\n",
             encoding="utf-8",
@@ -1289,6 +1385,13 @@ def verify_native_python_receipt(out: Path) -> dict:
         inspected = inspect_native_python_build_input(out / NATIVE_BUILD_INPUT_TAR, abi)
         if private_input != inspected:
             raise BaseError("private Python build input receipt does not match archived bytes")
+    sdk_receipt = receipt.get("private_sdk_build_input")
+    if sdk_receipt is not None:
+        if private_input is None or not isinstance(sdk_receipt, dict):
+            raise BaseError("private SDK receipt requires verified target build input")
+        sdk_actual = inspect_native_sdk_build_input(out / NATIVE_SDK_ARCHIVE, abi)
+        if sdk_receipt != sdk_actual:
+            raise BaseError("private Buildroot SDK receipt differs from archived bytes")
     source_versions = receipt.get("httpx_buildroot_source_versions")
     if (not isinstance(source_versions, dict)
             or set(source_versions) != set(NATIVE_HTTPX_PROBE_PACKAGES)
@@ -1488,10 +1591,14 @@ def main() -> int:
     parser.add_argument("--jobs", type=int, default=2)
     parser.add_argument("--export-private-build-input", action="store_true",
                         help="Export OS-unauthorized Buildroot target tar for Runtime build input")
+    parser.add_argument("--export-private-sdk", action="store_true",
+                        help="Export official same-build cross-compile SDK, NEVER an installable component")
     args = parser.parse_args()
     try:
-        if args.export_private_build_input and args.action != "build-component":
-            raise BaseError("--export-private-build-input is only valid with build-component")
+        if (args.export_private_build_input or args.export_private_sdk) and args.action != "build-component":
+            raise BaseError("private Buildroot exports are only valid with build-component")
+        if args.export_private_sdk and not args.export_private_build_input:
+            raise BaseError("--export-private-sdk requires --export-private-build-input")
         if args.action == "check-component":
             source, kernel, _, _ = contracts()
             with tempfile.TemporaryDirectory(prefix="ordax-component-defconfig-") as temporary:
@@ -1506,7 +1613,8 @@ def main() -> int:
                 raise BaseError("--out required for component proof")
             print(json.dumps(build_native_python_component(
                 args.out, args.cache, args.jobs,
-                export_private_build_input=args.export_private_build_input), sort_keys=True))
+                export_private_build_input=args.export_private_build_input,
+                export_private_sdk=args.export_private_sdk), sort_keys=True))
         elif args.action == "verify-component":
             if args.out is None:
                 raise BaseError("--out required for component proof")
