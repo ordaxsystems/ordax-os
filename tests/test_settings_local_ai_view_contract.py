@@ -7,8 +7,8 @@ from pathlib import Path
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
-SETTINGS = ROOT / "system/services/system-ui/ui/settings-overview-controls.mjs"
-STORE = ROOT / "system/services/system-ui/ui/store-overview-controls.mjs"
+SETTINGS = ROOT / "system/surface/ui/settings-overview-controls.mjs"
+STORE = ROOT / "system/surface/ui/store-overview-controls.mjs"
 NATIVE = ROOT / "system/composition/native/main.mjs"
 SETTINGS_MESSAGES = ROOT / "system/services/i18n/catalog/settings.mjs"
 STORE_MESSAGES = ROOT / "system/services/i18n/catalog/store.mjs"
