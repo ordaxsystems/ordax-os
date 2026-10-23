@@ -1,5 +1,6 @@
 import {
   FILE_SPACE_SCHEMA,
+  DEVICE_LOCAL_FILE_SPACE_SCOPE,
   MAX_IMAGE_PREVIEW_BYTES,
   MAX_MEDIA_PREVIEW_BYTES,
   MAX_DOCUMENT_PREVIEW_BYTES,
@@ -173,6 +174,7 @@ export async function createNativeFileSpace(windowRef = globalThis.window) {
 
   const port = {
     schema: FILE_SPACE_SCHEMA,
+    scope: DEVICE_LOCAL_FILE_SPACE_SCOPE,
     list(path = "/") {
       return requestListing(path);
     },

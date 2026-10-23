@@ -2,7 +2,10 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 
-import { FILE_SPACE_SCHEMA } from "../system/contracts/file-space.mjs";
+import {
+  DEVICE_LOCAL_FILE_SPACE_SCOPE,
+  FILE_SPACE_SCHEMA,
+} from "../system/contracts/file-space.mjs";
 import { createAppActivationChannel } from "../system/services/apps/activation.mjs";
 import { getFirstPartyApp } from "../system/apps/catalog.mjs";
 import { hasNativeExternalFirstPartyModuleRead } from "../system/services/apps/external-first-party-policy.mjs";
@@ -54,9 +57,13 @@ function nativeFilePort() {
   const listing = path => ({ path, entries: [] });
   return Object.freeze({
     schema: FILE_SPACE_SCHEMA,
+    scope: DEVICE_LOCAL_FILE_SPACE_SCOPE,
     async list(path) { return listing(path); },
     async createDirectory(path) { return listing(path); },
     async readTextFile(path) { return { path, size: 0, text: "" }; },
+    async readImagePreview(path) { return { path, size: 0, mime: "image/png", bytes: new Uint8Array() }; },
+    async readMediaPreview(path) { return { path, size: 0, mime: "audio/wav", bytes: new Uint8Array() }; },
+    async readDocumentPreview(path) { return { path, size: 0, mime: "application/pdf", bytes: new Uint8Array() }; },
     async renameEntry(path) { return listing(path); },
     async copyFile(_src, _name, path) { return listing(path); },
     async moveEntry(_src, _name, path) { return listing(path); },
@@ -117,8 +124,8 @@ test("Files probation provider installs before bind and creates host only for an
   assert.equal(context.root.removed, true);
 
   assert.equal(getFirstPartyApp("files")?.id, "files");
-  assert.equal(hasNativeExternalFirstPartyModuleRead("files"), false);
-  assert.equal(NATIVE_COMPONENT_PROBATION_IDS.includes("files"), false);
+  assert.equal(hasNativeExternalFirstPartyModuleRead("files"), true);
+  assert.equal(NATIVE_COMPONENT_PROBATION_IDS.includes("files"), true);
 });
 
 test("Files probation bind failure rejects waiting probes without creating a host", async () => {
@@ -209,6 +216,6 @@ test("Native Files probation wiring installs before async boot and binds only af
   assert.match(source.slice(bindIndex, currentGateIndex), /recentFiles/);
   assert.match(source.slice(bindIndex, currentGateIndex), /projects/);
   assert.match(source.slice(bindIndex, currentGateIndex), /appActivation/);
-  assert.equal(NATIVE_COMPONENT_PROBATION_IDS.includes("files"), false);
-  assert.equal(hasNativeExternalFirstPartyModuleRead("files"), false);
+  assert.equal(NATIVE_COMPONENT_PROBATION_IDS.includes("files"), true);
+  assert.equal(hasNativeExternalFirstPartyModuleRead("files"), true);
 });

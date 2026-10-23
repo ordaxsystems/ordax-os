@@ -100,16 +100,25 @@ class RuntimeComponentPackageTests(unittest.TestCase):
         self.assertFalse(policy["native_pending_import_probe_exposes_host_capabilities"])
         self.assertFalse(policy["native_pending_import_probe_mounts_runtime"])
         self.assertFalse(policy["failed_pending_runtime_read_allowed"])
-        self.assertEqual(policy["native_loopback_broker_supported_components"], ["calculator", "notes", "studio"])
-        self.assertIs(policy["native_files_slot_bound_file_space_enforced"], False)
-        self.assertNotIn("files", policy["native_loopback_broker_supported_components"])
+        self.assertEqual(policy["native_loopback_broker_supported_components"], ["assistant", "calculator", "files", "notes", "studio"])
+        self.assertIs(policy["native_files_slot_bound_file_space_enforced"], True)
+        self.assertIn("files", policy["native_loopback_broker_supported_components"])
         self.assertNotIn("calculator", policy["native_loopback_broker_health_mutation_components"])
         self.assertFalse(policy["slot_activation_available"])
         self.assertFalse(policy["publish_allowed"])
         self.assertEqual(
             policy["native_loopback_broker_health_mutation_components"],
-            ["notes"],
+            ["files", "notes"],
         )
+        self.assertTrue(policy["files_component_slot_read_available"])
+        self.assertTrue(policy["files_component_probation_available"])
+        self.assertFalse(policy["files_component_distribution_activation_enabled"])
+        self.assertFalse(policy["files_component_promotion_proven"])
+        self.assertFalse(policy["files_component_rollback_proven"])
+        self.assertEqual(policy["runtime_health_bridge_probe_mode_by_component"]["files"], "mount-contract")
+        self.assertEqual(policy["native_pending_files_mount_probe_file_space_scope"], "empty-synthetic-root")
+        self.assertFalse(policy["native_pending_files_mount_probe_exposes_user_data"])
+        self.assertFalse(policy["native_pending_files_mount_probe_mutates_user_data"])
         self.assertTrue(policy["notes_component_slot_read_available"])
         self.assertTrue(policy["notes_component_probation_available"])
         self.assertFalse(policy["notes_component_distribution_activation_enabled"])
@@ -147,14 +156,13 @@ class RuntimeComponentPackageTests(unittest.TestCase):
         )
         self.assertEqual(
             policy["runtime_health_bridge_supported_components"],
-            ["notes"],
+            ["files", "notes"],
         )
         self.assertEqual(
             policy["runtime_health_bridge_probe_mode_by_component"],
-            {"notes": "import-contract"},
+            {"files": "mount-contract", "notes": "import-contract"},
         )
         self.assertNotIn("runtime_health_bridge_probe_mode", policy)
-        self.assertNotIn("files", policy["runtime_health_bridge_probe_mode_by_component"])
         self.assertTrue(policy["runtime_health_bridge_requires_host_nonce"])
         self.assertFalse(policy["runtime_health_bridge_exposed_over_http"])
         self.assertFalse(policy["runtime_health_bridge_promotes_candidate"])

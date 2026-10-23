@@ -22,9 +22,10 @@ const empty = {
 
 test("default selection references existing removable app policies without changing installed truth", () => {
   const defaults = listFirstRunDefaultAppIds();
-  assert.equal(defaults.length, 15);
+  assert.equal(defaults.length, 16);
   assert.equal(new Set(defaults).size, defaults.length);
   assert.ok(defaults.includes("files") && defaults.includes("internet"));
+  assert.ok(defaults.includes("assistant"), "Aura is selected using its existing app id");
   assert.ok(defaults.includes("notes") && defaults.includes("calculator"));
   for (const appId of defaults) {
     const policy = getFirstPartyAppDeliveryPolicy(appId);
@@ -141,6 +142,47 @@ test("Store-backed first-run selection uses only actual verified current-slot an
   assert.equal(plan.defaultAppIds.includes("studio"), false);
   assert.equal(plan.authority, "none");
   assert.equal(plan.installedByThisPlan, false);
+});
+
+test("Aura default candidate is selected only with verified Native absence; removal is respected", () => {
+  const catalog = storeSnapshot([storeEntry("assistant", {
+    availableVersion: "0.1.2",
+  })]);
+  const candidate = planFirstRunAppSelectionFromStore({
+    initialProvisioning: true,
+    explicitlyRemovedAppIds: [],
+    storeCatalogSnapshot: catalog,
+    nativeCurrentMetadata: [nativeCurrent("assistant", "absent")],
+  });
+  assert.ok(candidate.eligibleCandidateAppIds.includes("assistant"));
+  assert.equal(candidate.installedByThisPlan, false);
+  assert.equal(candidate.authority, "none");
+
+  const withoutProof = planFirstRunAppSelectionFromStore({
+    initialProvisioning: true,
+    explicitlyRemovedAppIds: [],
+    storeCatalogSnapshot: catalog,
+  });
+  assert.ok(withoutProof.unavailableAppIds.includes("assistant"));
+  assert.ok(!withoutProof.eligibleCandidateAppIds.includes("assistant"));
+
+  const userRemoved = planFirstRunAppSelectionFromStore({
+    initialProvisioning: true,
+    explicitlyRemovedAppIds: [],
+    storeCatalogSnapshot: catalog,
+    nativeCurrentMetadata: [nativeCurrent("assistant", "removed")],
+  });
+  assert.ok(userRemoved.suppressedAppIds.includes("assistant"));
+  assert.ok(!userRemoved.eligibleCandidateAppIds.includes("assistant"));
+
+  const afterFirstRun = planFirstRunAppSelectionFromStore({
+    initialProvisioning: false,
+    explicitlyRemovedAppIds: [],
+    storeCatalogSnapshot: catalog,
+    nativeCurrentMetadata: [nativeCurrent("assistant", "absent")],
+  });
+  assert.ok(afterFirstRun.suppressedAppIds.includes("assistant"));
+  assert.ok(!afterFirstRun.eligibleCandidateAppIds.includes("assistant"));
 });
 
 test("Store displayed installedVersion never substitutes Native current-slot proof", () => {

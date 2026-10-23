@@ -4,14 +4,15 @@ import unittest
 ROOT = Path(__file__).resolve().parents[1]
 SURFACE = ROOT / "system" / "surface" / "ui"
 APPS = ROOT / "system" / "apps"
+SYSTEM_UI = ROOT / "system" / "services" / "system-ui"
 PREFERENCES = ROOT / "system" / "services" / "preferences"
 APP_CATALOG = APPS / "catalog.mjs"
 APP_CONTRACT = ROOT / "system" / "contracts" / "first-party-app.mjs"
 APP_OWNERS = {
     "files": APPS / "files" / "app.mjs",
-    "settings": APPS / "settings" / "app.mjs",
-    "account": APPS / "account" / "app.mjs",
-    "system": APPS / "system" / "app.mjs",
+    "settings": SYSTEM_UI / "settings" / "app.mjs",
+    "account": SYSTEM_UI / "account" / "app.mjs",
+    "system": SYSTEM_UI / "system" / "app.mjs",
 }
 APPEARANCE = PREFERENCES / "appearance.mjs"
 ACCESSIBILITY = PREFERENCES / "accessibility.mjs"
@@ -254,8 +255,9 @@ class SurfaceUiContractTests(unittest.TestCase):
             if app_id in {"files"}:
                 self.assertIn("./component.mjs", owner)
             else:
-                self.assertIn("../../services/components/manifests/apps.mjs", owner)
-            self.assertIn(f'./{app_id}/app.mjs', catalog)
+                self.assertIn("../../components/manifests/apps.mjs", owner)
+            source_import = f'./{app_id}/app.mjs' if app_id == "files" else f'../services/system-ui/{app_id}/app.mjs'
+            self.assertIn(source_import, catalog)
         self.assertNotIn('./network/app.mjs', catalog)
         self.assertFalse((APPS / "network").exists())
         self.assertIn("listFirstPartyApps", catalog)
@@ -310,8 +312,19 @@ class SurfaceUiContractTests(unittest.TestCase):
         self.assertNotIn('assistantMemoryCapture', native)
         self.assertNotIn('railButton("assistant"', DESKTOP_SHELL.read_text(encoding="utf-8"))
         self.assertNotIn('ASSISTANT_SOURCE_MESSAGES', SURFACE_LOCALIZATION.read_text(encoding="utf-8"))
-        self.assertNotIn("assistant", policy["native_loopback_broker_supported_components"])
+        # The only packaged Aura source is in Apps; the OS broker may read
+        # its exact verified current slot without bundling another app or
+        # obtaining health, installation, promotion or model authority.
+        self.assertIn("assistant", policy["native_loopback_broker_supported_components"])
+        self.assertTrue(policy["native_loopback_broker_read_only"])
+        self.assertTrue(policy["native_loopback_broker_requires_component_trust"])
+        self.assertTrue(policy["runtime_file_read_revalidates_slot_and_hash"])
+        self.assertNotIn("assistant", policy["native_loopback_broker_health_mutation_components"])
         self.assertNotIn("assistant", policy["runtime_health_bridge_supported_components"])
+        self.assertNotIn("assistant", policy["native_pending_decision_supported_components"])
+        self.assertFalse(policy["canonical_component_trust_anchor_pinned"])
+        self.assertFalse(policy["pending_health_promotion_available"])
+        self.assertFalse(policy["publish_allowed"])
 
 
     def test_browser_engine_stays_in_platform_without_bundled_internet_app(self):

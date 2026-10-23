@@ -14,6 +14,7 @@ var canonicalExternalComponentSourceRepositories = map[string]string{
 	"clock": appsSourceRepository,
 	"colors": appsSourceRepository,
 	"converter": appsSourceRepository,
+	"files": appsSourceRepository,
 	"image-viewer": appsSourceRepository,
 	"internet": appsSourceRepository,
 	"media-player": appsSourceRepository,
@@ -26,6 +27,11 @@ var canonicalExternalComponentSourceRepositories = map[string]string{
 	"studio": appsSourceRepository,
 	"text-viewer": appsSourceRepository,
 	"toolbox": appsSourceRepository,
+}
+
+// A bundled platform owner remains the only signable source until its cutover gate completes.
+var nativeExternalCurrentSlotBlockedByBundledOwnerComponents = map[string]struct{}{
+	"files": {},
 }
 
 // Platform-owned ABI declarations, not signed app providers or capability grants.

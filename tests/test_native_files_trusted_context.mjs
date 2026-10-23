@@ -2,7 +2,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
 
-import { FILE_SPACE_SCHEMA } from "../system/contracts/file-space.mjs";
+import {
+  DEVICE_LOCAL_FILE_SPACE_SCOPE,
+  FILE_SPACE_SCHEMA,
+} from "../system/contracts/file-space.mjs";
 import { validateComponentRuntimeMetadata } from "../system/contracts/component-runtime-metadata.mjs";
 import { createRecentFilesRuntime } from "../system/services/files/recent-files.mjs";
 import { createProjectCatalogRuntime } from "../system/services/files/projects.mjs";
@@ -22,9 +25,13 @@ function nativeFilePort() {
   const listing = path => ({ path, entries: [] });
   return Object.freeze({
     schema: FILE_SPACE_SCHEMA,
+    scope: DEVICE_LOCAL_FILE_SPACE_SCOPE,
     async list(path) { return listing(path); },
     async createDirectory(path) { return listing(path); },
     async readTextFile(path) { return { path, size: 0, text: "" }; },
+    async readImagePreview(path) { return { path, size: 0, mime: "image/png", bytes: new Uint8Array() }; },
+    async readMediaPreview(path) { return { path, size: 0, mime: "audio/wav", bytes: new Uint8Array() }; },
+    async readDocumentPreview(path) { return { path, size: 0, mime: "application/pdf", bytes: new Uint8Array() }; },
     async renameEntry(path) { return listing(path); },
     async copyFile(_src, _name, path) { return listing(path); },
     async moveEntry(_src, _name, path) { return listing(path); },
@@ -129,7 +136,7 @@ test("Files host ports require exact verified current slot, not appId or bundled
 
 test("Files host binding stays inactive while OS retains the bundled Files source", async () => {
   assert.equal(getFirstPartyApp("files")?.id, "files");
-  assert.equal(hasNativeExternalFirstPartyModuleRead("files"), false);
+  assert.equal(hasNativeExternalFirstPartyModuleRead("files"), true);
   const composition = await readFile(
     new URL("../system/composition/native/main.mjs", import.meta.url), "utf8",
   );

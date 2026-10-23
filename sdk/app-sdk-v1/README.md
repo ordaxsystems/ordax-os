@@ -2,6 +2,14 @@
 
 This directory publishes the machine-readable contract set intended for apps developed outside the platform source tree.
 
+## Bundle 1.20.0
+
+Esta versão acrescenta o escopo imutável `device-local` ao File Space/11 para
+componentes Native isolados. O escopo identifica somente os arquivos locais do
+dispositivo; não associa a raiz local a um Space da Conta nem concede autoridade.
+O host continua resolvendo o espaço e validando a identidade/revisão do slot em
+cada operação.
+
 ## Bundle 1.19.0
 
 Adição dos contratos tipados de Atividade: aprovação humana e exportação. Essas

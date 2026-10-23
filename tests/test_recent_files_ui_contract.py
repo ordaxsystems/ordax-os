@@ -16,10 +16,10 @@ class RecentFilesUiContractTests(unittest.TestCase):
         self.assertIn("assertRecentFilesPort", controls)
         self.assertIn("dataset.fileOpenRecent", controls)
         self.assertIn("dataset.fileRecentPath", controls)
-        self.assertIn("recentPort.recordOpened(next.path)", controls)
-        self.assertIn("recentPort.remove(selected.path)", controls)
-        self.assertIn("recentPort.clear()", controls)
-        self.assertIn("recentPort.relocate(previousPath, nextPath)", controls)
+        self.assertIn('updateRecentSnapshot("recordOpened", next.path)', controls)
+        self.assertIn('updateRecentSnapshot("remove", selected.path)', controls)
+        self.assertIn('updateRecentSnapshot("clear")', controls)
+        self.assertIn('updateRecentSnapshot("relocate", previousPath, nextPath)', controls)
         self.assertNotIn("localStorage", controls)
         self.assertNotIn("adapters/native", controls)
 
@@ -51,6 +51,16 @@ class RecentFilesUiContractTests(unittest.TestCase):
         self.assertIn("tests/test_recent_files_ui_contract.py", workflow)
         self.assertIn("node --test tests/test_recent_files.mjs", workflow)
         self.assertIn("python -m unittest tests.test_recent_files_ui_contract -v", workflow)
+
+    def test_shared_files_ui_awaits_recent_mutations_and_surfaces_secondary_failures(self):
+        controls = CONTROLS.read_text(encoding="utf-8")
+        self.assertIn("const updateRecentSnapshot = async", controls)
+        self.assertIn('await updateRecentSnapshot("recordOpened", next.path)', controls)
+        self.assertIn('await updateRecentSnapshot("remove", selected.path)', controls)
+        self.assertIn('await updateRecentSnapshot("clear")', controls)
+        self.assertIn('await updateRecentSnapshot("relocate", previousPath, nextPath)', controls)
+        self.assertIn('setMessage("files.recents.updateFailed")', controls)
+        self.assertNotRegex(controls, r"recentPort\.(recordOpened|remove|clear|relocate)\(")
 
 
 if __name__ == "__main__":

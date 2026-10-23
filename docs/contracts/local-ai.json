@@ -145,5 +145,33 @@
     "token_limit_finish_reason_rejected": true,
     "cancellation_unblocks_stalled_reader_and_callback": true,
     "reader_cancel_is_best_effort_nonblocking": true
+  },
+  "post_install_lifecycle": {
+    "status": "contract-defined-runtime-not-implemented",
+    "distribution_default": "creator-preseeds-signed-model-and-engine",
+    "development_usb_default_ready_proven": false,
+    "stable_usb_physical_default_ready_proven": false,
+    "intelligence_service_is_system_owned": true,
+    "local_ai_port_is_system_owned": true,
+    "model_engine_payload_is_independently_manageable": true,
+    "user_can_request_removal_after_install": true,
+    "user_can_request_reinstallation_after_removal": true,
+    "explicit_user_action_required_for_removal": true,
+    "model_remove_must_stop_backend_and_unmount_before_reclaim": true,
+    "remove_must_not_delete_memory_or_user_data": true,
+    "remove_must_not_delete_system_or_surface": true,
+    "reinstall_must_reverify_signed_source": true,
+    "removal_must_survive_reboot_and_os_updates": true,
+    "no_implicit_reinstall_after_explicit_removal": true,
+    "update_requires_verified_health_and_reversible_activation": true,
+    "reclaim_only_unreferenced_unmounted_payloads": true,
+    "removal_must_not_invalidate_boot_release_verification": true,
+    "v4_release_verification_currently_requires_ai_blob": true,
+    "v4_ai_boot_dependency_removed": false,
+    "remove_reinstall_backend_implemented": false,
+    "independent_model_upgrade_backend_implemented": false,
+    "user_interface_actions_enabled": false,
+    "activation_state_owner_target": "existing-runtime-component-channel-after-erofs-size-trust-and-health-integration",
+    "boot_attestation_migration_requires_versioned_protocol": true
   }
 }

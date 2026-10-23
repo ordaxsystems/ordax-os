@@ -14,6 +14,7 @@ STORE_METADATA_COMPONENT_IDS = frozenset({
     "clock",
     "colors",
     "converter",
+    "files",
     "image-viewer",
     "internet",
     "media-player",
@@ -28,20 +29,29 @@ STORE_METADATA_COMPONENT_IDS = frozenset({
 })
 
 NATIVE_MODULE_READ_COMPONENT_IDS = frozenset({
+    "assistant",
     "calculator",
+    "files",
     "notes",
     "studio",
 })
 
 NATIVE_HEALTH_MUTATION_COMPONENT_IDS = frozenset({
+    "files",
     "notes",
 })
 
 NATIVE_PROBATION_COMPONENT_IDS = frozenset({
+    "files",
+    "notes",
+})
+
+NATIVE_PENDING_DECISION_COMPONENT_IDS = frozenset({
     "notes",
 })
 
 NATIVE_PROBATION_PROBE_MODE_BY_COMPONENT = MappingProxyType({
+    "files": "mount-contract",
     "notes": "import-contract",
 })
 

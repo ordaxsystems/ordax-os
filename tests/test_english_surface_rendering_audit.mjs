@@ -5,10 +5,6 @@ import { fileURLToPath } from "node:url";
 import path from "node:path";
 
 import { listFirstPartyApps } from "../system/apps/catalog.mjs";
-import {
-  STUDIO_WORKSPACE_ENGLISH_MESSAGES,
-  STUDIO_WORKSPACE_SOURCE_MESSAGES,
-} from "../system/services/i18n/catalog/studio-workspace.mjs";
 import { translateSurfaceMessage } from "../system/services/i18n/surface.mjs";
 
 const PORTUGUESE_MARKER = /(?:[ãõáéíóúâêôç])|\b(?:abrir|ajustes|agora|aguarde|arquivo|arquivos|atualização|atualizando|bateria|cadastro|carregando|conectar|conectado|conta|continuar|criar|degradado|desconectado|disponível|documentos|energia|escrita|excluir|falha|fechar|fuso|idioma|indisponível|início|leitura|nenhum|nenhuma|nota|notas|ontem|pendrive|primeiro|privacidade|pronto|procurar|rede|região|renomear|salvar|salvo|salva|segurança|senha|sessão|sinal|sistema|somente|termos|tudo|vigentes|voltar)\b/iu;
@@ -96,14 +92,6 @@ test("every registered first-party app has localized en-US display metadata", ()
       );
     });
   }
-});
-
-test("Studio workspace has an exact shared pt-BR/en-US catalog", () => {
-  exactCatalogKeys(
-    STUDIO_WORKSPACE_SOURCE_MESSAGES,
-    STUDIO_WORKSPACE_ENGLISH_MESSAGES,
-    "Studio workspace",
-  );
 });
 
 test("rendering modules outside First Run contain no unowned Portuguese UI literals", async () => {

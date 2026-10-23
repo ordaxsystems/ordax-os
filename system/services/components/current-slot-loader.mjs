@@ -4,6 +4,7 @@ import { validateComponentRuntimeMetadata } from "../../contracts/component-runt
 import { validateComponentRuntime } from "../../contracts/component-runtime.mjs";
 import { composeTrustedComponentContext } from "./runtime-loader.mjs";
 import { assertAppDataPort } from "../../contracts/app-data.mjs";
+import { assertDeviceLocalFileSpacePort } from "../../contracts/file-space.mjs";
 import { revokeInstalledAppCapabilityReader } from "../device-agent/installed-app-capability-reader.mjs";
 import {
   assertComponentMountParent,
@@ -115,6 +116,9 @@ export async function loadVerifiedCurrentComponentRuntime({
   let returnedMount = false;
   try {
     assertComponentMountParent(context, { label: "Current component" });
+    if (Object.prototype.hasOwnProperty.call(context, "fileSpace")) {
+      throw new TypeError("Caller-supplied Native File Space is not trusted");
+    }
     // The privileged Native bootstrap is the only owner of App Data binding.
     // External apps cannot be read/imported when its expected binding is absent.
     const trustedBeforeImport = requireTrustedAppData
@@ -136,14 +140,17 @@ export async function loadVerifiedCurrentComponentRuntime({
       throw new TypeError("Bundled source cannot be used as an installed component slot");
     }
     // Compose host-owned context before the isolated importer is called.
-    // The default loader refuses File Space because no per-Space Native host
-    // authority exists; only a future broker may add it to the opaque bridge.
+    // Files may receive only the fixed device-local scope through its host
+    // provider; account/shared Spaces remain a distinct, unsupported owner.
     const effectiveContext = trustedBeforeImport ?? await bounded(
       () => composeTrustedComponentContext(id, context), limit, "trusted context",
     );
     trustedContext = effectiveContext;
     if (Object.prototype.hasOwnProperty.call(effectiveContext, "fileSpace")) {
-      throw new TypeError("Same-origin component cannot receive Native File Space without isolated host authority");
+      if (id !== "files") {
+        throw new TypeError("Native File Space is available only to the verified Files slot");
+      }
+      assertDeviceLocalFileSpacePort(effectiveContext.fileSpace);
     }
     const url = verifiedModuleUrl(slotSource, current);
     // The importer receives the exact verified current-slot observation so a

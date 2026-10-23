@@ -134,6 +134,17 @@ test("only canonical external IDs can be discovered and package-source is read-o
   assert.equal(t.calls.length, 0);
 });
 
+test("a signed Files slot cannot shadow the bundled Files owner before Gate A", async () => {
+  const t = fixture();
+  const entries = await discoverVerifiedExternalApplications({
+    source: t.source,
+    fetchImpl: t.fetchImpl,
+    appIds: ["files"],
+  });
+  assert.deepEqual(entries, []);
+  assert.equal(t.calls.length, 0, "bundled source ownership prevents reading an external Files slot");
+});
+
 test("moving the current activation while manifest files load hides stale external apps", async () => {
   let reads = 0;
   const t = fixture({ metadata: () => {

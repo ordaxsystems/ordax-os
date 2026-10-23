@@ -42,6 +42,8 @@ func TestCanonicalComponentSourceRepositoryPolicy(t *testing.T) {
 		{name: "Network is sourced from ordax-apps", component: "network", repository: appsSourceRepository, wantOK: true},
 		{name: "Notes is sourced from ordax-apps", component: "notes", repository: appsSourceRepository, wantOK: true},
 		{name: "Studio is sourced from ordax-apps", component: "studio", repository: appsSourceRepository, wantOK: true},
+		{name: "Files remains platform-owned before Gate A", component: "files", repository: sourceRepository, wantOK: true},
+		{name: "Files cannot be signed from Apps before Gate A", component: "files", repository: appsSourceRepository, wantOK: false},
 		{name: "Product Runtime is sourced from canonical Runtime", component: "product-runtime", repository: productRuntimeSourceRepository, wantOK: true},
 		{name: "Product Runtime cannot claim OS repository", component: "product-runtime", repository: sourceRepository, wantOK: false},
 		{name: "Product Runtime cannot claim apps repository", component: "product-runtime", repository: appsSourceRepository, wantOK: false},
@@ -60,6 +62,12 @@ func TestCanonicalComponentSourceRepositoryPolicy(t *testing.T) {
 				t.Fatal("non-canonical source repository unexpectedly passed")
 			}
 		})
+	}
+}
+
+func TestFilesCanonicalSignerSourceTracksBundledOwnerGate(t *testing.T) {
+	if got := canonicalSourceRepository("files"); got != sourceRepository {
+		t.Fatalf("Files signer source must remain the platform before Gate A, got %q", got)
 	}
 }
 

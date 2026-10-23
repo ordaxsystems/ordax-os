@@ -247,25 +247,23 @@ test("verified app semantics binds identity, AI and Actions to the exact current
   }
 });
 
-test("verified external app identity replaces same-id development app and appends externalized apps", () => {
-  const base = [
-    {
-      id: "studio",
-      title: "ORDAX Studio",
-      component: {
-        id: "studio",
-        title: "ORDAX Studio",
-        kind: "app",
-        version: "0.4.0",
-        releaseMode: "git-app",
-        criticality: "optional",
-        failureDomain: "app",
-        restartScope: "component",
-        healthMode: "runtime",
-        owner: "system/apps/studio",
-        dependencies: ["surface-shell"],
-      },
+test("bundled Files does not read external package semantics before source cutover", async () => {
+  const source = createNativeVerifiedComponentPackageSource(windowRef());
+  let reads = 0;
+  const entries = await loadVerifiedFirstPartyApplicationSemantics({
+    appIds: ["files"],
+    source,
+    async fetchImpl() {
+      reads += 1;
+      throw new Error("bundled Files must not read a competing slot");
     },
+  });
+  assert.deepEqual(entries, []);
+  assert.equal(reads, 0);
+});
+
+test("verified external Studio and Notes append without bundling Studio", () => {
+  const base = [
     {
       id: "files",
       title: "Arquivos",
@@ -288,9 +286,9 @@ test("verified external app identity replaces same-id development app and append
     base,
     [verifiedEntry("studio", "0.4.3"), verifiedEntry("notes", "0.4.1")],
   );
-  assert.deepEqual(overlaid.map((app) => app.id), ["studio", "files", "notes"]);
-  assert.equal(overlaid[0].component.releaseMode, "component-slot");
-  assert.equal(overlaid[0].component.version, "0.4.3");
+  assert.deepEqual(overlaid.map((app) => app.id), ["files", "studio", "notes"]);
+  assert.equal(overlaid[1].component.releaseMode, "component-slot");
+  assert.equal(overlaid[1].component.version, "0.4.3");
   assert.equal(overlaid[2].component.owner, "ordaxsystems/ordax-apps");
 });
 
@@ -301,7 +299,7 @@ test("verified application overlay rejects arbitrary or incompletely verified re
   foreignId.intelligenceManifest = semantics("files", "0.4.1");
   assert.throws(
     () => overlayVerifiedFirstPartyApplications([], [foreignId]),
-    /not an allowed external first-party app/,
+    /not an available external first-party app/,
   );
 
   const ownerDrift = verifiedEntry("notes");

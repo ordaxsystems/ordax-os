@@ -7,6 +7,35 @@ import {
 } from "../../contracts/app-data.mjs";
 import { assertSurfaceRenderLifecycle } from "../../contracts/surface-render-lifecycle.mjs";
 import { validateWorkspaceTarget } from "../../contracts/workspace-store.mjs";
+import {
+  assertAppActivationPort,
+  validateAppActivation,
+} from "../../contracts/app-activation.mjs";
+import {
+  assertDeviceLocalFileSpacePort,
+  validateDocumentPreview,
+  validateFileEntry,
+  validateFileListing,
+  validateFileSpacePath,
+  validateImagePreview,
+  validateMediaPreview,
+  validateTextFile,
+  validateTrashListing,
+  MAX_FILE_IMPORT_BYTES,
+} from "../../contracts/file-space.mjs";
+import {
+  assertProjectCatalogPort,
+  validateProjectCatalogSnapshot,
+  validateProjectFilePath,
+  validateProjectId,
+  validateProjectName,
+  validateProjectPath,
+} from "../../contracts/project-catalog.mjs";
+import {
+  assertRecentFilesPort,
+  validateRecentFilePath,
+  validateRecentFilesSnapshot,
+} from "../../contracts/recent-files.mjs";
 import { createSurfaceLocalizationSnapshot } from "../../services/i18n/surface.mjs";
 import {
   createNativeComponentSlotAuthority,
@@ -19,6 +48,22 @@ const BRIDGE_SCHEMA = "ordax.native.isolated-component-bridge/1";
 const PENDING_PROBE_SCHEMA = "ordax.native.isolated-component-probe/1";
 const MAX_PENDING_CALLS = 64;
 const MAX_SUBSCRIPTIONS = 16;
+const PENDING_FILES_MOUNT_OPERATIONS = new Set([
+  "surface.subscribeRender",
+  "surface.unsubscribeRender",
+  "fileSpace.list",
+  "recentFiles.getSnapshot",
+  "recentFiles.subscribe",
+  "recentFiles.unsubscribe",
+  "projects.getSnapshot",
+  "projects.subscribe",
+  "projects.unsubscribe",
+  "appActivation.subscribe",
+  "appActivation.unsubscribe",
+]);
+const denyPendingFilesMutation = () => {
+  throw new TypeError("Pending Files probation has no user-data mutation authority");
+};
 const COMPONENT_ID_RE = /^[a-z][a-z0-9-]{0,63}$/;
 const VERSION_RE = /^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-[0-9A-Za-z.-]+)?$/;
 const ENTRY_RE = /^[A-Za-z0-9._/-]+\.mjs$/;
@@ -67,6 +112,10 @@ const FRAME_BOOTSTRAP = String.raw`(() => {
   let shuttingDown = false;
   let localeSnapshot = null;
   let appTarget = null;
+  let fileSpace = null;
+  let recentFiles = null;
+  let projects = null;
+  let appActivation = null;
   let nextRequest = 0;
   const pending = new Map();
   const renderListeners = new Set();
@@ -77,7 +126,14 @@ const FRAME_BOOTSTRAP = String.raw`(() => {
     if (!host || pending.size >= 64) { reject(new Error("Native app bridge is unavailable")); return; }
     const id = ++nextRequest;
     pending.set(id, { resolve, reject });
-    send({ type: "call", id, operation, args });
+    try {
+      send({ type: "call", id, operation, args });
+    } catch (error) {
+      // Structured-clone errors must not strand a request in the bounded
+      // pending table until the entire component is torn down.
+      pending.delete(id);
+      reject(error);
+    }
   });
   const assertLocale = (snapshot) => {
     if (!snapshot || snapshot.schema !== "ordax.localization/2"
@@ -130,6 +186,96 @@ const FRAME_BOOTSTRAP = String.raw`(() => {
       delete: (candidate, command) => { assertIdentity(candidate); return call("appData.delete", [command]); },
     });
   };
+  const createFileSpace = (scope) => Object.freeze({
+    schema: "ordax.file-space/11",
+    scope: Object.freeze({ schema: scope.schema, kind: scope.kind }),
+    list: (path = "/") => call("fileSpace.list", [path]),
+    createDirectory: (path, name) => call("fileSpace.createDirectory", [path, name]),
+    readTextFile: (path) => call("fileSpace.readTextFile", [path]),
+    readImagePreview: (path) => call("fileSpace.readImagePreview", [path]),
+    readMediaPreview: (path) => call("fileSpace.readMediaPreview", [path]),
+    readDocumentPreview: (path) => call("fileSpace.readDocumentPreview", [path]),
+    copyFile: (sourcePath, name, destinationPath, newName) =>
+      call("fileSpace.copyFile", [sourcePath, name, destinationPath, newName]),
+    renameEntry: (path, name, newName) => call("fileSpace.renameEntry", [path, name, newName]),
+    moveEntry: (sourcePath, name, destinationPath) =>
+      call("fileSpace.moveEntry", [sourcePath, name, destinationPath]),
+    trashEntry: (path, name) => call("fileSpace.trashEntry", [path, name]),
+    listTrash: () => call("fileSpace.listTrash", []),
+    restoreTrashEntry: (id) => call("fileSpace.restoreTrashEntry", [id]),
+    exportFile: (path) => call("fileSpace.exportFile", [path]),
+    importFile: (path, name, bytes) => call("fileSpace.importFile", [path, name, bytes]),
+  });
+  const createSnapshotPort = (service, schema, initialSnapshot, methods) => {
+    let snapshot = initialSnapshot;
+    let nextSubscriptionId = 0;
+    const listeners = new Map();
+    const port = {
+      schema,
+      getSnapshot() { return snapshot; },
+      subscribe(listener) {
+        if (typeof listener !== "function" || listeners.size >= 16) {
+          throw new TypeError(service + " subscription is invalid");
+        }
+        const id = ++nextSubscriptionId;
+        listeners.set(id, listener);
+        const registration = call(service + ".subscribe", [id]);
+        void registration.catch(() => listeners.delete(id));
+        return () => {
+          if (!listeners.delete(id)) return;
+          void registration.then(() => call(service + ".unsubscribe", [id])).catch(() => {});
+        };
+      },
+      applySnapshot(id, nextSnapshot) {
+        snapshot = nextSnapshot;
+        const listener = listeners.get(id);
+        if (listener) { try { listener(snapshot); } catch {} }
+      },
+    };
+    for (const method of methods) {
+      port[method] = (...args) => call(service + "." + method, args).then((nextSnapshot) => {
+        snapshot = nextSnapshot;
+        return snapshot;
+      });
+    }
+    return Object.freeze(port);
+  };
+  const createActivationPort = () => {
+    let nextSubscriptionId = 0;
+    const listeners = new Map();
+    return Object.freeze({
+      schema: "ordax.app-activation/1",
+      publish: (value) => call("appActivation.publish", [value]),
+      subscribe(listener) {
+        if (typeof listener !== "function" || listeners.size >= 16) {
+          throw new TypeError("App activation subscription is invalid");
+        }
+        const id = ++nextSubscriptionId;
+        listeners.set(id, listener);
+        const registration = call("appActivation.subscribe", [id]);
+        void registration.catch(() => listeners.delete(id));
+        return () => {
+          if (!listeners.delete(id)) return;
+          void registration.then(() => call("appActivation.unsubscribe", [id])).catch(() => {});
+        };
+      },
+      applyActivation(id, activation) {
+        const listener = listeners.get(id);
+        if (listener) { try { listener(activation); } catch {} }
+      },
+    });
+  };
+  const fileServices = Object.freeze({
+    recentFiles: {
+      apply(id, snapshot) { recentFiles?.applySnapshot(id, snapshot); },
+    },
+    projects: {
+      apply(id, snapshot) { projects?.applySnapshot(id, snapshot); },
+    },
+    appActivation: {
+      apply(id, activation) { appActivation?.applyActivation(id, activation); },
+    },
+  });
   const onHostMessage = async (event) => {
     const data = event.data;
     if (!data || data.schema !== bridgeSchema || typeof data.type !== "string") return;
@@ -139,6 +285,10 @@ const FRAME_BOOTSTRAP = String.raw`(() => {
       pending.delete(data.id);
       if (data.ok === true) request.resolve(data.value);
       else request.reject(new Error(typeof data.error === "string" ? data.error : "Native app request failed"));
+    } else if (data.type === "service.update") {
+      if (typeof data.service !== "string" || !Number.isSafeInteger(data.subscriptionId)
+        || data.subscriptionId < 1 || !Object.prototype.hasOwnProperty.call(fileServices, data.service)) return;
+      fileServices[data.service]?.apply(data.subscriptionId, data.value);
     } else if (data.type === "render") {
       if (data.appTarget === null || typeof data.appTarget === "string") appTarget = data.appTarget;
       for (const listener of [...renderListeners]) { try { listener(); } catch {} }
@@ -171,8 +321,29 @@ const FRAME_BOOTSTRAP = String.raw`(() => {
     host.start?.();
     try {
       const identity = data.appDataIdentity;
-      if (!identity || !data.localizationSnapshot) throw new TypeError("Verified app context is incomplete");
+      if (!data.localizationSnapshot
+        || (identity === null
+          ? data.componentId !== "files"
+          : !identity || identity.appId !== data.componentId)) {
+        throw new TypeError("Verified app context is incomplete");
+      }
       assertLocale(data.localizationSnapshot);
+      if (data.fileSpaceScope !== null && data.fileSpaceScope !== undefined) {
+        if (data.fileSpaceScope.schema !== "ordax.file-space-scope/1"
+          || data.fileSpaceScope.kind !== "device-local") {
+          throw new TypeError("Native Files scope is invalid");
+        }
+        fileSpace = createFileSpace(data.fileSpaceScope);
+        if (!data.recentFilesSnapshot || !data.projectCatalogSnapshot) {
+          throw new TypeError("Verified Files context is incomplete");
+        }
+        recentFiles = createSnapshotPort("recentFiles", "ordax.recent-files/1",
+          data.recentFilesSnapshot, ["recordOpened", "remove", "clear", "relocate"]);
+        projects = createSnapshotPort("projects", "ordax.project-catalog/1",
+          data.projectCatalogSnapshot, ["create", "rename", "recordOpened", "recordFileOpened",
+            "clearLastFile", "relocateLastFilePath", "remove"]);
+        appActivation = createActivationPort();
+      }
       appTarget = data.appTarget ?? null;
       lifecycle = Object.freeze({
         schema: "ordax.surface-render-lifecycle/5",
@@ -208,7 +379,11 @@ const FRAME_BOOTSTRAP = String.raw`(() => {
       runtimeMount = await runtime.mount({
         root: document.getElementById("ordax-app-root"),
         surfaceLifecycle: lifecycle,
-        appData: appData(identity),
+        ...(identity === null ? {} : { appData: appData(identity) }),
+        ...(fileSpace === null ? {} : { fileSpace }),
+        ...(recentFiles === null ? {} : { recentFiles }),
+        ...(projects === null ? {} : { projects }),
+        ...(appActivation === null ? {} : { appActivation }),
       });
       if (!runtimeMount || typeof runtimeMount.destroy !== "function") throw new TypeError("Sandbox component mount is invalid");
       mounted = true;
@@ -326,24 +501,88 @@ function createPendingProbeFrameDocument({ nonce, parentOrigin, resourceRoot }) 
     + "</body></html>";
 }
 
-function assertContext(context, componentId) {
+function assertContext(context, componentId, { allowMissingAppData = false } = {}) {
   if (!context || typeof context !== "object" || !context.root
     || !context.surfaceLifecycle) throw new TypeError("Isolated app mount requires its Surface root and lifecycle");
-  if (Object.prototype.hasOwnProperty.call(context, "fileSpace")) {
-    throw new TypeError("File Space cannot cross the Native isolated-app bridge before per-Space host authorization exists");
-  }
   const lifecycle = assertSurfaceRenderLifecycle(context.surfaceLifecycle);
-  const appData = assertAppDataPort(context.appData);
-  if (appData.identity.appId !== componentId) throw new TypeError("App Data identity does not match the isolated slot");
-  return Object.freeze({ lifecycle, appData });
+  const appData = allowMissingAppData && context.appData == null
+    ? null
+    : assertAppDataPort(context.appData);
+  if (appData !== null && appData.identity.appId !== componentId) {
+    throw new TypeError("App Data identity does not match the isolated slot");
+  }
+  const hasFileSpace = Object.prototype.hasOwnProperty.call(context, "fileSpace");
+  const hasRecentFiles = Object.prototype.hasOwnProperty.call(context, "recentFiles");
+  const hasProjects = Object.prototype.hasOwnProperty.call(context, "projects");
+  const hasAppActivation = Object.prototype.hasOwnProperty.call(context, "appActivation");
+  if ((hasFileSpace || hasRecentFiles || hasProjects || hasAppActivation) && componentId !== "files") {
+    throw new TypeError("Native File Space is available only to the verified Files slot");
+  }
+  const fileSpace = hasFileSpace ? assertDeviceLocalFileSpacePort(context.fileSpace) : null;
+  const recentFiles = hasRecentFiles ? assertRecentFilesPort(context.recentFiles) : null;
+  const projects = hasProjects ? assertProjectCatalogPort(context.projects) : null;
+  const appActivation = hasAppActivation ? assertAppActivationPort(context.appActivation) : null;
+  if (componentId === "files" && (fileSpace === null || recentFiles === null
+    || projects === null || appActivation === null)) {
+    throw new TypeError("Verified Files slot requires its complete device-local host context");
+  }
+  return Object.freeze({ lifecycle, appData, fileSpace, recentFiles, projects, appActivation });
+}
+
+function createPendingFilesReadOnlyContext(validated) {
+  const recentFilesSnapshot = Object.freeze({ persistence: "session", entries: Object.freeze([]) });
+  const projectCatalogSnapshot = Object.freeze({ persistence: "session", projects: Object.freeze([]) });
+  const subscribeWithoutState = () => () => {};
+  const fileSpace = Object.freeze({
+    schema: validated.fileSpace.schema,
+    scope: validated.fileSpace.scope,
+    async list(path) {
+      if (path !== "/") {
+        throw new TypeError("Pending Files probation may inspect only the File Space root");
+      }
+      return Object.freeze({ path: "/", entries: Object.freeze([]) });
+    },
+  });
+  const recentFiles = Object.freeze({
+    schema: validated.recentFiles.schema,
+    getSnapshot: () => recentFilesSnapshot,
+    subscribe: subscribeWithoutState,
+    recordOpened: denyPendingFilesMutation,
+    remove: denyPendingFilesMutation,
+    clear: denyPendingFilesMutation,
+    relocate: denyPendingFilesMutation,
+  });
+  const projects = Object.freeze({
+    schema: validated.projects.schema,
+    getSnapshot: () => projectCatalogSnapshot,
+    subscribe: subscribeWithoutState,
+    create: denyPendingFilesMutation,
+    rename: denyPendingFilesMutation,
+    recordOpened: denyPendingFilesMutation,
+    recordFileOpened: denyPendingFilesMutation,
+    clearLastFile: denyPendingFilesMutation,
+    relocateLastFilePath: denyPendingFilesMutation,
+    remove: denyPendingFilesMutation,
+  });
+  const appActivation = Object.freeze({
+    schema: validated.appActivation.schema,
+    publish: denyPendingFilesMutation,
+    subscribe: subscribeWithoutState,
+  });
+  return Object.freeze({ ...validated, fileSpace, recentFiles, projects, appActivation });
 }
 
 function makeBroker({ port, componentId, context, onRevoke, onInvalidated }) {
   const pending = new Set();
   const renderUnsubscribes = new Map();
+  const recentFilesUnsubscribes = new Map();
+  const projectUnsubscribes = new Map();
+  const activationUnsubscribes = new Map();
+  const queuedUpdates = new Map();
   let revoked = false;
   let highestRequestId = 0;
   let drainedResolve;
+  let updatePump = null;
   const drained = new Promise((resolve) => { drainedResolve = resolve; });
   const finishIfDrained = () => { if (revoked && pending.size === 0) drainedResolve(); };
   const beginRevocation = () => {
@@ -352,6 +591,13 @@ function makeBroker({ port, componentId, context, onRevoke, onInvalidated }) {
       try { onRevoke?.(); } catch { /* revocation must continue through cleanup */ }
       for (const unsubscribe of renderUnsubscribes.values()) { try { unsubscribe(); } catch {} }
       renderUnsubscribes.clear();
+      for (const unsubscribe of recentFilesUnsubscribes.values()) { try { unsubscribe(); } catch {} }
+      recentFilesUnsubscribes.clear();
+      for (const unsubscribe of projectUnsubscribes.values()) { try { unsubscribe(); } catch {} }
+      projectUnsubscribes.clear();
+      for (const unsubscribe of activationUnsubscribes.values()) { try { unsubscribe(); } catch {} }
+      activationUnsubscribes.clear();
+      queuedUpdates.clear();
     }
     finishIfDrained();
     return drained;
@@ -363,10 +609,78 @@ function makeBroker({ port, componentId, context, onRevoke, onInvalidated }) {
   const reply = (id, ok, value) => send(ok
     ? { type: "reply", id, ok: true, value }
     : { type: "reply", id, ok: false, error: String(value?.message || value || "Native app request failed").slice(0, 1024) });
+  const subscriptionCount = () => renderUnsubscribes.size + recentFilesUnsubscribes.size
+    + projectUnsubscribes.size + activationUnsubscribes.size;
+  const flushAuthorizedUpdates = () => {
+    if (revoked || updatePump !== null || queuedUpdates.size === 0) return;
+    let task;
+    task = Promise.resolve().then(async () => {
+      while (!revoked && queuedUpdates.size > 0) {
+        const [key, update] = queuedUpdates.entries().next().value;
+        queuedUpdates.delete(key);
+        await context.authorizeOperation();
+        if (revoked) return;
+        const subscriptions = update.service === "recentFiles" ? recentFilesUnsubscribes
+          : update.service === "projects" ? projectUnsubscribes : activationUnsubscribes;
+        if (!subscriptions.has(update.subscriptionId)) continue;
+        send({ type: "service.update", ...update });
+      }
+    }).catch((error) => {
+      if (error instanceof NativeComponentSlotAuthorityRevokedError) {
+        void beginRevocation().then(() => {
+          try { onInvalidated?.(); } catch { /* failed cleanup cannot restore authority */ }
+        });
+      }
+    }).finally(() => {
+      pending.delete(task);
+      updatePump = null;
+      finishIfDrained();
+      flushAuthorizedUpdates();
+    });
+    pending.add(task);
+    updatePump = task;
+  };
+  const queueAuthorizedUpdate = (service, subscriptionId, value) => {
+    if (revoked) return;
+    // Keep only the newest snapshot for each authorized subscription. A fast
+    // producer cannot build an unbounded queue while the slot is being checked.
+    const key = `${service}:${subscriptionId}`;
+    queuedUpdates.set(key, { service, subscriptionId, value });
+    flushAuthorizedUpdates();
+  };
+  const validateSubscription = (request, service, subscriptions) => {
+    const [id] = request.args;
+    if (request.args.length !== 1 || !Number.isSafeInteger(id) || id < 1
+      || subscriptions.has(id) || subscriptionCount() >= MAX_SUBSCRIPTIONS) {
+      throw new TypeError(`Native ${service} subscription request is invalid`);
+    }
+    return id;
+  };
   const execute = async (request) => {
     if (revoked) throw new Error("Native app authority has been revoked");
+    if (context.allowedOperations !== null
+      && !context.allowedOperations.has(request.operation)) {
+      throw new TypeError("Native pending Files mount operation is read-only");
+    }
     await context.authorizeOperation();
+    if (revoked) throw new Error("Native app authority has been revoked");
     const appData = context.appData;
+    const fileSpace = context.fileSpace;
+    const recentFiles = context.recentFiles;
+    const projects = context.projects;
+    const appActivation = context.appActivation;
+    const oneArgument = (label) => {
+      if (request.args.length !== 1) throw new TypeError(`Native ${label} request is malformed`);
+    };
+    const fileName = (value, label) => {
+      if (typeof value !== "string" || value.length > 255) throw new TypeError(`Native ${label} is invalid`);
+      return validateFileEntry({ name: value, kind: "file", size: 0, modifiedAt: 0 }).name;
+    };
+    const listingAt = async (promise, requestedPath) => {
+      const listing = validateFileListing(await promise);
+      if (listing.path !== requestedPath) throw new TypeError("Native File Space returned a different logical path");
+      return listing;
+    };
     switch (request.operation) {
       case "appData.get":
         if (request.args.length !== 1) throw new TypeError("App Data get request is malformed");
@@ -388,7 +702,7 @@ function makeBroker({ port, componentId, context, onRevoke, onInvalidated }) {
       case "surface.subscribeRender": {
         const [subscriptionId] = request.args;
         if (request.args.length !== 1 || !Number.isSafeInteger(subscriptionId)
-          || subscriptionId < 1 || renderUnsubscribes.size >= MAX_SUBSCRIPTIONS
+          || subscriptionId < 1 || subscriptionCount() >= MAX_SUBSCRIPTIONS
           || renderUnsubscribes.has(subscriptionId)) throw new TypeError("Surface subscription request is invalid");
         const unsubscribe = context.lifecycle.subscribeRender(() => {
           send({ type: "render", appTarget: context.lifecycle.getAppTarget(componentId) });
@@ -401,6 +715,263 @@ function makeBroker({ port, componentId, context, onRevoke, onInvalidated }) {
         if (request.args.length !== 1 || !Number.isSafeInteger(subscriptionId)) throw new TypeError("Surface unsubscribe request is malformed");
         const unsubscribe = renderUnsubscribes.get(subscriptionId);
         if (unsubscribe) { renderUnsubscribes.delete(subscriptionId); unsubscribe(); }
+        return true;
+      }
+      case "fileSpace.list": {
+        if (fileSpace === null) throw new TypeError("Native File Space operation is unavailable");
+        oneArgument("File Space list");
+        const path = validateFileSpacePath(request.args[0]);
+        if (context.pendingReadOnlyMount && path !== "/") {
+          throw new TypeError("Native pending Files mount may inspect only the File Space root");
+        }
+        return listingAt(fileSpace.list(path), path);
+      }
+      case "fileSpace.createDirectory": {
+        if (fileSpace === null) throw new TypeError("Native File Space operation is unavailable");
+        if (request.args.length !== 2) throw new TypeError("Native File Space create-directory request is malformed");
+        const path = validateFileSpacePath(request.args[0]);
+        return listingAt(fileSpace.createDirectory(path, fileName(request.args[1], "directory name")), path);
+      }
+      case "fileSpace.readTextFile": {
+        if (fileSpace === null) throw new TypeError("Native File Space operation is unavailable");
+        oneArgument("File Space text-read");
+        const path = validateFileSpacePath(request.args[0]);
+        const file = validateTextFile(await fileSpace.readTextFile(path));
+        if (file.path !== path) throw new TypeError("Native File Space returned a different text path");
+        return file;
+      }
+      case "fileSpace.readImagePreview": {
+        if (fileSpace === null) throw new TypeError("Native File Space operation is unavailable");
+        oneArgument("File Space image-preview");
+        const path = validateFileSpacePath(request.args[0]);
+        const preview = validateImagePreview(await fileSpace.readImagePreview(path));
+        if (preview.path !== path) throw new TypeError("Native File Space returned a different image path");
+        return preview;
+      }
+      case "fileSpace.readMediaPreview": {
+        if (fileSpace === null) throw new TypeError("Native File Space operation is unavailable");
+        oneArgument("File Space media-preview");
+        const path = validateFileSpacePath(request.args[0]);
+        const preview = validateMediaPreview(await fileSpace.readMediaPreview(path));
+        if (preview.path !== path) throw new TypeError("Native File Space returned a different media path");
+        return preview;
+      }
+      case "fileSpace.readDocumentPreview": {
+        if (fileSpace === null) throw new TypeError("Native File Space operation is unavailable");
+        oneArgument("File Space document-preview");
+        const path = validateFileSpacePath(request.args[0]);
+        const preview = validateDocumentPreview(await fileSpace.readDocumentPreview(path));
+        if (preview.path !== path) throw new TypeError("Native File Space returned a different document path");
+        return preview;
+      }
+      case "fileSpace.copyFile": {
+        if (fileSpace === null) throw new TypeError("Native File Space operation is unavailable");
+        if (request.args.length !== 4) throw new TypeError("Native File Space copy request is malformed");
+        const [sourceValue, name, destinationValue, newName] = request.args;
+        const source = validateFileSpacePath(sourceValue);
+        const destination = validateFileSpacePath(destinationValue);
+        return listingAt(fileSpace.copyFile(source, fileName(name, "copy name"), destination,
+          newName === null ? null : fileName(newName, "copy destination name")), destination);
+      }
+      case "fileSpace.renameEntry": {
+        if (fileSpace === null) throw new TypeError("Native File Space operation is unavailable");
+        if (request.args.length !== 3) throw new TypeError("Native File Space rename request is malformed");
+        const [pathValue, name, newName] = request.args;
+        const path = validateFileSpacePath(pathValue);
+        return listingAt(fileSpace.renameEntry(path, fileName(name, "rename name"),
+          fileName(newName, "renamed entry name")), path);
+      }
+      case "fileSpace.moveEntry": {
+        if (fileSpace === null) throw new TypeError("Native File Space operation is unavailable");
+        if (request.args.length !== 3) throw new TypeError("Native File Space move request is malformed");
+        const [sourceValue, name, destinationValue] = request.args;
+        const source = validateFileSpacePath(sourceValue);
+        const destination = validateFileSpacePath(destinationValue);
+        return listingAt(fileSpace.moveEntry(source, fileName(name, "move name"), destination), destination);
+      }
+      case "fileSpace.trashEntry": {
+        if (fileSpace === null) throw new TypeError("Native File Space operation is unavailable");
+        if (request.args.length !== 2) throw new TypeError("Native File Space trash request is malformed");
+        const [pathValue, name] = request.args;
+        const path = validateFileSpacePath(pathValue);
+        return listingAt(fileSpace.trashEntry(path, fileName(name, "trash name")), path);
+      }
+      case "fileSpace.listTrash": {
+        if (fileSpace === null) throw new TypeError("Native File Space operation is unavailable");
+        if (request.args.length !== 0) throw new TypeError("Native File Space trash-list request is malformed");
+        return validateTrashListing(await fileSpace.listTrash());
+      }
+      case "fileSpace.restoreTrashEntry": {
+        if (fileSpace === null) throw new TypeError("Native File Space operation is unavailable");
+        oneArgument("File Space trash-restore");
+        const id = request.args[0];
+        if (typeof id !== "string" || !/^[0-9a-f]{32}$/.test(id)) throw new TypeError("Native File Space trash id is invalid");
+        return validateTrashListing(await fileSpace.restoreTrashEntry(id));
+      }
+      case "fileSpace.exportFile": {
+        if (fileSpace === null) throw new TypeError("Native File Space operation is unavailable");
+        oneArgument("File Space export");
+        return fileSpace.exportFile(validateFileSpacePath(request.args[0]));
+      }
+      case "fileSpace.importFile": {
+        if (fileSpace === null) throw new TypeError("Native File Space operation is unavailable");
+        if (request.args.length !== 3) throw new TypeError("Native File Space import request is malformed");
+        const [pathValue, name, bytes] = request.args;
+        const path = validateFileSpacePath(pathValue);
+        const payloadName = fileName(name, "import name");
+        if (!(bytes instanceof Uint8Array) || bytes.byteLength > MAX_FILE_IMPORT_BYTES) {
+          throw new TypeError("Native File Space import payload is invalid or too large");
+        }
+        return listingAt(fileSpace.importFile(path, payloadName, bytes), path);
+      }
+      case "recentFiles.getSnapshot": {
+        if (recentFiles === null) throw new TypeError("Native recent-files operation is unavailable");
+        if (request.args.length !== 0) throw new TypeError("Native recent-files snapshot request is malformed");
+        return validateRecentFilesSnapshot(recentFiles.getSnapshot());
+      }
+      case "recentFiles.subscribe": {
+        if (recentFiles === null) throw new TypeError("Native recent-files operation is unavailable");
+        const id = validateSubscription(request, "recent-files", recentFilesUnsubscribes);
+        const unsubscribe = recentFiles.subscribe((snapshot) => queueAuthorizedUpdate(
+          "recentFiles", id, validateRecentFilesSnapshot(snapshot),
+        ));
+        recentFilesUnsubscribes.set(id, unsubscribe);
+        return true;
+      }
+      case "recentFiles.unsubscribe": {
+        if (request.args.length !== 1 || !Number.isSafeInteger(request.args[0])) {
+          throw new TypeError("Native recent-files unsubscribe request is malformed");
+        }
+        queuedUpdates.delete(`recentFiles:${request.args[0]}`);
+        const unsubscribe = recentFilesUnsubscribes.get(request.args[0]);
+        if (unsubscribe) { recentFilesUnsubscribes.delete(request.args[0]); unsubscribe(); }
+        return true;
+      }
+      case "recentFiles.recordOpened":
+      case "recentFiles.remove": {
+        if (recentFiles === null) throw new TypeError("Native recent-files operation is unavailable");
+        oneArgument("recent-files mutation");
+        const path = validateRecentFilePath(request.args[0]);
+        const snapshot = request.operation === "recentFiles.recordOpened"
+          ? await recentFiles.recordOpened(path)
+          : await recentFiles.remove(path);
+        return validateRecentFilesSnapshot(snapshot);
+      }
+      case "recentFiles.clear": {
+        if (recentFiles === null) throw new TypeError("Native recent-files operation is unavailable");
+        if (request.args.length !== 0) throw new TypeError("Native recent-files clear request is malformed");
+        return validateRecentFilesSnapshot(await recentFiles.clear());
+      }
+      case "recentFiles.relocate": {
+        if (recentFiles === null) throw new TypeError("Native recent-files operation is unavailable");
+        if (request.args.length !== 2) throw new TypeError("Native recent-files relocation request is malformed");
+        return validateRecentFilesSnapshot(await recentFiles.relocate(
+          validateRecentFilePath(request.args[0]), validateRecentFilePath(request.args[1]),
+        ));
+      }
+      case "projects.getSnapshot": {
+        if (projects === null) throw new TypeError("Native project-catalog operation is unavailable");
+        if (request.args.length !== 0) throw new TypeError("Native project-catalog snapshot request is malformed");
+        return validateProjectCatalogSnapshot(projects.getSnapshot());
+      }
+      case "projects.subscribe": {
+        if (projects === null) throw new TypeError("Native project-catalog operation is unavailable");
+        const id = validateSubscription(request, "project-catalog", projectUnsubscribes);
+        const unsubscribe = projects.subscribe((snapshot) => queueAuthorizedUpdate(
+          "projects", id, validateProjectCatalogSnapshot(snapshot),
+        ));
+        projectUnsubscribes.set(id, unsubscribe);
+        return true;
+      }
+      case "projects.unsubscribe": {
+        if (request.args.length !== 1 || !Number.isSafeInteger(request.args[0])) {
+          throw new TypeError("Native project-catalog unsubscribe request is malformed");
+        }
+        queuedUpdates.delete(`projects:${request.args[0]}`);
+        const unsubscribe = projectUnsubscribes.get(request.args[0]);
+        if (unsubscribe) { projectUnsubscribes.delete(request.args[0]); unsubscribe(); }
+        return true;
+      }
+      case "projects.create": {
+        if (projects === null) throw new TypeError("Native project-catalog operation is unavailable");
+        if (request.args.length !== 1 || !request.args[0] || typeof request.args[0] !== "object"
+          || Array.isArray(request.args[0]) || Object.keys(request.args[0]).sort().join(",") !== "name,path") {
+          throw new TypeError("Native project creation request is malformed");
+        }
+        const input = Object.freeze({
+          name: validateProjectName(request.args[0].name),
+          path: validateProjectPath(request.args[0].path),
+        });
+        return validateProjectCatalogSnapshot(await projects.create(input));
+      }
+      case "projects.rename": {
+        if (projects === null) throw new TypeError("Native project-catalog operation is unavailable");
+        if (request.args.length !== 2) throw new TypeError("Native project rename request is malformed");
+        return validateProjectCatalogSnapshot(await projects.rename(
+          validateProjectId(request.args[0]), validateProjectName(request.args[1]),
+        ));
+      }
+      case "projects.recordOpened": {
+        if (projects === null) throw new TypeError("Native project-catalog operation is unavailable");
+        oneArgument("project record-opened");
+        return validateProjectCatalogSnapshot(await projects.recordOpened(validateProjectId(request.args[0])));
+      }
+      case "projects.recordFileOpened": {
+        if (projects === null) throw new TypeError("Native project-catalog operation is unavailable");
+        if (request.args.length !== 2) throw new TypeError("Native project file-opened request is malformed");
+        const projectId = validateProjectId(request.args[0]);
+        const project = validateProjectCatalogSnapshot(projects.getSnapshot()).projects
+          .find((entry) => entry.id === projectId);
+        if (!project) throw new TypeError("Native project is not registered");
+        const path = validateProjectFilePath(project.path, request.args[1]);
+        return validateProjectCatalogSnapshot(await projects.recordFileOpened(projectId, path));
+      }
+      case "projects.clearLastFile": {
+        if (projects === null) throw new TypeError("Native project-catalog operation is unavailable");
+        oneArgument("project clear-last-file");
+        return validateProjectCatalogSnapshot(await projects.clearLastFile(validateProjectId(request.args[0])));
+      }
+      case "projects.relocateLastFilePath": {
+        if (projects === null) throw new TypeError("Native project-catalog operation is unavailable");
+        if (request.args.length !== 2) throw new TypeError("Native project relocation request is malformed");
+        return validateProjectCatalogSnapshot(await projects.relocateLastFilePath(
+          validateFileSpacePath(request.args[0]), validateFileSpacePath(request.args[1]),
+        ));
+      }
+      case "projects.remove": {
+        if (projects === null) throw new TypeError("Native project-catalog operation is unavailable");
+        oneArgument("project remove");
+        return validateProjectCatalogSnapshot(await projects.remove(validateProjectId(request.args[0])));
+      }
+      case "appActivation.publish": {
+        if (appActivation === null) throw new TypeError("Native app-activation operation is unavailable");
+        oneArgument("app activation");
+        const activation = validateAppActivation(request.args[0]);
+        if (activation.appId !== componentId
+          || (activation.target !== null && validateFileSpacePath(activation.target) !== activation.target)) {
+          throw new TypeError("Native Files may publish only its own device-local target");
+        }
+        return validateAppActivation(await appActivation.publish(activation));
+      }
+      case "appActivation.subscribe": {
+        if (appActivation === null) throw new TypeError("Native app-activation operation is unavailable");
+        const id = validateSubscription(request, "app-activation", activationUnsubscribes);
+        const unsubscribe = appActivation.subscribe((value) => {
+          const activation = validateAppActivation(value);
+          if (activation.appId === componentId) {
+            queueAuthorizedUpdate("appActivation", id, activation);
+          }
+        });
+        activationUnsubscribes.set(id, unsubscribe);
+        return true;
+      }
+      case "appActivation.unsubscribe": {
+        if (request.args.length !== 1 || !Number.isSafeInteger(request.args[0])) {
+          throw new TypeError("Native app-activation unsubscribe request is malformed");
+        }
+        queuedUpdates.delete(`appActivation:${request.args[0]}`);
+        const unsubscribe = activationUnsubscribes.get(request.args[0]);
+        if (unsubscribe) { activationUnsubscribes.delete(request.args[0]); unsubscribe(); }
         return true;
       }
       default: throw new TypeError("Native app bridge operation is not authorized");
@@ -443,16 +1014,33 @@ function makeBroker({ port, componentId, context, onRevoke, onInvalidated }) {
 }
 
 async function mountIsolatedRuntime({
-  windowRef, identity, context, timeoutMs, expectedCurrent, slotAuthority,
+  windowRef, identity, context, timeoutMs, expectedCurrent, expectedPending, slotAuthority,
 }) {
-  const { lifecycle, appData } = assertContext(context, identity.componentId);
-  if (!expectedCurrent || expectedCurrent.componentId !== identity.componentId
-    || expectedCurrent.state !== "current" || expectedCurrent.source !== "slot"
-    || expectedCurrent.version !== identity.version
-    || expectedCurrent.sourceCommit !== identity.sourceCommit
-    || expectedCurrent.entrypoint !== identity.entrypoint) {
-    throw new TypeError("Native isolated app requires its exact verified current-slot identity");
+  const pending = expectedPending !== undefined && expectedPending !== null;
+  const expected = pending ? expectedPending : expectedCurrent;
+  if (!expected || expected.componentId !== identity.componentId
+    || expected.state !== (pending ? "pending" : "current") || expected.source !== "slot"
+    || expected.version !== identity.version
+    || expected.sourceCommit !== identity.sourceCommit
+    || expected.entrypoint !== identity.entrypoint
+    || (pending && (identity.componentId !== "files" || expected.pendingHealth !== "unknown"))) {
+    throw new TypeError(pending
+      ? "Native pending mount requires its exact unknown-health Files slot identity"
+      : "Native isolated app requires its exact verified current-slot identity");
   }
+  const verifiedContext = assertContext(
+    context,
+    identity.componentId,
+    { allowMissingAppData: pending },
+  );
+  const mountContext = pending
+    ? createPendingFilesReadOnlyContext(verifiedContext)
+    : verifiedContext;
+  const { lifecycle, appData, fileSpace, recentFiles, projects, appActivation } = mountContext;
+  const authorizeSlot = () => pending
+    ? slotAuthority.assertPending(expected)
+    : slotAuthority.assertCurrent(expected);
+  await authorizeSlot();
   const root = context.root;
   const documentObject = root.ownerDocument;
   if (!documentObject || typeof documentObject.createElement !== "function") {
@@ -480,7 +1068,13 @@ async function mountIsolatedRuntime({
     context: {
       lifecycle,
       appData,
-      authorizeOperation: () => slotAuthority.assertCurrent(expectedCurrent),
+      fileSpace,
+      recentFiles,
+      projects,
+      appActivation,
+      allowedOperations: pending ? PENDING_FILES_MOUNT_OPERATIONS : null,
+      pendingReadOnlyMount: pending,
+      authorizeOperation: authorizeSlot,
     },
     onInvalidated() { invalidateMount?.(); },
   });
@@ -494,7 +1088,9 @@ async function mountIsolatedRuntime({
   const shutdownPromise = new Promise((resolve) => { shutdownResolve = resolve; });
   const timer = windowRef.setTimeout(() => readyReject(new Error("Native isolated app mount timed out")), timeoutMs);
   const localizationSnapshot = createSurfaceLocalizationSnapshot(lifecycle.localization);
-  const appTarget = validateWorkspaceTarget(lifecycle.getAppTarget(identity.componentId));
+  const appTarget = pending ? null : validateWorkspaceTarget(
+    lifecycle.getAppTarget(identity.componentId),
+  );
   const unsubscribeLocale = lifecycle.localization.subscribe(() => {
     if (destroyed || !loaded) return;
     try {
@@ -511,7 +1107,12 @@ async function mountIsolatedRuntime({
       frame.contentWindow.postMessage({
         schema: BRIDGE_SCHEMA, type: "initialize", nonce,
         componentId: identity.componentId, version: identity.version,
-        moduleUrl: identity.moduleUrl, appDataIdentity: appData.identity,
+        moduleUrl: identity.moduleUrl, appDataIdentity: appData?.identity ?? null,
+        fileSpaceScope: fileSpace?.scope ?? null,
+        recentFilesSnapshot: recentFiles === null ? null
+          : validateRecentFilesSnapshot(recentFiles.getSnapshot()),
+        projectCatalogSnapshot: projects === null ? null
+          : validateProjectCatalogSnapshot(projects.getSnapshot()),
         localizationSnapshot, appTarget,
       }, "*", [channel.port2]);
     } catch (error) { readyReject(error); }
@@ -580,14 +1181,20 @@ async function mountIsolatedRuntime({
     throw error;
   }
   windowRef.clearTimeout(timer);
+  try {
+    await authorizeSlot();
+  } catch (error) {
+    try { await destroy(); } catch { /* slot replacement still fails closed */ }
+    throw error;
+  }
   return Object.freeze({ destroy });
 }
 
 /**
  * Create the sole Native ESM importer for signed component slots. Source code
- * runs in an opaque-origin sandboxed iframe; the parent exposes only a narrow
- * App Data and Surface lifecycle RPC broker. File Space is deliberately not
- * included until its operation-level per-Space broker and drain gate exist.
+ * runs in an opaque-origin sandboxed iframe; the parent exposes narrow App
+ * Data and Surface lifecycle RPC brokers. Only the verified Files slot may
+ * receive the fixed device-local File Space through its bounded RPC broker.
  */
 export function createNativeIsolatedComponentModuleImporter({
   windowRef = globalThis.window,
@@ -647,15 +1254,16 @@ export function createNativeIsolatedComponentModuleImporter({
 export const NATIVE_ISOLATED_COMPONENT_EXECUTOR_SCHEMA = EXECUTOR_SCHEMA;
 
 /**
- * Create the import-only pending-slot probe used by Native component probation.
- * The candidate runs in an opaque-origin iframe with no host bridge; the probe
- * validates exact pending metadata both before and after importing the signed
- * module, then destroys the frame. Its returned mount function is deliberately
- * unusable: this path proves the import contract, never candidate activation.
+ * Create the pending-slot probe used by Native component probation. Candidate
+ * bytes are first imported in an opaque-origin frame with no host bridge and
+ * exact pending metadata checks. Only explicitly mountable Files then gets a
+ * second opaque frame with synthetic empty data and a read-only allowlist;
+ * neither path activates, promotes or exposes the pending slot to the Surface.
  */
 export function createNativeIsolatedPendingComponentModuleImporter({
   windowRef = globalThis.window,
   allowedComponentIds,
+  mountableComponentIds = [],
   componentSlotSource,
   fetchImpl = windowRef?.fetch?.bind(windowRef),
   timeoutMs = 8_000,
@@ -672,6 +1280,8 @@ export function createNativeIsolatedPendingComponentModuleImporter({
     || surfaceUrl.search || surfaceUrl.hash
     || !Array.isArray(allowedComponentIds) || allowedComponentIds.length === 0
     || allowedComponentIds.some((id) => typeof id !== "string" || !COMPONENT_ID_RE.test(id))
+    || !Array.isArray(mountableComponentIds)
+    || mountableComponentIds.some((id) => id !== "files" || !allowedComponentIds.includes(id))
     || !componentSlotSource || typeof fetchImpl !== "function"
     || !Number.isSafeInteger(timeoutMs) || timeoutMs < 100 || timeoutMs > 30_000
     || !Number.isSafeInteger(slotAuthorityTimeoutMs) || slotAuthorityTimeoutMs < 100 || slotAuthorityTimeoutMs > 30_000) {
@@ -790,8 +1400,18 @@ export function createNativeIsolatedPendingComponentModuleImporter({
         schema: COMPONENT_RUNTIME_SCHEMA,
         componentId: identity.componentId,
         version: identity.version,
-        mount() {
-          throw new TypeError("Import-contract probation cannot mount or activate a pending component");
+        mount(context) {
+          if (!mountableComponentIds.includes(identity.componentId)) {
+            throw new TypeError("Import-contract probation cannot mount or activate a pending component");
+          }
+          return mountIsolatedRuntime({
+            windowRef,
+            identity,
+            context,
+            timeoutMs,
+            expectedPending: expected,
+            slotAuthority,
+          });
         },
       }),
     });
