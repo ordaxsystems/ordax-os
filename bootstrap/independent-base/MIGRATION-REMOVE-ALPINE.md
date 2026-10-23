@@ -222,6 +222,35 @@ offline do MCP, auditar assinatura/procedência, instalar pelo supervisor
 canônico e comprovar desafio atestado no dispositivo. Não misturar a
 verificação do CPython isolado com autorização de distribuição.
 
+### Insumo privado de build gerado pelo mesmo Buildroot
+
+O `build-component` pode produzir opcionalmente uma **cópia exata** do
+`br-output/images/rootfs.tar` privado, como `native-python-build-input.rootfs.tar`.
+Essa saída **não** é o rootfs do OrdaX OS nem uma distribuição instalável.
+Ela existe para que `ordax-runtime` audite os bytes e a ABI efetivamente
+compilados, sem criar um segundo produtor Buildroot. A opção é:
+
+```sh
+python3 bootstrap/independent-base/build.py build-component \
+  --out /tmp/ordax-native-python-proof --cache /tmp/ordax-buildroot-cache \
+  --jobs 4 --export-private-build-input
+python3 bootstrap/independent-base/build.py verify-component \
+  --out /tmp/ordax-native-python-proof
+```
+
+O recibo `private_target_build_input` registra SHA-256, tamanho e o hash do
+executável Python **dentro do próprio TAR Buildroot**; o verificador recusa
+binários incompatíveis, ausência do loader/certificados, arquivos alterados ou
+caminhos de origem simbólicos. O workflow da branch de migração publica apenas
+esses **insumos privados não instaláveis**, com retenção limitada.
+
+Esse artefato **não contém uma toolchain de compilação cruzada exportada** e
+não prova o Runtime completo. Ele permite auditar e desenvolver a closure
+privada, mas a compilação das extensões deve ocorrer contra a toolchain
+canônica do *mesmo Buildroot*; nenhum consumidor deve descompactá-lo sobre
+`/`, `/lib`, o slot do OS ou USB. Gates de assinatura, supervisor, QEMU do
+agente e sessão MCP permanecem bloqueados.
+
 ### Python do MCP como componente, sem contaminar a base estática
 
 A configuração real do **Buildroot 2026.08** proíbe

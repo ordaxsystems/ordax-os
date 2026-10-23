@@ -27,7 +27,8 @@ class DevBaseChannelWorkflowTests(unittest.TestCase):
     def test_independent_owner_candidate_has_separate_real_proof(self) -> None:
         experiment = EXPERIMENT.read_text(encoding="utf-8")
         self.assertIn('if: github.event_name != \'push\'', experiment)
-        self.assertIn('if: github.event_name == \'push\'', experiment)
+        self.assertIn("github.event_name == 'push' && github.ref == 'refs/heads/platform/remove-alpine'", experiment)
+        self.assertIn("github.event_name == 'pull_request' && github.base_ref == 'platform/remove-alpine'", experiment)
         self.assertIn("bootstrap/independent-base/build.py build", experiment)
         self.assertIn('--profile "$ORDAX_INDEPENDENT_PROFILE"', experiment)
         self.assertIn("ORDAX_KERNEL_MODULES_ARCHIVE", experiment)

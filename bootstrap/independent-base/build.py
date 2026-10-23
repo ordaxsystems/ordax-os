@@ -8,8 +8,10 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import posixpath
 import re
 import shutil
+import stat
 import subprocess
 import sys
 import tarfile
@@ -44,6 +46,8 @@ OWNER_BUSYBOX_SYMBOLS = ("CONFIG_NTPD=y", "CONFIG_NSLOOKUP=y", "CONFIG_WGET=y")
 SUPPORTED_PROFILES = ("minimal", "owner-development")
 # Component-private Python must not change the two canonical OS boot profiles.
 NATIVE_COMPONENT_PROFILE = "native-product-runtime"
+NATIVE_BUILD_INPUT_TAR = "native-python-build-input.rootfs.tar"
+NATIVE_BUILD_INPUT_MAX_BYTES = 1024 * 1024 * 1024
 NATIVE_COMPONENT_FRAGMENT = HERE / "configs/native-product-runtime.fragment"
 # Module names are probe inputs only, NEVER copied version pins.
 NATIVE_HTTPX_PROBE_PACKAGES = ("httpx", "httpcore", "anyio", "certifi", "idna", "h11")
@@ -1110,7 +1114,87 @@ def smoke_test_private_native_python(target: Path, abi: dict) -> dict:
     }
 
 
-def build_native_python_component(out: Path, cache: Path, jobs: int) -> dict:
+def inspect_native_python_build_input(archive: Path, abi: dict) -> dict:
+    """Bind original Buildroot target bytes to the verified private CPython.
+
+    The SHA-256 and TAR members MUST come from one open regular-file
+    descriptor. This input is not an installed Runtime or OS rootfs.
+    The Runtime consumer independently owns any safe extraction policy.
+    """
+    python_name = abi.get("python_executable")
+    if not isinstance(python_name, str) or not re.fullmatch(r"usr/bin/python3\.\d+", python_name):
+        raise BaseError("private Python build input has invalid executable identity")
+    required = {
+        python_name: "python",
+        "lib/ld-musl-x86_64.so.1": "loader",
+        "etc/ssl/certs/ca-certificates.crt": "ca",
+    }
+    try:
+        descriptor = os.open(
+            archive, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
+            | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NONBLOCK", 0)
+        )
+    except OSError as exc:
+        raise BaseError("private Python build input tar missing or unsafe") from exc
+    present = {}
+    with os.fdopen(descriptor, "rb") as source:
+        before = os.fstat(source.fileno())
+        if (not stat.S_ISREG(before.st_mode)
+                or not 0 < before.st_size <= NATIVE_BUILD_INPUT_MAX_BYTES):
+            raise BaseError("private Python build input tar missing or unsafe")
+        hasher = hashlib.sha256()
+        for block in iter(lambda: source.read(1024 * 1024), b""):
+            hasher.update(block)
+        source.seek(0)
+        with tarfile.open(fileobj=source, mode="r:") as members:
+            for count, member in enumerate(members, 1):
+                if count > 200000:
+                    raise BaseError("private Python build input tar has too many entries")
+                normalized = posixpath.normpath(member.name.removeprefix("./"))
+                if normalized not in required:
+                    continue
+                if normalized in present:
+                    raise BaseError("private Python build input has duplicate mandatory entry: " + normalized)
+                role = required[normalized]
+                if role == "python":
+                    if not member.isfile() or not 0 < member.size <= 128 * 1024 * 1024:
+                        raise BaseError("private Python build input executable invalid")
+                    handle = members.extractfile(member)
+                    if handle is None:
+                        raise BaseError("private Python build input executable unreadable")
+                    with handle:
+                        h = hashlib.sha256()
+                        for part in iter(lambda: handle.read(1024 * 1024), b""):
+                            h.update(part)
+                    if h.hexdigest() != abi.get("python_sha256"):
+                        raise BaseError("private Python build input executable SHA-256 mismatch")
+                elif role == "loader" and not (member.isfile() or member.issym()):
+                    raise BaseError("private Python build input loader invalid")
+                elif role == "ca" and not (member.isfile() or member.issym()):
+                    raise BaseError("private Python build input certificate bundle invalid")
+                present[normalized] = True
+        after = os.fstat(source.fileno())
+        if ((before.st_dev, before.st_ino, before.st_size,
+             before.st_mtime_ns, before.st_ctime_ns) !=
+            (after.st_dev, after.st_ino, after.st_size,
+             after.st_mtime_ns, after.st_ctime_ns)):
+            raise BaseError("private Python build input changed during verification")
+    if set(present) != set(required):
+        raise BaseError("private Python build input missing verified interpreter, loader or certificates")
+    return {
+        "schema": "ordax.private-buildroot-python-build-input/1",
+        "file_name": NATIVE_BUILD_INPUT_TAR,
+        "sha256": hasher.hexdigest(),
+        "size_bytes": before.st_size,
+        "python_sha256": abi["python_sha256"],
+        "purpose": "native-runtime-build-input-only",
+        "runtime_agent_packaged": False,
+        "device_install_authorized": False,
+    }
+
+
+def build_native_python_component(out: Path, cache: Path, jobs: int,
+                                  export_private_build_input: bool = False) -> dict:
     """Compile isolated Buildroot Python, emit evidence only, no USB payload."""
     source, kernel, _, _ = contracts()
     out = out.resolve()
@@ -1147,6 +1231,17 @@ def build_native_python_component(out: Path, cache: Path, jobs: int) -> dict:
             "device_install_authorized": False,
             "base_rootfs_modified": False,
         }
+        if export_private_build_input:
+            # Use the exact target archive produced by THIS Buildroot build.
+            # No repackaging, second builder, host loader or OS base mutation.
+            source_tar = build_dir / "images/rootfs.tar"
+            source_proof = inspect_native_python_build_input(source_tar, evidence)
+            output_tar = out / NATIVE_BUILD_INPUT_TAR
+            shutil.copyfile(source_tar, output_tar)
+            output_proof = inspect_native_python_build_input(output_tar, evidence)
+            if output_proof != source_proof:
+                raise BaseError("private Python build input bytes changed during export")
+            receipt["private_target_build_input"] = output_proof
         (out / "native-python-provenance.json").write_text(
             json.dumps(receipt, sort_keys=True, indent=2) + "\n",
             encoding="utf-8",
@@ -1187,6 +1282,13 @@ def verify_native_python_receipt(out: Path) -> dict:
             or not all(isinstance(lib, str) and re.fullmatch(r"[A-Za-z0-9_.+-]+", lib)
                        for lib in abi["needed_shared_libraries"])):
         raise BaseError("private Python ABI closure receipt invalid")
+    private_input = receipt.get("private_target_build_input")
+    if private_input is not None:
+        if not isinstance(private_input, dict):
+            raise BaseError("private Python build input receipt invalid")
+        inspected = inspect_native_python_build_input(out / NATIVE_BUILD_INPUT_TAR, abi)
+        if private_input != inspected:
+            raise BaseError("private Python build input receipt does not match archived bytes")
     source_versions = receipt.get("httpx_buildroot_source_versions")
     if (not isinstance(source_versions, dict)
             or set(source_versions) != set(NATIVE_HTTPX_PROBE_PACKAGES)
@@ -1384,8 +1486,12 @@ def main() -> int:
     parser.add_argument("--out", type=Path)
     parser.add_argument("--cache", type=Path, default=Path("/tmp/ordax-independent-cache"))
     parser.add_argument("--jobs", type=int, default=2)
+    parser.add_argument("--export-private-build-input", action="store_true",
+                        help="Export OS-unauthorized Buildroot target tar for Runtime build input")
     args = parser.parse_args()
     try:
+        if args.export_private_build_input and args.action != "build-component":
+            raise BaseError("--export-private-build-input is only valid with build-component")
         if args.action == "check-component":
             source, kernel, _, _ = contracts()
             with tempfile.TemporaryDirectory(prefix="ordax-component-defconfig-") as temporary:
@@ -1399,7 +1505,8 @@ def main() -> int:
             if args.out is None:
                 raise BaseError("--out required for component proof")
             print(json.dumps(build_native_python_component(
-                args.out, args.cache, args.jobs), sort_keys=True))
+                args.out, args.cache, args.jobs,
+                export_private_build_input=args.export_private_build_input), sort_keys=True))
         elif args.action == "verify-component":
             if args.out is None:
                 raise BaseError("--out required for component proof")

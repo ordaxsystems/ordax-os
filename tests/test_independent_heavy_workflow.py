@@ -54,7 +54,8 @@ class IndependentHeavyWorkflowTests(unittest.TestCase):
         self.assertIn("${{ github.event.pull_request.number || github.ref }}", group)
         self.assertIn("  cancel-in-progress: true", text)
         self.assertIn("if: github.event_name != 'push'", text)
-        self.assertIn("if: github.event_name == 'push'", text)
+        self.assertIn("github.event_name == 'push' && github.ref == 'refs/heads/platform/remove-alpine'", text)
+        self.assertIn("github.event_name == 'pull_request' && github.base_ref == 'platform/remove-alpine'", text)
 
     def test_verified_kernel_precedes_rootfs_consumer_proof_and_qemu(self) -> None:
         text = self.text()

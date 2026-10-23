@@ -2,10 +2,13 @@
 from __future__ import annotations
 
 import importlib.util
+import io
 import json
+import os
 from pathlib import Path
 import subprocess
 import sys
+import tarfile
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -260,6 +263,99 @@ class NativeComponentBuildrootTests(unittest.TestCase):
                     **receipt["private_python_smoke"],
                     "runtime_dependency_versions_reconciled": True,
                 }})
+
+    def test_private_build_input_is_original_buildroot_tar_not_installer(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            build = root / "build"
+            (build / "images").mkdir(parents=True)
+            output = root / "output"
+            output.mkdir()
+            executable = b"verified-buildroot-python"
+            abi = {"python_executable": "usr/bin/python3.14",
+                   "python_sha256": self.mod.hashlib.sha256(executable).hexdigest()}
+            image = build / "images/rootfs.tar"
+            with tarfile.open(image, "w") as archive:
+                for name, data in (
+                    ("./usr/bin/python3.14", executable),
+                    ("./etc/ssl/certs/ca-certificates.crt", b"root-CA"),
+                ):
+                    member = tarfile.TarInfo(name)
+                    member.size = len(data)
+                    archive.addfile(member, io.BytesIO(data))
+                loader = tarfile.TarInfo("./lib/ld-musl-x86_64.so.1")
+                loader.type = tarfile.SYMTYPE
+                loader.linkname = "libc.musl-x86_64.so.1"
+                archive.addfile(loader)
+            proof = self.mod.inspect_native_python_build_input(image, abi)
+            self.assertEqual(proof["python_sha256"], abi["python_sha256"])
+            self.assertFalse(proof["runtime_agent_packaged"])
+            self.assertFalse(proof["device_install_authorized"])
+            self.assertEqual(proof["purpose"], "native-runtime-build-input-only")
+            copied = output / self.mod.NATIVE_BUILD_INPUT_TAR
+            self.mod.shutil.copyfile(image, copied)
+            self.assertEqual(
+                self.mod.inspect_native_python_build_input(copied, abi), proof
+            )
+            with self.assertRaisesRegex(self.mod.BaseError, "executable SHA-256 mismatch"):
+                self.mod.inspect_native_python_build_input(
+                    image, {**abi, "python_sha256": "0" * 64}
+                )
+            copied.write_bytes(b"not-a-tar")
+            with self.assertRaises((tarfile.TarError, self.mod.BaseError)):
+                self.mod.inspect_native_python_build_input(copied, abi)
+
+    def test_private_build_input_detects_archive_path_replacement(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            original_tar = root / "source.tar"
+            replacement_tar = root / "replacement.tar"
+            python_bytes = b"verified-buildroot-python"
+            abi = {"python_executable": "usr/bin/python3.14",
+                   "python_sha256": self.mod.hashlib.sha256(python_bytes).hexdigest()}
+            with tarfile.open(original_tar, "w") as archive:
+                for name, content in (
+                    ("usr/bin/python3.14", python_bytes),
+                    ("etc/ssl/certs/ca-certificates.crt", b"certificate"),
+                    ("lib/ld-musl-x86_64.so.1", b"musl-loader"),
+                ):
+                    member = tarfile.TarInfo(name)
+                    member.size = len(content)
+                    archive.addfile(member, io.BytesIO(content))
+            replacement_tar.write_bytes(b"untrusted replacement")
+            original_open = tarfile.open
+            operations = []
+
+            def substitute_after_hash(*args, **kwargs):
+                os.replace(replacement_tar, original_tar)
+                operations.append("replaced")
+                return original_open(*args, **kwargs)
+
+            with patch.object(self.mod.tarfile, "open", side_effect=substitute_after_hash):
+                with self.assertRaisesRegex(
+                    self.mod.BaseError, "changed during verification"
+                ):
+                    self.mod.inspect_native_python_build_input(original_tar, abi)
+            self.assertEqual(operations, ["replaced"])
+            self.assertEqual(original_tar.read_bytes(), b"untrusted replacement")
+
+    def test_private_build_input_rejects_symlink_and_missing_loader(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            tar = root / "rootfs.tar"
+            python = b"fake-private-python"
+            abi = {"python_executable": "usr/bin/python3.14",
+                   "python_sha256": self.mod.hashlib.sha256(python).hexdigest()}
+            with tarfile.open(tar, "w") as archive:
+                info = tarfile.TarInfo("usr/bin/python3.14")
+                info.size = len(python)
+                archive.addfile(info, io.BytesIO(python))
+            with self.assertRaisesRegex(self.mod.BaseError, "missing verified interpreter"):
+                self.mod.inspect_native_python_build_input(tar, abi)
+            link = root / "untrusted.tar"
+            link.symlink_to(tar)
+            with self.assertRaisesRegex(self.mod.BaseError, "missing or unsafe"):
+                self.mod.inspect_native_python_build_input(link, abi)
 
     def test_check_component_never_builds_or_authorizes_a_device(self):
         result = subprocess.run(
