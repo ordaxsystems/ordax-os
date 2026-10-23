@@ -66,6 +66,8 @@ O hub de planejamento e **nao canonico**. Ele separa maturidade documental de el
 
 Se `MVP.md`, um contrato, `docs/CURRENT-STATE.md`, `docs/PROMOTION-GATES.md` ou outro owner canonico ja exigir uma capacidade, o trabalho pertence a esse owner. O plano correspondente nao cria uma segunda fila nem uma segunda autoridade.
 
+**Fundação arquitetural, boot, atualizações e Creator:** para retomar a auditoria/consolidação entre agentes sem depender de histórico de conversa, consulte [`FOUNDATION-001`](00-PLANOS-PRIORITARIOS/plans/FOUNDATION-001-OS-ARCHITECTURE-CONSOLIDATION.md) após a leitura canônica e do roadmap. É roteiro/handoff, não novo SSOT, nem consentimento para gravação física; revalide sempre o source e as PRs.
+
 ### Plano funcional da Surface e dos aplicativos
 
 Antes de revisar historicamente a area de trabalho, a barra lateral ou os apps Arquivos, Ajustes, Conta e Sistema, pode ser util ler [PLANO-FUNCIONAL-SURFACE-E-APPS.md](PLANO-FUNCIONAL-SURFACE-E-APPS.md), na raiz do repositorio, depois da leitura canonica acima.

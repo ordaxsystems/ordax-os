@@ -98,8 +98,24 @@ class PublicSurfaceSnapshotTests(unittest.TestCase):
             actual.append(labels[destination_id])
         shared=(ROOT/'system/services/surface/meridian-navigation.mjs').read_text(encoding='utf-8')
         self.assertIn('MERIDIAN_RAIL_DESTINATIONS.map(',block)
-        shared_names=re.findall(r"\{key:'[^']+',name:'([^']+)'",shared)
-        self.assertEqual(len(shared_names),7,'shared Meridian navigation owner must remain explicit')
+        # The Intelligence destination title is derived from the one OS-owned
+        # destination catalog; a regex for literals alone would miss it and
+        # incentivize a second hardcoded product name in the Meridian rail.
+        canonical_titles=dict(re.findall(
+            r"\{ id: '([^']+)', label: '[^']+', windowTitle: '([^']+)'",catalog
+        ))
+        shared_rows=re.findall(
+            r"\{key:'([^']+)',name:(?:'([^']+)'|getSurfaceWindowTitle\('([^']+)'\))",shared
+        )
+        self.assertEqual(len(shared_rows),7,'shared Meridian navigation owner must remain explicit')
+        self.assertEqual(len({key for key,_,_ in shared_rows}),7,'Meridian destination ids must be unique')
+        shared_names=[]
+        for _,literal,destination_id in shared_rows:
+            if destination_id:
+                self.assertIn(destination_id,canonical_titles)
+                shared_names.append(canonical_titles[destination_id])
+            else:
+                shared_names.append(literal)
         self.assertEqual([row['name'] for row in self.snapshot['navigation']],shared_names+actual)
         for destination_id in [destination_id for _,destination_id in tokens if destination_id]:
             self.assertNotIn("name: '"+labels[destination_id]+"'",block)

@@ -4,6 +4,7 @@ import { mountNativeSidebarAccount } from "../../surface/ui/sidebar-account.mjs"
 import {
   createNativeClientDiagnostics,
   renderedSourceSha,
+  sanitizeClientDiagnostic,
 } from "../../adapters/native/client-diagnostics.mjs";
 import { createNativeBrowserSession } from "../../adapters/native/browser-session.mjs";
 import { createNativeComponentStateStore } from "../../adapters/native/component-state.mjs";
@@ -1226,6 +1227,16 @@ async function start() {
 start().catch((error) => {
   filesProbationContextBootstrap?.fail(error);
   bootScreen.fail(bootText("surface.boot.failed"));
+  // The Native diagnostic POST may be unavailable during a failed bootstrap.
+  // Keep only its existing sanitized, bounded identity on the local boot
+  // element so the isolated Owner QEMU WebKit probe can report the real
+  // failure without accessing page text, tokens or untrusted URLs.
+  const { errorName, source } = sanitizeClientDiagnostic("composition-bootstrap", error);
+  const bootElement = document.getElementById("ordax-boot-screen");
+  if (bootElement) {
+    bootElement.dataset.errorName = errorName;
+    bootElement.dataset.errorSource = source;
+  }
   console.error("OrdaX native composition failed", error);
   // A failed composition may never reach the normal diagnostic port binding.
   // Reuse the authorized Native diagnostic token and its redacted error schema
