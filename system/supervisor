@@ -1215,6 +1215,16 @@ start_surface() {
         source_status=$(ORDAX_GIT_BIN="$GIT_BIN" /bin/sh "$OWNER_SURFACE_STAGE_HELPER" status "$WORKTREE" "$active_os_sha" 2>>"$UPDATE_LOG") || return 1
         if [ "$source_status" = canonical ]; then
             active_slot=$RELEASES_DIR/$active_os_sha
+            # A clean Owner install can already start at a canonical SHA
+            # without a previous staged slot. Reuse the SAME Supervisor stage
+            # transaction before first boot, never a separate UI updater.
+            if [ ! -e "$active_slot" ] && [ ! -L "$active_slot" ]; then
+                log "provisioning missing canonical Surface slot for exact OS commit $active_os_sha"
+                if ! stage_candidate_release "$active_os_sha" surface-restart; then
+                    log "first-boot canonical Surface stage failed; no legacy visual fallback"
+                    return 1
+                fi
+            fi
             if ORDAX_GIT_BIN="$GIT_BIN" /bin/sh "$OWNER_SURFACE_STAGE_HELPER" ready "$WORKTREE" "$active_os_sha" "$active_slot" >>"$UPDATE_LOG" 2>&1; then
                 start_surface_from_system "$active_slot/system" "$active_os_sha"
                 return $?
