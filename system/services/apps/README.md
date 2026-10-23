@@ -179,7 +179,7 @@ The Native catalog verifier owns signature verification **and** anti-replay pers
 
 The canonical `ordaxsystems/ordax-apps` repository has independent unsigned candidate packages for basic utility apps (Calculator, Clock, Converter, Text Viewer, Image Viewer, Calendar, Colors, Character Map, Paint, Media Player, PDF Viewer and Toolbox). The platform's `delivery-policy.mjs` now explicitly recognizes those product IDs as **on-demand / store-only**, so a **future signed and verified** Store catalog can project them without an accidental `first-party-delivery-policy-unavailable` blocker.
 
-This extension is *not* an expansion of the initial public USB MVP application payload. `mvp-delivery-policy.mjs` continues to define the six initial on-demand products, plus Files/Internet bootstrap and structural surfaces; additional policies must remain `store-only`. New on-demand policies do **not** publish candidates, select artifacts, authorize a signer or enable the native lifecycle executor. Unknown app IDs, unsigned catalogs and unavailable Native activation metadata still fail closed. The Store UI remains disabled for the public MVP under its existing contract. No app source is copied from the platform by adding a delivery policy.
+This extension is *not* an expansion of the initial public USB MVP application payload. `mvp-delivery-policy.mjs` defines the initial on-demand scope including Files and Internet, with no removable bootstrap products and four structural surfaces; additional policies must remain `store-only`. New on-demand policies do **not** publish candidates, select artifacts, authorize a signer or enable the native lifecycle executor. Unknown app IDs, unsigned catalogs and unavailable Native activation metadata still fail closed. The Store UI remains disabled for the public MVP under its existing contract. No app source is copied from the platform by adding a delivery policy.
 
 ### Ampliação gradual do leitor Native de módulos
 
@@ -213,8 +213,8 @@ Categorias, badges de Intelligence, avaliações e capturas exigem evolução **
 The first public Stable/MVP surface is deliberately small:
 
 - structural: `account`, `settings`, `store`, `system`;
-- bootstrap: `files`, `internet`;
-- on-demand/post-launch: `activity`, `assistant`, `network`, `notes`, `projects`, `studio`.
+- bootstrap: **none** (a clean OS boots without removable applications);
+- on-demand/post-launch: `files`, `internet`, `activity`, `assistant`, `network`, `notes`, `projects`, `studio`.
 
 Completion of the on-demand apps does not block the public USB launch. Physical byte-level removal of their dormant source from the current image is also not a launch requirement.
 
