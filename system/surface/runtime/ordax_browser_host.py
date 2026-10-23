@@ -179,19 +179,41 @@ def owner_qemu_graphics_probe_enabled(distribution_profile: str) -> bool:
         return False
 
 
-def emit_owner_graphics_probe(enabled: bool, event: str) -> None:
-    if not enabled or event not in OWNER_GRAPHICS_PROBE_EVENTS:
+def _emit_owner_qemu_serial(enabled: bool, line: str) -> None:
+    if not enabled or not isinstance(line, str) or len(line) > 240 or not line.isascii():
         return
-    # Debug output is disabled on ordinary boots. In the isolated Owner QEMU
-    # gate, emit only genuine WebKit callbacks via the kernel serial device.
+    # One QEMU-only serial authority. Ordinary physical boots emit nothing.
     try:
         descriptor = os.open("/dev/ttyS0", os.O_WRONLY | os.O_NOCTTY | os.O_NONBLOCK)
         try:
-            os.write(descriptor, f"ORDAX_OWNER_WEBKIT_EVENT={event}\n".encode("ascii"))
+            os.write(descriptor, (line + "\n").encode("ascii"))
         finally:
             os.close(descriptor)
     except OSError:
         pass
+
+
+def emit_owner_graphics_probe(enabled: bool, event: str) -> None:
+    if event not in OWNER_GRAPHICS_PROBE_EVENTS:
+        return
+    _emit_owner_qemu_serial(enabled, f"ORDAX_OWNER_WEBKIT_EVENT={event}")
+
+
+def emit_owner_boot_error_probe(enabled: bool, error_name: str, source: str) -> None:
+    # Match the already-authorized Native client-diagnostic schema exactly.
+    # The exception message, stack, page HTML and user data never leave WebKit.
+    if (not isinstance(error_name, str)
+            or re.fullmatch(r"[A-Za-z][A-Za-z0-9]{0,63}", error_name) is None
+            or not isinstance(source, str)
+            or (source and re.fullmatch(
+                r"[A-Za-z0-9_.-]+\\.mjs:[1-9][0-9]{0,5}:[1-9][0-9]{0,5}", source
+            ) is None)):
+        return
+    report = json.dumps(
+        {"errorName": error_name, "source": source},
+        separators=(",", ":"), sort_keys=True, ensure_ascii=True,
+    )
+    _emit_owner_qemu_serial(enabled, "ORDAX_OWNER_WEBKIT_BOOT_DIAGNOSTIC=" + report)
 
 
 HOST_SHORTCUTS = (
@@ -831,17 +853,29 @@ class OrdaXBrowserHost:
             state = "probe-unavailable"
             try:
                 answer = view.run_javascript_finish(result)
-                value = answer.get_js_value().to_string()
-                if value in {"loading", "error", "ready", "missing"}:
-                    state = value
-            except Exception:
+                raw = answer.get_js_value().to_string()
+                if len(raw) <= 240:
+                    value = json.loads(raw)
+                    if isinstance(value, dict) and value.get("state") in {
+                        "loading", "error", "ready", "missing",
+                    }:
+                        state = value["state"]
+                        if state == "error":
+                            emit_owner_boot_error_probe(
+                                self.owner_graphics_probe_enabled,
+                                value.get("errorName", ""),
+                                value.get("source", ""),
+                            )
+            except (Exception, ValueError):
                 pass
             self.record_surface_loading_event(f"surface-boot-{state}")
 
         try:
             self.surface_view.run_javascript(
                 "(function(){const el=document.getElementById('ordax-boot-screen');"
-                "return el&&el.dataset&&el.dataset.state||'missing';})()",
+                "const d=el&&el.dataset;"
+                "return JSON.stringify({state:d&&d.state||'missing',"
+                "errorName:d&&d.errorName||'',source:d&&d.errorSource||''});})()",
                 None, complete, None,
             )
         except Exception:
