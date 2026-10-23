@@ -131,5 +131,57 @@ class OwnerSurfaceSourceTests(unittest.TestCase):
         self.assertFalse((self.slot / ".surface-source-sha").exists())
 
 
+    def supervisor_start(self, profile: str):
+        supervisor = (ROOT / "system/supervisor").read_text(encoding="utf-8")
+        section = "start_surface() {" + supervisor.split("start_surface() {", 1)[1].split("\n}\n", 1)[0] + "\n}\n"
+        receipt = self.root / "started-from.txt"
+        work = self.root / "update.log"
+        work.touch()
+        shell = (
+            "set -eu\n"
+            "WORKTREE=$1\n"
+            "RELEASES_DIR=$2\n"
+            "SYSTEM_ROOT=$3\n"
+            "OWNER_SURFACE_STAGE_HELPER=$4\n"
+            "GIT_BIN=/usr/bin/git\n"
+            "UPDATE_LOG=$5\n"
+            "DISTRIBUTION_PROFILE=$6\n"
+            "EXPECTED_SHA=$7\n"
+            "RECEIPT=$8\n"
+            "current_sha() { printf '%s\\n' \"$EXPECTED_SHA\"; }\n"
+            "start_surface_from_system() { printf '%s\\n' \"$1\" > \"$RECEIPT\"; }\n"
+            "log() { :; }\n"
+            + section + "start_surface\n"
+        )
+        proc = subprocess.run([
+            "/bin/sh", "-c", shell, "sh", str(self.os_root),
+            str(self.root / "releases"), str(self.os_root / "system"),
+            str(HELPER), str(work), profile, self.os_sha, str(receipt),
+        ], env=self.env, text=True, capture_output=True)
+        return proc, receipt
+
+    def test_cold_boot_uses_only_verified_canonical_slot(self):
+        self.call("stage", check=True)
+        releases = self.root / "releases"
+        releases.mkdir()
+        self.make_file(self.slot / ".sha", self.os_sha + "\n")
+        self.make_file(self.slot / ".ready", "ready\n")
+        self.slot.rename(releases / self.os_sha)
+        proc, marker = self.supervisor_start("owner-development")
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertEqual(marker.read_text().strip(), str(releases / self.os_sha / "system"))
+        marker.unlink()
+        (releases / self.os_sha / ".surface-source-sha").write_text("f" * 40 + "\n")
+        proc, marker = self.supervisor_start("owner-development")
+        self.assertNotEqual(proc.returncode, 0)
+        self.assertFalse(marker.exists(), "no fallback to tracked OS visuals")
+
+    def test_legacy_owner_boot_remains_unmodified_before_cutover(self):
+        self.set_lock("integration-candidate")
+        proc, marker = self.supervisor_start("owner-development")
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertEqual(marker.read_text().strip(), str(self.os_root / "system"))
+
+
 if __name__ == "__main__":
     unittest.main()
