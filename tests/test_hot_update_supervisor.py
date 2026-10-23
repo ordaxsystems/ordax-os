@@ -570,6 +570,33 @@ class HotUpdateSupervisorContractTests(unittest.TestCase):
         self.assertIn('if [ -s "$PINNED_FILE" ]; then', check)
         self.assertIn('if non_ff_target_blocked "$current" "$remote_sha" &&', check)
 
+    def test_owner_rollback_restores_exact_helper_receipt_before_surface(self):
+        supervisor = SYSTEM_SUPERVISOR.read_text(encoding="utf-8")
+        helper = supervisor.split("restore_dev_helpers_after_rollback() {", 1)[1].split("\n}\n", 1)[0]
+        self.assertIn('refresh_dev_helpers "$source_sha"', helper)
+        self.assertIn('read_state_value "$DEV_HELPERS_SHA_FILE"', helper)
+        self.assertIn('return 1', helper)
+        for method in ("rollback_boot_candidate()", "rollback_update()"):
+            body = supervisor.split(method + " {", 1)[1].split("\n}\n", 1)[0]
+            self.assertIn('restore_dev_helpers_after_rollback "$previous_sha"', body)
+            self.assertLess(
+                body.index('write_state_value "$CURRENT_FILE" "$previous_sha"'),
+                body.index('restore_dev_helpers_after_rollback "$previous_sha"'),
+            )
+            self.assertIn('fail_closed "rollback', body)
+        hot = supervisor.split("rollback_update() {", 1)[1].split("\n}\n", 1)[0]
+        self.assertLess(hot.index('restore_dev_helpers_after_rollback "$previous_sha"'),
+                        hot.index('start_surface || fail_closed'))
+
+    def test_native_boot_exception_uses_existing_redacted_diagnostic_owner(self):
+        composition = (ROOT / "system/composition/native/main.mjs").read_text(encoding="utf-8")
+        failure = composition.split("start().catch((error) => {", 1)[1]
+        self.assertIn('bootScreen.fail(bootText("surface.boot.failed"));', failure)
+        self.assertIn('void createNativeClientDiagnostics(window)', failure)
+        self.assertIn('diagnostics.report(renderedSourceSha(window), "composition-bootstrap", error)', failure)
+        self.assertIn('.catch(() => {});', failure)
+        self.assertNotIn('markHealthy()', failure)
+
     def test_healthy_current_checkout_clears_stale_rejection(self):
         text = SYSTEM_SUPERVISOR.read_text(encoding="utf-8")
         self.assertIn('healthy_sha=$(read_state_value "$HEALTH_FILE")', text)
