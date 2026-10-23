@@ -380,7 +380,7 @@ const FRAME_BOOTSTRAP = String.raw`(() => {
         if (data.identitySessionSnapshot?.state === undefined
           || data.spaceSelectionSnapshot?.schema !== "ordax.space-selection/1"
           || data.intelligenceSnapshot?.schema !== "ordax.intelligence/1") {
-          throw new TypeError("Aura trusted host snapshots are unavailable");
+          throw new TypeError("Intelligence client host snapshots are unavailable");
         }
         identitySession = createSnapshotPort(
           "identitySession", "ordax.identity-session/1", data.identitySessionSnapshot, [],
@@ -389,7 +389,7 @@ const FRAME_BOOTSTRAP = String.raw`(() => {
           "spaceSelection", "ordax.space-selection/1", data.spaceSelectionSnapshot, [],
         );
         const denySelectionMutation = () => {
-          throw new TypeError("Aura app cannot select or clear the system Space");
+          throw new TypeError("Intelligence client cannot select or clear the system Space");
         };
         spaceSelection = Object.freeze({
           schema: selection.schema,
@@ -417,7 +417,7 @@ const FRAME_BOOTSTRAP = String.raw`(() => {
       } else if (data.identitySessionSnapshot !== null
         || data.spaceSelectionSnapshot !== null
         || data.intelligenceSnapshot !== null) {
-        throw new TypeError("Only the verified Aura app may receive Intelligence ports");
+        throw new TypeError("Only the verified Intelligence client may receive Intelligence ports");
       }
       appTarget = data.appTarget ?? null;
       lifecycle = Object.freeze({
@@ -607,7 +607,7 @@ function assertContext(context, componentId, { allowMissingAppData = false } = {
   }
   if (componentId === "assistant" && !auraPorts.every((key) =>
     Object.prototype.hasOwnProperty.call(context, key))) {
-    throw new TypeError("Aura requires all trusted Identity, Space and Intelligence ports");
+    throw new TypeError("Intelligence client requires all trusted Identity, Space and Intelligence ports");
   }
   const identitySession = componentId === "assistant"
     ? assertIdentitySessionPort(context.identitySessionPort) : null;
@@ -869,7 +869,7 @@ function makeBroker({ port, componentId, context, onRevoke, onInvalidated }) {
         requireAuraService("inference");
         oneArgument("inference");
         if (inferenceControllers.size !== 0) {
-          throw new TypeError("Aura already has a pending inference request");
+          throw new TypeError("Intelligence client already has a pending inference request");
         }
         const requestPayload = validateIntelligenceRequest(request.args[0]);
         const state = validateIntelligenceSnapshot(intelligence.getSnapshot());
@@ -881,7 +881,7 @@ function makeBroker({ port, componentId, context, onRevoke, onInvalidated }) {
           const space = validateSpaceSelectionSnapshot(spaceSelection.getSnapshot());
           if (identity.state === "signed-in" && space.state !== "unavailable"
             && space.subjectId !== identity.subjectId) {
-            throw new TypeError("Aura Identity/Space scope is incompatible");
+            throw new TypeError("Intelligence client Identity/Space scope is incompatible");
           }
           return JSON.stringify([identity, space]);
         };
@@ -894,14 +894,14 @@ function makeBroker({ port, componentId, context, onRevoke, onInvalidated }) {
         let unsubscribeAbort;
         try {
           const aborted = new Promise((_, reject) => {
-            const onAbort = () => reject(new Error("Aura inference scope was revoked"));
+            const onAbort = () => reject(new Error("Intelligence client inference scope was revoked"));
             controller.signal.addEventListener("abort", onAbort, { once: true });
             unsubscribeAbort = () => controller.signal.removeEventListener("abort", onAbort);
           });
           const deadline = new Promise((_, reject) => {
             timeout = setTimeout(() => {
               controller.abort();
-              reject(new Error("Aura inference exceeded the bounded host deadline"));
+              reject(new Error("Intelligence client inference exceeded the bounded host deadline"));
             }, 90_000);
           });
           const response = await Promise.race([
@@ -911,7 +911,7 @@ function makeBroker({ port, componentId, context, onRevoke, onInvalidated }) {
           ]);
           await context.authorizeOperation();
           if (revoked || controller.signal.aborted || scopeEpoch !== initialEpoch || readScope() !== initialScope) {
-            throw new Error("Aura inference belongs to a revoked Identity/Space or slot");
+            throw new Error("Inference belongs to a revoked Identity/Space or slot");
           }
           return validateIntelligenceResponse(response);
         } finally {

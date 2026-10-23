@@ -15,13 +15,13 @@ export function createNativeIntelligenceClientTrustedContextProvider({
   return function nativeAuraTrustedContext(componentId) {
     if (componentId !== "assistant") return null;
     if (verifiedCurrent === null) {
-      throw new TypeError("Aura requires a verified current Native component slot");
+      throw new TypeError("Intelligence client requires a verified current Native component slot");
     }
     const current = validateComponentRuntimeMetadata(verifiedCurrent, {
       componentId: "assistant", state: "current",
     });
     if (current.source !== "slot") {
-      throw new TypeError("Aura host ports require an installed signed current slot");
+      throw new TypeError("Intelligence client host ports require an installed signed current slot");
     }
     return Object.freeze({
       identitySessionPort: assertIdentitySessionPort(identitySessionPort),
