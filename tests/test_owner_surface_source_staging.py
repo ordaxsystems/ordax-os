@@ -3,6 +3,7 @@
 
 import json
 import os
+import shutil
 from pathlib import Path
 import subprocess
 import tempfile
@@ -180,8 +181,13 @@ class OwnerSurfaceSourceTests(unittest.TestCase):
         # Simulate two immutable OS revisions and a durable prepared slot.
         self.set_lock("integration-candidate")
         old_sha = self.os_sha
+        for path in ("ui", "workspace"):
+            shutil.rmtree(self.os_root / "system/surface" / path)
+            shutil.rmtree(self.slot_system / "surface" / path)
         self.set_lock("canonical")
         new_sha = self.os_sha
+        self.assertFalse((self.os_root / "system/surface/ui").exists())
+        self.assertFalse((self.os_root / "system/surface/workspace").exists())
         self.call("stage", check=True)
         releases = self.root / "releases"
         releases.mkdir()
