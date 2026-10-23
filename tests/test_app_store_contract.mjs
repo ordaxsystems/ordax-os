@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
 
-import { storeApp } from "../system/apps/store/app.mjs";
+import { storeApp } from "../system/services/system-ui/store/app.mjs";
 import { createStoreRequestSessionId, filterStoreEntries, sortStoreEntries } from "../system/surface/ui/store-overview-controls.mjs";
 import {
   APP_STORE_CATALOG_SCHEMA,
@@ -41,7 +41,7 @@ test("Store is a bundled structural presentation surface", () => {
   assert.equal(storeApp.id, "store");
   assert.equal(storeApp.component.id, "store");
   assert.equal(storeApp.component.releaseMode, "bundled");
-  assert.equal(storeApp.component.owner, "system/apps/store");
+  assert.equal(storeApp.component.owner, "system/services/system-ui/store");
   assert.equal(storeApp.panels[0].extensionId, "store-overview");
   assert.deepEqual(storeApp.requiredCapabilities, []);
 });
