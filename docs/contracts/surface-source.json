@@ -1,5 +1,5 @@
 {
-  "$schema": "ordax.surface-source/1",
+  "$schema": "prototype-ordax.surface-source/1",
   "status": "integration-candidate",
   "source_repository": "ordaxsystems/ordax-surface",
   "source_commit": "657ec8160f8f82a55ffad0923d1f90157312419f",
