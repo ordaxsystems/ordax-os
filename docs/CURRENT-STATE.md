@@ -243,10 +243,10 @@ boot/recovery gates pass. Native can mount an unknown-health Files candidate
 transiently in an opaque iframe with an empty synthetic File Space and no user
 data; bundled-source filtering still prevents it from shadowing the active OS
 owner. This contract probe neither promotes nor distributes the candidate. The
-portable Studio product is canonical in Apps;
-`system/apps/studio/` remains an OS-owned local integration until Native/Web
-parity and verified lifecycle are proven. Loja, Ajustes, Conta and Sistema are
-structural OS surfaces and stay in `ordax-os`. Keep those boundaries distinct:
+portable Studio product is canonical in Apps; the old OS-local Studio UI and
+fixed launchers were removed on 2026-10-23 for clean-OS development. No
+external Studio package is installed or activated by this source cleanup.
+Loja, Ajustes, Conta and Sistema are structural OS surfaces in `ordax-os`. Keep those boundaries distinct:
 do not remove the active Files source or activate external packages by changing
 documentation flags alone.
 
