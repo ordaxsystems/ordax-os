@@ -8,6 +8,9 @@ BR2_PACKAGE_PYTHON3=y
 BR2_PACKAGE_PYTHON3_PYC_ONLY=y
 BR2_PACKAGE_PYTHON3_SSL=y
 BR2_PACKAGE_PYTHON3_ZLIB=y
+# Canonical ordax_core MemoryStore/OrchestratorStore require private SQLite.
+BR2_PACKAGE_PYTHON3_SQLITE=y
+BR2_PACKAGE_SQLITE=y
 BR2_PACKAGE_CA_CERTIFICATES=y
 # Probe only: HTTPX source version matches upstream Runtime; its indirect
 # dependencies are NOT all lock-compatible. Never activate from this profile.
