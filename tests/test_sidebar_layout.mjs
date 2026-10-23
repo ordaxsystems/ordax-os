@@ -336,7 +336,7 @@ test("Native rail keeps shared Meridian destinations, area switching, and System
   assert.ok(menu.includes('data-nav-menu-group="dispositivo"'));
   assert.match(nativeShell, /listSurfaceShortcutAppIds\("navigation-menu"\)/);
   assert.match(menu, /const deviceApps = NAVIGATION_MENU_APP_IDS\.map\(id =>/);
-  assert.deepEqual(listSurfaceShortcutAppIds("navigation-menu"), ["files", "studio", "settings", "system"]);
+  assert.deepEqual(listSurfaceShortcutAppIds("navigation-menu"), ["files", "settings", "system"]);
   assert.ok(menu.includes('data-nav-menu-app="${id}"'));
   assert.ok(nativeShell.includes('data-current-area>${t("surface.area.label", { ordinal: "01" })}</span>'));
   assert.ok(nativeShell.includes('data-area-switcher aria-label="${t("shell.areas.aria")}"'));
