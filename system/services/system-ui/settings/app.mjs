@@ -1,5 +1,5 @@
-import { defineFirstPartyApp } from "../../contracts/first-party-app.mjs";
-import { settingsComponent } from "../../services/components/manifests/apps.mjs";
+import { defineFirstPartyApp } from "../../../contracts/first-party-app.mjs";
+import { settingsComponent } from "../../components/manifests/apps.mjs";
 
 export const settingsApp = defineFirstPartyApp({
   id: "settings",

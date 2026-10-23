@@ -34,6 +34,7 @@ export const EXTERNAL_FIRST_PARTY_COMPONENT_IDS = Object.freeze(
 // Generated from the same canonical OS package policy's Native module broker
 // scope. Store catalog presence alone does not grant executable-read support.
 export const EXTERNAL_FIRST_PARTY_NATIVE_MODULE_READ_IDS = Object.freeze([
+  "assistant",
   "calculator",
   "files",
   "notes",
