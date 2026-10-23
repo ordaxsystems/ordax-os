@@ -35,6 +35,12 @@ on:
       - 'bootstrap/dev-base/**'
       - 'bootstrap/surface-runtime/**'
       - 'system/entrypoint'
+      # Boot health and update handoff must prove the real Owner USB on PRs,
+      # not only on the subsequent main push (when the rollback risk is live).
+      # Keep this scoped to the actual cold-boot composition entrypoints.
+      - 'system/supervisor'
+      - 'system/composition/native/main.mjs'
+      - 'system/adapters/native/update-runtime.mjs'
       - 'tests/test_owner_usb_durable_power_transition.py'
       - 'tests/test_owner_usb_superblock_seal.py'
       - 'system/surface/bin/ordax-surface'
