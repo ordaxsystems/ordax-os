@@ -702,7 +702,8 @@ function makeBroker({ port, componentId, context, onRevoke, onInvalidated }) {
     ? { type: "reply", id, ok: true, value }
     : { type: "reply", id, ok: false, error: String(value?.message || value || "Native app request failed").slice(0, 1024) });
   const subscriptionCount = () => renderUnsubscribes.size + recentFilesUnsubscribes.size
-    + projectUnsubscribes.size + activationUnsubscribes.size;
+    + projectUnsubscribes.size + activationUnsubscribes.size
+    + identityUnsubscribes.size + selectionUnsubscribes.size + intelligenceUnsubscribes.size;
   const flushAuthorizedUpdates = () => {
     if (revoked || updatePump !== null || queuedUpdates.size === 0) return;
     let task;
@@ -712,8 +713,14 @@ function makeBroker({ port, componentId, context, onRevoke, onInvalidated }) {
         queuedUpdates.delete(key);
         await context.authorizeOperation();
         if (revoked) return;
-        const subscriptions = update.service === "recentFiles" ? recentFilesUnsubscribes
-          : update.service === "projects" ? projectUnsubscribes : activationUnsubscribes;
+        const subscriptions = {
+          recentFiles: recentFilesUnsubscribes,
+          projects: projectUnsubscribes,
+          appActivation: activationUnsubscribes,
+          identitySession: identityUnsubscribes,
+          spaceSelection: selectionUnsubscribes,
+          intelligence: intelligenceUnsubscribes,
+        }[update.service];
         if (!subscriptions.has(update.subscriptionId)) continue;
         send({ type: "service.update", ...update });
       }
@@ -761,6 +768,15 @@ function makeBroker({ port, componentId, context, onRevoke, onInvalidated }) {
     const recentFiles = context.recentFiles;
     const projects = context.projects;
     const appActivation = context.appActivation;
+    const identitySession = context.identitySession;
+    const spaceSelection = context.spaceSelection;
+    const intelligence = context.intelligence;
+    const requireAuraService = (service) => {
+      if (componentId !== "assistant"
+        || identitySession === null || spaceSelection === null || intelligence === null) {
+        throw new TypeError("Native " + service + " is unavailable to this signed app");
+      }
+    };
     const oneArgument = (label) => {
       if (request.args.length !== 1) throw new TypeError(`Native ${label} request is malformed`);
     };
