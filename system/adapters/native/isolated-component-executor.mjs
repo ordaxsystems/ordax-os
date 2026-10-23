@@ -835,11 +835,13 @@ function makeBroker({ port, componentId, context, onRevoke, onInvalidated }) {
           },
         }[service];
         const id = validateSubscription(request, service, binding.subscriptions);
-        const unsubscribe = binding.port.subscribe((value) => {
+        const unsubscribe = binding.port.subscribe(() => {
           if (service !== "intelligence") {
             for (const controller of inferenceControllers) controller.abort();
           }
-          queueAuthorizedUpdate(service, id, binding.validate(value ?? binding.port.getSnapshot()));
+          // Only owner-controlled snapshots are authoritative; event arguments
+          // are notifications, not trusted replacements of a system snapshot.
+          queueAuthorizedUpdate(service, id, binding.validate(binding.port.getSnapshot()));
         });
         binding.subscriptions.set(id, unsubscribe);
         return true;
