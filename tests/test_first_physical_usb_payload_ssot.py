@@ -148,6 +148,26 @@ class PhysicalUsbPayloadIdentityTests(unittest.TestCase):
             source,
         )
 
+    def test_core_binding_preflight_precedes_expensive_historical_release_builds(self):
+        workflow = WORKFLOW.read_text(encoding="utf-8")
+        self.assertEqual(
+            workflow.count("Test canonical Creator Core source binding before heavyweight release builds"),
+            1,
+        )
+        self.assertIn("PORTABLE_17_SOURCE_CORE_SSOT=PASS_NON_DESTRUCTIVE", workflow)
+        self.assertIn("TestBindPortableSources(CoreInventory|RejectsIncompleteExtraOrUnsafeInput|RejectsSymlinkedRoot)$", workflow)
+        self.assertLess(
+            workflow.index("Test canonical Creator Core source binding before heavyweight release builds"),
+            workflow.index("Build and verify exact kernel"),
+        )
+        self.assertLess(
+            workflow.index("Resolve exact signed release from authorization SSOT"),
+            workflow.index("Test canonical Creator Core source binding before heavyweight release builds"),
+        )
+        self.assertIn("Build and verify exact Stable Base", workflow)
+        self.assertIn("Materialize and verify canonical Stable v4 release bytes", workflow)
+        self.assertIn("Validate official physical promotion gate before resolving payload", workflow)
+
     def test_canonical_17_sources_derive_only_from_creator_core(self):
         source = WORKFLOW.read_text(encoding="utf-8")
         self.assertIn("go run ./cmd/ordax-creator bind-portable-sources", source)
