@@ -140,8 +140,7 @@
       "platform": "ordaxsystems/ordax-os",
       "apps": "ordaxsystems/ordax-apps",
       "runtime": "ordaxsystems/ordax-runtime",
-      "control_plane": "ordaxsystems/ordax-platform",
-      "surface": "ordaxsystems/ordax-surface"
+      "control_plane": "ordaxsystems/ordax-platform"
     },
     "cutover_order": [
       "runtime",
