@@ -44,6 +44,15 @@ class NativeComponentBuildrootTests(unittest.TestCase):
         self.assertNotIn("BR2_SHARED_LIBS=y", owner)
         self.assertNotIn("BR2_PACKAGE_PYTHON3=y", owner)
 
+    def test_sqlite_private_component_does_not_modify_base_profiles(self):
+        fragment = (BASE / "configs/native-product-runtime.fragment").read_text()
+        minimal = (BASE / "configs/ordax_minimal_defconfig").read_text()
+        owner = (BASE / "configs/owner-development.fragment").read_text()
+        for symbol in ("BR2_PACKAGE_PYTHON3_SQLITE=y", "BR2_PACKAGE_SQLITE=y"):
+            self.assertIn(symbol, fragment)
+            self.assertNotIn(symbol, minimal)
+            self.assertNotIn(symbol, owner)
+
     def test_component_build_config_is_strictly_separate(self):
         with tempfile.TemporaryDirectory() as temp:
             generated = Path(temp) / "component_defconfig"
@@ -229,6 +238,7 @@ class NativeComponentBuildrootTests(unittest.TestCase):
                                      "anyio", "certifi", "idna", "h11"],
                     "all_imports_private": True,
                     "tls_and_zlib_operational": True,
+                    "sqlite_memory_operational": True,
                     "httpx_offline_request_construction_proven": True,
                     "httpx_mock_transport_proven": True,
                     "httpx_version": "0.28.1",
@@ -458,15 +468,18 @@ class BuiltNativePythonClosureTests(unittest.TestCase):
         self.exe.write_bytes(binary)
         for name in ("_ssl.cpython-313-x86_64-linux-musl.so",
                      "_hashlib.cpython-313-x86_64-linux-musl.so",
-                     "zlib.cpython-313-x86_64-linux-musl.so"):
+                     "zlib.cpython-313-x86_64-linux-musl.so",
+                     "_sqlite3.cpython-313-x86_64-linux-musl.so"):
             (stdlib / "lib-dynload" / name).write_text("not-an-ELF test module")
         (stdlib / "json/__pycache__").mkdir(parents=True)
+        (stdlib / "sqlite3/__pycache__").mkdir(parents=True)
         (stdlib / "__pycache__").mkdir(parents=True)
         # Validate the Buildroot .pyc-only layout, not host Python sources.
         bytecode = bytes.fromhex("a70d0d0a") + bytes(12) + b"x"
         for module in ("ssl", "site"):
             (stdlib / "__pycache__" / (module + ".cpython-313.pyc")).write_bytes(bytecode)
         (stdlib / "json/__pycache__/__init__.cpython-313.pyc").write_bytes(bytecode)
+        (stdlib / "sqlite3/__pycache__/__init__.cpython-313.pyc").write_bytes(bytecode)
         (self.target / "etc/ssl/certs").mkdir(parents=True)
         (self.target / "etc/ssl/certs/ca-certificates.crt").write_text("certificate")
         (lib_dir / "ld-musl-x86_64.so.1").write_bytes(binary)
@@ -565,7 +578,7 @@ class BuiltNativePythonClosureTests(unittest.TestCase):
 
     def test_missing_tls_and_zlib_extensions_are_blockers(self):
         folder = self.target / "usr/lib/python3.13/lib-dynload"
-        for suffix in ("_ssl", "_hashlib", "zlib"):
+        for suffix in ("_ssl", "_hashlib", "zlib", "_sqlite3"):
             with self.subTest(extension=suffix):
                 path = next(folder.glob(suffix + "*.so"))
                 renamed = path.with_suffix(".absent")
@@ -592,6 +605,7 @@ class BuiltNativePythonClosureTests(unittest.TestCase):
                 "ssl_version": "OpenSSL 3.5.0",
                 "all_imports_private": True,
                 "tls_and_zlib_operational": True,
+                "sqlite_memory_operational": True,
                 "httpx_offline_request_construction_proven": True,
                 "httpx_mock_transport_proven": True,
                 "httpx_version": "0.28.1",
@@ -613,6 +627,7 @@ class BuiltNativePythonClosureTests(unittest.TestCase):
         self.assertTrue(proof["linux_kernel_execution_proven"])
         self.assertTrue(proof["httpx_offline_request_construction_proven"])
         self.assertTrue(proof["httpx_mock_transport_proven"])
+        self.assertTrue(proof["sqlite_memory_operational"])
         self.assertEqual(proof["httpx_version"], "0.28.1")
         self.assertFalse(proof["runtime_dependency_versions_reconciled"])
         self.assertEqual(kwargs["env"]["PYTHONPATH"],
@@ -650,6 +665,7 @@ class BuiltNativePythonClosureTests(unittest.TestCase):
             "ssl_version": "OpenSSL 3.5.0",
             "all_imports_private": True,
             "tls_and_zlib_operational": True,
+            "sqlite_memory_operational": True,
             "httpx_offline_request_construction_proven": True,
             "httpx_mock_transport_proven": True,
             "httpx_version": "0.28.1",
@@ -679,6 +695,7 @@ class BuiltNativePythonClosureTests(unittest.TestCase):
             "ssl_version": "OpenSSL 3.5.0",
             "all_imports_private": True,
             "tls_and_zlib_operational": True,
+            "sqlite_memory_operational": True,
             "httpx_offline_request_construction_proven": True,
             "httpx_mock_transport_proven": True,
             "httpx_version": "0.28.1",
