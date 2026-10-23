@@ -1228,4 +1228,11 @@ start().catch((error) => {
   filesProbationContextBootstrap?.fail(error);
   bootScreen.fail(bootText("surface.boot.failed"));
   console.error("OrdaX native composition failed", error);
+  // A failed composition may never reach the normal diagnostic port binding.
+  // Reuse the authorized Native diagnostic token and its redacted error schema
+  // so the next offline audit can identify the exception behind a rollback.
+  // This is observation only: never assert healthy or retry boot here.
+  void createNativeClientDiagnostics(window)
+    .then((diagnostics) => diagnostics.report(renderedSourceSha(window), "composition-bootstrap", error))
+    .catch(() => {});
 });
