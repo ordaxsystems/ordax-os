@@ -1233,7 +1233,8 @@ start_surface() {
             return 1
         fi
     fi
-    start_surface_from_system "$SYSTEM_ROOT" "$active_os_sha"
+    # Stable and noncanonical Owner remain on the active OS system root.
+    start_surface_from_system "$SYSTEM_ROOT" "$(current_sha)"
 }
 
 # Surface owns the Native HTTP process until the Supervisor/mount cutover.
