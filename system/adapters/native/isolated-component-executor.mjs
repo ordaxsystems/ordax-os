@@ -37,14 +37,17 @@ import {
   validateRecentFilesSnapshot,
 } from "../../contracts/recent-files.mjs";
 import {
+  IDENTITY_SESSION_SCHEMA,
   assertIdentitySessionPort,
   validateIdentitySessionSnapshot,
 } from "../../contracts/identity-session.mjs";
 import {
+  SPACE_SELECTION_SCHEMA,
   assertSpaceSelectionPort,
   validateSpaceSelectionSnapshot,
 } from "../../contracts/space-selection.mjs";
 import {
+  INTELLIGENCE_PORT_SCHEMA,
   assertIntelligencePort,
   validateIntelligenceSnapshot,
   validateIntelligenceRequest,
@@ -626,8 +629,9 @@ function assertContext(context, componentId, {
     Object.prototype.hasOwnProperty.call(context, key))) {
     throw new TypeError("Intelligence client requires all trusted Identity, Space and Intelligence ports");
   }
-  if (syntheticIntelligenceClient && hasAnyAuraPort) {
-    throw new TypeError("Pending Intelligence client cannot receive host ports");
+  if (syntheticIntelligenceClient
+    && (hasAnyAuraPort || Object.prototype.hasOwnProperty.call(context, "appData"))) {
+    throw new TypeError("Pending Intelligence client cannot receive host ports or user App Data");
   }
   const identitySession = componentId === "assistant" && !syntheticIntelligenceClient
     ? assertIdentitySessionPort(context.identitySessionPort) : null;
@@ -648,16 +652,16 @@ function createPendingIntelligenceClientContext(validated) {
     new TypeError("Pending Intelligence client cannot invoke inference"),
   );
   const identitySession = Object.freeze({
-    schema: "ordax.identity-session/1",
+    schema: IDENTITY_SESSION_SCHEMA,
     getSnapshot: () => Object.freeze({
       state: "unavailable", subjectId: null, displayName: null,
     }),
     subscribe: subscribeWithoutState,
   });
   const spaceSelection = Object.freeze({
-    schema: "ordax.space-selection/1",
+    schema: SPACE_SELECTION_SCHEMA,
     getSnapshot: () => Object.freeze({
-      schema: "ordax.space-selection/1", state: "unavailable",
+      schema: SPACE_SELECTION_SCHEMA, state: "unavailable",
       subjectId: null, selectedSpace: null,
     }),
     subscribe: subscribeWithoutState,
@@ -665,9 +669,9 @@ function createPendingIntelligenceClientContext(validated) {
     clear: () => { throw new TypeError("Pending Intelligence client cannot clear Space"); },
   });
   const intelligence = Object.freeze({
-    schema: "ordax.intelligence/1",
+    schema: INTELLIGENCE_PORT_SCHEMA,
     getSnapshot: () => Object.freeze({
-      schema: "ordax.intelligence/1", state: "degraded",
+      schema: INTELLIGENCE_PORT_SCHEMA, state: "degraded",
       inferenceAvailable: false, engineId: null, modelId: null,
       authority: "none", toolExecution: false,
     }),
