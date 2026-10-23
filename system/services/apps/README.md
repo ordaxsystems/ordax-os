@@ -127,7 +127,7 @@ A adição da Calculadora **não** altera o conjunto de health mutation (Interne
 
 ## Surface da Loja: experiência e contrato
 
-A Loja estrutural permanece sob `system/apps/store` e `system/surface/ui/store-overview-controls.mjs`, usando estilos em `store.css` e mensagens component-scoped em `system/services/i18n/catalog/store.mjs`. Este frontend **não** é um segundo catálogo nem um gerenciador de pacotes: consome somente o snapshot validado `ordax.app-store-catalog/2`.
+A Loja estrutural permanece sob `system/services/system-ui/store` e `system/surface/ui/store-overview-controls.mjs`, usando estilos em `store.css` e mensagens component-scoped em `system/services/i18n/catalog/store.mjs`. Este frontend **não** é um segundo catálogo nem um gerenciador de pacotes: consome somente o snapshot validado `ordax.app-store-catalog/2`.
 
 - **Descobrir**: apresenta apenas entradas fornecidas pelo catálogo verificado. A busca local funciona por título/ID com normalização de acentos e não altera o snapshot. A apresentação tem ordenação alfabética natural, independente da ordem do catálogo assinado.
 - **Instalados**: deriva da versão instalada confirmada pelo owner canônico, nunca de arquivos em cache.
