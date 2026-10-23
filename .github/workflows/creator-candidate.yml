@@ -23,10 +23,6 @@ jobs:
   creator:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
-    defaults:
-      run:
-        working-directory: ${{ runner.temp }}/ordax-creator-candidate-source
-        # Source checkout is outside the OS to prevent a second live Go Core.
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -48,6 +44,7 @@ jobs:
       - name: Test Creator Core and host policies against canonical OS contracts
         env:
           ORDAX_OS_CONTRACTS_DIR: ${{ github.workspace }}/docs/contracts
+        working-directory: ${{ runner.temp }}/ordax-creator-candidate-source
         run: |
           set -euo pipefail
           test "$ORDAX_CREATOR_SOURCE_REPOSITORY" = "ordaxsystems/ordax-creator"
@@ -55,6 +52,7 @@ jobs:
           go test -count=1 ./...
 
       - name: Verify canonical manifest stays fail-closed
+        working-directory: ${{ runner.temp }}/ordax-creator-candidate-source
         run: |
           set -euo pipefail
           manifest="$GITHUB_WORKSPACE/docs/contracts/minimal-bootstrap.json"
@@ -77,6 +75,7 @@ jobs:
           test -z "$(find "$output_root" -mindepth 1 -print -quit)"
 
       - name: Assert public Creator excludes physical apply and raw backend build
+        working-directory: ${{ runner.temp }}/ordax-creator-candidate-source
         run: |
           set -euo pipefail
           python3 - <<'PY'
@@ -126,6 +125,7 @@ jobs:
           echo 'CREATOR_RAW_BACKEND_BUILD_TAG_ISOLATION=PASS'
 
       - name: Build Windows and Linux candidates
+        working-directory: ${{ runner.temp }}/ordax-creator-candidate-source
         run: |
           set -euo pipefail
           mkdir -p $GITHUB_WORKSPACE/out/creator/windows-amd64 $GITHUB_WORKSPACE/out/creator/linux-amd64
@@ -139,6 +139,7 @@ jobs:
             > $GITHUB_WORKSPACE/out/creator/SHA256SUMS
 
       - name: Emit candidate provenance
+        working-directory: ${{ runner.temp }}/ordax-creator-candidate-source
         run: |
           python3 - <<'PY'
           import hashlib, json, pathlib, os, subprocess
