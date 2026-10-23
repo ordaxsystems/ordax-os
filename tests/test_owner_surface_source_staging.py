@@ -102,6 +102,23 @@ class OwnerSurfaceSourceTests(unittest.TestCase):
         self.make_file(self.slot / ".surface-source-sha", "0" * 40 + "\n")
         self.assertNotEqual(self.call("ready").returncode, 0)
 
+    def test_changed_or_injected_visual_file_blocks_reuse(self):
+        self.call("stage", check=True)
+        self.make_file(self.slot / ".sha", self.os_sha + "\n")
+        self.make_file(self.slot / ".ready", "ready\n")
+        self.call("ready", check=True)
+        target = self.slot_system / "surface/ui/surface.mjs"
+        target.write_text("INJECTED_VISUAL\n", encoding="utf-8")
+        self.assertNotEqual(self.call("ready").returncode, 0)
+        target.write_text("NEW_VISUAL\n", encoding="utf-8")
+        self.call("ready", check=True)
+        self.make_file(self.slot_system / "surface/ui/unexpected.mjs", "hidden\n")
+        self.assertNotEqual(self.call("ready").returncode, 0)
+        (self.slot_system / "surface/ui/unexpected.mjs").unlink()
+        self.call("ready", check=True)
+        (self.slot_system / "surface/workspace/alias").symlink_to("shell.tsx")
+        self.assertNotEqual(self.call("ready").returncode, 0)
+
     def test_external_git_commit_unavailable_preserves_old_candidate_and_os(self):
         self.set_lock("canonical", source_sha="f" * 40)
         self.assertNotEqual(self.call("stage").returncode, 0)
@@ -150,6 +167,12 @@ stage_candidate_release() {
   printf '%s\\n' "$EXPECTED_SHA" > "$slot/.sha"
   printf '%s\\n' "$VISUAL_SHA" > "$slot/.surface-source-sha"
   printf 'ready\\n' > "$slot/.ready"
+  (
+    cd "$slot" || exit 1
+    /bin/busybox find system/surface/ui system/surface/workspace -type f -print |
+      LC_ALL=C /bin/busybox sort |
+      while IFS= read -r p; do /bin/busybox sha256sum "$p"; done > .surface-file-hashes
+  )
 }
 """
         shell = (
