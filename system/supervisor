@@ -2534,12 +2534,20 @@ check_for_update() {
     rejected_sha=$(read_state_value "$REJECTED_FILE")
 
     if [ "$remote_sha" = "$current" ]; then
-        rm -f "$CHECKOUT_RETRY_FILE"
         # Install the versioned Base prerequisite before retrying a pending
         # checkout helper. The canonical request owner is unchanged.
         if [ -f "$BOOT_REFRESH_FILE" ] && [ ! -L "$BOOT_REFRESH_FILE" ]; then
             pending_base_sha=$(read_state_value "$BOOT_REFRESH_FILE")
             [ "$pending_base_sha" = "$current" ] && request_dev_base_candidate "$current"
+        fi
+        # Bound repeated helper installation failures using the existing
+        # SHA-scoped checkout retry receipt. Base candidate acquisition above
+        # is independent of this cooldown; manual checks bypass the wait.
+        if [ "$OWNER_MANUAL_CHECK" -ne 1 ] &&
+           checkout_retry_pending "$current" "$current"; then
+            set_update_context error "$current" "" "checkout-retry-wait"
+            write_update_state "$current" pull-error none
+            return 0
         fi
         refresh_dev_helpers "$current"
         # A post-swap helper failure must not be silently promoted to
@@ -2548,12 +2556,15 @@ check_for_update() {
         if [ -f "$WORKTREE/system/services/base-update/dev-helpers.sh" ]; then
             helper_sha=$(read_state_value "$DEV_HELPERS_SHA_FILE")
             if [ "$helper_sha" != "$current" ]; then
+                record_checkout_failure "$current" "$current" "helper-refresh-failed"
                 set_update_context error "$current" "" "helper-refresh-failed"
                 write_update_state "$current" pull-error none
                 log "Git checkout $current is active; helper installation is pending canonical retry"
                 return 0
             fi
         fi
+        # Clear the retry receipt only after helper identity matches.
+        rm -f "$CHECKOUT_RETRY_FILE"
         if [ -f "$BOOT_REFRESH_FILE" ]; then
             pending_boot_sha=$(read_state_value "$BOOT_REFRESH_FILE")
             # Current SHA was already requested before helper refresh.

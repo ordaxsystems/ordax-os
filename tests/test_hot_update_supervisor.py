@@ -253,6 +253,30 @@ class HotUpdateSupervisorContractTests(unittest.TestCase):
         self.assertIn('request_dev_base_candidate "$active_after_failure"', failed)
         self.assertIn('write_update_state "$active_after_failure" pull-error none', failed)
 
+    def test_existing_checkout_backoff_also_bounds_current_sha_helper_refresh(self):
+        supervisor = SYSTEM_SUPERVISOR.read_text(encoding="utf-8")
+        same_sha = supervisor.rsplit('    if [ "$remote_sha" = "$current" ]; then', 1)[1]
+        same_sha = same_sha.split('    if [ -n "$rejected_sha" ]', 1)[0]
+        # A pending Base request is still issued before throttling the helper.
+        self.assertLess(
+            same_sha.index('request_dev_base_candidate "$current"'),
+            same_sha.index('checkout_retry_pending "$current" "$current"'),
+        )
+        self.assertLess(
+            same_sha.index('checkout_retry_pending "$current" "$current"'),
+            same_sha.index('refresh_dev_helpers "$current"'),
+        )
+        self.assertIn('if [ "$OWNER_MANUAL_CHECK" -ne 1 ] &&', same_sha)
+        self.assertIn('record_checkout_failure "$current" "$current" "helper-refresh-failed"', same_sha)
+        self.assertIn('set_update_context error "$current" "" "checkout-retry-wait"', same_sha)
+        self.assertLess(
+            same_sha.index('record_checkout_failure "$current" "$current" "helper-refresh-failed"'),
+            same_sha.index('rm -f "$CHECKOUT_RETRY_FILE"'),
+        )
+        self.assertEqual(
+            supervisor.count('CHECKOUT_RETRY_FILE=$STATE_DIR/native-state/git-checkout-retry'), 1,
+        )
+
     def test_pull_error_stage_and_committed_helper_receipt_are_consistent(self):
         supervisor = SYSTEM_SUPERVISOR.read_text(encoding="utf-8")
         pull = DEV_PULL.read_text(encoding="utf-8")
