@@ -26,6 +26,7 @@ FIELD_RE = re.compile(
     re.MULTILINE,
 )
 CATALOG_RE = re.compile(r"\b([a-z][a-z0-9-]*)App\b")
+CATALOG_APP_IMPORT_RE = re.compile(r'import\s+\{\s*([A-Za-z][A-Za-z0-9_]*App)\s*\}\s+from\s+"(\.[^"]+/app\.mjs)";')
 MESSAGE_RE = re.compile(
     r'^\s*"([^"]+)":\s*"((?:\\.|[^"\\])*)",?\s*$',
     re.MULTILINE,
@@ -233,11 +234,23 @@ def _current_surface_snapshot():
 def generate_fixture() -> dict[str, object]:
     order = _catalog_order()
     metadata = {}
-    for app_dir in sorted(APPS_ROOT.iterdir()):
-        app_file = app_dir / "app.mjs"
-        if app_file.is_file():
-            app = _app_metadata(app_file)
-            metadata[app["id"]] = app
+    imports = CATALOG_APP_IMPORT_RE.findall(APP_CATALOG.read_text(encoding="utf-8"))
+    if len(imports) != len({symbol for symbol, _ in imports}):
+        raise PlaygroundFixtureError("duplicate app source imports in canonical catalog")
+    app_sources = dict(imports)
+    for app_id in order:
+        specifier = app_sources.get(f"{app_id}App")
+        if specifier is None:
+            raise PlaygroundFixtureError(f"catalog app has no source import: {app_id}")
+        app_file = (APP_CATALOG.parent / specifier).resolve()
+        if not app_file.is_relative_to(ROOT.resolve()) or not app_file.is_file():
+            raise PlaygroundFixtureError(f"invalid catalog app source: {specifier}")
+        app = _app_metadata(app_file)
+        if app["id"] != app_id:
+            raise PlaygroundFixtureError(f"catalog app identity mismatch: {app_id}")
+        metadata[app_id] = app
+    if len(app_sources) != len(metadata):
+        raise PlaygroundFixtureError("unused app source import in canonical catalog")
     if set(order) != set(metadata):
         raise PlaygroundFixtureError(
             f"app catalog/source mismatch: catalog={sorted(order)} source={sorted(metadata)}"

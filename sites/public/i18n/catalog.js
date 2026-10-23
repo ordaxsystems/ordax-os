@@ -1767,7 +1767,6 @@
   register("surface.e61fd5d70b8d", "Sua central OrdaX OS", "Your OrdaX OS home");
   register("surface.5f4754991bbc", "Intelligence contextual", "Contextual Intelligence");
   register("surface.e0459b8dc4cf", "Uma ideia, uma tarefa, um próximo passo…", "An idea, a task, a next step…");
-  register("surface.c7e072bd4fbd", "Enviar ao Aura", "Send to Aura");
   // END GENERATED SURFACE COPY
   STATIC_PAIRS.forEach(([ptBR, enUS], index) => {
     register(`static.${String(index + 1).padStart(4, "0")}`, ptBR, enUS);

@@ -4,14 +4,15 @@ import unittest
 ROOT = Path(__file__).resolve().parents[1]
 SURFACE = ROOT / "system" / "surface" / "ui"
 APPS = ROOT / "system" / "apps"
+SYSTEM_UI = ROOT / "system" / "services" / "system-ui"
 PREFERENCES = ROOT / "system" / "services" / "preferences"
 APP_CATALOG = APPS / "catalog.mjs"
 APP_CONTRACT = ROOT / "system" / "contracts" / "first-party-app.mjs"
 APP_OWNERS = {
     "files": APPS / "files" / "app.mjs",
-    "settings": APPS / "settings" / "app.mjs",
-    "account": APPS / "account" / "app.mjs",
-    "system": APPS / "system" / "app.mjs",
+    "settings": SYSTEM_UI / "settings" / "app.mjs",
+    "account": SYSTEM_UI / "account" / "app.mjs",
+    "system": SYSTEM_UI / "system" / "app.mjs",
 }
 APPEARANCE = PREFERENCES / "appearance.mjs"
 ACCESSIBILITY = PREFERENCES / "accessibility.mjs"
@@ -254,8 +255,9 @@ class SurfaceUiContractTests(unittest.TestCase):
             if app_id in {"files"}:
                 self.assertIn("./component.mjs", owner)
             else:
-                self.assertIn("../../services/components/manifests/apps.mjs", owner)
-            self.assertIn(f'./{app_id}/app.mjs', catalog)
+                self.assertIn("../../components/manifests/apps.mjs", owner)
+            source_import = f'./{app_id}/app.mjs' if app_id == "files" else f'../services/system-ui/{app_id}/app.mjs'
+            self.assertIn(source_import, catalog)
         self.assertNotIn('./network/app.mjs', catalog)
         self.assertFalse((APPS / "network").exists())
         self.assertIn("listFirstPartyApps", catalog)

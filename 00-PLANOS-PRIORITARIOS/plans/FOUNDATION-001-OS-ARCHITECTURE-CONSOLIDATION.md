@@ -190,3 +190,7 @@ A autorização física/trust/EFI é controlada exclusivamente por seus contrato
 **Fase 1 → Fase 2, sem mudança física:** revalidar `main`/PRs #2161, #2168, #2169, #2177, #1860, #2000 e #2167; gerar mapa objetivo de boot/update/Creator com dependências e concorrência; identificar uma correção de causa raiz pequena e sem conflito, implementar no owner existente, executar testes e propor merge com evidência. `ordax-apps` PR #330 já está mesclada; não reproduzir a correção. Prosseguir nas fases seguintes somente após os respectivos gates.
 
 **Handoff para novo chat/agente:** "No repositório `ordaxsystems/ordax-os`, leia `AGENTS.md` e `00-PLANOS-PRIORITARIOS/plans/FOUNDATION-001-OS-ARCHITECTURE-CONSOLIDATION.md`. Revalide contratos, `main`, PRs concorrentes e provas. Continue a próxima fase elegível pelo owner existente; não crie SSOT/planos/updaters paralelos. Diferencie merge/CI/QEMU/USB físico e atualize os owners com evidências." 
+
+## Checkpoint de execução da Fase 1 — 2026-10-23
+
+Mapa inicial de entrypoints, contratos de USB e colisões de PR: [evidência datada](../../docs/evidence/foundation-001-source-map-2026-10-23.md). Revalidado sobre `main@ec6cb268cbcfe`: #2177 e #2176 **já integradas**. Esta é evidência **PARCIAL**, não fase concluída: faltam grafo exaustivo de consumidores, prova QEMU/CI do HEAD e dados físicos. Evitar novo updater/Creator/Base e não refazer trabalho das PRs existentes.

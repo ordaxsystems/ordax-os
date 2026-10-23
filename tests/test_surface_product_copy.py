@@ -4,7 +4,7 @@ import unittest
 ROOT = Path(__file__).resolve().parents[1]
 SHELL = ROOT / "system" / "surface" / "ui" / "desktop-shell.mjs"
 SURFACE = ROOT / "system" / "surface" / "ui" / "surface.mjs"
-SETTINGS_APP = ROOT / "system" / "apps" / "settings" / "app.mjs"
+SETTINGS_APP = ROOT / "system" / "services" / "system-ui" / "settings" / "app.mjs"
 
 
 class SurfaceProductCopyTests(unittest.TestCase):
