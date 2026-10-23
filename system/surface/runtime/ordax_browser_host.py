@@ -206,7 +206,7 @@ def emit_owner_boot_error_probe(enabled: bool, error_name: str, source: str) -> 
             or re.fullmatch(r"[A-Za-z][A-Za-z0-9]{0,63}", error_name) is None
             or not isinstance(source, str)
             or (source and re.fullmatch(
-                r"[A-Za-z0-9_.-]+\\.mjs:[1-9][0-9]{0,5}:[1-9][0-9]{0,5}", source
+                r"[A-Za-z0-9_.-]+\.mjs:[1-9][0-9]{0,5}:[1-9][0-9]{0,5}", source
             ) is None)):
         return
     report = json.dumps(
@@ -866,7 +866,7 @@ class OrdaXBrowserHost:
                                 value.get("errorName", ""),
                                 value.get("source", ""),
                             )
-            except (Exception, ValueError):
+            except Exception:
                 pass
             self.record_surface_loading_event(f"surface-boot-{state}")
 
