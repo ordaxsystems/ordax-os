@@ -161,6 +161,11 @@ OWNER_GRAPHICS_PROBE_EVENTS = frozenset({
     "surface-page-load-finished",
     "surface-page-load-failed",
     "surface-web-process-terminated",
+    "surface-boot-loading",
+    "surface-boot-error",
+    "surface-boot-ready",
+    "surface-boot-missing",
+    "surface-boot-probe-unavailable",
 })
 
 
@@ -812,6 +817,37 @@ class OrdaXBrowserHost:
         print(f"ordax-browser-host: {event}", file=sys.stderr, flush=True)
         emit_owner_graphics_probe(self.owner_graphics_probe_enabled, event)
 
+    def emit_qemu_surface_boot_observation(self) -> bool:
+        """QEMU-only, bounded observation of the EXISTING boot overlay.
+
+        Read one fixed vocabulary from the trusted Surface WebView. No HTML,
+        URLs, user content, exceptions or privilege tokens leave the host.
+        Never acknowledge health or change its failure/rollback policy.
+        """
+        if not self.owner_graphics_probe_enabled:
+            return False
+
+        def complete(view: object, result: object, _user_data: object) -> None:
+            state = "probe-unavailable"
+            try:
+                answer = view.run_javascript_finish(result)
+                value = answer.get_js_value().to_string()
+                if value in {"loading", "error", "ready", "missing"}:
+                    state = value
+            except Exception:
+                pass
+            self.record_surface_loading_event(f"surface-boot-{state}")
+
+        try:
+            self.surface_view.run_javascript(
+                "(function(){const el=document.getElementById('ordax-boot-screen');"
+                "return el&&el.dataset&&el.dataset.state||'missing';})()",
+                None, complete, None,
+            )
+        except Exception:
+            self.record_surface_loading_event("surface-boot-probe-unavailable")
+        return False
+
     def on_surface_load_changed(self, _view: object, load_event: object) -> None:
         if load_event == WebKit2.LoadEvent.STARTED:
             self.record_surface_loading_event("surface-page-load-started")
@@ -823,6 +859,11 @@ class OrdaXBrowserHost:
         if load_event != WebKit2.LoadEvent.FINISHED:
             return
         self.record_surface_loading_event("surface-page-load-finished")
+        if self.owner_graphics_probe_enabled:
+            # Differentiate a JS import/bootstrap failure from a healthy shell
+            # whose Native health request is not reaching the Supervisor.
+            GLib.timeout_add_seconds(7, self.emit_qemu_surface_boot_observation)
+            GLib.timeout_add_seconds(25, self.emit_qemu_surface_boot_observation)
         if self.component_probation_started:
             return
         self.component_probation_started = True
