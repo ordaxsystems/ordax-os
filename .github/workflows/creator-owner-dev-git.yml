@@ -706,9 +706,8 @@ jobs:
           retention-days: 3
 
       - name: Publish development Creator bundle
-        # The same fully proved publisher handles both a main push and an
-        # explicitly authorized manual rebuild of exact main. PRs never publish.
-        if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
+        # Only exact main pushes may publish a full proved Creator bundle.
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
