@@ -156,7 +156,7 @@ test("Files mount-health proves a transient dedicated-root mount with host-owned
   assert.equal(appRoot.removed, true);
 
   // Pending mount proof does not displace the bundled bootstrap owner.
-  assert.equal(getFirstPartyApp("files")?.id, "files");
+  assert.equal(getFirstPartyApp("files"), null);
   assert.equal(hasNativeExternalFirstPartyModuleRead("files"), true);
   assert.equal(NATIVE_COMPONENT_PROBATION_IDS.includes("files"), true);
 });

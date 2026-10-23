@@ -1,28 +1,14 @@
+"""Host recent-files history stays independent of optional Files UI."""
 from pathlib import Path
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
-CONTROLS = ROOT / "system" / "surface" / "ui" / "file-space-controls.mjs"
-SERVICE = ROOT / "system" / "services" / "files" / "recent-files.mjs"
-ADAPTER = ROOT / "system" / "adapters" / "native" / "recent-files.mjs"
-COMPOSITION = ROOT / "system" / "composition" / "native" / "main.mjs"
-WORKFLOW = ROOT / ".github" / "workflows" / "surface-web-candidate.yml"
-
+SERVICE = ROOT / "system/services/files/recent-files.mjs"
+ADAPTER = ROOT / "system/adapters/native/recent-files.mjs"
+COMPOSITION = ROOT / "system/composition/native/main.mjs"
+WORKFLOW = ROOT / ".github/workflows/surface-web-candidate.yml"
 
 class RecentFilesUiContractTests(unittest.TestCase):
-    def test_shared_owner_consumes_neutral_recent_files_port_without_storage_shortcut(self):
-        controls = CONTROLS.read_text(encoding="utf-8")
-        self.assertIn('from "../../contracts/recent-files.mjs"', controls)
-        self.assertIn("assertRecentFilesPort", controls)
-        self.assertIn("dataset.fileOpenRecent", controls)
-        self.assertIn("dataset.fileRecentPath", controls)
-        self.assertIn('updateRecentSnapshot("recordOpened", next.path)', controls)
-        self.assertIn('updateRecentSnapshot("remove", selected.path)', controls)
-        self.assertIn('updateRecentSnapshot("clear")', controls)
-        self.assertIn('updateRecentSnapshot("relocate", previousPath, nextPath)', controls)
-        self.assertNotIn("localStorage", controls)
-        self.assertNotIn("adapters/native", controls)
-
     def test_recent_history_policy_stays_out_of_native_adapter(self):
         service = SERVICE.read_text(encoding="utf-8")
         adapter = ADAPTER.read_text(encoding="utf-8")
@@ -33,35 +19,17 @@ class RecentFilesUiContractTests(unittest.TestCase):
         self.assertIn("localStorage", adapter)
         self.assertNotIn("MAX_RECENT_FILES", adapter)
         self.assertNotIn("surface/ui", adapter)
-
-    def test_native_composition_injects_recent_runtime_only_into_files_owner(self):
+    def test_native_composition_preserves_recent_service_without_bundled_ui(self):
         composition = COMPOSITION.read_text(encoding="utf-8")
         self.assertIn("createNativeRecentFilesStore", composition)
         self.assertIn("createRecentFilesRuntime", composition)
         self.assertIn("const recentFiles = fileSpace === null ? null", composition)
-        self.assertIn(
-            "{ recentFiles, projects }",
-            composition,
-        )
-
-    def test_surface_candidate_owns_recent_files_regressions(self):
+        self.assertNotIn("mountFileSpaceControls", composition)
+        self.assertFalse((ROOT / "system/surface/ui/file-space-controls.mjs").exists())
+    def test_surface_candidate_keeps_host_services_regressions(self):
         workflow = WORKFLOW.read_text(encoding="utf-8")
-        self.assertIn("system/services/files/**", workflow)
-        self.assertIn("tests/test_recent_files.mjs", workflow)
-        self.assertIn("tests/test_recent_files_ui_contract.py", workflow)
         self.assertIn("node --test tests/test_recent_files.mjs", workflow)
         self.assertIn("python -m unittest tests.test_recent_files_ui_contract -v", workflow)
-
-    def test_shared_files_ui_awaits_recent_mutations_and_surfaces_secondary_failures(self):
-        controls = CONTROLS.read_text(encoding="utf-8")
-        self.assertIn("const updateRecentSnapshot = async", controls)
-        self.assertIn('await updateRecentSnapshot("recordOpened", next.path)', controls)
-        self.assertIn('await updateRecentSnapshot("remove", selected.path)', controls)
-        self.assertIn('await updateRecentSnapshot("clear")', controls)
-        self.assertIn('await updateRecentSnapshot("relocate", previousPath, nextPath)', controls)
-        self.assertIn('setMessage("files.recents.updateFailed")', controls)
-        self.assertNotRegex(controls, r"recentPort\.(recordOpened|remove|clear|relocate)\(")
-
 
 if __name__ == "__main__":
     unittest.main()

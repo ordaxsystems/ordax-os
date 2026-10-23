@@ -65,9 +65,7 @@
     "notes",
     "studio"
   ],
-  "native_external_current_slot_blocked_by_bundled_owner_components": [
-    "files"
-  ],
+  "native_external_current_slot_blocked_by_bundled_owner_components": [],
   "native_pending_files_mount_probe_available": true,
   "native_pending_files_mount_probe_opaque_origin": true,
   "native_pending_files_mount_probe_revalidates_exact_pending_revision": true,

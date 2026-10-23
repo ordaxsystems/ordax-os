@@ -30,10 +30,10 @@ test("minimal MVP surface keeps only structural plus Files and Internet as launc
   assert.equal(policy.networkSkipPreservesUsableOfflineSystem, true);
 
   assert.deepEqual(sorted(policy.structuralAppIds), ["account", "settings", "store", "system"]);
-  assert.deepEqual(sorted(policy.bundledBootstrapAppIds), ["files", "internet"]);
+  assert.deepEqual(sorted(policy.bundledBootstrapAppIds), ["internet"]);
   assert.deepEqual(
     sorted(policy.onDemandAppIds),
-    ["activity", "assistant", "network", "notes", "projects", "studio"],
+    ["activity", "assistant", "files", "network", "notes", "projects", "studio"],
   );
 
   assert.deepEqual(sorted(contract.initial_usb.structural_app_ids), sorted(policy.structuralAppIds));
@@ -74,10 +74,10 @@ test("first online state reuses the Stable supervisor update owner without makin
   assert.equal(plan.state, "online-refresh-required");
   assert.equal(plan.checkBaseUpdate, true);
   assert.equal(plan.refreshSignedAppCatalog, true);
-  assert.deepEqual(sorted(plan.ensureBootstrapAppIds), ["files", "internet"]);
+  assert.deepEqual(sorted(plan.ensureBootstrapAppIds), ["internet"]);
   assert.deepEqual(
     sorted(plan.onDemandAppIds),
-    ["activity", "assistant", "network", "notes", "projects", "studio"],
+    ["activity", "assistant", "files", "network", "notes", "projects", "studio"],
   );
   assert.equal(plan.onDemandAutoInstall, false);
   assert.equal(plan.blocksFirstRunCompletion, false);
@@ -206,7 +206,7 @@ test("optional Windows runtime development cannot become a public MVP launch dep
   }
 
   // Essential signed-release and First Run paths remain required and independent.
-  assert.deepEqual(sorted(policy.initial_usb.bootstrap_app_ids), ["files", "internet"]);
+  assert.deepEqual(sorted(policy.initial_usb.bootstrap_app_ids), ["internet"]);
   assert.equal(policy.launch_delivery.transport, "official-signed-release-channel");
   assert.equal(policy.first_online_refresh.failure_must_not_block_first_run_completion, true);
   assert.equal(policy.launch_delivery.independent_component_slot_delivery_required_before_public_launch, false);

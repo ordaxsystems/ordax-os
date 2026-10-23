@@ -9,7 +9,6 @@ PREFERENCES = ROOT / "system" / "services" / "preferences"
 APP_CATALOG = APPS / "catalog.mjs"
 APP_CONTRACT = ROOT / "system" / "contracts" / "first-party-app.mjs"
 APP_OWNERS = {
-    "files": APPS / "files" / "app.mjs",
     "settings": SYSTEM_UI / "settings" / "app.mjs",
     "account": SYSTEM_UI / "account" / "app.mjs",
     "system": SYSTEM_UI / "system" / "app.mjs",
@@ -51,7 +50,6 @@ UPDATE_PRESENTATION = ROOT / "system" / "services" / "update" / "presentation.mj
 DESKTOP_SHELL = SURFACE / "desktop-shell.mjs"
 SURFACE_LOCALIZATION = ROOT / "system" / "services" / "i18n" / "surface.mjs"
 SURFACE_LIFECYCLE = ROOT / "system" / "contracts" / "surface-render-lifecycle.mjs"
-FILE_SPACE_CONTROLS = SURFACE / "file-space-controls.mjs"
 
 
 
@@ -124,7 +122,6 @@ class SurfaceUiContractTests(unittest.TestCase):
             DESKTOP_SHELL,
             SURFACE_LOCALIZATION,
             SURFACE_LIFECYCLE,
-            FILE_SPACE_CONTROLS,
             SYSTEM_OVERVIEW_CONTROLS,
             ACCOUNT_OVERVIEW_CONTROLS,
             SETTINGS_OVERVIEW_CONTROLS,
@@ -132,8 +129,7 @@ class SurfaceUiContractTests(unittest.TestCase):
             NETWORK_QUICK_PANEL,
             SURFACE / "tokens.css",
             SURFACE / "surface.css",
-            SURFACE / "files.css",
-            SURFACE / "system.css",
+                        SURFACE / "system.css",
             SURFACE / "account.css",
             SURFACE / "settings.css",
             POWER_CONTROLS,
@@ -226,7 +222,7 @@ class SurfaceUiContractTests(unittest.TestCase):
         self.assertIn("getAppTarget(appId)", surface)
         self.assertIn("setAppTarget(appId, target)", surface)
         self.assertIn('type: "app.target"', surface)
-        for path in (FILE_SPACE_CONTROLS, SYSTEM_OVERVIEW_CONTROLS, ACCOUNT_OVERVIEW_CONTROLS, SETTINGS_OVERVIEW_CONTROLS):
+        for path in (SYSTEM_OVERVIEW_CONTROLS, ACCOUNT_OVERVIEW_CONTROLS, SETTINGS_OVERVIEW_CONTROLS):
             text = path.read_text(encoding="utf-8")
             self.assertIn("contracts/surface-render-lifecycle.mjs", text, path)
             self.assertIn("assertSurfaceRenderLifecycle", text, path)
@@ -234,14 +230,6 @@ class SurfaceUiContractTests(unittest.TestCase):
             self.assertNotIn("MutationObserver", text, path)
         self.assertFalse(INTERNET_BROWSER_CONTROLS.exists())
         self.assertFalse(INTERNET_BROWSER_SHORTCUTS.exists())
-
-        files = FILE_SPACE_CONTROLS.read_text(encoding="utf-8")
-        self.assertIn('lifecycle.setAppTarget("files", next.path)', files)
-        self.assertIn('const initialTarget = lifecycle.getAppTarget("files") ?? "/"', files)
-        self.assertIn("loadWithFallback(activation.target)", files)
-        self.assertIn('lifecycle.setAppTarget("files", listing.path)', files)
-        self.assertIn('lifecycle.setAppTarget("files", null)', files)
-        self.assertNotIn("localStorage", files)
 
     def test_first_party_apps_have_independent_owners_and_thin_catalog(self):
         catalog = APP_CATALOG.read_text(encoding="utf-8")
@@ -256,7 +244,7 @@ class SurfaceUiContractTests(unittest.TestCase):
                 self.assertIn("./component.mjs", owner)
             else:
                 self.assertIn("../../components/manifests/apps.mjs", owner)
-            source_import = f'./{app_id}/app.mjs' if app_id == "files" else f'../services/system-ui/{app_id}/app.mjs'
+            source_import = f'../services/system-ui/{app_id}/app.mjs'
             self.assertIn(source_import, catalog)
         self.assertNotIn('./network/app.mjs', catalog)
         self.assertFalse((APPS / "network").exists())
@@ -276,19 +264,6 @@ class SurfaceUiContractTests(unittest.TestCase):
         self.assertIn("PANEL_KINDS", text)
         self.assertNotIn('"identity-session"', text)
         self.assertNotIn('"identity-actions"', text)
-
-    def test_files_uses_formal_shared_extension_slot(self):
-        files = APP_OWNERS["files"].read_text(encoding="utf-8")
-        surface = (SURFACE / "surface.mjs").read_text(encoding="utf-8")
-        css = (SURFACE / "files.css").read_text(encoding="utf-8")
-        web_html = (COMPOSITION / "index.html").read_text(encoding="utf-8")
-        native_html = (NATIVE_COMPOSITION / "index.html").read_text(encoding="utf-8")
-        self.assertIn('kind: "extension"', files)
-        self.assertIn('extensionId: "file-space"', files)
-        self.assertIn('panel.kind === "extension"', surface)
-        self.assertIn("dataset.appExtension", surface)
-        self.assertIn('.ordax-files-view', css)
-        self.assertIn("../../surface/ui/files.css", native_html)
 
     def test_assistant_external_source_never_implies_native_installation(self):
         import json

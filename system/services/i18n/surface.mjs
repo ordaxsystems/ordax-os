@@ -6,7 +6,6 @@ import { createLocaleProfile } from "../../contracts/locale-profile.mjs";
 import { assertPreferenceRuntimePort } from "../../contracts/preference-runtime.mjs";
 import { REGIONAL_LOCALE_PREFERENCE_ID } from "../preferences/regional.mjs";
 import { interpolateLocalizationMessage } from "./interpolation.mjs";
-import { FILES_SOURCE_MESSAGES, FILES_ENGLISH_MESSAGES } from "./catalog/files.mjs";
 import { SETTINGS_SOURCE_MESSAGES, SETTINGS_ENGLISH_MESSAGES } from "./catalog/settings.mjs";
 import { STORE_SOURCE_MESSAGES, STORE_ENGLISH_MESSAGES } from "./catalog/store.mjs";
 import { SYSTEM_SOURCE_MESSAGES, SYSTEM_ENGLISH_MESSAGES } from "./catalog/system.mjs";
@@ -271,7 +270,6 @@ const SOURCE = Object.freeze({
   "app.system.panel.0.label": "Sistema",
   "app.system.panel.0.title": "Visão geral",
   "app.system.panel.0.body": "O estado detalhado do sistema não está disponível neste host.",
-  ...FILES_SOURCE_MESSAGES,
   ...SETTINGS_SOURCE_MESSAGES,
   ...STORE_SOURCE_MESSAGES,
   ...SYSTEM_SOURCE_MESSAGES,
@@ -533,7 +531,6 @@ const ENGLISH = Object.freeze({
   "app.system.panel.0.label": "System",
   "app.system.panel.0.title": "Overview",
   "app.system.panel.0.body": "Detailed system status is unavailable on this host.",
-  ...FILES_ENGLISH_MESSAGES,
   ...SETTINGS_ENGLISH_MESSAGES,
   ...STORE_ENGLISH_MESSAGES,
   ...SYSTEM_ENGLISH_MESSAGES,
