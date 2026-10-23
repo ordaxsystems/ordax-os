@@ -32,7 +32,7 @@ class SurfaceSourceMaterializationTests(unittest.TestCase):
         self.run_git("commit", "-qm", "test: pinned visual fixture")
         self.sha = self.run_git("rev-parse", "HEAD").strip()
         self.lock = {
-            "$schema": "ordax.surface-source/1",
+            "$schema": "prototype-ordax.surface-source/1",
             "status": "integration-candidate",
             "source_repository": "ordaxsystems/ordax-surface",
             "source_commit": self.sha,
