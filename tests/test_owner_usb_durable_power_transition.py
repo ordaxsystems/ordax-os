@@ -163,6 +163,7 @@ class OwnerUsbDurablePowerTransitionTests(unittest.TestCase):
                 "PRODUCT_MODE": mode,
                 "GUARDIAN_LOG": str(Path(temp) / "guardian.log"),
                 "POWER_LAST_FAILURE": str(Path(temp) / "last-failure"),
+                "OWNER_USB_SEAL_DIAGNOSTIC": str(Path(temp) / "last-seal-diagnostic"),
                 "TRACE": str(trace),
                 "SYNC_FAIL": "1" if sync_fails else "0",
                 "AGENT_FAIL": "1" if agents_fail else "0",
