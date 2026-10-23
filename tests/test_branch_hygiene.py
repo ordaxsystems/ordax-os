@@ -177,7 +177,10 @@ class BranchHygieneTests(unittest.TestCase):
         self.assertEqual(actual, 2)
         self.assertEqual(run.call_count, 2)
         self.assertEqual(run.call_args_list[0].args[0], run.call_args_list[1].args[0])
-        self.assertIn("compare/main..." + sha, run.call_args_list[0].args[0])
+        self.assertEqual(
+            run.call_args_list[0].args[0][2],
+            f"repos/{REPO}/compare/main...{sha}",
+        )
         sleep.assert_called_once_with(0.5)
 
     def test_exhausted_transient_compare_never_marks_branch_contained(self):
