@@ -546,6 +546,30 @@ class HotUpdateSupervisorContractTests(unittest.TestCase):
         self.assertIn('write_update_state "$current" rejected none', text)
         self.assertIn("validate_updated_tree", text)
 
+    def test_distinct_new_main_is_eligible_after_a_rejected_delivery(self):
+        # A previously rejected SHA must be retained while main still points
+        # at that exact failed delivery. A DIFFERENT main commit is a new
+        # candidate, not an invitation to wipe rollback state indiscriminately
+        # or ignore cold Surface health validation.
+        supervisor = SYSTEM_SUPERVISOR.read_text(encoding="utf-8")
+        check = supervisor.split("check_for_update() {", 1)[1].split("\n}\n", 1)[0]
+        same_rejected = 'if [ -n "$rejected_sha" ] && [ "$remote_sha" = "$rejected_sha" ]; then'
+        new_candidate = (
+            'if [ -n "$rejected_sha" ] && [ "$remote_sha" != "$rejected_sha" ]; then\n'
+            '        rm -f "$REJECTED_FILE"\n'
+            '    fi'
+        )
+        activate = 'if ! apply_remote_checkout "$old_sha" "$remote_sha"; then'
+        self.assertIn(same_rejected, check)
+        self.assertIn('set_update_context blocked "$remote_sha" "" "rejected-commit"', check)
+        self.assertIn(new_candidate, check)
+        self.assertIn(activate, check)
+        self.assertLess(check.index(same_rejected), check.index(new_candidate))
+        self.assertLess(check.index(new_candidate), check.index(activate))
+        self.assertIn('if [ "$OWNER_INITIAL_HEALTH_PENDING" -eq 1 ]; then', check)
+        self.assertIn('if [ -s "$PINNED_FILE" ]; then', check)
+        self.assertIn('if non_ff_target_blocked "$current" "$remote_sha" &&', check)
+
     def test_healthy_current_checkout_clears_stale_rejection(self):
         text = SYSTEM_SUPERVISOR.read_text(encoding="utf-8")
         self.assertIn('healthy_sha=$(read_state_value "$HEALTH_FILE")', text)
