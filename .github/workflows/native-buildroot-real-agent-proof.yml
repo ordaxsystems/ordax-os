@@ -109,11 +109,73 @@ jobs:
           with Path(os.environ["GITHUB_STEP_SUMMARY"]).open("a") as out:
               out.write("Native Buildroot agent result: " + json.dumps(report, sort_keys=True) + "\n")
           PY
+      - name: Install QEMU Linux user-mode emulator for private ABI diagnostic
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends qemu-user-static
+          test -x /usr/bin/qemu-x86_64-static
+      - name: Prove canonical Runtime Native source under emulated Buildroot Python
+        working-directory: runtime
+        run: |
+          set -euo pipefail
+          # Reuse the same canonical self-test, not a copied action registry.
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          from tools.ci.probe_native_buildroot_agent import CHILD
+          Path(os.environ["RUNNER_TEMP"], "ordax-native-canonical-child.py").write_text(CHILD, encoding="utf-8")
+          PY
+          docker run --rm --platform linux/amd64 --network none --read-only --cap-drop ALL \
+            --security-opt no-new-privileges --user "$(id -u):$(id -g)" \
+            --tmpfs /tmp:rw,exec,nosuid,size=256m --workdir /source \
+            --env PYTHONHOME=/target/usr \
+            --env LD_LIBRARY_PATH=/target/lib:/target/usr/lib \
+            --env PYTHONDONTWRITEBYTECODE=1 \
+            --mount "type=bind,source=$GITHUB_WORKSPACE/runtime,target=/source,readonly" \
+            --mount "type=bind,source=$RUNNER_TEMP/native-private-target,target=/target,readonly" \
+            --mount "type=bind,source=$RUNNER_TEMP/native-private-target/lib/libc.so,target=/lib/ld-musl-x86_64.so.1,readonly" \
+            --mount "type=bind,source=/usr/bin/qemu-x86_64-static,target=/qemu-x86_64-static,readonly" \
+            --mount "type=bind,source=$RUNNER_TEMP/ordax-native-canonical-child.py,target=/canonical-child.py,readonly" \
+            python:3.12.15-slim-bookworm@sha256:6a0e06f5ba0b373d051aabd3fffb9b873f27f9a2a3a14bcbe37dee6f0e3bbc70 \
+            /qemu-x86_64-static -L /target /target/usr/bin/python3.14 -I -B /canonical-child.py /source \
+            > "$RUNNER_TEMP/ordax-native-qemu-user-result.json"
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          from tools.ci.probe_native_buildroot_agent import MARKER
+          path = Path(os.environ["RUNNER_TEMP"]) / "ordax-native-qemu-user-result.json"
+          lines = [line[len(MARKER):] for line in path.read_text().splitlines() if line.startswith(MARKER)]
+          if len(lines) != 1:
+              raise SystemExit("QEMU user-mode canonical Runtime proof missing")
+          proof = json.loads(lines[0])
+          if not (proof.get("offline_actions_proven") is True
+                  and proof.get("product_httpx_client_constructed") is True
+                  and proof.get("network_used") is False
+                  and proof.get("device_credential_used") is False
+                  and isinstance(proof.get("registered_action_count"), int)
+                  and proof.get("registered_action_count") >= 100):
+              raise SystemExit("QEMU user-mode canonical Runtime proof invalid")
+          summary = {
+              "schema": "ordax.native-private-qemu-user-source-proof/1",
+              "qemu_user_mode_interpreter_proven": True,
+              "registered_action_count": proof["registered_action_count"],
+              "full_system_qemu_boot_proven": False,
+              "device_execution_proven": False,
+              "device_install_authorized": False,
+              "native_component_signed": False,
+          }
+          print("OS_NATIVE_QEMU_USER_PROOF=" + json.dumps(summary, sort_keys=True))
+          with Path(os.environ["GITHUB_STEP_SUMMARY"]).open("a") as out:
+              out.write("QEMU user-mode evidence (NOT full system boot): " + json.dumps(summary, sort_keys=True) + "\n")
+          PY
       - name: Archive factual proof, never release or install
         if: always()
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: native-buildroot-agent-bootstrap-diagnostic
-          path: ${{ runner.temp }}/ordax-native-bootstrap-result.json
+          path: |
+            ${{ runner.temp }}/ordax-native-bootstrap-result.json
+            ${{ runner.temp }}/ordax-native-qemu-user-result.json
           if-no-files-found: ignore
           retention-days: 7
