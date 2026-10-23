@@ -663,6 +663,17 @@ function makeBroker({ port, componentId, context, onRevoke, onInvalidated }) {
   const selectionUnsubscribes = new Map();
   const intelligenceUnsubscribes = new Map();
   const inferenceControllers = new Set();
+  let scopeEpoch = 0;
+  const onTrustedScopeChange = () => {
+    scopeEpoch += 1;
+    for (const controller of inferenceControllers) controller.abort();
+  };
+  const trustedScopeUnsubscribes = componentId === "assistant"
+    ? [
+        context.identitySession.subscribe(onTrustedScopeChange),
+        context.spaceSelection.subscribe(onTrustedScopeChange),
+      ]
+    : [];
   const queuedUpdates = new Map();
   let revoked = false;
   let highestRequestId = 0;
@@ -688,6 +699,7 @@ function makeBroker({ port, componentId, context, onRevoke, onInvalidated }) {
       selectionUnsubscribes.clear();
       for (const unsubscribe of intelligenceUnsubscribes.values()) { try { unsubscribe(); } catch {} }
       intelligenceUnsubscribes.clear();
+      for (const unsubscribe of trustedScopeUnsubscribes) { try { unsubscribe(); } catch {} }
       for (const controller of inferenceControllers) controller.abort();
       queuedUpdates.clear();
     }
@@ -859,6 +871,7 @@ function makeBroker({ port, componentId, context, onRevoke, onInvalidated }) {
           return JSON.stringify([identity, space]);
         };
         const initialScope = readScope();
+        const initialEpoch = scopeEpoch;
         const controller = new AbortController();
         inferenceControllers.add(controller);
         let timeout;
@@ -881,7 +894,7 @@ function makeBroker({ port, componentId, context, onRevoke, onInvalidated }) {
             deadline,
           ]);
           await context.authorizeOperation();
-          if (revoked || controller.signal.aborted || readScope() !== initialScope) {
+          if (revoked || controller.signal.aborted || scopeEpoch !== initialEpoch || readScope() !== initialScope) {
             throw new Error("Aura inference belongs to a revoked Identity/Space or slot");
           }
           return validateIntelligenceResponse(response);
