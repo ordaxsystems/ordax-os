@@ -630,7 +630,7 @@ stage_candidate_release() {
     release_slot=$RELEASES_DIR/$candidate_sha
     if [ -f "$release_slot/.ready" ] && [ -d "$release_slot/system" ]; then
         existing_surface_status=$(/bin/sh "$OWNER_SURFACE_STAGE_HELPER" status "$WORKTREE" "$candidate_sha" 2>>"$UPDATE_LOG" || true)
-        if [ "$existing_surface_status" != canonical ] || ORDAX_GIT_BIN="$GIT_BIN" /bin/sh "$OWNER_SURFACE_STAGE_HELPER" ready "$WORKTREE" "$candidate_sha" "$release_slot" >>"$UPDATE_LOG" 2>&1; then
+        if [ "$existing_surface_status" = integration-candidate ] || { [ "$existing_surface_status" = canonical ] && ORDAX_GIT_BIN="$GIT_BIN" /bin/sh "$OWNER_SURFACE_STAGE_HELPER" ready "$WORKTREE" "$candidate_sha" "$release_slot" >>"$UPDATE_LOG" 2>&1; }; then
             write_state_value "$STAGED_RELEASE_FILE" "$candidate_sha"
             write_state_value "$LAST_STAGE_DURATION_FILE" "0"
             return 0
