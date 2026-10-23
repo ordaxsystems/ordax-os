@@ -130,6 +130,9 @@ const FRAME_BOOTSTRAP = String.raw`(() => {
   let recentFiles = null;
   let projects = null;
   let appActivation = null;
+  let identitySession = null;
+  let spaceSelection = null;
+  let intelligence = null;
   let nextRequest = 0;
   const pending = new Map();
   const renderListeners = new Set();
@@ -280,6 +283,9 @@ const FRAME_BOOTSTRAP = String.raw`(() => {
     });
   };
   const fileServices = Object.freeze({
+    identitySession: { apply(id, snapshot) { identitySession?.applySnapshot(id, snapshot); } },
+    spaceSelection: { apply(id, snapshot) { spaceSelection?.applySnapshot(id, snapshot); } },
+    intelligence: { apply(id, snapshot) { intelligence?.applySnapshot(id, snapshot); } },
     recentFiles: {
       apply(id, snapshot) { recentFiles?.applySnapshot(id, snapshot); },
     },
@@ -358,6 +364,49 @@ const FRAME_BOOTSTRAP = String.raw`(() => {
             "clearLastFile", "relocateLastFilePath", "remove"]);
         appActivation = createActivationPort();
       }
+      if (data.componentId === "assistant") {
+        if (data.identitySessionSnapshot?.state === undefined
+          || data.spaceSelectionSnapshot?.schema !== "ordax.space-selection/1"
+          || data.intelligenceSnapshot?.schema !== "ordax.intelligence/1") {
+          throw new TypeError("Aura trusted host snapshots are unavailable");
+        }
+        identitySession = createSnapshotPort(
+          "identitySession", "ordax.identity-session/1", data.identitySessionSnapshot, [],
+        );
+        const selection = createSnapshotPort(
+          "spaceSelection", "ordax.space-selection/1", data.spaceSelectionSnapshot, [],
+        );
+        const denySelectionMutation = () => {
+          throw new TypeError("Aura app cannot select or clear the system Space");
+        };
+        spaceSelection = Object.freeze({
+          schema: selection.schema,
+          getSnapshot: selection.getSnapshot,
+          subscribe: selection.subscribe,
+          applySnapshot: selection.applySnapshot,
+          select: denySelectionMutation,
+          clear: denySelectionMutation,
+        });
+        const inference = createSnapshotPort(
+          "intelligence", "ordax.intelligence/1", data.intelligenceSnapshot, [],
+        );
+        intelligence = Object.freeze({
+          schema: inference.schema,
+          getSnapshot: inference.getSnapshot,
+          subscribe: inference.subscribe,
+          applySnapshot: inference.applySnapshot,
+          respond(request, options = {}) {
+            if (options?.signal?.aborted) {
+              return Promise.reject(new Error("Inference request was cancelled"));
+            }
+            return call("intelligence.respond", [request]);
+          },
+        });
+      } else if (data.identitySessionSnapshot !== null
+        || data.spaceSelectionSnapshot !== null
+        || data.intelligenceSnapshot !== null) {
+        throw new TypeError("Only the verified Aura app may receive Intelligence ports");
+      }
       appTarget = data.appTarget ?? null;
       lifecycle = Object.freeze({
         schema: "ordax.surface-render-lifecycle/5",
@@ -398,6 +447,9 @@ const FRAME_BOOTSTRAP = String.raw`(() => {
         ...(recentFiles === null ? {} : { recentFiles }),
         ...(projects === null ? {} : { projects }),
         ...(appActivation === null ? {} : { appActivation }),
+        ...(identitySession === null ? {} : { identitySessionPort: identitySession }),
+        ...(spaceSelection === null ? {} : { spaceSelectionPort: spaceSelection }),
+        ...(intelligence === null ? {} : { intelligence }),
       });
       if (!runtimeMount || typeof runtimeMount.destroy !== "function") throw new TypeError("Sandbox component mount is invalid");
       mounted = true;
