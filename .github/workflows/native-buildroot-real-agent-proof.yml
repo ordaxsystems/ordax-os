@@ -31,7 +31,7 @@ jobs:
         with:
           python-version: '3.12'
       - name: Download exact OS Buildroot artifact from successful producer run
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: ordax-independent-python-abi-473aabac980b0bda9b6ea0f4d43987738ea80674
           repository: ordaxsystems/ordax-os
@@ -82,7 +82,7 @@ jobs:
             --mount "type=bind,source=$PROOF_ROOT,target=/input,readonly" \
             --mount "type=bind,source=$RUNNER_TEMP/native-private-target,target=/target,readonly" \
             --mount "type=bind,source=$RUNNER_TEMP/native-private-target/lib/libc.so,target=/lib/ld-musl-x86_64.so.1,readonly" \
-            python:3.12.15-slim-bookworm \
+            python:3.12.15-slim-bookworm@sha256:6a0e06f5ba0b373d051aabd3fffb9b873f27f9a2a3a14bcbe37dee6f0e3bbc70 \
             python3 -m tools.ci.probe_native_buildroot_agent --receipt /input/native-python-provenance.json --private-target-tar /input/native-python-build-input.rootfs.tar --extracted-private-root /target \
             > "$RUNNER_TEMP/ordax-native-bootstrap-result.json"
           status=$?
