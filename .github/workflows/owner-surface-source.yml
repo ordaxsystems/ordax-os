@@ -40,6 +40,9 @@ jobs:
           test -x /bin/busybox
           command -v git
 
+      - name: Prepare verified external Surface for Supervisor regression test source reads
+        uses: ./.github/actions/prepare-verified-surface
+
       - name: Verify shell syntax and stage-only contract
         run: |
           set -euo pipefail

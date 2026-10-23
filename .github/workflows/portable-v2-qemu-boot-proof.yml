@@ -205,6 +205,9 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
+      - name: Prepare verified Surface for causal-graph QEMU regression tests
+        uses: ./.github/actions/prepare-verified-surface
+
       - name: Set up Python
         uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
