@@ -2,7 +2,7 @@
   "$schema": "prototype-ordax.surface-source/1",
   "status": "integration-candidate",
   "source_repository": "ordaxsystems/ordax-surface",
-  "source_commit": "657ec8160f8f82a55ffad0923d1f90157312419f",
+  "source_commit": "16d44978ef44c6b497860afda15be696066d4da9",
   "imported_from_repository": "ordaxsystems/ordax-os",
   "imported_from_commit": "f65acc4fb9f8ded376fc9b44b4c7c2068c793265",
   "visual_source_paths": [
@@ -21,7 +21,8 @@
   "staging": {
     "mode": "verified-immutable-source-tree",
     "production_activation": false,
-    "overwrite_existing_source": false
+    "overwrite_existing_source": false,
+    "source_validation": "surface-main-after-provenance-gate-ci"
   },
   "invariants": {
     "visual_owner_after_cutover": "ordaxsystems/ordax-surface",
