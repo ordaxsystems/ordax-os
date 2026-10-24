@@ -1,6 +1,6 @@
 # Migração OrdaX Surface — rastreamento da separação
 
-**Estado no `ordax-os/main`:** `integration-candidate` até o merge da PR #2198. **Neste branch draft de cutover:** contrato `canonical`, fontes visuais antigas removidas somente nesta árvore Git. Não houve promoção física ou Stable.
+**Estado no `ordax-os/main`:** cutover de fonte visual integrado pela [PR #2198](https://github.com/ordaxsystems/ordax-os/pull/2198), merge commit `54ef2086338ed53f5dfccaebf77905a24a044b3d`. O contrato é `canonical`; os arquivos visuais antigos não são rastreados no Git do OS. Não houve promoção física ou Stable.
 **SSOT da revisão externa:** [`docs/contracts/surface-source.json`](contracts/surface-source.json). Não repetir a revisão da Surface neste documento ou criar uma segunda resolução de versão.
 
 ## Decisão de ownership
@@ -8,7 +8,7 @@
 - `ordaxsystems/ordax-surface`: fonte de componentes e recursos visuais `system/surface/ui/` e `system/surface/workspace/`; mantenha layout e import paths durante a transição.
 - `ordaxsystems/ordax-os`: `system/surface/runtime/`, `system/surface/bin/`, `system/surface/entrypoint`, `system/composition/`, `system/adapters/`, `system/services/`, `system/contracts/`, Guardian, Supervisor, boot e distribuição.
 - `ordaxsystems/ordax-apps`: aplicativos first-party removíveis; nenhuma cópia da Surface.
-- **Ownership no candidato #2198:** `docs/contracts/repository-ownership.json` atribui a visual ao repositório `ordax-surface` e o host Native ao OS; só passará a reger a `main` após todos os gates.
+- **Ownership vigente:** `docs/contracts/repository-ownership.json` atribui a visual ao `ordax-surface` e o host Native ao OS.
 
 ## Evidências obtidas
 
@@ -35,10 +35,7 @@ um segundo empacotador, segundo host, segundo canal de atualização ou
 checkout de UI na inicialização do dispositivo.
 
 A PR #2194 **isoladamente** não alterou o Supervisor Owner/Development.
-O trabalho posterior #2195 prepara o stage e rollback do Owner; a PR draft
-#2198 remove a visual da árvore rastreada. A `main` permanece com a
-UI antiga enquanto não forem aprovados o QEMU Owner offline e demais gates. O pipeline Native oficial exige validação
-CI antes de integração dessa etapa.
+A PR #2195 integrou o staging transacional, e a PR #2198 concluiu o corte dos arquivos rastreados após aprovação de CI, incluindo QEMU Owner offline. O pipeline Native continua verificando o source pinado.
 
 ## Supervisor Owner/Development — preparação fail-closed (PR #2195)
 
@@ -54,18 +51,13 @@ continua pertencendo a `ordax-pull` e à saúde do Supervisor existente.
 
 O Supervisor, quando o lock estiver em `canonical`, exige um slot
 preparado para o SHA exato do OS com receipt do commit visual antes de
-iniciar/reiniciar a Surface, sem fallback para a UI antiga. Com o lock
-`integration-candidate` ainda presente na `main` pré-cutover, o comportamento antigo permanece;
-portanto, é possível distribuir esta capacidade de staging **antes**
-do cutover e remover as cópias do OS numa etapa posterior.
+iniciar/reiniciar a Surface, sem fallback para a UI antiga. O lock `canonical` está vigente na `main` após o cutover. O comportamento anterior com `integration-candidate` é histórico e não constitui fallback permanente.
 
-Limite desta PR: a prova integrada de Owner update/rollback com checkout
-efetivamente sem árvores visuais, boot a frio e hooks de Guardian ainda
-é gate obrigatório; testes Git isolados não substituem a prova do dispositivo.
+Os testes Git isolados não substituem a prova do dispositivo: o QEMU Owner offline, heartbeat Native e segundo boot foram aprovados no cutover, mas a homologação em hardware físico permanece separada.
 
-## Candidata de cutover — SSOT visual e primeiro boot offline (#2198)
+## Cutover integrado — SSOT visual e primeiro boot offline (#2198)
 
-A branch draft #2198 remove os **157 arquivos visuais rastreados**
+A PR #2198 removeu os **157 arquivos visuais rastreados**
 em `system/surface/ui` e `system/surface/workspace`, mantendo os executáveis
 Native, host, composições e contratos do OS. Um único commit imutável da Surface
 é a fonte de apresentação. O mesmo assembler validado alimenta builds
@@ -80,7 +72,7 @@ visual, uma lista completa de SHA-256 e marcador de ativação. O checkout
 `/workspace/ordax` segue limpo e sem UI rastreada; os arquivos visuais
 são bytes de release, **não** uma segunda fonte Git.
 
-Os gates desta candidata são QEMU Owner/Development realmente offline
+Os gates comprovados na candidata foram QEMU Owner/Development realmente offline
 com primeiro boot, framebuffer/WebKit e saúde; QEMU Stable/Portable com
 fallback da release anterior; regressões Foundation/Web/Native; integridade
 do cache; e revisão de concorrência com Creator e Site. Nada disso
@@ -88,9 +80,9 @@ substitui a prova de hardware físico. O status `canonical` na candidata
 **não** autoriza promoção Stable, gravação física ou atualizações no USB
 existente. Nenhum desses gates pode ser ignorado no merge.
 
-## Falta para remover a implementação antiga
+## Critérios de aceite do cutover
 
-Os itens abaixo são **gates**, não autorizações de pular testes.
+Os itens abaixo documentam os **gates exigidos na migração** e não são autorizações de pular testes futuros, publicar Stable ou gravar mídia.
 
 1. Integrar ao **pipeline canônico de materialização do OS** a fonte Surface verificada, sem segundo updater, sem publicar um source Git espelhado no OS. `tools/surface-source/materialize.py` é a ferramenta de stage de build; o release final continua sob `tools/release-bundle` e canais assinados do OS.
 2. Corrigir dependências internas da UI que atravessarem a fronteira entre repositórios: consumir capabilities/ports públicos existentes, sem conceder autoridade de serviços à interface e sem criar bridges permanentes. Checar source graph no Web build e browser host no Native.
@@ -101,9 +93,18 @@ Os itens abaixo são **gates**, não autorizações de pular testes.
 7. Excluir os dois diretórios visuais *tracked* do OS **somente depois** das provas anteriores, atualizar `docs/contracts/repository-ownership.json`, `docs/REPOSITORY-OWNERSHIP.md`, `docs/contracts/module-boundaries.json`, os builders, todos os checks e caminhos de deploy. Rejeitar artefatos que mantenham dois sources visuais concorrentes.
 8. Integrar PRs necessárias apenas com CI aprovada e evidência QEMU/rollback, preferindo merge commit, sem force-push e sem tocar USB/discos físicos.
 
+## Evidências de validação do cutover
+
+- Revisão exata validada antes do merge: `de7fffcdda530673f3460abf069e51773627c136`; 25 workflows concluídos com sucesso (27 check-runs `success`, 2 `skipped` condicionais).
+- [Creator Owner/Development QEMU offline](https://github.com/ordaxsystems/ordax-os/actions/runs/40054518523): heartbeat Native, WebKit funcional, primeiro e segundo boot, framebuffer observado e desligamento/fsck confirmados.
+- [QEMU portátil](https://github.com/ordaxsystems/ordax-os/actions/runs/40054518613): boot assinado, UEFI e fallback one-shot. O teste específico de assinatura Ed25519 inválida foi `skipped`; a homologação física Stable não foi executada.
+- [Foundation](https://github.com/ordaxsystems/ordax-os/actions/runs/40054518560), [Supervisor](https://github.com/ordaxsystems/ordax-os/actions/runs/40054518549), [consumidor externo](https://github.com/ordaxsystems/ordax-os/actions/runs/40054518602) e Web aprovaram a mesma revisão.
+- A árvore Git do merge da `main` foi inspecionada recursivamente: `system/surface/ui/` = 0 arquivos e `system/surface/workspace/` = 0 arquivos rastreados. O host Native e os contratos do OS permanecem.
+- **Gates ainda independentes:** prova física, publicação Stable assinada e validação do canal em hardware. O workflow Owner/Development de `push main` pode produzir apenas seu próprio prerelease de desenvolvimento após nova CI; ele não constitui promoção Stable.
+
 ## Fronteira de segurança
 
-Nenhuma etapa permite alteração de kernel, Buildroot, partições, disco físico, assinatura/release trust, grants ou bypass de checks. Um bundle que compile **não equivale** a heartbeat Native nem prova de rollback. Não atualizar o status para `cutover-complete` até que o código visual antigo desapareça do OS e as provas acima estejam anexadas ao PR de integração.
+Nenhuma etapa permite alteração de kernel, Buildroot, partições, disco físico, assinatura/release trust, grants ou bypass de checks. Um bundle que compile **não equivale** a heartbeat Native nem prova de rollback. O corte da fonte visual está completo em Git; somente os gates de release/ativação e prova física mantêm seus próprios status. Não confundir `canonical` da fonte com lançamento aprovado.
 
 ## Controles de revisão
 
