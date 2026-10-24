@@ -715,9 +715,9 @@ class PhysicalPromotionBoundaryTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             self.make_ready_fixture(root)
-            module = root / "tools/creator/go.mod"
+            module = root / ".github/actions/resolve-creator-source/action.yml"
             module.write_text(
-                module.read_text(encoding="utf-8") + "\n// changed after owner consent\n",
+                module.read_text(encoding="utf-8") + "\n# changed after owner consent\n",
                 encoding="utf-8",
             )
 
@@ -775,9 +775,9 @@ class PhysicalPromotionBoundaryTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             self.make_ready_fixture(root)
-            writer = root / "tools/creator/host/windows/portable_apply_windows.go"
+            writer = root / ".github/workflows/physical-write-promotion.yml"
             writer.write_text(
-                writer.read_text(encoding="utf-8") + "\n// changed after owner consent\n",
+                writer.read_text(encoding="utf-8") + "\n# changed after owner consent\n",
                 encoding="utf-8",
             )
 
@@ -790,6 +790,37 @@ class PhysicalPromotionBoundaryTests(unittest.TestCase):
                 status["authorization_blockers"],
             )
             self.assertFalse(status["authorized_candidate_materialization_allowed"])
+
+    def test_legacy_embedded_go_and_visual_checkout_cannot_define_physical_consent(self):
+        governed = {
+            path.relative_to(ROOT).as_posix()
+            for path in promotion.authorization_context_files(ROOT)
+        }
+        self.assertIn("docs/contracts/native-release-assembly.json", governed)
+        self.assertIn("docs/contracts/surface-source.json", governed)
+        self.assertIn(".github/actions/resolve-creator-source/action.yml", governed)
+        self.assertIn(".github/actions/prepare-verified-surface/action.yml", governed)
+        self.assertIn(".github/workflows/physical-write-promotion.yml", governed)
+        self.assertIn(".github/workflows/first-physical-usb-payload.yml", governed)
+        self.assertTrue(all(
+            not path.startswith(("tools/creator/core/", "tools/creator/host/",
+                                "tools/creator/physicalchannel/",
+                                "tools/creator/cmd/", "system/surface/ui/"))
+            for path in governed
+        ))
+        self.assertNotIn("tools/creator/go.mod", governed)
+
+    def test_change_to_surface_source_lock_invalidates_prior_physical_consent(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            self.make_ready_fixture(root)
+            lock = root / "docs/contracts/surface-source.json"
+            lock.write_bytes(lock.read_bytes() + b"\n")
+            status = promotion.evaluate(root)
+            self.assertFalse(status["ready"])
+            self.assertFalse(status["authorization_context_matches_current_source"])
+            self.assertFalse(status["authorized_candidate_materialization_allowed"])
+            self.assertIn("physical-authorization-context-mismatch", status["authorization_blockers"])
 
     def test_legacy_ordax_ext4_contract_cannot_satisfy_portable_gate(self):
         with tempfile.TemporaryDirectory() as temporary:
