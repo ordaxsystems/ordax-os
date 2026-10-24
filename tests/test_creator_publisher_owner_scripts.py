@@ -20,6 +20,16 @@ class CreatorPublisherOwnerTests(unittest.TestCase):
             self.assertTrue((PUBLISHER/name).is_file(), name)
             self.assertFalse((LEGACY/name).exists(), name)
 
+    def test_first_usb_readiness_uses_os_publisher_finalizer(self):
+        from importlib.util import module_from_spec, spec_from_file_location
+        path = ROOT / "tools/ops/first_mvp_operator_readiness.py"
+        spec = spec_from_file_location("creator_first_usb_owner", path)
+        self.assertIsNotNone(spec)
+        module = module_from_spec(spec)
+        spec.loader.exec_module(module)
+        self.assertEqual(module.CREATOR_FINALIZER_PATH, PUBLISHER / "Finalize-OrdaXCreatorRelease.ps1")
+        self.assertTrue(module.CREATOR_FINALIZER_PATH.is_file())
+
     def test_os_owned_workflows_use_publisher_scripts(self):
         joined=WORKFLOW_OFFICIAL.read_text(encoding="utf-8")+"\n"+WORKFLOW_SIGNING.read_text(encoding="utf-8")
         for name in NAMES:
