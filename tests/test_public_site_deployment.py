@@ -76,7 +76,7 @@ class PublicSiteDeploymentTests(unittest.TestCase):
             ):
                 module.compose_web_identity_bootstrap("a" * 40)
                 css = (output / "assets/ordax-design-tokens.css").read_text(encoding="utf-8")
-                dependencies = re.findall(r"url\\(\\s*['\\\"]?([^'\\\")]+)", css)
+                dependencies = re.findall(r"url\(\s*['\"]?([^'\")]+)", css)
                 self.assertIn("./ordax-symbol.png", dependencies)
                 for dependency in dependencies:
                     self.assertTrue((output / "assets" / dependency).is_file(), dependency)
