@@ -227,7 +227,7 @@ def _current_surface_snapshot():
         if path.suffix in {".ts", ".tsx", ".js", ".jsx", ".mjs", ".css", ".json", ".svg"}:
             payload = payload.replace(b"\r\n", b"\n")
         if hashlib.sha256(payload).hexdigest() != source["sha256"]:
-            raise PlaygroundFixtureError("public Surface snapshot is stale: " + source["path"] + "; run node tools/public-site/surface_snapshot.mjs and playground_fixture.py --write")
+            raise PlaygroundFixtureError("public Surface snapshot is stale: " + source["path"] + "; legacy static snapshot differs from its frozen sources")
     return snapshot
 
 
@@ -329,39 +329,20 @@ def validate_fixture() -> dict[str, object]:
     inline_value = read_inline_fixture()
     if file_value != expected:
         raise PlaygroundFixtureError(
-            "playground-fixture.json is stale; run tools/public-site/playground_fixture.py --write"
+            "frozen legacy playground fixture differs from canonical OS catalog"
         )
     if inline_value != expected:
         raise PlaygroundFixtureError(
-            "inline playground fixture is stale; run tools/public-site/playground_fixture.py --write"
+            "frozen legacy inline fixture differs from canonical OS catalog"
         )
     return expected
 
 
-def write_fixture() -> None:
-    fixture = generate_fixture()
-    payload = json.dumps(fixture, ensure_ascii=False, indent=2) + "\n"
-    FIXTURE_PATH.write_text(payload, encoding="utf-8")
-
-    html = INDEX_PATH.read_text(encoding="utf-8")
-    start, end = _inline_fixture_bounds(html)
-    html = html[:start] + "\n" + payload + html[end:]
-    # The demo's emitted presentation and controller must advance together in caches.
-    for asset in ("assets/surface-snapshot.css", "assets/playground.js", "i18n/catalog.js"):
-        digest = hashlib.sha256((PUBLIC_ROOT / asset).read_bytes()).hexdigest()[:12]
-        html = re.sub(r'((?:href|src)="/' + re.escape(asset) + r')(?:\?[^\"]*)?"',
-                      lambda match: match.group(1) + "?v=" + digest + '"', html)
-    INDEX_PATH.write_text(html, encoding="utf-8")
-
-
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--write", action="store_true", help="write generated fixture and inline copy")
     parser.add_argument("--project-catalog", type=Path,
                         help="read-only OS/catalog projection into a new external JSON file")
     args = parser.parse_args()
-    if args.write and args.project_catalog:
-        raise PlaygroundFixtureError("choose one fixture operation")
     if args.project_catalog:
         output = args.project_catalog.absolute()
         if (output.is_relative_to(ROOT.resolve()) or not output.parent.is_dir()
@@ -371,10 +352,9 @@ def main() -> int:
         output.write_text(json.dumps(projection, ensure_ascii=False, sort_keys=True, separators=(",", ":")) + "\n",
                           encoding="utf-8")
         print("PUBLIC_OS_CATALOG_PROJECTION=PASS")
-    elif args.write:
-        write_fixture()
-        print(f"PUBLIC_PLAYGROUND_FIXTURE=WRITTEN path={FIXTURE_PATH.relative_to(ROOT)}")
     else:
+        # Frozen OS portal verification only. Never rewrite public markup,
+        # fixtures, CSS or localized copy; the Surface/Site owners publish.
         validate_fixture()
         print("PUBLIC_PLAYGROUND_FIXTURE=PASS")
     return 0

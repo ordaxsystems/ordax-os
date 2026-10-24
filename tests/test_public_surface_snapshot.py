@@ -35,14 +35,21 @@ class PublicSurfaceSnapshotTests(unittest.TestCase):
         self.assertFalse(
             (ROOT/'.github/workflows/public-surface-ssot-refresh.yml').exists()
         )
-        # The frozen portal source files still prove its historical asset
-        # receipts until the OS-owned portal itself is removed. Neither is
-        # allowed to run from a workflow which rewrites visual/i18n outputs.
+        # Historical public assets remain read-only, but NO OS-owned
+        # visual render source, alternate i18n generator or writer survives.
         for relative in (
             'tools/public-site/surface_snapshot.mjs',
             'tools/public-site/surface-snapshot-entry.tsx',
+            'tools/public-site/generated_copy.mjs',
+            'tests/test_public_surface_copy_normalization.mjs',
         ):
-            self.assertTrue((ROOT/relative).is_file(), relative)
+            self.assertFalse((ROOT/relative).exists(), relative)
+        projection=(ROOT/'tools/public-site/playground_fixture.py').read_text(encoding='utf-8')
+        self.assertIn('--project-catalog', projection)
+        self.assertNotIn('def write_fixture(', projection)
+        self.assertNotIn('parser.add_argument("--write"', projection)
+        self.assertNotIn('FIXTURE_PATH.write_text(', projection)
+        self.assertNotIn('INDEX_PATH.write_text(', projection)
 
     def test_source_provenance_accepts_windows_and_linux_text_checkouts(self):
         spec=importlib.util.spec_from_file_location('public_demo_fixture',ROOT/'tools/public-site/playground_fixture.py')
