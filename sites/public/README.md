@@ -36,51 +36,11 @@ Owner/Development remains an internal engineering profile. Public pages must not
 
 The portal may describe a capability only when its real owner/service exists or clearly mark it as not yet available.
 
-## Playground fixture
+## Fonte do playground após a extração
 
-The landing playground is a marketing demonstration, separate from OrdaX Web.
-Its app labels, order and Home spaces are generated from the shared product
-source into `assets/playground-fixture.json` and an inline copy in
-`index.html`:
+Este diretório é um **baseline histórico estático de desenvolvimento**; o código e a CI do Site foram integrados em [`ordax-site/main`](https://github.com/ordaxsystems/ordax-site), e a composição visual original pertence a [`ordax-surface/main`](https://github.com/ordaxsystems/ordax-surface). O contrato canônico de apps/atalhos continua no OS; `tools/public-site/playground_fixture.py --project-catalog <arquivo externo>` exporta seus dados sem modificar nenhum Site.
 
-```bash
-python tools/public-site/playground_fixture.py --write
-python tools/public-site/build.py check
-```
+A renderização pública independente foi aprovada em [Surface #12](https://github.com/ordaxsystems/ordax-surface/pull/12) e o consumo de desenvolvimento em [Site #2](https://github.com/ordaxsystems/ordax-site/pull/2). Os writers visuais locais `tools/public-site/surface_snapshot.mjs`, `surface-snapshot-entry.tsx` e seu workflow antigo foram **removidos** para impedir que o OS gere novos arquivos concorrentes. Os assets estáticos históricos deste diretório não são SSOT nem devem ser regenerados ou distribuídos como uma release oficial da Surface.
 
-The fixture contains no account or user data. Playground edits stay anonymous
-and in memory; the browser mirrors them across the illustrated devices to show
-the intended continuity. Production synchronization still requires a real
-identity and sync owner.
+**Não executar `playground_fixture.py --write` para atualizar este Site legado.** Sua compatibilidade histórica será retirada no cutover restante do owner do Site; a UI pública nova não depende dela. Nenhuma mudança aqui autoriza deploy, DNS, Identity, USB ou Stable.
 
-The route `/` is always the public landing page. The authenticated OrdaX/account experience must never replace the public root. OrdaX Web remains a separate product mode and is reached from an appropriate authenticated/product entry point rather than being rendered as the marketing homepage.
-
-## MVP scope: USB-only
-
-The public MVP prepares and boots OrdaX from removable USB media. It does not advertise or expose installation to internal SSD/NVMe/HDD. Native installation remains a post-MVP foundation.
-
-Web, Mobile, synchronization, backup and cross-device continuity may be presented only as **Em breve** while unavailable. No billing, pricing, commercial tier names or device-count limits are defined at this stage.
-
-## Source-rendered device demonstration
-
-The notebook and compact phone viewport consume static markup rendered from the
-current Meridian components at build-authoring time. The public bundle contains
-no React, Surface runtime, account adapter or service transport. Its existing
-local controller switches source-rendered views and preserves the fictional
-Aurora scenario separately. The phone shows responsive OrdaX Web, not a claim
-that an OrdaX Mobile package has shipped.
-
-Owners: `tools/public-site/surface-snapshot-entry.tsx` selects presentation;
-`surface_snapshot.mjs` renders it with unavailable, read-only adapters and scopes
-the emitted CSS. `playground_fixture.py` validates source hashes and embeds the
-result in the existing fixture. Refresh after changing these presentation owners:
-
-```sh
-node tools/public-site/surface_snapshot.mjs
-python tools/public-site/playground_fixture.py --write
-python tools/public-site/build.py check
-```
-
-`assets/surface-snapshot.json` and `.css` are derived artifacts, not separate UI
-implementations. Source wallpapers are byte-checked against their Surface owners.
-The prototype never submits credentials, forms, device actions or AI requests.
