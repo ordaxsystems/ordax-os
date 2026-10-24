@@ -200,6 +200,27 @@ class PhysicalUsbPayloadIdentityTests(unittest.TestCase):
         self.assertIn("'physical_write_authorized': False", source)
         self.assertIn("contents: read", source)
 
+    def test_surface_policy_reads_only_pinned_ephemeral_external_source(self):
+        source = WORKFLOW.read_text(encoding="utf-8")
+        action = (ROOT / ".github/actions/assemble-surface/action.yml").read_text(encoding="utf-8")
+        self.assertEqual(
+            source.count("uses: ./operator/.github/actions/assemble-surface"), 1
+        )
+        self.assertIn("source-root: ${{ github.workspace }}/operator", source)
+        self.assertIn("working-directory: ${{ inputs.source-root }}", action)
+        self.assertIn("docs/contracts/surface-source.json", action)
+        self.assertIn("PHYSICAL_POLICY_SURFACE_SOURCE=PINNED_EXTERNAL_DISPOSABLE", source)
+        self.assertIn("PHYSICAL_POLICY_SURFACE_TRACKED_COPY=NO", source)
+        self.assertIn("test -z \"$(git -C operator ls-files -- system/surface/ui system/surface/workspace)\"", source)
+        self.assertLess(
+            source.index("Stage verified visual source only in disposable operator checkout"),
+            source.index("Validate non-destructive preauthorization stage"),
+        )
+        self.assertLess(
+            source.index("Assemble exact verified external Surface for read-only physical policy"),
+            source.index("Validate official physical promotion gate before resolving payload"),
+        )
+
     def test_release_identity_comes_only_from_authorization(self):
         source = WORKFLOW.read_text(encoding="utf-8")
         self.assertNotIn("inputs.release_source_commit", source)

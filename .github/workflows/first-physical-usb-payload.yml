@@ -5,6 +5,8 @@ on:
     paths:
       - '.github/workflows/first-physical-usb-payload.yml'
       - '.github/actions/resolve-creator-source/**'
+      - '.github/actions/assemble-surface/**'
+      - 'docs/contracts/surface-source.json'
       - 'docs/contracts/native-release-assembly.json'
       - 'tests/test_first_physical_usb_payload_ssot.py'
   push:
@@ -12,6 +14,8 @@ on:
     paths:
       - '.github/workflows/first-physical-usb-payload.yml'
       - '.github/actions/resolve-creator-source/**'
+      - '.github/actions/assemble-surface/**'
+      - 'docs/contracts/surface-source.json'
       - 'docs/contracts/native-release-assembly.json'
   workflow_dispatch:
     inputs:
@@ -54,6 +58,33 @@ jobs:
             exit 1
           fi
           echo 'PHYSICAL_WRITER_CONTEXT_MATCH=PASS'
+
+      - name: Assemble exact verified external Surface for read-only physical policy
+        uses: ./operator/.github/actions/assemble-surface
+        with:
+          source-root: ${{ github.workspace }}/operator
+          out-root: ${{ runner.temp }}/physical-verified-surface
+
+      - name: Stage verified visual source only in disposable operator checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "$(git -C operator ls-files -- system/surface/ui system/surface/workspace)"
+          for part in ui workspace; do
+            src="$RUNNER_TEMP/physical-verified-surface/system/surface/$part"
+            dst="operator/system/surface/$part"
+            test -d "$src" && test ! -L "$src"
+            test ! -e "$dst" && test ! -L "$dst"
+            cp -a "$src" "$dst"
+            diff -qr "$src" "$dst"
+          done
+          test -s operator/system/surface/ui/first-run.mjs
+          test -s operator/system/surface/ui/local-session-lock.mjs
+          test -s operator/system/surface/ui/settings-overview-controls.mjs
+          test -s operator/system/surface/ui/system-overview-controls.mjs
+          test -z "$(git -C operator ls-files -- system/surface/ui system/surface/workspace)"
+          echo 'PHYSICAL_POLICY_SURFACE_SOURCE=PINNED_EXTERNAL_DISPOSABLE'
+          echo 'PHYSICAL_POLICY_SURFACE_TRACKED_COPY=NO'
 
       - name: Validate official physical promotion gate before resolving payload
         if: ${{ github.event_name == 'workflow_dispatch' }}
