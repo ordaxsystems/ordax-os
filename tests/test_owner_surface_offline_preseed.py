@@ -120,6 +120,21 @@ class OwnerOfflineSurfacePreseedTests(unittest.TestCase):
         modified = subprocess.run(command, text=True, capture_output=True, env=env)
         self.assertNotEqual(modified.returncode, 0)
 
+    def test_owner_shell_reads_minified_canonical_lock_from_exact_git_commit(self):
+        lock_path = self.repo / "docs/contracts/surface-source.json"
+        packed = json.dumps(json.loads(lock_path.read_text(encoding="utf-8")), separators=(",", ":"))
+        self.write(lock_path, packed + "\\n")
+        git(self.repo, "add", "docs/contracts/surface-source.json")
+        git(self.repo, "commit", "-qm", "Reformat the same canonical source lock")
+        compact_sha = git(self.repo, "rev-parse", "HEAD")
+        helper = SOURCE.parents[2] / "system/services/surface-source/owner-stage.sh"
+        env = __import__("os").environ.copy()
+        env["ORDAX_GIT_BIN"] = shutil.which("git")
+        command = ["/bin/sh", str(helper), "status", str(self.repo), compact_sha]
+        inspected = subprocess.run(command, text=True, capture_output=True, env=env)
+        self.assertEqual(inspected.returncode, 0, inspected.stderr)
+        self.assertEqual(inspected.stdout.strip(), "canonical")
+
     def test_fails_closed_on_wrong_sha_and_corrupted_visual_receipt(self):
         with self.assertRaises(OWNER.PreseedError):
             OWNER.preseed(self.repo, self.assembly, self.rootfs, "f" * 40)
