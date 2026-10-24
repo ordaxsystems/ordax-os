@@ -48,8 +48,7 @@ marcado como concluído.
 - Os digests SHA-256 nessa política **não correspondem** ao HTML entregue
   atualmente em `/privacidade/` e `/termos/`. A evidência objetiva consta de
   `docs/evidence/public-legal-integrity-2026-10-10.md`.
-- Isso não bloqueia builds: `python tools/public-site/build.py check`
-  passa e `auth_activation_preflight.py check` indica
+- Essa divergência não impede o build independente de Dev (`ordax-site/scripts/build.py check`); `auth_activation_preflight.py check` indica
   `AUTH_ONLY_SOURCE_CANDIDATE`. A avaliação de publicação jurídica
   continua a falhar, corretamente.
 - A origem do descompasso arquitetural é associar digests imutáveis de
@@ -62,8 +61,10 @@ marcado como concluído.
 
 **Build/preview durante o desenvolvimento:**
 ```bash
-python tools/public-site/build.py check
-python tools/public-site/auth_activation_preflight.py check
+\# Execute no checkout ordax-site para validar a apresentação:
+python3 scripts/build.py check
+\# Execute separadamente no checkout ordax-os para validar os gates do OS:
+python3 tools/public-site/auth_activation_preflight.py check
 ```
 
 **Comprovação independente da produção, quando for homologar a Conta:**
@@ -136,7 +137,7 @@ Procedimento de lançamento de **nova** versão jurídica:
    aprovadas. Registrar SHA-256/tamanho exatos no livro versionado.
 2. Ajustar `docs/contracts/public-legal-readiness.json` para os novos
    caminhos, versão, data e estado revisado pelo responsável. Executar
-   `python tools/public-site/build.py check` e o CI jurídico.
+   `python3 scripts/build.py check` no checkout Site e o CI jurídico do OS.
 3. Publicar os snapshots no site HTTPS antes de ativar a política, verificar
    os bytes efetivamente servidos e executar o ativador canônico separado.
    O ativador recusa arquivos não fixados no livro ou URLs divergentes.
