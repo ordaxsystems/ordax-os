@@ -7,6 +7,7 @@ on:
       - '.github/actions/resolve-creator-source/**'
       - 'docs/contracts/native-release-assembly.json'
       - 'tests/test_creator_single_paint.py'
+      - 'tests/test_user_consent_experience.py'
       - 'tests/test_creator_ux_external_source.py'
       - 'docs/contracts/creator-ux-baseline.json'
       - '.github/workflows/creator-ux-baseline.yml'
@@ -16,6 +17,7 @@ on:
       - '.github/actions/resolve-creator-source/**'
       - 'docs/contracts/native-release-assembly.json'
       - 'tests/test_creator_single_paint.py'
+      - 'tests/test_user_consent_experience.py'
       - 'tests/test_creator_ux_external_source.py'
       - 'docs/contracts/creator-ux-baseline.json'
       - '.github/workflows/creator-ux-baseline.yml'
@@ -53,7 +55,7 @@ jobs:
           pushd "$ORDAX_CREATOR_NATIVE_SOURCE" >/dev/null
           go test -count=1 ./cmd/ordax-creator-app
           popd >/dev/null
-          python -m unittest tests.test_creator_single_paint tests.test_creator_ux_external_source -v
+          python -m unittest tests.test_creator_single_paint tests.test_creator_ux_external_source tests.test_user_consent_experience -v
           echo 'CREATOR_GUIDED_EXPERIENCE_TESTS=PASS'
 
       - name: Compile split Windows owner boundaries

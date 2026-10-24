@@ -39,7 +39,7 @@ class CreatorPhysicalPublisherBoundaryTests(unittest.TestCase):
         self.assertIs(publisher["rotation_failure_requires_byte_exact_rollback"], True)
 
         media = data["media_acquisition"]
-        self.assertEqual(media["owner"], "tools/creator/physicalchannel")
+        self.assertEqual(media["owner"], "github.com/ordaxsystems/ordax-creator/physicalchannel")
         self.assertIs(media["consumer_selects_iso_or_image"], False)
         self.assertIs(media["owner_development_offline_raw_seed_is_separate"], True)
         self.assertIs(media["previous_version_source_reuse"], True)
