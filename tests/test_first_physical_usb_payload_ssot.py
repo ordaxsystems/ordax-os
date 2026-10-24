@@ -215,11 +215,11 @@ class PhysicalUsbPayloadIdentityTests(unittest.TestCase):
         self.assertIn("test -z \"$(git -C operator ls-files -- system/surface/ui system/surface/workspace)\"", source)
         self.assertLess(
             source.index("Stage verified visual source only in disposable operator checkout"),
-            source.index("Validate official physical promotion gate before resolving payload"),
+            source.index("Validate purpose-specific physical promotion gate before resolving payload"),
         )
         self.assertLess(
             source.index("Assemble exact verified external Surface for read-only physical policy"),
-            source.index("Validate official physical promotion gate before resolving payload"),
+            source.index("Validate purpose-specific physical promotion gate before resolving payload"),
         )
 
     def test_release_identity_comes_only_from_authorization(self):
