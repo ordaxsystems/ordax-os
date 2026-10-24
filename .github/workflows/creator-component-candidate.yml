@@ -11,6 +11,7 @@ on:
       - '.github/actions/resolve-creator-source/**'
       - 'docs/contracts/native-release-assembly.json'
       - 'tests/test_creator_component_external_source.py'
+      - 'tools/creator/componentchannel/**'
       - 'tools/release-signing/cmd/ordax-creator-component-signing/**'
       - '.github/workflows/creator-component-candidate.yml'
   pull_request:
@@ -22,6 +23,7 @@ on:
       - '.github/actions/resolve-creator-source/**'
       - 'docs/contracts/native-release-assembly.json'
       - 'tests/test_creator_component_external_source.py'
+      - 'tools/creator/componentchannel/**'
       - 'tools/release-signing/cmd/ordax-creator-component-signing/**'
       - '.github/workflows/creator-component-candidate.yml'
   workflow_dispatch:

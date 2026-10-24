@@ -28,7 +28,17 @@ class CreatorComponentExternalSourceTests(unittest.TestCase):
         self.assertIn("Push-Location $env:ORDAX_CREATOR_NATIVE_SOURCE", self.workflow)
         self.assertNotIn("Push-Location tools/creator", self.workflow)
         self.assertNotIn("working-directory: tools/creator", self.workflow)
-        self.assertNotIn("tools/creator/componentchannel/", self.workflow)
+        # Retired path may appear in CI triggers, never in source-execution steps.
+        self.assertEqual(self.workflow.count("'tools/creator/componentchannel/**'"), 2)
+        self.assertNotIn("python tools/creator/componentchannel/", self.workflow)
+        self.assertNotIn("Push-Location tools/creator/componentchannel", self.workflow)
+
+    def test_os_does_not_embed_a_second_component_packager(self):
+        # CI invokes the canonical Creator packager from the pinned external checkout.
+        # The OS owns signed-release policy and must not keep a competing Python copy.
+        self.assertFalse((ROOT / 'tools/creator/componentchannel').exists())
+        self.assertIn("$ORDAX_CREATOR_NATIVE_SOURCE/componentchannel/test_package_candidate.py", self.workflow)
+        self.assertIn("$env:ORDAX_CREATOR_NATIVE_SOURCE 'componentchannel/package_candidate.py'", self.workflow)
 
     def test_external_packager_keeps_original_signed_channel_contract(self):
         text = self.workflow
