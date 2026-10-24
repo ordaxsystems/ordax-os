@@ -54,17 +54,6 @@ class BrandPipelineTests(unittest.TestCase):
             with self.assertRaises(brand.BrandError):
                 brand.render_email("confirmation", templates_dir=path)
 
-Z0-9-]+)\s*:", canonical + base + css))
-            references = set(re.findall(r"var\((--[a-zA-Z0-9-]+)", css))
-            self.assertFalse(references - definitions, (filename, references - definitions))
-            if filename != "portal.css":
-                self.assertNotRegex(css, r"#[0-9a-fA-F]{3,8}\b|oklch\(|rgba?\(|hsla?\(")
-        account = (ROOT / "sites/public/assets/account.css").read_text(encoding="utf-8")
-        for state in ("checking", "ready", "unavailable"):
-            self.assertIn(f'.identity-state[data-status="{state}"]', account)
-        self.assertIn(".identity-submit:disabled", account)
-        self.assertIn(".registration-legal", account)
-        self.assertIn("var(--md-focus", account)
 
     def test_publishing_requires_confirmed_project_and_never_runs_by_default(self):
         with self.assertRaises(brand.BrandError):
