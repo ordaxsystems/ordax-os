@@ -214,20 +214,29 @@ def _surface_home() -> dict[str, object]:
 
 
 def _current_surface_snapshot():
+    # This OS portal is an immutable *historical* static Dev artifact. Its
+    # source files now belong to ordax-surface and must not be reconstructed
+    # from files on the current OS checkout.
     snapshot = json.loads((PUBLIC_ROOT / "assets/surface-snapshot.json").read_text(encoding="utf-8"))
-    css = PUBLIC_ROOT / "assets/surface-snapshot.css"
-    if hashlib.sha256(css.read_text(encoding="utf-8").encode("utf-8")).hexdigest() != snapshot.get("cssSha256"):
-        raise PlaygroundFixtureError("public Surface stylesheet diverged from its generated artifact")
-    for source in snapshot["sources"]:
-        relative = Path(source["path"])
-        if relative.is_absolute() or ".." in relative.parts:
-            raise PlaygroundFixtureError("invalid public Surface provenance path")
-        path = ROOT / relative
-        payload = path.read_bytes()
-        if path.suffix in {".ts", ".tsx", ".js", ".jsx", ".mjs", ".css", ".json", ".svg"}:
-            payload = payload.replace(b"\r\n", b"\n")
-        if hashlib.sha256(payload).hexdigest() != source["sha256"]:
-            raise PlaygroundFixtureError("public Surface snapshot is stale: " + source["path"] + "; legacy static snapshot differs from its frozen sources")
+    css = (PUBLIC_ROOT / "assets/surface-snapshot.css").read_bytes()
+    if hashlib.sha256(css).hexdigest() != snapshot.get("cssSha256"):
+        raise PlaygroundFixtureError("frozen public Surface CSS integrity mismatch")
+    entries = snapshot.get("sources")
+    if not isinstance(entries, list) or not entries:
+        raise PlaygroundFixtureError("frozen snapshot missing historical source receipt")
+    seen = set()
+    for entry in entries:
+        if not isinstance(entry, dict):
+            raise PlaygroundFixtureError("invalid frozen historical source entry")
+        value = entry.get("path")
+        digest = entry.get("sha256")
+        if not isinstance(value, str) or not isinstance(digest, str):
+            raise PlaygroundFixtureError("invalid frozen historical source receipt")
+        relative = Path(value)
+        if (relative.is_absolute() or not value or ".." in relative.parts
+                or value in seen or re.fullmatch(r"[0-9a-f]{64}", digest) is None):
+            raise PlaygroundFixtureError("invalid frozen historical source provenance")
+        seen.add(value)
     return snapshot
 
 
@@ -279,17 +288,6 @@ def project_public_catalog() -> dict[str, object]:
     }
 
 
-def generate_fixture() -> dict[str, object]:
-    projection = project_public_catalog()
-    return {
-        "$schema": SCHEMA,
-        "source": projection["source"],
-        "home": projection["home"],
-        "apps": projection["apps"],
-        "surface": _current_surface_snapshot(),
-    }
-
-
 def _read_json(path: Path) -> dict[str, object]:
     try:
         value = json.loads(path.read_text(encoding="utf-8"))
@@ -324,18 +322,17 @@ def read_inline_fixture() -> dict[str, object]:
 
 
 def validate_fixture() -> dict[str, object]:
-    expected = generate_fixture()
-    file_value = _read_json(FIXTURE_PATH)
-    inline_value = read_inline_fixture()
-    if file_value != expected:
-        raise PlaygroundFixtureError(
-            "frozen legacy playground fixture differs from canonical OS catalog"
-        )
-    if inline_value != expected:
-        raise PlaygroundFixtureError(
-            "frozen legacy inline fixture differs from canonical OS catalog"
-        )
-    return expected
+    # Validate the OS historic *static* presentation against its own immutable
+    # assets. The current OS catalog is projected independently for Surface,
+    # and must not be conflated with an archived Site snapshot.
+    fixture = _read_json(FIXTURE_PATH)
+    if fixture != read_inline_fixture():
+        raise PlaygroundFixtureError("frozen inline/file playground fixture diverged")
+    if fixture.get("surface") != _current_surface_snapshot():
+        raise PlaygroundFixtureError("frozen playground Surface snapshot diverged")
+    if not isinstance(fixture.get("apps"), list) or not isinstance(fixture.get("home"), dict):
+        raise PlaygroundFixtureError("frozen playground catalog structure invalid")
+    return fixture
 
 
 def main() -> int:
