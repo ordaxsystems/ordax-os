@@ -32,7 +32,7 @@ REQUIRED = (
     preflight.DEPLOYMENT,
     preflight.IDENTITY,
     preflight.LIFECYCLE,
-    preflight.RUNTIME,
+    preflight.SITE_SOURCE,
     preflight.PUBLIC_SITE,
     preflight.EDGE,
     preflight.REFERENCE_GATEWAY,
