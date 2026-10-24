@@ -37,7 +37,7 @@ class IndependentCreatorOwnershipContractTests(unittest.TestCase):
         self.assertIn("docs/contracts/native-release-assembly.json#creator_source", readme)
         self.assertNotIn("is the single source root for OrdaX physical-media creation", readme)
         action = (ROOT / ".github/actions/resolve-creator-source/action.yml").read_text(encoding="utf-8")
-        self.assertIn("git rev-parse", action)
+        self.assertIn("rev-parse 'HEAD^{tree}'", action)
         self.assertIn("creator_source", action)
 
 if __name__ == "__main__":
