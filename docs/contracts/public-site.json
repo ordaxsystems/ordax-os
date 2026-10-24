@@ -1,9 +1,9 @@
 {
   "$schema": "prototype-ordax.public-site/1",
-  "status": "foundation-same-origin-adapter-gated-auth-and-recovery-forms-source-ready-not-deployed",
+  "status": "independent-site-source-migrated-hosted-deployment-separate",
   "artifact_class": "public-site",
-  "source_root": "sites/public",
-  "build_recipe": "tools/public-site/build.py",
+  "source_root": "ordaxsystems/ordax-site:site",
+  "build_recipe": "ordaxsystems/ordax-site:scripts/build.py",
   "separate_from_product_web_mode": true,
   "routes": {
     "landing": "/",
@@ -89,7 +89,7 @@
   "deployment": {
     "contract": "docs/contracts/public-site-deployment.json",
     "adapter_selected": true,
-    "preview_runtime": "tools/public-site/preview_server.py",
+    "preview_runtime": null,
     "production_https_required": true,
     "same_origin_identity_required": true,
     "adapter_source": "deploy/public-site/nginx.conf",
@@ -113,7 +113,7 @@
     "route": "/conta/",
     "session_presentation_port": {
       "schema": "prototype-ordax.public-account-client/1",
-      "source": "sites/public/assets/site.js",
+      "source": "ordaxsystems/ordax-site:site/assets/site.js",
       "global": "OrdaXPublicAccount",
       "owner": "public-site",
       "authority": "none",
@@ -167,9 +167,9 @@
       "may_simulate_user_data": false,
       "search_engine_indexing_allowed": false,
       "provenance": "docs/evidence/public-account-layout-reference-2026-10-10.json",
-      "source": "sites/public/conta/index.html",
-      "controller": "sites/public/assets/account-portal.js",
-      "styles": "sites/public/assets/account-dashboard.css",
+      "source": "ordaxsystems/ordax-site:site/conta/index.html",
+      "controller": "ordaxsystems/ordax-site:site/assets/account-portal.js",
+      "styles": "ordaxsystems/ordax-site:site/assets/account-dashboard.css",
       "visual_policy": "system/surface/ui/tokens.css"
     }
   },
@@ -215,13 +215,13 @@
     "plan_contract": "docs/contracts/entitlements.json",
     "reference_prices_published": true,
     "reference_prices_are_purchase_offer": false,
-    "catalog_presentation": "tools/public-site/plan_catalog.py"
+    "catalog_presentation": "ordaxsystems/ordax-site:site/conta/index.html"
   },
   "localization": {
     "owner": "public-site",
-    "owner_root": "sites/public/i18n",
-    "catalog": "sites/public/i18n/catalog.js",
-    "runtime": "sites/public/i18n/runtime.js",
+    "owner_root": "ordaxsystems/ordax-site:site/i18n",
+    "catalog": "ordaxsystems/ordax-site:site/i18n/catalog.js",
+    "runtime": "ordaxsystems/ordax-site:site/i18n/runtime.js",
     "source_locale": "pt-BR",
     "bundled_locales": [
       "pt-BR",
