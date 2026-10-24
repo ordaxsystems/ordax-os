@@ -11,7 +11,12 @@ on:
       - 'docs/contracts/creator-component-channel.json'
       - 'docs/contracts/creator-code-signing.json'
       - 'docs/contracts/creator-consumer-flow.json'
-      - 'tools/creator/**'
+      - 'tools/creator/windows/Build-OrdaXCreatorPublisherHandoff.ps1'
+      - 'tools/creator/windows/Verify-OrdaXCreatorSignature.ps1'
+      - 'tools/creator/windows/Finalize-OrdaXCreatorRelease.ps1'
+      - '.github/actions/resolve-creator-source/**'
+      - 'docs/contracts/native-release-assembly.json'
+      - 'tests/test_creator_official_external_source_handoff.py'
       - 'tools/release-signing/cmd/ordax-creator-app-signing/**'
       - 'tools/release-signing/cmd/ordax-creator-app-manifest/**'
       - 'tools/release-signing/windows/8-Sign-Publish-CreatorPhysical.ps1'
@@ -26,7 +31,12 @@ on:
       - 'docs/contracts/creator-component-channel.json'
       - 'docs/contracts/creator-code-signing.json'
       - 'docs/contracts/creator-consumer-flow.json'
-      - 'tools/creator/**'
+      - 'tools/creator/windows/Build-OrdaXCreatorPublisherHandoff.ps1'
+      - 'tools/creator/windows/Verify-OrdaXCreatorSignature.ps1'
+      - 'tools/creator/windows/Finalize-OrdaXCreatorRelease.ps1'
+      - '.github/actions/resolve-creator-source/**'
+      - 'docs/contracts/native-release-assembly.json'
+      - 'tests/test_creator_official_external_source_handoff.py'
       - 'tools/release-signing/cmd/ordax-creator-app-signing/**'
       - 'tools/release-signing/cmd/ordax-creator-app-manifest/**'
       - 'tools/release-signing/windows/8-Sign-Publish-CreatorPhysical.ps1'
@@ -51,6 +61,10 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
+      - name: Resolve immutable external Creator source
+        uses: ./.github/actions/resolve-creator-source
+        with:
+          checkout-root: ${{ runner.temp }}/ordax-creator-official-source
 
       - name: Require canonical public trust and exact official contracts
         id: gate
@@ -60,12 +74,12 @@ jobs:
           ready=false
           trust_sha=''
           readarray -t app_values < <(python - <<'PY'
-          import json, pathlib, re
+          import json, pathlib, re, os
           app = json.loads(pathlib.Path('docs/contracts/creator-app-channel.json').read_text(encoding='utf-8'))
           component = json.loads(pathlib.Path('docs/contracts/creator-component-channel.json').read_text(encoding='utf-8'))
           code_signing = json.loads(pathlib.Path('docs/contracts/creator-code-signing.json').read_text(encoding='utf-8'))
           consumer = json.loads(pathlib.Path('docs/contracts/creator-consumer-flow.json').read_text(encoding='utf-8'))
-          physical_channel = pathlib.Path('tools/creator/physicalchannel/channel.go').read_text(encoding='utf-8')
+          physical_channel = (pathlib.Path(os.environ['ORDAX_CREATOR_NATIVE_SOURCE']) / 'physicalchannel/channel.go').read_text(encoding='utf-8')
 
           assert app['$schema'] == 'prototype-ordax.creator-app-channel/1'
           assert app['purpose'] == 'creator-app-windows-amd64'
@@ -190,6 +204,10 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
+      - name: Resolve immutable external Creator source
+        uses: ./.github/actions/resolve-creator-source
+        with:
+          checkout-root: ${{ runner.temp }}/ordax-creator-official-source
 
       - name: Set up Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
@@ -213,9 +231,29 @@ jobs:
           $utf8 = [Text.UTF8Encoding]::new($false)
           [IO.File]::WriteAllText($trustPath, (($trust | ConvertTo-Json -Depth 5) + "`n"), $utf8)
           $out = Join-Path $PWD 'out/creator-publisher-handoff-regression'
+          $wrongSourceOutput = Join-Path $PWD 'out/creator-wrong-source-proof'
+          $wrongSourceRejected = $false
+          try {
+            & tools/creator/windows/Build-OrdaXCreatorPublisherHandoff.ps1 `
+              -TrustPath $trustPath `
+              -SourceCommit '${{ github.event.pull_request.head.sha || github.sha }}' `
+              -CreatorSourceDirectory $PWD `
+              -AppVersion ([string]$app.version) `
+              -AppReleaseSequence ([int64]$app.release_sequence) `
+              -TrustClass 'ci-disposable' `
+              -OutputDirectory $wrongSourceOutput | Out-Host
+          } catch {
+            $wrongSourceRejected = $true
+            if ($_.Exception.Message -notmatch 'Creator (Go module identity|Go module|checkout|source)') { throw }
+          }
+          if (-not $wrongSourceRejected -or (Test-Path -LiteralPath $wrongSourceOutput)) {
+            throw 'Invalid independent Creator source produced publisher handoff output'
+          }
+          Write-Host 'CREATOR_WRONG_SOURCE_FAIL_CLOSED=PASS'
           & tools/creator/windows/Build-OrdaXCreatorPublisherHandoff.ps1 `
             -TrustPath $trustPath `
             -SourceCommit '${{ github.event.pull_request.head.sha || github.sha }}' `
+            -CreatorSourceDirectory $env:ORDAX_CREATOR_NATIVE_SOURCE `
             -AppVersion ([string]$app.version) `
             -AppReleaseSequence ([int64]$app.release_sequence) `
             -TrustClass 'ci-disposable' `
@@ -224,6 +262,13 @@ jobs:
           if ($provenance.trust_class -ne 'ci-disposable') { throw 'handoff regression did not record disposable trust class' }
           if ($null -ne $provenance.canonical_trust_sha256) { throw 'disposable handoff incorrectly claimed canonical trust' }
           if ($provenance.publishable_to_end_users -ne $false -or $provenance.authenticode_signed -ne $false) { throw 'disposable handoff became publishable' }
+          if ($provenance.creator_source_commit -cne $env:ORDAX_CREATOR_SOURCE_COMMIT -or
+              $provenance.creator_source_tree -cne $env:ORDAX_CREATOR_SOURCE_TREE -or
+              $provenance.creator_source_repository -cne $env:ORDAX_CREATOR_SOURCE_REPOSITORY -or
+              $provenance.source_repository -cne 'ordaxsystems/ordax-os' -or
+              $provenance.creator_source_verified -ne $true) {
+            throw 'disposable Creator handoff source provenance invalid'
+          }
           if (Test-Path -LiteralPath (Join-Path $out 'creator-app-manifest.json')) { throw 'disposable handoff created app manifest before Authenticode' }
           if (Test-Path -LiteralPath (Join-Path $out 'creator-app-envelope.json')) { throw 'disposable handoff created Ed25519 envelope' }
           if (Get-ChildItem -LiteralPath $out -Recurse -File | Where-Object { $_.Extension -in @('.pem', '.key', '.p12', '.pfx', '.dpapi') }) { throw 'secret-looking file entered disposable handoff' }
@@ -243,6 +288,10 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
+      - name: Resolve immutable external Creator source
+        uses: ./.github/actions/resolve-creator-source
+        with:
+          checkout-root: ${{ runner.temp }}/ordax-creator-official-source
 
       - name: Set up Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
@@ -264,6 +313,7 @@ jobs:
           & tools/creator/windows/Build-OrdaXCreatorPublisherHandoff.ps1 `
             -TrustPath bootstrap/trust/release-ed25519.json `
             -SourceCommit '${{ github.event.pull_request.head.sha || github.sha }}' `
+            -CreatorSourceDirectory $env:ORDAX_CREATOR_NATIVE_SOURCE `
             -AppVersion $env:APP_VERSION `
             -AppReleaseSequence ([int64]$env:APP_SEQUENCE) `
             -TrustClass 'canonical' `
@@ -273,6 +323,13 @@ jobs:
           if ([string]$provenance.canonical_trust_sha256 -cne $env:EXPECTED_TRUST_SHA256) { throw 'canonical handoff trust SHA differs from trust gate' }
           if ([string]$provenance.trust_sha256 -cne $env:EXPECTED_TRUST_SHA256) { throw 'canonical handoff embedded trust SHA differs from trust gate' }
           if ($provenance.publishable_to_end_users -ne $false -or $provenance.authenticode_signed -ne $false) { throw 'unsigned canonical handoff became publishable' }
+          if ($provenance.creator_source_commit -cne $env:ORDAX_CREATOR_SOURCE_COMMIT -or
+              $provenance.creator_source_tree -cne $env:ORDAX_CREATOR_SOURCE_TREE -or
+              $provenance.creator_source_repository -cne $env:ORDAX_CREATOR_SOURCE_REPOSITORY -or
+              $provenance.source_repository -cne 'ordaxsystems/ordax-os' -or
+              $provenance.creator_source_verified -ne $true) {
+            throw 'canonical Creator handoff source provenance invalid'
+          }
           Write-Host 'CREATOR_OFFICIAL_SHARED_HANDOFF_RECIPE=PASS'
           Write-Host 'CREATOR_OFFICIAL_PHYSICAL_TRUST_BOUND=YES'
           Write-Host 'CREATOR_OFFICIAL_AUTHENTICODE_SIGNED=NO'

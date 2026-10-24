@@ -1,6 +1,7 @@
 param(
     [Parameter(Mandatory = $true)][string]$TrustPath,
     [Parameter(Mandatory = $true)][string]$SourceCommit,
+    [Parameter(Mandatory = $true)][string]$CreatorSourceDirectory,
     [Parameter(Mandatory = $true)][string]$AppVersion,
     [Parameter(Mandatory = $true)][long]$AppReleaseSequence,
     [Parameter(Mandatory = $true)][ValidateSet('canonical', 'ci-disposable')][string]$TrustClass,
@@ -39,6 +40,52 @@ if ($AppVersion -cnotmatch '^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$') { throw 'Creator
 if ($AppReleaseSequence -le 0) { throw 'Creator app release sequence must be positive' }
 
 $repoRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..\..'))
+
+# Fail closed on the sole OS-owned pin before creating any output or compiling.
+$sourceLock = Get-RealFile -Path (Join-Path $repoRoot 'docs/contracts/native-release-assembly.json') -Label 'Creator source contract'
+$sourceDoc = Get-Content -LiteralPath $sourceLock -Raw -Encoding UTF8 | ConvertFrom-Json
+$pin = $sourceDoc.creator_source
+if ($sourceDoc.'$schema' -cne 'prototype-ordax.native-release-assembly/2' -or
+    $pin.repository -cne 'ordaxsystems/ordax-creator' -or
+    $pin.module -cne 'github.com/ordaxsystems/ordax-creator' -or
+    $pin.publisher_authority -cne 'ordaxsystems/ordax-os' -or
+    $pin.helper_package -cne './cmd/ordax-creator-native-targets' -or
+    $pin.physical_apply_authorized -ne $false) {
+    throw 'Creator source owner or physical authorization contract mismatch'
+}
+$creatorCommit = [string]$pin.commit
+$creatorTree = [string]$pin.tree
+if ($creatorCommit -cnotmatch '^[0-9a-f]{40}$' -or $creatorTree -cnotmatch '^[0-9a-f]{40}$') {
+    throw 'Creator source lock must pin an exact lowercase Git SHA and tree'
+}
+$creatorRoot = [IO.Path]::GetFullPath($CreatorSourceDirectory)
+if (-not (Test-Path -LiteralPath $creatorRoot -PathType Container)) { throw 'Creator checkout missing' }
+if (((Get-Item -LiteralPath $creatorRoot -Force).Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+    throw 'Creator checkout may not be a symlink'
+}
+$creatorModule = Get-RealFile -Path (Join-Path $creatorRoot 'go.mod') -Label 'Creator Go module'
+if ((Get-Content -LiteralPath $creatorModule -TotalCount 1) -cne 'module github.com/ordaxsystems/ordax-creator') {
+    throw 'Creator Go module identity mismatch'
+}
+$null = Get-RealFile -Path (Join-Path $creatorRoot 'cmd/ordax-creator-launcher/main_windows.go') -Label 'Creator launcher source'
+$null = Get-RealFile -Path (Join-Path $creatorRoot 'cmd/ordax-creator-app/main_windows.go') -Label 'Creator GUI source'
+$gitRoot = & git -C $creatorRoot rev-parse --show-toplevel
+if ($LASTEXITCODE -ne 0 -or [IO.Path]::GetFullPath(([string]$gitRoot).Trim()) -cne $creatorRoot) {
+    throw 'Creator checkout must be the Git worktree root'
+}
+$gitHead = & git -C $creatorRoot rev-parse HEAD
+if ($LASTEXITCODE -ne 0 -or ([string]$gitHead).Trim() -cne $creatorCommit) {
+    throw 'Creator source Git SHA differs from OS contract'
+}
+$gitTree = & git -C $creatorRoot rev-parse 'HEAD^{tree}'
+if ($LASTEXITCODE -ne 0 -or ([string]$gitTree).Trim() -cne $creatorTree) {
+    throw 'Creator source Git tree differs from OS contract'
+}
+$gitDirty = & git -C $creatorRoot status --porcelain --untracked-files=all
+if ($LASTEXITCODE -ne 0 -or @($gitDirty).Count -ne 0) {
+    throw 'Creator source must be clean'
+}
+
 $TrustPath = Get-RealFile -Path $TrustPath -Label 'Creator public release trust'
 $OutputDirectory = Get-EmptyOutputDirectory -Path $OutputDirectory
 $trust = Get-Content -LiteralPath $TrustPath -Raw -Encoding UTF8 | ConvertFrom-Json
@@ -71,7 +118,7 @@ if ($TrustClass -eq 'canonical') {
     }
 }
 
-Push-Location (Join-Path $repoRoot 'tools/creator')
+Push-Location $creatorRoot
 try {
     go test -count=1 ./appchannel ./componentchannel ./physicalchannel ./cmd/ordax-creator-app ./cmd/ordax-creator-launcher
     if ($LASTEXITCODE -ne 0) { throw 'Creator handoff pre-build tests failed' }
@@ -143,6 +190,11 @@ if ($TrustClass -eq 'canonical') { $canonicalTrustSha = $trustSha }
 $provenance = [ordered]@{
     '$schema' = 'prototype-ordax.creator-official-candidate/2'
     source_commit = $SourceCommit
+    source_repository = 'ordaxsystems/ordax-os'
+    creator_source_repository = [string]$pin.repository
+    creator_source_commit = $creatorCommit
+    creator_source_tree = $creatorTree
+    creator_source_verified = $true
     app_version = $AppVersion
     app_release_sequence = $AppReleaseSequence
     trust_class = $TrustClass
