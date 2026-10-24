@@ -205,7 +205,7 @@ class StableRuntimeProfileTests(unittest.TestCase):
             text,
         )
         publish = text.split("publish_runtime_proof_context() {", 1)[1].split("\n}", 1)[0]
-        self.assertIn("dynamic-native-runtime", publish)
+        self.assertNotIn("dynamic-native-runtime", publish)
         self.assertIn("verified-erofs-overlay", publish)
         self.assertIn("canonical-stable-mvp", publish)
         self.assertIn("evidence_scope=development", publish)

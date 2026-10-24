@@ -29,10 +29,8 @@ class MediaRuntimeTests(unittest.TestCase):
             "pipewire-alsa", "pipewire-pulse", "webkit2gtk-4.1", "wireplumber",
         }.issubset(packages))
         launcher = (ROOT / "system/surface/bin/ordax-surface").read_text()
-        function = launcher[launcher.index("runtime_packages() {"):launcher.index("runtime_media_is_ready() {")]
-        with tempfile.TemporaryDirectory() as tmp:
-            result = subprocess.run(["sh", "-ec", function + '\nSYSTEM_ROOT=$1; runtime_packages', "test", str(ROOT / "system")], capture_output=True, text=True, check=True)
-            self.assertEqual(result.stdout.splitlines(), packages)
+        self.assertNotIn("runtime_packages() {", launcher)
+        self.assertNotIn("/sbin/apk", launcher)
 
     def test_package_manifest_rejects_shell_syntax_duplicates_and_parallel_lists(self):
         contract = {"packages_file": CONFIG.PACKAGES_FILE}
@@ -40,14 +38,10 @@ class MediaRuntimeTests(unittest.TestCase):
             root = Path(tmp)
             path = root / CONFIG.PACKAGES_FILE
             path.parent.mkdir(parents=True)
-            launcher = (ROOT / "system/surface/bin/ordax-surface").read_text()
-            function = launcher[launcher.index("runtime_packages() {"):launcher.index("runtime_media_is_ready() {")]
             for payload in ("", "gst-libav\ngst-libav\n", "gst-libav;evil\n", "gst-libav --untrusted\n", "-bad\n"):
                 path.write_text(payload)
                 with self.assertRaises(ValueError):
                     CONFIG.requested_packages(contract, root)
-                result = subprocess.run(["sh", "-ec", function + '\nSYSTEM_ROOT=$1; runtime_packages', "test", str(root / "system")], capture_output=True)
-                self.assertNotEqual(result.returncode, 0)
             path.write_text("gst-libav\n")
             with self.assertRaises(ValueError):
                 CONFIG.requested_packages({**contract, "packages": ["other"]}, root)

@@ -148,71 +148,40 @@ class SystemRuntimeContractTests(unittest.TestCase):
                     mentions = re.findall(r"\b" + re.escape(symbol) + r"\b", source)
                     self.assertGreater(len(mentions), 1, f"Unused eager Native import: {symbol}")
 
-    def test_native_graphical_runtime_is_provisioned_from_pulled_system(self):
+    def test_native_graphical_runtime_requires_verified_erofs_and_no_apk(self):
         text = SURFACE_RUNTIME.read_text(encoding="utf-8")
         self.assertIn("runtime/native-surface", text)
-        self.assertIn("run_bounded_apk()", text)
-        self.assertIn('/bin/busybox timeout -k 10 "$timeout_seconds" /sbin/apk', text)
-        self.assertIn('RUNTIME_INSTALL_TIMEOUT=${ORDAX_RUNTIME_INSTALL_TIMEOUT_SECONDS:-600}', text)
-        self.assertIn('RUNTIME_UPGRADE_TIMEOUT=${ORDAX_RUNTIME_UPGRADE_TIMEOUT_SECONDS:-120}', text)
-        self.assertIn('run_bounded_apk "$RUNTIME_INSTALL_TIMEOUT"', text)
-        self.assertIn("--keys-dir /etc/apk/keys", text)
-        self.assertIn("alpine/v3.22/main", text)
-        self.assertIn("alpine/v3.22/community", text)
-        self.assertTrue({"python3", "py3-gobject3", "gtk+3.0", "webkit2gtk-4.1"}.issubset((ROOT / "system/surface/runtime/packages.txt").read_text().splitlines()))
-        self.assertNotIn("barkery-browser", text)
-        self.assertIn("xwayland", (ROOT / "system/surface/runtime/packages.txt").read_text().splitlines())
-        self.assertIn("eudev", (ROOT / "system/surface/runtime/packages.txt").read_text().splitlines())
-        self.assertIn("libinput-udev", (ROOT / "system/surface/runtime/packages.txt").read_text().splitlines())
-        self.assertNotIn("\n        cog ", text)
-        self.assertIn("/bin/busybox chroot", text)
-        self.assertIn("mesa-dri-gallium", (ROOT / "system/surface/runtime/packages.txt").read_text().splitlines())
-        self.assertIn("$RUNTIME_ROOT/usr/bin/python3", text)
-        self.assertIn("$RUNTIME_ROOT/usr/lib/girepository-1.0/Gtk-3.0.typelib", text)
-        self.assertIn("$RUNTIME_ROOT/usr/lib/girepository-1.0/WebKit2-4.1.typelib", text)
-        self.assertIn("$RUNTIME_ROOT/usr/bin/Xwayland", text)
-        self.assertIn("$RUNTIME_ROOT/sbin/udevd", text)
-        self.assertIn("$RUNTIME_ROOT/bin/udevadm", text)
-
-    def test_stable_mvp_uses_preverified_runtime_and_never_provisions_with_apk(self):
-        text = SURFACE_RUNTIME.read_text(encoding="utf-8")
         self.assertIn('VERIFIED_RUNTIME_MODE=${ORDAX_SURFACE_RUNTIME_MODE:-}', text)
         self.assertIn('VERIFIED_RUNTIME_ROOT=${ORDAX_SURFACE_RUNTIME_ROOT:-}', text)
         self.assertIn('VERIFIED_RUNTIME_SHA256=${ORDAX_SURFACE_RUNTIME_SHA256:-}', text)
-        self.assertIn('verified-erofs-overlay', text)
-        self.assertIn('/run/ordax/runtime/native-surface/rootfs', text)
-        self.assertIn(
-            'Stable/MVP requires the preverified offline graphical runtime',
-            text,
-        )
-        ensure = text.split("ensure_runtime() {", 1)[1].split("\n}", 1)[0]
-        stable_branch = ensure.split('if [ "$DISTRIBUTION_PROFILE" = "stable-mvp" ]; then', 1)[1]
-        stable_branch = stable_branch.split("\n    fi", 1)[0]
-        self.assertNotIn("run_bounded_apk", stable_branch)
-        self.assertNotIn("install_runtime", stable_branch)
-        self.assertNotIn("upgrade_existing_runtime", stable_branch)
-        self.assertIn("runtime_is_ready", stable_branch)
+        self.assertIn('RUNTIME_ROOT=$VERIFIED_RUNTIME_ROOT', text)
+        self.assertIn("runtime_base_is_ready()", text)
+        self.assertIn("runtime_is_ready()", text)
+        self.assertIn("ensure_runtime() {", text)
+        for required in (
+            "$RUNTIME_ROOT/usr/bin/python3",
+            "$RUNTIME_ROOT/usr/lib/girepository-1.0/Gtk-3.0.typelib",
+            "$RUNTIME_ROOT/usr/lib/girepository-1.0/WebKit2-4.1.typelib",
+            "$RUNTIME_ROOT/usr/bin/Xwayland",
+            "$RUNTIME_ROOT/sbin/udevd",
+            "$RUNTIME_ROOT/bin/udevadm",
+        ):
+            self.assertIn(required, text)
+        for forbidden in (
+            "run_bounded_apk", "migrate_legacy_runtime", "install_runtime()",
+            "upgrade_existing_runtime", "LEGACY_RUNTIME_", "alpine-v3.", "/sbin/apk",
+        ):
+            self.assertNotIn(forbidden, text)
 
-    def test_existing_runtime_is_extended_without_full_reprovision(self):
+    def test_owner_and_stable_share_exact_offline_graphical_host(self):
         text = SURFACE_RUNTIME.read_text(encoding="utf-8")
-        self.assertIn("runtime_base_is_ready", text)
-        self.assertIn("upgrade_existing_runtime", text)
-        self.assertIn('run_bounded_apk "$RUNTIME_UPGRADE_TIMEOUT"', text)
-        self.assertIn("packages=$(runtime_packages)", text)
+        self.assertIn("owner-development|stable-mvp", text)
+        self.assertIn('runtime_mode=verified-erofs-overlay', text)
+        self.assertIn('evidence_scope=canonical-stable-mvp', text)
+        self.assertIn("runtime_media_is_ready()", text)
         self.assertIn("runtime_audio_is_ready()", text)
         self.assertIn("/usr/bin/wireplumber", text)
-        self.assertRegex(
-            text,
-            r"/bin/busybox sh /srv/ordax-system/surface/runtime/audio-session\.sh[ \t]*\\\n[ \t]*--runtime-dir /run/ordax-surface/audio --",
-        )
-        self.assertIn("extending existing graphical runtime with WebKit browser host support", text)
-        self.assertIn("RUNTIME_ID=alpine-v3.22-cage-webkitgtk-v1", text)
-        self.assertIn("LEGACY_RUNTIME_ID=alpine-v3.22-cage-barkery-v1", text)
-        self.assertIn("legacy_runtime_can_seed", text)
-        self.assertIn("migrate_legacy_runtime", text)
-        self.assertIn('/bin/busybox cp -a "$LEGACY_RUNTIME_ROOT" "$STAGING_DIR/rootfs"', text)
-        self.assertIn("seeding WebKit runtime from $LEGACY_RUNTIME_ID", text)
-        self.assertIn("commit_staged_runtime", text)
+        self.assertIn("--runtime-dir /run/ordax-surface/audio --", text)
 
     def test_native_browser_is_configured_for_local_shared_surface(self):
         text = SURFACE_RUNTIME.read_text(encoding="utf-8")
@@ -617,7 +586,7 @@ class SystemRuntimeContractTests(unittest.TestCase):
         self.assertIn("reap_stale_runtime_processes()", text)
         self.assertIn("clear_stale_runtime_mounts()", text)
         self.assertIn('root_target=$(/bin/busybox readlink "$root_link"', text)
-        self.assertIn('"$RUNTIME_ROOT"|"$LEGACY_RUNTIME_ROOT"', text)
+        self.assertIn('[ "$root_target" = "$RUNTIME_ROOT" ]', text)
         self.assertIn('stale_pids=$(runtime_root_processes) || return 1', text)
         self.assertIn('runtime processes remain after bounded SIGKILL; refusing mount teardown', text)
         self.assertIn('cleanup refused; runtime chroot remains active', text)
