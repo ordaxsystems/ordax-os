@@ -27,7 +27,7 @@ jobs:
           persist-credentials: false
       - name: Verify pinned source contract and isolated local source fixtures
         run: python3 -m unittest discover -s tests -p 'test_external_site_source.py' -v
-      - name: Fetch exactly the pinned independent Site revision and compose Web login
+      - name: Build both portal and Web login from one pinned independent Site revision
         run: |
           python3 - <<'PY'
           import importlib.util
@@ -47,7 +47,14 @@ jobs:
           assert (checkout / "site/login/index.html").is_file()
           build = module("tools/vercel/build.py", "_ordax_web_site_ci")
           with tempfile.TemporaryDirectory() as temporary:
-              build.OUTPUT = Path(temporary)
+              build.OUTPUT = Path(temporary) / "public"
+              build.build_public("1" * 40)
+              portal = json.loads((build.OUTPUT / "public-site-manifest.json").read_text())
+              assert portal["artifact_class"] == "public-site"
+              assert portal["source_commit"] == pinned
+              assert portal["catalog_status"] == "empty"
+              assert (build.OUTPUT / "login/index.html").is_file()
+              build.OUTPUT = Path(temporary) / "web"
               build.compose_web_identity_bootstrap("1" * 40)
               build.write_web_deployment_manifest("1" * 40)
               manifest = json.loads((build.OUTPUT / "web-deployment-manifest.json").read_text())
@@ -57,5 +64,5 @@ jobs:
               assert (build.OUTPUT / "login/index.html").is_file()
               assert all((build.OUTPUT / name).is_file() for name in build.WEB_IDENTITY_SUPPORT_FILES)
               assert manifest["files"]
-          print(f"INDEPENDENT_SITE_WEB_LOGIN=PASS source={pinned}")
+          print(f"INDEPENDENT_SITE_BOTH_CONSUMERS=PASS source={pinned}")
           PY
