@@ -34,7 +34,7 @@ class CreatorDisposableExternalSourceTests(unittest.TestCase):
         self.assertIn("--contract docs/contracts/physical-media.json", w)
         self.assertIn("PHYSICAL_WRITE_STATUS=blocked", w)
         self.assertIn("GPT_FILESYSTEM_PROOF=NO", w)
-        self.assertIn("'physical_write_authorized'\] is False", w.replace('proof["physical_write_authorized"]',"'physical_write_authorized']"))
+        self.assertIn('assert proof["physical_write_authorized"] is False', w)
         self.assertIn("RAW_IMAGE_EXISTS_ONLY_IN_EPHEMERAL_RUNNER=YES", w)
         self.assertIn("rm -f \"$RUNNER_TEMP/ordax-proof/ordax-disposable.raw\"", w)
         self.assertIn("permissions:\n  contents: read", w)
