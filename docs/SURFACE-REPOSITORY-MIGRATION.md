@@ -80,6 +80,37 @@ substitui a prova de hardware físico. O status `canonical` na candidata
 **não** autoriza promoção Stable, gravação física ou atualizações no USB
 existente. Nenhum desses gates pode ser ignorado no merge.
 
+## Reconciliação pós-cutover — PRs históricas abertas (auditoria de 24/10/2026)
+
+Este inventário documenta **PRs ainda abertas no momento da inspeção**, não representa backlog canônico, aprovação de produto nem uma segunda autoridade de código. Fonte de verdade: lista de PRs e caminhos alterados no próprio GitHub; contrato operacional de source: `docs/contracts/surface-source.json`. Revalidar HEAD/estado de cada PR antes de qualquer ação, pois outros agentes continuam avançando a `main`.
+
+**Reconciliação concluída com evidência reproduzível.** A [Surface #4](https://github.com/ordaxsystems/ordax-surface/pull/4) passou e integrou o CI contra o OS atual, preservando a comparação histórica de 157 blobs; [Surface #5](https://github.com/ordaxsystems/ordax-surface/pull/5) protege sincronização Native e dimensão visual compensada por zoom; [Surface #6](https://github.com/ordaxsystems/ordax-surface/pull/6) protege escala, wallpaper e painel de notificações. O [Chromium Native da #6](https://github.com/ordaxsystems/ordax-surface/actions/runs/40066103180) aprovou **1280×800, 390×844, 320×568 e 844×390**, inclusive `notificationsFitViewport`/`notificationsNoHorizontalOverflow`; a [CI pós-merge da Surface #6](https://github.com/ordaxsystems/ordax-surface/actions/runs/40066212669) também passou. Foram encerradas **sem merge no OS** as PRs antigas [#2017](https://github.com/ordaxsystems/ordax-os/pull/2017), [#2023](https://github.com/ordaxsystems/ordax-os/pull/2023), [#2024](https://github.com/ordaxsystems/ordax-os/pull/2024), [#2026](https://github.com/ordaxsystems/ordax-os/pull/2026) e [#2030](https://github.com/ordaxsystems/ordax-os/pull/2030), cada uma com justificativa no histórico.
+
+**PRs mistas abertas que ainda alteram `system/surface/ui/` ou `system/surface/workspace/`:**
+
+| PRs do OS | Domínio a conciliar | Decisão de ownership; não constitui aprovação |
+| --- | --- | --- |
+| [#2135](https://github.com/ordaxsystems/ordax-os/pull/2135) | Recuperação de Conta após reconexão | Network tray visual → Surface; status, sessão, políticas e composição Native → OS. Não reintroduzir poll paralelo. |
+| [#2040](https://github.com/ordaxsystems/ordax-os/pull/2040) | Runtime Desktop/atualização | Apresentação do progresso → Surface; atualização, integridade e autoridade do host → OS/Runtime conforme seus contratos. |
+| [#2035](https://github.com/ordaxsystems/ordax-os/pull/2035) | Permissões MCP do dispositivo | UI de Configurações → Surface; grants, consentimento, validação e enforcement → OS/Platform. Jamais transportar a tela sem autoridade real. |
+| [#2016](https://github.com/ordaxsystems/ordax-os/pull/2016) | Display Native/Web | Tipagem visual já equivalente no owner; host Display, fail-closed e versão devem ser analisados no OS antes de qualquer encerramento. |
+| [#1983](https://github.com/ordaxsystems/ordax-os/pull/1983) | Playground público e Meridian | Site owner e Surface owner separados; não versionar snapshot gerado como source visual no OS. |
+| [#1980](https://github.com/ordaxsystems/ordax-os/pull/1980) | Conta e First Run | Estado visual → Surface; identidade, persistência e auth/recovery → OS/Platform. |
+| [#1979](https://github.com/ordaxsystems/ordax-os/pull/1979) | Estado de Store por Space | Workspace visual → Surface; catálogo, grants e estado autorizado → serviços/contratos do OS. |
+| [#1971](https://github.com/ordaxsystems/ordax-os/pull/1971) | Referências de apps por Profile/Space | UI Workspace → Surface; seleção, associações, contratos e dados → OS. |
+| [#1927](https://github.com/ordaxsystems/ordax-os/pull/1927) | First Run retomável | Etapas/UI → Surface; checkpoint durável, identidade e integridade do recovery → OS. |
+| [#1907](https://github.com/ordaxsystems/ordax-os/pull/1907) | Administração de membros de Space | Componentes de gestão → Surface; capability/ação autorizada e idempotência → OS/Platform. |
+| [#1858](https://github.com/ordaxsystems/ordax-os/pull/1858) | Jornada inicial Meridian | UI/estilos → Surface; auth, host Native e serviços First Run → OS. |
+| [#1852](https://github.com/ordaxsystems/ordax-os/pull/1852) | Visibilidade de senha e erro de login | Apresentação/feedback → Surface; sem alterar segurança e políticas de auth no OS/Platform. |
+
+**PRs sem arquivos visuais que ainda citam Surface:** [#2028](https://github.com/ordaxsystems/ordax-os/pull/2028), [#2018](https://github.com/ordaxsystems/ordax-os/pull/2018), [#2014](https://github.com/ordaxsystems/ordax-os/pull/2014) e [#1850](https://github.com/ordaxsystems/ordax-os/pull/1850) permanecem sob avaliação dos respectivos owners. Não encerrar ou transplantar apenas por menção à Surface.
+
+**Regra de integração:** PR antiga que volte a rastrear visual source no OS não deve ser mesclada; preservar seu conteúdo para revisão e dividi-lo por responsabilidades em PRs novas apenas quando houver dependências e gates satisfeitos. O stage verificado pode conter esses bytes **somente como saída descartável/release**. Se a funcionalidade envolver permissão, identidade, persistência ou recuperação, a Surface isolada não pode atestar sua implementação; o OS deve validar as capabilities sem simular autoridade. Não fechar unilateralmente PRs com correções de domínio ainda não avaliadas.
+
+**Site:** [Surface issue #3](https://github.com/ordaxsystems/ordax-surface/issues/3) solicita publicação oficial de brand/preview; o [Site #1](https://github.com/ordaxsystems/ordax-site/pull/1) consome um snapshot **de migração não oficial**. A geração histórica em `tools/public-site/surface_snapshot.mjs` depende de composição SSR e catálogos do OS e escreve em `sites/public`; copiá-la diretamente para o owner Surface, declarar a saída `official` ou publicar bytes históricos sem proveniência não resolve a dependência. Primeiro estabelecer um artefato determinístico, com contrato de apresentação read-only, dependências explicitadas, hashes e cadeia de publicação verificável. Nada disso autoriza deploy do Site, firmware ou Stable.
+
+**Lock:** a revisão visual no contrato do OS permanece no SHA de source validado para distribuição, não na ponta móvel da `ordax-surface/main`. PRs #4/#5/#6 acrescentaram CI, documentação e regressões, sem alterar o conteúdo visual distribuído; não modificar o lock para “sincronizar números” sem uma atualização real do source.
+
 ## Critérios de aceite do cutover
 
 Os itens abaixo documentam os **gates exigidos na migração** e não são autorizações de pular testes futuros, publicar Stable ou gravar mídia.
@@ -89,7 +120,7 @@ Os itens abaixo documentam os **gates exigidos na migração** e não são autor
 3. Para `owner-development`, preservar a transação do **Supervisor**: provisionar o source imutável como parte do mesmo candidato e validá-lo antes do checkout/health; em falha de rede, continuar com a release conhecida como boa. O Supervisor não deve buscar `main` da Surface independentemente da versão travada no OS.
 4. Para `stable-mvp`, inserir bytes da interface no bundle oficial verificado e assinado; não exigir Git ou rede na inicialização do dispositivo. O source SHA da Surface deve ficar na evidência/proveniência da release, mas não substituir a identidade do OS.
 5. Provar em CI o uso de uma árvore `ordax-os` **sem `system/surface/ui` nem `system/surface/workspace` versionados**: typecheck/build Web, execução Native, inicialização real QEMU com heartbeat da Surface e falha/rollback para a última release saudável.
-6. Reconciliar as PRs concorrentes de UI sobre a **Surface owner**. `ordax-os#2026` e tipagem de `#2016` já têm equivalentes no source; `#2030` colide com contrato atual de CSS Native e demanda tratamento no Web composition; `#2024` mudou de token de tamanho e não se aplica cegamente; primeiras execuções de CI de `ordax-surface#2` demonstraram a incompatibilidade.
+6. Reconciliar PRs concorrentes de UI **no owner Surface**, sem fundir o histórico visual de volta ao OS. As propostas `ordax-os#2017`, `#2023`, `#2024`, `#2026` e `#2030` foram posteriormente comprovadas como atendidas ou substituídas por contratos atuais; o Chromium real validou notificações em quatro resoluções. PRs mistas de produto/serviços continuam exigindo avaliação separada de cada owner; a validação da Surface não equivale a aprovar suas alterações de domínio.
 7. Excluir os dois diretórios visuais *tracked* do OS **somente depois** das provas anteriores, atualizar `docs/contracts/repository-ownership.json`, `docs/REPOSITORY-OWNERSHIP.md`, `docs/contracts/module-boundaries.json`, os builders, todos os checks e caminhos de deploy. Rejeitar artefatos que mantenham dois sources visuais concorrentes.
 8. Integrar PRs necessárias apenas com CI aprovada e evidência QEMU/rollback, preferindo merge commit, sem force-push e sem tocar USB/discos físicos.
 
@@ -110,4 +141,6 @@ Nenhuma etapa permite alteração de kernel, Buildroot, partições, disco físi
 
 - [Surface source e histórico](https://github.com/ordaxsystems/ordax-surface/pull/1)
 - [Source owner CI e evolução](https://github.com/ordaxsystems/ordax-surface/pull/2)
-- [Consumidor no OS — integração ainda candidata](https://github.com/ordaxsystems/ordax-os/pull/2192)
+- [Consumidor no OS — integração concluída](https://github.com/ordaxsystems/ordax-os/pull/2192)
+- [Cutover visual na main do OS](https://github.com/ordaxsystems/ordax-os/pull/2198)
+- [Workflow CI pós-cutover](https://github.com/ordaxsystems/ordax-os/pull/2209)
