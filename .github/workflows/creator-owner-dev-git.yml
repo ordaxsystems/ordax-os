@@ -39,11 +39,17 @@ on:
       # not only on the subsequent main push (when the rollback risk is live).
       # Keep this scoped to the actual cold-boot composition entrypoints.
       - 'system/supervisor'
+      - 'docs/contracts/surface-source.json'
+      - 'tools/surface-source/**'
+      - 'system/surface/ui/**'
+      - 'system/surface/workspace/**'
+      - '.github/actions/prepare-verified-surface/**'
       - 'system/composition/native/main.mjs'
       - 'system/adapters/native/update-runtime.mjs'
       - 'tests/test_owner_usb_durable_power_transition.py'
       - 'tests/test_owner_usb_superblock_seal.py'
       - 'system/surface/bin/ordax-surface'
+      - 'tests/test_owner_surface_launcher_identity.py'
       - 'system/surface/runtime/ordax_browser_host.py'
       - 'tests/test_owner_qemu_offline_handoff.py'
       - 'tools/creator/verify_owner_dev_offline_runtime.py'
@@ -75,6 +81,9 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
 
+      - name: Prepare pinned Surface from independent visual owner for exact Owner image
+        uses: ./.github/actions/prepare-verified-surface
+
       - name: Set up Python
         uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
@@ -105,7 +114,7 @@ jobs:
           python -m unittest tests.test_owner_dev_bundle_verifier -v
           python -m unittest tests.test_owner_dev_helper_storage_profile -v
           python -m unittest tests.test_owner_published_release -v
-          python -m unittest tests.test_owner_dev_offline_runtime_release_gate -v
+          python -m unittest tests.test_owner_dev_offline_runtime_release_gate tests.test_owner_surface_offline_preseed tests.test_owner_surface_launcher_identity -v
           python -m unittest tests.test_owner_qemu_offline_handoff -v
           python -m unittest tests.test_first_run_contract.FirstRunContractTests.test_native_first_run_completion_survives_fresh_native_process -v
           node --test tests/test_surface_boot_screen_runtime.mjs
@@ -129,7 +138,7 @@ jobs:
             gpg gpg-agent \
             meson ninja-build gperf libcap-dev libmount-dev libblkid-dev \
             liblz4-dev libzstd-dev liblzma-dev libpcre2-dev \
-            gdisk dosfstools e2fsprogs mtools util-linux proot erofs-utils qemu-system-x86
+            gdisk dosfstools e2fsprogs mtools util-linux proot erofs-utils qemu-system-x86 busybox
           python -m pip install --disable-pip-version-check --no-cache-dir jinja2 pyelftools
 
       - name: Prove Owner USB ext4 alias sealing in isolated mount namespace
@@ -216,9 +225,19 @@ jobs:
           sudo -E python bootstrap/dev-base/build.py \
             --kernel-modules "out/kernel/kernel-modules-$ORDAX_KERNEL_VERSION.tar" \
             --out-dir out/dev-base
-          rootfs=out/dev-base/rootfs
+          rootfs="$(realpath out/dev-base/rootfs)"
           sudo mkdir -p "$rootfs/workspace" "$rootfs/state"
           sudo chown -R "$(id -u):$(id -g)" "$rootfs/workspace" "$rootfs/state"
+          # The Creator's ordax-pull must seed from a CLEAN Git authority.
+          # Hydrated UI is test-only, never an untracked part of Git source.
+          for part in ui workspace; do
+            src="$RUNNER_TEMP/ordax-verified-surface-ci/system/surface/$part"
+            target="system/surface/$part"
+            test -d "$src" && diff -qr "$src" "$target"
+            rm -rf "$target"
+            test ! -e "$target"
+          done
+          test -z "$(git status --porcelain)"
           ORDAX_WORKTREE="$rootfs/workspace/ordax" \
           ORDAX_STATE_DIR="$rootfs/state/ordax" \
           ORDAX_UPDATE_RUN_DIR="$RUNNER_TEMP/ordax-owner-dev-seed-run" \
@@ -227,13 +246,33 @@ jobs:
           ORDAX_REPO_BRANCH=main \
             /bin/sh bootstrap/dev-base/ordax-pull \
               --seed-from-local "$GITHUB_WORKSPACE" "$ORDAX_OWNER_SOURCE_COMMIT"
+          # The same verified visual bytes may be reused for subsequent
+          # disposable CI browser tests; no file is committed to OS Git or
+          # copied into the sparse Owner checkout.
+          for part in ui workspace; do
+            cp -a "$RUNNER_TEMP/ordax-verified-surface-ci/system/surface/$part" "system/surface/$part"
+          done
           test "$(git -C "$rootfs/workspace/ordax" rev-parse HEAD)" = "$ORDAX_OWNER_SOURCE_COMMIT"
           test "$(git -C "$rootfs/workspace/ordax" symbolic-ref --quiet --short HEAD)" = main
           test "$(git -C "$rootfs/workspace/ordax" remote get-url origin)" = 'https://github.com/ordaxsystems/ordax-os.git'
           test -z "$(git -C "$rootfs/workspace/ordax" status --porcelain)"
           test -x "$rootfs/workspace/ordax/system/entrypoint"
           test "$(cat "$rootfs/state/ordax/current-commit")" = "$ORDAX_OWNER_SOURCE_COMMIT"
+          # Match root ownership before sudo verification of the pinned
+          # Git source and immutable preseed slot (Git safe.directory).
           sudo chown -R root:root "$rootfs/workspace" "$rootfs/state"
+          # First Run must work without network. Put exactly one verified
+          # visual source in the Supervisor's immutable release cache on
+          # the Creator build host, NEVER a second Git tracked UI copy.
+          sudo -E python3 tools/surface-source/preseed_owner.py \
+            --repo-root "$GITHUB_WORKSPACE" \
+            --assembled-root "$RUNNER_TEMP/ordax-verified-surface-ci" \
+            --rootfs "$rootfs" \
+            --os-commit "$ORDAX_OWNER_SOURCE_COMMIT"
+          sudo -E /bin/sh system/services/surface-source/owner-stage.sh ready \
+            "$rootfs/workspace/ordax" "$ORDAX_OWNER_SOURCE_COMMIT" \
+            "$rootfs/state/ordax/releases/$ORDAX_OWNER_SOURCE_COMMIT"
+          echo 'ORDAX_OWNER_FIRST_BOOT_EXTERNAL_SURFACE_OFFLINE_READY=YES'
           sudo touch "$rootfs/dev/null"
           cleanup_dev_null() {
             sudo rm -f "$rootfs/dev/null"

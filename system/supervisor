@@ -1200,6 +1200,7 @@ start_surface_from_system() {
     fi
 
     ORDAX_SYSTEM_ROOT="$surface_system_root" \
+    ORDAX_WORKTREE="$WORKTREE" \
     ORDAX_DISTRIBUTION_PROFILE="$DISTRIBUTION_PROFILE" \
     ORDAX_PRODUCT_MODE="$PRODUCT_MODE" \
     ORDAX_SOURCE_SHA="$surface_source_sha" \

@@ -153,6 +153,9 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Prepare pinned Surface source in disposable CI checkout
+        uses: ./.github/actions/prepare-verified-surface
+
       - name: Prove six-app portable source boundaries
         run: |
           set -euo pipefail

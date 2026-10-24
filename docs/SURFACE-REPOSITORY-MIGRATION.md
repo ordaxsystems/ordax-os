@@ -1,6 +1,6 @@
 # Migração OrdaX Surface — rastreamento da separação
 
-**Estado:** `integration-candidate`. O cutover **não foi promovido**.
+**Estado no `ordax-os/main`:** `integration-candidate` até o merge da PR #2198. **Neste branch draft de cutover:** contrato `canonical`, fontes visuais antigas removidas somente nesta árvore Git. Não houve promoção física ou Stable.
 **SSOT da revisão externa:** [`docs/contracts/surface-source.json`](contracts/surface-source.json). Não repetir a revisão da Surface neste documento ou criar uma segunda resolução de versão.
 
 ## Decisão de ownership
@@ -8,7 +8,7 @@
 - `ordaxsystems/ordax-surface`: fonte de componentes e recursos visuais `system/surface/ui/` e `system/surface/workspace/`; mantenha layout e import paths durante a transição.
 - `ordaxsystems/ordax-os`: `system/surface/runtime/`, `system/surface/bin/`, `system/surface/entrypoint`, `system/composition/`, `system/adapters/`, `system/services/`, `system/contracts/`, Guardian, Supervisor, boot e distribuição.
 - `ordaxsystems/ordax-apps`: aplicativos first-party removíveis; nenhuma cópia da Surface.
-- **Contrato de ownership oficial ainda não alterado:** `docs/contracts/repository-ownership.json`. Atualizá-lo apenas junto à remoção do último source visual versionado no OS, após a validação da entrega de release e rollback.
+- **Ownership no candidato #2198:** `docs/contracts/repository-ownership.json` atribui a visual ao repositório `ordax-surface` e o host Native ao OS; só passará a reger a `main` após todos os gates.
 
 ## Evidências obtidas
 
@@ -18,7 +18,7 @@
 4. `ordax-os#2192` introduz lock de source, materialização de checkout exato, teste de recusa de mutações/symlinks/revisão incorreta e prova de build Web+Native com a fonte externa.
 5. O consumer em CI remove as árvores antigas **somente em checkout descartável**, materializa a versão externa e monta as mesmas interfaces esperadas por `system/composition`. A saída do empacotador canônico `tools/release-bundle` é gate desta PR.
 
-## Montagem canônica de release em validação (PR #2194)
+## Montagem canônica de release integrada (PR #2194)
 
 O novo `tools/surface-source/assemble.py` prepara uma árvore **descartável**
 `system/` com uma única cópia dos arquivos visuais, cuja fonte e revisão
@@ -34,10 +34,10 @@ de acrescentar os **mesmos dois helpers Native já existentes**. Não existe
 um segundo empacotador, segundo host, segundo canal de atualização ou
 checkout de UI na inicialização do dispositivo.
 
-Essa evolução **ainda não altera** o Supervisor Owner/Development, nem
-comprova cold-health, QEMU ou rollback. O source visual antigo continua
-rastreado no OS até a prova de boot sem essa cópia e a reconciliação
-do ownership formal no cutover. O pipeline Native oficial exige validação
+A PR #2194 **isoladamente** não alterou o Supervisor Owner/Development.
+O trabalho posterior #2195 prepara o stage e rollback do Owner; a PR draft
+#2198 remove a visual da árvore rastreada. A `main` permanece com a
+UI antiga enquanto não forem aprovados o QEMU Owner offline e demais gates. O pipeline Native oficial exige validação
 CI antes de integração dessa etapa.
 
 ## Supervisor Owner/Development — preparação fail-closed (PR #2195)
@@ -55,13 +55,38 @@ continua pertencendo a `ordax-pull` e à saúde do Supervisor existente.
 O Supervisor, quando o lock estiver em `canonical`, exige um slot
 preparado para o SHA exato do OS com receipt do commit visual antes de
 iniciar/reiniciar a Surface, sem fallback para a UI antiga. Com o lock
-`integration-candidate` atual, o comportamento antigo permanece;
+`integration-candidate` ainda presente na `main` pré-cutover, o comportamento antigo permanece;
 portanto, é possível distribuir esta capacidade de staging **antes**
 do cutover e remover as cópias do OS numa etapa posterior.
 
 Limite desta PR: a prova integrada de Owner update/rollback com checkout
 efetivamente sem árvores visuais, boot a frio e hooks de Guardian ainda
 é gate obrigatório; testes Git isolados não substituem a prova do dispositivo.
+
+## Candidata de cutover — SSOT visual e primeiro boot offline (#2198)
+
+A branch draft #2198 remove os **157 arquivos visuais rastreados**
+em `system/surface/ui` e `system/surface/workspace`, mantendo os executáveis
+Native, host, composições e contratos do OS. Um único commit imutável da Surface
+é a fonte de apresentação. O mesmo assembler validado alimenta builds
+Web/Native, release assinada e verificadores CI, sem Git espelhado no OS.
+
+A primeira inicialização Owner/Development **não pode depender de GitHub**,
+inclusive antes do fim do First Run. Por isso o Creator, ao preparar a imagem
+descartável, executa `tools/surface-source/preseed_owner.py` sobre a árvore
+já verificada do assembler. Essa etapa pré-semeia o slot canônico do
+Supervisor em `/state/ordax/releases/<os-commit>`, com o OS SHA, a revisão
+visual, uma lista completa de SHA-256 e marcador de ativação. O checkout
+`/workspace/ordax` segue limpo e sem UI rastreada; os arquivos visuais
+são bytes de release, **não** uma segunda fonte Git.
+
+Os gates desta candidata são QEMU Owner/Development realmente offline
+com primeiro boot, framebuffer/WebKit e saúde; QEMU Stable/Portable com
+fallback da release anterior; regressões Foundation/Web/Native; integridade
+do cache; e revisão de concorrência com Creator e Site. Nada disso
+substitui a prova de hardware físico. O status `canonical` na candidata
+**não** autoriza promoção Stable, gravação física ou atualizações no USB
+existente. Nenhum desses gates pode ser ignorado no merge.
 
 ## Falta para remover a implementação antiga
 

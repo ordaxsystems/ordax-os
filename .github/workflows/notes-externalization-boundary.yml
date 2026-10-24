@@ -53,6 +53,9 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Prepare verified Surface from external owner for disposable CI
+        uses: ./.github/actions/prepare-verified-surface
+
       - name: Prove remove-first Gate A
         run: |
           set -euo pipefail
