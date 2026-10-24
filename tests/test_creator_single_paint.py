@@ -1,10 +1,16 @@
 """Regression for Creator single paint ownership and flicker-free redraw."""
 from pathlib import Path
+import os
 import re
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
-APP = ROOT / "tools/creator/cmd/ordax-creator-app"
+# The external pinned source is authoritative during Creator UX CI.
+# The offline OS Foundation still checks the tracked old copy until C6 deletion
+# replaces the remaining source/physical-authorization consumers.
+APP = (Path(os.environ["ORDAX_CREATOR_NATIVE_SOURCE"]) / "cmd/ordax-creator-app"
+       if os.environ.get("ORDAX_CREATOR_NATIVE_SOURCE")
+       else ROOT / "tools/creator/cmd/ordax-creator-app")
 
 
 class CreatorSinglePaintTests(unittest.TestCase):
