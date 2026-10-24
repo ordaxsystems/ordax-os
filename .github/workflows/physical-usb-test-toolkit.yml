@@ -5,7 +5,8 @@ on:
     branches: [main]
     paths:
       - 'tools/creator/**'
-()=>testTrigger+"\n      - 'tests/test_portable_windows_gpt_idempotence.py'"
+      - 'tests/test_owner_dev_helper_storage_profile.py'
+      - 'tests/test_portable_windows_gpt_idempotence.py'
       - '.github/workflows/physical-usb-test-toolkit.yml'
       - '.github/actions/resolve-creator-source/**'
       - 'docs/contracts/native-release-assembly.json'
@@ -13,7 +14,8 @@ on:
   pull_request:
     paths:
       - 'tools/creator/**'
-()=>testTrigger+"\n      - 'tests/test_portable_windows_gpt_idempotence.py'"
+      - 'tests/test_owner_dev_helper_storage_profile.py'
+      - 'tests/test_portable_windows_gpt_idempotence.py'
       - '.github/workflows/physical-usb-test-toolkit.yml'
       - '.github/actions/resolve-creator-source/**'
       - 'docs/contracts/native-release-assembly.json'
