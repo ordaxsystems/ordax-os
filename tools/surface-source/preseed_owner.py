@@ -97,6 +97,7 @@ def preseed(repo: Path, assembled: Path, rootfs: Path, sha: str) -> dict:
     try:
         shutil.copytree(source, stage / "system", symlinks=False)
         lines = []
+        fingerprint = hashlib.sha256()
         count = 0
         for visual in VISUALS:
             folder = stage / visual
@@ -109,10 +110,15 @@ def preseed(repo: Path, assembled: Path, rootfs: Path, sha: str) -> dict:
                 name = item.relative_to(stage).as_posix()
                 if "\n" in name or "\r" in name or "\\" in name:
                     raise PreseedError("unsupported visual filename")
-                lines.append(f"{hashlib.sha256(item.read_bytes()).hexdigest()}  {name}\n")
+                payload_digest = hashlib.sha256(item.read_bytes()).digest()
+                fingerprint.update(name.encode("utf-8") + b"\0")
+                fingerprint.update(payload_digest)
+                lines.append(f"{payload_digest.hex()}  {name}\n")
                 count += 1
         if count != receipt.get("visual_file_count"):
             raise PreseedError("visual file count differs from verified pinned source")
+        if fingerprint.hexdigest() != receipt.get("visual_source_sha256"):
+            raise PreseedError("visual bytes differ from the verified pinned source fingerprint")
         (stage / ".surface-file-hashes").write_text("".join(lines), encoding="utf-8")
         (stage / ".sha").write_text(sha + "\n", encoding="ascii")
         (stage / ".surface-source-sha").write_text(lock["source_commit"] + "\n", encoding="ascii")

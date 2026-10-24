@@ -2,6 +2,7 @@
 """Offline proof of Creator preseeded, immutable Owner Surface slot."""
 
 import importlib.util
+import hashlib
 import json
 from pathlib import Path
 import shutil
@@ -62,12 +63,23 @@ class OwnerOfflineSurfacePreseedTests(unittest.TestCase):
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(value, encoding="utf-8")
 
+    def fingerprint(self):
+        result = hashlib.sha256()
+        for folder in ("system/surface/ui", "system/surface/workspace"):
+            for path in sorted((self.assembly / folder).rglob("*")):
+                if path.is_file():
+                    relative = path.relative_to(self.assembly).as_posix()
+                    result.update(relative.encode("utf-8") + b"\0")
+                    result.update(hashlib.sha256(path.read_bytes()).digest())
+        return result.hexdigest()
+
     def make_receipt(self, **overrides):
         receipt = {
             "os_commit": self.sha,
             "surface_source_commit": self.surface_sha,
             "surface_source_repository": "ordaxsystems/ordax-surface",
             "visual_file_count": 2,
+            "visual_source_sha256": self.fingerprint(),
             "old_os_visual_source_packaged": False,
         }
         receipt.update(overrides)
@@ -93,6 +105,12 @@ class OwnerOfflineSurfacePreseedTests(unittest.TestCase):
         with self.assertRaises(OWNER.PreseedError):
             OWNER.preseed(self.repo, self.assembly, self.rootfs, "f" * 40)
         self.make_receipt(surface_source_commit="f" * 40)
+        with self.assertRaises(OWNER.PreseedError):
+            OWNER.preseed(self.repo, self.assembly, self.rootfs, self.sha)
+        self.assertFalse((self.rootfs / "state/ordax/releases" / self.sha).exists())
+
+    def test_rejects_tampered_visual_bytes_even_when_receipt_shas_match(self):
+        self.write(self.assembly / "system/surface/ui/surface.mjs", "changed after verified source staging\n")
         with self.assertRaises(OWNER.PreseedError):
             OWNER.preseed(self.repo, self.assembly, self.rootfs, self.sha)
         self.assertFalse((self.rootfs / "state/ordax/releases" / self.sha).exists())
