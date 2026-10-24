@@ -72,18 +72,25 @@ def clean_output() -> None:
     OUTPUT.parent.mkdir(parents=True, exist_ok=True)
 
 
+def build_independent_site_candidate(destination: Path) -> str:
+    """Invoke the sole Site-owned builder against the exact pinned commit."""
+    checkout, site_commit = load_site_source_resolver()()
+    builder = checkout / "scripts/build.py"
+    lock = checkout / "contracts/migration-artifact-lock.json"
+    run(sys.executable, str(builder), "build",
+        "--source-commit", site_commit,
+        "--migration-lock", str(lock),
+        "--public-origin", PUBLIC_ORIGIN,
+        "--out", str(destination))
+    run(sys.executable, str(builder), "verify", "--out", str(destination))
+    return site_commit
+
+
 def build_public(source_commit: str) -> None:
-    run(sys.executable, "tools/public-site/build.py", "check")
-    run(
-        sys.executable,
-        "tools/public-site/build.py",
-        "build",
-        "--source-commit",
-        source_commit,
-        "--out-dir",
-        str(OUTPUT),
-    )
-    run(sys.executable, "tools/public-site/build.py", "verify", "--out-dir", str(OUTPUT))
+    # The Vercel account gateway stays in OS; all static Site output now
+    # belongs to the independent Site builder. No local portal fallback.
+    del source_commit
+    build_independent_site_candidate(OUTPUT)
 
 
 def copy_unique(source: Path, destination: Path) -> None:
@@ -111,18 +118,9 @@ def compose_web_identity_bootstrap(source_commit: str) -> None:
     """
     del source_commit
     # No private OS copy of the Site renderer, CSS compiler or HTML is used.
-    resolve = load_site_source_resolver()
-    checkout, site_commit = resolve()
-    site_builder = checkout / "scripts/build.py"
-    lock = checkout / "contracts/migration-artifact-lock.json"
     with tempfile.TemporaryDirectory(prefix=".ordax-web-site-", dir=ROOT / "out") as tmp:
         candidate = Path(tmp) / "site"
-        run(sys.executable, str(site_builder), "build",
-            "--source-commit", site_commit,
-            "--migration-lock", str(lock),
-            "--public-origin", PUBLIC_ORIGIN,
-            "--out", str(candidate))
-        run(sys.executable, str(site_builder), "verify", "--out", str(candidate))
+        build_independent_site_candidate(candidate)
         for relative in WEB_IDENTITY_SUPPORT_FILES:
             copy_unique(candidate / relative, OUTPUT / relative)
         login_source = candidate / "login/index.html"
