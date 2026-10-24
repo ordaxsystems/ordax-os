@@ -48,7 +48,7 @@ jobs:
           set -euo pipefail
           /bin/sh -n system/supervisor
           /bin/sh -n system/services/surface-source/owner-stage.sh
-          python -m unittest tests.test_owner_surface_source_staging -v
+          python -m unittest tests.test_owner_surface_source_staging tests.test_owner_surface_offline_preseed -v
 
       - name: Verify existing Supervisor rollback and update contracts
         run: |
