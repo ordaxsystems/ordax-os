@@ -10,8 +10,8 @@ CONTRACT=ROOT/"docs/contracts/native-release-assembly.json"
 class CreatorDevReleaseGate(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        self.text=WORKFLOW.read_text(encoding="utf-8")
-        self.source=json.loads(CONTRACT.read_text(encoding="utf-8"))["creator_source"]
+        cls.text=WORKFLOW.read_text(encoding="utf-8")
+        cls.source=json.loads(CONTRACT.read_text(encoding="utf-8"))["creator_source"]
 
     def test_manual_only_until_external_source_cutover(self):
         triggers=self.text.split("on:\n",1)[1].split("\npermissions:",1)[0]
