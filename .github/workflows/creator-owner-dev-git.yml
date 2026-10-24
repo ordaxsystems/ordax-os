@@ -227,6 +227,16 @@ jobs:
           rootfs=out/dev-base/rootfs
           sudo mkdir -p "$rootfs/workspace" "$rootfs/state"
           sudo chown -R "$(id -u):$(id -g)" "$rootfs/workspace" "$rootfs/state"
+          # The Creator's ordax-pull must seed from a CLEAN Git authority.
+          # Hydrated UI is test-only, never an untracked part of Git source.
+          for part in ui workspace; do
+            src="$RUNNER_TEMP/ordax-verified-surface-ci/system/surface/$part"
+            target="system/surface/$part"
+            test -d "$src" && diff -qr "$src" "$target"
+            rm -rf "$target"
+            test ! -e "$target"
+          done
+          test -z "$(git status --porcelain)"
           ORDAX_WORKTREE="$rootfs/workspace/ordax" \
           ORDAX_STATE_DIR="$rootfs/state/ordax" \
           ORDAX_UPDATE_RUN_DIR="$RUNNER_TEMP/ordax-owner-dev-seed-run" \
@@ -235,6 +245,12 @@ jobs:
           ORDAX_REPO_BRANCH=main \
             /bin/sh bootstrap/dev-base/ordax-pull \
               --seed-from-local "$GITHUB_WORKSPACE" "$ORDAX_OWNER_SOURCE_COMMIT"
+          # The same verified visual bytes may be reused for subsequent
+          # disposable CI browser tests; no file is committed to OS Git or
+          # copied into the sparse Owner checkout.
+          for part in ui workspace; do
+            cp -a "$RUNNER_TEMP/ordax-verified-surface-ci/system/surface/$part" "system/surface/$part"
+          done
           test "$(git -C "$rootfs/workspace/ordax" rev-parse HEAD)" = "$ORDAX_OWNER_SOURCE_COMMIT"
           test "$(git -C "$rootfs/workspace/ordax" symbolic-ref --quiet --short HEAD)" = main
           test "$(git -C "$rootfs/workspace/ordax" remote get-url origin)" = 'https://github.com/ordaxsystems/ordax-os.git'
