@@ -257,6 +257,9 @@ jobs:
           test -z "$(git -C "$rootfs/workspace/ordax" status --porcelain)"
           test -x "$rootfs/workspace/ordax/system/entrypoint"
           test "$(cat "$rootfs/state/ordax/current-commit")" = "$ORDAX_OWNER_SOURCE_COMMIT"
+          # Match root ownership before sudo verification of the pinned
+          # Git source and immutable preseed slot (Git safe.directory).
+          sudo chown -R root:root "$rootfs/workspace" "$rootfs/state"
           # First Run must work without network. Put exactly one verified
           # visual source in the Supervisor's immutable release cache on
           # the Creator build host, NEVER a second Git tracked UI copy.
@@ -269,7 +272,6 @@ jobs:
             "$rootfs/workspace/ordax" "$ORDAX_OWNER_SOURCE_COMMIT" \
             "$rootfs/state/ordax/releases/$ORDAX_OWNER_SOURCE_COMMIT"
           echo 'ORDAX_OWNER_FIRST_BOOT_EXTERNAL_SURFACE_OFFLINE_READY=YES'
-          sudo chown -R root:root "$rootfs/workspace" "$rootfs/state"
           sudo touch "$rootfs/dev/null"
           cleanup_dev_null() {
             sudo rm -f "$rootfs/dev/null"

@@ -28,7 +28,7 @@ class PreseedError(ValueError):
 
 def git_head(path: Path) -> str:
     got = subprocess.run(
-        ["git", "-C", str(path), "rev-parse", "HEAD"],
+        ["git", "-c", f"safe.directory={path}", "-C", str(path), "rev-parse", "HEAD"],
         capture_output=True, text=True, check=False,
     )
     if got.returncode or not SHA.fullmatch(got.stdout.strip()):
@@ -75,7 +75,7 @@ def preseed(repo: Path, assembled: Path, rootfs: Path, sha: str) -> dict:
     if not checkout.is_dir() or git_head(checkout) != sha:
         raise PreseedError("Creator preloaded Git checkout differs from release owner")
     status = subprocess.run(
-        ["git", "-C", str(checkout), "status", "--porcelain"],
+        ["git", "-c", f"safe.directory={checkout}", "-C", str(checkout), "status", "--porcelain"],
         capture_output=True, text=True, check=True,
     )
     if status.stdout.strip():
