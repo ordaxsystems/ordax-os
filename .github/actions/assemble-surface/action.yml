@@ -4,6 +4,10 @@ inputs:
   out-root:
     description: "New absolute disposable directory where assembled system/ will be created"
     required: true
+  source-root:
+    description: OS source checkout containing the canonical Surface lock
+    required: false
+    default: '.'
 outputs:
   root:
     description: "Validated disposable OS release root"
@@ -13,6 +17,7 @@ runs:
   steps:
     - id: assemble
       shell: bash
+      working-directory: ${{ inputs.source-root }}
       env:
         ORDAX_OUTPUT_ROOT: ${{ inputs.out-root }}
       run: |
