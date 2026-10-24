@@ -62,6 +62,7 @@ COMPONENTS = {
             "bootstrap/independent-base/overlay",
             "bootstrap/independent-base/patches",
             "bootstrap/independent-base/post-build.sh",
+            "bootstrap/independent-base/post-image.sh",
             "bootstrap/kernel/source.json",
             "bootstrap/stable-base/source.json",
             "bootstrap/network/source.json",

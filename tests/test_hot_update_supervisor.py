@@ -165,6 +165,50 @@ class HotUpdateSupervisorContractTests(unittest.TestCase):
             'INITIAL_SURFACE_HEALTH_TIMEOUT=${ORDAX_INITIAL_SURFACE_HEALTH_TIMEOUT_SECONDS:-180}',
             text,
         )
+    def test_non_fast_forward_remote_is_blocked_before_checkout_and_retry(self):
+        text = SYSTEM_SUPERVISOR.read_text(encoding="utf-8")
+        check = text.split("check_for_update() {", 1)[1].split("\n}\n", 1)[0]
+        guard = (
+            'if non_ff_target_blocked "$current" "$remote_sha" &&'
+            '\n       ! automatic_main_reconcile_allowed "$current" "$remote_sha"; then'
+        )
+        self.assertIn(guard, check)
+        self.assertLess(check.index(guard), check.index("    old_sha=$current"))
+        # Only a receipted, healthy Owner/Dev checkout may reconcile a
+        # rewritten canonical main. Other profiles remain fail-closed.
+        allowed = text.split("automatic_main_reconcile_allowed() {", 1)[1].split("\n}\n", 1)[0]
+        self.assertIn('[ "$DISTRIBUTION_PROFILE" = owner-development ]', allowed)
+        self.assertIn('[ "$BRANCH" = main ]', allowed)
+        self.assertIn('[ "$REPO_URL" = "https://github.com/ordaxsystems/ordax-os.git" ]', allowed)
+        self.assertIn('[ "$OWNER_INITIAL_HEALTH_PENDING" -eq 0 ]', allowed)
+        self.assertIn('[ -z "$reconcile_dirty" ]', allowed)
+        self.assertIn('surface_health_matches "$reconcile_surface"', allowed)
+        blocked = check[check.index(guard):check.index("    old_sha=$current")]
+        self.assertIn('set_update_context blocked "$remote_sha" "" "non-fast-forward"', blocked)
+        self.assertIn('write_update_state "$current" pull-error none', blocked)
+        self.assertIn("return 0", blocked)
+
+        # A newly discovered divergent/older SHA is rejected before any
+        # staging or Pull mutation. The persisted pair suppresses repeated
+        # attempts while the same remote target remains advertised.
+        apply = text.split("apply_remote_checkout() {", 1)[1].split("\n}\n", 1)[0]
+        ancestor = (
+            '"$GIT_BIN" -C "$WORKTREE" merge-base --is-ancestor '
+            '"$checkout_previous_sha" "$checkout_target_sha"'
+        )
+        self.assertIn(ancestor, apply)
+        self.assertIn('automatic_main_reconcile_allowed "$checkout_previous_sha" "$checkout_target_sha"', apply)
+        self.assertIn('record_non_ff_target "$checkout_previous_sha" "$checkout_target_sha"', apply)
+        self.assertIn("CHECKOUT_ERROR=non-fast-forward", apply)
+        self.assertLess(apply.index(ancestor), apply.index('stage_candidate_release "$checkout_target_sha"'))
+        self.assertLess(apply.index(ancestor), apply.index('"$PULL_BIN" >>"$UPDATE_LOG"'))
+
+        stored = text.split("non_ff_target_blocked() {", 1)[1].split("\n}\n", 1)[0]
+        self.assertIn('[ -f "$NON_FF_BLOCKED_FILE" ] && [ ! -L "$NON_FF_BLOCKED_FILE" ]', stored)
+        self.assertIn('read -r blocked_old_sha blocked_target_sha', stored)
+        self.assertIn('[ "$blocked_old_sha" = "$blocked_old" ]', stored)
+        self.assertIn('[ "$blocked_target_sha" = "$blocked_target" ]', stored)
+
     def test_git_update_operations_are_bounded(self):
         text = SYSTEM_SUPERVISOR.read_text(encoding="utf-8")
         self.assertIn('/bin/busybox setsid /bin/sh -c', text)
