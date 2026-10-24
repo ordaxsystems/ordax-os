@@ -15,6 +15,7 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -38,6 +39,8 @@ WEB_IDENTITY_SUPPORT_FILES = (
     *WEB_IDENTITY_SOURCE_FILES,
     "assets/ordax-design-tokens.css",
     "assets/ordax-symbol.png",
+    "assets/ordax-font.css",
+    "assets/fonts/inter-latin-wght-normal.woff2",
 )
 
 
@@ -51,18 +54,14 @@ def run(*args: str) -> None:
         raise DeploymentBuildError("command failed: " + " ".join(args))
 
 
-def load_helper(path: Path, module_name: str, attribute: str):
-    if path.is_symlink() or not path.is_file():
-        raise DeploymentBuildError(f"missing canonical build helper: {path}")
-    spec = importlib.util.spec_from_file_location(module_name, path)
+def load_site_source_resolver():
+    path = ROOT / "tools/vercel/site_source.py"
+    spec = importlib.util.spec_from_file_location("_ordax_external_site_build_source", path)
     if spec is None or spec.loader is None:
-        raise DeploymentBuildError(f"cannot load canonical build helper: {path}")
+        raise DeploymentBuildError("external Site resolver unavailable")
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
-    helper = getattr(module, attribute, None)
-    if not callable(helper):
-        raise DeploymentBuildError(f"canonical build helper is missing {attribute}: {path}")
-    return helper
+    return module.resolve
 
 
 def clean_output() -> None:
@@ -105,52 +104,31 @@ def sha256_file(path: Path) -> str:
 
 
 def compose_web_identity_bootstrap(source_commit: str) -> None:
-    """Derive the minimal Web login closure from canonical Account sources.
+    """Compose Web login from the independently verified Site bundle.
 
-    The dedicated Web host owns its own HttpOnly session cookie, so anonymous
-    users need a same-origin credential POST. This composition consumes the same
-    checked-in Account presentation, the same deterministic HTML renderer and
-    the same brand compiler as the public portal without invoking the portal's
-    whole artifact builder. That keeps the two Vercel products independent while
-    retaining one presentation and one brand source of truth.
+    One owner renders its HTML, styles and brand. Web selects only the
+    necessary output files and rewrites off-host public-account links.
     """
-    del source_commit  # provenance is recorded by the final deployment manifest.
-    resolve = load_helper(
-        ROOT / "tools/vercel/site_source.py",
-        "_ordax_site_source_pin",
-        "resolve",
-    )
-    checkout, _site_commit = resolve()
-    public_source = checkout / "site"
-
-    render_public_html = load_helper(
-        checkout / "scripts/public_html_render.py",
-        "_ordax_web_public_html_render",
-        "render_public_html",
-    )
-    render_site_identity_css = load_helper(
-        ROOT / "tools/brand/build.py",
-        "_ordax_web_brand_compiler",
-        "render_site_identity_css",
-    )
-
-    for relative in WEB_IDENTITY_SOURCE_FILES:
-        copy_unique(public_source / relative, OUTPUT / relative)
-
-    token_destination = OUTPUT / "assets/ordax-design-tokens.css"
-    if token_destination.exists():
-        raise DeploymentBuildError("Web identity token bridge collides with Surface output")
-    token_destination.parent.mkdir(parents=True, exist_ok=True)
-    token_destination.write_text(render_site_identity_css(), encoding="utf-8")
-    # The shared symbol CSS resolves this local PNG relative to the token sheet.
-    # Keep its bytes and path owned by Surface, just as the public portal does.
-    copy_unique(ROOT / "system/surface/ui/brand/ordax-symbol.png",
-                OUTPUT / "assets/ordax-symbol.png")
-
-    source_login = public_source / "login/index.html"
-    if source_login.is_symlink() or not source_login.is_file():
-        raise DeploymentBuildError("canonical login presentation is unavailable")
-    login_html = render_public_html(source_login.read_text(encoding="utf-8"))
+    del source_commit
+    # No private OS copy of the Site renderer, CSS compiler or HTML is used.
+    resolve = load_site_source_resolver()
+    checkout, site_commit = resolve()
+    site_builder = checkout / "scripts/build.py"
+    lock = checkout / "contracts/migration-artifact-lock.json"
+    with tempfile.TemporaryDirectory(prefix=".ordax-web-site-", dir=ROOT / "out") as tmp:
+        candidate = Path(tmp) / "site"
+        run(sys.executable, str(site_builder), "build",
+            "--source-commit", site_commit,
+            "--migration-lock", str(lock),
+            "--public-origin", PUBLIC_ORIGIN,
+            "--out", str(candidate))
+        run(sys.executable, str(site_builder), "verify", "--out", str(candidate))
+        for relative in WEB_IDENTITY_SUPPORT_FILES:
+            copy_unique(candidate / relative, OUTPUT / relative)
+        login_source = candidate / "login/index.html"
+        if not login_source.is_file() or login_source.is_symlink():
+            raise DeploymentBuildError("pinned Site bundle lacks login route")
+        login_html = login_source.read_text(encoding="utf-8")
 
     # Match the public portal's deterministic cache-busting for the shared
     # generated token bridge and shared presentation runtime. Stable bytes keep
