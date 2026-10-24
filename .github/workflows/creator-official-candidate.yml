@@ -11,9 +11,9 @@ on:
       - 'docs/contracts/creator-component-channel.json'
       - 'docs/contracts/creator-code-signing.json'
       - 'docs/contracts/creator-consumer-flow.json'
-      - 'tools/creator/windows/Build-OrdaXCreatorPublisherHandoff.ps1'
-      - 'tools/creator/windows/Verify-OrdaXCreatorSignature.ps1'
-      - 'tools/creator/windows/Finalize-OrdaXCreatorRelease.ps1'
+      - 'tools/release-signing/windows/Build-OrdaXCreatorPublisherHandoff.ps1'
+      - 'tools/release-signing/windows/Verify-OrdaXCreatorSignature.ps1'
+      - 'tools/release-signing/windows/Finalize-OrdaXCreatorRelease.ps1'
       - '.github/actions/resolve-creator-source/**'
       - 'docs/contracts/native-release-assembly.json'
       - 'tests/test_creator_official_external_source_handoff.py'
@@ -31,9 +31,9 @@ on:
       - 'docs/contracts/creator-component-channel.json'
       - 'docs/contracts/creator-code-signing.json'
       - 'docs/contracts/creator-consumer-flow.json'
-      - 'tools/creator/windows/Build-OrdaXCreatorPublisherHandoff.ps1'
-      - 'tools/creator/windows/Verify-OrdaXCreatorSignature.ps1'
-      - 'tools/creator/windows/Finalize-OrdaXCreatorRelease.ps1'
+      - 'tools/release-signing/windows/Build-OrdaXCreatorPublisherHandoff.ps1'
+      - 'tools/release-signing/windows/Verify-OrdaXCreatorSignature.ps1'
+      - 'tools/release-signing/windows/Finalize-OrdaXCreatorRelease.ps1'
       - '.github/actions/resolve-creator-source/**'
       - 'docs/contracts/native-release-assembly.json'
       - 'tests/test_creator_official_external_source_handoff.py'
@@ -234,7 +234,7 @@ jobs:
           $wrongSourceOutput = Join-Path $PWD 'out/creator-wrong-source-proof'
           $wrongSourceRejected = $false
           try {
-            & tools/creator/windows/Build-OrdaXCreatorPublisherHandoff.ps1 `
+            & tools/release-signing/windows/Build-OrdaXCreatorPublisherHandoff.ps1 `
               -TrustPath $trustPath `
               -SourceCommit '${{ github.event.pull_request.head.sha || github.sha }}' `
               -CreatorSourceDirectory $PWD `
@@ -250,7 +250,7 @@ jobs:
             throw 'Invalid independent Creator source produced publisher handoff output'
           }
           Write-Host 'CREATOR_WRONG_SOURCE_FAIL_CLOSED=PASS'
-          & tools/creator/windows/Build-OrdaXCreatorPublisherHandoff.ps1 `
+          & tools/release-signing/windows/Build-OrdaXCreatorPublisherHandoff.ps1 `
             -TrustPath $trustPath `
             -SourceCommit '${{ github.event.pull_request.head.sha || github.sha }}' `
             -CreatorSourceDirectory $env:ORDAX_CREATOR_NATIVE_SOURCE `
@@ -310,7 +310,7 @@ jobs:
           Set-StrictMode -Version Latest
           $ErrorActionPreference = 'Stop'
           $out = Join-Path $PWD 'out/creator-official-candidate'
-          & tools/creator/windows/Build-OrdaXCreatorPublisherHandoff.ps1 `
+          & tools/release-signing/windows/Build-OrdaXCreatorPublisherHandoff.ps1 `
             -TrustPath bootstrap/trust/release-ed25519.json `
             -SourceCommit '${{ github.event.pull_request.head.sha || github.sha }}' `
             -CreatorSourceDirectory $env:ORDAX_CREATOR_NATIVE_SOURCE `

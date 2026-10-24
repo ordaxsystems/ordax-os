@@ -157,8 +157,8 @@ $copies = @(
     @{ Source = (Join-Path $repoRoot 'docs/contracts/creator-app-channel.json'); Destination = 'creator-app-channel.json' },
     @{ Source = (Join-Path $repoRoot 'docs/contracts/creator-component-channel.json'); Destination = 'creator-component-channel.json' },
     @{ Source = $TrustPath; Destination = 'release-ed25519.json' },
-    @{ Source = (Join-Path $repoRoot 'tools/creator/windows/Verify-OrdaXCreatorSignature.ps1'); Destination = 'Verify-OrdaXCreatorSignature.ps1' },
-    @{ Source = (Join-Path $repoRoot 'tools/creator/windows/Finalize-OrdaXCreatorRelease.ps1'); Destination = 'Finalize-OrdaXCreatorRelease.ps1' }
+    @{ Source = (Join-Path $repoRoot 'tools/release-signing/windows/Verify-OrdaXCreatorSignature.ps1'); Destination = 'Verify-OrdaXCreatorSignature.ps1' },
+    @{ Source = (Join-Path $repoRoot 'tools/release-signing/windows/Finalize-OrdaXCreatorRelease.ps1'); Destination = 'Finalize-OrdaXCreatorRelease.ps1' }
 )
 foreach ($copy in $copies) {
     $sourcePath = Get-RealFile -Path ([string]$copy.Source) -Label "handoff source $($copy.Source)"
