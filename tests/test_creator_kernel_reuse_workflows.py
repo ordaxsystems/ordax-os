@@ -57,10 +57,18 @@ class CreatorKernelReuseWorkflowTests(unittest.TestCase):
         for step in (
             "Assemble and verify canonical complete Creator payload",
             "Assert canonical payload is complete and non-destructive",
-            "Prove complete payload crosses only non-destructive Creator gates",
+            "Prove exact independent Creator CLI stages only a disposable tree",
         ):
             block = self.step_block(workflow, step)
             self.assertNotIn("cache-hit", block)
+        external_verification = self.step_block(
+            workflow, "Prove exact independent Creator CLI stages only a disposable tree"
+        )
+        self.assertIn("PAYLOAD_VERIFIED=YES", external_verification)
+        self.assertIn("DISPOSABLE_TREE_STAGED=YES", external_verification)
+        self.assertIn("PHYSICAL_WRITE_STATUS=blocked", external_verification)
+        self.assertIn("creator-payload-cli/ordax-creator", external_verification)
+        self.assertNotIn("go run ./cmd/ordax-creator", external_verification)
 
     def test_owner_dev_creator_reuses_kernel_without_skipping_product_build(self):
         workflow = self.assert_verified_kernel_reuse(OWNER_DEV)
