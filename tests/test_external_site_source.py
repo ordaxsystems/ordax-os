@@ -31,6 +31,37 @@ class ExternalSiteSourceTests(unittest.TestCase):
         self.assertEqual(record["source_subdirectory"], "site")
         self.assertFalse(record["production_deployment_activated"])
 
+    def test_no_duplicate_site_presentation_can_return_to_os(self):
+        """After #2229, the OS is a consumer, never the Site source owner."""
+        public_site = json.loads(
+            (ROOT / "docs/contracts/public-site.json").read_text(encoding="utf-8")
+        )
+        self.assertEqual(public_site["source_root"], "ordaxsystems/ordax-site:site")
+        self.assertEqual(
+            public_site["build_recipe"], "ordaxsystems/ordax-site:scripts/build.py"
+        )
+        self.assertFalse(
+            (ROOT / "sites/public").exists(),
+            "Site presentation directory must not return to ordax-os",
+        )
+        # Keep OS-owned Identity/legal tools. Reject only the migrated UI build,
+        # preview and presentation tools that were retired in #2229.
+        legacy_presentation_tools = (
+            "build.py",
+            "public_html_render.py",
+            "plan_catalog.py",
+            "deployment.py",
+            "playground_fixture.py",
+            "preview_server.py",
+            "browser-smoke.mjs",
+        )
+        for filename in legacy_presentation_tools:
+            with self.subTest(path=filename):
+                self.assertFalse(
+                    (ROOT / "tools/public-site" / filename).exists(),
+                    f"duplicate Site presentation tool reintroduced: {filename}",
+                )
+
     def test_exact_pinned_source_and_dirty_checkout_are_fail_closed(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
