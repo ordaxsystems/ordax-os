@@ -57,6 +57,11 @@ class PublicSiteDeploymentTests(unittest.TestCase):
                 (_dest / "assets/ordax-design-tokens.css").write_text(
                     "a{background-image:url('./ordax-symbol.png')}", encoding="utf-8")
                 (_dest / "assets/ordax-symbol.png").write_bytes(b"pinned-site-symbol")
+                (_dest / "config/public-site.json").write_text(
+                    json.dumps({"identity": {
+                        "login_url": "/auth/login",
+                        "turnstile_sitekey": "0x4AAAAAAFR-Kz0Uc9rNW_iE",
+                    }}), encoding="utf-8")
                 login = _dest / "login/index.html"
                 login.parent.mkdir(parents=True, exist_ok=True)
                 login.write_text(
