@@ -50,9 +50,11 @@ class ExternalSiteSourceTests(unittest.TestCase):
             doc = dict(SOURCE.contract())
             doc["commit"] = pinned
             pinfile.write_text(json.dumps(doc), encoding="utf-8")
-            with patch.object(SOURCE, "CONTRACT", pinfile), \\
-                 patch.object(SOURCE, "STAGE", root / "stage"), \\
-                 patch.object(SOURCE, "SOURCE_URL", str(upstream)):
+            with (
+                patch.object(SOURCE, "CONTRACT", pinfile),
+                patch.object(SOURCE, "STAGE", root / "stage"),
+                patch.object(SOURCE, "SOURCE_URL", str(upstream)),
+            ):
                 location, sha = SOURCE.resolve()
                 self.assertEqual(sha, pinned)
                 self.assertEqual(run_git(location, "rev-parse", "HEAD"), pinned)
