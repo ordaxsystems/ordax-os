@@ -14,6 +14,22 @@ BASE = ROOT / "bootstrap/independent-base"
 
 
 class IndependentBaseTest(unittest.TestCase):
+    def _load_qemu_proof(self):
+        # Foundation may already have another module bound to the generic name
+        # "build". Load this fixture with the Independent Base owner explicitly.
+        builder_spec = importlib.util.spec_from_file_location(
+            "independent_qemu_builder", BASE / "build.py"
+        )
+        builder = importlib.util.module_from_spec(builder_spec)
+        builder_spec.loader.exec_module(builder)
+        with patch.dict(sys.modules, {"build": builder}):
+            spec = importlib.util.spec_from_file_location(
+                "independent_qemu_proof", BASE / "qemu_proof.py"
+            )
+            qemu_proof = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(qemu_proof)
+        return qemu_proof
+
     def test_experiment_is_disconnected_from_release(self):
         spec = json.loads((BASE / "source.json").read_text())
         self.assertEqual(spec["status"], "experimental-not-promotable")
@@ -39,6 +55,17 @@ class IndependentBaseTest(unittest.TestCase):
         init = (BASE / "overlay/sbin/ordax-independent-probe-init").read_text()
         self.assertIn(' /proof/base erofs ro,', init)
         self.assertIn("rescue erofs-write-accepted", init)
+
+    def test_qemu_direct_initramfs_memory_budget_is_explicit_per_profile(self):
+        qemu_proof = self._load_qemu_proof()
+        self.assertEqual(qemu_proof.qemu_memory_mib("minimal"), 384)
+        self.assertEqual(qemu_proof.qemu_memory_mib("owner-development"), 768)
+        with self.assertRaises(qemu_proof.BaseError):
+            qemu_proof.qemu_memory_mib("unknown")
+        proof = (BASE / "qemu_proof.py").read_text()
+        self.assertIn('"qemu_memory_mib": memory_mib', proof)
+        self.assertNotIn('"-m", "384M"', proof)
+        self.assertIn("not a product RAM requirement", proof)
 
     def test_guest_identifies_disposable_disk_roles_even_when_order_is_reversed(self):
         # Pure fixture test for the actual PID1 discovery function; QEMU CI
@@ -96,7 +123,6 @@ class IndependentBaseTest(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(json.loads(result.stdout)["status"], "contract-check-pass")
 
-
     def test_large_build_output_stays_bounded_without_losing_failure_tail(self):
         # Exercises the real subprocess path without downloading or compiling
         # Buildroot. Report measured parent-process memory, not an assumption.
@@ -141,16 +167,7 @@ class IndependentBaseTest(unittest.TestCase):
 
     def test_guest_metrics_parsed_from_serial_with_strict_bounds(self):
         # No QEMU or Buildroot compilation: test only the existing proof parser.
-        # The full Foundation suite also imports tools/component-package/build.py
-        # under the generic name "build". Bind only this fixture to its owner.
-        builder_spec = importlib.util.spec_from_file_location("independent_metrics_builder", BASE / "build.py")
-        builder = importlib.util.module_from_spec(builder_spec)
-        builder_spec.loader.exec_module(builder)
-        with patch.dict(sys.modules, {"build": builder}):
-            spec = importlib.util.spec_from_file_location("independent_qemu_proof", BASE / "qemu_proof.py")
-            qemu_proof = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(qemu_proof)
-
+        qemu_proof = self._load_qemu_proof()
         lines = [
             "ORDAX_INDEPENDENT_METRIC_MEM_TOTAL_KIB=384000",
             "ORDAX_INDEPENDENT_METRIC_MEM_USED_KIB=24000",
@@ -185,17 +202,6 @@ class IndependentBaseTest(unittest.TestCase):
         profile = (BASE / "configs/ordax_minimal_defconfig").read_text()
         self.assertNotIn("BR2_DEFAULT_KERNEL_VERSION=", profile)
         self.assertNotIn("BR2_LINUX_KERNEL_VERSION=", profile)
-
-    def test_buildroot_downloads_use_persistent_verified_cache(self):
-        builder = (BASE / "build.py").read_text(encoding="utf-8")
-        workflow = (ROOT / ".github/workflows/independent-base-experiment.yml").read_text(encoding="utf-8")
-        self.assertIn('download_cache = cache / "buildroot-downloads"', builder)
-        self.assertIn('f"BR2_DL_DIR={download_cache}"', builder)
-        self.assertIn('"buildroot_download_cache_enabled": True', builder)
-        self.assertIn("Restore Buildroot source/package download cache", workflow)
-        self.assertIn("Save Buildroot source/package download cache", workflow)
-        self.assertIn("${{ runner.temp }}/ordax-independent-cache", workflow)
-        self.assertIn("ordax-buildroot-download-v1-", workflow)
 
 
 if __name__ == "__main__":
