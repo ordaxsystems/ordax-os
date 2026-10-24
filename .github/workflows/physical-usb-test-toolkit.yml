@@ -5,7 +5,7 @@ on:
     branches: [main]
     paths:
       - 'tools/creator/**'
-      - 'tests/test_owner_dev_helper_storage_profile.py'
+()=>testTrigger+"\n      - 'tests/test_portable_windows_gpt_idempotence.py'"
       - '.github/workflows/physical-usb-test-toolkit.yml'
       - '.github/actions/resolve-creator-source/**'
       - 'docs/contracts/native-release-assembly.json'
@@ -13,7 +13,7 @@ on:
   pull_request:
     paths:
       - 'tools/creator/**'
-      - 'tests/test_owner_dev_helper_storage_profile.py'
+()=>testTrigger+"\n      - 'tests/test_portable_windows_gpt_idempotence.py'"
       - '.github/workflows/physical-usb-test-toolkit.yml'
       - '.github/actions/resolve-creator-source/**'
       - 'docs/contracts/native-release-assembly.json'
@@ -47,8 +47,10 @@ jobs:
       - name: Regress external-source safety workflow boundary
         run: python -m unittest tests.test_creator_physical_backend_external_source -v
 
-      - name: Regress Owner Development split-helper storage profile
-        run: python tests/test_owner_dev_helper_storage_profile.py
+      - name: Regress independent Owner split-helper profile and Windows GPT idempotence
+        run: |
+          python -m unittest tests.test_owner_dev_helper_storage_profile -v
+          python -m unittest tests.test_portable_windows_gpt_idempotence -v
 
       - name: Set up Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
