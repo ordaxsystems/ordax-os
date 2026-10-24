@@ -302,12 +302,9 @@ ensure_base_update_agent() {
         return 0
     }
 
-    repo_root=${SYSTEM_ROOT%/system}
-    if [ -z "$repo_root" ] || [ "$repo_root" = "$SYSTEM_ROOT" ] || [ ! -d "$repo_root" ]; then
-        echo "ordax-surface: source root unavailable for base update owner" >>"$BASE_UPDATE_LOG"
-        return 0
-    fi
-    if [ "$DISTRIBUTION_PROFILE" = "owner-development" ] && [ ! -d "$repo_root/.git" ]; then
+    # The Native executable may live in a verified immutable release slot.
+    # Git remains at the canonical Owner workspace for the Base update owner.
+    if ! resolve_owner_checkout_root; then
         echo "ordax-surface: Owner/Development Git root unavailable for base update owner" >>"$BASE_UPDATE_LOG"
         return 0
     fi
@@ -960,8 +957,40 @@ is_source_sha() {
     return 0
 }
 
+# Resolve the only authorized Owner Git checkout independently of the
+# immutable Surface execution slot. No repository is copied into the slot;
+# the Supervisor stages/verifies that slot before launching this process.
+resolve_owner_checkout_root() {
+    is_source_sha "$SOURCE_SHA_HINT" || return 1
+    owner_worktree=${ORDAX_WORKTREE:-/workspace/ordax}
+    case "$owner_worktree" in /*) ;; *) return 1 ;; esac
+    [ -d "$owner_worktree" ] && [ ! -L "$owner_worktree" ] || return 1
+    [ -d "$owner_worktree/.git" ] || [ -f "$owner_worktree/.git" ] || return 1
+    [ ! -L "$owner_worktree/.git" ] || return 1
+    owner_release_root=${ORDAX_RELEASES_DIR:-$STATE_ROOT/releases}
+    case "$SYSTEM_ROOT" in
+        "$owner_worktree/system")
+            # Legacy Owner source remains executable until the cutover.
+            ;;
+        "$owner_release_root/$SOURCE_SHA_HINT/system")
+            owner_slot=${SYSTEM_ROOT%/system}
+            for owner_marker in .sha .ready .surface-source-sha; do
+                [ -f "$owner_slot/$owner_marker" ] && [ ! -L "$owner_slot/$owner_marker" ] || return 1
+            done
+            owner_slot_sha=""
+            IFS= read -r owner_slot_sha < "$owner_slot/.sha" || return 1
+            [ "$owner_slot_sha" = "$SOURCE_SHA_HINT" ] || return 1
+            # The Supervisor's existing ready gate validates the exact pinned
+            # visual source and all visual hashes before every start.
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+    repo_root=$owner_worktree
+}
+
 resolve_source_identity() {
-    repo_root=${SYSTEM_ROOT%/system}
     case "$DISTRIBUTION_PROFILE" in
         stable-mvp)
             is_source_sha "$SOURCE_SHA_HINT" || {
@@ -975,8 +1004,8 @@ resolve_source_identity() {
                 echo "ordax-surface: Owner/Development source SHA hint is invalid" >>"$HOST_LOG"
                 return 1
             }
-            [ "$repo_root" != "$SYSTEM_ROOT" ] && [ -x /usr/bin/git ] || {
-                echo "ordax-surface: Owner/Development source repository is unavailable" >>"$HOST_LOG"
+            [ -x /usr/bin/git ] && resolve_owner_checkout_root || {
+                echo "ordax-surface: Owner/Development source repository or verified slot is unavailable" >>"$HOST_LOG"
                 return 1
             }
             candidate_sha=$(/usr/bin/git -C "$repo_root" rev-parse HEAD 2>/dev/null || printf 'unknown')
@@ -1052,11 +1081,11 @@ bind_owner_efivarfs_into_runtime() {
 }
 
 bind_runtime_mounts() {
-    repo_root=${SYSTEM_ROOT%/system}
+    repo_root=
     case "$DISTRIBUTION_PROFILE" in
         owner-development)
-            [ -n "$repo_root" ] && [ "$repo_root" != "$SYSTEM_ROOT" ] && [ -d "$repo_root" ] || {
-                echo "ordax-surface: Owner/Development source repository root is unavailable" >>"$HOST_LOG"
+            resolve_owner_checkout_root || {
+                echo "ordax-surface: Owner/Development Git checkout or verified slot is unavailable" >>"$HOST_LOG"
                 return 1
             }
             ;;
