@@ -80,10 +80,10 @@ def build_independent_site_candidate(destination: Path) -> str:
     """Invoke the sole Site-owned builder against the exact pinned commit."""
     checkout, site_commit = load_site_source_resolver()()
     builder = checkout / "scripts/build.py"
-    lock = checkout / "contracts/migration-artifact-lock.json"
+    lock = checkout / "contracts/dev-artifact-lock.json"
     run(sys.executable, str(builder), "build",
         "--source-commit", site_commit,
-        "--migration-lock", str(lock),
+        "--dev-lock", str(lock),
         "--public-origin", PUBLIC_ORIGIN,
         "--out", str(destination))
     run(sys.executable, str(builder), "verify", "--out", str(destination))
