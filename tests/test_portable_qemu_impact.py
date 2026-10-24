@@ -51,13 +51,30 @@ class PortableQemuImpactTests(unittest.TestCase):
 
     def test_untracked_external_visual_imports_require_canonical_surface_lock(self):
         self.assertTrue(impact._has_canonical_external_surface(ROOT))
-        with patch.object(impact, "_has_canonical_external_surface", return_value=False):
-            _, errors = impact.native_startup_import_graph(ROOT)
-        self.assertTrue(
-            any("unresolved:system/composition/native/main.mjs:../../surface/ui/" in e
-                for e in errors),
-            "a missing external Surface contract must fail closed",
-        )
+        original = impact._resolve_relative_import
+
+        def without_visual_tree(source, specifier, root):
+            # Foundation CI hydrates visual files into a disposable checkout.
+            # Force them absent to test the owner contract in BOTH environments.
+            candidate = impact._path_inside_root(source.parent / specifier, root)
+            if candidate is not None and impact._is_presentation_light(
+                candidate.relative_to(root.resolve()).as_posix()
+            ):
+                return None
+            return original(source, specifier, root)
+
+        with patch.object(impact, "_resolve_relative_import", side_effect=without_visual_tree):
+            _, allowed_errors = impact.native_startup_import_graph(ROOT)
+            self.assertFalse(any(
+                "unresolved:system/composition/native/main.mjs:../../surface/ui/" in e
+                for e in allowed_errors
+            ))
+            with patch.object(impact, "_has_canonical_external_surface", return_value=False):
+                _, denied_errors = impact.native_startup_import_graph(ROOT)
+            self.assertTrue(any(
+                "unresolved:system/composition/native/main.mjs:../../surface/ui/" in e
+                for e in denied_errors
+            ), "an unverified external visual boundary must fail closed")
 
     def test_unwired_high_level_web_research_source_does_not_require_qemu(self):
         result = impact.classify_paths(
