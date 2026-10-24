@@ -79,7 +79,7 @@ jobs:
           profile=minimal
           if [ "$EVENT_NAME" = workflow_dispatch ]; then
             profile="$DISPATCH_PROFILE"
-          elif [ "$EVENT_NAME" = pull_request ] && [ "$PR_HEAD_REF" = platform/remove-alpine ]; then
+          elif [ "$EVENT_NAME" = pull_request ] && { [ "$PR_HEAD_REF" = platform/remove-alpine ] || [ "$PR_HEAD_REF" = integrate/usb-dev-buildroot-no-alpine-20261024 ]; }; then
             profile=owner-development
           fi
           case "$profile" in
