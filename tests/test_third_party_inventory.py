@@ -120,12 +120,15 @@ class ThirdPartyInventoryTests(unittest.TestCase):
             "webkit2gtk-4.1", "gst-plugins-good", "gst-libav", "pipewire-pulse",
             "pipewire-alsa", "wireplumber", "gst-plugin-pipewire", "dbus",
         }.issubset(packages))
-        self.assertIn("packages=$(runtime_packages)", text)
+        # The Alpine package lock still belongs only to the old Stable
+        # candidate builder, not to the active Native Surface launcher.
         source = json.loads((ROOT / "bootstrap/surface-runtime/source.json").read_text())
         self.assertEqual(source["packages_file"], item["source_authority"])
         self.assertTrue(set(packages).issubset(source["apk_package_lock"]))
-        self.assertIn("https://dl-cdn.alpinelinux.org/alpine/v3.22/main", text)
-        self.assertIn("https://dl-cdn.alpinelinux.org/alpine/v3.22/community", text)
+        self.assertNotIn("runtime_packages() {", text)
+        self.assertNotIn("packages=$(runtime_packages)", text)
+        self.assertNotIn("/sbin/apk", text)
+        self.assertIn('VERIFIED_RUNTIME_MODE', text)
 
     def test_unresolved_license_records_do_not_invent_spdx_ids(self):
         for item in self.inventory["inputs"]:

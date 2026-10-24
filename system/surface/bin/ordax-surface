@@ -147,36 +147,27 @@ esac
 # foundation, but the public profile cannot activate its broker or token.
 [ "$DISTRIBUTION_PROFILE" = "stable-mvp" ] && NATIVE_INSTALL_CAPABILITY=disabled
 
-if [ "$DISTRIBUTION_PROFILE" = "stable-mvp" ] || [ -n "$VERIFIED_RUNTIME_MODE" ]; then
-    case "$VERIFIED_RUNTIME_MODE" in
-        verified-erofs-overlay)
-            [ "$VERIFIED_RUNTIME_ROOT" = "/run/ordax/runtime/native-surface/rootfs" ] || {
-                echo "ordax-surface: verified runtime root is invalid" >&2
-                exit 1
-            }
-            [ "${#VERIFIED_RUNTIME_SHA256}" -eq 64 ] || {
-                echo "ordax-surface: verified runtime digest is invalid" >&2
-                exit 1
-            }
-            case "$VERIFIED_RUNTIME_SHA256" in
-                *[!0-9a-f]*)
-                    echo "ordax-surface: verified runtime digest is invalid" >&2
-                    exit 1
-                    ;;
-            esac
-            RUNTIME_ROOT=$VERIFIED_RUNTIME_ROOT
-            RUNTIME_READY=
-            ;;
-        "")
-            # Portable v2 remains a compatibility boot shape, but Stable/MVP
-            # must never provision its graphical runtime from the network.
-            ;;
-        *)
-            echo "ordax-surface: unsupported verified runtime mode" >&2
-            exit 1
-            ;;
-    esac
-fi
+# Runtime identity must be proven by the boot owner before launching
+# optional agents, chroot services or a graphical shell on either profile.
+[ "$VERIFIED_RUNTIME_MODE" = "verified-erofs-overlay" ] || {
+    echo "ordax-surface: verified offline EROFS mode is mandatory" >&2
+    exit 1
+}
+[ "$VERIFIED_RUNTIME_ROOT" = "/run/ordax/runtime/native-surface/rootfs" ] || {
+    echo "ordax-surface: verified runtime root is invalid" >&2
+    exit 1
+}
+[ "${#VERIFIED_RUNTIME_SHA256}" -eq 64 ] || {
+    echo "ordax-surface: verified runtime digest is invalid" >&2
+    exit 1
+}
+case "$VERIFIED_RUNTIME_SHA256" in
+    *[!0-9a-f]*)
+        echo "ordax-surface: verified runtime digest is invalid" >&2
+        exit 1
+        ;;
+esac
+RUNTIME_ROOT=$VERIFIED_RUNTIME_ROOT
 
 persistent_agent_pid_matches() {
     pid=${1:-}
