@@ -30,9 +30,9 @@ a implementação original da PR #1532, encerrada como substituída.
 ```bash
 python3 tools/brand/build.py render-emails
 python3 tools/brand/build.py check
-\# No checkout independente ordax-site (somente Dev):
+# No checkout independente ordax-site (somente Dev):
 python3 scripts/build.py check
-\# OS consome o bundle pelo pin docs/contracts/public-site-source.json; não há builder do Site no OS.
+# OS consome o bundle pelo pin docs/contracts/public-site-source.json; não há builder do Site no OS.
 ```
 
 O gate `check` exige que o HTML versionado corresponda aos tokens oficiais.
