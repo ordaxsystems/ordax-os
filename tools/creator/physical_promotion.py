@@ -61,17 +61,12 @@ AUTHORIZATION_CONTEXT_PATTERNS = (
     "system/composition/native/diagnostics.mjs",
     "system/composition/native/main.mjs",
     "system/surface/runtime/native_host_server.py",
-    "system/surface/ui/first-run.mjs",
-    "system/surface/ui/local-session-lock.mjs",
-    "system/surface/ui/settings-overview-controls.mjs",
-    "system/surface/ui/system-overview-controls.mjs",
+    # External Creator + Surface are immutable verified sources, not OS-owned
+    # Go or visual copies. The exact pin and resolver/assembler actions above
+    # protect their authority and invalidate existing physical consent on change.
+    # Retain only the actual OS-side safety and release policy sources.
     "tools/creator/authorize_physical_write.py",
     "tools/creator/bind_canonical_v4_release_proof.py",
-    "tools/creator/go.*",
-    "tools/creator/core/*.go",
-    "tools/creator/host/windows/*.go",
-    "tools/creator/physicalchannel/*.go",
-    "tools/creator/cmd/ordax-creator-physical-test/*.go",
     "tools/release-signing/go.*",
     "tools/release-signing/cmd/ordax-physical-release-signing/*.go",
 )
