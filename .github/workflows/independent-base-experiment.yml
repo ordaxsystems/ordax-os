@@ -72,14 +72,15 @@ jobs:
       - name: Select integration profile
         env:
           EVENT_NAME: ${{ github.event_name }}
-          PR_HEAD_REF: ${{ github.head_ref }}
           DISPATCH_PROFILE: ${{ inputs.profile }}
         run: |
           set -euo pipefail
           profile=minimal
           if [ "$EVENT_NAME" = workflow_dispatch ]; then
             profile="$DISPATCH_PROFILE"
-          elif [ "$EVENT_NAME" = pull_request ] && [ "$PR_HEAD_REF" = platform/remove-alpine ]; then
+          elif [ "$EVENT_NAME" = pull_request ]; then
+            # Any PR exercising Independent Base must prove the Owner USB target;
+            # the minimal profile remains selectable explicitly by dispatch.
             profile=owner-development
           fi
           case "$profile" in
