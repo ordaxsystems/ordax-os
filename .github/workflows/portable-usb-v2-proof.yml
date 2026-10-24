@@ -19,6 +19,9 @@ on:
       - 'tests/test_portable_usb_v2_contract.py'
       - 'tests/test_storage_architecture_contract.py'
       - '.github/workflows/portable-usb-v2-proof.yml'
+      - '.github/actions/resolve-creator-source/**'
+      - 'docs/contracts/native-release-assembly.json'
+      - 'tests/test_creator_portable_external_source.py'
   pull_request:
     paths:
       - 'docs/contracts/portable-usb-v2.json'
@@ -36,6 +39,9 @@ on:
       - 'tests/test_portable_usb_v2_contract.py'
       - 'tests/test_storage_architecture_contract.py'
       - '.github/workflows/portable-usb-v2-proof.yml'
+      - '.github/actions/resolve-creator-source/**'
+      - 'docs/contracts/native-release-assembly.json'
+      - 'tests/test_creator_portable_external_source.py'
   workflow_dispatch:
 
 permissions:
@@ -51,6 +57,11 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Resolve canonical independent Creator source
+        uses: ./.github/actions/resolve-creator-source
+        with:
+          checkout-root: ${{ runner.temp }}/ordax-creator-portable-proof
+
       - name: Set up Python
         uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
@@ -62,6 +73,9 @@ jobs:
           go-version: '1.27.1'
           check-latest: false
           cache: false
+
+      - name: Regress portable independent source and physical safety
+        run: python3 -m unittest tests.test_creator_portable_external_source -v
 
       - name: Install disposable portable-storage tools
         run: |
@@ -92,10 +106,22 @@ jobs:
             tests.test_portable_usb_v2_contract \
             tests.test_storage_architecture_contract \
             tests.test_creator_portable_prepared_media -v
+          creator="${ORDAX_CREATOR_NATIVE_SOURCE:?missing external Creator checkout}"
+          test "${ORDAX_CREATOR_SOURCE_REPOSITORY:?}" = 'ordaxsystems/ordax-creator'
+          test "$(git -C "$creator" rev-parse HEAD)" = "${ORDAX_CREATOR_SOURCE_COMMIT:?}"
+          test "$(git -C "$creator" rev-parse 'HEAD^{tree}')" = "${ORDAX_CREATOR_SOURCE_TREE:?}"
+          test "$(head -n 1 "$creator/go.mod")" = 'module github.com/ordaxsystems/ordax-creator'
           (
-            cd tools/creator
-            go test -count=1 ./core ./cmd/ordax-creator
+            cd "$creator"
+            ORDAX_OS_CONTRACTS_DIR="$GITHUB_WORKSPACE/docs/contracts" \
+              go test -count=1 ./core ./cmd/ordax-creator
+            CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
+              go build -trimpath -buildvcs=false -ldflags='-s -w' \
+              -o "$RUNNER_TEMP/portable-creator-cli" ./cmd/ordax-creator
           )
+          test -x "$RUNNER_TEMP/portable-creator-cli"
+          echo 'PORTABLE_CREATOR_SOURCE=PINNED_INDEPENDENT'
+          echo 'PORTABLE_PHYSICAL_WRITE_AUTHORIZED=NO'
 
       - name: Generate exact Creator portable target plan
         run: |
@@ -107,10 +133,10 @@ jobs:
           print(contract['target_bytes'])
           PY
           )"
-          (
-            cd tools/creator
-            go run ./cmd/ordax-creator plan-portable --target-bytes "$target_bytes"
-          ) > "$RUNNER_TEMP/portable-usb-v2-plan.json"
+          creator_cli="$RUNNER_TEMP/portable-creator-cli"
+          test -x "$creator_cli"
+          "$creator_cli" plan-portable --target-bytes "$target_bytes" \
+            > "$RUNNER_TEMP/portable-usb-v2-plan.json"
 
           python3 - "$RUNNER_TEMP/portable-usb-v2-plan.json" <<'PY'
           import json, pathlib, sys
@@ -136,10 +162,11 @@ jobs:
           PY
           )"
 
-          python3 - "$fixtures" "$root/bindings.json" <<'PY'
-          import hashlib, json, pathlib, sys
+          # Fixture names are test-only; the independent Creator is the sole
+          # owner of the canonical 17-source identity, size and SHA-256 binding.
+          python3 - "$fixtures" <<'PY'
+          import pathlib, sys
           fixtures = pathlib.Path(sys.argv[1])
-          out = pathlib.Path(sys.argv[2])
           ids = [
               'systemd-boot', 'loader-config', 'loader-normal', 'loader-recovery',
               'kernel', 'initramfs', 'bootstrap-capsule', 'release-trust',
@@ -148,39 +175,53 @@ jobs:
               'local-ai-runtime-image', 'local-ai-runtime-ref',
               'release-manifest', 'release-envelope',
           ]
-          artifacts = []
+          assert len(ids) == 17 and len(set(ids)) == 17
           for index, artifact_id in enumerate(ids):
-              path = fixtures / artifact_id
               payload = (
                   f'ORDAX_PORTABLE_V2_CREATOR_FIXTURE={artifact_id}\n'
                   f'INDEX={index}\n'
               ).encode()
-              path.write_bytes(payload)
-              artifacts.append({
-                  'id': artifact_id,
-                  'sha256': hashlib.sha256(payload).hexdigest(),
-                  'size_bytes': len(payload),
-              })
-          out.write_text(json.dumps({
-              '$schema': 'prototype-ordax.portable-media-bindings/1',
-              'artifacts': artifacts,
-          }, indent=2, sort_keys=True) + '\n')
+              (fixtures / artifact_id).write_bytes(payload)
           PY
+          creator_cli="$RUNNER_TEMP/portable-creator-cli"
+          test -x "$creator_cli"
+          "$creator_cli" bind-portable-sources --sources-root "$fixtures" \
+            > "$root/bindings.json"
+          binding_proof="$("$creator_cli" verify-portable-sources \
+            --sources-root "$fixtures" --bindings "$root/bindings.json")"
+          printf '%s\n' "$binding_proof"
+          grep -qx 'PORTABLE_SOURCES_VERIFIED=YES' <<<"$binding_proof"
+          grep -qx 'PORTABLE_SOURCE_COUNT=17' <<<"$binding_proof"
+          grep -qx 'PHYSICAL_WRITE_AUTHORIZED=NO' <<<"$binding_proof"
+          echo 'PORTABLE_FIXTURE_BINDINGS=INDEPENDENT_CORE_SSOT'
 
-          (
-            cd tools/creator
-            go run ./cmd/ordax-creator plan-portable-media \
-              --target-bytes "$target_bytes" \
-              --source-commit "$commit" \
-              --bindings "$root/bindings.json"
-          ) > "$root/plan.json"
+          "$creator_cli" plan-portable-media \
+            --target-bytes "$target_bytes" \
+            --source-commit "$commit" \
+            --bindings "$root/bindings.json" > "$root/plan.json"
 
+          # Derive readback source transport from the independently verified
+          # binding JSON, not from a second hard-coded 17-ID list.
+          python3 - "$root/bindings.json" "$fixtures" <<'PY' > "$root/source-ids.txt"
+          import json, pathlib, re, stat, sys
+          binding = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding='utf-8'))
+          root = pathlib.Path(sys.argv[2])
+          ids = [entry['id'] for entry in binding['artifacts']]
+          if (binding['$schema'] != 'prototype-ordax.portable-media-bindings/1'
+              or len(ids) != 17 or len(set(ids)) != 17):
+              raise SystemExit('invalid canonical 17-source binding')
+          for artifact_id in ids:
+              if re.fullmatch(r'[a-z0-9][a-z0-9-]*', artifact_id) is None:
+                  raise SystemExit('unsafe source ID')
+              path = root / artifact_id
+              if not stat.S_ISREG(path.lstat().st_mode):
+                  raise SystemExit('non-regular fixture source')
+              print(artifact_id)
+          PY
+          mapfile -t source_ids < "$root/source-ids.txt"
+          test "${#source_ids[@]}" -eq 17
           args=()
-          for id in \
-            systemd-boot loader-config loader-normal loader-recovery \
-            kernel initramfs bootstrap-capsule release-trust \
-            stable-base persistent-state system-image surface-runtime-image surface-runtime-ref local-ai-runtime-image local-ai-runtime-ref release-manifest release-envelope
-          do
+          for id in "${source_ids[@]}"; do
             args+=(--source "$id=$fixtures/$id")
           done
 
@@ -214,11 +255,10 @@ jobs:
           set -euo pipefail
           root="$RUNNER_TEMP/creator-portable-prepared"
           test -s "$root/plan.json"
-          (
-            cd tools/creator
-            go run ./cmd/ordax-creator plan-portable-application \
-              --plan "$root/plan.json"
-          ) > "$root/application-plan.json"
+          creator_cli="$RUNNER_TEMP/portable-creator-cli"
+          test -x "$creator_cli"
+          "$creator_cli" plan-portable-application --plan "$root/plan.json" \
+            > "$root/application-plan.json"
 
           python3 - "$root/application-plan.json" <<'PY'
           import json, pathlib, sys
