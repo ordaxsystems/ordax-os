@@ -231,7 +231,7 @@ def _current_surface_snapshot():
     return snapshot
 
 
-def generate_fixture() -> dict[str, object]:
+def project_public_catalog() -> dict[str, object]:
     order = _catalog_order()
     metadata = {}
     imports = CATALOG_APP_IMPORT_RE.findall(APP_CATALOG.read_text(encoding="utf-8"))
@@ -268,13 +268,24 @@ def generate_fixture() -> dict[str, object]:
         for app_id in order
     ]
     return {
-        "$schema": SCHEMA,
+        "$schema": "ordax.os-public-catalog-projection/1",
+        "source_repository": "ordaxsystems/ordax-os",
+        "home": home,
+        "apps": apps,
         "source": {
             "apps": "system/apps/catalog.mjs",
             "home": "system/surface/ui/desktop-shell.mjs",
         },
-        "home": home,
-        "apps": apps,
+    }
+
+
+def generate_fixture() -> dict[str, object]:
+    projection = project_public_catalog()
+    return {
+        "$schema": SCHEMA,
+        "source": projection["source"],
+        "home": projection["home"],
+        "apps": projection["apps"],
         "surface": _current_surface_snapshot(),
     }
 
@@ -346,8 +357,21 @@ def write_fixture() -> None:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--write", action="store_true", help="write generated fixture and inline copy")
+    parser.add_argument("--project-catalog", type=Path,
+                        help="read-only OS/catalog projection into a new external JSON file")
     args = parser.parse_args()
-    if args.write:
+    if args.write and args.project_catalog:
+        raise PlaygroundFixtureError("choose one fixture operation")
+    if args.project_catalog:
+        output = args.project_catalog.absolute()
+        if (output.is_relative_to(ROOT.resolve()) or not output.parent.is_dir()
+                or output.exists() or output.is_symlink()):
+            raise PlaygroundFixtureError("projection output must be a new file outside OS source")
+        projection = project_public_catalog()
+        output.write_text(json.dumps(projection, ensure_ascii=False, sort_keys=True, separators=(",", ":")) + "\n",
+                          encoding="utf-8")
+        print("PUBLIC_OS_CATALOG_PROJECTION=PASS")
+    elif args.write:
         write_fixture()
         print(f"PUBLIC_PLAYGROUND_FIXTURE=WRITTEN path={FIXTURE_PATH.relative_to(ROOT)}")
     else:

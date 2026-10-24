@@ -24,6 +24,8 @@ on:
       - 'tools/creator/physicalchannel/**'
       - 'tools/release-signing/cmd/ordax-physical-release-signing/**'
       - '.github/workflows/physical-write-promotion.yml'
+      - '.github/actions/resolve-creator-source/**'
+      - 'docs/contracts/native-release-assembly.json'
   pull_request:
     paths:
       - 'bootstrap/trust/**'
@@ -46,6 +48,8 @@ on:
       - 'tools/creator/physicalchannel/**'
       - 'tools/release-signing/cmd/ordax-physical-release-signing/**'
       - '.github/workflows/physical-write-promotion.yml'
+      - '.github/actions/resolve-creator-source/**'
+      - 'docs/contracts/native-release-assembly.json'
   workflow_dispatch:
 
 permissions:
@@ -70,6 +74,47 @@ jobs:
       - name: Prepare pinned Surface for physical pre-authorization audit
         uses: ./.github/actions/prepare-verified-surface
 
+      - name: Verify exact independent Creator source for pre-authorization
+        uses: ./.github/actions/resolve-creator-source
+        with:
+          checkout-root: ${{ runner.temp }}/ordax-creator-physical-preflight
+
+      - name: Prove Creator pin and physical consent remain independent
+        shell: bash
+        run: |
+          set -euo pipefail
+          creator="${ORDAX_CREATOR_NATIVE_SOURCE:?missing immutable Creator checkout}"
+          test "${ORDAX_CREATOR_SOURCE_REPOSITORY:?}" = 'ordaxsystems/ordax-creator'
+          test "$(git -C "$creator" rev-parse HEAD)" = "${ORDAX_CREATOR_SOURCE_COMMIT:?}"
+          test "$(git -C "$creator" rev-parse 'HEAD^{tree}')" = "${ORDAX_CREATOR_SOURCE_TREE:?}"
+          test "$(head -n 1 "$creator/go.mod")" = 'module github.com/ordaxsystems/ordax-creator'
+          python3 - <<'PY'
+          import json, os, pathlib
+          auth = json.loads(pathlib.Path('docs/contracts/physical-write-authorization.json').read_text(encoding='utf-8'))
+          pin = json.loads(pathlib.Path('docs/contracts/native-release-assembly.json').read_text(encoding='utf-8'))['creator_source']
+          assert pin['repository'] == os.environ['ORDAX_CREATOR_SOURCE_REPOSITORY']
+          assert pin['commit'] == os.environ['ORDAX_CREATOR_SOURCE_COMMIT']
+          assert pin['tree'] == os.environ['ORDAX_CREATOR_SOURCE_TREE']
+          assert pin['module'] == 'github.com/ordaxsystems/ordax-creator'
+          assert pin['publisher_authority'] == 'ordaxsystems/ordax-os'
+          assert pin['physical_apply_authorized'] is False
+          consent = auth.get('physical_write_allowed')
+          assert isinstance(consent, bool)
+          assert auth.get('explicit_owner_authorization') is consent
+          if consent:
+              assert auth.get('status') == 'authorized'
+              assert isinstance(auth.get('authorization_context_sha256'), str)
+          else:
+              assert auth.get('status') in {
+                  'blocked-explicit-physical-authorization-pending',
+                  'blocked-canonical-v4-release-proof-pending',
+                  'blocked-canonical-trust-pending',
+              }
+              assert auth.get('authorization_context_sha256') in (None, '')
+          print('CREATOR_PHYSICAL_PIN=EXACT_VERIFIED')
+          print('CREATOR_EXTERNAL_SOURCE_GRANTS_PHYSICAL_CONSENT=NO')
+          PY
+
       - name: Regress non-destructive promotion boundaries
         run: |
           python -m unittest \
@@ -89,7 +134,7 @@ jobs:
           data = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding='utf-8'))
           assert data['$schema'] == 'prototype-ordax.physical-promotion-status/2'
           assert data['legacy_physical_media_contract_authoritative'] is False
-          assert data['portable_layout_authority'] == 'tools/creator/core/portable_media.go'
+          assert data['portable_layout_authority'] == 'docs/contracts/native-release-assembly.json#creator_source'
           assert data['consumer_key_setup_required'] is False
           assert data['development_channel_can_authorize_write'] is False
           assert isinstance(data['release_sequence'], int) and data['release_sequence'] > 0
@@ -149,6 +194,11 @@ jobs:
       - name: Prepare pinned Surface for authorized candidate source recheck
         uses: ./.github/actions/prepare-verified-surface
 
+      - name: Verify immutable independent Creator for authorized candidate
+        uses: ./.github/actions/resolve-creator-source
+        with:
+          checkout-root: ${{ runner.temp }}/ordax-creator-physical-candidate
+
       - name: Set up Python
         uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
@@ -168,7 +218,13 @@ jobs:
       - name: Test physical channel verifier and purpose-bound signer
         run: |
           set -euo pipefail
-          (cd tools/creator && go test -count=1 ./physicalchannel)
+          creator="${ORDAX_CREATOR_NATIVE_SOURCE:?missing pinned independent Creator source}"
+          test "${ORDAX_CREATOR_SOURCE_REPOSITORY:?}" = 'ordaxsystems/ordax-creator'
+          test "$(git -C "$creator" rev-parse HEAD)" = "${ORDAX_CREATOR_SOURCE_COMMIT:?}"
+          test "$(git -C "$creator" rev-parse 'HEAD^{tree}')" = "${ORDAX_CREATOR_SOURCE_TREE:?}"
+          test "$(head -n 1 "$creator/go.mod")" = 'module github.com/ordaxsystems/ordax-creator'
+          (cd "$creator" && ORDAX_OS_CONTRACTS_DIR="$GITHUB_WORKSPACE/docs/contracts" go test -count=1 ./physicalchannel)
+          echo 'PHYSICAL_WRITER_CREATOR_SOURCE=PINNED_INDEPENDENT'
           (cd tools/release-signing && go test -count=1 ./cmd/ordax-physical-release-signing)
 
       - name: Bind Portable writer to canonical trust and final policy contracts
@@ -241,13 +297,20 @@ jobs:
           cp docs/contracts/physical-write-authorization.json "$out/physical-write-authorization.json"
           cp docs/evidence/canonical-v4-release-proof.json "$out/canonical-v4-release-proof.json"
 
-          pushd tools/creator >/dev/null
-          CGO_ENABLED=0 GOOS=windows GOARCH=amd64 \
-            go build -trimpath -buildvcs=false -tags ordax_raw_backend \
-              -ldflags="-s -w -X main.buildSourceCommit=$GITHUB_SHA -X main.buildReleaseSourceCommit=$release_source_commit -X main.buildCanonicalTrustSHA256=$trust_sha -X main.buildManifestSHA256=$minimal_sha -X main.buildPortableUSBContractSHA256=$portable_sha -X main.buildCreatorPortableContractSHA256=$creator_sha -X main.buildPhysicalWriteAuthorized=YES" \
-              -o "$out/ordax-creator-physical-test.exe" \
-              ./cmd/ordax-creator-physical-test
-          popd >/dev/null
+          creator="${ORDAX_CREATOR_NATIVE_SOURCE:?missing pinned independent Creator source}"
+          test "${ORDAX_CREATOR_SOURCE_REPOSITORY:?}" = 'ordaxsystems/ordax-creator'
+          test "$(git -C "$creator" rev-parse HEAD)" = "${ORDAX_CREATOR_SOURCE_COMMIT:?}"
+          test "$(git -C "$creator" rev-parse 'HEAD^{tree}')" = "${ORDAX_CREATOR_SOURCE_TREE:?}"
+          (
+            cd "$creator"
+            ORDAX_OS_CONTRACTS_DIR="$GITHUB_WORKSPACE/docs/contracts" \
+              CGO_ENABLED=0 GOOS=windows GOARCH=amd64 \
+              go build -trimpath -buildvcs=false -tags ordax_raw_backend \
+                -ldflags="-s -w -X main.buildSourceCommit=$GITHUB_SHA -X main.buildReleaseSourceCommit=$release_source_commit -X main.buildCanonicalTrustSHA256=$trust_sha -X main.buildManifestSHA256=$minimal_sha -X main.buildPortableUSBContractSHA256=$portable_sha -X main.buildCreatorPortableContractSHA256=$creator_sha -X main.buildPhysicalWriteAuthorized=YES" \
+                -o "$out/ordax-creator-physical-test.exe" \
+                ./cmd/ordax-creator-physical-test
+          )
+          test -s "$out/ordax-creator-physical-test.exe"
 
           for binding in "$release_source_commit" "$trust_sha" "$minimal_sha" "$portable_sha" "$creator_sha"; do
             strings "$out/ordax-creator-physical-test.exe" | grep -F "$binding" >/dev/null
@@ -266,6 +329,9 @@ jobs:
               'status': 'authorized-candidate-not-published',
               'source_commit': os.environ['GITHUB_SHA'],
               'writer_source_commit': os.environ['GITHUB_SHA'],
+              'creator_source_repository': os.environ['ORDAX_CREATOR_SOURCE_REPOSITORY'],
+              'creator_source_commit': os.environ['ORDAX_CREATOR_SOURCE_COMMIT'],
+              'creator_source_tree': os.environ['ORDAX_CREATOR_SOURCE_TREE'],
               'release_sequence': release_sequence,
               'consumer_key_setup_required': False,
               'development_channel': False,

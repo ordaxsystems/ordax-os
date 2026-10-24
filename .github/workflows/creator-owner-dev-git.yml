@@ -61,6 +61,15 @@ on:
       - '.github/actions/resolve-creator-source/**'
       - 'docs/contracts/native-release-assembly.json'
       - 'tests/test_creator_owner_external_source.py'
+      - 'tools/creator/proof/prove_prepared_ext4_growth.sh'
+      - 'tests/test_creator_payload_source_identity.py'
+      # Removal or resurrection of embedded Creator Go must be proven by the
+      # full disposable Owner USB/QEMU consumer before landing on main.
+      - 'tools/creator/**/*.go'
+      - 'tools/creator/go.mod'
+      - 'tools/creator/go.sum'
+      - 'tools/creator/core/README.md'
+      - 'tests/test_creator_no_embedded_go.py'
 
 permissions:
   contents: write
@@ -126,14 +135,17 @@ jobs:
           test "$(git -C "$creator" rev-parse HEAD)" = "${ORDAX_CREATOR_SOURCE_COMMIT:?}"
           test "$(git -C "$creator" rev-parse 'HEAD^{tree}')" = "${ORDAX_CREATOR_SOURCE_TREE:?}"
           test "$(head -n 1 "$creator/go.mod")" = 'module github.com/ordaxsystems/ordax-creator'
-          python3 - "$creator/version.json" tools/creator/version.json <<'PY'
-          import json, pathlib, sys
-          independent, legacy = [
-              json.loads(pathlib.Path(path).read_text(encoding='utf-8'))
-              for path in sys.argv[1:]
-          ]
-          if independent != legacy:
-              raise SystemExit('independent Creator version differs from Owner bundle version')
+          python3 - "$creator/version.json" "$GITHUB_ENV" <<'PY'
+          import json, pathlib, re, sys
+          source, github_env = map(pathlib.Path, sys.argv[1:])
+          metadata = json.loads(source.read_text(encoding='utf-8'))
+          version = metadata.get('version')
+          if (metadata.get('$schema') != 'ordax.creator-product-version/1'
+              or not isinstance(version, str)
+              or re.fullmatch(r'[0-9]+\.[0-9]+\.[0-9]+(?:-[a-z][a-z0-9]*(?:\.[0-9]+)?)?', version) is None):
+              raise SystemExit('invalid independently pinned Creator version')
+          with github_env.open('a', encoding='utf-8') as output:
+              output.write(f'ORDAX_CREATOR_PRODUCT_VERSION={version}\n')
           PY
           (
             cd "$creator"
@@ -643,7 +655,7 @@ jobs:
               'creator_source_repository': os.environ['ORDAX_CREATOR_SOURCE_REPOSITORY'],
               'creator_source_commit': os.environ['ORDAX_CREATOR_SOURCE_COMMIT'],
               'creator_source_tree': os.environ['ORDAX_CREATOR_SOURCE_TREE'],
-              'creator_version': json.loads(pathlib.Path('tools/creator/version.json').read_text(encoding='utf-8'))['version'],
+              'creator_version': os.environ['ORDAX_CREATOR_PRODUCT_VERSION'],
               'canonical_public_release': False,
               'ephemeral_prototype_trust': True,
               'private_key_in_package': False,
@@ -733,7 +745,7 @@ jobs:
           zip_sha="$(sha256sum "$release/OrdaX-Creator-Owner-Prototype.zip" | cut -d' ' -f1)"
           zip_size="$(stat -c '%s' "$release/OrdaX-Creator-Owner-Prototype.zip")"
           printf '%s  %s\n' "$zip_sha" 'OrdaX-Creator-Owner-Prototype.zip' > "$release/SHA256SUMS.txt"
-          version="$(python3 -c 'import json; print(json.load(open("tools/creator/version.json", encoding="utf-8"))["version"])')"
+          version="${ORDAX_CREATOR_PRODUCT_VERSION:?missing verified independent Creator version}"
           python - "$release/creator-owner-update.json" "$ORDAX_OWNER_SOURCE_COMMIT" "$version" "$zip_sha" "$zip_size" <<'PY'
           import json, pathlib, sys
           output, source, version, digest, size = sys.argv[1:]
@@ -767,7 +779,8 @@ jobs:
             --archive "$release/OrdaX-Creator-Owner-Prototype.zip" \
             --metadata "$release/creator-owner-update.json" \
             --checksums "$release/SHA256SUMS.txt" \
-            --source-commit "$ORDAX_OWNER_SOURCE_COMMIT"
+            --source-commit "$ORDAX_OWNER_SOURCE_COMMIT" \
+            --creator-version "${ORDAX_CREATOR_PRODUCT_VERSION:?}"
 
       - name: Destroy ephemeral private key before publish
         run: |
