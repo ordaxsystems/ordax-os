@@ -10,6 +10,7 @@ PUBLISHER = ROOT / "tools/release-signing/windows/8-Sign-Publish-CreatorPhysical
 ROTATOR = ROOT / "tools/publisher/windows/9-Rotate-CreatorPhysical.ps1"
 AUTHORIZATION = ROOT / "docs/contracts/physical-write-authorization.json"
 PROMOTION = ROOT / "tools/creator/physical_promotion.py"
+PUBLISHER_WORKFLOW = ROOT / ".github/workflows/creator-physical-publisher.yml"
 
 
 def _load_promotion_module():
@@ -166,6 +167,21 @@ class CreatorPhysicalPublisherBoundaryTests(unittest.TestCase):
             text.index("$AliasChanged = $false"),
         )
 
+    def test_read_only_publisher_tests_use_verified_external_surface(self):
+        workflow = PUBLISHER_WORKFLOW.read_text(encoding="utf-8")
+        self.assertEqual(
+            workflow.count("uses: ./.github/actions/prepare-verified-surface"), 1
+        )
+        self.assertIn("docs/contracts/surface-source.json", workflow)
+        self.assertIn(".github/actions/assemble-surface/**", workflow)
+        self.assertIn("permissions:" + chr(10) + "  contents: read", workflow)
+        self.assertLess(
+            workflow.index("Prepare pinned independent Surface for read-only policy tests"),
+            workflow.index("Verify Portable publisher and authorization boundary"),
+        )
+        self.assertNotIn("contents: write", workflow)
+        self.assertNotIn("gh release", workflow)
+
     def test_publisher_boundary_stays_outside_physical_authorization_context(self):
         module = _load_promotion_module()
         auth = json.loads(AUTHORIZATION.read_text(encoding="utf-8"))
@@ -174,7 +190,7 @@ class CreatorPhysicalPublisherBoundaryTests(unittest.TestCase):
         self.assertRegex(context_sha, r"^[0-9a-f]{64}$")
         # Two inspected-media Core sources are now governed by the same physical
         # authorization context; adding them never grants write authorization.
-        self.assertEqual(file_count, 82)
+        self.assertEqual(file_count, 86)
 
         if auth["status"] == "authorized":
             self.assertIs(auth["physical_write_allowed"], True)
@@ -209,6 +225,10 @@ class CreatorPhysicalPublisherBoundaryTests(unittest.TestCase):
         }
         self.assertEqual(len(governed), file_count)
         self.assertIn(".github/workflows/first-physical-usb-payload.yml", governed)
+        self.assertIn(".github/actions/resolve-creator-source/action.yml", governed)
+        self.assertIn(".github/actions/prepare-verified-surface/action.yml", governed)
+        self.assertIn("docs/contracts/native-release-assembly.json", governed)
+        self.assertIn("docs/contracts/surface-source.json", governed)
         self.assertIn("system/services/preferences/catalog.mjs", governed)
         self.assertIn("tools/creator/core/portable_sources.go", governed)
         self.assertIn("tools/creator/core/installed_media_inspection.go", governed)

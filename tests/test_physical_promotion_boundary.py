@@ -594,7 +594,7 @@ class PhysicalPromotionBoundaryTests(unittest.TestCase):
             self.assertEqual(status["next_stage"], "authorized-candidate-materialization")
             self.assertEqual(
                 status["portable_layout_authority"],
-                "tools/creator/core/portable_media.go",
+                "docs/contracts/native-release-assembly.json#creator_source",
             )
             self.assertFalse(status["legacy_physical_media_contract_authoritative"])
             self.assertEqual(
@@ -729,6 +729,47 @@ class PhysicalPromotionBoundaryTests(unittest.TestCase):
                 "physical-authorization-context-mismatch",
                 status["authorization_blockers"],
             )
+
+    def test_authorization_context_invalidates_consent_after_external_creator_pin_change(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            self.make_ready_fixture(root)
+            lock = root / "docs/contracts/native-release-assembly.json"
+            original = json.loads(lock.read_text(encoding="utf-8"))
+            self.assertEqual(original["creator_source"]["repository"], "ordaxsystems/ordax-creator")
+            original["creator_source"]["commit"] = "f" * 40
+            write_json(lock, original)
+            status = promotion.evaluate(root)
+            self.assertFalse(status["ready"])
+            self.assertFalse(status["authorization_context_matches_current_source"])
+            self.assertFalse(status["authorized_candidate_materialization_allowed"])
+            self.assertIn("physical-authorization-context-mismatch", status["authorization_blockers"])
+
+    def test_authorization_context_fails_closed_without_pinned_creator_contract(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            self.make_ready_fixture(root)
+            (root / "docs/contracts/native-release-assembly.json").unlink()
+            with self.assertRaisesRegex(
+                promotion.PromotionError, "physical authorization context pattern resolved no source files"
+            ):
+                promotion.authorization_context_sha256(root)
+
+    def test_physical_workflow_rechecks_external_source_before_authorized_build(self):
+        workflow = PHYSICAL_PROMOTION_WORKFLOW.read_text(encoding="utf-8")
+        self.assertEqual(workflow.count("uses: ./.github/actions/resolve-creator-source"), 2)
+        self.assertIn("CREATOR_EXTERNAL_SOURCE_GRANTS_PHYSICAL_CONSENT=NO", workflow)
+        self.assertIn("git -C \"$creator\" rev-parse 'HEAD^{tree}'", workflow)
+        self.assertIn('test "${ORDAX_CREATOR_SOURCE_REPOSITORY:?}" = \'ordaxsystems/ordax-creator\'', workflow)
+        self.assertIn("ORDAX_OS_CONTRACTS_DIR=", workflow)
+        self.assertIn('cd "$creator"', workflow)
+        self.assertNotIn("(cd tools/creator && go test", workflow)
+        self.assertNotIn("pushd tools/creator", workflow)
+        self.assertIn("-X main.buildPhysicalWriteAuthorized=YES", workflow)
+        self.assertIn("'creator_source_commit': os.environ['ORDAX_CREATOR_SOURCE_COMMIT']", workflow)
+        self.assertIn("'creator_source_tree': os.environ['ORDAX_CREATOR_SOURCE_TREE']", workflow)
+        self.assertIn("needs.preflight.outputs.ready == 'true'", workflow)
+        self.assertIn("PORTABLE_V3_SIGNED_WRITER_PUBLISHED=NO", workflow)
 
     def test_authorization_context_invalidates_consent_after_writer_source_change(self):
         with tempfile.TemporaryDirectory() as temporary:
