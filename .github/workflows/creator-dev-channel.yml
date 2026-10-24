@@ -1,27 +1,41 @@
 name: Creator Development Update Channel
 
-# C6 migration gate: this legacy development publisher still compiles the OS
-# embedded Creator Go source. Do not republish it from unrelated OS commits.
-# Keep the existing creator-dev URL/schema readable until the standalone
-# Creator and OS-owned publisher handoff are migrated and proven.
+# OS owns public GitHub Release publication; independent Creator owns Go source.
+# PR/main checks have read-only credentials. Only an explicitly dispatched main
+# job may publish the existing rolling legacy-compatible /1 developer assets.
 on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/creator-dev-channel.yml'
+      - '.github/actions/resolve-creator-source/**'
+      - 'docs/contracts/native-release-assembly.json'
+      - 'tests/test_creator_dev_release_gate.py'
+  pull_request:
+    paths:
+      - '.github/workflows/creator-dev-channel.yml'
+      - '.github/actions/resolve-creator-source/**'
+      - 'docs/contracts/native-release-assembly.json'
+      - 'tests/test_creator_dev_release_gate.py'
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  publish-creator-dev:
-    # Only an explicit run on canonical OS main may mutate the legacy rolling
-    # development release. Source changes alone may not promote it.
-    if: ${{ github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' }}
+  build-creator-dev-candidate:
     runs-on: windows-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
+      - name: Resolve exact independent Creator source from OS canonical pin
+        uses: ./.github/actions/resolve-creator-source
+        with:
+          checkout-root: ${{ runner.temp }}/ordax-creator-dev-source
+
 
       - name: Set up Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
@@ -35,7 +49,11 @@ jobs:
         run: |
           Set-StrictMode -Version Latest
           $ErrorActionPreference = 'Stop'
-          Push-Location tools/creator
+          if ($env:ORDAX_CREATOR_SOURCE_REPOSITORY -cne 'ordaxsystems/ordax-creator' -or
+              [string]::IsNullOrWhiteSpace($env:ORDAX_CREATOR_NATIVE_SOURCE)) {
+            throw 'Creator source resolution failed'
+          }
+          Push-Location $env:ORDAX_CREATOR_NATIVE_SOURCE
           try {
             go test -count=1 ./...
             go test -count=1 ./host/windows
@@ -50,21 +68,30 @@ jobs:
           $ErrorActionPreference = 'Stop'
           $release = Join-Path $PWD 'out/creator-dev-release'
           $payload = Join-Path $PWD 'out/creator-dev-payload'
-          $sha = '${{ github.sha }}'
+          $sha = $env:ORDAX_CREATOR_SOURCE_COMMIT
           $version = 'dev-' + $sha.Substring(0, 12)
+          if ($sha -cnotmatch '^[0-9a-f]{40}$' -or
+              (git -C $env:ORDAX_CREATOR_NATIVE_SOURCE rev-parse HEAD).Trim() -cne $sha -or
+              (git -C $env:ORDAX_CREATOR_NATIVE_SOURCE rev-parse 'HEAD^{tree}').Trim() -cne $env:ORDAX_CREATOR_SOURCE_TREE) {
+            throw 'Creator source does not match the exact pinned commit and tree'
+          }
           New-Item -ItemType Directory -Force -Path $release | Out-Null
           New-Item -ItemType Directory -Force -Path $payload | Out-Null
 
-          Push-Location tools/creator
+          if ($env:ORDAX_CREATOR_SOURCE_REPOSITORY -cne 'ordaxsystems/ordax-creator' -or
+              [string]::IsNullOrWhiteSpace($env:ORDAX_CREATOR_NATIVE_SOURCE)) {
+            throw 'Creator source resolution failed'
+          }
+          Push-Location $env:ORDAX_CREATOR_NATIVE_SOURCE
           try {
             go build -trimpath -buildvcs=false `
               -ldflags='-s -w -H=windowsgui' `
-              -o ../../out/creator-dev-release/OrdaX-Creator.exe `
+              -o (Join-Path $release 'OrdaX-Creator.exe') `
               ./cmd/ordax-creator-app
 
             go build -trimpath -buildvcs=false `
               -ldflags='-s -w' `
-              -o ../../out/creator-dev-payload/ordax-creator-physical-test.exe `
+              -o (Join-Path $payload 'ordax-creator-physical-test.exe') `
               ./cmd/ordax-creator-inspection
           } finally {
             Pop-Location
@@ -184,6 +211,31 @@ jobs:
           if ($manifest.'$schema' -ne 'prototype-ordax.creator-update-channel/1') { throw 'rolling compatibility manifest must remain schema /1' }
           if ($manifest.entrypoints.trust -ne '2-Legacy-Protocol-Compatibility.cmd') { throw 'legacy protocol entrypoint is not the approved no-op' }
 
+          # V1 is a strict legacy updater contract. Identity must represent the
+          # Creator implementation revision, not an unrelated OS publisher SHA.
+          if ($manifest.source_commit -cne $env:ORDAX_CREATOR_SOURCE_COMMIT -or
+              $manifest.version -cne ('dev-' + $env:ORDAX_CREATOR_SOURCE_COMMIT.Substring(0, 12)) -or
+              $manifest.payload.url -cne 'https://github.com/ordaxsystems/ordax-os/releases/download/creator-dev/ordax-creator-dev-windows-amd64.zip') {
+            throw 'Creator V1 update channel identity or download URL mismatch'
+          }
+          $zipFile = Join-Path $release 'ordax-creator-dev-windows-amd64.zip'
+          if ($manifest.payload.sha256 -cne (Get-FileHash -Algorithm SHA256 -LiteralPath $zipFile).Hash.ToLowerInvariant() -or
+              [int64]$manifest.payload.size -ne (Get-Item -LiteralPath $zipFile).Length) {
+            throw 'Creator update payload hash or size mismatch'
+          }
+          $archive = [IO.Compression.ZipFile]::OpenRead($zipFile)
+          try {
+            $expected = @('1-Inspect-OrdaXUSB.cmd', '2-Legacy-Protocol-Compatibility.cmd',
+                          'README.txt', 'ordax-creator-physical-test.exe')
+            $actual = @($archive.Entries | ForEach-Object { $_.FullName })
+            if (@($actual).Count -ne @($expected).Count -or
+                @(Compare-Object -ReferenceObject $expected -DifferenceObject $actual).Count -ne 0) {
+              throw 'Creator development ZIP has an unexpected file inventory'
+            }
+          } finally {
+            $archive.Dispose()
+          }
+
           $status = & $backend status | ConvertFrom-Json
           if ($status.raw_backend_linked -ne $false) { throw 'development backend unexpectedly links raw writer' }
           if ($status.build.physical_write_authorized -ne $false) { throw 'development backend unexpectedly authorizes physical write' }
@@ -197,7 +249,112 @@ jobs:
           Write-Host 'CREATOR_DEV_RAW_DISK_BACKEND=ABSENT'
           Write-Host 'CREATOR_DEV_PHYSICAL_WRITE=BLOCKED'
 
-      - name: Publish rolling read-only Creator development channel
+      - name: Write distinct Creator source and OS publisher provenance
+        shell: pwsh
+        run: |
+          Set-StrictMode -Version Latest
+          $ErrorActionPreference = 'Stop'
+          $release = Join-Path $PWD 'out/creator-dev-release'
+          $data = [ordered]@{
+            '$schema' = 'prototype-ordax.creator-dev-source-provenance/1'
+            status = 'unsigned-ci-candidate'
+            publisher_repository = 'ordaxsystems/ordax-os'
+            publisher_commit = '${{ github.sha }}'
+            creator_source_repository = $env:ORDAX_CREATOR_SOURCE_REPOSITORY
+            creator_source_commit = $env:ORDAX_CREATOR_SOURCE_COMMIT
+            creator_source_tree = $env:ORDAX_CREATOR_SOURCE_TREE
+            public_release_authorized = $false
+            physical_write_authorized = $false
+            private_key_included = $false
+          }
+          $utf8 = [Text.UTF8Encoding]::new($false)
+          [IO.File]::WriteAllText((Join-Path $release 'creator-dev-source-provenance.json'), (($data | ConvertTo-Json -Depth 6) + "`n"), $utf8)
+          if ($data.creator_source_repository -cne 'ordaxsystems/ordax-creator' -or
+              $data.creator_source_commit -cnotmatch '^[0-9a-f]{40}$' -or
+              $data.creator_source_tree -cnotmatch '^[0-9a-f]{40}$') {
+            throw 'Creator candidate source provenance is invalid'
+          }
+
+      - name: Upload unsigned read-only candidate for review
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: ordax-creator-dev-candidate-${{ github.sha }}
+          path: out/creator-dev-release/
+          if-no-files-found: error
+          retention-days: 7
+
+  publish-creator-dev:
+    needs: build-creator-dev-candidate
+    if: ${{ github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && github.repository == 'ordaxsystems/ordax-os' }}
+    runs-on: windows-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    concurrency:
+      group: ordax-creator-dev-rolling-publication
+      cancel-in-progress: false
+    steps:
+      - name: Checkout OS owner contracts (no persistence of credentials)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Download exactly this run's verified unsigned Creator candidate
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: ordax-creator-dev-candidate-${{ github.sha }}
+          path: out/creator-dev-release/
+
+      - name: Revalidate source lock and artifacts before enabling release upload
+        shell: pwsh
+        run: |
+          Set-StrictMode -Version Latest
+          $ErrorActionPreference = 'Stop'
+          $root = Join-Path $PWD 'out/creator-dev-release'
+          $pin = (Get-Content -LiteralPath docs/contracts/native-release-assembly.json -Raw -Encoding UTF8 | ConvertFrom-Json).creator_source
+          $prov = Get-Content -LiteralPath (Join-Path $root 'creator-dev-source-provenance.json') -Raw -Encoding UTF8 | ConvertFrom-Json
+          $manifest = Get-Content -LiteralPath (Join-Path $root 'creator-dev-manifest.json') -Raw -Encoding UTF8 | ConvertFrom-Json
+          if ($prov.'$schema' -cne 'prototype-ordax.creator-dev-source-provenance/1' -or
+              $prov.publisher_repository -cne 'ordaxsystems/ordax-os' -or
+              $prov.publisher_commit -cne '${{ github.sha }}' -or
+              $prov.creator_source_repository -cne 'ordaxsystems/ordax-creator' -or
+              $prov.creator_source_commit -cne [string]$pin.commit -or
+              $prov.creator_source_tree -cne [string]$pin.tree -or
+              $prov.public_release_authorized -ne $false -or
+              $prov.physical_write_authorized -ne $false -or
+              $prov.private_key_included -ne $false) {
+            throw 'Creator dev candidate source or OS publisher provenance mismatch'
+          }
+          $names = @('OrdaX-Creator.exe', 'ordax-creator-dev-windows-amd64.zip',
+                     'creator-dev-manifest.json', 'SHA256SUMS', 'creator-dev-source-provenance.json')
+          $actual = @(Get-ChildItem -LiteralPath $root -File | ForEach-Object { $_.Name })
+          if ($actual.Count -ne $names.Count -or
+              @(Compare-Object -ReferenceObject $names -DifferenceObject $actual).Count -ne 0) {
+            throw 'unexpected downloaded Creator publication candidate contents'
+          }
+          if ($manifest.'$schema' -cne 'prototype-ordax.creator-update-channel/1' -or
+              $manifest.channel -cne 'development' -or
+              $manifest.source_commit -cne [string]$pin.commit -or
+              $manifest.payload.url -cne 'https://github.com/ordaxsystems/ordax-os/releases/download/creator-dev/ordax-creator-dev-windows-amd64.zip') {
+            throw 'Creator legacy manifest source pin/schema/URL mismatch'
+          }
+          $zipPath = Join-Path $root 'ordax-creator-dev-windows-amd64.zip'
+          if ((Get-FileHash -Algorithm SHA256 -LiteralPath $zipPath).Hash.ToLowerInvariant() -cne $manifest.payload.sha256 -or
+              (Get-Item -LiteralPath $zipPath).Length -ne [int64]$manifest.payload.size) {
+            throw 'Creator ZIP hash or size mismatch before publication'
+          }
+          $launcherPath = Join-Path $root 'OrdaX-Creator.exe'
+          $sumLines = @(Get-Content -LiteralPath (Join-Path $root 'SHA256SUMS'))
+          if (@($sumLines).Count -ne 2 -or
+              @($sumLines)[0] -cne ("$((Get-FileHash -Algorithm SHA256 -LiteralPath $launcherPath).Hash.ToLowerInvariant())  OrdaX-Creator.exe") -or
+              @($sumLines)[1] -cne ("$($manifest.payload.sha256)  ordax-creator-dev-windows-amd64.zip")) {
+            throw 'Creator SHA256SUMS does not match candidate files'
+          }
+          Write-Host 'CREATOR_DEV_SOURCE_LOCK=VERIFIED'
+          Write-Host 'CREATOR_DEV_LEGACY_V1_COMPATIBILITY=PASS'
+          Write-Host 'CREATOR_DEV_OS_PUBLISHER_OWNER=VERIFIED'
+
+      - name: Publish verified rolling read-only Creator development channel
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
