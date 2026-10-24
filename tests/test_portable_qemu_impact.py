@@ -3,6 +3,7 @@ import importlib.util
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -47,6 +48,16 @@ class PortableQemuImpactTests(unittest.TestCase):
         self.assertIn("system/services/local-ai/runtime.mjs", self.reachable)
         self.assertIn("system/contracts/local-ai.mjs", self.reachable)
         self.assertIn("system/services/components/probation-orchestrator.mjs", self.reachable)
+
+    def test_untracked_external_visual_imports_require_canonical_surface_lock(self):
+        self.assertTrue(impact._has_canonical_external_surface(ROOT))
+        with patch.object(impact, "_has_canonical_external_surface", return_value=False):
+            _, errors = impact.native_startup_import_graph(ROOT)
+        self.assertTrue(
+            any("unresolved:system/composition/native/main.mjs:../../surface/ui/" in e
+                for e in errors),
+            "a missing external Surface contract must fail closed",
+        )
 
     def test_unwired_high_level_web_research_source_does_not_require_qemu(self):
         result = impact.classify_paths(
