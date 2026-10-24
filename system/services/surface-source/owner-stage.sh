@@ -21,8 +21,18 @@ git_bin=${ORDAX_GIT_BIN:-/usr/bin/git}
 lock=$("$git_bin" -C "$worktree" show "$os_sha:docs/contracts/surface-source.json") || exit 2
 [ -n "$lock" ] || exit 2
 field() {
+    # Read the fixed string-valued lock keys regardless of pretty-printing.
+    # BusyBox is the only available parser on the minimal Owner base; only
+    # exactly one matching JSON string key is admissible, never an override.
     printf '%s\n' "$lock" | /bin/busybox awk -F '"' -v key="$1" '
-        $2 == key { value = $4; count++ }
+        {
+            for (i = 2; i + 2 <= NF; i += 2) {
+                if ($i == key && $(i+1) ~ /^[[:space:]]*:[[:space:]]*$/) {
+                    value = $(i+2)
+                    count++
+                }
+            }
+        }
         END { if (count != 1 || value == "") exit 1; print value }
     '
 }

@@ -1,0 +1,25 @@
+name: Prepare verified Surface for disposable CI
+description: "Materialize pinned Surface in a disposable source checkout without committing a visual copy into OS Git"
+runs:
+  using: composite
+  steps:
+    - name: Materialize one canonical external source
+      uses: ./.github/actions/assemble-surface
+      with:
+        out-root: ${{ runner.temp }}/ordax-verified-surface-ci
+
+    - name: Mount verified UI and Workspace into disposable checkout
+      shell: bash
+      run: |
+        set -euo pipefail
+        for part in ui workspace; do
+          source="$RUNNER_TEMP/ordax-verified-surface-ci/system/surface/$part"
+          target="$PWD/system/surface/$part"
+          test -d "$source" && test ! -L "$source"
+          test ! -L "$target"
+          test ! -e "$target" || { echo "::error::OS checkout still owns $target"; exit 1; }
+          cp -a "$source" "$target"
+          diff -qr "$source" "$target"
+        done
+        echo "ORDAX_VISUAL_SOURCE_REPOSITORY=ordaxsystems/ordax-surface"
+        echo "ORDAX_VISUAL_SOURCE_MATERIALIZED_FOR_TEST_ONLY=YES"

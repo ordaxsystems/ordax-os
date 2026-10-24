@@ -126,7 +126,7 @@ OrdaX Web
 
 Sao modos de capacidade do mesmo produto, nao forks. Nomes publicos e vinculo de versoes: `system/contracts/product-family.mjs`; IDs de modo permanecem `web`, `mobile`, `desktop`, `usb`, `native-disk`. Tablet nao e um sexto modo; Studio e app. Nao inventar versao de APK/Web/Desktop nao publicado.
 
-Surface, apps e logica compartilhada possuem uma unica fonte em `system/`. Diferencas de ambiente vivem apenas em adapters de capacidade.
+A Surface **visual** tem SSOT no repositório `ordaxsystems/ordax-surface`, fixada por `docs/contracts/surface-source.json` e materializada exclusivamente no staging de build/release/CI; o host Native, os serviços, as composições, contratos e adapters permanecem no `ordax-os/system/`. Os aplicativos pertencem aos respectivos owners. Diferencas de ambiente vivem apenas em adapters de capacidade.
 
 ## 6. Pendrive inicial minimo
 
