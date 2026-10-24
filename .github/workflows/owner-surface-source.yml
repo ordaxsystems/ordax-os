@@ -7,6 +7,7 @@ on:
       - 'system/supervisor'
       - 'system/services/surface-source/**'
       - 'tests/test_owner_surface_source_staging.py'
+      - 'tests/test_owner_surface_launcher_identity.py'
       - '.github/workflows/owner-surface-source.yml'
       - 'docs/contracts/surface-source.json'
   pull_request:
@@ -14,6 +15,7 @@ on:
       - 'system/supervisor'
       - 'system/services/surface-source/**'
       - 'tests/test_owner_surface_source_staging.py'
+      - 'tests/test_owner_surface_launcher_identity.py'
       - '.github/workflows/owner-surface-source.yml'
       - 'docs/contracts/surface-source.json'
 
@@ -48,7 +50,7 @@ jobs:
           set -euo pipefail
           /bin/sh -n system/supervisor
           /bin/sh -n system/services/surface-source/owner-stage.sh
-          python -m unittest tests.test_owner_surface_source_staging tests.test_owner_surface_offline_preseed -v
+          python -m unittest tests.test_owner_surface_source_staging tests.test_owner_surface_offline_preseed tests.test_owner_surface_launcher_identity -v
 
       - name: Verify existing Supervisor rollback and update contracts
         run: |
