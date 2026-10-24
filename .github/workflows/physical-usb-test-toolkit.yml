@@ -7,11 +7,17 @@ on:
       - 'tools/creator/**'
       - 'tests/test_owner_dev_helper_storage_profile.py'
       - '.github/workflows/physical-usb-test-toolkit.yml'
+      - '.github/actions/resolve-creator-source/**'
+      - 'docs/contracts/native-release-assembly.json'
+      - 'tests/test_creator_physical_backend_external_source.py'
   pull_request:
     paths:
       - 'tools/creator/**'
       - 'tests/test_owner_dev_helper_storage_profile.py'
       - '.github/workflows/physical-usb-test-toolkit.yml'
+      - '.github/actions/resolve-creator-source/**'
+      - 'docs/contracts/native-release-assembly.json'
+      - 'tests/test_creator_physical_backend_external_source.py'
   workflow_dispatch:
 
 permissions:
@@ -27,11 +33,19 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Resolve independent Creator with immutable source and tree
+        uses: ./.github/actions/resolve-creator-source
+        with:
+          checkout-root: ${{ runner.temp }}/ordax-creator-physical-safety
+
       - name: Set up Python
         uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: '3.12'
           check-latest: false
+
+      - name: Regress external-source safety workflow boundary
+        run: python -m unittest tests.test_creator_physical_backend_external_source -v
 
       - name: Regress Owner Development split-helper storage profile
         run: python tests/test_owner_dev_helper_storage_profile.py
@@ -48,14 +62,25 @@ jobs:
         run: |
           Set-StrictMode -Version Latest
           $ErrorActionPreference = 'Stop'
-          Push-Location tools/creator
+          $source = $env:ORDAX_CREATOR_NATIVE_SOURCE
+          if (-not $source -or -not (Test-Path -LiteralPath $source)) { throw 'independent Creator checkout missing' }
+          if ($env:ORDAX_CREATOR_SOURCE_REPOSITORY -ne 'ordaxsystems/ordax-creator') { throw 'Creator repository authority mismatch' }
+          if ((git -C $source rev-parse HEAD).Trim() -ne $env:ORDAX_CREATOR_SOURCE_COMMIT) { throw 'independent Creator SHA mismatch' }
+          if ((git -C $source rev-parse 'HEAD^{tree}').Trim() -ne $env:ORDAX_CREATOR_SOURCE_TREE) { throw 'independent Creator tree mismatch' }
+          if ((Get-Content -LiteralPath (Join-Path $source 'go.mod') -TotalCount 1).Trim() -ne 'module github.com/ordaxsystems/ordax-creator') { throw 'independent Go module mismatch' }
+          $env:ORDAX_OS_CONTRACTS_DIR = Join-Path $env:GITHUB_WORKSPACE 'docs/contracts'
+          Push-Location $source
           try {
             go test -count=1 ./...
+            if ($LASTEXITCODE -ne 0) { throw 'standalone Creator core tests failed' }
             go test -count=1 -tags ordax_raw_backend ./host/windows
+            if ($LASTEXITCODE -ne 0) { throw 'Windows raw backend tests failed' }
             go test -count=1 -tags ordax_raw_backend ./cmd/ordax-creator-physical-test
+            if ($LASTEXITCODE -ne 0) { throw 'Windows physical helper tests failed' }
           } finally {
             Pop-Location
           }
+          Write-Host 'CREATOR_PHYSICAL_SOURCE=PINNED_INDEPENDENT'
 
       - name: Build unbound raw backend test executable
         shell: pwsh
@@ -64,15 +89,21 @@ jobs:
           $ErrorActionPreference = 'Stop'
           $out = Join-Path $PWD 'out/physical-backend-safety'
           New-Item -ItemType Directory -Force -Path $out | Out-Null
-          Push-Location tools/creator
+          $source = $env:ORDAX_CREATOR_NATIVE_SOURCE
+          if (-not $source -or -not (Test-Path -LiteralPath $source)) { throw 'independent Creator checkout missing' }
+          $binary = Join-Path $out 'ordax-creator-physical-test.exe'
+          $env:ORDAX_OS_CONTRACTS_DIR = Join-Path $env:GITHUB_WORKSPACE 'docs/contracts'
+          Push-Location $source
           try {
             go build -trimpath -buildvcs=false -tags ordax_raw_backend `
               -ldflags='-s -w' `
-              -o ../../out/physical-backend-safety/ordax-creator-physical-test.exe `
+              -o $binary `
               ./cmd/ordax-creator-physical-test
+            if ($LASTEXITCODE -ne 0) { throw 'standalone physical test helper build failed' }
           } finally {
             Pop-Location
           }
+          if (-not (Test-Path -LiteralPath $binary -PathType Leaf)) { throw 'standalone helper missing after build' }
 
       - name: Prove unbound backend remains fail closed
         shell: pwsh
@@ -119,8 +150,10 @@ jobs:
         run: |
           Set-StrictMode -Version Latest
           $ErrorActionPreference = 'Stop'
-          $runtime = Get-Content -LiteralPath 'tools/creator/host/windows/portable_apply_windows.go' -Raw
-          $core = Get-Content -LiteralPath 'tools/creator/core/portable_application_executor.go' -Raw
+          $source = $env:ORDAX_CREATOR_NATIVE_SOURCE
+          if (-not $source) { throw 'independent Creator checkout missing' }
+          $runtime = Get-Content -LiteralPath (Join-Path $source 'host/windows/portable_apply_windows.go') -Raw
+          $core = Get-Content -LiteralPath (Join-Path $source 'core/portable_application_executor.go') -Raw
           foreach ($required in @(
             'ExecutePortableApplication',
             'Clear-Disk',
