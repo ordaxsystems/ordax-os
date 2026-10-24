@@ -20,14 +20,18 @@ class Markup(HTMLParser):
 class PublicSurfaceSnapshotTests(unittest.TestCase):
     def setUp(self):
         self.snapshot=json.loads((ROOT/'sites/public/assets/surface-snapshot.json').read_text(encoding='utf-8'))
-    def test_visual_artifact_tracks_real_component_sources(self):
+    def test_frozen_visual_artifact_preserves_nonexecuting_source_receipt(self):
         tracked={entry['path']:entry['sha256'] for entry in self.snapshot['sources']}
-        for owner in ['meridian-home.tsx','meridian-navigation.tsx','config.ts','meridian.css','service-overview.tsx','settings.tsx','primitives.tsx']:
+        for owner in ['meridian-home.tsx','meridian-navigation.tsx','config.ts',
+                      'meridian.css','service-overview.tsx','settings.tsx','primitives.tsx']:
             self.assertTrue(any(path.endswith('/'+owner) for path in tracked),owner)
+        self.assertEqual(len(tracked), len(self.snapshot['sources']))
         for path,digest in tracked.items():
-            payload=(ROOT/path).read_bytes()
-            if Path(path).suffix in {'.ts','.tsx','.js','.jsx','.mjs','.css','.json','.svg'}: payload=payload.replace(b'\r\n',b'\n')
-            self.assertEqual(hashlib.sha256(payload).hexdigest(),digest,path)
+            self.assertTrue(path and not Path(path).is_absolute() and '..' not in Path(path).parts)
+            self.assertRegex(digest, r'^[0-9a-f]{64}$')
+        # This frozen receipt is historical data, NOT a mandate that the
+        # OS continue tracking components already moved to Surface.
+        self.assertFalse((ROOT/'tools/public-site/surface-snapshot-entry.tsx').exists())
 
     def test_retired_os_surface_generator_is_not_a_second_visual_writer(self):
         # Surface #12 and Site #2 now own the renderer/consumption path.
@@ -35,31 +39,21 @@ class PublicSurfaceSnapshotTests(unittest.TestCase):
         self.assertFalse(
             (ROOT/'.github/workflows/public-surface-ssot-refresh.yml').exists()
         )
-        # The frozen portal source files still prove its historical asset
-        # receipts until the OS-owned portal itself is removed. Neither is
-        # allowed to run from a workflow which rewrites visual/i18n outputs.
+        # Historical public assets remain read-only, but NO OS-owned
+        # visual render source, alternate i18n generator or writer survives.
         for relative in (
             'tools/public-site/surface_snapshot.mjs',
             'tools/public-site/surface-snapshot-entry.tsx',
+            'tools/public-site/generated_copy.mjs',
+            'tests/test_public_surface_copy_normalization.mjs',
         ):
-            self.assertTrue((ROOT/relative).is_file(), relative)
-
-    def test_source_provenance_accepts_windows_and_linux_text_checkouts(self):
-        spec=importlib.util.spec_from_file_location('public_demo_fixture',ROOT/'tools/public-site/playground_fixture.py')
-        module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
-        with tempfile.TemporaryDirectory(prefix='ordax-demo-portability-') as directory:
-            checkout=Path(directory)
-            for newline in (b'\n',b'\r\n'):
-                for source in self.snapshot['sources']:
-                    target=checkout/source['path']
-                    self.assertTrue(target.resolve().is_relative_to(checkout.resolve()))
-                    target.parent.mkdir(parents=True,exist_ok=True)
-                    payload=(ROOT/source['path']).read_bytes()
-                    if target.suffix in {'.ts','.tsx','.js','.jsx','.mjs','.css','.json','.svg'}:
-                        payload=payload.replace(b'\r\n',b'\n').replace(b'\n',newline)
-                    target.write_bytes(payload)
-                with patch.object(module,'ROOT',checkout):
-                    self.assertEqual(module._current_surface_snapshot()['cssSha256'],self.snapshot['cssSha256'])
+            self.assertFalse((ROOT/relative).exists(), relative)
+        projection=(ROOT/'tools/public-site/playground_fixture.py').read_text(encoding='utf-8')
+        self.assertIn('--project-catalog', projection)
+        self.assertNotIn('def write_fixture(', projection)
+        self.assertNotIn('parser.add_argument("--write"', projection)
+        self.assertNotIn('FIXTURE_PATH.write_text(', projection)
+        self.assertNotIn('INDEX_PATH.write_text(', projection)
 
     def test_native_device_menu_fixture_rejects_unmanaged_items(self):
         spec = importlib.util.spec_from_file_location(
@@ -71,7 +65,8 @@ class PublicSurfaceSnapshotTests(unittest.TestCase):
         fixture = json.loads(
             (ROOT / "sites/public/assets/playground-fixture.json").read_text(encoding="utf-8")
         )
-        self.assertEqual(module._surface_home(), fixture["home"])
+        # The active OS catalog is independent of the frozen Site fixture.
+        self.assertEqual(module._surface_home(), module.project_public_catalog()["home"])
         source = module.DESKTOP_SHELL.read_text(encoding="utf-8")
         shortcut_source = module.SHORTCUT_CATALOG.read_text(encoding="utf-8")
         self.assertIn('listSurfaceShortcutAppIds("navigation-menu")', source)

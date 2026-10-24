@@ -214,20 +214,29 @@ def _surface_home() -> dict[str, object]:
 
 
 def _current_surface_snapshot():
+    # This OS portal is an immutable *historical* static Dev artifact. Its
+    # source files now belong to ordax-surface and must not be reconstructed
+    # from files on the current OS checkout.
     snapshot = json.loads((PUBLIC_ROOT / "assets/surface-snapshot.json").read_text(encoding="utf-8"))
-    css = PUBLIC_ROOT / "assets/surface-snapshot.css"
-    if hashlib.sha256(css.read_text(encoding="utf-8").encode("utf-8")).hexdigest() != snapshot.get("cssSha256"):
-        raise PlaygroundFixtureError("public Surface stylesheet diverged from its generated artifact")
-    for source in snapshot["sources"]:
-        relative = Path(source["path"])
-        if relative.is_absolute() or ".." in relative.parts:
-            raise PlaygroundFixtureError("invalid public Surface provenance path")
-        path = ROOT / relative
-        payload = path.read_bytes()
-        if path.suffix in {".ts", ".tsx", ".js", ".jsx", ".mjs", ".css", ".json", ".svg"}:
-            payload = payload.replace(b"\r\n", b"\n")
-        if hashlib.sha256(payload).hexdigest() != source["sha256"]:
-            raise PlaygroundFixtureError("public Surface snapshot is stale: " + source["path"] + "; run node tools/public-site/surface_snapshot.mjs and playground_fixture.py --write")
+    css = (PUBLIC_ROOT / "assets/surface-snapshot.css").read_bytes()
+    if hashlib.sha256(css).hexdigest() != snapshot.get("cssSha256"):
+        raise PlaygroundFixtureError("frozen public Surface CSS integrity mismatch")
+    entries = snapshot.get("sources")
+    if not isinstance(entries, list) or not entries:
+        raise PlaygroundFixtureError("frozen snapshot missing historical source receipt")
+    seen = set()
+    for entry in entries:
+        if not isinstance(entry, dict):
+            raise PlaygroundFixtureError("invalid frozen historical source entry")
+        value = entry.get("path")
+        digest = entry.get("sha256")
+        if not isinstance(value, str) or not isinstance(digest, str):
+            raise PlaygroundFixtureError("invalid frozen historical source receipt")
+        relative = Path(value)
+        if (relative.is_absolute() or not value or ".." in relative.parts
+                or value in seen or re.fullmatch(r"[0-9a-f]{64}", digest) is None):
+            raise PlaygroundFixtureError("invalid frozen historical source provenance")
+        seen.add(value)
     return snapshot
 
 
@@ -279,17 +288,6 @@ def project_public_catalog() -> dict[str, object]:
     }
 
 
-def generate_fixture() -> dict[str, object]:
-    projection = project_public_catalog()
-    return {
-        "$schema": SCHEMA,
-        "source": projection["source"],
-        "home": projection["home"],
-        "apps": projection["apps"],
-        "surface": _current_surface_snapshot(),
-    }
-
-
 def _read_json(path: Path) -> dict[str, object]:
     try:
         value = json.loads(path.read_text(encoding="utf-8"))
@@ -324,44 +322,24 @@ def read_inline_fixture() -> dict[str, object]:
 
 
 def validate_fixture() -> dict[str, object]:
-    expected = generate_fixture()
-    file_value = _read_json(FIXTURE_PATH)
-    inline_value = read_inline_fixture()
-    if file_value != expected:
-        raise PlaygroundFixtureError(
-            "playground-fixture.json is stale; run tools/public-site/playground_fixture.py --write"
-        )
-    if inline_value != expected:
-        raise PlaygroundFixtureError(
-            "inline playground fixture is stale; run tools/public-site/playground_fixture.py --write"
-        )
-    return expected
-
-
-def write_fixture() -> None:
-    fixture = generate_fixture()
-    payload = json.dumps(fixture, ensure_ascii=False, indent=2) + "\n"
-    FIXTURE_PATH.write_text(payload, encoding="utf-8")
-
-    html = INDEX_PATH.read_text(encoding="utf-8")
-    start, end = _inline_fixture_bounds(html)
-    html = html[:start] + "\n" + payload + html[end:]
-    # The demo's emitted presentation and controller must advance together in caches.
-    for asset in ("assets/surface-snapshot.css", "assets/playground.js", "i18n/catalog.js"):
-        digest = hashlib.sha256((PUBLIC_ROOT / asset).read_bytes()).hexdigest()[:12]
-        html = re.sub(r'((?:href|src)="/' + re.escape(asset) + r')(?:\?[^\"]*)?"',
-                      lambda match: match.group(1) + "?v=" + digest + '"', html)
-    INDEX_PATH.write_text(html, encoding="utf-8")
+    # Validate the OS historic *static* presentation against its own immutable
+    # assets. The current OS catalog is projected independently for Surface,
+    # and must not be conflated with an archived Site snapshot.
+    fixture = _read_json(FIXTURE_PATH)
+    if fixture != read_inline_fixture():
+        raise PlaygroundFixtureError("frozen inline/file playground fixture diverged")
+    if fixture.get("surface") != _current_surface_snapshot():
+        raise PlaygroundFixtureError("frozen playground Surface snapshot diverged")
+    if not isinstance(fixture.get("apps"), list) or not isinstance(fixture.get("home"), dict):
+        raise PlaygroundFixtureError("frozen playground catalog structure invalid")
+    return fixture
 
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--write", action="store_true", help="write generated fixture and inline copy")
     parser.add_argument("--project-catalog", type=Path,
                         help="read-only OS/catalog projection into a new external JSON file")
     args = parser.parse_args()
-    if args.write and args.project_catalog:
-        raise PlaygroundFixtureError("choose one fixture operation")
     if args.project_catalog:
         output = args.project_catalog.absolute()
         if (output.is_relative_to(ROOT.resolve()) or not output.parent.is_dir()
@@ -371,10 +349,9 @@ def main() -> int:
         output.write_text(json.dumps(projection, ensure_ascii=False, sort_keys=True, separators=(",", ":")) + "\n",
                           encoding="utf-8")
         print("PUBLIC_OS_CATALOG_PROJECTION=PASS")
-    elif args.write:
-        write_fixture()
-        print(f"PUBLIC_PLAYGROUND_FIXTURE=WRITTEN path={FIXTURE_PATH.relative_to(ROOT)}")
     else:
+        # Frozen OS portal verification only. Never rewrite public markup,
+        # fixtures, CSS or localized copy; the Surface/Site owners publish.
         validate_fixture()
         print("PUBLIC_PLAYGROUND_FIXTURE=PASS")
     return 0
