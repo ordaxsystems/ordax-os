@@ -49,7 +49,10 @@ class DeploymentBuildError(RuntimeError):
 
 
 def run(*args: str) -> None:
-    result = subprocess.run(args, cwd=ROOT, check=False)
+    # A fetched Site checkout stays immutable between public and Web builds.
+    # Python bytecode belongs to the interpreter cache, never to source input.
+    result = subprocess.run(args, cwd=ROOT, check=False,
+                            env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"})
     if result.returncode:
         raise DeploymentBuildError("command failed: " + " ".join(args))
 
@@ -118,6 +121,7 @@ def compose_web_identity_bootstrap(source_commit: str) -> None:
     """
     del source_commit
     # No private OS copy of the Site renderer, CSS compiler or HTML is used.
+    (ROOT / "out").mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix=".ordax-web-site-", dir=ROOT / "out") as tmp:
         candidate = Path(tmp) / "site"
         build_independent_site_candidate(candidate)
