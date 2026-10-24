@@ -10,6 +10,7 @@ explicitly classified producer-neutral helpers or roots.
 from __future__ import annotations
 
 import argparse
+import json
 from dataclasses import dataclass
 from html.parser import HTMLParser
 from pathlib import Path
@@ -252,12 +253,37 @@ def _native_runtime_roots(root: Path) -> tuple[tuple[Path, ...], tuple[str, ...]
     return tuple(sorted(discovered)), tuple(sorted(set(errors)))
 
 
+def _has_canonical_external_surface(root: Path) -> bool:
+    """The visual tree is owned by Surface, not a tracked OS checkout.
+
+    The separate verified-source assembler owns actual import/file validation.
+    This graph checks only OS-owned boot/host dependencies.
+    """
+    contract = root / "docs/contracts/surface-source.json"
+    try:
+        lock = json.loads(contract.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, ValueError):
+        return False
+    return (
+        isinstance(lock, dict)
+        and lock.get("status") == "canonical"
+        and lock.get("source_repository") == "ordaxsystems/ordax-surface"
+        and isinstance(lock.get("source_commit"), str)
+        and re.fullmatch(r"[0-9a-f]{40}", lock["source_commit"]) is not None
+        and set(lock.get("visual_source_paths", []))
+        == {"system/surface/ui", "system/surface/workspace"}
+        and isinstance(lock.get("invariants"), dict)
+        and lock["invariants"].get("single_visual_source_after_cutover") is True
+    )
+
+
 def native_startup_import_graph(root: Path = ROOT) -> tuple[frozenset[str], tuple[str, ...]]:
     runtime_roots, root_errors = _native_runtime_roots(root)
     if root_errors:
         return frozenset(), root_errors
 
     resolved_root = root.resolve()
+    external_surface = _has_canonical_external_surface(root)
     pending = list(runtime_roots)
     visited: set[Path] = set()
     reachable: set[str] = set()
@@ -283,6 +309,19 @@ def native_startup_import_graph(root: Path = ROOT) -> tuple[frozenset[str], tupl
             specifier = match.group(1) or match.group(2)
             target = _resolve_relative_import(source, specifier, root)
             if target is None:
+                # No OS-tracked visual copy is allowed after the Surface
+                # cutover. Resolve the path boundary, not an imaginary local
+                # file; the pinned assembler verifies these bytes separately.
+                external_target = _path_inside_root(source.parent / specifier, root)
+                if (
+                    external_surface
+                    and external_target is not None
+                    and external_target.suffix in {".js", ".mjs", ".cjs", ".css"}
+                    and _is_presentation_light(
+                        external_target.relative_to(resolved_root).as_posix()
+                    )
+                ):
+                    continue
                 errors.append(f"unresolved:{relative}:{specifier}")
                 continue
             target_relative = target.relative_to(resolved_root).as_posix()
