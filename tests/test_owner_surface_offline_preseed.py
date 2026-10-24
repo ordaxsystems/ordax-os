@@ -101,6 +101,25 @@ class OwnerOfflineSurfacePreseedTests(unittest.TestCase):
         with self.assertRaises(OWNER.PreseedError):
             OWNER.preseed(self.repo, self.assembly, self.rootfs, self.sha)
 
+    def test_exact_offline_slot_is_accepted_by_real_supervisor_shell_helper(self):
+        OWNER.preseed(self.repo, self.assembly, self.rootfs, self.sha)
+        slot = self.rootfs / "state/ordax/releases" / self.sha
+        helper = SOURCE.parents[1] / "system/services/surface-source/owner-stage.sh"
+        command = [
+            "/bin/sh", str(helper), "ready", str(self.checkout),
+            self.sha, str(slot),
+        ]
+        env = __import__("os").environ.copy()
+        env["ORDAX_GIT_BIN"] = shutil.which("git")
+        verified = subprocess.run(command, text=True, capture_output=True, env=env)
+        self.assertEqual(
+            verified.returncode, 0,
+            f"real Supervisor slot verifier refused valid preseed: {verified.stderr}",
+        )
+        self.write(slot / "system/surface/ui/surface.mjs", "tampered\\n")
+        modified = subprocess.run(command, text=True, capture_output=True, env=env)
+        self.assertNotEqual(modified.returncode, 0)
+
     def test_fails_closed_on_wrong_sha_and_corrupted_visual_receipt(self):
         with self.assertRaises(OWNER.PreseedError):
             OWNER.preseed(self.repo, self.assembly, self.rootfs, "f" * 40)
