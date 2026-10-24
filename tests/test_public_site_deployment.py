@@ -38,23 +38,52 @@ class PublicSiteDeploymentTests(unittest.TestCase):
         self.vercel_proxy = VERCEL_PROXY_CORE.read_text(encoding="utf-8")
 
     def test_web_login_bundle_contains_shared_css_brand_dependency(self):
+        # The Site owns these build outputs; OS only composes the narrow
+        # identity closure into Web. Do not depend on OS's removed Surface CSS.
         spec = importlib.util.spec_from_file_location("web_login_deployment", ROOT / "tools/vercel/build.py")
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
-        with tempfile.TemporaryDirectory() as directory, patch.object(module, "OUTPUT", Path(directory)):
-            module.compose_web_identity_bootstrap("a" * 40)
-            output = Path(directory)
-            css = (output / "assets/ordax-design-tokens.css").read_text(encoding="utf-8")
-            dependencies = re.findall(r'url\(\s*[\"\']?([^\"\')]+)', css)
-            self.assertIn("./ordax-symbol.png", dependencies)
-            for dependency in dependencies:
-                self.assertTrue((output / "assets" / dependency).is_file(), dependency)
-            self.assertEqual((output / "assets/ordax-symbol.png").read_bytes(),
-                             (ROOT / "system/surface/ui/brand/ordax-symbol.png").read_bytes())
-            module.write_web_deployment_manifest("a" * 40)
-            receipt = json.loads((output / module.WEB_DEPLOYMENT_MANIFEST).read_text(encoding="utf-8"))
-            self.assertIn("assets/ordax-symbol.png", receipt["identity_support_files"])
-            self.assertIn("assets/ordax-symbol.png", {item["path"] for item in receipt["files"]})
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            output = root / "web"
+            staged = root / "verified-site"
+
+            def materialize_test_site(_dest):
+                staged.mkdir(parents=True, exist_ok=True)
+                for relative in module.WEB_IDENTITY_SUPPORT_FILES:
+                    target = _dest / relative
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    target.write_text("site-owned-output", encoding="utf-8")
+                (_dest / "assets/ordax-design-tokens.css").write_text(
+                    "a{background-image:url('./ordax-symbol.png')}", encoding="utf-8")
+                (_dest / "assets/ordax-symbol.png").write_bytes(b"pinned-site-symbol")
+                login = _dest / "login/index.html"
+                login.parent.mkdir(parents=True, exist_ok=True)
+                login.write_text(
+                    '<html><head><link href="/assets/site.css" rel="stylesheet">'
+                    '<script src="/assets/site.js"></script></head>'
+                    '<body><form data-identity-form="login" action="/auth/login"></form>'
+                    '<a href="/cadastro/">Cadastro</a></body></html>', encoding="utf-8")
+                return "c" * 40
+
+            with patch.object(module, "OUTPUT", output), patch.object(
+                module, "build_independent_site_candidate", materialize_test_site
+            ):
+                module.compose_web_identity_bootstrap("a" * 40)
+                css = (output / "assets/ordax-design-tokens.css").read_text(encoding="utf-8")
+                dependencies = re.findall(r'url\\(\\s*["\\']?([^"\\')]+)', css)
+                self.assertIn("./ordax-symbol.png", dependencies)
+                for dependency in dependencies:
+                    self.assertTrue((output / "assets" / dependency).is_file(), dependency)
+                self.assertEqual((output / "assets/ordax-symbol.png").read_bytes(),
+                                 b"pinned-site-symbol")
+                module.write_web_deployment_manifest("a" * 40)
+                receipt = json.loads((output / module.WEB_DEPLOYMENT_MANIFEST).read_text(encoding="utf-8"))
+                self.assertEqual(receipt["site_source_repository"], "ordaxsystems/ordax-site")
+                self.assertEqual(receipt["login_runtime_owner"],
+                                 "ordaxsystems/ordax-site:site/assets/site.js")
+                self.assertIn("assets/ordax-symbol.png", receipt["identity_support_files"])
+                self.assertIn("assets/ordax-symbol.png", {item["path"] for item in receipt["files"]})
 
     def test_vercel_ignore_build_is_fail_safe_on_first_deploy_and_git_history_gaps(self):
         self.assertEqual(
