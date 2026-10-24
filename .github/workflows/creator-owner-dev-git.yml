@@ -224,7 +224,7 @@ jobs:
           sudo -E python bootstrap/dev-base/build.py \
             --kernel-modules "out/kernel/kernel-modules-$ORDAX_KERNEL_VERSION.tar" \
             --out-dir out/dev-base
-          rootfs=out/dev-base/rootfs
+          rootfs="$(realpath out/dev-base/rootfs)"
           sudo mkdir -p "$rootfs/workspace" "$rootfs/state"
           sudo chown -R "$(id -u):$(id -g)" "$rootfs/workspace" "$rootfs/state"
           # The Creator's ordax-pull must seed from a CLEAN Git authority.
@@ -268,9 +268,7 @@ jobs:
             --assembled-root "$RUNNER_TEMP/ordax-verified-surface-ci" \
             --rootfs "$rootfs" \
             --os-commit "$ORDAX_OWNER_SOURCE_COMMIT"
-          # Trace only the fail-closed Owner source gate in disposable CI;
-          # no account secrets or hardware targets are available at this step.
-          sudo -E /bin/sh -x system/services/surface-source/owner-stage.sh ready \
+          sudo -E /bin/sh system/services/surface-source/owner-stage.sh ready \
             "$rootfs/workspace/ordax" "$ORDAX_OWNER_SOURCE_COMMIT" \
             "$rootfs/state/ordax/releases/$ORDAX_OWNER_SOURCE_COMMIT"
           echo 'ORDAX_OWNER_FIRST_BOOT_EXTERNAL_SURFACE_OFFLINE_READY=YES'
