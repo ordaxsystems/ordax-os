@@ -78,7 +78,7 @@ class NativeESPProofContractTests(unittest.TestCase):
         self.assertNotIn("cd tools/creator", WORKFLOW)
         self.assertNotIn("go run ./cmd/ordax-creator", WORKFLOW)
         self.assertIn("NATIVE_ESP_PHYSICAL_WRITE_AUTHORIZED=NO", WORKFLOW)
-        self.assertIn("permissions:\\n  contents: read", WORKFLOW)
+        self.assertIn("permissions:" + chr(10) + "  contents: read", WORKFLOW)
         self.assertIn("--pool-uuid", WORKFLOW)
         self.assertIn("native-esp-proof/proof.json", WORKFLOW)
         self.assertIn(
