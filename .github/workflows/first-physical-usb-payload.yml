@@ -198,7 +198,12 @@ jobs:
           auth = json.loads(pathlib.Path(
               'operator/docs/contracts/physical-write-authorization.json'
           ).read_text(encoding='utf-8'))
-          physical_mode = os.environ['ORDAX_PAYLOAD_PURPOSE'] == 'authorized-physical'
+          purpose = os.environ.get('ORDAX_PAYLOAD_PURPOSE')
+          if os.environ.get('GITHUB_EVENT_NAME') != 'workflow_dispatch' or purpose not in (
+              'authorized-physical', 'source-review',
+          ):
+              raise SystemExit('manual dispatch with an explicit approved purpose is required')
+          physical_mode = purpose == 'authorized-physical'
           if (
               auth.get('$schema') != 'prototype-ordax.physical-write-authorization/3'
               or auth.get('status') != (
@@ -350,7 +355,12 @@ jobs:
           )
           if auth.get('$schema') != 'prototype-ordax.physical-write-authorization/3':
               raise SystemExit('physical-write authorization schema is not v3')
-          physical_mode = os.environ['ORDAX_PAYLOAD_PURPOSE'] == 'authorized-physical'
+          purpose = os.environ.get('ORDAX_PAYLOAD_PURPOSE')
+          if os.environ.get('GITHUB_EVENT_NAME') != 'workflow_dispatch' or purpose not in (
+              'authorized-physical', 'source-review',
+          ):
+              raise SystemExit('manual dispatch with an explicit approved purpose is required')
+          physical_mode = purpose == 'authorized-physical'
           if auth.get('status') != (
               'authorized' if physical_mode else 'blocked-explicit-physical-authorization-pending'
           ):
