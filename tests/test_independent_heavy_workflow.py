@@ -42,7 +42,8 @@ class IndependentHeavyWorkflowTests(unittest.TestCase):
         self.assertIn("workflow_dispatch:", text)
         self.assertIn("profile:", text)
         self.assertIn("- owner-development", text)
-        self.assertIn('PR_HEAD_REF" = platform/remove-alpine', text)
+        self.assertIn('elif [ "$EVENT_NAME" = pull_request ]; then', text)
+        self.assertNotIn('PR_HEAD_REF" = platform/remove-alpine', text)
         self.assertIn("profile=owner-development", text)
         self.assertIn("ORDAX_INDEPENDENT_PROFILE", text)
 
