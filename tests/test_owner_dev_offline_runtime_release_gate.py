@@ -14,8 +14,9 @@ SPEC = importlib.util.spec_from_file_location("owner_offline_gate", MODULE)
 assert SPEC and SPEC.loader
 GATE = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(GATE)
-SOURCE = json.loads((ROOT / "bootstrap/surface-runtime/source.json").read_text())
-ID = SOURCE["runtime_id"]
+SOURCE = json.loads((ROOT / "bootstrap/independent-surface-runtime/source.json").read_text())
+COMMIT = "1" * 40
+ID = f"{SOURCE['build_profile']}@{COMMIT[:12]}"
 
 
 def fixture(stage: Path):
@@ -23,6 +24,9 @@ def fixture(stage: Path):
     surface = base / "workspace/ordax/system/surface/bin/ordax-surface"
     surface.parent.mkdir(parents=True)
     surface.write_text("#!/bin/sh\nVERIFIED_RUNTIME_MODE=verified-erofs-overlay\n", encoding="utf-8")
+    commit = base / "state/ordax/current-commit"
+    commit.parent.mkdir(parents=True, exist_ok=True)
+    commit.write_text(COMMIT + "\n", encoding="ascii")
     (stage / "ORDAX-ESP").mkdir()
     producer = stage / "producer"
     producer.mkdir()
@@ -30,14 +34,19 @@ def fixture(stage: Path):
     image.write_bytes(b"\0" * 1024 + bytes.fromhex("e2e1f5e0") + b"test-surface-erofs-content")
     sha = hashlib.sha256(image.read_bytes()).hexdigest()
     provenance = {
-        "$schema": "prototype-ordax.surface-runtime-provenance/1",
-        "status": "candidate-not-promotable",
-        "runtime_id": ID,
+        "$schema": "prototype-ordax.independent-surface-runtime-provenance/1",
+        "status": "experimental-not-promotable",
+        "source_commit": COMMIT,
+        "libc": "musl",
+        "buildroot": {"source_contract": SOURCE["buildroot_source_contract"]},
+        "runtime_inventory": {"apk_runtime_absent": True},
+        "package_manager_present": False,
+        "alpine_present": False,
         "physical_artifact_authorized": False,
-        "physical_boot_connected": False,
+        "stable_promotion_authorized": False,
         "image": {"name": image.name, "sha256": sha, "size": image.stat().st_size},
     }
-    (producer / "surface-runtime-provenance.json").write_text(json.dumps(provenance))
+    (producer / "provenance.json").write_text(json.dumps(provenance))
     return base, producer
 
 
@@ -56,7 +65,10 @@ class OfflineOwnerWelcomeGateTests(unittest.TestCase):
         self.assertLess(capabilities, geometry)
         self.assertLess(geometry, media)
         self.assertIn('--contract "$RUNNER_TEMP/owner-dev-physical-media.json"', workflow)
-        self.assertIn("bootstrap/surface-runtime/build.py verify", workflow)
+        self.assertIn("bootstrap/independent-surface-runtime/build.py verify", workflow)
+        self.assertIn("bootstrap/independent-base/build.py build", workflow)
+        self.assertNotIn("bootstrap/dev-base/build.py", workflow)
+        self.assertNotIn("bootstrap/surface-runtime/build.py", workflow)
         self.assertIn(
             "ORDAX_OWNER_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}",
             workflow,
@@ -78,7 +90,7 @@ class OfflineOwnerWelcomeGateTests(unittest.TestCase):
             with self.assertRaisesRegex(GATE.OfflineRuntimeError, "no verified offline graphical runtime"):
                 GATE.verify(stage)
 
-    def test_verified_producer_is_staged_without_duplicate_apk_lock(self):
+    def test_verified_independent_producer_is_staged_without_alpine_or_apk(self):
         with tempfile.TemporaryDirectory() as work:
             stage = Path(work)
             base, producer = fixture(stage)
@@ -113,7 +125,7 @@ class OfflineOwnerWelcomeGateTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as work:
             stage = Path(work)
             _, producer = fixture(stage)
-            path = producer / "surface-runtime-provenance.json"
+            path = producer / "provenance.json"
             data = json.loads(path.read_text())
             data["physical_artifact_authorized"] = True
             path.write_text(json.dumps(data))

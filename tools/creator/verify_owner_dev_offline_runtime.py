@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Owner/Development only: stage and verify the existing immutable Surface EROFS.
 
-The graphical producer remains bootstrap/surface-runtime/build.py. This consumer
-does not define APK packages, replace Stable trust, or grant physical writes.
+The graphical producer is the verified independent Buildroot Surface. This
+consumer does not install packages, replace Stable trust or grant physical writes.
 """
 from __future__ import annotations
 
@@ -16,7 +16,7 @@ import shutil
 import sys
 
 ROOT = Path(__file__).resolve().parents[2]
-SOURCE = ROOT / "bootstrap/surface-runtime/source.json"
+SOURCE = ROOT / "bootstrap/independent-surface-runtime/source.json"
 MEDIA = ROOT / "docs/contracts/physical-media.json"
 RELATIVE_IMAGE = Path("state/ordax/runtime/native-surface/offline/native-surface-runtime.erofs")
 RELATIVE_PIN = Path("etc/ordax/owner-surface-runtime.sha256")
@@ -47,12 +47,16 @@ def load(path: Path) -> dict:
 
 def source_contract() -> dict:
     source = load(SOURCE)
-    if (source.get("$schema") != "prototype-ordax.surface-runtime-source/1"
-            or source.get("status") != "candidate-not-promotable"
+    if (source.get("$schema") != "prototype-ordax.independent-surface-runtime-source/1"
+            or source.get("status") != "experimental-not-promotable"
             or source.get("first_boot_offline_required") is not True
-            or source.get("network_package_install_during_stable_boot_allowed") is not False
-            or source.get("artifact", {}).get("physical_artifact_authorized") is not False):
-        raise OfflineRuntimeError("canonical offline Surface builder contract is not safe")
+            or source.get("network_package_install_during_boot_allowed") is not False
+            or source.get("package_manager_in_runtime_allowed") is not False
+            or source.get("libc") != "musl"
+            or source.get("buildroot_source_contract") != "bootstrap/independent-base/source.json"
+            or source.get("artifact", {}).get("physical_artifact_authorized") is not False
+            or source.get("artifact", {}).get("stable_promotion_authorized") is not False):
+        raise OfflineRuntimeError("canonical Alpine-free Surface builder contract is not safe")
     return source
 
 
@@ -71,14 +75,24 @@ def dev_base(stage: Path) -> Path:
 def stage_runtime(stage: Path, producer: Path) -> None:
     source = source_contract()
     base = dev_base(stage)
-    provenance = load(producer / "surface-runtime-provenance.json")
+    provenance = load(producer / "provenance.json")
     image = producer / source["artifact"]["name"]
-    if (provenance.get("$schema") != "prototype-ordax.surface-runtime-provenance/1"
-            or provenance.get("status") != "candidate-not-promotable"
-            or provenance.get("runtime_id") != source["runtime_id"]
+    commit_file = base / "state/ordax/current-commit"
+    if commit_file.is_symlink() or not commit_file.is_file():
+        raise OfflineRuntimeError("Owner source identity marker is missing")
+    expected_commit = commit_file.read_text(encoding="ascii").strip()
+    if (not re.fullmatch(r"[0-9a-f]{40}", expected_commit)
+            or provenance.get("$schema") != "prototype-ordax.independent-surface-runtime-provenance/1"
+            or provenance.get("status") != "experimental-not-promotable"
+            or provenance.get("source_commit") != expected_commit
+            or provenance.get("libc") != "musl"
+            or provenance.get("buildroot", {}).get("source_contract") != source["buildroot_source_contract"]
+            or provenance.get("package_manager_present") is not False
+            or provenance.get("alpine_present") is not False
+            or provenance.get("runtime_inventory", {}).get("apk_runtime_absent") is not True
             or provenance.get("physical_artifact_authorized") is not False
-            or provenance.get("physical_boot_connected") is not False):
-        raise OfflineRuntimeError("Surface producer provenance is not a verified candidate")
+            or provenance.get("stable_promotion_authorized") is not False):
+        raise OfflineRuntimeError("Surface producer provenance is not a verified Alpine-free candidate")
     expected = provenance.get("image", {}).get("sha256")
     if not isinstance(expected, str) or not HASH.fullmatch(expected):
         raise OfflineRuntimeError("Surface producer digest is invalid")
@@ -128,13 +142,25 @@ def verify(stage: Path) -> str:
             raise OfflineRuntimeError(f"no verified offline graphical runtime: missing {path.name}")
     provenance = load(receipt)
     expected = provenance.get("image", {}).get("sha256")
+    commit_file = base / "state/ordax/current-commit"
+    if commit_file.is_symlink() or not commit_file.is_file():
+        raise OfflineRuntimeError("Owner source commit receipt is unavailable")
+    expected_commit = commit_file.read_text(encoding="ascii").strip()
     if (not isinstance(expected, str) or not HASH.fullmatch(expected)
-            or provenance.get("runtime_id") != source["runtime_id"]
+            or not re.fullmatch(r"[0-9a-f]{40}", expected_commit)
+            or provenance.get("$schema") != "prototype-ordax.independent-surface-runtime-provenance/1"
+            or provenance.get("status") != "experimental-not-promotable"
+            or provenance.get("source_commit") != expected_commit
+            or provenance.get("libc") != "musl"
+            or provenance.get("buildroot", {}).get("source_contract") != source["buildroot_source_contract"]
+            or provenance.get("package_manager_present") is not False
+            or provenance.get("alpine_present") is not False
+            or provenance.get("runtime_inventory", {}).get("apk_runtime_absent") is not True
             or provenance.get("physical_artifact_authorized") is not False
-            or provenance.get("physical_boot_connected") is not False
+            or provenance.get("stable_promotion_authorized") is not False
             or provenance.get("image", {}).get("name") != source["artifact"]["name"]
             or provenance.get("image", {}).get("size") != image.stat().st_size):
-        raise OfflineRuntimeError("Owner offline Surface receipt differs from canonical producer")
+        raise OfflineRuntimeError("Owner offline Surface receipt differs from Alpine-free producer")
     expected_pin = f"{expected}  /ordax/dev-base/{RELATIVE_IMAGE.as_posix()}\n"
     if pin.read_text(encoding="ascii") != expected_pin or sha256(image) != expected:
         raise OfflineRuntimeError("Owner offline Surface EROFS pin/digest mismatch")
@@ -144,7 +170,7 @@ def verify(stage: Path) -> str:
         stream.seek(1024)
         if stream.read(4) != bytes.fromhex("e2e1f5e0"):
             raise OfflineRuntimeError("Owner offline Surface image is not EROFS")
-    return source["runtime_id"]
+    return f"{source['build_profile']}@{expected_commit[:12]}"
 
 
 def geometry(stage: Path, destination: Path) -> int:

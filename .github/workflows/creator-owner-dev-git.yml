@@ -185,7 +185,8 @@ jobs:
             gpg gpg-agent \
             meson ninja-build gperf libcap-dev libmount-dev libblkid-dev \
             liblz4-dev libzstd-dev liblzma-dev libpcre2-dev \
-            gdisk dosfstools e2fsprogs mtools util-linux proot erofs-utils qemu-system-x86 busybox
+            gdisk dosfstools e2fsprogs mtools util-linux erofs-utils qemu-system-x86 busybox \
+            gawk cpio unzip rsync file wget curl patch gettext
           python -m pip install --disable-pip-version-check --no-cache-dir jinja2 pyelftools
 
       - name: Prove Owner USB ext4 alias sealing in isolated mount namespace
@@ -268,11 +269,29 @@ jobs:
           python bootstrap/initramfs/build.py check
           python bootstrap/initramfs/build.py build --jobs 4
           python bootstrap/initramfs/build.py verify
-          proot --version
-          sudo -E python bootstrap/dev-base/build.py \
-            --kernel-modules "out/kernel/kernel-modules-$ORDAX_KERNEL_VERSION.tar" \
-            --out-dir out/dev-base
+          # Single independent Buildroot Owner producer: no Alpine APK or
+          # mirrored kernel. The same exact source commit binds firmware/modules.
+          export ORDAX_SOURCE_COMMIT="$ORDAX_OWNER_SOURCE_COMMIT"
+          export ORDAX_HOST_PYTHON="$(command -v python3)"
+          export ORDAX_KERNEL_MODULES_ARCHIVE="$PWD/out/kernel/kernel-modules-$ORDAX_KERNEL_VERSION.tar"
+          export ORDAX_KERNEL_MODULES_RECEIPT="$RUNNER_TEMP/owner-independent-base/kernel-module-payload.json"
+          export ORDAX_FIRMWARE_COVERAGE_RECEIPT="$RUNNER_TEMP/owner-independent-base/firmware-coverage.json"
+          sudo -E python3 bootstrap/independent-base/build.py build \
+            --profile owner-development --out "$RUNNER_TEMP/owner-independent-base" \
+            --cache "$RUNNER_TEMP/owner-independent-cache" --jobs 4
+          sudo -E python3 bootstrap/independent-base/build.py verify \
+            --profile owner-development --out "$RUNNER_TEMP/owner-independent-base"
+          sudo mkdir -p out/dev-base
+          sudo -E python3 tools/dev-base-channel/independent_rootfs.py materialize \
+            --rootfs "$RUNNER_TEMP/owner-independent-base/rootfs.tar" \
+            --provenance "$RUNNER_TEMP/owner-independent-base/provenance.json" \
+            --expected-commit "$ORDAX_OWNER_SOURCE_COMMIT" \
+            --destination out/dev-base/rootfs
           rootfs="$(realpath out/dev-base/rootfs)"
+          test ! -e "$rootfs/etc/alpine-release"
+          test ! -e "$rootfs/sbin/apk"
+          test ! -e "$rootfs/lib/apk"
+          test -x "$rootfs/usr/bin/git"
           sudo mkdir -p "$rootfs/workspace" "$rootfs/state"
           sudo chown -R "$(id -u):$(id -g)" "$rootfs/workspace" "$rootfs/state"
           # The Creator's ordax-pull must seed from a CLEAN Git authority.
@@ -461,13 +480,13 @@ jobs:
       - name: Build and verify one canonical offline Surface runtime
         run: |
           set -euo pipefail
-          # The existing pinned APK lock is consumed at build time ONLY.
-          # There is no first-boot package installation or second lock.
-          sudo -E python3 bootstrap/surface-runtime/build.py build \
-            --out-dir "$RUNNER_TEMP/owner-dev-surface-runtime" \
-            --cache-dir "$RUNNER_TEMP/owner-dev-surface-cache"
-          sudo -E python3 bootstrap/surface-runtime/build.py verify \
-            --out-dir "$RUNNER_TEMP/owner-dev-surface-runtime"
+          # One offline Cage/WebKit EROFS from pinned Buildroot/musl; no APK.
+          export ORDAX_SOURCE_COMMIT="$ORDAX_OWNER_SOURCE_COMMIT"
+          sudo -E python3 bootstrap/independent-surface-runtime/build.py build \
+            --out "$RUNNER_TEMP/owner-dev-surface-runtime" \
+            --cache "$RUNNER_TEMP/owner-independent-cache" --jobs 4
+          sudo -E python3 bootstrap/independent-surface-runtime/build.py verify \
+            --out "$RUNNER_TEMP/owner-dev-surface-runtime"
 
       - name: Assemble boot payload and overlay Git development base
         run: |
@@ -488,7 +507,9 @@ jobs:
           grep -Fxq 'DISPOSABLE_TREE_STAGED=YES' <<<"$stage_output"
           grep -Fxq 'PHYSICAL_WRITE_STATUS=blocked' <<<"$stage_output"
           sudo mkdir -p "$stage/ORDAX/dev-base"
-          sudo cp -a out/dev-base/rootfs/. "$stage/ORDAX/dev-base/"
+          # The Buildroot TAR first passes a strict confined-symlink verifier.
+          # Materialize regular members for the symlink-free physical writer.
+          sudo cp -aL out/dev-base/rootfs/. "$stage/ORDAX/dev-base/"
           sudo python tools/creator/verify_owner_dev_offline_runtime.py \
             --stage-root "$stage" \
             --producer-out "$RUNNER_TEMP/owner-dev-surface-runtime"
