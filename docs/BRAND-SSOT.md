@@ -30,9 +30,9 @@ a implementação original da PR #1532, encerrada como substituída.
 ```bash
 python3 tools/brand/build.py render-emails
 python3 tools/brand/build.py check
-python3 tools/public-site/build.py check
-python3 tools/public-site/build.py build --source-commit <SHA-40>
-python3 tools/public-site/build.py verify
+\# No checkout independente ordax-site (somente Dev):
+python3 scripts/build.py check
+\# OS consome o bundle pelo pin docs/contracts/public-site-source.json; não há builder do Site no OS.
 ```
 
 O gate `check` exige que o HTML versionado corresponda aos tokens oficiais.
@@ -104,8 +104,8 @@ asset separado, mas **não é aplicado** nas páginas enquanto o asset
 final do conceito visual não for aprovado. Nenhum PNG de geração é
 copiado automaticamente para GitHub ou produção.
 
-A landing `sites/public/index.html` e seu `playground.css` também
-permanecem intocados, pois **não são o OrdaX Web como produto**.
+A landing e o `playground.css` pertencem agora a `ordaxsystems/ordax-site/site/`,
+separados do OrdaX Web como produto; não manter uma cópia editável no OS.
 Gradientes e arte decorativa legados são migrados por etapas, com
 testes visuais; os tokens semânticos agora têm dono único e validação
 no `tests/test_brand_pipeline.py`.
