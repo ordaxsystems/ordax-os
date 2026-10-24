@@ -5,12 +5,16 @@ on:
     paths:
       - "tools/ci/portable_qemu_impact.py"
       - "tests/test_portable_qemu_impact.py"
+      - "tests/test_independent_surface_qemu_binding.py"
+      - "tests/test_portable_component_reuse_workflow.py"
       - ".github/workflows/portable-qemu-impact-contract.yml"
   push:
     branches: [main]
     paths:
       - "tools/ci/portable_qemu_impact.py"
       - "tests/test_portable_qemu_impact.py"
+      - "tests/test_independent_surface_qemu_binding.py"
+      - "tests/test_portable_component_reuse_workflow.py"
       - ".github/workflows/portable-qemu-impact-contract.yml"
   workflow_dispatch:
 
@@ -30,8 +34,9 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Verify causal impact policy
-        run: python3 -m unittest tests.test_portable_qemu_impact -v
+      - name: Verify causal impact policy and QEMU workflow contract
+        run: |
+          python3 -m unittest tests.test_portable_qemu_impact tests.test_portable_component_reuse_workflow tests.test_independent_surface_qemu_binding -v
 
-      - name: Verify classifier CLI compiles
-        run: python3 -m py_compile tools/ci/portable_qemu_impact.py tests/test_portable_qemu_impact.py
+      - name: Verify classifier and contract sources compile
+        run: python3 -m py_compile tools/ci/portable_qemu_impact.py tests/test_portable_qemu_impact.py tests/test_independent_surface_qemu_binding.py tests/test_portable_component_reuse_workflow.py
