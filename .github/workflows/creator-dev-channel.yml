@@ -1,11 +1,10 @@
 name: Creator Development Update Channel
 
+# C6 migration gate: this legacy development publisher still compiles the OS
+# embedded Creator Go source. Do not republish it from unrelated OS commits.
+# Keep the existing creator-dev URL/schema readable until the standalone
+# Creator and OS-owned publisher handoff are migrated and proven.
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'tools/creator/**'
-      - '.github/workflows/creator-dev-channel.yml'
   workflow_dispatch:
 
 permissions:
@@ -13,6 +12,9 @@ permissions:
 
 jobs:
   publish-creator-dev:
+    # Only an explicit run on canonical OS main may mutate the legacy rolling
+    # development release. Source changes alone may not promote it.
+    if: ${{ github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' }}
     runs-on: windows-latest
     timeout-minutes: 20
     steps:
