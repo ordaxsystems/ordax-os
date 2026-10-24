@@ -61,9 +61,9 @@ marcado como concluído.
 
 **Build/preview durante o desenvolvimento:**
 ```bash
-\# Execute no checkout ordax-site para validar a apresentação:
+# Execute no checkout ordax-site para validar a apresentação:
 python3 scripts/build.py check
-\# Execute separadamente no checkout ordax-os para validar os gates do OS:
+# Execute separadamente no checkout ordax-os para validar os gates do OS:
 python3 tools/public-site/auth_activation_preflight.py check
 ```
 
