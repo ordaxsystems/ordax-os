@@ -3,7 +3,7 @@
   "status": "disposable-proof-only",
   "product_scope": "mvp-usb-durable-storage-target",
   "storage_architecture_contract": "docs/contracts/storage-architecture.json",
-  "creator_planner": "tools/creator/core/storage_profiles.go#PlanPortableTargetStorage",
+  "creator_planner": "github.com/ordaxsystems/ordax-creator/core/storage_profiles.go#PlanPortableTargetStorage",
   "physical_write_authorized": false,
   "physical_device_paths_allowed": false,
   "host_loop_devices_allowed": true,
