@@ -38,6 +38,11 @@ jobs:
         with:
           persist-credentials: false
 
+      # Mirror the canonical Portable QEMU impact job: validate the dependency
+      # graph against the exact externally pinned Surface, never a vendored OS UI.
+      - name: Prepare pinned Surface for accurate dependency-graph contract
+        uses: ./.github/actions/prepare-verified-surface
+
       - name: Verify causal impact policy and QEMU workflow contract
         run: |
           python3 -m unittest \
