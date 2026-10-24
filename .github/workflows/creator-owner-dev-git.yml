@@ -63,6 +63,13 @@ on:
       - 'tests/test_creator_owner_external_source.py'
       - 'tools/creator/proof/prove_prepared_ext4_growth.sh'
       - 'tests/test_creator_payload_source_identity.py'
+      # Removal or resurrection of embedded Creator Go must be proven by the
+      # full disposable Owner USB/QEMU consumer before landing on main.
+      - 'tools/creator/**/*.go'
+      - 'tools/creator/go.mod'
+      - 'tools/creator/go.sum'
+      - 'tools/creator/core/README.md'
+      - 'tests/test_creator_no_embedded_go.py'
 
 permissions:
   contents: write
