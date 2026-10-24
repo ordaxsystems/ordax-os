@@ -173,6 +173,9 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
+      - name: Prepare pinned Surface for accurate impact graph classification
+        uses: ./.github/actions/prepare-verified-surface
+
       - name: Classify Portable/QEMU causal impact
         id: impact
         env:
