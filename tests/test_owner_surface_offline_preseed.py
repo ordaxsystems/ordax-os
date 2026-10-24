@@ -123,7 +123,7 @@ class OwnerOfflineSurfacePreseedTests(unittest.TestCase):
     def test_owner_shell_reads_minified_canonical_lock_from_exact_git_commit(self):
         lock_path = self.repo / "docs/contracts/surface-source.json"
         packed = json.dumps(json.loads(lock_path.read_text(encoding="utf-8")), separators=(",", ":"))
-        self.write(lock_path, packed + "\\n")
+        self.write(lock_path, packed + "\n")
         git(self.repo, "add", "docs/contracts/surface-source.json")
         git(self.repo, "commit", "-qm", "Reformat the same canonical source lock")
         compact_sha = git(self.repo, "rev-parse", "HEAD")
