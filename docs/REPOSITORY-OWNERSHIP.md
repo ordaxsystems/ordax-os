@@ -114,6 +114,17 @@ Identity, sessão, autorização, billing, publicação assinada de releases, do
 
 ## Fluxos oficiais
 
+### Site público independente
+
+```text
+ordaxsystems/ordax-site (revisão fixa em docs/contracts/public-site-source.json)
+  -> build independente de páginas, estilo, assets e i18n
+  -> bundle estático verificado, consumido por ordaxsystems/ordax-os no Web
+  -> Identity, autorização e publicador de releases permanecem em seus owners
+```
+
+O código da apresentação pública não é compilado a partir de `sites/public/` no OS. A integração de fonte para desenvolvimento não equivale a deploy de produção.
+
 ### Surface visual compartilhada Web / Native
 
 ```text
