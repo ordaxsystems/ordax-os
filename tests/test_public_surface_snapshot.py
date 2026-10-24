@@ -32,12 +32,17 @@ class PublicSurfaceSnapshotTests(unittest.TestCase):
     def test_retired_os_surface_generator_is_not_a_second_visual_writer(self):
         # Surface #12 and Site #2 now own the renderer/consumption path.
         # The old OS public files are historical static Dev fallback only.
+        self.assertFalse(
+            (ROOT/'.github/workflows/public-surface-ssot-refresh.yml').exists()
+        )
+        # The frozen portal source files still prove its historical asset
+        # receipts until the OS-owned portal itself is removed. Neither is
+        # allowed to run from a workflow which rewrites visual/i18n outputs.
         for relative in (
-            '.github/workflows/public-surface-ssot-refresh.yml',
             'tools/public-site/surface_snapshot.mjs',
             'tools/public-site/surface-snapshot-entry.tsx',
         ):
-            self.assertFalse((ROOT/relative).exists(), relative)
+            self.assertTrue((ROOT/relative).is_file(), relative)
 
     def test_source_provenance_accepts_windows_and_linux_text_checkouts(self):
         spec=importlib.util.spec_from_file_location('public_demo_fixture',ROOT/'tools/public-site/playground_fixture.py')
