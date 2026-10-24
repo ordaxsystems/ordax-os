@@ -19,6 +19,14 @@ on:
       - 'docs/contracts/native-release-assembly.json'
   workflow_dispatch:
     inputs:
+      purpose:
+        description: 'Source review before consent, or exact authorized physical operator payload.'
+        required: true
+        default: source-review
+        type: choice
+        options:
+          - source-review
+          - authorized-physical
       target_bytes:
         description: Exact capacity in bytes of the selected removable USB.
         required: true
@@ -89,8 +97,9 @@ jobs:
           echo 'CREATOR_17_SOURCE_DEV_GATE=PASS_READ_ONLY'
           echo 'PHYSICAL_TARGET_DEVICE_TOUCHED=NO'
 
-  # A physical candidate is built only after explicit Owner consent. Never
-  # silently rebuild historical signed bytes using newer Alpine packages.
+  # A source-review can assemble only disposable, unsigned 17-source bytes.
+  # The target-specific physical operator payload still requires Owner consent.
+  # Never silently rebuild historical signed bytes using newer Alpine packages.
   payload:
     if: ${{ github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-24.04
@@ -99,6 +108,7 @@ jobs:
       ORDAX_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
       WRITER_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
       TARGET_BYTES: ${{ inputs.target_bytes || '8053063680' }}
+      ORDAX_PAYLOAD_PURPOSE: ${{ inputs.purpose }}
 
     steps:
       - name: Checkout current operator contracts
@@ -148,13 +158,30 @@ jobs:
           echo 'PHYSICAL_POLICY_SURFACE_SOURCE=PINNED_EXTERNAL_DISPOSABLE'
           echo 'PHYSICAL_POLICY_SURFACE_TRACKED_COPY=NO'
 
-      - name: Validate official physical promotion gate before resolving payload
-        if: ${{ github.event_name == 'workflow_dispatch' }}
+      - name: Validate purpose-specific physical promotion gate before resolving payload
         shell: bash
         run: |
           set -euo pipefail
-          python3 operator/tools/creator/physical_promotion.py --repo-root operator --require-ready > /dev/null
-          echo 'OFFICIAL_PHYSICAL_PROMOTION=READY'
+          if [[ "$ORDAX_PAYLOAD_PURPOSE" == 'authorized-physical' ]]; then
+            python3 operator/tools/creator/physical_promotion.py --repo-root operator --require-ready > /dev/null
+            echo 'OFFICIAL_PHYSICAL_PROMOTION=READY'
+          elif [[ "$ORDAX_PAYLOAD_PURPOSE" == 'source-review' ]]; then
+            python3 operator/tools/creator/physical_promotion.py --repo-root operator --output "$RUNNER_TEMP/17-source-review-gate.json" > /dev/null
+            python3 - "$RUNNER_TEMP/17-source-review-gate.json" <<'PY'
+          import json, pathlib, sys
+          gate = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding='utf-8'))
+          if not (gate.get('pre_authorization_ready') is True
+                  and gate.get('ready') is False
+                  and gate.get('authorization_blockers') == ['explicit-physical-write-authorization-missing']
+                  and gate.get('authorized_candidate_materialization_allowed') is False):
+              raise SystemExit('source review requires a ready non-destructive proof and withheld physical consent')
+          print('PORTABLE_17_SOURCE_REVIEW=PREAUTHORIZATION_ONLY')
+          print('PHYSICAL_WRITE_AUTHORIZED=NO')
+          PY
+          else
+            echo 'Unsupported payload purpose' >&2
+            exit 1
+          fi
 
       - name: Resolve exact signed release from authorization SSOT
         id: canonical
@@ -171,7 +198,7 @@ jobs:
           auth = json.loads(pathlib.Path(
               'operator/docs/contracts/physical-write-authorization.json'
           ).read_text(encoding='utf-8'))
-          physical_mode = os.environ['GITHUB_EVENT_NAME'] == 'workflow_dispatch'
+          physical_mode = os.environ['ORDAX_PAYLOAD_PURPOSE'] == 'authorized-physical'
           if (
               auth.get('$schema') != 'prototype-ordax.physical-write-authorization/3'
               or auth.get('status') != (
@@ -323,7 +350,7 @@ jobs:
           )
           if auth.get('$schema') != 'prototype-ordax.physical-write-authorization/3':
               raise SystemExit('physical-write authorization schema is not v3')
-          physical_mode = os.environ['GITHUB_EVENT_NAME'] == 'workflow_dispatch'
+          physical_mode = os.environ['ORDAX_PAYLOAD_PURPOSE'] == 'authorized-physical'
           if auth.get('status') != (
               'authorized' if physical_mode else 'blocked-explicit-physical-authorization-pending'
           ):
@@ -557,6 +584,7 @@ jobs:
           creator="$RUNNER_TEMP/first-physical-creator-cli/ordax-creator"
           test -x "$creator"
           "$creator" bind-portable-sources --sources-root "$out/sources" > "$out/bindings.json"
+          "$creator" verify-portable-sources --bindings "$out/bindings.json" --sources-root "$out/sources"
           python3 - "$out/bindings.json" <<'PY'
           import json, pathlib, sys
           binding = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding='utf-8'))
@@ -622,7 +650,7 @@ jobs:
           print('PORTABLE_ARTIFACT_READBACKS=17')
           PY
 
-      - name: Record non-destructive operator bundle provenance
+      - name: Record non-destructive source/operator bundle provenance
         if: ${{ github.event_name == 'workflow_dispatch' }}
         shell: bash
         run: |
@@ -646,7 +674,12 @@ jobs:
           )
           payload = {
               '$schema': 'prototype-ordax.first-physical-usb-payload/1',
-              'status': 'target-specific-plan-ready-not-written',
+              'status': (
+                  'verified-source-review-not-published'
+                  if os.environ['ORDAX_PAYLOAD_PURPOSE'] == 'source-review'
+                  else 'target-specific-plan-ready-not-written'
+              ),
+              'purpose': os.environ['ORDAX_PAYLOAD_PURPOSE'],
               'release_source_commit': os.environ['RELEASE_SOURCE_COMMIT'],
               'writer_source_commit': os.environ['WRITER_SOURCE_COMMIT'],
               'target_bytes': int(os.environ['TARGET_BYTES']),
@@ -676,15 +709,19 @@ jobs:
             sha256sum bindings.json portable-media-plan.json portable-application-plan.json provenance.json
           ) > "$out/SHA256SUMS"
 
-          echo 'FIRST_PHYSICAL_USB_PAYLOAD=READY'
+          if [[ "$ORDAX_PAYLOAD_PURPOSE" == 'source-review' ]]; then
+            echo 'PORTABLE_17_SOURCE_REVIEW_ARTIFACT=UNSIGNED_UNPUBLISHED'
+          else
+            echo 'FIRST_PHYSICAL_USB_PAYLOAD=READY'
+          fi
           echo 'PHYSICAL_TARGET_SELECTED=NO'
           echo 'PHYSICAL_WRITE_PERFORMED=NO'
 
-      - name: Upload first physical USB operator payload
+      - name: Upload source-review or authorized physical operator payload
         if: ${{ github.event_name == 'workflow_dispatch' }}
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
-          name: ordax-first-physical-payload-${{ steps.canonical.outputs.release_source_commit }}-${{ inputs.target_bytes }}
+          name: ordax-17-source-${{ inputs.purpose }}-${{ steps.canonical.outputs.release_source_commit }}-${{ github.sha }}-${{ inputs.target_bytes }}
           path: ${{ runner.temp }}/first-physical-payload/out/
           if-no-files-found: error
           retention-days: 7
