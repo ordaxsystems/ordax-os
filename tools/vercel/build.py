@@ -25,6 +25,7 @@ SHA40_RE = re.compile(r"^[0-9a-f]{40}$")
 WEB_DEPLOYMENT_MANIFEST = "web-deployment-manifest.json"
 WEB_DEPLOYMENT_SCHEMA = "prototype-ordax.web-deployment-bundle/1"
 PUBLIC_ORIGIN = "https://ordax.com.br"
+WEB_LOGIN_SOURCE_CONTRACT = "docs/contracts/public-site-source.json"
 WEB_IDENTITY_SOURCE_FILES = (
     "assets/site.css",
     "assets/account.css",
@@ -114,12 +115,16 @@ def compose_web_identity_bootstrap(source_commit: str) -> None:
     retaining one presentation and one brand source of truth.
     """
     del source_commit  # provenance is recorded by the final deployment manifest.
-    public_source = ROOT / "sites" / "public"
-    if public_source.is_symlink() or not public_source.is_dir():
-        raise DeploymentBuildError("canonical public Account source is unavailable")
+    resolve = load_helper(
+        ROOT / "tools/vercel/site_source.py",
+        "_ordax_site_source_pin",
+        "resolve",
+    )
+    checkout, _site_commit = resolve()
+    public_source = checkout / "site"
 
     render_public_html = load_helper(
-        ROOT / "tools/public-site/public_html_render.py",
+        checkout / "scripts/public_html_render.py",
         "_ordax_web_public_html_render",
         "render_public_html",
     )
@@ -207,13 +212,16 @@ def write_web_deployment_manifest(source_commit: str) -> None:
             "sha256": sha256_file(path),
             "size": path.stat().st_size,
         })
+    source_pin = json.loads((ROOT / WEB_LOGIN_SOURCE_CONTRACT).read_text(encoding="utf-8"))
     manifest = {
         "$schema": WEB_DEPLOYMENT_SCHEMA,
         "source_commit": source_commit,
+        "site_source_repository": source_pin["repository"],
+        "site_source_commit": source_pin["commit"],
         "surface_manifest": "web-client-manifest.json",
         "login_path": "/login/",
-        "login_presentation_owner": "sites/public/login/index.html",
-        "login_runtime_owner": "sites/public/assets/site.js",
+        "login_presentation_owner": "ordaxsystems/ordax-site:site/login/index.html",
+        "login_runtime_owner": "ordaxsystems/ordax-site:site/assets/site.js",
         "host_only_session_required": True,
         "identity_support_files": list(WEB_IDENTITY_SUPPORT_FILES),
         "files": records,
