@@ -104,7 +104,7 @@ class OwnerOfflineSurfacePreseedTests(unittest.TestCase):
     def test_exact_offline_slot_is_accepted_by_real_supervisor_shell_helper(self):
         OWNER.preseed(self.repo, self.assembly, self.rootfs, self.sha)
         slot = self.rootfs / "state/ordax/releases" / self.sha
-        helper = SOURCE.parents[1] / "system/services/surface-source/owner-stage.sh"
+        helper = SOURCE.parents[2] / "system/services/surface-source/owner-stage.sh"
         command = [
             "/bin/sh", str(helper), "ready", str(self.checkout),
             self.sha, str(slot),
