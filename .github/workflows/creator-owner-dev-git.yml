@@ -61,6 +61,8 @@ on:
       - '.github/actions/resolve-creator-source/**'
       - 'docs/contracts/native-release-assembly.json'
       - 'tests/test_creator_owner_external_source.py'
+      - 'tools/creator/proof/prove_prepared_ext4_growth.sh'
+      - 'tests/test_creator_payload_source_identity.py'
 
 permissions:
   contents: write
