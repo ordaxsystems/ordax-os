@@ -70,7 +70,7 @@ if ((Get-Content -LiteralPath $creatorModule -TotalCount 1) -cne 'module github.
 $null = Get-RealFile -Path (Join-Path $creatorRoot 'cmd/ordax-creator-launcher/main_windows.go') -Label 'Creator launcher source'
 $null = Get-RealFile -Path (Join-Path $creatorRoot 'cmd/ordax-creator-app/main_windows.go') -Label 'Creator GUI source'
 $gitRoot = & git -C $creatorRoot rev-parse --show-toplevel
-if ($LASTEXITCODE -ne 0 -or [IO.Path]::GetFullPath(([string]$gitRoot).Trim()) -cne $creatorRoot) {
+if ($LASTEXITCODE -ne 0 -or [IO.Path]::GetFullPath(([string]$gitRoot).Trim()) -ne $creatorRoot) {
     throw 'Creator checkout must be the Git worktree root'
 }
 $gitHead = & git -C $creatorRoot rev-parse HEAD
@@ -82,7 +82,7 @@ if ($LASTEXITCODE -ne 0 -or ([string]$gitTree).Trim() -cne $creatorTree) {
     throw 'Creator source Git tree differs from OS contract'
 }
 $gitDirty = & git -C $creatorRoot status --porcelain --untracked-files=all
-if ($LASTEXITCODE -ne 0 -or @($gitDirty).Count -ne 0) {
+if ($LASTEXITCODE -ne 0 -or (-not [string]::IsNullOrWhiteSpace(([string]($gitDirty | Out-String)).Trim()))) {
     throw 'Creator source must be clean'
 }
 
