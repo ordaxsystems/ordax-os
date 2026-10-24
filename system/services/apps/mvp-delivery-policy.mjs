@@ -3,9 +3,13 @@ import { listFirstPartyAppDeliveryPolicies } from "./delivery-policy.mjs";
 export const MVP_APP_DELIVERY_SCHEMA = "prototype-ordax.mvp-app-delivery/1";
 export const MVP_FIRST_ONLINE_REFRESH_SCHEMA = "ordax.mvp-first-online-refresh/1";
 
-const STRUCTURAL_APP_IDS = Object.freeze(["account", "settings", "store", "system"]);
-const INITIAL_BOOTSTRAP_APP_IDS = Object.freeze(["internet"]);
+// Project system-owned classes from the canonical delivery policy, never duplicate IDs.
+const DELIVERY_POLICIES = listFirstPartyAppDeliveryPolicies();
+const idsByClass = name => Object.freeze(DELIVERY_POLICIES.filter(entry => entry.deliveryClass === name).map(entry => entry.appId));
+const STRUCTURAL_APP_IDS = idsByClass("structural");
+const INITIAL_BOOTSTRAP_APP_IDS = idsByClass("bootstrap");
 const INITIAL_ON_DEMAND_APP_IDS = Object.freeze([
+  "internet",
   "activity",
   "files",
   "assistant",
@@ -15,30 +19,12 @@ const INITIAL_ON_DEMAND_APP_IDS = Object.freeze([
   "studio",
 ]);
 
-function sameIds(actual, expected, label) {
-  const normalized = [...actual].sort();
-  const wanted = [...expected].sort();
-  if (
-    normalized.length !== wanted.length
-    || normalized.some((value, index) => value !== wanted[index])
-  ) {
-    throw new TypeError(`${label} does not match the canonical first-party delivery policy`);
-  }
-}
-
 function assertCanonicalPolicy() {
-  const policies = listFirstPartyAppDeliveryPolicies();
-  sameIds(
-    policies.filter((entry) => entry.deliveryClass === "structural").map((entry) => entry.appId),
-    STRUCTURAL_APP_IDS,
-    "MVP structural app set",
-  );
-  sameIds(
-    policies.filter((entry) => entry.deliveryClass === "bootstrap").map((entry) => entry.appId),
-    INITIAL_BOOTSTRAP_APP_IDS,
-    "MVP bootstrap app set",
-  );
-  // The first USB MVP's six on-demand products are a launch-scope subset.
+  if (INITIAL_BOOTSTRAP_APP_IDS.length !== 0) {
+    throw new TypeError("Clean OS must not bundle removable bootstrap applications");
+  }
+  const policies = DELIVERY_POLICIES;
+  // The initial MVP on-demand list is a launch-scope subset.
   // Additional first-party Store-only utility apps must not modify First Run,
   // become bootstrap, or make independent Store delivery a launch blocker.
   const onDemandById = new Map(
