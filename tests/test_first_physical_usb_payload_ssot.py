@@ -130,7 +130,8 @@ class PhysicalUsbPayloadIdentityTests(unittest.TestCase):
         self.assertNotIn("name: Checkout exact published writer source", source)
         self.assertNotIn("writer-source", source)
         self.assertEqual(source.count("path: operator"), 1)
-        self.assertIn("working-directory: operator/tools/creator", source)
+        self.assertNotIn("working-directory: operator/tools/creator", source)
+        self.assertIn("uses: ./operator/.github/actions/resolve-creator-source", source)
         self.assertLess(
             source.index("PHYSICAL_WRITER_CONTEXT_MATCH=PASS"),
             source.index("OFFICIAL_PHYSICAL_PROMOTION=READY"),
@@ -147,42 +148,6 @@ class PhysicalUsbPayloadIdentityTests(unittest.TestCase):
             'ref: ${{ github.event.pull_request.head.sha || github.sha }}',
             source,
         )
-
-    def test_core_binding_preflight_precedes_expensive_historical_release_builds(self):
-        workflow = WORKFLOW.read_text(encoding="utf-8")
-        self.assertEqual(
-            workflow.count("Test canonical Creator Core source binding before heavyweight release builds"),
-            1,
-        )
-        self.assertIn("PORTABLE_17_SOURCE_CORE_SSOT=PASS_NON_DESTRUCTIVE", workflow)
-        self.assertIn("TestBindPortableSources(CoreInventory|RejectsIncompleteExtraOrUnsafeInput|RejectsSymlinkedRoot)$", workflow)
-        self.assertLess(
-            workflow.index("Test canonical Creator Core source binding before heavyweight release builds"),
-            workflow.index("Build and verify exact kernel"),
-        )
-        self.assertLess(
-            workflow.index("Resolve exact signed release from authorization SSOT"),
-            workflow.index("Test canonical Creator Core source binding before heavyweight release builds"),
-        )
-        self.assertIn("Build and verify exact Stable Base", workflow)
-        self.assertIn("Materialize and verify canonical Stable v4 release bytes", workflow)
-        self.assertIn("Validate official physical promotion gate before resolving payload", workflow)
-
-    def test_canonical_17_sources_derive_only_from_creator_core(self):
-        source = WORKFLOW.read_text(encoding="utf-8")
-        self.assertIn("go run ./cmd/ordax-creator bind-portable-sources", source)
-        self.assertIn("PHYSICAL_PAYLOAD_SOURCE_BINDINGS=CORE_SSOT", source)
-        producer_step = source.split(
-            "      - name: Assemble the exact 17-source physical payload", 1
-        )[1].split(
-            "      - name: Generate exact target-specific media and application plans", 1
-        )[0]
-        self.assertNotIn("          ids = [", producer_step)
-        self.assertNotIn("path.read_bytes()", producer_step)
-        core = (ROOT / "tools/creator/core/portable_sources.go").read_text(encoding="utf-8")
-        self.assertIn("func BindPortableSources(", core)
-        self.assertIn("portableMediaTargets", core)
-        self.assertIn("VerifyPortableSources(bindings, root)", core)
 
     def test_pre_authorization_real_sources_are_proved_but_never_uploaded(self):
         source = WORKFLOW.read_text(encoding="utf-8")
@@ -214,6 +179,26 @@ class PhysicalUsbPayloadIdentityTests(unittest.TestCase):
         self.assertIn("name: Upload first physical USB operator payload\n"
                       "        if: ${{ github.event_name == 'workflow_dispatch' }}", source)
         self.assertIn("name: Destroy temporary signed release and 17 source files", source)
+
+    def test_single_verified_independent_creator_core_owns_portable_bindings(self):
+        import json
+        source = WORKFLOW.read_text(encoding="utf-8")
+        action = (ROOT / ".github/actions/resolve-creator-source/action.yml").read_text(encoding="utf-8")
+        contract = json.loads((ROOT / "docs/contracts/native-release-assembly.json").read_text(encoding="utf-8"))
+        self.assertEqual(contract["creator_source"]["repository"], "ordaxsystems/ordax-creator")
+        self.assertIs(contract["creator_source"]["physical_apply_authorized"], False)
+        self.assertEqual(source.count("uses: ./operator/.github/actions/resolve-creator-source"), 1)
+        self.assertIn("working-directory: ${{ inputs.source-root }}", action)
+        self.assertIn("source-root: ${{ github.workspace }}/operator", source)
+        self.assertIn("rev-parse 'HEAD^{tree}'", source)
+        self.assertIn("TestBindPortableSources(CoreInventory|RejectsIncompleteExtraOrUnsafeInput|RejectsSymlinkedRoot)$", source)
+        self.assertIn('"$creator" bind-portable-sources --sources-root "$out/sources"', source)
+        self.assertIn("PHYSICAL_PAYLOAD_SOURCE_BINDINGS=INDEPENDENT_CORE_SSOT", source)
+        self.assertNotIn("go run ./cmd/ordax-creator", source)
+        self.assertNotIn("ids = [\n              'systemd-boot'", source)
+        self.assertIn("python3 operator/tools/creator/physical_promotion.py --repo-root operator --require-ready", source)
+        self.assertIn("'physical_write_authorized': False", source)
+        self.assertIn("contents: read", source)
 
     def test_release_identity_comes_only_from_authorization(self):
         source = WORKFLOW.read_text(encoding="utf-8")

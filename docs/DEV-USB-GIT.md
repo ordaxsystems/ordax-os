@@ -105,6 +105,17 @@ clean sparse runtime checkout recorded by the bundle `source_commit`; first boot
 need a Git pull when that commit is still current. Ordinary later system/Surface changes
 track `main` through the same Git owner.
 
+No candidato de separação da Surface (#2198), a UI não é mais um arquivo
+tracked desse checkout. O Creator pré-semeia no build host, antes de criar
+o USB, um único slot de release com os bytes visuais da revisão Git da
+Surface fixada por `docs/contracts/surface-source.json`, com hashes e
+identidades de OS/Surface. O Supervisor inicia esse slot **sem rede** no
+primeiro boot. Atualizações posteriores permanecem transações de `ordax-pull`
+mais o staging do Supervisor; falha de rede não autoriza mutar a UI ativa.
+O QEMU offline Owner do mesmo artefato é gate obrigatório antes de
+integrar a mudança à `main`, sem gravar um USB real.
+
+
 The development Base's kernel/rootfs A/B and bootloader upgrades have
 additional promotion/fallback gates. This bundle does **not** imply that every
 Base update has been physically proven, that a fresh notebook boot passed, or

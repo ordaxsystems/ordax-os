@@ -12,14 +12,14 @@ Cada responsabilidade canônica pertence a **um único repositório**.
 
 Nenhum repositório pode absorver uma responsabilidade de outro apenas para simplificar uma migração. Mudanças entre owners exigem contrato público, plano de migração, prova de compatibilidade e remoção do owner antigo.
 
-## Os quatro repositórios oficiais
+## Repositórios canônicos por responsabilidade
 
 ### 1. ordaxsystems/ordax-os
 
 **Papel:** plataforma/sistema operacional OrdaX.
 
 É owner de:
-- Base, boot e Surface/Shell;
+- Base, boot, host Native da Surface, composição e ciclo transacional de release/rollback;
 - Identity;
 - Memory global/plataforma;
 - Intelligence/router/provider abstractions;
@@ -98,7 +98,24 @@ Não é owner de:
 - Runtime local/Computer Control;
 - serviços nativos do OrdaX OS.
 
+### 5. ordaxsystems/ordax-surface
+
+**Papel:** apresentação visual compartilhada, componentes e área de trabalho da Surface, com histórico e fonte canônicos independentes.
+
+É owner de `system/surface/ui/` e `system/surface/workspace/` (caminhos de montagem do artefato), design tokens, identidade visual e comportamento de interação. Não é owner de serviços nativos, Supervisor, boot, permissões, grants, assinatura, runtime de host ou atualizações do dispositivo. O OS consome um único commit pinado em `docs/contracts/surface-source.json`, preservando os ports e contratos públicos existentes.
+
 ## Fluxos oficiais
+
+### Surface visual compartilhada Web / Native
+
+```text
+ordaxsystems/ordax-surface (revisão fixa em docs/contracts/surface-source.json)
+  -> composição com serviços e adapters de ordaxsystems/ordax-os
+  -> build/release verificada com uma única interface
+  -> host Web/Native do OS e rollback da própria release
+```
+
+O repositório da Surface não instala serviços nativos nem atualiza dispositivos; a verificação, staging e ativação pertencem aos owners do OS.
 
 ### ChatGPT controlando um computador Windows
 

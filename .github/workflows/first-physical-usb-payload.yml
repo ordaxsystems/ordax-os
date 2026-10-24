@@ -4,11 +4,15 @@ on:
   pull_request:
     paths:
       - '.github/workflows/first-physical-usb-payload.yml'
+      - '.github/actions/resolve-creator-source/**'
+      - 'docs/contracts/native-release-assembly.json'
       - 'tests/test_first_physical_usb_payload_ssot.py'
   push:
     branches: [main]
     paths:
       - '.github/workflows/first-physical-usb-payload.yml'
+      - '.github/actions/resolve-creator-source/**'
+      - 'docs/contracts/native-release-assembly.json'
   workflow_dispatch:
     inputs:
       target_bytes:
@@ -168,16 +172,34 @@ jobs:
           check-latest: false
           cache: false
 
-      - name: Test canonical Creator Core source binding before heavyweight release builds
+      - name: Resolve independent Creator source pinned by operator contract
+        uses: ./operator/.github/actions/resolve-creator-source
+        with:
+          checkout-root: ${{ runner.temp }}/ordax-creator-first-physical-source
+          source-root: ${{ github.workspace }}/operator
+
+      - name: Test independent Creator Core before heavyweight release builds
         shell: bash
-        working-directory: operator/tools/creator
         run: |
           set -euo pipefail
-          # Core alone owns the canonical 17-source inventory and digests.
-          # Synthetic fixtures do not change the historical signed release.
-          go test -count=1 ./core ./cmd/ordax-creator \
-            -run 'TestBindPortableSources(CoreInventory|RejectsIncompleteExtraOrUnsafeInput|RejectsSymlinkedRoot)$'
+          creator="${ORDAX_CREATOR_NATIVE_SOURCE:?}"
+          test "${ORDAX_CREATOR_SOURCE_REPOSITORY:?}" = 'ordaxsystems/ordax-creator'
+          test "$(git -C "$creator" rev-parse HEAD)" = "${ORDAX_CREATOR_SOURCE_COMMIT:?}"
+          test "$(git -C "$creator" rev-parse 'HEAD^{tree}')" = "${ORDAX_CREATOR_SOURCE_TREE:?}"
+          test "$(head -n 1 "$creator/go.mod")" = 'module github.com/ordaxsystems/ordax-creator'
+          (
+            cd "$creator"
+            ORDAX_OS_CONTRACTS_DIR="$GITHUB_WORKSPACE/operator/docs/contracts" \
+              go test -count=1 ./core ./cmd/ordax-creator \
+              -run 'TestBindPortableSources(CoreInventory|RejectsIncompleteExtraOrUnsafeInput|RejectsSymlinkedRoot)$'
+            mkdir -p "$RUNNER_TEMP/first-physical-creator-cli"
+            CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
+              go build -trimpath -buildvcs=false -ldflags='-s -w' \
+              -o "$RUNNER_TEMP/first-physical-creator-cli/ordax-creator" ./cmd/ordax-creator
+          )
+          test -x "$RUNNER_TEMP/first-physical-creator-cli/ordax-creator"
           echo 'PORTABLE_17_SOURCE_CORE_SSOT=PASS_NON_DESTRUCTIVE'
+          echo "PORTABLE_CORE_CREATOR_SHA=${ORDAX_CREATOR_SOURCE_COMMIT}"
 
       - name: Validate authorization, commits and target geometry
         shell: bash
@@ -458,31 +480,36 @@ jobs:
           cp "$release/release-manifest.json" "$out/sources/release-manifest"
           cp "$release/release-envelope.json" "$out/sources/release-envelope"
 
-          # Bind identity/size/digests through the existing Creator Core SSOT.
-          (
-            cd operator/tools/creator
-            go run ./cmd/ordax-creator bind-portable-sources --sources-root "$out/sources" > "$out/bindings.json"
-          )
-          test -s "$out/bindings.json"
-          echo 'PHYSICAL_PAYLOAD_SOURCE_COUNT=17'
-          echo 'PHYSICAL_PAYLOAD_SOURCE_BINDINGS=CORE_SSOT'
+          creator="$RUNNER_TEMP/first-physical-creator-cli/ordax-creator"
+          test -x "$creator"
+          "$creator" bind-portable-sources --sources-root "$out/sources" > "$out/bindings.json"
+          python3 - "$out/bindings.json" <<'PY'
+          import json, pathlib, sys
+          binding = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding='utf-8'))
+          ids = [item['id'] for item in binding['artifacts']]
+          if (binding['$schema'] != 'prototype-ordax.portable-media-bindings/1'
+              or len(ids) != 17 or len(set(ids)) != 17):
+              raise SystemExit('invalid independent Creator source binding output')
+          print('PHYSICAL_PAYLOAD_SOURCE_COUNT=17')
+          print('PHYSICAL_PAYLOAD_SOURCE_BINDINGS=INDEPENDENT_CORE_SSOT')
+          PY
 
       - name: Generate exact target-specific media and application plans
         shell: bash
-        working-directory: operator/tools/creator
         run: |
           set -euo pipefail
           out="$RUNNER_TEMP/first-physical-payload/out"
 
-          go test -count=1 ./core ./cmd/ordax-creator
+          creator="$RUNNER_TEMP/first-physical-creator-cli/ordax-creator"
+          test -x "$creator"
 
-          go run ./cmd/ordax-creator plan-portable-media \
+          "$creator" plan-portable-media \
             --target-bytes "$TARGET_BYTES" \
             --source-commit "$RELEASE_SOURCE_COMMIT" \
             --bindings "$out/bindings.json" \
             > "$out/portable-media-plan.json"
 
-          go run ./cmd/ordax-creator plan-portable-application \
+          "$creator" plan-portable-application \
             --plan "$out/portable-media-plan.json" \
             > "$out/portable-application-plan.json"
 
@@ -524,11 +551,12 @@ jobs:
       - name: Verify real 17 signed sources through Creator Core (read-only)
         if: ${{ github.event_name != 'workflow_dispatch' }}
         shell: bash
-        working-directory: operator/tools/creator
         run: |
           set -euo pipefail
           out="$RUNNER_TEMP/first-physical-payload/out"
-          result="$(go run ./cmd/ordax-creator verify-portable-sources --bindings "$out/bindings.json" --sources-root "$out/sources")"
+          creator="$RUNNER_TEMP/first-physical-creator-cli/ordax-creator"
+          test -x "$creator"
+          result="$("$creator" verify-portable-sources --bindings "$out/bindings.json" --sources-root "$out/sources")"
           grep -q '^PORTABLE_SOURCES_VERIFIED=YES$' <<< "$result"
           grep -q '^PORTABLE_SOURCE_COUNT=17$' <<< "$result"
           grep -q '^PHYSICAL_WRITE_AUTHORIZED=NO$' <<< "$result"

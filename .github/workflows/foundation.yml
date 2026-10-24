@@ -17,6 +17,9 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Prepare external Surface in disposable CI checkout
+        uses: ./.github/actions/prepare-verified-surface
+
       - name: Install locked Web build dependencies
         run: npm ci --ignore-scripts --no-audit --no-fund
 

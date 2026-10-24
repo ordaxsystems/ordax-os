@@ -12,6 +12,8 @@ on:
       - 'docs/contracts/physical-write-authorization.json'
       - 'docs/evidence/canonical-v4-release-proof.json'
       - 'tools/creator/physical_promotion.py'
+      - 'docs/contracts/surface-source.json'
+      - '.github/actions/prepare-verified-surface/**'
       - 'tools/creator/authorize_physical_write.py'
       - 'tools/creator/bind_canonical_v4_release_proof.py'
       - 'tests/test_physical_promotion_boundary.py'
@@ -32,6 +34,8 @@ on:
       - 'docs/contracts/physical-write-authorization.json'
       - 'docs/evidence/canonical-v4-release-proof.json'
       - 'tools/creator/physical_promotion.py'
+      - 'docs/contracts/surface-source.json'
+      - '.github/actions/prepare-verified-surface/**'
       - 'tools/creator/authorize_physical_write.py'
       - 'tools/creator/bind_canonical_v4_release_proof.py'
       - 'tests/test_physical_promotion_boundary.py'
@@ -60,6 +64,11 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
+
+      # Resolve visual sources from the exact OS-pinned independent owner.
+      # This only hydrates disposable CI; physical consent remains fail-closed.
+      - name: Prepare pinned Surface for physical pre-authorization audit
+        uses: ./.github/actions/prepare-verified-surface
 
       - name: Regress non-destructive promotion boundaries
         run: |
@@ -135,6 +144,10 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
+
+      # Recheck the identical source boundary in the separate publisher job.
+      - name: Prepare pinned Surface for authorized candidate source recheck
+        uses: ./.github/actions/prepare-verified-surface
 
       - name: Set up Python
         uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6

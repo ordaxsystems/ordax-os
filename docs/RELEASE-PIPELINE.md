@@ -24,7 +24,7 @@ is not silently reinterpreted as v4.
 
 ## Native release assembly
 
-The shared product source remains `system/`. Native-only prebuilt executables that are required by the USB/Native capability boundary are injected into a temporary staged `system/` tree by `tools/native-release-assembly/build.py` before bundling.
+The OS owns the Native services and execution source under `system/`; the shared **visual** source is versioned solely by `ordaxsystems/ordax-surface`. The source assembly step `tools/surface-source/assemble.py` creates a disposable `system/` tree by preserving OS-owned files and materializing the exact externally pinned visual revision (see `docs/contracts/surface-source.json`). Native-only prebuilt executables required by the USB/Native capability boundary are then injected into this **same staged tree** by `tools/native-release-assembly/build.py --system-source .../system` before bundling. The Native assembler rechecks the two repository commit identities and every visual source byte against the assembly receipt.
 
 The Native release assembly currently adds exactly two contracted binaries:
 
