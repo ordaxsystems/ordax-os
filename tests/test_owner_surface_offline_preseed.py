@@ -39,7 +39,7 @@ class OwnerOfflineSurfacePreseedTests(unittest.TestCase):
             "status": "canonical",
             "source_repository": "ordaxsystems/ordax-surface",
             "source_commit": self.surface_sha,
-        }) + "\n")
+        }, indent=2) + "\n")
         self.write(self.repo / "system/entrypoint", "#!/bin/sh\n")
         git(self.repo, "add", "docs", "system")
         git(self.repo, "commit", "-qm", "OS without tracked visual source")
