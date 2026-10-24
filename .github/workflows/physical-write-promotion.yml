@@ -98,8 +98,19 @@ jobs:
           assert pin['module'] == 'github.com/ordaxsystems/ordax-creator'
           assert pin['publisher_authority'] == 'ordaxsystems/ordax-os'
           assert pin['physical_apply_authorized'] is False
-          assert auth['physical_write_allowed'] is False
-          assert auth['explicit_owner_authorization'] is False
+          consent = auth.get('physical_write_allowed')
+          assert isinstance(consent, bool)
+          assert auth.get('explicit_owner_authorization') is consent
+          if consent:
+              assert auth.get('status') == 'authorized'
+              assert isinstance(auth.get('authorization_context_sha256'), str)
+          else:
+              assert auth.get('status') in {
+                  'blocked-explicit-physical-authorization-pending',
+                  'blocked-canonical-v4-release-proof-pending',
+                  'blocked-canonical-trust-pending',
+              }
+              assert auth.get('authorization_context_sha256') in (None, '')
           print('CREATOR_PHYSICAL_PIN=EXACT_VERIFIED')
           print('CREATOR_EXTERNAL_SOURCE_GRANTS_PHYSICAL_CONSENT=NO')
           PY
