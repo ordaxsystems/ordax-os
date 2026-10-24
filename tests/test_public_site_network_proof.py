@@ -76,10 +76,9 @@ class PublicNetworkProofTests(unittest.TestCase):
             self.assertEqual(content.count("'tools/public-site/public_identity_state.py'"), 2, workflow)
             self.assertIn("test_public_site_network_proof.py", content)
         site = (root / ".github/workflows/public-site-candidate.yml").read_text(encoding="utf-8")
-        for name in ("test_public_site_network_proof.py", "test_public_site_deployment_proof.py"):
-            self.assertEqual(site.count(f"'tests/{name}'"), 2, name)
-        for name in ("test_public_site_deployment_proof.py", "test_public_site_network_proof.py"):
-            self.assertIn(f"python -m unittest discover -s tests -p '{name}' -v", site)
+        self.assertIn("tests.test_public_site_network_proof", site)
+        self.assertIn("tests.test_external_site_source", site)
+        self.assertNotIn("test_public_site_deployment_proof.py", site)
 
     def test_success_proves_pages_anonymous_session_and_www_redirect(self):
         with (

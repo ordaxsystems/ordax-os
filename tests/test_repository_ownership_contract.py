@@ -12,7 +12,10 @@ class RepositoryOwnershipContractTests(unittest.TestCase):
 
     def test_canonical_repositories_include_separate_surface_visual_owner(self):
         repos = self.contract["repositories"]
-        self.assertEqual(set(repos), {"platform", "surface", "apps", "runtime", "control_plane"})
+        self.assertEqual(set(repos), {"platform", "surface", "apps", "runtime", "control_plane", "public_site"})
+        self.assertEqual(repos["public_site"]["repo"], "ordaxsystems/ordax-site")
+        self.assertIn("public-site-static-build-and-i18n", repos["public_site"]["owns"])
+        self.assertIn("identity-backend", repos["public_site"]["must_not_own"])
         self.assertEqual(repos["surface"]["repo"], "ordaxsystems/ordax-surface")
         self.assertIn("surface-visual-shell", repos["surface"]["owns"])
         self.assertIn("surface-native-host", repos["platform"]["owns"])
@@ -50,7 +53,7 @@ class RepositoryOwnershipContractTests(unittest.TestCase):
         active = document.split("## Fluxos oficiais", 1)[1].split(
             "## Regra para o legado mcp-blender", 1
         )[0]
-        for role in ("platform", "apps", "runtime", "control_plane", "surface"):
+        for role in ("platform", "apps", "runtime", "control_plane", "surface", "public_site"):
             self.assertIn(self.contract["repositories"][role]["repo"], active)
         # Use the historical repository identity from the canonical migration
         # record rather than hard-coding an obsolete operational name inside

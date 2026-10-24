@@ -104,7 +104,26 @@ Não é owner de:
 
 É owner de `system/surface/ui/` e `system/surface/workspace/` (caminhos de montagem do artefato), design tokens, identidade visual e comportamento de interação. Não é owner de serviços nativos, Supervisor, boot, permissões, grants, assinatura, runtime de host ou atualizações do dispositivo. O OS consome um único commit pinado em `docs/contracts/surface-source.json`, preservando os ports e contratos públicos existentes.
 
+### 6. ordaxsystems/ordax-site
+
+**Papel:** fonte e build independentes da apresentação pública (landing, catálogo visual de downloads, páginas legais, login/recuperação e Conta somente na camada visual).
+
+O único código de apresentação, CSS, assets, rotas, i18n e testes do Site pertence ao `ordaxsystems/ordax-site`. O OS consome o commit imutável descrito em `docs/contracts/public-site-source.json`, inclusive no build público e no bootstrap de login Web. A montagem de build não cria um segundo source owner.
+
+Identity, sessão, autorização, billing, publicação assinada de releases, domínios e o proxy do gateway **não** pertencem ao Site. Esses serviços mantêm a autoridade no OS/Platform e apenas fornecem APIs/autorização de mesma origem ao frontend. O ambiente `ordax-site-dev` é separado da operação de produção.
+
 ## Fluxos oficiais
+
+### Site público independente
+
+```text
+ordaxsystems/ordax-site (revisão fixa em docs/contracts/public-site-source.json)
+  -> build independente de páginas, estilo, assets e i18n
+  -> bundle estático verificado, consumido por ordaxsystems/ordax-os no Web
+  -> Identity, autorização e publicador de releases permanecem em seus owners
+```
+
+O código da apresentação pública não é compilado a partir de `sites/public/` no OS. A integração de fonte para desenvolvimento não equivale a deploy de produção.
 
 ### Surface visual compartilhada Web / Native
 

@@ -93,7 +93,7 @@ mesmo domínio e o mesmo Action Gateway, sem backend paralelo por plataforma.
 
 Antes de alterar landing page, download, login/cadastro ou futura area publica da conta, leia `MVP.md`, `docs/PUBLIC-SITE.md` e `docs/contracts/public-site.json`.
 
-O portal em `sites/public/` e um artefato separado do modo **OrdaX Web**. Nao importar a Surface para montar o site, nao duplicar identidade/conta e nao hard-codear uma release como "latest". Login/cadastro e download so ficam disponiveis quando seus owners reais estiverem configurados; o estado padrao deve falhar fechado sem credenciais, contas ou artefatos ficticios.
+O source da apresentacao do portal pertence **exclusivamente** a `ordaxsystems/ordax-site`; a revisao consumida pelo OS e fixada por `docs/contracts/public-site-source.json`. Nao reintroduzir `sites/public/`, `tools/public-site/build.py`, compiladores de UI ou tokens visuais como segunda autoridade. O portal e separado do modo **OrdaX Web**; no OS permanecem somente gateways, Identity, autorizacao e contratos de publicacao. Nao importar Surface para montar o Site, duplicar identidade/conta ou hard-codear release como "latest". Login/cadastro e download ficam fail-closed sem gates de seus owners.
 
 ## 4. Arquitetura fisica alvo
 

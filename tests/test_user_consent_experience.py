@@ -8,7 +8,6 @@ ROOT = Path(__file__).resolve().parents[1]
 UX = ROOT / "docs/contracts/user-consent-experience.json"
 CREATOR = (Path(os.environ["ORDAX_CREATOR_NATIVE_SOURCE"]) / "cmd/ordax-creator-app"
            if os.environ.get("ORDAX_CREATOR_NATIVE_SOURCE") else None)
-PUBLIC = ROOT / "sites/public/cadastro/index.html"
 NATIVE = ROOT / "docs/contracts/native-installation.json"
 
 
@@ -71,9 +70,6 @@ class UserConsentExperienceTests(unittest.TestCase):
         self.assertEqual(self.policy["account_login"]["legal_acceptance_control_count"], 0)
         self.assertTrue(self.policy["account_registration"]["acceptance_receipt_server_authoritative"])
         self.assertTrue(self.policy["account_registration"]["acceptance_bound_to_exact_published_versions"])
-        html = PUBLIC.read_text(encoding="utf-8")
-        self.assertEqual(html.count('name="legal_acceptance"'), 1)
-        self.assertIn('href="/login/"', html)
         credentials = (ROOT / "system/contracts/identity-credentials.mjs").read_text(encoding="utf-8")
         self.assertIn("sameRegistrationLegalPolicy", credentials)
         self.assertIn("value.legalAccepted !== true", credentials)

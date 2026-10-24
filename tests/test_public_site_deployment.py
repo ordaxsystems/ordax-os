@@ -136,7 +136,7 @@ class PublicSiteDeploymentTests(unittest.TestCase):
                 return result.returncode
 
             git("init")
-            write("sites/public/index.html", "<h1>OrdaX</h1>")
+            write("docs/contracts/public-site-source.json", '{"commit":"site-a"}')
             write("docs/README.md", "initial documentation")
             initial = commit("initial")
             self.assertEqual(ignored("", initial), 1)
@@ -149,7 +149,7 @@ class PublicSiteDeploymentTests(unittest.TestCase):
             self.assertEqual(ignored(initial, docs_only), 0)
             self.assertEqual(ignored(initial, docs_only, "production"), 0)
 
-            write("sites/public/index.html", "<h1>OrdaX updated</h1>")
+            write("docs/contracts/public-site-source.json", '{"commit":"site-b"}')
             site_change = commit("public site change")
             self.assertEqual(ignored(docs_only, site_change), 1)
 
