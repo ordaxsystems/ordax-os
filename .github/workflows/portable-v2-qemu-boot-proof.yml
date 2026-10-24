@@ -54,6 +54,7 @@ on:
       - 'docs/contracts/portable-boot-handoff.json'
       - 'docs/MINIMAL-USB-BOOTSTRAP.md'
       - 'tests/test_portable_v2_qemu_boot_proof_contract.py'
+      - 'tests/test_portable_mount_buildroot_symlinks.py'
       - 'tests/test_initramfs_upstream_authentication.py'
       - 'tests/test_portable_qemu_kernel_source_ssot.py'
       - 'tests/test_kernel_ci_env.py'
@@ -119,6 +120,7 @@ on:
       - 'docs/contracts/portable-boot-handoff.json'
       - 'docs/MINIMAL-USB-BOOTSTRAP.md'
       - 'tests/test_portable_v2_qemu_boot_proof_contract.py'
+      - 'tests/test_portable_mount_buildroot_symlinks.py'
       - 'tests/test_initramfs_upstream_authentication.py'
       - 'tests/test_portable_qemu_kernel_source_ssot.py'
       - 'tests/test_kernel_ci_env.py'
@@ -263,6 +265,7 @@ jobs:
           python -m unittest tests.test_portable_component_cache tests.test_portable_component_reuse_workflow -v
           python -m unittest tests.test_portable_qemu_impact -v
           python -m unittest tests.test_independent_surface_qemu_binding -v
+          python -m unittest tests.test_portable_mount_buildroot_symlinks -v
           python -m unittest discover -s tests -p 'test_bootstrap_current_verification.py' -v
           python -m unittest discover -s tests -p 'test_portable_verified_boot_selection.py' -v
           python -m unittest discover -s tests -p 'test_portable_media_discovery.py' -v
