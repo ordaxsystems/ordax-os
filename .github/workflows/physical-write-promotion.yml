@@ -18,6 +18,8 @@ on:
       - 'tools/creator/bind_canonical_v4_release_proof.py'
       - 'tests/test_physical_promotion_boundary.py'
       - 'tests/test_canonical_v4_release_proof_binding.py'
+      - 'tests/test_prepare_creator_physical_v3.py'
+      - 'tools/release-signing/prepare_creator_physical_v3.py'
       - 'tools/creator/core/**'
       - 'tools/creator/host/windows/**'
       - 'tools/creator/cmd/ordax-creator-physical-test/**'
@@ -42,6 +44,8 @@ on:
       - 'tools/creator/bind_canonical_v4_release_proof.py'
       - 'tests/test_physical_promotion_boundary.py'
       - 'tests/test_canonical_v4_release_proof_binding.py'
+      - 'tests/test_prepare_creator_physical_v3.py'
+      - 'tools/release-signing/prepare_creator_physical_v3.py'
       - 'tools/creator/core/**'
       - 'tools/creator/host/windows/**'
       - 'tools/creator/cmd/ordax-creator-physical-test/**'
@@ -119,7 +123,8 @@ jobs:
         run: |
           python -m unittest \
             tests.test_physical_promotion_boundary \
-            tests.test_canonical_v4_release_proof_binding -v
+            tests.test_canonical_v4_release_proof_binding \
+            tests.test_prepare_creator_physical_v3 -v
 
       - name: Evaluate canonical physical promotion gates
         id: gate
