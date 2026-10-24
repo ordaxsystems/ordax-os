@@ -190,7 +190,7 @@ class CreatorPhysicalPublisherBoundaryTests(unittest.TestCase):
         self.assertRegex(context_sha, r"^[0-9a-f]{64}$")
         # Two inspected-media Core sources are now governed by the same physical
         # authorization context; adding them never grants write authorization.
-        self.assertEqual(file_count, 86)
+        self.assertEqual(file_count, 31)
 
         if auth["status"] == "authorized":
             self.assertIs(auth["physical_write_allowed"], True)
@@ -229,11 +229,13 @@ class CreatorPhysicalPublisherBoundaryTests(unittest.TestCase):
         self.assertIn(".github/actions/prepare-verified-surface/action.yml", governed)
         self.assertIn("docs/contracts/native-release-assembly.json", governed)
         self.assertIn("docs/contracts/surface-source.json", governed)
+        self.assertNotIn("tools/creator/go.mod", governed)
+        self.assertNotIn("system/surface/ui/first-run.mjs", governed)
         self.assertIn("system/services/preferences/catalog.mjs", governed)
-        self.assertIn("tools/creator/core/portable_sources.go", governed)
-        self.assertIn("tools/creator/core/installed_media_inspection.go", governed)
-        self.assertIn("tools/creator/host/windows/installed_media_inspection_windows.go", governed)
-        self.assertIn("tools/creator/physicalchannel/portable_payload.go", governed)
+        self.assertNotIn("tools/creator/core/portable_sources.go", governed)
+        self.assertNotIn("tools/creator/core/installed_media_inspection.go", governed)
+        self.assertNotIn("tools/creator/host/windows/installed_media_inspection_windows.go", governed)
+        self.assertNotIn("tools/creator/physicalchannel/portable_payload.go", governed)
         self.assertNotIn("docs/contracts/creator-consumer-flow.json", governed)
         self.assertNotIn("tools/release-signing/windows/8-Sign-Publish-CreatorPhysical.ps1", governed)
         self.assertNotIn("tools/publisher/windows/9-Rotate-CreatorPhysical.ps1", governed)
