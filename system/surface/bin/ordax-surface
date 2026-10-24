@@ -297,6 +297,9 @@ ensure_base_update_agent() {
         return 0
     fi
 
+    # Only Owner/Development may launch the Git-owned Base update agent.
+    [ "$DISTRIBUTION_PROFILE" = "owner-development" ] || return 0
+
     [ -f "$BASE_UPDATE_SOURCE" ] || {
         echo "ordax-surface: base update owner source unavailable: $BASE_UPDATE_SOURCE" >>"$BASE_UPDATE_LOG"
         return 0
