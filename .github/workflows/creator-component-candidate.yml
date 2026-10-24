@@ -8,9 +8,9 @@ on:
       - 'bootstrap/trust/release-ed25519.json'
       - 'docs/contracts/release-trust-policy.json'
       - 'docs/contracts/creator-component-channel.json'
-      - 'tools/creator/componentchannel/**'
-      - 'tools/creator/cmd/ordax-creator-inspection/**'
-      - 'tools/creator/host/windows/**'
+      - '.github/actions/resolve-creator-source/**'
+      - 'docs/contracts/native-release-assembly.json'
+      - 'tests/test_creator_component_external_source.py'
       - 'tools/release-signing/cmd/ordax-creator-component-signing/**'
       - '.github/workflows/creator-component-candidate.yml'
   pull_request:
@@ -19,9 +19,9 @@ on:
       - 'bootstrap/trust/release-ed25519.json'
       - 'docs/contracts/release-trust-policy.json'
       - 'docs/contracts/creator-component-channel.json'
-      - 'tools/creator/componentchannel/**'
-      - 'tools/creator/cmd/ordax-creator-inspection/**'
-      - 'tools/creator/host/windows/**'
+      - '.github/actions/resolve-creator-source/**'
+      - 'docs/contracts/native-release-assembly.json'
+      - 'tests/test_creator_component_external_source.py'
       - 'tools/release-signing/cmd/ordax-creator-component-signing/**'
       - '.github/workflows/creator-component-candidate.yml'
   workflow_dispatch:
@@ -39,15 +39,23 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Resolve exact independent Creator packaging source
+        uses: ./.github/actions/resolve-creator-source
+        with:
+          checkout-root: ${{ runner.temp }}/ordax-creator-component-packaging
+
       - name: Set up Python
         uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: '3.12'
           check-latest: false
 
-      - name: Prove deterministic fail-closed component packaging
-        working-directory: tools/creator
-        run: python componentchannel/test_package_candidate.py
+      - name: Prove deterministic fail-closed independent component packaging
+        run: |
+          set -euo pipefail
+          test -n "${ORDAX_CREATOR_NATIVE_SOURCE:-}"
+          python "$ORDAX_CREATOR_NATIVE_SOURCE/componentchannel/test_package_candidate.py"
+          echo 'CREATOR_COMPONENT_PACKAGER_SOURCE=PINNED_EXTERNAL'
 
   trust-and-contract-gate:
     runs-on: ubuntu-24.04
@@ -134,6 +142,11 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Resolve exact independent Creator Windows source
+        uses: ./.github/actions/resolve-creator-source
+        with:
+          checkout-root: ${{ runner.temp }}/ordax-creator-component-windows
+
       - name: Set up Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
         with:
@@ -152,7 +165,11 @@ jobs:
         run: |
           Set-StrictMode -Version Latest
           $ErrorActionPreference = 'Stop'
-          Push-Location tools/creator
+          if ($env:ORDAX_CREATOR_SOURCE_REPOSITORY -cne 'ordaxsystems/ordax-creator' -or
+              [string]::IsNullOrWhiteSpace($env:ORDAX_CREATOR_NATIVE_SOURCE)) {
+            throw 'independent Creator source not resolved'
+          }
+          Push-Location $env:ORDAX_CREATOR_NATIVE_SOURCE
           try {
             go test -count=1 ./componentchannel
             go test -count=1 ./host/windows
@@ -174,10 +191,14 @@ jobs:
           $ErrorActionPreference = 'Stop'
           $candidate = Join-Path $PWD 'out/creator-component-candidate'
           New-Item -ItemType Directory -Force -Path $candidate | Out-Null
-          Push-Location tools/creator
+          if ((git -C $env:ORDAX_CREATOR_NATIVE_SOURCE rev-parse HEAD).Trim() -cne $env:ORDAX_CREATOR_SOURCE_COMMIT -or
+              (git -C $env:ORDAX_CREATOR_NATIVE_SOURCE rev-parse 'HEAD^{tree}').Trim() -cne $env:ORDAX_CREATOR_SOURCE_TREE) {
+            throw 'Creator inspection source SHA/tree differs from OS canonical pin'
+          }
+          Push-Location $env:ORDAX_CREATOR_NATIVE_SOURCE
           try {
             go build -trimpath -buildvcs=false -ldflags='-s -w' `
-              -o ../../out/creator-component-candidate/ordax-creator-physical-test.exe `
+              -o (Join-Path $candidate 'ordax-creator-physical-test.exe') `
               ./cmd/ordax-creator-inspection
           } finally {
             Pop-Location
@@ -201,7 +222,7 @@ jobs:
         run: |
           Set-StrictMode -Version Latest
           $ErrorActionPreference = 'Stop'
-          python tools/creator/componentchannel/package_candidate.py `
+          python (Join-Path $env:ORDAX_CREATOR_NATIVE_SOURCE 'componentchannel/package_candidate.py') `
             --executable out/creator-component-candidate/ordax-creator-physical-test.exe `
             --output-dir out/creator-component-release `
             --version $env:COMPONENT_VERSION `
@@ -213,6 +234,36 @@ jobs:
             throw 'private signing material entered Creator component release input'
           }
           Write-Host 'CREATOR_COMPONENT_RELEASE_PACKAGE_READY_FOR_OFFLINE_SIGNING=YES'
+          # Manifest /1 keeps the OS as signed-channel publisher; do not change
+          # its source_repository or source_commit without a protocol migration.
+          $manifest = Get-Content -LiteralPath (Join-Path $release 'creator-component-manifest.json') -Raw -Encoding UTF8 | ConvertFrom-Json
+          if ($manifest.source_repository -cne 'ordaxsystems/ordax-os' -or
+              $manifest.source_commit -cne $env:ORDAX_SOURCE_COMMIT -or
+              $manifest.created_from_recipe -cne 'creator/component/windows/1') {
+            throw 'OS signed component manifest authority has changed'
+          }
+          $component = Join-Path $PWD 'out/creator-component-candidate'
+          $implementation = [ordered]@{
+            '$schema' = 'prototype-ordax.creator-component-implementation-provenance/1'
+            publisher_repository = 'ordaxsystems/ordax-os'
+            publisher_commit = $env:ORDAX_SOURCE_COMMIT
+            creator_source_repository = $env:ORDAX_CREATOR_SOURCE_REPOSITORY
+            creator_source_commit = $env:ORDAX_CREATOR_SOURCE_COMMIT
+            creator_source_tree = $env:ORDAX_CREATOR_SOURCE_TREE
+            signed_release_created = $false
+            physical_write_authorized = $false
+          }
+          if ($implementation.creator_source_repository -cne 'ordaxsystems/ordax-creator' -or
+              $implementation.creator_source_commit -cnotmatch '^[0-9a-f]{40}$' -or
+              $implementation.creator_source_tree -cnotmatch '^[0-9a-f]{40}$') {
+            throw 'Creator implementation provenance not immutable'
+          }
+          $utf8 = [Text.UTF8Encoding]::new($false)
+          [IO.File]::WriteAllText(
+            (Join-Path $component 'creator-component-implementation-provenance.json'),
+            (($implementation | ConvertTo-Json -Depth 6) + "`n"), $utf8)
+          Write-Host 'CREATOR_COMPONENT_IMPLEMENTATION_SOURCE=PINNED_EXTERNAL'
+          Write-Host 'CREATOR_COMPONENT_OS_PUBLISHER_AUTHORITY=PRESERVED'
           Write-Host 'CREATOR_COMPONENT_ENVELOPE_PRESENT=NO'
           Write-Host 'PRIVATE_KEY_REQUIRED_IN_CI=NO'
 

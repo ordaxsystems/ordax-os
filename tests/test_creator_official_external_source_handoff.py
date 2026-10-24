@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 import unittest
 ROOT=Path(__file__).resolve().parents[1]
-SCRIPT=ROOT/"tools/creator/windows/Build-OrdaXCreatorPublisherHandoff.ps1"
+SCRIPT=ROOT/"tools/release-signing/windows/Build-OrdaXCreatorPublisherHandoff.ps1"
 WORKFLOW=ROOT/".github/workflows/creator-official-candidate.yml"
 CONTRACT=ROOT/"docs/contracts/native-release-assembly.json"
 
@@ -35,8 +35,8 @@ class CreatorOfficialExternalHandoff(unittest.TestCase):
         self.assertIn("CREATOR_WRONG_SOURCE_FAIL_CLOSED=PASS",self.workflow)
 
     def test_os_publisher_and_non_public_authority_preserved(self):
-        for name in ("tools/release-signing","tools/creator/windows/Verify-OrdaXCreatorSignature.ps1",
-                     "tools/creator/windows/Finalize-OrdaXCreatorRelease.ps1","authenticode_signed = $false",
+        for name in ("tools/release-signing","tools/release-signing/windows/Verify-OrdaXCreatorSignature.ps1",
+                     "tools/release-signing/windows/Finalize-OrdaXCreatorRelease.ps1","authenticode_signed = $false",
                      "publishable_to_end_users = $false","creator_source_verified = $true",
                      "creator_source_commit = $creatorCommit","creator_source_tree = $creatorTree"):
             self.assertIn(name,self.script)

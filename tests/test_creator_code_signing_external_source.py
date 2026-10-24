@@ -33,8 +33,8 @@ class CreatorCodeSigningExternalSourceTests(unittest.TestCase):
 
     def test_os_publisher_keeps_exclusive_signature_boundary(self):
         self.assertIn("Push-Location tools/release-signing", self.workflow)
-        self.assertIn("tools/creator/windows/Verify-OrdaXCreatorSignature.ps1", self.workflow)
-        self.assertIn("tools/creator/windows/Finalize-OrdaXCreatorRelease.ps1", self.workflow)
+        self.assertIn("tools/release-signing/windows/Verify-OrdaXCreatorSignature.ps1", self.workflow)
+        self.assertIn("tools/release-signing/windows/Finalize-OrdaXCreatorRelease.ps1", self.workflow)
         self.assertEqual(self.signing["status"], "unconfigured")
         self.assertFalse(self.signing["release_policy"]["publish_allowed"])
         self.assertFalse(self.signing["release_policy"]["unsigned_candidate_publishable"])

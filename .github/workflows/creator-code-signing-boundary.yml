@@ -6,8 +6,8 @@ on:
     paths:
       - 'docs/contracts/creator-code-signing.json'
       - 'docs/contracts/creator-app-channel.json'
-      - 'tools/creator/windows/Verify-OrdaXCreatorSignature.ps1'
-      - 'tools/creator/windows/Finalize-OrdaXCreatorRelease.ps1'
+      - 'tools/release-signing/windows/Verify-OrdaXCreatorSignature.ps1'
+      - 'tools/release-signing/windows/Finalize-OrdaXCreatorRelease.ps1'
       - '.github/actions/resolve-creator-source/**'
       - 'docs/contracts/native-release-assembly.json'
       - 'tests/test_creator_code_signing_external_source.py'
@@ -18,8 +18,8 @@ on:
     paths:
       - 'docs/contracts/creator-code-signing.json'
       - 'docs/contracts/creator-app-channel.json'
-      - 'tools/creator/windows/Verify-OrdaXCreatorSignature.ps1'
-      - 'tools/creator/windows/Finalize-OrdaXCreatorRelease.ps1'
+      - 'tools/release-signing/windows/Verify-OrdaXCreatorSignature.ps1'
+      - 'tools/release-signing/windows/Finalize-OrdaXCreatorRelease.ps1'
       - '.github/actions/resolve-creator-source/**'
       - 'docs/contracts/native-release-assembly.json'
       - 'tests/test_creator_code_signing_external_source.py'
@@ -142,7 +142,7 @@ jobs:
           Set-StrictMode -Version Latest
           $ErrorActionPreference = 'Stop'
           $root = Join-Path $PWD 'out/code-signing-boundary'
-          $verifier = Join-Path $PWD 'tools/creator/windows/Verify-OrdaXCreatorSignature.ps1'
+          $verifier = Join-Path $PWD 'tools/release-signing/windows/Verify-OrdaXCreatorSignature.ps1'
           $productionContract = Join-Path $PWD 'docs/contracts/creator-code-signing.json'
 
           foreach ($name in @('OrdaX-Creator.exe', 'OrdaX-Creator-App.exe')) {
@@ -201,8 +201,8 @@ jobs:
           $root = Join-Path $PWD 'out/code-signing-boundary'
           Copy-Item -LiteralPath docs/contracts/creator-code-signing.json -Destination (Join-Path $root 'creator-code-signing.json')
           Copy-Item -LiteralPath docs/contracts/creator-app-channel.json -Destination (Join-Path $root 'creator-app-channel.json')
-          Copy-Item -LiteralPath tools/creator/windows/Verify-OrdaXCreatorSignature.ps1 -Destination (Join-Path $root 'Verify-OrdaXCreatorSignature.ps1')
-          Copy-Item -LiteralPath tools/creator/windows/Finalize-OrdaXCreatorRelease.ps1 -Destination (Join-Path $root 'Finalize-OrdaXCreatorRelease.ps1')
+          Copy-Item -LiteralPath tools/release-signing/windows/Verify-OrdaXCreatorSignature.ps1 -Destination (Join-Path $root 'Verify-OrdaXCreatorSignature.ps1')
+          Copy-Item -LiteralPath tools/release-signing/windows/Finalize-OrdaXCreatorRelease.ps1 -Destination (Join-Path $root 'Finalize-OrdaXCreatorRelease.ps1')
 
           $trustPath = Join-Path $root 'release-ed25519.json'
           $trust = [ordered]@{
