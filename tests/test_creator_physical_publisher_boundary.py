@@ -10,6 +10,7 @@ PUBLISHER = ROOT / "tools/release-signing/windows/8-Sign-Publish-CreatorPhysical
 ROTATOR = ROOT / "tools/publisher/windows/9-Rotate-CreatorPhysical.ps1"
 AUTHORIZATION = ROOT / "docs/contracts/physical-write-authorization.json"
 PROMOTION = ROOT / "tools/creator/physical_promotion.py"
+PUBLISHER_WORKFLOW = ROOT / ".github/workflows/creator-physical-publisher.yml"
 
 
 def _load_promotion_module():
@@ -165,6 +166,21 @@ class CreatorPhysicalPublisherBoundaryTests(unittest.TestCase):
             text.index("# Re-check that the live alias did not change"),
             text.index("$AliasChanged = $false"),
         )
+
+    def test_read_only_publisher_tests_use_verified_external_surface(self):
+        workflow = PUBLISHER_WORKFLOW.read_text(encoding="utf-8")
+        self.assertEqual(
+            workflow.count("uses: ./.github/actions/prepare-verified-surface"), 1
+        )
+        self.assertIn("docs/contracts/surface-source.json", workflow)
+        self.assertIn(".github/actions/assemble-surface/**", workflow)
+        self.assertIn("permissions:" + chr(10) + "  contents: read", workflow)
+        self.assertLess(
+            workflow.index("Prepare pinned independent Surface for read-only policy tests"),
+            workflow.index("Verify Portable publisher and authorization boundary"),
+        )
+        self.assertNotIn("contents: write", workflow)
+        self.assertNotIn("gh release", workflow)
 
     def test_publisher_boundary_stays_outside_physical_authorization_context(self):
         module = _load_promotion_module()
