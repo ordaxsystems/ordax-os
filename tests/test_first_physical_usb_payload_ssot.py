@@ -130,7 +130,8 @@ class PhysicalUsbPayloadIdentityTests(unittest.TestCase):
         self.assertNotIn("name: Checkout exact published writer source", source)
         self.assertNotIn("writer-source", source)
         self.assertEqual(source.count("path: operator"), 1)
-        self.assertIn("working-directory: operator/tools/creator", source)
+        self.assertNotIn("working-directory: operator/tools/creator", source)
+        self.assertIn("uses: ./operator/.github/actions/resolve-creator-source", source)
         self.assertLess(
             source.index("PHYSICAL_WRITER_CONTEXT_MATCH=PASS"),
             source.index("OFFICIAL_PHYSICAL_PROMOTION=READY"),
@@ -148,36 +149,66 @@ class PhysicalUsbPayloadIdentityTests(unittest.TestCase):
             source,
         )
 
-    def test_pre_authorization_real_sources_are_proved_but_never_uploaded(self):
+    def test_ci_proof_and_signed_owner_payload_are_separate(self):
         source = WORKFLOW.read_text(encoding="utf-8")
-        self.assertIn("pull_request:", source)
-        self.assertIn("push:", source)
-        self.assertIn("if: ${{ github.event_name != 'workflow_dispatch' }}", source)
-        self.assertIn("if: ${{ github.event_name == 'workflow_dispatch' }}", source)
-        self.assertIn("pre_authorization_ready", source)
-        self.assertIn("authorized_candidate_materialization_allowed", source)
-        self.assertIn("verify-portable-sources", source)
-        self.assertIn("PORTABLE_SOURCE_COUNT=17", source)
-        self.assertIn("REAL_V4_17_SOURCE_PREFLIGHT=PASS_NON_DESTRUCTIVE", source)
-        self.assertIn("'application_operations_planned': 39", source)
-        self.assertIn("'artifact_readbacks_on_physical_media': 0", source)
-        self.assertIn("'physical_target_selected': False", source)
-        self.assertIn("'physical_write_authorized': False", source)
-        self.assertIn("'physical_write_performed': False", source)
-        self.assertIn("name: Materialize real 17 signed sources on disposable FAT32 and exFAT twin", source)
-        self.assertIn("operator/tools/creator/proof/portable_prepared_media.py", source)
-        self.assertIn("REAL_V4_DISPOSABLE_TWIN=17_OF_17_READBACK_PASS", source)
-        self.assertIn("'disposable_twin_artifacts_readback'] = 17", source)
-        self.assertIn("'disposable_twin_raw_image_deleted'] = True", source)
-        self.assertIn("sudo rm -f \"$work/portable-v4-disposable-twin.raw\"", source)
-        self.assertIn("name: Upload proof metadata only (never physical source bytes)", source)
-        self.assertIn(
-            "path: ${{ runner.temp }}/first-physical-payload/out/preauthorization-proof.json",
-            source,
+        portable = (ROOT / ".github/workflows/portable-usb-v2-proof.yml").read_text(encoding="utf-8")
+        self.assertIn("validate-independent-core:", source)
+        self.assertIn("payload:\n    if: ${{ github.event_name == 'workflow_dispatch' }}", source)
+        self.assertIn("CREATOR_17_SOURCE_DEV_GATE=PASS_READ_ONLY", source)
+        self.assertIn("PHYSICAL_PREAUTHORIZATION=ELIGIBLE_NOT_AUTHORIZED", source)
+        self.assertIn("PHYSICAL_TARGET_DEVICE_TOUCHED=NO", source)
+        self.assertIn("tests.test_first_physical_usb_payload_ssot", source)
+        self.assertIn("Build and verify exact Stable Base", source)
+        self.assertIn("ref: ${{ steps.canonical.outputs.release_source_commit }}", source)
+        self.assertIn("PORTABLE_APPLICATION_OPERATIONS=39", source)
+        self.assertIn("Upload first physical USB operator payload", source)
+        self.assertIn("Destroy temporary signed release and 17 source files", source)
+        self.assertNotIn("REAL_V4_17_SOURCE_PREFLIGHT=PASS_NON_DESTRUCTIVE", source)
+        self.assertIn(".github/workflows/first-physical-usb-payload.yml", portable)
+        self.assertIn("verify-portable-sources", portable)
+        self.assertIn("PORTABLE_SOURCE_COUNT=17", portable)
+        self.assertIn("PHYSICAL_WRITE_AUTHORIZED=NO", portable)
+
+    def test_single_verified_independent_creator_core_owns_portable_bindings(self):
+        import json
+        source = WORKFLOW.read_text(encoding="utf-8")
+        action = (ROOT / ".github/actions/resolve-creator-source/action.yml").read_text(encoding="utf-8")
+        contract = json.loads((ROOT / "docs/contracts/native-release-assembly.json").read_text(encoding="utf-8"))
+        self.assertEqual(contract["creator_source"]["repository"], "ordaxsystems/ordax-creator")
+        self.assertIs(contract["creator_source"]["physical_apply_authorized"], False)
+        self.assertEqual(source.count("uses: ./operator/.github/actions/resolve-creator-source"), 1)
+        self.assertIn("working-directory: ${{ inputs.source-root }}", action)
+        self.assertIn("source-root: ${{ github.workspace }}/operator", source)
+        self.assertIn("rev-parse 'HEAD^{tree}'", source)
+        self.assertIn("TestBindPortableSources(CoreInventory|RejectsIncompleteExtraOrUnsafeInput|RejectsSymlinkedRoot)$", source)
+        self.assertIn('"$creator" bind-portable-sources --sources-root "$out/sources"', source)
+        self.assertIn("PHYSICAL_PAYLOAD_SOURCE_BINDINGS=INDEPENDENT_CORE_SSOT", source)
+        self.assertNotIn("go run ./cmd/ordax-creator", source)
+        self.assertNotIn("ids = [\n              'systemd-boot'", source)
+        self.assertIn("python3 operator/tools/creator/physical_promotion.py --repo-root operator --require-ready", source)
+        self.assertIn("app['physical_write_authorized'] is False", source)
+        self.assertIn("contents: read", source)
+
+    def test_surface_policy_reads_only_pinned_ephemeral_external_source(self):
+        source = WORKFLOW.read_text(encoding="utf-8")
+        action = (ROOT / ".github/actions/assemble-surface/action.yml").read_text(encoding="utf-8")
+        self.assertEqual(
+            source.count("uses: ./operator/.github/actions/assemble-surface"), 1
         )
-        self.assertIn("name: Upload first physical USB operator payload\n"
-                      "        if: ${{ github.event_name == 'workflow_dispatch' }}", source)
-        self.assertIn("name: Destroy temporary signed release and 17 source files", source)
+        self.assertIn("source-root: ${{ github.workspace }}/operator", source)
+        self.assertIn("working-directory: ${{ inputs.source-root }}", action)
+        self.assertIn("docs/contracts/surface-source.json", action)
+        self.assertIn("PHYSICAL_POLICY_SURFACE_SOURCE=PINNED_EXTERNAL_DISPOSABLE", source)
+        self.assertIn("PHYSICAL_POLICY_SURFACE_TRACKED_COPY=NO", source)
+        self.assertIn("test -z \"$(git -C operator ls-files -- system/surface/ui system/surface/workspace)\"", source)
+        self.assertLess(
+            source.index("Stage verified visual source only in disposable operator checkout"),
+            source.index("Validate official physical promotion gate before resolving payload"),
+        )
+        self.assertLess(
+            source.index("Assemble exact verified external Surface for read-only physical policy"),
+            source.index("Validate official physical promotion gate before resolving payload"),
+        )
 
     def test_release_identity_comes_only_from_authorization(self):
         source = WORKFLOW.read_text(encoding="utf-8")

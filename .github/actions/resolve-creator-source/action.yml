@@ -5,12 +5,17 @@ inputs:
   checkout-root:
     description: Destination for a clean, exact-Git-SHA Creator checkout outside the OS source tree
     required: true
+  source-root:
+    description: OS checkout that owns the canonical immutable Creator source contract
+    required: false
+    default: '.'
 
 runs:
   using: composite
   steps:
     - name: Verify source contract and materialize an immutable standalone checkout
       shell: bash
+      working-directory: ${{ inputs.source-root }}
       env:
         CREATOR_CHECKOUT_ROOT: ${{ inputs.checkout-root }}
       run: |
