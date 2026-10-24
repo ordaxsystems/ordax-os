@@ -6,6 +6,8 @@ legada com redirecionamento permanente. Referências à apresentação em `/web/
 abaixo descrevem o artefato preservado, não uma etapa exigida de acesso.
 
 Este documento descreve **arquitetura, ownership e invariantes atuais** do site público OrdaX.
+
+**Fonte de apresentação:** `ordaxsystems/ordax-site/site/` na revisão fixada em `docs/contracts/public-site-source.json`. O OS não mantém cópia de landing, login, Conta, estilos, recursos ou builder público. `ordax-os` mantém o backend de Identity, gates de ativação, serviços e composição do consumidor Web. A integração de source para desenvolvimento não autoriza automaticamente publicação de produção.
 Ele não é um diário de deploy nem substitui contratos machine-readable ou evidências datadas.
 
 ## Autoridades canônicas
@@ -49,7 +51,7 @@ Uma mudança apenas no site não deve reconstruir kernel, bootstrap, Surface com
 
 | Família | Rotas principais | Owner de apresentação | Owner funcional |
 | --- | --- | --- | --- |
-| Landing/marketing | `/` | `sites/public/` + assets próprios | public-site |
+| Landing/marketing | `/` | `ordaxsystems/ordax-site/site/` + assets próprios | public-site |
 | Download | `/download/` | `assets/download.css` | catálogo público de releases |
 | Identidade pública | `/login/`, `/cadastro/`, `/recuperar/`, `/recuperar/nova-senha/` | **`assets/account.css`** | `assets/site.js` + gateway público de Identity |
 | Conta autenticada | `/conta/` e subrotas autorizadas | implementação canônica de Conta vigente | `GET /auth/session` + APIs server-side autorizadas |
@@ -61,7 +63,7 @@ Uma mudança apenas no site não deve reconstruir kernel, bootstrap, Surface com
 Login, cadastro e recuperação são uma única família visual e usam o mesmo owner:
 
 ```text
-sites/public/assets/account.css
+ordaxsystems/ordax-site/site/assets/account.css
 ```
 
 Não existem owners visuais independentes `login.css` ou `cadastro.css`, e recuperação não pertence a `portal.css`.
@@ -144,7 +146,7 @@ O portal autenticado `/conta/` pode ter composição própria de aplicação, de
 O owner de localização do portal é:
 
 ```text
-sites/public/i18n/
+ordaxsystems/ordax-site/site/i18n/
 ```
 
 PT-BR é locale fonte/default e en-US deve manter paridade de chaves e placeholders para o escopo declarado como bilíngue.
@@ -217,9 +219,9 @@ comprova implantação, ativação das flags, coleta real nem E2E público.
 Comandos canônicos do artefato:
 
 ```bash
-python tools/public-site/build.py check
-python tools/public-site/build.py build --source-commit <40-hex-sha> --out-dir out/public-site
-python tools/public-site/build.py verify --out-dir out/public-site
+python ordaxsystems/ordax-site/scripts/build.py check
+python ordaxsystems/ordax-site/scripts/build.py build --source-commit <40-hex-sha> --out-dir out/public-site
+python ordaxsystems/ordax-site/scripts/build.py verify --out-dir out/public-site
 ```
 
 O `Public Site Candidate` é o gate de PR da superfície pública. Ele deve validar build determinístico, contratos, localização e testes de browser/viewport aplicáveis.
@@ -286,7 +288,7 @@ Detalhes operacionais e observações de runtime pertencem a `docs/contracts/pub
 
 Invariantes permanentes do portal:
 
-- nenhum private key, service-role key, password ou bearer token em `sites/public/`;
+- nenhum private key, service-role key, password ou bearer token em `ordaxsystems/ordax-site/site/`;
 - nenhum token de sessão legível pelo JavaScript público;
 - nenhum acesso browser direto a storage privilegiado;
 - Identity e Sync same-origin por padrão;
