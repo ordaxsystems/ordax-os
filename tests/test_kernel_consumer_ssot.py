@@ -129,7 +129,9 @@ class KernelConsumerSSOTTests(unittest.TestCase):
             writer = (Path(independent) / "cmd/ordax-creator-physical-test/main_windows.go").read_text(encoding="utf-8")
             self.assertIn("validLowerHex(buildReleaseSourceCommit, 20)", writer)
             self.assertIn("Ready: ready", writer)
-        self.assertEqual(json.loads((ROOT / "tools/creator/version.json").read_text(encoding="utf-8"))["version"], "0.6.2-dev")
+        self.assertIn('"$creator/version.json" "$GITHUB_ENV"', workflow)
+        self.assertIn('ORDAX_CREATOR_PRODUCT_VERSION', workflow)
+        self.assertNotIn('tools/creator/version.json', workflow)
         self.assertIn("creator_version", workflow)
 
     def test_stale_bootstrap_manifest_rejected_before_output(self):
