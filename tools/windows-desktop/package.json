@@ -75,6 +75,10 @@
         "filter": [
           "**/*"
         ]
+      },
+      {
+        "from": "../../docs/contracts/surface-source.json",
+        "to": "runtime-template/docs/contracts/surface-source.json"
       }
     ],
     "asar": true,

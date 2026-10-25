@@ -8,6 +8,7 @@ const { mkdirSync, createWriteStream, existsSync } = require('node:fs');
 const { resolveTemplate, runtimeStateDirectory } = require('./runtime.cjs');
 const { chooseBootVersion, confirmHealthy, rejectCandidate, stageMain, readState, pinPrevious, unpin } = require('./dev-update.cjs');
 const { startHost, stopHost } = require('./host.cjs');
+const { verifyBundledNativeReceipt } = require('./native-build.cjs');
 let window=null, runtime=null, stream=null, browserHost=null, updateTimer=null, staging=false;
 const PRODUCT='/system/composition/native/index.html';
 // Explicit stable per-user storage must be set before the instance lock or any
@@ -94,6 +95,8 @@ function nativeBuiltAssetsFor(root, template) {
     : process.env.ORDAX_DESKTOP_TEST_BUILT_ASSETS==='1'
       ? join(root,'out','windows-desktop-native') : null;
   if (!built) return null;
+  if (app.isPackaged && root===template && !verifyBundledNativeReceipt(template,built))
+    throw Error('Bundled Windows Native assets lack exact OS and Surface provenance');
   const html=join(built,'system','composition','native','index.html');
   if (!existsSync(html)) {
     if (app.isPackaged && root===template) throw Error('Packaged canonical Native bundle missing');

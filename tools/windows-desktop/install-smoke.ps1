@@ -78,6 +78,10 @@ try {
     (Join-Path $resources "runtime-template\desktop-assets\system\composition\native\index.html"),
     (Join-Path $resources "runtime-template\node_modules\vite\bin\vite.js")
   )
+  $required += @(
+    (Join-Path $resources "runtime-template\\docs\\contracts\\surface-source.json"),
+    (Join-Path $resources "runtime-template\\desktop-assets\\source-provenance.json")
+  )
   foreach ($entry in $required) {
     if (-not (Test-Path -LiteralPath $entry -PathType Leaf)) {
       throw ("Packaged Native dependency missing: " + $entry)

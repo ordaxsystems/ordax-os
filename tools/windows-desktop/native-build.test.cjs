@@ -4,7 +4,7 @@ const assert=require('node:assert/strict');
 const {mkdtempSync,mkdirSync,writeFileSync,rmSync,unlinkSync}=require('node:fs');
 const {join}=require('node:path');
 const {tmpdir}=require('node:os');
-const {hasNativeBundle,compiledBundleSha256}=require('./native-build.cjs');
+const {hasNativeBundle,compiledBundleSha256,verifyBundledNativeReceipt}=require('./native-build.cjs');
 
 test('exact Native candidate requires compiled referenced JavaScript',t=>{
   const root=mkdtempSync(join(tmpdir(),'ordax-native-candidate-'));
@@ -50,4 +50,35 @@ test('exact Native candidate requires compiled referenced JavaScript',t=>{
   assert.equal(hasNativeBundle(root),true);
   unlinkSync(js);
   assert.equal(hasNativeBundle(root),false);
+});
+
+test('installed fallback rejects wrong Surface source and modified compiled bytes',t=>{
+ const root=mkdtempSync(join(tmpdir(),'ordax-installed-attestation-'));
+ t.after(()=>rmSync(root,{recursive:true,force:true}));
+ const built=join(root,'desktop-assets');
+ mkdirSync(join(root,'docs','contracts'),{recursive:true});
+ mkdirSync(join(built,'system','composition','native'),{recursive:true});
+ mkdirSync(join(built,'assets'),{recursive:true});
+ const sha='a'.repeat(40);
+ writeFileSync(join(root,'docs','contracts','surface-source.json'),JSON.stringify({
+   $schema:'prototype-ordax.surface-source/1',status:'canonical',
+   source_repository:'ordaxsystems/ordax-surface',source_commit:sha,
+   visual_source_paths:['system/surface/ui','system/surface/workspace']
+ }));
+ writeFileSync(join(built,'system','composition','native','index.html'),'<script src="/assets/app.js"></script>');
+ const js=join(built,'assets','app.js');
+ writeFileSync(js,'export const ok=true');
+ assert.equal(verifyBundledNativeReceipt(root,built),false);
+ const receipt={schema:'ordax.desktop-native-bundle-provenance/1',os_sha:'f'.repeat(40),
+   source_repository:'ordaxsystems/ordax-surface',source_commit:sha,
+   visual_source_sha256:'b'.repeat(64),file_count:2,
+   bundle_sha256:compiledBundleSha256(root,built)};
+ const target=join(built,'source-provenance.json');
+ writeFileSync(target,JSON.stringify(receipt));
+ assert.equal(verifyBundledNativeReceipt(root,built),true);
+ writeFileSync(js,'export const ok=false');
+ assert.equal(verifyBundledNativeReceipt(root,built),false);
+ writeFileSync(js,'export const ok=true');
+ writeFileSync(target,JSON.stringify({...receipt,source_commit:'c'.repeat(40)}));
+ assert.equal(verifyBundledNativeReceipt(root,built),false);
 });

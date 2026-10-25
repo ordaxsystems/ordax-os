@@ -10,8 +10,8 @@ const { withPinnedSurface, pinnedSourceLock } = require('./surface-stage.cjs');
 const OUTPUT = join('out','windows-desktop-native');
 // The actual compiled assets, not only their names, are bound to the pinned
 // OS+Surface release receipt. A modified ignored out/ file must never boot.
-function compiledBundleSha256(sourceRoot) {
-  const root=join(sourceRoot,OUTPUT);
+function compiledBundleSha256(sourceRoot,emittedRoot=null) {
+  const root=emittedRoot ?? join(sourceRoot,OUTPUT);
   const manifest=createHash('sha256');
   const html=join(root,'system','composition','native','index.html');
   const htmlStat=lstatSync(html);
@@ -117,4 +117,41 @@ async function buildNativeCandidate(root,template,{log=()=>{},timeoutMs=120000}=
   if(!hasNativeBundle(root))throw Error('Compiled Native assets missing or invalid in staged Git source');
   log('Verified staged canonical Native compilation');
 }
-module.exports={hasNativeBundle,compiledBundleSha256,buildNativeCandidate,OUTPUT};
+const SHA40=/^[0-9a-f]{40}$/;
+const SHA256=/^[0-9a-f]{64}$/;
+function writeBundledNativeReceipt(root,materializationPath,osSha) {
+  if(!SHA40.test(osSha))throw Error('Installer OS revision invalid');
+  const lock=pinnedSourceLock(root);
+  const external=JSON.parse(readFileSync(materializationPath,'utf8'));
+  if(external.$schema!=='ordax.surface-source-materialization/1' ||
+     external.source_repository!==lock.source_repository ||
+     external.source_commit!==lock.source_commit ||
+     external.source_only!==true || external.live_os_mutated!==false ||
+     !SHA256.test(external.visual_source_sha256) ||
+     !Number.isInteger(external.file_count)||external.file_count<1)
+    throw Error('Surface source verification receipt does not match OS');
+  const receipt={
+    schema:'ordax.desktop-native-bundle-provenance/1',os_sha:osSha,
+    source_repository:lock.source_repository,source_commit:lock.source_commit,
+    visual_source_sha256:external.visual_source_sha256,file_count:external.file_count,
+    bundle_sha256:compiledBundleSha256(root)
+  };
+  writeFileSync(join(root,OUTPUT,'source-provenance.json'),
+    JSON.stringify(receipt)+'\n',{flag:'wx'});
+  return receipt;
+}
+function verifyBundledNativeReceipt(template,emittedRoot) {
+  try {
+    const lock=pinnedSourceLock(template);
+    const receipt=JSON.parse(readFileSync(join(emittedRoot,'source-provenance.json'),'utf8'));
+    return receipt.schema==='ordax.desktop-native-bundle-provenance/1' &&
+      SHA40.test(receipt.os_sha) &&
+      receipt.source_repository===lock.source_repository &&
+      receipt.source_commit===lock.source_commit &&
+      SHA256.test(receipt.visual_source_sha256) &&
+      Number.isInteger(receipt.file_count)&&receipt.file_count>0 &&
+      receipt.bundle_sha256===compiledBundleSha256(template,emittedRoot);
+  }catch{return false;}
+}
+
+module.exports={hasNativeBundle,compiledBundleSha256,buildNativeCandidate,writeBundledNativeReceipt,verifyBundledNativeReceipt,OUTPUT};

@@ -101,6 +101,15 @@ jobs:
         run: node --test tools/windows-emulator/desktop-built-assets.test.mjs
       - name: Compile canonical Native Surface for Windows
         run: npx vite build --config tools/windows-desktop/vite-native-build.mjs
+      - name: Bind installer to exact OS + Surface Native provenance
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $receipt = Join-Path $env:RUNNER_TEMP 'ordax-desktop-verified-surface/surface-source-receipt.json'
+          if (-not (Test-Path -LiteralPath $receipt -PathType Leaf)) { throw 'Surface materialization receipt missing' }
+          $sha = (& git rev-parse HEAD).Trim()
+          & node tools/windows-desktop/bundle-provenance.cjs . $receipt $sha
+          if ($LASTEXITCODE -ne 0) { throw 'Installer OS/Surface source attestation failed' }
       - name: Verify canonical compiled entry
         shell: pwsh
         run: |
