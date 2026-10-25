@@ -14,6 +14,43 @@ arquivo existente no instalador não prova a capacidade funcionando. A
 matriz, bloqueios e gates estão em
 [`docs/plans/ordax-os-desktop-windows-ssot-2026-10-20.md`](../../docs/plans/ordax-os-desktop-windows-ssot-2026-10-20.md).
 
+## Integração com a source authority atual — 25/10/2026
+
+O Windows consome **a mesma revisão OS de `main`** utilizada pelos outros
+modos. A revisão visual é **a única Surface externa** fixada por
+`docs/contracts/surface-source.json`, propriedade de
+`ordaxsystems/ordax-surface`. O código visual antigo
+`system/surface/ui` e `system/surface/workspace` **não é rastreado pelo
+repositório OS**. A CI Windows usa o verificador já canônico
+`tools/surface-source/materialize.py` em checkout *descartável*, validando
+proveniência Git e materializando a Surface apenas para build/teste e
+empacotamento desta candidata. Não há segundo editor da UI.
+
+A PR foi reconciliada com a `main` em `cbd4a9b9`, sem rebase/force-push,
+e conserva os ajustes específicos Windows. O navegador usa o mesmo protocolo
+Native, com transporte específico de Electron apenas quando seu bridge
+restrito existe; indisponibilidade de bridge privilegiado do USB não é
+substituída por uma autoridade falsa.
+
+**Este instalador ainda não acompanha a `main` ponta a ponta no PC
+instalado.** O executor `dev-update.cjs` precisa obter um **candidato
+completo e validado do mesmo OS SHA + Surface SHA pinado** antes de ativar
+qualquer atualização da versão instalada. A montagem da Surface durante CI
+não equivale à entrega desse artefato ao atualizador Windows. Enquanto esse
+gate estiver pendente, não declarar `ordax-pull` paritário nem desbloquear
+atualizações que falhem no staging de fontes/código de execução. Não instalar
+Python ou clonar uma implementação alternativa da Surface no computador do
+usuário como solução permanente.
+
+Os perfis `owner-development` e `stable-mvp` continuam definidos somente
+em `docs/contracts/distribution-profiles.json`: o primeiro pode utilizar
+desenvolvimento Git controlado e o segundo deve consumir **releases assinadas
+sem Git obrigatório**. O Windows executa o mesmo produto com adaptadores de
+host distintos; **não** possui outro catálogo de apps, outro mecanismo de
+assinatura, outra política comercial ou uma segunda versão de código.
+Intelligence/Aura local, autenticação real, updates assinados e rollback
+E2E instalado ainda **não estão homologados**. A PR permanece draft.
+
 ## Desenvolvimento e empacotamento
 
 A partir da raiz (Node/npm instalados):
