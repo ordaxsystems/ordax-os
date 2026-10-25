@@ -2,11 +2,13 @@
 from __future__ import annotations
 
 import hashlib
+import os
 import importlib.util
 import json
 from pathlib import Path
 import tempfile
 import unittest
+from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[1]
 MODULE = ROOT / "tools/creator/verify_owner_dev_offline_runtime.py"
@@ -188,6 +190,7 @@ class OfflineOwnerWelcomeGateTests(unittest.TestCase):
                 GATE.stage_runtime(stage, producer)
 
 
+    @mock.patch.dict(os.environ, {"ORDAX_COMPONENT_CACHE_ENVIRONMENT": "unit-test/owner"})
     def test_reused_cross_commit_cache_preserves_producer_and_binds_owner(self):
         from tools.ci import independent_surface_component_cache as cache
         with tempfile.TemporaryDirectory() as work:
@@ -211,6 +214,7 @@ class OfflineOwnerWelcomeGateTests(unittest.TestCase):
             with self.assertRaisesRegex(GATE.OfflineRuntimeError, "fingerprint changed"):
                 GATE.verify(stage)
 
+    @mock.patch.dict(os.environ, {"ORDAX_COMPONENT_CACHE_ENVIRONMENT": "unit-test/owner"})
     def test_cross_commit_cache_rejects_missing_or_tampered_manifest(self):
         from tools.ci import independent_surface_component_cache as cache
         for mutation in ("missing", "tamper"):
