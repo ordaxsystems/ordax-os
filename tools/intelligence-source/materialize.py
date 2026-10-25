@@ -15,7 +15,7 @@ import tempfile
 
 ROOT = Path(__file__).resolve().parents[2]
 LOCK_PATH = ROOT / "docs/contracts/intelligence-source.json"
-SHA40 = re.compile(r"[0-9a-f]{40}\\Z")
+SHA40 = re.compile(r"[0-9a-f]{40}\Z")
 SCHEMA = "prototype-ordax.intelligence-source/1"
 REPO = "ordaxsystems/ordax-intelligence"
 TARGET = "system/intelligence-source/src"
@@ -63,7 +63,7 @@ def load_lock(path: Path = LOCK_PATH) -> dict:
     return value
 
 def git_blob_sha(blob: bytes) -> str:
-    return hashlib.sha1(b"blob " + str(len(blob)).encode("ascii") + b"\\0" + blob).hexdigest()
+    return hashlib.sha1(b"blob " + str(len(blob)).encode("ascii") + b"\0" + blob).hexdigest()
 
 def verify_source(root: Path, lock: dict) -> tuple[list[tuple[str, bytes]], dict]:
     if root.is_symlink() or not root.is_dir():
@@ -79,11 +79,11 @@ def verify_source(root: Path, lock: dict) -> tuple[list[tuple[str, bytes]], dict
     total = 0
     fingerprint = hashlib.sha256()
     found = set()
-    for entry in raw_tree.split(b"\\0"):
+    for entry in raw_tree.split(b"\0"):
         if not entry:
             continue
         try:
-            meta, relative = entry.split(b"\\t", 1)
+            meta, relative = entry.split(b"\t", 1)
             mode, kind, expected_sha = meta.decode("ascii").split()
             filename = relative.decode("utf-8")
         except (ValueError, UnicodeDecodeError) as exc:
@@ -101,7 +101,7 @@ def verify_source(root: Path, lock: dict) -> tuple[list[tuple[str, bytes]], dict
         if actual != expected_sha or actual != lock["source_paths"][filename]:
             raise IntelligenceSourceError("Git content does not match pinned source blob: " + filename)
         found.add(filename)
-        fingerprint.update(filename.encode("utf-8") + b"\\0" + hashlib.sha256(payload).digest())
+        fingerprint.update(filename.encode("utf-8") + b"\0" + hashlib.sha256(payload).digest())
         result.append((filename, payload))
     if found != EXPECTED or len(result) != len(EXPECTED):
         raise IntelligenceSourceError("missing Intelligence source files")
@@ -138,7 +138,7 @@ def stage_source(records: list[tuple[str,bytes]], receipt: dict, output: Path, s
             destination.parent.mkdir(parents=True, exist_ok=True)
             destination.write_bytes(payload)
             destination.chmod(0o644)
-        (stage / "intelligence-source-receipt.json").write_text(json.dumps(receipt,sort_keys=True,indent=2)+"\\n", encoding="utf-8")
+        (stage / "intelligence-source-receipt.json").write_text(json.dumps(receipt,sort_keys=True,indent=2)+"\n", encoding="utf-8")
         if output.exists() or output.is_symlink():
             raise IntelligenceSourceError("concurrent staging destination appeared")
         os.rename(stage, output)
