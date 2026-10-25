@@ -1,6 +1,13 @@
 // Development host for Native contracts. Account authority stays in the HTTPS gateway.
 import { mkdir, readFile, writeFile, rename } from "node:fs/promises";
 import { join } from "node:path";
+import { readDesktopNetworkStatus } from "../../system/adapters/desktop/network-status.mjs";
+import { readDesktopSystemMetrics } from "../../system/adapters/desktop/system-metrics.mjs";
+import { readDesktopPowerStatus } from "../../system/adapters/desktop/power-status.mjs";
+import { readDesktopUpdateStatus, readDesktopUpdateHistory } from "../../system/adapters/desktop/update-observation.mjs";
+import { readDesktopRecovery } from "../../system/adapters/desktop/recovery-observation.mjs";
+import { createDesktopBuiltAssetsMiddleware } from "./desktop-built-assets.mjs";
+import { createDesktopFileSpaceMiddleware } from "../../system/adapters/desktop/file-space-host.mjs";
 import { createInitialFirstRunState, validateFirstRunState } from "../../system/contracts/first-run-state-store.mjs";
 import { validatePreferenceRecord } from "../../system/contracts/preference-store.mjs";
 import { FIRST_RUN_CURSOR_SCHEMA, validateFirstRunCursor } from "../../system/contracts/first-run-cursor.mjs";
@@ -85,10 +92,83 @@ export function createEmulatorNativeHost({ stateDirectory, accountGatewayOrigin 
   };
 }
 
-export function nativeEmulatorPlugin(stateDirectory, { accountGatewayOrigin = "" } = {}) {
+export function nativeEmulatorPlugin(stateDirectory, { desktopHost = false, accountGatewayOrigin = "" } = {}) {
   return {
     name: "ordax-native-emulator-host",
     configureServer(server) {
+      if (desktopHost && process.env.ORDAX_DESKTOP_ASSETS_ROOT) {
+        // Same compiled Native composition, served before Vite source transforms.
+        server.middlewares.use(createDesktopBuiltAssetsMiddleware(process.env.ORDAX_DESKTOP_ASSETS_ROOT));
+      }
+      if (desktopHost && process.env.ORDAX_DESKTOP_UPDATE_USER_DATA) {
+        // Logical "/" is a private, persistent Windows user-data file-space,
+        // not the host drive root. This precedes the emulator 503 fallback.
+        server.middlewares.use(createDesktopFileSpaceMiddleware(
+          join(process.env.ORDAX_DESKTOP_UPDATE_USER_DATA,"Files"),
+          {token:process.env.ORDAX_DESKTOP_FILE_TOKEN}
+        ));
+      }
+      if (desktopHost) {
+        // Genuine Windows host observation under the canonical Native port.
+        server.middlewares.use((request, response, next) => {
+          const path = request.url.split("?")[0];
+          if (!["/__ordax/native/network-status", "/__ordax/native/metrics", "/__ordax/native/update", "/__ordax/native/update-history", "/__ordax/desktop/recovery", "/__ordax/native/power-status"].includes(path)) return next();
+          response.setHeader("Content-Type", "application/json");
+          response.setHeader("Cache-Control", "no-store");
+          if (request.method !== "GET") {
+            response.statusCode = 405;
+            return response.end(JSON.stringify({ error: "Read-only Desktop capability" }));
+          }
+          const respond = (payload) => {
+            response.statusCode = 200;
+            response.end(JSON.stringify(payload));
+          };
+          try {
+            if (path === "/__ordax/native/network-status") return respond(readDesktopNetworkStatus());
+            if (path === "/__ordax/native/power-status") {
+              void readDesktopPowerStatus().then(respond).catch(() => {
+                response.statusCode = 503;
+                response.end(JSON.stringify({error:"Windows power status unavailable"}));
+              });
+              return;
+            }
+            if (path === "/__ordax/native/metrics") {
+              const root = process.env.ORDAX_DESKTOP_UPDATE_USER_DATA;
+              if (!root) { response.statusCode=503; return response.end(JSON.stringify({error:"User profile path unavailable"})); }
+              void readDesktopSystemMetrics(root).then(respond).catch(() => {
+                response.statusCode=503;
+                response.end(JSON.stringify({error:"Windows host metrics unavailable"}));
+              });
+              return;
+            }
+            if (path === "/__ordax/native/update-history") return respond(readDesktopUpdateHistory());
+            if (path === "/__ordax/desktop/recovery") {
+              const directory = process.env.ORDAX_DESKTOP_UPDATE_USER_DATA;
+              if (!directory) {
+                response.statusCode = 503;
+                return response.end(JSON.stringify({ error: "Desktop recovery profile unavailable" }));
+              }
+              void readDesktopRecovery(directory).then(respond).catch(() => {
+                response.statusCode = 503;
+                response.end(JSON.stringify({ error: "Desktop recovery observation unavailable" }));
+              });
+              return;
+            }
+            const directory = process.env.ORDAX_DESKTOP_UPDATE_USER_DATA;
+            if (!directory) {
+              response.statusCode = 503;
+              return response.end(JSON.stringify({ error: "Desktop update journal path was not configured" }));
+            }
+            void readDesktopUpdateStatus(directory).then(respond).catch(() => {
+              response.statusCode = 503;
+              response.end(JSON.stringify({ error: "Desktop update observation failed" }));
+            });
+          } catch {
+            response.statusCode = 503;
+            return response.end(JSON.stringify({ error: "Desktop capability unavailable" }));
+          }
+        });
+      }
       server.middlewares.use(createEmulatorNativeHost({ stateDirectory, accountGatewayOrigin }));
       // Native's real host serves system/ as its static root.
       server.middlewares.use((request, _response, next) => {

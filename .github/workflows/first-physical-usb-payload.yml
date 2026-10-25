@@ -9,6 +9,8 @@ on:
       - 'docs/contracts/surface-source.json'
       - 'docs/contracts/native-release-assembly.json'
       - 'tests/test_first_physical_usb_payload_ssot.py'
+      - 'tools/release-signing/inspect_creator_source_distribution.py'
+      - 'tests/test_creator_source_distribution_inspection.py'
   push:
     branches: [main]
     paths:
@@ -72,6 +74,7 @@ jobs:
         run: |
           set -euo pipefail
           python3 -m unittest tests.test_first_physical_usb_payload_ssot -v
+          python3 -m unittest tests.test_creator_source_distribution_inspection -v
           python3 -m unittest tests.test_pre_usb_nova_ordax_audit -v
           python3 tools/creator/physical_promotion.py --repo-root . --output "$RUNNER_TEMP/preauthorization.json" > /dev/null
           python3 - "$RUNNER_TEMP/preauthorization.json" <<'PY'
@@ -606,6 +609,31 @@ jobs:
           print('PHYSICAL_PAYLOAD_SOURCE_BINDINGS=INDEPENDENT_CORE_SSOT')
           PY
 
+      - name: Inspect published Stable source asset coverage without downloading or publishing
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          out="$RUNNER_TEMP/first-physical-payload/out"
+          gh api "repos/ordaxsystems/ordax-os/releases/tags/ordax-stable-v4-$RELEASE_SOURCE_COMMIT" > "$RUNNER_TEMP/first-physical-payload/release-metadata.json"
+          python3 operator/tools/release-signing/inspect_creator_source_distribution.py \
+            --bindings "$out/bindings.json" \
+            --release-metadata "$RUNNER_TEMP/first-physical-payload/release-metadata.json" \
+            --source-commit "$RELEASE_SOURCE_COMMIT" \
+            --output "$out/distribution-inspection.json"
+          if [[ "$ORDAX_PAYLOAD_PURPOSE" == 'authorized-physical' ]]; then
+            python3 - "$out/distribution-inspection.json" <<'PY'
+          import json, pathlib, sys
+          inspection = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding='utf-8'))
+          if inspection.get('status') != 'metadata-complete-readback-pending':
+              raise SystemExit('authorized physical payload requires all 17 remotely published source assets')
+          print('PHYSICAL_17_SOURCE_PUBLIC_METADATA=COMPLETE_READBACK_STILL_REQUIRED')
+          PY
+          else
+            echo 'SOURCE_REVIEW_PUBLICATION=INSPECTION_ONLY'
+          fi
+
       - name: Generate exact target-specific media and application plans
         shell: bash
         run: |
@@ -682,6 +710,15 @@ jobs:
                   encoding='utf-8'
               )
           )
+          inspection = json.loads(
+              pathlib.Path(os.environ['RUNNER_TEMP'], 'first-physical-payload', 'out',
+                           'distribution-inspection.json').read_text(encoding='utf-8')
+          )
+          if (inspection.get('$schema') != 'prototype-ordax.creator-source-distribution-inspection/1'
+                  or inspection.get('release_source_commit') != os.environ['RELEASE_SOURCE_COMMIT']
+                  or inspection.get('remote_byte_readback_passed') is not False
+                  or inspection.get('physical_write_authorized') is not False):
+              raise SystemExit('invalid unsigned metadata-only inspection provenance')
           payload = {
               '$schema': 'prototype-ordax.first-physical-usb-payload/1',
               'status': (
@@ -700,6 +737,10 @@ jobs:
               'canonical_trust_sha256': proof['canonical_trust_sha256'],
               'artifact_count': 17,
               'application_operation_count': 39,
+              'public_asset_metadata_status': inspection['status'],
+              'public_asset_metadata_matches': inspection['matching_metadata_count'],
+              'public_source_byte_readback_passed': False,
+              'signed_physical_writer_published': False,
               'whole_disk_raw_image_required': False,
               'private_key_in_bundle': False,
               'physical_target_selected': False,
@@ -716,7 +757,7 @@ jobs:
           (
             cd "$out"
             find sources -type f -print0 | sort -z | xargs -0 sha256sum
-            sha256sum bindings.json portable-media-plan.json portable-application-plan.json provenance.json
+            sha256sum bindings.json distribution-inspection.json portable-media-plan.json portable-application-plan.json provenance.json
           ) > "$out/SHA256SUMS"
 
           if [[ "$ORDAX_PAYLOAD_PURPOSE" == 'source-review' ]]; then
