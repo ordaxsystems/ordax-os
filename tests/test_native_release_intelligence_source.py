@@ -128,7 +128,7 @@ class NativeIntelligenceGateTests(unittest.TestCase):
                 native.verify(destination,require_external_intelligence=True)
 
     def test_unbound_candidate_cannot_claim_required_intelligence(self):
-        with self.assertRaisesRegex(native.AssemblyError,"required external Intelligence"):
+        with self.assertRaisesRegex(native.AssemblyError,"external Intelligence requires"):
             native.assemble(self.root/"never",native.SYSTEM,self.root,require_external_intelligence=True)
 
 if __name__=="__main__":
