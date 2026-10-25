@@ -1432,9 +1432,28 @@ begin_owner_initial_surface_health() {
     write_surface_health_state starting "$initial_sha" || true
 }
 
+owner_qemu_surface_failure_diagnostics() {
+    # CI's detached guest loses /run when QEMU exits. Export only bounded
+    # first-failure evidence to its serial stream, never on physical hardware.
+    # No health marker, release state or acceptance condition is modified.
+    [ -r /proc/cmdline ] || return 0
+    /bin/busybox grep -qw 'ordax.owner_qemu_graphics_probe=1' /proc/cmdline || return 0
+    for report in /run/ordax-surface/host.log /run/ordax-surface/http.log; do
+        [ -f "$report" ] && [ ! -L "$report" ] || continue
+        log "QEMU first-boot Surface diagnostic from $report (last 24 lines)"
+        /bin/busybox tail -n 24 "$report" 2>/dev/null || true
+    done
+}
+
 owner_initial_surface_health_failed() {
     # Observe only canonical Native Host health/heartbeat witnesses.
     # This is diagnostic: no synthetic receipt, timeout or state change.
+    if [ -n "$SURFACE_PID" ] && ! kill -0 "$SURFACE_PID" >/dev/null 2>&1; then
+        owner_launcher_exit=0
+        wait "$SURFACE_PID" 2>/dev/null || owner_launcher_exit=$?
+        log "Surface launcher exited before the cold-health receipt, status=$owner_launcher_exit"
+    fi
+    owner_qemu_surface_failure_diagnostics
     health_ack=missing
     heartbeat_ack=missing
     if [ "$(read_state_value "$HEALTH_FILE")" = "$initial_sha" ]; then
