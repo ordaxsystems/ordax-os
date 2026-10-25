@@ -120,8 +120,13 @@ não adquire essa autoridade.
 - Primeiro uso/preferências usam estado isolado do usuário; não apagam
   nem alteram USB e não fabricam uma sessão de Conta OrdaX.
 - Leitura de estado de rede Windows está ligada ao contrato já existente
-  `ordax.network-status/1`; outras portas ficam indisponíveis até
-  possuírem adaptador seguro e E2E real.
+  `ordax.network-status/1`. Energia usa o mesmo contrato
+  `ordax.power-status/1` do OS com `SystemInformation.PowerStatus`, a
+  projeção Windows da telemetria real do kernel; não compila C# P/Invoke em
+  cada solicitação. A execução física de três leituras sucessivas
+  foi validada em perfil de teste isolado; indisponibilidade ou dados
+  inválidos continuam falhando sem inventar bateria/carga. Outras
+  portas só são publicadas com adaptador seguro e E2E real.
 - Intelli­gence (serviços/contratos) está em `system/`, mas **não há**
   engine/pesos Windows homologados nesta alpha; apresentar modelo como
   conectado seria erro de produto.
