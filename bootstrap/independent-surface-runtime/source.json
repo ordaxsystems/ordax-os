@@ -27,7 +27,7 @@
     "usr/bin/wireplumber",
     "usr/bin/pactl",
     "usr/lib/gstreamer-1.0/libgstpipewire.so",
-    "usr/lib/gstreamer-1.0/libgstpulse.so",
+    "usr/lib/gstreamer-1.0/libgstpulseaudio.so",
     "usr/lib/gstreamer-1.0/libgstlibav.so"
   ],
   "forbidden_runtime_paths": [

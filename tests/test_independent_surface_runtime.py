@@ -145,9 +145,10 @@ class IndependentSurfaceRuntimeTests(unittest.TestCase):
             "usr/bin/wireplumber",
             "usr/bin/pactl",
             "usr/lib/gstreamer-1.0/libgstpipewire.so",
-            "usr/lib/gstreamer-1.0/libgstpulse.so",
+            "usr/lib/gstreamer-1.0/libgstpulseaudio.so",
             "usr/lib/gstreamer-1.0/libgstlibav.so",
         }
+        self.assertNotIn("usr/lib/gstreamer-1.0/libgstpulse.so", self.source["required_runtime_paths"])
         self.assertTrue(expected.issubset(self.source["required_runtime_paths"]))
         config = CONFIG_PATH.read_text(encoding="utf-8")
         # Buildroot's python-gobject Kconfig selects GObject Introspection;
