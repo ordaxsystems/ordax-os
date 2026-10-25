@@ -91,7 +91,7 @@ test('Windows Dev stages and compiles two real OS/Surface revisions then rolls b
       return {ok:true,stdout:gitCommand(original,'rev-parse','HEAD')+'\trefs/heads/main'};
     if(args[0]==='clone'){
       const dest=args.at(-1);
-      gitCommand(root,'clone','--quiet','--no-hardlinks',original,dest);
+      gitCommand(root,'-c','core.autocrlf=false','clone','--config','core.autocrlf=false','--quiet','--no-hardlinks',original,dest);
       gitCommand(dest,'remote','set-url','origin',OFFICIAL_REMOTE);
       return {ok:true,stdout:''};
     }
@@ -102,7 +102,7 @@ test('Windows Dev stages and compiles two real OS/Surface revisions then rolls b
     await buildNativeCandidate(stage,installed,{...options,timeoutMs:120000,
       materializeSurface:async(osRoot,fn)=>{
         const src=join(root,'surface-checkout-'+buildCount);
-        gitCommand(root,'clone','--quiet','--no-hardlinks',visual,src);
+        gitCommand(root,'-c','core.autocrlf=false','clone','--config','core.autocrlf=false','--quiet','--no-hardlinks',visual,src);
         gitCommand(src,'remote','set-url','origin','https://github.com/ordaxsystems/ordax-surface.git');
         const lock=JSON.parse(readFileSync(join(osRoot,'docs/contracts/surface-source.json'),'utf8'));
         gitCommand(src,'checkout','--quiet','--detach',lock.source_commit);
