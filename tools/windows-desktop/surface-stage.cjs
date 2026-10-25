@@ -4,8 +4,8 @@
 // are checked before the temporary source is used for a candidate build.
 const {spawn} = require('node:child_process');
 const {createHash} = require('node:crypto');
-const {mkdtempSync,readFileSync,lstatSync,existsSync,mkdirSync,writeFileSync,rmSync} = require('node:fs');
-const {join,dirname,sep} = require('node:path');
+const {mkdtempSync,readFileSync,lstatSync,mkdirSync,writeFileSync,rmSync} = require('node:fs');
+const {join,dirname} = require('node:path');
 const {tmpdir} = require('node:os');
 const {TextDecoder} = require('node:util');
 
@@ -68,10 +68,18 @@ async function verifyPinnedSource(root,source) {
     const meta=entry.slice(0,separator).split(' ');
     const name=UTF8.decode(Buffer.from(entry.slice(separator+1),'binary'));
     if(meta.length!==3||!['100644','100755'].includes(meta[0])||meta[1]!=='blob'||
-       !SHA40.test(meta[2])||!PATH.test(name)||name.split('/').some(c=>c==='.'||c==='..')||
+       !SHA40.test(meta[2])||!PATH.test(name)||name.split('/').some(c=>!c||c==='.'||c==='..')||
        seen.has(name))throw Error('Unsafe pinned Surface Git file');
     seen.add(name);
-    const file=join(source,...name.split('/'));
+    const parts=name.split('/');
+    // Git blob mode validates the leaf; require every source ancestor to be
+    // an ordinary directory so a symlink/reparse-point cannot redirect reads.
+    for(let index=1;index<parts.length;index++) {
+      const parent=lstatSync(join(source,...parts.slice(0,index)));
+      if(!parent.isDirectory()||parent.isSymbolicLink())
+        throw Error('Linked Surface source directory is forbidden');
+    }
+    const file=join(source,...parts);
     const stat=lstatSync(file);
     if(!stat.isFile()||stat.isSymbolicLink()||stat.nlink!==1||
        stat.size>MAX_FILE_BYTES)throw Error('Unsupported Surface file, link or size');
@@ -95,7 +103,14 @@ async function verifyPinnedSource(root,source) {
 
 async function withVerifiedSurface(root,source,build) {
   const areas=['ui','workspace'].map(name=>join(root,'system','surface',name));
-  if(areas.some(p=>existsSync(p)))throw Error('Candidate already includes visual source; duplicate forbidden');
+  const parent=lstatSync(join(root,'system','surface'));
+  if(!parent.isDirectory()||parent.isSymbolicLink())
+    throw Error('Untrusted OS Surface mount directory');
+  const present=path=>{
+    try {lstatSync(path);return true;}
+    catch(error){if(error.code==='ENOENT')return false;throw error;}
+  };
+  if(areas.some(present))throw Error('Candidate already includes visual source; duplicate forbidden');
   const {records,receipt}=await verifyPinnedSource(root,source);
   let created=false;
   try {
