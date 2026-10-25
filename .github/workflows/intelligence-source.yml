@@ -41,10 +41,15 @@ jobs:
         env:
           ORDAX_INTELLIGENCE_STAGE: ${{ runner.temp }}/ordax-intelligence-stage
         run: node --test tests/test_intelligence_external_integration.mjs
+      - name: Assemble pinned Surface using its canonical OS-owned action
+        uses: ./.github/actions/assemble-surface
+        with:
+          source-root: .
+          out-root: ${{ runner.temp }}/ordax-surface-assembled
       - name: Compose provisional Native runtime using verified Intelligence and OS-owned ports
         run: |
           python tools/intelligence-source/compose.py \
-            --os-root "$PWD" \
+            --os-root "${RUNNER_TEMP}/ordax-surface-assembled" \
             --intelligence-stage "${RUNNER_TEMP}/ordax-intelligence-stage" \
             --out-root "${RUNNER_TEMP}/ordax-intelligence-composed"
       - name: Prove Native components use external source without bundled legacy bodies
@@ -56,7 +61,7 @@ jobs:
           cp -a "${RUNNER_TEMP}/ordax-intelligence-stage" "${RUNNER_TEMP}/ordax-intelligence-tampered"
           printf '/* tamper */' >> "${RUNNER_TEMP}/ordax-intelligence-tampered/system/intelligence-source/src/index.mjs"
           if python tools/intelligence-source/compose.py \
-            --os-root "$PWD" \
+            --os-root "${RUNNER_TEMP}/ordax-surface-assembled" \
             --intelligence-stage "${RUNNER_TEMP}/ordax-intelligence-tampered" \
             --out-root "${RUNNER_TEMP}/should-not-exist"; then
             echo "::error::Modified source was accepted" >&2
@@ -66,7 +71,7 @@ jobs:
       - name: Refuse staging into active OS checkout
         run: |
           if python tools/intelligence-source/compose.py \
-            --os-root "$PWD" \
+            --os-root "${RUNNER_TEMP}/ordax-surface-assembled" \
             --intelligence-stage "${RUNNER_TEMP}/ordax-intelligence-stage" \
             --out-root "$PWD/.intelligence-forbidden-output"; then
             echo "::error::Source checkout was modified" >&2
