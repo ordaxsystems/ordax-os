@@ -22,6 +22,10 @@ test("staged Native-facing component exports use one external Intelligence imple
   assert.equal(receipt.legacy_implementation_bytes_packaged, false);
   assert.equal(receipt.activation_authorized, false);
   assert.equal(receipt.replaced_services.length, 5);
+  const surface = JSON.parse(readFileSync(join(root, "system/surface/source-provenance.json"), "utf8"));
+  assert.equal(surface.user_interface_owner, "ordaxsystems/ordax-surface");
+  assert.equal(surface.old_os_visual_source_packaged, false);
+  assert.ok(readFileSync(join(root, "system/surface/ui/surface.mjs"), "utf8").length > 0);
   for (const p of receipt.replaced_services) {
     const body = readFileSync(join(root,p),"utf8");
     assert.match(body,/intelligence-source\/src\/index.mjs/);
