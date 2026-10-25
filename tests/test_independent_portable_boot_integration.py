@@ -79,6 +79,10 @@ class IndependentPortableBootIntegrationTest(unittest.TestCase):
         self.assertIn("uses: ./.github/workflows/portable-v2-qemu-boot-proof.yml",
                       experimental)
         self.assertIn("base_source: independent", experimental)
+        # Caller may not elevate permissions required by the canonical
+        # reusable workflow; without actions:read, startup creates no jobs.
+        self.assertIn("permissions:\n  contents: read\n  actions: read", experimental)
+        self.assertIn("    permissions:\n      contents: read\n      actions: read", experimental)
         # Both real QEMU scenarios must actually invoke the bridge in CI,
         # not only inspect its Python source through contract tests.
         self.assertEqual(official.count("proof_runner=bootstrap/independent-base/portable_boot_proof.py"), 2)

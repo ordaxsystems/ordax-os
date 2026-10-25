@@ -10,6 +10,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -54,3 +55,4 @@ jobs:
       base_source: independent
     permissions:
       contents: read
+      actions: read
