@@ -14,6 +14,8 @@ import { createDesktopLocalSessionMiddleware } from "../../system/adapters/deskt
 import { createDesktopClientDiagnosticsMiddleware } from "../../system/adapters/desktop/client-diagnostics-host.mjs";
 import { createDesktopDeviceProfileMiddleware } from "../../system/adapters/desktop/device-profile-host.mjs";
 import { createDesktopWlanMiddleware } from "../../system/adapters/desktop/wifi-radio-host.mjs";
+import observationPolicy from "../../system/adapters/desktop/observation-grant.cjs";
+const { OBSERVATION_ROUTES, createDesktopObservationGrantMiddleware }=observationPolicy;
 import { createInitialFirstRunState, validateFirstRunState } from "../../system/contracts/first-run-state-store.mjs";
 import { validatePreferenceRecord } from "../../system/contracts/preference-store.mjs";
 import { FIRST_RUN_CURSOR_SCHEMA, validateFirstRunCursor } from "../../system/contracts/first-run-cursor.mjs";
@@ -182,10 +184,15 @@ export function nativeEmulatorPlugin(stateDirectory, { desktopHost = false, acco
         ));
       }
       if (desktopHost) {
+        // No localhost process may inspect network, power, recovery or
+        // storage/update observations without the owning Electron grant.
+        server.middlewares.use(createDesktopObservationGrantMiddleware({
+          token:process.env.ORDAX_DESKTOP_OBSERVATION_TOKEN,
+        }));
         // Genuine Windows host observation under the canonical Native port.
         server.middlewares.use((request, response, next) => {
           const path = request.url.split("?")[0];
-          if (!["/__ordax/native/network-status", "/__ordax/native/metrics", "/__ordax/native/update", "/__ordax/native/update-history", "/__ordax/desktop/recovery", "/__ordax/native/power-status"].includes(path)) return next();
+          if (!OBSERVATION_ROUTES.includes(path)) return next();
           response.setHeader("Content-Type", "application/json");
           response.setHeader("Cache-Control", "no-store");
           if (request.method !== "GET") {
