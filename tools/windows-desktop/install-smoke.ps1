@@ -351,6 +351,11 @@ try {
       throw "Unauthenticated localhost client obtained a Native host capability token"
     }
     Write-Output "DESKTOP_NATIVE_SESSION_AUTHORIZATION_SMOKE=PASS"
+    $noDeviceGrant = Invoke-WebRequest -Uri ($baseUrl + "/__ordax/native/device-profile") -Method GET -TimeoutSec 15 -SkipHttpErrorCheck
+    if ($noDeviceGrant.StatusCode -ne 401) {
+      throw "Unauthenticated localhost client obtained OrdaX device profile"
+    }
+    Write-Output "DESKTOP_DEVICE_PROFILE_AUTHORIZATION_SMOKE=PASS"
     Write-Output "DESKTOP_NETWORK_STATUS_SMOKE=PASS"
     Write-Output ("STARTUP_DURATION_SECONDS=" + [Math]::Round(([DateTime]::UtcNow - $startupStarted).TotalSeconds, 1))
     Write-Output "STARTUP_SMOKE=PASS"

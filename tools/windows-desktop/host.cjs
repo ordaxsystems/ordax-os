@@ -23,7 +23,7 @@ function isReady(port) {
   });
 }
 async function startHost({root,stateDirectory,userData,log,builtAssetsRoot=null,
-  fileToken,localSessionToken,nativeSessionToken,diagnosticToken,sourceSha=""}) {
+  fileToken,localSessionToken,nativeSessionToken,diagnosticToken,deviceProfileToken,sourceSha=""}) {
   if(typeof fileToken!=="string" || !/^[0-9a-f]{64}$/.test(fileToken))
     throw TypeError("OrdaX Desktop Files require per-launch authorization");
   if(typeof localSessionToken!=="string" || !/^[0-9a-f]{64}$/.test(localSessionToken) ||
@@ -31,7 +31,8 @@ async function startHost({root,stateDirectory,userData,log,builtAssetsRoot=null,
     throw TypeError("OrdaX Desktop local session requires an independent per-launch authorization");
   if(!/^[0-9a-f]{64}$/.test(nativeSessionToken) ||
      !/^[0-9a-f]{64}$/.test(diagnosticToken) ||
-     new Set([fileToken,localSessionToken,nativeSessionToken,diagnosticToken]).size!==4)
+     !/^[0-9a-f]{64}$/.test(deviceProfileToken) ||
+     new Set([fileToken,localSessionToken,nativeSessionToken,diagnosticToken,deviceProfileToken]).size!==5)
     throw TypeError("Desktop Native sessions require independent per-launch tokens");
   if(sourceSha!=="" && !/^[0-9a-f]{40}$/.test(sourceSha))
     throw TypeError("Desktop diagnostic source SHA must be verified");
@@ -46,6 +47,7 @@ async function startHost({root,stateDirectory,userData,log,builtAssetsRoot=null,
       ORDAX_DESKTOP_LOCAL_SESSION_TOKEN:localSessionToken,
       ORDAX_DESKTOP_NATIVE_SESSION_TOKEN:nativeSessionToken,
       ORDAX_DESKTOP_DIAGNOSTIC_TOKEN:diagnosticToken,
+      ORDAX_DESKTOP_DEVICE_PROFILE_TOKEN:deviceProfileToken,
       ORDAX_DESKTOP_RENDERED_SOURCE_SHA:sourceSha,
       ORDAX_EMULATOR_PORT:String(port),ORDAX_EMULATOR_STATE_DIR:stateDirectory,
       ORDAX_DESKTOP_ASSETS_ROOT:builtAssetsRoot??''},

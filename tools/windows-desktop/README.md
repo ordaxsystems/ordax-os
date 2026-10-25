@@ -131,6 +131,21 @@ validada (bundle ou candidata Git), permitindo associar a falha à revisão
 real. O emulador sem distribuição verificada continua sem esse privilégio.
 Somente no smoke isolado de CI é gravado um evento de teste controlado.
 
+## Perfil canônico de dispositivo no Windows
+
+O Desktop instala a porta real `ordax.device-profile/1`, a mesma usada
+pelo primeiro uso do USB. O identificador `ordax-<32 hex>` nasce uma única
+vez por perfil OrdaX e permanece estável após renomeação e reinício.
+`displayName` muda somente depois de POST autorizado da Surface; isso
+não renomeia o computador Windows, não cria identidade de Conta/MCP e
+não altera nenhuma configuração do sistema hospedeiro.
+
+O registro `desktop-device-profile.json` reside no `userData` privado,
+com validação, serialização de operações, escrita atômica e recusa de
+arquivos corrompidos ou symlink. Bloqueio da sessão OrdaX retorna 423;
+clientes localhost sem concessão efêmera específica do Electron recebem
+401. O emulador sem host instalado continua sem esse privilégio.
+
 ## Composição canônica
 
 - A mesma Surface e apps vêm de `system/`; não criar telas ou serviços
