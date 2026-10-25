@@ -9,6 +9,7 @@ import {
 } from "../system/adapters/desktop/update-observation.mjs";
 import { validateUpdateStatusSnapshot } from "../system/contracts/update-status.mjs";
 import { validateUpdateHistorySnapshot } from "../system/contracts/update-history.mjs";
+import observationPolicy from "../system/adapters/desktop/observation-grant.cjs";
 const a = "a".repeat(40), b = "b".repeat(40);
 
 test("no update journal is not an invented successful delivery", async t => {
@@ -89,7 +90,11 @@ test("the packaged host is configured to read the same journal used by Desktop D
   const nativeHost = readFileSync(new URL("../tools/windows-emulator/native-host.mjs", import.meta.url),"utf8");
   assert.ok(host.includes("ORDAX_DESKTOP_UPDATE_USER_DATA:userData"));
   assert.ok(main.includes("userData,log"));
-  assert.ok(nativeHost.includes('"/__ordax/native/update"'));
-  assert.ok(nativeHost.includes('"/__ordax/native/update-history"'));
+  // The Native HTTP paths now have a single authorization owner.
+  // Keep proving their actual providers use this same Desktop journal.
+  assert.ok(observationPolicy.OBSERVATION_ROUTES.includes("/__ordax/native/update"));
+  assert.ok(observationPolicy.OBSERVATION_ROUTES.includes("/__ordax/native/update-history"));
+  assert.ok(nativeHost.includes("OBSERVATION_ROUTES.includes(path)"));
+  assert.ok(nativeHost.includes("createDesktopObservationGrantMiddleware"));
   assert.ok(nativeHost.includes("readDesktopUpdateStatus(directory)"));
 });
