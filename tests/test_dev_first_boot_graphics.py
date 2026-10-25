@@ -88,6 +88,9 @@ class FirstBootGraphicsTests(unittest.TestCase):
                 'owner_monotonic_seconds() { cat "$CLOCK"; }\n'
                 'supervisor_heartbeat() { :; }\n'
                 'log() { :; }\n'
+                # This synthetic health simulation has no QEMU serial or guest tmpfs.
+                # The failure-diagnostics hook has no authority over health or rollback.
+                'owner_qemu_surface_failure_diagnostics() { :; }\n'
                 'write_surface_health_state() { :; }\n'
                 'set_update_context() { :; }\n'
                 'clear_update_context() { :; }\n'
