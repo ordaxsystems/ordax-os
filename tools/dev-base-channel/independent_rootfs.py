@@ -194,6 +194,10 @@ def materialize(
                 filter="data",
             )
         _verify_seed_tree(temporary)
+        # mkdtemp creates the staging root as 0700. The installed rootfs
+        # must be traversable by the unprivileged Creator build user, while
+        # atomic publication and verified inner file modes remain unchanged.
+        os.chmod(temporary, 0o755)
         os.replace(temporary, destination)
         published = True
         return {
