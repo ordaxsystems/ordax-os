@@ -28,7 +28,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           repository: ordaxsystems/ordax-intelligence
-          ref: ea663e1bbdc1066e556d8ee5cf279783cae0ba8c
+          ref: c3dbb73e7f3cdf9a2043b059d7376fb0a06a1272
           path: _upstream/intelligence
           persist-credentials: false
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
@@ -86,11 +86,12 @@ jobs:
           import json
           root=Path("${{ runner.temp }}/ordax-intelligence-stage")
           receipt=json.loads((root/"intelligence-source-receipt.json").read_text())
-          assert receipt["source_file_count"] == 7
-          assert receipt["source_commit"] == "ea663e1bbdc1066e556d8ee5cf279783cae0ba8c"
+          assert receipt["source_file_count"] == 8
+          assert receipt["source_commit"] == "c3dbb73e7f3cdf9a2043b059d7376fb0a06a1272"
           assert receipt["engine_included"] is False and receipt["model_included"] is False
           assert receipt["activation_authorized"] is False
           for path in ("index.mjs","intelligence/runtime.mjs","local-ai/runtime.mjs"):
               assert (root/"system/intelligence-source/src"/path).is_file()
+          assert (root/"system/intelligence-source/tools/inference-builder/build.py").is_file()
           assert not Path("system/intelligence-source").exists()
           PY
