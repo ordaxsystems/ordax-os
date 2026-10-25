@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
+import { readFileSync } from 'node:fs';
 import policy from '../system/adapters/desktop/observation-grant.cjs';
 
 const { OBSERVATION_ROUTES, createDesktopObservationGrantMiddleware }=policy;
@@ -58,6 +59,16 @@ test('observation middleware delegates other routes to their independent guards'
     }
   }finally{await host.close();}
 });
+test('packaged Electron reads the canonical observation policy from runtime-template, not app.asar parent',()=>{
+  const source=readFileSync(new URL('../tools/windows-desktop/main.cjs',import.meta.url),'utf8');
+  const pack=JSON.parse(readFileSync(new URL('../tools/windows-desktop/package.json',import.meta.url),'utf8'));
+  assert.ok(pack.build.extraResources.some(item=>
+    item.from==='../../system' && item.to==='runtime-template/system'));
+  assert.match(source,/resolveTemplate\(__dirname,process\.resourcesPath,app\.isPackaged\)/);
+  assert.match(source,/require\(join\(template,'system','adapters'/);
+  assert.doesNotMatch(source,/require\(['"]\.\.\/\.\.\/system\/adapters\/desktop\/observation-grant\.cjs/);
+});
+
 test('observation grants reject malformed or missing token at host creation',()=>{
   for(const token of [null,'weak','z'.repeat(64),'a'.repeat(63)]){
     assert.throws(()=>createDesktopObservationGrantMiddleware({token}),TypeError);

@@ -8,7 +8,6 @@ const { mkdirSync, createWriteStream, existsSync, readFileSync } = require('node
 const { resolveTemplate, runtimeStateDirectory } = require('./runtime.cjs');
 const { chooseBootVersion, confirmHealthy, rejectCandidate, stageMain, readState, pinPrevious, unpin } = require('./dev-update.cjs');
 const { startHost, stopHost } = require('./host.cjs');
-const { OBSERVATION_ROUTES } = require('../../system/adapters/desktop/observation-grant.cjs');
 const { verifyBundledNativeReceipt } = require('./native-build.cjs');
 let window=null, runtime=null, stream=null, browserHost=null, updateTimer=null, staging=false;
 const PRODUCT='/system/composition/native/index.html';
@@ -125,6 +124,12 @@ const FILE_ROUTES=new Set([
   '/__ordax/native/media-preview','/__ordax/native/document-preview',
 ]);
 function authorizeDesktopFileRequests(browserWindow,base,fileToken,localSessionToken,nativeSessionToken,deviceProfileToken,stateToken,observationToken) {
+  // The Electron shell lives in app.asar, while the canonical OS runtime is
+  // installed under resources/runtime-template. Never import ../../system
+  // from the shell's asar location or duplicate the route owner in the shell.
+  const template=resolveTemplate(__dirname,process.resourcesPath,app.isPackaged);
+  const { OBSERVATION_ROUTES }=require(join(template,'system','adapters',
+    'desktop','observation-grant.cjs'));
   const permittedOrigin=new URL(base).origin;
   // The secret never enters the renderer or a browser cookie. Only requests
   // from this trusted Surface's WebContents receive it; external Chromium
