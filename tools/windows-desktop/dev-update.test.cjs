@@ -6,6 +6,7 @@ const { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, existsSync,
 const { join } = require('node:path');
 const { tmpdir } = require('node:os');
 const { OFFICIAL_REMOTE } = require('./runtime.cjs');
+const { compiledBundleSha256 } = require('./native-build.cjs');
 const { git } = require('./checkout.cjs');
 const { readState, writeState, validateState, versionRoot, stageMain,
   chooseBootVersion, confirmHealthy, pinPrevious, unpin,
@@ -82,7 +83,8 @@ function fixture(t) {
     writeFileSync(join(bundle,'surface-source-receipt.json'),JSON.stringify({
       schema:'ordax.surface-source-materialization/1',
       source_repository:lock.source_repository,source_commit:lock.source_commit,
-      visual_source_sha256:'b'.repeat(64),file_count:2
+      visual_source_sha256:'b'.repeat(64),file_count:2,
+      bundle_sha256:compiledBundleSha256(staging)
     }));
   }
   return {root,source,userData,template,first,advance,offlineGit,offlineBuild};

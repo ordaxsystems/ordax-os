@@ -4,7 +4,7 @@ const assert=require('node:assert/strict');
 const {mkdtempSync,mkdirSync,writeFileSync,rmSync,unlinkSync}=require('node:fs');
 const {join}=require('node:path');
 const {tmpdir}=require('node:os');
-const {hasNativeBundle}=require('./native-build.cjs');
+const {hasNativeBundle,compiledBundleSha256}=require('./native-build.cjs');
 
 test('exact Native candidate requires compiled referenced JavaScript',t=>{
   const root=mkdtempSync(join(tmpdir(),'ordax-native-candidate-'));
@@ -37,11 +37,16 @@ test('exact Native candidate requires compiled referenced JavaScript',t=>{
   assert.equal(hasNativeBundle(root),false,'mismatched Surface SHA must block updates');
   writeFileSync(receiptPath,JSON.stringify({...receipt,schema:'untrusted-schema'}));
   assert.equal(hasNativeBundle(root),false,'unknown receipt contract must block updates');
-  writeFileSync(receiptPath,JSON.stringify(receipt));
+  writeFileSync(receiptPath,JSON.stringify({...receipt,bundle_sha256:compiledBundleSha256(root)}));
   assert.equal(hasNativeBundle(root),true);
+  writeFileSync(js,'export const source = "tampered";');
+  assert.equal(hasNativeBundle(root),false,'changed compiled JS must never be trusted');
+  writeFileSync(js,'export const source = "compiled";');
   writeFileSync(html,'<script src="/__ordax/desktop-assets/assets/index-AbC123.js"></script><link href="/__ordax/desktop-assets/assets/styles-AbC123.css">');
   assert.equal(hasNativeBundle(root),false);
   writeFileSync(join(assets,'styles-AbC123.css'),'body{}');
+  assert.equal(hasNativeBundle(root),false,'new compiled asset invalidates earlier receipt');
+  writeFileSync(receiptPath,JSON.stringify({...receipt,bundle_sha256:compiledBundleSha256(root)}));
   assert.equal(hasNativeBundle(root),true);
   unlinkSync(js);
   assert.equal(hasNativeBundle(root),false);
