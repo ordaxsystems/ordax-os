@@ -18,6 +18,7 @@ import "./test_windows_desktop_device_profile.mjs";
 import "./test_windows_desktop_state_grants.mjs";
 import "./test_windows_desktop_wifi_radio.mjs";
 import "./test_windows_desktop_observation_grants.mjs";
+import "./test_windows_desktop_display_current_modes.mjs";
 
 test("emulator development controls stay hidden unless explicitly requested",async()=>{
   const [html,main]=await Promise.all([

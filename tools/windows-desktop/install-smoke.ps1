@@ -351,6 +351,11 @@ try {
       throw "Unauthenticated localhost client gained access to OrdaX WLAN discovery"
     }
     Write-Output "DESKTOP_WLAN_GRANT_SMOKE=PASS"
+    $noDisplayGrant = Invoke-WebRequest -Uri ($baseUrl + "/__ordax/native/display-outputs") -Method GET -TimeoutSec 15 -SkipHttpErrorCheck
+    if ($noDisplayGrant.StatusCode -ne 403) {
+      throw "Unauthenticated localhost client obtained OrdaX display modes"
+    }
+    Write-Output "DESKTOP_DISPLAY_OUTPUT_AUTHORIZATION_SMOKE=PASS"
     $noDeviceGrant = Invoke-WebRequest -Uri ($baseUrl + "/__ordax/native/device-profile") -Method GET -TimeoutSec 15 -SkipHttpErrorCheck
     if ($noDeviceGrant.StatusCode -ne 401) {
       throw "Unauthenticated localhost client obtained OrdaX device profile"

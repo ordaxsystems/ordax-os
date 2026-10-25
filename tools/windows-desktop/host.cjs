@@ -23,7 +23,7 @@ function isReady(port) {
   });
 }
 async function startHost({root,stateDirectory,userData,log,builtAssetsRoot=null,
-  fileToken,localSessionToken,nativeSessionToken,diagnosticToken,deviceProfileToken,stateToken,networkToken,observationToken,sourceSha=""}) {
+  fileToken,localSessionToken,nativeSessionToken,diagnosticToken,deviceProfileToken,stateToken,networkToken,observationToken,displayToken,sourceSha=""}) {
   if(typeof fileToken!=="string" || !/^[0-9a-f]{64}$/.test(fileToken))
     throw TypeError("OrdaX Desktop Files require per-launch authorization");
   if(typeof localSessionToken!=="string" || !/^[0-9a-f]{64}$/.test(localSessionToken) ||
@@ -35,7 +35,8 @@ async function startHost({root,stateDirectory,userData,log,builtAssetsRoot=null,
      !/^[0-9a-f]{64}$/.test(stateToken) ||
      !/^[0-9a-f]{64}$/.test(networkToken) ||
      !/^[0-9a-f]{64}$/.test(observationToken) ||
-     new Set([fileToken,localSessionToken,nativeSessionToken,diagnosticToken,deviceProfileToken,stateToken,networkToken,observationToken]).size!==8)
+     !/^[0-9a-f]{64}$/.test(displayToken) ||
+     new Set([fileToken,localSessionToken,nativeSessionToken,diagnosticToken,deviceProfileToken,stateToken,networkToken,observationToken,displayToken]).size!==9)
     throw TypeError("Desktop Native sessions require independent per-launch tokens");
   if(sourceSha!=="" && !/^[0-9a-f]{40}$/.test(sourceSha))
     throw TypeError("Desktop diagnostic source SHA must be verified");
@@ -54,6 +55,7 @@ async function startHost({root,stateDirectory,userData,log,builtAssetsRoot=null,
       ORDAX_DESKTOP_STATE_TOKEN:stateToken,
       ORDAX_DESKTOP_NETWORK_TOKEN:networkToken,
       ORDAX_DESKTOP_OBSERVATION_TOKEN:observationToken,
+      ORDAX_DESKTOP_DISPLAY_TOKEN:displayToken,
       ORDAX_DESKTOP_RENDERED_SOURCE_SHA:sourceSha,
       ORDAX_EMULATOR_PORT:String(port),ORDAX_EMULATOR_STATE_DIR:stateDirectory,
       ORDAX_DESKTOP_ASSETS_ROOT:builtAssetsRoot??''},
