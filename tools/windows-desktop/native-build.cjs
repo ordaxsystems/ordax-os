@@ -84,14 +84,14 @@ function hasNativeBundle(sourceRoot) {
     });
   } catch { return false; }
 }
-async function buildNativeCandidate(root,template,{log=()=>{},timeoutMs=120000}={}) {
+async function buildNativeCandidate(root,template,{log=()=>{},timeoutMs=120000,materializeSurface=withPinnedSurface}={}) {
   const config=join(root,'tools','windows-desktop','vite-native-build.mjs');
   const vite=join(template,'node_modules','vite','bin','vite.js');
   if(!existsSync(config) || !existsSync(vite)) {
     throw Error('Staged source or installed toolchain cannot compile canonical Native Surface');
   }
   dependencies(root,template);
-  const receipt=await withPinnedSurface(root,sourceReceipt=>new Promise((resolve,reject)=>{
+  const receipt=await materializeSurface(root,sourceReceipt=>new Promise((resolve,reject)=>{
     const child=spawn(process.execPath,[vite,'build','--config',config],{
       cwd:root,windowsHide:true,
       env:{...process.env,ELECTRON_RUN_AS_NODE:'1'},

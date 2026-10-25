@@ -84,6 +84,7 @@ jobs:
             "tools/windows-desktop/host-startup.test.cjs",
             "tools/windows-desktop/native-build.test.cjs",
             "tools/windows-desktop/surface-stage.test.cjs",
+            "tools/windows-desktop/dev-update-real-build.test.cjs",
             "tools/windows-desktop/dev-update.test.cjs",
             "tools/windows-desktop/runtime.test.cjs",
             "tools/windows-desktop/checkout.test.cjs"
