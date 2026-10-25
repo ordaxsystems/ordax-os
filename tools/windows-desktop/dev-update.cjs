@@ -246,7 +246,7 @@ async function stageMain({ userData, template, log = () => {}, remote = OFFICIAL
         '--single-branch','--no-tags','--branch','main',OFFICIAL_REMOTE,staging],userData,120000);
       if (!clone.ok) return {status:'unavailable'};
       const sparse = await runGit(['-C',staging,'sparse-checkout','set',
-        'system','tools/windows-emulator','tools/surface-web','tools/windows-desktop'],staging,60000);
+        'system','docs/contracts','tools/windows-emulator','tools/surface-web','tools/windows-desktop'],staging,60000);
       if (!sparse.ok) return {status:'unavailable'};
       const head = await runGit(['-C',staging,'rev-parse','HEAD'],staging,10000);
       if (!head.ok || head.stdout !== remoteSha || !await isTrusted(staging))

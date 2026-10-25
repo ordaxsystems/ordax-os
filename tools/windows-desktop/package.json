@@ -29,7 +29,8 @@
       "host.cjs",
       "browser-host.cjs",
       "browser-preload.cjs",
-      "native-build.cjs"
+      "native-build.cjs",
+      "surface-stage.cjs"
     ],
     "extraResources": [
       {
