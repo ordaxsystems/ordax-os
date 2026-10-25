@@ -460,11 +460,37 @@ runtime_root_processes() {
     done
 }
 
+# Serial-side evidence exists only for the explicit disposable Owner QEMU
+# graphics proof. Show the kernel process state/parent, never its arguments,
+# environment, open files or user data. This cannot affect process selection,
+# cleanup authority or the fail-closed mount gate.
+owner_qemu_runtime_process_evidence() {
+    [ -r /proc/cmdline ] &&
+        /bin/busybox grep -qw 'ordax.owner_qemu_graphics_probe=1' /proc/cmdline || return 0
+    phase=$1
+    shift
+    recorded=0
+    for witness_pid in "$@"; do
+        case "$witness_pid" in ''|*[!0-9]*) continue ;; esac
+        [ "$witness_pid" -gt 1 ] 2>/dev/null || continue
+        witness_root=$(/bin/busybox readlink "/proc/$witness_pid/root" 2>/dev/null || true)
+        [ "$witness_root" = "$RUNTIME_ROOT" ] || continue
+        witness_state=$(/bin/busybox awk '$1 == "State:" { print $2; exit }' "/proc/$witness_pid/status" 2>/dev/null || true)
+        witness_parent=$(/bin/busybox awk '$1 == "PPid:" { print $2; exit }' "/proc/$witness_pid/status" 2>/dev/null || true)
+        case "$witness_state" in R|S|D|T|t|Z|X|I) ;; *) witness_state=unknown ;; esac
+        case "$witness_parent" in ''|*[!0-9]*) witness_parent=unknown ;; esac
+        echo "ordax-surface: QEMU runtime-process phase=$phase pid=$witness_pid state=$witness_state parent=$witness_parent" >>"$HOST_LOG"
+        recorded=$((recorded + 1))
+        [ "$recorded" -lt 12 ] || break
+    done
+}
+
 reap_stale_runtime_processes() {
     stale_pids=$(runtime_root_processes) || return 1
     [ -n "$stale_pids" ] || return 0
 
     echo "ordax-surface: reaping stale processes rooted in graphical runtime" >>"$HOST_LOG"
+    owner_qemu_runtime_process_evidence discovered $stale_pids
     for pid in $stale_pids; do
         case "$pid" in
             ''|*[!0-9]*) continue ;;
@@ -501,6 +527,7 @@ reap_stale_runtime_processes() {
     stale_pids=$(runtime_root_processes) || return 1
     [ -z "$stale_pids" ] && return 0
     echo "ordax-surface: runtime processes remain after bounded SIGKILL; refusing mount teardown" >>"$HOST_LOG"
+    owner_qemu_runtime_process_evidence unreaped $stale_pids
     return 1
 }
 
