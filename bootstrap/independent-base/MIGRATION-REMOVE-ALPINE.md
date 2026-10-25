@@ -132,7 +132,7 @@ A única falha de `#121` ocorreu no smoke direto de laboratório, antes do PID1 
 
 O orçamento do smoke direto passa a ser explícito por perfil: `minimal=384 MiB` e `owner-development=768 MiB`, registrado no receipt. O próximo run pesado deve provar esse ajuste; ele não substitui a prova portátil oficial, que já passou, nem a prova física.
 
-**Ainda pendente antes de remover `dev-base/build.py`:** obter QEMU direto verde com o orçamento de laboratório corrigido e depois registrar prova física no Dev USB/hardware alvo. Somente depois desses gates a dependência Alpine do Dev Base pode sair da allowlist e o builder antigo pode ser removido.
+**Corte Dev em PR #2243:** o QEMU da Base Buildroot com perfil Owner foi aprovado e o builder Alpine `bootstrap/dev-base/build.py`, já sem consumidores de produção nos workflows, foi aposentado com seus testes de implementação obsoletos. A prova do USB Dev completo (dois boots offline, Surface WebKit e hardware físico) continua obrigatória antes de autorizar implantação, sem restaurar Alpine como fallback.
 
 ### Fase C — convergência dos consumidores
 
@@ -140,7 +140,6 @@ Migrar consumidores que ainda importam `bootstrap/base/alpine_core.py` ou assume
 
 A fronteira Python atual, congelada pelo teste de regressão, é:
 
-- `bootstrap/dev-base/build.py`;
 - `bootstrap/stable-base/build.py`;
 - `bootstrap/surface-runtime/build.py`;
 - `bootstrap/surface-runtime/discover_lock.py`;
@@ -154,7 +153,7 @@ A ordem deve reduzir duplicação, não criar wrappers permanentes:
 2. separar responsabilidade genérica de responsabilidade específica da distro;
 3. mover lógica genérica para owner neutro somente quando houver mais de um consumidor legítimo;
 4. migrar primeiro consumidores cuja semântica já exista na Independent Base;
-5. migrar `dev-base`, `stable-base`, `surface-runtime` e compatibilidade Windows conforme seus gates específicos;
+5. concluir os gates de `stable-base`, `surface-runtime` e compatibilidade Windows; o builder Alpine de `dev-base` já foi aposentado na PR #2243;
 6. remover wrappers de compatibilidade assim que o último consumidor desaparecer;
 7. reduzir a allowlist de `test_alpine_removal_boundary.py` no mesmo commit que elimina cada referência.
 

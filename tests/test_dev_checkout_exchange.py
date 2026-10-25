@@ -13,7 +13,8 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / "bootstrap/dev-base/ordax_checkout_exchange.c"
-BUILDER = ROOT / "bootstrap/dev-base/build.py"
+BUILDROOT_POST_BUILD = ROOT / "bootstrap/independent-base/post-build.sh"
+LEGACY_DEV_BUILDER = ROOT / "bootstrap/dev-base/build.py"
 
 
 @unittest.skipUnless(sys.platform.startswith("linux"), "Linux renameat2 required")
@@ -99,12 +100,14 @@ class NativeAtomicCheckoutTests(unittest.TestCase):
                 self.assertTrue((current / "sentinel").is_file())
                 self.assertTrue(stage.is_dir())
 
-    def test_existing_base_builder_is_the_only_binary_producer(self):
-        text = BUILDER.read_text(encoding="utf-8")
-        self.assertIn('"ordax_checkout_exchange.c"', text)
-        self.assertIn('"usr/local/bin/ordax-checkout-exchange"', text)
-        self.assertIn('compiler, "-static"', text)
-        self.assertIn('["readelf", "-l", str(target)]', text)
+    def test_buildroot_post_build_is_only_owner_checkout_helper_producer(self):
+        self.assertFalse(LEGACY_DEV_BUILDER.exists(), "Alpine Dev builder was resurrected")
+        text = BUILDROOT_POST_BUILD.read_text(encoding="utf-8")
+        self.assertIn('ordax_checkout_exchange:ordax-checkout-exchange', text)
+        self.assertIn('native_source="$ROOT/bootstrap/dev-base/$source_name.c"', text)
+        self.assertIn('native_compiler="${HOST_DIR:-}/bin/x86_64-buildroot-linux-musl-gcc"', text)
+        self.assertIn('"$native_compiler" -static -Os -s -Wall -Wextra -Werror', text)
+        self.assertIn('"prototype-ordax.checkout-exchange/1"', text)
 
 
 if __name__ == "__main__":

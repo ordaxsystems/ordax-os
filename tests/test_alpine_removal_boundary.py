@@ -11,7 +11,6 @@ BOOTSTRAP = ROOT / "bootstrap"
 # shrink over time; adding a new production consumer is an architectural
 # regression and requires an explicit migration decision.
 ALLOWED_PYTHON_REFERENCES = {
-    "bootstrap/dev-base/build.py",
     "bootstrap/stable-base/build.py",
     "bootstrap/surface-runtime/build.py",
     "bootstrap/surface-runtime/discover_lock.py",
@@ -44,6 +43,10 @@ class AlpineRemovalBoundaryTests(unittest.TestCase):
             "Alpine coupling was removed; shrink ALLOWED_PYTHON_REFERENCES: "
             + ", ".join(sorted(stale)),
         )
+
+    def test_retired_dev_builder_is_absent(self) -> None:
+        self.assertFalse((BOOTSTRAP / "dev-base/build.py").exists())
+        self.assertTrue((BOOTSTRAP / "independent-base/post-build.sh").is_file())
 
     def test_independent_base_never_references_alpine_core(self) -> None:
         offenders: list[str] = []

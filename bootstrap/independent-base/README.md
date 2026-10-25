@@ -33,9 +33,9 @@ No perfil Owner, os receipts externos de módulos e firmware são copiados byte 
 
 ## Limites importantes
 
-- A base Alpine dos perfis Development e Stable continua ativa em `main` até o corte final comprovado; não será removida prematuramente.
+- O builder Alpine Development sem consumidores de produção foi retirado na PR #2243 após a Base Buildroot Owner passar no QEMU. A Base Stable antiga ainda requer migração e validação própria antes da remoção.
 - A branch `platform/remove-alpine` pode alterar consumidores e contratos somente para provar a substituição; nenhum desses bytes é automaticamente Stable ou gravável em mídia física.
-- O perfil `minimal` permanece sem Git, Wi-Fi de notebook e firmware Owner. O perfil `owner-development` possui essas capacidades em código/configuração, mas ainda exige build real, QEMU e prova física antes de substituir `dev-base`.
+- O perfil `minimal` permanece sem Git, Wi-Fi de notebook e firmware Owner. O perfil `owner-development` já passou pela compilação e pelo QEMU da Base; o USB completo e a prova física ainda são gates separados e obrigatórios.
 - A inicialização `ordax-independent-probe-init` é exclusivamente um programa de **teste QEMU**, não substitui `bootstrap/initramfs/portable_init.sh`, os verificadores de release, seleção de slots ou serviços atuais.
 - **Não** se pode distribuir, assinar, instalar, ligar ao Creator, ativar Base Update, substituir `stable-base.erofs` ou modificar USB com este artefato enquanto os gates de promoção permanecerem fechados.
 - O teste QEMU usa o kernel **real** `bootstrap/kernel/build.py` e valida seu provenance. Testa montagem EROFS somente-leitura e escrita rejeitada, imagem ext4 descartável persistente, DHCP e falha segura de EROFS inválido. O QEMU usa `snapshot=on` para permitir emulação IDE com backend COW descartável sem modificar os bytes originais de EROFS, cuja integridade é novamente verificada por SHA-256.
@@ -106,7 +106,7 @@ python3 bootstrap/independent-base/qemu_proof.py \
 |---|---|---|---|
 | `bootstrap/base/alpine_core.py` | Alpine minirootfs, espelho APK, `apk add` | distribuição | remover somente após último consumidor migrado |
 | `bootstrap/stable-base/build.py` | `alpine_core.py`/APK e parâmetros Stable | distribuição + build | separar responsabilidades neutras e convergir para base independente |
-| `bootstrap/dev-base/build.py` | importa `alpine_core.py` | distribuição | retirar somente depois do build/QEMU/prova física do perfil Owner independente |
+| `bootstrap/dev-base/build.py` | builder Alpine Dev aposentado na PR #2243 | distribuição | removido sem alterar a política de prova física do USB Owner |
 | `bootstrap/base/runtime_policy.py` | `apk del`, chaves APK | distribuição | eliminar após consumidores deixarem de depender de APK |
 | `bootstrap/base/firmware_policy.py` | módulos/firmware do kernel | política independente | preservada e reutilizada como política neutra |
 | `bootstrap/base/kernel_module_payload.py` | archive do kernel + hardware matrix | política independente | novo owner neutro do payload selecionado de módulos |
