@@ -15,6 +15,7 @@ import "./test_windows_desktop_account_vault.mjs";
 import "./test_windows_desktop_local_session.mjs";
 import "./test_windows_desktop_client_diagnostics.mjs";
 import "./test_windows_desktop_device_profile.mjs";
+import "./test_windows_desktop_state_grants.mjs";
 
 test("emulator development controls stay hidden unless explicitly requested",async()=>{
   const [html,main]=await Promise.all([
