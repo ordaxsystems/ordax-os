@@ -20,6 +20,7 @@ test("Power status cannot silently become Linux mock or accept corrupt data",asy
   assert.throws(()=>projectWindowsPowerStatus({acLineStatus:5,batteryFlag:-1,batteryPercent:257}),TypeError);
   await assert.rejects(()=>readDesktopPowerStatus({platform:"linux"}),/Windows/);
   await assert.rejects(()=>readDesktopPowerStatus({platform:"win32",run:async()=>({stdout:"not telemetry"})}),/invalid/);
+  await assert.rejects(()=>readDesktopPowerStatus({platform:"win32",run:async()=>{throw Error("PowerLineStatus unavailable");}}),/PowerLineStatus unavailable/);
 });
 test("Native service only uses real Win32 result and is bounded",async()=>{
   let observed;
@@ -28,5 +29,9 @@ test("Native service only uses real Win32 result and is bounded",async()=>{
   }});
   assert.equal(observed.file,"powershell.exe");
   assert.equal(observed.options.timeout,7000);
+  const script=observed.args.at(-1);
+  assert.match(script,/System\.Windows\.Forms\.SystemInformation/);
+  assert.doesNotMatch(script,/Add-Type -TypeDefinition|DllImport|New-Object OrdaXPowerStatus/);
+  assert.match(script,/BatteryChargeStatus/);
   assert.deepEqual(reading,{battery:null,externalPower:true});
 });

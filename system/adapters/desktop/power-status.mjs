@@ -5,23 +5,19 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { validatePowerStatusSnapshot } from "../../contracts/power-status.mjs";
 const execute = promisify(execFile);
+// Use the Windows Forms wrapper over Win32 power telemetry instead of
+// compiling a C# P/Invoke class on every GET. Runtime Add-Type compilation
+// competed with Native Surface cold-start and could exceed the bounded probe.
 const nativeScript = String.raw`
-$code=@'
-using System;
-using System.Runtime.InteropServices;
-public static class OrdaXPowerStatus {
-[StructLayout(LayoutKind.Sequential)] public struct Value {
-public byte ACLineStatus; public byte BatteryFlag; public byte BatteryLifePercent;
-public byte SystemStatusFlag; public int BatteryLifeTime; public int BatteryFullLifeTime;
+$ErrorActionPreference='Stop'
+Add-Type -AssemblyName System.Windows.Forms
+$state=[System.Windows.Forms.SystemInformation]::PowerStatus
+$life=[double]$state.BatteryLifePercent
+$percent=255
+if($life -ge 0.0 -and $life -le 1.0){
+  $percent=[int][Math]::Round($life*100.0,[MidpointRounding]::AwayFromZero)
 }
-[DllImport("kernel32.dll", SetLastError=true)]
-public static extern bool GetSystemPowerStatus(out Value result);
-}
-'@
-Add-Type -TypeDefinition $code -ErrorAction Stop
-$state=New-Object OrdaXPowerStatus+Value
-if(-not [OrdaXPowerStatus]::GetSystemPowerStatus([ref]$state)){throw 'GetSystemPowerStatus failed'}
-Write-Output ($state.ACLineStatus.ToString()+','+$state.BatteryFlag.ToString()+','+$state.BatteryLifePercent.ToString())
+Write-Output (([int]$state.PowerLineStatus).ToString()+','+([int]$state.BatteryChargeStatus).ToString()+','+$percent.ToString())
 `;
 export function projectWindowsPowerStatus({acLineStatus,batteryFlag,batteryPercent}) {
   if (![acLineStatus,batteryFlag,batteryPercent].every(x=>Number.isInteger(x) && x>=0 && x<=255)) {
