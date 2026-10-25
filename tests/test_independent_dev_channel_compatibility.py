@@ -142,6 +142,8 @@ class IndependentDevChannelCompatibilityTests(unittest.TestCase):
 
             self.assertEqual(result["destination"], destination)
             self.assertTrue(destination.is_dir())
+            # The Creator runs as a normal user after root-owned extraction.
+            self.assertEqual(destination.stat().st_mode & 0o777, 0o755)
             self.assertTrue((destination / "bin/sh").is_symlink())
             self.assertEqual((destination / "bin/sh").readlink().as_posix(), "busybox")
             self.assertEqual(
