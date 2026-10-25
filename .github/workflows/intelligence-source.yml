@@ -63,6 +63,16 @@ jobs:
             exit 1
           fi
           test ! -e "${RUNNER_TEMP}/should-not-exist"
+      - name: Refuse staging into active OS checkout
+        run: |
+          if python tools/intelligence-source/compose.py \
+            --os-root "$PWD" \
+            --intelligence-stage "${RUNNER_TEMP}/ordax-intelligence-stage" \
+            --out-root "$PWD/.intelligence-forbidden-output"; then
+            echo "::error::Source checkout was modified" >&2
+            exit 1
+          fi
+          test ! -e "$PWD/.intelligence-forbidden-output"
       - name: Verify no external source tracked in OS, no engine or model and exact receipt
         run: |
           python - <<'PY'
