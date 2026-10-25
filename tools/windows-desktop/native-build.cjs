@@ -43,7 +43,7 @@ async function buildNativeCandidate(root,template,{log=()=>{},timeoutMs=120000}=
     throw Error('Staged source or installed toolchain cannot compile canonical Native Surface');
   }
   dependencies(root,template);
-  const receipt=await withPinnedSurface(root,()=>new Promise((resolve,reject)=>{
+  const receipt=await withPinnedSurface(root,sourceReceipt=>new Promise((resolve,reject)=>{
     const child=spawn(process.execPath,[vite,'build','--config',config],{
       cwd:root,windowsHide:true,
       env:{...process.env,ELECTRON_RUN_AS_NODE:'1'},
@@ -63,7 +63,7 @@ async function buildNativeCandidate(root,template,{log=()=>{},timeoutMs=120000}=
     child.stdout.on('data',capture);child.stderr.on('data',capture);
     child.once('error',e=>finish(Error('Cannot spawn canonical Native compiler: '+e.message)));
     child.once('close',code=>finish(code===0?null:Error('Canonical Native compiler rejected candidate: '+output.slice(-400))));
-  }));
+  }).then(()=>sourceReceipt));
   writeFileSync(join(root,OUTPUT,'surface-source-receipt.json'),JSON.stringify(receipt)+'\n',{flag:'wx'});
   if(!hasNativeBundle(root))throw Error('Compiled Native assets missing or invalid in staged Git source');
   log('Verified staged canonical Native compilation');
