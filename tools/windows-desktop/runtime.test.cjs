@@ -50,6 +50,17 @@ test('Electron locks the canonical user profile before requesting a single insta
   assert.ok(name >= 0 && name < path && path < lock);
 });
 
+test('packaged NSIS smoke uses a separate Electron profile and journal', () => {
+  const main = readFileSync(join(__dirname,'main.cjs'),'utf8');
+  const smoke = readFileSync(join(__dirname,'install-smoke.ps1'),'utf8');
+  assert.ok(main.includes("process.env.ORDAX_DESKTOP_TEST_PROFILE === '1'"));
+  assert.ok(!main.includes("!app.isPackaged && process.env.ORDAX_DESKTOP_TEST_PROFILE"));
+  assert.ok(main.includes("'OrdaX OS Desktop Dev Test'"));
+  assert.ok(smoke.includes('ORDAX_DESKTOP_TEST_PROFILE = "1"'));
+  assert.ok(smoke.includes('"OrdaX OS Desktop Dev Test"'));
+  assert.ok(smoke.includes('$env:ORDAX_DESKTOP_TEST_PROFILE = $previousTestProfile'));
+});
+
 test('Development installer defaults to the user profile and preserves application data', () => {
   const nsis = require('./package.json').build.nsis;
   assert.equal(nsis.perMachine, false);

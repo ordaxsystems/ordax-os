@@ -228,7 +228,12 @@ try {
   # The installer is not homologated until its actual packaged Electron host
   # boots the canonical Native Surface from the installed, read-only runtime.
   # A source-tree Vite test cannot catch attempts to write inside Program Files.
-  $logFile = Join-Path $env:APPDATA "OrdaX OS Desktop Dev\desktop.log"
+  # Smoke tests must NEVER read or write the real Desktop profile, even
+  # when the Electron executable is a packaged NSIS build.
+  $testProfile = Join-Path $env:APPDATA "OrdaX OS Desktop Dev Test"
+  $realProfile = Join-Path $env:APPDATA "OrdaX OS Desktop Dev"
+  if ($testProfile -eq $realProfile) { throw "Desktop test profile isolation failed" }
+  $logFile = Join-Path $testProfile "desktop.log"
   $priorLog = if (Test-Path -LiteralPath $logFile) {
     Get-Content -LiteralPath $logFile -Raw -ErrorAction SilentlyContinue
   } else { "" }
@@ -237,11 +242,14 @@ try {
   Write-Output "STARTUP_SMOKE_STARTED"
   $previousBrowserSmoke = $env:ORDAX_DESKTOP_BROWSER_SMOKE
   $previousFileSmoke = $env:ORDAX_DESKTOP_FILE_SMOKE
+  $previousTestProfile = $env:ORDAX_DESKTOP_TEST_PROFILE
   try {
+    $env:ORDAX_DESKTOP_TEST_PROFILE = "1"
     $env:ORDAX_DESKTOP_BROWSER_SMOKE = "1"
     $env:ORDAX_DESKTOP_FILE_SMOKE = "1"
     $appProc = Start-Process -FilePath $installedExe -WorkingDirectory $dest -PassThru
   } finally {
+    $env:ORDAX_DESKTOP_TEST_PROFILE = $previousTestProfile
     $env:ORDAX_DESKTOP_BROWSER_SMOKE = $previousBrowserSmoke
     $env:ORDAX_DESKTOP_FILE_SMOKE = $previousFileSmoke
   }
