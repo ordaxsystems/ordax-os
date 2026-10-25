@@ -184,6 +184,22 @@ clientes localhost não autorizados recebem 403. A sessão bloqueada
 responde 423 à descoberta. Isto não altera conexões ou configurações
 da máquina nem habilita gerência de Wi-Fi ainda.
 
+## Observações Native privadas do Desktop
+
+As rotas canônicas de observação de rede, energia, métricas, atualização,
+histórico de atualização e recuperação no Windows exigem uma concessão
+efêmera independente de 256 bits da própria WebContents Electron. O host
+rejeita leituras localhost externas com HTTP 401, queries inesperadas
+com 400 e tentativas de escrita com 405. O header é removido das
+requisições da página antes da injeção exclusiva pelo host. A autorização
+não muda nenhum contrato de dados do OS, serviço Linux nem política de
+controles físicos. Leituras autenticadas permanecem disponíveis durante
+o bloqueio local para permitir inicialização e painel de energia.
+
+O smoke do instalador NSIS verifica seis negativas localhost e seis
+leituras reais feitas pela Surface instalada; não confunde o acesso
+direto ao serviço HTTP com uma autorização do Electron.
+
 ## Composição canônica
 
 - A mesma Surface e apps vêm de `system/`; não criar telas ou serviços

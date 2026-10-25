@@ -123,7 +123,13 @@ const FILE_ROUTES=new Set([
   '/__ordax/native/file-export','/__ordax/native/image-preview',
   '/__ordax/native/media-preview','/__ordax/native/document-preview',
 ]);
-function authorizeDesktopFileRequests(browserWindow,base,fileToken,localSessionToken,nativeSessionToken,deviceProfileToken,stateToken) {
+function authorizeDesktopFileRequests(browserWindow,base,fileToken,localSessionToken,nativeSessionToken,deviceProfileToken,stateToken,observationToken) {
+  // The Electron shell lives in app.asar, while the canonical OS runtime is
+  // installed under resources/runtime-template. Never import ../../system
+  // from the shell's asar location or duplicate the route owner in the shell.
+  const template=resolveTemplate(__dirname,process.resourcesPath,app.isPackaged);
+  const { OBSERVATION_ROUTES }=require(join(template,'system','adapters',
+    'desktop','observation-grant.cjs'));
   const permittedOrigin=new URL(base).origin;
   // The secret never enters the renderer or a browser cookie. Only requests
   // from this trusted Surface's WebContents receive it; external Chromium
@@ -135,7 +141,7 @@ function authorizeDesktopFileRequests(browserWindow,base,fileToken,localSessionT
       // Strip any renderer-supplied fake grant first, even if the route is
       // untrusted. Only the owning Electron WebContents may receive secrets.
       for(const key of Object.keys(headers)){
-        if(/^(x-ordax-file-token|x-ordax-local-session-token|x-ordax-session-token|x-ordax-device-profile-token|x-ordax-desktop-state-token)$/i.test(key))delete headers[key];
+        if(/^(x-ordax-file-token|x-ordax-local-session-token|x-ordax-session-token|x-ordax-device-profile-token|x-ordax-desktop-state-token|x-ordax-observation-token)$/i.test(key))delete headers[key];
       }
       try {
         const target=new URL(details.url);
@@ -151,6 +157,8 @@ function authorizeDesktopFileRequests(browserWindow,base,fileToken,localSessionT
         if(trusted && ['/__ordax/native/first-run','/__ordax/native/preferences',
                        '/__ordax/native/first-run-cursor'].includes(target.pathname))
           headers['X-OrdaX-Desktop-State-Token']=stateToken;
+        if(trusted && OBSERVATION_ROUTES.includes(target.pathname))
+          headers['X-OrdaX-Observation-Token']=observationToken;
       } catch {}
       callback({requestHeaders:headers});
     }
@@ -254,6 +262,28 @@ async function assertDesktopFileSpaceSmoke(browserWindow) {
     throw Error('Installed Desktop WLAN discovery invents connectivity or bypasses the Native session');
   }
   log('DESKTOP_WLAN_DISCOVERY_TRUSTED_SURFACE_SMOKE=PASS');
+  // Prove the real Native providers still serve the installed Surface,
+  // without making localhost directly authorized in the NSIS smoke.
+  const observations=await browserWindow.webContents.executeJavaScript(
+    "(async()=>{const paths=['/__ordax/native/network-status',"+
+    "'/__ordax/native/metrics','/__ordax/native/update',"+
+    "'/__ordax/native/update-history','/__ordax/desktop/recovery',"+
+    "'/__ordax/native/power-status'];"+
+    "return Promise.all(paths.map(async path=>{const res=await fetch(path,"+
+    "{cache:'no-store',credentials:'same-origin'});"+
+    "return {status:res.status,body:res.ok?await res.json():null};}));})()"
+  );
+  if(observations.length!==6 || !observations.every(x=>x.status===200 && x.body!==null)
+     || !Array.isArray(observations[0].body.interfaces)
+     || !(observations[1].body.memoryTotalBytes>0)
+     || !observations[2].body.sourceSha
+     || !Array.isArray(observations[3].body.releases)
+     || !Array.isArray(observations[3].body.applications)
+     || !('battery' in observations[5].body)
+     || !('externalPower' in observations[5].body)) {
+    throw Error('Trusted Electron Surface cannot read real canonical Native host observations');
+  }
+  log('DESKTOP_OBSERVATION_TRUSTED_SURFACE_SMOKE=PASS');
 }
 async function assertNativeShellMounted(browserWindow) {
   const started=Date.now(),deadline=started+90000;
@@ -371,6 +401,7 @@ app.whenReady().then(async()=>{
     const deviceProfileToken=randomBytes(32).toString('hex');
     const stateToken=randomBytes(32).toString('hex');
     const networkToken=randomBytes(32).toString('hex');
+    const observationToken=randomBytes(32).toString('hex');
     const template=resolveTemplate(__dirname,process.resourcesPath,app.isPackaged);
     if(!existsSync(join(template,'tools','windows-emulator','dev-supervisor.mjs')))
       throw Error('Canonical OrdaX runtime snapshot missing');
@@ -391,9 +422,9 @@ app.whenReady().then(async()=>{
     let root=selected.root;
     try {
       log(root===template?'Bundled OrdaX Surface':'Verified Git-managed OrdaX Surface');
-      runtime=await startHost({root,stateDirectory:runtimeStateDirectory(userData),userData,log,fileToken,localSessionToken,nativeSessionToken,diagnosticToken,deviceProfileToken,stateToken,networkToken,sourceSha:sourceOf(selected),
+      runtime=await startHost({root,stateDirectory:runtimeStateDirectory(userData),userData,log,fileToken,localSessionToken,nativeSessionToken,diagnosticToken,deviceProfileToken,stateToken,networkToken,observationToken,sourceSha:sourceOf(selected),
          builtAssetsRoot:nativeBuiltAssetsFor(root,template)});
-      authorizeDesktopFileRequests(window,runtime.url,fileToken,localSessionToken,nativeSessionToken,deviceProfileToken,stateToken);
+      authorizeDesktopFileRequests(window,runtime.url,fileToken,localSessionToken,nativeSessionToken,deviceProfileToken,stateToken,observationToken);
       await window.loadURL(nativeUrl(runtime.url,sourceOf(selected)));
       await assertNativeShellMounted(window);
       await assertDesktopInternetSmoke(window,browserHost);
@@ -412,9 +443,9 @@ app.whenReady().then(async()=>{
       runtime=null;
       const fallback=await chooseBootVersion({userData,template,log});
       root=fallback.root;
-      runtime=await startHost({root,stateDirectory:runtimeStateDirectory(userData),userData,log,fileToken,localSessionToken,nativeSessionToken,diagnosticToken,deviceProfileToken,stateToken,networkToken,sourceSha:sourceOf(fallback),
+      runtime=await startHost({root,stateDirectory:runtimeStateDirectory(userData),userData,log,fileToken,localSessionToken,nativeSessionToken,diagnosticToken,deviceProfileToken,stateToken,networkToken,observationToken,sourceSha:sourceOf(fallback),
          builtAssetsRoot:nativeBuiltAssetsFor(root,template)});
-      authorizeDesktopFileRequests(window,runtime.url,fileToken,localSessionToken,nativeSessionToken,deviceProfileToken,stateToken);
+      authorizeDesktopFileRequests(window,runtime.url,fileToken,localSessionToken,nativeSessionToken,deviceProfileToken,stateToken,observationToken);
       await window.loadURL(nativeUrl(runtime.url,sourceOf(fallback)));
       await assertNativeShellMounted(window);
       await assertDesktopInternetSmoke(window,browserHost);
