@@ -25,7 +25,7 @@ class FirstBootGraphicsTests(unittest.TestCase):
 
     def test_provisioning_and_liveness_are_explicit_exact_sha_contracts(self):
         self.assertIn("RUNTIME_PROVISIONING_FILE=$SESSION_DIR/runtime-provisioning-source-sha", SURFACE)
-        self.assertIn("printf '%s\\n' \"$SOURCE_SHA\" >\"$RUNTIME_PROVISIONING_FILE\"", SURFACE)
+        self.assertNotIn("printf '%s\\n' \"$SOURCE_SHA\" >\"$RUNTIME_PROVISIONING_FILE\"", SURFACE)
         self.assertIn('rm -f "$RUNTIME_PROVISIONING_FILE"', SURFACE)
         self.assertIn("SUPERVISOR_HEARTBEAT_FILE=$UPDATE_RUN_DIR/supervisor-heartbeat", GUARDIAN)
         self.assertIn("SUPERVISOR_HEARTBEAT_FILE=$UPDATE_RUN_DIR/supervisor-heartbeat", SUPERVISOR)
@@ -42,14 +42,11 @@ class FirstBootGraphicsTests(unittest.TestCase):
         identity = SURFACE.index(
             'resolve_source_identity || fallback_with_reason "failed to resolve exact Surface source identity"'
         )
-        marker = SURFACE.index(
-            "printf '%s\\n' \"$SOURCE_SHA\" >\"$RUNTIME_PROVISIONING_FILE\""
-        )
         provision = SURFACE.index(
-            'ensure_runtime || fallback_with_reason "graphical runtime is unavailable after bounded provisioning attempt"'
+            'ensure_runtime || fallback_with_reason "verified offline graphical runtime unavailable"'
         )
-        self.assertLess(identity, marker)
-        self.assertLess(marker, provision)
+        self.assertLess(identity, provision)
+        self.assertIn('[ "$VERIFIED_RUNTIME_MODE" = "verified-erofs-overlay" ]', SURFACE)
 
     def probe(self, marker_value, healthy_after, budget=4):
         with tempfile.TemporaryDirectory() as directory:

@@ -250,11 +250,15 @@ class SurfaceRuntimeSourceContractTests(unittest.TestCase):
         self.assertIn('cache = rootfs / "var/cache/fontconfig"', text)
         self.assertIn("prune_generated_runtime_state(rootfs)", text)
 
-    def test_existing_owner_runtime_path_is_not_silently_removed(self):
+    def test_native_runtime_only_accepts_verified_immutable_erofs(self):
         surface = SURFACE.read_text(encoding="utf-8")
-        self.assertIn("install_runtime()", surface)
-        self.assertIn("run_bounded_apk", surface)
-        self.assertIn('if [ "$DISTRIBUTION_PROFILE" = "stable-mvp" ]', surface)
+        self.assertIn('RUNTIME_ROOT=$VERIFIED_RUNTIME_ROOT', surface)
+        self.assertIn('VERIFIED_RUNTIME_MODE', surface)
+        self.assertIn('verified-erofs-overlay', surface)
+        self.assertIn('ensure_runtime() {', surface)
+        self.assertNotIn('run_bounded_apk', surface)
+        self.assertNotIn('install_runtime()', surface)
+        self.assertNotIn('migrate_legacy_runtime', surface)
 
 
 if __name__ == "__main__":

@@ -680,7 +680,7 @@ class SystemRuntimeContractTests(unittest.TestCase):
         self.assertIn("HTTP diagnostic:", text)
         self.assertIn("HTTP log:", text)
         self.assertIn("DRM device /dev/dri/card0 is unavailable", text)
-        self.assertIn("graphical runtime is unavailable after bounded provisioning attempt", text)
+        self.assertIn("verified offline graphical runtime unavailable", text)
         self.assertIn("failed to bind host resources into graphical runtime", text)
         self.assertIn("native Surface HTTP/control server failed readiness check", text)
         self.assertIn("native Cage/OrdaX WebKit host exited with status", text)

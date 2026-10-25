@@ -54,7 +54,7 @@ class OfflineOwnerWelcomeGateTests(unittest.TestCase):
     def test_release_workflow_builds_and_pins_runtime_before_media_materialization(self):
         workflow = (ROOT / ".github/workflows/creator-owner-dev-git.yml").read_text()
         build = workflow.index("- name: Build and verify one canonical offline Surface runtime")
-        overlay = workflow.index('sudo cp -a out/dev-base/rootfs/. "$stage/ORDAX/dev-base/"')
+        overlay = workflow.index('sudo cp -aL out/dev-base/rootfs/. "$stage/ORDAX/dev-base/"')
         seeded = workflow.index('--producer-out "$RUNNER_TEMP/owner-dev-surface-runtime"')
         capabilities = workflow.index("sudo python tools/ci/owner_rootfs_capabilities.py verify-owner-stage")
         media = workflow.index("- name: Materialize and verify RAW development seed")
@@ -129,7 +129,7 @@ class OfflineOwnerWelcomeGateTests(unittest.TestCase):
             data = json.loads(path.read_text())
             data["physical_artifact_authorized"] = True
             path.write_text(json.dumps(data))
-            with self.assertRaisesRegex(GATE.OfflineRuntimeError, "verified candidate"):
+            with self.assertRaisesRegex(GATE.OfflineRuntimeError, "verified Alpine-free candidate"):
                 GATE.stage_runtime(stage, producer)
 
     def test_owner_seed_geometry_is_derived_only_for_dev_media(self):
@@ -172,7 +172,7 @@ class OfflineOwnerWelcomeGateTests(unittest.TestCase):
         self.assertLess(source.index("mount-surface-runtime"), source.index("exec switch_root"))
         self.assertNotIn("ordax-pull", source)
         self.assertIn('[ "$VERIFIED_RUNTIME_MODE" = "verified-erofs-overlay" ]', surface)
-        self.assertIn("Owner USB offline graphical runtime is invalid", surface)
+        self.assertIn("verified offline EROFS graphical runtime is unavailable", surface)
 
 
 if __name__ == "__main__":

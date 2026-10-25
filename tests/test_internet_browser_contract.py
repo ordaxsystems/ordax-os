@@ -264,11 +264,14 @@ class InternetBrowserContractTests(unittest.TestCase):
 
     def test_native_surface_runtime_owns_webkit_dependencies_directly(self):
         launcher = self.text(SURFACE_LAUNCHER)
-        self.assertIn('RUNTIME_ID=alpine-v3.22-cage-webkitgtk-v1', launcher)
-        self.assertTrue({
-            'python3', 'py3-gobject3', 'gtk+3.0', 'webkit2gtk-4.1',
-            'pipewire-pulse', 'pipewire-alsa', 'wireplumber', 'gst-plugin-pipewire', 'dbus',
-        }.issubset((ROOT / 'system/surface/runtime/packages.txt').read_text().splitlines()))
+        self.assertIn('VERIFIED_RUNTIME_MODE=${ORDAX_SURFACE_RUNTIME_MODE:-}', launcher)
+        self.assertIn('RUNTIME_ROOT=$VERIFIED_RUNTIME_ROOT', launcher)
+        self.assertIn('verified-erofs-overlay', launcher)
+        self.assertNotIn('alpine-v3.22', launcher)
+        self.assertNotIn('/sbin/apk', launcher)
+        buildroot_config = (ROOT / 'bootstrap/independent-surface-runtime/configs/ordax_surface_defconfig').read_text()
+        for required in ('BR2_PACKAGE_CAGE=y', 'BR2_PACKAGE_WEBKITGTK=y', 'BR2_PACKAGE_LIBGTK3_WAYLAND=y'):
+            self.assertIn(required, buildroot_config)
         self.assertIn('/srv/ordax-system/surface/runtime/ordax_browser_host.py', launcher)
         self.assertIn('--profile-root /var/lib/ordax-user/browser', launcher)
         self.assertNotIn('barkery-browser', launcher)

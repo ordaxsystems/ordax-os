@@ -76,7 +76,7 @@ class CreatorKernelReuseWorkflowTests(unittest.TestCase):
         self.assertNotIn("bootstrap/kernel/build.py", dev_base)
         self.assertNotIn("cache-hit", dev_base)
         self.assertIn(
-            '--kernel-modules "out/kernel/kernel-modules-$ORDAX_KERNEL_VERSION.tar"',
+            'ORDAX_KERNEL_MODULES_ARCHIVE="$PWD/out/kernel/kernel-modules-$ORDAX_KERNEL_VERSION.tar"',
             dev_base,
         )
         self.assertIn('--seed-from-local "$GITHUB_WORKSPACE" "$ORDAX_OWNER_SOURCE_COMMIT"', dev_base)

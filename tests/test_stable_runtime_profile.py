@@ -210,7 +210,7 @@ class StableRuntimeProfileTests(unittest.TestCase):
         self.assertIn("canonical-stable-mvp", publish)
         self.assertIn("evidence_scope=development", publish)
         self.assertIn("runtime_sha256=$VERIFIED_RUNTIME_SHA256", publish)
-        self.assertIn('if [ "$VERIFIED_RUNTIME_MODE" = "verified-erofs-overlay" ]; then', publish)
+        self.assertIn('[ "$VERIFIED_RUNTIME_MODE" = "verified-erofs-overlay" ] || return 1', publish)
         self.assertIn('chmod 600 "$temporary"', publish)
         self.assertIn('rm -f "$RUNTIME_PROOF_CONTEXT"', text)
         self.assertLess(
