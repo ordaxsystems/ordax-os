@@ -78,7 +78,12 @@ test('Windows Dev stages and compiles two real OS/Surface revisions then rolls b
   t.after(()=>rmSync(root,{recursive:true,force:true,maxRetries:5,retryDelay:150}));
   const original=join(root,'original-os'), visual=join(root,'original-surface');
   const userData=join(root,'userdata');
-  const template=join(__dirname,'../..');
+  // The same test runs once with source dependencies and once against the
+  // actual installed NSIS runtime-template protected from writes.
+  const template=process.env.ORDAX_DESKTOP_TEST_PACKAGED_TEMPLATE ||
+    join(__dirname,'../..');
+  assert.equal(existsSync(join(template,'node_modules','vite','bin','vite.js')),true,
+    'Exact installed Dev update compiler must be available');
   initGit(visual,'https://github.com/ordaxsystems/ordax-surface.git');
   surfaceFiles(visual,'one');
   const surfaceOne=commit(visual,'First verified Surface');

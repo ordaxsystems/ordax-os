@@ -92,7 +92,7 @@ async function buildNativeCandidate(root,template,{log=()=>{},timeoutMs=120000,m
   }
   dependencies(root,template);
   const receipt=await materializeSurface(root,sourceReceipt=>new Promise((resolve,reject)=>{
-    const child=spawn(process.execPath,[vite,'build','--config',config],{
+    const child=spawn(process.execPath,[vite,'build','--config',config,'--configLoader','native'],{
       cwd:root,windowsHide:true,
       env:{...process.env,ELECTRON_RUN_AS_NODE:'1'},
       stdio:['ignore','pipe','pipe'],

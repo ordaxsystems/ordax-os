@@ -201,7 +201,19 @@ try {
   catch [System.UnauthorizedAccessException] { $writeWasBlocked = $true }
   if (-not $writeWasBlocked) { throw "Installed runtime test lacks write protection" }
   Write-Output "READONLY_RUNTIME_SMOKE=PASS"
-
+  # The exact installed toolchain must compile a second OS/Surface SHA without
+  # mutating its protected node_modules (historical .vite-temp EPERM defect).
+  $priorTemplate = $env:ORDAX_DESKTOP_TEST_PACKAGED_TEMPLATE
+  try {
+    $env:ORDAX_DESKTOP_TEST_PACKAGED_TEMPLATE = Join-Path $resources "runtime-template"
+    & node --test "tools/windows-desktop/dev-update-real-build.test.cjs"
+    if ($LASTEXITCODE -ne 0) {
+      throw "Installed, read-only Windows Dev update Vite toolchain failed"
+    }
+    Write-Output "INSTALLED_READONLY_DEV_UPDATE_SMOKE=PASS"
+  } finally {
+    $env:ORDAX_DESKTOP_TEST_PACKAGED_TEMPLATE = $priorTemplate
+  }
 
   # The installer is not homologated until its actual packaged Electron host
   # boots the canonical Native Surface from the installed, read-only runtime.
