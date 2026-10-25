@@ -40,6 +40,28 @@ test("staged source, active source and pinned rollback produce real canonical ph
   assert.equal(projectDesktopUpdateState({...state,pendingSha:null,rejectedSha:b}).status,"rejected");
 });
 
+test("incompatible official revision is visible without fabricating a release or hiding known-good", async t => {
+  const root=mkdtempSync(join(tmpdir(),"ordax-desktop-incompatible-"));
+  t.after(()=>rmSync(root,{recursive:true,force:true}));
+  const state={schema:"ordax.desktop-dev-update-state/1",activeSha:a,
+    previousSha:null,pendingSha:null,attemptedSha:null,pinnedSha:null,
+    rejectedSha:null,incompatibleSha:b};
+  writeFileSync(join(root,"desktop-dev-update-state.json"),JSON.stringify(state));
+  const snap=await readDesktopUpdateStatus(root);
+  assert.equal(snap.sourceSha,a);
+  assert.equal(snap.targetSha,b);
+  assert.equal(snap.status,"running");
+  assert.equal(snap.phase,"blocked");
+  assert.equal(snap.updateTransport,"git-main");
+  assert.equal(snap.deliveryNumber,0);
+  assert.match(snap.lastError,/contrato Desktop/);
+  writeFileSync(join(root,"desktop-dev-update-state.json"),
+    JSON.stringify({...state,incompatibleSha:"../../bad"}));
+  const rejected=await readDesktopUpdateStatus(root);
+  assert.equal(rejected.status,"unavailable");
+  assert.equal(rejected.phase,"error");
+});
+
 test("corrupt update journals fail closed; never expose successful update state", async t => {
   const root = mkdtempSync(join(tmpdir(),"ordax-desktop-corrupt-"));
   t.after(()=>rmSync(root,{recursive:true,force:true}));
