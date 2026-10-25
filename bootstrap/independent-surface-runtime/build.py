@@ -69,7 +69,7 @@ def contracts() -> tuple[dict, dict]:
         raise SurfaceBuildError("unexpected independent Surface runtime schema")
     if source.get("status") != "experimental-not-promotable":
         raise SurfaceBuildError("independent Surface runtime may not be promotable")
-    if source.get("buildroot_source_contract") != str(BASE_SOURCE.relative_to(ROOT)):
+    if source.get("buildroot_source_contract") != BASE_SOURCE.relative_to(ROOT).as_posix():
         raise SurfaceBuildError("Buildroot source SSOT drift")
     if source.get("architecture") != "x86_64" or source.get("libc") != "musl":
         raise SurfaceBuildError("independent Surface runtime architecture/libc drift")

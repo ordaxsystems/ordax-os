@@ -50,7 +50,7 @@ def load_builder():
 def kernel_version() -> str:
     source = load(SOURCE)
     kernel = load(KERNEL)
-    expected = str(KERNEL.relative_to(ROOT))
+    expected = KERNEL.relative_to(ROOT).as_posix()
     if source.get("kernel_source_contract") != expected:
         raise ConfigError("Independent Surface kernel source SSOT drift")
     if kernel.get("$schema") != "prototype-ordax.kernel-source/1":
