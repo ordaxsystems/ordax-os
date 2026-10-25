@@ -96,6 +96,7 @@ class IndependentSurfaceRuntimeTests(unittest.TestCase):
             "BR2_PACKAGE_PIPEWIRE=y",
             "BR2_PACKAGE_PIPEWIRE_GSTREAMER=y",
             "BR2_PACKAGE_PULSEAUDIO=y",
+            "BR2_PACKAGE_LUA=y",
             "BR2_PACKAGE_LUA_5_4=y",
             "BR2_PACKAGE_WIREPLUMBER=y",
             "BR2_PACKAGE_DBUS=y",
