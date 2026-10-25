@@ -69,6 +69,33 @@ class IndependentSurfaceRuntimeTests(unittest.TestCase):
         self.assertIn("bin/udevadm", source["required_runtime_paths"])
         self.assertIn("usr/lib/udev/rules.d/60-input-id.rules", source["required_runtime_paths"])
 
+    def test_ssot_paths_remain_posix_when_host_paths_are_windows_style(self):
+        # Signed contracts use slash-separated paths on Linux and Windows.
+        from pathlib import PureWindowsPath
+        from unittest import mock
+
+        with mock.patch.object(
+            Path, "relative_to",
+            return_value=PureWindowsPath(r"bootstrap\independent-base\source.json"),
+        ):
+            source, _ = self.builder.contracts()
+        self.assertEqual(
+            source["buildroot_source_contract"],
+            "bootstrap/independent-base/source.json",
+        )
+
+        config_path = ROOT / "bootstrap/independent-surface-runtime/prepare_config.py"
+        spec = importlib.util.spec_from_file_location("surface_ssot_config", config_path)
+        self.assertIsNotNone(spec)
+        self.assertIsNotNone(spec.loader)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        with mock.patch.object(
+            Path, "relative_to",
+            return_value=PureWindowsPath(r"bootstrap\kernel\source.json"),
+        ):
+            self.assertRegex(module.kernel_version(), r"^\d+\.\d+\.\d+$")
+
     def test_profile_selects_full_graphical_parity_without_package_manager(self):
         text = CONFIG_PATH.read_text(encoding="utf-8")
         for marker in (
