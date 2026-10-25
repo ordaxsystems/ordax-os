@@ -87,6 +87,18 @@ class IndependentSurfaceRuntimeTests(unittest.TestCase):
             "BR2_PACKAGE_PYTHON_GOBJECT=y",
             "BR2_PACKAGE_XWAYLAND=y",
             "BR2_PACKAGE_SEATD=y",
+            "BR2_PACKAGE_GSTREAMER1=y",
+            "BR2_PACKAGE_GSTREAMER1_INSTALL_TOOLS=y",
+            "BR2_PACKAGE_GST1_PLUGINS_BASE=y",
+            "BR2_PACKAGE_GST1_PLUGINS_GOOD=y",
+            "BR2_PACKAGE_GST1_PLUGINS_GOOD_PLUGIN_PULSE=y",
+            "BR2_PACKAGE_GST1_LIBAV=y",
+            "BR2_PACKAGE_PIPEWIRE=y",
+            "BR2_PACKAGE_PIPEWIRE_GSTREAMER=y",
+            "BR2_PACKAGE_PULSEAUDIO=y",
+            "BR2_PACKAGE_LUA_5_4=y",
+            "BR2_PACKAGE_WIREPLUMBER=y",
+            "BR2_PACKAGE_DBUS=y",
         ):
             self.assertIn(marker, text)
         upper = text.upper()
@@ -94,6 +106,24 @@ class IndependentSurfaceRuntimeTests(unittest.TestCase):
         self.assertNotIn("BR2_PACKAGE_OPKG", upper)
         self.assertNotIn("BR2_PACKAGE_RPM", upper)
         self.assertNotIn("BR2_STATIC_LIBS=Y", upper)
+
+    def test_buildroot_runtime_preserves_media_probe_dependencies(self):
+        # Audio/video capabilities formerly provided by APK must be part
+        # of the same immutable Buildroot Surface artifact.
+        expected = {
+            "usr/bin/gst-inspect-1.0",
+            "usr/bin/gst-launch-1.0",
+            "usr/bin/pipewire",
+            "usr/bin/wireplumber",
+            "usr/bin/pactl",
+            "usr/lib/gstreamer-1.0/libgstpipewire.so",
+            "usr/lib/gstreamer-1.0/libgstpulse.so",
+            "usr/lib/gstreamer-1.0/libgstlibav.so",
+        }
+        self.assertTrue(expected.issubset(self.source["required_runtime_paths"]))
+        for config_option in self.builder.GRAPHICAL_KCONFIG_REQUIRED:
+            self.assertIn(config_option, CONFIG_PATH.read_text(encoding="utf-8"))
+        self.assertNotIn("BR2_PACKAGE_PULSEAUDIO_DAEMON=y", CONFIG_PATH.read_text(encoding="utf-8"))
 
     def test_builder_preserves_existing_surface_eudev_path_abi(self):
         tar_path = self.make_tar(self.buildroot_like_paths())

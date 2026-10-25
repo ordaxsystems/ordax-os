@@ -20,7 +20,15 @@
     "bin/busybox",
     "usr/lib/girepository-1.0/Gtk-3.0.typelib",
     "usr/lib/girepository-1.0/WebKit2-4.1.typelib",
-    "usr/lib/udev/rules.d/60-input-id.rules"
+    "usr/lib/udev/rules.d/60-input-id.rules",
+    "usr/bin/gst-inspect-1.0",
+    "usr/bin/gst-launch-1.0",
+    "usr/bin/pipewire",
+    "usr/bin/wireplumber",
+    "usr/bin/pactl",
+    "usr/lib/gstreamer-1.0/libgstpipewire.so",
+    "usr/lib/gstreamer-1.0/libgstpulse.so",
+    "usr/lib/gstreamer-1.0/libgstlibav.so"
   ],
   "forbidden_runtime_paths": [
     "sbin/apk",
