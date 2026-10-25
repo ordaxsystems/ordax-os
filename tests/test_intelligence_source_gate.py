@@ -31,7 +31,7 @@ class IntelligenceSourceGateTests(unittest.TestCase):
         for name in source.EXPECTED:
             f=self.checkout/name
             f.parent.mkdir(parents=True,exist_ok=True)
-            f.write_text("export const verified = 1;\\n",encoding="utf-8")
+            f.write_text("export const verified = 1;\n",encoding="utf-8")
         git(self.checkout,"add","src")
         git(self.checkout,"commit","-qm","source fixture")
         self.lock={
@@ -69,11 +69,11 @@ class IntelligenceSourceGateTests(unittest.TestCase):
         with self.assertRaisesRegex(source.IntelligenceSourceError,"pinned source blob"):
             self.verify()
     def test_rejects_untracked_edits_and_extra_tracked_code(self):
-        (self.checkout/"src/index.mjs").write_text("export const injected = true;\\n",encoding="utf-8")
+        (self.checkout/"src/index.mjs").write_text("export const injected = true;\n",encoding="utf-8")
         with self.assertRaisesRegex(source.IntelligenceSourceError,"modified"):
             self.verify()
         git(self.checkout,"checkout","--","src/index.mjs")
-        (self.checkout/"src/new-secret.mjs").write_text("export const extra=1;\\n",encoding="utf-8")
+        (self.checkout/"src/new-secret.mjs").write_text("export const extra=1;\n",encoding="utf-8")
         with self.assertRaisesRegex(source.IntelligenceSourceError,"modified"):
             self.verify()
         git(self.checkout,"add","src/new-secret.mjs")
