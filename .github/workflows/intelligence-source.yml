@@ -5,6 +5,8 @@ on:
       - 'docs/contracts/intelligence-source.json'
       - 'tools/intelligence-source/**'
       - 'tests/test_intelligence_composed_runtime.mjs'
+      - 'tests/test_native_release_intelligence_source.py'
+      - 'tools/native-release-assembly/build.py'
       - 'tests/test_intelligence_source_gate.py'
       - 'tests/test_intelligence_external_integration.mjs'
       - '.github/workflows/intelligence-source.yml'
@@ -14,6 +16,8 @@ on:
       - 'docs/contracts/intelligence-source.json'
       - 'tools/intelligence-source/**'
       - 'tests/test_intelligence_composed_runtime.mjs'
+      - 'tests/test_native_release_intelligence_source.py'
+      - 'tools/native-release-assembly/build.py'
       - 'tests/test_intelligence_source_gate.py'
       - '.github/workflows/intelligence-source.yml'
 permissions:
@@ -52,6 +56,24 @@ jobs:
             --os-root "${RUNNER_TEMP}/ordax-surface-assembled" \
             --intelligence-stage "${RUNNER_TEMP}/ordax-intelligence-stage" \
             --out-root "${RUNNER_TEMP}/ordax-intelligence-composed"
+      - name: Validate Native release candidate against exact Intelligence source pin
+        run: |
+          python -m unittest discover -s tests -p 'test_native_release_intelligence_source.py' -v
+          python - <<'PY'
+          import importlib.util
+          import os
+          from pathlib import Path
+          spec=importlib.util.spec_from_file_location("native_assembler", "tools/native-release-assembly/build.py")
+          module=importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(module)
+          candidate=Path(os.environ["RUNNER_TEMP"]) / "ordax-intelligence-composed/system"
+          receipt=module.verify_external_intelligence_system(candidate)
+          surface=module.verify_external_surface_system(candidate)
+          assert receipt["source_repository"] == "ordaxsystems/ordax-intelligence"
+          assert receipt["activation_authorized"] is False
+          assert surface["old_os_visual_source_packaged"] is False
+          print("NATIVE_INTELLIGENCE_SOURCE_PROOF=PASS")
+          PY
       - name: Prove Native components use external source without bundled legacy bodies
         env:
           ORDAX_INTELLIGENCE_COMPOSED_ROOT: ${{ runner.temp }}/ordax-intelligence-composed
