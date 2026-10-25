@@ -121,9 +121,16 @@ class IndependentSurfaceRuntimeTests(unittest.TestCase):
             "usr/lib/gstreamer-1.0/libgstlibav.so",
         }
         self.assertTrue(expected.issubset(self.source["required_runtime_paths"]))
-        for config_option in self.builder.GRAPHICAL_KCONFIG_REQUIRED:
-            self.assertIn(config_option, CONFIG_PATH.read_text(encoding="utf-8"))
-        self.assertNotIn("BR2_PACKAGE_PULSEAUDIO_DAEMON=y", CONFIG_PATH.read_text(encoding="utf-8"))
+        config = CONFIG_PATH.read_text(encoding="utf-8")
+        # Buildroot's python-gobject Kconfig selects GObject Introspection;
+        # its derived symbol belongs in the resolved-Kconfig verifier, not
+        # necessarily in the source defconfig.
+        self.assertIn("BR2_PACKAGE_PYTHON_GOBJECT=y", config)
+        self.assertIn(
+            "BR2_PACKAGE_GOBJECT_INTROSPECTION=y",
+            self.builder.GRAPHICAL_KCONFIG_REQUIRED,
+        )
+        self.assertNotIn("BR2_PACKAGE_PULSEAUDIO_DAEMON=y", config)
 
     def test_builder_preserves_existing_surface_eudev_path_abi(self):
         tar_path = self.make_tar(self.buildroot_like_paths())
