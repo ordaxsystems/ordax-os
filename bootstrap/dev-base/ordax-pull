@@ -197,8 +197,21 @@ acquire_runtime_candidate_blobs() {
     # Force only the shared sparse allowlist into the already validated local
     # object database; Git lazily acquires missing promisor blobs if required.
     # The tar stream is discarded; it does not touch the live checkout.
-    candidate_paths=$(runtime_sparse_paths | sed 's@^/@@')
-    set -- $candidate_paths
+    # Sparse paths describe a superset across historical Owner revisions.
+    # An exact commit may legitimately predate newer source-lock files.
+    # Archive only paths actually present in that commit, never an untrusted
+    # worktree file; this also forces every present promisor blob to resolve.
+    set --
+    for requested in $(runtime_sparse_paths | sed 's@^/@@'); do
+        if git -C "$WORKTREE" ls-tree --name-only "$candidate_sha" -- "$requested" |
+            grep -q .; then
+            set -- "$@" "$requested"
+        fi
+    done
+    [ "$#" -gt 0 ] || {
+        echo "ordax-git: entrega sem paths de runtime; checkout local preservado" >&2
+        return 1
+    }
     if ! run_bounded_git -C "$WORKTREE" archive --format=tar "$candidate_sha" "$@" >/dev/null; then
         echo "ordax-git: blobs da entrega nao puderam ser obtidos; checkout local preservado" >&2
         return 1
