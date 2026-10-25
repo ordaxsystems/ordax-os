@@ -135,3 +135,17 @@ atualização do app Windows.**
 ### Alpha.6 — evidência
 
 CI Windows [#39446071435](https://github.com/ordaxsystems/ordax-os/actions/runs/39446071435) passou NSIS, read-only, rede Desktop e Native montada. Instalação 83,4 s e startup 6,5 s no runner. A porcentagem do instalador e o canal MVP assinado continuam pendentes. O materializador Git só ficará operacional contra `main` após o contrato Desktop ser integrado à fonte oficial, sem promover a PR inacabada.
+
+## Dependências Node no instalador de desenvolvimento
+
+O instalador Windows mantém o Vite necessário para compilar, com verificação, uma
+nova revisão da mesma Surface. O empacotamento **não** distribui toda a árvore
+`node_modules` de desenvolvimento: `runtime-toolchain.cjs` projeta a partir
+do `package.json` e do `package-lock.json` canônicos somente o fechamento das
+dependências de produção mais Vite (incluindo as dependências nativas opcionais
+da plataforma instalada). O resultado é gerado em `out/windows-desktop-toolchain/`
+e não cria outro lock, outra implementação visual ou outro owner de atualização.
+
+A prova do NSIS continua compilando dois commits Git OS/Surface com essas
+**exatas dependências empacotadas e protegidas contra escrita**. Sem aprovação
+desse gate, não considerar o instalador leve ou homologado.

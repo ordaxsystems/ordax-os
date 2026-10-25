@@ -63,7 +63,7 @@
         "to": "runtime-template/docs/contracts/distribution-profiles.json"
       },
       {
-        "from": "../../node_modules",
+        "from": "../../out/windows-desktop-toolchain/node_modules",
         "to": "runtime-template/node_modules",
         "filter": [
           "**/*"
