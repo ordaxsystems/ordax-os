@@ -59,7 +59,9 @@ test("Windows Desktop first-run and preferences require Electron-only state gran
     const before=await readFile(join(dir,"native-state.json"),"utf8");
     locked=true;
     for(const path of STATE_ROUTES){
-      assert.equal((await h.trusted(path)).status,423,path);
+      // Authorized bootstrap reads must continue to mount the unlock UI.
+      assert.equal((await h.trusted(path)).status,200,path);
+      assert.equal((await h.direct(path)).status,401,path);
       assert.equal((await h.trusted(path,{method:"POST",
         headers:{"Content-Type":"application/json"},body:"{}",
       })).status,423,path);
@@ -67,7 +69,8 @@ test("Windows Desktop first-run and preferences require Electron-only state gran
     assert.equal(await readFile(join(dir,"native-state.json"),"utf8"),before);
     await h.close();h=null;
     h=await startHost(dir,{sessionLocked:()=>locked});
-    assert.equal((await h.trusted("/__ordax/native/preferences")).status,423);
+    assert.equal((await h.trusted("/__ordax/native/preferences")).status,200);
+    assert.equal((await h.direct("/__ordax/native/preferences")).status,401);
     locked=false;
     assert.equal((await (await h.trusted("/__ordax/native/preferences")).json())["regional.locale"],"pt-BR");
     assert.equal((await h.trusted("/__ordax/native/preferences",{method:"POST",

@@ -96,7 +96,10 @@ export function createEmulatorNativeHost({
       if (request.url!==path)return reply(400,{error:"Query not supported"});
     }
     try {
-      if (authorizedStateToken && sessionLocked && await sessionLocked())
+      // The trusted Surface needs read-only preferences/first-run state
+      // BEFORE mounting the unlock screen. Lock mutations, not bootstrap.
+      if (authorizedStateToken && sessionLocked && request.method==="POST" &&
+          await sessionLocked())
         return reply(423,{error:"OrdaX Desktop session locked"});
       if (request.method === "GET" && route) {
         await queue;

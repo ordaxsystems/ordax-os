@@ -154,8 +154,10 @@ No `.exe` Windows, as três rotas canônicas de estado
 256 bits**, independente dos grants Files, Conta e identidade. O Electron
 retira qualquer header fornecido pela página e somente o injeta na
 WebContents Native do próprio OrdaX; localhost externo recebe HTTP 401.
-A sessão OrdaX bloqueada retorna 423 para leitura e escrita, e estado
-corrompido continua indisponível em vez de ser recriado.
+A sessão OrdaX bloqueada retorna 423 para **escrita**, mas mantém
+leitura somente à Surface autorizada, pois a inicialização precisa
+restaurar preferências e o recibo de Primeiro Uso antes de montar a tela
+de desbloqueio. Estado corrompido continua indisponível sem ser recriado.
 
 O endpoint administrativo `/__ordax/emulator/reset-first-run` agora é
 estritamente de desenvolvimento visual e **não existe no host Desktop
