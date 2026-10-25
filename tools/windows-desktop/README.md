@@ -94,6 +94,23 @@ expirar e revogar a sessão. Não é uma prova de login remoto real em produçã
 esse E2E ainda exige uma conta de teste autorizada e um restart físico do
 aplicativo instalado. O DPAPI não é uma chave transportável entre máquinas.
 
+## Sessão local Native no Windows
+
+O host instalado implementa o contrato `ordax.local-session/1` com credencial
+derivada via scrypt e registro durável, incluindo estado bloqueado, tentativa
+incorreta com limitação de ritmo, desbloqueio e remoção autenticada. A credencial
+em texto puro não é persistida. Cada execução do Electron gera um token local
+distinto do token de Files; somente a WebContents Surface pode receber a
+autorização, injetada pelo próprio host nos requests da rota Native. Qualquer
+cliente localhost sem o token recebe HTTP 401.
+
+Com a sessão bloqueada, as rotas de Conta/sync e Files recusam operações
+(HTTP 423); falha de integridade do registro impede abrir os dados (503).
+O bloqueio é **de Surface/sessão OrdaX**, e não substitui a segurança de disco,
+login do Windows, nem a revogação da Conta. Os demais brokers privilegiados
+ainda precisam de adaptadores Windows e controles próprios. O emulador visual
+não adquire essa autoridade.
+
 ## Composição canônica
 
 - A mesma Surface e apps vêm de `system/`; não criar telas ou serviços
