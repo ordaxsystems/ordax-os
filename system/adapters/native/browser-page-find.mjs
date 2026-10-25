@@ -1,4 +1,4 @@
-import { hasNativeHostBridge, postNativeHostMessage } from "./host-bridge.mjs";
+import { hasBrowserHostTransport, postBrowserHostCommand } from "./browser-host-transport.mjs";
 import {
   BROWSER_PAGE_FIND_PORT_SCHEMA,
   assertBrowserPageFindPort,
@@ -10,14 +10,14 @@ import {
 const EVENT_NAME = "ordax-browser-host";
 
 export function createNativeBrowserPageFind(windowRef = globalThis.window) {
-  if (!hasNativeHostBridge(windowRef)) return null;
+  if (!hasBrowserHostTransport(windowRef)) return null;
   const listeners = new Set();
   let disposed = false;
   const post = (type, tabId, query = null) => {
     if (disposed) return false;
     validatePageFindTabId(tabId);
     if (type === "page-find.search") validatePageFindQuery(query);
-    postNativeHostMessage(
+    postBrowserHostCommand(
       windowRef,
       type === "page-find.search" ? { type, tabId, query } : { type, tabId },
     );

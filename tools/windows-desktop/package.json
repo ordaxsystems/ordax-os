@@ -1,0 +1,107 @@
+{
+  "name": "ordax-os-desktop-dev",
+  "private": true,
+  "version": "0.1.0-alpha.20",
+  "description": "Installable Windows development host for the canonical OrdaX Native Surface",
+  "main": "main.cjs",
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test *.test.cjs",
+    "dist:win": "electron-builder --win nsis --x64"
+  },
+  "devDependencies": {
+    "electron": "^40.0.0",
+    "electron-builder": "^26.0.12"
+  },
+  "build": {
+    "appId": "dev.ordax.os.desktop",
+    "productName": "OrdaX OS Desktop Dev",
+    "artifactName": "OrdaX-OS-Desktop-Dev-${version}-${arch}.${ext}",
+    "directories": {
+      "output": "../../out/windows-desktop-installer"
+    },
+    "files": [
+      "main.cjs",
+      "package.json",
+      "runtime.cjs",
+      "checkout.cjs",
+      "dev-update.cjs",
+      "host.cjs",
+      "browser-host.cjs",
+      "browser-preload.cjs",
+      "native-build.cjs",
+      "surface-stage.cjs"
+    ],
+    "extraResources": [
+      {
+        "from": "../../system",
+        "to": "runtime-template/system",
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
+        "from": "../windows-emulator",
+        "to": "runtime-template/tools/windows-emulator",
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
+        "from": "../surface-web",
+        "to": "runtime-template/tools/surface-web",
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
+        "from": "../../package.json",
+        "to": "runtime-template/package.json"
+      },
+      {
+        "from": "../../docs/contracts/distribution-profiles.json",
+        "to": "runtime-template/docs/contracts/distribution-profiles.json"
+      },
+      {
+        "from": "../../out/windows-desktop-toolchain/node_modules",
+        "to": "runtime-template/node_modules",
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
+        "from": "../../out/windows-desktop-native",
+        "to": "runtime-template/desktop-assets",
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
+        "from": "../../docs/contracts/surface-source.json",
+        "to": "runtime-template/docs/contracts/surface-source.json"
+      }
+    ],
+    "asar": true,
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": false,
+      "perMachine": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "include": "installer.nsh",
+      "deleteAppDataOnUninstall": false,
+      "selectPerMachineByDefault": false
+    },
+    "publish": null
+  }
+}

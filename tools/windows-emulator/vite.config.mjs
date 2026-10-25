@@ -7,6 +7,7 @@ import { nativeEmulatorPlugin } from "./native-host.mjs";
 const repoRoot = resolve(fileURLToPath(new URL("../..", import.meta.url)));
 const surfaceWorkspace = fileURLToPath(new URL("../../system/surface/workspace", import.meta.url));
 const surfaceBrand = fileURLToPath(new URL("../../system/surface/ui/brand", import.meta.url));
+const stateDirectory = process.env.ORDAX_EMULATOR_STATE_DIR ?? resolve(repoRoot, "out/windows-emulator-state");
 const accountGatewayOrigin = readFileSync(resolve(repoRoot, "system/services/account/gateway-base-url"), "utf8").trim();
 
 const emulatorHost = process.env.ORDAX_EMULATOR_HOST ?? "127.0.0.1";
@@ -14,7 +15,9 @@ const emulatorHost = process.env.ORDAX_EMULATOR_HOST ?? "127.0.0.1";
 export default defineConfig({
   root: repoRoot,
   appType: "mpa",
-  plugins: [nativeEmulatorPlugin(resolve(repoRoot, "out/windows-emulator-state"), { accountGatewayOrigin })],
+  // Never write optimized deps into a packaged, read-only Program Files runtime.
+  cacheDir: resolve(stateDirectory, "vite-cache"),
+  plugins: [nativeEmulatorPlugin(stateDirectory, { desktopHost: process.env.ORDAX_DESKTOP_HOST === "1", accountGatewayOrigin })],
   optimizeDeps: { noDiscovery: true, include: [] },
   resolve: {
     alias: {
@@ -24,7 +27,7 @@ export default defineConfig({
   },
   server: {
     host: emulatorHost,
-    port: 4202,
+    port: Number.parseInt(process.env.ORDAX_EMULATOR_PORT ?? "4202", 10),
     strictPort: true,
     fs: {
       allow: [repoRoot],

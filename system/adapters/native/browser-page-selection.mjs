@@ -1,4 +1,4 @@
-import { hasNativeHostBridge, postNativeHostMessage } from "./host-bridge.mjs";
+import { hasBrowserHostTransport, postBrowserHostCommand } from "./browser-host-transport.mjs";
 import {
   BROWSER_PAGE_SELECTION_PORT_SCHEMA,
   assertBrowserPageSelectionPort,
@@ -10,7 +10,7 @@ const CAPTURE_TIMEOUT_MS = 12000;
 const TAB_ID_RE = /^[a-z][a-z0-9-]{0,63}$/;
 
 export function createNativeBrowserPageSelection(windowRef = globalThis.window) {
-  if (!hasNativeHostBridge(windowRef)) return null;
+  if (!hasBrowserHostTransport(windowRef)) return null;
   let disposed = false;
   let ordinal = 0;
   const pending = new Map();
@@ -61,7 +61,7 @@ export function createNativeBrowserPageSelection(windowRef = globalThis.window) 
         );
         pending.set(requestId, { tabId, timeout, resolve, reject });
         try {
-          postNativeHostMessage(windowRef, {
+          postBrowserHostCommand(windowRef, {
             type: "page-selection.capture", requestId, tabId,
           });
         } catch (error) {
