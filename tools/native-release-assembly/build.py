@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import importlib.util
 import json
 import os
 from pathlib import Path
@@ -200,6 +201,78 @@ def verify_external_surface_system(system_source: Path) -> dict:
         raise AssemblyError("external Native visual source fingerprint mismatch")
     return receipt
 
+def verify_external_intelligence_system(system_source: Path, *, lock_path: Path | None = None) -> dict:
+    """Prove that a disposable Native tree has exactly one pinned Intelligence owner.
+
+    Uses the existing OS source verifier and wrapper graph; never imports a model,
+    executes untrusted source, or changes the source or device.
+    """
+    path = Path(__file__).resolve().parents[2] / "tools/intelligence-source/compose.py"
+    spec = importlib.util.spec_from_file_location("ordax_native_intelligence_source_proof", path)
+    if spec is None or spec.loader is None:
+        raise AssemblyError("canonical Intelligence verifier is unavailable")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    try:
+        lock = module.source.load_lock(lock_path) if lock_path is not None else module.source.load_lock()
+    except (ValueError, OSError) as exc:
+        raise AssemblyError("canonical Intelligence source lock is invalid") from exc
+    base = system_source / "intelligence-source"
+    receipt_path = base / "source-provenance.json"
+    if base.is_symlink() or not base.is_dir() or receipt_path.is_symlink() or not receipt_path.is_file():
+        raise AssemblyError("Native Intelligence source requires verified external provenance")
+    try:
+        receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        raise AssemblyError("Native Intelligence receipt is invalid") from exc
+    expected = set(module.source.EXPECTED)
+    entries = list(base.rglob("*"))
+    files = set()
+    for entry in entries:
+        if entry.is_symlink():
+            raise AssemblyError("Native Intelligence source contains a symlink")
+        if entry.is_file():
+            files.add(entry.relative_to(base).as_posix())
+        elif not entry.is_dir():
+            raise AssemblyError("Native Intelligence source contains a special file")
+    if files != expected | {"source-provenance.json"}:
+        raise AssemblyError("Native Intelligence source contains missing or injected files")
+    fingerprint = hashlib.sha256()
+    for name in sorted(expected):
+        blob = (base / name).read_bytes()
+        if len(blob) > module.source.MAX_FILE_BYTES or module.source.git_blob_sha(blob) != lock["source_paths"][name]:
+            raise AssemblyError("Native Intelligence source blob differs from immutable OS pin")
+        fingerprint.update(name.encode("utf-8") + b"\0" + hashlib.sha256(blob).digest())
+    for name, wrapper in module.WRAPPERS.items():
+        file = system_source.parent / name
+        if file.is_symlink() or not file.is_file() or file.read_text(encoding="utf-8") != wrapper:
+            raise AssemblyError("Native Intelligence wrapper is missing or contains legacy implementation")
+    if (
+        receipt.get("$schema") != "ordax.intelligence-disposable-composition/1"
+        or receipt.get("source_repository") != module.source.REPO
+        or receipt.get("source_commit") != lock["source_commit"]
+        or receipt.get("source_sha256") != fingerprint.hexdigest()
+        or receipt.get("replaced_services") != sorted(module.WRAPPERS)
+        or receipt.get("legacy_implementation_bytes_packaged") is not False
+        or receipt.get("activation_authorized") is not False
+        or receipt.get("os_checkout_mutated") is not False
+        or receipt.get("surface_ownership_unchanged") is not True
+        or receipt.get("memory_ownership_unchanged") is not True
+    ):
+        raise AssemblyError("Native Intelligence provenance differs from verified source and OS policy")
+    return receipt
+
+
+def intelligence_binding(receipt: dict) -> dict:
+    return {
+        "source_repository": receipt["source_repository"],
+        "source_commit": receipt["source_commit"],
+        "source_sha256": receipt["source_sha256"],
+        "legacy_implementation_bytes_packaged": False,
+        "activation_authorized": False,
+    }
+
+
 def copy_system_tree(destination: Path, system_source: Path = SYSTEM) -> Path:
     target = destination / "system"
     shutil.copytree(
@@ -272,6 +345,7 @@ def write_provenance(
     destination: Path,
     built_helpers: list[tuple[dict, Path]],
     source_commit: str,
+    intelligence: dict | None = None,
 ) -> Path:
     provenance = {
         "$schema": SCHEMA,
@@ -288,6 +362,8 @@ def write_provenance(
             for spec, helper in built_helpers
         ],
     }
+    if intelligence is not None:
+        provenance["intelligence_source"] = intelligence_binding(intelligence)
     path = destination / PROVENANCE_RELATIVE
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
@@ -298,19 +374,26 @@ def write_provenance(
     return path
 
 
-def assemble(destination: Path, system_source: Path = SYSTEM, creator_source: Path | None = None) -> dict:
+def assemble(destination: Path, system_source: Path = SYSTEM, creator_source: Path | None = None, *, require_external_intelligence: bool = False) -> dict:
     if creator_source is None:
         raise AssemblyError('Native assembly requires an explicit pinned external Creator source')
+    if require_external_intelligence and system_source == SYSTEM:
+        raise AssemblyError("external Intelligence requires a disposable Native release source")
     verify_external_creator_source(creator_source)
     validate_source_tree(system_source, creator_source)
     if system_source != SYSTEM:
         verify_external_surface_system(system_source)
+    intelligence = None
+    if require_external_intelligence:
+        if system_source == SYSTEM:
+            raise AssemblyError("external Intelligence requires a disposable Native release source")
+        intelligence = verify_external_intelligence_system(system_source)
     destination = ensure_clean_destination(destination)
     destination.mkdir(mode=0o755)
     copy_system_tree(destination, system_source)
     built_helpers = [(spec, build_helper(destination, spec, creator_source)) for spec in HELPERS]
     source_commit = git_head()
-    provenance = write_provenance(destination, built_helpers, source_commit)
+    provenance = write_provenance(destination, built_helpers, source_commit, intelligence)
     tools = [tool_provenance(spec, helper) for spec, helper in built_helpers]
     return {
         "schema": SCHEMA,
@@ -320,6 +403,7 @@ def assemble(destination: Path, system_source: Path = SYSTEM, creator_source: Pa
         "helpers": tools,
         "provenance": PROVENANCE_RELATIVE.as_posix(),
         "provenance_sha256": sha256_file(provenance),
+        "intelligence_source": intelligence_binding(intelligence) if intelligence is not None else None,
         "physical_apply_authorized": False,
         "component_publish_authorized": False,
     }
@@ -343,7 +427,7 @@ def verify_tool(destination: Path, spec: dict, record: object) -> dict:
     return expected
 
 
-def verify(destination: Path) -> dict:
+def verify(destination: Path, *, require_external_intelligence: bool = False) -> dict:
     destination = destination.resolve()
     provenance_path = destination / PROVENANCE_RELATIVE
     try:
@@ -372,10 +456,18 @@ def verify(destination: Path) -> dict:
         verify_tool(destination, spec, by_path.get(spec["relative"].as_posix()))
         for spec in HELPERS
     ]
+    bound = provenance.get("intelligence_source")
+    if require_external_intelligence and bound is None:
+        raise AssemblyError("Native release is missing required external Intelligence binding")
+    if bound is not None:
+        checked = verify_external_intelligence_system(destination / "system")
+        if bound != intelligence_binding(checked):
+            raise AssemblyError("Native release Intelligence binding differs from packaged bytes")
     return {
         "status": "verified",
         "source_commit": provenance.get("source_commit"),
         "helpers": verified,
+        "intelligence_source": bound,
         "physical_apply_authorized": False,
         "component_publish_authorized": False,
     }
@@ -388,11 +480,15 @@ def main() -> int:
     assemble_parser.add_argument("--out", type=Path, required=True)
     assemble_parser.add_argument("--system-source", type=Path, default=SYSTEM)
     assemble_parser.add_argument("--creator-source", type=Path, required=True, help="standalone exact-commit Creator checkout; must match canonical OS Native contract")
+    assemble_parser.add_argument("--require-external-intelligence", action="store_true", help="fail closed unless the Native candidate contains verified Intelligence source")
     verify_parser = sub.add_parser("verify")
     verify_parser.add_argument("--root", type=Path, required=True)
+    verify_parser.add_argument("--require-external-intelligence", action="store_true")
     args = parser.parse_args()
     try:
-        result = assemble(args.out, args.system_source, args.creator_source) if args.command == "assemble" else verify(args.root)
+        result = (assemble(args.out, args.system_source, args.creator_source, require_external_intelligence=args.require_external_intelligence)
+                  if args.command == "assemble"
+                  else verify(args.root, require_external_intelligence=args.require_external_intelligence))
         print(json.dumps(result, indent=2, sort_keys=True))
         return 0
     except (AssemblyError, OSError) as exc:

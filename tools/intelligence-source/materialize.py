@@ -125,8 +125,13 @@ def verify_source(root: Path, lock: dict) -> tuple[list[tuple[str, bytes]], dict
 def stage_source(records: list[tuple[str,bytes]], receipt: dict, output: Path, source_root: Path) -> None:
     output = output.absolute()
     parent = output.parent.resolve(strict=True)
+    if source_root.is_symlink():
+        raise IntelligenceSourceError("source checkout must not be linked")
     src = source_root.resolve(strict=True)
-    if os.path.commonpath((str(output), str(src))) == str(src):
+    destination = output.resolve(strict=False)
+    # Resolve every ancestor, not only the final path: an intermediate symlink
+    # must never redirect staging into a source checkout.
+    if os.path.commonpath((str(destination), str(src))) == str(src):
         raise IntelligenceSourceError("staging must not alter source checkout")
     if output.exists() or output.is_symlink():
         raise IntelligenceSourceError("stage cannot overwrite an existing path")

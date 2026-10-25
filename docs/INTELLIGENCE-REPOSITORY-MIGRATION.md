@@ -15,3 +15,14 @@ Este PR não solicita assinatura, ativação, atualização de dispositivo, nem 
 ## Proveniência adicional: builder técnico
 
 A revisão externa fixada foi atualizada para `c3dbb73e7f3cdf9a2043b059d7376fb0a06a1272`. O source gate inclui agora oito blobs, sendo o oitavo `tools/inference-builder/build.py`, que só recebe manifestos/licença de um OS source explicitamente fornecido. A árvore de stage pode conter o builder, mas a implementação de produção `bootstrap/local-ai-runtime/build.py` permanece ativa no OS até corte coordenado, revisão do ABI/EROFS e assinatura. A mudança de source pin não ativa o builder externo nem remove o antigo.
+
+## Gate C — vínculo ao montador Native (candidato não promovido)
+
+O `tools/native-release-assembly/build.py` agora oferece o parâmetro explícito `--require-external-intelligence` em **assemble** e **verify**. Quando solicitado, o verificador exige na árvore descartável:
+
+- Revisão do `ordax-intelligence` igual ao lock OS, com todos os oito blobs e digest agregado exatos.
+- Os cinco wrappers OS equivalentes aos definidos pelo compositor canônico, sem corpos antigos nem arquivos externos injetados.
+- Recibo de montagem com identidade exata e flags de segurança sem autorização de ativação; coexistência com Surface verificada pelo mesmo montador Native.
+- Vínculo gravado na proveniência da montagem; verificação posterior revalida bytes após cópia e detecta adulteração.
+
+O caminho atual de produção mantém o comportamento anterior **sem habilitar essa flag automaticamente**. A CI executa o gate no candidato e prova a política de recusa com testes negativos, sem baixar GGUF, assinar artefatos nem escrever no USB. O cutover real ainda exige sincronizar Creator/Buildroot/Surface, usar essa flag no release canônico, validar o boot inicial offline e remover os cinco corpos legados rastreados no OS no mesmo corte validado.

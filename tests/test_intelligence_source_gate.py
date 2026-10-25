@@ -99,6 +99,16 @@ class IntelligenceSourceGateTests(unittest.TestCase):
         entries,receipt=self.verify()
         with self.assertRaisesRegex(source.IntelligenceSourceError,"must not alter"):
             source.stage_source(entries,receipt,self.checkout/"temporary",self.checkout)
+    def test_cannot_stage_through_intermediate_symlink_into_source(self):
+        entries,receipt=self.verify()
+        inside=self.checkout/"nested"
+        inside.mkdir()
+        alias=self.root/"aliased-source"
+        alias.symlink_to(self.checkout, target_is_directory=True)
+        destination=alias/"nested"/"staged"
+        with self.assertRaisesRegex(source.IntelligenceSourceError,"must not alter"):
+            source.stage_source(entries,receipt,destination,self.checkout)
+        self.assertFalse(destination.exists())
 
 if __name__=="__main__":
     unittest.main()
