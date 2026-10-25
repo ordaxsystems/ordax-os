@@ -96,7 +96,9 @@ def preseed(repo: Path, assembled: Path, rootfs: Path, sha: str) -> dict:
         if pinned.get("status") not in ("integration-candidate", "canonical"):
             raise PreseedError("unrecognized Intelligence source status")
         receipt_path = source / "intelligence-source/source-provenance.json"
-        if pinned["status"] == "canonical" or receipt_path.exists():
+        if pinned["status"] != "canonical" and receipt_path.exists():
+            raise PreseedError("unpromoted Intelligence candidate cannot replace Owner boot code")
+        if pinned["status"] == "canonical":
             module_path = Path(__file__).resolve().parents[2] / "tools/native-release-assembly/build.py"
             spec = importlib.util.spec_from_file_location("ordax_preseed_intelligence_binding", module_path)
             if spec is None or spec.loader is None:
