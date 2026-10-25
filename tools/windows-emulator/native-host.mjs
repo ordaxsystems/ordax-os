@@ -8,13 +8,18 @@ import { readDesktopUpdateStatus, readDesktopUpdateHistory } from "../../system/
 import { readDesktopRecovery } from "../../system/adapters/desktop/recovery-observation.mjs";
 import { createDesktopBuiltAssetsMiddleware } from "./desktop-built-assets.mjs";
 import { createDesktopFileSpaceMiddleware } from "../../system/adapters/desktop/file-space-host.mjs";
+import { createDesktopAccountCookieVault } from "../../system/adapters/desktop/account-cookie-vault.mjs";
 import { createInitialFirstRunState, validateFirstRunState } from "../../system/contracts/first-run-state-store.mjs";
 import { validatePreferenceRecord } from "../../system/contracts/preference-store.mjs";
 import { FIRST_RUN_CURSOR_SCHEMA, validateFirstRunCursor } from "../../system/contracts/first-run-cursor.mjs";
 import { createEmulatorAccountGateway } from "./account-gateway.mjs";
 
-export function createEmulatorNativeHost({ stateDirectory, accountGatewayOrigin = "", fetchImpl = globalThis.fetch }) {
-  const accountMiddleware = createEmulatorAccountGateway({ origin: accountGatewayOrigin, fetchImpl });
+export function createEmulatorNativeHost({
+  stateDirectory, accountGatewayOrigin = "", fetchImpl = globalThis.fetch, cookieVault = null,
+}) {
+  const accountMiddleware = createEmulatorAccountGateway({
+    origin: accountGatewayOrigin, fetchImpl, cookieVault,
+  });
   const file = join(stateDirectory, "native-state.json");
   const initialCursor = () => ({ schema: FIRST_RUN_CURSOR_SCHEMA, step: "welcome" });
   const defaults = () => ({ firstRun: createInitialFirstRunState(), preferences: validatePreferenceRecord({}), cursor: initialCursor() });
@@ -169,7 +174,12 @@ export function nativeEmulatorPlugin(stateDirectory, { desktopHost = false, acco
           }
         });
       }
-      server.middlewares.use(createEmulatorNativeHost({ stateDirectory, accountGatewayOrigin }));
+      const userData = process.env.ORDAX_DESKTOP_UPDATE_USER_DATA;
+      const cookieVault = desktopHost && process.platform === "win32" && userData
+        ? createDesktopAccountCookieVault(userData, accountGatewayOrigin) : null;
+      server.middlewares.use(createEmulatorNativeHost({
+        stateDirectory, accountGatewayOrigin, cookieVault,
+      }));
       // Native's real host serves system/ as its static root.
       server.middlewares.use((request, _response, next) => {
         if (/^\/(?:surface|apps|contracts|services|profile-packs|adapters|composition)\//.test(request.url)) request.url = "/system" + request.url;

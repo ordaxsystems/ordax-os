@@ -76,6 +76,24 @@ diretório isolado, verifica execução do Electron e valida o Runtime com
 dependências não graváveis. O instalador ainda não possui medição e
 porcentagem suficientes; concluir a otimização é um gate pendente.
 
+## Conta Windows — cofre local criptografado
+
+O Desktop Dev instalado reutiliza exatamente o gateway HTTPS canônico de
+Conta. Somente no host Windows instalado, `system/adapters/desktop/account-cookie-vault.mjs`
+protege os cookies de sessão recebidos do gateway com **DPAPI CurrentUser** e
+salva o envelope cifrado no perfil `userData`; o processo Native recupera
+o envelope em uma nova inicialização. Não há cópia de identidade, sessão
+fabricada ou cookies persistidos no renderer/Surface.
+
+O emulador de desenvolvimento continua **somente em memória**; o suporte
+Windows é ativado exclusivamente pelo host Desktop com perfil explícito.
+Uma falha de descriptografia ou troca do gateway bloqueia a autenticação;
+logout local explícito apaga o cofre, inclusive se o envelope estiver
+corrompido. O gateway continua sendo a única autoridade para validar,
+expirar e revogar a sessão. Não é uma prova de login remoto real em produção:
+esse E2E ainda exige uma conta de teste autorizada e um restart físico do
+aplicativo instalado. O DPAPI não é uma chave transportável entre máquinas.
+
 ## Composição canônica
 
 - A mesma Surface e apps vêm de `system/`; não criar telas ou serviços

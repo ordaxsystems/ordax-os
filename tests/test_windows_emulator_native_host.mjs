@@ -10,6 +10,8 @@ import {createNativeFirstRunStateStore} from "../system/adapters/native/first-ru
 import {createWebIdentitySession} from "../system/adapters/web/identity.mjs";
 import {createSameOriginIdentityCredentials} from "../system/adapters/web/identity-credentials.mjs";
 import {completeFirstRunState,createInitialFirstRunState} from "../system/services/state/first-run.mjs";
+// The existing Windows CI suite also runs the DPAPI Desktop account regressions.
+import "./test_windows_desktop_account_vault.mjs";
 
 test("emulator development controls stay hidden unless explicitly requested",async()=>{
   const [html,main]=await Promise.all([

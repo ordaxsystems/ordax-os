@@ -179,9 +179,27 @@ function send(response, status, value = null) {
   response.end(value === null ? undefined : JSON.stringify(value));
 }
 
-export function createEmulatorAccountGateway({ origin = "", fetchImpl = globalThis.fetch } = {}) {
+export function createEmulatorAccountGateway({ origin = "", fetchImpl = globalThis.fetch, cookieVault = null } = {}) {
   const baseUrl = validatedGatewayUrl(origin);
   const cookies = new Map();
+  // Emulator stays memory-only. Only the Windows Desktop host may supply a
+  // user-bound encrypted vault. Never expose its contents to the renderer.
+  let initialization = null;
+  const initialize = () => {
+    // Load lazily when the first authorized request arrives, so a corrupted
+    // vault fails closed with HTTP 503 instead of an unobserved rejection.
+    if (!initialization) initialization = (async () => {
+      if (!cookieVault) return;
+      const restored = await cookieVault.load();
+      if (!(restored instanceof Map)) throw Error("Untrusted Desktop account vault reader");
+      for (const [name, value] of restored) {
+        if (!COOKIE_NAMES.has(name) || typeof value !== "string" || !COOKIE_VALUE_RE.test(value))
+          throw Error("Invalid restored Desktop account cookie");
+        cookies.set(name, value);
+      }
+    })();
+    return initialization;
+  };
   let queue = Promise.resolve();
 
   const serialized = (operation) => {
@@ -211,7 +229,12 @@ export function createEmulatorAccountGateway({ origin = "", fetchImpl = globalTh
     });
     const bytes = new Uint8Array(await result.arrayBuffer());
     if (bytes.byteLength > MAX_RESPONSE_BYTES) throw new Error("Account gateway response is too large");
+    const priorCookies = JSON.stringify([...cookies]);
     for (const cookie of setCookieHeaders(result.headers)) parseSetCookie(cookie, cookies);
+    if (cookieVault && JSON.stringify([...cookies]) !== priorCookies) {
+      try { await cookieVault.save(cookies); }
+      catch { cookies.clear(); throw Error("Secure Desktop account cookie persistence failed"); }
+    }
     return { status: result.status, bytes };
   };
 
@@ -224,6 +247,16 @@ export function createEmulatorAccountGateway({ origin = "", fetchImpl = globalTh
   };
 
   const dispatch = (method, path, search, body) => serialized(async () => {
+    try { await initialize(); }
+    catch (error) {
+      // Explicit local logout must still erase a damaged encrypted cache.
+      // No authenticated server action is claimed without valid cookies.
+      if (method !== "POST" || path !== "/auth/logout" || !cookieVault) throw error;
+      cookies.clear();
+      await cookieVault.save(cookies);
+      initialization = null;
+      return { status: 204, value: null };
+    }
     if (!baseUrl) {
       if (method === "GET" && path === "/auth/session") {
         return { status: 200, value: {
@@ -300,8 +333,13 @@ export function createEmulatorAccountGateway({ origin = "", fetchImpl = globalTh
     }
 
     if (method === "POST" && path === "/auth/logout") {
-      const result = await upstream("POST", path, "", "application/json");
-      cookies.clear();
+      let result;
+      try { result = await upstream("POST", path, "", "application/json"); }
+      finally {
+        // Logout clears local secret state even if the upstream is offline.
+        cookies.clear();
+        if (cookieVault) await cookieVault.save(cookies);
+      }
       return [200, 204, 303].includes(result.status)
         ? { status: 204, value: null }
         : { status: result.status, value: null };
