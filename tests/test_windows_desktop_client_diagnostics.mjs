@@ -76,6 +76,11 @@ test("real Windows diagnostic host shares canonical Native session and stores on
       body:JSON.stringify({sourceSha:"f".repeat(40),stage:"test",errorName:"Error",source:""}),
     })).status,400);
     assert.equal((await host.request("/__ordax/native/client-diagnostic",{
+      method:"POST",headers:{"Content-Type":"application/json",Origin:host.origin,
+        "X-OrdaX-Diagnostic-Token":REPORT},
+      body:JSON.stringify({sourceSha:SOURCE,stage:null,errorName:"Error",source:""}),
+    })).status,400);
+    assert.equal((await host.request("/__ordax/native/client-diagnostic",{
       method:"POST",headers:{"Content-Type":"application/json",Origin:"https://attacker.invalid",
         "X-OrdaX-Diagnostic-Token":REPORT},
       body:JSON.stringify({sourceSha:SOURCE,stage:"test",errorName:"Error",source:""}),

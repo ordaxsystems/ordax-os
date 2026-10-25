@@ -21,8 +21,10 @@ function matchSecret(provided, expected) {
 function validatedReport(input, sha) {
   if(!input || typeof input!=="object" || Array.isArray(input) ||
      Object.keys(input).sort().join(",")!=="errorName,source,sourceSha,stage" ||
-     input.sourceSha!==sha || !STAGE.test(input.stage) ||
-     !ERROR_NAME.test(input.errorName) || !SOURCE.test(input.source)){
+     input.sourceSha!==sha ||
+     typeof input.stage!=="string" || !STAGE.test(input.stage) ||
+     typeof input.errorName!=="string" || !ERROR_NAME.test(input.errorName) ||
+     typeof input.source!=="string" || !SOURCE.test(input.source)){
     throw TypeError("Invalid Native client diagnostic report");
   }
   return {
@@ -39,8 +41,10 @@ async function assertRegularOrAbsent(file) {
     const stored=JSON.parse(await readFile(file,"utf8"));
     const fields=Object.keys(stored??{}).sort().join(",");
     if(fields!=="errorName,observedEpoch,source,sourceSha,stage" ||
-       !SHA.test(stored.sourceSha) || !STAGE.test(stored.stage) ||
-       !ERROR_NAME.test(stored.errorName) || !SOURCE.test(stored.source) ||
+       typeof stored.sourceSha!=="string" || !SHA.test(stored.sourceSha) ||
+       typeof stored.stage!=="string" || !STAGE.test(stored.stage) ||
+       typeof stored.errorName!=="string" || !ERROR_NAME.test(stored.errorName) ||
+       typeof stored.source!=="string" || !SOURCE.test(stored.source) ||
        !Number.isSafeInteger(stored.observedEpoch) || stored.observedEpoch<0){
       throw Error("Untrusted Desktop diagnostic journal record");
     }
