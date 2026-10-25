@@ -8,6 +8,10 @@ on:
       - 'tools/native-release-assembly/**'
       - 'tools/surface-source/**'
       - 'docs/contracts/surface-source.json'
+      - 'docs/contracts/intelligence-source.json'
+      - 'tools/intelligence-source/**'
+      - '.github/actions/assemble-intelligence/**'
+      - 'tests/test_native_release_intelligence_source.py'
       - 'tests/test_native_release_surface_source.py'
       - 'tests/test_surface_source_assembly.py'
       - 'tools/runtime-component-channel/**'
@@ -30,6 +34,10 @@ on:
       - 'tools/native-release-assembly/**'
       - 'tools/surface-source/**'
       - 'docs/contracts/surface-source.json'
+      - 'docs/contracts/intelligence-source.json'
+      - 'tools/intelligence-source/**'
+      - '.github/actions/assemble-intelligence/**'
+      - 'tests/test_native_release_intelligence_source.py'
       - 'tests/test_native_release_surface_source.py'
       - 'tests/test_surface_source_assembly.py'
       - 'tools/runtime-component-channel/**'
@@ -93,6 +101,12 @@ jobs:
         with:
           out-root: ${{ runner.temp }}/ordax-assembled-system
 
+      - name: Assemble exact Intelligence source after canonical Surface
+        uses: ./.github/actions/assemble-intelligence
+        with:
+          source-root: ${{ runner.temp }}/ordax-assembled-system
+          out-root: ${{ runner.temp }}/ordax-assembled-intelligence
+
       - name: Prove real repository Native system assembly and bundle
         run: |
           set -euo pipefail
@@ -102,15 +116,16 @@ jobs:
           source_b="$work/source-b"
           mkdir -p "$work"
 
-          python tools/native-release-assembly/build.py assemble --out "$source_a" --system-source "$RUNNER_TEMP/ordax-assembled-system/system" --creator-source "$ORDAX_CREATOR_NATIVE_SOURCE" | tee "$work/assemble-a.json"
-          python tools/native-release-assembly/build.py verify --root "$source_a" | tee "$work/verify-a.json"
-          python tools/native-release-assembly/build.py assemble --out "$source_b" --system-source "$RUNNER_TEMP/ordax-assembled-system/system" --creator-source "$ORDAX_CREATOR_NATIVE_SOURCE" | tee "$work/assemble-b.json"
-          python tools/native-release-assembly/build.py verify --root "$source_b" | tee "$work/verify-b.json"
+          python tools/native-release-assembly/build.py assemble --out "$source_a" --system-source "$RUNNER_TEMP/ordax-assembled-intelligence/system" --creator-source "$ORDAX_CREATOR_NATIVE_SOURCE" --require-external-intelligence | tee "$work/assemble-a.json"
+          python tools/native-release-assembly/build.py verify --root "$source_a" --require-external-intelligence | tee "$work/verify-a.json"
+          python tools/native-release-assembly/build.py assemble --out "$source_b" --system-source "$RUNNER_TEMP/ordax-assembled-intelligence/system" --creator-source "$ORDAX_CREATOR_NATIVE_SOURCE" --require-external-intelligence | tee "$work/assemble-b.json"
+          python tools/native-release-assembly/build.py verify --root "$source_b" --require-external-intelligence | tee "$work/verify-b.json"
 
           cmp "$source_a/system/bin/ordax-native-install-targets" "$source_b/system/bin/ordax-native-install-targets"
           cmp "$source_a/system/bin/ordax-runtime-component-channel" "$source_b/system/bin/ordax-runtime-component-channel"
           cmp "$source_a/system/.ordax/native-release-tools.json" "$source_b/system/.ordax/native-release-tools.json"
           cmp "$source_a/system/surface/source-provenance.json" "$source_b/system/surface/source-provenance.json"
+          cmp "$source_a/system/intelligence-source/source-provenance.json" "$source_b/system/intelligence-source/source-provenance.json"
           cmp "$source_a/system/surface/ui/surface.mjs" "$source_b/system/surface/ui/surface.mjs"
           cmp "$source_a/system/surface/workspace/components/central/central.tsx" "$source_b/system/surface/workspace/components/central/central.tsx"
 
@@ -129,6 +144,9 @@ jobs:
                   'system/bin/ordax-native-install-targets': 0o755,
                   'system/bin/ordax-runtime-component-channel': 0o755,
                   'system/.ordax/native-release-tools.json': 0o644,
+                  'system/intelligence-source/source-provenance.json': 0o644,
+                  'system/intelligence-source/src/index.mjs': 0o644,
+                  'system/intelligence-source/tools/inference-builder/build.py': 0o644,
               }
               members = {member.name: member for member in archive.getmembers()}
               for name, mode in required.items():
@@ -146,6 +164,24 @@ jobs:
               assert provenance['physical_apply_authorized'] is False
               assert provenance['component_publish_authorized'] is False
               assert len(provenance['injected_tools']) == 2
+              from hashlib import sha1
+              pin=json.loads(pathlib.Path('docs/contracts/intelligence-source.json').read_text())
+              binding=provenance['intelligence_source']
+              proof=json.loads(archive.extractfile('system/intelligence-source/source-provenance.json').read())
+              assert binding['source_commit']==pin['source_commit']==proof['source_commit']
+              assert binding['source_sha256']==proof['source_sha256']
+              assert binding['activation_authorized'] is False
+              assert proof['activation_authorized'] is False
+              assert proof['legacy_implementation_bytes_packaged'] is False
+              for source_path,expected_sha in pin['source_paths'].items():
+                  key='system/intelligence-source/'+source_path
+                  assert key in members and members[key].isfile(),key
+                  payload=archive.extractfile(key).read()
+                  actual=sha1(b'blob '+str(len(payload)).encode()+b'\0'+payload).hexdigest()
+                  assert actual==expected_sha,(key,actual,expected_sha)
+              for path in proof['replaced_services']:
+                  text=archive.extractfile(path).read().decode('utf-8')
+                  assert 'intelligence-source/src/index.mjs' in text and len(text)<1500,path
               tools = {tool['path']: tool for tool in provenance['injected_tools']}
               install = tools['system/bin/ordax-native-install-targets']
               assert install['role'] == 'native-install-read-only-target-discovery'
