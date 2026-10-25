@@ -3,12 +3,12 @@
 // Never rewrites a running tree. Only exact verified, clean, immutable versions
 // can become boot candidates. MVP/Stable must not use this Git channel.
 const { randomUUID } = require('node:crypto');
-const { execFileSync } = require('node:child_process');
 const { join, basename, dirname } = require('node:path');
-const { mkdirSync, readFileSync, writeFileSync, renameSync, rmSync, readdirSync, lstatSync, chmodSync, existsSync, openSync, closeSync, fsyncSync } = require('node:fs');
+const { mkdirSync, readFileSync, writeFileSync, renameSync, rmSync, readdirSync, lstatSync, existsSync, openSync, closeSync, fsyncSync } = require('node:fs');
 const { OFFICIAL_REMOTE } = require('./runtime.cjs');
 const { git, isTrusted, hasDesktopHostContract, dependencies } = require('./checkout.cjs');
 const { hasNativeBundle, buildNativeCandidate } = require('./native-build.cjs');
+const { prepareWindowsGitDeletion } = require('./git-cleanup.cjs');
 
 const SHA_RE = /^[0-9a-f]{40}$/;
 const CHANNEL_SCHEMA = 'ordax.desktop-dev-update-state/1';
@@ -76,33 +76,6 @@ function writeState(userData, state) {
 
 const CANDIDATE_NAME = /^\.candidate-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const TRANSIENT_DELETE_ERRORS = new Set(['EPERM', 'EACCES', 'EBUSY', 'ENOTEMPTY']);
-// A Git clone on Windows can temporarily retain pack-file handles after the
-// Git child process exits. A cleanup failure must not erase the update result.
-// Only transaction-owned UUID directories are eligible: never a live SHA.
-// Git for Windows leaves pack indexes and commit-graph files read-only. The
-// Electron runtime can reject their recursive deletion even when a newer
-// standalone Node build accepts it. Prepare only the already-verified Git
-// directory; never follow reparse points into unrelated paths.
-function prepareWindowsGitDeletion(gitDir) {
-  if (process.platform !== 'win32' || !existsSync(gitDir)) return;
-  const root = lstatSync(gitDir);
-  if (!root.isDirectory() || root.isSymbolicLink()) return;
-  const directories = [gitDir];
-  while (directories.length) {
-    const directory = directories.pop();
-    for (const entry of readdirSync(directory, {withFileTypes:true})) {
-      const path = join(directory,entry.name);
-      const stat = lstatSync(path);
-      if (stat.isSymbolicLink()) continue;
-      if (stat.isDirectory()) directories.push(path);
-      else if (stat.isFile() && stat.nlink === 1) chmodSync(path,0o666);
-    }
-    chmodSync(directory,0o777);
-  }
-  execFileSync('attrib.exe',['-H',gitDir],
-    {windowsHide:true,timeout:10000,stdio:'ignore'});
-}
-
 function removeOwnedCandidate(candidate) {
   if (basename(dirname(candidate)) !== VERSIONS_DIR ||
       !CANDIDATE_NAME.test(basename(candidate))) {
