@@ -288,27 +288,34 @@ static int safe_executable_below(const char *root, const char *relative) {
 }
 
 static int safe_regular_below(const char *root, const char *relative) {
-    char path[PATH_MAX];
+    /* A verified Buildroot Surface may expose a canonical file through a
+     * relative eudev compatibility symlink. Resolve it only INSIDE the
+     * mounted EROFS; never follow magic links or accept an unconfined path.
+     * Keep the original regular-file, hardlink and nonempty invariants.
+     */
     if (!safe_overlay_path(root) ||
-        relative == NULL ||
-        relative[0] == '\0' ||
-        relative[0] == '/' ||
-        strstr(relative, "..") != NULL) {
+        relative == NULL || relative[0] == '\0' ||
+        relative[0] == '/' || strstr(relative, "..") != NULL) {
         return 0;
     }
-    int written = snprintf(path, sizeof(path), "%s/%s", root, relative);
-    if (written <= 0 || written >= (int)sizeof(path)) {
+    int directory_fd = open(root, O_PATH | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
+    if (directory_fd < 0) {
+        return 0;
+    }
+    struct open_how how = {
+        .flags = O_PATH | O_CLOEXEC,
+        .resolve = RESOLVE_IN_ROOT | RESOLVE_NO_MAGICLINKS,
+    };
+    int fd = (int)syscall(SYS_openat2, directory_fd, relative, &how, sizeof(how));
+    close(directory_fd);
+    if (fd < 0) {
         return 0;
     }
     struct stat st;
-    if (lstat(path, &st) != 0 ||
-        !S_ISREG(st.st_mode) ||
-        S_ISLNK(st.st_mode) ||
-        st.st_nlink != 1 ||
-        st.st_size <= 0) {
-        return 0;
-    }
-    return 1;
+    int valid = fstat(fd, &st) == 0 && S_ISREG(st.st_mode) &&
+                st.st_nlink == 1 && st.st_size > 0;
+    close(fd);
+    return valid;
 }
 
 static int mount_capsule(const char *capsule_image, const char *capsule_mount) {

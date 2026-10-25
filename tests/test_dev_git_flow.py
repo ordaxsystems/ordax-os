@@ -230,6 +230,19 @@ class DevelopmentGitFlowTest(unittest.TestCase):
         self.assertEqual((self.state / "current-commit").read_text().strip(), self.commit_v1)
         self.assertTrue((self.worktree / "system/entrypoint").is_file())
         self.assertFalse((self.worktree / "docs/not-runtime.txt").exists())
+        self.assertEqual((self.state / "dev-helpers-sha").read_text().strip(), self.commit_v1)
+        # The cold seed installs the same complete manifest as normal Pull.
+        # Verify source bytes, not just presence or a synthetic success token.
+        manifest = self.worktree / "system/services/base-update/dev-helper-manifest.tsv"
+        for row in manifest.read_text(encoding="utf-8").splitlines():
+            if not row or row.startswith("#"):
+                continue
+            source, target, *_ = row.split("\t")
+            installed = self.root / "installed-rootfs" / target
+            self.assertTrue(installed.is_file(), target)
+            self.assertFalse(installed.is_symlink(), target)
+            self.assertEqual(installed.read_bytes(), (self.worktree / source).read_bytes(), target)
+            self.assertTrue(installed.stat().st_mode & stat.S_IXUSR, target)
 
     def _script(
         self,

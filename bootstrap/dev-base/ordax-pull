@@ -857,6 +857,11 @@ if [ "$SEED_MODE" -eq 1 ]; then
         exit 2
     }
     seed_runtime_checkout_from_local "$SEED_SOURCE_REPO" "$SEED_SOURCE_SHA" "$WORKTREE" || exit 1
+    # The initial offline seed is also an activation. Install exactly the
+    # canonical manifest helpers before publishing a successful source SHA;
+    # normal Pull and Owner Creator must share this same activation owner.
+    PULL_PHASE=helper-refresh
+    refresh_dev_helpers "$SEED_SOURCE_SHA" || exit 1
     write_state "$CURRENT_FILE" "$SEED_SOURCE_SHA"
     rm -f "$PREVIOUS_FILE" "$PINNED_FILE" "$BOOT_REJECTED_FILE"
     printf 'ORDAX_SOURCE_SHA=%s\n' "$SEED_SOURCE_SHA"
