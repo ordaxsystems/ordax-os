@@ -446,7 +446,7 @@ class DevelopmentGitFlowTest(unittest.TestCase):
             "test \"$(git -C \"$WORKTREE\" rev-parse HEAD)\" = \"$target_sha\"",
         ])
         result = self._run(["/bin/sh", "-c", script], env=self._env(), check=False)
-        self.assertEqual(result.returncode, 0, result.stderr + result.stdout)
+        self.assertEqual(result.returncode, 0, (self.root / "run/ordax-update/update.log").read_text() + result.stderr + result.stdout)
         snapshot = json.loads(
             (self.root / "run/ordax-update/state.json").read_text(encoding="utf-8")
         )
