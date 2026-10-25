@@ -40,3 +40,9 @@ The assembly recipe:
 No compiler or source checkout is required on the end-user OrdaX USB.
 
 The OS Native assembler now requires `--creator-source <verified-checkout>` and rejects missing, mutable, dirty or mismatched Git source revisions. The exact repository, commit and tree are pinned **once** in the OS canonical `native-release-assembly.json` contract; the signed `system.tar` publisher remains OS-owned. The OS release CI obtains the exact Creator checkout read-only before both reproducibility assemblies. This change does not authorize physical media writes or remove remaining OS Creator publisher-source dependencies.
+
+## Pinned external Intelligence
+
+The release CI stages verified `ordax-intelligence` source only after the canonical Surface assembly, by calling `.github/actions/assemble-intelligence`. The same Native assembler runs with `--require-external-intelligence`, re-verifies the copy after the helpers are built and writes the source identity to `system/.ordax/native-release-tools.json`. The existing `system.tar` ownership and signing boundary remain unchanged; consumer devices require no build toolchain.
+
+This is a source/build pipeline gate. First boot, signed publication, real llama.cpp/GGUF and the OS Supervisor cutover remain unproven.

@@ -75,3 +75,17 @@ PUBLICATION_POLICY=PASS
 ```
 
 The temporary CI system fixture is only a protocol fixture. It is not the OrdaX product runtime and must never be promoted as a user release.
+
+## Intelligence SSOT in the Native release CI
+
+The canonical release workflow now composes the pinned external Surface source and then the pinned external Intelligence source (eight exact Git blobs, including the technical inference builder) before Native assembly. The OS-owned reusable action `.github/actions/assemble-intelligence` invokes the existing source materializer and candidate composer, not a second package manager or updater. Both Native assemblies and their later verifications **require** `--require-external-intelligence`.
+
+The ordinary deterministic `system.tar` test asserts full byte identity between independent builds; the tar contains the pinned Intelligence blobs, exactly five OS public-contract wrappers in place of their previous implementation bodies, and both source and Native provenance with inactive authorization. OS remains canonical for Identity, Account, Memory, Space, signatures, model selection, Supervisor and rollback.
+
+**Not a physical product release:** this is release CI, while the source lock is still `integration-candidate`; the Owner/Dev Supervisor stage, Stable v4 image input and hardware/UEFI first boot are not yet switched over. The CI-only signing tests are not user-release signing authorization. No duplicated engine, updater, runtime grants, package publisher or Alpine dependencies are introduced.
+
+## Portable EROFS candidate — same Intelligence source
+
+The portable-v2 candidate pipeline now reuses the OS-owned Intelligence materializer **after** the Surface materializer. Its normalized `system.tar` includes the same eight source blobs pinned in `docs/contracts/intelligence-source.json`, replacing five old implementation bodies with public-contract wrappers only. CI verifies the lock, provenance, bytes and wrapper size before building and independently validating two bit-identical read-only `system.erofs` images. The Intelligence receipt is included in the metadata artifact.
+
+This remains a **candidate-only** v2 image: activation and physical media authorization stay disabled. Stable v4 signed acquisition, Creator Owner/Dev Supervisor source staging, QEMU boot and physical USB tests require separate verification; a successful image build cannot imply those are complete.

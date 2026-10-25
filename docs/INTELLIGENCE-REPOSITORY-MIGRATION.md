@@ -26,3 +26,9 @@ O `tools/native-release-assembly/build.py` agora oferece o parâmetro explícito
 - Vínculo gravado na proveniência da montagem; verificação posterior revalida bytes após cópia e detecta adulteração.
 
 O caminho atual de produção mantém o comportamento anterior **sem habilitar essa flag automaticamente**. A CI executa o gate no candidato e prova a política de recusa com testes negativos, sem baixar GGUF, assinar artefatos nem escrever no USB. O cutover real ainda exige sincronizar Creator/Buildroot/Surface, usar essa flag no release canônico, validar o boot inicial offline e remover os cinco corpos legados rastreados no OS no mesmo corte validado.
+
+## Gate D — canonical Native release pipeline (CI)
+
+O workflow `.github/workflows/release-pipeline.yml` agora encadeia o montador Surface e o montador Intelligence, ambos com revisão exata, de modo que a montagem Native exige `--require-external-intelligence` e revisa seus recibos depois do build. Os dois `system.tar` passam por comparação binária, e o código da CI verifica todos os oito hashes Git, os cinco wrappers e os flags de não ativação dentro do tar.
+
+O pipeline usa o único empacotador atual do OS, não cria outro canal e não altera o hardware. A migração da transação do Supervisor e a distribuição Stable v4/EROFS continuam pendentes. Não mover `status` para `canonical` nem excluir código legado rastreado antes de validar esses consumidores no mesmo commit.
