@@ -2,14 +2,15 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
-test("Native boot reveals verified Surface before optional Store and external apps",()=>{
+test("Native shared Surface acknowledges health before optional apps, Store or Intelligence",()=>{
  const source=readFileSync(new URL("../system/composition/native/main.mjs", import.meta.url),"utf8");
- const ready=source.indexOf("bootScreen.ready()");
- const nextStage=source.indexOf('bootScreen.setStage(surface.localization.translate("surface.boot.preparingFirstRun"))');
- const health=source.indexOf('void updateWatcher.markHealthy()');
- const store=source.indexOf("storeCatalogComposition = await storeCatalogCompositionPromise");
- const installedApps=source.indexOf("mountNativeVerifiedInstalledApps({");
- assert.ok(ready>=0 && nextStage>ready && health>nextStage);
- assert.ok(store>health && installedApps>store);
- assert.equal(source.split('bootScreen.setStage(surface.localization.translate("surface.boot.preparingFirstRun"))').length-1,1);
+ const mounted=source.indexOf("bootScreen.ready()");
+ const recorded=source.indexOf('componentManager.setCurrentHealth("surface-shell", "healthy")');
+ const health=source.indexOf("void updateWatcher.markHealthy()");
+ const optional=source.indexOf("storeCatalogComposition = await storeCatalogCompositionPromise");
+ const installed=source.indexOf("mountNativeVerifiedInstalledApps({", optional);
+ assert.ok(mounted>=0 && recorded>mounted && health>recorded);
+ assert.ok(optional>health && installed>optional);
+ // A visual boot label or separate Windows lifecycle must never gate OS health.
+ assert.equal(source.split("bootScreen.ready()").length-1,1);
 });
