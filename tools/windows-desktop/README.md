@@ -111,6 +111,26 @@ login do Windows, nem a revogação da Conta. Os demais brokers privilegiados
 ainda precisam de adaptadores Windows e controles próprios. O emulador visual
 não adquire essa autoridade.
 
+## Diagnósticos Native da Surface Windows
+
+A instalação Windows agora usa o mesmo adaptador visual
+`system/adapters/native/client-diagnostics.mjs`, com endpoint real
+`/__ordax/native/session` limitado à Surface Electron autorizada.
+O host emite apenas `diagnosticToken`: não cria permissões fictícias de
+energia, rede, áudio ou gerenciamento. O endpoint
+`/__ordax/native/client-diagnostic` aceita somente o relatório sanitizado
+`sourceSha/stage/errorName/source`, vinculado à revisão OS comprovada pelo
+recibo de compilação, com token exclusivo, corpo limitado e gravação
+atômica em `desktop-client-diagnostic.json` no perfil privado.
+
+O renderer não recebe o token secreto de **acesso à sessão do host**.
+O token de relatório, por sua vez, autoriza somente enviar o evento
+sanitizado, nunca ler arquivos, executar ações ou obter credenciais.
+O `.exe` inicializa a Surface com `?source=<SHA>` da revisão OS
+validada (bundle ou candidata Git), permitindo associar a falha à revisão
+real. O emulador sem distribuição verificada continua sem esse privilégio.
+Somente no smoke isolado de CI é gravado um evento de teste controlado.
+
 ## Composição canônica
 
 - A mesma Surface e apps vêm de `system/`; não criar telas ou serviços
