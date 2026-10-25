@@ -32,15 +32,18 @@ Native, com transporte específico de Electron apenas quando seu bridge
 restrito existe; indisponibilidade de bridge privilegiado do USB não é
 substituída por uma autoridade falsa.
 
-**Este instalador ainda não acompanha a `main` ponta a ponta no PC
-instalado.** O executor `dev-update.cjs` precisa obter um **candidato
-completo e validado do mesmo OS SHA + Surface SHA pinado** antes de ativar
-qualquer atualização da versão instalada. A montagem da Surface durante CI
-não equivale à entrega desse artefato ao atualizador Windows. Enquanto esse
-gate estiver pendente, não declarar `ordax-pull` paritário nem desbloquear
-atualizações que falhem no staging de fontes/código de execução. Não instalar
-Python ou clonar uma implementação alternativa da Surface no computador do
-usuário como solução permanente.
+**Staging Dev por fonte foi implementado; a jornada real instalada ainda
+não está homologada.** `dev-update.cjs` usa o mesmo OS SHA da `main` e o
+`source_commit` da Surface fixado nesse commit. `surface-stage.cjs` é o
+adaptador Git/Windows: obtém a revisão exata, valida origem, blobs Git,
+limites e recusa symlinks; monta os arquivos visuais somente durante a
+compilação, remove o overlay e grava o recibo OS/Surface com SHA-256 de
+todos os ativos compilados. `hasNativeBundle` impede boot de candidata
+sem lock, sem recibo ou com ativo JS/CSS alterado. Isso foi testado em CI e
+fixtures Git offline; **ainda falta uma atualização real instalada
+`main A → main B → health/rollback` no Windows**. Não chamar isso de paridade
+completa do `ordax-pull` até essa prova, nem instalar Python no usuário
+ou distribuir uma segunda cópia permanente da Surface.
 
 Os perfis `owner-development` e `stable-mvp` continuam definidos somente
 em `docs/contracts/distribution-profiles.json`: o primeiro pode utilizar
@@ -48,6 +51,10 @@ desenvolvimento Git controlado e o segundo deve consumir **releases assinadas
 sem Git obrigatório**. O Windows executa o mesmo produto com adaptadores de
 host distintos; **não** possui outro catálogo de apps, outro mecanismo de
 assinatura, outra política comercial ou uma segunda versão de código.
+O instalador CI agora transporta o lock da Surface e o recibo contendo
+OS SHA, Surface SHA e fingerprint SHA-256 dos arquivos Native gerados. O
+Electron recusa abrir o bundle de instalação se faltar esse manifesto ou
+houver divergência dos bytes. Isso não é assinatura de release pública.
 Intelligence/Aura local, autenticação real, updates assinados e rollback
 E2E instalado ainda **não estão homologados**. A PR permanece draft.
 
@@ -113,7 +120,7 @@ código. Artefatos e executores de instalação são específicos da plataforma.
 
 ```sh
 node --test tests/test_desktop_network_status.mjs
-node --test tools/windows-desktop/runtime.test.cjs tools/windows-desktop/checkout.test.cjs tools/windows-desktop/dev-update.test.cjs tools/windows-desktop/dev-update.test.cjs
+node --test tools/windows-desktop/runtime.test.cjs tools/windows-desktop/checkout.test.cjs tools/windows-desktop/dev-update.test.cjs tools/windows-desktop/surface-stage.test.cjs tools/windows-desktop/native-build.test.cjs
 ```
 
 A CI verifica o processo Electron instalado, a Surface realmente montada, o runtime imutável e a porta de rede. O instalador alpha.6 passou esse gate: 83,4 s de instalação e 6,5 s de startup no runner Windows, sem promessa de tempo universal.
