@@ -162,6 +162,18 @@ async function assertDesktopFileSpaceSmoke(browserWindow) {
     throw Error('Canonical Windows Files were not accessible through Electron Surface');
   }
   log('DESKTOP_FILE_SPACE_SMOKE=PASS');
+  const localSession=await browserWindow.webContents.executeJavaScript(
+    "(async()=>{const r=await fetch('/__ordax/native/local-session',"+
+    "{cache:'no-store',credentials:'same-origin'});"+
+    "if(!r.ok)return {status:r.status};"+
+    "const s=await r.json();return {status:r.status,...s};})()"
+  );
+  if(localSession.status!==200 || localSession.schema!=='ordax.local-session/1' ||
+     localSession.state!=='unlocked' || localSession.credentialConfigured!==false ||
+     localSession.protectionScope!=='surface-session-not-storage-encryption') {
+    throw Error('Trusted Electron Surface cannot read canonical Windows local session');
+  }
+  log('DESKTOP_LOCAL_SESSION_TRUSTED_SURFACE_SMOKE=PASS');
 }
 async function assertNativeShellMounted(browserWindow) {
   const started=Date.now(),deadline=started+90000;
