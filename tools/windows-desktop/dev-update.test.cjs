@@ -2,7 +2,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { spawnSync } = require('node:child_process');
-const { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, existsSync, readdirSync, statSync } = require('node:fs');
+const { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, existsSync, readdirSync, statSync, symlinkSync, lstatSync } = require('node:fs');
 const { join } = require('node:path');
 const { tmpdir } = require('node:os');
 const { OFFICIAL_REMOTE } = require('./runtime.cjs');
@@ -309,4 +309,36 @@ test('Windows read-only Git pack and commit graph are removable from owned candi
       if(existsSync(file))execFileSync('attrib.exe',['-R',file],{windowsHide:true});
     }
   }
+});
+
+test('candidate deletion detaches Windows junction without erasing the shared Vite toolchain',t=>{
+  const f=fixture(t);
+  const target=join(f.template,'node_modules');
+  const sentinel=join(target,'vite','bin','vite.js');
+  mkdirSync(join(target,'vite','bin'),{recursive:true});
+  writeFileSync(sentinel,'immutable installed compiler must survive cleanup');
+  const candidate=join(f.userData,'runtime-versions',
+    '.candidate-12345678-abcd-abcd-abcd-123456789abc');
+  mkdirSync(candidate,{recursive:true});
+  const mount=join(candidate,'node_modules');
+  symlinkSync(target,mount,process.platform==='win32'?'junction':'dir');
+  assert.equal(lstatSync(mount).isSymbolicLink(),true);
+  const outcome=removeOwnedCandidate(candidate);
+  assert.equal(outcome.removed,true);
+  assert.equal(existsSync(candidate),false);
+  assert.equal(readFileSync(sentinel,'utf8'),
+    'immutable installed compiler must survive cleanup',
+    'removing a Dev candidate may NEVER recurse into the installed runtime');
+});
+
+test('candidate cleanup refuses unexpected real node_modules tree before recursive deletion',t=>{
+  const f=fixture(t);
+  const candidate=join(f.userData,'runtime-versions',
+    '.candidate-87654321-abcd-abcd-abcd-123456789abc');
+  const unexpected=join(candidate,'node_modules');
+  mkdirSync(unexpected,{recursive:true});
+  writeFileSync(join(unexpected,'keep'),'candidate source is not an external junction');
+  assert.throws(()=>removeOwnedCandidate(candidate),/Unsafe Desktop candidate node_modules/);
+  assert.equal(readFileSync(join(unexpected,'keep'),'utf8'),
+    'candidate source is not an external junction');
 });
