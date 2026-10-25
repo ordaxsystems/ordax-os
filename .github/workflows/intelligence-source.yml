@@ -68,16 +68,17 @@ jobs:
             exit 1
           fi
           test ! -e "${RUNNER_TEMP}/should-not-exist"
-      - name: Refuse staging into active OS checkout
+      - name: Refuse staging into assembled Surface source
         run: |
           if python tools/intelligence-source/compose.py \
             --os-root "${RUNNER_TEMP}/ordax-surface-assembled" \
             --intelligence-stage "${RUNNER_TEMP}/ordax-intelligence-stage" \
-            --out-root "$PWD/.intelligence-forbidden-output"; then
+            --out-root "${RUNNER_TEMP}/ordax-surface-assembled/.intelligence-forbidden-output"; then
             echo "::error::Source checkout was modified" >&2
             exit 1
           fi
-          test ! -e "$PWD/.intelligence-forbidden-output"
+          test ! -e "${RUNNER_TEMP}/ordax-surface-assembled/.intelligence-forbidden-output"
+          git diff --exit-code -- system/
       - name: Verify no external source tracked in OS, no engine or model and exact receipt
         run: |
           python - <<'PY'
