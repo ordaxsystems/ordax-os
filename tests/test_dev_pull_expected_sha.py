@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
 import shutil
+import shlex
 import stat
 import subprocess
 import tempfile
@@ -27,6 +28,25 @@ def run_git(*args, cwd: Path) -> str:
     "requires POSIX shell, git and timeout",
 )
 class DevPullExpectedShaTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        # Same production C source as the static Base helper; no fake syscall.
+        compiler = shutil.which("cc")
+        if not compiler:
+            raise unittest.SkipTest("Linux C compiler required for atomic checkout E2E")
+        cls.exchange_build = tempfile.TemporaryDirectory()
+        cls.exchange_binary = Path(cls.exchange_build.name) / "ordax-checkout-exchange"
+        subprocess.run([
+            compiler, "-O2", "-Wall", "-Wextra", "-Werror",
+            "-o", str(cls.exchange_binary),
+            str(ROOT / "bootstrap/dev-base/ordax_checkout_exchange.c"),
+        ], check=True, capture_output=True, text=True, timeout=30)
+
+    @classmethod
+    def tearDownClass(cls):
+        if hasattr(cls, "exchange_build"):
+            cls.exchange_build.cleanup()
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.root = Path(self.temp.name)
@@ -103,7 +123,7 @@ class DevPullExpectedShaTests(unittest.TestCase):
         run_git("push", "origin", "main", cwd=self.seed)
         return sha
 
-    def _pull(self, expected_sha: str) -> subprocess.CompletedProcess[str]:
+    def _pull(self, expected_sha: str, git_error=None, reconcile_previous_sha=None) -> subprocess.CompletedProcess[str]:
         env = os.environ.copy()
         env.update(
             {
@@ -114,8 +134,29 @@ class DevPullExpectedShaTests(unittest.TestCase):
                 "ORDAX_UPDATE_RUN_DIR": str(self.run_dir),
                 "ORDAX_EXPECTED_SHA": expected_sha,
                 "ORDAX_BOOT_GIT_TIMEOUT_SECONDS": "30",
+                "ORDAX_CHECKOUT_EXCHANGE_BIN": str(self.exchange_binary),
             }
         )
+        if reconcile_previous_sha is not None:
+            env["ORDAX_RECONCILE_PREVIOUS_SHA"] = reconcile_previous_sha
+        if git_error is not None:
+            shim_dir = self.root / "git-shim"
+            shim_dir.mkdir(exist_ok=True)
+            shim = shim_dir / "git"
+            shim.write_text(
+                "#!/bin/sh\n"
+                "for argument do\n"
+                '    if [ "$argument" = "ls-remote" ]; then\n'
+                '        printf \'%s\\n\' "$ORDAX_TEST_GIT_ERROR" >&2\n'
+                "        exit 128\n"
+                "    fi\n"
+                "done\n"
+                f"exec {shlex.quote(shutil.which('git'))} \"$@\"\n",
+                encoding="utf-8",
+            )
+            shim.chmod(0o755)
+            env["ORDAX_TEST_GIT_ERROR"] = git_error
+            env["PATH"] = str(shim_dir) + os.pathsep + env["PATH"]
         return subprocess.run(
             ["sh", str(PULL)],
             cwd=ROOT,
@@ -145,6 +186,79 @@ class DevPullExpectedShaTests(unittest.TestCase):
         self.assertEqual((self.state / "current-commit").read_text().strip(), second)
         self.assertEqual((self.state / "previous-commit").read_text().strip(), self.first)
         self.assertIn("checkout atomico ativado", completed.stdout)
+
+    def _diverged_main_fixture(self) -> tuple[str, str]:
+        # A Development device observed a now-abandoned main head before
+        # another branch was integrated instead. The old checkout is clean.
+        old = self._publish("old-main")
+        self._supervisor_fetch()
+        installed = self._pull(old)
+        self.assertEqual(installed.returncode, 0, installed.stderr)
+
+        run_git("reset", "--hard", self.first, cwd=self.seed)
+        self._write_release("replacement-main")
+        run_git("add", ".", cwd=self.seed)
+        run_git("commit", "-m", "independent canonical main lineage", cwd=self.seed)
+        new = run_git("rev-parse", "HEAD", cwd=self.seed)
+        run_git("push", "--force", "origin", "main", cwd=self.seed)
+        run_git(
+            "fetch", "--no-tags", "origin",
+            "+refs/heads/main:refs/remotes/origin/main",
+            cwd=self.worktree,
+        )
+        return old, new
+
+    def test_automatic_lineage_recovery_keeps_old_object_and_needs_no_remote_refetch(self):
+        old, new = self._diverged_main_fixture()
+        # A normal handoff must still reject non-FF. Only the Supervisor's
+        # explicit guarded reconciliation may take the alternate path.
+        refused = self._pull(new)
+        self.assertNotEqual(refused.returncode, 0)
+        self.assertEqual(run_git("rev-parse", "HEAD", cwd=self.worktree), old)
+
+        self.remote.rename(self.root / "temporarily-offline.git")
+        result = self._pull(new, reconcile_previous_sha=old)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(run_git("rev-parse", "HEAD", cwd=self.worktree), new)
+        self.assertEqual(
+            run_git("rev-parse", "refs/ordax/known-good", cwd=self.worktree), old,
+        )
+        self.assertEqual((self.state / "previous-commit").read_text().strip(), old)
+        self.assertEqual((self.state / "current-commit").read_text().strip(), new)
+        # Rollback can recover this SHA despite its not being a new-main ancestor.
+        run_git("reset", "--hard", old, cwd=self.worktree)
+        self.assertEqual(run_git("rev-parse", "HEAD", cwd=self.worktree), old)
+
+    def test_lineage_recovery_refuses_missing_provenance_and_dirty_checkout(self):
+        old, new = self._diverged_main_fixture()
+        (self.state / "current-commit").write_text(self.first + "\n", encoding="ascii")
+        refused = self._pull(new, reconcile_previous_sha=old)
+        self.assertNotEqual(refused.returncode, 0)
+        self.assertEqual(run_git("rev-parse", "HEAD", cwd=self.worktree), old)
+        self.assertFalse((self.worktree / "system" / "marker.txt").read_text().strip() == "replacement-main")
+
+        (self.state / "current-commit").write_text(old + "\n", encoding="ascii")
+        (self.worktree / "system" / "marker.txt").write_text("uncommitted\n", encoding="ascii")
+        refused_dirty = self._pull(new, reconcile_previous_sha=old)
+        self.assertNotEqual(refused_dirty.returncode, 0)
+        self.assertEqual(run_git("rev-parse", "HEAD", cwd=self.worktree), old)
+        self.assertEqual(
+            (self.worktree / "system" / "marker.txt").read_text().strip(), "uncommitted",
+        )
+
+    def test_lineage_recovery_never_accepts_downgrade(self):
+        old = self._publish("old-main")
+        self._supervisor_fetch()
+        self.assertEqual(self._pull(old).returncode, 0)
+        run_git("push", "--force", "origin", self.first + ":refs/heads/main", cwd=self.seed)
+        run_git(
+            "fetch", "--no-tags", "origin",
+            "+refs/heads/main:refs/remotes/origin/main",
+            cwd=self.worktree,
+        )
+        refused = self._pull(self.first, reconcile_previous_sha=old)
+        self.assertNotEqual(refused.returncode, 0)
+        self.assertEqual(run_git("rev-parse", "HEAD", cwd=self.worktree), old)
 
     def test_supervisor_handoff_rejects_expected_sha_not_in_tracking_ref(self):
         second = self._publish("two")
@@ -201,6 +315,33 @@ class DevPullExpectedShaTests(unittest.TestCase):
         self.assertEqual(run_git("rev-parse", "HEAD", cwd=self.worktree), self.first)
 
 
+
+    def test_standalone_pull_discovers_main_and_updates(self):
+        second = self._publish("two")
+        completed = self._pull("")
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        self.assertEqual(run_git("rev-parse", "HEAD", cwd=self.worktree), second)
+        self.assertEqual((self.run_dir / "pull-result").read_text().strip(), "completed")
+
+    def test_standalone_remote_errors_emit_only_fixed_private_phase_codes(self):
+        cases = (
+            ("dns", "fatal: Could not resolve host: example.invalid", "remote-discovery-dns"),
+            ("tls", "fatal: SSL certificate problem: certificate verify failed", "remote-discovery-tls"),
+            ("timeout", "fatal: Operation timed out", "remote-discovery-timeout"),
+            ("network", "fatal: Network is unreachable", "remote-discovery-connectivity"),
+            ("auth", "fatal: The requested URL returned error: 403", "remote-discovery-auth"),
+            ("unknown", "fatal: secret-sentinel-unclassified", "remote-discovery"),
+        )
+        for case, error, phase in cases:
+            with self.subTest(case=case):
+                completed = self._pull("", git_error=error)
+                self.assertNotEqual(completed.returncode, 0)
+                self.assertEqual((self.run_dir / "pull-result").read_text().strip(), phase)
+                self.assertIn(phase, completed.stderr)
+                self.assertNotIn(error, completed.stderr)
+                self.assertEqual(run_git("rev-parse", "HEAD", cwd=self.worktree), self.first)
+                self.assertFalse(list(self.run_dir.glob(".pull-remote.*")))
+                self.assertFalse((self.state / "current-commit").exists())
 
 if __name__ == "__main__":
     unittest.main()

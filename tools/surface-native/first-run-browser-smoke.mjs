@@ -93,8 +93,8 @@ async function scenario(modules,css,origin) {
   b.click();await delay();
  };
  const defaultState=()=>({schema:'ordax.first-run-state/1',completed:false,locale:'pt-BR',timeZone:'America/Bahia',accountMode:null});
- async function fixture({identity=false,failSave=false,holdIdentityProbe=false}={}) {
-  let state=defaultState(),session=identity?{state:'signed-in',subjectId:'owner-A',displayName:'Proof User'}:{state:'unavailable'};
+ async function fixture({identity=false,signedOut=false,publicSignupEnabled=false,failSave=false,holdIdentityProbe=false}={}) {
+  let state=defaultState(),session=identity?{state:'signed-in',subjectId:'owner-A',displayName:'Proof User'}:signedOut?{state:'signed-out'}:{state:'unavailable'};
   let fail=failSave;let refreshSession=null;let releaseIdentityProbe=null;const writes=[],listeners=new Set();let prefs={};
   let reads=0,posts=0;
   // Disposable HTTP semantics; the real native JS adapter owns GET/POST handling.
@@ -128,13 +128,21 @@ async function scenario(modules,css,origin) {
     if(holdIdentityProbe)await new Promise(resolve=>{releaseIdentityProbe=resolve;});
     if(refreshSession)session=refreshSession;return session;
    }};
-  const identityActions={schema:'ordax.identity-actions/1',getSnapshot:()=>({supportedActions:session.state==='signed-in'?['sign-out']:[]}),
+  const identityActions={schema:'ordax.identity-actions/1',getSnapshot:()=>({supportedActions:session.state==='signed-in'?['sign-out']:session.state==='signed-out'?['sign-in']:[]}),
    subscribe(listener){listener(this.getSnapshot());return ()=>{};},async execute(action){
     if(action!=='sign-out')throw Error('unavailable proof identity');
     session={state:'signed-out'};refreshSession=null;
     for(const listener of listeners)listener(session);
    }};
-  return {ports:{stateStore,preferences,identitySession,identityActions},
+  const identityCredentials=signedOut?{
+   schema:'ordax.identity-credentials/1',
+   async signIn(){throw Error('Sign-in cannot run during hosted-registration proof');},
+   async register(){throw Error('Direct Native registration must not run during hosted-registration proof');},
+   async registrationPolicy(){return {
+     registrationEnabled:false,publicRegistrationEnabled:publicSignupEnabled,
+   };},
+  }:null;
+  return {ports:{stateStore,preferences,identitySession,identityActions,identityCredentials},
    get state(){return state;},get writes(){return writes;},get prefs(){return prefs;},
    get reads(){return reads;},get posts(){return posts;},
    releaseIdentityProbe(){releaseIdentityProbe?.();releaseIdentityProbe=null;},
@@ -219,6 +227,30 @@ async function scenario(modules,css,origin) {
  checks.resumesAccountWithoutIdentity=!!get('account-local')
   && cursorFixture.writes.length===0 && !cursorFixture.state.completed;
  resumedAccount.destroy();
+
+ const gated=await fixture({signedOut:true,publicSignupEnabled:false});
+ const gatedWizard=mountFirstRunExperience(root,gated.ports);
+ await reachAccount();await delay();
+ checks.hostedSignupDeniedWhenPublicRegistrationClosed=
+  !document.querySelector('[data-first-run-hosted-signup]')
+  && document.querySelector('.ordax-first-run-account-help')?.textContent.includes('Novos cadastros ainda não estão disponíveis')
+  && !document.querySelector('[data-first-run-action="account-mode"]')
+  && !!get('account-local');
+ gatedWizard.destroy();
+
+ // Server explicitly permits public Web registration but still denies Native.
+ // The First Run must expose the canonical site, not activate direct registration.
+ const webEnabled=await fixture({signedOut:true,publicSignupEnabled:true});
+ const webEnabledWizard=mountFirstRunExperience(root,webEnabled.ports);
+ await reachAccount();await delay();
+ const hostedSignup=document.querySelector('[data-first-run-hosted-signup]');
+ checks.hostedSignupShownOnlyWhenPublicAuthorized=
+  hostedSignup?.getAttribute('href')==='https://ordax.com.br/cadastro/'
+  && hostedSignup?.getAttribute('target')==='_blank'
+  && hostedSignup?.getAttribute('rel')==='noopener noreferrer'
+  && !document.querySelector('[data-first-run-action="account-mode"]')
+  && !!get('account-local');
+ webEnabledWizard.destroy();
 
  const offline=await fixture();
  const first=mountFirstRunExperience(root,offline.ports);

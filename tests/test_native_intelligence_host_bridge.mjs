@@ -9,6 +9,7 @@ import {
 import { IDENTITY_SESSION_SCHEMA } from "../system/contracts/identity-session.mjs";
 import { SPACE_SELECTION_SCHEMA } from "../system/contracts/space-selection.mjs";
 import { NATIVE_INTELLIGENCE_SERVICE_REQUEST_SCHEMA } from "../system/services/intelligence/native-service.mjs";
+import { createNativeHostWindow } from "./support/native-host-window.mjs";
 import {
   NATIVE_INTELLIGENCE_HOST_READY_TYPE,
   NATIVE_INTELLIGENCE_HOST_REQUEST_EVENT,
@@ -96,17 +97,14 @@ function serviceRequest() {
 function fakeWindow() {
   const listeners = new Map();
   const messages = [];
-  return {
-    messages,
-    webkit: {
-      messageHandlers: {
-        ordaxBrowser: {
-          postMessage(value) {
-            messages.push(JSON.parse(value));
-          },
-        },
-      },
+  const { windowRef } = createNativeHostWindow({
+    onPostMessage(value) {
+      messages.push(JSON.parse(value));
     },
+  });
+  return {
+    ...windowRef,
+    messages,
     addEventListener(type, listener) {
       if (listeners.has(type)) throw new Error(`duplicate listener ${type}`);
       listeners.set(type, listener);

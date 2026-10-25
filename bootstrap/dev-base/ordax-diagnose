@@ -19,6 +19,7 @@ POWER_LAST_FAILURE=${ORDAX_POWER_LAST_FAILURE:-/state/ordax/power/last-failure}
 PULL_RESULT=${ORDAX_PULL_RESULT:-/run/ordax-update/pull-result}
 CURRENT_COMMIT_RECEIPT=${ORDAX_CURRENT_COMMIT_RECEIPT:-/state/ordax/current-commit}
 DEV_HELPERS_RECEIPT=${ORDAX_DEV_HELPERS_RECEIPT:-/state/ordax/dev-helpers-sha}
+GIT_FETCH_RECEIPT=${ORDAX_GIT_FETCH_RECEIPT:-/state/ordax/native-state/git-fetch-last.tsv}
 
 show_fs() {
     label=$1
@@ -93,6 +94,29 @@ show_update_power_receipts() {
     else
         printf 'pull.last_phase=unavailable\n'
     fi
+}
+
+show_git_fetch_receipt() {
+    # Do not print raw stderr: the Supervisor persists only a typed, bounded
+    # category, SHA and numeric timing/exit metadata from its own fetch.
+    [ -f "$GIT_FETCH_RECEIPT" ] && [ ! -L "$GIT_FETCH_RECEIPT" ] && [ -r "$GIT_FETCH_RECEIPT" ] || {
+        printf 'git_fetch.last_category=unavailable\n'
+        return 0
+    }
+    IFS='	' read -r schema target started elapsed exit_code category failures retry_epoch <"$GIT_FETCH_RECEIPT" || true
+    [ "${schema:-}" = 'ordax.git-fetch-failure/1' ] || return 0
+    [ "${#target}" -eq 40 ] || return 0
+    case "$target" in ''|*[!0-9a-f]*) return 0 ;; esac
+    for number in "$started" "$elapsed" "$exit_code" "$failures" "$retry_epoch"; do
+        case "$number" in ''|*[!0-9]*) return 0 ;; esac
+    done
+    case "$category" in dns|tls|auth|timeout|connectivity|unknown) ;; *) return 0 ;; esac
+    printf 'git_fetch.last_target=%s\n' "$target"
+    printf 'git_fetch.last_category=%s\n' "$category"
+    printf 'git_fetch.last_elapsed_seconds=%s\n' "$elapsed"
+    printf 'git_fetch.last_exit_code=%s\n' "$exit_code"
+    printf 'git_fetch.consecutive_failures=%s\n' "$failures"
+    printf 'git_fetch.next_retry_epoch=%s\n' "$retry_epoch"
 }
 
 # Read only the existing tracking ref: never perform Git discovery or fetch
@@ -213,3 +237,4 @@ mark_if_log_contains guardian.stale_heartbeat "$GUARDIAN_LOG" "supervisor heartb
 mark_if_log_contains guardian.crash_budget "$GUARDIAN_LOG" "supervisor exceeded crash budget"
 
 show_update_power_receipts
+show_git_fetch_receipt

@@ -59,8 +59,7 @@ class PublicLegalHashProofTests(unittest.TestCase):
         root = Path(__file__).resolve().parents[1]
         workflow = (root / ".github/workflows/public-legal-integrity.yml").read_text(encoding="utf-8")
         for watched in (
-            "sites/public/privacidade/index.html",
-            "sites/public/termos/index.html",
+            "docs/contracts/public-site-source.json",
             "docs/contracts/public-legal-readiness.json",
             "tools/public-site/public_legal_integrity.py",
         ):

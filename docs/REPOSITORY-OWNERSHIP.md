@@ -12,14 +12,14 @@ Cada responsabilidade canônica pertence a **um único repositório**.
 
 Nenhum repositório pode absorver uma responsabilidade de outro apenas para simplificar uma migração. Mudanças entre owners exigem contrato público, plano de migração, prova de compatibilidade e remoção do owner antigo.
 
-## Os quatro repositórios oficiais
+## Repositórios canônicos por responsabilidade
 
 ### 1. ordaxsystems/ordax-os
 
 **Papel:** plataforma/sistema operacional OrdaX.
 
 É owner de:
-- Base, boot e Surface/Shell;
+- Base, boot, host Native da Surface, composição e ciclo transacional de release/rollback;
 - Identity;
 - Memory global/plataforma;
 - Intelligence/router/provider abstractions;
@@ -98,7 +98,43 @@ Não é owner de:
 - Runtime local/Computer Control;
 - serviços nativos do OrdaX OS.
 
+### 5. ordaxsystems/ordax-surface
+
+**Papel:** apresentação visual compartilhada, componentes e área de trabalho da Surface, com histórico e fonte canônicos independentes.
+
+É owner de `system/surface/ui/` e `system/surface/workspace/` (caminhos de montagem do artefato), design tokens, identidade visual e comportamento de interação. Não é owner de serviços nativos, Supervisor, boot, permissões, grants, assinatura, runtime de host ou atualizações do dispositivo. O OS consome um único commit pinado em `docs/contracts/surface-source.json`, preservando os ports e contratos públicos existentes.
+
+### 6. ordaxsystems/ordax-site
+
+**Papel:** fonte e build independentes da apresentação pública (landing, catálogo visual de downloads, páginas legais, login/recuperação e Conta somente na camada visual).
+
+O único código de apresentação, CSS, assets, rotas, i18n e testes do Site pertence ao `ordaxsystems/ordax-site`. O OS consome o commit imutável descrito em `docs/contracts/public-site-source.json`, inclusive no build público e no bootstrap de login Web. A montagem de build não cria um segundo source owner.
+
+Identity, sessão, autorização, billing, publicação assinada de releases, domínios e o proxy do gateway **não** pertencem ao Site. Esses serviços mantêm a autoridade no OS/Platform e apenas fornecem APIs/autorização de mesma origem ao frontend. O ambiente `ordax-site-dev` é separado da operação de produção.
+
 ## Fluxos oficiais
+
+### Site público independente
+
+```text
+ordaxsystems/ordax-site (revisão fixa em docs/contracts/public-site-source.json)
+  -> build independente de páginas, estilo, assets e i18n
+  -> bundle estático verificado, consumido por ordaxsystems/ordax-os no Web
+  -> Identity, autorização e publicador de releases permanecem em seus owners
+```
+
+O código da apresentação pública não é compilado a partir de `sites/public/` no OS. A integração de fonte para desenvolvimento não equivale a deploy de produção.
+
+### Surface visual compartilhada Web / Native
+
+```text
+ordaxsystems/ordax-surface (revisão fixa em docs/contracts/surface-source.json)
+  -> composição com serviços e adapters de ordaxsystems/ordax-os
+  -> build/release verificada com uma única interface
+  -> host Web/Native do OS e rollback da própria release
+```
+
+O repositório da Surface não instala serviços nativos nem atualiza dispositivos; a verificação, staging e ativação pertencem aos owners do OS.
 
 ### ChatGPT controlando um computador Windows
 

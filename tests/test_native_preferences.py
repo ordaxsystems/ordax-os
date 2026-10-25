@@ -197,7 +197,14 @@ class NativePreferenceTests(unittest.TestCase):
         self.assertIn("write_sync_checkpoint", text)
         self.assertIn("os.fchmod(handle.fileno(), 0o600)", text)
         self.assertIn('if self.client_address[0] != "127.0.0.1"', text)
-        self.assertNotIn("Access-Control-Allow-Origin", text)
+        # Scoped CORS is only for immutable signed JS module bytes; the
+        # canonical browser-origin policy denies opaque callers to settings
+        # and user data. This is also exercised via HTTP integration tests.
+        self.assertIn(
+            'if opaque_signed_module_read_is_trusted(self.headers, self.path, self.command):',
+            text,
+        )
+        self.assertNotIn('self.send_header("Access-Control-Allow-Origin", "*")', text)
 
 
 if __name__ == "__main__":

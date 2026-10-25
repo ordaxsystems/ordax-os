@@ -41,7 +41,6 @@
       "store"
     ],
     "bootstrap": [
-      "files",
       "internet"
     ],
     "on_demand": [
@@ -62,7 +61,8 @@
       "paint",
       "media-player",
       "pdf-viewer",
-      "toolbox"
+      "toolbox",
+      "files"
     ]
   },
   "surface_projection": {

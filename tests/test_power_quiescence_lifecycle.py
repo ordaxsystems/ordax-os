@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import os
 import subprocess
 import tempfile
 import time
@@ -118,7 +119,7 @@ class PowerQuiescenceTests(unittest.TestCase):
             self.assertIn(reason, guardian)
         self.assertLess(
             transition.index("record_host_power_stage root-readonly"),
-            transition.index("mount -o remount,ro /"),
+            transition.index("remount_root_read_only_for_power"),
         )
         with tempfile.TemporaryDirectory(prefix="ordax-power-receipts-") as temp:
             path = Path(temp)
@@ -140,6 +141,121 @@ class PowerQuiescenceTests(unittest.TestCase):
                              "supervisor-quiesce")
             self.assertEqual((path / "last-failure").read_text().strip(),
                              "supervisor-quiesce-failed")
+
+    def test_bind_root_readonly_transition_is_profile_scoped_and_fail_closed(self) -> None:
+        guardian = GUARDIAN.read_text(encoding="utf-8")
+        remount = function_source(guardian, "remount_root_read_only_for_power")
+        transition = function_source(guardian, "perform_host_power_transition")
+        self.assertIn('mount -o remount,bind,ro / /', remount)
+        self.assertIn('mount -o remount,ro /', remount)
+        self.assertIn('if ! remount_root_read_only_for_power; then', transition)
+        self.assertIn('    if ! root_filesystem_is_read_only; then', transition)
+        self.assertIn('remount-failed', transition)
+        self.assertIn('root-still-writable', transition)
+        self.assertLess(
+            transition.index('remount_root_read_only_for_power'),
+            transition.index('root_filesystem_is_read_only'),
+        )
+        with tempfile.TemporaryDirectory(prefix="ordax-power-mount-") as temp:
+            path = Path(temp)
+            calls = path / "mount-calls"
+            command = path / "busybox"
+            command.write_text(
+                '#!/bin/sh\n'
+                'printf "%s" "$*" >"$CALLS"\n'
+                '[ "$BUSYBOX_FAIL" != 1 ]\n',
+                encoding="utf-8",
+            )
+            command.chmod(0o700)
+            # Substitute only the external mount command; do not remount the
+            # CI runner's root. Run the unmodified profile branch logic.
+            remount = remount.replace('/bin/busybox mount', '"$BUSYBOX" mount')
+            script = remount + "\nremount_root_read_only_for_power\n"
+            base_env = {
+                **os.environ,
+                "BUSYBOX": str(command),
+                "CALLS": str(calls),
+                "GUARDIAN_LOG": str(path / "guardian.log"),
+                "BUSYBOX_FAIL": "0",
+            }
+            for profile, expected in (
+                ("owner-development", "mount -o remount,bind,ro / /"),
+                ("stable-mvp", "mount -o remount,ro /"),
+            ):
+                calls.unlink(missing_ok=True)
+                env = {**base_env, "DISTRIBUTION_PROFILE": profile}
+                result = subprocess.run(
+                    ["/bin/sh", "-c", script],
+                    env=env, capture_output=True, text=True,
+                )
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(calls.read_text(encoding="utf-8"), expected)
+                failed = subprocess.run(
+                    ["/bin/sh", "-c", script],
+                    env={**env, "BUSYBOX_FAIL": "1"},
+                    capture_output=True, text=True,
+                )
+                self.assertEqual(failed.returncode, 1, failed.stderr)
+            calls.unlink(missing_ok=True)
+            rejected = subprocess.run(
+                ["/bin/sh", "-c", script],
+                env={**base_env, "DISTRIBUTION_PROFILE": "unexpected"},
+                capture_output=True, text=True,
+            )
+            self.assertEqual(rejected.returncode, 1)
+            self.assertFalse(calls.exists())
+
+    def test_abort_remount_uses_matching_explicit_bind_and_never_bypasses_ro_proof(self) -> None:
+        guardian = GUARDIAN.read_text(encoding="utf-8")
+        abort = function_source(guardian, "remount_root_read_write_after_power_abort")
+        transition = function_source(guardian, "perform_host_power_transition")
+        self.assertIn('/bin/busybox mount -o remount,bind,rw / /', abort)
+        self.assertIn('/bin/busybox mount -o remount,rw /', abort)
+        self.assertNotIn('/bin/busybox mount -o remount,rw / >/dev/null', transition)
+        self.assertIn("if remount_root_read_write_after_power_abort; then", transition)
+        self.assertIn("remount_root_read_write_after_power_abort || true", transition)
+        self.assertLess(
+            transition.index("root_filesystem_is_read_only"),
+            transition.index("/bin/busybox poweroff -f"),
+        )
+        with tempfile.TemporaryDirectory(prefix="ordax-abort-remount-") as temp:
+            path = Path(temp)
+            calls = path / "calls"
+            busybox = path / "busybox"
+            busybox.write_text(
+                '#!/bin/sh\n'
+                'printf "%s" "$*" >"$CALLS"\n'
+                '[ "$BUSYBOX_FAIL" != 1 ]\n',
+                encoding="utf-8",
+            )
+            busybox.chmod(0o700)
+            script = abort.replace('/bin/busybox mount', '"$BUSYBOX" mount')
+            script += "\nremount_root_read_write_after_power_abort\n"
+            for profile, expected in (
+                ("owner-development", "mount -o remount,bind,rw / /"),
+                ("stable-mvp", "mount -o remount,rw /"),
+            ):
+                env = {**os.environ, "DISTRIBUTION_PROFILE": profile,
+                       "BUSYBOX": str(busybox), "CALLS": str(calls),
+                       "GUARDIAN_LOG": str(path / "guardian.log"),
+                       "BUSYBOX_FAIL": "0"}
+                result = subprocess.run(["/bin/sh", "-c", script],
+                                        env=env, capture_output=True, text=True)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(calls.read_text(encoding="utf-8"), expected)
+                rejected = subprocess.run(
+                    ["/bin/sh", "-c", script],
+                    env={**env, "BUSYBOX_FAIL": "1"},
+                    capture_output=True, text=True,
+                )
+                self.assertEqual(rejected.returncode, 1, rejected.stderr)
+
+    def test_power_failure_receipts_use_process_unique_temporary_paths(self) -> None:
+        guardian = GUARDIAN.read_text(encoding="utf-8")
+        stage = function_source(guardian, "record_host_power_stage")
+        failure = function_source(guardian, "record_host_power_failure")
+        self.assertIn('temporary=$POWER_LAST_STAGE.tmp.$$', stage)
+        self.assertIn('temporary=$POWER_LAST_FAILURE.tmp.$$', failure)
 
     def test_guardian_recognizes_exited_but_unreaped_supervisor(self) -> None:
         """No false timeout on zombie: only the matching quiesce receipt grants power."""

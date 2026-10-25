@@ -53,6 +53,25 @@ class OwnerSurfaceHealthBudgetTests(unittest.TestCase):
         self.assertLess(marker_write, ensure_runtime)
         self.assertLess(ensure_runtime, marker_clear)
 
+    def test_owner_cold_boot_failure_reports_only_canonical_witness_classes(self):
+        supervisor = SUPERVISOR.read_text(encoding="utf-8")
+        failure = supervisor.split("owner_initial_surface_health_failed() {", 1)[1]
+        failure = failure.split("\n}\n", 1)[0]
+        self.assertIn('read_state_value "$HEALTH_FILE"', failure)
+        self.assertIn('surface_heartbeat_sha', failure)
+        self.assertIn('[ "$(read_state_value "$HEALTH_FILE")" = "$initial_sha" ]', failure)
+        self.assertIn('[ "$(surface_heartbeat_sha)" = "$initial_sha" ]', failure)
+        marker = "cold-boot Surface evidence: native_health="
+        self.assertIn(marker, failure)
+        self.assertLess(failure.index(marker), failure.index("clear_surface_health"))
+        self.assertNotIn("echo $HEALTH_FILE", failure)
+        self.assertNotIn("echo $SURFACE_HEARTBEAT_FILE", failure)
+        # The debug witness is read-only. The original fail-closed recovery
+        # and all real Surface health requirements remain unchanged.
+        self.assertIn('owner_initial_surface_health_failed', supervisor)
+        self.assertIn('[ "$healthy_sha" = "$expected_sha" ]', supervisor)
+        self.assertIn('[ "$rendered_sha" = "$expected_sha" ]', supervisor)
+
     def test_stable_budget_remains_separate(self):
         entrypoint = ENTRYPOINT.read_text(encoding="utf-8")
         stable_block = entrypoint.split('if [ "$DISTRIBUTION_PROFILE" = "stable-mvp" ]; then', 1)[1].split("\nfi", 1)[0]

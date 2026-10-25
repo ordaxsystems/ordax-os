@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-import { studioApp } from "../system/apps/studio/app.mjs";
+import { getFirstPartyApp } from "../system/apps/catalog.mjs";
 import {
   DEVICE_AGENT_CAPABILITY_READER_SCHEMA,
   DEVICE_AGENT_PORT_SCHEMA,
@@ -25,11 +25,12 @@ async function json(path) {
   return JSON.parse(await readFile(new URL(path, rootUrl), "utf8"));
 }
 
-test("Studio runtime integration reuses the existing OS app and platform authorities", async () => {
+test("Studio is external and reuses existing OS platform authorities", async () => {
   const contract = await json("docs/contracts/studio-runtime-integration.json");
 
-  assert.equal(contract.product.app_id, studioApp.id);
-  assert.equal(contract.product.product_name, studioApp.title);
+  assert.equal(contract.product.app_id, "studio");
+  assert.equal(contract.product.product_name, "ORDAX Studio");
+  assert.equal(getFirstPartyApp("studio"), null);
   assert.equal(contract.product.single_product, true);
   assert.equal(contract.product.duplicate_studio_forbidden, true);
   assert.equal(contract.product.blender_is_capability_not_product, true);

@@ -7,6 +7,7 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 MODULE = ROOT / "system" / "surface" / "runtime" / "native_account_gateway.py"
+sys.path.insert(0, str(MODULE.parent))
 
 spec = importlib.util.spec_from_file_location("ordax_native_account_gateway_test", MODULE)
 gateway = importlib.util.module_from_spec(spec)

@@ -12,6 +12,8 @@ const UPDATE_PHASES = new Set([
   "error",
 ]);
 
+const UPDATE_TRANSPORTS = new Set(["git-main", "official-signed-release-channel", "unavailable"]);
+
 const BASE_UPDATE_PHASES = new Set([
   "none",
   "waiting-candidate",
@@ -38,6 +40,38 @@ function optionalString(value, fallback) {
   return value;
 }
 
+const HOST_POWER_ACTIONS = new Set(["restart", "shutdown", "unknown", "unavailable"]);
+const HOST_POWER_STATUSES = new Set(["pending", "stopping", "syncing", "rebooting", "powering-off", "failed", "unknown", "unavailable"]);
+const HOST_POWER_STAGES = new Set(["accepted", "supervisor-quiesce", "host-agents", "filesystem-sync", "root-readonly", "unknown", "unavailable"]);
+const HOST_POWER_FAILURES = new Set(["supervisor-quiesce-failed", "host-agents-failed", "sync-failed", "remount-failed", "root-still-writable", "kernel-transition-returned", "unknown", "unavailable"]);
+const HOST_REMOUNT_ERRORS = new Set(["device-busy", "invalid-argument", "permission-denied", "not-a-mountpoint", "unsupported-operation", "read-only-filesystem", "missing-target", "unclassified-mount-error", "no-mount-error-output", "unavailable"]);
+
+function optionalHostPower(value) {
+  if (value === undefined || value === null) return null;
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new TypeError("Host power diagnostic must be a structured snapshot");
+  }
+  const fields = [
+    ["lastAction", HOST_POWER_ACTIONS],
+    ["lastStatus", HOST_POWER_STATUSES],
+    ["lastStage", HOST_POWER_STAGES],
+    ["lastFailure", HOST_POWER_FAILURES],
+  ];
+  const snapshot = {};
+  for (const [key, allowed] of fields) {
+    if (typeof value[key] !== "string" || !allowed.has(value[key])) {
+      throw new TypeError(`Host power diagnostic has unsupported ${key}`);
+    }
+    snapshot[key] = value[key];
+  }
+  const mountError = value.lastMountError ?? "unavailable";
+  if (typeof mountError !== "string" || !HOST_REMOUNT_ERRORS.has(mountError)) {
+    throw new TypeError("Host power diagnostic has unsupported lastMountError");
+  }
+  snapshot.lastMountError = mountError;
+  return Object.freeze(snapshot);
+}
+
 export function validateUpdateStatusSnapshot(value) {
   if (!value || typeof value !== "object") {
     throw new TypeError("Update status snapshot must be an object");
@@ -54,6 +88,10 @@ export function validateUpdateStatusSnapshot(value) {
   const phase = optionalString(value.phase, "idle");
   if (!UPDATE_PHASES.has(phase)) {
     throw new TypeError(`Unsupported update phase: ${phase}`);
+  }
+  const updateTransport = optionalString(value.updateTransport, "unavailable");
+  if (!UPDATE_TRANSPORTS.has(updateTransport)) {
+    throw new TypeError("Update status has unsupported transport");
   }
   const deliveryNumber = optionalNonNegativeInteger(
     value.deliveryNumber ?? value.versionNumber,
@@ -76,6 +114,7 @@ export function validateUpdateStatusSnapshot(value) {
     status: value.status,
     phase,
     applyMode: value.applyMode,
+    updateTransport,
     attemptId: optionalString(value.attemptId, ""),
     bootRefreshRequired: value.bootRefreshRequired === true,
     baseUpdatePhase,
@@ -90,6 +129,7 @@ export function validateUpdateStatusSnapshot(value) {
     healthToken: optionalString(value.healthToken, ""),
     manualCheckAvailable: value.manualCheckAvailable === true,
     manualCheckPending: value.manualCheckPending === true,
+    hostPower: optionalHostPower(value.hostPower),
   });
 }
 

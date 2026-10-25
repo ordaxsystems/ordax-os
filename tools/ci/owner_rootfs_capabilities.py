@@ -16,7 +16,12 @@ OWNER_NON_HELPER_SHELL_SOURCES = (
     "bootstrap/dev/entrypoint",
     "system/entrypoint",
     "system/supervisor",
+    "system/services/device-agent/native-product-lifecycle.sh",
 )
+# This service library is owned by the OS and sourced into the Supervisor.
+# Its functions are not host binaries, but every external command within
+# the library still belongs to the same audited Owner rootfs closure.
+SUPERVISOR_NATIVE_PRODUCT_LIBRARY = "system/services/device-agent/native-product-lifecycle.sh"
 SHELL_ONLY = {
     ".", ":", "[", "alias", "break", "cd", "continue", "echo", "eval", "exec",
     "exit", "export", "getopts", "hash", "printf", "pwd", "read", "readonly",
@@ -27,7 +32,8 @@ SHELL_ONLY = {
 INTERNAL_COMMANDS = {
     "ordax-dev-init", "ordax-network", "ordax-pull", "ordax-rollback",
     "ordax-run", "ordax-diagnose", "ordax-main-watch", "ordax-release-agent",
-    "ordax-portable-state", "ordax-remote", "entrypoint",
+    "ordax-portable-state", "ordax-remote", "ordax-usb-mountattr",
+    "ordax-checkout-exchange", "entrypoint",
 }
 # Fixed initramfs utilities are not Dev rootfs packages or helper-manifest
 # entries. A use from bootstrap/dev/entrypoint is accepted only when the
@@ -73,7 +79,7 @@ BUSYBOX_SYMBOLS = {
     "cut": "CONFIG_CUT", "date": "CONFIG_DATE", "df": "CONFIG_DF",
     "dirname": "CONFIG_DIRNAME", "echo": "CONFIG_ECHO", "flock": "CONFIG_FLOCK", "grep": "CONFIG_GREP",
     "head": "CONFIG_HEAD", "kill": "CONFIG_KILL", "killall": "CONFIG_KILLALL",
-    "mkdir": "CONFIG_MKDIR", "mkfifo": "CONFIG_MKFIFO", "modprobe": "CONFIG_MODPROBE",
+    "mkdir": "CONFIG_MKDIR", "mkfifo": "CONFIG_MKFIFO", "mktemp": "CONFIG_MKTEMP", "modprobe": "CONFIG_MODPROBE",
     "mount": "CONFIG_MOUNT", "mv": "CONFIG_MV", "nslookup": "CONFIG_NSLOOKUP", "ntpd": "CONFIG_NTPD",
     "od": "CONFIG_OD", "pivot_root": "CONFIG_PIVOT_ROOT", "poweroff": "CONFIG_POWEROFF",
     "printf": "CONFIG_PRINTF",
@@ -114,9 +120,19 @@ def owner_runtime_helpers(root: Path = ROOT) -> tuple[tuple[str, str], ...]:
         if not raw or raw.startswith("#"):
             continue
         parts = raw.split("\t")
-        if len(parts) != 2:
+        if len(parts) not in (2, 3):
             raise ValueError(f"malformed Owner helper manifest line {lineno}")
-        source, target = parts
+        source, target = parts[:2]
+        native_prerequisite = parts[2] if len(parts) == 3 else ""
+        if native_prerequisite:
+            required_path, separator, required_abi = native_prerequisite.partition("@")
+            if (source != "bootstrap/dev-base/ordax-pull"
+                    or separator != "@" or "@" in required_abi
+                    or required_path != "usr/local/bin/ordax-checkout-exchange"
+                    or not re.fullmatch(r"[a-z0-9.-]+/[0-9]+", required_abi)):
+                raise ValueError(f"invalid native helper prerequisite on line {lineno}")
+        elif len(parts) == 3 or source == "bootstrap/dev-base/ordax-pull":
+            raise ValueError(f"required native helper prerequisite is missing on line {lineno}")
         for value in (source, target):
             if (not value or value.startswith("/") or "\\" in value
                     or any(part in ("", ".", "..") for part in value.split("/"))):
@@ -266,9 +282,11 @@ def explicit_busybox_applets(path: Path) -> set[str]:
     return result
 
 
-def extract_commands(path: Path) -> set[str]:
+def extract_commands(
+    path: Path, *, sourced_functions: frozenset[str] = frozenset(),
+) -> set[str]:
     text = path.read_text(encoding="utf-8")
-    functions = set(_FUNCTION_RE.findall(text))
+    functions = set(_FUNCTION_RE.findall(text)) | set(sourced_functions)
     defaults = _defaults(text)
     tokens = _tokens(text)
     commands = set(_dynamic_tools(text))
@@ -389,6 +407,25 @@ def extract_commands(path: Path) -> set[str]:
     return commands
 
 
+def _supervisor_sourced_functions(root: Path) -> frozenset[str]:
+    """Derive shell functions from the *actual* OS-owned sourced library.
+
+    No function name is allowlisted by hand: a missing/symlinked source or
+    removed import cannot make an unknown command disappear from the audit.
+    """
+    supervisor = root / "system/supervisor"
+    library = root / SUPERVISOR_NATIVE_PRODUCT_LIBRARY
+    if any(path.is_symlink() or not path.is_file() for path in (supervisor, library)):
+        return frozenset()
+    source = supervisor.read_text(encoding="utf-8")
+    if (
+        'native_product_lifecycle=$SYSTEM_ROOT/services/device-agent/native-product-lifecycle.sh' not in source
+        or '. "$native_product_lifecycle"' not in source
+    ):
+        return frozenset()
+    return frozenset(_FUNCTION_RE.findall(library.read_text(encoding="utf-8")))
+
+
 def owner_inventory(root: Path = ROOT) -> dict[str, object]:
     per_source: dict[str, list[str]] = {}
     all_commands: set[str] = set()
@@ -396,12 +433,16 @@ def owner_inventory(root: Path = ROOT) -> dict[str, object]:
     missing_sources: list[str] = []
     runtime_helpers = owner_runtime_helpers(root)
     sources = (*OWNER_NON_HELPER_SHELL_SOURCES, *(source for source, _ in runtime_helpers))
+    sourced_functions = _supervisor_sourced_functions(root)
     for relative in sources:
         path = root / relative
         if path.is_symlink() or not path.is_file():
             missing_sources.append(relative)
             continue
-        found = extract_commands(path)
+        found = extract_commands(
+            path,
+            sourced_functions=sourced_functions if relative == "system/supervisor" else frozenset(),
+        )
         per_source[relative] = sorted(found)
         all_commands.update(found)
         explicit_busybox.update(explicit_busybox_applets(path))

@@ -27,6 +27,8 @@ const OWNED_EXACT = new Set([
 const OWNED_PREFIXES = Object.freeze([
   "sdk/app-sdk-v1/",
   "tools/app-sdk/",
+  // Intentional negative guard: reintroducing the removed app source must run
+  // the fail-closed source-absence proof in the App SDK workflow.
   "system/apps/internet/",
 ]);
 

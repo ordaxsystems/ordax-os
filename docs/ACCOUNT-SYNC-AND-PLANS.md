@@ -39,13 +39,20 @@ retry action. A user can still choose `Continuar sem conta`. The clock, DNS
 and verified gateway availability must be tested separately in QEMU/physical
 hardware before live login activation is declared proven.
 
-The canonical USB/Native credential policy remains
-`docs/contracts/native-account-session.json`: access/refresh tokens live
-only in the Native process, and **do not survive reboot**. Persisted login
-requires a separate reviewed encrypted device-bound vault with authenticated
-encryption and removable-media threat proof. A local PIN alone is not a cloud
-login credential and plain files, cookies in JS/localStorage and unprotected
-USB secrets are prohibited.
+The canonical USB/Native credential policy is `docs/contracts/native-account-session.json`.
+The Native Account Gateway remains the single account-session owner. The same Native
+Host PIN/password verifier can unlock an AES-256-GCM encrypted refresh-cookie vault
+only when the local secret is a strong passphrase (at least 16 characters),
+using memory-hard scrypt with a distinct random salt. Short PINs remain
+screen locks only: a copied USB has no hardware-backed rate limiting, so
+persisting an offline-guessable refresh token would be unsafe.
+The kernel keyring remains the current-boot cache. Once unlocked, the Gateway
+revalidates and renews the restored session online; a revoked or permanently
+expired account session requires login, and no offline cloud session is invented.
+Explicit logout deletes the encrypted vault and revokes the Gateway session.
+Legacy plaintext `session.json` is cleanup-only. This conditional capability
+does not claim short-PIN persistence, TPM enrollment or physical USB proof.
+Dev and Stable share the same session implementation and differ only in update channels.
 
 ## Spaces and professional Profile Packs
 
@@ -158,14 +165,44 @@ Synchronization requires:
 
 Platform biometric APIs may protect local session access, but biometrics do not replace canonical account authentication or server authorization.
 
-## Monetization architecture — commercial policy deferred
+## Plans, benefits and additional products
 
-No billing, price table, commercial tier name or device-count paywall is defined for the MVP.
+The canonical commercial catalog is `docs/contracts/entitlements.json`. Free,
+Personal, Professional and Team retain their stable IDs and structural benefits.
+The operator authorized implementation on 2026-10-22. The first increment records
+reference BRL prices, storage/history/MCP capacities and additional offers in that
+same owner; no checkout, paid assignment or cloud quota allocation is enabled.
 
-The account/domain architecture keeps an entitlement boundary so future services can be authorized server-side without fragmenting identity. Potential value-bearing categories include synchronization capacity/history, cloud storage, backup/restore, PC/Web/Mobile continuity, collaboration, premium compute/features and enhanced recovery/support.
+The public landing page and Account consume the same deterministic build-time
+projection. They show planned benefits and reference values, without claiming
+an active subscription, confirmed consumption or availability of future services.
+Changing a reference value is not a payment receipt or entitlement grant.
 
-The direction is to charge for **ecosystem value and service capacity**, not to impose an arbitrary fee merely because a user connects a second device.
+Free preserves local OS use, local first-party apps, local Intelligence/Memory,
+identity, official update/recovery and own-data access. Personal targets continuity,
+cloud memory, supported sync/backup and small-scale sharing. Professional expands
+professional capacity, connectors, automations and support. Team targets shared
+Spaces, access administration and pooled organizational capacity.
 
+MCP can be standalone and included in paid bundles; buying a bundle must not
+charge twice for the same MCP capacity. Flow central AI, research/compute, storage
+and MCP top-ups, commercial content/connectors, vertical business modules and
+implementation services are distinct offers when actually delivered. GPT used by
+the customer's external MCP client is paid by that customer; Flow/API inference
+has its own provider budget and is not implicitly included. Profile category names
+never create a paywall. A business Profile does not itself supply a complete ERP.
+
+Space-member capacity is not a paid-seat count. Team seats, execution budgets,
+structured cloud-memory limits, retention after cancellation and provider fees
+must be specified before purchase. The reference storage pool covers personal
+files, versions and backups; it does not authorize unbounded database rows,
+semantic indexes, inference, media processing or permanent cloud VMs.
+
+The execution plan is registered as COMMERCE-001 in the existing planning hub.
+Real payment activation requires verified idempotent provider events, server-side
+assignment, reconciliation and real cancellation/downgrade tests. Public cloud
+benefits additionally require each service's existing authorization, measurement,
+restore and availability gates. No billing provider is selected by this increment.
 
 ## Downgrade safety
 
@@ -230,5 +267,4 @@ existing Dev channel before the client behavior changes on the device.
 
 ## Device-private account session
 
-On Native/USB, provider bearer tokens never enter Surface JavaScript. The **Native Host process** is the sole owner of access/refresh cookies **in memory** and exposes only sanitized `/auth/*` and `/sync/*` responses to the loopback Surface. Login is accepted only after a fresh authenticated `/auth/session` proof from the configured HTTPS gateway. A restart of Native Host or the notebook clears this cloud session; that is an explicit security gate, **not** successful persistence. The retired `0600` on-disk `account/session.json` is cleanup-only and must never be loaded. Long-lived credentials on removable media remain prohibited until the versioned encrypted-vault, local-unlock and anti-rollback proof gate is approved in `docs/contracts/native-account-session.json`. This session is outside the sync data model, and local-only OS use must continue when no cloud session exists.
-
+On Native/USB, provider bearer tokens never enter Surface JavaScript. The **Native Host process** is the sole owner of access/refresh cookies **in memory** and exposes only sanitized `/auth/*` and `/sync/*` responses to the loopback Surface. Login is accepted only after a fresh authenticated `/auth/session` proof from the configured HTTPS gateway. A Native Host restart during the same Linux boot can recover the current session from the kernel user keyring when supported; unsupported kernels fail closed to signed-out, not plaintext disk storage. A full notebook reboot clears the kernel session and requires authentication again. The retired `0600` on-disk `account/session.json` is cleanup-only and must never be loaded. Long-lived credentials on removable media remain prohibited until the versioned encrypted-vault, local-unlock and anti-rollback proof gate is approved in `docs/contracts/native-account-session.json`. This session is outside the sync data model, and local-only OS use must continue when no cloud session exists.

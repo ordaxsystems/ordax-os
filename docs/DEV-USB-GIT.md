@@ -2,6 +2,63 @@
 
 Status: **CANONICAL FOR THE CURRENT DEVELOPMENT USB**
 
+## Repetição inteligente após falhas de checkout
+
+Depois de uma falha **posterior ao fetch**, o Supervisor guarda um recibo
+atômico `native-state/git-checkout-retry` por identidade de checkout atual,
+SHA candidato e motivo controlado do erro. Repetições da **mesma**
+combinação seguem 15, 30, 60, 120, 240 e no máximo 300 segundos entre
+tentativas; o usuário continua na última Surface saudável. A checagem da
+`main` permanece ativa, e uma versão ou estado novo não herda o atraso
+de outro candidato.
+
+O botão **Atualizar agora** autoriza uma checagem manual do mesmo Supervisor
+sem esperar o atraso de checkout; não força troca de versão, não contorna
+preflight, saúde, confiança no Git ou rollback. Problemas no fetch conservam
+o mecanismo separado de classificação/backoff de rede, e divergências
+sem proveniência continuam bloqueadas pelo guard de `non-fast-forward`.
+O recibo é diagnóstico local e **nunca** uma permissão de atualização.
+
+## Recuperação automática de divergência da main (Owner/Dev)
+
+O Supervisor continua sendo o **único owner** da transação Git-first. Uma
+reescrita legítima de histórico, squash ou integração paralela pode deixar o
+checkout físico limpo em um SHA que não é ancestral da `main` atual. Nesse
+caso, um `git reset --hard origin/main` manual **não** é a solução: ele
+descarta a prova de proveniência e rompe o rollback.
+
+O Supervisor só permite reconciliação automática com **todos** os critérios
+comprovados: perfil Owner/Development; repositório oficial e branch `main`;
+HEAD igual ao recibo persistido `current-commit`; checkout limpo e metadados
+Git válidos; Surface anterior saudável; nenhum pin de rollback nem commit
+rejeitado; candidato exato obtido da `main` pelo fetch já validado; ancestral
+comum e ausência de downgrade. A transação passa pelo mesmo preflight,
+classificação de impacto, staging isolado, `ordax-pull`, health e rollback.
+O Pull fixa o objeto antigo em `refs/ordax/known-good` antes de avançar:
+assim o commit anterior continua recuperável mesmo fora da ancestralidade
+do novo `main`. Não há segundo download remoto, merge local, novo updater
+nem escrita direta de Base/ESP.
+
+Qualquer gate não comprovado permanece bloqueado com diagnóstico
+`non-fast-forward`; uma reconciliação não é permissão para substituir
+um checkout com alterações locais, release Stable, outra origem, histórico
+inteiramente desconectado ou candidato de downgrade. O marcador histórico
+de divergência não impede a reavaliação quando o Supervisor comprova que
+as condições de recuperação mudaram.
+
+**Prevenção na origem:** agentes e mantenedores devem preservar a
+ancestralidade de commits da `main` que podem ter alcançado dispositivos
+Owner/Development. Prefira merge commits em PRs e não reescreva `main`.
+Squash/rebase de uma linha já consumida por dispositivos deve ser tratado
+como mudança de histórico e revisado, não como atualização trivial.
+
+**Interface:** Sistema → Atualizações mostra motivo compreensível além do
+código técnico e distingue `sourceSha` (checkout instalado) de
+`runtimeSurfaceSha` (última Surface que confirmou saúde). SHAs diferentes
+podem ser normais para entregas neutras; apenas sucesso transacional e health
+confirmado autorizam declarar a interface atualizada. O USB físico ainda
+exige observação separada; CI não equivale a atualização aplicada.
+
 This is an owner/development profile. It does not replace the canonical product path based on signed immutable releases under `/ordax/releases/<commit>`.
 
 ## Windows Creator: developer installation and channel isolation (2026-10-10)
@@ -48,10 +105,102 @@ clean sparse runtime checkout recorded by the bundle `source_commit`; first boot
 need a Git pull when that commit is still current. Ordinary later system/Surface changes
 track `main` through the same Git owner.
 
+No candidato de separação da Surface (#2198), a UI não é mais um arquivo
+tracked desse checkout. O Creator pré-semeia no build host, antes de criar
+o USB, um único slot de release com os bytes visuais da revisão Git da
+Surface fixada por `docs/contracts/surface-source.json`, com hashes e
+identidades de OS/Surface. O Supervisor inicia esse slot **sem rede** no
+primeiro boot. Atualizações posteriores permanecem transações de `ordax-pull`
+mais o staging do Supervisor; falha de rede não autoriza mutar a UI ativa.
+O QEMU offline Owner do mesmo artefato é gate obrigatório antes de
+integrar a mudança à `main`, sem gravar um USB real.
+
+
 The development Base's kernel/rootfs A/B and bootloader upgrades have
 additional promotion/fallback gates. This bundle does **not** imply that every
 Base update has been physically proven, that a fresh notebook boot passed, or
 that a public signed Stable release is available.
+
+## Aura local — aquisição assinada pelo Owner Dev
+
+**Estado de entrega versus política de produto (2026-10-23).** O download
+assinado após First Run descrito abaixo continua sendo o caminho de aquisição
+implementado para o USB Owner/Development, **não** a meta definitiva para
+instalação nova. O Creator deve pré-semeiar os mesmos bytes v4 assinados e
+verificados, com Aura disponível no primeiro boot offline; reparo,
+reinstalação e atualização poderão reutilizar a aquisição governada existente.
+Não adicionar modelo ao checkout Git nem iniciar uma segunda instalação por
+script da Surface. O pré-semeio físico Dev e a inferência no notebook seguem
+sem prova conclusiva na issue #2071. O contrato pós-instalação para remoção
+explícita e reinstalação está em
+`docs/contracts/local-ai.json#post_install_lifecycle`; a remoção do EROFS
+atual **não pode ser habilitada** antes da correção versionada da verificação
+v4 de boot, que hoje exige esse arquivo.
+
+
+O mesmo `system/services/base-update/orchestrator.py` que valida/enrola
+`ordax-release-agent` e a trust anchor canônica solicita
+`materialize-owner-dev-local-ai` depois do primeiro uso concluído e apenas
+quando não existe atualização Base pendente. A operação ocorre no **mesmo
+owner Base Update**, mas em processo filho supervisionado por
+`system/services/base-update/agent.sh`: o ciclo crítico de Base/ESP/rollback
+é executado **antes** de qualquer novo download de ~568 MiB. Se o
+marcador canônico `boot-refresh-required` aparecer, o mesmo owner suspende
+o worker opcional e prioriza staging e recuperação da Base. O filho é
+cancelado junto com o processo de aquisição assinado, no encerramento do
+owner, em atualização pendente ou no timeout, com espera de parada limitada. Seu status
+fica separado em `/state/ordax/base-update/aura-status.json`.
+O build/release continua CI-owned; o modelo não vem de Git, Alpine ou de
+um gerenciador paralelo.
+
+O owner vincula release imutável, trust SHA-256 e payload da prova
+`docs/evidence/canonical-v4-release-proof.json` ao
+`system/services/local-ai/source-lock.json` e ao pin do launcher Native.
+Antes de baixar ~568 MiB, verifica capacidade disponível e preserva uma
+reserva para o sistema. A aquisição é verificada pelo binário estático
+publicado por hash; falhas não mudam a autorização de Base/boot/rollback.
+
+O receipt privado `/state/ordax/base-update/aura-acquisition.json` permite
+reuso sem rehash de toda a imagem a cada polling quando tamanho, inode e
+timestamps do EROFS seguem invariáveis. O runtime Native continua
+verificando o SHA-256 integral antes de executar. Apenas após aquisição
+aceita o owner publica `/state/ordax/base-update/aura-ready.sha256`;
+o observador opcional em `ordax-run` observa este sinal a cada
+10 segundos, delegando a inicialização ao launcher Native, sem reiniciar
+a Surface nem criar um novo atualizador. O próprio `system/supervisor`
+é o **único owner do provisionamento/health da Surface**: `ordax-run`
+não consulta nem anuncia novamente seu marcador. O observador de Aura
+não roda verificações a cada segundo, preserva o retry de 60 segundos
+e encerra seu processo de sleep no desligamento, sem deixar filho órfão.
+Ausência inicial de modelo não desabilita a observação de uma entrega
+assinada posterior durante a mesma sessão; o boot continua independente.
+
+A prova de CI cobre o contrato e simulações de aquisição; não é evidência
+de inferência física bem-sucedida no notebook. O gate USB Dev real da
+issue #2071 continua exigido, incluindo reboot, health e prompt real.
+
+## Aura local: lifecycle verificado no Owner/Development (source, 2026-10-21)
+
+O `ordax-run` agora possui um adaptador estrito para iniciar e encerrar a
+inferência local **somente se um EROFS exato já estiver materializado** pelo
+owner autorizado de artefatos. O candidato deve estar em
+`/state/ordax/local-ai/sha256/b244056dad3609357e8a70433f53f41becacd8f3bd93da3d8b23f9e99d86e11a/local-ai-runtime.erofs`,
+em diretório root `0700` e arquivo root `0600`. Antes de montar, o
+adaptador confere o SHA-256 e tamanho da imagem contra a prova canônica
+assinada, valida arquitetura e compara o `source-lock.json` interno com
+o contrato do checkout. Monta EROFS somente leitura e reutiliza
+`/run/ordax/local-ai-auth/key` para o bridge de inferência já existente,
+com segredo efêmero fora da Surface. O processo é iniciado/parado junto ao
+`ordax-run`; nenhum prompt é reproduzido. Health/readiness continuam
+com a Intelligence/Local AI Native já existente.
+
+**Limite:** isto fecha apenas o lifecycle do payload **já instalado**.
+`ordax-pull` continua Git-first e **não** busca o EROFS assinado; o fluxo
+governado de publicação, aquisição, staging content-addressed e rollback do
+artefato para um USB Dev que já está em uso permanece pendente em #2071.
+Sem payload, com bytes divergentes ou ABI incompatível, a Aura fica degradada,
+mas o boot, a Surface, recovery e a atualização permanecem utilizáveis.
+Merge do source ou CI não é prova de inferência real no notebook.
 
 ## Goal
 
@@ -171,6 +320,82 @@ Não criar um segundo transportador remoto nem ativar uma sessão de shell
 arbitrário para contornar o Product PostgreSQL. O Starter deve permanecer
 independente da Surface gráfica.
 
+## Recuperação assistida por Windows/WSL — evidência física de 19/10/2026
+
+Este registro é **histórico e restrito ao USB Owner/Development**: documenta
+o reparo de um checkout Git por meio de outro computador. **Não** constitui
+ferramenta de atualização offline assinada nem dispensa Git no computador
+auxiliar. Essa capacidade segue como gate separado na
+[issue #2005](https://github.com/ordaxsystems/ordax-os/issues/2005),
+reutilizando o agente de releases, trust Ed25519, A/B e rollback existentes.
+
+### Diagnóstico observado antes e após o reparo
+
+- O USB inicializou no commit `52b7d73dc4e3bd9f3cd5626efa6d48863b66254f`,
+  mas registrava `atomic-checkout-failed`. O diário mostrava fases de
+  `fetching → validating → pull-error`, **sem o stderr original do Pull**.
+  Não atribuir retrospectivamente o problema a Git, DNS, TLS, ext4, energia ou
+  espaço livre sem evidência específica.
+- O USB foi desligado e conectado ao Windows. A identificação física da
+  mídia pelo modelo, serial, barramento, GPT e partições foi confirmada antes
+  de qualquer montagem; o disco interno ficou fora do escopo. Nesse host,
+  `usbipd` + WSL 2 permitiu leitura ext4 `ro,noload`; `wsl --mount`
+  diretamente não funcionou.
+- Antes de qualquer montagem RW, foi realizado backup privado `tar.gz`,
+  acompanhado de `gzip -t` bem-sucedido. **Esse backup pode conter contas e
+  credenciais e não deve ser enviado a artefatos públicos.**
+- O operador usou o **`ordax-pull` canônico**, com
+  `ORDAX_WORKTREE=<montagem>/dev-base/workspace/ordax`,
+  `ORDAX_STATE_DIR=<montagem>/dev-base/state/ordax` e
+  `ORDAX_UPDATE_RUN_DIR=<diretório-privado-do-host>`. O recibo de
+  transação reportou `329197346239ec673cf49ec83fa93c3298b64d00`.
+  `current-commit` coincidiu com `HEAD`; `previous-commit` reteve
+  `52b7d73d`; worktree e helpers foram verificados; o
+  `git fsck --connectivity-only` concluiu com sucesso.
+- Finalização: `sync`, desmontagem e `usbipd detach`, sem escrever RAW,
+  reformatar ou trocar partições.
+
+Uma observação gráfica posterior mostrou **Entrega 1188**, commit
+`32919734`, `remote-check-failed` e relógio em **31/12/2015**.
+Isso comprova somente abertura da Surface e o SHA exibido, **não**
+Wi-Fi/DNS funcional, TLS confiável, NTP sincronizado, runtime integral,
+reinício físico subsequente ou ativação de Base/Stable. Não promover
+esta observação a certificação de boot físico.
+
+### Gates antes de repetir em outra mídia
+
+1. Desligar o notebook, retirar o USB e **identificar positivamente somente
+   a mídia removível** por serial/modelo/GPT. Não aplicar a procedimento em
+   discos internos, mídia montada pelo notebook ou dispositivo incerto.
+2. Montar ext4 primeiramente **somente leitura**, sem replay de journal
+   (`ro,noload`); preservar dados e comprovantes num backup privado e testar
+   sua integridade **antes** de qualquer operação RW.
+3. Inspecionar `current-commit`, `previous-commit`, `.git/HEAD`,
+   `first-run.json` e os recibos persistidos. Confirmar ancestry do commit
+   pretendido, origem autorizada e ausência de modificações locais não salvas.
+4. Usar **somente o `ordax-pull` oficial** e paths explícitos. Não fazer
+   `git reset --hard`, forçar marcadores de saúde, clonar sobre a mídia,
+   copiar uma rootfs não assinada ou desativar validações para avançar.
+5. Depois da transação, verificar `HEAD == current-commit`, SHA dos helpers,
+   worktree limpa, `previous-commit`, integridade Git e diretórios
+   transacionais. Executar `sync`/unmount/detach antes de desconectar.
+6. Validar separadamente no **mesmo notebook físico** um cold boot, Surface,
+   status de rede, atualização e reinício real; até haver esses recibos,
+   manter o gate físico como **pendente**.
+
+No Owner/Development o Supervisor faz `git ls-remote` com timeout e repassa
+um SHA já verificado ao Pull, que **não repete a descoberta remota** durante
+essa transação. A execução manual isolada tem diagnóstico próprio e pode
+depender do Git remoto. A correção estrutural de Wi-Fi passou por #2052; a
+classificação dos erros Git standalone por #2072. Para investigar um
+`remote-check-failed` antigo, distinguir link/IP, DNS, hora/NTP, HTTPS/TLS e
+Git remoto, preferindo `ordax-diagnose` e observações permitidas em
+`/run/ordax-network-status`, `/run/ordax-surface/time-sync.log`,
+`/run/ordax-surface/network-broker.log` e
+`/run/ordax-update/update.log`. Arquivos em `/run` são voláteis; redigir
+tokens, WPA, cookies e outros segredos antes de compartilhar. Não executar
+`ordax-network` como se fosse um leitor: ele pode alterar o estado de rede.
+
 ## Atualização manual dentro do OrdaX — somente USB Owner/Dev
 
 **Sistema → Atualizações → Atualizar agora** solicita um check imediato da `main` ao mesmo Supervisor canônico que já realiza os checks automáticos. Nenhum segundo updater ou shell de comando é ativado pela UI. O Native host expõe o pedido local `POST /__ordax/native/update-check` somente no perfil `owner-development` com `product_mode=usb`, vinculado ao token efêmero da sessão HTTP local; a solicitação aceita registra apenas `check-main` em `/run/ordax-update/manual-check-request` para acordar o polling do Supervisor em cerca de 1 segundo. A própria Surface acompanha o estado existente `/run/ordax-update/state.json`.
@@ -261,6 +486,31 @@ canonical helper refresh on later polls. It does not mark the version
 no second updater or bypass of the helper receipt, and the previous SHA remains
 available for recovery. A host-side successful Pull and an actual QEMU/physical
 Surface activation remain separate validation gates.
+
+**Versioned Native exchange prerequisite (Owner/Development only):** the
+canonical Dev Base builder installs the static `ordax-checkout-exchange` helper
+into its rootfs. Before replacing `ordax-pull`, the existing helper installer
+verifies the executable and exact `--abi` declared in the **same** manifest
+(`system/services/base-update/dev-helper-manifest.tsv`). A missing or
+incompatible binary is a failed helper activation, **not** permission to use
+two `mv` operations or copy another executable into the running rootfs.
+The existing Base Update owner acquires and verifies a Base candidate while
+the healthy Surface and known-good stay in place.
+
+If the Git checkout was committed but helpers are still pending for its
+**current SHA**, the Supervisor reuses `native-state/git-checkout-retry` from
+its existing post-fetch retry policy, with source=target=current SHA and
+reason=`helper-refresh-failed`. The same 15–300s bounded delay applies to
+repeated installations; it does **not** defer the request for a compatible
+Base candidate. `Atualizar agora` bypasses only the delay, not the ABI
+or health checks. The existing UI reason `checkout-retry-wait` is reused;
+success is acknowledged only after `dev-helpers-sha` matches the active
+checkout. No additional retry state file, polling owner or updater exists.
+
+Before any physical rollout, verify that the Base **actually booted on the
+target notebook**, that its native helper responds with the declared ABI,
+and that rollback/known-good recovery remains available. CI/QEMU and a
+successful Creator ZIP are not proof of that physical prerequisite.
 
 A physical boot must confirm the repaired USB no longer cycles through
 `fetching → validating → atomic-checkout-failed`. A successful host-side pull

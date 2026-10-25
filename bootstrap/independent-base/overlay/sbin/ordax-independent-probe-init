@@ -16,7 +16,31 @@ rescue() {
     sleep 3
     exit 1
 }
-mount -t erofs -o ro /dev/sda /proof/base || rescue erofs
+# QEMU's two IDE devices may be enumerated in either order by a guest
+# kernel/runner. Bind each role to on-disk filesystem identity, never a /dev
+# letter. This is read-only and disposable; ambiguous layouts fail closed.
+find_disk_roles() {
+    base_device=
+    state_device=
+    for disk do
+        set -- $(od -An -tx1 -j 1024 -N 4 "$disk" 2>/dev/null)
+        if [ "$#" -eq 4 ] && [ "$1:$2:$3:$4" = "e2:e1:f5:e0" ]; then
+            [ -z "$base_device" ] || rescue erofs-ambiguous
+            base_device=$disk
+        fi
+        set -- $(od -An -tx1 -j 1080 -N 2 "$disk" 2>/dev/null)
+        if [ "$#" -eq 2 ] && [ "$1:$2" = "53:ef" ]; then
+            [ -z "$state_device" ] || rescue state-ambiguous
+            state_device=$disk
+        fi
+    done
+    [ -n "$base_device" ] || rescue erofs
+    [ -n "$state_device" ] || rescue state
+    [ "$base_device" != "$state_device" ] || rescue device-layout
+}
+find_disk_roles /dev/sda /dev/sdb
+printf 'ORDAX_INDEPENDENT_DISK_ROLES=erofs:%s,ext4:%s\\n' "$base_device" "$state_device"
+mount -t erofs -o ro "$base_device" /proof/base || rescue erofs
 test -r /proof/base/etc/ordax/independent-base || rescue base-identity
 grep -q 'ORDAX_INDEPENDENT_BASE=EXPERIMENTAL' /proof/base/etc/ordax/independent-base || rescue base-identity
 grep -q " /proof/base erofs ro," /proc/mounts || rescue erofs-not-readonly
@@ -24,7 +48,7 @@ if touch /proof/base/.ordax-unexpected-write 2>/dev/null; then
     rescue erofs-write-accepted
 fi
 echo ORDAX_INDEPENDENT_EROFS=READ_ONLY
-mount -t ext4 -o rw /dev/sdb /proof/state || rescue state
+mount -t ext4 -o rw "$state_device" /proof/state || rescue state
 if test -e /proof/state/ordax-independent-marker; then
     grep -q '^PERSISTENT$' /proof/state/ordax-independent-marker || rescue persistence
     echo ORDAX_INDEPENDENT_STATE=RETAINED

@@ -167,7 +167,9 @@ class HotUpdateSupervisorContractTests(unittest.TestCase):
         )
     def test_git_update_operations_are_bounded(self):
         text = SYSTEM_SUPERVISOR.read_text(encoding="utf-8")
-        self.assertIn('/bin/busybox timeout -k 5 "$timeout_seconds"', text)
+        self.assertIn('/bin/busybox setsid /bin/sh -c', text)
+        self.assertIn('wait "$watchdog_pid" 2>/dev/null || true', text)
+        self.assertIn('kill -TERM "-$$"', text)
         self.assertIn('-c http.lowSpeedLimit=1', text)
         self.assertIn('-c "http.lowSpeedTime=$GIT_LOW_SPEED_TIME"', text)
         self.assertIn('remote check failed or timed out after ${REMOTE_TIMEOUT}s', text)
@@ -189,8 +191,15 @@ class HotUpdateSupervisorContractTests(unittest.TestCase):
         self.assertNotIn('sparse-checkout set --no-cone', apply)
         self.assertNotIn("repair_dirty_checkout", apply)
         self.assertIn("replace_runtime_checkout()", pull)
-        self.assertIn('mv "$WORKTREE" "$retired"', pull)
-        self.assertIn('mv "$stage" "$WORKTREE"', pull)
+        # The live directory must never vanish between two independent mv calls.
+        # Only a single kernel exchange may replace an existing checkout.
+        self.assertIn('atomic_checkout_exchange "$WORKTREE" "$stage"', pull)
+        self.assertIn('atomic_checkout_exchange "$WORKTREE" "$retired"', pull)
+        self.assertIn('"$EXCHANGE_BIN" --exchange "$atomic_left" "$atomic_right" "$TRANSACTION_FILE"', pull)
+        self.assertIn('"$EXCHANGE_BIN" --seal-state "$STATE_DIR"', pull)
+        self.assertIn('EXCHANGE_BIN=${ORDAX_CHECKOUT_EXCHANGE_BIN:-/usr/local/bin/ordax-checkout-exchange}', pull)
+        self.assertNotIn('mv "$WORKTREE" "$retired"', pull)
+        self.assertIn('mv "$stage" "$WORKTREE"', pull)  # first installation only
         self.assertIn('EXPECTED_SHA=${ORDAX_EXPECTED_SHA:-}', pull)
         self.assertIn('checkout_target_sha=$2', apply)
         self.assertIn('checkout_fetched_sha', apply)
@@ -203,8 +212,70 @@ class HotUpdateSupervisorContractTests(unittest.TestCase):
         self.assertIn('cat-file -e "$EXPECTED_SHA^{commit}"', pull)
         # Supervisor-owned delivery uses local fetched Git objects only.
         # Remote discovery remains available solely to standalone Pull.
-        self.assertIn('remote_sha=$(remote_main_sha || true)', pull)
+        self.assertIn('if remote_sha=$(remote_main_sha "$REMOTE_STDERR_FILE"); then', pull)
+        self.assertIn('PULL_PHASE=$(remote_failure_phase "$REMOTE_STDERR_FILE")', pull)
+        self.assertIn('PULL_PHASE=handoff-ref-mismatch', pull)
+        self.assertNotIn('remote_sha=$(remote_main_sha || true)', pull)
         self.assertIn('checkout local sera preservado', pull)
+
+    def test_native_base_request_is_not_blocked_by_pending_helper_installation(self):
+        supervisor = SYSTEM_SUPERVISOR.read_text(encoding="utf-8")
+        manifest = (ROOT / "system/services/base-update/dev-helper-manifest.tsv").read_text(encoding="utf-8")
+        installer = (ROOT / "system/services/base-update/dev-helpers.sh").read_text(encoding="utf-8")
+        native_requirements = [
+            tuple(line.split(chr(9))) for line in manifest.splitlines()
+            if line and not line.startswith("#")
+        ]
+        self.assertIn(
+            (
+                "bootstrap/dev-base/ordax-pull",
+                "usr/local/bin/ordax-pull",
+                "usr/local/bin/ordax-checkout-exchange@prototype-ordax.checkout-exchange/1",
+            ),
+            native_requirements,
+        )
+        self.assertIn('native_actual_abi=$("$native_target" --abi 2>/dev/null)', installer)
+        self.assertLess(
+            installer.index('require_native_prerequisite "$native_prerequisite"'),
+            installer.index('stage_helper "$source_relative" "$target_relative"'),
+        )
+        poll = supervisor.rsplit('    if [ "$remote_sha" = "$current" ]; then', 1)[1]
+        poll = poll.split('    if [ -n "$rejected_sha" ]', 1)[0]
+        self.assertLess(
+            poll.index('request_dev_base_candidate "$current"'),
+            poll.index('refresh_dev_helpers "$current"'),
+        )
+        failed = supervisor.split('if ! apply_remote_checkout "$old_sha" "$remote_sha"; then', 1)[1]
+        failed = failed.split('    new_sha=$(current_sha)', 1)[0]
+        self.assertIn('if [ "$LOW_LEVEL_CHANGED" -eq 1 ]', failed)
+        self.assertIn('validate_updated_tree "$APPLY_MODE"', failed)
+        self.assertIn('mark_boot_refresh_required "$active_after_failure"', failed)
+        self.assertIn('request_dev_base_candidate "$active_after_failure"', failed)
+        self.assertIn('write_update_state "$active_after_failure" pull-error none', failed)
+
+    def test_existing_checkout_backoff_also_bounds_current_sha_helper_refresh(self):
+        supervisor = SYSTEM_SUPERVISOR.read_text(encoding="utf-8")
+        same_sha = supervisor.rsplit('    if [ "$remote_sha" = "$current" ]; then', 1)[1]
+        same_sha = same_sha.split('    if [ -n "$rejected_sha" ]', 1)[0]
+        # A pending Base request is still issued before throttling the helper.
+        self.assertLess(
+            same_sha.index('request_dev_base_candidate "$current"'),
+            same_sha.index('checkout_retry_pending "$current" "$current"'),
+        )
+        self.assertLess(
+            same_sha.index('checkout_retry_pending "$current" "$current"'),
+            same_sha.index('refresh_dev_helpers "$current"'),
+        )
+        self.assertIn('if [ "$OWNER_MANUAL_CHECK" -ne 1 ] &&', same_sha)
+        self.assertIn('record_checkout_failure "$current" "$current" "helper-refresh-failed"', same_sha)
+        self.assertIn('set_update_context error "$current" "" "checkout-retry-wait"', same_sha)
+        self.assertLess(
+            same_sha.index('record_checkout_failure "$current" "$current" "helper-refresh-failed"'),
+            same_sha.index('rm -f "$CHECKOUT_RETRY_FILE"'),
+        )
+        self.assertEqual(
+            supervisor.count('CHECKOUT_RETRY_FILE=$STATE_DIR/native-state/git-checkout-retry'), 1,
+        )
 
     def test_pull_error_stage_and_committed_helper_receipt_are_consistent(self):
         supervisor = SYSTEM_SUPERVISOR.read_text(encoding="utf-8")
@@ -541,6 +612,57 @@ class HotUpdateSupervisorContractTests(unittest.TestCase):
         self.assertIn('write_update_state "$current" rejected none', text)
         self.assertIn("validate_updated_tree", text)
 
+    def test_distinct_new_main_is_eligible_after_a_rejected_delivery(self):
+        # A previously rejected SHA must be retained while main still points
+        # at that exact failed delivery. A DIFFERENT main commit is a new
+        # candidate, not an invitation to wipe rollback state indiscriminately
+        # or ignore cold Surface health validation.
+        supervisor = SYSTEM_SUPERVISOR.read_text(encoding="utf-8")
+        check = supervisor.split("check_for_update() {", 1)[1].split("\n}\n", 1)[0]
+        same_rejected = 'if [ -n "$rejected_sha" ] && [ "$remote_sha" = "$rejected_sha" ]; then'
+        new_candidate = (
+            'if [ -n "$rejected_sha" ] && [ "$remote_sha" != "$rejected_sha" ]; then\n'
+            '        rm -f "$REJECTED_FILE"\n'
+            '    fi'
+        )
+        activate = 'if ! apply_remote_checkout "$old_sha" "$remote_sha"; then'
+        self.assertIn(same_rejected, check)
+        self.assertIn('set_update_context blocked "$remote_sha" "" "rejected-commit"', check)
+        self.assertIn(new_candidate, check)
+        self.assertIn(activate, check)
+        self.assertLess(check.index(same_rejected), check.index(new_candidate))
+        self.assertLess(check.index(new_candidate), check.index(activate))
+        self.assertIn('if [ "$OWNER_INITIAL_HEALTH_PENDING" -eq 1 ]; then', check)
+        self.assertIn('if [ -s "$PINNED_FILE" ]; then', check)
+        self.assertIn('if non_ff_target_blocked "$current" "$remote_sha" &&', check)
+
+    def test_owner_rollback_restores_exact_helper_receipt_before_surface(self):
+        supervisor = SYSTEM_SUPERVISOR.read_text(encoding="utf-8")
+        helper = supervisor.split("restore_dev_helpers_after_rollback() {", 1)[1].split("\n}\n", 1)[0]
+        self.assertIn('refresh_dev_helpers "$source_sha"', helper)
+        self.assertIn('read_state_value "$DEV_HELPERS_SHA_FILE"', helper)
+        self.assertIn('return 1', helper)
+        for method in ("rollback_boot_candidate()", "rollback_update()"):
+            body = supervisor.split(method + " {", 1)[1].split("\n}\n", 1)[0]
+            self.assertIn('restore_dev_helpers_after_rollback "$previous_sha"', body)
+            self.assertLess(
+                body.index('write_state_value "$CURRENT_FILE" "$previous_sha"'),
+                body.index('restore_dev_helpers_after_rollback "$previous_sha"'),
+            )
+            self.assertIn('could not restore Base helpers"', body)
+        hot = supervisor.split("rollback_update() {", 1)[1].split("\n}\n", 1)[0]
+        self.assertLess(hot.index('restore_dev_helpers_after_rollback "$previous_sha"'),
+                        hot.index('start_surface || fail_closed'))
+
+    def test_native_boot_exception_uses_existing_redacted_diagnostic_owner(self):
+        composition = (ROOT / "system/composition/native/main.mjs").read_text(encoding="utf-8")
+        failure = composition.split("start().catch((error) => {", 1)[1]
+        self.assertIn('bootScreen.fail(bootText("surface.boot.failed"));', failure)
+        self.assertIn('void createNativeClientDiagnostics(window)', failure)
+        self.assertIn('diagnostics.report(renderedSourceSha(window), "composition-bootstrap", error)', failure)
+        self.assertIn('.catch(() => {});', failure)
+        self.assertNotIn('markHealthy()', failure)
+
     def test_healthy_current_checkout_clears_stale_rejection(self):
         text = SYSTEM_SUPERVISOR.read_text(encoding="utf-8")
         self.assertIn('healthy_sha=$(read_state_value "$HEALTH_FILE")', text)
@@ -604,13 +726,18 @@ class HotUpdateSupervisorContractTests(unittest.TestCase):
         self.assertIn('HEALTH_TOKEN_HEADER = "X-OrdaX-Health-Token"', text)
         self.assertIn("record_surface_health", text)
         self.assertIn("bootRefreshRequired", text)
-        self.assertNotIn("Access-Control-Allow-Origin", text)
+        self.assertIn(
+            'if opaque_signed_module_read_is_trusted(self.headers, self.path, self.command):',
+            text,
+        )
+        self.assertIn('self.send_header("Access-Control-Allow-Origin", "null")', text)
+        self.assertNotIn('self.send_header("Access-Control-Allow-Origin", "*")', text)
 
     def test_native_server_disables_static_surface_cache(self):
         text = NATIVE_HOST_SERVER.read_text(encoding="utf-8")
         self.assertIn('self.send_header("Cache-Control", "no-store, max-age=0")', text)
         self.assertIn('self.send_header("Pragma", "no-cache")', text)
-        self.assertIn('not urlsplit(self.path).path.startswith("/__ordax/native/")', text)
+        self.assertIn('if not parsed_path.startswith("/__ordax/native/"):', text)
 
     def test_native_composition_owns_reload_watcher_and_update_center(self):
         adapter = NATIVE_UPDATE_ADAPTER.read_text(encoding="utf-8")
@@ -766,7 +893,12 @@ class HotUpdateSupervisorContractTests(unittest.TestCase):
 
     def test_supervisor_updates_refresh_guardian_through_exit_75(self):
         text = SYSTEM_SUPERVISOR.read_text(encoding="utf-8")
-        self.assertIn("system/entrypoint|system/supervisor)", text)
+        # The Native Product lifecycle library is sourced by the Supervisor,
+        # so updating it must use the same guardian-mediated restart path.
+        self.assertIn(
+            "system/entrypoint|system/supervisor|system/services/device-agent/native-product-lifecycle.sh)",
+            text,
+        )
         self.assertIn("SUPERVISOR_SCRIPT=$SYSTEM_ROOT/supervisor", text)
         self.assertIn('/bin/sh -n "$SUPERVISOR_SCRIPT"', text)
         self.assertIn("asking guardian to restart supervisor without reboot", text)

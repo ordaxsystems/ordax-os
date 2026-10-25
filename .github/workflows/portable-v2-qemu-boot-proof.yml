@@ -16,6 +16,9 @@ on:
       - '!bootstrap/kernel/**/*.md'
       - 'bootstrap/stable-base/**'
       - 'bootstrap/surface-runtime/**'
+      - 'system/surface/runtime/packages.txt'
+      - 'system/surface/runtime/media_runtime_probe.py'
+      - 'system/surface/runtime/audio-session.sh'
       - '!bootstrap/surface-runtime/**/*.md'
       - 'bootstrap/local-ai-runtime/**'
       - 'bootstrap/initramfs/**'
@@ -31,6 +34,9 @@ on:
       - '!bootstrap/release-acquisition/**/*.md'
       - 'bootstrap/recovery/entrypoint'
       - 'bootstrap/config/release-envelope-url'
+      - 'docs/contracts/surface-source.json'
+      - 'tools/surface-source/**'
+      - '.github/actions/assemble-surface/**'
       - 'tools/release-bundle/**'
       - 'tools/portable-release-image/**'
       - 'tools/release-manifest/**'
@@ -75,6 +81,9 @@ on:
       - '!bootstrap/kernel/**/*.md'
       - 'bootstrap/stable-base/**'
       - 'bootstrap/surface-runtime/**'
+      - 'system/surface/runtime/packages.txt'
+      - 'system/surface/runtime/media_runtime_probe.py'
+      - 'system/surface/runtime/audio-session.sh'
       - '!bootstrap/surface-runtime/**/*.md'
       - 'bootstrap/local-ai-runtime/**'
       - 'bootstrap/initramfs/**'
@@ -90,6 +99,9 @@ on:
       - '!bootstrap/release-acquisition/**/*.md'
       - 'bootstrap/recovery/entrypoint'
       - 'bootstrap/config/release-envelope-url'
+      - 'docs/contracts/surface-source.json'
+      - 'tools/surface-source/**'
+      - '.github/actions/assemble-surface/**'
       - 'tools/release-bundle/**'
       - 'tools/portable-release-image/**'
       - 'tools/release-manifest/**'
@@ -161,6 +173,9 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
+      - name: Prepare pinned Surface for accurate impact graph classification
+        uses: ./.github/actions/prepare-verified-surface
+
       - name: Classify Portable/QEMU causal impact
         id: impact
         env:
@@ -192,6 +207,9 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
           persist-credentials: false
+
+      - name: Prepare verified Surface for causal-graph QEMU regression tests
+        uses: ./.github/actions/prepare-verified-surface
 
       - name: Set up Python
         uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
@@ -574,6 +592,11 @@ jobs:
             --out-dir "$work/initramfs" \
             > "$work/metadata/initramfs-verify.json"
 
+      - name: Assemble pinned Surface into the QEMU candidate system source
+        uses: ./.github/actions/assemble-surface
+        with:
+          out-root: ${{ runner.temp }}/portable-v2-qemu/assembled-source
+
       - name: Build candidate v4 with local AI and previous signed portable release v3
         run: |
           set -euo pipefail
@@ -614,8 +637,37 @@ jobs:
           )
 
           "$work/bin/release-bundle" \
-            --root "$PWD" \
+            --root "$work/assembled-source" \
             --out "$work/system.tar"
+
+          # The candidate must be booted from an OS commit with no tracked
+          # visual source. The signed bytes must nevertheless include exactly
+          # one pinned Surface and a verifiable provenance receipt.
+          python3 - "$work/system.tar" <<'PY'
+          import json, pathlib, subprocess, sys, tarfile
+          pin = json.loads(pathlib.Path("docs/contracts/surface-source.json").read_text())
+          assert pin["status"] == "canonical"
+          tracked = subprocess.check_output([
+              "git", "ls-tree", "-r", "--name-only", "HEAD", "--",
+              "system/surface/ui", "system/surface/workspace",
+          ], text=True)
+          assert tracked.strip() == "", f"OS still tracks visual source: {tracked[:500]}"
+          with tarfile.open(sys.argv[1], "r:") as archive:
+              names = archive.getnames()
+              path = "system/surface/source-provenance.json"
+              assert names.count(path) == 1
+              receipt = json.load(archive.extractfile(path))
+              assert receipt["surface_source_commit"] == pin["source_commit"]
+              assert receipt["surface_source_repository"] == pin["source_repository"]
+              assert receipt["old_os_visual_source_packaged"] is False
+              for visual in (
+                  "system/surface/ui/surface.mjs",
+                  "system/surface/workspace/presentation.mjs",
+              ):
+                  assert names.count(visual) == 1, visual
+          print("QEMU_OS_VISUAL_TRACKED_BLOBS=ZERO")
+          print("QEMU_SIGNED_SYSTEM_SINGLE_SURFACE_OWNER=PASS")
+          PY
           python tools/portable-release-image/build.py build \
             --tar "$work/system.tar" \
             --out "$release/system.erofs" \
@@ -834,6 +886,47 @@ jobs:
           print('PORTABLE_V2_UEFI_BOOT_PROVEN=NO')
           print('PORTABLE_V2_PHYSICAL_BOOT_PROVEN=NO')
           print('PORTABLE_V2_PUBLIC_PROMOTION=NO')
+          PY
+
+      - name: Boot signed Portable v4 on transitional Dev geometry in QEMU
+        if: ${{ (inputs.base_source || 'stable') == 'stable' }}
+        run: |
+          set -euo pipefail
+          work="$RUNNER_TEMP/portable-v2-qemu"
+          mkdir -p "$work/qemu-dev-geometry-proof"
+          sudo -E python3 bootstrap/portable-v2/qemu_boot.py \
+            --kernel "$work/kernel/vmlinuz-$ORDAX_KERNEL_VERSION" \
+            --initramfs "$work/initramfs/initramfs.cpio.gz" \
+            --initramfs-provenance "$work/initramfs/initramfs-provenance.json" \
+            --capsule "$work/capsule/bootstrap.erofs" \
+            --stable-base "$work/stable-base/stable-base.erofs" \
+            --state-image "$work/persistent-state.img" \
+            --portable-root "$work/portable/.ordax" \
+            --trust "$work/release-trust.json" \
+            --source-commit "${{ github.event.pull_request.head.sha || github.sha }}" \
+            --dev-transitional-geometry \
+            --out "$work/qemu-dev-geometry-proof/proof.json"
+          sudo chown -R "$(id -u):$(id -g)" "$work/qemu-dev-geometry-proof"
+          python3 - "$work/qemu-dev-geometry-proof/proof.json" <<'PY'
+          import json, pathlib, sys
+          proof = json.loads(pathlib.Path(sys.argv[1]).read_text())
+          assert proof['status'] == 'pass'
+          assert proof['portable_on_transitional_dev_geometry_proven'] is True
+          assert proof['guest_disk']['layout'] == ['ORDAX-ESP', 'ORDAX', 'ORDAX-DATA']
+          assert proof['guest_disk']['intermediate_ordax_contains_owner_checkout'] is False
+          assert proof['guest_disk']['retained'] is False
+          assert proof['artifacts']['release_manifest_schema'] == 4
+          assert proof['qemu_direct_kernel_boot_proven'] is True
+          assert proof['qemu_uefi_boot_proven'] is False
+          assert proof['owner_git_boot_proven'] is False
+          assert proof['owner_git_fallback_proven'] is False
+          assert proof['boot_mode_switch_proven'] is False
+          assert proof['physical_target_device_touched'] is False
+          assert proof['physical_write_authorized'] is False
+          assert proof['public_physical_promotion_allowed'] is False
+          assert all(proof['checks'].values()), proof['checks']
+          print('ORDAX_DEV_TRANSITIONAL_PORTABLE_QEMU_GEOMETRY=PASS')
+          print('ORDAX_DEV_MIXED_BOOT_AND_GIT_FALLBACK_PROVEN=NO')
           PY
 
       - name: Prove armed candidate one-shot fallback in QEMU

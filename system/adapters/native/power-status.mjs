@@ -4,6 +4,8 @@ import {
   validatePowerStatusSnapshot,
 } from "../../contracts/power-status.mjs";
 
+import { createNativeBootProbeReader } from "./boot-probe-reader.mjs";
+
 const POWER_STATUS_ENDPOINT = "/__ordax/native/power-status";
 
 export async function createNativePowerStatus(windowRef = globalThis.window) {
@@ -13,7 +15,7 @@ export async function createNativePowerStatus(windowRef = globalThis.window) {
 
   const port = {
     schema: POWER_STATUS_SCHEMA,
-    async read() {
+    read: createNativeBootProbeReader(async () => {
       const response = await windowRef.fetch(POWER_STATUS_ENDPOINT, {
         method: "GET",
         cache: "no-store",
@@ -23,7 +25,7 @@ export async function createNativePowerStatus(windowRef = globalThis.window) {
         throw new Error(`Native power-status request failed: ${response.status}`);
       }
       return validatePowerStatusSnapshot(await response.json());
-    },
+    }),
   };
 
   assertPowerStatusPort(port);

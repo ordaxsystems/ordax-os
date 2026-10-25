@@ -1,3 +1,4 @@
+import { hasNativeHostBridge, postNativeHostMessage } from "./host-bridge.mjs";
 import {
   BROWSER_PAGE_SELECTION_PORT_SCHEMA,
   assertBrowserPageSelectionPort,
@@ -5,14 +6,11 @@ import {
 } from "../../contracts/browser-page-selection.mjs";
 
 const EVENT_NAME = "ordax-browser-host";
-const HANDLER_NAME = "ordaxBrowser";
 const CAPTURE_TIMEOUT_MS = 12000;
 const TAB_ID_RE = /^[a-z][a-z0-9-]{0,63}$/;
 
 export function createNativeBrowserPageSelection(windowRef = globalThis.window) {
-  const bridge = windowRef?.webkit?.messageHandlers?.[HANDLER_NAME]
-    ?? windowRef?.ordaxDesktopBrowser;
-  if (!bridge || typeof bridge.postMessage !== "function") return null;
+  if (!hasNativeHostBridge(windowRef)) return null;
   let disposed = false;
   let ordinal = 0;
   const pending = new Map();
@@ -63,9 +61,9 @@ export function createNativeBrowserPageSelection(windowRef = globalThis.window) 
         );
         pending.set(requestId, { tabId, timeout, resolve, reject });
         try {
-          bridge.postMessage(JSON.stringify({
+          postNativeHostMessage(windowRef, {
             type: "page-selection.capture", requestId, tabId,
-          }));
+          });
         } catch (error) {
           finish(requestId, error);
         }
