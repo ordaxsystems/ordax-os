@@ -54,11 +54,12 @@ jobs:
         run: |
           set -euo pipefail
           sudo apt-get update -qq
-          # Required even on a verified kernel-cache hit: the native Owner
-          # mountattr helper is compiled with musl-gcc against the canonical
-          # initramfs-exported kernel UAPI. Do not assume cached headers exist.
+          # The canonical Owner rootfs is built by the same verified
+          # Buildroot/musl producer as Creator and the Dev Base channel.
           sudo apt-get install -y --no-install-recommends \
-            proot gcc make perl musl-tools binutils gpg gpg-agent
+            gcc make perl binutils gpg gpg-agent \
+            erofs-utils e2fsprogs util-linux gawk cpio unzip rsync \
+            file wget curl patch gettext
 
       - name: Install kernel build dependencies on cache miss
         if: steps.kernel-cache.outputs.cache-hit != 'true'
@@ -130,60 +131,45 @@ jobs:
           python bootstrap/initramfs/build.py verify
           test -f out/initramfs-work/kernel-uapi-install/include/linux/mount.h
 
-      - name: Verify PRoot device virtualization
-        run: |
-          set -euo pipefail
-          proot --version
-          sudo proot -r / -b /dev:/mnt -w / /bin/sh -ec 'test -c /mnt/null'
-          echo 'DEV_BASE_PROOT_DEV=PASS'
-
-      - name: Verify Alpine development seed access
-        run: |
-          set -euo pipefail
-          python - <<'PY'
-          import re
-          import urllib.request
-
-          version = '3.22.5'
-          base = 'https://dl-cdn.alpinelinux.org/alpine/v3.22/releases/x86_64'
-          archive = f'alpine-minirootfs-{version}-x86_64.tar.gz'
-          checksum_url = f'{base}/{archive}.sha256'
-          with urllib.request.urlopen(checksum_url, timeout=120) as response:
-              text = response.read().decode('utf-8')
-          assert re.search(r'\b[0-9a-fA-F]{64}\b', text), text
-          print('DEV_BASE_ALPINE_SEED=PASS')
-          PY
-
       - name: Build and verify Git development base
         run: |
           set -euo pipefail
           mkdir -p out/diagnostic
-          sudo -E python bootstrap/dev-base/build.py \
-            --kernel-modules "out/kernel/kernel-modules-$ORDAX_KERNEL_VERSION.tar" \
-            --out-dir out/dev-base \
+          export ORDAX_SOURCE_COMMIT="$GITHUB_SHA"
+          export ORDAX_HOST_PYTHON="$(command -v python3)"
+          export ORDAX_KERNEL_MODULES_ARCHIVE="$PWD/out/kernel/kernel-modules-$ORDAX_KERNEL_VERSION.tar"
+          export ORDAX_KERNEL_MODULES_RECEIPT="$RUNNER_TEMP/owner-dev-diagnose/kernel-module-payload.json"
+          export ORDAX_FIRMWARE_COVERAGE_RECEIPT="$RUNNER_TEMP/owner-dev-diagnose/firmware-coverage.json"
+          sudo -E python3 bootstrap/independent-base/build.py build \
+            --profile owner-development \
+            --out "$RUNNER_TEMP/owner-dev-diagnose/buildroot-base" \
+            --cache "$RUNNER_TEMP/owner-dev-diagnose/buildroot-cache" --jobs 4 \
             2>&1 | tee out/diagnostic/dev-base-build.log
-          rootfs=out/dev-base/rootfs
+          sudo chown -R "$(id -u):$(id -g)" "$RUNNER_TEMP/owner-dev-diagnose/buildroot-base"
+          python3 bootstrap/independent-base/build.py verify \
+            --profile owner-development \
+            --out "$RUNNER_TEMP/owner-dev-diagnose/buildroot-base"
+          python3 tools/dev-base-channel/prove_independent_rootfs.py \
+            --rootfs "$RUNNER_TEMP/owner-dev-diagnose/buildroot-base/rootfs.tar" \
+            --provenance "$RUNNER_TEMP/owner-dev-diagnose/buildroot-base/provenance.json" \
+            --expected-commit "$GITHUB_SHA" \
+            --receipt out/diagnostic/independent-rootfs-receipt.json
+          test -s out/diagnostic/independent-rootfs-receipt.json
+          sudo -E python3 tools/dev-base-channel/independent_rootfs.py materialize \
+            --rootfs "$RUNNER_TEMP/owner-dev-diagnose/buildroot-base/rootfs.tar" \
+            --provenance "$RUNNER_TEMP/owner-dev-diagnose/buildroot-base/provenance.json" \
+            --expected-commit "$GITHUB_SHA" \
+            --destination "$RUNNER_TEMP/owner-dev-diagnose/materialized-rootfs"
+          rootfs="$RUNNER_TEMP/owner-dev-diagnose/materialized-rootfs"
+          test ! -e "$rootfs/etc/alpine-release"
+          test ! -e "$rootfs/sbin/apk"
+          test -x "$rootfs/usr/bin/git"
+          test -x "$rootfs/sbin/ordax-dev-init"
+          test -x "$rootfs/usr/local/bin/ordax-pull"
           sudo touch "$rootfs/dev/null"
-          cleanup_dev_null() {
-            sudo rm -f "$rootfs/dev/null"
-          }
-          trap cleanup_dev_null EXIT
+          trap 'sudo rm -f "$rootfs/dev/null"' EXIT
           sudo chroot "$rootfs" /usr/bin/git --version
-          cleanup_dev_null
-          trap - EXIT
-          test -x out/dev-base/rootfs/sbin/ordax-dev-init
-          test -x out/dev-base/rootfs/usr/local/bin/ordax-pull
-          test -z "$(sudo find out/dev-base/rootfs/dev -mindepth 1 -print -quit)"
-          python - <<'PY'
-          import json
-          import pathlib
-
-          provenance = json.loads(pathlib.Path('out/dev-base/provenance.json').read_text(encoding='utf-8'))
-          assert provenance['build_device_strategy'] == 'proot-bind-host-dev'
-          assert provenance['source_checkout_preseeded'] is False
-          assert provenance['git_client_preseeded'] is True
-          print('DEV_BASE_NO_STATIC_DEVICES=PASS')
-          PY
+          echo 'DEV_BASE_ALPINE_FREE_DIAGNOSTIC=PASS'
 
       - name: Upload development base diagnostic log
         if: ${{ always() }}

@@ -83,6 +83,22 @@ class OfflineOwnerWelcomeGateTests(unittest.TestCase):
         self.assertIn('export ORDAX_SOURCE_COMMIT="$ORDAX_OWNER_SOURCE_COMMIT"', growth)
         self.assertIn("assert prepared['source_commit'] == os.environ['ORDAX_OWNER_SOURCE_COMMIT']", growth)
 
+    def test_owner_visual_source_is_removed_before_expensive_buildroot(self):
+        workflow = (ROOT / ".github/workflows/creator-owner-dev-git.yml").read_text()
+        owner = workflow.split("- name: Build boot initramfs and Git development base", 1)[1]
+        owner = owner.split("- name: Create ephemeral prototype trust", 1)[0]
+        removal = owner.index('rm -rf "$target"')
+        clean_before = owner.index('OWNER_SOURCE_CHECKOUT_DIRTY_BEFORE_BUILDROOT')
+        buildroot = owner.index("bootstrap/independent-base/build.py build")
+        clean_after = owner.index('OWNER_SOURCE_CHECKOUT_DIRTY_AFTER_BUILDROOT')
+        self.assertLess(removal, clean_before)
+        self.assertLess(clean_before, buildroot)
+        self.assertLess(buildroot, clean_after)
+        self.assertIn("OWNER_ROOTFS_GIT_NOT_EXECUTABLE", owner)
+        self.assertIn("OWNER_ROOTFS_APK_BINARY_PRESENT", owner)
+        self.assertIn("OWNER_ROOTFS_BUILDROOT_BOOTSTRAP=VERIFIED", owner)
+        self.assertNotIn("bootstrap/dev-base/build.py", owner)
+
     def test_checkout_alone_is_not_a_bootable_desktop(self):
         with tempfile.TemporaryDirectory() as work:
             stage = Path(work)

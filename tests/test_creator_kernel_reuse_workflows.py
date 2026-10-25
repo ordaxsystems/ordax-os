@@ -151,8 +151,10 @@ class CreatorKernelReuseWorkflowTests(unittest.TestCase):
         deps = self.step_block(
             workflow, "Install tools for pinned kernel UAPI and Development Base",
         )
-        for tool in ("musl-tools", "gcc", "make", "binutils", "gpg", "gpg-agent"):
+        for tool in ("gcc", "make", "binutils", "gpg", "gpg-agent",
+                     "erofs-utils", "gawk", "cpio"):
             self.assertIn(tool, deps)
+        self.assertNotIn("proot", deps)
         self.assertNotIn("if: steps.kernel-cache", deps)
         uapi = self.step_block(
             workflow, "Export and verify canonical pinned kernel UAPI",
@@ -171,6 +173,14 @@ class CreatorKernelReuseWorkflowTests(unittest.TestCase):
         dev_base = self.step_block(workflow, "Build and verify Git development base")
         self.assertNotIn("bootstrap/kernel/build.py", dev_base)
         self.assertNotIn("bootstrap/initramfs/build.py", dev_base)
+        self.assertIn("bootstrap/independent-base/build.py build", dev_base)
+        self.assertIn("--profile owner-development", dev_base)
+        self.assertIn("independent_rootfs.py materialize", dev_base)
+        self.assertIn("prove_independent_rootfs.py", dev_base)
+        self.assertIn("DEV_BASE_ALPINE_FREE_DIAGNOSTIC=PASS", dev_base)
+        self.assertNotIn("bootstrap/dev-base/build.py", workflow)
+        self.assertNotIn("dl-cdn.alpinelinux.org", workflow)
+        self.assertNotIn("proot", workflow.lower())
 
     def test_review_candidate_is_byte_verified_pr_only_not_a_release(self):
         workflow = self.workflow(OWNER_DEV)

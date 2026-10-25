@@ -263,6 +263,27 @@ jobs:
           ORDAX_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
           set -euo pipefail
+          # Verify and remove ephemeral hydrated visuals BEFORE the expensive
+          # rootfs compilation. The Creator seeds solely from a clean Git SSOT.
+          for part in ui workspace; do
+            src="$RUNNER_TEMP/ordax-verified-surface-ci/system/surface/$part"
+            target="system/surface/$part"
+            test -d "$src" || {
+              echo "::error::OWNER_EXTERNAL_SURFACE_SOURCE_MISSING:$part" >&2; exit 1;
+            }
+            diff -qr "$src" "$target" || {
+              echo "::error::OWNER_EXTERNAL_SURFACE_STAGING_DRIFT:$part" >&2; exit 1;
+            }
+            rm -rf "$target"
+            test ! -e "$target" || {
+              echo "::error::OWNER_EXTERNAL_SURFACE_TEMPORARY_COPY_REMAINED:$part" >&2; exit 1;
+            }
+          done
+          git status --porcelain
+          test -z "$(git status --porcelain)" || {
+            echo "::error::OWNER_SOURCE_CHECKOUT_DIRTY_BEFORE_BUILDROOT" >&2
+            exit 1
+          }
           python boot/esp/build.py check
           python boot/esp/build.py build
           python boot/esp/build.py verify
@@ -288,22 +309,33 @@ jobs:
             --expected-commit "$ORDAX_OWNER_SOURCE_COMMIT" \
             --destination out/dev-base/rootfs
           rootfs="$(realpath out/dev-base/rootfs)"
-          test ! -e "$rootfs/etc/alpine-release"
-          test ! -e "$rootfs/sbin/apk"
-          test ! -e "$rootfs/lib/apk"
-          test -x "$rootfs/usr/bin/git"
+          # The verifier already enforces archive confinement, immutable
+          # provenance, profile and source commit. Retain explicit executable
+          # and no-APK release gates with actionable diagnostics.
+          test ! -e "$rootfs/etc/alpine-release" || {
+            echo "::error::OWNER_ROOTFS_ALPINE_RELEASE_PRESENT" >&2; exit 1;
+          }
+          test ! -e "$rootfs/sbin/apk" || {
+            echo "::error::OWNER_ROOTFS_APK_BINARY_PRESENT" >&2; exit 1;
+          }
+          test ! -e "$rootfs/lib/apk" || {
+            echo "::error::OWNER_ROOTFS_APK_METADATA_PRESENT" >&2; exit 1;
+          }
+          test -x "$rootfs/usr/bin/git" || {
+            echo "::error::OWNER_ROOTFS_GIT_NOT_EXECUTABLE" >&2; exit 1;
+          }
+          echo 'OWNER_ROOTFS_BUILDROOT_BOOTSTRAP=VERIFIED'
           sudo mkdir -p "$rootfs/workspace" "$rootfs/state"
           sudo chown -R "$(id -u):$(id -g)" "$rootfs/workspace" "$rootfs/state"
-          # The Creator's ordax-pull must seed from a CLEAN Git authority.
-          # Hydrated UI is test-only, never an untracked part of Git source.
-          for part in ui workspace; do
-            src="$RUNNER_TEMP/ordax-verified-surface-ci/system/surface/$part"
-            target="system/surface/$part"
-            test -d "$src" && diff -qr "$src" "$target"
-            rm -rf "$target"
-            test ! -e "$target"
-          done
-          test -z "$(git status --porcelain)"
+          # The full UI is materialized only in disposable CI. Do not allow
+          # an untracked visual source to become Owner Git authority.
+          checkout_dirty="$(git status --porcelain)"
+          if [ -n "$checkout_dirty" ]; then
+            printf '%s\n' "$checkout_dirty" >&2
+            echo "::error::OWNER_SOURCE_CHECKOUT_DIRTY_AFTER_BUILDROOT" >&2
+            exit 1
+          fi
+          echo 'OWNER_SOURCE_CHECKOUT=VERIFIED_CLEAN'
           ORDAX_WORKTREE="$rootfs/workspace/ordax" \
           ORDAX_STATE_DIR="$rootfs/state/ordax" \
           ORDAX_UPDATE_RUN_DIR="$RUNNER_TEMP/ordax-owner-dev-seed-run" \
