@@ -117,14 +117,19 @@ class CreatorKernelReuseWorkflowTests(unittest.TestCase):
         self.assertIn("bootstrap/initramfs/build.py build --jobs 4", build)
         # Owner mountattr is compiled with the pinned kernel UAPI exported
         # by the initramfs builder, never system /usr/include headers.
+        # The canonical initramfs exports kernel UAPI before the single
+        # Independent Base Owner builder consumes the verified modules.
         self.assertLess(
             build.index("python bootstrap/initramfs/build.py build --jobs 4"),
-            build.index("python bootstrap/dev-base/build.py"),
+            build.index("python3 bootstrap/independent-base/build.py build"),
         )
         self.assertLess(
             build.index("python bootstrap/initramfs/build.py verify"),
-            build.index("python bootstrap/dev-base/build.py"),
+            build.index("python3 bootstrap/independent-base/build.py build"),
         )
+        self.assertNotIn("python bootstrap/dev-base/build.py", build)
+        self.assertIn('--profile owner-development', build)
+        self.assertIn('ORDAX_KERNEL_MODULES_ARCHIVE', build)
         self.assertIn(
             "test -f out/initramfs-work/kernel-uapi-install/include/linux/mount.h",
             build,
