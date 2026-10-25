@@ -144,4 +144,23 @@ test('Windows Dev stages and compiles two real OS/Surface revisions then rolls b
   assert.equal((await chooseBootVersion({userData,template})).sha,osOne);
   assert.equal((await update()).status,'pinned');
   assert.ok(hasNativeBundle(two),'rollback preserves later revision without changing it');
+  // An authoritative but incompatible later revision may never replace the
+  // last healthy runtime or repeatedly clone the same immutable source SHA.
+  const {unpin}=require('./dev-update.cjs');
+  unpin(userData);
+  osFiles(original,surfaceTwo,'broken');
+  const bad=JSON.parse(readFileSync(join(original,'docs/contracts/surface-source.json'),'utf8'));
+  bad.status='legacy';
+  put(original,'docs/contracts/surface-source.json',JSON.stringify(bad));
+  const osBroken=commit(original,'Intentionally incompatible external Surface lock');
+  const incompatible=await update();
+  assert.equal(incompatible.status,'incompatible');
+  assert.equal(incompatible.sha,osBroken);
+  assert.equal(readState(userData).activeSha,osOne,'broken revision cannot replace known-good');
+  assert.equal(readState(userData).pendingSha,null);
+  assert.equal(readState(userData).incompatibleSha,osBroken);
+  assert.equal((await update()).status,'incompatible');
+  assert.equal(buildCount,3,'incompatible SHA must not trigger another clone or build');
+  assert.equal((await chooseBootVersion({userData,template})).sha,osOne);
+
 });

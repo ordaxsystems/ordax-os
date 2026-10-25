@@ -269,7 +269,21 @@ async function stageMain({ userData, template, log = () => {}, remote = OFFICIAL
       // Never promote source-only updates: an installed Desktop must boot the
       // bundle compiled from the identical staged SHA, not hundreds of modules
       // transformed on the first user launch. The staging directory is unique.
-      await buildCandidate(staging,template,{log});
+      try {
+        await buildCandidate(staging,template,{log});
+      } catch(error) {
+        // An immutable OS commit cannot acquire a different Surface SHA or
+        // pass a different pinned blob hash on retry. Record that exact SHA,
+        // never mask transient networking/toolchain errors as incompatible.
+        if(error?.code!=='ORDAX_SURFACE_SOURCE_INCOMPATIBLE') throw error;
+        const latest=readState(userData);
+        if(!latest.pendingSha && !latest.pinnedSha && latest.activeSha===state.activeSha) {
+          writeState(userData,{...latest,incompatibleSha:remoteSha});
+        }
+        log('Official main '+remoteSha.slice(0,12)+
+          ' rejected its pinned Surface source: '+error.message);
+        return {status:'incompatible',sha:remoteSha};
+      }
       if (!hasNativeBundle(staging)) return {status:'incompatible'};
       renameSync(staging,target);
     } finally {
