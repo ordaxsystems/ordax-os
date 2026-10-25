@@ -4,7 +4,7 @@ const { app, BrowserWindow, WebContentsView, ipcMain, session, Menu, shell, dial
 const { createDesktopBrowserHost } = require('./browser-host.cjs');
 const { join, resolve, isAbsolute, basename } = require('node:path');
 const { randomBytes } = require('node:crypto');
-const { mkdirSync, createWriteStream, existsSync } = require('node:fs');
+const { mkdirSync, createWriteStream, existsSync, readFileSync } = require('node:fs');
 const { resolveTemplate, runtimeStateDirectory } = require('./runtime.cjs');
 const { chooseBootVersion, confirmHealthy, rejectCandidate, stageMain, readState, pinPrevious, unpin } = require('./dev-update.cjs');
 const { startHost, stopHost } = require('./host.cjs');
@@ -123,7 +123,7 @@ const FILE_ROUTES=new Set([
   '/__ordax/native/file-export','/__ordax/native/image-preview',
   '/__ordax/native/media-preview','/__ordax/native/document-preview',
 ]);
-function authorizeDesktopFileRequests(browserWindow,base,fileToken,localSessionToken) {
+function authorizeDesktopFileRequests(browserWindow,base,fileToken,localSessionToken,nativeSessionToken) {
   const permittedOrigin=new URL(base).origin;
   // The secret never enters the renderer or a browser cookie. Only requests
   // from this trusted Surface's WebContents receive it; external Chromium
@@ -135,7 +135,7 @@ function authorizeDesktopFileRequests(browserWindow,base,fileToken,localSessionT
       // Strip any renderer-supplied fake grant first, even if the route is
       // untrusted. Only the owning Electron WebContents may receive secrets.
       for(const key of Object.keys(headers)){
-        if(/^(x-ordax-file-token|x-ordax-local-session-token)$/i.test(key))delete headers[key];
+        if(/^(x-ordax-file-token|x-ordax-local-session-token|x-ordax-session-token)$/i.test(key))delete headers[key];
       }
       try {
         const target=new URL(details.url);
@@ -144,6 +144,8 @@ function authorizeDesktopFileRequests(browserWindow,base,fileToken,localSessionT
         if(trusted && FILE_ROUTES.has(target.pathname))headers['X-OrdaX-File-Token']=fileToken;
         if(trusted && target.pathname==='/__ordax/native/local-session')
           headers['X-OrdaX-Local-Session-Token']=localSessionToken;
+        if(trusted && target.pathname==='/__ordax/native/session')
+          headers['X-OrdaX-Session-Token']=nativeSessionToken;
       } catch {}
       callback({requestHeaders:headers});
     }
@@ -174,6 +176,22 @@ async function assertDesktopFileSpaceSmoke(browserWindow) {
     throw Error('Trusted Electron Surface cannot read canonical Windows local session');
   }
   log('DESKTOP_LOCAL_SESSION_TRUSTED_SURFACE_SMOKE=PASS');
+  const diagnostic=await browserWindow.webContents.executeJavaScript(
+    "(async()=>{const s=await fetch('/__ordax/native/session',"+
+    "{credentials:'same-origin',cache:'no-store'});"+
+    "if(!s.ok)return {sessionStatus:s.status};const payload=await s.json();"+
+    "const sha=new URL(location.href).searchParams.get('source');"+
+    "const r=await fetch('/__ordax/native/client-diagnostic',"+
+    "{method:'POST',credentials:'same-origin',"+
+    "headers:{'Content-Type':'application/json','X-OrdaX-Diagnostic-Token':payload.diagnosticToken},"+
+    "body:JSON.stringify({sourceSha:sha,stage:'desktop-install-smoke',errorName:'Error',source:''})});"+
+    "return {sessionStatus:s.status,reportStatus:r.status,sha,hasToken:typeof payload.diagnosticToken==='string'};})()"
+  );
+  if(diagnostic.sessionStatus!==200 || diagnostic.reportStatus!==204 ||
+    diagnostic.hasToken!==true || !/^[0-9a-f]{40}$/.test(diagnostic.sha)) {
+    throw Error('Trusted Electron Surface cannot submit a verified Native client diagnostic');
+  }
+  log('DESKTOP_NATIVE_DIAGNOSTIC_TRUSTED_SURFACE_SMOKE=PASS');
 }
 async function assertNativeShellMounted(browserWindow) {
   const started=Date.now(),deadline=started+90000;
@@ -286,6 +304,8 @@ app.whenReady().then(async()=>{
   try{
     const fileToken=randomBytes(32).toString('hex');
     const localSessionToken=randomBytes(32).toString('hex');
+    const nativeSessionToken=randomBytes(32).toString('hex');
+    const diagnosticToken=randomBytes(32).toString('hex');
     const template=resolveTemplate(__dirname,process.resourcesPath,app.isPackaged);
     if(!existsSync(join(template,'tools','windows-emulator','dev-supervisor.mjs')))
       throw Error('Canonical OrdaX runtime snapshot missing');
@@ -294,13 +314,22 @@ app.whenReady().then(async()=>{
     const selected=app.isPackaged
       ? await chooseBootVersion({userData,template,log})
       : {root:template,sha:null,trial:false};
+    // The exact installed OS SHA is already pinned by the verified Native
+    // bundle receipt; update candidates use their validated Git SHA.
+    const bundledSourceSha=app.isPackaged
+      ? JSON.parse(readFileSync(join(template,'desktop-assets','source-provenance.json'),'utf8')).os_sha
+      : '';
+    if(app.isPackaged && !/^[0-9a-f]{40}$/.test(bundledSourceSha))
+      throw Error('Packaged Desktop source provenance unavailable');
+    const sourceOf=selection=>selection.sha??bundledSourceSha;
+    const nativeUrl=(base,sha)=>base+PRODUCT+(sha?'?source='+sha:'');
     let root=selected.root;
     try {
       log(root===template?'Bundled OrdaX Surface':'Verified Git-managed OrdaX Surface');
-      runtime=await startHost({root,stateDirectory:runtimeStateDirectory(userData),userData,log,fileToken,localSessionToken,
+      runtime=await startHost({root,stateDirectory:runtimeStateDirectory(userData),userData,log,fileToken,localSessionToken,nativeSessionToken,diagnosticToken,sourceSha:sourceOf(selected),
          builtAssetsRoot:nativeBuiltAssetsFor(root,template)});
-      authorizeDesktopFileRequests(window,runtime.url,fileToken,localSessionToken);
-      await window.loadURL(runtime.url+PRODUCT);
+      authorizeDesktopFileRequests(window,runtime.url,fileToken,localSessionToken,nativeSessionToken);
+      await window.loadURL(nativeUrl(runtime.url,sourceOf(selected)));
       await assertNativeShellMounted(window);
       await assertDesktopInternetSmoke(window,browserHost);
       await assertDesktopFileSpaceSmoke(window);
@@ -318,10 +347,10 @@ app.whenReady().then(async()=>{
       runtime=null;
       const fallback=await chooseBootVersion({userData,template,log});
       root=fallback.root;
-      runtime=await startHost({root,stateDirectory:runtimeStateDirectory(userData),userData,log,fileToken,localSessionToken,
+      runtime=await startHost({root,stateDirectory:runtimeStateDirectory(userData),userData,log,fileToken,localSessionToken,nativeSessionToken,diagnosticToken,sourceSha:sourceOf(fallback),
          builtAssetsRoot:nativeBuiltAssetsFor(root,template)});
-      authorizeDesktopFileRequests(window,runtime.url,fileToken,localSessionToken);
-      await window.loadURL(runtime.url+PRODUCT);
+      authorizeDesktopFileRequests(window,runtime.url,fileToken,localSessionToken,nativeSessionToken);
+      await window.loadURL(nativeUrl(runtime.url,sourceOf(fallback)));
       await assertNativeShellMounted(window);
       await assertDesktopInternetSmoke(window,browserHost);
       await assertDesktopFileSpaceSmoke(window);

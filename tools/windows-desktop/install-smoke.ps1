@@ -346,6 +346,11 @@ try {
       throw "Unauthenticated localhost client gained access to OrdaX local session"
     }
     Write-Output "DESKTOP_LOCAL_SESSION_AUTHORIZATION_SMOKE=PASS"
+    $noNativeSessionGrant = Invoke-WebRequest -Uri ($baseUrl + "/__ordax/native/session") -Method GET -TimeoutSec 15 -SkipHttpErrorCheck
+    if ($noNativeSessionGrant.StatusCode -ne 401) {
+      throw "Unauthenticated localhost client obtained a Native host capability token"
+    }
+    Write-Output "DESKTOP_NATIVE_SESSION_AUTHORIZATION_SMOKE=PASS"
     Write-Output "DESKTOP_NETWORK_STATUS_SMOKE=PASS"
     Write-Output ("STARTUP_DURATION_SECONDS=" + [Math]::Round(([DateTime]::UtcNow - $startupStarted).TotalSeconds, 1))
     Write-Output "STARTUP_SMOKE=PASS"

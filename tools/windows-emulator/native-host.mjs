@@ -10,6 +10,7 @@ import { createDesktopBuiltAssetsMiddleware } from "./desktop-built-assets.mjs";
 import { createDesktopFileSpaceMiddleware } from "../../system/adapters/desktop/file-space-host.mjs";
 import { createDesktopAccountCookieVault } from "../../system/adapters/desktop/account-cookie-vault.mjs";
 import { createDesktopLocalSessionMiddleware } from "../../system/adapters/desktop/local-session-host.mjs";
+import { createDesktopClientDiagnosticsMiddleware } from "../../system/adapters/desktop/client-diagnostics-host.mjs";
 import { createInitialFirstRunState, validateFirstRunState } from "../../system/contracts/first-run-state-store.mjs";
 import { validatePreferenceRecord } from "../../system/contracts/preference-store.mjs";
 import { FIRST_RUN_CURSOR_SCHEMA, validateFirstRunCursor } from "../../system/contracts/first-run-cursor.mjs";
@@ -121,11 +122,19 @@ export function nativeEmulatorPlugin(stateDirectory, { desktopHost = false, acco
         ? createDesktopLocalSessionMiddleware(userData, {
             token:process.env.ORDAX_DESKTOP_LOCAL_SESSION_TOKEN,
           }) : null;
+      const diagnostics=desktopHost && process.platform==="win32" && userData &&
+        /^[0-9a-f]{40}$/.test(process.env.ORDAX_DESKTOP_RENDERED_SOURCE_SHA??"")
+          ? createDesktopClientDiagnosticsMiddleware(userData,{
+              sessionToken:process.env.ORDAX_DESKTOP_NATIVE_SESSION_TOKEN,
+              diagnosticToken:process.env.ORDAX_DESKTOP_DIAGNOSTIC_TOKEN,
+              sourceSha:process.env.ORDAX_DESKTOP_RENDERED_SOURCE_SHA,
+            }):null;
       if (desktopHost && process.env.ORDAX_DESKTOP_ASSETS_ROOT) {
         // Same compiled Native composition, served before Vite source transforms.
         server.middlewares.use(createDesktopBuiltAssetsMiddleware(process.env.ORDAX_DESKTOP_ASSETS_ROOT));
       }
       if (localSession)server.middlewares.use(localSession.middleware);
+      if (diagnostics)server.middlewares.use(diagnostics.middleware);
       if (desktopHost && process.env.ORDAX_DESKTOP_UPDATE_USER_DATA) {
         // Logical "/" is a private, persistent Windows user-data file-space,
         // not the host drive root. This precedes the emulator 503 fallback.

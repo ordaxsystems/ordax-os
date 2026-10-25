@@ -13,6 +13,7 @@ import {completeFirstRunState,createInitialFirstRunState} from "../system/servic
 // The existing Windows CI suite also runs the DPAPI Desktop account regressions.
 import "./test_windows_desktop_account_vault.mjs";
 import "./test_windows_desktop_local_session.mjs";
+import "./test_windows_desktop_client_diagnostics.mjs";
 
 test("emulator development controls stay hidden unless explicitly requested",async()=>{
   const [html,main]=await Promise.all([
