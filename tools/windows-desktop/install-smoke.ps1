@@ -355,6 +355,17 @@ try {
       throw "Unauthenticated localhost client gained access to OrdaX local session"
     }
     Write-Output "DESKTOP_LOCAL_SESSION_AUTHORIZATION_SMOKE=PASS"
+    foreach ($path in @("/__ordax/native/first-run", "/__ordax/native/preferences", "/__ordax/native/first-run-cursor")) {
+      $unauthorized = Invoke-WebRequest -Uri ($baseUrl + $path) -Method GET -TimeoutSec 15 -SkipHttpErrorCheck
+      if ($unauthorized.StatusCode -ne 401) {
+        throw "Unauthenticated localhost client can read or edit canonical OrdaX Desktop state: $path"
+      }
+    }
+    $noReset = Invoke-WebRequest -Uri ($baseUrl + "/__ordax/emulator/reset-first-run") -Method POST -TimeoutSec 15 -SkipHttpErrorCheck
+    if ($noReset.StatusCode -ne 404) {
+      throw "Emulator-only destructive first-run reset leaked into installed Desktop"
+    }
+    Write-Output "DESKTOP_PRIVATE_STATE_AUTHORIZATION_SMOKE=PASS"
     $noNativeSessionGrant = Invoke-WebRequest -Uri ($baseUrl + "/__ordax/native/session") -Method GET -TimeoutSec 15 -SkipHttpErrorCheck
     if ($noNativeSessionGrant.StatusCode -ne 401) {
       throw "Unauthenticated localhost client obtained a Native host capability token"

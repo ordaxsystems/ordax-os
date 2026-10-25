@@ -146,6 +146,23 @@ arquivos corrompidos ou symlink. Bloqueio da sessão OrdaX retorna 423;
 clientes localhost sem concessão efêmera específica do Electron recebem
 401. O emulador sem host instalado continua sem esse privilégio.
 
+## Estado privado do Primeiro Uso e Preferências
+
+No `.exe` Windows, as três rotas canônicas de estado
+`/__ordax/native/first-run`, `/__ordax/native/preferences` e
+`/__ordax/native/first-run-cursor` exigem um **sexto token efêmero de
+256 bits**, independente dos grants Files, Conta e identidade. O Electron
+retira qualquer header fornecido pela página e somente o injeta na
+WebContents Native do próprio OrdaX; localhost externo recebe HTTP 401.
+A sessão OrdaX bloqueada retorna 423 para leitura e escrita, e estado
+corrompido continua indisponível em vez de ser recriado.
+
+O endpoint administrativo `/__ordax/emulator/reset-first-run` agora é
+estritamente de desenvolvimento visual e **não existe no host Desktop
+instalado** (HTTP 404). O mesmo contrato de Primeiro Uso e Preferências
+segue sendo usado no Windows e no USB; a implantação não cria novos
+serviços, exceções de login ou políticas paralelas.
+
 ## Composição canônica
 
 - A mesma Surface e apps vêm de `system/`; não criar telas ou serviços

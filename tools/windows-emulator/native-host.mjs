@@ -1,6 +1,7 @@
 // Development host for Native contracts. Account authority stays in the HTTPS gateway.
 import { mkdir, readFile, writeFile, rename } from "node:fs/promises";
 import { join } from "node:path";
+import { timingSafeEqual } from "node:crypto";
 import { readDesktopNetworkStatus } from "../../system/adapters/desktop/network-status.mjs";
 import { readDesktopSystemMetrics } from "../../system/adapters/desktop/system-metrics.mjs";
 import { readDesktopPowerStatus } from "../../system/adapters/desktop/power-status.mjs";
@@ -20,7 +21,11 @@ import { createEmulatorAccountGateway } from "./account-gateway.mjs";
 export function createEmulatorNativeHost({
   stateDirectory, accountGatewayOrigin = "", fetchImpl = globalThis.fetch,
   cookieVault = null, sessionLocked = null,
+  stateToken = null, allowEmulatorReset = true,
 }) {
+  const authorizedStateToken = stateToken===null ? null :
+    /^[0-9a-f]{64}$/.test(stateToken) ? Buffer.from(stateToken,"hex") :
+    (()=>{throw new TypeError("Desktop state requires a verified per-launch grant");})();
   const accountMiddleware = createEmulatorAccountGateway({
     origin: accountGatewayOrigin, fetchImpl, cookieVault,
   });
@@ -77,8 +82,22 @@ export function createEmulatorNativeHost({
     };
     const route = routes.get(path);
     const reset = path === "/__ordax/emulator/reset-first-run";
+    if (reset && !allowEmulatorReset) return reply(404, { error: "Emulator reset unavailable on installed Desktop" });
     if (!route && !reset) return reply(503, { error: "Capability unavailable in Windows development host" });
+    if (authorizedStateToken) {
+      const supplied=request.headers["x-ordax-desktop-state-token"];
+      const token=typeof supplied==="string" && /^[0-9a-f]{64}$/.test(supplied)
+        ? Buffer.from(supplied,"hex") : null;
+      if (request.socket?.remoteAddress!=="127.0.0.1" &&
+          request.socket?.remoteAddress!=="::1" &&
+          request.socket?.remoteAddress!=="::ffff:127.0.0.1" ||
+          !token || !timingSafeEqual(token,authorizedStateToken))
+        return reply(401,{error:"Native Desktop state authorization required"});
+      if (request.url!==path)return reply(400,{error:"Query not supported"});
+    }
     try {
+      if (authorizedStateToken && sessionLocked && await sessionLocked())
+        return reply(423,{error:"OrdaX Desktop session locked"});
       if (request.method === "GET" && route) {
         await queue;
         return reply(200, (await load())[route[0]]);
@@ -223,6 +242,8 @@ export function nativeEmulatorPlugin(stateDirectory, { desktopHost = false, acco
       server.middlewares.use(createEmulatorNativeHost({
         stateDirectory, accountGatewayOrigin, cookieVault,
         sessionLocked:localSession?.readLocked??null,
+        stateToken:desktopHost ? process.env.ORDAX_DESKTOP_STATE_TOKEN : null,
+        allowEmulatorReset:!desktopHost,
       }));
       // Native's real host serves system/ as its static root.
       server.middlewares.use((request, _response, next) => {
