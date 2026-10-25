@@ -18,15 +18,20 @@ test("Windows recovery transport consumes typed read-only same-origin response",
  assert.deepEqual(requests.map(x=>x.url),["/__ordax/desktop/recovery","/__ordax/desktop/recovery"]);
  assert.ok(requests.every(x=>x.options.method==="GET"&&x.options.credentials==="same-origin"));
 });
-test("canonical System uses Windows facts without mutating Portable v2 contract",()=>{
+test("Windows recovery stays an OS capability adapter after independent Surface cutover",()=>{
  const root=new URL("../",import.meta.url);
- const surface=readFileSync(new URL("system/surface/ui/system-overview-controls.mjs",root),"utf8");
+ const { existsSync } = requireFileSystem();
+ const lock=JSON.parse(readFileSync(new URL("docs/contracts/surface-source.json",root),"utf8"));
  const native=readFileSync(new URL("system/composition/native/main.mjs",root),"utf8");
  const host=readFileSync(new URL("tools/windows-emulator/native-host.mjs",root),"utf8");
- assert.ok(surface.includes('desktopRecoveryStatus = null'));
- assert.ok(surface.includes('validateDesktopRecoverySnapshot'));
- assert.ok(surface.includes('system.recovery.desktop.policy'));
- assert.ok(native.includes("createDesktopRecoveryStatus(window)"));
+ const adapter=readFileSync(new URL("system/adapters/desktop/recovery-port.mjs",root),"utf8");
+ assert.equal(lock.source_repository,"ordaxsystems/ordax-surface");
+ assert.equal(lock.status,"canonical");
+ assert.equal(existsSync(new URL("system/surface/ui/system-overview-controls.mjs",root)),false);
+ assert.ok(native.includes("createNativeRecoveryStatus"));
+ assert.ok(adapter.includes("DESKTOP_RECOVERY_SCHEMA"));
+ assert.ok(adapter.includes("validateDesktopRecoverySnapshot"));
  assert.ok(host.includes('"/__ordax/desktop/recovery"'));
- assert.ok(surface.includes('assertRecoveryStatusPort(recoveryStatus)'));
+ assert.ok(!adapter.includes("child_process"));
 });
+function requireFileSystem(){return {existsSync:(url)=>{try{readFileSync(url);return true;}catch(e){if(e.code==="ENOENT")return false;throw e;}}};}
