@@ -42,6 +42,13 @@ test('installed Electron opens canonical Native composition without iframe', () 
   assert.ok(host.includes("path:'/system/composition/native/index.html'"));
 });
 
+test('Windows installer CI uses exact PR head rather than ephemeral test-merge SHA', () => {
+  const workflow = readFileSync(join(__dirname,'../../.github/workflows/windows-desktop-dev.yml'),'utf8');
+  assert.ok(workflow.includes('ref: ${{ github.event.pull_request.head.sha || github.sha }}'));
+  assert.ok(workflow.includes('Assert exact installer OS source identity'));
+  assert.ok(workflow.includes('DESKTOP_INSTALLER_SOURCE_SHA=$actual'));
+});
+
 test('Electron locks the canonical user profile before requesting a single instance', () => {
   const main = readFileSync(join(__dirname,'main.cjs'),'utf8');
   const name = main.indexOf("app.setName('OrdaX OS Desktop Dev')");
