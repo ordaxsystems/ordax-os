@@ -325,8 +325,12 @@ jobs:
             echo "::error::OWNER_ROOTFS_GIT_NOT_EXECUTABLE" >&2; exit 1;
           }
           echo 'OWNER_ROOTFS_BUILDROOT_BOOTSTRAP=VERIFIED'
+          # Buildroot rootfs.tar is materialized as root and its system
+          # directories deliberately remain root-owned. The canonical offline
+          # Git seed also activates manifest-owned helpers under /sbin and
+          # /usr/local/bin: perform that single seed as root, not with a
+          # partially writable rootfs or a second helper installer.
           sudo mkdir -p "$rootfs/workspace" "$rootfs/state"
-          sudo chown -R "$(id -u):$(id -g)" "$rootfs/workspace" "$rootfs/state"
           # The full UI is materialized only in disposable CI. Do not allow
           # an untracked visual source to become Owner Git authority.
           checkout_dirty="$(git status --porcelain)"
@@ -336,12 +340,19 @@ jobs:
             exit 1
           fi
           echo 'OWNER_SOURCE_CHECKOUT=VERIFIED_CLEAN'
-          ORDAX_WORKTREE="$rootfs/workspace/ordax" \
-          ORDAX_STATE_DIR="$rootfs/state/ordax" \
-          ORDAX_UPDATE_RUN_DIR="$RUNNER_TEMP/ordax-owner-dev-seed-run" \
-          ORDAX_DEV_HELPER_TARGET_ROOT="$(realpath "$rootfs")" \
-          ORDAX_REPO_URL='https://github.com/ordaxsystems/ordax-os.git' \
-          ORDAX_REPO_BRANCH=main \
+          # Scope Git's owner exception to this exact trusted CI checkout;
+          # never use safe.directory=* or make the installed rootfs writable
+          # by the runner. Newly created sparse checkout/state remain root-owned.
+          sudo env \
+            GIT_CONFIG_COUNT=1 \
+            GIT_CONFIG_KEY_0=safe.directory \
+            GIT_CONFIG_VALUE_0="$GITHUB_WORKSPACE" \
+            ORDAX_WORKTREE="$rootfs/workspace/ordax" \
+            ORDAX_STATE_DIR="$rootfs/state/ordax" \
+            ORDAX_UPDATE_RUN_DIR="$RUNNER_TEMP/ordax-owner-dev-seed-run" \
+            ORDAX_DEV_HELPER_TARGET_ROOT="$(realpath "$rootfs")" \
+            ORDAX_REPO_URL='https://github.com/ordaxsystems/ordax-os.git' \
+            ORDAX_REPO_BRANCH=main \
             /bin/sh bootstrap/dev-base/ordax-pull \
               --seed-from-local "$GITHUB_WORKSPACE" "$ORDAX_OWNER_SOURCE_COMMIT"
           # The same verified visual bytes may be reused for subsequent
@@ -350,15 +361,13 @@ jobs:
           for part in ui workspace; do
             cp -a "$RUNNER_TEMP/ordax-verified-surface-ci/system/surface/$part" "system/surface/$part"
           done
-          test "$(git -C "$rootfs/workspace/ordax" rev-parse HEAD)" = "$ORDAX_OWNER_SOURCE_COMMIT"
-          test "$(git -C "$rootfs/workspace/ordax" symbolic-ref --quiet --short HEAD)" = main
-          test "$(git -C "$rootfs/workspace/ordax" remote get-url origin)" = 'https://github.com/ordaxsystems/ordax-os.git'
-          test -z "$(git -C "$rootfs/workspace/ordax" status --porcelain)"
+          test "$(sudo git -C "$rootfs/workspace/ordax" rev-parse HEAD)" = "$ORDAX_OWNER_SOURCE_COMMIT"
+          test "$(sudo git -C "$rootfs/workspace/ordax" symbolic-ref --quiet --short HEAD)" = main
+          test "$(sudo git -C "$rootfs/workspace/ordax" remote get-url origin)" = 'https://github.com/ordaxsystems/ordax-os.git'
+          test -z "$(sudo git -C "$rootfs/workspace/ordax" status --porcelain)"
           test -x "$rootfs/workspace/ordax/system/entrypoint"
-          test "$(cat "$rootfs/state/ordax/current-commit")" = "$ORDAX_OWNER_SOURCE_COMMIT"
-          # Match root ownership before sudo verification of the pinned
-          # Git source and immutable preseed slot (Git safe.directory).
-          sudo chown -R root:root "$rootfs/workspace" "$rootfs/state"
+          test "$(sudo cat "$rootfs/state/ordax/current-commit")" = "$ORDAX_OWNER_SOURCE_COMMIT"
+          # Checkout and state have remained root-owned throughout bootstrap.
           # First Run must work without network. Put exactly one verified
           # visual source in the Supervisor's immutable release cache on
           # the Creator build host, NEVER a second Git tracked UI copy.
