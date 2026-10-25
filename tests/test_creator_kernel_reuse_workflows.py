@@ -23,9 +23,18 @@ class CreatorKernelReuseWorkflowTests(unittest.TestCase):
 
     def assert_verified_kernel_reuse(self, path: Path) -> str:
         workflow = self.workflow(path)
-        self.assertEqual(workflow.count(f"actions/cache/restore@{CACHE_SHA}"), 1)
-        self.assertEqual(workflow.count(f"actions/cache/save@{CACHE_SHA}"), 1)
-        self.assertNotIn("restore-keys:", workflow)
+        # Kernel identity must be single and exact; unrelated Buildroot compiler
+        # and source-download caches may coexist on the Owner USB workflow.
+        self.assertEqual(workflow.count("      - name: Restore verified kernel component\n"), 1)
+        self.assertEqual(workflow.count("      - name: Save verified kernel component\n"), 1)
+        kernel_restore = self.step_block(workflow, "Restore verified kernel component")
+        kernel_save = self.step_block(workflow, "Save verified kernel component")
+        self.assertEqual(kernel_restore.count(f"actions/cache/restore@{CACHE_SHA}"), 1)
+        self.assertEqual(kernel_save.count(f"actions/cache/save@{CACHE_SHA}"), 1)
+        self.assertNotIn("restore-keys:", kernel_restore)
+        for block in (kernel_restore, kernel_save):
+            self.assertIn("steps.component-fingerprints.outputs.kernel", block)
+            self.assertIn("ordax-portable-component-v1-", block)
         self.assertIn("ORDAX_COMPONENT_CACHE_ENVIRONMENT", workflow)
         self.assertIn("${ImageOS}", workflow)
         self.assertIn("${ImageVersion}", workflow)
