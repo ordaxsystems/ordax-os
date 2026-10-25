@@ -30,6 +30,36 @@ class OwnerNativeSourceIdentityTests(unittest.TestCase):
         self.assertIn('resolve_owner_checkout_root', function("resolve_source_identity"))
         self.assertIn('/usr/bin/git -C "$repo_root" rev-parse HEAD', function("resolve_source_identity"))
 
+    def test_runtime_root_enumeration_nonmatching_last_process_is_success(self):
+        # Execute the production shell function against hermetic proc/root
+        # symlinks. The previous function inherited the exit status of the
+        # last failed [ root_target = RUNTIME_ROOT ] and rejected cold boot.
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            runtime = base / "runtime"
+            runtime.mkdir()
+            proc = base / "proc"
+            proc.mkdir()
+            (proc / "123").mkdir()
+            (proc / "456").mkdir()
+            (proc / "123/root").symlink_to(runtime, target_is_directory=True)
+            (proc / "456/root").symlink_to(base / "unrelated", target_is_directory=True)
+            enumeration = (function("runtime_root_processes")
+                           .replace("/proc/[0-9]*/root", '"$PROC_ROOT"/[0-9]*/root')
+                           .replace('pid=${root_link#/proc/}', 'pid=${root_link#"$PROC_ROOT"/}')
+                           .replace("/bin/busybox readlink", "readlink"))
+            shell = enumeration + "\\nruntime_root_processes\\n"
+            env = dict(os.environ, PROC_ROOT=str(proc), RUNTIME_ROOT=str(runtime))
+            result = subprocess.run(["/bin/sh", "-c", shell], env=env,
+                                    capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(result.stdout, "123\\n")
+            (proc / "123/root").unlink()
+            result = subprocess.run(["/bin/sh", "-c", shell], env=env,
+                                    capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(result.stdout, "")
+
     def test_qemu_stale_runtime_process_evidence_is_bounded_and_read_only(self):
         witness = function("owner_qemu_runtime_process_evidence")
         self.assertIn("ordax.owner_qemu_graphics_probe=1", witness)
