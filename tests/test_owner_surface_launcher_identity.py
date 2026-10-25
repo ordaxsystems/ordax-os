@@ -30,6 +30,19 @@ class OwnerNativeSourceIdentityTests(unittest.TestCase):
         self.assertIn('resolve_owner_checkout_root', function("resolve_source_identity"))
         self.assertIn('/usr/bin/git -C "$repo_root" rev-parse HEAD', function("resolve_source_identity"))
 
+    def test_qemu_stale_runtime_process_evidence_is_bounded_and_read_only(self):
+        witness = function("owner_qemu_runtime_process_evidence")
+        self.assertIn("ordax.owner_qemu_graphics_probe=1", witness)
+        self.assertIn('[ "$witness_root" = "$RUNTIME_ROOT" ] || continue', witness)
+        self.assertIn('"/proc/$witness_pid/status"', witness)
+        self.assertIn('"$recorded" -lt 12', witness)
+        self.assertNotIn("/proc/$witness_pid/cmdline", witness)
+        self.assertNotIn("kill ", witness)
+        reaper = function("reap_stale_runtime_processes")
+        self.assertIn("owner_qemu_runtime_process_evidence discovered $stale_pids", reaper)
+        self.assertIn("owner_qemu_runtime_process_evidence unreaped $stale_pids", reaper)
+        self.assertIn("runtime processes remain after bounded SIGKILL; refusing mount teardown", reaper)
+
     def test_release_slot_uses_real_git_workspace_and_rejects_untrusted_roots(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
