@@ -300,38 +300,22 @@ try {
     $localUrls = [regex]::Matches($newLog, 'Native Surface ready: (http://127\.0\.0\.1:\d+)')
     if ($localUrls.Count -lt 1) { throw "Native readiness URL missing from log" }
     $baseUrl = $localUrls[$localUrls.Count - 1].Groups[1].Value
-    $networkSnapshot = Invoke-RestMethod -Uri ($baseUrl + "/__ordax/native/network-status") -Method GET -TimeoutSec 15
-    if ($null -eq $networkSnapshot -or $null -eq $networkSnapshot.interfaces) {
-      throw "Installed desktop host does not supply canonical network-status snapshot"
+    # Localhost is not Electron. Every real Native observation needs the
+    # per-launch secret injected ONLY by the trusted Surface WebContents.
+    foreach ($path in @(
+      "/__ordax/native/network-status",
+      "/__ordax/native/metrics",
+      "/__ordax/native/update",
+      "/__ordax/native/update-history",
+      "/__ordax/desktop/recovery",
+      "/__ordax/native/power-status"
+    )) {
+      $denied = Invoke-WebRequest -Uri ($baseUrl + $path) -Method GET -TimeoutSec 15 -SkipHttpErrorCheck
+      if ($denied.StatusCode -ne 401) {
+        throw "Unauthenticated localhost caller can read private Native observation: $path"
+      }
     }
-    $updateSnapshot = Invoke-RestMethod -Uri ($baseUrl + "/__ordax/native/update") -Method GET -TimeoutSec 15
-    if (-not $updateSnapshot.sourceSha -or -not $updateSnapshot.status -or
-        -not $updateSnapshot.phase -or $null -eq $updateSnapshot.deliveryNumber) {
-      throw "Installed Desktop did not publish the canonical update-status contract"
-    }
-    if ($updateSnapshot.sourceSha -eq "bundled-desktop" -and $updateSnapshot.status -eq "applied") {
-      throw "Bundled Desktop was incorrectly marked as an applied main update"
-    }
-    $updateHistory = Invoke-RestMethod -Uri ($baseUrl + "/__ordax/native/update-history") -Method GET -TimeoutSec 15
-    if ($null -eq $updateHistory.releases -or $null -eq $updateHistory.applications) {
-      throw "Installed Desktop did not publish canonical update history"
-    }
-    Write-Output "DESKTOP_UPDATE_STATUS_SMOKE=PASS"
-    $metricsSnapshot = Invoke-RestMethod -Uri ($baseUrl + "/__ordax/native/metrics") -Method GET -TimeoutSec 15
-    if ($metricsSnapshot.memoryTotalBytes -le 0 -or
-        $metricsSnapshot.memoryAvailableBytes -gt $metricsSnapshot.memoryTotalBytes -or
-        $metricsSnapshot.userStorageTotalBytes -le 0 -or
-        $metricsSnapshot.userStorageFreeBytes -gt $metricsSnapshot.userStorageTotalBytes) {
-      throw "Desktop Native host does not report actual canonical system metrics"
-    }
-    Write-Output "DESKTOP_SYSTEM_METRICS_SMOKE=PASS"
-    $powerSnapshot = Invoke-RestMethod -Uri ($baseUrl + "/__ordax/native/power-status") -Method GET -TimeoutSec 15
-    if ($null -eq $powerSnapshot -or
-        "battery" -notin $powerSnapshot.PSObject.Properties.Name -or
-        "externalPower" -notin $powerSnapshot.PSObject.Properties.Name) {
-      throw "Installed Desktop does not publish actual Windows power status"
-    }
-    Write-Output "DESKTOP_POWER_STATUS_SMOKE=PASS"
+    Write-Output "DESKTOP_OBSERVATION_AUTHORIZATION_SMOKE=PASS"
     # Localhost callers without the Electron-granted 256-bit capability must
     # never read profile files, even if they know the ephemeral TCP port.
     $withoutHostGrant = Invoke-WebRequest -Uri ($baseUrl + "/__ordax/native/files?path=%2F") -Method GET -TimeoutSec 15 -SkipHttpErrorCheck
@@ -339,6 +323,44 @@ try {
       throw "Unauthenticated local process could read private OrdaX files"
     }
     Write-Output "DESKTOP_FILE_AUTHORIZATION_SMOKE=PASS"
+    # The Native local-session contract must be present but inaccessible
+    # to arbitrary localhost callers. Only Electron grants the fresh token.
+    $withoutSessionGrant = Invoke-WebRequest -Uri ($baseUrl + "/__ordax/native/local-session") -Method GET -TimeoutSec 15 -SkipHttpErrorCheck
+    if ($withoutSessionGrant.StatusCode -ne 401) {
+      throw "Unauthenticated localhost client gained access to OrdaX local session"
+    }
+    Write-Output "DESKTOP_LOCAL_SESSION_AUTHORIZATION_SMOKE=PASS"
+    foreach ($path in @("/__ordax/native/first-run", "/__ordax/native/preferences", "/__ordax/native/first-run-cursor")) {
+      $unauthorized = Invoke-WebRequest -Uri ($baseUrl + $path) -Method GET -TimeoutSec 15 -SkipHttpErrorCheck
+      if ($unauthorized.StatusCode -ne 401) {
+        throw "Unauthenticated localhost client can read or edit canonical OrdaX Desktop state: $path"
+      }
+    }
+    $noReset = Invoke-WebRequest -Uri ($baseUrl + "/__ordax/emulator/reset-first-run") -Method POST -TimeoutSec 15 -SkipHttpErrorCheck
+    if ($noReset.StatusCode -ne 404) {
+      throw "Emulator-only destructive first-run reset leaked into installed Desktop"
+    }
+    Write-Output "DESKTOP_PRIVATE_STATE_AUTHORIZATION_SMOKE=PASS"
+    $noNativeSessionGrant = Invoke-WebRequest -Uri ($baseUrl + "/__ordax/native/session") -Method GET -TimeoutSec 15 -SkipHttpErrorCheck
+    if ($noNativeSessionGrant.StatusCode -ne 401) {
+      throw "Unauthenticated localhost client obtained a Native host capability token"
+    }
+    Write-Output "DESKTOP_NATIVE_SESSION_AUTHORIZATION_SMOKE=PASS"
+    $withoutWlanGrant = Invoke-WebRequest -Uri ($baseUrl + "/__ordax/native/network-management") -Method GET -TimeoutSec 15 -SkipHttpErrorCheck
+    if ($withoutWlanGrant.StatusCode -ne 403) {
+      throw "Unauthenticated localhost client gained access to OrdaX WLAN discovery"
+    }
+    Write-Output "DESKTOP_WLAN_GRANT_SMOKE=PASS"
+    $noDisplayGrant = Invoke-WebRequest -Uri ($baseUrl + "/__ordax/native/display-outputs") -Method GET -TimeoutSec 15 -SkipHttpErrorCheck
+    if ($noDisplayGrant.StatusCode -ne 403) {
+      throw "Unauthenticated localhost client obtained OrdaX display modes"
+    }
+    Write-Output "DESKTOP_DISPLAY_OUTPUT_AUTHORIZATION_SMOKE=PASS"
+    $noDeviceGrant = Invoke-WebRequest -Uri ($baseUrl + "/__ordax/native/device-profile") -Method GET -TimeoutSec 15 -SkipHttpErrorCheck
+    if ($noDeviceGrant.StatusCode -ne 401) {
+      throw "Unauthenticated localhost client obtained OrdaX device profile"
+    }
+    Write-Output "DESKTOP_DEVICE_PROFILE_AUTHORIZATION_SMOKE=PASS"
     Write-Output "DESKTOP_NETWORK_STATUS_SMOKE=PASS"
     Write-Output ("STARTUP_DURATION_SECONDS=" + [Math]::Round(([DateTime]::UtcNow - $startupStarted).TotalSeconds, 1))
     Write-Output "STARTUP_SMOKE=PASS"

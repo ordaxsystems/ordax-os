@@ -104,7 +104,7 @@ class OfflineOwnerWelcomeGateTests(unittest.TestCase):
         self.assertIn("BR2_DL_DIR:", workflow)
         self.assertNotIn("native-surface-runtime-buildroot.erofs' > ", workflow)
 
-    def test_creator_reuses_only_cryptographically_verified_same_commit_surface(self):
+    def test_creator_reuses_verified_immutable_surface_inputs_across_commits(self):
         workflow = (ROOT / ".github/workflows/creator-owner-dev-git.yml").read_text()
         independent = (ROOT / ".github/workflows/independent-surface-runtime.yml").read_text()
         restore = workflow.index("- name: Restore exact verified Surface EROFS for Owner")
@@ -118,7 +118,9 @@ class OfflineOwnerWelcomeGateTests(unittest.TestCase):
         self.assertIn("independent_surface_component_cache.py fingerprint", workflow)
         self.assertIn("independent_surface_component_cache.py verify", workflow)
         self.assertIn("--cache-hit true --consumer", workflow)
-        self.assertIn('if [ "$cached_commit" = "$ORDAX_OWNER_SOURCE_COMMIT" ]; then', workflow)
+        self.assertNotIn('if [ "$cached_commit" = "$ORDAX_OWNER_SOURCE_COMMIT" ]; then', workflow)
+        self.assertIn("verified-input-fingerprint-cache", workflow)
+        self.assertIn("Surface consumer", (ROOT / "tools/creator/verify_owner_dev_offline_runtime.py").read_text())
         self.assertIn("cp -a \"$RUNNER_TEMP/ordax-independent-surface/.\"", workflow)
         self.assertIn('if [ "$reused" != true ]; then', workflow)
         self.assertIn("bootstrap/independent-surface-runtime/build.py build", workflow)
@@ -184,6 +186,49 @@ class OfflineOwnerWelcomeGateTests(unittest.TestCase):
             )
             with self.assertRaisesRegex(GATE.OfflineRuntimeError, "already staged"):
                 GATE.stage_runtime(stage, producer)
+
+
+    def test_reused_cross_commit_cache_preserves_producer_and_binds_owner(self):
+        from tools.ci import independent_surface_component_cache as cache
+        with tempfile.TemporaryDirectory() as work:
+            stage = Path(work)
+            base, producer = fixture(stage)
+            meta = producer / "provenance.json"
+            original = json.loads(meta.read_text())
+            original["source_commit"] = "2" * 40
+            meta.write_text(json.dumps(original))
+            cache.record(producer, "2" * 40)
+            before = meta.read_bytes()
+            GATE.stage_runtime(stage, producer)
+            self.assertEqual(GATE.verify(stage), ID)
+            self.assertEqual(meta.read_bytes(), before)
+            receipt = json.loads((base / GATE.RELATIVE_BINDING).read_text())
+            self.assertEqual(receipt["build_source_commit"], "2" * 40)
+            self.assertEqual(receipt["integration_source_commit"], COMMIT)
+            self.assertEqual(receipt["provenance_sha256"], GATE.sha256(base / GATE.RELATIVE_PROVENANCE))
+            self.assertFalse(receipt["provenance_rewritten"])
+            (base / GATE.RELATIVE_BINDING).write_text(json.dumps({**receipt, "input_fingerprint": "0" * 64}))
+            with self.assertRaisesRegex(GATE.OfflineRuntimeError, "fingerprint changed"):
+                GATE.verify(stage)
+
+    def test_cross_commit_cache_rejects_missing_or_tampered_manifest(self):
+        from tools.ci import independent_surface_component_cache as cache
+        for mutation in ("missing", "tamper"):
+            with self.subTest(mutation=mutation), tempfile.TemporaryDirectory() as work:
+                stage = Path(work)
+                _, producer = fixture(stage)
+                meta = producer / "provenance.json"
+                original = json.loads(meta.read_text())
+                original["source_commit"] = "2" * 40
+                meta.write_text(json.dumps(original))
+                if mutation == "tamper":
+                    cache.record(producer, "2" * 40)
+                    manifest = producer / cache.MANIFEST
+                    data = json.loads(manifest.read_text())
+                    data["artifacts"]["native-surface-runtime-buildroot.erofs"]["sha256"] = "0" * 64
+                    manifest.write_text(json.dumps(data))
+                with self.assertRaisesRegex(GATE.OfflineRuntimeError, "cross-commit Surface cache was not verified"):
+                    GATE.stage_runtime(stage, producer)
 
     def test_tampered_artifact_or_pin_fails_closed(self):
         for mutation in ("image", "pin", "receipt"):

@@ -76,6 +76,149 @@ diretório isolado, verifica execução do Electron e valida o Runtime com
 dependências não graváveis. O instalador ainda não possui medição e
 porcentagem suficientes; concluir a otimização é um gate pendente.
 
+## Conta Windows — cofre local criptografado
+
+O Desktop Dev instalado reutiliza exatamente o gateway HTTPS canônico de
+Conta. Somente no host Windows instalado, `system/adapters/desktop/account-cookie-vault.mjs`
+protege os cookies de sessão recebidos do gateway com **DPAPI CurrentUser** e
+salva o envelope cifrado no perfil `userData`; o processo Native recupera
+o envelope em uma nova inicialização. Não há cópia de identidade, sessão
+fabricada ou cookies persistidos no renderer/Surface.
+
+O emulador de desenvolvimento continua **somente em memória**; o suporte
+Windows é ativado exclusivamente pelo host Desktop com perfil explícito.
+Uma falha de descriptografia ou troca do gateway bloqueia a autenticação;
+logout local explícito apaga o cofre, inclusive se o envelope estiver
+corrompido. O gateway continua sendo a única autoridade para validar,
+expirar e revogar a sessão. Não é uma prova de login remoto real em produção:
+esse E2E ainda exige uma conta de teste autorizada e um restart físico do
+aplicativo instalado. O DPAPI não é uma chave transportável entre máquinas.
+
+## Sessão local Native no Windows
+
+O host instalado implementa o contrato `ordax.local-session/1` com credencial
+derivada via scrypt e registro durável, incluindo estado bloqueado, tentativa
+incorreta com limitação de ritmo, desbloqueio e remoção autenticada. A credencial
+em texto puro não é persistida. Cada execução do Electron gera um token local
+distinto do token de Files; somente a WebContents Surface pode receber a
+autorização, injetada pelo próprio host nos requests da rota Native. Qualquer
+cliente localhost sem o token recebe HTTP 401.
+
+Com a sessão bloqueada, as rotas de Conta/sync e Files recusam operações
+(HTTP 423); falha de integridade do registro impede abrir os dados (503).
+O bloqueio é **de Surface/sessão OrdaX**, e não substitui a segurança de disco,
+login do Windows, nem a revogação da Conta. Os demais brokers privilegiados
+ainda precisam de adaptadores Windows e controles próprios. O emulador visual
+não adquire essa autoridade.
+
+## Diagnósticos Native da Surface Windows
+
+A instalação Windows agora usa o mesmo adaptador visual
+`system/adapters/native/client-diagnostics.mjs`, com endpoint real
+`/__ordax/native/session` limitado à Surface Electron autorizada.
+O host emite apenas `diagnosticToken`: não cria permissões fictícias de
+energia, rede, áudio ou gerenciamento. O endpoint
+`/__ordax/native/client-diagnostic` aceita somente o relatório sanitizado
+`sourceSha/stage/errorName/source`, vinculado à revisão OS comprovada pelo
+recibo de compilação, com token exclusivo, corpo limitado e gravação
+atômica em `desktop-client-diagnostic.json` no perfil privado.
+
+O renderer não recebe o token secreto de **acesso à sessão do host**.
+O token de relatório, por sua vez, autoriza somente enviar o evento
+sanitizado, nunca ler arquivos, executar ações ou obter credenciais.
+O `.exe` inicializa a Surface com `?source=<SHA>` da revisão OS
+validada (bundle ou candidata Git), permitindo associar a falha à revisão
+real. O emulador sem distribuição verificada continua sem esse privilégio.
+Somente no smoke isolado de CI é gravado um evento de teste controlado.
+
+## Perfil canônico de dispositivo no Windows
+
+O Desktop instala a porta real `ordax.device-profile/1`, a mesma usada
+pelo primeiro uso do USB. O identificador `ordax-<32 hex>` nasce uma única
+vez por perfil OrdaX e permanece estável após renomeação e reinício.
+`displayName` muda somente depois de POST autorizado da Surface; isso
+não renomeia o computador Windows, não cria identidade de Conta/MCP e
+não altera nenhuma configuração do sistema hospedeiro.
+
+O registro `desktop-device-profile.json` reside no `userData` privado,
+com validação, serialização de operações, escrita atômica e recusa de
+arquivos corrompidos ou symlink. Bloqueio da sessão OrdaX retorna 423;
+clientes localhost sem concessão efêmera específica do Electron recebem
+401. O emulador sem host instalado continua sem esse privilégio.
+
+## Estado privado do Primeiro Uso e Preferências
+
+No `.exe` Windows, as três rotas canônicas de estado
+`/__ordax/native/first-run`, `/__ordax/native/preferences` e
+`/__ordax/native/first-run-cursor` exigem um **sexto token efêmero de
+256 bits**, independente dos grants Files, Conta e identidade. O Electron
+retira qualquer header fornecido pela página e somente o injeta na
+WebContents Native do próprio OrdaX; localhost externo recebe HTTP 401.
+A sessão OrdaX bloqueada retorna 423 para **escrita**, mas mantém
+leitura somente à Surface autorizada, pois a inicialização precisa
+restaurar preferências e o recibo de Primeiro Uso antes de montar a tela
+de desbloqueio. Estado corrompido continua indisponível sem ser recriado.
+
+O endpoint administrativo `/__ordax/emulator/reset-first-run` agora é
+estritamente de desenvolvimento visual e **não existe no host Desktop
+instalado** (HTTP 404). O mesmo contrato de Primeiro Uso e Preferências
+segue sendo usado no Windows e no USB; a implantação não cria novos
+serviços, exceções de login ou políticas paralelas.
+
+## Wi-Fi: detecção real de interface e ações indisponíveis
+
+O Desktop consulta `NetworkInterface.GetAllNetworkInterfaces()` do
+Windows/.NET para detectar se o host expõe uma interface 802.11.
+Quando não existe, o contrato canônico `ordax.network-management/1`
+admite explicitamente `wifiInterface:null`, zero SSIDs e
+`unavailableReason:"no-wlan-interface"`; isso **não** é uma conexão
+Wi-Fi simulada. O adaptador visual trata esse estado como capacidade
+indisponível, sem exibir controles de conexão.
+
+Se houver interface WLAN, a consulta responde 503 até existir um
+broker Windows WLAN real; jamais anuncia scan, RSSI, WPA, associação ou
+credenciais fictícias. Todas as ações POST retornam 503 (mesmo de uma
+Surface autorizada), com o estado do host inalterado. O GET exige token
+de 256 bits emitido pela sessão Native do próprio Electron;
+clientes localhost não autorizados recebem 403. A sessão bloqueada
+responde 423 à descoberta. Isto não altera conexões ou configurações
+da máquina nem habilita gerência de Wi-Fi ainda.
+
+## Observações Native privadas do Desktop
+
+As rotas canônicas de observação de rede, energia, métricas, atualização,
+histórico de atualização e recuperação no Windows exigem uma concessão
+efêmera independente de 256 bits da própria WebContents Electron. O host
+rejeita leituras localhost externas com HTTP 401, queries inesperadas
+com 400 e tentativas de escrita com 405. O header é removido das
+requisições da página antes da injeção exclusiva pelo host. A autorização
+não muda nenhum contrato de dados do OS, serviço Linux nem política de
+controles físicos. Leituras autenticadas permanecem disponíveis durante
+o bloqueio local para permitir inicialização e painel de energia.
+
+O smoke do instalador NSIS verifica seis negativas localhost e seis
+leituras reais feitas pela Surface instalada; não confunde o acesso
+direto ao serviço HTTP com uma autorização do Electron.
+
+## Monitor Windows: modo físico atual (somente leitura)
+
+O Windows Desktop usa o contrato já existente
+`ordax.display-outputs/1` da Surface/USB. O provider chama
+`EnumDisplaySettingsW(-1)` de user32 para obter a resolução física
+e a frequência real de cada dispositivo `DISPLAYn`. As dimensões
+de `Screen.Bounds` sofrem virtualização de DPI e **não** são usadas
+como resolução física. A lista contém **apenas o modo atual**, sem
+modos alternativos ou flags `preferred` inventadas, portanto o botão
+de pré-visualização da Surface permanece indisponível.
+
+O acesso exige token efêmero exclusivo da sessão Native Electron.
+GET localhost sem autorização responde 403; o provider recusa
+**todos** os POST de preview, confirmação e reversão com 503,
+sem chamar APIs Win32 de mudança de modo. Se o monitor ou sua
+frequência não puderem ser lidos com segurança, o GET falha com
+503 em vez de criar um modo fictício. A troca de resolução e
+o rollback seguro continuam como etapa separada ainda não entregue.
+
 ## Composição canônica
 
 - A mesma Surface e apps vêm de `system/`; não criar telas ou serviços
@@ -84,9 +227,22 @@ porcentagem suficientes; concluir a otimização é um gate pendente.
   O host Vite/Electron não é autoridade de domínio.
 - Primeiro uso/preferências usam estado isolado do usuário; não apagam
   nem alteram USB e não fabricam uma sessão de Conta OrdaX.
-- Leitura de estado de rede Windows está ligada ao contrato já existente
-  `ordax.network-status/1`; outras portas ficam indisponíveis até
-  possuírem adaptador seguro e E2E real.
+- Leitura de rede Windows usa `ordax.network-status/1` com
+  `System.Net.NetworkInformation.NetworkInterface`: tipo real do driver
+  (Wi-Fi/Ethernet/outro) e estado operacional do link (não uma inferência
+  pela existência de endereço IP). Uma interface ligada não comprova
+  conectividade com a internet. RSSI permanece `null` quando não há
+  medida dBm segura; nenhum scan, senha ou conexão é alterado.
+  A leitura é somente de observação, assíncrona e com prazo máximo de
+  7 segundos; falha da API não vira HTTP 200 inventado. Gerenciamento
+  de Wi-Fi continua separado e indisponível até haver adaptador real.
+  Energia usa o mesmo contrato
+  `ordax.power-status/1` do OS com `SystemInformation.PowerStatus`, a
+  projeção Windows da telemetria real do kernel; não compila C# P/Invoke em
+  cada solicitação. A execução física de três leituras sucessivas
+  foi validada em perfil de teste isolado; indisponibilidade ou dados
+  inválidos continuam falhando sem inventar bateria/carga. Outras
+  portas só são publicadas com adaptador seguro e E2E real.
 - Intelli­gence (serviços/contratos) está em `system/`, mas **não há**
   engine/pesos Windows homologados nesta alpha; apresentar modelo como
   conectado seria erro de produto.

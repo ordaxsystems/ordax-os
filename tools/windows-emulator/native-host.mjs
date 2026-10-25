@@ -1,6 +1,7 @@
 // Development host for Native contracts. Account authority stays in the HTTPS gateway.
 import { mkdir, readFile, writeFile, rename } from "node:fs/promises";
 import { join } from "node:path";
+import { timingSafeEqual } from "node:crypto";
 import { readDesktopNetworkStatus } from "../../system/adapters/desktop/network-status.mjs";
 import { readDesktopSystemMetrics } from "../../system/adapters/desktop/system-metrics.mjs";
 import { readDesktopPowerStatus } from "../../system/adapters/desktop/power-status.mjs";
@@ -8,13 +9,30 @@ import { readDesktopUpdateStatus, readDesktopUpdateHistory } from "../../system/
 import { readDesktopRecovery } from "../../system/adapters/desktop/recovery-observation.mjs";
 import { createDesktopBuiltAssetsMiddleware } from "./desktop-built-assets.mjs";
 import { createDesktopFileSpaceMiddleware } from "../../system/adapters/desktop/file-space-host.mjs";
+import { createDesktopAccountCookieVault } from "../../system/adapters/desktop/account-cookie-vault.mjs";
+import { createDesktopLocalSessionMiddleware } from "../../system/adapters/desktop/local-session-host.mjs";
+import { createDesktopClientDiagnosticsMiddleware } from "../../system/adapters/desktop/client-diagnostics-host.mjs";
+import { createDesktopDeviceProfileMiddleware } from "../../system/adapters/desktop/device-profile-host.mjs";
+import { createDesktopWlanMiddleware } from "../../system/adapters/desktop/wifi-radio-host.mjs";
+import { createDesktopDisplayCurrentModeMiddleware } from "../../system/adapters/desktop/display-current-mode-host.mjs";
+import observationPolicy from "../../system/adapters/desktop/observation-grant.cjs";
+const { OBSERVATION_ROUTES, createDesktopObservationGrantMiddleware }=observationPolicy;
 import { createInitialFirstRunState, validateFirstRunState } from "../../system/contracts/first-run-state-store.mjs";
 import { validatePreferenceRecord } from "../../system/contracts/preference-store.mjs";
 import { FIRST_RUN_CURSOR_SCHEMA, validateFirstRunCursor } from "../../system/contracts/first-run-cursor.mjs";
 import { createEmulatorAccountGateway } from "./account-gateway.mjs";
 
-export function createEmulatorNativeHost({ stateDirectory, accountGatewayOrigin = "", fetchImpl = globalThis.fetch }) {
-  const accountMiddleware = createEmulatorAccountGateway({ origin: accountGatewayOrigin, fetchImpl });
+export function createEmulatorNativeHost({
+  stateDirectory, accountGatewayOrigin = "", fetchImpl = globalThis.fetch,
+  cookieVault = null, sessionLocked = null,
+  stateToken = null, allowEmulatorReset = true,
+}) {
+  const authorizedStateToken = stateToken===null ? null :
+    /^[0-9a-f]{64}$/.test(stateToken) ? Buffer.from(stateToken,"hex") :
+    (()=>{throw new TypeError("Desktop state requires a verified per-launch grant");})();
+  const accountMiddleware = createEmulatorAccountGateway({
+    origin: accountGatewayOrigin, fetchImpl, cookieVault,
+  });
   const file = join(stateDirectory, "native-state.json");
   const initialCursor = () => ({ schema: FIRST_RUN_CURSOR_SCHEMA, step: "welcome" });
   const defaults = () => ({ firstRun: createInitialFirstRunState(), preferences: validatePreferenceRecord({}), cursor: initialCursor() });
@@ -47,6 +65,19 @@ export function createEmulatorNativeHost({ stateDirectory, accountGatewayOrigin 
   ]);
   return async function middleware(request, response, next) {
     const path = request.url.split("?")[0];
+    if (sessionLocked && /^(\/auth\/|\/account\/|\/sync\/|\/network\/)/.test(path)) {
+      try {
+        if (await sessionLocked()) {
+          response.writeHead(423, { "Content-Type": "application/json", "Cache-Control": "no-store" });
+          response.end(JSON.stringify({ error: "OrdaX Desktop session locked" }));
+          return;
+        }
+      } catch {
+        response.writeHead(503, { "Content-Type": "application/json", "Cache-Control": "no-store" });
+        response.end(JSON.stringify({ error: "Desktop local session unavailable" }));
+        return;
+      }
+    }
     if (await accountMiddleware(request, response)) return;
     if (!path.startsWith("/__ordax/")) return next();
     const reply = (status, body) => {
@@ -55,8 +86,25 @@ export function createEmulatorNativeHost({ stateDirectory, accountGatewayOrigin 
     };
     const route = routes.get(path);
     const reset = path === "/__ordax/emulator/reset-first-run";
+    if (reset && !allowEmulatorReset) return reply(404, { error: "Emulator reset unavailable on installed Desktop" });
     if (!route && !reset) return reply(503, { error: "Capability unavailable in Windows development host" });
+    if (authorizedStateToken) {
+      const supplied=request.headers["x-ordax-desktop-state-token"];
+      const token=typeof supplied==="string" && /^[0-9a-f]{64}$/.test(supplied)
+        ? Buffer.from(supplied,"hex") : null;
+      if (request.socket?.remoteAddress!=="127.0.0.1" &&
+          request.socket?.remoteAddress!=="::1" &&
+          request.socket?.remoteAddress!=="::ffff:127.0.0.1" ||
+          !token || !timingSafeEqual(token,authorizedStateToken))
+        return reply(401,{error:"Native Desktop state authorization required"});
+      if (request.url!==path)return reply(400,{error:"Query not supported"});
+    }
     try {
+      // The trusted Surface needs read-only preferences/first-run state
+      // BEFORE mounting the unlock screen. Lock mutations, not bootstrap.
+      if (authorizedStateToken && sessionLocked && request.method==="POST" &&
+          await sessionLocked())
+        return reply(423,{error:"OrdaX Desktop session locked"});
       if (request.method === "GET" && route) {
         await queue;
         return reply(200, (await load())[route[0]]);
@@ -96,23 +144,62 @@ export function nativeEmulatorPlugin(stateDirectory, { desktopHost = false, acco
   return {
     name: "ordax-native-emulator-host",
     configureServer(server) {
+      const userData=process.env.ORDAX_DESKTOP_UPDATE_USER_DATA;
+      const localSession=desktopHost && process.platform==="win32" && userData
+        ? createDesktopLocalSessionMiddleware(userData, {
+            token:process.env.ORDAX_DESKTOP_LOCAL_SESSION_TOKEN,
+          }) : null;
+      const diagnostics=desktopHost && process.platform==="win32" && userData &&
+        /^[0-9a-f]{40}$/.test(process.env.ORDAX_DESKTOP_RENDERED_SOURCE_SHA??"")
+          ? createDesktopClientDiagnosticsMiddleware(userData,{
+              sessionToken:process.env.ORDAX_DESKTOP_NATIVE_SESSION_TOKEN,
+              diagnosticToken:process.env.ORDAX_DESKTOP_DIAGNOSTIC_TOKEN,
+              sourceSha:process.env.ORDAX_DESKTOP_RENDERED_SOURCE_SHA,
+              networkToken:process.env.ORDAX_DESKTOP_NETWORK_TOKEN,
+              displayToken:process.env.ORDAX_DESKTOP_DISPLAY_TOKEN,
+            }):null;
       if (desktopHost && process.env.ORDAX_DESKTOP_ASSETS_ROOT) {
         // Same compiled Native composition, served before Vite source transforms.
         server.middlewares.use(createDesktopBuiltAssetsMiddleware(process.env.ORDAX_DESKTOP_ASSETS_ROOT));
+      }
+      if (localSession)server.middlewares.use(localSession.middleware);
+      if(desktopHost && process.platform==="win32" && userData){
+        server.middlewares.use(createDesktopDisplayCurrentModeMiddleware({
+          token:process.env.ORDAX_DESKTOP_DISPLAY_TOKEN,
+        }));
+      }
+      if (diagnostics)server.middlewares.use(diagnostics.middleware);
+      if(desktopHost && process.platform==="win32" && userData && localSession){
+        server.middlewares.use(createDesktopWlanMiddleware({
+          token:process.env.ORDAX_DESKTOP_NETWORK_TOKEN,
+          sessionLocked:localSession.readLocked,
+        }));
+      }
+      if (desktopHost && process.platform==="win32" && userData) {
+        server.middlewares.use(createDesktopDeviceProfileMiddleware(userData,{
+          token:process.env.ORDAX_DESKTOP_DEVICE_PROFILE_TOKEN,
+          sessionLocked:localSession?.readLocked??null,
+        }).middleware);
       }
       if (desktopHost && process.env.ORDAX_DESKTOP_UPDATE_USER_DATA) {
         // Logical "/" is a private, persistent Windows user-data file-space,
         // not the host drive root. This precedes the emulator 503 fallback.
         server.middlewares.use(createDesktopFileSpaceMiddleware(
           join(process.env.ORDAX_DESKTOP_UPDATE_USER_DATA,"Files"),
-          {token:process.env.ORDAX_DESKTOP_FILE_TOKEN}
+          {token:process.env.ORDAX_DESKTOP_FILE_TOKEN,
+           sessionLocked:localSession?.readLocked??null}
         ));
       }
       if (desktopHost) {
+        // No localhost process may inspect network, power, recovery or
+        // storage/update observations without the owning Electron grant.
+        server.middlewares.use(createDesktopObservationGrantMiddleware({
+          token:process.env.ORDAX_DESKTOP_OBSERVATION_TOKEN,
+        }));
         // Genuine Windows host observation under the canonical Native port.
         server.middlewares.use((request, response, next) => {
           const path = request.url.split("?")[0];
-          if (!["/__ordax/native/network-status", "/__ordax/native/metrics", "/__ordax/native/update", "/__ordax/native/update-history", "/__ordax/desktop/recovery", "/__ordax/native/power-status"].includes(path)) return next();
+          if (!OBSERVATION_ROUTES.includes(path)) return next();
           response.setHeader("Content-Type", "application/json");
           response.setHeader("Cache-Control", "no-store");
           if (request.method !== "GET") {
@@ -124,7 +211,13 @@ export function nativeEmulatorPlugin(stateDirectory, { desktopHost = false, acco
             response.end(JSON.stringify(payload));
           };
           try {
-            if (path === "/__ordax/native/network-status") return respond(readDesktopNetworkStatus());
+            if (path === "/__ordax/native/network-status") {
+              void readDesktopNetworkStatus().then(respond).catch(() => {
+                response.statusCode = 503;
+                response.end(JSON.stringify({error:"Windows network link telemetry unavailable"}));
+              });
+              return;
+            }
             if (path === "/__ordax/native/power-status") {
               void readDesktopPowerStatus().then(respond).catch(() => {
                 response.statusCode = 503;
@@ -169,7 +262,14 @@ export function nativeEmulatorPlugin(stateDirectory, { desktopHost = false, acco
           }
         });
       }
-      server.middlewares.use(createEmulatorNativeHost({ stateDirectory, accountGatewayOrigin }));
+      const cookieVault = desktopHost && process.platform === "win32" && userData
+        ? createDesktopAccountCookieVault(userData, accountGatewayOrigin) : null;
+      server.middlewares.use(createEmulatorNativeHost({
+        stateDirectory, accountGatewayOrigin, cookieVault,
+        sessionLocked:localSession?.readLocked??null,
+        stateToken:desktopHost ? process.env.ORDAX_DESKTOP_STATE_TOKEN : null,
+        allowEmulatorReset:!desktopHost,
+      }));
       // Native's real host serves system/ as its static root.
       server.middlewares.use((request, _response, next) => {
         if (/^\/(?:surface|apps|contracts|services|profile-packs|adapters|composition)\//.test(request.url)) request.url = "/system" + request.url;

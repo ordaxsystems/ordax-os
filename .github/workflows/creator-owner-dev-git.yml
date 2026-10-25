@@ -581,19 +581,13 @@ jobs:
               --integration-commit "$ORDAX_OWNER_SOURCE_COMMIT" \
               --cache-hit true --consumer \
               --receipt "$RUNNER_TEMP/owner-surface-cache-inspection.json"
-            cached_commit="$(python3 - "$RUNNER_TEMP/ordax-independent-surface/provenance.json" <<'PY'
-          import json, pathlib, sys
-          print(json.loads(pathlib.Path(sys.argv[1]).read_text(encoding='utf-8'))['source_commit'])
-          PY
-            )"
-            if [ "$cached_commit" = "$ORDAX_OWNER_SOURCE_COMMIT" ]; then
-              mkdir -p "$RUNNER_TEMP/owner-dev-surface-runtime"
-              cp -a "$RUNNER_TEMP/ordax-independent-surface/." "$RUNNER_TEMP/owner-dev-surface-runtime/"
-              reused=true
-              echo 'OWNER_SURFACE_RUNTIME_SOURCE=verified-identical-commit-cache'
-            else
-              echo 'Surface cached provenance belongs to another commit; rebuilding exact Owner candidate.'
-            fi
+            # Preserve original producer provenance. The canonical verifier
+            # proves immutable input fingerprint plus manifest/image SHA-256.
+            # Owner staging records a separate integration-commit binding.
+            mkdir -p "$RUNNER_TEMP/owner-dev-surface-runtime"
+            cp -a "$RUNNER_TEMP/ordax-independent-surface/." "$RUNNER_TEMP/owner-dev-surface-runtime/"
+            reused=true
+            echo 'OWNER_SURFACE_RUNTIME_SOURCE=verified-input-fingerprint-cache'
           fi
           export ORDAX_SOURCE_COMMIT="$ORDAX_OWNER_SOURCE_COMMIT"
           if [ "$reused" != true ]; then

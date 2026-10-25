@@ -8,12 +8,14 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import importlib.util
 import json
 import os
 from pathlib import Path
 import re
 import shutil
 import sys
+import tempfile
 
 ROOT = Path(__file__).resolve().parents[2]
 SOURCE = ROOT / "bootstrap/independent-surface-runtime/source.json"
@@ -21,6 +23,7 @@ MEDIA = ROOT / "docs/contracts/physical-media.json"
 RELATIVE_IMAGE = Path("state/ordax/runtime/native-surface/offline/native-surface-runtime.erofs")
 RELATIVE_PIN = Path("etc/ordax/owner-surface-runtime.sha256")
 RELATIVE_PROVENANCE = RELATIVE_IMAGE.parent / "surface-runtime-provenance.json"
+RELATIVE_BINDING = RELATIVE_IMAGE.parent / "surface-runtime-consumer-binding.json"
 GIB = 1024 ** 3
 MAX_OWNER_SEED_BYTES = 6 * GIB
 HASH = re.compile(r"[0-9a-f]{64}\Z")
@@ -72,6 +75,74 @@ def dev_base(stage: Path) -> Path:
     return base
 
 
+
+def _cache_module():
+    """Use the single independent producer verifier; no second hash policy."""
+    source = ROOT / "tools/ci/independent_surface_component_cache.py"
+    spec = importlib.util.spec_from_file_location("ordax_owner_verified_surface_cache", source)
+    if spec is None or spec.loader is None:
+        raise OfflineRuntimeError("canonical Surface cache verifier unavailable")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def _verified_reuse_binding(producer: Path, expected_commit: str) -> dict:
+    if producer.is_symlink() or not producer.is_dir():
+        raise OfflineRuntimeError("Surface cache producer path is unsafe")
+    cache = _cache_module()
+    try:
+        with tempfile.TemporaryDirectory(prefix="ordax-owner-cache-") as directory:
+            proof = cache.verify(
+                producer, expected_commit, Path(directory) / "proof.json",
+                cache_hit=True, consumer=True, root=ROOT,
+            )
+    except (cache.CacheError, OSError, ValueError, KeyError) as exc:
+        raise OfflineRuntimeError(f"cross-commit Surface cache was not verified: {exc}") from exc
+    if proof["consumer_verification"] is not True or proof["provenance_rewritten"] is not False:
+        raise OfflineRuntimeError("cross-commit Surface provenance was altered")
+    return {
+        "$schema": "prototype-ordax.owner-surface-consumer-binding/1",
+        "build_source_commit": proof["build_source_commit"],
+        "integration_source_commit": proof["integration_source_commit"],
+        "input_fingerprint": proof["input_fingerprint"],
+        "execution_environment": proof["execution_environment"],
+        "image_sha256": proof["artifacts"]["native-surface-runtime-buildroot.erofs"]["sha256"],
+        "provenance_sha256": proof["artifacts"]["provenance.json"]["sha256"],
+        "verified_consumer": True,
+        "provenance_rewritten": False,
+    }
+
+
+def _verify_reuse_binding(base: Path, provenance: dict, expected_commit: str, image: Path) -> None:
+    receipt = base / RELATIVE_BINDING
+    build_commit = provenance.get("source_commit")
+    if build_commit == expected_commit:
+        if receipt.exists() or receipt.is_symlink():
+            raise OfflineRuntimeError("unexpected Surface cross-commit binding")
+        return
+    if receipt.is_symlink() or not receipt.is_file():
+        raise OfflineRuntimeError("cross-commit Surface is missing verified consumer binding")
+    binding = load(receipt)
+    if (binding.get("$schema") != "prototype-ordax.owner-surface-consumer-binding/1"
+            or binding.get("build_source_commit") != build_commit
+            or binding.get("integration_source_commit") != expected_commit
+            or binding.get("verified_consumer") is not True
+            or binding.get("provenance_rewritten") is not False
+            or binding.get("image_sha256") != sha256(image)
+            or binding.get("provenance_sha256") != sha256(base / RELATIVE_PROVENANCE)):
+        raise OfflineRuntimeError("Surface consumer binding does not match immutable producer")
+    cache = _cache_module()
+    try:
+        current_fingerprint = cache.fingerprint(
+            ROOT, build_environment=binding.get("execution_environment", ""),
+        )
+    except (ValueError, OSError, cache.CacheError) as exc:
+        raise OfflineRuntimeError(f"cannot validate Surface consumer inputs: {exc}") from exc
+    if binding.get("input_fingerprint") != current_fingerprint:
+        raise OfflineRuntimeError("Surface consumer source fingerprint changed")
+
+
 def stage_runtime(stage: Path, producer: Path) -> None:
     source = source_contract()
     base = dev_base(stage)
@@ -84,7 +155,7 @@ def stage_runtime(stage: Path, producer: Path) -> None:
     if (not re.fullmatch(r"[0-9a-f]{40}", expected_commit)
             or provenance.get("$schema") != "prototype-ordax.independent-surface-runtime-provenance/1"
             or provenance.get("status") != "experimental-not-promotable"
-            or provenance.get("source_commit") != expected_commit
+            or not re.fullmatch(r"[0-9a-f]{40}", str(provenance.get("source_commit", "")))
             or provenance.get("libc") != "musl"
             or provenance.get("buildroot", {}).get("source_contract") != source["buildroot_source_contract"]
             or provenance.get("package_manager_present") is not False
@@ -101,9 +172,15 @@ def stage_runtime(stage: Path, producer: Path) -> None:
     if sha256(image) != expected:
         raise OfflineRuntimeError("Surface producer artifact SHA-256 mismatch")
 
+    cross_commit_binding = (
+        _verified_reuse_binding(producer, expected_commit)
+        if provenance["source_commit"] != expected_commit else None
+    )
+
     target = base / RELATIVE_IMAGE
     pin = base / RELATIVE_PIN
     receipt = base / RELATIVE_PROVENANCE
+    binding_file = base / RELATIVE_BINDING
     if target.exists() or target.is_symlink() or pin.exists() or pin.is_symlink():
         raise OfflineRuntimeError("Owner Dev offline runtime already staged; refusing overwrite")
     target.parent.mkdir(parents=True, exist_ok=True)
@@ -115,7 +192,12 @@ def stage_runtime(stage: Path, producer: Path) -> None:
         if sha256(partial) != expected:
             raise OfflineRuntimeError("staged Surface EROFS SHA-256 mismatch")
         partial.replace(target)
-        receipt.write_text(json.dumps(provenance, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        # Preserve producer provenance byte-for-byte; the reuse binding pins its original digest.
+        shutil.copyfile(producer / "provenance.json", receipt)
+        if cross_commit_binding is not None:
+            binding_file.write_text(
+                json.dumps(cross_commit_binding, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+            )
         # The pathname is fixed by the bootstrap root; no source-defined paths
         # or untrusted metadata become shell arguments during boot.
         pin.write_text(
@@ -127,6 +209,7 @@ def stage_runtime(stage: Path, producer: Path) -> None:
         partial.unlink(missing_ok=True)
         pin.unlink(missing_ok=True)
         receipt.unlink(missing_ok=True)
+        binding_file.unlink(missing_ok=True)
         target.unlink(missing_ok=True)
         raise
 
@@ -150,7 +233,7 @@ def verify(stage: Path) -> str:
             or not re.fullmatch(r"[0-9a-f]{40}", expected_commit)
             or provenance.get("$schema") != "prototype-ordax.independent-surface-runtime-provenance/1"
             or provenance.get("status") != "experimental-not-promotable"
-            or provenance.get("source_commit") != expected_commit
+            or not re.fullmatch(r"[0-9a-f]{40}", str(provenance.get("source_commit", "")))
             or provenance.get("libc") != "musl"
             or provenance.get("buildroot", {}).get("source_contract") != source["buildroot_source_contract"]
             or provenance.get("package_manager_present") is not False
@@ -164,6 +247,7 @@ def verify(stage: Path) -> str:
     expected_pin = f"{expected}  /ordax/dev-base/{RELATIVE_IMAGE.as_posix()}\n"
     if pin.read_text(encoding="ascii") != expected_pin or sha256(image) != expected:
         raise OfflineRuntimeError("Owner offline Surface EROFS pin/digest mismatch")
+    _verify_reuse_binding(base, provenance, expected_commit, image)
     # The full offline producer is fsck/label-verified in CI. Here the separate
     # Owner consumer additionally rejects non-EROFS objects before publication.
     with image.open("rb") as stream:

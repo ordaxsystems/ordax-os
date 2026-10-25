@@ -39,7 +39,10 @@ USB Native host. The development host calls that HTTPS gateway server-side,
 keeps its account cookies in process memory, and exposes only the validated
 same-origin account responses to the Native composition. Passwords and session
 cookies are not written to browser storage or emulator state files. Requests
-remain local-loopback only. Existing-account sign-in uses the real gateway;
+remain local-loopback only. Only the packaged Windows Desktop host may
+opt in to the same gateway with a CurrentUser DPAPI encrypted cookie vault;
+the plain emulator intentionally remains memory-only. Existing-account
+sign-in uses the real gateway;
 registration stays disabled under the Native product policy until the backend
 legal and activation gates are released.
 

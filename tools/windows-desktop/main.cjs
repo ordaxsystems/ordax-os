@@ -4,7 +4,7 @@ const { app, BrowserWindow, WebContentsView, ipcMain, session, Menu, shell, dial
 const { createDesktopBrowserHost } = require('./browser-host.cjs');
 const { join, resolve, isAbsolute, basename } = require('node:path');
 const { randomBytes } = require('node:crypto');
-const { mkdirSync, createWriteStream, existsSync } = require('node:fs');
+const { mkdirSync, createWriteStream, existsSync, readFileSync } = require('node:fs');
 const { resolveTemplate, runtimeStateDirectory } = require('./runtime.cjs');
 const { chooseBootVersion, confirmHealthy, rejectCandidate, stageMain, readState, pinPrevious, unpin } = require('./dev-update.cjs');
 const { startHost, stopHost } = require('./host.cjs');
@@ -123,7 +123,13 @@ const FILE_ROUTES=new Set([
   '/__ordax/native/file-export','/__ordax/native/image-preview',
   '/__ordax/native/media-preview','/__ordax/native/document-preview',
 ]);
-function authorizeDesktopFileRequests(browserWindow,base,fileToken) {
+function authorizeDesktopFileRequests(browserWindow,base,fileToken,localSessionToken,nativeSessionToken,deviceProfileToken,stateToken,observationToken) {
+  // The Electron shell lives in app.asar, while the canonical OS runtime is
+  // installed under resources/runtime-template. Never import ../../system
+  // from the shell's asar location or duplicate the route owner in the shell.
+  const template=resolveTemplate(__dirname,process.resourcesPath,app.isPackaged);
+  const { OBSERVATION_ROUTES }=require(join(template,'system','adapters',
+    'desktop','observation-grant.cjs'));
   const permittedOrigin=new URL(base).origin;
   // The secret never enters the renderer or a browser cookie. Only requests
   // from this trusted Surface's WebContents receive it; external Chromium
@@ -131,15 +137,30 @@ function authorizeDesktopFileRequests(browserWindow,base,fileToken) {
   browserWindow.webContents.session.webRequest.onBeforeSendHeaders(
     {urls:['http://127.0.0.1/*']},
     (details,callback)=>{
-      let allowed=false;
+      const headers={...details.requestHeaders};
+      // Strip any renderer-supplied fake grant first, even if the route is
+      // untrusted. Only the owning Electron WebContents may receive secrets.
+      for(const key of Object.keys(headers)){
+        if(/^(x-ordax-file-token|x-ordax-local-session-token|x-ordax-session-token|x-ordax-device-profile-token|x-ordax-desktop-state-token|x-ordax-observation-token)$/i.test(key))delete headers[key];
+      }
       try {
         const target=new URL(details.url);
-        allowed=details.webContentsId===browserWindow.webContents.id &&
-          target.origin===permittedOrigin && FILE_ROUTES.has(target.pathname);
+        const trusted=details.webContentsId===browserWindow.webContents.id &&
+          target.origin===permittedOrigin;
+        if(trusted && FILE_ROUTES.has(target.pathname))headers['X-OrdaX-File-Token']=fileToken;
+        if(trusted && target.pathname==='/__ordax/native/local-session')
+          headers['X-OrdaX-Local-Session-Token']=localSessionToken;
+        if(trusted && target.pathname==='/__ordax/native/session')
+          headers['X-OrdaX-Session-Token']=nativeSessionToken;
+        if(trusted && target.pathname==='/__ordax/native/device-profile')
+          headers['X-OrdaX-Device-Profile-Token']=deviceProfileToken;
+        if(trusted && ['/__ordax/native/first-run','/__ordax/native/preferences',
+                       '/__ordax/native/first-run-cursor'].includes(target.pathname))
+          headers['X-OrdaX-Desktop-State-Token']=stateToken;
+        if(trusted && OBSERVATION_ROUTES.includes(target.pathname))
+          headers['X-OrdaX-Observation-Token']=observationToken;
       } catch {}
-      callback({requestHeaders:allowed
-        ? {...details.requestHeaders,'X-OrdaX-File-Token':fileToken}
-        : details.requestHeaders});
+      callback({requestHeaders:headers});
     }
   );
 }
@@ -156,6 +177,145 @@ async function assertDesktopFileSpaceSmoke(browserWindow) {
     throw Error('Canonical Windows Files were not accessible through Electron Surface');
   }
   log('DESKTOP_FILE_SPACE_SMOKE=PASS');
+  const localSession=await browserWindow.webContents.executeJavaScript(
+    "(async()=>{const r=await fetch('/__ordax/native/local-session',"+
+    "{cache:'no-store',credentials:'same-origin'});"+
+    "if(!r.ok)return {status:r.status};"+
+    "const s=await r.json();return {status:r.status,...s};})()"
+  );
+  if(localSession.status!==200 || localSession.schema!=='ordax.local-session/1' ||
+     localSession.state!=='unlocked' || localSession.credentialConfigured!==false ||
+     localSession.protectionScope!=='surface-session-not-storage-encryption') {
+    throw Error('Trusted Electron Surface cannot read canonical Windows local session');
+  }
+  log('DESKTOP_LOCAL_SESSION_TRUSTED_SURFACE_SMOKE=PASS');
+  const diagnostic=await browserWindow.webContents.executeJavaScript(
+    "(async()=>{const s=await fetch('/__ordax/native/session',"+
+    "{credentials:'same-origin',cache:'no-store'});"+
+    "if(!s.ok)return {sessionStatus:s.status};const payload=await s.json();"+
+    "const sha=new URL(location.href).searchParams.get('source');"+
+    "const r=await fetch('/__ordax/native/client-diagnostic',"+
+    "{method:'POST',credentials:'same-origin',"+
+    "headers:{'Content-Type':'application/json','X-OrdaX-Diagnostic-Token':payload.diagnosticToken},"+
+    "body:JSON.stringify({sourceSha:sha,stage:'desktop-install-smoke',errorName:'Error',source:''})});"+
+    "return {sessionStatus:s.status,reportStatus:r.status,sha,hasToken:typeof payload.diagnosticToken==='string'};})()"
+  );
+  if(diagnostic.sessionStatus!==200 || diagnostic.reportStatus!==204 ||
+    diagnostic.hasToken!==true || !/^[0-9a-f]{40}$/.test(diagnostic.sha)) {
+    throw Error('Trusted Electron Surface cannot submit a verified Native client diagnostic');
+  }
+  log('DESKTOP_NATIVE_DIAGNOSTIC_TRUSTED_SURFACE_SMOKE=PASS');
+  const deviceProfile=await browserWindow.webContents.executeJavaScript(
+    "(async()=>{const url='/__ordax/native/device-profile';"+
+    "const first=await fetch(url,{cache:'no-store',credentials:'same-origin'});"+
+    "if(!first.ok)return {readStatus:first.status};"+
+    "const initial=await first.json();"+
+    "const put=async name=>fetch(url,{method:'POST',credentials:'same-origin',"+
+    "headers:{'Content-Type':'application/json'},"+
+    "body:JSON.stringify({displayName:name})});"+
+    "const renamed=await put('Desktop Teste');"+
+    "if(!renamed.ok)return {readStatus:first.status,renameStatus:renamed.status};"+
+    "const changed=await renamed.json();"+
+    "const restored=await put(initial.displayName);"+
+    "const final=restored.ok?await restored.json():{};"+
+    "return {readStatus:first.status,renameStatus:renamed.status,"+
+    "restoreStatus:restored.status,initial,changed,final};})()"
+  );
+  if(deviceProfile.readStatus!==200 || deviceProfile.renameStatus!==200 ||
+    deviceProfile.restoreStatus!==200 ||
+    !/^ordax-[0-9a-f]{32}$/.test(deviceProfile.initial?.devicePublicId??'') ||
+    deviceProfile.changed?.displayName!=='Desktop Teste' ||
+    deviceProfile.final?.displayName!==deviceProfile.initial?.displayName ||
+    deviceProfile.final?.devicePublicId!==deviceProfile.initial?.devicePublicId) {
+    throw Error('Trusted Electron Surface cannot read and rename canonical OrdaX device profile');
+  }
+  log('DESKTOP_DEVICE_PROFILE_TRUSTED_SURFACE_SMOKE=PASS');
+  const privateState=await browserWindow.webContents.executeJavaScript(
+    "(async()=>{const paths=['/__ordax/native/first-run',"+
+    "'/__ordax/native/preferences','/__ordax/native/first-run-cursor'];"+
+    "const values=await Promise.all(paths.map(async p=>{"+
+    "const r=await fetch(p,{cache:'no-store',credentials:'same-origin'});"+
+    "return {status:r.status,body:r.ok?await r.json():null};}));"+
+    "return values.map(v=>({status:v.status,valid:v.body!==null}));})()"
+  );
+  if(privateState.length!==3 || !privateState.every(value=>value.status===200 && value.valid)){
+    throw Error('Trusted Electron Surface cannot read canonical state with host authorization');
+  }
+  log('DESKTOP_PRIVATE_STATE_TRUSTED_SURFACE_SMOKE=PASS');
+  const wlanRead=await browserWindow.webContents.executeJavaScript(
+    "(async()=>{const session=await fetch('/__ordax/native/session',"+
+    "{cache:'no-store',credentials:'same-origin'});"+
+    "if(!session.ok)return {status:session.status};"+
+    "const s=await session.json();"+
+    "if(!/^[0-9a-f]{64}$/.test(s.networkToken??''))return {status:0};"+
+    "const r=await fetch('/__ordax/native/network-management',"+
+    "{cache:'no-store',credentials:'same-origin',headers:{'X-OrdaX-Network-Token':s.networkToken}});"+
+    "return {status:r.status,snapshot:r.ok?await r.json():null};})()"
+  );
+  if(![200,503].includes(wlanRead.status) ||
+    (wlanRead.status===200 &&
+      (wlanRead.snapshot?.wifiInterface!==null ||
+       wlanRead.snapshot?.unavailableReason!=='no-wlan-interface' ||
+       wlanRead.snapshot?.networks?.length!==0 ||
+       wlanRead.snapshot?.currentSsid!==null ||
+       wlanRead.snapshot?.savedSsid!==null))) {
+    throw Error('Installed Desktop WLAN discovery invents connectivity or bypasses the Native session');
+  }
+  log('DESKTOP_WLAN_DISCOVERY_TRUSTED_SURFACE_SMOKE=PASS');
+  const displayRead=await browserWindow.webContents.executeJavaScript(
+    "(async()=>{const s=await fetch('/__ordax/native/session',"+
+    "{credentials:'same-origin',cache:'no-store'});"+
+    "if(!s.ok)return {sessionStatus:s.status};const session=await s.json();"+
+    "const token=session.displayOutputsToken;"+
+    "if(!/^[0-9a-f]{64}$/.test(token??''))return {sessionStatus:200,status:0};"+
+    "const headers={'X-OrdaX-Display-Token':token};"+
+    "const res=await fetch('/__ordax/native/display-outputs',"+
+    "{credentials:'same-origin',cache:'no-store',headers});"+
+    "const body=res.ok?await res.json():null;"+
+    "const denied=await fetch('/__ordax/native/display-outputs',"+
+    "{method:'POST',credentials:'same-origin',headers:{...headers,'Content-Type':'application/json'},"+
+    "body:JSON.stringify({action:'preview',outputId:'DISPLAY1',modeId:'1920x1080@60'})});"+
+    "return {sessionStatus:200,status:res.status,body,postStatus:denied.status};})()"
+  );
+  if(displayRead.sessionStatus!==200 || displayRead.postStatus!==503 ||
+     ![200,503].includes(displayRead.status) ||
+     (displayRead.status===200 && (
+       displayRead.body?.schema!=='ordax.display-outputs/1' ||
+       displayRead.body.available!==true ||
+       !Array.isArray(displayRead.body.outputs) ||
+       !displayRead.body.outputs.length ||
+       displayRead.body.preview!==null ||
+       !displayRead.body.outputs.every(output=>output.enabled===true &&
+         output.modes?.length===1 && output.modes[0].current===true &&
+         output.currentModeId===output.modes[0].id &&
+         output.modes[0].refreshHz>0)))) {
+    throw Error('Windows real display current modes unavailable or unsafe in trusted Surface');
+  }
+  log(displayRead.status===200?
+    'DESKTOP_DISPLAY_CURRENT_MODE_TRUSTED_SURFACE_SMOKE=PASS':
+    'DESKTOP_DISPLAY_MODE_HEADLESS_UNAVAILABLE=EXPECTED');
+  // Prove the real Native providers still serve the installed Surface,
+  // without making localhost directly authorized in the NSIS smoke.
+  const observations=await browserWindow.webContents.executeJavaScript(
+    "(async()=>{const paths=['/__ordax/native/network-status',"+
+    "'/__ordax/native/metrics','/__ordax/native/update',"+
+    "'/__ordax/native/update-history','/__ordax/desktop/recovery',"+
+    "'/__ordax/native/power-status'];"+
+    "return Promise.all(paths.map(async path=>{const res=await fetch(path,"+
+    "{cache:'no-store',credentials:'same-origin'});"+
+    "return {status:res.status,body:res.ok?await res.json():null};}));})()"
+  );
+  if(observations.length!==6 || !observations.every(x=>x.status===200 && x.body!==null)
+     || !Array.isArray(observations[0].body.interfaces)
+     || !(observations[1].body.memoryTotalBytes>0)
+     || !observations[2].body.sourceSha
+     || !Array.isArray(observations[3].body.releases)
+     || !Array.isArray(observations[3].body.applications)
+     || !('battery' in observations[5].body)
+     || !('externalPower' in observations[5].body)) {
+    throw Error('Trusted Electron Surface cannot read real canonical Native host observations');
+  }
+  log('DESKTOP_OBSERVATION_TRUSTED_SURFACE_SMOKE=PASS');
 }
 async function assertNativeShellMounted(browserWindow) {
   const started=Date.now(),deadline=started+90000;
@@ -267,6 +427,14 @@ app.whenReady().then(async()=>{
   status('Iniciando a Surface Native compartilhada...');
   try{
     const fileToken=randomBytes(32).toString('hex');
+    const localSessionToken=randomBytes(32).toString('hex');
+    const nativeSessionToken=randomBytes(32).toString('hex');
+    const diagnosticToken=randomBytes(32).toString('hex');
+    const deviceProfileToken=randomBytes(32).toString('hex');
+    const stateToken=randomBytes(32).toString('hex');
+    const networkToken=randomBytes(32).toString('hex');
+    const observationToken=randomBytes(32).toString('hex');
+    const displayToken=randomBytes(32).toString('hex');
     const template=resolveTemplate(__dirname,process.resourcesPath,app.isPackaged);
     if(!existsSync(join(template,'tools','windows-emulator','dev-supervisor.mjs')))
       throw Error('Canonical OrdaX runtime snapshot missing');
@@ -275,13 +443,22 @@ app.whenReady().then(async()=>{
     const selected=app.isPackaged
       ? await chooseBootVersion({userData,template,log})
       : {root:template,sha:null,trial:false};
+    // The exact installed OS SHA is already pinned by the verified Native
+    // bundle receipt; update candidates use their validated Git SHA.
+    const bundledSourceSha=app.isPackaged
+      ? JSON.parse(readFileSync(join(template,'desktop-assets','source-provenance.json'),'utf8')).os_sha
+      : '';
+    if(app.isPackaged && !/^[0-9a-f]{40}$/.test(bundledSourceSha))
+      throw Error('Packaged Desktop source provenance unavailable');
+    const sourceOf=selection=>selection.sha??bundledSourceSha;
+    const nativeUrl=(base,sha)=>base+PRODUCT+(sha?'?source='+sha:'');
     let root=selected.root;
     try {
       log(root===template?'Bundled OrdaX Surface':'Verified Git-managed OrdaX Surface');
-      runtime=await startHost({root,stateDirectory:runtimeStateDirectory(userData),userData,log,fileToken,
+      runtime=await startHost({root,stateDirectory:runtimeStateDirectory(userData),userData,log,fileToken,localSessionToken,nativeSessionToken,diagnosticToken,deviceProfileToken,stateToken,networkToken,observationToken,displayToken,sourceSha:sourceOf(selected),
          builtAssetsRoot:nativeBuiltAssetsFor(root,template)});
-      authorizeDesktopFileRequests(window,runtime.url,fileToken);
-      await window.loadURL(runtime.url+PRODUCT);
+      authorizeDesktopFileRequests(window,runtime.url,fileToken,localSessionToken,nativeSessionToken,deviceProfileToken,stateToken,observationToken);
+      await window.loadURL(nativeUrl(runtime.url,sourceOf(selected)));
       await assertNativeShellMounted(window);
       await assertDesktopInternetSmoke(window,browserHost);
       await assertDesktopFileSpaceSmoke(window);
@@ -299,10 +476,10 @@ app.whenReady().then(async()=>{
       runtime=null;
       const fallback=await chooseBootVersion({userData,template,log});
       root=fallback.root;
-      runtime=await startHost({root,stateDirectory:runtimeStateDirectory(userData),userData,log,fileToken,
+      runtime=await startHost({root,stateDirectory:runtimeStateDirectory(userData),userData,log,fileToken,localSessionToken,nativeSessionToken,diagnosticToken,deviceProfileToken,stateToken,networkToken,observationToken,displayToken,sourceSha:sourceOf(fallback),
          builtAssetsRoot:nativeBuiltAssetsFor(root,template)});
-      authorizeDesktopFileRequests(window,runtime.url,fileToken);
-      await window.loadURL(runtime.url+PRODUCT);
+      authorizeDesktopFileRequests(window,runtime.url,fileToken,localSessionToken,nativeSessionToken,deviceProfileToken,stateToken,observationToken);
+      await window.loadURL(nativeUrl(runtime.url,sourceOf(fallback)));
       await assertNativeShellMounted(window);
       await assertDesktopInternetSmoke(window,browserHost);
       await assertDesktopFileSpaceSmoke(window);
