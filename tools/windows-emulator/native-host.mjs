@@ -14,6 +14,7 @@ import { createDesktopLocalSessionMiddleware } from "../../system/adapters/deskt
 import { createDesktopClientDiagnosticsMiddleware } from "../../system/adapters/desktop/client-diagnostics-host.mjs";
 import { createDesktopDeviceProfileMiddleware } from "../../system/adapters/desktop/device-profile-host.mjs";
 import { createDesktopWlanMiddleware } from "../../system/adapters/desktop/wifi-radio-host.mjs";
+import { createDesktopDisplayCurrentModeMiddleware } from "../../system/adapters/desktop/display-current-mode-host.mjs";
 import observationPolicy from "../../system/adapters/desktop/observation-grant.cjs";
 const { OBSERVATION_ROUTES, createDesktopObservationGrantMiddleware }=observationPolicy;
 import { createInitialFirstRunState, validateFirstRunState } from "../../system/contracts/first-run-state-store.mjs";
@@ -155,12 +156,18 @@ export function nativeEmulatorPlugin(stateDirectory, { desktopHost = false, acco
               diagnosticToken:process.env.ORDAX_DESKTOP_DIAGNOSTIC_TOKEN,
               sourceSha:process.env.ORDAX_DESKTOP_RENDERED_SOURCE_SHA,
               networkToken:process.env.ORDAX_DESKTOP_NETWORK_TOKEN,
+              displayToken:process.env.ORDAX_DESKTOP_DISPLAY_TOKEN,
             }):null;
       if (desktopHost && process.env.ORDAX_DESKTOP_ASSETS_ROOT) {
         // Same compiled Native composition, served before Vite source transforms.
         server.middlewares.use(createDesktopBuiltAssetsMiddleware(process.env.ORDAX_DESKTOP_ASSETS_ROOT));
       }
       if (localSession)server.middlewares.use(localSession.middleware);
+      if(desktopHost && process.platform==="win32" && userData){
+        server.middlewares.use(createDesktopDisplayCurrentModeMiddleware({
+          token:process.env.ORDAX_DESKTOP_DISPLAY_TOKEN,
+        }));
+      }
       if (diagnostics)server.middlewares.use(diagnostics.middleware);
       if(desktopHost && process.platform==="win32" && userData && localSession){
         server.middlewares.use(createDesktopWlanMiddleware({

@@ -200,6 +200,25 @@ O smoke do instalador NSIS verifica seis negativas localhost e seis
 leituras reais feitas pela Surface instalada; não confunde o acesso
 direto ao serviço HTTP com uma autorização do Electron.
 
+## Monitor Windows: modo físico atual (somente leitura)
+
+O Windows Desktop usa o contrato já existente
+`ordax.display-outputs/1` da Surface/USB. O provider chama
+`EnumDisplaySettingsW(-1)` de user32 para obter a resolução física
+e a frequência real de cada dispositivo `DISPLAYn`. As dimensões
+de `Screen.Bounds` sofrem virtualização de DPI e **não** são usadas
+como resolução física. A lista contém **apenas o modo atual**, sem
+modos alternativos ou flags `preferred` inventadas, portanto o botão
+de pré-visualização da Surface permanece indisponível.
+
+O acesso exige token efêmero exclusivo da sessão Native Electron.
+GET localhost sem autorização responde 403; o provider recusa
+**todos** os POST de preview, confirmação e reversão com 503,
+sem chamar APIs Win32 de mudança de modo. Se o monitor ou sua
+frequência não puderem ser lidos com segurança, o GET falha com
+503 em vez de criar um modo fictício. A troca de resolução e
+o rollback seguro continuam como etapa separada ainda não entregue.
+
 ## Composição canônica
 
 - A mesma Surface e apps vêm de `system/`; não criar telas ou serviços
