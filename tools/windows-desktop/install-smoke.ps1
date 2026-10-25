@@ -230,7 +230,7 @@ try {
   # A source-tree Vite test cannot catch attempts to write inside Program Files.
   # Smoke tests must NEVER read or write the real Desktop profile, even
   # when the Electron executable is a packaged NSIS build.
-  $testProfile = Join-Path $env:APPDATA "OrdaX OS Desktop Dev Test"
+  $testProfile = Join-Path $dest "OrdaX OS Desktop Dev Test"
   $realProfile = Join-Path $env:APPDATA "OrdaX OS Desktop Dev"
   if ($testProfile -eq $realProfile) { throw "Desktop test profile isolation failed" }
   $logFile = Join-Path $testProfile "desktop.log"
@@ -243,13 +243,16 @@ try {
   $previousBrowserSmoke = $env:ORDAX_DESKTOP_BROWSER_SMOKE
   $previousFileSmoke = $env:ORDAX_DESKTOP_FILE_SMOKE
   $previousTestProfile = $env:ORDAX_DESKTOP_TEST_PROFILE
+  $previousTestDirectory = $env:ORDAX_DESKTOP_TEST_PROFILE_DIR
   try {
     $env:ORDAX_DESKTOP_TEST_PROFILE = "1"
+    $env:ORDAX_DESKTOP_TEST_PROFILE_DIR = $testProfile
     $env:ORDAX_DESKTOP_BROWSER_SMOKE = "1"
     $env:ORDAX_DESKTOP_FILE_SMOKE = "1"
     $appProc = Start-Process -FilePath $installedExe -WorkingDirectory $dest -PassThru
   } finally {
     $env:ORDAX_DESKTOP_TEST_PROFILE = $previousTestProfile
+    $env:ORDAX_DESKTOP_TEST_PROFILE_DIR = $previousTestDirectory
     $env:ORDAX_DESKTOP_BROWSER_SMOKE = $previousBrowserSmoke
     $env:ORDAX_DESKTOP_FILE_SMOKE = $previousFileSmoke
   }

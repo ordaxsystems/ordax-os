@@ -56,9 +56,15 @@ test('packaged NSIS smoke uses a separate Electron profile and journal', () => {
   assert.ok(main.includes("process.env.ORDAX_DESKTOP_TEST_PROFILE === '1'"));
   assert.ok(!main.includes("!app.isPackaged && process.env.ORDAX_DESKTOP_TEST_PROFILE"));
   assert.ok(main.includes("'OrdaX OS Desktop Dev Test'"));
+  assert.ok(main.includes('ORDAX_DESKTOP_TEST_PROFILE_DIR'));
+  assert.ok(main.includes("basename(resolve(explicitTestDirectory))"));
+  assert.ok(main.includes('!isAbsolute(explicitTestDirectory)'));
   assert.ok(smoke.includes('ORDAX_DESKTOP_TEST_PROFILE = "1"'));
+  assert.ok(smoke.includes('ORDAX_DESKTOP_TEST_PROFILE_DIR = $testProfile'));
+  assert.ok(smoke.includes('$testProfile = Join-Path $dest "OrdaX OS Desktop Dev Test"'));
   assert.ok(smoke.includes('"OrdaX OS Desktop Dev Test"'));
   assert.ok(smoke.includes('$env:ORDAX_DESKTOP_TEST_PROFILE = $previousTestProfile'));
+  assert.ok(smoke.includes('$env:ORDAX_DESKTOP_TEST_PROFILE_DIR = $previousTestDirectory'));
 });
 
 test('Development installer defaults to the user profile and preserves application data', () => {

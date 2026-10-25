@@ -2,7 +2,7 @@
 // Installable Windows host: the UI and Git Pull remain owned by OrdaX OS.
 const { app, BrowserWindow, WebContentsView, ipcMain, session, Menu, shell, dialog } = require('electron');
 const { createDesktopBrowserHost } = require('./browser-host.cjs');
-const { join } = require('node:path');
+const { join, resolve, isAbsolute, basename } = require('node:path');
 const { randomBytes } = require('node:crypto');
 const { mkdirSync, createWriteStream, existsSync } = require('node:fs');
 const { resolveTemplate, runtimeStateDirectory } = require('./runtime.cjs');
@@ -18,7 +18,17 @@ app.setName('OrdaX OS Desktop Dev');
 // desktop-dev-update-state.json. This is a profile selector only, never a
 // different OrdaX runtime, Surface, updater or product channel.
 const devProfile = process.env.ORDAX_DESKTOP_TEST_PROFILE === '1';
-const desktopUserData=join(app.getPath('appData'),devProfile ? 'OrdaX OS Desktop Dev Test' : 'OrdaX OS Desktop Dev');
+const explicitTestDirectory = process.env.ORDAX_DESKTOP_TEST_PROFILE_DIR || '';
+// Smoke tests on an already-used Windows machine need a unique directory,
+// regardless of whether Electron resolves appData from Windows known folders
+// or from APPDATA. Never permit the override for a normal Desktop launch.
+if (explicitTestDirectory && (!devProfile || !isAbsolute(explicitTestDirectory) ||
+    basename(resolve(explicitTestDirectory)) !== 'OrdaX OS Desktop Dev Test')) {
+  throw Error('Unsafe isolated Desktop test profile path');
+}
+const desktopUserData = explicitTestDirectory
+  ? resolve(explicitTestDirectory)
+  : join(app.getPath('appData'),devProfile ? 'OrdaX OS Desktop Dev Test' : 'OrdaX OS Desktop Dev');
 mkdirSync(desktopUserData,{recursive:true});
 app.setPath('userData',desktopUserData);
 if (process.platform==='win32') app.setAppUserModelId('dev.ordax.os.desktop');
