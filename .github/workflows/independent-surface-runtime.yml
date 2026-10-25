@@ -34,7 +34,10 @@ permissions:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  # Preserve verified expensive Buildroot compilation across PR revisions.
+  # The queued run still validates the latest exact source after the current
+  # source-bound image finishes; cache fingerprints disallow stale reuse.
+  cancel-in-progress: false
 
 jobs:
   contract:

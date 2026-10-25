@@ -258,6 +258,12 @@ class IndependentSurfaceRuntimeTests(unittest.TestCase):
         self.assertIn("-name '*.part'", text)
         self.assertIn("-name '*.lock'", text)
 
+    def test_long_build_is_not_cancelled_by_noncausal_pr_updates(self):
+        workflow = (ROOT / ".github/workflows/independent-surface-runtime.yml").read_text()
+        self.assertIn("  cancel-in-progress: false", workflow)
+        self.assertIn("needs: buildroot-surface", workflow)
+        self.assertIn("Verify Surface reuse against current integration commit", workflow)
+
     def test_workflow_reuses_canonical_qemu_with_same_buildroot_artifact(self):
         text = WORKFLOW_PATH.read_text(encoding="utf-8")
         self.assertIn("if-no-files-found: error", text)
