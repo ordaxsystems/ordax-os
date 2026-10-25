@@ -83,6 +83,27 @@ class OfflineOwnerWelcomeGateTests(unittest.TestCase):
         self.assertIn('export ORDAX_SOURCE_COMMIT="$ORDAX_OWNER_SOURCE_COMMIT"', growth)
         self.assertIn("assert prepared['source_commit'] == os.environ['ORDAX_OWNER_SOURCE_COMMIT']", growth)
 
+    def test_creator_materializes_kernel_headers_and_reuses_verified_buildroot_compiler_inputs(self):
+        workflow = (ROOT / ".github/workflows/creator-owner-dev-git.yml").read_text()
+        producer = workflow.index("- name: Build and verify one canonical offline Surface runtime")
+        materialize = workflow.index("bootstrap/independent-surface-runtime/prepare_config.py materialize")
+        builder = workflow.index("bootstrap/independent-surface-runtime/build.py build", producer)
+        verifier = workflow.index("bootstrap/independent-surface-runtime/build.py verify", builder)
+        stage = workflow.index("- name: Assemble boot payload and overlay Git development base")
+        self.assertLess(producer, materialize)
+        self.assertLess(materialize, builder)
+        self.assertLess(builder, verifier)
+        self.assertLess(verifier, stage)
+        self.assertIn('grep -Fx "BR2_DEFAULT_KERNEL_VERSION=', workflow)
+        self.assertIn("trap 'git checkout -- \"$config\"' EXIT", workflow)
+        self.assertIn("Restore shared Surface Buildroot compiler cache", workflow)
+        self.assertIn("Restore shared Surface Buildroot source downloads", workflow)
+        self.assertIn("Save shared Surface Buildroot compiler cache", workflow)
+        self.assertIn("Save shared Surface Buildroot source downloads", workflow)
+        self.assertIn("BR2_CCACHE_DIR:", workflow)
+        self.assertIn("BR2_DL_DIR:", workflow)
+        self.assertNotIn("native-surface-runtime-buildroot.erofs' > ", workflow)
+
     def test_owner_visual_source_is_removed_before_expensive_buildroot(self):
         workflow = (ROOT / ".github/workflows/creator-owner-dev-git.yml").read_text()
         owner = workflow.split("- name: Build boot initramfs and Git development base", 1)[1]

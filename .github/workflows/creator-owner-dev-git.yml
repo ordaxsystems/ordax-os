@@ -84,7 +84,7 @@ concurrency:
 jobs:
   build-and-publish:
     runs-on: ubuntu-24.04
-    timeout-minutes: 120
+    timeout-minutes: 360
     env:
       # Exact checkout identity for push and PR; github.sha on PR is the
       # synthetic merge SHA, not the actual local source for Creator.
@@ -509,16 +509,67 @@ jobs:
           output.write_text(json.dumps(manifest, indent=2) + '\n', encoding='utf-8')
           PY
 
+      # Both producers use the same Buildroot compiler/download cache keys.
+      # This never reuses a Surface EROFS built for a different source commit:
+      # Creator still verifies the new image and its exact provenance itself.
+      - name: Restore shared Surface Buildroot compiler cache
+        id: owner-surface-ccache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/ordax-independent-surface-ccache
+          key: ordax-independent-surface-ccache-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('bootstrap/independent-surface-runtime/configs/ordax_surface_defconfig', 'bootstrap/independent-base/source.json', 'bootstrap/kernel/source.json') }}
+
+      - name: Restore shared Surface Buildroot source downloads
+        id: owner-surface-downloads
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/ordax-independent-surface-dl
+          key: ordax-independent-surface-dl-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('bootstrap/independent-surface-runtime/configs/ordax_surface_defconfig', 'bootstrap/independent-base/source.json', 'bootstrap/kernel/source.json') }}
+          restore-keys: |
+            ordax-independent-surface-dl-v1-${{ runner.os }}-${{ runner.arch }}-
+
       - name: Build and verify one canonical offline Surface runtime
+        env:
+          BR2_CCACHE_DIR: ${{ runner.temp }}/ordax-independent-surface-ccache
+          BR2_DL_DIR: ${{ runner.temp }}/ordax-independent-surface-dl
         run: |
           set -euo pipefail
-          # One offline Cage/WebKit EROFS from pinned Buildroot/musl; no APK.
+          # The source defconfig deliberately omits Linux headers. Resolve it
+          # from bootstrap/kernel/source.json exactly as the independent proof
+          # does; restore the immutable source on all exit paths.
+          config=bootstrap/independent-surface-runtime/configs/ordax_surface_defconfig
+          trap 'git checkout -- "$config"' EXIT
+          python3 bootstrap/independent-surface-runtime/prepare_config.py materialize --out "$config"
+          kernel_version="$(python3 -c 'import json; print(json.load(open("bootstrap/kernel/source.json"))["version"])')"
+          grep -Fx "BR2_DEFAULT_KERNEL_VERSION=\"$kernel_version\"" "$config"
           export ORDAX_SOURCE_COMMIT="$ORDAX_OWNER_SOURCE_COMMIT"
           sudo -E python3 bootstrap/independent-surface-runtime/build.py build \
             --out "$RUNNER_TEMP/owner-dev-surface-runtime" \
             --cache "$RUNNER_TEMP/owner-independent-cache" --jobs 4
           sudo -E python3 bootstrap/independent-surface-runtime/build.py verify \
             --out "$RUNNER_TEMP/owner-dev-surface-runtime"
+
+      - name: Save shared Surface Buildroot compiler cache
+        if: steps.owner-surface-ccache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/ordax-independent-surface-ccache
+          key: ${{ steps.owner-surface-ccache.outputs.cache-primary-key }}
+
+      - name: Sanitize and save shared Surface Buildroot downloads
+        if: steps.owner-surface-downloads.outputs.cache-hit != 'true'
+        run: |
+          if [ -d "$RUNNER_TEMP/ordax-independent-surface-dl" ]; then
+            find "$RUNNER_TEMP/ordax-independent-surface-dl" -type f \
+              \( -name '*.tmp' -o -name '*.part' -o -name '*.lock' \) -delete
+          fi
+
+      - name: Save shared Surface Buildroot source downloads
+        if: steps.owner-surface-downloads.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/ordax-independent-surface-dl
+          key: ${{ steps.owner-surface-downloads.outputs.cache-primary-key }}
 
       - name: Assemble boot payload and overlay Git development base
         run: |
