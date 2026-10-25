@@ -304,6 +304,15 @@ try {
     if ($null -eq $networkSnapshot -or $null -eq $networkSnapshot.interfaces) {
       throw "Installed desktop host does not supply canonical network-status snapshot"
     }
+    foreach ($networkInterface in $networkSnapshot.interfaces) {
+      if ($networkInterface.kind -notin @("wifi","ethernet","other") -or
+          $networkInterface.state -notin @("connected","disconnected","unknown") -or
+          $null -ne $networkInterface.signalDbm -or
+          [string]::IsNullOrWhiteSpace([string]$networkInterface.name)) {
+        throw "Installed Windows network status is not a bounded real-link snapshot"
+      }
+    }
+    Write-Output "DESKTOP_REAL_NETWORK_LINK_SMOKE=PASS"
     $updateSnapshot = Invoke-RestMethod -Uri ($baseUrl + "/__ordax/native/update") -Method GET -TimeoutSec 15
     if (-not $updateSnapshot.sourceSha -or -not $updateSnapshot.status -or
         -not $updateSnapshot.phase -or $null -eq $updateSnapshot.deliveryNumber) {

@@ -154,8 +154,16 @@ clientes localhost sem concessão efêmera específica do Electron recebem
   O host Vite/Electron não é autoridade de domínio.
 - Primeiro uso/preferências usam estado isolado do usuário; não apagam
   nem alteram USB e não fabricam uma sessão de Conta OrdaX.
-- Leitura de estado de rede Windows está ligada ao contrato já existente
-  `ordax.network-status/1`. Energia usa o mesmo contrato
+- Leitura de rede Windows usa `ordax.network-status/1` com
+  `System.Net.NetworkInformation.NetworkInterface`: tipo real do driver
+  (Wi-Fi/Ethernet/outro) e estado operacional do link (não uma inferência
+  pela existência de endereço IP). Uma interface ligada não comprova
+  conectividade com a internet. RSSI permanece `null` quando não há
+  medida dBm segura; nenhum scan, senha ou conexão é alterado.
+  A leitura é somente de observação, assíncrona e com prazo máximo de
+  7 segundos; falha da API não vira HTTP 200 inventado. Gerenciamento
+  de Wi-Fi continua separado e indisponível até haver adaptador real.
+  Energia usa o mesmo contrato
   `ordax.power-status/1` do OS com `SystemInformation.PowerStatus`, a
   projeção Windows da telemetria real do kernel; não compila C# P/Invoke em
   cada solicitação. A execução física de três leituras sucessivas

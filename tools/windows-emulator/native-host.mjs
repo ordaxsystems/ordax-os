@@ -167,7 +167,13 @@ export function nativeEmulatorPlugin(stateDirectory, { desktopHost = false, acco
             response.end(JSON.stringify(payload));
           };
           try {
-            if (path === "/__ordax/native/network-status") return respond(readDesktopNetworkStatus());
+            if (path === "/__ordax/native/network-status") {
+              void readDesktopNetworkStatus().then(respond).catch(() => {
+                response.statusCode = 503;
+                response.end(JSON.stringify({error:"Windows network link telemetry unavailable"}));
+              });
+              return;
+            }
             if (path === "/__ordax/native/power-status") {
               void readDesktopPowerStatus().then(respond).catch(() => {
                 response.statusCode = 503;
