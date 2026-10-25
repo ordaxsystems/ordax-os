@@ -48,13 +48,6 @@
     },
     {
       "major": 1,
-      "name": "application-action-proposal",
-      "schema": "ordax.application-action-proposal/1",
-      "source_git_blob": "c78daf23c859bb09fb2029c9908c10f9c7715f3c",
-      "source_path": "system/contracts/application-action-capability.mjs"
-    },
-    {
-      "major": 1,
       "name": "application-action-provider",
       "schema": "ordax.application-action-provider/1",
       "source_git_blob": "158664c2da836ee0cbc67edb275b87542933480f",
@@ -73,6 +66,13 @@
       "schema": "ordax.application-action-provider-result/1",
       "source_git_blob": "158664c2da836ee0cbc67edb275b87542933480f",
       "source_path": "system/contracts/application-action-provider.mjs"
+    },
+    {
+      "major": 1,
+      "name": "application-action-proposal",
+      "schema": "ordax.application-action-proposal/1",
+      "source_git_blob": "c78daf23c859bb09fb2029c9908c10f9c7715f3c",
+      "source_path": "system/contracts/application-action-capability.mjs"
     },
     {
       "major": 1,
@@ -230,6 +230,13 @@
     },
     {
       "major": 1,
+      "name": "recent-files",
+      "schema": "ordax.recent-files/1",
+      "source_git_blob": "06372c634f7fbb5e8d84bdea9e1c5a92761d37c0",
+      "source_path": "system/contracts/recent-files.mjs"
+    },
+    {
+      "major": 1,
       "name": "first-party-app",
       "schema": "ordax.first-party-app/1",
       "source_git_blob": "8ec22f95e7d1a33bdaaeb7feb472d886d9ddf82b",
@@ -300,15 +307,15 @@
     },
     {
       "major": 1,
-      "name": "network-draft",
-      "schema": "ordax.network-draft/1",
-      "source_git_blob": "a609b342fa07d2a257b9750899ab6a2ed5c0d67d",
-      "source_path": "system/contracts/network-draft.mjs"
+      "name": "personal-work-item",
+      "schema": "ordax.personal-work-item/1",
+      "source_git_blob": "82443c141e89aec1c9750fbcb84aa9e990e27409",
+      "source_path": "system/contracts/personal-ordax.mjs"
     },
     {
       "major": 1,
-      "name": "personal-action-attempt",
-      "schema": "ordax.personal-action-attempt/1",
+      "name": "personal-activity",
+      "schema": "ordax.personal-activity/1",
       "source_git_blob": "82443c141e89aec1c9750fbcb84aa9e990e27409",
       "source_path": "system/contracts/personal-ordax.mjs"
     },
@@ -321,8 +328,22 @@
     },
     {
       "major": 1,
-      "name": "personal-activity",
-      "schema": "ordax.personal-activity/1",
+      "name": "personal-approval",
+      "schema": "ordax.personal-approval/1",
+      "source_git_blob": "82443c141e89aec1c9750fbcb84aa9e990e27409",
+      "source_path": "system/contracts/personal-ordax.mjs"
+    },
+    {
+      "major": 1,
+      "name": "personal-work-result",
+      "schema": "ordax.personal-work-result/1",
+      "source_git_blob": "82443c141e89aec1c9750fbcb84aa9e990e27409",
+      "source_path": "system/contracts/personal-ordax.mjs"
+    },
+    {
+      "major": 1,
+      "name": "personal-action-attempt",
+      "schema": "ordax.personal-action-attempt/1",
       "source_git_blob": "82443c141e89aec1c9750fbcb84aa9e990e27409",
       "source_path": "system/contracts/personal-ordax.mjs"
     },
@@ -342,38 +363,10 @@
     },
     {
       "major": 1,
-      "name": "personal-approval",
-      "schema": "ordax.personal-approval/1",
-      "source_git_blob": "82443c141e89aec1c9750fbcb84aa9e990e27409",
-      "source_path": "system/contracts/personal-ordax.mjs"
-    },
-    {
-      "major": 1,
       "name": "personal-approval-consent",
       "schema": "ordax.personal-approval-consent/1",
       "source_git_blob": "7ba1a63057a8d66f36d4b9aa0164c70bfb33e923",
       "source_path": "system/contracts/personal-approval-consent.mjs"
-    },
-    {
-      "major": 1,
-      "name": "personal-runtime",
-      "schema": "ordax.personal-runtime/1",
-      "source_git_blob": "f7ed8595c75f677653785c1b64554676b47653cf",
-      "source_path": "system/contracts/personal-ordax-store.mjs"
-    },
-    {
-      "major": 1,
-      "name": "personal-work-item",
-      "schema": "ordax.personal-work-item/1",
-      "source_git_blob": "82443c141e89aec1c9750fbcb84aa9e990e27409",
-      "source_path": "system/contracts/personal-ordax.mjs"
-    },
-    {
-      "major": 1,
-      "name": "personal-work-result",
-      "schema": "ordax.personal-work-result/1",
-      "source_git_blob": "82443c141e89aec1c9750fbcb84aa9e990e27409",
-      "source_path": "system/contracts/personal-ordax.mjs"
     },
     {
       "major": 1,
@@ -388,6 +381,20 @@
       "schema": "ordax.personal-work-store-state/1",
       "source_git_blob": "f7ed8595c75f677653785c1b64554676b47653cf",
       "source_path": "system/contracts/personal-ordax-store.mjs"
+    },
+    {
+      "major": 1,
+      "name": "personal-runtime",
+      "schema": "ordax.personal-runtime/1",
+      "source_git_blob": "f7ed8595c75f677653785c1b64554676b47653cf",
+      "source_path": "system/contracts/personal-ordax-store.mjs"
+    },
+    {
+      "major": 1,
+      "name": "network-draft",
+      "schema": "ordax.network-draft/1",
+      "source_git_blob": "a609b342fa07d2a257b9750899ab6a2ed5c0d67d",
+      "source_path": "system/contracts/network-draft.mjs"
     },
     {
       "major": 1,
@@ -430,13 +437,6 @@
       "schema": "ordax.project-web-references/1",
       "source_git_blob": "496f47fc06b1ffc44a3964927425922bbf36bfc1",
       "source_path": "system/contracts/project-web-references.mjs"
-    },
-    {
-      "major": 1,
-      "name": "recent-files",
-      "schema": "ordax.recent-files/1",
-      "source_git_blob": "06372c634f7fbb5e8d84bdea9e1c5a92761d37c0",
-      "source_path": "system/contracts/recent-files.mjs"
     },
     {
       "major": 2,
