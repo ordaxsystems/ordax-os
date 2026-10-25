@@ -2,10 +2,10 @@
 const test=require('node:test');
 const assert=require('node:assert/strict');
 const {execFileSync}=require('node:child_process');
-const {mkdtempSync,mkdirSync,writeFileSync,readFileSync,existsSync,rmSync}=require('node:fs');
+const {mkdtempSync,mkdirSync,writeFileSync,readFileSync,existsSync,rmSync,chmodSync}=require('node:fs');
 const {join,dirname}=require('node:path');
 const {tmpdir}=require('node:os');
-const {pinnedSourceLock,verifyPinnedSource,withVerifiedSurface}=require('./surface-stage.cjs');
+const {pinnedSourceLock,verifyPinnedSource,withVerifiedSurface,cleanupPinnedSurfaceTemporary}=require('./surface-stage.cjs');
 
 function fixture(t) {
   const dir=mkdtempSync(join(tmpdir(),'ordax-desktop-surface-test-'));
@@ -61,4 +61,22 @@ test('Pinned source fails closed on byte mismatch, wrong revision or duplicate v
   writeFileSync(x.lockPath,JSON.stringify({...lock,source_commit:x.sha}));
   mkdirSync(join(x.root,'system/surface/ui'));
   await assert.rejects(()=>withVerifiedSurface(x.root,x.source,async()=>{}),/duplicate/);
+});
+
+test('pinned Surface Git clone cleanup is shared, bounded and safe against unrelated paths',t=>{
+  const temp=mkdtempSync(join(tmpdir(),'ordax-pinned-surface-'));
+  t.after(()=>{if(existsSync(temp))cleanupPinnedSurfaceTemporary(temp)});
+  const gitDir=join(temp,'source','.git');
+  const pack=join(gitDir,'objects','pack','fixture.idx');
+  mkdirSync(dirname(pack),{recursive:true});
+  writeFileSync(pack,'fixture readonly Git pack index');
+  if(process.platform==='win32'){
+    chmodSync(pack,0o444);
+    execFileSync('attrib.exe',['+R',pack],{windowsHide:true});
+  }
+  assert.throws(()=>cleanupPinnedSurfaceTemporary(join(temp,'outside')),/Unsafe/);
+  cleanupPinnedSurfaceTemporary(temp);
+  assert.equal(existsSync(temp),false,'Git readonly materialization must not mask successful pinned Surface build');
+  // The packaged host must include the shared module, not a second cleanup fork.
+  assert.ok(require('./package.json').build.files.includes('git-cleanup.cjs'));
 });

@@ -26,6 +26,7 @@
       "runtime.cjs",
       "checkout.cjs",
       "dev-update.cjs",
+      "git-cleanup.cjs",
       "host.cjs",
       "browser-host.cjs",
       "browser-preload.cjs",

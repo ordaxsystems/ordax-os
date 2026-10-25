@@ -4,10 +4,11 @@
 // are checked before the temporary source is used for a candidate build.
 const {spawn} = require('node:child_process');
 const {createHash} = require('node:crypto');
-const {mkdtempSync,readFileSync,lstatSync,mkdirSync,writeFileSync,rmSync} = require('node:fs');
-const {join,dirname} = require('node:path');
+const {mkdtempSync,readFileSync,lstatSync,mkdirSync,writeFileSync,rmSync,existsSync} = require('node:fs');
+const {join,dirname,basename,resolve} = require('node:path');
 const {tmpdir} = require('node:os');
 const {TextDecoder} = require('node:util');
+const {prepareWindowsGitDeletion}=require('./git-cleanup.cjs');
 
 const SHA40=/^[0-9a-f]{40}$/;
 const PATH=/^system\/surface\/(?:ui|workspace)\/[a-zA-Z0-9._/@+\-]+$/;
@@ -132,6 +133,21 @@ async function withVerifiedSurface(root,source,build) {
     if(created)for(const area of areas)rmSync(area,{recursive:true,force:true});
   }
 }
+// A Surface checkout lives outside the OS candidate. Verify the exact
+// transaction-owned mkdtemp path before cleanup, and normalize Git for
+// Windows readonly pack/index files using the same primitive as OS rollback.
+function cleanupPinnedSurfaceTemporary(temporary) {
+  if(resolve(dirname(temporary))!==resolve(tmpdir()) ||
+     !/^ordax-pinned-surface-[A-Za-z0-9]{6}$/.test(basename(temporary))) {
+    throw Error('Unsafe temporary pinned Surface cleanup path');
+  }
+  if(!existsSync(temporary))return;
+  const stat=lstatSync(temporary);
+  if(!stat.isDirectory()||stat.isSymbolicLink())
+    throw Error('Temporary pinned Surface checkout must be a real directory');
+  prepareWindowsGitDeletion(join(temporary,'source','.git'));
+  rmSync(temporary,{recursive:true,force:true,maxRetries:10,retryDelay:200});
+}
 async function withPinnedSurface(root,build) {
   const lock=pinnedSourceLock(root);
   const temporary=mkdtempSync(join(tmpdir(),'ordax-pinned-surface-'));
@@ -142,6 +158,6 @@ async function withPinnedSurface(root,build) {
       'https://github.com/'+lock.source_repository+'.git',source],temporary);
     await git(['-C',source,'checkout','--detach',lock.source_commit],temporary);
     return await withVerifiedSurface(root,source,build);
-  }finally{rmSync(temporary,{recursive:true,force:true,maxRetries:10,retryDelay:200});}
+  }finally{cleanupPinnedSurfaceTemporary(temporary);}
 }
-module.exports={SurfaceSourceContractError,pinnedSourceLock,verifyPinnedSource,withVerifiedSurface,withPinnedSurface};
+module.exports={SurfaceSourceContractError,pinnedSourceLock,verifyPinnedSource,withVerifiedSurface,withPinnedSurface,cleanupPinnedSurfaceTemporary};
