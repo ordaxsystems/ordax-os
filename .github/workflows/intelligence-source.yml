@@ -1,0 +1,56 @@
+name: Intelligence cross-repository source gate
+on:
+  pull_request:
+    paths:
+      - 'docs/contracts/intelligence-source.json'
+      - 'tools/intelligence-source/**'
+      - 'tests/test_intelligence_source_gate.py'
+      - 'tests/test_intelligence_external_integration.mjs'
+      - '.github/workflows/intelligence-source.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'docs/contracts/intelligence-source.json'
+      - 'tools/intelligence-source/**'
+      - 'tests/test_intelligence_source_gate.py'
+      - '.github/workflows/intelligence-source.yml'
+permissions:
+  contents: read
+jobs:
+  verify-external-source:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: ordaxsystems/ordax-intelligence
+          ref: ea663e1bbdc1066e556d8ee5cf279783cae0ba8c
+          path: _upstream/intelligence
+          persist-credentials: false
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
+        with:
+          python-version: '3.12'
+      - run: python -m unittest discover -s tests -p 'test_intelligence_source_gate.py' -v
+      - run: python tools/intelligence-source/materialize.py verify --source-dir _upstream/intelligence
+      - run: python tools/intelligence-source/materialize.py stage --source-dir _upstream/intelligence --out-dir "${RUNNER_TEMP}/ordax-intelligence-stage"
+      - name: Prove portable runtime binds real OS public contracts
+        env:
+          ORDAX_INTELLIGENCE_STAGE: ${{ runner.temp }}/ordax-intelligence-stage
+        run: node --test tests/test_intelligence_external_integration.mjs
+      - name: Verify no external source tracked in OS, no engine or model and exact receipt
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import json
+          root=Path("${{ runner.temp }}/ordax-intelligence-stage")
+          receipt=json.loads((root/"intelligence-source-receipt.json").read_text())
+          assert receipt["source_file_count"] == 7
+          assert receipt["source_commit"] == "ea663e1bbdc1066e556d8ee5cf279783cae0ba8c"
+          assert receipt["engine_included"] is False and receipt["model_included"] is False
+          assert receipt["activation_authorized"] is False
+          for path in ("index.mjs","intelligence/runtime.mjs","local-ai/runtime.mjs"):
+              assert (root/"system/intelligence-source/src"/path).is_file()
+          assert not Path("system/intelligence-source").exists()
+          PY
