@@ -99,16 +99,19 @@ def verify_intelligence_stage(root: Path, lock:dict) -> dict:
     return receipt
 
 def compose(os_root:Path, intelligence_stage:Path, destination:Path, lock_file:Path=source.LOCK_PATH) -> dict:
+    if os_root.is_symlink() or intelligence_stage.is_symlink():
+        raise CompositionError("source roots must not be symlinks")
     os_root=os_root.resolve(strict=True)
     intelligence_stage=intelligence_stage.resolve(strict=True)
     destination=destination.absolute()
+    candidate=destination.resolve(strict=False)
     lock=source.load_lock(lock_file)
     verified=verify_intelligence_stage(intelligence_stage,lock)
     origin=os_root/"system"
     regular_tree(origin)
     parent=destination.parent.resolve(strict=True)
     for input_root in (os_root,intelligence_stage):
-        if os.path.commonpath((str(destination),str(input_root)))==str(input_root):
+        if os.path.commonpath((str(candidate),str(input_root)))==str(input_root):
             raise CompositionError("cannot overwrite an input source tree")
     if destination.is_symlink() or destination.exists():
         raise CompositionError("refusing to overwrite a candidate tree")
