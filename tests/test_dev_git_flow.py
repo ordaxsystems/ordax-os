@@ -683,6 +683,8 @@ class DevelopmentGitFlowTest(unittest.TestCase):
                 "/bootstrap/trust/",
                 "/bootstrap/config/release-envelope-url",
                 "/docs/contracts/base-update.json",
+                "/docs/contracts/surface-source.json",
+                "/docs/contracts/intelligence-source.json",
                 "/docs/contracts/release-trust-policy.json",
                 "/docs/contracts/minimal-bootstrap.json",
                 "/docs/evidence/release-trust-ceremony.json",
