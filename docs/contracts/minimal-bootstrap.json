@@ -104,7 +104,7 @@
         {
           "source_path": "bootstrap/initramfs/initramfs.cpio.gz",
           "target_path": "/ordax/initrd.gz",
-          "sha256": "d83d13cc354452f24c3122ec9ce887c0973288698a266f4140077bf830b6a92c",
+          "sha256": "f876adc4e80e3715c44b32b76d62a727a2f0bf214303eaf3727fd71fe0435186",
           "mode": "0644",
           "logical_owner": "initramfs",
           "reason": "Fixed clean-room capsule preserving normal physical boot, with read-only EXT4 recovery using ro,noload to prevent journal replay, plus isolated Portable helpers, armed one-shot activation-state transactions, rejected-candidate persistence, exact candidate/current/known-good selection, loop/exFAT/FAT-volume-ID primitives, BusyBox mount security-flag parsing, POSIX test/[ support and fail-closed candidate PID1 support plus verified read-only Stable v4 local-AI runtime mounting"
