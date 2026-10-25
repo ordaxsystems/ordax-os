@@ -79,6 +79,19 @@ class CreatorKernelReuseWorkflowTests(unittest.TestCase):
         self.assertIn("creator-payload-cli/ordax-creator", external_verification)
         self.assertNotIn("go run ./cmd/ordax-creator", external_verification)
 
+    def test_owner_dev_cold_boot_proof_survives_pr_revisions(self):
+        workflow = self.workflow(OWNER_DEV)
+        group = workflow.split("concurrency:", 1)[1].split("jobs:", 1)[0]
+        self.assertIn("group: creator-owner-dev-git-${{ github.ref }}", group)
+        self.assertIn("cancel-in-progress: false", group)
+        self.assertNotIn("cancel-in-progress: ${{ github.event_name", group)
+        # The expensive workflow still binds to the exact PR source commit;
+        # concurrency affects execution lifetime, not provenance authority.
+        self.assertIn(
+            "ORDAX_OWNER_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}",
+            workflow,
+        )
+
     def test_owner_dev_creator_reuses_kernel_without_skipping_product_build(self):
         workflow = self.assert_verified_kernel_reuse(OWNER_DEV)
         dev_base = self.step_block(workflow, "Build boot initramfs and Git development base")

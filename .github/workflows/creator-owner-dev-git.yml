@@ -76,10 +76,12 @@ permissions:
 
 concurrency:
   group: creator-owner-dev-git-${{ github.ref }}
-  # The full Owner USB proof is expensive. A new main push must not cancel
-  # an ongoing publishable build; GitHub keeps only the latest queued run.
-  # PR supersessions may still cancel obsolete validation work.
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  # Preserve in-flight Owner USB cold-boot proofs for BOTH PRs and main.
+  # Revisions share this branch-scoped group: GitHub keeps one running build
+  # and replaces the pending run with the newest commit. Cancelling expensive
+  # Buildroot/graphical proof on each PR edit hides its actual boot result.
+  # Exact source SHA, immutable provenance and physical-write gates still apply.
+  cancel-in-progress: false
 
 jobs:
   build-and-publish:
