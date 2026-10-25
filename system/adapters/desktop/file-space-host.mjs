@@ -159,7 +159,7 @@ function httpStatus(error) {
   if(error?.code==="EACCES" || error?.code==="EPERM")return 403;
   return 503;
 }
-export function createDesktopFileSpaceMiddleware(filesDirectory,{token}={}) {
+export function createDesktopFileSpaceMiddleware(filesDirectory,{token,sessionLocked=null}={}) {
   if(typeof filesDirectory!=="string" || !filesDirectory)throw TypeError("Desktop files directory required");
   if(typeof token!=="string" || !/^[0-9a-f]{64}$/.test(token))
     throw TypeError("Desktop files require an ephemeral, 256-bit host authorization");
@@ -191,6 +191,11 @@ export function createDesktopFileSpaceMiddleware(filesDirectory,{token}={}) {
       return;
     }
     void serial(async()=>{
+      if(sessionLocked && await sessionLocked()){
+        res.writeHead(423,{"Content-Type":"application/json","Cache-Control":"no-store"});
+        res.end(JSON.stringify({error:"OrdaX Desktop session locked"}));
+        return;
+      }
       await checkedRoot(root);
       const method=req.method;
       const query=params(req);

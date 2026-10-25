@@ -339,6 +339,13 @@ try {
       throw "Unauthenticated local process could read private OrdaX files"
     }
     Write-Output "DESKTOP_FILE_AUTHORIZATION_SMOKE=PASS"
+    # The Native local-session contract must be present but inaccessible
+    # to arbitrary localhost callers. Only Electron grants the fresh token.
+    $withoutSessionGrant = Invoke-WebRequest -Uri ($baseUrl + "/__ordax/native/local-session") -Method GET -TimeoutSec 15 -SkipHttpErrorCheck
+    if ($withoutSessionGrant.StatusCode -ne 401) {
+      throw "Unauthenticated localhost client gained access to OrdaX local session"
+    }
+    Write-Output "DESKTOP_LOCAL_SESSION_AUTHORIZATION_SMOKE=PASS"
     Write-Output "DESKTOP_NETWORK_STATUS_SMOKE=PASS"
     Write-Output ("STARTUP_DURATION_SECONDS=" + [Math]::Round(([DateTime]::UtcNow - $startupStarted).TotalSeconds, 1))
     Write-Output "STARTUP_SMOKE=PASS"

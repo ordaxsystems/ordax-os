@@ -22,9 +22,12 @@ function isReady(port) {
     request.on('error',()=>resolve(false));
   });
 }
-async function startHost({root,stateDirectory,userData,log,builtAssetsRoot=null,fileToken}) {
+async function startHost({root,stateDirectory,userData,log,builtAssetsRoot=null,fileToken,localSessionToken}) {
   if(typeof fileToken!=="string" || !/^[0-9a-f]{64}$/.test(fileToken))
     throw TypeError("OrdaX Desktop Files require per-launch authorization");
+  if(typeof localSessionToken!=="string" || !/^[0-9a-f]{64}$/.test(localSessionToken) ||
+     localSessionToken===fileToken)
+    throw TypeError("OrdaX Desktop local session requires an independent per-launch authorization");
   const port=await freePort();
   const child=fork(join(root,'tools/windows-emulator/dev-supervisor.mjs'),[],{
     cwd:root,execPath:process.execPath,windowsHide:true,
@@ -33,6 +36,7 @@ async function startHost({root,stateDirectory,userData,log,builtAssetsRoot=null,
       ORDAX_DESKTOP_HOST:'1',
       ORDAX_DESKTOP_UPDATE_USER_DATA:userData,
       ORDAX_DESKTOP_FILE_TOKEN:fileToken,
+      ORDAX_DESKTOP_LOCAL_SESSION_TOKEN:localSessionToken,
       ORDAX_EMULATOR_PORT:String(port),ORDAX_EMULATOR_STATE_DIR:stateDirectory,
       ORDAX_DESKTOP_ASSETS_ROOT:builtAssetsRoot??''},
   });

@@ -9,13 +9,15 @@ import { readDesktopRecovery } from "../../system/adapters/desktop/recovery-obse
 import { createDesktopBuiltAssetsMiddleware } from "./desktop-built-assets.mjs";
 import { createDesktopFileSpaceMiddleware } from "../../system/adapters/desktop/file-space-host.mjs";
 import { createDesktopAccountCookieVault } from "../../system/adapters/desktop/account-cookie-vault.mjs";
+import { createDesktopLocalSessionMiddleware } from "../../system/adapters/desktop/local-session-host.mjs";
 import { createInitialFirstRunState, validateFirstRunState } from "../../system/contracts/first-run-state-store.mjs";
 import { validatePreferenceRecord } from "../../system/contracts/preference-store.mjs";
 import { FIRST_RUN_CURSOR_SCHEMA, validateFirstRunCursor } from "../../system/contracts/first-run-cursor.mjs";
 import { createEmulatorAccountGateway } from "./account-gateway.mjs";
 
 export function createEmulatorNativeHost({
-  stateDirectory, accountGatewayOrigin = "", fetchImpl = globalThis.fetch, cookieVault = null,
+  stateDirectory, accountGatewayOrigin = "", fetchImpl = globalThis.fetch,
+  cookieVault = null, sessionLocked = null,
 }) {
   const accountMiddleware = createEmulatorAccountGateway({
     origin: accountGatewayOrigin, fetchImpl, cookieVault,
@@ -52,6 +54,19 @@ export function createEmulatorNativeHost({
   ]);
   return async function middleware(request, response, next) {
     const path = request.url.split("?")[0];
+    if (sessionLocked && /^(\/auth\/|\/account\/|\/sync\/|\/network\/)/.test(path)) {
+      try {
+        if (await sessionLocked()) {
+          response.writeHead(423, { "Content-Type": "application/json", "Cache-Control": "no-store" });
+          response.end(JSON.stringify({ error: "OrdaX Desktop session locked" }));
+          return;
+        }
+      } catch {
+        response.writeHead(503, { "Content-Type": "application/json", "Cache-Control": "no-store" });
+        response.end(JSON.stringify({ error: "Desktop local session unavailable" }));
+        return;
+      }
+    }
     if (await accountMiddleware(request, response)) return;
     if (!path.startsWith("/__ordax/")) return next();
     const reply = (status, body) => {
@@ -101,16 +116,23 @@ export function nativeEmulatorPlugin(stateDirectory, { desktopHost = false, acco
   return {
     name: "ordax-native-emulator-host",
     configureServer(server) {
+      const userData=process.env.ORDAX_DESKTOP_UPDATE_USER_DATA;
+      const localSession=desktopHost && process.platform==="win32" && userData
+        ? createDesktopLocalSessionMiddleware(userData, {
+            token:process.env.ORDAX_DESKTOP_LOCAL_SESSION_TOKEN,
+          }) : null;
       if (desktopHost && process.env.ORDAX_DESKTOP_ASSETS_ROOT) {
         // Same compiled Native composition, served before Vite source transforms.
         server.middlewares.use(createDesktopBuiltAssetsMiddleware(process.env.ORDAX_DESKTOP_ASSETS_ROOT));
       }
+      if (localSession)server.middlewares.use(localSession.middleware);
       if (desktopHost && process.env.ORDAX_DESKTOP_UPDATE_USER_DATA) {
         // Logical "/" is a private, persistent Windows user-data file-space,
         // not the host drive root. This precedes the emulator 503 fallback.
         server.middlewares.use(createDesktopFileSpaceMiddleware(
           join(process.env.ORDAX_DESKTOP_UPDATE_USER_DATA,"Files"),
-          {token:process.env.ORDAX_DESKTOP_FILE_TOKEN}
+          {token:process.env.ORDAX_DESKTOP_FILE_TOKEN,
+           sessionLocked:localSession?.readLocked??null}
         ));
       }
       if (desktopHost) {
@@ -174,11 +196,11 @@ export function nativeEmulatorPlugin(stateDirectory, { desktopHost = false, acco
           }
         });
       }
-      const userData = process.env.ORDAX_DESKTOP_UPDATE_USER_DATA;
       const cookieVault = desktopHost && process.platform === "win32" && userData
         ? createDesktopAccountCookieVault(userData, accountGatewayOrigin) : null;
       server.middlewares.use(createEmulatorNativeHost({
         stateDirectory, accountGatewayOrigin, cookieVault,
+        sessionLocked:localSession?.readLocked??null,
       }));
       // Native's real host serves system/ as its static root.
       server.middlewares.use((request, _response, next) => {
