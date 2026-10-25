@@ -242,12 +242,22 @@ async function stageMain({ userData, template, log = () => {}, remote = OFFICIAL
     try {
       // Partial objects + sparse materialization. Git history is NOT shallow;
       // merge-base must be able to verify ancestry of the running version.
-      const clone = await runGit(['clone','--filter=blob:none','--sparse',
+      // The official OS contains paths longer than Win32 MAX_PATH after
+      // candidate UUID + userData nesting. Git for Windows needs a persisted
+      // core.longpaths=true BEFORE sparse-checkout expands system/services.
+      // Also keep canonical Git blob bytes independent of user autocrlf.
+      const clone = await runGit(['-c','core.autocrlf=false','-c','core.longpaths=true',
+        'clone','--config','core.autocrlf=false','--config','core.longpaths=true',
+        '--filter=blob:none','--sparse',
         '--single-branch','--no-tags','--branch','main',OFFICIAL_REMOTE,staging],userData,120000);
       if (!clone.ok) return {status:'unavailable'};
       const sparse = await runGit(['-C',staging,'sparse-checkout','set',
         'system','docs/contracts','tools/windows-emulator','tools/surface-web','tools/windows-desktop'],staging,60000);
-      if (!sparse.ok) return {status:'unavailable'};
+      if (!sparse.ok) {
+        log('Windows Git sparse-checkout refused official main candidate: '+
+          String(sparse.stderr||'no Git diagnostic').slice(-350));
+        return {status:'unavailable'};
+      }
       const head = await runGit(['-C',staging,'rev-parse','HEAD'],staging,10000);
       if (!head.ok || head.stdout !== remoteSha || !await isTrusted(staging))
         return {status:'untrusted'};

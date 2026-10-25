@@ -36,8 +36,9 @@ test('runtime closure rejects any missing required root, stale lock or malicious
   delete missing.packages['node_modules/vite'];
   assert.throws(()=>planRuntimePackages(manifest,missing),/unavailable/);
   const unsafe=structuredClone(manifest);
-  unsafe.dependencies={'../../tamper':'1.0.0'};
+  unsafe.dependencies={...manifest.dependencies,'../../tamper':'1.0.0'};
   const aligned=structuredClone(lock);
-  aligned.packages[''].dependencies={'../../tamper':'1.0.0'};
+  aligned.packages[''].dependencies={...lock.packages[''].dependencies,
+    '../../tamper':'1.0.0'};
   assert.throws(()=>planRuntimePackages(unsafe,aligned),/Unsafe canonical npm dependency/);
 });

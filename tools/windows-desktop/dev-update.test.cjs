@@ -64,7 +64,9 @@ function fixture(t) {
   // isolated genuine Git repository. The stored Git origin is still official.
   async function offlineGit(args,cwd,timeout) {
     if(args[0]==='ls-remote')return {ok:true,stdout:gitCli(['rev-parse','HEAD'],source)+'\trefs/heads/main'};
-    if(args[0]==='clone'){
+    if(args.includes('clone')){
+      assert.ok(args.includes('core.longpaths=true'),'Git must support the canonical long OS paths');
+      assert.ok(args.includes('core.autocrlf=false'),'Git must preserve source blob line endings');
       const target=args.at(-1);
       gitCli(['clone','--quiet','--no-hardlinks',source,target],root);
       gitCli(['-C',target,'remote','set-url','origin',OFFICIAL_REMOTE],root);
@@ -182,7 +184,7 @@ test('incompatible official main SHA does not leak candidates or clone indefinit
   const incompatible=gitCli(['rev-parse','HEAD'],f.source);
   let clones=0;
   const trackGit=async (...args)=>{
-    if(args[0][0]==='clone')clones++;
+    if(args[0].includes('clone'))clones++;
     return f.offlineGit(...args);
   };
   const params={userData:f.userData,template:f.template,runGit:trackGit,buildCandidate:f.offlineBuild};
@@ -223,7 +225,7 @@ test('Windows busy Git candidate is deferred without suppressing incompatible SH
   gitCli(['commit','-qm','no Desktop Host contract'],f.source);
   const expected=gitCli(['rev-parse','HEAD'],f.source);
   let clones=0;const log=[];
-  const runGit=async (...args)=>{if(args[0][0]==='clone')clones++;return f.offlineGit(...args)};
+  const runGit=async (...args)=>{if(args[0].includes('clone'))clones++;return f.offlineGit(...args)};
   const result=await stageMain({userData:f.userData,template:f.template,runGit,
     buildCandidate:f.offlineBuild,log:m=>log.push(m),
     cleanupCandidate:()=>({removed:false,code:'EPERM'})});

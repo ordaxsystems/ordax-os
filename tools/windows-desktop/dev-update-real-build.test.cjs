@@ -94,7 +94,9 @@ test('Windows Dev stages and compiles two real OS/Surface revisions then rolls b
   const offlineGit=async(args,cwd,timeout)=>{
     if(args[0]==='ls-remote')
       return {ok:true,stdout:gitCommand(original,'rev-parse','HEAD')+'\trefs/heads/main'};
-    if(args[0]==='clone'){
+    if(args.includes('clone')){
+      assert.ok(args.includes('core.longpaths=true'),'real Windows staging needs Git long path support');
+      assert.ok(args.includes('core.autocrlf=false'),'Windows materialization must preserve source bytes');
       const dest=args.at(-1);
       gitCommand(root,'-c','core.autocrlf=false','clone','--config','core.autocrlf=false','--quiet','--no-hardlinks',original,dest);
       gitCommand(dest,'remote','set-url','origin',OFFICIAL_REMOTE);
