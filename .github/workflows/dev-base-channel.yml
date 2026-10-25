@@ -136,7 +136,7 @@ jobs:
                   ;;
                 bootstrap/dev-base/ordax-dev-init|bootstrap/dev-base/ordax-diagnose|bootstrap/dev-base/ordax-network|bootstrap/dev-base/ordax-pull|bootstrap/dev-base/ordax-rollback|bootstrap/dev-base/ordax-run|bootstrap/recovery/entrypoint)
                   ;;
-                bootstrap/kernel/*|bootstrap/initramfs/*|bootstrap/dev-base/*|bootstrap/recovery/*|tools/dev-base-channel/*)
+                bootstrap/kernel/*|bootstrap/initramfs/*|bootstrap/dev-base/*|bootstrap/independent-base/*|bootstrap/base/kernel_module_payload.py|bootstrap/base/firmware_policy.py|bootstrap/recovery/*|tools/dev-base-channel/*)
                   publish=true
                   break
                   ;;
@@ -160,8 +160,9 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             gcc-13 make bc perl bison flex openssl libssl-dev libelf-dev \
-            dwarves kmod xz-utils pkg-config musl-tools binutils bzip2 \
-            e2fsprogs util-linux proot
+            dwarves kmod xz-utils pkg-config binutils bzip2 \
+            e2fsprogs util-linux erofs-utils gawk cpio unzip rsync \
+            file wget curl patch gettext
 
       - name: Resolve reusable kernel fingerprint
         if: steps.changes.outputs.publish == 'true'
@@ -239,13 +240,28 @@ jobs:
           python bootstrap/initramfs/build.py verify
           test -f out/initramfs-work/kernel-uapi-install/include/linux/mount.h
 
-          sudo env GITHUB_SHA="$GITHUB_SHA" \
-            python bootstrap/dev-base/build.py \
-              --kernel-modules "$module_tar" \
-              --out-dir out/dev-rootfs
+          # The immutable Development Base channel consumes exactly the same
+          # Buildroot Owner output and kernel module evidence as Creator Dev.
+          # Do not construct an Alpine/proot rootfs or unpack/repack the tar.
+          mkdir -p "$RUNNER_TEMP/dev-base-channel/owner-receipts"
+          export ORDAX_SOURCE_COMMIT="$GITHUB_SHA"
+          export ORDAX_HOST_PYTHON="$(command -v python3)"
+          export ORDAX_KERNEL_MODULES_ARCHIVE="$(realpath "$module_tar")"
+          export ORDAX_KERNEL_MODULES_RECEIPT="$RUNNER_TEMP/dev-base-channel/owner-receipts/kernel-module-payload.json"
+          export ORDAX_FIRMWARE_COVERAGE_RECEIPT="$RUNNER_TEMP/dev-base-channel/owner-receipts/firmware-coverage.json"
+          sudo -E python3 bootstrap/independent-base/build.py build \
+            --profile owner-development --out out/dev-rootfs \
+            --cache "$RUNNER_TEMP/dev-base-channel/buildroot-cache" --jobs 4
           sudo chown -R "$(id -u):$(id -g)" out/dev-rootfs
-          test -f out/dev-rootfs/provenance.json
-          test -d out/dev-rootfs/rootfs
+          python3 bootstrap/independent-base/build.py verify \
+            --profile owner-development --out out/dev-rootfs
+          test -s out/dev-rootfs/provenance.json
+          test -s out/dev-rootfs/rootfs.tar
+          python3 tools/dev-base-channel/prove_independent_rootfs.py \
+            --rootfs out/dev-rootfs/rootfs.tar \
+            --provenance out/dev-rootfs/provenance.json \
+            --expected-commit "$GITHUB_SHA" \
+            --receipt "$RUNNER_TEMP/dev-base-channel/owner-receipts/channel-compatibility.json"
 
           python tools/dev-base-channel/build.py build \
             --source-commit "$GITHUB_SHA" \

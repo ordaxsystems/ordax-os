@@ -112,6 +112,30 @@ def artifact_from_provenance(
 
 def validate_rootfs_source(rootfs_dir: Path, source_commit: str) -> Path:
     provenance = read_json(rootfs_dir / "provenance.json", "development rootfs provenance")
+    if provenance.get("$schema") == "prototype-ordax.independent-base-provenance/1":
+        # The authoritative Buildroot producer already exports a canonical,
+        # deterministic archive. Never unpack/re-tar or fabricate a competing
+        # rootfs provenance record in this release-channel adapter.
+        policy_file = Path(__file__).resolve().parent / "independent_rootfs.py"
+        spec = importlib.util.spec_from_file_location(
+            "ordax_channel_independent_rootfs", policy_file
+        )
+        if spec is None or spec.loader is None:
+            raise CandidateError("canonical Independent rootfs verifier is unavailable")
+        policy = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(policy)
+        try:
+            policy.validate(
+                rootfs=rootfs_dir / "rootfs.tar",
+                provenance_path=rootfs_dir / "provenance.json",
+                expected_commit=source_commit,
+            )
+        except (policy.IndependentRootfsError, OSError) as exc:
+            raise CandidateError(f"Independent Owner rootfs failed verification: {exc}") from exc
+        return regular_file(
+            rootfs_dir / "rootfs.tar", "authenticated Independent Owner rootfs",
+            MAX_ROOTFS_BYTES,
+        )
     if provenance.get("$schema") != ROOTFS_PROVENANCE_SCHEMA:
         raise CandidateError("development rootfs provenance schema is invalid")
     if provenance.get("source_commit") != source_commit:
@@ -253,6 +277,12 @@ def verify_rootfs_tar(path: Path) -> None:
                     if (not _canonical_archive_path(target) or target not in regular_modes
                             or member.size != 0 or member.mode != regular_modes[target]):
                         raise CandidateError("development rootfs tar has unsafe hardlink")
+                elif member.issym():
+                    # Buildroot's canonical archive preserves confined applet,
+                    # resolver and firmware symlinks. The real Dev consumer
+                    # validates their full graph, including escapes and cycles.
+                    if member.size != 0:
+                        raise CandidateError("development rootfs tar has malformed symlink")
                 else:
                     raise CandidateError(f"development rootfs tar contains unsafe member: {name}")
     except tarfile.TarError as exc:
@@ -267,6 +297,18 @@ def verify_rootfs_tar(path: Path) -> None:
         raise CandidateError(
             f"development rootfs tar is missing required directories: {missing_dirs}"
         )
+    # One and the same safe archive policy is used by both publisher and the
+    # installed Dev Channel consumer; no divergent symlink acceptance.
+    consumer_path = Path(__file__).resolve().parents[2] / "system/services/base-update/dev_channel.py"
+    spec = importlib.util.spec_from_file_location("ordax_channel_candidate_consumer", consumer_path)
+    if spec is None or spec.loader is None:
+        raise CandidateError("canonical Dev Channel consumer is unavailable")
+    consumer = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(consumer)
+    try:
+        consumer._validate_rootfs_archive(path)
+    except consumer.DevBaseChannelError as exc:
+        raise CandidateError(f"Dev Channel rejected rootfs archive: {exc}") from exc
 
 
 def binding(name: str, path: Path, source_commit: str) -> dict:
@@ -384,7 +426,12 @@ def build(
     rootfs_out = out_dir / "rootfs.tar"
     shutil.copyfile(kernel, kernel_out)
     shutil.copyfile(initramfs, initramfs_out)
-    build_rootfs_tar(rootfs, rootfs_out)
+    if rootfs.is_file():
+        # Exact Buildroot bytes; the source and release hashes identify the
+        # same verified archive, never a second tar producer.
+        shutil.copyfile(rootfs, rootfs_out)
+    else:
+        build_rootfs_tar(rootfs, rootfs_out)
 
     tag = f"ordax-dev-base-{source_commit}"
     descriptor = {

@@ -128,6 +128,64 @@ def write_provenance_fixture(root: Path, source_commit: str = SOURCE):
 
 
 class DevBaseProducerTests(unittest.TestCase):
+    def test_authenticated_independent_rootfs_is_published_byte_for_byte(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            kernel_dir, initramfs_dir, original, _, _ = write_provenance_fixture(root)
+            independent = root / "independent-owner"
+            independent.mkdir()
+            original_tar = independent / "rootfs.tar"
+            builder.build_rootfs_tar(original / "rootfs", original_tar)
+            independent_provenance = {
+                "$schema": "prototype-ordax.independent-base-provenance/1",
+                "status": "candidate-build-only",
+                "source_commit": SOURCE,
+                "profile": "owner-development",
+                "owner_development_capabilities_verified": True,
+                "physical_artifact_authorized": False,
+                "signed_release_equivalence_proven": False,
+                "artifacts": {
+                    "rootfs.tar": hashlib.sha256(original_tar.read_bytes()).hexdigest()
+                },
+            }
+            provenance = independent / "provenance.json"
+            provenance.write_text(json.dumps(independent_provenance), encoding="utf-8")
+            self.assertEqual(
+                builder.validate_rootfs_source(independent, SOURCE), original_tar
+            )
+            output = root / "candidate"
+            builder.build(
+                source_commit=SOURCE, kernel_dir=kernel_dir,
+                initramfs_dir=initramfs_dir,
+                rootfs_dir=independent, out_dir=output,
+            )
+            self.assertEqual((output / "rootfs.tar").read_bytes(), original_tar.read_bytes())
+            self.assertEqual(builder.verify(output)["source_commit"], SOURCE)
+
+            for mutation in (
+                {"profile": "minimal"},
+                {"physical_artifact_authorized": True},
+                {"source_commit": "2" * 40},
+                {"artifacts": {"rootfs.tar": "0" * 64}},
+            ):
+                with self.subTest(mutation=mutation):
+                    provenance.write_text(
+                        json.dumps({**independent_provenance, **mutation}),
+                        encoding="utf-8",
+                    )
+                    with self.assertRaises(builder.CandidateError):
+                        builder.validate_rootfs_source(independent, SOURCE)
+
+    def test_development_base_workflow_consumes_one_buildroot_owner(self):
+        workflow = (ROOT / ".github/workflows/dev-base-channel.yml").read_text()
+        self.assertIn("bootstrap/independent-base/build.py build", workflow)
+        self.assertIn("--profile owner-development", workflow)
+        self.assertIn("prove_independent_rootfs.py", workflow)
+        self.assertIn("ORDAX_KERNEL_MODULES_ARCHIVE", workflow)
+        self.assertNotIn("python bootstrap/dev-base/build.py", workflow)
+        self.assertNotIn("util-linux proot", workflow)
+        self.assertIn("tools/dev-base-channel/build.py build", workflow)
+
     @unittest.skipUnless(os.name == "posix", "requires POSIX executable bits")
     def test_reused_kernel_is_allowed_only_with_fresh_exact_integration_proof(self):
         cache = load_module(
