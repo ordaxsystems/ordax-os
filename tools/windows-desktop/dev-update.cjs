@@ -4,7 +4,7 @@
 // can become boot candidates. MVP/Stable must not use this Git channel.
 const { randomUUID } = require('node:crypto');
 const { join, basename, dirname } = require('node:path');
-const { mkdirSync, readFileSync, writeFileSync, renameSync, rmSync, readdirSync, lstatSync, existsSync, openSync, closeSync, fsyncSync } = require('node:fs');
+const { mkdirSync, readFileSync, writeFileSync, renameSync, rmSync, readdirSync, lstatSync, existsSync, unlinkSync, openSync, closeSync, fsyncSync } = require('node:fs');
 const { OFFICIAL_REMOTE } = require('./runtime.cjs');
 const { git, isTrusted, hasDesktopHostContract, dependencies } = require('./checkout.cjs');
 const { hasNativeBundle, buildNativeCandidate } = require('./native-build.cjs');
@@ -89,6 +89,21 @@ function removeOwnedCandidate(candidate) {
   let phase='prepare';
   try {
     prepareWindowsGitDeletion(join(candidate,'.git'));
+    // Verified candidates borrow installed Vite via a Windows directory
+    // junction at node_modules. Node/Electron recursive deletion of its
+    // parent can traverse the reparse point and erase the shared toolchain.
+    // Unlink the junction ITSELF first; never recurse into its target.
+    phase='detach-runtime';
+    const dependencyMount=join(candidate,'node_modules');
+    let mounted=null;
+    try { mounted=lstatSync(dependencyMount); }
+    catch(error){ if(error?.code!=='ENOENT')throw error; }
+    if(mounted) {
+      if(!mounted.isSymbolicLink()) {
+        throw Error('Unsafe Desktop candidate node_modules: expected a removable runtime junction');
+      }
+      unlinkSync(dependencyMount);
+    }
     phase='remove';
     rmSync(candidate,{recursive:true,force:true,maxRetries:10,retryDelay:200});
     return {removed:!existsSync(candidate)};
