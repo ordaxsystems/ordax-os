@@ -14,13 +14,30 @@ test('exact Native candidate requires compiled referenced JavaScript',t=>{
   const assets=join(bundle,'assets');
   mkdirSync(join(bundle,'system','composition','native'),{recursive:true});
   mkdirSync(assets,{recursive:true});
+  const lockPath=join(root,'docs','contracts','surface-source.json');
+  mkdirSync(join(root,'docs','contracts'),{recursive:true});
+  const sha='a'.repeat(40);
+  const lock={$schema:'prototype-ordax.surface-source/1',status:'canonical',
+    source_repository:'ordaxsystems/ordax-surface',source_commit:sha,
+    visual_source_paths:['system/surface/ui','system/surface/workspace']};
+  const receipt={schema:'ordax.surface-source-materialization/1',
+    source_repository:lock.source_repository,source_commit:sha,
+    visual_source_sha256:'b'.repeat(64),file_count:1};
+  const receiptPath=join(bundle,'surface-source-receipt.json');
   assert.equal(hasNativeBundle(root),false);
+  writeFileSync(lockPath,JSON.stringify(lock));
   writeFileSync(html,'<script type="module" src="./main.mjs"></script>');
   assert.equal(hasNativeBundle(root),false);
   writeFileSync(html,'<script type="module" crossorigin src="/__ordax/desktop-assets/assets/index-AbC123.js"></script>');
   assert.equal(hasNativeBundle(root),false);
   const js=join(assets,'index-AbC123.js');
   writeFileSync(js,'export const source = "compiled";');
+  assert.equal(hasNativeBundle(root),false,'missing Surface receipt must block installable updates');
+  writeFileSync(receiptPath,JSON.stringify({...receipt,source_commit:'f'.repeat(40)}));
+  assert.equal(hasNativeBundle(root),false,'mismatched Surface SHA must block updates');
+  writeFileSync(receiptPath,JSON.stringify({...receipt,schema:'untrusted-schema'}));
+  assert.equal(hasNativeBundle(root),false,'unknown receipt contract must block updates');
+  writeFileSync(receiptPath,JSON.stringify(receipt));
   assert.equal(hasNativeBundle(root),true);
   writeFileSync(html,'<script src="/__ordax/desktop-assets/assets/index-AbC123.js"></script><link href="/__ordax/desktop-assets/assets/styles-AbC123.css">');
   assert.equal(hasNativeBundle(root),false);

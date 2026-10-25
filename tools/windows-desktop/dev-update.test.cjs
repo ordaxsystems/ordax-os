@@ -43,6 +43,13 @@ function fixture(t) {
       nativeSource:'system/composition/native/index.html',
       capabilities:['no-external-browser','dynamic-loopback-port','external-state-directory']}
   }));
+  // A Dev candidate source must carry its own OS-authoritative pinned visual
+  // lock, rather than silently treating a missing external Surface as valid.
+  mkdirSync(join(source,'docs','contracts'),{recursive:true});
+  const surfaceLock={$schema:'prototype-ordax.surface-source/1',status:'canonical',
+    source_repository:'ordaxsystems/ordax-surface',source_commit:'a'.repeat(40),
+    visual_source_paths:['system/surface/ui','system/surface/workspace']};
+  writeFileSync(join(source,'docs','contracts','surface-source.json'),JSON.stringify(surfaceLock));
   writeFileSync(join(source,'.gitignore'),'node_modules/\nout/\n');
   gitCli(['add','.'],source);
   gitCli(['commit','-qm','first canonical Native source'],source);
@@ -71,6 +78,12 @@ function fixture(t) {
     writeFileSync(join(bundle,'system','composition','native','index.html'),
       '<!doctype html><script type="module" src="/__ordax/desktop-assets/assets/index-123.js"></script>');
     writeFileSync(join(bundle,'assets','index-123.js'),'export const healthy = true;');
+    const lock=JSON.parse(readFileSync(join(staging,'docs','contracts','surface-source.json'),'utf8'));
+    writeFileSync(join(bundle,'surface-source-receipt.json'),JSON.stringify({
+      schema:'ordax.surface-source-materialization/1',
+      source_repository:lock.source_repository,source_commit:lock.source_commit,
+      visual_source_sha256:'b'.repeat(64),file_count:2
+    }));
   }
   return {root,source,userData,template,first,advance,offlineGit,offlineBuild};
 }

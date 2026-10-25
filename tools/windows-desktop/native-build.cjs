@@ -13,15 +13,15 @@ function hasNativeBundle(sourceRoot) {
     const htmlPath=join(root,'system','composition','native','index.html');
     if(!lstatSync(htmlPath).isFile()) return false;
     // External visual source and OS source must remain paired to exact commits.
-    const sourceLock=join(sourceRoot,'docs','contracts','surface-source.json');
-    if(existsSync(sourceLock)) {
-      const lock=pinnedSourceLock(sourceRoot);
-      const receipt=JSON.parse(readFileSync(join(root,'surface-source-receipt.json'),'utf8'));
-      if(receipt.source_commit!==lock.source_commit ||
-         receipt.source_repository!==lock.source_repository ||
-         !/^[0-9a-f]{64}$/.test(receipt.visual_source_sha256) ||
-         !Number.isInteger(receipt.file_count)||receipt.file_count<1) return false;
-    }
+    // An installed update is never source-only: exact OS + external Surface
+    // identity is mandatory. The bundled installer fallback has its own gate.
+    const lock=pinnedSourceLock(sourceRoot);
+    const receipt=JSON.parse(readFileSync(join(root,'surface-source-receipt.json'),'utf8'));
+    if(receipt.schema!=='ordax.surface-source-materialization/1' ||
+       receipt.source_commit!==lock.source_commit ||
+       receipt.source_repository!==lock.source_repository ||
+       !/^[0-9a-f]{64}$/.test(receipt.visual_source_sha256) ||
+       !Number.isInteger(receipt.file_count)||receipt.file_count<1) return false;
     const html=readFileSync(htmlPath,'utf8');
     // A source-tree entry is not an acceptable installed/candidate artifact.
     if(/<script\s+type="module"\s+src="\.\/main\.mjs"/.test(html))return false;
