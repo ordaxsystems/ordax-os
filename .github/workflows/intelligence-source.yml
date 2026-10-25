@@ -4,6 +4,7 @@ on:
     paths:
       - 'docs/contracts/intelligence-source.json'
       - 'tools/intelligence-source/**'
+      - 'tests/test_intelligence_composed_runtime.mjs'
       - 'tests/test_intelligence_source_gate.py'
       - 'tests/test_intelligence_external_integration.mjs'
       - '.github/workflows/intelligence-source.yml'
@@ -12,6 +13,7 @@ on:
     paths:
       - 'docs/contracts/intelligence-source.json'
       - 'tools/intelligence-source/**'
+      - 'tests/test_intelligence_composed_runtime.mjs'
       - 'tests/test_intelligence_source_gate.py'
       - '.github/workflows/intelligence-source.yml'
 permissions:
@@ -39,6 +41,28 @@ jobs:
         env:
           ORDAX_INTELLIGENCE_STAGE: ${{ runner.temp }}/ordax-intelligence-stage
         run: node --test tests/test_intelligence_external_integration.mjs
+      - name: Compose provisional Native runtime using verified Intelligence and OS-owned ports
+        run: |
+          python tools/intelligence-source/compose.py \
+            --os-root "$PWD" \
+            --intelligence-stage "${RUNNER_TEMP}/ordax-intelligence-stage" \
+            --out-root "${RUNNER_TEMP}/ordax-intelligence-composed"
+      - name: Prove Native components use external source without bundled legacy bodies
+        env:
+          ORDAX_INTELLIGENCE_COMPOSED_ROOT: ${{ runner.temp }}/ordax-intelligence-composed
+        run: node --test tests/test_intelligence_composed_runtime.mjs
+      - name: Prove tampered source stage cannot reach Native candidate
+        run: |
+          cp -a "${RUNNER_TEMP}/ordax-intelligence-stage" "${RUNNER_TEMP}/ordax-intelligence-tampered"
+          printf '/* tamper */' >> "${RUNNER_TEMP}/ordax-intelligence-tampered/system/intelligence-source/src/index.mjs"
+          if python tools/intelligence-source/compose.py \
+            --os-root "$PWD" \
+            --intelligence-stage "${RUNNER_TEMP}/ordax-intelligence-tampered" \
+            --out-root "${RUNNER_TEMP}/should-not-exist"; then
+            echo "::error::Modified source was accepted" >&2
+            exit 1
+          fi
+          test ! -e "${RUNNER_TEMP}/should-not-exist"
       - name: Verify no external source tracked in OS, no engine or model and exact receipt
         run: |
           python - <<'PY'
