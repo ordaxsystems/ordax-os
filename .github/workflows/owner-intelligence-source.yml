@@ -1,0 +1,52 @@
+name: Owner Intelligence source staging
+on:
+  pull_request:
+    paths:
+      - 'system/supervisor'
+      - 'system/services/intelligence-source/**'
+      - 'tools/intelligence-source/compose.py'
+      - 'docs/contracts/intelligence-source.json'
+      - 'tests/test_owner_intelligence_source_staging.py'
+      - '.github/workflows/owner-intelligence-source.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'system/supervisor'
+      - 'system/services/intelligence-source/**'
+      - 'tools/intelligence-source/compose.py'
+      - 'docs/contracts/intelligence-source.json'
+      - 'tests/test_owner_intelligence_source_staging.py'
+      - '.github/workflows/owner-intelligence-source.yml'
+permissions:
+  contents: read
+jobs:
+  immutable-owner-slot:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
+        with:
+          python-version: '3.12'
+      - name: Source shells must be POSIX-valid
+        run: |
+          /bin/sh -n system/supervisor
+          /bin/sh -n system/services/intelligence-source/owner-stage.sh
+      - name: Offline Git fixtures prove commit, exact blobs, tamper, rollback and no second updater
+        run: python -m unittest discover -s tests -p 'test_owner_intelligence_source_staging.py' -v
+      - name: Canonical OS wrappers are one shared template source
+        run: |
+          python - <<'PY'
+          import importlib.util
+          from pathlib import Path
+          spec=importlib.util.spec_from_file_location("intelligence_compose","tools/intelligence-source/compose.py")
+          mod=importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(mod)
+          assert len(mod.WRAPPERS)==5
+          for target,source in mod.WRAPPER_FILES.items():
+              path=mod.WRAPPER_ROOT/source
+              assert path.read_text()==mod.WRAPPERS[target]
+              assert len(mod.WRAPPERS[target])<900
+          print("ONE_INTELLIGENCE_WRAPPER_OWNER=PASS")
+          PY
