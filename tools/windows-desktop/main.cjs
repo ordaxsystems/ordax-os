@@ -234,6 +234,26 @@ async function assertDesktopFileSpaceSmoke(browserWindow) {
     throw Error('Trusted Electron Surface cannot read canonical state with host authorization');
   }
   log('DESKTOP_PRIVATE_STATE_TRUSTED_SURFACE_SMOKE=PASS');
+  const wlanRead=await browserWindow.webContents.executeJavaScript(
+    "(async()=>{const session=await fetch('/__ordax/native/session',"+
+    "{cache:'no-store',credentials:'same-origin'});"+
+    "if(!session.ok)return {status:session.status};"+
+    "const s=await session.json();"+
+    "if(!/^[0-9a-f]{64}$/.test(s.networkToken??''))return {status:0};"+
+    "const r=await fetch('/__ordax/native/network-management',"+
+    "{cache:'no-store',credentials:'same-origin',headers:{'X-OrdaX-Network-Token':s.networkToken}});"+
+    "return {status:r.status,snapshot:r.ok?await r.json():null};})()"
+  );
+  if(![200,503].includes(wlanRead.status) ||
+    (wlanRead.status===200 &&
+      (wlanRead.snapshot?.wifiInterface!==null ||
+       wlanRead.snapshot?.unavailableReason!=='no-wlan-interface' ||
+       wlanRead.snapshot?.networks?.length!==0 ||
+       wlanRead.snapshot?.currentSsid!==null ||
+       wlanRead.snapshot?.savedSsid!==null))) {
+    throw Error('Installed Desktop WLAN discovery invents connectivity or bypasses the Native session');
+  }
+  log('DESKTOP_WLAN_DISCOVERY_TRUSTED_SURFACE_SMOKE=PASS');
 }
 async function assertNativeShellMounted(browserWindow) {
   const started=Date.now(),deadline=started+90000;
@@ -350,6 +370,7 @@ app.whenReady().then(async()=>{
     const diagnosticToken=randomBytes(32).toString('hex');
     const deviceProfileToken=randomBytes(32).toString('hex');
     const stateToken=randomBytes(32).toString('hex');
+    const networkToken=randomBytes(32).toString('hex');
     const template=resolveTemplate(__dirname,process.resourcesPath,app.isPackaged);
     if(!existsSync(join(template,'tools','windows-emulator','dev-supervisor.mjs')))
       throw Error('Canonical OrdaX runtime snapshot missing');
@@ -370,7 +391,7 @@ app.whenReady().then(async()=>{
     let root=selected.root;
     try {
       log(root===template?'Bundled OrdaX Surface':'Verified Git-managed OrdaX Surface');
-      runtime=await startHost({root,stateDirectory:runtimeStateDirectory(userData),userData,log,fileToken,localSessionToken,nativeSessionToken,diagnosticToken,deviceProfileToken,stateToken,sourceSha:sourceOf(selected),
+      runtime=await startHost({root,stateDirectory:runtimeStateDirectory(userData),userData,log,fileToken,localSessionToken,nativeSessionToken,diagnosticToken,deviceProfileToken,stateToken,networkToken,sourceSha:sourceOf(selected),
          builtAssetsRoot:nativeBuiltAssetsFor(root,template)});
       authorizeDesktopFileRequests(window,runtime.url,fileToken,localSessionToken,nativeSessionToken,deviceProfileToken,stateToken);
       await window.loadURL(nativeUrl(runtime.url,sourceOf(selected)));
@@ -391,7 +412,7 @@ app.whenReady().then(async()=>{
       runtime=null;
       const fallback=await chooseBootVersion({userData,template,log});
       root=fallback.root;
-      runtime=await startHost({root,stateDirectory:runtimeStateDirectory(userData),userData,log,fileToken,localSessionToken,nativeSessionToken,diagnosticToken,deviceProfileToken,stateToken,sourceSha:sourceOf(fallback),
+      runtime=await startHost({root,stateDirectory:runtimeStateDirectory(userData),userData,log,fileToken,localSessionToken,nativeSessionToken,diagnosticToken,deviceProfileToken,stateToken,networkToken,sourceSha:sourceOf(fallback),
          builtAssetsRoot:nativeBuiltAssetsFor(root,template)});
       authorizeDesktopFileRequests(window,runtime.url,fileToken,localSessionToken,nativeSessionToken,deviceProfileToken,stateToken);
       await window.loadURL(nativeUrl(runtime.url,sourceOf(fallback)));

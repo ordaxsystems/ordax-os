@@ -13,6 +13,7 @@ import { createDesktopAccountCookieVault } from "../../system/adapters/desktop/a
 import { createDesktopLocalSessionMiddleware } from "../../system/adapters/desktop/local-session-host.mjs";
 import { createDesktopClientDiagnosticsMiddleware } from "../../system/adapters/desktop/client-diagnostics-host.mjs";
 import { createDesktopDeviceProfileMiddleware } from "../../system/adapters/desktop/device-profile-host.mjs";
+import { createDesktopWlanMiddleware } from "../../system/adapters/desktop/wifi-radio-host.mjs";
 import { createInitialFirstRunState, validateFirstRunState } from "../../system/contracts/first-run-state-store.mjs";
 import { validatePreferenceRecord } from "../../system/contracts/preference-store.mjs";
 import { FIRST_RUN_CURSOR_SCHEMA, validateFirstRunCursor } from "../../system/contracts/first-run-cursor.mjs";
@@ -151,6 +152,7 @@ export function nativeEmulatorPlugin(stateDirectory, { desktopHost = false, acco
               sessionToken:process.env.ORDAX_DESKTOP_NATIVE_SESSION_TOKEN,
               diagnosticToken:process.env.ORDAX_DESKTOP_DIAGNOSTIC_TOKEN,
               sourceSha:process.env.ORDAX_DESKTOP_RENDERED_SOURCE_SHA,
+              networkToken:process.env.ORDAX_DESKTOP_NETWORK_TOKEN,
             }):null;
       if (desktopHost && process.env.ORDAX_DESKTOP_ASSETS_ROOT) {
         // Same compiled Native composition, served before Vite source transforms.
@@ -158,6 +160,12 @@ export function nativeEmulatorPlugin(stateDirectory, { desktopHost = false, acco
       }
       if (localSession)server.middlewares.use(localSession.middleware);
       if (diagnostics)server.middlewares.use(diagnostics.middleware);
+      if(desktopHost && process.platform==="win32" && userData && localSession){
+        server.middlewares.use(createDesktopWlanMiddleware({
+          token:process.env.ORDAX_DESKTOP_NETWORK_TOKEN,
+          sessionLocked:localSession.readLocked,
+        }));
+      }
       if (desktopHost && process.platform==="win32" && userData) {
         server.middlewares.use(createDesktopDeviceProfileMiddleware(userData,{
           token:process.env.ORDAX_DESKTOP_DEVICE_PROFILE_TOKEN,

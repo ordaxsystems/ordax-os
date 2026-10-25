@@ -371,6 +371,11 @@ try {
       throw "Unauthenticated localhost client obtained a Native host capability token"
     }
     Write-Output "DESKTOP_NATIVE_SESSION_AUTHORIZATION_SMOKE=PASS"
+    $withoutWlanGrant = Invoke-WebRequest -Uri ($baseUrl + "/__ordax/native/network-management") -Method GET -TimeoutSec 15 -SkipHttpErrorCheck
+    if ($withoutWlanGrant.StatusCode -ne 403) {
+      throw "Unauthenticated localhost client gained access to OrdaX WLAN discovery"
+    }
+    Write-Output "DESKTOP_WLAN_GRANT_SMOKE=PASS"
     $noDeviceGrant = Invoke-WebRequest -Uri ($baseUrl + "/__ordax/native/device-profile") -Method GET -TimeoutSec 15 -SkipHttpErrorCheck
     if ($noDeviceGrant.StatusCode -ne 401) {
       throw "Unauthenticated localhost client obtained OrdaX device profile"
