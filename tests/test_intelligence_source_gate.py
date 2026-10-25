@@ -32,7 +32,7 @@ class IntelligenceSourceGateTests(unittest.TestCase):
             f=self.checkout/name
             f.parent.mkdir(parents=True,exist_ok=True)
             f.write_text("export const verified = 1;\n",encoding="utf-8")
-        git(self.checkout,"add","src")
+        git(self.checkout,"add","src","tools/inference-builder")
         git(self.checkout,"commit","-qm","source fixture")
         self.lock={
             "$schema":source.SCHEMA,"status":"integration-candidate",
@@ -50,10 +50,11 @@ class IntelligenceSourceGateTests(unittest.TestCase):
         return source.verify_source(self.checkout,source.load_lock(self.lockfile))
     def test_exact_source_stages_and_remains_read_only(self):
         entries,receipt=self.verify()
-        self.assertEqual(len(entries),7)
+        self.assertEqual(len(entries),8)
         dest=self.root/"stage"
         source.stage_source(entries,receipt,dest,self.checkout)
         self.assertTrue((dest/"system/intelligence-source/src/index.mjs").is_file())
+        self.assertTrue((dest/"system/intelligence-source/tools/inference-builder/build.py").is_file())
         self.assertFalse((self.checkout/"intelligence-source-receipt.json").exists())
         self.assertFalse(receipt["activation_authorized"])
         with self.assertRaisesRegex(source.IntelligenceSourceError,"overwrite"):

@@ -27,6 +27,7 @@ EXPECTED = frozenset((
     "src/local-ai/runtime.mjs",
     "src/local-ai/completion-stream.mjs",
     "src/local-ai/model-compatibility.mjs",
+    "tools/inference-builder/build.py",
 ))
 MAX_FILE_BYTES = 256 * 1024
 MAX_TOTAL_BYTES = 1024 * 1024
@@ -72,9 +73,9 @@ def verify_source(root: Path, lock: dict) -> tuple[list[tuple[str, bytes]], dict
     revision = git(root, "rev-parse", "HEAD").decode("ascii").strip()
     if revision != lock["source_commit"]:
         raise IntelligenceSourceError("checkout revision does not match immutable OS source lock")
-    if git(root, "status", "--porcelain", "--untracked-files=all", "--", "src"):
+    if git(root, "status", "--porcelain", "--untracked-files=all", "--", "src", "tools/inference-builder"):
         raise IntelligenceSourceError("tracked/untracked Intelligence source is modified")
-    raw_tree = git(root, "ls-tree", "-rz", "HEAD", "--", "src")
+    raw_tree = git(root, "ls-tree", "-rz", "HEAD", "--", "src", "tools/inference-builder")
     result = []
     total = 0
     fingerprint = hashlib.sha256()
