@@ -48,12 +48,12 @@ class OwnerNativeSourceIdentityTests(unittest.TestCase):
                            .replace("/proc/[0-9]*/root", '"$PROC_ROOT"/[0-9]*/root')
                            .replace('pid=${root_link#/proc/}', 'pid=${root_link#"$PROC_ROOT"/}')
                            .replace("/bin/busybox readlink", "readlink"))
-            shell = enumeration + "\\nruntime_root_processes\\n"
+            shell = enumeration + "\nruntime_root_processes\n"
             env = dict(os.environ, PROC_ROOT=str(proc), RUNTIME_ROOT=str(runtime))
             result = subprocess.run(["/bin/sh", "-c", shell], env=env,
                                     capture_output=True, text=True)
             self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertEqual(result.stdout, "123\\n")
+            self.assertEqual(result.stdout, "123\n")
             (proc / "123/root").unlink()
             result = subprocess.run(["/bin/sh", "-c", shell], env=env,
                                     capture_output=True, text=True)
