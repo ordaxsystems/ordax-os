@@ -458,6 +458,9 @@ runtime_root_processes() {
         # Inspect only the exact verified runtime; never signal an unrelated chroot.
         [ "$root_target" = "$RUNTIME_ROOT" ] && printf '%s\n' "$pid"
     done
+    # No matching chroot process is a successful empty enumeration.
+    # The loop exit status otherwise inherits the final nonmatching [ ] test.
+    return 0
 }
 
 # Serial-side evidence exists only for the explicit disposable Owner QEMU
