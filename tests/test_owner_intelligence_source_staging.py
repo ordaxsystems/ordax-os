@@ -82,6 +82,8 @@ class OwnerIntelligenceSourceTests(unittest.TestCase):
             "source_paths":self.blobs,
             "materialization_target":"system/intelligence-source/src",
             "source_only":True,
+            "change_live_os":False,
+            "public_ports":["ordax.intelligence/1","ordax.model-router/1","ordax.local-ai/1"],
             "activation_authorized":False,
         },indent=2)+"\n")
         git(self.os_root,"add",".")
@@ -152,6 +154,78 @@ class OwnerIntelligenceSourceTests(unittest.TestCase):
         self.set_lock("canonical",source_sha=git(self.remote,"rev-parse","HEAD"))
         self.assertNotEqual(self.call("stage").returncode,0)
         self.assertEqual((self.slot/"system/services/intelligence/runtime.mjs").read_text(),"LEGACY\n")
+
+    def test_creator_can_preseed_exact_intelligence_offline_in_existing_supervisor_slot(self):
+        import hashlib
+        import importlib.util
+        surface_sha="a"*40
+        put(self.os_root/"docs/contracts/surface-source.json", json.dumps({
+            "$schema":"prototype-ordax.surface-source/1",
+            "status":"canonical",
+            "source_repository":"ordaxsystems/ordax-surface",
+            "source_commit":surface_sha,
+        }))
+        git(self.os_root,"add",".")
+        git(self.os_root,"commit","-qm","canonical Surface and Intelligence sources")
+        self.sha=git(self.os_root,"rev-parse","HEAD")
+        assembly=self.root/"assembled"
+        shutil.copytree(self.os_root/"system", assembly/"system")
+        put(assembly/"system/surface/ui/surface.mjs","external-visual\n")
+        put(assembly/"system/surface/workspace/shell.tsx","external-workspace\n")
+        visual_fingerprint=hashlib.sha256()
+        for path in ("system/surface/ui/surface.mjs","system/surface/workspace/shell.tsx"):
+            payload=(assembly/path).read_bytes()
+            visual_fingerprint.update(path.encode()+b"\0"+hashlib.sha256(payload).digest())
+        put(assembly/"system/surface/source-provenance.json",json.dumps({
+            "os_commit":self.sha,
+            "surface_source_commit":surface_sha,
+            "surface_source_repository":"ordaxsystems/ordax-surface",
+            "visual_file_count":2,
+            "visual_source_sha256":visual_fingerprint.hexdigest(),
+            "old_os_visual_source_packaged":False,
+        }))
+        intelligence_fingerprint=hashlib.sha256()
+        for path in sorted(FILES):
+            payload=(self.remote/path).read_bytes()
+            dest=assembly/"system/intelligence-source"/path
+            dest.parent.mkdir(parents=True,exist_ok=True)
+            dest.write_bytes(payload)
+            intelligence_fingerprint.update(path.encode()+b"\0"+hashlib.sha256(payload).digest())
+        for target,name in WRAPPERS.items():
+            dest=assembly/target
+            shutil.copyfile(TEMPLATES/name,dest)
+        put(assembly/"system/intelligence-source/source-provenance.json", json.dumps({
+            "$schema":"ordax.intelligence-disposable-composition/1",
+            "source_repository":"ordaxsystems/ordax-intelligence",
+            "source_commit":self.external_sha,
+            "source_sha256":intelligence_fingerprint.hexdigest(),
+            "replaced_services":sorted(WRAPPERS),
+            "legacy_implementation_bytes_packaged":False,
+            "os_checkout_mutated":False,
+            "activation_authorized":False,
+            "surface_ownership_unchanged":True,
+            "memory_ownership_unchanged":True,
+        }))
+        rootfs=self.os_root/"out/dev-base/rootfs"
+        checkout=rootfs/"workspace/ordax"
+        checkout.parent.mkdir(parents=True)
+        subprocess.run(["git","clone","-q",str(self.os_root),str(checkout)],check=True)
+        put(rootfs/"state/ordax/current-commit",self.sha+"\n")
+        p=ROOT/"tools/surface-source/preseed_owner.py"
+        spec=importlib.util.spec_from_file_location("owner_intelligence_offline_preseed",p)
+        module=importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        result=module.preseed(self.os_root,assembly,rootfs,self.sha)
+        self.assertEqual(result["intelligence_commit"],self.external_sha)
+        self.assertEqual(result["intelligence_files"],8)
+        slot=rootfs/"state/ordax/releases"/self.sha
+        self.assertTrue((slot/".intelligence-file-hashes").is_file())
+        self.assertFalse((slot/"system/intelligence-source/source-provenance.json").exists())
+        cmd=["/bin/sh",str(HELPER),"ready",str(checkout),self.sha,str(slot)]
+        actual=subprocess.run(cmd,env=self.env,text=True,capture_output=True)
+        self.assertEqual(actual.returncode,0,actual.stderr)
+        (slot/"system/intelligence-source/src/index.mjs").write_text("corrupt")
+        self.assertNotEqual(subprocess.run(cmd,env=self.env,capture_output=True).returncode,0)
 
     def test_supervisor_uses_existing_transaction_without_new_updater(self):
         sup=(ROOT/"system/supervisor").read_text()

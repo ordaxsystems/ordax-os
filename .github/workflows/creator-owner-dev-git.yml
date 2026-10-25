@@ -43,6 +43,10 @@ on:
       # Keep this scoped to the actual cold-boot composition entrypoints.
       - 'system/supervisor'
       - 'docs/contracts/surface-source.json'
+      - 'docs/contracts/intelligence-source.json'
+      - 'system/services/intelligence-source/**'
+      - 'tools/intelligence-source/**'
+      - '.github/actions/assemble-intelligence/**'
       - 'tools/surface-source/**'
       - 'system/surface/ui/**'
       - 'system/surface/workspace/**'
