@@ -189,7 +189,11 @@ try {
   # Deny writes to the packaged dependency directory so the exact historical
   # Vite .vite-temp EPERM bug is reproduced by this installed-app gate.
   $readonlyDirectory = Join-Path $resources "runtime-template\node_modules"
-  & icacls.exe $readonlyDirectory /deny "${readonlyIdentity}:(W)" | Out-Null
+  # Generic (W) also denies READ_CONTROL/SYNCHRONIZE through Windows ACL
+  # expansion. That prevents fs.stat of a junction into the runtime, not just
+  # writes. Deny only mutation-specific rights so protected dependencies
+  # remain traversable to the isolated Git candidate.
+  & icacls.exe $readonlyDirectory /deny "${readonlyIdentity}:(OI)(CI)(WD,AD,WEA,WA)" | Out-Null
   if ($LASTEXITCODE -ne 0) { throw "Cannot enforce the installed runtime read-only test" }
   $readonlyAclApplied = $true
   $probe = Join-Path $readonlyDirectory (".ordax-probe-" + [guid]::NewGuid().ToString("N"))
@@ -200,6 +204,12 @@ try {
   }
   catch [System.UnauthorizedAccessException] { $writeWasBlocked = $true }
   if (-not $writeWasBlocked) { throw "Installed runtime test lacks write protection" }
+  # Reading and traversing a protected node_modules tree must remain
+  # possible: the Dev candidate resolves this exact install via a junction.
+  & node -e 'const fs=require("node:fs");const p=process.argv[1];fs.statSync(p);fs.statSync(require("node:path").join(p,"vite","bin","vite.js"));' $readonlyDirectory
+  if ($LASTEXITCODE -ne 0) {
+    throw "Protected dependency directory denies reads needed by the compiler"
+  }
   Write-Output "READONLY_RUNTIME_SMOKE=PASS"
   # The exact installed toolchain must compile a second OS/Surface SHA without
   # mutating its protected node_modules (historical .vite-temp EPERM defect).
