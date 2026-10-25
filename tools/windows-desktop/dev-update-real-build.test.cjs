@@ -73,7 +73,7 @@ function osFiles(root,lock,revision) {
     'rollupOptions:{input:resolve(root,"system/composition/native/index.html")}}});\n');
   put(root,'.gitignore','node_modules/\nout/\n');
 }
-test('Windows Dev stages and compiles two real OS/Surface revisions then rolls back verified SHA',async t=>{
+test('Windows Dev compiles real Git revisions, restores known-good after interrupted trial and preserves rollback',async t=>{
   const root=mkdtempSync(join(tmpdir(),'ordax-dev-real-build-'));
   t.after(()=>rmSync(root,{recursive:true,force:true,maxRetries:5,retryDelay:150}));
   const original=join(root,'original-os'), visual=join(root,'original-surface');
@@ -145,6 +145,47 @@ test('Windows Dev stages and compiles two real OS/Surface revisions then rolls b
   confirmHealthy(userData,osTwo);
   assert.equal(readState(userData).previousSha,osOne);
   assert.equal((await chooseBootVersion({userData,template})).sha,osTwo);
+  // Reproduce a process dying AFTER a genuine compiled Git revision has been
+  // selected for one boot but BEFORE the Native health receipt exists.
+  // This is the real crash/restart boundary; no product code fault hook and
+  // no fabricated/bypassed Native bundle.
+  osFiles(original,surfaceTwo,'interrupted-three');
+  const osInterrupted=commit(original,'Third canonical OS with interrupted boot');
+  stage=await update();
+  assert.equal(stage.status,'staged');
+  assert.equal(stage.sha,osInterrupted);
+  assert.equal(buildCount,3,'interrupted revision must compile from its actual Git bytes');
+  const interrupted=versionRoot(userData,osInterrupted);
+  assert.equal(hasNativeBundle(interrupted),true);
+  assert.notEqual(compiledBundleSha256(interrupted),compiledBundleSha256(two));
+  assert.equal(readState(userData).activeSha,osTwo);
+  assert.equal(readState(userData).previousSha,osOne);
+  boot=await chooseBootVersion({userData,template});
+  assert.equal(boot.trial,true);
+  assert.equal(boot.sha,osInterrupted);
+  assert.equal(readState(userData).attemptedSha,osInterrupted);
+  // Simulated abrupt termination: do not call confirmHealthy/rejectCandidate.
+  // Fresh app boot reads only the durable journal and must restore known-good.
+  const recoveryLog=[];
+  const recovered=await chooseBootVersion({userData,template,
+    log:message=>recoveryLog.push(message)});
+  assert.equal(recovered.sha,osTwo);
+  assert.equal(recovered.root,two);
+  assert.equal(recovered.trial,false);
+  const afterCrash=readState(userData);
+  assert.equal(afterCrash.activeSha,osTwo);
+  assert.equal(afterCrash.previousSha,osOne);
+  assert.equal(afterCrash.pendingSha,null);
+  assert.equal(afterCrash.attemptedSha,null);
+  assert.equal(afterCrash.rejectedSha,osInterrupted);
+  assert.ok(recoveryLog.some(message=>message.includes('no health receipt')));
+  assert.equal((await update()).status,'rejected',
+    'never loop on an exact failed official source revision');
+  assert.equal(buildCount,3,'same rejected SHA must not compile again');
+  assert.equal(hasNativeBundle(two),true);
+  assert.equal(hasNativeBundle(one),true);
+  assert.equal((await chooseBootVersion({userData,template})).sha,osTwo,
+    'recovered known-good remains selected across subsequent restarts');
   await pinPrevious(userData,template);
   assert.equal(readState(userData).activeSha,osOne);
   assert.equal(readState(userData).pinnedSha,osOne);
@@ -167,7 +208,7 @@ test('Windows Dev stages and compiles two real OS/Surface revisions then rolls b
   assert.equal(readState(userData).pendingSha,null);
   assert.equal(readState(userData).incompatibleSha,osBroken);
   assert.equal((await update()).status,'incompatible');
-  assert.equal(buildCount,3,'incompatible SHA must not trigger another clone or build');
+  assert.equal(buildCount,4,'incompatible SHA must not trigger another clone or build');
   assert.equal((await chooseBootVersion({userData,template})).sha,osOne);
 
 });
