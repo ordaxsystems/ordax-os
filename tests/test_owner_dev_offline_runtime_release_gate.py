@@ -124,6 +124,28 @@ class OfflineOwnerWelcomeGateTests(unittest.TestCase):
         self.assertIn("bootstrap/independent-surface-runtime/build.py build", workflow)
         self.assertIn("bootstrap/independent-surface-runtime/build.py verify", workflow)
 
+    def test_owner_surface_build_is_unprivileged_and_recovers_safe_compiler_caches(self):
+        workflow = (ROOT / ".github/workflows/creator-owner-dev-git.yml").read_text()
+        producer = workflow.split(
+            "- name: Build and verify one canonical offline Surface runtime", 1
+        )[1].split("- name: Assemble boot payload and overlay Git development base", 1)[0]
+        self.assertIn("python3 bootstrap/independent-surface-runtime/build.py build", producer)
+        self.assertIn("python3 bootstrap/independent-surface-runtime/build.py verify", producer)
+        self.assertNotIn("sudo -E python3 bootstrap/independent-surface-runtime/", producer)
+        self.assertIn(
+            "if: always() && steps.owner-surface-ccache.outcome == 'success' && steps.owner-surface-ccache.outputs.cache-hit != 'true'",
+            producer,
+        )
+        downloads = (
+            "if: always() && steps.owner-surface-downloads.outcome == 'success' && steps.owner-surface-downloads.outputs.cache-hit != 'true'"
+        )
+        self.assertEqual(producer.count(downloads), 2)
+        self.assertIn("find \"$RUNNER_TEMP/ordax-independent-surface-dl\" -type f", producer)
+        for unsafe in ("*.tmp", "*.part", "*.lock"):
+            self.assertIn(unsafe, producer)
+        # Recover compiler/download inputs only; no unsafe partial EROFS.
+        self.assertNotIn("always() && steps.owner-surface-artifact-cache", producer)
+
     def test_owner_visual_source_is_removed_before_expensive_buildroot(self):
         workflow = (ROOT / ".github/workflows/creator-owner-dev-git.yml").read_text()
         owner = workflow.split("- name: Build boot initramfs and Git development base", 1)[1]
