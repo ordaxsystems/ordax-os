@@ -108,6 +108,7 @@ import { createMemoryReviewViewModel } from "../../services/memory/review-view-m
 import { createProfileProvisioningRuntime } from "../../services/profile-packs/provisioning.mjs";
 import { createSpaceSelectionRuntime } from "../../services/spaces/selection.mjs";
 import { createSpaceExperienceSource } from "../../services/spaces/composition.mjs";
+import { createIdentityBoundSpaceExperienceSource } from "../../services/spaces/identity-bound-experience.mjs";
 import { createSelectedSpaceAuraCapabilityProvider } from "../../services/spaces/aura-provider.mjs";
 import { loadBundledProfilePacks } from "../../services/profile-packs/bundled-source.mjs";
 import { loadBundledProfileTaxonomy } from "../../services/profile-packs/taxonomy-source.mjs";
@@ -591,8 +592,13 @@ async function start() {
     spaceSelectionPort: spaceSelection,
     intelligencePort: selectedSpaceIntelligence,
   });
-  const spaceExperience = createSpaceExperienceSource({
-    providers: [selectedSpaceAuraCapability],
+  const spaceExperience = createIdentityBoundSpaceExperienceSource({
+    experienceSource: createSpaceExperienceSource({
+      providers: [selectedSpaceAuraCapability],
+    }),
+    identitySessionPort: identitySession,
+    spaceSelectionPort: spaceSelection,
+    spacesPort: spaces,
   });
   // The shared Native UI may run in an unprivileged development browser.
   // Only a real host bridge may expose Intelligence to privileged consumers.
