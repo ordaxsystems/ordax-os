@@ -30,7 +30,10 @@ class OwnerDevOfflineSeedRunnerBoundaryTests(unittest.TestCase):
         self.assertIn('GIT_CONFIG_VALUE_0="$GITHUB_WORKSPACE"', seed)
         self.assertIn('ORDAX_DEV_HELPER_TARGET_ROOT="$(realpath "$rootfs")"', seed)
         self.assertIn('test -z "$(sudo git -C "$rootfs/workspace/ordax" status --porcelain)"', seed)
-        self.assertNotIn("safe.directory=*", seed)
+        # Reject only an executable Git wildcard grant, not explanatory comments.
+        self.assertNotIn("GIT_CONFIG_VALUE_0=*", seed)
+        self.assertNotIn("git config --global --add safe.directory", seed)
+        self.assertNotIn("-c safe.directory=*", seed)
         self.assertNotIn('sudo chown -R "$(id -u):$(id -g)" "$rootfs/workspace" "$rootfs/state"', seed)
         self.assertNotIn('sudo chown -R root:root "$rootfs/workspace" "$rootfs/state"', seed)
         self.assertIn('test -x out/dev-base/rootfs/usr/local/bin/ordax-pull', seed)
