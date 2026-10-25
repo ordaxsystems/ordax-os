@@ -32,7 +32,7 @@ class IntelligenceSourceGateTests(unittest.TestCase):
             f=self.checkout/name
             f.parent.mkdir(parents=True,exist_ok=True)
             f.write_text("export const verified = 1;\n",encoding="utf-8")
-        git(self.checkout,"add","src")
+        git(self.checkout,"add","src","tools/inference-builder")
         git(self.checkout,"commit","-qm","source fixture")
         self.lock={
             "$schema":source.SCHEMA,"status":"integration-candidate",
