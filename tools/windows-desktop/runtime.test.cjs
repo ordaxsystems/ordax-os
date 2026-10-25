@@ -5,6 +5,17 @@ const { readFileSync } = require('node:fs');
 const { join, resolve } = require('node:path');
 const { resolveTemplate, runtimeStateDirectory, OFFICIAL_REMOTE } = require('./runtime.cjs');
 
+test('Dev and MVP share the single authoritative distribution contract', () => {
+  const source = JSON.parse(readFileSync(join(__dirname,'../../docs/contracts/distribution-profiles.json'),'utf8'));
+  assert.equal(OFFICIAL_REMOTE,'https://github.com/'+source.source_authority.repository+'.git');
+  assert.equal(source.source_authority.branch,'main');
+  assert.equal(source.source_authority.permanent_profile_forks_allowed,false);
+  assert.equal(source.profiles['owner-development'].normal_update_transport,'git-main');
+  assert.equal(source.profiles['stable-mvp'].normal_update_transport,'official-signed-release-channel');
+  assert.equal(source.profiles['stable-mvp'].operational_git_allowed,false);
+  assert.ok(require('./package.json').build.extraResources.some(
+    source => source.to === 'runtime-template/docs/contracts/distribution-profiles.json'));
+});
 test('desktop dev uses canonical source in un-packaged mode', () => {
   assert.equal(resolveTemplate(__dirname, 'ignored', false), resolve(__dirname,'../..'));
 });
