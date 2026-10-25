@@ -509,6 +509,27 @@ jobs:
           output.write_text(json.dumps(manifest, indent=2) + '\n', encoding='utf-8')
           PY
 
+      # Reuse the exact producer's EROFS only when it belongs to this Owner
+      # source commit; otherwise retain the normal source-bound Buildroot build.
+      # Never rewrite cached provenance or accept a merely matching filename.
+      - name: Resolve independent Surface artifact fingerprint for Owner
+        id: owner-surface-fingerprint
+        env:
+          ORDAX_COMPONENT_CACHE_ENVIRONMENT: ${{ runner.os }}/${{ runner.arch }}/${{ env.ImageOS }}/${{ env.ImageVersion }}
+        run: |
+          set -euo pipefail
+          test -n "${ImageOS:-}"
+          test -n "${ImageVersion:-}"
+          printf 'ORDAX_COMPONENT_CACHE_ENVIRONMENT=%s\n' "$ORDAX_COMPONENT_CACHE_ENVIRONMENT" >> "$GITHUB_ENV"
+          python3 tools/ci/independent_surface_component_cache.py fingerprint --github-output "$GITHUB_OUTPUT"
+
+      - name: Restore exact verified Surface EROFS for Owner
+        id: owner-surface-artifact-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/ordax-independent-surface
+          key: ordax-independent-surface-artifact-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.owner-surface-fingerprint.outputs.fingerprint }}
+
       # Both producers use the same Buildroot compiler/download cache keys.
       # This never reuses a Surface EROFS built for a different source commit:
       # Creator still verifies the new image and its exact provenance itself.
@@ -539,13 +560,39 @@ jobs:
           # does; restore the immutable source on all exit paths.
           config=bootstrap/independent-surface-runtime/configs/ordax_surface_defconfig
           trap 'git checkout -- "$config"' EXIT
-          python3 bootstrap/independent-surface-runtime/prepare_config.py materialize --out "$config"
-          kernel_version="$(python3 -c 'import json; print(json.load(open("bootstrap/kernel/source.json"))["version"])')"
-          grep -Fx "BR2_DEFAULT_KERNEL_VERSION=\"$kernel_version\"" "$config"
+          reused=false
+          if [ '${{ steps.owner-surface-artifact-cache.outputs.cache-hit }}' = true ]; then
+            # Verify both the input fingerprint and hashes of the original
+            # immutable EROFS + provenance. Consumer mode permits inspection
+            # across runner images without rewriting the producer receipt.
+            python3 tools/ci/independent_surface_component_cache.py verify \
+              --out "$RUNNER_TEMP/ordax-independent-surface" \
+              --integration-commit "$ORDAX_OWNER_SOURCE_COMMIT" \
+              --cache-hit true --consumer \
+              --receipt "$RUNNER_TEMP/owner-surface-cache-inspection.json"
+            cached_commit="$(python3 - "$RUNNER_TEMP/ordax-independent-surface/provenance.json" <<'PY'
+          import json, pathlib, sys
+          print(json.loads(pathlib.Path(sys.argv[1]).read_text(encoding='utf-8'))['source_commit'])
+          PY
+            )"
+            if [ "$cached_commit" = "$ORDAX_OWNER_SOURCE_COMMIT" ]; then
+              mkdir -p "$RUNNER_TEMP/owner-dev-surface-runtime"
+              cp -a "$RUNNER_TEMP/ordax-independent-surface/." "$RUNNER_TEMP/owner-dev-surface-runtime/"
+              reused=true
+              echo 'OWNER_SURFACE_RUNTIME_SOURCE=verified-identical-commit-cache'
+            else
+              echo 'Surface cached provenance belongs to another commit; rebuilding exact Owner candidate.'
+            fi
+          fi
           export ORDAX_SOURCE_COMMIT="$ORDAX_OWNER_SOURCE_COMMIT"
-          sudo -E python3 bootstrap/independent-surface-runtime/build.py build \
-            --out "$RUNNER_TEMP/owner-dev-surface-runtime" \
-            --cache "$RUNNER_TEMP/owner-independent-cache" --jobs 4
+          if [ "$reused" != true ]; then
+            python3 bootstrap/independent-surface-runtime/prepare_config.py materialize --out "$config"
+            kernel_version="$(python3 -c 'import json; print(json.load(open("bootstrap/kernel/source.json"))["version"])')"
+            grep -Fx "BR2_DEFAULT_KERNEL_VERSION=\"$kernel_version\"" "$config"
+            sudo -E python3 bootstrap/independent-surface-runtime/build.py build \
+              --out "$RUNNER_TEMP/owner-dev-surface-runtime" \
+              --cache "$RUNNER_TEMP/owner-independent-cache" --jobs 4
+          fi
           sudo -E python3 bootstrap/independent-surface-runtime/build.py verify \
             --out "$RUNNER_TEMP/owner-dev-surface-runtime"
 

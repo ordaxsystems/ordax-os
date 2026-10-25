@@ -104,6 +104,26 @@ class OfflineOwnerWelcomeGateTests(unittest.TestCase):
         self.assertIn("BR2_DL_DIR:", workflow)
         self.assertNotIn("native-surface-runtime-buildroot.erofs' > ", workflow)
 
+    def test_creator_reuses_only_cryptographically_verified_same_commit_surface(self):
+        workflow = (ROOT / ".github/workflows/creator-owner-dev-git.yml").read_text()
+        independent = (ROOT / ".github/workflows/independent-surface-runtime.yml").read_text()
+        restore = workflow.index("- name: Restore exact verified Surface EROFS for Owner")
+        build = workflow.index("- name: Build and verify one canonical offline Surface runtime")
+        stage = workflow.index("- name: Assemble boot payload and overlay Git development base")
+        self.assertLess(restore, build)
+        self.assertLess(build, stage)
+        key = "ordax-independent-surface-artifact-v1-"
+        self.assertIn(key, workflow)
+        self.assertIn(key, independent)
+        self.assertIn("independent_surface_component_cache.py fingerprint", workflow)
+        self.assertIn("independent_surface_component_cache.py verify", workflow)
+        self.assertIn("--cache-hit true --consumer", workflow)
+        self.assertIn('if [ "$cached_commit" = "$ORDAX_OWNER_SOURCE_COMMIT" ]; then', workflow)
+        self.assertIn("cp -a \"$RUNNER_TEMP/ordax-independent-surface/.\"", workflow)
+        self.assertIn('if [ "$reused" != true ]; then', workflow)
+        self.assertIn("bootstrap/independent-surface-runtime/build.py build", workflow)
+        self.assertIn("bootstrap/independent-surface-runtime/build.py verify", workflow)
+
     def test_owner_visual_source_is_removed_before_expensive_buildroot(self):
         workflow = (ROOT / ".github/workflows/creator-owner-dev-git.yml").read_text()
         owner = workflow.split("- name: Build boot initramfs and Git development base", 1)[1]
