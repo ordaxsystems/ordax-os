@@ -57,11 +57,13 @@ function loopback(ip) {
   return ip==="127.0.0.1" || ip==="::1" || ip==="::ffff:127.0.0.1";
 }
 export function createDesktopClientDiagnosticsMiddleware(userData,{
-  sessionToken,diagnosticToken,sourceSha,
+  sessionToken,diagnosticToken,sourceSha,networkToken=null,
 }={}) {
   if(typeof userData!=="string" || !userData ||
      !TOKEN.test(sessionToken) || !TOKEN.test(diagnosticToken) ||
-     sessionToken===diagnosticToken || !SHA.test(sourceSha)){
+     sessionToken===diagnosticToken || !SHA.test(sourceSha) ||
+     (networkToken!==null && (!TOKEN.test(networkToken) ||
+       [sessionToken,diagnosticToken].includes(networkToken)))){
     throw TypeError("Verified Desktop source and independent diagnostic grants are required");
   }
   const expectedSession=Buffer.from(sessionToken,"hex");
@@ -119,7 +121,7 @@ export function createDesktopClientDiagnosticsMiddleware(userData,{
         // Explicitly omit unrelated power/network/install grants. The other
         // adapters must remain unavailable until Windows owns real services.
         return respond(200,{
-          diagnosticToken,productMode:"desktop",
+          diagnosticToken,...(networkToken===null?{}:{networkToken}),productMode:"desktop",
           nativeInstallAvailable:false,profileActivationAvailable:false,
           componentSlotReadAvailable:false,supportedActions:[],
         });

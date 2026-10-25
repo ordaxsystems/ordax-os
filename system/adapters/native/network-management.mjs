@@ -72,6 +72,11 @@ export async function createNativeNetworkManagement(windowRef = globalThis.windo
   };
 
   assertNetworkManagementPort(port);
-  await port.status();
+  const first = await port.status();
+  // Status is meaningful for diagnostics, but this is not an operational
+  // management capability until a real WLAN control broker exists.
+  if (first.wifiInterface === null) {
+    throw new Error("Native Wi-Fi management unavailable: no WLAN interface");
+  }
   return Object.freeze(port);
 }

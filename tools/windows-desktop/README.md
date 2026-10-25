@@ -165,6 +165,25 @@ instalado** (HTTP 404). O mesmo contrato de Primeiro Uso e Preferências
 segue sendo usado no Windows e no USB; a implantação não cria novos
 serviços, exceções de login ou políticas paralelas.
 
+## Wi-Fi: detecção real de interface e ações indisponíveis
+
+O Desktop consulta `NetworkInterface.GetAllNetworkInterfaces()` do
+Windows/.NET para detectar se o host expõe uma interface 802.11.
+Quando não existe, o contrato canônico `ordax.network-management/1`
+admite explicitamente `wifiInterface:null`, zero SSIDs e
+`unavailableReason:"no-wlan-interface"`; isso **não** é uma conexão
+Wi-Fi simulada. O adaptador visual trata esse estado como capacidade
+indisponível, sem exibir controles de conexão.
+
+Se houver interface WLAN, a consulta responde 503 até existir um
+broker Windows WLAN real; jamais anuncia scan, RSSI, WPA, associação ou
+credenciais fictícias. Todas as ações POST retornam 503 (mesmo de uma
+Surface autorizada), com o estado do host inalterado. O GET exige token
+de 256 bits emitido pela sessão Native do próprio Electron;
+clientes localhost não autorizados recebem 403. A sessão bloqueada
+responde 423 à descoberta. Isto não altera conexões ou configurações
+da máquina nem habilita gerência de Wi-Fi ainda.
+
 ## Composição canônica
 
 - A mesma Surface e apps vêm de `system/`; não criar telas ou serviços
