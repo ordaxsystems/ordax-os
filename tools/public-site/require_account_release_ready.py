@@ -37,6 +37,10 @@ from probe_control_plane_privileges import (
     EXPECTED_AUTH_PRIVATE_HELPERS,
     EXPECTED_AUTH_PRIVATE_RLS_POLICIES,
 )
+from probe_private_data_api_exposure import (
+    EXPECTED as PRIVATE_DATA_API_EXPECTED,
+    validate_responses as validate_postgrest_profiles,
+)
 SESSION_REVOCATION_SCHEMA = "prototype-ordax.account-session-revocation-proof/1"
 REQUIRED_CHECKS = PROVIDER_CHECK_NAMES
 REQUIRED_DB_CHECKS = (
@@ -323,6 +327,31 @@ def validate_private_rls_runtime_review(root: Path = ROOT) -> list[str]:
         blockers.append("private-rls-private-schema-exposure-not-denied")
     if private.get("private_schema_data_api_exclusion_verified") is not True:
         blockers.append("private-rls-data-api-exclusion-unverified")
+    else:
+        try:
+            evidence_rel = private["private_schema_data_api_exclusion_evidence"]
+            if (
+                not isinstance(evidence_rel, str)
+                or evidence_rel != "docs/evidence/private-schema-data-api-exclusion-2026-10-26.json"
+            ):
+                raise ValueError("unreviewed-data-api-evidence-path")
+            evidence = json.loads((root / evidence_rel).read_text(encoding="utf-8"))
+            profiles = {
+                "public": evidence["public_baseline"],
+                "private": evidence["private_profile"],
+            }
+            if (
+                evidence.get("$schema") != "prototype-ordax.private-data-api-schema-exclusion/1"
+                or evidence.get("project_ref") != owner["postgresql_destination"]["project_ref"]
+                or evidence.get("private_schema_data_api_exclusion_verified") is not True
+                or validate_postgrest_profiles(profiles)
+                or evidence.get("scope", {}).get("no_real_user_authentication") is not True
+                or evidence["scope"].get("public_account_activation_approved") is not False
+                or evidence["scope"].get("no_production_ddl") is not True
+            ):
+                raise ValueError("data-api-evidence-invalid")
+        except (OSError, KeyError, ValueError, TypeError, AttributeError):
+            blockers.append("private-rls-data-api-evidence-invalid")
     if private.get("two_subject_authenticated_negative_isolation_verified") is not True:
         blockers.append("private-rls-two-subject-e2e-unverified")
     return blockers
