@@ -204,7 +204,7 @@ class IndependentSurfaceComponentCacheTests(unittest.TestCase):
         self.assertIn("secrets.ORDAX_R2_ACCESS_KEY_ID", workflow)
         self.assertIn("secrets.ORDAX_R2_SECRET_ACCESS_KEY", workflow)
         self.assertNotRegex(workflow, r"ORDAX_R2_(ACCESS_KEY_ID|SECRET_ACCESS_KEY): '[^']+'")
-        self.assertIn("refusing overwrite", workflow)
+        self.assertIn("refusing overwrite", R2_SCRIPT.read_text(encoding="utf-8"))
 
 
 if __name__ == "__main__":
