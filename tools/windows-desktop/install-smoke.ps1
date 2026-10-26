@@ -73,10 +73,12 @@ try {
     $installedExe,
     (Join-Path $resources "app.asar"),
     (Join-Path $resources "runtime-template\tools\windows-emulator\dev-supervisor.mjs"),
+    (Join-Path $resources "runtime-template\tools\windows-emulator\desktop-native-server.mjs"),
     (Join-Path $resources "runtime-template\tools\windows-emulator\desktop-host-contract.json"),
     (Join-Path $resources "runtime-template\system\composition\native\index.html"),
     (Join-Path $resources "runtime-template\desktop-assets\system\composition\native\index.html"),
-    (Join-Path $resources "runtime-template\node_modules\vite\bin\vite.js")
+    (Join-Path $resources "runtime-template\toolchain\node_modules.tar.gz"),
+    (Join-Path $resources "runtime-template\toolchain\toolchain-receipt.json")
   )
   $required += @(
     (Join-Path $resources "runtime-template\\docs\\contracts\\surface-source.json"),
@@ -188,7 +190,7 @@ try {
   # In CI the installation destination is writable TEMP, unlike Program Files.
   # Deny writes to the packaged dependency directory so the exact historical
   # Vite .vite-temp EPERM bug is reproduced by this installed-app gate.
-  $readonlyDirectory = Join-Path $resources "runtime-template\node_modules"
+  $readonlyDirectory = Join-Path $resources "runtime-template\toolchain"
   # Generic (W) also denies READ_CONTROL/SYNCHRONIZE through Windows ACL
   # expansion. That prevents fs.stat of a junction into the runtime, not just
   # writes. Deny only mutation-specific rights so protected dependencies
@@ -206,7 +208,7 @@ try {
   if (-not $writeWasBlocked) { throw "Installed runtime test lacks write protection" }
   # Reading and traversing a protected node_modules tree must remain
   # possible: the Dev candidate resolves this exact install via a junction.
-  & node -e 'const fs=require("node:fs");const p=process.argv[1];fs.statSync(p);fs.statSync(require("node:path").join(p,"vite","bin","vite.js"));' $readonlyDirectory
+  & node -e 'const fs=require("node:fs");const p=process.argv[1];fs.statSync(p);fs.statSync(require("node:path").join(p,"node_modules.tar.gz"));fs.statSync(require("node:path").join(p,"toolchain-receipt.json"));' $readonlyDirectory
   if ($LASTEXITCODE -ne 0) {
     throw "Protected dependency directory denies reads needed by the compiler"
   }
@@ -296,6 +298,13 @@ try {
       throw ("Installed Native Surface did not become ready within 180 seconds. Log: " +
         (Get-Content -LiteralPath $logFile -Tail 25 -ErrorAction SilentlyContinue | Out-String))
     }
+    # A verified installed bundle must boot without Vite source transforms.
+    # The legacy Vite fallback is only for previously installed OS snapshots.
+    if ($newLog -notmatch 'Installed Native http-ready after [0-9]+s' -or
+        $newLog -match 'Vite fallback http-ready') {
+      throw "Installed Desktop launched Vite instead of verified Native HTTP"
+    }
+    Write-Output "DESKTOP_INSTALLED_NATIVE_NO_VITE=PASS"
     # The installed app must serve the actual Desktop capability contract.
     $localUrls = [regex]::Matches($newLog, 'Native Surface ready: (http://127\.0\.0\.1:\d+)')
     if ($localUrls.Count -lt 1) { throw "Native readiness URL missing from log" }

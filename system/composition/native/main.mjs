@@ -7,6 +7,7 @@ import {
   sanitizeClientDiagnostic,
 } from "../../adapters/native/client-diagnostics.mjs";
 import { createNativeBrowserSession } from "../../adapters/native/browser-session.mjs";
+import { hasDesktopBrowserTransport } from "../../adapters/native/browser-host-transport.mjs";
 import { createNativeComponentStateStore } from "../../adapters/native/component-state.mjs";
 import { createNativeDiagnosticJournalStore } from "../../adapters/native/diagnostic-journal-store.mjs";
 import { createNativeFileSpace } from "../../adapters/native/file-space.mjs";
@@ -186,6 +187,7 @@ async function start() {
   workspaceComponentBootstrap = createNativeWorkspacePendingBootstrap();
 
   const browserSession = createNativeBrowserSession(window);
+  const windowsDesktopHost = hasDesktopBrowserTransport(window);
   const verifiedComponentPackageSource = createNativeVerifiedComponentPackageSource(window);
   const verifiedComponentFetch = typeof window.fetch === "function"
     ? window.fetch.bind(window)
@@ -314,7 +316,11 @@ async function start() {
       "OrdaX native Product Connector unavailable",
       () => createNativeProductConnector(window),
     ),
-    optionalNativeProbe(
+    // The Linux keyboard-layout port manages physical XKB and session
+    // restarts. The installed Desktop has no equivalent Windows owner yet.
+    // Keep it explicitly unavailable rather than calling the emulator's
+    // generic 503 fallback or advertising a fabricated keyboard layout.
+    windowsDesktopHost ? Promise.resolve(null) : optionalNativeProbe(
       "OrdaX native keyboard layout unavailable",
       () => createNativeKeyboardLayout(window),
     ),
@@ -330,7 +336,10 @@ async function start() {
       "OrdaX native system metrics unavailable",
       () => createNativeSystemMetrics(window),
     ),
-    optionalNativeProbe(
+    // Portable-v2 recovery belongs to Linux USB. Windows observes its own
+    // distinct Desktop recovery journal at /__ordax/desktop/recovery; never
+    // ask a Windows host for a fictitious Linux boot-slot receipt.
+    windowsDesktopHost ? Promise.resolve(null) : optionalNativeProbe(
       "OrdaX native recovery status unavailable",
       () => createNativeRecoveryStatus(window),
     ),

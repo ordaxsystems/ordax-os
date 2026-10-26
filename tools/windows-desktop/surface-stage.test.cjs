@@ -80,3 +80,13 @@ test('pinned Surface Git clone cleanup is shared, bounded and safe against unrel
   // The packaged host must include the shared module, not a second cleanup fork.
   assert.ok(require('./package.json').build.files.includes('git-cleanup.cjs'));
 });
+
+test('public pinned Surface Git acquisition never invokes user credential helpers',()=>{
+  const source=readFileSync(join(__dirname,'surface-stage.cjs'),'utf8');
+  assert.ok(source.includes("['-c','credential.helper=',...argv]"),
+    'even official read-only Surface clones must override inherited Git credential helpers');
+  // Do not modify machine/user Git config, disable SSOT source checks or
+  // allow an alternative remote to satisfy the pinned Surface lock.
+  assert.ok(source.includes("'https://github.com/'+lock.source_repository+'.git'"));
+  assert.ok(source.includes("head!==lock.source_commit"));
+});

@@ -8,7 +8,12 @@ const { OFFICIAL_REMOTE } = require('./runtime.cjs');
 function git(argv, cwd, timeoutMs = 90000) {
   return new Promise(resolve => {
     let stdout = '', stderr = '', finished = false;
-    const child = spawn('git', argv, {
+    // This updater accesses the public, immutable OrdaX OS source only.
+// Global Git Credential Manager / gh auth helpers can block for minutes
+// even on anonymous reads, exceeding the 25s discovery deadline. Empty
+// credential.helper overrides all inherited helpers for this invocation;
+// never prompt or forward an account credential to a public checkout.
+const child = spawn('git', ['-c','credential.helper=',...argv], {
       cwd, windowsHide:true, env: { ...process.env, GIT_TERMINAL_PROMPT:'0' },
       stdio:['ignore','pipe','pipe']
     });
@@ -46,12 +51,13 @@ function hasDesktopHostContract(root) {
   } catch { return false; }
 }
 
-function dependencies(checkout,template) {
+function dependencies(checkout,template,userData=null) {
   const dir=join(checkout,'node_modules');
-  if (existsSync(dir)) return;
-  const source=join(template,'node_modules');
-  if (!existsSync(source)) throw Error('Packaged runtime dependencies missing');
+  if (existsSync(dir)) return dir;
+  const {ensureRuntimeToolchain}=require('./toolchain-cache.cjs');
+  const source=ensureRuntimeToolchain(template,userData);
   symlinkSync(source,dir,process.platform==='win32'?'junction':'dir');
+  return dir;
 }
 
 // Only the immutable Desktop Dev transaction manager may materialize source

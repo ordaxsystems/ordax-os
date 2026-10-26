@@ -252,7 +252,12 @@ export function nativeEmulatorPlugin(stateDirectory, { desktopHost = false, acco
               response.statusCode = 503;
               return response.end(JSON.stringify({ error: "Desktop update journal path was not configured" }));
             }
-            void readDesktopUpdateStatus(directory).then(respond).catch(() => {
+            // The Electron host supplies this SHA only after Native bundle
+            // provenance/bytes (or immutable Git candidate) are verified.
+            // The HTTP caller cannot override the selected running revision.
+            const renderedSourceSha = desktopHost
+              ? process.env.ORDAX_DESKTOP_RENDERED_SOURCE_SHA || "" : "";
+            void readDesktopUpdateStatus(directory,{renderedSourceSha}).then(respond).catch(() => {
               response.statusCode = 503;
               response.end(JSON.stringify({ error: "Desktop update observation failed" }));
             });

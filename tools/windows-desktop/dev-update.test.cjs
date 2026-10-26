@@ -92,6 +92,77 @@ function fixture(t) {
   return {root,source,userData,template,first,advance,offlineGit,offlineBuild};
 }
 
+
+function installVerifiedBundledFixture(f,sha) {
+  const lockPath=join(f.template,'docs','contracts','surface-source.json');
+  mkdirSync(join(f.template,'docs','contracts'),{recursive:true});
+  writeFileSync(lockPath,readFileSync(join(f.source,'docs','contracts','surface-source.json')));
+  const assets=join(f.template,'desktop-assets');
+  mkdirSync(join(assets,'system','composition','native'),{recursive:true});
+  mkdirSync(join(assets,'assets'),{recursive:true});
+  writeFileSync(join(assets,'system','composition','native','index.html'),
+    '<!doctype html><script src="/assets/app.js"></script>');
+  writeFileSync(join(assets,'assets','app.js'),'export const installed=true;');
+  writeFileSync(join(assets,'source-provenance.json'),JSON.stringify({
+    schema:'ordax.desktop-native-bundle-provenance/1',os_sha:sha,
+    source_repository:'ordaxsystems/ordax-surface',source_commit:'a'.repeat(40),
+    visual_source_sha256:'b'.repeat(64),file_count:2,
+    bundle_sha256:compiledBundleSha256(f.template,assets)
+  }));
+  return assets;
+}
+
+test('verified bundled main is current without staging, recompilation or a false health trial',async t=>{
+  const f=fixture(t);
+  installVerifiedBundledFixture(f,f.first);
+  let cloneCalls=0,buildCalls=0;
+  const monitorGit=async(...args)=>{
+    if(args[0].includes('clone')) cloneCalls++;
+    return f.offlineGit(...args);
+  };
+  const params={userData:f.userData,template:f.template,runGit:monitorGit,
+    buildCandidate:async()=>{buildCalls++;throw Error('must not compile bundled main')}};
+  const status=await stageMain(params);
+  assert.deepEqual(status,{status:'current',sha:f.first,source:'verified-bundled'});
+  assert.equal(cloneCalls,0);
+  assert.equal(buildCalls,0);
+  assert.equal(readState(f.userData).activeSha,null,
+    'bundled snapshot must not masquerade as an activated Git transaction');
+  assert.equal(existsSync(join(f.userData,'runtime-versions')),false);
+  const boot=await chooseBootVersion({userData:f.userData,template:f.template});
+  assert.equal(boot.root,f.template);
+  assert.equal(boot.trial,false);
+  // New upstream source must still stage normally; no permanent pin is added.
+  const second=f.advance();
+  const stage=await stageMain({...params,buildCandidate:f.offlineBuild});
+  assert.equal(stage.status,'staged');
+  assert.equal(stage.sha,second);
+  assert.equal(cloneCalls,1);
+});
+
+test('stale incompatible marker can be retired only by exact verified bundled main',async t=>{
+  const f=fixture(t);
+  const assets=installVerifiedBundledFixture(f,f.first);
+  writeState(f.userData,{...readState(f.userData),incompatibleSha:f.first});
+  const result=await stageMain({userData:f.userData,template:f.template,
+    runGit:f.offlineGit,buildCandidate:f.offlineBuild});
+  assert.equal(result.status,'current');
+  assert.equal(readState(f.userData).incompatibleSha,null);
+  // A previously incompatible *different* official SHA is also superseded
+  // when the current upstream main exactly matches the verified installed OS.
+  writeState(f.userData,{...readState(f.userData),incompatibleSha:'e'.repeat(40)});
+  const restored=await stageMain({userData:f.userData,template:f.template,
+    runGit:f.offlineGit,buildCandidate:f.offlineBuild});
+  assert.equal(restored.status,'current');
+  assert.equal(readState(f.userData).incompatibleSha,null);
+  // A modified installed binary cannot use the bundled-source fast path.
+  writeFileSync(join(assets,'assets','app.js'),'export const installed=false;');
+  const stage=await stageMain({userData:f.userData,template:f.template,
+    runGit:f.offlineGit,buildCandidate:f.offlineBuild});
+  assert.equal(stage.status,'staged');
+  assert.equal(readState(f.userData).activeSha,null);
+});
+
 test('update state is durable, validated and never silently resets corruption', t=>{
   const f=fixture(t);
   const original=readState(f.userData);

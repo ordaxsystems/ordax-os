@@ -226,10 +226,7 @@
       "canonical_origin": "https://web.ordax.com.br",
       "mount_path": "/",
       "static_output_directory": "out/vercel",
-      "build_dispatcher": "tools/vercel/build.py",
-      "domain_project_move_pending": true,
-      "domain_current_project": "ordax-os-public",
-      "domain_target_project": "ordax-web"
+      "build_dispatcher": "tools/vercel/build.py"
     }
   },
   "public_edge_gateway": {

@@ -21,8 +21,12 @@ test('installed Dev Native toolchain follows one canonical npm lock without Type
 
 test('Native installed toolchain is generated, not sourced from entire development node_modules',()=>{
   const build=require('./package.json').build;
-  const entry=build.extraResources.find(e=>e.to==='runtime-template/node_modules');
-  assert.equal(entry.from,'../../out/windows-desktop-toolchain/node_modules');
+  const entry=build.extraResources.find(e=>e.to==='runtime-template/toolchain/node_modules.tar.gz');
+  const receipt=build.extraResources.find(e=>e.to==='runtime-template/toolchain/toolchain-receipt.json');
+  assert.equal(entry.from,'../../out/windows-desktop-toolchain/node_modules.tar.gz');
+  assert.equal(receipt.from,'../../out/windows-desktop-toolchain/toolchain-receipt.json');
+  assert.ok(!build.extraResources.some(e=>e.to==='runtime-template/node_modules'),
+    'NSIS must never extract a 12k-file compiler into Program Files');
   const workflow=readFileSync(join(root,'.github/workflows/windows-desktop-dev.yml'),'utf8');
   const buildStep=workflow.indexOf('name: Build unsigned Windows installer');
   const runtimeStep=workflow.indexOf('name: Materialize minimal canonical Native runtime dependencies');

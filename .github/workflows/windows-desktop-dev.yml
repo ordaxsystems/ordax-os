@@ -2,7 +2,7 @@ name: Windows Desktop Dev (SSOT)
 on:
   workflow_dispatch:
   pull_request:
-    paths:
+    paths: &desktop_product_sources
       - 'system/**'
       - 'tools/windows-emulator/**'
       - 'tools/windows-desktop/**'
@@ -11,6 +11,19 @@ on:
       - 'docs/contracts/surface-source.json'
       - 'tools/surface-source/**'
       - 'tests/test_desktop_browser_transport.mjs'
+  # Every integrated main revision that changes the shared Windows product
+  # must produce the same tested, source-bound installer as its PR.
+  # Reuse the exact impact filter instead of maintaining divergent lists.
+  push:
+    branches:
+      - main
+    paths: *desktop_product_sources
+
+# On fast-moving main, do not rebuild an already superseded source commit.
+concurrency:
+  group: windows-desktop-dev-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 jobs:
@@ -99,6 +112,7 @@ jobs:
             "tools/windows-desktop/dev-update.test.cjs",
             "tools/windows-desktop/runtime.test.cjs",
             "tools/windows-desktop/runtime-toolchain.test.cjs",
+            "tools/windows-desktop/toolchain-cache.test.cjs",
             "tools/windows-desktop/checkout.test.cjs"
           )
           foreach ($suite in $suites) {
@@ -110,8 +124,8 @@ jobs:
       - name: Install desktop shell toolchain
         working-directory: tools/windows-desktop
         run: npm ci --no-audit --no-fund
-      - name: Test built Native asset route
-        run: node --test tools/windows-emulator/desktop-built-assets.test.mjs
+      - name: Test installed Native HTTP host without Vite
+        run: node --test tools/windows-emulator/desktop-built-assets.test.mjs tools/windows-emulator/desktop-native-server.test.mjs
       - name: Compile canonical Native Surface for Windows
         run: npx vite build --config tools/windows-desktop/vite-native-build.mjs
       - name: Bind installer to exact OS + Surface Native provenance

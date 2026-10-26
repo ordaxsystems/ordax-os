@@ -32,16 +32,17 @@ Native, com transporte específico de Electron apenas quando seu bridge
 restrito existe; indisponibilidade de bridge privilegiado do USB não é
 substituída por uma autoridade falsa.
 
-**Staging Dev por fonte foi implementado; a jornada real instalada ainda
-não está homologada.** `dev-update.cjs` usa o mesmo OS SHA da `main` e o
+**Staging e ativação transacional Owner/Dev foram comprovados no
+Desktop Windows físico (26/10/2026), com health e rollback preservados.** `dev-update.cjs` usa o mesmo OS SHA da `main` e o
 `source_commit` da Surface fixado nesse commit. `surface-stage.cjs` é o
 adaptador Git/Windows: obtém a revisão exata, valida origem, blobs Git,
 limites e recusa symlinks; monta os arquivos visuais somente durante a
 compilação, remove o overlay e grava o recibo OS/Surface com SHA-256 de
 todos os ativos compilados. `hasNativeBundle` impede boot de candidata
 sem lock, sem recibo ou com ativo JS/CSS alterado. Isso foi testado em CI e
-fixtures Git offline; **ainda falta uma atualização real instalada
-`main A → main B → health/rollback` no Windows**. Não chamar isso de paridade
+fixtures Git offline; **as revisões `938f1ebc` e `2a007c30` foram adquiridas e ativadas
+sequencialmente no Windows real, com `activeSha` confirmado após health,
+`previousSha` preservado e `pendingSha=null`.** Não chamar isso de paridade
 completa do `ordax-pull` até essa prova, nem instalar Python no usuário
 ou distribuir uma segunda cópia permanente da Surface.
 
@@ -56,7 +57,62 @@ OS SHA, Surface SHA e fingerprint SHA-256 dos arquivos Native gerados. O
 Electron recusa abrir o bundle de instalação se faltar esse manifesto ou
 houver divergência dos bytes. Isso não é assinatura de release pública.
 Intelligence/Aura local, autenticação real, updates assinados e rollback
-E2E instalado ainda **não estão homologados**. A PR permanece draft.
+E2E instalado ainda **não estão homologados como produto completo**. Os PRs de infraestrutura já integrados não equivalem à homologação comercial Stable/MVP.
+
+## Entrega Windows vinculada a `main` — política SSOT
+
+O workflow canônico `.github/workflows/windows-desktop-dev.yml` valida PRs
+e executa também em `push` para `main` quando arquivos que impactam o
+Desktop são alterados. Os dois eventos compartilham **um único filtro de
+impacto**, não duas listas independentes. Execuções antigas são canceladas
+quando uma revisão mais nova as substitui no mesmo fluxo.
+
+O instalador de desenvolvimento resultante é sempre vinculado ao SHA exato
+de `ordax-os` e ao SHA da Surface do lock **daquele commit**, verificado
+na compilação, no recibo e no smoke instalado. O nome/versionamento do
+shell Electron não é o número da Entrega nem representa o SHA da fonte OS.
+
+Esse CI **não instala automaticamente** o novo shell no computador do
+usuário, não publica o canal Stable e não grava USB. O Desktop Dev já
+instalado continua dependente de uma instalação/upgrade verificado do
+shell e de seu próprio update transacional do conteúdo OS. Assim,
+`build aprovado`, `artefato disponível` e `Desktop efetivamente ativo
+na revisão` permanecem três fatos distintos e verificáveis.
+
+Mudanças exclusivamente Linux (kernel/base/USB) não devem acionar um
+novo instalador Windows; mudanças no núcleo compartilhado, no lock
+Surface ou nos adaptadores Windows devem acioná-lo.
+
+## Boot do Desktop instalado sem servidor de desenvolvimento
+
+O Desktop Windows instalado, quando recebe do Electron um bundle Native
+compilado e verificado pelo recibo OS+Surface, usa
+`tools/windows-emulator/desktop-native-server.mjs`. Esse adaptador monta
+**os mesmos middlewares e grants Native** definidos em
+`tools/windows-emulator/native-host.mjs` (Conta, arquivos, sessão,
+diagnósticos, rede, energia, atualização e recuperação), e entrega somente
+HTML/assets compilados e arquivos estáticos permitidos do sistema por HTTP
+loopback. Não inicializa Vite, HMR ou transformação de código-fonte no boot.
+
+A autoridade de seleção continua sendo
+`tools/windows-desktop/main.cjs` junto com os validadores em
+`native-build.cjs` e `dev-update.cjs`; o HTTP server não decide se uma
+candidata Git é confiável nem substitui o supervisor transacional.
+`tools/windows-desktop/host.cjs` mantém fallback Vite **apenas** quando
+o snapshot anterior não possui o runner compilado, ou no emulador explícito.
+O compilador Vite ainda é empacotado para construir novas candidatas
+Owner/Dev, mas não precisa iniciar para mostrar uma versão pronta.
+
+A CI instalada deve demonstrar
+`DESKTOP_INSTALLED_NATIVE_NO_VITE=PASS`, montagem da Surface,
+capacidade de navegação e rejeição de chamadas localhost sem token.
+Testes isolados verificam HTTP, acesso à fonte estática limitada,
+integridade da política e ausência de acesso a arquivos privados.
+A otimização **não** implica que o peso do NSIS foi reduzido: a remoção
+do toolchain da distribuição depende antes de substituir a compilação
+local por entregas verificadas mantendo rollback e o mesmo SSOT.
+Também não comprova automaticamente a melhoria de tempo no hardware real,
+que exige medição separada após o upgrade autorizado.
 
 ## Desenvolvimento e empacotamento
 
@@ -219,6 +275,36 @@ frequência não puderem ser lidos com segurança, o GET falha com
 503 em vez de criar um modo fictício. A troca de resolução e
 o rollback seguro continuam como etapa separada ainda não entregue.
 
+## Compatibilidade de portas Native no Desktop (26/10/2026)
+
+O host Electron usa a detecção canônica de transporte em
+`system/adapters/native/browser-host-transport.mjs`. A composição compartilhada
+não deve consultar `ordax.keyboard-layout/1` (aplicação de layout físico
+Linux/XKB) nem `ordax.recovery-status/1` (slots de boot USB portable-v2)
+quando estiver no Windows. O Windows já publica observação de rollback
+pelo contrato distinto `ordax.desktop-recovery/1`, em
+`/__ordax/desktop/recovery`. A ausência de adaptador Windows para mudar
+layout não pode ser apresentada como capacidade disponível. No Linux, os
+dois probes continuam ativos.
+
+O Desktop mantém as portas reais de rede, energia e tela. A auditoria no
+hardware Windows verificou leituras válidas dos três providers e de
+recuperação, mas observou HTTP 503 transitórios durante o boot e 503
+intencionais para ações de troca de modo de tela e WLAN ainda não
+implementadas. A correção de roteamento não equivale à homologação
+dessas capacidades. Não ampliar timeout nem fabricar snapshots para
+ocultar os 503; investigar concorrência e falha da operação nativa
+no owner do adaptador.
+
+**Aceite de atualização em 26/10:** `activeSha=2a007c30af9c99a166dc63e898b01b53b463ae56`,
+`previousSha=938f1ebcc1c9ef37fc8ae7e0bacda99f592385ba`, Surface
+`ready`, transação sem candidata pendente; tests, CI e inspeção física
+registrados na issue [#2271](https://github.com/ordaxsystems/ordax-os/issues/2271).
+Essa prova refere-se ao Desktop OS Dev e não declara USB físico ou
+MVP Stable atualizado. O instalador NSIS do host ainda tem custo físico
+elevado (~931 segundos no upgrade observado), principalmente porque o
+toolchain com milhares de arquivos participa do pacote.
+
 ## Composição canônica
 
 - A mesma Surface e apps vêm de `system/`; não criar telas ou serviços
@@ -259,9 +345,11 @@ início e conserva a anterior. Uma candidata sem recibo de saúde é revertida;
 o rollback Owner mantém pin até desfixação explícita. O supervisor do emulador
 não executa mais Git merge no aplicativo Desktop. O journal local guarda
 apenas o estado de transação, **não** define outra política, versão ou registro
-de componentes. Ainda falta comprovar Git `main` real no app instalado e
-publicar as observações no contrato público `ordax.update-status/1`.
-Não chamar isso de paridade completa do `ordax-pull` USB.
+de componentes. O Desktop instalado comprovou `main → pendingSha →
+attemptedSha → health → activeSha` e a projeção compartilhada
+`ordax.update-status/1` respondeu `running/idle` para a revisão efetiva.
+Isso prova a atualização Dev do conteúdo OS/Surface, **não** a paridade
+completa do `ordax-pull` USB ou o upgrade automático do shell Electron.
 
 **MVP/Stable** não pode depender de Git; precisa de distribuição assinada
 do aplicativo e componentes com release verificada, staging, health e
@@ -295,13 +383,30 @@ CI Windows [#39446071435](https://github.com/ordaxsystems/ordax-os/actions/runs/
 ## Dependências Node no instalador de desenvolvimento
 
 O instalador Windows mantém o Vite necessário para compilar, com verificação, uma
-nova revisão da mesma Surface. O empacotamento **não** distribui toda a árvore
-`node_modules` de desenvolvimento: `runtime-toolchain.cjs` projeta a partir
-do `package.json` e do `package-lock.json` canônicos somente o fechamento das
-dependências de produção mais Vite (incluindo as dependências nativas opcionais
-da plataforma instalada). O resultado é gerado em `out/windows-desktop-toolchain/`
-e não cria outro lock, outra implementação visual ou outro owner de atualização.
+nova revisão da mesma Surface. `runtime-toolchain.cjs` projeta somente o
+fechamento canônico de `package.json` + `package-lock.json`, incluindo os
+opcionais nativos da plataforma. **O pacote NSIS não materializa milhares de
+arquivos individuais em Program Files**: transporta
+`runtime-template/toolchain/node_modules.tar.gz` e
+`toolchain-receipt.json` contendo SHA-256 do arquivo, SHA-256 do lock e
+digest da árvore de arquivos. Não existe um segundo lock nem fonte visual.
 
-A prova do NSIS continua compilando dois commits Git OS/Surface com essas
-**exatas dependências empacotadas e protegidas contra escrita**. Sem aprovação
-desse gate, não considerar o instalador leve ou homologado.
+O Native compilado inicia sem extrair Vite. Somente uma compilação Owner/Dev
+(ou fallback explícito de uma versão Git antiga) chama o adaptador único
+`toolchain-cache.cjs`, que verifica arquivo e recibo, nega traversal/links,
+extrai para `userData/runtime-toolchains/<archive_sha256>` e verifica o digest
+da árvore expandida **inclusive nas reutilizações**. A reutilização também
+recusa o diretório final se for um link simbólico, junction/reparse point ou
+arquivo comum, mesmo quando um destino externo tenha os bytes e recibo
+corretos. Essa fronteira é testada no Windows real, sem tocar no perfil do
+usuário. O cache não contém fonte
+canônica nem cria nova política de atualização: é projeção descartável da
+distribuição instalada. Jamais escreve dependências em Program Files ou
+precisa buscar npm na rede para construir uma candidata Dev.
+
+O smoke NSIS deve provar instalação e upgrade com archive protegido contra
+escrita, seguido de compilação real de duas revisões OS/Surface usando somente
+essa fonte offline, além de rollback, Surface e autorizações intactos.
+Os tempos de CI são apenas métricas comparativas, **não** medição física
+no Desktop do usuário. Se essas provas não forem aprovadas, o PR não deve
+ser promovido.

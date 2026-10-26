@@ -84,13 +84,17 @@ function hasNativeBundle(sourceRoot) {
     });
   } catch { return false; }
 }
-async function buildNativeCandidate(root,template,{log=()=>{},timeoutMs=120000,materializeSurface=withPinnedSurface}={}) {
+async function buildNativeCandidate(root,template,{log=()=>{},timeoutMs=120000,materializeSurface=withPinnedSurface,userData=null}={}) {
   const config=join(root,'tools','windows-desktop','vite-native-build.mjs');
-  const vite=join(template,'node_modules','vite','bin','vite.js');
-  if(!existsSync(config) || !existsSync(vite)) {
-    throw Error('Staged source or installed toolchain cannot compile canonical Native Surface');
+  if(!existsSync(config)) {
+    throw Error('Staged canonical Native source missing build configuration');
   }
-  dependencies(root,template);
+  // The installed compiler is a verified archive cached only when an actual
+  // Dev candidate must compile. No dependency extraction on a normal boot.
+  const nodeModules=dependencies(root,template,userData);
+  const vite=join(nodeModules,'vite','bin','vite.js');
+  if(!existsSync(vite))
+    throw Error('Verified installed toolchain lacks canonical Native Vite');
   const receipt=await materializeSurface(root,sourceReceipt=>new Promise((resolve,reject)=>{
     const child=spawn(process.execPath,[vite,'build','--config',config,'--configLoader','native'],{
       cwd:root,windowsHide:true,

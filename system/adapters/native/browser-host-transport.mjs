@@ -9,8 +9,14 @@ function desktopBrowserBridge(windowRef) {
   const bridge = windowRef?.ordaxDesktopBrowser;
   return typeof bridge?.postMessage === "function" ? bridge : null;
 }
+// One authority for detecting the installed Electron transport. A browser
+// bridge is not a Linux Native host; platform-specific OS ports must not be
+// requested through this transport unless a Windows adapter owns them.
+export function hasDesktopBrowserTransport(windowRef = globalThis.window) {
+  return Boolean(desktopBrowserBridge(windowRef));
+}
 export function hasBrowserHostTransport(windowRef = globalThis.window) {
-  return hasNativeHostBridge(windowRef) || Boolean(desktopBrowserBridge(windowRef));
+  return hasNativeHostBridge(windowRef) || hasDesktopBrowserTransport(windowRef);
 }
 export function postBrowserHostCommand(windowRef, payload) {
   if (hasNativeHostBridge(windowRef)) return postNativeHostMessage(windowRef, payload);

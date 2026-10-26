@@ -2,13 +2,13 @@
   "$schema": "prototype-ordax.intelligence-source/1",
   "status": "integration-candidate",
   "source_repository": "ordaxsystems/ordax-intelligence",
-  "source_commit": "c3dbb73e7f3cdf9a2043b059d7376fb0a06a1272",
+  "source_commit": "9791ae4734d8f111490fe1ad8e815752b35d661a",
   "source_paths": {
     "src/index.mjs": "e5b0459e54f01821216dd43e3014c4e0360987d6",
     "src/contract-bindings.mjs": "ee4ec7edf7c5f259ff6377a85cb689543a84c192",
     "src/intelligence/runtime.mjs": "f83dd2a277239a9ca412c96fd2a6208f92976d4b",
     "src/intelligence/model-router.mjs": "a841b1d9642244f21a3216a8c283c943474339ae",
-    "src/local-ai/runtime.mjs": "e05ad6bc1c898abf5f3b53b19abf2bb1d100f33a",
+    "src/local-ai/runtime.mjs": "23a1798ed8bce6a4f323127ea30b58508691c698",
     "src/local-ai/completion-stream.mjs": "d243f4e830186b600e720f723a0ae06fce6b8b89",
     "src/local-ai/model-compatibility.mjs": "ff0078dc088ad760752e92f0e23338265cebdc08",
     "tools/inference-builder/build.py": "d17f8f69de23a098b78418a070011e16357c64d4"
