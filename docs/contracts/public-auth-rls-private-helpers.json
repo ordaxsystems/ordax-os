@@ -27,6 +27,14 @@
   ],
   "approved_public_rls_policy_dependencies": [
     [
+      "ordax_accounts",
+      "ordax_accounts_select_own"
+    ],
+    [
+      "ordax_accounts",
+      "ordax_accounts_update_own"
+    ],
+    [
       "ordax_device_presence",
       "ordax_device_presence_select_authorized"
     ],
@@ -90,8 +98,9 @@
   "private_schema_data_api_exclusion_verified": false,
   "two_subject_authenticated_negative_isolation_verified": false,
   "public_account_activation_allowed": false,
-  "reason": "Thirteen public RLS policies call five authenticated SECURITY DEFINER private helpers. The schema must remain private and unexposed to Data API. Revoking the helpers or moving DEFINER wrappers to exposed public schema without proven equivalent semantics would be unsafe.",
+  "reason": "Fifteen public RLS policies, including account SELECT and UPDATE, require five private SECURITY DEFINER helpers. The initial 13-policy observation only searched access/admin helpers, not the auth-session eligibility helper in account policies. Keep these functions inside unexposed private schema; blanket REVOKE or public DEFINER wrappers are unsafe.",
   "references": [
+    "docs/evidence/authenticated-private-helper-dependencies-expanded-2026-10-26.json",
     "docs/evidence/authenticated-private-helper-dependencies-2026-10-26.json",
     "https://supabase.com/docs/guides/database/postgres/row-level-security"
   ]
