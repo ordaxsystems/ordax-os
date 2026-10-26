@@ -5,6 +5,11 @@ CREATE ROLE service_role NOLOGIN;
 
 CREATE SCHEMA auth;
 CREATE SCHEMA private;
+-- Mirror the Supabase migration ledger's read-only catalog boundary.
+CREATE SCHEMA supabase_migrations;
+CREATE TABLE supabase_migrations.schema_migrations(
+    version text PRIMARY KEY
+);
 
 CREATE TABLE auth.users(id uuid PRIMARY KEY);
 CREATE TABLE public.ordax_spaces(
