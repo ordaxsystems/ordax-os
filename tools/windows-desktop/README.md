@@ -58,6 +58,30 @@ houver divergência dos bytes. Isso não é assinatura de release pública.
 Intelligence/Aura local, autenticação real, updates assinados e rollback
 E2E instalado ainda **não estão homologados**. A PR permanece draft.
 
+## Entrega Windows vinculada a `main` — política SSOT
+
+O workflow canônico `.github/workflows/windows-desktop-dev.yml` valida PRs
+e executa também em `push` para `main` quando arquivos que impactam o
+Desktop são alterados. Os dois eventos compartilham **um único filtro de
+impacto**, não duas listas independentes. Execuções antigas são canceladas
+quando uma revisão mais nova as substitui no mesmo fluxo.
+
+O instalador de desenvolvimento resultante é sempre vinculado ao SHA exato
+de `ordax-os` e ao SHA da Surface do lock **daquele commit**, verificado
+na compilação, no recibo e no smoke instalado. O nome/versionamento do
+shell Electron não é o número da Entrega nem representa o SHA da fonte OS.
+
+Esse CI **não instala automaticamente** o novo shell no computador do
+usuário, não publica o canal Stable e não grava USB. O Desktop Dev já
+instalado continua dependente de uma instalação/upgrade verificado do
+shell e de seu próprio update transacional do conteúdo OS. Assim,
+`build aprovado`, `artefato disponível` e `Desktop efetivamente ativo
+na revisão` permanecem três fatos distintos e verificáveis.
+
+Mudanças exclusivamente Linux (kernel/base/USB) não devem acionar um
+novo instalador Windows; mudanças no núcleo compartilhado, no lock
+Surface ou nos adaptadores Windows devem acioná-lo.
+
 ## Desenvolvimento e empacotamento
 
 A partir da raiz (Node/npm instalados):
