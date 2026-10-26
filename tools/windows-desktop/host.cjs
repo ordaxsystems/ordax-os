@@ -23,7 +23,7 @@ function isReady(port) {
     request.on('error',()=>resolve(false));
   });
 }
-async function startHost({root,stateDirectory,userData,log,builtAssetsRoot=null,
+async function startHost({root,template=root,stateDirectory,userData,log,builtAssetsRoot=null,
   fileToken,localSessionToken,nativeSessionToken,diagnosticToken,deviceProfileToken,stateToken,networkToken,observationToken,displayToken,sourceSha=""}) {
   if(typeof fileToken!=="string" || !/^[0-9a-f]{64}$/.test(fileToken))
     throw TypeError("OrdaX Desktop Files require per-launch authorization");
@@ -50,10 +50,12 @@ async function startHost({root,stateDirectory,userData,log,builtAssetsRoot=null,
   // Old Git candidates may predate the compiled Native listener. Preserve
   // rollback by mounting the verified offline compiler only for those Vite
   // fallback versions, never for a normal compiled boot.
-  if(!staticHost && root!==join(process.resourcesPath||'','runtime-template')){
+  if(!staticHost && root!==template){
     const {dependencies}=require('./checkout.cjs');
-    dependencies(root,join(process.resourcesPath||'','runtime-template'),userData);
+    dependencies(root,template,userData);
   }
+  if(!staticHost && !existsSync(join(root,'node_modules','vite','bin','vite.js')))
+    throw Error('Uncompiled Native fallback requires a verified offline Dev toolchain');
   const entry=staticHost?installedNative:
     join(root,'tools','windows-emulator','dev-supervisor.mjs');
   const child=fork(entry,[],{
