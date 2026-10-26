@@ -113,6 +113,15 @@ test('legacy canonical expanded compiler remains supported during rollback',t=>{
   assert.equal(existsSync(join(f.profile,'runtime-toolchains')),false);
 });
 
+test('isolated worker retains unpacked legacy compiler without archive metadata',async t=>{
+  const f=fixture(t);
+  const legacy=join(f.template,'node_modules');
+  mkdirSync(join(legacy,'vite'),{recursive:true});
+  rmSync(join(f.template,'toolchain'),{recursive:true,force:true});
+  assert.equal(await ensureRuntimeToolchainIsolated(f.template,f.profile),legacy);
+  assert.equal(existsSync(join(f.profile,'runtime-toolchains')),false);
+});
+
 test('modified expanded compiler cache is rejected even with its original marker',t=>{
   const f=fixture(t);
   const tree=ensureRuntimeToolchain(f.template,f.profile);
