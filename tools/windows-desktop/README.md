@@ -383,13 +383,26 @@ CI Windows [#39446071435](https://github.com/ordaxsystems/ordax-os/actions/runs/
 ## Dependências Node no instalador de desenvolvimento
 
 O instalador Windows mantém o Vite necessário para compilar, com verificação, uma
-nova revisão da mesma Surface. O empacotamento **não** distribui toda a árvore
-`node_modules` de desenvolvimento: `runtime-toolchain.cjs` projeta a partir
-do `package.json` e do `package-lock.json` canônicos somente o fechamento das
-dependências de produção mais Vite (incluindo as dependências nativas opcionais
-da plataforma instalada). O resultado é gerado em `out/windows-desktop-toolchain/`
-e não cria outro lock, outra implementação visual ou outro owner de atualização.
+nova revisão da mesma Surface. `runtime-toolchain.cjs` projeta somente o
+fechamento canônico de `package.json` + `package-lock.json`, incluindo os
+opcionais nativos da plataforma. **O pacote NSIS não materializa milhares de
+arquivos individuais em Program Files**: transporta
+`runtime-template/toolchain/node_modules.tar.gz` e
+`toolchain-receipt.json` contendo SHA-256 do arquivo, SHA-256 do lock e
+digest da árvore de arquivos. Não existe um segundo lock nem fonte visual.
 
-A prova do NSIS continua compilando dois commits Git OS/Surface com essas
-**exatas dependências empacotadas e protegidas contra escrita**. Sem aprovação
-desse gate, não considerar o instalador leve ou homologado.
+O Native compilado inicia sem extrair Vite. Somente uma compilação Owner/Dev
+(ou fallback explícito de uma versão Git antiga) chama o adaptador único
+`toolchain-cache.cjs`, que verifica arquivo e recibo, nega traversal/links,
+extrai para `userData/runtime-toolchains/<archive_sha256>` e verifica o digest
+da árvore expandida **inclusive nas reutilizações**. O cache não contém fonte
+canônica nem cria nova política de atualização: é projeção descartável da
+distribuição instalada. Jamais escreve dependências em Program Files ou
+precisa buscar npm na rede para construir uma candidata Dev.
+
+O smoke NSIS deve provar instalação e upgrade com archive protegido contra
+escrita, seguido de compilação real de duas revisões OS/Surface usando somente
+essa fonte offline, além de rollback, Surface e autorizações intactos.
+Os tempos de CI são apenas métricas comparativas, **não** medição física
+no Desktop do usuário. Se essas provas não forem aprovadas, o PR não deve
+ser promovido.
