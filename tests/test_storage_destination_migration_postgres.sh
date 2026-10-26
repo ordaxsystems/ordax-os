@@ -61,7 +61,7 @@ BEGIN
  IF (select count(*) from public.ordax_user_objects) <> 1 THEN
    RAISE EXCEPTION 'synthetic-subject-a-cross-account-read';
  END IF;
-END
+END;
 $isolation$;
 ROLLBACK;
 
@@ -73,7 +73,7 @@ BEGIN
  IF (select count(*) from public.ordax_user_objects) <> 1 THEN
    RAISE EXCEPTION 'synthetic-subject-b-cross-account-read';
  END IF;
-END
+END;
 $isolation$;
 ROLLBACK;
 
@@ -85,7 +85,7 @@ BEGIN
  IF has_table_privilege('authenticated','public.ordax_user_objects','INSERT')
     OR has_table_privilege('authenticated','private.ordax_user_upload_reservations','SELECT')
  THEN RAISE EXCEPTION 'synthetic-direct-write-or-private-read'; END IF;
-END
+END;
 $untrusted$;
 ROLLBACK;
 SQL
