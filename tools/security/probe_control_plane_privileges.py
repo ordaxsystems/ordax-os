@@ -40,7 +40,7 @@ def _load_private_rls_contract() -> dict:
         or data["private_schema_data_api_exposure_allowed"] is not False
         or data["anon_or_service_role_execute_approved_helpers_allowed"] is not False
         or len(helpers) != 5
-        or len(policies) != 13
+        or len(policies) != 15
     ):
         raise ValueError("private RLS helper contract is not approved")
     if (
