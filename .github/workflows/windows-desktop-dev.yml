@@ -123,8 +123,8 @@ jobs:
       - name: Install desktop shell toolchain
         working-directory: tools/windows-desktop
         run: npm ci --no-audit --no-fund
-      - name: Test built Native asset route
-        run: node --test tools/windows-emulator/desktop-built-assets.test.mjs
+      - name: Test installed Native HTTP host without Vite
+        run: node --test tools/windows-emulator/desktop-built-assets.test.mjs tools/windows-emulator/desktop-native-server.test.mjs
       - name: Compile canonical Native Surface for Windows
         run: npx vite build --config tools/windows-desktop/vite-native-build.mjs
       - name: Bind installer to exact OS + Surface Native provenance
