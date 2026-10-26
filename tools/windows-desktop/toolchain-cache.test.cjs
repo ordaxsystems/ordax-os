@@ -1,18 +1,18 @@
 'use strict';
 const test=require('node:test');
 const assert=require('node:assert/strict');
-const {mkdtempSync,mkdirSync,writeFileSync,readFileSync,rmSync,existsSync,readdirSync,renameSync,symlinkSync}=require('node:fs');
+const {mkdtempSync,mkdirSync,writeFileSync,readFileSync,rmSync,existsSync,readdirSync,renameSync,symlinkSync,utimesSync,statSync}=require('node:fs');
 const {join}=require('node:path');
 const {tmpdir}=require('node:os');
 const {createHash}=require('node:crypto');
 const {spawnSync}=require('node:child_process');
-const {archiveReceipt,ensureRuntimeToolchain,calculateTreeDigest}=require('./toolchain-cache.cjs');
+const {archiveReceipt,ensureRuntimeToolchain,ensureRuntimeToolchainIsolated,calculateTreeDigest}=require('./toolchain-cache.cjs');
 const hash=data=>createHash('sha256').update(data).digest('hex');
 const run=(args)=>{
   const p=spawnSync('tar',args,{encoding:'utf8',windowsHide:true,timeout:15000});
   assert.equal(p.status,0,p.stderr||p.error?.message);
 };
-function fixture(t){
+function fixture(t,{staleMtime=false}={}){
   const root=mkdtempSync(join(tmpdir(),'ordax-packed-toolchain-'));
   t.after(()=>rmSync(root,{recursive:true,force:true,maxRetries:3,retryDelay:120}));
   const build=join(root,'build'),template=join(root,'template'),profile=join(root,'user');
@@ -23,6 +23,10 @@ function fixture(t){
   mkdirSync(profile);
   writeFileSync(join(modules,'vite','bin','vite.js'),'console.log("locked compiler");');
   writeFileSync(join(modules,'react','package.json'),'{"name":"react"}');
+  if(staleMtime){
+    const old=new Date('2001-01-01T00:00:00Z');
+    utimesSync(join(modules,'vite','bin','vite.js'),old,old);
+  }
   const archive=join(template,'toolchain','node_modules.tar.gz');
   run(['-czf',archive,'-C',build,'node_modules']);
   const bytes=readFileSync(archive);
@@ -90,4 +94,27 @@ test('a non-directory cache target fails closed before reading its marker',t=>{
   writeFileSync(target,'not a compiler');
   assert.throws(()=>ensureRuntimeToolchain(f.template,f.profile),
     /Untrusted linked Desktop compiler cache target/);
+});
+
+test('staged compiler extraction runs in a child, preserves bytes and skips obsolete NTFS timestamps',async t=>{
+  const f=fixture(t,{staleMtime:true});
+  let mainLoopRan=false;
+  const loading=ensureRuntimeToolchainIsolated(f.template,f.profile);
+  setImmediate(()=>{mainLoopRan=true;});
+  const nodeModules=await loading;
+  assert.equal(mainLoopRan,true,'toolchain must not block the caller event loop');
+  assert.equal(calculateTreeDigest(nodeModules),f.receipt.tree_sha256);
+  const vite=join(nodeModules,'vite','bin','vite.js');
+  assert.match(readFileSync(vite,'utf8'),/locked compiler/);
+  assert.ok(statSync(vite).mtimeMs>Date.UTC(2025,0,1),
+    'metadata-only source timestamp must not be restored');
+  assert.equal(nodeModules,await ensureRuntimeToolchainIsolated(f.template,f.profile));
+});
+
+test('isolated compiler worker rejects a tampered archive without promoting executable bytes',async t=>{
+  const f=fixture(t);
+  writeFileSync(f.archive,Buffer.concat([readFileSync(f.archive),Buffer.from('tampered')]));
+  await assert.rejects(ensureRuntimeToolchainIsolated(f.template,f.profile),
+    /archive digest mismatch/);
+  assert.equal(existsSync(join(f.profile,'runtime-toolchains')),false);
 });
