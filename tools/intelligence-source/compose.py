@@ -24,12 +24,6 @@ WRAPPER_FILES = {
     "system/services/local-ai/completion-stream.mjs": "completion-stream.mjs",
     "system/services/local-ai/model-compatibility.mjs": "model-compatibility.mjs",
 }
-WRAPPER_ROOT = Path(__file__).resolve().parents[2] / "system/services/intelligence-source/wrappers"
-# Exactly one source of OS's public-contract bridge bodies: these files are
-# staged by the same Supervisor transaction in Owner/Dev and CI in Native.
-WRAPPERS = { target: (WRAPPER_ROOT / name).read_text(encoding="utf-8")
-             for target, name in WRAPPER_FILES.items() }
-
 class CompositionError(ValueError):
     pass
 
@@ -42,6 +36,19 @@ def regular_tree(root:Path) -> None:
             typ=p.lstat().st_mode
             if not (stat.S_ISREG(typ) or stat.S_ISDIR(typ)):
                 raise CompositionError("linked or special file forbidden in staged source")
+
+def load_wrappers(os_root: Path) -> dict[str, str]:
+    """Read bridges from the supplied OS revision, never the tool checkout."""
+    templates = os_root / "system/services/intelligence-source/wrappers"
+    if templates.is_symlink() or not templates.is_dir():
+        raise CompositionError("OS wrapper template directory missing or linked")
+    result = {}
+    for target, name in WRAPPER_FILES.items():
+        path = templates / name
+        if path.is_symlink() or not path.is_file():
+            raise CompositionError("OS wrapper template missing or linked: " + name)
+        result[target] = path.read_text(encoding="utf-8")
+    return result
 
 def verify_intelligence_stage(root: Path, lock:dict) -> dict:
     if root.is_symlink() or not root.is_dir():
@@ -93,6 +100,7 @@ def compose(os_root:Path, intelligence_stage:Path, destination:Path, lock_file:P
     verified=verify_intelligence_stage(intelligence_stage,lock)
     origin=os_root/"system"
     regular_tree(origin)
+    wrappers=load_wrappers(os_root)
     parent=destination.parent.resolve(strict=True)
     for input_root in (os_root,intelligence_stage):
         if os.path.commonpath((str(candidate),str(input_root)))==str(input_root):
@@ -101,7 +109,7 @@ def compose(os_root:Path, intelligence_stage:Path, destination:Path, lock_file:P
         raise CompositionError("refusing to overwrite a candidate tree")
     if not destination.parent.is_dir() or destination.parent.is_symlink():
         raise CompositionError("staging output parent must be regular")
-    for old in WRAPPERS:
+    for old in wrappers:
         p=os_root/old
         if p.is_symlink() or not p.is_file():
             raise CompositionError("OS expected module is missing: "+old)
@@ -114,7 +122,7 @@ def compose(os_root:Path, intelligence_stage:Path, destination:Path, lock_file:P
         if target.exists() or target.is_symlink():
             raise CompositionError("duplicate external source path in OS")
         shutil.copytree(intelligence_stage/"system/intelligence-source",target,symlinks=False)
-        for path,body in WRAPPERS.items():
+        for path,body in wrappers.items():
             dest=tmp/path
             dest.write_text(body,encoding="utf-8")
             dest.chmod(0o644)
