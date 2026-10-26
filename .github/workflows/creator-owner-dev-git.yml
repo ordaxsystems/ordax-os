@@ -101,9 +101,11 @@ jobs:
   build-and-publish:
     runs-on: ubuntu-24.04
     timeout-minutes: 360
-    # Serialize exact source build ownership with the independent producer.
+    # Serialize Surface producers across commits of the same PR, not only
+    # identical source SHAs: a docs-only revision shares the EROFS fingerprint.
+    # Never cancel the running costly producer; verify the artifact on reuse.
     concurrency:
-      group: ordax-surface-producer-${{ github.event.pull_request.head.sha || github.sha }}
+      group: ordax-surface-producer-${{ github.event.pull_request.number || github.ref }}
       cancel-in-progress: false
     env:
       # Exact checkout identity for push and PR; github.sha on PR is the
