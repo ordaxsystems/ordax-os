@@ -47,6 +47,13 @@ async function startHost({root,stateDirectory,userData,log,builtAssetsRoot=null,
   // older installed fallback without the Native runner still uses Vite;
   // no unverified candidate or development checkout gains a new boot path.
   const staticHost=Boolean(builtAssetsRoot && existsSync(installedNative));
+  // Old Git candidates may predate the compiled Native listener. Preserve
+  // rollback by mounting the verified offline compiler only for those Vite
+  // fallback versions, never for a normal compiled boot.
+  if(!staticHost && root!==join(process.resourcesPath||'','runtime-template')){
+    const {dependencies}=require('./checkout.cjs');
+    dependencies(root,join(process.resourcesPath||'','runtime-template'),userData);
+  }
   const entry=staticHost?installedNative:
     join(root,'tools','windows-emulator','dev-supervisor.mjs');
   const child=fork(entry,[],{
