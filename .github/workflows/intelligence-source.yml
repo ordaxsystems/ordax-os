@@ -13,6 +13,7 @@ on:
       - '.github/workflows/portable-v2-qemu-boot-proof.yml'
       - 'tools/ci/portable_component_cache.py'
       - 'tests/test_portable_component_cache.py'
+      - 'tests/test_intelligence_external_builder_consumers.py'
       - 'tests/test_intelligence_external_integration.mjs'
       - '.github/workflows/intelligence-source.yml'
   push:
@@ -29,6 +30,7 @@ on:
       - '.github/workflows/portable-v2-qemu-boot-proof.yml'
       - 'tools/ci/portable_component_cache.py'
       - 'tests/test_portable_component_cache.py'
+      - 'tests/test_intelligence_external_builder_consumers.py'
       - '.github/workflows/intelligence-source.yml'
 permissions:
   contents: read
@@ -43,6 +45,8 @@ jobs:
         with:
           python-version: '3.12'
       - run: python -m unittest discover -s tests -p 'test_intelligence_source_gate.py' -v
+      - name: Refuse QEMU legacy builder and cache without pinned external revision
+        run: python -m unittest tests.test_intelligence_external_builder_consumers -v
       - name: Resolve the only OS-pinned external source via shared verifier
         uses: ./.github/actions/resolve-intelligence-builder
         with:
