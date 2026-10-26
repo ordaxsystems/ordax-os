@@ -97,6 +97,7 @@ jobs:
             "tests/test_desktop_network_status.mjs",
             "tests/test_desktop_system_metrics.mjs",
             "tests/test_desktop_power_status.mjs",
+            "tests/test_windows_desktop_display_current_modes.mjs",
             "tests/test_desktop_file_space.mjs",
             "tests/test_desktop_update_status.mjs",
             "tests/test_desktop_recovery_status.mjs",
