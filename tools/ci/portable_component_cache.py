@@ -419,6 +419,7 @@ def write_fingerprints(github_output: Path, root: Path = ROOT) -> dict[str, str]
     aliases = {
         "kernel": "kernel",
         "independent_base": "independent-base",
+        "independent_base_owner": "independent-base-owner",
         "local_ai": "local-ai",
         "surface": "surface",
         "release_agent": "release-agent",
