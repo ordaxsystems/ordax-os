@@ -25,6 +25,61 @@ test("no update journal is not an invented successful delivery", async t => {
   assert.ok(status.lastError.length > 0);
 });
 
+test("verified installed bundle reports running OS without fabricating a Git activation", async t => {
+  const root=mkdtempSync(join(tmpdir(),"ordax-desktop-bundled-running-"));
+  t.after(()=>rmSync(root,{recursive:true,force:true}));
+  const journal={schema:"ordax.desktop-dev-update-state/1",activeSha:null,
+    previousSha:null,pendingSha:null,attemptedSha:null,pinnedSha:null,
+    rejectedSha:null,incompatibleSha:null};
+  writeFileSync(join(root,"desktop-dev-update-state.json"),JSON.stringify(journal));
+  const running=await readDesktopUpdateStatus(root,{renderedSourceSha:a});
+  assert.equal(running.sourceSha,a);
+  assert.equal(running.runtimeSurfaceSha,a);
+  assert.equal(running.status,"running");
+  assert.equal(running.phase,"idle");
+  assert.equal(running.updateTransport,"git-main");
+  assert.equal(running.lastAppliedSha,"","installer fallback is not a Git activation");
+  assert.equal(running.deliveryNumber,0);
+  assert.equal(running.lastError,"");
+  assert.equal(running.bootRefreshRequired,false);
+  const inaccessible=await readDesktopUpdateStatus(root);
+  assert.equal(inaccessible.status,"unavailable","unproven bundled source cannot be marked ready");
+  assert.equal(inaccessible.phase,"blocked");
+});
+
+test("an old incompatible SHA remains diagnostic until official verified discovery retires it", async t => {
+  const root=mkdtempSync(join(tmpdir(),"ordax-desktop-stale-incompat-"));
+  t.after(()=>rmSync(root,{recursive:true,force:true}));
+  const journal={schema:"ordax.desktop-dev-update-state/1",activeSha:null,
+    previousSha:null,pendingSha:null,attemptedSha:null,pinnedSha:null,
+    rejectedSha:null,incompatibleSha:b};
+  writeFileSync(join(root,"desktop-dev-update-state.json"),JSON.stringify(journal));
+  const status=await readDesktopUpdateStatus(root,{renderedSourceSha:a});
+  assert.equal(status.sourceSha,a);
+  assert.equal(status.status,"running","host can run valid bundle while next update is incompatible");
+  assert.equal(status.phase,"blocked");
+  assert.equal(status.targetSha,b);
+  assert.match(status.lastError,/contrato Desktop/);
+});
+
+test("live runtime proof mismatching active Git journal fails closed without false success", async t => {
+  const root=mkdtempSync(join(tmpdir(),"ordax-desktop-mismatch-"));
+  t.after(()=>rmSync(root,{recursive:true,force:true}));
+  const journal={schema:"ordax.desktop-dev-update-state/1",activeSha:b,
+    previousSha:null,pendingSha:null,attemptedSha:null,pinnedSha:null,
+    rejectedSha:null,incompatibleSha:null};
+  writeFileSync(join(root,"desktop-dev-update-state.json"),JSON.stringify(journal));
+  const mismatch=await readDesktopUpdateStatus(root,{renderedSourceSha:a});
+  assert.equal(mismatch.sourceSha,a,"show running source, not unbootable journal source");
+  assert.equal(mismatch.lastAppliedSha,b,"preserve accurate Git journal history");
+  assert.equal(mismatch.status,"unavailable");
+  assert.equal(mismatch.phase,"error");
+  assert.match(mismatch.lastError,/journal difere/);
+  const tampered=await readDesktopUpdateStatus(root,{renderedSourceSha:"../bad"});
+  assert.equal(tampered.status,"unavailable");
+  assert.equal(tampered.phase,"error");
+});
+
 test("staged source, active source and pinned rollback produce real canonical phases", () => {
   const state = {schema:"ordax.desktop-dev-update-state/1", activeSha:a,
     previousSha:null,pendingSha:b,attemptedSha:null,pinnedSha:null,rejectedSha:null};
@@ -96,5 +151,6 @@ test("the packaged host is configured to read the same journal used by Desktop D
   assert.ok(observationPolicy.OBSERVATION_ROUTES.includes("/__ordax/native/update-history"));
   assert.ok(nativeHost.includes("OBSERVATION_ROUTES.includes(path)"));
   assert.ok(nativeHost.includes("createDesktopObservationGrantMiddleware"));
-  assert.ok(nativeHost.includes("readDesktopUpdateStatus(directory)"));
+  assert.ok(nativeHost.includes("readDesktopUpdateStatus(directory,{renderedSourceSha})"));
+  assert.ok(nativeHost.includes("process.env.ORDAX_DESKTOP_RENDERED_SOURCE_SHA"));
 });
