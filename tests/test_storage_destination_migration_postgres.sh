@@ -23,7 +23,12 @@ fi
 python3 infra/supabase/product/render_storage_quota_destination_migration.py \
   --project-ref "${PROJECT_REF}" --emit-commit-sql \
   --confirm-destination "${PROJECT_REF}" > /tmp/ordax-storage-commit.sql
-psql -v ON_ERROR_STOP=1 -f /tmp/ordax-storage-commit.sql > /dev/null
+# Exercise the immutable versioned migration, not an ad-hoc renderer artifact.
+VERSIONED_SQL="infra/supabase/product/migrations/20261026222222_storage_quota_populated_destination_v1.sql"
+cmp -s /tmp/ordax-storage-commit.sql "${VERSIONED_SQL}" || {
+  echo "Versioned migration differs from canonical SQL generator" >&2; exit 1;
+}
+psql -v ON_ERROR_STOP=1 -f "${VERSIONED_SQL}" > /dev/null
 
 # All five relations exist with RLS enabled and no direct write authority.
 psql -Atqc "
@@ -91,7 +96,7 @@ ROLLBACK;
 SQL
 
 # Replaying on installed destination must FAIL before any schema mutation.
-if psql -v ON_ERROR_STOP=1 -f /tmp/ordax-storage-commit.sql >/tmp/ordax-storage-replay.log 2>&1; then
+if psql -v ON_ERROR_STOP=1 -f "${VERSIONED_SQL}" >/tmp/ordax-storage-replay.log 2>&1; then
   echo "Migration replay unexpectedly succeeded" >&2; exit 1
 fi
 grep -q "storage-destination-partial-or-previous-install" /tmp/ordax-storage-replay.log
