@@ -96,7 +96,18 @@ class CreatorKernelReuseWorkflowTests(unittest.TestCase):
         workflow = self.assert_verified_kernel_reuse(OWNER_DEV)
         dev_base = self.step_block(workflow, "Build boot initramfs and Git development base")
         self.assertNotIn("bootstrap/kernel/build.py", dev_base)
-        self.assertNotIn("cache-hit", dev_base)
+        # Kernel is reusable independently; the Owner rootfs may now also be
+        # reused, but the Git seed and offline QEMU proof are never skipped.
+        self.assertIn("steps.owner-base-cache.outputs.cache-hit", dev_base)
+        self.assertIn("portable_component_cache.py verify", dev_base)
+        self.assertIn("--component independent-base-owner", dev_base)
+        self.assertIn("owner-base-component-reuse.json", dev_base)
+        owner_restore = self.step_block(workflow, "Restore verified Owner Buildroot base")
+        owner_save = self.step_block(workflow, "Save verified Owner Buildroot for reuse")
+        for block in (owner_restore, owner_save):
+            self.assertIn("steps.component-fingerprints.outputs.independent_base_owner", block)
+            self.assertIn("independent-base-owner-", block)
+        self.assertNotIn("restore-keys:", owner_restore)
         self.assertIn(
             'ORDAX_KERNEL_MODULES_ARCHIVE="$PWD/out/kernel/kernel-modules-$ORDAX_KERNEL_VERSION.tar"',
             dev_base,
