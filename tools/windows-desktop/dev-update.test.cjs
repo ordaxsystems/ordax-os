@@ -12,6 +12,18 @@ const { readState, writeState, validateState, versionRoot, stageMain,
   chooseBootVersion, confirmHealthy, pinPrevious, unpin, shouldAutoActivate,
   sweepStaleCandidates, removeOwnedCandidate, prepareWindowsGitDeletion } = require('./dev-update.cjs');
 
+test('Electron connects ordax-pull staging to automatic, health-gated idle activation',()=>{
+  const source=readFileSync(join(__dirname,'main.cjs'),'utf8');
+  assert.match(source,/const result=await stageMain\(\{userData,template,log\}\)/);
+  assert.match(source,/activationTimer=setInterval\(\(\)=>activatePendingWhenIdle\(userData\),15\*1000\)/);
+  assert.match(source,/powerMonitor\.getSystemIdleTime\(\)/);
+  assert.match(source,/shouldAutoActivate\(state,/);
+  assert.match(source,/app\.relaunch\(\);\s*app\.quit\(\)/);
+  assert.match(source,/devProfile \|\| staging \|\| activationRequested/);
+  assert.match(source,/if\(selected\.trial\) \{\s*confirmHealthy\(userData,selected\.sha\)/);
+  assert.match(source,/rejectCandidate\(userData,selected\.sha\)/);
+});
+
 test('ordax-pull Desktop activates only verified pending Git revisions during safe inactivity',()=>{
   const sha='a'.repeat(40);
   const state={pendingSha:sha,attemptedSha:null,pinnedSha:null};
