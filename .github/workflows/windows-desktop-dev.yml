@@ -112,6 +112,7 @@ jobs:
             "tools/windows-desktop/dev-update.test.cjs",
             "tools/windows-desktop/runtime.test.cjs",
             "tools/windows-desktop/runtime-toolchain.test.cjs",
+            "tools/windows-desktop/toolchain-cache.test.cjs",
             "tools/windows-desktop/checkout.test.cjs"
           )
           foreach ($suite in $suites) {
