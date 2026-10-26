@@ -180,10 +180,11 @@ async function desktopFirstRunComplete(userData,template){
     const validator=join(template,'system','contracts','first-run-state-store.mjs');
     const {validateFirstRunState}=await import(pathToFileURL(validator).href);
     return validateFirstRunState(saved.firstRun).completed===true;
-  }catch(error){
-    if(error?.code==='ENOENT'||error instanceof SyntaxError||error instanceof TypeError)
-      return false;
-    throw error;
+  }catch{
+    // An old bundled snapshot or corrupt OOBE state must NEVER break the
+    // known-good offline Native boot. Refuse the update, not the application.
+    // The existing Native state owner remains responsible for diagnostics.
+    return false;
   }
 }
 
