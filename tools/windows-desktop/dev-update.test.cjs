@@ -9,21 +9,106 @@ const { OFFICIAL_REMOTE } = require('./runtime.cjs');
 const { compiledBundleSha256 } = require('./native-build.cjs');
 const { git } = require('./checkout.cjs');
 const { readState, writeState, validateState, versionRoot, stageMain,
-  chooseBootVersion, confirmHealthy, pinPrevious, unpin, shouldAutoActivate, desktopFirstRunComplete,
+  chooseBootVersion, confirmHealthy, pinPrevious, unpin, shouldAutoActivate, desktopFirstRunComplete, createDesktopIdleActivation,
   sweepStaleCandidates, removeOwnedCandidate, prepareWindowsGitDeletion } = require('./dev-update.cjs');
 
 test('Electron connects ordax-pull staging to automatic, health-gated idle activation',()=>{
   const source=readFileSync(join(__dirname,'main.cjs'),'utf8');
   assert.match(source,/const result=await stageMain\(\{userData,template,log\}\)/);
-  assert.match(source,/activationTimer=setInterval\(\(\)=>\{void activatePendingWhenIdle\(userData,template\);\},15\*1000\)/);
+  assert.match(source,/idleActivation=createDesktopIdleActivation\(\{/);
+  assert.match(source,/activationTimer=setInterval\(\(\)=>\{void idleActivation\?\.\(\);\},15\*1000\)/);
   assert.match(source,/allowPendingTrial:await desktopFirstRunComplete\(userData,template\)/);
   assert.match(source,/if\(!await desktopFirstRunComplete\(userData,template\)\)return;/);
   assert.match(source,/powerMonitor\.getSystemIdleTime\(\)/);
-  assert.match(source,/shouldAutoActivate\(state,/);
+  assert.match(source,/getIdleSnapshot:\(\)=>\(\{/);
   assert.match(source,/app\.relaunch\(\);\s*app\.quit\(\)/);
-  assert.match(source,/devProfile \|\| staging \|\| activationRequested/);
+  assert.match(source,/isReady:\(\)=>!devProfile && !staging/);
   assert.match(source,/if\(selected\.trial\) \{\s*confirmHealthy\(userData,selected\.sha\)/);
   assert.match(source,/rejectCandidate\(userData,selected\.sha\)/);
+});
+
+test('ordax-pull serializes idle activation across concurrent timers',async()=>{
+  let resolveReceipt;
+  const ready={value:true};
+  let state={pendingSha:'a'.repeat(40),attemptedSha:null,pinnedSha:null};
+  let launches=0, reads=0;
+  const activate=createDesktopIdleActivation({
+    userData:'test-profile',template:'test-template',
+    read:()=>{reads++;return {...state}},
+    isReady:()=>ready.value,
+    getIdleSnapshot:()=>({idleSeconds:900,windowVisible:false,windowFocused:false}),
+    firstRunComplete:()=>new Promise(resolve=>{resolveReceipt=resolve}),
+    relaunch:()=>{launches++},
+  });
+  const first=activate();
+  assert.equal(await activate(),false,'only one asynchronous OOBE read at a time');
+  resolveReceipt(true);
+  assert.equal(await first,true);
+  assert.equal(launches,1);
+  assert.equal(reads,2,'candidate is rechecked immediately before relaunch');
+  assert.equal(await activate(),false,'a requested relaunch may not be duplicated');
+});
+
+test('ordax-pull aborts relaunch when pending SHA or rollback pin changes during OOBE read',async()=>{
+  for(const mutate of [
+    state=>({...state,pendingSha:'b'.repeat(40)}),
+    state=>({...state,pinnedSha:'a'.repeat(40)}),
+    state=>({...state,pendingSha:null}),
+  ]){
+    let state={pendingSha:'a'.repeat(40),attemptedSha:null,pinnedSha:null};
+    let finish,launches=0;
+    const activate=createDesktopIdleActivation({
+      userData:'test-profile',template:'test-template',
+      read:()=>({...state}),
+      isReady:()=>true,
+      getIdleSnapshot:()=>({idleSeconds:900,windowVisible:false,windowFocused:false}),
+      firstRunComplete:()=>new Promise(resolve=>{finish=resolve}),
+      relaunch:()=>{launches++},
+    });
+    const pending=activate();
+    state=mutate(state);
+    finish(true);
+    assert.equal(await pending,false);
+    assert.equal(launches,0,'stale state cannot trigger an Electron relaunch');
+  }
+});
+
+test('ordax-pull rechecks user activity and runtime readiness before relaunch',async()=>{
+  for(const change of ['activity','host-not-ready']){
+    let finish,launches=0,idle=900,ready=true;
+    const activate=createDesktopIdleActivation({
+      userData:'test-profile',template:'test-template',
+      read:()=>({pendingSha:'a'.repeat(40),attemptedSha:null,pinnedSha:null}),
+      isReady:()=>ready,
+      getIdleSnapshot:()=>({idleSeconds:idle,windowVisible:false,windowFocused:false}),
+      firstRunComplete:()=>new Promise(resolve=>{finish=resolve}),
+      relaunch:()=>{launches++},
+    });
+    const pending=activate();
+    if(change==='activity')idle=0;else ready=false;
+    finish(true);
+    assert.equal(await pending,false);
+    assert.equal(launches,0);
+  }
+});
+
+test('ordax-pull retries after failed Electron relaunch but not after success',async()=>{
+  let attempt=0;
+  const errors=[];
+  const activate=createDesktopIdleActivation({
+    userData:'test-profile',template:'test-template',
+    read:()=>({pendingSha:'a'.repeat(40),attemptedSha:null,pinnedSha:null}),
+    isReady:()=>true,
+    getIdleSnapshot:()=>({idleSeconds:900,windowVisible:false,windowFocused:false}),
+    firstRunComplete:async()=>true,
+    log:line=>errors.push(line),
+    relaunch:()=>{attempt++;if(attempt===1)throw Error('relaunch rejected')},
+  });
+  assert.equal(await activate(),false);
+  assert.equal(await activate(),true);
+  assert.equal(await activate(),false);
+  assert.equal(attempt,2);
+  assert.ok(errors.some(line=>line.includes('activation deferred')));
 });
 
 test('ordax-pull Desktop activates only verified pending Git revisions during safe inactivity',()=>{
