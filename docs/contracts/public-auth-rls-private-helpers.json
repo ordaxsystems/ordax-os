@@ -1,6 +1,6 @@
 {
   "$schema": "prototype-ordax.auth-private-rls-helper-contract/1",
-  "status": "reviewed-helper-allowlist-two-subject-isolation-pending",
+  "status": "private-data-api-exclusion-live-verified-two-subject-isolation-pending",
   "owner": "ordax-os / ordax-platform",
   "schema": "private",
   "approved_authenticated_execute": [
@@ -95,7 +95,7 @@
   "authenticated_private_schema_usage_required_for_rls": true,
   "anon_or_service_role_execute_approved_helpers_allowed": false,
   "private_schema_data_api_exposure_allowed": false,
-  "private_schema_data_api_exclusion_verified": false,
+  "private_schema_data_api_exclusion_verified": true,
   "two_subject_authenticated_negative_isolation_verified": false,
   "public_account_activation_allowed": false,
   "reason": "Fifteen public RLS policies, including account SELECT and UPDATE, require five private SECURITY DEFINER helpers. The initial 13-policy observation only searched access/admin helpers, not the auth-session eligibility helper in account policies. Keep these functions inside unexposed private schema; blanket REVOKE or public DEFINER wrappers are unsafe.",
@@ -103,5 +103,7 @@
     "docs/evidence/authenticated-private-helper-dependencies-expanded-2026-10-26.json",
     "docs/evidence/authenticated-private-helper-dependencies-2026-10-26.json",
     "https://supabase.com/docs/guides/database/postgres/row-level-security"
-  ]
+  ],
+  "private_schema_data_api_exclusion_evidence": "docs/evidence/private-schema-data-api-exclusion-2026-10-26.json",
+  "private_schema_data_api_exclusion_probe": "tools/security/probe_private_data_api_exposure.py"
 }
