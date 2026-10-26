@@ -162,7 +162,8 @@ async function verifiedVersion(userData, sha, template) {
   if (!head.ok || head.stdout !== sha) return null;
   const clean = await git(['-C',path,'status','--porcelain=v1','--untracked-files=all'],path,10000);
   if (!clean.ok || clean.stdout) return null;
-  if (template) dependencies(path, template);
+  // A compiled verified version never needs Vite at boot. Resolve the
+  // optional compiler cache only for a real build or legacy Vite fallback.
   return path;
 }
 
@@ -300,7 +301,7 @@ async function stageMain({ userData, template, log = () => {}, remote = OFFICIAL
       // bundle compiled from the identical staged SHA, not hundreds of modules
       // transformed on the first user launch. The staging directory is unique.
       try {
-        await buildCandidate(staging,template,{log});
+        await buildCandidate(staging,template,{log,userData});
       } catch(error) {
         // An immutable OS commit cannot acquire a different Surface SHA or
         // pass a different pinned blob hash on retry. Record that exact SHA,
