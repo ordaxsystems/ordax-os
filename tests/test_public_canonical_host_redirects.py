@@ -84,6 +84,15 @@ class CanonicalPublicHostTests(unittest.TestCase):
             'export { default } from "../lib/account-proxy-core.mjs";\n',
         )
 
+    def test_web_hostname_has_one_authoritative_project(self):
+        web = self.contract["vercel_adapter"]["web_runtime"]
+        self.assertEqual(web["project"], "ordax-web")
+        self.assertEqual(web["project_id"], "prj_ftACluUqk6i9DoD9GPIwmgURwckP")
+        self.assertEqual(web["canonical_origin"], "https://web.ordax.com.br")
+        # Historical pre-cutover status is evidence, not a second live owner.
+        for retired in ("domain_project_move_pending", "domain_current_project", "domain_target_project"):
+            self.assertNotIn(retired, web)
+
     def test_git_deployment_remains_production_only(self):
         self.assertEqual(self.config["git"]["deploymentEnabled"], {"**": False, "main": True})
         migration = self.contract["vercel_migration"]
