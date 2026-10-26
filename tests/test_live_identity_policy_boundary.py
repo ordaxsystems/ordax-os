@@ -39,8 +39,14 @@ class LiveIdentityPolicyBoundaryTests(unittest.TestCase):
             r"language sql volatile security definer set search_path = ''",
         )
         self.assertIn("select private.ordax_authenticated_subject_eligible_v1();", s)
-        for forbidden in ("join auth.sessions s", "join auth.users u", "select 1 from auth.sessions"):
-            self.assertNotIn(forbidden, s.lower())
+        # The single canonical implementation lives in this same transaction;
+        # the public wrapper still delegates rather than copying the rule.
+        self.assertEqual(s.lower().count("join auth.sessions s"), 1)
+        self.assertEqual(s.lower().count("join auth.users u"), 1)
+        self.assertEqual(
+            s.lower().count("create or replace function private.ordax_authenticated_subject_eligible_v1()"),
+            1,
+        )
         for name in (
             "can_access_space", "can_admin_space", "can_access_project", "can_access_product_device"
         ):
@@ -62,6 +68,17 @@ class LiveIdentityPolicyBoundaryTests(unittest.TestCase):
         self.assertIn("with check (%s)", s.lower())
         self.assertIn("auth.sessions", s)
         self.assertIn("u.confirmed_at is not null", s)
+        self.assertIn("0e64a11cc3d4802f7f94c1591cdadc26", s)
+        self.assertEqual(s.count("\\nbegin;"), 1)
+        self.assertEqual(s.count("\\ncommit;"), 1)
+        self.assertLess(
+            s.index("create or replace function private.ordax_authenticated_subject_eligible_v1()"),
+            s.index("create schema ordax_policy;"),
+        )
+        self.assertLess(
+            s.index("execute format('alter policy"),
+            s.index("revoke all on function private.ordax_authenticated_subject_eligible_v1()"),
+        )
         self.assertIn("eligibility/role contract drifted", s)
         self.assertIn("missing confirmed session guard", s)
         self.assertIn("eligible-subject guard not preserved in all policies", s)
