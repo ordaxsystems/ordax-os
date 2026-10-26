@@ -10,6 +10,14 @@ As seções datadas abaixo documentam etapas históricas da migração e **não*
 
 O estado atual, os gates ainda bloqueados e os owners ficam exclusivamente nos contratos canônicos [`docs/contracts/public-site-deployment.json`](../../../docs/contracts/public-site-deployment.json), [`public-auth-hardening.json`](../../../docs/contracts/public-auth-hardening.json) e [`public-legal-readiness.json`](../../../docs/contracts/public-legal-readiness.json). Provas históricas permanecem em `docs/evidence/`; comparação byte a byte do deployment vigente pertence ao recibo datado indicado pelo contrato. Abertura pública de cadastro/recuperação exige o preflight canônico, não a existência de funções ativas.
 
+## RLS de identidade: divergência verificada em 26/10/2026
+
+O destino `ordax-platform` tem **15** políticas públicas que chamam funções em `private` (13 usam `private.ordax_can_*`, todas as 15 exigem `private.ordax_authenticated_subject_eligible_v1()`). O schema `ordax_policy` ainda **não existe**. A migração histórica `20261005031500_policy_predicate_boundary_v1.sql` foi preparada para outro conjunto de 19 políticas e não preserva o gate de sessão criado depois: **não é aplicável a este destino**.
+
+A candidata forward-only `migrations/20261026182000_public_policy_subject_guard_boundary_v1.sql` tem pré-verificação de objetos, papéis, funções e predicados; reescreve apenas o nome das funções mantendo `USING` e `WITH CHECK` originais; delega as regras às funções privadas existentes e mantém explícita a confirmação da sessão. Seu pós-check verifica ACL e ausência de acesso privado do cliente. O registro de observação está em [`docs/evidence/live-identity-policy-boundary-2026-10-26.json`](../../../docs/evidence/live-identity-policy-boundary-2026-10-26.json).
+
+**A migração candidata não foi implantada.** A função de elegibilidade estava apenas no banco: sua definição foi recuperada com fingerprint `md5(pg_get_functiondef)` e versionada **na própria migração atômica** `migrations/20261026182000_public_policy_subject_guard_boundary_v1.sql`. Ela recria essa função com o código observado, preserva suas permissões até concluir a substituição das 15 políticas e só então revoga acesso privado; qualquer falha reverte a transação inteira. Ainda faltam revisão independente do código recuperado, ensaio isolado representativo, duas identidades de teste e prova de que nenhum comportamento de autorização/recuperação mudou. Não usar substituição de texto de predicados diretamente no banco sem essas verificações.
+
 ## Boundaries
 
 Product tables own account bootstrap, Spaces, server-authoritative entitlement grants, profile-pack catalog metadata, memory metadata/semantic index and project-connection metadata.
