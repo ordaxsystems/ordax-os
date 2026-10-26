@@ -152,6 +152,15 @@ class PortableComponentCacheTests(unittest.TestCase):
                 path = root / relative
                 path.parent.mkdir(parents=True, exist_ok=True)
                 path.write_text("pinned-v1\\n", encoding="utf-8")
+            # The component cache resolves the OS-owned model license text.
+            # Keep this fixture's existing runtime policy structurally valid.
+            source_lock = root / "system/services/local-ai/source-lock.json"
+            source_lock.write_text(json.dumps({
+                "model": {"license_text_path": "third_party/licenses/Apache-2.0.txt"},
+            }), encoding="utf-8")
+            license_file = root / "third_party/licenses/Apache-2.0.txt"
+            license_file.parent.mkdir(parents=True, exist_ok=True)
+            license_file.write_text("reviewed license fixture\\n", encoding="utf-8")
             lock = root / "docs/contracts/intelligence-source.json"
             first = CACHE.component_fingerprint("local-ai", root)
             lock.write_text("pinned-v2\\n", encoding="utf-8")
