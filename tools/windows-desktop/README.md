@@ -83,6 +83,43 @@ Mudanças exclusivamente Linux (kernel/base/USB) não devem acionar um
 novo instalador Windows; mudanças no núcleo compartilhado, no lock
 Surface ou nos adaptadores Windows devem acioná-lo.
 
+## Ordax-pull no Desktop Windows (Owner/Development)
+
+**Autoridade única:** `docs/contracts/distribution-profiles.json` mantém
+`owner-development = git-main`. No USB Dev, o adaptador Linux de aquisição é
+`bootstrap/dev-base/ordax-pull` e o Supervisor ativa a Surface. No Windows,
+`tools/windows-desktop/dev-update.cjs:stageMain` é o adaptador de materialização
+Git do **mesmo perfil Owner/Development e mesma main**, não um segundo canal
+de distribuição. `main.cjs` coordena apenas o ciclo de vida Electron, sem
+outro git-pull, segunda cópia da Surface ou outra base de dados.
+
+**Causa da lacuna histórica:** o Desktop instalado fazia discovery após o
+boot e a cada dez minutos, compilava e verificava uma candidata
+`runtime-versions/<SHA>`, mas a deixava em `pendingSha` até que alguém
+reiniciasse o aplicativo. Assim, não tinha a ativação automática que o
+`ordax-main-watch` mais o Supervisor já oferecem no USB Dev.
+
+**Contrato atual do branch de correção:** quando houver candidata validada,
+o Electron verifica sua condição de inatividade a cada 15 segundos e solicita
+seu próprio relançamento apenas após 60 segundos com janela oculta, 120
+segundos em segundo plano, ou 600 segundos com janela em primeiro plano.
+Não encerra uma sessão interativa ativa, não reinicia o Windows e não aplica
+código não verificado sobre a árvore em execução. Na inicialização, o mesmo
+`chooseBootVersion` seleciona a candidata uma única vez, executa o Native
+host + Surface, confirma saúde e grava `activeSha`; falha ou encerramento
+sem recibo volta ao conhecido bom e rejeita o SHA. Rollback fixado desativa
+atualizações até retomada explícita. Smoke NSIS usa perfil isolado e não
+executa reinício automático.
+
+**Fronteira de lançamento:** a consulta automática acima ocorre enquanto o
+processo Electron está aberto. Não existe ainda um serviço permanente Windows
+quando ele está totalmente encerrado. Além disso, `ordax-pull` altera o
+conteúdo OS/Surface, **não substitui o executável Electron nem seu
+`app.asar`**. Portanto corrigir esse fluxo não comprova atualização
+autônoma do shell/instalador, assinatura da distribuição pública ou paridade
+final com o USB. Nenhuma rota Git deve ser introduzida para o Stable/MVP;
+essa modalidade permanece no canal assinado já definido no contrato.
+
 ## Boot do Desktop instalado sem servidor de desenvolvimento
 
 O Desktop Windows instalado, quando recebe do Electron um bundle Native
