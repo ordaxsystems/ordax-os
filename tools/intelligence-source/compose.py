@@ -137,7 +137,7 @@ def compose(os_root:Path, intelligence_stage:Path, destination:Path, lock_file:P
             "source_repository":source.REPO,
             "source_commit":verified["source_commit"],
             "source_sha256":verified["source_sha256"],
-            "replaced_services":sorted(WRAPPERS),
+            "replaced_services":sorted(wrappers),
             "legacy_implementation_bytes_packaged":False,
             "os_checkout_mutated":False,
             "activation_authorized":False,
