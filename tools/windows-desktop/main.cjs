@@ -6,7 +6,7 @@ const { join, resolve, isAbsolute, basename } = require('node:path');
 const { randomBytes } = require('node:crypto');
 const { mkdirSync, createWriteStream, existsSync, readFileSync } = require('node:fs');
 const { resolveTemplate, runtimeStateDirectory } = require('./runtime.cjs');
-const { chooseBootVersion, confirmHealthy, rejectCandidate, stageMain, shouldAutoActivate, readState, pinPrevious, unpin } = require('./dev-update.cjs');
+const { chooseBootVersion, confirmHealthy, rejectCandidate, stageMain, shouldAutoActivate, desktopFirstRunComplete, readState, pinPrevious, unpin } = require('./dev-update.cjs');
 const { startHost, stopHost } = require('./host.cjs');
 const { verifyBundledNativeReceipt } = require('./native-build.cjs');
 let window=null, runtime=null, stream=null, browserHost=null, updateTimer=null, activationTimer=null, staging=false, activationRequested=false;
@@ -379,7 +379,7 @@ async function assertDesktopInternetSmoke(browserWindow,host) {
 // Do not invent a second updater. The existing ordax-pull Git-main staging
 // transaction is the single Desktop Dev source materializer; this is only
 // the safe handoff to the already health-gated Electron boot supervisor.
-function activatePendingWhenIdle(userData){
+async function activatePendingWhenIdle(userData,template){
   if(!app.isPackaged || devProfile || staging || activationRequested ||
      !window || window.isDestroyed() || !runtime?.child ||
      runtime.child.exitCode!==null)return;
@@ -391,6 +391,7 @@ function activatePendingWhenIdle(userData){
       windowVisible:window.isVisible(),
       windowFocused:window.isFocused(),
     }))return;
+    if(!await desktopFirstRunComplete(userData,template))return;
     activationRequested=true;
     log('ordax-pull Desktop Dev: safely relaunching idle application for verified candidate '+state.pendingSha);
     // No in-place source switch and no machine reboot. The existing
@@ -409,12 +410,15 @@ async function stageInBackground(userData,template) {
   if(staging || !app.isPackaged) return;
   staging=true;
   try {
+    // Match ordax-main-watch: never acquire/activate a new main revision
+    // while OOBE is still in progress on the canonical Native state store.
+    if(!await desktopFirstRunComplete(userData,template))return;
     const result=await stageMain({userData,template,log});
     if(result.status==='staged') log('ordax-pull Desktop Dev: verified candidate staged; idle activation scheduled: '+result.sha);
     else if(!['current','pending','pinned','rejected'].includes(result.status))
       log('Desktop Dev update check: '+result.status);
   }catch(error){log('Desktop Dev update check blocked: '+error.message);}
-  finally{staging=false;activatePendingWhenIdle(userData);}
+  finally{staging=false;void activatePendingWhenIdle(userData,template);}
 }
 app.on('before-quit',()=>{
   if(updateTimer){clearInterval(updateTimer);updateTimer=null;}
@@ -471,7 +475,8 @@ app.whenReady().then(async()=>{
     // Packaged startup never waits for Git/network or mutates a running checkout.
     // A staged source gets one trial; a missing health receipt rolls it back.
     const selected=app.isPackaged
-      ? await chooseBootVersion({userData,template,log})
+      ? await chooseBootVersion({userData,template,log,
+          allowPendingTrial:await desktopFirstRunComplete(userData,template)})
       : {root:template,sha:null,trial:false};
     // The exact installed OS SHA is already pinned by the verified Native
     // bundle receipt; update candidates use their validated Git SHA.
@@ -524,7 +529,7 @@ app.whenReady().then(async()=>{
       updateTimer.unref?.();
       // Discovery and activation are separate stages; a staged revision
       // must not remain pending indefinitely until someone restarts the app.
-      activationTimer=setInterval(()=>activatePendingWhenIdle(userData),15*1000);
+      activationTimer=setInterval(()=>{void activatePendingWhenIdle(userData,template);},15*1000);
       activationTimer.unref?.();
     }
 
