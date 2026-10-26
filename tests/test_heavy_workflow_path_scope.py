@@ -45,6 +45,18 @@ class HeavyWorkflowPathScopeTests(unittest.TestCase):
         surface = (WORKFLOW_DIR / "surface-web-candidate.yml").read_text(encoding="utf-8")
         self.assertEqual(surface.count("      - 'system/composition/native/**'"), 2)
 
+    def test_local_ai_engine_candidate_does_not_rebuild_for_disposable_composition(self):
+        text = (WORKFLOW_DIR / "local-ai-runtime-candidate.yml").read_text(encoding="utf-8")
+        self.assertNotIn("      - 'tools/intelligence-source/**'", text)
+        self.assertNotIn("      - 'tools/intelligence-source/compose.py'", text)
+        self.assertIn("      - 'tools/intelligence-source/materialize.py'", text)
+        self.assertIn("      - 'docs/contracts/intelligence-source.json'", text)
+        self.assertIn("      - '.github/actions/resolve-intelligence-builder/**'", text)
+        self.assertIn("      - '.github/workflows/local-ai-runtime-candidate.yml'", text)
+        self.assertIn("Build real local AI runtime twice", text)
+        self.assertIn("group: local-ai-runtime-candidate-", text)
+        self.assertIn("cancel-in-progress: ${{ github.event_name == 'pull_request' }}", text)
+
     def test_generic_system_payload_is_owned_by_lightweight_release_bundle_gate(self):
         text = (WORKFLOW_DIR / "release-bundle.yml").read_text(encoding="utf-8")
         self.assertEqual(text.count(SYSTEM_INCLUDE), 2)

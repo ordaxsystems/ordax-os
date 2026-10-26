@@ -7,7 +7,9 @@ on:
       - 'system/services/local-ai/source-lock.json'
       - 'docs/contracts/local-ai.json'
       - 'docs/contracts/intelligence-source.json'
-      - 'tools/intelligence-source/**'
+      # Only the immutable engine materializer can change this real EROFS build.
+      # Disposable OS composition is validated by intelligence-source/release gates.
+      - 'tools/intelligence-source/materialize.py'
       - '.github/actions/resolve-intelligence-builder/**'
       - 'bootstrap/release-acquisition/**'
       - 'tools/release-manifest/**'
@@ -27,6 +29,11 @@ on:
 
 permissions:
   contents: read
+
+# Discard outdated PR engine builds. Manual proof runs keep their own run ID.
+concurrency:
+  group: local-ai-runtime-candidate-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   candidate:

@@ -268,6 +268,23 @@ class PortableQemuImpactTests(unittest.TestCase):
         self.assertFalse(result.required)
         self.assertEqual(result.reasons, ("no-heavy-portable-impact",))
 
+    def test_intelligence_disposable_composition_uses_focused_gates_not_qemu(self):
+        changed = [
+            "system/services/intelligence-source/wrappers/intelligence-runtime.mjs",
+            "tools/intelligence-source/compose.py",
+            "tests/test_native_release_intelligence_source.py",
+            ".github/workflows/local-ai-runtime-candidate.yml",
+        ]
+        result = impact.classify_paths(changed, root=ROOT)
+        self.assertFalse(result.required)
+        self.assertEqual(result.reasons, ("no-heavy-portable-impact",))
+        boot = impact.classify_paths([*changed, "system/entrypoint"], root=ROOT)
+        self.assertTrue(boot.required)
+        self.assertIn("heavy-exact:system/entrypoint", boot.reasons)
+        kernel = impact.classify_paths([*changed, "bootstrap/kernel/source.json"], root=ROOT)
+        self.assertTrue(kernel.required)
+        self.assertIn("heavy-non-system:bootstrap/kernel/source.json", kernel.reasons)
+
     def test_ci_scope_migration_does_not_require_portable_qemu(self):
         result = impact.classify_paths(
             [
