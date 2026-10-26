@@ -23,6 +23,9 @@ test('Electron connects ordax-pull staging to automatic, health-gated idle activ
   assert.match(source,/getIdleSnapshot:\(\)=>\(\{/);
   assert.match(source,/app\.relaunch\(\);\s*app\.quit\(\)/);
   assert.match(source,/isReady:\(\)=>!devProfile && !staging/);
+  assert.match(source,/!browserHost\.hasActiveWork\(\)/);
+  assert.match(source,/!window\.webContents\.isCurrentlyAudible\?\.\(\)/);
+  assert.match(source,/runtime\.child\.signalCode===null/);
   assert.match(source,/if\(selected\.trial\) \{\s*confirmHealthy\(userData,selected\.sha\)/);
   assert.match(source,/rejectCandidate\(userData,selected\.sha\)/);
 });
