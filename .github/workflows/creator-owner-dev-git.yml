@@ -286,6 +286,13 @@ jobs:
           path: out/kernel
           key: ordax-portable-component-v1-${{ runner.os }}-${{ runner.arch }}-kernel-${{ steps.component-fingerprints.outputs.kernel }}
 
+      - name: Restore verified Owner Buildroot base
+        id: owner-base-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/owner-independent-base
+          key: ordax-portable-component-v1-${{ runner.os }}-${{ runner.arch }}-independent-base-owner-${{ steps.component-fingerprints.outputs.independent_base_owner }}
+
       - name: Build boot initramfs and Git development base
         env:
           ORDAX_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
@@ -325,16 +332,37 @@ jobs:
           export ORDAX_KERNEL_MODULES_ARCHIVE="$PWD/out/kernel/kernel-modules-$ORDAX_KERNEL_VERSION.tar"
           export ORDAX_KERNEL_MODULES_RECEIPT="$RUNNER_TEMP/owner-independent-base/kernel-module-payload.json"
           export ORDAX_FIRMWARE_COVERAGE_RECEIPT="$RUNNER_TEMP/owner-independent-base/firmware-coverage.json"
-          sudo -E python3 bootstrap/independent-base/build.py build \
-            --profile owner-development --out "$RUNNER_TEMP/owner-independent-base" \
-            --cache "$RUNNER_TEMP/owner-independent-cache" --jobs 4
+          owner_cache_hit='${{ steps.owner-base-cache.outputs.cache-hit }}'
+          if [ "$owner_cache_hit" != true ]; then
+            owner_cache_hit=false
+            echo 'ORDAX_OWNER_BASE_CACHE_MISS=build-affecting-input-or-environment'
+            sudo -E python3 bootstrap/independent-base/build.py build \
+              --profile owner-development --out "$RUNNER_TEMP/owner-independent-base" \
+              --cache "$RUNNER_TEMP/owner-independent-cache" --jobs 4
+          fi
           sudo -E python3 bootstrap/independent-base/build.py verify \
             --profile owner-development --out "$RUNNER_TEMP/owner-independent-base"
+          metadata="$RUNNER_TEMP/owner-dev/metadata"
+          if [ "$owner_cache_hit" = false ]; then
+            sudo -E python3 tools/ci/portable_component_cache.py record \
+              --component independent-base-owner \
+              --out-dir "$RUNNER_TEMP/owner-independent-base" \
+              --source-commit "$ORDAX_OWNER_SOURCE_COMMIT" \
+              > "$metadata/owner-base-cache-record.json"
+          fi
+          python3 tools/ci/portable_component_cache.py verify \
+            --component independent-base-owner \
+            --out-dir "$RUNNER_TEMP/owner-independent-base" \
+            --integration-commit "$ORDAX_OWNER_SOURCE_COMMIT" \
+            --cache-hit "$owner_cache_hit" \
+            --receipt "$metadata/owner-base-component-reuse.json"
+          echo "ORDAX_OWNER_BASE_CACHE_HIT=$owner_cache_hit"
           sudo mkdir -p out/dev-base
           sudo -E python3 tools/dev-base-channel/independent_rootfs.py materialize \
             --rootfs "$RUNNER_TEMP/owner-independent-base/rootfs.tar" \
             --provenance "$RUNNER_TEMP/owner-independent-base/provenance.json" \
             --expected-commit "$ORDAX_OWNER_SOURCE_COMMIT" \
+            --reuse-receipt "$RUNNER_TEMP/owner-dev/metadata/owner-base-component-reuse.json" \
             --destination out/dev-base/rootfs
           rootfs="$(realpath out/dev-base/rootfs)"
           # The verifier already enforces archive confinement, immutable
@@ -452,6 +480,13 @@ jobs:
           test -x out/dev-base/rootfs/sbin/ordax-dev-init
           test -x out/dev-base/rootfs/usr/local/bin/ordax-pull
           test -z "$(sudo find "$rootfs/dev" -mindepth 1 -print -quit)"
+
+      - name: Save verified Owner Buildroot for reuse
+        if: steps.owner-base-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/owner-independent-base
+          key: ordax-portable-component-v1-${{ runner.os }}-${{ runner.arch }}-independent-base-owner-${{ steps.component-fingerprints.outputs.independent_base_owner }}
 
       - name: Create ephemeral prototype trust for Creator provenance
         run: |
