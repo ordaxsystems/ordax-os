@@ -48,6 +48,27 @@ são mantidos na CI do `ordax-intelligence`. Essa atualização de pin
 não libera cutover, não altera as ações autorizadas pelo OS e não substitui
 a Base Buildroot em validação pela PR #2243.
 
+## Prova adicional do motor real em streaming (candidata)
+
+O workflow `.github/workflows/local-ai-runtime-candidate.yml` agora chama
+`bootstrap/local-ai-runtime/prove_stream.py` **sobre o mesmo EROFS imutável**
+já montado para a prova de inferência real do llama.cpp/GGUF. A verificação
+usa a porta literal HTTP `127.0.0.1`, uma chave efêmera privada (não
+registrada), descoberta exata do único modelo, rejeição de chamada SSE sem
+autenticação, resposta `text/event-stream` com texto e `finish_reason=stop`,
+modelo correspondente, marcador `[DONE]`, limites de tamanho e rejeição
+de campos de autoridade de ferramentas. Desconecta ainda uma solicitação
+em andamento e prova que o serviço permanece acessível. Os testes de protocolo
+isolados ficam em `tests/test_local_ai_live_stream_probe.py`.
+
+**Limites de evidência:** essa prova confirma cliente SSE e desconexão em
+runner Ubuntu com binário/modelo real, mas **não** prova que o motor interrompeu
+fisicamente o cálculo após desconexão, nem ABI Buildroot, ativação do slot,
+boot final ou USB físico. A verificação não cria outro runtime, porta, updater
+ou versão dos contratos. Seus recibos ficam em
+`real-sse-proof.txt`, somente quando o workflow candidato for aprovado.
+Uma falha bloqueia o candidato, sem relaxar os gates existentes.
+
 ## Fronteiras de produção ainda fechadas
 
 O lock segue `integration-candidate`: **não autoriza** remoção dos cinco
