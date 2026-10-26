@@ -32,32 +32,52 @@ export async function readDesktopDevUpdateState(userData, { read = readFile } = 
   return parsed;
 }
 
-export function projectDesktopUpdateState(journal, { bundledSourceSha = "bundled-desktop", checkedAt = "unknown", lastError = "" } = {}) {
-  const sourceSha = journal?.activeSha || bundledSourceSha;
-  if (typeof sourceSha !== "string" || sourceSha.length === 0) throw new TypeError("A source identifier is required");
+export function projectDesktopUpdateState(journal, {
+  bundledSourceSha = "bundled-desktop", renderedSourceSha = "", checkedAt = "unknown", lastError = "",
+} = {}) {
+  // The running SHA comes from the Electron host AFTER verifying the compiled
+  // Native bundle or immutable Git candidate. Never infer an activated Git SHA
+  // from a packaged fallback or trust a SHA supplied by the browser.
+  if (renderedSourceSha !== "" && (typeof renderedSourceSha !== "string" || !SHA.test(renderedSourceSha))) {
+    throw new TypeError("Windows Desktop rendered source proof is invalid");
+  }
+  const active = journal?.activeSha || "";
   const pending = journal?.pendingSha || "";
+  const sourceSha = renderedSourceSha || active || bundledSourceSha;
+  if (typeof sourceSha !== "string" || sourceSha.length === 0) throw new TypeError("A source identifier is required");
   const pinned = Boolean(journal?.pinnedSha);
   const rejected = Boolean(journal?.rejectedSha);
   const incompatible = journal?.incompatibleSha || "";
   const failedAttempt = Boolean(journal?.attemptedSha);
+  // An invalid/missing active tree may have fallen back to the packaged
+  // version. Do not describe the old journal SHA as currently running.
+  const activeMismatch = Boolean(active && renderedSourceSha && renderedSourceSha !== active
+    && renderedSourceSha !== pending);
+  const running = Boolean((active || renderedSourceSha) && !activeMismatch);
+  const error = activeMismatch
+    ? "A revisao ativa do journal difere do codigo executado; usando a ultima Surface valida."
+    : incompatible
+      ? "A revisao "+incompatible.slice(0,12)+" da main nao atende ao contrato Desktop/Surface; ultima versao valida preservada."
+      : running ? "" : "A fonte main ainda nao foi ativada no Desktop; o host usa o snapshot integrado.";
   return validateUpdateStatusSnapshot({
     sourceSha,
     runtimeSurfaceSha: sourceSha,
     targetSha: pending || incompatible,
     deliveryNumber: 0, // Git SHA is not an OrdaX delivery number.
-    status: pinned ? "pinned" : pending ? "updating" : rejected ? "rejected" : journal?.activeSha ? "running" : "unavailable",
-    phase: pending ? (failedAttempt ? "health-wait" : "validating")
-      : pinned || rejected || incompatible || !journal?.activeSha ? "blocked" : "idle",
+    status: activeMismatch ? "unavailable"
+      : pinned ? "pinned" : pending ? "updating" : rejected ? "rejected"
+      : running ? "running" : "unavailable",
+    phase: activeMismatch ? "error"
+      : pending ? (failedAttempt ? "health-wait" : "validating")
+      : pinned || rejected || incompatible || !running ? "blocked" : "idle",
     applyMode: "surface-restart", // Windows activates a staged version only at next application boot.
     updateTransport: journal ? "git-main" : "unavailable",
     checkedAt,
     bootRefreshRequired: false, // Windows shell restart is not the Linux Base/UEFI refresh.
     rejectedSha: journal?.rejectedSha || "",
-    lastAppliedSha: journal?.activeSha || "",
-    lastError: String(lastError || (incompatible
-      ? "A revisao "+incompatible.slice(0,12)+" da main nao atende ao contrato Desktop/Surface; ultima versao valida preservada."
-      : journal?.activeSha ? "" :
-      "A fonte main ainda nao foi ativada no Desktop; o host usa o snapshot integrado.")).slice(0,350),
+    // A bundled installer is not a previously activated Git transaction.
+    lastAppliedSha: active,
+    lastError: String(lastError || error).slice(0,350),
   });
 }
 
