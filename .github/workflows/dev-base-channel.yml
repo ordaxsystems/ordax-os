@@ -226,6 +226,14 @@ jobs:
           path: out/kernel
           key: ordax-portable-component-v1-${{ runner.os }}-${{ runner.arch }}-kernel-${{ steps.component-fingerprints.outputs.kernel }}
 
+      - name: Restore verified Owner Buildroot for Development Base
+        if: steps.changes.outputs.publish == 'true'
+        id: owner-base-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: out/dev-rootfs
+          key: ordax-portable-component-v1-${{ runner.os }}-${{ runner.arch }}-independent-base-owner-${{ steps.component-fingerprints.outputs.independent_base_owner }}
+
       - name: Build exact-commit development Base and initramfs
         if: steps.changes.outputs.publish == 'true'
         run: |
@@ -249,28 +257,53 @@ jobs:
           export ORDAX_KERNEL_MODULES_ARCHIVE="$(realpath "$module_tar")"
           export ORDAX_KERNEL_MODULES_RECEIPT="$RUNNER_TEMP/dev-base-channel/owner-receipts/kernel-module-payload.json"
           export ORDAX_FIRMWARE_COVERAGE_RECEIPT="$RUNNER_TEMP/dev-base-channel/owner-receipts/firmware-coverage.json"
-          sudo -E python3 bootstrap/independent-base/build.py build \
-            --profile owner-development --out out/dev-rootfs \
-            --cache "$RUNNER_TEMP/dev-base-channel/buildroot-cache" --jobs 4
-          sudo chown -R "$(id -u):$(id -g)" out/dev-rootfs
+          owner_cache_hit='${{ steps.owner-base-cache.outputs.cache-hit }}'
+          if [ "$owner_cache_hit" != true ]; then
+            owner_cache_hit=false
+            echo 'ORDAX_OWNER_BASE_CACHE_MISS=build-affecting-input-or-environment'
+            sudo -E python3 bootstrap/independent-base/build.py build \
+              --profile owner-development --out out/dev-rootfs \
+              --cache "$RUNNER_TEMP/dev-base-channel/buildroot-cache" --jobs 4
+            sudo chown -R "$(id -u):$(id -g)" out/dev-rootfs
+          fi
           python3 bootstrap/independent-base/build.py verify \
             --profile owner-development --out out/dev-rootfs
+          if [ "$owner_cache_hit" = false ]; then
+            python3 tools/ci/portable_component_cache.py record \
+              --component independent-base-owner --out-dir out/dev-rootfs \
+              --source-commit "$GITHUB_SHA" \
+              > "$RUNNER_TEMP/dev-base-channel/owner-receipts/owner-base-cache-record.json"
+          fi
+          python3 tools/ci/portable_component_cache.py verify \
+            --component independent-base-owner --out-dir out/dev-rootfs \
+            --integration-commit "$GITHUB_SHA" --cache-hit "$owner_cache_hit" \
+            --receipt "$RUNNER_TEMP/dev-base-channel/owner-receipts/owner-base-component-reuse.json"
+          echo "ORDAX_OWNER_BASE_CACHE_HIT=$owner_cache_hit"
           test -s out/dev-rootfs/provenance.json
           test -s out/dev-rootfs/rootfs.tar
           python3 tools/dev-base-channel/prove_independent_rootfs.py \
             --rootfs out/dev-rootfs/rootfs.tar \
             --provenance out/dev-rootfs/provenance.json \
             --expected-commit "$GITHUB_SHA" \
+            --reuse-receipt "$RUNNER_TEMP/dev-base-channel/owner-receipts/owner-base-component-reuse.json" \
             --receipt "$RUNNER_TEMP/dev-base-channel/owner-receipts/channel-compatibility.json"
 
           python tools/dev-base-channel/build.py build \
             --source-commit "$GITHUB_SHA" \
             --kernel-dir out/kernel \
             --kernel-reuse-receipt "$RUNNER_TEMP/dev-base-channel/metadata/kernel-component-reuse.json" \
+            --owner-reuse-receipt "$RUNNER_TEMP/dev-base-channel/owner-receipts/owner-base-component-reuse.json" \
             --initramfs-dir out/initramfs \
             --rootfs-dir out/dev-rootfs \
             --out-dir out/dev-base
           python tools/dev-base-channel/build.py verify --out-dir out/dev-base
+
+      - name: Save verified Owner Buildroot for other consumers
+        if: steps.changes.outputs.publish == 'true' && steps.owner-base-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: out/dev-rootfs
+          key: ordax-portable-component-v1-${{ runner.os }}-${{ runner.arch }}-independent-base-owner-${{ steps.component-fingerprints.outputs.independent_base_owner }}
 
       - name: Publish immutable exact-commit Base candidate
         if: steps.changes.outputs.publish == 'true'
