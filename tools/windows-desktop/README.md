@@ -111,6 +111,16 @@ sem recibo volta ao conhecido bom e rejeita o SHA. Rollback fixado desativa
 atualizações até retomada explícita. Smoke NSIS usa perfil isolado e não
 executa reinício automático.
 
+**Gate de primeiro uso idêntico ao USB:** antes de descobrir atualizações
+ou iniciar o trial automático, o Desktop lê o `native-state/native-state.json`
+já persistido pelo Native Host e o valida com o módulo canônico
+`system/contracts/first-run-state-store.mjs`. Sem comprovante `completed`
+válido, não há staging automático nem reinício para aplicar `pendingSha`.
+Uma candidata já preparada permanece guardada, sem ser marcada rejeitada;
+após a conclusão do primeiro uso, volta ao caminho normal com health/rollback.
+O fluxo USB já usa o mesmo pré-requisito lógico em `ordax-main-watch`.
+Não há arquivo de configuração de OOBE paralelo.
+
 **Fronteira de lançamento:** a consulta automática acima ocorre enquanto o
 processo Electron está aberto. Não existe ainda um serviço permanente Windows
 quando ele está totalmente encerrado. Além disso, `ordax-pull` altera o
