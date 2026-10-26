@@ -129,13 +129,21 @@ def run(argv: list[str], *, cwd: Path | None = None, bounded: bool = False) -> s
                 stderr=subprocess.STDOUT,
             ) as process:
                 assert process.stdout is not None
-                tail = b""
-                for chunk in iter(lambda: process.stdout.read(65536), b""):
-                    tail = (tail + chunk)[-20000:]
+                # Stream the *real* Buildroot output to Actions as it arrives.
+                # Previously read() consumed everything silently for hours,
+                # making an eventual timeout impossible to diagnose. Keep only
+                # a bounded failure tail in memory; never buffer a whole build.
+                tail = bytearray()
+                for line in process.stdout:
+                    tail.extend(line)
+                    if len(tail) > 20000:
+                        del tail[:-20000]
+                    sys.stdout.write(line.decode("utf-8", errors="replace"))
+                    sys.stdout.flush()
                 code = process.wait()
         except OSError as exc:
             raise SurfaceBuildError(f"cannot run {' '.join(argv)}: {exc}") from exc
-        output = tail.decode("utf-8", errors="replace")
+        output = bytes(tail).decode("utf-8", errors="replace")
         if code:
             raise SurfaceBuildError(f"{' '.join(argv)} failed ({code}):\n{output}")
         return output
