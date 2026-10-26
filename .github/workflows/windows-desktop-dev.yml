@@ -2,7 +2,7 @@ name: Windows Desktop Dev (SSOT)
 on:
   workflow_dispatch:
   pull_request:
-    paths:
+    paths: &desktop_product_sources
       - 'system/**'
       - 'tools/windows-emulator/**'
       - 'tools/windows-desktop/**'
@@ -11,6 +11,19 @@ on:
       - 'docs/contracts/surface-source.json'
       - 'tools/surface-source/**'
       - 'tests/test_desktop_browser_transport.mjs'
+  # Every integrated main revision that changes the shared Windows product
+  # must produce the same tested, source-bound installer as its PR.
+  # Reuse the exact impact filter instead of maintaining divergent lists.
+  push:
+    branches:
+      - main
+    paths: *desktop_product_sources
+
+# On fast-moving main, do not rebuild an already superseded source commit.
+concurrency:
+  group: windows-desktop-dev-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 jobs:
