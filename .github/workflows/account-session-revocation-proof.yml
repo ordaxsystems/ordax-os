@@ -16,8 +16,6 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     env:
-      ORDAX_PROOF_ACCOUNT_EMAIL: ${{ secrets.ORDAX_PROOF_ACCOUNT_EMAIL }}
-      ORDAX_PROOF_ACCOUNT_PASSWORD: ${{ secrets.ORDAX_PROOF_ACCOUNT_PASSWORD }}
       ORDAX_ACCOUNT_GATEWAY_BASE_URL: ${{ inputs.origin }}
     steps:
       - name: Checkout
@@ -25,25 +23,31 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Require dedicated proof account secrets without printing them
+      - name: Require reviewed main and canonical origin before exposing credentials
         shell: bash
         run: |
           set -euo pipefail
+          test "${GITHUB_REPOSITORY}" = "ordaxsystems/ordax-os"
+          test "${GITHUB_REF}" = "refs/heads/main"
+          python tools/account-sync/prove_session_revocation.py --check-origin
+
+      - name: Prove local session revocation semantics
+        shell: bash
+        env:
+          ORDAX_PROOF_ACCOUNT_EMAIL: ${{ secrets.ORDAX_PROOF_ACCOUNT_EMAIL }}
+          ORDAX_PROOF_ACCOUNT_PASSWORD: ${{ secrets.ORDAX_PROOF_ACCOUNT_PASSWORD }}
+          ORDAX_SESSION_REVOCATION_RECEIPT_PATH: ${{ runner.temp }}/account-session-revocation-proof.json
+        run: |
+          set -euo pipefail
           test -n "${ORDAX_PROOF_ACCOUNT_EMAIL:-}" || {
-            echo 'ORDAX_PROOF_ACCOUNT_EMAIL secret is required for this manual proof.' >&2
+            echo 'ORDAX_PROOF_ACCOUNT_EMAIL proof account secret required.' >&2
             exit 2
           }
           test -n "${ORDAX_PROOF_ACCOUNT_PASSWORD:-}" || {
-            echo 'ORDAX_PROOF_ACCOUNT_PASSWORD secret is required for this manual proof.' >&2
+            echo 'ORDAX_PROOF_ACCOUNT_PASSWORD proof account secret required.' >&2
             exit 2
           }
-          echo 'ACCOUNT_SESSION_REVOCATION_PROOF_CREDENTIALS_PRESENT=YES'
-          echo 'ACCOUNT_SESSION_REVOCATION_PROOF_CREDENTIALS_PRINTED=NO'
-
-      - name: Prove local session revocation semantics
-        env:
-          ORDAX_SESSION_REVOCATION_RECEIPT_PATH: ${{ runner.temp }}/account-session-revocation-proof.json
-        run: python tools/account-sync/prove_session_revocation.py
+          python tools/account-sync/prove_session_revocation.py
 
       - name: Validate sanitized receipt shape
         shell: bash

@@ -285,6 +285,16 @@ class AccountSyncAndIdentityV1Tests(unittest.TestCase):
         self.assertIn("secrets.ORDAX_PROOF_ACCOUNT_PASSWORD", text)
         self.assertIn("ORDAX_ACCOUNT_GATEWAY_BASE_URL: ${{ inputs.origin }}", text)
         self.assertIn('data["gateway_origin"] == "${{ inputs.origin }}".rstrip("/")', text)
+        self.assertIn("python tools/account-sync/prove_session_revocation.py --check-origin", text)
+        self.assertIn('test "${GITHUB_REPOSITORY}" = "ordaxsystems/ordax-os"', text)
+        self.assertIn('test "${GITHUB_REF}" = "refs/heads/main"', text)
+        self.assertLess(
+            text.index("Require reviewed main and canonical origin before exposing credentials"),
+            text.index("Prove local session revocation semantics"),
+        )
+        # Secrets are intentionally scoped to a single step, not the job.
+        job_env = text.split("    env:", 1)[1].split("    steps:", 1)[0]
+        self.assertNotIn("secrets.ORDAX_PROOF_ACCOUNT_", job_env)
         self.assertIn("account-session-revocation-proof.json", text)
         self.assertIn("ACCOUNT_SESSION_REVOCATION_RECEIPT=PASS_SANITIZED", text)
         self.assertIn("retention-days: 14", text)
