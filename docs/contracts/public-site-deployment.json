@@ -497,7 +497,7 @@
     "production_hostname_verification_evidence": "Cloudflare dedicated OrdaX account GET /accounts/{account_id}/challenges/widgets returned this managed widget with domains ordax.com.br and www.ordax.com.br on 2026-10-09; real Siteverify E2E remains pending"
   },
   "cloudflare_dns_migration": {
-    "status": "dedicated-zone-active-post-delegation-http-revalidation-pending",
+    "status": "dedicated-zone-active-independent-registrar-and-https-verified",
     "purpose": "ordax-os-only",
     "source_account_id": "ac1ca1b50d09c7a4cb81274d2aa1e78f",
     "source_zone_id": "6c98a2130176029e14c14d949bafd66a",
@@ -543,9 +543,12 @@
     "public_delegation_points_to_destination": true,
     "destination_https_and_www_production_revalidated_after_delegation": true,
     "source_zone_may_be_removed": false,
-    "note": "OrdaX OS exclusive DNS zone is active according to the destination Cloudflare account, and legacy zone reports moved. Preserve legacy account resources. Do not mark complete or remove the source zone until independent authoritative parent DNS and post-cutover HTTP/TLS/WWW/Account fail-closed checks are documented.",
-    "delegation_evidence": "Cloudflare destination zone active and former zone moved; registrar update user-confirmed. Independent parent NS lookup was not available in this verification.",
-    "independent_parent_ns_recheck_completed": false,
-    "provisioning_verified_date": "2026-10-08"
+    "note": "Dedicated OrdaX OS zone and registry delegation are independently verified. Keep legacy zone/resources unchanged: legacy-zone removal is a separate administrative authorization, and authenticated public Account activation remains gated by Identity/legal/E2E owners.",
+    "delegation_evidence": "Registrar RDAP nameservers martin.ns.cloudflare.com and meg.ns.cloudflare.com match the active dedicated Cloudflare zone; HTTPS apex 200, www 308, Web 200, account session 200 with TLS verification enabled. See docs/evidence/public-dns-delegation-2026-10-26.json.",
+    "independent_parent_ns_recheck_completed": true,
+    "provisioning_verified_date": "2026-10-08",
+    "independent_parent_ns_registrar_source": "https://rdap.registro.br/domain/ordax.com.br",
+    "independent_parent_ns_recheck_observed_date": "2026-10-26",
+    "independent_parent_ns_evidence": "docs/evidence/public-dns-delegation-2026-10-26.json"
   }
 }
