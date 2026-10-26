@@ -44,6 +44,37 @@ class AuthProviderProbeTests(unittest.TestCase):
         self.assertTrue(proof["checks"]["resend_smtp_settings"])
         self.assertTrue(proof["checks"]["branded_confirmation_template"])
 
+    def test_actual_provider_probe_passes_final_release_proof_validator(self):
+        # Exercise the real producer and consumer with the SAME sanitized
+        # proof to prevent another five-vs-seven-check schema divergence.
+        import importlib.util
+
+        path = ROOT / "tools" / "public-site" / "require_account_release_ready.py"
+        spec = importlib.util.spec_from_file_location("release_gate_probe_consumer", path)
+        gate = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(gate)
+        origin, commit = "https://ordax.com.br", "a" * 40
+        ref, _ = gate.resolve_target(ROOT, origin)
+        proof = MODULE.evaluate(
+            self.base_config(), origin, project_ref=ref, commit=commit
+        )
+        self.assertEqual(set(proof["checks"]), set(MODULE.PROVIDER_CHECK_NAMES))
+        self.assertEqual(set(proof["checks"]), set(gate.REQUIRED_CHECKS))
+        self.assertTrue(proof["ready"])
+        self.assertEqual(gate.validate_provider_proof(proof, origin, commit, ROOT), [])
+
+        # The release must NEVER accept a proof whose hosted SMTP/brand
+        # checks fail, even if password/redirect/confirmation checks pass.
+        for name in ("resend_smtp_settings", "branded_confirmation_template"):
+            unsafe = dict(proof)
+            unsafe["checks"] = dict(proof["checks"])
+            unsafe["checks"][name] = False
+            unsafe["ready"] = False
+            self.assertIn(
+                "provider-proof-" + name,
+                gate.validate_provider_proof(unsafe, origin, commit, ROOT),
+            )
+
     def test_project_and_commit_binding_is_deterministic_and_validated(self):
         ref, commit = "a" * 20, "b" * 40
         proof = MODULE.evaluate(
