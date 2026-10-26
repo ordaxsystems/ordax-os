@@ -40,7 +40,8 @@
   ],
   "source_migrations": {
     "historical_non_applicable": "infra/supabase/product/migrations/20261005031500_policy_predicate_boundary_v1.sql",
-    "live_candidate": "infra/supabase/product/migrations/20261026182000_public_policy_subject_guard_boundary_v1.sql"
+    "live_candidate": "infra/supabase/product/migrations/20261026182000_public_policy_subject_guard_boundary_v1.sql",
+    "source_preflight_and_rewrite_ssot": "infra/supabase/product/migrations/20261026182000_public_policy_subject_guard_boundary_v1.sql"
   },
   "deployment": {
     "source_prepared": true,
@@ -55,11 +56,12 @@
     "Only a controlled rehearsal against a representative isolated database with two independent test identities can authorize live deployment."
   ],
   "source_recovery": {
-    "source_path": "infra/supabase/product/migrations/20261026181500_authenticated_subject_eligibility_source_v1.sql",
+    "source_path": "infra/supabase/product/migrations/20261026182000_public_policy_subject_guard_boundary_v1.sql",
     "live_definition_md5": "0e64a11cc3d4802f7f94c1591cdadc26",
     "source_recovered_from_pg_get_functiondef": true,
     "source_reviewed_against_live_catalog": true,
     "source_migration_deployed": false,
-    "semantic_e2e_verified": false
+    "semantic_e2e_verified": false,
+    "atomic_with_policy_rewrite": true
   }
 }
