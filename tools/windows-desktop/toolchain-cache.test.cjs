@@ -46,6 +46,27 @@ test('exact offline compiler archive is SHA verified, extracted outside Program 
   assert.equal(readdirSync(join(f.profile,'runtime-toolchains')).length,1);
   assert.equal(existsSync(join(f.template,'node_modules')),false);
 });
+test('same verified compiler tree reuses cache after installer archive repackaging',t=>{
+  const f=fixture(t);
+  const first=ensureRuntimeToolchain(f.template,f.profile);
+  const before=f.receipt.archive_sha256;
+  // A different tar header timestamp changes the archive hash, but not the
+  // canonical compiler file bytes or their tree digest.
+  const source=join(f.root,'build','node_modules','vite','bin','vite.js');
+  const old=new Date('2000-01-01T00:00:00Z');
+  utimesSync(source,old,old);
+  run(['-czf',f.archive,'-C',join(f.root,'build'),'node_modules']);
+  const bytes=readFileSync(f.archive);
+  const next=hash(bytes);
+  assert.notEqual(next,before);
+  writeFileSync(join(f.template,'toolchain','toolchain-receipt.json'),
+    JSON.stringify({...f.receipt,archive_sha256:next,archive_size:bytes.length}));
+  const reused=ensureRuntimeToolchain(f.template,f.profile);
+  assert.equal(reused,first,'repacked archive must not trigger another extraction');
+  assert.equal(readdirSync(join(f.profile,'runtime-toolchains')).length,1);
+  assert.equal(calculateTreeDigest(reused),f.receipt.tree_sha256);
+});
+
 test('tampered archive fails closed before creating a compiler cache',t=>{
   const f=fixture(t);
   writeFileSync(f.archive,Buffer.concat([readFileSync(f.archive),Buffer.from('tamper')]));
