@@ -1,0 +1,35 @@
+{
+  "$schema": "prototype-ordax.account-destination-storage-quota-inventory/1",
+  "observed_date": "2026-10-26",
+  "target_project_ref": "jhfphsjptrpmtnzkpwud",
+  "observed_using": "Supabase read-only SQL to_regclass(pg_class), pg_namespace, supabase_migrations.schema_migrations and connected list_migrations",
+  "tables": {
+    "public.ordax_user_objects": false,
+    "private.ordax_user_object_provider_refs": false,
+    "private.ordax_user_upload_reservations": false,
+    "private.ordax_service_quota_usage": false,
+    "private.ordax_service_quota_reservations": false
+  },
+  "function_preconditions": {
+    "private.ordax_touch_updated_at": false
+  },
+  "related_storage_quota_migration_names_found": [],
+  "note": "Migration history includes a separate space_active_quota_guard_v1 but no service quota-ledger or user cloud-storage migrations. Do not confuse an unrelated quota guard with storage quota-ledger installation.",
+  "destination_has_existing_auth_users": true,
+  "historical_deployment_claims": "docs/evidence/storage-quota-historical-deployment-claims-2026-10-26.json",
+  "runtime_proofs": {
+    "private_tables_rls_deployed": false,
+    "transactional_object_storage_schema_deployed": false,
+    "quota_reservation_ledger_deployed": false,
+    "cloud_storage_source_migrations_safe_to_replay_unmodified": false,
+    "public_storage_rollout_approved": false,
+    "public_account_release_approved": false
+  },
+  "operational_prerequisites": [
+    "Reconcile historical project provenance, migration history and current destination schema before applying DDL",
+    "Do not apply old migrations written for a different lifecycle directly to populated destination",
+    "Design one forward-only, idempotent and transactional destination migration that validates all foreign-key, trigger and entitlement dependencies before installing anything",
+    "Preserve no-client-write and no-public-bucket boundaries, prove two-user isolation and cleanup before rollout"
+  ],
+  "disclosure": "Aggregates and schema presence only; no account data, email, user IDs, tokens or individual rows"
+}
