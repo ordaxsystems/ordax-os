@@ -20,7 +20,9 @@ async function readDisplayToken(windowRef) {
   return payload.displayOutputsToken;
 }
 
-export async function createNativeDisplayOutputs(windowRef = globalThis.window) {
+export async function createNativeDisplayOutputs(windowRef = globalThis.window, {
+  deferInitialRead = false,
+} = {}) {
   if (!windowRef || typeof windowRef.fetch !== "function") {
     throw new TypeError("Native display outputs adapter requires window.fetch");
   }
@@ -52,6 +54,11 @@ export async function createNativeDisplayOutputs(windowRef = globalThis.window) 
     revert(previewId) { return request("POST", "revert", { previewId }); },
   };
   assertDisplayOutputsPort(port);
-  await port.read();
+  // Linux still proves the provider at bootstrap. Windows has a real,
+  // authenticated Win32 provider, but eager enumeration competes with other
+  // cold-start Native ports and could permanently discard this port on one
+  // transient 503. The Desktop first reads physical modes when the existing
+  // Settings controls request them; no cached/fabricated display data.
+  if (!deferInitialRead) await port.read();
   return Object.freeze(port);
 }
