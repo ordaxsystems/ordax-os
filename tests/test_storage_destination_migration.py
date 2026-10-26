@@ -22,10 +22,10 @@ class DestinationStorageQuotaMigrationTests(unittest.TestCase):
         compiled = module.render(project_ref=self.PROJECT, commit=True).encode("utf-8")
         self.assertEqual(saved, compiled, "Versioned SQL drifted from five source migrations or canonical RLS adaptation")
         self.assertEqual(len(saved.split(b"-- SOURCE ")), 6)
-        self.assertTrue(saved.endswith(b"COMMIT;\\n"))
+        self.assertTrue(saved.endswith(b"COMMIT;\n"))
         self.assertIn(b"storage-destination-partial-or-previous-install", saved)
         self.assertNotIn(b"ordax_policy.can_access_space", saved)
-        self.assertNotIn(b"ROLLBACK;\\n", saved)
+        self.assertNotIn(b"ROLLBACK;\n", saved)
 
     def test_preview_is_transactional_and_rolls_back_by_default(self):
         output = module.render(project_ref=self.PROJECT)
