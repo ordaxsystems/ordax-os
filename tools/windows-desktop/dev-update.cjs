@@ -7,7 +7,7 @@ const { join, basename, dirname } = require('node:path');
 const { mkdirSync, readFileSync, writeFileSync, renameSync, rmSync, readdirSync, lstatSync, existsSync, unlinkSync, openSync, closeSync, fsyncSync } = require('node:fs');
 const { OFFICIAL_REMOTE } = require('./runtime.cjs');
 const { git, isTrusted, hasDesktopHostContract, dependencies } = require('./checkout.cjs');
-const { hasNativeBundle, buildNativeCandidate } = require('./native-build.cjs');
+const { hasNativeBundle, buildNativeCandidate, verifyBundledNativeReceipt } = require('./native-build.cjs');
 const { prepareWindowsGitDeletion } = require('./git-cleanup.cjs');
 
 const SHA_RE = /^[0-9a-f]{40}$/;
@@ -135,6 +135,20 @@ function sweepStaleCandidates(userData, {now=Date.now(),minAgeMs=120000,log=()=>
   return result;
 }
 
+// A packaged Desktop already contains an immutable, source-bound Native bundle.
+// Recompiling the *same* revision as a Git candidate is unnecessary and can
+// even create a new trial/rollback transaction for a no-op update. Treat the
+// bundle as current only after validating the existing provenance AND bytes.
+// Never use this comparison to override a previously activated Git revision.
+function verifiedBundledSourceSha(template) {
+  const assets=join(template,'desktop-assets');
+  if (!verifyBundledNativeReceipt(template,assets)) return null;
+  try {
+    const receipt=JSON.parse(readFileSync(join(assets,'source-provenance.json'),'utf8'));
+    return SHA_RE.test(receipt.os_sha) ? receipt.os_sha : null;
+  } catch { return null; }
+}
+
 function versionRoot(userData, sha) {
   if (!SHA_RE.test(sha)) throw Error('Invalid runtime version SHA');
   return join(userData, VERSIONS_DIR, sha);
@@ -215,9 +229,21 @@ async function stageMain({ userData, template, log = () => {}, remote = OFFICIAL
   // Only lightweight remote discovery when no update is needed.
   const remoteReply = await runGit(['ls-remote','--heads',OFFICIAL_REMOTE,'refs/heads/main'],userData,25000);
   const remoteSha = remoteReply.ok ? remoteReply.stdout.split(/\s+/)[0] : '';
-  if (!SHA_RE.test(remoteSha)) return {status:'unavailable'};
+  if (!SHA_RE.test(remoteSha)) {
+    log('Desktop Dev official main discovery unavailable; preserving known-good');
+    return {status:'unavailable'};
+  }
   if (remoteSha === state.activeSha || remoteSha === state.rejectedSha)
     return {status: remoteSha === state.activeSha ? 'current':'rejected',sha:remoteSha};
+  // The bundled OS SHA is distinct from the transaction's activeSha=null.
+  // Do not download, rebuild or trial a duplicate of already-installed bytes.
+  // A user-selected Git version is always authoritative over this fallback.
+  if (!state.activeSha && remoteSha === verifiedBundledSourceSha(template)) {
+    if (state.incompatibleSha === remoteSha) {
+      writeState(userData,{...state,incompatibleSha:null});
+    }
+    return {status:'current',sha:remoteSha,source:'verified-bundled'};
+  }
   // A verified source without the Desktop Host contract cannot become bootable
   // through repeated cloning of the identical official SHA.
   if (remoteSha === state.incompatibleSha) return {status:'incompatible',sha:remoteSha};
