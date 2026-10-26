@@ -11,7 +11,7 @@
     "private.ordax_service_quota_reservations": false
   },
   "function_preconditions": {
-    "private.ordax_touch_updated_at": false
+    "private.ordax_touch_updated_at()": true
   },
   "related_storage_quota_migration_names_found": [],
   "note": "Migration history includes a separate space_active_quota_guard_v1 but no service quota-ledger or user cloud-storage migrations. Do not confuse an unrelated quota guard with storage quota-ledger installation.",
@@ -28,8 +28,18 @@
   "operational_prerequisites": [
     "Reconcile historical project provenance, migration history and current destination schema before applying DDL",
     "Do not apply old migrations written for a different lifecycle directly to populated destination",
+    "The historical cloud-storage source references ordax_policy.can_access_space but ordax_policy schema is absent in the destination; reconcile policy semantics before any forward migration.",
     "Design one forward-only, idempotent and transactional destination migration that validates all foreign-key, trigger and entitlement dependencies before installing anything",
     "Preserve no-client-write and no-public-bucket boundaries, prove two-user isolation and cleanup before rollout"
   ],
-  "disclosure": "Aggregates and schema presence only; no account data, email, user IDs, tokens or individual rows"
+  "disclosure": "Aggregates and schema presence only; no account data, email, user IDs, tokens or individual rows",
+  "schema_preconditions": {
+    "ordax_policy": false
+  },
+  "replay_hazards": [
+    "Destination has existing users",
+    "Historical foundation migration references ordax_policy.can_access_space yet ordax_policy schema is absent",
+    "Source quota ledger and cloud storage migration histories are absent",
+    "Current public.ordax_spaces exists, so a database-empty bootstrap must not be replayed"
+  ]
 }
