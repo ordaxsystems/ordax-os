@@ -1,0 +1,98 @@
+{
+  "$schema": "prototype-ordax.auth-private-rls-helper-contract/1",
+  "status": "reviewed-helper-allowlist-two-subject-isolation-pending",
+  "owner": "ordax-os / ordax-platform",
+  "schema": "private",
+  "approved_authenticated_execute": [
+    [
+      "ordax_authenticated_subject_eligible_v1",
+      ""
+    ],
+    [
+      "ordax_can_access_product_device",
+      "target_device_id uuid"
+    ],
+    [
+      "ordax_can_access_project",
+      "target_project_id uuid"
+    ],
+    [
+      "ordax_can_access_space",
+      "target_space_id uuid"
+    ],
+    [
+      "ordax_can_admin_space",
+      "target_space_id uuid"
+    ]
+  ],
+  "approved_public_rls_policy_dependencies": [
+    [
+      "ordax_device_presence",
+      "ordax_device_presence_select_authorized"
+    ],
+    [
+      "ordax_device_project_bindings",
+      "ordax_device_project_bindings_select_project"
+    ],
+    [
+      "ordax_entitlement_grants",
+      "ordax_entitlement_grants_select_subject"
+    ],
+    [
+      "ordax_memory_embeddings",
+      "ordax_memory_embeddings_select_authorized"
+    ],
+    [
+      "ordax_memory_items",
+      "ordax_memory_items_select_authorized"
+    ],
+    [
+      "ordax_product_devices",
+      "ordax_product_devices_select_authorized"
+    ],
+    [
+      "ordax_project_connections",
+      "ordax_project_connections_select_space"
+    ],
+    [
+      "ordax_projects",
+      "ordax_projects_select_space"
+    ],
+    [
+      "ordax_remote_capability_grants",
+      "ordax_remote_capability_grants_select_admin"
+    ],
+    [
+      "ordax_space_devices",
+      "ordax_space_devices_select_space"
+    ],
+    [
+      "ordax_space_members",
+      "ordax_space_members_select_space"
+    ],
+    [
+      "ordax_space_profile_packs",
+      "ordax_space_profile_packs_select_member"
+    ],
+    [
+      "ordax_spaces",
+      "ordax_spaces_select_member"
+    ]
+  ],
+  "function_owner": "postgres",
+  "function_security_definer": true,
+  "function_search_path": "empty",
+  "anon_private_schema_usage_allowed": false,
+  "authenticated_private_schema_create_allowed": false,
+  "authenticated_private_schema_usage_required_for_rls": true,
+  "anon_or_service_role_execute_approved_helpers_allowed": false,
+  "private_schema_data_api_exposure_allowed": false,
+  "private_schema_data_api_exclusion_verified": false,
+  "two_subject_authenticated_negative_isolation_verified": false,
+  "public_account_activation_allowed": false,
+  "reason": "Thirteen public RLS policies call five authenticated SECURITY DEFINER private helpers. The schema must remain private and unexposed to Data API. Revoking the helpers or moving DEFINER wrappers to exposed public schema without proven equivalent semantics would be unsafe.",
+  "references": [
+    "docs/evidence/authenticated-private-helper-dependencies-2026-10-26.json",
+    "https://supabase.com/docs/guides/database/postgres/row-level-security"
+  ]
+}
