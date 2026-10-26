@@ -57,7 +57,7 @@ OS SHA, Surface SHA e fingerprint SHA-256 dos arquivos Native gerados. O
 Electron recusa abrir o bundle de instalação se faltar esse manifesto ou
 houver divergência dos bytes. Isso não é assinatura de release pública.
 Intelligence/Aura local, autenticação real, updates assinados e rollback
-E2E instalado ainda **não estão homologados**. A PR permanece draft.
+E2E instalado ainda **não estão homologados como produto completo**. Os PRs de infraestrutura já integrados não equivalem à homologação comercial Stable/MVP.
 
 ## Entrega Windows vinculada a `main` — política SSOT
 
@@ -395,7 +395,11 @@ O Native compilado inicia sem extrair Vite. Somente uma compilação Owner/Dev
 (ou fallback explícito de uma versão Git antiga) chama o adaptador único
 `toolchain-cache.cjs`, que verifica arquivo e recibo, nega traversal/links,
 extrai para `userData/runtime-toolchains/<archive_sha256>` e verifica o digest
-da árvore expandida **inclusive nas reutilizações**. O cache não contém fonte
+da árvore expandida **inclusive nas reutilizações**. A reutilização também
+recusa o diretório final se for um link simbólico, junction/reparse point ou
+arquivo comum, mesmo quando um destino externo tenha os bytes e recibo
+corretos. Essa fronteira é testada no Windows real, sem tocar no perfil do
+usuário. O cache não contém fonte
 canônica nem cria nova política de atualização: é projeção descartável da
 distribuição instalada. Jamais escreve dependências em Program Files ou
 precisa buscar npm na rede para construir uma candidata Dev.
