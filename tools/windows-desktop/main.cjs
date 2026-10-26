@@ -6,10 +6,10 @@ const { join, resolve, isAbsolute, basename } = require('node:path');
 const { randomBytes } = require('node:crypto');
 const { mkdirSync, createWriteStream, existsSync, readFileSync } = require('node:fs');
 const { resolveTemplate, runtimeStateDirectory } = require('./runtime.cjs');
-const { chooseBootVersion, confirmHealthy, rejectCandidate, stageMain, shouldAutoActivate, desktopFirstRunComplete, readState, pinPrevious, unpin } = require('./dev-update.cjs');
+const { chooseBootVersion, confirmHealthy, rejectCandidate, stageMain, desktopFirstRunComplete, createDesktopIdleActivation, readState, pinPrevious, unpin } = require('./dev-update.cjs');
 const { startHost, stopHost } = require('./host.cjs');
 const { verifyBundledNativeReceipt } = require('./native-build.cjs');
-let window=null, runtime=null, stream=null, browserHost=null, updateTimer=null, activationTimer=null, staging=false, activationRequested=false;
+let window=null, runtime=null, stream=null, browserHost=null, updateTimer=null, activationTimer=null, staging=false, idleActivation=null;
 const PRODUCT='/system/composition/native/index.html';
 // Explicit stable per-user storage must be set before the instance lock or any
 // Electron internal service can resolve a path from the npm package name.
@@ -379,33 +379,6 @@ async function assertDesktopInternetSmoke(browserWindow,host) {
 // Do not invent a second updater. The existing ordax-pull Git-main staging
 // transaction is the single Desktop Dev source materializer; this is only
 // the safe handoff to the already health-gated Electron boot supervisor.
-async function activatePendingWhenIdle(userData,template){
-  if(!app.isPackaged || devProfile || staging || activationRequested ||
-     !window || window.isDestroyed() || !runtime?.child ||
-     runtime.child.exitCode!==null)return;
-  try{
-    const state=readState(userData);
-    const idleSeconds=powerMonitor.getSystemIdleTime();
-    if(!shouldAutoActivate(state,{
-      idleSeconds,
-      windowVisible:window.isVisible(),
-      windowFocused:window.isFocused(),
-    }))return;
-    if(!await desktopFirstRunComplete(userData,template))return;
-    activationRequested=true;
-    log('ordax-pull Desktop Dev: safely relaunching idle application for verified candidate '+state.pendingSha);
-    // No in-place source switch and no machine reboot. The existing
-    // one-shot candidate selection, Native readiness, Surface health receipt
-    // and automatic rollback remain the ONLY promotion transaction.
-    app.relaunch();
-    app.quit();
-  }catch(error){
-    // A failed relaunch request must not permanently suppress a future
-    // safe activation attempt; the durable pending SHA remains untouched.
-    activationRequested=false;
-    log('ordax-pull Desktop Dev activation deferred: '+error.message);
-  }
-}
 async function stageInBackground(userData,template) {
   if(staging || !app.isPackaged) return;
   staging=true;
@@ -418,7 +391,7 @@ async function stageInBackground(userData,template) {
     else if(!['current','pending','pinned','rejected'].includes(result.status))
       log('Desktop Dev update check: '+result.status);
   }catch(error){log('Desktop Dev update check blocked: '+error.message);}
-  finally{staging=false;void activatePendingWhenIdle(userData,template);}
+  finally{staging=false;void idleActivation?.();}
 }
 app.on('before-quit',()=>{
   if(updateTimer){clearInterval(updateTimer);updateTimer=null;}
@@ -523,13 +496,24 @@ app.whenReady().then(async()=>{
     }
     navigationPolicy(runtime.url);
     if(app.isPackaged) {
+      idleActivation=createDesktopIdleActivation({
+        userData,template,log,
+        isReady:()=>!devProfile && !staging && window && !window.isDestroyed() &&
+          runtime?.child && runtime.child.exitCode===null,
+        getIdleSnapshot:()=>({
+          idleSeconds:powerMonitor.getSystemIdleTime(),
+          windowVisible:window.isVisible(),
+          windowFocused:window.isFocused(),
+        }),
+        relaunch:()=>{app.relaunch();app.quit();},
+      });
       // Safe background discovery, never a startup dependency or live-tree merge.
       setTimeout(()=>{void stageInBackground(userData,template);},5000);
       updateTimer=setInterval(()=>{void stageInBackground(userData,template);},10*60*1000);
       updateTimer.unref?.();
       // Discovery and activation are separate stages; a staged revision
       // must not remain pending indefinitely until someone restarts the app.
-      activationTimer=setInterval(()=>{void activatePendingWhenIdle(userData,template);},15*1000);
+      activationTimer=setInterval(()=>{void idleActivation?.();},15*1000);
       activationTimer.unref?.();
     }
 
