@@ -108,54 +108,28 @@ class UserCloudStorageSourceTest(unittest.TestCase):
         self.assertTrue(self.contract["quota"]["upload_reservation_must_reference_exact_quota_reservation"])
         self.assertFalse(self.contract["quota"]["numeric_limit_defined"])
 
-    def test_live_schema_is_recorded_without_claiming_rollout(self) -> None:
+    def test_destination_installation_is_verified_and_rollout_disabled(self) -> None:
+        self.assertEqual(self.contract["status"], "source-foundation-destination-not-installed-rollout-disabled")
         deployment = self.contract["deployment"]
-        self.assertTrue(deployment["transactional_schema_deployed"])
-        self.assertEqual(
-            deployment["deployed_migration"],
-            "infra/supabase/product/migrations/20261005171000_user_cloud_storage_foundation_v2.sql",
-        )
-        self.assertTrue(deployment["authenticated_metadata_select_only"])
-        self.assertFalse(deployment["authenticated_mutation_granted"])
-        self.assertFalse(deployment["service_role_direct_dml_granted"])
-        self.assertFalse(deployment["provider_bucket_deployed"])
-        self.assertFalse(deployment["server_mutation_executor_deployed"])
+        self.assertFalse(deployment["transactional_schema_deployed"])
+        self.assertIsNone(deployment["deployed_migration"])
+        self.assertFalse(deployment["private_tables_rls_hardening"]["production_applied"])
+        self.assertFalse(deployment["quota_reservation_link"]["production_applied"])
         self.assertFalse(deployment["public_rollout_enabled"])
+        self.assertFalse(deployment["replay_historical_migrations_unmodified_allowed"])
+        self.assertFalse(deployment["server_mutation_executor_deployed"])
+        self.assertTrue(all(v is False for v in deployment["observed_tables"].values()))
 
-    def test_private_rls_hardening_live_evidence_is_pinned(self) -> None:
-        hardening = self.contract["deployment"]["private_tables_rls_hardening"]
-        self.assertTrue(hardening["source_ready"])
-        self.assertTrue(hardening["production_applied"])
-        self.assertEqual(hardening["production_migration_version"], "20261007082254")
-        self.assertEqual(
-            hardening["production_migration_name"],
-            "user_cloud_storage_private_rls_hardening_v1",
-        )
-        self.assertEqual(hardening["production_postgres_major"], 17)
-        self.assertTrue(hardening["private_tables_rls_enabled"])
-        self.assertFalse(hardening["client_policies_created"])
-        self.assertFalse(hardening["service_role_policy_created"])
-        self.assertFalse(hardening["direct_client_grants_present"])
-        self.assertTrue(hardening["live_api_role_dml_denied"])
-
-    def test_quota_reservation_link_live_evidence_is_pinned(self) -> None:
-        link = self.contract["deployment"]["quota_reservation_link"]
-        self.assertTrue(link["source_ready"])
-        self.assertTrue(link["production_applied"])
-        self.assertEqual(link["production_migration_version"], "20261007083746")
-        self.assertEqual(
-            link["production_migration_name"],
-            "user_cloud_storage_quota_reservation_link_v1",
-        )
-        self.assertEqual(link["production_postgres_major"], 17)
-        self.assertTrue(link["not_null"])
-        self.assertTrue(link["unique"])
-        self.assertEqual(
-            link["foreign_key"],
-            "private.ordax_service_quota_reservations.reservation_id",
-        )
-        self.assertEqual(link["on_delete"], "restrict")
-        self.assertEqual(link["rows_at_deploy"], 0)
+    def test_historical_deployment_is_not_promoted_to_destination(self) -> None:
+        deployment = self.contract["deployment"]
+        evidence = json.loads((ROOT / deployment["destination_inventory_evidence"]).read_text())
+        history = json.loads((ROOT / deployment["historical_deployment_evidence"]).read_text())
+        self.assertEqual(evidence["target_project_ref"], deployment["target_project_ref"])
+        self.assertTrue(evidence["destination_has_existing_auth_users"])
+        self.assertEqual(len(evidence["tables"]), 5)
+        self.assertTrue(all(value is False for value in evidence["tables"].values()))
+        self.assertTrue(history["cloud_storage_prior_deployment"]["transactional_schema_deployed"])
+        self.assertTrue(history["cannot_claim_current_destination_installation"])
 
 
 if __name__ == "__main__":
