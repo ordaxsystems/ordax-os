@@ -95,6 +95,10 @@ jobs:
     needs: verify
     runs-on: ubuntu-24.04
     timeout-minutes: 120
+    # Serialize cold-cache Owner component producers for one exact source.
+    concurrency:
+      group: ordax-surface-producer-${{ github.event.pull_request.head.sha || github.sha }}
+      cancel-in-progress: false
     permissions:
       contents: write
     steps:
