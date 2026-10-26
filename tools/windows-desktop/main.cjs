@@ -499,7 +499,11 @@ app.whenReady().then(async()=>{
       idleActivation=createDesktopIdleActivation({
         userData,template,log,
         isReady:()=>!devProfile && !staging && window && !window.isDestroyed() &&
-          runtime?.child && runtime.child.exitCode===null,
+          runtime?.child && runtime.child.exitCode===null &&
+          runtime.child.signalCode===null && browserHost &&
+          !browserHost.hasActiveWork() &&
+          !window.webContents.isCurrentlyAudible?.() &&
+          !window.webContents.isLoadingMainFrame?.(),
         getIdleSnapshot:()=>({
           idleSeconds:powerMonitor.getSystemIdleTime(),
           windowVisible:window.isVisible(),
