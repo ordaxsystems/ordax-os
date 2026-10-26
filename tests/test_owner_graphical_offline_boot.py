@@ -70,6 +70,8 @@ class OwnerGraphicalOfflineBootTests(unittest.TestCase):
         self.assertIn("grep -qx '0x1af4'", body)
         self.assertIn("grep -qx '0x1050'", body)
         self.assertIn("export WEBKIT_DISABLE_DMABUF_RENDERER=1", body)
+        self.assertIn("export LIBGL_ALWAYS_SOFTWARE=1", body)
+        self.assertEqual(SURFACE.count("LIBGL_ALWAYS_SOFTWARE=1"), 1)
         self.assertEqual(SURFACE.count("WEBKIT_DISABLE_DMABUF_RENDERER=1"), 1)
         self.assertLess(end, SURFACE.index('START_URI="http://127.0.0.1:8765/'))
 

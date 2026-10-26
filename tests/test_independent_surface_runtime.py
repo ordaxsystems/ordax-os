@@ -116,6 +116,8 @@ class IndependentSurfaceRuntimeTests(unittest.TestCase):
             "BR2_PACKAGE_PYTHON_GOBJECT=y",
             "BR2_PACKAGE_XWAYLAND=y",
             "BR2_PACKAGE_XKEYBOARD_CONFIG=y",
+            "BR2_PACKAGE_MESA3D_GALLIUM_DRIVER_SOFTPIPE=y",
+            "BR2_PACKAGE_MESA3D_OPENGL_GLX=y",
             "BR2_PACKAGE_SEATD=y",
             "BR2_PACKAGE_GSTREAMER1=y",
             "BR2_PACKAGE_GSTREAMER1_INSTALL_TOOLS=y",
@@ -216,6 +218,21 @@ class IndependentSurfaceRuntimeTests(unittest.TestCase):
                 self.builder.ensure_surface_runtime_path_compatibility(bad)
                 with self.assertRaisesRegex(self.builder.SurfaceBuildError, "missing required paths"):
                     self.builder.inspect_rootfs_tar(bad, self.source)
+                empty = self.make_tar(required, empty={missing})
+                self.builder.ensure_surface_runtime_path_compatibility(empty)
+                with self.assertRaisesRegex(self.builder.SurfaceBuildError, "empty"):
+                    self.builder.inspect_rootfs_tar(empty, self.source)
+
+    def test_buildroot_opengl_runtime_missing_or_empty_rejects_surface_image(self):
+        # QEMU proved libepoxy abort(134) when Mesa EGL/GLES was present
+        # but libGL.so.1 was absent; softpipe is the supported virtio fallback.
+        required = self.buildroot_like_paths()
+        for missing in ("usr/lib/libGL.so.1", "usr/lib/dri/swrast_dri.so"):
+            with self.subTest(missing=missing):
+                absent = self.make_tar(required - {missing})
+                self.builder.ensure_surface_runtime_path_compatibility(absent)
+                with self.assertRaisesRegex(self.builder.SurfaceBuildError, "missing required paths"):
+                    self.builder.inspect_rootfs_tar(absent, self.source)
                 empty = self.make_tar(required, empty={missing})
                 self.builder.ensure_surface_runtime_path_compatibility(empty)
                 with self.assertRaisesRegex(self.builder.SurfaceBuildError, "empty"):
