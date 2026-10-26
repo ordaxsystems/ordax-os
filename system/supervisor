@@ -6,6 +6,7 @@ SYSTEM_ENTRYPOINT=$SYSTEM_ROOT/entrypoint
 SUPERVISOR_SCRIPT=$SYSTEM_ROOT/supervisor
 SURFACE_ENTRYPOINT=$SYSTEM_ROOT/surface/entrypoint
 OWNER_SURFACE_STAGE_HELPER=$SYSTEM_ROOT/services/surface-source/owner-stage.sh
+OWNER_INTELLIGENCE_STAGE_HELPER=$SYSTEM_ROOT/services/intelligence-source/owner-stage.sh
 RECOVERY_ENTRYPOINT=/ordax/bootstrap/recovery/entrypoint
 WORKTREE=${ORDAX_WORKTREE:-/workspace/ordax}
 STATE_DIR=${ORDAX_STATE_DIR:-/state/ordax}
@@ -630,7 +631,20 @@ stage_candidate_release() {
     release_slot=$RELEASES_DIR/$candidate_sha
     if [ -f "$release_slot/.ready" ] && [ -d "$release_slot/system" ]; then
         existing_surface_status=$(/bin/sh "$OWNER_SURFACE_STAGE_HELPER" status "$WORKTREE" "$candidate_sha" 2>>"$UPDATE_LOG" || true)
-        if [ "$existing_surface_status" = integration-candidate ] || { [ "$existing_surface_status" = canonical ] && ORDAX_GIT_BIN="$GIT_BIN" /bin/sh "$OWNER_SURFACE_STAGE_HELPER" ready "$WORKTREE" "$candidate_sha" "$release_slot" >>"$UPDATE_LOG" 2>&1; }; then
+        # The same immutable release slot also binds the single external
+        # Intelligence source when its OS contract becomes canonical.
+        intelligence_slot_valid=1
+        if [ -f "${OWNER_INTELLIGENCE_STAGE_HELPER:-}" ]; then
+            intel_status=$(ORDAX_GIT_BIN="$GIT_BIN" /bin/sh "$OWNER_INTELLIGENCE_STAGE_HELPER" status "$WORKTREE" "$candidate_sha" 2>>"$UPDATE_LOG" || true)
+            case "$intel_status" in
+                canonical)
+                    ORDAX_GIT_BIN="$GIT_BIN" /bin/sh "$OWNER_INTELLIGENCE_STAGE_HELPER" ready "$WORKTREE" "$candidate_sha" "$release_slot" >>"$UPDATE_LOG" 2>&1 || intelligence_slot_valid=0
+                    ;;
+                integration-candidate) ;;
+                *) intelligence_slot_valid=0 ;;
+            esac
+        fi
+        if [ "$intelligence_slot_valid" -eq 1 ] && { [ "$existing_surface_status" = integration-candidate ] || { [ "$existing_surface_status" = canonical ] && ORDAX_GIT_BIN="$GIT_BIN" /bin/sh "$OWNER_SURFACE_STAGE_HELPER" ready "$WORKTREE" "$candidate_sha" "$release_slot" >>"$UPDATE_LOG" 2>&1; }; }; then
             write_state_value "$STAGED_RELEASE_FILE" "$candidate_sha"
             write_state_value "$LAST_STAGE_DURATION_FILE" "0"
             return 0
@@ -670,6 +684,18 @@ stage_candidate_release() {
         rm -rf "$stage_dir"
         record_elapsed_seconds "$stage_started" "$LAST_STAGE_DURATION_FILE"
         return 1
+    fi
+
+    # Same Supervisor transaction: external Intelligence source is acquired
+    # only when the pinned candidate OS contract says canonical. Failure
+    # rejects this disposable candidate without changing the live checkout.
+    if [ -f "${OWNER_INTELLIGENCE_STAGE_HELPER:-}" ]; then
+        if ! ORDAX_GIT_BIN="$GIT_BIN" /bin/sh "$OWNER_INTELLIGENCE_STAGE_HELPER" stage "$WORKTREE" "$candidate_sha" "$stage_dir" >>"$UPDATE_LOG" 2>&1; then
+            log "pinned external Intelligence stage failed for $candidate_sha; keeping current checkout"
+            rm -rf "$stage_dir"
+            record_elapsed_seconds "$stage_started" "$LAST_STAGE_DURATION_FILE"
+            return 1
+        fi
     fi
 
     if ! staged_release_tree_is_valid "$stage_dir/system" "$candidate_mode"; then
@@ -1227,6 +1253,14 @@ start_surface() {
                 fi
             fi
             if ORDAX_GIT_BIN="$GIT_BIN" /bin/sh "$OWNER_SURFACE_STAGE_HELPER" ready "$WORKTREE" "$active_os_sha" "$active_slot" >>"$UPDATE_LOG" 2>&1; then
+                if [ -f "${OWNER_INTELLIGENCE_STAGE_HELPER:-}" ]; then
+                    intel_status=$(ORDAX_GIT_BIN="$GIT_BIN" /bin/sh "$OWNER_INTELLIGENCE_STAGE_HELPER" status "$WORKTREE" "$active_os_sha" 2>>"$UPDATE_LOG") || return 1
+                    if [ "$intel_status" = canonical ]; then
+                        ORDAX_GIT_BIN="$GIT_BIN" /bin/sh "$OWNER_INTELLIGENCE_STAGE_HELPER" ready "$WORKTREE" "$active_os_sha" "$active_slot" >>"$UPDATE_LOG" 2>&1 || return 1
+                    elif [ "$intel_status" != integration-candidate ]; then
+                        return 1
+                    fi
+                fi
                 start_surface_from_system "$active_slot/system" "$active_os_sha"
                 return $?
             fi
@@ -1763,6 +1797,15 @@ EOF
     elif [ -z "$candidate_surface_status" ]; then
         # Unknown source contract is not a live-reload-safe candidate.
         surface_host_changed=1
+    fi
+
+    if [ -f "${OWNER_INTELLIGENCE_STAGE_HELPER:-}" ]; then
+        candidate_intel_status=$(ORDAX_GIT_BIN="$GIT_BIN" /bin/sh "$OWNER_INTELLIGENCE_STAGE_HELPER" status "$WORKTREE" "$new_sha" 2>>"$UPDATE_LOG" || true)
+        case "$candidate_intel_status" in
+            canonical|'') surface_host_changed=1 ;;
+            integration-candidate) ;;
+            *) surface_host_changed=1 ;;
+        esac
     fi
 
     if [ "$supervisor_changed" -eq 1 ]; then

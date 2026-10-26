@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import importlib.util
 import json
 import os
 from pathlib import Path
@@ -86,6 +87,33 @@ def preseed(repo: Path, assembled: Path, rootfs: Path, sha: str) -> dict:
     for rel in VISUALS:
         visual = assembled / rel
         regular_tree(visual)
+    # Both external owners are preseeded in one and the same immutable
+    # Supervisor slot. Candidate Intelligence remains non-activating.
+    intelligence_lock_file = repo / "docs/contracts/intelligence-source.json"
+    intelligence = None
+    if intelligence_lock_file.is_file():
+        pinned = json.loads(intelligence_lock_file.read_text(encoding="utf-8"))
+        if pinned.get("status") not in ("integration-candidate", "canonical"):
+            raise PreseedError("unrecognized Intelligence source status")
+        receipt_path = source / "intelligence-source/source-provenance.json"
+        if pinned["status"] != "canonical" and receipt_path.exists():
+            raise PreseedError("unpromoted Intelligence candidate cannot replace Owner boot code")
+        if pinned["status"] == "canonical":
+            module_path = Path(__file__).resolve().parents[2] / "tools/native-release-assembly/build.py"
+            spec = importlib.util.spec_from_file_location("ordax_preseed_intelligence_binding", module_path)
+            if spec is None or spec.loader is None:
+                raise PreseedError("canonical Intelligence source verifier unavailable")
+            verifier = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(verifier)
+            try:
+                intelligence = verifier.verify_external_intelligence_system(
+                    source, lock_path=intelligence_lock_file,
+                )
+            except (ValueError, OSError) as exc:
+                raise PreseedError("exact Intelligence source proof cannot be verified") from exc
+            if intelligence["activation_authorized"] is not False:
+                raise PreseedError("Intelligence source attempted activation")
+
     releases = rootfs / "state/ordax/releases"
     if releases.is_symlink() or not releases.parent.is_dir():
         raise PreseedError("Owner release destination is unsafe")
@@ -119,13 +147,29 @@ def preseed(repo: Path, assembled: Path, rootfs: Path, sha: str) -> dict:
             raise PreseedError("visual file count differs from verified pinned source")
         if fingerprint.hexdigest() != receipt.get("visual_source_sha256"):
             raise PreseedError("visual bytes differ from the verified pinned source fingerprint")
+        if intelligence is not None:
+            # A Native CI receipt is never runtime authority. Owner slots
+            # have one offline hash manifest and the exact OS/source identity.
+            (stage / "system/intelligence-source/source-provenance.json").unlink()
+            manifest = []
+            for relative in list(pinned["source_paths"]) + intelligence["replaced_services"]:
+                file = stage / ("system/intelligence-source/" + relative
+                                if relative in pinned["source_paths"] else relative)
+                if file.is_symlink() or not file.is_file():
+                    raise PreseedError("missing real Owner Intelligence source or OS wrapper")
+                manifest.append(f"{hashlib.sha256(file.read_bytes()).hexdigest()}  {file.relative_to(stage).as_posix()}\n")
+            (stage / ".intelligence-file-hashes").write_text("".join(manifest), encoding="utf-8")
+            (stage / ".intelligence-source-sha").write_text(pinned["source_commit"] + "\n", encoding="ascii")
         (stage / ".surface-file-hashes").write_text("".join(lines), encoding="utf-8")
         (stage / ".sha").write_text(sha + "\n", encoding="ascii")
         (stage / ".surface-source-sha").write_text(lock["source_commit"] + "\n", encoding="ascii")
         (stage / ".ready").write_text("ready\n", encoding="ascii")
         regular_tree(stage)
         os.rename(stage, slot)
-        return {"os_commit": sha, "surface_commit": lock["source_commit"], "visual_files": count, "target": str(slot), "physical_device_written": False}
+        return {"os_commit": sha, "surface_commit": lock["source_commit"],
+                "intelligence_commit": pinned["source_commit"] if intelligence is not None else None,
+                "intelligence_files": len(pinned["source_paths"]) if intelligence is not None else 0,
+                "visual_files": count, "target": str(slot), "physical_device_written": False}
     finally:
         if stage.exists():
             shutil.rmtree(stage)

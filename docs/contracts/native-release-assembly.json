@@ -61,5 +61,17 @@
     "helper_package": "./cmd/ordax-creator-native-targets",
     "physical_apply_authorized": false,
     "publisher_authority": "ordaxsystems/ordax-os"
+  },
+  "intelligence_source_candidate": {
+    "owner": "ordaxsystems/ordax-intelligence",
+    "source_lock": "docs/contracts/intelligence-source.json",
+    "source_action": ".github/actions/assemble-intelligence",
+    "precondition": "verified-canonical-surface",
+    "required_in_release_pipeline_ci": true,
+    "required_native_flag": "--require-external-intelligence",
+    "legacy_code_packaging_allowed": false,
+    "activation_authorized": false,
+    "owner_dev_device_cutover_complete": false,
+    "stable_v4_device_cutover_complete": false
   }
 }
