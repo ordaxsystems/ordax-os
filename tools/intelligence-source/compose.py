@@ -17,34 +17,18 @@ assert SPEC and SPEC.loader
 source=importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(source)
 
-WRAPPERS={
-"system/services/intelligence/model-router.mjs": """import * as localAi from "../../contracts/local-ai.mjs";
-import * as modelRouter from "../../contracts/model-router.mjs";
-import { bindModelRouterContracts } from "../../intelligence-source/src/index.mjs";
-export const { createModelRouterRuntime } = bindModelRouterContracts({ localAi, modelRouter });
-""",
-"system/services/intelligence/runtime.mjs": """import * as intelligence from "../../contracts/intelligence.mjs";
-import * as localAi from "../../contracts/local-ai.mjs";
-import * as modelRouter from "../../contracts/model-router.mjs";
-import { bindIntelligenceContracts } from "../../intelligence-source/src/index.mjs";
-export const { createIntelligenceRuntime } = bindIntelligenceContracts({ intelligence, localAi, modelRouter });
-""",
-"system/services/local-ai/runtime.mjs": """import * as localAi from "../../contracts/local-ai.mjs";
-import { bindLocalAiContracts } from "../../intelligence-source/src/index.mjs";
-export const { createLocalAiRuntime } = bindLocalAiContracts(localAi);
-""",
-"system/services/local-ai/completion-stream.mjs": """import * as localAi from "../../contracts/local-ai.mjs";
-import { bindLocalAiStreamContracts } from "../../intelligence-source/src/index.mjs";
-export const { readLocalAiCompletionStream } = bindLocalAiStreamContracts(localAi);
-""",
-"system/services/local-ai/model-compatibility.mjs": """import * as hardware from "../../contracts/hardware-inventory.mjs";
-import * as systemMetrics from "../../contracts/system-metrics.mjs";
-import { BUNDLED_LOCAL_AI_MODEL_CANDIDATE } from "./model-candidate.generated.mjs";
-import { bindModelCompatibilityContracts } from "../../intelligence-source/src/index.mjs";
-export const { LOCAL_AI_MODEL_COMPATIBILITY_SCHEMA, assessBundledLocalAiModel } =
-  bindModelCompatibilityContracts({ hardware, systemMetrics, candidate: BUNDLED_LOCAL_AI_MODEL_CANDIDATE });
-""",
+WRAPPER_FILES = {
+    "system/services/intelligence/model-router.mjs": "model-router.mjs",
+    "system/services/intelligence/runtime.mjs": "intelligence-runtime.mjs",
+    "system/services/local-ai/runtime.mjs": "local-ai-runtime.mjs",
+    "system/services/local-ai/completion-stream.mjs": "completion-stream.mjs",
+    "system/services/local-ai/model-compatibility.mjs": "model-compatibility.mjs",
 }
+WRAPPER_ROOT = Path(__file__).resolve().parents[2] / "system/services/intelligence-source/wrappers"
+# Exactly one source of OS's public-contract bridge bodies: these files are
+# staged by the same Supervisor transaction in Owner/Dev and CI in Native.
+WRAPPERS = { target: (WRAPPER_ROOT / name).read_text(encoding="utf-8")
+             for target, name in WRAPPER_FILES.items() }
 
 class CompositionError(ValueError):
     pass
