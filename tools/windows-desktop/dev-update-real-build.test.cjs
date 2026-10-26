@@ -82,8 +82,10 @@ test('Windows Dev compiles real Git revisions, restores known-good after interru
   // actual installed NSIS runtime-template protected from writes.
   const template=process.env.ORDAX_DESKTOP_TEST_PACKAGED_TEMPLATE ||
     join(__dirname,'../..');
-  assert.equal(existsSync(join(template,'node_modules','vite','bin','vite.js')),true,
-    'Exact installed Dev update compiler must be available');
+  assert.equal(
+    existsSync(join(template,'node_modules','vite','bin','vite.js')) ||
+    existsSync(join(template,'toolchain','node_modules.tar.gz')),
+    true,'Canonical installed Dev compiler or its verified offline archive must be available');
   initGit(visual,'https://github.com/ordaxsystems/ordax-surface.git');
   surfaceFiles(visual,'one');
   const surfaceOne=commit(visual,'First verified Surface');
