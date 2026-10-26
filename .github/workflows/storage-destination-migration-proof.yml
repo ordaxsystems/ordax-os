@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - infra/supabase/product/render_storage_quota_destination_migration.py
+      - infra/supabase/product/verify_storage_destination_preflight.py
       - infra/supabase/product/migrations/20261026222222_storage_quota_populated_destination_v1.sql
       - infra/supabase/product/migrations/20261007050000_service_quota_ledger_v1.sql
       - infra/supabase/product/migrations/20261007083105_service_quota_usage_reduction_v1.sql
@@ -14,6 +15,7 @@ on:
       - docs/contracts/user-cloud-storage.json
       - docs/contracts/service-quotas.json
       - tests/test_storage_destination_migration.py
+      - tests/test_storage_destination_live_preflight.py
       - tests/sql/storage_destination_synthetic_fixture.sql
       - tests/test_storage_destination_migration_postgres.sh
       - .github/workflows/storage-destination-migration-proof.yml
@@ -63,6 +65,8 @@ jobs:
           psql --version
       - name: Validate canonical renderer, non-deployment contracts and rollback by default
         run: python3 -m unittest tests.test_storage_destination_migration
+      - name: Verify scoped catalog preflight and strict negative test cases
+        run: python3 -m unittest tests.test_storage_destination_live_preflight
       - name: Prove SQL transaction and negative isolation in synthetic PostgreSQL only
         shell: bash
         run: bash tests/test_storage_destination_migration_postgres.sh
