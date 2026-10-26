@@ -10,6 +10,7 @@ from unittest import mock
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "tools/ci/independent_surface_component_cache.py"
 WORKFLOW = ROOT / ".github/workflows/independent-surface-runtime.yml"
+R2_SCRIPT = ROOT / "tools/ci/independent_surface_r2.sh"
 
 
 def load_module():
@@ -168,11 +169,12 @@ class IndependentSurfaceComponentCacheTests(unittest.TestCase):
 
     def test_workflow_uses_one_durable_content_addressed_surface_store(self):
         workflow = WORKFLOW.read_text(encoding="utf-8")
+        script = R2_SCRIPT.read_text(encoding="utf-8")
         self.assertIn("ORDAX_R2_BUCKET: 'ordax-device-artifacts'", workflow)
-        self.assertIn("prefix='ci/surface-runtime/v1'", workflow)
-        self.assertIn("/manifests/${ORDAX_SURFACE_FINGERPRINT}.json", workflow)
-        self.assertIn("/blobs/sha256/${digest}", workflow)
-        self.assertNotIn("r2.dev", workflow)
+        self.assertIn("prefix='ci/surface-runtime/v1'", script)
+        self.assertIn("/manifests/${ORDAX_SURFACE_FINGERPRINT}.json", script)
+        self.assertIn("/blobs/sha256/${digest}", script)
+        self.assertNotIn("r2.dev", script)
 
     def test_workflow_keeps_github_cache_fast_but_r2_durable(self):
         workflow = WORKFLOW.read_text(encoding="utf-8")
@@ -198,7 +200,7 @@ class IndependentSurfaceComponentCacheTests(unittest.TestCase):
 
     def test_durable_publication_is_immutable_and_credentials_are_not_hardcoded(self):
         workflow = WORKFLOW.read_text(encoding="utf-8")
-        self.assertIn("--header 'If-None-Match: *'", workflow)
+        self.assertIn("--header 'If-None-Match: *'", R2_SCRIPT.read_text(encoding="utf-8"))
         self.assertIn("secrets.ORDAX_R2_ACCESS_KEY_ID", workflow)
         self.assertIn("secrets.ORDAX_R2_SECRET_ACCESS_KEY", workflow)
         self.assertNotRegex(workflow, r"ORDAX_R2_(ACCESS_KEY_ID|SECRET_ACCESS_KEY): '[^']+'")

@@ -30,6 +30,9 @@ on:
       - 'docs/contracts/physical-media.json'
       - 'docs/contracts/distribution-profiles.json'
       - '.github/workflows/creator-owner-dev-git.yml'
+      - 'tools/ci/independent_surface_component_cache.py'
+      - 'tools/ci/independent_surface_r2.sh'
+      - 'tests/test_owner_surface_cache_contract.py'
       - '.github/actions/resolve-creator-source/**'
       - 'docs/contracts/native-release-assembly.json'
       - 'tests/test_creator_owner_external_source.py'
@@ -62,6 +65,9 @@ on:
       - 'tools/creator/verify_owner_dev_offline_runtime.py'
       - 'tests/test_owner_dev_offline_runtime_release_gate.py'
       - '.github/workflows/creator-owner-dev-git.yml'
+      - 'tools/ci/independent_surface_component_cache.py'
+      - 'tools/ci/independent_surface_r2.sh'
+      - 'tests/test_owner_surface_cache_contract.py'
       - '.github/actions/resolve-creator-source/**'
       - 'docs/contracts/native-release-assembly.json'
       - 'tests/test_creator_owner_external_source.py'
@@ -91,6 +97,10 @@ jobs:
   build-and-publish:
     runs-on: ubuntu-24.04
     timeout-minutes: 360
+    # Serialize exact source build ownership with the independent producer.
+    concurrency:
+      group: ordax-surface-producer-${{ github.event.pull_request.head.sha || github.sha }}
+      cancel-in-progress: false
     env:
       # Exact checkout identity for push and PR; github.sha on PR is the
       # synthetic merge SHA, not the actual local source for Creator.
@@ -119,6 +129,8 @@ jobs:
       - name: Fast Owner Development preflight
         run: |
           set -euo pipefail
+          bash -n tools/ci/independent_surface_r2.sh
+          python3 -m unittest tests.test_owner_surface_cache_contract -v
           python tools/ci/preflight_owner_dev.py
 
       - name: Set up Go
@@ -545,6 +557,18 @@ jobs:
           path: ${{ runner.temp }}/ordax-independent-surface
           key: ordax-independent-surface-artifact-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.owner-surface-fingerprint.outputs.fingerprint }}
 
+      - name: Restore verified Surface EROFS from durable R2 for Owner
+        id: owner-surface-r2
+        if: steps.owner-surface-artifact-cache.outputs.cache-hit != 'true'
+        env:
+          ORDAX_R2_ACCOUNT_ID: '42586bf13b61436219d21def299833e4'
+          ORDAX_R2_BUCKET: 'ordax-device-artifacts'
+          ORDAX_R2_ACCESS_KEY_ID: ${{ secrets.ORDAX_R2_ACCESS_KEY_ID }}
+          ORDAX_R2_SECRET_ACCESS_KEY: ${{ secrets.ORDAX_R2_SECRET_ACCESS_KEY }}
+          ORDAX_SURFACE_FINGERPRINT: ${{ steps.owner-surface-fingerprint.outputs.fingerprint }}
+          ORDAX_SOURCE_COMMIT: ${{ env.ORDAX_OWNER_SOURCE_COMMIT }}
+        run: bash tools/ci/independent_surface_r2.sh restore
+
       # Both producers use the same Buildroot compiler/download cache keys.
       # This never reuses a Surface EROFS built for a different source commit:
       # Creator still verifies the new image and its exact provenance itself.
@@ -554,6 +578,8 @@ jobs:
         with:
           path: ${{ runner.temp }}/ordax-independent-surface-ccache
           key: ordax-independent-surface-ccache-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('bootstrap/independent-surface-runtime/configs/ordax_surface_defconfig', 'bootstrap/independent-base/source.json', 'bootstrap/kernel/source.json') }}
+          restore-keys: |
+            ordax-independent-surface-ccache-v1-${{ runner.os }}-${{ runner.arch }}-
 
       - name: Restore shared Surface Buildroot source downloads
         id: owner-surface-downloads
@@ -565,33 +591,24 @@ jobs:
             ordax-independent-surface-dl-v1-${{ runner.os }}-${{ runner.arch }}-
 
       - name: Build and verify one canonical offline Surface runtime
+        id: owner-surface-build
         env:
           BR2_CCACHE_DIR: ${{ runner.temp }}/ordax-independent-surface-ccache
           BR2_DL_DIR: ${{ runner.temp }}/ordax-independent-surface-dl
         run: |
           set -euo pipefail
-          # The source defconfig deliberately omits Linux headers. Resolve it
-          # from bootstrap/kernel/source.json exactly as the independent proof
-          # does; restore the immutable source on all exit paths.
           config=bootstrap/independent-surface-runtime/configs/ordax_surface_defconfig
           trap 'git checkout -- "$config"' EXIT
+          out="$RUNNER_TEMP/ordax-independent-surface"
           reused=false
-          if [ '${{ steps.owner-surface-artifact-cache.outputs.cache-hit }}' = true ]; then
-            # Verify both the input fingerprint and hashes of the original
-            # immutable EROFS + provenance. Consumer mode permits inspection
-            # across runner images without rewriting the producer receipt.
+          if [ '${{ steps.owner-surface-artifact-cache.outputs.cache-hit }}' = true ] ||
+             [ '${{ steps.owner-surface-r2.outputs.hit }}' = true ]; then
             python3 tools/ci/independent_surface_component_cache.py verify \
-              --out "$RUNNER_TEMP/ordax-independent-surface" \
-              --integration-commit "$ORDAX_OWNER_SOURCE_COMMIT" \
+              --out "$out" --integration-commit "$ORDAX_OWNER_SOURCE_COMMIT" \
               --cache-hit true --consumer \
               --receipt "$RUNNER_TEMP/owner-surface-cache-inspection.json"
-            # Preserve original producer provenance. The canonical verifier
-            # proves immutable input fingerprint plus manifest/image SHA-256.
-            # Owner staging records a separate integration-commit binding.
-            mkdir -p "$RUNNER_TEMP/owner-dev-surface-runtime"
-            cp -a "$RUNNER_TEMP/ordax-independent-surface/." "$RUNNER_TEMP/owner-dev-surface-runtime/"
             reused=true
-            echo 'OWNER_SURFACE_RUNTIME_SOURCE=verified-input-fingerprint-cache'
+            echo 'OWNER_SURFACE_RUNTIME_SOURCE=verified-content-addressed-cache'
           fi
           export ORDAX_SOURCE_COMMIT="$ORDAX_OWNER_SOURCE_COMMIT"
           if [ "$reused" != true ]; then
@@ -599,14 +616,40 @@ jobs:
             kernel_version="$(python3 -c 'import json; print(json.load(open("bootstrap/kernel/source.json"))["version"])')"
             grep -Fx "BR2_DEFAULT_KERNEL_VERSION=\"$kernel_version\"" "$config"
             python3 bootstrap/independent-surface-runtime/build.py build \
-              --out "$RUNNER_TEMP/owner-dev-surface-runtime" \
-              --cache "$RUNNER_TEMP/owner-independent-cache" --jobs 4
+              --out "$out" --cache "$RUNNER_TEMP/owner-independent-cache" --jobs 4
+            # The canonical fingerprint excludes temporary kernel-header
+            # materialization; restore the immutable source before recording.
+            git checkout -- "$config"
+            git diff --exit-code -- "$config"
+            python3 tools/ci/independent_surface_component_cache.py record \
+              --out "$out" --source-commit "$ORDAX_OWNER_SOURCE_COMMIT"
+            python3 tools/ci/independent_surface_component_cache.py verify \
+              --out "$out" --integration-commit "$ORDAX_OWNER_SOURCE_COMMIT" \
+              --cache-hit false --receipt "$RUNNER_TEMP/owner-surface-cache-inspection.json"
           fi
+          python3 bootstrap/independent-surface-runtime/build.py verify --out "$out"
+          mkdir -p "$RUNNER_TEMP/owner-dev-surface-runtime"
+          cp -a "$out/." "$RUNNER_TEMP/owner-dev-surface-runtime/"
           python3 bootstrap/independent-surface-runtime/build.py verify \
             --out "$RUNNER_TEMP/owner-dev-surface-runtime"
 
-      # Buildroot produces its tar/EROFS without root, so the unprivileged
-      # runner retains readable compiler objects even after a build failure.
+      - name: Save verified Owner Surface EROFS to shared artifact cache
+        if: steps.owner-surface-build.outcome == 'success' && steps.owner-surface-artifact-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/ordax-independent-surface
+          key: ordax-independent-surface-artifact-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.owner-surface-fingerprint.outputs.fingerprint }}
+
+      - name: Ensure verified Owner Surface exists in durable R2 store
+        if: steps.owner-surface-build.outcome == 'success' && steps.owner-surface-r2.outputs.hit != 'true'
+        env:
+          ORDAX_R2_ACCOUNT_ID: '42586bf13b61436219d21def299833e4'
+          ORDAX_R2_BUCKET: 'ordax-device-artifacts'
+          ORDAX_R2_ACCESS_KEY_ID: ${{ secrets.ORDAX_R2_ACCESS_KEY_ID }}
+          ORDAX_R2_SECRET_ACCESS_KEY: ${{ secrets.ORDAX_R2_SECRET_ACCESS_KEY }}
+          ORDAX_SURFACE_FINGERPRINT: ${{ steps.owner-surface-fingerprint.outputs.fingerprint }}
+        run: bash tools/ci/independent_surface_r2.sh publish
+
       - name: Save shared Surface Buildroot compiler cache
         if: always() && steps.owner-surface-ccache.outcome == 'success' && steps.owner-surface-ccache.outputs.cache-hit != 'true'
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
