@@ -7,6 +7,24 @@ const {join}=require('node:path');
 const {createHash}=require('node:crypto');
 const {spawnSync}=require('node:child_process');
 const HASH=/^[a-f0-9]{64}$/;
+function calculateTreeDigest(root){
+  const digest=createHash('sha256');
+  const visit=(directory,prefix)=>{
+    for(const entry of readdirSync(directory,{withFileTypes:true}).sort((a,b)=>a.name<b.name?-1:a.name>b.name?1:0)){
+      const path=join(directory,entry.name),stat=lstatSync(path);
+      if(stat.isSymbolicLink())throw Error('Untrusted compiler tree link');
+      const name=prefix+entry.name;
+      if(stat.isDirectory())visit(path,name+'/');
+      else if(stat.isFile()){
+        if(stat.size>64*1024*1024)throw Error('Oversized canonical compiler file');
+        digest.update(name+'\\0');
+        digest.update(createHash('sha256').update(readFileSync(path)).digest());
+      }else throw Error('Untrusted compiler tree entry');
+    }
+  };
+  visit(root,'');
+  return digest.digest('hex');
+}
 const digest=bytes=>createHash('sha256').update(bytes).digest('hex');
 function assertRealFile(path){
   const stat=lstatSync(path);
@@ -23,7 +41,8 @@ function archiveReceipt(template){
     !HASH.test(receipt.canonical_lock_sha256) ||
     !Number.isSafeInteger(receipt.archive_size)||receipt.archive_size<1||
     receipt.archive_size>256*1024*1024 ||
-    !Number.isSafeInteger(receipt.installed_packages)||receipt.installed_packages<1)
+    !Number.isSafeInteger(receipt.installed_packages)||receipt.installed_packages<1 ||
+    !HASH.test(receipt.tree_sha256))
     throw Error('Untrusted canonical Desktop toolchain receipt');
   const archive=join(directory,receipt.archive);
   if(assertRealFile(archive).size!==receipt.archive_size ||
@@ -92,13 +111,18 @@ function ensureRuntimeToolchain(template,userData){
     if(!existsSync(marker)||assertRealFile(marker).size>512||
       JSON.parse(readFileSync(marker,'utf8')).archive_sha256!==receipt.archive_sha256)
       throw Error('Untrusted existing Desktop compiler cache');
-    return validateExpanded(target);
+    const expanded=validateExpanded(target);
+    if(calculateTreeDigest(expanded)!==receipt.tree_sha256)
+      throw Error('Desktop compiler cache content digest mismatch');
+    return expanded;
   }
   assertEntries(archive);
   const temp=mkdtempSync(join(base,'.extract-'));
   try{
     tar(['-xzf',archive,'-C',temp]);
     const ready=validateExpanded(temp);
+    if(calculateTreeDigest(ready)!==receipt.tree_sha256)
+      throw Error('Expanded Desktop compiler does not match canonical receipt');
     writeFileSync(join(temp,'toolchain-cache-receipt.json'),
       JSON.stringify({archive_sha256:receipt.archive_sha256})+'\n',{flag:'wx'});
     renameSync(temp,target);
@@ -107,4 +131,4 @@ function ensureRuntimeToolchain(template,userData){
     if(existsSync(temp))rmSync(temp,{recursive:true,force:true,maxRetries:4,retryDelay:200});
   }
 }
-module.exports={archiveReceipt,ensureRuntimeToolchain,assertEntries};
+module.exports={archiveReceipt,ensureRuntimeToolchain,assertEntries,calculateTreeDigest};
