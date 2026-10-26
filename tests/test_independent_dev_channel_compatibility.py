@@ -122,6 +122,65 @@ class IndependentDevChannelCompatibilityTests(unittest.TestCase):
             self.assertGreaterEqual(result["symlink_members"], 1)
             self.assertEqual(json.loads(receipt.read_text(encoding="utf-8")), result)
 
+    def test_cross_commit_owner_rootfs_reuse_requires_verified_artifact_receipt(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            rootfs = root / "rootfs.tar"
+            provenance = root / "provenance.json"
+            integration = root / "owner-reuse.json"
+            write_rootfs(rootfs)
+            write_provenance(provenance, rootfs)
+            current = "2" * 40
+            receipt = {
+                "$schema": "prototype-ordax.portable-component-reuse/1",
+                "status": "verified",
+                "component": "independent-base-owner",
+                "reused": True,
+                "provenance_rewritten": False,
+                "build_source_commit": SOURCE,
+                "integration_source_commit": current,
+                "artifacts": {
+                    name: {
+                        "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+                        "size": path.stat().st_size,
+                    }
+                    for name, path in (("rootfs.tar", rootfs), ("provenance.json", provenance))
+                },
+            }
+            integration.write_text(json.dumps(receipt), encoding="utf-8")
+            with self.assertRaisesRegex(proof.policy.IndependentRootfsError, "source commit differs"):
+                proof.policy.validate(rootfs=rootfs, provenance_path=provenance, expected_commit=current)
+            accepted = proof.prove(
+                rootfs=rootfs, provenance_path=provenance,
+                expected_commit=current, receipt_path=root / "compatible.json",
+                reuse_receipt=integration,
+            )
+            self.assertEqual(accepted["source_commit"], current)
+            self.assertEqual(accepted["build_source_commit"], SOURCE)
+            self.assertTrue(accepted["rootfs_reused"])
+            for change in (
+                {"integration_source_commit": "3" * 40},
+                {"build_source_commit": "4" * 40},
+                {"provenance_rewritten": True},
+                {"reused": False},
+            ):
+                altered = dict(receipt, **change)
+                integration.write_text(json.dumps(altered), encoding="utf-8")
+                with self.assertRaisesRegex(proof.policy.IndependentRootfsError, "receipt"):
+                    proof.policy.validate(
+                        rootfs=rootfs, provenance_path=provenance,
+                        expected_commit=current, reuse_receipt=integration,
+                    )
+            altered = dict(receipt)
+            altered["artifacts"] = dict(receipt["artifacts"])
+            altered["artifacts"]["rootfs.tar"] = dict(receipt["artifacts"]["rootfs.tar"], sha256="0" * 64)
+            integration.write_text(json.dumps(altered), encoding="utf-8")
+            with self.assertRaisesRegex(proof.policy.IndependentRootfsError, "rejects rootfs.tar"):
+                proof.policy.validate(
+                    rootfs=rootfs, provenance_path=provenance,
+                    expected_commit=current, reuse_receipt=integration,
+                )
+
     def test_authenticated_owner_rootfs_materializes_safe_symlinks_atomically(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
