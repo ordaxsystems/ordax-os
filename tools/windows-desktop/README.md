@@ -104,7 +104,12 @@ o Electron verifica sua condição de inatividade a cada 15 segundos e solicita
 seu próprio relançamento apenas após 60 segundos com janela oculta, 120
 segundos em segundo plano, ou 600 segundos com janela em primeiro plano.
 Não encerra uma sessão interativa ativa, não reinicia o Windows e não aplica
-código não verificado sobre a árvore em execução. Na inicialização, o mesmo
+código não verificado sobre a árvore em execução. O handoff Electron usa um
+único coordenador transacional em `dev-update.cjs`: impede callbacks de
+timer concorrentes e **revalida SHA pendente, pino de rollback, atividade
+humana e host saudável depois da leitura assíncrona do First Run**, antes de
+pedir relaunch. Se qualquer pré-condição mudou, a candidata não é consumida,
+o app continua aberto e o próximo ciclo pode avaliar o estado novo. Na inicialização, o mesmo
 `chooseBootVersion` seleciona a candidata uma única vez, executa o Native
 host + Surface, confirma saúde e grava `activeSha`; falha ou encerramento
 sem recibo volta ao conhecido bom e rejeita o SHA. Rollback fixado desativa
