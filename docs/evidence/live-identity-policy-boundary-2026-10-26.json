@@ -53,5 +53,13 @@
     "Evidence is not a cryptographic attestation of remote database state.",
     "Live eligibility function was observed in the target database but does not yet have an identified owning migration in the current repository; reconcile ownership before deployment.",
     "Only a controlled rehearsal against a representative isolated database with two independent test identities can authorize live deployment."
-  ]
+  ],
+  "source_recovery": {
+    "source_path": "infra/supabase/product/migrations/20261026181500_authenticated_subject_eligibility_source_v1.sql",
+    "live_definition_md5": "0e64a11cc3d4802f7f94c1591cdadc26",
+    "source_recovered_from_pg_get_functiondef": true,
+    "source_reviewed_against_live_catalog": true,
+    "source_migration_deployed": false,
+    "semantic_e2e_verified": false
+  }
 }
