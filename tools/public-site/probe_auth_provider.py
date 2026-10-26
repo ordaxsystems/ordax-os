@@ -118,13 +118,24 @@ def evaluate(
     confirmation_required = config.get("mailer_autoconfirm") is False
     password_ok = password_min >= MIN_PASSWORD_CHARS
     site_url_ok = site_url == origin
-    recovery_url = f"{origin}{RECOVERY_PATH}"
-    signup_url = f"{origin}/login/"
-    recovery_redirect_ok = recovery_url in normalized_redirects
-    signup_redirect_ok = signup_url.rstrip("/") in normalized_redirects
+    # The provider's allowed redirects are policy-owned, not a second list
+    # in the probe. /auth/confirm is the server-owned email-template callback,
+    # while the hosted Supabase signup fallback redirects to /login/.
+    policy = json.loads(PROVIDER_POLICY_PATH.read_text(encoding="utf-8"))
+    redirect_policy = policy.get("redirect_policy")
+    required_paths = redirect_policy.get("required_paths") if isinstance(redirect_policy, dict) else None
+    if (not isinstance(required_paths, list)
+            or len(required_paths) != 2
+            or len(set(required_paths)) != len(required_paths)
+            or any(
+                not isinstance(path, str) or re.fullmatch(r"/[a-z0-9/-]+/?", path) is None
+                for path in required_paths
+            )
+            or RECOVERY_PATH not in required_paths):
+        raise ValueError("invalid-canonical-provider-redirect-policy")
+    required_redirects = {f"{origin}{path}".rstrip("/") for path in required_paths}
 
     # Canonical mail settings are policy-owned, never duplicated as CI inputs.
-    policy = json.loads(PROVIDER_POLICY_PATH.read_text(encoding="utf-8"))
     mail = policy.get("transactional_email")
     if not isinstance(mail, dict) or mail.get("provider") != "resend":
         raise ValueError("canonical transactional mail policy required")
@@ -170,7 +181,7 @@ def evaluate(
         "confirm_email": confirmation_required,
         "password_policy": password_ok,
         "production_origin": site_url_ok,
-        "redirect_allowlist": recovery_redirect_ok and signup_redirect_ok and redirects_same_origin,
+        "redirect_allowlist": required_redirects.issubset(set(normalized_redirects)) and redirects_same_origin,
         "recovery_template": recovery_template_configured,
         "resend_smtp_settings": smtp_configured,
         "branded_confirmation_template": branded_confirmation,
