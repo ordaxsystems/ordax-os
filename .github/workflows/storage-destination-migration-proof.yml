@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - infra/supabase/product/render_storage_quota_destination_migration.py
+      - infra/supabase/product/migrations/20261026222222_storage_quota_populated_destination_v1.sql
       - infra/supabase/product/migrations/20261007050000_service_quota_ledger_v1.sql
       - infra/supabase/product/migrations/20261007083105_service_quota_usage_reduction_v1.sql
       - infra/supabase/product/migrations/20261005171000_user_cloud_storage_foundation_v2.sql
