@@ -3,6 +3,7 @@
 // Never rewrites a running tree. Only exact verified, clean, immutable versions
 // can become boot candidates. MVP/Stable must not use this Git channel.
 const { randomUUID } = require('node:crypto');
+const { pathToFileURL } = require('node:url');
 const { join, basename, dirname } = require('node:path');
 const { mkdirSync, readFileSync, writeFileSync, renameSync, rmSync, readdirSync, lstatSync, existsSync, unlinkSync, openSync, closeSync, fsyncSync } = require('node:fs');
 const { OFFICIAL_REMOTE } = require('./runtime.cjs');
@@ -167,11 +168,32 @@ async function verifiedVersion(userData, sha, template) {
   return path;
 }
 
+// Same durable First Run gate as Owner/Development USB's ordax-main-watch.
+// Windows Native already stores the canonical firstRun record under the
+// host-owned native-state directory. Reuse the OS validator rather than
+// redefining what "completed" means in Electron or inventing an OOBE marker.
+async function desktopFirstRunComplete(userData,template){
+  const file=join(userData,'native-state','native-state.json');
+  try{
+    if(!lstatSync(file).isFile())return false;
+    const saved=JSON.parse(readFileSync(file,'utf8'));
+    const validator=join(template,'system','contracts','first-run-state-store.mjs');
+    const {validateFirstRunState}=await import(pathToFileURL(validator).href);
+    return validateFirstRunState(saved.firstRun).completed===true;
+  }catch(error){
+    if(error?.code==='ENOENT'||error instanceof SyntaxError||error instanceof TypeError)
+      return false;
+    throw error;
+  }
+}
+
 // Do not start network I/O during app boot. A prepared candidate gets only
 // one trial; if no health receipt was durably written, next boot falls back.
-async function chooseBootVersion({ userData, template, log = () => {} }) {
+async function chooseBootVersion({ userData, template, log = () => {}, allowPendingTrial = true }) {
   const state = readState(userData);
-  if (state.pendingSha && !state.attemptedSha) {
+  if (state.pendingSha && !state.attemptedSha && !allowPendingTrial) {
+    log('Staged Desktop candidate held until canonical First Run is completed');
+  } else if (state.pendingSha && !state.attemptedSha) {
     const candidate = await verifiedVersion(userData,state.pendingSha,template);
     if (candidate) {
       writeState(userData,{ ...state, attemptedSha: state.pendingSha });
@@ -357,6 +379,6 @@ async function stageMain({ userData, template, log = () => {}, remote = OFFICIAL
 module.exports = {
   CHANNEL_SCHEMA, readState, writeState, validateState, versionRoot,
   chooseBootVersion, confirmedVersion: verifiedVersion,
-  stageMain, shouldAutoActivate, confirmHealthy, rejectCandidate, pinPrevious, unpin,
+  stageMain, shouldAutoActivate, desktopFirstRunComplete, confirmHealthy, rejectCandidate, pinPrevious, unpin,
   prepareWindowsGitDeletion, removeOwnedCandidate, sweepStaleCandidates,
 };
