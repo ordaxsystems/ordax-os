@@ -102,7 +102,7 @@ class OwnerUsbDurablePowerTransitionTests(unittest.TestCase):
             logfile = root / "agent.log"
             agent.write_text(
                 '#!/bin/sh\n'
-                'printf "%s\\n" "$" >"$PIDFILE"\n'
+                'printf "%s\\n" "$$" >"$PIDFILE"\n'
                 '( trap "" TERM; while :; do /bin/sleep 1; done ) &\n'
                 'printf "%s\\n" "$!" >"$CHILD"\n'
                 'wait\n',
