@@ -6,7 +6,7 @@ const { join, resolve, isAbsolute, basename } = require('node:path');
 const { randomBytes } = require('node:crypto');
 const { mkdirSync, createWriteStream, existsSync, readFileSync } = require('node:fs');
 const { resolveTemplate, runtimeStateDirectory } = require('./runtime.cjs');
-const { chooseBootVersion, confirmHealthy, rejectCandidate, stageMain, desktopFirstRunComplete, createDesktopIdleActivation, readState, pinPrevious, unpin } = require('./dev-update.cjs');
+const { chooseBootVersion, confirmHealthy, rejectCandidate, stageMain, desktopFirstRunComplete, createDesktopIdleActivation, createDesktopWindowIdleTracker, readState, pinPrevious, unpin } = require('./dev-update.cjs');
 const { startHost, stopHost } = require('./host.cjs');
 const { verifyBundledNativeReceipt } = require('./native-build.cjs');
 let window=null, runtime=null, stream=null, browserHost=null, updateTimer=null, activationTimer=null, staging=false, idleActivation=null;
@@ -413,6 +413,16 @@ app.whenReady().then(async()=>{
       preload:join(__dirname,'browser-preload.cjs'),
       sandbox:true,webSecurity:true,allowRunningInsecureContent:false},
   });
+  const windowIdle=createDesktopWindowIdleTracker();
+  // One source of truth for whether OrdaX itself has been unattended.
+  // A remote session or activity in other Windows apps must not keep a
+  // minimized OrdaX pending forever. Focused OrdaX still uses powerMonitor.
+  window.on('focus',windowIdle.onAttention);
+  window.on('show',windowIdle.onAttention);
+  window.on('restore',windowIdle.onAttention);
+  window.on('blur',windowIdle.onBackground);
+  window.on('hide',windowIdle.onBackground);
+  window.on('minimize',windowIdle.onBackground);
   // Electron 40 passes a single details event, not the legacy (event, level,
   // message) tuple. Without this, actual Native renderer errors were invisible.
   window.webContents.on('console-message',details=>{
@@ -504,9 +514,14 @@ app.whenReady().then(async()=>{
           !browserHost.hasActiveWork() &&
           !window.webContents.isCurrentlyAudible?.() &&
           !window.webContents.isLoadingMainFrame?.(),
-        getIdleSnapshot:()=>({
-          idleSeconds:powerMonitor.getSystemIdleTime(),
+        getIdleSnapshot:()=>windowIdle.snapshot({
+          // Global idle is meaningful only while OrdaX is foreground.
+          // A remote desktop session may continuously report zero OS idle,
+          // which must not block a genuinely unattended OrdaX window.
+          systemIdleSeconds:window.isFocused() && !window.isMinimized()
+            ? powerMonitor.getSystemIdleTime() : 0,
           windowVisible:window.isVisible(),
+          windowMinimized:window.isMinimized(),
           windowFocused:window.isFocused(),
         }),
         relaunch:()=>{app.relaunch();app.quit();},

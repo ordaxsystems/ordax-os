@@ -124,6 +124,19 @@ sem recibo volta ao conhecido bom e rejeita o SHA. Rollback fixado desativa
 atualizações até retomada explícita. Smoke NSIS usa perfil isolado e não
 executa reinício automático.
 
+**Inatividade confiável no Windows/RDP:** a ativação nunca deve
+confundir inatividade de todo o Windows com inatividade do próprio OrdaX.
+Quando a janela está em foco, o Electron ainda exige os 600 segundos reais
+reportados por `powerMonitor`. Quando está minimizada/oculta ou em segundo
+plano, o próprio `BrowserWindow` é a autoridade de foco e minimização:
+um relógio monotônico iniciado nos eventos `blur`, `hide` e `minimize`,
+reiniciado por `focus`, `show` e `restore`, mede respectivamente os
+60 ou 120 segundos de ausência de atenção. `isMinimized()` é consultado
+separadamente porque, no Windows, `isVisible()` sozinho não determina se
+a janela foi minimizada. Essa política mantém todos os gates de downloads,
+áudio, navegação, First Run, Native health, revisão Git e rollback, e não
+cria serviço/atualizador adicional nem altera o temporizador global do PC.
+
 **Gate de primeiro uso idêntico ao USB:** antes de descobrir atualizações
 ou iniciar o trial automático, o Desktop lê o `native-state/native-state.json`
 já persistido pelo Native Host e o valida com o módulo canônico

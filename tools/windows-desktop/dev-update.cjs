@@ -260,6 +260,40 @@ function shouldAutoActivate(state,{idleSeconds,windowVisible,windowFocused}={}){
 // OOBE is asynchronous: the user may roll back, another poll may stage a new
 // SHA, or system activity may resume while its receipt is being read. Never
 // use a stale state/snapshot to relaunch Electron or schedule two relaunches.
+// Electron's OS idle timer describes the entire machine, not attention to
+// OrdaX. An inactive/minimized window can safely accept its prepared Git
+// revision even when the person is using another application or a remote
+// session does not publish meaningful global idle seconds. Foreground OrdaX
+// still requires actual OS idle time. A monotonic per-window clock, reset on
+// focus/show/restore, prevents instant relaunch on mere minimization.
+function createDesktopWindowIdleTracker({now=()=>performance.now()}={}){
+  if(typeof now!=='function')throw new TypeError('Monotonic Desktop clock required');
+  let inactiveSince=null;
+  const tick=()=>{
+    const current=now();
+    if(!Number.isFinite(current))throw new TypeError('Invalid monotonic Desktop clock');
+    return current;
+  };
+  return Object.freeze({
+    onAttention:()=>{inactiveSince=null;},
+    onBackground:()=>{if(inactiveSince===null)inactiveSince=tick();},
+    snapshot:({windowVisible,windowFocused,windowMinimized,systemIdleSeconds})=>{
+      const hidden=windowVisible===false || windowMinimized===true;
+      if(!hidden && windowFocused===true){
+        inactiveSince=null;
+        return {windowVisible:true,windowFocused:true,idleSeconds:systemIdleSeconds};
+      }
+      const current=tick();
+      if(inactiveSince===null)inactiveSince=current;
+      return {
+        windowVisible:!hidden,
+        windowFocused:false,
+        idleSeconds:Math.max(0,(current-inactiveSince)/1000),
+      };
+    },
+  });
+}
+
 function createDesktopIdleActivation({
   userData,template,isReady,getIdleSnapshot,relaunch,log=()=>{},
   read=readState,firstRunComplete=desktopFirstRunComplete,
@@ -415,6 +449,6 @@ async function stageMain({ userData, template, log = () => {}, remote = OFFICIAL
 module.exports = {
   CHANNEL_SCHEMA, readState, writeState, validateState, versionRoot,
   chooseBootVersion, confirmedVersion: verifiedVersion,
-  stageMain, shouldAutoActivate, desktopFirstRunComplete, createDesktopIdleActivation, confirmHealthy, rejectCandidate, pinPrevious, unpin,
+  stageMain, shouldAutoActivate, desktopFirstRunComplete, createDesktopIdleActivation, createDesktopWindowIdleTracker, confirmHealthy, rejectCandidate, pinPrevious, unpin,
   prepareWindowsGitDeletion, removeOwnedCandidate, sweepStaleCandidates,
 };
