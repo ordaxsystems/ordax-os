@@ -30,6 +30,17 @@ class PublicAuthProviderLiveProofWorkflowTests(unittest.TestCase):
         self.assertIn("auth-provider-proof-", self.text)
         self.assertIn("retention-days: 14", self.text)
 
+    def test_destination_probe_is_read_only_and_cannot_impersonate_active_owner(self):
+        self.assertIn("options:", self.text)
+        self.assertIn("- destination", self.text)
+        self.assertIn("- active", self.text)
+        self.assertIn("default: active", self.text)
+        self.assertIn('ORDAX_PROBE_SCOPE: ${{ inputs.scope }}', self.text)
+        self.assertIn('--scope "${ORDAX_PROBE_SCOPE}"', self.text)
+        self.assertIn('name: auth-provider-proof-${{ inputs.scope }}-${{ github.sha }}', self.text)
+        self.assertNotIn("supabase db reset", self.text)
+        self.assertNotIn("supabase projects update", self.text)
+
     def test_checkout_does_not_persist_credentials(self):
         self.assertIn("persist-credentials: false", self.text)
 
