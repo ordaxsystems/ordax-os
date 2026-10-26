@@ -14,6 +14,14 @@ BR2_PACKAGE_CA_CERTIFICATES=y
 BR2_PACKAGE_PYTHON3=y
 BR2_PACKAGE_PYTHON_GOBJECT=y
 BR2_PACKAGE_MESA3D=y
+# Native Intel i915 DRM is not a userspace Mesa driver. Physical laptops
+# require Gallium DRI drivers in the same immutable Surface EROFS image.
+# iris (Intel Gen8+) needs LLVM in Buildroot 2026.08; crocus covers Gen4-7;
+# Gallium i915 covers remaining supported older i915 devices.
+BR2_PACKAGE_MESA3D_LLVM=y
+BR2_PACKAGE_MESA3D_GALLIUM_DRIVER_I915=y
+BR2_PACKAGE_MESA3D_GALLIUM_DRIVER_CROCUS=y
+BR2_PACKAGE_MESA3D_GALLIUM_DRIVER_IRIS=y
 BR2_PACKAGE_MESA3D_GALLIUM_DRIVER_SOFTPIPE=y
 BR2_PACKAGE_MESA3D_OPENGL_EGL=y
 BR2_PACKAGE_MESA3D_OPENGL_ES=y
