@@ -30,7 +30,7 @@ from probe_auth_provider import (
 from resolve_auth_provider_target import resolve_target
 
 ROOT = Path(__file__).resolve().parents[2]
-DB_PROBE_SCHEMA = "prototype-ordax.control-plane-privilege-proof/3"
+DB_PROBE_SCHEMA = "prototype-ordax.control-plane-privilege-proof/4"
 SESSION_REVOCATION_SCHEMA = "prototype-ordax.account-session-revocation-proof/1"
 REQUIRED_CHECKS = PROVIDER_CHECK_NAMES
 REQUIRED_DB_CHECKS = (
@@ -60,7 +60,7 @@ REQUIRED_DB_OBSERVED_COUNTERS = frozenset((
     "authenticated_private_function_execute_count",
     "authenticated_sync_table_grant_count",
     "service_role_sync_table_grant_count",
-    "non_executor_sync_policy_count",
+    "unexpected_sync_policy_count",
     "service_role_user_sync_rpc_execute_count",
     "unexpected_authenticated_write_grant_count",
     "private_cloud_storage_rls_enabled_count",
@@ -76,7 +76,7 @@ PROVIDER_PROOF_FIELDS = frozenset((
     "expected_origin", "checks", "observed", "ready"
 ))
 DATABASE_PROOF_FIELDS = frozenset((
-    "$schema", "provider", "project_ref", "checks", "observed", "ready"
+    "$schema", "provider", "project_ref", "project_binding", "source_commit", "checks", "observed", "ready"
 ))
 SESSION_REVOCATION_PROOF_FIELDS = frozenset((
     "$schema", "status", "scope", "gateway_origin", "source_commit", "workflow_run_id",
@@ -162,7 +162,9 @@ def validate_provider_proof(
     return sorted(set(blockers))
 
 
-def validate_database_proof(value: object) -> list[str]:
+def validate_database_proof(
+    value: object, expected_source_commit: str, root: Path = ROOT
+) -> list[str]:
     blockers: list[str] = []
     if not isinstance(value, dict):
         return ["database-proof-object-required"]
@@ -174,6 +176,14 @@ def validate_database_proof(value: object) -> list[str]:
         blockers.append("database-proof-provider")
     if value.get("project_ref") != "redacted":
         blockers.append("database-proof-not-sanitized")
+    contract = json.loads(
+        (root / "docs/contracts/public-auth-hardening.json").read_text(encoding="utf-8")
+    )
+    dest_ref = contract["postgresql_destination"]["project_ref"]
+    if value.get("project_binding") != project_binding(dest_ref):
+        blockers.append("database-proof-project-binding")
+    if value.get("source_commit") != clean_commit(expected_source_commit):
+        blockers.append("database-proof-source-commit")
     checks = value.get("checks")
     if not isinstance(checks, dict):
         blockers.append("database-proof-checks")
@@ -214,7 +224,7 @@ def validate_database_proof(value: object) -> list[str]:
                 blockers.append(f"database-proof-{name}")
         if observed.get("private_cloud_storage_rls_enabled_count") != 2:
             blockers.append("database-proof-private_cloud_storage_rls_enabled_count")
-        if observed.get("sync_policy_count") != 5:
+        if observed.get("sync_policy_count") != 6:
             blockers.append("database-proof-sync_policy_count")
         if observed.get("app_role_sync_sequence_privilege") is not False:
             blockers.append("database-proof-app-role-sync-sequence-privilege")
@@ -301,7 +311,7 @@ def main(argv: list[str] | None = None) -> int:
         blockers = validate_provider_proof(
             provider_proof, args.expected_origin, args.expected_source_commit, root
         )
-        blockers.extend(validate_database_proof(database_proof))
+        blockers.extend(validate_database_proof(database_proof, args.expected_source_commit, root))
         blockers.extend(
             validate_session_revocation_proof(
                 session_proof,
