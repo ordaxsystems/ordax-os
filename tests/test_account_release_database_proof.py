@@ -1,4 +1,5 @@
 import importlib.util
+import json
 import unittest
 from pathlib import Path
 
@@ -11,11 +12,21 @@ SPEC.loader.exec_module(MODULE)
 
 
 class AccountReleaseDatabaseProofTests(unittest.TestCase):
+    COMMIT = "a" * 40
+
+    def validate(self, proof):
+        return MODULE.validate_database_proof(proof, self.COMMIT, ROOT)
+
     def valid_proof(self):
         return {
-            "$schema": "prototype-ordax.control-plane-privilege-proof/3",
+            "$schema": "prototype-ordax.control-plane-privilege-proof/4",
             "provider": "supabase-postgres",
             "project_ref": "redacted",
+            "project_binding": MODULE.project_binding(
+                json.loads((ROOT / "docs/contracts/public-auth-hardening.json").read_text(encoding="utf-8"))
+                ["postgresql_destination"]["project_ref"]
+            ),
+            "source_commit": self.COMMIT,
             "checks": {
                 "no_anon_table_grants": True,
                 "no_anon_function_execute": True,
@@ -43,8 +54,8 @@ class AccountReleaseDatabaseProofTests(unittest.TestCase):
                 "private_cloud_storage_rls_enabled_count": 2,
                 "authenticated_sync_table_grant_count": 0,
                 "service_role_sync_table_grant_count": 0,
-                "sync_policy_count": 5,
-                "non_executor_sync_policy_count": 0,
+                "sync_policy_count": 6,
+                "unexpected_sync_policy_count": 0,
                 "service_role_user_sync_rpc_execute_count": 0,
                 "app_role_sync_sequence_privilege": False,
                 "unexpected_authenticated_write_grant_count": 0,
@@ -54,6 +65,17 @@ class AccountReleaseDatabaseProofTests(unittest.TestCase):
 
     def test_valid_sanitized_database_proof_passes(self):
         self.assertEqual(MODULE.validate_database_proof(self.valid_proof()), [])
+
+    def test_mismatched_project_or_commit_and_unbound_fixture_block_release(self):
+        proof = self.valid_proof()
+        proof["project_binding"] = MODULE.project_binding("b" * 20)
+        proof["source_commit"] = "b" * 40
+        blockers = self.validate(proof)
+        self.assertIn("database-proof-project-binding", blockers)
+        self.assertIn("database-proof-source-commit", blockers)
+        proof["project_binding"] = None
+        proof["source_commit"] = None
+        self.assertIn("database-proof-project-binding", self.validate(proof))
 
     def test_public_execute_blocks_release(self):
         proof = self.valid_proof()
@@ -91,13 +113,13 @@ class AccountReleaseDatabaseProofTests(unittest.TestCase):
         proof = self.valid_proof()
         proof["checks"]["sync_policies_executor_only"] = False
         proof["checks"]["no_app_role_sync_sequence_privilege"] = False
-        proof["observed"]["non_executor_sync_policy_count"] = 1
+        proof["observed"]["unexpected_sync_policy_count"] = 1
         proof["observed"]["app_role_sync_sequence_privilege"] = True
         proof["ready"] = False
         blockers = MODULE.validate_database_proof(proof)
         self.assertIn("database-proof-sync_policies_executor_only", blockers)
         self.assertIn("database-proof-no_app_role_sync_sequence_privilege", blockers)
-        self.assertIn("database-proof-non_executor_sync_policy_count", blockers)
+        self.assertIn("database-proof-unexpected_sync_policy_count", blockers)
         self.assertIn("database-proof-app-role-sync-sequence-privilege", blockers)
 
     def test_missing_sync_policy_blocks_release(self):
