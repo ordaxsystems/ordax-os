@@ -67,6 +67,8 @@ test('ordax-pull checks canonical Native First Run receipt before auto update',a
     'flag alone is not a valid completion receipt');
   writeFileSync(file,JSON.stringify({firstRun:{...firstRun,completed:true,accountMode:'local-only'}}));
   assert.equal(await desktopFirstRunComplete(root,template),true);
+  assert.equal(await desktopFirstRunComplete(root,join(root,'old-runtime-template')),false,
+    'an older runtime without the validator must preserve offline boot and defer updates');
 });
 
 function gitCli(args,cwd) {
