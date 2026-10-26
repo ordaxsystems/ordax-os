@@ -14,11 +14,6 @@ on:
       - 'tools/ci/portable_component_cache.py'
       - 'tests/test_portable_component_cache.py'
       - 'tests/test_intelligence_external_integration.mjs'
-      - '.github/actions/resolve-intelligence-builder/**'
-      - '.github/workflows/local-ai-runtime-candidate.yml'
-      - '.github/workflows/portable-v2-qemu-boot-proof.yml'
-      - 'tools/ci/portable_component_cache.py'
-      - 'tests/test_portable_component_cache.py'
       - '.github/workflows/intelligence-source.yml'
   push:
     branches: [main]
@@ -44,18 +39,14 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          repository: ordaxsystems/ordax-intelligence
-          ref: c3dbb73e7f3cdf9a2043b059d7376fb0a06a1272
-          path: _upstream/intelligence
-          persist-credentials: false
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
         with:
           python-version: '3.12'
       - run: python -m unittest discover -s tests -p 'test_intelligence_source_gate.py' -v
-      - run: python tools/intelligence-source/materialize.py verify --source-dir _upstream/intelligence
-      - run: python tools/intelligence-source/materialize.py stage --source-dir _upstream/intelligence --out-dir "${RUNNER_TEMP}/ordax-intelligence-stage"
+      - name: Resolve the only OS-pinned external source via shared verifier
+        uses: ./.github/actions/resolve-intelligence-builder
+        with:
+          out-root: ${{ runner.temp }}/ordax-intelligence-stage
       - name: Prove pinned technical builder binds only real OS policy
         env:
           PYTHONDONTWRITEBYTECODE: '1'
@@ -210,7 +201,9 @@ jobs:
           root=Path("${{ runner.temp }}/ordax-intelligence-stage")
           receipt=json.loads((root/"intelligence-source-receipt.json").read_text())
           assert receipt["source_file_count"] == 8
-          assert receipt["source_commit"] == "c3dbb73e7f3cdf9a2043b059d7376fb0a06a1272"
+          lock=json.loads(Path("docs/contracts/intelligence-source.json").read_text())
+          assert receipt["source_commit"] == lock["source_commit"]
+          assert receipt["source_file_count"] == len(lock["source_paths"])
           assert receipt["engine_included"] is False and receipt["model_included"] is False
           assert receipt["activation_authorized"] is False
           for path in ("index.mjs","intelligence/runtime.mjs","local-ai/runtime.mjs"):
