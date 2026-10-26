@@ -47,8 +47,8 @@ DESTINATION_POLICY = """using (
 def _source(name: str) -> str:
     sql = (MIGRATIONS / name).read_text(encoding="utf-8")
     if (
-        TRANSACTION_BEGIN.findall(sql) != ["begin;"]
-        or TRANSACTION_COMMIT.findall(sql) != ["commit;"]
+        [item.strip().lower() for item in TRANSACTION_BEGIN.findall(sql)] != ["begin;"]
+        or [item.strip().lower() for item in TRANSACTION_COMMIT.findall(sql)] != ["commit;"]
         or re.search(r"(?m)^\s*\\(?:i|include)\b", sql)
     ):
         raise ValueError("storage-source-transaction-incompatible:" + name)
