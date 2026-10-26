@@ -9,8 +9,28 @@ const { OFFICIAL_REMOTE } = require('./runtime.cjs');
 const { compiledBundleSha256 } = require('./native-build.cjs');
 const { git } = require('./checkout.cjs');
 const { readState, writeState, validateState, versionRoot, stageMain,
-  chooseBootVersion, confirmHealthy, pinPrevious, unpin,
+  chooseBootVersion, confirmHealthy, pinPrevious, unpin, shouldAutoActivate,
   sweepStaleCandidates, removeOwnedCandidate, prepareWindowsGitDeletion } = require('./dev-update.cjs');
+
+test('ordax-pull Desktop activates only verified pending Git revisions during safe inactivity',()=>{
+  const sha='a'.repeat(40);
+  const state={pendingSha:sha,attemptedSha:null,pinnedSha:null};
+  const ui={windowVisible:true,windowFocused:true};
+  assert.equal(shouldAutoActivate(state,{...ui,idleSeconds:599}),false,
+    'focused Desktop cannot be interrupted before prolonged inactivity');
+  assert.equal(shouldAutoActivate(state,{...ui,idleSeconds:600}),true);
+  assert.equal(shouldAutoActivate(state,{windowVisible:true,windowFocused:false,idleSeconds:119}),false);
+  assert.equal(shouldAutoActivate(state,{windowVisible:true,windowFocused:false,idleSeconds:120}),true);
+  assert.equal(shouldAutoActivate(state,{windowVisible:false,windowFocused:false,idleSeconds:59}),false);
+  assert.equal(shouldAutoActivate(state,{windowVisible:false,windowFocused:false,idleSeconds:60}),true);
+  for(const invalid of [{...state,pendingSha:null},{...state,pendingSha:'bad'},
+      {...state,attemptedSha:sha},{...state,pinnedSha:'b'.repeat(40)}]){
+    assert.equal(shouldAutoActivate(invalid,{...ui,idleSeconds:9999}),false);
+  }
+  for(const idleSeconds of [NaN,Infinity,-1,undefined]){
+    assert.equal(shouldAutoActivate(state,{...ui,idleSeconds}),false);
+  }
+});
 
 function gitCli(args,cwd) {
   const result=spawnSync('git',args,{cwd,encoding:'utf8',windowsHide:true,
