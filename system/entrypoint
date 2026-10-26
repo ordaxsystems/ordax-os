@@ -704,8 +704,11 @@ start_acpi_button_listener() {
     printf '%s\n' 'EV_KEY 0x01 KEY_POWER 116 1 "button/power PWRF 00000080"' >"$ACPI_DIR/acpi.map" || return 1
     printf '%s\n' 'PWRF shutdown' >"$ACPI_DIR/acpid.conf" || return 1
     chmod 600 "$ACPI_DIR/acpi.map" "$ACPI_DIR/acpid.conf" || return 1
+    # BusyBox acpid defaults to /var/log/acpid.log, absent on the minimal
+    # Owner USB root. -d keeps it foreground and sends diagnostics to stderr,
+    # already redirected into the canonical tmpfs Guardian log below.
     ORDAX_HOST_POWER_REQUEST="$HOST_POWER_REQUEST" \
-        /bin/busybox acpid -f -c "$ACPI_DIR" -a "$ACPI_DIR/acpid.conf" -M "$ACPI_DIR/acpi.map" \
+        /bin/busybox acpid -d -f -c "$ACPI_DIR" -a "$ACPI_DIR/acpid.conf" -M "$ACPI_DIR/acpi.map" \
             >>"$GUARDIAN_LOG" 2>&1 &
     ACPI_BUTTON_PID=$!
     /bin/busybox sleep 1
