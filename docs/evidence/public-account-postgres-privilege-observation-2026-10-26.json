@@ -21,7 +21,19 @@
     "non_executor_sync_policy_count_under_historical_v3_probe": 1,
     "service_role_user_sync_rpc_execute": 0,
     "app_role_sync_sequence_privilege": false,
-    "unexpected_authenticated_write_grant_count": 0
+    "unexpected_authenticated_write_grant_count": 0,
+    "private_cloud_storage_expected_tables": [
+      {
+        "name": "ordax_user_object_provider_refs",
+        "table_exists": false,
+        "rls_enabled": false
+      },
+      {
+        "name": "ordax_user_upload_reservations",
+        "table_exists": false,
+        "rls_enabled": false
+      }
+    ]
   },
   "policy_verification": {
     "sync_executor_policy_count": 5,
@@ -36,7 +48,8 @@
     "authenticated_private_functions_executable": 5,
     "private_cloud_storage_rls_enabled_expected": 2,
     "private_cloud_storage_rls_enabled_observed": 0,
-    "public_account_release_ready": false
+    "public_account_release_ready": false,
+    "private_cloud_storage_tables_missing": 2
   },
   "evidence_scope": {
     "sanitized_observation_only": true,
@@ -48,7 +61,7 @@
   },
   "notes": [
     "The old v3 checker mistakenly treated the one authorized export policy as a non-executor violation; the v4 checker must compare exact six name/table/role tuples.",
-    "Two expected cloud-storage tables were not returned by pg_class with RLS enabled; whether absent versus RLS-off requires separate live object inventory.",
+    "Independent read-only to_regclass and pg_class checks confirmed that both expected cloud-storage tables are absent, rather than present with RLS disabled. Their canonical migrations must be examined and safely reconciled; do not synthesize tables from this observation.",
     "The functions and private schema usage require owner-aware review, not blind REVOKE that could break unrelated Network/Memory consumers."
   ]
 }
