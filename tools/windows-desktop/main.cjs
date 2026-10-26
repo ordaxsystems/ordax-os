@@ -1,15 +1,15 @@
 'use strict';
 // Installable Windows host: the UI and Git Pull remain owned by OrdaX OS.
-const { app, BrowserWindow, WebContentsView, ipcMain, session, Menu, shell, dialog } = require('electron');
+const { app, BrowserWindow, WebContentsView, ipcMain, session, Menu, shell, dialog, powerMonitor } = require('electron');
 const { createDesktopBrowserHost } = require('./browser-host.cjs');
 const { join, resolve, isAbsolute, basename } = require('node:path');
 const { randomBytes } = require('node:crypto');
 const { mkdirSync, createWriteStream, existsSync, readFileSync } = require('node:fs');
 const { resolveTemplate, runtimeStateDirectory } = require('./runtime.cjs');
-const { chooseBootVersion, confirmHealthy, rejectCandidate, stageMain, readState, pinPrevious, unpin } = require('./dev-update.cjs');
+const { chooseBootVersion, confirmHealthy, rejectCandidate, stageMain, shouldAutoActivate, readState, pinPrevious, unpin } = require('./dev-update.cjs');
 const { startHost, stopHost } = require('./host.cjs');
 const { verifyBundledNativeReceipt } = require('./native-build.cjs');
-let window=null, runtime=null, stream=null, browserHost=null, updateTimer=null, staging=false;
+let window=null, runtime=null, stream=null, browserHost=null, updateTimer=null, activationTimer=null, staging=false, activationRequested=false;
 const PRODUCT='/system/composition/native/index.html';
 // Explicit stable per-user storage must be set before the instance lock or any
 // Electron internal service can resolve a path from the npm package name.
@@ -376,19 +376,44 @@ async function assertDesktopInternetSmoke(browserWindow,host) {
   }
   throw Error('Canonical Internet bridge could not instantiate isolated Chromium tab');
 }
+// Do not invent a second updater. The existing ordax-pull Git-main staging
+// transaction is the single Desktop Dev source materializer; this is only
+// the safe handoff to the already health-gated Electron boot supervisor.
+function activatePendingWhenIdle(userData){
+  if(!app.isPackaged || devProfile || staging || activationRequested ||
+     !window || window.isDestroyed() || !runtime?.child ||
+     runtime.child.exitCode!==null)return;
+  try{
+    const state=readState(userData);
+    const idleSeconds=powerMonitor.getSystemIdleTime();
+    if(!shouldAutoActivate(state,{
+      idleSeconds,
+      windowVisible:window.isVisible(),
+      windowFocused:window.isFocused(),
+    }))return;
+    activationRequested=true;
+    log('ordax-pull Desktop Dev: safely relaunching idle application for verified candidate '+state.pendingSha);
+    // No in-place source switch and no machine reboot. The existing
+    // one-shot candidate selection, Native readiness, Surface health receipt
+    // and automatic rollback remain the ONLY promotion transaction.
+    app.relaunch();
+    app.quit();
+  }catch(error){log('ordax-pull Desktop Dev activation deferred: '+error.message);}
+}
 async function stageInBackground(userData,template) {
   if(staging || !app.isPackaged) return;
   staging=true;
   try {
     const result=await stageMain({userData,template,log});
-    if(result.status==='staged') log('Desktop Dev update prepared for the next application start: '+result.sha);
+    if(result.status==='staged') log('ordax-pull Desktop Dev: verified candidate staged; idle activation scheduled: '+result.sha);
     else if(!['current','pending','pinned','rejected'].includes(result.status))
       log('Desktop Dev update check: '+result.status);
   }catch(error){log('Desktop Dev update check blocked: '+error.message);}
-  finally{staging=false;}
+  finally{staging=false;activatePendingWhenIdle(userData);}
 }
 app.on('before-quit',()=>{
   if(updateTimer){clearInterval(updateTimer);updateTimer=null;}
+  if(activationTimer){clearInterval(activationTimer);activationTimer=null;}
   browserHost?.dispose();browserHost=null;
   if(runtime?.child){stopHost(runtime.child);runtime=null;}
   stream?.end();stream=null;
@@ -492,6 +517,10 @@ app.whenReady().then(async()=>{
       setTimeout(()=>{void stageInBackground(userData,template);},5000);
       updateTimer=setInterval(()=>{void stageInBackground(userData,template);},10*60*1000);
       updateTimer.unref?.();
+      // Discovery and activation are separate stages; a staged revision
+      // must not remain pending indefinitely until someone restarts the app.
+      activationTimer=setInterval(()=>activatePendingWhenIdle(userData),15*1000);
+      activationTimer.unref?.();
     }
 
   }catch(error){
