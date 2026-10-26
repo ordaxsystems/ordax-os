@@ -243,7 +243,17 @@ def verify_external_intelligence_system(system_source: Path, *, lock_path: Path 
         if len(blob) > module.source.MAX_FILE_BYTES or module.source.git_blob_sha(blob) != lock["source_paths"][name]:
             raise AssemblyError("Native Intelligence source blob differs from immutable OS pin")
         fingerprint.update(name.encode("utf-8") + b"\0" + hashlib.sha256(blob).digest())
-    for name, wrapper in module.WRAPPERS.items():
+    # The assembled input and trusted OS checkout must agree byte-for-byte:
+    # checking only the candidate would let a tampered template bless its own
+    # replacement, while checking only the tool checkout would mix revisions.
+    try:
+        trusted_wrappers = module.load_wrappers(ROOT)
+        staged_wrappers = module.load_wrappers(system_source.parent)
+    except (module.CompositionError, OSError) as exc:
+        raise AssemblyError("Native Intelligence OS wrapper templates are missing or linked") from exc
+    if staged_wrappers != trusted_wrappers:
+        raise AssemblyError("Native Intelligence OS wrapper templates drifted from trusted OS checkout")
+    for name, wrapper in trusted_wrappers.items():
         file = system_source.parent / name
         if file.is_symlink() or not file.is_file() or file.read_text(encoding="utf-8") != wrapper:
             raise AssemblyError("Native Intelligence wrapper is missing or contains legacy implementation")
@@ -252,7 +262,7 @@ def verify_external_intelligence_system(system_source: Path, *, lock_path: Path 
         or receipt.get("source_repository") != module.source.REPO
         or receipt.get("source_commit") != lock["source_commit"]
         or receipt.get("source_sha256") != fingerprint.hexdigest()
-        or receipt.get("replaced_services") != sorted(module.WRAPPERS)
+        or receipt.get("replaced_services") != sorted(trusted_wrappers)
         or receipt.get("legacy_implementation_bytes_packaged") is not False
         or receipt.get("activation_authorized") is not False
         or receipt.get("os_checkout_mutated") is not False
