@@ -36,6 +36,11 @@ class NativeIntelligenceGateTests(unittest.TestCase):
         self.lockfile=self.root/"source-lock.json"
         self.lockfile.write_text(json.dumps(self.lock))
         self.wrapper_bodies=compose.load_wrappers(HERE)
+        for wrapper_name in compose.WRAPPER_FILES.values():
+            src=HERE/"system/services/intelligence-source/wrappers"/wrapper_name
+            dest=self.system/"services/intelligence-source/wrappers"/wrapper_name
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            dest.write_bytes(src.read_bytes())
         self.receipt={
             "$schema":"ordax.intelligence-disposable-composition/1",
             "source_repository":compose.source.REPO,
@@ -96,6 +101,16 @@ class NativeIntelligenceGateTests(unittest.TestCase):
         file=self.root/"candidate/system/services/intelligence/runtime.mjs"
         file.write_text(file.read_text()+"\nconst oldEngine = true;\n")
         with self.assertRaisesRegex(native.AssemblyError,"legacy implementation"):
+            self.check()
+
+    def test_altered_input_template_cannot_authorize_its_own_wrapper(self):
+        name="intelligence-runtime.mjs"
+        template=self.system/"services/intelligence-source/wrappers"/name
+        target=self.system/"services/intelligence/runtime.mjs"
+        modified=template.read_text(encoding="utf-8")+"\n// injected duplicate authority\n"
+        template.write_text(modified,encoding="utf-8")
+        target.write_text(modified,encoding="utf-8")
+        with self.assertRaisesRegex(native.AssemblyError,"drifted from trusted"):
             self.check()
 
     def test_fake_receipt_and_missing_receipt_are_rejected(self):
