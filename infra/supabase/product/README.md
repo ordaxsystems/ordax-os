@@ -16,7 +16,7 @@ O destino `ordax-platform` tem **15** políticas públicas que chamam funções 
 
 A candidata forward-only `migrations/20261026182000_public_policy_subject_guard_boundary_v1.sql` tem pré-verificação de objetos, papéis, funções e predicados; reescreve apenas o nome das funções mantendo `USING` e `WITH CHECK` originais; delega as regras às funções privadas existentes e mantém explícita a confirmação da sessão. Seu pós-check verifica ACL e ausência de acesso privado do cliente. O registro de observação está em [`docs/evidence/live-identity-policy-boundary-2026-10-26.json`](../../../docs/evidence/live-identity-policy-boundary-2026-10-26.json).
 
-**Esta candidata não foi implantada.** O responsável pela função de elegibilidade, presente no banco mas ainda não localizado como fonte canônica neste repositório, precisa ser reconciliado. A implantação exige ensaio isolado representativo, duas identidades reais de teste e prova de que nenhum comportamento de RLS/recuperação foi alterado. Não usar substituição de texto de predicados diretamente no banco sem essas verificações.
+**Nenhuma das duas migrações candidatas foi implantada.** A função de elegibilidade estava apenas no banco: sua definição foi recuperada do catálogo com fingerprint `md5(pg_get_functiondef)` e versionada uma única vez em `migrations/20261026181500_authenticated_subject_eligibility_source_v1.sql`, que deve anteceder a reestruturação RLS. Ainda faltam revisão independente do código recuperado, ensaio isolado representativo, duas identidades de teste e prova de que nenhum comportamento de autorização/recuperação mudou. Não usar substituição de texto de predicados diretamente no banco sem essas verificações.
 
 ## Boundaries
 
