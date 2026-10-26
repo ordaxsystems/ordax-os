@@ -36,7 +36,10 @@ function pinnedSourceLock(root) {
 
 function git(argv,cwd,timeout=120000) {
   return new Promise((resolve,reject)=>{
-    const child=spawn('git',argv,{cwd,windowsHide:true,
+    // Exact pinned Surface source is public. Never let machine-wide GitHub
+    // CLI/GCM credential helpers delay this anonymous acquisition or prompt
+    // during an unattended Desktop update.
+    const child=spawn('git',['-c','credential.helper=',...argv],{cwd,windowsHide:true,
       env:{...process.env,GIT_TERMINAL_PROMPT:'0'},stdio:['ignore','pipe','pipe']});
     const chunks=[];let size=0,errorText='',done=false,timedOut=false;
     const finish=(error,result)=>{
