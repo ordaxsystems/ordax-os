@@ -6,7 +6,7 @@ const {join}=require('node:path');
 const {tmpdir}=require('node:os');
 const {createHash}=require('node:crypto');
 const {spawnSync}=require('node:child_process');
-const {archiveReceipt,ensureRuntimeToolchain}=require('./toolchain-cache.cjs');
+const {archiveReceipt,ensureRuntimeToolchain,calculateTreeDigest}=require('./toolchain-cache.cjs');
 const hash=data=>createHash('sha256').update(data).digest('hex');
 const run=(args)=>{
   const p=spawnSync('tar',args,{encoding:'utf8',windowsHide:true,timeout:15000});
@@ -29,7 +29,7 @@ function fixture(t){
   const receipt={schema:'ordax.desktop-runtime-toolchain-archive/1',
     archive:'node_modules.tar.gz',archive_sha256:hash(bytes),
     archive_size:bytes.length,canonical_lock_sha256:'f'.repeat(64),
-    installed_packages:2};
+    tree_sha256:calculateTreeDigest(modules),installed_packages:2};
   writeFileSync(join(template,'toolchain','toolchain-receipt.json'),JSON.stringify(receipt));
   return {root,archive,receipt,template,profile};
 }
@@ -60,4 +60,11 @@ test('legacy canonical expanded compiler remains supported during rollback',t=>{
   const legacy=ensureRuntimeToolchain(f.template,f.profile);
   assert.equal(legacy,join(f.template,'node_modules'));
   assert.equal(existsSync(join(f.profile,'runtime-toolchains')),false);
+});
+
+test('modified expanded compiler cache is rejected even with its original marker',t=>{
+  const f=fixture(t);
+  const tree=ensureRuntimeToolchain(f.template,f.profile);
+  writeFileSync(join(tree,'vite','bin','vite.js'),'console.log("tampered compiler");');
+  assert.throws(()=>ensureRuntimeToolchain(f.template,f.profile),/content digest mismatch/);
 });
