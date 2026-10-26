@@ -1,0 +1,33 @@
+name: Owner Base Cache Staging Contract
+
+on:
+  push:
+    branches:
+      - work/owner-dev-base-cache-stage-20261026
+
+permissions:
+  contents: read
+
+jobs:
+  cache-contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact staged source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.12'
+          check-latest: false
+      - name: Verify component cache and consumer boundary contracts
+        run: |
+          set -euo pipefail
+          python -m unittest \
+            tests.test_portable_component_cache \
+            tests.test_independent_dev_channel_compatibility \
+            tests.test_dev_base_channel \
+            tests.test_independent_heavy_workflow \
+            tests.test_creator_kernel_reuse_workflows -v
