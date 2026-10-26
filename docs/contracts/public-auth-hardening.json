@@ -264,7 +264,8 @@
     "destination_internal_gateway_platform_auth_custom": true,
     "active_legal_policy_observation_evidence": "docs/evidence/account-legal-destination-state-2026-10-26.json",
     "existing_auth_users_observed": true,
-    "existing_auth_users_observation_evidence": "docs/evidence/account-legal-destination-state-2026-10-26.json"
+    "existing_auth_users_observation_evidence": "docs/evidence/account-legal-destination-state-2026-10-26.json",
+    "database_privilege_readonly_observation": "docs/evidence/public-account-postgres-privilege-observation-2026-10-26.json"
   },
   "rules": {
     "public_login_must_fail_closed_until_all_required_gates_pass": true,

@@ -16,7 +16,24 @@ import sys
 from pathlib import Path
 from urllib.parse import unquote, urlparse
 
-SCHEMA = "prototype-ordax.control-plane-privilege-proof/3"
+# The public Auth provider proof already owns the deterministic, sanitized
+# project/commit binding. Reuse it for the database evidence.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "public-site"))
+from probe_auth_provider import project_binding, source_commit
+
+SCHEMA = "prototype-ordax.control-plane-privilege-proof/4"
+
+# These are the six RLS policies created by the owner Sync and Account Export
+# migrations. The export executor is deliberately distinct from Sync executor.
+EXPECTED_SYNC_POLICIES = (
+    ("ordax_sync_objects", "ordax_sync_objects_select_own", "ordax_sync_executor"),
+    ("ordax_sync_objects", "ordax_sync_objects_insert_own", "ordax_sync_executor"),
+    ("ordax_sync_objects", "ordax_sync_objects_update_own", "ordax_sync_executor"),
+    ("ordax_sync_mutations", "ordax_sync_mutations_select_own", "ordax_sync_executor"),
+    ("ordax_sync_mutations", "ordax_sync_mutations_insert_own", "ordax_sync_executor"),
+    ("ordax_sync_objects", "ordax_sync_objects_export_own", "ordax_account_export_executor"),
+)
+
 
 SYNC_USER_RPCS = (
     "ordax_apply_sync_mutation_v1",
@@ -55,7 +72,7 @@ with ordax_functions as (
     and table_schema = 'private'
     and table_name in ('ordax_sync_objects','ordax_sync_mutations')
 ), sync_policies as (
-  select policyname, roles
+  select tablename, policyname, roles
   from pg_policies
   where schemaname = 'private'
     and tablename in ('ordax_sync_objects','ordax_sync_mutations')
@@ -119,10 +136,17 @@ select json_build_object(
   'sync_policy_count', (
     select count(*) from sync_policies
   ),
-  'non_executor_sync_policy_count', (
-    select count(*) from sync_policies
-    where cardinality(roles) <> 1
-       or roles[1]::text <> 'ordax_sync_executor'
+  'unexpected_sync_policy_count', (
+    select count(*) from sync_policies p
+    where cardinality(p.roles) <> 1
+       or not exists (
+         select 1 from (
+           /* EXACT_SYNC_POLICIES */
+         ) expected(tablename, policyname, role_name)
+         where p.tablename = expected.tablename
+           and p.policyname = expected.policyname
+           and p.roles[1]::text = expected.role_name
+       )
   ),
   'service_role_user_sync_rpc_execute', (
     select count(*) from sync_user_rpcs f
@@ -150,6 +174,15 @@ select json_build_object(
 );
 """
 
+# Keep the SQL verification set and the Python assertion bound to one owner.
+SQL = SQL.replace(
+    "/* EXACT_SYNC_POLICIES */",
+    "values " + ", ".join(
+        "(" + ",".join("'" + name + "'" for name in entry) + ")"
+        for entry in EXPECTED_SYNC_POLICIES
+    ),
+)
+
 
 def _as_nonnegative_int(value: object, name: str) -> int:
     if not isinstance(value, int) or isinstance(value, bool) or value < 0:
@@ -163,7 +196,7 @@ def _as_bool(value: object, name: str) -> bool:
     return value
 
 
-def evaluate(observed: object) -> dict:
+def evaluate(observed: object, *, project_ref: str | None = None, commit: str | None = None) -> dict:
     if not isinstance(observed, dict):
         raise ValueError("database observation must be an object")
 
@@ -191,9 +224,9 @@ def evaluate(observed: object) -> dict:
         "service_role_sync_table_grants",
     )
     sync_policy_count = _as_nonnegative_int(observed.get("sync_policy_count"), "sync_policy_count")
-    non_executor_policy_count = _as_nonnegative_int(
-        observed.get("non_executor_sync_policy_count"),
-        "non_executor_sync_policy_count",
+    unexpected_policy_count = _as_nonnegative_int(
+        observed.get("unexpected_sync_policy_count"),
+        "unexpected_sync_policy_count",
     )
     service_rpc_execute = _as_nonnegative_int(
         observed.get("service_role_user_sync_rpc_execute"),
@@ -224,7 +257,7 @@ def evaluate(observed: object) -> dict:
         "private_cloud_storage_rls_enabled": private_cloud_storage_rls == 2,
         "no_authenticated_sync_table_grants": authenticated_sync_grants == 0,
         "no_service_role_sync_table_grants": service_sync_grants == 0,
-        "sync_policies_executor_only": sync_policy_count == 5 and non_executor_policy_count == 0,
+        "sync_policies_executor_only": sync_policy_count == len(EXPECTED_SYNC_POLICIES) and unexpected_policy_count == 0,
         "no_service_role_user_sync_rpc_execute": service_rpc_execute == 0,
         "no_app_role_sync_sequence_privilege": sequence_exposed is False,
         "no_unexpected_authenticated_write_grants": len(unexpected) == 0,
@@ -238,6 +271,8 @@ def evaluate(observed: object) -> dict:
         "$schema": SCHEMA,
         "provider": "supabase-postgres",
         "project_ref": "redacted",
+        "project_binding": project_binding(project_ref) if project_ref is not None else None,
+        "source_commit": source_commit(commit) if commit is not None else None,
         "checks": checks,
         "observed": {
             "anon_table_grant_count": anon_table_grants,
@@ -251,13 +286,27 @@ def evaluate(observed: object) -> dict:
             "authenticated_sync_table_grant_count": authenticated_sync_grants,
             "service_role_sync_table_grant_count": service_sync_grants,
             "sync_policy_count": sync_policy_count,
-            "non_executor_sync_policy_count": non_executor_policy_count,
+            "unexpected_sync_policy_count": unexpected_policy_count,
             "service_role_user_sync_rpc_execute_count": service_rpc_execute,
             "app_role_sync_sequence_privilege": sequence_exposed,
             "unexpected_authenticated_write_grant_count": len(unexpected),
         },
         "ready": all(checks.values()),
     }
+
+
+def validate_database_target(database_url: str, expected_ref: str) -> None:
+    # The project ref is checked against the canonical repo-owned destination.
+    # Direct connection: db.<ref>.supabase.co / postgres.
+    # Transaction/session pooler: *.pooler.supabase.com / postgres.<ref>.
+    project_binding(expected_ref)  # syntax guard for the expected ref
+    parsed = urlparse(database_url)
+    host = (parsed.hostname or "").lower()
+    user = unquote(parsed.username or "")
+    direct = host == f"db.{expected_ref}.supabase.co" and user == "postgres"
+    pooler = host.endswith(".pooler.supabase.com") and user == f"postgres.{expected_ref}"
+    if not (direct or pooler):
+        raise ValueError("database-connection-project-does-not-match-canonical-destination")
 
 
 def _libpq_env(database_url: str) -> dict[str, str]:
@@ -314,8 +363,22 @@ def main(argv: list[str] | None = None) -> int:
             database_url = os.environ.get("ORDAX_CONTROL_PLANE_DATABASE_URL", "").strip()
             if not database_url:
                 raise ValueError("ORDAX_CONTROL_PLANE_DATABASE_URL is required for live mode")
+            hardening = json.loads(
+                (Path(__file__).resolve().parents[2] / "docs/contracts/public-auth-hardening.json")
+                .read_text(encoding="utf-8")
+            )
+            expected_ref = hardening["postgresql_destination"]["project_ref"]
+            requested_ref = os.environ.get("SUPABASE_PROJECT_REF", "").strip()
+            if expected_ref != requested_ref:
+                raise ValueError("database-project-does-not-match-canonical-destination")
+            validate_database_target(database_url, requested_ref)
+            commit = source_commit(os.environ.get("GITHUB_SHA", "").strip())
             observed = live_observation(database_url)
-        proof = evaluate(observed)
+        proof = evaluate(
+            observed,
+            project_ref=requested_ref if not args.observation_file else None,
+            commit=commit if not args.observation_file else None,
+        )
     except (OSError, ValueError, RuntimeError, json.JSONDecodeError, subprocess.TimeoutExpired) as exc:
         print(f"CONTROL_PLANE_PRIVILEGE_PROBE=FAIL reason={exc}", file=sys.stderr)
         return 1
