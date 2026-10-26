@@ -104,7 +104,16 @@ class PortableComponentCacheTests(unittest.TestCase):
             self.assertNotEqual(first, CACHE.component_fingerprint("independent-base", root))
 
     def owner_fixture(self, base: Path) -> Path:
-        root = self.make_kernel_root(self.make_independent_root(base))
+        root = self.make_independent_root(base)
+        (root / "bootstrap/kernel/config").mkdir(parents=True, exist_ok=True)
+        (root / "bootstrap/kernel/build.py").write_text("kernel-build-v1\\n")
+        (root / "bootstrap/kernel/verify_upstream_signature.py").write_text("kernel-auth-v1\\n")
+        (root / "bootstrap/kernel/source.json").write_text(json.dumps({
+            "version": "6.6.0",
+            "configuration": {"fragment": "bootstrap/kernel/config/ordax.fragment"},
+        }))
+        (root / "bootstrap/kernel/config/ordax.fragment").write_text("CONFIG_TEST=y\\n")
+        (root / "docs/contracts/kernel-build-environment.json").write_text('{"env":"v1"}\\n')
         for relative in CACHE.COMPONENTS["independent-base-owner"]["inputs"]:
             target = root / relative
             if not target.exists():
