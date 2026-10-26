@@ -101,7 +101,6 @@ class PublicAuthActivationPreflightTests(unittest.TestCase):
         for required_blocker in (
             "account-provider-cutover-target-mismatch",
             "account-provider-cutover-incomplete",
-            "destination-active-legal-policy",
             "destination-provider-settings-proof",
             "destination-auth-rate-limit-e2e-proof",
             "destination-session-revocation-proof",
@@ -201,13 +200,20 @@ class PublicAuthActivationPreflightTests(unittest.TestCase):
             "destination-vercel-oidc-runtime-proof": stage["destination_vercel_oidc_runtime_e2e_verified"],
             "destination-sync-export-db-proof": stage["sync_export_db_boundary_proven"],
         }
+        proof = json.loads((ROOT / stage["active_legal_policy_observation_evidence"]).read_text(encoding="utf-8"))
+        self.assertTrue(stage["active_legal_policy_present"])
+        self.assertTrue(stage["existing_auth_users_observed"])
+        self.assertEqual(proof["observation"]["active_legal_policy_count"], 1)
+        self.assertTrue(proof["observation"]["registration_receipts_present"])
+        self.assertFalse(proof["separate_release_gates"]["approved_immutable_legal_snapshots"])
+        self.assertFalse(proof["separate_release_gates"]["account_activation_authorized"])
+        self.assertNotIn("destination-active-legal-policy", blockers)
         for blocker, value in proven.items():
             self.assertTrue(value, blocker)
             self.assertNotIn(blocker, blockers)
 
         pending = {
             "account-provider-cutover-incomplete": stage["functional_provider_cutover_complete"],
-            "destination-active-legal-policy": stage["active_legal_policy_present"],
             "destination-provider-settings-proof": stage["provider_settings_e2e_verified"],
             "destination-auth-rate-limit-e2e-proof": stage["public_auth_rate_limit_runtime_e2e_verified"],
             "destination-session-revocation-proof": stage["session_revocation_e2e_verified"],
