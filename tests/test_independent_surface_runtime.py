@@ -1,5 +1,7 @@
 import importlib.util
+import contextlib
 import io
+import sys
 import json
 from pathlib import Path
 import tarfile
@@ -26,6 +28,30 @@ class IndependentSurfaceRuntimeTests(unittest.TestCase):
     def setUpClass(cls):
         cls.builder = load_builder()
         cls.source = json.loads(SOURCE_PATH.read_text(encoding="utf-8"))
+
+    def test_bounded_build_runner_streams_logs_without_unbounded_buffer(self):
+        out = io.StringIO()
+        program = "import sys;print('BEGIN_PACKAGE',flush=True);print('x'*25000);print('END_PACKAGE',flush=True)"
+        with contextlib.redirect_stdout(out):
+            tail = self.builder.run([sys.executable, "-c", program], bounded=True)
+        self.assertIn("BEGIN_PACKAGE", out.getvalue())
+        self.assertIn("END_PACKAGE", out.getvalue())
+        self.assertIn("END_PACKAGE", tail)
+        self.assertLessEqual(len(tail.encode("utf-8")), 20000)
+        self.assertNotIn("BEGIN_PACKAGE", tail)
+
+        failure = io.StringIO()
+        with contextlib.redirect_stdout(failure):
+            with self.assertRaisesRegex(
+                self.builder.SurfaceBuildError, "failed \\(7\\)",
+            ) as thrown:
+                self.builder.run(
+                    [sys.executable, "-c",
+                     "import sys;print('COMPILER_FAILED',flush=True);sys.exit(7)"],
+                    bounded=True,
+                )
+        self.assertIn("COMPILER_FAILED", failure.getvalue())
+        self.assertIn("COMPILER_FAILED", str(thrown.exception))
 
     def make_tar(self, paths, *, empty=(), nonexec=(), symlinks=None):
         tmp = tempfile.TemporaryDirectory()
