@@ -69,6 +69,23 @@ function createDesktopBrowserHost({window, ipcMain, WebContentsView, session, di
         canGoForward:Boolean(nav.canGoForward?.())};
     }),
   });
+  // Updates must not discard browser work merely because Windows reports
+  // no mouse/keyboard input. This is the same browser owner that handles
+  // downloads and WebContentsViews, not a second activity tracker.
+  const hasActiveWork = () => {
+    if (disposed || downloads.size>0) return true;
+    for (const view of tabs.values()) {
+      try {
+        const wc=view.webContents;
+        if (wc.isDestroyed() || typeof wc.isCurrentlyAudible!=='function' ||
+            wc.isCurrentlyAudible() || wc.isLoadingMainFrame?.()) return true;
+      } catch {
+        // Failure to inspect Chromium state must delay, not force, relaunch.
+        return true;
+      }
+    }
+    return false;
+  };
   const publish = () => send({type:'snapshot',snapshot:snapshot()});
   const layout = () => {
     for(const [id,view] of tabs){
@@ -222,6 +239,6 @@ function createDesktopBrowserHost({window, ipcMain, WebContentsView, session, di
     }
   };
   window.once('closed',dispose);
-  return Object.freeze({dispose,getSnapshot:snapshot});
+  return Object.freeze({dispose,getSnapshot:snapshot,hasActiveWork});
 }
 module.exports={createDesktopBrowserHost,safeWebUrl,safeDownloadName,viewportBounds};
