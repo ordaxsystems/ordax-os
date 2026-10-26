@@ -11,9 +11,10 @@ documentação/UI que não alteram essas entradas **não** invalidam o artefato.
 
 1. O job `build-and-publish` de `creator-owner-dev-git.yml` e o
    `buildroot-surface` de `independent-surface-runtime.yml` partilham a
-   concorrência `ordax-surface-producer-<source-sha>`. Um constrói/pública o
-   artefato daquele commit; o segundo só começa após terminar e pode reutilizar
-   o mesmo resultado. Não cancelar o produtor que já está compilando.
+   concorrência `ordax-surface-producer-<pr-number-or-ref>`. Essa chave permanece
+   igual quando uma PR muda de commit, evitando duas compilações caras com o
+   mesmo fingerprint de entradas. Um produtor termina e publica o artefato;
+   o próximo verifica cache/R2 antes de compilar. Não cancelar o produtor já ativo.
 2. Ordem canônica: cache GitHub de **artefato completo por fingerprint**,
    armazenamento R2 **imutável** por fingerprint + SHA-256, e apenas após ambos
    não terem o artefato, compilação Buildroot. O único transporte R2 é
@@ -51,8 +52,9 @@ no cache comum nem no R2. O produtor independente também podia iniciar uma
 compilação simultânea; além disso, a chave exata do `ccache` impedia recuperar
 objetos válidos após mudar o `defconfig`. Este contrato corrige as três falhas.
 
-**Limite de execução:** a concorrência é por revisão da origem e a reutilização
-entre revisões é regida exclusivamente pelo fingerprint. Se GitHub/R2 não
+**Limite de execução:** a concorrência é por PR/ref, protegendo o produtor
+entre revisões; a identidade dos bytes e o reuso entre commits continuam
+regidos exclusivamente pelo fingerprint verificado. Se GitHub/R2 não
 estiverem acessíveis, é possível precisar de uma compilação real; nunca
 inventar receipt, reutilizar artefato sem verificar ou declarar build pronto
 só pela cache. No primeiro boot de uma imagem ainda não validada, a entrega
