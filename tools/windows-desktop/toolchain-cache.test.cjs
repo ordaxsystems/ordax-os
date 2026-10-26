@@ -1,7 +1,7 @@
 'use strict';
 const test=require('node:test');
 const assert=require('node:assert/strict');
-const {mkdtempSync,mkdirSync,writeFileSync,readFileSync,rmSync,existsSync,readdirSync}=require('node:fs');
+const {mkdtempSync,mkdirSync,writeFileSync,readFileSync,rmSync,existsSync,readdirSync,renameSync,symlinkSync}=require('node:fs');
 const {join}=require('node:path');
 const {tmpdir}=require('node:os');
 const {createHash}=require('node:crypto');
@@ -67,4 +67,27 @@ test('modified expanded compiler cache is rejected even with its original marker
   const tree=ensureRuntimeToolchain(f.template,f.profile);
   writeFileSync(join(tree,'vite','bin','vite.js'),'console.log("tampered compiler");');
   assert.throws(()=>ensureRuntimeToolchain(f.template,f.profile),/content digest mismatch/);
+});
+
+test('final compiler cache cannot be redirected via symlink or Windows junction',t=>{
+  const f=fixture(t);
+  const original=ensureRuntimeToolchain(f.template,f.profile);
+  assert.ok(existsSync(join(original,'vite','bin','vite.js')));
+  const target=join(f.profile,'runtime-toolchains',f.receipt.archive_sha256);
+  const outside=join(f.root,'outside-user-cache');
+  renameSync(target,outside);
+  // The outside tree has the EXACT bytes and receipt. Its content digest
+  // alone must not authorize following a path outside the user's cache.
+  symlinkSync(outside,target,process.platform==='win32'?'junction':'dir');
+  assert.throws(()=>ensureRuntimeToolchain(f.template,f.profile),
+    /Untrusted linked Desktop compiler cache target/);
+});
+test('a non-directory cache target fails closed before reading its marker',t=>{
+  const f=fixture(t);
+  const base=join(f.profile,'runtime-toolchains');
+  mkdirSync(base,{recursive:true});
+  const target=join(base,f.receipt.archive_sha256);
+  writeFileSync(target,'not a compiler');
+  assert.throws(()=>ensureRuntimeToolchain(f.template,f.profile),
+    /Untrusted linked Desktop compiler cache target/);
 });

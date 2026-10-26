@@ -108,6 +108,12 @@ function ensureRuntimeToolchain(template,userData){
   const target=join(base,receipt.archive_sha256);
   const marker=join(target,'toolchain-cache-receipt.json');
   if(existsSync(target)){
+    // The cache contains executable compiler code. A junction/symlink at
+    // the final digest path can redirect a verified tree outside the owner
+    // profile. Reject the indirection even when the bytes match the receipt.
+    const targetStat=lstatSync(target);
+    if(!targetStat.isDirectory()||targetStat.isSymbolicLink())
+      throw Error('Untrusted linked Desktop compiler cache target');
     if(!existsSync(marker)||assertRealFile(marker).size>512||
       JSON.parse(readFileSync(marker,'utf8')).archive_sha256!==receipt.archive_sha256)
       throw Error('Untrusted existing Desktop compiler cache');
