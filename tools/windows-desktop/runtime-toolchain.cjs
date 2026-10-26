@@ -8,6 +8,7 @@ const {readFileSync,existsSync,lstatSync,mkdirSync,cpSync,rmSync,renameSync,mkdt
 const {join,resolve,dirname,sep}=require('node:path');
 const {createHash}=require('node:crypto');
 const {spawnSync}=require('node:child_process');
+const {calculateTreeDigest}=require('./toolchain-cache.cjs');
 const root=resolve(__dirname,'../..');
 const out=join(root,'out','windows-desktop-toolchain');
 const sha256=bytes=>createHash('sha256').update(bytes).digest('hex');
@@ -112,6 +113,7 @@ function materializeRuntimeToolchain(){
        !existsSync(join(nodeModules,'react','package.json'))){
       throw Error('Generated Native toolchain lacks Vite or React');
     }
+    const treeSha=calculateTreeDigest(nodeModules);
     // Shipping 12k individual files to NSIS made even same-version upgrades
     // take several minutes on real hardware. Archive the exact lock-derived
     // closure without omitting any compiler dependencies. The trusted runtime
@@ -132,7 +134,7 @@ function materializeRuntimeToolchain(){
     const receipt={schema:'ordax.desktop-runtime-toolchain-archive/1',
       canonical_lock_sha256:sha256(lockBytes),requested_packages:keys.length,
       installed_packages:available,skipped_platform_optionals:missingOptional,
-      archive:'node_modules.tar.gz',archive_sha256:sha256(bytes),
+      archive:'node_modules.tar.gz',tree_sha256:treeSha,archive_sha256:sha256(bytes),
       archive_size:bytes.length};
     writeFileSync(join(out,'toolchain-receipt.json'),JSON.stringify(receipt)+'\n');
     const obsolete=join(out,'node_modules');
