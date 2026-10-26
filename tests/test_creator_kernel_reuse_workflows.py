@@ -215,6 +215,32 @@ class CreatorKernelReuseWorkflowTests(unittest.TestCase):
         self.assertNotIn("dl-cdn.alpinelinux.org", workflow)
         self.assertNotIn("proot", workflow.lower())
 
+    def test_three_owner_consumers_share_one_immutable_cache_identity(self):
+        independent = self.workflow(ROOT / ".github/workflows/independent-base-experiment.yml")
+        cases = (
+            (self.workflow(OWNER_DEV), "Restore verified Owner Buildroot base", "Save verified Owner Buildroot for reuse"),
+            (independent, "Restore verified Owner Buildroot component", "Save verified Owner Buildroot component"),
+            (self.workflow(DEV_BASE_CHANNEL), "Restore verified Owner Buildroot for Development Base", "Save verified Owner Buildroot for other consumers"),
+        )
+        exact_key = (
+            "independent-base-owner-${{ steps.component-fingerprints.outputs.independent_base_owner }}"
+        )
+        for workflow, restore_name, save_name in cases:
+            with self.subTest(restore=restore_name):
+                restore = self.step_block(workflow, restore_name)
+                save = self.step_block(workflow, save_name)
+                for block in (restore, save):
+                    self.assertIn(exact_key, block)
+                self.assertNotIn("restore-keys:", restore)
+                self.assertIn("--component independent-base-owner", workflow)
+                self.assertIn("--cache-hit", workflow)
+                self.assertIn("--reuse-receipt", workflow)
+        channel = cases[2][0]
+        self.assertIn("--owner-reuse-receipt", channel)
+        self.assertIn("ORDAX_OWNER_BASE_CACHE_HIT=", channel)
+        # A verified hit skips Buildroot, not signing, offline boot or rollback.
+        self.assertIn("Prove actual Owner USB offline handoff in QEMU", cases[0][0])
+
     def test_review_candidate_is_byte_verified_pr_only_not_a_release(self):
         workflow = self.workflow(OWNER_DEV)
         verify = workflow.index("      - name: Verify exact Owner Development ZIP before publication")
