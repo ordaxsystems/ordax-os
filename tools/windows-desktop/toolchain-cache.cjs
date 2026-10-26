@@ -9,9 +9,13 @@ const {spawnSync,fork}=require('node:child_process');
 const HASH=/^[a-f0-9]{64}$/;
 function calculateTreeDigest(root){
   const digest=createHash('sha256');
+  // Digest traversal is also the single complete structural scan: checking
+  // all entries a second time on Windows doubles expensive NTFS metadata IO.
+  let count=0;
   const visit=(directory,prefix)=>{
     for(const entry of readdirSync(directory,{withFileTypes:true}).sort((a,b)=>a.name<b.name?-1:a.name>b.name?1:0)){
       const path=join(directory,entry.name),stat=lstatSync(path);
+      if(++count>65000)throw Error('Oversized Desktop compiler tree');
       if(stat.isSymbolicLink())throw Error('Untrusted compiler tree link');
       const name=prefix+entry.name;
       if(stat.isDirectory())visit(path,name+'/');
@@ -76,18 +80,13 @@ function assertEntries(archive){
 }
 function validateExpanded(root){
   const nodeModules=join(root,'node_modules');
-  if(!lstatSync(nodeModules).isDirectory())throw Error('Missing expanded dependency root');
-  const queue=[nodeModules];let count=0;
-  while(queue.length){
-    const directory=queue.pop();
-    for(const entry of readdirSync(directory,{withFileTypes:true})){
-      const item=join(directory,entry.name),stat=lstatSync(item);
-      if(stat.isSymbolicLink())throw Error('Linked Desktop compiler entry is forbidden');
-      if(stat.isDirectory())queue.push(item);
-      else if(!stat.isFile())throw Error('Unsupported Desktop compiler filesystem entry');
-      if(++count>65000)throw Error('Oversized Desktop compiler tree');
-    }
-  }
+  const stat=lstatSync(nodeModules);
+  if(!stat.isDirectory()||stat.isSymbolicLink())
+    throw Error('Missing or linked expanded dependency root');
+  // The immediately following calculateTreeDigest scans EVERY entry, rejects
+  // links and unusual nodes, bounds the tree and authenticates its bytes.
+  // This function checks only required compiler entrypoints, not a second
+  // complete traversal of the 12.5k-file tree.
   for(const relative of ['vite/bin/vite.js','react/package.json']){
     assertRealFile(join(nodeModules,...relative.split('/')));
   }
