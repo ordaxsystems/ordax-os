@@ -94,7 +94,7 @@ class LiveIdentityPolicyBoundaryTests(unittest.TestCase):
             ROOT / self.obs["source_recovery"]["source_path"]
         ).read_text(encoding="utf-8")
         self.assertIn("0e64a11cc3d4802f7f94c1591cdadc26", source)
-        self.assertIn("pg_get_functiondef(v_oid)", source)
+        self.assertIn("pg_catalog.md5(pg_get_functiondef(p.oid))", source)
         self.assertIn("v_subject_user_id:=auth.uid();", source)
         self.assertIn("v_claims:=auth.jwt();", source)
         self.assertIn("join auth.users u", source)
