@@ -307,6 +307,27 @@ def validate_session_revocation_proof(
     return sorted(set(blockers))
 
 
+def validate_private_rls_runtime_review(root: Path = ROOT) -> list[str]:
+    # A SQL privilege inventory cannot prove that the private schema is absent
+    # from PostgREST exposed schemas, or that two different real JWT identities
+    # are isolated. Those are separate release gates, never inferred from ACLs.
+    owner = json.loads(
+        (root / "docs/contracts/public-auth-hardening.json").read_text(encoding="utf-8")
+    )
+    path = root / owner["postgresql_destination"]["private_rls_helper_contract"]
+    private = json.loads(path.read_text(encoding="utf-8"))
+    blockers = []
+    if private.get("$schema") != "prototype-ordax.auth-private-rls-helper-contract/1":
+        blockers.append("private-rls-contract-schema")
+    if private.get("private_schema_data_api_exposure_allowed") is not False:
+        blockers.append("private-rls-private-schema-exposure-not-denied")
+    if private.get("private_schema_data_api_exclusion_verified") is not True:
+        blockers.append("private-rls-data-api-exclusion-unverified")
+    if private.get("two_subject_authenticated_negative_isolation_verified") is not True:
+        blockers.append("private-rls-two-subject-e2e-unverified")
+    return blockers
+
+
 def load_proof(path: Path) -> object:
     if path.stat().st_size > 64 * 1024:
         raise ValueError("proof too large")
@@ -338,6 +359,7 @@ def main(argv: list[str] | None = None) -> int:
                 args.expected_source_commit,
             )
         )
+        blockers.extend(validate_private_rls_runtime_review(root))
         blockers = sorted(set(blockers))
     except (OSError, ValueError, json.JSONDecodeError) as exc:
         print(f"ACCOUNT_RELEASE_GATE=FAIL reason={exc}", file=sys.stderr)
