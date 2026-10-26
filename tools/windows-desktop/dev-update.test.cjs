@@ -148,6 +148,13 @@ test('stale incompatible marker can be retired only by exact verified bundled ma
     runGit:f.offlineGit,buildCandidate:f.offlineBuild});
   assert.equal(result.status,'current');
   assert.equal(readState(f.userData).incompatibleSha,null);
+  // A previously incompatible *different* official SHA is also superseded
+  // when the current upstream main exactly matches the verified installed OS.
+  writeState(f.userData,{...readState(f.userData),incompatibleSha:'e'.repeat(40)});
+  const restored=await stageMain({userData:f.userData,template:f.template,
+    runGit:f.offlineGit,buildCandidate:f.offlineBuild});
+  assert.equal(restored.status,'current');
+  assert.equal(readState(f.userData).incompatibleSha,null);
   // A modified installed binary cannot use the bundled-source fast path.
   writeFileSync(join(assets,'assets','app.js'),'export const installed=false;');
   const stage=await stageMain({userData:f.userData,template:f.template,
