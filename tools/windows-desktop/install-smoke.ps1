@@ -73,6 +73,7 @@ try {
     $installedExe,
     (Join-Path $resources "app.asar"),
     (Join-Path $resources "runtime-template\tools\windows-emulator\dev-supervisor.mjs"),
+    (Join-Path $resources "runtime-template\tools\windows-emulator\desktop-native-server.mjs"),
     (Join-Path $resources "runtime-template\tools\windows-emulator\desktop-host-contract.json"),
     (Join-Path $resources "runtime-template\system\composition\native\index.html"),
     (Join-Path $resources "runtime-template\desktop-assets\system\composition\native\index.html"),
@@ -296,6 +297,13 @@ try {
       throw ("Installed Native Surface did not become ready within 180 seconds. Log: " +
         (Get-Content -LiteralPath $logFile -Tail 25 -ErrorAction SilentlyContinue | Out-String))
     }
+    # A verified installed bundle must boot without Vite source transforms.
+    # The legacy Vite fallback is only for previously installed OS snapshots.
+    if ($newLog -notmatch 'Installed Native http-ready after [0-9]+s' -or
+        $newLog -match 'Vite fallback http-ready') {
+      throw "Installed Desktop launched Vite instead of verified Native HTTP"
+    }
+    Write-Output "DESKTOP_INSTALLED_NATIVE_NO_VITE=PASS"
     # The installed app must serve the actual Desktop capability contract.
     $localUrls = [regex]::Matches($newLog, 'Native Surface ready: (http://127\.0\.0\.1:\d+)')
     if ($localUrls.Count -lt 1) { throw "Native readiness URL missing from log" }

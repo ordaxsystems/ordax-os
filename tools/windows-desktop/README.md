@@ -83,6 +83,37 @@ Mudanças exclusivamente Linux (kernel/base/USB) não devem acionar um
 novo instalador Windows; mudanças no núcleo compartilhado, no lock
 Surface ou nos adaptadores Windows devem acioná-lo.
 
+## Boot do Desktop instalado sem servidor de desenvolvimento
+
+O Desktop Windows instalado, quando recebe do Electron um bundle Native
+compilado e verificado pelo recibo OS+Surface, usa
+`tools/windows-emulator/desktop-native-server.mjs`. Esse adaptador monta
+**os mesmos middlewares e grants Native** definidos em
+`tools/windows-emulator/native-host.mjs` (Conta, arquivos, sessão,
+diagnósticos, rede, energia, atualização e recuperação), e entrega somente
+HTML/assets compilados e arquivos estáticos permitidos do sistema por HTTP
+loopback. Não inicializa Vite, HMR ou transformação de código-fonte no boot.
+
+A autoridade de seleção continua sendo
+`tools/windows-desktop/main.cjs` junto com os validadores em
+`native-build.cjs` e `dev-update.cjs`; o HTTP server não decide se uma
+candidata Git é confiável nem substitui o supervisor transacional.
+`tools/windows-desktop/host.cjs` mantém fallback Vite **apenas** quando
+o snapshot anterior não possui o runner compilado, ou no emulador explícito.
+O compilador Vite ainda é empacotado para construir novas candidatas
+Owner/Dev, mas não precisa iniciar para mostrar uma versão pronta.
+
+A CI instalada deve demonstrar
+`DESKTOP_INSTALLED_NATIVE_NO_VITE=PASS`, montagem da Surface,
+capacidade de navegação e rejeição de chamadas localhost sem token.
+Testes isolados verificam HTTP, acesso à fonte estática limitada,
+integridade da política e ausência de acesso a arquivos privados.
+A otimização **não** implica que o peso do NSIS foi reduzido: a remoção
+do toolchain da distribuição depende antes de substituir a compilação
+local por entregas verificadas mantendo rollback e o mesmo SSOT.
+Também não comprova automaticamente a melhoria de tempo no hardware real,
+que exige medição separada após o upgrade autorizado.
+
 ## Desenvolvimento e empacotamento
 
 A partir da raiz (Node/npm instalados):
