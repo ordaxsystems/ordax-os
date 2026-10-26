@@ -231,9 +231,9 @@ def component_fingerprint(component: str, root: Path = ROOT) -> str:
     if component == "independent-base-owner":
         # The installed module bytes depend on the separately verified kernel.
         # Pin that entire compiler/config graph rather than its version alone.
-        digest.update(b"kernel-component\\0")
+        digest.update(b"kernel-component\0")
         digest.update(component_fingerprint("kernel", root).encode("ascii"))
-        digest.update(b"\\0")
+        digest.update(b"\0")
     for path in _iter_input_files(root, component):
         relative = path.relative_to(root).as_posix()
         payload_sha = sha256_file(path)
