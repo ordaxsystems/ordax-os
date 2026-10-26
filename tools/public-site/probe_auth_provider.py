@@ -126,11 +126,11 @@ def evaluate(
     required_paths = redirect_policy.get("required_paths") if isinstance(redirect_policy, dict) else None
     if (not isinstance(required_paths, list)
             or len(required_paths) != 2
-            or len(set(required_paths)) != len(required_paths)
             or any(
                 not isinstance(path, str) or re.fullmatch(r"/[a-z0-9/-]+/?", path) is None
                 for path in required_paths
             )
+            or len(set(required_paths)) != len(required_paths)
             or RECOVERY_PATH not in required_paths):
         raise ValueError("invalid-canonical-provider-redirect-policy")
     required_redirects = {f"{origin}{path}".rstrip("/") for path in required_paths}
