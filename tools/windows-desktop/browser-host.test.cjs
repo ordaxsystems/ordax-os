@@ -11,7 +11,8 @@ class WC extends EventEmitter {
   setWindowOpenHandler(fn){this.popupHandler=fn;}
   getURL(){return this.url;}
   getTitle(){return this.title;}
-  isLoadingMainFrame(){return false;}
+  isLoadingMainFrame(){return Boolean(this.loading);}
+  isCurrentlyAudible(){return Boolean(this.audible);}
   isDestroyed(){return false;}
   async loadURL(url){this.url=url;this.emit('did-navigate');}
   reload(){}
@@ -80,6 +81,31 @@ test('Native Internet session uses isolated Chromium views, actual tabs, and rej
   f.post({type:'tab.close',tabId:'tab-1'});
   assert.equal(f.host.getSnapshot().tabs.length,0);
   assert.equal(View.all[0].webContents.closed,true);
+});
+
+test('ordax-pull never interrupts Native browser downloads, audio or navigation',async t=>{
+  const f=fixture();t.after(()=>f.host.dispose());
+  assert.equal(f.host.hasActiveWork(),false);
+  f.post({type:'tab.open',tabId:'tab-work',url:'https://example.com'});
+  await Promise.resolve();
+  const wc=View.all[0].webContents;
+  assert.equal(f.host.hasActiveWork(),false);
+  wc.audible=true;
+  assert.equal(f.host.hasActiveWork(),true,'audio playback does not generate mouse idle activity');
+  wc.audible=false;
+  wc.loading=true;
+  assert.equal(f.host.hasActiveWork(),true,'in-progress page load must not be discarded');
+  wc.loading=false;
+  const item=new EventEmitter();
+  item.getFilename=()=> 'download.bin';
+  item.pause=()=>{};
+  item.cancel=()=>{};
+  f.browserSession.emit('will-download',{preventDefault(){throw Error('unexpected rejected download')}},item,wc);
+  assert.equal(f.host.hasActiveWork(),true,'pending save dialog or transfer prevents relaunch');
+  item.emit('done',{},'completed');
+  assert.equal(f.host.hasActiveWork(),false,'completed download releases update gate');
+  wc.isCurrentlyAudible=()=>{throw Error('Chromium renderer unavailable')};
+  assert.equal(f.host.hasActiveWork(),true,'failed media inspection must delay update');
 });
 
 test('malformed and cross-window commands cannot acquire browser privileges',t=>{

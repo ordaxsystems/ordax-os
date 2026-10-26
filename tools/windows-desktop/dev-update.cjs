@@ -3,6 +3,7 @@
 // Never rewrites a running tree. Only exact verified, clean, immutable versions
 // can become boot candidates. MVP/Stable must not use this Git channel.
 const { randomUUID } = require('node:crypto');
+const { pathToFileURL } = require('node:url');
 const { join, basename, dirname } = require('node:path');
 const { mkdirSync, readFileSync, writeFileSync, renameSync, rmSync, readdirSync, lstatSync, existsSync, unlinkSync, openSync, closeSync, fsyncSync } = require('node:fs');
 const { OFFICIAL_REMOTE } = require('./runtime.cjs');
@@ -167,11 +168,33 @@ async function verifiedVersion(userData, sha, template) {
   return path;
 }
 
+// Same durable First Run gate as Owner/Development USB's ordax-main-watch.
+// Windows Native already stores the canonical firstRun record under the
+// host-owned native-state directory. Reuse the OS validator rather than
+// redefining what "completed" means in Electron or inventing an OOBE marker.
+async function desktopFirstRunComplete(userData,template){
+  const file=join(userData,'native-state','native-state.json');
+  try{
+    if(!lstatSync(file).isFile())return false;
+    const saved=JSON.parse(readFileSync(file,'utf8'));
+    const validator=join(template,'system','contracts','first-run-state-store.mjs');
+    const {validateFirstRunState}=await import(pathToFileURL(validator).href);
+    return validateFirstRunState(saved.firstRun).completed===true;
+  }catch{
+    // An old bundled snapshot or corrupt OOBE state must NEVER break the
+    // known-good offline Native boot. Refuse the update, not the application.
+    // The existing Native state owner remains responsible for diagnostics.
+    return false;
+  }
+}
+
 // Do not start network I/O during app boot. A prepared candidate gets only
 // one trial; if no health receipt was durably written, next boot falls back.
-async function chooseBootVersion({ userData, template, log = () => {} }) {
+async function chooseBootVersion({ userData, template, log = () => {}, allowPendingTrial = true }) {
   const state = readState(userData);
-  if (state.pendingSha && !state.attemptedSha) {
+  if (state.pendingSha && !state.attemptedSha && !allowPendingTrial) {
+    log('Staged Desktop candidate held until canonical First Run is completed');
+  } else if (state.pendingSha && !state.attemptedSha) {
     const candidate = await verifiedVersion(userData,state.pendingSha,template);
     if (candidate) {
       writeState(userData,{ ...state, attemptedSha: state.pendingSha });
@@ -217,6 +240,55 @@ async function pinPrevious(userData,template) {
 function unpin(userData) {
   const state = readState(userData);
   return writeState(userData,{...state,pinnedSha:null});
+}
+
+// Owner/Development Git-main (ordax-pull) can prepare a new Native tree
+// while the Windows app is running. Promotion still belongs exclusively to
+// chooseBootVersion + confirmHealthy on the next Electron launch. Re-launch
+// the app only during a genuine period of inactivity, never restart Windows
+// or interrupt an actively used Surface to consume a staged update.
+function shouldAutoActivate(state,{idleSeconds,windowVisible,windowFocused}={}){
+  if(!state || !SHA_RE.test(state.pendingSha??'') ||
+     state.attemptedSha || state.pinnedSha ||
+     !Number.isFinite(idleSeconds) || idleSeconds<0) return false;
+  if(windowVisible===false)return idleSeconds>=60;
+  if(windowFocused===false)return idleSeconds>=120;
+  return idleSeconds>=600;
+}
+
+// Serialize the idle handoff in the existing Desktop Dev transaction owner.
+// OOBE is asynchronous: the user may roll back, another poll may stage a new
+// SHA, or system activity may resume while its receipt is being read. Never
+// use a stale state/snapshot to relaunch Electron or schedule two relaunches.
+function createDesktopIdleActivation({
+  userData,template,isReady,getIdleSnapshot,relaunch,log=()=>{},
+  read=readState,firstRunComplete=desktopFirstRunComplete,
+}){
+  if(typeof isReady!=='function' || typeof getIdleSnapshot!=='function' ||
+     typeof relaunch!=='function' || typeof read!=='function' ||
+     typeof firstRunComplete!=='function')throw new TypeError('Desktop idle activation needs trusted lifecycle ports');
+  let checking=false,requested=false;
+  return async function activateWhenIdle(){
+    if(checking || requested || !isReady())return false;
+    checking=true;
+    try{
+      const prior=read(userData);
+      if(!shouldAutoActivate(prior,getIdleSnapshot()))return false;
+      if(!await firstRunComplete(userData,template))return false;
+      // Recheck ALL mutable prerequisites after the asynchronous OOBE read.
+      const latest=read(userData);
+      if(!isReady() || latest.pendingSha!==prior.pendingSha ||
+         !shouldAutoActivate(latest,getIdleSnapshot()))return false;
+      requested=true;
+      log('ordax-pull Desktop Dev: safely relaunching idle application for verified candidate '+latest.pendingSha);
+      await relaunch();
+      return true;
+    }catch(error){
+      requested=false;
+      log('ordax-pull Desktop Dev activation deferred: '+error.message);
+      return false;
+    }finally{checking=false;}
+  };
 }
 
 async function stageMain({ userData, template, log = () => {}, remote = OFFICIAL_REMOTE, runGit = git, buildCandidate = buildNativeCandidate, cleanupCandidate = removeOwnedCandidate }) {
@@ -343,6 +415,6 @@ async function stageMain({ userData, template, log = () => {}, remote = OFFICIAL
 module.exports = {
   CHANNEL_SCHEMA, readState, writeState, validateState, versionRoot,
   chooseBootVersion, confirmedVersion: verifiedVersion,
-  stageMain, confirmHealthy, rejectCandidate, pinPrevious, unpin,
+  stageMain, shouldAutoActivate, desktopFirstRunComplete, createDesktopIdleActivation, confirmHealthy, rejectCandidate, pinPrevious, unpin,
   prepareWindowsGitDeletion, removeOwnedCandidate, sweepStaleCandidates,
 };
