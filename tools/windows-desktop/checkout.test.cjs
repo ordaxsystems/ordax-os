@@ -4,7 +4,7 @@ const assert=require('node:assert/strict');
 const { mkdtempSync, mkdirSync, writeFileSync, rmSync }=require('node:fs');
 const { tmpdir }=require('node:os');
 const { join }=require('node:path');
-const { hasDesktopHostContract }=require('./checkout.cjs');
+const { hasDesktopHostContract, git }=require('./checkout.cjs');
 
 function fixture() {
   const root=mkdtempSync(join(tmpdir(),'ordax-host-contract-'));
@@ -51,4 +51,14 @@ test('canonical desktop host declares the environment variables it promises',()=
   assert.ok(supervisor.includes('ORDAX_EMULATOR_NO_BROWSER'));
   assert.ok(vite.includes('ORDAX_EMULATOR_PORT'));
   assert.ok(vite.includes('ORDAX_EMULATOR_STATE_DIR'));
+});
+
+test('canonical public Git commands override interactive global credential helpers',async()=>{
+  // A global GitHub CLI credential helper stalled public ls-remote for
+  // 132 seconds on the owner Windows machine. The same ref resolved
+  // anonymously in 1.33 seconds. Check Git's *effective* runtime config
+  // without touching machine/user credential settings or using the network.
+  const reply=await git(['config','--get','credential.helper'],__dirname,10000);
+  assert.equal(reply.ok,true);
+  assert.equal(reply.stdout,'');
 });
