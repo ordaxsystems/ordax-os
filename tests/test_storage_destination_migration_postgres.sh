@@ -9,6 +9,17 @@ test "${PGHOST:-}" = "127.0.0.1"
 PROJECT_REF="jhfphsjptrpmtnzkpwud"
 
 psql -v ON_ERROR_STOP=1 -f tests/sql/storage_destination_synthetic_fixture.sql > /dev/null
+# The read-only catalog query must match the fixture before installing
+# anything; the same query must refuse an already installed destination.
+python3 infra/supabase/product/verify_storage_destination_preflight.py \
+  --print-query > /tmp/ordax-storage-catalog-query.sql
+psql -X -v ON_ERROR_STOP=1 -A -t -f /tmp/ordax-storage-catalog-query.sql \
+  > /tmp/ordax-storage-catalog-before.json
+python3 infra/supabase/product/verify_storage_destination_preflight.py \
+  --fixture-json /tmp/ordax-storage-catalog-before.json \
+  > /tmp/ordax-storage-catalog-before-report.json
+python3 -c 'import json; x=json.load(open("/tmp/ordax-storage-catalog-before-report.json")); assert x["scope"]=="SYNTHETIC_FIXTURE_NOT_LIVE" and x["catalog_preconditions_match"] and not x["public_activation_approved"]'
+
 python3 infra/supabase/product/render_storage_quota_destination_migration.py \
   --project-ref "${PROJECT_REF}" > /tmp/ordax-storage-preview.sql
 # Preview executes all DDL, checks assertions and ROLLS BACK.
@@ -29,6 +40,16 @@ cmp -s /tmp/ordax-storage-commit.sql "${VERSIONED_SQL}" || {
   echo "Versioned migration differs from canonical SQL generator" >&2; exit 1;
 }
 psql -v ON_ERROR_STOP=1 -f "${VERSIONED_SQL}" > /dev/null
+# After installation, the exact same read-only preflight MUST refuse replay.
+psql -X -v ON_ERROR_STOP=1 -A -t -f /tmp/ordax-storage-catalog-query.sql \
+  > /tmp/ordax-storage-catalog-after.json
+if python3 infra/supabase/product/verify_storage_destination_preflight.py \
+  --fixture-json /tmp/ordax-storage-catalog-after.json \
+  > /tmp/ordax-storage-catalog-after-report.json; then
+  echo "Read-only preflight accepted already-installed schema" >&2; exit 1
+fi
+python3 -c 'import json; x=json.load(open("/tmp/ordax-storage-catalog-after-report.json")); assert not x["catalog_preconditions_match"] and any("already-applied" in z for z in x["blockers"])'
+
 
 # All five relations exist with RLS enabled and no direct write authority.
 psql -Atqc "
