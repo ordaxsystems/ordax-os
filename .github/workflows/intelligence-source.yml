@@ -8,7 +8,17 @@ on:
       - 'tests/test_native_release_intelligence_source.py'
       - 'tools/native-release-assembly/build.py'
       - 'tests/test_intelligence_source_gate.py'
+      - '.github/actions/resolve-intelligence-builder/**'
+      - '.github/workflows/local-ai-runtime-candidate.yml'
+      - '.github/workflows/portable-v2-qemu-boot-proof.yml'
+      - 'tools/ci/portable_component_cache.py'
+      - 'tests/test_portable_component_cache.py'
       - 'tests/test_intelligence_external_integration.mjs'
+      - '.github/actions/resolve-intelligence-builder/**'
+      - '.github/workflows/local-ai-runtime-candidate.yml'
+      - '.github/workflows/portable-v2-qemu-boot-proof.yml'
+      - 'tools/ci/portable_component_cache.py'
+      - 'tests/test_portable_component_cache.py'
       - '.github/workflows/intelligence-source.yml'
   push:
     branches: [main]
@@ -19,6 +29,11 @@ on:
       - 'tests/test_native_release_intelligence_source.py'
       - 'tools/native-release-assembly/build.py'
       - 'tests/test_intelligence_source_gate.py'
+      - '.github/actions/resolve-intelligence-builder/**'
+      - '.github/workflows/local-ai-runtime-candidate.yml'
+      - '.github/workflows/portable-v2-qemu-boot-proof.yml'
+      - 'tools/ci/portable_component_cache.py'
+      - 'tests/test_portable_component_cache.py'
       - '.github/workflows/intelligence-source.yml'
 permissions:
   contents: read
@@ -41,6 +56,38 @@ jobs:
       - run: python -m unittest discover -s tests -p 'test_intelligence_source_gate.py' -v
       - run: python tools/intelligence-source/materialize.py verify --source-dir _upstream/intelligence
       - run: python tools/intelligence-source/materialize.py stage --source-dir _upstream/intelligence --out-dir "${RUNNER_TEMP}/ordax-intelligence-stage"
+      - name: Prove pinned technical builder binds only real OS policy
+        env:
+          ORDAX_INTELLIGENCE_STAGE: ${{ runner.temp }}/ordax-intelligence-stage
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import importlib.util, os
+          from pathlib import Path
+          builder=Path(os.environ["ORDAX_INTELLIGENCE_STAGE"])/"system/intelligence-source/tools/inference-builder/build.py"
+          spec=importlib.util.spec_from_file_location("ordax_verified_inference_builder", builder)
+          module=importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(module)
+          try:
+              module.load_source_lock()
+          except module.RuntimeBuildError as exc:
+              assert "canonical OS source must be supplied" in str(exc)
+          else:
+              raise AssertionError("source-only builder accepted implicit authority")
+          module.configure_os_source(Path.cwd())
+          lock=module.load_source_lock()
+          launcher=module.launcher_text(lock)
+          assert lock["engine"]["id"]=="llama.cpp"
+          assert lock["model"]["format"]=="GGUF"
+          assert "--host 127.0.0.1" in launcher
+          assert "--port 17865" in launcher
+          assert "--no-ui" in launcher
+          assert "--reasoning off" in launcher
+          assert "--tools" not in launcher
+          print("INTELLIGENCE_EXTERNAL_INFERENCE_BUILDER_ABI=PASS")
+          PY
+          python -m unittest tests.test_portable_component_cache -v
+
       - name: Prove portable runtime binds real OS public contracts
         env:
           ORDAX_INTELLIGENCE_STAGE: ${{ runner.temp }}/ordax-intelligence-stage
