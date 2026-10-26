@@ -44,7 +44,7 @@ test("installed Windows transport is distinguished from USB Native and arbitrary
 
 test("Native composition only probes USB keyboard and recovery when Windows transport is absent", async () => {
   const {readFileSync}=await import("node:fs");
-  const source=readFileSync(new URL("../system/composition/native/main.mjs",import.meta.url),"utf8");
+  const source=readFileSync(new URL("../system/composition/native/main.mjs",import.meta.url),"utf8").replace(/\r\n/g,"\n");
   assert.ok(source.includes('const windowsDesktopHost = hasDesktopBrowserTransport(window);'));
   assert.ok(source.includes('windowsDesktopHost ? Promise.resolve(null) : optionalNativeProbe(\\n      "OrdaX native keyboard layout unavailable"'.replace('\\n','\n')));
   assert.ok(source.includes('windowsDesktopHost ? Promise.resolve(null) : optionalNativeProbe(\\n      "OrdaX native recovery status unavailable"'.replace('\\n','\n')));
