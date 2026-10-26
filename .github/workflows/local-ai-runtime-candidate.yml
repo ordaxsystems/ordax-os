@@ -65,6 +65,8 @@ jobs:
           out-root: ${{ runner.temp }}/ordax-intelligence-builder
 
       - name: Verify external builder consumes only OS-owned runtime policy
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
         run: |
           set -euo pipefail
           python - "$ORDAX_EXTERNAL_AI_BUILDER" <<'PY'
@@ -85,6 +87,7 @@ jobs:
           assert "--host 127.0.0.1" in module.launcher_text(lock)
           print("EXTERNAL_INFERENCE_BUILDER_OS_POLICY=PASS")
           PY
+          test ! -e "$RUNNER_TEMP/ordax-intelligence-builder/system/intelligence-source/tools/inference-builder/__pycache__"
 
       - name: Validate local AI source and builder contracts
         run: |
