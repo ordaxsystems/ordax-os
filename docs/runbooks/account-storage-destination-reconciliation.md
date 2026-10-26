@@ -35,3 +35,20 @@ select to_regnamespace('ordax_policy') is not null as legacy_policy_schema_exist
 ```
 
 Não imprimir nem persistir nomes, e-mails, IDs de usuários ou conteúdo de tabelas em evidências públicas.
+
+## SQL forward-only preparada e testada, mas não aplicada
+
+A única fonte de composição é `infra/supabase/product/render_storage_quota_destination_migration.py`. O script lê **cinco migrations canônicas existentes** (ledger, redução, Storage, RLS privada e FK da reserva) e só adapta a expressão de política de leitura de objetos ao par de helpers atuais `private.ordax_authenticated_subject_eligible_v1()` + `private.ordax_can_access_space(uuid)`. Não copia a lógica das cotas nem cria um segundo owner. A composição é uma transação única, com lock timeout, pré-check e pós-check.
+
+Para inspecionar, sem aplicar ou persistir nenhum objeto:
+
+```bash
+python3 infra/supabase/product/render_storage_quota_destination_migration.py \
+  --project-ref jhfphsjptrpmtnzkpwud > /tmp/ordax-storage-preview.sql
+```
+
+**O conteúdo padrão termina em `ROLLBACK`**. Mesmo a opção `--emit-commit-sql --confirm-destination <ref>` somente **emite texto SQL**; o script não possui conexão Supabase nem executa banco. Uma aplicação real não deve ser feita diretamente com `psql -f`, porque isso não registra a versão no ledger `supabase_migrations.schema_migrations`. Requer uma **migration versionada e promovida pelo pipeline oficial**, revisada com identificação do projeto, controle de concorrência, estado da instalação e política de source/destination. Não usar `supabase migration repair` para marcar DDL não executada como aplicada.
+
+A prova de não persistência, instalação transacional, RLS, ausência de grants de escrita, duas identidades **sintéticas** e replay negado roda somente no Postgres 17 descartável em `.github/workflows/storage-destination-migration-proof.yml`. Ela não comprova dois JWT reais nem substitui testes autenticados negativos. O inventário pré-DDL do destino foi confirmado por SQL somente leitura em `docs/evidence/account-storage-destination-forward-preflight-2026-10-26.json`. Não há autorização de execução em produção ou ativação pública por causa da prova sintética.
+
+Os checks restantes devem ser promovidos separadamente: migrar pelo owner canônico/versionado, comprovar compatibilidade dos event triggers e das funções Supabase do destino, testar dois usuários autenticados reais, permissões de schema privado fora da Data API, quotas e limpeza, sem alterar registros existentes.
