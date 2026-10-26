@@ -148,8 +148,8 @@ class IndependentSurfaceCutoverAuditTests(unittest.TestCase):
             self.assertTrue(result.checks["surface_launcher_alpine_provisioning_removed"])
             self.assertTrue(result.checks["stable_base_alpine_owner_preserved_for_later_gate"])
 
-    def test_real_repository_is_valid_pre_cutover(self):
-        result = AUDIT.audit_pre(ROOT)
+    def test_real_repository_is_valid_post_cutover(self):
+        result = AUDIT.audit_post(ROOT)
         self.assertEqual(result.status, "pass")
 
 

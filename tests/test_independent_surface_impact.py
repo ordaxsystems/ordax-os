@@ -24,10 +24,10 @@ class IndependentSurfaceImpactTests(unittest.TestCase):
 
     def test_real_surface_byte_owners_are_heavy(self):
         for path in (
-            "bootstrap/independent-surface-runtime/build.py",
-            "bootstrap/independent-surface-runtime/prepare_config.py",
-            "bootstrap/independent-surface-runtime/source.json",
-            "bootstrap/independent-surface-runtime/configs/ordax_surface_defconfig",
+            "bootstrap/surface-runtime/build.py",
+            "bootstrap/surface-runtime/prepare_config.py",
+            "bootstrap/surface-runtime/source.json",
+            "bootstrap/surface-runtime/configs/ordax_surface_defconfig",
             "bootstrap/independent-base/source.json",
             "bootstrap/kernel/source.json",
         ):
@@ -37,8 +37,8 @@ class IndependentSurfaceImpactTests(unittest.TestCase):
 
     def test_contract_docs_and_ci_only_changes_are_light(self):
         result = self.mod.classify_paths([
-            "bootstrap/independent-surface-runtime/README.md",
-            "bootstrap/independent-surface-runtime/CUTOVER-CHECKLIST.md",
+            "bootstrap/surface-runtime/README.md",
+            "bootstrap/surface-runtime/CUTOVER-CHECKLIST.md",
             "tests/test_independent_surface_runtime.py",
             "tests/test_independent_surface_qemu_binding.py",
             "tests/test_independent_surface_impact.py",

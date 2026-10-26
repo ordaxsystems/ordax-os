@@ -12,8 +12,6 @@ BOOTSTRAP = ROOT / "bootstrap"
 # regression and requires an explicit migration decision.
 ALLOWED_PYTHON_REFERENCES = {
     "bootstrap/stable-base/build.py",
-    "bootstrap/surface-runtime/build.py",
-    "bootstrap/surface-runtime/discover_lock.py",
     "bootstrap/windows-compat-runtime/configure_probe.py",
 }
 

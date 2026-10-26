@@ -276,7 +276,7 @@ class InternetBrowserContractTests(unittest.TestCase):
         self.assertIn('verified-erofs-overlay', launcher)
         self.assertNotIn('alpine-v3.22', launcher)
         self.assertNotIn('/sbin/apk', launcher)
-        buildroot_config = (ROOT / 'bootstrap/independent-surface-runtime/configs/ordax_surface_defconfig').read_text()
+        buildroot_config = (ROOT / 'bootstrap/surface-runtime/configs/ordax_surface_defconfig').read_text()
         for required in ('BR2_PACKAGE_CAGE=y', 'BR2_PACKAGE_WEBKITGTK=y', 'BR2_PACKAGE_LIBGTK3_WAYLAND=y'):
             self.assertIn(required, buildroot_config)
         self.assertIn('/srv/ordax-system/surface/runtime/ordax_browser_host.py', launcher)

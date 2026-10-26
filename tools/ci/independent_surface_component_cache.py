@@ -18,11 +18,11 @@ REUSE_SCHEMA = "prototype-ordax.independent-surface-component-reuse/1"
 FINGERPRINT_VERSION = "independent-surface-inputs-v1"
 SHA40 = re.compile(r"^[0-9a-f]{40}$")
 SHA256 = re.compile(r"^[0-9a-f]{64}$")
-CONFIG_RELATIVE = "bootstrap/independent-surface-runtime/configs/ordax_surface_defconfig"
+CONFIG_RELATIVE = "bootstrap/surface-runtime/configs/ordax_surface_defconfig"
 INPUTS = (
-    "bootstrap/independent-surface-runtime/build.py",
-    "bootstrap/independent-surface-runtime/prepare_config.py",
-    "bootstrap/independent-surface-runtime/source.json",
+    "bootstrap/surface-runtime/build.py",
+    "bootstrap/surface-runtime/prepare_config.py",
+    "bootstrap/surface-runtime/source.json",
     CONFIG_RELATIVE,
     "bootstrap/independent-base/source.json",
     "bootstrap/kernel/source.json",
@@ -109,7 +109,7 @@ def fingerprint(
 def legacy_materialized_fingerprint(root: Path, *, build_environment: str | None = None) -> str:
     """Reproduce the historical v1 identity created after in-place config materialization."""
     root = root.resolve()
-    helper = root / "bootstrap/independent-surface-runtime/prepare_config.py"
+    helper = root / "bootstrap/surface-runtime/prepare_config.py"
     spec = importlib.util.spec_from_file_location("ordax_surface_prepare_config_legacy_v1", helper)
     if spec is None or spec.loader is None:
         raise CacheError("cannot load Surface config renderer for v1 cache verification")
@@ -134,14 +134,14 @@ def provenance(out_dir: Path) -> dict:
         value = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
         raise CacheError(f"cannot read Surface provenance: {exc}") from exc
-    if value.get("$schema") != "prototype-ordax.independent-surface-runtime-provenance/1":
+    if value.get("$schema") != "prototype-ordax.surface-runtime-provenance/1":
         raise CacheError("unexpected Surface provenance schema")
     return value
 
 
 def artifact_entries(out_dir: Path) -> dict[str, dict[str, object]]:
     result: dict[str, dict[str, object]] = {}
-    for name in ("provenance.json", "native-surface-runtime-buildroot.erofs"):
+    for name in ("provenance.json", "native-surface-runtime.erofs"):
         path = out_dir / name
         if path.is_symlink() or not path.is_file():
             raise CacheError(f"Surface artifact is missing or unsafe: {name}")

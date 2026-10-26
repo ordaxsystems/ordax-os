@@ -228,7 +228,7 @@ class PortableComponentCacheTests(unittest.TestCase):
             self.assertEqual(receipt["component"], "independent-base")
             self.assertEqual(provenance.read_bytes(), before)
 
-    def test_surface_cache_invalidates_for_package_selection_and_decoder_probe(self):
+    def test_surface_cache_invalidates_only_for_buildroot_source_config(self):
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
             for relative in CACHE.COMPONENTS["surface"]["inputs"]:
@@ -237,9 +237,9 @@ class PortableComponentCacheTests(unittest.TestCase):
                 path.write_text("input-v1\n")
             initial = CACHE.component_fingerprint("surface", root)
             for relative in (
-                "bootstrap/surface-runtime/package_config.py",
-                "system/surface/runtime/packages.txt",
-                "system/surface/runtime/media_runtime_probe.py",
+                "bootstrap/surface-runtime/prepare_config.py",
+                "bootstrap/surface-runtime/configs/ordax_surface_defconfig",
+                "bootstrap/surface-runtime/source.json",
             ):
                 with self.subTest(input=relative):
                     path = root / relative

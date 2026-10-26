@@ -13,7 +13,7 @@ on:
       - 'bootstrap/dev/**'
       - 'bootstrap/dev-base/**'
       - 'bootstrap/surface-runtime/**'
-      - 'bootstrap/independent-surface-runtime/**'
+      - 'bootstrap/surface-runtime/**'
       - 'bootstrap/independent-base/**'
       - 'bootstrap/recovery/**'
       # Creator's published USB must cover the actual boot/Guardian/Surface
@@ -42,7 +42,7 @@ on:
       - 'bootstrap/dev/**'
       - 'bootstrap/dev-base/**'
       - 'bootstrap/surface-runtime/**'
-      - 'bootstrap/independent-surface-runtime/**'
+      - 'bootstrap/surface-runtime/**'
       - 'bootstrap/independent-base/**'
       - 'system/entrypoint'
       # Boot health and update handoff must prove the real Owner USB on PRs,
@@ -655,7 +655,7 @@ jobs:
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ runner.temp }}/ordax-independent-surface-ccache
-          key: ordax-independent-surface-ccache-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('bootstrap/independent-surface-runtime/configs/ordax_surface_defconfig', 'bootstrap/independent-base/source.json', 'bootstrap/kernel/source.json') }}
+          key: ordax-independent-surface-ccache-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('bootstrap/surface-runtime/configs/ordax_surface_defconfig', 'bootstrap/independent-base/source.json', 'bootstrap/kernel/source.json') }}
           restore-keys: |
             ordax-independent-surface-ccache-v1-${{ runner.os }}-${{ runner.arch }}-
 
@@ -664,7 +664,7 @@ jobs:
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ runner.temp }}/ordax-independent-surface-dl
-          key: ordax-independent-surface-dl-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('bootstrap/independent-surface-runtime/configs/ordax_surface_defconfig', 'bootstrap/independent-base/source.json', 'bootstrap/kernel/source.json') }}
+          key: ordax-independent-surface-dl-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('bootstrap/surface-runtime/configs/ordax_surface_defconfig', 'bootstrap/independent-base/source.json', 'bootstrap/kernel/source.json') }}
           restore-keys: |
             ordax-independent-surface-dl-v1-${{ runner.os }}-${{ runner.arch }}-
 
@@ -675,7 +675,7 @@ jobs:
           BR2_DL_DIR: ${{ runner.temp }}/ordax-independent-surface-dl
         run: |
           set -euo pipefail
-          config=bootstrap/independent-surface-runtime/configs/ordax_surface_defconfig
+          config=bootstrap/surface-runtime/configs/ordax_surface_defconfig
           trap 'git checkout -- "$config"' EXIT
           out="$RUNNER_TEMP/ordax-independent-surface"
           reused=false
@@ -690,10 +690,10 @@ jobs:
           fi
           export ORDAX_SOURCE_COMMIT="$ORDAX_OWNER_SOURCE_COMMIT"
           if [ "$reused" != true ]; then
-            python3 bootstrap/independent-surface-runtime/prepare_config.py materialize --out "$config"
+            python3 bootstrap/surface-runtime/prepare_config.py materialize --out "$config"
             kernel_version="$(python3 -c 'import json; print(json.load(open("bootstrap/kernel/source.json"))["version"])')"
             grep -Fx "BR2_DEFAULT_KERNEL_VERSION=\"$kernel_version\"" "$config"
-            python3 bootstrap/independent-surface-runtime/build.py build \
+            python3 bootstrap/surface-runtime/build.py build \
               --out "$out" --cache "$RUNNER_TEMP/owner-independent-cache" --jobs 4
             # The canonical fingerprint excludes temporary kernel-header
             # materialization; restore the immutable source before recording.
@@ -705,10 +705,10 @@ jobs:
               --out "$out" --integration-commit "$ORDAX_OWNER_SOURCE_COMMIT" \
               --cache-hit false --receipt "$RUNNER_TEMP/owner-surface-cache-inspection.json"
           fi
-          python3 bootstrap/independent-surface-runtime/build.py verify --out "$out"
+          python3 bootstrap/surface-runtime/build.py verify --out "$out"
           mkdir -p "$RUNNER_TEMP/owner-dev-surface-runtime"
           cp -a "$out/." "$RUNNER_TEMP/owner-dev-surface-runtime/"
-          python3 bootstrap/independent-surface-runtime/build.py verify \
+          python3 bootstrap/surface-runtime/build.py verify \
             --out "$RUNNER_TEMP/owner-dev-surface-runtime"
 
       - name: Save verified Owner Surface EROFS to shared artifact cache

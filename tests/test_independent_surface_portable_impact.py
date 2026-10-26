@@ -37,8 +37,8 @@ class IndependentSurfacePortableImpactTests(unittest.TestCase):
 
     def test_independent_surface_byte_owners_are_delegated_to_candidate_workflow(self):
         result = self.mod.classify_paths([
-            "bootstrap/independent-surface-runtime/build.py",
-            "bootstrap/independent-surface-runtime/source.json",
+            "bootstrap/surface-runtime/build.py",
+            "bootstrap/surface-runtime/source.json",
         ])
         self.assertFalse(result.required)
         self.assertEqual(result.reasons, ("no-heavy-portable-impact",))

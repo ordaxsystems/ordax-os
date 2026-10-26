@@ -80,7 +80,7 @@ if manifest.get('$schema') != 'prototype-ordax.independent-surface-component-cac
 if manifest.get('input_fingerprint') != os.environ['ORDAX_SURFACE_FINGERPRINT']:
     raise SystemExit('durable Surface manifest fingerprint mismatch')
 artifacts = manifest.get('artifacts')
-expected = ('provenance.json', 'native-surface-runtime-buildroot.erofs')
+expected = ('provenance.json', 'native-surface-runtime.erofs')
 if not isinstance(artifacts, dict) or set(artifacts) != set(expected):
     raise SystemExit('durable Surface manifest artifact set mismatch')
 for name in expected:
@@ -175,7 +175,7 @@ import sys
 from pathlib import Path
 manifest = json.loads(Path(sys.argv[1]).read_text(encoding='utf-8'))
 artifacts = manifest.get('artifacts')
-expected = ('provenance.json', 'native-surface-runtime-buildroot.erofs')
+expected = ('provenance.json', 'native-surface-runtime.erofs')
 if not isinstance(artifacts, dict) or set(artifacts) != set(expected):
     raise SystemExit('fresh Surface manifest artifact set mismatch')
 for name in expected:

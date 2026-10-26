@@ -18,21 +18,21 @@ ROOT = Path(__file__).resolve().parents[2]
 SHA40 = re.compile(r"^[0-9a-f]{40}$")
 
 HEAVY_EXACT = {
-    "bootstrap/independent-surface-runtime/build.py",
-    "bootstrap/independent-surface-runtime/prepare_config.py",
-    "bootstrap/independent-surface-runtime/source.json",
+    "bootstrap/surface-runtime/build.py",
+    "bootstrap/surface-runtime/prepare_config.py",
+    "bootstrap/surface-runtime/source.json",
     "bootstrap/independent-base/source.json",
     "bootstrap/kernel/source.json",
 }
 HEAVY_PREFIXES = (
-    "bootstrap/independent-surface-runtime/configs/",
+    "bootstrap/surface-runtime/configs/",
 )
 LIGHT_EXACT = {
     ".github/workflows/independent-surface-runtime.yml",
     ".github/workflows/portable-v2-qemu-boot-proof.yml",
     ".github/workflows/portable-qemu-impact-contract.yml",
-    "bootstrap/independent-surface-runtime/README.md",
-    "bootstrap/independent-surface-runtime/CUTOVER-CHECKLIST.md",
+    "bootstrap/surface-runtime/README.md",
+    "bootstrap/surface-runtime/CUTOVER-CHECKLIST.md",
     "tests/test_independent_surface_runtime.py",
     "tests/test_independent_surface_qemu_binding.py",
     "tests/test_independent_surface_impact.py",

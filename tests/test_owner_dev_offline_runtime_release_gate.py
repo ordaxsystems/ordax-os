@@ -16,7 +16,7 @@ SPEC = importlib.util.spec_from_file_location("owner_offline_gate", MODULE)
 assert SPEC and SPEC.loader
 GATE = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(GATE)
-SOURCE = json.loads((ROOT / "bootstrap/independent-surface-runtime/source.json").read_text())
+SOURCE = json.loads((ROOT / "bootstrap/surface-runtime/source.json").read_text())
 COMMIT = "1" * 40
 ID = f"{SOURCE['build_profile']}@{COMMIT[:12]}"
 
@@ -36,8 +36,8 @@ def fixture(stage: Path):
     image.write_bytes(b"\0" * 1024 + bytes.fromhex("e2e1f5e0") + b"test-surface-erofs-content")
     sha = hashlib.sha256(image.read_bytes()).hexdigest()
     provenance = {
-        "$schema": "prototype-ordax.independent-surface-runtime-provenance/1",
-        "status": "experimental-not-promotable",
+        "$schema": "prototype-ordax.surface-runtime-provenance/1",
+        "status": "candidate-not-promotable",
         "source_commit": COMMIT,
         "libc": "musl",
         "buildroot": {"source_contract": SOURCE["buildroot_source_contract"]},
@@ -67,10 +67,10 @@ class OfflineOwnerWelcomeGateTests(unittest.TestCase):
         self.assertLess(capabilities, geometry)
         self.assertLess(geometry, media)
         self.assertIn('--contract "$RUNNER_TEMP/owner-dev-physical-media.json"', workflow)
-        self.assertIn("bootstrap/independent-surface-runtime/build.py verify", workflow)
+        self.assertIn("bootstrap/surface-runtime/build.py verify", workflow)
         self.assertIn("bootstrap/independent-base/build.py build", workflow)
         self.assertNotIn("bootstrap/dev-base/build.py", workflow)
-        self.assertNotIn("bootstrap/surface-runtime/build.py", workflow)
+        self.assertNotIn("bootstrap/independent-surface-runtime/build.py", workflow)
         self.assertIn(
             "ORDAX_OWNER_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}",
             workflow,
@@ -88,9 +88,9 @@ class OfflineOwnerWelcomeGateTests(unittest.TestCase):
     def test_creator_materializes_kernel_headers_and_reuses_verified_buildroot_compiler_inputs(self):
         workflow = (ROOT / ".github/workflows/creator-owner-dev-git.yml").read_text()
         producer = workflow.index("- name: Build and verify one canonical offline Surface runtime")
-        materialize = workflow.index("bootstrap/independent-surface-runtime/prepare_config.py materialize")
-        builder = workflow.index("bootstrap/independent-surface-runtime/build.py build", producer)
-        verifier = workflow.index("bootstrap/independent-surface-runtime/build.py verify", builder)
+        materialize = workflow.index("bootstrap/surface-runtime/prepare_config.py materialize")
+        builder = workflow.index("bootstrap/surface-runtime/build.py build", producer)
+        verifier = workflow.index("bootstrap/surface-runtime/build.py verify", builder)
         stage = workflow.index("- name: Assemble boot payload and overlay Git development base")
         self.assertLess(producer, materialize)
         self.assertLess(materialize, builder)
@@ -104,7 +104,7 @@ class OfflineOwnerWelcomeGateTests(unittest.TestCase):
         self.assertIn("Save shared Surface Buildroot source downloads", workflow)
         self.assertIn("BR2_CCACHE_DIR:", workflow)
         self.assertIn("BR2_DL_DIR:", workflow)
-        self.assertNotIn("native-surface-runtime-buildroot.erofs' > ", workflow)
+        self.assertNotIn("native-surface-runtime.erofs' > ", workflow)
 
     def test_creator_reuses_verified_immutable_surface_inputs_across_commits(self):
         workflow = (ROOT / ".github/workflows/creator-owner-dev-git.yml").read_text()
@@ -127,17 +127,17 @@ class OfflineOwnerWelcomeGateTests(unittest.TestCase):
         self.assertIn("Surface consumer", (ROOT / "tools/creator/verify_owner_dev_offline_runtime.py").read_text())
         self.assertIn('cp -a "$out/." "$RUNNER_TEMP/owner-dev-surface-runtime/"', workflow)
         self.assertIn('if [ "$reused" != true ]; then', workflow)
-        self.assertIn("bootstrap/independent-surface-runtime/build.py build", workflow)
-        self.assertIn("bootstrap/independent-surface-runtime/build.py verify", workflow)
+        self.assertIn("bootstrap/surface-runtime/build.py build", workflow)
+        self.assertIn("bootstrap/surface-runtime/build.py verify", workflow)
 
     def test_owner_surface_build_is_unprivileged_and_recovers_safe_compiler_caches(self):
         workflow = (ROOT / ".github/workflows/creator-owner-dev-git.yml").read_text()
         producer = workflow.split(
             "- name: Build and verify one canonical offline Surface runtime", 1
         )[1].split("- name: Assemble boot payload and overlay Git development base", 1)[0]
-        self.assertIn("python3 bootstrap/independent-surface-runtime/build.py build", producer)
-        self.assertIn("python3 bootstrap/independent-surface-runtime/build.py verify", producer)
-        self.assertNotIn("sudo -E python3 bootstrap/independent-surface-runtime/", producer)
+        self.assertIn("python3 bootstrap/surface-runtime/build.py build", producer)
+        self.assertIn("python3 bootstrap/surface-runtime/build.py verify", producer)
+        self.assertNotIn("sudo -E python3 bootstrap/surface-runtime/", producer)
         self.assertIn(
             "if: always() && steps.owner-surface-ccache.outcome == 'success' && steps.owner-surface-ccache.outputs.cache-hit != 'true'",
             producer,
@@ -231,7 +231,7 @@ class OfflineOwnerWelcomeGateTests(unittest.TestCase):
                     cache.record(producer, "2" * 40)
                     manifest = producer / cache.MANIFEST
                     data = json.loads(manifest.read_text())
-                    data["artifacts"]["native-surface-runtime-buildroot.erofs"]["sha256"] = "0" * 64
+                    data["artifacts"]["native-surface-runtime.erofs"]["sha256"] = "0" * 64
                     manifest.write_text(json.dumps(data))
                 with self.assertRaisesRegex(GATE.OfflineRuntimeError, "cross-commit Surface cache was not verified"):
                     GATE.stage_runtime(stage, producer)

@@ -45,7 +45,7 @@ class IndependentSurfaceQemuBindingTests(unittest.TestCase):
             "Download same-run independent Surface runtime",
             "actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333",
             "ordax-independent-surface-runtime-${{ github.run_id }}",
-            "bootstrap/independent-surface-runtime/build.py verify",
+            "bootstrap/surface-runtime/build.py verify",
             "tools/ci/independent_surface_component_cache.py verify",
             "--consumer",
             'assert re.fullmatch(r\'[0-9a-f]{40}\', provenance[\'source_commit\'])',
@@ -55,7 +55,7 @@ class IndependentSurfaceQemuBindingTests(unittest.TestCase):
             'artifact_root="$work/independent-surface-runtime"',
             'independent="$artifact_root/ordax-independent-surface"',
             'test ! -e "$artifact_root/provenance.json"',
-            "native-surface-runtime-buildroot.erofs",
+            "native-surface-runtime.erofs",
             'target="$work/surface-runtime/native-surface-runtime.erofs"',
             'test "$source_sha" = "$target_sha"',
             'test "$source_sha" = "$provenance_sha"',
@@ -69,8 +69,8 @@ class IndependentSurfaceQemuBindingTests(unittest.TestCase):
         self.assertNotIn("bootstrap/surface-runtime/build.py build", independent)
         self.assertNotIn('find "$work/independent-surface-runtime"', independent)
         self.assertNotIn("actions/cache/restore", independent)
-        self.assertIn("bootstrap/independent-surface-runtime/build.py verify", independent)
-        self.assertIn("native-surface-runtime-buildroot.erofs", independent)
+        self.assertIn("bootstrap/surface-runtime/build.py verify", independent)
+        self.assertIn("native-surface-runtime.erofs", independent)
         self.assertIn("native-surface-runtime.erofs", independent)
 
     def test_stable_surface_path_remains_default_and_separate(self):

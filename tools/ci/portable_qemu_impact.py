@@ -300,10 +300,16 @@ def classify_paths(paths: Iterable[str], *, root: Path = ROOT) -> ImpactResult:
     if not changed:
         return ImpactResult(False, ("no-changes",), changed)
 
-    reachable, graph_errors = native_startup_import_graph(root)
-    if graph_errors:
-        return ImpactResult(True, tuple(f"runtime-graph:{item}" for item in graph_errors), changed)
+    # A missing canonical Native entrypoint is always a broken source tree,
+    # even if the changed paths are otherwise classified as producer-neutral.
+    if not (root / NATIVE_COMPOSITION_MAIN).is_file():
+        return ImpactResult(True, ("runtime-graph:missing-native-entrypoint",), changed)
 
+    # Resolve the Native import graph only for a path that needs graph
+    # classification. Producer-neutral source/docs changes must not trigger
+    # heavy QEMU merely because the external Surface UI is not hydrated.
+    # Unknown Native paths still fail closed if graph resolution is incomplete.
+    reachable: frozenset[str] | None = None
     reasons: list[str] = []
     for path in changed:
         if path in ALWAYS_HEAVY_EXACT:
@@ -318,7 +324,7 @@ def classify_paths(paths: Iterable[str], *, root: Path = ROOT) -> ImpactResult:
             continue
         # Independent Surface has one dedicated artifact/QEMU producer; never
         # duplicate its expensive build through generic portable impact.
-        if path.startswith("bootstrap/independent-surface-runtime/"):
+        if path.startswith("bootstrap/surface-runtime/"):
             continue
         if path in INDEPENDENT_SURFACE_POLICY_LIGHT_EXACT:
             continue
@@ -351,6 +357,10 @@ def classify_paths(paths: Iterable[str], *, root: Path = ROOT) -> ImpactResult:
         # reserved for explicit boot/host-coupled owners above and unknown roots.
         if path.startswith(HIGH_LEVEL_LIGHT_PREFIXES):
             continue
+        if reachable is None:
+            reachable, graph_errors = native_startup_import_graph(root)
+            if graph_errors:
+                return ImpactResult(True, tuple(f"runtime-graph:{item}" for item in graph_errors), changed)
         if path in reachable:
             reasons.append(f"native-runtime-reachable:{path}")
             continue

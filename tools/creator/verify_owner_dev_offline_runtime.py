@@ -18,7 +18,7 @@ import sys
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[2]
-SOURCE = ROOT / "bootstrap/independent-surface-runtime/source.json"
+SOURCE = ROOT / "bootstrap/surface-runtime/source.json"
 MEDIA = ROOT / "docs/contracts/physical-media.json"
 RELATIVE_IMAGE = Path("state/ordax/runtime/native-surface/offline/native-surface-runtime.erofs")
 RELATIVE_PIN = Path("etc/ordax/owner-surface-runtime.sha256")
@@ -50,8 +50,8 @@ def load(path: Path) -> dict:
 
 def source_contract() -> dict:
     source = load(SOURCE)
-    if (source.get("$schema") != "prototype-ordax.independent-surface-runtime-source/1"
-            or source.get("status") != "experimental-not-promotable"
+    if (source.get("$schema") != "prototype-ordax.surface-runtime-source/1"
+            or source.get("status") != "candidate-not-promotable"
             or source.get("first_boot_offline_required") is not True
             or source.get("network_package_install_during_boot_allowed") is not False
             or source.get("package_manager_in_runtime_allowed") is not False
@@ -107,7 +107,7 @@ def _verified_reuse_binding(producer: Path, expected_commit: str) -> dict:
         "integration_source_commit": proof["integration_source_commit"],
         "input_fingerprint": proof["input_fingerprint"],
         "execution_environment": proof["execution_environment"],
-        "image_sha256": proof["artifacts"]["native-surface-runtime-buildroot.erofs"]["sha256"],
+        "image_sha256": proof["artifacts"]["native-surface-runtime.erofs"]["sha256"],
         "provenance_sha256": proof["artifacts"]["provenance.json"]["sha256"],
         "verified_consumer": True,
         "provenance_rewritten": False,
@@ -153,8 +153,8 @@ def stage_runtime(stage: Path, producer: Path) -> None:
         raise OfflineRuntimeError("Owner source identity marker is missing")
     expected_commit = commit_file.read_text(encoding="ascii").strip()
     if (not re.fullmatch(r"[0-9a-f]{40}", expected_commit)
-            or provenance.get("$schema") != "prototype-ordax.independent-surface-runtime-provenance/1"
-            or provenance.get("status") != "experimental-not-promotable"
+            or provenance.get("$schema") != "prototype-ordax.surface-runtime-provenance/1"
+            or provenance.get("status") != "candidate-not-promotable"
             or not re.fullmatch(r"[0-9a-f]{40}", str(provenance.get("source_commit", "")))
             or provenance.get("libc") != "musl"
             or provenance.get("buildroot", {}).get("source_contract") != source["buildroot_source_contract"]
@@ -231,8 +231,8 @@ def verify(stage: Path) -> str:
     expected_commit = commit_file.read_text(encoding="ascii").strip()
     if (not isinstance(expected, str) or not HASH.fullmatch(expected)
             or not re.fullmatch(r"[0-9a-f]{40}", expected_commit)
-            or provenance.get("$schema") != "prototype-ordax.independent-surface-runtime-provenance/1"
-            or provenance.get("status") != "experimental-not-promotable"
+            or provenance.get("$schema") != "prototype-ordax.surface-runtime-provenance/1"
+            or provenance.get("status") != "candidate-not-promotable"
             or not re.fullmatch(r"[0-9a-f]{40}", str(provenance.get("source_commit", "")))
             or provenance.get("libc") != "musl"
             or provenance.get("buildroot", {}).get("source_contract") != source["buildroot_source_contract"]

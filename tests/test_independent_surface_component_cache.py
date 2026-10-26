@@ -47,9 +47,9 @@ class IndependentSurfaceComponentCacheTests(unittest.TestCase):
 
     def make_output(self, base: Path, commit: str) -> Path:
         base.mkdir(parents=True)
-        (base / "native-surface-runtime-buildroot.erofs").write_bytes(b"erofs-bytes")
+        (base / "native-surface-runtime.erofs").write_bytes(b"erofs-bytes")
         (base / "provenance.json").write_text(json.dumps({
-            "$schema": "prototype-ordax.independent-surface-runtime-provenance/1",
+            "$schema": "prototype-ordax.surface-runtime-provenance/1",
             "source_commit": commit,
         }) + "\n", encoding="utf-8")
         return base
@@ -157,7 +157,7 @@ class IndependentSurfaceComponentCacheTests(unittest.TestCase):
             root = self.make_root(temp / "repo")
             out = self.make_output(temp / "out", "1" * 40)
             self.mod.record(out, "1" * 40, root)
-            (out / "native-surface-runtime-buildroot.erofs").write_bytes(b"tampered")
+            (out / "native-surface-runtime.erofs").write_bytes(b"tampered")
             with self.assertRaisesRegex(self.mod.CacheError, "bytes changed"):
                 self.mod.verify(
                     out,
@@ -186,7 +186,7 @@ class IndependentSurfaceComponentCacheTests(unittest.TestCase):
         self.assertIn("artifact_reused: ${{ steps.surface-reuse-state.outputs.reused }}", workflow)
         self.assertIn("if: needs.buildroot-surface.result == 'success'", workflow)
         self.assertIn("Restore immutable Surface source defconfig before cache identity record", workflow)
-        self.assertIn("git checkout -- bootstrap/independent-surface-runtime/configs/ordax_surface_defconfig", workflow)
+        self.assertIn("git checkout -- bootstrap/surface-runtime/configs/ordax_surface_defconfig", workflow)
         self.assertIn("include-hidden-files: true", workflow)
 
     def test_expensive_surface_build_requires_both_fast_and_durable_miss(self):

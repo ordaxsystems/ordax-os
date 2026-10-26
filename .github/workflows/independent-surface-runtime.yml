@@ -3,8 +3,8 @@ name: Independent Surface Runtime
 on:
   pull_request:
     paths:
-      - 'bootstrap/independent-surface-runtime/**'
-      - '!bootstrap/independent-surface-runtime/**/*.md'
+      - 'bootstrap/surface-runtime/**'
+      - '!bootstrap/surface-runtime/**/*.md'
       - 'bootstrap/independent-base/source.json'
       - 'bootstrap/kernel/source.json'
       - 'tests/test_independent_surface_runtime.py'
@@ -64,14 +64,14 @@ jobs:
           bash -n tools/ci/independent_surface_r2.sh
           python3 -m unittest tests.test_owner_surface_cache_contract -v
           python3 -m py_compile \
-            bootstrap/independent-surface-runtime/build.py \
-            bootstrap/independent-surface-runtime/prepare_config.py \
+            bootstrap/surface-runtime/build.py \
+            bootstrap/surface-runtime/prepare_config.py \
             tools/ci/independent_surface_impact.py \
             tools/ci/independent_surface_component_cache.py \
             tools/ci/independent_surface_cutover_audit.py
-          python3 bootstrap/independent-surface-runtime/prepare_config.py check
-          python3 bootstrap/independent-surface-runtime/build.py check
-          python3 tools/ci/independent_surface_cutover_audit.py pre
+          python3 bootstrap/surface-runtime/prepare_config.py check
+          python3 bootstrap/surface-runtime/build.py check
+          python3 tools/ci/independent_surface_cutover_audit.py post
 
   impact:
     runs-on: ubuntu-24.04
@@ -174,7 +174,7 @@ jobs:
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ runner.temp }}/ordax-independent-surface-ccache
-          key: ordax-independent-surface-ccache-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('bootstrap/independent-surface-runtime/configs/ordax_surface_defconfig', 'bootstrap/independent-base/source.json', 'bootstrap/kernel/source.json') }}
+          key: ordax-independent-surface-ccache-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('bootstrap/surface-runtime/configs/ordax_surface_defconfig', 'bootstrap/independent-base/source.json', 'bootstrap/kernel/source.json') }}
           restore-keys: |
             ordax-independent-surface-ccache-v1-${{ runner.os }}-${{ runner.arch }}-
 
@@ -184,20 +184,20 @@ jobs:
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ runner.temp }}/ordax-independent-surface-dl
-          key: ordax-independent-surface-dl-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('bootstrap/independent-surface-runtime/configs/ordax_surface_defconfig', 'bootstrap/independent-base/source.json', 'bootstrap/kernel/source.json') }}
+          key: ordax-independent-surface-dl-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('bootstrap/surface-runtime/configs/ordax_surface_defconfig', 'bootstrap/independent-base/source.json', 'bootstrap/kernel/source.json') }}
           restore-keys: |
             ordax-independent-surface-dl-v1-${{ runner.os }}-${{ runner.arch }}-
 
       - name: Bind Buildroot toolchain headers to canonical OrdaX kernel SSOT
         if: steps.surface-artifact-cache.outputs.cache-hit != 'true' && steps.surface-r2.outputs.hit != 'true'
         run: |
-          python3 bootstrap/independent-surface-runtime/prepare_config.py materialize \
-            --out bootstrap/independent-surface-runtime/configs/ordax_surface_defconfig
+          python3 bootstrap/surface-runtime/prepare_config.py materialize \
+            --out bootstrap/surface-runtime/configs/ordax_surface_defconfig
           grep -Fx 'BR2_KERNEL_HEADERS_VERSION=y' \
-            bootstrap/independent-surface-runtime/configs/ordax_surface_defconfig
+            bootstrap/surface-runtime/configs/ordax_surface_defconfig
           expected="$(python3 -c 'import json; print(json.load(open("bootstrap/kernel/source.json"))["version"])')"
           grep -Fx "BR2_DEFAULT_KERNEL_VERSION=\"$expected\"" \
-            bootstrap/independent-surface-runtime/configs/ordax_surface_defconfig
+            bootstrap/surface-runtime/configs/ordax_surface_defconfig
 
       - name: Resolve exact Kconfig before expensive graphical build
         if: steps.surface-artifact-cache.outputs.cache-hit != 'true' && steps.surface-r2.outputs.hit != 'true'
@@ -205,7 +205,7 @@ jobs:
           BR2_CCACHE_DIR: ${{ runner.temp }}/ordax-independent-surface-ccache
           BR2_DL_DIR: ${{ runner.temp }}/ordax-independent-surface-dl
         run: |
-          python3 bootstrap/independent-surface-runtime/prepare_config.py preflight \
+          python3 bootstrap/surface-runtime/prepare_config.py preflight \
             --cache "$RUNNER_TEMP/ordax-independent-surface-cache"
 
       - name: Build Buildroot/musl Surface runtime on durable artifact miss
@@ -215,21 +215,21 @@ jobs:
           BR2_CCACHE_DIR: ${{ runner.temp }}/ordax-independent-surface-ccache
           BR2_DL_DIR: ${{ runner.temp }}/ordax-independent-surface-dl
         run: |
-          python3 bootstrap/independent-surface-runtime/build.py build \
+          python3 bootstrap/surface-runtime/build.py build \
             --out "$RUNNER_TEMP/ordax-independent-surface" \
             --cache "$RUNNER_TEMP/ordax-independent-surface-cache" \
             --jobs 4
 
       - name: Verify exact Independent Surface EROFS bytes
         run: |
-          python3 bootstrap/independent-surface-runtime/build.py verify \
+          python3 bootstrap/surface-runtime/build.py verify \
             --out "$RUNNER_TEMP/ordax-independent-surface"
 
       - name: Restore immutable Surface source defconfig before cache identity record
         if: steps.surface-artifact-cache.outputs.cache-hit != 'true' && steps.surface-r2.outputs.hit != 'true'
         run: |
-          git checkout -- bootstrap/independent-surface-runtime/configs/ordax_surface_defconfig
-          git diff --exit-code -- bootstrap/independent-surface-runtime/configs/ordax_surface_defconfig
+          git checkout -- bootstrap/surface-runtime/configs/ordax_surface_defconfig
+          git diff --exit-code -- bootstrap/surface-runtime/configs/ordax_surface_defconfig
 
       - name: Record fresh Independent Surface component cache
         if: steps.surface-artifact-cache.outputs.cache-hit != 'true' && steps.surface-r2.outputs.hit != 'true'
@@ -316,7 +316,7 @@ jobs:
           name: ordax-independent-surface-runtime-${{ github.run_id }}
           path: |
             ${{ runner.temp }}/ordax-independent-surface/provenance.json
-            ${{ runner.temp }}/ordax-independent-surface/native-surface-runtime-buildroot.erofs
+            ${{ runner.temp }}/ordax-independent-surface/native-surface-runtime.erofs
             ${{ runner.temp }}/ordax-independent-surface/.ordax-independent-surface-cache.json
             ${{ runner.temp }}/independent-surface-component-reuse.json
           if-no-files-found: error

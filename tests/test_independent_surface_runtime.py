@@ -7,9 +7,9 @@ import tempfile
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
-BUILDER_PATH = ROOT / "bootstrap/independent-surface-runtime/build.py"
-SOURCE_PATH = ROOT / "bootstrap/independent-surface-runtime/source.json"
-CONFIG_PATH = ROOT / "bootstrap/independent-surface-runtime/configs/ordax_surface_defconfig"
+BUILDER_PATH = ROOT / "bootstrap/surface-runtime/build.py"
+SOURCE_PATH = ROOT / "bootstrap/surface-runtime/source.json"
+CONFIG_PATH = ROOT / "bootstrap/surface-runtime/configs/ordax_surface_defconfig"
 WORKFLOW_PATH = ROOT / ".github/workflows/independent-surface-runtime.yml"
 
 
@@ -86,7 +86,7 @@ class IndependentSurfaceRuntimeTests(unittest.TestCase):
             "bootstrap/independent-base/source.json",
         )
 
-        config_path = ROOT / "bootstrap/independent-surface-runtime/prepare_config.py"
+        config_path = ROOT / "bootstrap/surface-runtime/prepare_config.py"
         spec = importlib.util.spec_from_file_location("surface_ssot_config", config_path)
         self.assertIsNotNone(spec)
         self.assertIsNotNone(spec.loader)

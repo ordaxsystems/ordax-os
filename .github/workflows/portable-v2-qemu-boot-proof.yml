@@ -488,8 +488,8 @@ jobs:
           work="$RUNNER_TEMP/portable-v2-qemu"
           sudo -E env ORDAX_SOURCE_COMMIT="$ORDAX_SOURCE_COMMIT" \
             python bootstrap/surface-runtime/build.py build \
-              --out-dir "$work/surface-runtime" \
-              --cache-dir "$work/surface-runtime-cache" \
+              --out "$work/surface-runtime" \
+              --cache "$work/surface-runtime-cache" \
               > "$work/metadata/surface-runtime-build.json"
           sudo chown -R "$(id -u):$(id -g)" "$work/surface-runtime"
 
@@ -505,7 +505,7 @@ jobs:
             cache_hit=false
           fi
           python bootstrap/surface-runtime/build.py verify \
-            --out-dir "$work/surface-runtime" \
+            --out "$work/surface-runtime" \
             > "$work/metadata/surface-runtime-verify.json"
           test -s "$work/surface-runtime/native-surface-runtime.erofs"
           if [ "$cache_hit" = 'false' ]; then
@@ -547,9 +547,9 @@ jobs:
           independent="$artifact_root/ordax-independent-surface"
           test -d "$independent"
           test ! -e "$artifact_root/provenance.json"
-          source_image="$independent/native-surface-runtime-buildroot.erofs"
+          source_image="$independent/native-surface-runtime.erofs"
           target="$work/surface-runtime/native-surface-runtime.erofs"
-          python3 bootstrap/independent-surface-runtime/build.py verify \
+          python3 bootstrap/surface-runtime/build.py verify \
             --out "$independent" \
             > "$work/metadata/independent-surface-runtime-verify.json"
           python3 tools/ci/independent_surface_component_cache.py verify \
@@ -561,10 +561,10 @@ jobs:
           python3 - "$independent/provenance.json" <<'PY'
           import json, pathlib, re, sys
           provenance = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding='utf-8'))
-          assert provenance['$schema'] == 'prototype-ordax.independent-surface-runtime-provenance/1'
-          assert provenance['status'] == 'experimental-not-promotable'
+          assert provenance['$schema'] == 'prototype-ordax.surface-runtime-provenance/1'
+          assert provenance['status'] == 'candidate-not-promotable'
           assert re.fullmatch(r'[0-9a-f]{40}', provenance['source_commit'])
-          assert provenance['image']['name'] == 'native-surface-runtime-buildroot.erofs'
+          assert provenance['image']['name'] == 'native-surface-runtime.erofs'
           assert re.fullmatch(r'[0-9a-f]{64}', provenance['image']['sha256'])
           assert provenance['package_manager_present'] is False
           assert provenance['alpine_present'] is False
