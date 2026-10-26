@@ -7,6 +7,7 @@
 const {readFileSync,existsSync,lstatSync,mkdirSync,cpSync,rmSync,renameSync,mkdtempSync,writeFileSync}=require('node:fs');
 const {join,resolve,dirname,sep}=require('node:path');
 const {createHash}=require('node:crypto');
+const {spawnSync}=require('node:child_process');
 const root=resolve(__dirname,'../..');
 const out=join(root,'out','windows-desktop-toolchain');
 const sha256=bytes=>createHash('sha256').update(bytes).digest('hex');
@@ -111,15 +112,31 @@ function materializeRuntimeToolchain(){
        !existsSync(join(nodeModules,'react','package.json'))){
       throw Error('Generated Native toolchain lacks Vite or React');
     }
-    const final=join(out,'node_modules');
-    // Generated `out/` artifacts are always disposable; userData and the
-    // installed application directory are never touched by this generator.
-    if(existsSync(final))rmSync(final,{recursive:true,force:true});
-    renameSync(nodeModules,final);
-    const receipt={schema:'ordax.desktop-runtime-toolchain/1',
+    // Shipping 12k individual files to NSIS made even same-version upgrades
+    // take several minutes on real hardware. Archive the exact lock-derived
+    // closure without omitting any compiler dependencies. The trusted runtime
+    // materializes this only when a new Owner/Dev candidate needs Vite.
+    const archive=join(out,'node_modules.tar.gz');
+    const temporary=archive+'.partial';
+    try {
+      const tar=spawnSync('tar',['-czf',temporary,'-C',stage,'node_modules'],{
+        encoding:'utf8',windowsHide:true,timeout:180000,maxBuffer:1024*1024,
+      });
+      if(tar.status!==0||tar.error)throw Error('Canonical archive creation failed: '+(tar.stderr||tar.error?.message||'unknown'));
+      if(existsSync(archive))rmSync(archive);
+      renameSync(temporary,archive);
+    }finally{
+      if(existsSync(temporary))rmSync(temporary);
+    }
+    const bytes=readFileSync(archive);
+    const receipt={schema:'ordax.desktop-runtime-toolchain-archive/1',
       canonical_lock_sha256:sha256(lockBytes),requested_packages:keys.length,
-      installed_packages:available,skipped_platform_optionals:missingOptional};
+      installed_packages:available,skipped_platform_optionals:missingOptional,
+      archive:'node_modules.tar.gz',archive_sha256:sha256(bytes),
+      archive_size:bytes.length};
     writeFileSync(join(out,'toolchain-receipt.json'),JSON.stringify(receipt)+'\n');
+    const obsolete=join(out,'node_modules');
+    if(existsSync(obsolete))rmSync(obsolete,{recursive:true,force:true});
     return receipt;
   } finally {
     if(existsSync(stage))rmSync(stage,{recursive:true,force:true});
