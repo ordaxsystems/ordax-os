@@ -53,6 +53,13 @@ runs:
         print("EXTERNAL_INFERENCE_BUILDER_SOURCE=VERIFIED")
         PY
         builder="$ORDAX_INTELLIGENCE_OUT/system/intelligence-source/tools/inference-builder/build.py"
-        python3 -m py_compile "$builder"
+        # Compile in memory: bytecode cache would modify the verified source tree.
+        python3 - "$builder" <<'PY'
+        from pathlib import Path
+        import sys
+        source=Path(sys.argv[1])
+        compile(source.read_text(encoding="utf-8"), str(source), "exec")
+        PY
+        test ! -e "$ORDAX_INTELLIGENCE_OUT/system/intelligence-source/tools/inference-builder/__pycache__"
         echo "builder=$builder" >> "$GITHUB_OUTPUT"
         echo "ORDAX_EXTERNAL_AI_BUILDER=$builder" >> "$GITHUB_ENV"
