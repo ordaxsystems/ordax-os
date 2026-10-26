@@ -138,7 +138,7 @@ class PortableComponentCacheTests(unittest.TestCase):
             "physical_artifact_authorized": False,
             "signed_release_equivalence_proven": False,
             "artifacts": declared,
-        }) + "\\n", encoding="utf-8")
+        }) + "\n", encoding="utf-8")
         return out
 
     def test_owner_base_cache_reuses_across_commits_without_rewriting_provenance(self):
