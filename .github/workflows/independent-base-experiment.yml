@@ -209,6 +209,13 @@ jobs:
         with:
           path: ${{ runner.temp }}/ordax-independent
           key: ordax-portable-component-v1-${{ runner.os }}-${{ runner.arch }}-independent-base-owner-${{ steps.component-fingerprints.outputs.independent_base_owner }}
+      - name: Restore Buildroot sources and package downloads
+        if: (env.ORDAX_INDEPENDENT_PROFILE == 'minimal' && steps.independent-base-cache.outputs.cache-hit != 'true') || (env.ORDAX_INDEPENDENT_PROFILE == 'owner-development' && steps.independent-owner-cache.outputs.cache-hit != 'true')
+        id: buildroot-download-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/ordax-independent-cache
+          key: ordax-buildroot-download-v1-${{ runner.os }}-${{ hashFiles('bootstrap/independent-base/source.json', 'bootstrap/independent-base/configs/**', 'bootstrap/independent-base/patches/**') }}
       - name: Build rootfs from official Buildroot source
         if: (env.ORDAX_INDEPENDENT_PROFILE == 'minimal' && steps.independent-base-cache.outputs.cache-hit != 'true') || (env.ORDAX_INDEPENDENT_PROFILE == 'owner-development' && steps.independent-owner-cache.outputs.cache-hit != 'true')
         run: |
