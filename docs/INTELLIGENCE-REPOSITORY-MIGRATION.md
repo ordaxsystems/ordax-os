@@ -3,7 +3,7 @@
 **Estado: `integration-candidate`, sem cutover físico (2026-10-26).**
 
 A fonte portátil do `ordaxsystems/ordax-intelligence` está fixada no commit
-`b1832239ca11e6ef6e0adf3f5a8c656b9d241fe6` pelo **único** lock
+`a39c8ddcba1ac466a3697e03c20e0a8f186e4fc8` pelo **único** lock
 `docs/contracts/intelligence-source.json`, que registra oito Git blobs exatos:
 sete módulos e `tools/inference-builder/build.py`. O verificador canônico
 `tools/intelligence-source/materialize.py` exige commit exato, conteúdo intacto,
@@ -68,6 +68,23 @@ boot final ou USB físico. A verificação não cria outro runtime, porta, updat
 ou versão dos contratos. Seus recibos ficam em
 `real-sse-proof.txt`, somente quando o workflow candidato for aprovado.
 Uma falha bloqueia o candidato, sem relaxar os gates existentes.
+
+## Timeout de HTTP buffered com adaptadores não cooperativos
+
+A fonte portátil candidata foi fixada no commit
+`a39c8ddcba1ac466a3697e03c20e0a8f186e4fc8`.
+Somente o blob `src/local-ai/runtime.mjs` mudou em relação ao pin anterior;
+sete blobs permanecem inalterados. A origem da falha era esperar
+indefinidamente por `fetch()`, `reader.read()`, `reader.cancel()` ou
+`json()` em adaptadores que ignoram `AbortSignal`. O timeout agora cobre
+a operação HTTP completa e o cancelamento é best effort, sem segundo canal
+de health/rollback. A suíte upstream do Intelligence prova com fixtures
+não cooperativas que timeouts, `dispose()` e cancelamento do solicitante
+encerram a espera sem promover texto parcial.
+
+**Limite:** não comprova interrupção de trabalho do motor no servidor,
+Base Buildroot nem USB. O contrato do OS continua `integration-candidate`,
+sem ativação, publicação ou mudança de autoridade.
 
 ## Fronteiras de produção ainda fechadas
 
