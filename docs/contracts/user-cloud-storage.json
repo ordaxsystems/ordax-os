@@ -86,7 +86,11 @@
     "provider_bucket_deployed": false,
     "server_mutation_executor_deployed": false,
     "public_rollout_enabled": false,
-    "replay_historical_migrations_unmodified_allowed": false
+    "replay_historical_migrations_unmodified_allowed": false,
+    "legacy_rls_policy_schema_dependency": "ordax_policy",
+    "legacy_rls_policy_schema_dependency_present": false,
+    "legacy_rls_policy_must_be_reconciled_before_installation": true,
+    "existing_user_data_must_be_preserved": true
   },
   "activation_gates": [
     "transactional metadata and reservation schema are deployed",
