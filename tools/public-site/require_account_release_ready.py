@@ -220,7 +220,7 @@ def validate_database_proof(
             "authenticated_private_function_execute_count",
             "authenticated_sync_table_grant_count",
             "service_role_sync_table_grant_count",
-            "non_executor_sync_policy_count",
+            "unexpected_sync_policy_count",
             "service_role_user_sync_rpc_execute_count",
             "unexpected_authenticated_write_grant_count",
         ):
