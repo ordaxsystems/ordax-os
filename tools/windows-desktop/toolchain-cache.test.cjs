@@ -88,8 +88,9 @@ test('isolated worker reuses repacked and rehashes every file before allowing ex
     JSON.stringify({...f.receipt,archive_sha256:next,archive_size:bytes.length}));
   assert.equal(await ensureRuntimeToolchainIsolated(f.template,f.profile),first);
   writeFileSync(join(first,'vite','bin','vite.js'),'tampered');
-  await assert.rejects(ensureRuntimeToolchainIsolated(f.template,f.profile),
-    /cache content digest mismatch|Expanded Desktop compiler does not match/);
+  const repaired=await ensureRuntimeToolchainIsolated(f.template,f.profile);
+  assert.notEqual(repaired,first,'a modified legacy tree must never be reused');
+  assert.equal(calculateTreeDigest(repaired),f.receipt.tree_sha256);
 });
 
 test('tampered archive fails closed before creating a compiler cache',t=>{
