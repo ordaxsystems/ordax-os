@@ -60,3 +60,26 @@ A CLI Supabase v2.122.0 criou o identificador `20261026222222_storage_quota_popu
 **Estado operacional: MIGRATION CRIADA NO GIT, NÃO APLICADA NO PROJETO SUPABASE.** Antes de promover, reconciliar a sequência do ledger de migrations no projeto e verificar que a versão `20261026222222` continua ausente. O formato canônico de publicação exige execução por um mecanismo que grave `supabase_migrations.schema_migrations` atomicamente, com identidade do destino, controle de concorrência e aprovação do operador. Não fazer `psql -f` manual, não registrar versão artificial via `migration repair`, não executar `supabase db push` no repositório inteiro sem antes confirmar o conjunto de migrations remotas e locais. A presença do arquivo no Git não libera storage, login ou cadastro público.
 
 A prova CI usa duas identidades PostgreSQL **sintéticas**; não substitui teste real de duas contas Supabase/JWT, validação da Data API, rate limit/limpeza/quotas, homologação do provedor ou aprovação jurídica.
+
+## Preflight somente leitura e vinculado ao projeto
+
+O verificador `infra/supabase/product/verify_storage_destination_preflight.py` é o ponto único para conferir se uma migration versionada **pode sequer ser considerada** para homologação. Ele exige identidade consistente entre contratos de Account, Storage e Quota, igualdade byte a byte entre migration `20261026222222` e renderer canônico, e a presença/ausência exata de funções, tabelas e registro da versão.
+
+Para inspecionar a consulta sem contatar o Supabase:
+
+```bash
+python3 infra/supabase/product/verify_storage_destination_preflight.py --print-query
+```
+
+O modo `--fixture-json <arquivo>` aceita um único objeto JSON booleano do catálogo, valida estritamente todas as chaves e **marca a origem como sintética**. O CI roda a consulta no PostgreSQL descartável antes e depois da instalação: antes aprova apenas as pré-condições do catálogo; depois deve negar devido às tabelas já existentes. Isso **não substitui homologação real**.
+
+Para uma conferência remota somente leitura, com credencial de banco mantida fora do repositório e nunca impressa:
+
+```bash
+ORDAX_STORAGE_DESTINATION_DATABASE_URL='<segredo-configurado-no-ambiente>' \
+  python3 infra/supabase/product/verify_storage_destination_preflight.py --live
+```
+
+O script recusa DSN que não seja do projeto canônico (host direto `db.<ref>.supabase.co` / usuário `postgres` ou pooler oficial / usuário `postgres.<ref>`), exige TLS e consulta somente `pg_catalog`, `auth.users` via `EXISTS` e a tabela de versões. Os segredos ficam em variáveis de conexão do processo `psql`, não em argumentos de linha de comando ou evidência. Uma falha de conexão não imprime o erro bruto do driver. **Mesmo resultado verde somente prova pré-condições de catálogo**, não autoriza a execução de DDL, nem implantação automática, nem liberação pública.
+
+A promoção ainda depende de controle exclusivo da execução da migration no Supabase, backup/recovery operacional adequado, teste autenticado com duas identidades reais, confirmação de schemas expostos na Data API e registros jurídicos aprovados.
