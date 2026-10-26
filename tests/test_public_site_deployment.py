@@ -185,7 +185,7 @@ class PublicSiteDeploymentTests(unittest.TestCase):
     def test_live_oidc_and_gateway_transport_are_proven_without_opening_full_account(self):
         self.assertEqual(
             self.contract["status"],
-            "canonical-public-edge-v8-oidc-bridge-runtime-proven-account-activation-gated",
+            "canonical-public-edge-oidc-bridge-runtime-proven-account-activation-gated",
         )
         self.assertEqual(
             self.contract["runtime_evidence"],
@@ -212,14 +212,22 @@ class PublicSiteDeploymentTests(unittest.TestCase):
 
         edge = self.contract["public_edge_gateway"]
         self.assertTrue(edge["deployed"])
-        self.assertEqual(edge["deployed_version"], 8)
+        parity = json.loads((ROOT / edge["current_runtime_source_parity_evidence"]).read_text(encoding="utf-8"))
+        historical = json.loads(RUNTIME_EVIDENCE.read_text(encoding="utf-8"))
+        self.assertGreaterEqual(edge["deployed_version"], historical["runtime"]["public_gateway"]["version"])
+        self.assertEqual(edge["deployed_version"], parity["public_gateway"]["version"])
+        self.assertTrue(parity["public_gateway"]["all_deployed_source_files_match_main"])
         self.assertEqual(edge["canonical_project_ref"], "jhfphsjptrpmtnzkpwud")
         self.assertTrue(edge["runtime_provenance_e2e_verified"])
         self.assertTrue(edge["named_inner_service_bridge_provisioned"])
         self.assertTrue(edge["named_inner_service_bridge_runtime_e2e_verified"])
         self.assertEqual(edge["named_inner_service_bridge_http_status"], 200)
         self.assertIsNone(edge["named_inner_service_bridge_diagnostic"])
-        self.assertEqual(edge["inner_gateway_deployed_version"], 13)
+        self.assertGreaterEqual(edge["inner_gateway_deployed_version"], historical["runtime"]["internal_gateway"]["version"])
+        self.assertEqual(edge["inner_gateway_deployed_version"], parity["internal_gateway"]["version"])
+        self.assertTrue(parity["internal_gateway"]["all_deployed_source_files_match_main"])
+        self.assertFalse(parity["anonymous_transport"]["public_registration_enabled"])
+        self.assertFalse(parity["public_auth_gates_changed"])
         self.assertFalse(edge["inner_gateway_platform_verify_jwt"])
         self.assertFalse(edge["oidc_authorization_forwarded_to_inner_gateway"])
         self.assertFalse(edge["sensitive_proxy_headers_forwarded_to_inner_gateway"])
