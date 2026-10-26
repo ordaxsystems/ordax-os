@@ -72,6 +72,28 @@ class LiveIdentityPolicyBoundaryTests(unittest.TestCase):
         self.assertIn("\nbegin;\n", s)
         self.assertTrue(s.rstrip().endswith("commit;"))
 
+    def test_recovered_session_guard_source_fingerprints_the_live_catalog(self):
+        source = (
+            ROOT / self.obs["source_recovery"]["source_path"]
+        ).read_text(encoding="utf-8")
+        self.assertIn("0e64a11cc3d4802f7f94c1591cdadc26", source)
+        self.assertIn("pg_get_functiondef(v_oid)", source)
+        self.assertIn("v_subject_user_id:=auth.uid();", source)
+        self.assertIn("v_claims:=auth.jwt();", source)
+        self.assertIn("join auth.users u", source)
+        self.assertIn("from auth.sessions s", source)
+        self.assertIn("u.confirmed_at is not null", source)
+        self.assertIn("u.is_anonymous is false", source)
+        self.assertIn("u.banned_until", source)
+        self.assertIn("s.not_after", source)
+        self.assertIn("language plpgsql", source)
+        self.assertIn("volatile", source)
+        self.assertIn("security definer", source)
+        self.assertIn("set search_path = ''", source)
+        self.assertNotIn("grant execute on function private.", source.lower())
+        self.assertFalse(self.obs["source_recovery"]["source_migration_deployed"])
+        self.assertFalse(self.obs["source_recovery"]["semantic_e2e_verified"])
+
     def test_historical_recipe_is_not_promotable_as_live_proof(self):
         historical = LEGACY.read_text(encoding="utf-8")
         self.assertIn("ordax_memory_items_insert_own", historical)
