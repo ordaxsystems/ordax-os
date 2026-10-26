@@ -102,6 +102,28 @@ def validate(
                     or actual_record.get("sha256") != digest(expected_path)
                     or actual_record.get("size") != expected_path.stat().st_size):
                 raise IndependentRootfsError(f"Owner base reuse receipt rejects {name}")
+        # Receipts are not credentials. Re-run the canonical cache checker
+        # against the current checkout so a forged JSON receipt cannot
+        # authorize a different rootfs or source revision.
+        cache_path = ROOT / "tools/ci/portable_component_cache.py"
+        spec = spec_from_file_location("ordax_owner_rootfs_cache_policy", cache_path)
+        if spec is None or spec.loader is None:
+            raise IndependentRootfsError("canonical Owner cache verifier unavailable")
+        cache = module_from_spec(spec)
+        spec.loader.exec_module(cache)
+        try:
+            verified = cache.verify_component(
+                "independent-base-owner", provenance_path.parent,
+                expected_commit, reuse_receipt, cache_hit=True,
+            )
+        except (cache.CacheError, OSError) as exc:
+            raise IndependentRootfsError(
+                f"Owner base integration receipt failed canonical verification: {exc}"
+            ) from exc
+        if (verified.get("build_source_commit") != producer_commit
+                or verified.get("integration_source_commit") != expected_commit
+                or verified.get("provenance_rewritten") is not False):
+            raise IndependentRootfsError("Owner base reuse identity changed during verification")
     if provenance.get("profile") != "owner-development":
         raise IndependentRootfsError("Development Base requires owner-development profile")
     if provenance.get("owner_development_capabilities_verified") is not True:
