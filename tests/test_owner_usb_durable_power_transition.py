@@ -71,6 +71,82 @@ class OwnerUsbDurablePowerTransitionTests(unittest.TestCase):
                             proc.terminate()
                             proc.wait(timeout=5)
 
+
+    @unittest.skipUnless(Path("/proc/self/stat").exists(), "Linux /proc required")
+    def test_guardian_reaps_isolated_agent_orphan_with_rootfs_log_fd(self):
+        # Reproduce the QEMU EBUSY: a persistent agent shell spawns a child
+        # that survives TERM and inherits FD2 open for writing on ext4.
+        # The Guardian must quiesce that exact setsid session, not merely the
+        # PID from agent.pid, before it may attempt the read-only seal.
+        import shutil
+        import signal
+
+        if not shutil.which("setsid"):
+            self.skipTest("setsid unavailable")
+        source = GUARDIAN.read_text(encoding="utf-8")
+        functions = "\n".join(function_source(source, name) for name in (
+            "is_pid", "supervisor_process_active", "pid_matches_path",
+            "persistent_agent_isolated_session", "persistent_agent_session_active",
+            "terminate_persistent_agent",
+        ))
+        # Use host coreutils instead of the embedded BusyBox binary, keeping
+        # the exact production shell functions and signal/session decisions.
+        functions = (functions.replace("/bin/busybox awk", "/usr/bin/awk")
+                              .replace("/bin/busybox tr", "/usr/bin/tr")
+                              .replace("/bin/busybox sleep", "/bin/sleep"))
+        with tempfile.TemporaryDirectory(prefix="ordax-agent-session-fd-") as folder:
+            root = Path(folder)
+            agent = root / "agent.sh"
+            pidfile = root / "agent.pid"
+            childfile = root / "child.pid"
+            logfile = root / "agent.log"
+            agent.write_text(
+                '#!/bin/sh\n'
+                'printf "%s\\n" "$" >"$PIDFILE"\n'
+                '( trap "" TERM; while :; do /bin/sleep 1; done ) &\n'
+                'printf "%s\\n" "$!" >"$CHILD"\n'
+                'wait\n',
+                encoding="utf-8",
+            )
+            agent.chmod(0o700)
+            with logfile.open("ab") as log:
+                process = subprocess.Popen(
+                    ["setsid", "/bin/sh", str(agent)],
+                    env={**os.environ, "PIDFILE": str(pidfile), "CHILD": str(childfile)},
+                    stdin=subprocess.DEVNULL, stdout=log, stderr=log,
+                )
+                try:
+                    deadline = time.monotonic() + 4
+                    while time.monotonic() < deadline and not childfile.exists():
+                        time.sleep(0.05)
+                    self.assertTrue(childfile.exists(), "agent child not started")
+                    child_pid = int(childfile.read_text(encoding="utf-8").strip())
+                    self.assertEqual(int(pidfile.read_text(encoding="utf-8").strip()), process.pid)
+                    self.assertEqual(os.getsid(child_pid), process.pid)
+                    self.assertEqual(os.getpgid(child_pid), process.pid)
+                    self.assertEqual(os.readlink(f"/proc/{child_pid}/fd/2"), str(logfile))
+                    shell = "\n".join([
+                        "set -eu",
+                        'log() { printf "%s\\n" "$*" >&2; }',
+                        functions,
+                        f'terminate_persistent_agent "{pidfile}" "{agent}" "test agent"',
+                    ])
+                    result = subprocess.run(
+                        ["/bin/sh", "-c", shell], capture_output=True, text=True, timeout=14,
+                    )
+                    self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                    self.assertFalse(pidfile.exists())
+                    stat_path = Path(f"/proc/{child_pid}/stat")
+                    if stat_path.exists():
+                        state = stat_path.read_text(encoding="utf-8").rsplit(") ", 1)[1].split()[0]
+                        self.assertIn(state, ("Z", "X"), "orphan still holds writable FD2")
+                finally:
+                    try:
+                        os.killpg(process.pid, signal.SIGKILL)
+                    except ProcessLookupError:
+                        pass
+                    process.wait(timeout=5)
+
     def test_base_update_aura_child_remains_owned_during_usb_shutdown(self):
         # The Owner USB safety patch must not replace or regress the single
         # canonical Base Update agent when Aura is updated on main. The agent

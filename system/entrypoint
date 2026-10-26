@@ -339,6 +339,33 @@ pid_matches_path() {
     return 1
 }
 
+# Each persistent host agent starts in its own setsid session. A killed
+# leader can leave shell descendants holding writable rootfs log FDs, which
+# makes the kernel reject mount_setattr(MOUNT_ATTR_RDONLY) with EBUSY.
+# Only signal a group after proving BOTH its PGID and SID are the verified
+# agent PID; never signal the Guardian's or another shared process group.
+persistent_agent_isolated_session() {
+    pid=$1
+    [ -r "/proc/$pid/stat" ] || return 1
+    group_session=$(/bin/busybox awk '{ sub(/^.*\) /, ""); print $3 ":" $4; exit }' "/proc/$pid/stat" 2>/dev/null || true)
+    [ "$group_session" = "$pid:$pid" ]
+}
+
+# An exited leader does not mean its children released the ext4 write FDs.
+# Check live members of the exact private session, excluding zombies.
+persistent_agent_session_active() {
+    session=$1
+    for stat_file in /proc/[0-9]*/stat; do
+        [ -r "$stat_file" ] || continue
+        active=$(/bin/busybox awk -v session="$session" '{
+            sub(/^.*\) /, "")
+            if ($3 == session && $4 == session && $1 != "Z" && $1 != "X") print "active"
+        }' "$stat_file" 2>/dev/null || true)
+        [ "$active" = active ] && return 0
+    done
+    return 1
+}
+
 terminate_persistent_agent() {
     pid_file=$1
     expected_path=$2
@@ -351,22 +378,50 @@ terminate_persistent_agent() {
         return 0
     fi
 
-    kill "$pid" >/dev/null 2>&1 || true
+    isolated_session=0
+    if persistent_agent_isolated_session "$pid"; then
+        isolated_session=1
+        # The isolated session contains agent-owned shell children, including
+        # ones orphaned by a terminated parent. Signal only this proven group.
+        kill -TERM "-$pid" >/dev/null 2>&1 || true
+    else
+        # Non-isolated fallback: never signal an unverified process group.
+        kill "$pid" >/dev/null 2>&1 || true
+    fi
     remaining=2
-    while supervisor_process_active "$pid" && [ "$remaining" -gt 0 ]; do
+    while [ "$remaining" -gt 0 ]; do
+        if [ "$isolated_session" -eq 1 ]; then
+            persistent_agent_session_active "$pid" || break
+        else
+            supervisor_process_active "$pid" || break
+        fi
         /bin/busybox sleep 1
         remaining=$((remaining - 1))
     done
-    if supervisor_process_active "$pid"; then
+    if [ "$isolated_session" -eq 1 ]; then
+        if persistent_agent_session_active "$pid"; then
+            log "forcing persistent $label session $pid for host power transition"
+            kill -KILL "-$pid" >/dev/null 2>&1 || true
+        fi
+    elif supervisor_process_active "$pid"; then
         log "forcing persistent $label pid $pid for host power transition"
         kill -KILL "$pid" >/dev/null 2>&1 || true
     fi
     remaining=2
-    while supervisor_process_active "$pid" && [ "$remaining" -gt 0 ]; do
+    while [ "$remaining" -gt 0 ]; do
+        if [ "$isolated_session" -eq 1 ]; then
+            persistent_agent_session_active "$pid" || break
+        else
+            supervisor_process_active "$pid" || break
+        fi
         /bin/busybox sleep 1
         remaining=$((remaining - 1))
     done
-    supervisor_process_active "$pid" && return 1
+    if [ "$isolated_session" -eq 1 ]; then
+        persistent_agent_session_active "$pid" && return 1
+    else
+        supervisor_process_active "$pid" && return 1
+    fi
     rm -f "$pid_file" >/dev/null 2>&1 || true
     return 0
 }
