@@ -6,7 +6,7 @@ const {join}=require('node:path');
 const {tmpdir}=require('node:os');
 const {createHash}=require('node:crypto');
 const {spawnSync}=require('node:child_process');
-const {archiveReceipt,ensureRuntimeToolchain,ensureRuntimeToolchainIsolated,calculateTreeDigest}=require('./toolchain-cache.cjs');
+const {archiveReceipt,ensureRuntimeToolchain,ensureRuntimeToolchainIsolated,calculateTreeDigest,calculateTreeDigestConcurrent}=require('./toolchain-cache.cjs');
 const hash=data=>createHash('sha256').update(data).digest('hex');
 const run=(args)=>{
   const p=spawnSync('tar',args,{encoding:'utf8',windowsHide:true,timeout:15000});
@@ -65,6 +65,31 @@ test('same verified compiler tree reuses cache after installer archive repackagi
   assert.equal(reused,first,'repacked archive must not trigger another extraction');
   assert.equal(readdirSync(join(f.profile,'runtime-toolchains')).length,1);
   assert.equal(calculateTreeDigest(reused),f.receipt.tree_sha256);
+});
+
+test('concurrent NTFS verifier preserves byte-for-byte deterministic tree digest',async t=>{
+  const f=fixture(t);
+  const tree=join(f.root,'build','node_modules');
+  assert.equal(await calculateTreeDigestConcurrent(tree),calculateTreeDigest(tree));
+  assert.equal(await calculateTreeDigestConcurrent(tree,{concurrency:1}),f.receipt.tree_sha256);
+  assert.equal(await calculateTreeDigestConcurrent(tree,{concurrency:8}),f.receipt.tree_sha256);
+  await assert.rejects(calculateTreeDigestConcurrent(tree,{concurrency:0}),/concurrency/);
+});
+
+test('isolated worker reuses repacked and rehashes every file before allowing execution',async t=>{
+  const f=fixture(t);
+  const first=ensureRuntimeToolchain(f.template,f.profile);
+  utimesSync(join(f.root,'build','node_modules','vite','bin','vite.js'),
+    new Date('2000-01-01T00:00:00Z'),new Date('2000-01-01T00:00:00Z'));
+  run(['-czf',f.archive,'-C',join(f.root,'build'),'node_modules']);
+  const bytes=readFileSync(f.archive),next=hash(bytes);
+  assert.notEqual(next,f.receipt.archive_sha256);
+  writeFileSync(join(f.template,'toolchain','toolchain-receipt.json'),
+    JSON.stringify({...f.receipt,archive_sha256:next,archive_size:bytes.length}));
+  assert.equal(await ensureRuntimeToolchainIsolated(f.template,f.profile),first);
+  writeFileSync(join(first,'vite','bin','vite.js'),'tampered');
+  await assert.rejects(ensureRuntimeToolchainIsolated(f.template,f.profile),
+    /cache content digest mismatch|Expanded Desktop compiler does not match/);
 });
 
 test('tampered archive fails closed before creating a compiler cache',t=>{
