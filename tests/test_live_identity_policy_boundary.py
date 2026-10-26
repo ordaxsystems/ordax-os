@@ -69,8 +69,8 @@ class LiveIdentityPolicyBoundaryTests(unittest.TestCase):
         self.assertIn("auth.sessions", s)
         self.assertIn("u.confirmed_at is not null", s)
         self.assertIn("0e64a11cc3d4802f7f94c1591cdadc26", s)
-        self.assertEqual(s.count("\\nbegin;"), 1)
-        self.assertEqual(s.count("\\ncommit;"), 1)
+        self.assertEqual(len(re.findall(r"(?m)^begin;$", s)), 1)
+        self.assertEqual(len(re.findall(r"(?m)^commit;$", s)), 1)
         self.assertLess(
             s.index("create or replace function private.ordax_authenticated_subject_eligible_v1()"),
             s.index("create schema ordax_policy;"),
