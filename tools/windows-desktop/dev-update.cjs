@@ -219,6 +219,20 @@ function unpin(userData) {
   return writeState(userData,{...state,pinnedSha:null});
 }
 
+// Owner/Development Git-main (ordax-pull) can prepare a new Native tree
+// while the Windows app is running. Promotion still belongs exclusively to
+// chooseBootVersion + confirmHealthy on the next Electron launch. Re-launch
+// the app only during a genuine period of inactivity, never restart Windows
+// or interrupt an actively used Surface to consume a staged update.
+function shouldAutoActivate(state,{idleSeconds,windowVisible,windowFocused}={}){
+  if(!state || !SHA_RE.test(state.pendingSha??'') ||
+     state.attemptedSha || state.pinnedSha ||
+     !Number.isFinite(idleSeconds) || idleSeconds<0) return false;
+  if(windowVisible===false)return idleSeconds>=60;
+  if(windowFocused===false)return idleSeconds>=120;
+  return idleSeconds>=600;
+}
+
 async function stageMain({ userData, template, log = () => {}, remote = OFFICIAL_REMOTE, runGit = git, buildCandidate = buildNativeCandidate, cleanupCandidate = removeOwnedCandidate }) {
   if (remote !== OFFICIAL_REMOTE) throw Error('Untrusted update source');
   // Best-effort orphan maintenance must not prevent a valid state decision.
@@ -343,6 +357,6 @@ async function stageMain({ userData, template, log = () => {}, remote = OFFICIAL
 module.exports = {
   CHANNEL_SCHEMA, readState, writeState, validateState, versionRoot,
   chooseBootVersion, confirmedVersion: verifiedVersion,
-  stageMain, confirmHealthy, rejectCandidate, pinPrevious, unpin,
+  stageMain, shouldAutoActivate, confirmHealthy, rejectCandidate, pinPrevious, unpin,
   prepareWindowsGitDeletion, removeOwnedCandidate, sweepStaleCandidates,
 };
