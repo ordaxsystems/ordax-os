@@ -9,13 +9,15 @@ const { OFFICIAL_REMOTE } = require('./runtime.cjs');
 const { compiledBundleSha256 } = require('./native-build.cjs');
 const { git } = require('./checkout.cjs');
 const { readState, writeState, validateState, versionRoot, stageMain,
-  chooseBootVersion, confirmHealthy, pinPrevious, unpin, shouldAutoActivate,
+  chooseBootVersion, confirmHealthy, pinPrevious, unpin, shouldAutoActivate, desktopFirstRunComplete,
   sweepStaleCandidates, removeOwnedCandidate, prepareWindowsGitDeletion } = require('./dev-update.cjs');
 
 test('Electron connects ordax-pull staging to automatic, health-gated idle activation',()=>{
   const source=readFileSync(join(__dirname,'main.cjs'),'utf8');
   assert.match(source,/const result=await stageMain\(\{userData,template,log\}\)/);
-  assert.match(source,/activationTimer=setInterval\(\(\)=>activatePendingWhenIdle\(userData\),15\*1000\)/);
+  assert.match(source,/activationTimer=setInterval\(\(\)=>\{void activatePendingWhenIdle\(userData,template\);\},15\*1000\)/);
+  assert.match(source,/allowPendingTrial:await desktopFirstRunComplete\(userData,template\)/);
+  assert.match(source,/if\(!await desktopFirstRunComplete\(userData,template\)\)return;/);
   assert.match(source,/powerMonitor\.getSystemIdleTime\(\)/);
   assert.match(source,/shouldAutoActivate\(state,/);
   assert.match(source,/app\.relaunch\(\);\s*app\.quit\(\)/);
@@ -42,6 +44,29 @@ test('ordax-pull Desktop activates only verified pending Git revisions during sa
   for(const idleSeconds of [NaN,Infinity,-1,undefined]){
     assert.equal(shouldAutoActivate(state,{...ui,idleSeconds}),false);
   }
+});
+
+test('ordax-pull checks canonical Native First Run receipt before auto update',async t=>{
+  const root=mkdtempSync(join(tmpdir(),'ordax-first-run-update-'));
+  t.after(()=>rmSync(root,{recursive:true,force:true}));
+  const template=join(__dirname,'../..');
+  const dir=join(root,'native-state');
+  mkdirSync(dir);
+  const file=join(dir,'native-state.json');
+  assert.equal(await desktopFirstRunComplete(root,template),false);
+  const firstRun={
+    schema:'ordax.first-run-state/1',
+    completed:false,locale:'pt-BR',timeZone:'America/Bahia',accountMode:null,
+  };
+  writeFileSync(file,JSON.stringify({firstRun}));
+  assert.equal(await desktopFirstRunComplete(root,template),false);
+  writeFileSync(file,'{invalid JSON');
+  assert.equal(await desktopFirstRunComplete(root,template),false);
+  writeFileSync(file,JSON.stringify({firstRun:{...firstRun,completed:true}}));
+  assert.equal(await desktopFirstRunComplete(root,template),false,
+    'flag alone is not a valid completion receipt');
+  writeFileSync(file,JSON.stringify({firstRun:{...firstRun,completed:true,accountMode:'local-only'}}));
+  assert.equal(await desktopFirstRunComplete(root,template),true);
 });
 
 function gitCli(args,cwd) {
@@ -259,6 +284,25 @@ test('second fast-forward stages separately; explicit rollback pins previous com
   assert.equal((await stageMain({userData:f.userData,template:f.template,runGit:f.offlineGit,buildCandidate:f.offlineBuild})).status,'pinned');
   assert.equal((await chooseBootVersion({userData:f.userData,template:f.template})).sha,f.first);
   assert.equal(unpin(f.userData).pinnedSha,null);
+});
+
+test('first-run OOBE holds a verified pending version without rejecting or activating it',async t=>{
+  const f=fixture(t);
+  assert.equal((await stageMain({userData:f.userData,template:f.template,
+    runGit:f.offlineGit,buildCandidate:f.offlineBuild})).status,'staged');
+  const pending=readState(f.userData).pendingSha;
+  const held=await chooseBootVersion({userData:f.userData,template:f.template,
+    allowPendingTrial:false});
+  assert.equal(held.trial,false);
+  assert.equal(readState(f.userData).pendingSha,pending);
+  assert.equal(readState(f.userData).attemptedSha,null);
+  assert.equal(readState(f.userData).rejectedSha,null);
+  const selected=await chooseBootVersion({userData:f.userData,template:f.template,
+    allowPendingTrial:true});
+  assert.equal(selected.trial,true);
+  assert.equal(selected.sha,pending);
+  confirmHealthy(f.userData,pending);
+  assert.equal(readState(f.userData).activeSha,pending);
 });
 
 test('diverged, dirty or untrusted versions cannot be activated',async t=>{
