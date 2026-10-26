@@ -103,7 +103,7 @@ jobs:
     timeout-minutes: 360
     # Serialize exact source build ownership with the independent producer.
     concurrency:
-      group: ordax-surface-producer-${{ github.event.pull_request.head.sha || github.sha }}
+      group: ordax-surface-producer-${{ github.event.pull_request.number || github.ref }}
       cancel-in-progress: false
     env:
       # Exact checkout identity for push and PR; github.sha on PR is the

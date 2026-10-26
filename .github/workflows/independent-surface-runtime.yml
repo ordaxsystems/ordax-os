@@ -113,7 +113,7 @@ jobs:
     # One actual EROFS producer for one exact source revision across both
     # Creator and Independent Surface workflows; don't compile it twice.
     concurrency:
-      group: ordax-surface-producer-${{ github.event.pull_request.head.sha || github.sha }}
+      group: ordax-surface-producer-${{ github.event.pull_request.number || github.ref }}
       cancel-in-progress: false
     outputs:
       artifact_reused: ${{ steps.surface-reuse-state.outputs.reused }}

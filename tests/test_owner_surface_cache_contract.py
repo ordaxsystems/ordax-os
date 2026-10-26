@@ -7,7 +7,7 @@ OWNER = ROOT / ".github/workflows/creator-owner-dev-git.yml"
 SURFACE = ROOT / ".github/workflows/independent-surface-runtime.yml"
 R2 = ROOT / "tools/ci/independent_surface_r2.sh"
 CACHE = "tools/ci/independent_surface_component_cache.py"
-GROUP = "ordax-surface-producer-${{ github.event.pull_request.head.sha || github.sha }}"
+GROUP = "ordax-surface-producer-${{ github.event.pull_request.number || github.ref }}"
 ARTIFACT_KEY = "ordax-independent-surface-artifact-v1-${{ runner.os }}-${{ runner.arch }}-"
 
 
@@ -17,6 +17,7 @@ class OwnerSurfaceCacheContractTests(unittest.TestCase):
         producer = SURFACE.read_text(encoding="utf-8")
         for text in (owner, producer):
             self.assertIn(GROUP, text)
+            self.assertNotIn("ordax-surface-producer-${{ github.event.pull_request.head.sha || github.sha }}", text)
             self.assertIn("cancel-in-progress: false", text)
             self.assertIn(ARTIFACT_KEY, text)
             self.assertIn("${{ runner.temp }}/ordax-independent-surface", text)
