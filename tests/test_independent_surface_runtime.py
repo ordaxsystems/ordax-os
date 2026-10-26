@@ -68,6 +68,8 @@ class IndependentSurfaceRuntimeTests(unittest.TestCase):
         self.assertFalse(source["package_manager_in_runtime_allowed"])
         self.assertIn("bin/udevadm", source["required_runtime_paths"])
         self.assertIn("usr/lib/udev/rules.d/60-input-id.rules", source["required_runtime_paths"])
+        self.assertTrue({"usr/share/X11/xkb/rules/evdev", "usr/share/X11/xkb/symbols/br",
+                         "usr/share/X11/xkb/symbols/us"}.issubset(source["required_runtime_paths"]))
 
     def test_ssot_paths_remain_posix_when_host_paths_are_windows_style(self):
         # Signed contracts use slash-separated paths on Linux and Windows.
@@ -113,6 +115,7 @@ class IndependentSurfaceRuntimeTests(unittest.TestCase):
             "BR2_PACKAGE_LIBGTK3_WAYLAND=y",
             "BR2_PACKAGE_PYTHON_GOBJECT=y",
             "BR2_PACKAGE_XWAYLAND=y",
+            "BR2_PACKAGE_XKEYBOARD_CONFIG=y",
             "BR2_PACKAGE_SEATD=y",
             "BR2_PACKAGE_GSTREAMER1=y",
             "BR2_PACKAGE_GSTREAMER1_INSTALL_TOOLS=y",
@@ -199,6 +202,24 @@ class IndependentSurfaceRuntimeTests(unittest.TestCase):
         self.builder.ensure_surface_runtime_path_compatibility(tar_path)
         with self.assertRaisesRegex(self.builder.SurfaceBuildError, "missing required paths"):
             self.builder.inspect_rootfs_tar(tar_path, self.source)
+
+    def test_buildroot_xkb_database_missing_or_empty_rejects_surface_image(self):
+        # A linked libxkbcommon alone is not enough for Cage. Missing
+        # /usr/share/X11/xkb caused a real QEMU SIGSEGV before WebKit.
+        required = self.buildroot_like_paths()
+        for missing in ("usr/share/X11/xkb/rules/evdev",
+                        "usr/share/X11/xkb/keycodes/evdev",
+                        "usr/share/X11/xkb/symbols/br",
+                        "usr/share/X11/xkb/symbols/us"):
+            with self.subTest(missing=missing):
+                bad = self.make_tar(required - {missing})
+                self.builder.ensure_surface_runtime_path_compatibility(bad)
+                with self.assertRaisesRegex(self.builder.SurfaceBuildError, "missing required paths"):
+                    self.builder.inspect_rootfs_tar(bad, self.source)
+                empty = self.make_tar(required, empty={missing})
+                self.builder.ensure_surface_runtime_path_compatibility(empty)
+                with self.assertRaisesRegex(self.builder.SurfaceBuildError, "empty"):
+                    self.builder.inspect_rootfs_tar(empty, self.source)
 
     def test_eudev_abi_fails_closed_if_native_targets_are_missing(self):
         for missing in ("usr/bin/udevadm", "lib/udev/rules.d/60-input-id.rules"):

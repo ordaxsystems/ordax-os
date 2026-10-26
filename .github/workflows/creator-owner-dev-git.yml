@@ -13,6 +13,8 @@ on:
       - 'bootstrap/dev/**'
       - 'bootstrap/dev-base/**'
       - 'bootstrap/surface-runtime/**'
+      - 'bootstrap/independent-surface-runtime/**'
+      - 'bootstrap/independent-base/**'
       - 'bootstrap/recovery/**'
       # Creator's published USB must cover the actual boot/Guardian/Surface
       # source snapshot. Previously a system-only main commit (including
@@ -37,6 +39,8 @@ on:
       - 'bootstrap/dev/**'
       - 'bootstrap/dev-base/**'
       - 'bootstrap/surface-runtime/**'
+      - 'bootstrap/independent-surface-runtime/**'
+      - 'bootstrap/independent-base/**'
       - 'system/entrypoint'
       # Boot health and update handoff must prove the real Owner USB on PRs,
       # not only on the subsequent main push (when the rollback risk is live).
