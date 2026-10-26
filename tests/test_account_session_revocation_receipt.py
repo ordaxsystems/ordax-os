@@ -23,10 +23,14 @@ proof = load_module()
 class AccountSessionRevocationReceiptTests(unittest.TestCase):
     def test_public_origin_parser_rejects_internal_or_ambiguous_urls(self):
         self.assertEqual(
-            proof.canonical_public_origin("https://accounts.example.invalid/"),
-            "https://accounts.example.invalid",
+            proof.canonical_public_origin("https://ordax.com.br/"),
+            "https://ordax.com.br",
         )
         for value in (
+            "https://accounts.example.invalid",
+            "https://ordax.com.br.evil.example",
+            "https://web.ordax.com.br",
+            "https://ordax.com.br:443",
             "http://accounts.example.invalid",
             "https://user:pass@accounts.example.invalid",
             "https://accounts.example.invalid/functions/v1/ordax-account-gateway",
@@ -35,6 +39,31 @@ class AccountSessionRevocationReceiptTests(unittest.TestCase):
         ):
             with self.subTest(value=value), self.assertRaises(SystemExit):
                 proof.canonical_public_origin(value)
+
+    def test_untrusted_redirect_is_never_followed(self):
+        self.assertIsNone(
+            proof.RejectRedirect().redirect_request(
+                None, None, 307, "Temporary Redirect", {}, "https://evil.example"
+            )
+        )
+        client = proof.Client("https://ordax.com.br")
+        self.assertTrue(any(
+            isinstance(handler, proof.RejectRedirect)
+            for handler in client.opener.handlers
+        ))
+
+    def test_origin_preflight_never_needs_test_account_credentials(self):
+        from unittest.mock import patch
+        from contextlib import redirect_stdout
+        from io import StringIO
+
+        with patch.dict(os.environ, {"ORDAX_ACCOUNT_GATEWAY_BASE_URL": "https://ordax.com.br"}, clear=True):
+            with redirect_stdout(StringIO()) as output:
+                self.assertEqual(proof.main(["--check-origin"]), 0)
+            self.assertIn("CANONICAL", output.getvalue())
+        with patch.dict(os.environ, {"ORDAX_ACCOUNT_GATEWAY_BASE_URL": "https://evil.example"}, clear=True):
+            with self.assertRaisesRegex(SystemExit, "origin-not-canonical"):
+                proof.main(["--check-origin"])
 
     def test_receipt_is_local_scope_and_sanitized(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -46,7 +75,7 @@ class AccountSessionRevocationReceiptTests(unittest.TestCase):
                 os.environ["GITHUB_RUN_ID"] = "98765"
                 proof.write_receipt(
                     str(path),
-                    "https://example.invalid",
+                    "https://ordax.com.br",
                 )
             finally:
                 if old_sha is None:
