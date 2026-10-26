@@ -98,9 +98,33 @@ class PowerQuiescenceTests(unittest.TestCase):
     def test_persistent_agent_termination_distinguishes_zombies(self) -> None:
         guardian = GUARDIAN.read_text(encoding="utf-8")
         function = function_source(guardian, "terminate_persistent_agent")
-        self.assertEqual(function.count('while supervisor_process_active "$pid"'), 2)
-        self.assertIn('if supervisor_process_active "$pid"; then', function)
+        session_check = function_source(guardian, "persistent_agent_session_active")
+        session_identity = function_source(guardian, "persistent_agent_isolated_session")
+
+        # Both the graceful and forced phase must check ALL live members of
+        # the verified private session, not only its leader. A surviving
+        # orphan shell can otherwise hold a writable ext4 rootfs FD open.
+        self.assertEqual(function.count('while [ "$remaining" -gt 0 ]; do'), 2)
+        self.assertEqual(
+            function.count('persistent_agent_session_active "$pid" || break'), 2
+        )
+        self.assertEqual(function.count('supervisor_process_active "$pid" || break'), 2)
+        self.assertIn('persistent_agent_session_active "$pid" && return 1', function)
         self.assertIn('supervisor_process_active "$pid" && return 1', function)
+
+        # Group signals are permitted only after verifying matching PID,
+        # PGID and SID. The unverified fallback remains PID-only.
+        self.assertIn('if persistent_agent_isolated_session "$pid"; then', function)
+        self.assertIn('[ "$group_session" = "$pid:$pid" ]', session_identity)
+        self.assertIn('kill -TERM "-$pid"', function)
+        self.assertIn('kill -KILL "-$pid"', function)
+        self.assertIn('kill "$pid"', function)
+        self.assertIn('kill -KILL "$pid"', function)
+        self.assertIn('if [ "$isolated_session" -eq 1 ]; then', function)
+
+        # Dead/zombie session members must not cause a false timeout.
+        self.assertIn('$1 != "Z"', session_check)
+        self.assertIn('$1 != "X"', session_check)
         self.assertNotIn('while kill -0 "$pid"', function)
 
     def test_power_failure_stages_are_durable_and_whitelisted(self) -> None:
