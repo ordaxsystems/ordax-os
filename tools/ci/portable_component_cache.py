@@ -72,6 +72,13 @@ COMPONENTS = {
     },
     "local-ai": {
         "inputs": (
+            # The external builder is immutable by its OS-owned exact commit
+            # and eight Git blob locks. This lock MUST invalidate any cached
+            # EROFS when the external builder source changes.
+            "docs/contracts/intelligence-source.json",
+            "tools/intelligence-source/materialize.py",
+            ".github/actions/resolve-intelligence-builder/action.yml",
+            # Retained only for cross-verification until signed v4 cutover.
             "bootstrap/local-ai-runtime/build.py",
             "system/services/local-ai/source-lock.json",
             "docs/contracts/local-ai.json",
