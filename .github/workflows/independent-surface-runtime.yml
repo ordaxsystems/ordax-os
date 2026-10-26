@@ -110,10 +110,11 @@ jobs:
     if: needs.impact.outputs.required == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 360
-    # One actual EROFS producer for one exact source revision across both
-    # Creator and Independent Surface workflows; don't compile it twice.
+    # Only one expensive EROFS producer per PR, even across successive SHAs.
+    # Identical inputs across revisions share a verified fingerprint/cache.
+    # The already-running producer must not be cancelled on PR revisions.
     concurrency:
-      group: ordax-surface-producer-${{ github.event.pull_request.head.sha || github.sha }}
+      group: ordax-surface-producer-${{ github.event.pull_request.number || github.ref }}
       cancel-in-progress: false
     outputs:
       artifact_reused: ${{ steps.surface-reuse-state.outputs.reused }}
