@@ -49,6 +49,19 @@ test('Windows installer CI uses exact PR head rather than ephemeral test-merge S
   assert.ok(workflow.includes('DESKTOP_INSTALLER_SOURCE_SHA=$actual'));
 });
 
+test('canonical main automatically builds one SSOT Windows artifact for relevant changes', () => {
+  const workflow = readFileSync(join(__dirname,'../../.github/workflows/windows-desktop-dev.yml'),'utf8');
+  const events = workflow.split('\npermissions:')[0];
+  assert.match(events, /\n  pull_request:\n    paths: &desktop_product_sources\n/);
+  assert.match(events, /\n  push:\n    branches:\n      - main\n    paths: \*desktop_product_sources\n/);
+  assert.match(events, /\nconcurrency:\n  group: windows-desktop-dev-/);
+  assert.match(events, /\n  cancel-in-progress: true\n/);
+  assert.ok(workflow.includes('EXPECTED_SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}'));
+  assert.ok(workflow.includes('Bind installer to exact OS + Surface Native provenance'));
+  assert.ok(workflow.includes('Verify isolated NSIS installation and Native files'));
+  assert.ok(workflow.includes('if-no-files-found: error'));
+});
+
 test('Electron locks the canonical user profile before requesting a single instance', () => {
   const main = readFileSync(join(__dirname,'main.cjs'),'utf8');
   const name = main.indexOf("app.setName('OrdaX OS Desktop Dev')");
