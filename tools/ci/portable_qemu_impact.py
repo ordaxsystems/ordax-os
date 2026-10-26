@@ -93,6 +93,11 @@ IMPACT_POLICY_LIGHT_EXACT = {
     "tests/test_power_actions.mjs",
     "tests/test_update_presentation_pinned.mjs",
     "tests/test_portable_qemu_high_level_light.py",
+    # Source-only Intelligence composition uses isolated Native/Owner/release
+    # gates. Kernel, rootfs and real Native boot changes still remain heavy.
+    "tools/intelligence-source/compose.py",
+    "tests/test_native_release_intelligence_source.py",
+    ".github/workflows/local-ai-runtime-candidate.yml",
 }
 PRODUCT_DEVICE_PRESENCE_LIGHT_EXACT = {
     "docs/contracts/product-device-presence.json",
