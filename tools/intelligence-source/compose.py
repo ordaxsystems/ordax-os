@@ -40,8 +40,14 @@ def regular_tree(root:Path) -> None:
 def load_wrappers(os_root: Path) -> dict[str, str]:
     """Read bridges from the supplied OS revision, never the tool checkout."""
     templates = os_root / "system/services/intelligence-source/wrappers"
-    if templates.is_symlink() or not templates.is_dir():
-        raise CompositionError("OS wrapper template directory missing or linked")
+    for directory in (
+        os_root / "system",
+        os_root / "system/services",
+        os_root / "system/services/intelligence-source",
+        templates,
+    ):
+        if directory.is_symlink() or not directory.is_dir():
+            raise CompositionError("OS wrapper template directory missing or linked")
     result = {}
     for target, name in WRAPPER_FILES.items():
         path = templates / name
