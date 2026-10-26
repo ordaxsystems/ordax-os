@@ -65,6 +65,7 @@ def validate(
     rootfs: Path,
     provenance_path: Path,
     expected_commit: str,
+    reuse_receipt: Path | None = None,
 ) -> dict:
     if SHA40_RE.fullmatch(expected_commit) is None:
         raise IndependentRootfsError("expected source commit must be lowercase 40-hex")
@@ -74,8 +75,33 @@ def validate(
         raise IndependentRootfsError("Independent Base provenance schema is unsupported")
     if provenance.get("status") != "candidate-build-only":
         raise IndependentRootfsError("Independent Base is not a candidate-only build")
-    if provenance.get("source_commit") != expected_commit:
-        raise IndependentRootfsError("Independent Base source commit differs from requested commit")
+    producer_commit = provenance.get("source_commit")
+    if producer_commit != expected_commit:
+        # A new HEAD may consume identical immutable Buildroot bytes. Accept
+        # this only after the canonical cache verifier emits a per-HEAD receipt,
+        # never by rewriting the original provenance or relaxing SHA checks.
+        if reuse_receipt is None:
+            raise IndependentRootfsError("Independent Base source commit differs from requested commit")
+        report = read_json(reuse_receipt, "Owner base integration receipt")
+        artifact_records = report.get("artifacts")
+        if (report.get("$schema") != "prototype-ordax.portable-component-reuse/1"
+                or report.get("status") != "verified"
+                or report.get("component") != "independent-base-owner"
+                or report.get("reused") is not True
+                or report.get("provenance_rewritten") is not False
+                or report.get("build_source_commit") != producer_commit
+                or report.get("integration_source_commit") != expected_commit
+                or not isinstance(artifact_records, dict)):
+            raise IndependentRootfsError("Owner base reuse receipt does not bind both source commits")
+        for name, expected_path in (
+            ("provenance.json", provenance_path),
+            ("rootfs.tar", rootfs),
+        ):
+            actual_record = artifact_records.get(name)
+            if (not isinstance(actual_record, dict)
+                    or actual_record.get("sha256") != digest(expected_path)
+                    or actual_record.get("size") != expected_path.stat().st_size):
+                raise IndependentRootfsError(f"Owner base reuse receipt rejects {name}")
     if provenance.get("profile") != "owner-development":
         raise IndependentRootfsError("Development Base requires owner-development profile")
     if provenance.get("owner_development_capabilities_verified") is not True:
@@ -170,12 +196,14 @@ def materialize(
     provenance_path: Path,
     expected_commit: str,
     destination: Path,
+    reuse_receipt: Path | None = None,
 ) -> dict:
     """Atomically materialize an authenticated Owner rootfs with safe symlinks preserved."""
     validated = validate(
         rootfs=rootfs,
         provenance_path=provenance_path,
         expected_commit=expected_commit,
+        reuse_receipt=reuse_receipt,
     )
     parent = destination.parent
     _require_real_directory(parent, "Independent rootfs destination parent")
@@ -226,6 +254,7 @@ def main() -> int:
     materialize_parser.add_argument("--rootfs", required=True, type=Path)
     materialize_parser.add_argument("--provenance", required=True, type=Path)
     materialize_parser.add_argument("--expected-commit", required=True)
+    materialize_parser.add_argument("--reuse-receipt", type=Path)
     materialize_parser.add_argument("--destination", required=True, type=Path)
     args = parser.parse_args()
 
@@ -235,6 +264,7 @@ def main() -> int:
             provenance_path=args.provenance,
             expected_commit=args.expected_commit,
             destination=args.destination,
+            reuse_receipt=args.reuse_receipt,
         )
     except (IndependentRootfsError, OSError) as exc:
         print(f"independent-rootfs: ERROR: {exc}", file=sys.stderr)
