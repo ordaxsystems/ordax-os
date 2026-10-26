@@ -110,7 +110,9 @@ def artifact_from_provenance(
     return path
 
 
-def validate_rootfs_source(rootfs_dir: Path, source_commit: str) -> Path:
+def validate_rootfs_source(
+    rootfs_dir: Path, source_commit: str, owner_reuse_receipt: Path | None = None
+) -> Path:
     provenance = read_json(rootfs_dir / "provenance.json", "development rootfs provenance")
     if provenance.get("$schema") == "prototype-ordax.independent-base-provenance/1":
         # The authoritative Buildroot producer already exports a canonical,
@@ -129,6 +131,7 @@ def validate_rootfs_source(rootfs_dir: Path, source_commit: str) -> Path:
                 rootfs=rootfs_dir / "rootfs.tar",
                 provenance_path=rootfs_dir / "provenance.json",
                 expected_commit=source_commit,
+                reuse_receipt=owner_reuse_receipt,
             )
         except (policy.IndependentRootfsError, OSError) as exc:
             raise CandidateError(f"Independent Owner rootfs failed verification: {exc}") from exc
@@ -383,6 +386,7 @@ def build(
     rootfs_dir: Path,
     out_dir: Path,
     kernel_reuse_receipt: Path | None = None,
+    owner_reuse_receipt: Path | None = None,
 ) -> dict:
     if SHA40_RE.fullmatch(source_commit) is None:
         raise CandidateError("source commit must be lowercase 40-hex")
@@ -415,7 +419,30 @@ def build(
         artifact_name="initramfs.cpio.gz",
         max_bytes=MAX_INITRAMFS_BYTES,
     )
-    rootfs = validate_rootfs_source(rootfs_dir, source_commit)
+    if owner_reuse_receipt is not None:
+        # Receipt presence never overrides the canonical fingerprint and
+        # all-artifact SHA-256 verification on the current checkout.
+        verifier_path = Path(__file__).resolve().parents[2] / "tools/ci/portable_component_cache.py"
+        spec = importlib.util.spec_from_file_location("ordax_dev_base_owner_cache", verifier_path)
+        if spec is None or spec.loader is None:
+            raise CandidateError("canonical Owner cache verifier unavailable")
+        verifier = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(verifier)
+        claimed = read_json(owner_reuse_receipt, "Owner integration receipt")
+        reused = claimed.get("reused")
+        if type(reused) is not bool:
+            raise CandidateError("Owner integration receipt lacks reuse identity")
+        try:
+            verified = verifier.verify_component(
+                "independent-base-owner", rootfs_dir,
+                source_commit, owner_reuse_receipt,
+                cache_hit=reused,
+            )
+        except verifier.CacheError as exc:
+            raise CandidateError("Owner integration receipt verification failed: " + str(exc)) from exc
+        if verified.get("provenance_rewritten") is not False:
+            raise CandidateError("Owner origin must not be rewritten")
+    rootfs = validate_rootfs_source(rootfs_dir, source_commit, owner_reuse_receipt)
 
     out_dir.mkdir(parents=True, exist_ok=True)
     for child in out_dir.iterdir():
@@ -540,6 +567,7 @@ def main() -> int:
     build_parser.add_argument("--source-commit", required=True)
     build_parser.add_argument("--kernel-dir", type=Path, default=Path("out/kernel"))
     build_parser.add_argument("--kernel-reuse-receipt", type=Path)
+    build_parser.add_argument("--owner-reuse-receipt", type=Path)
     build_parser.add_argument("--initramfs-dir", type=Path, default=Path("out/initramfs"))
     build_parser.add_argument("--rootfs-dir", type=Path, default=Path("out/dev-rootfs"))
     build_parser.add_argument("--out-dir", type=Path, default=Path("out/dev-base"))
@@ -555,6 +583,7 @@ def main() -> int:
                 source_commit=args.source_commit,
                 kernel_dir=args.kernel_dir,
                 kernel_reuse_receipt=args.kernel_reuse_receipt,
+                owner_reuse_receipt=args.owner_reuse_receipt,
                 initramfs_dir=args.initramfs_dir,
                 rootfs_dir=args.rootfs_dir,
                 out_dir=args.out_dir,

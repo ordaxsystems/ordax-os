@@ -96,7 +96,18 @@ class CreatorKernelReuseWorkflowTests(unittest.TestCase):
         workflow = self.assert_verified_kernel_reuse(OWNER_DEV)
         dev_base = self.step_block(workflow, "Build boot initramfs and Git development base")
         self.assertNotIn("bootstrap/kernel/build.py", dev_base)
-        self.assertNotIn("cache-hit", dev_base)
+        # Kernel is reusable independently; the Owner rootfs may now also be
+        # reused, but the Git seed and offline QEMU proof are never skipped.
+        self.assertIn("steps.owner-base-cache.outputs.cache-hit", dev_base)
+        self.assertIn("portable_component_cache.py verify", dev_base)
+        self.assertIn("--component independent-base-owner", dev_base)
+        self.assertIn("owner-base-component-reuse.json", dev_base)
+        owner_restore = self.step_block(workflow, "Restore verified Owner Buildroot base")
+        owner_save = self.step_block(workflow, "Save verified Owner Buildroot for reuse")
+        for block in (owner_restore, owner_save):
+            self.assertIn("steps.component-fingerprints.outputs.independent_base_owner", block)
+            self.assertIn("independent-base-owner-", block)
+        self.assertNotIn("restore-keys:", owner_restore)
         self.assertIn(
             'ORDAX_KERNEL_MODULES_ARCHIVE="$PWD/out/kernel/kernel-modules-$ORDAX_KERNEL_VERSION.tar"',
             dev_base,
@@ -203,6 +214,32 @@ class CreatorKernelReuseWorkflowTests(unittest.TestCase):
         self.assertNotIn("bootstrap/dev-base/build.py", workflow)
         self.assertNotIn("dl-cdn.alpinelinux.org", workflow)
         self.assertNotIn("proot", workflow.lower())
+
+    def test_three_owner_consumers_share_one_immutable_cache_identity(self):
+        independent = self.workflow(ROOT / ".github/workflows/independent-base-experiment.yml")
+        cases = (
+            (self.workflow(OWNER_DEV), "Restore verified Owner Buildroot base", "Save verified Owner Buildroot for reuse"),
+            (independent, "Restore verified Owner Buildroot component", "Save verified Owner Buildroot component"),
+            (self.workflow(DEV_BASE_CHANNEL), "Restore verified Owner Buildroot for Development Base", "Save verified Owner Buildroot for other consumers"),
+        )
+        exact_key = (
+            "independent-base-owner-${{ steps.component-fingerprints.outputs.independent_base_owner }}"
+        )
+        for workflow, restore_name, save_name in cases:
+            with self.subTest(restore=restore_name):
+                restore = self.step_block(workflow, restore_name)
+                save = self.step_block(workflow, save_name)
+                for block in (restore, save):
+                    self.assertIn(exact_key, block)
+                self.assertNotIn("restore-keys:", restore)
+                self.assertIn("--component independent-base-owner", workflow)
+                self.assertIn("--cache-hit", workflow)
+                self.assertIn("--reuse-receipt", workflow)
+        channel = cases[2][0]
+        self.assertIn("--owner-reuse-receipt", channel)
+        self.assertIn("ORDAX_OWNER_BASE_CACHE_HIT=", channel)
+        # A verified hit skips Buildroot, not signing, offline boot or rollback.
+        self.assertIn("Prove actual Owner USB offline handoff in QEMU", cases[0][0])
 
     def test_review_candidate_is_byte_verified_pr_only_not_a_release(self):
         workflow = self.workflow(OWNER_DEV)

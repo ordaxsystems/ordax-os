@@ -12,7 +12,7 @@ class IndependentHeavyWorkflowTests(unittest.TestCase):
     def text(self) -> str:
         return WORKFLOW.read_text(encoding="utf-8")
 
-    def test_minimal_component_cache_never_reuses_owner_rootfs(self) -> None:
+    def test_owner_base_reuse_is_profile_bound_and_verified(self) -> None:
         text = self.text()
         restore = text.index("- name: Restore verified independent base component")
         build = text.index("- name: Build rootfs from official Buildroot source")
@@ -29,12 +29,19 @@ class IndependentHeavyWorkflowTests(unittest.TestCase):
         cache_restore = text[restore:build]
         self.assertIn("if: env.ORDAX_INDEPENDENT_PROFILE == 'minimal'", cache_restore)
         build_step = text[build:text.index("- name: Save Buildroot source/package download cache", build)]
-        self.assertIn("env.ORDAX_INDEPENDENT_PROFILE != 'minimal' || steps.independent-base-cache.outputs.cache-hit != 'true'", build_step)
+        self.assertIn("steps.independent-base-cache.outputs.cache-hit != 'true'", build_step)
+        self.assertIn("steps.independent-owner-cache.outputs.cache-hit != 'true'", build_step)
+        self.assertIn("env.ORDAX_INDEPENDENT_PROFILE == 'owner-development'", cache_restore)
+        self.assertIn("independent-base-owner-", cache_restore)
         verify_step = text[verify:save]
         self.assertIn('if [ "$ORDAX_INDEPENDENT_PROFILE" = minimal ]; then', verify_step)
         self.assertIn("portable_component_cache.py verify", verify_step)
+        self.assertIn("--component independent-base-owner", verify_step)
+        self.assertIn("ORDAX_OWNER_BASE_CACHE_HIT=", verify_step)
         save_step = text[save:prove]
         self.assertIn("env.ORDAX_INDEPENDENT_PROFILE == 'minimal'", save_step)
+        self.assertIn("Save verified Owner Buildroot component", save_step)
+        self.assertIn("--reuse-receipt", text[text.index("- name: Prove Owner rootfs against") :])
         self.assertIn("tests.test_independent_rootfs_inventory", text)
 
     def test_owner_profile_is_explicit_and_dispatchable(self) -> None:
@@ -53,7 +60,8 @@ class IndependentHeavyWorkflowTests(unittest.TestCase):
         self.assertIn("${{ github.event_name }}", group)
         self.assertIn("${{ inputs.profile || 'none' }}", group)
         self.assertIn("${{ github.event.pull_request.number || github.ref }}", group)
-        self.assertIn("  cancel-in-progress: true", text)
+        self.assertIn("  cancel-in-progress: false", text)
+        self.assertIn("ordax-surface-producer-${{ github.event.pull_request.head.sha || github.sha }}", text)
         self.assertIn("if: github.event_name != 'push'", text)
         self.assertIn("github.event_name == 'push' && github.ref == 'refs/heads/platform/remove-alpine'", text)
         self.assertIn("github.event_name == 'pull_request' && github.base_ref == 'platform/remove-alpine'", text)

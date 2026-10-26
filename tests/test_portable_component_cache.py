@@ -1,3 +1,4 @@
+import hashlib
 import importlib.util
 import json
 import os
@@ -101,6 +102,98 @@ class PortableComponentCacheTests(unittest.TestCase):
 
             (root / "bootstrap/network/bring-up").write_text("#!/bin/sh\necho changed\n", encoding="utf-8")
             self.assertNotEqual(first, CACHE.component_fingerprint("independent-base", root))
+
+    def owner_fixture(self, base: Path) -> Path:
+        root = self.make_independent_root(base)
+        (root / "bootstrap/kernel/config").mkdir(parents=True, exist_ok=True)
+        (root / "bootstrap/kernel/build.py").write_text("kernel-build-v1\\n")
+        (root / "bootstrap/kernel/verify_upstream_signature.py").write_text("kernel-auth-v1\\n")
+        (root / "bootstrap/kernel/source.json").write_text(json.dumps({
+            "version": "6.6.0",
+            "configuration": {"fragment": "bootstrap/kernel/config/ordax.fragment"},
+        }))
+        (root / "bootstrap/kernel/config/ordax.fragment").write_text("CONFIG_TEST=y\\n")
+        (root / "docs/contracts/kernel-build-environment.json").write_text('{"env":"v1"}\\n')
+        for relative in CACHE.COMPONENTS["independent-base-owner"]["inputs"]:
+            target = root / relative
+            if not target.exists():
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_text(f"fixture:{relative}\\n", encoding="utf-8")
+        return root
+
+    def owner_artifacts(self, out: Path, *, profile="owner-development") -> Path:
+        out.mkdir(parents=True)
+        names = ("rootfs.tar", "rootfs.cpio.gz", "independent-base.erofs")
+        declared = {}
+        for name in names:
+            payload = f"verified:{name}".encode()
+            (out / name).write_bytes(payload)
+            declared[name] = hashlib.sha256(payload).hexdigest()
+        (out / "provenance.json").write_text(json.dumps({
+            "$schema": "prototype-ordax.independent-base-provenance/1",
+            "source_commit": "1" * 40,
+            "status": "candidate-build-only",
+            "profile": profile,
+            "owner_development_capabilities_verified": True,
+            "physical_artifact_authorized": False,
+            "signed_release_equivalence_proven": False,
+            "artifacts": declared,
+        }) + "\n", encoding="utf-8")
+        return out
+
+    def test_owner_base_cache_reuses_across_commits_without_rewriting_provenance(self):
+        with tempfile.TemporaryDirectory() as td:
+            temp = Path(td)
+            root = self.owner_fixture(temp / "repo")
+            out = self.owner_artifacts(temp / "out")
+            first = CACHE.component_fingerprint("independent-base-owner", root)
+            minimal = CACHE.component_fingerprint("independent-base", root)
+            self.assertNotEqual(first, minimal)
+            CACHE.record_component("independent-base-owner", out, "1" * 40, root)
+            original = (out / "provenance.json").read_bytes()
+            receipt = CACHE.verify_component(
+                "independent-base-owner", out, "2" * 40,
+                temp / "reuse.json", cache_hit=True, root=root,
+            )
+            self.assertTrue(receipt["reused"])
+            self.assertEqual(receipt["build_source_commit"], "1" * 40)
+            self.assertEqual(receipt["integration_source_commit"], "2" * 40)
+            self.assertEqual((out / "provenance.json").read_bytes(), original)
+            # Verification or documentation alone cannot force rebuilding.
+            (root / "bootstrap/independent-base/README.md").write_text("updated\\n")
+            self.assertEqual(first, CACHE.component_fingerprint("independent-base-owner", root))
+            # Installed Dev helpers and the exact kernel config MUST invalidate.
+            (root / "bootstrap/dev-base/ordax-pull").write_text("changed\\n")
+            self.assertNotEqual(first, CACHE.component_fingerprint("independent-base-owner", root))
+            with self.assertRaisesRegex(CACHE.CacheError, "input fingerprint mismatch"):
+                CACHE.verify_component(
+                    "independent-base-owner", out, "2" * 40,
+                    temp / "reuse.json", cache_hit=True, root=root,
+                )
+
+    def test_owner_base_cache_rejects_tampering_and_wrong_profile(self):
+        with tempfile.TemporaryDirectory() as td:
+            temp = Path(td)
+            root = self.owner_fixture(temp / "repo")
+            out = self.owner_artifacts(temp / "out")
+            CACHE.record_component("independent-base-owner", out, "1" * 40, root)
+            (out / "rootfs.tar").write_bytes(b"tampered")
+            with self.assertRaisesRegex(CACHE.CacheError, "provenance artifact mismatch"):
+                CACHE.verify_component(
+                    "independent-base-owner", out, "2" * 40,
+                    temp / "receipt.json", cache_hit=True, root=root,
+                )
+            wrong = self.owner_artifacts(temp / "other", profile="minimal")
+            with self.assertRaisesRegex(CACHE.CacheError, "profile or promotion policy mismatch"):
+                CACHE.record_component("independent-base-owner", wrong, "1" * 40, root)
+
+    def test_owner_base_kernel_module_input_invalidates_fingerprint(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = self.owner_fixture(Path(td))
+            initial = CACHE.component_fingerprint("independent-base-owner", root)
+            fragment = root / "bootstrap/kernel/config/ordax.fragment"
+            fragment.write_text("CONFIG_TEST=n\\n", encoding="utf-8")
+            self.assertNotEqual(initial, CACHE.component_fingerprint("independent-base-owner", root))
 
     def test_independent_base_post_image_change_invalidates_cache(self):
         with tempfile.TemporaryDirectory() as td:

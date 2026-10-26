@@ -39,17 +39,21 @@ def prove(
     provenance_path: Path,
     expected_commit: str,
     receipt_path: Path,
+    reuse_receipt: Path | None = None,
 ) -> dict:
     validated = policy.validate(
         rootfs=rootfs,
         provenance_path=provenance_path,
         expected_commit=expected_commit,
+        reuse_receipt=reuse_receipt,
     )
     members = validated["members"]
     receipt = {
         "$schema": SCHEMA,
         "status": "compatible-not-authorized",
         "source_commit": expected_commit,
+        "build_source_commit": validated["provenance"]["source_commit"],
+        "rootfs_reused": validated["provenance"]["source_commit"] != expected_commit,
         "profile": "owner-development",
         "rootfs_sha256": validated["rootfs_sha256"],
         "rootfs_size": validated["rootfs_size"],
@@ -77,6 +81,7 @@ def main() -> int:
     parser.add_argument("--rootfs", type=Path, required=True)
     parser.add_argument("--provenance", type=Path, required=True)
     parser.add_argument("--expected-commit", required=True)
+    parser.add_argument("--reuse-receipt", type=Path)
     parser.add_argument("--receipt", type=Path, required=True)
     args = parser.parse_args()
     try:
@@ -85,6 +90,7 @@ def main() -> int:
             provenance_path=args.provenance,
             expected_commit=args.expected_commit,
             receipt_path=args.receipt,
+            reuse_receipt=args.reuse_receipt,
         )
         print(json.dumps(receipt, indent=2, sort_keys=True))
         return 0

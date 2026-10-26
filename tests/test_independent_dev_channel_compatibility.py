@@ -3,6 +3,7 @@ from pathlib import Path
 import hashlib
 import io
 import json
+import os
 import tarfile
 import tempfile
 import unittest
@@ -121,6 +122,86 @@ class IndependentDevChannelCompatibilityTests(unittest.TestCase):
             self.assertGreater(result["archive_members"], 0)
             self.assertGreaterEqual(result["symlink_members"], 1)
             self.assertEqual(json.loads(receipt.read_text(encoding="utf-8")), result)
+
+    def test_cross_commit_owner_rootfs_reuse_requires_verified_artifact_receipt(self):
+        cache_module = load_module(
+            ROOT / "tools/ci/portable_component_cache.py",
+            "ordax_independent_dev_channel_owner_cache_test",
+        )
+        previous_env = os.environ.get("ORDAX_COMPONENT_CACHE_ENVIRONMENT")
+        os.environ["ORDAX_COMPONENT_CACHE_ENVIRONMENT"] = "unit-test/linux-x86_64/source-bound"
+        try:
+            with tempfile.TemporaryDirectory() as temporary:
+                root = Path(temporary)
+                artifacts = root / "artifacts"
+                artifacts.mkdir()
+                rootfs = artifacts / "rootfs.tar"
+                provenance = artifacts / "provenance.json"
+                integration = root / "owner-reuse.json"
+                write_rootfs(rootfs)
+                write_provenance(provenance, rootfs)
+                metadata = json.loads(provenance.read_text(encoding="utf-8"))
+                for name in ("rootfs.cpio.gz", "independent-base.erofs"):
+                    payload = ("verified:" + name).encode()
+                    (artifacts / name).write_bytes(payload)
+                    metadata["artifacts"][name] = hashlib.sha256(payload).hexdigest()
+                provenance.write_text(json.dumps(metadata) + "\n", encoding="utf-8")
+                current = "2" * 40
+                cache_module.record_component(
+                    "independent-base-owner", artifacts, SOURCE, root=ROOT,
+                )
+                receipt = cache_module.verify_component(
+                    "independent-base-owner", artifacts, current,
+                    integration, cache_hit=True, root=ROOT,
+                )
+                with self.assertRaisesRegex(proof.policy.IndependentRootfsError, "source commit differs"):
+                    proof.policy.validate(rootfs=rootfs, provenance_path=provenance, expected_commit=current)
+                accepted = proof.prove(
+                    rootfs=rootfs, provenance_path=provenance,
+                    expected_commit=current, receipt_path=root / "compatible.json",
+                    reuse_receipt=integration,
+                )
+                self.assertEqual(accepted["source_commit"], current)
+                self.assertEqual(accepted["build_source_commit"], SOURCE)
+                self.assertTrue(accepted["rootfs_reused"])
+                for change in (
+                    {"integration_source_commit": "3" * 40},
+                    {"build_source_commit": "4" * 40},
+                    {"provenance_rewritten": True},
+                    {"reused": False},
+                ):
+                    altered = dict(receipt, **change)
+                    integration.write_text(json.dumps(altered), encoding="utf-8")
+                    with self.assertRaisesRegex(proof.policy.IndependentRootfsError, "receipt"):
+                        proof.policy.validate(
+                            rootfs=rootfs, provenance_path=provenance,
+                            expected_commit=current, reuse_receipt=integration,
+                        )
+                altered = dict(receipt)
+                altered["artifacts"] = dict(receipt["artifacts"])
+                altered["artifacts"]["rootfs.tar"] = dict(
+                    receipt["artifacts"]["rootfs.tar"], sha256="0" * 64
+                )
+                integration.write_text(json.dumps(altered), encoding="utf-8")
+                with self.assertRaisesRegex(proof.policy.IndependentRootfsError, "rejects rootfs.tar"):
+                    proof.policy.validate(
+                        rootfs=rootfs, provenance_path=provenance,
+                        expected_commit=current, reuse_receipt=integration,
+                    )
+                # A self-consistent JSON receipt without the canonical manifest
+                # must never authorize an older producer in a newer checkout.
+                integration.write_text(json.dumps(receipt), encoding="utf-8")
+                (artifacts / cache_module.CACHE_MANIFEST).unlink()
+                with self.assertRaisesRegex(proof.policy.IndependentRootfsError, "canonical verification"):
+                    proof.policy.validate(
+                        rootfs=rootfs, provenance_path=provenance,
+                        expected_commit=current, reuse_receipt=integration,
+                    )
+        finally:
+            if previous_env is None:
+                os.environ.pop("ORDAX_COMPONENT_CACHE_ENVIRONMENT", None)
+            else:
+                os.environ["ORDAX_COMPONENT_CACHE_ENVIRONMENT"] = previous_env
 
     def test_authenticated_owner_rootfs_materializes_safe_symlinks_atomically(self):
         with tempfile.TemporaryDirectory() as temporary:
