@@ -71,6 +71,14 @@ class HeavyWorkflowPathScopeTests(unittest.TestCase):
                 self.assertNotIn(SYSTEM_INCLUDE, text)
                 self.assertNotIn(SYSTEM_MARKDOWN_EXCLUDE, text)
 
+    def test_impact_contract_prepares_canonical_surface_before_source_graph(self):
+        text = (WORKFLOW_DIR / "portable-qemu-impact-contract.yml").read_text(encoding="utf-8")
+        self.assertIn("uses: ./.github/actions/prepare-verified-surface", text)
+        self.assertLess(
+            text.index("uses: ./.github/actions/prepare-verified-surface"),
+            text.index("python3 -m unittest tests.test_portable_qemu_impact -v"),
+        )
+
     def test_qemu_broad_trigger_is_routed_through_causal_impact_gate(self):
         text = (WORKFLOW_DIR / QEMU_WORKFLOW).read_text(encoding="utf-8")
         self.assertEqual(text.count(SYSTEM_INCLUDE), 2)
