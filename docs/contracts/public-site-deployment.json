@@ -1,6 +1,6 @@
 {
   "$schema": "prototype-ordax.public-site-deployment/1",
-  "status": "canonical-public-edge-v8-oidc-bridge-runtime-proven-account-activation-gated",
+  "status": "canonical-public-edge-oidc-bridge-runtime-proven-account-activation-gated",
   "site_artifact": "public-site",
   "runtime_evidence": "docs/evidence/web-account-runtime-2026-10-16.json",
   "vercel_migration": {
@@ -230,7 +230,7 @@
     }
   },
   "public_edge_gateway": {
-    "status": "canonical-supabase-v8-oidc-bridge-session-runtime-proven",
+    "status": "canonical-supabase-oidc-bridge-session-runtime-proven",
     "function_name": "ordax-public-account-gateway",
     "function_source": "infra/supabase/functions/ordax-public-account-gateway/index.ts",
     "oidc_source": "infra/supabase/functions/ordax-public-account-gateway/vercel_oidc.mjs",
@@ -239,7 +239,8 @@
     "request_context_validation_connected": true,
     "inner_gateway": "ordax-account-gateway",
     "deployed": true,
-    "deployed_version": 8,
+    "deployed_version": 9,
+    "current_runtime_source_parity_evidence": "docs/evidence/public-identity-runtime-source-parity-2026-10-26.json",
     "deployment_source_commit": "fd17f81a1092c3c587bd1c6009c6c1c80c93779d",
     "deployment_source_commit_observation_version": 3,
     "deployed_authentication": "vercel-production-oidc-v2",
@@ -317,7 +318,7 @@
     "named_inner_service_bridge_runtime_e2e_verified": true,
     "named_inner_service_bridge_http_status": 200,
     "named_inner_service_bridge_diagnostic": null,
-    "inner_gateway_deployed_version": 13,
+    "inner_gateway_deployed_version": 16,
     "inner_gateway_platform_verify_jwt": false,
     "inner_gateway_custom_auth_verified_for_negative_http": true
   },
