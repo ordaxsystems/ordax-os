@@ -1,0 +1,75 @@
+name: Storage Destination Migration Proof
+
+on:
+  pull_request:
+    paths:
+      - infra/supabase/product/render_storage_quota_destination_migration.py
+      - infra/supabase/product/migrations/20261007050000_service_quota_ledger_v1.sql
+      - infra/supabase/product/migrations/20261007083105_service_quota_usage_reduction_v1.sql
+      - infra/supabase/product/migrations/20261005171000_user_cloud_storage_foundation_v2.sql
+      - infra/supabase/product/migrations/20261007015500_user_cloud_storage_private_rls_hardening_v1.sql
+      - infra/supabase/product/migrations/20261007083746_user_cloud_storage_quota_reservation_link_v1.sql
+      - docs/contracts/public-auth-hardening.json
+      - docs/contracts/user-cloud-storage.json
+      - docs/contracts/service-quotas.json
+      - tests/test_storage_destination_migration.py
+      - tests/sql/storage_destination_synthetic_fixture.sql
+      - tests/test_storage_destination_migration_postgres.sh
+      - .github/workflows/storage-destination-migration-proof.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  synthetic-postgres-proof:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: synthetic-ci-only
+          POSTGRES_USER: postgres
+          POSTGRES_DB: ordax_storage_synthetic
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d ordax_storage_synthetic"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 15
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: "5432"
+      PGUSER: postgres
+      PGDATABASE: ordax_storage_synthetic
+      PGPASSWORD: synthetic-ci-only
+      ORDAX_SYNTHETIC_PG_TEST_ONLY: "1"
+    steps:
+      - name: Check out reviewed source, not secrets
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Install PostgreSQL client if missing
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! command -v psql >/dev/null 2>&1; then
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq postgresql-client
+          fi
+          psql --version
+      - name: Validate canonical renderer, non-deployment contracts and rollback by default
+        run: python3 -m unittest tests.test_storage_destination_migration
+      - name: Prove SQL transaction and negative isolation in synthetic PostgreSQL only
+        shell: bash
+        run: bash tests/test_storage_destination_migration_postgres.sh
+      - name: Confirm no Supabase credentials or remote mutations are used
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${ORDAX_SYNTHETIC_PG_TEST_ONLY}" = "1"
+          test "${PGDATABASE}" = "ordax_storage_synthetic"
+          test "${PGHOST}" = "127.0.0.1"
+          echo 'DESTINATION_SQL_PROOF_SCOPE=DISPOSABLE_POSTGRES'
