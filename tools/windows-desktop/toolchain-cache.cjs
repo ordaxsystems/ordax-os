@@ -5,13 +5,17 @@
 const {existsSync,mkdirSync,lstatSync,readFileSync,readdirSync,mkdtempSync,writeFileSync,renameSync,rmSync}=require('node:fs');
 const {join}=require('node:path');
 const {createHash}=require('node:crypto');
-const {spawnSync}=require('node:child_process');
+const {spawnSync,fork}=require('node:child_process');
 const HASH=/^[a-f0-9]{64}$/;
 function calculateTreeDigest(root){
   const digest=createHash('sha256');
+  // Digest traversal is also the single complete structural scan: checking
+  // all entries a second time on Windows doubles expensive NTFS metadata IO.
+  let count=0;
   const visit=(directory,prefix)=>{
     for(const entry of readdirSync(directory,{withFileTypes:true}).sort((a,b)=>a.name<b.name?-1:a.name>b.name?1:0)){
       const path=join(directory,entry.name),stat=lstatSync(path);
+      if(++count>65000)throw Error('Oversized Desktop compiler tree');
       if(stat.isSymbolicLink())throw Error('Untrusted compiler tree link');
       const name=prefix+entry.name;
       if(stat.isDirectory())visit(path,name+'/');
@@ -50,14 +54,14 @@ function archiveReceipt(template){
     throw Error('Desktop toolchain archive digest mismatch');
   return {archive,receipt};
 }
-function tar(args,timeout=180000){
+function tar(args,timeout=180000,phase='extract'){
   const run=spawnSync('tar',args,{windowsHide:true,encoding:'utf8',
     timeout,maxBuffer:32*1024*1024});
-  if(run.error||run.status!==0)throw Error('Canonical Desktop toolchain extraction rejected: '+(run.error?.message||String(run.stderr||'').slice(-250)));
+  if(run.error||run.status!==0)throw Error('Canonical Desktop toolchain '+phase+' rejected: '+(run.error?.message||String(run.stderr||'').slice(-250)));
   return run.stdout;
 }
 function assertEntries(archive){
-  const entries=tar(['-tzf',archive],45000).trim().split(/\r?\n/);
+  const entries=tar(['-tzf',archive],45000,'list').trim().split(/\r?\n/);
   if(!entries.length||entries.length>65000)throw Error('Invalid toolchain archive entry count');
   const seen=new Set();
   for(const name of entries){
@@ -69,25 +73,20 @@ function assertEntries(archive){
     seen.add(name);
   }
   // Do not follow symlinks or hardlinks when expanding a privileged compiler.
-  const verbose=tar(['-tvzf',archive],45000).trim().split(/\r?\n/);
+  const verbose=tar(['-tvzf',archive],45000,'entry-types').trim().split(/\r?\n/);
   if(verbose.length!==entries.length ||
       verbose.some(line=>!['-','d'].includes(line[0])))
     throw Error('Unsupported Desktop toolchain archive link or device');
 }
 function validateExpanded(root){
   const nodeModules=join(root,'node_modules');
-  if(!lstatSync(nodeModules).isDirectory())throw Error('Missing expanded dependency root');
-  const queue=[nodeModules];let count=0;
-  while(queue.length){
-    const directory=queue.pop();
-    for(const entry of readdirSync(directory,{withFileTypes:true})){
-      const item=join(directory,entry.name),stat=lstatSync(item);
-      if(stat.isSymbolicLink())throw Error('Linked Desktop compiler entry is forbidden');
-      if(stat.isDirectory())queue.push(item);
-      else if(!stat.isFile())throw Error('Unsupported Desktop compiler filesystem entry');
-      if(++count>65000)throw Error('Oversized Desktop compiler tree');
-    }
-  }
+  const stat=lstatSync(nodeModules);
+  if(!stat.isDirectory()||stat.isSymbolicLink())
+    throw Error('Missing or linked expanded dependency root');
+  // The immediately following calculateTreeDigest scans EVERY entry, rejects
+  // links and unusual nodes, bounds the tree and authenticates its bytes.
+  // This function checks only required compiler entrypoints, not a second
+  // complete traversal of the 12.5k-file tree.
   for(const relative of ['vite/bin/vite.js','react/package.json']){
     assertRealFile(join(nodeModules,...relative.split('/')));
   }
@@ -125,7 +124,11 @@ function ensureRuntimeToolchain(template,userData){
   assertEntries(archive);
   const temp=mkdtempSync(join(base,'.extract-'));
   try{
-    tar(['-xzf',archive,'-C',temp]);
+    // The receipt authenticates paths and bytes, never source timestamps.
+    // Restoring 12,500 NTFS timestamps adds per-file metadata writes and
+    // lengthened physical Windows extraction (63s vs 40s in a local test).
+    // BSD tar -m skips only timestamp restoration; no trust check is skipped.
+    tar(['-xmzf',archive,'-C',temp],180000,'extract-no-mtime');
     const ready=validateExpanded(temp);
     if(calculateTreeDigest(ready)!==receipt.tree_sha256)
       throw Error('Expanded Desktop compiler does not match canonical receipt');
@@ -137,4 +140,54 @@ function ensureRuntimeToolchain(template,userData){
     if(existsSync(temp))rmSync(temp,{recursive:true,force:true,maxRetries:4,retryDelay:200});
   }
 }
-module.exports={archiveReceipt,ensureRuntimeToolchain,assertEntries,calculateTreeDigest};
+// The installed updater is called from Electron's main process. Run the
+// complete hash/list/extract/tree-verification transaction in a dedicated
+// Node-compatible child so a slow Windows filesystem never freezes Surface.
+// This is the SAME cache validator, not a second toolchain implementation.
+function ensureRuntimeToolchainIsolated(template,userData){
+  return new Promise((resolve,reject)=>{
+    if(typeof template!=='string'||!template||
+       typeof userData!=='string'||!userData)
+      return reject(Error('Explicit Desktop template and profile are required'));
+    let child;
+    try{
+      child=fork(__filename,[template,userData],{
+        execPath:process.execPath,execArgv:[],windowsHide:true,
+        env:{...process.env,ELECTRON_RUN_AS_NODE:'1'},
+        stdio:['ignore','ignore','pipe','ipc'],
+      });
+    }catch(error){reject(error);return;}
+    let response=null,stderr='';
+    child.stderr.on('data',bytes=>{
+      stderr=(stderr+String(bytes)).slice(-400);
+    });
+    child.on('message',message=>{
+      if(message?.schema==='ordax.desktop-toolchain-worker/1')
+        response=message;
+    });
+    child.once('error',reject);
+    child.once('close',code=>{
+      if(code===0 && response?.ok===true && typeof response.path==='string')
+        resolve(response.path);
+      else reject(Error('Verified Desktop toolchain worker failed: '+
+        String(response?.error??stderr??'unknown').slice(-400)));
+    });
+  });
+}
+if(require.main===module){
+  try{
+    const path=ensureRuntimeToolchain(process.argv[2],process.argv[3]);
+    if(process.send)
+      process.send({schema:'ordax.desktop-toolchain-worker/1',ok:true,path},
+        ()=>process.disconnect());
+    else process.stdout.write(path+'\\n');
+  }catch(error){
+    process.exitCode=1;
+    const message=String(error?.message||error).slice(0,400);
+    if(process.send)
+      process.send({schema:'ordax.desktop-toolchain-worker/1',ok:false,error:message},
+        ()=>process.disconnect());
+    else process.stderr.write(message+'\\n');
+  }
+}
+module.exports={archiveReceipt,ensureRuntimeToolchain,ensureRuntimeToolchainIsolated,assertEntries,calculateTreeDigest};

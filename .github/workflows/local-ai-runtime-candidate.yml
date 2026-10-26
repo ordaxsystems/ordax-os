@@ -96,7 +96,8 @@ jobs:
           python -m unittest \
             tests.test_local_ai_contract \
             tests.test_local_ai_runtime_builder \
-            tests.test_portable_v4_real_materialization_contract -v
+            tests.test_portable_v4_real_materialization_contract \
+            tests.test_local_ai_live_stream_probe -v
 
       - name: Build real local AI runtime twice
         env:
@@ -247,6 +248,15 @@ jobs:
           print('LOCAL_AI_GENERATED_TOKENS=' + str(tokens))
           print('LOCAL_AI_LOOPBACK_ONLY=PASS')
           PY
+
+          # Exercise the same immutable, mounted GGUF + engine through real
+          # authenticated SSE (not the separate Node server-fixture).
+          # Client disconnect is observed; backend compute cancellation and
+          # Buildroot ABI are explicitly NOT asserted by this host probe.
+          python bootstrap/local-ai-runtime/prove_stream.py \
+            --endpoint http://127.0.0.1:17865 \
+            --api-key-file "$work/ai-auth-key" \
+            | tee "$work/real-sse-proof.txt"
 
           kill "$server_pid"
           wait "$server_pid" || true
@@ -548,6 +558,7 @@ jobs:
             ${{ runner.temp }}/local-ai-runtime/build-b/local-ai-runtime-tree.json
             ${{ runner.temp }}/local-ai-runtime/health.json
             ${{ runner.temp }}/local-ai-runtime/completion.json
+            ${{ runner.temp }}/local-ai-runtime/real-sse-proof.txt
             ${{ runner.temp }}/local-ai-runtime/alpine-health.json
             ${{ runner.temp }}/local-ai-runtime/alpine-completion.json
           if-no-files-found: error

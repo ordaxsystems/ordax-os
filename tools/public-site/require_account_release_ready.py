@@ -21,20 +21,18 @@ from urllib.parse import urlparse
 
 # Reuse the current Auth owner and binding rules, never a parallel project authority.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from probe_auth_provider import project_binding
+from probe_auth_provider import (
+    SCHEMA as PROBE_SCHEMA,
+    PROVIDER_CHECK_NAMES,
+    PROVIDER_OBSERVED_NAMES,
+    project_binding,
+)
 from resolve_auth_provider_target import resolve_target
 
 ROOT = Path(__file__).resolve().parents[2]
-PROBE_SCHEMA = "prototype-ordax.auth-provider-proof/2"
 DB_PROBE_SCHEMA = "prototype-ordax.control-plane-privilege-proof/3"
 SESSION_REVOCATION_SCHEMA = "prototype-ordax.account-session-revocation-proof/1"
-REQUIRED_CHECKS = (
-    "confirm_email",
-    "password_policy",
-    "production_origin",
-    "redirect_allowlist",
-    "recovery_template",
-)
+REQUIRED_CHECKS = PROVIDER_CHECK_NAMES
 REQUIRED_DB_CHECKS = (
     "no_anon_table_grants",
     "no_anon_function_execute",
@@ -53,12 +51,7 @@ REQUIRED_DB_CHECKS = (
 )
 
 
-REQUIRED_PROVIDER_OBSERVED = frozenset((
-    "password_min_length",
-    "redirect_count",
-    "wildcard_redirect_present",
-    "cross_origin_redirect_present",
-))
+REQUIRED_PROVIDER_OBSERVED = PROVIDER_OBSERVED_NAMES
 REQUIRED_DB_OBSERVED_COUNTERS = frozenset((
     "anon_table_grant_count",
     "anon_function_execute_count",

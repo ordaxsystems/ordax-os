@@ -7,6 +7,14 @@ on:
         description: Canonical public HTTPS origin to verify
         required: true
         type: string
+      scope:
+        description: Active Auth owner or read-only destination pre-cutover proof
+        required: true
+        type: choice
+        options:
+          - active
+          - destination
+        default: active
 
 permissions:
   contents: read
@@ -17,6 +25,7 @@ jobs:
     timeout-minutes: 10
     env:
       ORDAX_REQUESTED_ORIGIN: ${{ inputs.origin }}
+      ORDAX_PROBE_SCOPE: ${{ inputs.scope }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -30,12 +39,13 @@ jobs:
           test "${GITHUB_REPOSITORY}" = "ordaxsystems/ordax-os"
           test "${GITHUB_REF}" = "refs/heads/main"
 
-      - name: Resolve active Auth authority and origin from source contracts
+      - name: Resolve scoped Auth authority and origin from source contracts
         shell: bash
         run: |
           set -euo pipefail
           python tools/public-site/resolve_auth_provider_target.py \
-            --origin "${ORDAX_REQUESTED_ORIGIN}" >> "${GITHUB_ENV}"
+            --origin "${ORDAX_REQUESTED_ORIGIN}" \
+            --scope "${ORDAX_PROBE_SCOPE}" >> "${GITHUB_ENV}"
 
       - name: Require provider-management credential without printing it
         shell: bash
@@ -93,7 +103,7 @@ jobs:
       - name: Upload sanitized provider proof only
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
-          name: auth-provider-proof-${{ github.sha }}
+          name: auth-provider-proof-${{ inputs.scope }}-${{ github.sha }}
           path: ${{ runner.temp }}/auth-provider-proof.json
           if-no-files-found: error
           retention-days: 14

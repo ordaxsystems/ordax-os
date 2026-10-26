@@ -106,6 +106,19 @@ export function createDesktopDisplayCurrentModeMiddleware({
   if(typeof token!=="string"||!TOKEN_RE.test(token)||typeof read!=="function")
     throw new TypeError("Desktop Native display requires an Electron capability token");
   const expected=Buffer.from(token,"hex");
+  // A single physical Win32 enumeration is authoritative for all concurrent
+  // readers. Without coalescing, each GET starts a new PowerShell/.NET
+  // compilation; boot-time contention can exhaust the 12-second provider
+  // deadline. This holds no cached value after success or failure.
+  let inFlight=null;
+  const readShared=()=>{
+    if(inFlight)return inFlight;
+    const request=Promise.resolve().then(()=>read());
+    inFlight=request;
+    const clear=()=>{if(inFlight===request)inFlight=null;};
+    request.then(clear,clear);
+    return request;
+  };
   const respond=(res,status,body)=>{
     if(res.writableEnded)return;
     res.writeHead(status,{"Content-Type":"application/json",
@@ -127,7 +140,7 @@ export function createDesktopDisplayCurrentModeMiddleware({
     // no alternate preview choice exists in the shared Surface.
     if(req.method!=="GET")
       return respond(res,503,{error:"Windows display mode modification unavailable"});
-    void read().then(s=>respond(res,200,validateDisplayOutputsSnapshot(s)))
+    void readShared().then(s=>respond(res,200,validateDisplayOutputsSnapshot(s)))
       .catch(()=>respond(res,503,{error:"Windows display mode observation unavailable"}));
   };
 }

@@ -91,6 +91,57 @@ test("display Native port rejects localhost no-token and every mutation, even El
     await new Promise(done=>server.close(done));
   }
 });
+test("concurrent display GETs share one real enumeration without caching failures or stale modes",async()=>{
+  const pending=[];
+  let accepted=0;
+  const middleware=createDesktopDisplayCurrentModeMiddleware({
+    token:TOKEN,
+    read:()=>new Promise((resolve,reject)=>pending.push({resolve,reject})),
+  });
+  const server=createServer((req,res)=>{
+    accepted++;
+    middleware(req,res,()=>{res.writeHead(404);res.end();});
+  });
+  await new Promise(resolve=>server.listen(0,"127.0.0.1",resolve));
+  const origin="http://127.0.0.1:"+server.address().port+PATH;
+  const headers={"X-OrdaX-Display-Token":TOKEN};
+  const awaitAccepted=async count=>{
+    for(let i=0;i<250 && accepted<count;i++)
+      await new Promise(resolve=>setTimeout(resolve,4));
+    assert.equal(accepted,count,"all concurrent clients reached one Native host");
+  };
+  try{
+    const simultaneous=Array.from({length:6},()=>fetch(origin,{headers}));
+    await awaitAccepted(6);
+    assert.equal(pending.length,1,"only one physical provider invocation");
+    pending[0].resolve(projectWindowsDisplayCurrentModes(fixture));
+    const first=await Promise.all(simultaneous);
+    assert.ok(first.every(res=>res.status===200));
+    assert.ok((await first[0].json()).outputs[0].currentModeId==="3840x2160@60");
+
+    // A later query must read hardware again, not reuse the previous value.
+    const afterSuccess=fetch(origin,{headers});
+    await awaitAccepted(7);
+    assert.equal(pending.length,2);
+    pending[1].reject(Error("temporary Win32 failure"));
+    assert.equal((await afterSuccess).status,503);
+
+    // An error clears the shared pending promise, so recovery is observable.
+    const afterFailure=fetch(origin,{headers});
+    await awaitAccepted(8);
+    assert.equal(pending.length,3);
+    pending[2].resolve(projectWindowsDisplayCurrentModes([
+      {Device:DISPLAY1,Mode:"2560,1440,75",Primary:true},
+    ]));
+    const recovered=await afterFailure;
+    assert.equal(recovered.status,200);
+    assert.equal((await recovered.json()).outputs[0].currentModeId,"2560x1440@75");
+  }finally{
+    server.closeAllConnections();
+    await new Promise(done=>server.close(done));
+  }
+});
+
 test("Native session hands display capability only to the authenticated Electron caller",async()=>{
   const root=await mkdtemp(join(tmpdir(),"ordax-display-session-"));
   const diagnostic="a".repeat(64),session="b".repeat(64);
