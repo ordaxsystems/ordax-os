@@ -269,7 +269,9 @@
     "live_identity_rls_boundary_evidence": "docs/evidence/live-identity-policy-boundary-2026-10-26.json",
     "identity_policy_migration_candidate": "infra/supabase/product/migrations/20261026182000_public_policy_subject_guard_boundary_v1.sql",
     "identity_policy_migration_deployed": false,
-    "private_subject_eligibility_source_reconciled": false
+    "private_subject_eligibility_source_reconciled": true,
+    "private_subject_eligibility_source_path": "infra/supabase/product/migrations/20261026181500_authenticated_subject_eligibility_source_v1.sql",
+    "private_subject_eligibility_source_migration_deployed": false
   },
   "rules": {
     "public_login_must_fail_closed_until_all_required_gates_pass": true,
