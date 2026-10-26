@@ -29,6 +29,56 @@ function calculateTreeDigest(root){
   visit(root,'');
   return digest.digest('hex');
 }
+// Same canonical tree digest as calculateTreeDigest, with bounded parallel
+// Windows filesystem IO. The ordered entries and per-file SHA-256 are identical
+// to the synchronous producer; neither metadata nor a saved marker authenticates
+// the cache in place of reading the real file bytes.
+async function calculateTreeDigestConcurrent(root,{concurrency=16}={}){
+  if(!Number.isInteger(concurrency)||concurrency<1||concurrency>32)
+    throw TypeError('Invalid Desktop compiler verification concurrency');
+  const fs=require('node:fs/promises');
+  const limit=async run=>{
+    if(active>=concurrency)await new Promise(resolve=>waiting.push(resolve));
+    active++;
+    try{return await run();}
+    finally{active--;waiting.shift()?.();}
+  };
+  let active=0;
+  const waiting=[];
+  let count=0;
+  const visit=async(directory,prefix)=>{
+    const entries=(await limit(()=>fs.readdir(directory,{withFileTypes:true})))
+      .sort((a,b)=>a.name<b.name?-1:a.name>b.name?1:0);
+    const sections=await Promise.all(entries.map(async entry=>{
+      const path=join(directory,entry.name);
+      const stat=await limit(()=>fs.lstat(path));
+      if(++count>65000)throw Error('Oversized Desktop compiler tree');
+      if(stat.isSymbolicLink())throw Error('Untrusted compiler tree link');
+      const name=prefix+entry.name;
+      if(stat.isDirectory())return visit(path,name+'/');
+      if(!stat.isFile())throw Error('Untrusted compiler tree entry');
+      if(stat.size>64*1024*1024)throw Error('Oversized canonical compiler file');
+      return [{path,name}];
+    }));
+    return sections.flat();
+  };
+  const files=await visit(root,'');
+  const hashes=new Array(files.length);
+  let next=0;
+  await Promise.all(Array.from({length:Math.min(concurrency,files.length)},async()=>{
+    while(next<files.length){
+      const index=next++;
+      const bytes=await limit(()=>fs.readFile(files[index].path));
+      hashes[index]=createHash('sha256').update(bytes).digest();
+    }
+  }));
+  const result=createHash('sha256');
+  files.forEach((file,i)=>{
+    result.update(file.name+'\\0');
+    result.update(hashes[i]);
+  });
+  return result.digest('hex');
+}
 const digest=bytes=>createHash('sha256').update(bytes).digest('hex');
 function assertRealFile(path){
   const stat=lstatSync(path);
@@ -159,6 +209,43 @@ function ensureRuntimeToolchain(template,userData){
     if(existsSync(temp))rmSync(temp,{recursive:true,force:true,maxRetries:4,retryDelay:200});
   }
 }
+// Prefer a fully authenticated existing compiler tree before re-extracting
+// the same files from an installer with different gzip metadata. Every reused
+// candidate is re-hashed with bounded parallel IO. The synchronous path remains
+// the sole extractor/legacy validator if no prior verified tree matches.
+async function reuseRuntimeToolchainConcurrent(template,userData){
+  const {receipt}=archiveReceipt(template);
+  const base=join(userData,'runtime-toolchains');
+  mkdirSync(base,{recursive:true});
+  if(lstatSync(base).isSymbolicLink())throw Error('Linked compiler cache root refused');
+  const hashes=[receipt.archive_sha256,
+    ...readdirSync(base).filter(name=>HASH.test(name)&&name!==receipt.archive_sha256)];
+  for(const sha of hashes){
+    const candidate=join(base,sha);
+    if(!existsSync(candidate))continue;
+    const stat=lstatSync(candidate);
+    if(!stat.isDirectory()||stat.isSymbolicLink())
+      throw Error('Untrusted linked Desktop compiler cache candidate');
+    const marker=join(candidate,'toolchain-cache-receipt.json');
+    if(!existsSync(marker)||assertRealFile(marker).size>512){
+      if(sha===receipt.archive_sha256)throw Error('Untrusted existing Desktop compiler cache');
+      continue;
+    }
+    let old;
+    try{old=JSON.parse(readFileSync(marker,'utf8'));}
+    catch{if(sha===receipt.archive_sha256)throw Error('Untrusted existing Desktop compiler cache');continue;}
+    if(old.archive_sha256!==sha){
+      if(sha===receipt.archive_sha256)throw Error('Untrusted existing Desktop compiler cache');
+      continue;
+    }
+    const expanded=validateExpanded(candidate);
+    if(await calculateTreeDigestConcurrent(expanded)===receipt.tree_sha256)
+      return expanded;
+    if(sha===receipt.archive_sha256)
+      throw Error('Desktop compiler cache content digest mismatch');
+  }
+  return null;
+}
 // The installed updater is called from Electron's main process. Run the
 // complete hash/list/extract/tree-verification transaction in a dedicated
 // Node-compatible child so a slow Windows filesystem never freezes Surface.
@@ -194,19 +281,23 @@ function ensureRuntimeToolchainIsolated(template,userData){
   });
 }
 if(require.main===module){
-  try{
-    const path=ensureRuntimeToolchain(process.argv[2],process.argv[3]);
-    if(process.send)
-      process.send({schema:'ordax.desktop-toolchain-worker/1',ok:true,path},
-        ()=>process.disconnect());
-    else process.stdout.write(path+'\\n');
-  }catch(error){
-    process.exitCode=1;
-    const message=String(error?.message||error).slice(0,400);
-    if(process.send)
-      process.send({schema:'ordax.desktop-toolchain-worker/1',ok:false,error:message},
-        ()=>process.disconnect());
-    else process.stderr.write(message+'\\n');
-  }
+  (async()=>{
+    try{
+      const template=process.argv[2],userData=process.argv[3];
+      const path=await reuseRuntimeToolchainConcurrent(template,userData)
+        ||ensureRuntimeToolchain(template,userData);
+      if(process.send)
+        process.send({schema:'ordax.desktop-toolchain-worker/1',ok:true,path},
+          ()=>process.disconnect());
+      else process.stdout.write(path+'\\n');
+    }catch(error){
+      process.exitCode=1;
+      const message=String(error?.message||error).slice(0,400);
+      if(process.send)
+        process.send({schema:'ordax.desktop-toolchain-worker/1',ok:false,error:message},
+          ()=>process.disconnect());
+      else process.stderr.write(message+'\\n');
+    }
+  })();
 }
-module.exports={archiveReceipt,ensureRuntimeToolchain,ensureRuntimeToolchainIsolated,assertEntries,calculateTreeDigest};
+module.exports={archiveReceipt,ensureRuntimeToolchain,ensureRuntimeToolchainIsolated,assertEntries,calculateTreeDigest,calculateTreeDigestConcurrent};
