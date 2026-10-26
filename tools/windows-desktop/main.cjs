@@ -398,7 +398,12 @@ function activatePendingWhenIdle(userData){
     // and automatic rollback remain the ONLY promotion transaction.
     app.relaunch();
     app.quit();
-  }catch(error){log('ordax-pull Desktop Dev activation deferred: '+error.message);}
+  }catch(error){
+    // A failed relaunch request must not permanently suppress a future
+    // safe activation attempt; the durable pending SHA remains untouched.
+    activationRequested=false;
+    log('ordax-pull Desktop Dev activation deferred: '+error.message);
+  }
 }
 async function stageInBackground(userData,template) {
   if(staging || !app.isPackaged) return;
