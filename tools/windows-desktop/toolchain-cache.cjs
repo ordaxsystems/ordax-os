@@ -121,6 +121,25 @@ function ensureRuntimeToolchain(template,userData){
       throw Error('Desktop compiler cache content digest mismatch');
     return expanded;
   }
+  // An installer rebuild may create different tar/gzip bytes for exactly the
+  // same canonical npm closure (timestamps and archive metadata differ).
+  // Existing legacy cache directories are archive-addressed; reuse them
+  // strictly by verifying their complete content digest against the NEW
+  // authenticated receipt, never merely by trusting an old marker.
+  for(const entry of readdirSync(base,{withFileTypes:true})){
+    if(!HASH.test(entry.name)||entry.name===receipt.archive_sha256)continue;
+    const candidate=join(base,entry.name),candidateStat=lstatSync(candidate);
+    if(!candidateStat.isDirectory()||candidateStat.isSymbolicLink())
+      throw Error('Untrusted linked Desktop compiler cache candidate');
+    const candidateMarker=join(candidate,'toolchain-cache-receipt.json');
+    if(!existsSync(candidateMarker)||assertRealFile(candidateMarker).size>512)continue;
+    let prior;
+    try{prior=JSON.parse(readFileSync(candidateMarker,'utf8'));}
+    catch{continue;}
+    if(prior.archive_sha256!==entry.name)continue;
+    const expanded=validateExpanded(candidate);
+    if(calculateTreeDigest(expanded)===receipt.tree_sha256)return expanded;
+  }
   assertEntries(archive);
   const temp=mkdtempSync(join(base,'.extract-'));
   try{
