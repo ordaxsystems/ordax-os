@@ -17,6 +17,20 @@
       "normal_update_transport": "git-main",
       "normal_update_owner": "bootstrap/dev-base/ordax-pull",
       "runtime_update_owner": "system/supervisor",
+      "runtime_host_adapters": {
+        "linux-usb": {
+          "git_main_materializer": "bootstrap/dev-base/ordax-pull",
+          "health_promotion_owner": "system/supervisor"
+        },
+        "windows-desktop": {
+          "git_main_materializer": "tools/windows-desktop/dev-update.cjs",
+          "health_promotion_owner": "tools/windows-desktop/dev-update.cjs",
+          "application_relaunch_owner": "tools/windows-desktop/main.cjs",
+          "automatic_idle_activation": true,
+          "operates_only_while_electron_is_running": true,
+          "electron_shell_self_update_implemented": false
+        }
+      },
       "base_candidate_transport": "immutable-exact-commit-development-channel",
       "base_update_owner": "system/services/base-update/agent.sh",
       "diagnostic_source_sha_visible": true,
