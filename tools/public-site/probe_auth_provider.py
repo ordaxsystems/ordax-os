@@ -20,6 +20,23 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 SCHEMA = "prototype-ordax.auth-provider-proof/2"
+# One producer-owned schema consumed by the final release gate. Never add a
+# provider readiness check without making the release gate validate it.
+PROVIDER_CHECK_NAMES = (
+    "confirm_email",
+    "password_policy",
+    "production_origin",
+    "redirect_allowlist",
+    "recovery_template",
+    "resend_smtp_settings",
+    "branded_confirmation_template",
+)
+PROVIDER_OBSERVED_NAMES = frozenset((
+    "password_min_length",
+    "redirect_count",
+    "wildcard_redirect_present",
+    "cross_origin_redirect_present",
+))
 MIN_PASSWORD_CHARS = 12
 PROVIDER_POLICY_PATH = Path(__file__).resolve().parents[2] / "docs/contracts/public-auth-provider-policy.json"
 RECOVERY_PATH = "/auth/recover/verify"
@@ -158,6 +175,16 @@ def evaluate(
         "resend_smtp_settings": smtp_configured,
         "branded_confirmation_template": branded_confirmation,
     }
+    # Fail closed if the producer changes its proof without updating the
+    # canonical check set. The validator imports these names from this module.
+    observed = {
+        "password_min_length": password_min,
+        "redirect_count": len(redirects),
+        "wildcard_redirect_present": wildcard_redirect,
+        "cross_origin_redirect_present": cross_origin_redirect,
+    }
+    if set(checks) != set(PROVIDER_CHECK_NAMES) or set(observed) != PROVIDER_OBSERVED_NAMES:
+        raise ValueError("provider-proof-check-contract-drift")
     return {
         "$schema": SCHEMA,
         "provider": "supabase",
@@ -166,12 +193,7 @@ def evaluate(
         "source_commit": source_commit(commit) if commit is not None else None,
         "expected_origin": origin,
         "checks": checks,
-        "observed": {
-            "password_min_length": password_min,
-            "redirect_count": len(redirects),
-            "wildcard_redirect_present": wildcard_redirect,
-            "cross_origin_redirect_present": cross_origin_redirect,
-        },
+        "observed": observed,
         "ready": all(checks.values()),
     }
 
