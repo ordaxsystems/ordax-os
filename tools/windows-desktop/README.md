@@ -109,7 +109,15 @@ código não verificado sobre a árvore em execução. O handoff Electron usa um
 timer concorrentes e **revalida SHA pendente, pino de rollback, atividade
 humana e host saudável depois da leitura assíncrona do First Run**, antes de
 pedir relaunch. Se qualquer pré-condição mudou, a candidata não é consumida,
-o app continua aberto e o próximo ciclo pode avaliar o estado novo. Na inicialização, o mesmo
+o app continua aberto e o próximo ciclo pode avaliar o estado novo.
+O navegador Windows tem a autoridade real de suas `WebContentsView`,
+transferências e navegações. A ativação automática também exige **nenhum
+download pendente/em andamento, nenhuma aba navegando e nenhum áudio
+Chromium sendo reproduzido** (incluindo a Surface Native), pois a falta
+de movimento de mouse/teclado não significa ausência de trabalho. Ao fim
+desse trabalho, o próximo ciclo reavalia a mesma candidata Git — sem
+descartar nem cancelar downloads para atualizar. Inspeção de mídia
+indisponível falha fechada para a ativação, sem quebrar o aplicativo. Na inicialização, o mesmo
 `chooseBootVersion` seleciona a candidata uma única vez, executa o Native
 host + Surface, confirma saúde e grava `activeSha`; falha ou encerramento
 sem recibo volta ao conhecido bom e rejeita o SHA. Rollback fixado desativa
