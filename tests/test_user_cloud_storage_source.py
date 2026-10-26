@@ -98,7 +98,7 @@ class UserCloudStorageSourceTest(unittest.TestCase):
         )
 
     def test_rollout_remains_disabled_and_provider_is_not_authority(self) -> None:
-        self.assertEqual(self.contract["status"], "source-foundation-rollout-disabled")
+        self.assertEqual(self.contract["status"], "source-foundation-destination-not-installed-rollout-disabled")
         self.assertFalse(self.contract["invariants"]["provider_storage_is_authorization_source"])
         self.assertFalse(self.contract["invariants"]["public_bucket_allowed"])
         self.assertTrue(self.contract["invariants"]["reservation_bound_to_exact_quota_reservation"])
