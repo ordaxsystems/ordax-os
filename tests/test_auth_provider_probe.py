@@ -147,11 +147,43 @@ class AuthProviderProbeTests(unittest.TestCase):
                 self.assertFalse(proof["checks"]["branded_confirmation_template"])
                 self.assertFalse(proof["ready"])
 
+    def test_canonical_redirect_policy_matches_public_email_runtime(self):
+        import json
+
+        policy = json.loads(MODULE.PROVIDER_POLICY_PATH.read_text(encoding="utf-8"))
+        paths = policy["redirect_policy"]["required_paths"]
+        shared = (ROOT / "infra/supabase/functions/_shared/account_email_confirmation.mjs").read_text(
+            encoding="utf-8"
+        )
+        self.assertEqual(paths, ["/auth/recover/verify", "/login/"])
+        self.assertIn('PUBLIC_SIGNUP_REDIRECT = PUBLIC_ACCOUNT_ORIGIN + "/login/"', shared)
+        self.assertIn('PUBLIC_CONFIRMATION_PATH = "/auth/confirm"', shared)
+        self.assertEqual(
+            policy["redirect_policy"]["signup_confirm_url"],
+            "https://ordax.com.br/auth/confirm",
+        )
+        self.assertNotIn("/auth/confirm", paths)
+
     def test_missing_signup_redirect_blocks(self):
         config = self.base_config()
         config["uri_allow_list"] = "https://ordax.com.br/auth/recover/verify"
         proof = MODULE.evaluate(config, "https://ordax.com.br")
         self.assertFalse(proof["checks"]["redirect_allowlist"])
+
+    def test_redirect_policy_drift_fails_closed(self):
+        import json
+        import tempfile
+        from unittest.mock import patch
+
+        config = self.base_config()
+        policy = json.loads(MODULE.PROVIDER_POLICY_PATH.read_text(encoding="utf-8"))
+        policy["redirect_policy"]["required_paths"] = ["/auth/confirm"]
+        with tempfile.TemporaryDirectory() as tmp:
+            file = Path(tmp) / "provider-policy.json"
+            file.write_text(json.dumps(policy), encoding="utf-8")
+            with patch.object(MODULE, "PROVIDER_POLICY_PATH", file):
+                with self.assertRaisesRegex(ValueError, "invalid-canonical-provider-redirect-policy"):
+                    MODULE.evaluate(config, "https://ordax.com.br")
 
     def test_origin_must_be_clean_https_origin(self):
         for value in (
