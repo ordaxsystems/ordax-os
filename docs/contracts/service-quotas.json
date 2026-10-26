@@ -139,6 +139,7 @@
     },
     "historical_deployment_evidence": "docs/evidence/storage-quota-historical-deployment-claims-2026-10-26.json",
     "destination_inventory_evidence": "docs/evidence/account-destination-storage-quota-inventory-2026-10-26.json",
-    "replay_historical_migrations_unmodified_allowed": false
+    "replay_historical_migrations_unmodified_allowed": false,
+    "existing_user_data_must_be_preserved": true
   }
 }
