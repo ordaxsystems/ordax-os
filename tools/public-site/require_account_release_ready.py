@@ -34,6 +34,8 @@ sys.path.insert(0, str(ROOT / "tools/security"))
 from probe_control_plane_privileges import (
     SCHEMA as DB_PROBE_SCHEMA,
     EXPECTED_SYNC_POLICIES,
+    EXPECTED_AUTH_PRIVATE_HELPERS,
+    EXPECTED_AUTH_PRIVATE_RLS_POLICIES,
 )
 SESSION_REVOCATION_SCHEMA = "prototype-ordax.account-session-revocation-proof/1"
 REQUIRED_CHECKS = PROVIDER_CHECK_NAMES
@@ -50,8 +52,10 @@ REQUIRED_DB_CHECKS = (
     "no_service_role_user_sync_rpc_execute",
     "no_app_role_sync_sequence_privilege",
     "no_unexpected_authenticated_write_grants",
-    "no_authenticated_private_schema_usage",
-    "no_authenticated_private_function_execute",
+    "authenticated_private_schema_rls_usage",
+    "no_authenticated_private_schema_create",
+    "authenticated_private_helpers_exact",
+    "authenticated_private_rls_dependencies_exact",
 )
 
 
@@ -62,6 +66,9 @@ REQUIRED_DB_OBSERVED_COUNTERS = frozenset((
     "public_function_execute_count",
     "unsafe_security_definer_search_path_count",
     "authenticated_private_function_execute_count",
+    "unexpected_authenticated_private_function_execute_count",
+    "authenticated_private_rls_dependency_count",
+    "unexpected_authenticated_private_rls_dependency_count",
     "authenticated_sync_table_grant_count",
     "service_role_sync_table_grant_count",
     "unexpected_sync_policy_count",
@@ -73,6 +80,7 @@ REQUIRED_DB_OBSERVED_COUNTERS = frozenset((
 REQUIRED_DB_OBSERVED_FLAGS = frozenset((
     "anon_private_schema_usage",
     "authenticated_private_schema_usage",
+    "authenticated_private_schema_create",
     "app_role_sync_sequence_privilege",
 ))
 PROVIDER_PROOF_FIELDS = frozenset((
@@ -217,7 +225,8 @@ def validate_database_proof(
             "anon_function_execute_count",
             "public_function_execute_count",
             "unsafe_security_definer_search_path_count",
-            "authenticated_private_function_execute_count",
+            "unexpected_authenticated_private_function_execute_count",
+            "unexpected_authenticated_private_rls_dependency_count",
             "authenticated_sync_table_grant_count",
             "service_role_sync_table_grant_count",
             "unexpected_sync_policy_count",
@@ -228,14 +237,20 @@ def validate_database_proof(
                 blockers.append(f"database-proof-{name}")
         if observed.get("private_cloud_storage_rls_enabled_count") != 2:
             blockers.append("database-proof-private_cloud_storage_rls_enabled_count")
+        if observed.get("authenticated_private_function_execute_count") != len(EXPECTED_AUTH_PRIVATE_HELPERS):
+            blockers.append("database-proof-authenticated_private_function_execute_count")
+        if observed.get("authenticated_private_rls_dependency_count") != len(EXPECTED_AUTH_PRIVATE_RLS_POLICIES):
+            blockers.append("database-proof-authenticated_private_rls_dependency_count")
         if observed.get("sync_policy_count") != len(EXPECTED_SYNC_POLICIES):
             blockers.append("database-proof-sync_policy_count")
         if observed.get("app_role_sync_sequence_privilege") is not False:
             blockers.append("database-proof-app-role-sync-sequence-privilege")
         if observed.get("anon_private_schema_usage") is not False:
             blockers.append("database-proof-anon-private-schema-usage")
-        if observed.get("authenticated_private_schema_usage") is not False:
-            blockers.append("database-proof-authenticated-private-schema-usage")
+        if observed.get("authenticated_private_schema_usage") is not True:
+            blockers.append("database-proof-authenticated-private-schema-rls-usage")
+        if observed.get("authenticated_private_schema_create") is not False:
+            blockers.append("database-proof-authenticated-private-schema-create")
     return sorted(set(blockers))
 
 
