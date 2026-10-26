@@ -29,7 +29,14 @@ class AccountPostgresCutoverContractTests(unittest.TestCase):
         self.assertFalse(stage["functional_provider_cutover_complete"])
         self.assertFalse(stage["public_registration_enabled"])
         self.assertFalse(stage["public_login_enabled"])
-        self.assertFalse(stage["active_legal_policy_present"])
+        self.assertTrue(stage["active_legal_policy_present"])
+        self.assertTrue(stage["existing_auth_users_observed"])
+        proof = json.loads((ROOT / stage["active_legal_policy_observation_evidence"]).read_text(encoding="utf-8"))
+        self.assertTrue(proof["observation"]["active_policy_has_activation_timestamp"])
+        self.assertFalse(proof["separate_release_gates"]["approved_immutable_legal_snapshots"])
+        self.assertFalse(proof["separate_release_gates"]["operator_identity_reviewed"])
+        self.assertFalse(proof["separate_release_gates"]["provider_cutover_complete"])
+        self.assertFalse(proof["separate_release_gates"]["account_activation_authorized"])
 
     def test_promotion_still_requires_unproven_account_lifecycle_gates(self):
         stage = self.destination
