@@ -326,7 +326,9 @@ async function start() {
     ),
     optionalNativeProbe(
       "OrdaX native display output controls unavailable",
-      () => createNativeDisplayOutputs(window),
+      () => createNativeDisplayOutputs(window, {
+        deferInitialRead: windowsDesktopHost,
+      }),
     ),
     optionalNativeProbe(
       "OrdaX native audio output controls unavailable",
