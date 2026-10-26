@@ -239,8 +239,14 @@ async function stageMain({ userData, template, log = () => {}, remote = OFFICIAL
   // Do not download, rebuild or trial a duplicate of already-installed bytes.
   // A user-selected Git version is always authoritative over this fallback.
   if (!state.activeSha && remoteSha === verifiedBundledSourceSha(template)) {
-    if (state.incompatibleSha === remoteSha) {
-      writeState(userData,{...state,incompatibleSha:null});
+    // A successful comparison with official main supersedes any incompatibility
+    // from an older SHA. Never leave an obsolete marker blocking the currently
+    // installed, verified bundle; this does not rewrite a Git active/rollback SHA.
+    if (state.incompatibleSha) {
+      const latest=readState(userData);
+      if (!latest.activeSha && !latest.pendingSha && !latest.pinnedSha) {
+        writeState(userData,{...latest,incompatibleSha:null});
+      }
     }
     return {status:'current',sha:remoteSha,source:'verified-bundled'};
   }
