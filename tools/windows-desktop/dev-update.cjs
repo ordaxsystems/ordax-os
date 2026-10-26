@@ -256,6 +256,41 @@ function shouldAutoActivate(state,{idleSeconds,windowVisible,windowFocused}={}){
   return idleSeconds>=600;
 }
 
+// Serialize the idle handoff in the existing Desktop Dev transaction owner.
+// OOBE is asynchronous: the user may roll back, another poll may stage a new
+// SHA, or system activity may resume while its receipt is being read. Never
+// use a stale state/snapshot to relaunch Electron or schedule two relaunches.
+function createDesktopIdleActivation({
+  userData,template,isReady,getIdleSnapshot,relaunch,log=()=>{},
+  read=readState,firstRunComplete=desktopFirstRunComplete,
+}){
+  if(typeof isReady!=='function' || typeof getIdleSnapshot!=='function' ||
+     typeof relaunch!=='function' || typeof read!=='function' ||
+     typeof firstRunComplete!=='function')throw new TypeError('Desktop idle activation needs trusted lifecycle ports');
+  let checking=false,requested=false;
+  return async function activateWhenIdle(){
+    if(checking || requested || !isReady())return false;
+    checking=true;
+    try{
+      const prior=read(userData);
+      if(!shouldAutoActivate(prior,getIdleSnapshot()))return false;
+      if(!await firstRunComplete(userData,template))return false;
+      // Recheck ALL mutable prerequisites after the asynchronous OOBE read.
+      const latest=read(userData);
+      if(!isReady() || latest.pendingSha!==prior.pendingSha ||
+         !shouldAutoActivate(latest,getIdleSnapshot()))return false;
+      requested=true;
+      log('ordax-pull Desktop Dev: safely relaunching idle application for verified candidate '+latest.pendingSha);
+      await relaunch();
+      return true;
+    }catch(error){
+      requested=false;
+      log('ordax-pull Desktop Dev activation deferred: '+error.message);
+      return false;
+    }finally{checking=false;}
+  };
+}
+
 async function stageMain({ userData, template, log = () => {}, remote = OFFICIAL_REMOTE, runGit = git, buildCandidate = buildNativeCandidate, cleanupCandidate = removeOwnedCandidate }) {
   if (remote !== OFFICIAL_REMOTE) throw Error('Untrusted update source');
   // Best-effort orphan maintenance must not prevent a valid state decision.
@@ -380,6 +415,6 @@ async function stageMain({ userData, template, log = () => {}, remote = OFFICIAL
 module.exports = {
   CHANNEL_SCHEMA, readState, writeState, validateState, versionRoot,
   chooseBootVersion, confirmedVersion: verifiedVersion,
-  stageMain, shouldAutoActivate, desktopFirstRunComplete, confirmHealthy, rejectCandidate, pinPrevious, unpin,
+  stageMain, shouldAutoActivate, desktopFirstRunComplete, createDesktopIdleActivation, confirmHealthy, rejectCandidate, pinPrevious, unpin,
   prepareWindowsGitDeletion, removeOwnedCandidate, sweepStaleCandidates,
 };
