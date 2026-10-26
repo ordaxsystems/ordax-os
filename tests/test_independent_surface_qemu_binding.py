@@ -81,6 +81,22 @@ class IndependentSurfaceQemuBindingTests(unittest.TestCase):
         self.assertIn("bootstrap/surface-runtime/build.py verify", PORTABLE)
         self.assertIn("(inputs.surface_source || 'stable') == 'stable'", PORTABLE)
 
+    def test_portable_qemu_serializes_same_surface_across_base_choices(self):
+        # The verified Surface fingerprint is independent of base_source.
+        # Distinct stable/independent base callers must never start two
+        # concurrent Buildroot Surface compilers on the same PR.
+        concurrency = PORTABLE.split("\nconcurrency:\n", 1)[1].split("\npermissions:", 1)[0]
+        self.assertIn(
+            "group: canonical-portable-v2-${{ inputs.surface_source || 'stable' }}-",
+            concurrency,
+        )
+        self.assertNotIn("inputs.base_source", concurrency)
+        self.assertIn("cancel-in-progress: false", concurrency)
+        self.assertIn("github.event.pull_request.number || github.ref", concurrency)
+        self.assertIn("github.event_name == 'workflow_dispatch' && github.run_id", concurrency)
+        self.assertIn("ordax-portable-component-v1-", PORTABLE)
+        self.assertIn("steps.component-fingerprints.outputs.surface", PORTABLE)
+
     def test_invalid_cross_mode_combination_fails_closed(self):
         self.assertIn(
             "independent Surface proof currently requires the independent base candidate",

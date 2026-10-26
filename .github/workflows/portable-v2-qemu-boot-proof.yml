@@ -153,10 +153,14 @@ on:
 
 
 concurrency:
-  # Called workflows inherit github.workflow from their caller. Use a distinct
-  # namespace so the official proof cannot cancel its invoking workflow.
-  group: canonical-portable-v2-${{ inputs.base_source || 'stable' }}-${{ inputs.surface_source || 'stable' }}-${{ github.event_name == 'workflow_dispatch' && github.run_id || github.event.pull_request.number || github.ref }}
-  cancel-in-progress: ${{ github.event_name != 'workflow_dispatch' }}
+  # The reusable proof inherits github.workflow from its caller. Its isolated
+  # namespace avoids cancelling the parent workflow.
+  # The same canonical Surface EROFS is built for *both* base source choices.
+  # Group by Surface/PR, not base: two QEMU consumers must not race on a
+  # Buildroot cache miss for identical Surface inputs.
+  # Keep an expensive current producer running across new PR revisions.
+  group: canonical-portable-v2-${{ inputs.surface_source || 'stable' }}-${{ github.event_name == 'workflow_dispatch' && github.run_id || github.event.pull_request.number || github.ref }}
+  cancel-in-progress: false
 
 permissions:
   contents: read
