@@ -98,10 +98,38 @@ class PowerQuiescenceTests(unittest.TestCase):
     def test_persistent_agent_termination_distinguishes_zombies(self) -> None:
         guardian = GUARDIAN.read_text(encoding="utf-8")
         function = function_source(guardian, "terminate_persistent_agent")
-        self.assertEqual(function.count('while supervisor_process_active "$pid"'), 2)
-        self.assertIn('if supervisor_process_active "$pid"; then', function)
-        self.assertIn('supervisor_process_active "$pid" && return 1', function)
+        # Two bounded phases (TERM and KILL) must inspect real process state,
+        # not kill -0 alone: zombies retain PIDs but must not block shutdown.
+        self.assertEqual(function.count("remaining=2"), 2)
         self.assertNotIn('while kill -0 "$pid"', function)
+        self.assertIn('supervisor_process_active "$pid" && return 1', function)
+
+        # With the Buildroot-owned Guardian isolated-session lifecycle, the
+        # leader can exit while descendants still hold writable ext4 handles.
+        # Both rounds must check the whole *verified* private session, while
+        # a non-isolated PID must never receive a process-group signal.
+        if "persistent_agent_isolated_session() {" in guardian:
+            is_isolated = function_source(guardian, "persistent_agent_isolated_session")
+            is_active = function_source(guardian, "persistent_agent_session_active")
+            self.assertIn('[ "$group_session" = "$pid:$pid" ]', is_isolated)
+            self.assertIn('if persistent_agent_isolated_session "$pid"; then', function)
+            self.assertEqual(function.count('while [ "$remaining" -gt 0 ]; do'), 2)
+            self.assertEqual(
+                function.count('persistent_agent_session_active "$pid" || break'), 2
+            )
+            self.assertEqual(function.count('supervisor_process_active "$pid" || break'), 2)
+            self.assertIn('kill -TERM "-$pid"', function)
+            self.assertIn('kill -KILL "-$pid"', function)
+            self.assertIn('persistent_agent_session_active "$pid" && return 1', function)
+            self.assertIn('if [ "$isolated_session" -eq 1 ]; then', function)
+            self.assertIn('elif supervisor_process_active "$pid"; then', function)
+            self.assertIn('"$1" != "Z"', is_active.replace('$1 != "Z"', '"$1" != "Z"'))
+            self.assertIn('$1 != "X"', is_active)
+        else:
+            # The live legacy Guardian has no group-aware contract yet; its
+            # original two bounded PID-based rounds remain required.
+            self.assertEqual(function.count('while supervisor_process_active "$pid"'), 2)
+            self.assertIn('if supervisor_process_active "$pid"; then', function)
 
     def test_power_failure_stages_are_durable_and_whitelisted(self) -> None:
         guardian = GUARDIAN.read_text(encoding="utf-8")
