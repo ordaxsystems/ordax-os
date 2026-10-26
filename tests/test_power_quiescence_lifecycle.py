@@ -123,7 +123,7 @@ class PowerQuiescenceTests(unittest.TestCase):
             self.assertIn('persistent_agent_session_active "$pid" && return 1', function)
             self.assertIn('if [ "$isolated_session" -eq 1 ]; then', function)
             self.assertIn('elif supervisor_process_active "$pid"; then', function)
-            self.assertIn('"$1" != "Z"', is_active.replace('$1 != "Z"', '"$1" != "Z"'))
+            self.assertIn('$1 != "Z"', is_active)
             self.assertIn('$1 != "X"', is_active)
         else:
             # The live legacy Guardian has no group-aware contract yet; its
