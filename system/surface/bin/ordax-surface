@@ -1523,15 +1523,15 @@ select_owner_virtio_webkit_transport() {
         detected=1
     fi
     if [ "$detected" -eq 1 ]; then
-        # The immutable Buildroot runtime has Mesa softpipe but no virtio
-        # Gallium renderer. This exact Owner virtio DRM device must select
-        # Mesa software rasterization instead of probing a missing DRI driver.
-        # wlroots rejects Mesa's software EGL renderer by default, even
-        # after LIBGL_ALWAYS_SOFTWARE selects the available softpipe driver.
-        # Permit it only for the detected Owner virtio GPU; physical GPUs
-        # and Stable/MVP must retain their original renderer policy.
+        # Virtio DRM without virgl has a working modeset, but Mesa softpipe
+        # EGL segfaults inside libgallium during Cage's first output modeset
+        # (Owner QEMU proof 40334704786, exit 139). Merely allowing wlroots
+        # software GLES still invokes the crashing Gallium path. Use wlroots'
+        # native pixman CPU compositor for this verified Owner virtio device;
+        # keep Mesa software rendering and non-DMA-BUF transport for WebKit.
+        # Stable/MVP and physical GPUs retain their normal renderer policy.
         export LIBGL_ALWAYS_SOFTWARE=1
-        export WLR_RENDERER_ALLOW_SOFTWARE=1
+        export WLR_RENDERER=pixman
         export WEBKIT_DISABLE_DMABUF_RENDERER=1
         printf 'ordax-surface: owner virtio_gpu selected WebKit non-DMA-BUF transport\n'
         return 0

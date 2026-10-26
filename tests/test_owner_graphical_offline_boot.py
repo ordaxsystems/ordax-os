@@ -71,11 +71,14 @@ class OwnerGraphicalOfflineBootTests(unittest.TestCase):
         self.assertIn("grep -qx '0x1050'", body)
         self.assertIn("export WEBKIT_DISABLE_DMABUF_RENDERER=1", body)
         self.assertIn("export LIBGL_ALWAYS_SOFTWARE=1", body)
-        self.assertIn("export WLR_RENDERER_ALLOW_SOFTWARE=1", body)
-        self.assertEqual(SURFACE.count("WLR_RENDERER_ALLOW_SOFTWARE=1"), 1)
+        self.assertIn("export WLR_RENDERER=pixman", body)
+        self.assertEqual(SURFACE.count("WLR_RENDERER=pixman"), 1)
+        self.assertNotIn("WLR_RENDERER_ALLOW_SOFTWARE=1", SURFACE)
+        self.assertIn("libgallium", body)
+        self.assertIn("first output modeset", body)
         self.assertLess(body.index("if [ \"$detected\" -eq 1 ]; then"),
-                        body.index("export WLR_RENDERER_ALLOW_SOFTWARE=1"))
-        self.assertLess(body.index("export WLR_RENDERER_ALLOW_SOFTWARE=1"),
+                        body.index("export WLR_RENDERER=pixman"))
+        self.assertLess(body.index("export WLR_RENDERER=pixman"),
                         body.index("return 0", body.index("if [ \"$detected\" -eq 1 ]; then")))
         self.assertEqual(SURFACE.count("LIBGL_ALWAYS_SOFTWARE=1"), 1)
         self.assertEqual(SURFACE.count("WEBKIT_DISABLE_DMABUF_RENDERER=1"), 1)
