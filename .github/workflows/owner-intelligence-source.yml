@@ -43,10 +43,11 @@ jobs:
           spec=importlib.util.spec_from_file_location("intelligence_compose","tools/intelligence-source/compose.py")
           mod=importlib.util.module_from_spec(spec)
           spec.loader.exec_module(mod)
-          assert len(mod.WRAPPERS)==5
+          wrappers=mod.load_wrappers(Path.cwd())
+          assert len(wrappers)==5
           for target,source in mod.WRAPPER_FILES.items():
-              path=mod.WRAPPER_ROOT/source
-              assert path.read_text()==mod.WRAPPERS[target]
-              assert len(mod.WRAPPERS[target])<900
+              path=Path("system/services/intelligence-source/wrappers")/source
+              assert path.read_text()==wrappers[target]
+              assert len(wrappers[target])<900
           print("ONE_INTELLIGENCE_WRAPPER_OWNER=PASS")
           PY
