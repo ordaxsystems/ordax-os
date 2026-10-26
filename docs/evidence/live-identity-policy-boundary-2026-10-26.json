@@ -1,0 +1,57 @@
+{
+  "$schema": "prototype-ordax.live-identity-rls-boundary-observation/1",
+  "observed_date": "2026-10-26",
+  "project": "ordax-platform",
+  "project_ref": "jhfphsjptrpmtnzkpwud",
+  "method": "Authorized Supabase read-only pg_policies, pg_proc, pg_namespace, ACL inspection; no user/session records retrieved",
+  "observed": {
+    "ordax_policy_schema_exists": false,
+    "policies_with_private_auth_function_references": 15,
+    "policies_with_private_can_access_function_references": 13,
+    "current_public_policy_calls": [
+      "ordax_accounts.ordax_accounts_select_own",
+      "ordax_accounts.ordax_accounts_update_own",
+      "ordax_device_presence.ordax_device_presence_select_authorized",
+      "ordax_device_project_bindings.ordax_device_project_bindings_select_project",
+      "ordax_entitlement_grants.ordax_entitlement_grants_select_subject",
+      "ordax_memory_embeddings.ordax_memory_embeddings_select_authorized",
+      "ordax_memory_items.ordax_memory_items_select_authorized",
+      "ordax_product_devices.ordax_product_devices_select_authorized",
+      "ordax_project_connections.ordax_project_connections_select_space",
+      "ordax_projects.ordax_projects_select_space",
+      "ordax_remote_capability_grants.ordax_remote_capability_grants_select_admin",
+      "ordax_space_devices.ordax_space_devices_select_space",
+      "ordax_space_members.ordax_space_members_select_space",
+      "ordax_space_profile_packs.ordax_space_profile_packs_select_member",
+      "ordax_spaces.ordax_spaces_select_member"
+    ],
+    "all_observed_public_policies_have_authenticated_subject_eligibility_guard": true,
+    "private_functions_authenticated_can_execute": 5,
+    "private_schema_authenticated_usage": true,
+    "private_ssot_subject_guard_source_in_current_ordax_os_repo": false
+  },
+  "security_invariants": [
+    "Existing private.ordax_authenticated_subject_eligible_v1 reads auth.uid and signed JWT session_id and checks auth.sessions/auth.users/account status; every rewritten client-facing policy must retain this exact gate.",
+    "RLS rewrites may change ONLY trusted function schema entrypoints, not entitlement expiration, ownership, project/space memberships or WITH CHECK logic.",
+    "Delegate to current private functions rather than copying existing authorization business rules.",
+    "Create no permissive anonymous policy or new write grant.",
+    "Migration fails if observed public policy set or helper ownership/security differs.",
+    "Do not revoke direct API roles until every policy uses the new tightly scoped wrapper."
+  ],
+  "source_migrations": {
+    "historical_non_applicable": "infra/supabase/product/migrations/20261005031500_policy_predicate_boundary_v1.sql",
+    "live_candidate": "infra/supabase/product/migrations/20261026182000_public_policy_subject_guard_boundary_v1.sql"
+  },
+  "deployment": {
+    "source_prepared": true,
+    "applied_to_live_db": false,
+    "authenticated_e2e_verified": false,
+    "manual_security_signoff_obtained": false,
+    "public_account_enabled": false
+  },
+  "limitations": [
+    "Evidence is not a cryptographic attestation of remote database state.",
+    "Live eligibility function was observed in the target database but does not yet have an identified owning migration in the current repository; reconcile ownership before deployment.",
+    "Only a controlled rehearsal against a representative isolated database with two independent test identities can authorize live deployment."
+  ]
+}
