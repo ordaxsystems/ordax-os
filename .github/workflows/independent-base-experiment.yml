@@ -43,13 +43,20 @@ permissions:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}-${{ inputs.profile || 'none' }}
-  cancel-in-progress: true
+  # Preserve a running costly Buildroot proof when a new PR revision arrives.
+  # The latest queued revision remains source-bound and must still be checked.
+  cancel-in-progress: false
 
 jobs:
   buildroot-qemu:
     if: github.event_name != 'push'
     runs-on: ubuntu-24.04
     timeout-minutes: 120
+    # Serialize first cold-cache Owner Buildroot build with Creator/Surface.
+    # After the first verified save, later consumers can reuse the same bytes.
+    concurrency:
+      group: ordax-surface-producer-${{ github.event.pull_request.head.sha || github.sha }}
+      cancel-in-progress: false
     steps:
       - name: Checkout exact PR source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
