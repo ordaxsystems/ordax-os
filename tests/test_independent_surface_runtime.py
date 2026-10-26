@@ -116,6 +116,10 @@ class IndependentSurfaceRuntimeTests(unittest.TestCase):
             "BR2_PACKAGE_PYTHON_GOBJECT=y",
             "BR2_PACKAGE_XWAYLAND=y",
             "BR2_PACKAGE_XKEYBOARD_CONFIG=y",
+            "BR2_PACKAGE_MESA3D_LLVM=y",
+            "BR2_PACKAGE_MESA3D_GALLIUM_DRIVER_I915=y",
+            "BR2_PACKAGE_MESA3D_GALLIUM_DRIVER_CROCUS=y",
+            "BR2_PACKAGE_MESA3D_GALLIUM_DRIVER_IRIS=y",
             "BR2_PACKAGE_MESA3D_GALLIUM_DRIVER_SOFTPIPE=y",
             "BR2_PACKAGE_MESA3D_OPENGL_GLX=y",
             "BR2_PACKAGE_SEATD=y",
@@ -237,6 +241,41 @@ class IndependentSurfaceRuntimeTests(unittest.TestCase):
                 self.builder.ensure_surface_runtime_path_compatibility(empty)
                 with self.assertRaisesRegex(self.builder.SurfaceBuildError, "empty"):
                     self.builder.inspect_rootfs_tar(empty, self.source)
+
+    def test_intel_i915_drm_requires_real_mesa_dri_drivers(self):
+        # On the physical Intel notebook, /dev/dri/card0 (i915) exists but
+        # Cage EGL fails with EGL_NOT_INITIALIZED / DRI2 screen creation.
+        # A softpipe-only Mesa package passes the VirtIO/Pixman QEMU proof
+        # yet cannot provide native Intel GPU EGL. Guard all generations.
+        drivers = (
+            "usr/lib/dri/i915_dri.so",
+            "usr/lib/dri/crocus_dri.so",
+            "usr/lib/dri/iris_dri.so",
+        )
+        required = set(self.source["required_runtime_paths"])
+        for driver in drivers:
+            self.assertIn(driver, required)
+            with self.subTest(driver=driver):
+                absent = self.make_tar(self.buildroot_like_paths(omit={driver}))
+                self.builder.ensure_surface_runtime_path_compatibility(absent)
+                with self.assertRaisesRegex(self.builder.SurfaceBuildError, "missing required paths"):
+                    self.builder.inspect_rootfs_tar(absent, self.source)
+                empty = self.make_tar(self.buildroot_like_paths(), empty={driver})
+                self.builder.ensure_surface_runtime_path_compatibility(empty)
+                with self.assertRaisesRegex(self.builder.SurfaceBuildError, "empty"):
+                    self.builder.inspect_rootfs_tar(empty, self.source)
+
+        # Kernel i915 alone is not proof of EGL userspace capability.
+        profile = CONFIG_PATH.read_text(encoding="utf-8")
+        for setting in (
+            "BR2_PACKAGE_MESA3D_LLVM=y",
+            "BR2_PACKAGE_MESA3D_GALLIUM_DRIVER_I915=y",
+            "BR2_PACKAGE_MESA3D_GALLIUM_DRIVER_CROCUS=y",
+            "BR2_PACKAGE_MESA3D_GALLIUM_DRIVER_IRIS=y",
+            "BR2_PACKAGE_MESA3D_GALLIUM_DRIVER_SOFTPIPE=y",
+        ):
+            self.assertEqual(profile.splitlines().count(setting), 1)
+            self.assertIn(setting, self.builder.GRAPHICAL_KCONFIG_REQUIRED)
 
     def test_eudev_abi_fails_closed_if_native_targets_are_missing(self):
         for missing in ("usr/bin/udevadm", "lib/udev/rules.d/60-input-id.rules"):
