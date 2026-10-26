@@ -214,6 +214,15 @@ function ensureRuntimeToolchain(template,userData){
 // candidate is re-hashed with bounded parallel IO. The synchronous path remains
 // the sole extractor/legacy validator if no prior verified tree matches.
 async function reuseRuntimeToolchainConcurrent(template,userData){
+  // Legacy/offline fixtures still ship an unpacked compiler. Retain the
+  // existing fail-closed directory check before trying archive-only receipts.
+  const legacy=join(template,'node_modules');
+  if(existsSync(legacy)){
+    const stat=lstatSync(legacy);
+    if(!stat.isDirectory()||stat.isSymbolicLink())
+      throw Error('Untrusted unpacked Desktop compiler');
+    return legacy;
+  }
   const {receipt}=archiveReceipt(template);
   const base=join(userData,'runtime-toolchains');
   mkdirSync(base,{recursive:true});
