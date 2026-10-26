@@ -51,7 +51,7 @@ test('Windows installer CI uses exact PR head rather than ephemeral test-merge S
 
 test('canonical main automatically builds one SSOT Windows artifact for relevant changes', () => {
   const workflow = readFileSync(join(__dirname,'../../.github/workflows/windows-desktop-dev.yml'),'utf8');
-  const events = workflow.split('\npermissions:')[0];
+  const events = workflow.replace(/\r\n/g,'\n').split('\npermissions:')[0];
   assert.match(events, /\n  pull_request:\n    paths: &desktop_product_sources\n/);
   assert.match(events, /\n  push:\n    branches:\n      - main\n    paths: \*desktop_product_sources\n/);
   assert.match(events, /\nconcurrency:\n  group: windows-desktop-dev-/);
