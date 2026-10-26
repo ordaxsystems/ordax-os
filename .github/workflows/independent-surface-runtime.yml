@@ -323,6 +323,36 @@ jobs:
           include-hidden-files: true
           retention-days: 7
 
+      # Technical QEMU handoff above is not a release/operator export.
+      # Keep canonical v4 operator payload explicitly manual-only.
+      - name: Create manual-only canonical Surface operator receipt
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          set -euo pipefail
+          python3 tools/release-signing/operator_receipt.py \
+            --kind surface \
+            --source-commit "$GITHUB_SHA" \
+            --file "native-surface-runtime.erofs=$RUNNER_TEMP/ordax-independent-surface/native-surface-runtime.erofs" \
+            --out "$RUNNER_TEMP/ordax-independent-surface/operator-receipt.json"
+
+      - name: Upload canonical Surface EROFS for manual operator assembly
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: canonical-v4-operator-surface-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/ordax-independent-surface/native-surface-runtime.erofs
+            ${{ runner.temp }}/ordax-independent-surface/operator-receipt.json
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Remove unpromoted local Surface runtime after CI proof upload
+        if: github.event_name != 'workflow_dispatch'
+        run: |
+          set -euo pipefail
+          rm -f "$RUNNER_TEMP/ordax-independent-surface/native-surface-runtime.erofs"
+          test ! -e "$RUNNER_TEMP/ordax-independent-surface/native-surface-runtime.erofs"
+
   portable-qemu:
     needs: buildroot-surface
     # Proof is independent from compilation: verified reused bytes must still be

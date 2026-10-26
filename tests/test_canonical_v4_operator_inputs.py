@@ -5,7 +5,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 WORKFLOWS = {
     "system": ROOT / ".github/workflows/portable-release-image.yml",
-    "surface": ROOT / ".github/workflows/surface-runtime-lock-discovery.yml",
+    "surface": ROOT / ".github/workflows/independent-surface-runtime.yml",
     "local-ai": ROOT / ".github/workflows/local-ai-runtime-candidate.yml",
 }
 

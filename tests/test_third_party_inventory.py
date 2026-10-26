@@ -110,25 +110,34 @@ class ThirdPartyInventoryTests(unittest.TestCase):
         for duplicated in ("version", "url", "sha256", "packages"):
             self.assertNotIn(duplicated, item)
 
-    def test_native_surface_runtime_matches_apk_request(self):
-        text = SURFACE.read_text(encoding="utf-8")
-        item = self.by_id["alpine-native-surface-runtime"]
-        self.assertEqual(item["source_authority"], "system/surface/runtime/packages.txt")
+    def test_native_surface_runtime_matches_canonical_buildroot_source(self):
+        item = self.by_id["buildroot-native-surface-runtime"]
+        self.assertEqual(item["kind"], "immutable-runtime-erofs")
+        self.assertEqual(item["source_authority"], "bootstrap/surface-runtime/source.json")
         self.assertNotIn("packages", item)
-        packages = (ROOT / item["source_authority"]).read_text().splitlines()
+        self.assertNotIn("branch", item)
+        source = json.loads((ROOT / item["source_authority"]).read_text(encoding="utf-8"))
+        profile = (ROOT / "bootstrap/surface-runtime/configs/ordax_surface_defconfig").read_text()
+        self.assertEqual(source["$schema"], "prototype-ordax.surface-runtime-source/1")
+        self.assertEqual(item["promotion_status"], source["status"])
+        self.assertEqual(source["libc"], "musl")
+        self.assertFalse(source["package_manager_in_runtime_allowed"])
+        self.assertEqual(source["buildroot_source_contract"], "bootstrap/independent-base/source.json")
+        self.assertEqual(source["artifact"]["name"], "native-surface-runtime.erofs")
+        self.assertFalse(source["artifact"]["physical_artifact_authorized"])
+        self.assertFalse(source["artifact"]["stable_promotion_authorized"])
+        self.assertIn("BR2_PACKAGE_WEBKITGTK=y", profile)
+        self.assertIn("BR2_PACKAGE_CAGE=y", profile)
+        self.assertIn("BR2_PACKAGE_PIPEWIRE=y", profile)
+        self.assertIn("BR2_PACKAGE_GST1_LIBAV=y", profile)
         self.assertTrue({
-            "webkit2gtk-4.1", "gst-plugins-good", "gst-libav", "pipewire-pulse",
-            "pipewire-alsa", "wireplumber", "gst-plugin-pipewire", "dbus",
-        }.issubset(packages))
-        # The Alpine package lock still belongs only to the old Stable
-        # candidate builder, not to the active Native Surface launcher.
-        source = json.loads((ROOT / "bootstrap/surface-runtime/source.json").read_text())
-        self.assertEqual(source["packages_file"], item["source_authority"])
-        self.assertTrue(set(packages).issubset(source["apk_package_lock"]))
+            "usr/bin/cage", "usr/bin/pipewire", "usr/lib/gstreamer-1.0/libgstlibav.so",
+        }.issubset(source["required_runtime_paths"]))
+        text = SURFACE.read_text(encoding="utf-8")
         self.assertNotIn("runtime_packages() {", text)
         self.assertNotIn("packages=$(runtime_packages)", text)
         self.assertNotIn("/sbin/apk", text)
-        self.assertIn('VERIFIED_RUNTIME_MODE', text)
+        self.assertIn("VERIFIED_RUNTIME_MODE", text)
 
     def test_unresolved_license_records_do_not_invent_spdx_ids(self):
         for item in self.inventory["inputs"]:

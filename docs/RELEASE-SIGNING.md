@@ -65,7 +65,7 @@ portable-release-image.yml
  -> canonical-v4-operator-system-<sha>/system.erofs
  -> operator-receipt.json
 
-surface-runtime-lock-discovery.yml
+independent-surface-runtime.yml
  -> canonical-v4-operator-surface-<sha>/native-surface-runtime.erofs
  -> operator-receipt.json
 
