@@ -58,6 +58,7 @@ jobs:
       - run: python tools/intelligence-source/materialize.py stage --source-dir _upstream/intelligence --out-dir "${RUNNER_TEMP}/ordax-intelligence-stage"
       - name: Prove pinned technical builder binds only real OS policy
         env:
+          PYTHONDONTWRITEBYTECODE: '1'
           ORDAX_INTELLIGENCE_STAGE: ${{ runner.temp }}/ordax-intelligence-stage
         run: |
           set -euo pipefail
@@ -86,6 +87,7 @@ jobs:
           assert "--tools" not in launcher
           print("INTELLIGENCE_EXTERNAL_INFERENCE_BUILDER_ABI=PASS")
           PY
+          test ! -e "$ORDAX_INTELLIGENCE_STAGE/system/intelligence-source/tools/inference-builder/__pycache__"
           python -m unittest tests.test_portable_component_cache -v
 
       - name: Prove portable runtime binds real OS public contracts
