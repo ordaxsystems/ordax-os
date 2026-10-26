@@ -217,6 +217,11 @@ jobs:
           python-version: '3.12'
           check-latest: false
 
+      - name: Resolve exact Intelligence builder for real local AI QEMU payload
+        uses: ./.github/actions/resolve-intelligence-builder
+        with:
+          out-root: ${{ runner.temp }}/ordax-intelligence-builder
+
       - name: Resolve canonical kernel ABI for build artifacts
         run: |
           set -euo pipefail
@@ -281,11 +286,11 @@ jobs:
         run: |
           set -euo pipefail
           work="$RUNNER_TEMP/portable-v2-qemu"
-          python bootstrap/local-ai-runtime/build.py build \
+          python "$ORDAX_EXTERNAL_AI_BUILDER" --os-source "$GITHUB_WORKSPACE" build \
             --cache-dir "$work/local-ai-runtime-cache" \
             --out-dir "$work/local-ai-runtime" \
             > "$work/metadata/local-ai-runtime-build.json"
-          python bootstrap/local-ai-runtime/build.py verify \
+          python "$ORDAX_EXTERNAL_AI_BUILDER" --os-source "$GITHUB_WORKSPACE" verify \
             --out-dir "$work/local-ai-runtime" \
             > "$work/metadata/local-ai-runtime-build-verify.json"
 
@@ -299,9 +304,13 @@ jobs:
           if [ "$cache_hit" != 'true' ]; then
             cache_hit=false
           fi
-          python bootstrap/local-ai-runtime/build.py verify \
+          python "$ORDAX_EXTERNAL_AI_BUILDER" --os-source "$GITHUB_WORKSPACE" verify \
             --out-dir "$work/local-ai-runtime" \
             > "$work/metadata/local-ai-runtime-verify.json"
+          # Both verifiers must agree on the exact legacy v4 signed ABI.
+          python bootstrap/local-ai-runtime/build.py verify \
+            --out-dir "$work/local-ai-runtime" \
+            > "$work/metadata/local-ai-runtime-legacy-abi-verify.json"
           test -s "$work/local-ai-runtime/local-ai-runtime.erofs"
           if [ "$cache_hit" = 'false' ]; then
             python3 tools/ci/portable_component_cache.py record \
