@@ -30,7 +30,11 @@ from probe_auth_provider import (
 from resolve_auth_provider_target import resolve_target
 
 ROOT = Path(__file__).resolve().parents[2]
-DB_PROBE_SCHEMA = "prototype-ordax.control-plane-privilege-proof/4"
+sys.path.insert(0, str(ROOT / "tools/security"))
+from probe_control_plane_privileges import (
+    SCHEMA as DB_PROBE_SCHEMA,
+    EXPECTED_SYNC_POLICIES,
+)
 SESSION_REVOCATION_SCHEMA = "prototype-ordax.account-session-revocation-proof/1"
 REQUIRED_CHECKS = PROVIDER_CHECK_NAMES
 REQUIRED_DB_CHECKS = (
@@ -224,7 +228,7 @@ def validate_database_proof(
                 blockers.append(f"database-proof-{name}")
         if observed.get("private_cloud_storage_rls_enabled_count") != 2:
             blockers.append("database-proof-private_cloud_storage_rls_enabled_count")
-        if observed.get("sync_policy_count") != 6:
+        if observed.get("sync_policy_count") != len(EXPECTED_SYNC_POLICIES):
             blockers.append("database-proof-sync_policy_count")
         if observed.get("app_role_sync_sequence_privilege") is not False:
             blockers.append("database-proof-app-role-sync-sequence-privilege")
