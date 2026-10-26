@@ -5,7 +5,7 @@ const { spawn } = require('node:child_process');
 const { existsSync, lstatSync, readFileSync, writeFileSync, readdirSync } = require('node:fs');
 const { createHash } = require('node:crypto');
 const { join } = require('node:path');
-const { dependencies } = require('./checkout.cjs');
+const { dependenciesForStage } = require('./checkout.cjs');
 const { withPinnedSurface, pinnedSourceLock } = require('./surface-stage.cjs');
 const OUTPUT = join('out','windows-desktop-native');
 // The actual compiled assets, not only their names, are bound to the pinned
@@ -91,7 +91,7 @@ async function buildNativeCandidate(root,template,{log=()=>{},timeoutMs=120000,m
   }
   // The installed compiler is a verified archive cached only when an actual
   // Dev candidate must compile. No dependency extraction on a normal boot.
-  const nodeModules=dependencies(root,template,userData);
+  const nodeModules=await dependenciesForStage(root,template,userData);
   const vite=join(nodeModules,'vite','bin','vite.js');
   if(!existsSync(vite))
     throw Error('Verified installed toolchain lacks canonical Native Vite');

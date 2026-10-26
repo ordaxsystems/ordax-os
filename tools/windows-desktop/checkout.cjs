@@ -60,6 +60,19 @@ function dependencies(checkout,template,userData=null) {
   return dir;
 }
 
+// Staging must never run a 13k-file archive expansion or full tree hash
+// synchronously inside Electron's main event loop. Share the exact verifier
+// used by the legacy fallback, but execute it in a separate Node process.
+async function dependenciesForStage(checkout,template,userData){
+  const dir=join(checkout,'node_modules');
+  if(existsSync(dir))return dir;
+  const {ensureRuntimeToolchainIsolated}=require('./toolchain-cache.cjs');
+  const source=await ensureRuntimeToolchainIsolated(template,userData);
+  if(existsSync(dir))return dir;
+  symlinkSync(source,dir,process.platform==='win32'?'junction':'dir');
+  return dir;
+}
+
 // Only the immutable Desktop Dev transaction manager may materialize source
 // updates. This helper never merges a Git checkout in place.
-module.exports = {git, isTrusted, hasDesktopHostContract, dependencies};
+module.exports = {git, isTrusted, hasDesktopHostContract, dependencies, dependenciesForStage};
