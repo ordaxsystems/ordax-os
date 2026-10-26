@@ -162,6 +162,21 @@ class PublicSiteDeploymentTests(unittest.TestCase):
         self.assertTrue(migration["registrar_nameserver_update_completed"])
         self.assertTrue(migration["public_delegation_points_to_destination"])
         self.assertTrue(migration["destination_https_and_www_production_revalidated_after_delegation"])
+        self.assertEqual(migration["status"], "dedicated-zone-active-independent-registrar-and-https-verified")
+        self.assertTrue(migration["independent_parent_ns_recheck_completed"])
+        self.assertEqual(migration["independent_parent_ns_registrar_source"], "https://rdap.registro.br/domain/ordax.com.br")
+        proof_path = ROOT / migration["independent_parent_ns_evidence"]
+        proof = json.loads(proof_path.read_text(encoding="utf-8"))
+        self.assertEqual(proof["domain"], "ordax.com.br")
+        self.assertEqual(proof["registry"]["observed_nameservers"], migration["destination_nameservers"])
+        self.assertEqual(proof["cloudflare"]["observed_nameservers"], migration["destination_nameservers"])
+        self.assertEqual(proof["cloudflare"]["zone_id"], migration["destination_zone_id"])
+        self.assertEqual(proof["vercel"]["project_id"], PUBLIC_VERCEL_PROJECT_ID)
+        self.assertTrue(proof["https"]["certificate_validation_enabled"])
+        self.assertEqual(proof["https"]["www_http_status"], 308)
+        self.assertEqual(proof["https"]["account_session_http_status"], 200)
+        self.assertFalse(proof["security_scope"]["authenticated_account_e2e_proven"])
+        self.assertTrue(proof["security_scope"]["no_legacy_zone_deletion"])
         self.assertFalse(migration["source_zone_may_be_removed"])
         self.assertFalse(migration["legacy_catalog_data_deleted"])
 
@@ -185,7 +200,7 @@ class PublicSiteDeploymentTests(unittest.TestCase):
     def test_live_oidc_and_gateway_transport_are_proven_without_opening_full_account(self):
         self.assertEqual(
             self.contract["status"],
-            "canonical-public-edge-v8-oidc-bridge-runtime-proven-account-activation-gated",
+            "canonical-public-edge-oidc-bridge-runtime-proven-account-activation-gated",
         )
         self.assertEqual(
             self.contract["runtime_evidence"],
@@ -212,14 +227,22 @@ class PublicSiteDeploymentTests(unittest.TestCase):
 
         edge = self.contract["public_edge_gateway"]
         self.assertTrue(edge["deployed"])
-        self.assertEqual(edge["deployed_version"], 8)
+        parity = json.loads((ROOT / edge["current_runtime_source_parity_evidence"]).read_text(encoding="utf-8"))
+        historical = json.loads(RUNTIME_EVIDENCE.read_text(encoding="utf-8"))
+        self.assertGreaterEqual(edge["deployed_version"], historical["runtime"]["public_gateway"]["version"])
+        self.assertEqual(edge["deployed_version"], parity["public_gateway"]["version"])
+        self.assertTrue(parity["public_gateway"]["all_deployed_source_files_match_main"])
         self.assertEqual(edge["canonical_project_ref"], "jhfphsjptrpmtnzkpwud")
         self.assertTrue(edge["runtime_provenance_e2e_verified"])
         self.assertTrue(edge["named_inner_service_bridge_provisioned"])
         self.assertTrue(edge["named_inner_service_bridge_runtime_e2e_verified"])
         self.assertEqual(edge["named_inner_service_bridge_http_status"], 200)
         self.assertIsNone(edge["named_inner_service_bridge_diagnostic"])
-        self.assertEqual(edge["inner_gateway_deployed_version"], 13)
+        self.assertGreaterEqual(edge["inner_gateway_deployed_version"], historical["runtime"]["internal_gateway"]["version"])
+        self.assertEqual(edge["inner_gateway_deployed_version"], parity["internal_gateway"]["version"])
+        self.assertTrue(parity["internal_gateway"]["all_deployed_source_files_match_main"])
+        self.assertFalse(parity["anonymous_transport"]["public_registration_enabled"])
+        self.assertFalse(parity["public_auth_gates_changed"])
         self.assertFalse(edge["inner_gateway_platform_verify_jwt"])
         self.assertFalse(edge["oidc_authorization_forwarded_to_inner_gateway"])
         self.assertFalse(edge["sensitive_proxy_headers_forwarded_to_inner_gateway"])
