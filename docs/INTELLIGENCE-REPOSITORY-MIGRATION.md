@@ -1,34 +1,45 @@
-# OrdaX Intelligence — source externo verificado
+# OrdaX Intelligence — fonte externa verificada
 
-**Estado: integration-candidate (NÃO cortado do OS)**, em 2026-10-25.
+**Estado: `integration-candidate`, sem cutover físico (2026-10-25).**
 
-O motor reutilizável já está no `ordaxsystems/ordax-intelligence`, commit ea663e1bbdc1066e556d8ee5cf279783cae0ba8c. Este commit fica fixado por `docs/contracts/intelligence-source.json`. O arquivo de contrato registra **sete arquivos portáteis exatos**, cada um com Git blob SHA. O verificador `tools/intelligence-source/materialize.py` rejeita HEAD diferente, arquivos alterados, paths extras, links, source mode inadequado, arquivos faltantes e divergências de Git blob, antes de montar uma árvore descartável.
+A fonte portátil do `ordaxsystems/ordax-intelligence` está fixada no commit
+`c3dbb73e7f3cdf9a2043b059d7376fb0a06a1272` pelo **único** lock
+`docs/contracts/intelligence-source.json`, que registra oito Git blobs exatos:
+sete módulos e `tools/inference-builder/build.py`. O verificador canônico
+`tools/intelligence-source/materialize.py` exige commit exato, conteúdo intacto,
+modos corretos, árvore restrita e staging descartável. Não inclui GGUF nem
+motor executável; a seleção de modelo, licença, limites e permissões continua
+pertencendo ao OS.
 
-O destino candidato é `system/intelligence-source/src` apenas **dentro de staging**, e não no Git nem na árvore de execução ativa. Não há segunda Memory, segundo motor, interface, updater ou proprietário de permissões. O OS permanece com os três contratos públicos canônicos `ordax.intelligence/1`, `ordax.model-router/1`, `ordax.local-ai/1`.
+## Integrações validadas
 
-A CI de integração faz checkout do commit externo e demonstra integridade/cópia verificada usando código real; os testes unitários usam uma árvore Git sintética para casos negativos. O estágio atual NÃO injeta estas fontes nos runners de produção, no Supervisor ou no USB.
+- **Gate A/B:** staging determinístico da fonte externa, mantendo os três
+  contratos OS `ordax.intelligence/1`, `ordax.model-router/1` e
+  `ordax.local-ai/1`, sem segundo dono de identidade, Memory ou autorização.
+- **Gate C/D:** montagem conjunta OS + Surface + Intelligence, wrappers
+  compartilhados, `system.tar` reproduzível, EROFS candidato e proveniência
+  que impede execução/ativação ou escrita física implícita.
+- **Owner/Development (#2267):** o Supervisor usa seu próprio slot, health
+  e rollback para preparar a fonte externa. O Creator só pré-carrega a fonte
+  como código de boot quando a revisão OS exata declarar `canonical`. Em
+  `integration-candidate`, mantém os serviços atuais do dispositivo.
+- **Builder real (gate de integração):** o workflow de candidato de IA e o
+  Portable QEMU passam a construir/verificar `local-ai-runtime.erofs` com o
+  builder externo materializado a partir do lock OS. O build exige
+  `--os-source` explícito. O verificador antigo do OS ainda é exercitado
+  contra **os mesmos bytes de EROFS**, até o corte coordenado da entrega v4.
+  O cache vincula sua identidade ao lock externo e ao resolver; alteração
+  no commit/hashes de origem invalida o reuse.
 
-**Cutover pendente:** compor fonte verificada com os módulos Native/Surface e o builder existente; validar comportamento e compatibilidade; somente então retirar as cinco implementações antigas do OS, mantendo seus contratos públicos e adapters de autorização, e atualizar `repository-ownership.json`. O caminho Owner/Development deve receber o source imutável na mesma transação de staging do Supervisor, antes de qualquer uso, sem exigir download durante o boot offline. O Stable/MVP deve incluir a fonte no mesmo release assinado. Reutilizar o pipeline de atualização e rollback do OS. PRs #2242/#2243 devem ser reconciliadas antes de qualquer mudança que toque boot ou a montagem da Surface.
+## Fronteiras de produção ainda fechadas
 
-Este PR não solicita assinatura, ativação, atualização de dispositivo, nem prova física.
+O lock segue `integration-candidate`: **não autoriza** remoção dos cinco
+corpos legados ainda rastreados, atualização de
+`repository-ownership.json`, publicação de novo release assinado ou
+instalação no USB. O teste QEMU não substitui prova de hardware real.
 
-## Proveniência adicional: builder técnico
-
-A revisão externa fixada foi atualizada para `c3dbb73e7f3cdf9a2043b059d7376fb0a06a1272`. O source gate inclui agora oito blobs, sendo o oitavo `tools/inference-builder/build.py`, que só recebe manifestos/licença de um OS source explicitamente fornecido. A árvore de stage pode conter o builder, mas a implementação de produção `bootstrap/local-ai-runtime/build.py` permanece ativa no OS até corte coordenado, revisão do ABI/EROFS e assinatura. A mudança de source pin não ativa o builder externo nem remove o antigo.
-
-## Gate C — vínculo ao montador Native (candidato não promovido)
-
-O `tools/native-release-assembly/build.py` agora oferece o parâmetro explícito `--require-external-intelligence` em **assemble** e **verify**. Quando solicitado, o verificador exige na árvore descartável:
-
-- Revisão do `ordax-intelligence` igual ao lock OS, com todos os oito blobs e digest agregado exatos.
-- Os cinco wrappers OS equivalentes aos definidos pelo compositor canônico, sem corpos antigos nem arquivos externos injetados.
-- Recibo de montagem com identidade exata e flags de segurança sem autorização de ativação; coexistência com Surface verificada pelo mesmo montador Native.
-- Vínculo gravado na proveniência da montagem; verificação posterior revalida bytes após cópia e detecta adulteração.
-
-O caminho atual de produção mantém o comportamento anterior **sem habilitar essa flag automaticamente**. A CI executa o gate no candidato e prova a política de recusa com testes negativos, sem baixar GGUF, assinar artefatos nem escrever no USB. O cutover real ainda exige sincronizar Creator/Buildroot/Surface, usar essa flag no release canônico, validar o boot inicial offline e remover os cinco corpos legados rastreados no OS no mesmo corte validado.
-
-## Gate D — canonical Native release pipeline (CI)
-
-O workflow `.github/workflows/release-pipeline.yml` agora encadeia o montador Surface e o montador Intelligence, ambos com revisão exata, de modo que a montagem Native exige `--require-external-intelligence` e revisa seus recibos depois do build. Os dois `system.tar` passam por comparação binária, e o código da CI verifica todos os oito hashes Git, os cinco wrappers e os flags de não ativação dentro do tar.
-
-O pipeline usa o único empacotador atual do OS, não cria outro canal e não altera o hardware. A migração da transação do Supervisor e a distribuição Stable v4/EROFS continuam pendentes. Não mover `status` para `canonical` nem excluir código legado rastreado antes de validar esses consumidores no mesmo commit.
+Antes de promover a `canonical`: conciliar os ramos Buildroot/USB
+#2242/#2243; validar boot frio realmente offline e rollback na Base final;
+provar ABI do llama.cpp/GGUF, envelope v4 canônico, integridade e assinatura
+de todos os slots; testar atualização e retorno físico. Só então substituir
+os serviços ativos e retirar duplicação no mesmo corte testado.
