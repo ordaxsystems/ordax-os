@@ -77,7 +77,8 @@ try {
     (Join-Path $resources "runtime-template\tools\windows-emulator\desktop-host-contract.json"),
     (Join-Path $resources "runtime-template\system\composition\native\index.html"),
     (Join-Path $resources "runtime-template\desktop-assets\system\composition\native\index.html"),
-    (Join-Path $resources "runtime-template\node_modules\vite\bin\vite.js")
+    (Join-Path $resources "runtime-template\toolchain\node_modules.tar.gz"),
+    (Join-Path $resources "runtime-template\toolchain\toolchain-receipt.json")
   )
   $required += @(
     (Join-Path $resources "runtime-template\\docs\\contracts\\surface-source.json"),
@@ -189,7 +190,7 @@ try {
   # In CI the installation destination is writable TEMP, unlike Program Files.
   # Deny writes to the packaged dependency directory so the exact historical
   # Vite .vite-temp EPERM bug is reproduced by this installed-app gate.
-  $readonlyDirectory = Join-Path $resources "runtime-template\node_modules"
+  $readonlyDirectory = Join-Path $resources "runtime-template\toolchain"
   # Generic (W) also denies READ_CONTROL/SYNCHRONIZE through Windows ACL
   # expansion. That prevents fs.stat of a junction into the runtime, not just
   # writes. Deny only mutation-specific rights so protected dependencies
@@ -207,7 +208,7 @@ try {
   if (-not $writeWasBlocked) { throw "Installed runtime test lacks write protection" }
   # Reading and traversing a protected node_modules tree must remain
   # possible: the Dev candidate resolves this exact install via a junction.
-  & node -e 'const fs=require("node:fs");const p=process.argv[1];fs.statSync(p);fs.statSync(require("node:path").join(p,"vite","bin","vite.js"));' $readonlyDirectory
+  & node -e 'const fs=require("node:fs");const p=process.argv[1];fs.statSync(p);fs.statSync(require("node:path").join(p,"node_modules.tar.gz"));fs.statSync(require("node:path").join(p,"toolchain-receipt.json"));' $readonlyDirectory
   if ($LASTEXITCODE -ne 0) {
     throw "Protected dependency directory denies reads needed by the compiler"
   }
