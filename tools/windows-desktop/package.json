@@ -31,7 +31,8 @@
       "browser-host.cjs",
       "browser-preload.cjs",
       "native-build.cjs",
-      "surface-stage.cjs"
+      "surface-stage.cjs",
+      "toolchain-cache.cjs"
     ],
     "extraResources": [
       {
@@ -64,11 +65,12 @@
         "to": "runtime-template/docs/contracts/distribution-profiles.json"
       },
       {
-        "from": "../../out/windows-desktop-toolchain/node_modules",
-        "to": "runtime-template/node_modules",
-        "filter": [
-          "**/*"
-        ]
+        "from": "../../out/windows-desktop-toolchain/node_modules.tar.gz",
+        "to": "runtime-template/toolchain/node_modules.tar.gz"
+      },
+      {
+        "from": "../../out/windows-desktop-toolchain/toolchain-receipt.json",
+        "to": "runtime-template/toolchain/toolchain-receipt.json"
       },
       {
         "from": "../../out/windows-desktop-native",

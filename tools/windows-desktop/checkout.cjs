@@ -51,12 +51,13 @@ function hasDesktopHostContract(root) {
   } catch { return false; }
 }
 
-function dependencies(checkout,template) {
+function dependencies(checkout,template,userData=null) {
   const dir=join(checkout,'node_modules');
-  if (existsSync(dir)) return;
-  const source=join(template,'node_modules');
-  if (!existsSync(source)) throw Error('Packaged runtime dependencies missing');
+  if (existsSync(dir)) return dir;
+  const {ensureRuntimeToolchain}=require('./toolchain-cache.cjs');
+  const source=ensureRuntimeToolchain(template,userData);
   symlinkSync(source,dir,process.platform==='win32'?'junction':'dir');
+  return dir;
 }
 
 // Only the immutable Desktop Dev transaction manager may materialize source
