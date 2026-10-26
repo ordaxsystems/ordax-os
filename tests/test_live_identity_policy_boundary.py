@@ -41,7 +41,7 @@ class LiveIdentityPolicyBoundaryTests(unittest.TestCase):
         self.assertIn("select private.ordax_authenticated_subject_eligible_v1();", s)
         # The single canonical implementation lives in this same transaction;
         # the public wrapper still delegates rather than copying the rule.
-        self.assertEqual(s.lower().count("join auth.sessions s"), 1)
+        self.assertEqual(s.lower().count("from auth.sessions s"), 1)
         self.assertEqual(s.lower().count("join auth.users u"), 1)
         self.assertEqual(
             s.lower().count("create or replace function private.ordax_authenticated_subject_eligible_v1()"),
