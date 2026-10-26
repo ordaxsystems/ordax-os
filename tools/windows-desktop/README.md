@@ -32,16 +32,17 @@ Native, com transporte específico de Electron apenas quando seu bridge
 restrito existe; indisponibilidade de bridge privilegiado do USB não é
 substituída por uma autoridade falsa.
 
-**Staging Dev por fonte foi implementado; a jornada real instalada ainda
-não está homologada.** `dev-update.cjs` usa o mesmo OS SHA da `main` e o
+**Staging e ativação transacional Owner/Dev foram comprovados no
+Desktop Windows físico (26/10/2026), com health e rollback preservados.** `dev-update.cjs` usa o mesmo OS SHA da `main` e o
 `source_commit` da Surface fixado nesse commit. `surface-stage.cjs` é o
 adaptador Git/Windows: obtém a revisão exata, valida origem, blobs Git,
 limites e recusa symlinks; monta os arquivos visuais somente durante a
 compilação, remove o overlay e grava o recibo OS/Surface com SHA-256 de
 todos os ativos compilados. `hasNativeBundle` impede boot de candidata
 sem lock, sem recibo ou com ativo JS/CSS alterado. Isso foi testado em CI e
-fixtures Git offline; **ainda falta uma atualização real instalada
-`main A → main B → health/rollback` no Windows**. Não chamar isso de paridade
+fixtures Git offline; **as revisões `938f1ebc` e `2a007c30` foram adquiridas e ativadas
+sequencialmente no Windows real, com `activeSha` confirmado após health,
+`previousSha` preservado e `pendingSha=null`.** Não chamar isso de paridade
 completa do `ordax-pull` até essa prova, nem instalar Python no usuário
 ou distribuir uma segunda cópia permanente da Surface.
 
@@ -243,6 +244,36 @@ frequência não puderem ser lidos com segurança, o GET falha com
 503 em vez de criar um modo fictício. A troca de resolução e
 o rollback seguro continuam como etapa separada ainda não entregue.
 
+## Compatibilidade de portas Native no Desktop (26/10/2026)
+
+O host Electron usa a detecção canônica de transporte em
+`system/adapters/native/browser-host-transport.mjs`. A composição compartilhada
+não deve consultar `ordax.keyboard-layout/1` (aplicação de layout físico
+Linux/XKB) nem `ordax.recovery-status/1` (slots de boot USB portable-v2)
+quando estiver no Windows. O Windows já publica observação de rollback
+pelo contrato distinto `ordax.desktop-recovery/1`, em
+`/__ordax/desktop/recovery`. A ausência de adaptador Windows para mudar
+layout não pode ser apresentada como capacidade disponível. No Linux, os
+dois probes continuam ativos.
+
+O Desktop mantém as portas reais de rede, energia e tela. A auditoria no
+hardware Windows verificou leituras válidas dos três providers e de
+recuperação, mas observou HTTP 503 transitórios durante o boot e 503
+intencionais para ações de troca de modo de tela e WLAN ainda não
+implementadas. A correção de roteamento não equivale à homologação
+dessas capacidades. Não ampliar timeout nem fabricar snapshots para
+ocultar os 503; investigar concorrência e falha da operação nativa
+no owner do adaptador.
+
+**Aceite de atualização em 26/10:** `activeSha=2a007c30af9c99a166dc63e898b01b53b463ae56`,
+`previousSha=938f1ebcc1c9ef37fc8ae7e0bacda99f592385ba`, Surface
+`ready`, transação sem candidata pendente; tests, CI e inspeção física
+registrados na issue [#2271](https://github.com/ordaxsystems/ordax-os/issues/2271).
+Essa prova refere-se ao Desktop OS Dev e não declara USB físico ou
+MVP Stable atualizado. O instalador NSIS do host ainda tem custo físico
+elevado (~931 segundos no upgrade observado), principalmente porque o
+toolchain com milhares de arquivos participa do pacote.
+
 ## Composição canônica
 
 - A mesma Surface e apps vêm de `system/`; não criar telas ou serviços
@@ -283,9 +314,11 @@ início e conserva a anterior. Uma candidata sem recibo de saúde é revertida;
 o rollback Owner mantém pin até desfixação explícita. O supervisor do emulador
 não executa mais Git merge no aplicativo Desktop. O journal local guarda
 apenas o estado de transação, **não** define outra política, versão ou registro
-de componentes. Ainda falta comprovar Git `main` real no app instalado e
-publicar as observações no contrato público `ordax.update-status/1`.
-Não chamar isso de paridade completa do `ordax-pull` USB.
+de componentes. O Desktop instalado comprovou `main → pendingSha →
+attemptedSha → health → activeSha` e a projeção compartilhada
+`ordax.update-status/1` respondeu `running/idle` para a revisão efetiva.
+Isso prova a atualização Dev do conteúdo OS/Surface, **não** a paridade
+completa do `ordax-pull` USB ou o upgrade automático do shell Electron.
 
 **MVP/Stable** não pode depender de Git; precisa de distribuição assinada
 do aplicativo e componentes com release verificada, staging, health e
