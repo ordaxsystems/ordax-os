@@ -515,7 +515,11 @@ app.whenReady().then(async()=>{
           !window.webContents.isCurrentlyAudible?.() &&
           !window.webContents.isLoadingMainFrame?.(),
         getIdleSnapshot:()=>windowIdle.snapshot({
-          systemIdleSeconds:powerMonitor.getSystemIdleTime(),
+          // Global idle is meaningful only while OrdaX is foreground.
+          // A remote desktop session may continuously report zero OS idle,
+          // which must not block a genuinely unattended OrdaX window.
+          systemIdleSeconds:window.isFocused() && !window.isMinimized()
+            ? powerMonitor.getSystemIdleTime() : 0,
           windowVisible:window.isVisible(),
           windowMinimized:window.isMinimized(),
           windowFocused:window.isFocused(),
