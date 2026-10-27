@@ -10,6 +10,15 @@ unitários e testes funcionais focados **continuam obrigatórios e falham
 normalmente**. O botão `workflow_dispatch` permite a prova pesada voluntária,
 com os mesmos contratos e integridade, mesmo com PR draft.
 
+O workflow `creator-owner-dev-git.yml` mantém `owner-dev-contract`
+como job leve independente e obrigatório em draft, com o preflight
+`tools/ci/preflight_owner_dev.py` e regressões do cache. O job pesado
+`build-and-publish` depende de `owner-dev-contract` e é executado apenas
+na etapa candidata, em `workflow_dispatch` ou no push aplicável. Assim,
+uma PR draft com mudança de boot ou Owner não aparenta estar validada
+apenas porque o job monolítico foi ignorado. O preflight roda uma vez,
+sem duplicar a mesma bateria no job de build pesado.
+
 **Não confundir ausência de build na etapa draft com aprovação da imagem.**
 
 ## Candidato de entrega (marcar a PR Ready for review)
