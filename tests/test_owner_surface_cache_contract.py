@@ -34,20 +34,30 @@ class OwnerSurfaceCacheContractTests(unittest.TestCase):
         self.assertIn("If-None-Match: *", R2.read_text(encoding="utf-8"))
         self.assertIn("independent_surface_component_cache.py verify", R2.read_text(encoding="utf-8"))
 
-    def test_owner_miss_records_verifies_and_publishes_exact_bytes(self):
+    def test_owner_is_a_verified_artifact_consumer_not_another_webkit_producer(self):
         text = OWNER.read_text(encoding="utf-8")
         self.assertIn("owner-surface-r2.outputs.hit", text)
-        self.assertIn("python3 " + CACHE + " record", text)
         self.assertIn("python3 " + CACHE + " verify", text)
-        self.assertIn("--cache-hit false", text)
         self.assertIn("--cache-hit true --consumer", text)
+        self.assertNotIn("--cache-hit false", text)
+        self.assertNotIn("bootstrap/surface-runtime/build.py build", text)
+        self.assertNotIn("bootstrap/surface-runtime/prepare_config.py materialize", text)
+        self.assertIn("Canonical Surface EROFS missing", text)
+        self.assertIn("Never compile WebKit in the Creator consumer", text)
         self.assertIn("Save verified Owner Surface EROFS to shared artifact cache", text)
         self.assertIn("Ensure verified Owner Surface exists in durable R2 store", text)
-        self.assertIn("git diff --exit-code -- \"$config\"", text)
         self.assertIn('cp -a "$out/." "$RUNNER_TEMP/owner-dev-surface-runtime/"', text)
+        self.assertNotIn("owner-surface-ccache", text)
+        self.assertNotIn("owner-surface-downloads", text)
+        # The specialist independent-surface-runtime workflow owns the
+        # sole Buildroot compile and its cache/provenance publication.
+        producer = SURFACE.read_text(encoding="utf-8")
+        self.assertIn("bootstrap/surface-runtime/build.py build", producer)
+        self.assertIn("python3 " + CACHE + " record", producer)
+        self.assertIn("--cache-hit \\"$reused\\"", producer)
 
     def test_compiler_objects_survive_source_config_change(self):
-        for path in (OWNER, SURFACE):
+        for path in (SURFACE,):
             text = path.read_text(encoding="utf-8")
             self.assertIn("ordax-independent-surface-ccache-v2-", text)
             self.assertIn("github.run_id", text)
