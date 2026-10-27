@@ -49,6 +49,14 @@ resolvia vazia e gerava `Linux/X64//` no produtor, enquanto QEMU obtinha
 `Linux/X64/ubuntu24/<versão>`. Assim, artefatos legítimos eram
 invisíveis ao consumidor e a compilação era repetida.
 
+A função canônica `tools/ci/independent_surface_component_cache.py:validated_environment`
+agora rejeita formatos CI `Linux/X64//` ou com qualquer segmento de
+SO, arquitetura, imagem e versão ausente. Essa checagem aplica-se tanto à
+identidade nova quanto à do manifesto de um EROFS recuperado; chaves
+historicamente incompletas **não** se tornam automaticamente reutilizáveis.
+`tests/test_independent_surface_component_cache.py` exercita cinco casos
+inválidos e a identidade real completa.
+
 **Artefatos do cache com identidade incompleta não devem ser reetiquetados
 para a chave nova sem prova correspondente.** Preserve a build já em
 execução e sua prova QEMU de mesmo run; a correção se aplica ao próximo HEAD
