@@ -54,6 +54,26 @@ class IndependentSurfaceComponentCacheTests(unittest.TestCase):
         }) + "\n", encoding="utf-8")
         return base
 
+    def test_runner_cache_environment_requires_complete_image_identity(self):
+        # A GitHub env.ImageOS/env.ImageVersion expression is empty unless
+        # declared in the env context; shell ImageOS/ImageVersion are correct.
+        invalid = (
+            "Linux/X64//",
+            "Linux/X64/ubuntu24/",
+            "Linux/X64/ubuntu24",
+            "Linux//ubuntu24/20261023.334.3",
+            "Linux/X64//20261023.334.3",
+        )
+        for value in invalid:
+            with self.subTest(value=value), self.assertRaisesRegex(
+                self.mod.CacheError, "incomplete runner image identity"
+            ):
+                self.mod.validated_environment(value)
+        self.assertEqual(
+            self.mod.validated_environment("Linux/X64/ubuntu24/20261023.334.3"),
+            "Linux/X64/ubuntu24/20261023.334.3",
+        )
+
     def test_fingerprint_tracks_only_build_inputs(self):
         with tempfile.TemporaryDirectory() as td:
             root = self.make_root(Path(td) / "repo")
