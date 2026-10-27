@@ -31,6 +31,30 @@ Qualquer novo commit na PR pronta revalida as provas correspondentes ao novo
 HEAD. Se ainda haverá muitos commits, **manter draft** até o lote estar
 consolidado; não usar ready como sinônimo de progresso diário.
 
+## Identidade de ambiente e cache real do EROFS
+
+Os três consumidores/produtores Surface (Buildroot, Creator USB e Portable/QEMU)
+devem calcular exatamente a mesma identidade no **shell do runner**:
+
+```sh
+test -n "${ImageOS:-}"
+test -n "${ImageVersion:-}"
+export ORDAX_COMPONENT_CACHE_ENVIRONMENT="${RUNNER_OS:?}/${RUNNER_ARCH:?}/${ImageOS}/${ImageVersion}"
+```
+
+O antigo uso de expressões do GitHub Actions `env.ImageOS` e
+`env.ImageVersion` é inválido nessa etapa: as variáveis são injetadas no
+shell pelo runner, mas não são declarações do contexto `env`. A expressão
+resolvia vazia e gerava `Linux/X64//` no produtor, enquanto QEMU obtinha
+`Linux/X64/ubuntu24/<versão>`. Assim, artefatos legítimos eram
+invisíveis ao consumidor e a compilação era repetida.
+
+**Artefatos do cache com identidade incompleta não devem ser reetiquetados
+para a chave nova sem prova correspondente.** Preserve a build já em
+execução e sua prova QEMU de mesmo run; a correção se aplica ao próximo HEAD
+da integração, com entradas/fingerprint reais, SHA-256 e receipts intactos.
+Não confundir o build anterior com uma comprovação de cache portável.
+
 ## Ordem obrigatória: produtor Surface → consumidores QEMU
 
 A condição `Ready for review` **não serializa automaticamente workflows
