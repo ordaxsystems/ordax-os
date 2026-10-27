@@ -142,6 +142,62 @@ test("concurrent display GETs share one real enumeration without caching failure
   }
 });
 
+test("Desktop display failure receipt is bounded, redacted, once per physical read and preserves retry",async()=>{
+  let reads=0;
+  const reports=[];
+  const middleware=createDesktopDisplayCurrentModeMiddleware({
+    token:TOKEN,
+    read:async()=>{
+      reads++;
+      if(reads===1){
+        const failure=new Error("PRIVATE_PROFILE_PATH_AND_TOKEN_MUST_NOT_LEAK");
+        failure.killed=true;
+        failure.stderr="PRIVATE_STDERR_MUST_NOT_LEAK";
+        throw failure;
+      }
+      return projectWindowsDisplayCurrentModes(fixture);
+    },
+    reportFailure:(event)=>reports.push(event),
+  });
+  const server=createServer((req,res)=>middleware(req,res,()=>{res.writeHead(404);res.end();}));
+  await new Promise(resolve=>server.listen(0,"127.0.0.1",resolve));
+  const url="http://127.0.0.1:"+server.address().port+PATH;
+  const headers={"X-OrdaX-Display-Token":TOKEN};
+  try{
+    const failure=await fetch(url,{headers});
+    assert.equal(failure.status,503);
+    assert.deepEqual(await failure.json(),{error:"Windows display mode observation unavailable"});
+    assert.equal(reads,1);
+    assert.equal(reports.length,1);
+    assert.deepEqual(Object.keys(reports[0]).sort(),["durationMs","reason"]);
+    assert.equal(reports[0].reason,"provider-timeout");
+    assert.ok(Number.isInteger(reports[0].durationMs) && reports[0].durationMs>=0);
+    assert.doesNotMatch(JSON.stringify(reports),/PRIVATE_|token|stderr/i);
+    const recovery=await fetch(url,{headers});
+    assert.equal(recovery.status,200);
+    assert.equal((await recovery.json()).outputs[0].currentModeId,"3840x2160@60");
+    assert.equal(reads,2);
+    assert.equal(reports.length,1);
+  }finally{server.closeAllConnections();await new Promise(done=>server.close(done));}
+});
+
+test("invalid physical snapshot remains HTTP 503 and emits a sanitized single provider receipt",async()=>{
+  const reports=[];
+  const middleware=createDesktopDisplayCurrentModeMiddleware({
+    token:TOKEN,read:async()=>({schema:"bad",available:true}),
+    reportFailure:event=>reports.push(event),
+  });
+  const server=createServer((req,res)=>middleware(req,res,()=>{res.writeHead(404);res.end();}));
+  await new Promise(resolve=>server.listen(0,"127.0.0.1",resolve));
+  try{
+    const response=await fetch("http://127.0.0.1:"+server.address().port+PATH,
+      {headers:{"X-OrdaX-Display-Token":TOKEN}});
+    assert.equal(response.status,503);
+    assert.equal(reports.length,1);
+    assert.equal(reports[0].reason,"invalid-mode-snapshot");
+  }finally{server.closeAllConnections();await new Promise(done=>server.close(done));}
+});
+
 test("Native session hands display capability only to the authenticated Electron caller",async()=>{
   const root=await mkdtemp(join(tmpdir(),"ordax-display-session-"));
   const diagnostic="a".repeat(64),session="b".repeat(64);
