@@ -5,6 +5,7 @@ If a new heavy workflow appears, include it explicitly rather than weakening
 the Owner release gate. Draft means 'development'; ready means candidate.
 """
 from pathlib import Path
+import re
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1] / ".github" / "workflows"
@@ -27,12 +28,14 @@ class ReleaseCandidateGateTests(unittest.TestCase):
                 self.assertIn("pull_request:", events)
                 self.assertIn("ready_for_review", events)
                 self.assertIn("workflow_dispatch:", events)
-                jobs_text = text.split("\njobs:\n", 1)[1]
-                # The first job starts immediately after jobs:, without a preceding newline.
-                section = ("\n" + jobs_text).split("\n  " + job, 1)[1]
-                self.assertTrue(section.startswith("\n"), filename)
-                first = section.split("\n  ", 1)[0]
-                self.assertIn(guard, first)
+                # Match actual two-space job headers; four-space properties must
+                # not be mistaken for the next job (e.g. '    if:').
+                jobs_text = "\n" + text.split("\njobs:\n", 1)[1]
+                marker = "\n  " + job + "\n"
+                self.assertIn(marker, jobs_text, filename)
+                section = jobs_text.split(marker, 1)[1]
+                first = re.split(r"(?m)^  [A-Za-z][\\w-]*:\\s*$", section, maxsplit=1)[0]
+                self.assertIn("\n    " + guard + "\n", first)
                 self.assertNotIn("cancel-in-progress: true", text)
 
     def test_surface_contract_and_impact_run_while_draft(self):
