@@ -9,6 +9,7 @@ on:
       - 'bootstrap/independent-base/source.json'
       - 'bootstrap/kernel/source.json'
       - 'tests/test_independent_surface_runtime.py'
+      - 'tests/test_ci_two_stage_release_gate.py'
       - 'tests/test_independent_surface_qemu_binding.py'
       - 'tests/test_independent_surface_impact.py'
       - 'tests/test_independent_surface_component_cache.py'
@@ -63,7 +64,7 @@ jobs:
             tests.test_independent_surface_cutover_audit \
             tests.test_independent_surface_cold_health_contract -v
           bash -n tools/ci/independent_surface_r2.sh
-          python3 -m unittest tests.test_owner_surface_cache_contract -v
+          python3 -m unittest tests.test_owner_surface_cache_contract tests.test_ci_two_stage_release_gate -v
           python3 -m py_compile \
             bootstrap/surface-runtime/build.py \
             bootstrap/surface-runtime/prepare_config.py \
