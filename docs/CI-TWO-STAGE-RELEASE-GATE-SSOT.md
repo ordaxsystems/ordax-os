@@ -222,3 +222,22 @@ QEMU do candidato, não há promoção Stable nem instalação USB autorizada.
 O paralelismo usa `ORDAX_SURFACE_BUILD_JOBS` (inteiro de 1 a 64, padrão 4);
 não há aumento implícito de consumo de memória. Em executor com mais CPU/RAM,
 ajuste esse valor após medir memória disponível e picos da compilação WebKit.
+
+### Identidade canônica do produtor dedicado e consumidores hospedados
+
+Um runner `self-hosted` não possui obrigatoriamente `ImageOS/ImageVersion`.
+O build EROFS deve declarar `ORDAX_SURFACE_PRODUCER_ENVIRONMENT` no GitHub
+Repository Variables usando **quatro** componentes (exemplo
+`Linux/X64/ordax-builder/image-v1`, refletindo uma imagem real e versionada).
+O workflow produtor aceita esse override **somente** no runner self-hosted;
+num runner hospedado, deriva a identidade real de `ImageOS/ImageVersion`.
+O fingerprint e a verificação do componente usam a **identidade do produtor**,
+mesmo quando o consumidor Owner/QEMU executa em outra imagem. O cache de
+kernel/Base mantém sua própria identidade de runner e nunca herda um valor
+forjado do produtor Surface. OS/arquitetura, provenance, SHA-256 e recibo do
+EROFS continuam obrigatórios; um override sem quatro campos ou com plataforma
+divergente é recusado. A variável só deve ser configurada juntamente com o
+runner dedicado e o diretório permanente do mesmo image ID. Mudanças de
+toolchain/OS desse executor exigem incrementar sua versão e invalidar o
+fingerprint; isso **não** elimina a necessidade da prova QEMU nem autoriza
+Stable.

@@ -95,14 +95,12 @@ class ReleaseCandidateGateTests(unittest.TestCase):
         self.assertIn("needs.impact.outputs.required == 'true'", text)
 
     def test_surface_cache_environment_matches_qemu_consumers(self):
-        # ImageOS/ImageVersion are runner *shell* variables. GitHub's
-        # ${{ env.ImageOS }} interpolation silently produces empty strings.
-        # This previously produced Linux/X64// and isolated expensive
-        # EROFS artifacts from the QEMU consumer's correct cache key.
-        shell_export = (
-            'export ORDAX_COMPONENT_CACHE_ENVIRONMENT='
-            '"${RUNNER_OS:?}/${RUNNER_ARCH:?}/${ImageOS}/${ImageVersion}"'
-        )
+        # For hosted default every workflow resolves the actual image. A
+        # trusted persistent producer can declare its exact four-part image
+        # explicitly; Creator and QEMU use that producer identity only when
+        # finding/verifying the independent Surface EROFS.
+        source = (ROOT.parent.parent / "tools/ci/independent_surface_component_cache.py").read_text()
+        self.assertIn('os.environ.get("ORDAX_SURFACE_PRODUCER_ENVIRONMENT"', source)
         for filename in (
             "independent-surface-runtime.yml",
             "creator-owner-dev-git.yml",
@@ -110,11 +108,16 @@ class ReleaseCandidateGateTests(unittest.TestCase):
         ):
             with self.subTest(filename=filename):
                 text = (ROOT / filename).read_text(encoding="utf-8")
+                self.assertIn("vars.ORDAX_SURFACE_PRODUCER_ENVIRONMENT", text)
                 self.assertIn('test -n "${ImageOS:-}"', text)
                 self.assertIn('test -n "${ImageVersion:-}"', text)
-                self.assertIn(shell_export, text)
                 self.assertNotIn("env.ImageOS", text)
                 self.assertNotIn("env.ImageVersion", text)
+        producer = (ROOT / "independent-surface-runtime.yml").read_text(encoding="utf-8")
+        self.assertIn('if [ "${RUNNER_ENVIRONMENT:-}" != "self-hosted" ]; then', producer)
+        self.assertIn('export ORDAX_COMPONENT_CACHE_ENVIRONMENT="$ORDAX_SURFACE_PRODUCER_ENVIRONMENT"', producer)
+        self.assertIn('export ORDAX_COMPONENT_CACHE_ENVIRONMENT="${RUNNER_OS:?}/${RUNNER_ARCH:?}/${ImageOS}/${ImageVersion}"', producer)
+        self.assertIn("ORDAX_SURFACE_RUNNER_LABEL", producer)
 
     def test_release_surface_qemu_follows_exact_surface_producer(self):
         text = (ROOT / "independent-surface-runtime.yml").read_text(encoding="utf-8")

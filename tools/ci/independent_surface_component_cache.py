@@ -70,6 +70,17 @@ def validated_environment(value: str, label: str = "cache environment") -> str:
 
 
 def environment() -> str:
+    # EROFS provenance describes the *producer* environment. The Creator
+    # and QEMU consumers may run on independent hosted runner images, but
+    # must resolve the same exact producer fingerprint and verify its bytes.
+    producer = os.environ.get("ORDAX_SURFACE_PRODUCER_ENVIRONMENT", "").strip()
+    if producer:
+        producer = validated_environment(producer, "Surface producer environment")
+        runner_os = os.environ.get("RUNNER_OS", "")
+        runner_arch = os.environ.get("RUNNER_ARCH", "")
+        if runner_os and runner_arch and not producer.startswith(f"{runner_os}/{runner_arch}/"):
+            raise CacheError("Surface producer OS/architecture differs from consumer")
+        return producer
     value = os.environ.get("ORDAX_COMPONENT_CACHE_ENVIRONMENT", "").strip()
     if not value:
         if os.environ.get("GITHUB_ACTIONS", "").lower() == "true":

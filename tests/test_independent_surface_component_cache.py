@@ -92,6 +92,27 @@ class IndependentSurfaceComponentCacheTests(unittest.TestCase):
                 self.mod.environment(), "Linux/X64/ubuntu24/20261023.334.3"
             )
 
+    def test_pinned_persistent_surface_producer_identity_is_shared_across_runners(self):
+        # A standalone producer can have its own image while QEMU/Creator use
+        # GitHub-hosted runner versions. Consumers verify provenance and bytes
+        # independently rather than pretending their runner built the EROFS.
+        with mock.patch.dict(os.environ, {
+            "RUNNER_OS": "Linux",
+            "RUNNER_ARCH": "X64",
+            "GITHUB_ACTIONS": "true",
+            "ORDAX_COMPONENT_CACHE_ENVIRONMENT": "Linux/X64/ubuntu24/20261023.334.3",
+            "ORDAX_SURFACE_PRODUCER_ENVIRONMENT": "Linux/X64/ordax-builder/v1",
+        }):
+            self.assertEqual(self.mod.environment(), "Linux/X64/ordax-builder/v1")
+            with mock.patch.dict(os.environ, {
+                "ORDAX_SURFACE_PRODUCER_ENVIRONMENT": "Windows/X64/ordax-builder/v1"
+            }), self.assertRaisesRegex(self.mod.CacheError, "OS/architecture"):
+                self.mod.environment()
+            with mock.patch.dict(os.environ, {
+                "ORDAX_SURFACE_PRODUCER_ENVIRONMENT": "Linux/X64//"
+            }), self.assertRaisesRegex(self.mod.CacheError, "incomplete runner image"):
+                self.mod.environment()
+
     def test_fingerprint_tracks_only_build_inputs(self):
         with tempfile.TemporaryDirectory() as td:
             root = self.make_root(Path(td) / "repo")
