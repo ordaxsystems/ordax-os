@@ -221,20 +221,46 @@ class IndependentSurfaceRuntimeTests(unittest.TestCase):
                     builder.prepare_surface_config(tree, build_dir, source, work, persistent=True)
 
     def test_surface_producer_build_step_has_one_environment_mapping(self):
-        # Duplicate env blocks invalidate the producer before scheduling:
-        # Creator would then have no EROFS, regardless of cache quality.
         workflow = WORKFLOW_PATH.read_text(encoding="utf-8")
         build_step = workflow.split(
             "      - name: Build Buildroot/musl Surface runtime on durable artifact miss", 1
         )[1].split("      - name: Verify exact Independent Surface EROFS bytes", 1)[0]
         self.assertEqual(build_step.count("\n        env:\n"), 1)
-        for key in (
-            "ORDAX_SOURCE_COMMIT:", "BR2_CCACHE_DIR:", "BR2_DL_DIR:",
-            "ORDAX_SURFACE_PERSISTENT_WORK_ROOT:", "ORDAX_SURFACE_BUILD_JOBS:",
-        ):
-            self.assertIn(key, build_step)
+        self.assertIn("ORDAX_SOURCE_COMMIT:", build_step)
+        self.assertIn("ORDAX_SURFACE_BUILD_JOBS:", build_step)
         self.assertIn("work_args", build_step)
         self.assertIn("ORDAX_SURFACE_BUILD_JOBS", build_step)
+
+    def test_persistent_graphical_cache_is_same_for_kconfig_and_make_and_not_uploaded(self):
+        workflow = WORKFLOW_PATH.read_text(encoding="utf-8")
+        resolver = workflow.split(
+            "      - name: Resolve exact Surface artifact fingerprint", 1
+        )[1].split("      - name: Restore verified Independent Surface EROFS component", 1)[0]
+        self.assertIn('echo "BR2_CCACHE_DIR=$cache_root/ccache"', resolver)
+        self.assertIn('echo "BR2_DL_DIR=$cache_root/downloads"', resolver)
+        self.assertIn('echo "BR2_CCACHE_DIR=$cache_root/ordax-independent-surface-ccache"', resolver)
+        self.assertIn('echo "BR2_DL_DIR=$cache_root/ordax-independent-surface-dl"', resolver)
+        self.assertIn('if [ "${RUNNER_ENVIRONMENT:-}" != "self-hosted" ]; then', resolver)
+        self.assertIn('if [ -z "${ORDAX_SURFACE_PRODUCER_ENVIRONMENT:-}" ]; then', resolver)
+        self.assertIn('cache_root="$(realpath -m -- "$ORDAX_SURFACE_PERSISTENT_WORK_ROOT")"', resolver)
+        self.assertIn("Surface persistent cache must be outside workspace and runner temp", resolver)
+        config = workflow.split(
+            "      - name: Resolve exact Kconfig before expensive graphical build", 1
+        )[1].split("      - name: Build Buildroot/musl Surface runtime on durable artifact miss", 1)[0]
+        build = workflow.split(
+            "      - name: Build Buildroot/musl Surface runtime on durable artifact miss", 1
+        )[1].split("      - name: Verify exact Independent Surface EROFS bytes", 1)[0]
+        self.assertNotIn('BR2_CCACHE_DIR: ${{ runner.temp }}', config + build)
+        self.assertNotIn('BR2_DL_DIR: ${{ runner.temp }}', config + build)
+        for name in (
+            "Restore exact Surface compiler cache on durable artifact miss",
+            "Restore Surface Buildroot source downloads on durable artifact miss",
+            "Save Surface Buildroot source download cache",
+            "Save exact Surface compiler cache",
+        ):
+            section = workflow.split("      - name: " + name, 1)[1].split("\n      - name:", 1)[0]
+            self.assertIn("env.ORDAX_SURFACE_PERSISTENT_WORK_ROOT == ''", section)
+        self.assertIn('find "${BR2_DL_DIR:-$RUNNER_TEMP/ordax-independent-surface-dl}"', workflow)
 
     def test_builder_exposes_opt_in_persistent_workspace_without_changing_ephemeral_default(self):
         source = BUILDER_PATH.read_text(encoding="utf-8")
@@ -545,8 +571,8 @@ class IndependentSurfaceRuntimeTests(unittest.TestCase):
             "ordax-independent-surface-ccache-v1-",
             "Restore Surface Buildroot source downloads on durable artifact miss",
             "ordax-independent-surface-dl-v1-",
-            "BR2_CCACHE_DIR:",
-            "BR2_DL_DIR:",
+            'echo "BR2_CCACHE_DIR=$cache_root/ccache"',
+            'echo "BR2_DL_DIR=$cache_root/downloads"',
             "Save Surface Buildroot source download cache",
             "Sanitize reusable Surface download cache",
         ):

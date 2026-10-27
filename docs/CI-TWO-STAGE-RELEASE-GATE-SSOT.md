@@ -263,3 +263,21 @@ retomada: a extração inicial permanece condicionada ao hash SHA-256 fixado
 no contrato, e a árvore reutilizada precisa do recibo canônico e da
 configuração Kconfig verificada. Uma árvore sem recibo não é aceita e o
 mecanismo nunca usa um download não verificado para consertá-la.
+
+### Caches nativos no mesmo volume do Buildroot persistente
+
+Com executor dedicado e `ORDAX_SURFACE_PERSISTENT_WORK_ROOT` configurado,
+`BR2_CCACHE_DIR` e `BR2_DL_DIR` ficam respectivamente nas pastas
+`ccache/` e `downloads/` dentro do root estável. O produtor verifica
+`RUNNER_ENVIRONMENT=self-hosted`, exige identidade explícita do produtor,
+raiz absoluta e recusa link simbólico. Preflight e compilação recebem
+os mesmos caminhos pelo `GITHUB_ENV`, sem sobrepor valores na etapa local.
+Restauração e upload de caches multi-GB via `actions/cache` são
+ignorados no executor com disco permanente. No GitHub hospedado, o
+comportamento anterior continua, incluindo restauração e salvamento de
+ccache e downloads. O EROFS mantém transporte e validação independentes.
+
+Não é necessário instalar nem compilar um segundo WebKit. O LLVM 22
+permanece necessário neste perfil Buildroot 2026.08 porque o driver
+Intel Iris x86_64 requer `BR2_PACKAGE_MESA3D_LLVM=y`; o driver
+`softpipe` isolado não cumpre a cobertura física de notebooks Intel.
