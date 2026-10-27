@@ -107,6 +107,19 @@ alterando apenas uma flag: cada um exige prova do respectivo owner.
 
 ## Native engine
 
+**Runtime modular (Owner Development):** `ordax-surface` is the visual
+owner. `ordax-os` owns the shared WebKitGTK dependency, a privileged
+Surface WebContext and the independent untrusted external-content context in
+`system/surface/runtime/external_web_content.py`. This external context is
+created lazily: starting the Surface alone does not open Internet WebViews or
+restore browser tabs. A browser tab request or visible Internet viewport
+activates the session; a Surface-only shutdown does not overwrite preserved
+browser state. The account signup popup also uses this isolated context on
+demand. The Internet product remains owned by `ordax-apps/apps/internet`;
+this boundary does **not** authorize Internet installation/distribution.
+Rendering-engine upgrades are separate from Surface UI changes and must
+preserve QEMU/offline boot and security isolation before promotion.
+
 The current USB/native-disk host uses WebKitGTK 4.1 as an OS-owned engine. The portable app consumes the `browser-session` contract and does not own or depend on the Linux distribution; keeping the engine in the host lets the base distribution evolve independently.
 
 `system/surface/runtime/ordax_browser_host.py` owns:

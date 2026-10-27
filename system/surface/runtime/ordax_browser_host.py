@@ -27,6 +27,7 @@ gi.require_version("Gtk", "3.0")
 gi.require_version("WebKit2", "4.1")
 from gi.repository import GLib, Gtk, WebKit2  # type: ignore  # noqa: E402
 
+from external_web_content import ExternalWebContent
 from browser_session_store import load_browser_session, save_browser_session
 from browser_download_policy import (
     download_destination,
@@ -400,19 +401,14 @@ class OrdaXBrowserHost:
         self.intelligence_pending: dict[str, dict] = {}
         self.intelligence_pending_lock = threading.Lock()
 
-        os.makedirs(self.profile_root, mode=0o700, exist_ok=True)
-        profile_data = os.path.join(self.profile_root, "default", "data")
-        profile_cache = os.path.join(self.cache_root, "default")
-        os.makedirs(profile_data, mode=0o700, exist_ok=True)
-        os.makedirs(profile_cache, mode=0o700, exist_ok=True)
-
-        data_manager = WebKit2.WebsiteDataManager(
-            base_data_directory=profile_data,
-            base_cache_directory=profile_cache,
+        # The external Internet/account plane must not initialize its WebKit
+        # context during the privileged Surface boot. It is app-independent,
+        # unprivileged and activated only on explicit demand.
+        self.external_content = ExternalWebContent(
+            self.profile_root, self.cache_root, self.on_download_started
         )
-        self.external_context = WebKit2.WebContext.new_with_website_data_manager(data_manager)
-        self.external_context.set_preferred_languages(["pt-BR", "en-US"])
-        self.external_context.connect("download-started", self.on_download_started)
+        self.browser_session_activated = False
+        os.makedirs(self.profile_root, mode=0o700, exist_ok=True)
 
         # The trusted Surface has a dedicated persistent WebKit profile.
         # External sites retain their separate context and cannot read this data.
@@ -463,7 +459,11 @@ class OrdaXBrowserHost:
         self.window.show_all()
         if self.distribution_profile == "owner-development":
             self.start_profile_consent_listener()
-        self.restore_session()
+
+    @property
+    def external_context(self) -> WebKit2.WebContext:
+        """Untrusted context; never the Surface's privileged WebContext."""
+        return self.external_content.context()
 
     def start_profile_consent_listener(self) -> None:
         self.profile_consent_listener = self.profile_consent_ipc.open()
@@ -1192,7 +1192,8 @@ class OrdaXBrowserHost:
         return tab_id
 
     def persist_session(self) -> None:
-        if self.restoring_session:
+        # A Surface-only boot must never overwrite a saved Internet session.
+        if self.restoring_session or not self.browser_session_activated:
             return
         persisted_tabs = [
             (tab_id, tab.url)
@@ -1224,6 +1225,17 @@ class OrdaXBrowserHost:
             self.last_persisted_session = (saved.urls, saved.active_index)
         except (OSError, ValueError) as exc:
             print(f"ordax-browser-host: could not persist tab session: {exc}", file=sys.stderr, flush=True)
+
+    def activate_browser_session(self) -> None:
+        """Restore Internet tabs only on explicit browser use, not Surface boot."""
+        if self.browser_session_activated:
+            return
+        self.browser_session_activated = True
+        try:
+            self.restore_session()
+        except Exception:
+            self.browser_session_activated = False
+            raise
 
     def restore_session(self) -> None:
         state = load_browser_session(
@@ -1272,6 +1284,7 @@ class OrdaXBrowserHost:
         # or activate a different existing tab before the host rejects it.
         if not isinstance(url_value, str) or (url_value and not allowed_external_uri(url_value)):
             raise ValueError("only public external http/https addresses are allowed")
+        self.activate_browser_session()
         if tab_id in self.tabs:
             self.activate_tab(tab_id)
             return
@@ -1499,6 +1512,8 @@ class OrdaXBrowserHost:
         height = bounded_int(value.get("height", 0), 0, MAX_VIEWPORT_DIMENSION)
         if None in {x, y, width, height}:
             raise ValueError("invalid viewport geometry")
+        if value["visible"]:
+            self.activate_browser_session()
         self.viewport = {
             "visible": value["visible"],
             "x": x,
