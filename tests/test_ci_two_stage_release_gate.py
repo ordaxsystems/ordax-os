@@ -34,7 +34,7 @@ class ReleaseCandidateGateTests(unittest.TestCase):
                 marker = "\n  " + job + "\n"
                 self.assertIn(marker, jobs_text, filename)
                 section = jobs_text.split(marker, 1)[1]
-                first = re.split(r"(?m)^  [A-Za-z][\w-]*:\s*$", section, maxsplit=1)[0]
+                first = "\n" + re.split(r"(?m)^  [A-Za-z][\w-]*:\s*$", section, maxsplit=1)[0]
                 self.assertIn("\n    " + guard + "\n", first)
                 self.assertNotIn("cancel-in-progress: true", text)
 
