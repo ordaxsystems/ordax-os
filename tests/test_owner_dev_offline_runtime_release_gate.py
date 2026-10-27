@@ -105,8 +105,20 @@ class OfflineOwnerWelcomeGateTests(unittest.TestCase):
         self.assertIn("Restore Surface Buildroot source downloads on durable artifact miss", producer)
         self.assertIn("Save exact Surface compiler cache", producer)
         self.assertIn("Save Surface Buildroot source download cache", producer)
-        self.assertIn("BR2_CCACHE_DIR:", producer)
-        self.assertIn("BR2_DL_DIR:", producer)
+        # The producer exports Buildroot caches via GITHUB_ENV, not YAML env
+        # declarations. Both persistent and hosted paths must reach preflight
+        # and build steps without losing the compiler/download cache.
+        for name in ("BR2_CCACHE_DIR", "BR2_DL_DIR"):
+            exports = [
+                line.strip()
+                for line in producer.splitlines()
+                if line.strip().startswith(f'echo "{name}=$cache_root/')
+            ]
+            self.assertEqual(len(exports), 2, f"{name} must support both cache roots")
+            self.assertTrue(
+                all(line.endswith(' >> "$GITHUB_ENV"') for line in exports),
+                f"{name} must persist through GITHUB_ENV",
+            )
         self.assertNotIn("bootstrap/surface-runtime/build.py build", workflow)
         self.assertNotIn("bootstrap/surface-runtime/prepare_config.py materialize", workflow)
         self.assertIn("- name: Consume verified canonical offline Surface runtime", workflow)
