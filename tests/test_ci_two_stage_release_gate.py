@@ -38,6 +38,20 @@ class ReleaseCandidateGateTests(unittest.TestCase):
                 self.assertIn("\n    " + guard + "\n", first)
                 self.assertNotIn("cancel-in-progress: true", text)
 
+    def test_independent_base_contract_remains_mandatory_in_draft(self):
+        text = (ROOT / "independent-base-experiment.yml").read_text(encoding="utf-8")
+        jobs = "\n" + text.split("\njobs:\n", 1)[1]
+        self.assertIn("\n  independent-base-contract:\n", jobs)
+        contract = jobs.split("\n  independent-base-contract:\n", 1)[1].split("\n  buildroot-qemu:\n", 1)[0]
+        heavy = jobs.split("\n  buildroot-qemu:\n", 1)[1]
+        self.assertIn("Verify isolated contract and regressions", contract)
+        self.assertIn("tests.test_independent_owner_profile", contract)
+        self.assertIn("outputs:\n      profile: ${{ steps.profile.outputs.profile }}", contract)
+        self.assertNotIn("pull_request.draft", contract)
+        self.assertIn("needs: independent-base-contract", heavy)
+        self.assertIn("needs.independent-base-contract.outputs.profile", heavy)
+        self.assertEqual(text.count("Verify isolated contract and regressions"), 1)
+
     def test_owner_fast_preflight_is_required_in_draft(self):
         workflow = (ROOT / "creator-owner-dev-git.yml").read_text(encoding="utf-8")
         jobs = workflow.split("\njobs:\n", 1)[1]
