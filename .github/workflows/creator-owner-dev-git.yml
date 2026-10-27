@@ -38,6 +38,7 @@ on:
       - 'tests/test_creator_owner_external_source.py'
   workflow_dispatch:
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - 'bootstrap/dev/**'
       - 'bootstrap/dev-base/**'
@@ -99,6 +100,9 @@ concurrency:
 
 jobs:
   build-and-publish:
+    # Draft PRs use fast contracts; full USB/QEMU only for a release candidate.
+    # workflow_dispatch and main push remain explicit/full delivery entrypoints.
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     runs-on: ubuntu-24.04
     timeout-minutes: 360
     # Serialize exact source build ownership with the independent producer.

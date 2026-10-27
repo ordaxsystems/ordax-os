@@ -8,6 +8,7 @@ on:
       - 'tests/test_independent_native_component.py'
       - '.github/workflows/independent-base-experiment.yml'
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - 'bootstrap/base/firmware_policy.py'
       - 'bootstrap/base/kernel_module_payload.py'
@@ -49,7 +50,7 @@ concurrency:
 
 jobs:
   buildroot-qemu:
-    if: github.event_name != 'push'
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && !github.event.pull_request.draft)
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     # Serialize first cold-cache Owner Buildroot build with Creator/Surface.

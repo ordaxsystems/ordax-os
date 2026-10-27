@@ -2,6 +2,7 @@ name: Independent Surface Runtime
 
 on:
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - 'bootstrap/surface-runtime/**'
       - '!bootstrap/surface-runtime/**/*.md'
@@ -107,7 +108,7 @@ jobs:
 
   buildroot-surface:
     needs: [contract, impact]
-    if: needs.impact.outputs.required == 'true'
+    if: needs.impact.outputs.required == 'true' && (github.event_name != 'pull_request' || !github.event.pull_request.draft)
     runs-on: ubuntu-24.04
     timeout-minutes: 360
     # One actual EROFS producer for one exact source revision across both

@@ -28,6 +28,7 @@ on:
       - 'docs/contracts/native-release-assembly.json'
       - 'tests/test_native_esp_proof_contract.py'
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - 'boot/esp/**'
       - 'boot/native/**'
@@ -59,6 +60,7 @@ permissions:
 
 jobs:
   native-esp:
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     runs-on: ubuntu-24.04
     timeout-minutes: 90
     steps:
