@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 MODULE_PATH = ROOT / "tools" / "ci" / "portable_component_cache.py"
@@ -232,8 +233,19 @@ class PortableComponentCacheTests(unittest.TestCase):
         # Portable/QEMU must consume the independent Surface component receipt.
         # It must not hash identical Surface sources with a second cache owner.
         self.assertNotIn("surface", CACHE.COMPONENTS)
+        self.assertNotIn("surface", CACHE.PROVENANCE_FILES)
         self.assertIn("independent-base", CACHE.COMPONENTS)
         self.assertIn("local-ai", CACHE.COMPONENTS)
+
+    def test_fingerprint_output_matches_registered_components_without_surface_alias(self):
+        with tempfile.TemporaryDirectory() as td:
+            output = Path(td) / "github-output"
+            with patch.object(CACHE, "component_fingerprint", return_value="a" * 64):
+                fingerprints = CACHE.write_fingerprints(output, Path(td))
+            self.assertEqual(set(fingerprints), set(CACHE.COMPONENTS))
+            keys = {line.split("=", 1)[0] for line in output.read_text(encoding="utf-8").splitlines()}
+            self.assertEqual(keys, {"kernel", "independent_base", "independent_base_owner", "local_ai", "release_agent"})
+            self.assertNotIn("surface", keys)
 
     def test_local_ai_cache_tracks_exact_external_builder_revision(self):
         with tempfile.TemporaryDirectory() as td:

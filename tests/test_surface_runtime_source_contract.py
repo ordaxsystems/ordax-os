@@ -61,7 +61,9 @@ class SurfaceRuntimeSourceContractTests(unittest.TestCase):
         proof=(ROOT/".github/workflows/portable-v2-qemu-boot-proof.yml").read_text()
         surface=(ROOT/".github/workflows/independent-surface-runtime.yml").read_text()
         self.assertIn("bootstrap/surface-runtime/build.py build",creator)
-        self.assertIn("bootstrap/surface-runtime/build.py build",proof)
+        self.assertIn("uses: ./.github/actions/prepare-verified-surface", proof)
+        self.assertIn("independent_surface_component_cache.py verify", proof)
+        self.assertNotIn("bootstrap/surface-runtime/build.py build", proof)
         self.assertIn("bootstrap/surface-runtime/build.py build",surface)
         for text in (creator,proof,surface):
             self.assertNotIn("bootstrap/independent-surface-runtime/build.py",text)

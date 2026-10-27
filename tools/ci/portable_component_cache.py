@@ -39,7 +39,6 @@ PROVENANCE_FILES = {
     "independent-base": "provenance.json",
     "independent-base-owner": "provenance.json",
     "local-ai": "local-ai-runtime-provenance.json",
-    "surface": "surface-runtime-provenance.json",
 }
 
 
@@ -410,7 +409,6 @@ def write_fingerprints(github_output: Path, root: Path = ROOT) -> dict[str, str]
         "independent_base": "independent-base",
         "independent_base_owner": "independent-base-owner",
         "local_ai": "local-ai",
-        "surface": "surface",
         "release_agent": "release-agent",
     }
     lines = [f"{key}={values[component]}" for key, component in aliases.items()]
