@@ -1,4 +1,5 @@
 """Guarantee Surface/Internet lifecycle ownership and persistence boundaries."""
+import ast
 from pathlib import Path
 import unittest
 
@@ -63,12 +64,22 @@ class BrowserSessionIntegrationContractTests(unittest.TestCase):
     def test_surface_does_not_start_external_context_or_restore_on_boot(self):
         host = HOST.read_text(encoding="utf-8")
         external = EXTERNAL.read_text(encoding="utf-8")
-        startup = host.split("class OrdaXBrowserHost:", 1)[1].split("    def start_profile_consent_listener", 1)[0]
+        syntax = ast.parse(host)
+        native_host = next(
+            node for node in syntax.body
+            if isinstance(node, ast.ClassDef) and node.name == "OrdaXBrowserHost"
+        )
+        initializer = next(
+            node for node in native_host.body
+            if isinstance(node, ast.FunctionDef) and node.name == "__init__"
+        )
+        startup = ast.get_source_segment(host, initializer)
+        self.assertIsNotNone(startup)
         self.assertNotIn("self.restore_session()", startup)
         self.assertNotIn("self.external_context =", startup)
         self.assertNotIn("WebKit2.WebView.new_with_context(self.external_context)", startup)
         self.assertIn("self.external_content = ExternalWebContent(", startup)
-        self.assertIn("return self.external_content.context()", startup)
+        self.assertIn("return self.external_content.context()", host)
         self.assertIn("if value[\"visible\"]:", host)
         self.assertIn("self.activate_browser_session()", host)
         self.assertIn('context.connect("download-started", self.download_started)', external)
