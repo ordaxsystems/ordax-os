@@ -31,6 +31,31 @@ Qualquer novo commit na PR pronta revalida as provas correspondentes ao novo
 HEAD. Se ainda haverá muitos commits, **manter draft** até o lote estar
 consolidado; não usar ready como sinônimo de progresso diário.
 
+## Ordem obrigatória: produtor Surface → consumidores QEMU
+
+A condição `Ready for review` **não serializa automaticamente workflows
+independentes do GitHub Actions**. Em um cache frio, os dois consumidores
+Portable/QEMU acionados diretamente podem chegar à restauração de EROFS
+antes do produtor Buildroot. O erro `Verified canonical Surface EROFS
+unavailable` é a rejeição correta, não um motivo para substituir o artefato
+por um fallback ou pular a prova.
+
+A validação gráfica autoritativa está no próprio
+`independent-surface-runtime.yml`: `portable-qemu` usa
+`needs: buildroot-surface` e consome via `surface_source: independent`
+os bytes publicados pelo produtor da mesma execução. A publicação de cache
+exato, SHA-256, provenance, fingerprint e source-commit deve preceder qualquer
+nova execução dos demais consumidores. **Não rerodar QEMU em cache miss**;
+se houver falha de compilação, corrigir a causa na mesma PR, sem afrouxar
+integridade ou atribuir sucesso a checks pulados.
+
+O cache GitHub pode reutilizar o componente quando as entradas imutáveis
+continuam iguais, mesmo se o commit de integração só mudou CI/documentação.
+O R2 durável é opcional para o fluxo de desenvolvimento, mas ausência de
+credenciais no runner significa que não houve publicação durável. Não
+confundir cache esperado com artefato verificado. No candidato final,
+registrar a dependência produtor-consumidor e exigir os gates completos.
+
 ## Garantias e limites
 
 Os filtros por paths do GitHub comparam toda a PR com a base, não somente o
