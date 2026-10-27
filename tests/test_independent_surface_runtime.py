@@ -78,7 +78,7 @@ class IndependentSurfaceRuntimeTests(unittest.TestCase):
 
         failure = io.StringIO()
         with contextlib.redirect_stdout(failure):
-            with self.assertRaisesRegex(self.builder.SurfaceBuildError, r"failed \\(7\\)") as raised:
+            with self.assertRaisesRegex(self.builder.SurfaceBuildError, r"failed \(7\)") as raised:
                 self.builder.run(
                     [sys.executable, "-c",
                      "import sys;print('COMPILER_FAILED', flush=True);sys.exit(7)"],
