@@ -138,7 +138,7 @@ credential check or substitute database/Edge service keys.
 
 Once the secret is safely available, run **Public Auth Provider Live Proof**
 from `main` with origin `https://ordax.com.br`, first `active`, then
-`destination`. The workflow added by PR #2309 preserves the **sanitized proof**
+`destination`. The workflow updated in PR #2309 preserves the **sanitized proof**
 when the probe returns a valid `ready=false` result, and still fails closed;
 credential absence necessarily stops execution before a provider proof exists.
 A destination PASS is not a cutover approval. After hosted settings and SMTP
