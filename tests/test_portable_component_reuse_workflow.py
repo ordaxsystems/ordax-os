@@ -23,7 +23,7 @@ class PortableComponentReuseWorkflowTests(unittest.TestCase):
     def test_cache_action_is_exactly_pinned_and_never_uses_prefix_fallback(self):
         workflow = self.workflow()
         self.assertEqual(workflow.count(f"actions/cache/restore@{CACHE_SHA}"), 4)
-        self.assertEqual(workflow.count(f"actions/cache/save@{CACHE_SHA}"), 4)
+        self.assertEqual(workflow.count(f"actions/cache/save@{CACHE_SHA}"), 3)
         self.assertNotIn("restore-keys:", workflow)
         self.assertNotRegex(workflow, r"actions/cache/(restore|save)@v[0-9]")
 
@@ -44,9 +44,13 @@ class PortableComponentReuseWorkflowTests(unittest.TestCase):
             with self.subTest(step=step):
                 self.assertIn(f"if: {condition}", self.step_block(step))
 
-        surface = self.step_block("Build exact offline Surface runtime on cache miss")
+        surface = self.step_block("Verify and bind canonical Surface EROFS for QEMU")
         self.assertIn("(inputs.surface_source || 'stable') == 'stable'", surface)
-        self.assertIn("steps.surface-cache.outputs.cache-hit != 'true'", surface)
+        self.assertIn("independent_surface_component_cache.py verify", surface)
+        self.assertIn("--consumer", surface)
+        self.assertIn("exit 1", surface)
+        self.assertIn("surface-component-reuse.json", surface)
+        self.assertNotIn("bootstrap/surface-runtime/build.py build", self.workflow())
 
     def test_base_initramfs_and_runtime_proofs_remain_unconditional(self):
         for step in (
@@ -63,10 +67,12 @@ class PortableComponentReuseWorkflowTests(unittest.TestCase):
 
     def test_every_cache_hit_is_verified_without_rewriting_provenance(self):
         workflow = self.workflow()
-        for component in ("local-ai", "kernel", "surface", "release-agent"):
+        for component in ("local-ai", "kernel", "release-agent"):
             with self.subTest(component=component):
                 self.assertIn(f"--component {component}", workflow)
                 self.assertIn(f"{component}-component-reuse.json", workflow)
+        self.assertIn("independent_surface_component_cache.py verify", workflow)
+        self.assertIn("surface-component-reuse.json", workflow)
         helper = (ROOT / "tools/ci/portable_component_cache.py").read_text(encoding="utf-8")
         self.assertIn('"provenance_rewritten": False', helper)
         self.assertNotIn("provenance_path.write_text", helper)

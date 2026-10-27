@@ -86,16 +86,6 @@ COMPONENTS = {
             "docs/contracts/local-ai.json",
         ),
     },
-    "surface": {
-        "inputs": (
-            "bootstrap/surface-runtime/build.py",
-            "bootstrap/surface-runtime/source.json",
-            "bootstrap/surface-runtime/prepare_config.py",
-            "bootstrap/surface-runtime/configs/ordax_surface_defconfig",
-            "bootstrap/independent-base/source.json",
-            "bootstrap/kernel/source.json",
-        ),
-    },
     "release-agent": {
         "inputs": ("bootstrap/release-acquisition",),
     },

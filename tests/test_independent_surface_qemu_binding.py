@@ -73,12 +73,19 @@ class IndependentSurfaceQemuBindingTests(unittest.TestCase):
         self.assertIn("native-surface-runtime.erofs", independent)
         self.assertIn("native-surface-runtime.erofs", independent)
 
-    def test_stable_surface_path_remains_default_and_separate(self):
+    def test_stable_surface_path_consumes_only_the_canonical_producer(self):
         self.assertIn("default: stable", PORTABLE)
-        self.assertIn("Restore verified Surface runtime component", PORTABLE)
-        self.assertIn("Build exact offline Surface runtime on cache miss", PORTABLE)
-        self.assertIn("bootstrap/surface-runtime/build.py build", PORTABLE)
+        self.assertIn("Resolve canonical Surface artifact fingerprint for QEMU", PORTABLE)
+        self.assertIn("Restore verified canonical Surface EROFS for QEMU", PORTABLE)
+        self.assertIn("Restore verified canonical Surface from durable R2 for QEMU", PORTABLE)
+        self.assertIn("Verify and bind canonical Surface EROFS for QEMU", PORTABLE)
+        self.assertIn("independent_surface_component_cache.py fingerprint", PORTABLE)
+        self.assertIn("ordax-independent-surface-artifact-v1-", PORTABLE)
+        self.assertIn("independent_surface_component_cache.py verify", PORTABLE)
         self.assertIn("bootstrap/surface-runtime/build.py verify", PORTABLE)
+        self.assertIn("surface-component-reuse.json", PORTABLE)
+        self.assertIn("Never compile Surface inside the QEMU consumer", PORTABLE)
+        self.assertNotIn("bootstrap/surface-runtime/build.py build", PORTABLE)
         self.assertIn("(inputs.surface_source || 'stable') == 'stable'", PORTABLE)
 
     def test_portable_qemu_serializes_same_surface_across_base_choices(self):
@@ -95,7 +102,7 @@ class IndependentSurfaceQemuBindingTests(unittest.TestCase):
         self.assertIn("github.event.pull_request.number || github.ref", concurrency)
         self.assertIn("github.event_name == 'workflow_dispatch' && github.run_id", concurrency)
         self.assertIn("ordax-portable-component-v1-", PORTABLE)
-        self.assertIn("steps.component-fingerprints.outputs.surface", PORTABLE)
+        self.assertIn("steps.surface-artifact-fingerprint.outputs.fingerprint", PORTABLE)
 
     def test_invalid_cross_mode_combination_fails_closed(self):
         self.assertIn(

@@ -228,25 +228,12 @@ class PortableComponentCacheTests(unittest.TestCase):
             self.assertEqual(receipt["component"], "independent-base")
             self.assertEqual(provenance.read_bytes(), before)
 
-    def test_surface_cache_invalidates_only_for_buildroot_source_config(self):
-        with tempfile.TemporaryDirectory() as td:
-            root = Path(td)
-            for relative in CACHE.COMPONENTS["surface"]["inputs"]:
-                path = root / relative
-                path.parent.mkdir(parents=True, exist_ok=True)
-                path.write_text("input-v1\n")
-            initial = CACHE.component_fingerprint("surface", root)
-            for relative in (
-                "bootstrap/surface-runtime/prepare_config.py",
-                "bootstrap/surface-runtime/configs/ordax_surface_defconfig",
-                "bootstrap/surface-runtime/source.json",
-            ):
-                with self.subTest(input=relative):
-                    path = root / relative
-                    path.write_text("input-v2\n")
-                    self.assertNotEqual(initial, CACHE.component_fingerprint("surface", root))
-                    path.write_text("input-v1\n")
-                    self.assertEqual(initial, CACHE.component_fingerprint("surface", root))
+    def test_surface_has_only_one_canonical_buildroot_cache_owner(self):
+        # Portable/QEMU must consume the independent Surface component receipt.
+        # It must not hash identical Surface sources with a second cache owner.
+        self.assertNotIn("surface", CACHE.COMPONENTS)
+        self.assertIn("independent-base", CACHE.COMPONENTS)
+        self.assertIn("local-ai", CACHE.COMPONENTS)
 
     def test_local_ai_cache_tracks_exact_external_builder_revision(self):
         with tempfile.TemporaryDirectory() as td:

@@ -1,6 +1,6 @@
 # CI — contrato canônico de compilação/reutilização da Surface
 
-**Autoridade:** `bootstrap/independent-surface-runtime` produz os mesmos bytes EROFS
+**Autoridade:** `bootstrap/surface-runtime` produz os mesmos bytes EROFS
 verificados consumidos pelo **Creator Owner/Development** e pela prova da
 **Independent Surface**. A identidade é computada uma única vez pelo módulo
 `tools/ci/independent_surface_component_cache.py`, a partir das entradas
@@ -31,11 +31,20 @@ documentação/UI que não alteram essas entradas **não** invalidam o artefato.
    com `restore-keys` quando o `defconfig` muda; o compilador/ccache
    valida flags/dependências em cada objeto. **Nunca** relaxar a chave exata
    do EROFS nem substituir provas por hits de cache.
-5. O Owner exige sempre a prova de dois boots gráficos *offline* do mesmo
+5. O QEMU Portable não compila Surface: busca o **mesmo** artefato imutável
+   pelo fingerprint canônico no cache GitHub ou R2, verifica manifesto,
+   SHA-256, proveniência e ABI com `independent_surface_component_cache.py` e
+   `bootstrap/surface-runtime/build.py verify`, e então copia os bytes já
+   validados para o slot QEMU. Um miss em ambos os armazenamentos **falha
+   imediatamente e sem compilação**; a ação correta é executar o produtor
+   independente/Creator, não criar outro produtor. O modo
+   `surface_source=independent` continua consumindo o artefato validado
+   no mesmo workflow, sem build.
+6. O Owner exige sempre a prova de dois boots gráficos *offline* do mesmo
    USB RAW no QEMU, heartbeat Native, WebKit, framebuffer, ACPI, ext4 íntegro
    e rollback. Reutilização evita recompilação; **não** evita boot/QEMU.
    O QEMU não comprova boas-vindas reais nem boot físico no notebook.
-6. Alterações deste contrato devem executar
+7. Alterações deste contrato devem executar
    `tests/test_owner_surface_cache_contract.py` e
    `tests/test_independent_surface_component_cache.py`, além dos gates
    já existentes; não criar outro cache SSOT nem armazenar manifestos mutáveis.
@@ -57,3 +66,12 @@ estiverem acessíveis, é possível precisar de uma compilação real; nunca
 inventar receipt, reutilizar artefato sem verificar ou declarar build pronto
 só pela cache. No primeiro boot de uma imagem ainda não validada, a entrega
 física ao pendrive continua bloqueada.
+
+## Regressão de 27/10/2026 — QEMU não é produtor gráfico
+
+Dois jobs QEMU foram cancelados depois de aproximadamente cinco horas, ainda
+em `Build exact offline Surface runtime on cache miss`, sem qualquer boot.
+A correção torna o QEMU apenas consumidor e remove o fingerprint `surface`
+do cache Portable genérico: existe somente o produtor Buildroot acima.
+**Sem artefato verificado, o gate fica vermelho rapidamente**, nunca verde
+por omissão nem recompilando a mesma Surface por horas.
