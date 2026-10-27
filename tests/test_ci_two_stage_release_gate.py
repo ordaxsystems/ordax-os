@@ -38,6 +38,20 @@ class ReleaseCandidateGateTests(unittest.TestCase):
                 self.assertIn("\n    " + guard + "\n", first)
                 self.assertNotIn("cancel-in-progress: true", text)
 
+    def test_owner_fast_preflight_is_required_in_draft(self):
+        workflow = (ROOT / "creator-owner-dev-git.yml").read_text(encoding="utf-8")
+        jobs = workflow.split("\njobs:\n", 1)[1]
+        self.assertIn("\n  owner-dev-contract:\n", "\n" + jobs)
+        contract = jobs.split("  owner-dev-contract:\n", 1)[1].split("\n  build-and-publish:\n", 1)[0]
+        heavy = jobs.split("\n  build-and-publish:\n", 1)[1]
+        self.assertIn("tools/ci/preflight_owner_dev.py", contract)
+        self.assertIn("tests.test_owner_surface_cache_contract", contract)
+        self.assertIn("tests.test_ci_two_stage_release_gate", contract)
+        self.assertIn("permissions:\n      contents: read", contract)
+        self.assertNotIn("pull_request.draft", contract)
+        self.assertIn("needs: owner-dev-contract", heavy)
+        self.assertEqual(workflow.count("python3 tools/ci/preflight_owner_dev.py"), 1)
+
     def test_surface_contract_and_impact_run_while_draft(self):
         text = (ROOT / "independent-surface-runtime.yml").read_text(encoding="utf-8")
         for job in ("contract:", "impact:"):
