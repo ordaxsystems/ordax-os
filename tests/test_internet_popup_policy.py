@@ -8,7 +8,7 @@ from pathlib import Path
 from types import SimpleNamespace
 import unittest
 
-HOST = Path(__file__).resolve().parents[1] / "system/surface/runtime/ordax_browser_host.py"
+HOST = Path(__file__).resolve().parents[1] / "system/surface/runtime/native_internet_navigation.py"
 MAX_TABS = 16
 
 
@@ -20,7 +20,7 @@ def load_native_popup_handler():
     )
     host = next(
         node for node in tree.body
-        if isinstance(node, ast.ClassDef) and node.name == "OrdaXBrowserHost"
+        if isinstance(node, ast.ClassDef) and node.name == "InternetNavigationHost"
     )
     handler = next(
         node for node in host.body

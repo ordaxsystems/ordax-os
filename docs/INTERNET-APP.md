@@ -136,6 +136,15 @@ do controlador sem uma segunda cópia de seleção. As transições de abas são
 testadas sem motor gráfico; nenhuma mudança ativa o app Internet ou promove
 o runtime gráfico para Stable.
 
+**Adaptador externo canônico:** `native_internet_navigation.py` é o owner
+dos callbacks WebKit de sites externos, da política pública de URLs,
+popups, permissão negada por padrão, abas, busca e seleção. Os 20 métodos
+foram extraídos do host da Surface. Apenas `ordax_browser_host.py`
+mantém o bridge de capacidades privilegiadas e compõe IPC/host; os
+adaptadores de downloads e persistência já são independentes.
+Essa divisão de responsabilidades não substitui isolamento entre processos
+nem autoriza promoção sem QEMU/USB.
+
 The current USB/native-disk host uses WebKitGTK 4.1 as an OS-owned engine. The portable app consumes the `browser-session` contract and does not own or depend on the Linux distribution; keeping the engine in the host lets the base distribution evolve independently.
 
 `system/surface/runtime/ordax_browser_host.py` owns:

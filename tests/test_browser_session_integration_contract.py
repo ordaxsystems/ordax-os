@@ -8,6 +8,7 @@ HOST = ROOT / "system/surface/runtime/ordax_browser_host.py"
 STORE = ROOT / "system/surface/runtime/browser_session_store.py"
 LIFECYCLE = ROOT / "system/surface/runtime/browser_session_runtime.py"
 EXTERNAL = ROOT / "system/surface/runtime/external_web_content.py"
+NAVIGATION = ROOT / "system/surface/runtime/native_internet_navigation.py"
 
 
 class BrowserSessionIntegrationContractTests(unittest.TestCase):
@@ -16,6 +17,7 @@ class BrowserSessionIntegrationContractTests(unittest.TestCase):
         store = STORE.read_text(encoding="utf-8")
         lifecycle = LIFECYCLE.read_text(encoding="utf-8")
         external = EXTERNAL.read_text(encoding="utf-8")
+        navigation = NAVIGATION.read_text(encoding="utf-8")
 
         self.assertIn("from browser_session_runtime import InternetBrowserSession", host)
         self.assertIn("self.browser_session = InternetBrowserSession(", host)
@@ -33,9 +35,9 @@ class BrowserSessionIntegrationContractTests(unittest.TestCase):
         self.assertIn("from browser_tab_registry import InternetTabRegistry", host)
         self.assertIn("self.tab_registry = InternetTabRegistry(TAB_ID_RE, MAX_TABS)", host)
         self.assertIn("self.tabs: dict[str, BrowserTab] = self.tab_registry.tabs", host)
-        self.assertIn("self.tab_registry.attach(tab_id, tab)", host)
-        self.assertIn("self.tab_registry.select(tab_id)", host)
-        self.assertIn("self.tab_registry.detach(tab_id)", host)
+        self.assertIn("self.tab_registry.attach(tab_id, tab)", navigation)
+        self.assertIn("self.tab_registry.select(tab_id)", navigation)
+        self.assertIn("self.tab_registry.detach(tab_id)", navigation)
         self.assertNotIn("self.tabs[tab_id] = tab", host)
         self.assertIn("load_browser_session(", lifecycle)
         self.assertIn("save_browser_session(", lifecycle)
@@ -45,7 +47,7 @@ class BrowserSessionIntegrationContractTests(unittest.TestCase):
         self.assertIn("allow_url=self.allow_url", lifecycle)
         self.assertIn("max_tabs=self.max_tabs", lifecycle)
         self.assertIn("self.persist_session()", host)
-        self.assertIn("if event == WebKit2.LoadEvent.FINISHED", host)
+        self.assertIn("if event == WebKit2.LoadEvent.FINISHED", navigation)
         self.assertIn('self.window.connect("destroy", self.on_window_destroy)', host)
 
         self.assertIn("SESSION_VERSION = 1", store)
@@ -87,7 +89,7 @@ class BrowserSessionIntegrationContractTests(unittest.TestCase):
         self.assertNotIn("WebKit2.WebView.new_with_context(self.external_context)", startup)
         self.assertIn("self.external_content = ExternalWebContent(", startup)
         self.assertIn("return self.external_content.context()", host)
-        self.assertIn("if value[\"visible\"]:", host)
+        self.assertIn("if value[\"visible\"]:", NAVIGATION.read_text(encoding="utf-8"))
         self.assertIn("self.activate_browser_session()", host)
         self.assertIn('context.connect("download-started", self.download_started)', external)
         self.assertNotIn("register_script_message_handler", external)
@@ -95,7 +97,7 @@ class BrowserSessionIntegrationContractTests(unittest.TestCase):
 
     def test_browser_restore_has_failure_rollback_before_any_session_write(self):
         host = HOST.read_text(encoding="utf-8")
-        restore = host.split("    def restore_session(self) -> None:", 1)[1].split("    def create_external_view(", 1)[0]
+        restore = host.split("    def restore_session(self) -> None:", 1)[1].split("    def on_window_destroy(", 1)[0]
         self.assertLess(restore.index("self.browser_session.begin_restore()"), restore.index("self.open_tab("))
         self.assertIn("self.browser_session.abort_restore()", restore)
         self.assertIn("self.tab_registry.detach(tab_id)", restore)
