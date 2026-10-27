@@ -54,7 +54,7 @@ class OwnerSurfaceCacheContractTests(unittest.TestCase):
         producer = SURFACE.read_text(encoding="utf-8")
         self.assertIn("bootstrap/surface-runtime/build.py build", producer)
         self.assertIn("python3 " + CACHE + " record", producer)
-        self.assertIn("--cache-hit \\"$reused\\"", producer)
+        self.assertIn('--cache-hit "$reused"', producer)
 
     def test_compiler_objects_survive_source_config_change(self):
         for path in (SURFACE,):
