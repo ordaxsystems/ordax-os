@@ -1,15 +1,15 @@
 'use strict';
 // Installable Windows host: the UI and Git Pull remain owned by OrdaX OS.
-const { app, BrowserWindow, WebContentsView, ipcMain, session, Menu, shell, dialog } = require('electron');
+const { app, BrowserWindow, WebContentsView, ipcMain, session, Menu, shell, dialog, powerMonitor } = require('electron');
 const { createDesktopBrowserHost } = require('./browser-host.cjs');
 const { join, resolve, isAbsolute, basename } = require('node:path');
 const { randomBytes } = require('node:crypto');
 const { mkdirSync, createWriteStream, existsSync, readFileSync } = require('node:fs');
 const { resolveTemplate, runtimeStateDirectory } = require('./runtime.cjs');
-const { chooseBootVersion, confirmHealthy, rejectCandidate, stageMain, readState, pinPrevious, unpin } = require('./dev-update.cjs');
+const { chooseBootVersion, confirmHealthy, rejectCandidate, stageMain, desktopFirstRunComplete, createDesktopIdleActivation, createDesktopWindowIdleTracker, readState, pinPrevious, unpin } = require('./dev-update.cjs');
 const { startHost, stopHost } = require('./host.cjs');
 const { verifyBundledNativeReceipt } = require('./native-build.cjs');
-let window=null, runtime=null, stream=null, browserHost=null, updateTimer=null, staging=false;
+let window=null, runtime=null, stream=null, browserHost=null, updateTimer=null, activationTimer=null, staging=false, idleActivation=null;
 const PRODUCT='/system/composition/native/index.html';
 // Explicit stable per-user storage must be set before the instance lock or any
 // Electron internal service can resolve a path from the npm package name.
@@ -376,19 +376,26 @@ async function assertDesktopInternetSmoke(browserWindow,host) {
   }
   throw Error('Canonical Internet bridge could not instantiate isolated Chromium tab');
 }
+// Do not invent a second updater. The existing ordax-pull Git-main staging
+// transaction is the single Desktop Dev source materializer; this is only
+// the safe handoff to the already health-gated Electron boot supervisor.
 async function stageInBackground(userData,template) {
   if(staging || !app.isPackaged) return;
   staging=true;
   try {
+    // Match ordax-main-watch: never acquire/activate a new main revision
+    // while OOBE is still in progress on the canonical Native state store.
+    if(!await desktopFirstRunComplete(userData,template))return;
     const result=await stageMain({userData,template,log});
-    if(result.status==='staged') log('Desktop Dev update prepared for the next application start: '+result.sha);
+    if(result.status==='staged') log('ordax-pull Desktop Dev: verified candidate staged; idle activation scheduled: '+result.sha);
     else if(!['current','pending','pinned','rejected'].includes(result.status))
       log('Desktop Dev update check: '+result.status);
   }catch(error){log('Desktop Dev update check blocked: '+error.message);}
-  finally{staging=false;}
+  finally{staging=false;void idleActivation?.();}
 }
 app.on('before-quit',()=>{
   if(updateTimer){clearInterval(updateTimer);updateTimer=null;}
+  if(activationTimer){clearInterval(activationTimer);activationTimer=null;}
   browserHost?.dispose();browserHost=null;
   if(runtime?.child){stopHost(runtime.child);runtime=null;}
   stream?.end();stream=null;
@@ -406,6 +413,16 @@ app.whenReady().then(async()=>{
       preload:join(__dirname,'browser-preload.cjs'),
       sandbox:true,webSecurity:true,allowRunningInsecureContent:false},
   });
+  const windowIdle=createDesktopWindowIdleTracker();
+  // One source of truth for whether OrdaX itself has been unattended.
+  // A remote session or activity in other Windows apps must not keep a
+  // minimized OrdaX pending forever. Focused OrdaX still uses powerMonitor.
+  window.on('focus',windowIdle.onAttention);
+  window.on('show',windowIdle.onAttention);
+  window.on('restore',windowIdle.onAttention);
+  window.on('blur',windowIdle.onBackground);
+  window.on('hide',windowIdle.onBackground);
+  window.on('minimize',windowIdle.onBackground);
   // Electron 40 passes a single details event, not the legacy (event, level,
   // message) tuple. Without this, actual Native renderer errors were invisible.
   window.webContents.on('console-message',details=>{
@@ -441,7 +458,8 @@ app.whenReady().then(async()=>{
     // Packaged startup never waits for Git/network or mutates a running checkout.
     // A staged source gets one trial; a missing health receipt rolls it back.
     const selected=app.isPackaged
-      ? await chooseBootVersion({userData,template,log})
+      ? await chooseBootVersion({userData,template,log,
+          allowPendingTrial:await desktopFirstRunComplete(userData,template)})
       : {root:template,sha:null,trial:false};
     // The exact installed OS SHA is already pinned by the verified Native
     // bundle receipt; update candidates use their validated Git SHA.
@@ -488,10 +506,34 @@ app.whenReady().then(async()=>{
     }
     navigationPolicy(runtime.url);
     if(app.isPackaged) {
+      idleActivation=createDesktopIdleActivation({
+        userData,template,log,
+        isReady:()=>!devProfile && !staging && window && !window.isDestroyed() &&
+          runtime?.child && runtime.child.exitCode===null &&
+          runtime.child.signalCode===null && browserHost &&
+          !browserHost.hasActiveWork() &&
+          !window.webContents.isCurrentlyAudible?.() &&
+          !window.webContents.isLoadingMainFrame?.(),
+        getIdleSnapshot:()=>windowIdle.snapshot({
+          // Global idle is meaningful only while OrdaX is foreground.
+          // A remote desktop session may continuously report zero OS idle,
+          // which must not block a genuinely unattended OrdaX window.
+          systemIdleSeconds:window.isFocused() && !window.isMinimized()
+            ? powerMonitor.getSystemIdleTime() : 0,
+          windowVisible:window.isVisible(),
+          windowMinimized:window.isMinimized(),
+          windowFocused:window.isFocused(),
+        }),
+        relaunch:()=>{app.relaunch();app.quit();},
+      });
       // Safe background discovery, never a startup dependency or live-tree merge.
       setTimeout(()=>{void stageInBackground(userData,template);},5000);
       updateTimer=setInterval(()=>{void stageInBackground(userData,template);},10*60*1000);
       updateTimer.unref?.();
+      // Discovery and activation are separate stages; a staged revision
+      // must not remain pending indefinitely until someone restarts the app.
+      activationTimer=setInterval(()=>{void idleActivation?.();},15*1000);
+      activationTimer.unref?.();
     }
 
   }catch(error){

@@ -266,7 +266,8 @@
     "existing_auth_users_observed": true,
     "existing_auth_users_observation_evidence": "docs/evidence/account-legal-destination-state-2026-10-26.json",
     "database_privilege_readonly_observation": "docs/evidence/public-account-postgres-privilege-observation-2026-10-26.json",
-    "private_helper_dependency_evidence": "docs/evidence/authenticated-private-helper-dependencies-2026-10-26.json"
+    "private_helper_dependency_evidence": "docs/evidence/authenticated-private-helper-dependencies-2026-10-26.json",
+    "private_rls_helper_contract": "docs/contracts/public-auth-rls-private-helpers.json"
   },
   "rules": {
     "public_login_must_fail_closed_until_all_required_gates_pass": true,

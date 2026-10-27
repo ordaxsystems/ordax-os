@@ -83,6 +83,79 @@ Mudanças exclusivamente Linux (kernel/base/USB) não devem acionar um
 novo instalador Windows; mudanças no núcleo compartilhado, no lock
 Surface ou nos adaptadores Windows devem acioná-lo.
 
+## Ordax-pull no Desktop Windows (Owner/Development)
+
+**Autoridade única:** `docs/contracts/distribution-profiles.json` mantém
+`owner-development = git-main`. No USB Dev, o adaptador Linux de aquisição é
+`bootstrap/dev-base/ordax-pull` e o Supervisor ativa a Surface. No Windows,
+`tools/windows-desktop/dev-update.cjs:stageMain` é o adaptador de materialização
+Git do **mesmo perfil Owner/Development e mesma main**, não um segundo canal
+de distribuição. `main.cjs` coordena apenas o ciclo de vida Electron, sem
+outro git-pull, segunda cópia da Surface ou outra base de dados.
+
+**Causa da lacuna histórica:** o Desktop instalado fazia discovery após o
+boot e a cada dez minutos, compilava e verificava uma candidata
+`runtime-versions/<SHA>`, mas a deixava em `pendingSha` até que alguém
+reiniciasse o aplicativo. Assim, não tinha a ativação automática que o
+`ordax-main-watch` mais o Supervisor já oferecem no USB Dev.
+
+**Contrato atual do branch de correção:** quando houver candidata validada,
+o Electron verifica sua condição de inatividade a cada 15 segundos e solicita
+seu próprio relançamento apenas após 60 segundos com janela oculta, 120
+segundos em segundo plano, ou 600 segundos com janela em primeiro plano.
+Não encerra uma sessão interativa ativa, não reinicia o Windows e não aplica
+código não verificado sobre a árvore em execução. O handoff Electron usa um
+único coordenador transacional em `dev-update.cjs`: impede callbacks de
+timer concorrentes e **revalida SHA pendente, pino de rollback, atividade
+humana e host saudável depois da leitura assíncrona do First Run**, antes de
+pedir relaunch. Se qualquer pré-condição mudou, a candidata não é consumida,
+o app continua aberto e o próximo ciclo pode avaliar o estado novo.
+O navegador Windows tem a autoridade real de suas `WebContentsView`,
+transferências e navegações. A ativação automática também exige **nenhum
+download pendente/em andamento, nenhuma aba navegando e nenhum áudio
+Chromium sendo reproduzido** (incluindo a Surface Native), pois a falta
+de movimento de mouse/teclado não significa ausência de trabalho. Ao fim
+desse trabalho, o próximo ciclo reavalia a mesma candidata Git — sem
+descartar nem cancelar downloads para atualizar. Inspeção de mídia
+indisponível falha fechada para a ativação, sem quebrar o aplicativo. Na inicialização, o mesmo
+`chooseBootVersion` seleciona a candidata uma única vez, executa o Native
+host + Surface, confirma saúde e grava `activeSha`; falha ou encerramento
+sem recibo volta ao conhecido bom e rejeita o SHA. Rollback fixado desativa
+atualizações até retomada explícita. Smoke NSIS usa perfil isolado e não
+executa reinício automático.
+
+**Inatividade confiável no Windows/RDP:** a ativação nunca deve
+confundir inatividade de todo o Windows com inatividade do próprio OrdaX.
+Quando a janela está em foco, o Electron ainda exige os 600 segundos reais
+reportados por `powerMonitor`. Quando está minimizada/oculta ou em segundo
+plano, o próprio `BrowserWindow` é a autoridade de foco e minimização:
+um relógio monotônico iniciado nos eventos `blur`, `hide` e `minimize`,
+reiniciado por `focus`, `show` e `restore`, mede respectivamente os
+60 ou 120 segundos de ausência de atenção. `isMinimized()` é consultado
+separadamente porque, no Windows, `isVisible()` sozinho não determina se
+a janela foi minimizada. Essa política mantém todos os gates de downloads,
+áudio, navegação, First Run, Native health, revisão Git e rollback, e não
+cria serviço/atualizador adicional nem altera o temporizador global do PC.
+
+**Gate de primeiro uso idêntico ao USB:** antes de descobrir atualizações
+ou iniciar o trial automático, o Desktop lê o `native-state/native-state.json`
+já persistido pelo Native Host e o valida com o módulo canônico
+`system/contracts/first-run-state-store.mjs`. Sem comprovante `completed`
+válido, não há staging automático nem reinício para aplicar `pendingSha`.
+Uma candidata já preparada permanece guardada, sem ser marcada rejeitada;
+após a conclusão do primeiro uso, volta ao caminho normal com health/rollback.
+O fluxo USB já usa o mesmo pré-requisito lógico em `ordax-main-watch`.
+Não há arquivo de configuração de OOBE paralelo.
+
+**Fronteira de lançamento:** a consulta automática acima ocorre enquanto o
+processo Electron está aberto. Não existe ainda um serviço permanente Windows
+quando ele está totalmente encerrado. Além disso, `ordax-pull` altera o
+conteúdo OS/Surface, **não substitui o executável Electron nem seu
+`app.asar`**. Portanto corrigir esse fluxo não comprova atualização
+autônoma do shell/instalador, assinatura da distribuição pública ou paridade
+final com o USB. Nenhuma rota Git deve ser introduzida para o Stable/MVP;
+essa modalidade permanece no canal assinado já definido no contrato.
+
 ## Boot do Desktop instalado sem servidor de desenvolvimento
 
 O Desktop Windows instalado, quando recebe do Electron um bundle Native

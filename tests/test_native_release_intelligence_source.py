@@ -35,19 +35,25 @@ class NativeIntelligenceGateTests(unittest.TestCase):
         self.fingerprint=digest.hexdigest()
         self.lockfile=self.root/"source-lock.json"
         self.lockfile.write_text(json.dumps(self.lock))
+        self.wrapper_bodies=compose.load_wrappers(HERE)
+        for wrapper_name in compose.WRAPPER_FILES.values():
+            src=HERE/"system/services/intelligence-source/wrappers"/wrapper_name
+            dest=self.system/"services/intelligence-source/wrappers"/wrapper_name
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            dest.write_bytes(src.read_bytes())
         self.receipt={
             "$schema":"ordax.intelligence-disposable-composition/1",
             "source_repository":compose.source.REPO,
             "source_commit":self.lock["source_commit"],
             "source_sha256":self.fingerprint,
-            "replaced_services":sorted(compose.WRAPPERS),
+            "replaced_services":sorted(compose.WRAPPER_FILES),
             "legacy_implementation_bytes_packaged":False,
             "os_checkout_mutated":False,
             "activation_authorized":False,
             "surface_ownership_unchanged":True,
             "memory_ownership_unchanged":True,
         }
-        for name,body in compose.WRAPPERS.items():
+        for name,body in self.wrapper_bodies.items():
             file=self.root/"candidate"/name
             file.parent.mkdir(parents=True,exist_ok=True)
             file.write_text(body)
@@ -59,6 +65,22 @@ class NativeIntelligenceGateTests(unittest.TestCase):
 
     def check(self):
         return native.verify_external_intelligence_system(self.system,lock_path=self.lockfile)
+
+    def test_compositor_loads_bridges_from_supplied_os_tree_only(self):
+        alternate=self.root/"separate-os"
+        templates=alternate/"system/services/intelligence-source/wrappers"
+        templates.mkdir(parents=True)
+        for name in compose.WRAPPER_FILES.values():
+            original=(HERE/"system/services/intelligence-source/wrappers"/name).read_text(encoding="utf-8")
+            (templates/name).write_text(original+"\n// from isolated OS input\n", encoding="utf-8")
+        bridges=compose.load_wrappers(alternate)
+        self.assertEqual(set(bridges), set(compose.WRAPPER_FILES))
+        for target in compose.WRAPPER_FILES:
+            self.assertEqual(bridges[target],self.wrapper_bodies[target]+"\n// from isolated OS input\n")
+        (templates/"model-router.mjs").unlink()
+        (templates/"model-router.mjs").symlink_to("intelligence-runtime.mjs")
+        with self.assertRaisesRegex(compose.CompositionError,"missing or linked"):
+            compose.load_wrappers(alternate)
 
     def test_exact_pinned_source_and_canonical_wrappers_pass(self):
         self.assertEqual(self.check(),self.receipt)
@@ -79,6 +101,16 @@ class NativeIntelligenceGateTests(unittest.TestCase):
         file=self.root/"candidate/system/services/intelligence/runtime.mjs"
         file.write_text(file.read_text()+"\nconst oldEngine = true;\n")
         with self.assertRaisesRegex(native.AssemblyError,"legacy implementation"):
+            self.check()
+
+    def test_altered_input_template_cannot_authorize_its_own_wrapper(self):
+        name="intelligence-runtime.mjs"
+        template=self.system/"services/intelligence-source/wrappers"/name
+        target=self.system/"services/intelligence/runtime.mjs"
+        modified=template.read_text(encoding="utf-8")+"\n// injected duplicate authority\n"
+        template.write_text(modified,encoding="utf-8")
+        target.write_text(modified,encoding="utf-8")
+        with self.assertRaisesRegex(native.AssemblyError,"drifted from trusted"):
             self.check()
 
     def test_fake_receipt_and_missing_receipt_are_rejected(self):

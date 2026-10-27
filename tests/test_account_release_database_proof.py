@@ -19,7 +19,7 @@ class AccountReleaseDatabaseProofTests(unittest.TestCase):
 
     def valid_proof(self):
         return {
-            "$schema": "prototype-ordax.control-plane-privilege-proof/4",
+            "$schema": "prototype-ordax.control-plane-privilege-proof/5",
             "provider": "supabase-postgres",
             "project_ref": "redacted",
             "project_binding": MODULE.project_binding(
@@ -40,8 +40,10 @@ class AccountReleaseDatabaseProofTests(unittest.TestCase):
                 "no_service_role_user_sync_rpc_execute": True,
                 "no_app_role_sync_sequence_privilege": True,
                 "no_unexpected_authenticated_write_grants": True,
-                "no_authenticated_private_schema_usage": True,
-                "no_authenticated_private_function_execute": True,
+                "authenticated_private_schema_rls_usage": True,
+                "no_authenticated_private_schema_create": True,
+                "authenticated_private_helpers_exact": True,
+                "authenticated_private_rls_dependencies_exact": True,
             },
             "observed": {
                 "anon_table_grant_count": 0,
@@ -49,8 +51,12 @@ class AccountReleaseDatabaseProofTests(unittest.TestCase):
                 "public_function_execute_count": 0,
                 "unsafe_security_definer_search_path_count": 0,
                 "anon_private_schema_usage": False,
-                "authenticated_private_schema_usage": False,
-                "authenticated_private_function_execute_count": 0,
+                "authenticated_private_schema_usage": True,
+                "authenticated_private_schema_create": False,
+                "authenticated_private_function_execute_count": 5,
+                "unexpected_authenticated_private_function_execute_count": 0,
+                "authenticated_private_rls_dependency_count": 15,
+                "unexpected_authenticated_private_rls_dependency_count": 0,
                 "private_cloud_storage_rls_enabled_count": 2,
                 "authenticated_sync_table_grant_count": 0,
                 "service_role_sync_table_grant_count": 0,
@@ -131,18 +137,31 @@ class AccountReleaseDatabaseProofTests(unittest.TestCase):
         self.assertIn("database-proof-sync_policies_executor_only", blockers)
         self.assertIn("database-proof-sync_policy_count", blockers)
 
-    def test_private_application_surface_blocks_release(self):
-        proof = self.valid_proof()
-        proof["checks"]["no_authenticated_private_schema_usage"] = False
-        proof["checks"]["no_authenticated_private_function_execute"] = False
-        proof["observed"]["authenticated_private_schema_usage"] = True
-        proof["observed"]["authenticated_private_function_execute_count"] = 2
-        proof["ready"] = False
-        blockers = self.validate(proof)
-        self.assertIn("database-proof-no_authenticated_private_schema_usage", blockers)
-        self.assertIn("database-proof-no_authenticated_private_function_execute", blockers)
-        self.assertIn("database-proof-authenticated-private-schema-usage", blockers)
-        self.assertIn("database-proof-authenticated_private_function_execute_count", blockers)
+    def test_unreviewed_private_helper_or_policy_fails_closed(self):
+        for counter, check in (
+            ("unexpected_authenticated_private_function_execute_count", "authenticated_private_helpers_exact"),
+            ("unexpected_authenticated_private_rls_dependency_count", "authenticated_private_rls_dependencies_exact"),
+        ):
+            proof = self.valid_proof()
+            proof["checks"][check] = False
+            proof["observed"][counter] = 1
+            proof["ready"] = False
+            blockers = self.validate(proof)
+            self.assertIn("database-proof-" + check, blockers)
+            self.assertIn("database-proof-" + counter, blockers)
+
+    def test_private_rls_schema_create_or_usage_drift_blocks_release(self):
+        for flag, expected, check, suffix in (
+            ("authenticated_private_schema_create", True, "no_authenticated_private_schema_create",
+             "database-proof-authenticated-private-schema-create"),
+            ("authenticated_private_schema_usage", False, "authenticated_private_schema_rls_usage",
+             "database-proof-authenticated-private-schema-rls-usage"),
+        ):
+            proof = self.valid_proof()
+            proof["checks"][check] = False
+            proof["observed"][flag] = expected
+            proof["ready"] = False
+            self.assertIn(suffix, self.validate(proof))
 
     def test_private_cloud_storage_rls_gap_blocks_release(self):
         proof = self.valid_proof()

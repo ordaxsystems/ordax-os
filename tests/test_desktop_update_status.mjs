@@ -87,7 +87,7 @@ test("staged source, active source and pinned rollback produce real canonical ph
   assert.equal(staged.sourceSha,a);
   assert.equal(staged.targetSha,b);
   assert.equal(staged.status,"updating");
-  assert.equal(staged.phase,"validating");
+  assert.equal(staged.phase,"activating","verified staged source waits only for safe health-gated relaunch");
   assert.equal(staged.deliveryNumber,0);
   assert.equal(staged.applyMode,"surface-restart");
   assert.equal(projectDesktopUpdateState({...state,attemptedSha:b}).phase,"health-wait");

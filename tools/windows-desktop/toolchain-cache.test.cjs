@@ -6,7 +6,7 @@ const {join}=require('node:path');
 const {tmpdir}=require('node:os');
 const {createHash}=require('node:crypto');
 const {spawnSync}=require('node:child_process');
-const {archiveReceipt,ensureRuntimeToolchain,ensureRuntimeToolchainIsolated,calculateTreeDigest}=require('./toolchain-cache.cjs');
+const {archiveReceipt,ensureRuntimeToolchain,ensureRuntimeToolchainIsolated,calculateTreeDigest,calculateTreeDigestConcurrent}=require('./toolchain-cache.cjs');
 const hash=data=>createHash('sha256').update(data).digest('hex');
 const run=(args)=>{
   const p=spawnSync('tar',args,{encoding:'utf8',windowsHide:true,timeout:15000});
@@ -46,6 +46,53 @@ test('exact offline compiler archive is SHA verified, extracted outside Program 
   assert.equal(readdirSync(join(f.profile,'runtime-toolchains')).length,1);
   assert.equal(existsSync(join(f.template,'node_modules')),false);
 });
+test('same verified compiler tree reuses cache after installer archive repackaging',t=>{
+  const f=fixture(t);
+  const first=ensureRuntimeToolchain(f.template,f.profile);
+  const before=f.receipt.archive_sha256;
+  // A different tar header timestamp changes the archive hash, but not the
+  // canonical compiler file bytes or their tree digest.
+  const source=join(f.root,'build','node_modules','vite','bin','vite.js');
+  const old=new Date('2000-01-01T00:00:00Z');
+  utimesSync(source,old,old);
+  run(['-czf',f.archive,'-C',join(f.root,'build'),'node_modules']);
+  const bytes=readFileSync(f.archive);
+  const next=hash(bytes);
+  assert.notEqual(next,before);
+  writeFileSync(join(f.template,'toolchain','toolchain-receipt.json'),
+    JSON.stringify({...f.receipt,archive_sha256:next,archive_size:bytes.length}));
+  const reused=ensureRuntimeToolchain(f.template,f.profile);
+  assert.equal(reused,first,'repacked archive must not trigger another extraction');
+  assert.equal(readdirSync(join(f.profile,'runtime-toolchains')).length,1);
+  assert.equal(calculateTreeDigest(reused),f.receipt.tree_sha256);
+});
+
+test('concurrent NTFS verifier preserves byte-for-byte deterministic tree digest',async t=>{
+  const f=fixture(t);
+  const tree=join(f.root,'build','node_modules');
+  assert.equal(await calculateTreeDigestConcurrent(tree),calculateTreeDigest(tree));
+  assert.equal(await calculateTreeDigestConcurrent(tree,{concurrency:1}),f.receipt.tree_sha256);
+  assert.equal(await calculateTreeDigestConcurrent(tree,{concurrency:8}),f.receipt.tree_sha256);
+  await assert.rejects(calculateTreeDigestConcurrent(tree,{concurrency:0}),/concurrency/);
+});
+
+test('isolated worker reuses repacked and rehashes every file before allowing execution',async t=>{
+  const f=fixture(t);
+  const first=ensureRuntimeToolchain(f.template,f.profile);
+  utimesSync(join(f.root,'build','node_modules','vite','bin','vite.js'),
+    new Date('2000-01-01T00:00:00Z'),new Date('2000-01-01T00:00:00Z'));
+  run(['-czf',f.archive,'-C',join(f.root,'build'),'node_modules']);
+  const bytes=readFileSync(f.archive),next=hash(bytes);
+  assert.notEqual(next,f.receipt.archive_sha256);
+  writeFileSync(join(f.template,'toolchain','toolchain-receipt.json'),
+    JSON.stringify({...f.receipt,archive_sha256:next,archive_size:bytes.length}));
+  assert.equal(await ensureRuntimeToolchainIsolated(f.template,f.profile),first);
+  writeFileSync(join(first,'vite','bin','vite.js'),'tampered');
+  const repaired=await ensureRuntimeToolchainIsolated(f.template,f.profile);
+  assert.notEqual(repaired,first,'a modified legacy tree must never be reused');
+  assert.equal(calculateTreeDigest(repaired),f.receipt.tree_sha256);
+});
+
 test('tampered archive fails closed before creating a compiler cache',t=>{
   const f=fixture(t);
   writeFileSync(f.archive,Buffer.concat([readFileSync(f.archive),Buffer.from('tamper')]));
@@ -63,6 +110,15 @@ test('legacy canonical expanded compiler remains supported during rollback',t=>{
   mkdirSync(join(f.template,'node_modules','vite'),{recursive:true});
   const legacy=ensureRuntimeToolchain(f.template,f.profile);
   assert.equal(legacy,join(f.template,'node_modules'));
+  assert.equal(existsSync(join(f.profile,'runtime-toolchains')),false);
+});
+
+test('isolated worker retains unpacked legacy compiler without archive metadata',async t=>{
+  const f=fixture(t);
+  const legacy=join(f.template,'node_modules');
+  mkdirSync(join(legacy,'vite'),{recursive:true});
+  rmSync(join(f.template,'toolchain'),{recursive:true,force:true});
+  assert.equal(await ensureRuntimeToolchainIsolated(f.template,f.profile),legacy);
   assert.equal(existsSync(join(f.profile,'runtime-toolchains')),false);
 });
 

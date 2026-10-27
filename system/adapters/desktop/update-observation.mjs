@@ -68,9 +68,9 @@ export function projectDesktopUpdateState(journal, {
       : pinned ? "pinned" : pending ? "updating" : rejected ? "rejected"
       : running ? "running" : "unavailable",
     phase: activeMismatch ? "error"
-      : pending ? (failedAttempt ? "health-wait" : "validating")
+      : pending ? (failedAttempt ? "health-wait" : "activating")
       : pinned || rejected || incompatible || !running ? "blocked" : "idle",
-    applyMode: "surface-restart", // Windows activates a staged version only at next application boot.
+    applyMode: "surface-restart", // The safe automatic Electron relaunch performs a one-shot Native health trial.
     updateTransport: journal ? "git-main" : "unavailable",
     checkedAt,
     bootRefreshRequired: false, // Windows shell restart is not the Linux Base/UEFI refresh.
