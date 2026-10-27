@@ -158,7 +158,7 @@ class ReleaseCandidateGateTests(unittest.TestCase):
                 jobs = "\n" + workflow.split("\njobs:\n", 1)[1]
                 section = jobs.split("\n  " + job + ":\n", 1)[1]
                 section = re.split(
-                    r"(?m)^  [A-Za-z][\\w-]*:\\s*$", section, maxsplit=1
+                    r"(?m)^  [A-Za-z][\w-]*:\s*$", section, maxsplit=1
                 )[0]
                 self.assertIn("    concurrency:\n", section)
                 self.assertIn(expected, section)
