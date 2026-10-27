@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import argparse
 import codecs
+import fcntl
 import hashlib
 import json
 import os
@@ -458,7 +459,74 @@ def erofs_identity(image: Path) -> dict[str, str]:
     return values
 
 
-def build(out_dir: Path, cache_dir: Path, jobs: int) -> dict:
+PERSISTENT_WORKSPACE_SCHEMA = "prototype-ordax.surface-buildroot-workspace/1"
+PERSISTENT_WORKSPACE_INPUTS = (
+    HERE / "build.py",
+    HERE / "prepare_config.py",
+    SOURCE,
+    BASE_SOURCE,
+    ROOT / "bootstrap/kernel/source.json",
+    CONFIG,
+)
+
+
+def workspace_identity(base: dict) -> dict:
+    """A Buildroot output tree is reusable only with identical native inputs.
+
+    Do not include Surface UI/Internet application source: those are injected
+    into the composition outside this immutable graphical EROFS build.
+    """
+    return {
+        "$schema": PERSISTENT_WORKSPACE_SCHEMA,
+        "buildroot_version": base["buildroot"]["version"],
+        "buildroot_archive_sha256": base["buildroot"]["sha256"],
+        "environment": os.environ.get("ORDAX_COMPONENT_CACHE_ENVIRONMENT", "local-unpinned"),
+        "inputs": {
+            path.relative_to(ROOT).as_posix(): sha256_file(path)
+            for path in PERSISTENT_WORKSPACE_INPUTS
+        },
+    }
+
+
+def materialize_surface_workspace(archive: Path, base: dict, work: Path) -> Path:
+    """Create once, or resume at exactly the original absolute workspace path.
+
+    Interrupted extraction without a sealed marker is never silently trusted.
+    A mismatched input or runner environment must be explicitly rebuilt in a
+    different fingerprinted workspace; there is no implicit destructive clean.
+    """
+    record = workspace_identity(base)
+    marker = work / ".ordax-surface-workspace.json"
+    if marker.is_symlink():
+        raise SurfaceBuildError("persistent Surface workspace receipt is unsafe")
+    version = base["buildroot"]["version"]
+    source = work / f"buildroot-{version}"
+    if marker.exists():
+        if not marker.is_file():
+            raise SurfaceBuildError("persistent Surface workspace receipt is invalid")
+        try:
+            stored = json.loads(marker.read_text(encoding="utf-8"))
+        except (OSError, ValueError) as exc:
+            raise SurfaceBuildError("persistent Surface workspace receipt is corrupt") from exc
+        if stored != record:
+            raise SurfaceBuildError("persistent Surface workspace native inputs changed")
+        if source.is_symlink() or not (source / "Makefile").is_file():
+            raise SurfaceBuildError("persistent Surface Buildroot source tree is incomplete")
+        return source
+    if any(path.name != ".ordax-workspace.lock" for path in work.iterdir()):
+        raise SurfaceBuildError("unsealed persistent Surface workspace cannot be resumed")
+    source = safe_unpack(archive, work, version)
+    staged = work / ".ordax-surface-workspace.json.tmp"
+    with staged.open("x", encoding="utf-8") as stream:
+        json.dump(record, stream, indent=2, sort_keys=True)
+        stream.write("\n")
+        stream.flush()
+        os.fsync(stream.fileno())
+    staged.replace(marker)
+    return source
+
+
+def build(out_dir: Path, cache_dir: Path, jobs: int, *, persistent_work_dir: Path | None = None) -> dict:
     source, base = contracts()
     if platform.system() != "Linux" or platform.machine().lower() not in {"x86_64", "amd64"}:
         raise SurfaceBuildError("Buildroot Surface candidate requires x86_64 Linux builder")
@@ -477,11 +545,40 @@ def build(out_dir: Path, cache_dir: Path, jobs: int) -> dict:
     out_dir.mkdir(parents=True, exist_ok=True)
     cache_dir.mkdir(parents=True, exist_ok=True)
 
-    work = Path(tempfile.mkdtemp(prefix="ordax-independent-surface-"))
+    transient = persistent_work_dir is None
+    if transient:
+        work = Path(tempfile.mkdtemp(prefix="ordax-independent-surface-"))
+    else:
+        work = Path(persistent_work_dir).absolute()
+        if work.is_symlink():
+            raise SurfaceBuildError("persistent Surface workspace cannot be a symlink")
+        work = work.resolve(strict=False)
+        if work == out_dir or work == cache_dir or out_dir in work.parents or cache_dir in work.parents:
+            raise SurfaceBuildError("persistent Surface workspace must be separate from artifacts and cache")
+    lock_fd = None
     try:
+        if not transient:
+            if work.is_symlink() or (work.exists() and not work.is_dir()):
+                raise SurfaceBuildError("persistent Surface workspace path is unsafe")
+            if work == ROOT or ROOT in work.parents:
+                raise SurfaceBuildError("persistent workspace cannot write into the OS source")
+            work.mkdir(parents=True, exist_ok=True, mode=0o700)
+            lock_file = work / ".ordax-workspace.lock"
+            if lock_file.is_symlink():
+                raise SurfaceBuildError("persistent workspace lock is unsafe")
+            lock_fd = os.open(lock_file, os.O_WRONLY | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0), 0o600)
+            try:
+                fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError as exc:
+                raise SurfaceBuildError("persistent Surface workspace is already building") from exc
         archive = source_archive(base, cache_dir)
         buildroot = base["buildroot"]
-        tree = safe_unpack(archive, work, buildroot["version"])
+        # The dedicated workspace is prepared under its exclusive advisory
+        # lock below. Never switch Buildroot's O= absolute path on resume.
+        if transient:
+            tree = safe_unpack(archive, work, buildroot["version"])
+        else:
+            tree = materialize_surface_workspace(archive, base, work)
         build_dir = work / "build"
         # The SSOT defconfig must stay immutable: resolve kernel headers into
         # a disposable build input, not into the checked-in source or cache key.
@@ -561,7 +658,10 @@ def build(out_dir: Path, cache_dir: Path, jobs: int) -> dict:
         destination.write_text(json.dumps(provenance, indent=2, sort_keys=True) + "\n", encoding="utf-8")
         return provenance
     finally:
-        shutil.rmtree(work, ignore_errors=True)
+        if lock_fd is not None:
+            os.close(lock_fd)
+        if transient:
+            shutil.rmtree(work, ignore_errors=True)
 
 
 def verify(out_dir: Path) -> dict:
@@ -616,6 +716,7 @@ def main() -> int:
     build_parser.add_argument("--out", type=Path, required=True)
     build_parser.add_argument("--cache", type=Path, required=True)
     build_parser.add_argument("--jobs", type=int, default=max(1, min(4, os.cpu_count() or 1)))
+    build_parser.add_argument("--work-dir", type=Path, help="Optional trusted persistent native Buildroot O= workspace")
     verify_parser = sub.add_parser("verify")
     verify_parser.add_argument("--out", type=Path, required=True)
     args = parser.parse_args()
@@ -623,7 +724,7 @@ def main() -> int:
         if args.command == "check":
             check()
         elif args.command == "build":
-            print(json.dumps(build(args.out, args.cache, args.jobs), sort_keys=True))
+            print(json.dumps(build(args.out, args.cache, args.jobs, persistent_work_dir=args.work_dir), sort_keys=True))
         elif args.command == "verify":
             print(json.dumps(verify(args.out), sort_keys=True))
         return 0

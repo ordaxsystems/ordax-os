@@ -194,3 +194,31 @@ com suas provas registradas.
 **Não aplicar este plano no meio de uma compilação ativa.** Introduzi-lo
 quando a rodada em execução terminar, evitando reiniciar mais 49 workflows
 para corrigir o próprio scheduler.
+
+## Retomada Buildroot em executor persistente (opt-in seguro)
+
+O runtime usa um Buildroot `O=` absoluto; `ccache` isoladamente não é
+checkpoint do grafo de dependências. O builder agora aceita
+`--work-dir /caminho/estavel/<fingerprint>`, retendo a árvore de build
+e seus stamps entre tentativas **somente quando o próprio executor mantém o
+mesmo filesystem no mesmo caminho absoluto**. Um recibo local contém
+SHA-256 de todos os inputs nativos, versão/hash do Buildroot e identidade
+completa do runner. Workspaces com recibo ausente, alterado, link simbólico,
+fonte incompleta ou com outro fingerprint falham fechados. `flock` impede
+dois produtores simultâneos; o builder não apaga trabalho incompleto nem
+finge reconstrução concluída. Artefatos EROFS continuam tendo suas próprias
+provas de filesystem, digest, inventário e provenance.
+
+Para usar um executor dedicado de confiança, configure as variáveis do
+repositório `ORDAX_SURFACE_RUNNER_LABEL` (label da máquina Linux x86_64
+habilitada) e `ORDAX_SURFACE_PERSISTENT_WORK_ROOT` (diretório absoluto em
+disco permanente acessível ao mesmo usuário, fora do checkout). Os workflows
+mantêm `ubuntu-24.04` como fallback, mas esse executor hospedado é descartável:
+**configurar apenas o diretório não torna seu armazenamento persistente**.
+A versão da imagem do runner já participa do fingerprint; trocar toolchain,
+Buildroot, kernel, config ou script invalidará a retomada. Sem prova EROFS/
+QEMU do candidato, não há promoção Stable nem instalação USB autorizada.
+
+O paralelismo usa `ORDAX_SURFACE_BUILD_JOBS` (inteiro de 1 a 64, padrão 4);
+não há aumento implícito de consumo de memória. Em executor com mais CPU/RAM,
+ajuste esse valor após medir memória disponível e picos da compilação WebKit.

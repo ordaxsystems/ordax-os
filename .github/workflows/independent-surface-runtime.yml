@@ -110,7 +110,9 @@ jobs:
   buildroot-surface:
     needs: [contract, impact]
     if: needs.impact.outputs.required == 'true' && (github.event_name != 'pull_request' || !github.event.pull_request.draft)
-    runs-on: ubuntu-24.04
+    # A dedicated long-lived x86_64 runner may be opted in without changing
+    # the component contract; default stays hosted and disposable.
+    runs-on: ${{ vars.ORDAX_SURFACE_RUNNER_LABEL || 'ubuntu-24.04' }}
     timeout-minutes: 360
     # One actual EROFS producer for one exact source revision across both
     # Creator and Independent Surface workflows; don't compile it twice.
@@ -218,11 +220,32 @@ jobs:
           ORDAX_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
           BR2_CCACHE_DIR: ${{ runner.temp }}/ordax-independent-surface-ccache
           BR2_DL_DIR: ${{ runner.temp }}/ordax-independent-surface-dl
+        env:
+          # Only trusted dedicated executors with persistent disks set this.
+          # Standard GitHub-hosted runners retain their ephemeral behavior.
+          ORDAX_SURFACE_PERSISTENT_WORK_ROOT: ${{ vars.ORDAX_SURFACE_PERSISTENT_WORK_ROOT }}
+          ORDAX_SURFACE_BUILD_JOBS: ${{ vars.ORDAX_SURFACE_BUILD_JOBS || '4' }}
         run: |
+          set -euo pipefail
+          work_args=()
+          if [ -n "${ORDAX_SURFACE_PERSISTENT_WORK_ROOT:-}" ]; then
+            case "$ORDAX_SURFACE_PERSISTENT_WORK_ROOT" in
+              /*) ;;
+              *) echo "::error::Surface persistent work root must be absolute" >&2; exit 1 ;;
+            esac
+            work_args=(--work-dir "$ORDAX_SURFACE_PERSISTENT_WORK_ROOT/${{ steps.surface-artifact-fingerprint.outputs.fingerprint }}")
+          fi
+          case "$ORDAX_SURFACE_BUILD_JOBS" in
+            ''|*[!0-9]*) echo "::error::Invalid Surface parallel job count" >&2; exit 1 ;;
+          esac
+          if [ "$ORDAX_SURFACE_BUILD_JOBS" -lt 1 ] || [ "$ORDAX_SURFACE_BUILD_JOBS" -gt 64 ]; then
+            echo "::error::Surface parallel build jobs must be 1..64" >&2
+            exit 1
+          fi
           python3 bootstrap/surface-runtime/build.py build \
             --out "$RUNNER_TEMP/ordax-independent-surface" \
             --cache "$RUNNER_TEMP/ordax-independent-surface-cache" \
-            --jobs 4
+            --jobs "$ORDAX_SURFACE_BUILD_JOBS" "${work_args[@]}"
 
       - name: Verify exact Independent Surface EROFS bytes
         run: |

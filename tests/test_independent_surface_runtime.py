@@ -7,6 +7,7 @@ import tarfile
 import tempfile
 import sys
 import unittest
+from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[1]
 BUILDER_PATH = ROOT / "bootstrap/surface-runtime/build.py"
@@ -86,6 +87,58 @@ class IndependentSurfaceRuntimeTests(unittest.TestCase):
                 )
         self.assertIn("COMPILER_FAILED", failure.getvalue())
         self.assertIn("COMPILER_FAILED", str(raised.exception))
+
+    def test_persistent_buildroot_workspace_resume_uses_exact_native_inputs(self):
+        builder = self.builder
+        with tempfile.TemporaryDirectory() as td:
+            work = Path(td) / "native-buildroot"
+            archive = Path(td) / "fake-pinned-source.tar.xz"
+            archive.write_bytes(b"test-only")
+            _, base = builder.contracts()
+            extraction_count = []
+
+            def fake_extract(_archive, where, version):
+                extraction_count.append(1)
+                path = where / f"buildroot-{version}"
+                path.mkdir()
+                (path / "Makefile").write_text("all:\n\t@true\n", encoding="utf-8")
+                return path
+
+            with mock.patch.object(builder, "safe_unpack", side_effect=fake_extract):
+                first = builder.materialize_surface_workspace(archive, base, work)
+                self.assertTrue((first / "Makefile").exists())
+                self.assertEqual(
+                    builder.materialize_surface_workspace(archive, base, work), first
+                )
+                self.assertEqual(len(extraction_count), 1)
+                with mock.patch.object(builder, "workspace_identity", return_value={"modified": True}):
+                    with self.assertRaisesRegex(builder.SurfaceBuildError, "inputs changed"):
+                        builder.materialize_surface_workspace(archive, base, work)
+
+    def test_incomplete_or_symlinked_workspace_is_rejected_without_cleanup(self):
+        builder = self.builder
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            work = root / "incomplete"
+            work.mkdir()
+            (work / "incomplete-build").write_text("preserve", encoding="utf-8")
+            _, base = builder.contracts()
+            with self.assertRaisesRegex(builder.SurfaceBuildError, "unsealed"):
+                builder.materialize_surface_workspace(root / "dummy", base, work)
+            self.assertTrue((work / "incomplete-build").exists())
+            marker = work / ".ordax-surface-workspace.json"
+            marker.symlink_to(work / "incomplete-build")
+            with self.assertRaisesRegex(builder.SurfaceBuildError, "unsafe"):
+                builder.materialize_surface_workspace(root / "dummy", base, work)
+
+    def test_builder_exposes_opt_in_persistent_workspace_without_changing_ephemeral_default(self):
+        source = BUILDER_PATH.read_text(encoding="utf-8")
+        self.assertIn('build_parser.add_argument("--work-dir"', source)
+        self.assertIn('persistent_work_dir=args.work_dir', source)
+        self.assertIn('if transient:', source)
+        self.assertIn('if lock_fd is not None:', source)
+        self.assertIn('fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)', source)
+        self.assertIn('if transient:\n            shutil.rmtree(work, ignore_errors=True)', source)
 
     def test_buildroot_has_a_bounded_group_timeout_before_ci_job_deadline(self):
         source = BUILDER_PATH.read_text(encoding="utf-8")
