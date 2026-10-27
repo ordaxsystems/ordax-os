@@ -52,6 +52,16 @@ def validated_environment(value: str, label: str = "cache environment") -> str:
     value = value.strip()
     if not value or "\n" in value or "\r" in value or len(value) > 256:
         raise CacheError(f"invalid {label}")
+    # Runner OS/arch alone are insufficient: the GitHub-hosted image version
+    # is part of the exact cache identity. A workflow-level env.ImageOS lookup
+    # used to interpolate to empty strings, silently minting Linux/X64//.
+    # Reject that identity on both build and restore instead of trusting a
+    # cached EROFS whose effective build environment was not recorded.
+    parts = value.split("/")
+    if parts[0] in {"Linux", "Windows", "macOS"} and (
+        len(parts) != 4 or not all(parts)
+    ):
+        raise CacheError(f"incomplete runner image identity in {label}")
     return value
 
 
