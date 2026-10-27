@@ -56,6 +56,23 @@ class OwnerSurfaceCacheContractTests(unittest.TestCase):
         self.assertIn("python3 " + CACHE + " record", producer)
         self.assertIn('--cache-hit "$reused"', producer)
 
+
+    def test_creator_validates_graphical_artifact_before_native_heavy_work(self):
+        """A missing Surface cache must not waste hours building Base/kernel."""
+        workflow = OWNER.read_text(encoding="utf-8")
+        positions = [
+            workflow.index("- name: Install build dependencies"),
+            workflow.index("- name: Resolve independent Surface artifact fingerprint for Owner"),
+            workflow.index("- name: Restore exact verified Surface EROFS for Owner"),
+            workflow.index("- name: Consume verified canonical offline Surface runtime"),
+            workflow.index("- name: Build kernel candidate on verified cache miss"),
+            workflow.index("- name: Build boot initramfs and Git development base"),
+            workflow.index("- name: Assemble boot payload and overlay Git development base"),
+        ]
+        self.assertEqual(positions, sorted(positions))
+        self.assertIn("Canonical Surface EROFS missing", workflow)
+        self.assertNotIn("bootstrap/surface-runtime/build.py build", workflow)
+
     def test_compiler_objects_survive_source_config_change(self):
         for path in (SURFACE,):
             text = path.read_text(encoding="utf-8")

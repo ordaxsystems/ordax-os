@@ -243,6 +243,78 @@ jobs:
             gawk cpio unzip rsync file wget curl patch gettext
           python -m pip install --disable-pip-version-check --no-cache-dir jinja2 pyelftools
 
+      # Fail fast before boot/initramfs, kernel and Owner Base builds when the
+      # single producer has not delivered a verified EROFS. No WebKit rebuild
+      # is allowed in this Creator job and no provenance may be rewritten.
+      - name: Resolve independent Surface artifact fingerprint for Owner
+        id: owner-surface-fingerprint
+        run: |
+          set -euo pipefail
+          test -n "${ImageOS:-}"
+          test -n "${ImageVersion:-}"
+          export ORDAX_COMPONENT_CACHE_ENVIRONMENT="${RUNNER_OS:?}/${RUNNER_ARCH:?}/${ImageOS}/${ImageVersion}"
+          printf 'ORDAX_COMPONENT_CACHE_ENVIRONMENT=%s\n' "$ORDAX_COMPONENT_CACHE_ENVIRONMENT" >> "$GITHUB_ENV"
+          python3 tools/ci/independent_surface_component_cache.py fingerprint --github-output "$GITHUB_OUTPUT"
+
+      - name: Restore exact verified Surface EROFS for Owner
+        id: owner-surface-artifact-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/ordax-independent-surface
+          key: ordax-independent-surface-artifact-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.owner-surface-fingerprint.outputs.fingerprint }}
+
+      - name: Restore verified Surface EROFS from durable R2 for Owner
+        id: owner-surface-r2
+        if: steps.owner-surface-artifact-cache.outputs.cache-hit != 'true'
+        env:
+          ORDAX_R2_ACCOUNT_ID: '42586bf13b61436219d21def299833e4'
+          ORDAX_R2_BUCKET: 'ordax-device-artifacts'
+          ORDAX_R2_ACCESS_KEY_ID: ${{ secrets.ORDAX_R2_ACCESS_KEY_ID }}
+          ORDAX_R2_SECRET_ACCESS_KEY: ${{ secrets.ORDAX_R2_SECRET_ACCESS_KEY }}
+          ORDAX_SURFACE_FINGERPRINT: ${{ steps.owner-surface-fingerprint.outputs.fingerprint }}
+          ORDAX_SOURCE_COMMIT: ${{ env.ORDAX_OWNER_SOURCE_COMMIT }}
+        run: bash tools/ci/independent_surface_r2.sh restore
+
+      # The Creator consumes only a preverified content-addressed artifact.
+      # Compiler/download caches belong exclusively to the Surface producer.
+      - name: Consume verified canonical offline Surface runtime
+        id: owner-surface-build
+        run: |
+          set -euo pipefail
+          out="$RUNNER_TEMP/ordax-independent-surface"
+          if [ '${{ steps.owner-surface-artifact-cache.outputs.cache-hit }}' != true ] &&
+             [ '${{ steps.owner-surface-r2.outputs.hit }}' != true ]; then
+            echo "::error title=Canonical Surface EROFS missing::Run Independent Surface Runtime producer for the exact fingerprint before Creator. Never compile WebKit in the Creator consumer." >&2
+            exit 1
+          fi
+          python3 tools/ci/independent_surface_component_cache.py verify \
+            --out "$out" --integration-commit "$ORDAX_OWNER_SOURCE_COMMIT" \
+            --cache-hit true --consumer \
+            --receipt "$RUNNER_TEMP/owner-surface-cache-inspection.json"
+          echo 'OWNER_SURFACE_RUNTIME_SOURCE=verified-content-addressed-cache'
+          python3 bootstrap/surface-runtime/build.py verify --out "$out"
+          mkdir -p "$RUNNER_TEMP/owner-dev-surface-runtime"
+          cp -a "$out/." "$RUNNER_TEMP/owner-dev-surface-runtime/"
+          python3 bootstrap/surface-runtime/build.py verify \
+            --out "$RUNNER_TEMP/owner-dev-surface-runtime"
+
+      - name: Save verified Owner Surface EROFS to shared artifact cache
+        if: steps.owner-surface-build.outcome == 'success' && steps.owner-surface-artifact-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/ordax-independent-surface
+          key: ordax-independent-surface-artifact-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.owner-surface-fingerprint.outputs.fingerprint }}
+
+      - name: Ensure verified Owner Surface exists in durable R2 store
+        if: steps.owner-surface-build.outcome == 'success' && steps.owner-surface-r2.outputs.hit != 'true'
+        env:
+          ORDAX_R2_ACCOUNT_ID: '42586bf13b61436219d21def299833e4'
+          ORDAX_R2_BUCKET: 'ordax-device-artifacts'
+          ORDAX_R2_ACCESS_KEY_ID: ${{ secrets.ORDAX_R2_ACCESS_KEY_ID }}
+          ORDAX_R2_SECRET_ACCESS_KEY: ${{ secrets.ORDAX_R2_SECRET_ACCESS_KEY }}
+          ORDAX_SURFACE_FINGERPRINT: ${{ steps.owner-surface-fingerprint.outputs.fingerprint }}
+        run: bash tools/ci/independent_surface_r2.sh publish
+
       - name: Prove Owner USB ext4 alias sealing in isolated mount namespace
         timeout-minutes: 3
         run: |
@@ -639,79 +711,6 @@ jobs:
           manifest['current_pointer_initial_state'] = 'unset'
           output.write_text(json.dumps(manifest, indent=2) + '\n', encoding='utf-8')
           PY
-
-      # Reuse the exact producer's EROFS only when it belongs to this Owner
-      # source commit; otherwise retain the normal source-bound Buildroot build.
-      # Never rewrite cached provenance or accept a merely matching filename.
-      - name: Resolve independent Surface artifact fingerprint for Owner
-        id: owner-surface-fingerprint
-        run: |
-          set -euo pipefail
-          test -n "${ImageOS:-}"
-          test -n "${ImageVersion:-}"
-          export ORDAX_COMPONENT_CACHE_ENVIRONMENT="${RUNNER_OS:?}/${RUNNER_ARCH:?}/${ImageOS}/${ImageVersion}"
-          printf 'ORDAX_COMPONENT_CACHE_ENVIRONMENT=%s\n' "$ORDAX_COMPONENT_CACHE_ENVIRONMENT" >> "$GITHUB_ENV"
-          python3 tools/ci/independent_surface_component_cache.py fingerprint --github-output "$GITHUB_OUTPUT"
-
-      - name: Restore exact verified Surface EROFS for Owner
-        id: owner-surface-artifact-cache
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ${{ runner.temp }}/ordax-independent-surface
-          key: ordax-independent-surface-artifact-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.owner-surface-fingerprint.outputs.fingerprint }}
-
-      - name: Restore verified Surface EROFS from durable R2 for Owner
-        id: owner-surface-r2
-        if: steps.owner-surface-artifact-cache.outputs.cache-hit != 'true'
-        env:
-          ORDAX_R2_ACCOUNT_ID: '42586bf13b61436219d21def299833e4'
-          ORDAX_R2_BUCKET: 'ordax-device-artifacts'
-          ORDAX_R2_ACCESS_KEY_ID: ${{ secrets.ORDAX_R2_ACCESS_KEY_ID }}
-          ORDAX_R2_SECRET_ACCESS_KEY: ${{ secrets.ORDAX_R2_SECRET_ACCESS_KEY }}
-          ORDAX_SURFACE_FINGERPRINT: ${{ steps.owner-surface-fingerprint.outputs.fingerprint }}
-          ORDAX_SOURCE_COMMIT: ${{ env.ORDAX_OWNER_SOURCE_COMMIT }}
-        run: bash tools/ci/independent_surface_r2.sh restore
-
-      # Both producers use the same Buildroot compiler/download cache keys.
-      # This never reuses a Surface EROFS built for a different source commit:
-      # Creator still verifies the new image and its exact provenance itself.
-      - name: Consume verified canonical offline Surface runtime
-        id: owner-surface-build
-        run: |
-          set -euo pipefail
-          out="$RUNNER_TEMP/ordax-independent-surface"
-          if [ '${{ steps.owner-surface-artifact-cache.outputs.cache-hit }}' != true ] &&
-             [ '${{ steps.owner-surface-r2.outputs.hit }}' != true ]; then
-            echo "::error title=Canonical Surface EROFS missing::Run Independent Surface Runtime producer for the exact fingerprint before Creator. Never compile WebKit in the Creator consumer." >&2
-            exit 1
-          fi
-          python3 tools/ci/independent_surface_component_cache.py verify \
-            --out "$out" --integration-commit "$ORDAX_OWNER_SOURCE_COMMIT" \
-            --cache-hit true --consumer \
-            --receipt "$RUNNER_TEMP/owner-surface-cache-inspection.json"
-          echo 'OWNER_SURFACE_RUNTIME_SOURCE=verified-content-addressed-cache'
-          python3 bootstrap/surface-runtime/build.py verify --out "$out"
-          mkdir -p "$RUNNER_TEMP/owner-dev-surface-runtime"
-          cp -a "$out/." "$RUNNER_TEMP/owner-dev-surface-runtime/"
-          python3 bootstrap/surface-runtime/build.py verify \
-            --out "$RUNNER_TEMP/owner-dev-surface-runtime"
-
-      - name: Save verified Owner Surface EROFS to shared artifact cache
-        if: steps.owner-surface-build.outcome == 'success' && steps.owner-surface-artifact-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ${{ runner.temp }}/ordax-independent-surface
-          key: ordax-independent-surface-artifact-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.owner-surface-fingerprint.outputs.fingerprint }}
-
-      - name: Ensure verified Owner Surface exists in durable R2 store
-        if: steps.owner-surface-build.outcome == 'success' && steps.owner-surface-r2.outputs.hit != 'true'
-        env:
-          ORDAX_R2_ACCOUNT_ID: '42586bf13b61436219d21def299833e4'
-          ORDAX_R2_BUCKET: 'ordax-device-artifacts'
-          ORDAX_R2_ACCESS_KEY_ID: ${{ secrets.ORDAX_R2_ACCESS_KEY_ID }}
-          ORDAX_R2_SECRET_ACCESS_KEY: ${{ secrets.ORDAX_R2_SECRET_ACCESS_KEY }}
-          ORDAX_SURFACE_FINGERPRINT: ${{ steps.owner-surface-fingerprint.outputs.fingerprint }}
-        run: bash tools/ci/independent_surface_r2.sh publish
 
       - name: Assemble boot payload and overlay Git development base
         run: |

@@ -160,6 +160,17 @@ registrar a dependência produtor-consumidor e exigir os gates completos.
   Não mudar o HEAD da PR enquanto o job anterior realiza a compilação,
   evitando interrupção e descarte do esforço já em curso.
 
+## Fail-fast no Creator Owner
+
+O Creator verifica o EROFS assinado por SHA-256, source/fingerprint e recibo de
+proveniência antes de construir kernel, initramfs ou Base Buildroot. Em cache/R2
+miss, falha imediatamente, sem montar payload, disparar QEMU, recompilar WebKit
+ou aceitar fallback. O produtor independente deve concluir primeiro.
+O teste `test_creator_validates_graphical_artifact_before_native_heavy_work`
+impede que futuras mudanças voltem a colocar o consumidor depois de builds
+nativos caros. Essa ordem não substitui o encadeamento automático entre
+workflows, que continua sendo uma melhoria separada.
+
 ## Garantias e limites
 
 O workflow independente `independent-portable-v2-integration.yml` também
