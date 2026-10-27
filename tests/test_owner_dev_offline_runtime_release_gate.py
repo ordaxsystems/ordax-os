@@ -55,13 +55,15 @@ def fixture(stage: Path):
 class OfflineOwnerWelcomeGateTests(unittest.TestCase):
     def test_release_workflow_builds_and_pins_runtime_before_media_materialization(self):
         workflow = (ROOT / ".github/workflows/creator-owner-dev-git.yml").read_text()
-        build = workflow.index("- name: Build and verify one canonical offline Surface runtime")
+        consume = workflow.index("- name: Consume verified canonical offline Surface runtime")
+        native = workflow.index("- name: Build boot initramfs and Git development base")
         overlay = workflow.index('sudo cp -aL out/dev-base/rootfs/. "$stage/ORDAX/dev-base/"')
         seeded = workflow.index('--producer-out "$RUNNER_TEMP/owner-dev-surface-runtime"')
         capabilities = workflow.index("sudo python tools/ci/owner_rootfs_capabilities.py verify-owner-stage")
         media = workflow.index("- name: Materialize and verify RAW development seed")
         geometry = workflow.index('--geometry-out "$RUNNER_TEMP/owner-dev-physical-media.json"')
-        self.assertLess(build, overlay)
+        self.assertLess(consume, native)
+        self.assertLess(native, overlay)
         self.assertLess(overlay, seeded)
         self.assertLess(seeded, capabilities)
         self.assertLess(capabilities, geometry)
@@ -69,6 +71,7 @@ class OfflineOwnerWelcomeGateTests(unittest.TestCase):
         self.assertIn('--contract "$RUNNER_TEMP/owner-dev-physical-media.json"', workflow)
         self.assertIn("bootstrap/surface-runtime/build.py verify", workflow)
         self.assertIn("bootstrap/independent-base/build.py build", workflow)
+        self.assertNotIn("bootstrap/surface-runtime/build.py build", workflow)
         self.assertNotIn("bootstrap/dev-base/build.py", workflow)
         self.assertNotIn("bootstrap/independent-surface-runtime/build.py", workflow)
         self.assertIn(
@@ -85,35 +88,40 @@ class OfflineOwnerWelcomeGateTests(unittest.TestCase):
         self.assertIn('export ORDAX_SOURCE_COMMIT="$ORDAX_OWNER_SOURCE_COMMIT"', growth)
         self.assertIn("assert prepared['source_commit'] == os.environ['ORDAX_OWNER_SOURCE_COMMIT']", growth)
 
-    def test_creator_materializes_kernel_headers_and_reuses_verified_buildroot_compiler_inputs(self):
+    def test_creator_consumes_producer_verified_buildroot_without_rebuilding_webkit(self):
         workflow = (ROOT / ".github/workflows/creator-owner-dev-git.yml").read_text()
-        producer = workflow.index("- name: Build and verify one canonical offline Surface runtime")
-        materialize = workflow.index("bootstrap/surface-runtime/prepare_config.py materialize")
-        builder = workflow.index("bootstrap/surface-runtime/build.py build", producer)
-        verifier = workflow.index("bootstrap/surface-runtime/build.py verify", builder)
-        stage = workflow.index("- name: Assemble boot payload and overlay Git development base")
-        self.assertLess(producer, materialize)
-        self.assertLess(materialize, builder)
-        self.assertLess(builder, verifier)
-        self.assertLess(verifier, stage)
-        self.assertIn('grep -Fx "BR2_DEFAULT_KERNEL_VERSION=', workflow)
-        self.assertIn("trap 'git checkout -- \"$config\"' EXIT", workflow)
-        self.assertIn("Restore shared Surface Buildroot compiler cache", workflow)
-        self.assertIn("Restore shared Surface Buildroot source downloads", workflow)
-        self.assertIn("Save shared Surface Buildroot compiler cache", workflow)
-        self.assertIn("Save shared Surface Buildroot source downloads", workflow)
-        self.assertIn("BR2_CCACHE_DIR:", workflow)
-        self.assertIn("BR2_DL_DIR:", workflow)
+        producer = (ROOT / ".github/workflows/independent-surface-runtime.yml").read_text()
+        resolve = producer.index("- name: Bind Buildroot toolchain headers to canonical OrdaX kernel SSOT")
+        configure = producer.index("- name: Resolve exact Kconfig before expensive graphical build")
+        build = producer.index("- name: Build Buildroot/musl Surface runtime on durable artifact miss")
+        verify = producer.index("- name: Verify exact Independent Surface EROFS bytes")
+        self.assertLess(resolve, configure)
+        self.assertLess(configure, build)
+        self.assertLess(build, verify)
+        self.assertIn("bootstrap/surface-runtime/prepare_config.py materialize", producer)
+        self.assertIn("bootstrap/surface-runtime/build.py build", producer)
+        self.assertIn("bootstrap/surface-runtime/build.py verify", producer)
+        self.assertIn("Restore exact Surface compiler cache on durable artifact miss", producer)
+        self.assertIn("Restore Surface Buildroot source downloads on durable artifact miss", producer)
+        self.assertIn("Save exact Surface compiler cache", producer)
+        self.assertIn("Save Surface Buildroot source download cache", producer)
+        self.assertIn("BR2_CCACHE_DIR:", producer)
+        self.assertIn("BR2_DL_DIR:", producer)
+        self.assertNotIn("bootstrap/surface-runtime/build.py build", workflow)
+        self.assertNotIn("bootstrap/surface-runtime/prepare_config.py materialize", workflow)
+        self.assertIn("- name: Consume verified canonical offline Surface runtime", workflow)
         self.assertNotIn("native-surface-runtime.erofs' > ", workflow)
 
     def test_creator_reuses_verified_immutable_surface_inputs_across_commits(self):
         workflow = (ROOT / ".github/workflows/creator-owner-dev-git.yml").read_text()
         independent = (ROOT / ".github/workflows/independent-surface-runtime.yml").read_text()
         restore = workflow.index("- name: Restore exact verified Surface EROFS for Owner")
-        build = workflow.index("- name: Build and verify one canonical offline Surface runtime")
+        consume = workflow.index("- name: Consume verified canonical offline Surface runtime")
+        native = workflow.index("- name: Build boot initramfs and Git development base")
         stage = workflow.index("- name: Assemble boot payload and overlay Git development base")
-        self.assertLess(restore, build)
-        self.assertLess(build, stage)
+        self.assertLess(restore, consume)
+        self.assertLess(consume, native)
+        self.assertLess(native, stage)
         key = "ordax-independent-surface-artifact-v1-"
         self.assertIn(key, workflow)
         self.assertIn(key, independent)
@@ -126,31 +134,27 @@ class OfflineOwnerWelcomeGateTests(unittest.TestCase):
         self.assertIn("independent_surface_r2.sh publish", workflow)
         self.assertIn("Surface consumer", (ROOT / "tools/creator/verify_owner_dev_offline_runtime.py").read_text())
         self.assertIn('cp -a "$out/." "$RUNNER_TEMP/owner-dev-surface-runtime/"', workflow)
-        self.assertIn('if [ "$reused" != true ]; then', workflow)
-        self.assertIn("bootstrap/surface-runtime/build.py build", workflow)
+        self.assertIn("Canonical Surface EROFS missing", workflow)
+        self.assertNotIn("bootstrap/surface-runtime/build.py build", workflow)
         self.assertIn("bootstrap/surface-runtime/build.py verify", workflow)
+        self.assertIn("bootstrap/surface-runtime/build.py build", independent)
 
-    def test_owner_surface_build_is_unprivileged_and_recovers_safe_compiler_caches(self):
+    def test_only_specialized_producer_handles_buildroot_compiler_and_download_cache(self):
         workflow = (ROOT / ".github/workflows/creator-owner-dev-git.yml").read_text()
-        producer = workflow.split(
-            "- name: Build and verify one canonical offline Surface runtime", 1
-        )[1].split("- name: Assemble boot payload and overlay Git development base", 1)[0]
+        producer = (ROOT / ".github/workflows/independent-surface-runtime.yml").read_text()
+        self.assertNotIn("bootstrap/surface-runtime/build.py build", workflow)
+        self.assertNotIn("owner-surface-ccache", workflow)
+        self.assertNotIn("owner-surface-downloads", workflow)
         self.assertIn("python3 bootstrap/surface-runtime/build.py build", producer)
         self.assertIn("python3 bootstrap/surface-runtime/build.py verify", producer)
         self.assertNotIn("sudo -E python3 bootstrap/surface-runtime/", producer)
-        self.assertIn(
-            "if: always() && steps.owner-surface-ccache.outcome == 'success' && steps.owner-surface-ccache.outputs.cache-hit != 'true'",
-            producer,
-        )
-        downloads = (
-            "if: always() && steps.owner-surface-downloads.outcome == 'success' && steps.owner-surface-downloads.outputs.cache-hit != 'true'"
-        )
-        self.assertEqual(producer.count(downloads), 2)
-        self.assertIn("find \"$RUNNER_TEMP/ordax-independent-surface-dl\" -type f", producer)
-        for unsafe in ("*.tmp", "*.part", "*.lock"):
-            self.assertIn(unsafe, producer)
-        # Recover compiler/download inputs only; no unsafe partial EROFS.
-        self.assertNotIn("always() && steps.owner-surface-artifact-cache", producer)
+        self.assertIn("Restore exact Surface compiler cache on durable artifact miss", producer)
+        self.assertIn("Restore Surface Buildroot source downloads on durable artifact miss", producer)
+        self.assertIn("Sanitize reusable Surface download cache", producer)
+        self.assertIn("Save Surface Buildroot source download cache", producer)
+        self.assertIn("Save exact Surface compiler cache", producer)
+        self.assertIn("if: always() &&", producer)
+        self.assertNotIn("always() && steps.owner-surface-artifact-cache", workflow)
 
     def test_owner_visual_source_is_removed_before_expensive_buildroot(self):
         workflow = (ROOT / ".github/workflows/creator-owner-dev-git.yml").read_text()
@@ -192,7 +196,7 @@ class OfflineOwnerWelcomeGateTests(unittest.TestCase):
                 GATE.stage_runtime(stage, producer)
 
 
-    @mock.patch.dict(os.environ, {"ORDAX_COMPONENT_CACHE_ENVIRONMENT": "unit-test/owner"})
+    @mock.patch.dict(os.environ, {"ORDAX_COMPONENT_CACHE_ENVIRONMENT": "Linux/X64/ubuntu24/20261023.334.3"})
     def test_reused_cross_commit_cache_preserves_producer_and_binds_owner(self):
         from tools.ci import independent_surface_component_cache as cache
         with tempfile.TemporaryDirectory() as work:
@@ -216,7 +220,7 @@ class OfflineOwnerWelcomeGateTests(unittest.TestCase):
             with self.assertRaisesRegex(GATE.OfflineRuntimeError, "fingerprint changed"):
                 GATE.verify(stage)
 
-    @mock.patch.dict(os.environ, {"ORDAX_COMPONENT_CACHE_ENVIRONMENT": "unit-test/owner"})
+    @mock.patch.dict(os.environ, {"ORDAX_COMPONENT_CACHE_ENVIRONMENT": "Linux/X64/ubuntu24/20261023.334.3"})
     def test_cross_commit_cache_rejects_missing_or_tampered_manifest(self):
         from tools.ci import independent_surface_component_cache as cache
         for mutation in ("missing", "tamper"):
