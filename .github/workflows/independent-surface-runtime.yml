@@ -220,9 +220,8 @@ jobs:
           ORDAX_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
           BR2_CCACHE_DIR: ${{ runner.temp }}/ordax-independent-surface-ccache
           BR2_DL_DIR: ${{ runner.temp }}/ordax-independent-surface-dl
-        env:
-          # Only trusted dedicated executors with persistent disks set this.
-          # Standard GitHub-hosted runners retain their ephemeral behavior.
+          # Dedicated builders may resume an identity-bound absolute O=.
+          # Default GitHub-hosted runners remain ephemeral.
           ORDAX_SURFACE_PERSISTENT_WORK_ROOT: ${{ vars.ORDAX_SURFACE_PERSISTENT_WORK_ROOT }}
           ORDAX_SURFACE_BUILD_JOBS: ${{ vars.ORDAX_SURFACE_BUILD_JOBS || '4' }}
         run: |

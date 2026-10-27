@@ -92,6 +92,8 @@ class IndependentSurfaceRuntimeTests(unittest.TestCase):
         builder = self.builder
         with tempfile.TemporaryDirectory() as td:
             work = Path(td) / "native-buildroot"
+            # Production creates the dedicated directory under its flock.
+            work.mkdir(mode=0o700)
             archive = Path(td) / "fake-pinned-source.tar.xz"
             archive.write_bytes(b"test-only")
             _, base = builder.contracts()
@@ -130,6 +132,22 @@ class IndependentSurfaceRuntimeTests(unittest.TestCase):
             marker.symlink_to(work / "incomplete-build")
             with self.assertRaisesRegex(builder.SurfaceBuildError, "unsafe"):
                 builder.materialize_surface_workspace(root / "dummy", base, work)
+
+    def test_surface_producer_build_step_has_one_environment_mapping(self):
+        # Duplicate env blocks invalidate the producer before scheduling:
+        # Creator would then have no EROFS, regardless of cache quality.
+        workflow = WORKFLOW_PATH.read_text(encoding="utf-8")
+        build_step = workflow.split(
+            "      - name: Build Buildroot/musl Surface runtime on durable artifact miss", 1
+        )[1].split("      - name: Verify exact Independent Surface EROFS bytes", 1)[0]
+        self.assertEqual(build_step.count("\n        env:\n"), 1)
+        for key in (
+            "ORDAX_SOURCE_COMMIT:", "BR2_CCACHE_DIR:", "BR2_DL_DIR:",
+            "ORDAX_SURFACE_PERSISTENT_WORK_ROOT:", "ORDAX_SURFACE_BUILD_JOBS:",
+        ):
+            self.assertIn(key, build_step)
+        self.assertIn("work_args", build_step)
+        self.assertIn("ORDAX_SURFACE_BUILD_JOBS", build_step)
 
     def test_builder_exposes_opt_in_persistent_workspace_without_changing_ephemeral_default(self):
         source = BUILDER_PATH.read_text(encoding="utf-8")
