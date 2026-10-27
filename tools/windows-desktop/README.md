@@ -348,6 +348,28 @@ frequência não puderem ser lidos com segurança, o GET falha com
 503 em vez de criar um modo fictício. A troca de resolução e
 o rollback seguro continuam como etapa separada ainda não entregue.
 
+### Disponibilidade de display no boot (sem leitura artificial)
+
+No Desktop Windows, o `createNativeDisplayOutputs` autentica e cria a porta
+canônica `ordax.display-outputs/1` durante a composição, mas **não faz a
+enumeração física Win32 na fase concorrida de cold start**. A primeira leitura
+real ocorre por `port.read()` no consumidor de Ajustes/Display. Isso evita
+descartar permanentemente a porta na sessão por um único HTTP 503 transitório
+de `EnumDisplaySettingsW` enquanto Native, compilador e Surface iniciam.
+
+O Linux continua comprovando a disponibilidade no bootstrap. No Windows,
+o provider ainda é o único dono da leitura Win32 autenticada, com verificação
+de token, `no-store`, modo físico atual e resposta 503 quando de fato falhar;
+não há polling adicional, snapshot falso, aumento artificial de prazo ou
+serviço paralelo. Uma leitura posterior pode recuperar o modo real sem
+reiniciar o Desktop. A troca física de resolução continua NÃO implementada.
+
+A reprodução física de 26/10 observou um HTTP 503 do display no boot, mas
+o mesmo provider instalado retornou a resolução física real
+`3840x2160@60` via leitura isolada. Isso comprova uma falha transitória
+da sonda em startup, não a causa exata dentro do processo Win32; a aceitação
+da interface continua exigindo confirmação E2E após a distribuição.
+
 ## Compatibilidade de portas Native no Desktop (26/10/2026)
 
 O host Electron usa a detecção canônica de transporte em
