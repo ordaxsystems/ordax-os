@@ -69,9 +69,15 @@ jobs:
           ORDAX_PROVIDER_PROOF_PATH: ${{ runner.temp }}/auth-provider-proof.json
         run: |
           set -euo pipefail
+          set +e
           python tools/public-site/probe_auth_provider.py --live > "${RUNNER_TEMP}/probe.out"
-          head -n 1 "${RUNNER_TEMP}/probe.out" > "${ORDAX_PROVIDER_PROOF_PATH}"
+          status=$?
+          set -e
+          if test -s "${RUNNER_TEMP}/probe.out"; then
+            head -n 1 "${RUNNER_TEMP}/probe.out" > "${ORDAX_PROVIDER_PROOF_PATH}"
+          fi
           rm -f "${RUNNER_TEMP}/probe.out"
+          exit "${status}"
 
       - name: Validate sanitized proof
         shell: bash
