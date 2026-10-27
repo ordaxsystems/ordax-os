@@ -209,5 +209,47 @@ test("Native display controls keep host modes unavailable instead of inventing c
   const controls = find(mounted.element, (element) => element.className === "ordax-settings-display-controls");
   assert.equal(status.textContent, "settings.display.host.nativeUnavailable");
   assert.equal(controls.hidden, true);
+  const retry = find(mounted.element, (element) => element.dataset.settingsDisplayRetry === "true");
+  assert.equal(retry.hidden, true, "without Native port no recovery is advertised");
   mounted.destroy();
 });
+
+test("Native display read failure offers explicit retry and recovers without remounting", async () => {
+  const documentObject = createDocument();
+  const container = documentObject.createElement("div");
+  let reads = 0;
+  const port = {
+    schema: DISPLAY_OUTPUTS_SCHEMA,
+    async read() {
+      reads += 1;
+      if (reads === 1) throw new Error("Transient Native 503");
+      return outputSnapshot();
+    },
+    async preview() { throw new Error("No preview in read-only recovery"); },
+    async confirm() { throw new Error("No confirmation in read-only recovery"); },
+    async revert() { throw new Error("No revert in read-only recovery"); },
+  };
+  const mounted = mountDisplayOutputControls(container, { documentObject, translate, port });
+  await settle();
+  const retry = find(mounted.element, (element) => element.dataset.settingsDisplayRetry === "true");
+  const status = find(mounted.element, (element) => element.attributes.get("role") === "status");
+  const controls = find(mounted.element, (element) => element.className === "ordax-settings-display-controls");
+  assert.ok(retry, "the canonical Surface exposes an explicit retry control");
+  assert.equal(reads, 1);
+  assert.equal(retry.hidden, false);
+  assert.equal(retry.disabled, false);
+  assert.equal(status.textContent, "settings.display.host.readFailed");
+  assert.equal(controls.hidden, true);
+  retry.dispatch("click");
+  assert.equal(retry.disabled, true, "a pending read cannot be retriggered");
+  await settle();
+  assert.equal(reads, 2, "one explicit retry uses the existing Native port");
+  assert.equal(retry.hidden, true, "success hides the retry control");
+  assert.equal(status.textContent, "settings.display.host.available");
+  assert.equal(controls.hidden, false);
+  const mode = find(mounted.element, (element) => element.dataset.displayMode === "true");
+  assert.equal(mode.value, "1920x1080@60", "recovered mode comes from the real validated snapshot");
+  mounted.destroy();
+  assert.equal(retry.listeners.size, 0, "cleanup removes the retry handler");
+});
+
