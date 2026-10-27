@@ -41,6 +41,13 @@ compartilham a chave de concorrência `ordax-surface-producer` derivada
 do número da PR (ou da ref em execução manual/main), não do SHA isolado.
 Isso conserva um produtor em execução e deixa os consumidores de mesma
 entrega em fila, evitando concorrência acidental por um cache ainda frio.
+Com `queue: max` (GitHub Actions, disponível desde maio de 2026), a fila
+compartilhada conserva até 100 jobs pendentes. Sem essa opção, o GitHub
+cancela e substitui o job pendente anterior, **mesmo com**
+`cancel-in-progress: false`; Base, Surface e Creator poderiam perder gates
+obrigatórios numa mesma candidatura. A fila compartilhada usa `queue: max`
+somente no nível dos três jobs pesados; a política de substituir uma
+revisão antiga pendente da mesma PR, no nível do workflow, permanece separada.
 A serialização não substitui hashes, provenance nem a prova dos boots.
 
 **Não confundir ausência de build na etapa draft com aprovação da imagem.**

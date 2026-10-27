@@ -141,7 +141,8 @@ class ReleaseCandidateGateTests(unittest.TestCase):
         )
 
     def test_owner_buildroot_jobs_share_exact_serialization_key(self):
-        # One pending heavy producer at a time for the same PR/ref. A source
+        # Only one heavy producer runs at a time for a PR/ref, but all
+        # pending Base, Surface, and Creator jobs must remain queued. A source
         # SHA alone misses Creator/Surface concurrency and can duplicate
         # costly work despite their shared cache and artifact ownership.
         expected = (
@@ -163,6 +164,9 @@ class ReleaseCandidateGateTests(unittest.TestCase):
                 self.assertIn("    concurrency:\n", section)
                 self.assertIn(expected, section)
                 self.assertIn("cancel-in-progress: false", section)
+                # Default queue: single silently replaces another pending job.
+                # queue: max is mandatory for the three shared producers.
+                self.assertIn("      cancel-in-progress: false\n      queue: max\n", section)
 
     def test_no_heavy_test_waiver_for_release(self):
         for filename, (_, guard) in TARGETS.items():

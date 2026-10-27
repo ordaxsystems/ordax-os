@@ -137,6 +137,7 @@ jobs:
     concurrency:
       group: ordax-surface-producer-${{ github.event.pull_request.number || github.ref }}
       cancel-in-progress: false
+      queue: max
     env:
       # Exact checkout identity for push and PR; github.sha on PR is the
       # synthetic merge SHA, not the actual local source for Creator.

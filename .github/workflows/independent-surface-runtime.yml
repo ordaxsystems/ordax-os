@@ -117,6 +117,7 @@ jobs:
     concurrency:
       group: ordax-surface-producer-${{ github.event.pull_request.number || github.ref }}
       cancel-in-progress: false
+      queue: max
     outputs:
       artifact_reused: ${{ steps.surface-reuse-state.outputs.reused }}
       artifact_source: ${{ steps.surface-reuse-state.outputs.source }}
