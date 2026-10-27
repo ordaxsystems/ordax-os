@@ -1,9 +1,11 @@
+import contextlib
 import importlib.util
 import io
 import json
 from pathlib import Path
 import tarfile
 import tempfile
+import sys
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -57,6 +59,39 @@ class IndependentSurfaceRuntimeTests(unittest.TestCase):
         required.difference_update(omit)
         required.update(extra)
         return required
+
+    def test_bounded_build_streams_progress_and_retains_only_failure_tail(self):
+        output = io.StringIO()
+        program = (
+            "import sys;"
+            "print('BEGIN_TOOLCHAIN', flush=True);"
+            "print('x' * 30000, flush=True);"
+            "print('END_TOOLCHAIN', flush=True)"
+        )
+        with contextlib.redirect_stdout(output):
+            tail = self.builder.run([sys.executable, "-c", program], bounded=True)
+        self.assertIn("BEGIN_TOOLCHAIN", output.getvalue())
+        self.assertIn("END_TOOLCHAIN", output.getvalue())
+        self.assertLessEqual(len(tail.encode("utf-8")), 20000)
+        self.assertNotIn("BEGIN_TOOLCHAIN", tail)
+        self.assertIn("END_TOOLCHAIN", tail)
+
+        failure = io.StringIO()
+        with contextlib.redirect_stdout(failure):
+            with self.assertRaisesRegex(self.builder.SurfaceBuildError, r"failed \\(7\\)") as raised:
+                self.builder.run(
+                    [sys.executable, "-c",
+                     "import sys;print('COMPILER_FAILED', flush=True);sys.exit(7)"],
+                    bounded=True,
+                )
+        self.assertIn("COMPILER_FAILED", failure.getvalue())
+        self.assertIn("COMPILER_FAILED", str(raised.exception))
+
+    def test_buildroot_has_a_bounded_group_timeout_before_ci_job_deadline(self):
+        source = BUILDER_PATH.read_text(encoding="utf-8")
+        self.assertIn('"timeout", "--signal=TERM", "--kill-after=60s", "330m"', source)
+        self.assertIn('for program in ("make", "timeout",', source)
+        self.assertNotIn('process.stdout.read(65536)', source)
 
     def test_contract_is_buildroot_musl_and_non_promotable(self):
         source, base = self.builder.contracts()

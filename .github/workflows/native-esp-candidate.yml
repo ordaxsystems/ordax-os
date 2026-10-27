@@ -198,12 +198,26 @@ jobs:
               printf "%s\n" \
                 "Acquire::https::snapshot.ubuntu.com::Verify-Peer \"false\";" \
                 > /etc/apt/apt.conf.d/49ordax-ca-bootstrap
-              apt-get update --error-on=any
-              apt-get install -y --no-install-recommends ca-certificates
+              # Snapshot 503/429 is a transient upstream failure, not a
+              # reason to silently switch to an unpinned moving mirror.
+              # Retry only the SAME signed, timestamp-pinned APT repository.
+              snapshot_apt() {
+                local attempt
+                for attempt in 1 2 3 4; do
+                  if "$@"; then return 0; fi
+                  if [ "$attempt" -eq 4 ]; then
+                    echo "::error::Exact Ubuntu snapshot unavailable after four attempts: $SNAPSHOT_ID" >&2
+                    return 1
+                  fi
+                  sleep "$((attempt * 15))"
+                done
+              }
+              snapshot_apt apt-get update --error-on=any
+              snapshot_apt apt-get install -y --no-install-recommends ca-certificates
               rm -f /etc/apt/apt.conf.d/49ordax-ca-bootstrap
 
-              apt-get update --error-on=any
-              apt-get install -y --no-install-recommends $PACKAGES
+              snapshot_apt apt-get update --error-on=any
+              snapshot_apt apt-get install -y --no-install-recommends $PACKAGES
 
               rm -rf /tmp/native-esp-initramfs
               python3 bootstrap/native-initramfs/build.py build \

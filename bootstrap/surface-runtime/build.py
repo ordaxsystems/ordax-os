@@ -6,6 +6,7 @@ Physical media and Stable publication remain separately gated.
 from __future__ import annotations
 
 import argparse
+import codecs
 import hashlib
 import json
 import os
@@ -127,13 +128,28 @@ def run(argv: list[str], *, cwd: Path | None = None, bounded: bool = False) -> s
                 stderr=subprocess.STDOUT,
             ) as process:
                 assert process.stdout is not None
-                tail = b""
-                for chunk in iter(lambda: process.stdout.read(65536), b""):
-                    tail = (tail + chunk)[-20000:]
+                # read() buffered 64 KiB silently, leaving a multi-hour
+                # Buildroot/LLVM/WebKit job without progress diagnostics.
+                # read1() exposes available bytes immediately; stream while
+                # retaining only a bounded failure tail in memory.
+                tail = bytearray()
+                decoder = codecs.getincrementaldecoder("utf-8")("replace")
+                for chunk in iter(lambda: process.stdout.read1(65536), b""):
+                    tail.extend(chunk)
+                    if len(tail) > 20000:
+                        del tail[:-20000]
+                    visible = decoder.decode(chunk)
+                    if visible:
+                        sys.stdout.write(visible)
+                        sys.stdout.flush()
+                remaining = decoder.decode(b"", final=True)
+                if remaining:
+                    sys.stdout.write(remaining)
+                    sys.stdout.flush()
                 code = process.wait()
         except OSError as exc:
             raise SurfaceBuildError(f"cannot run {' '.join(argv)}: {exc}") from exc
-        output = tail.decode("utf-8", errors="replace")
+        output = bytes(tail).decode("utf-8", errors="replace")
         if code:
             raise SurfaceBuildError(f"{' '.join(argv)} failed ({code}):\n{output}")
         return output
@@ -448,7 +464,7 @@ def build(out_dir: Path, cache_dir: Path, jobs: int) -> dict:
         raise SurfaceBuildError("Buildroot Surface candidate requires x86_64 Linux builder")
     if jobs < 1 or jobs > 64:
         raise SurfaceBuildError("jobs must be between 1 and 64")
-    for program in ("make", "mkfs.erofs", "fsck.erofs", "blkid"):
+    for program in ("make", "timeout", "mkfs.erofs", "fsck.erofs", "blkid"):
         if shutil.which(program) is None:
             raise SurfaceBuildError(f"required host build tool missing: {program}")
     if not CONFIG.is_file():
@@ -480,7 +496,13 @@ def build(out_dir: Path, cache_dir: Path, jobs: int) -> dict:
             f"BR2_DEFCONFIG={config}", "defconfig",
         ])
         resolved_config_sha = verify_build_config(build_dir)
-        run(["make", "-C", str(tree), f"O={build_dir}", f"-j{jobs}"], bounded=True)
+        # A hosted CI runner kills the whole job at six hours. Leave half an
+        # hour before that limit to stop the entire compiler process group
+        # cleanly and save verified download/ccache state, rather than racing
+        # tar against still-running cc1plus processes on job cancellation.
+        # GNU timeout supervises the make process group (no --foreground).
+        run(["timeout", "--signal=TERM", "--kill-after=60s", "330m",
+             "make", "-C", str(tree), f"O={build_dir}", f"-j{jobs}"], bounded=True)
         resolved_config_sha_after = verify_build_config(build_dir)
         if resolved_config_sha_after != resolved_config_sha:
             raise SurfaceBuildError("Buildroot resolved config changed during build")
