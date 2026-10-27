@@ -90,7 +90,7 @@ class BrowserSessionIntegrationContractTests(unittest.TestCase):
         self.assertIn("self.external_content = ExternalWebContent(", startup)
         self.assertIn("return self.external_content.context()", host)
         self.assertIn("if value[\"visible\"]:", NAVIGATION.read_text(encoding="utf-8"))
-        self.assertIn("self.activate_browser_session()", host)
+        self.assertIn("self.activate_browser_session()", NAVIGATION.read_text(encoding="utf-8"))
         self.assertIn('context.connect("download-started", self.download_started)', external)
         self.assertNotIn("register_script_message_handler", external)
         self.assertNotIn("get_user_content_manager", external)
