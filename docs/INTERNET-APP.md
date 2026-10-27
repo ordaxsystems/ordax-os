@@ -107,6 +107,14 @@ alterando apenas uma flag: cada um exige prova do respectivo owner.
 
 ## Native engine
 
+**Persistência independente:** `browser_session_runtime.py` concentra
+o ciclo de vida da sessão do navegador. O host Native só faz o adaptador
+WebKit (abas e callbacks), sem carregar nem salvar o Internet durante o boot
+da Surface. O encerramento da Surface não grava uma sessão não ativada.
+Falhas parciais de restauração revertem as abas recém-criadas antes de aceitar
+novas ações, sem modificar o arquivo de sessão. A lógica e os testes
+pertencem ao OS como serviço neutro; a interface removível permanece em Apps.
+
 **Runtime modular (Owner Development):** `ordax-surface` is the visual
 owner. `ordax-os` owns the shared WebKitGTK dependency, a privileged
 Surface WebContext and the independent untrusted external-content context in

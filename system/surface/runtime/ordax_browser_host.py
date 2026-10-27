@@ -28,7 +28,7 @@ gi.require_version("WebKit2", "4.1")
 from gi.repository import GLib, Gtk, WebKit2  # type: ignore  # noqa: E402
 
 from external_web_content import ExternalWebContent
-from browser_session_store import load_browser_session, save_browser_session
+from browser_session_runtime import InternetBrowserSession
 from browser_download_policy import (
     download_destination,
     ensure_download_space,
@@ -378,7 +378,11 @@ class OrdaXBrowserHost:
         self.component_probation_started = False
         self.component_probation_nonces: dict[str, str] = {}
         self.component_probation_rerun_requested: set[str] = set()
-        self.session_path = os.path.join(self.profile_root, "session.json")
+        self.browser_session = InternetBrowserSession(
+            os.path.join(self.profile_root, "session.json"),
+            allowed_external_uri,
+            MAX_TABS,
+        )
         self.tabs: dict[str, BrowserTab] = {}
         self.account_portal_window = None
         self.active_tab_id: str | None = None
@@ -387,8 +391,6 @@ class OrdaXBrowserHost:
         self.downloads: dict[str, dict] = {}
         self.download_user_root = os.path.dirname(self.profile_root)
         self.viewport = {"visible": False, "x": 0, "y": 0, "width": 0, "height": 0}
-        self.restoring_session = False
-        self.last_persisted_session: tuple[tuple[str, ...], int | None] | None = None
         self.accelerator_callbacks = []
         self.profile_consent_ipc = ProfileConsentIpcServer()
         self.profile_consent_listener = None
@@ -407,7 +409,6 @@ class OrdaXBrowserHost:
         self.external_content = ExternalWebContent(
             self.profile_root, self.cache_root, self.on_download_started
         )
-        self.browser_session_activated = False
         os.makedirs(self.profile_root, mode=0o700, exist_ok=True)
 
         # The trusted Surface has a dedicated persistent WebKit profile.
@@ -1192,69 +1193,43 @@ class OrdaXBrowserHost:
         return tab_id
 
     def persist_session(self) -> None:
-        # A Surface-only boot must never overwrite a saved Internet session.
-        if self.restoring_session or not self.browser_session_activated:
-            return
-        persisted_tabs = [
-            (tab_id, tab.url)
-            for tab_id, tab in self.tabs.items()
-            if tab.url and allowed_external_uri(tab.url)
-        ]
-        active_index = next(
-            (
-                index
-                for index, (tab_id, _url) in enumerate(persisted_tabs)
-                if tab_id == self.active_tab_id
-            ),
-            None,
-        )
-        session_key = (
-            tuple(url for _tab_id, url in persisted_tabs),
-            active_index,
-        )
-        if session_key == self.last_persisted_session:
-            return
+        """The privileged Surface must not write dormant Internet state."""
         try:
-            saved = save_browser_session(
-                self.session_path,
-                session_key[0],
-                active_index,
-                allow_url=allowed_external_uri,
-                max_tabs=MAX_TABS,
+            self.browser_session.persist(
+                ((tab_id, tab.url) for tab_id, tab in self.tabs.items()),
+                self.active_tab_id,
             )
-            self.last_persisted_session = (saved.urls, saved.active_index)
         except (OSError, ValueError) as exc:
             print(f"ordax-browser-host: could not persist tab session: {exc}", file=sys.stderr, flush=True)
 
     def activate_browser_session(self) -> None:
-        """Restore Internet tabs only on explicit browser use, not Surface boot."""
-        if self.browser_session_activated:
-            return
-        self.browser_session_activated = True
-        try:
+        if not self.browser_session.activated:
             self.restore_session()
-        except Exception:
-            self.browser_session_activated = False
-            raise
 
     def restore_session(self) -> None:
-        state = load_browser_session(
-            self.session_path,
-            allow_url=allowed_external_uri,
-            max_tabs=MAX_TABS,
-        )
-        if not state.urls:
+        state = self.browser_session.begin_restore()
+        if state is None:
             return
-        self.last_persisted_session = (state.urls, state.active_index)
-        self.restoring_session = True
+        # A partial WebKit failure must not rewrite the saved Internet session.
+        previous_ids = set(self.tabs)
+        previous_active = self.active_tab_id
         try:
             for index, url in enumerate(state.urls, start=1):
                 self.open_tab(f"tab-{index}", url)
             if state.active_index is not None:
                 self.activate_tab(f"tab-{state.active_index + 1}")
-        finally:
-            self.restoring_session = False
-        self.persist_session()
+        except Exception:
+            self.browser_session.abort_restore()
+            for tab_id in tuple(self.tabs):
+                if tab_id not in previous_ids:
+                    tab = self.tabs.pop(tab_id)
+                    self.overlay.remove(tab.view)
+            self.active_tab_id = previous_active
+            self.update_visibility()
+            raise
+        else:
+            self.browser_session.finish_restore()
+            self.persist_session()
 
     def create_external_view(self, tab_id: str) -> WebKit2.WebView:
         view = WebKit2.WebView.new_with_context(self.external_context)
