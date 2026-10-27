@@ -108,6 +108,14 @@ registrar a dependência produtor-consumidor e exigir os gates completos.
 
 ## Garantias e limites
 
+O workflow independente `independent-portable-v2-integration.yml` também
+usa `cancel-in-progress: false`. Antes da alteração, novas revisões de PR
+cancelavam automaticamente a prova QEMU ativa; agora a execução em andamento
+é preservada, enquanto a revisão pendente mais recente continua vinculada
+ao próprio HEAD e deve passar pelos gates de candidato antes da integração.
+Isso não transforma um QEMU antigo em prova do HEAD final.
+
+
 Os filtros por paths do GitHub comparam toda a PR com a base, não somente o
 último commit. Por isso, em uma PR abrangente, continuar draft impede disparos
 pesados repetidos enquanto contratos rápidos continuam rodando.

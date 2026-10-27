@@ -113,6 +113,17 @@ class ReleaseCandidateGateTests(unittest.TestCase):
         ):
             self.assertIn(marker, dependent)
 
+    def test_independent_portable_qemu_preserves_running_proofs(self):
+        text = (ROOT / "independent-portable-v2-integration.yml").read_text(encoding="utf-8")
+        concurrency = text.split("\nconcurrency:\n", 1)[1].split("\njobs:\n", 1)[0]
+        self.assertIn("cancel-in-progress: false", concurrency)
+        self.assertNotIn("github.event_name == 'pull_request'", concurrency)
+        self.assertIn("independent-real-portable-qemu:", text)
+        self.assertIn(
+            "github.event_name != 'pull_request' || !github.event.pull_request.draft",
+            text,
+        )
+
     def test_no_heavy_test_waiver_for_release(self):
         for filename, (_, guard) in TARGETS.items():
             with self.subTest(filename=filename):

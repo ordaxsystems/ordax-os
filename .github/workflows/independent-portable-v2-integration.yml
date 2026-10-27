@@ -15,7 +15,9 @@ permissions:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  # Do not abort a costly candidate QEMU proof on a newer PR revision.
+  # GitHub may keep only the newest pending run while the active one finishes.
+  cancel-in-progress: false
 
 jobs:
   canonical-portable-boundary:
