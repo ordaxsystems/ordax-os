@@ -30,7 +30,12 @@ documentação/UI que não alteram essas entradas **não** invalidam o artefato.
    jobs podem recuperar objetos de uma chave anterior do mesmo OS/arquitetura
    com `restore-keys` quando o `defconfig` muda; o compilador/ccache
    valida flags/dependências em cada objeto. **Nunca** relaxar a chave exata
-   do EROFS nem substituir provas por hits de cache.
+   do EROFS nem substituir provas por hits de cache. Para evitar perder seis
+   horas de objetos compilados, a chave primária do `ccache` contém o ID da
+   execução; o `restore-keys` restaura o checkpoint mais recente do mesmo
+   perfil, mantendo compatibilidade com o cache v1. Cada execução pode gravar
+   um novo checkpoint imutável após um build interrompido com encerramento
+   correto dos compiladores. O artefato EROFS final **não** usa run ID.
 5. O QEMU Portable não compila Surface: busca o **mesmo** artefato imutável
    pelo fingerprint canônico no cache GitHub ou R2, verifica manifesto,
    SHA-256, proveniência e ABI com `independent_surface_component_cache.py` e

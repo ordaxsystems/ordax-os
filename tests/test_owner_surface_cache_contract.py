@@ -49,8 +49,10 @@ class OwnerSurfaceCacheContractTests(unittest.TestCase):
     def test_compiler_objects_survive_source_config_change(self):
         for path in (OWNER, SURFACE):
             text = path.read_text(encoding="utf-8")
+            self.assertIn("ordax-independent-surface-ccache-v2-", text)
+            self.assertIn("github.run_id", text)
+            self.assertIn("restore-keys: |\n            ordax-independent-surface-ccache-v2-", text)
             self.assertIn("ordax-independent-surface-ccache-v1-", text)
-            self.assertIn("restore-keys: |\n            ordax-independent-surface-ccache-v1-", text)
         # The actual fingerprint of published EROFS must remain exact;
         # broad compiler cache reuse is safe only within ccache itself.
         self.assertIn("input_fingerprint", (ROOT / CACHE).read_text(encoding="utf-8"))
