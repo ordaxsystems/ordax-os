@@ -140,6 +140,30 @@ class ReleaseCandidateGateTests(unittest.TestCase):
             text,
         )
 
+    def test_owner_buildroot_jobs_share_exact_serialization_key(self):
+        # One pending heavy producer at a time for the same PR/ref. A source
+        # SHA alone misses Creator/Surface concurrency and can duplicate
+        # costly work despite their shared cache and artifact ownership.
+        expected = (
+            "group: ordax-surface-producer-"
+            "${{ github.event.pull_request.number || github.ref }}"
+        )
+        for filename, job in (
+            ("independent-surface-runtime.yml", "buildroot-surface"),
+            ("creator-owner-dev-git.yml", "build-and-publish"),
+            ("independent-base-experiment.yml", "buildroot-qemu"),
+        ):
+            with self.subTest(filename=filename):
+                workflow = (ROOT / filename).read_text(encoding="utf-8")
+                jobs = "\n" + workflow.split("\njobs:\n", 1)[1]
+                section = jobs.split("\n  " + job + ":\n", 1)[1]
+                section = re.split(
+                    r"(?m)^  [A-Za-z][\\w-]*:\\s*$", section, maxsplit=1
+                )[0]
+                self.assertIn("    concurrency:\n", section)
+                self.assertIn(expected, section)
+                self.assertIn("cancel-in-progress: false", section)
+
     def test_no_heavy_test_waiver_for_release(self):
         for filename, (_, guard) in TARGETS.items():
             with self.subTest(filename=filename):
