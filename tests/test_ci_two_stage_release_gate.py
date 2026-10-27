@@ -52,6 +52,22 @@ class ReleaseCandidateGateTests(unittest.TestCase):
         self.assertIn("needs.independent-base-contract.outputs.profile", heavy)
         self.assertEqual(text.count("Verify isolated contract and regressions"), 1)
 
+    def test_native_esp_contract_runs_in_draft_before_heavy_proof(self):
+        text = (ROOT / "native-esp-candidate.yml").read_text(encoding="utf-8")
+        jobs = "\n" + text.split("\njobs:\n", 1)[1]
+        contract = jobs.split("\n  native-esp-contract:\n", 1)[1].split("\n  native-esp:\n", 1)[0]
+        heavy = jobs.split("\n  native-esp:\n", 1)[1]
+        self.assertNotIn("pull_request.draft", contract)
+        self.assertIn("python3 boot/esp/build.py check", contract)
+        self.assertIn("tests.test_native_esp_proof_contract", contract)
+        self.assertIn("tests.test_native_qemu_boot_proof_contract", contract)
+        self.assertIn("tests.test_native_qemu_boot_readiness", contract)
+        self.assertIn("permissions:\n      contents: read", contract)
+        self.assertNotIn("docker pull", contract)
+        self.assertNotIn("apt-get install", contract)
+        self.assertIn("needs: native-esp-contract", heavy)
+        self.assertIn("Prove Native UEFI and PID1 handoff on disposable QEMU disk", heavy)
+
     def test_owner_fast_preflight_is_required_in_draft(self):
         workflow = (ROOT / "creator-owner-dev-git.yml").read_text(encoding="utf-8")
         jobs = workflow.split("\njobs:\n", 1)[1]

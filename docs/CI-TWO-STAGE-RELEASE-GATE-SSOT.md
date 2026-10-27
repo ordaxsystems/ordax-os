@@ -19,6 +19,13 @@ uma PR draft com mudança de boot ou Owner não aparenta estar validada
 apenas porque o job monolítico foi ignorado. O preflight roda uma vez,
 sem duplicar a mesma bateria no job de build pesado.
 
+O `native-esp-candidate.yml` preserva `native-esp-contract` em draft:
+validação do source pin da ESP, contratos de boot/QEMU, regressões de
+readiness e `py_compile`, sem compilação de kernel, `docker pull`,
+instalação APT nem QEMU. O job `native-esp` mantém toda a prova física
+descartável (sem tocar disco do usuário), mas depende da aprovação do
+preflight e só roda em candidato/manual/push autorizado.
+
 O `independent-base-experiment.yml` também foi separado em
 `independent-base-contract` (checagens de Buildroot, firmware, ABI e
 regressões do Owner Development, executadas em draft) e
