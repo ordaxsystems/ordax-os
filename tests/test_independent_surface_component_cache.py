@@ -30,7 +30,7 @@ class IndependentSurfaceComponentCacheTests(unittest.TestCase):
 
     def setUp(self):
         self.old_env = os.environ.get("ORDAX_COMPONENT_CACHE_ENVIRONMENT")
-        os.environ["ORDAX_COMPONENT_CACHE_ENVIRONMENT"] = "test/linux-x86_64/image-v1"
+        os.environ["ORDAX_COMPONENT_CACHE_ENVIRONMENT"] = "Linux/X64/ubuntu24/image-v1"
 
     def tearDown(self):
         if self.old_env is None:
@@ -53,6 +53,44 @@ class IndependentSurfaceComponentCacheTests(unittest.TestCase):
             "source_commit": commit,
         }) + "\n", encoding="utf-8")
         return base
+
+    def test_runner_cache_environment_requires_complete_image_identity(self):
+        # A GitHub env.ImageOS/env.ImageVersion expression is empty unless
+        # declared in the env context; shell ImageOS/ImageVersion are correct.
+        invalid = (
+            "Linux/X64//",
+            "Linux/X64/ubuntu24/",
+            "Linux/X64/ubuntu24",
+            "Linux//ubuntu24/20261023.334.3",
+            "Linux/X64//20261023.334.3",
+        )
+        for value in invalid:
+            with self.subTest(value=value), self.assertRaisesRegex(
+                self.mod.CacheError, "incomplete runner image identity"
+            ):
+                self.mod.validated_environment(value)
+        self.assertEqual(
+            self.mod.validated_environment("Linux/X64/ubuntu24/20261023.334.3"),
+            "Linux/X64/ubuntu24/20261023.334.3",
+        )
+
+    def test_ci_rejects_non_runner_cache_environment_even_when_nonempty(self):
+        # An environment bypassed the old Linux/X64// guard by declaring a
+        # non-runner prefix. CI must never record or accept that identity.
+        invalid = ("local-unpinned", "test/linux-x86_64/image-v1", "Other/X64/ubuntu24/version")
+        for value in invalid:
+            with self.subTest(value=value), mock.patch.dict(os.environ, {
+                "GITHUB_ACTIONS": "true",
+                "ORDAX_COMPONENT_CACHE_ENVIRONMENT": value,
+            }), self.assertRaisesRegex(self.mod.CacheError, "incomplete runner image identity"):
+                self.mod.environment()
+        with mock.patch.dict(os.environ, {
+            "GITHUB_ACTIONS": "true",
+            "ORDAX_COMPONENT_CACHE_ENVIRONMENT": "Linux/X64/ubuntu24/20261023.334.3",
+        }):
+            self.assertEqual(
+                self.mod.environment(), "Linux/X64/ubuntu24/20261023.334.3"
+            )
 
     def test_fingerprint_tracks_only_build_inputs(self):
         with tempfile.TemporaryDirectory() as td:
@@ -105,7 +143,7 @@ class IndependentSurfaceComponentCacheTests(unittest.TestCase):
             root = self.make_root(temp / "repo")
             out = self.make_output(temp / "out", "1" * 40)
             self.mod.record(out, "1" * 40, root)
-            os.environ["ORDAX_COMPONENT_CACHE_ENVIRONMENT"] = "test/other-runner/image-v2"
+            os.environ["ORDAX_COMPONENT_CACHE_ENVIRONMENT"] = "Linux/X64/ubuntu24/image-v2"
             with self.assertRaisesRegex(self.mod.CacheError, "execution environment changed"):
                 self.mod.verify(
                     out,
@@ -123,8 +161,8 @@ class IndependentSurfaceComponentCacheTests(unittest.TestCase):
                 root=root,
             )
             self.assertTrue(receipt["consumer_verification"])
-            self.assertEqual(receipt["execution_environment"], "test/linux-x86_64/image-v1")
-            self.assertEqual(receipt["verification_environment"], "test/other-runner/image-v2")
+            self.assertEqual(receipt["execution_environment"], "Linux/X64/ubuntu24/image-v1")
+            self.assertEqual(receipt["verification_environment"], "Linux/X64/ubuntu24/image-v2")
 
     def test_historical_materialized_v1_manifest_is_verified_without_rewrite(self):
         with tempfile.TemporaryDirectory() as td:

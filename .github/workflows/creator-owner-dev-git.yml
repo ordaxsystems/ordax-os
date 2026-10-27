@@ -33,11 +33,14 @@ on:
       - 'tools/ci/independent_surface_component_cache.py'
       - 'tools/ci/independent_surface_r2.sh'
       - 'tests/test_owner_surface_cache_contract.py'
+      - 'tools/ci/preflight_owner_dev.py'
+      - 'tests/test_ci_two_stage_release_gate.py'
       - '.github/actions/resolve-creator-source/**'
       - 'docs/contracts/native-release-assembly.json'
       - 'tests/test_creator_owner_external_source.py'
   workflow_dispatch:
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - 'bootstrap/dev/**'
       - 'bootstrap/dev-base/**'
@@ -98,13 +101,43 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  owner-dev-contract:
+    # Keep the real Owner preflight active while a PR is in draft.
+    # No Buildroot, native image, QEMU, or physical media in this job.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout exact Owner source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.12'
+          check-latest: false
+      - name: Fast Owner Development preflight
+        run: |
+          set -euo pipefail
+          bash -n tools/ci/independent_surface_r2.sh
+          python3 -m unittest tests.test_owner_surface_cache_contract tests.test_ci_two_stage_release_gate -v
+          python3 tools/ci/preflight_owner_dev.py
+
   build-and-publish:
+    needs: owner-dev-contract
+    # Draft PRs use fast contracts; full USB/QEMU only for a release candidate.
+    # workflow_dispatch and main push remain explicit/full delivery entrypoints.
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     runs-on: ubuntu-24.04
     timeout-minutes: 360
     # Serialize exact source build ownership with the independent producer.
     concurrency:
       group: ordax-surface-producer-${{ github.event.pull_request.number || github.ref }}
       cancel-in-progress: false
+      queue: max
     env:
       # Exact checkout identity for push and PR; github.sha on PR is the
       # synthetic merge SHA, not the actual local source for Creator.
@@ -135,13 +168,6 @@ jobs:
         with:
           source-root: ${{ runner.temp }}/ordax-verified-surface-ci
           out-root: ${{ runner.temp }}/ordax-verified-intelligence-ci
-
-      - name: Fast Owner Development preflight
-        run: |
-          set -euo pipefail
-          bash -n tools/ci/independent_surface_r2.sh
-          python3 -m unittest tests.test_owner_surface_cache_contract -v
-          python tools/ci/preflight_owner_dev.py
 
       - name: Set up Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
@@ -649,63 +675,21 @@ jobs:
       # Both producers use the same Buildroot compiler/download cache keys.
       # This never reuses a Surface EROFS built for a different source commit:
       # Creator still verifies the new image and its exact provenance itself.
-      - name: Restore shared Surface Buildroot compiler cache
-        id: owner-surface-ccache
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ${{ runner.temp }}/ordax-independent-surface-ccache
-          key: ordax-independent-surface-ccache-v2-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('bootstrap/surface-runtime/configs/ordax_surface_defconfig', 'bootstrap/independent-base/source.json', 'bootstrap/kernel/source.json') }}-${{ github.run_id }}
-          restore-keys: |
-            ordax-independent-surface-ccache-v2-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('bootstrap/surface-runtime/configs/ordax_surface_defconfig', 'bootstrap/independent-base/source.json', 'bootstrap/kernel/source.json') }}-
-            ordax-independent-surface-ccache-v2-${{ runner.os }}-${{ runner.arch }}-
-            ordax-independent-surface-ccache-v1-${{ runner.os }}-${{ runner.arch }}-
-
-      - name: Restore shared Surface Buildroot source downloads
-        id: owner-surface-downloads
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ${{ runner.temp }}/ordax-independent-surface-dl
-          key: ordax-independent-surface-dl-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('bootstrap/surface-runtime/configs/ordax_surface_defconfig', 'bootstrap/independent-base/source.json', 'bootstrap/kernel/source.json') }}
-          restore-keys: |
-            ordax-independent-surface-dl-v1-${{ runner.os }}-${{ runner.arch }}-
-
-      - name: Build and verify one canonical offline Surface runtime
+      - name: Consume verified canonical offline Surface runtime
         id: owner-surface-build
-        env:
-          BR2_CCACHE_DIR: ${{ runner.temp }}/ordax-independent-surface-ccache
-          BR2_DL_DIR: ${{ runner.temp }}/ordax-independent-surface-dl
         run: |
           set -euo pipefail
-          config=bootstrap/surface-runtime/configs/ordax_surface_defconfig
-          trap 'git checkout -- "$config"' EXIT
           out="$RUNNER_TEMP/ordax-independent-surface"
-          reused=false
-          if [ '${{ steps.owner-surface-artifact-cache.outputs.cache-hit }}' = true ] ||
-             [ '${{ steps.owner-surface-r2.outputs.hit }}' = true ]; then
-            python3 tools/ci/independent_surface_component_cache.py verify \
-              --out "$out" --integration-commit "$ORDAX_OWNER_SOURCE_COMMIT" \
-              --cache-hit true --consumer \
-              --receipt "$RUNNER_TEMP/owner-surface-cache-inspection.json"
-            reused=true
-            echo 'OWNER_SURFACE_RUNTIME_SOURCE=verified-content-addressed-cache'
+          if [ '${{ steps.owner-surface-artifact-cache.outputs.cache-hit }}' != true ] &&
+             [ '${{ steps.owner-surface-r2.outputs.hit }}' != true ]; then
+            echo "::error title=Canonical Surface EROFS missing::Run Independent Surface Runtime producer for the exact fingerprint before Creator. Never compile WebKit in the Creator consumer." >&2
+            exit 1
           fi
-          export ORDAX_SOURCE_COMMIT="$ORDAX_OWNER_SOURCE_COMMIT"
-          if [ "$reused" != true ]; then
-            python3 bootstrap/surface-runtime/prepare_config.py materialize --out "$config"
-            kernel_version="$(python3 -c 'import json; print(json.load(open("bootstrap/kernel/source.json"))["version"])')"
-            grep -Fx "BR2_DEFAULT_KERNEL_VERSION=\"$kernel_version\"" "$config"
-            python3 bootstrap/surface-runtime/build.py build \
-              --out "$out" --cache "$RUNNER_TEMP/owner-independent-cache" --jobs 4
-            # The canonical fingerprint excludes temporary kernel-header
-            # materialization; restore the immutable source before recording.
-            git checkout -- "$config"
-            git diff --exit-code -- "$config"
-            python3 tools/ci/independent_surface_component_cache.py record \
-              --out "$out" --source-commit "$ORDAX_OWNER_SOURCE_COMMIT"
-            python3 tools/ci/independent_surface_component_cache.py verify \
-              --out "$out" --integration-commit "$ORDAX_OWNER_SOURCE_COMMIT" \
-              --cache-hit false --receipt "$RUNNER_TEMP/owner-surface-cache-inspection.json"
-          fi
+          python3 tools/ci/independent_surface_component_cache.py verify \
+            --out "$out" --integration-commit "$ORDAX_OWNER_SOURCE_COMMIT" \
+            --cache-hit true --consumer \
+            --receipt "$RUNNER_TEMP/owner-surface-cache-inspection.json"
+          echo 'OWNER_SURFACE_RUNTIME_SOURCE=verified-content-addressed-cache'
           python3 bootstrap/surface-runtime/build.py verify --out "$out"
           mkdir -p "$RUNNER_TEMP/owner-dev-surface-runtime"
           cp -a "$out/." "$RUNNER_TEMP/owner-dev-surface-runtime/"
@@ -728,28 +712,6 @@ jobs:
           ORDAX_R2_SECRET_ACCESS_KEY: ${{ secrets.ORDAX_R2_SECRET_ACCESS_KEY }}
           ORDAX_SURFACE_FINGERPRINT: ${{ steps.owner-surface-fingerprint.outputs.fingerprint }}
         run: bash tools/ci/independent_surface_r2.sh publish
-
-      - name: Save shared Surface Buildroot compiler cache
-        if: always() && steps.owner-surface-ccache.outcome == 'success' && steps.owner-surface-ccache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ${{ runner.temp }}/ordax-independent-surface-ccache
-          key: ${{ steps.owner-surface-ccache.outputs.cache-primary-key }}
-
-      - name: Sanitize and save shared Surface Buildroot downloads
-        if: always() && steps.owner-surface-downloads.outcome == 'success' && steps.owner-surface-downloads.outputs.cache-hit != 'true'
-        run: |
-          if [ -d "$RUNNER_TEMP/ordax-independent-surface-dl" ]; then
-            find "$RUNNER_TEMP/ordax-independent-surface-dl" -type f \
-              \( -name '*.tmp' -o -name '*.part' -o -name '*.lock' \) -delete
-          fi
-
-      - name: Save shared Surface Buildroot source downloads
-        if: always() && steps.owner-surface-downloads.outcome == 'success' && steps.owner-surface-downloads.outputs.cache-hit != 'true'
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ${{ runner.temp }}/ordax-independent-surface-dl
-          key: ${{ steps.owner-surface-downloads.outputs.cache-primary-key }}
 
       - name: Assemble boot payload and overlay Git development base
         run: |

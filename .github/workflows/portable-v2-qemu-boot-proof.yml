@@ -68,6 +68,7 @@ on:
       - 'tests/test_portable_qemu_impact.py'
       - '.github/workflows/portable-v2-qemu-boot-proof.yml'
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - 'system/**'
       - '!system/**/*.md'
@@ -207,7 +208,7 @@ jobs:
 
   qemu-portable-v2:
     needs: impact
-    if: needs.impact.outputs.required == 'true'
+    if: needs.impact.outputs.required == 'true' && (github.event_name != 'pull_request' || !github.event.pull_request.draft)
     runs-on: ubuntu-24.04
     timeout-minutes: 300
     steps:
