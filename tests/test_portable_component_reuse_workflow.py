@@ -52,6 +52,14 @@ class PortableComponentReuseWorkflowTests(unittest.TestCase):
         self.assertIn("surface-component-reuse.json", surface)
         self.assertNotIn("bootstrap/surface-runtime/build.py build", self.workflow())
 
+    def test_missing_surface_fails_before_any_expensive_qemu_component(self):
+        workflow = self.workflow()
+        early_gate = workflow.index("Verify and bind canonical Surface EROFS for QEMU")
+        self.assertLess(early_gate, workflow.index("Build and verify exact local AI runtime on cache miss"))
+        self.assertLess(early_gate, workflow.index("Build exact kernel and kernel modules on cache miss"))
+        self.assertLess(early_gate, workflow.index("Build and verify exact Stable Base or experimental independent candidate"))
+        self.assertIn("exit 1", self.step_block("Verify and bind canonical Surface EROFS for QEMU"))
+
     def test_base_initramfs_and_runtime_proofs_remain_unconditional(self):
         for step in (
             "Build and verify exact Stable Base or experimental independent candidate",

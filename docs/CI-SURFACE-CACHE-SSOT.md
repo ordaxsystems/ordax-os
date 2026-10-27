@@ -73,5 +73,6 @@ Dois jobs QEMU foram cancelados depois de aproximadamente cinco horas, ainda
 em `Build exact offline Surface runtime on cache miss`, sem qualquer boot.
 A correção torna o QEMU apenas consumidor e remove o fingerprint `surface`
 do cache Portable genérico: existe somente o produtor Buildroot acima.
-**Sem artefato verificado, o gate fica vermelho rapidamente**, nunca verde
+**Sem artefato verificado, o gate fica vermelho antes dos builds de IA,
+kernel e Base**, nunca verde
 por omissão nem recompilando a mesma Surface por horas.

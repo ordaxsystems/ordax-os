@@ -291,6 +291,66 @@ jobs:
           mkdir -p "$work/bin" "$work/metadata"
           python3 tools/ci/portable_component_cache.py fingerprints --github-output "$GITHUB_OUTPUT"
 
+      # The canonical Buildroot Surface belongs to the independent Surface/Creator
+      # producer. A Portable/QEMU consumer must NEVER rebuild the same graphical
+      # runtime on a cache miss: fail fast until a verified artifact is available.
+      - name: Resolve canonical Surface artifact fingerprint for QEMU
+        if: ${{ (inputs.surface_source || 'stable') == 'stable' }}
+        id: surface-artifact-fingerprint
+        run: |
+          set -euo pipefail
+          python3 tools/ci/independent_surface_component_cache.py fingerprint \
+            --github-output "$GITHUB_OUTPUT"
+
+      - name: Restore verified canonical Surface EROFS for QEMU
+        if: ${{ (inputs.surface_source || 'stable') == 'stable' }}
+        id: surface-artifact-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/ordax-independent-surface
+          key: ordax-independent-surface-artifact-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.surface-artifact-fingerprint.outputs.fingerprint }}
+
+      - name: Restore verified canonical Surface from durable R2 for QEMU
+        if: ${{ (inputs.surface_source || 'stable') == 'stable' && steps.surface-artifact-cache.outputs.cache-hit != 'true' }}
+        id: surface-r2
+        env:
+          ORDAX_R2_ACCOUNT_ID: '42586bf13b61436219d21def299833e4'
+          ORDAX_R2_BUCKET: 'ordax-device-artifacts'
+          ORDAX_R2_ACCESS_KEY_ID: ${{ secrets.ORDAX_R2_ACCESS_KEY_ID }}
+          ORDAX_R2_SECRET_ACCESS_KEY: ${{ secrets.ORDAX_R2_SECRET_ACCESS_KEY }}
+          ORDAX_SURFACE_FINGERPRINT: ${{ steps.surface-artifact-fingerprint.outputs.fingerprint }}
+          ORDAX_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: bash tools/ci/independent_surface_r2.sh restore
+
+      - name: Verify and bind canonical Surface EROFS for QEMU
+        if: ${{ (inputs.surface_source || 'stable') == 'stable' }}
+        env:
+          ORDAX_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          if [ '${{ steps.surface-artifact-cache.outputs.cache-hit }}' != true ] &&
+             [ '${{ steps.surface-r2.outputs.hit }}' != true ]; then
+            echo '::error::Verified canonical Surface EROFS unavailable; run the Independent Surface/Creator producer before QEMU. Never compile Surface inside the QEMU consumer.'
+            exit 1
+          fi
+          work="$RUNNER_TEMP/portable-v2-qemu"
+          source="$RUNNER_TEMP/ordax-independent-surface"
+          test -s "$source/native-surface-runtime.erofs"
+          test -f "$source/.ordax-independent-surface-cache.json"
+          python3 bootstrap/surface-runtime/build.py verify \
+            --out "$source" > "$work/metadata/surface-runtime-verify.json"
+          python3 tools/ci/independent_surface_component_cache.py verify \
+            --out "$source" \
+            --integration-commit "$ORDAX_SOURCE_COMMIT" \
+            --cache-hit true --consumer \
+            --receipt "$work/metadata/surface-component-reuse.json"
+          mkdir -p "$work/surface-runtime"
+          cp -- "$source/native-surface-runtime.erofs" \
+            "$work/surface-runtime/native-surface-runtime.erofs"
+          cmp -- "$source/native-surface-runtime.erofs" \
+            "$work/surface-runtime/native-surface-runtime.erofs"
+          echo 'ORDAX_QEMU_SURFACE_SOURCE=VERIFIED_CANONICAL_ARTIFACT'
+
       - name: Restore verified local AI component
         id: local-ai-cache
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -474,66 +534,6 @@ jobs:
               exit 1
               ;;
           esac
-
-      # The canonical Buildroot Surface belongs to the independent Surface/Creator
-      # producer. A Portable/QEMU consumer must NEVER rebuild the same graphical
-      # runtime on a cache miss: fail fast until a verified artifact is available.
-      - name: Resolve canonical Surface artifact fingerprint for QEMU
-        if: ${{ (inputs.surface_source || 'stable') == 'stable' }}
-        id: surface-artifact-fingerprint
-        run: |
-          set -euo pipefail
-          python3 tools/ci/independent_surface_component_cache.py fingerprint \
-            --github-output "$GITHUB_OUTPUT"
-
-      - name: Restore verified canonical Surface EROFS for QEMU
-        if: ${{ (inputs.surface_source || 'stable') == 'stable' }}
-        id: surface-artifact-cache
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ${{ runner.temp }}/ordax-independent-surface
-          key: ordax-independent-surface-artifact-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.surface-artifact-fingerprint.outputs.fingerprint }}
-
-      - name: Restore verified canonical Surface from durable R2 for QEMU
-        if: ${{ (inputs.surface_source || 'stable') == 'stable' && steps.surface-artifact-cache.outputs.cache-hit != 'true' }}
-        id: surface-r2
-        env:
-          ORDAX_R2_ACCOUNT_ID: '42586bf13b61436219d21def299833e4'
-          ORDAX_R2_BUCKET: 'ordax-device-artifacts'
-          ORDAX_R2_ACCESS_KEY_ID: ${{ secrets.ORDAX_R2_ACCESS_KEY_ID }}
-          ORDAX_R2_SECRET_ACCESS_KEY: ${{ secrets.ORDAX_R2_SECRET_ACCESS_KEY }}
-          ORDAX_SURFACE_FINGERPRINT: ${{ steps.surface-artifact-fingerprint.outputs.fingerprint }}
-          ORDAX_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
-        run: bash tools/ci/independent_surface_r2.sh restore
-
-      - name: Verify and bind canonical Surface EROFS for QEMU
-        if: ${{ (inputs.surface_source || 'stable') == 'stable' }}
-        env:
-          ORDAX_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
-        run: |
-          set -euo pipefail
-          if [ '${{ steps.surface-artifact-cache.outputs.cache-hit }}' != true ] &&
-             [ '${{ steps.surface-r2.outputs.hit }}' != true ]; then
-            echo '::error::Verified canonical Surface EROFS unavailable; run the Independent Surface/Creator producer before QEMU. Never compile Surface inside the QEMU consumer.'
-            exit 1
-          fi
-          work="$RUNNER_TEMP/portable-v2-qemu"
-          source="$RUNNER_TEMP/ordax-independent-surface"
-          test -s "$source/native-surface-runtime.erofs"
-          test -f "$source/.ordax-independent-surface-cache.json"
-          python3 bootstrap/surface-runtime/build.py verify \
-            --out "$source" > "$work/metadata/surface-runtime-verify.json"
-          python3 tools/ci/independent_surface_component_cache.py verify \
-            --out "$source" \
-            --integration-commit "$ORDAX_SOURCE_COMMIT" \
-            --cache-hit true --consumer \
-            --receipt "$work/metadata/surface-component-reuse.json"
-          mkdir -p "$work/surface-runtime"
-          cp -- "$source/native-surface-runtime.erofs" \
-            "$work/surface-runtime/native-surface-runtime.erofs"
-          cmp -- "$source/native-surface-runtime.erofs" \
-            "$work/surface-runtime/native-surface-runtime.erofs"
-          echo 'ORDAX_QEMU_SURFACE_SOURCE=VERIFIED_CANONICAL_ARTIFACT'
 
       - name: Download same-run independent Surface runtime
         if: ${{ inputs.surface_source == 'independent' }}
