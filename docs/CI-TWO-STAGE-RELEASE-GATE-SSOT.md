@@ -253,3 +253,13 @@ está incompleta, o produtor recusa a retomada em vez de reaproveitar objetos
 de configuração ambígua. O fluxo temporário mantém seu comportamento
 anterior. Os novos testes executam as transições sem Buildroot/GUI e
 confirmam que `make` é chamado uma única vez por configuração aceita.
+
+### Retomada offline do Buildroot
+
+Ao encontrar um workspace de compilação permanente já lacrado, o produtor
+valida primeiro a identidade persistida e a árvore Buildroot existente.
+Não é necessário baixar novamente o arquivo-fonte do Buildroot em cada
+retomada: a extração inicial permanece condicionada ao hash SHA-256 fixado
+no contrato, e a árvore reutilizada precisa do recibo canônico e da
+configuração Kconfig verificada. Uma árvore sem recibo não é aceita e o
+mecanismo nunca usa um download não verificado para consertá-la.

@@ -488,7 +488,7 @@ def workspace_identity(base: dict) -> dict:
     }
 
 
-def materialize_surface_workspace(archive: Path, base: dict, work: Path) -> Path:
+def materialize_surface_workspace(archive: Path | None, base: dict, work: Path) -> Path:
     """Create once, or resume at exactly the original absolute workspace path.
 
     Interrupted extraction without a sealed marker is never silently trusted.
@@ -515,6 +515,8 @@ def materialize_surface_workspace(archive: Path, base: dict, work: Path) -> Path
         return source
     if any(path.name != ".ordax-workspace.lock" for path in work.iterdir()):
         raise SurfaceBuildError("unsealed persistent Surface workspace cannot be resumed")
+    if archive is None:
+        raise SurfaceBuildError("first persistent Buildroot extraction requires a pinned archive")
     source = safe_unpack(archive, work, version)
     staged = work / ".ordax-surface-workspace.json.tmp"
     with staged.open("x", encoding="utf-8") as stream:
@@ -627,13 +629,16 @@ def build(out_dir: Path, cache_dir: Path, jobs: int, *, persistent_work_dir: Pat
                 fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
             except BlockingIOError as exc:
                 raise SurfaceBuildError("persistent Surface workspace is already building") from exc
-        archive = source_archive(base, cache_dir)
         buildroot = base["buildroot"]
-        # The dedicated workspace is prepared under its exclusive advisory
-        # lock below. Never switch Buildroot's O= absolute path on resume.
+        # The sealed receipt identifies the exact pinned archive and all
+        # native build inputs. A verified persistent workspace can resume
+        # fully offline; initial extraction still fetches/verifies SHA-256.
         if transient:
+            archive = source_archive(base, cache_dir)
             tree = safe_unpack(archive, work, buildroot["version"])
         else:
+            receipt = work / ".ordax-surface-workspace.json"
+            archive = None if receipt.exists() or receipt.is_symlink() else source_archive(base, cache_dir)
             tree = materialize_surface_workspace(archive, base, work)
         build_dir = work / "build"
         # The SSOT defconfig must stay immutable: resolve kernel headers into

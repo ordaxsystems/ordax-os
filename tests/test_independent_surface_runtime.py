@@ -133,6 +133,35 @@ class IndependentSurfaceRuntimeTests(unittest.TestCase):
             with self.assertRaisesRegex(builder.SurfaceBuildError, "unsafe"):
                 builder.materialize_surface_workspace(root / "dummy", base, work)
 
+    def test_verified_workspace_can_resume_without_reopening_buildroot_upstream(self):
+        builder = self.builder
+        with tempfile.TemporaryDirectory() as td:
+            work = Path(td) / "work"
+            work.mkdir()
+            _, base = builder.contracts()
+            version = base["buildroot"]["version"]
+            source = work / f"buildroot-{version}"
+            source.mkdir()
+            (source / "Makefile").write_text("all:\n\t@true\n", encoding="utf-8")
+            receipt = work / ".ordax-surface-workspace.json"
+            receipt.write_text(json.dumps(builder.workspace_identity(base)), encoding="utf-8")
+            with mock.patch.object(builder, "source_archive", side_effect=AssertionError("network download forbidden")):
+                self.assertEqual(builder.materialize_surface_workspace(None, base, work), source)
+            build_code = (ROOT / "bootstrap/surface-runtime/build.py").read_text(encoding="utf-8")
+            self.assertIn(
+                "archive = None if receipt.exists() or receipt.is_symlink() else source_archive(base, cache_dir)",
+                build_code,
+            )
+            receipt.unlink()
+            with self.assertRaisesRegex(builder.SurfaceBuildError, "unsealed"):
+                builder.materialize_surface_workspace(None, base, work)
+        # First extraction still requires an archive whose SHA-256 was verified
+        # by source_archive, regardless of whether a persistent root was set.
+        with tempfile.TemporaryDirectory() as td:
+            work = Path(td)
+            with self.assertRaisesRegex(builder.SurfaceBuildError, "requires a pinned archive"):
+                builder.materialize_surface_workspace(None, base, work)
+
     def test_resumed_surface_config_skips_defconfig_and_keeps_build_stamps(self):
         builder = self.builder
         with tempfile.TemporaryDirectory() as td:
