@@ -27,7 +27,9 @@ class ReleaseCandidateGateTests(unittest.TestCase):
                 self.assertIn("pull_request:", events)
                 self.assertIn("ready_for_review", events)
                 self.assertIn("workflow_dispatch:", events)
-                section = text.split("\njobs:\n", 1)[1].split("\n  " + job, 1)[1]
+                jobs_text = text.split("\njobs:\n", 1)[1]
+                # The first job starts immediately after jobs:, without a preceding newline.
+                section = ("\n" + jobs_text).split("\n  " + job, 1)[1]
                 self.assertTrue(section.startswith("\n"), filename)
                 first = section.split("\n  ", 1)[0]
                 self.assertIn(guard, first)
