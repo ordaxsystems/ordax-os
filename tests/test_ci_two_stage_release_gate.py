@@ -50,6 +50,28 @@ class ReleaseCandidateGateTests(unittest.TestCase):
         self.assertIn("needs: impact", text)
         self.assertIn("needs.impact.outputs.required == 'true'", text)
 
+    def test_surface_cache_environment_matches_qemu_consumers(self):
+        # ImageOS/ImageVersion are runner *shell* variables. GitHub's
+        # ${{ env.ImageOS }} interpolation silently produces empty strings.
+        # This previously produced Linux/X64// and isolated expensive
+        # EROFS artifacts from the QEMU consumer's correct cache key.
+        shell_export = (
+            'export ORDAX_COMPONENT_CACHE_ENVIRONMENT='
+            '"${RUNNER_OS:?}/${RUNNER_ARCH:?}/${ImageOS}/${ImageVersion}"'
+        )
+        for filename in (
+            "independent-surface-runtime.yml",
+            "creator-owner-dev-git.yml",
+            "portable-v2-qemu-boot-proof.yml",
+        ):
+            with self.subTest(filename=filename):
+                text = (ROOT / filename).read_text(encoding="utf-8")
+                self.assertIn('test -n "${ImageOS:-}"', text)
+                self.assertIn('test -n "${ImageVersion:-}"', text)
+                self.assertIn(shell_export, text)
+                self.assertNotIn("env.ImageOS", text)
+                self.assertNotIn("env.ImageVersion", text)
+
     def test_release_surface_qemu_follows_exact_surface_producer(self):
         text = (ROOT / "independent-surface-runtime.yml").read_text(encoding="utf-8")
         dependent = text.split("\n  portable-qemu:\n", 1)[1]
