@@ -50,6 +50,19 @@ class ReleaseCandidateGateTests(unittest.TestCase):
         self.assertIn("needs: impact", text)
         self.assertIn("needs.impact.outputs.required == 'true'", text)
 
+    def test_release_surface_qemu_follows_exact_surface_producer(self):
+        text = (ROOT / "independent-surface-runtime.yml").read_text(encoding="utf-8")
+        dependent = text.split("\n  portable-qemu:\n", 1)[1]
+        for marker in (
+            "needs: buildroot-surface",
+            "if: needs.buildroot-surface.result == 'success'",
+            "uses: ./.github/workflows/portable-v2-qemu-boot-proof.yml",
+            "base_source: independent",
+            "surface_source: independent",
+            "force_run: true",
+        ):
+            self.assertIn(marker, dependent)
+
     def test_no_heavy_test_waiver_for_release(self):
         for filename, (_, guard) in TARGETS.items():
             with self.subTest(filename=filename):
