@@ -19,6 +19,15 @@ uma PR draft com mudança de boot ou Owner não aparenta estar validada
 apenas porque o job monolítico foi ignorado. O preflight roda uma vez,
 sem duplicar a mesma bateria no job de build pesado.
 
+O `independent-base-experiment.yml` também foi separado em
+`independent-base-contract` (checagens de Buildroot, firmware, ABI e
+regressões do Owner Development, executadas em draft) e
+`buildroot-qemu` (compilação/prova pesada dependente do contrato e da
+seleção de perfil validada). O contrato seleciona o perfil exato uma vez e
+entrega esse valor como output ao consumidor, que o valida novamente.
+Não há uma segunda bateria de testes de contrato dentro do job de
+compilação.
+
 **Não confundir ausência de build na etapa draft com aprovação da imagem.**
 
 ## Candidato de entrega (marcar a PR Ready for review)
