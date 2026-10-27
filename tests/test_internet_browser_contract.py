@@ -10,6 +10,7 @@ CONTRACT = ROOT / "system" / "contracts" / "browser-session.mjs"
 WEB_ADAPTER = ROOT / "system" / "adapters" / "web" / "browser-session.mjs"
 NATIVE_ADAPTER = ROOT / "system" / "adapters" / "native" / "browser-session.mjs"
 NATIVE_HOST = ROOT / "system" / "surface" / "runtime" / "ordax_browser_host.py"
+DOWNLOAD_HOST = ROOT / "system" / "surface" / "runtime" / "native_internet_downloads.py"
 SURFACE_LAUNCHER = ROOT / "system" / "surface" / "bin" / "ordax-surface"
 WEB_COMPOSITION = ROOT / "system" / "composition" / "web"
 NATIVE_COMPOSITION = ROOT / "system" / "composition" / "native"
@@ -192,7 +193,15 @@ class InternetBrowserContractTests(unittest.TestCase):
         self.assertIn('resource.connect("send-request"', host)
         self.assertIn('request.set_uri("about:blank")', host)
         self.assertIn('request.deny()', host)
-        self.assertIn('download.cancel()', host)
+        downloader = self.text(DOWNLOAD_HOST)
+        self.assertIn('download.cancel()', downloader)
+        self.assertIn("class InternetDownloadHost:", downloader)
+        self.assertIn("class OrdaXBrowserHost(InternetDownloadHost):", host)
+        self.assertIn("self.allowed_untrusted_uri = allowed_external_uri", host)
+        self.assertNotIn("def on_download_started", host)
+        self.assertNotIn("def handle_download_decision", host)
+        self.assertNotIn("get_user_content_manager", downloader)
+        self.assertNotIn("register_script_message_handler", downloader)
         self.assertNotIn('new_with_user_content_manager(self.manager)', host.split('def create_external_view', 1)[1])
         ast.parse(host)
 

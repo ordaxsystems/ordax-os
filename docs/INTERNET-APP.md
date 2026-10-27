@@ -342,6 +342,17 @@ de IA, nem uma permissão para o Studio ou agentes.
 
 ## Downloads seguros, com aprovação explícita
 
+**Ownership Native:** `native_internet_downloads.py` é o único adaptador
+dos callbacks WebKit para transferências, aprovação, validação do armazenamento
+e limpeza de arquivos parciais. `ordax_browser_host.py` fornece apenas o
+isolamento da sessão, a política autoritativa de URLs externas e a conexão
+ao motor. O adaptador reutiliza `browser_download_policy.py`, não acessa
+o gerenciador de conteúdo privilegiado da Surface, não possui UI do Internet
+e não cria outro motor Web. A suíte nativa executa seus callbacks reais com
+WebKit simulado, incluindo autorização, cancelamento, espaço insuficiente e
+falhas de escrita. A instalação/distribuição do Internet segue bloqueada.
+
+
 O host WebKitGTK liga `WebContext::download-started` ao adaptador de downloads
 do OrdaX. A página não escolhe o caminho final e nunca recebe a ponte nativa.
 A transferência aguarda `Download::decide-destination` (WebKitGTK 4.1) e não
