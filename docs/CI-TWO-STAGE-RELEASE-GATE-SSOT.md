@@ -241,3 +241,15 @@ runner dedicado e o diretório permanente do mesmo image ID. Mudanças de
 toolchain/OS desse executor exigem incrementar sua versão e invalidar o
 fingerprint; isso **não** elimina a necessidade da prova QEMU nem autoriza
 Stable.
+
+### Preservação de configuração e stamps no Buildroot retomado
+
+O output `O=` persistente exige um recibo adicional da configuração Kconfig
+resolvida e da entrada `defconfig`, ambas verificadas por SHA-256. Na
+retomada, o builder **não** executa novamente `make defconfig` se os
+recibos e a configuração real conferirem, preservando timestamps, pacotes e
+stamps do WebKitGTK. Se a configuração foi alterada, perdeu o recibo ou
+está incompleta, o produtor recusa a retomada em vez de reaproveitar objetos
+de configuração ambígua. O fluxo temporário mantém seu comportamento
+anterior. Os novos testes executam as transições sem Buildroot/GUI e
+confirmam que `make` é chamado uma única vez por configuração aceita.

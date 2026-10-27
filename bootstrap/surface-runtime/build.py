@@ -526,6 +526,62 @@ def materialize_surface_workspace(archive: Path, base: dict, work: Path) -> Path
     return source
 
 
+PERSISTENT_CONFIG_RECEIPT_SCHEMA = "prototype-ordax.surface-resolved-kconfig/1"
+
+
+def prepare_surface_config(
+    tree: Path, build_dir: Path, config: Path, work: Path, *,
+    persistent: bool,
+) -> str:
+    """Skip Kconfig regeneration only after verifying an immutable receipt.
+
+    Buildroot's defconfig rewrites .config and can invalidate its stamps.
+    Never claim a resumable O= without an exact, locally sealed .config.
+    """
+    receipt = work / ".ordax-surface-resolved-config.json"
+    resolved = build_dir / ".config"
+    if receipt.is_symlink() or resolved.is_symlink():
+        raise SurfaceBuildError("persistent Surface config receipt is unsafe")
+    source_sha = sha256_file(config)
+    if persistent and receipt.exists():
+        if not receipt.is_file() or not resolved.is_file():
+            raise SurfaceBuildError("persistent Surface resolved config is missing")
+        try:
+            record = json.loads(receipt.read_text(encoding="utf-8"))
+        except (OSError, ValueError) as exc:
+            raise SurfaceBuildError("persistent Surface resolved config receipt corrupt") from exc
+        if (record.get("$schema") != PERSISTENT_CONFIG_RECEIPT_SCHEMA
+                or record.get("defconfig_sha256") != source_sha):
+            raise SurfaceBuildError("persistent Surface resolved defconfig changed")
+        actual = verify_build_config(build_dir)
+        if record.get("resolved_config_sha256") != actual:
+            raise SurfaceBuildError("persistent Surface resolved config bytes changed")
+        return actual
+    if persistent and (receipt.exists() or resolved.exists()):
+        raise SurfaceBuildError("unsealed persistent Surface resolved config cannot be resumed")
+    run([
+        "make", "-C", str(tree), f"O={build_dir}",
+        f"BR2_DEFCONFIG={config}", "defconfig",
+    ])
+    resolved_sha = verify_build_config(build_dir)
+    if persistent:
+        value = {
+            "$schema": PERSISTENT_CONFIG_RECEIPT_SCHEMA,
+            "defconfig_sha256": source_sha,
+            "resolved_config_sha256": resolved_sha,
+        }
+        temporary = work / ".ordax-surface-resolved-config.json.tmp"
+        if temporary.is_symlink():
+            raise SurfaceBuildError("persistent Surface config temporary path is unsafe")
+        with temporary.open("x", encoding="utf-8") as stream:
+            json.dump(value, stream, indent=2, sort_keys=True)
+            stream.write("\n")
+            stream.flush()
+            os.fsync(stream.fileno())
+        temporary.replace(receipt)
+    return resolved_sha
+
+
 def build(out_dir: Path, cache_dir: Path, jobs: int, *, persistent_work_dir: Path | None = None) -> dict:
     source, base = contracts()
     if platform.system() != "Linux" or platform.machine().lower() not in {"x86_64", "amd64"}:
@@ -588,11 +644,9 @@ def build(out_dir: Path, cache_dir: Path, jobs: int, *, persistent_work_dir: Pat
             config = work / "ordax-surface-resolved.defconfig"
             run([sys.executable, str(HERE / "prepare_config.py"), "materialize",
                  "--out", str(config)])
-        run([
-            "make", "-C", str(tree), f"O={build_dir}",
-            f"BR2_DEFCONFIG={config}", "defconfig",
-        ])
-        resolved_config_sha = verify_build_config(build_dir)
+        resolved_config_sha = prepare_surface_config(
+            tree, build_dir, config, work, persistent=not transient
+        )
         # A hosted CI runner kills the whole job at six hours. Leave half an
         # hour before that limit to stop the entire compiler process group
         # cleanly and save verified download/ccache state, rather than racing

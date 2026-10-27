@@ -133,6 +133,64 @@ class IndependentSurfaceRuntimeTests(unittest.TestCase):
             with self.assertRaisesRegex(builder.SurfaceBuildError, "unsafe"):
                 builder.materialize_surface_workspace(root / "dummy", base, work)
 
+    def test_resumed_surface_config_skips_defconfig_and_keeps_build_stamps(self):
+        builder = self.builder
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            work = root / "trusted-work"
+            work.mkdir()
+            tree = root / "buildroot"
+            tree.mkdir()
+            build_dir = work / "build"
+            build_dir.mkdir()
+            source = root / "source.defconfig"
+            source.write_text("BR2_x86_64=y\n", encoding="utf-8")
+            config = build_dir / ".config"
+            # Isolate the generated Buildroot content from the runner itself.
+            with mock.patch.object(builder, "run") as make, mock.patch.object(
+                builder, "verify_build_config", side_effect=lambda _: builder.sha256_file(config)
+            ):
+                make.side_effect = lambda *_: config.write_text("BR2_x86_64=y\n", encoding="utf-8")
+                first = builder.prepare_surface_config(tree, build_dir, source, work, persistent=True)
+                stamp = build_dir / "build/host-webkit/.stamp_built"
+                stamp.parent.mkdir(parents=True)
+                stamp.write_text("keep", encoding="utf-8")
+                second = builder.prepare_surface_config(tree, build_dir, source, work, persistent=True)
+                self.assertEqual(first, second)
+                make.assert_called_once()
+                self.assertEqual(stamp.read_text(encoding="utf-8"), "keep")
+                source.write_text("BR2_x86_64=y\nBR2_PACKAGE_WEBKITGTK=y\n", encoding="utf-8")
+                with self.assertRaisesRegex(builder.SurfaceBuildError, "defconfig changed"):
+                    builder.prepare_surface_config(tree, build_dir, source, work, persistent=True)
+                self.assertEqual(make.call_count, 1)
+
+    def test_resumed_surface_config_rejects_tampering_and_unsealed_state(self):
+        builder = self.builder
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            source = root / "source.defconfig"
+            source.write_text("BR2_x86_64=y\n", encoding="utf-8")
+            tree, work, build_dir = root / "src", root / "work", root / "work/build"
+            tree.mkdir()
+            work.mkdir()
+            build_dir.mkdir()
+            config = build_dir / ".config"
+            config.write_text("BR2_x86_64=y\n", encoding="utf-8")
+            with self.assertRaisesRegex(builder.SurfaceBuildError, "unsealed"):
+                builder.prepare_surface_config(tree, build_dir, source, work, persistent=True)
+            config.unlink()
+            with mock.patch.object(builder, "run") as make, mock.patch.object(
+                builder, "verify_build_config", side_effect=lambda _: builder.sha256_file(config)
+            ):
+                make.side_effect = lambda *_: config.write_text("BR2_x86_64=y\n", encoding="utf-8")
+                builder.prepare_surface_config(tree, build_dir, source, work, persistent=True)
+                config.write_text("BR2_x86_64=y\nBR2_PACKAGE_CAGE=y\n", encoding="utf-8")
+                with self.assertRaisesRegex(builder.SurfaceBuildError, "bytes changed"):
+                    builder.prepare_surface_config(tree, build_dir, source, work, persistent=True)
+                config.unlink()
+                with self.assertRaisesRegex(builder.SurfaceBuildError, "missing"):
+                    builder.prepare_surface_config(tree, build_dir, source, work, persistent=True)
+
     def test_surface_producer_build_step_has_one_environment_mapping(self):
         # Duplicate env blocks invalidate the producer before scheduling:
         # Creator would then have no EROFS, regardless of cache quality.
