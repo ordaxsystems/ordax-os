@@ -61,7 +61,12 @@ class IndependentHeavyWorkflowTests(unittest.TestCase):
         self.assertIn("${{ inputs.profile || 'none' }}", group)
         self.assertIn("${{ github.event.pull_request.number || github.ref }}", group)
         self.assertIn("  cancel-in-progress: false", text)
-        self.assertIn("ordax-surface-producer-${{ github.event.pull_request.head.sha || github.sha }}", text)
+        # All release-candidate heavy jobs for the same PR/ref serialize through
+        # one queue; a commit-SHA group would allow overlapping Buildroot jobs.
+        self.assertIn("ordax-surface-producer-${{ github.event.pull_request.number || github.ref }}", text)
+        self.assertIn("      queue: max", text)
+        self.assertNotIn("ordax-surface-producer-${{ github.event.pull_request.head.sha || github.sha }}", text)
+        self.assertIn("needs: independent-base-contract", text)
         self.assertIn("if: github.event_name != 'push'", text)
         self.assertIn("github.event_name == 'push' && github.ref == 'refs/heads/platform/remove-alpine'", text)
         self.assertIn("github.event_name == 'pull_request' && github.base_ref == 'platform/remove-alpine'", text)
