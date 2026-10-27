@@ -49,15 +49,15 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  buildroot-qemu:
-    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && !github.event.pull_request.draft)
+  independent-base-contract:
+    # Validate the Owner Buildroot profile on draft PRs without building the
+    # kernel/rootfs or starting QEMU. The release job must depend on this gate.
     runs-on: ubuntu-24.04
-    timeout-minutes: 120
-    # Serialize first cold-cache Owner Buildroot build with Creator/Surface.
-    # After the first verified save, later consumers can reuse the same bytes.
-    concurrency:
-      group: ordax-surface-producer-${{ github.event.pull_request.head.sha || github.sha }}
-      cancel-in-progress: false
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    outputs:
+      profile: ${{ steps.profile.outputs.profile }}
     steps:
       - name: Checkout exact PR source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -65,19 +65,12 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
           persist-credentials: false
-      - name: Python for pinned build and QEMU proof
+      - name: Python for pinned contract tests
         uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: '3.12'
-      - name: Install Linux build, EROFS and QEMU tools
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            build-essential gcc-13 g++ bc perl bison flex openssl libssl-dev \
-            libelf-dev dwarves kmod xz-utils pkg-config \
-            gawk cpio unzip rsync file binutils wget curl patch git \
-            erofs-utils e2fsprogs util-linux qemu-system-x86
       - name: Select integration profile
+        id: profile
         env:
           EVENT_NAME: ${{ github.event_name }}
           DISPATCH_PROFILE: ${{ inputs.profile }}
@@ -96,6 +89,7 @@ jobs:
             *) echo "unsupported Independent Base profile: $profile" >&2; exit 1 ;;
           esac
           printf 'ORDAX_INDEPENDENT_PROFILE=%s\n' "$profile" >> "$GITHUB_ENV"
+          printf 'profile=%s\n' "$profile" >> "$GITHUB_OUTPUT"
           printf 'ORDAX_INDEPENDENT_PROFILE=%s\n' "$profile"
       - name: Verify isolated contract and regressions
         run: |
@@ -128,6 +122,46 @@ jobs:
           sh -n bootstrap/independent-base/post-build.sh
           sh -n bootstrap/independent-base/post-image.sh
           sh -n bootstrap/independent-base/overlay/sbin/ordax-independent-probe-init
+
+  buildroot-qemu:
+    needs: independent-base-contract
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && !github.event.pull_request.draft)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    # Serialize first cold-cache Owner Buildroot build with Creator/Surface.
+    # After the first verified save, later consumers can reuse the same bytes.
+    concurrency:
+      group: ordax-surface-producer-${{ github.event.pull_request.head.sha || github.sha }}
+      cancel-in-progress: false
+    steps:
+      - name: Checkout exact PR source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Python for pinned build and QEMU proof
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.12'
+      - name: Install Linux build, EROFS and QEMU tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential gcc-13 g++ bc perl bison flex openssl libssl-dev \
+            libelf-dev dwarves kmod xz-utils pkg-config \
+            gawk cpio unzip rsync file binutils wget curl patch git \
+            erofs-utils e2fsprogs util-linux qemu-system-x86
+      - name: Bind validated Base profile from contract job
+        env:
+          CONTRACT_PROFILE: ${{ needs.independent-base-contract.outputs.profile }}
+        run: |
+          set -euo pipefail
+          case "$CONTRACT_PROFILE" in
+            minimal|owner-development) ;;
+            *) echo 'Base contract profile absent or invalid' >&2; exit 1 ;;
+          esac
+          printf 'ORDAX_INDEPENDENT_PROFILE=%s\n' "$CONTRACT_PROFILE" >> "$GITHUB_ENV"
       - name: Resolve reusable kernel fingerprint
         id: component-fingerprints
         run: |
