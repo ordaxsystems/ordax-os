@@ -131,7 +131,7 @@ jobs:
     # Serialize first cold-cache Owner Buildroot build with Creator/Surface.
     # After the first verified save, later consumers can reuse the same bytes.
     concurrency:
-      group: ordax-surface-producer-${{ github.event.pull_request.head.sha || github.sha }}
+      group: ordax-surface-producer-${{ github.event.pull_request.number || github.ref }}
       cancel-in-progress: false
     steps:
       - name: Checkout exact PR source
