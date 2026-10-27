@@ -130,6 +130,36 @@ credenciais no runner significa que não houve publicação durável. Não
 confundir cache esperado com artefato verificado. No candidato final,
 registrar a dependência produtor-consumidor e exigir os gates completos.
 
+## Falha factual Buildroot de 2026-10-27 e ordem do Creator
+
+- PR #2243 no commit `a0c728c238557fb0a1c0ad7adaa1db3b7b5546c7`,
+  Independent Surface run `40453160133`, job `122040672426`:
+  `timeout --signal=TERM --kill-after=60s 330m make ... -j4`
+  terminou em `124` durante `webkitgtk-2.52.4`, após cerca de
+  `7248/8599` unidades Ninja. Não há prova de erro de compilação C++.
+- O cache compartilhado de objetos C/C++ foi salvo (arquivo compactado de
+  2.252.848.822 bytes), mas o EROFS e seu provenance **não existem** nesse
+  run; por consequência, `upload-artifact` falhou por arquivos ausentes.
+  Não declarar cache de compilador equivalente a imagem verificada.
+- A partir do cutover, **apenas**
+  `.github/workflows/independent-surface-runtime.yml` compila
+  `bootstrap/surface-runtime/build.py build`. O Creator
+  `creator-owner-dev-git.yml` consome o EROFS de cache de conteúdo
+  ou R2, vinculado a SHA/fingerprint/receipts, e **falha fechado** se não
+  estiver disponível. Nunca fazer Buildroot/WebKit no Creator, em QEMU
+  ou num terceiro produtor para contornar timeout.
+- A sequência de candidatura deve primeiro executar e validar o produtor
+  especializado até EROFS SHA-256/provenance completos; depois executar
+  Creator e QEMU com esses mesmos bytes. O compilador pode reutilizar seu
+  cache no próximo build, mas esse reaproveitamento não garante conclusão
+  até o CI comprovar. Se novo timeout persistir, deve-se fornecer estágio
+  reexecutável e verificável para a compilação longa sem relaxar o limite
+  de segurança, a verificação de conteúdo ou os gates offline.
+- Na observação desta falha, o job `build-and-publish` do Creator
+  (run `40453160246`) ainda estava ativo na implementação anterior.
+  Não mudar o HEAD da PR enquanto o job anterior realiza a compilação,
+  evitando interrupção e descarte do esforço já em curso.
+
 ## Garantias e limites
 
 O workflow independente `independent-portable-v2-integration.yml` também
