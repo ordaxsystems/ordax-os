@@ -34,14 +34,15 @@ class ReleaseCandidateGateTests(unittest.TestCase):
                 marker = "\n  " + job + "\n"
                 self.assertIn(marker, jobs_text, filename)
                 section = jobs_text.split(marker, 1)[1]
-                first = re.split(r"(?m)^  [A-Za-z][\\w-]*:\\s*$", section, maxsplit=1)[0]
+                first = re.split(r"(?m)^  [A-Za-z][\w-]*:\s*$", section, maxsplit=1)[0]
                 self.assertIn("\n    " + guard + "\n", first)
                 self.assertNotIn("cancel-in-progress: true", text)
 
     def test_surface_contract_and_impact_run_while_draft(self):
         text = (ROOT / "independent-surface-runtime.yml").read_text(encoding="utf-8")
         for job in ("contract:", "impact:"):
-            job_text = text.split("\n  " + job, 1)[1].split("\n  ", 1)[0]
+            job_text = text.split("\n  " + job, 1)[1]
+            job_text = re.split(r"(?m)^  [A-Za-z][\w-]*:\s*$", job_text, maxsplit=1)[0]
             self.assertNotIn("pull_request.draft", job_text)
 
     def test_portable_impact_is_always_checked_before_qemu(self):
