@@ -29,6 +29,7 @@ from gi.repository import GLib, Gtk, WebKit2  # type: ignore  # noqa: E402
 
 from external_web_content import ExternalWebContent
 from browser_session_runtime import InternetBrowserSession
+from browser_tab_registry import InternetTabRegistry
 from native_internet_downloads import InternetDownloadHost
 from native_app_data_port_bootstrap import (
     DEFAULT_APP_DATA_PORT_BOOTSTRAP_PATH,
@@ -378,9 +379,10 @@ class OrdaXBrowserHost(InternetDownloadHost):
             allowed_external_uri,
             MAX_TABS,
         )
-        self.tabs: dict[str, BrowserTab] = {}
+        self.tab_registry = InternetTabRegistry(TAB_ID_RE, MAX_TABS)
+        # Existing WebKit callbacks consume the one registry-owned mapping.
+        self.tabs: dict[str, BrowserTab] = self.tab_registry.tabs
         self.account_portal_window = None
-        self.active_tab_id: str | None = None
         self.find_active_tab_id: str | None = None
         self.find_query = ""
         self.downloads: dict[str, dict] = {}
@@ -1183,10 +1185,16 @@ class OrdaXBrowserHost(InternetDownloadHost):
         except (PermissionError, TypeError, ValueError) as exc:
             print(f"ordax-browser-host: rejected {command!r}: {exc}", file=sys.stderr, flush=True)
 
+    @property
+    def active_tab_id(self) -> str | None:
+        return self.tab_registry.active_tab_id
+
+    @active_tab_id.setter
+    def active_tab_id(self, tab_id: str | None) -> None:
+        self.tab_registry.set_active(tab_id)
+
     def valid_tab_id(self, tab_id: object) -> str:
-        if not isinstance(tab_id, str) or TAB_ID_RE.fullmatch(tab_id) is None:
-            raise ValueError("invalid tab id")
-        return tab_id
+        return self.tab_registry.validate(tab_id)
 
     def persist_session(self) -> None:
         """The privileged Surface must not write dormant Internet state."""
@@ -1218,7 +1226,7 @@ class OrdaXBrowserHost(InternetDownloadHost):
             self.browser_session.abort_restore()
             for tab_id in tuple(self.tabs):
                 if tab_id not in previous_ids:
-                    tab = self.tabs.pop(tab_id)
+                    tab = self.tab_registry.detach(tab_id)
                     self.overlay.remove(tab.view)
             self.active_tab_id = previous_active
             self.update_visibility()
@@ -1263,8 +1271,7 @@ class OrdaXBrowserHost(InternetDownloadHost):
             raise ValueError("tab limit reached")
         view = self.create_external_view(tab_id)
         tab = BrowserTab(tab_id=tab_id, view=view)
-        self.tabs[tab_id] = tab
-        self.active_tab_id = tab_id
+        self.tab_registry.attach(tab_id, tab)
         self.update_visibility()
         if url_value:
             self.navigate(tab_id, url_value)
@@ -1349,12 +1356,10 @@ class OrdaXBrowserHost(InternetDownloadHost):
         tab_id = self.valid_tab_id(tab_id_value)
         if self.find_active_tab_id == tab_id:
             self.finish_page_find()
-        tab = self.tabs.pop(tab_id, None)
+        tab = self.tab_registry.detach(tab_id)
         if tab is None:
             return
         self.overlay.remove(tab.view)
-        if self.active_tab_id == tab_id:
-            self.active_tab_id = next(reversed(self.tabs), None) if self.tabs else None
         self.update_visibility()
         self.emit_snapshot()
         self.persist_session()
@@ -1365,7 +1370,7 @@ class OrdaXBrowserHost(InternetDownloadHost):
             raise ValueError("unknown tab")
         if self.find_active_tab_id != tab_id:
             self.finish_page_find()
-        self.active_tab_id = tab_id
+        self.tab_registry.select(tab_id)
         self.update_visibility()
         self.emit_snapshot()
         self.persist_session()

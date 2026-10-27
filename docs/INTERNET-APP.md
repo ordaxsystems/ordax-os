@@ -128,6 +128,14 @@ this boundary does **not** authorize Internet installation/distribution.
 Rendering-engine upgrades are separate from Surface UI changes and must
 preserve QEMU/offline boot and security isolation before promotion.
 
+**Controlador de abas independente:** `browser_tab_registry.py` é o owner
+único de identidade, ordem, limite e seleção da aba ativa. Não importa GTK,
+WebKit, arquivos de sessão nem a Surface. O host Native mantém exclusivamente
+a criação/destruição das WebViews e os callbacks de navegação, usando o mapa
+do controlador sem uma segunda cópia de seleção. As transições de abas são
+testadas sem motor gráfico; nenhuma mudança ativa o app Internet ou promove
+o runtime gráfico para Stable.
+
 The current USB/native-disk host uses WebKitGTK 4.1 as an OS-owned engine. The portable app consumes the `browser-session` contract and does not own or depend on the Linux distribution; keeping the engine in the host lets the base distribution evolve independently.
 
 `system/surface/runtime/ordax_browser_host.py` owns:

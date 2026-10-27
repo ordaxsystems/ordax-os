@@ -182,6 +182,8 @@ class InternetBrowserContractTests(unittest.TestCase):
         self.assertIn('WebsiteDataManager(', host)
         self.assertIn('WebContext.new_with_website_data_manager', host)
         self.assertIn('WebView.new_with_context(self.external_context)', host)
+        self.assertIn("from browser_tab_registry import InternetTabRegistry", host)
+        self.assertIn("self.tab_registry = InternetTabRegistry(TAB_ID_RE, MAX_TABS)", host)
         self.assertIn("from external_web_content import ExternalWebContent", host)
         self.assertIn("self.external_content = ExternalWebContent(", host)
         self.assertNotIn("self.external_context = WebKit2.WebContext", host)
