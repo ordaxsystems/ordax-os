@@ -35,6 +35,14 @@ entrega esse valor como output ao consumidor, que o valida novamente.
 Não há uma segunda bateria de testes de contrato dentro do job de
 compilação.
 
+Os jobs pesados de `independent-base-experiment.yml`,
+`independent-surface-runtime.yml` e `creator-owner-dev-git.yml`
+compartilham a chave de concorrência `ordax-surface-producer` derivada
+do número da PR (ou da ref em execução manual/main), não do SHA isolado.
+Isso conserva um produtor em execução e deixa os consumidores de mesma
+entrega em fila, evitando concorrência acidental por um cache ainda frio.
+A serialização não substitui hashes, provenance nem a prova dos boots.
+
 **Não confundir ausência de build na etapa draft com aprovação da imagem.**
 
 ## Candidato de entrega (marcar a PR Ready for review)
