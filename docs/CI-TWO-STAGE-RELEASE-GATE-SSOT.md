@@ -69,7 +69,9 @@ invisíveis ao consumidor e a compilação era repetida.
 
 A função canônica `tools/ci/independent_surface_component_cache.py:validated_environment`
 agora rejeita formatos CI `Linux/X64//` ou com qualquer segmento de
-SO, arquitetura, imagem e versão ausente. Essa checagem aplica-se tanto à
+SO, arquitetura, imagem e versão ausente. Em GitHub Actions, também rejeita
+identidades não padronizadas (por exemplo `local-unpinned` ou `test/...`),
+impedindo que uma variável não vazia burle a validação dos quatro campos. Essa checagem aplica-se tanto à
 identidade nova quanto à do manifesto de um EROFS recuperado; chaves
 historicamente incompletas **não** se tornam automaticamente reutilizáveis.
 `tests/test_independent_surface_component_cache.py` exercita cinco casos

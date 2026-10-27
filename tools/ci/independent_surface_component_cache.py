@@ -58,8 +58,12 @@ def validated_environment(value: str, label: str = "cache environment") -> str:
     # Reject that identity on both build and restore instead of trusting a
     # cached EROFS whose effective build environment was not recorded.
     parts = value.split("/")
-    if parts[0] in {"Linux", "Windows", "macOS"} and (
-        len(parts) != 4 or not all(parts)
+    runner_os = {"Linux", "Windows", "macOS"}
+    is_ci = os.environ.get("GITHUB_ACTIONS", "").lower() == "true"
+    if (is_ci or parts[0] in runner_os) and (
+        len(parts) != 4
+        or not all(parts)
+        or parts[0] not in runner_os
     ):
         raise CacheError(f"incomplete runner image identity in {label}")
     return value
