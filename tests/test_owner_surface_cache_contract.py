@@ -58,5 +58,26 @@ class OwnerSurfaceCacheContractTests(unittest.TestCase):
         self.assertIn("input_fingerprint", (ROOT / CACHE).read_text(encoding="utf-8"))
 
 
+    def test_surface_producers_use_the_exact_runner_environment_of_qemu_consumers(self):
+        """Never hash an empty GitHub expression in place of runner shell variables."""
+        consumer = (ROOT / ".github/workflows/portable-v2-qemu-boot-proof.yml").read_text(encoding="utf-8")
+        expected = 'export ORDAX_COMPONENT_CACHE_ENVIRONMENT="${RUNNER_OS:?}/${RUNNER_ARCH:?}/${ImageOS}/${ImageVersion}"'
+        self.assertIn(expected, consumer)
+        self.assertIn("python3 tools/ci/independent_surface_component_cache.py fingerprint", consumer)
+        for path, step_name in (
+            (OWNER, "Resolve independent Surface artifact fingerprint for Owner"),
+            (SURFACE, "Resolve exact Surface artifact fingerprint"),
+        ):
+            workflow = path.read_text(encoding="utf-8")
+            self.assertNotIn("${{ env.ImageOS }}", workflow)
+            self.assertNotIn("${{ env.ImageVersion }}", workflow)
+            step = workflow.split("      - name: " + step_name + "\n", 1)[1].split("\n      - name: ", 1)[0]
+            self.assertIn('test -n "${ImageOS:-}"', step)
+            self.assertIn('test -n "${ImageVersion:-}"', step)
+            self.assertIn(expected, step)
+            self.assertIn('>> "$GITHUB_ENV"', step)
+            self.assertLess(step.index(expected), step.index("python3 tools/ci/independent_surface_component_cache.py fingerprint"))
+            self.assertLess(step.index(expected), step.index('>> "$GITHUB_ENV"'))
+
 if __name__ == "__main__":
     unittest.main()

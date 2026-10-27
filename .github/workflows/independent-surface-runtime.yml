@@ -128,12 +128,11 @@ jobs:
 
       - name: Resolve exact Surface artifact fingerprint
         id: surface-artifact-fingerprint
-        env:
-          ORDAX_COMPONENT_CACHE_ENVIRONMENT: ${{ runner.os }}/${{ runner.arch }}/${{ env.ImageOS }}/${{ env.ImageVersion }}
         run: |
           set -euo pipefail
           test -n "${ImageOS:-}"
           test -n "${ImageVersion:-}"
+          export ORDAX_COMPONENT_CACHE_ENVIRONMENT="${RUNNER_OS:?}/${RUNNER_ARCH:?}/${ImageOS}/${ImageVersion}"
           printf 'ORDAX_COMPONENT_CACHE_ENVIRONMENT=%s\n' "$ORDAX_COMPONENT_CACHE_ENVIRONMENT" >> "$GITHUB_ENV"
           python3 tools/ci/independent_surface_component_cache.py fingerprint \
             --github-output "$GITHUB_OUTPUT"
