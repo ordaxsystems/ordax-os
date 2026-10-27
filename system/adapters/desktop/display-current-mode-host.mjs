@@ -100,11 +100,25 @@ export async function readWindowsDisplayCurrentModes({
   return projectWindowsDisplayCurrentModes(records);
 }
 
+// The HTTP boundary deliberately never discloses provider internals. Its
+// local stderr receipt exposes only a bounded reason and elapsed time, so a
+// rare cold-start 503 can be diagnosed without logging tokens, stderr, or paths.
+function classifyDisplayReadFailure(error){
+  if(error?.killed===true || error?.code==="ETIMEDOUT")return "provider-timeout";
+  if(error?.code==="ENOENT" || error?.code==="EACCES")return "powershell-launch";
+  if(error?.message==="Windows display provider returned invalid JSON")return "invalid-provider-json";
+  if(error instanceof TypeError)return "invalid-mode-snapshot";
+  return "provider-failure";
+}
+
 export function createDesktopDisplayCurrentModeMiddleware({
   token,read=readWindowsDisplayCurrentModes,
+  reportFailure=({reason,durationMs})=>console.warn(
+    "Desktop Native display read failed reason="+reason+" durationMs="+durationMs),
 }={}){
-  if(typeof token!=="string"||!TOKEN_RE.test(token)||typeof read!=="function")
-    throw new TypeError("Desktop Native display requires an Electron capability token");
+  if(typeof token!=="string"||!TOKEN_RE.test(token)||typeof read!=="function"||
+     typeof reportFailure!=="function")
+    throw new TypeError("Desktop Native display requires an Electron capability token and failure observer");
   const expected=Buffer.from(token,"hex");
   // A single physical Win32 enumeration is authoritative for all concurrent
   // readers. Without coalescing, each GET starts a new PowerShell/.NET
@@ -113,7 +127,20 @@ export function createDesktopDisplayCurrentModeMiddleware({
   let inFlight=null;
   const readShared=()=>{
     if(inFlight)return inFlight;
-    const request=Promise.resolve().then(()=>read());
+    const started=performance.now();
+    // Observe once per real read, not once per concurrent HTTP consumer.
+    // Validation also belongs to this one transaction.
+    const request=Promise.resolve().then(()=>read())
+      .then(snapshot=>validateDisplayOutputsSnapshot(snapshot))
+      .catch(error=>{
+        try{
+          reportFailure(Object.freeze({
+            reason:classifyDisplayReadFailure(error),
+            durationMs:Math.max(0,Math.round(performance.now()-started)),
+          }));
+        }catch{ /* Logging must never change the HTTP fail-closed contract. */ }
+        throw error;
+      });
     inFlight=request;
     const clear=()=>{if(inFlight===request)inFlight=null;};
     request.then(clear,clear);
@@ -140,7 +167,7 @@ export function createDesktopDisplayCurrentModeMiddleware({
     // no alternate preview choice exists in the shared Surface.
     if(req.method!=="GET")
       return respond(res,503,{error:"Windows display mode modification unavailable"});
-    void readShared().then(s=>respond(res,200,validateDisplayOutputsSnapshot(s)))
+    void readShared().then(s=>respond(res,200,s))
       .catch(()=>respond(res,503,{error:"Windows display mode observation unavailable"}));
   };
 }
