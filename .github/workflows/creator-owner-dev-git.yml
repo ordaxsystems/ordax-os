@@ -33,6 +33,8 @@ on:
       - 'tools/ci/independent_surface_component_cache.py'
       - 'tools/ci/independent_surface_r2.sh'
       - 'tests/test_owner_surface_cache_contract.py'
+      - 'tools/ci/preflight_owner_dev.py'
+      - 'tests/test_ci_two_stage_release_gate.py'
       - '.github/actions/resolve-creator-source/**'
       - 'docs/contracts/native-release-assembly.json'
       - 'tests/test_creator_owner_external_source.py'
@@ -99,7 +101,33 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  owner-dev-contract:
+    # Keep the real Owner preflight active while a PR is in draft.
+    # No Buildroot, native image, QEMU, or physical media in this job.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout exact Owner source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.12'
+          check-latest: false
+      - name: Fast Owner Development preflight
+        run: |
+          set -euo pipefail
+          bash -n tools/ci/independent_surface_r2.sh
+          python3 -m unittest tests.test_owner_surface_cache_contract tests.test_ci_two_stage_release_gate -v
+          python3 tools/ci/preflight_owner_dev.py
+
   build-and-publish:
+    needs: owner-dev-contract
     # Draft PRs use fast contracts; full USB/QEMU only for a release candidate.
     # workflow_dispatch and main push remain explicit/full delivery entrypoints.
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
@@ -139,13 +167,6 @@ jobs:
         with:
           source-root: ${{ runner.temp }}/ordax-verified-surface-ci
           out-root: ${{ runner.temp }}/ordax-verified-intelligence-ci
-
-      - name: Fast Owner Development preflight
-        run: |
-          set -euo pipefail
-          bash -n tools/ci/independent_surface_r2.sh
-          python3 -m unittest tests.test_owner_surface_cache_contract -v
-          python tools/ci/preflight_owner_dev.py
 
       - name: Set up Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
