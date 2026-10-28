@@ -103,7 +103,9 @@ class KernelConsumerSSOTTests(unittest.TestCase):
         self.assertIn("gpg gpg-agent", workflow)
         self.assertNotIn("vmlinuz-6.6.52", workflow)
         self.assertNotIn("kernel-modules-6.6.52.tar", workflow)
-        self.assertIn("manifest['physical_write_allowed'] = False", workflow)
+        manifest_builder = (ROOT / "tools/creator/owner_dev_manifest.py").read_text(encoding="utf-8")
+        self.assertIn('python3 tools/creator/owner_dev_manifest.py "$RUNNER_TEMP/minimal-bootstrap-owner-dev.json"', workflow)
+        self.assertIn("manifest['physical_write_allowed'] = False", manifest_builder)
 
     def test_owner_development_trust_is_ephemeral_and_isolated(self):
         workflow = (ROOT / ".github/workflows/creator-owner-dev-git.yml").read_text(encoding="utf-8")

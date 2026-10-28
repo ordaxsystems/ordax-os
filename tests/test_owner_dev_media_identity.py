@@ -108,17 +108,25 @@ class OwnerDevelopmentMediaIdentityTests(unittest.TestCase):
         self.assertIn("ordax.mode=recovery", RECOVERY_ENTRY)
 
     def test_owner_creator_derives_profile_specific_boot_entries(self):
-        self.assertIn("'docs/contracts/distribution-profiles.json'", WORKFLOW)
-        self.assertIn("owner_profile_id = 'owner-development'", WORKFLOW)
-        self.assertIn("owner_profile = profiles['profiles'].get(owner_profile_id)", WORKFLOW)
-        self.assertIn("owner_profile_token = f'ordax.distribution_profile={owner_profile_id}'", WORKFLOW)
-        self.assertIn("owner_entry_specs", WORKFLOW)
-        self.assertIn("out/owner-prototype/boot-entries", WORKFLOW)
-        self.assertIn("/loader/entries/ordax.conf", WORKFLOW)
-        self.assertIn("/loader/entries/ordax-recovery.conf", WORKFLOW)
-        self.assertIn("artifact['source_path'] = owner_path.as_posix()", WORKFLOW)
-        self.assertIn("artifact['sha256'] = digest(owner_path)", WORKFLOW)
-        self.assertIn("'distribution_profile': owner_profile_id", WORKFLOW)
+        # The standalone manifest builder is the single authority used by
+        # local development and CI, not inline workflow Python.
+        builder = (ROOT / "tools/creator/owner_dev_manifest.py").read_text(encoding="utf-8")
+        self.assertIn("python3 tools/creator/owner_dev_manifest.py", WORKFLOW)
+        for marker in (
+            "'docs/contracts/distribution-profiles.json'",
+            "owner_profile_id = 'owner-development'",
+            "owner_profile = profiles['profiles'].get(owner_profile_id)",
+            "owner_profile_token = f'ordax.distribution_profile={owner_profile_id}'",
+            "owner_entry_specs",
+            "out/owner-prototype/boot-entries",
+            "/loader/entries/ordax.conf",
+            "/loader/entries/ordax-recovery.conf",
+            "artifact['source_path'] = owner_path.as_posix()",
+            "artifact['sha256'] = digest(owner_path)",
+            "'distribution_profile': owner_profile_id",
+        ):
+            with self.subTest(marker=marker):
+                self.assertIn(marker, builder)
 
     def test_distribution_profile_points_to_the_owner_creator(self):
         owner = PROFILES["profiles"]["owner-development"]
