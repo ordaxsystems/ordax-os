@@ -2,6 +2,8 @@
 
 Status: CANONICAL DOCUMENTATION ROUTER
 
+**Active P0 execution handoff (Owner/Development USB, PR #2243):** [direct incremental Dev USB plan](plans/P0-DEV-USB-INCREMENTAL-BUILD-2026-10-27.md). Read alongside canonical [Development Workflow](DEVELOPMENT-WORKFLOW.md) and [Build Autonomy](BUILD-AUTONOMY.md). Plan is an execution checklist, not a new source authority or proof that the USB exists.
+
 This file is the entry point for documentation under `docs/`. Its purpose is to prevent stale plans and historical evidence from competing with current architecture.
 
 ## Authority order
