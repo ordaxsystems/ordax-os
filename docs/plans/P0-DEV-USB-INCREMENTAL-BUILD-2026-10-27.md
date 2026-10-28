@@ -45,3 +45,9 @@ PR: https://github.com/ordaxsystems/ordax-os/pull/2243
 HEAD verificado na criação: `8162efdb048935bb6ab1e9b0439ce3f34ab92c84`; QEMU sem EROFS; jobs de Creator e Independent Surface pendentes. Esse estado envelhece; reler GitHub antes de continuar.
 
 **Próxima ação de engenharia:** implementar o entrypoint DEV reproduzível por composição dos builders existentes e os testes de não-recompilação, evitando modificar um produtor pesado já ativo antes de entender o estado do run.
+
+## Implementação parcial registrada em 2026-10-27
+
+Entry point inicial **somente de componentes**: `python3 tools/ci/dev_components.py plan --component all` mostra o que falta; `python3 tools/ci/dev_components.py build --component base` ou `--component surface` chama os builders existentes e verifica o resultado. `--root /caminho/externo` permite cache persistente fora do checkout. Não depende de variáveis GitHub Actions nem escreve USB. Testes de regressão: `python3 -m unittest tests.test_dev_components_direct -v`.
+
+**Limite explícito:** isso NÃO monta imagem USB, não substitui o Creator e não prova cold boot. Não declarar tarefa concluída até integrar composição/Creator e testar de verdade. O orquestrador usa fingerprints de entradas conservadoras; conferir/expandir dependências reais e travamento concorrente antes de executá-lo em ambientes paralelos. As provas da CI ainda não foram executadas nesta intervenção.
