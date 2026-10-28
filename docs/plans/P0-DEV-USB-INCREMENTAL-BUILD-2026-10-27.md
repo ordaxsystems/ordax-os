@@ -103,3 +103,23 @@ Esta matriz é **critério de projeto**, não afirmação de que todos os caminh
 7. Antes de extrair outro módulo para novo owner, demonstrar acoplamento real, consumidor concreto, contrato de migração e ausência de autoridade duplicada.
 
 **Próxima prova prioritária:** teste automatizado que altere somente arquivos visuais externos e constate que kernel, Buildroot base e runtime gráfico são reutilizados, seguido da primeira geração RAW por comando direto fora da CI. Os comandos extraídos anteriormente permanecem candidatos até execução e provas end-to-end.
+
+## Auditoria transversal — Windows Desktop e Apps (2026-10-27)
+
+Escopo de análise complementar, **sem ampliar a execução de código da PR #2243**: não abrir PR paralela, não remover jobs no escuro e não criar segunda autoridade de build. As responsabilidades continuam no contrato de ownership vigente.
+
+### Fatos verificados
+- `ordax-os/.github/workflows/windows-desktop-dev.yml` produz candidato Desktop Windows baseado no OS e consome a Surface externa fixada por SHA em `docs/contracts/surface-source.json`. O job prepara visual em runner Windows, usa Node/Python, testa contratos e empacota o candidato.
+- `ordax-runtime/.github/workflows/windows-product-build.yml` constrói produto Windows do Runtime, com contratos/empacotamento e fonte do Studio fixada externamente. **Antes de chamar duplicação, mapear os produtos finais e quem os consome.**
+- `ordax-apps/.github/workflows/foundation.yml` faz verificações abrangentes em push/PR na main, incluindo dependências cross-repo; `notes-unsigned-candidate.yml` constrói pacote de Notes a partir de `tools/app-package/build.py`.
+- A existência de um workflow GitHub não é requisito para desenvolver/executar aplicativos ou Desktop.
+
+### Contrato-alvo de desenvolvimento
+1. **Windows Desktop**: comando local `dev`/watch/HMR no owner correto; editar Surface ou lógica sem reconstruir instalador, Runtime ou OS. Serviço e UI reiniciam/atualizam isoladamente onde suportado. Empacotamento e assinatura só em `package`/`release`. Verificar que os dois jobs Windows representam artefatos diferentes, ou consolidar responsabilidade se duplicam.
+2. **Apps**: cada aplicativo deve ter comando de execução local e testes de sua responsabilidade. O comando `package` reutiliza o packager canônico; publicar/verificar releases é uma etapa separada. Um app não deve exigir workflow GitHub ou testes globais de todos os apps para executar localmente.
+3. **Surface**: manter única fonte em `ordax-surface`, com visual servível em preview sem recópia manual para OS; o empacotador do consumidor fixa SHA para release, mas preview Dev não precisa reconstruir EROFS nem instalador.
+4. **CI enxuta**: gates rápidos e por impacto para PRs, integração cross-repo só quando contratos/locks mudam, builds de instalador/pacote completo apenas quando artefatos respectivos são alterados ou publicação é solicitada. Não eliminar checks mandatórios de proteção de release/segurança ao publicar.
+5. **Provar com dados**: inventariar workflow → artefato → consumidor → gatilho → custo/duração → comando local equivalente; apontar redundâncias reais, então reduzir gatilhos e jobs. Contar rebuilds de Surface-only e app-only; meta é **zero builds de kernel/base/instalador** para mudanças exclusivamente de UI/app.
+
+### Ordem e limites
+A **prioridade P0 atual ainda é gerar USB Dev diretamente na PR #2243**; este diagnóstico Windows/Apps previne regressão conceitual, não justifica atrasar a entrega do USB ou migrar novos owners. Executar otimizações adicionais nos repositórios respectivos só após auditoria, sem supor que os workflows possam ser apagados em bloco.
