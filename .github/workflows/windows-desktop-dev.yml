@@ -98,6 +98,8 @@ jobs:
             "tests/test_desktop_system_metrics.mjs",
             "tests/test_desktop_power_status.mjs",
             "tests/test_windows_desktop_display_current_modes.mjs",
+            "tests/test_windows_desktop_local_ai_package.mjs",
+            "tests/test_windows_desktop_local_ai_host.mjs",
             "tests/test_desktop_file_space.mjs",
             "tests/test_desktop_update_status.mjs",
             "tests/test_desktop_recovery_status.mjs",
@@ -150,6 +152,38 @@ jobs:
           Write-Output ("NATIVE_BUNDLE_SMOKE=PASS assets=" + $scripts.Count)
       - name: Materialize minimal canonical Native runtime dependencies
         run: node tools/windows-desktop/runtime-toolchain.cjs
+      - name: Restore content-pinned Windows Aura engine and model cache
+        id: aura-cache
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: out/windows-local-ai-runtime
+          key: ordax-windows-aura-v1-${{ runner.os }}-${{ hashFiles('system/services/local-ai/source-lock.json') }}
+      - name: Acquire exact Intelligence source for Windows engine on cache miss
+        if: steps.aura-cache.outputs.cache-hit != 'true'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          repository: ordaxsystems/ordax-intelligence
+          ref: f5cf595a49cf0cd68f9fc2a22c5e2ea32114688f
+          path: _upstream/ordax-intelligence
+          persist-credentials: false
+      - name: Build and stage exact verified offline Aura payload (cache miss only)
+        if: steps.aura-cache.outputs.cache-hit != 'true'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $candidate = Join-Path $env:RUNNER_TEMP 'ordax-windows-ai-candidate'
+          $cache = Join-Path $env:RUNNER_TEMP 'ordax-verified-gguf'
+          & python _upstream/ordax-intelligence/tools/inference-builder/windows-candidate.py --os-source . --out-dir $candidate --cache-dir $cache
+          if ($LASTEXITCODE -ne 0) { throw 'Canonical Windows Intelligence engine build failed' }
+          $lock = Get-Content system/services/local-ai/source-lock.json -Raw | ConvertFrom-Json
+          $model = Join-Path $cache $lock.model.filename
+          & node tools/windows-desktop/materialize-local-ai.cjs $candidate $model out/windows-local-ai-runtime
+          if ($LASTEXITCODE -ne 0) { throw 'Pinned Aura runtime assembly failed' }
+      - name: Verify complete offline Aura bytes even after cache restoration
+        shell: pwsh
+        run: |
+          node --input-type=module -e "import('./system/adapters/desktop/local-ai-package.mjs').then(m=>m.verifyWindowsLocalAiPackage('out/windows-local-ai-runtime')).then(x=>console.log('WINDOWS_AURA_PAYLOAD_VERIFIED='+x.modelId)).catch(e=>{console.error(e);process.exitCode=1})"
+          if ($LASTEXITCODE -ne 0) { throw 'Windows Aura package digest mismatch' }
       - name: Build unsigned Windows installer
         working-directory: tools/windows-desktop
         run: npm run dist:win

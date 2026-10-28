@@ -1,53 +1,106 @@
 {
-  "$schema": "prototype-ordax.local-ai-source-lock/1",
-  "engine": {
-    "id": "llama.cpp",
-    "repository": "https://github.com/ggml-org/llama.cpp",
-    "commit": "7ab4ee7baad2d920464cbacfad4f4b07cf111fd2",
-    "license": "MIT",
-    "build_targets": [
-      "llama-server"
-    ],
-    "runtime_api": "OpenAI-compatible-loopback",
-    "artifact": {
-      "platform": "linux-x86_64",
-      "binary_format": "ELF",
-      "linkage": "static",
-      "sha256": "4a974691b9905b88cb46d97c85c2b035b33592a16cd0239ae4c6687f68799afe",
-      "size_bytes": 17039584
-    }
-  },
-  "model": {
-    "id": "qwen3.5-0.8b-q4_0",
-    "repository": "ggml-org/Qwen3.5-0.8B-GGUF",
-    "filename": "Qwen3.5-0.8B-Q4_0.gguf",
-    "format": "GGUF",
-    "quantization": "Q4_0",
-    "sha256": "57d1997790d1744fba5b40a7317df71ea5e2acee28c47e78f0cce39c0703f8cf",
-    "size_bytes": 563036064,
-    "license": "Apache-2.0",
-    "upstream_revision": "9447f74",
-    "download_at_build_time_only": true,
-    "license_text_path": "third_party/licenses/Apache-2.0.txt"
-  },
-  "distribution": {
-    "model_committed_to_git": false,
-    "engine_binary_committed_to_git": false,
-    "network_download_required_at_runtime": false,
-    "signed_release_artifact_required": true,
-    "initial_release_schema_target": "prototype-ordax.release-manifest/4",
-    "independent_component_slot_is_future_migration": true
-  },
-  "runtime_security": {
-    "listen_host": "127.0.0.1",
-    "listen_port": 17865,
-    "web_ui_enabled": false,
-    "built_in_tools_enabled": false,
-    "agent_mode_enabled": false,
-    "mcp_proxy_enabled": false,
-    "runtime_model_download_allowed": false
-  },
-  "runtime_defaults": {
-    "reasoning": "off"
-  }
+    "$schema":  "prototype-ordax.local-ai-source-lock/1",
+    "engine":  {
+                   "id":  "llama.cpp",
+                   "repository":  "https://github.com/ggml-org/llama.cpp",
+                   "commit":  "7ab4ee7baad2d920464cbacfad4f4b07cf111fd2",
+                   "license":  "MIT",
+                   "build_targets":  [
+                                         "llama-server"
+                                     ],
+                   "runtime_api":  "OpenAI-compatible-loopback",
+                   "artifact":  {
+                                    "platform":  "linux-x86_64",
+                                    "binary_format":  "ELF",
+                                    "linkage":  "static",
+                                    "sha256":  "4a974691b9905b88cb46d97c85c2b035b33592a16cd0239ae4c6687f68799afe",
+                                    "size_bytes":  17039584
+                                },
+                   "windows_artifact":  {
+                                            "platform":  "windows-x86_64",
+                                            "binary_format":  "PE",
+                                            "architecture":  "x64",
+                                            "source_commit":  "7ab4ee7baad2d920464cbacfad4f4b07cf111fd2",
+                                            "builder_repository":  "ordaxsystems/ordax-intelligence",
+                                            "builder_commit":  "f5cf595a49cf0cd68f9fc2a22c5e2ea32114688f",
+                                            "proof_run_id":  40639496584,
+                                            "proof_bundle_sha256":  "c6fe2ee2569ab93712e769d718c425afd37de0f21585a14101647e7b2f20db3e",
+                                            "model_sha256":  "57d1997790d1744fba5b40a7317df71ea5e2acee28c47e78f0cce39c0703f8cf",
+                                            "files":  [
+                                                          {
+                                                              "name":  "ggml-base.dll",
+                                                              "sha256":  "bdf896d6bca76fbdc20e0b5706d45e7f0fd16deee1584a733d5ef573dae2e366",
+                                                              "size_bytes":  670208
+                                                          },
+                                                          {
+                                                              "name":  "ggml-cpu.dll",
+                                                              "sha256":  "5bf3011ad90062b817ccbd07f07a7553eb72d09e2079930449af82dbc4fd22fd",
+                                                              "size_bytes":  806912
+                                                          },
+                                                          {
+                                                              "name":  "ggml.dll",
+                                                              "sha256":  "164273d785d5238d1e7b6451b41e2f57b989e3af5b1514f58b453c7db1b2a95b",
+                                                              "size_bytes":  61952
+                                                          },
+                                                          {
+                                                              "name":  "llama-common.dll",
+                                                              "sha256":  "fafa5186518d69af5fd1b4f1c8d67cf093b56109455e861fee1f84dae6eea259",
+                                                              "size_bytes":  3548672
+                                                          },
+                                                          {
+                                                              "name":  "llama-server-impl.dll",
+                                                              "sha256":  "b9002f187aad217930e7b572cb0d11378871db2001ddd43d7102462b78159261",
+                                                              "size_bytes":  2042880
+                                                          },
+                                                          {
+                                                              "name":  "llama-server.exe",
+                                                              "sha256":  "959f20961b12f89dce6413216c5bed9d6298f300d13e67a8ea55b73dd9b9134a",
+                                                              "size_bytes":  10752
+                                                          },
+                                                          {
+                                                              "name":  "llama.dll",
+                                                              "sha256":  "d0c0bbd7dd318d6b776b7d4875b59e283057cc8f4e45cd9b795b70eb6b9622f5",
+                                                              "size_bytes":  2645504
+                                                          },
+                                                          {
+                                                              "name":  "mtmd.dll",
+                                                              "sha256":  "f0a98f108dc056678b2e4e0e38e973ae33169a787d77690efd56054aa4c836b0",
+                                                              "size_bytes":  1409536
+                                                          }
+                                                      ]
+                                        }
+               },
+    "model":  {
+                  "id":  "qwen3.5-0.8b-q4_0",
+                  "repository":  "ggml-org/Qwen3.5-0.8B-GGUF",
+                  "filename":  "Qwen3.5-0.8B-Q4_0.gguf",
+                  "format":  "GGUF",
+                  "quantization":  "Q4_0",
+                  "sha256":  "57d1997790d1744fba5b40a7317df71ea5e2acee28c47e78f0cce39c0703f8cf",
+                  "size_bytes":  563036064,
+                  "license":  "Apache-2.0",
+                  "upstream_revision":  "9447f74",
+                  "download_at_build_time_only":  true,
+                  "license_text_path":  "third_party/licenses/Apache-2.0.txt"
+              },
+    "distribution":  {
+                         "model_committed_to_git":  false,
+                         "engine_binary_committed_to_git":  false,
+                         "network_download_required_at_runtime":  false,
+                         "signed_release_artifact_required":  true,
+                         "initial_release_schema_target":  "prototype-ordax.release-manifest/4",
+                         "independent_component_slot_is_future_migration":  true
+                     },
+    "runtime_security":  {
+                             "listen_host":  "127.0.0.1",
+                             "listen_port":  17865,
+                             "web_ui_enabled":  false,
+                             "built_in_tools_enabled":  false,
+                             "agent_mode_enabled":  false,
+                             "mcp_proxy_enabled":  false,
+                             "runtime_model_download_allowed":  false
+                         },
+    "runtime_defaults":  {
+                             "reasoning":  "off"
+                         }
 }
