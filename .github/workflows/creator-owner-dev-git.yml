@@ -123,7 +123,9 @@ jobs:
         run: |
           set -euo pipefail
           bash -n tools/ci/independent_surface_r2.sh
-          python3 -m unittest tests.test_owner_surface_cache_contract tests.test_ci_two_stage_release_gate -v
+          python3 -m unittest tests.test_owner_surface_cache_contract tests.test_ci_two_stage_release_gate tests.test_dev_components_direct tests.test_owner_dev_raw_direct -v
+          python3 -m py_compile tools/ci/dev_components.py tools/creator/owner_dev_manifest.py tools/creator/owner_dev_raw.py
+          bash -n tools/creator/owner_dev_stage.sh
           python3 tools/ci/preflight_owner_dev.py
 
   build-and-publish:
