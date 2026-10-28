@@ -83,6 +83,16 @@ Mudanças exclusivamente Linux (kernel/base/USB) não devem acionar um
 novo instalador Windows; mudanças no núcleo compartilhado, no lock
 Surface ou nos adaptadores Windows devem acioná-lo.
 
+### Integridade da observação de updates
+
+A projeção de leitura `ordax.update-status/1` usa o mesmo
+`desktop-dev-update-state.json` do atualizador Owner/Development. Ela recusa
+arquivos não regulares ou links de arquivo e estados contraditórios
+(`pendingSha=activeSha`) antes de anunciar qualquer atualização como válida.
+Se o journal estiver corrompido, a observação retorna indisponível/falha
+fechada; não apaga o registro nem inventa revisão ativa. O limite permanece
+distinto do canal Stable assinado e não altera o ciclo de vida do USB.
+
 ## Ordax-pull no Desktop Windows (Owner/Development)
 
 **Autoridade única:** `docs/contracts/distribution-profiles.json` mantém
