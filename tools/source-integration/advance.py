@@ -53,6 +53,8 @@ def module_for(root: Path, owner: str):
 
 
 def git_tree_blobs(checkout: Path, required: set[str]) -> dict[str, str]:
+    # Only the eight OS-consumed blobs: never mistake an unrelated upstream
+    # tool or Windows-only builder for a change to the OS's source graph.
     raw = git(checkout, "ls-tree", "-rz", "HEAD", "--", *sorted(required)).stdout
     result = {}
     for record in raw.split(b"\0"):
