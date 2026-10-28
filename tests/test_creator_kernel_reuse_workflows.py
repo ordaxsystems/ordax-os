@@ -184,7 +184,12 @@ class CreatorKernelReuseWorkflowTests(unittest.TestCase):
             self.assertIn("bootstrap/independent-base/build.py build", build)
             self.assertIn("--profile owner-development", build)
             self.assertNotIn("bootstrap/dev-base/build.py", build)
-            self.assertNotIn("proot", build.lower())
+            # Comments documenting forbidden legacy paths are not shell invocations.
+            executable_lines = "\n".join(
+                line for line in build.lower().splitlines()
+                if line.strip() and not line.lstrip().startswith("#")
+            )
+            self.assertNotIn("proot", executable_lines)
             self.assertLess(
                 build.index("python bootstrap/initramfs/build.py verify"),
                 build.index("bootstrap/independent-base/build.py build"),
