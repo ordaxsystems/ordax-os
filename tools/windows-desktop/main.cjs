@@ -530,11 +530,11 @@ app.whenReady().then(async()=>{
       });
       // Safe background discovery, never a startup dependency or live-tree merge.
       setTimeout(()=>{void stageInBackground(userData,template);},5000);
-      updateTimer=setInterval(()=>{void stageInBackground(userData,template);},10*60*1000);
+      updateTimer=setInterval(()=>{void stageInBackground(userData,template);},60*1000);
       updateTimer.unref?.();
       // Discovery and activation are separate stages; a staged revision
       // must not remain pending indefinitely until someone restarts the app.
-      activationTimer=setInterval(()=>{void idleActivation?.();},15*1000);
+      activationTimer=setInterval(()=>{void idleActivation?.();},5*1000);
       activationTimer.unref?.();
     }
 
