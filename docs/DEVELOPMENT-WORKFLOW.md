@@ -38,6 +38,12 @@ A distinção canônica é entre **comando de desenvolvimento local** e **GitHub
 
 Estes nomes são **interfaces conceituais**; reutilizar os entrypoints canônicos existentes em vez de criar CLIs paralelas. Workflows remotos são consumidores opcionais dessas operações, não sua implementação. Eliminar workflows redundantes sem apagar testes ou contratos necessários. O trabalho na PR #2243 ainda precisa demonstrar execução local e prova da imagem.
 
+## Default development target: Web preview + Windows Desktop
+
+For daily development of the shared Surface, applications and host-facing features, prefer the existing Web/Vite preview and Windows Desktop host. Reserve Owner USB DEV for boot/kernel/device/native integration. The Windows Desktop runbook is [tools/windows-desktop/README.md](../tools/windows-desktop/README.md); `tools/windows-desktop/package.json` owns `start`, `test`, and separately `dist:win`. Never run installer packaging or rebuild a boot image solely to edit UI.
+
+The Surface visual source is singular in `ordaxsystems/ordax-surface`; its exact consumer revision is pinned in `docs/contracts/surface-source.json`. Web, Desktop, USB DEV and Stable/MVP are **targets/profiles**, not independent visual source forks. SSOT source does **not** establish runtime parity; prove version receipts and capability behavior separately before claiming equal functionality. Do not replace a missing host capability with simulated success.
+
 ## Source model
 
 `main` is the source authority for this prototype.
