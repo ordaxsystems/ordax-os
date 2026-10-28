@@ -636,7 +636,7 @@ jobs:
           set -euo pipefail
           stage="$(cat "$RUNNER_TEMP/owner-prototype-stage-path")"
           proof="$RUNNER_TEMP/owner-prototype-media"
-          sudo python tools/creator/proof/disposable_media.py \
+          sudo python3 tools/creator/owner_dev_raw.py \
             --contract "$RUNNER_TEMP/owner-dev-physical-media.json" \
             --stage-root "$stage" \
             --output-root "$proof"
