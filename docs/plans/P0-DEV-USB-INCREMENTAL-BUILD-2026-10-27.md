@@ -123,3 +123,33 @@ Escopo de análise complementar, **sem ampliar a execução de código da PR #22
 
 ### Ordem e limites
 A **prioridade P0 atual ainda é gerar USB Dev diretamente na PR #2243**; este diagnóstico Windows/Apps previne regressão conceitual, não justifica atrasar a entrega do USB ou migrar novos owners. Executar otimizações adicionais nos repositórios respectivos só após auditoria, sem supor que os workflows possam ser apagados em bloco.
+
+## Limpeza transversal de GitHub Actions — autorização explícita do proprietário (2026-10-27)
+
+**Diretriz:** em ambiente DEV, retirar workflows desnecessários em TODOS os repositórios OrdaX, sem manter verificações duplicadas só porque foram criadas no passado. NÃO interpretar esta diretriz como autorização para apagar a receita de build, o teste em si, assinaturas, recuperação, implantação ativa ou contratos de consumidor. GitHub Actions deve ser apenas um executor opcional para desenvolvimento; manter jobs de publicação/deploy ou verificação exigida na integração quando não houver substituto. Reduzir acionamentos por paths/impacto antes de manter CI de alto custo em todo PR.
+
+### Inventário inicial (2026-10-27)
+
+- `ordax-os`: 164 workflows no inventário inicial.
+- `ordax-apps`: 12.
+- `ordax-runtime`: 7.
+- `ordax-platform`: 17.
+- `ordax-surface`: 4 (antes da limpeza).
+- `ordax-creator`: 3.
+- `ordax-site`: 1.
+
+Total observado: **208** definições de workflow em sete repositórios (contagem de arquivos, NÃO de execuções ou workflows obrigatórios). Cada arquivo deve ser classificado por gatilhos, comando real, consumo de artefatos, dependências, branch protection, custo, uso atual e proprietário. **Não excluir por nome**, nem assumir que workflows distintos duplicam o mesmo produto.
+
+### Remoções executadas
+
+1. `ordax-surface/.github/workflows/import-os-visual-source.yml`: removido da `main` no commit `4109df9e`; era importador único da migração histórica e a branch de destino `migration/surface-source-20261023` já existe. Preservada a história Git da migração, não o workflow executor.
+2. `ordax-os/.github/workflows/creator-owner-build-diagnose.yml`: removido **na branch da PR #2243**, commit `b88b98c3`. Era dispatch manual separado do Creator com jobs de build/diagnóstico e sem triggers automáticos. Manter diagnósticos via testes/builders canônicos, não segundo pipeline.
+
+### Critério de decisão reproduzível
+
+- **Eliminar:** workflow de migração concluída, experimento aposentado ou diagnósticos duplicados sem consumidor obrigatório.
+- **Consolidar:** testes semânticos iguais, mesmo produtor de artefato sob vários nomes e jobs que podem chamar a mesma receita; remover antigos apenas depois de migrar consumers.
+- **Reduzir disparos:** CI que roda para toda mudança sem impacto; reservar provas pesadas para alterações relevantes e ações deliberadas.
+- **Manter com justificativa:** publicação/deploy efetivo, assinatura, fronteira de confiança, recuperação crítica, protections obrigatórias sem substituto e testes de integração cujo consumidor ainda depende deles.
+
+**Continuação mandatória:** auditar os demais 206 arquivos do inventário inicial antes de removê-los; eliminar gradualmente os comprovadamente dispensáveis, na autoridade do repositório dono; verificar status checks requeridos, referencias `workflow_call`, scripts e automações de publicação; registrar remoções e prova de que nenhuma entrega ativa ficou órfã. **Não considerar esta limpeza completa ainda.** A urgência do USB DEV direto continua P0 e não deve voltar a depender dos workflows sobreviventes.
