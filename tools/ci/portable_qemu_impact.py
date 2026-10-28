@@ -346,9 +346,12 @@ def classify_paths(
         if path == "bootstrap/independent-base/source.json":
             reasons.append(f"independent-base-source-contract:{path}")
             continue
-        # Independent Surface has one dedicated artifact/QEMU producer; never
-        # duplicate its expensive build through generic portable impact.
-        if path.startswith("bootstrap/surface-runtime/"):
+        # The dedicated Surface producer verifies EROFS bytes without a
+        # redundant generic QEMU rebuild. Its build.py is different: changes
+        # to the Linux runtime builder alter boot-coupled materialization and
+        # must retain the Portable/QEMU gate even in a Windows-only delta.
+        if (path.startswith("bootstrap/surface-runtime/")
+                and path != "bootstrap/surface-runtime/build.py"):
             continue
         if path in INDEPENDENT_SURFACE_POLICY_LIGHT_EXACT:
             continue
