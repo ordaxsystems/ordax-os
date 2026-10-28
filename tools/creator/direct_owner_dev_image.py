@@ -44,6 +44,8 @@ def preflight(out: Path, cli: Path, surface: Path, rootfs: Path, kernel: Path,
         raise ValueError("Owner/Dev rootfs lacks Git; prepare canonical seeded base first")
     if not (rootfs / "workspace/ordax/.git").exists():
         raise ValueError("Owner/Dev rootfs has no seeded OrdaX checkout; follow canonical owner preseed")
+    if not (rootfs / "state/ordax/current-commit").is_file():
+        raise ValueError("Owner/Dev seeded commit receipt missing")
     if not cli.is_file() or cli.is_symlink() or not os.access(cli, os.X_OK):
         raise ValueError("verified Creator Core executable required")
     run([sys.executable, "bootstrap/kernel/verify.py", str(kernel.parent)])
