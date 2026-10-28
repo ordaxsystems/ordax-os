@@ -10,6 +10,7 @@ explicitly classified producer-neutral helpers or roots.
 from __future__ import annotations
 
 import argparse
+import json
 from dataclasses import dataclass
 from html.parser import HTMLParser
 from pathlib import Path
@@ -77,6 +78,19 @@ CI_GOVERNANCE_LIGHT_EXACT = {
     "tools/ci/service_update_impact.mjs",
     "tests/test_causal_workflow_impact.mjs",
 }
+# Windows Desktop has its own installed-Electron, Native and offline inference gates.
+# These source owners do not enter Linux Portable boot artifacts.
+WINDOWS_DESKTOP_LIGHT_PREFIXES = (
+    "tools/windows-desktop/",
+    "tools/windows-emulator/",
+)
+WINDOWS_DESKTOP_LIGHT_EXACT = {
+    ".github/workflows/windows-desktop-dev.yml",
+    "tests/test_windows_desktop_local_ai_host.mjs",
+    "tests/test_windows_desktop_local_ai_package.mjs",
+}
+WINDOWS_LOCAL_AI_SOURCE_LOCK = "system/services/local-ai/source-lock.json"
+
 ACCOUNT_GATEWAY_DEPLOY_LIGHT_EXACT = {
     ".github/workflows/ordax-account-gateway-destination.yml",
     "docs/contracts/ci-supply-chain.json",
@@ -295,7 +309,9 @@ def native_startup_import_graph(root: Path = ROOT) -> tuple[frozenset[str], tupl
     return frozenset(reachable), tuple(sorted(set(errors)))
 
 
-def classify_paths(paths: Iterable[str], *, root: Path = ROOT) -> ImpactResult:
+def classify_paths(
+    paths: Iterable[str], *, root: Path = ROOT, windows_lock_verified: bool = False
+) -> ImpactResult:
     changed = tuple(sorted({p for raw in paths if (p := _normalise_path(raw))}))
     if not changed:
         return ImpactResult(False, ("no-changes",), changed)
@@ -307,10 +323,18 @@ def classify_paths(paths: Iterable[str], *, root: Path = ROOT) -> ImpactResult:
     reasons: list[str] = []
     for path in changed:
         if path in ALWAYS_HEAVY_EXACT:
+            # This exception is authorized by commit-level JSON comparison,
+            # never merely from an untrusted filename list.
+            if path == WINDOWS_LOCAL_AI_SOURCE_LOCK and windows_lock_verified:
+                continue
             reasons.append(f"heavy-exact:{path}")
             continue
         if path.startswith(ALWAYS_HEAVY_PREFIXES):
             reasons.append(f"heavy-prefix:{path}")
+            continue
+        if path in WINDOWS_DESKTOP_LIGHT_EXACT:
+            continue
+        if path.startswith(WINDOWS_DESKTOP_LIGHT_PREFIXES):
             continue
         if path in PRODUCER_NEUTRAL_LIGHT_EXACT:
             continue
@@ -349,6 +373,69 @@ def classify_paths(paths: Iterable[str], *, root: Path = ROOT) -> ImpactResult:
     return ImpactResult(bool(reasons), tuple(reasons) or ("no-heavy-portable-impact",), changed)
 
 
+def verified_windows_only_local_ai_lock_delta(
+    base: str, head: str, *, root: Path = ROOT
+) -> bool:
+    """Verify Linux Local AI source lock stays unchanged at exact Git SHAs.
+
+    Only changes to engine.windows_artifact may avoid Portable QEMU.
+    Any invalid revision, file, or change to a shared field requires QEMU.
+    """
+    if not all(re.fullmatch(r"[0-9a-f]{40}", x or "") for x in (base, head)):
+        return False
+
+    def load(revision: str) -> dict:
+        result = subprocess.run(
+            ["git", "-C", str(root), "show", f"{revision}:{WINDOWS_LOCAL_AI_SOURCE_LOCK}"],
+            check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+        )
+        if len(result.stdout) > 2 * 1024 * 1024:
+            raise ValueError("oversized Local AI source lock")
+        value = json.loads(result.stdout.decode("utf-8"))
+        if not isinstance(value, dict) or not isinstance(value.get("engine"), dict):
+            raise ValueError("malformed Local AI lock")
+        return value
+
+    try:
+        old, new = load(base), load(head)
+        before = old["engine"].get("windows_artifact")
+        after = new["engine"].get("windows_artifact")
+        if before == after or not isinstance(after, dict):
+            return False
+        if (
+            after.get("platform") != "windows-x86_64"
+            or after.get("architecture") != "x64"
+            or after.get("binary_format") != "PE"
+            or after.get("source_commit") != new["engine"].get("commit")
+            or not isinstance(after.get("files"), list)
+            or len(after["files"]) != 8
+        ):
+            return False
+        filenames = {
+            "ggml-base.dll", "ggml-cpu.dll", "ggml.dll", "llama-common.dll",
+            "llama-server-impl.dll", "llama-server.exe", "llama.dll", "mtmd.dll",
+        }
+        entries = after["files"]
+        if (
+            any(not isinstance(item, dict) for item in entries)
+            or {item.get("name") for item in entries} != filenames
+            or any(
+                not isinstance(item.get("sha256"), str)
+                or not re.fullmatch(r"[0-9a-f]{64}", item["sha256"])
+                or not isinstance(item.get("size_bytes"), int)
+                or isinstance(item["size_bytes"], bool)
+                or item["size_bytes"] < 1
+                for item in entries
+            )
+        ):
+            return False
+        old["engine"].pop("windows_artifact", None)
+        new["engine"].pop("windows_artifact", None)
+        return old == new
+    except (OSError, UnicodeError, ValueError, TypeError, KeyError, subprocess.SubprocessError):
+        return False
+
+
 def changed_paths_between(base: str, head: str, *, root: Path = ROOT) -> tuple[str, ...]:
     sha = re.compile(r"^[0-9a-f]{40}$")
     if sha.fullmatch(base or "") is None or sha.fullmatch(head or "") is None:
@@ -379,7 +466,11 @@ def command_classify(args: argparse.Namespace) -> int:
     else:
         try:
             paths = changed_paths_between(args.base, args.head)
-            result = classify_paths(paths)
+            windows_lock_verified = (
+                WINDOWS_LOCAL_AI_SOURCE_LOCK in paths
+                and verified_windows_only_local_ai_lock_delta(args.base, args.head)
+            )
+            result = classify_paths(paths, windows_lock_verified=windows_lock_verified)
         except Exception as exc:
             result = ImpactResult(True, (f"classification-failed:{type(exc).__name__}",), tuple())
 

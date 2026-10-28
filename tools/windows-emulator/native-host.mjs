@@ -14,6 +14,7 @@ import { createDesktopLocalSessionMiddleware } from "../../system/adapters/deskt
 import { createDesktopClientDiagnosticsMiddleware } from "../../system/adapters/desktop/client-diagnostics-host.mjs";
 import { createDesktopDeviceProfileMiddleware } from "../../system/adapters/desktop/device-profile-host.mjs";
 import { createDesktopWlanMiddleware } from "../../system/adapters/desktop/wifi-radio-host.mjs";
+import { createDesktopLocalAiMiddleware } from "../../system/adapters/desktop/local-ai-host.mjs";
 import { createDesktopDisplayCurrentModeMiddleware } from "../../system/adapters/desktop/display-current-mode-host.mjs";
 import observationPolicy from "../../system/adapters/desktop/observation-grant.cjs";
 const { OBSERVATION_ROUTES, createDesktopObservationGrantMiddleware }=observationPolicy;
@@ -163,6 +164,18 @@ export function nativeEmulatorPlugin(stateDirectory, { desktopHost = false, acco
         server.middlewares.use(createDesktopBuiltAssetsMiddleware(process.env.ORDAX_DESKTOP_ASSETS_ROOT));
       }
       if (localSession)server.middlewares.use(localSession.middleware);
+      if (desktopHost && process.platform === "win32" && userData &&
+          process.env.ORDAX_DESKTOP_LOCAL_AI_ROOT &&
+          /^[0-9a-f]{64}$/.test(process.env.ORDAX_DESKTOP_LOCAL_AI_TOKEN ?? "")) {
+        const localAi = createDesktopLocalAiMiddleware({
+          packageRoot: process.env.ORDAX_DESKTOP_LOCAL_AI_ROOT,
+          userData,
+          token: process.env.ORDAX_DESKTOP_LOCAL_AI_TOKEN,
+          sessionLocked: localSession?.readLocked ?? null,
+        });
+        server.middlewares.use(localAi.middleware);
+        process.once("exit", () => { void localAi.dispose(); });
+      }
       if(desktopHost && process.platform==="win32" && userData){
         server.middlewares.use(createDesktopDisplayCurrentModeMiddleware({
           token:process.env.ORDAX_DESKTOP_DISPLAY_TOKEN,

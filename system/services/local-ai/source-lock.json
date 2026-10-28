@@ -15,6 +15,59 @@
       "linkage": "static",
       "sha256": "4a974691b9905b88cb46d97c85c2b035b33592a16cd0239ae4c6687f68799afe",
       "size_bytes": 17039584
+    },
+    "windows_artifact": {
+      "platform": "windows-x86_64",
+      "binary_format": "PE",
+      "architecture": "x64",
+      "source_commit": "7ab4ee7baad2d920464cbacfad4f4b07cf111fd2",
+      "builder_repository": "ordaxsystems/ordax-intelligence",
+      "builder_commit": "1b206ba67991df9b6fd1e3dd436177ca961d877f",
+      "proof_run_id": 40649217720,
+      "proof_bundle_sha256": "40e20d0279d7b37033eac5cdfdbf4b1be04b20d4e8b9aa4acc3482911cf16abc",
+      "model_sha256": "57d1997790d1744fba5b40a7317df71ea5e2acee28c47e78f0cce39c0703f8cf",
+      "files": [
+        {
+          "name": "ggml-base.dll",
+          "sha256": "7f26f5d781b72ca5ab83bf36b0fa482913884d9b1d66466aff30fc42ac8c1f9a",
+          "size_bytes": 672256
+        },
+        {
+          "name": "ggml-cpu.dll",
+          "sha256": "190bca11a5b71b574c5dde5b6a6f92ff3e0dac4b6dd1ff81558bb202d0f4b728",
+          "size_bytes": 806400
+        },
+        {
+          "name": "ggml.dll",
+          "sha256": "9dd596d665bb2e6d5e0c2baca6fcbe5158efb4c66ae32a1a21b34981084a1e6e",
+          "size_bytes": 59392
+        },
+        {
+          "name": "llama-common.dll",
+          "sha256": "d898add592345f98bbf4d0c7f040074746a00626fea732996c04fdaf1900422f",
+          "size_bytes": 3208192
+        },
+        {
+          "name": "llama-server-impl.dll",
+          "sha256": "11a2ee0f01abe333ea80bbdc79f7229f018c102f5d9e179f8b11c28fcc0b96bb",
+          "size_bytes": 1851904
+        },
+        {
+          "name": "llama-server.exe",
+          "sha256": "8e273bb99954f1aacd82c4c966c8f1045c4aeb9847a7e810823c5849a7bca95c",
+          "size_bytes": 10752
+        },
+        {
+          "name": "llama.dll",
+          "sha256": "a77dd5ced5d26cd7be4b183cac61d27bf46cb3fb1dcd658d204c4fa224e7939e",
+          "size_bytes": 2581504
+        },
+        {
+          "name": "mtmd.dll",
+          "sha256": "492ff527047ed459ddfe5943e2872ac93b99d6da8c18dfc75b7f1c6b56709427",
+          "size_bytes": 1368064
+        }
+      ]
     }
   },
   "model": {
