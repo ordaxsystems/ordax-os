@@ -69,7 +69,10 @@ def build(out: Path, cli: Path, surface: Path, rootfs: Path,
     run(["bash", "tools/creator/owner_dev_stage.sh",
          str(manifest), str(payload), str(stage), str(cli),
          str(rootfs), str(surface)], env=env)
-    run([sys.executable, "tools/creator/owner_dev_raw.py",
+    # The canonical disposable-media producer creates FAT32/ext4 filesystem
+    # images and requires elevated mount/loop privileges on the Linux host.
+    # This is NOT authorization to select or write a physical USB device.
+    run(["sudo", sys.executable, "tools/creator/owner_dev_raw.py",
          "--contract", str(geometry), "--stage-root", str(stage),
          "--output-root", str(media)], env=env)
     proof_path = media / "proof.json"
