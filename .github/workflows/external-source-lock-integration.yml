@@ -1,0 +1,151 @@
+name: External source lock integration (Owner/Dev)
+# Only proposes immutable OS lock PRs; never installs/activates/releases.
+on:
+  schedule:
+    - cron: '23 */6 * * *'
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'tools/source-integration/**'
+      - 'tools/source_integration_test_adapter.py'
+      - 'tests/test_source_integration_advance.py'
+      - '.github/workflows/external-source-lock-integration.yml'
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: source-lock-integration-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  regression:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
+        with:
+          python-version: '3.12'
+      - name: Prove immutable source and no activation
+        run: python3 -m unittest discover -s tests -p test_source_integration_advance.py -v
+  source-candidates:
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        owner: [surface, intelligence]
+    steps:
+      - name: Checkout canonical OS main
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: main
+          fetch-depth: 1
+          persist-credentials: false
+          path: os
+      - name: Resolve upstream repository from OS lock
+        id: external
+        env:
+          OWNER: ${{ matrix.owner }}
+        run: |
+          set -euo pipefail
+          case "$OWNER" in
+            surface) lock=docs/contracts/surface-source.json; workflow=validate-source-integration.yml ;;
+            intelligence) lock=docs/contracts/intelligence-source.json; workflow=ci.yml ;;
+            *) exit 2 ;;
+          esac
+          repository="$(jq -er '.source_repository' "os/$lock")"
+          test "$repository" = "ordaxsystems/ordax-$OWNER"
+          echo "repository=$repository" >> "$GITHUB_OUTPUT"
+          echo "upstream_workflow=$workflow" >> "$GITHUB_OUTPUT"
+          echo "lock=$lock" >> "$GITHUB_OUTPUT"
+      - name: Checkout upstream main with full ancestry
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: ${{ steps.external.outputs.repository }}
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+          path: upstream
+      - name: Validate exact source using OS materializer
+        id: candidate
+        env:
+          OWNER: ${{ matrix.owner }}
+          LOCK: ${{ steps.external.outputs.lock }}
+        run: |
+          set -euo pipefail
+          python3 os/tools/source-integration/advance.py --root os --owner "$OWNER" --source-dir upstream --apply
+          if git -C os diff --quiet -- "$LOCK"; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            test "$(git -C os diff --name-only | wc -l)" -eq 1
+            test "$(git -C os diff --name-only)" = "$LOCK"
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+          echo "sha=$(git -C upstream rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+      - name: Require successful upstream main CI at exact SHA
+        if: steps.candidate.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ steps.external.outputs.repository }}
+          UPSTREAM_WORKFLOW: ${{ steps.external.outputs.upstream_workflow }}
+          SHA: ${{ steps.candidate.outputs.sha }}
+        run: |
+          set -euo pipefail
+          gh api -X GET "repos/$REPOSITORY/actions/workflows/$UPSTREAM_WORKFLOW/runs" \
+            -f branch=main -f head_sha="$SHA" -f per_page=100 \
+            | jq -e --arg sha "$SHA" '
+              [.workflow_runs[] | select(
+                .head_sha == $sha and .head_branch == "main" and
+                .event == "push" and .status == "completed" and
+                .conclusion == "success"
+              )] | length > 0
+            '
+      - name: Refuse duplicate pending owner PRs
+        if: steps.candidate.outputs.changed == 'true'
+        id: dedupe
+        env:
+          GH_TOKEN: ${{ github.token }}
+          OWNER: ${{ matrix.owner }}
+        run: |
+          set -euo pipefail
+          if gh pr list --repo "$GITHUB_REPOSITORY" --state open --limit 100 \
+             --json headRefName \
+             | jq -e --arg prefix "automation/advance-$OWNER-" \
+               'any(.[]; .headRefName | startswith($prefix))' >/dev/null; then
+            echo "open=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "open=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Open verified owner lock PR (never push main)
+        if: steps.candidate.outputs.changed == 'true' && steps.dedupe.outputs.open == 'false'
+        working-directory: os
+        env:
+          GH_TOKEN: ${{ secrets.ORDAX_INTEGRATION_TOKEN }}
+          OWNER: ${{ matrix.owner }}
+          LOCK: ${{ steps.external.outputs.lock }}
+          SOURCE_SHA: ${{ steps.candidate.outputs.sha }}
+          SOURCE_REPO: ${{ steps.external.outputs.repository }}
+        run: |
+          set -euo pipefail
+          if test -z "$GH_TOKEN"; then
+            echo "::error::ORDAX_INTEGRATION_TOKEN required; GITHUB_TOKEN-created PRs do not trigger consumer CI"
+            exit 1
+          fi
+          branch="automation/advance-$OWNER-${SOURCE_SHA:0:12}"
+          git config user.name "ordax-source-integration[bot]"
+          git config user.email "ordax-source-integration@users.noreply.github.com"
+          git switch -c "$branch"
+          git add -- "$LOCK"
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "chore($OWNER): advance source ${SOURCE_SHA:0:12}"
+          gh auth setup-git
+          git push origin "HEAD:refs/heads/$branch"
+          printf -v body 'Owner: %s@%s\n\nOnly %s changed. Upstream exact main CI and existing OS materializer passed. No physical update, Stable release, Intelligence activation or second updater.\n\nMerge only after the OS consumer tests, health and rollback gates pass.' \
+            "$SOURCE_REPO" "$SOURCE_SHA" "$LOCK"
+          gh pr create --repo "$GITHUB_REPOSITORY" --base main --head "$branch" \
+            --title "chore($OWNER): integrate source ${SOURCE_SHA:0:12}" \
+            --body "$body"
