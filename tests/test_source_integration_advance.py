@@ -117,17 +117,42 @@ class SourceAdvanceTests(unittest.TestCase):
         self.assertEqual(updated["status"], "integration-candidate")
         self.assertIs(updated["activation_authorized"], False)
         self.assertIs(updated["cutover_complete"], False)
-        self.write("src/uncontracted.mjs", "unexpected")
+        self.write("tools/inference-builder/windows-candidate.py", "Windows-only optional builder")
         self.commit()
-        with self.assertRaises(Exception):
-            advance.advance(self.root, "intelligence", self.source, True)
+        unrelated = advance.advance(self.root, "intelligence", self.source, True)
+        self.assertFalse(unrelated["changed"])
+        self.assertEqual(unrelated["reason"], "no-owned-source-change")
         self.assertEqual(json.loads(path.read_text())["source_commit"], new)
+        # The Windows-only builder remains outside the eight-blob OS source
+        # graph, even when a later pinned blob changes legitimately.
+        self.write("src/local-ai/runtime.mjs", "new version 2")
+        later = self.commit()
+        self.assertTrue(advance.advance(self.root, "intelligence", self.source, True)["changed"])
+        final = json.loads(path.read_text())
+        self.assertEqual(final["source_commit"], later)
+        self.assertEqual(set(final["source_paths"]), set(paths))
+        self.assertNotIn("tools/inference-builder/windows-candidate.py", final["source_paths"])
 
     def test_reject_source_symlink(self):
         linked = Path(self.tmp.name) / "linked"
         linked.symlink_to(self.source, target_is_directory=True)
         with self.assertRaisesRegex(advance.SourceAdvanceError, "real Git checkout"):
             advance.advance(self.root, "surface", linked, True)
+
+    def test_native_bot_uses_existing_ci_without_duplicated_release_authority(self):
+        root = advance.ROOT
+        workflow = (root / ".github/workflows/external-source-lock-integration.yml").read_text()
+        self.assertIn("GH_TOKEN: ${{ secrets.ORDAX_INTEGRATION_TOKEN || github.token }}", workflow)
+        self.assertIn("if: steps.publish.outputs.native == 'true'", workflow)
+        self.assertIn('gh workflow run "$workflow"', workflow)
+        self.assertNotIn("gh pr merge", workflow)
+        self.assertNotIn("gh release create", workflow)
+        self.assertNotIn("git push origin HEAD:refs/heads/main", workflow)
+        for filename in ("foundation.yml", "surface-source-consumer.yml",
+                         "owner-surface-source.yml", "intelligence-source.yml",
+                         "owner-intelligence-source.yml"):
+            consumer = (root / ".github/workflows" / filename).read_text()
+            self.assertIn("  workflow_dispatch:", consumer, filename)
 
 
 if __name__ == "__main__":

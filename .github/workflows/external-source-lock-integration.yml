@@ -32,6 +32,12 @@ jobs:
         run: python3 -m unittest discover -s tests -p test_source_integration_advance.py -v
   source-candidates:
     if: github.event_name != 'pull_request'
+    # Native GITHUB_TOKEN can create an OS PR and dispatch canonical CI without
+    # exporting/storing a long-lived personal token. No release key is granted.
+    permissions:
+      contents: write
+      pull-requests: write
+      actions: write
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     strategy:
@@ -121,20 +127,21 @@ jobs:
             echo "open=false" >> "$GITHUB_OUTPUT"
           fi
       - name: Open verified owner lock PR (never push main)
+        id: publish
         if: steps.candidate.outputs.changed == 'true' && steps.dedupe.outputs.open == 'false'
         working-directory: os
         env:
-          GH_TOKEN: ${{ secrets.ORDAX_INTEGRATION_TOKEN }}
+          # An optional external app token triggers PR checks natively.
+          # Otherwise use the built-in Actions token plus workflow_dispatch.
+          GH_TOKEN: ${{ secrets.ORDAX_INTEGRATION_TOKEN || github.token }}
+          NATIVE_FALLBACK: ${{ secrets.ORDAX_INTEGRATION_TOKEN == '' }}
           OWNER: ${{ matrix.owner }}
           LOCK: ${{ steps.external.outputs.lock }}
           SOURCE_SHA: ${{ steps.candidate.outputs.sha }}
           SOURCE_REPO: ${{ steps.external.outputs.repository }}
         run: |
           set -euo pipefail
-          if test -z "$GH_TOKEN"; then
-            echo "::error::ORDAX_INTEGRATION_TOKEN required; GITHUB_TOKEN-created PRs do not trigger consumer CI"
-            exit 1
-          fi
+          test -n "$GH_TOKEN"
           branch="automation/advance-$OWNER-${SOURCE_SHA:0:12}"
           git config user.name "ordax-source-integration[bot]"
           git config user.email "ordax-source-integration@users.noreply.github.com"
@@ -149,3 +156,36 @@ jobs:
           gh pr create --repo "$GITHUB_REPOSITORY" --base main --head "$branch" \
             --title "chore($OWNER): integrate source ${SOURCE_SHA:0:12}" \
             --body "$body"
+          if test "$NATIVE_FALLBACK" = true; then
+            echo "native=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::GitHub-native PR: dispatching the canonical consumer gates by exact source ref"
+          else
+            echo "native=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Dispatch the existing consumer CI on GitHub-token-created PR
+        if: steps.publish.outputs.native == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          OWNER: ${{ matrix.owner }}
+          SOURCE_SHA: ${{ steps.candidate.outputs.sha }}
+        run: |
+          set -euo pipefail
+          branch="automation/advance-$OWNER-${SOURCE_SHA:0:12}"
+          # workflow_dispatch is one of GitHub's explicit exceptions to event
+          # suppression for GITHUB_TOKEN. These are the ORIGINAL consumer
+          # workflows; no second CI implementation and no release promotion.
+          workflows=(foundation.yml)
+          case "$OWNER" in
+            surface)
+              workflows+=(surface-source-consumer.yml owner-surface-source.yml windows-desktop-dev.yml)
+              ;;
+            intelligence)
+              workflows+=(intelligence-source.yml owner-intelligence-source.yml)
+              ;;
+            *) exit 2 ;;
+          esac
+          for workflow in "${workflows[@]}"; do
+            gh workflow run "$workflow" --repo "$GITHUB_REPOSITORY" --ref "$branch"
+          done
+          echo "Existing canonical consumer validations dispatched for $branch; PR remains gated by remaining checks and review."
