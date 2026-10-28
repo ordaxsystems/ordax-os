@@ -53,6 +53,8 @@ def module_for(root: Path, owner: str):
 
 
 def git_tree_blobs(checkout: Path, required: set[str]) -> dict[str, str]:
+    # Only the eight OS-consumed blobs: never mistake an unrelated upstream
+    # tool or Windows-only builder for a change to the OS's source graph.
     raw = git(checkout, "ls-tree", "-rz", "HEAD", "--", *sorted(required)).stdout
     result = {}
     for record in raw.split(b"\0"):
@@ -96,7 +98,11 @@ def advance(root: Path, owner: str, checkout: Path, apply: bool = False) -> dict
     ancestor = git(checkout, "merge-base", "--is-ancestor", old, target, accepted=(0, 1))
     if ancestor.returncode:
         raise SourceAdvanceError("candidate does not descend from the pinned source")
-    diff = git(checkout, "diff", "--quiet", old, target, "--", *config["paths"], accepted=(0, 1))
+    # Intelligence is an eight-blob source integration, not a mirror of its
+    # repository's independently evolving Windows builder and CI files.
+    # Only a change to one of the OS-pinned blobs can advance this lock.
+    owned_paths = tuple(previous["source_paths"]) if owner == "intelligence" else config["paths"]
+    diff = git(checkout, "diff", "--quiet", old, target, "--", *owned_paths, accepted=(0, 1))
     if diff.returncode == 0:
         return {"owner": owner, "changed": False, "reason": "no-owned-source-change", "source_commit": old}
     proposed = dict(previous)

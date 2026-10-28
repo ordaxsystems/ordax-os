@@ -1,6 +1,7 @@
 name: Owner Surface Source Transaction
 
 on:
+  workflow_dispatch: # Run existing consumer validation on immutable bot PR branches
   push:
     branches: [main, feat/surface-owner-supervisor-stage-20261023]
     paths:

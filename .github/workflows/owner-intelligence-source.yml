@@ -1,5 +1,6 @@
 name: Owner Intelligence source staging
 on:
+  workflow_dispatch: # Run existing consumer validation on immutable bot PR branches
   pull_request:
     paths:
       - 'system/supervisor'
