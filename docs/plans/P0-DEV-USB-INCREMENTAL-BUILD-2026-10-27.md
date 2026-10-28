@@ -74,3 +74,32 @@ sudo python3 tools/creator/owner_dev_raw.py \\
 ```
 
 A saída é descartável, **não autorização de gravação**. A prova RAW, o teste QEMU, a evidência de boot e a publicação permanecem separadas. Teste adicionado: `python3 -m unittest tests.test_owner_dev_raw_direct -v`. Não declarar USB pronto até passar os testes e existir artefato verificado. Esta extração ainda não fornece automaticamente os insumos de kernel, initramfs ou rootfs.
+
+## Modelo de desenvolvimento após o cutover — decisão de desacoplamento
+
+A arquitetura-alvo não implica criar novos repositórios. Respeitar owners existentes: `ordax-os` (kernel/base/serviços/composição), `ordax-surface` (UI), `ordax-apps` (apps removíveis), `ordax-runtime` (runtime local conforme contrato), `ordax-platform` (serviços remotos), `ordax-creator` (produto Creator) e `ordax-site` (site público). Confirmar ownership vigente em `docs/contracts/repository-ownership.json` antes de qualquer migração.
+
+### Matriz de impacto exigida
+
+| Alteração | Build mínimo | Ativação esperada |
+| --- | --- | --- |
+| UI/CSS/JS da Surface | pacote visual da Surface + testes relevantes | atualizar UI; não reconstruir WebKit/Mesa/base/kernel |
+| Aplicativo removível | pacote do app + seus testes | atualizar o app |
+| Serviço Native do OS | serviço e dependentes reais | restart/health do serviço; sem recompilar kernel |
+| Runtime gráfico Cage/WebKit/Mesa | EROFS gráfico, se suas entradas mudaram | restart de sessão/health, mantendo rollback |
+| Base Buildroot/musl | base e dependentes efetivos | transação de base quando exigida |
+| Kernel/initramfs/boot | artefatos afetados + prova de boot | slot/boot, reinicialização e rollback quando exigidos |
+
+Esta matriz é **critério de projeto**, não afirmação de que todos os caminhos já funcionam. O kernel Linux é um componente; os demais binários Native também precisam de build próprio quando suas entradas mudarem.
+
+### Regras anti-regressão
+
+1. CI executa receitas canônicas, mas não é pré-requisito para produzir imagem DEV em executor compatível. Homologação completa fica no fluxo de release.
+2. Não criar novo repositório para artefato, cache, SDK, serviço ou interface cuja responsabilidade já pertença a owner existente.
+3. Surface visual separada do runtime gráfico compilado: modificar visual não recompila WebKit, Mesa, Cage ou kernel. Verificar fingerprints e testes que comprovem isso.
+4. USB físico só é regravado quando necessário; para atualização de componente, usar transação versionada com health e rollback já contratados.
+5. Dev rápido não significa ignorar integridade, isolamento de dispositivos, autorização de escrita em mídia ou confiança de artefatos.
+6. Registrar tempos e contagem real de compilações no primeiro build e nos rebuilds sem mudança, só Surface e só serviço; nenhuma promessa de duração sem medição.
+7. Antes de extrair outro módulo para novo owner, demonstrar acoplamento real, consumidor concreto, contrato de migração e ausência de autoridade duplicada.
+
+**Próxima prova prioritária:** teste automatizado que altere somente arquivos visuais externos e constate que kernel, Buildroot base e runtime gráfico são reutilizados, seguido da primeira geração RAW por comando direto fora da CI. Os comandos extraídos anteriormente permanecem candidatos até execução e provas end-to-end.
