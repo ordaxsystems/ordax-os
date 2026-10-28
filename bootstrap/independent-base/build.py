@@ -1459,8 +1459,36 @@ def verify_native_python_receipt(out: Path) -> dict:
     return receipt
 
 
+def validate_owner_payload_environment(profile: str, kernel: dict) -> None:
+    """Fail before hours of Buildroot work if the single kernel owner is unbound."""
+    if profile != "owner-development":
+        return
+    required = (
+        "ORDAX_HOST_PYTHON",
+        "ORDAX_KERNEL_MODULES_ARCHIVE",
+        "ORDAX_KERNEL_MODULES_RECEIPT",
+        "ORDAX_FIRMWARE_COVERAGE_RECEIPT",
+    )
+    for name in required:
+        if not os.environ.get(name):
+            raise BaseError(f"Owner/Development build requires {name} before compilation")
+    python = Path(os.environ["ORDAX_HOST_PYTHON"])
+    if not python.is_absolute() or not python.is_file() or not os.access(python, os.X_OK):
+        raise BaseError("Owner/Development host Python must be an absolute executable")
+    archive = Path(os.environ["ORDAX_KERNEL_MODULES_ARCHIVE"])
+    if (not archive.is_absolute() or archive.is_symlink() or not archive.is_file()
+            or archive.name != f"kernel-modules-{kernel['version']}.tar"):
+        raise BaseError("Owner/Development requires the exact canonical kernel modules archive")
+    for name in ("ORDAX_KERNEL_MODULES_RECEIPT", "ORDAX_FIRMWARE_COVERAGE_RECEIPT"):
+        receipt = Path(os.environ[name])
+        if (not receipt.is_absolute() or receipt.is_symlink() or
+                not receipt.parent.is_dir() or receipt.parent.is_symlink()):
+            raise BaseError(f"Owner/Development receipt destination is unsafe: {name}")
+
+
 def build(out: Path, cache: Path, jobs: int, profile: str) -> dict:
     source, kernel, stable, network = contracts()
+    validate_owner_payload_environment(profile, kernel)
     out = out.resolve()
     if out == ROOT or ROOT in out.parents:
         raise BaseError("output must be outside the source repository")
