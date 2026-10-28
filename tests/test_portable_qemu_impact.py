@@ -1,6 +1,8 @@
 from pathlib import Path
 import importlib.util
+import json
 import sys
+import subprocess
 import tempfile
 import unittest
 
@@ -348,6 +350,120 @@ class PortableQemuImpactTests(unittest.TestCase):
             "heavy-exact:.github/workflows/portable-v2-qemu-boot-proof.yml",
             result.reasons,
         )
+
+    def test_windows_only_native_owners_use_installed_desktop_ci_not_qemu(self):
+        desktop_paths = [
+            ".github/workflows/windows-desktop-dev.yml",
+            "tools/windows-desktop/main.cjs",
+            "tools/windows-desktop/host.cjs",
+            "tools/windows-desktop/materialize-local-ai.cjs",
+            "tools/windows-desktop/package.json",
+            "tools/windows-desktop/install-smoke.ps1",
+            "tools/windows-emulator/native-host.mjs",
+            "tools/windows-emulator/desktop-native-server.test.mjs",
+            "tests/test_windows_desktop_local_ai_host.mjs",
+            "tests/test_windows_desktop_local_ai_package.mjs",
+            "system/adapters/desktop/local-ai-host.mjs",
+            "system/adapters/desktop/local-ai-package.mjs",
+        ]
+        classified = impact.classify_paths(desktop_paths, root=ROOT)
+        self.assertFalse(classified.required)
+        self.assertEqual(classified.reasons, ("no-heavy-portable-impact",))
+
+        # Filename-only claims are not enough to drop a mandatory boot gate.
+        guarded = impact.classify_paths(
+            [*desktop_paths, impact.WINDOWS_LOCAL_AI_SOURCE_LOCK], root=ROOT,
+        )
+        self.assertTrue(guarded.required)
+        self.assertIn(
+            "heavy-exact:system/services/local-ai/source-lock.json", guarded.reasons,
+        )
+
+        # Production commit classifier may establish the narrow Windows-only
+        # change; any additional Linux or unknown root must still trigger QEMU.
+        validated = impact.classify_paths(
+            [*desktop_paths, impact.WINDOWS_LOCAL_AI_SOURCE_LOCK],
+            root=ROOT, windows_lock_verified=True,
+        )
+        self.assertFalse(validated.required)
+        for linux_change in (
+            "bootstrap/kernel/source.json",
+            "bootstrap/surface-runtime/build.py",
+            "system/services/local-ai/runtime.mjs",
+            "system/entrypoint",
+        ):
+            with self.subTest(linux_change=linux_change):
+                guarded = impact.classify_paths(
+                    [*desktop_paths, impact.WINDOWS_LOCAL_AI_SOURCE_LOCK, linux_change],
+                    root=ROOT, windows_lock_verified=True,
+                )
+                self.assertTrue(guarded.required)
+
+    def test_git_bound_local_ai_windows_lock_comparison_is_fail_closed(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            def git(*args):
+                return subprocess.run(
+                    ["git", *args], cwd=root, check=True,
+                    capture_output=True, text=True,
+                ).stdout.strip()
+            git("init", "-q")
+            git("config", "user.name", "QEMU Impact Contract")
+            git("config", "user.email", "qemu-impact@example.invalid")
+            path = root / impact.WINDOWS_LOCAL_AI_SOURCE_LOCK
+            path.parent.mkdir(parents=True, exist_ok=True)
+            base_lock = {
+                "$schema": "prototype-ordax.local-ai-source-lock/1",
+                "engine": {"id": "llama.cpp", "commit": "a" * 40},
+                "model": {"id": "pinned-model", "sha256": "b" * 64},
+            }
+            def commit(obj, message):
+                path.write_text(json.dumps(obj, sort_keys=True), encoding="utf-8")
+                git("add", ".")
+                git("commit", "-qm", message)
+                return git("rev-parse", "HEAD")
+            before = commit(base_lock, "pinned Linux Local AI source")
+            windows = json.loads(json.dumps(base_lock))
+            windows["engine"]["windows_artifact"] = {
+                "platform": "windows-x86_64",
+                "architecture": "x64",
+                "binary_format": "PE",
+                "source_commit": "a" * 40,
+                "files": [
+                    {
+                        "name": name, "sha256": "d" * 64, "size_bytes": i + 100,
+                    }
+                    for i, name in enumerate(
+                        (
+                            "ggml-base.dll", "ggml-cpu.dll", "ggml.dll",
+                            "llama-common.dll", "llama-server-impl.dll",
+                            "llama-server.exe", "llama.dll", "mtmd.dll",
+                        )
+                    )
+                ],
+            }
+            after = commit(windows, "introduce Windows-only engine pins")
+            self.assertTrue(
+                impact.verified_windows_only_local_ai_lock_delta(before, after, root=root)
+            )
+            self.assertFalse(
+                impact.verified_windows_only_local_ai_lock_delta("invalid", after, root=root)
+            )
+            self.assertFalse(
+                impact.verified_windows_only_local_ai_lock_delta(before, before, root=root)
+            )
+            malformed_windows_pin = json.loads(json.dumps(windows))
+            malformed_windows_pin["engine"]["windows_artifact"]["files"][0]["sha256"] = "bad"
+            malformed = commit(malformed_windows_pin, "invalidate Windows file pin")
+            self.assertFalse(
+                impact.verified_windows_only_local_ai_lock_delta(before, malformed, root=root)
+            )
+            changed_model = json.loads(json.dumps(windows))
+            changed_model["model"]["sha256"] = "c" * 64
+            latest = commit(changed_model, "alter Linux-consumed model pin")
+            self.assertFalse(
+                impact.verified_windows_only_local_ai_lock_delta(before, latest, root=root)
+            )
 
     def test_missing_runtime_root_discovery_fails_closed(self):
         with tempfile.TemporaryDirectory() as directory:
