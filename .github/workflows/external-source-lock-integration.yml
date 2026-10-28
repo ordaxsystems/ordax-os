@@ -206,11 +206,9 @@ jobs:
           else
             branch="automation/advance-$OWNER"
             git switch -c "$branch"
-            # GitHub may retain a merged PR's head branch because the repo
-            # has delete_branch_on_merge=false. Reuse it only if its exact
-            # remote tip was already merged into the OS main. The next push
-            # is then a normal fast-forward, without a force-push or a second
-            # owner branch. A closed, unmerged branch is never overwritten.
+            # The repo may retain a branch after its PR was merged.
+            # Reuse it only if the remote SHA is already an ancestor of main.
+            # git push below remains ordinary fast-forward, never force-push.
             existing_tip="$(git ls-remote --heads origin "refs/heads/$branch")"
             if [ -n "$existing_tip" ]; then
               existing_sha="$(printf '%s\n' "$existing_tip" | cut -f1)"
@@ -221,7 +219,7 @@ jobs:
                 echo "::error::Owner branch exists but is not merged into current main; refuse overwrite"
                 exit 1
               fi
-              echo "::notice::Reusing a previously merged owner branch with ordinary fast-forward push"
+              echo "::notice::Previously merged owner branch will fast-forward"
             fi
           fi
           git add -- "$LOCK"
