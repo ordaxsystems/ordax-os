@@ -206,6 +206,21 @@ jobs:
           else
             branch="automation/advance-$OWNER"
             git switch -c "$branch"
+            # The repo may retain a branch after its PR was merged.
+            # Reuse it only if the remote SHA is already an ancestor of main.
+            # git push below remains ordinary fast-forward, never force-push.
+            existing_tip="$(git ls-remote --heads origin "refs/heads/$branch")"
+            if [ -n "$existing_tip" ]; then
+              existing_sha="$(printf '%s\n' "$existing_tip" | cut -f1)"
+              existing_ref="$(printf '%s\n' "$existing_tip" | cut -f2)"
+              test "$existing_ref" = "refs/heads/$branch"
+              git fetch --no-tags origin "refs/heads/$branch"
+              if ! git merge-base --is-ancestor "$existing_sha" "$main_sha"; then
+                echo "::error::Owner branch exists but is not merged into current main; refuse overwrite"
+                exit 1
+              fi
+              echo "::notice::Previously merged owner branch will fast-forward"
+            fi
           fi
           git add -- "$LOCK"
           test "$(git diff --cached --name-only)" = "$LOCK"

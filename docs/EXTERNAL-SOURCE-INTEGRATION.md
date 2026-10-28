@@ -38,8 +38,13 @@ fast-forward, com CI novamente vinculada ao novo head. O inventário percorre
 todas as páginas de PRs, exige repositório de origem correto, base main e
 diff contendo **exatamente um lock**; duas PRs concorrentes, mudança simultânea
 de main ou branch alterada durante a operação falham fechadas. Se não existir
-PR, usa a branch estável `automation/advance-<owner>`. Não há force-push,
-rebase de histórico de terceiros ou segunda PR em paralelo. Caso a main
+PR aberta, usa a branch estável `automation/advance-<owner>`. Como a opção
+`delete_branch_on_merge` está desabilitada no repositório, uma branch
+remanescente de PR **já integrada** poderá ser reaproveitada apenas se o seu
+SHA exato for ancestral da `main` atualmente verificada; o novo commit
+avança essa branch exclusivamente por fast-forward. Uma branch fechada sem
+merge não é sobrescrita e causa falha fechada, sem abrir uma segunda branch.
+Não há force-push, rebase de histórico de terceiros ou segunda PR em paralelo. Caso a main
 upstream tenha sido reescrita, falha em vez de aceitar um force-push como
 atualização. A PR altera **somente um lock**. No caso da Intelligence, apenas os oito Git blobs fixados contam como
 código consumido; um helper adicional exclusivo do Windows, documentação ou CI

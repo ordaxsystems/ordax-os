@@ -287,6 +287,64 @@ fi
         self.assertNotIn("git push -f", workflow)
         self.assertNotIn("gh pr merge", workflow)
 
+    def test_merged_owner_branch_can_fast_forward_without_force(self):
+        # The repo intentionally keeps merged branches. Prove the second
+        # integration stays a fast-forward and never rewrites an unmerged tip.
+        import os
+        root = Path(self.tmp.name)
+        remote = root / "owner-remote.git"
+        work = root / "owner-work"
+        subprocess.run(["git", "init", "--bare", str(remote)], check=True,
+                       capture_output=True)
+        subprocess.run(["git", "init", "-b", "main", str(work)], check=True,
+                       capture_output=True)
+        def git(*args, check=True):
+            return subprocess.run(["git", "-C", str(work), *args],
+                                  capture_output=True, text=True, check=check)
+        git("config", "user.name", "Owner Test")
+        git("config", "user.email", "owner@example.invalid")
+        git("remote", "add", "origin", str(remote))
+        (work / "lock.json").write_text('{"version":0}')
+        git("add", "lock.json")
+        git("commit", "-m", "initial")
+        git("push", "origin", "main")
+        git("switch", "-c", "automation/advance-surface")
+        (work / "lock.json").write_text('{"version":1}')
+        git("add", "lock.json")
+        git("commit", "-m", "first owner PR")
+        git("push", "origin", "HEAD:refs/heads/automation/advance-surface")
+        original = git("rev-parse", "HEAD").stdout.strip()
+        git("switch", "main")
+        git("merge", "--no-ff", "-m", "merge first PR", "automation/advance-surface")
+        git("push", "origin", "main")
+        main_sha = git("rev-parse", "HEAD").stdout.strip()
+        self.assertEqual(git("merge-base", "--is-ancestor", original, main_sha).returncode, 0)
+        git("switch", "-c", "candidate")
+        (work / "lock.json").write_text('{"version":2}')
+        git("add", "lock.json")
+        git("commit", "-m", "second owner PR")
+        git("push", "origin", "HEAD:refs/heads/automation/advance-surface")
+        updated = git("rev-parse", "HEAD").stdout.strip()
+        remote_tip = git("ls-remote", "--heads", "origin", "refs/heads/automation/advance-surface").stdout
+        self.assertIn(updated, remote_tip)
+        # No implicit forced update of a closed but *unmerged* PR.
+        git("switch", "main")
+        git("switch", "-c", "automation/advance-intelligence")
+        (work / "lock.json").write_text('{"version":33}')
+        git("add", "lock.json")
+        git("commit", "-m", "closed unmerged branch")
+        git("push", "origin", "HEAD:refs/heads/automation/advance-intelligence")
+        stray = git("rev-parse", "HEAD").stdout.strip()
+        self.assertNotEqual(
+            git("merge-base", "--is-ancestor", stray, main_sha, check=False).returncode,
+            0,
+        )
+        workflow = (advance.ROOT / ".github/workflows/external-source-lock-integration.yml").read_text()
+        self.assertIn('existing_tip="$(git ls-remote --heads origin "refs/heads/$branch")"', workflow)
+        self.assertIn('git merge-base --is-ancestor "$existing_sha" "$main_sha"', workflow)
+        self.assertIn("refuse overwrite", workflow)
+        self.assertNotIn("git push --force", workflow)
+
     def test_native_bot_uses_existing_ci_without_duplicated_release_authority(self):
         root = advance.ROOT
         workflow = (root / ".github/workflows/external-source-lock-integration.yml").read_text()
