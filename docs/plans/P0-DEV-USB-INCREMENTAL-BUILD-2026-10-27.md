@@ -61,3 +61,16 @@ A derivação do manifesto antes embutida no workflow `creator-owner-dev-git.yml
 O estágio lógico do Creator foi extraído para `tools/creator/owner_dev_stage.sh` e o workflow existente agora usa **exatamente** essa receita. São necessários manifesto derivado, caminho vazio de payload, caminho vazio de stage, CLI canônica do Creator, diretório de rootfs verificado e produtor Surface EROFS verificado. A variável `ORDAX_DEV_GEOMETRY_OUT` define o destino da geometria derivada. O script conserva as chamadas ao Core `verify-payload`/`stage-tree`, verificação offline da Surface, capacidades Owner e recusa de symlinks; não autoriza mídia física. `sudo` continua necessário para materializar rootfs com metadados próprios; é dependência de host real que deve ser formalizada, não um novo gate de CI.
 
 **Lacunas abertas:** geração local de kernel/initramfs/raiz integrada; RAW descartável `disposable_media.py` ainda encadeado no workflow; CI da revisão, integração do Creator independente e boot real. Não classificar staging como USB final.
+
+### RAW Dev direto — integração de execução (2026-10-27)
+
+O produtor RAW continua **único** em `tools/creator/proof/disposable_media.py`. O entrypoint `tools/creator/owner_dev_raw.py` apenas delega `--contract`, `--stage-root` e `--output-root`; o workflow chama agora o mesmo entrypoint. Exemplo após staging validado:
+
+```bash
+sudo python3 tools/creator/owner_dev_raw.py \\
+  --contract /tmp/owner-dev-physical-media.json \\
+  --stage-root /tmp/owner-prototype-stage \\
+  --output-root /tmp/owner-prototype-media
+```
+
+A saída é descartável, **não autorização de gravação**. A prova RAW, o teste QEMU, a evidência de boot e a publicação permanecem separadas. Teste adicionado: `python3 -m unittest tests.test_owner_dev_raw_direct -v`. Não declarar USB pronto até passar os testes e existir artefato verificado. Esta extração ainda não fornece automaticamente os insumos de kernel, initramfs ou rootfs.
