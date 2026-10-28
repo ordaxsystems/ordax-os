@@ -113,6 +113,45 @@ function removeOwnedCandidate(candidate) {
     return {removed:false,code:error.code,phase};
   }
 }
+// Retired verified SHA directories are no longer release authority once the
+// state journal no longer references them. Keep active + rollback + any
+// transaction/rejection references. Do not traverse Windows junctions.
+function sweepRetiredVersions(userData, {log=()=>{}}={}) {
+  const state=readState(userData);
+  const kept=new Set([state.activeSha,state.previousSha,state.pendingSha,
+    state.attemptedSha,state.pinnedSha,state.rejectedSha,state.incompatibleSha].filter(Boolean));
+  const dir=join(userData,VERSIONS_DIR);
+  const result={removed:0,deferred:0};
+  if(!existsSync(dir)) return result;
+  for(const entry of readdirSync(dir,{withFileTypes:true})) {
+    if(!SHA_RE.test(entry.name) || kept.has(entry.name)) continue;
+    const candidate=join(dir,entry.name);
+    const stat=lstatSync(candidate);
+    if(!stat.isDirectory() || stat.isSymbolicLink()) continue;
+    // Re-read before destruction: refuse cleanup if activation state moved.
+    const live=readState(userData);
+    if([live.activeSha,live.previousSha,live.pendingSha,live.attemptedSha,
+        live.pinnedSha,live.rejectedSha,live.incompatibleSha].includes(entry.name)) continue;
+    try {
+      prepareWindowsGitDeletion(join(candidate,'.git'));
+      const dependencyMount=join(candidate,'node_modules');
+      let mounted=null;
+      try {mounted=lstatSync(dependencyMount)} catch(error) {
+        if(error?.code!=='ENOENT') throw error;
+      }
+      if(mounted) {
+        if(!mounted.isSymbolicLink()) throw Error('Retired version has unexpected node_modules tree');
+        unlinkSync(dependencyMount);
+      }
+      rmSync(candidate,{recursive:true,force:true,maxRetries:10,retryDelay:200});
+      result.removed++;
+    } catch(error) {
+      result.deferred++;
+      log('Deferred retired Desktop version cleanup: '+entry.name+' '+error.message);
+    }
+  }
+  return result;
+}
 // A bounded maintenance pass runs on later update checks. It deletes only
 // aged, unpromoted candidate UUIDs. Active/previous/pending SHA directories,
 // unrelated user files and links are never traversed or removed.
@@ -328,7 +367,7 @@ function createDesktopIdleActivation({
 async function stageMain({ userData, template, log = () => {}, remote = OFFICIAL_REMOTE, runGit = git, buildCandidate = buildNativeCandidate, cleanupCandidate = removeOwnedCandidate }) {
   if (remote !== OFFICIAL_REMOTE) throw Error('Untrusted update source');
   // Best-effort orphan maintenance must not prevent a valid state decision.
-  try { sweepStaleCandidates(userData,{log}); }
+  try { sweepStaleCandidates(userData,{log}); sweepRetiredVersions(userData,{log}); }
   catch(error) { log('Desktop candidate maintenance failed: '+error.message); }
   const state = readState(userData);
   if (state.pinnedSha) return {status:'pinned',sha:state.pinnedSha};
@@ -450,5 +489,5 @@ module.exports = {
   CHANNEL_SCHEMA, readState, writeState, validateState, versionRoot,
   chooseBootVersion, confirmedVersion: verifiedVersion,
   stageMain, shouldAutoActivate, desktopFirstRunComplete, createDesktopIdleActivation, createDesktopWindowIdleTracker, confirmHealthy, rejectCandidate, pinPrevious, unpin,
-  prepareWindowsGitDeletion, removeOwnedCandidate, sweepStaleCandidates,
+  prepareWindowsGitDeletion, removeOwnedCandidate, sweepStaleCandidates, sweepRetiredVersions,
 };

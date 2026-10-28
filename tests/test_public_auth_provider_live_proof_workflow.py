@@ -26,7 +26,7 @@ class PublicAuthProviderLiveProofWorkflowTests(unittest.TestCase):
         self.assertIn('data["source_commit"] == os.environ["GITHUB_SHA"]', self.text)
         self.assertIn('test "${GITHUB_REF}" = "refs/heads/main"', self.text)
         self.assertIn('test "${GITHUB_REPOSITORY}" = "ordaxsystems/ordax-os"', self.text)
-        self.assertIn('data["ready"] is True', self.text)
+        self.assertIn('data["ready"] is all(data["checks"].values())', self.text)
         self.assertIn("auth-provider-proof-", self.text)
         self.assertIn("retention-days: 14", self.text)
 
@@ -40,6 +40,16 @@ class PublicAuthProviderLiveProofWorkflowTests(unittest.TestCase):
         self.assertIn('name: auth-provider-proof-${{ inputs.scope }}-${{ github.sha }}', self.text)
         self.assertNotIn("supabase db reset", self.text)
         self.assertNotIn("supabase projects update", self.text)
+
+    def test_blocked_provider_proof_is_uploaded_before_fail_closed_gate(self):
+        self.assertIn("id: provider_probe", self.text)
+        self.assertIn("continue-on-error: true", self.text)
+        self.assertIn("Upload sanitized provider proof only", self.text)
+        self.assertIn("Fail closed when hosted provider is not ready", self.text)
+        self.assertLess(self.text.index("Upload sanitized provider proof only"), self.text.index("Fail closed when hosted provider is not ready"))
+        self.assertIn('test "${PROBE_OUTCOME}" = "success"', self.text)
+        self.assertIn("assert type(data[\"ready\"]) is bool", self.text)
+        self.assertIn("PUBLIC_AUTH_PROVIDER_PROOF=BLOCKED", self.text)
 
     def test_checkout_does_not_persist_credentials(self):
         self.assertIn("persist-credentials: false", self.text)

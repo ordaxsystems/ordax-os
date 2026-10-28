@@ -1,5 +1,6 @@
 name: Intelligence cross-repository source gate
 on:
+  workflow_dispatch: # Run existing consumer validation on immutable bot PR branches
   pull_request:
     paths:
       - 'docs/contracts/intelligence-source.json'

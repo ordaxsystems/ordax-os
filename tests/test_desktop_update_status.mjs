@@ -132,6 +132,42 @@ test("corrupt update journals fail closed; never expose successful update state"
   assert.notEqual(status.lastError,"");
 });
 
+test("Desktop update observation rejects non-files and reparse links before reading the journal", async () => {
+  let reads=0;
+  const journalRead=async()=>{reads++;return "{}";};
+  for (const kind of ["directory","symlink"]) {
+    const stat=async()=>({
+      isFile:()=>kind==="symlink",
+      isSymbolicLink:()=>kind==="symlink",
+    });
+    await assert.rejects(
+      ()=>readDesktopDevUpdateState("isolated-profile",{read:journalRead,stat}),
+      /unavailable or corrupt/,
+      kind,
+    );
+  }
+  assert.equal(reads,0,"untrusted filesystem objects must never be followed");
+  const response=await readDesktopUpdateStatus("isolated-profile",{
+    read:journalRead,stat:async()=>({isFile:()=>false,isSymbolicLink:()=>false}),
+  });
+  assert.equal(response.status,"unavailable");
+  assert.equal(response.phase,"error");
+});
+
+test("Desktop observation and update activator reject the same active-equals-pending journal", async t => {
+  const root=mkdtempSync(join(tmpdir(),"ordax-desktop-same-sha-"));
+  t.after(()=>rmSync(root,{recursive:true,force:true}));
+  const journal={schema:"ordax.desktop-dev-update-state/1",activeSha:a,
+    previousSha:null,pendingSha:a,attemptedSha:null,pinnedSha:null,
+    rejectedSha:null,incompatibleSha:null};
+  writeFileSync(join(root,"desktop-dev-update-state.json"),JSON.stringify(journal));
+  await assert.rejects(()=>readDesktopDevUpdateState(root),/untrusted/);
+  const response=await readDesktopUpdateStatus(root,{renderedSourceSha:a});
+  assert.equal(response.status,"unavailable");
+  assert.equal(response.phase,"error");
+  assert.equal(response.applyMode,"none");
+});
+
 test("update history contains only actual recorded deliveries, never fabricated records", () => {
   const value = readDesktopUpdateHistory();
   assert.deepEqual(value, validateUpdateHistorySnapshot({releases:[],applications:[]}));

@@ -16,7 +16,7 @@ test('Electron connects ordax-pull staging to automatic, health-gated idle activ
   const source=readFileSync(join(__dirname,'main.cjs'),'utf8');
   assert.match(source,/const result=await stageMain\(\{userData,template,log\}\)/);
   assert.match(source,/idleActivation=createDesktopIdleActivation\(\{/);
-  assert.match(source,/activationTimer=setInterval\(\(\)=>\{void idleActivation\?\.\(\);\},15\*1000\)/);
+  assert.match(source,/activationTimer=setInterval\(\(\)=>\{void idleActivation\?\.\(\);\},5\*1000\)/);
   assert.match(source,/allowPendingTrial:await desktopFirstRunComplete\(userData,template\)/);
   assert.match(source,/if\(!await desktopFirstRunComplete\(userData,template\)\)return;/);
   assert.match(source,/powerMonitor\.getSystemIdleTime\(\)/);

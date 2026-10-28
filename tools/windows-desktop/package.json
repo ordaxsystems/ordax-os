@@ -6,6 +6,7 @@
   "main": "main.cjs",
   "scripts": {
     "start": "electron .",
+    "dev:local": "node local-dev.cjs",
     "test": "node --test *.test.cjs",
     "dist:win": "electron-builder --win nsis --x64"
   },
@@ -82,6 +83,11 @@
       {
         "from": "../../docs/contracts/surface-source.json",
         "to": "runtime-template/docs/contracts/surface-source.json"
+      },
+      {
+        "from": "../../out/windows-local-ai-runtime",
+        "to": "runtime-template/local-ai-runtime",
+        "filter": ["**/*"]
       }
     ],
     "asar": true,

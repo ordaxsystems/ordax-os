@@ -1,6 +1,6 @@
 // Read-only Windows projection of the existing canonical update-status port.
 // This is an adapter, not another update policy or a release authority.
-import { readFile } from "node:fs/promises";
+import { readFile, lstat } from "node:fs/promises";
 import { join } from "node:path";
 import { validateUpdateStatusSnapshot } from "../../contracts/update-status.mjs";
 import { validateUpdateHistorySnapshot } from "../../contracts/update-history.mjs";
@@ -10,19 +10,26 @@ const UPDATE_STATE = "desktop-dev-update-state.json";
 const JOURNAL_SCHEMA = "ordax.desktop-dev-update-state/1";
 const JOURNAL_FIELDS = ["activeSha", "previousSha", "pendingSha", "attemptedSha", "pinnedSha", "rejectedSha"];
 
-export async function readDesktopDevUpdateState(userData, { read = readFile } = {}) {
+export async function readDesktopDevUpdateState(userData, { read = readFile, stat = lstat } = {}) {
   if (typeof userData !== "string" || !userData) {
     throw new TypeError("The Windows Desktop update profile directory is required");
   }
   let parsed;
   try {
-    parsed = JSON.parse(await read(join(userData, UPDATE_STATE), "utf8"));
+    const path = join(userData, UPDATE_STATE);
+    const info = await stat(path);
+    // The writable Owner/Dev journal must be a regular host-owned file,
+    // never a junction/symlink to an unrelated file. Mirror the updater gate.
+    if (!info.isFile() || info.isSymbolicLink())
+      throw new Error("Windows Desktop update journal is not a regular file");
+    parsed = JSON.parse(await read(path, "utf8"));
   } catch (error) {
     if (error?.code === "ENOENT") return null;
     throw new Error("Windows Desktop update journal is unavailable or corrupt", { cause: error });
   }
   if (!parsed || parsed.schema !== JOURNAL_SCHEMA ||
       JOURNAL_FIELDS.some(key => parsed[key] !== null && !(typeof parsed[key] === "string" && SHA.test(parsed[key]))) ||
+      (parsed.pendingSha && parsed.pendingSha === parsed.activeSha) ||
       (parsed.attemptedSha && parsed.attemptedSha !== parsed.pendingSha) ||
       (parsed.pinnedSha && parsed.pinnedSha !== parsed.activeSha) ||
       (parsed.incompatibleSha !== undefined && parsed.incompatibleSha !== null &&

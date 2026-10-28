@@ -1,6 +1,7 @@
 name: Foundation Contract
 
 on:
+  workflow_dispatch: # Run existing consumer validation on immutable bot PR branches
   push:
     branches: [main]
   pull_request:

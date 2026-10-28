@@ -16,6 +16,7 @@ const tokens={
   ORDAX_DESKTOP_NETWORK_TOKEN:"1".repeat(64),
   ORDAX_DESKTOP_OBSERVATION_TOKEN:"2".repeat(64),
   ORDAX_DESKTOP_DISPLAY_TOKEN:"3".repeat(64),
+  ORDAX_DESKTOP_LOCAL_AI_TOKEN:"4".repeat(64),
   ORDAX_DESKTOP_RENDERED_SOURCE_SHA:"a".repeat(40),
 };
 
@@ -31,7 +32,8 @@ test("standalone installed Native host serves verified bundle and existing privi
   const previous={};
   for(const [k,v] of Object.entries({...tokens,
     ORDAX_DESKTOP_HOST:"1",ORDAX_DESKTOP_UPDATE_USER_DATA:dir,
-    ORDAX_DESKTOP_ASSETS_ROOT:built})){
+    ORDAX_DESKTOP_ASSETS_ROOT:built,
+    ORDAX_DESKTOP_LOCAL_AI_ROOT:join(dir,"missing-local-ai-runtime")})){
     previous[k]=process.env[k];process.env[k]=v;
   }
   t.after(()=>{
@@ -65,6 +67,11 @@ test("standalone installed Native host serves verified bundle and existing privi
   assert.equal(typeof(await first.json()).completed,"boolean");
   // A missing Linux service is not fabricated by the standalone host.
   assert.equal((await fetch(base+"/__ordax/native/keyboard-layout")).status,503);
+  // Aura exists only behind the trusted Desktop Host and exact OS-pinned payload.
+  assert.equal((await fetch(base+"/__ordax/native/local-ai/health")).status,401);
+  assert.equal((await fetch(base+"/__ordax/native/local-ai/health",{
+    headers:{"x-ordax-local-ai-token":tokens.ORDAX_DESKTOP_LOCAL_AI_TOKEN},
+  })).status,503);
   const recovery=await fetch(base+"/__ordax/desktop/recovery",{
     headers:{"x-ordax-observation-token":tokens.ORDAX_DESKTOP_OBSERVATION_TOKEN}});
   assert.equal(recovery.status,200);

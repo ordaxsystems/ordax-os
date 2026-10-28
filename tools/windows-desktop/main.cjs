@@ -18,6 +18,7 @@ app.setName('OrdaX OS Desktop Dev');
 // desktop-dev-update-state.json. This is a profile selector only, never a
 // different OrdaX runtime, Surface, updater or product channel.
 const devProfile = process.env.ORDAX_DESKTOP_TEST_PROFILE === '1';
+const localDevelopment = !app.isPackaged && process.env.ORDAX_DESKTOP_LOCAL_DEV === '1';
 const explicitTestDirectory = process.env.ORDAX_DESKTOP_TEST_PROFILE_DIR || '';
 // Smoke tests on an already-used Windows machine need a unique directory,
 // regardless of whether Electron resolves appData from Windows known folders
@@ -28,7 +29,8 @@ if (explicitTestDirectory && (!devProfile || !isAbsolute(explicitTestDirectory) 
 }
 const desktopUserData = explicitTestDirectory
   ? resolve(explicitTestDirectory)
-  : join(app.getPath('appData'),devProfile ? 'OrdaX OS Desktop Dev Test' : 'OrdaX OS Desktop Dev');
+  : join(app.getPath('appData'),devProfile ? 'OrdaX OS Desktop Dev Test'
+    : localDevelopment ? 'OrdaX OS Desktop Local Development' : 'OrdaX OS Desktop Dev');
 mkdirSync(desktopUserData,{recursive:true});
 app.setPath('userData',desktopUserData);
 if (process.platform==='win32') app.setAppUserModelId('dev.ordax.os.desktop');
@@ -123,7 +125,7 @@ const FILE_ROUTES=new Set([
   '/__ordax/native/file-export','/__ordax/native/image-preview',
   '/__ordax/native/media-preview','/__ordax/native/document-preview',
 ]);
-function authorizeDesktopFileRequests(browserWindow,base,fileToken,localSessionToken,nativeSessionToken,deviceProfileToken,stateToken,observationToken) {
+function authorizeDesktopFileRequests(browserWindow,base,fileToken,localSessionToken,nativeSessionToken,deviceProfileToken,stateToken,observationToken,localAiToken) {
   // The Electron shell lives in app.asar, while the canonical OS runtime is
   // installed under resources/runtime-template. Never import ../../system
   // from the shell's asar location or duplicate the route owner in the shell.
@@ -141,7 +143,7 @@ function authorizeDesktopFileRequests(browserWindow,base,fileToken,localSessionT
       // Strip any renderer-supplied fake grant first, even if the route is
       // untrusted. Only the owning Electron WebContents may receive secrets.
       for(const key of Object.keys(headers)){
-        if(/^(x-ordax-file-token|x-ordax-local-session-token|x-ordax-session-token|x-ordax-device-profile-token|x-ordax-desktop-state-token|x-ordax-observation-token)$/i.test(key))delete headers[key];
+        if(/^(x-ordax-file-token|x-ordax-local-session-token|x-ordax-session-token|x-ordax-device-profile-token|x-ordax-desktop-state-token|x-ordax-observation-token|x-ordax-local-ai-token)$/i.test(key))delete headers[key];
       }
       try {
         const target=new URL(details.url);
@@ -159,6 +161,8 @@ function authorizeDesktopFileRequests(browserWindow,base,fileToken,localSessionT
           headers['X-OrdaX-Desktop-State-Token']=stateToken;
         if(trusted && OBSERVATION_ROUTES.includes(target.pathname))
           headers['X-OrdaX-Observation-Token']=observationToken;
+        if(trusted && target.pathname.startsWith('/__ordax/native/local-ai/'))
+          headers['X-OrdaX-Local-AI-Token']=localAiToken;
       } catch {}
       callback({requestHeaders:headers});
     }
@@ -347,6 +351,56 @@ async function assertNativeShellMounted(browserWindow) {
   }
   throw Error('Canonical Native composition not mounted within 90s; last='+JSON.stringify(last).slice(0,400));
 }
+// CI-only installed .exe proof: the real packaged Native Host, real GGUF and
+// one trusted Electron Surface must produce a nonempty CPU inference response.
+// This never changes production startup, user data or provider selection.
+async function assertDesktopLocalAiSmoke(browserWindow) {
+  // A missing installed GGUF must remain a truthful 503, without preventing
+  // the actual Electron/Native Surface from booting in the isolated profile.
+  if(process.env.ORDAX_DESKTOP_AURA_FAILURE_SMOKE === '1') {
+    const statuses=await browserWindow.webContents.executeJavaScript(
+      "(async()=>{const statuses=[];for(let i=0;i<3;i++){"+
+      "const r=await fetch('/__ordax/native/local-ai/v1/models',"+
+      "{credentials:'same-origin',cache:'no-store'});statuses.push(r.status);"+
+      "await new Promise(resolve=>setTimeout(resolve,300));}return statuses})()"
+    );
+    if(statuses.length!==3 || statuses.some(code=>code!==503))
+      throw Error('Installed Desktop did not fail closed on missing GGUF');
+    log('DESKTOP_LOCAL_AI_MISSING_MODEL_FAIL_CLOSED=PASS');
+    return;
+  }
+  if(process.env.ORDAX_DESKTOP_AURA_SMOKE !== '1') return;
+  const deadline=Date.now()+180000;
+  let discovered=null;
+  while(Date.now()<deadline) {
+    const value=await browserWindow.webContents.executeJavaScript(
+      "(async()=>{try{const r=await fetch('/__ordax/native/local-ai/v1/models',"+
+      "{cache:'no-store',credentials:'same-origin'});"+
+      "return {status:r.status,model:r.ok?(await r.json())?.data?.[0]?.id:null};}"+
+      "catch{return {status:0}}})()"
+    );
+    if(value.status===200 && typeof value.model==='string' && value.model) {
+      discovered=value.model;
+      break;
+    }
+    await new Promise(resolve=>setTimeout(resolve,1500));
+  }
+  if(!discovered) throw Error('Verified installed Windows Aura never exposed a real model');
+  const outcome=await browserWindow.webContents.executeJavaScript(
+    "(async()=>{const res=await fetch('/__ordax/native/local-ai/v1/chat/completions',"+
+    "{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},"+
+    "body:JSON.stringify({model:"+JSON.stringify(discovered)+","+
+    "messages:[{role:'user',content:'Responda com uma palavra em portugues.'}],"+
+    "max_tokens:32,stream:false})});"+
+    "const v=res.ok?await res.json():null;"+
+    "return {status:res.status,model:v?.model??null,"+
+    "answer:v?.choices?.[0]?.message?.content??null};})()"
+  );
+  if(outcome.status!==200 || (outcome.model && outcome.model!==discovered) ||
+     typeof outcome.answer!=='string' || !outcome.answer.trim())
+    throw Error('Installed Windows Aura failed to generate local inference');
+  log('DESKTOP_LOCAL_AI_REAL_GGUF_SMOKE=PASS');
+}
 // CI-only proof: the renderer sends the same typed command as Internet,
 // and the isolated Chromium host must instantiate and close an actual view.
 async function assertDesktopInternetSmoke(browserWindow,host) {
@@ -451,6 +505,7 @@ app.whenReady().then(async()=>{
     const stateToken=randomBytes(32).toString('hex');
     const networkToken=randomBytes(32).toString('hex');
     const observationToken=randomBytes(32).toString('hex');
+    const localAiToken=randomBytes(32).toString('hex');
     const displayToken=randomBytes(32).toString('hex');
     const template=resolveTemplate(__dirname,process.resourcesPath,app.isPackaged);
     if(!existsSync(join(template,'tools','windows-emulator','dev-supervisor.mjs')))
@@ -473,13 +528,14 @@ app.whenReady().then(async()=>{
     let root=selected.root;
     try {
       log(root===template?'Bundled OrdaX Surface':'Verified Git-managed OrdaX Surface');
-      runtime=await startHost({root,template,stateDirectory:runtimeStateDirectory(userData),userData,log,fileToken,localSessionToken,nativeSessionToken,diagnosticToken,deviceProfileToken,stateToken,networkToken,observationToken,displayToken,sourceSha:sourceOf(selected),
+      runtime=await startHost({root,template,stateDirectory:runtimeStateDirectory(userData),userData,log,fileToken,localSessionToken,nativeSessionToken,diagnosticToken,deviceProfileToken,stateToken,networkToken,observationToken,displayToken,localAiToken,sourceSha:sourceOf(selected),
          builtAssetsRoot:nativeBuiltAssetsFor(root,template)});
-      authorizeDesktopFileRequests(window,runtime.url,fileToken,localSessionToken,nativeSessionToken,deviceProfileToken,stateToken,observationToken);
+      authorizeDesktopFileRequests(window,runtime.url,fileToken,localSessionToken,nativeSessionToken,deviceProfileToken,stateToken,observationToken,localAiToken);
       await window.loadURL(nativeUrl(runtime.url,sourceOf(selected)));
       await assertNativeShellMounted(window);
       await assertDesktopInternetSmoke(window,browserHost);
       await assertDesktopFileSpaceSmoke(window);
+      await assertDesktopLocalAiSmoke(window);
       log('Native shell mounted and ready: '+runtime.url);
       log('Native Surface ready: '+runtime.url);
       if(selected.trial) {
@@ -494,13 +550,14 @@ app.whenReady().then(async()=>{
       runtime=null;
       const fallback=await chooseBootVersion({userData,template,log});
       root=fallback.root;
-      runtime=await startHost({root,template,stateDirectory:runtimeStateDirectory(userData),userData,log,fileToken,localSessionToken,nativeSessionToken,diagnosticToken,deviceProfileToken,stateToken,networkToken,observationToken,displayToken,sourceSha:sourceOf(fallback),
+      runtime=await startHost({root,template,stateDirectory:runtimeStateDirectory(userData),userData,log,fileToken,localSessionToken,nativeSessionToken,diagnosticToken,deviceProfileToken,stateToken,networkToken,observationToken,displayToken,localAiToken,sourceSha:sourceOf(fallback),
          builtAssetsRoot:nativeBuiltAssetsFor(root,template)});
-      authorizeDesktopFileRequests(window,runtime.url,fileToken,localSessionToken,nativeSessionToken,deviceProfileToken,stateToken,observationToken);
+      authorizeDesktopFileRequests(window,runtime.url,fileToken,localSessionToken,nativeSessionToken,deviceProfileToken,stateToken,observationToken,localAiToken);
       await window.loadURL(nativeUrl(runtime.url,sourceOf(fallback)));
       await assertNativeShellMounted(window);
       await assertDesktopInternetSmoke(window,browserHost);
       await assertDesktopFileSpaceSmoke(window);
+      await assertDesktopLocalAiSmoke(window);
       log('Native shell mounted and ready after rollback: '+runtime.url);
       log('Native Surface ready after rollback: '+runtime.url);
     }
@@ -528,11 +585,11 @@ app.whenReady().then(async()=>{
       });
       // Safe background discovery, never a startup dependency or live-tree merge.
       setTimeout(()=>{void stageInBackground(userData,template);},5000);
-      updateTimer=setInterval(()=>{void stageInBackground(userData,template);},10*60*1000);
+      updateTimer=setInterval(()=>{void stageInBackground(userData,template);},60*1000);
       updateTimer.unref?.();
       // Discovery and activation are separate stages; a staged revision
       // must not remain pending indefinitely until someone restarts the app.
-      activationTimer=setInterval(()=>{void idleActivation?.();},15*1000);
+      activationTimer=setInterval(()=>{void idleActivation?.();},5*1000);
       activationTimer.unref?.();
     }
 

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { mountDisplayOutputControls } from "../system/surface/ui/display-output-controls.mjs";
 import { DISPLAY_OUTPUTS_SCHEMA } from "../system/contracts/display-outputs.mjs";
+import { SETTINGS_SOURCE_MESSAGES, SETTINGS_ENGLISH_MESSAGES } from "../system/services/i18n/catalog/settings.mjs";
 
 class FakeElement {
   constructor(documentObject, tagName) {
@@ -253,3 +254,46 @@ test("Native display read failure offers explicit retry and recovers without rem
   assert.equal(retry.listeners.size, 0, "cleanup removes the retry handler");
 });
 
+
+
+test("read-only Windows display shows truthful observational copy in Portuguese and English", async () => {
+  const physical = {
+    schema: DISPLAY_OUTPUTS_SCHEMA,
+    available: true, reason: null,
+    outputs: [{ id: "DISPLAY1", name: "Windows DISPLAY1", enabled: true,
+      modes: [{ id: "3840x2160@60", width: 3840, height: 2160, refreshHz: 60, current: true }],
+    }],
+    preview: null,
+  };
+  for (const messages of [SETTINGS_SOURCE_MESSAGES, SETTINGS_ENGLISH_MESSAGES]) {
+    const documentObject = createDocument();
+    const container = documentObject.createElement("div");
+    let reads = 0;
+    const port = {
+      schema: DISPLAY_OUTPUTS_SCHEMA,
+      async read() { reads++; return physical; },
+      async preview() { throw Error("Read-only provider cannot preview"); },
+      async confirm() { throw Error("Read-only provider cannot confirm"); },
+      async revert() { throw Error("Read-only provider cannot revert"); },
+    };
+    const mounted = mountDisplayOutputControls(container, {
+      documentObject, port, translate: (id) => messages[id] ?? id,
+    });
+    await settle();
+    const status = find(mounted.element, (element) => element.attributes.get("role") === "status");
+    const description = find(mounted.element, (element) =>
+      element.className === "ordax-settings-section-copy");
+    const mode = find(mounted.element, (element) => element.dataset.displayMode === "true");
+    const preview = find(mounted.element, (element) => element.textContent === messages["settings.display.host.preview"]);
+    const note = find(mounted.element, (element) => element.className === "ordax-settings-display-preview-note");
+    assert.equal(reads, 1, "one canonical Native read, no background polling");
+    assert.equal(status.textContent, messages["settings.display.host.available"]);
+    assert.equal(description.textContent, messages["settings.display.host.description"]);
+    assert.doesNotMatch(status.textContent, /15|confirm|confirme|restaur|restore|revert/i,
+      "the read-only available state must not promise a pending rollback");
+    assert.equal(mode.value, "3840x2160@60");
+    assert.equal(preview.disabled, true, "no alternative mode must not mutate the monitor");
+    assert.equal(note.hidden, true, "confirmation note remains exclusive to an active preview");
+    mounted.destroy();
+  }
+});
