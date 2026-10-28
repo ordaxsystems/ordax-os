@@ -44,8 +44,17 @@ def preflight(out: Path, cli: Path, surface: Path, rootfs: Path, kernel: Path,
         raise ValueError("Owner/Dev rootfs lacks Git; prepare canonical seeded base first")
     if not (rootfs / "workspace/ordax/.git").exists():
         raise ValueError("Owner/Dev rootfs has no seeded OrdaX checkout; follow canonical owner preseed")
-    if not (rootfs / "state/ordax/current-commit").is_file():
-        raise ValueError("Owner/Dev seeded commit receipt missing")
+    receipt = rootfs / "state/ordax/current-commit"
+    if receipt.is_symlink() or not receipt.is_file():
+        raise ValueError("Owner/Dev seeded commit receipt missing or unsafe")
+    commit = receipt.read_text(encoding="utf-8").strip()
+    if len(commit) != 40 or any(c not in "0123456789abcdef" for c in commit):
+        raise ValueError("Owner/Dev seeded commit receipt is not a Git SHA")
+    seeded = rootfs / "workspace/ordax"
+    actual = subprocess.run(["git", "-C", str(seeded), "rev-parse", "HEAD"],
+                            check=True, text=True, capture_output=True).stdout.strip()
+    if actual != commit:
+        raise ValueError("Owner/Dev seeded checkout and current-commit disagree")
     if not cli.is_file() or cli.is_symlink() or not os.access(cli, os.X_OK):
         raise ValueError("verified Creator Core executable required")
     run([sys.executable, "bootstrap/kernel/verify.py", str(kernel.parent)])
