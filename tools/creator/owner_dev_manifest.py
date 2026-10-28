@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Materialize Owner/Development bootstrap manifest; shared by local builds and CI."""
-import hashlib, json, os, pathlib, sys
+import hashlib, json, os, pathlib, subprocess, sys
 def digest(path):
     return hashlib.sha256(pathlib.Path(path).read_bytes()).hexdigest()
 output = pathlib.Path(sys.argv[1])
@@ -17,6 +17,29 @@ keep = {'uefi-boot', 'kernel', 'initramfs', 'bootstrap-orchestrator', 'bootstrap
 manifest['artifact_groups'] = [group for group in manifest['artifact_groups'] if group['id'] in keep]
 groups = {group['id']: group for group in manifest['artifact_groups']}
 uefi = groups['uefi-boot']
+# The minimal bootstrap template pins a historical EFI seed. Owner/Development
+# instead packages the exact, separately verified EFI built from the pinned
+# signed upstream tag. Never copy an unverified binary or modify the template.
+efi_items = [item for item in uefi['artifacts'] if item.get('target_path') == '/EFI/BOOT/BOOTX64.EFI']
+if len(efi_items) != 1 or efi_items[0].get('source_path') != 'boot/esp/EFI/BOOT/BOOTX64.EFI':
+    raise SystemExit('Owner/Development EFI artifact mapping is not canonical')
+efi_candidate = pathlib.Path('out/esp/systemd-bootx64.efi')
+if not efi_candidate.is_file() or efi_candidate.is_symlink():
+    raise SystemExit('verified Owner/Development EFI candidate is missing or unsafe')
+efi_proof = subprocess.run(
+    [sys.executable, 'boot/esp/build.py', 'verify'],
+    check=True, capture_output=True, text=True,
+)
+efi_receipt = json.loads(efi_proof.stdout)
+efi_source = json.loads(pathlib.Path('boot/esp/source.json').read_text(encoding='utf-8'))['bootloader']
+efi_digest = digest(efi_candidate)
+if (efi_receipt.get('status') != 'verified'
+        or efi_receipt.get('physical_artifact_authorized') is not False
+        or efi_receipt.get('artifact_sha256') != efi_digest
+        or efi_receipt.get('source_commit') != efi_source['source_commit']
+        or efi_receipt.get('upstream_version') != efi_source['version']):
+    raise SystemExit('Owner/Development EFI candidate lacks exact verified provenance')
+efi_items[0]['sha256'] = efi_digest
 owner_entry_dir = pathlib.Path('out/owner-prototype/boot-entries')
 owner_entry_dir.mkdir(parents=True, exist_ok=True)
 owner_entry_specs = {
