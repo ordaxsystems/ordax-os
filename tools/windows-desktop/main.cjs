@@ -355,6 +355,20 @@ async function assertNativeShellMounted(browserWindow) {
 // one trusted Electron Surface must produce a nonempty CPU inference response.
 // This never changes production startup, user data or provider selection.
 async function assertDesktopLocalAiSmoke(browserWindow) {
+  // A missing installed GGUF must remain a truthful 503, without preventing
+  // the actual Electron/Native Surface from booting in the isolated profile.
+  if(process.env.ORDAX_DESKTOP_AURA_FAILURE_SMOKE === '1') {
+    const statuses=await browserWindow.webContents.executeJavaScript(
+      "(async()=>{const statuses=[];for(let i=0;i<3;i++){"+
+      "const r=await fetch('/__ordax/native/local-ai/v1/models',"+
+      "{credentials:'same-origin',cache:'no-store'});statuses.push(r.status);"+
+      "await new Promise(resolve=>setTimeout(resolve,300));}return statuses})()"
+    );
+    if(statuses.length!==3 || statuses.some(code=>code!==503))
+      throw Error('Installed Desktop did not fail closed on missing GGUF');
+    log('DESKTOP_LOCAL_AI_MISSING_MODEL_FAIL_CLOSED=PASS');
+    return;
+  }
   if(process.env.ORDAX_DESKTOP_AURA_SMOKE !== '1') return;
   const deadline=Date.now()+180000;
   let discovered=null;
