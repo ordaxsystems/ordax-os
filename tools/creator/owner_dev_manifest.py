@@ -10,8 +10,8 @@ owner_profile_id = 'owner-development'
 owner_profile = profiles['profiles'].get(owner_profile_id)
 if not isinstance(owner_profile, dict):
     raise SystemExit('canonical owner-development profile is missing')
-if owner_profile.get('creator_workflow') != '.github/workflows/creator-owner-dev-git.yml':
-    raise SystemExit('owner-development Creator workflow differs from distribution profile SSOT')
+# The owner-development profile is the contract; GitHub Actions is only one
+# optional executor. A local manifest must not depend on a workflow filename.
 owner_profile_token = f'ordax.distribution_profile={owner_profile_id}'
 keep = {'uefi-boot', 'kernel', 'initramfs', 'bootstrap-orchestrator', 'bootstrap-recovery'}
 manifest['artifact_groups'] = [group for group in manifest['artifact_groups'] if group['id'] in keep]
