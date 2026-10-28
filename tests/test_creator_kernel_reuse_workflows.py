@@ -171,49 +171,32 @@ class CreatorKernelReuseWorkflowTests(unittest.TestCase):
         self.assertIn("DEV_BASE_OWNER_VALIDATION_EXACT_HEAD=PASS", detector)
         self.assertIn("github.actor == 'ordaxos-admin'", workflow)
 
-    def test_owner_dev_diagnose_is_manual_and_uses_canonical_kernel_uapi(self):
-        workflow = self.assert_verified_kernel_reuse(OWNER_DEV_DIAGNOSE)
-        trigger = workflow.split("permissions:", 1)[0]
-        # The diagnostic is not another push-driven Owner build authority.
-        # The verified Creator and Dev Base workflows publish the real bytes.
-        self.assertIn("  workflow_dispatch:", trigger)
-        self.assertNotIn("  push:", trigger)
-        self.assertNotIn("  pull_request:", trigger)
-        self.assertNotIn("Build and verify boot ESP", workflow)
-        self.assertNotIn("Build and verify initramfs", workflow)
-        deps = self.step_block(
-            workflow, "Install tools for pinned kernel UAPI and Development Base",
+    def test_retired_diagnose_cannot_build_and_live_owners_use_canonical_kernel_uapi(self):
+        # A removed diagnostic is not a competing kernel/build authority.
+        self.assertFalse(OWNER_DEV_DIAGNOSE.exists())
+        owner = self.assert_verified_kernel_reuse(OWNER_DEV)
+        channel = self.assert_verified_kernel_reuse(DEV_BASE_CHANNEL)
+        owner_build = self.step_block(owner, "Build boot initramfs and Git development base")
+        channel_build = self.step_block(channel, "Build exact-commit development Base and initramfs")
+        for build in (owner_build, channel_build):
+            self.assertIn("python bootstrap/initramfs/build.py build --jobs 4", build)
+            self.assertIn("python bootstrap/initramfs/build.py verify", build)
+            self.assertIn("bootstrap/independent-base/build.py build", build)
+            self.assertIn("--profile owner-development", build)
+            self.assertNotIn("bootstrap/dev-base/build.py", build)
+            self.assertNotIn("proot", build.lower())
+            self.assertLess(
+                build.index("python bootstrap/initramfs/build.py verify"),
+                build.index("bootstrap/independent-base/build.py build"),
+            )
+        self.assertIn(
+            'ORDAX_KERNEL_MODULES_ARCHIVE="$PWD/out/kernel/kernel-modules-$ORDAX_KERNEL_VERSION.tar"',
+            owner_build,
         )
-        for tool in ("gcc", "make", "binutils", "gpg", "gpg-agent",
-                     "erofs-utils", "gawk", "cpio"):
-            self.assertIn(tool, deps)
-        self.assertNotIn("proot", deps)
-        self.assertNotIn("if: steps.kernel-cache", deps)
-        uapi = self.step_block(
-            workflow, "Export and verify canonical pinned kernel UAPI",
-        )
-        for command in (
-            "python bootstrap/initramfs/build.py check",
-            "python bootstrap/initramfs/build.py build --jobs 4",
-            "python bootstrap/initramfs/build.py verify",
+        self.assertIn(
             "test -f out/initramfs-work/kernel-uapi-install/include/linux/mount.h",
-        ):
-            self.assertIn(command, uapi)
-        self.assertLess(
-            workflow.index("      - name: Export and verify canonical pinned kernel UAPI"),
-            workflow.index("      - name: Build and verify Git development base"),
+            channel_build,
         )
-        dev_base = self.step_block(workflow, "Build and verify Git development base")
-        self.assertNotIn("bootstrap/kernel/build.py", dev_base)
-        self.assertNotIn("bootstrap/initramfs/build.py", dev_base)
-        self.assertIn("bootstrap/independent-base/build.py build", dev_base)
-        self.assertIn("--profile owner-development", dev_base)
-        self.assertIn("independent_rootfs.py materialize", dev_base)
-        self.assertIn("prove_independent_rootfs.py", dev_base)
-        self.assertIn("DEV_BASE_ALPINE_FREE_DIAGNOSTIC=PASS", dev_base)
-        self.assertNotIn("bootstrap/dev-base/build.py", workflow)
-        self.assertNotIn("dl-cdn.alpinelinux.org", workflow)
-        self.assertNotIn("proot", workflow.lower())
 
     def test_three_owner_consumers_share_one_immutable_cache_identity(self):
         independent = self.workflow(ROOT / ".github/workflows/independent-base-experiment.yml")

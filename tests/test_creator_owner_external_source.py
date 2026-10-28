@@ -13,6 +13,8 @@ class CreatorOwnerExternalSourceTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.workflow = WORKFLOW.read_text(encoding="utf-8")
+        cls.stage = (ROOT / "tools/creator/owner_dev_stage.sh").read_text(encoding="utf-8")
+        cls.raw = (ROOT / "tools/creator/owner_dev_raw.py").read_text(encoding="utf-8")
         cls.source = json.loads(SOURCE_CONTRACT.read_text(encoding="utf-8"))["creator_source"]
 
     def test_immutable_standalone_checkout_and_only_one_go_source(self):
@@ -31,10 +33,15 @@ class CreatorOwnerExternalSourceTests(unittest.TestCase):
 
     def test_exact_cli_and_non_destructive_payload(self):
         w = self.workflow
-        self.assertIn('creator_cli="$RUNNER_TEMP/owner-creator-cli/ordax-creator"', w)
-        self.assertIn("PAYLOAD_VERIFIED=YES", w)
-        self.assertIn("DISPOSABLE_TREE_STAGED=YES", w)
-        self.assertEqual(w.count("PHYSICAL_WRITE_STATUS=blocked"), 2)
+        self.assertIn('"$RUNNER_TEMP/owner-creator-cli/ordax-creator"', w)
+        self.assertIn("bash tools/creator/owner_dev_stage.sh", w)
+        self.assertIn('creator_cli="$4"', self.stage)
+        self.assertIn('test -x "$creator_cli"', self.stage)
+        self.assertIn('"$creator_cli" verify-payload', self.stage)
+        self.assertIn('"$creator_cli" stage-tree', self.stage)
+        self.assertIn("PAYLOAD_VERIFIED=YES", self.stage)
+        self.assertIn("DISPOSABLE_TREE_STAGED=YES", self.stage)
+        self.assertEqual(self.stage.count("PHYSICAL_WRITE_STATUS=blocked"), 2)
         self.assertIn("ORDAX_OWNER_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}", w)
         self.assertIn("invalid independently pinned Creator version", w)
         self.assertIn('ORDAX_CREATOR_PRODUCT_VERSION', w)
@@ -46,9 +53,8 @@ class CreatorOwnerExternalSourceTests(unittest.TestCase):
     def test_os_authority_and_writer_gate_unchanged(self):
         w = self.workflow
         for marker in (
-            "python tools/creator/assemble.py build",
-            "python tools/creator/assemble.py verify",
-            "tools/creator/proof/disposable_media.py",
+            "bash tools/creator/owner_dev_stage.sh",
+            "tools/creator/owner_dev_raw.py",
             "tools/creator/proof/owner_qemu_offline_boot.py",
             "tools/creator/verify_owner_dev_bundle.py",
             "system/services/surface-source/owner-stage.sh ready",
@@ -59,6 +65,13 @@ class CreatorOwnerExternalSourceTests(unittest.TestCase):
             "-X main.buildStorageProfile=owner-development",
         ):
             self.assertIn(marker, w)
+        for marker in (
+            "python3 tools/creator/assemble.py build",
+            "python3 tools/creator/assemble.py verify",
+            "grep -Fxq 'PHYSICAL_WRITE_STATUS=blocked'",
+        ):
+            self.assertIn(marker, self.stage)
+        self.assertIn("tools/creator/proof/disposable_media.py", self.raw)
         self.assertEqual(w.count("gh release upload creator-owner-prototype"), 1)
         self.assertIn(".github/actions/resolve-creator-source/**", w)
         self.assertIn("docs/contracts/native-release-assembly.json", w)
