@@ -16,6 +16,20 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
+          fetch-depth: 0
+
+      - name: Require canonical version advance for OS runtime changes
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --test tests/test_product_version_governance.mjs tests/test_product_version_changes.mjs
+          if [[ "${BASE_SHA}" =~ ^[0-9a-f]{40}$ ]] && [[ ! "${BASE_SHA}" =~ ^0{40}$ ]]; then
+            node tools/verify/product_version_changes.mjs "${BASE_SHA}"
+          else
+            node tools/verify/product_version_changes.mjs
+          fi
 
       - name: Prepare external Surface in disposable CI checkout
         uses: ./.github/actions/prepare-verified-surface

@@ -13,6 +13,10 @@ O produto continua em desenvolvimento e homologação: a promoção/renomeação
 
 `washingtonmsdj/novo-ordax-os` e os slugs anteriores do repositório canônico são somente referências históricas e de proveniência, nunca uma segunda autoridade de desenvolvimento.
 
+## Versionamento estrutural obrigatório
+
+Toda alteração de código runtime do OS deve avançar a versão SemVer do owner canônico `system/contracts/product-version.mjs`; sem isso, `.github/workflows/product-version-governance.yml` bloqueia a PR. Consulte [docs/VERSION-GOVERNANCE.md](docs/VERSION-GOVERNANCE.md). Os canais `alpha.N`, `beta.N`, `rc.N` são oficiais, mas não aprovam releases, USB ou instalação. Os aplicativos first-party usam `apps/<id>/app.json` no owner Apps, sem criar `VERSION` duplicado. A regra é validada em CI, não depende de alguém lembrar de atualizar a documentação.
+
 ## 2. Fonte de verdade
 
 - `main` e o unico source authority deste prototipo.
