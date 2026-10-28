@@ -1,5 +1,12 @@
 # AGENTS.md
 
+## Prioridade P0 ativa — USB Dev direto e incremental (2026-10-27)
+
+**ANTES de qualquer atuação em USB Dev, Buildroot Owner, Surface EROFS, Creator ou QEMU:** ler [plano P0 de build direto e incremental](docs/plans/P0-DEV-USB-INCREMENTAL-BUILD-2026-10-27.md). Este é um plano de execução para a **PR #2243**, não um segundo owner canônico, não um USB concluído e não uma autorização de gravação física. Os contratos/código atuais continuam vencendo descrições de estado.
+
+**Direção explícita do proprietário:** o ciclo Owner/Development não pode depender de GitHub Actions nem de homologação Stable; reutilizar builders existentes e cache persistente verificado, montar DEV diretamente e testar só dependentes. Não recomputar kernel/base/Surface em mudança irrelevante; não produzir dois builders nem reintroduzir Alpine; não abrir PR paralela; não cancelar build caro concorrente sem fundamento. Manter segurança de disco e proveniência; escrita física só com escolha explícita do removível. Outros chats/agentes devem consultar esse plano e o HEAD efetivo, não memória da conversa.
+
+
 Este arquivo e a entrada obrigatoria para qualquer IA, agente, Codex ou pessoa que trabalhe neste repositorio.
 
 ## 1. Identidade do repositorio
