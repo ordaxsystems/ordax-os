@@ -2,7 +2,7 @@
 // is system/services/local-ai/source-lock.json. No network or activation here.
 import { createHash } from "node:crypto";
 import { createReadStream } from "node:fs";
-import { lstat, readFile, realpath } from "node:fs/promises";
+import { lstat, readFile, readdir, realpath } from "node:fs/promises";
 import { basename, join, resolve, sep } from "node:path";
 
 const LOCK_URL = new URL("../../services/local-ai/source-lock.json", import.meta.url);
@@ -56,6 +56,13 @@ async function realDirectory(path) {
   return realpath(path);
 }
 
+async function exactInventory(dir, expected) {
+  const entries = await readdir(dir);
+  if (entries.length !== expected.length ||
+      entries.some(entry => !expected.includes(entry)))
+    throw Error("Local AI package has unexpected or missing executable/model files");
+}
+
 async function exactFile(dir, name, expectedBytes, expectedDigest) {
   if (basename(name) !== name || !SHA.test(expectedDigest))
     throw Error("Untrusted Local AI package member");
@@ -86,6 +93,8 @@ export async function verifyWindowsLocalAiPackage(packageRoot, { readLock = asyn
   const root = await realDirectory(resolve(packageRoot));
   const engine = await realDirectory(join(root, "engine"));
   const models = await realDirectory(join(root, "models"));
+  await exactInventory(engine, pinned.files.map(item => item.name));
+  await exactInventory(models, [pinned.model.filename]);
   await Promise.all(pinned.files.map(item =>
     exactFile(engine, item.name, item.size_bytes, item.sha256)));
   const modelFile = await exactFile(models, pinned.model.filename,

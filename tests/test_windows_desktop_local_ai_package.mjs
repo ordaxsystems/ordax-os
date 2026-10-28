@@ -57,6 +57,15 @@ test("Windows package rejects absent files, corrupt model, incorrect engine and 
   await assert.rejects(verifyWindowsLocalAiPackage(data.root, data), /pin unavailable/);
 });
 
+test("Windows package rejects unpinned executable and model files before starting engine", async t => {
+  const data = await fixture(t);
+  await writeFile(join(data.root, "engine", "winhttp.dll"), "untrusted dependency");
+  await assert.rejects(verifyWindowsLocalAiPackage(data.root, data), /unexpected or missing/);
+  await rm(join(data.root, "engine", "winhttp.dll"));
+  await writeFile(join(data.root, "models", "extra.gguf"), "second model");
+  await assert.rejects(verifyWindowsLocalAiPackage(data.root, data), /unexpected or missing/);
+});
+
 test("Windows package never accepts extra models or omitted DLL pin as successful proof", async t => {
   const data = await fixture(t);
   data.lock.engine.windows_artifact.files.pop();
