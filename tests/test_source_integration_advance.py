@@ -123,13 +123,15 @@ class SourceAdvanceTests(unittest.TestCase):
         self.assertFalse(unrelated["changed"])
         self.assertEqual(unrelated["reason"], "no-owned-source-change")
         self.assertEqual(json.loads(path.read_text())["source_commit"], new)
-        # A later real locked-blob change cannot silently import an unexpected
-        # source graph: existing Intelligence verifier must still reject it.
+        # The Windows-only builder remains outside the eight-blob OS source
+        # graph, even when a later pinned blob changes legitimately.
         self.write("src/local-ai/runtime.mjs", "new version 2")
-        self.commit()
-        with self.assertRaises(Exception):
-            advance.advance(self.root, "intelligence", self.source, True)
-        self.assertEqual(json.loads(path.read_text())["source_commit"], new)
+        later = self.commit()
+        self.assertTrue(advance.advance(self.root, "intelligence", self.source, True)["changed"])
+        final = json.loads(path.read_text())
+        self.assertEqual(final["source_commit"], later)
+        self.assertEqual(set(final["source_paths"]), set(paths))
+        self.assertNotIn("tools/inference-builder/windows-candidate.py", final["source_paths"])
 
     def test_reject_source_symlink(self):
         linked = Path(self.tmp.name) / "linked"
