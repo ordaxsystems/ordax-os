@@ -27,6 +27,17 @@ Implementation, missing entrypoints, evidence and pass/fail acceptance: [P0 dire
 
 **Priorities:** complete the PR #2243 direct DEV USB chain and boot proof first; then move remaining host-specific calls behind existing OrdaX capability owners, starting with the actual coupling revealed by tests. Do not start building a replacement kernel before the system can reliably build, run and update with its current substrate.
 
+## Regra operacional DEV: edição simples sem workflow obrigatório
+
+A distinção canônica é entre **comando de desenvolvimento local** e **GitHub Actions**. Nenhuma categoria de alteração exige GitHub Actions para iniciar desenvolvimento. O kernel, initramfs, base Buildroot e runtime gráfico precisam de compiladores e provas específicos quando alterados; a execução desses comandos permanece independente da CI. Surface visual, aplicativos e serviços usam preview/watch/testes afetados, sem reconstruir imagem ou instalador.
+
+- `dev`: executar componente e testes diretamente, sem publicar;
+- `build`: criar somente o artefato afetado, com cache e verificação;
+- `image`: compor imagem DEV a partir de artefatos já verificados, sem gravação física;
+- `release`: homologação, assinatura e publicação em processo separado.
+
+Estes nomes são **interfaces conceituais**; reutilizar os entrypoints canônicos existentes em vez de criar CLIs paralelas. Workflows remotos são consumidores opcionais dessas operações, não sua implementação. Eliminar workflows redundantes sem apagar testes ou contratos necessários. O trabalho na PR #2243 ainda precisa demonstrar execução local e prova da imagem.
+
 ## Source model
 
 `main` is the source authority for this prototype.
