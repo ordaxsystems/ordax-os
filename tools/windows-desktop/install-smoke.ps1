@@ -78,7 +78,9 @@ try {
     (Join-Path $resources "runtime-template\system\composition\native\index.html"),
     (Join-Path $resources "runtime-template\desktop-assets\system\composition\native\index.html"),
     (Join-Path $resources "runtime-template\toolchain\node_modules.tar.gz"),
-    (Join-Path $resources "runtime-template\toolchain\toolchain-receipt.json")
+    (Join-Path $resources "runtime-template\toolchain\toolchain-receipt.json"),
+    (Join-Path $resources "runtime-template\local-ai-runtime\engine\llama-server.exe"),
+    (Join-Path $resources "runtime-template\local-ai-runtime\models\Qwen3.5-0.8B-Q4_0.gguf")
   )
   $required += @(
     (Join-Path $resources "runtime-template\\docs\\contracts\\surface-source.json"),
@@ -244,6 +246,7 @@ try {
   Write-Output "STARTUP_SMOKE_STARTED"
   $previousBrowserSmoke = $env:ORDAX_DESKTOP_BROWSER_SMOKE
   $previousFileSmoke = $env:ORDAX_DESKTOP_FILE_SMOKE
+  $previousAuraSmoke = $env:ORDAX_DESKTOP_AURA_SMOKE
   $previousTestProfile = $env:ORDAX_DESKTOP_TEST_PROFILE
   $previousTestDirectory = $env:ORDAX_DESKTOP_TEST_PROFILE_DIR
   try {
@@ -251,12 +254,14 @@ try {
     $env:ORDAX_DESKTOP_TEST_PROFILE_DIR = $testProfile
     $env:ORDAX_DESKTOP_BROWSER_SMOKE = "1"
     $env:ORDAX_DESKTOP_FILE_SMOKE = "1"
+    $env:ORDAX_DESKTOP_AURA_SMOKE = "1"
     $appProc = Start-Process -FilePath $installedExe -WorkingDirectory $dest -PassThru
   } finally {
     $env:ORDAX_DESKTOP_TEST_PROFILE = $previousTestProfile
     $env:ORDAX_DESKTOP_TEST_PROFILE_DIR = $previousTestDirectory
     $env:ORDAX_DESKTOP_BROWSER_SMOKE = $previousBrowserSmoke
     $env:ORDAX_DESKTOP_FILE_SMOKE = $previousFileSmoke
+    $env:ORDAX_DESKTOP_AURA_SMOKE = $previousAuraSmoke
   }
   try {
     $startupDeadline = [DateTime]::UtcNow.AddSeconds(180)
@@ -270,7 +275,8 @@ try {
           if ($newLog -match "Native shell mounted and ready: http://127\.0\.0\.1:\d+" -and
               $newLog -match "Native Surface ready: http://127\.0\.0\.1:\d+" -and
               $newLog -match "DESKTOP_INTERNET_SMOKE=PASS" -and
-              $newLog -match "DESKTOP_FILE_SPACE_SMOKE=PASS") {
+              $newLog -match "DESKTOP_FILE_SPACE_SMOKE=PASS" -and
+              $newLog -match "DESKTOP_LOCAL_AI_REAL_GGUF_SMOKE=PASS") {
             $ready = $true
             break
           }
@@ -305,6 +311,7 @@ try {
       throw "Installed Desktop launched Vite instead of verified Native HTTP"
     }
     Write-Output "DESKTOP_INSTALLED_NATIVE_NO_VITE=PASS"
+    Write-Output "DESKTOP_AURA_INSTALLED_REAL_INFERENCE=PASS"
     # The installed app must serve the actual Desktop capability contract.
     $localUrls = [regex]::Matches($newLog, 'Native Surface ready: (http://127\.0\.0\.1:\d+)')
     if ($localUrls.Count -lt 1) { throw "Native readiness URL missing from log" }
@@ -317,7 +324,8 @@ try {
       "/__ordax/native/update",
       "/__ordax/native/update-history",
       "/__ordax/desktop/recovery",
-      "/__ordax/native/power-status"
+      "/__ordax/native/power-status",
+      "/__ordax/native/local-ai/health"
     )) {
       $denied = Invoke-WebRequest -Uri ($baseUrl + $path) -Method GET -TimeoutSec 15 -SkipHttpErrorCheck
       if ($denied.StatusCode -ne 401) {

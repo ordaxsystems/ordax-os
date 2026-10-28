@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { mkdtemp, mkdir, writeFile, rm } from "node:fs/promises";
+import { mkdtemp, mkdir, writeFile, rm, realpath } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { verifyWindowsLocalAiPackage } from "../system/adapters/desktop/local-ai-package.mjs";
@@ -41,8 +41,9 @@ test("Windows model/EXE/DLL package verifies exact OS source lock and independen
   const data = await fixture(t);
   const installed = await verifyWindowsLocalAiPackage(data.root, data);
   assert.equal(installed.modelId, "test-only-model");
-  assert.equal(installed.executable, join(data.root, "engine", "llama-server.exe"));
-  assert.equal(installed.modelFile, join(data.root, "models", "verified-fixture.gguf"));
+  const canonical = await realpath(data.root);
+  assert.equal(installed.executable, join(canonical, "engine", "llama-server.exe"));
+  assert.equal(installed.modelFile, join(canonical, "models", "verified-fixture.gguf"));
 });
 
 test("Windows package rejects absent files, corrupt model, incorrect engine and source pin", async t => {

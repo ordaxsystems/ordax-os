@@ -351,6 +351,42 @@ async function assertNativeShellMounted(browserWindow) {
   }
   throw Error('Canonical Native composition not mounted within 90s; last='+JSON.stringify(last).slice(0,400));
 }
+// CI-only installed .exe proof: the real packaged Native Host, real GGUF and
+// one trusted Electron Surface must produce a nonempty CPU inference response.
+// This never changes production startup, user data or provider selection.
+async function assertDesktopLocalAiSmoke(browserWindow) {
+  if(process.env.ORDAX_DESKTOP_AURA_SMOKE !== '1') return;
+  const deadline=Date.now()+180000;
+  let discovered=null;
+  while(Date.now()<deadline) {
+    const value=await browserWindow.webContents.executeJavaScript(
+      "(async()=>{try{const r=await fetch('/__ordax/native/local-ai/v1/models',"+
+      "{cache:'no-store',credentials:'same-origin'});"+
+      "return {status:r.status,model:r.ok?(await r.json())?.data?.[0]?.id:null};}"+
+      "catch{return {status:0}}})()"
+    );
+    if(value.status===200 && typeof value.model==='string' && value.model) {
+      discovered=value.model;
+      break;
+    }
+    await new Promise(resolve=>setTimeout(resolve,1500));
+  }
+  if(!discovered) throw Error('Verified installed Windows Aura never exposed a real model');
+  const outcome=await browserWindow.webContents.executeJavaScript(
+    "(async()=>{const res=await fetch('/__ordax/native/local-ai/v1/chat/completions',"+
+    "{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},"+
+    "body:JSON.stringify({model:"+JSON.stringify(discovered)+","+
+    "messages:[{role:'user',content:'Responda com uma palavra em portugues.'}],"+
+    "max_tokens:32,stream:false})});"+
+    "const v=res.ok?await res.json():null;"+
+    "return {status:res.status,model:v?.model??null,"+
+    "answer:v?.choices?.[0]?.message?.content??null};})()"
+  );
+  if(outcome.status!==200 || (outcome.model && outcome.model!==discovered) ||
+     typeof outcome.answer!=='string' || !outcome.answer.trim())
+    throw Error('Installed Windows Aura failed to generate local inference');
+  log('DESKTOP_LOCAL_AI_REAL_GGUF_SMOKE=PASS');
+}
 // CI-only proof: the renderer sends the same typed command as Internet,
 // and the isolated Chromium host must instantiate and close an actual view.
 async function assertDesktopInternetSmoke(browserWindow,host) {
@@ -485,6 +521,7 @@ app.whenReady().then(async()=>{
       await assertNativeShellMounted(window);
       await assertDesktopInternetSmoke(window,browserHost);
       await assertDesktopFileSpaceSmoke(window);
+      await assertDesktopLocalAiSmoke(window);
       log('Native shell mounted and ready: '+runtime.url);
       log('Native Surface ready: '+runtime.url);
       if(selected.trial) {
@@ -506,6 +543,7 @@ app.whenReady().then(async()=>{
       await assertNativeShellMounted(window);
       await assertDesktopInternetSmoke(window,browserHost);
       await assertDesktopFileSpaceSmoke(window);
+      await assertDesktopLocalAiSmoke(window);
       log('Native shell mounted and ready after rollback: '+runtime.url);
       log('Native Surface ready after rollback: '+runtime.url);
     }

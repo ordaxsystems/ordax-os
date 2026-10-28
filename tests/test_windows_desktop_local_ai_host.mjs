@@ -68,8 +68,13 @@ test("single supervised engine, fixed model, authenticated same-origin inference
   const h=await runningServer(t);
   const path="/__ordax/native/local-ai/health";
   assert.equal((await fetch(h.base+path,opts)).status,503);
-  await new Promise(resolve=>setTimeout(resolve,35));
-  assert.equal((await fetch(h.base+path,opts)).status,200);
+  const deadline=Date.now()+3000;
+  let ready=false;
+  while(Date.now()<deadline) {
+    if((await fetch(h.base+path,opts)).status===200){ready=true;break;}
+    await new Promise(resolve=>setTimeout(resolve,25));
+  }
+  assert.equal(ready,true,"single verified local engine must reach readiness");
   assert.equal((await fetch(h.base+"/__ordax/native/local-ai/v1/models",opts)).status,200);
   const request={model:model.modelId,messages:[{role:"user",content:"Ola"}],max_tokens:32,stream:false};
   const result=await fetch(h.base+"/__ordax/native/local-ai/v1/chat/completions", {
