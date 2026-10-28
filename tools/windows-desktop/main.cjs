@@ -18,6 +18,7 @@ app.setName('OrdaX OS Desktop Dev');
 // desktop-dev-update-state.json. This is a profile selector only, never a
 // different OrdaX runtime, Surface, updater or product channel.
 const devProfile = process.env.ORDAX_DESKTOP_TEST_PROFILE === '1';
+const localDevelopment = !app.isPackaged && process.env.ORDAX_DESKTOP_LOCAL_DEV === '1';
 const explicitTestDirectory = process.env.ORDAX_DESKTOP_TEST_PROFILE_DIR || '';
 // Smoke tests on an already-used Windows machine need a unique directory,
 // regardless of whether Electron resolves appData from Windows known folders
@@ -28,7 +29,8 @@ if (explicitTestDirectory && (!devProfile || !isAbsolute(explicitTestDirectory) 
 }
 const desktopUserData = explicitTestDirectory
   ? resolve(explicitTestDirectory)
-  : join(app.getPath('appData'),devProfile ? 'OrdaX OS Desktop Dev Test' : 'OrdaX OS Desktop Dev');
+  : join(app.getPath('appData'),devProfile ? 'OrdaX OS Desktop Dev Test'
+    : localDevelopment ? 'OrdaX OS Desktop Local Development' : 'OrdaX OS Desktop Dev');
 mkdirSync(desktopUserData,{recursive:true});
 app.setPath('userData',desktopUserData);
 if (process.platform==='win32') app.setAppUserModelId('dev.ordax.os.desktop');
