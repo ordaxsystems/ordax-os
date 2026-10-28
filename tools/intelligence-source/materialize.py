@@ -75,7 +75,10 @@ def verify_source(root: Path, lock: dict) -> tuple[list[tuple[str, bytes]], dict
         raise IntelligenceSourceError("checkout revision does not match immutable OS source lock")
     if git(root, "status", "--porcelain", "--untracked-files=all", "--", "src", "tools/inference-builder"):
         raise IntelligenceSourceError("tracked/untracked Intelligence source is modified")
-    raw_tree = git(root, "ls-tree", "-rz", "HEAD", "--", "src", "tools/inference-builder")
+    # The Intelligence repository may evolve independently (e.g. Windows-only
+    # builders). Verify and materialize ONLY the eight OS-pinned source files;
+    # unrelated tracked files never enter the immutable OS release slot.
+    raw_tree = git(root, "ls-tree", "-rz", "HEAD", "--", *sorted(EXPECTED))
     result = []
     total = 0
     fingerprint = hashlib.sha256()
