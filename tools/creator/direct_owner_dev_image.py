@@ -51,7 +51,12 @@ def preflight(out: Path, cli: Path, surface: Path, rootfs: Path, kernel: Path,
     if len(commit) != 40 or any(c not in "0123456789abcdef" for c in commit):
         raise ValueError("Owner/Dev seeded commit receipt is not a Git SHA")
     seeded = rootfs / "workspace/ordax"
-    actual = subprocess.run(["git", "-C", str(seeded), "rev-parse", "HEAD"],
+    # Owner rootfs is deliberately root-owned after the canonical preseed.
+    # Trust only this exact checkout, never the global safe.directory=* escape.
+    actual = subprocess.run(["sudo", "env", "GIT_CONFIG_COUNT=1",
+                             "GIT_CONFIG_KEY_0=safe.directory",
+                             "GIT_CONFIG_VALUE_0=" + str(seeded),
+                             "git", "-C", str(seeded), "rev-parse", "HEAD"],
                             check=True, text=True, capture_output=True).stdout.strip()
     if actual != commit:
         raise ValueError("Owner/Dev seeded checkout and current-commit disagree")
