@@ -55,3 +55,9 @@ Entry point inicial **somente de componentes**: `python3 tools/ci/dev_components
 ### Extração do manifesto Owner/Dev (etapa concluída no source)
 
 A derivação do manifesto antes embutida no workflow `creator-owner-dev-git.yml` foi movida **sem segunda receita** para `tools/creator/owner_dev_manifest.py`; o workflow chama o mesmo arquivo. Uso fora da CI a partir da raiz do checkout com os artefatos kernel/initramfs já produzidos em `out/`: `python3 tools/creator/owner_dev_manifest.py /tmp/minimal-bootstrap-owner-dev.json`. A versão do kernel deriva de `bootstrap/kernel/source.json` caso a variável opcional `ORDAX_KERNEL_VERSION` não esteja definida. **Esta etapa não produz sozinha imagem USB**; exige artefatos locais preparados. Ainda falta provar por CI e extrair/compor o restante do caminho direto.
+
+### Etapa adicional: staging Owner/Dev fora da CI (código, sem prova física)
+
+O estágio lógico do Creator foi extraído para `tools/creator/owner_dev_stage.sh` e o workflow existente agora usa **exatamente** essa receita. São necessários manifesto derivado, caminho vazio de payload, caminho vazio de stage, CLI canônica do Creator, diretório de rootfs verificado e produtor Surface EROFS verificado. A variável `ORDAX_DEV_GEOMETRY_OUT` define o destino da geometria derivada. O script conserva as chamadas ao Core `verify-payload`/`stage-tree`, verificação offline da Surface, capacidades Owner e recusa de symlinks; não autoriza mídia física. `sudo` continua necessário para materializar rootfs com metadados próprios; é dependência de host real que deve ser formalizada, não um novo gate de CI.
+
+**Lacunas abertas:** geração local de kernel/initramfs/raiz integrada; RAW descartável `disposable_media.py` ainda encadeado no workflow; CI da revisão, integração do Creator independente e boot real. Não classificar staging como USB final.
