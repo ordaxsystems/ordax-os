@@ -327,5 +327,44 @@ class IndependentStaticElfClosureTests(unittest.TestCase):
 
 
 
+class OwnerBuildInputPreflightTests(unittest.TestCase):
+    @staticmethod
+    def builder():
+        spec = importlib.util.spec_from_file_location("ordax_owner_build_input_preflight", BUILD)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        return module
+
+    def test_missing_owner_kernel_inputs_fail_before_buildroot(self):
+        builder = self.builder()
+        with patch.dict("os.environ", {}, clear=True):
+            with self.assertRaisesRegex(builder.BaseError, "ORDAX_HOST_PYTHON"):
+                builder.validate_owner_payload_environment(
+                    "owner-development", {"version": "6.6.158"}
+                )
+            builder.validate_owner_payload_environment("minimal", {"version": "6.6.158"})
+
+    def test_owner_kernel_receipts_and_version_must_be_bound(self):
+        builder = self.builder()
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            archive = root / "kernel-modules-6.6.158.tar"
+            archive.write_bytes(b"verified at the producer boundary")
+            environment = {
+                "ORDAX_HOST_PYTHON": "/usr/bin/python3",
+                "ORDAX_KERNEL_MODULES_ARCHIVE": str(archive),
+                "ORDAX_KERNEL_MODULES_RECEIPT": str(root / "kernel-module-payload.json"),
+                "ORDAX_FIRMWARE_COVERAGE_RECEIPT": str(root / "firmware-coverage.json"),
+            }
+            with patch.dict("os.environ", environment, clear=True):
+                builder.validate_owner_payload_environment(
+                    "owner-development", {"version": "6.6.158"}
+                )
+                with self.assertRaisesRegex(builder.BaseError, "exact canonical kernel"):
+                    builder.validate_owner_payload_environment(
+                        "owner-development", {"version": "6.6.159"}
+                    )
+
+
 if __name__ == "__main__":
     unittest.main()
