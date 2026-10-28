@@ -117,7 +117,15 @@ class SourceAdvanceTests(unittest.TestCase):
         self.assertEqual(updated["status"], "integration-candidate")
         self.assertIs(updated["activation_authorized"], False)
         self.assertIs(updated["cutover_complete"], False)
-        self.write("src/uncontracted.mjs", "unexpected")
+        self.write("tools/inference-builder/windows-candidate.py", "Windows-only optional builder")
+        self.commit()
+        unrelated = advance.advance(self.root, "intelligence", self.source, True)
+        self.assertFalse(unrelated["changed"])
+        self.assertEqual(unrelated["reason"], "no-owned-source-change")
+        self.assertEqual(json.loads(path.read_text())["source_commit"], new)
+        # A later real locked-blob change cannot silently import an unexpected
+        # source graph: existing Intelligence verifier must still reject it.
+        self.write("src/local-ai/runtime.mjs", "new version 2")
         self.commit()
         with self.assertRaises(Exception):
             advance.advance(self.root, "intelligence", self.source, True)
