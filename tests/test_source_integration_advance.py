@@ -133,6 +133,81 @@ class SourceAdvanceTests(unittest.TestCase):
         self.assertEqual(set(final["source_paths"]), set(paths))
         self.assertNotIn("tools/inference-builder/windows-candidate.py", final["source_paths"])
 
+    def test_surface_selects_verified_main_source_sha_before_docs_tail(self):
+        self.write("system/surface/ui/index.js", "initial")
+        self.write("system/surface/workspace/index.js", "initial")
+        old = self.commit()
+        lock = {
+            "$schema": "prototype-ordax.surface-source/1",
+            "status": "canonical",
+            "source_repository": "ordaxsystems/ordax-surface",
+            "source_commit": old,
+            "visual_source_paths": ["system/surface/ui", "system/surface/workspace"],
+        }
+        path = self.lock("surface", lock)
+        self.write("system/surface/ui/index.js", "updated")
+        source_sha = self.commit("main visual change")
+        self.write("docs/README.md", "documentation-only merge after green Surface CI")
+        self.commit("docs only")
+        self.assertEqual(
+            advance.select_source_commit(self.root, "surface", self.source),
+            source_sha,
+        )
+        self.git("checkout", "--detach", source_sha)
+        result = advance.advance(self.root, "surface", self.source, True)
+        self.assertTrue(result["changed"])
+        self.assertEqual(json.loads(path.read_text())["source_commit"], source_sha)
+        self.git("checkout", "main")
+        self.assertEqual(
+            advance.select_source_commit(self.root, "surface", self.source),
+            source_sha,
+        )
+        # Even if the existing OS pin was a later nonvisual main commit, the
+        # selector must refuse to move the lock backwards.
+        lock["source_commit"] = self.git("rev-parse", "HEAD")
+        path.write_text(json.dumps(lock))
+        self.assertEqual(
+            advance.select_source_commit(self.root, "surface", self.source),
+            lock["source_commit"],
+        )
+
+    def test_intelligence_ignores_windows_builder_and_docs_when_selecting_ci_sha(self):
+        paths = (
+            "src/index.mjs", "src/contract-bindings.mjs",
+            "src/intelligence/runtime.mjs", "src/intelligence/model-router.mjs",
+            "src/local-ai/runtime.mjs", "src/local-ai/completion-stream.mjs",
+            "src/local-ai/model-compatibility.mjs", "tools/inference-builder/build.py",
+        )
+        for path in paths:
+            self.write(path, "initial")
+        old = self.commit()
+        self.lock("intelligence", {
+            "$schema": "prototype-ordax.intelligence-source/1",
+            "status": "integration-candidate",
+            "source_repository": "ordaxsystems/ordax-intelligence",
+            "source_commit": old,
+            "source_paths": {p: self.git("rev-parse", "HEAD:" + p) for p in paths},
+            "materialization_target": "system/intelligence-source/src",
+            "public_ports": ["ordax.intelligence/1", "ordax.model-router/1", "ordax.local-ai/1"],
+            "source_only": True,
+            "change_live_os": False,
+            "activation_authorized": False,
+            "cutover_complete": False,
+        })
+        self.write("src/intelligence/runtime.mjs", "updated")
+        source_sha = self.commit("Intelligence main source")
+        self.write("tools/inference-builder/windows-candidate.py", "windows only")
+        self.commit("Windows builder main")
+        self.write("docs/README.md", "documentation only")
+        self.commit("docs main")
+        self.assertEqual(
+            advance.select_source_commit(self.root, "intelligence", self.source),
+            source_sha,
+        )
+        self.git("checkout", "--detach", source_sha)
+        self.assertTrue(advance.advance(self.root, "intelligence", self.source, True)["changed"])
+
+
     def test_reject_source_symlink(self):
         linked = Path(self.tmp.name) / "linked"
         linked.symlink_to(self.source, target_is_directory=True)

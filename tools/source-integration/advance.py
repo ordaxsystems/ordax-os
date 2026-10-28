@@ -74,6 +74,48 @@ def git_tree_blobs(checkout: Path, required: set[str]) -> dict[str, str]:
     return result
 
 
+def consumed_paths(owner: str, lock: dict) -> tuple[str, ...]:
+    if owner == "intelligence":
+        return tuple(sorted(lock["source_paths"]))
+    return tuple(OWNERS[owner]["paths"])
+
+
+def select_source_commit(root: Path, owner: str, checkout: Path) -> str:
+    """Select the last first-parent main commit changing OS-consumed bytes.
+
+    A later documentation-only main commit is not necessarily subject to the
+    owner's path-filtered push CI. Pin the source-producing main SHA, never a
+    moving ref, so the upstream CI check remains meaningful.
+    """
+    if owner not in OWNERS:
+        raise SourceAdvanceError("unrecognized source owner")
+    if checkout.is_symlink() or not checkout.is_dir():
+        raise SourceAdvanceError("source must be a real Git checkout")
+    checkout = checkout.resolve(strict=True)
+    lock = module_for(root.resolve(strict=True), owner).load_lock(
+        root.resolve(strict=True) / OWNERS[owner]["lock"]
+    )
+    old = lock["source_commit"]
+    head = git(checkout, "rev-parse", "HEAD").stdout.decode("ascii").strip()
+    if not SHA.fullmatch(head):
+        raise SourceAdvanceError("upstream main HEAD must be an exact Git SHA")
+    if git(checkout, "merge-base", "--is-ancestor", old, head, accepted=(0, 1)).returncode:
+        raise SourceAdvanceError("upstream main does not descend from pinned source")
+    touched = git(
+        checkout, "log", "--first-parent", "-1", "--format=%H", "HEAD",
+        "--", *consumed_paths(owner, lock),
+    ).stdout.decode("ascii").strip()
+    if not SHA.fullmatch(touched):
+        raise SourceAdvanceError("no trustworthy source-changing commit on upstream main")
+    # The OS pin can point to a newer documentation-only SHA from a previous
+    # integration. Never roll backwards just to select an earlier source edit.
+    if git(checkout, "merge-base", "--is-ancestor", touched, old, accepted=(0, 1)).returncode == 0:
+        return old
+    if git(checkout, "merge-base", "--is-ancestor", old, touched, accepted=(0, 1)).returncode:
+        raise SourceAdvanceError("source-changing commit is unrelated to current OS pin")
+    return touched
+
+
 def advance(root: Path, owner: str, checkout: Path, apply: bool = False) -> dict:
     if owner not in OWNERS:
         raise SourceAdvanceError("unrecognized source owner")
@@ -101,7 +143,7 @@ def advance(root: Path, owner: str, checkout: Path, apply: bool = False) -> dict
     # Intelligence is an eight-blob source integration, not a mirror of its
     # repository's independently evolving Windows builder and CI files.
     # Only a change to one of the OS-pinned blobs can advance this lock.
-    owned_paths = tuple(previous["source_paths"]) if owner == "intelligence" else config["paths"]
+    owned_paths = consumed_paths(owner, previous)
     diff = git(checkout, "diff", "--quiet", old, target, "--", *owned_paths, accepted=(0, 1))
     if diff.returncode == 0:
         return {"owner": owner, "changed": False, "reason": "no-owned-source-change", "source_commit": old}
@@ -129,8 +171,15 @@ def main() -> None:
     parser.add_argument("--source-dir", type=Path, required=True)
     parser.add_argument("--root", type=Path, default=ROOT)
     parser.add_argument("--apply", action="store_true")
+    parser.add_argument("--select-source", action="store_true",
+                        help="print exact last source-changing main commit for path-filtered CI")
     args = parser.parse_args()
-    print(json.dumps(advance(args.root, args.owner, args.source_dir, args.apply), sort_keys=True))
+    if args.select_source:
+        if args.apply:
+            parser.error("--select-source never modifies OS locks")
+        print(select_source_commit(args.root, args.owner, args.source_dir))
+    else:
+        print(json.dumps(advance(args.root, args.owner, args.source_dir, args.apply), sort_keys=True))
 
 
 if __name__ == "__main__":
