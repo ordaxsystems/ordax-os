@@ -32,10 +32,16 @@ mascare a CI que validou a alteração real. O commit selecionado precisa ser
 descendente do pin anterior: caso contrário a integração falha fechada e não
 retrocede SHA. O job exige o workflow upstream **concluído com sucesso para
 esse exato commit da main** quando uma fonte realmente consumida muda.
-Rejeita CI ausente, falha, cancelada ou em andamento. Se houver uma PR de integração aberta para
-o mesmo owner, não cria PR paralela. Caso a main tenha sido reescrita, falha
-em vez de aceitar um force-push como atualização. A PR altera **somente um
-lock**. No caso da Intelligence, apenas os oito Git blobs fixados contam como
+Rejeita CI ausente, falha, cancelada ou em andamento. Quando há uma PR pendente para o mesmo owner, o coordenador
+**reaproveita essa PR** e acrescenta a revisão mais recente por commit
+fast-forward, com CI novamente vinculada ao novo head. O inventário percorre
+todas as páginas de PRs, exige repositório de origem correto, base main e
+diff contendo **exatamente um lock**; duas PRs concorrentes, mudança simultânea
+de main ou branch alterada durante a operação falham fechadas. Se não existir
+PR, usa a branch estável `automation/advance-<owner>`. Não há force-push,
+rebase de histórico de terceiros ou segunda PR em paralelo. Caso a main
+upstream tenha sido reescrita, falha em vez de aceitar um force-push como
+atualização. A PR altera **somente um lock**. No caso da Intelligence, apenas os oito Git blobs fixados contam como
 código consumido; um helper adicional exclusivo do Windows, documentação ou CI
 externa não entra no OS, não altera o pin nem obriga recompilar o kernel.
 
@@ -110,5 +116,7 @@ python3 -m unittest discover -s tests -p test_source_integration_advance.py -v
 O teste inclui alteração de source, ausência de mudança relevante, seleção
 do commit de origem quando a main termina com documentação ou ferramentas
 Windows não consumidas, rollback proibido, idempotência, isolamento do grafo
-de oito arquivos Intelligence e preservação de activation_authorized=false. Testes do consumidor continuam
+de oito arquivos Intelligence, autorização de source inativa e ciclo da PR
+única (paginação, verificação de repositório/lock, deduplicação e atualização
+sem force-push). Testes do consumidor continuam
 nos workflows originais, sem cópia do materializador nem outro updater.

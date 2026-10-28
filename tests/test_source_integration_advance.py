@@ -214,11 +214,84 @@ class SourceAdvanceTests(unittest.TestCase):
         with self.assertRaisesRegex(advance.SourceAdvanceError, "real Git checkout"):
             advance.advance(self.root, "surface", linked, True)
 
+    def test_pending_pr_selection_is_paginated_owner_scoped_and_fail_closed(self):
+        import os
+        root = advance.ROOT
+        yaml = (root / ".github/workflows/external-source-lock-integration.yml").read_text()
+        start = yaml.index("      - name: Resolve exactly one pending PR")
+        end = yaml.index("      - name: Create or fast-forward", start)
+        body = yaml[start:end].split("        run: |\n", 1)[1]
+        script = "\n".join(line[10:] if line.startswith(" " * 10) else line
+                           for line in body.splitlines()) + "\n"
+        self.assertIn("gh api --paginate --slurp", script)
+        self.assertIn("jq -c", script)
+        with tempfile.TemporaryDirectory() as folder:
+            folder = Path(folder)
+            gh = folder / "gh"
+            gh.write_text("""#!/usr/bin/env bash
+if [ "$1" = api ]; then
+  printf '%s\\n' "$TEST_PAGES"
+elif [ "$1" = pr ] && [ "$2" = view ]; then
+  printf '%s\\n' "$TEST_PR_FILES"
+else
+  exit 93
+fi
+""")
+            gh.chmod(0o755)
+            def pr(number, branch, repo="ordaxsystems/ordax-os", base="main"):
+                return {"number": number, "head": {
+                    "repo": {"full_name": repo}, "ref": branch,
+                    "sha": "a" * 40}, "base": {"ref": base}}
+            def run(pages, files=None):
+                out = folder / "out"
+                out.write_text("")
+                env = dict(os.environ, PATH=str(folder) + os.pathsep + os.environ["PATH"],
+                           TEST_PAGES=json.dumps(pages),
+                           TEST_PR_FILES=json.dumps(files or {"files": [
+                               {"path": "docs/contracts/surface-source.json"}]}),
+                           OWNER="surface", LOCK="docs/contracts/surface-source.json",
+                           GITHUB_REPOSITORY="ordaxsystems/ordax-os",
+                           GITHUB_OUTPUT=str(out))
+                result = subprocess.run(["bash", "-e"], input=script, text=True,
+                                        env=env, capture_output=True)
+                return result, out.read_text()
+            no_matches, output = run([[pr(8, "automation/advance-surface", repo="other/fork")], []])
+            self.assertEqual(no_matches.returncode, 0, no_matches.stderr)
+            self.assertIn("existing=false", output)
+            one, output = run([
+                [pr(8, "some-other-branch")],
+                [pr(9, "automation/advance-surface"), pr(10, "automation/advance-intelligence")],
+            ])
+            self.assertEqual(one.returncode, 0, one.stderr)
+            self.assertIn("existing=true", output)
+            self.assertIn("number=9", output)
+            self.assertIn("branch=automation/advance-surface", output)
+            duplicate, _ = run([[
+                pr(9, "automation/advance-surface"),
+                pr(10, "automation/advance-surface-deadbeef1234"),
+            ]])
+            self.assertNotEqual(duplicate.returncode, 0)
+            self.assertIn("Multiple owner integration PRs", duplicate.stdout)
+            foreign_files, _ = run([[pr(9, "automation/advance-surface")]],
+                                   {"files": [{"path": "system/supervisor"}]})
+            self.assertNotEqual(foreign_files.returncode, 0)
+
+    def test_existing_integration_is_updated_without_force_push(self):
+        workflow = (advance.ROOT / ".github/workflows/external-source-lock-integration.yml").read_text()
+        self.assertIn('git fetch --no-tags origin "refs/heads/$branch:refs/remotes/origin/$branch"', workflow)
+        self.assertIn('if [ "$(git rev-parse HEAD)" != "$PR_HEAD_SHA" ]; then', workflow)
+        self.assertIn('git push origin "HEAD:refs/heads/$branch"', workflow)
+        self.assertIn('gh pr edit "$PR_NUMBER"', workflow)
+        self.assertIn('branch="automation/advance-$OWNER"', workflow)
+        self.assertNotIn("git push --force", workflow)
+        self.assertNotIn("git push -f", workflow)
+        self.assertNotIn("gh pr merge", workflow)
+
     def test_native_bot_uses_existing_ci_without_duplicated_release_authority(self):
         root = advance.ROOT
         workflow = (root / ".github/workflows/external-source-lock-integration.yml").read_text()
         self.assertIn("GH_TOKEN: ${{ secrets.ORDAX_INTEGRATION_TOKEN || github.token }}", workflow)
-        self.assertIn("if: steps.publish.outputs.native == 'true'", workflow)
+        self.assertIn("if: steps.publish.outputs.changed == 'true' && steps.publish.outputs.native == 'true'", workflow)
         self.assertIn('gh workflow run "$workflow"', workflow)
         self.assertNotIn("gh pr merge", workflow)
         self.assertNotIn("gh release create", workflow)
