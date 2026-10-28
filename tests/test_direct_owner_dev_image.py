@@ -29,6 +29,20 @@ class DirectOwnerDevTests(unittest.TestCase):
                                   Path(tmp), Path(tmp), Path(tmp))
                 run.assert_not_called()
 
+    def test_rejects_unseeded_dev_rootfs_before_verification(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "surface").mkdir()
+            (root / "rootfs").mkdir()
+            (root / "kernel").write_text("kernel")
+            (root / "initramfs").write_text("initramfs")
+            (root / "creator").write_text("creator")
+            with patch.object(mod.os, "access", return_value=True), patch.object(mod, "run") as run:
+                with self.assertRaisesRegex(ValueError, "lacks Git"):
+                    mod.preflight(root / "image", root / "creator", root / "surface",
+                                  root / "rootfs", root / "kernel", root / "initramfs")
+                run.assert_not_called()
+
     def test_no_implicit_kernel_or_base_build(self):
         source = SOURCE.read_text(encoding="utf-8")
         self.assertNotIn('"bootstrap/kernel/build.py", "build"', source)
