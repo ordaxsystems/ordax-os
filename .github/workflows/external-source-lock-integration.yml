@@ -206,6 +206,114 @@ jobs:
           else
             branch="automation/advance-$OWNER"
             git switch -c "$branch"
+            # GitHub may retain a merged PR's head branch because the repo
+            # has delete_branch_on_merge=false. Reuse it only if its exact
+            # remote tip was already merged into the OS main. The next push
+            # is then a normal fast-forward, without a force-push or a second
+            # owner branch. A closed, unmerged branch is never overwritten.
+            existing_tip="$(git ls-remote --heads origin "refs/heads/$branch")"
+            if [ -n "$existing_tip" ]; then
+              existing_sha="${existing_tip%%
+          test "$(git diff --cached --name-only)" = "$LOCK"
+          git commit -m "chore($OWNER): integrate source ${SOURCE_SHA:0:12}"
+          # Fast-forward only. Never force-push, overwrite a different branch,
+          # or create a second PR when a valid owner PR already exists.
+          git push origin "HEAD:refs/heads/$branch"
+          printf -v body 'Owner: %s@%s\n\nOnly %s changed. Exact upstream main CI and existing OS materializer passed. No physical update, Stable release, Intelligence activation or second updater.\n\nMerge only after OS consumer tests, health and rollback gates pass.' \
+            "$SOURCE_REPO" "$SOURCE_SHA" "$LOCK"
+          if [ "$EXISTING" = true ]; then
+            gh pr edit "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" \
+              --title "chore($OWNER): integrate verified source" --body "$body"
+          else
+            gh pr create --repo "$GITHUB_REPOSITORY" --base main --head "$branch" \
+              --title "chore($OWNER): integrate verified source" --body "$body"
+          fi
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+          echo "branch=$branch" >> "$GITHUB_OUTPUT"
+          if [ "$NATIVE_FALLBACK" = true ]; then
+            echo "native=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::Canonical consumer workflows will validate the new immutable PR head"
+          else
+            echo "native=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Dispatch original consumer CI for GitHub-token-created/updated PR
+        if: steps.publish.outputs.changed == 'true' && steps.publish.outputs.native == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          OWNER: ${{ matrix.owner }}
+          BRANCH: ${{ steps.publish.outputs.branch }}
+        run: |
+          set -euo pipefail
+          workflows=(foundation.yml)
+          case "$OWNER" in
+            surface)
+              workflows+=(surface-source-consumer.yml owner-surface-source.yml windows-desktop-dev.yml)
+              ;;
+            intelligence)
+              workflows+=(intelligence-source.yml owner-intelligence-source.yml)
+              ;;
+            *) exit 2 ;;
+          esac
+          for workflow in "${workflows[@]}"; do
+            gh workflow run "$workflow" --repo "$GITHUB_REPOSITORY" --ref "$BRANCH"
+          done
+          echo "Dispatched existing consumer CI on $BRANCH; no auto-merge or physical promotion."
+\t'*}"
+              test "$existing_tip" = "$existing_sha"
+          test "$(git diff --cached --name-only)" = "$LOCK"
+          git commit -m "chore($OWNER): integrate source ${SOURCE_SHA:0:12}"
+          # Fast-forward only. Never force-push, overwrite a different branch,
+          # or create a second PR when a valid owner PR already exists.
+          git push origin "HEAD:refs/heads/$branch"
+          printf -v body 'Owner: %s@%s\n\nOnly %s changed. Exact upstream main CI and existing OS materializer passed. No physical update, Stable release, Intelligence activation or second updater.\n\nMerge only after OS consumer tests, health and rollback gates pass.' \
+            "$SOURCE_REPO" "$SOURCE_SHA" "$LOCK"
+          if [ "$EXISTING" = true ]; then
+            gh pr edit "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" \
+              --title "chore($OWNER): integrate verified source" --body "$body"
+          else
+            gh pr create --repo "$GITHUB_REPOSITORY" --base main --head "$branch" \
+              --title "chore($OWNER): integrate verified source" --body "$body"
+          fi
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+          echo "branch=$branch" >> "$GITHUB_OUTPUT"
+          if [ "$NATIVE_FALLBACK" = true ]; then
+            echo "native=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::Canonical consumer workflows will validate the new immutable PR head"
+          else
+            echo "native=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Dispatch original consumer CI for GitHub-token-created/updated PR
+        if: steps.publish.outputs.changed == 'true' && steps.publish.outputs.native == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          OWNER: ${{ matrix.owner }}
+          BRANCH: ${{ steps.publish.outputs.branch }}
+        run: |
+          set -euo pipefail
+          workflows=(foundation.yml)
+          case "$OWNER" in
+            surface)
+              workflows+=(surface-source-consumer.yml owner-surface-source.yml windows-desktop-dev.yml)
+              ;;
+            intelligence)
+              workflows+=(intelligence-source.yml owner-intelligence-source.yml)
+              ;;
+            *) exit 2 ;;
+          esac
+          for workflow in "${workflows[@]}"; do
+            gh workflow run "$workflow" --repo "$GITHUB_REPOSITORY" --ref "$BRANCH"
+          done
+          echo "Dispatched existing consumer CI on $BRANCH; no auto-merge or physical promotion."
+\t'"refs/heads/$branch"
+              git fetch --no-tags origin "refs/heads/$branch"
+              if ! git merge-base --is-ancestor "$existing_sha" "$main_sha"; then
+                echo "::error::Owner branch exists but is not merged into current main; refuse overwrite"
+                exit 1
+              fi
+              echo "::notice::Reusing a previously merged owner branch with ordinary fast-forward push"
+            fi
           fi
           git add -- "$LOCK"
           test "$(git diff --cached --name-only)" = "$LOCK"
