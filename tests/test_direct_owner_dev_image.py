@@ -35,6 +35,7 @@ class DirectOwnerDevTests(unittest.TestCase):
         self.assertNotIn('"bootstrap/independent-base/build.py", "build"', source)
         self.assertNotIn("GITHUB_ACTIONS", source)
         self.assertIn("physical_write_authorized", source)
+        self.assertIn('run(["sudo", sys.executable, "tools/creator/owner_dev_raw.py"', source)
 
 
 if __name__ == "__main__":
