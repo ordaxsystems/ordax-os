@@ -8,6 +8,25 @@ Project-owner decision: **Owner/Development image production must be usable dire
 
 Implementation, missing entrypoints, evidence and pass/fail acceptance: [P0 direct incremental Dev USB plan](plans/P0-DEV-USB-INCREMENTAL-BUILD-2026-10-27.md), within PR #2243. **This describes required behavior, not functionality already implemented.**
 
+## Kernel-substitutable architecture — OrdaX identity independent of host (2026-10-27)
+
+**Owner decision:** OrdaX is an independent operating-system architecture, not a Linux distribution or a Windows wrapper. The current Linux kernel and Windows host are implementation targets, not OrdaX product identities. Future native OrdaX kernel development must be possible without migrating the UI, application model, identity, capability contracts or updater authority.
+
+**Hard boundaries for new code:**
+
+1. Surface and removable apps consume **OrdaX-owned typed capability APIs** only. Do not call Linux syscalls, Windows APIs, shell commands, systemd, registry, POSIX filesystem semantics or Buildroot APIs directly from portable UI/app logic.
+2. The OS core owns identity, authorization, state, process/file/device capability semantics, application lifecycle, health, transactional update and rollback. Platform-specific implementation belongs to explicit adapters with feature discovery and fail-closed errors, not silent host emulation.
+3. Linux kernel, native graphical stack and Windows runtime are **adapters/targets**, not upstream authorities for the public OrdaX API. Do not introduce a second OS core or duplicate owners to implement adapters.
+4. Buildroot/musl, Cage/Wayland/Mesa/WebKit, kernel/initramfs and Windows installer remain replaceable build/runtime dependencies **today**; they are not removed merely by declaring portability. A native OrdaX kernel will need proven process, memory, scheduling, IPC, filesystem, driver, network, graphics, security and boot implementations or compatible providers before cutover.
+5. **Local-first workflow:** edit → preview/watch → affected tests → component artifact if needed → verify/update on target. GitHub Actions must not be a precondition for editing, local execution, unsigned DEV packaging or disposable image generation. Release publication, signing, trusted distribution and destructive physical-media operations remain explicit, independently verifiable actions.
+6. Unit-test platform-neutral core with mocked/adapted capabilities on ordinary developer hosts. Run target-specific integration tests only for affected adapters. Heavy kernel, Buildroot, physical boot and installer builds are triggered by actual component input changes or an explicitly requested release verification.
+7. No blanket removal of security checks, integrity validation, boot rollback or physical-write consent in DEV. Remove redundant *execution gates* while retaining invariants and tests.
+8. Any new host-specific coupling must name an owner, a typed interface, capability contract, test fixture and migration/removal strategy. Existing canonical repository ownership remains authoritative.
+
+**Acceptance criteria:** changing only portable Surface assets does not rebuild WebKit/Mesa, Linux kernel, Windows installer or Buildroot base; changing only an app does not rebuild OS; CI unavailable still permits local UI/app development and verified DEV artifact production; tests demonstrate host adapters are replaceable without changes to public OrdaX contracts. These are goals until proven, not a claim of implementation.
+
+**Priorities:** complete the PR #2243 direct DEV USB chain and boot proof first; then move remaining host-specific calls behind existing OrdaX capability owners, starting with the actual coupling revealed by tests. Do not start building a replacement kernel before the system can reliably build, run and update with its current substrate.
+
 ## Source model
 
 `main` is the source authority for this prototype.
