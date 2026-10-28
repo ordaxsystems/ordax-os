@@ -2,6 +2,12 @@
 
 Status: CANONICAL FOR PROTOTYPE
 
+## Priority P0 — direct incremental DEV USB (2026-10-27)
+
+Project-owner decision: **Owner/Development image production must be usable directly from the versioned repository recipes, independently of GitHub Actions, full QEMU homologation or Stable promotion**. Existing kernel, Buildroot/musl base, Surface EROFS and Creator owners remain canonical; CI invokes their recipes and runs appropriate tests, it does not own production. Use verified persistent component cache and exact source/config/toolchain fingerprints. A change in Surface/services must not rebuild an unaffected kernel/base. A development image is not a homologated release. Preserve source integrity and explicit removable-device selection for physical writes.
+
+Implementation, missing entrypoints, evidence and pass/fail acceptance: [P0 direct incremental Dev USB plan](plans/P0-DEV-USB-INCREMENTAL-BUILD-2026-10-27.md), within PR #2243. **This describes required behavior, not functionality already implemented.**
+
 ## Source model
 
 `main` is the source authority for this prototype.
