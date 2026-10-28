@@ -184,3 +184,18 @@ python3 tools/creator/owner_dev_manifest.py /tmp/owner-dev-manifest.json
 5. Só então concluir PR #2243 na `main` após validação, sem confundir documentação com entrega.
 
 O conjunto de workflows remotos deve permanecer apenas onde houver função comprovada de testes exigidos, integração, distribuição ou implantação. O caminho local não deve depender de status remoto para construir componentes DEV.
+
+## Corte de composição direta — implementação na PR #2243
+
+Foi adicionado `tools/creator/direct_owner_dev_image.py`, **um comando para encadear**, sem GitHub Actions, os produtores de manifesto, estágio Creator e RAW descartável já existentes. Não cria um segundo produtor. Exige entradas **preparadas e verificáveis** (kernel + initramfs nos caminhos canônicos `out/`, base Owner com checkout Git e serviços já preparados em `out/dev-base/rootfs`, Surface produzida e CLI do Creator). É execução de composição, não rotina para compilar entradas ausentes, e não escreve USB físico.
+
+```bash
+python3 tools/creator/direct_owner_dev_image.py \\
+  --creator-cli /caminho/ordax-creator \\
+  --surface-out /caminho/producer-surface \\
+  --out /tmp/ordax-dev-image
+```
+
+O comando pré-verifica kernel, initramfs e Surface, chama manifesto, estágio e produtor RAW canônicos, verifica provas e SHA256, e grava `direct-owner-dev-result.json` apontando para `media/ordax-disposable.raw`. `boot_proven=false` até a prova QEMU/real. Os caminhos são exemplos, não confirmação de arquivos presentes. O comando usa `bash`/`sudo` no executor Linux para staging; não significa que Windows ou OrdaX possuam toolchain integrada.
+
+**Prova pendente:** teste de execução end-to-end em Linux com kernel/initramfs/base pré-produzidos, Surface e Creator CLI. Não afirmar imagem pronta, boot ou aceleração medida sem execução. O corte adicional para produzir automaticamente *apenas* entradas faltantes por fingerprint ainda precisa ser implementado e comprovado.
