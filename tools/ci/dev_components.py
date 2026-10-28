@@ -79,6 +79,8 @@ def component(component: str, root: Path, jobs: int, build: bool) -> dict:
     if not build:
         return {"component": component, "status": "needs-build", "path": str(target),
                 "fingerprint": identity}
+    if target.exists():
+        raise RuntimeError("existing invalid output; refuse rebuild before explicit cleanup: " + str(target))
     target.parent.mkdir(parents=True, exist_ok=True)
     staging = Path(tempfile.mkdtemp(prefix=".ordax-build-", dir=target.parent))
     try:
