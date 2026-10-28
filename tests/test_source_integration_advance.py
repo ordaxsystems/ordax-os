@@ -291,7 +291,7 @@ fi
         root = advance.ROOT
         workflow = (root / ".github/workflows/external-source-lock-integration.yml").read_text()
         self.assertIn("GH_TOKEN: ${{ secrets.ORDAX_INTEGRATION_TOKEN || github.token }}", workflow)
-        self.assertIn("if: steps.publish.outputs.native == 'true'", workflow)
+        self.assertIn("if: steps.publish.outputs.changed == 'true' && steps.publish.outputs.native == 'true'", workflow)
         self.assertIn('gh workflow run "$workflow"', workflow)
         self.assertNotIn("gh pr merge", workflow)
         self.assertNotIn("gh release create", workflow)
