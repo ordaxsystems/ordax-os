@@ -32,14 +32,18 @@ def preflight(out: Path, cli: Path, surface: Path, rootfs: Path, kernel: Path,
               initramfs: Path) -> None:
     if out == ROOT or ROOT in out.parents:
         raise ValueError("output directory must be outside repository")
-    if out.exists() and any(out.iterdir()):
-        raise ValueError("output directory must be absent or empty")
+    if out.exists() and (out.is_symlink() or not out.is_dir() or any(out.iterdir())):
+        raise ValueError("output directory must be a real empty directory or absent")
     for item in (kernel, initramfs):
         if not item.is_file() or item.is_symlink() or item.stat().st_size == 0:
             raise ValueError(f"missing or unsafe boot artifact: {item}")
     for item in (surface, rootfs):
         if not item.is_dir() or item.is_symlink():
             raise ValueError(f"missing or unsafe component directory: {item}")
+    if not (rootfs / "usr/bin/git").is_file():
+        raise ValueError("Owner/Dev rootfs lacks Git; prepare canonical seeded base first")
+    if not (rootfs / "workspace/ordax/.git").exists():
+        raise ValueError("Owner/Dev rootfs has no seeded OrdaX checkout; follow canonical owner preseed")
     if not cli.is_file() or cli.is_symlink() or not os.access(cli, os.X_OK):
         raise ValueError("verified Creator Core executable required")
     run([sys.executable, "bootstrap/kernel/verify.py", str(kernel.parent)])
