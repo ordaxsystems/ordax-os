@@ -25,7 +25,22 @@ A prose document never silently overrides a machine-readable contract. A snapsho
 
 Historical wording inside a root `PLANO-*` such as `CANONICAL`, `P0`, `mandatory`, or equivalent does **not** change this authority order. If that wording conflicts with this router, `MVP.md`, current contracts or a canonical topic owner, the higher-authority source wins and the plan is interpreted as planning/reference material.
 
+## Estrutura documental — onde procurar primeiro
+
+| Escopo | Fonte de verdade | Uso |
+| --- | --- | --- |
+| Regras executáveis e configuração | Código + `docs/contracts/` | Contratos de produto, perfis e invariantes |
+| Estado real e limitações | [CURRENT-STATE.md](CURRENT-STATE.md) | Evidências atuais, não planos |
+| Procedimento de desenvolvimento | [DEVELOPMENT-WORKFLOW.md](DEVELOPMENT-WORKFLOW.md) | Comandos locais, ownership e CI opcional |
+| USB Dev em uso | [DEV-USB-GIT.md](DEV-USB-GIT.md) | Comportamento do pull e do Supervisor |
+| Montagem direta USB Dev em construção | [P0 USB](plans/P0-DEV-USB-INCREMENTAL-BUILD-2026-10-27.md) | Execução da PR #2243, não substitui contratos |
+| Histórico verificável | `docs/evidence/` | Evidências imutáveis por data e revisão |
+| Planos | `docs/plans/` e `PLANO-*.md` | Planejamento sem autoridade sobre o código |
+
+**Higiene estrutural:** relatórios antigos de Buildroot, CI, hardware ou release não são comandos operacionais atuais por estarem dentro de `docs/`. Não mover nem excluir contratos e evidências sem conferir consumidores; concentrar os comandos USB atuais em um runbook e eliminar instruções duplicadas quando comprovado o repoint. Não manter segunda árvore da Surface, segundo builder ou scripts de reparo locais dentro do Git.
+
 ## Active canonical map
+
 ## Guia de retomada transversal
 
 [INTELLIGENCE-HANDOFF.md](../INTELLIGENCE-HANDOFF.md) é a entrada curta para continuar a integração Intelligence + ChatGPT/MCP + apps entre repositórios. **Não é outro owner de inteligência nem status**: `docs/INTELLIGENCE.md`, contratos, código e `docs/CURRENT-STATE.md` mantêm suas prioridades. Antes de implementar, verificar PRs experimentais e o owner correto.
