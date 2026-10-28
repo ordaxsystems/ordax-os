@@ -83,6 +83,13 @@ jobs:
           LOCK: ${{ steps.external.outputs.lock }}
         run: |
           set -euo pipefail
+          # The upstream's main push CI is path-filtered. Ignore later
+          # documentation-only commits, pinning the immutable source-changing
+          # first-parent main commit that actually received the owner CI.
+          source_sha="$(python3 os/tools/source-integration/advance.py \
+            --root os --owner "$OWNER" --source-dir upstream --select-source)"
+          test "$source_sha" = "$(git -C upstream rev-parse "$source_sha")"
+          git -C upstream checkout --detach "$source_sha"
           python3 os/tools/source-integration/advance.py --root os --owner "$OWNER" --source-dir upstream --apply
           if git -C os diff --quiet -- "$LOCK"; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
@@ -91,7 +98,7 @@ jobs:
             test "$(git -C os diff --name-only)" = "$LOCK"
             echo "changed=true" >> "$GITHUB_OUTPUT"
           fi
-          echo "sha=$(git -C upstream rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          echo "sha=$source_sha" >> "$GITHUB_OUTPUT"
       - name: Require successful upstream main CI at exact SHA
         if: steps.candidate.outputs.changed == 'true'
         env:
