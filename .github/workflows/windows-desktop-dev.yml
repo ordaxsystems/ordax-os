@@ -28,7 +28,9 @@ permissions:
   contents: read
 jobs:
   desktop-dev:
-    runs-on: windows-latest
+    # The pinned Intelligence builder uses Visual Studio 17 2022 / MSVC x64.
+    # Match the independently proven Windows inference runner exactly.
+    runs-on: windows-2022
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7

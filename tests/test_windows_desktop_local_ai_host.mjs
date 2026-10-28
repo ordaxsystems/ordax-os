@@ -84,6 +84,12 @@ test("single supervised engine, fixed model, authenticated same-origin inference
   });
   assert.equal(result.status,200);
   assert.equal((await result.json()).choices[0].message.content,"teste");
+  const multilingual={...request,messages:[{role:"user",content:"界".repeat(32768)}]};
+  const multilingualRes=await fetch(h.base+"/__ordax/native/local-ai/v1/chat/completions",{
+    method:"POST",headers:{...opts.headers,origin:h.base,"content-type":"application/json"},
+    body:JSON.stringify(multilingual),
+  });
+  assert.equal(multilingualRes.status,200,"valid UTF-8 prompt within canonical char limit");
   assert.equal(h.getPackages(),1);
   assert.equal(h.launchCalls.length,1);
   assert.equal(h.launchCalls[0].path,model.executable);

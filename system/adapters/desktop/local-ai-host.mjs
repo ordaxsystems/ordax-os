@@ -18,7 +18,9 @@ const ROUTES = new Map([
 ]);
 const TOKEN = /^[0-9a-f]{64}$/;
 const LIMIT = 1048576;
-const MAX_REQUEST = 65536;
+// The contract allows 32,768 user + 8,192 system UTF-16 code units;
+// UTF-8 JSON may exceed 64 KiB for valid multilingual prompts.
+const MAX_REQUEST = 262144;
 const loopback = ip => ["127.0.0.1", "::1", "::ffff:127.0.0.1"].includes(ip);
 
 function assertRequest(value, modelId) {
