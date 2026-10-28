@@ -5,8 +5,9 @@ import { defineConfig } from "vite";
 import { nativeEmulatorPlugin } from "./native-host.mjs";
 
 const repoRoot = resolve(fileURLToPath(new URL("../..", import.meta.url)));
-const surfaceWorkspace = fileURLToPath(new URL("../../system/surface/workspace", import.meta.url));
-const surfaceBrand = fileURLToPath(new URL("../../system/surface/ui/brand", import.meta.url));
+const localSurface = process.env.ORDAX_DESKTOP_SURFACE_ROOT;
+const surfaceWorkspace = localSurface ? resolve(localSurface, "system/surface/workspace") : fileURLToPath(new URL("../../system/surface/workspace", import.meta.url));
+const surfaceBrand = localSurface ? resolve(localSurface, "system/surface/ui/brand") : fileURLToPath(new URL("../../system/surface/ui/brand", import.meta.url));
 const stateDirectory = process.env.ORDAX_EMULATOR_STATE_DIR ?? resolve(repoRoot, "out/windows-emulator-state");
 const accountGatewayOrigin = readFileSync(resolve(repoRoot, "system/services/account/gateway-base-url"), "utf8").trim();
 
@@ -20,6 +21,8 @@ export default defineConfig({
   plugins: [nativeEmulatorPlugin(stateDirectory, { desktopHost: process.env.ORDAX_DESKTOP_HOST === "1", accountGatewayOrigin })],
   optimizeDeps: { noDiscovery: true, include: [] },
   resolve: {
+    // Keep Surface's relative imports anchored to OS contracts, not its Git checkout.
+    preserveSymlinks: Boolean(localSurface),
     alias: {
       "@ordax-brand": surfaceBrand,
       "@": surfaceWorkspace,
@@ -30,7 +33,8 @@ export default defineConfig({
     port: Number.parseInt(process.env.ORDAX_EMULATOR_PORT ?? "4202", 10),
     strictPort: true,
     fs: {
-      allow: [repoRoot],
+      allow: localSurface ? [repoRoot, resolve(localSurface)] : [repoRoot],
     },
+    watch: { followSymlinks: Boolean(localSurface) },
   },
 });
