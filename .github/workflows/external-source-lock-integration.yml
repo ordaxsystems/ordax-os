@@ -117,31 +117,57 @@ jobs:
                 .conclusion == "success"
               )] | length > 0
             '
-      - name: Refuse duplicate pending owner PRs
+      - name: Resolve exactly one pending PR for the source owner
         if: steps.candidate.outputs.changed == 'true'
-        id: dedupe
+        id: pending
         env:
           GH_TOKEN: ${{ github.token }}
           OWNER: ${{ matrix.owner }}
+          LOCK: ${{ steps.external.outputs.lock }}
         run: |
           set -euo pipefail
-          if gh pr list --repo "$GITHUB_REPOSITORY" --state open --limit 100 \
-             --json headRefName \
-             | jq -e --arg prefix "automation/advance-$OWNER-" \
-               'any(.[]; .headRefName | startswith($prefix))' >/dev/null; then
-            echo "open=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "open=false" >> "$GITHUB_OUTPUT"
+          # Paginate all PRs. Looking only at the first 100 can silently miss
+          # an existing integration and create duplicate or conflicting PRs.
+          matches="$(
+            gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/pulls?state=open&per_page=100" |
+            jq -c --arg owner "$OWNER" --arg repo "$GITHUB_REPOSITORY" '
+              [.[][] | select(.head.repo.full_name == $repo and .base.ref == "main")
+               | select(.head.ref == ("automation/advance-" + $owner)
+                        or (.head.ref | startswith("automation/advance-" + $owner + "-")))
+               | {number, branch:.head.ref, sha:.head.sha}]'
+          )"
+          count="$(jq 'length' <<< "$matches")"
+          if [ "$count" -gt 1 ]; then
+            echo "::error::Multiple owner integration PRs exist; manual reconciliation required"
+            exit 1
           fi
-      - name: Open verified owner lock PR (never push main)
+          if [ "$count" -eq 1 ]; then
+            number="$(jq -r '.[0].number' <<< "$matches")"
+            branch="$(jq -r '.[0].branch' <<< "$matches")"
+            head_sha="$(jq -r '.[0].sha' <<< "$matches")"
+            # Update only a verified single-lock bot PR. Never modify an
+            # unrelated work branch disguised with the integration prefix.
+            gh pr view "$number" --repo "$GITHUB_REPOSITORY" --json files |
+              jq -e --arg lock "$LOCK" '([.files[].path] == [$lock])' > /dev/null
+            echo "existing=true" >> "$GITHUB_OUTPUT"
+            echo "number=$number" >> "$GITHUB_OUTPUT"
+            echo "branch=$branch" >> "$GITHUB_OUTPUT"
+            echo "head_sha=$head_sha" >> "$GITHUB_OUTPUT"
+          else
+            echo "existing=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create or fast-forward the single owner lock PR
         id: publish
-        if: steps.candidate.outputs.changed == 'true' && steps.dedupe.outputs.open == 'false'
+        if: steps.candidate.outputs.changed == 'true'
         working-directory: os
         env:
-          # An optional external app token triggers PR checks natively.
-          # Otherwise use the built-in Actions token plus workflow_dispatch.
           GH_TOKEN: ${{ secrets.ORDAX_INTEGRATION_TOKEN || github.token }}
           NATIVE_FALLBACK: ${{ secrets.ORDAX_INTEGRATION_TOKEN == '' }}
+          EXISTING: ${{ steps.pending.outputs.existing }}
+          PR_NUMBER: ${{ steps.pending.outputs.number }}
+          PR_BRANCH: ${{ steps.pending.outputs.branch }}
+          PR_HEAD_SHA: ${{ steps.pending.outputs.head_sha }}
           OWNER: ${{ matrix.owner }}
           LOCK: ${{ steps.external.outputs.lock }}
           SOURCE_SHA: ${{ steps.candidate.outputs.sha }}
@@ -149,39 +175,70 @@ jobs:
         run: |
           set -euo pipefail
           test -n "$GH_TOKEN"
-          branch="automation/advance-$OWNER-${SOURCE_SHA:0:12}"
+          candidate_lock="$RUNNER_TEMP/ordax-owner-$OWNER-candidate-lock.json"
+          test "$(git diff --name-only)" = "$LOCK"
+          cp -- "$LOCK" "$candidate_lock"
+          main_sha="$(git rev-parse HEAD)"
+          remote_main="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq '.object.sha')"
+          if [ "$main_sha" != "$remote_main" ]; then
+            echo "::error::OS main advanced during verification; next run must validate the current source lock"
+            exit 1
+          fi
           git config user.name "ordax-source-integration[bot]"
           git config user.email "ordax-source-integration@users.noreply.github.com"
-          git switch -c "$branch"
-          git add -- "$LOCK"
-          if git diff --cached --quiet; then exit 0; fi
-          git commit -m "chore($OWNER): advance source ${SOURCE_SHA:0:12}"
           gh auth setup-git
+          if [ "$EXISTING" = true ]; then
+            branch="$PR_BRANCH"
+            git restore -- "$LOCK"
+            git fetch --no-tags origin "refs/heads/$branch:refs/remotes/origin/$branch"
+            git switch -c "$branch" "refs/remotes/origin/$branch"
+            if [ "$(git rev-parse HEAD)" != "$PR_HEAD_SHA" ]; then
+              echo "::error::Pending PR moved while being checked; refuse stale update"
+              exit 1
+            fi
+            cp -- "$candidate_lock" "$LOCK"
+            if git diff --quiet -- "$LOCK"; then
+              echo "changed=false" >> "$GITHUB_OUTPUT"
+              echo "native=false" >> "$GITHUB_OUTPUT"
+              echo "Owner PR already contains the verified source SHA"
+              exit 0
+            fi
+          else
+            branch="automation/advance-$OWNER"
+            git switch -c "$branch"
+          fi
+          git add -- "$LOCK"
+          test "$(git diff --cached --name-only)" = "$LOCK"
+          git commit -m "chore($OWNER): integrate source ${SOURCE_SHA:0:12}"
+          # Fast-forward only. Never force-push, overwrite a different branch,
+          # or create a second PR when a valid owner PR already exists.
           git push origin "HEAD:refs/heads/$branch"
-          printf -v body 'Owner: %s@%s\n\nOnly %s changed. Upstream exact main CI and existing OS materializer passed. No physical update, Stable release, Intelligence activation or second updater.\n\nMerge only after the OS consumer tests, health and rollback gates pass.' \
+          printf -v body 'Owner: %s@%s\n\nOnly %s changed. Exact upstream main CI and existing OS materializer passed. No physical update, Stable release, Intelligence activation or second updater.\n\nMerge only after OS consumer tests, health and rollback gates pass.' \
             "$SOURCE_REPO" "$SOURCE_SHA" "$LOCK"
-          gh pr create --repo "$GITHUB_REPOSITORY" --base main --head "$branch" \
-            --title "chore($OWNER): integrate source ${SOURCE_SHA:0:12}" \
-            --body "$body"
-          if test "$NATIVE_FALLBACK" = true; then
+          if [ "$EXISTING" = true ]; then
+            gh pr edit "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" \
+              --title "chore($OWNER): integrate verified source" --body "$body"
+          else
+            gh pr create --repo "$GITHUB_REPOSITORY" --base main --head "$branch" \
+              --title "chore($OWNER): integrate verified source" --body "$body"
+          fi
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+          echo "branch=$branch" >> "$GITHUB_OUTPUT"
+          if [ "$NATIVE_FALLBACK" = true ]; then
             echo "native=true" >> "$GITHUB_OUTPUT"
-            echo "::notice::GitHub-native PR: dispatching the canonical consumer gates by exact source ref"
+            echo "::notice::Canonical consumer workflows will validate the new immutable PR head"
           else
             echo "native=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Dispatch the existing consumer CI on GitHub-token-created PR
-        if: steps.publish.outputs.native == 'true'
+      - name: Dispatch original consumer CI for GitHub-token-created/updated PR
+        if: steps.publish.outputs.changed == 'true' && steps.publish.outputs.native == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           OWNER: ${{ matrix.owner }}
-          SOURCE_SHA: ${{ steps.candidate.outputs.sha }}
+          BRANCH: ${{ steps.publish.outputs.branch }}
         run: |
           set -euo pipefail
-          branch="automation/advance-$OWNER-${SOURCE_SHA:0:12}"
-          # workflow_dispatch is one of GitHub's explicit exceptions to event
-          # suppression for GITHUB_TOKEN. These are the ORIGINAL consumer
-          # workflows; no second CI implementation and no release promotion.
           workflows=(foundation.yml)
           case "$OWNER" in
             surface)
@@ -193,6 +250,6 @@ jobs:
             *) exit 2 ;;
           esac
           for workflow in "${workflows[@]}"; do
-            gh workflow run "$workflow" --repo "$GITHUB_REPOSITORY" --ref "$branch"
+            gh workflow run "$workflow" --repo "$GITHUB_REPOSITORY" --ref "$BRANCH"
           done
-          echo "Existing canonical consumer validations dispatched for $branch; PR remains gated by remaining checks and review."
+          echo "Dispatched existing consumer CI on $BRANCH; no auto-merge or physical promotion."
