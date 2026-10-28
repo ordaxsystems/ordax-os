@@ -25,9 +25,14 @@ documentação não causa release/rebuild do OS. O avanço nunca altera status,
 activation_authorized, cutover_complete, política de distribuição, dispositivos
 físicos ou o código de serviços do OS.
 
-O job exige um workflow upstream **concluído com sucesso para aquele exato
-SHA da main** quando uma fonte realmente consumida muda. Rejeita CI ausente,
-falha, cancelada ou em andamento. Se houver uma PR de integração aberta para
+O job seleciona o **último commit da linha principal (first-parent)
+que realmente alterou um caminho consumido pelo OS**. Isso evita que uma
+mudança de documentação posterior, sem workflow upstream por filtro de paths,
+mascare a CI que validou a alteração real. O commit selecionado precisa ser
+descendente do pin anterior: caso contrário a integração falha fechada e não
+retrocede SHA. O job exige o workflow upstream **concluído com sucesso para
+esse exato commit da main** quando uma fonte realmente consumida muda.
+Rejeita CI ausente, falha, cancelada ou em andamento. Se houver uma PR de integração aberta para
 o mesmo owner, não cria PR paralela. Caso a main tenha sido reescrita, falha
 em vez de aceitar um force-push como atualização. A PR altera **somente um
 lock**. No caso da Intelligence, apenas os oito Git blobs fixados contam como
@@ -102,7 +107,8 @@ consumidores. Não confundir gate de CI, PR de integração e release ativa.
 Executar:
 python3 -m unittest discover -s tests -p test_source_integration_advance.py -v
 
-O teste inclui alteração de source, ausência de mudança relevante, rollback
-proibido, idempotência, rejeição de arquivos fora do grafo Intelligence e
-preservação de activation_authorized=false. Testes do consumidor continuam
+O teste inclui alteração de source, ausência de mudança relevante, seleção
+do commit de origem quando a main termina com documentação ou ferramentas
+Windows não consumidas, rollback proibido, idempotência, isolamento do grafo
+de oito arquivos Intelligence e preservação de activation_authorized=false. Testes do consumidor continuam
 nos workflows originais, sem cópia do materializador nem outro updater.
