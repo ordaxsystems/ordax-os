@@ -621,42 +621,15 @@ jobs:
       - name: Assemble boot payload and overlay Git development base
         run: |
           set -euo pipefail
-          manifest="$RUNNER_TEMP/minimal-bootstrap-owner-dev.json"
-          payload="$RUNNER_TEMP/owner-prototype-payload"
-          stage="$RUNNER_TEMP/owner-prototype-stage"
-          python tools/creator/assemble.py build --manifest "$manifest" --out-dir "$payload"
-          python tools/creator/assemble.py verify --manifest "$manifest" --payload-root "$payload"
-          creator_cli="$RUNNER_TEMP/owner-creator-cli/ordax-creator"
-          test -x "$creator_cli"
-          verify_output="$("$creator_cli" verify-payload --manifest "$manifest" --payload-root "$payload")"
-          printf '%s\n' "$verify_output"
-          grep -Fxq 'PAYLOAD_VERIFIED=YES' <<<"$verify_output"
-          grep -Fxq 'PHYSICAL_WRITE_STATUS=blocked' <<<"$verify_output"
-          stage_output="$("$creator_cli" stage-tree --manifest "$manifest" --payload-root "$payload" --output-root "$stage")"
-          printf '%s\n' "$stage_output"
-          grep -Fxq 'DISPOSABLE_TREE_STAGED=YES' <<<"$stage_output"
-          grep -Fxq 'PHYSICAL_WRITE_STATUS=blocked' <<<"$stage_output"
-          sudo mkdir -p "$stage/ORDAX/dev-base"
-          # The Buildroot TAR first passes a strict confined-symlink verifier.
-          # Materialize regular members for the symlink-free physical writer.
-          sudo cp -aL out/dev-base/rootfs/. "$stage/ORDAX/dev-base/"
-          sudo python tools/creator/verify_owner_dev_offline_runtime.py \
-            --stage-root "$stage" \
-            --producer-out "$RUNNER_TEMP/owner-dev-surface-runtime"
-          # A verified Git checkout is not a bootable desktop. The complete
-          # graphical runtime must already be on the USB before publication.
-          sudo python tools/ci/owner_rootfs_capabilities.py verify-owner-stage \
-            --stage-root "$stage"
-          sudo python tools/creator/verify_owner_dev_offline_runtime.py \
-            --stage-root "$stage"
-          if sudo find "$stage" -type l -print -quit | grep -q .; then
-            echo 'development seed may not contain symlinks' >&2
-            exit 1
-          fi
-          sudo python tools/creator/verify_owner_dev_offline_runtime.py \
-            --stage-root "$stage" \
-            --geometry-out "$RUNNER_TEMP/owner-dev-physical-media.json"
-          echo "$stage" > "$RUNNER_TEMP/owner-prototype-stage-path"
+          export ORDAX_DEV_GEOMETRY_OUT="$RUNNER_TEMP/owner-dev-physical-media.json"
+          bash tools/creator/owner_dev_stage.sh \
+            "$RUNNER_TEMP/minimal-bootstrap-owner-dev.json" \
+            "$RUNNER_TEMP/owner-prototype-payload" \
+            "$RUNNER_TEMP/owner-prototype-stage" \
+            "$RUNNER_TEMP/owner-creator-cli/ordax-creator" \
+            "out/dev-base/rootfs" \
+            "$RUNNER_TEMP/owner-dev-surface-runtime"
+          echo "$RUNNER_TEMP/owner-prototype-stage" > "$RUNNER_TEMP/owner-prototype-stage-path"
 
       - name: Materialize and verify RAW development seed
         run: |
