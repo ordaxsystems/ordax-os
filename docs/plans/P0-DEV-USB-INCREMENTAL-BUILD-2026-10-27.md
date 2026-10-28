@@ -153,3 +153,34 @@ Total observado: **208** definições de workflow em sete repositórios (contage
 - **Manter com justificativa:** publicação/deploy efetivo, assinatura, fronteira de confiança, recuperação crítica, protections obrigatórias sem substituto e testes de integração cujo consumidor ainda depende deles.
 
 **Continuação mandatória:** auditar os demais 206 arquivos do inventário inicial antes de removê-los; eliminar gradualmente os comprovadamente dispensáveis, na autoridade do repositório dono; verificar status checks requeridos, referencias `workflow_call`, scripts e automações de publicação; registrar remoções e prova de que nenhuma entrega ativa ficou órfã. **Não considerar esta limpeza completa ainda.** A urgência do USB DEV direto continua P0 e não deve voltar a depender dos workflows sobreviventes.
+
+## Instrução de continuidade executável — não recomeçar pelo workflow
+
+**Estado verificado na revisão desta documentação:** há código em `tools/ci/dev_components.py`, `tools/creator/owner_dev_manifest.py`, `tools/creator/owner_dev_stage.sh` e `tools/creator/owner_dev_raw.py`. Estes são entrypoints **parciais**, não um comando comprovado de USB completo. Nunca tratar testes adicionados como testes aprovados sem sua execução real.
+
+### Operações já versionadas para testar primeiro
+
+```bash
+# Sem compilar componentes; inspecionar necessidade de build:
+python3 tools/ci/dev_components.py plan --component all
+
+# Regressões rápidas, sem build de kernel/Buildroot/QEMU:
+python3 -m unittest tests.test_dev_components_direct tests.test_owner_dev_raw_direct -v
+python3 -m py_compile tools/ci/dev_components.py tools/creator/owner_dev_manifest.py tools/creator/owner_dev_raw.py
+bash -n tools/creator/owner_dev_stage.sh
+
+# Apenas com insumos kernel e initramfs existentes e verificados:
+python3 tools/creator/owner_dev_manifest.py /tmp/owner-dev-manifest.json
+```
+
+`owner_dev_stage.sh` exige, além desse manifesto, Creator Core executável, rootfs preparado, Surface produzida e caminhos de saída; `owner_dev_raw.py` exige stage e contrato de geometria verificados. Não invocar essas operações com caminhos fictícios; não presumir compilação concluída por documentação.
+
+### Critério da próxima intervenção
+
+1. Obter resultados dos testes rápidos e corrigir defeitos reais no próprio source.
+2. Identificar o produtor canônico de kernel/initramfs e **reusar** seus artefatos/receipts; não encadear recompilação monolítica.
+3. Compor estágio e RAW de verdade a partir de entradas verificadas. Validar prova/hash e, se possível, QEMU.
+4. Registrar comandos e evidência de saída/estado; separar `RAW gerado`, `boot provado` e `USB físico gravado`.
+5. Só então concluir PR #2243 na `main` após validação, sem confundir documentação com entrega.
+
+O conjunto de workflows remotos deve permanecer apenas onde houver função comprovada de testes exigidos, integração, distribuição ou implantação. O caminho local não deve depender de status remoto para construir componentes DEV.
