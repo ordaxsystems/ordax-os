@@ -81,8 +81,13 @@ class IntelligenceSourceGateTests(unittest.TestCase):
         git(self.checkout,"commit","-qm","extra")
         self.lock["source_commit"]=git(self.checkout,"rev-parse","HEAD")
         self.write_lock()
-        with self.assertRaisesRegex(source.IntelligenceSourceError,"unexpected"):
-            self.verify()
+        entries, receipt = self.verify()
+        self.assertEqual(receipt["source_file_count"], 8)
+        self.assertEqual({name for name, _ in entries}, set(source.EXPECTED))
+        self.assertNotIn("src/new-secret.mjs", {name for name, _ in entries})
+        out = self.root / "isolated-extra"
+        source.stage_source(entries, receipt, out, self.checkout)
+        self.assertFalse((out / "system/intelligence-source/src/new-secret.mjs").exists())
     def test_rejects_symlinks_and_changed_authority(self):
         self.lock["activation_authorized"]=True
         self.write_lock()
