@@ -112,6 +112,7 @@ test('Windows package excludes Linux-only Alpine package declaration without dro
   assert.deepEqual(system[0].filter, [
     '**/*', '!surface/runtime/packages.txt',
     '!surface/runtime/media_runtime_probe.py', '!surface/runtime/audio-session.sh',
+    '!surface/runtime/physical_ata_probe.py', '!surface/runtime/physical_kernel_log_probe.py', '!surface/runtime/physical_performance_probe.py',
   ]);
   const workflow = readFileSync(join(__dirname, '../../.github/workflows/windows-desktop-dev.yml'), 'utf8');
   const paths = workflow.split('paths: &desktop_product_sources', 2)[1].split('  # Every integrated main', 1)[0];
@@ -119,5 +120,8 @@ test('Windows package excludes Linux-only Alpine package declaration without dro
   assert.match(paths, /- '!system\/surface\/runtime\/packages\.txt'/);
   assert.match(paths, /- '!system\/surface\/runtime\/media_runtime_probe\.py'/);
   assert.match(paths, /- '!system\/surface\/runtime\/audio-session\.sh'/);
+  assert.match(paths, /- '!system\/surface\/runtime\/physical_ata_probe\.py'/);
+  assert.match(paths, /- '!system\/surface\/runtime\/physical_kernel_log_probe\.py'/);
+  assert.match(paths, /- '!system\/surface\/runtime\/physical_performance_probe\.py'/);
   assert.ok(workflow.includes('paths: *desktop_product_sources'));
 });
