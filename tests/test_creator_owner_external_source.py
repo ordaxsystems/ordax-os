@@ -65,6 +65,19 @@ class CreatorOwnerExternalSourceTests(unittest.TestCase):
         ):
             with self.subTest(owner=owner):
                 self.assertIn(f"      - '{owner}'", pr)
+        push = w.split("  push:\n", 1)[1].split("\n  workflow_dispatch:", 1)[0]
+        self.assertIn("      - 'system/**'", push)
+        for excluded in (
+            "!system/adapters/desktop/**",
+            "!system/surface/ui/**",
+            "!system/surface/workspace/**",
+        ):
+            with self.subTest(visual_or_desktop=excluded):
+                self.assertIn(f"      - '{excluded}'", push)
+        # Bootable OS changes still build a real USB, not a stub.
+        self.assertIn("      - 'bootstrap/initramfs/**'", push)
+        self.assertIn("      - 'bootstrap/surface-runtime/**'", push)
+        self.assertIn("      - 'system/supervisor'", pr)
         self.assertIn("Prepare pinned Surface from independent visual owner for exact Owner image", w)
 
     def test_os_authority_and_writer_gate_unchanged(self):
