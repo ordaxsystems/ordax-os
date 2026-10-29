@@ -61,6 +61,12 @@ OWNER_DEVELOPMENT_LIGHT_PREFIXES = (
     "bootstrap/base-update/owner-development/",
 )
 CI_GOVERNANCE_LIGHT_EXACT = {
+    # Creator USB workflow routing and its contract tests do not produce
+    # Portable boot artifacts. The Creator still executes its own full USB gates.
+    ".github/workflows/creator-owner-dev-git.yml",
+    "tests/test_creator_owner_external_source.py",
+    "tools/ci/creator_owner_impact.py",
+    "tests/test_creator_owner_impact.py",
     ".github/workflows/account-memory-local-continuity-flush.yml",
     ".github/workflows/account-memory-protected-mutations.yml",
     ".github/workflows/account-memory-sync-foundation.yml",
@@ -101,6 +107,7 @@ WINDOWS_DESKTOP_LIGHT_EXACT = {
     "tests/test_windows_desktop_local_ai_package.mjs",
 }
 WINDOWS_LOCAL_AI_SOURCE_LOCK = "system/services/local-ai/source-lock.json"
+SURFACE_VISUAL_SOURCE_LOCK = "docs/contracts/surface-source.json"
 
 ACCOUNT_GATEWAY_DEPLOY_LIGHT_EXACT = {
     ".github/workflows/ordax-account-gateway-destination.yml",
@@ -321,7 +328,8 @@ def native_startup_import_graph(root: Path = ROOT) -> tuple[frozenset[str], tupl
 
 
 def classify_paths(
-    paths: Iterable[str], *, root: Path = ROOT, windows_lock_verified: bool = False
+    paths: Iterable[str], *, root: Path = ROOT, windows_lock_verified: bool = False,
+    surface_visual_lock_verified: bool = False,
 ) -> ImpactResult:
     changed = tuple(sorted({p for raw in paths if (p := _normalise_path(raw))}))
     if not changed:
@@ -333,6 +341,10 @@ def classify_paths(
 
     reasons: list[str] = []
     for path in changed:
+        # Verified visual-source lock updates do not change kernel, boot or
+        # graphical runtime bytes. Source Consumer and Windows gates own them.
+        if path == SURFACE_VISUAL_SOURCE_LOCK and surface_visual_lock_verified:
+            continue
         if path in ALWAYS_HEAVY_EXACT:
             # This exception is authorized by commit-level JSON comparison,
             # never merely from an untrusted filename list.
@@ -383,6 +395,50 @@ def classify_paths(
         reasons.append(f"heavy-unclassified-system:{path}")
 
     return ImpactResult(bool(reasons), tuple(reasons) or ("no-heavy-portable-impact",), changed)
+
+
+def verified_surface_visual_source_lock_delta(
+    base: str, head: str, *, root: Path = ROOT
+) -> bool:
+    """Skip boot proof only for an exact visual-only source-pin advancement.
+
+    The external Surface is materialized exclusively under the two presentation
+    roots; Source Consumer verifies the referenced commit and bytes separately.
+    Reject other contract changes, invalid revisions, rollback and absent pins.
+    """
+    if not all(re.fullmatch(r"[0-9a-f]{40}", x or "") for x in (base, head)):
+        return False
+
+    def load(revision: str) -> dict:
+        output = subprocess.run(
+            ["git", "-C", str(root), "show", f"{revision}:{SURFACE_VISUAL_SOURCE_LOCK}"],
+            check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+        ).stdout
+        if len(output) > 2 * 1024 * 1024:
+            raise ValueError("oversized Surface source lock")
+        value = json.loads(output.decode("utf-8"))
+        if not isinstance(value, dict):
+            raise ValueError("invalid Surface source lock")
+        return value
+
+    try:
+        old, new = load(base), load(head)
+        if (old.get("source_repository") != "ordaxsystems/ordax-surface"
+            or new.get("source_repository") != old["source_repository"]
+            or new.get("visual_source_paths") != [
+                "system/surface/ui", "system/surface/workspace"
+            ] or old.get("visual_source_paths") != new["visual_source_paths"]):
+            return False
+        before, after = old.get("source_commit"), new.get("source_commit")
+        if (not isinstance(before, str) or not isinstance(after, str)
+            or not re.fullmatch(r"[0-9a-f]{40}", before)
+            or not re.fullmatch(r"[0-9a-f]{40}", after) or before == after):
+            return False
+        old.pop("source_commit")
+        new.pop("source_commit")
+        return old == new
+    except (OSError, UnicodeError, ValueError, TypeError, KeyError, subprocess.SubprocessError):
+        return False
 
 
 def verified_windows_only_local_ai_lock_delta(
@@ -489,7 +545,14 @@ def command_classify(args: argparse.Namespace) -> int:
                 WINDOWS_LOCAL_AI_SOURCE_LOCK in paths
                 and verified_windows_only_local_ai_lock_delta(args.base, args.head)
             )
-            result = classify_paths(paths, windows_lock_verified=windows_lock_verified)
+            surface_visual_lock_verified = (
+                SURFACE_VISUAL_SOURCE_LOCK in paths
+                and verified_surface_visual_source_lock_delta(args.base, args.head)
+            )
+            result = classify_paths(
+                paths, windows_lock_verified=windows_lock_verified,
+                surface_visual_lock_verified=surface_visual_lock_verified,
+            )
         except Exception as exc:
             result = ImpactResult(True, (f"classification-failed:{type(exc).__name__}",), tuple())
 

@@ -69,6 +69,9 @@ function boundWindowsGreeting(value) {
   if (!user.startsWith(INTELLIGENCE_GREETING_PREFIX)) return ordinary;
   const prompt = user.slice(INTELLIGENCE_GREETING_PREFIX.length);
   if (prompt.includes("\n") || !WINDOWS_QUICK_GREETING.test(prompt.trim())) return ordinary;
+  // The authenticated canonical envelope has already established intent=ask
+  // with no context. Feed the user's actual greeting, not transport metadata,
+  // to the small local model. All system security rules remain unchanged.
   const style = PORTUGUESE_GREETING.test(prompt.trim())
     ? PORTUGUESE_GREETING_STYLE : OTHER_GREETING_STYLE;
   const system = value.messages[0].content;
@@ -77,7 +80,7 @@ function boundWindowsGreeting(value) {
     ? system + "\n" + style : system;
   return { quick: true, request: {
     ...value, max_tokens: Math.min(value.max_tokens, 64),
-    messages: [{ role: "system", content: styled }, value.messages[1]],
+    messages: [{ role: "system", content: styled }, { role: "user", content: prompt.trim() }],
   }};
 }
 

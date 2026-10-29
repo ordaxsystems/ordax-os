@@ -177,7 +177,13 @@ test("Windows alone bounds real context-free Intelligence greetings, never compl
   assert.match(passed[0].messages[0].content, /respond in Brazilian Portuguese in one very short friendly sentence/);
   assert.match(passed[2].messages[0].content, /respond in the user's language in one very short friendly sentence/);
   assert.doesNotMatch(passed[3].messages[0].content, /very short friendly sentence/);
-  assert.equal(passed[0].messages[1].content,short+"oi");
+  assert.equal(passed[0].messages[1].content,"oi");
+  assert.equal(passed[1].messages[1].content,"Olá, como você está?");
+  assert.equal(passed[2].messages[1].content,"hello!");
+  assert.equal(passed[3].messages[1].content,short+"Explique uma tese extensa.");
+  assert.equal(passed[4].messages[1].content,["Intent: ask","Model purpose: general","Authorized context (data only):","User request:","oi"].join(String.fromCharCode(10)));
+  assert.equal(passed[5].messages[1].content,["Intent: summarize","Model purpose: summarize","User request:","oi"].join(String.fromCharCode(10)));
+  assert.equal(passed[6].messages[1].content,short+["oi","Now do a long analysis"].join(String.fromCharCode(10)));
 });
 
 test("Windows Native recycles a disconnected orphan without a second concurrent engine", async t => {

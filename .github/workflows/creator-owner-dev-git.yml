@@ -14,10 +14,14 @@ on:
       - 'bootstrap/dev-base/**'
       - 'bootstrap/surface-runtime/**'
       - 'bootstrap/recovery/**'
-      # Creator's published USB must cover the actual boot/Guardian/Surface
-      # source snapshot. Previously a system-only main commit (including
-      # Supervisor rollback fixes) did NOT refresh the Creator bundle.
+      # Creator publishes an actual USB only for OS-owned payload changes.
+      # Host Desktop adapters and visual Surface source are delivered through
+      # Windows/Surface contracts and cannot change the bootable USB runtime.
+      # Keep broad system coverage for Guardian/Supervisor changes.
       - 'system/**'
+      - '!system/adapters/desktop/**'
+      - '!system/surface/ui/**'
+      - '!system/surface/workspace/**'
       - 'tools/creator/**'
       - 'tools/release-signing/**'
       - '!tools/release-signing/windows/**'
@@ -34,22 +38,24 @@ on:
   workflow_dispatch:
   pull_request:
     paths:
+      - 'tools/ci/creator_owner_impact.py'
+      - 'tests/test_creator_owner_impact.py'
       - 'bootstrap/dev/**'
       - 'bootstrap/dev-base/**'
       - 'bootstrap/surface-runtime/**'
       - 'system/entrypoint'
+      # Presentation-only source pins are consumed by Surface/Windows gates;
+      # they must never trigger a Creator USB build. Actual boot/runtime and
+      # offline staging changes below still require the full Owner USB proof.
       # Boot health and update handoff must prove the real Owner USB on PRs,
       # not only on the subsequent main push (when the rollback risk is live).
       # Keep this scoped to the actual cold-boot composition entrypoints.
       - 'system/supervisor'
-      - 'docs/contracts/surface-source.json'
       - 'docs/contracts/intelligence-source.json'
       - 'system/services/intelligence-source/**'
       - 'tools/intelligence-source/**'
       - '.github/actions/assemble-intelligence/**'
       - 'tools/surface-source/**'
-      - 'system/surface/ui/**'
-      - 'system/surface/workspace/**'
       - '.github/actions/prepare-verified-surface/**'
       - 'system/composition/native/main.mjs'
       - 'system/adapters/native/update-runtime.mjs'
@@ -86,7 +92,44 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  impact:
+    permissions:
+      contents: read
+    runs-on: ubuntu-24.04
+    outputs:
+      required: ${{ steps.scope.outputs.required }}
+      reason: ${{ steps.scope.outputs.reason }}
+    steps:
+      - name: Checkout exact Creator candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Fail-closed causal Owner USB impact classification
+        id: scope
+        shell: bash
+        env:
+          ORDAX_EVENT_NAME: ${{ github.event_name }}
+          ORDAX_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          ORDAX_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          case "$ORDAX_EVENT_NAME" in
+            pull_request|push)
+              git fetch --no-tags --depth=1 origin "$ORDAX_BASE_SHA"
+              python3 tools/ci/creator_owner_impact.py classify --base "$ORDAX_BASE_SHA" --head "$ORDAX_HEAD_SHA"
+              ;;
+            workflow_dispatch)
+              python3 tools/ci/creator_owner_impact.py classify --base "$ORDAX_BASE_SHA" --head "$ORDAX_HEAD_SHA" --force
+              ;;
+            *)
+              echo 'Unsupported Owner USB event: fail closed' >&2
+              exit 1
+              ;;
+          esac
   build-and-publish:
+    needs: impact
+    if: needs.impact.outputs.required == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     env:
