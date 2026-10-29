@@ -2,6 +2,7 @@
 // The model/router/Memory and inference contract stay in OrdaX OS/Intelligence.
 import { randomBytes, timingSafeEqual } from "node:crypto";
 import { createServer } from "node:net";
+import { availableParallelism } from "node:os";
 import { spawn } from "node:child_process";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -47,6 +48,22 @@ function assertRequest(value, modelId) {
   return value;
 }
 
+// Windows-only CPU latency guard. The Native Host recognizes the exact
+// context-free Intelligence envelope; it never fabricates or caches an answer.
+const WINDOWS_QUICK_GREETING = /^(?:oi|ol[aá]|ola|opa|hola|hi|hello|hey|bom dia|boa tarde|boa noite)(?:[!,.\s]+(?:tudo bem|como vai|como você está|how are you))?[!?.,\s]*$/iu;
+const INTELLIGENCE_GREETING_PREFIX = "Intent: ask\nModel purpose: general\nUser request:\n";
+
+function boundWindowsGreeting(value) {
+  if (value.max_tokens <= 128 || value.messages.length !== 2 ||
+      value.messages[0].role !== "system") return value;
+  const user = value.messages[1].content;
+  // No prefix or extra context may be accepted as a simple greeting.
+  if (!user.startsWith(INTELLIGENCE_GREETING_PREFIX)) return value;
+  const prompt = user.slice(INTELLIGENCE_GREETING_PREFIX.length);
+  return !prompt.includes("\n") && WINDOWS_QUICK_GREETING.test(prompt.trim())
+    ? { ...value, max_tokens: 128 } : value;
+}
+
 async function portAvailable() {
   const server = createServer();
   try {
@@ -82,6 +99,8 @@ export function createDesktopLocalAiMiddleware({
     throw TypeError("Desktop Local AI requires trusted package, profile and session token");
   }
   const expected = Buffer.from(token, "hex");
+  // The same portable engine uses up to four logical cores. No CPU SKU fork.
+  const threads = Math.max(1, Math.min(4, availableParallelism()));
   let model = null, child = null, port = null, secret = null, secretDirectory = null;
   let starting = null, failed = false, disposed = false;
   const reply = (res, status, message) => {
@@ -109,7 +128,9 @@ export function createDesktopLocalAiMiddleware({
       child = launch(model.executable, [
         "--host", "127.0.0.1", "--port", String(port),
         "--model", model.modelFile, "--alias", model.modelId,
-        "--reasoning", "off", "--no-ui", "--no-slots", "-ngl", "0", "-t", "2",
+        "--reasoning", "off", "--reasoning-budget", "0",
+        "--no-ui", "--no-slots", "-ngl", "0",
+        "-t", String(threads), "-tb", String(threads),
         "--ctx-size", "2048", "--parallel", "1",
       ], {
         cwd: model.engineDirectory, windowsHide: true, stdio: "ignore",
@@ -158,12 +179,19 @@ export function createDesktopLocalAiMiddleware({
       return reply(res, 503, "Local AI not ready");
     const abort = new AbortController();
     res.once("close", () => { if (!res.writableEnded) abort.abort(); });
-    const timeout = setTimeout(() => abort.abort(), req.method === "POST" ? 120000 : 3500);
+    // Short consultations have an explicit 10-second ceiling; long-form
+    // inference retains its separate bounded transport deadline.
+    let timeout = setTimeout(() => abort.abort(), req.method === "POST" ? 120000 : 3500);
     try {
       let body;
       if (req.method === "POST") {
         const data = await boundedRequestBody(req);
-        body = JSON.stringify(assertRequest(data, model.modelId));
+        const validated = boundWindowsGreeting(assertRequest(data, model.modelId));
+        body = JSON.stringify(validated);
+        if (validated.max_tokens <= 128) {
+          clearTimeout(timeout);
+          timeout = setTimeout(() => abort.abort(), 10000);
+        }
       }
       const upstream = await fetchImpl("http://127.0.0.1:" + port + route[1], {
         method: req.method, body, signal: abort.signal,

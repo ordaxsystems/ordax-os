@@ -408,17 +408,24 @@ def verified_windows_only_local_ai_lock_delta(
             or after.get("binary_format") != "PE"
             or after.get("source_commit") != new["engine"].get("commit")
             or not isinstance(after.get("files"), list)
-            or len(after["files"]) != 8
+            or not 10 <= len(after["files"]) <= 32
         ):
             return False
-        filenames = {
-            "ggml-base.dll", "ggml-cpu.dll", "ggml.dll", "llama-common.dll",
+        required = {
+            "ggml-base.dll", "ggml.dll", "llama-common.dll",
             "llama-server-impl.dll", "llama-server.exe", "llama.dll", "mtmd.dll",
+            "ggml-cpu-x64.dll", "ggml-cpu-sandybridge.dll", "ggml-cpu-haswell.dll",
         }
         entries = after["files"]
+        if any(not isinstance(item, dict) for item in entries):
+            return False
+        names = [item.get("name") for item in entries]
         if (
-            any(not isinstance(item, dict) for item in entries)
-            or {item.get("name") for item in entries} != filenames
+            any(not isinstance(name, str) for name in names)
+            or len(set(names)) != len(names)
+            or not required.issubset(set(names))
+            or any(name not in required and not re.fullmatch(r"ggml-cpu-[a-z0-9]+\.dll", name)
+                   for name in names)
             or any(
                 not isinstance(item.get("sha256"), str)
                 or not re.fullmatch(r"[0-9a-f]{64}", item["sha256"])

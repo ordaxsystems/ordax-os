@@ -7,10 +7,16 @@ import { basename, join, resolve, sep } from "node:path";
 
 const LOCK_URL = new URL("../../services/local-ai/source-lock.json", import.meta.url);
 const SHA = /^[0-9a-f]{64}$/;
-const ENGINE_FILES = Object.freeze([
-  "ggml-base.dll", "ggml-cpu.dll", "ggml.dll", "llama-common.dll",
+// Every executable is pinned in the OS source lock and checked against
+// exact inventory. Upstream llama.cpp selects a portable CPU variant safely.
+const FIXED_ENGINE_FILES = Object.freeze([
+  "ggml-base.dll", "ggml.dll", "llama-common.dll",
   "llama-server-impl.dll", "llama-server.exe", "llama.dll", "mtmd.dll",
 ]);
+const REQUIRED_CPU_VARIANTS = Object.freeze([
+  "ggml-cpu-x64.dll", "ggml-cpu-sandybridge.dll", "ggml-cpu-haswell.dll",
+]);
+const CPU_BACKEND_FILENAME = /^ggml-cpu-[a-z0-9]+\.dll$/;
 
 function trustedIdentity(lock) {
   if (lock?.$schema !== "prototype-ordax.local-ai-source-lock/1" ||
@@ -31,13 +37,15 @@ function trustedIdentity(lock) {
       artifact.source_commit !== lock.engine.commit ||
       artifact.model_sha256 !== lock.model.sha256 ||
       !Array.isArray(artifact.files) ||
-      artifact.files.length !== ENGINE_FILES.length) {
+      artifact.files.length < FIXED_ENGINE_FILES.length + REQUIRED_CPU_VARIANTS.length ||
+      artifact.files.length > 32) {
     throw Error("Canonical Windows Local AI engine pin unavailable");
   }
   const pinned = new Map();
   for (const entry of artifact.files) {
     if (!entry || typeof entry.name !== "string" ||
-        !ENGINE_FILES.includes(entry.name) || pinned.has(entry.name) ||
+        !(FIXED_ENGINE_FILES.includes(entry.name) || CPU_BACKEND_FILENAME.test(entry.name)) ||
+        pinned.has(entry.name) ||
         !SHA.test(entry.sha256) ||
         !Number.isSafeInteger(entry.size_bytes) ||
         entry.size_bytes < 1 || entry.size_bytes > 512 * 1024 * 1024) {
@@ -45,7 +53,9 @@ function trustedIdentity(lock) {
     }
     pinned.set(entry.name, entry);
   }
-  if (pinned.size !== ENGINE_FILES.length) throw Error("Incomplete Windows Local AI binary pins");
+  if (![...FIXED_ENGINE_FILES, ...REQUIRED_CPU_VARIANTS].every(name => pinned.has(name))) {
+    throw Error("Incomplete Windows Local AI binary pins");
+  }
   return { model: lock.model, files: [...pinned.values()] };
 }
 

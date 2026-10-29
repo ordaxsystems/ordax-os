@@ -165,7 +165,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: ordaxsystems/ordax-intelligence
-          ref: 1b206ba67991df9b6fd1e3dd436177ca961d877f
+          ref: e739adffc566ae8855a9a521754e32e3ab96c1e1
           path: _upstream/ordax-intelligence
           persist-credentials: false
       - name: Build and stage exact verified offline Aura payload (cache miss only)

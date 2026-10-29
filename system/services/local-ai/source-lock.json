@@ -22,9 +22,9 @@
       "architecture": "x64",
       "source_commit": "7ab4ee7baad2d920464cbacfad4f4b07cf111fd2",
       "builder_repository": "ordaxsystems/ordax-intelligence",
-      "builder_commit": "1b206ba67991df9b6fd1e3dd436177ca961d877f",
-      "proof_run_id": 40649217720,
-      "proof_bundle_sha256": "40e20d0279d7b37033eac5cdfdbf4b1be04b20d4e8b9aa4acc3482911cf16abc",
+      "builder_commit": "e739adffc566ae8855a9a521754e32e3ab96c1e1",
+      "proof_run_id": 40840299807,
+      "proof_bundle_sha256": "6b671f684af1d9e821eda49f5f4324fbe97968cbb1ac6fcfdcb8d99ee3401bdb",
       "model_sha256": "57d1997790d1744fba5b40a7317df71ea5e2acee28c47e78f0cce39c0703f8cf",
       "files": [
         {
@@ -33,13 +33,53 @@
           "size_bytes": 672256
         },
         {
-          "name": "ggml-cpu.dll",
-          "sha256": "190bca11a5b71b574c5dde5b6a6f92ff3e0dac4b6dd1ff81558bb202d0f4b728",
-          "size_bytes": 806400
+          "name": "ggml-cpu-alderlake.dll",
+          "sha256": "4239fdebf73bd212246d011354d97e0d091d5b570a2718fecd44b40167022792",
+          "size_bytes": 975872
+        },
+        {
+          "name": "ggml-cpu-cannonlake.dll",
+          "sha256": "7740bcc8f013937d1edec469df11d08dc3323a7a3e46c65fad11cf179cf527a3",
+          "size_bytes": 1080320
+        },
+        {
+          "name": "ggml-cpu-cascadelake.dll",
+          "sha256": "854fe32df99e5359a23bfd08c65bb988fb7f14bf01779cb9a4669b0117359c39",
+          "size_bytes": 1078784
+        },
+        {
+          "name": "ggml-cpu-haswell.dll",
+          "sha256": "3f9e23cfde2664e5e0e8036a06a9c6624e6a93dc73b06f29083b5b068f2ffb62",
+          "size_bytes": 977408
+        },
+        {
+          "name": "ggml-cpu-icelake.dll",
+          "sha256": "b8ce9878fe47d151e23689f317495115d603d9b80e73a22c662a9d21a4ad1c2c",
+          "size_bytes": 1078784
+        },
+        {
+          "name": "ggml-cpu-sandybridge.dll",
+          "sha256": "b80238c096e2e88ef4e0cd5a83ed90391fe6b3794dc2802d4c36338b6c711721",
+          "size_bytes": 921600
+        },
+        {
+          "name": "ggml-cpu-skylakex.dll",
+          "sha256": "8917ea136659faaa8bcfed8c6ec9218f1bd5e1e176ecb06aa9d26f077f347597",
+          "size_bytes": 1080320
+        },
+        {
+          "name": "ggml-cpu-sse42.dll",
+          "sha256": "85f0350f580a492fb61939db30396f54bef45bb47fb887f44ea49e3b3c686c54",
+          "size_bytes": 807424
+        },
+        {
+          "name": "ggml-cpu-x64.dll",
+          "sha256": "d8d5e716eae3aed94b6d294ca6753f9f942ceedfd0b92b049e2f021041008043",
+          "size_bytes": 807936
         },
         {
           "name": "ggml.dll",
-          "sha256": "9dd596d665bb2e6d5e0c2baca6fcbe5158efb4c66ae32a1a21b34981084a1e6e",
+          "sha256": "f2cb8f3208093ccebef398d91268736952fe16d9d6ad7f55971933a1dd967fac",
           "size_bytes": 59392
         },
         {
