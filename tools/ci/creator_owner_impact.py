@@ -63,12 +63,19 @@ EXPECTED_IMPACT_JOB = """
           ORDAX_HEAD_SHA: __DOLLAR__{{ github.event.pull_request.head.sha || github.sha }}
         run: |
           set -euo pipefail
-          if [[ "$ORDAX_EVENT_NAME" == 'pull_request' ]]; then
-            git fetch --no-tags --depth=1 origin "$ORDAX_BASE_SHA"
-            python3 tools/ci/creator_owner_impact.py classify --base "$ORDAX_BASE_SHA" --head "$ORDAX_HEAD_SHA"
-          else
-            python3 tools/ci/creator_owner_impact.py classify --base "$ORDAX_BASE_SHA" --head "$ORDAX_HEAD_SHA" --force
-          fi
+          case "$ORDAX_EVENT_NAME" in
+            pull_request|push)
+              git fetch --no-tags --depth=1 origin "$ORDAX_BASE_SHA"
+              python3 tools/ci/creator_owner_impact.py classify --base "$ORDAX_BASE_SHA" --head "$ORDAX_HEAD_SHA"
+              ;;
+            workflow_dispatch)
+              python3 tools/ci/creator_owner_impact.py classify --base "$ORDAX_BASE_SHA" --head "$ORDAX_HEAD_SHA" --force
+              ;;
+            *)
+              echo 'Unsupported Owner USB event: fail closed' >&2
+              exit 1
+              ;;
+          esac
 """.replace("__DOLLAR__", "$")
 
 
@@ -175,7 +182,7 @@ def main():
     parser.add_argument("--head", required=True)
     parser.add_argument("--force", action="store_true")
     args = parser.parse_args()
-    required, reason = (True, "push-or-manual-producer-proof") if args.force else classify(args.base, args.head)
+    required, reason = (True, "manual-dispatch-producer-proof") if args.force else classify(args.base, args.head)
     result = f"required={'true' if required else 'false'}\nreason={reason}\n"
     if os.environ.get("GITHUB_OUTPUT"):
         with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:

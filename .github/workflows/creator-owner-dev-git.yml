@@ -114,12 +114,19 @@ jobs:
           ORDAX_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
           set -euo pipefail
-          if [[ "$ORDAX_EVENT_NAME" == 'pull_request' ]]; then
-            git fetch --no-tags --depth=1 origin "$ORDAX_BASE_SHA"
-            python3 tools/ci/creator_owner_impact.py classify --base "$ORDAX_BASE_SHA" --head "$ORDAX_HEAD_SHA"
-          else
-            python3 tools/ci/creator_owner_impact.py classify --base "$ORDAX_BASE_SHA" --head "$ORDAX_HEAD_SHA" --force
-          fi
+          case "$ORDAX_EVENT_NAME" in
+            pull_request|push)
+              git fetch --no-tags --depth=1 origin "$ORDAX_BASE_SHA"
+              python3 tools/ci/creator_owner_impact.py classify --base "$ORDAX_BASE_SHA" --head "$ORDAX_HEAD_SHA"
+              ;;
+            workflow_dispatch)
+              python3 tools/ci/creator_owner_impact.py classify --base "$ORDAX_BASE_SHA" --head "$ORDAX_HEAD_SHA" --force
+              ;;
+            *)
+              echo 'Unsupported Owner USB event: fail closed' >&2
+              exit 1
+              ;;
+          esac
   build-and-publish:
     needs: impact
     if: needs.impact.outputs.required == 'true'

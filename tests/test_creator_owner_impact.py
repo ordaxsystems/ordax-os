@@ -75,6 +75,28 @@ class CreatorOwnerImpactTests(unittest.TestCase):
         self.assertTrue(impact.workflow_trigger_only(base, after, root=self.root))
         self.assertEqual(impact.classify(base, after, root=self.root), (False, "nonproducer-contract-only"))
 
+    def test_push_and_pr_use_same_fail_closed_diff_manual_dispatch_forces_build(self):
+        w = WORKFLOW.read_text(encoding="utf-8")
+        self.assertIn('case "$ORDAX_EVENT_NAME" in', w)
+        self.assertIn("pull_request|push)", w)
+        self.assertIn("workflow_dispatch)", w)
+        self.assertEqual(w.count('git fetch --no-tags --depth=1 origin "$ORDAX_BASE_SHA"'), 1)
+        normal = 'python3 tools/ci/creator_owner_impact.py classify --base "$ORDAX_BASE_SHA" --head "$ORDAX_HEAD_SHA"'
+        self.assertEqual(w.count(normal + "\n"), 1)
+        self.assertEqual(w.count(normal + " --force"), 1)
+        self.assertIn("Unsupported Owner USB event: fail closed", w)
+        self.assertIn("if: needs.impact.outputs.required == 'true'", w)
+        self.assertIn("case \"$ORDAX_EVENT_NAME\" in", impact.EXPECTED_IMPACT_JOB)
+
+    def test_causal_main_push_decisions_match_real_git_deltas(self):
+        base = self.commit(WORKFLOW.read_text(encoding="utf-8"), VISUAL)
+        light = self.commit(path="tools/ci/creator_owner_impact.py")
+        self.assertEqual(impact.classify(base, light, root=self.root),
+                         (False, "nonproducer-contract-only"))
+        boot = self.commit(path="bootstrap/initramfs/build.py")
+        self.assertTrue(impact.classify(light, boot, root=self.root)[0])
+        self.assertTrue(impact.classify("0" * 40, boot, root=self.root)[0])
+
     def test_boot_and_unknown_owner_changes_require_real_usb(self):
         base = self.commit(WORKFLOW.read_text(encoding="utf-8"), VISUAL)
         for path in ("bootstrap/initramfs/build.py", "bootstrap/surface-runtime/build.py",
