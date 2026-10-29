@@ -48,6 +48,22 @@ function assertRequest(value, modelId) {
   return value;
 }
 
+// Windows-only CPU latency guard. The Native Host recognizes the exact
+// context-free Intelligence envelope; it never fabricates or caches an answer.
+const WINDOWS_QUICK_GREETING = /^(?:oi|ol[aá]|ola|opa|hola|hi|hello|hey|bom dia|boa tarde|boa noite)(?:[!,.\s]+(?:tudo bem|como vai|como você está|how are you))?[!?.,\s]*$/iu;
+const INTELLIGENCE_GREETING_PREFIX = "Intent: ask\nModel purpose: general\nUser request:\n";
+
+function boundWindowsGreeting(value) {
+  if (value.max_tokens <= 128 || value.messages.length !== 2 ||
+      value.messages[0].role !== "system") return value;
+  const user = value.messages[1].content;
+  // No prefix or extra context may be accepted as a simple greeting.
+  if (!user.startsWith(INTELLIGENCE_GREETING_PREFIX)) return value;
+  const prompt = user.slice(INTELLIGENCE_GREETING_PREFIX.length);
+  return !prompt.includes("\n") && WINDOWS_QUICK_GREETING.test(prompt.trim())
+    ? { ...value, max_tokens: 128 } : value;
+}
+
 async function portAvailable() {
   const server = createServer();
   try {
@@ -170,7 +186,7 @@ export function createDesktopLocalAiMiddleware({
       let body;
       if (req.method === "POST") {
         const data = await boundedRequestBody(req);
-        const validated = assertRequest(data, model.modelId);
+        const validated = boundWindowsGreeting(assertRequest(data, model.modelId));
         body = JSON.stringify(validated);
         if (validated.max_tokens <= 128) {
           clearTimeout(timeout);

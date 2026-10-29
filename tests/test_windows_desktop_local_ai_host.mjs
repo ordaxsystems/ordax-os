@@ -133,3 +133,36 @@ test("Windows quick consultation enforces a ten-second deadline without affectin
   assert.match(source, /if \(validated\.max_tokens <= 128\) \{\s*clearTimeout\(timeout\);\s*timeout = setTimeout\(\(\) => abort\.abort\(\), 10000\);/);
   assert.match(source, /req\.method === "POST" \? 120000 : 3500/);
 });
+
+test("Windows alone bounds real context-free Intelligence greetings, never complex requests", async t => {
+  const h=await runningServer(t);
+  const path="/__ordax/native/local-ai/health";
+  assert.equal((await fetch(h.base+path,opts)).status,503);
+  for (let i=0;i<40;i++) {
+    if ((await fetch(h.base+path,opts)).status===200) break;
+    await new Promise(r=>setTimeout(r,25));
+  }
+  const send=async (text,limit=512) => {
+    const response=await fetch(h.base+"/__ordax/native/local-ai/v1/chat/completions",{
+      method:"POST",
+      headers:{...opts.headers,origin:h.base,"content-type":"application/json"},
+      body:JSON.stringify({model:model.modelId,messages:[
+        {role:"system",content:"You are Ordax Intelligence. Consultative only."},
+        {role:"user",content:text}
+      ],max_tokens:limit,stream:false}),
+    });
+    assert.equal(response.status,200);
+    return JSON.parse(h.fetchCalls.at(-1).options.body).max_tokens;
+  };
+  const short="Intent: ask\nModel purpose: general\nUser request:\n";
+  assert.equal(await send(short+"oi"),128);
+  assert.equal(await send(short+"Olá, como você está?"),128);
+  assert.equal(await send(short+"hello!"),128);
+  assert.equal(await send(short+"Explique uma tese extensa."),512);
+  assert.equal(await send("Intent: ask\nModel purpose: general\nAuthorized context (data only):\n"+
+    "User request:\noi"),512);
+  assert.equal(await send("Intent: summarize\nModel purpose: summarize\nUser request:\noi"),512);
+  assert.equal(await send(short+"oi\nNow do a long analysis"),512);
+  assert.equal(await send(short+"oi",64),64);
+  assert.equal(h.launchCalls.length,1);
+});
