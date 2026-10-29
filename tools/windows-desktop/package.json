@@ -41,7 +41,9 @@
         "to": "runtime-template/system",
         "filter": [
           "**/*",
-          "!surface/runtime/packages.txt"
+          "!surface/runtime/packages.txt",
+          "!surface/runtime/media_runtime_probe.py",
+          "!surface/runtime/audio-session.sh"
         ]
       },
       {
