@@ -103,13 +103,23 @@ class IndependentHeavyWorkflowTests(unittest.TestCase):
         text = self.text()
         self.assertIn("ORDAX_KERNEL_MODULES_RECEIPT", text)
         self.assertIn("ORDAX_FIRMWARE_COVERAGE_RECEIPT", text)
+        # Receipt paths are deliberately assembled from a validated,
+        # non-symlink external root.  Require this binding rather than the
+        # obsolete literal paths, which the safer workflow does not emit.
+        binding = text[
+            text.index("- name: Bind verified kernel modules to Independent Base"):
+            text.index("- name: Restore verified independent base component")
+        ]
+        self.assertIn('receipt_root="$RUNNER_TEMP/ordax-independent"', binding)
+        self.assertIn('test ! -L "$receipt_root"', binding)
+        self.assertIn('install -d -m 0700 -- "$receipt_root"', binding)
         self.assertIn(
-            '$RUNNER_TEMP/ordax-independent/kernel-module-payload.json',
-            text,
+            '"$receipt_root/kernel-module-payload.json" >> "$GITHUB_ENV"',
+            binding,
         )
         self.assertIn(
-            '$RUNNER_TEMP/ordax-independent/firmware-coverage.json',
-            text,
+            '"$receipt_root/firmware-coverage.json" >> "$GITHUB_ENV"',
+            binding,
         )
 
     def test_rootfs_build_and_verify_use_same_profile(self) -> None:
