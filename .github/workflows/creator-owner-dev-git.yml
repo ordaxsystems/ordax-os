@@ -14,10 +14,14 @@ on:
       - 'bootstrap/dev-base/**'
       - 'bootstrap/surface-runtime/**'
       - 'bootstrap/recovery/**'
-      # Creator's published USB must cover the actual boot/Guardian/Surface
-      # source snapshot. Previously a system-only main commit (including
-      # Supervisor rollback fixes) did NOT refresh the Creator bundle.
+      # Creator publishes an actual USB only for OS-owned payload changes.
+      # Host Desktop adapters and visual Surface source are delivered through
+      # Windows/Surface contracts and cannot change the bootable USB runtime.
+      # Keep broad system coverage for Guardian/Supervisor changes.
       - 'system/**'
+      - '!system/adapters/desktop/**'
+      - '!system/surface/ui/**'
+      - '!system/surface/workspace/**'
       - 'tools/creator/**'
       - 'tools/release-signing/**'
       - '!tools/release-signing/windows/**'
