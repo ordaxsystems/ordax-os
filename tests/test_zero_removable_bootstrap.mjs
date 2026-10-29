@@ -33,3 +33,11 @@ test("first-run Store Essentials are suggestions, never installed payloads or in
   assert.deepEqual(planMvpFirstOnlineRefresh({online:false}).ensureBootstrapAppIds,[]);
   assert.equal(planMvpFirstOnlineRefresh({online:true}).onDemandAutoInstall,false);
 });
+
+test("First-party CI owns and executes the zero-removable-bootstrap regression",async()=>{
+  const workflow=await readFile(new URL("../.github/workflows/first-party-app-delivery.yml",import.meta.url),"utf8");
+  const testPath="tests/test_zero_removable_bootstrap.mjs";
+  assert.equal(workflow.split("- '"+testPath+"'").length-1,2,"push and PR path triggers");
+  assert.equal(workflow.split("node --check "+testPath).length-1,1);
+  assert.equal(workflow.split("node --test "+testPath).length-1,1);
+});
