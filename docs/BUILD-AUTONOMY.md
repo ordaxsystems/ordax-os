@@ -115,6 +115,17 @@ The shared product source may feed several delivery modes, but those delivery ar
 - new artifact classes require a provenance owner;
 - caches may accelerate a verified build but may not replace verification.
 
+The Portable/QEMU causal impact policy treats changes to the standalone Creator
+workflow routing and its contract tests as CI governance, not as changes to the
+Portable boot artifact. Creator still runs its own full USB/boot tests when its
+workflow or real image inputs change. A kernel, initramfs, graphical runtime,
+Native boot launcher, Portable QEMU workflow, unverified Surface source pin,
+or unknown owner must continue to trigger the Portable/QEMU heavy proof.
+The source lock can bypass that heavy proof only after an exact commit-level
+verification that its change is visual-only; Surface source and Windows
+consumer gates remain mandatory. This separates build-time impact from
+product installation and distribution authority.
+
 This lets future targets and features be added without turning every commit into a kernel/full-product rebuild. The `public-site` artifact is owned by `tools/public-site/build.py` and its contract in `docs/contracts/public-site.json`; it is intentionally distinct from the `web-client` product mode.
 
 ## Native system release assembly

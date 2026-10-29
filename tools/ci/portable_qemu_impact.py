@@ -61,6 +61,10 @@ OWNER_DEVELOPMENT_LIGHT_PREFIXES = (
     "bootstrap/base-update/owner-development/",
 )
 CI_GOVERNANCE_LIGHT_EXACT = {
+    # Creator USB workflow routing and its contract tests do not produce
+    # Portable boot artifacts. The Creator still executes its own full USB gates.
+    ".github/workflows/creator-owner-dev-git.yml",
+    "tests/test_creator_owner_external_source.py",
     ".github/workflows/account-memory-local-continuity-flush.yml",
     ".github/workflows/account-memory-protected-mutations.yml",
     ".github/workflows/account-memory-sync-foundation.yml",

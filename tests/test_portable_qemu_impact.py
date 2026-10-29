@@ -95,6 +95,43 @@ class PortableQemuImpactTests(unittest.TestCase):
         self.assertTrue(probation.required)
         self.assertIn("heavy-exact:system/composition/native/component-probation.mjs", probation.reasons)
 
+    def test_creator_pipeline_contract_changes_do_not_boot_portable_qemu(self):
+        """Creator routing is not a Portable kernel, boot or graphical runtime producer."""
+        creator_and_desktop = [
+            ".github/workflows/creator-owner-dev-git.yml",
+            "tests/test_creator_owner_external_source.py",
+            "tools/ci/portable_qemu_impact.py",
+            "tests/test_portable_qemu_impact.py",
+            "system/adapters/desktop/local-ai-host.mjs",
+            "tests/test_windows_desktop_local_ai_host.mjs",
+        ]
+        light = impact.classify_paths(creator_and_desktop, root=ROOT)
+        self.assertFalse(light.required)
+        self.assertEqual(light.reasons, ("no-heavy-portable-impact",))
+
+        # Even with verified visual-only source advancement, the real boot
+        # and graphical-runtime owners always require Portable QEMU.
+        with_source = creator_and_desktop + ["docs/contracts/surface-source.json"]
+        verified = impact.classify_paths(
+            with_source, root=ROOT, surface_visual_lock_verified=True
+        )
+        self.assertFalse(verified.required)
+        unverified = impact.classify_paths(with_source, root=ROOT)
+        self.assertTrue(unverified.required)
+        for critical in (
+            "bootstrap/initramfs/portable_init.sh",
+            "bootstrap/surface-runtime/build.py",
+            "system/surface/bin/ordax-surface",
+            ".github/workflows/portable-v2-qemu-boot-proof.yml",
+        ):
+            with self.subTest(critical=critical):
+                result = impact.classify_paths(creator_and_desktop + [critical], root=ROOT)
+                self.assertTrue(result.required)
+        unknown = impact.classify_paths(
+            creator_and_desktop + [".github/workflows/unknown-boot-producer.yml"], root=ROOT
+        )
+        self.assertTrue(unknown.required)
+
     def test_boot_coupled_local_ai_runtime_requires_qemu(self):
         result = impact.classify_paths(["system/services/local-ai/runtime.mjs"], root=ROOT)
         self.assertTrue(result.required)
