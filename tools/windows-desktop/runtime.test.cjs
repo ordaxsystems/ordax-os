@@ -103,3 +103,16 @@ test('NSIS Owner Dev mode is forced to the current Windows user without a select
   assert.ok(nsisScript.includes('StrCpy $isForceCurrentInstall "1"'));
   assert.ok(!nsisScript.includes('StrCpy $isForceMachineInstall "1"'));
 });
+
+test('Windows package excludes Linux-only Alpine package declaration without dropping the shared Native tree', () => {
+  const resources = require('./package.json').build.extraResources;
+  const system = resources.filter(item => item.to === 'runtime-template/system');
+  assert.equal(system.length, 1);
+  assert.equal(system[0].from, '../../system');
+  assert.deepEqual(system[0].filter, ['**/*', '!surface/runtime/packages.txt']);
+  const workflow = readFileSync(join(__dirname, '../../.github/workflows/windows-desktop-dev.yml'), 'utf8');
+  const paths = workflow.split('paths: &desktop_product_sources', 2)[1].split('  # Every integrated main', 1)[0];
+  assert.match(paths, /- 'system\/\*\*'/);
+  assert.match(paths, /- '!system\/surface\/runtime\/packages\.txt'/);
+  assert.ok(workflow.includes('paths: *desktop_product_sources'));
+});
