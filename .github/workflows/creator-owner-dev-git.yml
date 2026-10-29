@@ -38,18 +38,18 @@ on:
       - 'bootstrap/dev-base/**'
       - 'bootstrap/surface-runtime/**'
       - 'system/entrypoint'
+      # Presentation-only source pins are consumed by Surface/Windows gates;
+      # they must never trigger a Creator USB build. Actual boot/runtime and
+      # offline staging changes below still require the full Owner USB proof.
       # Boot health and update handoff must prove the real Owner USB on PRs,
       # not only on the subsequent main push (when the rollback risk is live).
       # Keep this scoped to the actual cold-boot composition entrypoints.
       - 'system/supervisor'
-      - 'docs/contracts/surface-source.json'
       - 'docs/contracts/intelligence-source.json'
       - 'system/services/intelligence-source/**'
       - 'tools/intelligence-source/**'
       - '.github/actions/assemble-intelligence/**'
       - 'tools/surface-source/**'
-      - 'system/surface/ui/**'
-      - 'system/surface/workspace/**'
       - '.github/actions/prepare-verified-surface/**'
       - 'system/composition/native/main.mjs'
       - 'system/adapters/native/update-runtime.mjs'
