@@ -134,7 +134,7 @@ test("Local AI blocks session-locked requests without starting a backend",async 
 test("Windows quick consultation enforces a ten-second deadline without affecting long replies", async () => {
   const { readFile } = await import("node:fs/promises");
   const source = await readFile(new URL("../system/adapters/desktop/local-ai-host.mjs", import.meta.url), "utf8");
-  assert.match(source, /if \(validated\.max_tokens <= 128\) \{\s*clearTimeout\(timeout\);\s*timeout = setTimeout\(\(\) => abort\.abort\(\), 10000\);/);
+  assert.match(source, /if \(validated\.max_tokens <= 128\) \{\s*clearTimeout\(timeout\);\s*timeout = setTimeout\(\(\) => \{ deadlineReached = true; abort\.abort\(\); \}, 10000\);/);
   assert.match(source, /req\.method === "POST" \? 120000 : 3500/);
 });
 
@@ -178,4 +178,86 @@ test("Windows alone bounds real context-free Intelligence greetings, never compl
   assert.match(passed[2].messages[0].content, /respond in the user's language in one very short friendly sentence/);
   assert.doesNotMatch(passed[3].messages[0].content, /very short friendly sentence/);
   assert.equal(passed[0].messages[1].content,short+"oi");
+});
+
+test("Windows Native recycles a disconnected orphan without a second concurrent engine", async t => {
+  const { readdir } = await import("node:fs/promises");
+  const dir=await mkdtemp(join(tmpdir(),"ordax-ai-orphan-recovery-"));
+  const spawned=[];
+  let alive=0, releasePending;
+  const started = new Promise(resolve=>{ releasePending=resolve; });
+  const local=createDesktopLocalAiMiddleware({
+    packageRoot:"C:/verified",
+    userData:dir,
+    token:TOKEN,
+    verifyPackage:async()=>model,
+    launch:()=>{
+      const child=new EventEmitter();
+      child.pid=20100+spawned.length;
+      child.exitCode=null;
+      child.kill=()=>{
+        if(child.exitCode!==null)return false;
+        child.exitCode=0;
+        alive--;
+        queueMicrotask(()=>child.emit("exit",0));
+        return true;
+      };
+      alive++;
+      assert.equal(alive,1,"never run a second verified engine until the orphan exits");
+      spawned.push(child);
+      return child;
+    },
+    getProcessPriority:()=>0,
+    setProcessPriority:()=>{},
+    fetchImpl:async(url,options)=>{
+      if(url.endsWith("/health"))return new Response(JSON.stringify({status:"ok"}),
+        {status:200,headers:{"content-type":"application/json"}});
+      if(url.endsWith("/v1/models"))return new Response(JSON.stringify({data:[{id:model.modelId}]}),
+        {status:200,headers:{"content-type":"application/json"}});
+      releasePending();
+      return await new Promise((_,reject)=>{
+        options.signal.addEventListener("abort",()=>{
+          reject(new DOMException("cancelled upstream request","AbortError"));
+        },{once:true});
+      });
+    },
+  });
+  const server=createServer((req,res)=>local.middleware(req,res,()=>{res.writeHead(418);res.end();}));
+  await new Promise(resolve=>server.listen(0,"127.0.0.1",resolve));
+  t.after(async()=>{
+    await local.dispose();
+    await new Promise(resolve=>server.close(resolve));
+    await rm(dir,{recursive:true,force:true});
+  });
+  const url="http://127.0.0.1:"+server.address().port;
+  const health=url+"/__ordax/native/local-ai/health";
+  assert.equal((await fetch(health,opts)).status,503);
+  for(let n=0;n<80;n++){
+    if((await fetch(health,opts)).status===200)break;
+    await new Promise(r=>setTimeout(r,20));
+  }
+  assert.equal(spawned.length,1);
+  const ac=new AbortController();
+  const pending=fetch(url+"/__ordax/native/local-ai/v1/chat/completions",{
+    method:"POST",signal:ac.signal,
+    headers:{...opts.headers,origin:url,"content-type":"application/json"},
+    body:JSON.stringify({model:model.modelId,max_tokens:512,stream:false,messages:[
+      {role:"system",content:"You are Ordax Intelligence, the consultative intelligence layer of the OrdaX system."},
+      {role:"user",content:"Intent: ask\\nModel purpose: general\\nUser request:\\noi"},
+    ]}),
+  }).catch(()=>null);
+  await Promise.race([started,new Promise((_,reject)=>setTimeout(()=>reject(Error("inference never started")),4000))]);
+  ac.abort();
+  await pending;
+  let recovered=false;
+  for(let n=0;n<100;n++){
+    await new Promise(r=>setTimeout(r,30));
+    if(spawned.length===2&&(await fetch(health,opts)).status===200){recovered=true;break}
+  }
+  assert.equal(recovered,true,"a cancelled orphan must not keep the next greeting queued");
+  assert.equal(spawned[0].exitCode,0,"old backend must be terminated before replacement");
+  assert.equal(spawned[1].exitCode,null,"new backend must remain alive");
+  assert.equal(alive,1);
+  const dirs=(await readdir(dir)).filter(p=>p.startsWith(".local-ai-auth-"));
+  assert.equal(dirs.length,1,"old private API key must be deleted during recycle");
 });
