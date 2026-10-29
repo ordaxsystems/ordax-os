@@ -132,6 +132,35 @@ class PortableQemuImpactTests(unittest.TestCase):
         )
         self.assertTrue(unknown.required)
 
+    def test_app_delivery_policy_changes_use_app_gates_not_portable_boot(self):
+        """An app lifecycle policy update must not rebuild unrelated Linux boot."""
+        paths = [
+            "docs/contracts/app-distribution.json",
+            "docs/contracts/first-party-app-delivery.json",
+            "docs/contracts/mvp-app-delivery.json",
+            "system/services/apps/delivery-policy.mjs",
+            "system/services/apps/first-run-selection.mjs",
+            "system/services/apps/mvp-delivery-policy.mjs",
+            "tests/test_first_party_app_delivery.mjs",
+            "tests/test_mvp_app_delivery.mjs",
+            "tests/test_zero_removable_bootstrap.mjs",
+            "docs/APP-PORTFOLIO-AND-PREINSTALL.md",
+        ]
+        classified = impact.classify_paths(paths, root=ROOT)
+        self.assertFalse(classified.required)
+        self.assertEqual(classified.reasons, ("no-heavy-portable-impact",))
+        for critical in (
+            "system/supervisor",
+            "bootstrap/initramfs/portable_init.sh",
+            "bootstrap/surface-runtime/build.py",
+            "system/surface/bin/ordax-surface",
+            "docs/contracts/unclassified-boot-authorization.json",
+        ):
+            with self.subTest(critical=critical):
+                result = impact.classify_paths(paths + [critical], root=ROOT)
+                self.assertTrue(result.required)
+                self.assertNotEqual(result.reasons, ("no-heavy-portable-impact",))
+
     def test_boot_coupled_local_ai_runtime_requires_qemu(self):
         result = impact.classify_paths(["system/services/local-ai/runtime.mjs"], root=ROOT)
         self.assertTrue(result.required)
