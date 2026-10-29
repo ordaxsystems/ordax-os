@@ -101,6 +101,7 @@ IMPACT_POLICY_LIGHT_EXACT = {
     ".github/workflows/portable-qemu-impact-contract.yml",
     "tools/ci/portable_qemu_impact.py",
     "tests/test_portable_qemu_impact.py",
+    "tests/test_independent_surface_portable_impact.py",
     "tests/test_heavy_workflow_path_scope.py",
     "tests/test_native_memory_integration.py",
     "tests/test_surface_boot_screen.py",

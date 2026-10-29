@@ -35,11 +35,21 @@ class IndependentSurfacePortableImpactTests(unittest.TestCase):
         self.assertFalse(result.required)
         self.assertEqual(result.reasons, ("no-heavy-portable-impact",))
 
-    def test_independent_surface_byte_owners_are_delegated_to_candidate_workflow(self):
-        result = self.mod.classify_paths([
-            "bootstrap/surface-runtime/build.py",
-            "bootstrap/surface-runtime/source.json",
-        ])
+    def test_independent_surface_builder_requires_portable_qemu(self):
+        result = self.mod.classify_paths(["bootstrap/surface-runtime/build.py"])
+        self.assertTrue(result.required)
+        self.assertEqual(
+            result.reasons,
+            ("heavy-non-system:bootstrap/surface-runtime/build.py",),
+        )
+
+    def test_independent_surface_source_pin_is_delegated_to_candidate_workflow(self):
+        result = self.mod.classify_paths(["bootstrap/surface-runtime/source.json"])
+        self.assertFalse(result.required)
+        self.assertEqual(result.reasons, ("no-heavy-portable-impact",))
+
+    def test_independent_surface_impact_contract_is_policy_only(self):
+        result = self.mod.classify_paths(["tests/test_independent_surface_portable_impact.py"])
         self.assertFalse(result.required)
         self.assertEqual(result.reasons, ("no-heavy-portable-impact",))
 
