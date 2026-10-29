@@ -102,10 +102,15 @@ export function createDesktopLocalAiMiddleware({
       secret = randomBytes(32).toString("hex");
       await writeFile(join(secretDirectory, "key"), secret + "\n", { flag: "wx", mode: 0o600 });
       port = await portAvailable();
+      // Physical Windows CPU proof: llama.cpp's automatic model context consumed
+      // almost 9 GiB without reaching model readiness. The identical pinned GGUF
+      // reached health=ok using one 2048-token slot (~713 MiB RSS). Do not let
+      // upstream context defaults determine a Windows Desktop memory budget.
       child = launch(model.executable, [
         "--host", "127.0.0.1", "--port", String(port),
         "--model", model.modelFile, "--alias", model.modelId,
         "--reasoning", "off", "--no-ui", "--no-slots", "-ngl", "0", "-t", "2",
+        "--ctx-size", "2048", "--parallel", "1",
       ], {
         cwd: model.engineDirectory, windowsHide: true, stdio: "ignore",
         env: { ...process.env, LLAMA_ARG_API_KEY_FILE: join(secretDirectory, "key") },
