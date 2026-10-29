@@ -5,6 +5,8 @@ SYSTEM_ROOT=${0%/*}
 SYSTEM_ENTRYPOINT=$SYSTEM_ROOT/entrypoint
 SUPERVISOR_SCRIPT=$SYSTEM_ROOT/supervisor
 SURFACE_ENTRYPOINT=$SYSTEM_ROOT/surface/entrypoint
+OWNER_SURFACE_STAGE_HELPER=$SYSTEM_ROOT/services/surface-source/owner-stage.sh
+OWNER_INTELLIGENCE_STAGE_HELPER=$SYSTEM_ROOT/services/intelligence-source/owner-stage.sh
 RECOVERY_ENTRYPOINT=/ordax/bootstrap/recovery/entrypoint
 WORKTREE=${ORDAX_WORKTREE:-/workspace/ordax}
 STATE_DIR=${ORDAX_STATE_DIR:-/state/ordax}
@@ -628,9 +630,27 @@ stage_candidate_release() {
     stage_started=$(epoch_now)
     release_slot=$RELEASES_DIR/$candidate_sha
     if [ -f "$release_slot/.ready" ] && [ -d "$release_slot/system" ]; then
-        write_state_value "$STAGED_RELEASE_FILE" "$candidate_sha"
-        write_state_value "$LAST_STAGE_DURATION_FILE" "0"
-        return 0
+        existing_surface_status=$(/bin/sh "$OWNER_SURFACE_STAGE_HELPER" status "$WORKTREE" "$candidate_sha" 2>>"$UPDATE_LOG" || true)
+        # The same immutable release slot also binds the single external
+        # Intelligence source when its OS contract becomes canonical.
+        intelligence_slot_valid=1
+        if [ -f "${OWNER_INTELLIGENCE_STAGE_HELPER:-}" ]; then
+            intel_status=$(ORDAX_GIT_BIN="$GIT_BIN" /bin/sh "$OWNER_INTELLIGENCE_STAGE_HELPER" status "$WORKTREE" "$candidate_sha" 2>>"$UPDATE_LOG" || true)
+            case "$intel_status" in
+                canonical)
+                    ORDAX_GIT_BIN="$GIT_BIN" /bin/sh "$OWNER_INTELLIGENCE_STAGE_HELPER" ready "$WORKTREE" "$candidate_sha" "$release_slot" >>"$UPDATE_LOG" 2>&1 || intelligence_slot_valid=0
+                    ;;
+                integration-candidate) ;;
+                *) intelligence_slot_valid=0 ;;
+            esac
+        fi
+        if [ "$intelligence_slot_valid" -eq 1 ] && { [ "$existing_surface_status" = integration-candidate ] || { [ "$existing_surface_status" = canonical ] && ORDAX_GIT_BIN="$GIT_BIN" /bin/sh "$OWNER_SURFACE_STAGE_HELPER" ready "$WORKTREE" "$candidate_sha" "$release_slot" >>"$UPDATE_LOG" 2>&1; }; }; then
+            write_state_value "$STAGED_RELEASE_FILE" "$candidate_sha"
+            write_state_value "$LAST_STAGE_DURATION_FILE" "0"
+            return 0
+        fi
+        log "stale or unverified Surface release slot invalidated for $candidate_sha"
+        rm -rf "$release_slot"
     fi
 
     stage_dir=$RELEASES_DIR/.staging-$candidate_sha-$(epoch_now)
@@ -655,6 +675,28 @@ stage_candidate_release() {
         return 1
     fi
     rm -f "$stage_archive"
+
+    # The same Owner Supervisor owns the exact cross-repository candidate.
+    # On noncanonical locks the helper is a no-op; after cutover a failed
+    # fetch or mismatched Git SHA rejects this candidate BEFORE live checkout.
+    if ! ORDAX_GIT_BIN="$GIT_BIN" /bin/sh "$OWNER_SURFACE_STAGE_HELPER" stage "$WORKTREE" "$candidate_sha" "$stage_dir" >>"$UPDATE_LOG" 2>&1; then
+        log "pinned external Surface staging failed for $candidate_sha; keeping current checkout"
+        rm -rf "$stage_dir"
+        record_elapsed_seconds "$stage_started" "$LAST_STAGE_DURATION_FILE"
+        return 1
+    fi
+
+    # Same Supervisor transaction: external Intelligence source is acquired
+    # only when the pinned candidate OS contract says canonical. Failure
+    # rejects this disposable candidate without changing the live checkout.
+    if [ -f "${OWNER_INTELLIGENCE_STAGE_HELPER:-}" ]; then
+        if ! ORDAX_GIT_BIN="$GIT_BIN" /bin/sh "$OWNER_INTELLIGENCE_STAGE_HELPER" stage "$WORKTREE" "$candidate_sha" "$stage_dir" >>"$UPDATE_LOG" 2>&1; then
+            log "pinned external Intelligence stage failed for $candidate_sha; keeping current checkout"
+            rm -rf "$stage_dir"
+            record_elapsed_seconds "$stage_started" "$LAST_STAGE_DURATION_FILE"
+            return 1
+        fi
+    fi
 
     if ! staged_release_tree_is_valid "$stage_dir/system" "$candidate_mode"; then
         log "staged candidate release validation failed for $candidate_sha"
@@ -1184,6 +1226,7 @@ start_surface_from_system() {
     fi
 
     ORDAX_SYSTEM_ROOT="$surface_system_root" \
+    ORDAX_WORKTREE="$WORKTREE" \
     ORDAX_DISTRIBUTION_PROFILE="$DISTRIBUTION_PROFILE" \
     ORDAX_PRODUCT_MODE="$PRODUCT_MODE" \
     ORDAX_SOURCE_SHA="$surface_source_sha" \
@@ -1194,6 +1237,38 @@ start_surface_from_system() {
 }
 
 start_surface() {
+    active_os_sha=$(current_sha)
+    if [ "$DISTRIBUTION_PROFILE" = owner-development ] && [ -f "$OWNER_SURFACE_STAGE_HELPER" ]; then
+        source_status=$(ORDAX_GIT_BIN="$GIT_BIN" /bin/sh "$OWNER_SURFACE_STAGE_HELPER" status "$WORKTREE" "$active_os_sha" 2>>"$UPDATE_LOG") || return 1
+        if [ "$source_status" = canonical ]; then
+            active_slot=$RELEASES_DIR/$active_os_sha
+            # A clean Owner install can already start at a canonical SHA
+            # without a previous staged slot. Reuse the SAME Supervisor stage
+            # transaction before first boot, never a separate UI updater.
+            if [ ! -e "$active_slot" ] && [ ! -L "$active_slot" ]; then
+                log "provisioning missing canonical Surface slot for exact OS commit $active_os_sha"
+                if ! stage_candidate_release "$active_os_sha" surface-restart; then
+                    log "first-boot canonical Surface stage failed; no legacy visual fallback"
+                    return 1
+                fi
+            fi
+            if ORDAX_GIT_BIN="$GIT_BIN" /bin/sh "$OWNER_SURFACE_STAGE_HELPER" ready "$WORKTREE" "$active_os_sha" "$active_slot" >>"$UPDATE_LOG" 2>&1; then
+                if [ -f "${OWNER_INTELLIGENCE_STAGE_HELPER:-}" ]; then
+                    intel_status=$(ORDAX_GIT_BIN="$GIT_BIN" /bin/sh "$OWNER_INTELLIGENCE_STAGE_HELPER" status "$WORKTREE" "$active_os_sha" 2>>"$UPDATE_LOG") || return 1
+                    if [ "$intel_status" = canonical ]; then
+                        ORDAX_GIT_BIN="$GIT_BIN" /bin/sh "$OWNER_INTELLIGENCE_STAGE_HELPER" ready "$WORKTREE" "$active_os_sha" "$active_slot" >>"$UPDATE_LOG" 2>&1 || return 1
+                    elif [ "$intel_status" != integration-candidate ]; then
+                        return 1
+                    fi
+                fi
+                start_surface_from_system "$active_slot/system" "$active_os_sha"
+                return $?
+            fi
+            log "canonical Surface release for $active_os_sha was not fully staged; refusing legacy fallback"
+            return 1
+        fi
+    fi
+    # Stable and noncanonical Owner remain on the active OS system root.
     start_surface_from_system "$SYSTEM_ROOT" "$(current_sha)"
 }
 
@@ -1693,6 +1768,26 @@ classify_changes() {
 $changed_paths
 EOF
     rm -f "$helper_manifest"
+
+    # A canonical external visual source must be staged for the exact OS
+    # revision even when only a live-reload/metadata path changed. Do not
+    # restart from a checkout whose visual directories are no longer tracked.
+    candidate_surface_status=$(ORDAX_GIT_BIN="$GIT_BIN" /bin/sh "$OWNER_SURFACE_STAGE_HELPER" status "$WORKTREE" "$new_sha" 2>>"$UPDATE_LOG" || true)
+    if [ "$candidate_surface_status" = canonical ]; then
+        surface_host_changed=1
+    elif [ -z "$candidate_surface_status" ]; then
+        # Unknown source contract is not a live-reload-safe candidate.
+        surface_host_changed=1
+    fi
+
+    if [ -f "${OWNER_INTELLIGENCE_STAGE_HELPER:-}" ]; then
+        candidate_intel_status=$(ORDAX_GIT_BIN="$GIT_BIN" /bin/sh "$OWNER_INTELLIGENCE_STAGE_HELPER" status "$WORKTREE" "$new_sha" 2>>"$UPDATE_LOG" || true)
+        case "$candidate_intel_status" in
+            canonical|'') surface_host_changed=1 ;;
+            integration-candidate) ;;
+            *) surface_host_changed=1 ;;
+        esac
+    fi
 
     if [ "$supervisor_changed" -eq 1 ]; then
         APPLY_MODE=supervisor-restart

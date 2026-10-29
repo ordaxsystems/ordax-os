@@ -224,10 +224,16 @@ watch_optional_aura() {
 }
 
 start_guardian_tail() {
+    # Capture the byte cursor BEFORE launching tail. "tail -n 0 -f" can
+    # silently skip the Guardian's first lines when the child is scheduled
+    # after the entrypoint writes its startup messages.
+    guardian_bytes=$(bb wc -c <"$GUARDIAN_LOG") || return 1
+    case "$guardian_bytes" in ''|*[!0-9]*) return 1 ;; esac
+    guardian_first_byte=$((guardian_bytes + 1))
     if [ -x /bin/busybox ]; then
-        /bin/busybox tail -n 0 -f "$GUARDIAN_LOG" &
+        /bin/busybox tail -c "+$guardian_first_byte" -f "$GUARDIAN_LOG" &
     else
-        tail -n 0 -f "$GUARDIAN_LOG" &
+        tail -c "+$guardian_first_byte" -f "$GUARDIAN_LOG" &
     fi
     TAIL_PID=$!
 }

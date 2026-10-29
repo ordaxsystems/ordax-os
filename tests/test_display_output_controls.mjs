@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { mountDisplayOutputControls } from "../system/surface/ui/display-output-controls.mjs";
 import { DISPLAY_OUTPUTS_SCHEMA } from "../system/contracts/display-outputs.mjs";
+import { SETTINGS_SOURCE_MESSAGES, SETTINGS_ENGLISH_MESSAGES } from "../system/services/i18n/catalog/settings.mjs";
 
 class FakeElement {
   constructor(documentObject, tagName) {
@@ -209,5 +210,90 @@ test("Native display controls keep host modes unavailable instead of inventing c
   const controls = find(mounted.element, (element) => element.className === "ordax-settings-display-controls");
   assert.equal(status.textContent, "settings.display.host.nativeUnavailable");
   assert.equal(controls.hidden, true);
+  const retry = find(mounted.element, (element) => element.dataset.settingsDisplayRetry === "true");
+  assert.equal(retry.hidden, true, "without Native port no recovery is advertised");
   mounted.destroy();
+});
+
+test("Native display read failure offers explicit retry and recovers without remounting", async () => {
+  const documentObject = createDocument();
+  const container = documentObject.createElement("div");
+  let reads = 0;
+  const port = {
+    schema: DISPLAY_OUTPUTS_SCHEMA,
+    async read() {
+      reads += 1;
+      if (reads === 1) throw new Error("Transient Native 503");
+      return outputSnapshot();
+    },
+    async preview() { throw new Error("No preview in read-only recovery"); },
+    async confirm() { throw new Error("No confirmation in read-only recovery"); },
+    async revert() { throw new Error("No revert in read-only recovery"); },
+  };
+  const mounted = mountDisplayOutputControls(container, { documentObject, translate, port });
+  await settle();
+  const retry = find(mounted.element, (element) => element.dataset.settingsDisplayRetry === "true");
+  const status = find(mounted.element, (element) => element.attributes.get("role") === "status");
+  const controls = find(mounted.element, (element) => element.className === "ordax-settings-display-controls");
+  assert.ok(retry, "the canonical Surface exposes an explicit retry control");
+  assert.equal(reads, 1);
+  assert.equal(retry.hidden, false);
+  assert.equal(retry.disabled, false);
+  assert.equal(status.textContent, "settings.display.host.readFailed");
+  assert.equal(controls.hidden, true);
+  retry.dispatch("click");
+  assert.equal(retry.disabled, true, "a pending read cannot be retriggered");
+  await settle();
+  assert.equal(reads, 2, "one explicit retry uses the existing Native port");
+  assert.equal(retry.hidden, true, "success hides the retry control");
+  assert.equal(status.textContent, "settings.display.host.available");
+  assert.equal(controls.hidden, false);
+  const mode = find(mounted.element, (element) => element.dataset.displayMode === "true");
+  assert.equal(mode.value, "1920x1080@60", "recovered mode comes from the real validated snapshot");
+  mounted.destroy();
+  assert.equal(retry.listeners.size, 0, "cleanup removes the retry handler");
+});
+
+
+
+test("read-only Windows display shows truthful observational copy in Portuguese and English", async () => {
+  const physical = {
+    schema: DISPLAY_OUTPUTS_SCHEMA,
+    available: true, reason: null,
+    outputs: [{ id: "DISPLAY1", name: "Windows DISPLAY1", enabled: true,
+      modes: [{ id: "3840x2160@60", width: 3840, height: 2160, refreshHz: 60, current: true }],
+    }],
+    preview: null,
+  };
+  for (const messages of [SETTINGS_SOURCE_MESSAGES, SETTINGS_ENGLISH_MESSAGES]) {
+    const documentObject = createDocument();
+    const container = documentObject.createElement("div");
+    let reads = 0;
+    const port = {
+      schema: DISPLAY_OUTPUTS_SCHEMA,
+      async read() { reads++; return physical; },
+      async preview() { throw Error("Read-only provider cannot preview"); },
+      async confirm() { throw Error("Read-only provider cannot confirm"); },
+      async revert() { throw Error("Read-only provider cannot revert"); },
+    };
+    const mounted = mountDisplayOutputControls(container, {
+      documentObject, port, translate: (id) => messages[id] ?? id,
+    });
+    await settle();
+    const status = find(mounted.element, (element) => element.attributes.get("role") === "status");
+    const description = find(mounted.element, (element) =>
+      element.className === "ordax-settings-section-copy");
+    const mode = find(mounted.element, (element) => element.dataset.displayMode === "true");
+    const preview = find(mounted.element, (element) => element.textContent === messages["settings.display.host.preview"]);
+    const note = find(mounted.element, (element) => element.className === "ordax-settings-display-preview-note");
+    assert.equal(reads, 1, "one canonical Native read, no background polling");
+    assert.equal(status.textContent, messages["settings.display.host.available"]);
+    assert.equal(description.textContent, messages["settings.display.host.description"]);
+    assert.doesNotMatch(status.textContent, /15|confirm|confirme|restaur|restore|revert/i,
+      "the read-only available state must not promise a pending rollback");
+    assert.equal(mode.value, "3840x2160@60");
+    assert.equal(preview.disabled, true, "no alternative mode must not mutate the monitor");
+    assert.equal(note.hidden, true, "confirmation note remains exclusive to an active preview");
+    mounted.destroy();
+  }
 });

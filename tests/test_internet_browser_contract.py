@@ -83,8 +83,15 @@ class InternetBrowserContractTests(unittest.TestCase):
 
     def test_native_adapter_uses_one_explicit_browser_bridge(self):
         adapter = self.text(NATIVE_ADAPTER)
-        self.assertIn('hasNativeHostBridge(windowRef)', adapter)
-        self.assertIn('postNativeHostMessage(windowRef, command)', adapter)
+        # Browser schema stays Native-owned. Windows changes only the bounded
+        # transport and does not advertise the privileged Linux host bridge.
+        transport = self.text(ROOT / "system/adapters/native/browser-host-transport.mjs")
+        self.assertIn('hasBrowserHostTransport(windowRef)', adapter)
+        self.assertIn('postBrowserHostCommand(windowRef, command)', adapter)
+        self.assertIn('hasNativeHostBridge(windowRef)', transport)
+        self.assertIn('postNativeHostMessage(windowRef, payload)', transport)
+        self.assertIn('windowRef?.ordaxDesktopBrowser', transport)
+        self.assertIn('windowRef.location.hostname !== "127.0.0.1"', transport)
         self.assertIn('ordax-browser-host', adapter)
         for command in (
             'tab.open',

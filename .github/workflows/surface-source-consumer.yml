@@ -1,0 +1,155 @@
+name: Surface External Source Consumer
+
+on:
+  workflow_dispatch: # Run existing consumer validation on immutable bot PR branches
+  push:
+    branches:
+      - main
+      - integration/surface-source-consumer-20261023
+    paths:
+      - 'docs/contracts/surface-source.json'
+      - 'system/surface/ui/**'
+      - 'system/surface/workspace/**'
+      - 'tools/surface-source/**'
+      - 'tests/test_surface_source_materialization.py'
+      - 'tests/test_surface_source_assembly.py'
+      - 'tests/test_native_release_surface_source.py'
+      - 'tools/native-release-assembly/build.py'
+      - 'system/composition/**'
+      - 'system/surface/runtime/**'
+      - 'system/surface/entrypoint'
+      - 'system/surface/bin/**'
+      - 'tools/release-bundle/**'
+      - '.github/workflows/surface-source-consumer.yml'
+  pull_request:
+    paths:
+      - 'docs/contracts/surface-source.json'
+      - 'system/surface/ui/**'
+      - 'system/surface/workspace/**'
+      - 'tools/surface-source/**'
+      - 'tests/test_surface_source_materialization.py'
+      - 'tests/test_surface_source_assembly.py'
+      - 'tests/test_native_release_surface_source.py'
+      - 'tools/native-release-assembly/build.py'
+      - 'system/composition/**'
+      - 'system/surface/runtime/**'
+      - 'system/surface/entrypoint'
+      - 'system/surface/bin/**'
+      - 'tools/release-bundle/**'
+      - '.github/workflows/surface-source-consumer.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  pinned-source-consumer:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - name: Checkout exact OS candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Configure Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.12'
+
+      - name: Verify fail-closed materializer tests
+        run: python -m unittest tests.test_surface_source_materialization -v
+
+      - name: Test single-source OS release assembler and Native verification
+        run: |
+          python -m unittest tests.test_surface_source_assembly tests.test_native_release_surface_source -v
+
+      - name: Obtain only the pinned Surface Git revision
+        shell: bash
+        run: |
+          set -euo pipefail
+          source_sha=$(python3 - <<'PY'
+          import json
+          from pathlib import Path
+          p = json.loads(Path("docs/contracts/surface-source.json").read_text(encoding="utf-8"))
+          print(p["source_commit"])
+          PY
+          )
+          git clone --single-branch --branch main --filter=blob:none --no-tags \
+            https://github.com/ordaxsystems/ordax-surface.git "$RUNNER_TEMP/surface-source"
+          git -C "$RUNNER_TEMP/surface-source" checkout --detach "$source_sha"
+          test "$(git -C "$RUNNER_TEMP/surface-source" rev-parse HEAD)" = "$source_sha"
+
+      - name: Verify and materialize external source in disposable build directory
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/surface-source/materialize.py stage \
+            --source-dir "$RUNNER_TEMP/surface-source" \
+            --out-dir "$RUNNER_TEMP/surface-source-stage"
+          test -s "$RUNNER_TEMP/surface-source-stage/surface-source-receipt.json"
+          for part in ui workspace; do
+            test -d "$RUNNER_TEMP/surface-source-stage/system/surface/$part"
+            test ! -e "system/surface/$part" && test ! -L "system/surface/$part"
+            # Only this disposable CI checkout is overlaid. Production and USB
+            # activation are deliberately NOT authorized by this workflow.
+            rm -rf "system/surface/$part"
+            cp -a "$RUNNER_TEMP/surface-source-stage/system/surface/$part" "system/surface/$part"
+            diff -qr "$RUNNER_TEMP/surface-source-stage/system/surface/$part" "system/surface/$part"
+          done
+
+      - name: Compile Web composition from verified external source
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm run build --workspace tools/surface-web
+
+      - name: Validate Native and shared contract consumers
+        run: |
+          python tools/verify/module_boundaries.py
+          python -m unittest \
+            tests.test_surface_ui_contract \
+            tests.test_surface_visual_identity \
+            tests.test_surface_boot_screen \
+            tests.test_native_host_module_integrity \
+            tests.test_system_runtime_contract -v
+          node --test \
+            tests/test_surface_workspace.mjs \
+            tests/test_surface_localization.mjs \
+            tests/test_sidebar_layout.mjs
+
+      - name: Set up pinned release bundler Go toolchain
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version: '1.27.1'
+          cache: false
+
+      - name: Build canonical system.tar from verified cross-repository source
+        shell: bash
+        run: |
+          set -euo pipefail
+          (
+            cd tools/release-bundle
+            go test ./...
+            go run . --root ../.. --out "$RUNNER_TEMP/system.tar"
+          )
+          test -s "$RUNNER_TEMP/system.tar"
+          python3 - <<'PY'
+          import os
+          import tarfile
+          from pathlib import Path
+          archive = Path(os.environ["RUNNER_TEMP"]) / "system.tar"
+          with tarfile.open(archive, "r:") as bundle:
+              names = bundle.getnames()
+          for path in (
+              "system/entrypoint",
+              "system/surface/ui/surface.mjs",
+              "system/surface/ui/notification-center.css",
+              "system/surface/workspace/components/central/central.tsx",
+              "system/surface/runtime/native_host_server.py",
+              "system/composition/native/main.mjs",
+          ):
+              if names.count(path) != 1:
+                  raise SystemExit(f"canonical release must contain exactly one {path}")
+          print("Cross-repository Surface and OS Native host packaged by existing release-bundle owner")
+          PY

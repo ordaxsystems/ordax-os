@@ -13,16 +13,18 @@ memory and are never printed.
 
 from __future__ import annotations
 
+import argparse
 import http.cookiejar
 import json
 import os
 from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode, urlsplit
-from urllib.request import HTTPCookieProcessor, Request, build_opener
+from urllib.request import HTTPRedirectHandler, HTTPCookieProcessor, Request, build_opener
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 DEFAULT_GATEWAY_FILE = os.path.join(ROOT, "system", "services", "account", "gateway-base-url")
+PUBLIC_AUTH_POLICY = os.path.join(ROOT, "docs", "contracts", "public-auth-provider-policy.json")
 ACCESS_COOKIE = "ordax_access"
 REFRESH_COOKIE = "ordax_refresh"
 
@@ -31,11 +33,17 @@ def fail(reason: str) -> "NoReturn":
     raise SystemExit(f"ACCOUNT_SESSION_REVOCATION_PROOF=FAIL reason={reason}")
 
 
+class RejectRedirect(HTTPRedirectHandler):
+    # Never forward proof passwords or tokens to a redirect target.
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+
 class Client:
     def __init__(self, base_url: str) -> None:
         self.base_url = base_url.rstrip("/")
         self.jar = http.cookiejar.CookieJar()
-        self.opener = build_opener(HTTPCookieProcessor(self.jar))
+        self.opener = build_opener(HTTPCookieProcessor(self.jar), RejectRedirect())
 
     def request(
         self,
@@ -55,7 +63,7 @@ class Client:
         if cookie_header:
             headers["Cookie"] = cookie_header
         req = Request(self.base_url + path, data=body, headers=headers, method=method)
-        opener = build_opener() if cookie_header else self.opener
+        opener = build_opener(RejectRedirect()) if cookie_header else self.opener
         try:
             with opener.open(req, timeout=20) as response:
                 raw = response.read(1024 * 1024)
@@ -124,7 +132,16 @@ def canonical_public_origin(value: str) -> str:
         or parsed.fragment
     ):
         fail("invalid-gateway-origin")
-    return f"https://{parsed.netloc}"
+    origin = f"https://{parsed.netloc}"
+    try:
+        with open(PUBLIC_AUTH_POLICY, "r", encoding="utf-8") as file:
+            policy = json.load(file)
+        approved = policy["redirect_policy"]["origin"]
+    except (OSError, ValueError, KeyError, TypeError):
+        fail("canonical-public-auth-policy-unavailable")
+    if not isinstance(approved, str) or approved != origin:
+        fail("public-gateway-origin-not-canonical")
+    return origin
 
 
 def gateway_url() -> str:
@@ -183,14 +200,20 @@ def write_receipt(path: str, base_url: str) -> None:
     os.replace(temp, output)
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--check-origin", action="store_true")
+    args = parser.parse_args(argv)
+    base_url = gateway_url()  # validate before loading credentials or HTTP
+    if args.check_origin:
+        print("ACCOUNT_SESSION_REVOCATION_ORIGIN=CANONICAL")
+        return 0
+
     email = os.environ.get("ORDAX_PROOF_ACCOUNT_EMAIL", "").strip()
     password = os.environ.get("ORDAX_PROOF_ACCOUNT_PASSWORD", "")
     if not email or not password:
         print("ACCOUNT_SESSION_REVOCATION_PROOF=SKIP reason=credentials-not-provided")
         return 2
-
-    base_url = gateway_url()
 
     client_a = Client(base_url)
     client_b = Client(base_url)

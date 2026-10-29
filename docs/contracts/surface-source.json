@@ -1,0 +1,44 @@
+{
+  "$schema": "prototype-ordax.surface-source/1",
+  "status": "canonical",
+  "source_repository": "ordaxsystems/ordax-surface",
+  "source_commit": "3e4b88a23ab5078092d342b691ed908994b2601a",
+  "imported_from_repository": "ordaxsystems/ordax-os",
+  "imported_from_commit": "f65acc4fb9f8ded376fc9b44b4c7c2068c793265",
+  "visual_source_paths": [
+    "system/surface/ui",
+    "system/surface/workspace"
+  ],
+  "os_host_paths": [
+    "system/surface/entrypoint",
+    "system/surface/bin",
+    "system/surface/runtime",
+    "system/supervisor",
+    "system/composition",
+    "system/services",
+    "system/contracts"
+  ],
+  "staging": {
+    "mode": "verified-immutable-source-tree",
+    "production_activation": false,
+    "overwrite_existing_source": false,
+    "source_validation": "surface-main-after-provenance-gate-ci"
+  },
+  "invariants": {
+    "visual_owner_after_cutover": "ordaxsystems/ordax-surface",
+    "native_host_owner": "ordaxsystems/ordax-os",
+    "single_visual_source_after_cutover": true,
+    "legacy_bridge_permanent": false,
+    "physical_disk_write_allowed": false
+  },
+  "gates": [
+    "cross-repository-source-provenance",
+    "web-bundle",
+    "native-entrypoint",
+    "qemu-boot",
+    "supervisor-health",
+    "known-good-rollback",
+    "remove-tracked-os-visual-source",
+    "update-repository-ownership-ssot"
+  ]
+}

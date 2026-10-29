@@ -1,0 +1,218 @@
+name: Intelligence cross-repository source gate
+on:
+  workflow_dispatch: # Run existing consumer validation on immutable bot PR branches
+  pull_request:
+    paths:
+      - 'docs/contracts/intelligence-source.json'
+      - 'tools/intelligence-source/**'
+      - 'tests/test_intelligence_composed_runtime.mjs'
+      - 'tests/test_native_release_intelligence_source.py'
+      - 'tools/native-release-assembly/build.py'
+      - 'tests/test_intelligence_source_gate.py'
+      - '.github/actions/resolve-intelligence-builder/**'
+      - '.github/workflows/local-ai-runtime-candidate.yml'
+      - '.github/workflows/portable-v2-qemu-boot-proof.yml'
+      - 'tools/ci/portable_component_cache.py'
+      - 'tests/test_portable_component_cache.py'
+      - 'tests/test_intelligence_external_builder_consumers.py'
+      - 'tests/test_intelligence_external_integration.mjs'
+      - '.github/workflows/intelligence-source.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'docs/contracts/intelligence-source.json'
+      - 'tools/intelligence-source/**'
+      - 'tests/test_intelligence_composed_runtime.mjs'
+      - 'tests/test_native_release_intelligence_source.py'
+      - 'tools/native-release-assembly/build.py'
+      - 'tests/test_intelligence_source_gate.py'
+      - '.github/actions/resolve-intelligence-builder/**'
+      - '.github/workflows/local-ai-runtime-candidate.yml'
+      - '.github/workflows/portable-v2-qemu-boot-proof.yml'
+      - 'tools/ci/portable_component_cache.py'
+      - 'tests/test_portable_component_cache.py'
+      - 'tests/test_intelligence_external_builder_consumers.py'
+      - '.github/workflows/intelligence-source.yml'
+permissions:
+  contents: read
+jobs:
+  verify-external-source:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
+        with:
+          python-version: '3.12'
+      - run: python -m unittest discover -s tests -p 'test_intelligence_source_gate.py' -v
+      - name: Refuse QEMU legacy builder and cache without pinned external revision
+        run: python -m unittest tests.test_intelligence_external_builder_consumers -v
+      - name: Resolve the only OS-pinned external source via shared verifier
+        uses: ./.github/actions/resolve-intelligence-builder
+        with:
+          out-root: ${{ runner.temp }}/ordax-intelligence-stage
+      - name: Prove pinned technical builder binds only real OS policy
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+          ORDAX_INTELLIGENCE_STAGE: ${{ runner.temp }}/ordax-intelligence-stage
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import importlib.util, os
+          from pathlib import Path
+          builder=Path(os.environ["ORDAX_INTELLIGENCE_STAGE"])/"system/intelligence-source/tools/inference-builder/build.py"
+          spec=importlib.util.spec_from_file_location("ordax_verified_inference_builder", builder)
+          module=importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(module)
+          try:
+              module.load_source_lock()
+          except module.RuntimeBuildError as exc:
+              assert "canonical OS source must be supplied" in str(exc)
+          else:
+              raise AssertionError("source-only builder accepted implicit authority")
+          module.configure_os_source(Path.cwd())
+          lock=module.load_source_lock()
+          launcher=module.launcher_text(lock)
+          assert lock["engine"]["id"]=="llama.cpp"
+          assert lock["model"]["format"]=="GGUF"
+          assert "--host 127.0.0.1" in launcher
+          assert "--port 17865" in launcher
+          assert "--no-ui" in launcher
+          assert "--reasoning off" in launcher
+          assert "--tools" not in launcher
+          print("INTELLIGENCE_EXTERNAL_INFERENCE_BUILDER_ABI=PASS")
+          PY
+          test ! -e "$ORDAX_INTELLIGENCE_STAGE/system/intelligence-source/tools/inference-builder/__pycache__"
+          python -m unittest tests.test_portable_component_cache -v
+
+      - name: Prove portable runtime binds real OS public contracts
+        env:
+          ORDAX_INTELLIGENCE_STAGE: ${{ runner.temp }}/ordax-intelligence-stage
+        run: node --test tests/test_intelligence_external_integration.mjs
+      - name: Assemble pinned Surface using its canonical OS-owned action
+        uses: ./.github/actions/assemble-surface
+        with:
+          source-root: .
+          out-root: ${{ runner.temp }}/ordax-surface-assembled
+      - name: Compose provisional Native runtime using verified Intelligence and OS-owned ports
+        run: |
+          python tools/intelligence-source/compose.py \
+            --os-root "${RUNNER_TEMP}/ordax-surface-assembled" \
+            --intelligence-stage "${RUNNER_TEMP}/ordax-intelligence-stage" \
+            --out-root "${RUNNER_TEMP}/ordax-intelligence-composed"
+      - name: Validate Native release candidate against exact Intelligence source pin
+        run: |
+          python -m unittest discover -s tests -p 'test_native_release_intelligence_source.py' -v
+          python - <<'PY'
+          import importlib.util
+          import os
+          from pathlib import Path
+          spec=importlib.util.spec_from_file_location("native_assembler", "tools/native-release-assembly/build.py")
+          module=importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(module)
+          candidate=Path(os.environ["RUNNER_TEMP"]) / "ordax-intelligence-composed/system"
+          receipt=module.verify_external_intelligence_system(candidate)
+          surface=module.verify_external_surface_system(candidate)
+          assert receipt["source_repository"] == "ordaxsystems/ordax-intelligence"
+          assert receipt["activation_authorized"] is False
+          assert surface["old_os_visual_source_packaged"] is False
+          print("NATIVE_INTELLIGENCE_SOURCE_PROOF=PASS")
+          PY
+      - name: Prove Native components use external source without bundled legacy bodies
+        env:
+          ORDAX_INTELLIGENCE_COMPOSED_ROOT: ${{ runner.temp }}/ordax-intelligence-composed
+        run: node --test tests/test_intelligence_composed_runtime.mjs
+      - name: Prove tampered source stage cannot reach Native candidate
+        run: |
+          cp -a "${RUNNER_TEMP}/ordax-intelligence-stage" "${RUNNER_TEMP}/ordax-intelligence-tampered"
+          printf '/* tamper */' >> "${RUNNER_TEMP}/ordax-intelligence-tampered/system/intelligence-source/src/index.mjs"
+          if python tools/intelligence-source/compose.py \
+            --os-root "${RUNNER_TEMP}/ordax-surface-assembled" \
+            --intelligence-stage "${RUNNER_TEMP}/ordax-intelligence-tampered" \
+            --out-root "${RUNNER_TEMP}/should-not-exist"; then
+            echo "::error::Modified source was accepted" >&2
+            exit 1
+          fi
+          test ! -e "${RUNNER_TEMP}/should-not-exist"
+      - name: Refuse staging into assembled Surface source
+        run: |
+          if python tools/intelligence-source/compose.py \
+            --os-root "${RUNNER_TEMP}/ordax-surface-assembled" \
+            --intelligence-stage "${RUNNER_TEMP}/ordax-intelligence-stage" \
+            --out-root "${RUNNER_TEMP}/ordax-surface-assembled/.intelligence-forbidden-output"; then
+            echo "::error::Source checkout was modified" >&2
+            exit 1
+          fi
+          test ! -e "${RUNNER_TEMP}/ordax-surface-assembled/.intelligence-forbidden-output"
+          git diff --exit-code -- system/
+      - name: Set up pinned release Go toolchain
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
+        with:
+          go-version: '1.27.1'
+          check-latest: false
+          cache: false
+      - name: Resolve exact Creator helper source through OS-owned action
+        uses: ./.github/actions/resolve-creator-source
+        with:
+          checkout-root: ${{ runner.temp }}/ordax-creator-native-source
+      - name: Build Native system.tar from verified Intelligence and Surface using existing release pipeline
+        run: |
+          set -euo pipefail
+          source_root="${RUNNER_TEMP}/ordax-intelligence-composed/system"
+          release_root="${RUNNER_TEMP}/ordax-intelligence-native-release"
+          python tools/native-release-assembly/build.py assemble \
+            --out "$release_root" \
+            --system-source "$source_root" \
+            --creator-source "$ORDAX_CREATOR_NATIVE_SOURCE" \
+            --require-external-intelligence
+          python tools/native-release-assembly/build.py verify \
+            --root "$release_root" --require-external-intelligence
+          ( cd tools/release-bundle && CGO_ENABLED=0 go build -trimpath -buildvcs=false -o "${RUNNER_TEMP}/ordax-release-bundle" . )
+          "${RUNNER_TEMP}/ordax-release-bundle" --root "$release_root" --out "${RUNNER_TEMP}/intelligence-native-system.tar"
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          import pathlib
+          import tarfile
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])
+          lock=json.loads(pathlib.Path('docs/contracts/intelligence-source.json').read_text())
+          archive=root/'intelligence-native-system.tar'
+          with tarfile.open(archive,'r:') as tar:
+              members={m.name:m for m in tar.getmembers()}
+              assert all(m.isfile() or m.isdir() for m in members.values())
+              assert len(members)==len(tar.getmembers())
+              for src,sha in lock['source_paths'].items():
+                  name='system/intelligence-source/'+src
+                  assert name in members and members[name].isfile(), name
+                  payload=tar.extractfile(name).read()
+                  canonical=hashlib.sha1(b'blob '+str(len(payload)).encode()+b'\0'+payload).hexdigest()
+                  assert canonical==sha,(name,canonical,sha)
+              p=json.loads(tar.extractfile('system/.ordax/native-release-tools.json').read())
+              assert p['intelligence_source']['source_commit']==lock['source_commit']
+              assert p['intelligence_source']['legacy_implementation_bytes_packaged'] is False
+              assert p['physical_apply_authorized'] is False
+              assert p['component_publish_authorized'] is False
+              q=json.loads(tar.extractfile('system/intelligence-source/source-provenance.json').read())
+              assert q['activation_authorized'] is False
+          print('NATIVE_INTELLIGENCE_SYSTEM_TAR_CANDIDATE=PASS')
+          PY
+      - name: Verify no external source tracked in OS, no engine or model and exact receipt
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import json
+          root=Path("${{ runner.temp }}/ordax-intelligence-stage")
+          receipt=json.loads((root/"intelligence-source-receipt.json").read_text())
+          assert receipt["source_file_count"] == 8
+          lock=json.loads(Path("docs/contracts/intelligence-source.json").read_text())
+          assert receipt["source_commit"] == lock["source_commit"]
+          assert receipt["source_file_count"] == len(lock["source_paths"])
+          assert receipt["engine_included"] is False and receipt["model_included"] is False
+          assert receipt["activation_authorized"] is False
+          for path in ("index.mjs","intelligence/runtime.mjs","local-ai/runtime.mjs"):
+              assert (root/"system/intelligence-source/src"/path).is_file()
+          assert (root/"system/intelligence-source/tools/inference-builder/build.py").is_file()
+          assert not Path("system/intelligence-source").exists()
+          PY

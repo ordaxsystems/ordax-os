@@ -127,6 +127,9 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Prepare pinned Surface source in disposable CI checkout
+        uses: ./.github/actions/prepare-verified-surface
+
       - name: Validate contracts and policy JSON
         run: |
           set -euo pipefail

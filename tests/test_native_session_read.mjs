@@ -164,3 +164,55 @@ test("a missing capability token remains unavailable even if another session tok
   assert.equal(diagnostics.status, "rejected");
   assert.match(diagnostics.reason.message, /diagnostic token is unavailable/);
 });
+
+test("Windows display port survives an initial transient 503 and retries only when Settings reads", async () => {
+  let readCount = 0;
+  const seen = [];
+  const windowRef = {
+    async fetch(url, options = {}) {
+      seen.push({url, options});
+      if (url === NATIVE_SESSION_ENDPOINT) {
+        return {ok:true,status:200,json:async()=>({
+          displayOutputsToken:"d".repeat(64),
+        })};
+      }
+      assert.equal(url,"/__ordax/native/display-outputs");
+      readCount++;
+      if (readCount === 1) return {ok:false,status:503};
+      return {ok:true,status:200,json:async()=>({
+        schema:"ordax.display-outputs/1",
+        available:true,reason:null,preview:null,
+        outputs:[{id:"DISPLAY1",name:"Windows DISPLAY1",enabled:true,
+          modes:[{id:"1920x1080@60",width:1920,height:1080,
+            refreshHz:60,current:true,preferred:false}]}],
+      })};
+    },
+  };
+  const port=await createNativeDisplayOutputs(windowRef,{deferInitialRead:true});
+  assert.equal(port.schema,"ordax.display-outputs/1");
+  assert.equal(readCount,0,"bootstrap does not enumerate the physical display");
+  await assert.rejects(()=>port.read(),/request failed: 503/);
+  assert.equal((await port.read()).outputs[0].currentModeId,"1920x1080@60");
+  assert.equal(readCount,2,"physical display data is never simulated or cached");
+  assert.ok(seen.filter(item=>item.url==="/__ordax/native/display-outputs")
+    .every(item=>item.options.headers["X-OrdaX-Display-Token"]==="d".repeat(64)));
+});
+
+test("Linux still probes display at bootstrap and Windows scope is explicit", async () => {
+  let readCount=0;
+  const windowRef={
+    async fetch(url){
+      if(url===NATIVE_SESSION_ENDPOINT)return {ok:true,status:200,
+        json:async()=>({displayOutputsToken:"d".repeat(64)})};
+      readCount++;
+      return {ok:false,status:503};
+    },
+  };
+  await assert.rejects(()=>createNativeDisplayOutputs(windowRef),/request failed: 503/);
+  assert.equal(readCount,1);
+  const {readFileSync}=await import("node:fs");
+  const composition=readFileSync(new URL("../system/composition/native/main.mjs",import.meta.url),"utf8");
+  assert.match(composition,/createNativeDisplayOutputs\(window, \{\s*deferInitialRead: windowsDesktopHost,/);
+  assert.ok(!composition.includes("setInterval(() => createNativeDisplayOutputs"),
+    "display bootstrap must not introduce a second polling owner");
+});

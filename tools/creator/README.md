@@ -1,36 +1,14 @@
-# OrdaX Creator
+# OrdaX Creator — integração do OS
 
-`tools/creator/` is the single source root for OrdaX physical-media creation.
+**SSOT de implementação:** [`ordaxsystems/ordax-creator`](https://github.com/ordaxsystems/ordax-creator). Este diretório do `ordax-os` **não é o Core, aplicativo, CLI ou adaptador Go do Creator**.
 
-The permanent end-user experience belongs inside OrdaX Desktop, but the prototype may publish a small `ordax-creator.exe` shell before the complete Desktop UI exists. Both must use the same Creator Core; a second flasher policy implementation is forbidden.
+O OS é proprietário somente dos produtores de payload e provas descartáveis em `tools/creator/assemble.py` e `tools/creator/proof/`, dos contratos de instalação, da autorização explícita para mídia física e do publicador/assinatura independente. O código Go do Creator e seus componentes Native/Windows são compilados do checkout exato, imutável e verificado pelo contrato único `docs/contracts/native-release-assembly.json#creator_source`, resolvido pela ação `.github/actions/resolve-creator-source`.
 
-Goal: prepare verified **USB media for the public MVP** without requiring Codex, WSL, QEMU or a kernel toolchain on the user's machine. Native SSD/NVMe/HDD work is retained as a post-MVP foundation and is not a public MVP capability.
+A autoridade de instalação física permanece **desativada** por `docs/contracts/physical-write-authorization.json`; compilar o helper, provar uma imagem temporária ou verificar artefatos assinados não cria consentimento para gravar qualquer dispositivo. A identidade de release assinada e a identidade de commit do OS/Writer são separadas da identidade do Creator. Windows, Linux e o MVP USB devem consumir o mesmo Core, sem implementação equivalente adicional no OS.
 
-```text
-tools/creator/
-  core/                 # host-neutral policy, payload verification and write planning
-  proof/                # non-destructive disposable GPT/filesystem proof
-  cmd/
-    ordax-creator/      # thin prototype CLI/shell around the same Core
-  platform/
-    windows/            # future thin raw-disk/elevation adapter
-    linux/              # optional later adapter
-    macos/              # optional later adapter
-```
+O empacotador Python de `componentchannel` e seus testes pertencem exclusivamente ao `ordax-creator`; o workflow `Creator Component Candidate` os executa do checkout independente verificado. O OS mantém apenas o contrato e o publicador/assinatura da distribuição. As antigas cópias `tools/creator/componentchannel/*.py` foram removidas sem alterar os bytes do empacotador canônico.
 
-The shared Core owns:
-
-- artifact selection;
-- canonical two-partition validation;
-- signature/hash policy boundaries;
-- Creator payload integrity verification;
-- transactional disposable filesystem-tree staging;
-- write-plan generation;
-- fail-closed physical-write authorization;
-- post-write verification contract;
-- recovery/retry semantics.
-
-Platform adapters own only unavoidable host API integration. They may not define another OrdaX layout or security policy.
+Os contratos oficiais e seus respectivos proprietários são a fonte de verdade; os detalhes operacionais abaixo explicam os gates do OS, não estabelecem outro proprietário para o Creator.
 
 ## Unsigned review bundle versus signed Portable v3 distribution
 

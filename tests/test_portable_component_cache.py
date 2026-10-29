@@ -145,6 +145,32 @@ class PortableComponentCacheTests(unittest.TestCase):
                     path.write_text("input-v1\n")
                     self.assertEqual(initial, CACHE.component_fingerprint("surface", root))
 
+    def test_local_ai_cache_tracks_exact_external_builder_revision(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            for relative in CACHE.COMPONENTS["local-ai"]["inputs"]:
+                path = root / relative
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text("pinned-v1\\n", encoding="utf-8")
+            # The component cache resolves the OS-owned model license text.
+            # Keep this fixture's existing runtime policy structurally valid.
+            source_lock = root / "system/services/local-ai/source-lock.json"
+            source_lock.write_text(json.dumps({
+                "model": {"license_text_path": "third_party/licenses/Apache-2.0.txt"},
+            }), encoding="utf-8")
+            license_file = root / "third_party/licenses/Apache-2.0.txt"
+            license_file.parent.mkdir(parents=True, exist_ok=True)
+            license_file.write_text("reviewed license fixture\\n", encoding="utf-8")
+            lock = root / "docs/contracts/intelligence-source.json"
+            first = CACHE.component_fingerprint("local-ai", root)
+            lock.write_text("pinned-v2\\n", encoding="utf-8")
+            self.assertNotEqual(first, CACHE.component_fingerprint("local-ai", root))
+            lock.write_text("pinned-v1\\n", encoding="utf-8")
+            self.assertEqual(first, CACHE.component_fingerprint("local-ai", root))
+            action = root / ".github/actions/resolve-intelligence-builder/action.yml"
+            action.write_text("different resolver\\n", encoding="utf-8")
+            self.assertNotEqual(first, CACHE.component_fingerprint("local-ai", root))
+
     def test_runner_environment_is_part_of_fingerprint(self):
         with tempfile.TemporaryDirectory() as td:
             root = self.make_kernel_root(Path(td))

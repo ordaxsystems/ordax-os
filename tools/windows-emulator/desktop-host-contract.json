@@ -1,0 +1,12 @@
+{
+  "schema": 1,
+  "desktopHost": {
+    "contractVersion": 1,
+    "nativeSource": "system/composition/native/index.html",
+    "capabilities": [
+      "no-external-browser",
+      "dynamic-loopback-port",
+      "external-state-directory"
+    ]
+  }
+}

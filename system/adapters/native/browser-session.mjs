@@ -1,4 +1,4 @@
-import { hasNativeHostBridge, postNativeHostMessage } from "./host-bridge.mjs";
+import { hasBrowserHostTransport, postBrowserHostCommand } from "./browser-host-transport.mjs";
 import {
   BROWSER_SESSION_SCHEMA,
   BROWSER_UNAVAILABLE_REASONS,
@@ -18,7 +18,7 @@ const SHORTCUT_ACTIONS = new Set([
 ]);
 
 export function createNativeBrowserSession(windowRef = globalThis.window) {
-  if (!hasNativeHostBridge(windowRef)) {
+  if (!hasBrowserHostTransport(windowRef)) {
     return createUnavailableBrowserSession(
       BROWSER_UNAVAILABLE_REASONS.NATIVE_ENGINE_UNAVAILABLE,
     );
@@ -33,7 +33,7 @@ export function createNativeBrowserSession(windowRef = globalThis.window) {
   const listeners = new Set();
   const shortcutListeners = new Set();
 
-  const post = (command) => postNativeHostMessage(windowRef, command);
+  const post = (command) => postBrowserHostCommand(windowRef, command);
   const notify = () => {
     for (const listener of [...listeners]) listener(snapshot);
   };

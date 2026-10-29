@@ -61,7 +61,7 @@ const required = [
 ];
 
 test("Assistant and Personal OrdaX schemas are published only as versioned App SDK data contracts", () => {
-  assert.equal(bundle.bundle_version, "1.20.0");
+  assert.equal(bundle.bundle_version, "1.21.0");
   assert.equal(bundle.authority, "none");
   const byName = new Map(bundle.contracts.map(x => [x.name, x]));
   assert.equal(byName.size, bundle.contracts.length);

@@ -56,29 +56,6 @@ class MVPUSBOnlyScopeTests(unittest.TestCase):
         self.assertIn("Gates independentes do modo Native", readiness)
         self.assertNotIn("Escopo USB-only e experiência mínima", readiness)
 
-    def test_public_site_never_presents_native_installation_as_mvp_feature(self):
-        landing = (ROOT / "sites/public/index.html").read_text(encoding="utf-8")
-        download = (ROOT / "sites/public/download/index.html").read_text(encoding="utf-8")
-        account = (ROOT / "sites/public/conta/index.html").read_text(encoding="utf-8")
-        account_controller = (ROOT / "sites/public/assets/account-portal.js").read_text(encoding="utf-8")
-        self.assertIn("Inicie o computador por um USB preparado pelo OrdaX Creator.", landing)
-        self.assertIn("Em homologação", landing)
-        self.assertNotIn("Usar ou instalar", landing)
-        self.assertNotIn("Usar ou instalar", download)
-        self.assertIn("não altera o SSD/NVMe/HD interno", download)
-        # The account dashboard may describe the defined plan structure, but
-        # that does not activate billing, the Web runtime or native installation.
-        contract = json.loads(
-            (ROOT / "docs/contracts/public-site.json").read_text(encoding="utf-8")
-        )
-        self.assertRegex(account, r'src="/assets/account-portal\.js(?:\?[^" ]*)?"')
-        self.assertIn("Assinaturas pagas ainda não estão disponíveis", account_controller)
-        self.assertFalse(contract["commerce"]["billing_implemented"])
-        self.assertFalse(contract["commerce"]["pricing_published"])
-        self.assertFalse(contract["commerce"]["paid_plans_purchasable"])
-        self.assertFalse(contract["account_area"]["web_entry"]["runtime_available"])
-        self.assertFalse(contract["mvp_scope"]["native_installation_available"])
-
     def test_root_and_account_routes_remain_separate(self):
         contract = json.loads(
             (ROOT / "docs/contracts/public-site.json").read_text(encoding="utf-8")

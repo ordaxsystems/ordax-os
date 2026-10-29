@@ -7,7 +7,8 @@
       "owns": [
         "base",
         "boot",
-        "surface-shell",
+        "surface-native-host",
+        "surface-composition",
         "identity",
         "global-memory",
         "intelligence",
@@ -25,6 +26,22 @@
         "windows-runtime",
         "product-mcp-remote",
         "provider-connectors"
+      ]
+    },
+    "surface": {
+      "repo": "ordaxsystems/ordax-surface",
+      "owns": [
+        "surface-visual-shell",
+        "surface-workspace-ui",
+        "surface-presentation-assets"
+      ],
+      "must_not_own": [
+        "native-os-host",
+        "kernel-boot-base",
+        "system-capability-authority",
+        "product-grants",
+        "native-composition",
+        "physical-release-activation"
       ]
     },
     "apps": {
@@ -80,6 +97,25 @@
         "local-computer-control",
         "windows-device-host",
         "ordax-os-structural-services"
+      ]
+    },
+    "public_site": {
+      "repo": "ordaxsystems/ordax-site",
+      "owns": [
+        "public-marketing-presentation",
+        "public-legal-pages-presentation",
+        "public-identity-account-presentation",
+        "public-download-catalog-presentation",
+        "public-site-static-build-and-i18n"
+      ],
+      "must_not_own": [
+        "identity-backend",
+        "account-authorization",
+        "release-publisher-authority",
+        "payments-and-billing",
+        "surface-shared-source",
+        "os-host",
+        "dns-and-domain-routing"
       ]
     }
   },

@@ -1,354 +1,106 @@
 name: Public Site Candidate
-
 on:
   push:
     branches: [main]
     paths:
-      - 'sites/public/**'
-      - 'system/**'
-      - 'tools/surface-web/**'
-      - 'tools/source_graph.py'
-      - 'third_party/licenses/**'
-      - 'tests/test_surface_web_builder.py'
-      - 'docs/evidence/web-*-reference-*.json'
-      - 'package.json'
-      - 'package-lock.json'
-      - 'tests/test_public_deployment_bundle.py'
-      - 'deploy/public-site/**'
-      - 'api/account-proxy.mjs'
-      - 'vercel.json'
-      - 'tools/public-site/**'
-      - 'tools/public-site/browser-smoke.mjs'
-      - 'tools/browser-proof/**'
-      - 'tools/brand/**'
-      - 'system/surface/ui/tokens.css'
-      - 'system/surface/ui/brand/**'
-      - 'infra/supabase/identity/email-templates/src/**'
-      - 'tests/test_brand_pipeline.py'
-      - 'tools/security/**'
-      - 'docs/PUBLIC-SITE.md'
-      - 'docs/RELEASE-COMPLIANCE.md'
-      - 'docs/PUBLIC-LEGAL-READINESS.md'
-      - 'docs/contracts/public-site.json'
-      - 'docs/contracts/entitlements.json'
-      - 'tests/test_commercial_catalog.py'
-      - 'docs/contracts/public-site-deployment.json'
-      - 'docs/contracts/public-identity.json'
-      - 'docs/contracts/account-lifecycle.json'
-      - 'docs/contracts/public-auth-hardening.json'
-      - 'docs/contracts/public-auth-provider-policy.json'
-      - 'docs/contracts/public-release-catalog.json'
-      - 'docs/contracts/release-compliance.json'
-      - 'docs/contracts/public-legal-readiness.json'
-      - 'services/public-identity/**'
-      - 'infra/supabase/identity/**'
-      - 'infra/supabase/functions/ordax-account-gateway/**'
-      - 'infra/supabase/functions/ordax-public-account-gateway/**'
-      - 'infra/supabase/functions/ordax-account-lifecycle/**'
-      - 'infra/supabase/product/migrations/20261007041500_account_legal_policy_activation_v1.sql'
-      - 'infra/supabase/product/migrations/20261007044500_account_legacy_legal_quarantine_v1.sql'
-      - 'platform/releases/publications.json'
-      - 'docs/contracts/build-autonomy.json'
-      - 'docs/BUILD-AUTONOMY.md'
-      - 'tests/test_public_site_contract.py'
-      - 'tests/test_public_account_entry_ux.py'
-      - 'tests/test_public_site_localization.mjs'
-      - 'tests/test_public_site_localization_runtime.mjs'
-      - 'tests/test_public_release_catalog.py'
-      - 'tests/test_public_identity_backend_prep.py'
-      - 'tests/test_public_identity_gateway.py'
-      - 'tests/test_public_site_runtime_smoke.py'
-      - 'tests/test_public_site_deployment.py'
-      - 'tests/test_public_canonical_host_redirects.py'
-      - 'tests/test_public_site_deployment_proof.py'
-      - 'tests/test_public_site_network_proof.py'
-      - 'tests/test_vercel_identity_preflight.py'
-      - 'tests/test_public_site_vercel_proxy.mjs'
-      - 'tests/test_public_auth_header_nav.mjs'
-      - 'tests/test_public_profile_menu.mjs'
-      - 'tests/test_public_account_session_client.mjs'
-      - 'tests/test_public_account_candidate.mjs'
-      - 'tests/test_public_account_web_entry.mjs'
-      - 'tests/test_public_signup_legal_integrity.mjs'
-      - 'tests/test_public_proxy_request_context.mjs'
-      - 'tests/test_public_proxy_vercel_oidc.mjs'
-      - 'tests/test_public_auth_edge_rate_limit.mjs'
-      - 'tests/test_public_account_edge_bounded_body.mjs'
-      - 'tests/test_account_service_bridge.mjs'
-      - 'tests/test_account_transport_admission.mjs'
-      - 'tests/test_account_mcp_usage_bridge.mjs'
-      - 'infra/supabase/functions/_shared/account_transport_admission.mjs'
-      - 'infra/supabase/functions/_shared/account_mcp_usage.mjs'
-      - 'infra/supabase/functions/_shared/account_service_bridge.mjs'
-      - 'infra/supabase/functions/_shared/bounded_body.mjs'
-      - 'tests/test_public_account_edge_gateway_source.py'
-      - 'tests/test_auth_provider_probe.py'
-      - 'tests/test_account_release_provider_proof.py'
-      - 'tests/test_control_plane_privilege_probe.py'
-      - 'tests/test_account_release_database_proof.py'
-      - 'tests/test_account_release_session_revocation_proof.py'
-      - 'tests/test_public_legal_readiness.py'
-      - 'tests/test_account_legal_policy_activation.py'
-      - 'tests/test_account_legacy_legal_quarantine.py'
-      - '.github/workflows/public-legal-policy-activation.yml'
-      - 'tests/test_public_auth_activation_preflight.py'
-      - 'tests/test_pwned_passwords.py'
-      - 'tests/test_supabase_account_provider.py'
-      - 'tests/test_supabase_lifecycle_provider.py'
-      - 'tests/test_account_lifecycle_edge.py'
-      - '.github/workflows/public-site-candidate.yml'
+      - "tools/vercel/**"
+      - "docs/contracts/public-site-source.json"
+      - "docs/contracts/public-site*.json"
+      - "api/**"
+      - "lib/account-proxy-core.mjs"
+      - "infra/supabase/functions/**"
+      - ".github/workflows/public-site-candidate.yml"
   pull_request:
     paths:
-      - 'sites/public/**'
-      - 'system/**'
-      - 'tools/surface-web/**'
-      - 'tools/source_graph.py'
-      - 'third_party/licenses/**'
-      - 'tests/test_surface_web_builder.py'
-      - 'docs/evidence/web-*-reference-*.json'
-      - 'package.json'
-      - 'package-lock.json'
-      - 'tests/test_public_deployment_bundle.py'
-      - 'deploy/public-site/**'
-      - 'api/account-proxy.mjs'
-      - 'vercel.json'
-      - 'tools/public-site/**'
-      - 'tools/public-site/browser-smoke.mjs'
-      - 'tools/browser-proof/**'
-      - 'tools/brand/**'
-      - 'system/surface/ui/tokens.css'
-      - 'system/surface/ui/brand/**'
-      - 'infra/supabase/identity/email-templates/src/**'
-      - 'tests/test_brand_pipeline.py'
-      - 'tools/security/**'
-      - 'docs/PUBLIC-SITE.md'
-      - 'docs/RELEASE-COMPLIANCE.md'
-      - 'docs/PUBLIC-LEGAL-READINESS.md'
-      - 'docs/contracts/public-site.json'
-      - 'docs/contracts/entitlements.json'
-      - 'tests/test_commercial_catalog.py'
-      - 'docs/contracts/public-site-deployment.json'
-      - 'docs/contracts/public-identity.json'
-      - 'docs/contracts/account-lifecycle.json'
-      - 'docs/contracts/public-auth-hardening.json'
-      - 'docs/contracts/public-auth-provider-policy.json'
-      - 'docs/contracts/public-release-catalog.json'
-      - 'docs/contracts/release-compliance.json'
-      - 'docs/contracts/public-legal-readiness.json'
-      - 'services/public-identity/**'
-      - 'infra/supabase/identity/**'
-      - 'infra/supabase/functions/ordax-account-gateway/**'
-      - 'infra/supabase/functions/ordax-public-account-gateway/**'
-      - 'infra/supabase/functions/ordax-account-lifecycle/**'
-      - 'infra/supabase/product/migrations/20261007041500_account_legal_policy_activation_v1.sql'
-      - 'infra/supabase/product/migrations/20261007044500_account_legacy_legal_quarantine_v1.sql'
-      - 'platform/releases/publications.json'
-      - 'docs/contracts/build-autonomy.json'
-      - 'docs/BUILD-AUTONOMY.md'
-      - 'tests/test_public_site_contract.py'
-      - 'tests/test_public_account_entry_ux.py'
-      - 'tests/test_public_site_localization.mjs'
-      - 'tests/test_public_site_localization_runtime.mjs'
-      - 'tests/test_public_release_catalog.py'
-      - 'tests/test_public_identity_backend_prep.py'
-      - 'tests/test_public_identity_gateway.py'
-      - 'tests/test_public_site_runtime_smoke.py'
-      - 'tests/test_public_site_deployment.py'
-      - 'tests/test_public_canonical_host_redirects.py'
-      - 'tests/test_public_site_deployment_proof.py'
-      - 'tests/test_public_site_network_proof.py'
-      - 'tests/test_vercel_identity_preflight.py'
-      - 'tests/test_public_site_vercel_proxy.mjs'
-      - 'tests/test_public_auth_header_nav.mjs'
-      - 'tests/test_public_profile_menu.mjs'
-      - 'tests/test_public_account_session_client.mjs'
-      - 'tests/test_public_account_candidate.mjs'
-      - 'tests/test_public_account_web_entry.mjs'
-      - 'tests/test_public_signup_legal_integrity.mjs'
-      - 'tests/test_public_proxy_request_context.mjs'
-      - 'tests/test_public_proxy_vercel_oidc.mjs'
-      - 'tests/test_public_auth_edge_rate_limit.mjs'
-      - 'tests/test_public_account_edge_bounded_body.mjs'
-      - 'tests/test_account_service_bridge.mjs'
-      - 'tests/test_account_transport_admission.mjs'
-      - 'tests/test_account_mcp_usage_bridge.mjs'
-      - 'infra/supabase/functions/_shared/account_transport_admission.mjs'
-      - 'infra/supabase/functions/_shared/account_mcp_usage.mjs'
-      - 'infra/supabase/functions/_shared/account_service_bridge.mjs'
-      - 'infra/supabase/functions/_shared/bounded_body.mjs'
-      - 'tests/test_public_account_edge_gateway_source.py'
-      - 'tests/test_auth_provider_probe.py'
-      - 'tests/test_account_release_provider_proof.py'
-      - 'tests/test_control_plane_privilege_probe.py'
-      - 'tests/test_account_release_database_proof.py'
-      - 'tests/test_account_release_session_revocation_proof.py'
-      - 'tests/test_public_legal_readiness.py'
-      - 'tests/test_account_legal_policy_activation.py'
-      - 'tests/test_account_legacy_legal_quarantine.py'
-      - '.github/workflows/public-legal-policy-activation.yml'
-      - 'tests/test_public_auth_activation_preflight.py'
-      - 'tests/test_pwned_passwords.py'
-      - 'tests/test_supabase_account_provider.py'
-      - 'tests/test_supabase_lifecycle_provider.py'
-      - 'tests/test_account_lifecycle_edge.py'
-      - '.github/workflows/public-site-candidate.yml'
+      - "tools/vercel/**"
+      - "docs/contracts/public-site-source.json"
+      - "docs/contracts/public-site*.json"
+      - "api/**"
+      - "lib/account-proxy-core.mjs"
+      - "infra/supabase/functions/**"
+      - "tests/test_public*.py"
+      - ".github/workflows/public-site-candidate.yml"
   workflow_dispatch:
-
 permissions:
   contents: read
-
+concurrency:
+  group: public-site-owner-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 jobs:
-  public-site:
+  public-gateway:
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    timeout-minutes: 12
     steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-
       - name: Set up Python
         uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
-          python-version: '3.12'
+          python-version: "3.12"
           check-latest: false
-
-      - name: Validate public site source and contracts
+      - name: Validate OS-owned Identity, gateway, policy and release contracts
         run: |
           set -euo pipefail
-          python -m unittest tests.test_commercial_catalog -v
-          python tools/public-site/build.py check
-          python tools/brand/build.py check
-          python -m unittest tests.test_brand_pipeline -v
-          python tools/public-site/auth_activation_preflight.py check
-          node tests/test_public_site_localization.mjs
-          node --test tests/test_public_site_localization_runtime.mjs
+          python3 -m unittest \
+            tests.test_external_site_source \
+            tests.test_public_account_edge_gateway_source \
+            tests.test_auth_provider_probe \
+            tests.test_account_release_provider_proof \
+            tests.test_control_plane_privilege_probe \
+            tests.test_account_release_database_proof \
+            tests.test_account_release_session_revocation_proof \
+            tests.test_public_release_catalog \
+            tests.test_public_identity_backend_prep \
+            tests.test_public_identity_gateway \
+            tests.test_public_mcp_usage_bridge \
+            tests.test_pwned_passwords \
+            tests.test_supabase_account_provider \
+            tests.test_supabase_lifecycle_provider \
+            tests.test_account_lifecycle_edge \
+            tests.test_public_site_deployment \
+            tests.test_public_canonical_host_redirects \
+            tests.test_public_site_network_proof \
+            tests.test_vercel_identity_preflight \
+            tests.test_public_legal_readiness \
+            tests.test_account_legal_policy_activation \
+            tests.test_account_legacy_legal_quarantine \
+            tests.test_public_auth_activation_preflight \
+            tests.test_public_legal_hash_consistency -v
           node --test tests/test_public_site_vercel_proxy.mjs
-          node --test tests/test_public_auth_header_nav.mjs
-          node --test tests/test_public_profile_menu.mjs
-          node --test tests/test_public_account_session_client.mjs
-          node --test tests/test_public_account_candidate.mjs
-          node --test tests/test_public_account_web_entry.mjs
-          node --test tests/test_public_signup_legal_integrity.mjs
           node --test tests/test_public_proxy_request_context.mjs
           node --test tests/test_public_proxy_vercel_oidc.mjs
           node --test tests/test_public_auth_edge_rate_limit.mjs
           node --test tests/test_public_account_edge_bounded_body.mjs
-          node --test tests/test_closed_account_boundary.mjs
           node --test tests/test_account_service_bridge.mjs
           node --test tests/test_account_privileged_rpc.mjs
           node --test tests/test_account_transport_admission.mjs
           node --test tests/test_account_mcp_usage_bridge.mjs
-          python -m unittest tests.test_public_account_edge_gateway_source -v
-          python -m unittest tests.test_auth_provider_probe -v
-          python -m unittest tests.test_account_release_provider_proof -v
-          python -m unittest tests.test_control_plane_privilege_probe -v
-          python -m unittest tests.test_account_release_database_proof -v
-          python -m unittest tests.test_account_release_session_revocation_proof -v
-          python -m unittest tests.test_public_site_contract -v
-          python -m unittest tests.test_public_account_entry_ux -v
-          python -m unittest tests.test_public_release_catalog -v
-          python -m unittest tests.test_public_identity_backend_prep -v
-          python -m unittest tests.test_public_identity_gateway -v
-          python -m unittest tests.test_public_mcp_usage_bridge -v
-          python -m unittest tests.test_pwned_passwords -v
-          python -m unittest tests.test_supabase_account_provider -v
-          python -m unittest tests.test_supabase_lifecycle_provider -v
-          python -m unittest tests.test_account_lifecycle_edge -v
-          python -m unittest tests.test_public_site_runtime_smoke -v
-          python -m unittest tests.test_public_site_deployment -v
-          python -m unittest tests.test_public_canonical_host_redirects -v
-          python -m unittest discover -s tests -p 'test_public_site_deployment_proof.py' -v
-          python -m unittest discover -s tests -p 'test_public_site_network_proof.py' -v
-          python -m unittest tests.test_vercel_identity_preflight -v
-          python -m unittest tests.test_public_legal_readiness -v
-          python -m unittest tests.test_account_legal_policy_activation -v
-          python -m unittest tests.test_account_legacy_legal_quarantine -v
-          python -m unittest tests.test_public_auth_activation_preflight -v
-
-      - name: Build and verify deterministic public site
-        run: |
-          set -euo pipefail
-          python tools/public-site/build.py build \
-            --source-commit "$GITHUB_SHA" \
-            --out-dir out/public-site
-          python tools/public-site/build.py verify --out-dir out/public-site
-          python tools/public-site/build.py build \
-            --source-commit "$GITHUB_SHA" \
-            --out-dir "$RUNNER_TEMP/public-site-repeat"
-          python tools/public-site/build.py verify --out-dir "$RUNNER_TEMP/public-site-repeat"
-          diff -qr out/public-site "$RUNNER_TEMP/public-site-repeat"
-          echo 'PUBLIC_SITE_REPEATABILITY=PASS'
-          echo 'KERNEL_REBUILD_REQUIRED=NO'
-          echo 'SHARED_SYSTEM_REBUILD_REQUIRED=NO'
-
-      - name: Prove account viewport and keyboard interaction
-        run: |
-          set -euo pipefail
-          python tools/public-site/preview_server.py \
-            --site-root out/public-site --bind 127.0.0.1 --port 4178 \
-            > "$RUNNER_TEMP/account-preview.log" 2>&1 &
-          preview_pid=$!
-          trap 'kill "$preview_pid" 2>/dev/null || true' EXIT
-          for attempt in {1..40}; do
-            if curl --fail --silent http://127.0.0.1:4178/conta/ > /dev/null; then
-              break
-            fi
-            sleep 0.25
-          done
-          node tools/public-site/browser-smoke.mjs \
-            --public-account-url http://127.0.0.1:4178/conta/ \
-            --evidence-dir out/account-viewport-proof
-
-      - name: Upload account viewport evidence
-        if: always()
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
-        with:
-          name: ordax-account-viewports-${{ github.sha }}
-          path: out/account-viewport-proof/
-          if-no-files-found: warn
-          retention-days: 14
-
-      - name: Upload public site candidate
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
-        with:
-          name: ordax-public-site-${{ github.sha }}
-          path: out/public-site/
-          if-no-files-found: error
-          retention-days: 14
-
-  public-deployment:
+  independent-site-consumer:
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 12
     steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - name: Set up Python
-        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
-        with:
-          python-version: '3.12'
-          check-latest: false
-      - name: Install locked Web build dependencies
-        run: npm ci --ignore-scripts --no-audit --no-fund
-      - name: Verify independent artifact composition
+      - name: Produce public static bundle from exact Site commit (no deployment)
+        env:
+          VERCEL_PROJECT_ID: prj_mA9ew6hOfjdqlBr1cC757iMLPQJC
+          VERCEL_GIT_COMMIT_SHA: ${{ github.sha }}
+        run: python3 tools/vercel/build.py
+      - name: Verify independent source authority and inactive services
         run: |
-          set -euo pipefail
-          python -m unittest tests.test_public_deployment_bundle tests.test_surface_web_builder -v
-          python tools/public-site/deployment.py build --source-commit "$GITHUB_SHA"
-          python tools/public-site/deployment.py verify
-          python tools/public-site/deployment.py build --source-commit "$GITHUB_SHA" --out-dir "$RUNNER_TEMP/public-deployment-repeat"
-          diff -qr out/public-deployment "$RUNNER_TEMP/public-deployment-repeat"
-      - name: Prove mounted Web with public policy
-        run: node tools/surface-web/browser-smoke.mjs --bundle-dir out/public-deployment --mount-path /ordax/ --public-policy vercel.json --evidence-dir out/mounted-web-proof
-      - name: Upload public deployment and viewport evidence
-        if: always()
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
-        with:
-          name: ordax-public-deployment-${{ github.sha }}
-          path: |
-            out/public-deployment/
-            out/mounted-web-proof/
-          if-no-files-found: warn
-          retention-days: 14
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          root = Path.cwd()
+          receipt = json.loads((root / "out/vercel/public-site-manifest.json").read_text())
+          pin = json.loads((root / "docs/contracts/public-site-source.json").read_text())
+          catalog = json.loads((root / "out/vercel/releases/catalog.json").read_text())
+          assert receipt["source_commit"] == pin["commit"]
+          assert receipt["catalog_status"] == "empty"
+          assert catalog["status"] == "empty"
+          assert (root / "out/vercel/login/index.html").is_file()
+          assert not (root / "sites/public").exists()
+          print("OS_CONSUMES_INDEPENDENT_SITE=PASS")
+          PY

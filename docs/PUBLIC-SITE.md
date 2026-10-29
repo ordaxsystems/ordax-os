@@ -6,6 +6,8 @@ legada com redirecionamento permanente. Referências à apresentação em `/web/
 abaixo descrevem o artefato preservado, não uma etapa exigida de acesso.
 
 Este documento descreve **arquitetura, ownership e invariantes atuais** do site público OrdaX.
+
+**Fonte de apresentação:** `ordaxsystems/ordax-site/site/` na revisão fixada em `docs/contracts/public-site-source.json`. O OS não mantém cópia de landing, login, Conta, estilos, recursos ou builder público. `ordax-os` mantém o backend de Identity, gates de ativação, serviços e composição do consumidor Web. A integração de source para desenvolvimento não autoriza automaticamente publicação de produção.
 Ele não é um diário de deploy nem substitui contratos machine-readable ou evidências datadas.
 
 ## Autoridades canônicas
@@ -49,7 +51,7 @@ Uma mudança apenas no site não deve reconstruir kernel, bootstrap, Surface com
 
 | Família | Rotas principais | Owner de apresentação | Owner funcional |
 | --- | --- | --- | --- |
-| Landing/marketing | `/` | `sites/public/` + assets próprios | public-site |
+| Landing/marketing | `/` | `ordaxsystems/ordax-site/site/` + assets próprios | public-site |
 | Download | `/download/` | `assets/download.css` | catálogo público de releases |
 | Identidade pública | `/login/`, `/cadastro/`, `/recuperar/`, `/recuperar/nova-senha/` | **`assets/account.css`** | `assets/site.js` + gateway público de Identity |
 | Conta autenticada | `/conta/` e subrotas autorizadas | implementação canônica de Conta vigente | `GET /auth/session` + APIs server-side autorizadas |
@@ -61,7 +63,7 @@ Uma mudança apenas no site não deve reconstruir kernel, bootstrap, Surface com
 Login, cadastro e recuperação são uma única família visual e usam o mesmo owner:
 
 ```text
-sites/public/assets/account.css
+ordaxsystems/ordax-site/site/assets/account.css
 ```
 
 Não existem owners visuais independentes `login.css` ou `cadastro.css`, e recuperação não pertence a `portal.css`.
@@ -144,7 +146,7 @@ O portal autenticado `/conta/` pode ter composição própria de aplicação, de
 O owner de localização do portal é:
 
 ```text
-sites/public/i18n/
+ordaxsystems/ordax-site/site/i18n/
 ```
 
 PT-BR é locale fonte/default e en-US deve manter paridade de chaves e placeholders para o escopo declarado como bilíngue.
@@ -214,35 +216,28 @@ comprova implantação, ativação das flags, coleta real nem E2E público.
 
 ## Build e validação
 
-Comandos canônicos do artefato:
+A fonte e o builder estático vivem exclusivamente no repositório `ordax-site`.
+No checkout desse repositório, em ambiente **Dev**, execute:
 
 ```bash
-python tools/public-site/build.py check
-python tools/public-site/build.py build --source-commit <40-hex-sha> --out-dir out/public-site
-python tools/public-site/build.py verify --out-dir out/public-site
+python3 scripts/build.py check
+python3 -m unittest discover -s tests -p 'test_*.py' -v
+node tests/test_localization.mjs
 ```
 
-O `Public Site Candidate` é o gate de PR da superfície pública. Ele deve validar build determinístico, contratos, localização e testes de browser/viewport aplicáveis.
+O pipeline do Site gera e verifica seu bundle usando o lock de artefatos de
+migração de desenvolvimento; o manifesto e o catálogo de downloads não autorizam
+publicação oficial. Consulte `ordax-site/README.md` e
+`ordax-site/.github/workflows/site-source.yml` para o procedimento canônico de
+build/verify e os parâmetros de origem. Não executar um builder substituto no OS.
 
-O hosting compõe esse artefato com o Web, sem importar a Surface no portal:
-
-```bash
-npm ci --ignore-scripts --no-audit --no-fund
-python tools/public-site/deployment.py build --source-commit <40-hex-sha>
-python tools/public-site/deployment.py verify
-```
-
-O resultado em `out/public-deployment` conserva os arquivos e manifests dos dois
-builders: portal na raiz e Web em `/ordax/`, compilado com esse `--mount-path` pelo
-builder Web. Os componentes devem corresponder ao mesmo commit. A composição
-verifica hashes, rejeita arquivos extras/links e não amplia a lista de arquivos
-aceitos pelo builder do portal. O CI também verifica repetibilidade e a experiência
-montada com os cabeçalhos públicos reais. A configuração Vercel usa esse resultado;
-isso declara o deployment alvo, não uma observação de produção já atualizada.
-
-A entrada autenticada `/web/` continua sujeita aos seus gates de sessão e ativação.
-Hospedar o runtime em `/ordax/` não habilita login/cadastro, backend ou provedor e
-não transforma exemplos preservados em operações reais.
+O OS fixa a revisão de Site por `docs/contracts/public-site-source.json` e
+os projetos Vercel existentes usam `tools/vercel/build.py`: o projeto do portal
+consome o builder independente; o OrdaX Web compõe apenas o login e dependências
+verificadas, junto da Surface pinada. Não há mais a composição histórica
+`tools/public-site/deployment.py`, o mount `/ordax/` nem o source
+`sites/public/` no OS. O cutover do **código Dev** não transfere DNS nem libera
+Identity, downloads, produção ou Stable.
 
 Para provar o domínio real sem credenciais:
 
@@ -286,7 +281,7 @@ Detalhes operacionais e observações de runtime pertencem a `docs/contracts/pub
 
 Invariantes permanentes do portal:
 
-- nenhum private key, service-role key, password ou bearer token em `sites/public/`;
+- nenhum private key, service-role key, password ou bearer token em `ordaxsystems/ordax-site/site/`;
 - nenhum token de sessão legível pelo JavaScript público;
 - nenhum acesso browser direto a storage privilegiado;
 - Identity e Sync same-origin por padrão;

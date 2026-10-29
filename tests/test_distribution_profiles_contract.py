@@ -39,6 +39,21 @@ class DistributionProfilesContractTests(unittest.TestCase):
             "bootstrap/dev-base/ordax-pull",
         )
         self.assertEqual(owner["runtime_update_owner"], "system/supervisor")
+        adapters = owner["runtime_host_adapters"]
+        self.assertEqual(adapters["linux-usb"]["git_main_materializer"],
+                         owner["normal_update_owner"])
+        self.assertEqual(adapters["linux-usb"]["health_promotion_owner"],
+                         owner["runtime_update_owner"])
+        windows = adapters["windows-desktop"]
+        self.assertEqual(windows["git_main_materializer"],
+                         "tools/windows-desktop/dev-update.cjs")
+        self.assertEqual(windows["health_promotion_owner"],
+                         "tools/windows-desktop/dev-update.cjs")
+        self.assertEqual(windows["application_relaunch_owner"],
+                         "tools/windows-desktop/main.cjs")
+        self.assertTrue(windows["automatic_idle_activation"])
+        self.assertTrue(windows["operates_only_while_electron_is_running"])
+        self.assertFalse(windows["electron_shell_self_update_implemented"])
         self.assertEqual(
             owner["base_update_owner"],
             "system/services/base-update/agent.sh",

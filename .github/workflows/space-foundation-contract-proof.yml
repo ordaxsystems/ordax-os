@@ -23,6 +23,7 @@ on:
       - 'infra/supabase/functions/ordax-account-gateway/index.ts'
       - 'infra/supabase/product/migrations/*space_members*'
       - 'infra/supabase/product/migrations/*space_actor_capability*'
+      - 'tests/test_identity_bound_space_experience.mjs'
       - 'tests/test_space_foundation_nonblocking.mjs'
       - 'tests/test_space_lifecycle.mjs'
       - 'tests/test_space_lifecycle_runtime.mjs'
@@ -66,6 +67,7 @@ on:
       - 'infra/supabase/functions/ordax-account-gateway/index.ts'
       - 'infra/supabase/product/migrations/*space_members*'
       - 'infra/supabase/product/migrations/*space_actor_capability*'
+      - 'tests/test_identity_bound_space_experience.mjs'
       - 'tests/test_space_foundation_nonblocking.mjs'
       - 'tests/test_space_lifecycle.mjs'
       - 'tests/test_space_lifecycle_runtime.mjs'
@@ -101,6 +103,9 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Prepare pinned Surface source in disposable CI checkout
+        uses: ./.github/actions/prepare-verified-surface
+
       - name: Check Space contracts
         run: |
           set -euo pipefail
@@ -112,6 +117,7 @@ jobs:
           node --check system/contracts/space-actor-capability.mjs
           node --check system/contracts/space-membership-actions.mjs
           node --check system/services/spaces/composition.mjs
+          node --check system/services/spaces/identity-bound-experience.mjs
           node --check system/services/spaces/lifecycle.mjs
           node --check system/services/spaces/members.mjs
           node --check system/services/spaces/actor-capability.mjs
@@ -146,3 +152,4 @@ jobs:
           node --test tests/test_spaces_catalog.mjs
           node --test tests/test_space_selection.mjs
           node --test tests/test_space_experience.mjs
+          node --test tests/test_identity_bound_space_experience.mjs

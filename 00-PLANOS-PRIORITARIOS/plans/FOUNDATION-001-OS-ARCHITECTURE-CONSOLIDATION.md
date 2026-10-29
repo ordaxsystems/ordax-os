@@ -129,6 +129,7 @@ Esta é uma **organização lógica**, não uma autorização para mover diretó
 ### Fase 4 — boot, Supervisor e desligamento (P0)
 
 - [x] Reconciliar PRs #2168, #2169 e checkout #2161 nos owners existentes; commits de merge `8bdea25a`, `cf38cfa2`, `85ac5fe8`. **Somente integração de código, sem homologação física**.
+- [x] Validar e integrar o readiness real do desbloqueio LUKS no QEMU Native (#2148; merge `abfcea93`; 10/10 workflows no HEAD da PR, inclusive Native ESP UEFI/PID1). **Não é prova de notebook ou USB físico**.
 - [ ] Eliminar loops sem diagnóstico; distinguir falha de display, Surface, networking, Base e estado de update.
 - [ ] Provar ordem, readiness, boot offline known-good, timeout bounded, manutenção só por erro real e logs estruturados.
 - [ ] Validar reinício/desligamento sem esperar indefinidamente, sem mascarar falha de flush/remount.
@@ -146,7 +147,9 @@ Esta é uma **organização lógica**, não uma autorização para mover diretó
 
 ### Fase 6 — Creator, layout e imagem USB (P0)
 
-- [ ] Reconciliar PRs #2000/#2167 e migração da geometria transitória à final do Portable conforme contratos.
+- [x] Reconciliar e integrar #2167: Portable assinado na geometria transitória Dev com RAW QEMU descartável e ESP FAT32 + ORDAX ext4 vazia + DATA exFAT (`cbd0239a`, 3/3 workflows). Não comprova Owner Git-first, EFI mixed-profile nem recovery cruzado.
+- [ ] Concluir #2000: substituir o inventário duplicado de 17 fontes somente pelo Creator Core. A PR permanece draft; testes sintéticos não destrutivos devem ser provados no workflow antes do rebuild da release, mas o gate de publicação física continua obrigatório.
+- [ ] Reconciliar Creator e boot com o layout final Portable de duas partições segundo `docs/contracts/portable-usb-v2.json`, sem modificar o contrato transitório Owner/Dev nem inventar geometria adicional.
 - [ ] Validar payload preseeded de release e runtime/IA quando exigidos pelo release atual, sob hashes, assinatura e política de remoção independente.
 - [ ] Provar Creator e boot consumindo exatamente a mesma topologia, hashes, capacidades e políticas; sem terceira geometria ad hoc.
 - [ ] Gerar mídia descartável, validar GPT primária/secundária, FAT32/exFAT/EROFS/ext4, labels, acesso e readback.
@@ -187,10 +190,25 @@ A autorização física/trust/EFI é controlada exclusivamente por seus contrato
 
 ## Próxima ação de execução (handoff imediato)
 
-**Próxima prova P0 — fonte mesclada, hardware ainda não comprovado:** revalidar `main@85ac5fe8` (não é pin), os checks pós-merge de Owner Preflight, Foundation, Creator USB e QEMU, e as PRs paralelas ainda abertas. Quando o notebook Owner/Dev estiver acessível, coletar **somente leitura**: SHA Git ativo, versão da Base, recibos de known-good, `dev-helpers-sha`, resposta real de `/usr/local/bin/ordax-checkout-exchange --abi`, estado de boot/update e ext4; não presumir que o USB físico foi atualizado. Verificar a transição Base-first e o rollback com gates e autorização adequados antes de qualquer gravação, reboot ou promoção física. A integração do código é **PASS-CI/PASS-QEMU**, nunca PASS-PHYSICAL. Não abrir outra PR de checkout, restaurar Files removido ou reaplicar snapshots públicos antigos. Prosseguir em outras fases somente após seus gates.
+**Próxima ação P0 — exclusivamente source/CI/QEMU, sem notebook ou USB físico nesta janela:** revalidar a `main` corrente e os checks pós-merge, sem fixar um commit histórico como autoridade. Fechar a PR #2000 no owner do Creator **somente** após as provas: o CI antigo do `First Physical USB Payload` falhou ao reconstruir a release imutável `03f88eea`, cujo lock APK pede `ca-certificates=20260909-r0` ausente do índice atual, embora a Base da `main` já use `20261020-r0` com reproof. A tag antiga publica cinco assets; o publicador/writer físico v3 exige 17 fontes remotas verificáveis. Não alterar a tag, selecionar bytes de outra revisão, abrir publisher paralelo ou transformar CI parcial em aprovação. A cadeia de assinatura/publicação, o binding autorizado e o readback devem ser consertados nos owners existentes.
+
+Na sequência, provar **em um mesmo disco QEMU descartável** o bootstrap Owner Git-first e o Portable assinado, seleção de perfil, cold-health e fallback/rollback com estado persistente (a PR #2167 prova apenas Portable sobre três partições, com ORDAX ext4 vazia). Continuar auditoria e limpeza somente após grafo de consumidores e regressões. Toda prova física permanece `NOT-PROVEN` até uma etapa futura **posterior ao fechamento source da fundação**, com nova decisão e autorização específica. Não investigar presença, login ou atualizações de dispositivos físicos durante este trabalho.
 
 **Handoff para novo chat/agente:** "No repositório `ordaxsystems/ordax-os`, leia `AGENTS.md` e `00-PLANOS-PRIORITARIOS/plans/FOUNDATION-001-OS-ARCHITECTURE-CONSOLIDATION.md`. Revalide contratos, `main`, PRs concorrentes e provas. Continue a próxima fase elegível pelo owner existente; não crie SSOT/planos/updaters paralelos. Diferencie merge/CI/QEMU/USB físico e atualize os owners com evidências." 
 
 ## Checkpoint de execução da Fase 1 — 2026-10-23
 
 Mapa inicial de entrypoints, contratos de USB e colisões de PR: [evidência datada](../../docs/evidence/foundation-001-source-map-2026-10-23.md). Revalidado sobre `main@ec6cb268cbcfe`: #2177 e #2176 **já integradas**. Esta é evidência **PARCIAL**, não fase concluída: faltam grafo exaustivo de consumidores, prova QEMU/CI do HEAD e dados físicos. Evitar novo updater/Creator/Base e não refazer trabalho das PRs existentes.
+
+## Checkpoint source/CI/QEMU — 2026-10-23 (não é contrato canônico)
+
+- `main`: as PRs #2148 (Native QEMU readiness; `abfcea93`) e #2167 (Portable assinado em geometria Dev transitória; `cbd0239a`) foram integradas por **merge commits**, com provas QEMU/CI no HEAD final de cada PR. Os workflows disparados *após* o merge são verificados separadamente; não presumir aprovação até a conclusão efetiva.
+- **Creator 17 fontes:** #2000 permanece draft. O owner `tools/creator/core/portable_sources.go` produz hashes/tamanhos a partir do inventário único `portableMediaTargets`; `VerifyPortableSources` faz a leitura independente. A falha histórica `First Physical USB Payload` é anterior à execução do binder, no `apk add` da Base pinada à release antiga; nenhum botão de bypass é permitido.
+- **Geometrias distintas:** `docs/contracts/physical-prepared-media.json` (Dev/Owner transitório: FAT32 + ext4 + exFAT) e `docs/contracts/portable-usb-v2.json` (Stable final: FAT32 + exFAT, com imagens internas) não podem ser colapsados nem misturados como fonte de geometria genérica.
+- **Próximos gates exclusivamente de software:** fonte do Creator; publicação reproduzível e verificável dos 17 assets; prova mista Owner Git + Portable no mesmo QEMU com transação/known-good; matriz objetiva PASS-CI / PASS-QEMU / NOT-PROVEN físico. Sem reaproveitar artefatos não assinados nem cadastrar novo SSOT.
+- **Execução física:** propositalmente fora do escopo de trabalho até a fundação de source estar finalizada. O fato de um dispositivo estar indisponível não bloqueia esta fase, nem autoriza relatá-lo como validado.
+- **QEMU/Creator SSOT fechado:** #2190, merge `269c39ff`, 3/3 workflows PASS no HEAD `737bf56c` (Foundation, mount handoff, boot Portable real não-skipped em geometrias final e Dev). O executor QEMU agora lê GUIDs/labels/offsets dos contratos de dois e três partitions, sem valores paralelos. Não prova Git-first misto, firmware físico ou rescue Ed25519 inválida (step separado skipped).
+- **Higiene de branches:** após #2190, run `40027556781` falhou em `gh compare` por HTTP 502; #2191, merge `0203f890`, implementou retry curto e limitado de leituras idempotentes, mantendo erros permanentes fail-closed e proibindo retry de DELETE. Foundation Contract do HEAD `e2325347` PASS; workflow operacional pós-merge deve ser verificado separadamente, não presumido.
+- **Creator bloqueado com prova distinta:** #2000, HEAD `a8c11fb`, 12/13 workflows success e `First Physical USB Payload` FAILURE (run `40023236896`). O teste Core sintético de 17 fontes passou antes da construção; o Stable Base histórico `03f88eea` exige `ca-certificates=20260909-r0` indisponível. A composição **local** de 17 fontes aproveita os cinco assets v4 assinados mais artefatos locais, mas falha antes dela; o **publisher físico v3**, separadamente, exige 17 assets **remotos publicados e conferidos**, ainda inexistentes nessa release. Não confundir gates nem regravar tag.
+- **Base independente sem corte Alpine:** #1860 contém 21 workflows success no HEAD histórico `46551591`, mas está 281 commits atrás da main na auditoria de `269c39ff`. Dos 47 paths, 45 não sofreram alteração concorrente; os dois conflitantes são `system/services/base-update/dev_channel.py` e `tests/test_hot_update_supervisor.py`. O Buildroot Owner ainda não inclui o helper nativo `ordax-checkout-exchange`/ABI exigido hoje pela `main`. Reconciliar com o produtor/toolchain canônicos antes de qualquer promoção; não reviver a troca com dois `mv`. Evidência/handoff registrado na PR #1860.
+

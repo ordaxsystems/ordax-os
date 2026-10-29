@@ -1,6 +1,7 @@
 name: Foundation Contract
 
 on:
+  workflow_dispatch: # Run existing consumer validation on immutable bot PR branches
   push:
     branches: [main]
   pull_request:
@@ -16,6 +17,9 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
+
+      - name: Prepare external Surface in disposable CI checkout
+        uses: ./.github/actions/prepare-verified-surface
 
       - name: Install locked Web build dependencies
         run: npm ci --ignore-scripts --no-audit --no-fund

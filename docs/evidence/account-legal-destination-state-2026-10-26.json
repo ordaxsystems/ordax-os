@@ -1,0 +1,40 @@
+{
+  "$schema": "prototype-ordax.account-legal-destination-observation/1",
+  "observed_date": "2026-10-26",
+  "destination_project_ref": "jhfphsjptrpmtnzkpwud",
+  "method": "Authorized Supabase project, read-only SQL aggregations of auth.users, ordax_accounts, private.ordax_account_legal_policies and private.ordax_account_legal_receipts; no row identifiers or personal data exported",
+  "observation": {
+    "existing_auth_users": true,
+    "existing_product_accounts": true,
+    "active_legal_policy_count": 1,
+    "active_legal_policy_versions": {
+      "privacy": "2026.10.09",
+      "terms": "2026.10.09"
+    },
+    "active_legal_policy_urls": {
+      "privacy": "https://ordax.com.br/privacidade/",
+      "terms": "https://ordax.com.br/termos/"
+    },
+    "active_policy_has_activation_timestamp": true,
+    "registration_receipts_present": true,
+    "policy_hashes_are_64_hex_chars": true,
+    "aggregate_records_nonzero": true
+  },
+  "separate_release_gates": {
+    "approved_immutable_legal_snapshots": false,
+    "operator_identity_reviewed": false,
+    "operator_privacy_contact_verified": false,
+    "public_registration_enabled": false,
+    "public_login_enabled": false,
+    "provider_cutover_complete": false,
+    "recovery_e2e_verified": false,
+    "session_revocation_e2e_verified": false,
+    "account_activation_authorized": false
+  },
+  "security_notes": [
+    "Database policy state=active is a fact about a row, NOT proof that the operator completed legal review or that approved public legal snapshots exist.",
+    "Public users already exist in the destination. Do not re-run a plan that requires an empty auth.users table, delete users, or force an identity cutover.",
+    "The historical provider remains separately identified in the active target contract; do not set functional_provider_cutover_complete=true from these counts.",
+    "No user identifiers, emails, tokens, raw receipts, policy identifiers or password material included."
+  ]
+}

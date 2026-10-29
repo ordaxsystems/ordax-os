@@ -14,6 +14,7 @@ import json
 import re
 import subprocess
 import sys
+import time
 import urllib.parse
 from collections.abc import Callable, Iterable
 from typing import Any
@@ -24,6 +25,11 @@ PROTECTED_BRANCHES = frozenset({"main", "ordax-rescue"})
 # main" cleanup must not invalidate the operator's cryptographic provenance.
 # This is retention only, never release/signing/physical-write authority.
 FROZEN_CANDIDATE_REF = re.compile(r"release-candidate/[0-9a-f]{40}\Z")
+
+# Retry only idempotent GitHub reads. A failed compare must never qualify
+# a branch for deletion; retries are bounded and unsuccessful reads fail closed.
+RETRYABLE_READ_HTTP_CODES = frozenset({429, 500, 502, 503, 504})
+MAX_READ_ATTEMPTS = 3
 
 
 def is_protected_ref(ref: str, source_sha: str | None = None) -> bool:
@@ -135,12 +141,29 @@ class GitHubApi:
         self.repository = repository
 
     def _run(self, *args: str) -> subprocess.CompletedProcess[str]:
-        return subprocess.run(
-            ["gh", "api", *args],
-            check=False,
-            capture_output=True,
-            text=True,
-        )
+        # Destructive requests are never retried: the first DELETE could
+        # have succeeded despite a failed response from the API.
+        read_only = "--method" not in args
+        attempts = MAX_READ_ATTEMPTS if read_only else 1
+        for attempt in range(attempts):
+            result = subprocess.run(
+                ["gh", "api", *args],
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+            if result.returncode == 0:
+                return result
+            transient = any(
+                f"HTTP {status}" in result.stderr
+                for status in RETRYABLE_READ_HTTP_CODES
+            )
+            if not read_only or not transient or attempt == attempts - 1:
+                return result
+            # Short bounded exponential backoff, without interpreting
+            # any transport failure as an empty, deleted or merged ref.
+            time.sleep(0.5 * (2 ** attempt))
+        raise AssertionError("unreachable")
 
     @staticmethod
     def _raise(result: subprocess.CompletedProcess[str], operation: str) -> None:
