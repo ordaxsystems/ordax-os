@@ -100,6 +100,8 @@ class PortableQemuImpactTests(unittest.TestCase):
         creator_and_desktop = [
             ".github/workflows/creator-owner-dev-git.yml",
             "tests/test_creator_owner_external_source.py",
+            "tools/ci/creator_owner_impact.py",
+            "tests/test_creator_owner_impact.py",
             "tools/ci/portable_qemu_impact.py",
             "tests/test_portable_qemu_impact.py",
             "system/adapters/desktop/local-ai-host.mjs",
