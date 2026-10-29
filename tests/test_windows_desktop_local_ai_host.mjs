@@ -94,6 +94,15 @@ test("single supervised engine, fixed model, authenticated same-origin inference
   assert.equal(h.launchCalls.length,1);
   assert.equal(h.launchCalls[0].path,model.executable);
   assert.equal(h.launchCalls[0].opts.cwd,model.engineDirectory);
+  // Guard the actual Windows inference launch against llama.cpp changing its
+  // automatic context (observed excessive memory before model readiness).
+  const flags=h.launchCalls[0].args;
+  assert.deepEqual(flags.slice(flags.indexOf("--ctx-size"),flags.indexOf("--ctx-size")+2),
+    ["--ctx-size","2048"]);
+  assert.deepEqual(flags.slice(flags.indexOf("--parallel"),flags.indexOf("--parallel")+2),
+    ["--parallel","1"]);
+  assert.equal(flags.filter(x=>x==="--ctx-size").length,1);
+  assert.equal(flags.filter(x=>x==="--parallel").length,1);
   assert.ok(h.launchCalls[0].opts.env.LLAMA_ARG_API_KEY_FILE);
   assert.ok(h.fetchCalls.every(v=>v.options.headers.Authorization.startsWith("Bearer ")));
   assert.ok(h.fetchCalls.every(v=>v.url.startsWith("http://127.0.0.1:")));
