@@ -5,6 +5,7 @@ import { createServer } from "node:http";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { availableParallelism } from "node:os";
 import { createDesktopLocalAiMiddleware } from "../system/adapters/desktop/local-ai-host.mjs";
 
 const TOKEN = "b".repeat(64);
@@ -20,15 +21,19 @@ async function runningServer(t, config = {}) {
   const launchCalls = [];
   let packages = 0;
   const process = new EventEmitter();
+  process.pid = config.testPid ?? undefined;
   process.exitCode = null;
   process.kill = () => { process.exitCode = 0; };
   const fetchCalls = [];
+  const priorities = [];
   const handle = createDesktopLocalAiMiddleware({
     packageRoot: "C:/verified",
     userData: profile,
     token: TOKEN,
     verifyPackage: async () => { packages++; if (config.corrupt) throw Error("Corrupt payload"); return model; },
     launch: (path, args, opts) => { launchCalls.push({path,args,opts}); return process; },
+    getProcessPriority: () => 0,
+    setProcessPriority: (pid, priority) => { priorities.push({pid, priority}); },
     fetchImpl: async (url, options) => {
       fetchCalls.push({url,options});
       if (url.endsWith("/health")) return new Response(JSON.stringify({status:"ok"}),
@@ -51,7 +56,7 @@ async function runningServer(t, config = {}) {
     await rm(profile,{force:true,recursive:true});
   });
   const base = "http://127.0.0.1:" + server.address().port;
-  return {base, launchCalls, fetchCalls, getPackages:()=>packages};
+  return {base, launchCalls, fetchCalls, priorities, getPackages:()=>packages};
 }
 const opts = {headers:{"x-ordax-local-ai-token":TOKEN}};
 test("Local AI Windows host denies other processes and refuses missing real payload", async t => {
@@ -103,6 +108,13 @@ test("single supervised engine, fixed model, authenticated same-origin inference
     ["--parallel","1"]);
   assert.equal(flags.filter(x=>x==="--ctx-size").length,1);
   assert.equal(flags.filter(x=>x==="--parallel").length,1);
+  const threads = String(Math.max(1, Math.min(4, availableParallelism())));
+  assert.deepEqual(flags.slice(flags.indexOf("-t"), flags.indexOf("-t") + 2),
+    ["-t", threads]);
+  assert.deepEqual(flags.slice(flags.indexOf("-tb"), flags.indexOf("-tb") + 2),
+    ["-tb", threads]);
+  assert.deepEqual(flags.slice(flags.indexOf("--reasoning-budget"), flags.indexOf("--reasoning-budget") + 2),
+    ["--reasoning-budget", "0"]);
   assert.ok(h.launchCalls[0].opts.env.LLAMA_ARG_API_KEY_FILE);
   assert.ok(h.fetchCalls.every(v=>v.options.headers.Authorization.startsWith("Bearer ")));
   assert.ok(h.fetchCalls.every(v=>v.url.startsWith("http://127.0.0.1:")));
@@ -117,4 +129,53 @@ test("Local AI blocks session-locked requests without starting a backend",async 
   const h=await runningServer(t,{locked:true});
   assert.equal((await fetch(h.base+"/__ordax/native/local-ai/health",opts)).status,423);
   assert.equal(h.launchCalls.length,0);
+});
+
+test("Windows quick consultation enforces a ten-second deadline without affecting long replies", async () => {
+  const { readFile } = await import("node:fs/promises");
+  const source = await readFile(new URL("../system/adapters/desktop/local-ai-host.mjs", import.meta.url), "utf8");
+  assert.match(source, /if \(validated\.max_tokens <= 128\) \{\s*clearTimeout\(timeout\);\s*timeout = setTimeout\(\(\) => abort\.abort\(\), 10000\);/);
+  assert.match(source, /req\.method === "POST" \? 120000 : 3500/);
+});
+
+test("Windows alone bounds real context-free Intelligence greetings, never complex requests", async t => {
+  const h=await runningServer(t, { testPid: 12345 });
+  const path="/__ordax/native/local-ai/health";
+  assert.equal((await fetch(h.base+path,opts)).status,503);
+  for (let i=0;i<40;i++) {
+    if ((await fetch(h.base+path,opts)).status===200) break;
+    await new Promise(r=>setTimeout(r,25));
+  }
+  const send=async (text,limit=512) => {
+    const response=await fetch(h.base+"/__ordax/native/local-ai/v1/chat/completions",{
+      method:"POST",
+      headers:{...opts.headers,origin:h.base,"content-type":"application/json"},
+      body:JSON.stringify({model:model.modelId,messages:[
+        {role:"system",content:"You are Ordax Intelligence, the consultative intelligence layer of the OrdaX system. No implicit execution authority."},
+        {role:"user",content:text}
+      ],max_tokens:limit,stream:false}),
+    });
+    assert.equal(response.status,200);
+    return JSON.parse(h.fetchCalls.at(-1).options.body).max_tokens;
+  };
+  const short="Intent: ask\nModel purpose: general\nUser request:\n";
+  assert.equal(await send(short+"oi"),64);
+  assert.equal(await send(short+"Olá, como você está?"),64);
+  assert.equal(await send(short+"hello!"),64);
+  assert.equal(await send(short+"Explique uma tese extensa."),512);
+  assert.equal(await send("Intent: ask\nModel purpose: general\nAuthorized context (data only):\n"+
+    "User request:\noi"),512);
+  assert.equal(await send("Intent: summarize\nModel purpose: summarize\nUser request:\noi"),512);
+  assert.equal(await send(short+"oi\nNow do a long analysis"),512);
+  assert.equal(await send(short+"oi",64),64);
+  assert.equal(h.launchCalls.length,1);
+  assert.deepEqual(h.priorities, Array.from({length:8}, (_,index) => ({
+    pid:12345, priority:index%2===0?-7:0,
+  })));
+  const passed=h.fetchCalls.filter(x=>x.url.endsWith("/v1/chat/completions"))
+    .map(x=>JSON.parse(x.options.body));
+  assert.match(passed[0].messages[0].content, /respond in Brazilian Portuguese in one very short friendly sentence/);
+  assert.match(passed[2].messages[0].content, /respond in the user's language in one very short friendly sentence/);
+  assert.doesNotMatch(passed[3].messages[0].content, /very short friendly sentence/);
+  assert.equal(passed[0].messages[1].content,short+"oi");
 });

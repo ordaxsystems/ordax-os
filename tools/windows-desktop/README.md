@@ -87,20 +87,20 @@ Surface ou nos adaptadores Windows devem acioná-lo.
 
 O produto consome **uma unica** cadeia de inferencia:
 `ordax.intelligence/1 -> ordax.local-ai/1 -> /__ordax/native/local-ai`.
-O source-lock do OS inclui agora a identidade PE x64, com oito hashes
-verificados pela CI do repositório `ordax-intelligence`. O Native Host
+O source-lock do OS inclui agora a identidade PE x64, com hashes para todas as variantes de CPU do pacote Windows, verificados
+pela CI do repositório `ordax-intelligence`. O Native Host
 verifica todos os EXE/DLL e o GGUF no pacote imutavel
 `resources/runtime-template/local-ai-runtime/{engine,models}`, antes de
 iniciar uma única instancia local de `llama-server`. O segredo é gerado
 pelo host e **não** chega ao renderer; apenas a Surface Electron autorizada
 recebe o grant de rota. O motor nunca bloqueia o boot do OS.
 
-**Limite da fatia de source:** o pacote binario e o GGUF ainda nao sao
-materializados pelo instalador Owner/Dev. Em uma instalacao sem o pacote,
-a Aura permanece indisponivel (503), corretamente. Não marcar a issue
-#2251 concluída ate materialização verificada, E2E offline no .exe,
-cancelamento, recuperacao e rollback. Nenhum runtime e instalado
-a partir de downloads na primeira execucao.
+**Entrega:** o instalador Owner/Dev deve transportar todos os binários
+pinados e o modelo verificado. Atualizar apenas o source lock não substitui
+as DLLs de uma instalação antiga: a entrega requer a mesma revisão de
+engine e código no instalador, mais teste físico e rollback. Não marcar
+o app externo assistant como instalado, nem ativar pacotes não assinados.
+Nenhum runtime é baixado automaticamente na primeira execução.
 
 ### Integridade da observação de updates
 

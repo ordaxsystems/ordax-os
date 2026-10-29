@@ -435,8 +435,9 @@ class PortableQemuImpactTests(unittest.TestCase):
                     }
                     for i, name in enumerate(
                         (
-                            "ggml-base.dll", "ggml-cpu.dll", "ggml.dll",
-                            "llama-common.dll", "llama-server-impl.dll",
+                            "ggml-base.dll", "ggml-cpu-x64.dll",
+                            "ggml-cpu-sandybridge.dll", "ggml-cpu-haswell.dll",
+                            "ggml.dll", "llama-common.dll", "llama-server-impl.dll",
                             "llama-server.exe", "llama.dll", "mtmd.dll",
                         )
                     )
@@ -457,6 +458,12 @@ class PortableQemuImpactTests(unittest.TestCase):
             malformed = commit(malformed_windows_pin, "invalidate Windows file pin")
             self.assertFalse(
                 impact.verified_windows_only_local_ai_lock_delta(before, malformed, root=root)
+            )
+            foreign_windows = json.loads(json.dumps(windows))
+            foreign_windows["engine"]["windows_artifact"]["files"][1]["name"] = "unsigned.dll"
+            foreign = commit(foreign_windows, "untrusted Windows DLL")
+            self.assertFalse(
+                impact.verified_windows_only_local_ai_lock_delta(before, foreign, root=root)
             )
             changed_model = json.loads(json.dumps(windows))
             changed_model["model"]["sha256"] = "c" * 64
