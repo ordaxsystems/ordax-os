@@ -224,10 +224,15 @@ jobs:
           kernel_version=$(python3 -c 'import json; from pathlib import Path; print(json.loads(Path("bootstrap/kernel/source.json").read_text(encoding="utf-8"))["version"])')
           module_archive="$RUNNER_TEMP/portable-v2-qemu/kernel/kernel-modules-$kernel_version.tar"
           test -f "$module_archive"
+          receipt_root="$RUNNER_TEMP/ordax-independent"
+          test ! -L "$receipt_root"
+          install -d -m 0700 -- "$receipt_root"
+          test -d "$receipt_root"
+          test ! -L "$receipt_root"
           printf 'ORDAX_HOST_PYTHON=%s\n' "$(command -v python3)" >> "$GITHUB_ENV"
           printf 'ORDAX_KERNEL_MODULES_ARCHIVE=%s\n' "$module_archive" >> "$GITHUB_ENV"
-          printf 'ORDAX_KERNEL_MODULES_RECEIPT=%s\n' "$RUNNER_TEMP/ordax-independent/kernel-module-payload.json" >> "$GITHUB_ENV"
-          printf 'ORDAX_FIRMWARE_COVERAGE_RECEIPT=%s\n' "$RUNNER_TEMP/ordax-independent/firmware-coverage.json" >> "$GITHUB_ENV"
+          printf 'ORDAX_KERNEL_MODULES_RECEIPT=%s\n' "$receipt_root/kernel-module-payload.json" >> "$GITHUB_ENV"
+          printf 'ORDAX_FIRMWARE_COVERAGE_RECEIPT=%s\n' "$receipt_root/firmware-coverage.json" >> "$GITHUB_ENV"
       # Both profile fingerprints pin actual Buildroot inputs; Owner additionally
       # binds Dev helpers, firmware and the independently verified kernel.
       # All cache hits must be reverified against the current checkout.
