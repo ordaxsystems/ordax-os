@@ -124,6 +124,10 @@ export function createDesktopLocalAiMiddleware({
   const threads = Math.max(1, Math.min(4, availableParallelism()));
   let model = null, child = null, port = null, secret = null, secretDirectory = null;
   let starting = null, failed = false, disposed = false;
+  // A cancelled llama-server request can keep decoding after HTTP disconnect.
+  // One private model process is authoritative; never allow ghost generations
+  // to starve the next user request or leave multiple engines running.
+  let activeCompletions = 0, restartRequired = false, recycling = null;
   // Only short interactive consultations get an elevated CPU scheduling share.
   // Restore after the last quick request, including errors and cancellation.
   let quickInFlight = 0, priorityPid = null, previousPriority = null;
@@ -172,7 +176,7 @@ export function createDesktopLocalAiMiddleware({
       // almost 9 GiB without reaching model readiness. The identical pinned GGUF
       // reached health=ok using one 2048-token slot (~713 MiB RSS). Do not let
       // upstream context defaults determine a Windows Desktop memory budget.
-      child = launch(model.executable, [
+      const launched = launch(model.executable, [
         "--host", "127.0.0.1", "--port", String(port),
         "--model", model.modelFile, "--alias", model.modelId,
         "--reasoning", "off", "--reasoning-budget", "0",
@@ -183,8 +187,10 @@ export function createDesktopLocalAiMiddleware({
         cwd: model.engineDirectory, windowsHide: true, stdio: "ignore",
         env: { ...process.env, LLAMA_ARG_API_KEY_FILE: join(secretDirectory, "key") },
       });
-      child.once("error", () => { failed = true; });
-      child.once("exit", () => { failed = true; });
+      child = launched;
+      // A superseded child cannot poison readiness of its verified successor.
+      launched.once("error", () => { if (child === launched) failed = true; });
+      launched.once("exit", () => { if (child === launched) failed = true; });
       // A cold model load is not allowed to stall the OS or a Surface request.
       // The canonical Local AI probe supervisor retries when the backend warms up.
       return true;
@@ -196,6 +202,49 @@ export function createDesktopLocalAiMiddleware({
       throw error;
     });
     return starting;
+  };
+  const recycleAbandonedBackend = async () => {
+    if (disposed || !restartRequired || activeCompletions !== 0 || recycling) return recycling;
+    restartRequired = false;
+    recycling = (async () => {
+      const old = child;
+      const oldSecrets = secretDirectory;
+      // Deny requests while the old generation is being terminated. Retire
+      // credentials before allocating new ones; never expose both engines.
+      child = null;
+      model = null;
+      port = null;
+      secret = null;
+      secretDirectory = null;
+      starting = null;
+      if (old && old.exitCode === null) {
+        const exited = await new Promise(resolve => {
+          let complete = false;
+          const done = value => {
+            if (complete) return;
+            complete = true;
+            clearTimeout(timer);
+            old.removeListener("exit", onExit);
+            resolve(value);
+          };
+          const onExit = () => done(true);
+          const timer = setTimeout(() => done(false), 3000);
+          old.once("exit", onExit);
+          try { old.kill(); }
+          catch { done(false); }
+        });
+        if (!exited) {
+          failed = true; // Strictly refuse a second engine if old PID persists.
+          return;
+        }
+      }
+      if (oldSecrets) await rm(oldSecrets, { recursive: true, force: true });
+      if (!disposed) {
+        failed = false;
+        await start(); // Full verification, new loopback port and auth key.
+      }
+    })().catch(() => { failed = true; }).finally(() => { recycling = null; });
+    return recycling;
   };
   const middleware = async (req, res, next) => {
     const path = String(req.url || "").split("?")[0];
@@ -216,6 +265,7 @@ export function createDesktopLocalAiMiddleware({
       try { if (await sessionLocked()) return reply(res, 423, "Desktop session locked"); }
       catch { return reply(res, 503, "Desktop session unavailable"); }
     }
+    if (recycling) return reply(res, 503, "Local AI recycling abandoned generation");
     if (failed || disposed) return reply(res, 503, "Local AI package unavailable");
     // Verification/start is shared by concurrent probes, never a second engine.
     if (!starting) {
@@ -225,10 +275,16 @@ export function createDesktopLocalAiMiddleware({
     if (!model || !port || !secret || !child || child.exitCode !== null)
       return reply(res, 503, "Local AI not ready");
     const abort = new AbortController();
-    res.once("close", () => { if (!res.writableEnded) abort.abort(); });
-    // Short consultations have an explicit 10-second ceiling; long-form
-    // inference retains its separate bounded transport deadline.
-    let timeout = setTimeout(() => abort.abort(), req.method === "POST" ? 120000 : 3500);
+    let clientDisconnected = false, deadlineReached = false, completionCounted = false;
+    res.once("close", () => {
+      if (res.writableEnded) return;
+      clientDisconnected = true;
+      abort.abort();
+    });
+    // The UI deadline and Native deadline are independent so a broken
+    // renderer cannot force unbounded CPU usage. Recover the orphan on abort.
+    let timeout = setTimeout(() => { deadlineReached = true; abort.abort(); },
+      req.method === "POST" ? 120000 : 3500);
     let priorityHeld = false;
     try {
       let body;
@@ -243,8 +299,12 @@ export function createDesktopLocalAiMiddleware({
         }
         if (validated.max_tokens <= 128) {
           clearTimeout(timeout);
-          timeout = setTimeout(() => abort.abort(), 10000);
+          timeout = setTimeout(() => { deadlineReached = true; abort.abort(); }, 10000);
         }
+      }
+      if (req.method === "POST") {
+        activeCompletions++;
+        completionCounted = true;
       }
       const upstream = await fetchImpl("http://127.0.0.1:" + port + route[1], {
         method: req.method, body, signal: abort.signal,
@@ -275,13 +335,22 @@ export function createDesktopLocalAiMiddleware({
       else res.destroy();
     } finally {
       clearTimeout(timeout);
+      // Record cancellation before aborting the transport as part of routine
+      // cleanup. Only a timed-out/disconnected POST can quarantine its engine.
+      const abandoned = completionCounted && (deadlineReached || clientDisconnected);
       abort.abort();
       if (priorityHeld) endQuickInference();
+      if (completionCounted) {
+        activeCompletions--;
+        if (abandoned) restartRequired = true;
+        await recycleAbandonedBackend();
+      }
     }
   };
   const dispose = async () => {
     disposed = true;
     child?.kill();
+    if (recycling) await recycling;
     if (secretDirectory) await rm(secretDirectory, { recursive: true, force: true });
     secret = null;
   };
