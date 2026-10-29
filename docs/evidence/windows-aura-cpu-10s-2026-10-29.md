@@ -16,3 +16,11 @@ Owner: `ordaxsystems/ordax-intelligence`; consumidor: `ordaxsystems/ordax-os`.
 ## Consulta rápida sem versão paralela
 
 A Surface instalada anteriormente ainda solicitava até 512 tokens para um `oi`, que ultrapassou 10 s mesmo com o motor SIMD, com a mesma CPU/modelo. Em teste isolado, 128 tokens com o prompt original terminaram em 4291 ms para `oi` e 8377 ms para `Olá, como você está?`. O orçamento breve passa a ser aplicado no único adaptador Windows `ordax.local-ai/1`, somente quando recebe o envelope canônico da Intelligence para saudação sem contexto; perguntas longas, contextos e outros SO permanecem inalterados. O modelo segue produzindo a resposta real. Esse escopo não exige rebuild de kernel/USB nem modifica a política compartilhada de Intelligence.
+
+## Prioridade interativa sob CPU saturada — prova física (29/10/2026)
+
+O Desktop instalado, ativo em `9aa1ee83`, com os 16 binários SHA256 validados, atingiu 10024 ms de timeout no primeiro teste `oi` com envelope da Home solicitando 512 tokens; na repetição, primeiro texto aos 8233 ms e conclusão aos 8371 ms, mas `finish_reason=length` e resposta longa de 607 caracteres em inglês. A CPU estava entre 87% e 100%, predominantemente Chrome; nenhum processo externo foi encerrado.
+
+Com elevação temporária apenas de `llama-server` a `AboveNormal`, a mesma rota retornou uma resposta real completa em **1797 ms**, `finish_reason=stop`. O processo foi restaurado a `Normal` em `finally`. A API Node `os.setPriority/getPriority` foi testada no Windows físico: prioridade 0 → -7 → 0. Outro teste, com a orientação de estilo específica de saudação em português, limite 64 tokens e o mesmo boost temporário, respondeu **“Oi! Bem-vindo! Como posso ajudar você hoje?”** em **5974 ms**, com `stop`, sem texto pronto e sem chave exposta.
+
+O Host Windows mantém o prompt canônico intacto e acrescenta somente orientação de concisão/idioma para um envelope sem contexto de saudação reconhecida; limita esse caso a 64 tokens e eleva temporariamente a prioridade do mesmo processo, restaurando após sucesso, erro ou cancelamento. Pedidos longos mantêm orçamento e prioridade normais. Não há novo modelo, processo de IA, instalador Electron obrigatório ou alteração do Linux/USB.

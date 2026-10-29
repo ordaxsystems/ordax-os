@@ -2,7 +2,7 @@
 // The model/router/Memory and inference contract stay in OrdaX OS/Intelligence.
 import { randomBytes, timingSafeEqual } from "node:crypto";
 import { createServer } from "node:net";
-import { availableParallelism } from "node:os";
+import { availableParallelism, constants as osConstants, getPriority, setPriority } from "node:os";
 import { spawn } from "node:child_process";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -53,15 +53,32 @@ function assertRequest(value, modelId) {
 const WINDOWS_QUICK_GREETING = /^(?:oi|ol[aá]|ola|opa|hola|hi|hello|hey|bom dia|boa tarde|boa noite)(?:[!,.\s]+(?:tudo bem|como vai|como você está|how are you))?[!?.,\s]*$/iu;
 const INTELLIGENCE_GREETING_PREFIX = "Intent: ask\nModel purpose: general\nUser request:\n";
 
+const PORTUGUESE_GREETING = /^(?:oi|ol[aá]|ola|opa|bom dia|boa tarde|boa noite)(?:[!?.,\s]|$)/iu;
+const PORTUGUESE_GREETING_STYLE =
+  "For a simple Portuguese greeting such as oi or olá, respond in Brazilian Portuguese in one very short friendly sentence. Do not mention permissions or capabilities unless the user asks.";
+const OTHER_GREETING_STYLE =
+  "For a simple greeting, respond in the user's language in one very short friendly sentence. Do not mention permissions or capabilities unless asked.";
+const CANONICAL_INTELLIGENCE_IDENTITY =
+  "You are Ordax Intelligence, the consultative intelligence layer of the OrdaX system.";
+
 function boundWindowsGreeting(value) {
-  if (value.max_tokens <= 128 || value.messages.length !== 2 ||
-      value.messages[0].role !== "system") return value;
+  const ordinary = { request: value, quick: false };
+  if (value.messages.length !== 2 || value.messages[0].role !== "system" ||
+      !value.messages[0].content.startsWith(CANONICAL_INTELLIGENCE_IDENTITY)) return ordinary;
   const user = value.messages[1].content;
-  // No prefix or extra context may be accepted as a simple greeting.
-  if (!user.startsWith(INTELLIGENCE_GREETING_PREFIX)) return value;
+  if (!user.startsWith(INTELLIGENCE_GREETING_PREFIX)) return ordinary;
   const prompt = user.slice(INTELLIGENCE_GREETING_PREFIX.length);
-  return !prompt.includes("\n") && WINDOWS_QUICK_GREETING.test(prompt.trim())
-    ? { ...value, max_tokens: 128 } : value;
+  if (prompt.includes("\n") || !WINDOWS_QUICK_GREETING.test(prompt.trim())) return ordinary;
+  const style = PORTUGUESE_GREETING.test(prompt.trim())
+    ? PORTUGUESE_GREETING_STYLE : OTHER_GREETING_STYLE;
+  const system = value.messages[0].content;
+  // Preserve original security instructions, even under an output budget.
+  const styled = system.length + 1 + style.length <= LOCAL_AI_MAX_SYSTEM_PROMPT_CHARS
+    ? system + "\n" + style : system;
+  return { quick: true, request: {
+    ...value, max_tokens: Math.min(value.max_tokens, 64),
+    messages: [{ role: "system", content: styled }, value.messages[1]],
+  }};
 }
 
 async function portAvailable() {
@@ -92,6 +109,7 @@ export function createDesktopLocalAiMiddleware({
   packageRoot, userData, token, sessionLocked = null,
   verifyPackage = verifyWindowsLocalAiPackage,
   launch = spawn, fetchImpl = globalThis.fetch,
+  getProcessPriority = getPriority, setProcessPriority = setPriority,
 } = {}) {
   if (typeof packageRoot !== "string" || !packageRoot ||
       typeof userData !== "string" || !userData ||
@@ -103,6 +121,32 @@ export function createDesktopLocalAiMiddleware({
   const threads = Math.max(1, Math.min(4, availableParallelism()));
   let model = null, child = null, port = null, secret = null, secretDirectory = null;
   let starting = null, failed = false, disposed = false;
+  // Only short interactive consultations get an elevated CPU scheduling share.
+  // Restore after the last quick request, including errors and cancellation.
+  let quickInFlight = 0, priorityPid = null, previousPriority = null;
+  const beginQuickInference = () => {
+    quickInFlight++;
+    if (quickInFlight !== 1 || !Number.isSafeInteger(child?.pid) || child.pid <= 0) return;
+    try {
+      const before = getProcessPriority(child.pid);
+      setProcessPriority(child.pid, osConstants.priority.PRIORITY_ABOVE_NORMAL);
+      previousPriority = before;
+      priorityPid = child.pid;
+    } catch {
+      previousPriority = null;
+      priorityPid = null;
+    }
+  };
+  const endQuickInference = () => {
+    if (quickInFlight === 0 || --quickInFlight !== 0) return;
+    if (priorityPid !== null && previousPriority !== null &&
+        child?.pid === priorityPid && child.exitCode === null) {
+      try { setProcessPriority(priorityPid, previousPriority); }
+      catch { /* The backend may have exited while the request was active. */ }
+    }
+    priorityPid = null;
+    previousPriority = null;
+  };
   const reply = (res, status, message) => {
     if (res.headersSent) return res.destroy();
     res.writeHead(status, {
@@ -182,12 +226,18 @@ export function createDesktopLocalAiMiddleware({
     // Short consultations have an explicit 10-second ceiling; long-form
     // inference retains its separate bounded transport deadline.
     let timeout = setTimeout(() => abort.abort(), req.method === "POST" ? 120000 : 3500);
+    let priorityHeld = false;
     try {
       let body;
       if (req.method === "POST") {
         const data = await boundedRequestBody(req);
-        const validated = boundWindowsGreeting(assertRequest(data, model.modelId));
+        const decision = boundWindowsGreeting(assertRequest(data, model.modelId));
+        const validated = decision.request;
         body = JSON.stringify(validated);
+        if (decision.quick) {
+          beginQuickInference();
+          priorityHeld = true;
+        }
         if (validated.max_tokens <= 128) {
           clearTimeout(timeout);
           timeout = setTimeout(() => abort.abort(), 10000);
@@ -223,6 +273,7 @@ export function createDesktopLocalAiMiddleware({
     } finally {
       clearTimeout(timeout);
       abort.abort();
+      if (priorityHeld) endQuickInference();
     }
   };
   const dispose = async () => {

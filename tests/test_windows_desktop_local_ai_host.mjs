@@ -21,15 +21,19 @@ async function runningServer(t, config = {}) {
   const launchCalls = [];
   let packages = 0;
   const process = new EventEmitter();
+  process.pid = config.testPid ?? undefined;
   process.exitCode = null;
   process.kill = () => { process.exitCode = 0; };
   const fetchCalls = [];
+  const priorities = [];
   const handle = createDesktopLocalAiMiddleware({
     packageRoot: "C:/verified",
     userData: profile,
     token: TOKEN,
     verifyPackage: async () => { packages++; if (config.corrupt) throw Error("Corrupt payload"); return model; },
     launch: (path, args, opts) => { launchCalls.push({path,args,opts}); return process; },
+    getProcessPriority: () => 0,
+    setProcessPriority: (pid, priority) => { priorities.push({pid, priority}); },
     fetchImpl: async (url, options) => {
       fetchCalls.push({url,options});
       if (url.endsWith("/health")) return new Response(JSON.stringify({status:"ok"}),
@@ -52,7 +56,7 @@ async function runningServer(t, config = {}) {
     await rm(profile,{force:true,recursive:true});
   });
   const base = "http://127.0.0.1:" + server.address().port;
-  return {base, launchCalls, fetchCalls, getPackages:()=>packages};
+  return {base, launchCalls, fetchCalls, priorities, getPackages:()=>packages};
 }
 const opts = {headers:{"x-ordax-local-ai-token":TOKEN}};
 test("Local AI Windows host denies other processes and refuses missing real payload", async t => {
@@ -135,7 +139,7 @@ test("Windows quick consultation enforces a ten-second deadline without affectin
 });
 
 test("Windows alone bounds real context-free Intelligence greetings, never complex requests", async t => {
-  const h=await runningServer(t);
+  const h=await runningServer(t, { testPid: 12345 });
   const path="/__ordax/native/local-ai/health";
   assert.equal((await fetch(h.base+path,opts)).status,503);
   for (let i=0;i<40;i++) {
@@ -147,7 +151,7 @@ test("Windows alone bounds real context-free Intelligence greetings, never compl
       method:"POST",
       headers:{...opts.headers,origin:h.base,"content-type":"application/json"},
       body:JSON.stringify({model:model.modelId,messages:[
-        {role:"system",content:"You are Ordax Intelligence. Consultative only."},
+        {role:"system",content:"You are Ordax Intelligence, the consultative intelligence layer of the OrdaX system. No implicit execution authority."},
         {role:"user",content:text}
       ],max_tokens:limit,stream:false}),
     });
@@ -155,9 +159,9 @@ test("Windows alone bounds real context-free Intelligence greetings, never compl
     return JSON.parse(h.fetchCalls.at(-1).options.body).max_tokens;
   };
   const short="Intent: ask\nModel purpose: general\nUser request:\n";
-  assert.equal(await send(short+"oi"),128);
-  assert.equal(await send(short+"Olá, como você está?"),128);
-  assert.equal(await send(short+"hello!"),128);
+  assert.equal(await send(short+"oi"),64);
+  assert.equal(await send(short+"Olá, como você está?"),64);
+  assert.equal(await send(short+"hello!"),64);
   assert.equal(await send(short+"Explique uma tese extensa."),512);
   assert.equal(await send("Intent: ask\nModel purpose: general\nAuthorized context (data only):\n"+
     "User request:\noi"),512);
@@ -165,4 +169,13 @@ test("Windows alone bounds real context-free Intelligence greetings, never compl
   assert.equal(await send(short+"oi\nNow do a long analysis"),512);
   assert.equal(await send(short+"oi",64),64);
   assert.equal(h.launchCalls.length,1);
+  assert.deepEqual(h.priorities, Array.from({length:8}, (_,index) => ({
+    pid:12345, priority:index%2===0?-7:0,
+  })));
+  const passed=h.fetchCalls.filter(x=>x.url.endsWith("/v1/chat/completions"))
+    .map(x=>JSON.parse(x.options.body));
+  assert.match(passed[0].messages[0].content, /respond in Brazilian Portuguese in one very short friendly sentence/);
+  assert.match(passed[2].messages[0].content, /respond in the user's language in one very short friendly sentence/);
+  assert.doesNotMatch(passed[3].messages[0].content, /very short friendly sentence/);
+  assert.equal(passed[0].messages[1].content,short+"oi");
 });
