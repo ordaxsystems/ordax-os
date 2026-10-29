@@ -40,7 +40,8 @@
         "from": "../../system",
         "to": "runtime-template/system",
         "filter": [
-          "**/*"
+          "**/*",
+          "!surface/runtime/packages.txt"
         ]
       },
       {
@@ -87,7 +88,9 @@
       {
         "from": "../../out/windows-local-ai-runtime",
         "to": "runtime-template/local-ai-runtime",
-        "filter": ["**/*"]
+        "filter": [
+          "**/*"
+        ]
       }
     ],
     "asar": true,
