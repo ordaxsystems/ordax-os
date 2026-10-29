@@ -109,10 +109,15 @@ test('Windows package excludes Linux-only Alpine package declaration without dro
   const system = resources.filter(item => item.to === 'runtime-template/system');
   assert.equal(system.length, 1);
   assert.equal(system[0].from, '../../system');
-  assert.deepEqual(system[0].filter, ['**/*', '!surface/runtime/packages.txt']);
+  assert.deepEqual(system[0].filter, [
+    '**/*', '!surface/runtime/packages.txt',
+    '!surface/runtime/media_runtime_probe.py', '!surface/runtime/audio-session.sh',
+  ]);
   const workflow = readFileSync(join(__dirname, '../../.github/workflows/windows-desktop-dev.yml'), 'utf8');
   const paths = workflow.split('paths: &desktop_product_sources', 2)[1].split('  # Every integrated main', 1)[0];
   assert.match(paths, /- 'system\/\*\*'/);
   assert.match(paths, /- '!system\/surface\/runtime\/packages\.txt'/);
+  assert.match(paths, /- '!system\/surface\/runtime\/media_runtime_probe\.py'/);
+  assert.match(paths, /- '!system\/surface\/runtime\/audio-session\.sh'/);
   assert.ok(workflow.includes('paths: *desktop_product_sources'));
 });
