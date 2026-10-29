@@ -12,3 +12,7 @@ Owner: `ordaxsystems/ordax-intelligence`; consumidor: `ordaxsystems/ordax-os`.
 - Aceite de experiência: saudação só passa quando há texto verdadeiro, conclusão integral sem truncamento e duração total menor ou igual a 10000 ms. Sem saudações falsas ou respostas artificiais para esconder lentidão.
 
 **Limitações:** artefato Windows unsigned de teste; não é componente ativado, release assinada, teste do instalador final ou prova do aplicativo independente `assistant`. A instalação final ainda exige source lock, inventário exato, modelo verificado e rollback. Estes tempos não garantem velocidade em outras CPUs.
+
+## Consulta rápida sem versão paralela
+
+A Surface instalada anteriormente ainda solicitava até 512 tokens para um `oi`, que ultrapassou 10 s mesmo com o motor SIMD, com a mesma CPU/modelo. Em teste isolado, 128 tokens com o prompt original terminaram em 4291 ms para `oi` e 8377 ms para `Olá, como você está?`. O orçamento breve passa a ser escolhido pela única porta canônica `ordax.intelligence/1` para saudações sem contexto, preservando os limites longos para pedidos de explicação, resumo e contexto autorizado. Isso não altera o significado nem substitui texto produzido pelo modelo.

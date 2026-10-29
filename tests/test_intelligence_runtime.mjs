@@ -498,3 +498,20 @@ test("Intelligence incremental transport composes with the real Local AI SSE por
   intelligence.dispose();
   local.dispose();
 });
+
+test("Intelligence bounds genuine greeting generation without truncating other requests", async () => {
+  const seen = [];
+  const ai = createIntelligenceRuntime({
+    inferencePort: inferencePort({ onGenerate: request => { seen.push(request.maxTokens); } }),
+  });
+  await ai.respond({ intent: "ask", prompt: "oi", context: [], maxTokens: 512 });
+  await ai.respond({ intent: "ask", prompt: "Olá, como você está?", context: [], maxTokens: 512 });
+  await ai.respond({ intent: "ask", prompt: "hello!", context: [], maxTokens: 512 });
+  await ai.respond({ intent: "ask", prompt: "Explique a teoria da evolução detalhadamente.", context: [], maxTokens: 512 });
+  await ai.respond({ intent: "ask", prompt: "oi", context: [
+    { id: "1", scope: "document", text: "texto", provenance: "test" },
+  ], maxTokens: 512 });
+  await ai.respond({ intent: "summarize", prompt: "oi", context: [], maxTokens: 512 });
+  assert.deepEqual(seen, [128, 128, 128, 512, 512, 512]);
+  ai.dispose();
+});
