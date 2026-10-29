@@ -43,6 +43,30 @@ class CreatorOwnerExternalSourceTests(unittest.TestCase):
         self.assertIn("'creator_source_commit': os.environ['ORDAX_CREATOR_SOURCE_COMMIT']", w)
         self.assertIn("'creator_source_tree': os.environ['ORDAX_CREATOR_SOURCE_TREE']", w)
 
+
+    def test_visual_only_surface_updates_do_not_require_creator_usb_build(self):
+        """Surface/Windows gates own the visual pin; Creator owns actual USB."""
+        w = self.workflow
+        pr = w.split("  pull_request:\\n", 1)[1].split("\\npermissions:", 1)[0]
+        self.assertNotIn("      - 'docs/contracts/surface-source.json'", pr)
+        self.assertNotIn("      - 'system/surface/ui/**'", pr)
+        self.assertNotIn("      - 'system/surface/workspace/**'", pr)
+        for owner in (
+            "bootstrap/dev/**",
+            "bootstrap/dev-base/**",
+            "bootstrap/surface-runtime/**",
+            "system/entrypoint",
+            "system/supervisor",
+            "system/surface/bin/ordax-surface",
+            "system/surface/runtime/ordax_browser_host.py",
+            "tools/surface-source/**",
+            ".github/actions/prepare-verified-surface/**",
+            ".github/workflows/creator-owner-dev-git.yml",
+        ):
+            with self.subTest(owner=owner):
+                self.assertIn(f"      - '{owner}'", pr)
+        self.assertIn("Prepare pinned Surface from independent visual owner for exact Owner image", w)
+
     def test_os_authority_and_writer_gate_unchanged(self):
         w = self.workflow
         for marker in (
