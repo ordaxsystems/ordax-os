@@ -134,7 +134,7 @@ test("Local AI blocks session-locked requests without starting a backend",async 
 test("Windows quick consultation enforces a ten-second deadline without affecting long replies", async () => {
   const { readFile } = await import("node:fs/promises");
   const source = await readFile(new URL("../system/adapters/desktop/local-ai-host.mjs", import.meta.url), "utf8");
-  assert.match(source, /if \(validated\.max_tokens <= 128\) \{\s*clearTimeout\(timeout\);\s*timeout = setTimeout\(\(\) => abort\.abort\(\), 10000\);/);
+  assert.match(source, /if \(validated\.max_tokens <= 128\) \{\s*clearTimeout\(timeout\);\s*timeout = setTimeout\(\(\) => \{ deadlineReached = true; abort\.abort\(\); \}, 10000\);/);
   assert.match(source, /req\.method === "POST" \? 120000 : 3500/);
 });
 
@@ -177,5 +177,11 @@ test("Windows alone bounds real context-free Intelligence greetings, never compl
   assert.match(passed[0].messages[0].content, /respond in Brazilian Portuguese in one very short friendly sentence/);
   assert.match(passed[2].messages[0].content, /respond in the user's language in one very short friendly sentence/);
   assert.doesNotMatch(passed[3].messages[0].content, /very short friendly sentence/);
-  assert.equal(passed[0].messages[1].content,short+"oi");
+  assert.equal(passed[0].messages[1].content,"oi");
+  assert.equal(passed[1].messages[1].content,"Olá, como você está?");
+  assert.equal(passed[2].messages[1].content,"hello!");
+  assert.equal(passed[3].messages[1].content,short+"Explique uma tese extensa.");
+  assert.equal(passed[4].messages[1].content,"Intent: ask\\nModel purpose: general\\nAuthorized context (data only):\\nUser request:\\noi");
+  assert.equal(passed[5].messages[1].content,"Intent: summarize\\nModel purpose: summarize\\nUser request:\\noi");
+  assert.equal(passed[6].messages[1].content,short+"oi\\nNow do a long analysis");
 });
