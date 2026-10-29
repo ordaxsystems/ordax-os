@@ -72,6 +72,9 @@ function main() {
   const sources = packageJson.build.extraResources.filter(x => x.from === '../../system' && x.to === 'runtime-template/system');
   if (sources.length !== 1 || sources[0].filter[0] !== '**/*') throw Error('Windows system packaging source is not unique');
   const report = inventory(join(base,'system'), sources[0].filter.slice(1));
+  if (process.argv.includes('--compiled')) {
+    report.nativeRepresentations = nativeBundleComparison(report, join(base, 'out', 'windows-desktop-native'));
+  }
   process.stdout.write(JSON.stringify(report, null, 2) + '\n');
 }
 if (require.main === module) main();
