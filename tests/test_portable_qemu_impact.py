@@ -472,6 +472,75 @@ class PortableQemuImpactTests(unittest.TestCase):
                 impact.verified_windows_only_local_ai_lock_delta(before, latest, root=root)
             )
 
+
+    def test_surface_source_lock_requires_exact_commit_only_visual_contract(self):
+        """Desktop-only Surface advance stays light, boot/runtime changes do not."""
+        from unittest.mock import patch
+
+        lock = {
+            "$schema": "prototype-ordax.surface-source/1",
+            "status": "canonical",
+            "source_repository": "ordaxsystems/ordax-surface",
+            "source_commit": "a" * 40,
+            "visual_source_paths": ["system/surface/ui", "system/surface/workspace"],
+            "os_host_paths": ["system/surface/entrypoint"],
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            subprocess.run(["git", "init", "-q", str(root)], check=True)
+            subprocess.run(["git", "-C", str(root), "config", "user.email", "ci@example.invalid"], check=True)
+            subprocess.run(["git", "-C", str(root), "config", "user.name", "CI"], check=True)
+
+            def commit(value, message):
+                target = root / "docs/contracts/surface-source.json"
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_text(json.dumps(value) + "\\n", encoding="utf-8")
+                subprocess.run(["git", "-C", str(root), "add", "."], check=True)
+                subprocess.run(["git", "-C", str(root), "commit", "-qm", message], check=True)
+                return subprocess.check_output(
+                    ["git", "-C", str(root), "rev-parse", "HEAD"], text=True
+                ).strip()
+
+            before = commit(lock, "original visual source")
+            next_lock = json.loads(json.dumps(lock))
+            next_lock["source_commit"] = "b" * 40
+            after = commit(next_lock, "new visual-only source")
+            self.assertTrue(impact.verified_surface_visual_source_lock_delta(before, after, root=root))
+            self.assertFalse(impact.verified_surface_visual_source_lock_delta(before, before, root=root))
+            self.assertFalse(impact.verified_surface_visual_source_lock_delta("invalid", after, root=root))
+            with patch.object(impact, "native_startup_import_graph", return_value=(frozenset(), ())):
+                unverified = impact.classify_paths(["docs/contracts/surface-source.json"], root=root)
+                self.assertTrue(unverified.required)
+                verified = impact.classify_paths(
+                    ["docs/contracts/surface-source.json", "tools/ci/portable_qemu_impact.py"],
+                    root=root, surface_visual_lock_verified=True
+                )
+                self.assertFalse(verified.required)
+                boot = impact.classify_paths(
+                    ["docs/contracts/surface-source.json", "system/surface/entrypoint"],
+                    root=root, surface_visual_lock_verified=True
+                )
+                self.assertTrue(boot.required)
+                self.assertIn("heavy-exact:system/surface/entrypoint", boot.reasons)
+                builder = impact.classify_paths(
+                    ["docs/contracts/surface-source.json", "bootstrap/surface-runtime/build.py"],
+                    root=root, surface_visual_lock_verified=True
+                )
+                self.assertTrue(builder.required)
+
+            wrong_owner = json.loads(json.dumps(next_lock))
+            wrong_owner["source_repository"] = "untrusted/visual"
+            foreign = commit(wrong_owner, "replace trusted source owner")
+            self.assertFalse(impact.verified_surface_visual_source_lock_delta(before, foreign, root=root))
+            wrong_roots = json.loads(json.dumps(next_lock))
+            wrong_roots["visual_source_paths"].append("system/surface/bin")
+            unsafe = commit(wrong_roots, "include boot launcher")
+            self.assertFalse(impact.verified_surface_visual_source_lock_delta(before, unsafe, root=root))
+            changed_contract = json.loads(json.dumps(next_lock))
+            changed_contract["os_host_paths"] = ["system/entrypoint"]
+            expanded = commit(changed_contract, "change host contract")
+            self.assertFalse(impact.verified_surface_visual_source_lock_delta(before, expanded, root=root))
+
     def test_missing_runtime_root_discovery_fails_closed(self):
         with tempfile.TemporaryDirectory() as directory:
             result = impact.classify_paths(
