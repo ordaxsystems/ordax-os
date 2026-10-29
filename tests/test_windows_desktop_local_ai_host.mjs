@@ -5,6 +5,7 @@ import { createServer } from "node:http";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { availableParallelism } from "node:os";
 import { createDesktopLocalAiMiddleware } from "../system/adapters/desktop/local-ai-host.mjs";
 
 const TOKEN = "b".repeat(64);
@@ -103,6 +104,13 @@ test("single supervised engine, fixed model, authenticated same-origin inference
     ["--parallel","1"]);
   assert.equal(flags.filter(x=>x==="--ctx-size").length,1);
   assert.equal(flags.filter(x=>x==="--parallel").length,1);
+  const threads = String(Math.max(1, Math.min(4, availableParallelism())));
+  assert.deepEqual(flags.slice(flags.indexOf("-t"), flags.indexOf("-t") + 2),
+    ["-t", threads]);
+  assert.deepEqual(flags.slice(flags.indexOf("-tb"), flags.indexOf("-tb") + 2),
+    ["-tb", threads]);
+  assert.deepEqual(flags.slice(flags.indexOf("--reasoning-budget"), flags.indexOf("--reasoning-budget") + 2),
+    ["--reasoning-budget", "0"]);
   assert.ok(h.launchCalls[0].opts.env.LLAMA_ARG_API_KEY_FILE);
   assert.ok(h.fetchCalls.every(v=>v.options.headers.Authorization.startsWith("Bearer ")));
   assert.ok(h.fetchCalls.every(v=>v.url.startsWith("http://127.0.0.1:")));
@@ -117,4 +125,11 @@ test("Local AI blocks session-locked requests without starting a backend",async 
   const h=await runningServer(t,{locked:true});
   assert.equal((await fetch(h.base+"/__ordax/native/local-ai/health",opts)).status,423);
   assert.equal(h.launchCalls.length,0);
+});
+
+test("Windows quick consultation enforces a ten-second deadline without affecting long replies", async () => {
+  const { readFile } = await import("node:fs/promises");
+  const source = await readFile(new URL("../system/adapters/desktop/local-ai-host.mjs", import.meta.url), "utf8");
+  assert.match(source, /if \(validated\.max_tokens <= 128\) \{\s*clearTimeout\(timeout\);\s*timeout = setTimeout\(\(\) => abort\.abort\(\), 10000\);/);
+  assert.match(source, /req\.method === "POST" \? 120000 : 3500/);
 });

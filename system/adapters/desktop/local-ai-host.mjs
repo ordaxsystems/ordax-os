@@ -2,6 +2,7 @@
 // The model/router/Memory and inference contract stay in OrdaX OS/Intelligence.
 import { randomBytes, timingSafeEqual } from "node:crypto";
 import { createServer } from "node:net";
+import { availableParallelism } from "node:os";
 import { spawn } from "node:child_process";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -82,6 +83,8 @@ export function createDesktopLocalAiMiddleware({
     throw TypeError("Desktop Local AI requires trusted package, profile and session token");
   }
   const expected = Buffer.from(token, "hex");
+  // The same portable engine uses up to four logical cores. No CPU SKU fork.
+  const threads = Math.max(1, Math.min(4, availableParallelism()));
   let model = null, child = null, port = null, secret = null, secretDirectory = null;
   let starting = null, failed = false, disposed = false;
   const reply = (res, status, message) => {
@@ -109,7 +112,9 @@ export function createDesktopLocalAiMiddleware({
       child = launch(model.executable, [
         "--host", "127.0.0.1", "--port", String(port),
         "--model", model.modelFile, "--alias", model.modelId,
-        "--reasoning", "off", "--no-ui", "--no-slots", "-ngl", "0", "-t", "2",
+        "--reasoning", "off", "--reasoning-budget", "0",
+        "--no-ui", "--no-slots", "-ngl", "0",
+        "-t", String(threads), "-tb", String(threads),
         "--ctx-size", "2048", "--parallel", "1",
       ], {
         cwd: model.engineDirectory, windowsHide: true, stdio: "ignore",
@@ -158,12 +163,19 @@ export function createDesktopLocalAiMiddleware({
       return reply(res, 503, "Local AI not ready");
     const abort = new AbortController();
     res.once("close", () => { if (!res.writableEnded) abort.abort(); });
-    const timeout = setTimeout(() => abort.abort(), req.method === "POST" ? 120000 : 3500);
+    // Short consultations have an explicit 10-second ceiling; long-form
+    // inference retains its separate bounded transport deadline.
+    let timeout = setTimeout(() => abort.abort(), req.method === "POST" ? 120000 : 3500);
     try {
       let body;
       if (req.method === "POST") {
         const data = await boundedRequestBody(req);
-        body = JSON.stringify(assertRequest(data, model.modelId));
+        const validated = assertRequest(data, model.modelId);
+        body = JSON.stringify(validated);
+        if (validated.max_tokens <= 128) {
+          clearTimeout(timeout);
+          timeout = setTimeout(() => abort.abort(), 10000);
+        }
       }
       const upstream = await fetchImpl("http://127.0.0.1:" + port + route[1], {
         method: req.method, body, signal: abort.signal,
