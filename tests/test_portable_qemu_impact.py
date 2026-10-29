@@ -494,7 +494,7 @@ class PortableQemuImpactTests(unittest.TestCase):
             def commit(value, message):
                 target = root / "docs/contracts/surface-source.json"
                 target.parent.mkdir(parents=True, exist_ok=True)
-                target.write_text(json.dumps(value) + "\\n", encoding="utf-8")
+                target.write_text(json.dumps(value) + "\n", encoding="utf-8")
                 subprocess.run(["git", "-C", str(root), "add", "."], check=True)
                 subprocess.run(["git", "-C", str(root), "commit", "-qm", message], check=True)
                 return subprocess.check_output(
