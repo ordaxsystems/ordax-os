@@ -47,7 +47,7 @@ class CreatorOwnerExternalSourceTests(unittest.TestCase):
     def test_visual_only_surface_updates_do_not_require_creator_usb_build(self):
         """Surface/Windows gates own the visual pin; Creator owns actual USB."""
         w = self.workflow
-        pr = w.split("  pull_request:\\n", 1)[1].split("\\npermissions:", 1)[0]
+        pr = w.split("  pull_request:\n", 1)[1].split("\npermissions:", 1)[0]
         self.assertNotIn("      - 'docs/contracts/surface-source.json'", pr)
         self.assertNotIn("      - 'system/surface/ui/**'", pr)
         self.assertNotIn("      - 'system/surface/workspace/**'", pr)
