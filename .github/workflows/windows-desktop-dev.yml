@@ -97,6 +97,10 @@ jobs:
             Copy-Item -LiteralPath $verified -Destination "system/surface/$part" -Recurse
           }
           Write-Output "WINDOWS_SINGLE_SURFACE_SOURCE=VERIFIED commit=$head"
+      - name: Audit exact Windows packaged Native system footprint
+        run: |
+          node --test tools/windows-desktop/package-inventory.test.cjs
+          node tools/windows-desktop/package-inventory.cjs
       - name: Install canonical workspace
         run: npm ci --no-audit --no-fund
       - name: Test Native host and desktop contracts
