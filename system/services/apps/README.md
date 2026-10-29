@@ -267,3 +267,18 @@ Once the ledger is full, **new** IDs receive
 Native delegation is attempted. The UI must establish a fresh service session
 for additional operations rather than reusing an old ID. This is a request
 admission policy, not proof of installation or a persistent Native receipt.
+
+## CI ownership for independent app delivery
+
+Changes limited to the three application-delivery policy contracts, their
+focused tests, and high-level `system/services/apps/` implementations are
+validated through First-party App Delivery, Foundation, Surface and Store
+contracts. They must not trigger an expensive Portable/QEMU boot proof solely
+because a JSON policy or test changed. The causal impact policy uses an exact
+allowlist for these contracts and remains fail-closed for unknown paths.
+
+Changes affecting kernel, initramfs, Native boot launcher, signed Portable
+release production, or unclassified authority remain subject to their full
+Portable/QEMU gates. Omitting Portable QEMU for an app-policy-only delta is not
+proof of app installation, physical USB readiness, signed publication, or
+working Native distribution.

@@ -78,6 +78,17 @@ CI_GOVERNANCE_LIGHT_EXACT = {
     "tools/ci/service_update_impact.mjs",
     "tests/test_causal_workflow_impact.mjs",
 }
+# App lifecycle/Store policy is validated by focused application and
+# signed-delivery gates. These exact contracts do not produce kernel, initramfs,
+# offline Surface EROFS or Portable boot bytes.
+APP_DELIVERY_LIGHT_EXACT = {
+    "docs/contracts/app-distribution.json",
+    "docs/contracts/first-party-app-delivery.json",
+    "docs/contracts/mvp-app-delivery.json",
+    "tests/test_first_party_app_delivery.mjs",
+    "tests/test_mvp_app_delivery.mjs",
+    "tests/test_zero_removable_bootstrap.mjs",
+}
 # Windows Desktop has its own installed-Electron, Native and offline inference gates.
 # These source owners do not enter Linux Portable boot artifacts.
 WINDOWS_DESKTOP_LIGHT_PREFIXES = (
@@ -345,7 +356,8 @@ def classify_paths(
         if path.startswith(OWNER_DEVELOPMENT_LIGHT_PREFIXES):
             continue
         if (
-            path in CI_GOVERNANCE_LIGHT_EXACT
+            path in APP_DELIVERY_LIGHT_EXACT
+            or path in CI_GOVERNANCE_LIGHT_EXACT
             or path in ACCOUNT_GATEWAY_DEPLOY_LIGHT_EXACT
             or path in IMPACT_POLICY_LIGHT_EXACT
             or path in PRODUCT_DEVICE_PRESENCE_LIGHT_EXACT
