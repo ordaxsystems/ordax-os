@@ -43,7 +43,10 @@
           "**/*",
           "!surface/runtime/packages.txt",
           "!surface/runtime/media_runtime_probe.py",
-          "!surface/runtime/audio-session.sh"
+          "!surface/runtime/audio-session.sh",
+          "!surface/runtime/physical_ata_probe.py",
+          "!surface/runtime/physical_kernel_log_probe.py",
+          "!surface/runtime/physical_performance_probe.py"
         ]
       },
       {
