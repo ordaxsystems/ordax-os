@@ -13,6 +13,8 @@ on:
       - 'bootstrap/dev/**'
       - 'bootstrap/dev-base/**'
       - 'bootstrap/surface-runtime/**'
+      - 'bootstrap/surface-runtime/**'
+      - 'bootstrap/independent-base/**'
       - 'bootstrap/recovery/**'
       # Creator's published USB must cover the actual boot/Guardian/Surface
       # source snapshot. Previously a system-only main commit (including
@@ -28,15 +30,23 @@ on:
       - 'docs/contracts/physical-media.json'
       - 'docs/contracts/distribution-profiles.json'
       - '.github/workflows/creator-owner-dev-git.yml'
+      - 'tools/ci/independent_surface_component_cache.py'
+      - 'tools/ci/independent_surface_r2.sh'
+      - 'tests/test_owner_surface_cache_contract.py'
+      - 'tools/ci/preflight_owner_dev.py'
+      - 'tests/test_ci_two_stage_release_gate.py'
       - '.github/actions/resolve-creator-source/**'
       - 'docs/contracts/native-release-assembly.json'
       - 'tests/test_creator_owner_external_source.py'
   workflow_dispatch:
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - 'bootstrap/dev/**'
       - 'bootstrap/dev-base/**'
       - 'bootstrap/surface-runtime/**'
+      - 'bootstrap/surface-runtime/**'
+      - 'bootstrap/independent-base/**'
       - 'system/entrypoint'
       # Boot health and update handoff must prove the real Owner USB on PRs,
       # not only on the subsequent main push (when the rollback risk is live).
@@ -62,6 +72,9 @@ on:
       - 'tools/creator/verify_owner_dev_offline_runtime.py'
       - 'tests/test_owner_dev_offline_runtime_release_gate.py'
       - '.github/workflows/creator-owner-dev-git.yml'
+      - 'tools/ci/independent_surface_component_cache.py'
+      - 'tools/ci/independent_surface_r2.sh'
+      - 'tests/test_owner_surface_cache_contract.py'
       - '.github/actions/resolve-creator-source/**'
       - 'docs/contracts/native-release-assembly.json'
       - 'tests/test_creator_owner_external_source.py'
@@ -80,19 +93,58 @@ permissions:
 
 concurrency:
   group: creator-owner-dev-git-${{ github.ref }}
-  # The full Owner USB proof is expensive. A new main push must not cancel
-  # an ongoing publishable build; GitHub keeps only the latest queued run.
-  # PR supersessions may still cancel obsolete validation work.
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  # Preserve in-flight Owner USB cold-boot proofs for BOTH PRs and main.
+  # Revisions share this branch-scoped group: GitHub keeps one running build
+  # and replaces the pending run with the newest commit. Cancelling expensive
+  # Buildroot/graphical proof on each PR edit hides its actual boot result.
+  # Exact source SHA, immutable provenance and physical-write gates still apply.
+  cancel-in-progress: false
 
 jobs:
-  build-and-publish:
+  owner-dev-contract:
+    # Keep the real Owner preflight active while a PR is in draft.
+    # No Buildroot, native image, QEMU, or physical media in this job.
     runs-on: ubuntu-24.04
-    timeout-minutes: 120
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout exact Owner source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.12'
+          check-latest: false
+      - name: Fast Owner Development preflight
+        run: |
+          set -euo pipefail
+          bash -n tools/ci/independent_surface_r2.sh
+          python3 -m unittest tests.test_owner_surface_cache_contract tests.test_ci_two_stage_release_gate tests.test_dev_components_direct tests.test_owner_dev_raw_direct tests.test_direct_owner_dev_image -v
+          python3 -m py_compile tools/ci/dev_components.py tools/creator/owner_dev_manifest.py tools/creator/owner_dev_raw.py tools/creator/direct_owner_dev_image.py
+          bash -n tools/creator/owner_dev_stage.sh
+          python3 tools/ci/preflight_owner_dev.py
+
+  build-and-publish:
+    needs: owner-dev-contract
+    # Draft PRs use fast contracts; full USB/QEMU only for a release candidate.
+    # workflow_dispatch and main push remain explicit/full delivery entrypoints.
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
+    runs-on: ubuntu-24.04
+    timeout-minutes: 360
+    # Serialize exact source build ownership with the independent producer.
+    concurrency:
+      group: ordax-surface-producer-${{ github.event.pull_request.number || github.ref }}
+      cancel-in-progress: false
+      queue: max
     env:
       # Exact checkout identity for push and PR; github.sha on PR is the
       # synthetic merge SHA, not the actual local source for Creator.
       ORDAX_OWNER_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+      ORDAX_SURFACE_PRODUCER_ENVIRONMENT: ${{ vars.ORDAX_SURFACE_PRODUCER_ENVIRONMENT }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -119,11 +171,6 @@ jobs:
         with:
           source-root: ${{ runner.temp }}/ordax-verified-surface-ci
           out-root: ${{ runner.temp }}/ordax-verified-intelligence-ci
-
-      - name: Fast Owner Development preflight
-        run: |
-          set -euo pipefail
-          python tools/ci/preflight_owner_dev.py
 
       - name: Set up Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
@@ -195,8 +242,81 @@ jobs:
             gpg gpg-agent \
             meson ninja-build gperf libcap-dev libmount-dev libblkid-dev \
             liblz4-dev libzstd-dev liblzma-dev libpcre2-dev \
-            gdisk dosfstools e2fsprogs mtools util-linux proot erofs-utils qemu-system-x86 busybox
+            gdisk dosfstools e2fsprogs mtools util-linux erofs-utils qemu-system-x86 busybox \
+            gawk cpio unzip rsync file wget curl patch gettext
           python -m pip install --disable-pip-version-check --no-cache-dir jinja2 pyelftools
+
+      # Fail fast before boot/initramfs, kernel and Owner Base builds when the
+      # single producer has not delivered a verified EROFS. No WebKit rebuild
+      # is allowed in this Creator job and no provenance may be rewritten.
+      - name: Resolve independent Surface artifact fingerprint for Owner
+        id: owner-surface-fingerprint
+        run: |
+          set -euo pipefail
+          test -n "${ImageOS:-}"
+          test -n "${ImageVersion:-}"
+          export ORDAX_COMPONENT_CACHE_ENVIRONMENT="${RUNNER_OS:?}/${RUNNER_ARCH:?}/${ImageOS}/${ImageVersion}"
+          printf 'ORDAX_COMPONENT_CACHE_ENVIRONMENT=%s\n' "$ORDAX_COMPONENT_CACHE_ENVIRONMENT" >> "$GITHUB_ENV"
+          python3 tools/ci/independent_surface_component_cache.py fingerprint --github-output "$GITHUB_OUTPUT"
+
+      - name: Restore exact verified Surface EROFS for Owner
+        id: owner-surface-artifact-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/ordax-independent-surface
+          key: ordax-independent-surface-artifact-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.owner-surface-fingerprint.outputs.fingerprint }}
+
+      - name: Restore verified Surface EROFS from durable R2 for Owner
+        id: owner-surface-r2
+        if: steps.owner-surface-artifact-cache.outputs.cache-hit != 'true'
+        env:
+          ORDAX_R2_ACCOUNT_ID: '42586bf13b61436219d21def299833e4'
+          ORDAX_R2_BUCKET: 'ordax-device-artifacts'
+          ORDAX_R2_ACCESS_KEY_ID: ${{ secrets.ORDAX_R2_ACCESS_KEY_ID }}
+          ORDAX_R2_SECRET_ACCESS_KEY: ${{ secrets.ORDAX_R2_SECRET_ACCESS_KEY }}
+          ORDAX_SURFACE_FINGERPRINT: ${{ steps.owner-surface-fingerprint.outputs.fingerprint }}
+          ORDAX_SOURCE_COMMIT: ${{ env.ORDAX_OWNER_SOURCE_COMMIT }}
+        run: bash tools/ci/independent_surface_r2.sh restore
+
+      # The Creator consumes only a preverified content-addressed artifact.
+      # Compiler/download caches belong exclusively to the Surface producer.
+      - name: Consume verified canonical offline Surface runtime
+        id: owner-surface-build
+        run: |
+          set -euo pipefail
+          out="$RUNNER_TEMP/ordax-independent-surface"
+          if [ '${{ steps.owner-surface-artifact-cache.outputs.cache-hit }}' != true ] &&
+             [ '${{ steps.owner-surface-r2.outputs.hit }}' != true ]; then
+            echo "::error title=Canonical Surface EROFS missing::Run Independent Surface Runtime producer for the exact fingerprint before Creator. Never compile WebKit in the Creator consumer." >&2
+            exit 1
+          fi
+          python3 tools/ci/independent_surface_component_cache.py verify \
+            --out "$out" --integration-commit "$ORDAX_OWNER_SOURCE_COMMIT" \
+            --cache-hit true --consumer \
+            --receipt "$RUNNER_TEMP/owner-surface-cache-inspection.json"
+          echo 'OWNER_SURFACE_RUNTIME_SOURCE=verified-content-addressed-cache'
+          python3 bootstrap/surface-runtime/build.py verify --out "$out"
+          mkdir -p "$RUNNER_TEMP/owner-dev-surface-runtime"
+          cp -a "$out/." "$RUNNER_TEMP/owner-dev-surface-runtime/"
+          python3 bootstrap/surface-runtime/build.py verify \
+            --out "$RUNNER_TEMP/owner-dev-surface-runtime"
+
+      - name: Save verified Owner Surface EROFS to shared artifact cache
+        if: steps.owner-surface-build.outcome == 'success' && steps.owner-surface-artifact-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/ordax-independent-surface
+          key: ordax-independent-surface-artifact-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.owner-surface-fingerprint.outputs.fingerprint }}
+
+      - name: Ensure verified Owner Surface exists in durable R2 store
+        if: steps.owner-surface-build.outcome == 'success' && steps.owner-surface-r2.outputs.hit != 'true'
+        env:
+          ORDAX_R2_ACCOUNT_ID: '42586bf13b61436219d21def299833e4'
+          ORDAX_R2_BUCKET: 'ordax-device-artifacts'
+          ORDAX_R2_ACCESS_KEY_ID: ${{ secrets.ORDAX_R2_ACCESS_KEY_ID }}
+          ORDAX_R2_SECRET_ACCESS_KEY: ${{ secrets.ORDAX_R2_SECRET_ACCESS_KEY }}
+          ORDAX_SURFACE_FINGERPRINT: ${{ steps.owner-surface-fingerprint.outputs.fingerprint }}
+        run: bash tools/ci/independent_surface_r2.sh publish
 
       - name: Prove Owner USB ext4 alias sealing in isolated mount namespace
         timeout-minutes: 3
@@ -267,40 +387,129 @@ jobs:
           path: out/kernel
           key: ordax-portable-component-v1-${{ runner.os }}-${{ runner.arch }}-kernel-${{ steps.component-fingerprints.outputs.kernel }}
 
+      - name: Restore verified Owner Buildroot base
+        id: owner-base-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/owner-independent-base
+          key: ordax-portable-component-v1-${{ runner.os }}-${{ runner.arch }}-independent-base-owner-${{ steps.component-fingerprints.outputs.independent_base_owner }}
+
       - name: Build boot initramfs and Git development base
         env:
           ORDAX_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
           set -euo pipefail
+          # Verify and remove ephemeral hydrated visuals BEFORE the expensive
+          # rootfs compilation. The Creator seeds solely from a clean Git SSOT.
+          for part in ui workspace; do
+            src="$RUNNER_TEMP/ordax-verified-surface-ci/system/surface/$part"
+            target="system/surface/$part"
+            test -d "$src" || {
+              echo "::error::OWNER_EXTERNAL_SURFACE_SOURCE_MISSING:$part" >&2; exit 1;
+            }
+            diff -qr "$src" "$target" || {
+              echo "::error::OWNER_EXTERNAL_SURFACE_STAGING_DRIFT:$part" >&2; exit 1;
+            }
+            rm -rf "$target"
+            test ! -e "$target" || {
+              echo "::error::OWNER_EXTERNAL_SURFACE_TEMPORARY_COPY_REMAINED:$part" >&2; exit 1;
+            }
+          done
+          git status --porcelain
+          test -z "$(git status --porcelain)" || {
+            echo "::error::OWNER_SOURCE_CHECKOUT_DIRTY_BEFORE_BUILDROOT" >&2
+            exit 1
+          }
           python boot/esp/build.py check
           python boot/esp/build.py build
           python boot/esp/build.py verify
           python bootstrap/initramfs/build.py check
           python bootstrap/initramfs/build.py build --jobs 4
           python bootstrap/initramfs/build.py verify
-          proot --version
-          sudo -E python bootstrap/dev-base/build.py \
-            --kernel-modules "out/kernel/kernel-modules-$ORDAX_KERNEL_VERSION.tar" \
-            --out-dir out/dev-base
+          # Single independent Buildroot Owner producer: no Alpine APK or
+          # mirrored kernel. The same exact source commit binds firmware/modules.
+          export ORDAX_SOURCE_COMMIT="$ORDAX_OWNER_SOURCE_COMMIT"
+          export ORDAX_HOST_PYTHON="$(command -v python3)"
+          export ORDAX_KERNEL_MODULES_ARCHIVE="$PWD/out/kernel/kernel-modules-$ORDAX_KERNEL_VERSION.tar"
+          export ORDAX_KERNEL_MODULES_RECEIPT="$RUNNER_TEMP/owner-independent-base/kernel-module-payload.json"
+          export ORDAX_FIRMWARE_COVERAGE_RECEIPT="$RUNNER_TEMP/owner-independent-base/firmware-coverage.json"
+          owner_cache_hit='${{ steps.owner-base-cache.outputs.cache-hit }}'
+          if [ "$owner_cache_hit" != true ]; then
+            owner_cache_hit=false
+            echo 'ORDAX_OWNER_BASE_CACHE_MISS=build-affecting-input-or-environment'
+            sudo -E python3 bootstrap/independent-base/build.py build \
+              --profile owner-development --out "$RUNNER_TEMP/owner-independent-base" \
+              --cache "$RUNNER_TEMP/owner-independent-cache" --jobs 4
+          fi
+          sudo -E python3 bootstrap/independent-base/build.py verify \
+            --profile owner-development --out "$RUNNER_TEMP/owner-independent-base"
+          metadata="$RUNNER_TEMP/owner-dev/metadata"
+          if [ "$owner_cache_hit" = false ]; then
+            sudo -E python3 tools/ci/portable_component_cache.py record \
+              --component independent-base-owner \
+              --out-dir "$RUNNER_TEMP/owner-independent-base" \
+              --source-commit "$ORDAX_OWNER_SOURCE_COMMIT" \
+              > "$metadata/owner-base-cache-record.json"
+          fi
+          python3 tools/ci/portable_component_cache.py verify \
+            --component independent-base-owner \
+            --out-dir "$RUNNER_TEMP/owner-independent-base" \
+            --integration-commit "$ORDAX_OWNER_SOURCE_COMMIT" \
+            --cache-hit "$owner_cache_hit" \
+            --receipt "$metadata/owner-base-component-reuse.json"
+          echo "ORDAX_OWNER_BASE_CACHE_HIT=$owner_cache_hit"
+          sudo mkdir -p out/dev-base
+          sudo -E python3 tools/dev-base-channel/independent_rootfs.py materialize \
+            --rootfs "$RUNNER_TEMP/owner-independent-base/rootfs.tar" \
+            --provenance "$RUNNER_TEMP/owner-independent-base/provenance.json" \
+            --expected-commit "$ORDAX_OWNER_SOURCE_COMMIT" \
+            --reuse-receipt "$RUNNER_TEMP/owner-dev/metadata/owner-base-component-reuse.json" \
+            --destination out/dev-base/rootfs
           rootfs="$(realpath out/dev-base/rootfs)"
+          # The verifier already enforces archive confinement, immutable
+          # provenance, profile and source commit. Retain explicit executable
+          # and no-APK release gates with actionable diagnostics.
+          test ! -e "$rootfs/etc/alpine-release" || {
+            echo "::error::OWNER_ROOTFS_ALPINE_RELEASE_PRESENT" >&2; exit 1;
+          }
+          test ! -e "$rootfs/sbin/apk" || {
+            echo "::error::OWNER_ROOTFS_APK_BINARY_PRESENT" >&2; exit 1;
+          }
+          test ! -e "$rootfs/lib/apk" || {
+            echo "::error::OWNER_ROOTFS_APK_METADATA_PRESENT" >&2; exit 1;
+          }
+          test -x "$rootfs/usr/bin/git" || {
+            echo "::error::OWNER_ROOTFS_GIT_NOT_EXECUTABLE" >&2; exit 1;
+          }
+          echo 'OWNER_ROOTFS_BUILDROOT_BOOTSTRAP=VERIFIED'
+          # Buildroot rootfs.tar is materialized as root and its system
+          # directories deliberately remain root-owned. The canonical offline
+          # Git seed also activates manifest-owned helpers under /sbin and
+          # /usr/local/bin: perform that single seed as root, not with a
+          # partially writable rootfs or a second helper installer.
           sudo mkdir -p "$rootfs/workspace" "$rootfs/state"
-          sudo chown -R "$(id -u):$(id -g)" "$rootfs/workspace" "$rootfs/state"
-          # The Creator's ordax-pull must seed from a CLEAN Git authority.
-          # Hydrated UI is test-only, never an untracked part of Git source.
-          for part in ui workspace; do
-            src="$RUNNER_TEMP/ordax-verified-surface-ci/system/surface/$part"
-            target="system/surface/$part"
-            test -d "$src" && diff -qr "$src" "$target"
-            rm -rf "$target"
-            test ! -e "$target"
-          done
-          test -z "$(git status --porcelain)"
-          ORDAX_WORKTREE="$rootfs/workspace/ordax" \
-          ORDAX_STATE_DIR="$rootfs/state/ordax" \
-          ORDAX_UPDATE_RUN_DIR="$RUNNER_TEMP/ordax-owner-dev-seed-run" \
-          ORDAX_DEV_HELPER_TARGET_ROOT="$(realpath "$rootfs")" \
-          ORDAX_REPO_URL='https://github.com/ordaxsystems/ordax-os.git' \
-          ORDAX_REPO_BRANCH=main \
+          # The full UI is materialized only in disposable CI. Do not allow
+          # an untracked visual source to become Owner Git authority.
+          checkout_dirty="$(git status --porcelain)"
+          if [ -n "$checkout_dirty" ]; then
+            printf '%s\n' "$checkout_dirty" >&2
+            echo "::error::OWNER_SOURCE_CHECKOUT_DIRTY_AFTER_BUILDROOT" >&2
+            exit 1
+          fi
+          echo 'OWNER_SOURCE_CHECKOUT=VERIFIED_CLEAN'
+          # Scope Git's owner exception to this exact trusted CI checkout;
+          # never use safe.directory=* or make the installed rootfs writable
+          # by the runner. Newly created sparse checkout/state remain root-owned.
+          sudo env \
+            GIT_CONFIG_COUNT=1 \
+            GIT_CONFIG_KEY_0=safe.directory \
+            GIT_CONFIG_VALUE_0="$GITHUB_WORKSPACE" \
+            ORDAX_WORKTREE="$rootfs/workspace/ordax" \
+            ORDAX_STATE_DIR="$rootfs/state/ordax" \
+            ORDAX_UPDATE_RUN_DIR="$RUNNER_TEMP/ordax-owner-dev-seed-run" \
+            ORDAX_DEV_HELPER_TARGET_ROOT="$(realpath "$rootfs")" \
+            ORDAX_REPO_URL='https://github.com/ordaxsystems/ordax-os.git' \
+            ORDAX_REPO_BRANCH=main \
             /bin/sh bootstrap/dev-base/ordax-pull \
               --seed-from-local "$GITHUB_WORKSPACE" "$ORDAX_OWNER_SOURCE_COMMIT"
           # The same verified visual bytes may be reused for subsequent
@@ -309,15 +518,13 @@ jobs:
           for part in ui workspace; do
             cp -a "$RUNNER_TEMP/ordax-verified-surface-ci/system/surface/$part" "system/surface/$part"
           done
-          test "$(git -C "$rootfs/workspace/ordax" rev-parse HEAD)" = "$ORDAX_OWNER_SOURCE_COMMIT"
-          test "$(git -C "$rootfs/workspace/ordax" symbolic-ref --quiet --short HEAD)" = main
-          test "$(git -C "$rootfs/workspace/ordax" remote get-url origin)" = 'https://github.com/ordaxsystems/ordax-os.git'
-          test -z "$(git -C "$rootfs/workspace/ordax" status --porcelain)"
+          test "$(sudo git -C "$rootfs/workspace/ordax" rev-parse HEAD)" = "$ORDAX_OWNER_SOURCE_COMMIT"
+          test "$(sudo git -C "$rootfs/workspace/ordax" symbolic-ref --quiet --short HEAD)" = main
+          test "$(sudo git -C "$rootfs/workspace/ordax" remote get-url origin)" = 'https://github.com/ordaxsystems/ordax-os.git'
+          test -z "$(sudo git -C "$rootfs/workspace/ordax" status --porcelain)"
           test -x "$rootfs/workspace/ordax/system/entrypoint"
-          test "$(cat "$rootfs/state/ordax/current-commit")" = "$ORDAX_OWNER_SOURCE_COMMIT"
-          # Match root ownership before sudo verification of the pinned
-          # Git source and immutable preseed slot (Git safe.directory).
-          sudo chown -R root:root "$rootfs/workspace" "$rootfs/state"
+          test "$(sudo cat "$rootfs/state/ordax/current-commit")" = "$ORDAX_OWNER_SOURCE_COMMIT"
+          # Checkout and state have remained root-owned throughout bootstrap.
           # First Run must work without network. Put exactly one verified
           # visual source in the Supervisor's immutable release cache on
           # the Creator build host, NEVER a second Git tracked UI copy.
@@ -375,6 +582,13 @@ jobs:
           test -x out/dev-base/rootfs/usr/local/bin/ordax-pull
           test -z "$(sudo find "$rootfs/dev" -mindepth 1 -print -quit)"
 
+      - name: Save verified Owner Buildroot for reuse
+        if: steps.owner-base-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/owner-independent-base
+          key: ordax-portable-component-v1-${{ runner.os }}-${{ runner.arch }}-independent-base-owner-${{ steps.component-fingerprints.outputs.independent_base_owner }}
+
       - name: Create ephemeral prototype trust for Creator provenance
         run: |
           set -euo pipefail
@@ -404,158 +618,27 @@ jobs:
       - name: Derive development Git bootstrap manifest
         run: |
           set -euo pipefail
-          python - "$RUNNER_TEMP/minimal-bootstrap-owner-dev.json" <<'PY'
-          import hashlib, json, os, pathlib, sys
-          def digest(path):
-              return hashlib.sha256(pathlib.Path(path).read_bytes()).hexdigest()
-          output = pathlib.Path(sys.argv[1])
-          manifest = json.loads(pathlib.Path('docs/contracts/minimal-bootstrap.json').read_text(encoding='utf-8'))
-          profiles = json.loads(pathlib.Path('docs/contracts/distribution-profiles.json').read_text(encoding='utf-8'))
-          owner_profile_id = 'owner-development'
-          owner_profile = profiles['profiles'].get(owner_profile_id)
-          if not isinstance(owner_profile, dict):
-              raise SystemExit('canonical owner-development profile is missing')
-          if owner_profile.get('creator_workflow') != '.github/workflows/creator-owner-dev-git.yml':
-              raise SystemExit('owner-development Creator workflow differs from distribution profile SSOT')
-          owner_profile_token = f'ordax.distribution_profile={owner_profile_id}'
-          keep = {'uefi-boot', 'kernel', 'initramfs', 'bootstrap-orchestrator', 'bootstrap-recovery'}
-          manifest['artifact_groups'] = [group for group in manifest['artifact_groups'] if group['id'] in keep]
-          groups = {group['id']: group for group in manifest['artifact_groups']}
-          uefi = groups['uefi-boot']
-          owner_entry_dir = pathlib.Path('out/owner-prototype/boot-entries')
-          owner_entry_dir.mkdir(parents=True, exist_ok=True)
-          owner_entry_specs = {
-              '/loader/entries/ordax.conf': (
-                  'boot/esp/loader/entries/ordax.conf',
-                  'ordax.mode=normal',
-                  'ordax-owner-development.conf',
-              ),
-              '/loader/entries/ordax-recovery.conf': (
-                  'boot/esp/loader/entries/ordax-recovery.conf',
-                  'ordax.mode=recovery',
-                  'ordax-owner-development-recovery.conf',
-              ),
-          }
-          for target_path, (canonical_source, mode_token, output_name) in owner_entry_specs.items():
-              artifacts = [artifact for artifact in uefi['artifacts'] if artifact['target_path'] == target_path]
-              if len(artifacts) != 1:
-                  raise SystemExit(f'owner-development boot artifact is not unique: {target_path}')
-              artifact = artifacts[0]
-              if artifact['source_path'] != canonical_source:
-                  raise SystemExit(f'owner-development boot source differs from canonical manifest: {target_path}')
-              source = pathlib.Path(canonical_source).read_text(encoding='utf-8')
-              expected = f'options console=tty0 {mode_token}\n'
-              if source.count(expected) != 1:
-                  raise SystemExit(f'owner-development boot options are not canonical: {target_path}')
-              owner_source = source.replace(
-                  expected,
-                  expected.rstrip('\n') + f' {owner_profile_token}\n',
-              )
-              owner_path = owner_entry_dir / output_name
-              owner_path.write_text(owner_source, encoding='utf-8')
-              artifact['source_path'] = owner_path.as_posix()
-              artifact['sha256'] = digest(owner_path)
-              artifact['reason'] = (
-                  artifact['reason']
-                  + '; Owner/Development distribution profile is explicit before writable root discovery'
-              )
-          kernel_version = os.environ['ORDAX_KERNEL_VERSION']
-          kernel_artifacts = groups['kernel']['artifacts']
-          if len(kernel_artifacts) != 1:
-              raise SystemExit('owner-development kernel artifact inventory must contain one artifact')
-          kernel_artifact = kernel_artifacts[0]
-          expected_source = f'bootstrap/kernel/vmlinuz-{kernel_version}'
-          if kernel_artifact['source_path'] != expected_source:
-              raise SystemExit('owner-development kernel source differs from canonical manifest')
-          kernel_artifact['sha256'] = digest(f'out/kernel/vmlinuz-{kernel_version}')
-          groups['initramfs']['artifacts'][0]['sha256'] = digest('out/initramfs/initramfs.cpio.gz')
-          orchestrator = groups['bootstrap-orchestrator']
-          orchestrator['source_owner'] = 'bootstrap/dev'
-          orchestrator['artifacts'] = [{
-              'source_path': 'bootstrap/dev/entrypoint',
-              'target_path': '/ordax/bootstrap/entrypoint',
-              'sha256': digest('bootstrap/dev/entrypoint'),
-              'mode': '0755',
-              'logical_owner': 'bootstrap-dev-orchestrator',
-              'reason': 'Development-only handoff into the preseeded network and Git base'
-          }]
-          manifest['status'] = 'owner-dev-git-bootstrap'
-          manifest['policy'] = 'minimum-release-acquisition-first'
-          manifest['all_artifacts_resolved'] = True
-          manifest['physical_write_allowed'] = False
-          manifest['required_capabilities_before_first_release'] = [
-              'uefi-boot', 'kernel', 'initramfs', 'development-network', 'git-client'
-          ]
-          manifest['optional_after_first_release'] = []
-          manifest['boot_policy'] = {
-              'development_mode': True,
-              'distribution_profile': owner_profile_id,
-              'network_before_git': True,
-              'git_repository': 'https://github.com/ordaxsystems/ordax-os.git',
-              'branch': 'main',
-              'source_checkout_path': '/workspace/ordax',
-              'ordinary_change_requires_usb_reflash': False
-          }
-          manifest['runtime_roots_created_empty'] = []
-          manifest['current_pointer_initial_state'] = 'unset'
-          output.write_text(json.dumps(manifest, indent=2) + '\n', encoding='utf-8')
-          PY
-
-      - name: Build and verify one canonical offline Surface runtime
-        run: |
-          set -euo pipefail
-          # The existing pinned APK lock is consumed at build time ONLY.
-          # There is no first-boot package installation or second lock.
-          sudo -E python3 bootstrap/surface-runtime/build.py build \
-            --out-dir "$RUNNER_TEMP/owner-dev-surface-runtime" \
-            --cache-dir "$RUNNER_TEMP/owner-dev-surface-cache"
-          sudo -E python3 bootstrap/surface-runtime/build.py verify \
-            --out-dir "$RUNNER_TEMP/owner-dev-surface-runtime"
+          python3 tools/creator/owner_dev_manifest.py "$RUNNER_TEMP/minimal-bootstrap-owner-dev.json"
 
       - name: Assemble boot payload and overlay Git development base
         run: |
           set -euo pipefail
-          manifest="$RUNNER_TEMP/minimal-bootstrap-owner-dev.json"
-          payload="$RUNNER_TEMP/owner-prototype-payload"
-          stage="$RUNNER_TEMP/owner-prototype-stage"
-          python tools/creator/assemble.py build --manifest "$manifest" --out-dir "$payload"
-          python tools/creator/assemble.py verify --manifest "$manifest" --payload-root "$payload"
-          creator_cli="$RUNNER_TEMP/owner-creator-cli/ordax-creator"
-          test -x "$creator_cli"
-          verify_output="$("$creator_cli" verify-payload --manifest "$manifest" --payload-root "$payload")"
-          printf '%s\n' "$verify_output"
-          grep -Fxq 'PAYLOAD_VERIFIED=YES' <<<"$verify_output"
-          grep -Fxq 'PHYSICAL_WRITE_STATUS=blocked' <<<"$verify_output"
-          stage_output="$("$creator_cli" stage-tree --manifest "$manifest" --payload-root "$payload" --output-root "$stage")"
-          printf '%s\n' "$stage_output"
-          grep -Fxq 'DISPOSABLE_TREE_STAGED=YES' <<<"$stage_output"
-          grep -Fxq 'PHYSICAL_WRITE_STATUS=blocked' <<<"$stage_output"
-          sudo mkdir -p "$stage/ORDAX/dev-base"
-          sudo cp -a out/dev-base/rootfs/. "$stage/ORDAX/dev-base/"
-          sudo python tools/creator/verify_owner_dev_offline_runtime.py \
-            --stage-root "$stage" \
-            --producer-out "$RUNNER_TEMP/owner-dev-surface-runtime"
-          # A verified Git checkout is not a bootable desktop. The complete
-          # graphical runtime must already be on the USB before publication.
-          sudo python tools/ci/owner_rootfs_capabilities.py verify-owner-stage \
-            --stage-root "$stage"
-          sudo python tools/creator/verify_owner_dev_offline_runtime.py \
-            --stage-root "$stage"
-          if sudo find "$stage" -type l -print -quit | grep -q .; then
-            echo 'development seed may not contain symlinks' >&2
-            exit 1
-          fi
-          sudo python tools/creator/verify_owner_dev_offline_runtime.py \
-            --stage-root "$stage" \
-            --geometry-out "$RUNNER_TEMP/owner-dev-physical-media.json"
-          echo "$stage" > "$RUNNER_TEMP/owner-prototype-stage-path"
+          export ORDAX_DEV_GEOMETRY_OUT="$RUNNER_TEMP/owner-dev-physical-media.json"
+          bash tools/creator/owner_dev_stage.sh \
+            "$RUNNER_TEMP/minimal-bootstrap-owner-dev.json" \
+            "$RUNNER_TEMP/owner-prototype-payload" \
+            "$RUNNER_TEMP/owner-prototype-stage" \
+            "$RUNNER_TEMP/owner-creator-cli/ordax-creator" \
+            "out/dev-base/rootfs" \
+            "$RUNNER_TEMP/owner-dev-surface-runtime"
+          echo "$RUNNER_TEMP/owner-prototype-stage" > "$RUNNER_TEMP/owner-prototype-stage-path"
 
       - name: Materialize and verify RAW development seed
         run: |
           set -euo pipefail
           stage="$(cat "$RUNNER_TEMP/owner-prototype-stage-path")"
           proof="$RUNNER_TEMP/owner-prototype-media"
-          sudo python tools/creator/proof/disposable_media.py \
+          sudo python3 tools/creator/owner_dev_raw.py \
             --contract "$RUNNER_TEMP/owner-dev-physical-media.json" \
             --stage-root "$stage" \
             --output-root "$proof"

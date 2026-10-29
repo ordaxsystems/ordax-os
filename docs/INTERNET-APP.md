@@ -107,6 +107,44 @@ alterando apenas uma flag: cada um exige prova do respectivo owner.
 
 ## Native engine
 
+**Persistência independente:** `browser_session_runtime.py` concentra
+o ciclo de vida da sessão do navegador. O host Native só faz o adaptador
+WebKit (abas e callbacks), sem carregar nem salvar o Internet durante o boot
+da Surface. O encerramento da Surface não grava uma sessão não ativada.
+Falhas parciais de restauração revertem as abas recém-criadas antes de aceitar
+novas ações, sem modificar o arquivo de sessão. A lógica e os testes
+pertencem ao OS como serviço neutro; a interface removível permanece em Apps.
+
+**Runtime modular (Owner Development):** `ordax-surface` is the visual
+owner. `ordax-os` owns the shared WebKitGTK dependency, a privileged
+Surface WebContext and the independent untrusted external-content context in
+`system/surface/runtime/external_web_content.py`. This external context is
+created lazily: starting the Surface alone does not open Internet WebViews or
+restore browser tabs. A browser tab request or visible Internet viewport
+activates the session; a Surface-only shutdown does not overwrite preserved
+browser state. The account signup popup also uses this isolated context on
+demand. The Internet product remains owned by `ordax-apps/apps/internet`;
+this boundary does **not** authorize Internet installation/distribution.
+Rendering-engine upgrades are separate from Surface UI changes and must
+preserve QEMU/offline boot and security isolation before promotion.
+
+**Controlador de abas independente:** `browser_tab_registry.py` é o owner
+único de identidade, ordem, limite e seleção da aba ativa. Não importa GTK,
+WebKit, arquivos de sessão nem a Surface. O host Native mantém exclusivamente
+a criação/destruição das WebViews e os callbacks de navegação, usando o mapa
+do controlador sem uma segunda cópia de seleção. As transições de abas são
+testadas sem motor gráfico; nenhuma mudança ativa o app Internet ou promove
+o runtime gráfico para Stable.
+
+**Adaptador externo canônico:** `native_internet_navigation.py` é o owner
+dos callbacks WebKit de sites externos, da política pública de URLs,
+popups, permissão negada por padrão, abas, busca e seleção. Os 20 métodos
+foram extraídos do host da Surface. Apenas `ordax_browser_host.py`
+mantém o bridge de capacidades privilegiadas e compõe IPC/host; os
+adaptadores de downloads e persistência já são independentes.
+Essa divisão de responsabilidades não substitui isolamento entre processos
+nem autoriza promoção sem QEMU/USB.
+
 The current USB/native-disk host uses WebKitGTK 4.1 as an OS-owned engine. The portable app consumes the `browser-session` contract and does not own or depend on the Linux distribution; keeping the engine in the host lets the base distribution evolve independently.
 
 `system/surface/runtime/ordax_browser_host.py` owns:
@@ -320,6 +358,17 @@ O mecanismo de pesquisa é uma preferência do navegador, não um provider
 de IA, nem uma permissão para o Studio ou agentes.
 
 ## Downloads seguros, com aprovação explícita
+
+**Ownership Native:** `native_internet_downloads.py` é o único adaptador
+dos callbacks WebKit para transferências, aprovação, validação do armazenamento
+e limpeza de arquivos parciais. `ordax_browser_host.py` fornece apenas o
+isolamento da sessão, a política autoritativa de URLs externas e a conexão
+ao motor. O adaptador reutiliza `browser_download_policy.py`, não acessa
+o gerenciador de conteúdo privilegiado da Surface, não possui UI do Internet
+e não cria outro motor Web. A suíte nativa executa seus callbacks reais com
+WebKit simulado, incluindo autorização, cancelamento, espaço insuficiente e
+falhas de escrita. A instalação/distribuição do Internet segue bloqueada.
+
 
 O host WebKitGTK liga `WebContext::download-started` ao adaptador de downloads
 do OrdaX. A página não escolhe o caminho final e nunca recebe a ponte nativa.

@@ -191,6 +191,7 @@ on:
       - 'tests/test_native_component_probation.py'
       - 'tests/test_native_component_state.py'
       - 'tests/test_browser_session_integration_contract.py'
+      - 'tests/test_browser_tab_registry.py'
       - 'tests/test_browser_session_store.py'
       - 'tests/test_internet_browser_contract.py'
       - 'tests/test_internet_sdk_readiness.py'
@@ -425,6 +426,7 @@ on:
       - 'tests/test_native_component_probation.py'
       - 'tests/test_native_component_state.py'
       - 'tests/test_browser_session_integration_contract.py'
+      - 'tests/test_browser_tab_registry.py'
       - 'tests/test_browser_session_store.py'
       - 'tests/test_internet_browser_contract.py'
       - 'tests/test_internet_sdk_readiness.py'
@@ -646,6 +648,7 @@ jobs:
           python -m unittest tests.test_space_selection_surface_contract -v
           python -m unittest tests.test_native_component_probation -v
           python -m unittest tests.test_browser_session_integration_contract -v
+          python -m unittest tests.test_browser_tab_registry -v
           python -m unittest tests.test_browser_session_store -v
           python -m unittest tests.test_internet_remove_first_cutover -v
           python -m unittest tests.test_internet_browser_contract -v

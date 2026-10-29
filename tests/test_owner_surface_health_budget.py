@@ -47,11 +47,12 @@ class OwnerSurfaceHealthBudgetTests(unittest.TestCase):
         self.assertIn('owner_monotonic_seconds()', supervisor)
         for state in ("starting", "provisioning", "waiting-health", "healthy", "failed"):
             self.assertIn(f"write_surface_health_state {state}", supervisor)
-        marker_write = surface.index("printf '%s\\n' \"$SOURCE_SHA\" >\"$RUNTIME_PROVISIONING_FILE\"")
-        ensure_runtime = surface.index('ensure_runtime || fallback_with_reason')
-        marker_clear = surface.index('rm -f "$RUNTIME_PROVISIONING_FILE"', marker_write)
-        self.assertLess(marker_write, ensure_runtime)
-        self.assertLess(ensure_runtime, marker_clear)
+        # The runtime is preverified before the handoff; the Surface must not
+        # signal that it is provisioning APK packages or extend its boot budget.
+        self.assertNotIn('printf \'%s\\n\' "$SOURCE_SHA" >"$RUNTIME_PROVISIONING_FILE"', surface)
+        self.assertIn('ensure_runtime || fallback_with_reason', surface)
+        self.assertIn('rm -f "$RUNTIME_PROVISIONING_FILE"', surface)
+        self.assertIn('verified offline EROFS graphical runtime is unavailable', surface)
 
     def test_owner_cold_boot_failure_reports_only_canonical_witness_classes(self):
         supervisor = SUPERVISOR.read_text(encoding="utf-8")

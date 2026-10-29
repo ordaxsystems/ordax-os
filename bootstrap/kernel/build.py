@@ -27,6 +27,8 @@ import subprocess
 import sys
 import tarfile
 import tempfile
+import time
+import urllib.error
 import urllib.request
 
 # Initramfs imports this builder by absolute spec; never depend on sys.path/cwd.
@@ -281,17 +283,51 @@ def download_archive(contract: dict, cache_dir: Path) -> Path:
 
 
 def download_authentication_input(url: str, destination: Path, *, max_bytes: int) -> bytes:
-    """Bound download; the actual authenticity comes from the pinned identity."""
-    try:
-        with urllib.request.urlopen(url, timeout=120) as response:
-            value = response.read(max_bytes + 1)
-    except Exception as exc:
-        raise BuildError(f"kernel upstream authentication input download failed: {exc}") from exc
-    if not value or len(value) > max_bytes:
-        raise BuildError("kernel upstream authentication input is missing or oversized")
-    destination.write_bytes(value)
-    return value
+    """Cache only bounded upstream bytes; OpenPGP still authenticates each build.
 
+    A transient kernel.org 429/5xx must not force a complete kernel rebuild.
+    Never fall back to an unpinned URL, unsigned input or stale receipt.
+    """
+    if max_bytes < 1 or max_bytes > 2 * 1024 * 1024:
+        raise BuildError("kernel authentication input limit is invalid")
+    if destination.is_symlink():
+        raise BuildError("kernel authentication cache path is unsafe")
+    if destination.exists():
+        if not destination.is_file() or not 0 < destination.stat().st_size <= max_bytes:
+            raise BuildError("kernel authentication cache entry is invalid")
+        return destination.read_bytes()
+
+    temporary = destination.with_name(destination.name + ".part")
+    if temporary.is_symlink():
+        raise BuildError("kernel authentication temporary path is unsafe")
+    temporary.unlink(missing_ok=True)
+
+    for attempt in range(3):
+        try:
+            with urllib.request.urlopen(url, timeout=120) as response:
+                value = response.read(max_bytes + 1)
+        except urllib.error.HTTPError as exc:
+            if exc.code in {429, 500, 502, 503, 504} and attempt < 2:
+                time.sleep(2 ** attempt)
+                continue
+            raise BuildError(f"kernel upstream authentication input download failed: {exc}") from exc
+        except (urllib.error.URLError, TimeoutError, OSError) as exc:
+            if attempt < 2:
+                time.sleep(2 ** attempt)
+                continue
+            raise BuildError(f"kernel upstream authentication input download failed: {exc}") from exc
+        if not value or len(value) > max_bytes:
+            raise BuildError("kernel upstream authentication input is missing or oversized")
+        try:
+            with temporary.open("xb") as stream:
+                stream.write(value)
+                stream.flush()
+                os.fsync(stream.fileno())
+            temporary.replace(destination)
+            return value
+        finally:
+            temporary.unlink(missing_ok=True)
+    raise BuildError("kernel authentication input exhausted bounded download attempts")
 
 def authenticate_upstream_archive(contract: dict, archive: Path, cache_dir: Path) -> dict:
     """Mandatory before extraction for every source pin other than legacy 6.6.52."""
@@ -310,9 +346,12 @@ def authenticate_upstream_archive(contract: dict, archive: Path, cache_dir: Path
     sig = cache_dir / f"linux-{version}.tar.sign"
     key = cache_dir / "kernel-maintainer-public-key.asc"
     download_authentication_input(contract["signature_url"], sig, max_bytes=128 * 1024)
+    # A new pinned OpenPGP key URL must not inherit a previous cached key.
+    trusted_key_url = contract["upstream_signature"]["trusted_public_key_url"]
+    pinned_key_identity = hashlib.sha256(trusted_key_url.encode("utf-8")).hexdigest()[:20]
     encoded = download_authentication_input(
-        contract["upstream_signature"]["trusted_public_key_url"],
-        cache_dir / "kernel-maintainer-public-key.asc.base64",
+        trusted_key_url,
+        cache_dir / f"kernel-maintainer-public-key-{pinned_key_identity}.asc.base64",
         max_bytes=2 * 1024 * 1024,
     )
     try:

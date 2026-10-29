@@ -25,30 +25,28 @@ class FirstBootGraphicsTests(unittest.TestCase):
 
     def test_provisioning_and_liveness_are_explicit_exact_sha_contracts(self):
         self.assertIn("RUNTIME_PROVISIONING_FILE=$SESSION_DIR/runtime-provisioning-source-sha", SURFACE)
-        self.assertIn("printf '%s\\n' \"$SOURCE_SHA\" >\"$RUNTIME_PROVISIONING_FILE\"", SURFACE)
+        self.assertNotIn("printf '%s\\n' \"$SOURCE_SHA\" >\"$RUNTIME_PROVISIONING_FILE\"", SURFACE)
         self.assertIn('rm -f "$RUNTIME_PROVISIONING_FILE"', SURFACE)
         self.assertIn("SUPERVISOR_HEARTBEAT_FILE=$UPDATE_RUN_DIR/supervisor-heartbeat", GUARDIAN)
         self.assertIn("SUPERVISOR_HEARTBEAT_FILE=$UPDATE_RUN_DIR/supervisor-heartbeat", SUPERVISOR)
         self.assertIn('[ "$beat_owner" = "$SUPERVISOR_PID" ]', GUARDIAN)
         self.assertIn('supervisor_heartbeat || return 1', SUPERVISOR)
         self.assertIn("begin_owner_initial_surface_health", SUPERVISOR)
-        self.assertIn("RUNTIME_INSTALL_TIMEOUT=$" + "{ORDAX_RUNTIME_INSTALL_TIMEOUT_SECONDS:-600}", SURFACE)
+        self.assertNotIn("RUNTIME_INSTALL_TIMEOUT=", SURFACE)
+        self.assertIn("RUNTIME_ROOT=$VERIFIED_RUNTIME_ROOT", SURFACE)
         self.assertIn("OWNER_PROVISION_TIMEOUT=$" + "{ORDAX_OWNER_SURFACE_PROVISION_TIMEOUT_SECONDS:-660}", SUPERVISOR)
-        self.assertIn("Stable/MVP requires the preverified offline graphical runtime", SURFACE)
+        self.assertIn("verified offline EROFS graphical runtime is unavailable", SURFACE)
         self.assertIn("resolve_source_identity() {", SURFACE)
         self.assertIn('is_source_sha "$SOURCE_SHA_HINT"', SURFACE)
         self.assertIn('[ "$candidate_sha" = "$SOURCE_SHA_HINT" ]', SURFACE)
         identity = SURFACE.index(
             'resolve_source_identity || fallback_with_reason "failed to resolve exact Surface source identity"'
         )
-        marker = SURFACE.index(
-            "printf '%s\\n' \"$SOURCE_SHA\" >\"$RUNTIME_PROVISIONING_FILE\""
-        )
         provision = SURFACE.index(
-            'ensure_runtime || fallback_with_reason "graphical runtime is unavailable after bounded provisioning attempt"'
+            'ensure_runtime || fallback_with_reason "verified offline graphical runtime unavailable"'
         )
-        self.assertLess(identity, marker)
-        self.assertLess(marker, provision)
+        self.assertLess(identity, provision)
+        self.assertIn('[ "$VERIFIED_RUNTIME_MODE" = "verified-erofs-overlay" ]', SURFACE)
 
     def probe(self, marker_value, healthy_after, budget=4):
         with tempfile.TemporaryDirectory() as directory:
@@ -90,6 +88,9 @@ class FirstBootGraphicsTests(unittest.TestCase):
                 'owner_monotonic_seconds() { cat "$CLOCK"; }\n'
                 'supervisor_heartbeat() { :; }\n'
                 'log() { :; }\n'
+                # This synthetic health simulation has no QEMU serial or guest tmpfs.
+                # The failure-diagnostics hook has no authority over health or rollback.
+                'owner_qemu_surface_failure_diagnostics() { :; }\n'
                 'write_surface_health_state() { :; }\n'
                 'set_update_context() { :; }\n'
                 'clear_update_context() { :; }\n'

@@ -171,5 +171,20 @@ class PreUsbNovaOrdaxAuditTests(unittest.TestCase):
         self.assertIn("ORDAX_VISUAL_SOURCE_REPOSITORY=ordaxsystems/ordax-surface", preparer)
 
 
+    def test_external_surface_checkout_uses_verified_pinned_git_source(self):
+        """CI must not use an anonymous clone of main as release source."""
+        action = (ROOT / ".github/actions/assemble-surface/action.yml").read_text(encoding="utf-8")
+        self.assertIn("docs/contracts/surface-source.json", action)
+        self.assertIn('data["source_repository"] == "ordaxsystems/ordax-surface"', action)
+        self.assertIn("repository: ordaxsystems/ordax-surface", action)
+        self.assertIn("ref: ${{ steps.surface-lock.outputs.commit }}", action)
+        self.assertIn("persist-credentials: false", action)
+        self.assertIn('git -C "$source_dir" rev-parse HEAD', action)
+        self.assertIn('test -z "$(git -C "$source_dir" status --porcelain)"', action)
+        self.assertIn("--surface-root \"$source_dir\"", action)
+        self.assertIn("if: always()", action)
+        self.assertNotIn("git clone --filter=blob:none", action)
+        self.assertNotIn("checkout --detach", action)
+
 if __name__ == "__main__":
     unittest.main()

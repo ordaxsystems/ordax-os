@@ -1,0 +1,438 @@
+name: Independent Surface Runtime
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - 'bootstrap/surface-runtime/**'
+      - '!bootstrap/surface-runtime/**/*.md'
+      - 'bootstrap/independent-base/source.json'
+      - 'bootstrap/kernel/source.json'
+      - 'tests/test_independent_surface_runtime.py'
+      - 'tests/test_ci_two_stage_release_gate.py'
+      - 'tests/test_independent_surface_qemu_binding.py'
+      - 'tests/test_independent_surface_impact.py'
+      - 'tests/test_independent_surface_component_cache.py'
+      - 'tests/test_independent_surface_cutover_audit.py'
+      - 'tests/test_independent_surface_cold_health_contract.py'
+      - 'tests/test_portable_v2_qemu_boot_proof_contract.py'
+      - 'tools/ci/independent_surface_impact.py'
+      - 'tools/ci/independent_surface_component_cache.py'
+      - 'tools/ci/independent_surface_r2.sh'
+      - 'tests/test_owner_surface_cache_contract.py'
+      - 'tools/ci/independent_surface_cutover_audit.py'
+      - '.github/workflows/independent-surface-runtime.yml'
+      - '.github/workflows/portable-v2-qemu-boot-proof.yml'
+      - 'docs/contracts/ci-supply-chain.json'
+  workflow_dispatch:
+    inputs:
+      force_build:
+        type: boolean
+        description: 'force the expensive Buildroot Surface build/QEMU proof'
+        required: false
+        default: false
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  # Preserve verified expensive Buildroot compilation across PR revisions.
+  # The queued run still validates the latest exact source after the current
+  # source-bound image finishes; cache fingerprints disallow stale reuse.
+  cancel-in-progress: false
+
+jobs:
+  contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Validate Alpine-free Surface migration contract
+        run: |
+          python3 -m unittest \
+            tests.test_independent_surface_runtime \
+            tests.test_independent_surface_qemu_binding \
+            tests.test_independent_surface_impact \
+            tests.test_independent_surface_component_cache \
+            tests.test_independent_surface_cutover_audit \
+            tests.test_independent_surface_cold_health_contract -v
+          bash -n tools/ci/independent_surface_r2.sh
+          python3 -m unittest tests.test_owner_surface_cache_contract tests.test_ci_two_stage_release_gate -v
+          python3 -m py_compile \
+            bootstrap/surface-runtime/build.py \
+            bootstrap/surface-runtime/prepare_config.py \
+            tools/ci/independent_surface_impact.py \
+            tools/ci/independent_surface_component_cache.py \
+            tools/ci/independent_surface_cutover_audit.py
+          python3 bootstrap/surface-runtime/prepare_config.py check
+          python3 bootstrap/surface-runtime/build.py check
+          python3 tools/ci/independent_surface_cutover_audit.py post
+
+  impact:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      required: ${{ steps.impact.outputs.required }}
+      reason: ${{ steps.impact.outputs.reason }}
+      changed_count: ${{ steps.impact.outputs.changed_count }}
+    steps:
+      - name: Checkout exact source for Surface impact classification
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Classify whether Surface EROFS bytes can change
+        id: impact
+        env:
+          ORDAX_IMPACT_BASE: ${{ github.event.pull_request.base.sha || '' }}
+          ORDAX_IMPACT_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+          ORDAX_FORCE_SURFACE_BUILD: ${{ inputs.force_build || false }}
+        run: |
+          set -euo pipefail
+          force=()
+          if [ "$ORDAX_FORCE_SURFACE_BUILD" = true ]; then
+            force=(--force)
+          fi
+          python3 tools/ci/independent_surface_impact.py \
+            --base "$ORDAX_IMPACT_BASE" \
+            --head "$ORDAX_IMPACT_HEAD" \
+            "${force[@]}" \
+            --github-output "$GITHUB_OUTPUT"
+
+  buildroot-surface:
+    needs: [contract, impact]
+    if: needs.impact.outputs.required == 'true' && (github.event_name != 'pull_request' || !github.event.pull_request.draft)
+    # A dedicated long-lived x86_64 runner may be opted in without changing
+    # the component contract; default stays hosted and disposable.
+    runs-on: ${{ vars.ORDAX_SURFACE_RUNNER_LABEL || 'ubuntu-24.04' }}
+    timeout-minutes: 360
+    env:
+      ORDAX_SURFACE_PRODUCER_ENVIRONMENT: ${{ vars.ORDAX_SURFACE_PRODUCER_ENVIRONMENT }}
+      ORDAX_SURFACE_PERSISTENT_WORK_ROOT: ${{ vars.ORDAX_SURFACE_PERSISTENT_WORK_ROOT }}
+    # One actual EROFS producer for one exact source revision across both
+    # Creator and Independent Surface workflows; don't compile it twice.
+    concurrency:
+      group: ordax-surface-producer-${{ github.event.pull_request.number || github.ref }}
+      cancel-in-progress: false
+      queue: max
+    outputs:
+      artifact_reused: ${{ steps.surface-reuse-state.outputs.reused }}
+      artifact_source: ${{ steps.surface-reuse-state.outputs.source }}
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Resolve exact Surface artifact fingerprint
+        id: surface-artifact-fingerprint
+        run: |
+          set -euo pipefail
+          if [ -n "${ORDAX_SURFACE_PRODUCER_ENVIRONMENT:-}" ]; then
+            if [ "${RUNNER_ENVIRONMENT:-}" != "self-hosted" ]; then
+              echo "::error::Explicit Surface producer identity requires a trusted self-hosted executor" >&2
+              exit 1
+            fi
+            export ORDAX_COMPONENT_CACHE_ENVIRONMENT="$ORDAX_SURFACE_PRODUCER_ENVIRONMENT"
+          else
+            test -n "${ImageOS:-}"
+            test -n "${ImageVersion:-}"
+            export ORDAX_COMPONENT_CACHE_ENVIRONMENT="${RUNNER_OS:?}/${RUNNER_ARCH:?}/${ImageOS}/${ImageVersion}"
+          fi
+          printf 'ORDAX_COMPONENT_CACHE_ENVIRONMENT=%s\n' "$ORDAX_COMPONENT_CACHE_ENVIRONMENT" >> "$GITHUB_ENV"
+          # Reuse both downloaded source packages and compiled objects when
+          # the same trusted self-hosted executor keeps its disk across runs.
+          if [ -n "${ORDAX_SURFACE_PERSISTENT_WORK_ROOT:-}" ]; then
+            if [ "${RUNNER_ENVIRONMENT:-}" != "self-hosted" ]; then
+              echo "::error::Durable Surface cache requires a self-hosted runner" >&2
+              exit 1
+            fi
+            case "$ORDAX_SURFACE_PERSISTENT_WORK_ROOT" in
+              /*) ;;
+              *) echo "::error::Persistent Surface cache root must be absolute" >&2; exit 1 ;;
+            esac
+            if [ -L "$ORDAX_SURFACE_PERSISTENT_WORK_ROOT" ]; then
+              echo "::error::Persistent Surface cache root cannot be a symlink" >&2
+              exit 1
+            fi
+            if [ -z "${ORDAX_SURFACE_PRODUCER_ENVIRONMENT:-}" ]; then
+              echo "::error::Persistent Surface cache requires pinned producer environment" >&2
+              exit 1
+            fi
+            cache_root="$(realpath -m -- "$ORDAX_SURFACE_PERSISTENT_WORK_ROOT")"
+            case "$cache_root" in
+              /|"$RUNNER_TEMP"|"$GITHUB_WORKSPACE"|"$GITHUB_WORKSPACE"/*)
+                echo "::error::Surface persistent cache must be outside workspace and runner temp" >&2
+                exit 1
+                ;;
+            esac
+            umask 077
+            mkdir -p "$cache_root/ccache" "$cache_root/downloads"
+          else
+            cache_root="$RUNNER_TEMP"
+          fi
+          if [ -n "${ORDAX_SURFACE_PERSISTENT_WORK_ROOT:-}" ]; then
+            echo "BR2_CCACHE_DIR=$cache_root/ccache" >> "$GITHUB_ENV"
+            echo "BR2_DL_DIR=$cache_root/downloads" >> "$GITHUB_ENV"
+          else
+            echo "BR2_CCACHE_DIR=$cache_root/ordax-independent-surface-ccache" >> "$GITHUB_ENV"
+            echo "BR2_DL_DIR=$cache_root/ordax-independent-surface-dl" >> "$GITHUB_ENV"
+          fi
+          python3 tools/ci/independent_surface_component_cache.py fingerprint \
+            --github-output "$GITHUB_OUTPUT"
+
+      - name: Restore verified Independent Surface EROFS component
+        id: surface-artifact-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/ordax-independent-surface
+          key: ordax-independent-surface-artifact-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.surface-artifact-fingerprint.outputs.fingerprint }}
+
+      - name: Restore verified Independent Surface EROFS from durable R2 store
+        id: surface-r2
+        if: steps.surface-artifact-cache.outputs.cache-hit != 'true'
+        env:
+          ORDAX_R2_ACCOUNT_ID: '42586bf13b61436219d21def299833e4'
+          ORDAX_R2_BUCKET: 'ordax-device-artifacts'
+          ORDAX_R2_ACCESS_KEY_ID: ${{ secrets.ORDAX_R2_ACCESS_KEY_ID }}
+          ORDAX_R2_SECRET_ACCESS_KEY: ${{ secrets.ORDAX_R2_SECRET_ACCESS_KEY }}
+          ORDAX_SURFACE_FINGERPRINT: ${{ steps.surface-artifact-fingerprint.outputs.fingerprint }}
+          ORDAX_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: bash tools/ci/independent_surface_r2.sh restore
+      - name: Install Surface verification dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends erofs-utils util-linux
+
+      - name: Install full Surface Buildroot host dependencies on durable artifact miss
+        if: steps.surface-artifact-cache.outputs.cache-hit != 'true' && steps.surface-r2.outputs.hit != 'true'
+        run: |
+          sudo apt-get install -y --no-install-recommends \
+            build-essential bc perl bison flex gawk cpio unzip rsync file \
+            wget curl patch git xz-utils
+
+      - name: Restore exact Surface compiler cache on durable artifact miss
+        if: steps.surface-artifact-cache.outputs.cache-hit != 'true' && steps.surface-r2.outputs.hit != 'true' && env.ORDAX_SURFACE_PERSISTENT_WORK_ROOT == ''
+        id: surface-ccache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/ordax-independent-surface-ccache
+          key: ordax-independent-surface-ccache-v2-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('bootstrap/surface-runtime/configs/ordax_surface_defconfig', 'bootstrap/independent-base/source.json', 'bootstrap/kernel/source.json') }}-${{ github.run_id }}
+          restore-keys: |
+            ordax-independent-surface-ccache-v2-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('bootstrap/surface-runtime/configs/ordax_surface_defconfig', 'bootstrap/independent-base/source.json', 'bootstrap/kernel/source.json') }}-
+            ordax-independent-surface-ccache-v2-${{ runner.os }}-${{ runner.arch }}-
+            ordax-independent-surface-ccache-v1-${{ runner.os }}-${{ runner.arch }}-
+
+      - name: Restore Surface Buildroot source downloads on durable artifact miss
+        if: steps.surface-artifact-cache.outputs.cache-hit != 'true' && steps.surface-r2.outputs.hit != 'true' && env.ORDAX_SURFACE_PERSISTENT_WORK_ROOT == ''
+        id: surface-download-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/ordax-independent-surface-dl
+          key: ordax-independent-surface-dl-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('bootstrap/surface-runtime/configs/ordax_surface_defconfig', 'bootstrap/independent-base/source.json', 'bootstrap/kernel/source.json') }}
+          restore-keys: |
+            ordax-independent-surface-dl-v1-${{ runner.os }}-${{ runner.arch }}-
+
+      - name: Bind Buildroot toolchain headers to canonical OrdaX kernel SSOT
+        if: steps.surface-artifact-cache.outputs.cache-hit != 'true' && steps.surface-r2.outputs.hit != 'true'
+        run: |
+          python3 bootstrap/surface-runtime/prepare_config.py materialize \
+            --out bootstrap/surface-runtime/configs/ordax_surface_defconfig
+          grep -Fx 'BR2_KERNEL_HEADERS_VERSION=y' \
+            bootstrap/surface-runtime/configs/ordax_surface_defconfig
+          expected="$(python3 -c 'import json; print(json.load(open("bootstrap/kernel/source.json"))["version"])')"
+          grep -Fx "BR2_DEFAULT_KERNEL_VERSION=\"$expected\"" \
+            bootstrap/surface-runtime/configs/ordax_surface_defconfig
+
+      - name: Resolve exact Kconfig before expensive graphical build
+        if: steps.surface-artifact-cache.outputs.cache-hit != 'true' && steps.surface-r2.outputs.hit != 'true'
+        run: |
+          python3 bootstrap/surface-runtime/prepare_config.py preflight \
+            --cache "$RUNNER_TEMP/ordax-independent-surface-cache"
+
+      - name: Build Buildroot/musl Surface runtime on durable artifact miss
+        if: steps.surface-artifact-cache.outputs.cache-hit != 'true' && steps.surface-r2.outputs.hit != 'true'
+        env:
+          ORDAX_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+          # BR2_CCACHE_DIR and BR2_DL_DIR are resolved once, identically
+          # for preflight and build, by Resolve exact Surface fingerprint.
+          # A dedicated runner retains the underlying disk across jobs.
+          ORDAX_SURFACE_BUILD_JOBS: ${{ vars.ORDAX_SURFACE_BUILD_JOBS || '4' }}
+        run: |
+          set -euo pipefail
+          work_args=()
+          if [ -n "${ORDAX_SURFACE_PERSISTENT_WORK_ROOT:-}" ]; then
+            case "$ORDAX_SURFACE_PERSISTENT_WORK_ROOT" in
+              /*) ;;
+              *) echo "::error::Surface persistent work root must be absolute" >&2; exit 1 ;;
+            esac
+            work_args=(--work-dir "$ORDAX_SURFACE_PERSISTENT_WORK_ROOT/${{ steps.surface-artifact-fingerprint.outputs.fingerprint }}")
+          fi
+          case "$ORDAX_SURFACE_BUILD_JOBS" in
+            ''|*[!0-9]*) echo "::error::Invalid Surface parallel job count" >&2; exit 1 ;;
+          esac
+          if [ "$ORDAX_SURFACE_BUILD_JOBS" -lt 1 ] || [ "$ORDAX_SURFACE_BUILD_JOBS" -gt 64 ]; then
+            echo "::error::Surface parallel build jobs must be 1..64" >&2
+            exit 1
+          fi
+          python3 bootstrap/surface-runtime/build.py build \
+            --out "$RUNNER_TEMP/ordax-independent-surface" \
+            --cache "$RUNNER_TEMP/ordax-independent-surface-cache" \
+            --jobs "$ORDAX_SURFACE_BUILD_JOBS" "${work_args[@]}"
+
+      - name: Verify exact Independent Surface EROFS bytes
+        run: |
+          python3 bootstrap/surface-runtime/build.py verify \
+            --out "$RUNNER_TEMP/ordax-independent-surface"
+
+      - name: Restore immutable Surface source defconfig before cache identity record
+        if: steps.surface-artifact-cache.outputs.cache-hit != 'true' && steps.surface-r2.outputs.hit != 'true'
+        run: |
+          git checkout -- bootstrap/surface-runtime/configs/ordax_surface_defconfig
+          git diff --exit-code -- bootstrap/surface-runtime/configs/ordax_surface_defconfig
+
+      - name: Record fresh Independent Surface component cache
+        if: steps.surface-artifact-cache.outputs.cache-hit != 'true' && steps.surface-r2.outputs.hit != 'true'
+        env:
+          ORDAX_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          python3 tools/ci/independent_surface_component_cache.py record \
+            --out "$RUNNER_TEMP/ordax-independent-surface" \
+            --source-commit "$ORDAX_SOURCE_COMMIT"
+
+      - name: Verify Surface reuse against current integration commit
+        env:
+          ORDAX_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          reused=false
+          if [ '${{ steps.surface-artifact-cache.outputs.cache-hit }}' = true ] || [ '${{ steps.surface-r2.outputs.hit }}' = true ]; then
+            reused=true
+          fi
+          python3 tools/ci/independent_surface_component_cache.py verify \
+            --out "$RUNNER_TEMP/ordax-independent-surface" \
+            --integration-commit "$ORDAX_SOURCE_COMMIT" \
+            --cache-hit "$reused" \
+            --receipt "$RUNNER_TEMP/independent-surface-component-reuse.json"
+
+      - name: Resolve verified Surface reuse source
+        id: surface-reuse-state
+        run: |
+          set -euo pipefail
+          if [ '${{ steps.surface-artifact-cache.outputs.cache-hit }}' = true ]; then
+            source=github-cache
+            reused=true
+          elif [ '${{ steps.surface-r2.outputs.hit }}' = true ]; then
+            source=r2
+            reused=true
+          else
+            source=fresh-build
+            reused=false
+          fi
+          printf 'source=%s\nreused=%s\n' "$source" "$reused" >> "$GITHUB_OUTPUT"
+          echo "Verified Surface source: $source"
+
+      - name: Save verified Independent Surface EROFS component in fast GitHub cache
+        if: steps.surface-artifact-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/ordax-independent-surface
+          key: ordax-independent-surface-artifact-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.surface-artifact-fingerprint.outputs.fingerprint }}
+
+      - name: Ensure verified Surface exists in durable R2 store
+        if: steps.surface-reuse-state.outputs.source != 'r2'
+        env:
+          ORDAX_R2_ACCOUNT_ID: '42586bf13b61436219d21def299833e4'
+          ORDAX_R2_BUCKET: 'ordax-device-artifacts'
+          ORDAX_R2_ACCESS_KEY_ID: ${{ secrets.ORDAX_R2_ACCESS_KEY_ID }}
+          ORDAX_R2_SECRET_ACCESS_KEY: ${{ secrets.ORDAX_R2_SECRET_ACCESS_KEY }}
+          ORDAX_SURFACE_FINGERPRINT: ${{ steps.surface-artifact-fingerprint.outputs.fingerprint }}
+        run: bash tools/ci/independent_surface_r2.sh publish
+      - name: Sanitize reusable Surface download cache
+        if: always() && steps.surface-reuse-state.outputs.reused != 'true'
+        run: |
+          if [ -d "${BR2_DL_DIR:-$RUNNER_TEMP/ordax-independent-surface-dl}" ]; then
+            find "${BR2_DL_DIR:-$RUNNER_TEMP/ordax-independent-surface-dl}" -type f \
+              \( -name '*.tmp' -o -name '*.part' -o -name '*.lock' \) -delete
+          fi
+
+      - name: Save Surface Buildroot source download cache
+        if: always() && steps.surface-reuse-state.outputs.reused != 'true' && steps.surface-download-cache.outputs.cache-hit != 'true' && env.ORDAX_SURFACE_PERSISTENT_WORK_ROOT == ''
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/ordax-independent-surface-dl
+          key: ${{ steps.surface-download-cache.outputs.cache-primary-key }}
+
+      - name: Save exact Surface compiler cache
+        if: always() && steps.surface-reuse-state.outputs.reused != 'true' && steps.surface-ccache.outputs.cache-hit != 'true' && env.ORDAX_SURFACE_PERSISTENT_WORK_ROOT == ''
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/ordax-independent-surface-ccache
+          key: ${{ steps.surface-ccache.outputs.cache-primary-key }}
+
+      - name: Upload candidate evidence
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: ordax-independent-surface-runtime-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/ordax-independent-surface/provenance.json
+            ${{ runner.temp }}/ordax-independent-surface/native-surface-runtime.erofs
+            ${{ runner.temp }}/ordax-independent-surface/.ordax-independent-surface-cache.json
+            ${{ runner.temp }}/independent-surface-component-reuse.json
+          if-no-files-found: error
+          include-hidden-files: true
+          retention-days: 7
+
+      # Technical QEMU handoff above is not a release/operator export.
+      # Keep canonical v4 operator payload explicitly manual-only.
+      - name: Create manual-only canonical Surface operator receipt
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          set -euo pipefail
+          python3 tools/release-signing/operator_receipt.py \
+            --kind surface \
+            --source-commit "$GITHUB_SHA" \
+            --file "native-surface-runtime.erofs=$RUNNER_TEMP/ordax-independent-surface/native-surface-runtime.erofs" \
+            --out "$RUNNER_TEMP/ordax-independent-surface/operator-receipt.json"
+
+      - name: Upload canonical Surface EROFS for manual operator assembly
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: canonical-v4-operator-surface-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/ordax-independent-surface/native-surface-runtime.erofs
+            ${{ runner.temp }}/ordax-independent-surface/operator-receipt.json
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Remove unpromoted local Surface runtime after CI proof upload
+        if: github.event_name != 'workflow_dispatch'
+        run: |
+          set -euo pipefail
+          rm -f "$RUNNER_TEMP/ordax-independent-surface/native-surface-runtime.erofs"
+          test ! -e "$RUNNER_TEMP/ordax-independent-surface/native-surface-runtime.erofs"
+
+  portable-qemu:
+    needs: buildroot-surface
+    # Proof is independent from compilation: verified reused bytes must still be
+    # exercised by the canonical Independent QEMU gate. Cache hits only skip build.
+    if: needs.buildroot-surface.result == 'success'
+    uses: ./.github/workflows/portable-v2-qemu-boot-proof.yml
+    with:
+      base_source: independent
+      surface_source: independent
+      force_run: true
+    permissions:
+      contents: read
+      actions: read

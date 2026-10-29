@@ -98,10 +98,10 @@
       }
     },
     {
-      "id": "alpine-native-surface-runtime",
-      "kind": "runtime-package-set",
-      "source_authority": "system/surface/runtime/packages.txt",
-      "branch": "v3.22",
+      "id": "buildroot-native-surface-runtime",
+      "kind": "immutable-runtime-erofs",
+      "source_authority": "bootstrap/surface-runtime/source.json",
+      "promotion_status": "candidate-not-promotable",
       "delivery_scope": [
         "native-surface-runtime"
       ],

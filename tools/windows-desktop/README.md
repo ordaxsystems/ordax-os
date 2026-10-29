@@ -14,6 +14,14 @@ arquivo existente no instalador não prova a capacidade funcionando. A
 matriz, bloqueios e gates estão em
 [`docs/plans/ordax-os-desktop-windows-ssot-2026-10-20.md`](../../docs/plans/ordax-os-desktop-windows-ssot-2026-10-20.md).
 
+## Fluxo diário local-first — Desktop / Web (Owner DEV)
+
+O Windows Desktop é o ambiente de integração diária; **não** usar USB, GitHub Actions ou `dist:win` para editar uma tela. O comando existente do host é `npm start --prefix tools/windows-desktop` (Electron), e seus testes locais são `npm test --prefix tools/windows-desktop`, após instalar dependências desse workspace com `npm install --prefix tools/windows-desktop`. O host pode exigir um bundle Native/Surface previamente preparado: **`npm start` sozinho não é prova de primeira instalação nem cria os artefatos ausentes**. O script `dist:win` é de empacotamento, não de desenvolvimento diário.
+
+Para pré-visualização visual, usar o Vite já existente no OS com `npm run emulator:windows:vite` depois de `npm ci` na raiz, quando os recursos necessários do preview estiverem presentes. A fonte visual canônica continua em `ordaxsystems/ordax-surface`; nunca editar `system/surface/ui` ou `workspace` dentro do OS como segunda fonte. O lock em `docs/contracts/surface-source.json` vincula a revisão consumida na composição; preview livre e atualização de release são operações diferentes.
+
+Fluxo recomendado: **editar no repositório owner → preview Web/HMR → teste local relevante → integrar no Desktop com seu host e adaptadores → testar USB Dev só quando capacidades Native/boot forem afetadas**. Construção de instalador e validação cross-repo ficam no caminho de distribuição/integração, não no ciclo de edição. Esta seção descreve ferramentas presentes, **não** afirma que preview, host e USB já possuem paridade E2E comprovada.
+
 ## Integração com a source authority atual — 25/10/2026
 
 O Windows consome **a mesma revisão OS de `main`** utilizada pelos outros

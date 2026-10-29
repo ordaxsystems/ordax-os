@@ -1,32 +1,139 @@
 name: Independent Base Experiment
 
 on:
-  pull_request:
+  push:
+    branches: ['platform/remove-alpine']
     paths:
       - 'bootstrap/independent-base/**'
+      - 'tests/test_independent_native_component.py'
+      - '.github/workflows/independent-base-experiment.yml'
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - 'bootstrap/base/firmware_policy.py'
+      - 'bootstrap/base/kernel_module_payload.py'
+      - 'bootstrap/independent-base/**'
       - '!bootstrap/independent-base/**/*.md'
-      - 'tests/test_independent_rootfs_inventory.py'
       - 'bootstrap/kernel/build.py'
       - 'bootstrap/kernel/verify.py'
       - 'bootstrap/kernel/verify_upstream_signature.py'
       - 'bootstrap/kernel/source.json'
       - 'bootstrap/kernel/config/ordax.fragment'
+      - 'system/services/base-update/dev_channel.py'
+      - 'tools/dev-base-channel/**'
+      - 'tests/test_dev_base_symlink_policy.py'
+      - 'tests/test_independent_dev_channel_compatibility.py'
+      - 'tests/test_independent_rootfs_export.py'
+      - 'docs/contracts/hardware-support-matrix.json'
       - 'docs/contracts/kernel-build-environment.json'
       - 'tools/ci/portable_component_cache.py'
       - '.github/workflows/independent-base-experiment.yml'
   workflow_dispatch:
+    inputs:
+      profile:
+        description: Independent Base profile to prove
+        required: true
+        default: minimal
+        type: choice
+        options:
+          - minimal
+          - owner-development
 
 permissions:
   contents: read
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}-${{ inputs.profile || 'none' }}
+  # Preserve a running costly Buildroot proof when a new PR revision arrives.
+  # The latest queued revision remains source-bound and must still be checked.
+  cancel-in-progress: false
 
 jobs:
+  independent-base-contract:
+    # Validate the Owner Buildroot profile on draft PRs without building the
+    # kernel/rootfs or starting QEMU. The release job must depend on this gate.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    outputs:
+      profile: ${{ steps.profile.outputs.profile }}
+    steps:
+      - name: Checkout exact PR source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Python for pinned contract tests
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.12'
+      - name: Select integration profile
+        id: profile
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          DISPATCH_PROFILE: ${{ inputs.profile }}
+        run: |
+          set -euo pipefail
+          profile=minimal
+          if [ "$EVENT_NAME" = workflow_dispatch ]; then
+            profile="$DISPATCH_PROFILE"
+          elif [ "$EVENT_NAME" = pull_request ]; then
+            # Any PR exercising Independent Base must prove the Owner USB target;
+            # the minimal profile remains selectable explicitly by dispatch.
+            profile=owner-development
+          fi
+          case "$profile" in
+            minimal|owner-development) ;;
+            *) echo "unsupported Independent Base profile: $profile" >&2; exit 1 ;;
+          esac
+          printf 'ORDAX_INDEPENDENT_PROFILE=%s\n' "$profile" >> "$GITHUB_ENV"
+          printf 'profile=%s\n' "$profile" >> "$GITHUB_OUTPUT"
+          printf 'ORDAX_INDEPENDENT_PROFILE=%s\n' "$profile"
+      - name: Verify isolated contract and regressions
+        run: |
+          set -euo pipefail
+          python3 bootstrap/independent-base/build.py check --profile "$ORDAX_INDEPENDENT_PROFILE"
+          python3 bootstrap/base/kernel_module_payload.py check
+          python3 -m unittest \
+            tests.test_alpine_removal_boundary \
+            tests.test_dev_base_symlink_policy \
+            tests.test_independent_dev_channel_compatibility \
+            tests.test_independent_base_experiment \
+            tests.test_independent_rootfs_inventory \
+            tests.test_independent_rootfs_export \
+            tests.test_independent_network_parity \
+            tests.test_independent_owner_profile \
+            tests.test_kernel_module_payload \
+            tests.test_firmware_policy_neutral \
+            tests.test_independent_heavy_workflow -v
+          python3 -m py_compile \
+            bootstrap/base/firmware_policy.py \
+            bootstrap/base/kernel_module_payload.py \
+            bootstrap/independent-base/build.py \
+            bootstrap/independent-base/qemu_proof.py \
+            system/services/base-update/dev_channel.py \
+            tools/dev-base-channel/prove_independent_rootfs.py \
+            tests/test_dev_base_symlink_policy.py \
+            tests/test_independent_dev_channel_compatibility.py \
+            tests/test_independent_rootfs_export.py \
+            tests/test_independent_heavy_workflow.py
+          sh -n bootstrap/independent-base/post-build.sh
+          sh -n bootstrap/independent-base/post-image.sh
+          sh -n bootstrap/independent-base/overlay/sbin/ordax-independent-probe-init
+
   buildroot-qemu:
+    needs: independent-base-contract
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && !github.event.pull_request.draft)
     runs-on: ubuntu-24.04
     timeout-minutes: 120
+    # Serialize first cold-cache Owner Buildroot build with Creator/Surface.
+    # After the first verified save, later consumers can reuse the same bytes.
+    concurrency:
+      group: ordax-surface-producer-${{ github.event.pull_request.number || github.ref }}
+      cancel-in-progress: false
+      queue: max
     steps:
       - name: Checkout exact PR source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -46,20 +153,16 @@ jobs:
             libelf-dev dwarves kmod xz-utils pkg-config \
             gawk cpio unzip rsync file binutils wget curl patch git \
             erofs-utils e2fsprogs util-linux qemu-system-x86
-      - name: Verify isolated contract and regressions
+      - name: Bind validated Base profile from contract job
+        env:
+          CONTRACT_PROFILE: ${{ needs.independent-base-contract.outputs.profile }}
         run: |
-          python3 -m unittest tests.test_independent_base_experiment tests.test_independent_network_parity tests.test_independent_rootfs_inventory -v
-          python3 -m py_compile bootstrap/independent-base/build.py bootstrap/independent-base/qemu_proof.py
-          sh -n bootstrap/independent-base/post-build.sh
-          sh -n bootstrap/independent-base/overlay/sbin/ordax-independent-probe-init
-      - name: Restore Buildroot source/package download cache
-        id: buildroot-download-cache
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ${{ runner.temp }}/ordax-independent-cache
-          key: ordax-buildroot-download-v1-${{ runner.os }}-${{ hashFiles('bootstrap/independent-base/source.json', 'bootstrap/independent-base/configs/**', 'bootstrap/independent-base/patches/**') }}
-          restore-keys: |
-            ordax-buildroot-download-v1-${{ runner.os }}-
+          set -euo pipefail
+          case "$CONTRACT_PROFILE" in
+            minimal|owner-development) ;;
+            *) echo 'Base contract profile absent or invalid' >&2; exit 1 ;;
+          esac
+          printf 'ORDAX_INDEPENDENT_PROFILE=%s\n' "$CONTRACT_PROFILE" >> "$GITHUB_ENV"
       - name: Resolve reusable kernel fingerprint
         id: component-fingerprints
         run: |
@@ -76,56 +179,6 @@ jobs:
         with:
           path: ${{ runner.temp }}/portable-v2-qemu/kernel
           key: ordax-portable-component-v1-${{ runner.os }}-${{ runner.arch }}-kernel-${{ steps.component-fingerprints.outputs.kernel }}
-      - name: Restore verified independent base component
-        id: independent-base-cache
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ${{ runner.temp }}/ordax-independent
-          key: ordax-portable-component-v1-${{ runner.os }}-${{ runner.arch }}-independent-base-${{ steps.component-fingerprints.outputs.independent_base }}
-      - name: Build rootfs from official Buildroot source on verified cache miss
-        if: steps.independent-base-cache.outputs.cache-hit != 'true'
-        run: |
-          python3 bootstrap/independent-base/build.py build \
-            --out "$RUNNER_TEMP/ordax-independent" \
-            --cache "$RUNNER_TEMP/ordax-independent-cache" --jobs 4
-      - name: Save Buildroot source/package download cache
-        if: steps.independent-base-cache.outputs.cache-hit != 'true' && steps.buildroot-download-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ${{ runner.temp }}/ordax-independent-cache
-          key: ordax-buildroot-download-v1-${{ runner.os }}-${{ hashFiles('bootstrap/independent-base/source.json', 'bootstrap/independent-base/configs/**', 'bootstrap/independent-base/patches/**') }}
-      - name: Verify independent base component and exact integration binding
-        env:
-          ORDAX_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
-        run: |
-          set -euo pipefail
-          base_dir="$RUNNER_TEMP/ordax-independent"
-          metadata="$RUNNER_TEMP/portable-v2-qemu/metadata"
-          cache_hit='${{ steps.independent-base-cache.outputs.cache-hit }}'
-          if [ "$cache_hit" != 'true' ]; then
-            cache_hit=false
-          fi
-          python3 bootstrap/independent-base/build.py verify --out "$base_dir"
-          python3 bootstrap/independent-base/verify_rootfs.py "$base_dir/rootfs.tar" > "$metadata/independent-rootfs-inventory.json"
-          if [ "$cache_hit" = 'false' ]; then
-            python3 tools/ci/portable_component_cache.py record \
-              --component independent-base \
-              --out-dir "$base_dir" \
-              --source-commit "$ORDAX_SOURCE_COMMIT" \
-              > "$metadata/independent-base-cache-record.json"
-          fi
-          python3 tools/ci/portable_component_cache.py verify \
-            --component independent-base \
-            --out-dir "$base_dir" \
-            --integration-commit "$ORDAX_SOURCE_COMMIT" \
-            --cache-hit "$cache_hit" \
-            --receipt "$metadata/independent-base-component-reuse.json"
-      - name: Save verified independent base component
-        if: steps.independent-base-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ${{ runner.temp }}/ordax-independent
-          key: ordax-portable-component-v1-${{ runner.os }}-${{ runner.arch }}-independent-base-${{ steps.component-fingerprints.outputs.independent_base }}
       - name: Build canonical OrdaX kernel on verified cache miss
         if: steps.kernel-cache.outputs.cache-hit != 'true'
         env:
@@ -165,6 +218,128 @@ jobs:
         with:
           path: ${{ runner.temp }}/portable-v2-qemu/kernel
           key: ordax-portable-component-v1-${{ runner.os }}-${{ runner.arch }}-kernel-${{ steps.component-fingerprints.outputs.kernel }}
+      - name: Bind verified kernel modules to Independent Base
+        run: |
+          set -euo pipefail
+          kernel_version=$(python3 -c 'import json; from pathlib import Path; print(json.loads(Path("bootstrap/kernel/source.json").read_text(encoding="utf-8"))["version"])')
+          module_archive="$RUNNER_TEMP/portable-v2-qemu/kernel/kernel-modules-$kernel_version.tar"
+          test -f "$module_archive"
+          receipt_root="$RUNNER_TEMP/ordax-independent"
+          test ! -L "$receipt_root"
+          install -d -m 0700 -- "$receipt_root"
+          test -d "$receipt_root"
+          test ! -L "$receipt_root"
+          printf 'ORDAX_HOST_PYTHON=%s\n' "$(command -v python3)" >> "$GITHUB_ENV"
+          printf 'ORDAX_KERNEL_MODULES_ARCHIVE=%s\n' "$module_archive" >> "$GITHUB_ENV"
+          printf 'ORDAX_KERNEL_MODULES_RECEIPT=%s\n' "$receipt_root/kernel-module-payload.json" >> "$GITHUB_ENV"
+          printf 'ORDAX_FIRMWARE_COVERAGE_RECEIPT=%s\n' "$receipt_root/firmware-coverage.json" >> "$GITHUB_ENV"
+      # Both profile fingerprints pin actual Buildroot inputs; Owner additionally
+      # binds Dev helpers, firmware and the independently verified kernel.
+      # All cache hits must be reverified against the current checkout.
+      - name: Restore verified independent base component
+        if: env.ORDAX_INDEPENDENT_PROFILE == 'minimal'
+        id: independent-base-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/ordax-independent
+          key: ordax-portable-component-v1-${{ runner.os }}-${{ runner.arch }}-independent-base-${{ steps.component-fingerprints.outputs.independent_base }}
+      - name: Restore verified Owner Buildroot component
+        if: env.ORDAX_INDEPENDENT_PROFILE == 'owner-development'
+        id: independent-owner-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/ordax-independent
+          key: ordax-portable-component-v1-${{ runner.os }}-${{ runner.arch }}-independent-base-owner-${{ steps.component-fingerprints.outputs.independent_base_owner }}
+      - name: Restore Buildroot sources and package downloads
+        if: (env.ORDAX_INDEPENDENT_PROFILE == 'minimal' && steps.independent-base-cache.outputs.cache-hit != 'true') || (env.ORDAX_INDEPENDENT_PROFILE == 'owner-development' && steps.independent-owner-cache.outputs.cache-hit != 'true')
+        id: buildroot-download-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/ordax-independent-cache
+          key: ordax-buildroot-download-v1-${{ runner.os }}-${{ hashFiles('bootstrap/independent-base/source.json', 'bootstrap/independent-base/configs/**', 'bootstrap/independent-base/patches/**') }}
+      - name: Build rootfs from official Buildroot source
+        if: (env.ORDAX_INDEPENDENT_PROFILE == 'minimal' && steps.independent-base-cache.outputs.cache-hit != 'true') || (env.ORDAX_INDEPENDENT_PROFILE == 'owner-development' && steps.independent-owner-cache.outputs.cache-hit != 'true')
+        run: |
+          set -euo pipefail
+          python3 bootstrap/independent-base/build.py build \
+            --profile "$ORDAX_INDEPENDENT_PROFILE" \
+            --out "$RUNNER_TEMP/ordax-independent" \
+            --cache "$RUNNER_TEMP/ordax-independent-cache" --jobs 4
+      - name: Save Buildroot source/package download cache
+        if: steps.buildroot-download-cache.outputs.cache-hit != 'true' && ((env.ORDAX_INDEPENDENT_PROFILE == 'minimal' && steps.independent-base-cache.outputs.cache-hit != 'true') || (env.ORDAX_INDEPENDENT_PROFILE == 'owner-development' && steps.independent-owner-cache.outputs.cache-hit != 'true'))
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/ordax-independent-cache
+          key: ordax-buildroot-download-v1-${{ runner.os }}-${{ hashFiles('bootstrap/independent-base/source.json', 'bootstrap/independent-base/configs/**', 'bootstrap/independent-base/patches/**') }}
+      - name: Verify independent base component and exact integration binding
+        env:
+          ORDAX_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          base_dir="$RUNNER_TEMP/ordax-independent"
+          metadata="$RUNNER_TEMP/portable-v2-qemu/metadata"
+          python3 bootstrap/independent-base/build.py verify \
+            --profile "$ORDAX_INDEPENDENT_PROFILE" --out "$base_dir"
+          # Strict provenance and kernel-module closure are verified above.
+          # An integration receipt binds reused bytes to this HEAD without
+          # modifying the original signed/source-bound producer provenance.
+          if [ "$ORDAX_INDEPENDENT_PROFILE" = minimal ]; then
+            cache_hit='${{ steps.independent-base-cache.outputs.cache-hit }}'
+            if [ "$cache_hit" != true ]; then cache_hit=false; fi
+            python3 bootstrap/independent-base/verify_rootfs.py \
+              "$base_dir/rootfs.tar" > "$metadata/independent-rootfs-inventory.json"
+            if [ "$cache_hit" = false ]; then
+              python3 tools/ci/portable_component_cache.py record \
+                --component independent-base \
+                --out-dir "$base_dir" \
+                --source-commit "$ORDAX_SOURCE_COMMIT" \
+                > "$metadata/independent-base-cache-record.json"
+            fi
+            python3 tools/ci/portable_component_cache.py verify \
+              --component independent-base \
+              --out-dir "$base_dir" \
+              --integration-commit "$ORDAX_SOURCE_COMMIT" \
+              --cache-hit "$cache_hit" \
+              --receipt "$metadata/independent-base-component-reuse.json"
+          else
+            cache_hit='${{ steps.independent-owner-cache.outputs.cache-hit }}'
+            if [ "$cache_hit" != true ]; then cache_hit=false; fi
+            if [ "$cache_hit" = false ]; then
+              python3 tools/ci/portable_component_cache.py record \
+                --component independent-base-owner \
+                --out-dir "$base_dir" --source-commit "$ORDAX_SOURCE_COMMIT" \
+                > "$metadata/independent-owner-cache-record.json"
+            fi
+            python3 tools/ci/portable_component_cache.py verify \
+              --component independent-base-owner --out-dir "$base_dir" \
+              --integration-commit "$ORDAX_SOURCE_COMMIT" --cache-hit "$cache_hit" \
+              --receipt "$metadata/independent-owner-component-reuse.json"
+            echo "ORDAX_OWNER_BASE_CACHE_HIT=$cache_hit"
+          fi
+      - name: Save verified independent base component
+        if: env.ORDAX_INDEPENDENT_PROFILE == 'minimal' && steps.independent-base-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/ordax-independent
+          key: ordax-portable-component-v1-${{ runner.os }}-${{ runner.arch }}-independent-base-${{ steps.component-fingerprints.outputs.independent_base }}
+      - name: Save verified Owner Buildroot component
+        if: env.ORDAX_INDEPENDENT_PROFILE == 'owner-development' && steps.independent-owner-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/ordax-independent
+          key: ordax-portable-component-v1-${{ runner.os }}-${{ runner.arch }}-independent-base-owner-${{ steps.component-fingerprints.outputs.independent_base_owner }}
+      - name: Prove Owner rootfs against the real Dev Channel consumer
+        if: env.ORDAX_INDEPENDENT_PROFILE == 'owner-development'
+        env:
+          ORDAX_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          python3 tools/dev-base-channel/prove_independent_rootfs.py \
+            --rootfs "$RUNNER_TEMP/ordax-independent/rootfs.tar" \
+            --provenance "$RUNNER_TEMP/ordax-independent/provenance.json" \
+            --expected-commit "$ORDAX_SOURCE_COMMIT" \
+            --reuse-receipt "$RUNNER_TEMP/portable-v2-qemu/metadata/independent-owner-component-reuse.json" \
+            --receipt "$RUNNER_TEMP/ordax-independent/dev-channel-rootfs-compatibility.json"
       - name: QEMU real kernel, EROFS and ext4 persistence/recovery
         run: |
           python3 bootstrap/independent-base/qemu_proof.py \
@@ -175,16 +350,63 @@ jobs:
         if: always()
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
-          name: ordax-independent-base-experiment-${{ github.run_id }}
+          name: ordax-independent-base-${{ env.ORDAX_INDEPENDENT_PROFILE }}-${{ github.run_id }}
           path: |
             ${{ runner.temp }}/ordax-independent/provenance.json
+            ${{ runner.temp }}/ordax-independent/kernel-module-payload.json
+            ${{ runner.temp }}/ordax-independent/firmware-coverage.json
+            ${{ runner.temp }}/ordax-independent/dev-channel-rootfs-compatibility.json
             ${{ runner.temp }}/ordax-independent/independent-base.erofs
             ${{ runner.temp }}/ordax-independent/rootfs.cpio.gz
             ${{ runner.temp }}/portable-v2-qemu/kernel/kernel-provenance.json
-            ${{ runner.temp }}/portable-v2-qemu/metadata/independent-base-component-reuse.json
-            ${{ runner.temp }}/portable-v2-qemu/metadata/independent-rootfs-inventory.json
             ${{ runner.temp }}/portable-v2-qemu/metadata/kernel-component-reuse.json
             ${{ runner.temp }}/ordax-independent-qemu-result.json
             ${{ runner.temp }}/ordax-independent-qemu-result-serial/*.serial.log
           if-no-files-found: warn
           retention-days: 7
+
+  private-native-python:
+    name: Compile private Buildroot Python component (no USB install)
+    if: (github.event_name == 'push' && github.ref == 'refs/heads/platform/remove-alpine') || (github.event_name == 'pull_request' && github.base_ref == 'platform/remove-alpine')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - name: Checkout exact candidate source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Python for pinned Buildroot owner and provenance
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.12'
+      - name: Install Buildroot host compilers and ELF inspector
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential gcc-13 g++ bc perl bison flex libssl-dev \
+            gawk cpio unzip rsync file binutils wget curl patch git \
+            xz-utils python3
+      - name: Prove native component source and isolation before compilation
+        run: |
+          python3 bootstrap/independent-base/build.py check-component
+          python3 -m unittest tests.test_independent_native_component -v
+      - name: Compile actual pinned musl Python / TLS / zlib closure
+        run: |
+          set -euo pipefail
+          python3 bootstrap/independent-base/build.py build-component \
+            --out "$RUNNER_TEMP/ordax-native-python-proof" \
+            --cache "$RUNNER_TEMP/ordax-independent-buildroot-cache" --jobs 4 \
+            --export-private-build-input --export-private-sdk \
+            > "$RUNNER_TEMP/native-python-build.log"
+          python3 bootstrap/independent-base/build.py verify-component \
+            --out "$RUNNER_TEMP/ordax-native-python-proof"
+      - name: Publish only non-installable Runtime build input and ABI evidence
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: ordax-independent-python-abi-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/ordax-native-python-proof/native-python-provenance.json
+            ${{ runner.temp }}/ordax-native-python-proof/native-python-build-input.rootfs.tar
+            ${{ runner.temp }}/ordax-native-python-proof/ordax-native-product-runtime-sdk.tar.gz
+          if-no-files-found: error
+          retention-days: 14

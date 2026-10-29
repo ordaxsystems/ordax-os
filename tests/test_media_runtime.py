@@ -15,84 +15,29 @@ def module(name, path):
     return result
 
 
-CONFIG = module("media_package_config_test", "bootstrap/surface-runtime/package_config.py")
-BUILDER = module("media_runtime_builder_test", "bootstrap/surface-runtime/build.py")
+BUILDER_PATH = ROOT / "bootstrap/surface-runtime/build.py"
 PROBE = module("media_runtime_probe_test", "system/surface/runtime/media_runtime_probe.py")
 
 
 class MediaRuntimeTests(unittest.TestCase):
-    def test_packages_have_one_owner_for_native_and_offline_builds(self):
-        contract = {"packages_file": CONFIG.PACKAGES_FILE}
-        packages = CONFIG.requested_packages(contract, ROOT)
-        self.assertTrue({
-            "dbus", "gst-plugins-good", "gst-libav", "gst-plugin-pipewire",
-            "pipewire-alsa", "pipewire-pulse", "webkit2gtk-4.1", "wireplumber",
-        }.issubset(packages))
-        launcher = (ROOT / "system/surface/bin/ordax-surface").read_text()
-        function = launcher[launcher.index("runtime_packages() {"):launcher.index("runtime_media_is_ready() {")]
-        with tempfile.TemporaryDirectory() as tmp:
-            result = subprocess.run(["sh", "-ec", function + '\nSYSTEM_ROOT=$1; runtime_packages', "test", str(ROOT / "system")], capture_output=True, text=True, check=True)
-            self.assertEqual(result.stdout.splitlines(), packages)
-
-    def test_package_manifest_rejects_shell_syntax_duplicates_and_parallel_lists(self):
-        contract = {"packages_file": CONFIG.PACKAGES_FILE}
-        with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp)
-            path = root / CONFIG.PACKAGES_FILE
-            path.parent.mkdir(parents=True)
-            launcher = (ROOT / "system/surface/bin/ordax-surface").read_text()
-            function = launcher[launcher.index("runtime_packages() {"):launcher.index("runtime_media_is_ready() {")]
-            for payload in ("", "gst-libav\ngst-libav\n", "gst-libav;evil\n", "gst-libav --untrusted\n", "-bad\n"):
-                path.write_text(payload)
-                with self.assertRaises(ValueError):
-                    CONFIG.requested_packages(contract, root)
-                result = subprocess.run(["sh", "-ec", function + '\nSYSTEM_ROOT=$1; runtime_packages', "test", str(root / "system")], capture_output=True)
-                self.assertNotEqual(result.returncode, 0)
-            path.write_text("gst-libav\n")
-            with self.assertRaises(ValueError):
-                CONFIG.requested_packages({**contract, "packages": ["other"]}, root)
-
-    def test_builder_runs_guest_visible_probe_and_always_removes_build_script(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp)
-            def execute(actual_root, command):
-                self.assertEqual(actual_root, root)
-                guest_path = command.split()[1]
-                self.assertFalse(guest_path.startswith("/tmp/"))
-                script = root / guest_path.lstrip("/")
-                self.assertEqual(script.read_bytes(), (ROOT / "system/surface/runtime/media_runtime_probe.py").read_bytes())
-                raise RuntimeError("decoder failure")
-            with mock.patch.object(BUILDER.CORE, "proot_rootfs", side_effect=execute):
-                with self.assertRaisesRegex(RuntimeError, "decoder failure"):
-                    BUILDER.probe_runtime_media(root)
-            self.assertEqual(list(root.iterdir()), [])
-
-    def test_builder_starts_pipewire_session_without_a_physical_device(self):
-        for failure in (None, RuntimeError("audio service failure")):
-            with self.subTest(failure=failure), tempfile.TemporaryDirectory() as tmp:
-                root = Path(tmp)
-
-                def execute(actual_root, command):
-                    self.assertEqual(actual_root, root)
-                    self.assertIn("/bin/busybox sh /ordax-audio-session.sh", command)
-                    self.assertIn("XDG_RUNTIME_DIR=/run/ordax-media-probe", command)
-                    self.assertIn("--runtime-dir /run/ordax-media-probe -- /usr/bin/pactl info", command)
-                    script = root / "ordax-audio-session.sh"
-                    self.assertEqual(script.read_bytes(), (ROOT / "system/surface/runtime/audio-session.sh").read_bytes())
-                    transient_pid = root / "run/ordax-media-probe/pulse/pid"
-                    transient_pid.parent.mkdir(parents=True)
-                    transient_pid.write_text("1234\n", encoding="utf-8")
-                    if failure is not None:
-                        raise failure
-
-                with mock.patch.object(BUILDER.CORE, "proot_rootfs", side_effect=execute):
-                    if failure is None:
-                        BUILDER.probe_runtime_audio_session(root)
-                    else:
-                        with self.assertRaisesRegex(BUILDER.RuntimeBuildError, "device-less startup probe"):
-                            BUILDER.probe_runtime_audio_session(root)
-                self.assertFalse((root / "ordax-audio-session.sh").exists())
-                self.assertFalse((root / "run/ordax-media-probe").exists())
+    def test_media_has_one_buildroot_owner_without_apk_or_proot(self):
+        source=__import__("json").loads((ROOT/"bootstrap/surface-runtime/source.json").read_text())
+        profile=(ROOT/"bootstrap/surface-runtime/configs/ordax_surface_defconfig").read_text()
+        required={
+            "BR2_PACKAGE_GSTREAMER1=y",
+            "BR2_PACKAGE_GST1_PLUGINS_BASE=y",
+            "BR2_PACKAGE_GST1_PLUGINS_GOOD=y",
+            "BR2_PACKAGE_GST1_LIBAV=y",
+            "BR2_PACKAGE_PIPEWIRE=y",
+            "BR2_PACKAGE_WIREPLUMBER=y",
+            "BR2_PACKAGE_PULSEAUDIO=y",
+        }
+        self.assertTrue(required.issubset(set(profile.splitlines())))
+        self.assertIn("usr/lib/gstreamer-1.0/libgstpipewire.so",source["required_runtime_paths"])
+        self.assertFalse(source["package_manager_in_runtime_allowed"])
+        self.assertNotIn("apk add",BUILDER_PATH.read_text())
+        launcher=(ROOT/"system/surface/bin/ordax-surface").read_text()
+        self.assertNotIn("/sbin/apk",launcher)
 
     def test_pipewire_runtime_does_not_replace_wayland_runtime_directory(self):
         launcher = (ROOT / "system/surface/bin/ordax-surface").read_text()

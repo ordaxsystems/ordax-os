@@ -28,6 +28,7 @@ on:
       - 'docs/contracts/native-release-assembly.json'
       - 'tests/test_native_esp_proof_contract.py'
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - 'boot/esp/**'
       - 'boot/native/**'
@@ -58,7 +59,36 @@ permissions:
   contents: read
 
 jobs:
+  native-esp-contract:
+    # Run strict Native boot contracts on every draft revision without
+    # downloading Ubuntu, compiling the kernel, or booting QEMU.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout exact Native source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Verify Native ESP and QEMU contracts without building
+        run: |
+          set -euo pipefail
+          python3 boot/esp/build.py check
+          python3 -m unittest \
+            tests.test_native_esp_proof_contract \
+            tests.test_native_qemu_boot_proof_contract \
+            tests.test_native_qemu_boot_readiness -v
+          python3 -m py_compile \
+            boot/esp/build.py \
+            bootstrap/native-initramfs/build.py \
+            tools/creator/proof/native_esp.py \
+            tools/creator/proof/native_qemu_boot.py
+
   native-esp:
+    needs: native-esp-contract
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     runs-on: ubuntu-24.04
     timeout-minutes: 90
     steps:
@@ -198,12 +228,26 @@ jobs:
               printf "%s\n" \
                 "Acquire::https::snapshot.ubuntu.com::Verify-Peer \"false\";" \
                 > /etc/apt/apt.conf.d/49ordax-ca-bootstrap
-              apt-get update --error-on=any
-              apt-get install -y --no-install-recommends ca-certificates
+              # Snapshot 503/429 is a transient upstream failure, not a
+              # reason to silently switch to an unpinned moving mirror.
+              # Retry only the SAME signed, timestamp-pinned APT repository.
+              snapshot_apt() {
+                local attempt
+                for attempt in 1 2 3 4; do
+                  if "$@"; then return 0; fi
+                  if [ "$attempt" -eq 4 ]; then
+                    echo "::error::Exact Ubuntu snapshot unavailable after four attempts: $SNAPSHOT_ID" >&2
+                    return 1
+                  fi
+                  sleep "$((attempt * 15))"
+                done
+              }
+              snapshot_apt apt-get update --error-on=any
+              snapshot_apt apt-get install -y --no-install-recommends ca-certificates
               rm -f /etc/apt/apt.conf.d/49ordax-ca-bootstrap
 
-              apt-get update --error-on=any
-              apt-get install -y --no-install-recommends $PACKAGES
+              snapshot_apt apt-get update --error-on=any
+              snapshot_apt apt-get install -y --no-install-recommends $PACKAGES
 
               rm -rf /tmp/native-esp-initramfs
               python3 bootstrap/native-initramfs/build.py build \

@@ -205,12 +205,12 @@ class StableRuntimeProfileTests(unittest.TestCase):
             text,
         )
         publish = text.split("publish_runtime_proof_context() {", 1)[1].split("\n}", 1)[0]
-        self.assertIn("dynamic-native-runtime", publish)
+        self.assertNotIn("dynamic-native-runtime", publish)
         self.assertIn("verified-erofs-overlay", publish)
         self.assertIn("canonical-stable-mvp", publish)
         self.assertIn("evidence_scope=development", publish)
         self.assertIn("runtime_sha256=$VERIFIED_RUNTIME_SHA256", publish)
-        self.assertIn('if [ "$VERIFIED_RUNTIME_MODE" = "verified-erofs-overlay" ]; then', publish)
+        self.assertIn('[ "$VERIFIED_RUNTIME_MODE" = "verified-erofs-overlay" ] || return 1', publish)
         self.assertIn('chmod 600 "$temporary"', publish)
         self.assertIn('rm -f "$RUNTIME_PROOF_CONTEXT"', text)
         self.assertLess(

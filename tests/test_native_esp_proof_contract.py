@@ -60,6 +60,18 @@ class NativeESPProofContractTests(unittest.TestCase):
         ):
             self.assertIn(marker, SCRIPT)
 
+    def test_ubuntu_snapshot_is_pinned_signed_and_retried_boundedly(self):
+        # HTTP 503 from snapshot.ubuntu.com must not force recompilation of
+        # other components or change the pinned Native initramfs bytes.
+        self.assertIn('snapshot_uri="https://snapshot.ubuntu.com/ubuntu/$SNAPSHOT_ID"', WORKFLOW)
+        self.assertIn('Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg', WORKFLOW)
+        self.assertIn('snapshot_apt() {', WORKFLOW)
+        self.assertIn('for attempt in 1 2 3 4; do', WORKFLOW)
+        self.assertIn('snapshot_apt apt-get update --error-on=any', WORKFLOW)
+        self.assertIn('snapshot_apt apt-get install -y --no-install-recommends $PACKAGES', WORKFLOW)
+        self.assertIn('Exact Ubuntu snapshot unavailable after four attempts', WORKFLOW)
+        self.assertNotIn('http://archive.ubuntu.com', WORKFLOW)
+
     def test_boolean_checks_encode_success_not_negative_safety_state(self):
         self.assertIn('"physical_device_untouched": False', SCRIPT)
         self.assertIn('checks["physical_device_untouched"] = True', SCRIPT)

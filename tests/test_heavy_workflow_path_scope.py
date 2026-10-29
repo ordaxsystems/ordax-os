@@ -76,7 +76,7 @@ class HeavyWorkflowPathScopeTests(unittest.TestCase):
         self.assertIn("uses: ./.github/actions/prepare-verified-surface", text)
         self.assertLess(
             text.index("uses: ./.github/actions/prepare-verified-surface"),
-            text.index("python3 -m unittest tests.test_portable_qemu_impact -v"),
+            text.index("tests.test_portable_qemu_impact"),
         )
 
     def test_qemu_broad_trigger_is_routed_through_causal_impact_gate(self):

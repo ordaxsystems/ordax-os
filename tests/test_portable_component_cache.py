@@ -1,9 +1,11 @@
+import hashlib
 import importlib.util
 import json
 import os
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 MODULE_PATH = ROOT / "tools" / "ci" / "portable_component_cache.py"
@@ -59,6 +61,7 @@ class PortableComponentCacheTests(unittest.TestCase):
             "bootstrap/independent-base/overlay/sbin/ordax-independent-probe-init": "#!/bin/sh\n",
             "bootstrap/independent-base/patches/iproute2/7.1.0/0001.patch": "patch-v1\n",
             "bootstrap/independent-base/post-build.sh": "#!/bin/sh\n",
+            "bootstrap/independent-base/post-image.sh": "#!/bin/sh\n",
             "bootstrap/kernel/source.json": '{"version":"6.6.0"}\n',
             "bootstrap/stable-base/source.json": '{"rootfs":{"format":"erofs"}}\n',
             "bootstrap/network/source.json": '{"network":"v1"}\n',
@@ -101,6 +104,107 @@ class PortableComponentCacheTests(unittest.TestCase):
             (root / "bootstrap/network/bring-up").write_text("#!/bin/sh\necho changed\n", encoding="utf-8")
             self.assertNotEqual(first, CACHE.component_fingerprint("independent-base", root))
 
+    def owner_fixture(self, base: Path) -> Path:
+        root = self.make_independent_root(base)
+        (root / "bootstrap/kernel/config").mkdir(parents=True, exist_ok=True)
+        (root / "bootstrap/kernel/build.py").write_text("kernel-build-v1\\n")
+        (root / "bootstrap/kernel/verify_upstream_signature.py").write_text("kernel-auth-v1\\n")
+        (root / "bootstrap/kernel/source.json").write_text(json.dumps({
+            "version": "6.6.0",
+            "configuration": {"fragment": "bootstrap/kernel/config/ordax.fragment"},
+        }))
+        (root / "bootstrap/kernel/config/ordax.fragment").write_text("CONFIG_TEST=y\\n")
+        (root / "docs/contracts/kernel-build-environment.json").write_text('{"env":"v1"}\\n')
+        for relative in CACHE.COMPONENTS["independent-base-owner"]["inputs"]:
+            target = root / relative
+            if not target.exists():
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_text(f"fixture:{relative}\\n", encoding="utf-8")
+        return root
+
+    def owner_artifacts(self, out: Path, *, profile="owner-development") -> Path:
+        out.mkdir(parents=True)
+        names = ("rootfs.tar", "rootfs.cpio.gz", "independent-base.erofs")
+        declared = {}
+        for name in names:
+            payload = f"verified:{name}".encode()
+            (out / name).write_bytes(payload)
+            declared[name] = hashlib.sha256(payload).hexdigest()
+        (out / "provenance.json").write_text(json.dumps({
+            "$schema": "prototype-ordax.independent-base-provenance/1",
+            "source_commit": "1" * 40,
+            "status": "candidate-build-only",
+            "profile": profile,
+            "owner_development_capabilities_verified": True,
+            "physical_artifact_authorized": False,
+            "signed_release_equivalence_proven": False,
+            "artifacts": declared,
+        }) + "\n", encoding="utf-8")
+        return out
+
+    def test_owner_base_cache_reuses_across_commits_without_rewriting_provenance(self):
+        with tempfile.TemporaryDirectory() as td:
+            temp = Path(td)
+            root = self.owner_fixture(temp / "repo")
+            out = self.owner_artifacts(temp / "out")
+            first = CACHE.component_fingerprint("independent-base-owner", root)
+            minimal = CACHE.component_fingerprint("independent-base", root)
+            self.assertNotEqual(first, minimal)
+            CACHE.record_component("independent-base-owner", out, "1" * 40, root)
+            original = (out / "provenance.json").read_bytes()
+            receipt = CACHE.verify_component(
+                "independent-base-owner", out, "2" * 40,
+                temp / "reuse.json", cache_hit=True, root=root,
+            )
+            self.assertTrue(receipt["reused"])
+            self.assertEqual(receipt["build_source_commit"], "1" * 40)
+            self.assertEqual(receipt["integration_source_commit"], "2" * 40)
+            self.assertEqual((out / "provenance.json").read_bytes(), original)
+            # Verification or documentation alone cannot force rebuilding.
+            (root / "bootstrap/independent-base/README.md").write_text("updated\\n")
+            self.assertEqual(first, CACHE.component_fingerprint("independent-base-owner", root))
+            # Installed Dev helpers and the exact kernel config MUST invalidate.
+            (root / "bootstrap/dev-base/ordax-pull").write_text("changed\\n")
+            self.assertNotEqual(first, CACHE.component_fingerprint("independent-base-owner", root))
+            with self.assertRaisesRegex(CACHE.CacheError, "input fingerprint mismatch"):
+                CACHE.verify_component(
+                    "independent-base-owner", out, "2" * 40,
+                    temp / "reuse.json", cache_hit=True, root=root,
+                )
+
+    def test_owner_base_cache_rejects_tampering_and_wrong_profile(self):
+        with tempfile.TemporaryDirectory() as td:
+            temp = Path(td)
+            root = self.owner_fixture(temp / "repo")
+            out = self.owner_artifacts(temp / "out")
+            CACHE.record_component("independent-base-owner", out, "1" * 40, root)
+            (out / "rootfs.tar").write_bytes(b"tampered")
+            with self.assertRaisesRegex(CACHE.CacheError, "provenance artifact mismatch"):
+                CACHE.verify_component(
+                    "independent-base-owner", out, "2" * 40,
+                    temp / "receipt.json", cache_hit=True, root=root,
+                )
+            wrong = self.owner_artifacts(temp / "other", profile="minimal")
+            with self.assertRaisesRegex(CACHE.CacheError, "profile or promotion policy mismatch"):
+                CACHE.record_component("independent-base-owner", wrong, "1" * 40, root)
+
+    def test_owner_base_kernel_module_input_invalidates_fingerprint(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = self.owner_fixture(Path(td))
+            initial = CACHE.component_fingerprint("independent-base-owner", root)
+            fragment = root / "bootstrap/kernel/config/ordax.fragment"
+            fragment.write_text("CONFIG_TEST=n\\n", encoding="utf-8")
+            self.assertNotEqual(initial, CACHE.component_fingerprint("independent-base-owner", root))
+
+    def test_independent_base_post_image_change_invalidates_cache(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = self.make_independent_root(Path(td))
+            initial = CACHE.component_fingerprint("independent-base", root)
+            (root / "bootstrap/independent-base/post-image.sh").write_text(
+                "#!/bin/sh\\necho changed\\n", encoding="utf-8"
+            )
+            self.assertNotEqual(initial, CACHE.component_fingerprint("independent-base", root))
+
     def test_independent_base_cache_keeps_original_provenance_on_reuse(self):
         with tempfile.TemporaryDirectory() as td:
             temp = Path(td)
@@ -125,25 +229,23 @@ class PortableComponentCacheTests(unittest.TestCase):
             self.assertEqual(receipt["component"], "independent-base")
             self.assertEqual(provenance.read_bytes(), before)
 
-    def test_surface_cache_invalidates_for_package_selection_and_decoder_probe(self):
+    def test_surface_has_only_one_canonical_buildroot_cache_owner(self):
+        # Portable/QEMU must consume the independent Surface component receipt.
+        # It must not hash identical Surface sources with a second cache owner.
+        self.assertNotIn("surface", CACHE.COMPONENTS)
+        self.assertNotIn("surface", CACHE.PROVENANCE_FILES)
+        self.assertIn("independent-base", CACHE.COMPONENTS)
+        self.assertIn("local-ai", CACHE.COMPONENTS)
+
+    def test_fingerprint_output_matches_registered_components_without_surface_alias(self):
         with tempfile.TemporaryDirectory() as td:
-            root = Path(td)
-            for relative in CACHE.COMPONENTS["surface"]["inputs"]:
-                path = root / relative
-                path.parent.mkdir(parents=True, exist_ok=True)
-                path.write_text("input-v1\n")
-            initial = CACHE.component_fingerprint("surface", root)
-            for relative in (
-                "bootstrap/surface-runtime/package_config.py",
-                "system/surface/runtime/packages.txt",
-                "system/surface/runtime/media_runtime_probe.py",
-            ):
-                with self.subTest(input=relative):
-                    path = root / relative
-                    path.write_text("input-v2\n")
-                    self.assertNotEqual(initial, CACHE.component_fingerprint("surface", root))
-                    path.write_text("input-v1\n")
-                    self.assertEqual(initial, CACHE.component_fingerprint("surface", root))
+            output = Path(td) / "github-output"
+            with patch.object(CACHE, "component_fingerprint", return_value="a" * 64):
+                fingerprints = CACHE.write_fingerprints(output, Path(td))
+            self.assertEqual(set(fingerprints), set(CACHE.COMPONENTS))
+            keys = {line.split("=", 1)[0] for line in output.read_text(encoding="utf-8").splitlines()}
+            self.assertEqual(keys, {"kernel", "independent_base", "independent_base_owner", "local_ai", "release_agent"})
+            self.assertNotIn("surface", keys)
 
     def test_local_ai_cache_tracks_exact_external_builder_revision(self):
         with tempfile.TemporaryDirectory() as td:

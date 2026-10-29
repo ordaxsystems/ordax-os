@@ -8,8 +8,10 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import posixpath
 import re
 import shutil
+import stat
 import subprocess
 import sys
 import tarfile
@@ -24,11 +26,50 @@ STABLE = ROOT / "bootstrap/stable-base/source.json"
 BOOT_HANDOFF = ROOT / "docs/contracts/portable-boot-handoff.json"
 NETWORK = ROOT / "bootstrap/network/source.json"
 CANONICAL_HANDOFF = ROOT / "bootstrap/stable-base/ordax-stable-init"
+BASE_DEFCONFIG = HERE / "configs/ordax_minimal_defconfig"
 BUSYBOX_FRAGMENT = HERE / "configs/portable-handoff.busybox.fragment"
+OWNER_BUSYBOX_FRAGMENT = HERE / "configs/owner-development.busybox.fragment"
 IPROUTE2_PATCH_ROOT = HERE / "patches/iproute2"
 IPROUTE2_PATCH_NAME = "0001-ordax-minimal-ip-only.patch"
 IPROUTE2_PATCH_CONFIG = 'BR2_GLOBAL_PATCH_DIR="$(BR2_EXTERNAL_ORDAX_MINIMAL_PATH)/patches"'
+MINIMAL_BUSYBOX_FRAGMENT_CONFIG = (
+    'BR2_PACKAGE_BUSYBOX_CONFIG_FRAGMENT_FILES="$(BR2_EXTERNAL_ORDAX_MINIMAL_PATH)/configs/'
+    'portable-handoff.busybox.fragment"'
+)
+OWNER_BUSYBOX_FRAGMENT_CONFIG = (
+    'BR2_PACKAGE_BUSYBOX_CONFIG_FRAGMENT_FILES="$(BR2_EXTERNAL_ORDAX_MINIMAL_PATH)/configs/'
+    'portable-handoff.busybox.fragment $(BR2_EXTERNAL_ORDAX_MINIMAL_PATH)/configs/'
+    'owner-development.busybox.fragment"'
+)
 BUSYBOX_HANDOFF_SYMBOLS = ("CONFIG_STAT=y", "CONFIG_FEATURE_STAT_FORMAT=y", "CONFIG_TIMEOUT=y", "CONFIG_FLOCK=y", "CONFIG_MKTEMP=y")
+OWNER_BUSYBOX_SYMBOLS = ("CONFIG_NTPD=y", "CONFIG_NSLOOKUP=y", "CONFIG_WGET=y")
+SUPPORTED_PROFILES = ("minimal", "owner-development")
+# Component-private Python must not change the two canonical OS boot profiles.
+NATIVE_COMPONENT_PROFILE = "native-product-runtime"
+NATIVE_BUILD_INPUT_TAR = "native-python-build-input.rootfs.tar"
+NATIVE_BUILD_INPUT_MAX_BYTES = 1024 * 1024 * 1024
+NATIVE_SDK_PREFIX = "ordax-native-product-runtime-sdk"
+NATIVE_SDK_ARCHIVE = NATIVE_SDK_PREFIX + ".tar.gz"
+NATIVE_SDK_MAX_BYTES = 1536 * 1024 * 1024
+NATIVE_COMPONENT_FRAGMENT = HERE / "configs/native-product-runtime.fragment"
+# Module names are probe inputs only, NEVER copied version pins.
+NATIVE_HTTPX_PROBE_PACKAGES = ("httpx", "httpcore", "anyio", "certifi", "idna", "h11")
+NATIVE_COMPONENT_REQUIRED = (
+    "BR2_SHARED_LIBS=y", "BR2_PACKAGE_PYTHON3=y",
+    "BR2_PACKAGE_PYTHON3_PYC_ONLY=y", "BR2_PACKAGE_PYTHON3_SSL=y", "BR2_PACKAGE_PYTHON3_ZLIB=y",
+    "BR2_PACKAGE_PYTHON3_SQLITE=y", "BR2_PACKAGE_SQLITE=y",
+    "BR2_PACKAGE_CA_CERTIFICATES=y", "BR2_TARGET_ROOTFS_TAR=y",
+    "BR2_PACKAGE_PYTHON_HTTPX=y",
+)
+OWNER_USERSPACE_CONFIG = (
+    "BR2_PACKAGE_CA_CERTIFICATES=y",
+    "BR2_PACKAGE_GIT=y",
+    "BR2_PACKAGE_IW=y",
+    "BR2_PACKAGE_WPA_SUPPLICANT=y",
+    "BR2_PACKAGE_WPA_SUPPLICANT_PASSPHRASE=y",
+    "BR2_PACKAGE_WPA_SUPPLICANT_CLI=y",
+)
+OWNER_FIRMWARE_CONFIG_PREFIX = "BR2_PACKAGE_LINUX_FIRMWARE"
 HASH = re.compile(r"[0-9a-f]{64}\Z")
 
 
@@ -68,6 +109,67 @@ def run(*args: str, cwd: Path | None = None, bounded_output: bool = False) -> st
     return output
 
 
+def config_lines(path: Path) -> set[str]:
+    return {
+        line.strip()
+        for line in path.read_text(encoding="utf-8").splitlines()
+        if line.strip() and not line.lstrip().startswith("#")
+    }
+
+
+def validate_owner_busybox_fragment() -> set[str]:
+    if not OWNER_BUSYBOX_FRAGMENT.is_file() or OWNER_BUSYBOX_FRAGMENT.is_symlink():
+        raise BaseError("Owner/Development BusyBox config fragment is missing or unsafe")
+    lines = config_lines(OWNER_BUSYBOX_FRAGMENT)
+    expected = set(OWNER_BUSYBOX_SYMBOLS)
+    if lines != expected:
+        raise BaseError(
+            "Owner/Development BusyBox fragment must contain only required helper applets: "
+            + ", ".join(sorted(expected))
+        )
+    text = OWNER_BUSYBOX_FRAGMENT.read_text(encoding="utf-8").lower()
+    if "alpine" in text or "apk" in text:
+        raise BaseError("Owner/Development BusyBox fragment reintroduced Alpine/APK")
+    return lines
+
+
+def validate_owner_fragment(path: Path) -> set[str]:
+    lines = config_lines(path)
+    missing_userspace = sorted(set(OWNER_USERSPACE_CONFIG) - lines)
+    if missing_userspace:
+        raise BaseError(
+            "Owner/Development fragment lost required userspace capabilities: "
+            + ", ".join(missing_userspace)
+        )
+    if OWNER_BUSYBOX_FRAGMENT_CONFIG not in lines:
+        raise BaseError("Owner/Development fragment lost its exact BusyBox capability composition")
+    firmware = {
+        line
+        for line in lines
+        if line.startswith(OWNER_FIRMWARE_CONFIG_PREFIX) and line.endswith("=y")
+    }
+    if f"{OWNER_FIRMWARE_CONFIG_PREFIX}=y" not in firmware:
+        raise BaseError("Owner/Development fragment must select Buildroot linux-firmware")
+    unexpected = sorted(
+        lines
+        - set(OWNER_USERSPACE_CONFIG)
+        - {OWNER_BUSYBOX_FRAGMENT_CONFIG}
+        - firmware
+    )
+    if unexpected:
+        raise BaseError(
+            "Owner/Development fragment contains unsupported configuration: "
+            + ", ".join(unexpected)
+        )
+    if len(firmware) <= 1:
+        raise BaseError("Owner/Development linux-firmware provider has no selected family")
+    validate_owner_busybox_fragment()
+    text = path.read_text(encoding="utf-8").lower()
+    if "alpine" in text or "apk" in text:
+        raise BaseError("Owner/Development fragment reintroduced Alpine/APK")
+    return lines
+
+
 def contracts() -> tuple[dict, dict, dict, dict]:
     source = json.loads(SOURCE.read_text(encoding="utf-8"))
     kernel = json.loads(KERNEL.read_text(encoding="utf-8"))
@@ -80,6 +182,40 @@ def contracts() -> tuple[dict, dict, dict, dict]:
         raise BaseError("experiment cannot be promoted")
     if source.get("physical_artifact_authorized") is not False or source.get("stable_channel_authorized") is not False:
         raise BaseError("physical or Stable promotion forbidden")
+    if source.get("build_profile") != "ordax_minimal_defconfig":
+        raise BaseError("canonical Independent Base defconfig identity drift")
+    profiles = source.get("profiles")
+    if not isinstance(profiles, dict) or set(profiles) != set(SUPPORTED_PROFILES):
+        raise BaseError("Independent Base profile registry drift")
+    expected_defconfig = str(BASE_DEFCONFIG.relative_to(ROOT))
+    minimal = profiles.get("minimal")
+    owner = profiles.get("owner-development")
+    if minimal != {
+        "defconfig": expected_defconfig,
+        "fragment": None,
+        "purpose": "portable-minimal-base-proof",
+    }:
+        raise BaseError("minimal profile contract drift")
+    if owner != {
+        "defconfig": expected_defconfig,
+        "fragment": "bootstrap/independent-base/configs/owner-development.fragment",
+        "purpose": "owner-development-parity-without-alpine",
+    }:
+        raise BaseError("Owner/Development profile contract drift")
+    expected_component = {
+        "native-product-runtime": {
+            "base_defconfig": str(BASE_DEFCONFIG.relative_to(ROOT)),
+            "fragment": str(NATIVE_COMPONENT_FRAGMENT.relative_to(ROOT)),
+            "purpose": "private-python-component-toolchain-not-base",
+            "source_owner": "ordaxsystems/ordax-runtime",
+            "runtime_service": "ordax-product-agent",
+            "base_rootfs_mutation_allowed": False,
+            "component_artifact_authorized": False,
+            "device_install_authorized": False,
+        }
+    }
+    if source.get("component_profiles") != expected_component:
+        raise BaseError("private native Runtime component registry drift")
     if kernel.get("$schema") != "prototype-ordax.kernel-source/1":
         raise BaseError("kernel contract mismatch")
     if not re.fullmatch(r"\d+\.\d+\.\d+", kernel.get("version", "")):
@@ -116,6 +252,200 @@ def contracts() -> tuple[dict, dict, dict, dict]:
         if digest(ROOT / "bootstrap/network" / name) != network["runtime"][key]:
             raise BaseError(f"canonical network script changed: {name}")
     return source, kernel, stable, network
+
+
+def profile_inputs(source: dict, profile: str) -> dict:
+    if profile not in SUPPORTED_PROFILES:
+        raise BaseError(f"unsupported Independent Base profile: {profile}")
+    spec = source["profiles"][profile]
+    defconfig = ROOT / spec["defconfig"]
+    if defconfig.is_symlink() or not defconfig.is_file():
+        raise BaseError(f"profile defconfig is missing or unsafe: {spec['defconfig']}")
+    fragment_value = spec["fragment"]
+    fragment = None if fragment_value is None else ROOT / fragment_value
+    if fragment is not None and (fragment.is_symlink() or not fragment.is_file()):
+        raise BaseError(f"profile fragment is missing or unsafe: {fragment_value}")
+
+    base_lines = config_lines(defconfig)
+    owner_busybox_fragment = None
+    owner_busybox_lines: set[str] = set()
+    if profile == "minimal":
+        leaked_userspace = sorted(set(OWNER_USERSPACE_CONFIG) & base_lines)
+        leaked_firmware = sorted(
+            line for line in base_lines if line.startswith(OWNER_FIRMWARE_CONFIG_PREFIX)
+        )
+        leaked = leaked_userspace + leaked_firmware
+        if leaked:
+            raise BaseError(f"Owner capability leaked into minimal defconfig: {leaked}")
+        fragment_lines: set[str] = set()
+    else:
+        assert fragment is not None
+        fragment_lines = validate_owner_fragment(fragment)
+        owner_busybox_fragment = OWNER_BUSYBOX_FRAGMENT
+        owner_busybox_lines = validate_owner_busybox_fragment()
+
+    return {
+        "profile": profile,
+        "purpose": spec["purpose"],
+        "defconfig": defconfig,
+        "fragment": fragment,
+        "fragment_config": sorted(fragment_lines),
+        "owner_busybox_fragment": owner_busybox_fragment,
+        "owner_busybox_fragment_config": sorted(owner_busybox_lines),
+    }
+
+
+def profile_provenance(inputs: dict) -> dict:
+    fragment = inputs["fragment"]
+    owner_busybox_fragment = inputs["owner_busybox_fragment"]
+    return {
+        "name": inputs["profile"],
+        "purpose": inputs["purpose"],
+        "defconfig": str(inputs["defconfig"].relative_to(ROOT)),
+        "defconfig_sha256": digest(inputs["defconfig"]),
+        "fragment": None if fragment is None else str(fragment.relative_to(ROOT)),
+        "fragment_sha256": None if fragment is None else digest(fragment),
+        "fragment_config": inputs["fragment_config"],
+        "owner_busybox_fragment": (
+            None
+            if owner_busybox_fragment is None
+            else str(owner_busybox_fragment.relative_to(ROOT))
+        ),
+        "owner_busybox_fragment_sha256": (
+            None if owner_busybox_fragment is None else digest(owner_busybox_fragment)
+        ),
+        "owner_busybox_fragment_config": inputs["owner_busybox_fragment_config"],
+    }
+
+
+def generate_defconfig(source: dict, kernel: dict, profile: str, destination: Path) -> dict:
+    inputs = profile_inputs(source, profile)
+    base_text = inputs["defconfig"].read_text(encoding="utf-8").rstrip()
+    if profile == "owner-development":
+        if base_text.count(MINIMAL_BUSYBOX_FRAGMENT_CONFIG) != 1:
+            raise BaseError("minimal defconfig lost canonical BusyBox fragment authority")
+        base_text = base_text.replace(MINIMAL_BUSYBOX_FRAGMENT_CONFIG, "")
+    pieces = [base_text]
+    if inputs["fragment"] is not None:
+        pieces.append(inputs["fragment"].read_text(encoding="utf-8").rstrip())
+    pieces.extend([
+        "BR2_KERNEL_HEADERS_VERSION=y",
+        f'BR2_DEFAULT_KERNEL_VERSION="{kernel["version"]}"',
+        "BR2_PACKAGE_HOST_LINUX_HEADERS_CUSTOM_6_6=y",
+        f'BR2_ROOTFS_POST_SCRIPT_ARGS="{profile}"',
+    ])
+    destination.write_text("\n".join(pieces) + "\n", encoding="utf-8")
+    return inputs
+
+
+def verify_resolved_config(config: str, kernel: dict, profile: str) -> None:
+    busybox_fragment_config = (
+        OWNER_BUSYBOX_FRAGMENT_CONFIG
+        if profile == "owner-development"
+        else MINIMAL_BUSYBOX_FRAGMENT_CONFIG
+    )
+    required = (
+        "BR2_KERNEL_HEADERS_VERSION=y",
+        f'BR2_DEFAULT_KERNEL_VERSION="{kernel["version"]}"',
+        "BR2_TOOLCHAIN_BUILDROOT_MUSL=y",
+        "BR2_STATIC_LIBS=y",
+        "BR2_INIT_NONE=y",
+        "BR2_PACKAGE_IPROUTE2=y",
+        IPROUTE2_PATCH_CONFIG,
+        busybox_fragment_config,
+        f'BR2_ROOTFS_POST_SCRIPT_ARGS="{profile}"',
+    )
+    for key in required:
+        if key not in config:
+            raise BaseError(f"Buildroot rejected required configuration {key}")
+
+    if profile == "owner-development":
+        source = json.loads(SOURCE.read_text(encoding="utf-8"))
+        owner = profile_inputs(source, profile)
+        for key in owner["fragment_config"]:
+            if key not in config:
+                raise BaseError(f"Buildroot rejected Owner/Development configuration {key}")
+        if MINIMAL_BUSYBOX_FRAGMENT_CONFIG in config:
+            raise BaseError("Owner/Development lost its dedicated BusyBox capability composition")
+        if "BR2_PACKAGE_KMOD=y" in config:
+            raise BaseError("Owner/Development duplicated BusyBox modprobe with kmod")
+    else:
+        config_set = set(config.splitlines())
+        leaked_userspace = sorted(set(OWNER_USERSPACE_CONFIG) & config_set)
+        leaked_firmware = sorted(
+            line
+            for line in config_set
+            if line.startswith(OWNER_FIRMWARE_CONFIG_PREFIX) and line.endswith("=y")
+        )
+        leaked = leaked_userspace + leaked_firmware
+        if leaked:
+            raise BaseError(f"minimal profile resolved Owner capabilities: {leaked}")
+        if OWNER_BUSYBOX_FRAGMENT_CONFIG in config:
+            raise BaseError("minimal profile resolved Owner/Development BusyBox capabilities")
+
+
+def generate_native_component_defconfig(source: dict, kernel: dict, destination: Path) -> dict:
+    """Derive a PRIVATE Python3 component from the pinned Buildroot owner.
+
+    Static OrdaX base stays unchanged. No rootfs, firmware, boot hooks, second
+    Python builder, package manager or duplicate Product command runtime.
+    """
+    spec = source["component_profiles"][NATIVE_COMPONENT_PROFILE]
+    if NATIVE_COMPONENT_FRAGMENT.is_symlink() or not NATIVE_COMPONENT_FRAGMENT.is_file():
+        raise BaseError("private native Runtime Buildroot fragment missing or unsafe")
+    options = config_lines(NATIVE_COMPONENT_FRAGMENT)
+    if options != set(NATIVE_COMPONENT_REQUIRED):
+        raise BaseError("private native Runtime component has unsupported Buildroot capabilities")
+    if any(word in NATIVE_COMPONENT_FRAGMENT.read_text(encoding="utf-8").lower()
+           for word in ("alpine", "apk")):
+        raise BaseError("private native Runtime component reintroduced distribution tooling")
+    inherited = ("BR2_x86_64=y", "BR2_TOOLCHAIN_BUILDROOT_MUSL=y",
+                 "BR2_STATIC_LIBS=y", "BR2_INIT_NONE=y")
+    if not set(inherited).issubset(config_lines(BASE_DEFCONFIG)):
+        raise BaseError("canonical Independent Base arch/libc identity drift")
+    lines = [item for item in inherited if item != "BR2_STATIC_LIBS=y"]
+    lines.extend(NATIVE_COMPONENT_REQUIRED)
+    lines.extend((
+        "BR2_KERNEL_HEADERS_VERSION=y",
+        f'BR2_DEFAULT_KERNEL_VERSION="{kernel["version"]}"',
+        "BR2_PACKAGE_HOST_LINUX_HEADERS_CUSTOM_6_6=y",
+    ))
+    destination.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return {
+        "component": NATIVE_COMPONENT_PROFILE,
+        "source_owner": spec["source_owner"],
+        "base_defconfig_sha256": digest(BASE_DEFCONFIG),
+        "fragment_sha256": digest(NATIVE_COMPONENT_FRAGMENT),
+        "buildroot_sha256": source["buildroot"]["sha256"],
+        "component_artifact_authorized": False,
+        "device_install_authorized": False,
+    }
+
+
+def verify_native_component_config(config: str, kernel: dict) -> None:
+    settings = set(config.splitlines())
+    required = set(NATIVE_COMPONENT_REQUIRED) | {
+        "BR2_x86_64=y", "BR2_TOOLCHAIN_BUILDROOT_MUSL=y",
+        "BR2_INIT_NONE=y", "BR2_KERNEL_HEADERS_VERSION=y",
+        f'BR2_DEFAULT_KERNEL_VERSION="{kernel["version"]}"',
+        "BR2_PACKAGE_HOST_LINUX_HEADERS_CUSTOM_6_6=y",
+    }
+    missing = sorted(required - settings)
+    if missing:
+        raise BaseError(f"Buildroot rejected private Python3 component: {missing}")
+    if "BR2_STATIC_LIBS=y" in settings or "BR2_SHARED_STATIC_LIBS=y" in settings:
+        raise BaseError("private Python3 component must not use static-only base")
+    for forbidden in (
+        "BR2_ROOTFS_OVERLAY=", "BR2_ROOTFS_POST_BUILD_SCRIPT=",
+        "BR2_ROOTFS_POST_IMAGE_SCRIPT=", "BR2_GLOBAL_PATCH_DIR=",
+    ):
+        # Buildroot may serialize an *empty* default value for these options.
+        # The private component must never inherit a nonempty OS hook or patch.
+        if any(line.startswith(forbidden) and line[len(forbidden):].strip('"')
+               for line in settings):
+            raise BaseError("private Python3 component inherited OS boot payload: " + forbidden)
+    if "BR2_PACKAGE_IPROUTE2=y" in settings:
+        raise BaseError("private Python3 component inherited OS boot payload: BR2_PACKAGE_IPROUTE2=y")
 
 
 def source_archive(source: dict, cache: Path) -> Path:
@@ -173,6 +503,89 @@ def safe_unpack(archive: Path, work: Path, version: str) -> Path:
     if not (dest / "Makefile").is_file():
         raise BaseError("Buildroot source tree incomplete")
     return dest
+
+
+def read_native_httpx_buildroot_versions(buildroot: Path) -> dict[str, str]:
+    """Use exact source versions from the already authenticated Buildroot tree.
+
+    This is a source-only *inventory*, not reconciliation of the Runtime lock.
+    A name or version absent from the pinned Buildroot tree fails closed. No
+    external package index, copied version list or Alpine packages are used.
+    """
+    versions: dict[str, str] = {}
+    for name in NATIVE_HTTPX_PROBE_PACKAGES:
+        package = buildroot / "package" / f"python-{name}"
+        mk = package / f"python-{name}.mk"
+        config = package / "Config.in"
+        if (mk.is_symlink() or not mk.is_file() or config.is_symlink()
+                or not config.is_file()):
+            raise BaseError("pinned Buildroot HTTPX package unavailable: " + name)
+        variable = "PYTHON_" + name.upper().replace("-", "_")
+        options = re.findall(
+            rf"(?m)^config\s+BR2_PACKAGE_{variable}\s*$",
+            config.read_text(encoding="utf-8"),
+        )
+        values = re.findall(
+            rf"(?m)^{variable}_VERSION\s*=\s*([^\s#]+)\s*$",
+            mk.read_text(encoding="utf-8"),
+        )
+        if (len(options) != 1 or len(values) != 1 or
+                not re.fullmatch(r"\d+(?:\.\d+){1,3}", values[0])):
+            raise BaseError("pinned Buildroot HTTPX package version invalid: " + name)
+        versions[name] = values[0]
+    return versions
+
+
+def configure_buildroot(source: dict, kernel: dict, cache: Path, temp: Path,
+                        profile: str) -> tuple[Path, Path, list[str], Path, dict]:
+    """Canonical source, defconfig, and Kconfig authority for all build modes."""
+    cache = cache.resolve()
+    archive = source_archive(source, cache)
+    download_cache = cache / "buildroot-downloads"
+    download_cache.mkdir(parents=True, exist_ok=True)
+    br = safe_unpack(archive, temp, source["buildroot"]["version"])
+    generated = temp / f"ordax_{profile.replace('-', '_')}_defconfig"
+    component = profile == NATIVE_COMPONENT_PROFILE
+    inputs = (generate_native_component_defconfig(source, kernel, generated)
+              if component else generate_defconfig(source, kernel, profile, generated))
+    build_dir = temp / "br-output"
+    cmd = ["make", "-C", str(br), f"O={build_dir}", f"BR2_EXTERNAL={HERE}",
+           f"BR2_DL_DIR={download_cache}", f"BR2_DEFCONFIG={generated}"]
+    run(*cmd, "defconfig")
+    config_path = build_dir / ".config"
+    if config_path.is_symlink() or not config_path.is_file():
+        raise BaseError("Buildroot did not materialize resolved .config")
+    config = config_path.read_text(encoding="utf-8")
+    if component:
+        verify_native_component_config(config, kernel)
+    else:
+        verify_resolved_config(config, kernel, profile)
+    return br, build_dir, cmd, archive, inputs
+
+
+def resolve_profile(cache: Path, profile: str) -> dict:
+    source, kernel, stable, network = contracts()
+    for prog in ("make", "gcc"):
+        if not shutil.which(prog):
+            raise BaseError(f"required Buildroot profile-resolution tool is missing: {prog}")
+    temp = Path(tempfile.mkdtemp(prefix="ordax-independent-resolve-"))
+    try:
+        br, build_dir, cmd, archive, inputs = configure_buildroot(
+            source, kernel, cache, temp, profile)
+        component = profile == NATIVE_COMPONENT_PROFILE
+        return {
+            "status": "component-resolution-pass" if component else "profile-resolution-pass",
+            "profile": profile,
+            "profile_inputs": inputs if component else profile_provenance(inputs),
+            "buildroot_sha256": digest(archive),
+            "kernel": kernel["version"],
+            "erofs": stable["rootfs"]["format"],
+            "network": network["prototype_scope"],
+            "rootfs_compiled": False,
+            "kernel_compiled": False,
+        }
+    finally:
+        shutil.rmtree(temp, ignore_errors=True)
 
 
 def verify_iproute2_minimal_build(build_dir: Path) -> dict:
@@ -263,13 +676,114 @@ def verify_surface_ip_identity(target: Path) -> dict:
     }
 
 
-def verify_target(target: Path) -> dict:
+def verify_static_userspace_elf_closure(target: Path) -> dict:
+    """Prove the entire Independent Base userspace has no dynamic loader.
+
+    The Buildroot profile sets BR2_STATIC_LIBS=y. Check ACTUAL output files,
+    not just Kconfig or /sbin/ip, so future native agents cannot quietly add
+    Alpine/glibc/musl dynamic loader requirements. Kernel .ko objects use
+    ET_REL and have no userspace process loader; exclude those by ELF type.
+    No second ELF implementation: the existing host readelf is the authority.
+    """
+    root = target.resolve(strict=True)
+    checked = []
+    for file_path in sorted(target.rglob("*")):
+        if file_path.is_symlink() or not file_path.is_file():
+            continue
+        try:
+            with file_path.open("rb") as stream:
+                elf = stream.read(20)
+        except OSError as exc:
+            raise BaseError("Independent Base userspace file unreadable") from exc
+        if not elf.startswith(b"\x7fELF"):
+            continue
+        relative = file_path.relative_to(target).as_posix()
+        if len(elf) != 20 or elf[4:7] != b"\x02\x01\x01":
+            raise BaseError(f"unsupported Independent Base ELF architecture: {relative}")
+        if int.from_bytes(elf[18:20], "little") != 62:
+            raise BaseError(f"unexpected Independent Base ELF machine: {relative}")
+        elf_type = int.from_bytes(elf[16:18], "little")
+        if elf_type == 1:
+            # Linux kernel module / .o: not a process with a PT_INTERP ABI.
+            continue
+        if elf_type not in (2, 3):
+            raise BaseError(f"unsupported Independent Base ELF type: {relative}")
+        try:
+            real = file_path.resolve(strict=True)
+            real.relative_to(root)
+        except (OSError, ValueError) as exc:
+            raise BaseError(f"Independent Base ELF escapes target: {relative}") from exc
+        segments = run("readelf", "-l", str(file_path))
+        dynamic = run("readelf", "-d", str(file_path))
+        if "Requesting program interpreter:" in segments or re.search(
+            r"(?m)^\s*INTERP\s", segments
+        ):
+            raise BaseError(f"dynamic ELF interpreter forbidden in Independent Base: {relative}")
+        needed = re.findall(r"\(NEEDED\).*?\[(.+?)\]", dynamic)
+        if needed:
+            raise BaseError(
+                f"dynamic ELF dependencies forbidden in Independent Base: {relative}: {sorted(set(needed))}"
+            )
+        checked.append((relative, digest(file_path)))
+    if not checked:
+        raise BaseError("Independent Base static userspace ELF proof has no executables")
+    fingerprint = hashlib.sha256(
+        "".join(f"{name} {sha}\n" for name, sha in checked).encode("utf-8")
+    ).hexdigest()
+    return {
+        "linkage": "static",
+        "userspace_elf_files_examined": len(checked),
+        "program_interpreters": [],
+        "needed_libraries": [],
+        "elf_manifest_sha256": fingerprint,
+    }
+
+
+def verify_owner_target(target: Path) -> None:
+    required_exec = {
+        "usr/bin/git": None,
+        "usr/sbin/iw": None,
+        "usr/sbin/wpa_supplicant": None,
+        "usr/sbin/wpa_passphrase": None,
+        "usr/sbin/wpa_cli": None,
+        "sbin/ordax-dev-init": ROOT / "bootstrap/dev-base/ordax-dev-init",
+        "usr/local/bin/ordax-network": ROOT / "bootstrap/dev-base/ordax-network",
+        "usr/local/bin/ordax-pull": ROOT / "bootstrap/dev-base/ordax-pull",
+        "usr/local/bin/ordax-checkout-exchange": None,
+        "usr/local/bin/ordax-usb-mountattr": None,
+        "usr/local/bin/ordax-rollback": ROOT / "bootstrap/dev-base/ordax-rollback",
+        "usr/local/bin/ordax-run": ROOT / "bootstrap/dev-base/ordax-run",
+        "usr/local/bin/ordax-diagnose": ROOT / "bootstrap/dev-base/ordax-diagnose",
+        "ordax/bootstrap/recovery/entrypoint": ROOT / "bootstrap/recovery/entrypoint",
+    }
+    for relative, canonical in required_exec.items():
+        path = target / relative
+        if not path.is_file() or not os.access(path, os.X_OK):
+            raise BaseError(f"Owner/Development executable missing: /{relative}")
+        if canonical is not None and digest(path) != digest(canonical):
+            raise BaseError(f"Owner/Development helper differs from canonical source: /{relative}")
+    # Running the built static x86_64 helper here validates its actual ABI,
+    # not just its filename; ELF closure is separately checked on the target.
+    exchange = target / "usr/local/bin/ordax-checkout-exchange"
+    if run(str(exchange), "--abi").strip() != "prototype-ordax.checkout-exchange/1":
+        raise BaseError("Owner/Development atomic checkout exchange ABI mismatch")
+    ca_store = target / "etc/ssl/certs/ca-certificates.crt"
+    if not ca_store.is_file() or ca_store.stat().st_size == 0:
+        raise BaseError("Owner/Development CA trust store is missing")
+    marker = target / "etc/ordax/owner-development"
+    if marker.read_text(encoding="utf-8") != "ORDAX_OWNER_DEVELOPMENT_PROFILE=YES\n":
+        raise BaseError("Owner/Development profile marker is invalid")
+
+
+def verify_target(target: Path, profile: str) -> dict:
     if not BUSYBOX_FRAGMENT.is_file() or BUSYBOX_FRAGMENT.is_symlink():
         raise BaseError("canonical BusyBox handoff config fragment is missing or unsafe")
     fragment_lines = BUSYBOX_FRAGMENT.read_text(encoding="utf-8").splitlines()
     for symbol in BUSYBOX_HANDOFF_SYMBOLS:
         if fragment_lines.count(symbol) != 1:
             raise BaseError(f"canonical BusyBox fragment lacks exact symbol: {symbol}")
+    if profile == "owner-development":
+        validate_owner_busybox_fragment()
     for name in ("bin/busybox", "sbin/ordax-stable-init", "sbin/modprobe",
                  "sbin/ordax-independent-probe-init",
                  "etc/ordax/independent-base", "ordax/bootstrap/network/bring-up",
@@ -278,16 +792,30 @@ def verify_target(target: Path) -> dict:
             raise BaseError(f"candidate userspace is missing {name}")
     if digest(target / "sbin/ordax-stable-init") != digest(CANONICAL_HANDOFF):
         raise BaseError("portable handoff entrypoint differs from canonical source")
-    for name in ("etc/alpine-release", "sbin/apk", "lib/apk", "etc/apk"):
+    for name in (
+        "etc/alpine-release", "sbin/apk", "lib/apk", "etc/apk",
+        "usr/bin/opkg", "bin/opkg", "usr/bin/dpkg", "usr/bin/apt",
+        "usr/bin/apt-get", "usr/bin/rpm",
+    ):
         if (target / name).exists():
-            raise BaseError(f"Alpine/APK dependency found: {name}")
+            raise BaseError(f"runtime package manager or Alpine dependency found: {name}")
     surface_iproute2 = verify_surface_ip_identity(target)
     # Built for x86_64, BusyBox is static, so inspect its actual applet table.
     applets = set(run(str(target / "bin/busybox"), "--list").splitlines())
-    missing = {"sh", "mount", "umount", "ifconfig", "route", "udhcpc",
-               "poweroff", "grep", "sync", "modprobe", "timeout",
-               "od", "tr", "stat", "uname", "sleep", "true",
-               "cat", "mkdir", "chmod", "mktemp"} - applets
+    required_applets = {"sh", "mount", "umount", "ifconfig", "route", "udhcpc",
+                        "poweroff", "grep", "sync", "modprobe", "timeout",
+                        "od", "tr", "stat", "uname", "sleep", "true",
+                        "cat", "mkdir", "chmod", "flock", "mktemp"}
+    if profile == "owner-development":
+        # Runtime closure for the canonical Owner helpers. Keep this list tied
+        # to commands those scripts execute directly; built target verification
+        # proves the applets exist before a candidate can be emitted.
+        required_applets.update({
+            "awk", "date", "df", "dirname", "head", "killall", "mv", "ntpd",
+            "pivot_root", "reboot", "rm", "sed", "setsid", "stty", "tail",
+            "test", "touch", "wc", "nslookup", "wget",
+        })
+    missing = required_applets - applets
     if missing:
         raise BaseError(f"missing required BusyBox applets: {sorted(missing)}")
     if "ip" in applets:
@@ -303,14 +831,6 @@ def verify_target(target: Path) -> dict:
             raise BaseError("BusyBox stat -c cannot enforce canonical key permission")
     if run(busybox, "timeout", "-k", "1", "2", busybox, "true").strip():
         raise BaseError("BusyBox timeout emitted unexpected output")
-    # Owner Pull stores Git stderr only in a private temporary file. Prove the
-    # actual target applet creates a regular 0600 file under a trusted root.
-    with tempfile.TemporaryDirectory(prefix="ordax-pull-scratch-") as scratch:
-        scratch_root = Path(scratch)
-        scratch_file = Path(run(busybox, "mktemp", str(scratch_root / "pull.XXXXXXXX")).strip())
-        if (scratch_file.parent != scratch_root or not scratch_file.is_file()
-                or scratch_file.is_symlink() or scratch_file.stat().st_mode & 0o077):
-            raise BaseError("BusyBox mktemp cannot create private Pull diagnostics")
     # The Supervisor must distinguish a dead Surface launcher from a still
     # live Native host. Verify both successful and contended flock operations
     # on the ACTUAL target BusyBox, not just its compiled configuration.
@@ -331,11 +851,644 @@ def verify_target(target: Path) -> dict:
                     raise BaseError("BusyBox flock granted a lock already owned by another process")
             finally:
                 fcntl.flock(locked, fcntl.LOCK_UN)
+    if profile == "owner-development":
+        verify_owner_target(target)
+    elif any((target / f"usr/local/bin/{name}").exists() for name in (
+        "ordax-checkout-exchange", "ordax-usb-mountattr"
+    )):
+        raise BaseError("minimal target unexpectedly contains Owner native helper")
+    elif (target / "etc/ordax/owner-development").exists():
+        raise BaseError("minimal target unexpectedly contains Owner/Development marker")
     return surface_iproute2
 
 
-def build(out: Path, cache: Path, jobs: int) -> dict:
+def private_component_library(target: Path, directory: str, name: str) -> Path | None:
+    """Resolve the target root's own absolute/relative symlinks, never host /lib.
+
+    Absolute ELF loader links refer to the private component root, not the
+    GitHub runner. Reject links escaping root or cycling. Return only a real
+    x86_64 ELF file; merely seeing a SONAME in a directory is insufficient.
+    """
+    root = target.resolve(strict=True)
+    parts = [*Path(directory).parts, name]
+    resolved: list[str] = []
+    count = 0
+    while parts:
+        part = parts.pop(0)
+        if part in ("", "."):
+            continue
+        if part == "..":
+            if not resolved:
+                raise BaseError("private Python dependency symlink escaped target")
+            resolved.pop()
+            continue
+        candidate = root.joinpath(*resolved, part)
+        if candidate.is_symlink():
+            count += 1
+            if count > 32:
+                raise BaseError("private Python dependency symlink cycle")
+            link = os.readlink(candidate)
+            if link.startswith("/"):
+                resolved = []
+            parts = link.split("/") + parts
+        else:
+            resolved.append(part)
+    resolved_path = root.joinpath(*resolved)
+    if not resolved_path.is_file() or resolved_path.is_symlink():
+        return None
+    if not resolved_path.resolve(strict=True).is_relative_to(root):
+        raise BaseError("private Python dependency escaped target root")
+    with resolved_path.open("rb") as stream:
+        header = stream.read(20)
+    if (len(header) != 20 or header[:7] != b"\x7fELF\x02\x01\x01"
+            or int.from_bytes(header[18:20], "little") != 62):
+        raise BaseError("private Python dependency is not a native x86_64 ELF")
+    return resolved_path
+
+
+def verify_native_python_target(target: Path) -> dict:
+    """Audit real Buildroot Python, SSL, zlib, and its dynamic ELF closure.
+
+    A shared-library component is distinct from the immutable static OS base.
+    It is not an installed runtime or a replacement Product/MCP dispatcher.
+    """
+    if not target.is_dir() or target.is_symlink():
+        raise BaseError("private component target directory unavailable")
+    bin_root = target / "usr/bin"
+    python_candidates = sorted(
+        p for p in bin_root.glob("python3*")
+        if p.is_file() and not p.is_symlink()
+    )
+    python_binaries = [p for p in python_candidates
+                       if re.fullmatch(r"python3\.\d+", p.name)]
+    if len(python_binaries) != 1:
+        raise BaseError("expected exactly one compiled private CPython executable")
+    python_path = python_binaries[0]
+    stdlib_dirs = sorted(
+        path for path in (target / "usr/lib").glob("python3.*")
+        if path.is_dir() and not path.is_symlink()
+    )
+    if len(stdlib_dirs) != 1:
+        raise BaseError("expected exactly one private CPython standard library")
+    stdlib = stdlib_dirs[0]
+    # Buildroot's canonical PYC_ONLY format deliberately omits .py sources.
+    # The actual target must contain compiled modules; checking ssl.py alone
+    # incorrectly rejects a complete, compact production Python installation.
+    # Do not confuse a filename with a usable .pyc: inspect its PEP 552 header.
+    for module in ("ssl", "site", "json/__init__", "sqlite3/__init__"):
+        parent, _, basename = module.rpartition("/")
+        folder = stdlib / parent if parent else stdlib
+        candidates = sorted({
+            *folder.glob(basename + ".pyc"),
+            *(folder / "__pycache__").glob(basename + ".cpython-*.pyc"),
+        })
+        valid = []
+        for compiled in candidates:
+            if compiled.is_symlink() or not compiled.is_file():
+                continue
+            with compiled.open("rb") as bytecode_file:
+                pyc = bytecode_file.read(17)
+            if (len(pyc) == 17 and pyc[2:4] == b"\r\n"
+                    and int.from_bytes(pyc[4:8], "little") in (0, 1, 3)):
+                valid.append(compiled)
+        if len(valid) != 1:
+            raise BaseError("private CPython compiled standard library incomplete: " + module)
+    for name in ("_ssl", "_hashlib", "zlib", "_sqlite3"):
+        extensions = list(stdlib.glob(f"lib-dynload/{name}*.so"))
+        if not extensions or any(p.is_symlink() for p in extensions):
+            raise BaseError("private CPython TLS/zlib extension missing: " + name)
+    ca = target / "etc/ssl/certs/ca-certificates.crt"
+    if not ca.is_file() or ca.stat().st_size == 0:
+        raise BaseError("private CPython CA certificate bundle missing")
+
+    elf_files: list[Path] = []
+    library_directories = ("lib", "lib64", "usr/lib", "usr/lib64")
+    def is_private_elf_library(name: str, *, loader: bool = False) -> bool:
+        if not re.fullmatch(r"[A-Za-z0-9_.+-]+", name):
+            raise BaseError("private Python dependency has invalid SONAME")
+        directories = ("lib",) if loader else library_directories
+        return any(private_component_library(target, directory, name) is not None
+                   for directory in directories)
+
+    for path in sorted(target.rglob("*")):
+        if path.is_symlink() or not path.is_file():
+            continue
+        with path.open("rb") as handle:
+            header = handle.read(20)
+        if not header.startswith(b"\x7fELF"):
+            continue
+        if (len(header) != 20 or header[4:7] != b"\x02\x01\x01"
+                or int.from_bytes(header[18:20], "little") != 62):
+            raise BaseError("independent native Python component contains non-x86_64 ELF")
+        if int.from_bytes(header[16:18], "little") == 1:
+            continue  # ET_REL kernel/development object, not runnable userspace
+        elf_files.append(path)
+    if python_path not in elf_files or not elf_files:
+        raise BaseError("independent native Python component has no executable ELF")
+
+    interpreters: set[str] = set()
+    needed_names: set[str] = set()
+    for path in elf_files:
+        relative = path.relative_to(target).as_posix()
+        program = run("readelf", "-l", str(path))
+        dynamics = run("readelf", "-d", str(path))
+        matches = re.findall(r"Requesting program interpreter:\s*([^\]\s]+)", program)
+        for name in matches:
+            # Loader must be part of the PRIVATE musl component, never host.
+            if name != "/lib/ld-musl-x86_64.so.1":
+                raise BaseError("unexpected private Python ELF interpreter: " + relative)
+            if not is_private_elf_library(Path(name).name, loader=True):
+                raise BaseError("private Python musl loader missing from Buildroot target")
+            interpreters.add(name)
+        for needed in re.findall(r"\(NEEDED\).*?\[([^\]]+)\]", dynamics):
+            if not is_private_elf_library(needed):
+                raise BaseError(f"private Python shared dependency absent: {relative}: {needed}")
+            needed_names.add(needed)
+    if "/lib/ld-musl-x86_64.so.1" not in interpreters:
+        raise BaseError("private Python ELF interpreter not proven")
+    fingerprint = hashlib.sha256(
+        "".join(
+            f"{path.relative_to(target).as_posix()} {digest(path)}\n"
+            for path in elf_files
+        ).encode("utf-8")
+    ).hexdigest()
+    return {
+        "python_executable": python_path.relative_to(target).as_posix(),
+        "python_sha256": digest(python_path),
+        "stdlib": stdlib.relative_to(target).as_posix(),
+        "compiled_elf_count": len(elf_files),
+        "required_interpreter": "/lib/ld-musl-x86_64.so.1",
+        "needed_shared_libraries": sorted(needed_names),
+        "elf_manifest_sha256": fingerprint,
+        "stdlib_ssl_zlib_verified": True,
+        "runtime_agent_packaged": False,
+        "component_install_authorized": False,
+        "device_execution_proven": False,
+    }
+
+
+def smoke_test_private_native_python(target: Path, abi: dict) -> dict:
+    """Actually run Buildroot's Python through its own musl loader.
+
+    Execute on the CI Linux kernel with an explicit private loader and
+    library path. Never modify the host filesystem's /lib, rely on Alpine,
+    install a package or claim that this tests the notebook's boot.
+    """
+    loader = private_component_library(target, "lib", "ld-musl-x86_64.so.1")
+    if loader is None:
+        raise BaseError("compiled private musl loader unavailable for smoke proof")
+    interpreter = (target / abi["python_executable"]).resolve(strict=True)
+    if not interpreter.is_relative_to(target.resolve(strict=True)):
+        raise BaseError("compiled private Python executable escapes target")
+    code = (
+        "import importlib,json,os,pathlib,ssl,sys,zlib;"
+        "root=pathlib.Path(os.environ['ORDAX_NATIVE_PRIVATE_TARGET']).resolve();"
+        "mods=('ssl','_ssl','hashlib','_hashlib','zlib','json',"
+        "'httpx','httpcore','anyio','certifi','idna','h11');"
+        "paths={n:str(pathlib.Path(importlib.import_module(n).__file__).resolve())"
+        " for n in mods};"
+        "assert all(pathlib.Path(p).is_relative_to(root) for p in paths.values()),paths;"
+        "assert pathlib.Path(sys.prefix).resolve().is_relative_to(root),sys.prefix;"
+        "assert zlib.decompress(zlib.compress(b'ordax-kernel-only-smoke'))"
+        "==b'ordax-kernel-only-smoke';"
+        "assert ssl.OPENSSL_VERSION.startswith('OpenSSL ');"
+        "sqlite=importlib.import_module('sqlite3');"
+        "native_sqlite=importlib.import_module('_sqlite3');"
+        "assert pathlib.Path(sqlite.__file__).resolve().is_relative_to(root);"
+        "assert pathlib.Path(native_sqlite.__file__).resolve().is_relative_to(root);"
+        "db=sqlite.connect(':memory:');"
+        "db.execute('CREATE TABLE probe (value TEXT NOT NULL)');"
+        "db.execute('INSERT INTO probe VALUES (?)',('ordax',));"
+        "assert db.execute('SELECT value FROM probe').fetchone()[0]=='ordax';"
+        "db.close();"
+        "httpx=importlib.import_module('httpx');"
+        "req=httpx.Request('GET','https://example.invalid/probe');"
+        "assert req.method=='GET' and req.url.host=='example.invalid';"
+        "mock=httpx.MockTransport(lambda r:httpx.Response(200,json={'ok':"
+        "r.headers.get('x-ordax-proof')=='private'}));"
+        "client=httpx.Client(transport=mock,follow_redirects=False);"
+        "res=client.get('https://example.invalid/probe',"
+        "headers={'X-Ordax-Proof':'private'});"
+        "client.close();"
+        "assert res.status_code==200 and res.json()=={'ok':True};"
+        "print(json.dumps({'python_version':sys.version.split()[0],"
+        "'module_names':list(mods),'ssl_version':ssl.OPENSSL_VERSION,"
+        "'all_imports_private':True,'tls_and_zlib_operational':True,"
+        "'sqlite_memory_operational':True,"
+        "'httpx_version':httpx.__version__,"
+        "'httpx_offline_request_construction_proven':True,"
+        "'httpx_mock_transport_proven':True,"
+        "'runtime_dependency_versions_reconciled':False}))"
+    )
+    env = os.environ.copy()
+    for key in ("PYTHONPATH", "PYTHONSTARTUP", "PYTHONINSPECT", "LD_PRELOAD",
+                "LD_AUDIT", "LD_LIBRARY_PATH", "PYTHONHOME"):
+        env.pop(key, None)
+    env.update({
+        "PYTHONHOME": str(target / "usr"),
+        # -S suppresses .pth/site hooks. Explicit private site-packages are
+        # therefore supplied without allowing the CI runner's Python modules.
+        "PYTHONPATH": str(target / "usr/lib" /
+                          Path(abi["stdlib"]).name / "site-packages"),
+        "LD_LIBRARY_PATH": f"{target}/lib:{target}/usr/lib",
+        "ORDAX_NATIVE_PRIVATE_TARGET": str(target.resolve(strict=True)),
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "PYTHONNOUSERSITE": "1",
+    })
+    try:
+        result = subprocess.run(
+            [str(loader), str(interpreter), "-S", "-s", "-B", "-c", code],
+            env=env, cwd=target, text=True, stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT, check=False, timeout=45,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        raise BaseError("private compiled Python smoke execution unavailable") from exc
+    if result.returncode:
+        raise BaseError("private compiled Python smoke execution failed: " + result.stdout[-1200:])
+    try:
+        smoke = json.loads(result.stdout.strip())
+    except (ValueError, TypeError) as exc:
+        raise BaseError("private compiled Python smoke receipt invalid") from exc
+    if (not isinstance(smoke, dict)
+            or not re.fullmatch(r"3\.\d+\.\d+", str(smoke.get("python_version", "")))
+            or not smoke["python_version"].startswith(interpreter.name.removeprefix("python") + ".")
+            or smoke.get("module_names") != ["ssl", "_ssl", "hashlib", "_hashlib", "zlib", "json", "httpx", "httpcore", "anyio", "certifi", "idna", "h11"]
+            or smoke.get("all_imports_private") is not True
+            or smoke.get("tls_and_zlib_operational") is not True
+            or smoke.get("sqlite_memory_operational") is not True
+            or smoke.get("httpx_offline_request_construction_proven") is not True
+            or smoke.get("httpx_mock_transport_proven") is not True
+            or not re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+",
+                                str(smoke.get("httpx_version", "")))
+            or smoke.get("runtime_dependency_versions_reconciled") is not False
+            or not str(smoke.get("ssl_version", "")).startswith("OpenSSL ")):
+        raise BaseError("private compiled Python smoke verification incomplete")
+    return {
+        "status": "kernel-host-smoke-pass",
+        "python_version": smoke["python_version"],
+        "module_names": smoke["module_names"],
+        "all_imports_private": True,
+        "tls_and_zlib_operational": True,
+        "sqlite_memory_operational": True,
+        "httpx_offline_request_construction_proven": True,
+        "httpx_mock_transport_proven": True,
+        "httpx_version": smoke["httpx_version"],
+        # The transitive dependencies do not all match the Runtime lock.
+        "runtime_dependency_versions_reconciled": False,
+        "linux_kernel_execution_proven": True,
+        "ordax_usb_execution_proven": False,
+        "runtime_agent_packaged": False,
+    }
+
+
+def inspect_native_python_build_input(archive: Path, abi: dict) -> dict:
+    """Bind original Buildroot target bytes to the verified private CPython.
+
+    The SHA-256 and TAR members MUST come from one open regular-file
+    descriptor. This input is not an installed Runtime or OS rootfs.
+    The Runtime consumer independently owns any safe extraction policy.
+    """
+    python_name = abi.get("python_executable")
+    if not isinstance(python_name, str) or not re.fullmatch(r"usr/bin/python3\.\d+", python_name):
+        raise BaseError("private Python build input has invalid executable identity")
+    required = {
+        python_name: "python",
+        "lib/ld-musl-x86_64.so.1": "loader",
+        "etc/ssl/certs/ca-certificates.crt": "ca",
+    }
+    try:
+        descriptor = os.open(
+            archive, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
+            | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NONBLOCK", 0)
+        )
+    except OSError as exc:
+        raise BaseError("private Python build input tar missing or unsafe") from exc
+    present = {}
+    with os.fdopen(descriptor, "rb") as source:
+        before = os.fstat(source.fileno())
+        if (not stat.S_ISREG(before.st_mode)
+                or not 0 < before.st_size <= NATIVE_BUILD_INPUT_MAX_BYTES):
+            raise BaseError("private Python build input tar missing or unsafe")
+        hasher = hashlib.sha256()
+        for block in iter(lambda: source.read(1024 * 1024), b""):
+            hasher.update(block)
+        source.seek(0)
+        with tarfile.open(fileobj=source, mode="r:") as members:
+            for count, member in enumerate(members, 1):
+                if count > 200000:
+                    raise BaseError("private Python build input tar has too many entries")
+                normalized = posixpath.normpath(member.name.removeprefix("./"))
+                if normalized not in required:
+                    continue
+                if normalized in present:
+                    raise BaseError("private Python build input has duplicate mandatory entry: " + normalized)
+                role = required[normalized]
+                if role == "python":
+                    if not member.isfile() or not 0 < member.size <= 128 * 1024 * 1024:
+                        raise BaseError("private Python build input executable invalid")
+                    handle = members.extractfile(member)
+                    if handle is None:
+                        raise BaseError("private Python build input executable unreadable")
+                    with handle:
+                        h = hashlib.sha256()
+                        for part in iter(lambda: handle.read(1024 * 1024), b""):
+                            h.update(part)
+                    if h.hexdigest() != abi.get("python_sha256"):
+                        raise BaseError("private Python build input executable SHA-256 mismatch")
+                elif role == "loader" and not (member.isfile() or member.issym()):
+                    raise BaseError("private Python build input loader invalid")
+                elif role == "ca" and not (member.isfile() or member.issym()):
+                    raise BaseError("private Python build input certificate bundle invalid")
+                present[normalized] = True
+        after = os.fstat(source.fileno())
+        if ((before.st_dev, before.st_ino, before.st_size,
+             before.st_mtime_ns, before.st_ctime_ns) !=
+            (after.st_dev, after.st_ino, after.st_size,
+             after.st_mtime_ns, after.st_ctime_ns)):
+            raise BaseError("private Python build input changed during verification")
+    if set(present) != set(required):
+        raise BaseError("private Python build input missing verified interpreter, loader or certificates")
+    return {
+        "schema": "ordax.private-buildroot-python-build-input/1",
+        "file_name": NATIVE_BUILD_INPUT_TAR,
+        "sha256": hasher.hexdigest(),
+        "size_bytes": before.st_size,
+        "python_sha256": abi["python_sha256"],
+        "purpose": "native-runtime-build-input-only",
+        "runtime_agent_packaged": False,
+        "device_install_authorized": False,
+    }
+
+
+def inspect_native_sdk_build_input(archive: Path, abi: dict) -> dict:
+    """Read-only provenance of the official SAME-BUILD Buildroot make sdk tar.
+
+    An SDK is a compiler and sysroot input for Runtime, never a component
+    that the OS, USB, or Product MCP may execute or install. No extraction.
+    """
+    if (not isinstance(abi.get("python_sha256"), str)
+            or not HASH.fullmatch(abi["python_sha256"])):
+        raise BaseError("private SDK has no audited CPython target binding")
+    try:
+        fd = os.open(
+            archive, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
+            | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NONBLOCK", 0),
+        )
+    except OSError as exc:
+        raise BaseError("private SDK archive missing or unsafe") from exc
+    required = {
+        NATIVE_SDK_PREFIX + "/relocate-sdk.sh": False,
+        NATIVE_SDK_PREFIX + "/share/buildroot/sdk-location": False,
+    }
+    compiler_found = False
+    sysroot_found = False
+    with os.fdopen(fd, "rb") as stream:
+        before = os.fstat(stream.fileno())
+        if (not stat.S_ISREG(before.st_mode)
+                or not 0 < before.st_size <= NATIVE_SDK_MAX_BYTES):
+            raise BaseError("private SDK archive size/type invalid")
+        hasher = hashlib.sha256()
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            hasher.update(chunk)
+        stream.seek(0)
+        with tarfile.open(fileobj=stream, mode="r:gz") as sdk:
+            for count, member in enumerate(sdk, 1):
+                if count > 350000:
+                    raise BaseError("private SDK archive entry count exceeds limit")
+                name = member.name.removeprefix("./").rstrip("/")
+                canonical = posixpath.normpath(name)
+                if (member.name.startswith("/") or canonical != name
+                        or (canonical != NATIVE_SDK_PREFIX
+                            and not canonical.startswith(NATIVE_SDK_PREFIX + "/"))):
+                    raise BaseError("private SDK archive path is noncanonical")
+                if canonical == NATIVE_SDK_PREFIX:
+                    if not member.isdir():
+                        raise BaseError("private SDK archive root is not a directory")
+                    continue
+                if name in required:
+                    if required[name] or not member.isfile() or member.size <= 0:
+                        raise BaseError("private SDK required metadata missing or repeated")
+                    required[name] = True
+                if re.fullmatch(
+                    re.escape(NATIVE_SDK_PREFIX) + r"/bin/x86_64-[A-Za-z0-9_.+-]*linux-musl-gcc",
+                    name,
+                ):
+                    if not (member.isfile() or member.issym()) or compiler_found:
+                        raise BaseError("private SDK compiler identity invalid")
+                    compiler_found = True
+                if (re.fullmatch(
+                    re.escape(NATIVE_SDK_PREFIX)
+                    + r"/x86_64-[A-Za-z0-9_.+-]*linux-musl/sysroot/usr/include/stdio\.h",
+                    name,
+                ) and member.isfile()):
+                    sysroot_found = True
+        after = os.fstat(stream.fileno())
+        if ((before.st_dev, before.st_ino, before.st_size,
+             before.st_mtime_ns, before.st_ctime_ns) !=
+            (after.st_dev, after.st_ino, after.st_size,
+             after.st_mtime_ns, after.st_ctime_ns)):
+            raise BaseError("private SDK archive changed during verification")
+    if not all(required.values()) or not compiler_found or not sysroot_found:
+        raise BaseError("private SDK compiler/sysroot/relocation closure incomplete")
+    return {
+        "schema": "ordax.private-buildroot-runtime-sdk-input/1",
+        "file_name": NATIVE_SDK_ARCHIVE,
+        "sdk_prefix": NATIVE_SDK_PREFIX,
+        "sha256": hasher.hexdigest(),
+        "size_bytes": before.st_size,
+        "python_sha256": abi["python_sha256"],
+        "purpose": "native-runtime-cross-compile-input-only",
+        "runtime_agent_packaged": False,
+        "device_install_authorized": False,
+    }
+
+
+def build_native_python_component(out: Path, cache: Path, jobs: int,
+                                  export_private_build_input: bool = False,
+                                  export_private_sdk: bool = False) -> dict:
+    """Compile isolated Buildroot Python, emit evidence only, no USB payload."""
+    if export_private_sdk and not export_private_build_input:
+        raise BaseError("private SDK must bind to the same exported Buildroot target")
+    source, kernel, _, _ = contracts()
+    out = out.resolve()
+    if out == ROOT or ROOT in out.parents or (
+        out.exists() and (not out.is_dir() or any(out.iterdir()))
+    ):
+        raise BaseError("component proof output must be a new or empty external directory")
+    for executable in ("make", "gcc", "readelf"):
+        if not shutil.which(executable):
+            raise BaseError("private Python Buildroot tool missing: " + executable)
+    out.mkdir(parents=True, exist_ok=True)
+    temp = Path(tempfile.mkdtemp(prefix="ordax-native-python-build-"))
+    try:
+        br, build_dir, cmd, archive, inputs = configure_buildroot(
+            source, kernel, cache, temp, NATIVE_COMPONENT_PROFILE
+        )
+        source_versions = read_native_httpx_buildroot_versions(br)
+        run(*cmd[:-1], f"-j{max(1, jobs)}", bounded_output=True)
+        if export_private_sdk:
+            # Buildroot is the ONE toolchain owner. `make sdk` exports the
+            # host cross-compiler and sysroot from this SAME O= build tree.
+            run(*cmd[:-1], f"BR2_SDK_PREFIX={NATIVE_SDK_PREFIX}", "sdk", bounded_output=True)
+        evidence = verify_native_python_target(build_dir / "target")
+        smoke = smoke_test_private_native_python(build_dir / "target", evidence)
+        if smoke["httpx_version"] != source_versions["httpx"]:
+            raise BaseError("compiled private HTTPX version mismatches pinned Buildroot recipe")
+        receipt = {
+            "$schema": "ordax.private-native-python-build-proof/1",
+            "status": "build-proof-only",
+            "buildroot_sha256": digest(archive),
+            "kernel_source_version": kernel["version"],
+            "component_inputs": inputs,
+            "python_abi": evidence,
+            "private_python_smoke": smoke,
+            "httpx_buildroot_source_versions": source_versions,
+            "runtime_agent_packaged": False,
+            "component_artifact_authorized": False,
+            "device_install_authorized": False,
+            "base_rootfs_modified": False,
+        }
+        if export_private_build_input:
+            # Use the exact target archive produced by THIS Buildroot build.
+            # No repackaging, second builder, host loader or OS base mutation.
+            source_tar = build_dir / "images/rootfs.tar"
+            source_proof = inspect_native_python_build_input(source_tar, evidence)
+            output_tar = out / NATIVE_BUILD_INPUT_TAR
+            shutil.copyfile(source_tar, output_tar)
+            output_proof = inspect_native_python_build_input(output_tar, evidence)
+            if output_proof != source_proof:
+                raise BaseError("private Python build input bytes changed during export")
+            receipt["private_target_build_input"] = output_proof
+        if export_private_sdk:
+            sdk_source = build_dir / "images" / NATIVE_SDK_ARCHIVE
+            sdk_evidence = inspect_native_sdk_build_input(sdk_source, evidence)
+            sdk_output = out / NATIVE_SDK_ARCHIVE
+            shutil.copyfile(sdk_source, sdk_output)
+            if inspect_native_sdk_build_input(sdk_output, evidence) != sdk_evidence:
+                raise BaseError("private Buildroot SDK bytes changed during export")
+            receipt["private_sdk_build_input"] = sdk_evidence
+        (out / "native-python-provenance.json").write_text(
+            json.dumps(receipt, sort_keys=True, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        return receipt
+    finally:
+        shutil.rmtree(temp, ignore_errors=True)
+
+
+def verify_native_python_receipt(out: Path) -> dict:
+    """Validate component ABI evidence; never mistake it for an installable ELF."""
+    source, kernel, _, _ = contracts()
+    path = out / "native-python-provenance.json"
+    if path.is_symlink() or not path.is_file():
+        raise BaseError("private Python ABI receipt unavailable")
+    receipt = json.loads(path.read_text(encoding="utf-8"))
+    expected_inputs = source["component_profiles"][NATIVE_COMPONENT_PROFILE]
+    if (receipt.get("$schema") != "ordax.private-native-python-build-proof/1"
+            or receipt.get("status") != "build-proof-only"
+            or receipt.get("buildroot_sha256") != source["buildroot"]["sha256"]
+            or receipt.get("kernel_source_version") != kernel["version"]
+            or receipt.get("component_inputs", {}).get("component") != NATIVE_COMPONENT_PROFILE
+            or receipt.get("component_inputs", {}).get("source_owner") != expected_inputs["source_owner"]
+            or receipt.get("component_inputs", {}).get("base_defconfig_sha256") != digest(BASE_DEFCONFIG)
+            or receipt.get("component_inputs", {}).get("fragment_sha256") != digest(NATIVE_COMPONENT_FRAGMENT)):
+        raise BaseError("private Python ABI receipt does not match canonical source")
+    abi = receipt.get("python_abi")
+    if (not isinstance(abi, dict)
+            or not re.fullmatch(r"usr/bin/python3\.\d+", abi.get("python_executable", ""))
+            or not re.fullmatch(r"usr/lib/python3\.\d+", abi.get("stdlib", ""))
+            or not HASH.fullmatch(str(abi.get("python_sha256", "")))
+            or not HASH.fullmatch(str(abi.get("elf_manifest_sha256", "")))
+            or type(abi.get("compiled_elf_count")) is not int
+            or abi["compiled_elf_count"] < 1
+            or abi.get("required_interpreter") != "/lib/ld-musl-x86_64.so.1"
+            or abi.get("stdlib_ssl_zlib_verified") is not True
+            or not isinstance(abi.get("needed_shared_libraries"), list)
+            or not all(isinstance(lib, str) and re.fullmatch(r"[A-Za-z0-9_.+-]+", lib)
+                       for lib in abi["needed_shared_libraries"])):
+        raise BaseError("private Python ABI closure receipt invalid")
+    private_input = receipt.get("private_target_build_input")
+    if private_input is not None:
+        if not isinstance(private_input, dict):
+            raise BaseError("private Python build input receipt invalid")
+        inspected = inspect_native_python_build_input(out / NATIVE_BUILD_INPUT_TAR, abi)
+        if private_input != inspected:
+            raise BaseError("private Python build input receipt does not match archived bytes")
+    sdk_receipt = receipt.get("private_sdk_build_input")
+    if sdk_receipt is not None:
+        if private_input is None or not isinstance(sdk_receipt, dict):
+            raise BaseError("private SDK receipt requires verified target build input")
+        sdk_actual = inspect_native_sdk_build_input(out / NATIVE_SDK_ARCHIVE, abi)
+        if sdk_receipt != sdk_actual:
+            raise BaseError("private Buildroot SDK receipt differs from archived bytes")
+    source_versions = receipt.get("httpx_buildroot_source_versions")
+    if (not isinstance(source_versions, dict)
+            or set(source_versions) != set(NATIVE_HTTPX_PROBE_PACKAGES)
+            or any(not isinstance(value, str) or
+                   not re.fullmatch(r"\d+(?:\.\d+){1,3}", value)
+                   for value in source_versions.values())):
+        raise BaseError("private HTTPX Buildroot source-version receipt invalid")
+    smoke = receipt.get("private_python_smoke")
+    if (not isinstance(smoke, dict)
+            or smoke.get("status") != "kernel-host-smoke-pass"
+            or not re.fullmatch(r"3\.\d+\.\d+", str(smoke.get("python_version", "")))
+            or smoke.get("module_names") != ["ssl", "_ssl", "hashlib", "_hashlib", "zlib", "json", "httpx", "httpcore", "anyio", "certifi", "idna", "h11"]
+            or smoke.get("all_imports_private") is not True
+            or smoke.get("tls_and_zlib_operational") is not True
+            or smoke.get("sqlite_memory_operational") is not True
+            or smoke.get("httpx_offline_request_construction_proven") is not True
+            or smoke.get("httpx_mock_transport_proven") is not True
+            or not re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+",
+                                str(smoke.get("httpx_version", "")))
+            or smoke.get("runtime_dependency_versions_reconciled") is not False
+            or smoke.get("httpx_version") != source_versions["httpx"]
+            or smoke.get("linux_kernel_execution_proven") is not True
+            or smoke.get("ordax_usb_execution_proven") is not False
+            or smoke.get("runtime_agent_packaged") is not False
+            or smoke["python_version"].split(".")[:2] !=
+               abi["python_executable"].removeprefix("usr/bin/python").split(".")):
+        raise BaseError("private Python kernel-host execution receipt invalid")
+    for key in ("runtime_agent_packaged", "component_artifact_authorized",
+                "device_install_authorized", "base_rootfs_modified"):
+        if receipt.get(key) is not False:
+            raise BaseError("private Python build proof has unsafe promotion flag")
+    for key in ("runtime_agent_packaged", "component_install_authorized",
+                "device_execution_proven"):
+        if abi.get(key) is not False:
+            raise BaseError("private Python ABI falsely claims executable readiness")
+    return receipt
+
+
+def validate_owner_payload_environment(profile: str, kernel: dict) -> None:
+    """Fail before hours of Buildroot work if the single kernel owner is unbound."""
+    if profile != "owner-development":
+        return
+    required = (
+        "ORDAX_HOST_PYTHON",
+        "ORDAX_KERNEL_MODULES_ARCHIVE",
+        "ORDAX_KERNEL_MODULES_RECEIPT",
+        "ORDAX_FIRMWARE_COVERAGE_RECEIPT",
+    )
+    for name in required:
+        if not os.environ.get(name):
+            raise BaseError(f"Owner/Development build requires {name} before compilation")
+    python = Path(os.environ["ORDAX_HOST_PYTHON"])
+    if not python.is_absolute() or not python.is_file() or not os.access(python, os.X_OK):
+        raise BaseError("Owner/Development host Python must be an absolute executable")
+    archive = Path(os.environ["ORDAX_KERNEL_MODULES_ARCHIVE"])
+    if (not archive.is_absolute() or archive.is_symlink() or not archive.is_file()
+            or archive.name != f"kernel-modules-{kernel['version']}.tar"):
+        raise BaseError("Owner/Development requires the exact canonical kernel modules archive")
+    for name in ("ORDAX_KERNEL_MODULES_RECEIPT", "ORDAX_FIRMWARE_COVERAGE_RECEIPT"):
+        receipt = Path(os.environ[name])
+        if (not receipt.is_absolute() or receipt.is_symlink() or
+                not receipt.parent.is_dir() or receipt.parent.is_symlink()):
+            raise BaseError(f"Owner/Development receipt destination is unsafe: {name}")
+
+
+def build(out: Path, cache: Path, jobs: int, profile: str) -> dict:
     source, kernel, stable, network = contracts()
+    validate_owner_payload_environment(profile, kernel)
     out = out.resolve()
     if out == ROOT or ROOT in out.parents:
         raise BaseError("output must be outside the source repository")
@@ -347,34 +1500,13 @@ def build(out: Path, cache: Path, jobs: int) -> dict:
     out.mkdir(parents=True, exist_ok=True)
     temp = Path(tempfile.mkdtemp(prefix="ordax-independent-build-"))
     try:
-        archive = source_archive(source, cache)
-        download_cache = cache / "buildroot-downloads"
-        download_cache.mkdir(parents=True, exist_ok=True)
-        br = safe_unpack(archive, temp, source["buildroot"]["version"])
-        generated = temp / "ordax_minimal_defconfig"
-        generated.write_text(
-            (HERE / "configs/ordax_minimal_defconfig").read_text(encoding="utf-8")
-            + "\nBR2_KERNEL_HEADERS_VERSION=y\n"
-            + f'BR2_DEFAULT_KERNEL_VERSION="{kernel["version"]}"\n'
-            + "BR2_PACKAGE_HOST_LINUX_HEADERS_CUSTOM_6_6=y\n",
-            encoding="utf-8",
-        )
-        build_dir = temp / "br-output"
-        cmd = ["make", "-C", str(br), f"O={build_dir}",
-               f"BR2_EXTERNAL={HERE}", f"BR2_DEFCONFIG={generated}",
-               f"BR2_DL_DIR={download_cache}"]
-        run(*cmd, "defconfig")
-        config = (build_dir / ".config").read_text(encoding="utf-8")
-        for key in ('BR2_KERNEL_HEADERS_VERSION=y', f'BR2_DEFAULT_KERNEL_VERSION="{kernel["version"]}"',
-                    'BR2_TOOLCHAIN_BUILDROOT_MUSL=y', 'BR2_STATIC_LIBS=y', 'BR2_INIT_NONE=y',
-                    'BR2_PACKAGE_IPROUTE2=y', IPROUTE2_PATCH_CONFIG,
-                    'BR2_PACKAGE_BUSYBOX_CONFIG_FRAGMENT_FILES="$(BR2_EXTERNAL_ORDAX_MINIMAL_PATH)/configs/portable-handoff.busybox.fragment"'):
-            if key not in config:
-                raise BaseError(f"Buildroot rejected required configuration {key}")
+        br, build_dir, cmd, archive, inputs = configure_buildroot(
+            source, kernel, cache, temp, profile)
         run(*cmd[:-1], f"-j{max(1, jobs)}", bounded_output=True)
         iproute2_minimal_build = verify_iproute2_minimal_build(build_dir)
         target = build_dir / "target"
-        surface_iproute2 = verify_target(target)
+        surface_iproute2 = verify_target(target, profile)
+        userspace_elf_closure = verify_static_userspace_elf_closure(target)
         expected_version_prefix = f'ip utility, iproute2-{iproute2_minimal_build["upstream_version"]}'
         if not surface_iproute2["version"].startswith(expected_version_prefix):
             raise BaseError("built /sbin/ip version differs from patched iproute2 source identity")
@@ -398,14 +1530,17 @@ def build(out: Path, cache: Path, jobs: int) -> dict:
             "$schema": "prototype-ordax.independent-base-provenance/1",
             "status": "candidate-build-only",
             "source_commit": source_commit,
+            "profile": profile,
+            "profile_inputs": profile_provenance(inputs),
             "kernel_source_version": kernel["version"],
             "buildroot_sha256": digest(archive),
-            "buildroot_download_cache_enabled": True,
             "rootfs_format": "erofs",
             "erofs_label": stable["rootfs"]["volume_label"],
             "network_contract_applied": True,
+            "owner_development_capabilities_verified": profile == "owner-development",
             "surface_iproute2_identity_verified": True,
             "surface_iproute2": surface_iproute2,
+            "independent_userspace_elf_closure": userspace_elf_closure,
             "surface_iproute2_minimal_build": iproute2_minimal_build,
             "busybox_handoff_config_fragment": str(BUSYBOX_FRAGMENT.relative_to(ROOT)),
             "busybox_handoff_config_sha256": digest(BUSYBOX_FRAGMENT),
@@ -425,15 +1560,20 @@ def build(out: Path, cache: Path, jobs: int) -> dict:
         shutil.rmtree(temp, ignore_errors=True)
 
 
-def verify(out: Path) -> dict:
-    contracts()
+def verify(out: Path, profile: str) -> dict:
+    source, _, _, _ = contracts()
+    expected_profile_inputs = profile_provenance(profile_inputs(source, profile))
     report = json.loads((out / "provenance.json").read_text(encoding="utf-8"))
     if report.get("$schema") != "prototype-ordax.independent-base-provenance/1":
         raise BaseError("invalid provenance schema")
+    if report.get("profile") != profile:
+        raise BaseError("artifact profile differs from requested verification profile")
+    if report.get("profile_inputs") != expected_profile_inputs:
+        raise BaseError("artifact profile inputs differ from current source authority")
+    if report.get("owner_development_capabilities_verified") is not (profile == "owner-development"):
+        raise BaseError("Owner/Development capability provenance drift")
     if report.get("physical_artifact_authorized") is not False:
         raise BaseError("unsafe artifact promotion flag")
-    if report.get("buildroot_download_cache_enabled") is not True:
-        raise BaseError("Buildroot download cache provenance missing")
     if report.get("busybox_handoff_config_fragment") != str(BUSYBOX_FRAGMENT.relative_to(ROOT)):
         raise BaseError("BusyBox handoff config fragment provenance drift")
     if report.get("busybox_handoff_config_sha256") != digest(BUSYBOX_FRAGMENT):
@@ -453,6 +1593,19 @@ def verify(out: Path) -> dict:
         raise BaseError("Surface iproute2 binary digest invalid")
     if not str(surface_iproute2.get("version", "")).startswith("ip utility, iproute2-"):
         raise BaseError("Surface iproute2 version provenance invalid")
+    elf_closure = report.get("independent_userspace_elf_closure")
+    if (not isinstance(elf_closure, dict)
+            or set(elf_closure) != {
+                "linkage", "userspace_elf_files_examined", "program_interpreters",
+                "needed_libraries", "elf_manifest_sha256",
+            }
+            or elf_closure["linkage"] != "static"
+            or type(elf_closure["userspace_elf_files_examined"]) is not int
+            or elf_closure["userspace_elf_files_examined"] <= 0
+            or elf_closure["program_interpreters"] != []
+            or elf_closure["needed_libraries"] != []
+            or not HASH.fullmatch(str(elf_closure["elf_manifest_sha256"]))):
+        raise BaseError("Independent Base static userspace ELF closure provenance invalid")
     minimal_build = report.get("surface_iproute2_minimal_build")
     if not isinstance(minimal_build, dict):
         raise BaseError("Surface iproute2 minimal-build provenance missing")
@@ -489,21 +1642,63 @@ def verify(out: Path) -> dict:
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("action", choices=("check", "build", "verify"))
+    parser.add_argument("action", choices=("check", "resolve", "build", "verify", "check-component", "resolve-component", "build-component", "verify-component"))
+    parser.add_argument("--profile", choices=SUPPORTED_PROFILES, default="minimal")
     parser.add_argument("--out", type=Path)
     parser.add_argument("--cache", type=Path, default=Path("/tmp/ordax-independent-cache"))
     parser.add_argument("--jobs", type=int, default=2)
+    parser.add_argument("--export-private-build-input", action="store_true",
+                        help="Export OS-unauthorized Buildroot target tar for Runtime build input")
+    parser.add_argument("--export-private-sdk", action="store_true",
+                        help="Export official same-build cross-compile SDK, NEVER an installable component")
     args = parser.parse_args()
     try:
-        if args.action == "check":
-            _, kernel, stable, network = contracts()
-            print(json.dumps({"status": "contract-check-pass", "kernel": kernel["version"],
-                              "erofs": stable["rootfs"]["format"], "network": network["prototype_scope"]}))
+        if (args.export_private_build_input or args.export_private_sdk) and args.action != "build-component":
+            raise BaseError("private Buildroot exports are only valid with build-component")
+        if args.export_private_sdk and not args.export_private_build_input:
+            raise BaseError("--export-private-sdk requires --export-private-build-input")
+        if args.action == "check-component":
+            source, kernel, _, _ = contracts()
+            with tempfile.TemporaryDirectory(prefix="ordax-component-defconfig-") as temporary:
+                inputs = generate_native_component_defconfig(
+                    source, kernel, Path(temporary) / "component_defconfig"
+                )
+            print(json.dumps({"status": "component-contract-pass", "inputs": inputs}, sort_keys=True))
+        elif args.action == "resolve-component":
+            print(json.dumps(resolve_profile(args.cache, NATIVE_COMPONENT_PROFILE), sort_keys=True))
+        elif args.action == "build-component":
+            if args.out is None:
+                raise BaseError("--out required for component proof")
+            print(json.dumps(build_native_python_component(
+                args.out, args.cache, args.jobs,
+                export_private_build_input=args.export_private_build_input,
+                export_private_sdk=args.export_private_sdk), sort_keys=True))
+        elif args.action == "verify-component":
+            if args.out is None:
+                raise BaseError("--out required for component proof")
+            print(json.dumps(verify_native_python_receipt(args.out), sort_keys=True))
+        elif args.action == "check":
+            source, kernel, stable, network = contracts()
+            inputs = profile_inputs(source, args.profile)
+            print(json.dumps({
+                "status": "contract-check-pass",
+                "profile": args.profile,
+                "profile_inputs": profile_provenance(inputs),
+                "kernel": kernel["version"],
+                "erofs": stable["rootfs"]["format"],
+                "network": network["prototype_scope"],
+            }))
+        elif args.action == "resolve":
+            print(json.dumps(resolve_profile(args.cache, args.profile), sort_keys=True))
         else:
             if args.out is None:
                 raise BaseError("--out required")
-            print(json.dumps(build(args.out, args.cache, args.jobs) if args.action == "build"
-                             else verify(args.out), sort_keys=True))
+            print(json.dumps(
+                build(args.out, args.cache, args.jobs, args.profile)
+                if args.action == "build"
+                else verify(args.out, args.profile),
+                sort_keys=True,
+            ))
         return 0
     except (BaseError, OSError, ValueError, KeyError, tarfile.TarError) as exc:
         print(f"ordax-independent-base: ERROR: {exc}", file=sys.stderr)

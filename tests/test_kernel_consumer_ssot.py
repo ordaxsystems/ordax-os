@@ -66,16 +66,18 @@ class KernelConsumerSSOTTests(unittest.TestCase):
             with self.assertRaises(ASSEMBLER.AssembleError):
                 ASSEMBLER.canonical_kernel_sources(root)
 
-    def test_creator_diagnosis_and_physical_release_use_canonical_version_exporter(self):
-        diagnosis = (ROOT / ".github/workflows/creator-owner-build-diagnose.yml").read_text(encoding="utf-8")
+    def test_owner_creator_and_physical_release_use_canonical_version_exporter(self):
+        # Retired diagnosis is not a kernel consumer; both live paths use SSOT.
+        owner = (ROOT / ".github/workflows/creator-owner-dev-git.yml").read_text(encoding="utf-8")
         physical = (ROOT / ".github/workflows/first-physical-usb-payload.yml").read_text(encoding="utf-8")
-        self.assertIn('python3 bootstrap/kernel/ci_env.py --github-env "$GITHUB_ENV"', diagnosis)
-        self.assertIn('kernel-modules-$ORDAX_KERNEL_VERSION.tar', diagnosis)
+        self.assertIn('python3 bootstrap/kernel/ci_env.py --github-env "$GITHUB_ENV"', owner)
+        self.assertIn('out/kernel/kernel-modules-$ORDAX_KERNEL_VERSION.tar', owner)
         self.assertIn('operator/bootstrap/kernel/ci_env.py', physical)
         self.assertIn('--source-contract release-source/bootstrap/kernel/source.json', physical)
+        self.assertIn('--github-env "$GITHUB_ENV"', physical)
         self.assertIn('vmlinuz-$ORDAX_KERNEL_VERSION', physical)
         self.assertIn('kernel-modules-$ORDAX_KERNEL_VERSION.tar', physical)
-        self.assertNotIn('6.6.52', diagnosis)
+        self.assertNotIn('6.6.52', owner)
         self.assertNotIn('6.6.52', physical)
 
     def test_owner_development_usb_uses_canonical_kernel_and_openpgp(self):
@@ -90,14 +92,20 @@ class KernelConsumerSSOTTests(unittest.TestCase):
             workflow.index("Build boot initramfs and Git development base"),
         )
         self.assertIn('out/kernel/kernel-modules-$ORDAX_KERNEL_VERSION.tar', workflow)
-        self.assertIn("kernel_version = os.environ['ORDAX_KERNEL_VERSION']", workflow)
-        self.assertIn("expected_source = f'bootstrap/kernel/vmlinuz-{kernel_version}'", workflow)
-        self.assertIn("kernel_artifact['source_path'] != expected_source", workflow)
-        self.assertIn("digest(f'out/kernel/vmlinuz-{kernel_version}')", workflow)
+        # Verify exact source checksums, provenance and integration binding
+        # through the canonical helpers, not retired inline Python checks.
+        self.assertIn("python bootstrap/kernel/verify.py out/kernel", workflow)
+        self.assertIn("python3 tools/ci/portable_component_cache.py verify", workflow)
+        self.assertIn("--component kernel", workflow)
+        self.assertIn('--integration-commit "$ORDAX_SOURCE_COMMIT"', workflow)
+        self.assertIn('--cache-hit "$cache_hit"', workflow)
+        self.assertIn('--receipt "$metadata/kernel-component-reuse.json"', workflow)
         self.assertIn("gpg gpg-agent", workflow)
         self.assertNotIn("vmlinuz-6.6.52", workflow)
         self.assertNotIn("kernel-modules-6.6.52.tar", workflow)
-        self.assertIn("manifest['physical_write_allowed'] = False", workflow)
+        manifest_builder = (ROOT / "tools/creator/owner_dev_manifest.py").read_text(encoding="utf-8")
+        self.assertIn('python3 tools/creator/owner_dev_manifest.py "$RUNNER_TEMP/minimal-bootstrap-owner-dev.json"', workflow)
+        self.assertIn("manifest['physical_write_allowed'] = False", manifest_builder)
 
     def test_owner_development_trust_is_ephemeral_and_isolated(self):
         workflow = (ROOT / ".github/workflows/creator-owner-dev-git.yml").read_text(encoding="utf-8")

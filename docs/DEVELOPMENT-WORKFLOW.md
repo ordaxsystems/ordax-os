@@ -2,6 +2,48 @@
 
 Status: CANONICAL FOR PROTOTYPE
 
+## Priority P0 — direct incremental DEV USB (2026-10-27)
+
+Project-owner decision: **Owner/Development image production must be usable directly from the versioned repository recipes, independently of GitHub Actions, full QEMU homologation or Stable promotion**. Existing kernel, Buildroot/musl base, Surface EROFS and Creator owners remain canonical; CI invokes their recipes and runs appropriate tests, it does not own production. Use verified persistent component cache and exact source/config/toolchain fingerprints. A change in Surface/services must not rebuild an unaffected kernel/base. A development image is not a homologated release. Preserve source integrity and explicit removable-device selection for physical writes.
+
+Implementation, missing entrypoints, evidence and pass/fail acceptance: [P0 direct incremental Dev USB plan](plans/P0-DEV-USB-INCREMENTAL-BUILD-2026-10-27.md), within PR #2243. **This describes required behavior, not functionality already implemented.**
+
+## Kernel-substitutable architecture — OrdaX identity independent of host (2026-10-27)
+
+**Owner decision:** OrdaX is an independent operating-system architecture, not a Linux distribution or a Windows wrapper. The current Linux kernel and Windows host are implementation targets, not OrdaX product identities. Future native OrdaX kernel development must be possible without migrating the UI, application model, identity, capability contracts or updater authority.
+
+**Hard boundaries for new code:**
+
+1. Surface and removable apps consume **OrdaX-owned typed capability APIs** only. Do not call Linux syscalls, Windows APIs, shell commands, systemd, registry, POSIX filesystem semantics or Buildroot APIs directly from portable UI/app logic.
+2. The OS core owns identity, authorization, state, process/file/device capability semantics, application lifecycle, health, transactional update and rollback. Platform-specific implementation belongs to explicit adapters with feature discovery and fail-closed errors, not silent host emulation.
+3. Linux kernel, native graphical stack and Windows runtime are **adapters/targets**, not upstream authorities for the public OrdaX API. Do not introduce a second OS core or duplicate owners to implement adapters.
+4. Buildroot/musl, Cage/Wayland/Mesa/WebKit, kernel/initramfs and Windows installer remain replaceable build/runtime dependencies **today**; they are not removed merely by declaring portability. A native OrdaX kernel will need proven process, memory, scheduling, IPC, filesystem, driver, network, graphics, security and boot implementations or compatible providers before cutover.
+5. **Local-first workflow:** edit → preview/watch → affected tests → component artifact if needed → verify/update on target. GitHub Actions must not be a precondition for editing, local execution, unsigned DEV packaging or disposable image generation. Release publication, signing, trusted distribution and destructive physical-media operations remain explicit, independently verifiable actions.
+6. Unit-test platform-neutral core with mocked/adapted capabilities on ordinary developer hosts. Run target-specific integration tests only for affected adapters. Heavy kernel, Buildroot, physical boot and installer builds are triggered by actual component input changes or an explicitly requested release verification.
+7. No blanket removal of security checks, integrity validation, boot rollback or physical-write consent in DEV. Remove redundant *execution gates* while retaining invariants and tests.
+8. Any new host-specific coupling must name an owner, a typed interface, capability contract, test fixture and migration/removal strategy. Existing canonical repository ownership remains authoritative.
+
+**Acceptance criteria:** changing only portable Surface assets does not rebuild WebKit/Mesa, Linux kernel, Windows installer or Buildroot base; changing only an app does not rebuild OS; CI unavailable still permits local UI/app development and verified DEV artifact production; tests demonstrate host adapters are replaceable without changes to public OrdaX contracts. These are goals until proven, not a claim of implementation.
+
+**Priorities:** complete the PR #2243 direct DEV USB chain and boot proof first; then move remaining host-specific calls behind existing OrdaX capability owners, starting with the actual coupling revealed by tests. Do not start building a replacement kernel before the system can reliably build, run and update with its current substrate.
+
+## Regra operacional DEV: edição simples sem workflow obrigatório
+
+A distinção canônica é entre **comando de desenvolvimento local** e **GitHub Actions**. Nenhuma categoria de alteração exige GitHub Actions para iniciar desenvolvimento. O kernel, initramfs, base Buildroot e runtime gráfico precisam de compiladores e provas específicos quando alterados; a execução desses comandos permanece independente da CI. Surface visual, aplicativos e serviços usam preview/watch/testes afetados, sem reconstruir imagem ou instalador.
+
+- `dev`: executar componente e testes diretamente, sem publicar;
+- `build`: criar somente o artefato afetado, com cache e verificação;
+- `image`: compor imagem DEV a partir de artefatos já verificados, sem gravação física;
+- `release`: homologação, assinatura e publicação em processo separado.
+
+Estes nomes são **interfaces conceituais**; reutilizar os entrypoints canônicos existentes em vez de criar CLIs paralelas. Workflows remotos são consumidores opcionais dessas operações, não sua implementação. Eliminar workflows redundantes sem apagar testes ou contratos necessários. O trabalho na PR #2243 ainda precisa demonstrar execução local e prova da imagem.
+
+## Default development target: Web preview + Windows Desktop
+
+For daily development of the shared Surface, applications and host-facing features, prefer the existing Web/Vite preview and Windows Desktop host. Reserve Owner USB DEV for boot/kernel/device/native integration. The Windows Desktop runbook is [tools/windows-desktop/README.md](../tools/windows-desktop/README.md); `tools/windows-desktop/package.json` owns `start`, `test`, and separately `dist:win`. Never run installer packaging or rebuild a boot image solely to edit UI.
+
+The Surface visual source is singular in `ordaxsystems/ordax-surface`; its exact consumer revision is pinned in `docs/contracts/surface-source.json`. Web, Desktop, USB DEV and Stable/MVP are **targets/profiles**, not independent visual source forks. SSOT source does **not** establish runtime parity; prove version receipts and capability behavior separately before claiming equal functionality. Do not replace a missing host capability with simulated success.
+
 ## Source model
 
 `main` is the source authority for this prototype.

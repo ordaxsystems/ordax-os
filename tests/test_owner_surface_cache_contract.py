@@ -1,0 +1,89 @@
+"""Build reuse invariants are enforced in-repository, not in conversation state."""
+from pathlib import Path
+import unittest
+
+ROOT = Path(__file__).resolve().parents[1]
+OWNER = ROOT / ".github/workflows/creator-owner-dev-git.yml"
+SURFACE = ROOT / ".github/workflows/independent-surface-runtime.yml"
+R2 = ROOT / "tools/ci/independent_surface_r2.sh"
+CACHE = "tools/ci/independent_surface_component_cache.py"
+GROUP = "ordax-surface-producer-${{ github.event.pull_request.number || github.ref }}"
+ARTIFACT_KEY = "ordax-independent-surface-artifact-v1-${{ runner.os }}-${{ runner.arch }}-"
+
+
+class OwnerSurfaceCacheContractTests(unittest.TestCase):
+    def test_both_jobs_share_one_build_owner_and_byte_identity(self):
+        owner = OWNER.read_text(encoding="utf-8")
+        producer = SURFACE.read_text(encoding="utf-8")
+        for text in (owner, producer):
+            self.assertIn(GROUP, text)
+            self.assertNotIn("ordax-surface-producer-${{ github.event.pull_request.head.sha || github.sha }}", text)
+            self.assertIn("cancel-in-progress: false", text)
+            self.assertIn(ARTIFACT_KEY, text)
+            self.assertIn("${{ runner.temp }}/ordax-independent-surface", text)
+            self.assertIn(CACHE, text)
+
+    def test_both_consume_same_verified_r2_transport(self):
+        owner = OWNER.read_text(encoding="utf-8")
+        producer = SURFACE.read_text(encoding="utf-8")
+        for text in (owner, producer):
+            self.assertIn("bash tools/ci/independent_surface_r2.sh restore", text)
+            self.assertIn("bash tools/ci/independent_surface_r2.sh publish", text)
+            self.assertIn("secrets.ORDAX_R2_ACCESS_KEY_ID", text)
+            self.assertIn("secrets.ORDAX_R2_SECRET_ACCESS_KEY", text)
+        self.assertIn("If-None-Match: *", R2.read_text(encoding="utf-8"))
+        self.assertIn("independent_surface_component_cache.py verify", R2.read_text(encoding="utf-8"))
+
+    def test_owner_is_a_verified_artifact_consumer_not_another_webkit_producer(self):
+        text = OWNER.read_text(encoding="utf-8")
+        self.assertIn("owner-surface-r2.outputs.hit", text)
+        self.assertIn("python3 " + CACHE + " verify", text)
+        self.assertIn("--cache-hit true --consumer", text)
+        self.assertNotIn("--cache-hit false", text)
+        self.assertNotIn("bootstrap/surface-runtime/build.py build", text)
+        self.assertNotIn("bootstrap/surface-runtime/prepare_config.py materialize", text)
+        self.assertIn("Canonical Surface EROFS missing", text)
+        self.assertIn("Never compile WebKit in the Creator consumer", text)
+        self.assertIn("Save verified Owner Surface EROFS to shared artifact cache", text)
+        self.assertIn("Ensure verified Owner Surface exists in durable R2 store", text)
+        self.assertIn('cp -a "$out/." "$RUNNER_TEMP/owner-dev-surface-runtime/"', text)
+        self.assertNotIn("owner-surface-ccache", text)
+        self.assertNotIn("owner-surface-downloads", text)
+        # The specialist independent-surface-runtime workflow owns the
+        # sole Buildroot compile and its cache/provenance publication.
+        producer = SURFACE.read_text(encoding="utf-8")
+        self.assertIn("bootstrap/surface-runtime/build.py build", producer)
+        self.assertIn("python3 " + CACHE + " record", producer)
+        self.assertIn('--cache-hit "$reused"', producer)
+
+
+    def test_creator_validates_graphical_artifact_before_native_heavy_work(self):
+        """A missing Surface cache must not waste hours building Base/kernel."""
+        workflow = OWNER.read_text(encoding="utf-8")
+        positions = [
+            workflow.index("- name: Install build dependencies"),
+            workflow.index("- name: Resolve independent Surface artifact fingerprint for Owner"),
+            workflow.index("- name: Restore exact verified Surface EROFS for Owner"),
+            workflow.index("- name: Consume verified canonical offline Surface runtime"),
+            workflow.index("- name: Build kernel candidate on verified cache miss"),
+            workflow.index("- name: Build boot initramfs and Git development base"),
+            workflow.index("- name: Assemble boot payload and overlay Git development base"),
+        ]
+        self.assertEqual(positions, sorted(positions))
+        self.assertIn("Canonical Surface EROFS missing", workflow)
+        self.assertNotIn("bootstrap/surface-runtime/build.py build", workflow)
+
+    def test_compiler_objects_survive_source_config_change(self):
+        for path in (SURFACE,):
+            text = path.read_text(encoding="utf-8")
+            self.assertIn("ordax-independent-surface-ccache-v2-", text)
+            self.assertIn("github.run_id", text)
+            self.assertIn("restore-keys: |\n            ordax-independent-surface-ccache-v2-", text)
+            self.assertIn("ordax-independent-surface-ccache-v1-", text)
+        # The actual fingerprint of published EROFS must remain exact;
+        # broad compiler cache reuse is safe only within ccache itself.
+        self.assertIn("input_fingerprint", (ROOT / CACHE).read_text(encoding="utf-8"))
+
+
+if __name__ == "__main__":
+    unittest.main()

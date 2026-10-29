@@ -2,6 +2,7 @@ name: Independent Portable v2 Integration (experimental)
 
 on:
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - 'bootstrap/independent-base/**'
       - 'tests/test_independent_portable_boot_integration.py'
@@ -10,10 +11,13 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  # Do not abort a costly candidate QEMU proof on a newer PR revision.
+  # GitHub may keep only the newest pending run while the active one finishes.
+  cancel-in-progress: false
 
 jobs:
   canonical-portable-boundary:
@@ -46,6 +50,7 @@ jobs:
           echo 'ORDAX_INDEPENDENT_PORTABLE_V2_QEMU=NOT_YET_PROVEN'
 
   independent-real-portable-qemu:
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     # Reuse the official pipeline, build/sign/release/mount/roll back in real
     # QEMU. The single parameter selects the isolated Buildroot candidate.
     # Default portable-v2 workflow remains unchanged for Stable builds.
@@ -54,3 +59,4 @@ jobs:
       base_source: independent
     permissions:
       contents: read
+      actions: read

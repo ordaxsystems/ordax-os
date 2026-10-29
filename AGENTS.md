@@ -1,5 +1,18 @@
 # AGENTS.md
 
+**Owner canônico:** `ordaxsystems/ordax-os`. Contratos: `docs/contracts/repository-ownership.json` e `docs/contracts/repository-migration-status.json`. A identidade oficial não constitui homologação **Stable/MVP**; `docs/PROMOTION-GATES.md` permanece obrigatório para qualquer promoção. A PR #2243 trata exclusivamente de USB Owner/Development, sem publicação Stable ou autorização de gravação física.
+
+## Prioridade P0 ativa — USB Dev direto e incremental (2026-10-27)
+
+**ANTES de qualquer atuação em USB Dev, Buildroot Owner, Surface EROFS, Creator ou QEMU:** ler [plano P0 de build direto e incremental](docs/plans/P0-DEV-USB-INCREMENTAL-BUILD-2026-10-27.md). Este é um plano de execução para a **PR #2243**, não um segundo owner canônico, não um USB concluído e não uma autorização de gravação física. Os contratos/código atuais continuam vencendo descrições de estado.
+
+**Direção explícita do proprietário:** o ciclo Owner/Development não pode depender de GitHub Actions nem de homologação Stable; reutilizar builders existentes e cache persistente verificado, montar DEV diretamente e testar só dependentes. Não recomputar kernel/base/Surface em mudança irrelevante; não produzir dois builders nem reintroduzir Alpine; não abrir PR paralela; não cancelar build caro concorrente sem fundamento. Manter segurança de disco e proveniência; escrita física só com escolha explícita do removível. Outros chats/agentes devem consultar esse plano e o HEAD efetivo, não memória da conversa.
+
+
+## Regra transversal obrigatória — desenvolvimento sem dependência de workflows
+
+Para qualquer mudança no OrdaX (OS, Surface, Apps, Runtime, Creator e integrações), priorizar **editar → executar/preview local → testar apenas o impacto → compilar o componente afetado**. GitHub Actions é executor auxiliar, nunca requisito para iniciar, testar localmente ou gerar artefato DEV. Kernel, initramfs e base também devem ter entrypoints diretos independentes da CI. Não adicionar workflow novo sem comprovar consumidor, razão técnica, gatilho mínimo e inexistência de comando canônico reaproveitável. Assinatura, confiança, rollback, deploy e consentimento de gravação física continuam operações distintas e verificáveis. Respeitar owners estabelecidos em `docs/contracts/repository-ownership.json`. Ver `docs/DEVELOPMENT-WORKFLOW.md` e plano P0 para comportamento e aceite. **Esta diretriz não afirma que todos os comandos já estejam funcionais.**
+
 Este arquivo e a entrada obrigatoria para qualquer IA, agente, Codex ou pessoa que trabalhe neste repositorio.
 
 ## 1. Identidade do repositorio
