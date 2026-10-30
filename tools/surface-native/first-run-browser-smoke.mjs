@@ -252,6 +252,52 @@ async function scenario(modules,css,origin) {
   && !!get('account-local');
  webEnabledWizard.destroy();
 
+
+ // The optional device name is confirmed by the canonical owner before any
+ // first-use completion receipt. A failed rename must leave setup retryable.
+ const named=await fixture();
+ let currentName='OrdaX inicial', renameCalls=0, rejectRename=true;
+ const profile={
+   schema:'ordax.device-profile-port/1',
+   getSnapshot(){return {schema:'ordax.device-profile/1',devicePublicId:'ordax-12345678',displayName:currentName};},
+   async rename(name){
+     renameCalls++;
+     if(rejectRename)throw Error('owner unavailable');
+     currentName=name;return this.getSnapshot();
+   },
+ };
+ mountFirstRunExperience(root,{...named.ports,deviceProfile:profile});
+ await reachAccount();await click('account-local');await click('next');
+ const nameField=document.querySelector('[data-first-run-device-name]');
+ checks.optionalDeviceNameInFinalReview=!!nameField
+   && document.querySelector('.ordax-first-run')?.dataset.firstRunStep==='ready';
+ if(nameField){
+   nameField.value='Meu   OrdaX';
+   nameField.dispatchEvent(new Event('input',{bubbles:true}));
+ }
+ await click('finish');
+ checks.deviceRenameFailureKeepsFirstRun=!named.state.completed
+   && named.writes.length===0
+   && document.querySelector('.ordax-first-run-error')?.textContent.includes('nome do dispositivo')
+   && renameCalls===1;
+ rejectRename=false;
+ await click('finish');
+ checks.deviceRenameConfirmedBeforeReceipt=named.state.completed
+   && currentName==='Meu OrdaX' && renameCalls===2 && named.writes.length===1
+   && !document.querySelector('.ordax-first-run');
+
+ // Native Desktop reuses this wizard, but its review must never claim USB.
+ const desktop=await fixture();
+ mountFirstRunExperience(root,{...desktop.ports,productMode:'desktop'});
+ await reachAccount();await click('account-local');
+ checks.desktopSecurityHasNoUSB=!document.querySelector('.ordax-first-run-body')?.textContent.includes('pendrive')
+   && document.querySelector('.ordax-first-run-body')?.textContent.includes('OrdaX Desktop');
+ await click('next');
+ checks.desktopReviewHasNoUSB=!document.querySelector('.ordax-first-run-body')?.textContent.includes('pendrive')
+   && document.querySelector('.ordax-first-run-body')?.textContent.includes('OrdaX Desktop');
+ await click('finish');
+ checks.desktopUsesSameDurableReceipt=desktop.state.completed && desktop.writes.length===1;
+
  const offline=await fixture();
  const first=mountFirstRunExperience(root,offline.ports);
  checks.offlineWizardShown=first.shown===true && !!document.querySelector('.ordax-first-run');
