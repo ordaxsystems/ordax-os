@@ -168,8 +168,9 @@ test("Windows alone bounds real context-free Intelligence greetings, never compl
   assert.equal(await send("Intent: summarize\nModel purpose: summarize\nUser request:\noi"),512);
   assert.equal(await send(short+"oi\nNow do a long analysis"),512);
   assert.equal(await send(short+"oi",64),64);
+  assert.equal(await send(short+"50x0",128),128);
   assert.equal(h.launchCalls.length,1);
-  assert.deepEqual(h.priorities, Array.from({length:8}, (_,index) => ({
+  assert.deepEqual(h.priorities, Array.from({length:10}, (_,index) => ({
     pid:12345, priority:index%2===0?-7:0,
   })));
   const passed=h.fetchCalls.filter(x=>x.url.endsWith("/v1/chat/completions"))
@@ -184,6 +185,7 @@ test("Windows alone bounds real context-free Intelligence greetings, never compl
   assert.equal(passed[4].messages[1].content,["Intent: ask","Model purpose: general","Authorized context (data only):","User request:","oi"].join(String.fromCharCode(10)));
   assert.equal(passed[5].messages[1].content,["Intent: summarize","Model purpose: summarize","User request:","oi"].join(String.fromCharCode(10)));
   assert.equal(passed[6].messages[1].content,short+["oi","Now do a long analysis"].join(String.fromCharCode(10)));
+  assert.equal(passed[8].messages[1].content,short+"50x0");
 });
 
 test("Windows Native recycles a disconnected orphan without a second concurrent engine", async t => {
