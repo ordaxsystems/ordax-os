@@ -460,6 +460,18 @@ def erofs_identity(image: Path) -> dict[str, str]:
 
 
 PERSISTENT_WORKSPACE_SCHEMA = "prototype-ordax.surface-buildroot-workspace/1"
+HOSTED_MAKE_TIMEOUT_MINUTES = 330
+PERSISTENT_MAKE_TIMEOUT_MINUTES = 690
+
+
+def surface_make_timeout_minutes(*, persistent: bool) -> int:
+    """Select a bounded make budget before the corresponding CI deadline.
+
+    Hosted runners are disposable and limited to a six-hour CI job. Only
+    a deliberately configured --work-dir selects the resumable Buildroot O=
+    mode with the twelve-hour self-hosted CI job budget.
+    """
+    return PERSISTENT_MAKE_TIMEOUT_MINUTES if persistent else HOSTED_MAKE_TIMEOUT_MINUTES
 PERSISTENT_WORKSPACE_INPUTS = (
     HERE / "build.py",
     HERE / "prepare_config.py",
@@ -652,12 +664,17 @@ def build(out_dir: Path, cache_dir: Path, jobs: int, *, persistent_work_dir: Pat
         resolved_config_sha = prepare_surface_config(
             tree, build_dir, config, work, persistent=not transient
         )
-        # A hosted CI runner kills the whole job at six hours. Leave half an
-        # hour before that limit to stop the entire compiler process group
-        # cleanly and save verified download/ccache state, rather than racing
-        # tar against still-running cc1plus processes on job cancellation.
-        # GNU timeout supervises the make process group (no --foreground).
-        run(["timeout", "--signal=TERM", "--kill-after=60s", "330m",
+        # Leave 30 minutes before either CI job deadline for graceful
+        # shutdown and verified cache/provenance publication. Only an explicit
+        # resumable O= workspace permits the longer self-hosted budget.
+        make_timeout_minutes = surface_make_timeout_minutes(persistent=not transient)
+        print(
+            f"ORDAX_SURFACE_MAKE_MODE={'persistent' if not transient else 'hosted'} "
+            f"timeout_minutes={make_timeout_minutes}",
+            flush=True,
+        )
+        # GNU timeout supervises the whole process group (no --foreground).
+        run(["timeout", "--signal=TERM", "--kill-after=60s", f"{make_timeout_minutes}m",
              "make", "-C", str(tree), f"O={build_dir}", f"-j{jobs}"], bounded=True)
         resolved_config_sha_after = verify_build_config(build_dir)
         if resolved_config_sha_after != resolved_config_sha:

@@ -81,3 +81,19 @@ do cache Portable genérico: existe somente o produtor Buildroot acima.
 **Sem artefato verificado, o gate fica vermelho antes dos builds de IA,
 kernel e Base**, nunca verde
 por omissão nem recompilando a mesma Surface por horas.
+
+## Orçamento do produtor persistente — 30/10/2026
+
+No runner GitHub hospedado e descartável, o `make` é limitado a **330 minutos**
+dentro do job de 360 minutos. No runner Linux self-hosted confiável, **somente**
+quando `ORDAX_SURFACE_RUNNER_LABEL`, `ORDAX_SURFACE_PRODUCER_ENVIRONMENT`
+e `ORDAX_SURFACE_PERSISTENT_WORK_ROOT` estão explicitamente configurados,
+o `make` no `--work-dir` usa **690 minutos** dentro de um job de 720 minutos.
+Ambos reservam 30 minutos para encerramento controlado e verificações.
+
+A mudança de limite **não** substitui a retomada. Um resultado parcial do
+WebKit só é aproveitável quando o mesmo diretório `O=` permanece em disco,
+o fingerprint nativo e o Kconfig selado conferem, o `flock` é exclusivo e
+nenhum manifesto ou artefato incompleto é aceito. Não é permitido tratar o
+limite de 720 minutos como prova de sucesso, nem executar novo build caro em
+runner descartável apenas porque o anterior chegou a 330 minutos.

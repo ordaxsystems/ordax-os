@@ -271,11 +271,21 @@ class IndependentSurfaceRuntimeTests(unittest.TestCase):
         self.assertIn('fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)', source)
         self.assertIn('if transient:\n            shutil.rmtree(work, ignore_errors=True)', source)
 
-    def test_buildroot_has_a_bounded_group_timeout_before_ci_job_deadline(self):
+    def test_buildroot_has_mode_specific_group_timeout_before_ci_job_deadline(self):
         source = BUILDER_PATH.read_text(encoding="utf-8")
-        self.assertIn('"timeout", "--signal=TERM", "--kill-after=60s", "330m"', source)
+        workflow = WORKFLOW_PATH.read_text(encoding="utf-8")
+        self.assertEqual(self.builder.surface_make_timeout_minutes(persistent=False), 330)
+        self.assertEqual(self.builder.surface_make_timeout_minutes(persistent=True), 690)
+        self.assertIn('surface_make_timeout_minutes(persistent=not transient)', source)
+        self.assertIn('"timeout", "--signal=TERM", "--kill-after=60s", f"{make_timeout_minutes}m"', source)
         self.assertIn('for program in ("make", "timeout",', source)
         self.assertNotIn('process.stdout.read(65536)', source)
+        self.assertIn("vars.ORDAX_SURFACE_RUNNER_LABEL != ''", workflow)
+        self.assertIn("vars.ORDAX_SURFACE_PERSISTENT_WORK_ROOT != ''", workflow)
+        self.assertIn("vars.ORDAX_SURFACE_PRODUCER_ENVIRONMENT != ''", workflow)
+        self.assertIn('&& 720 || 360', workflow)
+        self.assertEqual(720 - self.builder.surface_make_timeout_minutes(persistent=True), 30)
+        self.assertEqual(360 - self.builder.surface_make_timeout_minutes(persistent=False), 30)
 
     def test_contract_is_buildroot_musl_and_non_promotable(self):
         source, base = self.builder.contracts()

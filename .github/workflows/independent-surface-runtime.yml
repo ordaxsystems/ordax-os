@@ -113,7 +113,9 @@ jobs:
     # A dedicated long-lived x86_64 runner may be opted in without changing
     # the component contract; default stays hosted and disposable.
     runs-on: ${{ vars.ORDAX_SURFACE_RUNNER_LABEL || 'ubuntu-24.04' }}
-    timeout-minutes: 360
+    # Longer budget requires all three explicit persistent producer settings.
+    # Preflight separately rejects hosted runners and unpinned environments.
+    timeout-minutes: ${{ vars.ORDAX_SURFACE_RUNNER_LABEL != '' && vars.ORDAX_SURFACE_PERSISTENT_WORK_ROOT != '' && vars.ORDAX_SURFACE_PRODUCER_ENVIRONMENT != '' && 720 || 360 }}
     env:
       ORDAX_SURFACE_PRODUCER_ENVIRONMENT: ${{ vars.ORDAX_SURFACE_PRODUCER_ENVIRONMENT }}
       ORDAX_SURFACE_PERSISTENT_WORK_ROOT: ${{ vars.ORDAX_SURFACE_PERSISTENT_WORK_ROOT }}
