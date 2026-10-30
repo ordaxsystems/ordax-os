@@ -64,6 +64,7 @@ import { listSystemComponents } from "../../apps/component-catalog.mjs";
 import { listFirstPartyApps } from "../../apps/catalog.mjs";
 import { discoverVerifiedExternalApplications } from "../../services/apps/verified-external-app-catalog.mjs";
 import { createNativeComponentSlotSource } from "../../adapters/native/component-slot-source.mjs";
+import { createNativeSignedCurrentCompatibilityResolver } from "../../adapters/native/signed-current-compatibility.mjs";
 import {
   createNativeVerifiedInstalledAppCatalog,
   mountNativeVerifiedInstalledApps,
@@ -1103,6 +1104,14 @@ async function start() {
       installed: installedAppCatalog?.installed ?? [],
       source: nativeCurrentSlotSource,
       fetchImpl: verifiedComponentFetch,
+      // Windows may omit durable App Data only when its Native broker has
+      // verified the exact signed release/2 compatibility descriptor.
+      signedCurrentCompatibility: windowsDesktopHost
+        ? createNativeSignedCurrentCompatibilityResolver({
+            source: verifiedComponentPackageSource,
+            fetchImpl: verifiedComponentFetch,
+          })
+        : null,
       importModule: createNativeIsolatedComponentModuleImporter({
         windowRef: window,
         allowedComponentIds: EXTERNAL_FIRST_PARTY_COMPONENT_IDS.filter(
