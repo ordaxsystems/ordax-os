@@ -1,6 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
+import { createHmac } from "node:crypto";
+import { createRequire } from "node:module";
+const { isReady } = createRequire(import.meta.url)("../windows-desktop/host.cjs");
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -47,6 +50,25 @@ test("standalone installed Native host serves verified bundle and existing privi
   await new Promise(resolve=>host.listen(0,"127.0.0.1",resolve));
   t.after(()=>new Promise(resolve=>host.close(resolve)));
   const base="http://127.0.0.1:"+host.address().port;
+  const nonce="d".repeat(64);
+  const handshake=await fetch(base+"/__ordax/desktop-host-ready",{
+    headers:{"x-ordax-desktop-ready-challenge":nonce},
+  });
+  assert.equal(handshake.status,200);
+  assert.equal(handshake.headers.get("cache-control"),"no-store");
+  assert.equal(handshake.headers.get("x-ordax-desktop-ready-proof"),
+    createHmac("sha256",Buffer.from(tokens.ORDAX_DESKTOP_NATIVE_SESSION_TOKEN,"hex"))
+      .update("ordax.desktop.native-ready/1:"+nonce).digest("hex"));
+  assert.equal(await isReady(host.address().port,tokens.ORDAX_DESKTOP_NATIVE_SESSION_TOKEN),true);
+  assert.equal(await isReady(host.address().port,"9".repeat(64)),false);
+  assert.equal(await isReady(host.address().port,"malformed"),false);
+  assert.equal((await fetch(base+"/__ordax/desktop-host-ready")).status,404);
+  assert.equal((await fetch(base+"/__ordax/desktop-host-ready?bypass=1",{
+    headers:{"x-ordax-desktop-ready-challenge":nonce},
+  })).status,404);
+  assert.equal((await fetch(base+"/__ordax/desktop-host-ready",{
+    method:"POST",headers:{"x-ordax-desktop-ready-challenge":nonce},
+  })).status,404);
   const html=await fetch(base+"/system/composition/native/index.html");
   assert.equal(html.status,200);
   assert.match(await html.text(),/Verified compiled Native/);

@@ -35,11 +35,13 @@ test('Desktop Dev source is the sole canonical remote, with no shallow live merg
   assert.ok(staging.includes("'--sparse'"));
   assert.ok(!staging.includes("'--depth'"));
 });
-test('installed Electron opens canonical Native composition without iframe', () => {
+test('installed Electron loads canonical Native composition only after attested listener readiness', () => {
   const main = readFileSync(join(__dirname,'main.cjs'),'utf8');
   const host = readFileSync(join(__dirname,'host.cjs'),'utf8');
   assert.ok(main.includes("const PRODUCT='/system/composition/native/index.html'"));
-  assert.ok(host.includes("path:'/system/composition/native/index.html'"));
+  assert.ok(host.includes("path:attested?'/__ordax/desktop-host-ready':'/system/composition/native/index.html'"));
+  assert.ok(host.includes('if(await isReady(port,staticHost?nativeSessionToken:null))'));
+  assert.ok(host.includes('timingSafeEqual(expected,Buffer.from(proof,\'hex\'))'));
 });
 
 test('Windows installer CI uses exact PR head rather than ephemeral test-merge SHA', () => {
