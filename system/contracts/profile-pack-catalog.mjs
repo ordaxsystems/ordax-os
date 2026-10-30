@@ -1,3 +1,5 @@
+import { validateProfileAppReferences } from "./profile-app-references.mjs";
+
 export const PROFILE_PACK_CATALOG_SCHEMA = "ordax.profile-pack-catalog/1";
 export const PROFILE_PACK_CATALOG_ENTRY_SCHEMA = "ordax.profile-pack-catalog-entry/1";
 export const MAX_PROFILE_PACK_CATALOG_ENTRIES = 128;
@@ -61,7 +63,7 @@ export function validateProfilePackCatalogEntry(value, label = "Profile Pack cat
   const manifest = objectValue(row.manifest, `${label} manifest`);
   const spaceKind = manifest.space_kind;
   if (!SPACE_KINDS.has(spaceKind)) throw new TypeError(`${label} space kind is invalid`);
-  const apps = boundedTextArray(manifest.apps ?? [], `${label} apps`, 32, 120);
+  const apps = validateProfileAppReferences(manifest.apps ?? [], `${label} apps`);
   const templates = boundedTextArray(manifest.templates ?? [], `${label} templates`, 32, 120);
   const intelligence = objectValue(manifest.intelligence ?? {}, `${label} intelligence`);
   const preferredPurpose = intelligence.preferred_purpose == null
@@ -97,7 +99,7 @@ export function validateProfilePackCatalogProjection(value, label = "Profile Pac
   const title = boundedText(entry.title, `${label} title`, 120);
   const category = boundedText(entry.category, `${label} category`, 80);
   if (!SPACE_KINDS.has(entry.spaceKind)) throw new TypeError(`${label} space kind is invalid`);
-  const apps = boundedTextArray(entry.apps, `${label} apps`, 32, 120);
+  const apps = validateProfileAppReferences(entry.apps, `${label} apps`);
   const templates = boundedTextArray(entry.templates, `${label} templates`, 32, 120);
   const intelligence = objectValue(entry.intelligence, `${label} intelligence`);
   const preferredPurpose = intelligence.preferredPurpose == null

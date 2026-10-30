@@ -1,14 +1,13 @@
 import importlib.util
 import json
-import os
 from pathlib import Path
-import stat
 import sys
 import tempfile
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 MODULE = ROOT / "system" / "surface" / "runtime" / "native_account_gateway.py"
+sys.path.insert(0, str(MODULE.parent))
 
 spec = importlib.util.spec_from_file_location("ordax_native_account_gateway_test", MODULE)
 gateway = importlib.util.module_from_spec(spec)
@@ -36,46 +35,152 @@ class NativeAccountGatewayTests(unittest.TestCase):
                 "https://accounts.example/functions/v1/ordax-account-gateway",
             )
 
-    def test_device_session_is_private_and_contains_only_account_cookies(self):
+    def test_legacy_plaintext_session_is_purged_and_never_loaded(self):
         with tempfile.TemporaryDirectory() as temporary:
             path = Path(temporary) / "account" / "session.json"
-            client = gateway.NativeAccountGateway("https://accounts.example", str(path))
-            client._cookies = {
-                "ordax_access": "access-value",
-                "ordax_refresh": "refresh-value",
-            }
-            client._persist_session()
-
-            mode = stat.S_IMODE(path.stat().st_mode)
-            self.assertEqual(mode, 0o600)
-            payload = json.loads(path.read_text(encoding="utf-8"))
-            self.assertEqual(set(payload), {"ordax_access", "ordax_refresh"})
-            self.assertNotIn("password", path.read_text(encoding="utf-8").lower())
-
-    def test_insecure_existing_session_permissions_fail_closed(self):
-        with tempfile.TemporaryDirectory() as temporary:
-            path = Path(temporary) / "session.json"
+            path.parent.mkdir()
             path.write_text(
-                json.dumps({"ordax_access": "a", "ordax_refresh": "b"}),
+                json.dumps({"ordax_access": "old-access", "ordax_refresh": "old-refresh"}),
                 encoding="utf-8",
             )
-            os.chmod(path, 0o644)
             client = gateway.NativeAccountGateway("https://accounts.example", str(path))
             self.assertEqual(client._cookies, {})
+            self.assertFalse(path.exists())
 
-    def test_symlink_session_path_is_never_loaded(self):
+    def test_legacy_symlink_is_unlinked_without_touching_target(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
-            target = root / "target.json"
+            target = root / "stolen-copy.json"
             target.write_text(
-                json.dumps({"ordax_access": "a", "ordax_refresh": "b"}),
+                json.dumps({"ordax_access": "old-access", "ordax_refresh": "old-refresh"}),
                 encoding="utf-8",
             )
-            os.chmod(target, 0o600)
             link = root / "session.json"
             link.symlink_to(target)
             client = gateway.NativeAccountGateway("https://accounts.example", str(link))
             self.assertEqual(client._cookies, {})
+            self.assertFalse(link.exists())
+            self.assertTrue(target.exists())
+
+    def test_directory_at_legacy_path_is_not_removed_or_used_as_session(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "session.json"
+            path.mkdir()
+            client = gateway.NativeAccountGateway("https://accounts.example", str(path))
+            self.assertEqual(client._cookies, {})
+            self.assertTrue(path.is_dir())
+
+    def test_account_cookies_are_memory_only_and_no_persist_api_exists(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "account" / "session.json"
+            client = gateway.NativeAccountGateway("https://accounts.example", str(path))
+            client._cookies = gateway._parse_set_cookies(
+                (
+                    "ordax_access=access-value; Path=/; HttpOnly; Secure",
+                    "ordax_refresh=refresh-value; Path=/; HttpOnly; Secure",
+                ),
+                client._cookies,
+            )
+            self.assertEqual(
+                client._cookies,
+                {"ordax_access": "access-value", "ordax_refresh": "refresh-value"},
+            )
+            self.assertFalse(path.exists())
+            self.assertFalse(hasattr(client, "_persist_session"))
+            self.assertFalse(hasattr(client, "_load_session"))
+
+    def test_new_process_never_recovers_previous_in_memory_session(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "account" / "session.json"
+            first = gateway.NativeAccountGateway("https://accounts.example", str(path))
+            first._cookies = {"ordax_access": "a", "ordax_refresh": "b"}
+            second = gateway.NativeAccountGateway("https://accounts.example", str(path))
+            self.assertEqual(second._cookies, {})
+            self.assertFalse(path.exists())
+
+    def test_native_login_requires_verified_fresh_gateway_session(self):
+        def reply(payload, status=200):
+            return gateway.GatewayReply(
+                status=status, headers={},
+                body=json.dumps(payload).encode("utf-8"),
+            )
+
+        authenticated = {
+            "$schema": gateway.SESSION_SCHEMA,
+            "authenticated": True,
+            "status": "authenticated",
+            "subject": "verified-subject",
+            "email": "pessoa@example.com",
+            "displayName": "  Washington Silva  ",
+            "provider": "supabase",
+            "accountCloseEnabled": False,
+        }
+        accepted = gateway.verified_account_session_reply(reply({
+            **authenticated, "ordax_access": "never-send-me",
+        }))
+        self.assertEqual(accepted["subject"], "verified-subject")
+        self.assertEqual(accepted["displayName"], "Washington Silva")
+        self.assertTrue(accepted["authenticated"])
+        self.assertNotIn("ordax_access", accepted)
+
+        unsafe_name = gateway.verified_account_session_reply(reply({
+            **authenticated, "displayName": "Washington\nSilva",
+        }))
+        self.assertNotIn("displayName", unsafe_name)
+
+        for payload, status in (
+            (authenticated, 503),
+            ({"error": "upstream-unavailable"}, 200),
+            ({**authenticated, "authenticated": False, "status": "anonymous"}, 200),
+            ({**authenticated, "subject": ""}, 200),
+            ({**authenticated, "email": None}, 200),
+            ({**authenticated, "$schema": "untrusted.schema/1"}, 200),
+        ):
+            with self.subTest(payload=payload, status=status):
+                with self.assertRaises(gateway.NativeAccountGatewayError):
+                    gateway.verified_account_session_reply(reply(payload, status))
+
+    def test_registration_anonymous_is_confirmation_only_not_login(self):
+        anonymous = {
+            "$schema": gateway.SESSION_SCHEMA,
+            "authenticated": False,
+            "status": "anonymous",
+            "provider": "supabase",
+        }
+        reply = gateway.GatewayReply(
+            status=200, headers={}, body=json.dumps(anonymous).encode("utf-8")
+        )
+        with self.assertRaises(gateway.NativeAccountGatewayError):
+            gateway.verified_account_session_reply(reply)
+        result = gateway.verified_account_session_reply(reply, allow_anonymous=True)
+        self.assertFalse(result["authenticated"])
+        self.assertEqual(result["status"], "anonymous")
+        self.assertFalse(result["accountCloseEnabled"])
+
+    def test_native_http_uses_verified_session_owner_for_login(self):
+        host = (
+            ROOT / "system" / "surface" / "runtime" / "native_host_server.py"
+        ).read_text(encoding="utf-8")
+        self.assertIn("verified_account_session_reply(", host)
+        self.assertIn("allow_anonymous=(parsed_path == ACCOUNT_REGISTER_PATH)", host)
+        self.assertIn('if not session_payload["authenticated"]:', host)
+        self.assertNotIn('if not isinstance(session_payload, dict):', host)
+        self.assertIn('self._write_json(202, session_payload)', host)
+
+    def test_product_access_token_is_native_only_and_requires_authenticated_session(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            path = str(Path(temporary) / "session.json")
+            client = gateway.NativeAccountGateway("https://accounts.example", path)
+            with self.assertRaises(gateway.NativeAccountGatewayError) as raised:
+                client._product_access_token()
+            self.assertEqual(raised.exception.code, "authentication-required")
+            self.assertEqual(raised.exception.status, 401)
+
+            client._cookies = {
+                "ordax_access": "access-value",
+                "ordax_refresh": "refresh-value",
+            }
+            self.assertEqual(client._product_access_token(), "access-value")
 
     def test_registration_policy_is_read_only_and_uses_existing_session_boundary(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -215,7 +320,7 @@ class NativeAccountGatewayTests(unittest.TestCase):
             self.assertEqual(reply.status, 200)
             self.assertEqual(calls, [("GET", "/account/spaces", {})])
 
-    def test_memory_entitlement_read_is_get_only_and_reuses_device_bound_session(self):
+    def test_memory_entitlement_read_is_get_only_and_reuses_process_session(self):
         with tempfile.TemporaryDirectory() as temporary:
             path = str(Path(temporary) / "session.json")
             client = gateway.NativeAccountGateway("https://accounts.example", path)
@@ -247,7 +352,7 @@ class NativeAccountGatewayTests(unittest.TestCase):
             self.assertEqual(payload["key"], "memory.cloud.enabled")
             self.assertEqual(payload["decision"], "denied")
 
-    def test_network_send_is_post_only_json_and_reuses_device_bound_session(self):
+    def test_network_send_is_post_only_json_and_reuses_process_session(self):
         with tempfile.TemporaryDirectory() as temporary:
             path = str(Path(temporary) / "session.json")
             client = gateway.NativeAccountGateway("https://accounts.example", path)
@@ -270,7 +375,6 @@ class NativeAccountGatewayTests(unittest.TestCase):
             client._request = fake_request
             raw = b'{"space_id":"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1"}'
             reply = client.send_network_message(raw)
-
             self.assertEqual(reply.status, 200)
             self.assertEqual(
                 calls,
@@ -281,7 +385,7 @@ class NativeAccountGatewayTests(unittest.TestCase):
                 )],
             )
 
-    def test_native_adapter_has_no_provider_specific_supabase_dependency(self):
+    def test_native_adapter_has_no_provider_or_plaintext_persistence_dependency(self):
         source = MODULE.read_text(encoding="utf-8").lower()
         self.assertNotIn("supabase", source)
         self.assertIn("/auth/session", source)
@@ -294,6 +398,12 @@ class NativeAccountGatewayTests(unittest.TestCase):
         self.assertIn("/sync/snapshot", source)
         self.assertIn("/sync/changes", source)
         self.assertIn("/network/v2/messages/send", source)
+        self.assertNotIn("_persist_session", source)
+        self.assertNotIn("_load_session", source)
+        self.assertNotIn("json.dump", source)
+        self.assertNotIn("open(self.legacy_session_path", source)
+        self.assertNotIn("/device/enroll", source)
+        self.assertNotIn("/v3/device/setup", source)
 
 
 if __name__ == "__main__":

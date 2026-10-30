@@ -1,33 +1,16 @@
-import importlib.util
+"""OS-owned legal and Identity readiness contracts, independent of Site presentation."""
 import json
-import shutil
-import sys
-import tempfile
 import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-PUBLIC_SITE_TOOLS = ROOT / "tools" / "public-site"
-sys.path.insert(0, str(PUBLIC_SITE_TOOLS))
-BUILD_PATH = PUBLIC_SITE_TOOLS / "build.py"
-LEGAL_CONTRACT = ROOT / "docs" / "contracts" / "public-legal-readiness.json"
-AUTH_HARDENING = ROOT / "docs" / "contracts" / "public-auth-hardening.json"
-SITE = ROOT / "sites" / "public"
-
-
-def load_build():
-    spec = importlib.util.spec_from_file_location("ordax_public_site_build_legal", BUILD_PATH)
-    module = importlib.util.module_from_spec(spec)
-    assert spec.loader is not None
-    sys.modules[spec.name] = module
-    spec.loader.exec_module(module)
-    return module
-
-
-build = load_build()
+LEGAL_CONTRACT = ROOT / "docs/contracts/public-legal-readiness.json"
+AUTH_HARDENING = ROOT / "docs/contracts/public-auth-hardening.json"
+SITE_SOURCE = ROOT / "docs/contracts/public-site-source.json"
 
 
 class PublicLegalReadinessTests(unittest.TestCase):
+
     def test_canonical_legal_gate_is_not_ready(self):
         contract = json.loads(LEGAL_CONTRACT.read_text(encoding="utf-8"))
         self.assertEqual(contract["status"], "legal-documents-source-ready-activation-pending")
@@ -54,8 +37,6 @@ class PublicLegalReadinessTests(unittest.TestCase):
         self.assertEqual(contract["documents"]["terms"]["version"], "2026.10.09")
         binding = contract["registration_binding"]
         self.assertTrue(binding["policy_activation_source_ready"])
-        # Provider state is observed by the live, service-owned projection.
-        # A source contract must not freeze dynamic database state as false.
         for stale_runtime_flag in (
             "active_legal_policy_present",
             "policy_projection_active_policy_present",
@@ -93,102 +74,30 @@ class PublicLegalReadinessTests(unittest.TestCase):
         self.assertTrue(identity["legal_readiness"]["auth_only_routes_may_precede_full_account_readiness"])
         self.assertTrue(identity["legal_readiness"]["full_account_publication_requires_legal_readiness"])
         self.assertFalse(legal["account_activation_ready"])
-        config = json.loads((SITE / "config/public-site.json").read_text(encoding="utf-8"))
-        self.assertTrue(config["legal"]["auth_only_source_enabled"])
-        # A build remains possible even when the external deployed policy
-        # is not attested; release validation remains a separate operation.
-        self.assertGreater(len(build.validate_source(SITE)), 0)
+        source = json.loads(SITE_SOURCE.read_text(encoding="utf-8"))
+        self.assertEqual(source["repository"], "ordaxsystems/ordax-site")
+        self.assertFalse(source["production_deployment_activated"])
 
-    def test_auth_hardening_gate_is_not_ready(self):
+    def test_auth_transport_is_live_but_account_activation_gate_is_not_ready(self):
         contract = json.loads(AUTH_HARDENING.read_text(encoding="utf-8"))
-        self.assertEqual(contract["status"], "public-auth-disabled-bridge-unprovisioned-legal-pending")
+        self.assertEqual(
+            contract["status"],
+            "web-auth-runtime-proven-public-account-activation-gated",
+        )
         observation = contract["current_observation"]
+        destination = contract["postgresql_destination"]
         self.assertEqual(observation["leaked_password_protection"], "enabled-product-gateway")
         self.assertTrue(observation["product_leaked_password_protection_verified"])
         self.assertFalse(observation["provider_leaked_password_protection_enabled"])
         self.assertEqual(observation["provider_leaked_password_protection_advisor"], "disabled-warn")
+        self.assertTrue(observation["same_origin_session_owner_deployed"])
+        self.assertTrue(observation["public_edge_provenance_e2e_verified"])
+        self.assertTrue(destination["destination_service_transport_runtime_verified"])
+        self.assertTrue(destination["destination_named_bridge_runtime_e2e_verified"])
         self.assertFalse(observation["public_login_enabled"])
-
-    def test_runtime_config_matches_not_ready_gate(self):
-        config = json.loads((SITE / "config" / "public-site.json").read_text(encoding="utf-8"))
-        self.assertFalse(config["legal"]["account_activation_ready"])
-        self.assertEqual(config["legal"]["privacy_url"], "/privacidade/")
-        self.assertEqual(config["legal"]["terms_url"], "/termos/")
-        self.assertEqual(config["identity"]["login_url"], "/auth/login")
-        self.assertEqual(config["identity"]["register_url"], "/auth/register")
-        self.assertTrue(config["legal"]["auth_only_source_enabled"])
-
-    def test_identity_urls_cannot_be_enabled_without_auth_only_or_full_readiness(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            copied = Path(tmp) / "public"
-            shutil.copytree(SITE, copied)
-            config_path = copied / "config" / "public-site.json"
-            config = json.loads(config_path.read_text(encoding="utf-8"))
-            config["identity"]["login_url"] = "/auth/login"
-            config["identity"]["register_url"] = "/auth/register"
-            config["legal"]["auth_only_source_enabled"] = False
-            config_path.write_text(json.dumps(config), encoding="utf-8")
-
-            with self.assertRaises(build.PublicSiteError) as caught:
-                build.validate_source(copied)
-            self.assertIn("identity URLs must remain null", str(caught.exception))
-
-    def test_auth_only_does_not_open_recovery_or_cloud_routes(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            copied = Path(tmp) / "public"
-            shutil.copytree(SITE, copied)
-            config_path = copied / "config" / "public-site.json"
-            config = json.loads(config_path.read_text(encoding="utf-8"))
-            config["identity"]["recovery_url"] = "/auth/recover"
-            config_path.write_text(json.dumps(config), encoding="utf-8")
-            with self.assertRaisesRegex(
-                build.PublicSiteError, "auth-only source cannot silently enable password recovery"
-            ):
-                build.validate_source(copied)
-
-    def test_legal_ready_alone_cannot_activate_accounts_while_auth_hardening_is_pending(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp)
-            copied = root / "public"
-            shutil.copytree(SITE, copied)
-
-            config_path = copied / "config" / "public-site.json"
-            config = json.loads(config_path.read_text(encoding="utf-8"))
-            config["legal"]["account_activation_ready"] = True
-            config["identity"]["login_url"] = "/auth/login"
-            config["identity"]["register_url"] = "/auth/register"
-            config_path.write_text(json.dumps(config), encoding="utf-8")
-
-            legal_path = root / "legal.json"
-            legal = json.loads(LEGAL_CONTRACT.read_text(encoding="utf-8"))
-            legal["status"] = "ready"
-            legal["account_activation_ready"] = True
-            for name in ("privacy", "terms"):
-                legal["documents"][name]["final"] = True
-                legal["documents"][name]["version"] = "test-v1"
-                legal["documents"][name]["effective_date"] = "2099-01-01"
-            legal_path.write_text(json.dumps(legal), encoding="utf-8")
-
-            original_legal = build.LEGAL_READINESS
-            original_hardening = build.AUTH_HARDENING
-            try:
-                build.LEGAL_READINESS = legal_path
-                build.AUTH_HARDENING = AUTH_HARDENING
-                with self.assertRaises(build.PublicSiteError) as caught:
-                    build.validate_source(copied)
-            finally:
-                build.LEGAL_READINESS = original_legal
-                build.AUTH_HARDENING = original_hardening
-
-            self.assertIn("auth hardening must be ready", str(caught.exception))
-
-    def test_readiness_pages_do_not_claim_final_legal_status(self):
-        privacy = (SITE / "privacidade" / "index.html").read_text(encoding="utf-8")
-        terms = (SITE / "termos" / "index.html").read_text(encoding="utf-8")
-        self.assertIn("Política de Privacidade", privacy)
-        self.assertIn("Termos de Uso", terms)
-        self.assertIn("Versão:", privacy)
-        self.assertIn("O aceite é feito pelo próprio usuário", terms)
+        self.assertFalse(destination["public_registration_enabled"])
+        self.assertFalse(destination["recovery_e2e_verified"])
+        self.assertFalse(destination["session_revocation_e2e_verified"])
 
 
 if __name__ == "__main__":

@@ -55,6 +55,10 @@ on:
       - 'tests/test_assistant_work_strip.mjs'
       - 'tests/test_web_intelligence_canvas.mjs'
       - 'system/services/local-ai/**'
+      - 'bootstrap/dev-base/ordax-run'
+      - 'tests/test_owner_dev_local_ai_lifecycle.py'
+      - 'tests/test_local_ai_cpu_priority.py'
+      - 'tests/test_local_ai_default_lifecycle_policy.py'
       - 'system/surface/runtime/native_local_ai_bridge.py'
       - 'tests/test_native_local_ai_bridge.py'
       - 'tests/test_local_ai_probe_supervisor.mjs'
@@ -65,12 +69,10 @@ on:
       - 'system/services/preferences/memory.mjs'
       - 'system/services/profile-packs/**'
       - 'system/surface/ui/memory-review-controls.mjs'
-      - 'system/surface/ui/account-overview-controls.mjs'
       - 'system/surface/ui/space-switcher-controls.mjs'
       - 'system/surface/ui/space-switcher.css'
       - 'system/surface/ui/desktop-shell.mjs'
       - 'system/surface/ui/profile-activation-review.mjs'
-      - 'system/surface/ui/account.css'
       - 'system/services/i18n/catalog/account.mjs'
       - 'system/adapters/web/memory.mjs'
       - 'system/adapters/native/memory.mjs'
@@ -79,7 +81,6 @@ on:
       - 'system/surface/runtime/native_host_server.py'
       - 'system/surface/runtime/native_profile_content_context.py'
       - 'system/composition/native/account-memory.mjs'
-      - 'system/composition/native/main.mjs'
       - 'tools/local-ai-baseline/**'
       - 'tools/local-ai-benchmark/**'
       - 'tools/local-ai-hardware-probe/**'
@@ -233,6 +234,10 @@ on:
       - 'tests/test_assistant_work_strip.mjs'
       - 'tests/test_web_intelligence_canvas.mjs'
       - 'system/services/local-ai/**'
+      - 'bootstrap/dev-base/ordax-run'
+      - 'tests/test_owner_dev_local_ai_lifecycle.py'
+      - 'tests/test_local_ai_cpu_priority.py'
+      - 'tests/test_local_ai_default_lifecycle_policy.py'
       - 'system/surface/runtime/native_local_ai_bridge.py'
       - 'tests/test_native_local_ai_bridge.py'
       - 'tests/test_local_ai_probe_supervisor.mjs'
@@ -243,12 +248,10 @@ on:
       - 'system/services/preferences/memory.mjs'
       - 'system/services/profile-packs/**'
       - 'system/surface/ui/memory-review-controls.mjs'
-      - 'system/surface/ui/account-overview-controls.mjs'
       - 'system/surface/ui/space-switcher-controls.mjs'
       - 'system/surface/ui/space-switcher.css'
       - 'system/surface/ui/desktop-shell.mjs'
       - 'system/surface/ui/profile-activation-review.mjs'
-      - 'system/surface/ui/account.css'
       - 'system/services/i18n/catalog/account.mjs'
       - 'system/adapters/web/memory.mjs'
       - 'system/adapters/native/memory.mjs'
@@ -257,7 +260,6 @@ on:
       - 'system/surface/runtime/native_host_server.py'
       - 'system/surface/runtime/native_profile_content_context.py'
       - 'system/composition/native/account-memory.mjs'
-      - 'system/composition/native/main.mjs'
       - 'tools/local-ai-baseline/**'
       - 'tools/local-ai-benchmark/**'
       - 'tools/local-ai-hardware-probe/**'
@@ -368,6 +370,9 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
+
+      - name: Prepare pinned Surface source in disposable CI checkout
+        uses: ./.github/actions/prepare-verified-surface
 
       - name: Set up Python
         uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
@@ -523,6 +528,8 @@ jobs:
           python -m unittest tests.test_local_ai_baseline_compare -v
           python -m unittest tests.test_local_ai_benchmark -v
           python -m unittest tests.test_local_ai_hardware_probe -v
+          python -m unittest tests.test_owner_dev_local_ai_lifecycle -v
+          python -m unittest tests.test_local_ai_cpu_priority tests.test_local_ai_default_lifecycle_policy -v
           python -m unittest tests.test_memory_native_state -v
           python -m unittest tests.test_memory_native_endpoint -v
           node --test tests/test_native_account_memory_foundation.mjs

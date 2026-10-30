@@ -19,7 +19,6 @@ on:
       - 'system/contracts/recovery-status.mjs'
       - 'system/adapters/native/recovery-status.mjs'
       - 'system/composition/native/diagnostics.mjs'
-      - 'system/composition/native/main.mjs'
       - 'system/surface/runtime/native_host_server.py'
       - 'system/surface/ui/first-run.mjs'
       - 'system/surface/ui/local-session-lock.mjs'
@@ -49,7 +48,6 @@ on:
       - 'system/contracts/recovery-status.mjs'
       - 'system/adapters/native/recovery-status.mjs'
       - 'system/composition/native/diagnostics.mjs'
-      - 'system/composition/native/main.mjs'
       - 'system/surface/runtime/native_host_server.py'
       - 'system/surface/ui/first-run.mjs'
       - 'system/surface/ui/local-session-lock.mjs'
@@ -81,6 +79,9 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
+
+      - name: Prepare pinned Surface source in disposable CI checkout
+        uses: ./.github/actions/prepare-verified-surface
 
       - name: Set up Python
         uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6

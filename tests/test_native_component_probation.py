@@ -47,7 +47,7 @@ def message(
             "sourceCommit": source_commit,
             "revision": revision,
             "health": health,
-            "probeMode": "import-contract",
+            "probeMode": "mount-contract" if component_id == "files" else "import-contract",
         },
     }
 
@@ -66,7 +66,7 @@ class NativeComponentProbationTests(unittest.TestCase):
         self.assertNotIn("calculator", probation.SUPPORTED_COMPONENTS)
         self.assertNotIn("studio", probation.SUPPORTED_COMPONENTS)
         self.assertNotIn("internet", probation.SUPPORTED_COMPONENTS)
-        self.assertNotIn("files", probation.SUPPORTED_COMPONENTS)
+        self.assertIn("files", probation.SUPPORTED_COMPONENTS)
         self.assertIs(
             probation.PROBE_MODE_BY_COMPONENT,
             NATIVE_PROBATION_PROBE_MODE_BY_COMPONENT,
@@ -75,7 +75,7 @@ class NativeComponentProbationTests(unittest.TestCase):
             dict(probation.PROBE_MODE_BY_COMPONENT),
             policy["runtime_health_bridge_probe_mode_by_component"],
         )
-        self.assertNotIn("files", probation.PROBE_MODE_BY_COMPONENT)
+        self.assertEqual(probation.PROBE_MODE_BY_COMPONENT["files"], "mount-contract")
 
     def test_exact_nonce_and_receipt_record_health_once(self):
         record = slots.ComponentHealthRecord(
@@ -136,14 +136,40 @@ class NativeComponentProbationTests(unittest.TestCase):
         self.assertEqual(recorder.call_args.kwargs["version"], "0.4.1")
         self.assertEqual(recorder.call_args.kwargs["expected_revision"], 7)
 
-    def test_files_receipt_is_rejected_before_health_recorder(self):
+    def test_files_mount_receipt_records_health_without_opening_decision_authority(self):
+        record = slots.ComponentHealthRecord(
+            component_id="files",
+            revision=7,
+            version="0.4.0",
+            source_commit=COMMIT,
+            health="healthy",
+        )
         with mock.patch.object(probation, "record_component_pending_health") as recorder:
-            with self.assertRaisesRegex(
-                probation.ComponentProbationReceiptError,
-                "component is unavailable",
-            ):
+            recorder.return_value = record
+            outcome = probation.record_system_component_probation(
+                payload=message(component_id="files", nonce="files-nonce"),
+                expected_component_id="files",
+                expected_nonce="files-nonce",
+                helper_path="/signed/helper",
+                slot_root="/var/lib/ordax/components",
+            )
+        self.assertEqual(outcome.recorded, record)
+        recorder.assert_called_once_with(
+            helper_path="/signed/helper",
+            component_id="files",
+            version="0.4.0",
+            source_commit=COMMIT,
+            expected_revision=7,
+            health="healthy",
+            slot_root="/var/lib/ordax/components",
+        )
+
+        bad_mode = message(component_id="files", nonce="files-nonce")
+        bad_mode["result"]["probeMode"] = "import-contract"
+        with mock.patch.object(probation, "record_component_pending_health") as recorder:
+            with self.assertRaisesRegex(probation.ComponentProbationReceiptError, "probe mode"):
                 probation.record_system_component_probation(
-                    payload=message(component_id="files", nonce="files-nonce"),
+                    payload=bad_mode,
                     expected_component_id="files",
                     expected_nonce="files-nonce",
                     helper_path="/signed/helper",

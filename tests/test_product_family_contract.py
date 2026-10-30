@@ -26,25 +26,6 @@ class ProductFamilyContractTests(unittest.TestCase):
         self.assertFalse(policy["one_global_version_number_for_all_clients"])
         self.assertTrue(policy["release_availability_remains_external_to_branding"])
 
-    def test_public_names_match_canonical_family_source_and_localization(self):
-        source = (ROOT / "system/contracts/product-family.mjs").read_text(encoding="utf-8")
-        html = (ROOT / "sites/public/index.html").read_text(encoding="utf-8")
-        locale = (ROOT / "sites/public/i18n/catalog.js").read_text(encoding="utf-8")
-        for public_name in (
-            "OrdaX Web",
-            "OrdaX Mobile",
-            "OrdaX Desktop",
-            "OrdaX OS — USB",
-            "OrdaX OS — Nativo",
-        ):
-            self.assertIn(f'displayName: "{public_name}"', source)
-            self.assertIn(public_name, html)
-            self.assertIn(public_name, locale)
-        self.assertNotIn("<h3>OrdaX USB</h3>", html)
-        self.assertNotIn("<h3>Native</h3>", html)
-        self.assertNotIn("OrdaX Mobile v1.0", html)
-        self.assertNotIn("OrdaX Desktop v1.0", html)
-
     def test_mode_registry_is_not_replaced_by_public_names(self):
         foundation = json.loads((ROOT / "docs/contracts/foundation.json").read_text(encoding="utf-8"))
         capability = json.loads((ROOT / "docs/contracts/product-capabilities.json").read_text(encoding="utf-8"))

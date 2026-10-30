@@ -27,7 +27,7 @@ from native_store_metadata_policy import (
     NATIVE_CANONICAL_COMPONENT_TRUST_ANCHOR_PINNED,
     NATIVE_PENDING_DECISION_EXECUTION_ENABLED,
     NATIVE_PENDING_HEALTH_PROMOTION_AVAILABLE,
-    NATIVE_PROBATION_COMPONENT_IDS,
+    NATIVE_PENDING_DECISION_COMPONENT_IDS,
     NATIVE_SLOT_ACTIVATION_AVAILABLE,
 )
 
@@ -93,7 +93,7 @@ def _validate_plan(value: object) -> dict:
 
     if (
         not isinstance(component_id, str)
-        or component_id not in NATIVE_PROBATION_COMPONENT_IDS
+        or component_id not in NATIVE_PENDING_DECISION_COMPONENT_IDS
         or _COMPONENT_RE.fullmatch(component_id) is None
     ):
         raise ComponentPendingDecisionOwnerError(

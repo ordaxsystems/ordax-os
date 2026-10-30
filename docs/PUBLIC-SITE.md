@@ -1,6 +1,13 @@
 # OrdaX Public Site
 
+Entrada pública atual do OrdaX Web: `https://web.ordax.com.br/`. Os links da
+landing usam o subdomínio diretamente; `/web/` no portal é compatibilidade
+legada com redirecionamento permanente. Referências à apresentação em `/web/`
+abaixo descrevem o artefato preservado, não uma etapa exigida de acesso.
+
 Este documento descreve **arquitetura, ownership e invariantes atuais** do site público OrdaX.
+
+**Fonte de apresentação:** `ordaxsystems/ordax-site/site/` na revisão fixada em `docs/contracts/public-site-source.json`. O OS não mantém cópia de landing, login, Conta, estilos, recursos ou builder público. `ordax-os` mantém o backend de Identity, gates de ativação, serviços e composição do consumidor Web. A integração de source para desenvolvimento não autoriza automaticamente publicação de produção.
 Ele não é um diário de deploy nem substitui contratos machine-readable ou evidências datadas.
 
 ## Autoridades canônicas
@@ -44,7 +51,7 @@ Uma mudança apenas no site não deve reconstruir kernel, bootstrap, Surface com
 
 | Família | Rotas principais | Owner de apresentação | Owner funcional |
 | --- | --- | --- | --- |
-| Landing/marketing | `/` | `sites/public/` + assets próprios | public-site |
+| Landing/marketing | `/` | `ordaxsystems/ordax-site/site/` + assets próprios | public-site |
 | Download | `/download/` | `assets/download.css` | catálogo público de releases |
 | Identidade pública | `/login/`, `/cadastro/`, `/recuperar/`, `/recuperar/nova-senha/` | **`assets/account.css`** | `assets/site.js` + gateway público de Identity |
 | Conta autenticada | `/conta/` e subrotas autorizadas | implementação canônica de Conta vigente | `GET /auth/session` + APIs server-side autorizadas |
@@ -56,7 +63,7 @@ Uma mudança apenas no site não deve reconstruir kernel, bootstrap, Surface com
 Login, cadastro e recuperação são uma única família visual e usam o mesmo owner:
 
 ```text
-sites/public/assets/account.css
+ordaxsystems/ordax-site/site/assets/account.css
 ```
 
 Não existem owners visuais independentes `login.css` ou `cadastro.css`, e recuperação não pertence a `portal.css`.
@@ -64,9 +71,17 @@ As quatro rotas usam primitives `account-*` compartilhados e mantêm o fluxo mob
 
 `assets/site.js` continua sendo o owner do comportamento de readiness, navegação autenticada, política de registro, Turnstile e habilitação dos formulários. CSS não decide disponibilidade de autenticação.
 
+As quatro telas de identidade podem ser vistas localmente com `?preview=layout`: `/login/`, `/cadastro/`, `/recuperar/` e `/recuperar/nova-senha/`, apenas em loopback (`127.0.0.1`, `localhost` ou `[::1]`). O mesmo formulário nativo é apresentado com `inert`, controles desabilitados e sem `action`, identificado como somente leitura. Esse modo não libera autenticação, não carrega Turnstile e não inicia sessão; a navegação do cabeçalho mantém seu owner de sessão existente. Fora desse modo local explícito, os gates reais continuam mantendo o formulário oculto/desabilitado até readiness; não existe um segundo formulário de demonstração. No cadastro, o mesmo bloco legal é mostrado de forma inerte, sem fabricar versão de política, marcar aceite ou liberar registro. Recuperação e nova senha usam o mesmo modo somente leitura, sem enviar e-mail, validar links ou alterar credenciais. A navegação entre essas quatro rotas preserva `preview=layout` somente nesse contexto local explícito; links legais, serviços e navegação pública normal não são alterados.
+
 ### `/conta/` é um portal, não um formulário de entrada
 
 `/conta/` pertence ao mesmo modelo de Conta OrdaX, mas é uma superfície autenticada de aplicação. Ela não deve ser fundida artificialmente ao CSS dos formulários públicos apenas por compartilhar o conceito de Conta.
+
+A apresentação continua em `assets/account-dashboard.css` e `assets/account-portal.js`, consumindo os tokens Meridian da Surface pelo mesmo bridge de marca. `/conta/?preview=layout` é uma apresentação local em loopback: navegação, busca e filtros podem ser explorados, mas nenhuma sessão autenticada, plano, cobrança ou consumo é fabricado. O menu de sessão e as alterações de conta ficam bloqueados; as capacidades e seus estados pendentes permanecem visíveis. A abertura normal de `/conta/` mantém o cliente e a leitura de sessão oficiais.
+
+A composição da Conta agrupa a navegação por assunto e concentra a visão geral em perfil, serviços, consumo e segurança. As telas internas separam a tarefa principal do inventário de integrações; assinatura e faturamento usam estados indisponíveis explícitos, e os filtros de consumo mudam somente a apresentação enquanto a medição não estiver conectada. Preços e capacidades de referência dos planos e adicionais vêm do catálogo canônico injetado pelo build por `tools/public-site/plan_catalog.py`, reutilizado na landing e na Conta. A apresentação é somente leitura, informa preparação e não ativa billing, checkout, assinaturas ou cotas. Os planos continuam vindo do catálogo canônico injetado pelo build: a prévia de source sem esse catálogo exibe o estado pendente, sem duplicar preços ou benefícios. As opções do catálogo usam os nomes gerados por esse owner, sem presumir um plano contratado. A visão geral e os limites da assinatura reutilizam a mesma apresentação de recursos; capacidade, cobrança e renovação permanecem indisponíveis até seus serviços estarem conectados. Pagamentos separa o resumo de cobrança, os documentos e a identificação fiscal; os campos e as ações mantêm os mesmos componentes da Conta e explicam sua indisponibilidade sem presumir ausência de cobranças ou métodos cadastrados.
+
+O catálogo de apresentação em `account-portal.js` usa IDs estáveis de capacidades, compartilhados pela busca, pelo inventário de integrações e pelos indicadores dos controles, incluindo as categorias de consumo. Cabeçalhos, campos, linhas de configuração e estados sem dados usam os mesmos renderizadores; as descrições dos campos são vinculadas por IDs estáveis. Dados pessoais separa foto, identificação e contato, mantendo o e-mail da sessão em somente leitura. Segurança e dispositivos usam o mesmo cartão de sessão: a verificação deste navegador não confirma senha, verificação em duas etapas ou outros acessos. Estados de proteção e ações de exportação, exclusão e revogação vêm dos mesmos IDs de capacidades. Dispositivos, faturas e conexões compartilham a tabela de registros indisponíveis; indisponibilidade não é tratada como lista vazia confirmada. A disponibilidade de sessão/e-mail deriva exclusivamente do snapshot de `OrdaXPublicAccount`; idioma e aparência são apresentados como locais a este navegador, e as demais capacidades continuam pendentes. Esse catálogo descreve a UI e não implementa readiness, autorização, persistência ou outro backend de conta. Os atalhos contextuais e as respostas de ajuda apontam para o mesmo catálogo de seções da navegação. A navegação móvel usa o mesmo catálogo de seções, e o atalho de acessibilidade mantém a seção atual sem substituir a rota. A visão geral não presume tipo de conta nem dados cadastrais sem consulta oficial. A busca global e a busca de ajuda compartilham o controle com opção de limpar e contagem acessível. A busca global também permite navegar pelos resultados com as setas e abrir uma área com Enter; os rótulos do menu compacto acompanham o estado e o idioma. A busca de ajuda filtra o conteúdo local; o histórico indisponível não equivale a ausência de eventos, e a entrada de atendimento preserva o estado pendente sem enviar solicitações.
 
 A implementação atualmente promovida na `main` continua sendo a autoridade até uma substituição **atômica** ser aprovada. O candidato React/Lovable do PR `#1596` não é fonte de verdade enquanto permanecer draft/bloqueado; não mantenha duas UIs de Conta ativas no produto depois de uma eventual promoção.
 
@@ -131,7 +146,7 @@ O portal autenticado `/conta/` pode ter composição própria de aplicação, de
 O owner de localização do portal é:
 
 ```text
-sites/public/i18n/
+ordaxsystems/ordax-site/site/i18n/
 ```
 
 PT-BR é locale fonte/default e en-US deve manter paridade de chaves e placeholders para o escopo declarado como bilíngue.
@@ -166,17 +181,63 @@ site público
 
 Conta online não é requisito para download público autorizado nem para o primeiro uso do MVP. Instalação em disco interno permanece fora do MVP enquanto o owner de produto não mudar esse contrato.
 
+## Medição MCP na Conta — observacional e fechada por padrão
+
+A experiência `Consumo e limites` possui a apresentação para as **chamadas
+MCP observadas**, separadas de armazenamento, IA, assinatura e valores a
+pagar. A única fonte numérica é o agregado privado do
+`ordax-platform` (`ordax_get_product_mcp_usage_v1`), acessado pela
+projeção assinada `GET /v3/product/usage`; nenhum catálogo paralelo
+atribui saldos, franquias ou direitos.
+
+O navegador solicita somente `GET /account/usage/mcp` com cookies
+HttpOnly same-origin, pelo transporte público existente (Vercel →
+Public Account Gateway → Account Gateway). A allowlist compartilhada
+`account_transport_admission.mjs` admite essa rota exata, mas **não**
+a libera antes da ativação pública da Conta. O gateway de identidade
+verifica a sessão e envia o JWT unicamente **server-side** à URL HTTPS
+canônica fixa da Platform, sem repassá-lo à Surface. A implementação
+Python mantém a mesma fronteira para a composição correspondente;
+a rota Edge TypeScript é a autoridade de produção, sem segundo medidor.
+
+A leitura remota precisa da flag separada
+`ORDAX_MCP_USAGE_READ_ENABLED=1`, desligada por padrão. Isso é
+independente da flag de **coleta** MCP e nunca ativa billing. Quando
+indisponível, anônima, desconectada ou em prévia de layout, a interface
+mostra indisponibilidade, não zero. Mesmo com resposta real,
+`coverage=partial_observational` e `billable=false` impedem
+confundir amostras por mês UTC com franquia completa ou fatura.
+A UI invalida os dados em logout/troca de sessão; nenhuma amostra é
+persistida no browser.
+
+Testes de fonte, bridge/isolamento, validação de respostas e
+apresentação fazem parte do Public Site Candidate. Isso **não**
+comprova implantação, ativação das flags, coleta real nem E2E público.
+
 ## Build e validação
 
-Comandos canônicos do artefato:
+A fonte e o builder estático vivem exclusivamente no repositório `ordax-site`.
+No checkout desse repositório, em ambiente **Dev**, execute:
 
 ```bash
-python tools/public-site/build.py check
-python tools/public-site/build.py build --source-commit <40-hex-sha> --out-dir out/public-site
-python tools/public-site/build.py verify --out-dir out/public-site
+python3 scripts/build.py check
+python3 -m unittest discover -s tests -p 'test_*.py' -v
+node tests/test_localization.mjs
 ```
 
-O `Public Site Candidate` é o gate de PR da superfície pública. Ele deve validar build determinístico, contratos, localização e testes de browser/viewport aplicáveis.
+O pipeline do Site gera e verifica seu bundle usando o lock de artefatos de
+migração de desenvolvimento; o manifesto e o catálogo de downloads não autorizam
+publicação oficial. Consulte `ordax-site/README.md` e
+`ordax-site/.github/workflows/site-source.yml` para o procedimento canônico de
+build/verify e os parâmetros de origem. Não executar um builder substituto no OS.
+
+O OS fixa a revisão de Site por `docs/contracts/public-site-source.json` e
+os projetos Vercel existentes usam `tools/vercel/build.py`: o projeto do portal
+consome o builder independente; o OrdaX Web compõe apenas o login e dependências
+verificadas, junto da Surface pinada. Não há mais a composição histórica
+`tools/public-site/deployment.py`, o mount `/ordax/` nem o source
+`sites/public/` no OS. O cutover do **código Dev** não transfere DNS nem libera
+Identity, downloads, produção ou Stable.
 
 Para provar o domínio real sem credenciais:
 
@@ -220,7 +281,7 @@ Detalhes operacionais e observações de runtime pertencem a `docs/contracts/pub
 
 Invariantes permanentes do portal:
 
-- nenhum private key, service-role key, password ou bearer token em `sites/public/`;
+- nenhum private key, service-role key, password ou bearer token em `ordaxsystems/ordax-site/site/`;
 - nenhum token de sessão legível pelo JavaScript público;
 - nenhum acesso browser direto a storage privilegiado;
 - Identity e Sync same-origin por padrão;

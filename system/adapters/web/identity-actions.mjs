@@ -97,6 +97,14 @@ export function createWebIdentityActions(
       if (!snapshot.supportedActions.includes(action)) {
         throw new Error(`Identity action is unavailable: ${String(action)}`);
       }
+      // The displayed policy may have been revoked since the last session read.
+      // Navigation never creates an account; the destination still owns consent.
+      if (action === "register" && registrationPolicy !== null) {
+        await refreshRegistration();
+        if (disposed || !snapshot.supportedActions.includes(action)) {
+          throw new Error("Identity registration is unavailable");
+        }
+      }
       if (action === "sign-in") {
         windowRef.location?.assign?.("/login/");
         return;

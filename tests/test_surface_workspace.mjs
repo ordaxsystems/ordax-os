@@ -11,6 +11,10 @@ import {
   validateWorkspaceRecord,
 } from "../system/contracts/workspace-store.mjs";
 import {
+  WORKSPACE_METADATA_SCHEMA,
+  validateWorkspaceMetadata,
+} from "../system/contracts/workspace-metadata-source.mjs";
+import {
   createSurfaceState,
   createWorkspaceSnapshot,
   getActiveArea,
@@ -44,18 +48,18 @@ function active(state) {
   return getActiveArea(state);
 }
 
-function legacyWithFiles() {
+function legacyWithAccount() {
   return {
     windows: [{
-      id: "files",
-      appId: "files",
+      id: "account",
+      appId: "account",
       minimized: false,
       maximized: false,
       placementOrdinal: 1,
       positionX: 144,
       positionY: 96,
     }],
-    activeWindowId: "files",
+    activeWindowId: "account",
     nextWindowOrdinal: 2,
   };
 }
@@ -71,7 +75,7 @@ test("default workspace starts with two real independent areas", () => {
 
 test("launched windows receive stable placement ordinals and start maximized", () => {
   let state = baseline();
-  state = reduceSurfaceState(state, { type: "app.launch", appId: "files" });
+  state = reduceSurfaceState(state, { type: "app.launch", appId: "account" });
   state = reduceSurfaceState(state, { type: "app.launch", appId: "settings" });
 
   assert.equal(active(state).windows.length, 2);
@@ -84,17 +88,17 @@ test("launched windows receive stable placement ordinals and start maximized", (
 
 test("focusing an already-active top window is a no-op", () => {
   let state = baseline();
-  state = reduceSurfaceState(state, { type: "app.launch", appId: "files" });
+  state = reduceSurfaceState(state, { type: "app.launch", appId: "account" });
   const focused = state;
-  state = reduceSurfaceState(state, { type: "window.focus", windowId: "files" });
+  state = reduceSurfaceState(state, { type: "window.focus", windowId: "account" });
   assert.equal(state, focused);
 });
 
 test("area switching preserves independent window sets and focus", () => {
   let state = baseline();
-  state = reduceSurfaceState(state, { type: "app.launch", appId: "files" });
-  state = reduceSurfaceState(state, { type: "window.maximize", windowId: "files" });
-  state = reduceSurfaceState(state, { type: "window.move", windowId: "files", x: 123.4, y: 87.6 });
+  state = reduceSurfaceState(state, { type: "app.launch", appId: "account" });
+  state = reduceSurfaceState(state, { type: "window.maximize", windowId: "account" });
+  state = reduceSurfaceState(state, { type: "window.move", windowId: "account", x: 123.4, y: 87.6 });
   const firstArea = active(state);
   assert.equal(firstArea.windows[0].positionX, 123);
   assert.equal(firstArea.windows[0].positionY, 88);
@@ -105,9 +109,50 @@ test("area switching preserves independent window sets and focus", () => {
   assert.deepEqual(active(state).windows.map((item) => item.id), ["settings"]);
 
   state = reduceSurfaceState(state, { type: "area.switch", areaId: "area-1" });
-  assert.deepEqual(active(state).windows.map((item) => item.id), ["files"]);
+  assert.deepEqual(active(state).windows.map((item) => item.id), ["account"]);
   assert.equal(active(state).windows[0].positionX, 123);
-  assert.equal(active(state).activeWindowId, "files");
+  assert.equal(active(state).activeWindowId, "account");
+});
+
+test("same singleton window id in separate areas proves identity is area-scoped", () => {
+  let state = baseline();
+  state = reduceSurfaceState(state, { type: "app.launch", appId: "account" });
+  state = reduceSurfaceState(state, { type: "area.switch", areaId: "area-2" });
+  state = reduceSurfaceState(state, { type: "app.launch", appId: "account" });
+
+  const first = state.areas[0];
+  const second = state.areas[1];
+  assert.notEqual(first.id, second.id);
+  assert.equal(first.windows[0].id, "account");
+  assert.equal(second.windows[0].id, "account");
+  assert.equal(first.windows[0].appId, second.windows[0].appId);
+  assert.notDeepEqual(
+    [first.id, first.windows[0].id],
+    [second.id, second.windows[0].id],
+  );
+});
+
+test("sync workspace metadata does not surface window-private extras", () => {
+  const snapshot = validateWorkspaceMetadata({
+    $schema: WORKSPACE_METADATA_SCHEMA,
+    activeAreaId: "area-1",
+    secret: "must-not-survive",
+    areas: [{
+      id: "area-1",
+      ordinal: 1,
+      appIds: ["account"],
+      activeWindowId: "account",
+      target: "/private/path",
+      windows: [{ id: "account", target: "/private/path" }],
+    }],
+  });
+
+  assert.deepEqual(Object.keys(snapshot).sort(), ["$schema", "activeAreaId", "areas"].sort());
+  assert.deepEqual(Object.keys(snapshot.areas[0]).sort(), ["appIds", "id", "ordinal"].sort());
+  assert.equal("target" in snapshot.areas[0], false);
+  assert.equal("activeWindowId" in snapshot.areas[0], false);
+  assert.equal("windows" in snapshot.areas[0], false);
+  assert.equal("secret" in snapshot, false);
 });
 
 test("app navigation targets are isolated per area and survive snapshot recovery", () => {
@@ -143,14 +188,14 @@ test("app target updates preserve window lifecycle and survive snapshot recovery
   let state = baseline();
   state = reduceSurfaceState(state, {
     type: "app.launch",
-    appId: "files",
+    appId: "account",
     target: "/Documentos",
   });
   const before = state;
   const beforeWindow = active(state).windows[0];
   state = reduceSurfaceState(state, {
     type: "app.target",
-    appId: "files",
+    appId: "account",
     target: "/Downloads",
   });
 
@@ -165,7 +210,7 @@ test("app target updates preserve window lifecycle and survive snapshot recovery
 
   const unchanged = reduceSurfaceState(state, {
     type: "app.target",
-    appId: "files",
+    appId: "account",
     target: "/Downloads",
   });
   assert.equal(unchanged, state);
@@ -191,11 +236,11 @@ test("launch without a target preserves an existing singleton target", () => {
 
 test("workspace target validation is bounded and rejects control characters", () => {
   let state = baseline();
-  state = reduceSurfaceState(state, { type: "app.launch", appId: "files" });
+  state = reduceSurfaceState(state, { type: "app.launch", appId: "account" });
   assert.throws(
     () => reduceSurfaceState(state, {
       type: "app.target",
-      appId: "files",
+      appId: "account",
       target: "bad\ntarget",
     }),
     TypeError,
@@ -240,47 +285,47 @@ test("area creation is bounded", () => {
 
 test("maximized windows reject movement and preserve restored geometry", () => {
   let state = baseline();
-  state = reduceSurfaceState(state, { type: "app.launch", appId: "files" });
+  state = reduceSurfaceState(state, { type: "app.launch", appId: "account" });
   assert.equal(active(state).windows[0].maximized, true);
 
   const initialMaximized = state;
-  state = reduceSurfaceState(state, { type: "window.move", windowId: "files", x: 300, y: 200 });
+  state = reduceSurfaceState(state, { type: "window.move", windowId: "account", x: 300, y: 200 });
   assert.equal(state, initialMaximized);
 
-  state = reduceSurfaceState(state, { type: "window.maximize", windowId: "files" });
+  state = reduceSurfaceState(state, { type: "window.maximize", windowId: "account" });
   assert.equal(active(state).windows[0].maximized, false);
-  state = reduceSurfaceState(state, { type: "window.move", windowId: "files", x: 80, y: 64 });
+  state = reduceSurfaceState(state, { type: "window.move", windowId: "account", x: 80, y: 64 });
   assert.equal(active(state).windows[0].positionX, 80);
   assert.equal(active(state).windows[0].positionY, 64);
 
-  state = reduceSurfaceState(state, { type: "window.maximize", windowId: "files" });
+  state = reduceSurfaceState(state, { type: "window.maximize", windowId: "account" });
   const maximizedState = state;
-  state = reduceSurfaceState(state, { type: "window.move", windowId: "files", x: 300, y: 200 });
+  state = reduceSurfaceState(state, { type: "window.move", windowId: "account", x: 300, y: 200 });
   assert.equal(state, maximizedState);
 
-  state = reduceSurfaceState(state, { type: "window.maximize", windowId: "files" });
+  state = reduceSurfaceState(state, { type: "window.maximize", windowId: "account" });
   assert.equal(active(state).windows[0].positionX, 80);
   assert.equal(active(state).windows[0].positionY, 64);
 });
 
 test("invalid window coordinates fail closed", () => {
   let state = baseline();
-  state = reduceSurfaceState(state, { type: "app.launch", appId: "files" });
+  state = reduceSurfaceState(state, { type: "app.launch", appId: "account" });
   assert.throws(
-    () => reduceSurfaceState(state, { type: "window.move", windowId: "files", x: -1, y: 10 }),
+    () => reduceSurfaceState(state, { type: "window.move", windowId: "account", x: -1, y: 10 }),
     TypeError,
   );
   assert.throws(
-    () => reduceSurfaceState(state, { type: "window.move", windowId: "files", x: Number.NaN, y: 10 }),
+    () => reduceSurfaceState(state, { type: "window.move", windowId: "account", x: Number.NaN, y: 10 }),
     TypeError,
   );
 });
 
 test("workspace snapshot round-trips all areas and active area", () => {
   let state = baseline();
-  state = reduceSurfaceState(state, { type: "app.launch", appId: "files" });
-  state = reduceSurfaceState(state, { type: "window.maximize", windowId: "files" });
-  state = reduceSurfaceState(state, { type: "window.move", windowId: "files", x: 144, y: 96 });
+  state = reduceSurfaceState(state, { type: "app.launch", appId: "account" });
+  state = reduceSurfaceState(state, { type: "window.maximize", windowId: "account" });
+  state = reduceSurfaceState(state, { type: "window.move", windowId: "account", x: 144, y: 96 });
   state = reduceSurfaceState(state, { type: "area.switch", areaId: "area-2" });
   state = reduceSurfaceState(state, { type: "app.launch", appId: "settings" });
 
@@ -304,8 +349,8 @@ test("workspace recovery drops unknown apps independently per area", () => {
         ordinal: 1,
         windows: [
           {
-            id: "files",
-            appId: "files",
+            id: "account",
+            appId: "account",
             minimized: false,
             maximized: false,
             placementOrdinal: 1,
@@ -336,8 +381,8 @@ test("workspace recovery drops unknown apps independently per area", () => {
   });
 
   const recovered = baseline(persisted);
-  assert.deepEqual(recovered.areas[0].windows.map((item) => item.id), ["files"]);
-  assert.equal(recovered.areas[0].activeWindowId, "files");
+  assert.deepEqual(recovered.areas[0].windows.map((item) => item.id), ["account"]);
+  assert.equal(recovered.areas[0].activeWindowId, "account");
   assert.equal(recovered.areas[0].nextWindowOrdinal, 3);
 });
 
@@ -354,15 +399,15 @@ test("workspace contract rejects malformed area references and unbounded coordin
         id: "area-1",
         ordinal: 1,
         windows: [{
-          id: "files",
-          appId: "files",
+          id: "account",
+          appId: "account",
           minimized: false,
           maximized: false,
           placementOrdinal: 1,
           positionX: 1_000_001,
           positionY: 0,
         }],
-        activeWindowId: "files",
+        activeWindowId: "account",
         nextWindowOrdinal: 2,
       }],
     }),
@@ -371,10 +416,10 @@ test("workspace contract rejects malformed area references and unbounded coordin
 });
 
 test("legacy v1 record migrates into Area 01 without losing layout", () => {
-  const migrated = migrateLegacyWorkspaceRecord(legacyWithFiles());
+  const migrated = migrateLegacyWorkspaceRecord(legacyWithAccount());
   assert.equal(migrated.activeAreaId, "area-1");
   assert.equal(migrated.areas.length, 2);
-  assert.equal(migrated.areas[0].windows[0].id, "files");
+  assert.equal(migrated.areas[0].windows[0].id, "account");
   assert.equal(migrated.areas[0].windows[0].positionX, 144);
   assert.equal(migrated.areas[1].windows.length, 0);
   assert.equal(migrated.nextAreaOrdinal, 3);
@@ -382,10 +427,10 @@ test("legacy v1 record migrates into Area 01 without losing layout", () => {
 
 test("Web adapter migrates v1 only when v2 is absent", () => {
   const storage = createMemoryStorage();
-  storage.setItem("ordax.workspace.v1", JSON.stringify(legacyWithFiles()));
+  storage.setItem("ordax.workspace.v1", JSON.stringify(legacyWithAccount()));
   const store = createWebWorkspaceStore({ localStorage: storage });
   const loaded = store.load();
-  assert.equal(loaded.areas[0].windows[0].id, "files");
+  assert.equal(loaded.areas[0].windows[0].id, "account");
   assert.equal(typeof storage.raw("ordax.workspace.v2"), "string");
 
   storage.setItem("ordax.workspace.v2", "{broken");
@@ -395,10 +440,10 @@ test("Web adapter migrates v1 only when v2 is absent", () => {
 
 test("Native adapter migrates its own v1 namespace independently", () => {
   const storage = createMemoryStorage();
-  storage.setItem("ordax.native.workspace.v1", JSON.stringify(legacyWithFiles()));
+  storage.setItem("ordax.native.workspace.v1", JSON.stringify(legacyWithAccount()));
   const native = createNativeWorkspaceStore({ localStorage: storage }).load();
   const web = createWebWorkspaceStore({ localStorage: storage }).load();
-  assert.equal(native.areas[0].windows[0].id, "files");
+  assert.equal(native.areas[0].windows[0].id, "account");
   assert.equal(web.areas[0].windows.length, 0);
   assert.equal(typeof storage.raw("ordax.native.workspace.v2"), "string");
   assert.equal(storage.raw("ordax.workspace.v2"), undefined);
@@ -410,7 +455,7 @@ test("Web and Native v2 stores persist independently", () => {
   const webStore = createWebWorkspaceStore(windowRef);
   const nativeStore = createNativeWorkspaceStore(windowRef);
   let state = baseline();
-  state = reduceSurfaceState(state, { type: "app.launch", appId: "files" });
+  state = reduceSurfaceState(state, { type: "app.launch", appId: "account" });
   const snapshot = createWorkspaceSnapshot(state);
   webStore.save(snapshot);
 

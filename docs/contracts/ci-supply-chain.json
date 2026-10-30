@@ -31,9 +31,24 @@
       "version_label": "v6"
     },
     {
+      "uses": "actions/setup-node",
+      "sha": "249970729cb0ef3589644e2896645e5dc5ba9c38",
+      "version_label": "v6"
+    },
+    {
       "uses": "actions/setup-go",
       "sha": "b7ad1dad31e06c5925ef5d2fc7ad053ef454303e",
       "version_label": "v7"
+    },
+    {
+      "uses": "actions/cache/restore",
+      "sha": "55cc8345863c7cc4c66a329aec7e433d2d1c52a9",
+      "version_label": "v6.1.0"
+    },
+    {
+      "uses": "actions/cache/save",
+      "sha": "55cc8345863c7cc4c66a329aec7e433d2d1c52a9",
+      "version_label": "v6.1.0"
     },
     {
       "uses": "actions/upload-artifact",
@@ -41,9 +56,19 @@
       "version_label": "v6"
     },
     {
+      "uses": "actions/download-artifact",
+      "sha": "9000827ccba6bdab643e8b6fd33ac0654aef8333",
+      "version_label": "v8"
+    },
+    {
       "uses": "oven-sh/setup-bun",
       "sha": "0c5077e51419868618aeaa5fe8019c62421857d6",
       "version_label": "v2.2.0"
+    },
+    {
+      "uses": "supabase/setup-cli",
+      "sha": "45a513f8c64c0bc8e0e3dfe572b5c95be85f6359",
+      "version_label": "v3.0.1"
     }
   ],
   "workflow_policy": {

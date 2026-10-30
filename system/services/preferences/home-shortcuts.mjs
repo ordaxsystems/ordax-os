@@ -1,10 +1,11 @@
+import { getSurfaceDestination, SURFACE_DESTINATION_IDS } from '../surface/destination-catalog.mjs';
+
 // Surface presentation targets only: these IDs never assert installed apps or grants.
 export const HOME_SHORTCUTS_PREFERENCE_ID = 'surface.favorite-shortcuts';
-export const HOME_SHORTCUTS = Object.freeze([
-  ['projects', 'Projetos'], ['files', 'Arquivos'], ['internet', 'Internet'],
-  ['store', 'Loja'], ['intelligence', 'Inteligência'], ['editor-3d', 'Editor 3D'], ['terminal', 'Terminal'],
-].map(([id, name]) => Object.freeze({ id, name })));
-const ids = HOME_SHORTCUTS.map(shortcut => shortcut.id);
+const ids = [...SURFACE_DESTINATION_IDS];
+export const HOME_SHORTCUTS = Object.freeze(
+  ids.map(id => Object.freeze({ id, name: getSurfaceDestination(id).label })),
+);
 const allowed = new Set(ids);
 const defaultValue = ids.join(',');
 

@@ -32,6 +32,7 @@ on:
       - 'tests/test_diagnostic_summary_localization.mjs'
       - 'tests/test_english_mvp_localization_audit.mjs'
       - 'tests/test_english_surface_rendering_audit.mjs'
+      - 'tests/test_meridian_localization.mjs'
       - 'tests/test_localization_formatting_foundation.mjs'
       - 'tests/test_localization_interpolation_foundation.mjs'
       - 'tests/test_power_localization_formatting_cutover.mjs'
@@ -77,6 +78,7 @@ on:
       - 'tests/test_diagnostic_summary_localization.mjs'
       - 'tests/test_english_mvp_localization_audit.mjs'
       - 'tests/test_english_surface_rendering_audit.mjs'
+      - 'tests/test_meridian_localization.mjs'
       - 'tests/test_localization_formatting_foundation.mjs'
       - 'tests/test_localization_interpolation_foundation.mjs'
       - 'tests/test_power_localization_formatting_cutover.mjs'
@@ -106,6 +108,9 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
+
+      - name: Prepare pinned Surface source in disposable CI checkout
+        uses: ./.github/actions/prepare-verified-surface
 
       - name: Set up Python
         uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
@@ -141,7 +146,7 @@ jobs:
           node --check tests/test_english_mvp_localization_audit.mjs
           node --test tests/test_english_mvp_localization_audit.mjs
           node --check tests/test_english_surface_rendering_audit.mjs
-          node --test tests/test_english_surface_rendering_audit.mjs
+          node --test tests/test_english_surface_rendering_audit.mjs tests/test_meridian_localization.mjs
           node --check tests/test_diagnostic_summary_localization.mjs
           node --test tests/test_diagnostic_summary_localization.mjs
           node --check tests/test_intelligence_client_actions.mjs

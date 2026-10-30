@@ -52,17 +52,37 @@ def parse_guest_metrics(log: str) -> dict:
     return observed
 
 
+def parse_surface_ip_proof(log: str) -> dict:
+    """Require one successful execution of the exact Surface loopback mutation."""
+    exits = re.findall(r"^ORDAX_INDEPENDENT_SURFACE_IP_REPLACE_EXIT=([0-9]+)\r?$", log, re.MULTILINE)
+    addresses = re.findall(r"^ORDAX_INDEPENDENT_SURFACE_LOOPBACK=([^\r\n]+)\r?$", log, re.MULTILINE)
+    passes = re.findall(r"^ORDAX_INDEPENDENT_SURFACE_IP_REPLACE=PASS\r?$", log, re.MULTILINE)
+    if exits != ["0"]:
+        raise BaseError("Surface iproute2 guest execution did not exit exactly once with code 0")
+    if addresses != ["127.0.0.1/8"]:
+        raise BaseError("Surface loopback address proof missing or ambiguous")
+    if len(passes) != 1:
+        raise BaseError("Surface iproute2 guest success marker missing or ambiguous")
+    return {
+        "command": "/sbin/ip address replace 127.0.0.1/8 dev lo",
+        "exit_code": 0,
+        "loopback_address": "127.0.0.1/8",
+    }
+
+
 def qemu(kernel: Path, initrd: Path, base: Path, state: Path, label: str, log_dir: Path) -> dict:
     argv = [
         "qemu-system-x86_64", "-machine", "pc", "-m", "384M", "-smp", "1",
         "-nographic", "-monitor", "none", "-no-reboot", "-serial", "stdio",
         "-kernel", str(kernel), "-initrd", str(initrd),
         "-append", "console=ttyS0 loglevel=4 rdinit=/sbin/ordax-independent-probe-init",
+        # Explicit IDE indices document the intended host attachment order;
+        # guest PID1 still discovers EROFS/ext4 by magic, not /dev/sdX order.
         # IDE emulation requires a writable block backend. QEMU snapshot=on
         # redirects guest writes to disposable COW while leaving base bytes intact.
         # The guest EROFS mount is independently verified read-only by PID1.
-        "-drive", f"file={base},if=ide,format=raw,snapshot=on",
-        "-drive", f"file={state},if=ide,format=raw",
+        "-drive", f"file={base},if=ide,index=0,format=raw,snapshot=on",
+        "-drive", f"file={state},if=ide,index=1,format=raw",
         "-netdev", "user,id=n0", "-device", "e1000,netdev=n0",
     ]
     log_dir.mkdir(parents=True, exist_ok=True)
@@ -82,6 +102,9 @@ def qemu(kernel: Path, initrd: Path, base: Path, state: Path, label: str, log_di
                 if label == "corrupt-base" else
                 ["ORDAX_INDEPENDENT_EROFS=READ_ONLY", "ORDAX_INDEPENDENT_NETWORK=DHCP",
                  f"ORDAX_INDEPENDENT_STATE={'CREATED' if label == 'first' else 'RETAINED'}",
+                 "ORDAX_INDEPENDENT_SURFACE_IP_REPLACE_EXIT=0",
+                 "ORDAX_INDEPENDENT_SURFACE_LOOPBACK=127.0.0.1/8",
+                 "ORDAX_INDEPENDENT_SURFACE_IP_REPLACE=PASS",
                  "ORDAX_INDEPENDENT_BOOT=PASS"])
     missing = [marker for marker in expected if marker not in log]
     if complete.returncode != 0 or missing:
@@ -90,10 +113,11 @@ def qemu(kernel: Path, initrd: Path, base: Path, state: Path, label: str, log_di
     if label == "corrupt-base" and "ORDAX_INDEPENDENT_BOOT=PASS" in log:
         raise BaseError("corrupted base unexpectedly booted successfully")
     metrics = None if label == "corrupt-base" else parse_guest_metrics(log)
+    surface_ip = None if label == "corrupt-base" else parse_surface_ip_proof(log)
     return {"mode": label, "exit_code": complete.returncode, "markers": expected,
             "serial_log_sha256": serial_hash, "serial_log": serial_file.name,
             "serial_tail": log[-800:], "qemu_wall_seconds": elapsed_seconds,
-            "guest_resource_metrics": metrics}
+            "guest_resource_metrics": metrics, "surface_iproute2": surface_ip}
 
 
 def prove(out: Path, kernel_dir: Path, result_path: Path) -> dict:
@@ -102,6 +126,11 @@ def prove(out: Path, kernel_dir: Path, result_path: Path) -> dict:
     report = json.loads((out / "provenance.json").read_text())
     if report.get("physical_artifact_authorized") is not False:
         raise BaseError("promotable candidate forbidden in QEMU proof")
+    if report.get("surface_iproute2_identity_verified") is not True:
+        raise BaseError("QEMU proof requires authenticated Surface iproute2 identity")
+    surface_iproute2 = report.get("surface_iproute2")
+    if not isinstance(surface_iproute2, dict) or not re.fullmatch(r"[a-f0-9]{64}", str(surface_iproute2.get("sha256", ""))):
+        raise BaseError("QEMU proof requires valid Surface iproute2 provenance")
     for name, checksum in report["artifacts"].items():
         if not re.fullmatch(r"[a-f0-9]{64}", checksum):
             raise BaseError("invalid base artifact digest")
@@ -167,6 +196,8 @@ def prove(out: Path, kernel_dir: Path, result_path: Path) -> dict:
         "kernel_version": version,
         "kernel_sha256": digest(kernel),
         "base_sha256": base_before,
+        "surface_iproute2_identity": surface_iproute2,
+        "surface_iproute2_loopback_replace_proven": True,
         "image_sizes_bytes": {
             "independent_base_erofs": base.stat().st_size,
             "buildroot_initramfs_cpio_gz": initrd.stat().st_size,

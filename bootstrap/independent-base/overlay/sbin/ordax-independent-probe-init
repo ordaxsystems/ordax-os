@@ -16,7 +16,31 @@ rescue() {
     sleep 3
     exit 1
 }
-mount -t erofs -o ro /dev/sda /proof/base || rescue erofs
+# QEMU's two IDE devices may be enumerated in either order by a guest
+# kernel/runner. Bind each role to on-disk filesystem identity, never a /dev
+# letter. This is read-only and disposable; ambiguous layouts fail closed.
+find_disk_roles() {
+    base_device=
+    state_device=
+    for disk do
+        set -- $(od -An -tx1 -j 1024 -N 4 "$disk" 2>/dev/null)
+        if [ "$#" -eq 4 ] && [ "$1:$2:$3:$4" = "e2:e1:f5:e0" ]; then
+            [ -z "$base_device" ] || rescue erofs-ambiguous
+            base_device=$disk
+        fi
+        set -- $(od -An -tx1 -j 1080 -N 2 "$disk" 2>/dev/null)
+        if [ "$#" -eq 2 ] && [ "$1:$2" = "53:ef" ]; then
+            [ -z "$state_device" ] || rescue state-ambiguous
+            state_device=$disk
+        fi
+    done
+    [ -n "$base_device" ] || rescue erofs
+    [ -n "$state_device" ] || rescue state
+    [ "$base_device" != "$state_device" ] || rescue device-layout
+}
+find_disk_roles /dev/sda /dev/sdb
+printf 'ORDAX_INDEPENDENT_DISK_ROLES=erofs:%s,ext4:%s\\n' "$base_device" "$state_device"
+mount -t erofs -o ro "$base_device" /proof/base || rescue erofs
 test -r /proof/base/etc/ordax/independent-base || rescue base-identity
 grep -q 'ORDAX_INDEPENDENT_BASE=EXPERIMENTAL' /proof/base/etc/ordax/independent-base || rescue base-identity
 grep -q " /proof/base erofs ro," /proc/mounts || rescue erofs-not-readonly
@@ -24,7 +48,7 @@ if touch /proof/base/.ordax-unexpected-write 2>/dev/null; then
     rescue erofs-write-accepted
 fi
 echo ORDAX_INDEPENDENT_EROFS=READ_ONLY
-mount -t ext4 -o rw /dev/sdb /proof/state || rescue state
+mount -t ext4 -o rw "$state_device" /proof/state || rescue state
 if test -e /proof/state/ordax-independent-marker; then
     grep -q '^PERSISTENT$' /proof/state/ordax-independent-marker || rescue persistence
     echo ORDAX_INDEPENDENT_STATE=RETAINED
@@ -38,6 +62,22 @@ if /ordax/bootstrap/network/bin/netbox ifconfig eth0 up && /ordax/bootstrap/netw
 else
     rescue dhcp
 fi
+# Functional Surface parity proof happens only inside this disposable guest.
+# Never run this mutation on the CI host.
+if /sbin/ip address replace 127.0.0.1/8 dev lo; then
+    echo ORDAX_INDEPENDENT_SURFACE_IP_REPLACE_EXIT=0
+else
+    ip_replace_exit=$?
+    echo "ORDAX_INDEPENDENT_SURFACE_IP_REPLACE_EXIT=$ip_replace_exit"
+    rescue surface-loopback-ip-replace
+fi
+loopback_line=$(/sbin/ip -o -4 address show dev lo) || rescue surface-loopback-ip-show
+case " $loopback_line " in
+    *" inet 127.0.0.1/8 "*) ;;
+    *) rescue surface-loopback-address ;;
+esac
+echo ORDAX_INDEPENDENT_SURFACE_LOOPBACK=127.0.0.1/8
+echo ORDAX_INDEPENDENT_SURFACE_IP_REPLACE=PASS
 # Probe-only diagnostics from kernel-owned /proc. No extra daemon or package.
 # These are observed resource measurements, NOT release-health predicates.
 measure_resources() {

@@ -9,25 +9,34 @@ Repositório oficial e canônico do sistema operacional OrdaX em `ordaxsystems/o
 > `washingtonmsdj/novo-ordax-os` permanece referência histórica, não uma segunda fonte de verdade ou destino de publicação.
 
 ## MVP e canais de produto
+
+O alvo de lançamento, a divisão **Owner/Development vs Stable/MVP**, o modelo de atualização sem Git para usuário final e os gates mínimos de produto estão documentados em [MVP.md](MVP.md). Leia esse arquivo antes de trabalhar em pendrive público, Creator, releases, site, conta ou lançamento.
+
+A candidata Stable atualmente habilitada continua USB-only para uso físico; o ciclo de desenvolvimento/homologação pode abranger capacidades Native conforme `MVP.md` e seus owners, sem transformar isso em autorização para instalar ou escrever em SSD/NVMe/HD.
+
 ## Continuidade do Intelligence entre OS, Web e aplicativos
 
 Para continuar a integração **OrdaX Intelligence + ChatGPT opcional + plugin MCP + ações nativas** leia [INTELLIGENCE-HANDOFF.md](INTELLIGENCE-HANDOFF.md) antes de alterar Studio, Surface, router, provider connectors ou Runtime. É guia de coordenação; a autoridade permanece nos contratos de `docs/INTELLIGENCE.md` e `docs/contracts/repository-ownership.json`. O chat dentro do Web e o conector usado no ChatGPT externo são fluxos distintos; source experimental não confirma disponibilidade real.
 
+## Planejamento e referências históricas
 
+O roteador de planejamento fica em [`00-PLANOS-PRIORITARIOS/`](00-PLANOS-PRIORITARIOS/README.md). Antes de interpretar ou retomar qualquer `PLANO-*`, consulte também:
 
-O alvo de lançamento, a divisão **Owner/Development vs Stable/MVP**, o modelo de atualização sem Git para usuário final e os gates mínimos de produto estão documentados em [MVP.md](MVP.md). Leia esse arquivo antes de trabalhar em pendrive público, Creator, releases, site, conta ou lançamento.
+1. [`00-PLANOS-PRIORITARIOS/ROADMAP.md`](00-PLANOS-PRIORITARIOS/ROADMAP.md);
+2. [`00-PLANOS-PRIORITARIOS/REGISTRY.md`](00-PLANOS-PRIORITARIOS/REGISTRY.md).
 
-## Plano funcional da interface
+Durante a janela atual, a prioridade é **fechar o MVP pelos owners canônicos**. Planos futuros podem ser documentados, auditados e preservados, mas não formam uma fila automática de implementação. `READY` não significa `EXECUTION-ELIGIBLE`.
 
-O [PLANO-FUNCIONAL-SURFACE-E-APPS.md](PLANO-FUNCIONAL-SURFACE-E-APPS.md), na raiz, detalha a area de trabalho e os apps **Arquivos, Ajustes, Conta e Sistema**: cada subsecao, conteudo, comportamento, recursos existentes, lacunas e ordem de implementacao. IAs e desenvolvedores devem le-lo junto das instrucoes de `AGENTS.md` antes de trabalhar nessas interfaces. O plano e uma proposta; revalide seu inventario contra a `main` atual e preserve os contratos canonicos.
+Os planos antigos da raiz permanecem temporariamente nos caminhos atuais porque ainda possuem referências vivas. Eles são subordinados a `docs/README.md`, `docs/CURRENT-STATE.md`, `MVP.md`, contratos, ADRs e owners canônicos.
 
-A continuacao [PLANO-02-EVOLUCAO-E-REAPROVEITAMENTO-DO-LEGADO.md](PLANO-02-EVOLUCAO-E-REAPROVEITAMENTO-DO-LEGADO.md) compara o prototipo com `novo-ordax-os`: o que ja existe, o que falta recuperar e quais ideias merecem evoluir. Inclui 27 capacidades, fontes fixadas por commit, orientacoes por tela, prioridades, dependencias, criterios de aceite e prompts para implementacao. Leia as duas partes; o legado continua sendo referencia, sem copia automatica de codigo ou arquitetura.
+- [PLANO-FUNCIONAL-SURFACE-E-APPS.md](PLANO-FUNCIONAL-SURFACE-E-APPS.md) é referência funcional acumulada da Surface/apps; não é `CURRENT-STATE` nem changelog canônico.
+- [PLANO-02-EVOLUCAO-E-REAPROVEITAMENTO-DO-LEGADO.md](PLANO-02-EVOLUCAO-E-REAPROVEITAMENTO-DO-LEGADO.md) é análise histórica do legado e não é backlog atual.
+- [PLANO-03-FECHAMENTO-PRE-USB-NOVA-ORDAX.md](PLANO-03-FECHAMENTO-PRE-USB-NOVA-ORDAX.md) é baseline de auditoria cujo fechamento de source já foi concluído; gates vivos estão nos owners canônicos.
+- [PLANO-06-PERFIS-PROFISSIONAIS-E-DISTRIBUICAO-SOB-DEMANDA.md](PLANO-06-PERFIS-PROFISSIONAIS-E-DISTRIBUICAO-SOB-DEMANDA.md) preserva direção de Profiles, mas manifests, contratos e owners correntes definem estado factual.
+- [PLANO-07-PERSONAL-ORDAX-E-TRABALHO-INTELIGENTE.md](PLANO-07-PERSONAL-ORDAX-E-TRABALHO-INTELIGENTE.md) preserva fases futuras; o owner canônico é [`docs/PERSONAL-ORDAX.md`](docs/PERSONAL-ORDAX.md).
+- [PLANO-08-ORDAX-NETWORK-COMUNIDADES-E-MENSAGENS.md](PLANO-08-ORDAX-NETWORK-COMUNIDADES-E-MENSAGENS.md) é referência de produto; qualquer texto histórico de “canônico” não altera a hierarquia documental.
 
-O desenho de **Profiles profissionais leves no USB, com payload sob demanda, uso offline após instalação e evolução por atualização** está congelado em [PLANO-06-PERFIS-PROFISSIONAIS-E-DISTRIBUICAO-SOB-DEMANDA.md](PLANO-06-PERFIS-PROFISSIONAIS-E-DISTRIBUICAO-SOB-DEMANDA.md). Esse plano reimplementa os invariantes úteis do RFC-0009 do `novo-ordax-os` sobre a arquitetura atual, sem carregar todos os perfis na imagem inicial.
-
-O novo **Personal OrdaX**, camada owner-bound de Work, Activity e Result que evolui o sistema sem duplicar identidade, Memory, Projects, Intelligence ou permissões, tem seu ponto de entrada de implementação em [PERSONAL-ORDAX.md](PERSONAL-ORDAX.md). Esse documento deve ser lido antes de criar agentes, background work, Activity ou automações pessoais.
-
-O plano consolidado de evolução dessa camada está em [PLANO-07-PERSONAL-ORDAX-E-TRABALHO-INTELIGENTE.md](PLANO-07-PERSONAL-ORDAX-E-TRABALHO-INTELIGENTE.md). Ele transforma as conclusões dos relatórios já produzidos em ordem de implementação: foreground seguro, propostas sem autoridade, continuidade durável, background bounded, conectores, workers especialistas e execução híbrida.
+Não criar `v2`, `final`, `novo` ou outro plano paralelo para a mesma responsabilidade. Atualize o owner existente ou registre uma decisão arquitetural.
 
 ## Um produto, modos evolutivos
 
@@ -36,28 +45,18 @@ O plano consolidado de evolução dessa camada está em [PLANO-07-PERSONAL-ORDAX
 A arquitetura continua preparada para Web, Mobile, Desktop, USB e Native sem forks de produto.
 
 ```text
-MVP público        -> OrdaX USB
-Em breve           -> Web / Mobile / sincronização
-Futuro             -> experiência Desktop ampliada
-Pós-MVP            -> OrdaX Native (SSD/NVMe/HD)
+MVP físico habilitado atualmente -> OrdaX USB
+Ciclo de integração/homologação -> pode incluir capacidades Native conforme owners canônicos
+Outros modos                   -> conforme disponibilidade/release autorizada
 ```
 
-O primeiro candidato Stable executa pelo pendrive e ainda não oferece instalação em disco interno. **O escopo de integração do MVP foi ampliado** para concluir as capacidades já iniciadas, incluindo instalação Native em SSD/NVMe/HD no mesmo Creator Core, sem liberar gravação física até instalação, boot, recovery e proteção do alvo serem homologados. Os modos preservam identidade, Surface/app source e adapters de capacidade compartilhados.
+Instalação Native e escrita destrutiva em disco interno continuam dependentes de seus próprios contratos, homologação física, recovery e autorização. Documentação, UI ou uma capacidade implementada não promovem esse caminho por conta própria.
 
 ## Site publico
 
-O portal publico fica em `sites/public/` e e um artefato separado do **OrdaX Web**. O portal apresenta o produto, hospeda a entrada de login/cadastro e lista downloads somente a partir de um catalogo de releases publicas autorizado. Ele nao importa a Surface, nao cria uma segunda identidade e nao inventa releases.
-
-```text
-sites/public/
- -> landing page
- -> download
- -> login
- -> cadastro
-```
+O site público pertence exclusivamente a [`ordaxsystems/ordax-site`](https://github.com/ordaxsystems/ordax-site), com landing, catálogo visual de downloads, login/cadastro, Conta e páginas legais. A revisão consumida pelo OS em **Dev** é fixada por `docs/contracts/public-site-source.json`; builds OS/Vercel verificam o source independente e não mantêm cópias em `sites/public/`. O OS conserva gateway de Identity, autorizações e publicação de releases. OrdaX Web é outro produto e consome apenas a apresentação de login necessária do bundle verificado. Esta migração não autoriza release pública ou Stable.
 
 Enquanto identidade e catalogo de releases nao estiverem configurados, essas integracoes falham fechado e mostram estado indisponivel sem formularios ou downloads ficticios. Ver `docs/PUBLIC-SITE.md` e `docs/contracts/public-site.json`.
-
 
 ## Ownership dos repositórios
 
@@ -70,8 +69,9 @@ A divisão canônica entre **sistema, apps, runtime e infraestrutura remota** es
 - Codex e parceiro opcional, nunca requisito de source/build/release/instalacao.
 - Builds nascem de receitas versionadas + CI + provenance/hash.
 - Kernel e initramfs sao artefatos normais do pipeline canonico.
-- Layout fisico: exatamente `ORDAX-ESP` + `ORDAX`.
-- HOME e estado de usuario sao logicos, nao uma terceira particao.
+- O seed bootstrap e o USB fisico final preparado sao artefatos diferentes; use os contratos e `docs/CURRENT-STATE.md` para a geometria corrente.
+- No estado corrente, o seed possui `ORDAX-ESP + ORDAX` e o USB preparado pelo Creator possui `ORDAX-ESP + ORDAX + ORDAX-DATA`.
+- HOME e estado de usuario sao logicos; nao reintroduzir `ORDAX-HOME` como particao separada.
 - O primeiro USB e minimo: boot + kernel/initramfs + rede + aquisicao/verificacao de release + recovery.
 - SSH, Remote Core e Control Plane nao sao requisitos do bootstrap nem do desenvolvimento diario.
 - WSL, QEMU e toolchains locais nao sao requisitos do usuario final.
@@ -83,25 +83,37 @@ A divisão canônica entre **sistema, apps, runtime e infraestrutura remota** es
 ## Leia primeiro
 
 1. `AGENTS.md`
-2. `docs/CURRENT-STATE.md`
-3. `docs/ARCHITECTURE.md`
-4. `docs/BUILD-AUTONOMY.md`
-5. `docs/PRODUCT-MODES.md`
-6. `docs/ACCOUNT-SYNC-AND-PLANS.md`
-7. `docs/MINIMAL-USB-BOOTSTRAP.md`
-8. `docs/CREATOR-INSTALLATION.md`
-9. `docs/HOST-INDEPENDENCE.md`
-10. `docs/REMOTE-CONTROL.md`
-11. `docs/PHYSICAL-MEDIA.md`
-12. `docs/DEVELOPMENT-WORKFLOW.md`
-13. `docs/RELEASE-CHANNEL.md`
-14. `docs/SOURCE-MIGRATION.md`
-15. `docs/PROMOTION-GATES.md`
-16. `docs/DECISIONS.md`
+2. `MVP.md`
+3. `docs/README.md`
+4. `docs/CURRENT-STATE.md`
+5. `docs/ARCHITECTURE.md`
+6. `docs/BUILD-AUTONOMY.md`
+7. `docs/PRODUCT-MODES.md`
+8. `docs/ACCOUNT-SYNC-AND-PLANS.md`
+9. `docs/MINIMAL-USB-BOOTSTRAP.md`
+10. `docs/CREATOR-INSTALLATION.md`
+11. `docs/HOST-INDEPENDENCE.md`
+12. `docs/REMOTE-CONTROL.md`
+13. `docs/PHYSICAL-MEDIA.md`
+14. `docs/DEVELOPMENT-WORKFLOW.md`
+15. `docs/RELEASE-CHANNEL.md`
+16. `docs/SOURCE-MIGRATION.md`
+17. `docs/PROMOTION-GATES.md`
+18. `docs/DECISIONS.md`
+19. `00-PLANOS-PRIORITARIOS/README.md` quando a intenção for planejar/retomar trabalho futuro
 
 ## Estrutura principal
 
 ```text
+00-PLANOS-PRIORITARIOS/
+  README.md
+  ROADMAP.md
+  REGISTRY.md
+  inbox/
+  plans/
+  reports/
+  templates/
+  archive/
 boot/
   esp/
 bootstrap/
@@ -132,7 +144,6 @@ tools/
     platform/
   dev/
   verify/
-  public-site/
 tests/
 docs/
 ```
@@ -152,6 +163,8 @@ alteracao em main
 O objetivo e que ChatGPT, outra IA ou qualquer desenvolvedor mantenha o projeto pelo repositorio e pipeline canonico sem depender de Codex especificamente.
 
 ## Pendrive inicial
+
+O bootstrap seed e a midia final preparada nao devem ser confundidos. A geometria exata deve sempre ser lida dos contratos atuais.
 
 ```text
 USB minimo
@@ -182,19 +195,7 @@ Para nao bloquear os primeiros testes fisicos esperando o Desktop completo, o CI
 
 O Creator nao compila kernel no Windows. Ele consome artefatos ja gerados e verificados pelo CI.
 
-Estado atual:
-
-```text
-Creator CHECK=IMPLEMENTED
-Creator PLAN=FAIL_CLOSED_ENQUANTO_MANIFESTO_NAO_AUTORIZADO
-Creator NATIVE_RAW_BACKEND=IMPLEMENTED_PHYSICAL_TEST_ONLY
-Creator PHYSICAL_TEST_APPLY=IMPLEMENTED_READBACK_VERIFIED
-Creator PUBLIC_APPLY=BLOCKED
-PUBLIC_PHYSICAL_USB_WRITE=NO
-PHYSICAL_WRITE_AUTHORIZED=NO
-```
-
-O backend Win32 de escrita RAW e o writer Portable interno ja existem para prova controlada, com revalidacao do alvo, UAC e readback por artefato. Isso **nao** equivale a disponibilizar `apply` no Creator publico: o trust público canônico já está pinado, mas a promoção física permanece bloqueada até o `canonical-v4-release-proof.json` real ser produzido/vinculado e uma nova autorização explícita ser emitida para o contexto atual de 17 artefatos / 39 operações.
+Estado atual deve ser lido de `docs/CURRENT-STATE.md`, `docs/PROMOTION-GATES.md` e contratos correspondentes; este README não replica flags de autorização física para evitar drift.
 
 ## Desenvolvimento
 
@@ -208,23 +209,24 @@ editar
  -> OrdaX USB/Native recebe release/delta verificado
 ```
 
+Uma mudança de Surface não deve reconstruir kernel. Uma mudança de kernel não deve reconstruir Surface sem dependência real.
+
 ## Promocao
 
-O sucessor oficial precisa provar no hardware real:
+Promoção não é inferida de plano, README, build verde ou artefato existente. Os critérios vivos são exclusivamente os owners canônicos, contratos e evidências exigidas por eles.
+
+O caminho esperado continua incluindo, conforme o modo e gate aplicável:
 
 ```text
-source/build sem Codex
- -> kernel/initramfs reproduziveis
+source/build reproduzivel
  -> Creator seguro
- -> duas particoes exatas
- -> UEFI
- -> rede
+ -> mídia conforme contrato corrente
+ -> UEFI/boot
+ -> rede quando necessária
  -> aquisicao/verificacao de release
- -> current conhecido-bom
- -> boot offline
+ -> known-good/rollback
  -> Surface compartilhada
- -> atualizacao Git-driven
- -> continuidade Web/Mobile/Desktop/USB/Native
+ -> evidência física quando exigida
 ```
 
-Ate la, `novo-ordax-os` permanece somente como referencia/evidencia.
+Até que cada gate seja promovido pelo owner correto, capacidades históricas ou futuras permanecem referência, não autorização.
