@@ -36,6 +36,7 @@ test("standalone installed Native host serves verified bundle and existing privi
   for(const [k,v] of Object.entries({...tokens,
     ORDAX_DESKTOP_HOST:"1",ORDAX_DESKTOP_UPDATE_USER_DATA:dir,
     ORDAX_DESKTOP_ASSETS_ROOT:built,
+    ORDAX_DESKTOP_COMPONENT_VERIFIER_ROOT:root,
     ORDAX_DESKTOP_LOCAL_AI_ROOT:join(dir,"missing-local-ai-runtime")})){
     previous[k]=process.env[k];process.env[k]=v;
   }

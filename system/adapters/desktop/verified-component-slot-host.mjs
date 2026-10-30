@@ -43,15 +43,17 @@ function within(root, path) {
     && !isAbsolute(rest);
 }
 
-function trustedConfiguration(systemRoot, userData) {
+function trustedConfiguration(systemRoot, verifierRoot, userData) {
   // Re-evaluate on every request; a removed or changed anchor revokes reads.
   const policyPath = join(systemRoot, "docs", "contracts", "runtime-component-trust-policy.json");
   const packagePolicyPath = join(systemRoot, "docs", "contracts", "runtime-component-package.json");
-  const anchorPath = join(systemRoot, "system", "trust", "runtime-components-ed25519.json");
-  const helper = join(systemRoot, "tools", "runtime-component-channel", "ordax-runtime-component-channel.exe");
+  const anchorPath = join(verifierRoot, "system", "trust", "runtime-components-ed25519.json");
+  const activeAnchor = join(systemRoot, "system", "trust", "runtime-components-ed25519.json");
+  const helper = join(verifierRoot, "tools", "runtime-component-channel", "ordax-runtime-component-channel.exe");
   const root = join(userData, "Components");
   if (!regular(policyPath, 64 * 1024) || !regular(packagePolicyPath, 64 * 1024)
-      || !regular(anchorPath, 16 * 1024) || !regular(helper, 32 * 1024 * 1024)) return null;
+      || !regular(anchorPath, 16 * 1024) || !regular(activeAnchor, 16 * 1024)
+      || !regular(helper, 32 * 1024 * 1024)) return null;
   try {
     const policy = JSON.parse(readFileSync(policyPath, "utf8"));
     const packagePolicy = JSON.parse(readFileSync(packagePolicyPath, "utf8"));
@@ -66,17 +68,25 @@ function trustedConfiguration(systemRoot, userData) {
       || packagePolicy.canonical_component_trust_anchor_pinned !== true
       || !SHA256.test(policy.public_anchor?.sha256)) return null;
     const anchor = readFileSync(anchorPath);
-    if (createHash("sha256").update(anchor).digest("hex") !== policy.public_anchor.sha256) return null;
+    // The protected Electron resource is the trust source. The current
+    // Git checkout must agree byte-for-byte; editing its copy cannot
+    // introduce a new root signing key on the user's machine.
+    if (createHash("sha256").update(anchor).digest("hex") !== policy.public_anchor.sha256
+      || !readFileSync(activeAnchor).equals(anchor)) return null;
     const trust = JSON.parse(anchor.toString("utf8"));
     if (trust["$schema"] !== "prototype-ordax.runtime-component-trust/1"
       || trust.key_id !== policy.key_id
       || typeof trust.public_key_base64 !== "string"
       || !/^[A-Za-z0-9+/]{43}=$/.test(trust.public_key_base64)
       || Buffer.from(trust.public_key_base64, "base64").length !== 32) return null;
-    // The helper and trust must be original files within the already-verified
-    // OS root. A symbolic-link swap cannot redirect this into user data.
-    if (!within(realpathSync(systemRoot), realpathSync(helper))
-      || !within(realpathSync(systemRoot), realpathSync(anchorPath))) return null;
+    // The executable is part of the Electron-installed runtime-template, not
+    // the Git-managed OS checkout selected by ordax-pull. Only the Electron
+    // owner may select this path. Policies and anchor still belong to the
+    // exact active OS checkout. Never resolve executable files from user data.
+    if (lstatSync(verifierRoot).isSymbolicLink()
+      || !within(realpathSync(verifierRoot), realpathSync(helper))
+      || !within(realpathSync(verifierRoot), realpathSync(anchorPath))
+      || !within(realpathSync(systemRoot), realpathSync(activeAnchor))) return null;
     const slot = lstatSync(root);
     if (!slot.isDirectory() || slot.isSymbolicLink()) return null;
     return Object.freeze({ helper, trust: anchorPath, root });
@@ -169,9 +179,10 @@ function invoke(helper, args, execFileImpl, max) {
 }
 
 export function createDesktopVerifiedComponentSlotMiddleware({
-  systemRoot, userData, platform = process.platform, execFileImpl = execFile,
+  systemRoot, verifierRoot, userData, platform = process.platform, execFileImpl = execFile,
 } = {}) {
   if (typeof systemRoot !== "string" || !isAbsolute(systemRoot)
+    || typeof verifierRoot !== "string" || !isAbsolute(verifierRoot)
     || typeof userData !== "string" || !isAbsolute(userData)
     || typeof execFileImpl !== "function") throw TypeError("Verified Desktop component paths are required");
   const respond = (res, status, body = null, mime = "application/json; charset=utf-8") => {
@@ -191,7 +202,7 @@ export function createDesktopVerifiedComponentSlotMiddleware({
       return respond(res, 403);
     // No Windows signed-slot release is operational until a canonical anchor,
     // verified helper executable and installed slot tree all exist together.
-    const config = platform === "win32" ? trustedConfiguration(systemRoot, userData) : null;
+    const config = platform === "win32" ? trustedConfiguration(systemRoot, verifierRoot, userData) : null;
     if (!config) return respond(res, 404);
     void (async () => {
       if (request.kind === "metadata") {
