@@ -116,9 +116,17 @@ export async function mountNativeVerifiedInstalledApps({
       // stale or unsigned descriptor never permits dropping App Data.
       const signed = signedCurrentCompatibility === null
         ? null : await signedCurrentCompatibility(entry.metadata);
-      const requireAppData = signed === null ? true : signed.requiresAppData;
-      if (typeof requireAppData !== "boolean")
-        throw new TypeError("Signed current compatibility requirement is invalid");
+      const descriptor = signed === null ? null : validateComponentCompatibility(signed);
+      if (descriptor !== null && (
+        descriptor.componentId !== appId
+        || descriptor.componentVersion !== entry.metadata.version
+      )) throw new TypeError("Signed compatibility identity differs from current component");
+      // Persistent state owners and explicit App Data consumers retain the
+      // mandatory host-bound port. Only a signed descriptor with neither
+      // requirement may mount without it.
+      const requireAppData = descriptor === null
+        || descriptor.state !== null
+        || descriptor.requires.some((required) => required.id === "ordax.app-data");
       const mounted = await loadVerifiedCurrentComponentRuntime({
         componentId: appId,
         source,
