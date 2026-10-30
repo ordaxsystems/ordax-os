@@ -4,6 +4,7 @@ const { join } = require('node:path');
 const { existsSync } = require('node:fs');
 const net = require('node:net');
 const http = require('node:http');
+const { createHmac, randomBytes, timingSafeEqual } = require('node:crypto');
 function freePort() {
   return new Promise((resolve,reject) => {
     const server=net.createServer();
@@ -14,11 +15,29 @@ function freePort() {
     });
   });
 }
-function isReady(port) {
+function isReady(port, nativeGrant=null) {
+  const attested=nativeGrant!==null;
+  if(attested && (typeof nativeGrant!=='string'||!/^[0-9a-f]{64}$/.test(nativeGrant)))
+    return Promise.resolve(false);
+  // Only the Vite development fallback retains its historical HTML probe.
+  // An installed Native process must answer a fresh, grant-bound challenge.
+  const challenge=attested?randomBytes(32).toString('hex'):null;
   return new Promise(resolve => {
     const request=http.get({
-      hostname:'127.0.0.1',port,path:'/system/composition/native/index.html',timeout:8000,
-    },r=>{r.resume();resolve(r.statusCode===200);});
+      hostname:'127.0.0.1',port,
+      path:attested?'/__ordax/desktop-host-ready':'/system/composition/native/index.html',
+      timeout:8000,
+      headers:attested?{'X-Ordax-Desktop-Ready-Challenge':challenge}:{},
+    },r=>{
+      r.resume();
+      if(!attested) return resolve(r.statusCode===200);
+      const proof=r.headers['x-ordax-desktop-ready-proof'];
+      if(r.statusCode!==200||typeof proof!=='string'||!/^[0-9a-f]{64}$/.test(proof))
+        return resolve(false);
+      const expected=createHmac('sha256',Buffer.from(nativeGrant,'hex'))
+        .update('ordax.desktop.native-ready/1:'+challenge).digest();
+      resolve(timingSafeEqual(expected,Buffer.from(proof,'hex')));
+    });
     request.on('timeout',()=>request.destroy());
     request.on('error',()=>resolve(false));
   });
@@ -109,7 +128,7 @@ async function startHost({root,template=root,stateDirectory,userData,log,builtAs
           runtimeReadyAt+(staticHost?10000:30000)));
     if(Date.now()>=deadline)break;
     probes++;
-    if(await isReady(port)){
+    if(await isReady(port,staticHost?nativeSessionToken:null)){
       log((staticHost?'Installed Native':'Vite fallback')+
         ' http-ready after '+Math.round((Date.now()-startedAt)/1000)+'s; probes='+probes);
       return {child,url:'http://127.0.0.1:'+port};
