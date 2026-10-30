@@ -60,7 +60,7 @@ runBrowser(async client=>{
     throw Error("Emulator must render the real Native entry: "+JSON.stringify(initial));
   if(!initial.meridian||!initial.accent)throw Error("Native Meridian presentation is missing");
   if(initial.stage!=="welcome")throw Error("Use fresh isolated emulator state before smoke proof");
-  for(const id of ["next","next","account-local","next","next","finish"])await action(client,id);
+  for(const id of ["next","next","account-local","next","finish"])await action(client,id);
   const result=await until(client,value=>value?.completed===true&&!value.firstRunVisible&&value.shell&&value.boot==="ready");
   await client.send("Page.reload",{});
   await until(client,value=>value?.completed===true&&!value.firstRunVisible&&value.shell&&value.boot==="ready");

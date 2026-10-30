@@ -232,7 +232,7 @@ def evaluate(repo_root: Path) -> dict[str, Any]:
             first_run.get("$schema") == "prototype-ordax.first-run/1",
             first_run.get("status") == "native-foundation-implemented",
             first_run.get("scope") == "mvp-usb-first-use",
-            first_run.get("flow") == ["welcome", "network", "account", "security", "name", "ready"],
+            first_run.get("flow") == ["welcome", "network", "account", "security", "ready"],
             persistence.get("persistent_usb_state") is True,
             persistence.get("completion_must_be_durable_before_dismiss") is True,
             persistence.get("state_is_separate_from_identity_session") is True,

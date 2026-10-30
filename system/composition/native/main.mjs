@@ -1166,6 +1166,7 @@ async function start() {
       localSession,
       deviceProfile,
       keyboardLayout,
+      productMode: windowsDesktopHost ? "desktop" : "usb",
       resumeCursor: await optionalNativeProbe(
         "OrdaX native First Run cursor unavailable",
         () => createNativeFirstRunCursor(window),

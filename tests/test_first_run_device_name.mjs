@@ -26,7 +26,8 @@ test("Native composition supplies the real device-profile port to First Run", ()
 test("First Run confirms rename through the owner instead of mutating its receipt", () => {
   assert.match(firstRunSource, /await deviceProfilePort\.rename\(nextName\)/);
   assert.match(firstRunSource, /deviceProfileSnapshot = await deviceProfilePort\.rename/);
-  assert.match(firstRunSource, /step === "name"/);
+  assert.match(firstRunSource, /!STEPS\.includes\("name"\)/);
+  assert.match(firstRunSource, /deviceNameDraft\.trim\(\)/);
   assert.doesNotMatch(firstRunSource, /draft\.displayName\s*=/);
   assert.doesNotMatch(firstRunSource, /draft\.deviceName\s*=/);
   const capabilityDerivations = firstRunSource.match(/deriveFirstRunCapabilities\(\{[\s\S]*?\}\);/g) ?? [];

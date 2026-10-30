@@ -5,7 +5,6 @@ export const FIRST_RUN_JOURNEY = Object.freeze([
   Object.freeze({ id: "network", label: "Rede", domain: "network", skippable: true }),
   Object.freeze({ id: "account", label: "Conta", domain: "identity", optional: true }),
   Object.freeze({ id: "security", label: "Segurança", domain: "local-session", optional: true }),
-  Object.freeze({ id: "name", label: "Dispositivo", domain: "device-profile" }),
   Object.freeze({ id: "ready", label: "Revisão", domain: "completion" }),
 ]);
 
