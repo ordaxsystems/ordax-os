@@ -14,8 +14,10 @@ const PROVEN_LOCALIZED_DEFAULTS = Object.freeze({
 
 function literalBodies(source) {
   const values = [];
-  const regex = /"((?:\\.|[^"\\])*)"|'((?:\\.|[^'\\])*)'|`((?:\\.|[^`\\])*)`/g;
+  // Skip comments before examining quoted content: they are not UI literals.
+  const regex = /\/\/[^\r\n]*|\/\*[\s\S]*?\*\/|"((?:\\.|[^"\\])*)"|'((?:\\.|[^'\\])*)'|`((?:\\.|[^`\\])*)`/g;
   for (const match of source.matchAll(regex)) {
+    if (match[1] === undefined && match[2] === undefined && match[3] === undefined) continue;
     const body = match[1] ?? match[2] ?? match[3] ?? "";
     values.push(body.replace(/\$\{[^}]*\}/g, " "));
   }
@@ -66,6 +68,16 @@ function exactCatalogKeys(source, english, label) {
     );
   }
 }
+
+test("literal scanner ignores comments while retaining actual UI copy", () => {
+  const source = [
+    '// Leave "Aura está pensando" as a documentation example.',
+    '/* "Configuração do dispositivo" is not a rendered message. */',
+    'const message = "Falha ao salvar";',
+    'const url = "https://ordax.com.br/conta/";',
+  ].join("\n");
+  assert.deepEqual(literalBodies(source), ["Falha ao salvar", "https://ordax.com.br/conta/"]);
+});
 
 test("every registered first-party app has localized en-US display metadata", () => {
   const apps = listFirstPartyApps();
