@@ -2,11 +2,11 @@
   "$schema": "prototype-ordax.studio-runtime-source-lock/1",
   "source": {
     "repository": "https://github.com/ordaxsystems/ordax-runtime",
-    "commit": "cde1beb45d36507247007fd044ac8584b60095b4",
+    "commit": "d3cecce1abfe542a50795b72d98d6a15fa25803a",
     "compatibility_contract": {
       "path": "docs/contracts/ordax-os-runtime-compatibility.json",
       "schema": "ordax.studio-runtime-compatibility/1",
-      "sha256": "45a309190c88a8f0251558c449186128f2b726e0be88a202c454609f27e52497",
+      "sha256": "34d889808e9f79412580422a5d7fa7c182f5d50e9dba07eb07934af5aff790f8",
       "product_version": "0.4.7"
     }
   },
@@ -35,7 +35,14 @@
     "native_identity_provider_supported": true,
     "device_id_match_required": true,
     "duplicate_persisted_token_forbidden": true,
-    "runtime_kind_authority": "upstream-compatibility-contract:ordax_os.native_runtime_kind"
+    "runtime_kind_authority": "upstream-compatibility-contract:ordax_os.native_runtime_kind",
+    "native_composition_entrypoint": "ordax_dev_agent.main.run",
+    "native_composition_explicit_config_required": true,
+    "native_composition_main_thread_required": true,
+    "native_composition_uses_canonical_dispatch_loop": true,
+    "native_executable_name": "ordax-product-agent",
+    "native_executable_entrypoint": "ordax_dev_agent.native_main.main",
+    "native_executable_source": "native/ordax-product-agent/entrypoint.py"
   },
   "distribution": {
     "runtime_packaged_in_stable": false,
@@ -70,5 +77,43 @@
     "intelligence_grants_do_not_authorize_remote_actions": true,
     "single_device_heartbeat_owner_required": true,
     "verified_os_runtime_provenance_required": true
+  },
+  "candidate_evidence": {
+    "kind": "ci-only-unsigned",
+    "source_commit": "d3cecce1abfe542a50795b72d98d6a15fa25803a",
+    "platform": "linux-amd64-musl",
+    "workflow_run_id": 39732421629,
+    "artifact_id": 12406001168,
+    "archive_sha256": "2344c035f29755ca445c826060287a62c864dcaf6b1f9bfaf8c749f82bf095e8",
+    "executable_sha256": "ecb30cacc2e4be09b6f7dd48768a93943149105bfab9a8339475697f109040e0",
+    "executable_size_bytes": 25034544,
+    "offline_proof_verified": true,
+    "device_execution_proven": false,
+    "signed_distribution_authorized": false,
+    "native_graphical_control_proven": false,
+    "independent_base_abi_ready": false,
+    "elf_interpreter": "/lib/ld-musl-x86_64.so.1",
+    "elf_needed_libraries": [
+      "libc.musl-x86_64.so.1",
+      "libz.so.1"
+    ],
+    "independent_base_abi_blockers": [
+      "external-dynamic-elf-interpreter",
+      "external-shared-libraries",
+      "alpine-build-provenance",
+      "embedded-python-runtime-closure-unverified"
+    ],
+    "embedded_elf_inventory": {
+      "schema": "ordax.native-embedded-elf-inventory/1",
+      "native_entry_count": 90,
+      "native_uncompressed_bytes": 40611847,
+      "inventory_sha256": "16d8553cd00dbebd98eda0ff0ae5553b1c240360a511caa30974d0cd9ef6a108",
+      "unprovided_needed_names": [
+        "libc.musl-x86_64.so.1",
+        "libc.so"
+      ],
+      "independent_base_compatibility_proven": false,
+      "install_authorized": false
+    }
   }
 }

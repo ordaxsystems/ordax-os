@@ -21,8 +21,9 @@ on:
       - 'bootstrap/base/alpine_core.py'
       - 'bootstrap/stable-base/build.py'
       - 'tests/test_kernel_consumer_ssot.py'
-      - 'tools/creator/core/**'
-      - 'tools/creator/cmd/**'
+      - '.github/actions/resolve-creator-source/**'
+      - 'docs/contracts/native-release-assembly.json'
+      - 'tests/test_creator_payload_external_source.py'
       - 'docs/contracts/minimal-bootstrap.json'
       - '.github/workflows/creator-payload-candidate.yml'
   pull_request:
@@ -44,8 +45,9 @@ on:
       - 'bootstrap/base/alpine_core.py'
       - 'bootstrap/stable-base/build.py'
       - 'tests/test_kernel_consumer_ssot.py'
-      - 'tools/creator/core/**'
-      - 'tools/creator/cmd/**'
+      - '.github/actions/resolve-creator-source/**'
+      - 'docs/contracts/native-release-assembly.json'
+      - 'tests/test_creator_payload_external_source.py'
       - 'docs/contracts/minimal-bootstrap.json'
       - '.github/workflows/creator-payload-candidate.yml'
   workflow_dispatch:
@@ -70,6 +72,11 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
 
+      - name: Resolve exact standalone Creator source from OS canonical contract
+        uses: ./.github/actions/resolve-creator-source
+        with:
+          checkout-root: ${{ runner.temp }}/ordax-creator-payload-source
+
       - name: Set up Python
         uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
@@ -82,6 +89,30 @@ jobs:
           go-version: '1.27.1'
           check-latest: false
           cache: false
+
+      - name: Verify and compile read-only Creator CLI from immutable source
+        run: |
+          set -euo pipefail
+          creator="${ORDAX_CREATOR_NATIVE_SOURCE:?missing standalone Creator source}"
+          test "${ORDAX_CREATOR_SOURCE_REPOSITORY:?}" = 'ordaxsystems/ordax-creator'
+          test "$(git -C "$creator" rev-parse HEAD)" = "${ORDAX_CREATOR_SOURCE_COMMIT:?}"
+          test "$(git -C "$creator" rev-parse 'HEAD^{tree}')" = "${ORDAX_CREATOR_SOURCE_TREE:?}"
+          test "$(head -n 1 "$creator/go.mod")" = 'module github.com/ordaxsystems/ordax-creator'
+          mkdir -p "$RUNNER_TEMP/creator-payload-cli"
+          (
+            cd "$creator"
+            ORDAX_OS_CONTRACTS_DIR="$GITHUB_WORKSPACE/docs/contracts" \
+              go test -count=1 ./cmd/ordax-creator ./core
+            CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
+              go build -trimpath -buildvcs=false -ldflags='-s -w' \
+              -o "$RUNNER_TEMP/creator-payload-cli/ordax-creator" \
+              ./cmd/ordax-creator
+          )
+          test -s "$RUNNER_TEMP/creator-payload-cli/ordax-creator"
+          echo 'CREATOR_PAYLOAD_CLI_SOURCE=PINNED_STANDALONE'
+          echo 'CREATOR_PAYLOAD_CLI_PHYSICAL_WRITE=NOT_AUTHORIZED'
+
+
 
       - name: Validate canonical kernel artifact consumers
         run: |
@@ -229,20 +260,30 @@ jobs:
               raise SystemExit('payload provenance unexpectedly authorized physical write')
           PY
 
-      - name: Prove complete payload crosses only non-destructive Creator gates
+      - name: Prove exact independent Creator CLI stages only a disposable tree
         run: |
           set -euo pipefail
-          manifest='../../docs/contracts/minimal-bootstrap.json'
-          payload='../../out/creator-payload'
+          # OS owns signed boot/media inputs, the canonical manifest, and
+          # the payload assembler. Creator owns only read-only verification
+          # and staging logic, compiled from the single pinned external tree.
+          manifest="$GITHUB_WORKSPACE/docs/contracts/minimal-bootstrap.json"
+          payload="$GITHUB_WORKSPACE/out/creator-payload"
+          creator="$RUNNER_TEMP/creator-payload-cli/ordax-creator"
+          test -s "$creator"
           output="$(mktemp -d)"
-          cd tools/creator
-          verify_output="$(go run ./cmd/ordax-creator verify-payload --manifest "$manifest" --payload-root "$payload")"
+          verify_output="$("$creator" verify-payload --manifest "$manifest" --payload-root "$payload")"
           printf '%s\n' "$verify_output"
-          stage_output="$(go run ./cmd/ordax-creator stage-tree --manifest "$manifest" --payload-root "$payload" --output-root "$output")"
+          grep -q '^PAYLOAD_VERIFIED=YES$' <<<"$verify_output"
+          grep -q '^PHYSICAL_WRITE_STATUS=blocked$' <<<"$verify_output"
+          stage_output="$("$creator" stage-tree --manifest "$manifest" --payload-root "$payload" --output-root "$output")"
           printf '%s\n' "$stage_output"
           grep -q '^DISPOSABLE_TREE_STAGED=YES$' <<<"$stage_output"
           grep -q '^PHYSICAL_WRITE_STATUS=blocked$' <<<"$stage_output"
           test -n "$(find "$output" -mindepth 1 -print -quit)"
+          test -z "$(find "$output" -type l -print -quit)"
+          echo 'CREATOR_PAYLOAD_DISPOSABLE_TREE=VERIFIED'
+          echo 'CREATOR_PAYLOAD_OS_SOURCE_COMMIT='${ORDAX_SOURCE_COMMIT:?}
+          echo 'CREATOR_IMPLEMENTATION_SOURCE_COMMIT='${ORDAX_CREATOR_SOURCE_COMMIT:?}
 
       - name: Upload unified Creator payload candidate
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6

@@ -36,6 +36,23 @@ class AccountSyncAndIdentityV1Tests(unittest.TestCase):
             "atomic-snapshot-plus-paged-incremental-cursor",
         )
 
+    def test_sync_contract_does_not_claim_web_or_regional_sync_before_composition_exists(self):
+        contract = json.loads(SYNC_CONTRACT.read_text(encoding="utf-8"))
+        web_composition = (ROOT / "system" / "composition" / "web" / "main.tsx").read_text(encoding="utf-8")
+        native_runtime = (ROOT / "system" / "composition" / "native" / "main.mjs").read_text(encoding="utf-8")
+        self.assertFalse(contract["mvp_availability"]["web_source_integration"])
+        self.assertTrue(contract["mvp_availability"]["web_transport_adapter_available"])
+        self.assertFalse(contract["mvp_availability"]["web_composition_sync_runtime_wired"])
+        self.assertTrue(contract["mvp_availability"]["native_usb_source_integration"])
+        self.assertFalse(contract["backend"]["regional_preferences_in_account_sync"])
+        self.assertEqual(contract["backend"]["native_usb_portable_preference_ids"], [
+            "accessibility.contrast",
+            "accessibility.motion",
+            "accessibility.text-scale",
+        ])
+        self.assertNotIn("createAccountSyncRuntime", web_composition)
+        self.assertIn("createNativeAccountSyncRuntime", native_runtime)
+
     def test_sync_store_is_owner_scoped_and_mutations_are_server_authoritative(self):
         sql = SYNC_MIGRATION.read_text(encoding="utf-8").lower()
         self.assertIn("alter table public.ordax_sync_objects enable row level security", sql)
@@ -268,6 +285,16 @@ class AccountSyncAndIdentityV1Tests(unittest.TestCase):
         self.assertIn("secrets.ORDAX_PROOF_ACCOUNT_PASSWORD", text)
         self.assertIn("ORDAX_ACCOUNT_GATEWAY_BASE_URL: ${{ inputs.origin }}", text)
         self.assertIn('data["gateway_origin"] == "${{ inputs.origin }}".rstrip("/")', text)
+        self.assertIn("python tools/account-sync/prove_session_revocation.py --check-origin", text)
+        self.assertIn('test "${GITHUB_REPOSITORY}" = "ordaxsystems/ordax-os"', text)
+        self.assertIn('test "${GITHUB_REF}" = "refs/heads/main"', text)
+        self.assertLess(
+            text.index("Require reviewed main and canonical origin before exposing credentials"),
+            text.index("Prove local session revocation semantics"),
+        )
+        # Secrets are intentionally scoped to a single step, not the job.
+        job_env = text.split("    env:", 1)[1].split("    steps:", 1)[0]
+        self.assertNotIn("secrets.ORDAX_PROOF_ACCOUNT_", job_env)
         self.assertIn("account-session-revocation-proof.json", text)
         self.assertIn("ACCOUNT_SESSION_REVOCATION_RECEIPT=PASS_SANITIZED", text)
         self.assertIn("retention-days: 14", text)
@@ -305,3 +332,4 @@ class AccountSyncAndIdentityV1Tests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+

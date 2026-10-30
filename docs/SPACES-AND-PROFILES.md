@@ -235,6 +235,32 @@ The Development definition models `project` as a many-valued resource owned by t
 
 The 3D-printing type declares Jobs as domain resources but does not implement a fabrication owner in this foundation. When that owner is promoted, reprinting must append a new Job and preserve prior Job/history records; a reprint is never modeled as deleting or rewriting the original production history. The Pizzaria type deliberately does not declare `quotes` because no current real owner justified that capability.
 
+### Read-only Native host gate — 2026-10-25
+
+`system/services/spaces/identity-bound-experience.mjs` wraps the **existing**
+`createSpaceExperienceSource` in the Native composition. This is a
+presentation gate, not a new owner of grants, membership, Identity,
+Space selection, capabilities or operational data.
+
+Before exposing a Space projection, the host checks the live signed-in
+Identity subject, server-backed authorized Spaces catalog and selected
+Space from their canonical ports. The requested Space, selected Space and
+catalog entry must match exactly, including owner, semantic type, Profile
+binding and active status. Missing/outdated catalogs, account switching,
+selection changes or disposed sources return `unavailable` with **no**
+navigation, widgets, metrics, Aura context or resource identifiers.
+A second authorization check after the provider read suppresses data if
+the selection changed during that read. Subscriptions propagate upstream
+identity/catalog/selection changes and are released on disposal.
+
+Only the read-only **Space Experience projection** is exposed. Its
+snapshot `ready` is **not** a permission to issue commands, and this
+gate is not a substitute for server-side membership/grants enforcement
+or per-action authorization. Native continues to register only the
+existing selected-Space **Aura** provider. FOOD-001 operational orders,
+Inventory and Payments providers remain absent until their owners have
+authorized, published and tested real transactional ports.
+
 ### Deferred safety constraints
 
 The structured School definition does not promote the vertical and does not create `orders`. REL-001 remains binding: external student/guardian identities are not internal Space members. No unrestricted camera/tracking capability is introduced; transport remains a separate declared capability and still requires its own consent, purpose and owner before promotion. Data about minors is not an advertising/targeting source.

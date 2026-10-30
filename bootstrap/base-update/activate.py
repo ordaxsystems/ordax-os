@@ -31,6 +31,17 @@ class ActivateError(RuntimeError):
     pass
 
 
+def require_directory(path: Path, label: str) -> Path:
+    """Reject symlinked directory operands before any boot or EFI write."""
+    try:
+        metadata = path.lstat()
+    except OSError as exc:
+        raise ActivateError(f"{label} is unavailable") from exc
+    if not stat.S_ISDIR(metadata.st_mode):
+        raise ActivateError(f"{label} must be a real directory")
+    return path
+
+
 def read_entry(path: Path) -> dict[str, list[str]]:
     try:
         metadata = path.lstat()
@@ -69,9 +80,17 @@ def validate_candidate_entry(esp_root: Path, release_sha: str, candidate_slot: s
         raise ActivateError("invalid release SHA")
     if not SLOT_RE.fullmatch(candidate_slot):
         raise ActivateError("invalid candidate slot")
-    root = esp_root.resolve()
-    if not root.is_dir() or root.is_symlink():
-        raise ActivateError("ESP root must be an existing directory")
+    root = require_directory(esp_root, "ESP root")
+    # Checking the resolved target would incorrectly accept a symlinked ESP
+    # root or an ESP subdirectory redirected outside the mounted partition.
+    for relative in (
+        Path("loader"),
+        Path("loader/entries"),
+        Path("ordax"),
+        Path("ordax/base"),
+        Path(f"ordax/base/{candidate_slot}"),
+    ):
+        require_directory(root / relative, f"ESP directory {relative}")
 
     for protected in (CURRENT_ENTRY, RECOVERY_ENTRY):
         path = root / protected
@@ -128,43 +147,60 @@ def efivar_payload(entry_id: str = ENTRY_ID) -> bytes:
 
 
 def write_oneshot_variable(efivarfs_root: Path, payload: bytes) -> Path:
-    root = efivarfs_root.resolve()
-    if not root.is_dir() or root.is_symlink():
-        raise ActivateError("efivarfs root must be an existing directory")
+    root = require_directory(efivarfs_root, "efivarfs root")
     target = root / VARIABLE_NAME
 
-    # In production efivarfs provides special files; in proof fixtures we permit
-    # a normal directory. Never follow a pre-existing symlink.
-    try:
-        existing = target.lstat()
-    except FileNotFoundError:
-        existing = None
-    except OSError as exc:
-        raise ActivateError("cannot inspect LoaderEntryOneShot variable") from exc
-    if existing is not None and stat.S_ISLNK(existing.st_mode):
-        raise ActivateError("LoaderEntryOneShot variable path must not be a symlink")
-
-    flags = (
-        os.O_WRONLY
-        | os.O_CREAT
-        | os.O_TRUNC
+    # Hold the exact, non-symlinked directory across inspection and writing.
+    # A string-path check followed by O_TRUNC could otherwise race against a
+    # symlink substituted for the efivarfs mountpoint.
+    directory_flags = (
+        os.O_RDONLY
+        | getattr(os, "O_DIRECTORY", 0)
         | getattr(os, "O_CLOEXEC", 0)
         | getattr(os, "O_NOFOLLOW", 0)
     )
     try:
-        descriptor = os.open(target, flags, 0o600)
+        directory_fd = os.open(root, directory_flags)
     except OSError as exc:
-        raise ActivateError("cannot write LoaderEntryOneShot") from exc
+        raise ActivateError("cannot open real efivarfs root") from exc
+
     try:
-        offset = 0
-        while offset < len(payload):
-            written = os.write(descriptor, payload[offset:])
-            if written <= 0:
-                raise ActivateError("short write to LoaderEntryOneShot")
-            offset += written
-        os.fsync(descriptor)
+        try:
+            existing = os.stat(
+                VARIABLE_NAME, dir_fd=directory_fd, follow_symlinks=False
+            )
+        except FileNotFoundError:
+            existing = None
+        except OSError as exc:
+            raise ActivateError("cannot inspect LoaderEntryOneShot variable") from exc
+        if existing is not None and stat.S_ISLNK(existing.st_mode):
+            raise ActivateError("LoaderEntryOneShot variable path must not be a symlink")
+
+        flags = (
+            os.O_WRONLY
+            | os.O_CREAT
+            | os.O_TRUNC
+            | getattr(os, "O_CLOEXEC", 0)
+            | getattr(os, "O_NOFOLLOW", 0)
+        )
+        try:
+            descriptor = os.open(
+                VARIABLE_NAME, flags, 0o600, dir_fd=directory_fd
+            )
+        except OSError as exc:
+            raise ActivateError("cannot write LoaderEntryOneShot") from exc
+        try:
+            offset = 0
+            while offset < len(payload):
+                written = os.write(descriptor, payload[offset:])
+                if written <= 0:
+                    raise ActivateError("short write to LoaderEntryOneShot")
+                offset += written
+            os.fsync(descriptor)
+        finally:
+            os.close(descriptor)
     finally:
-        os.close(descriptor)
+        os.close(directory_fd)
     return target
 
 

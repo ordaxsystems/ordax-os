@@ -1,3 +1,4 @@
+import { hasBrowserHostTransport, postBrowserHostCommand } from "./browser-host-transport.mjs";
 import {
   BROWSER_DOWNLOAD_PORT_SCHEMA,
   assertBrowserDownloadPort,
@@ -8,14 +9,13 @@ import {
 const EVENT_NAME = "ordax-browser-host";
 
 export function createNativeBrowserDownload(windowRef = globalThis.window) {
-  const bridge = windowRef?.webkit?.messageHandlers?.ordaxBrowser;
-  if (!bridge || typeof bridge.postMessage !== "function") return null;
+  if (!hasBrowserHostTransport(windowRef)) return null;
   const listeners = new Set();
   let disposed = false;
   const post = (type, id) => {
     if (disposed) return false;
     validateBrowserDownloadId(id);
-    bridge.postMessage(JSON.stringify({ type, id }));
+    postBrowserHostCommand(windowRef, { type, id });
     return true;
   };
   const onHostEvent = (event) => {

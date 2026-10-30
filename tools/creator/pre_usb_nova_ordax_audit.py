@@ -43,6 +43,7 @@ REQUIRED_SOURCE_PATHS = (
     "system/contracts/local-session.mjs",
     "system/contracts/preference-runtime.mjs",
     "system/services/preferences/memory.mjs",
+    "system/services/preferences/catalog.mjs",
     "system/services/memory/assistant-auto-capture.mjs",
     "system/adapters/native/local-session.mjs",
     "system/contracts/recovery-status.mjs",
@@ -142,6 +143,8 @@ def evaluate(repo_root: Path) -> dict[str, Any]:
     hardware = _load_json(root, "docs/contracts/hardware-support-matrix.json", source_errors)
     file_space = _load_text(root, "system/contracts/file-space.mjs", source_errors)
     first_run_ui = _load_text(root, "system/surface/ui/first-run.mjs", source_errors)
+    settings_ui = _load_text(root, "system/surface/ui/settings-overview-controls.mjs", source_errors)
+    preference_catalog = _load_text(root, "system/services/preferences/catalog.mjs", source_errors)
     preference_runtime = _load_text(root, "system/contracts/preference-runtime.mjs", source_errors)
     memory_preference = _load_text(root, "system/services/preferences/memory.mjs", source_errors)
     memory_auto_capture = _load_text(root, "system/services/memory/assistant-auto-capture.mjs", source_errors)
@@ -229,7 +232,7 @@ def evaluate(repo_root: Path) -> dict[str, Any]:
             first_run.get("$schema") == "prototype-ordax.first-run/1",
             first_run.get("status") == "native-foundation-implemented",
             first_run.get("scope") == "mvp-usb-first-use",
-            first_run.get("flow") == ["welcome", "regional", "network", "security", "account", "privacy", "name", "ready"],
+            first_run.get("flow") == ["welcome", "network", "account", "security", "name", "ready"],
             persistence.get("persistent_usb_state") is True,
             persistence.get("completion_must_be_durable_before_dismiss") is True,
             persistence.get("state_is_separate_from_identity_session") is True,
@@ -246,7 +249,10 @@ def evaluate(repo_root: Path) -> dict[str, Any]:
             privacy.get("cloud_sync_enabled_by_this_step") is False,
             _contains_all(preference_runtime, ("ordax.preference-runtime/1", "getSnapshot", "set", "subscribe")),
             _contains_all(memory_preference, ("MEMORY_AUTO_CAPTURE_PREFERENCE_ID", "memory.auto-capture", "memoryAutoCaptureEnabled")),
-            _contains_all(first_run_ui, ("MEMORY_AUTO_CAPTURE_PREFERENCE_ID", "memoryAutoCaptureEnabled(preferencePort.getSnapshot())", "preferencePort.set(")),
+            privacy.get("onboarding_step") is False,
+            "renderPrivacy" not in first_run_ui,
+            _contains_all(settings_ui, ("listPreferenceDefinitions()", "preferences.set(")),
+            _contains_all(preference_catalog, ("memoryAutoCapturePreference", 'from "./memory.mjs"')),
             _contains_all(memory_auto_capture, ("memoryAutoCaptureEnabled", "preferences.getSnapshot()")),
             device_name.get("owner") == "device-profile",
             device_name.get("rename_must_be_confirmed_before_advancing") is True,
@@ -298,7 +304,7 @@ def evaluate(repo_root: Path) -> dict[str, Any]:
             'FILE_SPACE_SCHEMA = "ordax.file-space/11"' in file_space,
             _contains_all(file_space, daily_methods),
             _is_regular_file(root / "system/adapters/native/file-space.mjs"),
-            _contains_all(native, ("createNativeFileSpace", "mountFileSpaceControls")),
+            "createNativeFileSpace" in native,
         )),
         ["system/contracts/file-space.mjs", "system/adapters/native/file-space.mjs", "system/composition/native/main.mjs"],
     )

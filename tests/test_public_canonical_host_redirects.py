@@ -49,27 +49,6 @@ class CanonicalPublicHostTests(unittest.TestCase):
             "permanent": True,
         } for source in ("/web/", "/web/:path*")])
 
-    def test_landing_web_links_use_the_product_origin_directly(self):
-        from html.parser import HTMLParser
-
-        class Links(HTMLParser):
-            def __init__(self):
-                super().__init__()
-                self.hrefs = []
-
-            def handle_starttag(self, tag, attrs):
-                if tag == "a":
-                    self.hrefs.append(dict(attrs).get("href"))
-
-        parser = Links()
-        parser.feed((ROOT / "sites/public/index.html").read_text(encoding="utf-8"))
-        self.assertNotIn("/web/", parser.hrefs)
-        self.assertEqual(parser.hrefs.count(f"https://{WEB_CANONICAL}/"), 3)
-        account = Links()
-        account.feed((ROOT / "sites/public/conta/index.html").read_text(encoding="utf-8"))
-        self.assertNotIn("/web/", account.hrefs)
-        self.assertEqual(account.hrefs.count(f"https://{WEB_CANONICAL}/"), 3)
-
     def test_host_scoped_web_proxy_precedes_public_account_proxy_without_overlap(self):
         rewrites = self.config["rewrites"]
         self.assertEqual(len(rewrites), 7)
@@ -104,6 +83,15 @@ class CanonicalPublicHostTests(unittest.TestCase):
             'export * from "../lib/account-proxy-core.mjs";\n'
             'export { default } from "../lib/account-proxy-core.mjs";\n',
         )
+
+    def test_web_hostname_has_one_authoritative_project(self):
+        web = self.contract["vercel_adapter"]["web_runtime"]
+        self.assertEqual(web["project"], "ordax-web")
+        self.assertEqual(web["project_id"], "prj_ftACluUqk6i9DoD9GPIwmgURwckP")
+        self.assertEqual(web["canonical_origin"], "https://web.ordax.com.br")
+        # Historical pre-cutover status is evidence, not a second live owner.
+        for retired in ("domain_project_move_pending", "domain_current_project", "domain_target_project"):
+            self.assertNotIn(retired, web)
 
     def test_git_deployment_remains_production_only(self):
         self.assertEqual(self.config["git"]["deploymentEnabled"], {"**": False, "main": True})

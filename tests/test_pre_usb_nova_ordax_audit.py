@@ -120,9 +120,21 @@ class PreUsbNovaOrdaxAuditTests(unittest.TestCase):
         self.assertTrue(status["canonical_v4_release_proof_valid"])
         self.assertTrue(status["canonical_v4_release_binding_resolved"])
         self.assertEqual(status["pre_authorization_blockers"], [])
-        self.assertTrue(status["owner_authorization_required"])
-        self.assertFalse(status["authorized_candidate_materialization_allowed"])
-        self.assertFalse(status["ready"])
+        auth = json.loads(
+            (ROOT / "docs/contracts/physical-write-authorization.json").read_text(encoding="utf-8")
+        )
+        if auth["status"] == "authorized":
+            # Consent is now recorded, but this is still source-level proof:
+            # no CI result claims selection, USB writing, or UEFI boot.
+            self.assertFalse(status["owner_authorization_required"])
+            self.assertTrue(status["authorized_candidate_materialization_allowed"])
+            self.assertTrue(status["ready"])
+            self.assertTrue(status["authorization_context_matches_current_source"])
+        else:
+            self.assertEqual(auth["status"], "blocked-explicit-physical-authorization-pending")
+            self.assertTrue(status["owner_authorization_required"])
+            self.assertFalse(status["authorized_candidate_materialization_allowed"])
+            self.assertFalse(status["ready"])
 
     def test_audited_sources_are_bound_to_owner_authorization_context(self):
         context_paths = {
@@ -131,8 +143,32 @@ class PreUsbNovaOrdaxAuditTests(unittest.TestCase):
         }
 
         self.assertIn("tools/creator/pre_usb_nova_ordax_audit.py", context_paths)
+        external_ui = {
+            "system/surface/ui/first-run.mjs",
+            "system/surface/ui/local-session-lock.mjs",
+            "system/surface/ui/settings-overview-controls.mjs",
+            "system/surface/ui/system-overview-controls.mjs",
+        }
+        asserted_external = set()
         for source in audit.required_source_paths(ROOT):
-            self.assertIn(source.relative_to(ROOT).as_posix(), context_paths)
+            relative = source.relative_to(ROOT).as_posix()
+            if relative in external_ui:
+                # Auditing the verified Source is mandatory; the OS must not
+                # hash a duplicate or disposable copy of Surface visual files.
+                self.assertNotIn(relative, context_paths)
+                asserted_external.add(relative)
+            else:
+                self.assertIn(relative, context_paths)
+        self.assertEqual(asserted_external, external_ui)
+        self.assertIn("docs/contracts/surface-source.json", context_paths)
+        self.assertIn(".github/actions/prepare-verified-surface/action.yml", context_paths)
+        preparer = (
+            ROOT / ".github/actions/prepare-verified-surface/action.yml"
+        ).read_text(encoding="utf-8")
+        self.assertIn("uses: ./.github/actions/assemble-surface", preparer)
+        self.assertIn("Materialize one canonical external source", preparer)
+        self.assertIn("diff -qr", preparer)
+        self.assertIn("ORDAX_VISUAL_SOURCE_REPOSITORY=ordaxsystems/ordax-surface", preparer)
 
 
 if __name__ == "__main__":

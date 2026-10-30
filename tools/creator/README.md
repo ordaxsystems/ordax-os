@@ -1,36 +1,20 @@
-# OrdaX Creator
+# OrdaX Creator — integração do OS
 
-`tools/creator/` is the single source root for OrdaX physical-media creation.
+**SSOT de implementação:** [`ordaxsystems/ordax-creator`](https://github.com/ordaxsystems/ordax-creator). Este diretório do `ordax-os` **não é o Core, aplicativo, CLI ou adaptador Go do Creator**.
 
-The permanent end-user experience belongs inside OrdaX Desktop, but the prototype may publish a small `ordax-creator.exe` shell before the complete Desktop UI exists. Both must use the same Creator Core; a second flasher policy implementation is forbidden.
+O OS é proprietário somente dos produtores de payload e provas descartáveis em `tools/creator/assemble.py` e `tools/creator/proof/`, dos contratos de instalação, da autorização explícita para mídia física e do publicador/assinatura independente. O código Go do Creator e seus componentes Native/Windows são compilados do checkout exato, imutável e verificado pelo contrato único `docs/contracts/native-release-assembly.json#creator_source`, resolvido pela ação `.github/actions/resolve-creator-source`.
 
-Goal: prepare verified **USB media for the public MVP** without requiring Codex, WSL, QEMU or a kernel toolchain on the user's machine. Native SSD/NVMe/HDD work is retained as a post-MVP foundation and is not a public MVP capability.
+A autoridade de instalação física permanece **desativada** por `docs/contracts/physical-write-authorization.json`; compilar o helper, provar uma imagem temporária ou verificar artefatos assinados não cria consentimento para gravar qualquer dispositivo. A identidade de release assinada e a identidade de commit do OS/Writer são separadas da identidade do Creator. Windows, Linux e o MVP USB devem consumir o mesmo Core, sem implementação equivalente adicional no OS.
 
-```text
-tools/creator/
-  core/                 # host-neutral policy, payload verification and write planning
-  proof/                # non-destructive disposable GPT/filesystem proof
-  cmd/
-    ordax-creator/      # thin prototype CLI/shell around the same Core
-  platform/
-    windows/            # future thin raw-disk/elevation adapter
-    linux/              # optional later adapter
-    macos/              # optional later adapter
-```
+O empacotador Python de `componentchannel` e seus testes pertencem exclusivamente ao `ordax-creator`; o workflow `Creator Component Candidate` os executa do checkout independente verificado. O OS mantém apenas o contrato e o publicador/assinatura da distribuição. As antigas cópias `tools/creator/componentchannel/*.py` foram removidas sem alterar os bytes do empacotador canônico.
 
-The shared Core owns:
+Os contratos oficiais e seus respectivos proprietários são a fonte de verdade; os detalhes operacionais abaixo explicam os gates do OS, não estabelecem outro proprietário para o Creator.
 
-- artifact selection;
-- canonical two-partition validation;
-- signature/hash policy boundaries;
-- Creator payload integrity verification;
-- transactional disposable filesystem-tree staging;
-- write-plan generation;
-- fail-closed physical-write authorization;
-- post-write verification contract;
-- recovery/retry semantics.
+## Unsigned review bundle versus signed Portable v3 distribution
 
-Platform adapters own only unavoidable host API integration. They may not define another OrdaX layout or security policy.
+`Physical Write Promotion` can preflight and build a Windows writer review input, but currently packages only `prototype-ordax.creator-physical-manifest/2` without the signed v3 release envelope. That bundle must never be installed as a physical-media-ready Stable release. The public Creator's existing v3 verifier requires 17 canonical source files, each with a release-commit-bound URL, SHA-256 and size, plus valid purpose-bound Ed25519 provenance. The workflow explicitly reports `PORTABLE_V3_17_SOURCE_RELEASE_READY=NO`, `PORTABLE_V3_SIGNED_WRITER_PUBLISHED=NO` and `PHYSICAL_USB_WRITE_READY=NO` while it emits v2; these indicators describe publication readiness, not consent or completed hardware proof.
+
+Source-scoped owner consent is governed **only** by `docs/contracts/physical-write-authorization.json` and `physical_promotion.py`. Historical permission cannot survive changes to the protected context; renew authorization through the official owner ceremony once the v3 publisher inputs are final. The publisher signs with its legitimately held offline key, verifies exact asset readback, and never ships the private key. Live removable-target re-enumeration, destructive confirmation, UAC, physical 17/17 readback and boot/recovery evidence remain separate mandatory gates.
 
 ## Creator payload boundary
 
@@ -152,7 +136,7 @@ POST_WRITE_READBACK=IMPLEMENTED_GATED
 PHYSICAL_SIGNED_CHANNEL=IMPLEMENTED
 OFFLINE_LAST_KNOWN_GOOD_PHYSICAL_BACKEND=IMPLEMENTED
 CREATOR_DEV_CHANNEL=READ_ONLY
-EXPLICIT_OWNER_AUTHORIZATION_STABLE_MVP=YES_SOURCE_CONTRACT
+EXPLICIT_OWNER_AUTHORIZATION_STABLE_MVP=SEE_CANONICAL_CONTRACT
 CANONICAL_RELEASE_TRUST=PASS_CANONICAL_PUBLIC_ANCHOR_PINNED
 MINIMAL_BOOTSTRAP_ALL_ARTIFACTS_RESOLVED=YES
 PHYSICAL_AUTHORIZATION_ELIGIBLE=YES
@@ -259,6 +243,40 @@ ordax-creator stage-tree \
 ```
 
 See `docs/CREATOR-INSTALLATION.md`, `docs/PHYSICAL-MEDIA.md`, `docs/RELEASE-TRUST-CEREMONY.md` and `docs/PROMOTION-GATES.md`.
+
+## Existing USB inspection — read-only first slice
+
+The Creator now has an explicitly **read-only** installed-media inspection
+entrypoint in the existing Windows targets CLI:
+
+```powershell
+ordax-creator-targets.exe
+ordax-creator-targets.exe --confirm <fresh USB confirmation token> --inspect
+```
+
+The second command re-enumerates the removable USB, checks the existing
+confirmed PhysicalDrive identity and target-volume isolation, then reads the
+GPT through a `GENERIC_READ` handle. The Creator Core verifies protective MBR,
+both GPT header and entry-array CRCs, primary/backup agreement, physical
+capacity and non-overlapping partition ranges. It recognizes only **candidate
+layouts** (`owner-development-candidate`, `owner-seed-candidate`,
+`portable-stable-candidate`) and reports unknown but valid GPTs as
+`unrecognized`. Damaged GPTs fail closed.
+
+The `verification=gpt-primary-backup-crc-and-geometry-only` field is deliberate:
+GPT labels cannot prove OrdaX installation authenticity, filesystem health,
+bootability, installed version, update eligibility or repair safety. This
+command **never mounts, repairs, downloads, elevates or writes**, and
+`physical_write=false` is a fixed contract. It does not alter or bypass the
+separate signed physical release and target-specific destructive gates.
+
+Next maintenance slices should use the same confirmed-target and Core policy
+boundary: read-only ESP/bootstrap inspection, safe detection of offline
+transaction receipts and update status, then a separately authorized backup
+and recovery runtime with independent ext4 validation. Owner/Development Git
+updates must keep using the canonical `ordax-pull` owner; Stable/MVP updates
+must use signed release material. Neither may add a parallel updater or
+infer "repairable" from GPT labels.
 
 ## Native installation foundation — post-MVP
 

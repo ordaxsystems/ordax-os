@@ -1,0 +1,255 @@
+name: Windows Desktop Dev (SSOT)
+on:
+  workflow_dispatch:
+  pull_request:
+    paths: &desktop_product_sources
+      - 'system/**'
+      # Linux APK package selection cannot change the Windows Native payload.
+      # Excluded from the Electron resource tree by package.json as well.
+      - '!system/surface/runtime/packages.txt'
+      - '!system/surface/runtime/media_runtime_probe.py'
+      - '!system/surface/runtime/audio-session.sh'
+      - '!system/surface/runtime/physical_ata_probe.py'
+      - '!system/surface/runtime/physical_kernel_log_probe.py'
+      - '!system/surface/runtime/physical_performance_probe.py'
+      - 'tools/windows-emulator/**'
+      - 'tools/windows-desktop/**'
+      - '.github/workflows/windows-desktop-dev.yml'
+      - 'package*.json'
+      - 'docs/contracts/surface-source.json'
+      - 'tools/surface-source/**'
+      - 'tests/test_desktop_browser_transport.mjs'
+  # Every integrated main revision that changes the shared Windows product
+  # must produce the same tested, source-bound installer as its PR.
+  # Reuse the exact impact filter instead of maintaining divergent lists.
+  push:
+    branches:
+      - main
+    paths: *desktop_product_sources
+
+# On fast-moving main, do not rebuild an already superseded source commit.
+concurrency:
+  group: windows-desktop-dev-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+jobs:
+  desktop-dev:
+    # The pinned Intelligence builder uses Visual Studio 17 2022 / MSVC x64.
+    # Match the independently proven Windows inference runner exactly.
+    runs-on: windows-2022
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Assert exact installer OS source identity
+        shell: pwsh
+        env:
+          EXPECTED_SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          $actual = (& git rev-parse HEAD).Trim()
+          if ($LASTEXITCODE -ne 0 -or $actual -cne $env:EXPECTED_SOURCE_SHA) {
+            throw 'Windows installer source does not match the requested Git SHA'
+          }
+          Write-Output "DESKTOP_INSTALLER_SOURCE_SHA=$actual"
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '24'
+          cache: npm
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.12'
+      - name: Verify and mount the single pinned Surface source in disposable Windows CI
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $lock = Get-Content 'docs/contracts/surface-source.json' -Raw | ConvertFrom-Json
+          if ($lock.source_repository -ne 'ordaxsystems/ordax-surface' -or
+              $lock.status -ne 'canonical' -or
+              $lock.source_commit -notmatch '^[0-9a-f]{40}$') {
+            throw 'Untrusted Surface source lock'
+          }
+          foreach ($part in @('ui','workspace')) {
+            if (Test-Path "system/surface/$part") { throw 'OS visual duplication detected' }
+          }
+          $source = Join-Path $env:RUNNER_TEMP 'ordax-desktop-pinned-surface'
+          $stage = Join-Path $env:RUNNER_TEMP 'ordax-desktop-verified-surface'
+          & git -c core.autocrlf=false clone --config core.autocrlf=false --filter=blob:none --single-branch --branch main --no-tags https://github.com/ordaxsystems/ordax-surface.git $source
+          if ($LASTEXITCODE -ne 0) { throw 'Canonical Surface Git acquisition failed' }
+          & git -C $source checkout --detach $lock.source_commit
+          if ($LASTEXITCODE -ne 0) { throw 'Pinned Surface commit missing' }
+          $head = (& git -C $source rev-parse HEAD).Trim()
+          if ($LASTEXITCODE -ne 0 -or $head -cne $lock.source_commit) {
+            throw 'Pinned Surface differs from OS SSOT'
+          }
+          & python tools/surface-source/materialize.py stage --source-dir $source --out-dir $stage
+          if ($LASTEXITCODE -ne 0) { throw 'Pinned Surface verification failed' }
+          $receipt = Get-Content (Join-Path $stage 'surface-source-receipt.json') -Raw | ConvertFrom-Json
+          if ($receipt.source_commit -cne $lock.source_commit -or
+              $receipt.source_repository -ne $lock.source_repository -or
+              $receipt.file_count -le 0) { throw 'Untrusted Surface receipt' }
+          foreach ($part in @('ui','workspace')) {
+            $verified = Join-Path $stage "system/surface/$part"
+            if (-not (Test-Path $verified -PathType Container)) { throw 'Incomplete pinned Surface tree' }
+            Copy-Item -LiteralPath $verified -Destination "system/surface/$part" -Recurse
+          }
+          Write-Output "WINDOWS_SINGLE_SURFACE_SOURCE=VERIFIED commit=$head"
+      - name: Audit exact Windows packaged Native system footprint
+        run: |
+          node --test tools/windows-desktop/package-inventory.test.cjs
+          node tools/windows-desktop/package-inventory.cjs
+      - name: Install canonical workspace
+        run: npm ci --no-audit --no-fund
+      - name: Test Native host and desktop contracts
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $suites = @(
+            "tests/test_desktop_network_status.mjs",
+            "tests/test_desktop_system_metrics.mjs",
+            "tests/test_desktop_power_status.mjs",
+            "tests/test_windows_desktop_display_current_modes.mjs",
+            "tests/test_windows_desktop_local_ai_package.mjs",
+            "tests/test_windows_desktop_local_ai_host.mjs",
+            "tests/test_desktop_file_space.mjs",
+            "tests/test_desktop_update_status.mjs",
+            "tests/test_desktop_recovery_status.mjs",
+            "tests/test_desktop_recovery_surface.mjs",
+            "tests/test_desktop_boot_gate.mjs",
+            "tests/test_windows_emulator_native_host.mjs",
+            "tests/test_desktop_browser_transport.mjs",
+            "tools/windows-desktop/browser-host.test.cjs",
+            "tools/windows-desktop/host-startup.test.cjs",
+            "tools/windows-desktop/native-build.test.cjs",
+            "tools/windows-desktop/surface-stage.test.cjs",
+            "tools/windows-desktop/dev-update-real-build.test.cjs",
+            "tools/windows-desktop/dev-update.test.cjs",
+            "tools/windows-desktop/runtime.test.cjs",
+            "tools/windows-desktop/runtime-toolchain.test.cjs",
+            "tools/windows-desktop/toolchain-cache.test.cjs",
+            "tools/windows-desktop/checkout.test.cjs"
+          )
+          foreach ($suite in $suites) {
+            & node --test $suite
+            if ($LASTEXITCODE -ne 0) {
+              throw "Desktop/Native contract failed: $suite (exit $LASTEXITCODE)"
+            }
+          }
+      - name: Prove signed stateless Native compatibility and verified optional app mounts
+        run: node --test tests/test_native_signed_current_compatibility.mjs tests/test_native_verified_installed_apps.mjs
+      - name: Prove signed-current Desktop bridge remains read-only and fail-closed
+        run: node --test tools/windows-emulator/desktop-verified-component-slot.test.mjs
+      - name: Install desktop shell toolchain
+        working-directory: tools/windows-desktop
+        run: npm ci --no-audit --no-fund
+      - name: Test installed Native HTTP host without Vite
+        run: node --test tools/windows-emulator/desktop-built-assets.test.mjs tools/windows-emulator/desktop-native-server.test.mjs
+      - name: Compile canonical Native Surface for Windows
+        run: npx vite build --config tools/windows-desktop/vite-native-build.mjs
+      - name: Measure both verified Native representations before NSIS
+        run: node tools/windows-desktop/package-inventory.cjs --compiled
+      - name: Bind installer to exact OS + Surface Native provenance
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $receipt = Join-Path $env:RUNNER_TEMP 'ordax-desktop-verified-surface/surface-source-receipt.json'
+          if (-not (Test-Path -LiteralPath $receipt -PathType Leaf)) { throw 'Surface materialization receipt missing' }
+          $sha = (& git rev-parse HEAD).Trim()
+          & node tools/windows-desktop/bundle-provenance.cjs . $receipt $sha
+          if ($LASTEXITCODE -ne 0) { throw 'Installer OS/Surface source attestation failed' }
+      - name: Verify canonical compiled entry
+        shell: pwsh
+        run: |
+          $html = "out/windows-desktop-native/system/composition/native/index.html"
+          if (-not (Test-Path $html -PathType Leaf)) { throw "Native build did not produce HTML" }
+          $contents = Get-Content $html -Raw
+          if ($contents -notmatch '/__ordax/desktop-assets/assets/') { throw "Native bundle references not fingerprinted assets" }
+          $scripts = @(Get-ChildItem "out/windows-desktop-native/assets" -File -Filter "*.js")
+          if ($scripts.Count -eq 0) { throw "Native bundle has no JavaScript" }
+          Write-Output ("NATIVE_BUNDLE_SMOKE=PASS assets=" + $scripts.Count)
+      - name: Materialize minimal canonical Native runtime dependencies
+        run: node tools/windows-desktop/runtime-toolchain.cjs
+      - name: Restore content-pinned Windows Aura engine and model cache
+        id: aura-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: out/windows-local-ai-runtime
+          key: ordax-windows-aura-v1-${{ runner.os }}-${{ hashFiles('system/services/local-ai/source-lock.json') }}
+      - name: Acquire exact Intelligence source for Windows engine on cache miss
+        if: steps.aura-cache.outputs.cache-hit != 'true'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          repository: ordaxsystems/ordax-intelligence
+          ref: e739adffc566ae8855a9a521754e32e3ab96c1e1
+          path: _upstream/ordax-intelligence
+          persist-credentials: false
+      - name: Build and stage exact verified offline Aura payload (cache miss only)
+        if: steps.aura-cache.outputs.cache-hit != 'true'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $candidate = Join-Path $env:RUNNER_TEMP 'ordax-windows-ai-candidate'
+          $cache = Join-Path $env:RUNNER_TEMP 'ordax-verified-gguf'
+          & python _upstream/ordax-intelligence/tools/inference-builder/windows-candidate.py --os-source . --out-dir $candidate --cache-dir $cache
+          if ($LASTEXITCODE -ne 0) { throw 'Canonical Windows Intelligence engine build failed' }
+          $lock = Get-Content system/services/local-ai/source-lock.json -Raw | ConvertFrom-Json
+          $model = Join-Path $cache $lock.model.filename
+          & node tools/windows-desktop/materialize-local-ai.cjs $candidate $model out/windows-local-ai-runtime
+          if ($LASTEXITCODE -ne 0) { throw 'Pinned Aura runtime assembly failed' }
+      - name: Verify complete offline Aura bytes even after cache restoration
+        shell: pwsh
+        run: |
+          node --input-type=module -e "import('./system/adapters/desktop/local-ai-package.mjs').then(m=>m.verifyWindowsLocalAiPackage('out/windows-local-ai-runtime')).then(x=>console.log('WINDOWS_AURA_PAYLOAD_VERIFIED='+x.modelId)).catch(e=>{console.error(e);process.exitCode=1})"
+          if ($LASTEXITCODE -ne 0) { throw 'Windows Aura package digest mismatch' }
+      - name: Save verified content-pinned Windows Aura cache
+        if: steps.aura-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: out/windows-local-ai-runtime
+          key: ordax-windows-aura-v1-${{ runner.os }}-${{ hashFiles('system/services/local-ai/source-lock.json') }}
+      - name: Set up canonical runtime-component Go toolchain
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version: '1.27.1'
+          cache-dependency-path: tools/runtime-component-channel/go.mod
+      - name: Build the one canonical read-only Windows component verifier
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $output = Join-Path $PWD 'out/windows-desktop-components'
+          New-Item -ItemType Directory -Path $output -Force | Out-Null
+          $binary = Join-Path $output 'ordax-runtime-component-channel.exe'
+          Push-Location tools/runtime-component-channel
+          try {
+            $env:CGO_ENABLED = '0'
+            & go build -trimpath -buildvcs=false -ldflags='-s -w' -o $binary .
+            if ($LASTEXITCODE -ne 0) { throw 'Canonical Windows component verifier build failed' }
+          } finally {
+            Pop-Location
+          }
+          $entry = Get-Item -LiteralPath $binary
+          if ($entry.Length -le 0 -or $entry.Length -gt 32MB) {
+            throw 'Canonical component verifier binary size is invalid'
+          }
+          Write-Output "WINDOWS_RUNTIME_COMPONENT_VERIFIER_BUILT=YES"
+          Write-Output ("WINDOWS_RUNTIME_COMPONENT_VERIFIER_SHA256=" + (Get-FileHash -LiteralPath $binary -Algorithm SHA256).Hash.ToLowerInvariant())
+      - name: Build unsigned Windows installer
+        working-directory: tools/windows-desktop
+        run: npm run dist:win
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+      - name: Verify isolated NSIS installation and Native files
+        shell: pwsh
+        run: |
+          $version = (Get-Content tools/windows-desktop/package.json -Raw | ConvertFrom-Json).version
+          $installer = "out/windows-desktop-installer/OrdaX-OS-Desktop-Dev-$version-x64.exe"
+          pwsh -NoProfile -File tools/windows-desktop/install-smoke.ps1 -Installer $installer
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: ordax-os-desktop-dev-alpha-windows
+          path: out/windows-desktop-installer/*.exe
+          if-no-files-found: error
+          retention-days: 14

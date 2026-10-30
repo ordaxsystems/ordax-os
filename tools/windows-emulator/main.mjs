@@ -2,6 +2,10 @@
 const SURFACE_TARGET = "/system/composition/native/index.html";
 const frame = document.querySelector("#ordax-emulator-surface");
 if (!(frame instanceof HTMLIFrameElement)) throw new Error("Native Surface frame is missing");
+const developmentControls = document.querySelector("[data-emulator-controls]");
+const showDevelopmentControls = new URLSearchParams(window.location.search).get("dev-controls") === "1";
+if (developmentControls) developmentControls.hidden = !showDevelopmentControls;
+document.body.dataset.emulatorControls = showDevelopmentControls ? "visible" : "hidden";
 
 async function readFirstRun() {
   const reply = await fetch("/__ordax/native/first-run", { cache: "no-store" });
@@ -24,7 +28,7 @@ window.__ORDAX_EMULATOR__ = Object.freeze({
   getFirstRunState: readFirstRun,
   resetFirstRun,
 });
-document.querySelector("#ordax-emulator-reset")?.addEventListener("click", async event => {
+developmentControls?.querySelector("#ordax-emulator-reset")?.addEventListener("click", async event => {
   const button = event.currentTarget;
   button.disabled = true;
   try { await resetFirstRun(); }

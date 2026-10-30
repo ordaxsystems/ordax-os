@@ -3,8 +3,10 @@
 // Generator: tools/app-policy/render_native_store_metadata_policy.py
 
 export const NATIVE_COMPONENT_PROBATION_IDS = Object.freeze([
+  "files",
   "notes",
 ]);
 export const NATIVE_COMPONENT_PROBE_MODE_BY_ID = Object.freeze({
+  "files": "mount-contract",
   "notes": "import-contract",
 });
