@@ -45,6 +45,23 @@ class RepositoryOwnershipContractTests(unittest.TestCase):
         self.assertIn("product-mcp", repos["control_plane"]["owns"])
         self.assertIn("app-sdk", repos["platform"]["owns"])
 
+    def test_windows_mcp_distribution_is_runtime_owned_and_studio_optional(self):
+        repos = self.contract["repositories"]
+        self.assertEqual(repos["runtime"]["repo"], "ordaxsystems/ordax-runtime")
+        self.assertIn("windows-ordax-mcp-distribution", repos["runtime"]["owns"])
+        self.assertNotIn("windows-ordax-mcp-distribution", repos["apps"]["owns"])
+        self.assertIn("windows-mcp-installer", repos["apps"]["must_not_own"])
+        self.assertIn("product-mcp", repos["control_plane"]["owns"])
+        invariants = self.contract["invariants"]
+        self.assertTrue(invariants["windows_studio_is_optional_runtime_consumer"])
+        self.assertTrue(invariants["windows_mcp_distribution_independent_of_studio"])
+        self.assertNotIn("windows_studio_is_owner_ui_not_authority", invariants)
+        document = (ROOT / "docs" / "REPOSITORY-OWNERSHIP.md").read_text(encoding="utf-8")
+        self.assertIn("### OrdaX MCP independente para Windows", document)
+        self.assertIn("Studio consome capabilities autorizadas como qualquer outro aplicativo", document)
+        self.assertIn("não é release", document)
+        self.assertNotIn("Studio pode apresentar a\\ninterface Owner", document)
+
     def test_legacy_repo_is_retirement_only(self):
         legacy = self.contract["legacy"]
         self.assertEqual(legacy["repo"], "washingtonmsdj/mcp-blender")
