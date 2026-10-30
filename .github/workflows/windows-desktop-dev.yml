@@ -145,6 +145,8 @@ jobs:
         run: node --test tools/windows-emulator/desktop-built-assets.test.mjs tools/windows-emulator/desktop-native-server.test.mjs
       - name: Compile canonical Native Surface for Windows
         run: npx vite build --config tools/windows-desktop/vite-native-build.mjs
+      - name: Measure both verified Native representations before NSIS
+        run: node tools/windows-desktop/package-inventory.cjs --compiled
       - name: Bind installer to exact OS + Surface Native provenance
         shell: pwsh
         run: |
