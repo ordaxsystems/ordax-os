@@ -47,11 +47,13 @@ function trustedConfiguration(systemRoot, verifierRoot, userData) {
   // Re-evaluate on every request; a removed or changed anchor revokes reads.
   const policyPath = join(systemRoot, "docs", "contracts", "runtime-component-trust-policy.json");
   const packagePolicyPath = join(systemRoot, "docs", "contracts", "runtime-component-package.json");
-  const anchorPath = join(systemRoot, "system", "trust", "runtime-components-ed25519.json");
+  const anchorPath = join(verifierRoot, "system", "trust", "runtime-components-ed25519.json");
+  const activeAnchor = join(systemRoot, "system", "trust", "runtime-components-ed25519.json");
   const helper = join(verifierRoot, "tools", "runtime-component-channel", "ordax-runtime-component-channel.exe");
   const root = join(userData, "Components");
   if (!regular(policyPath, 64 * 1024) || !regular(packagePolicyPath, 64 * 1024)
-      || !regular(anchorPath, 16 * 1024) || !regular(helper, 32 * 1024 * 1024)) return null;
+      || !regular(anchorPath, 16 * 1024) || !regular(activeAnchor, 16 * 1024)
+      || !regular(helper, 32 * 1024 * 1024)) return null;
   try {
     const policy = JSON.parse(readFileSync(policyPath, "utf8"));
     const packagePolicy = JSON.parse(readFileSync(packagePolicyPath, "utf8"));
@@ -66,7 +68,11 @@ function trustedConfiguration(systemRoot, verifierRoot, userData) {
       || packagePolicy.canonical_component_trust_anchor_pinned !== true
       || !SHA256.test(policy.public_anchor?.sha256)) return null;
     const anchor = readFileSync(anchorPath);
-    if (createHash("sha256").update(anchor).digest("hex") !== policy.public_anchor.sha256) return null;
+    // The protected Electron resource is the trust source. The current
+    // Git checkout must agree byte-for-byte; editing its copy cannot
+    // introduce a new root signing key on the user's machine.
+    if (createHash("sha256").update(anchor).digest("hex") !== policy.public_anchor.sha256
+      || !readFileSync(activeAnchor).equals(anchor)) return null;
     const trust = JSON.parse(anchor.toString("utf8"));
     if (trust["$schema"] !== "prototype-ordax.runtime-component-trust/1"
       || trust.key_id !== policy.key_id
@@ -79,7 +85,8 @@ function trustedConfiguration(systemRoot, verifierRoot, userData) {
     // exact active OS checkout. Never resolve executable files from user data.
     if (lstatSync(verifierRoot).isSymbolicLink()
       || !within(realpathSync(verifierRoot), realpathSync(helper))
-      || !within(realpathSync(systemRoot), realpathSync(anchorPath))) return null;
+      || !within(realpathSync(verifierRoot), realpathSync(anchorPath))
+      || !within(realpathSync(systemRoot), realpathSync(activeAnchor))) return null;
     const slot = lstatSync(root);
     if (!slot.isDirectory() || slot.isSymbolicLink()) return null;
     return Object.freeze({ helper, trust: anchorPath, root });
