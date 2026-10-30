@@ -200,9 +200,14 @@ test("Windows ordax-pull checkout cannot replace installed canonical verifier ex
     calls.push(binary);
     assert.equal(binary, f.helper);
     assert.notEqual(binary, checkoutBinary);
-    cb(null, Buffer.from("RUNTIME_COMPONENT_CURRENT_RESOLVED=YES\\n"
-      + "COMPONENT_ID=assistant\\nREVISION=0\\nSOURCE=ABSENT\\n"
-      + "RUNTIME_SERVED_FROM_SLOT=NO\\n".replaceAll("\\n", "\n")));
+    cb(null, Buffer.from([
+      "RUNTIME_COMPONENT_CURRENT_RESOLVED=YES",
+      "COMPONENT_ID=assistant",
+      "REVISION=0",
+      "SOURCE=ABSENT",
+      "RUNTIME_SERVED_FROM_SLOT=NO",
+      "",
+    ].join("\n")));
   });
   const response = await fetch(base + "/__ordax/native/component-runtime?component=assistant&state=current");
   assert.equal(response.status, 200);
