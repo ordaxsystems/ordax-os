@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import importlib.util
 import json
 import os
 from pathlib import Path
@@ -106,6 +107,22 @@ def sha256_file(path: Path) -> str:
         for chunk in iter(lambda: handle.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def canonical_apk_lock_sha256(lock: dict[str, str]) -> str:
+    """Canonical digest of an exact transitive APK version map.
+
+    Shared by discovery and EROFS builder so a successful artifact proof can
+    never be reused for a different set of package versions.
+    """
+    if not isinstance(lock, dict) or not lock:
+        raise BuildError("canonical APK package lock must be a nonempty mapping")
+    if any(not isinstance(k, str) or not isinstance(v, str) for k, v in lock.items()):
+        raise BuildError("canonical APK package lock contains non-string entries")
+    payload = json.dumps(
+        dict(sorted(lock.items())), sort_keys=True, separators=(",", ":"), ensure_ascii=True,
+    ).encode("utf-8")
+    return hashlib.sha256(payload).hexdigest()
 
 
 def download_text(url: str) -> str:
@@ -507,10 +524,10 @@ def install_runtime(rootfs: Path, kernel_modules: Path) -> None:
         selected_members = select_dev_module_members(archive)
         archive.extractall(rootfs, members=selected_members, filter="data")
 
-    copy_script(ROOT / "bootstrap/dev-base/ordax-dev-init", rootfs / "sbin/ordax-dev-init")
-    for name in ("ordax-network", "ordax-pull", "ordax-rollback", "ordax-run", "ordax-diagnose"):
-        copy_script(ROOT / f"bootstrap/dev-base/{name}", rootfs / f"usr/local/bin/{name}")
-    copy_script(ROOT / "bootstrap/recovery/entrypoint", rootfs / "ordax/bootstrap/recovery/entrypoint")
+    # Use exactly the helper map also consumed by live refresh. No parallel copy list.
+    inventory = owner_rootfs_inventory()
+    for helper in inventory["runtime_helpers"]:
+        copy_script(ROOT / helper["source"], rootfs / helper["target"])
 
     for directory in ("workspace", "state", "home", "run", "tmp", "proc", "sys", "dev", "root"):
         path = rootfs / directory
@@ -538,6 +555,43 @@ def unique_regular_bytes(rootfs: Path) -> int:
     return total
 
 
+
+def owner_rootfs_inventory() -> dict[str, object]:
+    capability_path = ROOT / "tools/ci/owner_rootfs_capabilities.py"
+    spec = importlib.util.spec_from_file_location("ordax_owner_rootfs_capabilities", capability_path)
+    if spec is None or spec.loader is None:
+        raise BuildError("cannot load Owner rootfs capability audit")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    try:
+        inventory = module.owner_inventory(ROOT)
+    except (OSError, ValueError) as exc:
+        raise BuildError(f"Owner helper manifest or capability inventory is invalid: {exc}") from exc
+    if inventory["missing_sources"] or inventory["unknown_commands"]:
+        raise BuildError(
+            "Owner rootfs capability inventory is incomplete: "
+            f"missing_sources={inventory['missing_sources']} "
+            f"unknown_commands={inventory['unknown_commands']}"
+        )
+    return inventory
+
+
+def verify_busybox_recursive_bind(rootfs: Path) -> None:
+    """Reject any Alpine Base whose real BusyBox cannot preserve submounts."""
+    completed = subprocess.run(
+        ["chroot", str(rootfs), "/bin/busybox", "mount", "--help"],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    if completed.returncode != 0 or "[r]bind" not in (
+        completed.stdout + completed.stderr
+    ):
+        raise BuildError(
+            "development BusyBox mount lacks verified recursive bind (rbind) support"
+        )
+
+
 def verify_rootfs(rootfs: Path) -> None:
     stage("verify-rootfs-objects")
     bad = []
@@ -551,20 +605,34 @@ def verify_rootfs(rootfs: Path) -> None:
         raise BuildError(f"rootfs still contains unsafe objects: {bad}")
 
     stage("verify-rootfs-required-executables")
-    required = [
-        "bin/sh",
-        "usr/bin/git",
-        "sbin/ordax-dev-init",
-        "usr/local/bin/ordax-network",
-        "usr/local/bin/ordax-pull",
-        "usr/local/bin/ordax-rollback",
-        "usr/local/bin/ordax-run",
-        "usr/local/bin/ordax-diagnose",
+    inventory = owner_rootfs_inventory()
+    required = ["bin/sh", "usr/bin/git"] + [
+        helper["target"] for helper in inventory["runtime_helpers"]
     ]
     for rel in required:
         path = rootfs / rel
         if not path.is_file() or not os.access(path, os.X_OK):
             raise BuildError(f"required executable missing: /{rel}")
+    for helper in inventory["runtime_helpers"]:
+        if sha256_file(rootfs / helper["target"]) != sha256_file(ROOT / helper["source"]):
+            raise BuildError(f"Owner helper content differs from canonical manifest: {helper['target']}")
+    stage("verify-rootfs-owner-command-closure")
+    search_roots = ("bin", "sbin", "usr/bin", "usr/sbin", "usr/local/bin", "usr/local/sbin")
+    internal_commands = set(inventory["internal_commands"])
+    explicit_busybox = set(inventory["explicit_busybox_applets"])
+    # Binaries provided by the verified fixed initramfs remain there until
+    # switch_root; do not duplicate them into the development rootfs.
+    fixed_initramfs = set(inventory["fixed_initramfs_commands"])
+    missing_commands = []
+    for command in inventory["commands"]:
+        if command in internal_commands or command in explicit_busybox or command in fixed_initramfs:
+            continue
+        candidates = [rootfs / directory / command for directory in search_roots]
+        if not any(path.is_file() and os.access(path, os.X_OK) for path in candidates):
+            missing_commands.append(command)
+    if missing_commands:
+        raise BuildError(f"Owner rootfs command closure is missing executables: {missing_commands}")
+
     stage("verify-rootfs-busybox-applets")
     completed = subprocess.run(
         ["chroot", str(rootfs), "/bin/busybox", "--list"],
@@ -575,12 +643,15 @@ def verify_rootfs(rootfs: Path) -> None:
     if completed.returncode != 0:
         raise BuildError("development BusyBox applet discovery failed")
     applets = set(completed.stdout.splitlines())
-    required_applets = {"mount", "pivot_root", "reboot", "sync"}
+    required_applets = set(inventory["explicit_busybox_applets"])
     missing_applets = sorted(required_applets - applets)
     if missing_applets:
         raise BuildError(
-            f"development BusyBox is missing rootfs selector applets: {missing_applets}"
+            f"development BusyBox is missing Owner-required applets: {missing_applets}"
         )
+
+    stage("verify-rootfs-busybox-recursive-bind")
+    verify_busybox_recursive_bind(rootfs)
 
     stage("verify-rootfs-native-chroot-git")
     dev_null = rootfs / "dev/null"

@@ -22,6 +22,7 @@ MAX_SESSION = 128 * 1024
 MAX_TABS = 16
 EVIDENCE_CONTEXTS = {
     ("owner-development", "dynamic-native-runtime"): "development",
+    ("owner-development", "verified-erofs-overlay"): "development",
     ("stable-mvp", "verified-erofs-overlay"): "canonical-stable-mvp",
 }
 
@@ -37,7 +38,7 @@ def evidence_context_from_environment() -> dict:
     expected_scope = EVIDENCE_CONTEXTS.get((distribution_profile, runtime_mode))
     if expected_scope is None or evidence_scope != expected_scope:
         raise ValueError("physical proof evidence context is invalid")
-    if evidence_scope == "canonical-stable-mvp":
+    if runtime_mode == "verified-erofs-overlay":
         if not (
             len(runtime_sha256) == 64
             and all(char in "0123456789abcdef" for char in runtime_sha256)
@@ -254,7 +255,7 @@ def _evidence_context(report: dict) -> tuple[str, str, str, str | None] | None:
     expected_scope = EVIDENCE_CONTEXTS.get((distribution_profile, runtime_mode))
     if expected_scope is None or evidence_scope != expected_scope:
         return None
-    if evidence_scope == "canonical-stable-mvp":
+    if runtime_mode == "verified-erofs-overlay":
         if not (
             isinstance(runtime_sha256, str)
             and len(runtime_sha256) == 64

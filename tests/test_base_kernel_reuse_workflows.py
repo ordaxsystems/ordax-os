@@ -21,9 +21,16 @@ class BaseKernelReuseWorkflowTests(unittest.TestCase):
 
     def assert_kernel_reuse_contract(self, path: Path, build_step: str) -> None:
         workflow = self.workflow(path)
-        self.assertEqual(workflow.count(f"actions/cache/restore@{CACHE_SHA}"), 1)
-        self.assertEqual(workflow.count(f"actions/cache/save@{CACHE_SHA}"), 1)
-        self.assertNotIn("restore-keys:", workflow)
+        # Other verified components and Buildroot downloads have independent
+        # cache steps. Bind this contract to the kernel steps only.
+        restore = self.step_block(workflow, "Restore verified kernel component")
+        save = self.step_block(workflow, "Save verified kernel component")
+        self.assertEqual(restore.count(f"actions/cache/restore@{CACHE_SHA}"), 1)
+        self.assertEqual(save.count(f"actions/cache/save@{CACHE_SHA}"), 1)
+        self.assertNotIn("restore-keys:", restore)
+        self.assertIn("id: kernel-cache", restore)
+        self.assertIn("steps.component-fingerprints.outputs.kernel", restore)
+        self.assertIn("steps.component-fingerprints.outputs.kernel", save)
         self.assertIn("ORDAX_COMPONENT_CACHE_ENVIRONMENT", workflow)
         self.assertIn("${ImageOS}", workflow)
         self.assertIn("${ImageVersion}", workflow)

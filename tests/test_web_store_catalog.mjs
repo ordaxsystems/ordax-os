@@ -117,16 +117,20 @@ test('one Store renderer displays ready host entries and defaults to official mo
     assert.ok(!html.includes('Llama 3.1'), 'Demo models cannot leak into the official catalog');
     assert.ok(!html.includes('OrdaX Studio'), 'Demo installed apps cannot leak into the host catalog');
     // Exercise the active Central route, not only the standalone Store renderer.
+    const { WebPreferencesProvider } = await server.ssrLoadModule('/@fs/' + new URL('../system/surface/workspace/components/central/preferences-context.tsx', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1'));
+    const { createPreferenceRuntime } = await import('../system/services/preferences/runtime.mjs');
+    const preferences = createPreferenceRuntime({schema:'ordax.preference-store/1',load:()=>({}),save:()=>{}});
     const { DesktopContent } = await server.ssrLoadModule('/@fs/' + new URL('../system/surface/workspace/components/central/desktop.tsx', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1'));
     const { renderToReadableStream } = await import('react-dom/server');
     let opens = 0;
-    const stream = await renderToReadableStream(createElement(StoreCatalogProvider, { port },
-      createElement(DesktopContent, { title: 'Loja', open: () => { opens++; }, onCentral: () => {} })));
+    const stream = await renderToReadableStream(createElement(WebPreferencesProvider, {port:preferences}, createElement(StoreCatalogProvider, { port },
+      createElement(DesktopContent, { title: 'Loja', open: () => { opens++; }, onCentral: () => {} }))));
     await stream.allReady;
     const centralHtml = await new Response(stream).text();
-    assert.match(centralHtml, /data-store-mode="official"/);
-    assert.match(centralHtml, /APP DO HOST/);
-    assert.match(centralHtml, /Operação indisponível/);
+    assert.match(centralHtml, /data-store-shared="true"/);
+    assert.ok(!centralHtml.includes('OrdaX Studio'), 'The shared client mount cannot invent SSR catalog fixtures');
+    // Actual shared DOM rendering, lifecycle requests and unavailable Web state
+    // are exercised in checks/store-shared-browser.mjs, including both ports.
     assert.ok(!centralHtml.includes('Este aplicativo ainda não está conectado.'), 'Central mounts the real Store');
     assert.equal(opens, 0, 'Reading the Store cannot execute or open a simulated app');
 

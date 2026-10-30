@@ -1,3 +1,5 @@
+import { validateProfileAppReferences } from "./profile-app-references.mjs";
+
 export const PROFILE_PACK_SCHEMA = "ordax.profile-pack/1";
 export const PROFILE_PACK_RUNTIME_SCHEMA = "ordax.profile-pack-runtime/1";
 export const PROFILE_PACK_ACTIVATION_SCHEMA = "ordax.profile-pack-activation/1";
@@ -65,6 +67,7 @@ function normalizeComponents(pack, label) {
       component.signature_required,
       `${label} components[${index}].signature_required`,
     );
+    if (kind === "app") throw new TypeError(`${label} app packages belong to the Store; use apps[] references`);
     if (!COMPONENT_KINDS.has(kind)) throw new TypeError(`${label} component kind is invalid`);
     if (!SEMVER_PATTERN.test(version)) throw new TypeError(`${label} component version is invalid`);
     if (!COMPONENT_AVAILABILITY.has(availability)) {
@@ -179,7 +182,7 @@ export function validateProfilePack(value, label = "Profile Pack") {
     title: boundedText(pack.title, `${label} title`, 120),
     category: boundedText(pack.category, `${label} category`, 80),
     spaceKind: pack.space_kind,
-    apps: textArray(pack.apps, `${label} apps`),
+    apps: validateProfileAppReferences(pack.apps, `${label} apps`),
     templates: textArray(pack.templates, `${label} templates`),
     components: normalizeComponents(pack, label),
     knowledge: Object.freeze({

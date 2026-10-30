@@ -321,10 +321,14 @@ while :; do
                 ''|*[!0-9]*) last_power_request_epoch=null ;;
             esac
             case "$last_power_request_status" in
-                pending|failed) ;;
+                pending|stopping|syncing|rebooting|powering-off|failed) ;;
                 *) last_power_request_status="" ;;
             esac
-            if [ "$last_power_request_status" = "pending" ] &&
+            case "$last_power_request_status" in
+                pending|stopping|syncing|rebooting|powering-off) power_request_in_progress=true ;;
+                *) power_request_in_progress=false ;;
+            esac
+            if [ "$power_request_in_progress" = "true" ] &&
                [ -n "$last_power_request_boot_id" ] &&
                [ -n "$boot_id" ] &&
                [ "$last_power_request_boot_id" != "$boot_id" ]; then
@@ -391,5 +395,7 @@ while :; do
         fi
     fi
 
-    /bin/busybox sleep "$interval"
+    # A delayed child can outlive this agent if the Guardian terminates its
+    # parent during shutdown. Never inherit rootfs-backed launcher log FDs.
+    /bin/busybox sleep "$interval" </dev/null >/dev/null 2>&1
 done

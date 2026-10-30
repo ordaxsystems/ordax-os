@@ -16,6 +16,7 @@ O produto continua em desenvolvimento e homologação: a promoção/renomeação
 ## 2. Fonte de verdade
 
 - `main` e o unico source authority deste prototipo.
+- Preservar a ancestralidade de commits da `main` já consumidos por dispositivos Owner/Development: preferir merge commit nas PRs; nunca reescrever/forçar `main` nem transformar por squash/rebase um HEAD publicado para esses dispositivos. A recuperação automática de divergência é uma proteção transacional do Supervisor, não autorização para quebrar o histórico intencionalmente.
 - Midia fisica, notebook, imagens, backups e copias locais nao sao source authority.
 - Nenhuma alteracao fisica sem equivalente reproduzivel no source.
 - Nao criar caminhos paralelos para a mesma responsabilidade.
@@ -65,6 +66,8 @@ O hub de planejamento e **nao canonico**. Ele separa maturidade documental de el
 
 Se `MVP.md`, um contrato, `docs/CURRENT-STATE.md`, `docs/PROMOTION-GATES.md` ou outro owner canonico ja exigir uma capacidade, o trabalho pertence a esse owner. O plano correspondente nao cria uma segunda fila nem uma segunda autoridade.
 
+**Fundação arquitetural, boot, atualizações e Creator:** para retomar a auditoria/consolidação entre agentes sem depender de histórico de conversa, consulte [`FOUNDATION-001`](00-PLANOS-PRIORITARIOS/plans/FOUNDATION-001-OS-ARCHITECTURE-CONSOLIDATION.md) após a leitura canônica e do roadmap. É roteiro/handoff, não novo SSOT, nem consentimento para gravação física; revalide sempre o source e as PRs.
+
 ### Plano funcional da Surface e dos aplicativos
 
 Antes de revisar historicamente a area de trabalho, a barra lateral ou os apps Arquivos, Ajustes, Conta e Sistema, pode ser util ler [PLANO-FUNCIONAL-SURFACE-E-APPS.md](PLANO-FUNCIONAL-SURFACE-E-APPS.md), na raiz do repositorio, depois da leitura canonica acima.
@@ -90,7 +93,7 @@ mesmo domínio e o mesmo Action Gateway, sem backend paralelo por plataforma.
 
 Antes de alterar landing page, download, login/cadastro ou futura area publica da conta, leia `MVP.md`, `docs/PUBLIC-SITE.md` e `docs/contracts/public-site.json`.
 
-O portal em `sites/public/` e um artefato separado do modo **OrdaX Web**. Nao importar a Surface para montar o site, nao duplicar identidade/conta e nao hard-codear uma release como "latest". Login/cadastro e download so ficam disponiveis quando seus owners reais estiverem configurados; o estado padrao deve falhar fechado sem credenciais, contas ou artefatos ficticios.
+O source da apresentacao do portal pertence **exclusivamente** a `ordaxsystems/ordax-site`; a revisao consumida pelo OS e fixada por `docs/contracts/public-site-source.json`. Nao reintroduzir `sites/public/`, `tools/public-site/build.py`, compiladores de UI ou tokens visuais como segunda autoridade. O portal e separado do modo **OrdaX Web**; no OS permanecem somente gateways, Identity, autorizacao e contratos de publicacao. Nao importar Surface para montar o Site, duplicar identidade/conta ou hard-codear release como "latest". Login/cadastro e download ficam fail-closed sem gates de seus owners.
 
 ## 4. Arquitetura fisica alvo
 
@@ -123,7 +126,7 @@ OrdaX Web
 
 Sao modos de capacidade do mesmo produto, nao forks. Nomes publicos e vinculo de versoes: `system/contracts/product-family.mjs`; IDs de modo permanecem `web`, `mobile`, `desktop`, `usb`, `native-disk`. Tablet nao e um sexto modo; Studio e app. Nao inventar versao de APK/Web/Desktop nao publicado.
 
-Surface, apps e logica compartilhada possuem uma unica fonte em `system/`. Diferencas de ambiente vivem apenas em adapters de capacidade.
+A Surface **visual** tem SSOT no repositório `ordaxsystems/ordax-surface`, fixada por `docs/contracts/surface-source.json` e materializada exclusivamente no staging de build/release/CI; o host Native, os serviços, as composições, contratos e adapters permanecem no `ordax-os/system/`. Os aplicativos pertencem aos respectivos owners. Diferencas de ambiente vivem apenas em adapters de capacidade.
 
 ## 6. Pendrive inicial minimo
 

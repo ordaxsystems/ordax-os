@@ -21,11 +21,9 @@ No DNS record was changed as part of this postflight. No temporary alias, proxy,
 
 ## SSOT reconciliation
 
-The machine-readable deployment owner remains `docs/contracts/public-site-deployment.json`. This postflight changes that owner only where production facts had become stale:
+The machine-readable deployment owner remains `docs/contracts/public-site-deployment.json`. The current mainline schema already identifies `ordax-web` as the canonical Web runtime owner and no longer stores the obsolete `domain_project_move_pending` / `domain_current_project` migration flags. Do not reintroduce them.
 
-- `domain_project_move_pending` becomes `false`;
-- `domain_current_project` becomes `ordax-web`;
-- Turnstile `hostname_allowlist` is reconciled with the authoritative widget configuration.
+The remaining discrepancy was the Turnstile `hostname_allowlist`, which now matches the authoritative widget configuration verified again on 2026-10-30. This updates the machine-readable SSOT without enabling Web entry or declaring authenticated E2E complete.
 
 The preflight receipt `docs/evidence/web-canonical-host-cutover-preflight-2026-10-16.md` remains historical evidence and is intentionally not rewritten.
 
@@ -40,3 +38,9 @@ The public Web entry remains fail-closed. Do not set `sites/public/config/public
 5. logout/revocation clears the product cookies and returns `/auth/session` to anonymous.
 
 Until that proof exists, `production_e2e_verified` remains `false` and public activation remains blocked. This is a deliberate safety gate, not a pending topology migration.
+
+## Continuity verification — 2026-10-30
+
+- On the OrdaX Cloudflare account, GET `/accounts/{account_id}/challenges/widgets/{sitekey}` returned HTTP 200, mode `managed`, with exactly `ordax.com.br`, `web.ordax.com.br`, and `www.ordax.com.br`.
+- The current OS `main` already uses `ordax-web` as Web deployment owner; the obsolete domain-migration flags from the original 2026-10-16 diff must **not** be restored.
+- This evidence verifies configuration only, not successful end-to-end authentication. `production_e2e_verified` remains false; public activation remains blocked.

@@ -1,19 +1,26 @@
 {
   "$schema": "prototype-ordax.product-device-presence/1",
-  "status": "foundation-not-mounted",
+  "status": "owner-development-usb-native-presence-source-candidate",
   "authority": "ordax-control-plane-postgresql",
   "transport": {
     "direction": "outbound-https-only",
     "method": "POST",
     "path": "/v3/product/device/presence",
     "controlPlaneBaseUrl": "runtime-configured",
-    "runtimeKind": "ordax-os"
+    "runtimeKind": "ordax-os",
+    "runtimeOwner": "system/surface/runtime/product_device_presence.py",
+    "canonicalIngress": "https://ordax-mcp.ordaxsystems.workers.dev",
+    "separateMcpServer": false,
+    "capabilityDigest": null
   },
   "credential": {
     "path": "/state/ordax/native-state/device-agent/product-device.json",
     "nativeRuntimePath": "/var/lib/ordax/device-agent/product-device.json",
     "mode": "0600",
-    "fields": ["device_id", "device_token"],
+    "fields": [
+      "device_id",
+      "device_token"
+    ],
     "deviceId": "canonical-uuid",
     "deviceToken": "256-bit-lowercase-hex",
     "surfaceReadable": false,
@@ -21,18 +28,39 @@
     "singlePersistentCopy": true
   },
   "lifecycle": {
-    "reportMode": "one-shot",
-    "ownsHeartbeatLoop": false,
-    "schedulingOwner": "existing-runtime-heartbeat-after-coordinated-cutover",
+    "reportMode": "managed-native-worker",
+    "ownsHeartbeatLoop": true,
+    "schedulingOwner": "NativeHost/ProductDevicePresenceWorker",
     "enrollmentRequired": true,
-    "enrollmentImplemented": false,
+    "enrollmentImplemented": true,
     "withoutCredential": "inactive-fail-soft",
     "withoutNetwork": "offline-fail-soft",
     "bootDependency": false,
     "surfaceHealthDependency": false,
     "grantsRemoteActions": false,
     "opensInboundPort": false,
-    "dualWritesLegacyAndCanonical": false
+    "dualWritesLegacyAndCanonical": false,
+    "enrollmentSource": "system/surface/runtime/product_device_runtime.py",
+    "enrollmentCondition": "authenticated-native-account-owner-development-usb-only",
+    "legacyShellReporterMounted": false,
+    "requiresAuthenticatedLogin": false,
+    "stopsOnAccountLogout": false,
+    "stopsOnNativeHostShutdown": true,
+    "presenceCondition": "owner-development-usb-with-existing-private-enrolled-credential-and-no-local-opt-out",
+    "enrollmentTrigger": "verified-account-session-after-login-registration-or-session-refresh",
+    "enrollmentRetry": "on-existing-session-or-connector-refresh-with-60-second-monotonic-backoff",
+    "stopsOnSessionInvalidation": false,
+    "nativeRuntimeHeartbeatArbitration": {
+      "authority": "ordax-runtime:ordax_dev_agent.native_main",
+      "existingRuntimeLock": "/state/ordax/native-state/product-runtime/instance.lock",
+      "nativeHostBindPath": "/var/lib/ordax/product-runtime/instance.lock",
+      "runtimeOwnsLockForProcessLifetime": true,
+      "discoveryHoldsSameLockOnlyDuringOutboundReport": true,
+      "discoverySkipsOnlineAndOfflineWhenRuntimeOwnsLock": true,
+      "stopWaitRequiresConfirmedThreadExit": true,
+      "separateHeartbeatLockOrSchedulerAllowed": false,
+      "agentDispatchEnabledByThisContract": false
+    }
   },
   "production": {
     "enabled": false,
@@ -40,6 +68,65 @@
   },
   "ownerDevelopment": {
     "canaryAllowedAfterAuthenticatedEnrollment": true,
-    "automaticEnrollment": false
+    "automaticEnrollment": true,
+    "enrollmentTrigger": "after-successful-verified-native-account-session",
+    "requiresConfiguredHttpsControlPlane": true,
+    "presenceAvailableAfterEnrollment": true,
+    "manualPowerShellRequired": false,
+    "discoveryOptInRequired": false,
+    "defaultDiscoverability": true,
+    "presenceAvailableAfterOwnerOptIn": true,
+    "connectorSettingsPath": "/__ordax/native/product-connector",
+    "settingsOwnedBy": "system/surface/runtime/product_device_runtime.py",
+    "persistentVisibilityPolicy": "/state/ordax/native-state/device-agent/product-connector-visibility.json",
+    "requiresValidAccountSessionToEnable": false,
+    "offlineDisableAlwaysAllowed": true,
+    "discoveryOptInBoundToAccountSubject": false,
+    "otherAccountReuseAllowed": false,
+    "legacySubjectlessConsentAccepted": false,
+    "nativeSurfaceContract": "system/contracts/product-connector.mjs",
+    "nativeSurfaceAdapter": "system/adapters/native/product-connector.mjs",
+    "surfaceDirectFetch": false,
+    "remoteActionGatewayGrantedByOptIn": false,
+    "presenceStateSSOT": "system/surface/runtime/product_device_presence.py:ProductDevicePresenceWorker",
+    "presenceStatePort": "system/contracts/product-connector.mjs",
+    "presenceStateValues": [
+      "disabled",
+      "connecting",
+      "confirmed",
+      "unavailable"
+    ],
+    "confirmedRequiresServerReceipt": true,
+    "localOwnerOptInIsNotServerConnectivity": true,
+    "presenceConfirmationMaxAge": "3x managed heartbeat interval (monotonic, memory-only)",
+    "statusEndpointUsesExistingWorker": true,
+    "secondHeartbeatOrRemoteProbe": false,
+    "remoteActionsRequireIndependentOAuthAndAttestation": true,
+    "developmentPresence": {
+      "distributionProfile": "owner-development",
+      "productMode": "usb",
+      "requiresPreviouslyEnrolledDeviceCredential": true,
+      "startsAtNativeHostComposition": true,
+      "continuesAfterLogout": true,
+      "localOptOutPersists": true,
+      "visibilityPolicyBoundToDeviceId": true,
+      "missingOrInvalidCredential": "unavailable-until-authenticated-enrollment",
+      "remoteActionAuthorityChanged": false
+    }
+  },
+  "externalMcp": {
+    "accountLoginAutomaticallyConnectsExternalClient": false,
+    "oauthClientConsentRequired": true,
+    "deviceScopedCapabilityGrantRequired": true,
+    "devicePresenceRuntimeMounted": true,
+    "attestedMcpSessionImplementedInOs": false,
+    "remoteActionRuntimePackagedInOs": false,
+    "remoteActionDispatchEnabled": false,
+    "chatGptAccountDistinctFromOrdaxAccount": true,
+    "devicePresenceDoesNotGrantActions": true,
+    "runtimeProvenance": "ordax-os",
+    "actionGatewayOwner": "ordax-platform",
+    "intelligenceOwner": "ordax-os:ordax.intelligence/1",
+    "modelRouterSeparateFromMcp": true
   }
 }

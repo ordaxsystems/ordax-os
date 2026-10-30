@@ -40,7 +40,14 @@ class CanonicalPublicHostTests(unittest.TestCase):
         self.assertEqual(migration["canonical_public_alias_redirect_http_status"], 307)
         self.assertEqual(set(migration["canonical_public_alias_redirects"]), EXPECTED_HOSTS)
         self.assertNotIn(CANONICAL, EXPECTED_HOSTS)
-        self.assertNotIn("redirects", self.config)
+        # Only the retired product entry may redirect in repository policy;
+        # canonical host aliases remain owned by Vercel project routing.
+        self.assertEqual(self.config.get("redirects"), [{
+            "source": source,
+            "has": [{"type": "host", "value": CANONICAL}],
+            "destination": f"https://{WEB_CANONICAL}/",
+            "permanent": True,
+        } for source in ("/web/", "/web/:path*")])
 
     def test_host_scoped_web_proxy_precedes_public_account_proxy_without_overlap(self):
         rewrites = self.config["rewrites"]
@@ -76,6 +83,15 @@ class CanonicalPublicHostTests(unittest.TestCase):
             'export * from "../lib/account-proxy-core.mjs";\n'
             'export { default } from "../lib/account-proxy-core.mjs";\n',
         )
+
+    def test_web_hostname_has_one_authoritative_project(self):
+        web = self.contract["vercel_adapter"]["web_runtime"]
+        self.assertEqual(web["project"], "ordax-web")
+        self.assertEqual(web["project_id"], "prj_ftACluUqk6i9DoD9GPIwmgURwckP")
+        self.assertEqual(web["canonical_origin"], "https://web.ordax.com.br")
+        # Historical pre-cutover status is evidence, not a second live owner.
+        for retired in ("domain_project_move_pending", "domain_current_project", "domain_target_project"):
+            self.assertNotIn(retired, web)
 
     def test_git_deployment_remains_production_only(self):
         self.assertEqual(self.config["git"]["deploymentEnabled"], {"**": False, "main": True})

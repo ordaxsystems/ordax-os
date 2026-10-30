@@ -7,6 +7,7 @@ import {
   EXTERNAL_FIRST_PARTY_OWNER,
   isExternalFirstPartyComponentId,
   hasNativeExternalFirstPartyModuleRead,
+  isNativeExternalFirstPartyCurrentSlotBlockedByBundledOwner,
   listExternalFirstPartyComponentIds,
 } from "./external-first-party-policy.mjs";
 
@@ -80,6 +81,10 @@ export async function discoverVerifiedExternalApplications({
   const entries = [];
   for (const appId of appIds) {
     if (controller.signal.aborted) break;
+    // Owner eligibility does not hand off platform-owned source. In
+    // particular, a Files slot must not shadow the bundled bootstrap copy;
+    // Native exposes its ports only after Gate A removes that implementation.
+    if (isNativeExternalFirstPartyCurrentSlotBlockedByBundledOwner(appId)) continue;
     // A store candidate is not yet a native module-read permission.
     if (!hasNativeExternalFirstPartyModuleRead(appId)) continue;
     try {

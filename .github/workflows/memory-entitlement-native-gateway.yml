@@ -5,12 +5,18 @@ on:
     paths:
       - 'system/surface/runtime/native_account_gateway.py'
       - 'tests/test_native_account_gateway.py'
+      - 'system/surface/runtime/native_account_vault.py'
+      - 'tests/test_native_account_vault.py'
+      - 'docs/contracts/native-account-session.json'
       - '.github/workflows/memory-entitlement-native-gateway.yml'
   push:
     branches: [main]
     paths:
       - 'system/surface/runtime/native_account_gateway.py'
       - 'tests/test_native_account_gateway.py'
+      - 'system/surface/runtime/native_account_vault.py'
+      - 'tests/test_native_account_vault.py'
+      - 'docs/contracts/native-account-session.json'
       - '.github/workflows/memory-entitlement-native-gateway.yml'
   workflow_dispatch:
 
@@ -30,10 +36,10 @@ jobs:
       - name: Validate source syntax
         run: |
           set -euo pipefail
-          python -m py_compile system/surface/runtime/native_account_gateway.py
+          python -m py_compile system/surface/runtime/native_account_gateway.py system/surface/runtime/native_account_vault.py
           python -m py_compile tests/test_native_account_gateway.py
 
       - name: Prove device-bound read-only entitlement transport
         run: |
           set -euo pipefail
-          python -m unittest tests.test_native_account_gateway -v
+          python -m unittest tests.test_native_account_gateway tests.test_native_account_vault tests.test_native_account_session_contract -v

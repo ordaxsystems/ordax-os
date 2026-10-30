@@ -163,7 +163,7 @@ class PortableBootHandoffContractTests(unittest.TestCase):
         self.assertTrue(requirements["activation_transaction_survives_switch_root"])
         self.assertEqual(
             requirements["activation_state_reader_operations"],
-            ["read-slot", "resolve", "select", "prepare", "select-boot", "commit", "rollback"],
+            ["read-slot", "resolve", "select", "inspect", "prepare", "select-boot", "commit", "rollback"],
         )
         self.assertEqual(
             requirements["activation_selection_order"],

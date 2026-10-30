@@ -12,6 +12,8 @@ Implemented in source:
 
 - `ordax.application-compatibility/2` inspection/runtime-selection contract;
 - byte-based Windows PE inspection for x86, x86-64 and ARM64;
+- bounded little-endian Linux ELF inspection (x86, x86-64, ARM64) using the same manager and profile planner;
+- conservative ELF entry/segment verification; unverified Type 2 AppImage candidates remain nonlaunchable;
 - DLL and malformed-PE rejection for launch planning;
 - bounded MSI container-candidate recognition without claiming MSI database verification;
 - explicit compatibility-runtime descriptors bound to a source identity and SHA-256 digest;
@@ -26,6 +28,8 @@ Implemented in source:
 Not implemented yet:
 
 - a packaged Wine, Proton or alternative Windows runtime;
+- real Linux-native foreign-app runtime artifact attestation and application execution;
+- AppImage container verification, mounting and installation;
 - physical compatibility-profile/prefix materialization;
 - explicit filesystem/network/device/audio/clipboard grant policy;
 - Windows application installation;
@@ -93,6 +97,20 @@ EXE / PE / MSI candidate
 
 Wine, Proton or another implementation remains replaceable behind the OrdaX contract. None of those technologies is Foundation authority.
 
+The **OrdaX Runtime** owns application identity, capability mediation, lifecycle
+and audit. A Windows compatibility engine is an optional per-application
+implementation behind that Runtime, not another OrdaX Runtime, a new background
+agent, or a dependency of the boot path. OrdaX-native applications use the
+native application pipeline; foreign binaries retain their origin and isolated
+state. Windows API translation (for example Wine) does not imply that all
+Windows applications, drivers, DRM or kernel-integrated software work.
+
+When more than one verified runtime descriptor matches a foreign executable,
+the manager returns `runtime-selection-required` until the caller supplies an
+explicit runtime id. Inventory ordering must not silently change a profile's
+engine or source version. This is still **planning only**, never install or
+execution authorization.
+
 ## 3. Trust boundary
 
 Foreign executable bytes are untrusted application payloads by default.
@@ -146,6 +164,24 @@ The current source recognizes only a bounded candidate:
 - bytes begin with the Compound File Binary signature.
 
 That is not enough to prove a valid MSI database. Until a real MSI parser/verifier exists, the result remains `role=installer`, `launchable=false` and installation is unavailable.
+
+### 4.3 Linux ELF and AppImage (source-only)
+
+The same Compatibility Manager recognizes little-endian ELF executables from
+validated ELF header bytes, supported machine ID, bounded program-header table,
+real executable PT_LOAD region containing the entry point, and a bounded
+PT_INTERP record for dynamic PIE (`ET_DYN`). Unsupported architectures, big-endian
+payloads, relocatable files, truncated segments and ambiguous shared objects
+remain nonlaunchable. Static PIE without PT_INTERP is conservatively not
+classified as launchable. Recognition is **not** a statement that the binary's
+loader, dynamic libraries or system calls work on the Independent Base.
+
+Type 1 and Type 2 AppImage ELF markers are recognized only as candidates. AppImage launch
+and installation remain disabled until the AppImage format, embedded filesystem
+and runtime mediation have a separate verified implementation. Foreign Linux
+applications are not promoted to first-party trust or allowed into the Base.
+Planning still requires an explicit real Linux runtime descriptor; no generic
+Linux distribution, loader, package manager or secondary OrdaX Runtime is added.
 
 ## 5. Runtime descriptors
 
