@@ -261,7 +261,19 @@ try {
       await evaluate("(()=>{const n=document.querySelector('#meridian-prompt');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(n,'Apenas demonstração');n.dispatchEvent(new Event('input',{bubbles:true}));})()");
       await click('[aria-label="Enviar pergunta"]');
       await until("!!document.querySelector('[aria-label=\"Janela @@INTELLIGENCE_TITLE@@\"]')");
-      assert.equal(await evaluate("document.querySelector('[aria-label=\"Janela @@INTELLIGENCE_TITLE@@\"]').textContent.includes('não está conectada')"),true,'Prompt cannot imply real inference');
+      // The pinned Surface owner now reports explicit engine availability, not
+      // the retired "não está conectada" copy. Assert actual disabled inference,
+      // no fabricated Aura turn and an explicit unavailable service status.
+      await until("!!document.querySelector('[aria-label=\\\"Janela @@INTELLIGENCE_TITLE@@\\\"] .service-state[data-intelligence-state]')");
+      const auraAvailabilityProof=await evaluate("(()=>{const pane=document.querySelector('[aria-label=\\\"Janela @@INTELLIGENCE_TITLE@@\\\"]');const state=pane.querySelector('.service-state[data-intelligence-state]');const send=pane.querySelector('.aura-search button[aria-label=\\\"Enviar pergunta\\\"]');return {state:state?.getAttribute('data-intelligence-state'),label:state?.textContent??'',disabled:send?.disabled===true,answers:pane.querySelectorAll('.aura-turn[data-speaker=\\\"aura\\\"]').length};})()");
+      assert.equal(
+        auraAvailabilityProof.disabled
+          && ['unavailable','degraded','error'].includes(auraAvailabilityProof.state)
+          && /não disponível|Falha no serviço/.test(auraAvailabilityProof.label)
+          && auraAvailabilityProof.answers===0,
+        true,
+        'Unavailable Web engine must disable sending and never invent an Aura answer: '+JSON.stringify(auraAvailabilityProof),
+      );
       await evaluate("window.proofAura=document.querySelector('[aria-label=\"Janela @@INTELLIGENCE_TITLE@@\"]');window.proofAura.querySelector('input').focus()");
       await click('[aria-label="Compactar @@INTELLIGENCE_TITLE@@"]');
       assert.equal(await evaluate("document.querySelector('.window-workspace').dataset.compact"),'expanded');
