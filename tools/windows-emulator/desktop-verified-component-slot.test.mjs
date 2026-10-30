@@ -135,7 +135,7 @@ test("Windows current-slot metadata and exact module bytes delegate to Go withou
   assert.equal(runtime.headers.get("x-content-type-options"), "nosniff");
   assert.equal(await runtime.text(), "export const componentRuntime = {};\n");
   assert.equal(calls.length, 2);
-  assert.ok(calls.every(({ args }) => !args.some(x => /sign|stage|promote|record-health|rollback|uninstall/.test(x))));
+  assert.deepEqual(calls.map(({ args }) => args[0]), ["resolve-current", "read-runtime-file"]);
 });
 
 test("Windows Native slot reader rejects traversal, pending, stale identity and forged CLI responses", async t => {
