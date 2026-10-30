@@ -163,6 +163,36 @@ class PortableQemuImpactTests(unittest.TestCase):
                 self.assertTrue(result.required)
                 self.assertNotEqual(result.reasons, ("no-heavy-portable-impact",))
 
+    def test_signed_stateless_windows_desktop_slice_is_not_portable_boot(self):
+        # The #2342 signed current-slot integration changed shared high-level
+        # Native UI contracts and isolated test tools, but no boot producer,
+        # initramfs, kernel, offline Surface runtime or component probation.
+        desktop_paths = [
+            ".github/workflows/windows-desktop-dev.yml",
+            "system/adapters/desktop/verified-component-slot-host.mjs",
+            "system/adapters/native/signed-current-compatibility.mjs",
+            "system/composition/native/main.mjs",
+            "system/composition/native/verified-installed-apps.mjs",
+            "system/services/components/current-slot-loader.mjs",
+            "tests/test_native_signed_current_compatibility.mjs",
+            "tests/test_native_verified_installed_apps.mjs",
+            "tools/surface-web/browser-smoke.mjs",
+            "tools/windows-emulator/desktop-verified-component-slot.test.mjs",
+        ]
+        result = impact.classify_paths(desktop_paths, root=ROOT)
+        self.assertFalse(result.required, result.reasons)
+        self.assertEqual(result.reasons, ("no-heavy-portable-impact",))
+        # Unknown test contracts or actual Linux component probation remain
+        # expensive until explicitly classified with a separate owner proof.
+        for critical in ("tests/test_unknown_boot_sensitive_owner.py",
+                         "system/services/components/probation-orchestrator.mjs",
+                         "bootstrap/surface-runtime/source.json",
+                         "system/supervisor"):
+            with self.subTest(critical=critical):
+                self.assertTrue(impact.classify_paths(
+                    desktop_paths + [critical], root=ROOT,
+                ).required)
+
     def test_boot_coupled_local_ai_runtime_requires_qemu(self):
         result = impact.classify_paths(["system/services/local-ai/runtime.mjs"], root=ROOT)
         self.assertTrue(result.required)

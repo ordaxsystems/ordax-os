@@ -105,6 +105,13 @@ WINDOWS_DESKTOP_LIGHT_EXACT = {
     ".github/workflows/windows-desktop-dev.yml",
     "tests/test_windows_desktop_local_ai_host.mjs",
     "tests/test_windows_desktop_local_ai_package.mjs",
+    # The signed-current Desktop bridge has its own Windows Native and
+    # Component Trusted Context proofs. These isolated test fixtures and
+    # Chromium-only smoke never produce Portable boot or offline EROFS bytes.
+    # Keep Native shared runtime/boot hosts fail-closed under the normal graph.
+    "tests/test_native_signed_current_compatibility.mjs",
+    "tests/test_native_verified_installed_apps.mjs",
+    "tools/surface-web/browser-smoke.mjs",
 }
 WINDOWS_LOCAL_AI_SOURCE_LOCK = "system/services/local-ai/source-lock.json"
 SURFACE_VISUAL_SOURCE_LOCK = "docs/contracts/surface-source.json"
