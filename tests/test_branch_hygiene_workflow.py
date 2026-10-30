@@ -73,25 +73,28 @@ class BranchHygieneWorkflowTests(unittest.TestCase):
             self.implementation,
         )
 
-    def test_closed_unmerged_prune_requires_exact_closed_head_and_no_open_pr(self):
-        self.assertIn(
-            "latest_unmerged = _latest_pr_by_ref(closed_prs, repository, merged=False)",
+    def test_closed_unmerged_unique_work_is_not_automatically_deleted(self):
+        # Closing a PR is not equivalent to landing or archiving its commits.
+        self.assertNotIn(
+            'latest_unmerged = _latest_pr_by_ref(closed_prs, repository, merged=False)',
             self.implementation,
         )
-        self.assertIn(
-            "if ref in preserve or ref not in current or ref in selected:",
-            self.implementation,
-        )
-        self.assertIn(
-            'expected_sha = pr["head"]["sha"]',
-            self.implementation,
-        )
-        self.assertIn(
-            'if current[ref] == expected_sha:',
-            self.implementation,
-        )
-        self.assertIn(
+        self.assertNotIn(
             'DeleteCandidate(ref, expected_sha, "closed-unmerged-head-unchanged")',
+            self.implementation,
+        )
+        self.assertIn(
+            "Closing a PR without merge does not prove that its head is disposable.",
+            self.implementation,
+        )
+        # The only unconditional source-authoritative cleanup is merged-head
+        # equality; other branches need an actual containment proof.
+        self.assertIn(
+            "latest_merged = _latest_pr_by_ref(closed_prs, repository, merged=True)",
+            self.implementation,
+        )
+        self.assertIn(
+            "if compare_ahead_by(ref, expected_sha) == 0:",
             self.implementation,
         )
 

@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 """Plan and apply safe repository branch cleanup through the GitHub CLI.
 
-The cleanup is intentionally single-process so the merged, closed-unmerged and
-fully-contained rules cannot race each other. Every destructive delete is
+The cleanup is intentionally single-process so the merged and fully-contained rules cannot race each other. Every destructive delete is
 revalidated against the branch SHA observed during planning.
 """
 
@@ -119,13 +118,9 @@ def plan_deletions(
         if current[ref] == expected_sha:
             selected[ref] = DeleteCandidate(ref, expected_sha, "merged-head-unchanged")
 
-    latest_unmerged = _latest_pr_by_ref(closed_prs, repository, merged=False)
-    for ref, pr in sorted(latest_unmerged.items()):
-        if ref in preserve or ref not in current or ref in selected:
-            continue
-        expected_sha = pr["head"]["sha"]
-        if current[ref] == expected_sha:
-            selected[ref] = DeleteCandidate(ref, expected_sha, "closed-unmerged-head-unchanged")
+    # Closing a PR without merge does not prove that its head is disposable.
+    # Preserve unique commits; only the containment proof below may qualify
+    # such a branch for cleanup, followed by exact SHA revalidation.
 
     for ref, expected_sha in sorted(current.items()):
         if ref in preserve or ref in selected:
