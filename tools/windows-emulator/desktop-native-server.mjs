@@ -63,7 +63,8 @@ export function createDesktopNativeServer({root,stateDirectory,accountGatewayOri
     throw TypeError("Installed Native root and persistent state directory required");
   if(process.env.ORDAX_DESKTOP_HOST!=="1"||
      !process.env.ORDAX_DESKTOP_UPDATE_USER_DATA||
-     !process.env.ORDAX_DESKTOP_ASSETS_ROOT)
+     !process.env.ORDAX_DESKTOP_ASSETS_ROOT ||
+     !process.env.ORDAX_DESKTOP_COMPONENT_VERIFIER_ROOT)
     throw TypeError("Installed Desktop host requires verified Electron session and built assets");
   // The installed Native listener must prove possession of the existing
   // per-launch Electron-to-Native grant, not just that *any* local HTTP
