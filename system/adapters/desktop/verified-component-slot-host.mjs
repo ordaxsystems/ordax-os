@@ -119,9 +119,13 @@ function parseFields(buffer, id, state, slotRoot) {
 }
 
 function parseRequest(url) {
-  if (typeof url !== "string" || url.length > 900
-    || /[%\\#\0]/.test(url) || url.includes("//")) return { error: 400 };
+  if (typeof url !== "string") return null;
   const [path, rawQuery, ...extra] = url.split("?");
+  // A middleware must never answer for an unrelated Native/static route.
+  // This also preserves the established 404 on unsafe ordinary file paths.
+  if (path !== META && !path.startsWith(MODULE)) return null;
+  if (url.length > 900 || /[%\\#\0]/.test(url) || url.includes("//"))
+    return { error: 400 };
   if (extra.length) return { error: 400 };
   if (path === META) {
     if (typeof rawQuery !== "string") return { error: 400 };
