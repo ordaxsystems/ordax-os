@@ -179,7 +179,10 @@ test("Web Intelligence client drops results from ports that ignore cancellation"
   const pending = client.ask("Teste de cancelamento", { signal: controller.signal });
   controller.abort(new Error("client-request-cancelled"));
   finish(remoteResponse(remoteContext()).response);
-  await assert.rejects(pending, /client-request-cancelled/);
+  // The canonical Surface abort helper normalizes cancellation to AbortError;
+  // the late provider value must still be discarded, not rendered as success.
+  await assert.rejects(pending, (error) =>
+    error?.name === "AbortError" && error?.message === "Aura request was cancelled");
 });
 
 test("Remote Web Intelligence rejects late responses after cancellation or disposal", async () => {
