@@ -14,6 +14,25 @@ arquivo existente no instalador não prova a capacidade funcionando. A
 matriz, bloqueios e gates estão em
 [`docs/plans/ordax-os-desktop-windows-ssot-2026-10-20.md`](../../docs/plans/ordax-os-desktop-windows-ssot-2026-10-20.md).
 
+## Prova de prontidão do Native host instalado
+
+No Windows instalado, a porta loopback é escolhida dinamicamente e liberada
+antes de iniciar o processo filho. **HTTP 200 sozinho não atesta o processo
+OrdaX**: outro listener poderia ocupar a porta e ser confundido com a
+Surface verificada. O host Electron agora envia um desafio aleatório por
+tentativa a `/__ordax/desktop-host-ready` e exige HMAC-SHA256 vinculado
+ao **mesmo token efêmero Native** já fornecido pelo host. O token nunca é
+retornado na resposta. Uma página HTML em HTTP 200, prova incorreta,
+ausência de token ou processo falho não aprova o boot. O listener continua
+restrito a loopback e os assets/recibos OS+Surface continuam sujeitos
+aos seus verificadores existentes.
+
+O fallback Vite exclusivamente de desenvolvimento mantém seu probe antigo
+para preservar rollbacks de revisões anteriores; ele **não** é a prova do
+Native instalado. Os testes de `host-startup.test.cjs` e
+`desktop-native-server.test.mjs` exercitam o mesmo contrato, sem segundo
+servidor ou estado persistente e sem tocar no USB.
+
 ## Integração com a source authority atual — 25/10/2026
 
 O Windows consome **a mesma revisão OS de `main`** utilizada pelos outros
