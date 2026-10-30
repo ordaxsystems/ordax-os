@@ -32,8 +32,14 @@ export function createNativeSignedCurrentCompatibilityResolver({ source, fetchIm
     metadata.pathname = "/__ordax/native/component-compatibility";
     metadata.searchParams.set("revision", String(current.revision));
     const controller = new AbortController();
-    const deadline = setTimeout(() => controller.abort(), DEADLINE);
-    try {
+    let timer;
+    const timeout = new Promise((_, reject) => {
+      timer = setTimeout(() => {
+        controller.abort();
+        reject(Error("Signed current compatibility inspection timed out"));
+      }, DEADLINE);
+    });
+    const operation = async () => {
       const response = await fetchImpl(metadata.href, {
         method: "GET", cache: "no-store", credentials: "same-origin",
         redirect: "error", signal: controller.signal,
@@ -59,8 +65,11 @@ export function createNativeSignedCurrentCompatibilityResolver({ source, fetchIm
       // If a state owner exists with no App Data requirement, conservatively
       // require a bound App Data port instead of inventing another state host.
       return descriptor;
+    };
+    try {
+      return await Promise.race([operation(), timeout]);
     } finally {
-      clearTimeout(deadline);
+      clearTimeout(timer);
       controller.abort();
     }
   };
