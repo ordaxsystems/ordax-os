@@ -190,7 +190,9 @@ try {
         // The official Store catalog takes precedence. Enter the explicitly
         // labeled planned preview before asserting its isolated stylesheet.
         if(await evaluate("document.querySelector('.ordax-store-experience')?.dataset.storeMode==='official'"))
-          await click('.ordax-store-experience [data-store-switch]');
+          // The official Store switch is a window action, mounted beside the
+          // titlebar controls rather than inside the Store content root.
+          await click('.workspace-window:has(.ordax-store-experience) [data-store-switch]');
         await until("!!document.querySelector('.ordax-store-experience[data-store-mode=planned] [data-store-preview-host]')?.shadowRoot?.querySelector('[data-meridian]')");
         assert.equal(await evaluate("(()=>{const root=document.querySelector('.ordax-store-experience [data-store-preview-host]').shadowRoot;return root.adoptedStyleSheets.length===1&&!root.querySelector('style')&&getComputedStyle(root.querySelector('[data-meridian]')).getPropertyValue('--md-canvas').trim()==='#f4f2ed';})()"),true,'Store planned preview uses the canonical bundled stylesheet without inline styles');
         await click('[aria-label="Fechar Loja"]');
