@@ -88,3 +88,13 @@ test("signed compatibility fails closed on missing broker, unverified slot or un
   await assert.rejects(hostile(current), /canonical Native origin/);
   assert.equal(fetched, 1);
 });
+
+
+test("signed compatibility has finite timeout even when HTTP provider ignores abort", async () => {
+  const resolver = createNativeSignedCurrentCompatibilityResolver({
+    source, fetchImpl: async () => new Promise(() => {}),
+  });
+  const started = Date.now();
+  await assert.rejects(resolver(current), /inspection timed out/);
+  assert.ok(Date.now() - started < 6000, "Unresponsive transport must not block Native startup");
+});
