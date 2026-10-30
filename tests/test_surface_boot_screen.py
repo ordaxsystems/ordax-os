@@ -84,25 +84,33 @@ class SurfaceBootScreenTests(unittest.TestCase):
         self.assertIn(".ordax-boot-spinner", css)
         self.assertIn("prefers-reduced-motion", css)
 
-    def test_native_reveals_healthy_shell_before_optional_first_run(self):
+    def test_native_reveals_home_or_first_run_only_after_that_initial_ui_is_ready(self):
         source = NATIVE_MAIN.read_text(encoding="utf-8")
         self.assertIn("createSurfaceBootScreen", source)
         self.assertIn('"surface.boot.loadingSurface"', source)
         self.assertIn("translateSurfaceMessage", source)
-        self.assertIn("bootScreen.ready()", source)
+        self.assertEqual(source.count("bootScreen.ready()"), 1)
+        self.assertEqual(source.count("revealInitialSurface();"), 2)
+        self.assertIn("initialFirstRunState.completed", source)
         self.assertIn('"surface.boot.failed"', source)
         self.assertNotIn('componentId: "notes"', source)
         self.assertNotIn('componentId: "internet"', source)
 
-        ready = source.index("bootScreen.ready()")
+        completed_branch = source.index("if (initialFirstRunState.completed)")
+        completed_home_ready = source.index("revealInitialSurface();", completed_branch)
         healthy = source.index("void updateWatcher.markHealthy()")
         store = source.index("storeCatalogComposition = await storeCatalogCompositionPromise")
         first_run_mount = source.index("mountFirstRunExperience(root")
+        first_run_ready = source.index("revealInitialSurface();", first_run_mount)
+        external_apps = source.index("const externalAppMounts = await")
 
         self.assertNotIn('bootScreen.setStage(surface.localization.translate("surface.boot.preparingFirstRun"))', source)
-        self.assertLess(ready, healthy)
+        self.assertLess(healthy, completed_home_ready)
+        self.assertLess(completed_home_ready, store)
         self.assertLess(healthy, store)
         self.assertLess(store, first_run_mount)
+        self.assertLess(first_run_mount, first_run_ready)
+        self.assertLess(first_run_ready, external_apps)
 
     def test_web_finishes_boot_after_workspace_mount_and_uses_shared_failure_copy(self):
         source = WEB_MAIN.read_text(encoding="utf-8")

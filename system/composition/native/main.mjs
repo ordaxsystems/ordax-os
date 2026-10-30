@@ -357,9 +357,10 @@ async function start() {
     localSessionPromise,
     bundledProfilePacksPromise,
   ]);
+  const initialFirstRunState = firstRunStateStore.load();
   const regionalRecovery = seedMissingRegionalPreferencesFromFirstRun(
     preferenceStore.load(),
-    firstRunStateStore.load(),
+    initialFirstRunState,
   );
   if (regionalRecovery.changed) {
     preferenceStore.save(regionalRecovery.snapshot);
@@ -1021,11 +1022,8 @@ async function start() {
   const powerControls = mountPowerControls(root, powerActions, surface, updateWatcher);
 
   // Reaching this point proves that the shared Surface composition mounted.
-  // Optional app runtimes load only after this acknowledgement so an app-level
-  // import or mount failure cannot turn into a failed OrdaX cold boot.
-  // The already-mounted shell is visible before asking the official
-  // Supervisor to acknowledge its identity. No synthetic heartbeat is sent.
-  bootScreen.ready();
+  // Acknowledge shell health independently from revealing the first usable UI:
+  // pending First Run must be mounted before the boot cover is removed.
   componentManager.setCurrentHealth("surface-shell", "healthy");
   void updateWatcher.markHealthy();
   const surfaceHeartbeat = createNativeSurfaceHeartbeat(window);
@@ -1040,6 +1038,26 @@ async function start() {
     } catch (error) {
       reportClientDiagnostic("component-probation-start", error);
     }
+  }
+
+  let firstRun = null;
+  let localSessionLock = null;
+  const mountLocalSessionGate = () => {
+    if (!localSession) return true;
+    try {
+      localSessionLock = mountLocalSessionLock(root, localSession, surface);
+      return true;
+    } catch (error) {
+      reportClientDiagnostic("local-session-lock", error);
+      return false;
+    }
+  };
+  const revealInitialSurface = () => {
+    if (mountLocalSessionGate()) bootScreen.ready();
+    else bootScreen.fail(bootText("surface.boot.failed"));
+  };
+  if (initialFirstRunState.completed) {
+    revealInitialSurface();
   }
 
   // Optional Aura discovery can compete for the Native Host while booting.
@@ -1084,8 +1102,49 @@ async function start() {
     appActivation,
   );
 
-
-
+  if (!initialFirstRunState.completed) {
+    // First Run reads the verified Store projection but never waits for
+    // optional installed-app runtimes, which are mounted after the initial UI.
+    let firstRunAppSelection = null;
+    try {
+      firstRunAppSelection = planFirstRunAppSelectionFromStore({
+        initialProvisioning: !initialFirstRunState.completed,
+        explicitlyRemovedAppIds: [],
+        storeCatalogSnapshot: storeCatalog.getSnapshot(),
+        nativeCurrentMetadata: (storeCatalogComposition?.getCurrentObservations() ?? [])
+          .filter((entry) => listFirstRunDefaultAppIds().includes(entry.componentId)),
+      });
+    } catch (error) {
+      // Conflicting Store/Native observations must not become install intents
+      // or prevent first boot. First Run proceeds without a guessed plan.
+      reportClientDiagnostic("first-run-app-selection", error);
+    }
+    const [deviceProfile, resumeCursor] = await Promise.all([
+      deviceProfilePromise,
+      optionalNativeProbe(
+        "OrdaX native First Run cursor unavailable",
+        () => createNativeFirstRunCursor(window),
+      ),
+    ]);
+    firstRun = mountFirstRunExperience(root, {
+      stateStore: firstRunStateStore,
+      firstRunAppSelection,
+      preferences: surface.preferences,
+      networkManagement,
+      identitySession,
+      identityActions,
+      identityCredentials,
+      localSession,
+      deviceProfile,
+      keyboardLayout,
+      resumeCursor,
+      hostedSignupBridge: {
+        isAvailable: hasNativeHostBridge,
+        postMessage: postNativeHostMessage,
+      },
+    });
+    revealInitialSurface();
+  }
 
   // External app code receives only its own App Data binding and the
   // documented Surface lifecycle, never a generic host file or AI port.
@@ -1125,58 +1184,6 @@ async function start() {
   );
   surface.replaceAppCatalog(activeExternalCatalog.catalog);
 
-  // First Run reads the already-verified Store projection and its matching
-  // ephemeral Native current observations. It has NO installation authority.
-  let firstRunAppSelection = null;
-  try {
-    firstRunAppSelection = planFirstRunAppSelectionFromStore({
-      initialProvisioning: !firstRunStateStore.load().completed,
-      explicitlyRemovedAppIds: [],
-      storeCatalogSnapshot: storeCatalog.getSnapshot(),
-      nativeCurrentMetadata: (storeCatalogComposition?.getCurrentObservations() ?? [])
-        .filter((entry) => listFirstRunDefaultAppIds().includes(entry.componentId)),
-    });
-  } catch (error) {
-    // Conflicting Store/Native observations must not become install intents
-    // or prevent first boot. First Run proceeds without a guessed plan.
-    reportClientDiagnostic("first-run-app-selection", error);
-  }
-  // The slow/missing optional Device Profile can no longer delay the real
-  // shell health acknowledgement. First Run still receives the verified port.
-  const deviceProfile = await deviceProfilePromise;
-  let firstRun = null;
-  try {
-    firstRun = mountFirstRunExperience(root, {
-      stateStore: firstRunStateStore,
-      firstRunAppSelection,
-      preferences: surface.preferences,
-      networkManagement,
-      identitySession,
-      identityActions,
-      identityCredentials,
-      localSession,
-      deviceProfile,
-      keyboardLayout,
-      resumeCursor: await optionalNativeProbe(
-        "OrdaX native First Run cursor unavailable",
-        () => createNativeFirstRunCursor(window),
-      ),
-      hostedSignupBridge: {
-        isAvailable: hasNativeHostBridge,
-        postMessage: postNativeHostMessage,
-      },
-    });
-  } catch (error) {
-    reportClientDiagnostic("first-run", error);
-  }
-  let localSessionLock = null;
-  if (localSession) {
-    try {
-      localSessionLock = mountLocalSessionLock(root, localSession, surface);
-    } catch (error) {
-      reportClientDiagnostic("local-session-lock", error);
-    }
-  }
   window.addEventListener(
     "pagehide",
     () => {
