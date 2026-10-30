@@ -408,7 +408,12 @@ async function start() {
     fetchImpl: localAiFetch,
     endpoint: LOCAL_AI_NATIVE_ENDPOINT,
   });
-  const intelligence = createIntelligenceRuntime({ inferencePort: localAi });
+  const intelligence = createIntelligenceRuntime({
+    inferencePort: localAi,
+    // Read the same durable regional preference used by the Surface, including
+    // changes made after first run; no second language setting or cached guess.
+    getLocale: () => preferenceStore.load()["regional.locale"] ?? "pt-BR",
+  });
   const memory = memoryStore === null
     ? null
     : createMemoryRuntime({ store: memoryStore });
