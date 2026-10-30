@@ -106,6 +106,30 @@ class CreatorOwnerImpactTests(unittest.TestCase):
                 current = self.commit(path=path)
                 self.assertTrue(impact.classify(base, current, root=self.root)[0])
 
+    def test_signed_windows_broker_only_changes_do_not_start_usb_producer(self):
+        base = self.commit(WORKFLOW.read_text(encoding="utf-8"), VISUAL)
+        desktop_only = (
+            ".github/workflows/windows-desktop-dev.yml",
+            "system/adapters/desktop/verified-component-slot-host.mjs",
+            "system/adapters/native/signed-current-compatibility.mjs",
+            "tests/test_native_signed_current_compatibility.mjs",
+            "tests/test_native_verified_installed_apps.mjs",
+            "tools/windows-emulator/desktop-verified-component-slot.test.mjs",
+            "tools/surface-web/browser-smoke.mjs",
+        )
+        for path in desktop_only:
+            current = self.commit(path=path)
+        self.assertEqual(impact.classify(base, current, root=self.root),
+                         (False, "nonproducer-contract-only"))
+        # The Linux/Windows shared Native mount owner is still part of the
+        # bootable USB payload, despite accompanying Windows-only changes.
+        shared = self.commit(path="system/composition/native/verified-installed-apps.mjs")
+        self.assertEqual(impact.classify(base, shared, root=self.root),
+                         (True, "real-or-unknown-usb-producer:system/composition/native/verified-installed-apps.mjs"))
+        # Fail closed if a Windows path change accompanies a real OS producer.
+        boot = self.commit(path="bootstrap/surface-runtime/build.py")
+        self.assertTrue(impact.classify(base, boot, root=self.root)[0])
+
     def test_new_workflow_producer_step_forces_usb(self):
         workflow = WORKFLOW.read_text(encoding="utf-8")
         base = self.commit(workflow, VISUAL)
