@@ -14,6 +14,7 @@ test("first-run contract consumes the canonical runtime journey order", () => {
 });
 
 test("first-run journey identities and labels are unique and complete", () => {
+  assert.deepEqual(FIRST_RUN_STEP_IDS, ["welcome", "network", "account", "security", "ready"]);
   assert.equal(new Set(FIRST_RUN_STEP_IDS).size, FIRST_RUN_STEP_IDS.length);
   assert.equal(new Set(FIRST_RUN_STEP_LABELS).size, FIRST_RUN_STEP_LABELS.length);
   assert.equal(FIRST_RUN_JOURNEY.length, FIRST_RUN_STEP_IDS.length);

@@ -158,8 +158,8 @@ async function scenario(modules,css,origin) {
  async function finishLocal(){
   await click('account-local');
   await click('next');
-  if(!document.querySelector('.ordax-first-run-availability')?.textContent.includes('nome do dispositivo está indisponível'))throw Error('Missing device-name fallback');
-  await click('next');
+  if(document.querySelector('.ordax-first-run')?.dataset.firstRunStep!=='ready')
+    throw Error('Security must lead directly to final review');
   await click('finish');
  }
  const checks={};
@@ -255,6 +255,7 @@ async function scenario(modules,css,origin) {
  const offline=await fixture();
  const first=mountFirstRunExperience(root,offline.ports);
  checks.offlineWizardShown=first.shown===true && !!document.querySelector('.ordax-first-run');
+ checks.fiveStepNativeJourney=document.querySelectorAll('.ordax-first-run-steps li').length===5;
  checks.modalAccessibility=document.querySelector('.ordax-first-run')?.getAttribute('aria-modal')==='true';
  await reachAccount();await finishLocal();
  checks.offlineReceipt=offline.state.completed && offline.state.accountMode==='local-only';
@@ -287,7 +288,7 @@ async function scenario(modules,css,origin) {
 
  const current=await fixture({identity:true});
  mountFirstRunExperience(root,current.ports);await reachAccount();
- await click('account-identity');await click('next');await click('next');await click('finish');
+ await click('account-identity');await click('next');await click('finish');
  checks.activeIdentityReceipt=current.state.completed && current.state.accountMode==='identity'
   && !Object.prototype.hasOwnProperty.call(current.state,'subjectId')
   && current.writes.length===1 && !document.querySelector('.ordax-first-run');
@@ -296,7 +297,7 @@ async function scenario(modules,css,origin) {
  mountFirstRunExperience(root,expired.ports);await reachAccount();
  await click('account-identity');await click('next');
  expired.onRefresh({state:'signed-in',subjectId:'owner-B',displayName:'Other Proof User'});
- await click('next');await click('finish');
+ await click('finish');
  checks.refreshChangedOwnerReturnsToAccount=!!get('account-local')
   && !expired.state.completed && expired.writes.length===0;
  await finishLocal();

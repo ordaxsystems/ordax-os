@@ -50,7 +50,6 @@
     "network",
     "account",
     "security",
-    "name",
     "ready"
   ],
   "presentation": {
@@ -62,6 +61,7 @@
     "account_before_personalization": true,
     "network_before_account": true,
     "single_primary_action_per_step": true,
+    "device_name_optional_in_final_review": true,
     "registration_consent_before_registration_submission": true,
     "device_privacy_separate_from_registration_consent": true,
     "existing_login_does_not_create_new_legal_acceptance": true
