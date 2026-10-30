@@ -231,6 +231,22 @@ class IndependentSurfaceRuntimeTests(unittest.TestCase):
         self.assertIn("work_args", build_step)
         self.assertIn("ORDAX_SURFACE_BUILD_JOBS", build_step)
 
+    def test_graphical_cache_miss_never_restarts_webkit_on_disposable_runner(self):
+        workflow = WORKFLOW_PATH.read_text(encoding="utf-8")
+        guard = workflow.split(
+            "      - name: Require persistent producer on verified Surface artifact miss", 1
+        )[1].split(
+            "      - name: Install full Surface Buildroot host dependencies on durable artifact miss", 1
+        )[0]
+        self.assertIn("steps.surface-artifact-cache.outputs.cache-hit != 'true'", guard)
+        self.assertIn("steps.surface-r2.outputs.hit != 'true'", guard)
+        self.assertIn('if [ -z "${ORDAX_SURFACE_PERSISTENT_WORK_ROOT:-}" ]; then', guard)
+        self.assertIn("Refusing another hosted 330-minute rebuild", guard)
+        self.assertLess(
+            workflow.index("Require persistent producer on verified Surface artifact miss"),
+            workflow.index("Install full Surface Buildroot host dependencies on durable artifact miss"),
+        )
+
     def test_persistent_graphical_cache_is_same_for_kconfig_and_make_and_not_uploaded(self):
         workflow = WORKFLOW_PATH.read_text(encoding="utf-8")
         resolver = workflow.split(

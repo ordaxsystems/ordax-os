@@ -97,3 +97,12 @@ o fingerprint nativo e o Kconfig selado conferem, o `flock` é exclusivo e
 nenhum manifesto ou artefato incompleto é aceito. Não é permitido tratar o
 limite de 720 minutos como prova de sucesso, nem executar novo build caro em
 runner descartável apenas porque o anterior chegou a 330 minutos.
+
+**Bloqueio causal de miss em runner descartável:** com cache GitHub e R2 sem
+EROFs válido para o fingerprint atual, o workflow falha *antes* de instalar
+dependências gráficas ou compilar WebKit, caso não exista o workspace persistente
+configurado. Esse guard impede repetir a tentativa que encerrou em `330m`
+no runner hospedado. A compilação nova requer o produtor Linux x86_64
+self-hosted confiável, persistência do `O=` e ambiente pinado; a publicação
+somente ocorre depois da verificação de EROFS e recibos. Sem isso, o gate
+permanece vermelho e os consumidores Creator/QEMU não fabricam um artefato.

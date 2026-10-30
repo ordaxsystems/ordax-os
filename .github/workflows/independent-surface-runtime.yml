@@ -216,6 +216,15 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends erofs-utils util-linux
 
+      - name: Require persistent producer on verified Surface artifact miss
+        if: steps.surface-artifact-cache.outputs.cache-hit != 'true' && steps.surface-r2.outputs.hit != 'true'
+        run: |
+          set -euo pipefail
+          if [ -z "${ORDAX_SURFACE_PERSISTENT_WORK_ROOT:-}" ]; then
+            echo "::error title=Surface EROFS requires resumable producer::No verified EROFS is available in the exact GitHub cache or R2. Refusing another hosted 330-minute rebuild. Configure the pinned Linux self-hosted producer and persistent workspace before attempting the same WebKit build." >&2
+            exit 1
+          fi
+
       - name: Install full Surface Buildroot host dependencies on durable artifact miss
         if: steps.surface-artifact-cache.outputs.cache-hit != 'true' && steps.surface-r2.outputs.hit != 'true'
         run: |
