@@ -131,7 +131,7 @@ export function createDesktopLocalAiMiddleware({
   // One unexpected engine exit may recover through the existing single-engine
   // recycler. A second crash requires explicit host intervention: no loop.
   let unexpectedRecoveries = 0;
-  // Only short interactive consultations get an elevated CPU scheduling share.
+  // Every bounded short consultation gets a temporary CPU scheduling share;
   // Restore after the last quick request, including errors and cancellation.
   let quickInFlight = 0, priorityPid = null, previousPriority = null;
   const beginQuickInference = () => {
@@ -315,7 +315,7 @@ export function createDesktopLocalAiMiddleware({
         const decision = boundWindowsGreeting(assertRequest(data, model.modelId));
         const validated = decision.request;
         body = JSON.stringify(validated);
-        if (decision.quick) {
+        if (validated.max_tokens <= 128) {
           beginQuickInference();
           priorityHeld = true;
         }
