@@ -45,7 +45,7 @@ class NativeMemoryIntegrationTests(unittest.TestCase):
         self.assertIn("memoryStore,", composition)
         self.assertIn("createMemoryRuntime({ store: memoryStore })", composition)
         self.assertRegex(composition, r"createIntelligenceRuntime\(\{\s*inferencePort:\s*localAi,")
-    self.assertIn('getLocale: () => preferenceStore.load()["regional.locale"]', composition)
+        self.assertIn('getLocale: () => preferenceStore.load()["regional.locale"]', composition)
         self.assertNotIn("createIntelligenceRuntime({ inferencePort: localAi, memory", composition)
         self.assertIn("createIdentityBoundMemoryIntelligence", composition)
         self.assertIn("intelligencePort: consumerIntelligence", composition)
