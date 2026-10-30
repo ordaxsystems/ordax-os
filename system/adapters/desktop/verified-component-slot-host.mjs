@@ -9,6 +9,7 @@ import { isAbsolute, join, relative, sep } from "node:path";
 import { EXTERNAL_FIRST_PARTY_NATIVE_MODULE_READ_IDS } from "../../services/apps/external-first-party-policy.mjs";
 
 const META = "/__ordax/native/component-runtime";
+const COMPAT = "/__ordax/native/component-compatibility";
 const MODULE = "/__ordax/native/component-module/";
 const IDS = new Set(EXTERNAL_FIRST_PARTY_NATIVE_MODULE_READ_IDS);
 const ID = /^[a-z][a-z0-9-]{0,63}$/;
@@ -17,6 +18,7 @@ const SHA256 = /^[0-9a-f]{64}$/;
 const SEMVER = /^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-[0-9A-Za-z.-]+)?$/;
 const SEGMENT = /^[A-Za-z0-9][A-Za-z0-9._-]{0,180}$/;
 const MAX_META = 16 * 1024;
+const MAX_COMPAT = 96 * 1024;
 const MAX_MODULE = 2 * 1024 * 1024;
 const REQUEST_TIMEOUT = 3000;
 const MIME = Object.freeze({
@@ -89,7 +91,8 @@ function trustedConfiguration(systemRoot, verifierRoot, userData) {
       || !within(realpathSync(systemRoot), realpathSync(activeAnchor))) return null;
     const slot = lstatSync(root);
     if (!slot.isDirectory() || slot.isSymbolicLink()) return null;
-    return Object.freeze({ helper, trust: anchorPath, root });
+    return Object.freeze({ helper, trust: anchorPath, root,
+      trustSha256: createHash("sha256").update(anchor).digest("hex") });
   } catch { return null; }
 }
 
@@ -133,10 +136,21 @@ function parseRequest(url) {
   const [path, rawQuery, ...extra] = url.split("?");
   // A middleware must never answer for an unrelated Native/static route.
   // This also preserves the established 404 on unsafe ordinary file paths.
-  if (path !== META && !path.startsWith(MODULE)) return null;
+  if (path !== META && path !== COMPAT && !path.startsWith(MODULE)) return null;
   if (url.length > 900 || /[%\\#\0]/.test(url) || url.includes("//"))
     return { error: 400 };
   if (extra.length) return { error: 400 };
+  if (path === COMPAT) {
+    if (typeof rawQuery !== "string") return { error: 400 };
+    const query = new URLSearchParams(rawQuery);
+    if ([...query.keys()].sort().join(",") !== "component,revision,state") return { error: 400 };
+    const id = query.get("component"), state = query.get("state");
+    const textRevision = query.get("revision");
+    if (!ID.test(id ?? "") || !IDS.has(id) || state !== "current") return { error: 404 };
+    if (!/^[1-9][0-9]{0,15}$/.test(textRevision ?? "")
+      || !Number.isSafeInteger(Number(textRevision))) return { error: 400 };
+    return { id, state, revision: Number(textRevision), kind: "compatibility" };
+  }
   if (path === META) {
     if (typeof rawQuery !== "string") return { error: 400 };
     const query = new URLSearchParams(rawQuery);
@@ -162,6 +176,44 @@ function parseRequest(url) {
     return { kind: "module", id, state, version, sourceCommit, file, mime };
   }
   return null;
+}
+
+// The Go channel verifies release/2 signature, the sidecar digest and the
+// canonical activation revision. This transport only checks the reported
+// identity against the requested snapshot; it does not sign or grant anything.
+function parseSignedCompatibility(output, request, trustSha256) {
+  if (!Buffer.isBuffer(output) || output.length > MAX_COMPAT)
+    throw Error("Signed component compatibility output exceeds bounds");
+  const report = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(output));
+  const slot = report?.verifiedSlot;
+  const descriptor = slot?.descriptor;
+  if (report?.schema !== "ordax.activation-slot-compatibility-snapshot/1"
+    || report.authority !== "none" || report.trustScope !== "caller-supplied-public-anchor"
+    || report.trustSHA256 !== trustSha256
+    || report.componentId !== request.id || report.target !== "current"
+    || report.revision !== request.revision
+    || slot?.schema !== "ordax.verified-slot-compatibility/1"
+    || slot.authority !== "none"
+    || slot.trustScope !== "caller-supplied-public-anchor"
+    || slot.trustSHA256 !== trustSha256
+    || slot.activationStatus !== "not-evaluated"
+    || slot.componentId !== request.id
+    || !SEMVER.test(slot.version ?? "") || !SHA.test(slot.sourceCommit ?? "")
+    || descriptor?.schema !== "ordax.component-compatibility/1"
+    || descriptor.componentId !== request.id
+    || descriptor.componentVersion !== slot.version
+    || descriptor.authority !== "none") {
+    throw Error("Signed component compatibility identity mismatch");
+  }
+  return Object.freeze({
+    schema: "ordax.native-verified-current-compatibility/1",
+    componentId: request.id,
+    state: "current",
+    revision: request.revision,
+    version: slot.version,
+    sourceCommit: slot.sourceCommit,
+    descriptor,
+  });
 }
 
 function invoke(helper, args, execFileImpl, max) {
@@ -205,6 +257,16 @@ export function createDesktopVerifiedComponentSlotMiddleware({
     const config = platform === "win32" ? trustedConfiguration(systemRoot, verifierRoot, userData) : null;
     if (!config) return respond(res, 404);
     void (async () => {
+      if (request.kind === "compatibility") {
+        const output = await invoke(config.helper, [
+          "inspect-activation-compatibility-v2",
+          "--component", request.id, "--target", "current",
+          "--expected-revision", String(request.revision),
+          "--trust", config.trust, "--root", config.root,
+        ], execFileImpl, MAX_COMPAT);
+        const verified = parseSignedCompatibility(output, request, config.trustSha256);
+        return respond(res, 200, JSON.stringify(verified));
+      }
       if (request.kind === "metadata") {
         const output = await invoke(config.helper, [
           "resolve-current", "--component", request.id,
