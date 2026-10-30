@@ -27,7 +27,7 @@ jobs:
   interop-fixtures:
     runs-on: ubuntu-24.04
     outputs:
-      matrix: ${{ steps.fixtures.outputs.matrix }
+      matrix: ${{ steps.fixtures.outputs.matrix }}
     steps:
       - name: Checkout exact OS contract
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -78,14 +78,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include: ${{ fromJSON(needs.interop-fixtures.outputs.matrix) }
+        include: ${{ fromJSON(needs.interop-fixtures.outputs.matrix) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     env:
-      COMPONENT_ID: ${{ matrix.component_id }
-      COMPONENT_VERSION: ${{ matrix.component_version }
-      COMPONENT_SHA: ${{ matrix.source_commit }
-      COMPONENT_COMPATIBILITY: ${{ matrix.compatibility_path }
+      COMPONENT_ID: ${{ matrix.component_id }}
+      COMPONENT_VERSION: ${{ matrix.component_version }}
+      COMPONENT_SHA: ${{ matrix.source_commit }}
+      COMPONENT_COMPATIBILITY: ${{ matrix.compatibility_path }}
     steps:
       - name: Checkout exact platform source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -96,7 +96,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: ordaxsystems/ordax-apps
-          ref: ${{ matrix.source_commit }
+          ref: ${{ matrix.source_commit }}
           path: .ordax-apps-fixture
           persist-credentials: false
 
