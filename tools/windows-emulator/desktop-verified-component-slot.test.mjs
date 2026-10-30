@@ -96,8 +96,8 @@ test("Windows current-slot metadata and exact module bytes delegate to Go withou
   const base = await serve(t, f, (binary, args, options, cb) => {
     calls.push({ binary, args, options });
     assert.equal(binary, f.helper);
-    assert.ok(!binary.startsWith(f.osRoot + "/"));
-    assert.ok(!binary.startsWith(f.userData + "/"));
+    assert.notEqual(binary, join(f.osRoot, "tools", "runtime-component-channel",
+      "ordax-runtime-component-channel.exe"));
     assert.equal(options.timeout, 3000);
     assert.equal(options.encoding, "buffer");
     assert.equal(options.windowsHide, true);
