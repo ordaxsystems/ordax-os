@@ -14,7 +14,14 @@ class IntelligenceProductConsumerTests(unittest.TestCase):
     def test_native_composes_intelligence_once_and_injects_consumers(self):
         text = NATIVE.read_text(encoding="utf-8")
         self.assertEqual(text.count("createLocalAiRuntime({"), 1)
-        self.assertEqual(text.count("createIntelligenceRuntime({ inferencePort: localAi })"), 1)
+        # The unique Intelligence consumer may include additional canonical
+        # options such as locale without adding another model/provider.
+        import re
+        consumers = re.findall(
+            r"createIntelligenceRuntime\(\{\s*inferencePort:\s*localAi,", text
+        )
+        self.assertEqual(len(consumers), 1)
+        self.assertIn('getLocale: () => preferenceStore.load()["regional.locale"]', text)
         self.assertIn("createLocalAiProbeSupervisor", text)
         self.assertIn("localAiProbeSupervisor.start();", text)
         self.assertIn("localAiProbeSupervisor.dispose();", text)
