@@ -34,6 +34,50 @@ class SystemDiagnosticOwnerMountTests(unittest.TestCase):
         destroy = source.index("destroy() {")
         self.assertIn("disposeDiagnosticsReview();", source[destroy:])
 
+    def test_opening_diagnostics_prepares_once_without_restarting_on_repaint(self):
+        source = self.source()
+        self.assertIn("let diagnosticReviewStarted = false;", source)
+        mount = source.index("if (diagnosticMount) {")
+        prepared = source.index("if (!diagnosticReviewStarted) {", mount)
+        update_flag = source.index("diagnosticReviewStarted = true;", prepared)
+        prepare = source.index("void diagnosticReviewController.prepare();", update_flag)
+        restored = source.index("restoreInteractionState(slot, interaction);", prepare)
+        self.assertLess(mount, prepared)
+        self.assertLess(prepared, update_flag)
+        self.assertLess(update_flag, prepare)
+        self.assertLess(prepare, restored)
+        self.assertEqual(source.count("void diagnosticReviewController.prepare();"), 1)
+        # Review preparation cannot be conflated with exporting or repairing.
+        self.assertNotIn("diagnosticReviewController.exportPrepared()", source)
+        self.assertNotIn("diagnosticReviewController.copyPreparedSummary()", source)
+
+    def test_first_open_diagnostic_policy_is_local_in_both_languages(self):
+        # The review is prepared locally on entry; downloading/exporting it
+        # remains an independent explicit action even when the Surface repaints.
+        policy = (
+            ROOT / "system/services/i18n/catalog/system-diagnostics.mjs"
+        ).read_text(encoding="utf-8")
+        self.assertIn(
+            "Ao abrir Diagnóstico, a revisão é preparada localmente", policy
+        )
+        self.assertIn(
+            "Opening Diagnostics prepares a local review", policy
+        )
+        self.assertIn(
+            "Nenhuma informação é enviada. Copiar e salvar exigem ações separadas.",
+            policy,
+        )
+        self.assertIn(
+            "Nothing is transmitted. Copying and saving require separate actions.",
+            policy,
+        )
+        source = self.source()
+        mounted = source.index("if (diagnosticMount) {")
+        prepared = source.index("void diagnosticReviewController.prepare();", mounted)
+        end_mount = source.index("restoreInteractionState(slot, interaction);", prepared)
+        self.assertLess(mounted, prepared)
+        self.assertLess(prepared, end_mount)
+
     def test_missing_slot_also_releases_diagnostic_subscription(self):
         source = self.source()
         marker = "if (!slot) {\n      disposeDiagnosticsReview();\n      mountedSlot = null;"

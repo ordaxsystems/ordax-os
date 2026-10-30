@@ -22,7 +22,15 @@ class NativeMemoryIntegrationTests(unittest.TestCase):
         self.assertIn("read_memory_endpoint()", host)
         self.assertIn("write_memory_endpoint(", host)
         self.assertIn("MEMORY_PATH, FILES_PATH", host)
-        self.assertNotIn("Access-Control-Allow-Origin", host)
+        # Native memory remains outside the sole CORS-eligible signed-code
+        # route. Actual opaque-origin HTTP denial is proven in the canonical
+        # request-boundary integration tests.
+        self.assertIn(
+            'if opaque_signed_module_read_is_trusted(self.headers, self.path, self.command):',
+            host,
+        )
+        self.assertIn('self.send_header("Access-Control-Allow-Origin", "null")', host)
+        self.assertNotIn('self.send_header("Access-Control-Allow-Origin", "*")', host)
 
     def test_native_composition_probes_memory_fail_soft_and_keeps_memory_authorization_in_composition(self):
         composition = COMPOSITION.read_text(encoding="utf-8")
@@ -114,11 +122,13 @@ class NativeMemoryIntegrationTests(unittest.TestCase):
         self.assertIn("identitySessionPort: identitySession", composition)
         self.assertIn("spaceSelectionPort: spaceSelection", composition)
 
-    def test_intelligence_workflow_covers_host_composition_and_integration_regression(self):
+    def test_intelligence_workflow_covers_memory_owners_and_integration_regression(self):
         workflow = WORKFLOW.read_text(encoding="utf-8")
 
         self.assertIn("'system/surface/runtime/native_host_server.py'", workflow)
-        self.assertIn("'system/composition/native/main.mjs'", workflow)
+        self.assertIn("'system/composition/native/account-memory.mjs'", workflow)
+        self.assertIn("'system/composition/native/account-memory-foundation.mjs'", workflow)
+        self.assertNotIn("'system/composition/native/main.mjs'", workflow)
         self.assertIn("'tests/test_native_memory_integration.py'", workflow)
         self.assertIn("python -m unittest tests.test_native_memory_integration -v", workflow)
 

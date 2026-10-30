@@ -779,29 +779,132 @@
       "source": "src/components/central/central.tsx",
       "target": "system/surface/workspace/components/central/central.tsx",
       "sha256": "9bd93928ac8ba6b875ab88e28f289f693d0b75afe60c8cce95d3239d65d05b32",
-      "adaptedSha256": "c000e5b75a9c6946c674953b9a547a1e580f36ca437f36b9652c267cd81a82fd",
-      "adaptation": "Authorized OS Surface adaptation: shared windows/sidebar and approved responsive layout; canonical session/catalog and explicit session-only Space selection, other backend integrations deferred User-requested removal of footer mode selector, unused footer CSS and reserved grid tracks; other controls preserved. Shared favorite-shortcut presentation consumes a single persisted preference and metadata owner; no installation or grants."
+      "adaptedSha256": "6c57b63700bb7cd13d993730011c18fe026c3b90b21dc25f8fbd5ce98b493f46",
+      "adaptation": "Authorized OS Surface adaptation: shared windows/sidebar and approved responsive layout; canonical session/catalog and explicit session-only Space selection, other backend integrations deferred User-requested removal of footer mode selector, unused footer CSS and reserved grid tracks; other controls preserved. Shared favorite-shortcut presentation consumes a single persisted preference and metadata owner; no installation or grants. 2026-10-14: explicit user adoption of Meridian editorial Central, canonical hero imagery, preserved planned examples, shared Store presentation and canonical symbol. Existing account/preferences/window owners retained. Full Meridian chrome correction: context/grouped rail, utility/account footer, persistent header search and centered icon dock; existing slots, providers and desktop reducer retained. 2026-10-19: removed the persistent header from the Central view while keeping shared navigation, the desktop view, and window interactions.",
+      "adaptationHistory": [
+        {
+          "date": "2026-10-14",
+          "sha256": "c000e5b75a9c6946c674953b9a547a1e580f36ca437f36b9652c267cd81a82fd",
+          "reason": "Baseline before explicitly requested Meridian integration"
+        },
+        {
+          "date": "2026-10-14",
+          "sha256": "61a0c2c1bc6c92f9d1102f8b5eace6658db7324ee5ea37cc70b849c8da0fb939",
+          "reason": "Before full Meridian rail/topbar/dock correction explicitly requested by user"
+        },
+        {
+          "date": "2026-10-19",
+          "sha256": "e9012a30c3a7e747f798ad65f36645aa584bf6f5a527ee5e0b29e4f709b01e1a",
+          "reason": "Before user-requested removal of the persistent header from the Central view"
+        }
+      ]
     },
     {
       "source": "src/components/central/config.ts",
       "target": "system/surface/workspace/components/central/config.ts",
       "sha256": "fba00caf21c141ed761600ad32d0816657b8d857bfa40587b6588d24fd61c0ca",
-      "adaptedSha256": "262ff42f2892bf0f09425f1df1b8ddbf369f837f42ccbd19f57088b2470b05d0",
-      "adaptation": "Authorized OS Surface adaptation: shared windows/sidebar and approved responsive layout; canonical session/catalog and explicit session-only Space selection, other backend integrations deferred Shared favorite-shortcut presentation consumes a single persisted preference and metadata owner; no installation or grants."
+      "adaptedSha256": "cf6ef7e080d82464ef8b8dbfda0ba33a001918218d5e12e60f8e9441d758fe48",
+      "adaptation": "Authorized OS Surface adaptation: shared windows/sidebar and approved responsive layout; canonical session/catalog and explicit session-only Space selection, other backend integrations deferred Shared favorite-shortcut presentation consumes a single persisted preference and metadata owner; no installation or grants. 2026-10-14: explicit user adoption of Meridian editorial Central, canonical hero imagery, preserved planned examples, shared Store presentation and canonical symbol. Existing account/preferences/window owners retained. Full Meridian chrome correction: context/grouped rail, utility/account footer, persistent header search and centered icon dock; existing slots, providers and desktop reducer retained. Shared planned-service presentation preserves existing notes and gates; navigation search includes canonical target labels and routes Continuity to its own existing window. 2026-10-17: destination labels and managed window identity consume the canonical data-only Surface destination catalog; preferences reuse the same owner while icons, tones and layout remain presentation-owned. 2026-10-17: Central resolves label and managed window aliases through the Surface destination owner directly, independent of the favorites preference; inherited prototype names fail closed at destination lookup. 2026-10-18: Shared Meridian rail destinations and canonical Web/Native window label ownership. 2026-10-19: desktop shortcut metadata now carries stable canonical IDs, keeping shortcut identity and appearance tied to the shared destination model. 2026-10-23: unavailable Intelligence presentation now derives the display title from the canonical Surface destination registry; no new UI owner, install state or inference authority.",
+      "adaptationHistory": [
+        {
+          "date": "2026-10-14",
+          "sha256": "262ff42f2892bf0f09425f1df1b8ddbf369f837f42ccbd19f57088b2470b05d0",
+          "reason": "Baseline before explicitly requested Meridian integration"
+        },
+        {
+          "date": "2026-10-14",
+          "sha256": "e3064088ed291765fd4e0e5d44909cac38cf9545ed49d0f6fa7a7dee67bd35fe",
+          "reason": "Before full Meridian rail/topbar/dock correction explicitly requested by user"
+        },
+        {
+          "date": "2026-10-17",
+          "sha256": "081e34022872c712785b554f38711a8f11b93bfeccef02b6fec3bfe0d357c6c8",
+          "reason": "Before canonical Surface destination identity consolidation"
+        },
+        {
+          "date": "2026-10-17",
+          "sha256": "fe209c7522317ef35d144b8e150d526fdbc00b55ba132377be523da67679ced9",
+          "reason": "Before canonical managed-window alias resolver and strict destination lookup"
+        },
+        {
+          "date": "2026-10-18",
+          "sha256": "76a32ba6307cc1ba1f524c57b2e33ed058cb3ad1368ee508286c919fbf43e395",
+          "reason": "Before reviewed 2026-10-18 Native/Web Meridian alignment"
+        },
+        {
+          "date": "2026-10-19",
+          "sha256": "7971512d056853c543b69292f179aa4ec0fccad89c5c9e5735477cf9ee709346",
+          "reason": "Before adding stable IDs to desktop shortcut metadata"
+        },
+        {
+          "date": "2026-10-23",
+          "sha256": "3a6e96ab448f4a64a10d8b46c806087557b4c2d60f1ef54f99d069d38175c8a8",
+          "reason": "Previous reviewed Surface adaptation before canonical name binding."
+        }
+      ]
     },
     {
       "source": "src/components/central/primitives.tsx",
       "target": "system/surface/workspace/components/central/primitives.tsx",
       "sha256": "7816a0462dbb54c4cf638a20b937bb1c359c113fbc7e36c4e4fdccb1f7fef330",
-      "adaptedSha256": "7224aea796e80545360098973abb44e655b57777759d3f357dd4121583ea555d",
-      "adaptation": "Authorized OS Surface adaptation: shared windows/sidebar and approved responsive layout; canonical session/catalog and explicit session-only Space selection, other backend integrations deferred Shared favorite-shortcut presentation consumes a single persisted preference and metadata owner; no installation or grants."
+      "adaptedSha256": "db4b8fdc2e108eb138d62bc1f58a483122f2df3a28f6678b5153fd8cb9fad663",
+      "adaptation": "Authorized OS Surface adaptation: shared windows/sidebar and approved responsive layout; canonical session/catalog and explicit session-only Space selection, other backend integrations deferred Shared favorite-shortcut presentation consumes a single persisted preference and metadata owner; no installation or grants. 2026-10-14: explicit user adoption of Meridian editorial Central, canonical hero imagery, preserved planned examples, shared Store presentation and canonical symbol. Existing account/preferences/window owners retained. 2026-10-16: Account keeps signup visible but disabled until the canonical server policy grants register; existing identity-actions own navigation, revalidation and session state. No credentials or legal acceptance are collected by this panel. 2026-10-16: authenticated account presentation separates confirmed identity from pending services; management links use the canonical public portal origin. Account redesign: in-system session/context and local shortcuts, canonical portal management in a labelled new tab; readable rail profile and status, without duplicating account authority. 2026-10-18: Unified Meridian chrome primitives and Home presentation retain existing state/host contracts.",
+      "adaptationHistory": [
+        {
+          "date": "2026-10-14",
+          "sha256": "7224aea796e80545360098973abb44e655b57777759d3f357dd4121583ea555d",
+          "reason": "Baseline before explicitly requested Meridian integration"
+        },
+        {
+          "date": "2026-10-18",
+          "sha256": "e6e318d5093b710e3e5c2e90e01a656d2e75bda8e72bf11bb2aa47e26e8036d6",
+          "reason": "Before reviewed 2026-10-18 Native/Web Meridian alignment"
+        }
+      ]
     },
     {
       "source": "src/components/central/desktop.tsx",
       "target": "system/surface/workspace/components/central/desktop.tsx",
       "sha256": "94a04a3b31089cb251c59308f90365390b2113cfd148b06d463a63c0b395e8fa",
-      "adaptedSha256": "5e32632dee5228d229ce93161173e422f0011a26b66419b82a46413dad46afb0",
-      "adaptation": "Shared modal navigation uses the existing Dialog focus owner and canonical app window state; search/return-to-home work without custom overlay or Escape listener. Approved layout and unavailable services preserved. Native search label and 44-pixel close target improve menu touch access without new controls or palette. Canonical accessibility preferences apply across Web via shared tokens and runtime, responsive controls and relative typography; no new storage or authority. Shared favorite-shortcut presentation consumes a single persisted preference and metadata owner; no installation or grants. 2026-10-12: selectable USB color profile references Native semantic tokens; layout unchanged. 2026-10-12: shared color-palette service and stylesheet consumed by Web/Native; no copied palette.; contextual Central/Desktop destination feedback and canonical sidebar width preserved (2026-10-12) Notification UX uses one shared renderer/CSS and the canonical preferences; Web explicitly has no authorized delivery adapter. Native updater ownership is unchanged. 2026-10-13: duplicate Aura/Intelligence presentation state and submit UI removed from DesktopContent after the canonical WindowContent -> AuraContent route passed deterministic build and real Chromium; Store/account/navigation ownership remains unchanged."
+      "adaptedSha256": "c0373dfb7add9caa2177b707f06343e68bd3213905c1c4fd2dfbf71cdad6e8d8",
+      "adaptation": "Shared modal navigation uses the existing Dialog focus owner and canonical app window state; search/return-to-home work without custom overlay or Escape listener. Approved layout and unavailable services preserved. Native search label and 44-pixel close target improve menu touch access without new controls or palette. Canonical accessibility preferences apply across Web via shared tokens and runtime, responsive controls and relative typography; no new storage or authority. Shared favorite-shortcut presentation consumes a single persisted preference and metadata owner; no installation or grants. 2026-10-12: selectable USB color profile references Native semantic tokens; layout unchanged. 2026-10-12: shared color-palette service and stylesheet consumed by Web/Native; no copied palette.; contextual Central/Desktop destination feedback and canonical sidebar width preserved (2026-10-12) Notification UX uses one shared renderer/CSS and the canonical preferences; Web explicitly has no authorized delivery adapter. Native updater ownership is unchanged. 2026-10-13: duplicate Aura/Intelligence presentation state and submit UI removed from DesktopContent after the canonical WindowContent -> AuraContent route passed deterministic build and real Chromium; Store/account/navigation ownership remains unchanged. 2026-10-14: explicit user adoption of Meridian editorial Central, canonical hero imagery, preserved planned examples, shared Store presentation and canonical symbol. Existing account/preferences/window owners retained. 2026-10-14: user-requested Meridian presentation; shared tokens, explicit planned examples and existing canonical owners retained. Full Meridian chrome correction: context/grouped rail, utility/account footer, persistent header search and centered icon dock; existing slots, providers and desktop reducer retained. Additive canonical Profile catalog reader, composed by Web; original planned copy and no activation retained. Add explicit pending-parity notes without reducing planned features or changing service authority. 2026-10-16: reviewed existing shared Meridian Spaces presentation and lazy Settings journey integration; real account/selection and planned examples remain separate. Account-backed Spaces now render the existing authorized read/selection ports in Meridian cards, with pending/error/empty states and no operational metrics; full examples remain explicit and separate. 2026-10-16: catalog failure copy no longer implies that an authenticated account is disconnected. Account redesign: in-system session/context and local shortcuts, canonical portal management in a labelled new tab; readable rail profile and status, without duplicating account authority. Shared planned-service presentation preserves existing notes and gates; navigation search includes canonical target labels and routes Continuity to its own existing window. 2026-10-19: desktop shortcut buttons use stable destination IDs, canonical glyph ownership and keyboard navigation, with full-label tooltips for clipped names. 2026-10-23: the desktop Aura shortcut now derives its visible title from the existing Surface destination catalog instead of a copied product string; all window and shortcut lifecycle owners remain unchanged.",
+      "adaptationHistory": [
+        {
+          "date": "2026-10-14",
+          "sha256": "5e32632dee5228d229ce93161173e422f0011a26b66419b82a46413dad46afb0",
+          "reason": "Baseline before explicitly requested Meridian integration"
+        },
+        {
+          "date": "2026-10-14",
+          "sha256": "cd7c3ad1ad690bb4c721913b5be29bc2103294f76a6bef0b92a1107e1e27fb68",
+          "reason": "Previous composition before explicit Meridian adoption"
+        },
+        {
+          "date": "2026-10-14",
+          "sha256": "722bf770ceb8bdfe763840a5b191865caa8f73df8d02cc095eedbb7d537ad879",
+          "reason": "Before full Meridian rail/topbar/dock correction explicitly requested by user"
+        },
+        {
+          "date": "2026-10-14",
+          "sha256": "7192567704344b06ebb1337483f6b80b5cabc297e9b329fdfec15e5079331b45",
+          "reason": "Before user-authorized additive read-only profile catalog; planned panel preserved"
+        },
+        {
+          "date": "2026-10-14",
+          "sha256": "b220629e0b7a69a17a9b20b3e76d8a938373b84a8dafbd0f5b5349a8b52764f0",
+          "reason": "Before additive compatibility notes preserving unavailable panels"
+        },
+        {
+          "date": "2026-10-19",
+          "sha256": "b577cf6712bc23924cb14d96b0f590c95c4e826e6aa1d6fc1ece26c3cca9a291",
+          "reason": "Before stable shortcut identity, keyboard grid navigation and clipped-label titles"
+        },
+        {
+          "date": "2026-10-23",
+          "sha256": "ac8057290805ba5ee6f7ef201950243070475345e1653bef92846426859e9159",
+          "reason": "Previous reviewed desktop integration before consuming canonical intelligence destination title."
+        }
+      ]
     },
     {
       "source": "src/components/central/desktop-state.ts",
@@ -814,8 +917,20 @@
       "source": "src/styles.css",
       "target": "system/surface/workspace/components/central/styles.css",
       "sha256": "89fa689f7a6d3308c1fcce9fb8149f736dfb5328442578d178315d5922bb70ea",
-      "adaptedSha256": "58fab47795f0f7934ce9a39ae877a7982fda2dab93932fd964dd76e80946aef8",
-      "adaptation": "Shared modal navigation uses the existing Dialog focus owner and canonical app window state; search/return-to-home work without custom overlay or Escape listener. Approved layout and unavailable services preserved. Native search label and 44-pixel close target improve menu touch access without new controls or palette. Canonical accessibility preferences apply across Web via shared tokens and runtime, responsive controls and relative typography; no new storage or authority. Single reducer retains selected compact app; mobile shows one mounted pane with selector, desktop preserves equal tiles; content responds to pane width. User-requested removal of footer mode selector, unused footer CSS and reserved grid tracks; other controls preserved. Shared favorite-shortcut presentation consumes a single persisted preference and metadata owner; no installation or grants. 2026-10-12: selectable USB color profile references Native semantic tokens; layout unchanged. 2026-10-12: shared color-palette service and stylesheet consumed by Web/Native; no copied palette.; contextual Central/Desktop destination feedback and canonical sidebar width preserved (2026-10-12)"
+      "adaptedSha256": "e2b173ce7adf5a38f37ebfdd987df4a3bdb0fb3ff2d414adc6f5985f0ff372eb",
+      "adaptation": "Shared modal navigation uses the existing Dialog focus owner and canonical app window state; search/return-to-home work without custom overlay or Escape listener. Approved layout and unavailable services preserved. Native search label and 44-pixel close target improve menu touch access without new controls or palette. Canonical accessibility preferences apply across Web via shared tokens and runtime, responsive controls and relative typography; no new storage or authority. Single reducer retains selected compact app; mobile shows one mounted pane with selector, desktop preserves equal tiles; content responds to pane width. User-requested removal of footer mode selector, unused footer CSS and reserved grid tracks; other controls preserved. Shared favorite-shortcut presentation consumes a single persisted preference and metadata owner; no installation or grants. 2026-10-12: selectable USB color profile references Native semantic tokens; layout unchanged. 2026-10-12: shared color-palette service and stylesheet consumed by Web/Native; no copied palette.; contextual Central/Desktop destination feedback and canonical sidebar width preserved (2026-10-12) 2026-10-18: Meridian visual tokens, grouped rail sizing and Native/Web layout continuity replace previous geometry. 2026-10-19: desktop task sizing, minimized markers and overflow labels are owned by the shared Meridian dock stylesheet; duplicate local rules were removed.",
+      "adaptationHistory": [
+        {
+          "date": "2026-10-18",
+          "sha256": "58fab47795f0f7934ce9a39ae877a7982fda2dab93932fd964dd76e80946aef8",
+          "reason": "Before reviewed 2026-10-18 Native/Web Meridian alignment"
+        },
+        {
+          "date": "2026-10-19",
+          "sha256": "6bc3435891a3350ffaadf9301d3a4e0b8cb8c39b6b3907c65c18f16b88980c81",
+          "reason": "Before consolidating dock sizing and minimized/overflow presentation in shared Meridian styles"
+        }
+      ]
     },
     {
       "source": "src/assets/alpine-day.jpg",
@@ -897,22 +1012,38 @@
       "sha256": "85ed8a65b1e6e52b931f3c0cb60c660c3ec79f7a9fe0f3356419c65c20ea6653",
       "owner": "OrdaX OS Surface",
       "purpose": "Stable shared app window rendering and restoration controls",
-      "adaptedSha256": "4257638b094fd117eb866da33540ecac7bd29abb6018c17fa0bc90c22ba8a48a",
-      "adaptation": "Shared modal navigation uses the existing Dialog focus owner and canonical app window state; search/return-to-home work without custom overlay or Escape listener. Approved layout and unavailable services preserved. Compact actions load on demand with isolated failure and existing restore dispatch; app bodies and window state remain mounted. Single reducer retains selected compact app; mobile shows one mounted pane with selector, desktop preserves equal tiles; content responds to pane width."
+      "adaptedSha256": "f5d2c9fb4f2bba2bceb0d362963cb4d43a420c7359d6dfde3a0c2f3c102fe928",
+      "adaptation": "Shared modal navigation uses the existing Dialog focus owner and canonical app window state; search/return-to-home work without custom overlay or Escape listener. Approved layout and unavailable services preserved. Compact actions load on demand with isolated failure and existing restore dispatch; app bodies and window state remain mounted. Single reducer retains selected compact app; mobile shows one mounted pane with selector, desktop preserves equal tiles; content responds to pane width. 2026-10-19: scoped the canonical window icon inside its title mark so mode-specific Meridian layouts target it without affecting other icons.",
+      "adaptationHistory": [
+        {
+          "date": "2026-10-19",
+          "sha256": "4257638b094fd117eb866da33540ecac7bd29abb6018c17fa0bc90c22ba8a48a",
+          "reason": "Before scoping the canonical window icon to its Meridian title mark"
+        }
+      ]
     },
     {
       "target": "system/composition/web/account-session.mjs",
       "sha256": "6fb5855d7979173ab2ecb945fb2d8fae173ad4c36cdb281cdceefc910da5b1f0",
       "owner": "OrdaX OS Surface",
-      "purpose": "Composition of canonical same-origin identity/actions and subject-bound read-only Spaces lifecycle"
+      "purpose": "Composition of canonical same-origin identity/actions, authorized Spaces reads and bounded server-authoritative membership actions",
+      "adaptedSha256": "3ef0183642c6806c5eefcfbb53ba70624ea763c276f80ebe1974ee97dcd98625",
+      "adaptation": " 2026-10-16: Web composes the existing validated registration policy through a bounded read-only adapter; anonymous readiness follows the gateway, with offline/account-change/disposal cancellation. Existing identity and Spaces authority remain unchanged. 2026-10-17: Web composes the canonical bounded Space members read adapter behind the authorized Spaces catalog; reads remain on-demand and read-only, with no membership mutation authority added to Central. 2026-10-17: Web account-session now composes the canonical bounded Space membership-actions runtime supplied by the authenticated account gateway; actor identity and authorization remain server-side, the Surface receives no direct transport/database authority, and unsupported actions continue to fail closed. 2026-10-17: Web account-session composes the server-authoritative Space actor-capability read boundary. The client consumes canManageMembers only as a presentation signal and does not derive authorization from membership role; mutation authorization remains in the canonical server predicate and membership RPC."
     },
     {
       "target": "system/surface/workspace/components/central/account-context.tsx",
       "sha256": "91186c177c48d3441ed6e09fcd599b6e5f557abe001921889a8d16eae4b509bc",
       "owner": "OrdaX OS Surface",
       "purpose": "React subscription context projecting existing account and Spaces ports without a second store",
-      "adaptedSha256": "250216ac5958882b2cf6209057c73f97ad98fc6bb3d53e25043c7de6fec98e1c",
-      "adaptation": "Web Surface reads canonical Identity, Actions, Spaces, Space selection and Surface Host snapshot ports without importing the Web composition; connectivity and Space guards remain unchanged."
+      "adaptedSha256": "dfd9252fc41bf2548deda27d17c5a027f77162d396aa21b98b0669e283fb4792",
+      "adaptation": "Web Surface reads canonical Identity, Actions, Spaces, Space selection and Surface Host snapshot ports without importing the Web composition; connectivity and Space guards remain unchanged. 2026-10-17: the context exposes the composed bounded Space members reader, server-authored actor capability reader and bounded membership action runtime to the Surface without importing transport, gateway, Supabase or RPC authority. 2026-10-18: shared account projection supplies localized status/connection state; profile geometry, typography and appearance now belong to shared ui/sidebar-layout.css for Web and Native/USB. Existing actions, storage notes and mocks retained.",
+      "adaptationHistory": [
+        {
+          "date": "2026-10-18",
+          "sha256": "57a5dfe2530414b9a8d80cb42ddec9e5f8f144d232062dcbf271eece94834ed8",
+          "reason": "Before user-authorized Web/Native sidebar profile SSOT unification"
+        }
+      ]
     },
     {
       "target": "system/adapters/web/space-selection.mjs",
@@ -924,29 +1055,82 @@
       "target": "system/services/preferences/runtime.mjs",
       "owner": "OrdaX OS preferences",
       "purpose": "Portable observable binding delegating validation and updates to the existing catalog and persistence to the canonical store port",
-      "sha256": "84b71ccd21165f196a61690e5b1d760d96a3dd8e12108e4b96d5222f857ebd5c"
+      "sha256": "84b71ccd21165f196a61690e5b1d760d96a3dd8e12108e4b96d5222f857ebd5c",
+      "adaptedSha256": "db6a3092a1b8dece9c2200397ded39dbb64dcfe7f3ae678acb443b7f8eeb1510",
+      "adaptation": "2026-10-18: Share one preference persistence confirmation controller across the Native Surface and portable runtime, publishing pending and host-confirmed results through the existing preference port. No new storage owner.",
+      "adaptationHistory": [
+        {
+          "sha256": "5e0212264fc792a5c9981e9b4b19a0d8e8bf050fd3a96c41c2c66cbe2eb672d6",
+          "reason": "Previous host-confirmed preference projection before current display scaling support"
+        },
+        {
+          "sha256": "84b71ccd21165f196a61690e5b1d760d96a3dd8e12108e4b96d5222f857ebd5c",
+          "reason": "Previous synchronous persistence-status projection before Native host acknowledgment"
+        },
+        {
+          "sha256": "7c623da813a3f60f4a4c9d447cdcb1069cf5757397d2f749c6111f6b3b737344",
+          "reason": "Previous portable async ACK tracking before the Native Surface shared the owner"
+        }
+      ]
     },
     {
       "target": "system/surface/workspace/components/central/preferences-context.tsx",
       "owner": "OrdaX OS Surface",
       "purpose": "One mounted theme subscription and document effect shared by Central/Desktop and Appearance",
       "sha256": "4415726f84d0cc44e98ffa9046e215ba87f4463e5a12d36f2cc02414ba69cd74",
-      "adaptedSha256": "ee8e98e939959b94ef929a450c946ee6a564da8565359a8c7946c49a2b2721be",
-      "adaptation": "OS Surface canonical preference consumer. Canonical accessibility preferences apply across Web via shared tokens and runtime, responsive controls and relative typography; no new storage or authority. Shared favorite-shortcut presentation consumes a single persisted preference and metadata owner; no installation or grants. 2026-10-12: selectable USB color profile references Native semantic tokens; layout unchanged. 2026-10-12: shared color-palette service and stylesheet consumed by Web/Native; no copied palette. Notification UX uses one shared renderer/CSS and the canonical preferences; Web explicitly has no authorized delivery adapter. Native updater ownership is unchanged."
+      "adaptedSha256": "63d1be9cfdcaf8f877a114e9a74b8f350f0e865c4c022f4b5322602e7e3978e4",
+      "adaptation": "OS Surface canonical preference consumer. Canonical accessibility preferences apply across Web via shared tokens and runtime, responsive controls and relative typography; no new storage or authority. Shared favorite-shortcut presentation consumes a single persisted preference and metadata owner; no installation or grants. 2026-10-12: selectable USB color profile references Native semantic tokens; layout unchanged. 2026-10-12: shared color-palette service and stylesheet consumed by Web/Native; no copied palette. Notification UX uses one shared renderer/CSS and the canonical preferences; Web explicitly has no authorized delivery adapter. Native updater ownership is unchanged.",
+      "adaptationHistory": [
+        {
+          "sha256": "ee8e98e939959b94ef929a450c946ee6a564da8565359a8c7946c49a2b2721be",
+          "reason": "Previous Central preference context before current display-scale and persistence status projections"
+        }
+      ]
     },
     {
       "target": "system/composition/web/main.tsx",
       "owner": "OrdaX OS Web composition",
       "purpose": "Single canonical mount and lifecycle of session, preferences, provider contexts and boot",
       "sha256": "48641f931bc5d2ed53a55ac19378d725e682da82ccfb5777e9f2461fbefe3240",
-      "adaptedSha256": "0db68d767adcbeaa367962800a1a5f92efbf4da76ea275a8f39221dbdd2eeba3",
-      "adaptation": "Web boot imports the shared data-only boot catalog instead of eagerly loading all Surface application translations; initial pt-BR messages, route, services and UI stay unchanged. HMR unmounts its one React root before disposing consumed ports; no second mount or global cache. 2026-10-12: shared color-palette service and stylesheet consumed by Web/Native; no copied palette. Web Router basepath now follows Vite BASE_URL for mounted candidates, keeping canonical root and without introducing a second route owner; retains the official /preview-os/ candidate prefix from #1716. Notification UX uses one shared renderer/CSS and the canonical preferences; Web explicitly has no authorized delivery adapter. Native updater ownership is unchanged. 2026-10-13: Web composition injects the canonical provider-neutral Intelligence client through a fail-closed unavailable Web adapter; no provider API, secret, inference authority or tool execution is introduced."
+      "adaptedSha256": "d87e2f05ff1958eaa2c1b311a275ab25e69970181a405ead82847345153da769",
+      "adaptation": "Web boot imports the shared data-only boot catalog instead of eagerly loading all Surface application translations; initial pt-BR messages, route, services and UI stay unchanged. HMR unmounts its one React root before disposing consumed ports; no second mount or global cache. 2026-10-12: shared color-palette service and stylesheet consumed by Web/Native; no copied palette. Web Router basepath now follows Vite BASE_URL for mounted candidates, keeping canonical root and without introducing a second route owner; retains the official /preview-os/ candidate prefix from #1716. Notification UX uses one shared renderer/CSS and the canonical preferences; Web explicitly has no authorized delivery adapter. Native updater ownership is unchanged. 2026-10-13: Web composition injects the canonical provider-neutral Intelligence client through a fail-closed unavailable Web adapter; no provider API, secret, inference authority or tool execution is introduced. 2026-10-14: user-requested Meridian presentation; shared tokens, explicit planned examples and existing canonical owners retained. Web composes the canonical bundled Profile catalog reader without activation, credentials or a new backend. 2026-10-16: reviewed current shared Meridian/journey imports; canonical Web ports and Native runtime boundaries are unchanged. 2026-10-16: Web production entry now fail-closes before mounting until the same-origin session is signed in; layout-proof bypass remains loopback-only and remote hosts retain normal authentication authority. 2026-10-18: Web composition delegates the latest unified Meridian navigation and Home layers while preserving the shared host/session boundaries. 2026-10-20: Web-only responsive behavior is imported from its composition boundary, while Settings journey styles are explicitly included; shared Surface rules no longer carry Web-specific responsive overrides.",
+      "adaptationHistory": [
+        {
+          "date": "2026-10-14",
+          "sha256": "0db68d767adcbeaa367962800a1a5f92efbf4da76ea275a8f39221dbdd2eeba3",
+          "reason": "Previous composition before explicit Meridian adoption"
+        },
+        {
+          "date": "2026-10-14",
+          "sha256": "61132ad3670e13c8f93848ae66606882e8cdf757fc934e52ab5625a6fe6d3026",
+          "reason": "Before additive read-only Profile catalog composition"
+        },
+        {
+          "date": "2026-10-18",
+          "sha256": "06e6fd830d263979f3f8fca8687f06528dda87b05e1481be63e14f6306a4ff6c",
+          "reason": "Before current Meridian Web composition adaptation"
+        },
+        {
+          "date": "2026-10-20",
+          "sha256": "80f6ebae4b652095f11d28f335b5c0e945589bc52c230ab1e456efe87fd83d4c",
+          "reason": "Before isolating Web viewport styles from the shared Surface composition"
+        }
+      ]
     },
     {
       "target": "system/adapters/web/runtime.mjs",
       "owner": "OrdaX OS Web adapter",
       "purpose": "Stable canonical Surface snapshots for browser connectivity and advertised capabilities; no network probing or duplicate store",
-      "sha256": "46e6999525ea0239ff1b3044d4acb2f87b27b049dedb1210a23f7af46148b894"
+      "sha256": "46e6999525ea0239ff1b3044d4acb2f87b27b049dedb1210a23f7af46148b894",
+      "adaptedSha256": "518f8bad68a2dd1afc409ea198e366fb990c36c7b3c5cf962797e4f22574086f",
+      "adaptation": "2026-10-17: Web Surface host reads the same real identity and sync providers, but delegates the shared dependency and capability ID projection to the Account domain owner. Web browser connectivity remains only a hint; no grants, new storage or independent identity backend.",
+      "adaptationHistory": [
+        {
+          "date": "2026-10-17",
+          "sha256": "46e6999525ea0239ff1b3044d4acb2f87b27b049dedb1210a23f7af46148b894",
+          "reason": "Before Account-owned identity/sync Surface capability projection"
+        }
+      ]
     },
     {
       "target": "system/adapters/web/json-read.mjs",
@@ -958,13 +1142,29 @@
       "target": "system/adapters/web/identity.mjs",
       "owner": "OrdaX OS Web adapter",
       "purpose": "Canonical account read lifecycle with bounded shared GET transport; domain validation and command authority remain in existing ports",
-      "sha256": "f9d51646cf32d2c0fe2125eac4859df59a5f5d7b8195bfb2b771d161ee04320c"
+      "sha256": "f9d51646cf32d2c0fe2125eac4859df59a5f5d7b8195bfb2b771d161ee04320c",
+      "adaptedSha256": "46de4b824fbc116aef3d5cba3226d7199cc63b74b279646289811d263acec36d",
+      "adaptation": "2026-10-20: project the validated account email alongside its existing subject and display name, and emit snapshot changes when email alone changes. No credential or authentication-token data is exposed. The shared identity adapter now prefers the optional, validated display name from the authenticated user's account row, with the email handle as fallback.",
+      "adaptationHistory": [
+        {
+          "date": "2026-10-20",
+          "sha256": "f9d51646cf32d2c0fe2125eac4859df59a5f5d7b8195bfb2b771d161ee04320c",
+          "reason": "Before exposing the validated account email in the identity snapshot"
+        },
+        {
+          "date": "2026-10-20",
+          "sha256": "428c59aa8c75b7d6c116fe1a813c2bb6e7283885874b6b3bfc201359a790db76",
+          "reason": "Before projecting the validated account display name from the authenticated session"
+        }
+      ]
     },
     {
       "target": "system/adapters/web/identity-actions.mjs",
       "owner": "OrdaX OS Web adapter",
       "purpose": "Canonical account read lifecycle with bounded shared GET transport; domain validation and command authority remain in existing ports",
-      "sha256": "2254f43a2d958eabd812926da58f3ccfb10de6fdf44edd69f16a4f7d52b9f133"
+      "sha256": "2254f43a2d958eabd812926da58f3ccfb10de6fdf44edd69f16a4f7d52b9f133",
+      "adaptedSha256": "d90984fce4264f7c6e89cf31a712698c9d81ef647bdc368373e19e0c70056d15",
+      "adaptation": " 2026-10-16: permitted signup navigation revalidates the existing server policy immediately before navigation; no account creation or legal acceptance occurs here."
     },
     {
       "target": "system/adapters/web/spaces.mjs",
@@ -976,15 +1176,24 @@
       "target": "system/services/i18n/catalog/boot.mjs",
       "owner": "OrdaX OS localization",
       "purpose": "Single data-only boot catalog shared by full Surface localization and thin pt-BR Web startup",
-      "sha256": "85c5a5559cc9d9beddec9aec9da9e2ccf65ecf1dbd61b7f27e4bc085fdb267d9"
+      "sha256": "85c5a5559cc9d9beddec9aec9da9e2ccf65ecf1dbd61b7f27e4bc085fdb267d9",
+      "adaptedSha256": "8a46b337bc07cc02a645c3f2b0123ad893fddea0b791752125cd6224e7d942f0",
+      "adaptation": "2026-10-23: commit c0be849c removed the unused deferred First Run boot message (pt-BR and en-US) from the canonical data-only boot catalog. The original upstream SHA-256 is retained for historical provenance; this adapted digest pins the exact current code without weakening the Native Central verifier."
     },
     {
       "target": "system/surface/workspace/components/central/window-content.tsx",
       "owner": "OrdaX OS Surface",
       "purpose": "Canonical per-window recovery or shared Store styles, without duplicated app/domain authority",
       "sha256": "8b23ed58a8c8ab15dd04d6142e5d8ec27e80d548eeec464693d063c79508a31a",
-      "adaptedSha256": "c5e312d688f30938cc3c230a49d2a0fdbe71c6bea3f5b5e02775762af9f7f5eb",
-      "adaptation": "Canonical Store loaded on demand; resource load failures offer explicit warned page reload because browsers cache failed module loads, while content retry resets only its own window. 2026-10-13: WindowContent routes Aura/Intelig?ncia to the canonical AuraContent consumer while preserving the existing per-window error boundary; provider ownership and execution authority remain outside the Surface."
+      "adaptedSha256": "882b5b086d74b943a7b9ae6194343f49410101706e7b4dcc1641c5b85f21ff6f",
+      "adaptation": "Canonical Store loaded on demand; resource load failures offer explicit warned page reload because browsers cache failed module loads, while content retry resets only its own window. 2026-10-13: WindowContent routes Aura/Intelig?ncia to the canonical AuraContent consumer while preserving the existing per-window error boundary; provider ownership and execution authority remain outside the Surface. 2026-10-23: window content now resolves the Intelligence/Aura destination title and compatibility alias from the existing canonical Surface destination-catalog.mjs instead of hardcoding duplicate names; no new window or provider is created.",
+      "adaptationHistory": [
+        {
+          "date": "2026-10-23",
+          "sha256": "c5e312d688f30938cc3c230a49d2a0fdbe71c6bea3f5b5e02775762af9f7f5eb",
+          "reason": "Previous reviewed Surface adaptation before canonical name binding."
+        }
+      ]
     },
     {
       "target": "system/surface/workspace/components/store/styles.css",
@@ -1009,8 +1218,15 @@
       "target": "system/surface/workspace/components/central/favorite-shortcuts.tsx",
       "sha256": "ba1112f5f0d0183722be14224a40f1665fc34f3f266bbb92b9501f727992f8b2",
       "purpose": "Single favorite-shortcut renderer/editor for Home and Apps using existing preference runtime/store and shared Dialog.",
-      "adaptedSha256": "4b974822eac73ab82bf5f307c33a3f9bdcd754c9ba0f47b9d78dcefef3fb6aab",
-      "adaptation": "Editor list fits tall phones; concise help and same preference/focus owner retained."
+      "adaptedSha256": "8ea2daf9a185323a0d7cabdf0236810879aaadb000bb75ce4ae1b9dfe05e43a6",
+      "adaptation": "Editor list fits tall phones; concise help and same preference/focus owner retained. Meridian consistency: material preview uses shared tokens and favorite launch uses canonical Aura title; no new preference or app authority.",
+      "adaptationHistory": [
+        {
+          "date": "2026-10-14",
+          "sha256": "4b974822eac73ab82bf5f307c33a3f9bdcd754c9ba0f47b9d78dcefef3fb6aab",
+          "reason": "Before Meridian preference/material consistency follow-up"
+        }
+      ]
     }
   ]
 }

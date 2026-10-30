@@ -9,6 +9,8 @@
     "preview": "vite preview --host 127.0.0.1 --port 4201 --strictPort",
     "typecheck": "tsc --noEmit",
     "verify": "node --experimental-strip-types checks/verify.mjs",
-    "verify:preview": "npm run verify -- --preview"
+    "verify:preview": "npm run verify -- --preview",
+    "build:store-preview": "vite build --config vite.store-preview.config.ts",
+    "preview:store-preview": "vite preview --config vite.store-preview.config.ts --host 127.0.0.1 --port 4204 --strictPort"
   }
 }

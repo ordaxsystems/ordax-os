@@ -40,10 +40,13 @@ def sha256_bytes(data: bytes) -> str:
 def discover_graph(root: Path = ROOT) -> list[PurePosixPath]:
     """Build inputs owned by Surface, thin composition, shared boot/i18n and one lock."""
     inputs = {
-        ENTRYPOINT, PurePosixPath("system/composition/web/main.tsx"),
+        ENTRYPOINT,
+        PurePosixPath("system/composition/web/main.tsx"),
+        PurePosixPath("system/composition/web/auth-entry-gate.mjs"),
         PurePosixPath("package.json"), PurePosixPath("package-lock.json"),
         PurePosixPath("tools/surface-web/package.json"),
         PurePosixPath("tools/surface-web/vite.config.ts"),
+        PurePosixPath("tools/surface-web/dependency-styles.mjs"),
         PurePosixPath("tools/surface-web/tsconfig.json"),
         PurePosixPath("docs/evidence/web-layout-reference-2026-10-10.json"),
         PurePosixPath("docs/evidence/web-central-reference-2026-10-11.json"),
@@ -78,11 +81,11 @@ def discover_graph(root: Path = ROOT) -> list[PurePosixPath]:
     return sorted(inputs, key=str)
 
 
-def compile_frontend(root: Path = ROOT) -> Path:
+def compile_frontend(root: Path = ROOT, mount_path: str = "/") -> Path:
     npm = shutil.which("npm.cmd" if os.name == "nt" else "npm")
     if npm is None:
         raise BundleError("Node/npm are required only on the build host")
-    result = subprocess.run([npm, "run", "build", "--workspace", "tools/surface-web"],
+    result = subprocess.run([npm, "run", "build", "--workspace", "tools/surface-web", "--", "--base", mount_path],
                             cwd=root, check=False)
     if result.returncode:
         raise BundleError("canonical Web typecheck/build failed")
@@ -92,14 +95,16 @@ def compile_frontend(root: Path = ROOT) -> Path:
     return compiled
 
 
-def build_bundle(out_dir: Path, source_commit: str, root: Path = ROOT) -> dict:
+def build_bundle(out_dir: Path, source_commit: str, root: Path = ROOT, mount_path: str = "/") -> dict:
     if not SHA40_RE.fullmatch(source_commit):
         raise BundleError("source commit must be a full lowercase 40-hex Git SHA")
+    if not re.fullmatch(r"/(?:[a-z0-9-]+/)*", mount_path):
+        raise BundleError("mount path must be a bounded same-origin directory")
     if out_dir.exists() and any(out_dir.iterdir()):
         raise BundleError(f"refusing to replace non-empty output directory: {out_dir}")
 
     graph = discover_graph(root)
-    compiled = compile_frontend(root)
+    compiled = compile_frontend(root, mount_path)
     out_dir.parent.mkdir(parents=True, exist_ok=True)
     stage = Path(tempfile.mkdtemp(prefix=".ordax-web-client-", dir=out_dir.parent))
     try:
@@ -124,6 +129,7 @@ def build_bundle(out_dir: Path, source_commit: str, root: Path = ROOT) -> dict:
             "source_commit": source_commit,
             "source_graph_entrypoint": ENTRYPOINT.as_posix(),
             "entrypoint": "index.html",
+            "mount_path": mount_path,
             "remote_runtime_dependencies": False,
             "framework_runtime_dependency": True,
             "framework_runtime_delivery": "bundled-local-assets",
@@ -156,6 +162,8 @@ def verify_bundle(out_dir: Path) -> dict:
         raise BundleError("manifest source_commit is invalid")
     if manifest.get("entrypoint") != "index.html" or not (out_dir / "index.html").is_file():
         raise BundleError("Web client root entrypoint is missing")
+    if not re.fullmatch(r"/(?:[a-z0-9-]+/)*", manifest.get("mount_path", "/")):
+        raise BundleError("invalid Web mount path")
     if manifest.get("remote_runtime_dependencies") is not False:
         raise BundleError("Web client may not gain an undeclared remote runtime dependency")
 
@@ -188,7 +196,7 @@ def command_check() -> int:
 
 
 def command_build(args: argparse.Namespace) -> int:
-    manifest = build_bundle(Path(args.out_dir), args.source_commit)
+    manifest = build_bundle(Path(args.out_dir), args.source_commit, mount_path=args.mount_path)
     print("WEB_CLIENT_BUILD=PASS")
     print(f"WEB_CLIENT_FILE_COUNT={len(manifest['files'])}")
     return 0
@@ -208,6 +216,7 @@ def main(argv: list[str] | None = None) -> int:
     build = sub.add_parser("build")
     build.add_argument("--out-dir", default="out/web-client")
     build.add_argument("--source-commit", required=True)
+    build.add_argument("--mount-path", default="/")
     verify = sub.add_parser("verify")
     verify.add_argument("--out-dir", default="out/web-client")
     args = parser.parse_args(argv)
@@ -218,7 +227,7 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "build":
             return command_build(args)
         return command_verify(args)
-    except (BundleError, OSError, ValueError, json.JSONDecodeError) as exc:
+    except (BundleError, SourceGraphError, OSError, ValueError, json.JSONDecodeError) as exc:
         print(f"WEB_CLIENT_ERROR={exc}", file=sys.stderr)
         return 1
 

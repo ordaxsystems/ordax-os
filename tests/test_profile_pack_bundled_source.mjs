@@ -56,6 +56,47 @@ test("bundled source loads the versioned authoritative Profile manifests", async
   );
 });
 
+test("four independent bundled manifests start in parallel but retain catalog order", async () => {
+  const catalog = JSON.parse(await readFile(resolve(ROOT, "system/profile-packs/catalog.json"), "utf8"));
+  const manifestPayloads = new Map(await Promise.all(catalog.entries.map(async (entry) => [
+    entry.manifest,
+    JSON.parse(await readFile(resolve(ROOT, entry.manifest.slice(1)), "utf8")),
+  ])));
+  const requested = [];
+  const pending = [];
+  const fetchImpl = async (path, options) => {
+    assert.equal(options.method, "GET");
+    assert.equal(options.credentials, "same-origin");
+    assert.equal(options.redirect, "error");
+    if (path === DEFAULT_BUNDLED_PROFILE_PACK_CATALOG) {
+      return { ok: true, redirected: false, json: async () => catalog };
+    }
+    requested.push(path);
+    return new Promise((resolve) => {
+      pending.push(() => resolve({
+        ok: true,
+        redirected: false,
+        json: async () => manifestPayloads.get(path),
+      }));
+    });
+  };
+  const loading = loadBundledProfilePacks({ fetchImpl });
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.deepEqual(
+    requested,
+    catalog.entries.map((entry) => entry.manifest),
+    "independent reads must all start before any manifest completes",
+  );
+  for (let i = pending.length - 1; i >= 0; i -= 1) pending[i]();
+  const source = await loading;
+  assert.deepEqual(
+    source.packs.map((pack) => pack.slug),
+    catalog.entries.map((entry) => entry.slug),
+    "completion order must not alter validated catalog order",
+  );
+  assert.ok(Object.isFrozen(source.packs));
+});
+
 test("bundled catalog index binds path to exact slug and version", () => {
   assert.throws(
     () => validateBundledProfilePackCatalogIndex({

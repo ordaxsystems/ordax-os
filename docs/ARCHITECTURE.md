@@ -62,8 +62,9 @@ UEFI
 Rules:
 
 - Git is physically present in the development base;
-- the source checkout is not preseeded into the USB image;
-- first acquisition uses a partial+sparse clone of runtime source plus the bounded Base-update/helper control plane;
+- a complete source checkout is never preseeded into the USB image;
+- the Owner/Development Creator may preload the exact clean bounded sparse runtime/control checkout for its own `source_commit`, using the same Git metadata and paths owned by `ordax-pull`;
+- when no valid preload exists, first acquisition uses a partial+sparse clone of runtime source plus the bounded Base-update/helper control plane;
 - later updates validate the remote fast-forward, prepare a clean checkout and switch the disposable Git-controlled tree atomically;
 - local checkout modifications are diagnosed and replaced by a clean validated cache instead of becoming source authority;
 - unexpected origin/branch state fails closed;
@@ -151,6 +152,30 @@ Shared code depends on stable capability IDs, not platform-name conditionals. Th
 - privileged/destructive capabilities require an explicit security boundary and user authorization where applicable.
 
 This lets future features such as delta updates, new hardware integrations, richer mobile APIs or remote-management capabilities grow through adapters and contracts instead of forcing a rewrite of shared product code.
+
+## Background execution and resource ownership
+
+Background work is part of the runtime contract, not an incidental UI detail.
+Every periodic task must have one named owner, a reason to run when inactive,
+a bounded cadence/concurrency policy and a tested teardown path.
+
+| Concern | Sole execution/authority owner | Boundary |
+| --- | --- | --- |
+| Owner/Development Git discovery, activation and Surface boot health | `system/supervisor` | Other processes consume its status and logs; they do not poll provisioning or recreate health policy |
+| Base/ESP staging and optional signed Aura acquisition | `system/services/base-update/agent.sh` with its canonical orchestrator | Optional download must yield to Base and recovery |
+| Local Aura process start/stop/retry on Owner USB | `bootstrap/dev-base/ordax-run` delegating to `system/services/local-ai/owner-dev-runtime.sh` | No second model server, no second update agent; the Native probe is health/read-only |
+| Local AI backend CPU scheduling in Dev + Stable | `system/services/local-ai/run-low-priority.sh` | Shared optional positive niceness before exec; no second daemon, memory policy or separate backend |
+| Surface network status | Native network adapter/tray | Settings may request additional details only while its Network view is active; no permanent duplicate inactive polling |
+| Native Surface entrypoint dependencies | `system/composition/native/main.mjs` | Eager imports must have real runtime consumers; nonparticipating adapters remain in their canonical modules but are not loaded by the boot entrypoint |
+
+Never add a second polling loop for an observation already owned by one of these
+components. Prefer an existing state/receipt/subscription and stop inactive UI
+timers rather than reducing an interval without removing redundant work.
+Long-running children must be stopped and reaped together with their owner.
+These rules do not authorize suppressing security, boot/recovery or data
+integrity gates. Performance claims require an exact source revision and
+measured CPU, RSS, I/O and cold-boot data on supported hardware; tests of
+source structure alone do not prove a physical speedup.
 
 ## Layers
 
@@ -332,6 +357,131 @@ Thin host adapters are allowed only where operating systems expose different raw
 Remote management is intentionally **not** a bootstrap dependency or daily-development dependency.
 
 If a later product requirement appears for remote device management, diagnostics or recovery, an OrdaX-owned Remote Core may be added as a normal release capability using mature standard transport/cryptography. SSH remains unnecessary unless explicitly justified later.
+
+## Runtime footprint and ownership discipline
+
+Performance is an architectural contract, not a reason to invent a second
+runtime, disable diagnostics, or weaken integrity/recovery. The canonical owner
+of each responsibility must be identified before an optimization:
+
+- **Boot and Base:** `bootstrap/` and the existing Base-update owner. Only
+  boot-critical work may block Surface readiness. Signed acquisition and
+  rollback retain their integrity gates.
+- **Native composition:** `system/composition/native/main.mjs` wires the
+  shared ports, not independent implementations of polling, account, network,
+  memory or update policy. Independent, read-only Profile component inventory
+  discovery starts alongside optional Host probes rather than awaiting unrelated
+  Intelligence/Personal composition; its existing fail-soft session fallback is
+  preserved. The optional Device Profile is probed once alongside the other
+  read-only ports, but its result is awaited only by First Run after the real
+  shared Surface has been mounted and its health acknowledged. A slow or
+  missing device-profile endpoint cannot prevent the initial shell health gate;
+  device rename still requires the validated original port and never a guessed
+  identity. Bundled Profile taxonomy is fetched only if the canonical bundled
+  Profile catalog loaded successfully; that read is overlapped with unrelated
+  Native probes while category validation and ungrouped fallback remain owned
+  by the same composition.
+- **Bundled Profile catalog:** `system/services/profile-packs/bundled-source.mjs`
+  is the sole loader of same-origin versioned Profile manifests. After validating
+  the catalog index, read independent manifests in batches of at most four
+  concurrent GET requests (currently four bundled manifests). Preserve index
+  order, exact identity/path checks, immutable normalized results and fail-closed
+  policy even when responses complete out of order. No additional worker,
+  scheduler, catalog authority or background polling is created.
+- **Surface rendering:** `system/surface/ui/` owns the shared view and lifecycle;
+  platform adapters expose only capabilities. An unopened/minimized window must
+  not keep performing its own optional network discovery.
+- **Always-visible indicators:** a single mounted tray owner may observe a
+  capability at a bounded interval; a Settings panel should refresh on entry
+  and only poll while actively visible, without competing with the tray.
+  The battery tray retains its canonical 30-second read-only observation
+  cadence, but repeated *validated* percent, charging state and external power
+  do not repaint an unchanged indicator. The last-success timestamp still
+  advances for stale reporting; a first failure, transition to stale,
+  recovery, locale or regional time-zone change must repaint. The same
+  existing tray owner performs these comparisons without a timer, cache,
+  competing battery poller or Native Host change.
+- **Inactive window rendering:** the existing `SurfaceRenderLifecycle.subscribeRender`
+  is the sole focus/restore notification for System and Settings panels. A
+  minimized or inactive window remains mounted, but state/locale/preference
+  changes mark its current view dirty instead of reconstructing its DOM.
+  On the next foreground Surface render, the canonical owner flushes exactly
+  one repaint with the latest state; section changes, first mount, keyboard
+  editing and System focus/scroll restoration retain their current contracts.
+  No extra observer, timer, event queue, parallel UI state or background
+  process may be added for this optimization. Active windows still repaint
+  immediately on changes and every owner unsubscribes on destroy.
+- **File Space after Files remove-first:** `system/services/files/` and
+  `system/contracts/file-space.mjs` remain OS-owned services for authorized
+  local files, Recents, Projects and continuity. The bundled Files panel,
+  CSS and `files-component-runtime.mjs` were removed; no Files window or
+  renderer remains to optimize inside the OS. Native binds typed workspace
+  capabilities through `system/composition/native/component-workspace-ports.mjs`
+  only after verifying the exact signed `current` slot. The reusable
+  `component-pending-host.mjs` supplies a separate isolated pending probe,
+  not installed-app authority. A future Files UI belongs exclusively to
+  `ordax-apps` and requires a separately verified package and activation.
+  No physical installation or measured performance gain is implied.
+- **On-demand optional panels:** `system/surface/ui/system-overview-controls.mjs`
+  only fetches metrics for a visible active Overview/Storage/Diagnostics
+  section and history/recovery for a visible active Updates section. First
+  entry is read once; a newly applied update invalidates history, which is
+  fetched only when Updates is visible. Manual refreshes remain explicit and
+  functional. `system/surface/ui/settings-overview-controls.mjs` reads live
+  keyboard layout only upon first entry to a visible active Regional section;
+  the Native capability probe remains authoritative. Minimized/background
+  windows do not fetch either panel's optional information at cold boot.
+  Both owners use the existing Surface render lifecycle rather than adding
+  a second watcher, timer, cache or data authority.
+- **Native boot capability probes:** `system/adapters/native/boot-probe-reader.mjs`
+  owns the single-use, at-most-3-second reuse of the first validated response
+  for the read-only network, power, system metrics and recovery adapters.
+  Each port still probes its actual Native Host endpoint before capability
+  publication: missing/invalid results fail as before. Only the immediately
+  following read may reuse that response; subsequent reads always contact
+  the Host. A request with an AbortSignal never reuses the initial sample.
+  No additional polling, global cache or UI-specific transport is introduced.
+- **Native bootstrap session:** `system/adapters/native/session-read.mjs` is
+  the sole GET transport owner for simultaneous startup session reads by
+  native Power, Network Management, Display Outputs and Client Diagnostics
+  adapters. Their permission/token validation and authenticated mutations
+  remain independent. The reader deduplicates only a promise **while in
+  flight for the same window**; it never retains successful tokens, HTTP
+  errors, rejected JSON or authorization across completed requests. Session
+  refresh following a denied power command therefore always contacts the
+  Native Host again. Other explicit privileged workflows retain their own
+  fresh-session semantics. No background process, timer or credential store
+  is introduced.
+- **Native update status:** `system/adapters/native/update-runtime.mjs` is the
+  sole Surface watcher for the host update endpoint. Preserve its fast 750 ms
+  cadence during active update transactions/manual checks, use a slower
+  3-second cadence for an observed idle host, and publish only changes to the
+  fully validated status contract. Pending asynchronous reads must not publish
+  after disposal; health-acknowledgement and rollback gates remain intact.
+  These are client-side polling budgets, not the interval of Git fetches.
+- **Intelligence:** local model acquisition and inference are subordinate to
+  Base/ESP maintenance; optional background work must never block a usable
+  desktop or recovery. The single `createLocalAiProbeSupervisor` is composed
+  with Intelligence ports but must not start its read-only Aura discovery or
+  retry timer until `bootScreen.ready()`, the real Surface health request
+  and the Native heartbeat startup have occurred. The existing 2s-to-60s
+  bounded retry and `pagehide` disposal remain owned by that supervisor;
+  moving the first probe does not create another worker or relax health
+  acknowledgement/rollback.
+- **Personal/background work:** use the existing bounded background runtime;
+  creating another scheduler or independent work queue requires an explicit
+  architectural decision and lifecycle tests.
+
+For every new timer, daemon or watcher, require: a named canonical owner,
+documented necessity and activation condition, non-overlapping requests,
+bounded failure/backoff, teardown on close/shutdown, and a regression test.
+Prefer events/subscriptions to repeated reads where the source provides
+reliable change notifications. Cache derived presentation objects by the
+preferences they depend on, invalidating them when those preferences change.
+Never claim a lower CPU/RAM/boot footprint solely from fewer source files or
+fewer timers: compare measurements on the same hardware/build before and
+after, including boot-to-ready, resident memory, idle CPU and active polling.
+Existing signed-release and physical-write gates remain unchanged.
 
 ## Failure model
 

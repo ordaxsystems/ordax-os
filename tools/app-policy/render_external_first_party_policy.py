@@ -19,7 +19,7 @@ class PolicyGenerationError(RuntimeError):
     pass
 
 
-def load_policy(path: Path) -> tuple[dict[str, str], tuple[str, ...], tuple[str, ...]]:
+def load_policy(path: Path) -> tuple[dict[str, str], tuple[str, ...], tuple[str, ...], tuple[str, ...]]:
     try:
         value = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, UnicodeError, json.JSONDecodeError) as exc:
@@ -44,8 +44,9 @@ def load_policy(path: Path) -> tuple[dict[str, str], tuple[str, ...], tuple[str,
             )
         normalized[app_id] = repository
 
-    # Retain the narrower historical external-source declaration only as a
-    # consistency assertion. It is not a second candidate-discovery source.
+    # The unsigned-candidate verifier has its own narrower source allowlist.
+    # Keep it consistent with ownership, without treating it as the registry
+    # of every app source or as a Native permission grant.
     historical = value.get("canonical_external_source_repository_by_component")
     if not isinstance(historical, dict):
         raise PolicyGenerationError("legacy external source declaration is invalid")
@@ -62,9 +63,29 @@ def load_policy(path: Path) -> tuple[dict[str, str], tuple[str, ...], tuple[str,
         or len(native_ids) != len(set(native_ids))
     ):
         raise PolicyGenerationError("Native module-read scope in canonical policy is invalid")
+    # Files can be read only through the exact verified slot's device-local
+    # File Space capability. Native revalidates the immutable slot identity
+    # before each operation; pending probation sees only an empty synthetic
+    # root and cannot access or mutate user data.
+    scoped_files = value.get("native_files_slot_bound_file_space_enforced")
+    if type(scoped_files) is not bool:
+        raise PolicyGenerationError("Files Native scoped file-space proof must be boolean")
+    if ("files" in normalized or "files" in native_ids) and not scoped_files:
+        raise PolicyGenerationError(
+            "Files source transfer or module-read requires Native slot-bound "
+            "device-local File Space enforcement"
+        )
     # These IDs are a necessary (not sufficient) runtime module-read gate.
     # Presence in Store policy or the signed catalog must never invent it.
     module_ready = tuple(sorted(set(normalized).intersection(native_ids)))
+    bundled_owner_blocked = value.get("native_external_current_slot_blocked_by_bundled_owner_components")
+    if (
+        not isinstance(bundled_owner_blocked, list)
+        or any(not isinstance(app_id, str) or not APP_ID_RE.fullmatch(app_id) for app_id in bundled_owner_blocked)
+        or len(bundled_owner_blocked) != len(set(bundled_owner_blocked))
+        or not set(bundled_owner_blocked).issubset(module_ready)
+    ):
+        raise PolicyGenerationError("bundled-owner current-slot exclusion is invalid or exceeds module-read scope")
     health_ids = value.get("native_loopback_broker_health_mutation_components")
     probation_ids = value.get("runtime_health_bridge_supported_components")
     for label, ids in (("Native health", health_ids), ("probation", probation_ids)):
@@ -77,15 +98,19 @@ def load_policy(path: Path) -> tuple[dict[str, str], tuple[str, ...], tuple[str,
     if not set(health_ids).issubset(native_ids) or not set(probation_ids).issubset(health_ids):
         raise PolicyGenerationError("probation/health scope exceeds Native module-read scope")
     probation_ready = tuple(sorted(set(module_ready).intersection(health_ids, probation_ids)))
-    return normalized, module_ready, probation_ready
+    return normalized, module_ready, probation_ready, tuple(sorted(bundled_owner_blocked))
 
 
-def render_module(sources: dict[str, str], module_ready: tuple[str, ...], probation_ready: tuple[str, ...]) -> str:
+def render_module(
+    sources: dict[str, str], module_ready: tuple[str, ...], probation_ready: tuple[str, ...],
+    bundled_owner_blocked: tuple[str, ...],
+) -> str:
     mapping_lines = "\n".join(
         f'  "{app_id}": "{repository}",' for app_id, repository in sources.items()
     )
     ready_lines = "\n".join(f'  "{app_id}",' for app_id in module_ready)
     probation_lines = "\n".join(f'  "{app_id}",' for app_id in probation_ready)
+    bundled_owner_lines = "\n".join(f'  "{app_id}",' for app_id in bundled_owner_blocked)
     return f'''// GENERATED FILE. DO NOT EDIT BY HAND.
 // Source of truth: docs/contracts/runtime-component-package.json
 // Generator: tools/app-policy/render_external_first_party_policy.py
@@ -108,10 +133,14 @@ export const EXTERNAL_FIRST_PARTY_NATIVE_MODULE_READ_IDS = Object.freeze([
 export const EXTERNAL_FIRST_PARTY_NATIVE_PROBATION_IDS = Object.freeze([
 {probation_lines}
 ]);
+export const EXTERNAL_FIRST_PARTY_BUNDLED_SOURCE_BLOCKED_IDS = Object.freeze([
+{bundled_owner_lines}
+]);
 
 const IDS = new Set(EXTERNAL_FIRST_PARTY_COMPONENT_IDS);
 const MODULE_READ_IDS = new Set(EXTERNAL_FIRST_PARTY_NATIVE_MODULE_READ_IDS);
 const PROBATION_IDS = new Set(EXTERNAL_FIRST_PARTY_NATIVE_PROBATION_IDS);
+const BUNDLED_SOURCE_BLOCKED_IDS = new Set(EXTERNAL_FIRST_PARTY_BUNDLED_SOURCE_BLOCKED_IDS);
 if (PROBATION_IDS.size !== EXTERNAL_FIRST_PARTY_NATIVE_PROBATION_IDS.length
   || [...PROBATION_IDS].some((appId) => !MODULE_READ_IDS.has(appId))) {{
   throw new TypeError("External first-party probation ids disagree with canonical Native read scope");
@@ -119,6 +148,10 @@ if (PROBATION_IDS.size !== EXTERNAL_FIRST_PARTY_NATIVE_PROBATION_IDS.length
 if (MODULE_READ_IDS.size !== EXTERNAL_FIRST_PARTY_NATIVE_MODULE_READ_IDS.length
   || [...MODULE_READ_IDS].some((appId) => !IDS.has(appId))) {{
   throw new TypeError("External first-party module-read ids disagree with canonical owners");
+}}
+if (BUNDLED_SOURCE_BLOCKED_IDS.size !== EXTERNAL_FIRST_PARTY_BUNDLED_SOURCE_BLOCKED_IDS.length
+  || [...BUNDLED_SOURCE_BLOCKED_IDS].some((appId) => !MODULE_READ_IDS.has(appId))) {{
+  throw new TypeError("External first-party bundled-source exclusions exceed canonical Native read scope");
 }}
 if (IDS.size !== EXTERNAL_FIRST_PARTY_COMPONENT_IDS.length) {{
   throw new TypeError("External first-party component ids must be unique");
@@ -160,6 +193,16 @@ export function hasNativeExternalFirstPartyProbation(value) {{
     return false;
   }}
 }}
+
+// A component may have an Apps owner while its live UI source is still
+// bundled in the OS. Do not discover a competing current slot before Gate A.
+export function isNativeExternalFirstPartyCurrentSlotBlockedByBundledOwner(value) {{
+  try {{
+    return BUNDLED_SOURCE_BLOCKED_IDS.has(validateComponentId(value));
+  }} catch {{
+    return false;
+  }}
+}}
 '''
 
 
@@ -178,8 +221,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--check", action="store_true")
     args = parser.parse_args(argv)
     try:
-        sources, module_ready, probation_ready = load_policy(args.policy)
-        rendered = render_module(sources, module_ready, probation_ready)
+        sources, module_ready, probation_ready, bundled_owner_blocked = load_policy(args.policy)
+        rendered = render_module(sources, module_ready, probation_ready, bundled_owner_blocked)
         if args.check:
             try:
                 current = args.out.read_text(encoding="utf-8")

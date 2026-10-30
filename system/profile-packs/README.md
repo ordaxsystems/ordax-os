@@ -12,6 +12,16 @@ They may describe:
 
 They do **not** fork OrdaX, grant privileges, bypass app signatures, store provider secrets or turn model output into an authoritative knowledge source.
 
+### App delivery belongs to the Store, not to the Space or Profile Pack
+
+- `Space` owns stable workspace identity and scoped business data. Updating the Spaces service/contract does **not** install or update business applications.
+- `Profile Pack` owns a **versioned list of app references** (`apps[]`) and composition defaults, not the executable artifact or app version. A reference such as `orders` is not proof the app is published or installed.
+- `OrdaX Store` and the canonical component runtime own signed app packages, installation, update, removal, rollback and their independently versioned releases. A Store app can be reused by multiple Spaces without copying its code or sharing their data.
+- `Profile Pack components[]` is reserved for non-app artifacts (e.g. Knowledge, Skill, Model and Connector packs). An artifact with `kind: app` is rejected: this would create a second installation authority. `apps[]` accepts only unique canonical Store-compatible IDs.
+- Updating a Profile composition never edits installed app versions, creates a second app instance, grants access or rolls back Space business data. Provisioning/consent still applies for non-app components; app availability requires a separate trusted Store/runtime read.
+
+These are **independent update boundaries**, not a claim that a complete end-user update manager is already shipped.
+
 The user account profile remains separate from Profile Packs.
 
 Professional networking is also a separate horizontal domain. A Profile may recommend Network
@@ -19,6 +29,42 @@ communities through `system/network/profile-affiliations.json`, but it cannot au
 auto-join a community, grant a Network role or own messages. Membership and messaging authorization
 remain server-authoritative under the OrdaX Network boundary.
 
+## User-facing Space creation
+
+For normal product UX, the user chooses the **type of Space**, not a technical Profile Pack as a
+second mandatory decision.
+
+Preferred flow:
+
+```text
+Criar Space
+  -> Pizzaria
+      -> create professional Space
+      -> resolve/apply pizzaria-br@1
+
+Criar Space
+  -> Impressão 3D
+      -> create professional Space
+      -> resolve/apply impressao-3d-br@1
+```
+
+`Space` and `Profile Pack` remain separate technical objects. The simplification is only the
+user-facing flow:
+
+```text
+Space        = real workspace/business data
+Profile Pack = versioned composition applied to that Space
+```
+
+A user can therefore have multiple independent Spaces backed by the same Profile Pack, and a
+Profile can be upgraded/rolled back without recreating or erasing the Space.
+
+Technical identifiers such as `pizzaria-br@1` stay internal/advanced by default. Advanced/admin
+tools may expose Profile review, version, activation status, permission diff and rollback when
+needed. Trust, entitlement, provisioning and consent gates are never bypassed by automatic
+resolution.
+
+Canonical UX/design detail: `docs/SPACES-AND-PROFILES.md`.
 
 ## Categorias e nichos — navegação sem outro SSOT
 
@@ -56,15 +102,18 @@ Serviços profissionais → Serviços jurídicos → legal-br@1
 - Categoria desconhecida ou ciclo impede publicar a árvore (fail-closed). Novos
   nichos entram por alteração versionada neste registro, sem duplicar dados
   de usuário ou alterar o runtime.
-  
+
 O leitor `system/services/profile-packs/taxonomy-source.mjs` aceita somente o
-caminho bundled same-origin canônico. A tela **Conta → Perfis** nas composições
-Web/Native carrega a taxonomia verificada, projeta somente os Profile Packs
-`active` do manifest canônico e oferece um filtro de categorias/nichos. O
-planner de instalação continua com a mesma fonte e não concede capacidade.
+caminho bundled same-origin canônico. A taxonomia pode alimentar a experiência
+**Criar Space → escolher tipo**, projetando somente Profile Packs `active` do manifest
+canônico. A tela avançada **Conta → Perfis**, quando usada para administração/revisão,
+pode continuar exibindo composição, versão e estado de ativação sem transformar Profile
+Pack em uma segunda escolha obrigatória para o usuário comum. O planner de instalação
+continua com a mesma fonte e não concede capacidade.
+
 Pacotes `draft` ou `retired` não entram na navegação publicada. Se a
-taxonomia estiver ausente ou inválida, a tela preserva a lista anterior,
-sem inventar categorias ou perder a capacidade de revisar um perfil.
+taxonomia estiver ausente ou inválida, a tela preserva o último estado seguro,
+sem inventar categorias nem resolver automaticamente um Profile desconhecido.
 
 ## Distribution and provisioning
 
@@ -78,6 +127,10 @@ The Stable USB does not preseed every professional payload. Planned or unsigned 
 are never installable. Public download/install remains disabled until the package trust,
 transactional staging, health and rollback path is proven.
 
+Automatic Profile resolution during Space creation means only that the requested Space type maps
+to one canonical allowed Profile identity. It does **not** mean automatic privilege grant or silent
+component activation. Provisioning, permission diff, entitlements, trusted confirmation and health
+checks remain authoritative where required.
 
 ## Canonical manifest layout
 
@@ -109,7 +162,6 @@ the Space kind, provisioning state and installed receipts. This restore is curre
 **metadata-only**. Drift is `disabled-safe`; it never silently applies apps, tools,
 Knowledge, policies or privileges.
 
-
 ## MVP business showcase
 
 `pizzaria-br@1` and `impressao-3d-br@1` are the first bounded showcase candidates. They deliberately have
@@ -120,3 +172,12 @@ not require inflating the Stable USB or creating a separate business runtime.
 The bundled manifest being provisionable does **not** by itself prove Stable/MVP user
 activation. Public activation remains a separate product gate until the Native command,
 Surface UX and physical smoke prove that exact safe path.
+
+The future simplified creation UX does not expand the current MVP scope: it only defines that, once
+Space creation is exposed, the ordinary user chooses `Pizzaria`, `Impressão 3D` or another Space type
+and OrdaX resolves the corresponding Profile Pack internally.
+
+
+## Space type boundary
+
+Profile Pack manifests intentionally do not own `domain/subtype`, contextual navigation, dashboard widgets, provider readiness or business metrics. Those semantics are resolved by the Space type catalog and provider-backed Space experience composition. Keeping those fields out of manifests prevents Profile Pack activation from being mistaken for business capability availability or from creating a second SSOT for Space UX.

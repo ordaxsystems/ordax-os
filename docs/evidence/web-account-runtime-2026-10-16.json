@@ -1,0 +1,61 @@
+{
+  "$schema": "prototype-ordax.web-account-runtime-proof/1",
+  "observed_at": "2026-10-16T18:46:00Z",
+  "project": {
+    "name": "ordax-platform",
+    "ref": "jhfphsjptrpmtnzkpwud",
+    "region": "sa-east-1",
+    "status": "ACTIVE_HEALTHY"
+  },
+  "runtime": {
+    "public_gateway": {
+      "slug": "ordax-public-account-gateway",
+      "status": "ACTIVE",
+      "version": 8,
+      "verify_jwt": false
+    },
+    "internal_gateway": {
+      "slug": "ordax-account-gateway",
+      "status": "ACTIVE",
+      "version": 13,
+      "verify_jwt": false
+    }
+  },
+  "transport": {
+    "vercel_oidc_authenticated_ingress_observed": true,
+    "named_secret_service_bridge_observed": true,
+    "service_bridge_secret_value_recorded": false,
+    "service_bridge_secret_value_printed": false,
+    "session_public_to_internal_e2e_observed": true,
+    "registration_policy_public_to_internal_e2e_observed": true,
+    "login_public_to_internal_redirect_observed": true
+  },
+  "last_24h_observations": {
+    "public_auth_session_200": 125,
+    "internal_auth_session_200": 133,
+    "public_registration_policy_200": 23,
+    "internal_registration_policy_200": 24,
+    "public_login_303": 1,
+    "internal_login_303": 1,
+    "logout_e2e_observed": false,
+    "registration_e2e_observed": false,
+    "recovery_e2e_observed": false,
+    "public_account_spaces_503": 20,
+    "internal_account_spaces_503": 17
+  },
+  "classification": {
+    "web_auth_session": "real-runtime-proven",
+    "web_login_transport": "real-runtime-observed",
+    "web_logout_transport": "source-ready-e2e-proof-pending",
+    "registration": "gated-e2e-proof-pending",
+    "recovery": "gated-e2e-proof-pending",
+    "account_spaces": "backend-exists-runtime-service-unavailable",
+    "github_actions_owner_deploy": "blocked-missing-SUPABASE_ACCESS_TOKEN"
+  },
+  "notes": [
+    "This is a sanitized evidence receipt, not a second authority for feature flags or provider configuration.",
+    "No cookie, access token, refresh token, API key value, user email or subject identifier is stored here.",
+    "The GitHub Actions management credential remains absent; that blocks reproducible owner deployment but does not negate the observed production Web auth transport.",
+    "A 503 from account/spaces is kept separate from authentication because session and registration-policy transport are independently healthy."
+  ]
+}

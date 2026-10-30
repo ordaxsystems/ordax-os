@@ -1,3 +1,5 @@
+import { validateSystemTermsAcceptance } from "./system-terms.mjs";
+
 export const FIRST_RUN_STATE_STORE_SCHEMA = "ordax.first-run-state-store/1";
 export const FIRST_RUN_STATE_SCHEMA = "ordax.first-run-state/1";
 
@@ -53,6 +55,9 @@ export function validateFirstRunState(value) {
   if (!value.completed && accountMode !== null) {
     throw new TypeError("Incomplete first-run state may not persist an account mode");
   }
+  if (!value.completed && value.systemTerms !== undefined) {
+    throw new TypeError("Incomplete first-run state may not persist terms acceptance");
+  }
 
   return Object.freeze({
     schema: FIRST_RUN_STATE_SCHEMA,
@@ -60,6 +65,7 @@ export function validateFirstRunState(value) {
     locale: value.locale,
     timeZone: value.timeZone,
     accountMode,
+    ...(value.systemTerms !== undefined ? { systemTerms: validateSystemTermsAcceptance(value.systemTerms) } : {}),
   });
 }
 

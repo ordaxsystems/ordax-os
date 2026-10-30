@@ -7,11 +7,14 @@ import {
 } from "../infra/supabase/functions/ordax-public-account-gateway/vercel_oidc.mjs";
 
 const TOKEN = `${"a".repeat(24)}.${"b".repeat(32)}.${"c".repeat(32)}`;
-const EXPECTED_PAYLOAD = Object.freeze({
-  iss: "https://oidc.vercel.com/ordaxsystems",
-  aud: "https://vercel.com/ordaxsystems",
-  sub: "owner:ordaxsystems:project:ordax-os-public:environment:production",
-});
+const ISSUER = "https://oidc.vercel.com/ordaxsystems";
+const AUDIENCE = "https://vercel.com/ordaxsystems";
+const PUBLIC_SUBJECT = "owner:ordaxsystems:project:ordax-os-public:environment:production";
+const WEB_SUBJECT = "owner:ordaxsystems:project:ordax-web:environment:production";
+
+function payload(subject = PUBLIC_SUBJECT) {
+  return Object.freeze({ iss: ISSUER, aud: AUDIENCE, sub: subject });
+}
 
 function request(headers = {}) {
   return new Request("https://edge.example/functions/v1/ordax-public-account-gateway/auth/session", {
@@ -19,51 +22,53 @@ function request(headers = {}) {
   });
 }
 
-test("canonical public proxy identity is production-only and fully scoped", () => {
+test("canonical public proxy identities are exact production projects under one team", () => {
   assert.deepEqual(VERCEL_PUBLIC_PROXY_IDENTITY, {
-    issuer: EXPECTED_PAYLOAD.iss,
-    audience: EXPECTED_PAYLOAD.aud,
-    subject: EXPECTED_PAYLOAD.sub,
+    issuer: ISSUER,
+    audience: AUDIENCE,
+    subjects: [PUBLIC_SUBJECT, WEB_SUBJECT],
     jwks: "https://oidc.vercel.com/.well-known/jwks",
     environment: "production",
-    project: "ordax-os-public",
+    projects: ["ordax-os-public", "ordax-web"],
     team: "ordaxsystems",
   });
-  assert.doesNotMatch(VERCEL_PUBLIC_PROXY_IDENTITY.subject, /environment:preview/);
+  for (const subject of VERCEL_PUBLIC_PROXY_IDENTITY.subjects) {
+    assert.doesNotMatch(subject, /environment:preview/);
+  }
 });
 
-test("production OIDC identity is accepted only after verifier success and exact claims", async () => {
-  const seen = [];
-  const valid = await verifyPublicProxyIdentity(
-    request({
-      authorization: `Bearer ${TOKEN}`,
-      "x-ordax-public-site": "1",
-    }),
-    {
-      verifyToken: async (token) => {
-        seen.push(token);
-        return { payload: EXPECTED_PAYLOAD };
+test("both canonical production projects are accepted after verifier success", async () => {
+  for (const subject of [PUBLIC_SUBJECT, WEB_SUBJECT]) {
+    const seen = [];
+    const result = await verifyPublicProxyIdentity(
+      request({ authorization: `Bearer ${TOKEN}`, "x-ordax-public-site": "1" }),
+      {
+        verifyToken: async (token) => {
+          seen.push(token);
+          return { payload: payload(subject) };
+        },
       },
-    },
-  );
-  assert.deepEqual(seen, [TOKEN]);
-  assert.deepEqual(valid, {
-    ok: true,
-    source: "vercel-production-oidc",
-    subject: EXPECTED_PAYLOAD.sub,
-  });
+    );
+    assert.deepEqual(seen, [TOKEN]);
+    assert.deepEqual(result, {
+      ok: true,
+      source: "vercel-production-oidc",
+      subject,
+    });
+  }
 });
 
 test("missing marker, malformed token and verification failure all fail closed", async () => {
+  const expected = payload();
   const missingMarker = await verifyPublicProxyIdentity(
     request({ authorization: `Bearer ${TOKEN}` }),
-    { verifyToken: async () => ({ payload: EXPECTED_PAYLOAD }) },
+    { verifyToken: async () => ({ payload: expected }) },
   );
   assert.deepEqual(missingMarker, { ok: false, code: "public-proxy-authentication-required" });
 
   const malformed = await verifyPublicProxyIdentity(
     request({ authorization: "Bearer browser-token", "x-ordax-public-site": "1" }),
-    { verifyToken: async () => ({ payload: EXPECTED_PAYLOAD }) },
+    { verifyToken: async () => ({ payload: expected }) },
   );
   assert.deepEqual(malformed, { ok: false, code: "public-proxy-authentication-required" });
 
@@ -74,21 +79,24 @@ test("missing marker, malformed token and verification failure all fail closed",
   assert.deepEqual(rejected, { ok: false, code: "public-proxy-authentication-required" });
 });
 
-test("preview, wrong project, wrong team and wrong audience cannot impersonate production", async () => {
+test("preview, unknown projects, wrong team and wrong audience cannot impersonate production", async () => {
+  const expected = payload();
   const variants = [
-    { ...EXPECTED_PAYLOAD, sub: "owner:ordaxsystems:project:ordax-os-public:environment:preview" },
-    { ...EXPECTED_PAYLOAD, sub: "owner:ordaxsystems:project:other:environment:production" },
-    { ...EXPECTED_PAYLOAD, iss: "https://oidc.vercel.com/other-team" },
-    { ...EXPECTED_PAYLOAD, aud: "https://vercel.com/other-team" },
-    { ...EXPECTED_PAYLOAD, iss: "https://oidc.vercel.com/jogo-brasils-projects" },
-    { ...EXPECTED_PAYLOAD, aud: "https://vercel.com/jogo-brasils-projects" },
-    { ...EXPECTED_PAYLOAD, sub: "owner:jogo-brasils-projects:project:ordax-os-public:environment:production" },
+    { ...expected, sub: "owner:ordaxsystems:project:ordax-os-public:environment:preview" },
+    { ...expected, sub: "owner:ordaxsystems:project:ordax-web:environment:preview" },
+    { ...expected, sub: "owner:ordaxsystems:project:other:environment:production" },
+    { ...expected, iss: "https://oidc.vercel.com/other-team" },
+    { ...expected, aud: "https://vercel.com/other-team" },
+    { ...expected, iss: "https://oidc.vercel.com/jogo-brasils-projects" },
+    { ...expected, aud: "https://vercel.com/jogo-brasils-projects" },
+    { ...expected, sub: "owner:jogo-brasils-projects:project:ordax-os-public:environment:production" },
+    { ...expected, sub: "owner:jogo-brasils-projects:project:ordax-web:environment:production" },
   ];
 
-  for (const payload of variants) {
+  for (const candidate of variants) {
     const result = await verifyPublicProxyIdentity(
       request({ authorization: `Bearer ${TOKEN}`, "x-ordax-public-site": "1" }),
-      { verifyToken: async () => ({ payload }) },
+      { verifyToken: async () => ({ payload: candidate }) },
     );
     assert.deepEqual(result, { ok: false, code: "public-proxy-authentication-required" });
   }

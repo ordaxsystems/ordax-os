@@ -18,4 +18,6 @@ The current product backend adapter is Supabase. The quota contract intentionall
 
 ## Pricing
 
-Cost-sensitive numeric quotas are deliberately not guessed. `memory.cloud.bytes`, `memory.history.days`, `ai.external.compute`, `sync.bytes`, `backup.bytes` and `storage.user.bytes` stay unset until real unit costs and retention behavior are measured. Structural limits already present in the plan catalog (Spaces, connectors, automations, members) remain independent of this accounting foundation.
+The approved reference offer catalog lives in `docs/contracts/entitlements.json`. The public builder projects its prices, capacities and additional offers into the landing page and Account through `tools/public-site/plan_catalog.py`. These are reference offers, not active grants or checkout quotes. `commercial_capacity_allocation_enabled=false` preserves the measured-cost activation gate.
+
+Operational cost-sensitive numeric quotas are not assigned by this presentation. `memory.cloud.bytes`, `memory.history.days`, `ai.external.compute`, `sync.bytes`, `backup.bytes` and `storage.user.bytes` stay unset until real unit costs and retention behavior are measured. Structural limits already present in the plan catalog (Spaces, connectors, automations, members) remain independent of this accounting foundation.

@@ -33,6 +33,8 @@ test("Spaces catalog reads only authenticated same-origin data and clears on res
           kind: "professional",
           state: "active",
           profilePack: "developer",
+          domain: "development",
+          subtype: "software",
         }],
       });
     },
@@ -44,6 +46,8 @@ test("Spaces catalog reads only authenticated same-origin data and clears on res
   assert.equal(ready.state, "ready");
   assert.equal(ready.spaces.length, 1);
   assert.equal(ready.spaces[0].profilePack, "developer");
+  assert.equal(ready.spaces[0].domain, "development");
+  assert.equal(ready.spaces[0].subtype, "software");
   assert.equal(calls.length, 1);
   assert.equal(calls[0][0], "/account/spaces");
   assert.equal(calls[0][1].method, "GET");

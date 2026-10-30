@@ -1,10 +1,8 @@
-import { accountIntelligenceManifest } from "./account/ai/manifest.mjs";
-import { filesIntelligenceManifest } from "./files/ai/manifest.mjs";
-import { settingsIntelligenceManifest } from "./settings/ai/manifest.mjs";
-import { systemIntelligenceManifest } from "./system/ai/manifest.mjs";
+import { accountIntelligenceManifest } from "../services/system-ui/account/ai/manifest.mjs";
+import { settingsIntelligenceManifest } from "../services/system-ui/settings/ai/manifest.mjs";
+import { systemIntelligenceManifest } from "../services/system-ui/system/ai/manifest.mjs";
 
 const BUNDLED_FIRST_PARTY_INTELLIGENCE_MANIFESTS = Object.freeze([
-  filesIntelligenceManifest,
   settingsIntelligenceManifest,
   accountIntelligenceManifest,
   systemIntelligenceManifest,

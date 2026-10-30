@@ -39,12 +39,11 @@ test("surface launches only catalog-known external apps in the selected area", (
 test("workspace uses same catalog on recovery and drops disappeared external apps", () => {
   let state = createSurfaceState(host, {}, null, catalog);
   state = reduceSurfaceState(state, action, catalog);
-  state = reduceSurfaceState(state, { type: "app.launch", appId: "files" }, catalog);
   const snapshot = createWorkspaceSnapshot(state);
   const recovered = createSurfaceState(host, {}, snapshot, catalog);
-  assert.deepEqual(active(recovered).windows.map(w => w.id), ["notes", "files"]);
+  assert.deepEqual(active(recovered).windows.map(w => w.id), ["notes"]);
   const absent = createSurfaceState(host, {}, snapshot);
-  assert.deepEqual(active(absent).windows.map(w => w.id), ["files"]);
+  assert.deepEqual(active(absent).windows.map(w => w.id), []);
   assert.equal(reduceSurfaceState(absent, action), absent);
 });
 
@@ -63,15 +62,14 @@ test("Surface reducer does not trust arbitrary app IDs or pretend catalog author
 test("catalog removal prunes failed external windows without losing OS workspace or persistence", () => {
   let state = createSurfaceState(host, {}, null, catalog);
   state = reduceSurfaceState(state, action, catalog);
-  state = reduceSurfaceState(state, { type: "app.launch", appId: "files" }, catalog);
   state = reduceSurfaceState(state, { type: "area.switch", areaId: "area-2" }, catalog);
   state = reduceSurfaceState(state, action, catalog);
   const withoutInstalledNotes = createAppRuntimeCatalog({ external: [] });
   state = reduceSurfaceState(state, { type: "app.catalog.sync" }, withoutInstalledNotes);
-  assert.deepEqual(state.areas.map(area => area.windows.map(w => w.appId)), [["files"], []]);
+  assert.deepEqual(state.areas.map(area => area.windows.map(w => w.appId)), [[], []]);
   assert.equal(state.areas[1].activeWindowId, null);
-  assert.equal(state.areas[0].activeWindowId, "files");
+  assert.equal(state.areas[0].activeWindowId, null);
   assert.equal(reduceSurfaceState(state, action, withoutInstalledNotes), state);
   const snapshot = createWorkspaceSnapshot(state);
-  assert.deepEqual(snapshot.areas.map(area => area.windows.map(w => w.appId)), [["files"], []]);
+  assert.deepEqual(snapshot.areas.map(area => area.windows.map(w => w.appId)), [[], []]);
 });

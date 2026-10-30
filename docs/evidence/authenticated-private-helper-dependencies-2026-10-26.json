@@ -1,0 +1,79 @@
+{
+  "$schema": "prototype-ordax.private-helper-dependency-audit/1",
+  "observed_date": "2026-10-26",
+  "project_ref": "jhfphsjptrpmtnzkpwud",
+  "method": "Supabase read-only catalog pg_proc / pg_policies; no user rows, grants, or DDL modified",
+  "private_authenticated_callable_helpers": [
+    "ordax_authenticated_subject_eligible_v1",
+    "ordax_can_access_product_device",
+    "ordax_can_access_project",
+    "ordax_can_access_space",
+    "ordax_can_admin_space"
+  ],
+  "direct_dependent_authenticated_rls_policies": [
+    [
+      "ordax_device_presence",
+      "ordax_device_presence_select_authorized"
+    ],
+    [
+      "ordax_device_project_bindings",
+      "ordax_device_project_bindings_select_project"
+    ],
+    [
+      "ordax_entitlement_grants",
+      "ordax_entitlement_grants_select_subject"
+    ],
+    [
+      "ordax_memory_embeddings",
+      "ordax_memory_embeddings_select_authorized"
+    ],
+    [
+      "ordax_memory_items",
+      "ordax_memory_items_select_authorized"
+    ],
+    [
+      "ordax_product_devices",
+      "ordax_product_devices_select_authorized"
+    ],
+    [
+      "ordax_project_connections",
+      "ordax_project_connections_select_space"
+    ],
+    [
+      "ordax_projects",
+      "ordax_projects_select_space"
+    ],
+    [
+      "ordax_remote_capability_grants",
+      "ordax_remote_capability_grants_select_admin"
+    ],
+    [
+      "ordax_space_devices",
+      "ordax_space_devices_select_space"
+    ],
+    [
+      "ordax_space_members",
+      "ordax_space_members_select_space"
+    ],
+    [
+      "ordax_space_profile_packs",
+      "ordax_space_profile_packs_select_member"
+    ],
+    [
+      "ordax_spaces",
+      "ordax_spaces_select_member"
+    ]
+  ],
+  "policy_count": 13,
+  "observed_helpers_security_definer": true,
+  "helpers_explicitly_use_auth_uid_or_auth_jwt": true,
+  "authenticated_private_schema_usage_observed": true,
+  "public_account_release_approved": false,
+  "blanket_revoke_allowed": false,
+  "next_action": "Design and test equivalent policy-scoped public authorization entrypoints, migrate all 13 policies atomically with authenticated negative-isolation tests, then revoke private helper exposure only after dependencies are absent; do not change ACL blindly.",
+  "limitations": [
+    "Source definitions and RLS dependencies are read-only catalog evidence, not authenticated two-user isolation proof.",
+    "All public Account activation gates remain closed.",
+    "Audit does not certify authorization of each helper or the uninspected nested private helper calls."
+  ]
+}

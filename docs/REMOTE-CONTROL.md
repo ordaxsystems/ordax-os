@@ -66,7 +66,7 @@ These actions accept no remotely supplied command/path arguments. Generic shell,
 
 The local controller downloads only the exact content-addressed Runtime artifact bound by source SHA, byte size and SHA-256, and stores device credentials only in persistent local state. The device token must be a regular non-symlink file with mode `0600`.
 
-The controller also requires an **explicit** `ORDAX_DISTRIBUTION_PROFILE=owner-development`; a missing profile is rejected rather than defaulted to Owner.
+The controller proves that it is running on the physical Owner media from the same boot identity owned by `bootstrap/initramfs/source.json`: the exact boot token is pinned in `owner-recovery-source.json`, and the kernel command line must contain **exactly one** `ordax.distribution_profile=owner-development` token and no conflicting distribution-profile token. A caller-supplied environment variable does not grant Owner authority. Required BusyBox applets are invoked through `/bin/busybox`, matching the development-base execution model instead of depending on applet symlinks.
 
 ## Activation state
 

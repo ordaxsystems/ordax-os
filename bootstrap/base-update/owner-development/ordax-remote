@@ -7,6 +7,7 @@ export PATH
 WORKTREE=${ORDAX_WORKTREE:-/workspace/ordax}
 STATE_ROOT=${ORDAX_OWNER_REMOTE_STATE_DIR:-/state/ordax/owner-remote}
 PIN_FILE=${ORDAX_OWNER_REMOTE_PIN_FILE:-$WORKTREE/bootstrap/base-update/owner-development/owner-recovery-source.json}
+CMDLINE_FILE=/proc/cmdline
 PID_FILE=$STATE_ROOT/agent.pid
 LOG_FILE=$STATE_ROOT/agent.log
 RECEIPT_FILE=$STATE_ROOT/installed.sha256
@@ -79,6 +80,27 @@ pin_number() {
     printf '%s' "$value"
 }
 
+owner_profile_proven() {
+    require_regular "$PIN_FILE"
+    expected=$(pin_string boot_cmdline_token)
+    [ "$expected" = "ordax.distribution_profile=owner-development" ] || return 1
+    [ -f "$CMDLINE_FILE" ] && [ ! -L "$CMDLINE_FILE" ] || return 1
+
+    found=no
+    for token in $(bb cat "$CMDLINE_FILE" 2>/dev/null || true); do
+        case "$token" in
+            "$expected")
+                [ "$found" = no ] || return 1
+                found=yes
+                ;;
+            ordax.distribution_profile=*)
+                return 1
+                ;;
+        esac
+    done
+    [ "$found" = yes ]
+}
+
 load_pin() {
     require_regular "$PIN_FILE"
     PIN_SOURCE_SHA=$(pin_string source_sha)
@@ -88,12 +110,15 @@ load_pin() {
     PIN_PROFILE=$(pin_string distribution_profile)
     PIN_ARCH=$(pin_string architecture)
     PIN_LINKAGE=$(pin_string linkage)
+    PIN_BOOT_TOKEN=$(pin_string boot_cmdline_token)
 
     is_hex_length "$PIN_SOURCE_SHA" 40 || fail "runtime source SHA is invalid"
     is_hex_length "$PIN_SHA256" 64 || fail "runtime artifact SHA-256 is invalid"
     [ "$PIN_PROFILE" = "owner-development" ] || fail "remote recovery pin is not owner-development"
     [ "$PIN_ARCH" = "linux-amd64" ] || fail "unsupported recovery agent architecture"
     [ "$PIN_LINKAGE" = "static" ] || fail "recovery agent must be statically linked"
+    [ "$PIN_BOOT_TOKEN" = "ordax.distribution_profile=owner-development" ] || \
+        fail "owner boot identity pin is invalid"
     case "$PIN_URL" in
         https://github.com/ordaxsystems/ordax-runtime/releases/download/owner-recovery-"$PIN_SOURCE_SHA"/ordax-owner-recovery-agent) ;;
         *) fail "artifact URL is not bound to the exact Runtime source SHA" ;;
@@ -164,6 +189,7 @@ verify_contract() {
     printf 'ORDAX_OWNER_REMOTE_ARTIFACT_SHA256=%s\n' "$PIN_SHA256"
     printf 'ORDAX_OWNER_REMOTE_ARTIFACT_SIZE=%s\n' "$PIN_SIZE"
     printf 'ORDAX_OWNER_REMOTE_PROFILE=%s\n' "$PIN_PROFILE"
+    printf 'ORDAX_OWNER_REMOTE_BOOT_TOKEN=%s\n' "$PIN_BOOT_TOKEN"
 }
 
 install_agent() {
@@ -219,12 +245,12 @@ start_agent() {
         [ -f "$PID_FILE" ] && [ ! -L "$PID_FILE" ] || fail "PID file is unsafe"
         bb rm -f "$PID_FILE"
     fi
-    [ -x /bin/setsid ] || fail "setsid is unavailable"
+    bb setsid --help >/dev/null 2>&1 || fail "BusyBox setsid applet is unavailable"
 
     bb touch "$LOG_FILE"
     [ -f "$LOG_FILE" ] && [ ! -L "$LOG_FILE" ] || fail "agent log path is unsafe"
     bb chmod 600 "$LOG_FILE"
-    /bin/setsid "$BIN_PATH" >>"$LOG_FILE" 2>&1 &
+    bb setsid "$BIN_PATH" </dev/null >>"$LOG_FILE" 2>&1 &
     pid=$!
     pid_tmp=$PID_FILE.tmp.$$
     printf '%s\n' "$pid" >"$pid_tmp"
@@ -283,8 +309,8 @@ ensure_agent() {
     fi
 }
 
-[ "${ORDAX_DISTRIBUTION_PROFILE:-}" = "owner-development" ] || \
-    fail "this helper is restricted to explicit owner-development profile"
+owner_profile_proven || \
+    fail "physical owner-development boot identity is missing or ambiguous"
 
 case "${1:-status}" in
     status) status_agent ;;

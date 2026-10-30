@@ -61,6 +61,14 @@ Boots the real OrdaX operating system from removable media. It owns the machine 
 
 USB and Native Disk deliberately share the same signed `system.tar`, Surface source and Native adapter. Their execution mode is **not** inferred from bus type, filesystem layout or the presence of an installer helper.
 
+USB and Native Disk use the same computer/notebook form factor across Central,
+the desktop workspace and app windows. They must not switch to phone/tablet
+navigation or replace the desktop sidebar and taskbar when viewport width
+changes. A narrow host or app window may compact or scroll the existing desktop
+composition while preserving its hierarchy. Phone-width browser layouts belong
+to OrdaX Web; a future OrdaX Mobile client is a separate execution mode, never a
+mobile rendering of USB/Native.
+
 The bootstrap carries one explicit, hash-pinned marker:
 
 ```text
@@ -237,7 +245,7 @@ an unpowered device online.
 
 ## Plans and future monetization
 
-Pricing, billing, commercial tier names and device-count limits are intentionally undefined at MVP stage.
+The canonical commercial tier IDs and reference offers are defined in `docs/contracts/entitlements.json`. Billing, paid assignment and commercial capacity allocation remain disabled. No commercial device-count limit is defined.
 
 The entitlement architecture remains prepared for future value-bearing services such as synchronization capacity, cloud storage, backup/restore, cross-device continuity, collaboration, premium compute and support. The product direction is to monetize ecosystem value, not to charge arbitrarily for a second device.
 

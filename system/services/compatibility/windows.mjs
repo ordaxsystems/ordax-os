@@ -1,4 +1,5 @@
 import { validateApplicationCompatibilityInspection } from "../../contracts/application-compatibility.mjs";
+import { asApplicationBytes } from "./binary.mjs";
 
 const DOS_MAGIC = [0x4d, 0x5a];
 const PE_SIGNATURE = [0x50, 0x45, 0x00, 0x00];
@@ -19,15 +20,6 @@ const PE_MACHINES = new Map([
   [0x8664, "x86_64"],
   [0xaa64, "aarch64"],
 ]);
-
-function asBytes(value) {
-  if (value instanceof Uint8Array) return value;
-  if (value instanceof ArrayBuffer) return new Uint8Array(value);
-  if (ArrayBuffer.isView(value)) {
-    return new Uint8Array(value.buffer, value.byteOffset, value.byteLength);
-  }
-  throw new TypeError("Application compatibility inspection bytes must be binary data");
-}
 
 function hasSignature(data, offset, signature) {
   if (offset < 0 || offset + signature.length > data.length) return false;
@@ -56,7 +48,7 @@ function lowerExtension(name) {
 }
 
 export function inspectWindowsPayload({ name, bytes: input }) {
-  const data = asBytes(input);
+  const data = asApplicationBytes(input);
   const payloadName = typeof name === "string" && name.trim() ? name.trim() : "unnamed";
   const extension = lowerExtension(payloadName);
 

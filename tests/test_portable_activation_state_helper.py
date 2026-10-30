@@ -83,6 +83,86 @@ class PortableActivationStateHelperTests(unittest.TestCase):
             check=check,
         )
 
+    def test_inspection_is_read_only_across_one_shot_rollback(self):
+        state, portable, activation = self.fixture()
+        def inspect():
+            before = {p.name: p.read_bytes() for p in activation.iterdir()}
+            result = self.run_helper("inspect", state, portable)
+            self.assertEqual(before, {p.name: p.read_bytes() for p in activation.iterdir()})
+            return json.loads(result.stdout)
+
+        idle = inspect()
+        self.assertEqual(idle["schema"], "ordax.portable-state-inspection/1")
+        self.assertEqual(idle["phase"], "idle")
+        self.assertEqual(idle["current"], OLD)
+        self.assertEqual(idle["knownGood"], OLDER)
+        self.assertIsNone(idle["candidate"])
+        self.assertIsNone(idle["attempt"])
+        self.assertTrue(idle["materializedShapeChecked"])
+
+        self.run_helper("prepare", state, portable, NEW)
+        armed = inspect()
+        self.assertEqual(armed["phase"], "armed")
+        self.assertEqual(armed["candidate"], NEW)
+        self.assertEqual(armed["attempt"], 0)
+        self.run_helper("select-boot", state, portable)
+        self.assertEqual(inspect()["attempt"], 1)
+        self.run_helper("select-boot", state, portable)
+        fallback = inspect()
+        self.assertEqual(fallback["phase"], "idle")
+        self.assertEqual(fallback["current"], OLD)
+        self.assertEqual(fallback["knownGood"], OLDER)
+        self.assertIsNone(fallback["candidate"])
+        self.assertEqual(fallback["rejected"], NEW)
+
+    def test_inspection_never_treats_orphan_as_boot_authority(self):
+        state, portable, activation = self.fixture()
+        (activation / "candidate").write_text(NEW + "\n", encoding="ascii")
+        before = {p.name: p.read_bytes() for p in activation.iterdir()}
+        snapshot = json.loads(self.run_helper("inspect", state, portable).stdout)
+        self.assertEqual(snapshot["phase"], "orphan-advisory")
+        self.assertEqual(snapshot["candidate"], NEW)
+        self.assertIsNone(snapshot["attempt"])
+        self.assertEqual(before, {p.name: p.read_bytes() for p in activation.iterdir()})
+
+    def test_inspection_reports_interrupted_commit_without_writing(self):
+        state, portable, activation = self.fixture()
+        self.run_helper("prepare", state, portable, NEW)
+        self.run_helper("select-boot", state, portable)
+        # Simulate power loss after durable current+known-good writes but before
+        # transaction cleanup, matching the canonical select-boot recovery path.
+        (activation / "current").write_text(NEW + "\n", encoding="ascii")
+        (activation / "known-good").write_text(OLD + "\n", encoding="ascii")
+        before = {p.name: p.read_bytes() for p in activation.iterdir()}
+        snapshot = json.loads(self.run_helper("inspect", state, portable).stdout)
+        self.assertEqual(snapshot["phase"], "commit-interrupted")
+        self.assertEqual(snapshot["current"], NEW)
+        self.assertEqual(snapshot["knownGood"], OLD)
+        self.assertEqual(snapshot["attempt"], 1)
+        self.assertEqual(before, {p.name: p.read_bytes() for p in activation.iterdir()})
+
+    def test_inspection_fails_closed_on_corruption(self):
+        for defect in ("symlink", "mismatch", "invalid-transaction", "missing-known-good", "invalid-erofs"):
+            with self.subTest(defect=defect):
+                state, portable, activation = self.fixture()
+                self.run_helper("prepare", state, portable, NEW)
+                if defect == "symlink":
+                    (activation / "candidate").unlink()
+                    (activation / "candidate").symlink_to(activation / "current")
+                elif defect == "mismatch":
+                    (activation / "candidate").write_text(NEXT + "\n", encoding="ascii")
+                elif defect == "invalid-transaction":
+                    (activation / "activation-transaction.json").write_text("{}", encoding="ascii")
+                elif defect == "missing-known-good":
+                    (activation / "known-good").unlink()
+                else:
+                    (portable / "releases" / NEW / "system.erofs").write_bytes(b"invalid")
+                before = {p.name: (p.is_symlink(), p.read_bytes()) for p in activation.iterdir()}
+                result = self.run_helper("inspect", state, portable, check=False)
+                self.assertEqual(result.returncode, 4, result.stderr)
+                self.assertEqual(result.stdout, "")
+                self.assertEqual(before, {p.name: (p.is_symlink(), p.read_bytes()) for p in activation.iterdir()})
+
     def test_prepare_and_uncommitted_boot_is_one_shot(self):
         state, portable, activation = self.fixture()
 

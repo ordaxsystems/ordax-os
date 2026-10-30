@@ -33,8 +33,10 @@ from native_host_server import (
     ensure_standard_user_directories,
     expected_surface_authority,
     parse_args,
+    read_device_profile,
     start_telemetry_heartbeat,
 )
+from product_device_runtime import compose_product_device_account_gateway
 
 TRUSTED_STATE_UID = 0
 
@@ -110,7 +112,6 @@ def hold_native_host_instance(lock_path: str | None = None):
         os.close(directory_fd)
 
 
-
 def prepare_private_app_data_authority(
     server,
     distribution_profile: str,
@@ -177,6 +178,15 @@ def _serve_native_host(args) -> int:
         app_data_defer_listener_activation=True,
     )
 
+    if server.account_gateway is not None:
+        server.account_gateway = compose_product_device_account_gateway(
+            server.account_gateway,
+            distribution_profile=args.distribution_profile,
+            product_mode=args.product_mode,
+            control_plane_origin=os.environ.get("ORDAX_PRODUCT_CONTROL_PLANE_URL", ""),
+            device_profile_reader=read_device_profile,
+        )
+
     try:
         binding_count = prepare_private_app_data_authority(
             server,
@@ -224,9 +234,19 @@ def _serve_native_host(args) -> int:
     except KeyboardInterrupt:
         pass
     finally:
-        server.server_close()
+        # Stop native Product presence on host teardown. No Studio, shell
+        # command, or separate MCP server owns this device lifecycle.
+        presence_close = getattr(server.account_gateway, "close_product_presence", None)
+        try:
+            if callable(presence_close):
+                presence_close()
+        except (OSError, RuntimeError):
+            # Remote presence cannot prevent the host from closing its local
+            # App Data authority, even if offline notification fails.
+            pass
+        finally:
+            server.server_close()
     return 0
-
 
 
 def main() -> int:
@@ -261,7 +281,6 @@ def main() -> int:
             file=sys.stderr, flush=True,
         )
         return 3
-
 
 
 if __name__ == "__main__":
