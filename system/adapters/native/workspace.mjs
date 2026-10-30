@@ -91,8 +91,20 @@ export function createNativeWorkspaceStore(windowRef = globalThis.window) {
     save(snapshot) {
       const validated = validateWorkspaceRecord(snapshot);
       if (currentKey === null || blockedPartitions.has(currentKey)) return false;
+      if (!storage) {
+        volatilePartitions.set(currentKey, validated);
+        return false;
+      }
+      // A first write without a preceding load must not overwrite an
+      // unreadable on-disk account partition (or a corrupt guest record).
+      try {
+        const existing = storage.getItem(currentKey);
+        if (existing !== null) validateWorkspaceRecord(JSON.parse(existing));
+      } catch {
+        blockedPartitions.add(currentKey);
+        return false;
+      }
       volatilePartitions.set(currentKey, validated);
-      if (!storage) return false;
       try {
         storage.setItem(currentKey, JSON.stringify(validated));
         return true;

@@ -104,3 +104,44 @@ test("Unavailable browser storage is volatile and remains partitioned", () => {
   store.selectOwner(subject("A"));
   assert.equal(target(store.load()), "/volatile-A");
 });
+
+
+test("Direct first write cannot erase an unread corrupt account partition", () => {
+  const localStorage = storage();
+  localStorage.setItem("ordax.native.workspace.v2.subject.A", "{unread-corrupt");
+  const store = createNativeWorkspaceStore({ localStorage });
+  store.selectOwner(subject("A"));
+  assert.equal(store.save(workspace("/overwrite")), false);
+  assert.equal(localStorage.raw("ordax.native.workspace.v2.subject.A"), "{unread-corrupt");
+  assert.equal(target(store.load()), null);
+  assert.equal(store.save(workspace("/retry")), false);
+});
+test("Unavailable identity must not reveal even a populated guest partition", () => {
+  const localStorage = storage();
+  const store = createNativeWorkspaceStore({ localStorage });
+  store.selectOwner({ state: "signed-out" });
+  assert.equal(store.save(workspace("/private-guest")), true);
+  store.selectOwner(subject("A"));
+  store.save(workspace("/secret-A"));
+  store.selectOwner({ state: "unavailable" });
+  assert.equal(target(store.load()), null);
+  assert.equal(store.save(workspace("/unauthorized")), false);
+  store.selectOwner({ state: "signed-out" });
+  assert.equal(target(store.load()), "/private-guest");
+});
+test("Interrupted durable write does not assert persistence or cross subject boundaries", () => {
+  const backing = storage();
+  const localStorage = {
+    getItem: backing.getItem,
+    setItem() { throw new Error("read-only filesystem"); },
+  };
+  const store = createNativeWorkspaceStore({ localStorage });
+  store.selectOwner(subject("A"));
+  assert.equal(store.save(workspace("/volatile-A")), false);
+  assert.equal(target(store.load()), "/volatile-A");
+  store.selectOwner(subject("B"));
+  assert.equal(target(store.load()), null);
+  assert.equal(store.save(workspace("/volatile-B")), false);
+  store.selectOwner(subject("A"));
+  assert.equal(target(store.load()), "/volatile-A");
+});
