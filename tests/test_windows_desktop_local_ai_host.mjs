@@ -146,12 +146,13 @@ test("Windows alone bounds real context-free Intelligence greetings, never compl
     if ((await fetch(h.base+path,opts)).status===200) break;
     await new Promise(r=>setTimeout(r,25));
   }
-  const send=async (text,limit=512) => {
+  const send=async (text,limit=512,systemLocale=null) => {
     const response=await fetch(h.base+"/__ordax/native/local-ai/v1/chat/completions",{
       method:"POST",
       headers:{...opts.headers,origin:h.base,"content-type":"application/json"},
       body:JSON.stringify({model:model.modelId,messages:[
-        {role:"system",content:"You are Ordax Intelligence, the consultative intelligence layer of the OrdaX system. No implicit execution authority."},
+        {role:"system",content:"You are Ordax Intelligence, the consultative intelligence layer of the OrdaX system. No implicit execution authority."+
+          (systemLocale ? "\nOrdaX system response language: "+systemLocale+"." : "")},
         {role:"user",content:text}
       ],max_tokens:limit,stream:false}),
     });
@@ -169,8 +170,9 @@ test("Windows alone bounds real context-free Intelligence greetings, never compl
   assert.equal(await send(short+"oi\nNow do a long analysis"),512);
   assert.equal(await send(short+"oi",64),64);
   assert.equal(await send(short+"50x0",128),128);
+  assert.equal(await send(short+"oi",128,"English"),64);
   assert.equal(h.launchCalls.length,1);
-  assert.deepEqual(h.priorities, Array.from({length:10}, (_,index) => ({
+  assert.deepEqual(h.priorities, Array.from({length:12}, (_,index) => ({
     pid:12345, priority:index%2===0?-7:0,
   })));
   const passed=h.fetchCalls.filter(x=>x.url.endsWith("/v1/chat/completions"))
@@ -186,6 +188,10 @@ test("Windows alone bounds real context-free Intelligence greetings, never compl
   assert.equal(passed[5].messages[1].content,["Intent: summarize","Model purpose: summarize","User request:","oi"].join(String.fromCharCode(10)));
   assert.equal(passed[6].messages[1].content,short+["oi","Now do a long analysis"].join(String.fromCharCode(10)));
   assert.equal(passed[8].messages[1].content,short+"50x0");
+  assert.equal(passed[9].messages[1].content,"oi");
+  assert.match(passed[9].messages[0].content, /system response language: English/);
+  assert.match(passed[9].messages[0].content, /use the OrdaX system response language specified above/);
+  assert.doesNotMatch(passed[9].messages[0].content, /respond in Brazilian Portuguese/);
 });
 
 test("Windows Native recycles a disconnected orphan without a second concurrent engine", async t => {
