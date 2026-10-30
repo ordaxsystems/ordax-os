@@ -112,6 +112,16 @@ O único código de apresentação, CSS, assets, rotas, i18n e testes do Site pe
 
 Identity, sessão, autorização, billing, publicação assinada de releases, domínios e o proxy do gateway **não** pertencem ao Site. Esses serviços mantêm a autoridade no OS/Platform e apenas fornecem APIs/autorização de mesma origem ao frontend. O ambiente `ordax-site-dev` é separado da operação de produção.
 
+### 7. ordaxsystems/ordax-creator
+
+**Papel:** aplicativo independente do Creator, Core de verificação de mídia e interface/adapters Windows.
+
+É owner do código-fonte do Creator, seus consumidores dos canais assinados, verificações de integridade de payload, UI e adapters limitados do host. Sua CI de aplicativo/Core é independente de compilar kernel, Base, Surface ou USB.
+
+**Não** é owner dos produtores de kernel, boot, Base, prova descartável de ESP/QEMU, política de release/assinatura nem autorização da gravação física. Esses componentes permanecem no `ordaxsystems/ordax-os`, inclusive os produtores Python de `tools/creator/`. O Core pode consumir contratos OS imutáveis sem duplicá-los; um CI verde do Creator não autoriza gravar USB nem lançar Stable.
+
+O corte de fonte do Creator já foi concluído (C6), mas esta declaração de owner **não** promove payload, dispositivo físico, release assinada ou qualquer alteração à PR USB Dev #2243.
+
 ## Fluxos oficiais
 
 ### Site público independente
@@ -135,6 +145,20 @@ ordaxsystems/ordax-surface (revisão fixa em docs/contracts/surface-source.json)
 ```
 
 O repositório da Surface não instala serviços nativos nem atualiza dispositivos; a verificação, staging e ativação pertencem aos owners do OS.
+
+### Creator independente com artefatos OS assinados
+
+```text
+ordaxsystems/ordax-os
+  -> Base / boot / componentes físicos / contratos / assinatura (owner produtor)
+  -> artefatos com proveniência verificável
+  -> ordaxsystems/ordax-creator (Core + UI + adapters Windows consumidores)
+  -> verificação independente de integridade + gates de autorização física
+```
+
+O Creator **não** aciona rebuild da Base por mudar sua interface. A autorização
+para gravar mídia depende de assinatura, gates físicos e confirmação explícita,
+não da existência de um instalador do Creator ou de testes isolados.
 
 ### ChatGPT controlando um computador Windows
 
@@ -227,6 +251,7 @@ Atualizado em 2026-10-08 após validação da migração concluída e dos quatro
 | Camada | Repositório canônico | Estado |
 | --- | --- | --- |
 | OrdaX OS / plataforma | `ordaxsystems/ordax-os` | canônico |
+| Creator (Core/UI/consumidor Windows) | `ordaxsystems/ordax-creator` | fonte independente C6; publicação física depende de gates OS |
 | Apps first-party / ORDAX Studio | `ordaxsystems/ordax-apps` | canônico; Studio portátil em `apps/studio` |
 | Runtime / Device Host Windows | `ordaxsystems/ordax-runtime` | canônico; namespace transferido e histórico preservado |
 | Product MCP / Control Plane / connectors | `ordaxsystems/ordax-platform` | canônico; transferido e renomeado, histórico preservado |
