@@ -25,6 +25,9 @@ const rawCatalog = {
       navigation: [
         { id: "overview", capability: null, label: "Visão geral" },
         { id: "orders", capability: "orders", label: "Pedidos" },
+        // KDS is a Food module under the same canonical orders capability,
+        // not a second installed app or another provider/storage owner.
+        { id: "kitchen", capability: "orders", label: "Cozinha (KDS)" },
         { id: "tables", capability: "tables", label: "Mesas e Salão" },
         { id: "delivery", capability: "delivery", label: "Delivery e Retirada" },
         { id: "menu", capability: "menu", label: "Cardápio" },

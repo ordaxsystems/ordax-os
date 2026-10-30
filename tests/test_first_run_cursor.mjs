@@ -10,9 +10,10 @@ import { createNativeFirstRunCursor } from "../system/adapters/native/first-run-
 import { FIRST_RUN_STEP_IDS, getFirstRunStepIndex } from "../system/services/first-run/journey.mjs";
 
 test("resume cursor never persists later-stage account/identity state", () => {
-  for (const step of ["privacy", "name", "ready"]) {
+  for (const step of ["security", "privacy", "name", "ready"]) {
     assert.equal(safeFirstRunResumeStep(step), "account");
   }
+  assert.equal(safeFirstRunResumeStep("regional"), "welcome");
   assert.equal(safeFirstRunResumeStep("network"), "network");
   assert.equal(safeFirstRunResumeStep("invalid"), "welcome");
   assert.throws(() => validateFirstRunCursor({

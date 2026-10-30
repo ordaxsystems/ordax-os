@@ -5,10 +5,6 @@ import { fileURLToPath } from "node:url";
 import path from "node:path";
 
 import { listFirstPartyApps } from "../system/apps/catalog.mjs";
-import {
-  STUDIO_WORKSPACE_ENGLISH_MESSAGES,
-  STUDIO_WORKSPACE_SOURCE_MESSAGES,
-} from "../system/services/i18n/catalog/studio-workspace.mjs";
 import { translateSurfaceMessage } from "../system/services/i18n/surface.mjs";
 
 const PORTUGUESE_MARKER = /(?:[ãõáéíóúâêôç])|\b(?:abrir|ajustes|agora|aguarde|arquivo|arquivos|atualização|atualizando|bateria|cadastro|carregando|conectar|conectado|conta|continuar|criar|degradado|desconectado|disponível|documentos|energia|escrita|excluir|falha|fechar|fuso|idioma|indisponível|início|leitura|nenhum|nenhuma|nota|notas|ontem|pendrive|primeiro|privacidade|pronto|procurar|rede|região|renomear|salvar|salvo|salva|segurança|senha|sessão|sinal|sistema|somente|termos|tudo|vigentes|voltar)\b/iu;
@@ -98,14 +94,6 @@ test("every registered first-party app has localized en-US display metadata", ()
   }
 });
 
-test("Studio workspace has an exact shared pt-BR/en-US catalog", () => {
-  exactCatalogKeys(
-    STUDIO_WORKSPACE_SOURCE_MESSAGES,
-    STUDIO_WORKSPACE_ENGLISH_MESSAGES,
-    "Studio workspace",
-  );
-});
-
 test("rendering modules outside First Run contain no unowned Portuguese UI literals", async () => {
   const repositoryRoot = fileURLToPath(new URL("../", import.meta.url));
   const surfaceUiRoot = path.join(repositoryRoot, "system", "surface", "ui");
@@ -137,18 +125,4 @@ test("rendering modules outside First Run contain no unowned Portuguese UI liter
     [],
     `direct PT-BR UI literals bypass localization:\n${violations.join("\n")}`,
   );
-});
-
-test("Native shell device and planned-feature messages belong to the shared localization catalog", () => {
-  for (const [id, portuguese, english] of [
-    ["shell.device.context.title", "Este dispositivo", "This device"],
-    ["shell.device.context.subtitle", "Área de trabalho OrdaX", "Native workspace"],
-    ["shell.device.continuity", "Continuidade", "Continuity"],
-    ["shell.navigation.planned.label", "Recurso planejado", "Planned feature"],
-    ["shell.navigation.planned.unavailable", "Ainda não conectado a um serviço", "Not connected to a service yet"],
-    ["shell.navigation.planned.short", "Planejado", "Planned"],
-  ]) {
-    assert.equal(translateSurfaceMessage("pt-BR", id), portuguese);
-    assert.equal(translateSurfaceMessage("en-US", id), english);
-  }
 });

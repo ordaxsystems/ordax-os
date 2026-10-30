@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { createSystemTermsAcceptance } from "../system/contracts/system-terms.mjs";
 
 import {
   FIRST_RUN_STATE_SCHEMA,
@@ -170,149 +171,12 @@ test("first-run identity completion refreshes the real session before saving a r
   assert.equal(await verifyFirstRunIdentitySession(null, "account-A"), false);
 });
 
-test("first-run must confirm durable regional preferences before committing the receipt", async () => {
-  const { persistFirstRunCompletion } = await import("../system/services/state/first-run.mjs");
-  const events = [];
-  let acknowledge;
-  const store = { save: async receipt => {
-    events.push("receipt");
-    assert.equal(receipt.completed, true);
-  } };
-  const preferences = {
-    set: (id, value) => { events.push(id + "=" + value); },
-    persistConfirmed: () => {
-      events.push("pending");
-      return new Promise(resolve => { acknowledge = resolve; });
-    },
-  };
-  const promise = persistFirstRunCompletion(store, preferences, {
-    locale: "en-US", timeZone: "America/Bahia", accountMode: "local-only",
-  });
-  assert.deepEqual(events, ["regional.locale=en-US", "regional.time-zone=America/Bahia", "pending"]);
-  acknowledge(true);
-  const receipt = await promise;
-  assert.equal(receipt.completed, true);
-  assert.equal(events.at(-1), "receipt");
-});
-
-test("first-run rejects failed host ACK and never persists a completed receipt", async () => {
-  const { persistFirstRunCompletion } = await import("../system/services/state/first-run.mjs");
-  let receiptWrites = 0;
-  const draft = { locale: "pt-BR", timeZone: "America/Bahia", accountMode: "local-only" };
-  const preferences = {
-    set() {},
-    persistConfirmed: async () => false,
-  };
-  await assert.rejects(
-    persistFirstRunCompletion({ save: async () => { receiptWrites++; } }, preferences, draft),
-    /not durably confirmed/,
-  );
-  assert.equal(receiptWrites, 0);
-  await assert.rejects(
-    persistFirstRunCompletion({ save: async () => { receiptWrites++; } }, {
-      ...preferences,
-      persistConfirmed: async () => { throw new Error("USB unavailable"); },
-    }, draft),
-    /USB unavailable/,
-  );
-  assert.equal(receiptWrites, 0);
-  await assert.rejects(
-    persistFirstRunCompletion({ save: async () => { receiptWrites++; } }, { set() {} }, draft),
-    /durable state and preference ports/,
-  );
-});
-
-test("failed receipt keeps First Run incomplete after confirmed preference save", async () => {
-  const { persistFirstRunCompletion } = await import("../system/services/state/first-run.mjs");
-  const draft = { locale: "pt-BR", timeZone: "America/Bahia", accountMode: "identity" };
-  const staged = {};
-  const preferences = {
-    set(id, value) { staged[id] = value; },
-    persistConfirmed: async () => true,
-  };
-  await assert.rejects(
-    persistFirstRunCompletion({ save: async () => { throw Error("Native receipt I/O"); } }, preferences, draft),
-    /Native receipt I\/O/,
-  );
-  assert.deepEqual(staged, { "regional.locale": "pt-BR", "regional.time-zone": "America/Bahia" });
-  const incomplete = createInitialFirstRunState();
-  assert.equal(incomplete.completed, false);
-  assert.equal(seedMissingRegionalPreferencesFromFirstRun(staged, incomplete).changed, false);
-});
-test("account switch during Native preference ACK blocks identity receipt", async () => {
-  const { persistFirstRunCompletion } = await import("../system/services/state/first-run.mjs");
-  let current = { state: "signed-in", subjectId: "account-A", displayName: "Pessoa" };
-  const identity = { getSnapshot: () => current, refresh: async () => {} };
-  let confirm;
-  const preferences = {
-    set() {},
-    persistConfirmed: () => new Promise(resolve => { confirm = resolve; }),
-  };
-  let receiptWrites = 0;
-  const pending = persistFirstRunCompletion(
-    { save: async () => { receiptWrites++; } },
-    preferences,
-    { locale: "pt-BR", timeZone: "America/Bahia", accountMode: "identity" },
-    { authorizeCommit: () => verifyFirstRunIdentitySession(identity, "account-A") },
-  );
-  current = { state: "signed-in", subjectId: "account-B", displayName: "Pessoa" };
-  confirm(true);
-  await assert.rejects(pending, /authorization changed before receipt/);
-  assert.equal(receiptWrites, 0);
-});
-
-test("identity commitment revalidates session after preference ACK", async () => {
-  const { persistFirstRunCompletion } = await import("../system/services/state/first-run.mjs");
-  const current = { state: "signed-in", subjectId: "account-A", displayName: "Pessoa" };
-  const identity = { getSnapshot: () => current, refresh: async () => {} };
-  let verified = false, receipt = null;
-  const completed = await persistFirstRunCompletion(
-    { save: async snapshot => { assert.equal(verified, true); receipt = snapshot; } },
-    { set() {}, persistConfirmed: async () => true },
-    { locale: "pt-BR", timeZone: "America/Bahia", accountMode: "identity" },
-    { authorizeCommit: async () => { verified = true; return verifyFirstRunIdentitySession(identity, "account-A"); } },
-  );
-  assert.equal(completed, receipt);
-  assert.equal(receipt.accountMode, "identity");
-});
-test("guest selection requires native detachment even for stale or unavailable identity", async () => {
-  const { ensureFirstRunLocalIsolation } = await import("../system/services/state/first-run.mjs");
-  const session = { getSnapshot: () => ({ state: "unavailable" }) };
-  assert.equal(await ensureFirstRunLocalIsolation(session, null), false);
-  assert.equal(await ensureFirstRunLocalIsolation(session, { disconnectLocal: async () => ({}) }), false);
-  assert.equal(await ensureFirstRunLocalIsolation(session, {
-    disconnectLocal: async () => ({ localSessionDetached: true, remoteRevocation: "not-applicable" }),
-  }), true);
-  assert.equal(await ensureFirstRunLocalIsolation({ getSnapshot: () => ({ state: "signed-in" }) }, {
-    disconnectLocal: async () => ({ localSessionDetached: true }),
-  }), false);
-  assert.equal(await ensureFirstRunLocalIsolation(session, {
-    disconnectLocal: async () => { throw new Error("offline host unreachable"); },
-  }), false);
-});
-
-test("guest completion requires a fresh local detachment after preference ACK", async () => {
-  const { ensureFirstRunLocalIsolation, persistFirstRunCompletion } =
-    await import("../system/services/state/first-run.mjs");
-  let proof = false;
-  let writes = 0;
-  const session = { getSnapshot: () => ({ state: "unavailable" }) };
-  const actions = { disconnectLocal: async () => ({ localSessionDetached: proof }) };
-  const completed = {
-    locale: "pt-BR", timeZone: "America/Bahia", accountMode: "local-only",
-  };
-  const save = { save: async () => { writes++; } };
-  const preferences = { set() {}, persistConfirmed: async () => true };
-  await assert.rejects(
-    persistFirstRunCompletion(save, preferences, completed, {
-      authorizeCommit: () => ensureFirstRunLocalIsolation(session, actions),
-    }),
-    /authorization changed before receipt/,
-  );
-  assert.equal(writes, 0);
-  proof = true;
-  await persistFirstRunCompletion(save, preferences, completed, {
-    authorizeCommit: () => ensureFirstRunLocalIsolation(session, actions),
-  });
-  assert.equal(writes, 1);
+test("OS draft terms acknowledgement is separate, versioned and only saved on completion", () => {
+  const systemTerms = createSystemTermsAcceptance(true);
+  const receipt = completeFirstRunState({ locale: "pt-BR", timeZone: "America/Bahia", accountMode: "local-only", systemTerms });
+  assert.deepEqual(receipt.systemTerms, systemTerms);
+  assert.equal(receipt.systemTerms.status, "draft");
+  assert.throws(() => createSystemTermsAcceptance(false), TypeError);
+  assert.throws(() => validateFirstRunState({ ...createInitialFirstRunState(), systemTerms }), TypeError);
+  assert.throws(() => validateFirstRunState({ ...receipt, systemTerms: { ...systemTerms, accepted: false } }), TypeError);
 });

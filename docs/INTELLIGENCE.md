@@ -169,8 +169,10 @@ contrato, estado, resposta tardia e Memory vivem nos testes da Intelligence.
 ### Canvas read-only de Work/Activity/Result (P0 de #1572)
 
 A primeira composição funcional de resultado adaptativo está em
-`system/services/intelligence/work-canvas.mjs`, consumida por
-`system/apps/activity/view-model.mjs` e pela UI **Activity já existente**.
+`system/services/intelligence/work-canvas.mjs`, consumida pelo app canônico
+`ordaxsystems/ordax-apps/apps/activity/src/view-model.mjs` e por sua UI. O OS
+mantém o serviço neutro de plataforma; a projeção e a interface Activity têm
+fonte única em Apps.
 Seu input é somente o snapshot validado de `ordax.personal-runtime/1`;
 ela não cria um novo Work, store, ação, router, autorização ou receipt.
 Os contratos canônicos permanecem `ordax.personal-work-item/1`,
@@ -211,6 +213,40 @@ The first-party Assistant may later provide a conversational Surface, but it is
 only a client. Files, Notes, Search, Settings, diagnostics and future automation
 may consume the same system intelligence contract without opening an Assistant
 window.
+
+
+## Aquisição signed v4 no Owner/Development
+
+A entrega do `local-ai-runtime.erofs` usa o release-agent do Base owner,
+o mesmo envelope Ed25519 e a prova v4 canônica. A Surface não busca nem
+instala modelos. O owner tenta adquirir o artefato somente após a conclusão
+do First Run e quando não há atualização Base pendente, por um processo
+opcional e cancelável do seu próprio `agent.sh`, **depois** das operações
+críticas de Base/ESP e suspenso se `boot-refresh-required` estiver pendente.
+A espera de parada é limitada e não bloqueia indefinidamente o owner.
+Uma falha permanece restrita à IA local, com status
+privado separado (`aura-status.json`). Um receipt privado autoriza
+reaproveitamento eficiente e o watcher do `ordax-run` pode iniciar o
+launcher Native depois da entrega, preservando validação independente do
+digest da imagem antes da execução.
+
+Isto não promove Stable e não adiciona dependências Alpine. Inferência
+funcional no USB físico precisa de validação separada.
+
+## Owner/Development USB — lifecycle local source (2026-10-21)
+
+O caminho Native mantém o mesmo `ordax.local-ai/1` e
+`ordax.intelligence/1`. O supervisor `ordax-run` pode agora anexar o
+`owner-dev-runtime.sh` quando **e somente quando** o EROFS candidato
+assinado já foi materializado no content-addressed staging local; confere
+hash/tamanho, source lock e arquitetura, monta read-only e mantém token
+efêmero na mesma rota do Native Host. Não introduz modelo paralelo,
+inferência remota ou dependência de boot.
+
+Isto **não** instala o payload no USB Dev: publicação, entrega verificada,
+staging, rollback e prova física continuam em #2071. A composição Web e
+providers externos permanecem fail-closed. Na ausência do EROFS válido,
+a Aura continua indisponível sem simulação de resposta.
 
 ## Layering
 

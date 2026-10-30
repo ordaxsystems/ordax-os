@@ -6,8 +6,6 @@ import {
 } from "../../contracts/sync-runtime.mjs";
 import { assertSyncCheckpointStore } from "../../contracts/sync-checkpoint-store.mjs";
 import { createSessionSyncCheckpointStore } from "./session-checkpoint-store.mjs";
-import { SYNC_STATE_CONTAINER_SCHEMA } from "./state-store-registry.mjs";
-import { assertSyncStateStore } from "../../contracts/sync-state-store.mjs";
 import { assertSyncTransportPort } from "../../contracts/sync-transport.mjs";
 import {
   assertWorkspaceMetadataSource,
@@ -45,7 +43,6 @@ const TRACKED_OBJECT_IDS = Object.freeze([
   PORTABLE_PREFERENCES_OBJECT_ID,
   PORTABLE_WORKSPACE_OBJECT_ID,
 ]);
-export const PORTABLE_PENDING_STATE_SCHEMA = "ordax.account-portable-pending/1";
 const PORTABLE_PREFERENCE_IDS = Object.freeze([
   ACCESSIBILITY_CONTRAST_PREFERENCE_ID,
   ACCESSIBILITY_MOTION_PREFERENCE_ID,
@@ -109,46 +106,6 @@ function mutation({ objectId, dataClass, baseServerRevision, payload, idempotenc
   });
 }
 
-function recoverPortablePending(store, subjectId) {
-  if (!store) return [];
-  const raw = store.load();
-  if (raw === null) return [];
-  const value = JSON.parse(raw);
-  if (
-    !value || value.$schema !== PORTABLE_PENDING_STATE_SCHEMA
-    || value.subjectId !== subjectId || !Array.isArray(value.mutations)
-    || value.mutations.length > 2
-  ) throw new Error("Account portable pending state requires explicit recovery");
-  const seen = new Set();
-  return value.mutations.map(item => {
-    const objectId = item?.objectId;
-    const kind = objectId === PORTABLE_PREFERENCES_OBJECT_ID
-      ? "preferences" : objectId === PORTABLE_WORKSPACE_OBJECT_ID
-        ? "workspace-metadata" : null;
-    if (
-      kind === null || seen.has(objectId) || item?.$schema !== SYNC_MUTATION_SCHEMA
-      || item.operation !== "upsert" || item.dataClass !== kind
-      || item.objectSchemaVersion !== 1 || item.resolverVersion !== 1
-      || typeof item.idempotencyKey !== "string"
-      || !/^[A-Za-z0-9._:-]{8,128}$/.test(item.idempotencyKey)
-    ) throw new Error("Account portable pending mutation requires explicit recovery");
-    seen.add(objectId);
-    const payload = kind === "preferences"
-      ? validatePortablePreferences(item.payload)
-      : remoteWorkspacePayload(item.payload);
-    return mutation({
-      objectId,
-      dataClass: kind,
-      baseServerRevision: requireRevision(item.baseServerRevision),
-      idempotencyKey: item.idempotencyKey,
-      payload: kind === "preferences" ? payload : {
-        activeAreaId: payload.activeAreaId,
-        areas: payload.areas,
-      },
-    });
-  });
-}
-
 function workspaceRecordFromMetadata(value) {
   const metadata = validateWorkspaceMetadata(value);
   const areas = metadata.areas.map((area) => {
@@ -199,7 +156,6 @@ export function createAccountSyncRuntime({
   identitySession,
   transport,
   checkpointStore = null,
-  syncStateRegistry = null,
   preferenceSync,
   preferences,
   workspaceMetadataSource,
@@ -217,18 +173,9 @@ export function createAccountSyncRuntime({
   const workspaceState = assertWorkspaceStore(workspaceStore);
   const memoryRuntime = optionalMemorySyncRuntime(memorySync);
   const nextKey = requireIdFactory(createIdempotencyKey);
-  if (syncStateRegistry !== null
-    && (syncStateRegistry.schema !== SYNC_STATE_CONTAINER_SCHEMA
-      || typeof syncStateRegistry.open !== "function")) {
-    throw new TypeError("Account portable pending state requires the canonical sync registry");
-  }
 
   const revisions = new Map(TRACKED_OBJECT_IDS.map((id) => [id, 0]));
   const pending = new Map();
-  let pendingStore = null;
-  let pendingPersisted = true;
-  let pendingSaveAccepted = true;
-  let pendingOwner = null;
   const listeners = new Set();
   let activeSubjectId = null;
   let checkpointCursor = 0;
@@ -241,61 +188,9 @@ export function createAccountSyncRuntime({
   let workspaceDirty = false;
   let syncing = false;
   let synchronizationPromise = null;
-  let synchronizingSubjectId = null;
-  let resynchronizeRequested = false;
   let retryRequested = false;
   let lastPreferenceFingerprint = fingerprint(portablePreferences(preferencePort.getSnapshot()));
   let lastWorkspaceFingerprint = fingerprint(workspaceSource.getSnapshot());
-  // Seed from the authoritative snapshot: some identity ports subscribe only
-  // to future changes instead of emitting the initial state synchronously.
-  const initialIdentity = identity.getSnapshot();
-  let lastIdentitySubject = initialIdentity.state === "signed-in"
-    ? initialIdentity.subjectId : null;
-
-  const persistPortablePending = () => {
-    if (syncStateRegistry === null || pendingOwner === null) return true;
-    if (!pendingStore) return false;
-    try {
-      pendingPersisted = false;
-      pendingSaveAccepted = false;
-      const payload = JSON.stringify({
-        $schema: PORTABLE_PENDING_STATE_SCHEMA,
-        subjectId: pendingOwner,
-        mutations: [...pending.values()],
-      });
-      const ok = pendingStore.save(payload);
-      pendingSaveAccepted = ok === true;
-      return pendingSaveAccepted;
-    } catch {
-      return false;
-    }
-  };
-  const confirmPortablePending = async (subjectId) => {
-    if (syncStateRegistry === null) return true;
-    if (pendingOwner !== subjectId || !pendingStore || !pendingSaveAccepted) return false;
-    try {
-      if (await pendingStore.flush() !== true) return false;
-      if (!isCurrentSubject(subjectId) || pendingOwner !== subjectId) return false;
-      pendingPersisted = true;
-      return true;
-    } catch {
-      return false;
-    }
-  };
-  const switchPortablePending = (subjectId) => {
-    pending.clear();
-    pendingOwner = null;
-    pendingStore = null;
-    pendingPersisted = true;
-    pendingSaveAccepted = true;
-    if (subjectId === null) return;
-    const nextStore = syncStateRegistry === null ? null
-      : assertSyncStateStore(syncStateRegistry.open("portable-pending", { partitionKey: subjectId }));
-    const restored = recoverPortablePending(nextStore, subjectId);
-    for (const entry of restored) pending.set(entry.objectId, entry);
-    pendingOwner = subjectId;
-    pendingStore = nextStore;
-  };
 
   const resetRevisions = () => {
     for (const id of TRACKED_OBJECT_IDS) revisions.set(id, 0);
@@ -328,7 +223,6 @@ export function createAccountSyncRuntime({
   };
 
   const recoverCheckpoint = (subjectId) => {
-    switchPortablePending(subjectId);
     activeSubjectId = subjectId;
     checkpointCursor = 0;
     checkpointLoaded = false;
@@ -346,11 +240,6 @@ export function createAccountSyncRuntime({
     }
     checkpointLoaded = true;
     return true;
-  };
-
-  const isCurrentSubject = (subjectId) => {
-    const snapshot = identity.getSnapshot();
-    return !destroyed && snapshot.state === "signed-in" && snapshot.subjectId === subjectId;
   };
 
   const requireMemorySubject = (subjectId) => {
@@ -398,12 +287,8 @@ export function createAccountSyncRuntime({
     const memorySnapshot = memoryRuntime?.getSnapshot() ?? null;
     const otherPending = pending.size + Number(preferencesDirty) + Number(workspaceDirty);
     const memoryPending = memorySnapshot?.pendingMutationCount ?? 0;
-    const anySessionPending = (
-      otherPending > 0 && (
-        preferencesDirty || workspaceDirty
-        || syncStateRegistry?.scope !== "device" || !pendingPersisted
-      )
-    ) || (memoryPending > 0 && memorySnapshot?.queuePersistence === "session");
+    const anySessionPending = otherPending > 0
+      || (memoryPending > 0 && memorySnapshot?.queuePersistence === "session");
     return validateSyncRuntimeSnapshot({
       transport: identitySnapshot.state === "unavailable" ? "host-required" : "available",
       accountContinuity:
@@ -436,7 +321,6 @@ export function createAccountSyncRuntime({
         idempotencyKey: nextKey("preferences"),
       }),
     );
-    persistPortablePending();
     emit();
     void flush();
   };
@@ -458,7 +342,6 @@ export function createAccountSyncRuntime({
         idempotencyKey: nextKey("workspace"),
       }),
     );
-    persistPortablePending();
     emit();
     void flush();
   };
@@ -479,27 +362,22 @@ export function createAccountSyncRuntime({
       idempotencyKey: nextKey(`${current.dataClass}-rebase`),
     });
     pending.set(objectId, rebased);
-    persistPortablePending();
     persistCheckpoint();
     return rebased;
   };
 
-  const flushAppearance = async (subjectId) => {
-    if (!isCurrentSubject(subjectId)) return;
+  const flushAppearance = async () => {
     let current = preferenceSync.pendingMutations()[0] ?? null;
     if (!current) return;
 
     for (let attempt = 0; attempt <= MAX_CONFLICT_REBASE_ATTEMPTS; attempt += 1) {
-      if (!isCurrentSubject(subjectId)) return;
       const expected = revisions.get(APPEARANCE_SYNC_OBJECT_ID) ?? 0;
       if (current.baseServerRevision !== expected) {
         preferenceSync.rebasePending(expected);
         current = preferenceSync.pendingMutations()[0] ?? null;
         if (!current) return;
       }
-      // A rebase creates a new idempotency key. Confirm that precise queue
-      // before first send or conflict retry; old Host ACKs are insufficient.
-      if (!(await preferenceSync.flushDurably?.() ?? true) || !isCurrentSubject(subjectId)) return;
+
       let ack;
       try {
         ack = await remote.applyMutation({ ...current, resolverVersion: 1 });
@@ -507,9 +385,7 @@ export function createAccountSyncRuntime({
         retryRequested = true;
         return;
       }
-      // A late ACK from a detached identity cannot touch another account's
-      // revisions, pending queue, or checkpoint.
-      if (!isCurrentSubject(subjectId)) return;
+
       const revision = requireRevision(ack.serverRevision);
       revisions.set(APPEARANCE_SYNC_OBJECT_ID, revision);
       persistCheckpoint();
@@ -533,19 +409,16 @@ export function createAccountSyncRuntime({
     }
   };
 
-  const flushPortableObject = async (objectId, initialMutation, subjectId) => {
-    if (!isCurrentSubject(subjectId)) return;
-    if (!(await confirmPortablePending(subjectId))) return;
+  const flushPortableObject = async (objectId, initialMutation) => {
     let current = initialMutation;
 
     for (let attempt = 0; attempt <= MAX_CONFLICT_REBASE_ATTEMPTS; attempt += 1) {
-      if (!isCurrentSubject(subjectId)) return;
       const expected = revisions.get(objectId) ?? 0;
       if (current.baseServerRevision !== expected) {
         current = rebasePortablePending(objectId, expected);
         if (!current) return;
       }
-      if (!(await confirmPortablePending(subjectId)) || !isCurrentSubject(subjectId)) return;
+
       let ack;
       try {
         ack = await remote.applyMutation(current);
@@ -553,7 +426,7 @@ export function createAccountSyncRuntime({
         retryRequested = true;
         return;
       }
-      if (!isCurrentSubject(subjectId)) return;
+
       const revision = requireRevision(ack.serverRevision);
       revisions.set(objectId, revision);
       persistCheckpoint();
@@ -570,7 +443,6 @@ export function createAccountSyncRuntime({
       const latest = pending.get(objectId);
       if (latest?.idempotencyKey === current.idempotencyKey) {
         pending.delete(objectId);
-        persistPortablePending();
       } else if (latest) {
         rebasePortablePending(objectId, revision);
         retryRequested = true;
@@ -582,22 +454,16 @@ export function createAccountSyncRuntime({
 
   async function flush() {
     const identitySnapshot = identity.getSnapshot();
-    if (destroyed || syncing || identitySnapshot.state !== "signed-in" || !initialized
-      || !isCurrentSubject(activeSubjectId)) {
+    if (destroyed || syncing || identitySnapshot.state !== "signed-in" || !initialized) {
       return;
     }
     syncing = true;
     retryRequested = false;
     try {
-      if (!(await preferenceSync.flushDurably?.() ?? true)) return;
-      if (!isCurrentSubject(identitySnapshot.subjectId)) return;
-      await flushAppearance(identitySnapshot.subjectId);
-      if (!isCurrentSubject(identitySnapshot.subjectId)) return;
+      await flushAppearance();
       for (const [objectId, pendingMutation] of [...pending]) {
-        if (!isCurrentSubject(identitySnapshot.subjectId)) return;
-        await flushPortableObject(objectId, pendingMutation, identitySnapshot.subjectId);
+        await flushPortableObject(objectId, pendingMutation);
       }
-      if (!isCurrentSubject(identitySnapshot.subjectId)) return;
       if (memoryRuntime) {
         requireMemorySubject(identitySnapshot.subjectId);
         await memoryRuntime.flush(remote);
@@ -623,15 +489,7 @@ export function createAccountSyncRuntime({
     const metadata = remoteWorkspacePayload(object.payload);
     suppressWorkspace = true;
     try {
-      const requested = workspaceRecordFromMetadata(metadata);
-      const saved = workspaceState.save(requested);
-      // Do not commit cloud cursors for workspace data that this subject
-      // cannot actually retain; rejected writes and volatile-only state
-      // need explicit recovery instead of a silently advanced checkpoint.
-      if (saved !== true
-        || fingerprint(workspaceState.load()) !== fingerprint(requested)) {
-        throw new Error("Remote workspace persistence could not be confirmed");
-      }
+      workspaceState.save(workspaceRecordFromMetadata(metadata));
       lastWorkspaceFingerprint = fingerprint(metadata);
     } finally {
       suppressWorkspace = false;
@@ -673,12 +531,7 @@ export function createAccountSyncRuntime({
       if (pending.has(objectId) && serverRevision > previousRevision) {
         rebasePortablePending(objectId, serverRevision);
       } else if (!object.tombstone && !workspaceDirty && serverRevision > previousRevision) {
-        try {
-          applyRemoteWorkspace(object);
-        } catch (error) {
-          revisions.set(objectId, previousRevision);
-          throw error;
-        }
+        applyRemoteWorkspace(object);
       }
       return true;
     }
@@ -704,47 +557,29 @@ export function createAccountSyncRuntime({
 
     const prefs = byId.get(PORTABLE_PREFERENCES_OBJECT_ID);
     if (prefs) {
-      const previous = revisions.get(PORTABLE_PREFERENCES_OBJECT_ID) ?? 0;
-      const current = requireRevision(prefs.serverRevision);
-      revisions.set(PORTABLE_PREFERENCES_OBJECT_ID, current);
-      if (pending.has(PORTABLE_PREFERENCES_OBJECT_ID)) {
-        if (current > previous || pending.get(PORTABLE_PREFERENCES_OBJECT_ID).baseServerRevision !== current) {
-          rebasePortablePending(PORTABLE_PREFERENCES_OBJECT_ID, current);
-        }
-      } else if (prefs.tombstone) {
-        // Cloud deletion never authorizes re-uploading device-global state.
-        if (preferencesDirty) queuePreferences();
+      revisions.set(PORTABLE_PREFERENCES_OBJECT_ID, requireRevision(prefs.serverRevision));
+      if (prefs.tombstone) {
+        queuePreferences();
       } else if (preferencesDirty) {
         queuePreferences();
       } else {
         applyRemotePreferences(prefs);
       }
-    } else if (!pending.has(PORTABLE_PREFERENCES_OBJECT_ID) && preferencesDirty) {
+    } else {
       queuePreferences();
     }
 
     const workspace = byId.get(PORTABLE_WORKSPACE_OBJECT_ID);
     if (workspace) {
-      const previous = revisions.get(PORTABLE_WORKSPACE_OBJECT_ID) ?? 0;
-      const current = requireRevision(workspace.serverRevision);
-      revisions.set(PORTABLE_WORKSPACE_OBJECT_ID, current);
-      if (pending.has(PORTABLE_WORKSPACE_OBJECT_ID)) {
-        if (current > previous || pending.get(PORTABLE_WORKSPACE_OBJECT_ID).baseServerRevision !== current) {
-          rebasePortablePending(PORTABLE_WORKSPACE_OBJECT_ID, current);
-        }
-      } else if (workspace.tombstone) {
-        if (workspaceDirty) queueWorkspace();
+      revisions.set(PORTABLE_WORKSPACE_OBJECT_ID, requireRevision(workspace.serverRevision));
+      if (workspace.tombstone) {
+        queueWorkspace();
       } else if (workspaceDirty) {
         queueWorkspace();
       } else {
-        try {
-          applyRemoteWorkspace(workspace);
-        } catch (error) {
-          revisions.set(PORTABLE_WORKSPACE_OBJECT_ID, previous);
-          throw error;
-        }
+        applyRemoteWorkspace(workspace);
       }
-    } else if (!pending.has(PORTABLE_WORKSPACE_OBJECT_ID) && workspaceDirty) {
+    } else {
       queueWorkspace();
     }
 
@@ -758,16 +593,13 @@ export function createAccountSyncRuntime({
         afterCursor: checkpointCursor,
         limit: PULL_PAGE_SIZE,
       });
-      if (!isCurrentSubject(subjectId)) return;
       for (const change of result.changes) applyRemoteObject(change);
       await reconcileMemoryObjects(result.changes, subjectId);
-      if (!isCurrentSubject(subjectId)) return;
       checkpointCursor = result.nextCursor;
       if (!(await persistCheckpointDurably())) {
         checkpointCursor = previousCursor;
         throw new Error("Account sync checkpoint durability could not be confirmed");
       }
-      if (!isCurrentSubject(subjectId)) return;
       checkpointLoaded = true;
       if (result.changes.length < PULL_PAGE_SIZE) return;
     }
@@ -787,30 +619,26 @@ export function createAccountSyncRuntime({
     }
 
     const subjectId = identitySnapshot.subjectId;
+    if (activeSubjectId !== subjectId) recoverCheckpoint(subjectId);
     if (memoryRuntime) requireMemorySubject(subjectId);
+
     initialized = false;
     emit();
     try {
-      if (activeSubjectId !== subjectId) recoverCheckpoint(subjectId);
       if (checkpointLoaded) {
         await pullRemoteChanges(subjectId);
       } else {
         const snapshot = await remote.snapshot({ limit: 200 });
-        // A delayed response from account A must never hydrate account B.
-        if (!isCurrentSubject(subjectId)) return;
         await applyInitialSnapshot(snapshot.objects, subjectId);
-        if (!isCurrentSubject(subjectId)) return;
         checkpointCursor = snapshot.cursor;
         if (!(await persistCheckpointDurably())) {
           checkpointCursor = 0;
           checkpointLoaded = false;
           throw new Error("Account sync checkpoint durability could not be confirmed");
         }
-        if (!isCurrentSubject(subjectId)) return;
         checkpointLoaded = true;
       }
 
-      if (!isCurrentSubject(subjectId)) return;
       initialized = true;
       emit();
       await flush();
@@ -821,24 +649,9 @@ export function createAccountSyncRuntime({
   }
 
   function synchronize() {
-    const current = identity.getSnapshot();
-    const requestedSubject = current.state === "signed-in" ? current.subjectId : null;
-    if (synchronizationPromise !== null) {
-      // One network reconciliation at a time; switch to the new subject
-      // immediately after the old one settles, never reuse its response.
-      if (requestedSubject !== null && requestedSubject !== synchronizingSubjectId) {
-        resynchronizeRequested = true;
-      }
-      return synchronizationPromise;
-    }
-    synchronizingSubjectId = requestedSubject;
+    if (synchronizationPromise !== null) return synchronizationPromise;
     synchronizationPromise = runSynchronization().finally(() => {
-      synchronizingSubjectId = null;
       synchronizationPromise = null;
-      if (resynchronizeRequested && !destroyed) {
-        resynchronizeRequested = false;
-        if (identity.getSnapshot().state === "signed-in") void synchronize();
-      }
     });
     return synchronizationPromise;
   }
@@ -847,13 +660,7 @@ export function createAccountSyncRuntime({
     const next = fingerprint(portablePreferences(snapshot));
     if (suppressPreferences || next === lastPreferenceFingerprint) return;
     lastPreferenceFingerprint = next;
-    const session = identity.getSnapshot();
-    // Identity-driven changes in device-local presentation are not user edits
-    // and must never mark the incoming account dirty or enqueue a cloud write.
-    // Native workspace owner selection is subscribed before this runtime.
-    if (session.state !== "signed-in"
-      || session.subjectId !== lastIdentitySubject) return;
-    if (initialized && activeSubjectId === session.subjectId) {
+    if (initialized && identity.getSnapshot().state === "signed-in") {
       queuePreferences();
     } else {
       preferencesDirty = true;
@@ -865,13 +672,7 @@ export function createAccountSyncRuntime({
     const next = fingerprint(snapshot);
     if (suppressWorkspace || next === lastWorkspaceFingerprint) return;
     lastWorkspaceFingerprint = next;
-    const session = identity.getSnapshot();
-    // Identity-driven changes in device-local presentation are not user edits
-    // and must never mark the incoming account dirty or enqueue a cloud write.
-    // Native workspace owner selection is subscribed before this runtime.
-    if (session.state !== "signed-in"
-      || session.subjectId !== lastIdentitySubject) return;
-    if (initialized && activeSubjectId === session.subjectId) {
+    if (initialized && identity.getSnapshot().state === "signed-in") {
       queueWorkspace();
     } else {
       workspaceDirty = true;
@@ -885,34 +686,16 @@ export function createAccountSyncRuntime({
   });
 
   const unsubscribeIdentity = identity.subscribe((snapshot) => {
-    const subject = snapshot.state === "signed-in" ? snapshot.subjectId : null;
-    if (lastIdentitySubject !== null && lastIdentitySubject !== subject) {
-      // Never carry one account's offline queue or unbound local dirty flags
-      // into another session. Per-subject durable queues are recovered below.
-      pending.clear();
-      pendingOwner = null;
-      pendingStore = null;
-      pendingSaveAccepted = true;
-      preferencesDirty = false;
-      workspaceDirty = false;
-    }
-    lastIdentitySubject = subject;
-    const subjectChanged = activeSubjectId !== null
-      && (snapshot.state !== "signed-in" || snapshot.subjectId !== activeSubjectId);
-    if (snapshot.state !== "signed-in" || subjectChanged) {
+    if (snapshot.state === "signed-in") {
+      void synchronize();
+    } else {
       initialized = false;
       activeSubjectId = null;
       checkpointCursor = 0;
       checkpointLoaded = false;
       resetRevisions();
-      if (subject === null) {
-        pending.clear();
-        pendingOwner = null;
-        pendingStore = null;
-      }
       emit();
     }
-    if (snapshot.state === "signed-in") void synchronize();
   });
 
   return Object.freeze({

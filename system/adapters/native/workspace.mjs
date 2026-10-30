@@ -36,7 +36,7 @@ export function createNativeWorkspaceStore(windowRef = globalThis.window) {
   let currentKey = STORAGE_KEY;
 
   const load = () => {
-    if (blockedPartitions.has(currentKey)) return emptyWorkspace;
+    if (currentKey === null || blockedPartitions.has(currentKey)) return emptyWorkspace;
     if (!storage) return volatilePartitions.get(currentKey) ?? emptyWorkspace;
     let currentRaw;
     try {
@@ -74,19 +74,23 @@ export function createNativeWorkspaceStore(windowRef = globalThis.window) {
     schema: WORKSPACE_STORE_SCHEMA,
     load,
     selectOwner(sessionSnapshot) {
-      const identity = validateIdentitySessionSnapshot(sessionSnapshot);
-      // A missing/offline authority is not permission to inspect the
-      // previous account's local browser workspace.
-      const nextKey = identity.state === "signed-in"
+      // Unknown, unavailable, or invalid identity must not retain the previous owner.
+      let identity = null;
+      try {
+        identity = validateIdentitySessionSnapshot(sessionSnapshot);
+      } catch {
+        // Failed verification is not signed-out proof.
+      }
+      const nextKey = identity?.state === "signed-in"
         ? SUBJECT_STORAGE_PREFIX + encodeURIComponent(identity.subjectId)
-        : STORAGE_KEY;
+        : identity?.state === "signed-out" ? STORAGE_KEY : null;
       if (currentKey === nextKey) return false;
       currentKey = nextKey;
       return true;
     },
     save(snapshot) {
       const validated = validateWorkspaceRecord(snapshot);
-      if (blockedPartitions.has(currentKey)) return false;
+      if (currentKey === null || blockedPartitions.has(currentKey)) return false;
       volatilePartitions.set(currentKey, validated);
       if (!storage) return false;
       try {

@@ -5,6 +5,7 @@ The canonical Space contract already carries `profilePack` identifiers such as `
 `system/services/spaces/profile-store-status.mjs` composes the existing canonical Store projector `projectProfileStoreAppStatus` and the validated published Profile Pack catalog:
 
 - No selected Space: `no-space`; no linked Profile: `no-profile`.
+- Archived Space: `space-inactive`; no Profile or device Store observations are exposed.
 - A legacy/unpinned bare slug: `profile-unpinned`. A single published version is not sufficient evidence to bind it.
 - An invalid `slug@version` or unsafe integer: `profile-invalid-binding`.
 - An exact pinned published version absent from the catalog: `profile-not-listed` (no silent fallback).

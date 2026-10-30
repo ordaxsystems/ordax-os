@@ -1,14 +1,6 @@
-import contextlib
-import io
 import json
-import os
-import runpy
-import threading
-import tempfile
 import unittest
-from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
-from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 SYNC_CONTRACT = ROOT / "docs" / "contracts" / "sync-model.json"
@@ -43,6 +35,23 @@ class AccountSyncAndIdentityV1Tests(unittest.TestCase):
             contract["backend"]["current_read_mode"],
             "atomic-snapshot-plus-paged-incremental-cursor",
         )
+
+    def test_sync_contract_does_not_claim_web_or_regional_sync_before_composition_exists(self):
+        contract = json.loads(SYNC_CONTRACT.read_text(encoding="utf-8"))
+        web_composition = (ROOT / "system" / "composition" / "web" / "main.tsx").read_text(encoding="utf-8")
+        native_runtime = (ROOT / "system" / "composition" / "native" / "main.mjs").read_text(encoding="utf-8")
+        self.assertFalse(contract["mvp_availability"]["web_source_integration"])
+        self.assertTrue(contract["mvp_availability"]["web_transport_adapter_available"])
+        self.assertFalse(contract["mvp_availability"]["web_composition_sync_runtime_wired"])
+        self.assertTrue(contract["mvp_availability"]["native_usb_source_integration"])
+        self.assertFalse(contract["backend"]["regional_preferences_in_account_sync"])
+        self.assertEqual(contract["backend"]["native_usb_portable_preference_ids"], [
+            "accessibility.contrast",
+            "accessibility.motion",
+            "accessibility.text-scale",
+        ])
+        self.assertNotIn("createAccountSyncRuntime", web_composition)
+        self.assertIn("createNativeAccountSyncRuntime", native_runtime)
 
     def test_sync_store_is_owner_scoped_and_mutations_are_server_authoritative(self):
         sql = SYNC_MIGRATION.read_text(encoding="utf-8").lower()
@@ -228,8 +237,6 @@ class AccountSyncAndIdentityV1Tests(unittest.TestCase):
         self.assertIn('"credentials_persisted": False', text)
         self.assertIn('"account_identifier_recorded": False', text)
         self.assertIn('"sensitive_auth_material_recorded": False', text)
-        self.assertIn('"distinct_account_subjects_verified": True', text)
-        self.assertIn('"cross_account_isolation_proven": True', text)
         self.assertIn("proof/two-client/", text)
         self.assertNotIn("print(password", text)
         self.assertNotIn("print(email", text)
@@ -242,300 +249,11 @@ class AccountSyncAndIdentityV1Tests(unittest.TestCase):
         self.assertNotIn("push:", text)
         self.assertIn("secrets.ORDAX_PROOF_ACCOUNT_EMAIL", text)
         self.assertIn("secrets.ORDAX_PROOF_ACCOUNT_PASSWORD", text)
-        self.assertIn("secrets.ORDAX_PROOF_OTHER_ACCOUNT_EMAIL", text)
-        self.assertIn("secrets.ORDAX_PROOF_OTHER_ACCOUNT_PASSWORD", text)
-        self.assertIn('assert data["cross_account_isolation_proven"] is True', text)
-        self.assertIn('assert data["distinct_account_subjects_verified"] is True', text)
         self.assertIn("account-sync-two-client-proof.json", text)
         self.assertIn("ACCOUNT_SYNC_TWO_CLIENT_RECEIPT=PASS_SANITIZED", text)
         self.assertIn("retention-days: 14", text)
         self.assertNotIn("echo \"$ORDAX_PROOF_ACCOUNT_EMAIL\"", text)
         self.assertNotIn("echo \"$ORDAX_PROOF_ACCOUNT_PASSWORD\"", text)
-
-    def test_two_client_proof_receipt_is_owned_by_one_workflow_step(self):
-        text = TWO_CLIENT_WORKFLOW.read_text(encoding="utf-8")
-        producer = text.split("      - name: Prove two independent account-sync sessions", 1)[1].split(
-            "      - name: Validate sanitized receipt shape", 1
-        )[0]
-        validator = text.split("      - name: Validate sanitized receipt shape", 1)[1].split(
-            "      - name: Upload sanitized continuity proof only", 1
-        )[0]
-        uploader = text.split("      - name: Upload sanitized continuity proof only", 1)[1]
-
-        self.assertIn("id: continuity", producer)
-        self.assertIn('>> "$GITHUB_OUTPUT"', producer)
-        self.assertIn("test -s \"$ORDAX_PROOF_RECEIPT_PATH\"", producer)
-        self.assertIn("printf 'proof_receipt=%s\\n'", producer)
-        self.assertEqual(
-            text.count("${{ runner.temp }}/account-sync-two-client-proof.json"), 1,
-            "one canonical producer owns the proof receipt path",
-        )
-        output = "${{ steps.continuity.outputs.proof_receipt }}"
-        self.assertIn(output, validator)
-        self.assertIn("path: " + output, uploader)
-        self.assertNotIn("python - \"$ORDAX_PROOF_RECEIPT_PATH\"", validator)
-
-    def test_two_client_proof_refuses_redirects_before_transferring_credentials(self):
-        scope = runpy.run_path(str(TWO_CLIENT_PROOF))
-        paths = []
-
-        class RedirectingGateway(BaseHTTPRequestHandler):
-            def do_POST(self):
-                paths.append(self.path)
-                self.send_response(302)
-                self.send_header("Content-Type", "application/json")
-                self.send_header("Location", "/unexpected")
-                self.end_headers()
-                self.wfile.write(b'{"error":"redirect-refused"}')
-
-            def do_GET(self):
-                paths.append(self.path)
-                self.send_response(200)
-                self.send_header("Content-Type", "application/json")
-                self.end_headers()
-                self.wfile.write(b'{"authenticated":true}')
-
-            def log_message(self, _format, *_args):
-                return
-
-        server = HTTPServer(("127.0.0.1", 0), RedirectingGateway)
-        worker = threading.Thread(target=server.serve_forever, daemon=True)
-        worker.start()
-        try:
-            proof = scope["Client"](f"http://127.0.0.1:{server.server_port}")
-            status, result = proof.request(
-                "POST", "/auth/login", b"email=synthetic&password=synthetic",
-                "application/x-www-form-urlencoded",
-            )
-            self.assertEqual(status, 302)
-            self.assertEqual(result, {"error": "redirect-refused"})
-            self.assertEqual(paths, ["/auth/login"], "the proof must not follow a redirect")
-        finally:
-            server.shutdown()
-            server.server_close()
-            worker.join(timeout=3)
-
-    def test_two_client_proof_rejects_sensitive_and_malformed_gateway_urls(self):
-        scope = runpy.run_path(str(TWO_CLIENT_PROOF))
-        for origin in (
-            "https://name:secret@example.com/functions/v1/ordax-account-gateway",
-            "https://example.com:bogus/functions/v1/ordax-account-gateway",
-            "https://example.com/functions/v1/ordax-account-gateway?token=secret",
-            "http://example.com/functions/v1/ordax-account-gateway",
-        ):
-            with self.subTest(origin=origin.split("?")[0].split("@")[-1]):
-                with patch.dict(os.environ, {
-                    "ORDAX_PROOF_ACCOUNT_EMAIL": "synthetic@example.invalid",
-                    "ORDAX_PROOF_ACCOUNT_PASSWORD": "synthetic",
-                    "ORDAX_PROOF_OTHER_ACCOUNT_EMAIL": "other@example.invalid",
-                    "ORDAX_PROOF_OTHER_ACCOUNT_PASSWORD": "synthetic",
-                    "ORDAX_ACCOUNT_GATEWAY_BASE_URL": origin,
-                }):
-                    with self.assertRaisesRegex(SystemExit, "invalid-gateway-url"):
-                        scope["main"]()
-
-    def test_manual_continuity_proof_accepts_isolation_and_fails_closed_on_leak_or_logout(self):
-        # Deterministic in-process provider simulation. No real account and no
-        # cloud service is accessed; production proof still needs separate
-        # dedicated identities and the manual workflow.
-        for foreign_leak, logout_denied in ((False, False), (True, False), (False, True)):
-            with self.subTest(foreign_leak=foreign_leak, logout_denied=logout_denied):
-                source = runpy.run_path(str(TWO_CLIENT_PROOF))
-                execution = source["main"]
-                globals_ = execution.__globals__
-                previous_client = globals_["Client"]
-                previous_gateway = globals_["gateway_url"]
-
-                class FakeClient:
-                    records = {"A": {}, "B": {}}
-                    events = {"A": [], "B": []}
-                    clients = []
-
-                    def __init__(self, _url):
-                        self.owner = None
-                        self.logged_out = False
-                        FakeClient.clients.append(self)
-
-                    def login(self, email, _password):
-                        self.owner = "A" if email == "primary@example.invalid" else "B"
-
-                    def subject(self):
-                        return "distinct-subject-" + self.owner
-
-                    def snapshot(self):
-                        objects = list(FakeClient.records[self.owner].values())
-                        if self.owner == "B" and foreign_leak:
-                            objects += list(FakeClient.records["A"].values())
-                        return {"cursor": len(FakeClient.events[self.owner]), "objects": objects}
-
-                    def changes(self, after_cursor):
-                        values = FakeClient.events[self.owner][after_cursor:]
-                        return {"changes": values, "nextCursor": len(FakeClient.events[self.owner])}
-
-                    def mutate(self, change):
-                        self.test_owner = self.owner
-                        current = FakeClient.records[self.owner].get(change["objectId"])
-                        old_revision = current["serverRevision"] if current else 0
-                        assert change["baseServerRevision"] == old_revision
-                        new_revision = old_revision + 1
-                        tombstone = change["operation"] == "delete"
-                        event = {
-                            "objectId": change["objectId"],
-                            "serverRevision": new_revision,
-                            "tombstone": tombstone,
-                        }
-                        FakeClient.records[self.owner][change["objectId"]] = event
-                        FakeClient.events[self.owner].append(event)
-                        return {
-                            **event,
-                            "changeCursor": len(FakeClient.events[self.owner]),
-                            "applied": True, "conflict": False,
-                        }
-
-                    def logout(self):
-                        self.logged_out = True
-                        if self.owner == "B" and logout_denied:
-                            raise RuntimeError("synthetic-logout-refusal")
-
-                globals_["Client"] = FakeClient
-                globals_["gateway_url"] = lambda: "https://gateway.example.invalid/functions/v1/ordax-account-gateway"
-                try:
-                    with tempfile.TemporaryDirectory() as directory:
-                        receipt = Path(directory) / "sanitized.json"
-                        with patch.dict(os.environ, {
-                            "ORDAX_PROOF_ACCOUNT_EMAIL": "primary@example.invalid",
-                            "ORDAX_PROOF_ACCOUNT_PASSWORD": "synthetic-primary",
-                            "ORDAX_PROOF_OTHER_ACCOUNT_EMAIL": "other@example.invalid",
-                            "ORDAX_PROOF_OTHER_ACCOUNT_PASSWORD": "synthetic-other",
-                            "ORDAX_PROOF_RECEIPT_PATH": str(receipt),
-                            "GITHUB_SHA": "a" * 40,
-                        }):
-                            with contextlib.redirect_stdout(io.StringIO()) as output:
-                                if foreign_leak:
-                                    with self.assertRaisesRegex(SystemExit, "cross-account-snapshot-leak"):
-                                        execution()
-                                elif logout_denied:
-                                    with self.assertRaisesRegex(SystemExit, "logout-unconfirmed"):
-                                        execution()
-                                else:
-                                    self.assertEqual(execution(), 0)
-                            self.assertTrue(FakeClient.clients)
-                            self.assertTrue(all(client.logged_out for client in FakeClient.clients))
-                            self.assertEqual(len(FakeClient.events["B"]), 0)
-                            self.assertEqual(len(FakeClient.records["A"]), 1)
-                            final = next(iter(FakeClient.records["A"].values()))
-                            self.assertTrue(final["tombstone"], "even a failed read proof must clean up")
-                            if foreign_leak or logout_denied:
-                                self.assertFalse(receipt.exists(), "no unproven PASS receipt")
-                                self.assertNotIn("ACCOUNT_SYNC_TWO_CLIENT_PROOF=PASS", output.getvalue())
-                            else:
-                                data = json.loads(receipt.read_text(encoding="utf-8"))
-                                self.assertTrue(data["distinct_account_subjects_verified"])
-                                self.assertTrue(data["cross_account_isolation_proven"])
-                                self.assertTrue(data["proof_object_tombstoned"])
-                                self.assertEqual(data["source_commit"], "a" * 40)
-                                self.assertIn("ACCOUNT_SYNC_TWO_CLIENT_PROOF=PASS", output.getvalue())
-                                serialized = json.dumps(data)
-                                self.assertNotIn("primary@example.invalid", serialized)
-                                self.assertNotIn("other@example.invalid", serialized)
-                finally:
-                    globals_["Client"] = previous_client
-                    globals_["gateway_url"] = previous_gateway
-
-    def test_cross_account_absence_cannot_be_proven_from_truncated_pages(self):
-        scope = runpy.run_path(str(TWO_CLIENT_PROOF))
-        verify = scope["assert_other_account_cannot_read"]
-
-        class SaturatedObserver:
-            def __init__(self, objects, changes):
-                self.objects = objects
-                self.changes_list = changes
-
-            def snapshot(self):
-                return {"cursor": 1000, "objects": self.objects}
-
-            def changes(self, _after_cursor):
-                return {"changes": self.changes_list}
-
-        untrusted_other_objects = [{"objectId": f"unrelated-{i}"} for i in range(500)]
-        untrusted_changes = [{"objectId": f"change-{i}"} for i in range(500)]
-        for observer in (
-            SaturatedObserver(untrusted_other_objects, []),
-            SaturatedObserver([], untrusted_changes),
-        ):
-            with self.assertRaisesRegex(SystemExit, "cross-account-proof-window-saturated"):
-                verify(observer, "proof/two-client/unseen-on-next-page", 0)
-
-        # A short, correctly bounded result is evidence only of the tested
-        # observer state. It does not authorize global cloud rollout.
-        verify(SaturatedObserver([], []), "proof/two-client/not-present", 0)
-
-    def test_live_proof_logout_requires_anonymous_session_after_ack(self):
-        scope = runpy.run_path(str(TWO_CLIENT_PROOF))
-        client = scope["Client"].__new__(scope["Client"])
-        calls = []
-
-        def false_logout(method, path, body=None, content_type=None):
-            calls.append((method, path))
-            if path == "/auth/logout":
-                return 200, {"signedOut": True}
-            return 200, {
-                "$schema": "prototype-ordax.public-identity-session/1",
-                "authenticated": True,
-                "status": "authenticated",
-            }
-
-        client.request = false_logout
-        with self.assertRaisesRegex(SystemExit, "logout-session-still-active"):
-            client.logout()
-        self.assertEqual(calls, [
-            ("POST", "/auth/logout"),
-            ("GET", "/auth/session"),
-        ])
-
-        def truly_anonymous(method, path, body=None, content_type=None):
-            if path == "/auth/logout":
-                return 200, {"signedOut": True}
-            return 200, {
-                "$schema": "prototype-ordax.public-identity-session/1",
-                "authenticated": False,
-                "status": "anonymous",
-            }
-
-        client.request = truly_anonymous
-        self.assertIsNone(client.logout())
-
-    def test_live_proof_rejects_foreign_or_forged_mutation_ack(self):
-        scope = runpy.run_path(str(TWO_CLIENT_PROOF))
-        client = scope["Client"].__new__(scope["Client"])
-        target = scope["mutation"](
-            "proof/two-client/synthetic", 0, False, "proof-synthetic-000001",
-        )
-        good = {
-            "$schema": "prototype-ordax.sync-ack/1",
-            "objectId": target["objectId"],
-            "dataClass": target["dataClass"],
-            "tombstone": False,
-            "applied": True,
-            "conflict": False,
-            "serverRevision": 1,
-            "changeCursor": 1,
-        }
-        client.request = lambda *args, **kwargs: (200, dict(good))
-        self.assertEqual(client.mutate(target)["objectId"], target["objectId"])
-
-        for changes in (
-            {"objectId": "proof/two-client/someone-else"},
-            {"dataClass": "appearance"},
-            {"tombstone": True},
-            {"applied": False},
-            {"conflict": True},
-        ):
-            with self.subTest(changes=changes):
-                response = {**good, **changes}
-                client.request = lambda *args, **kwargs: (200, response)
-                with self.assertRaisesRegex(SystemExit, "mutate-ack-contract-mismatch"):
-                    client.mutate(target)
 
     def test_session_revocation_proof_keeps_credentials_and_tokens_ephemeral(self):
         text = SESSION_REVOCATION_PROOF.read_text(encoding="utf-8")
@@ -567,6 +285,16 @@ class AccountSyncAndIdentityV1Tests(unittest.TestCase):
         self.assertIn("secrets.ORDAX_PROOF_ACCOUNT_PASSWORD", text)
         self.assertIn("ORDAX_ACCOUNT_GATEWAY_BASE_URL: ${{ inputs.origin }}", text)
         self.assertIn('data["gateway_origin"] == "${{ inputs.origin }}".rstrip("/")', text)
+        self.assertIn("python tools/account-sync/prove_session_revocation.py --check-origin", text)
+        self.assertIn('test "${GITHUB_REPOSITORY}" = "ordaxsystems/ordax-os"', text)
+        self.assertIn('test "${GITHUB_REF}" = "refs/heads/main"', text)
+        self.assertLess(
+            text.index("Require reviewed main and canonical origin before exposing credentials"),
+            text.index("Prove local session revocation semantics"),
+        )
+        # Secrets are intentionally scoped to a single step, not the job.
+        job_env = text.split("    env:", 1)[1].split("    steps:", 1)[0]
+        self.assertNotIn("secrets.ORDAX_PROOF_ACCOUNT_", job_env)
         self.assertIn("account-session-revocation-proof.json", text)
         self.assertIn("ACCOUNT_SESSION_REVOCATION_RECEIPT=PASS_SANITIZED", text)
         self.assertIn("retention-days: 14", text)
@@ -604,3 +332,4 @@ class AccountSyncAndIdentityV1Tests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+

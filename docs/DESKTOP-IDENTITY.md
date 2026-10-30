@@ -49,10 +49,22 @@ behind the working controls.
 ### Desktop taskbar frame — 2026-10-19
 
 `system/surface/ui/meridian.css` owns the shared three-column taskbar frame,
-group alignment and spacing. Meridian tokens own the side minimum, horizontal
-inset and dock glyph size. Web and Native may arrange their host-specific
-controls and responsive collapse behavior, but must not redefine the shared
-frame geometry or create a second dock scale.
+group alignment, dock targets, app glyph scale and open/active/minimized
+indicators. Meridian tokens own the side minimum, horizontal inset, control
+size, item gap and glyph size. Shared dock navigation uses wrapping arrow keys
+and Home/End without activating apps; each host retains only its own horizontal
+scroll reveal. Taskbar hover, focus and pressed states are shared; the Central/
+desktop switch is highlighted only when its `aria-pressed` state is active. Web
+and Native may arrange host-specific controls and responsive collapse behavior,
+but must not redefine shared dock geometry or interaction.
+
+### Desktop window chrome — 2026-10-19
+
+`system/surface/ui/meridian.css` owns the shared Web and Native window frame,
+active state, titlebar, app mark, title type and control target size. Window
+placement and host-specific actions remain with their respective window
+managers. Compact Web windows may reduce their titlebar only while in the
+explicit compact presentation state.
 
 Normal text, secondary text and state labels must maintain at least 4.5:1 contrast on their opaque canvas/panel backgrounds; focus must maintain at least 3:1. High-contrast text maintains at least 7:1. Automated palette checks complement real browser rendering, theme persistence and responsive layout checks; they do not replace assistive-technology or physical-device verification.
 

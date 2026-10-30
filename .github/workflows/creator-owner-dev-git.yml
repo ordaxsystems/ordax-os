@@ -14,6 +14,14 @@ on:
       - 'bootstrap/dev-base/**'
       - 'bootstrap/surface-runtime/**'
       - 'bootstrap/recovery/**'
+      # Creator publishes an actual USB only for OS-owned payload changes.
+      # Host Desktop adapters and visual Surface source are delivered through
+      # Windows/Surface contracts and cannot change the bootable USB runtime.
+      # Keep broad system coverage for Guardian/Supervisor changes.
+      - 'system/**'
+      - '!system/adapters/desktop/**'
+      - '!system/surface/ui/**'
+      - '!system/surface/workspace/**'
       - 'tools/creator/**'
       - 'tools/release-signing/**'
       - '!tools/release-signing/windows/**'
@@ -24,28 +32,104 @@ on:
       - 'docs/contracts/physical-media.json'
       - 'docs/contracts/distribution-profiles.json'
       - '.github/workflows/creator-owner-dev-git.yml'
+      - '.github/actions/resolve-creator-source/**'
+      - 'docs/contracts/native-release-assembly.json'
+      - 'tests/test_creator_owner_external_source.py'
   workflow_dispatch:
   pull_request:
     paths:
+      - 'tools/ci/creator_owner_impact.py'
+      - 'tests/test_creator_owner_impact.py'
       - 'bootstrap/dev/**'
       - 'bootstrap/dev-base/**'
       - 'bootstrap/surface-runtime/**'
+      - 'system/entrypoint'
+      # Presentation-only source pins are consumed by Surface/Windows gates;
+      # they must never trigger a Creator USB build. Actual boot/runtime and
+      # offline staging changes below still require the full Owner USB proof.
+      # Boot health and update handoff must prove the real Owner USB on PRs,
+      # not only on the subsequent main push (when the rollback risk is live).
+      # Keep this scoped to the actual cold-boot composition entrypoints.
+      - 'system/supervisor'
+      - 'docs/contracts/intelligence-source.json'
+      - 'system/services/intelligence-source/**'
+      - 'tools/intelligence-source/**'
+      - '.github/actions/assemble-intelligence/**'
+      - 'tools/surface-source/**'
+      - '.github/actions/prepare-verified-surface/**'
+      - 'system/composition/native/main.mjs'
+      - 'system/adapters/native/update-runtime.mjs'
+      - 'tests/test_owner_usb_durable_power_transition.py'
+      - 'tests/test_owner_usb_superblock_seal.py'
       - 'system/surface/bin/ordax-surface'
+      - 'tests/test_owner_surface_launcher_identity.py'
       - 'system/surface/runtime/ordax_browser_host.py'
       - 'tests/test_owner_qemu_offline_handoff.py'
       - 'tools/creator/verify_owner_dev_offline_runtime.py'
       - 'tests/test_owner_dev_offline_runtime_release_gate.py'
       - '.github/workflows/creator-owner-dev-git.yml'
+      - '.github/actions/resolve-creator-source/**'
+      - 'docs/contracts/native-release-assembly.json'
+      - 'tests/test_creator_owner_external_source.py'
+      - 'tools/creator/proof/prove_prepared_ext4_growth.sh'
+      - 'tests/test_creator_payload_source_identity.py'
+      # Removal or resurrection of embedded Creator Go must be proven by the
+      # full disposable Owner USB/QEMU consumer before landing on main.
+      - 'tools/creator/**/*.go'
+      - 'tools/creator/go.mod'
+      - 'tools/creator/go.sum'
+      - 'tools/creator/core/README.md'
+      - 'tests/test_creator_no_embedded_go.py'
 
 permissions:
   contents: write
 
 concurrency:
   group: creator-owner-dev-git-${{ github.ref }}
-  cancel-in-progress: true
+  # The full Owner USB proof is expensive. A new main push must not cancel
+  # an ongoing publishable build; GitHub keeps only the latest queued run.
+  # PR supersessions may still cancel obsolete validation work.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  impact:
+    permissions:
+      contents: read
+    runs-on: ubuntu-24.04
+    outputs:
+      required: ${{ steps.scope.outputs.required }}
+      reason: ${{ steps.scope.outputs.reason }}
+    steps:
+      - name: Checkout exact Creator candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Fail-closed causal Owner USB impact classification
+        id: scope
+        shell: bash
+        env:
+          ORDAX_EVENT_NAME: ${{ github.event_name }}
+          ORDAX_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          ORDAX_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          case "$ORDAX_EVENT_NAME" in
+            pull_request|push)
+              git fetch --no-tags --depth=1 origin "$ORDAX_BASE_SHA"
+              python3 tools/ci/creator_owner_impact.py classify --base "$ORDAX_BASE_SHA" --head "$ORDAX_HEAD_SHA"
+              ;;
+            workflow_dispatch)
+              python3 tools/ci/creator_owner_impact.py classify --base "$ORDAX_BASE_SHA" --head "$ORDAX_HEAD_SHA" --force
+              ;;
+            *)
+              echo 'Unsupported Owner USB event: fail closed' >&2
+              exit 1
+              ;;
+          esac
   build-and-publish:
+    needs: impact
+    if: needs.impact.outputs.required == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     env:
@@ -59,11 +143,25 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
 
+      - name: Resolve immutable standalone Creator implementation
+        uses: ./.github/actions/resolve-creator-source
+        with:
+          checkout-root: ${{ runner.temp }}/ordax-creator-owner-source
+
+      - name: Prepare pinned Surface from independent visual owner for exact Owner image
+        uses: ./.github/actions/prepare-verified-surface
+
       - name: Set up Python
         uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: '3.12'
           check-latest: false
+
+      - name: Validate exact Intelligence source in disposable CI assembly
+        uses: ./.github/actions/assemble-intelligence
+        with:
+          source-root: ${{ runner.temp }}/ordax-verified-surface-ci
+          out-root: ${{ runner.temp }}/ordax-verified-intelligence-ci
 
       - name: Fast Owner Development preflight
         run: |
@@ -85,13 +183,41 @@ jobs:
       - name: Test Creator core
         run: |
           set -euo pipefail
-          (cd tools/creator && go test -count=1 ./...)
+          creator="${ORDAX_CREATOR_NATIVE_SOURCE:?missing independent Creator source}"
+          test "${ORDAX_CREATOR_SOURCE_REPOSITORY:?}" = 'ordaxsystems/ordax-creator'
+          test "$(git -C "$creator" rev-parse HEAD)" = "${ORDAX_CREATOR_SOURCE_COMMIT:?}"
+          test "$(git -C "$creator" rev-parse 'HEAD^{tree}')" = "${ORDAX_CREATOR_SOURCE_TREE:?}"
+          test "$(head -n 1 "$creator/go.mod")" = 'module github.com/ordaxsystems/ordax-creator'
+          python3 - "$creator/version.json" "$GITHUB_ENV" <<'PY'
+          import json, pathlib, re, sys
+          source, github_env = map(pathlib.Path, sys.argv[1:])
+          metadata = json.loads(source.read_text(encoding='utf-8'))
+          version = metadata.get('version')
+          if (metadata.get('$schema') != 'ordax.creator-product-version/1'
+              or not isinstance(version, str)
+              or re.fullmatch(r'[0-9]+\.[0-9]+\.[0-9]+(?:-[a-z][a-z0-9]*(?:\.[0-9]+)?)?', version) is None):
+              raise SystemExit('invalid independently pinned Creator version')
+          with github_env.open('a', encoding='utf-8') as output:
+              output.write(f'ORDAX_CREATOR_PRODUCT_VERSION={version}\n')
+          PY
+          (
+            cd "$creator"
+            ORDAX_OS_CONTRACTS_DIR="$GITHUB_WORKSPACE/docs/contracts" go test -count=1 ./...
+            mkdir -p "$RUNNER_TEMP/owner-creator-cli"
+            CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
+              go build -trimpath -buildvcs=false -ldflags='-s -w' \
+              -o "$RUNNER_TEMP/owner-creator-cli/ordax-creator" ./cmd/ordax-creator
+          )
+          test -x "$RUNNER_TEMP/owner-creator-cli/ordax-creator"
+          echo "OWNER_CREATOR_IMPLEMENTATION_SHA=${ORDAX_CREATOR_SOURCE_COMMIT}"
+          echo "OWNER_CREATOR_IMPLEMENTATION_TREE=${ORDAX_CREATOR_SOURCE_TREE}"
           python -m unittest tests.test_owner_dev_bundle_verifier -v
           python -m unittest tests.test_owner_dev_helper_storage_profile -v
           python -m unittest tests.test_owner_published_release -v
-          python -m unittest tests.test_owner_dev_offline_runtime_release_gate -v
+          python -m unittest tests.test_owner_dev_offline_runtime_release_gate tests.test_owner_surface_offline_preseed tests.test_owner_surface_launcher_identity -v
           python -m unittest tests.test_owner_qemu_offline_handoff -v
           python -m unittest tests.test_first_run_contract.FirstRunContractTests.test_native_first_run_completion_survives_fresh_native_process -v
+          node --test tests/test_surface_boot_screen_runtime.mjs
           node --test tests/test_browser_proof_shutdown.mjs
           python -m unittest tests.test_first_run_contract -v
           python -m unittest tests.test_owner_first_run_http_restart -v
@@ -112,8 +238,17 @@ jobs:
             gpg gpg-agent \
             meson ninja-build gperf libcap-dev libmount-dev libblkid-dev \
             liblz4-dev libzstd-dev liblzma-dev libpcre2-dev \
-            gdisk dosfstools e2fsprogs mtools util-linux proot erofs-utils qemu-system-x86
+            gdisk dosfstools e2fsprogs mtools util-linux proot erofs-utils qemu-system-x86 busybox
           python -m pip install --disable-pip-version-check --no-cache-dir jinja2 pyelftools
+
+      - name: Prove Owner USB ext4 alias sealing in isolated mount namespace
+        timeout-minutes: 3
+        run: |
+          set -euo pipefail
+          # Only a disposable 128 MiB loop-backed file is mounted; the test
+          # runs in its own mount namespace, never against a host block disk.
+          sudo env ORDAX_OWNER_USB_MOUNT_INTEGRATION=1 \
+            python3 -m unittest tests.test_owner_usb_superblock_seal -v
 
       - name: Resolve reusable kernel fingerprint
         id: component-fingerprints
@@ -190,9 +325,19 @@ jobs:
           sudo -E python bootstrap/dev-base/build.py \
             --kernel-modules "out/kernel/kernel-modules-$ORDAX_KERNEL_VERSION.tar" \
             --out-dir out/dev-base
-          rootfs=out/dev-base/rootfs
+          rootfs="$(realpath out/dev-base/rootfs)"
           sudo mkdir -p "$rootfs/workspace" "$rootfs/state"
           sudo chown -R "$(id -u):$(id -g)" "$rootfs/workspace" "$rootfs/state"
+          # The Creator's ordax-pull must seed from a CLEAN Git authority.
+          # Hydrated UI is test-only, never an untracked part of Git source.
+          for part in ui workspace; do
+            src="$RUNNER_TEMP/ordax-verified-surface-ci/system/surface/$part"
+            target="system/surface/$part"
+            test -d "$src" && diff -qr "$src" "$target"
+            rm -rf "$target"
+            test ! -e "$target"
+          done
+          test -z "$(git status --porcelain)"
           ORDAX_WORKTREE="$rootfs/workspace/ordax" \
           ORDAX_STATE_DIR="$rootfs/state/ordax" \
           ORDAX_UPDATE_RUN_DIR="$RUNNER_TEMP/ordax-owner-dev-seed-run" \
@@ -201,13 +346,66 @@ jobs:
           ORDAX_REPO_BRANCH=main \
             /bin/sh bootstrap/dev-base/ordax-pull \
               --seed-from-local "$GITHUB_WORKSPACE" "$ORDAX_OWNER_SOURCE_COMMIT"
+          # The same verified visual bytes may be reused for subsequent
+          # disposable CI browser tests; no file is committed to OS Git or
+          # copied into the sparse Owner checkout.
+          for part in ui workspace; do
+            cp -a "$RUNNER_TEMP/ordax-verified-surface-ci/system/surface/$part" "system/surface/$part"
+          done
           test "$(git -C "$rootfs/workspace/ordax" rev-parse HEAD)" = "$ORDAX_OWNER_SOURCE_COMMIT"
           test "$(git -C "$rootfs/workspace/ordax" symbolic-ref --quiet --short HEAD)" = main
           test "$(git -C "$rootfs/workspace/ordax" remote get-url origin)" = 'https://github.com/ordaxsystems/ordax-os.git'
           test -z "$(git -C "$rootfs/workspace/ordax" status --porcelain)"
           test -x "$rootfs/workspace/ordax/system/entrypoint"
           test "$(cat "$rootfs/state/ordax/current-commit")" = "$ORDAX_OWNER_SOURCE_COMMIT"
+          # Match root ownership before sudo verification of the pinned
+          # Git source and immutable preseed slot (Git safe.directory).
           sudo chown -R root:root "$rootfs/workspace" "$rootfs/state"
+          # First Run must work without network. Put exactly one verified
+          # visual source in the Supervisor's immutable release cache on
+          # the Creator build host, NEVER a second Git tracked UI copy.
+          # A candidate source is verified but MUST NOT replace the engine
+          # that executes at first boot. Use external bytes only when the
+          # pinned OS source lock itself has reached canonical status.
+          intelligence_status=$(python3 - <<'PY'
+          import json
+          from pathlib import Path
+          pin=json.loads(Path('docs/contracts/intelligence-source.json').read_text())
+          assert pin['source_repository']=='ordaxsystems/ordax-intelligence'
+          assert pin['source_only'] is True and pin['activation_authorized'] is False
+          assert pin['status'] in ('integration-candidate','canonical')
+          print(pin['status'])
+          PY
+          )
+          if [ "$intelligence_status" = canonical ]; then
+            prepared_source="$RUNNER_TEMP/ordax-verified-intelligence-ci"
+          else
+            prepared_source="$RUNNER_TEMP/ordax-verified-surface-ci"
+          fi
+          sudo -E python3 tools/surface-source/preseed_owner.py \
+            --repo-root "$GITHUB_WORKSPACE" \
+            --assembled-root "$prepared_source" \
+            --rootfs "$rootfs" \
+            --os-commit "$ORDAX_OWNER_SOURCE_COMMIT"
+          sudo -E /bin/sh system/services/surface-source/owner-stage.sh ready \
+            "$rootfs/workspace/ordax" "$ORDAX_OWNER_SOURCE_COMMIT" \
+            "$rootfs/state/ordax/releases/$ORDAX_OWNER_SOURCE_COMMIT"
+          # Revalidate source status against the exact staged OS checkout.
+          runtime_status=$(sudo -E /bin/sh system/services/intelligence-source/owner-stage.sh status "$rootfs/workspace/ordax" "$ORDAX_OWNER_SOURCE_COMMIT")
+          test "$runtime_status" = "$intelligence_status"
+          if [ "$runtime_status" = canonical ]; then
+            test -s "$rootfs/state/ordax/releases/$ORDAX_OWNER_SOURCE_COMMIT/.intelligence-file-hashes"
+            test -s "$rootfs/state/ordax/releases/$ORDAX_OWNER_SOURCE_COMMIT/.intelligence-source-sha"
+            sudo -E /bin/sh system/services/intelligence-source/owner-stage.sh ready \
+              "$rootfs/workspace/ordax" "$ORDAX_OWNER_SOURCE_COMMIT" \
+              "$rootfs/state/ordax/releases/$ORDAX_OWNER_SOURCE_COMMIT"
+            echo 'ORDAX_OWNER_FIRST_BOOT_INTELLIGENCE_OFFLINE_READY=YES'
+          else
+            test ! -e "$rootfs/state/ordax/releases/$ORDAX_OWNER_SOURCE_COMMIT/.intelligence-source-sha"
+            test ! -e "$rootfs/state/ordax/releases/$ORDAX_OWNER_SOURCE_COMMIT/system/intelligence-source"
+            echo 'ORDAX_OWNER_FIRST_BOOT_UNPROMOTED_INTELLIGENCE=NOT_PACKAGED'
+          fi
+          echo 'ORDAX_OWNER_FIRST_BOOT_EXTERNAL_SURFACE_OFFLINE_READY=YES'
           sudo touch "$rootfs/dev/null"
           cleanup_dev_null() {
             sudo rm -f "$rootfs/dev/null"
@@ -365,10 +563,16 @@ jobs:
           stage="$RUNNER_TEMP/owner-prototype-stage"
           python tools/creator/assemble.py build --manifest "$manifest" --out-dir "$payload"
           python tools/creator/assemble.py verify --manifest "$manifest" --payload-root "$payload"
-          pushd tools/creator >/dev/null
-          go run ./cmd/ordax-creator verify-payload --manifest "$manifest" --payload-root "$payload"
-          go run ./cmd/ordax-creator stage-tree --manifest "$manifest" --payload-root "$payload" --output-root "$stage"
-          popd >/dev/null
+          creator_cli="$RUNNER_TEMP/owner-creator-cli/ordax-creator"
+          test -x "$creator_cli"
+          verify_output="$("$creator_cli" verify-payload --manifest "$manifest" --payload-root "$payload")"
+          printf '%s\n' "$verify_output"
+          grep -Fxq 'PAYLOAD_VERIFIED=YES' <<<"$verify_output"
+          grep -Fxq 'PHYSICAL_WRITE_STATUS=blocked' <<<"$verify_output"
+          stage_output="$("$creator_cli" stage-tree --manifest "$manifest" --payload-root "$payload" --output-root "$stage")"
+          printf '%s\n' "$stage_output"
+          grep -Fxq 'DISPOSABLE_TREE_STAGED=YES' <<<"$stage_output"
+          grep -Fxq 'PHYSICAL_WRITE_STATUS=blocked' <<<"$stage_output"
           sudo mkdir -p "$stage/ORDAX/dev-base"
           sudo cp -a out/dev-base/rootfs/. "$stage/ORDAX/dev-base/"
           sudo python tools/creator/verify_owner_dev_offline_runtime.py \
@@ -450,7 +654,7 @@ jobs:
           echo "$proof/ordax-disposable.raw" > "$RUNNER_TEMP/owner-prototype-seed-path"
 
       - name: Prove actual Owner USB offline handoff in QEMU
-        timeout-minutes: 11
+        timeout-minutes: 15
         run: |
           set -euo pipefail
           proof="$RUNNER_TEMP/owner-prototype-media"
@@ -466,6 +670,7 @@ jobs:
             --serial-out "$RUNNER_TEMP/owner-qemu-serial.log" \
             --second-framebuffer-out "$RUNNER_TEMP/owner-qemu-second-framebuffer.ppm" \
             --second-serial-out "$RUNNER_TEMP/owner-qemu-second-serial.log" \
+            --prove-acpi-shutdown \
             --timeout-seconds 300
           python3 - "$RUNNER_TEMP/owner-qemu-offline-handoff.json" <<'PY'
           import json, sys
@@ -481,6 +686,8 @@ jobs:
           assert proof['welcome_screen_rendered_proven'] is False
           assert proof['notebook_boot_proven'] is False
           assert proof['graphical_framebuffer_varied_proven'] is True
+          assert proof['guest_acpi_shutdown_proven'] is True
+          assert proof['ext4_clean_after_guest_shutdown'] is True
           assert proof['second_offline_boot_proven'] is True
           assert proof['second_boot']['same_disposable_disk_reused'] is True
           assert proof['second_boot']['qemu_process_restarted'] is True
@@ -531,7 +738,10 @@ jobs:
               '$schema': 'prototype-ordax.creator-owner-physical/1',
               'status': 'owner-prototype-write-enabled',
               'source_commit': os.environ['ORDAX_OWNER_SOURCE_COMMIT'],
-              'creator_version': json.loads(pathlib.Path('tools/creator/version.json').read_text(encoding='utf-8'))['version'],
+              'creator_source_repository': os.environ['ORDAX_CREATOR_SOURCE_REPOSITORY'],
+              'creator_source_commit': os.environ['ORDAX_CREATOR_SOURCE_COMMIT'],
+              'creator_source_tree': os.environ['ORDAX_CREATOR_SOURCE_TREE'],
+              'creator_version': os.environ['ORDAX_CREATOR_PRODUCT_VERSION'],
               'canonical_public_release': False,
               'ephemeral_prototype_trust': True,
               'private_key_in_package': False,
@@ -551,7 +761,7 @@ jobs:
           pathlib.Path(sys.argv[1]).write_text(json.dumps(data, indent=2, sort_keys=True) + '\n', encoding='utf-8')
           PY
 
-          pushd tools/creator >/dev/null
+          pushd "$ORDAX_CREATOR_NATIVE_SOURCE" >/dev/null
           CGO_ENABLED=0 GOOS=windows GOARCH=amd64 \
             go build -trimpath -buildvcs=false \
               -tags 'ordax_raw_backend' \
@@ -621,7 +831,7 @@ jobs:
           zip_sha="$(sha256sum "$release/OrdaX-Creator-Owner-Prototype.zip" | cut -d' ' -f1)"
           zip_size="$(stat -c '%s' "$release/OrdaX-Creator-Owner-Prototype.zip")"
           printf '%s  %s\n' "$zip_sha" 'OrdaX-Creator-Owner-Prototype.zip' > "$release/SHA256SUMS.txt"
-          version="$(python3 -c 'import json; print(json.load(open("tools/creator/version.json", encoding="utf-8"))["version"])')"
+          version="${ORDAX_CREATOR_PRODUCT_VERSION:?missing verified independent Creator version}"
           python - "$release/creator-owner-update.json" "$ORDAX_OWNER_SOURCE_COMMIT" "$version" "$zip_sha" "$zip_size" <<'PY'
           import json, pathlib, sys
           output, source, version, digest, size = sys.argv[1:]
@@ -655,7 +865,8 @@ jobs:
             --archive "$release/OrdaX-Creator-Owner-Prototype.zip" \
             --metadata "$release/creator-owner-update.json" \
             --checksums "$release/SHA256SUMS.txt" \
-            --source-commit "$ORDAX_OWNER_SOURCE_COMMIT"
+            --source-commit "$ORDAX_OWNER_SOURCE_COMMIT" \
+            --creator-version "${ORDAX_CREATOR_PRODUCT_VERSION:?}"
 
       - name: Destroy ephemeral private key before publish
         run: |
@@ -670,7 +881,7 @@ jobs:
       # The owner must still select/re-enumerate the physical USB and confirm
       # the destructive action inside the canonical Windows Creator.
       - name: Retain exact-commit verified USB Dev acceptance bundle
-        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == 'ordaxsystems/ordax-os'
+        if: (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == 'ordaxsystems/ordax-os') || (github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/main')
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: owner-dev-usb-candidate-${{ env.ORDAX_OWNER_SOURCE_COMMIT }}
@@ -683,6 +894,7 @@ jobs:
           retention-days: 3
 
       - name: Publish development Creator bundle
+        # Only exact main pushes may publish a full proved Creator bundle.
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ github.token }}

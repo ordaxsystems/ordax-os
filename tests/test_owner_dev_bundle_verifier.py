@@ -11,7 +11,7 @@ import zipfile
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "tools/creator/verify_owner_dev_bundle.py"
 COMMIT = "a" * 40
-VERSION = json.loads((ROOT / "tools/creator/version.json").read_text(encoding="utf-8"))["version"]
+VERSION = "1.2.3-fixture"  # Test identity, not a second product version owner.
 sys.path.insert(0, str(ROOT / "tools/creator"))
 from theme_bridge import render_theme, SYMBOL
 THEME = render_theme()
@@ -63,7 +63,8 @@ class DevelopmentCreatorBundleTests(unittest.TestCase):
     def run_check(self):
         return subprocess.run([sys.executable, str(SCRIPT),
             "--archive", str(self.archive), "--metadata", str(self.metadata),
-            "--checksums", str(self.sums), "--source-commit", COMMIT],
+            "--checksums", str(self.sums), "--source-commit", COMMIT,
+            "--creator-version", VERSION],
             capture_output=True, text=True, check=False)
 
     def test_valid_owner_bundle_passes(self):

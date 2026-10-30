@@ -1,6 +1,9 @@
 """Owner QEMU boot uses verified disposable media; no simulated pass markers."""
 from __future__ import annotations
+import ast
 import hashlib
+import os
+import re
 import importlib.util
 import json
 from pathlib import Path
@@ -79,6 +82,143 @@ class OwnerQemuHandoffTests(unittest.TestCase):
         self.assertEqual(PROOF.STABLE_SECONDS, 15)
         self.assertFalse(PROOF.observed("Checkout local verificado: " + "b" * 40, "a" * 40)["exact_local_checkout"])
         self.assertFalse(PROOF.observed("ordax-dev-bootstrap: entering local recovery shell", "a" * 40)["recovery_not_entered"])
+
+    def test_failure_uses_redacted_native_receipt_only(self):
+        source = "a" * 40
+        valid = json.dumps({
+            "sourceSha": source, "stage": "composition-bootstrap",
+            "errorName": "TypeError", "source": "main.mjs:41:7",
+            "observedEpoch": 12345,
+        })
+        responses = [
+            PROOF.subprocess.CompletedProcess([], 0, stdout="/dev/loop17\n", stderr=""),
+            PROOF.subprocess.CompletedProcess([], 0, stdout=valid, stderr=""),
+            PROOF.subprocess.CompletedProcess([], 0, stdout="", stderr=""),
+        ]
+        with patch.object(PROOF, "owner_ext4_partition_bounds", return_value=(1024, 4096)):
+            with patch.object(PROOF.subprocess, "run", side_effect=responses) as execute:
+                result = PROOF.owner_qemu_failure_diagnostic(Path("/tmp/qemu-copy.raw"), source)
+        self.assertEqual(result, {
+            "status": "recorded", "stage": "composition-bootstrap",
+            "errorName": "TypeError", "source": "main.mjs:41:7",
+        })
+        self.assertIn("--read-only", execute.call_args_list[0].args[0])
+        self.assertEqual(execute.call_args_list[-1].args[0][-2:], ["-d", "/dev/loop17"])
+
+    def test_failure_diagnostic_does_not_export_untrusted_file_content(self):
+        source = "b" * 40
+        unsafe = json.dumps({
+            "sourceSha": source, "stage": "bootstrap",
+            "errorName": "Error", "source": "https://unsafe.invalid/private",
+        })
+        responses = [
+            PROOF.subprocess.CompletedProcess([], 0, stdout="/dev/loop3\n", stderr=""),
+            PROOF.subprocess.CompletedProcess([], 0, stdout=unsafe, stderr=""),
+            PROOF.subprocess.CompletedProcess([], 0, stdout="", stderr=""),
+        ]
+        with patch.object(PROOF, "owner_ext4_partition_bounds", return_value=(1024, 4096)):
+            with patch.object(PROOF.subprocess, "run", side_effect=responses):
+                result = PROOF.owner_qemu_failure_diagnostic(Path("/tmp/qemu-copy.raw"), source)
+        self.assertEqual(result, {"status": "unavailable"})
+
+    def test_owner_webkit_error_probe_only_emits_redacted_boot_identity(self):
+        # Compile only the QEMU serial helpers: WebKit/GTK is intentionally
+        # absent on normal CI runners, and must not be mocked as healthy.
+        source = ROOT / "system/surface/runtime/ordax_browser_host.py"
+        parsed = ast.parse(source.read_text(encoding="utf-8"), filename=str(source))
+        methods = {"_emit_owner_qemu_serial", "emit_owner_graphics_probe",
+                   "emit_owner_boot_error_probe"}
+        definitions = [
+            node for node in parsed.body
+            if isinstance(node, ast.FunctionDef) and node.name in methods
+        ]
+        self.assertEqual({node.name for node in definitions}, methods)
+        namespace = {"os": os, "re": re, "json": json,
+                     "OWNER_GRAPHICS_PROBE_EVENTS": frozenset(
+                         {"surface-page-load-finished"})}
+        exec(compile(ast.Module(body=definitions, type_ignores=[]),
+                     str(source), "exec"), namespace)
+        emit = namespace["emit_owner_boot_error_probe"]
+        with patch.object(os, "open", return_value=61) as opened, \
+                patch.object(os, "write") as wrote, \
+                patch.object(os, "close"):
+            emit(True, "TypeError", "main.mjs:123:5")
+            opened.assert_called_once_with(
+                "/dev/ttyS0", os.O_WRONLY | os.O_NOCTTY | os.O_NONBLOCK)
+            payload = wrote.call_args.args[1].decode("ascii").strip()
+            prefix = "ORDAX_OWNER_WEBKIT_BOOT_DIAGNOSTIC="
+            self.assertTrue(payload.startswith(prefix))
+            self.assertEqual(json.loads(payload[len(prefix):]), {
+                "errorName": "TypeError", "source": "main.mjs:123:5",
+            })
+            wrote.reset_mock()
+            opened.reset_mock()
+            emit(False, "TypeError", "main.mjs:123:5")
+            emit(True, "TypeError", "https://unsafe.invalid/private")
+            emit(True, "Error\\nLEAK", "main.mjs:1:2")
+            emit(True, "Error", "secret.json:1:2")
+            opened.assert_not_called()
+            wrote.assert_not_called()
+
+    def test_native_component_probation_is_gated_on_real_surface_ready(self):
+        source = ROOT / "system/surface/runtime/ordax_browser_host.py"
+        parsed = ast.parse(source.read_text(encoding="utf-8"), filename=str(source))
+        method_names = {"handle_surface_shell_ready",
+                        "handle_component_probation_request"}
+        methods = [
+            method for cls in parsed.body if isinstance(cls, ast.ClassDef)
+            for method in cls.body
+            if isinstance(method, ast.FunctionDef) and method.name in method_names
+        ]
+        self.assertEqual({method.name for method in methods}, method_names)
+        scope = {"SUPPORTED_PROBATION_COMPONENTS": ("files",)}
+        exec(compile(ast.Module(body=methods, type_ignores=[]),
+                     str(source), "exec"), scope)
+
+        class Host:
+            component_probation_started = False
+
+            def __init__(self):
+                self.probations = []
+
+            def start_component_probation(self, components):
+                self.probations.append(components)
+                return True
+
+        host = Host()
+        request = scope["handle_component_probation_request"]
+        ready = scope["handle_surface_shell_ready"]
+        with self.assertRaisesRegex(PermissionError, "mounted Surface shell"):
+            request(host, {"type": "component.probation.request",
+                           "componentId": "files"})
+        self.assertEqual(host.probations, [])
+        with self.assertRaisesRegex(ValueError, "fields"):
+            ready(host, {"type": "surface.shell.ready", "forged": "1"})
+        ready(host, {"type": "surface.shell.ready"})
+        ready(host, {"type": "surface.shell.ready"})
+        self.assertEqual(host.probations, [("files",)])
+        request(host, {"type": "component.probation.request",
+                       "componentId": "files"})
+        self.assertEqual(host.probations, [("files",), ("files",)])
+
+        browser = source.read_text(encoding="utf-8")
+        on_loaded = browser.split("def on_surface_load_changed(", 1)[1].split(
+            "\n    def on_surface_load_failed(", 1
+        )[0]
+        self.assertNotIn("start_component_probation(", on_loaded)
+        self.assertIn("self.component_probation_nonces.clear()", on_loaded)
+        self.assertIn("self.component_probation_rerun_requested.clear()", on_loaded)
+        composition = (
+            ROOT / "system/composition/native/main.mjs"
+        ).read_text(encoding="utf-8")
+        ready_at = composition.index("bootScreen.ready()")
+        heartbeat_at = composition.index(
+            "const surfaceHeartbeat = createNativeSurfaceHeartbeat(window)")
+        probation_at = composition.index(
+            'postNativeHostMessage(window, { type: "surface.shell.ready" })')
+        self.assertLess(ready_at, heartbeat_at)
+        self.assertLess(heartbeat_at, probation_at)
+        self.assertIn('elif command == "surface.shell.ready":', browser)
 
     def test_actual_qmp_framebuffer_checks_color_distribution(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -169,6 +309,61 @@ class OwnerQemuHandoffTests(unittest.TestCase):
                     180,
                 )
 
+    def test_first_guest_poweroff_must_precede_offline_fsck_and_second_boot(self):
+        order = []
+
+        def boot_stub(*args, **kwargs):
+            order.append("boot-acpi" if kwargs.get("acpi_shutdown") else "boot-normal")
+            return {
+                "checks": {"real": True},
+                "qemu_framebuffer": {"quantized_colors": 50},
+                "acpi_shutdown_proven": bool(kwargs.get("acpi_shutdown")),
+            }
+
+        def fsck_stub(disk):
+            order.append("e2fsck-after-poweroff")
+            self.assertEqual(disk, Path("/tmp/only-disposable-usb.raw"))
+            return True
+
+        with patch.object(PROOF, "prove_guest_boot", side_effect=boot_stub), \
+                patch.object(PROOF, "prove_ext4_clean_after_guest_poweroff", side_effect=fsck_stub):
+            pair = PROOF.prove_boot_pair(
+                Path("/tmp/only-disposable-usb.raw"),
+                Path("/tmp/kernel"), Path("/tmp/initramfs"),
+                "a" * 40, Path("/tmp"),
+                ((Path("/tmp/first.ppm"), Path("/tmp/first.serial")),
+                 (Path("/tmp/second.ppm"), Path("/tmp/second.serial"))),
+                180, prove_acpi_shutdown=True,
+            )
+        self.assertEqual(order, [
+            "boot-acpi", "e2fsck-after-poweroff", "boot-normal",
+        ])
+        self.assertTrue(pair[0]["ext4_clean_after_shutdown"])
+
+    def test_forged_poweroff_proof_cannot_run_second_guest(self):
+        with patch.object(PROOF, "prove_guest_boot", return_value={
+                "checks": {"real": True},
+                "qemu_framebuffer": {"quantized_colors": 50},
+                "acpi_shutdown_proven": False,
+        }) as boot:
+            with self.assertRaisesRegex(PROOF.ProofError, "ACPI shutdown proof"):
+                PROOF.prove_boot_pair(
+                    Path("/tmp/only-disposable-usb.raw"),
+                    Path("/tmp/kernel"), Path("/tmp/initramfs"),
+                    "a" * 40, Path("/tmp"),
+                    ((Path("/tmp/first.ppm"), Path("/tmp/first.serial")),
+                     (Path("/tmp/second.ppm"), Path("/tmp/second.serial"))),
+                    180, prove_acpi_shutdown=True,
+                )
+        self.assertEqual(boot.call_count, 1)
+
+    def test_disposable_raw_must_have_valid_gpt_before_loop_fsck(self):
+        with tempfile.TemporaryDirectory() as td:
+            disk = Path(td) / "temporary.raw"
+            disk.write_bytes(b"not a GPT" * 100)
+            with self.assertRaisesRegex(PROOF.ProofError, "GPT header"):
+                PROOF.prove_ext4_clean_after_guest_poweroff(disk)
+
     def test_creator_runs_real_qemu_only_after_disposable_raw_proof(self):
         workflow = (ROOT / ".github/workflows/creator-owner-dev-git.yml").read_text(encoding="utf-8")
         materialize = workflow.index("- name: Materialize and verify RAW development seed")
@@ -180,6 +375,9 @@ class OwnerQemuHandoffTests(unittest.TestCase):
         self.assertIn('--serial-out "$RUNNER_TEMP/owner-qemu-serial.log"', workflow)
         self.assertIn('--second-serial-out "$RUNNER_TEMP/owner-qemu-second-serial.log"', workflow)
         self.assertIn("proof['second_offline_boot_proven'] is True", workflow)
+        self.assertIn("--prove-acpi-shutdown", workflow)
+        self.assertIn("proof['guest_acpi_shutdown_proven'] is True", workflow)
+        self.assertIn("proof['ext4_clean_after_guest_shutdown'] is True", workflow)
         self.assertIn("proof['second_boot']['same_disposable_disk_reused'] is True", workflow)
         self.assertIn("${{ runner.temp }}/owner-qemu-serial.log", workflow)
         self.assertIn("if: always()", workflow)

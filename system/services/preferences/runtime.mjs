@@ -9,7 +9,6 @@ export function createPreferencePersistence(preferenceStore = null) {
   let status = "not-written";
   let disposed = false;
   let revision = 0;
-  let latestConfirmation = Promise.resolve(false);
   const listeners = new Set();
   const notify = () => {
     for (const listener of [...listeners]) listener(status);
@@ -19,7 +18,9 @@ export function createPreferencePersistence(preferenceStore = null) {
     status = result === true ? "saved" : "session-only";
     notify();
   };
-  const save = (snapshot) => {
+  return Object.freeze({
+    getSnapshot: () => status,
+    save(snapshot) {
       if (disposed) throw new Error("Preference persistence is disposed");
       const writeRevision = ++revision;
       let result;
@@ -27,29 +28,15 @@ export function createPreferencePersistence(preferenceStore = null) {
       catch { result = false; }
       if (result && typeof result.then === "function") {
         status = "pending";
-        latestConfirmation = Promise.resolve(result).then(
-          (accepted) => {
-            confirm(writeRevision, accepted);
-            return accepted === true && !disposed && writeRevision === revision;
-          },
-          () => {
-            confirm(writeRevision, false);
-            return false;
-          },
+        Promise.resolve(result).then(
+          (result) => confirm(writeRevision, result),
+          () => confirm(writeRevision, false),
         );
       } else {
         status = result === true ? "saved" : "session-only";
-        latestConfirmation = Promise.resolve(result === true && !disposed && writeRevision === revision);
       }
       notify();
       return status;
-  };
-  return Object.freeze({
-    getSnapshot: () => status,
-    save,
-    saveConfirmed(snapshot) {
-      save(snapshot);
-      return latestConfirmation;
     },
     subscribe(listener) {
       if (typeof listener !== "function") throw new TypeError("Preference persistence listener must be a function");
@@ -85,10 +72,6 @@ export function createPreferenceRuntime(preferenceStore) {
     schema: PREFERENCE_RUNTIME_SCHEMA,
     getSnapshot: () => snapshot,
     getPersistenceSnapshot: () => persistence.getSnapshot(),
-    persistConfirmed() {
-      if (disposed) throw new Error("Preference runtime is disposed");
-      return persistence.saveConfirmed(snapshot);
-    },
     set(preferenceId, value) {
       if (disposed) throw new Error("Preference runtime is disposed");
       const next = setPreferenceValue(snapshot, preferenceId, value);

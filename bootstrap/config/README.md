@@ -35,29 +35,26 @@ GitHub documents `/releases/latest/download/<asset>` as the direct download form
 - physical write remains blocked while the release trust owner is unresolved and until the remaining promotion gates pass.
 
 
-## Optional account gateway configuration
+## Account gateway authority — single signed OrdaX OS source
 
-Stable/MVP may also provide:
+Stable/MVP and Owner/Development use the same Native account transport. The
+canonical endpoint is `system/services/account/gateway-base-url` in the
+**exact verified OrdaX OS system tree**, selected by the release trust
+mechanism in Stable or by the verified Git checkout in Dev.
 
-```text
-/ordax/bootstrap/config/account-gateway-origin
-```
+The bootstrap does **not** accept
+`/ordax/bootstrap/config/account-gateway-origin` as an identity authority.
+An old copy of this optional bootstrap file, if present on the USB, is ignored
+rather than being deleted or migrated: a removable-media configuration outside
+the signed release must not override where account credentials are sent.
+`ORDAX_ACCOUNT_GATEWAY_ORIGIN` is cleared before the Stable verified-release
+handoff; the shared Surface entrypoint reads the source-controlled endpoint
+from `ORDAX_SYSTEM_ROOT/services/account/gateway-base-url`.
 
-This file is optional because the OS must remain usable offline and without an
-OrdaX account. When present, it contains exactly one HTTPS origin, for example:
-
-```text
-https://accounts.example.invalid
-```
-
-The bootstrap validates that it is an HTTPS origin without path, query,
-fragment, credentials or whitespace before exporting
-`ORDAX_ACCOUNT_GATEWAY_ORIGIN` to the verified product runtime. The Native
-Surface then talks only to its loopback host; the host forwards `/auth/*` and
-`/sync/*` to this configured OrdaX gateway while keeping provider/session
-cookies outside Surface JavaScript.
-
-Absence or rejection of this file disables online account continuity only. It
-must never block local boot, OOBE completion, files, notes, settings, recovery
-or local Intelligence. No Supabase URL, service-role key, user token or other
-provider credential belongs in this bootstrap file.
+A missing or invalid signed gateway disables online-account capability only.
+It cannot block offline boot, the optional account choice in First Run, local
+files, settings, notes, recovery or Intelligence. A live anonymous gateway
+health check is **not** proof of an authenticated user. Registration, public
+Auth cutover and recovery retain their independent legal/security gates.
+Provider cookies remain in Native process memory only; writing them to a
+removable USB is prohibited until the versioned encrypted-vault policy is met.

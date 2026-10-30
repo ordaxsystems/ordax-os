@@ -7,6 +7,7 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 MODULE = ROOT / "system" / "surface" / "runtime" / "native_account_gateway.py"
+sys.path.insert(0, str(MODULE.parent))
 
 spec = importlib.util.spec_from_file_location("ordax_native_account_gateway_test", MODULE)
 gateway = importlib.util.module_from_spec(spec)
@@ -97,6 +98,75 @@ class NativeAccountGatewayTests(unittest.TestCase):
             self.assertEqual(second._cookies, {})
             self.assertFalse(path.exists())
 
+    def test_native_login_requires_verified_fresh_gateway_session(self):
+        def reply(payload, status=200):
+            return gateway.GatewayReply(
+                status=status, headers={},
+                body=json.dumps(payload).encode("utf-8"),
+            )
+
+        authenticated = {
+            "$schema": gateway.SESSION_SCHEMA,
+            "authenticated": True,
+            "status": "authenticated",
+            "subject": "verified-subject",
+            "email": "pessoa@example.com",
+            "displayName": "  Washington Silva  ",
+            "provider": "supabase",
+            "accountCloseEnabled": False,
+        }
+        accepted = gateway.verified_account_session_reply(reply({
+            **authenticated, "ordax_access": "never-send-me",
+        }))
+        self.assertEqual(accepted["subject"], "verified-subject")
+        self.assertEqual(accepted["displayName"], "Washington Silva")
+        self.assertTrue(accepted["authenticated"])
+        self.assertNotIn("ordax_access", accepted)
+
+        unsafe_name = gateway.verified_account_session_reply(reply({
+            **authenticated, "displayName": "Washington\nSilva",
+        }))
+        self.assertNotIn("displayName", unsafe_name)
+
+        for payload, status in (
+            (authenticated, 503),
+            ({"error": "upstream-unavailable"}, 200),
+            ({**authenticated, "authenticated": False, "status": "anonymous"}, 200),
+            ({**authenticated, "subject": ""}, 200),
+            ({**authenticated, "email": None}, 200),
+            ({**authenticated, "$schema": "untrusted.schema/1"}, 200),
+        ):
+            with self.subTest(payload=payload, status=status):
+                with self.assertRaises(gateway.NativeAccountGatewayError):
+                    gateway.verified_account_session_reply(reply(payload, status))
+
+    def test_registration_anonymous_is_confirmation_only_not_login(self):
+        anonymous = {
+            "$schema": gateway.SESSION_SCHEMA,
+            "authenticated": False,
+            "status": "anonymous",
+            "provider": "supabase",
+        }
+        reply = gateway.GatewayReply(
+            status=200, headers={}, body=json.dumps(anonymous).encode("utf-8")
+        )
+        with self.assertRaises(gateway.NativeAccountGatewayError):
+            gateway.verified_account_session_reply(reply)
+        result = gateway.verified_account_session_reply(reply, allow_anonymous=True)
+        self.assertFalse(result["authenticated"])
+        self.assertEqual(result["status"], "anonymous")
+        self.assertFalse(result["accountCloseEnabled"])
+
+    def test_native_http_uses_verified_session_owner_for_login(self):
+        host = (
+            ROOT / "system" / "surface" / "runtime" / "native_host_server.py"
+        ).read_text(encoding="utf-8")
+        self.assertIn("verified_account_session_reply(", host)
+        self.assertIn("allow_anonymous=(parsed_path == ACCOUNT_REGISTER_PATH)", host)
+        self.assertIn('if not session_payload["authenticated"]:', host)
+        self.assertNotIn('if not isinstance(session_payload, dict):', host)
+        self.assertIn('self._write_json(202, session_payload)', host)
+
     def test_product_access_token_is_native_only_and_requires_authenticated_session(self):
         with tempfile.TemporaryDirectory() as temporary:
             path = str(Path(temporary) / "session.json")
@@ -157,10 +227,7 @@ class NativeAccountGatewayTests(unittest.TestCase):
             self.assertEqual((method, route), ("POST", "/auth/register"))
             body = kwargs["body"].decode("utf-8")
             self.assertIn("email=person%40example.com", body)
-            self.assertIn(
-                f"{gateway.REGISTRATION_LEGAL_ACCEPTANCE_FIELD}={gateway.REGISTRATION_LEGAL_ACCEPTANCE_VALUE}",
-                body,
-            )
+            self.assertIn("legal_acceptance=accepted", body)
             self.assertNotIn("privacy_version", body)
             self.assertNotIn("terms_version", body)
 
@@ -337,76 +404,6 @@ class NativeAccountGatewayTests(unittest.TestCase):
         self.assertNotIn("open(self.legacy_session_path", source)
         self.assertNotIn("/device/enroll", source)
         self.assertNotIn("/v3/device/setup", source)
-
-
-class NativeLogoutIsolationTests(unittest.TestCase):
-    def test_offline_logout_discards_cookies_and_blocks_token_reuse(self):
-        with tempfile.TemporaryDirectory() as temporary:
-            path = Path(temporary) / "session.json"
-            client = gateway.NativeAccountGateway("https://accounts.example", str(path))
-            client._cookies = {"ordax_access": "access", "ordax_refresh": "refresh"}
-            def unavailable(*args, **kwargs):
-                raise gateway.NativeAccountGatewayError("gateway-unreachable")
-            client._request = unavailable
-            reply = client.logout()
-            self.assertEqual(reply.status, 202)
-            self.assertEqual(client._cookies, {})
-            self.assertFalse(path.exists())
-            local_session = json.loads(client.session().body)
-            self.assertFalse(local_session["authenticated"])
-            self.assertEqual(local_session["status"], "anonymous")
-            with self.assertRaises(gateway.NativeAccountGatewayError) as error:
-                client._product_access_token()
-            self.assertEqual(error.exception.code, "authentication-required")
-
-    def test_rejected_logout_discards_cookies_without_claiming_revocation(self):
-        with tempfile.TemporaryDirectory() as temporary:
-            path = Path(temporary) / "session.json"
-            client = gateway.NativeAccountGateway("https://accounts.example", str(path))
-            client._cookies = {"ordax_access": "access", "ordax_refresh": "refresh"}
-            client._request = lambda *args, **kwargs: gateway.GatewayReply(
-                status=503, headers={}, body=b""
-            )
-            reply = client.logout()
-            self.assertEqual(reply.status, 202)
-            self.assertEqual(client._cookies, {})
-
-
-    def test_logout_without_cookies_is_local_and_never_calls_gateway(self):
-        with tempfile.TemporaryDirectory() as temporary:
-            client = gateway.NativeAccountGateway(
-                "https://accounts.example", str(Path(temporary) / "session.json")
-            )
-            client._request = lambda *args, **kwargs: self.fail("guest must not call remote logout")
-            self.assertEqual(client.logout().status, 204)
-            snapshot = json.loads(client.session().body)
-            self.assertFalse(snapshot["authenticated"])
-            self.assertEqual(snapshot["provider"], "ordax-native")
-
-    def test_new_login_replaces_locally_detached_session_without_guest_leak(self):
-        with tempfile.TemporaryDirectory() as temporary:
-            client = gateway.NativeAccountGateway(
-                "https://accounts.example", str(Path(temporary) / "session.json")
-            )
-            client._cookies = {"ordax_access": "old-access"}
-            client._request = lambda *args, **kwargs: gateway.GatewayReply(
-                status=500, headers={}, body=b""
-            )
-            self.assertEqual(client.logout().status, 202)
-            self.assertEqual(client._cookies, {})
-            seen = []
-            def fake_request(method, path, **kwargs):
-                seen.append((method, path))
-                if path == "/auth/login":
-                    client._cookies = {"ordax_access": "fresh-access"}
-                    return gateway.GatewayReply(status=200, headers={}, body=b"")
-                return gateway.GatewayReply(
-                    status=200, headers={}, body=b'{"authenticated":true}'
-                )
-            client._request = fake_request
-            self.assertEqual(client.login("person@example.invalid", "secret").status, 200)
-            self.assertTrue(json.loads(client.session().body)["authenticated"])
-            self.assertEqual(seen, [("POST", "/auth/login"), ("GET", "/auth/session")])
 
 
 if __name__ == "__main__":

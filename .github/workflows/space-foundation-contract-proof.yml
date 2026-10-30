@@ -10,6 +10,7 @@ on:
       - 'system/contracts/space-members.mjs'
       - 'system/contracts/space-actor-capability.mjs'
       - 'system/contracts/space-membership-actions.mjs'
+      - 'system/contracts/space-invites.mjs'
       - 'system/services/spaces/**'
       - 'system/adapters/web/space-members.mjs'
       - 'system/adapters/web/space-actor-capability.mjs'
@@ -23,6 +24,7 @@ on:
       - 'infra/supabase/functions/ordax-account-gateway/index.ts'
       - 'infra/supabase/product/migrations/*space_members*'
       - 'infra/supabase/product/migrations/*space_actor_capability*'
+      - 'tests/test_identity_bound_space_experience.mjs'
       - 'tests/test_space_foundation_nonblocking.mjs'
       - 'tests/test_space_lifecycle.mjs'
       - 'tests/test_space_lifecycle_runtime.mjs'
@@ -37,6 +39,7 @@ on:
       - 'tests/test_space_members_gateway_source.mjs'
       - 'tests/test_space_members_read_authority.py'
       - 'tests/test_space_membership_actions.mjs'
+      - 'tests/test_space_invites.mjs'
       - 'tests/test_space_membership_actions_runtime.mjs'
       - 'tests/test_web_space_membership_actions.mjs'
       - 'tests/test_space_membership_gateway_source.mjs'
@@ -53,6 +56,7 @@ on:
       - 'system/contracts/space-members.mjs'
       - 'system/contracts/space-actor-capability.mjs'
       - 'system/contracts/space-membership-actions.mjs'
+      - 'system/contracts/space-invites.mjs'
       - 'system/services/spaces/**'
       - 'system/adapters/web/space-members.mjs'
       - 'system/adapters/web/space-actor-capability.mjs'
@@ -66,6 +70,7 @@ on:
       - 'infra/supabase/functions/ordax-account-gateway/index.ts'
       - 'infra/supabase/product/migrations/*space_members*'
       - 'infra/supabase/product/migrations/*space_actor_capability*'
+      - 'tests/test_identity_bound_space_experience.mjs'
       - 'tests/test_space_foundation_nonblocking.mjs'
       - 'tests/test_space_lifecycle.mjs'
       - 'tests/test_space_lifecycle_runtime.mjs'
@@ -80,6 +85,7 @@ on:
       - 'tests/test_space_members_gateway_source.mjs'
       - 'tests/test_space_members_read_authority.py'
       - 'tests/test_space_membership_actions.mjs'
+      - 'tests/test_space_invites.mjs'
       - 'tests/test_space_membership_actions_runtime.mjs'
       - 'tests/test_web_space_membership_actions.mjs'
       - 'tests/test_space_membership_gateway_source.mjs'
@@ -101,6 +107,9 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Prepare pinned Surface source in disposable CI checkout
+        uses: ./.github/actions/prepare-verified-surface
+
       - name: Check Space contracts
         run: |
           set -euo pipefail
@@ -111,7 +120,9 @@ jobs:
           node --check system/contracts/space-members.mjs
           node --check system/contracts/space-actor-capability.mjs
           node --check system/contracts/space-membership-actions.mjs
+          node --check system/contracts/space-invites.mjs
           node --check system/services/spaces/composition.mjs
+          node --check system/services/spaces/identity-bound-experience.mjs
           node --check system/services/spaces/lifecycle.mjs
           node --check system/services/spaces/members.mjs
           node --check system/services/spaces/actor-capability.mjs
@@ -139,6 +150,7 @@ jobs:
           node --test tests/test_web_space_members_composition.mjs
           node --test tests/test_space_members_gateway_source.mjs
           node --test tests/test_space_membership_actions.mjs
+          node --test tests/test_space_invites.mjs
           node --test tests/test_space_membership_actions_runtime.mjs
           node --test tests/test_web_space_membership_actions.mjs
           node --test tests/test_space_membership_gateway_source.mjs
@@ -146,3 +158,4 @@ jobs:
           node --test tests/test_spaces_catalog.mjs
           node --test tests/test_space_selection.mjs
           node --test tests/test_space_experience.mjs
+          node --test tests/test_identity_bound_space_experience.mjs

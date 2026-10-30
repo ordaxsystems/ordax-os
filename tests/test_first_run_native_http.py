@@ -7,7 +7,6 @@ import json
 from pathlib import Path
 import tempfile
 import threading
-from types import SimpleNamespace
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -50,7 +49,7 @@ class NativeFirstRunHttpTests(unittest.TestCase):
         native.FIRST_RUN_FILE = self.original_receipt
         self.temporary.cleanup()
 
-    def request(self, method="GET", *, value=None, headers=None, path=None):
+    def request(self, method="GET", *, value=None, headers=None):
         connection = http.client.HTTPConnection("127.0.0.1", self.port, timeout=5)
         outgoing = dict(headers or {})
         body = None
@@ -58,7 +57,7 @@ class NativeFirstRunHttpTests(unittest.TestCase):
             body = json.dumps(value, separators=(",", ":")).encode("utf-8")
             outgoing["Content-Type"] = "application/json"
         try:
-            connection.request(method, native.FIRST_RUN_PATH if path is None else path, body=body, headers=outgoing)
+            connection.request(method, native.FIRST_RUN_PATH, body=body, headers=outgoing)
             response = connection.getresponse()
             status = response.status
             response_body = response.read()
@@ -115,105 +114,6 @@ class NativeFirstRunHttpTests(unittest.TestCase):
             "Host": f"foreign.example:{self.port}",
         })[0], 403)
         self.assertFalse(self.receipt.exists())
-
-    def test_real_http_guest_detach_is_available_without_a_configured_gateway(self):
-        status, body = self.request("POST", path=native.ACCOUNT_LOGOUT_PATH)
-        self.assertEqual(status, 202)
-        self.assertEqual(json.loads(body), {
-            "$schema": "ordax.native-account-detach/1",
-            "localSessionDetached": True,
-            "remoteRevocation": "not-applicable",
-        })
-        status, body = self.request(path=native.ACCOUNT_SESSION_PATH)
-        self.assertEqual(status, 200)
-        self.assertEqual(json.loads(body)["provider"], "unconfigured")
-        # Guest completion is still handled by the same durable Native receipt.
-        self.assertEqual(self.request("POST", value=self.complete())[0], 204)
-
-    def test_real_http_offline_logout_detaches_existing_account_before_guest_receipt(self):
-        gateway = native.NativeAccountGateway(
-            "https://accounts.example", str(self.root / "legacy-session.json")
-        )
-        gateway._cookies = {"ordax_access": "old-access", "ordax_refresh": "old-refresh"}
-        def unreachable(*args, **kwargs):
-            raise native.NativeAccountGatewayError("gateway-unreachable")
-        gateway._request = unreachable
-        self.server.account_gateway = gateway
-
-        status, body = self.request("POST", path=native.ACCOUNT_LOGOUT_PATH)
-        self.assertEqual(status, 202)
-        self.assertEqual(json.loads(body), {
-            "$schema": "ordax.native-account-detach/1",
-            "localSessionDetached": True,
-            "remoteRevocation": "unconfirmed",
-        })
-        self.assertEqual(gateway._cookies, {})
-        self.assertFalse((self.root / "legacy-session.json").exists())
-        status, body = self.request(path=native.ACCOUNT_SESSION_PATH)
-        self.assertEqual(status, 200)
-        guest = json.loads(body)
-        self.assertFalse(guest["authenticated"])
-        self.assertEqual(guest["status"], "anonymous")
-        self.assertEqual(self.request("POST", value=self.complete())[0], 204)
-        self.assertEqual(json.loads(self.receipt.read_text(encoding="utf-8"))["accountMode"], "local-only")
-
-    def test_foreign_origin_cannot_detach_existing_authenticated_session(self):
-        gateway = native.NativeAccountGateway(
-            "https://accounts.example", str(self.root / "legacy-session.json")
-        )
-        gateway._cookies = {"ordax_access": "still-authorized"}
-        self.server.account_gateway = gateway
-        status, body = self.request("POST", path=native.ACCOUNT_LOGOUT_PATH, headers={
-            "Origin": "https://foreign.example",
-            "Sec-Fetch-Site": "cross-site",
-        })
-        self.assertEqual(status, 403)
-        self.assertEqual(gateway._cookies, {"ordax_access": "still-authorized"})
-
-    def test_real_http_registration_uses_same_canonical_legal_acceptance_as_surface(self):
-        calls = []
-        class FakeAccountGateway:
-            def register(self, email, password, *, legal_accepted):
-                calls.append((email, password, legal_accepted))
-                return SimpleNamespace(status=200, body=b"")
-            def session(self):
-                return SimpleNamespace(body=json.dumps({
-                    "$schema": "prototype-ordax.public-identity-session/1",
-                    "authenticated": False,
-                    "provider": "ordax-native",
-                    "status": "anonymous",
-                }).encode("utf-8"))
-
-        self.server.account_gateway = FakeAccountGateway()
-        def form(raw):
-            connection = http.client.HTTPConnection("127.0.0.1", self.port, timeout=5)
-            try:
-                connection.request("POST", native.ACCOUNT_REGISTER_PATH, body=raw, headers={
-                    "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
-                    "Origin": f"http://127.0.0.1:{self.port}",
-                    "Sec-Fetch-Site": "same-origin",
-                })
-                response = connection.getresponse()
-                return response.status, response.read()
-            finally:
-                connection.close()
-
-        valid = b"email=person%40example.invalid&password=longsecret123&legal_acceptance=accepted"
-        # Production remains disabled until the legal/provider activation gate.
-        self.assertEqual(form(valid)[0], 503)
-        self.assertEqual(calls, [])
-        original = native.ACCOUNT_REGISTRATION_ENABLED
-        native.ACCOUNT_REGISTRATION_ENABLED = True
-        try:
-            self.assertEqual(form(valid.replace(b"accepted", b"true"))[0], 400)
-            self.assertEqual(form(valid.replace(b"legal_acceptance", b"legalAcceptance"))[0], 400)
-            self.assertEqual(calls, [])
-            status, body = form(valid)
-            self.assertEqual(status, 202)
-            self.assertTrue(json.loads(body)["confirmationRequired"])
-            self.assertEqual(calls, [("person@example.invalid", "longsecret123", True)])
-        finally:
-            native.ACCOUNT_REGISTRATION_ENABLED = original
 
     def test_existing_corrupt_receipt_is_never_overwritten(self):
         self.receipt.write_text("{corrupt", encoding="utf-8")

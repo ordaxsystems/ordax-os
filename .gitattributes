@@ -34,3 +34,6 @@ bootstrap/network/bring-up text eol=lf
 bootstrap/network/udhcpc.script text eol=lf
 bootstrap/config/product-mode text eol=lf
 bootstrap/recovery/entrypoint text eol=lf
+
+# External package proof hashes payload bytes; keep its fixture stable on Windows and Linux.
+tests/fixtures/external-app/external-hello/index.mjs text eol=lf

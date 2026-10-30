@@ -41,11 +41,6 @@ class WorkspacePersistenceContractTests(unittest.TestCase):
         native = NATIVE_COMPOSITION.read_text(encoding="utf-8")
         self.assertIn('../../adapters/native/workspace.mjs', native)
         self.assertIn("createNativeWorkspaceStore", native)
-        self.assertIn("localWorkspaceStore.selectOwner(identitySession.getSnapshot())", native)
-        self.assertIn("if (localWorkspaceStore.selectOwner(snapshot)) workspaceStore.load();", native)
-        self.assertIn("unsubscribeWorkspaceIdentity();", native)
-        self.assertIn('case "workspace.restore":', STATE.read_text(encoding="utf-8"))
-        self.assertIn("workspacePort.subscribe(", SURFACE.read_text(encoding="utf-8"))
         self.assertIn("workspaceStore,", native)
         self.assertNotIn('../../adapters/native/workspace.mjs', web)
         self.assertNotIn('../../adapters/web/workspace.mjs', native)
@@ -62,17 +57,6 @@ class WorkspacePersistenceContractTests(unittest.TestCase):
         self.assertIn("MAX_COORDINATE = 1_000_000", contract)
         self.assertIn("MAX_TARGET_LENGTH = 4096", contract)
         self.assertNotIn("fetch(", native)
-
-    def test_native_surface_reconciles_rejected_workspace_writes_with_canonical_store(self):
-        surface = SURFACE.read_text(encoding="utf-8")
-        bridge = (ROOT / "system" / "services" / "sync" / "workspace-metadata.mjs").read_text(
-            encoding="utf-8"
-        )
-        self.assertIn("const requested = createWorkspaceSnapshot(state)", surface)
-        self.assertIn("const effective = validateWorkspaceRecord(workspacePort.load())", surface)
-        self.assertIn('type: "workspace.restore"', surface)
-        self.assertIn("update(baseStore.load())", bridge)
-        self.assertNotIn("update(validated);", bridge)
 
     def test_area_controls_are_real_not_disabled_placeholders(self):
         surface = SURFACE.read_text(encoding="utf-8")

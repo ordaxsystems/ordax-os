@@ -3,8 +3,6 @@ import assert from "node:assert/strict";
 
 import { createNativePreferenceStore } from "../system/adapters/native/preferences.mjs";
 import { createPreferenceRuntime } from "../system/services/preferences/runtime.mjs";
-import { createNativeFirstRunStateStore } from "../system/adapters/native/first-run-state.mjs";
-import { createInitialFirstRunState, persistFirstRunCompletion } from "../system/services/state/first-run.mjs";
 
 function fakeNativeHost() {
   const requests = [];
@@ -24,31 +22,6 @@ function fakeNativeHost() {
   };
   return { windowRef, requests };
 }
-
-test("First Run confirmation uses the existing Native store and waits for its actual ACK", async () => {
-  const { windowRef, requests } = fakeNativeHost();
-  const store = await createNativePreferenceStore(windowRef);
-  const runtime = createPreferenceRuntime(store);
-  runtime.set("regional.locale", "en-US");
-  const ack = runtime.persistConfirmed();
-  assert.equal(runtime.getPersistenceSnapshot(), "pending");
-  await Promise.resolve();
-  assert.equal(requests.length, 1);
-  requests[0].resolve({ ok: true });
-  await new Promise(resolve => setImmediate(resolve));
-  assert.equal(requests.length, 2);
-  assert.equal(requests[1].data["regional.locale"], "en-US");
-  requests[1].resolve({ ok: false, status: 507 });
-  assert.equal(await ack, false);
-  assert.equal(runtime.getPersistenceSnapshot(), "session-only");
-  const retry = runtime.persistConfirmed();
-  await Promise.resolve(); await Promise.resolve();
-  assert.equal(requests.length, 3);
-  requests[2].resolve({ ok: true });
-  assert.equal(await retry, true);
-  assert.equal(runtime.getPersistenceSnapshot(), "saved");
-  runtime.dispose();
-});
 
 test("Native preference store saves serially and reports only host-confirmed durability", async () => {
   const { windowRef, requests } = fakeNativeHost();
@@ -189,90 +162,4 @@ test("Native GET failure keeps the next Surface usable without fabricated durabi
   assert.equal(runtime.getSnapshot()["appearance.theme"], "dark");
   assert.equal(runtime.getPersistenceSnapshot(), "session-only");
   runtime.dispose();
-});
-
-function durableFirstRunFakeHost() {
-  const disk = {
-    firstRun: createInitialFirstRunState(),
-    preferences: { "regional.locale": "pt-BR", "regional.time-zone": "America/Bahia" },
-  };
-  const events = [];
-  let rejectPreferences = false;
-  let rejectReceipt = false;
-  const windowRef = {
-    async fetch(path, options) {
-      const firstRun = path === "/__ordax/native/first-run";
-      assert.ok(firstRun || path === "/__ordax/native/preferences");
-      assert.equal(options.credentials, "same-origin");
-      if (options.method === "GET") {
-        return { ok: true, json: async () => structuredClone(firstRun ? disk.firstRun : disk.preferences) };
-      }
-      assert.equal(options.method, "POST");
-      const parsed = JSON.parse(options.body);
-      if (firstRun) {
-        events.push("receipt");
-        if (rejectReceipt) return { ok: false, status: 507 };
-        disk.firstRun = parsed;
-      } else {
-        events.push("preferences");
-        if (rejectPreferences) return { ok: false, status: 507 };
-        disk.preferences = parsed;
-      }
-      return { ok: true, status: 204 };
-    },
-  };
-  return {
-    disk, events, windowRef,
-    failPreferences(value) { rejectPreferences = value; },
-    failReceipt(value) { rejectReceipt = value; },
-  };
-}
-
-test("USB First Run refuses false completion when the actual Native preference POST fails", async () => {
-  const host = durableFirstRunFakeHost();
-  const store = await createNativeFirstRunStateStore(host.windowRef);
-  const preferences = createPreferenceRuntime(await createNativePreferenceStore(host.windowRef));
-  host.failPreferences(true);
-  const draft = { locale: "en-US", timeZone: "America/Bahia", accountMode: "local-only" };
-  await assert.rejects(
-    persistFirstRunCompletion(store, preferences, draft),
-    /not durably confirmed/,
-  );
-  assert.equal(host.disk.firstRun.completed, false);
-  assert.equal(host.disk.preferences["regional.locale"], "pt-BR");
-  assert.equal(host.events.includes("receipt"), false);
-  preferences.dispose();
-
-  // USB/Suface restart must not skip onboarding after a rejected ACK.
-  const restarted = await createNativeFirstRunStateStore(host.windowRef);
-  assert.equal(restarted.load().completed, false);
-  const recoveredPreferences = createPreferenceRuntime(await createNativePreferenceStore(host.windowRef));
-  host.failPreferences(false);
-  await persistFirstRunCompletion(restarted, recoveredPreferences, draft);
-  assert.equal(host.disk.firstRun.completed, true);
-  assert.equal(host.disk.firstRun.accountMode, "local-only");
-  assert.equal(host.disk.preferences["regional.locale"], "en-US");
-  assert.equal(host.events.at(-1), "receipt", "the durable receipt commits after the last preference ACK");
-  recoveredPreferences.dispose();
-});
-
-test("Native receipt I/O failure leaves the user in First Run with durable regional choices", async () => {
-  const host = durableFirstRunFakeHost();
-  const store = await createNativeFirstRunStateStore(host.windowRef);
-  const preferences = createPreferenceRuntime(await createNativePreferenceStore(host.windowRef));
-  host.failReceipt(true);
-  const draft = { locale: "en-US", timeZone: "America/Bahia", accountMode: "local-only" };
-  await assert.rejects(persistFirstRunCompletion(store, preferences, draft), /Native first-run persistence failed: 507/);
-  assert.equal(store.load().completed, false);
-  assert.equal(host.disk.firstRun.completed, false);
-  assert.equal(host.disk.preferences["regional.locale"], "en-US");
-  preferences.dispose();
-
-  host.failReceipt(false);
-  const restarted = await createNativeFirstRunStateStore(host.windowRef);
-  const resumedPreferences = createPreferenceRuntime(await createNativePreferenceStore(host.windowRef));
-  await persistFirstRunCompletion(restarted, resumedPreferences, draft);
-  assert.equal(host.disk.firstRun.completed, true);
-  assert.equal(host.disk.preferences["regional.locale"], "en-US");
-  resumedPreferences.dispose();
 });

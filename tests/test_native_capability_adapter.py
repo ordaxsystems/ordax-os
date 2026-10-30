@@ -103,6 +103,68 @@ class NativeCapabilityAdapterTests(unittest.TestCase):
             text.index("void updateWatcher.markHealthy()"),
         )
 
+    def test_profile_inventory_probe_starts_before_other_native_boot_waits(self):
+        source = NATIVE_COMPOSITION.read_text(encoding="utf-8")
+        self.assertEqual(source.count("createNativeProfileComponentInventory(window)"), 1)
+        self.assertLess(
+            source.index("const profileComponentInventoryPromise = optionalNativeProbe("),
+            source.index("const optionalPortsPromise = Promise.all(["),
+        )
+        self.assertIn(
+            "const profileComponentInventory = await profileComponentInventoryPromise",
+            source,
+        )
+        self.assertLess(
+            source.index("const profileComponentInventoryPromise = optionalNativeProbe("),
+            source.index("const verifiedAppSemantics = await verifiedAppSemanticsPromise"),
+        )
+        self.assertIn(
+            "?? createSessionProfileComponentInventory()",
+            source,
+        )
+
+    def test_first_run_device_profile_cannot_block_surface_health(self):
+        source = NATIVE_COMPOSITION.read_text(encoding="utf-8")
+        boot_probes = source.split(
+            "const optionalPortsPromise = Promise.all([", 1
+        )[1].split("  ]);", 1)[0]
+        self.assertNotIn("createNativeDeviceProfile", boot_probes)
+        self.assertEqual(source.count("createNativeDeviceProfile(window)"), 1)
+        self.assertIn(
+            "const deviceProfilePromise = optionalNativeProbe(",
+            source,
+        )
+        self.assertLess(
+            source.index("const deviceProfilePromise = optionalNativeProbe("),
+            source.index("const optionalPortsPromise = Promise.all(["),
+        )
+        self.assertLess(
+            source.index("bootScreen.ready();"),
+            source.index("const deviceProfile = await deviceProfilePromise;"),
+        )
+        self.assertLess(
+            source.index("const deviceProfile = await deviceProfilePromise;"),
+            source.index("firstRun = mountFirstRunExperience(root, {"),
+        )
+        self.assertIn("      deviceProfile,", source)
+
+    def test_optional_profile_taxonomy_overlaps_boot_without_unverified_fallback(self):
+        source = NATIVE_COMPOSITION.read_text(encoding="utf-8")
+        self.assertEqual(source.count("loadBundledProfileTaxonomy({"), 1)
+        self.assertIn(
+            "const bundledProfileTaxonomyPromise = bundledProfilePacksPromise.then((packs)",
+            source,
+        )
+        self.assertIn("packs === null", source)
+        self.assertLess(
+            source.index("const bundledProfileTaxonomyPromise ="),
+            source.index("const optionalPortsPromise = Promise.all(["),
+        )
+        self.assertIn("const taxonomy = await bundledProfileTaxonomyPromise;", source)
+        self.assertIn("if (taxonomy !== null)", source)
+        self.assertIn("createProfileTaxonomyView({", source)
+        self.assertIn("profileTaxonomy = null;", source)
+
     def test_native_account_refresh_cannot_gate_surface_cold_health(self):
         text = NATIVE_COMPOSITION.read_text(encoding="utf-8")
         eager_refresh = (
