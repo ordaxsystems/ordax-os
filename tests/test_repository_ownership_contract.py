@@ -12,7 +12,7 @@ class RepositoryOwnershipContractTests(unittest.TestCase):
 
     def test_canonical_repositories_include_separate_surface_visual_owner(self):
         repos = self.contract["repositories"]
-        self.assertEqual(set(repos), {"platform", "surface", "apps", "runtime", "control_plane", "public_site"})
+        self.assertEqual(set(repos), {"platform", "surface", "apps", "runtime", "control_plane", "public_site", "creator"})
         self.assertEqual(repos["public_site"]["repo"], "ordaxsystems/ordax-site")
         self.assertIn("public-site-static-build-and-i18n", repos["public_site"]["owns"])
         self.assertIn("identity-backend", repos["public_site"]["must_not_own"])
@@ -24,6 +24,19 @@ class RepositoryOwnershipContractTests(unittest.TestCase):
         self.assertEqual(repos["apps"]["repo"], "ordaxsystems/ordax-apps")
         self.assertEqual(repos["runtime"]["repo"], "ordaxsystems/ordax-runtime")
         self.assertEqual(repos["control_plane"]["repo"], "ordaxsystems/ordax-platform")
+
+    def test_creator_is_independent_consumer_not_os_media_producer(self):
+        repos = self.contract["repositories"]
+        creator = repos["creator"]
+        self.assertEqual(creator["repo"], "ordaxsystems/ordax-creator")
+        self.assertIn("creator-media-verification-core", creator["owns"])
+        self.assertIn("creator-windows-ui-and-host-adapters", creator["owns"])
+        self.assertIn("os-media-proof-producers", creator["must_not_own"])
+        self.assertIn("os-release-and-signing-authority", creator["must_not_own"])
+        self.assertIn("physical-write-authorization", creator["must_not_own"])
+        self.assertIn("boot", repos["platform"]["owns"])
+        self.assertIn("package-lifecycle", repos["platform"]["owns"])
+        self.assertNotIn("creator-media-verification-core", repos["platform"]["owns"])
 
     def test_studio_runtime_and_control_plane_have_distinct_owners(self):
         repos = self.contract["repositories"]
@@ -53,7 +66,7 @@ class RepositoryOwnershipContractTests(unittest.TestCase):
         active = document.split("## Fluxos oficiais", 1)[1].split(
             "## Regra para o legado mcp-blender", 1
         )[0]
-        for role in ("platform", "apps", "runtime", "control_plane", "surface", "public_site"):
+        for role in ("platform", "apps", "runtime", "control_plane", "surface", "public_site", "creator"):
             self.assertIn(self.contract["repositories"][role]["repo"], active)
         # Use the historical repository identity from the canonical migration
         # record rather than hard-coding an obsolete operational name inside

@@ -117,6 +117,23 @@
         "os-host",
         "dns-and-domain-routing"
       ]
+    },
+    "creator": {
+      "repo": "ordaxsystems/ordax-creator",
+      "owns": [
+        "creator-standalone-application-source",
+        "creator-media-verification-core",
+        "creator-windows-ui-and-host-adapters",
+        "creator-signed-channel-consumer"
+      ],
+      "must_not_own": [
+        "kernel-boot-base",
+        "os-media-proof-producers",
+        "os-release-and-signing-authority",
+        "physical-write-authorization",
+        "native-os-host",
+        "desktop-windows-shell"
+      ]
     }
   },
   "legacy": {
