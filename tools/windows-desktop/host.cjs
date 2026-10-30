@@ -42,6 +42,11 @@ function isReady(port, nativeGrant=null) {
     request.on('error',()=>resolve(false));
   });
 }
+// Node leaves exitCode null for processes killed by a signal. A failed
+// fork may also emit 'error' before there is any PID to observe.
+function hasHostExited(child) {
+  return child.exitCode!==null || child.signalCode!==null;
+}
 async function startHost({root,template=root,stateDirectory,userData,log,builtAssetsRoot=null,
   fileToken,localSessionToken,nativeSessionToken,diagnosticToken,deviceProfileToken,stateToken,networkToken,observationToken,displayToken,localAiToken,sourceSha=""}) {
   if(typeof fileToken!=="string" || !/^[0-9a-f]{64}$/.test(fileToken))
@@ -113,7 +118,11 @@ async function startHost({root,template=root,stateDirectory,userData,log,builtAs
     }
   });
   child.stderr.on('data',b=>log('runtime: '+String(b).trim()));
-  child.on('error',e=>log('Runtime error: '+e.message));
+  let launchError=null;
+  child.on('error',e=>{
+    launchError=e;
+    log('Runtime error: '+e.message);
+  });
   // The installed Native server uses already-verified compiled bytes and
   // no source transformation; keep Vite's larger cold-start grace only for
   // backwards-compatible old bundles and explicit emulator development.
@@ -121,7 +130,7 @@ async function startHost({root,template=root,stateDirectory,userData,log,builtAs
   const processDeadline=startedAt+(staticHost?45000:120000);
   const absoluteDeadline=startedAt+(staticHost?60000:150000);
   let probes=0;
-  while(child.exitCode===null) {
+  while(!hasHostExited(child) && launchError===null) {
     const deadline=runtimeReadyAt===null
       ? processDeadline
       : Math.min(absoluteDeadline,Math.max(processDeadline,
@@ -135,16 +144,20 @@ async function startHost({root,template=root,stateDirectory,userData,log,builtAs
     }
     await new Promise(resolve=>setTimeout(resolve,350));
   }
-  const exited=child.exitCode!==null;
+  const exited=hasHostExited(child);
   stopHost(child);
-  throw Error(exited
-    ? 'Canonical Native server exited before HTTP readiness: '+child.exitCode
-    : 'Canonical Native server not ready within bounded cold start ('+
+  throw Error(launchError
+    ? 'Canonical Native server could not start: '+(launchError.code||'SPAWN_ERROR')
+    : exited
+      ? 'Canonical Native server exited before HTTP readiness: '+
+          (child.signalCode||child.exitCode)
+      : 'Canonical Native server not ready within bounded cold start ('+
         (staticHost?'installed-host':'vite-fallback')+' stage: '+
         (runtimeReadyAt===null?'not reached':'ready')+')');
 }
 function stopHost(child) {
-  if(!child?.pid) return;
+  // Never taskkill a PID after it has exited: Windows can reuse that PID.
+  if(!child?.pid || hasHostExited(child)) return;
   if(process.platform==='win32') {
     const kill=spawn('taskkill',['/PID',String(child.pid),'/T','/F'],{
       windowsHide:true,stdio:'ignore',
