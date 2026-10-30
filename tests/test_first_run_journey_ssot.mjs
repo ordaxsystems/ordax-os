@@ -59,6 +59,11 @@ test("First Run presentation consumes Meridian directly and adapts all canonical
   assert.ok(css.includes("var(--md-font)"));
   assert.match(css, /\.ordax-first-run-card\s*\{[^}]*grid-template-rows\s*:\s*minmax\(0,\s*1fr\)\s+auto/s);
   assert.match(css, /\.ordax-first-run-steps\s*\{[^}]*display\s*:\s*grid/s);
+  assert.match(css, /container-type:\s*inline-size/);
+  assert.match(css, /@container\s*\(max-width:\s*900px\)/);
+  assert.match(css, /@container\s*\(max-width:\s*600px\)/);
+  assert.match(css, /\.ordax-first-run-shell\s*\{[^}]*min-width:\s*0/s);
+  assert.doesNotMatch(css, /@media\s*\(max-width:/);
 });
 
 test("optional network work never blocks the first-run journey", async () => {
