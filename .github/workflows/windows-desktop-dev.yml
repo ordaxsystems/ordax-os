@@ -138,6 +138,8 @@ jobs:
               throw "Desktop/Native contract failed: $suite (exit $LASTEXITCODE)"
             }
           }
+      - name: Prove signed stateless Native compatibility and verified optional app mounts
+        run: node --test tests/test_native_signed_current_compatibility.mjs tests/test_native_verified_installed_apps.mjs
       - name: Prove signed-current Desktop bridge remains read-only and fail-closed
         run: node --test tools/windows-emulator/desktop-verified-component-slot.test.mjs
       - name: Install desktop shell toolchain
