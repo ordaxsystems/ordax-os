@@ -7,6 +7,7 @@ import {
   hasNativeExternalFirstPartyModuleRead,
 } from "../../services/apps/external-first-party-policy.mjs";
 import { assertSurfaceRenderLifecycle } from "../../contracts/surface-render-lifecycle.mjs";
+import { validateComponentCompatibility } from "../../contracts/component-update-compatibility.mjs";
 
 /**
  * Native only: verified 'current' slot discovery is the SSOT. A verified
