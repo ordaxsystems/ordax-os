@@ -264,8 +264,8 @@ try {
       // The pinned Surface owner now reports explicit engine availability, not
       // the retired "não está conectada" copy. Assert actual disabled inference,
       // no fabricated Aura turn and an explicit unavailable service status.
-      await until("!!document.querySelector('[aria-label=\\\"Janela @@INTELLIGENCE_TITLE@@\\\"] .service-state[data-intelligence-state]')");
-      const auraAvailabilityProof=await evaluate("(()=>{const pane=document.querySelector('[aria-label=\\\"Janela @@INTELLIGENCE_TITLE@@\\\"]');const state=pane.querySelector('.service-state[data-intelligence-state]');const send=pane.querySelector('.aura-search button[aria-label=\\\"Enviar pergunta\\\"]');return {state:state?.getAttribute('data-intelligence-state'),label:state?.textContent??'',disabled:send?.disabled===true,answers:pane.querySelectorAll('.aura-turn[data-speaker=\\\"aura\\\"]').length};})()");
+      await until("!!document.querySelector('.aura-experience .service-state[data-intelligence-state]')");
+      const auraAvailabilityProof=await evaluate("(()=>{const pane=document.querySelector('.aura-experience');const state=pane?.querySelector('.service-state[data-intelligence-state]');const send=pane?.querySelector('.aura-search button.send-button');return {state:state?.getAttribute('data-intelligence-state'),label:state?.textContent??'',disabled:send?.disabled===true,answers:pane?.querySelectorAll('.aura-turn[data-speaker=aura]').length??-1};})()");
       assert.equal(
         auraAvailabilityProof.disabled
           && ['unavailable','degraded','error'].includes(auraAvailabilityProof.state)
