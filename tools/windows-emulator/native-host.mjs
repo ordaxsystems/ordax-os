@@ -195,12 +195,16 @@ export function nativeEmulatorPlugin(stateDirectory, { desktopHost = false, acco
           sessionLocked:localSession?.readLocked??null,
         }).middleware);
       }
-      if (desktopHost && process.platform === "win32" && userData) {
-        // The installed Electron owner selected the exact verified OS root.
+      if (desktopHost && process.platform === "win32" && userData &&
+          process.env.ORDAX_DESKTOP_COMPONENT_VERIFIER_ROOT) {
+        // The current OS revision owns policies; the Electron installer owns
+        // the Go component verifier executable, also for ordax-pull checkouts.
         // Signed-slot reads reuse the canonical Go verifier; no signing,
         // installation, health, grant or promotion authority lives here.
         server.middlewares.use(createDesktopVerifiedComponentSlotMiddleware({
-          systemRoot: process.cwd(), userData,
+          systemRoot: process.cwd(),
+          verifierRoot: process.env.ORDAX_DESKTOP_COMPONENT_VERIFIER_ROOT,
+          userData,
         }));
       }
       if (desktopHost && process.env.ORDAX_DESKTOP_UPDATE_USER_DATA) {
