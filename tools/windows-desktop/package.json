@@ -96,6 +96,18 @@
         "filter": [
           "**/*"
         ]
+      },
+      {
+        "from": "../../out/windows-desktop-components/ordax-runtime-component-channel.exe",
+        "to": "runtime-template/tools/runtime-component-channel/ordax-runtime-component-channel.exe"
+      },
+      {
+        "from": "../../docs/contracts/runtime-component-trust-policy.json",
+        "to": "runtime-template/docs/contracts/runtime-component-trust-policy.json"
+      },
+      {
+        "from": "../../docs/contracts/runtime-component-package.json",
+        "to": "runtime-template/docs/contracts/runtime-component-package.json"
       }
     ],
     "asar": true,
