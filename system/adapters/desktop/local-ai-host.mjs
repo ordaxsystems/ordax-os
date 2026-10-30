@@ -128,6 +128,9 @@ export function createDesktopLocalAiMiddleware({
   // One private model process is authoritative; never allow ghost generations
   // to starve the next user request or leave multiple engines running.
   let activeCompletions = 0, restartRequired = false, recycling = null;
+  // One unexpected engine exit may recover through the existing single-engine
+  // recycler. A second crash requires explicit host intervention: no loop.
+  let unexpectedRecoveries = 0;
   // Only short interactive consultations get an elevated CPU scheduling share.
   // Restore after the last quick request, including errors and cancellation.
   let quickInFlight = 0, priorityPid = null, previousPriority = null;
@@ -147,7 +150,7 @@ export function createDesktopLocalAiMiddleware({
   const endQuickInference = () => {
     if (quickInFlight === 0 || --quickInFlight !== 0) return;
     if (priorityPid !== null && previousPriority !== null &&
-        child?.pid === priorityPid && child.exitCode === null) {
+        child?.pid === priorityPid && child.exitCode === null && child.signalCode == null) {
       try { setProcessPriority(priorityPid, previousPriority); }
       catch { /* The backend may have exited while the request was active. */ }
     }
@@ -190,7 +193,17 @@ export function createDesktopLocalAiMiddleware({
       child = launched;
       // A superseded child cannot poison readiness of its verified successor.
       launched.once("error", () => { if (child === launched) failed = true; });
-      launched.once("exit", () => { if (child === launched) failed = true; });
+      launched.once("exit", () => {
+        if (child !== launched) return;
+        failed = true;
+        // A real backend crash must not strand Aura until the Desktop restarts.
+        // Retry only once, on the next authorized request or after the last
+        // active completion; full immutable package verification runs again.
+        if (!disposed && unexpectedRecoveries < 1) {
+          unexpectedRecoveries++;
+          restartRequired = true;
+        }
+      });
       // A cold model load is not allowed to stall the OS or a Surface request.
       // The canonical Local AI probe supervisor retries when the backend warms up.
       return true;
@@ -217,7 +230,9 @@ export function createDesktopLocalAiMiddleware({
       secret = null;
       secretDirectory = null;
       starting = null;
-      if (old && old.exitCode === null) {
+      // Signaled children may have exitCode=null after an exit event. They
+      // are already dead: never target a reused PID or wait for a past event.
+      if (old && old.exitCode === null && old.signalCode == null) {
         const exited = await new Promise(resolve => {
           let complete = false;
           const done = value => {
@@ -265,6 +280,12 @@ export function createDesktopLocalAiMiddleware({
       try { if (await sessionLocked()) return reply(res, 423, "Desktop session locked"); }
       catch { return reply(res, 503, "Desktop session unavailable"); }
     }
+    if (failed && restartRequired && activeCompletions === 0 && !recycling) {
+      // Do not block UI health checks on a cold model reload. Reuse the
+      // existing single recycler; other concurrent requests receive 503.
+      void recycleAbandonedBackend();
+      return reply(res, 503, "Local AI recovering verified backend");
+    }
     if (recycling) return reply(res, 503, "Local AI recycling abandoned generation");
     if (failed || disposed) return reply(res, 503, "Local AI package unavailable");
     // Verification/start is shared by concurrent probes, never a second engine.
@@ -272,7 +293,8 @@ export function createDesktopLocalAiMiddleware({
       void start().catch(() => {});
       return reply(res, 503, "Local AI starting");
     }
-    if (!model || !port || !secret || !child || child.exitCode !== null)
+    if (!model || !port || !secret || !child || child.exitCode !== null ||
+        child.signalCode != null)
       return reply(res, 503, "Local AI not ready");
     const abort = new AbortController();
     let clientDisconnected = false, deadlineReached = false, completionCounted = false;
@@ -349,7 +371,7 @@ export function createDesktopLocalAiMiddleware({
   };
   const dispose = async () => {
     disposed = true;
-    child?.kill();
+    if (child && child.exitCode === null && child.signalCode == null) child.kill();
     if (recycling) await recycling;
     if (secretDirectory) await rm(secretDirectory, { recursive: true, force: true });
     secret = null;

@@ -116,6 +116,26 @@ Mudanças exclusivamente Linux (kernel/base/USB) não devem acionar um
 novo instalador Windows; mudanças no núcleo compartilhado, no lock
 Surface ou nos adaptadores Windows devem acioná-lo.
 
+## Recuperação delimitada da Aura após encerramento do modelo
+
+No Windows, `system/adapters/desktop/local-ai-host.mjs` continua sendo o
+**único** supervisor do motor local `llama-server`. O mesmo reciclador
+transacional que interrompe gerações abandonadas também recupera **uma**
+terminação inesperada do processo, por código ou sinal, quando uma consulta
+autorizada solicitar novamente o serviço. Antes de iniciar o sucessor, o
+reciclador verifica que o processo antigo está morto, revoga/remove a chave
+privada antiga e verifica novamente o pacote e seus hashes canônicos.
+
+Se o novo motor também encerrar inesperadamente, a Aura permanece
+indisponível (*fail-closed*) até uma recuperação explícita do host; não há
+loop infinito, segundo motor concorrente, download implícito de GGUF ou
+resposta simulada. Falha na verificação inicial do pacote ou na criação do
+processo continua bloqueada, sem autorizar novo binário.
+
+A UI recebe 503 enquanto a geração é recuperada e só vê 200 quando o
+backend responder à consulta. A correção foi exercitada em regressões
+offline do host Windows; não comprova um notebook ou desktop físico online.
+
 ## Aura local no Windows Desktop (Owner/Development)
 
 O produto consome **uma unica** cadeia de inferencia:
