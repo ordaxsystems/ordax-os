@@ -14,10 +14,11 @@ function setup(t) {
   const root = mkdtempSync(join(tmpdir(), "ordax-signed-current-win-"));
   t.after(() => rmSync(root, { recursive: true, force: true }));
   const osRoot = join(root, "verified-os");
+  const verifierRoot = join(root, "installed-electron-template");
   const userData = join(root, "user-data");
   const policies = join(osRoot, "docs", "contracts");
   const anchorDir = join(osRoot, "system", "trust");
-  const binaryDir = join(osRoot, "tools", "runtime-component-channel");
+  const binaryDir = join(verifierRoot, "tools", "runtime-component-channel");
   const componentRoot = join(userData, "Components");
   for (const dir of [policies, anchorDir, binaryDir, componentRoot]) {
     mkdirSync(dir, { recursive: true });
@@ -48,12 +49,13 @@ function setup(t) {
     "$schema": "prototype-ordax.runtime-component-package-policy/1",
     canonical_component_trust_anchor_pinned: true,
   }));
-  return { root, osRoot, userData, componentRoot, helper, anchorPath, policyPath, policy };
+  return { root, osRoot, verifierRoot, userData, componentRoot, helper, anchorPath, policyPath, policy };
 }
 
 async function serve(t, fixture, execFileImpl) {
   const middleware = createDesktopVerifiedComponentSlotMiddleware({
-    systemRoot: fixture.osRoot, userData: fixture.userData,
+    systemRoot: fixture.osRoot, verifierRoot: fixture.verifierRoot,
+    userData: fixture.userData,
     // A Linux CI host can exercise the Windows transport without granting
     // Windows availability on the actual installed Electron application.
     platform: "win32", execFileImpl,
@@ -94,6 +96,8 @@ test("Windows current-slot metadata and exact module bytes delegate to Go withou
   const base = await serve(t, f, (binary, args, options, cb) => {
     calls.push({ binary, args, options });
     assert.equal(binary, f.helper);
+    assert.ok(!binary.startsWith(f.osRoot + "/"));
+    assert.ok(!binary.startsWith(f.userData + "/"));
     assert.equal(options.timeout, 3000);
     assert.equal(options.encoding, "buffer");
     assert.equal(options.windowsHide, true);
@@ -179,4 +183,25 @@ test("Windows signed slot bridge rejects symlinked verifier even when test trust
   });
   assert.equal((await fetch(base + "/__ordax/native/component-runtime?component=assistant&state=current")).status, 404);
   assert.equal(called, false);
+});
+
+test("Windows ordax-pull checkout cannot replace installed canonical verifier executable", async t => {
+  const f = setup(t);
+  const checkoutBinary = join(f.osRoot, "tools", "runtime-component-channel",
+    "ordax-runtime-component-channel.exe");
+  mkdirSync(join(f.osRoot, "tools", "runtime-component-channel"), { recursive: true });
+  writeFileSync(checkoutBinary, "UNTRUSTED_CHECKOUT_HELPER");
+  const calls = [];
+  const base = await serve(t, f, (binary, args, options, cb) => {
+    calls.push(binary);
+    assert.equal(binary, f.helper);
+    assert.notEqual(binary, checkoutBinary);
+    cb(null, Buffer.from("RUNTIME_COMPONENT_CURRENT_RESOLVED=YES\\n"
+      + "COMPONENT_ID=assistant\\nREVISION=0\\nSOURCE=ABSENT\\n"
+      + "RUNTIME_SERVED_FROM_SLOT=NO\\n".replaceAll("\\n", "\n")));
+  });
+  const response = await fetch(base + "/__ordax/native/component-runtime?component=assistant&state=current");
+  assert.equal(response.status, 200);
+  assert.equal((await response.json()).source, "absent");
+  assert.deepEqual(calls, [f.helper]);
 });
