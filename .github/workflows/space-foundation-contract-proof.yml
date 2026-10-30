@@ -10,6 +10,7 @@ on:
       - 'system/contracts/space-members.mjs'
       - 'system/contracts/space-actor-capability.mjs'
       - 'system/contracts/space-membership-actions.mjs'
+      - 'system/contracts/space-invites.mjs'
       - 'system/services/spaces/**'
       - 'system/adapters/web/space-members.mjs'
       - 'system/adapters/web/space-actor-capability.mjs'
@@ -38,6 +39,7 @@ on:
       - 'tests/test_space_members_gateway_source.mjs'
       - 'tests/test_space_members_read_authority.py'
       - 'tests/test_space_membership_actions.mjs'
+      - 'tests/test_space_invites.mjs'
       - 'tests/test_space_membership_actions_runtime.mjs'
       - 'tests/test_web_space_membership_actions.mjs'
       - 'tests/test_space_membership_gateway_source.mjs'
@@ -54,6 +56,7 @@ on:
       - 'system/contracts/space-members.mjs'
       - 'system/contracts/space-actor-capability.mjs'
       - 'system/contracts/space-membership-actions.mjs'
+      - 'system/contracts/space-invites.mjs'
       - 'system/services/spaces/**'
       - 'system/adapters/web/space-members.mjs'
       - 'system/adapters/web/space-actor-capability.mjs'
@@ -82,6 +85,7 @@ on:
       - 'tests/test_space_members_gateway_source.mjs'
       - 'tests/test_space_members_read_authority.py'
       - 'tests/test_space_membership_actions.mjs'
+      - 'tests/test_space_invites.mjs'
       - 'tests/test_space_membership_actions_runtime.mjs'
       - 'tests/test_web_space_membership_actions.mjs'
       - 'tests/test_space_membership_gateway_source.mjs'
@@ -116,6 +120,7 @@ jobs:
           node --check system/contracts/space-members.mjs
           node --check system/contracts/space-actor-capability.mjs
           node --check system/contracts/space-membership-actions.mjs
+          node --check system/contracts/space-invites.mjs
           node --check system/services/spaces/composition.mjs
           node --check system/services/spaces/identity-bound-experience.mjs
           node --check system/services/spaces/lifecycle.mjs
@@ -145,6 +150,7 @@ jobs:
           node --test tests/test_web_space_members_composition.mjs
           node --test tests/test_space_members_gateway_source.mjs
           node --test tests/test_space_membership_actions.mjs
+          node --test tests/test_space_invites.mjs
           node --test tests/test_space_membership_actions_runtime.mjs
           node --test tests/test_web_space_membership_actions.mjs
           node --test tests/test_space_membership_gateway_source.mjs
