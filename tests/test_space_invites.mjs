@@ -165,6 +165,28 @@ test("revoke targets invite identity and action snapshots are capability gated",
   );
 });
 
+test("calendar-invalid timestamps fail closed even when Date.parse would normalize them", () => {
+  for (const value of [
+    "2026-02-30T06:00:00Z",
+    "2026-04-31T06:00:00Z",
+    "2026-02-29T06:00:00+03:00",
+    "2026-10-30T24:00:00Z",
+  ]) {
+    assert.throws(
+      () => validateSpaceInvite({ ...pendingInvite, createdAt: value }),
+      /must be an ISO timestamp/,
+      value,
+    );
+  }
+  const leapDay = validateSpaceInvite({
+    ...pendingInvite,
+    createdAt: "2028-02-29T05:00:00+03:00",
+    expiresAt: "2028-02-29T06:00:00+03:00",
+  });
+  assert.equal(leapDay.createdAt, "2028-02-29T02:00:00.000Z");
+  assert.equal(leapDay.expiresAt, "2028-02-29T03:00:00.000Z");
+});
+
 test("invite descriptors require strict coherent ISO expiration and reject unknown sensitive fields", () => {
   assert.throws(
     () => validateSpaceInvite({

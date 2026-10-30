@@ -35,3 +35,10 @@ test('navigation search finds canonical destinations without requiring accents',
   assert.equal(matchesNavigationQuery({name:'Perfis profissionais'},'profissionais perfis'),true);
   assert.equal(matchesNavigationQuery({name:'Arquivos'},'conta'),false);
 });
+
+test('rail aliases and auxiliary panel titles use the canonical resolver', () => {
+  assert.equal(getWindowTitle('Inteligência'), 'Aura');
+  assert.equal(getWindowTitle('Aura'), 'Aura');
+  assert.equal(getWindowTitle('Configurações'), 'Configurações');
+  assert.equal(getWindowTitle('Minha conta'), 'Minha conta');
+});

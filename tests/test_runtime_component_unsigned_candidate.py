@@ -199,6 +199,12 @@ def make_candidate(root: Path):
     policy = {
         "$schema": verifier.POLICY_SCHEMA,
         "trust_domain": verifier.TRUST_DOMAIN,
+        "canonical_package_source_repository_by_component": {
+            "notes": source,
+            "assistant": source,
+            "studio": source,
+        },
+        # The historical subset cannot be the validator's source authority.
         "canonical_external_source_repository_by_component": {
             "notes": source,
             "studio": source,
@@ -235,7 +241,7 @@ class UnsignedExternalCandidateTests(unittest.TestCase):
             root = Path(temporary)
             candidate, policy, _ = make_candidate(root)
             value = json.loads(policy.read_text(encoding="utf-8"))
-            value["canonical_external_source_repository_by_component"]["notes"] = "washingtonmsdj/other"
+            value["canonical_package_source_repository_by_component"]["notes"] = "washingtonmsdj/other"
             policy.write_bytes(canonical(value))
             with self.assertRaisesRegex(verifier.CandidateError, "source is not canonical"):
                 verifier.verify(candidate, policy)
@@ -247,6 +253,33 @@ class UnsignedExternalCandidateTests(unittest.TestCase):
             (candidate / "private.pem").write_text("forbidden\n", encoding="utf-8")
             with self.assertRaisesRegex(verifier.CandidateError, "unexpected or missing files"):
                 verifier.verify(candidate, policy)
+
+
+    def test_verifier_uses_canonical_package_sources_not_the_legacy_subset(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            candidate, policy, _ = make_candidate(root)
+            value = json.loads(policy.read_text(encoding="utf-8"))
+            # Removing the only historical alias must not revoke the canonical source.
+            value["canonical_external_source_repository_by_component"] = {}
+            policy.write_bytes(canonical(value))
+            self.assertEqual(verifier.verify(candidate, policy)["component_id"], "notes")
+            # Conversely a forged alias cannot override a missing canonical entry.
+            value["canonical_package_source_repository_by_component"].pop("notes")
+            value["canonical_external_source_repository_by_component"]["notes"] = "ordaxsystems/ordax-apps"
+            policy.write_bytes(canonical(value))
+            with self.assertRaisesRegex(verifier.CandidateError, "source is not canonical"):
+                verifier.verify(candidate, policy)
+
+    def test_canonical_component_policy_includes_aura_without_unsigned_activation(self):
+        policy = json.loads((ROOT / "docs/contracts/runtime-component-package.json").read_text(encoding="utf-8"))
+        self.assertEqual(
+            policy["canonical_package_source_repository_by_component"]["assistant"],
+            "ordaxsystems/ordax-apps",
+        )
+        self.assertFalse(policy["canonical_component_trust_anchor_pinned"])
+        self.assertFalse(policy["slot_activation_available"])
+        self.assertFalse(policy["publish_allowed"])
 
 
 if __name__ == "__main__":

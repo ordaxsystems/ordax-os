@@ -84,10 +84,10 @@ export async function mountComponentRuntimeBounded(
   let timer;
   const pending = Promise.resolve()
     .then(() => runtime.mount(context))
-    .then((value) => {
+    .then(async (value) => {
       const mounted = validateMountedComponent(value, componentId);
       if (expired) {
-        try { mounted.destroy(); } catch { /* app-owned cleanup is isolated */ }
+        try { await mounted.destroy(); } catch { /* app-owned cleanup is isolated */ }
         throw new Error(`${prefix} mount completed after its deadline`);
       }
       return mounted;

@@ -17,6 +17,30 @@ class DevelopmentNetworkContractTest(unittest.TestCase):
         for script in (NETWORK, DEV_INIT):
             subprocess.run(["/bin/sh", "-n", str(script)], check=True)
 
+    def test_first_run_saves_wifi_credentials_atomically_in_persistent_state(self) -> None:
+        text = NETWORK.read_text(encoding="utf-8")
+        self.assertIn("STATE_DIR=/state/network", text)
+        self.assertIn("CANDIDATE_CONF=$STATE_DIR/wpa.conf.candidate.$$", text)
+        self.assertIn("WPA_CONF=$STATE_DIR/wpa.conf", text)
+        self.assertIn('chmod 700 "$STATE_DIR"', text)
+        self.assertIn('umask 077', text)
+        self.assertIn('mv -f "$CANDIDATE_CONF" "$WPA_CONF"', text)
+        self.assertIn('/bin/busybox sync', text)
+        self.assertNotIn('CANDIDATE_CONF=/run/ordax-wpa-candidate.conf', text)
+        self.assertLess(
+            text.index('mv -f "$CANDIDATE_CONF" "$WPA_CONF"'),
+            text.index('        finish_network "$wifi"', text.index('mv -f "$CANDIDATE_CONF" "$WPA_CONF"')),
+        )
+
+    def test_network_status_writer_is_defined_before_startup_use(self) -> None:
+        text = NETWORK.read_text(encoding="utf-8")
+        writer = text.index("\nwrite_network_status() {")
+        status = text.index("\nwrite_network_status no-ip startup || true")
+        hardware_exit = text.index('[ "$hardware_only" -eq 1 ] && exit 0')
+        self.assertLess(writer, status)
+        self.assertLess(hardware_exit, status)
+        self.assertEqual(text.count("\nwrite_network_status() {"), 1)
+
     def test_wired_dhcp_skips_kernel_tunnel_interfaces(self) -> None:
         text = NETWORK.read_text(encoding="utf-8")
         self.assertIn('net_type=$(cat "$netpath/type" 2>/dev/null || true)', text)
@@ -26,6 +50,18 @@ class DevelopmentNetworkContractTest(unittest.TestCase):
             text.index('[ "$net_type" = 1 ] || continue'),
             text.index('echo "ordax-network: tentando DHCP em $iface"'),
         )
+
+    def test_wired_dhcp_raises_link_before_reading_carrier(self) -> None:
+        text = NETWORK.read_text(encoding="utf-8")
+        wired = text.split("# Only Ethernet-like non-wireless interfaces", 1)[1].split("\n"+'wifi=""', 1)[0]
+        type_gate = wired.index('[ "$net_type" = 1 ] || continue')
+        link_up = wired.index('ip link set "$iface" up >/dev/null 2>&1 || continue')
+        carrier = wired.index('if [ -r "$netpath/carrier" ]; then')
+        dhcp = wired.index('if try_dhcp "$iface"; then')
+        self.assertLess(type_gate, link_up)
+        self.assertLess(link_up, carrier)
+        self.assertLess(carrier, dhcp)
+        self.assertIn('[ -d "$netpath/wireless" ] && continue', wired)
 
     def test_wifi_waits_for_completed_wpa_handshake_before_dhcp(self) -> None:
         text = NETWORK.read_text(encoding="utf-8")
@@ -46,7 +82,10 @@ class DevelopmentNetworkContractTest(unittest.TestCase):
         self.assertIn('WPA_PID_FILE=/run/ordax-wpa-supplicant.pid', text)
         self.assertIn('stop_wifi_client()', text)
         self.assertIn('-P"$WPA_PID_FILE" -O"$WPA_CTRL_DIR"', text)
-        self.assertIn('kill -0 "$pid"', text)
+        self.assertIn('wpa_cli -p "$WPA_CTRL_DIR" -i "$wifi" terminate', text)
+        self.assertIn("wifi_connect_result=owner-unavailable", text)
+        self.assertNotIn("killall wpa_supplicant", text)
+        self.assertNotIn('kill -9 "$pid"', text)
         self.assertIn('iw dev "$wifi" disconnect', text)
         connect = text.index('connect_wifi_conf()')
         stop_before_start = text.index('stop_wifi_client', connect)
@@ -78,13 +117,13 @@ class DevelopmentNetworkContractTest(unittest.TestCase):
     def test_wifi_can_force_network_change_without_destroying_saved_config_first(self) -> None:
         text = NETWORK.read_text(encoding="utf-8")
         self.assertIn('--choose) force_choose=1', text)
-        self.assertIn('uso: ordax-network [--choose]', text)
+        self.assertIn('uso: ordax-network [--choose|--init-hardware]', text)
         self.assertIn('if [ "$force_choose" -eq 0 ] && [ -s "$WPA_CONF" ]; then', text)
         self.assertIn('if connect_saved_wifi; then', text)
-        self.assertIn('CANDIDATE_CONF=/run/ordax-wpa-candidate.conf', text)
+        self.assertIn('CANDIDATE_CONF=$STATE_DIR/wpa.conf.candidate.$$', text)
         candidate_write = text.index('> "$CANDIDATE_CONF"')
         candidate_connect = text.index('connect_wifi_conf "$CANDIDATE_CONF"')
-        promote = text.index('mv "$CANDIDATE_CONF" "$WPA_CONF"')
+        promote = text.index('mv -f "$CANDIDATE_CONF" "$WPA_CONF"')
         self.assertLess(candidate_write, candidate_connect)
         self.assertLess(candidate_connect, promote)
         self.assertIn('a rede salva anteriormente foi preservada', text)
@@ -141,6 +180,20 @@ class DevelopmentNetworkContractTest(unittest.TestCase):
         self.assertLess(finish, sync)
         self.assertIn('finish_network "$wifi"', text)
         self.assertIn('finish_network "$iface"', text)
+
+    def test_network_readiness_is_ip_clock_dns_https_then_git(self) -> None:
+        text = NETWORK.read_text(encoding="utf-8")
+        self.assertIn('NETWORK_STATUS_FILE=${ORDAX_NETWORK_STATUS_FILE:-/run/ordax-network-status}', text)
+        self.assertIn('/bin/busybox nslookup github.com', text)
+        self.assertIn('/bin/busybox wget -q -T "$HTTPS_PROBE_TIMEOUT" -O /dev/null https://github.com/', text)
+        self.assertIn('git -c http.lowSpeedLimit=1', text)
+        finish = text[text.index('finish_network()'):text.index('try_dhcp()')]
+        self.assertLess(finish.index('sync_clock'), finish.index('probe_dns'))
+        self.assertLess(finish.index('probe_dns'), finish.index('probe_https'))
+        self.assertLess(finish.index('probe_https'), finish.index('probe_git_remote'))
+        for state in ("no-ip", "ip-ready", "dns-failed", "https-failed", "github-git-failed", "ready"):
+            self.assertIn(state, text)
+        self.assertIn('HTTPS disponivel, mas GitHub/Git nao respondeu', text)
 
     def test_maintenance_shell_reestablishes_controlling_tty(self) -> None:
         text = DEV_INIT.read_text(encoding="utf-8")

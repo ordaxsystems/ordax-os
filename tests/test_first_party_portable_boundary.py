@@ -1,6 +1,6 @@
-"""SSOT: six pre-cutover app source graphs may depend only on their own code
-and OS public contracts. No other app's source or privileged OS services may
-be pulled across the future runtime-component package boundary.
+"""SSOT for remove-first candidates: migrated apps have no OS source copy,
+and the remaining Files source imports only itself and public OS contracts.
+Privileged platform services stay outside portable app packages.
 """
 from pathlib import Path
 import json
@@ -17,7 +17,7 @@ STATIC_IMPORT = re.compile(
 
 
 class PortableSourceBoundaryTests(unittest.TestCase):
-    def test_all_six_app_source_graphs_restrict_static_imports(self):
+    def test_migrated_candidates_have_no_os_copy_and_remaining_source_is_portable(self):
         policy = json.loads(
             (ROOT / "docs/contracts/runtime-component-package.json").read_text(encoding="utf-8")
         )
@@ -29,6 +29,10 @@ class PortableSourceBoundaryTests(unittest.TestCase):
         self.assertIsInstance(pending, dict)
         self.assertTrue(set(pending).issubset(CANDIDATES))
         self.assertFalse(set(pending).intersection(external_owners))
+        bundled_owner_blocked = set(
+            policy.get("native_external_current_slot_blocked_by_bundled_owner_components", [])
+        )
+        self.assertTrue(bundled_owner_blocked.issubset(CANDIDATES))
         for app_id in CANDIDATES:
             owner = APP_ROOT / app_id
             external = external_owners.get(app_id)
@@ -37,6 +41,16 @@ class PortableSourceBoundaryTests(unittest.TestCase):
                     external, "ordaxsystems/ordax-apps",
                     f"{app_id}: unrecognized source repository in canonical package policy",
                 )
+                if app_id in bundled_owner_blocked:
+                    self.assertTrue(
+                        owner.is_dir(),
+                        f"{app_id}: bundled source must remain until its external owner passes Gate A",
+                    )
+                    self.assertFalse(
+                        policy.get(f"{app_id}_component_distribution_activation_enabled", False),
+                        f"{app_id}: an external owner blocked by a bundled implementation cannot activate",
+                    )
+                    continue
                 self.assertFalse(
                     owner.exists(),
                     f"{app_id}: OS bundled source must be removed once external source is canonical",

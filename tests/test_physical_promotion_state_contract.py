@@ -22,11 +22,16 @@ class PhysicalPromotionStateContractTest(unittest.TestCase):
             {
                 "blocked-canonical-v4-release-proof-pending",
                 "blocked-explicit-physical-authorization-pending",
+                "authorized",
             },
         )
-        self.assertFalse(self.authorization["physical_write_allowed"])
-        self.assertFalse(self.authorization["explicit_owner_authorization"])
-        self.assertIsNone(self.authorization["authorization_context_sha256"])
+        permitted = self.authorization["status"] == "authorized"
+        self.assertIs(self.authorization["physical_write_allowed"], permitted)
+        self.assertIs(self.authorization["explicit_owner_authorization"], permitted)
+        if permitted:
+            self.assertRegex(self.authorization["authorization_context_sha256"], r"^[0-9a-f]{64}$")
+        else:
+            self.assertIsNone(self.authorization["authorization_context_sha256"])
         if self.authorization["status"] == "blocked-canonical-v4-release-proof-pending":
             self.assertFalse(
                 self.authorization["requirements"]["canonical_v4_release_proof_bound"]
@@ -38,8 +43,9 @@ class PhysicalPromotionStateContractTest(unittest.TestCase):
 
     def test_promotion_gates_do_not_claim_current_authorization(self):
         gates = self.promotion_gates
-        self.assertNotIn("current contract is `authorized`", gates)
-        self.assertNotIn("current bound contract is `authorized`", gates)
+        # This promotion gate document is historical evidence; the
+        # machine-readable authorization is the current lifecycle owner.
+        self.assertIn("POST_588_PHYSICAL_REWRITE_AUTHORIZED=NO", gates)
         if self.authorization["status"] == "blocked-canonical-v4-release-proof-pending":
             self.assertFalse(
                 self.authorization["requirements"]["canonical_v4_release_proof_bound"]

@@ -10,7 +10,6 @@ on:
       - 'system/adapters/native/notes.mjs'
       - 'system/adapters/web/notes.mjs'
       - 'system/services/i18n/catalog/notes.mjs'
-      - 'system/surface/ui/file-space-controls.mjs'
       - 'system/apps/catalog.mjs'
       - 'system/apps/component-catalog.mjs'
       - 'system/composition/web/main.tsx'
@@ -31,7 +30,6 @@ on:
       - 'system/adapters/native/notes.mjs'
       - 'system/adapters/web/notes.mjs'
       - 'system/services/i18n/catalog/notes.mjs'
-      - 'system/surface/ui/file-space-controls.mjs'
       - 'system/apps/catalog.mjs'
       - 'system/apps/component-catalog.mjs'
       - 'system/composition/web/main.tsx'
@@ -54,6 +52,9 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
+
+      - name: Prepare verified Surface from external owner for disposable CI
+        uses: ./.github/actions/prepare-verified-surface
 
       - name: Prove remove-first Gate A
         run: |

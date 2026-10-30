@@ -235,6 +235,32 @@ The Development definition models `project` as a many-valued resource owned by t
 
 The 3D-printing type declares Jobs as domain resources but does not implement a fabrication owner in this foundation. When that owner is promoted, reprinting must append a new Job and preserve prior Job/history records; a reprint is never modeled as deleting or rewriting the original production history. The Pizzaria type deliberately does not declare `quotes` because no current real owner justified that capability.
 
+### Read-only Native host gate — 2026-10-25
+
+`system/services/spaces/identity-bound-experience.mjs` wraps the **existing**
+`createSpaceExperienceSource` in the Native composition. This is a
+presentation gate, not a new owner of grants, membership, Identity,
+Space selection, capabilities or operational data.
+
+Before exposing a Space projection, the host checks the live signed-in
+Identity subject, server-backed authorized Spaces catalog and selected
+Space from their canonical ports. The requested Space, selected Space and
+catalog entry must match exactly, including owner, semantic type, Profile
+binding and active status. Missing/outdated catalogs, account switching,
+selection changes or disposed sources return `unavailable` with **no**
+navigation, widgets, metrics, Aura context or resource identifiers.
+A second authorization check after the provider read suppresses data if
+the selection changed during that read. Subscriptions propagate upstream
+identity/catalog/selection changes and are released on disposal.
+
+Only the read-only **Space Experience projection** is exposed. Its
+snapshot `ready` is **not** a permission to issue commands, and this
+gate is not a substitute for server-side membership/grants enforcement
+or per-action authorization. Native continues to register only the
+existing selected-Space **Aura** provider. FOOD-001 operational orders,
+Inventory and Payments providers remain absent until their owners have
+authorized, published and tested real transactional ports.
+
 ### Deferred safety constraints
 
 The structured School definition does not promote the vertical and does not create `orders`. REL-001 remains binding: external student/guardian identities are not internal Space members. No unrestricted camera/tracking capability is introduced; transport remains a separate declared capability and still requires its own consent, purpose and owner before promotion. Data about minors is not an advertising/targeting source.
@@ -273,6 +299,9 @@ This separation is what allows an already-shipped USB/Base to continue consuming
 
 ### Additive update rule
 
+**Store vs Space vs Profile versioning:** `Space` is the stable workspace/ownership boundary. The OrdaX Spaces service and its versioned contract can evolve without recreating Spaces. A Profile Pack (`pizzaria-br@1`, `@2`) changes the versioned **composition**, not the application binaries. The Store and component runtime own independently versioned signed app artifacts and their install/update/rollback lifecycle. Profile `apps[]` contains only references to those app IDs; its `components[]` cannot publish `kind: app`. Reusing one app across Spaces never shares their domain data. A Profile reference alone must never make a nonexistent/uninstalled app appear available, and Store install/update is not authorized by selecting or activating a Profile.
+
+
 Prefer additive evolution below stable ports:
 
 - add a capability provider instead of expanding the Spaces read port;
@@ -302,6 +331,30 @@ Global membership roles remain intentionally small: `owner`, `admin`, `member`, 
 
 Invite is not membership. Pending invites are separate temporary entities; only authenticated acceptance may create server-authoritative membership.
 
+### Current mutation authority — 2026-10-17
+
+The product backend now has explicit, bounded server-authoritative mutation boundaries instead of relying on direct client table writes:
+
+- Space creation uses `ordax_create_space_v1`; creation authority, type resolution, quota and idempotency are checked below the client, and the owner membership is created by the same server-side flow.
+- Space rename/archive/restore use `ordax_mutate_space_lifecycle_v1`; direct authenticated `UPDATE`/`DELETE` on `ordax_spaces` is revoked.
+- direct authenticated `INSERT`/`UPDATE`/`DELETE` on `ordax_space_members` is revoked and the historical membership write policies are removed;
+- actions over an **existing** membership use `ordax_mutate_space_membership_v1` and the versioned `ordax.space-membership-actions/1` contract for `change-role`, `suspend`, `reactivate` and `remove`.
+- presentation capability for the authenticated actor uses `ordax_get_space_actor_capability_v1` and `ordax.space-actor-capability/1`; `canManageMembers` is projected by the server from the canonical authorization predicate and must not be recomputed from `role` in Surface code.
+
+All of these action paths derive the actor from the authenticated server session, revalidate current authority, use idempotency where retry is expected and keep private receipts/state out of the public Surface read model. Membership administration preserves the global roles `owner/admin/member/viewer`: only the actual Space owner can grant or administer `admin`; a delegated admin can administer `member/viewer`; owner membership is never changed through the ordinary membership-action boundary.
+
+These backend capabilities do **not** imply that every Web/Native/Mobile UI is already wired or publicly available. Product surfaces must advertise an action only when their adapter/backend reports it supported; no UI may infer mutation capability merely because a contract exists in source.
+
+Still intentionally absent from the current authority foundation:
+
+- invite creation/delivery/accept/decline/revoke/expiry;
+- creating a new membership outside the canonical Space-create owner bootstrap and future authenticated invite acceptance;
+- voluntary member `leave`;
+- ownership transfer;
+- destructive Space deletion ceremony.
+
+Those flows remain separate because their authorization, consent, token/reauthentication and audit requirements differ. They must not be folded into `ordax.spaces/1`, lifecycle actions or a generic membership mutation endpoint.
+
 ### USB launch rule
 
 A USB release does not wait for every Space vertical or provider to be complete when those capabilities are independent from that USB channel's promised flow. The Space foundation is compatible with release when:
@@ -314,3 +367,19 @@ A USB release does not wait for every Space vertical or provider to be complete 
 6. future Space work can ship as verified product updates without requiring a new USB image unless it genuinely introduces a new Base/kernel/local-runtime requirement.
 
 This does not permit shipping fake UI, broken promised flows, unsafe authorization or permanent mocks. It only prevents unrelated Space evolution from becoming an artificial blocker for a USB whose own gates have passed.
+
+## Update ownership: Space core vs Store apps (canonical rule)
+
+The **Space structure is native OrdaX core**, not an app packaged by the Store. It keeps a stable Space identity, type, membership, selection and resource ownership; its compatible read/action boundaries evolve separately from OS/Base and Store app versions. A new Space core version must not recreate the Space or rewrite domain data as an implicit side effect.
+
+**Apps and vertical modules (Pedidos, Estoque, Caixa, models, production)** are **Store-distributed, independently versioned verified packages**, not executable code embedded in a Pizzaria/3D Profile Pack or duplicated per Space. One app version may serve multiple authorized Spaces. Its runtime/data service remains the domain SSOT, with every resource scoped to the authorized Space. Store installation/update alone never grants account or Space permissions.
+
+**Profile Packs are immutable versioned recipes**, not a second package store or app runtime. They may reference/request Store app identifiers and compatible versions, templates and capabilities; activation must pass actual Store package signature/trust, compatibility, entitlement, permission and applicable consent gates. Declaring an app in a Profile Pack does **not** mean the app is installed, ready, available or authorized. Rollback of the recipe must not roll back the business records.
+
+**OS/Base updates are a fourth independent lane** and never depend on a vertical app being available. An app fault does not prevent boot or unrelated Spaces. No new Store or Space update API is implied by this architecture rule; the updater and lifecycle gates must be implemented and proven separately.
+
+This division is machine-readable under `update_ownership` in the existing `docs/contracts/spaces-and-profile-packs.json`; do not create another competing Space/app ownership registry.
+
+### Inventory enforcement — Store remains the only app delivery owner
+
+The Profile component inventory contract refuses `kind: "app"` records. Such records are not proof of Store installation, availability, entitlement or trust, and cannot satisfy Profile provisioning. Profile inventory continues to cover only knowledge/skill/model packs and connectors. Installed applications and individual updates remain projections of the canonical App Store/Native lifecycle, never inferred from Profile manifests or receipts.

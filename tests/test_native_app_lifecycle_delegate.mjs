@@ -12,6 +12,7 @@ import {
 import {
   createNativeAppLifecycleDelegate,
 } from "../system/adapters/native/app-lifecycle-delegate.mjs";
+import { createNativeHostWindow } from "./support/native-host-window.mjs";
 
 const COMMIT = "a".repeat(40);
 
@@ -39,7 +40,7 @@ function artifact(name, char) {
 
 function plan(operation = "install") {
   return {
-    schema: "ordax.app-lifecycle-plan/1",
+    schema: "ordax.app-lifecycle-plan/2",
     request: {
       schema: "ordax.app-lifecycle-request/1",
       requestId: `store:${operation}:notes:native-test`,
@@ -51,6 +52,9 @@ function plan(operation = "install") {
     catalogSequence: 9,
     catalogSha256: "f".repeat(64),
     catalogSourceCommit: COMMIT,
+    expectedActivation: operation === "install"
+      ? { source: "absent", revision: 0, version: null, sourceCommit: null }
+      : { source: "slot", revision: 12, version: operation === "update" ? "0.4.2" : "0.4.3", sourceCommit: COMMIT },
     candidate: operation === "remove" ? null : {
       appId: "notes",
       version: "0.4.3",
@@ -172,15 +176,11 @@ test("accepted install requests platform-owned probation for supported component
     async fetch() {
       return response(acceptedFor(value));
     },
-    webkit: {
-      messageHandlers: {
-        ordaxBrowser: {
-          postMessage(message) {
-            messages.push(JSON.parse(message));
-          },
-        },
+    ...createNativeHostWindow({
+      onPostMessage(message) {
+        messages.push(JSON.parse(message));
       },
-    },
+    }).windowRef,
   });
 
   const result = await delegate.executeLifecycle(value);
@@ -215,15 +215,11 @@ test("remove and unsupported apps never request probation", async () => {
       async fetch() {
         return response(acceptedFor(value));
       },
-      webkit: {
-        messageHandlers: {
-          ordaxBrowser: {
-            postMessage(message) {
-              messages.push(JSON.parse(message));
-            },
-          },
+      ...createNativeHostWindow({
+        onPostMessage(message) {
+          messages.push(JSON.parse(message));
         },
-      },
+      }).windowRef,
     });
     const result = await delegate.executeLifecycle(value);
     assert.equal(result.state, "accepted");
@@ -249,13 +245,9 @@ test("rejected or identity-drifted lifecycle replies never dispatch probation", 
   const value = plan("install");
   const messages = [];
   const windowRef = {
-    webkit: {
-      messageHandlers: {
-        ordaxBrowser: {
-          postMessage(message) { messages.push(message); },
-        },
-      },
-    },
+    ...createNativeHostWindow({
+      onPostMessage(message) { messages.push(message); },
+    }).windowRef,
   };
 
   const denied = createNativeAppLifecycleDelegate({
@@ -290,13 +282,9 @@ test("probation bridge exception cannot change a platform-accepted staging recei
     async fetch() {
       return response(acceptedFor(value));
     },
-    webkit: {
-      messageHandlers: {
-        ordaxBrowser: {
-          postMessage() { throw new Error("bridge is temporarily unavailable"); },
-        },
-      },
-    },
+    ...createNativeHostWindow({
+      onPostMessage() { throw new Error("bridge is temporarily unavailable"); },
+    }).windowRef,
   });
   try {
     console.warn = () => { warnings += 1; };

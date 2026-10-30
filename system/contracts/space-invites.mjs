@@ -52,6 +52,17 @@ function isoInstant(value, label) {
   }
   const time = Date.parse(value);
   if (!Number.isFinite(time)) throw new TypeError(`${label} must be an ISO timestamp`);
+  // Date.parse normalizes invalid calendar dates (e.g. February 30).
+  // Reconstruct the original wall-clock time after applying the supplied
+  // numeric timezone, and reject any rollover before canonicalizing to UTC.
+  const offset = value.endsWith("Z") ? 0 : (
+    (value.slice(-6, -5) === "-" ? -1 : 1) *
+    (Number(value.slice(-5, -3)) * 60 + Number(value.slice(-2)))
+  );
+  const wallClock = new Date(time + offset * 60_000).toISOString().slice(0, 19);
+  if (wallClock !== value.slice(0, 19)) {
+    throw new TypeError(`${label} must be an ISO timestamp`);
+  }
   return new Date(time).toISOString();
 }
 

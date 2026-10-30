@@ -4,10 +4,7 @@
   "recipe": "tools/native-release-assembly/build.py",
   "source_inputs": [
     "system/",
-    "tools/creator/go.mod",
-    "tools/creator/core/",
-    "tools/creator/host/linux/",
-    "tools/creator/cmd/ordax-creator-native-targets/",
+    "docs/contracts/native-release-assembly.json#creator_source",
     "tools/runtime-component-channel/go.mod",
     "tools/runtime-component-channel/*.go"
   ],
@@ -55,5 +52,26 @@
     "covered_by_system_tar_signature": true,
     "canonical_release_protocol_unchanged": true,
     "component_trust_domain_remains_separate": true
+  },
+  "creator_source": {
+    "repository": "ordaxsystems/ordax-creator",
+    "commit": "8adf641fb2cd9a3ac8351f23f912ce29ee2b70c9",
+    "tree": "312d18bb8e5cb97a216a54697724bbc8893d33d0",
+    "module": "github.com/ordaxsystems/ordax-creator",
+    "helper_package": "./cmd/ordax-creator-native-targets",
+    "physical_apply_authorized": false,
+    "publisher_authority": "ordaxsystems/ordax-os"
+  },
+  "intelligence_source_candidate": {
+    "owner": "ordaxsystems/ordax-intelligence",
+    "source_lock": "docs/contracts/intelligence-source.json",
+    "source_action": ".github/actions/assemble-intelligence",
+    "precondition": "verified-canonical-surface",
+    "required_in_release_pipeline_ci": true,
+    "required_native_flag": "--require-external-intelligence",
+    "legacy_code_packaging_allowed": false,
+    "activation_authorized": false,
+    "owner_dev_device_cutover_complete": false,
+    "stable_v4_device_cutover_complete": false
   }
 }

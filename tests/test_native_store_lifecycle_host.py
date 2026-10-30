@@ -31,7 +31,7 @@ def artifact(name: str, char: str) -> dict:
 
 def plan(operation: str = "install") -> dict:
     return {
-        "schema": "ordax.app-lifecycle-plan/1",
+        "schema": "ordax.app-lifecycle-plan/2",
         "request": {
             "schema": "ordax.app-lifecycle-request/1",
             "requestId": f"store:{operation}:notes:host-test",
@@ -43,6 +43,16 @@ def plan(operation: str = "install") -> dict:
         "catalogSequence": 9,
         "catalogSha256": "f" * 64,
         "catalogSourceCommit": COMMIT,
+        "expectedActivation": (
+            {"source": "absent", "revision": 0, "version": None, "sourceCommit": None}
+            if operation == "install"
+            else {
+                "source": "slot",
+                "revision": 12,
+                "version": "0.4.2" if operation == "update" else "0.4.3",
+                "sourceCommit": COMMIT,
+            }
+        ),
         "candidate": (
             {
                 "appId": "notes",
@@ -233,6 +243,32 @@ class NativeStoreLifecycleHostTests(unittest.TestCase):
         self.assertEqual(context.exception.code, 503)
         acquire.assert_not_called()
         execute.assert_not_called()
+
+    def test_native_readback_divergence_never_returns_http_acceptance(self) -> None:
+        value = plan("remove")
+        with (
+            mock.patch.object(host, "acquire_lifecycle_plan_artifacts") as acquire,
+            mock.patch.object(
+                host,
+                "execute_offline_lifecycle_plan",
+                side_effect=host.NativeAppLifecycleError(
+                    "runtime component uninstall was not durably observed"
+                ),
+            ) as execute,
+        ):
+            body = json.dumps(value, separators=(",", ":")).encode("utf-8")
+            request = Request(
+                f"{self.origin}/__ordax/native/store-lifecycle",
+                data=body,
+                method="POST",
+                headers={"Content-Type": "application/json"},
+            )
+            with self.assertRaises(HTTPError) as context:
+                urlopen(request, timeout=2)
+            self.assertEqual(context.exception.code, 503)
+            self.assertEqual(context.exception.read(), b"")
+        acquire.assert_not_called()
+        execute.assert_called_once()
 
     def test_internal_lifecycle_failure_returns_no_private_error_payload(self) -> None:
         with (

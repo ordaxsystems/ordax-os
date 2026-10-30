@@ -19,6 +19,7 @@ static void die_usage(void) {
         "  ordax-portable-state <state-root> <current|known-good|candidate|rejected>\n"
         "  ordax-portable-state resolve <state-root> <portable-root> <current|known-good>\n"
         "  ordax-portable-state select <state-root> <portable-root>\n"
+        "  ordax-portable-state inspect <state-root> <portable-root>\n"
         "  ordax-portable-state prepare <state-root> <portable-root> <candidate-commit>\n"
         "  ordax-portable-state select-boot <state-root> <portable-root>\n"
         "  ordax-portable-state commit <state-root> <portable-root> <candidate-commit>\n"
@@ -578,6 +579,93 @@ static int select_command(const char *state_root, const char *portable_root) {
 }
 
 
+/* Read-only observation of the same durable state selected by PID1.
+ * This exposes NO boot authority: only the verified release agent validates
+ * signatures, and select-boot/commit still own all activation decisions.
+ * Reject malformed identities or inconsistent transactions before emitting
+ * any apparently trustworthy machine-readable state.
+ */
+static int inspect_command(const char *state_root, const char *portable_root) {
+    int state = open_release_state_root(state_root);
+    if (state < 0) {
+        return errno == ENOENT ? EXIT_ABSENT : EXIT_INVALID;
+    }
+    int releases = open_materialized_releases(portable_root);
+    if (releases < 0) {
+        close(state);
+        return errno == ENOENT ? EXIT_ABSENT : EXIT_INVALID;
+    }
+
+    char current[41] = {0};
+    char known_good[41] = {0};
+    char candidate[41] = {0};
+    char rejected[41] = {0};
+    struct activation_transaction tx = {0};
+    int current_rc = read_commit(state, "current", current);
+    int good_rc = read_commit(state, "known-good", known_good);
+    int candidate_rc = read_commit(state, "candidate", candidate);
+    int rejected_rc = read_commit(state, "rejected", rejected);
+    int tx_rc = read_transaction(state, &tx);
+    int valid = current_rc == 0 && good_rc == 0 &&
+        release_materialized_safely(releases, current) &&
+        release_materialized_safely(releases, known_good) &&
+        (candidate_rc == 0 || candidate_rc == EXIT_ABSENT) &&
+        (rejected_rc == 0 || rejected_rc == EXIT_ABSENT) &&
+        (tx_rc == 0 || tx_rc == EXIT_ABSENT);
+    const char *phase = "idle";
+    if (valid && tx_rc == 0) {
+        valid = candidate_rc == 0 &&
+            strcmp(candidate, tx.candidate) == 0 &&
+            release_materialized_safely(releases, tx.candidate);
+        if (valid && strcmp(current, tx.previous) == 0) {
+            phase = "armed";
+        } else if (valid && strcmp(current, tx.candidate) == 0 &&
+                   strcmp(known_good, tx.previous) == 0 && tx.attempt == 1) {
+            /* Power loss after committing current but before tx cleanup. */
+            phase = "commit-interrupted";
+        } else {
+            valid = 0;
+        }
+        if (valid && rejected_rc == 0 &&
+            strcmp(rejected, tx.candidate) == 0) {
+            valid = 0;
+        }
+    } else if (valid && candidate_rc == 0) {
+        /* Harmless orphan advisory; never grant boot authority without tx. */
+        phase = "orphan-advisory";
+    }
+    close(releases);
+    close(state);
+    if (!valid) {
+        fputs("ordax-portable-state: unsafe or inconsistent inspection state\n", stderr);
+        return EXIT_INVALID;
+    }
+
+    char candidate_json[44] = "null";
+    char rejected_json[44] = "null";
+    char attempt_json[8] = "null";
+    if (candidate_rc == 0) {
+        snprintf(candidate_json, sizeof(candidate_json), "\"%s\"", candidate);
+    }
+    if (rejected_rc == 0) {
+        snprintf(rejected_json, sizeof(rejected_json), "\"%s\"", rejected);
+    }
+    if (tx_rc == 0) {
+        snprintf(attempt_json, sizeof(attempt_json), "%d", tx.attempt);
+    }
+    /* Every JSON value derives from a fixed token or validated 40-hex SHA. */
+    if (printf(
+        "{\"schema\":\"ordax.portable-state-inspection/1\","
+        "\"phase\":\"%s\",\"current\":\"%s\",\"knownGood\":\"%s\","
+        "\"candidate\":%s,\"rejected\":%s,\"attempt\":%s,"
+        "\"materializedShapeChecked\":true}\n",
+        phase, current, known_good, candidate_json, rejected_json, attempt_json
+    ) < 0) {
+        return EXIT_INVALID;
+    }
+    return 0;
+}
+
 static int prepare_command(
     const char *state_root,
     const char *portable_root,
@@ -876,6 +964,9 @@ int main(int argc, char **argv) {
     }
     if (argc == 4 && strcmp(argv[1], "select") == 0) {
         return select_command(argv[2], argv[3]);
+    }
+    if (argc == 4 && strcmp(argv[1], "inspect") == 0) {
+        return inspect_command(argv[2], argv[3]);
     }
     if (argc == 5 && strcmp(argv[1], "prepare") == 0) {
         return prepare_command(argv[2], argv[3], argv[4]);

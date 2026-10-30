@@ -154,8 +154,17 @@ func validatePortablePayload(payload portablePayloadManifest) error {
 			parsed.User != nil ||
 			parsed.Fragment != "" ||
 			parsed.RawQuery != "" ||
-			!strings.HasPrefix(parsed.Path, "/ordaxsystems/ordax-os/releases/download/") {
+			parsed.ForceQuery ||
+			parsed.EscapedPath() != parsed.Path {
 			return fmt.Errorf("Portable payload artifact %q URL is outside canonical release namespace", artifact.ID)
+		}
+		releasePrefix := "/ordaxsystems/ordax-os/releases/download/ordax-stable-v4-" + payload.ReleaseSourceCommit + "/"
+		if !strings.HasPrefix(parsed.Path, releasePrefix) {
+			return fmt.Errorf("Portable payload artifact %q URL differs from signed release source commit", artifact.ID)
+		}
+		asset := strings.TrimPrefix(parsed.Path, releasePrefix)
+		if asset == "" || asset == "." || asset == ".." || strings.Contains(asset, "/") {
+			return fmt.Errorf("Portable payload artifact %q URL must name one release asset", artifact.ID)
 		}
 	}
 	return nil

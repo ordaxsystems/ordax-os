@@ -41,6 +41,32 @@ class IntelligenceProductConsumerTests(unittest.TestCase):
         self.assertIn(": appAwareIntelligence;", text)
 
 
+    def test_optional_aura_probe_does_not_compete_with_shell_boot_health(self):
+        source = NATIVE.read_text(encoding="utf-8")
+        self.assertEqual(source.count("localAiProbeSupervisor.start();"), 1)
+        self.assertEqual(source.count("createLocalAiProbeSupervisor({"), 1)
+        self.assertLess(
+            source.index('const localAiProbeSupervisor = createLocalAiProbeSupervisor({'),
+            source.index('const surface = mountSurface('),
+        )
+        self.assertLess(
+            source.index('bootScreen.ready();'),
+            source.index('localAiProbeSupervisor.start();'),
+        )
+        self.assertLess(
+            source.index('void updateWatcher.markHealthy();'),
+            source.index('localAiProbeSupervisor.start();'),
+        )
+        self.assertLess(
+            source.index('const surfaceHeartbeat = createNativeSurfaceHeartbeat(window);'),
+            source.index('localAiProbeSupervisor.start();'),
+        )
+        self.assertLess(
+            source.index('localAiProbeSupervisor.start();'),
+            source.index('void resumeAccountConnectivity().catch('),
+        )
+        self.assertIn('localAiProbeSupervisor.dispose();', source)
+
     def test_system_explanation_is_consultative_and_provider_neutral(self):
         ui = SYSTEM_UI.read_text(encoding="utf-8")
         actions = CLIENT_ACTIONS.read_text(encoding="utf-8")

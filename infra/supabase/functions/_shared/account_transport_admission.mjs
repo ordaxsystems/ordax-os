@@ -32,6 +32,10 @@ export function accountGatewayRoutePath(pathname) {
 const PUBLIC_ACCOUNT_ROUTES = new Map([
   ["/account/export", Object.freeze({ method: "GET", preActivation: false })],
   ["/account/spaces", Object.freeze({ method: "GET", preActivation: true })],
+  ["/account/usage/mcp", Object.freeze({ method: "GET", preActivation: false })],
+  ["/account/space-members", Object.freeze({ method: "GET", preActivation: true })],
+  ["/account/space-actor-capability", Object.freeze({ method: "GET", preActivation: true })],
+  ["/account/space-membership-actions", Object.freeze({ method: "POST", preActivation: false })],
   ["/account/entitlements/memory-cloud", Object.freeze({ method: "GET", preActivation: false })],
   ["/account/close", Object.freeze({ method: "POST", preActivation: false })],
 ]);
