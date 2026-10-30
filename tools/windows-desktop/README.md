@@ -33,6 +33,20 @@ Native instalado. Os testes de `host-startup.test.cjs` e
 `desktop-native-server.test.mjs` exercitam o mesmo contrato, sem segundo
 servidor ou estado persistente e sem tocar no USB.
 
+## Encerramento antecipado do Native durante boot
+
+O host Electron reconhece falha de criação do processo e encerramento por
+código **ou sinal** do processo filho, antes do timeout de cold start.
+Em Node, um processo terminado por sinal pode conservar `exitCode=null`;
+logo, observar apenas `exitCode` faria um Native já morto permanecer em
+espera. A correção reside exclusivamente em
+`tools/windows-desktop/host.cjs`, sem segundo supervisor, sem retry de
+rede e sem alterar o protocolo de prontidão autenticada.
+O encerramento conhecido também impede `taskkill` tardio de agir sobre
+um PID que o Windows possa ter reutilizado. O teste de regressão cria
+um processo Native descartável e prova falha imediata; ele não utiliza
+o Desktop do usuário nem confere saúde física.
+
 ## Integração com a source authority atual — 25/10/2026
 
 O Windows consome **a mesma revisão OS de `main`** utilizada pelos outros
