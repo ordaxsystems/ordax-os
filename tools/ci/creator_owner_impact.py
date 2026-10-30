@@ -17,6 +17,18 @@ SURFACE_LOCK = "docs/contracts/surface-source.json"
 LIGHT_EXACT = frozenset({
     "docs/BUILD-AUTONOMY.md",
     "system/adapters/desktop/local-ai-host.mjs",
+    # Windows-only signed-component bridge and Windows installer producer
+    # are proven in the installed NSIS/Native gates, not the Linux Creator.
+    # These exact files contain no bootable USB payload or signing authority.
+    # Shared Native composition, component runtime and OS host paths are
+    # deliberately NOT excluded; a change to those remains a real USB build.
+    ".github/workflows/windows-desktop-dev.yml",
+    "system/adapters/desktop/verified-component-slot-host.mjs",
+    "system/adapters/native/signed-current-compatibility.mjs",
+    "tests/test_native_signed_current_compatibility.mjs",
+    "tests/test_native_verified_installed_apps.mjs",
+    "tools/windows-emulator/desktop-verified-component-slot.test.mjs",
+    "tools/surface-web/browser-smoke.mjs",
     "tests/test_windows_desktop_local_ai_host.mjs",
     "tests/test_creator_owner_external_source.py",
     "tools/ci/portable_qemu_impact.py",
