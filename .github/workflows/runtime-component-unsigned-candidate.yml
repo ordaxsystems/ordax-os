@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - 'tools/runtime-component-channel/verify_unsigned_candidate.py'
+      - 'tools/runtime-component-channel/check_external_signing_preflight.py'
       - 'tests/test_runtime_component_unsigned_candidate.py'
       - 'docs/contracts/external-unsigned-candidate-interop.json'
       - 'docs/contracts/runtime-component-package.json'
@@ -12,6 +13,7 @@ on:
   pull_request:
     paths:
       - 'tools/runtime-component-channel/verify_unsigned_candidate.py'
+      - 'tools/runtime-component-channel/check_external_signing_preflight.py'
       - 'tests/test_runtime_component_unsigned_candidate.py'
       - 'docs/contracts/external-unsigned-candidate-interop.json'
       - 'docs/contracts/runtime-component-package.json'
@@ -22,101 +24,144 @@ permissions:
   contents: read
 
 jobs:
+  interop-fixtures:
+    runs-on: ubuntu-24.04
+    outputs:
+      matrix: ${{ steps.fixtures.outputs.matrix }
+    steps:
+      - name: Checkout exact OS contract
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Validate canonical ownership and pinned external source identities
+        id: fixtures
+        run: |
+          set -euo pipefail
+          python3 -m unittest tests/test_runtime_component_unsigned_candidate.py
+          python3 - <<'PY' >> "$GITHUB_OUTPUT"
+          import json
+          import re
+          from pathlib import Path
+          contract = json.loads(Path("docs/contracts/external-unsigned-candidate-interop.json").read_text(encoding="utf-8"))
+          policy = json.loads(Path("docs/contracts/runtime-component-package.json").read_text(encoding="utf-8"))
+          assert contract["$schema"] == "prototype-ordax.external-unsigned-candidate-interop/1"
+          assert contract["source_repository"] == "ordaxsystems/ordax-apps"
+          assert contract["status"] == "read-only-contract-proof" and contract["authority"] == "none"
+          assert all(contract[k] is False for k in (
+              "signing_authorized", "publication_authorized",
+              "installation_authorized", "activation_authorized"))
+          assert contract["handoff_schema"] == "ordax-apps.unsigned-component-candidate/1"
+          assert contract["release_schema"] == "prototype-ordax.runtime-component-release/2"
+          assert contract["package_schema"] == "prototype-ordax.runtime-component-package/1"
+          assert contract["compatibility_schema"] == "ordax.component-compatibility/1"
+          assert contract["trust_domain"] == "runtime-components"
+          assert contract["required_key_id"] == "ordax-runtime-components-v1"
+          fixtures = contract["fixtures"]
+          assert isinstance(fixtures, list) and len(fixtures) == 2
+          assert {item["component_id"] for item in fixtures} == {"notes", "assistant"}
+          for item in fixtures:
+              assert set(item) == {"component_id", "component_version", "source_commit", "compatibility_path"}
+              app = item["component_id"]
+              assert policy["canonical_package_source_repository_by_component"].get(app) == contract["source_repository"]
+              assert re.fullmatch(r"[0-9a-f]{40}", item["source_commit"])
+              assert re.fullmatch(r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)", item["component_version"])
+              assert item["compatibility_path"] in (
+                  f"apps/{app}/compatibility.json", f"migrations/{app}.compatibility.json")
+          assert policy["canonical_component_trust_anchor_pinned"] is False
+          assert policy["slot_activation_available"] is False
+          print("matrix=" + json.dumps(fixtures, sort_keys=True, separators=(",", ":")))
+          PY
+
   verify:
+    needs: interop-fixtures
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.interop-fixtures.outputs.matrix) }
     runs-on: ubuntu-24.04
     timeout-minutes: 10
+    env:
+      COMPONENT_ID: ${{ matrix.component_id }
+      COMPONENT_VERSION: ${{ matrix.component_version }
+      COMPONENT_SHA: ${{ matrix.source_commit }
+      COMPONENT_COMPATIBILITY: ${{ matrix.compatibility_path }
     steps:
       - name: Checkout exact platform source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
 
-      - name: Validate interop contract
-        run: |
-          set -euo pipefail
-          python3 -m json.tool docs/contracts/external-unsigned-candidate-interop.json >/dev/null
-          python3 -m unittest tests/test_runtime_component_unsigned_candidate.py
-
-      - name: Read pinned external source
-        id: interop
-        run: |
-          set -euo pipefail
-          python3 - <<'PY' >> "$GITHUB_OUTPUT"
-          import json
-          from pathlib import Path
-          value = json.loads(Path("docs/contracts/external-unsigned-candidate-interop.json").read_text())
-          assert value["authority"] == "none"
-          assert value["signing_authorized"] is False
-          assert value["publication_authorized"] is False
-          assert value["installation_authorized"] is False
-          assert value["activation_authorized"] is False
-          print(f"repository={value['source_repository']}")
-          print(f"commit={value['source_commit']}")
-          print(f"component={value['component_id']}")
-          PY
-
-      - name: Checkout pinned ordax-apps source fixture
+      - name: Checkout exact pinned external app source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          repository: ${{ steps.interop.outputs.repository }}
-          ref: ${{ steps.interop.outputs.commit }}
+          repository: ordaxsystems/ordax-apps
+          ref: ${{ matrix.source_commit }
           path: .ordax-apps-fixture
           persist-credentials: false
 
-      - name: Build public-only interoperability fixture
+      - name: Build and verify exact external package with canonical app-owned builder
         run: |
           set -euo pipefail
+          test "$(git -C .ordax-apps-fixture rev-parse HEAD)" = "$COMPONENT_SHA"
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          app, version = os.environ["COMPONENT_ID"], os.environ["COMPONENT_VERSION"]
+          manifest = json.loads((Path(".ordax-apps-fixture/apps") / app / "app.json").read_text(encoding="utf-8"))
+          assert manifest["id"] == app and manifest["version"] == version
+          assert manifest["owner"] == "ordaxsystems/ordax-apps"
+          assert manifest["releaseMode"] == "component-slot"
+          PY
           out="$RUNNER_TEMP/ordax-unsigned-candidate"
           mkdir -p "$out/release"
-          source_commit="${{ steps.interop.outputs.commit }}"
-
           python3 .ordax-apps-fixture/tools/app-package/build.py build \
-            --app-root .ordax-apps-fixture/apps/notes \
-            --source-commit "$source_commit" \
-            --compatibility .ordax-apps-fixture/migrations/notes.compatibility.json \
-            --package-out "$out/notes.zip" \
+            --app-root ".ordax-apps-fixture/apps/$COMPONENT_ID" \
+            --source-commit "$COMPONENT_SHA" \
+            --compatibility ".ordax-apps-fixture/$COMPONENT_COMPATIBILITY" \
+            --package-out "$out/$COMPONENT_ID.zip" \
             --release-dir "$out/release"
-
           python3 .ordax-apps-fixture/tools/app-package/build.py verify \
-            --package "$out/notes.zip" \
-            --release "$out/release/notes.release.json" \
-            --compatibility "$out/release/notes.compatibility.json"
-
+            --package "$out/$COMPONENT_ID.zip" \
+            --release "$out/release/$COMPONENT_ID.release.json" \
+            --compatibility "$out/release/$COMPONENT_ID.compatibility.json"
           python3 .ordax-apps-fixture/tools/app-package/render_unsigned_handoff.py \
-            --package "$out/notes.zip" \
-            --release "$out/release/notes.release.json" \
-            --compatibility "$out/release/notes.compatibility.json" \
-            --app-id notes \
-            --source-commit "$source_commit" \
-            --out "$out/notes.unsigned-candidate.json"
+            --package "$out/$COMPONENT_ID.zip" \
+            --release "$out/release/$COMPONENT_ID.release.json" \
+            --compatibility "$out/release/$COMPONENT_ID.compatibility.json" \
+            --app-id "$COMPONENT_ID" --source-commit "$COMPONENT_SHA" \
+            --out "$out/$COMPONENT_ID.unsigned-candidate.json"
+          mv "$out/release/$COMPONENT_ID.release.json" "$out/$COMPONENT_ID.release.json"
+          mv "$out/release/$COMPONENT_ID.compatibility.json" "$out/$COMPONENT_ID.compatibility.json"
+          rmdir "$out/release"
+          (cd "$out"; sha256sum \
+            "$COMPONENT_ID.zip" "$COMPONENT_ID.release.json" \
+            "$COMPONENT_ID.compatibility.json" \
+            "$COMPONENT_ID.unsigned-candidate.json" > SHA256SUMS)
 
-          cp "$out/release/notes.release.json" "$out/notes.release.json"
-          cp "$out/release/notes.compatibility.json" "$out/notes.compatibility.json"
-          rm -rf "$out/release"
-          (
-            cd "$out"
-            sha256sum \
-              notes.zip \
-              notes.release.json \
-              notes.compatibility.json \
-              notes.unsigned-candidate.json \
-              > SHA256SUMS
-          )
-
-      - name: Verify external unsigned candidate with platform policy
+      - name: Verify real bytes against canonical OS package source policy
         run: |
           set -euo pipefail
           python3 tools/runtime-component-channel/verify_unsigned_candidate.py \
             --candidate-dir "$RUNNER_TEMP/ordax-unsigned-candidate" \
             --package-policy docs/contracts/runtime-component-package.json
 
-      - name: Assert no authority or secret material entered the proof
+      - name: Prove production signing and activation remain denied
         run: |
           set -euo pipefail
-          out="$RUNNER_TEMP/ordax-unsigned-candidate"
-          test -z "$(find "$out" -type f \( -iname '*.pem' -o -iname '*.key' -o -iname '*.p12' -o -iname '*.pfx' \) -print -quit)"
-          echo 'EXTERNAL_UNSIGNED_CANDIDATE_INTEROP=PASS'
+          python3 tools/runtime-component-channel/check_external_signing_preflight.py \
+            --root . \
+            --candidate-dir "$RUNNER_TEMP/ordax-unsigned-candidate" > "$RUNNER_TEMP/signing-preflight.txt"
+          for required in \
+            'RUNTIME_COMPONENT_EXTERNAL_SIGNING_PREFLIGHT=PASS' \
+            'SIGNING_ELIGIBLE=NO' 'PRODUCTION_ACTIVATION_ALLOWED=NO' \
+            'PRIVATE_KEY_READ=NO' 'SIGNING_PERFORMED=NO' \
+            'PUBLICATION_PERFORMED=NO' 'INSTALLATION_PERFORMED=NO' \
+            'ACTIVATION_PERFORMED=NO'; do
+            grep -Fx "$required" "$RUNNER_TEMP/signing-preflight.txt"
+          done
+          test -z "$(find "$RUNNER_TEMP/ordax-unsigned-candidate" -type f \
+            \( -iname '*.pem' -o -iname '*.key' -o -iname '*.p12' -o -iname '*.pfx' \) -print -quit)"
+          echo "EXTERNAL_UNSIGNED_CANDIDATE_INTEROP=PASS; COMPONENT=$COMPONENT_ID"
           echo 'PRIVATE_KEY_PRESENT=NO'
-          echo 'SIGNING_PERFORMED=NO'
-          echo 'PUBLICATION_PERFORMED=NO'
-          echo 'ACTIVATION_PERFORMED=NO'
