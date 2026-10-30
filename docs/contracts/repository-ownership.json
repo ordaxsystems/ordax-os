@@ -60,13 +60,15 @@
         "computer-control-authority",
         "oauth-remote",
         "control-plane",
-        "mcp-system-authority"
+        "mcp-system-authority",
+        "windows-mcp-installer"
       ]
     },
     "runtime": {
       "repo": "ordaxsystems/ordax-runtime",
       "owns": [
         "windows-ordax-runtime",
+        "windows-ordax-mcp-distribution",
         "device-host",
         "computer-control",
         "filesystem-process-input-screenshot-app-launch",
@@ -161,7 +163,8 @@
     "native_os_permissions_owned_by_platform_not_studio": true,
     "apps_consume_capability_ports_without_grant_minting": true,
     "remote_mcp_grants_remain_control_plane_owned": true,
-    "windows_studio_is_owner_ui_not_authority": true
+    "windows_studio_is_optional_runtime_consumer": true,
+    "windows_mcp_distribution_independent_of_studio": true
   },
   "namespace_migration": {
     "status": "complete",
