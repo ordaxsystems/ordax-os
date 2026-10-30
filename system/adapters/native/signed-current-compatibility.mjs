@@ -58,9 +58,7 @@ export function createNativeSignedCurrentCompatibilityResolver({ source, fetchIm
       // required contracts independently determine whether App Data is needed.
       // If a state owner exists with no App Data requirement, conservatively
       // require a bound App Data port instead of inventing another state host.
-      const requiresAppData = descriptor.state !== null
-        || descriptor.requires.some((entry) => entry.id === "ordax.app-data");
-      return Object.freeze({ descriptor, requiresAppData });
+      return descriptor;
     } finally {
       clearTimeout(deadline);
       controller.abort();
