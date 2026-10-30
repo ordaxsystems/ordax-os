@@ -138,6 +138,8 @@ jobs:
               throw "Desktop/Native contract failed: $suite (exit $LASTEXITCODE)"
             }
           }
+      - name: Prove signed-current Desktop bridge remains read-only and fail-closed
+        run: node --test tools/windows-emulator/desktop-verified-component-slot.test.mjs
       - name: Install desktop shell toolchain
         working-directory: tools/windows-desktop
         run: npm ci --no-audit --no-fund
