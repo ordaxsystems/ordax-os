@@ -1,6 +1,8 @@
 from pathlib import Path
 import importlib.util
+import json
 import sys
+import subprocess
 import tempfile
 import unittest
 
@@ -92,6 +94,104 @@ class PortableQemuImpactTests(unittest.TestCase):
         self.assertFalse(main.required)
         self.assertTrue(probation.required)
         self.assertIn("heavy-exact:system/composition/native/component-probation.mjs", probation.reasons)
+
+    def test_creator_pipeline_contract_changes_do_not_boot_portable_qemu(self):
+        """Creator routing is not a Portable kernel, boot or graphical runtime producer."""
+        creator_and_desktop = [
+            ".github/workflows/creator-owner-dev-git.yml",
+            "tests/test_creator_owner_external_source.py",
+            "tools/ci/creator_owner_impact.py",
+            "tests/test_creator_owner_impact.py",
+            "tools/ci/portable_qemu_impact.py",
+            "tests/test_portable_qemu_impact.py",
+            "system/adapters/desktop/local-ai-host.mjs",
+            "tests/test_windows_desktop_local_ai_host.mjs",
+        ]
+        light = impact.classify_paths(creator_and_desktop, root=ROOT)
+        self.assertFalse(light.required)
+        self.assertEqual(light.reasons, ("no-heavy-portable-impact",))
+
+        # Even with verified visual-only source advancement, the real boot
+        # and graphical-runtime owners always require Portable QEMU.
+        with_source = creator_and_desktop + ["docs/contracts/surface-source.json"]
+        verified = impact.classify_paths(
+            with_source, root=ROOT, surface_visual_lock_verified=True
+        )
+        self.assertFalse(verified.required)
+        unverified = impact.classify_paths(with_source, root=ROOT)
+        self.assertTrue(unverified.required)
+        for critical in (
+            "bootstrap/initramfs/portable_init.sh",
+            "bootstrap/surface-runtime/build.py",
+            "system/surface/bin/ordax-surface",
+            ".github/workflows/portable-v2-qemu-boot-proof.yml",
+        ):
+            with self.subTest(critical=critical):
+                result = impact.classify_paths(creator_and_desktop + [critical], root=ROOT)
+                self.assertTrue(result.required)
+        unknown = impact.classify_paths(
+            creator_and_desktop + [".github/workflows/unknown-boot-producer.yml"], root=ROOT
+        )
+        self.assertTrue(unknown.required)
+
+    def test_app_delivery_policy_changes_use_app_gates_not_portable_boot(self):
+        """An app lifecycle policy update must not rebuild unrelated Linux boot."""
+        paths = [
+            "docs/contracts/app-distribution.json",
+            "docs/contracts/first-party-app-delivery.json",
+            "docs/contracts/mvp-app-delivery.json",
+            "system/services/apps/delivery-policy.mjs",
+            "system/services/apps/first-run-selection.mjs",
+            "system/services/apps/mvp-delivery-policy.mjs",
+            "tests/test_first_party_app_delivery.mjs",
+            "tests/test_mvp_app_delivery.mjs",
+            "tests/test_zero_removable_bootstrap.mjs",
+            "docs/APP-PORTFOLIO-AND-PREINSTALL.md",
+        ]
+        classified = impact.classify_paths(paths, root=ROOT)
+        self.assertFalse(classified.required)
+        self.assertEqual(classified.reasons, ("no-heavy-portable-impact",))
+        for critical in (
+            "system/supervisor",
+            "bootstrap/initramfs/portable_init.sh",
+            "bootstrap/surface-runtime/build.py",
+            "system/surface/bin/ordax-surface",
+            "docs/contracts/unclassified-boot-authorization.json",
+        ):
+            with self.subTest(critical=critical):
+                result = impact.classify_paths(paths + [critical], root=ROOT)
+                self.assertTrue(result.required)
+                self.assertNotEqual(result.reasons, ("no-heavy-portable-impact",))
+
+    def test_signed_stateless_windows_desktop_slice_is_not_portable_boot(self):
+        # The #2342 signed current-slot integration changed shared high-level
+        # Native UI contracts and isolated test tools, but no boot producer,
+        # initramfs, kernel, offline Surface runtime or component probation.
+        desktop_paths = [
+            ".github/workflows/windows-desktop-dev.yml",
+            "system/adapters/desktop/verified-component-slot-host.mjs",
+            "system/adapters/native/signed-current-compatibility.mjs",
+            "system/composition/native/main.mjs",
+            "system/composition/native/verified-installed-apps.mjs",
+            "system/services/components/current-slot-loader.mjs",
+            "tests/test_native_signed_current_compatibility.mjs",
+            "tests/test_native_verified_installed_apps.mjs",
+            "tools/surface-web/browser-smoke.mjs",
+            "tools/windows-emulator/desktop-verified-component-slot.test.mjs",
+        ]
+        result = impact.classify_paths(desktop_paths, root=ROOT)
+        self.assertFalse(result.required, result.reasons)
+        self.assertEqual(result.reasons, ("no-heavy-portable-impact",))
+        # Unknown test contracts or actual Linux component probation remain
+        # expensive until explicitly classified with a separate owner proof.
+        for critical in ("tests/test_unknown_boot_sensitive_owner.py",
+                         "system/services/components/probation-orchestrator.mjs",
+                         "bootstrap/surface-runtime/source.json",
+                         "system/supervisor"):
+            with self.subTest(critical=critical):
+                self.assertTrue(impact.classify_paths(
+                    desktop_paths + [critical], root=ROOT,
+                ).required)
 
     def test_boot_coupled_local_ai_runtime_requires_qemu(self):
         result = impact.classify_paths(["system/services/local-ai/runtime.mjs"], root=ROOT)
@@ -268,6 +368,23 @@ class PortableQemuImpactTests(unittest.TestCase):
         self.assertFalse(result.required)
         self.assertEqual(result.reasons, ("no-heavy-portable-impact",))
 
+    def test_intelligence_disposable_composition_uses_focused_gates_not_qemu(self):
+        changed = [
+            "system/services/intelligence-source/wrappers/intelligence-runtime.mjs",
+            "tools/intelligence-source/compose.py",
+            "tests/test_native_release_intelligence_source.py",
+            ".github/workflows/local-ai-runtime-candidate.yml",
+        ]
+        result = impact.classify_paths(changed, root=ROOT)
+        self.assertFalse(result.required)
+        self.assertEqual(result.reasons, ("no-heavy-portable-impact",))
+        boot = impact.classify_paths([*changed, "system/entrypoint"], root=ROOT)
+        self.assertTrue(boot.required)
+        self.assertIn("heavy-exact:system/entrypoint", boot.reasons)
+        kernel = impact.classify_paths([*changed, "bootstrap/kernel/source.json"], root=ROOT)
+        self.assertTrue(kernel.required)
+        self.assertIn("heavy-non-system:bootstrap/kernel/source.json", kernel.reasons)
+
     def test_ci_scope_migration_does_not_require_portable_qemu(self):
         result = impact.classify_paths(
             [
@@ -331,6 +448,308 @@ class PortableQemuImpactTests(unittest.TestCase):
             "heavy-exact:.github/workflows/portable-v2-qemu-boot-proof.yml",
             result.reasons,
         )
+
+    def test_windows_only_native_owners_use_installed_desktop_ci_not_qemu(self):
+        desktop_paths = [
+            ".github/workflows/windows-desktop-dev.yml",
+            "tools/windows-desktop/main.cjs",
+            "tools/windows-desktop/host.cjs",
+            "tools/windows-desktop/materialize-local-ai.cjs",
+            "tools/windows-desktop/package.json",
+            "tools/windows-desktop/install-smoke.ps1",
+            "tools/windows-emulator/native-host.mjs",
+            "tools/windows-emulator/desktop-native-server.test.mjs",
+            "tests/test_windows_desktop_local_ai_host.mjs",
+            "tests/test_windows_desktop_local_ai_package.mjs",
+            "system/adapters/desktop/local-ai-host.mjs",
+            "system/adapters/desktop/local-ai-package.mjs",
+        ]
+        classified = impact.classify_paths(desktop_paths, root=ROOT)
+        self.assertFalse(classified.required)
+        self.assertEqual(classified.reasons, ("no-heavy-portable-impact",))
+
+        # Filename-only claims are not enough to drop a mandatory boot gate.
+        guarded = impact.classify_paths(
+            [*desktop_paths, impact.WINDOWS_LOCAL_AI_SOURCE_LOCK], root=ROOT,
+        )
+        self.assertTrue(guarded.required)
+        self.assertIn(
+            "heavy-exact:system/services/local-ai/source-lock.json", guarded.reasons,
+        )
+
+        # Production commit classifier may establish the narrow Windows-only
+        # change; any additional Linux or unknown root must still trigger QEMU.
+        validated = impact.classify_paths(
+            [*desktop_paths, impact.WINDOWS_LOCAL_AI_SOURCE_LOCK],
+            root=ROOT, windows_lock_verified=True,
+        )
+        self.assertFalse(validated.required)
+        for linux_change in (
+            "bootstrap/kernel/source.json",
+            "bootstrap/surface-runtime/build.py",
+            "system/services/local-ai/runtime.mjs",
+            "system/entrypoint",
+        ):
+            with self.subTest(linux_change=linux_change):
+                guarded = impact.classify_paths(
+                    [*desktop_paths, impact.WINDOWS_LOCAL_AI_SOURCE_LOCK, linux_change],
+                    root=ROOT, windows_lock_verified=True,
+                )
+                self.assertTrue(guarded.required)
+
+    def test_git_bound_local_ai_windows_lock_comparison_is_fail_closed(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            def git(*args):
+                return subprocess.run(
+                    ["git", *args], cwd=root, check=True,
+                    capture_output=True, text=True,
+                ).stdout.strip()
+            git("init", "-q")
+            git("config", "user.name", "QEMU Impact Contract")
+            git("config", "user.email", "qemu-impact@example.invalid")
+            path = root / impact.WINDOWS_LOCAL_AI_SOURCE_LOCK
+            path.parent.mkdir(parents=True, exist_ok=True)
+            base_lock = {
+                "$schema": "prototype-ordax.local-ai-source-lock/1",
+                "engine": {"id": "llama.cpp", "commit": "a" * 40},
+                "model": {"id": "pinned-model", "sha256": "b" * 64},
+            }
+            def commit(obj, message):
+                path.write_text(json.dumps(obj, sort_keys=True), encoding="utf-8")
+                git("add", ".")
+                git("commit", "-qm", message)
+                return git("rev-parse", "HEAD")
+            before = commit(base_lock, "pinned Linux Local AI source")
+            windows = json.loads(json.dumps(base_lock))
+            windows["engine"]["windows_artifact"] = {
+                "platform": "windows-x86_64",
+                "architecture": "x64",
+                "binary_format": "PE",
+                "source_commit": "a" * 40,
+                "files": [
+                    {
+                        "name": name, "sha256": "d" * 64, "size_bytes": i + 100,
+                    }
+                    for i, name in enumerate(
+                        (
+                            "ggml-base.dll", "ggml-cpu-x64.dll",
+                            "ggml-cpu-sandybridge.dll", "ggml-cpu-haswell.dll",
+                            "ggml.dll", "llama-common.dll", "llama-server-impl.dll",
+                            "llama-server.exe", "llama.dll", "mtmd.dll",
+                        )
+                    )
+                ],
+            }
+            after = commit(windows, "introduce Windows-only engine pins")
+            self.assertTrue(
+                impact.verified_windows_only_local_ai_lock_delta(before, after, root=root)
+            )
+            self.assertFalse(
+                impact.verified_windows_only_local_ai_lock_delta("invalid", after, root=root)
+            )
+            self.assertFalse(
+                impact.verified_windows_only_local_ai_lock_delta(before, before, root=root)
+            )
+            malformed_windows_pin = json.loads(json.dumps(windows))
+            malformed_windows_pin["engine"]["windows_artifact"]["files"][0]["sha256"] = "bad"
+            malformed = commit(malformed_windows_pin, "invalidate Windows file pin")
+            self.assertFalse(
+                impact.verified_windows_only_local_ai_lock_delta(before, malformed, root=root)
+            )
+            foreign_windows = json.loads(json.dumps(windows))
+            foreign_windows["engine"]["windows_artifact"]["files"][1]["name"] = "unsigned.dll"
+            foreign = commit(foreign_windows, "untrusted Windows DLL")
+            self.assertFalse(
+                impact.verified_windows_only_local_ai_lock_delta(before, foreign, root=root)
+            )
+            changed_model = json.loads(json.dumps(windows))
+            changed_model["model"]["sha256"] = "c" * 64
+            latest = commit(changed_model, "alter Linux-consumed model pin")
+            self.assertFalse(
+                impact.verified_windows_only_local_ai_lock_delta(before, latest, root=root)
+            )
+
+
+    def test_surface_source_lock_requires_exact_commit_only_visual_contract(self):
+        """Desktop-only Surface advance stays light, boot/runtime changes do not."""
+        from unittest.mock import patch
+
+        lock = {
+            "$schema": "prototype-ordax.surface-source/1",
+            "status": "canonical",
+            "source_repository": "ordaxsystems/ordax-surface",
+            "source_commit": "a" * 40,
+            "visual_source_paths": ["system/surface/ui", "system/surface/workspace"],
+            "os_host_paths": ["system/surface/entrypoint"],
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            subprocess.run(["git", "init", "-q", str(root)], check=True)
+            subprocess.run(["git", "-C", str(root), "config", "user.email", "ci@example.invalid"], check=True)
+            subprocess.run(["git", "-C", str(root), "config", "user.name", "CI"], check=True)
+
+            def commit(value, message):
+                target = root / "docs/contracts/surface-source.json"
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_text(json.dumps(value) + "\n", encoding="utf-8")
+                subprocess.run(["git", "-C", str(root), "add", "."], check=True)
+                subprocess.run(["git", "-C", str(root), "commit", "-qm", message], check=True)
+                return subprocess.check_output(
+                    ["git", "-C", str(root), "rev-parse", "HEAD"], text=True
+                ).strip()
+
+            before = commit(lock, "original visual source")
+            next_lock = json.loads(json.dumps(lock))
+            next_lock["source_commit"] = "b" * 40
+            after = commit(next_lock, "new visual-only source")
+            self.assertTrue(impact.verified_surface_visual_source_lock_delta(before, after, root=root))
+            self.assertFalse(impact.verified_surface_visual_source_lock_delta(before, before, root=root))
+            self.assertFalse(impact.verified_surface_visual_source_lock_delta("invalid", after, root=root))
+            with patch.object(impact, "native_startup_import_graph", return_value=(frozenset(), ())):
+                unverified = impact.classify_paths(["docs/contracts/surface-source.json"], root=root)
+                self.assertTrue(unverified.required)
+                verified = impact.classify_paths(
+                    ["docs/contracts/surface-source.json", "tools/ci/portable_qemu_impact.py"],
+                    root=root, surface_visual_lock_verified=True
+                )
+                self.assertFalse(verified.required)
+                boot = impact.classify_paths(
+                    ["docs/contracts/surface-source.json", "system/surface/entrypoint"],
+                    root=root, surface_visual_lock_verified=True
+                )
+                self.assertTrue(boot.required)
+                self.assertIn("heavy-exact:system/surface/entrypoint", boot.reasons)
+                builder = impact.classify_paths(
+                    ["docs/contracts/surface-source.json", "bootstrap/surface-runtime/build.py"],
+                    root=root, surface_visual_lock_verified=True
+                )
+                self.assertTrue(builder.required)
+
+            wrong_owner = json.loads(json.dumps(next_lock))
+            wrong_owner["source_repository"] = "untrusted/visual"
+            foreign = commit(wrong_owner, "replace trusted source owner")
+            self.assertFalse(impact.verified_surface_visual_source_lock_delta(before, foreign, root=root))
+            wrong_roots = json.loads(json.dumps(next_lock))
+            wrong_roots["visual_source_paths"].append("system/surface/bin")
+            unsafe = commit(wrong_roots, "include boot launcher")
+            self.assertFalse(impact.verified_surface_visual_source_lock_delta(before, unsafe, root=root))
+            changed_contract = json.loads(json.dumps(next_lock))
+            changed_contract["os_host_paths"] = ["system/entrypoint"]
+            expanded = commit(changed_contract, "change host contract")
+            self.assertFalse(impact.verified_surface_visual_source_lock_delta(before, expanded, root=root))
+
+    def test_workflow_scope_is_derived_from_identical_push_and_pr_blocks(self):
+        patterns = impact.workflow_path_patterns(ROOT)
+        self.assertIn("system/**", patterns)
+        self.assertIn("!system/**/*.md", patterns)
+        self.assertIn("bootstrap/kernel/**", patterns)
+        self.assertIn("!bootstrap/kernel/candidates/**", patterns)
+        self.assertIn("tools/ci/portable_qemu_impact.py", patterns)
+        self.assertIn(".github/workflows/portable-v2-qemu-boot-proof.yml", patterns)
+
+    def test_workflow_scope_filters_mixed_owner_pr_side_paths(self):
+        result = impact.classify_workflow_paths(
+            [
+                "system/services/base-update/dev-helpers.sh",
+                "bootstrap/base-update/owner-development/ordax-remote",
+                "bootstrap/base-update/owner-development/owner-recovery-source.json",
+                "docs/REMOTE-CONTROL.md",
+                "tests/test_dev_base_helper_refresh.py",
+                "tests/test_owner_remote_recovery.py",
+            ],
+            root=ROOT,
+        )
+        self.assertFalse(result.required)
+        self.assertEqual(
+            result.changed_paths,
+            ("system/services/base-update/dev-helpers.sh",),
+        )
+        self.assertEqual(result.reasons, ("no-heavy-portable-impact",))
+
+    def test_workflow_scope_keeps_real_kernel_input_heavy_in_mixed_delta(self):
+        result = impact.classify_workflow_paths(
+            [
+                "docs/unrelated-note.md",
+                "bootstrap/base-update/owner-development/ordax-remote",
+                "bootstrap/kernel/source.json",
+            ],
+            root=ROOT,
+        )
+        self.assertTrue(result.required)
+        self.assertEqual(result.changed_paths, ("bootstrap/kernel/source.json",))
+        self.assertIn("heavy-non-system:bootstrap/kernel/source.json", result.reasons)
+
+    def test_workflow_scope_matches_important_trigger_exclusions(self):
+        excluded = impact.workflow_scoped_paths(
+            [
+                "system/surface/ui/panel.mjs",
+                "system/surface/workspace/view.mjs",
+                "system/services/example/README.md",
+                "bootstrap/kernel/candidates/example.json",
+                "bootstrap/kernel/README.md",
+                "bootstrap/surface-runtime/README.md",
+                "bootstrap/release-acquisition/README.md",
+                "tools/release-signing/windows/helper.ps1",
+                "tools/release-signing/promote_public_trust.py",
+                "tools/release-signing/README.md",
+            ],
+            root=ROOT,
+        )
+        self.assertEqual(excluded, ())
+        included = impact.workflow_scoped_paths(
+            [
+                "system/entrypoint",
+                "bootstrap/kernel/source.json",
+                "bootstrap/stable-base/source.json",
+                "tools/release-signing/sign.py",
+                ".github/workflows/portable-v2-qemu-boot-proof.yml",
+            ],
+            root=ROOT,
+        )
+        self.assertEqual(
+            included,
+            (
+                ".github/workflows/portable-v2-qemu-boot-proof.yml",
+                "bootstrap/kernel/source.json",
+                "bootstrap/stable-base/source.json",
+                "system/entrypoint",
+                "tools/release-signing/sign.py",
+            ),
+        )
+
+    def test_outside_workflow_scope_only_is_not_heavy(self):
+        result = impact.classify_workflow_paths(
+            [
+                "bootstrap/base-update/owner-development/ordax-remote",
+                "docs/REMOTE-CONTROL.md",
+                "tests/test_owner_remote_recovery.py",
+            ],
+            root=ROOT,
+        )
+        self.assertFalse(result.required)
+        self.assertEqual(result.changed_paths, ())
+        self.assertEqual(result.reasons, ("outside-workflow-scope-only",))
+
+    def test_workflow_scope_drift_fails_closed(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            workflow = root / ".github/workflows/portable-v2-qemu-boot-proof.yml"
+            workflow.parent.mkdir(parents=True)
+            workflow.write_text(
+                "on:\n"
+                "  push:\n"
+                "    paths:\n"
+                "      - 'system/**'\n"
+                "  pull_request:\n"
+                "    paths:\n"
+                "      - 'bootstrap/kernel/**'\n",
+                encoding="utf-8",
+            )
+            result = impact.classify_workflow_paths(["system/entrypoint"], root=root)
+        self.assertTrue(result.required)
+        self.assertTrue(result.reasons[0].startswith("workflow-scope:ValueError:"))
+        self.assertIn("push-pull-workflow-path-scope-drift", result.reasons[0])
 
     def test_missing_runtime_root_discovery_fails_closed(self):
         with tempfile.TemporaryDirectory() as directory:

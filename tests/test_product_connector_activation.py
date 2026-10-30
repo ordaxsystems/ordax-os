@@ -19,7 +19,10 @@ OTHER_SUBJECT = "123e4567-e89b-42d3-a456-426614174001"
 class Reply:
     def __init__(self, authenticated):
         self.status = 200
-        self.body = json.dumps({"authenticated": authenticated, "subject": SUBJECT}).encode()
+        self.body = json.dumps({"$schema": "prototype-ordax.public-identity-session/1",
+            "authenticated": authenticated, "subject": SUBJECT,
+            "status": "authenticated" if authenticated else "anonymous",
+            "provider": "supabase", "email": "owner@example.test"}).encode()
 
 class Gateway:
     def __init__(self):
@@ -77,7 +80,7 @@ class ProductConnectorActivationTests(unittest.TestCase):
         ):
             coordinator = ProductDevicePostLoginCoordinator(Gateway(),
                 distribution_profile="owner-development", product_mode="usb",
-                control_plane_origin="https://cp.example", state_dir=self.tmp.name)
+                development_discovery=False, control_plane_origin="https://cp.example", state_dir=self.tmp.name)
             self.assertEqual(coordinator.after_authenticated_login(profile).status, "enrolled")
             worker.return_value.start.assert_not_called()
             self.assertFalse(coordinator.visibility_status(authenticated=True, subject=SUBJECT)["enabled"])
@@ -101,7 +104,7 @@ class ProductConnectorActivationTests(unittest.TestCase):
         ):
             coordinator = ProductDevicePostLoginCoordinator(Gateway(),
                 distribution_profile="owner-development", product_mode="usb",
-                control_plane_origin="https://cp.example", state_dir=self.tmp.name)
+                development_discovery=False, control_plane_origin="https://cp.example", state_dir=self.tmp.name)
             coordinator.after_authenticated_login(profile, subject=OTHER_SUBJECT)
             worker.return_value.start.assert_not_called()
             self.assertFalse(coordinator.visibility_status(
@@ -109,6 +112,107 @@ class ProductConnectorActivationTests(unittest.TestCase):
             )["enabled"])
             coordinator.after_authenticated_login(profile, subject=SUBJECT)
             worker.return_value.start.assert_called_once()
+
+    def test_authenticated_session_resumes_only_the_same_accounts_opted_in_worker(self):
+        self.store.set_connector_visibility(True, SUBJECT)
+        gateway = Gateway()
+        with (
+            patch("product_device_runtime.ProductDeviceIdentityStore", return_value=self.store),
+            patch("product_device_runtime.ProductDeviceEnrollmentClient"),
+            patch("product_device_runtime.ProductDevicePresenceWorker") as worker,
+            patch("product_device_runtime.enroll_product_device_after_login",
+                return_value=PostLoginDeviceResult(status="enrolled")) as enroll,
+        ):
+            coordinator = ProductDevicePostLoginCoordinator(gateway,
+                distribution_profile="owner-development", product_mode="usb",
+                development_discovery=False, control_plane_origin="https://cp.example", state_dir=self.tmp.name)
+            proxy = ProductDeviceAccountGatewayProxy(gateway, coordinator, lambda: {"displayName": "USB"})
+            proxy.session()
+            proxy.session()
+            worker.return_value.start.assert_called_once()
+            enroll.assert_called_once()
+            gateway.authenticated = False
+            status = proxy.connector_status()
+            worker.return_value.stop.assert_called_once_with(wait=False)
+            self.assertFalse(status["accountAuthenticated"])
+            self.assertFalse(status["enabled"])
+            self.assertEqual(status["presenceState"], "disabled")
+
+    def make_development_coordinator(self, gateway=None):
+        coordinator = ProductDevicePostLoginCoordinator(gateway or Gateway(),
+            distribution_profile="owner-development", product_mode="usb",
+            control_plane_origin="https://cp.example", state_dir=self.tmp.name)
+        return coordinator
+
+    def test_dev_startup_reports_enrolled_device_without_login(self):
+        self.store.commit_enrollment(SUBJECT)
+        with patch("product_device_runtime.ProductDevicePresenceWorker") as worker:
+            coordinator = self.make_development_coordinator()
+            worker.return_value.start.assert_called_once()
+            gateway = Mock()
+            proxy = ProductDeviceAccountGatewayProxy(gateway, coordinator, lambda: {})
+            status = proxy.connector_status()
+            gateway.session.assert_not_called()
+            self.assertTrue(status["enabled"])
+            self.assertTrue(status["canEnableWithoutLogin"])
+            self.assertFalse(status["accountAuthenticated"])
+            self.assertFalse(status["remoteActionsEnabled"])
+
+    def test_dev_local_disable_persists_and_reenable_needs_no_login(self):
+        self.store.commit_enrollment(SUBJECT)
+        with patch("product_device_runtime.ProductDevicePresenceWorker") as worker:
+            coordinator = self.make_development_coordinator()
+            proxy = ProductDeviceAccountGatewayProxy(Mock(), coordinator, lambda: {})
+            self.assertFalse(proxy.configure_connector_visibility(False)["enabled"])
+            worker.return_value.reset_mock()
+            restarted = self.make_development_coordinator()
+            worker.return_value.start.assert_not_called()
+            restarted_proxy = ProductDeviceAccountGatewayProxy(Mock(), restarted, lambda: {})
+            self.assertTrue(restarted_proxy.configure_connector_visibility(True)["enabled"])
+            worker.return_value.start.assert_called_once()
+            self.assertFalse(self.store.connector_visibility_enabled(SUBJECT))
+
+    def test_dev_logout_keeps_presence_but_runtime_shutdown_stops_it(self):
+        self.store.commit_enrollment(SUBJECT)
+        with patch("product_device_runtime.ProductDevicePresenceWorker") as worker:
+            coordinator = self.make_development_coordinator()
+            gateway = Mock()
+            gateway.logout.return_value.status = 204
+            proxy = ProductDeviceAccountGatewayProxy(gateway, coordinator, lambda: {})
+            proxy._authenticated = True
+            proxy.logout()
+            worker.return_value.stop.assert_not_called()
+            proxy.close_product_presence()
+            worker.return_value.stop.assert_called_once_with(wait=True)
+
+    def test_dev_missing_credential_does_not_mint_or_publish_identity(self):
+        with patch("product_device_runtime.ProductDevicePresenceWorker") as worker:
+            coordinator = self.make_development_coordinator()
+            worker.return_value.start.assert_not_called()
+            self.assertFalse(coordinator.visibility_status(authenticated=False)["enabled"])
+            self.assertFalse(self.store.credential_path.exists())
+            coordinator.configure_visibility(False, {}, authenticated=False)
+            with self.assertRaises(RuntimeError):
+                coordinator.configure_visibility(True, {}, authenticated=False)
+
+    def test_dev_rejects_unsafe_credential_and_visibility_policy(self):
+        self.store.commit_enrollment(SUBJECT)
+        self.assertTrue(self.store.development_visibility_enabled())
+        self.store.credential_path.chmod(0o644)
+        self.assertFalse(self.store.development_visibility_enabled())
+        self.store.credential_path.chmod(0o600)
+        self.store.set_development_connector_visibility(True)
+        self.store.connector_visibility_path.chmod(0o644)
+        self.assertFalse(self.store.development_visibility_enabled())
+        self.store.connector_visibility_path.chmod(0o600)
+        self.store.connector_visibility_path.write_text("{}")
+        self.assertFalse(self.store.development_visibility_enabled())
+
+    def test_dev_policy_does_not_follow_another_device_identity(self):
+        self.store.commit_enrollment(SUBJECT)
+        self.store.set_development_connector_visibility(True)
+        self.store.commit_enrollment(OTHER_SUBJECT)
+        self.assertFalse(self.store.development_visibility_enabled())
 
     def test_enable_fails_closed_when_enrollment_is_unavailable(self):
         with (
@@ -120,7 +224,7 @@ class ProductConnectorActivationTests(unittest.TestCase):
         ):
             coordinator = ProductDevicePostLoginCoordinator(Gateway(),
                 distribution_profile="owner-development", product_mode="usb",
-                control_plane_origin="https://cp.example", state_dir=self.tmp.name)
+                development_discovery=False, control_plane_origin="https://cp.example", state_dir=self.tmp.name)
             with self.assertRaises(RuntimeError):
                 coordinator.configure_visibility(True, {"displayName": "USB"}, subject=SUBJECT)
             self.assertFalse(self.store.connector_visibility_enabled(SUBJECT))
@@ -131,6 +235,7 @@ class ProductConnectorActivationTests(unittest.TestCase):
         coordinator = Mock()
         coordinator.visibility_status.return_value = {"available": True}
         proxy = ProductDeviceAccountGatewayProxy(gateway, coordinator, lambda: {"displayName":"USB"})
+        gateway.authenticated = False
         with self.assertRaises(PermissionError):
             proxy.configure_connector_visibility(True)
         coordinator.configure_visibility.assert_not_called()

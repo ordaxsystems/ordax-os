@@ -17,6 +17,20 @@
       "normal_update_transport": "git-main",
       "normal_update_owner": "bootstrap/dev-base/ordax-pull",
       "runtime_update_owner": "system/supervisor",
+      "runtime_host_adapters": {
+        "linux-usb": {
+          "git_main_materializer": "bootstrap/dev-base/ordax-pull",
+          "health_promotion_owner": "system/supervisor"
+        },
+        "windows-desktop": {
+          "git_main_materializer": "tools/windows-desktop/dev-update.cjs",
+          "health_promotion_owner": "tools/windows-desktop/dev-update.cjs",
+          "application_relaunch_owner": "tools/windows-desktop/main.cjs",
+          "automatic_idle_activation": true,
+          "operates_only_while_electron_is_running": true,
+          "electron_shell_self_update_implemented": false
+        }
+      },
       "base_candidate_transport": "immutable-exact-commit-development-channel",
       "base_update_owner": "system/services/base-update/agent.sh",
       "diagnostic_source_sha_visible": true,
@@ -181,5 +195,69 @@
     "id": "stable-base-signed-update-integration",
     "description": "Promote the Stable/MVP Base only after its Alpine source digest and exact APK package set are pinned, then connect signed kernel/initramfs/rootfs delivery to the existing A/B health/rollback machinery without enabling the Owner/Development Git candidate channel.",
     "implemented": false
+  },
+  "update_delivery_selection": {
+    "$schema": "ordax.update-delivery-selection/1",
+    "policy_owner": "docs/contracts/distribution-profiles.json",
+    "execution_owner": "system/supervisor",
+    "purpose": "Transport routing only; signature, materialization, activation, health and rollback retain existing owners",
+    "methods": {
+      "git-main": {
+        "acquisition_owner": "bootstrap/dev-base/ordax-pull",
+        "requires_signed_release": false,
+        "public_allowed": false
+      },
+      "official-signed-release-channel": {
+        "acquisition_owner": "bootstrap/release-acquisition",
+        "requires_signed_release": true,
+        "public_allowed": true
+      },
+      "signed-exact-git": {
+        "acquisition_owner": "system/supervisor",
+        "requires_signed_release": true,
+        "public_allowed": true,
+        "exact_signed_source_commit_required": true
+      }
+    },
+    "profiles": {
+      "owner-development": {
+        "default": "git-main",
+        "enabled": [
+          "git-main"
+        ],
+        "gated": [
+          "official-signed-release-channel"
+        ]
+      },
+      "stable-mvp": {
+        "default": "official-signed-release-channel",
+        "enabled": [
+          "official-signed-release-channel"
+        ],
+        "gated": [
+          "signed-exact-git"
+        ]
+      }
+    },
+    "rules": {
+      "one_transport_per_transaction": true,
+      "switch_only_when_idle": true,
+      "no_transport_fallback_on_verification_failure": true,
+      "signed_release_required_for_all_public_updates": true,
+      "base_ab_activation_is_separate": true,
+      "known_good_boot_must_remain_offline": true,
+      "do_not_change_current_until_health_gate": true,
+      "user_consent_does_not_override_integrity": true
+    },
+    "user_experience": {
+      "owner_default": "automatic-development",
+      "stable_default": "notify-before-download",
+      "defer_normal_updates_allowed": true,
+      "automatic_reboot_without_user_consent": false,
+      "implemented": false
+    },
+    "runtime_method_switch_implemented": false,
+    "stable_signed_git_transport_implemented": false,
+    "owner_signed_release_transport_implemented": false
   }
 }

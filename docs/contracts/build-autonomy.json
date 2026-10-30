@@ -107,9 +107,7 @@
     "assembly_contract": "docs/contracts/native-release-assembly.json",
     "shared_system_source": "system/",
     "native_helper_source": [
-      "tools/creator/core/",
-      "tools/creator/host/linux/",
-      "tools/creator/cmd/ordax-creator-native-targets/",
+      "docs/contracts/native-release-assembly.json#creator_source",
       "tools/runtime-component-channel/"
     ],
     "helper_built_by_ci": true,
@@ -121,6 +119,7 @@
       "system/bin/ordax-native-install-targets",
       "system/bin/ordax-runtime-component-channel"
     ],
-    "component_helper_publish_authorized": false
+    "component_helper_publish_authorized": false,
+    "creator_source_owner": "ordaxsystems/ordax-creator"
   }
 }

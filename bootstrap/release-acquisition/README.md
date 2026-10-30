@@ -153,6 +153,67 @@ For the prototype, `release_id` equals `source_commit`, so immutable release ide
 See `docs/RELEASE-CHANNEL.md` for the system-wide delivery contract.
 
 
+## Signed release bundles from removable media (offline, non-activating)
+
+The same canonical `ordax-release-agent` materializers accept one of two
+mutually exclusive sources: `--envelope-url` (HTTPS) or `--local-bundle`
+(absolute path to a read-only, separate input directory). This is an **input
+transport**, not a second updater and not permission to arm a boot slot.
+
+A portable package directory contains the unmodified canonical files:
+
+```text
+<offline-bundle>/
+  release-envelope.json             # signed Ed25519 envelope (all schemas)
+  system.tar                        # release-manifest/1 only
+  system.erofs                      # release-manifest/2, /3, /4
+  native-surface-runtime.erofs      # release-manifest/3, /4
+  local-ai-runtime.erofs            # release-manifest/4 only
+```
+
+Only files required by the **exact signed schema** should be needed for the
+operation. Artifact names, roles, HTTPS provenance URLs, sizes and SHA-256 are
+checked against the signed manifest. The HTTPS URLs remain signed provenance;
+the offline command **does not request those URLs**. The package directory and
+output root must not overlap. Symlinked ancestors, symlinked envelope/artifact
+files, malformed files, wrong repository/commit/schema, truncated or changed
+artifacts fail closed **before** release staging; the copy path rechecks the
+same artifact hash and size. A mixed `--local-bundle`/`--envelope-url`
+request is rejected.
+
+For example, with an already trusted public Ed25519 key installed locally
+and a pinned, authorized 40-hex release SHA:
+
+```sh
+ordax-release-agent materialize-portable-v4 \
+  --local-bundle /media/ORDAX-DATA/verified-package \
+  --trust /ordax/bootstrap/trust/release-ed25519.json \
+  --root /ordax-data/.ordax \
+  --expected-commit <pinned-signed-40-hex-SHA>
+ordax-release-agent verify-portable-v4-exact \
+  --trust /ordax/bootstrap/trust/release-ed25519.json \
+  --root /ordax-data/.ordax \
+  --expected-commit <pinned-signed-40-hex-SHA>
+```
+
+Use `materialize` for the legacy signed system.tar schema,
+`materialize-portable` for v2, `materialize-portable-v3` for v3 and
+`materialize-portable-v4` for v4. The existing exact verification and
+Portable `ordax-portable-state` health/rollback owners are unchanged.
+No `current`, `known-good`, BootNext or ESP pointer is modified by
+materialization. An old signed SHA remains subject to the *separate* activation
+policy, anti-downgrade and health gates: possession of a valid signature
+**alone** is not authorization to downgrade.
+
+A host/Windows tool may **transport** those signed bytes to removable media,
+but it must still independently identify the intended disk, preserve the data,
+check write/readback, and safely detach it. This CLI does not perform partition
+repair, Creator reflashing or hardware identity checks. In particular a bundle
+stored on the same corrupt ext4 cannot recover that filesystem: the recovery
+runtime must be bootable independently of the damaged state partition.
+This capability is a software/CI gate of issue #2005, **not** physical USB
+certification.
+
 ## Exact offline activation
 
 A Stable/MVP update must not resolve `latest` again after staged health succeeds. The release agent therefore exposes an offline exact activation primitive:
@@ -294,3 +355,53 @@ ordax-release-agent verify-portable-v4-exact \
 The Surface runtime remains under `.ordax/runtimes/sha256/`; the local inference payload uses a separate `.ordax/ai-runtimes/sha256/` store. Both are revalidated by signed hash, exact size and EROFS superblock before reuse. The release directory stores digest references, not mutable runtime copies.
 
 This protocol support does **not** mean the real llama.cpp/model EROFS has already been built or placed on a physical Stable USB. v4 materialization remains non-activating and does not grant physical-write authority.
+
+## Owner/Development: selective signed Aura EROFS materialization (source candidate)
+
+`materialize-owner-dev-local-ai` is a **non-activating** operation of the
+existing `ordax-release-agent`; it does not create a second downloader, signer,
+model source, updater, Stable slot or runtime service. It reads the published
+signed portable v4 envelope with the **existing** release trust anchor, requires
+an explicitly pinned release commit **independent of the Git `main` checkout**
+and checks the signed `local_ai.source_lock_sha256` against the exact
+`source-lock.json` of the active Owner/Development checkout.
+
+Its caller must also supply exact EROFS SHA-256 and byte size, fixed by the
+canonical v4 candidate and the current `owner-dev-runtime.sh`. Only then does it
+download and verify **the local AI artifact alone**, reuse the existing
+hash/size/EROFS verifier, and atomically materialize the file at:
+
+```text
+/state/ordax/local-ai/sha256/<signed-artifact-sha256>/local-ai-runtime.erofs
+```
+
+The store directories use 0700 and the image 0600; existing content is
+reverified before reuse and corrupt candidates are **not** silently
+overwritten. The operation performs no Stable activation, no boot mutation,
+no Surface download, no Git update and no modification of existing known-good
+state. A failed acquisition cannot affect the boot-critical system release.
+
+Required options (no implicit `latest` identity):
+
+```text
+ordax-release-agent materialize-owner-dev-local-ai \
+  --envelope-url <verified canonical v4 HTTPS release envelope> \
+  --trust <canonical release public trust anchor> \
+  --state-root /state/ordax \
+  --source-lock /workspace/ordax/system/services/local-ai/source-lock.json \
+  --expected-release-commit <signed portable v4 source commit> \
+  --expected-artifact-sha256 <signed and locally pinned AI EROFS SHA-256> \
+  --expected-artifact-size <signed and locally pinned AI EROFS byte size>
+```
+
+**Do not run this directly from the graphical Surface or device recovery
+shell.** The acquisition is a verified primitive, not delivery wiring. The
+authorized Owner/Development update supervisor must first receive a verified
+static release-agent binary through its existing component delivery boundary,
+then bind the exact candidate/trust and run this command in its governed
+component acquisition stage. The CLI is never invoked during graphical boot.
+That integration, disk-space checks, recovery/rollback receipts and real
+notebook inference remain separate gates in #2071. A CI pass here is **not**
+proof that the USB device received the model. This path introduces no APK or
+Alpine-specific package installation.
+

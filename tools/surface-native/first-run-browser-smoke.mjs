@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // First-run DOM integration proof using real ESM modules in disposable Chromium.
 import {readFile} from 'node:fs/promises';
+import {createServer} from 'node:http';
 import {dirname,isAbsolute,join,normalize,relative,resolve,sep} from 'node:path';
 import {runBrowser} from '../browser-proof/chromium.mjs';
 const ROOT=resolve('.');
@@ -28,14 +29,48 @@ async function sources() {
     .replace(DYNAMIC,(all,sub)=>all.replace(sub,key(dependency(p,sub))))
  ]));
 }
-async function scenario(modules,css) {
+
+const SYMBOL_PATH='system/surface/ui/brand/ordax-symbol.png';
+
+// Serve the exact checked-out ESM sources and canonical brand asset from one
+// ephemeral loopback origin. A blob:null module cannot resolve import.meta.url
+// relative assets; an actual Native/Web Surface has a hierarchical origin.
+async function createProofSourceServer(modules) {
+ const symbol=await readFile(join(ROOT,SYMBOL_PATH));
+ const server=createServer((request,response)=>{
+  let path;
+  try { path=decodeURIComponent(new URL(request.url??'/', 'http://127.0.0.1').pathname.slice(1)); }
+  catch { response.writeHead(400);response.end();return; }
+  const isModule=Object.hasOwn(modules,path);
+  if(!isModule && path!==SYMBOL_PATH){response.writeHead(404);response.end();return;}
+  response.writeHead(200,{
+   'Content-Type':isModule?'text/javascript; charset=utf-8':'image/png',
+   'Access-Control-Allow-Origin':'*',
+   'Cache-Control':'no-store',
+   'X-Content-Type-Options':'nosniff',
+  });
+  response.end(isModule?modules[path]:symbol);
+ });
+ await new Promise((resolvePromise,reject)=>{
+  server.once('error',reject);
+  server.listen(0,'127.0.0.1',resolvePromise);
+ });
+ const address=server.address();
+ if(!address || typeof address==='string')throw Error('Proof source server has no port');
+ return {
+  origin:'http://127.0.0.1:'+address.port,
+  close:()=>new Promise(resolvePromise=>server.close(resolvePromise)),
+ };
+}
+
+async function scenario(modules,css,origin) {
  document.open();
  document.write('<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"></head><body><main id="proof-root"></main></body></html>');
  document.close();
  const style=document.createElement('style');style.textContent=css;document.head.append(style);
  const urls={},map={};
- for(const [path,source] of Object.entries(modules)) {
-  urls[path]=URL.createObjectURL(new Blob([source],{type:'text/javascript'}));
+ for(const path of Object.keys(modules)) {
+  urls[path]=origin+'/'+path.split('/').map(encodeURIComponent).join('/');
   map['ordax-oobe/'+path.split('/').map(encodeURIComponent).join('/')]=urls[path];
  }
  const script=document.createElement('script');script.type='importmap';
@@ -46,13 +81,21 @@ async function scenario(modules,css) {
  const delay=()=>new Promise(done=>setTimeout(done,0));
  const get=kind=>document.querySelector('[data-first-run-action="'+kind+'"]');
  const click=async kind=>{
+  if(kind==='finish'){
+   const consent=document.querySelector('[data-first-run-system-terms-acceptance]');
+   if(!consent)throw Error('Missing OS terms acknowledgement');
+   if(!consent.checked){
+    if(!get('finish')?.disabled)throw Error('OS entry must require acknowledgement');
+    consent.checked=true;consent.dispatchEvent(new Event('change',{bubbles:true}));
+   }
+  }
   const b=get(kind);if(!b||b.disabled)throw Error('Missing/disabled '+kind);
   b.click();await delay();
  };
  const defaultState=()=>({schema:'ordax.first-run-state/1',completed:false,locale:'pt-BR',timeZone:'America/Bahia',accountMode:null});
- async function fixture({identity=false,failSave=false}={}) {
-  let state=defaultState(),session=identity?{state:'signed-in',subjectId:'owner-A',displayName:'Proof User'}:{state:'unavailable'};
-  let fail=failSave;let refreshSession=null;const writes=[],listeners=new Set();let prefs={};
+ async function fixture({identity=false,signedOut=false,publicSignupEnabled=false,failSave=false,holdIdentityProbe=false}={}) {
+  let state=defaultState(),session=identity?{state:'signed-in',subjectId:'owner-A',displayName:'Proof User'}:signedOut?{state:'signed-out'}:{state:'unavailable'};
+  let fail=failSave;let refreshSession=null;let releaseIdentityProbe=null;const writes=[],listeners=new Set();let prefs={};
   let reads=0,posts=0;
   // Disposable HTTP semantics; the real native JS adapter owns GET/POST handling.
   // Actual disk durability and native host authorization are tested separately.
@@ -81,29 +124,41 @@ async function scenario(modules,css) {
    set(key,value){prefs={...prefs,[key]:value};},subscribe(){return ()=>{};}};
   const identitySession={schema:'ordax.identity-session/1',getSnapshot:()=>session,
    subscribe(listener){listeners.add(listener);listener(session);return ()=>listeners.delete(listener);},
-   async refresh(){if(refreshSession)session=refreshSession;return session;}};
-  const identityActions={schema:'ordax.identity-actions/1',getSnapshot:()=>({supportedActions:session.state==='signed-in'?['sign-out']:[]}),
-   subscribe(listener){listener(this.getSnapshot());return ()=>{};},async execute(){throw Error('unavailable proof identity');}};
-  return {ports:{stateStore,preferences,identitySession,identityActions},
+   async refresh(){
+    if(holdIdentityProbe)await new Promise(resolve=>{releaseIdentityProbe=resolve;});
+    if(refreshSession)session=refreshSession;return session;
+   }};
+  const identityActions={schema:'ordax.identity-actions/1',getSnapshot:()=>({supportedActions:session.state==='signed-in'?['sign-out']:session.state==='signed-out'?['sign-in']:[]}),
+   subscribe(listener){listener(this.getSnapshot());return ()=>{};},async execute(action){
+    if(action!=='sign-out')throw Error('unavailable proof identity');
+    session={state:'signed-out'};refreshSession=null;
+    for(const listener of listeners)listener(session);
+   }};
+  const identityCredentials=signedOut?{
+   schema:'ordax.identity-credentials/1',
+   async signIn(){throw Error('Sign-in cannot run during hosted-registration proof');},
+   async register(){throw Error('Direct Native registration must not run during hosted-registration proof');},
+   async registrationPolicy(){return {
+     registrationEnabled:false,publicRegistrationEnabled:publicSignupEnabled,
+   };},
+  }:null;
+  return {ports:{stateStore,preferences,identitySession,identityActions,identityCredentials},
    get state(){return state;},get writes(){return writes;},get prefs(){return prefs;},
    get reads(){return reads;},get posts(){return posts;},
+   releaseIdentityProbe(){releaseIdentityProbe?.();releaseIdentityProbe=null;},
    async freshStateStore(){return createNativeFirstRunStateStore(transport);},
    failSave(v){fail=v;},onRefresh(next){refreshSession=next;},session(next){session=next;for(const fn of listeners)fn(next);}};
  }
  async function reachAccount(){
+  if(!document.querySelector('[data-first-run-locale]'))throw Error('Missing welcome language selector');
   await click('next');
-  if(!document.querySelector('[data-first-run-locale]'))throw Error('Missing regional step');
-  await click('next');await click('next');await click('next');
+  await click('next');
   if(!get('account-local'))throw Error('Missing account step');
  }
  async function finishLocal(){
   await click('account-local');
-  const memoryToggle=document.querySelector('[data-first-run-memory-auto-capture]');
-  if(!(memoryToggle instanceof HTMLInputElement)||!memoryToggle.checked)throw Error('Missing canonical memory privacy control');
-  memoryToggle.checked=false;
-  memoryToggle.dispatchEvent(new Event('change',{bubbles:true}));
   await click('next');
-  if(!document.querySelector('.ordax-first-run-note'))throw Error('Missing device-name fallback');
+  if(!document.querySelector('.ordax-first-run-availability')?.textContent.includes('nome do dispositivo está indisponível'))throw Error('Missing device-name fallback');
   await click('next');
   await click('finish');
  }
@@ -123,7 +178,7 @@ async function scenario(modules,css) {
   async configure(){keyboardMutations+=1;throw Error('OOBE must stay read-only');},
  };
  const keyboardFirst=mountFirstRunExperience(root,keyboardOwner.ports);
- await click('next');await delay();
+ await delay();
  const firstStatus=document.querySelector('[data-first-run-keyboard-status]')?.textContent??'';
  checks.nativeKeyboardReadOnly=firstStatus.includes('ABNT2')
   && firstStatus.includes('Layout configurado:')
@@ -139,7 +194,7 @@ async function scenario(modules,css) {
  const keyboardSecond=mountFirstRunExperience(root,{
   ...keyboardOwner.ports,stateStore:await keyboardOwner.freshStateStore(),
  });
- await click('next');await delay();
+ await delay();
  const resumedStatus=document.querySelector('[data-first-run-keyboard-status]')?.textContent??'';
  checks.relaunchRefreshesNativeKeyboard=resumedStatus.includes('English (US)')
   && !resumedStatus.includes('ABNT2') && keyboardReads===2
@@ -159,12 +214,10 @@ async function scenario(modules,css) {
  const resumedSecurity=mountFirstRunExperience(root,{
   ...cursorFixture.ports,resumeCursor:cursorPort,
  });
- checks.resumesIncompleteSecurity=!!document.querySelector('[data-first-run-local-session-secret]')
-  || !!document.querySelector('[data-first-run-action="next"]')
-   && document.querySelector('.ordax-first-run-header')?.textContent.includes('Segurança');
- await click('next');await delay();
- checks.cursorMovesToAccount=checkpoint.step==='account'
-  && !!get('account-local') && savedCursorSteps.includes('account');
+ checks.resumeReconfirmsAccount=!!get('account-local');
+ await click('account-local');await delay();
+ checks.laterStepsPersistAccountCursor=checkpoint.step==='account'
+  && document.querySelector('.ordax-first-run')?.dataset.firstRunStep==='security' && savedCursorSteps.includes('account');
  resumedSecurity.destroy();
  const resumedAccount=mountFirstRunExperience(root,{
   ...cursorFixture.ports,
@@ -175,19 +228,54 @@ async function scenario(modules,css) {
   && cursorFixture.writes.length===0 && !cursorFixture.state.completed;
  resumedAccount.destroy();
 
+ const gated=await fixture({signedOut:true,publicSignupEnabled:false});
+ const gatedWizard=mountFirstRunExperience(root,gated.ports);
+ await reachAccount();await delay();
+ checks.hostedSignupDeniedWhenPublicRegistrationClosed=
+  !document.querySelector('[data-first-run-hosted-signup]')
+  && document.querySelector('.ordax-first-run-account-help')?.textContent.includes('Novos cadastros ainda não estão disponíveis')
+  && !document.querySelector('[data-first-run-action="account-mode"]')
+  && !!get('account-local');
+ gatedWizard.destroy();
+
+ // Server explicitly permits public Web registration but still denies Native.
+ // The First Run must expose the canonical site, not activate direct registration.
+ const webEnabled=await fixture({signedOut:true,publicSignupEnabled:true});
+ const webEnabledWizard=mountFirstRunExperience(root,webEnabled.ports);
+ await reachAccount();await delay();
+ const hostedSignup=document.querySelector('[data-first-run-hosted-signup]');
+ checks.hostedSignupShownOnlyWhenPublicAuthorized=
+  hostedSignup?.getAttribute('href')==='https://ordax.com.br/cadastro/'
+  && hostedSignup?.getAttribute('target')==='_blank'
+  && hostedSignup?.getAttribute('rel')==='noopener noreferrer'
+  && !document.querySelector('[data-first-run-action="account-mode"]')
+  && !!get('account-local');
+ webEnabledWizard.destroy();
+
  const offline=await fixture();
  const first=mountFirstRunExperience(root,offline.ports);
  checks.offlineWizardShown=first.shown===true && !!document.querySelector('.ordax-first-run');
  checks.modalAccessibility=document.querySelector('.ordax-first-run')?.getAttribute('aria-modal')==='true';
  await reachAccount();await finishLocal();
  checks.offlineReceipt=offline.state.completed && offline.state.accountMode==='local-only';
+ checks.osTermsReceipt=offline.state.systemTerms?.accepted===true && offline.state.systemTerms?.status==='draft';
  checks.onlyClosesAfterSave=offline.writes.length===1 && !document.querySelector('.ordax-first-run');
  checks.regionalPreference=offline.prefs['regional.locale']==='pt-BR';
- checks.privacyPreference=offline.prefs['memory.auto-capture']==='off';
+ checks.setupDoesNotChangeMemory=!Object.prototype.hasOwnProperty.call(offline.prefs,'memory.auto-capture');
  checks.restoredRoot=root.inert===false && root.getAttribute('aria-hidden')===null;
  checks.noOobeReplay=mountFirstRunExperience(root,{...offline.ports,
   stateStore:await offline.freshStateStore()}).shown===false;
  checks.adapterTransportRoundTrip=offline.reads===2 && offline.posts===1;
+
+ const pendingAccountProbe=await fixture({holdIdentityProbe:true});
+ const pendingAccountFirst=mountFirstRunExperience(root,pendingAccountProbe.ports);
+ await click('next');await click('next');
+ checks.localSetupAvailableDuringAccountProbe=!!get('account-local')&&!get('account-local').disabled;
+ await click('account-local');
+ checks.localSetupContinuesWithoutWaitingForAccount=pendingAccountFirst.shown
+  && document.querySelector('.ordax-first-run')?.dataset.firstRunStep==='security';
+ pendingAccountProbe.releaseIdentityProbe();
+ pendingAccountFirst.destroy();
 
  const identity=await fixture({identity:true});
  mountFirstRunExperience(root,identity.ports);await reachAccount();
@@ -223,18 +311,26 @@ async function scenario(modules,css) {
  checks.retryIsDurable=storage.state.completed && storage.writes.length===1 && !document.querySelector('.ordax-first-run');
  checks.failedWriteWasNotCached=storage.posts===2
   && (await storage.freshStateStore()).load().completed===true;
- for(const url of Object.values(urls))URL.revokeObjectURL(url);
+ // HTTP module URLs and the canonical image are disposed with the source server.
  const failed=Object.entries(checks).filter(([,pass])=>!pass).map(([name])=>name);
  return {passed:failed.length===0,assertions:Object.keys(checks).length,failed,checks};
 }
 const modules=await sources();
 const css=(await Promise.all(['system/surface/ui/tokens.css','system/surface/ui/first-run.css'].map(p=>readFile(join(ROOT,p),'utf8')))).join('\n');
-const expression='('+scenario.toString()+')('+JSON.stringify(modules)+','+JSON.stringify(css)+')';
-runBrowser(async client=>{
- const response=await client.send('Runtime.evaluate',{expression,awaitPromise:true,returnByValue:true,userGesture:true});
- if(response.exceptionDetails)throw Error(response.exceptionDetails.exception?.description??response.exceptionDetails.text);
- const result=response.result?.value;
- if(!result?.passed)throw Error('OOBE browser assertions: '+JSON.stringify(result));
- console.log('ORDAX_FIRST_RUN_CHROMIUM_E2E=PASS');
- console.log('ORDAX_FIRST_RUN_ASSERTIONS='+result.assertions);
-}).catch(error=>{console.error(error);process.exitCode=1;});
+const server=await createProofSourceServer(modules);
+const expression='('+scenario.toString()+')('+JSON.stringify(modules)+','+JSON.stringify(css)+','+JSON.stringify(server.origin)+')';
+try {
+ await runBrowser(async client=>{
+  const response=await client.send('Runtime.evaluate',{expression,awaitPromise:true,returnByValue:true,userGesture:true});
+  if(response.exceptionDetails)throw Error(response.exceptionDetails.exception?.description??response.exceptionDetails.text);
+  const result=response.result?.value;
+  if(!result?.passed)throw Error('OOBE browser assertions: '+JSON.stringify(result));
+  console.log('ORDAX_FIRST_RUN_CHROMIUM_E2E=PASS');
+  console.log('ORDAX_FIRST_RUN_ASSERTIONS='+result.assertions);
+ });
+} catch (error) {
+ console.error(error);
+ process.exitCode=1;
+} finally {
+ await server.close();
+}

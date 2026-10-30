@@ -5,6 +5,7 @@ import {
   validateApplicationCompatibilityPlan,
 } from "../../contracts/application-compatibility.mjs";
 import { inspectWindowsPayload } from "./windows.mjs";
+import { inspectLinuxPayload } from "./linux.mjs";
 
 export function createApplicationCompatibilityManager({ runtimes = [] } = {}) {
   if (!Array.isArray(runtimes)) {
@@ -21,7 +22,7 @@ export function createApplicationCompatibilityManager({ runtimes = [] } = {}) {
   }
 
   function inspect(request = {}) {
-    const inspection = inspectWindowsPayload(request);
+    const inspection = inspectLinuxPayload(request) ?? inspectWindowsPayload(request);
     issuedInspections.add(inspection);
     return inspection;
   }
@@ -90,6 +91,16 @@ export function createApplicationCompatibilityManager({ runtimes = [] } = {}) {
         ready: false,
         runtimeId: null,
         reason: runtimeId === null ? "runtime-unavailable" : "requested-runtime-unavailable",
+      });
+    }
+
+    // Runtime inventory order is not an application selection policy.
+    // Require an explicit runtime id rather than changing engines silently.
+    if (matching.length > 1) {
+      return validateApplicationCompatibilityPlan({
+        ready: false,
+        runtimeId: null,
+        reason: "runtime-selection-required",
       });
     }
 

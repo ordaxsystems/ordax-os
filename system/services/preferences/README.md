@@ -114,3 +114,33 @@ CI/QEMU simulations cannot replace the physical check.
 
 The only preference value serialized is the harmless expected cosmetic choice,
 `dark` or `light`; the Native GET body is never included in reports.
+
+## Physical USB preference-continuity acceptance
+
+This is a **manual, non-destructive** acceptance check, not a CI pass and not a
+request to reimage a USB drive. Perform it only on a notebook actually booted
+into OrdaX USB. Use the already-mounted canonical Native preferences service;
+no substitute file, localStorage or external account is required.
+
+1. In Settings, change a visible choice (for example, appearance). Confirm
+   that the device status progresses from **pending** to **saved**. A change
+   still marked **pending** or **session-only** is **not** a persistence pass.
+2. Restart the Surface normally, without reformatting or removing the USB.
+   Confirm the chosen value reappears. The initial **not-written** status after
+   restart must not be misrepresented as proof of a fresh write.
+3. Reboot the USB device normally and confirm the same choice persists. This
+   is the physical continuity gate; a Chromium/QEMU run does not replace it.
+4. If an ordinary storage failure is observed, do not force one or disconnect
+   a mounted device to simulate it. Verify that **session-only** is reported
+   and that the last previously confirmed value returns on the next boot.
+   Recovery must not silently promote an unconfirmed choice.
+
+Record device/USB model, exact source commit, distribution profile, boot mode,
+preference ID, before/after value, the displayed write status, and the outcome
+of Surface restart and full reboot. A missing real-device run remains
+**UNVERIFIED**, never PASS. Do not log account tokens or unrelated user data.
+
+The automated source test in `tests/test_native_preferences.py` also guards
+that `/state/ordax/native-state` is bound to the host-visible
+`/var/lib/ordax` **before** its loopback server starts, and that cleanup only
+unmounts this state instead of erasing it.

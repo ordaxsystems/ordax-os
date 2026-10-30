@@ -31,39 +31,42 @@ test("optional and skippable semantics live with canonical step metadata", () =>
   assert.throws(() => getFirstRunStep("unknown"), /Unknown first-run step/);
 });
 
-test("Native and emulator mount one first-run module and the same Meridian visual owners", async () => {
-  const read = path => readFile(new URL("../" + path, import.meta.url), "utf8");
-  const [native, emulator, nativeHtml, emulatorHtml] = await Promise.all([
-    read("system/composition/native/main.mjs"), read("tools/windows-emulator/main.mjs"),
-    read("system/composition/native/index.html"), read("tools/windows-emulator/index.html"),
+test("emulator loads the Native composition without owning another UI or first-run", async () => {
+  const read=path=>readFile(new URL("../"+path,import.meta.url),"utf8");
+  const [native,emulator,html,wrapper]=await Promise.all([
+    read("system/composition/native/main.mjs"),read("tools/windows-emulator/main.mjs"),
+    read("system/composition/native/index.html"),read("tools/windows-emulator/index.html"),
   ]);
-  for (const entry of [native, emulator]) {
-    assert.match(entry, /from ["'][^"']*surface\/ui\/first-run\.mjs["']/);
-    assert.match(entry, /mountFirstRunExperience\(root,/);
-    assert.doesNotMatch(entry, /journey=setup|storyboards\.setup/);
-  }
-  for (const html of [nativeHtml, emulatorHtml]) {
-    assert.match(html, /<html[^>]*data-meridian/);
-    let previous = -1;
-    for (const owner of ["tokens.css", "color-palettes.css", "first-run.css", "meridian.tokens.css", "meridian.css"]) {
-      const index = html.indexOf("surface/ui/" + owner);
-      assert.ok(index > previous, owner + " must retain shared visual policy order");previous = index;
-    }
+  assert.ok(native.includes('mountFirstRunExperience(root,'));
+  assert.ok(emulator.includes('"/system/composition/native/index.html"'));
+  assert.ok(wrapper.includes('data-surface-src="/system/composition/native/index.html"'));
+  assert.doesNotMatch(emulator,/mountFirstRunExperience|createEmulatedPreferences|composition\/web|preview=layout/);
+  const wrapperStyles = [...wrapper.matchAll(/<link[^>]+href="([^"]+)"/g)].map(match => match[1]);
+  assert.deepEqual(wrapperStyles, ["/system/surface/ui/meridian.tokens.css"], "development chrome may share tokens, never product render styles");
+  assert.doesNotMatch(wrapper,/ordax-emulator-root/);
+  let previous=-1;
+  for(const owner of ["tokens.css","color-palettes.css","first-run.css","meridian.tokens.css","meridian.css"]){
+    const index=html.indexOf("surface/ui/"+owner);
+    assert.ok(index>previous);previous=index;
   }
 });
 
-test("emulator and its post-onboarding Surface consume the canonical preference owners", async () => {
-  const read = path => readFile(new URL("../" + path, import.meta.url), "utf8");
-  const [emulator, web] = await Promise.all([
-    read("tools/windows-emulator/main.mjs"), read("system/composition/web/main.tsx"),
-  ]);
-  for (const entry of [emulator, web]) {
-    assert.match(entry, /import \{ createWebPreferenceStore \} from ["'][^"']*adapters\/web\/preferences\.mjs["']/);
-    assert.match(entry, /import \{ createPreferenceRuntime \} from ["'][^"']*services\/preferences\/runtime\.mjs["']/);
-    assert.match(entry, /createPreferenceRuntime\(/);
-  }
-  assert.match(emulator, /seedMissingRegionalPreferencesFromFirstRun\(preferenceStore\.load\(\), stateStore\.load\(\)\)/);
-  assert.doesNotMatch(emulator, /function createEmulatedPreferences|ordax\.windows-emulator\.preferences/);
+test("First Run presentation consumes Meridian directly and adapts all canonical steps", async () => {
+  const css=await readFile(new URL("../system/surface/ui/first-run.css",import.meta.url),"utf8");
+  assert.doesNotMatch(css,/var\(--ordax-|repeat\(7,/);
+  assert.ok(css.includes("var(--md-canvas)"));
+  assert.ok(css.includes("var(--md-font)"));
+  assert.match(css, /\.ordax-first-run-card\s*\{[^}]*grid-template-rows\s*:\s*minmax\(0,\s*1fr\)\s+auto/s);
+  assert.match(css, /\.ordax-first-run-steps\s*\{[^}]*display\s*:\s*grid/s);
+});
+
+test("optional network work never blocks the first-run journey", async () => {
+  const ui = await readFile(new URL("../system/surface/ui/first-run.mjs", import.meta.url), "utf8");
+  assert.match(ui, /const busy = identityPending !== null \|\| identityAvailabilityPending \|\| localSessionPending \|\| deviceNamePending;/);
+  assert.match(ui, /scan\.disabled = networkPending;/);
+  assert.match(ui, /connect\.disabled = networkPending;/);
+  assert.match(ui, /validateWifiCredentials\(\{ ssid, password \}\)/);
+  assert.ok(ui.indexOf("validateWifiCredentials({ ssid, password })") < ui.indexOf("void connectNetwork(ssid, password)", ui.indexOf("validateWifiCredentials({ ssid, password })")));
 });
 
 test("runtime journeys cannot expose another first-run; planned design details remain archived", async () => {

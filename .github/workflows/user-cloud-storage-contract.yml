@@ -63,7 +63,7 @@ jobs:
           if (storage.quota.upload_reservation_must_reference_exact_quota_reservation !== true) {
             throw new Error('storage reservation must retain the exact quota reservation identity');
           }
-          if (storage.status !== 'source-foundation-rollout-disabled' || aggregate.public_rollout_enabled !== false) {
+          if (storage.status !== 'source-foundation-destination-not-installed-rollout-disabled' || storage.deployment.transactional_schema_deployed !== false || storage.deployment.public_rollout_enabled !== false || aggregate.public_rollout_enabled !== false) {
             throw new Error('user/account cloud rollout must remain disabled in foundation');
           }
           if (storage.invariants.public_bucket_allowed !== false || storage.invariants.action_gateway_authority_created !== false) {

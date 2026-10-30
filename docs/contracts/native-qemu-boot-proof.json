@@ -90,5 +90,12 @@
   "product_scope": "post-mvp-foundation",
   "mvp_blocker": false,
   "mvp_user_facing": false,
-  "foundation_retained": true
+  "foundation_retained": true,
+  "guest_stage_trace": {
+    "kernel_cmdline_opt_in": "ordax.qemu_proof=serial-stages",
+    "injected_into_disposable_qemu_normal_entry_only": true,
+    "physical_native_boot_entry_modified": false,
+    "physical_serial_trace_enabled_by_default": false,
+    "stage_markers_secret_free": true
+  }
 }

@@ -65,6 +65,64 @@ function Assert-LowerHex([string]$Value, [int]$Length, [string]$Label) {
     }
 }
 
+# Verify all 17 actual remote Stable asset bytes BEFORE accessing offline key.
+# Manifest.portable_payload is the only signed source inventory.
+function Assert-StableV3SourceReadback([string]$Repo, [string]$Commit, [hashtable]$Bindings) {
+    $Gh = Get-Command gh -ErrorAction Stop
+    $tag = "ordax-stable-v4-$Commit"
+    $metadata = @(& $Gh.Source api "repos/$Repo/releases/tags/$tag" 2>&1)
+    if ($LASTEXITCODE -ne 0) { throw "Official Stable release unavailable: $tag" }
+    $release = ($metadata -join "`n") | ConvertFrom-Json
+    if ([string]$release.tag_name -cne $tag -or $release.draft -ne $false) {
+        throw "Stable release tag mismatch or unpublished: $tag"
+    }
+    $published = @{}
+    foreach ($asset in @($release.assets)) {
+        $name = [string]$asset.name
+        if (-not $name -or $published.ContainsKey($name)) {
+            throw 'Invalid or duplicate published Stable source name.'
+        }
+        $published[$name] = $asset
+    }
+    if ($Bindings.Count -ne 17) { throw 'Physical v3 needs exactly 17 source bindings.' }
+    $names = @{}
+    $prefix = "https://github.com/$Repo/releases/download/$tag/"
+    foreach ($binding in @($Bindings.Values)) {
+        $url = [string]$binding.url
+        if (-not $url.StartsWith($prefix, [StringComparison]::Ordinal)) {
+            throw 'Portable v3 source URL differs from canonical release.'
+        }
+        $name = $url.Substring($prefix.Length)
+        if ($name -cnotmatch '^[A-Za-z0-9][A-Za-z0-9._-]*$' -or $names.ContainsKey($name) -or
+            -not $published.ContainsKey($name)) {
+            throw "Missing, duplicated or unsafe Stable asset: $name"
+        }
+        $remote = $published[$name]
+        if ([string]$remote.browser_download_url -cne $url -or
+            [int64]$remote.size -ne [int64]$binding.size_bytes -or
+            [string]$remote.digest -cne "sha256:$($binding.sha256)") {
+            throw "Remote Stable source metadata differs from v3 manifest: $name"
+        }
+        $names[$name] = $binding
+    }
+    $root = Join-Path ([IO.Path]::GetTempPath()) ("ordax-v3-readback-" + [Guid]::NewGuid().ToString('N'))
+    [IO.Directory]::CreateDirectory($root) | Out-Null
+    try {
+        foreach ($name in @($names.Keys | Sort-Object)) {
+            & $Gh.Source release download $tag --repo $Repo --dir $root --pattern $name
+            if ($LASTEXITCODE -ne 0) { throw "Stable source download failed: $name" }
+            $local = Resolve-RealLeaf (Join-Path $root $name) "Stable source $name"
+            if ((Get-FileSize $local) -ne [int64]$names[$name].size_bytes -or
+                (Get-Sha256 $local) -cne [string]$names[$name].sha256) {
+                throw "Published Stable source byte readback mismatch: $name"
+            }
+        }
+    } finally {
+        Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue
+    }
+    Write-Host 'PORTABLE_V3_17_REMOTE_ASSET_READBACK=PASS'
+}
+
 $ScriptDirectory = [IO.Path]::GetFullPath($PSScriptRoot)
 $RepoRoot = [IO.Path]::GetFullPath((Join-Path $ScriptDirectory '..\..\..'))
 $CandidateRoot = Resolve-RealDirectory $CandidateRoot 'Candidate root'
@@ -187,9 +245,7 @@ foreach ($name in $ExpectedFiles) {
 }
 
 if ($ManifestSchema -eq $ExpectedManifestSchema) {
-    if ($null -ne $Manifest.portable_payload) {
-        throw 'Creator physical manifest v2 may not carry a Portable payload.'
-    }
+    throw 'Legacy physical manifest v2 is review-only and cannot be published as the Portable v3 release.'
 } else {
     if ($null -eq $Manifest.portable_payload) {
         throw 'Creator physical manifest v3 requires the signed Portable payload.'
@@ -281,6 +337,9 @@ if ([string]$PromotionStatus.computed_authorization_context_sha256 -ne $Authoriz
 if ([string]$PromotionStatus.canonical_v4_release_source_commit -ne $ReleaseSourceCommit) {
     throw 'Current canonical release binding differs from the candidate provenance.'
 }
+
+# Do not access the publisher offline key without authentic remote bytes.
+Assert-StableV3SourceReadback $Repository $ReleaseSourceCommit $PortableBindings
 
 if ([string]::IsNullOrWhiteSpace($PrivateKeyPath)) {
     if ([string]::IsNullOrWhiteSpace($env:USERPROFILE)) {

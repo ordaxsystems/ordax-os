@@ -14,7 +14,13 @@ class DevHelperManifestContractTests(unittest.TestCase):
         for raw in MANIFEST.read_text(encoding="utf-8").splitlines():
             if not raw or raw.startswith("#"):
                 continue
-            source, target = raw.split("\t")
+            source, target, *native = raw.split("\t")
+            if source == "bootstrap/dev-base/ordax-pull":
+                self.assertEqual(native, [
+                    "usr/local/bin/ordax-checkout-exchange@prototype-ordax.checkout-exchange/1"
+                ])
+            else:
+                self.assertEqual(native, [])
             self.assertFalse(source.startswith("/"))
             self.assertNotIn("..", source)
             self.assertFalse(target.startswith("/"))

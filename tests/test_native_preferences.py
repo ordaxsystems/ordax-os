@@ -134,6 +134,28 @@ class NativePreferenceTests(unittest.TestCase):
         self.assertIn('umount "$RUNTIME_ROOT/var/lib/ordax"', text)
         self.assertIn("STATE_BOUND=1", text)
 
+    def test_native_preferences_share_the_persistent_bind_before_host_start(self):
+        launcher = SURFACE_LAUNCHER.read_text(encoding="utf-8").replace("\\r\\n", "\\n")
+        host = HOST_SERVER.read_text(encoding="utf-8")
+        self.assertIn('PREFERENCES_FILE = "/var/lib/ordax/preferences.json"', host)
+        self.assertIn('PERSISTENT_NATIVE_STATE=$STATE_ROOT/native-state', launcher)
+        self.assertIn('chmod 700 "$PERSISTENT_NATIVE_STATE" "$PERSISTENT_USER_HOME"', launcher)
+
+        bind_fn = launcher.split("bind_runtime_mounts() {", 1)[1].split("\\n}", 1)[0]
+        self.assertIn('mount -o bind "$PERSISTENT_NATIVE_STATE" "$RUNTIME_ROOT/var/lib/ordax"', bind_fn)
+        self.assertLess(
+            bind_fn.index('mount -o bind "$PERSISTENT_NATIVE_STATE" "$RUNTIME_ROOT/var/lib/ordax"'),
+            bind_fn.index("STATE_BOUND=1"),
+        )
+
+        bind_start = launcher.index('bind_runtime_mounts || fallback_with_reason')
+        host_start = launcher.index('/usr/bin/python3 /srv/ordax-system/surface/runtime/native_app_data_runtime.py', bind_start)
+        self.assertLess(bind_start, host_start, "native state must mount before the host serves preferences")
+        cleanup = launcher.split("cleanup() {", 1)[1].split("\\n}", 1)[0]
+        self.assertIn('umount "$RUNTIME_ROOT/var/lib/ordax"', cleanup)
+        self.assertNotIn('rm -rf "$PERSISTENT_NATIVE_STATE"', launcher)
+        self.assertNotIn('rm -f "$PERSISTENT_NATIVE_STATE/preferences.json"', launcher)
+
     def test_native_composition_no_longer_uses_web_preference_store(self):
         text = NATIVE_COMPOSITION.read_text(encoding="utf-8")
         self.assertIn('../../adapters/native/preferences.mjs', text)
@@ -175,7 +197,14 @@ class NativePreferenceTests(unittest.TestCase):
         self.assertIn("write_sync_checkpoint", text)
         self.assertIn("os.fchmod(handle.fileno(), 0o600)", text)
         self.assertIn('if self.client_address[0] != "127.0.0.1"', text)
-        self.assertNotIn("Access-Control-Allow-Origin", text)
+        # Scoped CORS is only for immutable signed JS module bytes; the
+        # canonical browser-origin policy denies opaque callers to settings
+        # and user data. This is also exercised via HTTP integration tests.
+        self.assertIn(
+            'if opaque_signed_module_read_is_trusted(self.headers, self.path, self.command):',
+            text,
+        )
+        self.assertNotIn('self.send_header("Access-Control-Allow-Origin", "*")', text)
 
 
 if __name__ == "__main__":

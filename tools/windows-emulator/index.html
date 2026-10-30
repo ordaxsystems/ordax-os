@@ -1,40 +1,30 @@
 <!doctype html>
 <html lang="pt-BR" data-meridian>
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>OrdaX Windows Emulator</title>
-    <link rel="stylesheet" href="/system/surface/ui/tokens.css" />
-    <link rel="stylesheet" href="/system/surface/ui/color-palettes.css" />
-    <link rel="stylesheet" href="/system/surface/ui/first-run.css" />
-    <link rel="stylesheet" href="/system/surface/ui/meridian.tokens.css" />
-    <link rel="stylesheet" href="/system/surface/ui/meridian.css" />
-    <style>
-      html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: var(--ordax-bg); }
-      body { font-family: Inter, ui-sans-serif, system-ui, sans-serif; }
-      #ordax-emulator-surface { width: 100%; height: 100%; border: 0; display: block; background: var(--ordax-bg); }
-      #ordax-emulator-root { position: fixed; inset: 0; pointer-events: none; }
-      .ordax-emulator-badge {
-        position: fixed; right: 12px; top: 12px; z-index: 2147483647;
-        padding: 7px 10px; border-radius: 999px; font-size: 12px;
-        background: rgba(10, 12, 18, .78); color: white; backdrop-filter: blur(14px);
-        border: 1px solid rgba(255,255,255,.14); pointer-events: auto;
-      }
-      .ordax-emulator-badge button { margin-left: 8px; cursor: pointer; }
-    </style>
-  </head>
-  <body>
-    <iframe
-      id="ordax-emulator-surface"
-      title="OrdaX Surface"
-      src="about:blank"
-      data-surface-src="/system/composition/web/?preview=layout"
-    ></iframe>
-    <div id="ordax-emulator-root" aria-hidden="true"></div>
-    <div class="ordax-emulator-badge">
-      Windows Emulator · sem kernel
-      <button id="ordax-emulator-reset" type="button">Reiniciar primeiro uso</button>
-    </div>
-    <script type="module" src="/tools/windows-emulator/main.mjs"></script>
-  </body>
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>OrdaX Windows Emulator</title>
+  <link rel="stylesheet" href="/system/surface/ui/meridian.tokens.css"/>
+  <style>
+    html,body {margin:0;width:100%;height:100%;overflow:hidden;}
+    body {display:grid;grid-template-rows:minmax(0,1fr);background:var(--md-canvas);color:var(--md-ink);}
+    body[data-emulator-controls="visible"] {grid-template-rows:auto minmax(0,1fr);}
+    #ordax-emulator-surface {display:block;grid-row:1;min-height:0;width:100%;height:100%;border:0;}
+    body[data-emulator-controls="visible"] #ordax-emulator-surface {grid-row:2;}
+    .ordax-emulator-controls {grid-row:1;font:12px/20px var(--md-font);background:var(--md-surface);border-bottom:1px solid var(--md-border);padding:6px 12px;}
+    .ordax-emulator-controls[hidden] {display:none;}
+    .ordax-emulator-controls summary {cursor:pointer;}
+    .ordax-emulator-controls button {margin-top:8px;min-height:32px;border:1px solid var(--md-border);border-radius:var(--md-radius-small);background:var(--md-subtle);color:var(--md-ink);cursor:pointer;}
+    .ordax-emulator-controls :is(summary,button):focus-visible {outline:2px solid var(--md-focus);outline-offset:2px;}
+  </style>
+</head>
+<body>
+  <iframe id="ordax-emulator-surface" title="OrdaX Surface Native" src="about:blank" data-surface-src="/system/composition/native/index.html"></iframe>
+  <details class="ordax-emulator-controls" data-emulator-controls hidden>
+    <summary>Ferramentas de desenvolvimento</summary>
+    <button id="ordax-emulator-reset" type="button">Reiniciar primeiro uso</button>
+    <span id="ordax-emulator-status" role="status"></span>
+  </details>
+  <script type="module" src="/tools/windows-emulator/main.mjs"></script>
+</body>
 </html>

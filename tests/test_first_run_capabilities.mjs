@@ -71,7 +71,7 @@ test("identity actions never advertise credentials that have no validated creden
   assert.equal(snapshot.identityRegister, false);
 });
 
-test("registration policy requires credentials, register action and a real policy reader", () => {
+test("read-only registration policy is available with credentials even when Native signup is denied", () => {
   assert.equal(deriveFirstRunCapabilities({
     identityCredentials: credentials(true),
     identityActionsSnapshot: actions("register"),
@@ -79,7 +79,7 @@ test("registration policy requires credentials, register action and a real polic
   assert.equal(deriveFirstRunCapabilities({
     identityCredentials: credentials(true),
     identityActionsSnapshot: actions("sign-in"),
-  }).registrationPolicy, false);
+  }).registrationPolicy, true);
 });
 
 test("network, local-session and device-profile capabilities require compatible owner ports", () => {

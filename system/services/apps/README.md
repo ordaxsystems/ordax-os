@@ -12,7 +12,7 @@ The first-party external component registry is **generated**, never hand-maintai
 `tools/app-policy/render_external_first_party_policy.py` →
 `system/services/apps/external-first-party-policy.mjs`.
 
-The 16 current IDs consist of 15 canonical component-package sources (including Rede and Projetos, whose source cutovers are complete but whose Native probation and production activation remain blocked) plus Studio's separate distribution path. Candidate packaging is not an installed or signed release. The older, narrower `canonical_external_source_repository_by_component` must remain a consistent subset; it **cannot** silently override the canonical package source set. Regeneration is checked in CI. This also keeps previously installed optional apps visible as potential *installed entries* even if a subsequent signed catalog omits them, once the runtime's verified activation state is available.
+The canonical owner map is the full source-provenance registry for first-party package identities. It is not an install catalog: entries can describe apps whose package, Native module-read, probation, signature, activation or rollback gates are still closed. While an app remains bundled in the OS, `native_external_current_slot_blocked_by_bundled_owner_components` keeps the platform as the only source accepted by the Native signer; the generated Go source gate enforces this until Gate A removes the bundled implementation. The Native module-read set is independently derived from the intersection with `native_loopback_broker_supported_components`; health, probation and activation are narrower gates again. `canonical_external_source_repository_by_component` is a separate, narrower allowlist used by the unsigned-candidate verifier; it must agree with the owner map but does not broaden Native reads or override canonical ownership. Regeneration is checked in CI.
 
 A known app ID is not an installation grant. A verified signed catalog, runtime `current` state, first-party delivery policy and platform lifecycle authority remain independent fail-closed gates; no helper can manufacture those. Native broker component support and production distribution are separately gated.
 
@@ -28,7 +28,62 @@ A signed-catalog candidate cannot invent executable-read capability. The verifie
 
 O conjunto de componentes que pode executar o probe `import-contract` pertence exclusivamente a `docs/contracts/runtime-component-package.json` → `runtime_health_bridge_supported_components`. O gerador `tools/app-policy/render_native_store_metadata_policy.py` emite tanto `NATIVE_PROBATION_COMPONENT_IDS` (Python Native) quanto `NATIVE_COMPONENT_PROBATION_IDS` e `NATIVE_COMPONENT_PROBE_MODE` (JavaScript Surface). Não manter allowlists manuscritas nos bridges. O gerador valida a relação `probation ⊆ health mutation ⊆ signed module read`, identidade/duplicatas e probe mode. Os artefatos gerados são verificados no CI e não são fontes independentes.
 
-**Escopo atual permanece Internet e Notas.** A Calculadora continua somente com leitura de módulo verificado; sua instalação fica bloqueada por `runtime-probation-unavailable`. Ampliar probation exigirá testes completos do import, receipt com nonce, revisão exata, registro de saúde e não promoção, seguidos da publicação assinada e prova em host. Gerar uma lista não instala, promove nem habilita distribuição.
+**Escopo atual de probation é Files/Notas.** Internet não tem leitura de módulo Native habilitada; a Calculadora, o Studio e a **Aura** (ID técnico `assistant`) têm leitura verificada do slot, mas **não** probation. A Aura consome `ordax.intelligence/1`, sem duplicar o motor. O nome de produto vem do `app.json#title` e, no catálogo publicado, do título verificado assinado; `assistant` permanece o único ID estável de instalação. Instalação continua bloqueada sem o lifecycle de ativação/publicação. Ampliar probation exige testes do import, receipt com nonce, revisão exata, registro de saúde e não promoção, seguidos de pacote assinado e prova no host. Gerar uma lista não instala, promove nem habilita distribuição.
+
+### Aura: montagem isolada e contexto de conversa
+
+O provider do host Native agora fornece as portas públicas preexistentes para
+montagem **apenas** de `assistant` quando seu slot corrente está instalado e
+verificado. O iframe usa snapshots Identity/Space e chamadas consultivas
+`Intelligence.respond` pelo broker fechado, sem rede arbitrária, credenciais,
+Memory, ferramentas, File Space ou mutação do Space. O host valida a identidade
+do slot antes/depois do pedido e invalida resultados após trocas de conta/Space;
+o cancelamento interrompe a inferência que suportar `AbortSignal`.
+
+**Limite factual:** os testes de source/isolamento não provam que exista slot
+assinado da Aura no USB. O gate de trust canônico, probation do runtime real,
+publicação e ativação continua fechado. Não marcar Gate B ou preinstall como
+aprovado antes da prova física e da promoção/rollback.
+
+### Prova de montagem pending do cliente Intelligence (sem ativação)
+
+O executor isolado existente aceita `assistant` como **candidato explícito**
+para `mount-contract` de um slot `pending` com `pendingHealth: unknown`
+e identidade exata verificada antes/depois do import e de cada operação.
+A capacidade técnica permanece desligada no registro de probation do OS:
+`runtime_health_bridge_supported_components` **não** inclui `assistant`;
+nenhum recibo oficial de saúde é produzido por esta alteração.
+
+A montagem de teste ocorre num iframe de origem opaca e usa apenas portas
+sintéticas com `identitySession: unavailable`, `spaceSelection: unavailable`
+e `intelligence: degraded`, sem usuário, Space, modelo, credenciais, App Data
+ou File Space. `intelligence.respond`, mutações de Space e App Data são
+negadas no broker antes de usar qualquer serviço Native. A perda da revisão
+do slot cancela a montagem, revoga o canal e remove o iframe.
+
+Esse mecanismo compartilha o loader, verificador, `MessagePort` e os contratos
+públicos com a montagem `current` existente, mas jamais altera o conjunto de
+apps lançáveis. **O teste de código com runtime simulado não é prova de que o
+pacote real do Apps já funciona no USB.** Para abrir o Gate B, executar primeiro
+o runtime `apps/assistant/src/runtime.mjs` empacotado/assinado no sandbox,
+montagem e destroy com provas de nonce/revision; depois habilitar o modo de
+probation no **contrato canônico gerado**, sem antecipar trust, publish,
+install, promotion ou rollback.
+
+### Gate Aura: apenas leitura assinada
+
+O pacote canônico `ordax-apps/apps/assistant` é exportado para o namespace
+`system/apps/assistant/` pelo builder comum de componentes. O broker Native
+pode solicitar apenas bytes da versão/commit/revisão do slot exato, após a
+verificação de assinatura e integridade pelo helper canônico; não contém nem
+interpreta o nome público "Aura" como identidade de segurança. Isso **não**
+distribui, instala, inicia, promove ou autoriza ferramentas da IA.
+
+A prova de saúde, o import em sandbox sem poderes, o atualizador e o
+rollback ainda precisam ser validados antes de habilitar a ativação. Até lá,
+Store e First Run continuam bloqueando instalar quando faltar probation
+compatível, inclusive na presença de catálogo verificado. O modelo local,
+Memory e OrdaX Intelligence permanecem system-owned.
 
 ## Native installed Surface runtime: verified before display
 
@@ -44,7 +99,11 @@ The implementation has two distinct checks:
   to the existing `current-slot-loader.mjs`. Native's trusted component
   bootstrap supplies a bound `ordax.app-data/1` port for exactly that app;
   `expectedCurrent` must match the discovery revision before code import and
-  is checked again before/after mount. The app may not provide its own App Data.
+  is checked again before/after mount. `isolated-component-executor.mjs` runs
+  the signed runtime in an opaque-origin sandbox whose CSP is scoped to that
+  exact package path. Its private `MessagePort` brokers only the app's own App
+  Data and the minimal Surface lifecycle; it denies File Space and arbitrary
+  network access. The app may not provide its own App Data.
 
 The Surface starts with bundled apps and updates its single runtime catalog
 **only with mounted IDs**. A failed, absent, removed or unbound app must not
@@ -52,7 +111,28 @@ appear as launchable. Catalog reconciliation removes obsolete external windows
 from persisted workspace state. The external app receives a restricted
 `SurfaceRenderLifecycle` projection; it cannot update the host catalog or
 receive unrestricted File Space, Intelligence or other device grants through
-presentation metadata.
+  presentation metadata. The **single Aura component** (`assistant`) is a
+  narrowly scoped exception for *public consultative ports*: only its exact
+  signed current slot may receive Identity/Space read-only snapshots and
+  `ordax.intelligence/1` through the existing isolated MessagePort broker.
+  The dedicated host-owned provider is `system/composition/native/intelligence-client-trusted-context.mjs`;
+  it is not a second Intelligence service, model router or permission authority.
+  The broker revalidates slot identity on every request, bounds inference to one
+  pending turn, aborts on cancellation/revocation/Identity/Space changes and
+  drops late results from outdated scopes. Space selection changes and
+  privileged grants are **not** exposed to Aura. The exact-slot check is bounded and abortable; if
+  Native verification times out, the operation fails closed and teardown can
+  finish draining without waiting indefinitely on the verifier.
+
+The isolated executor's teardown revokes the broker, drains in-flight calls,
+requests runtime cleanup in the child, and removes the iframe. Native pending
+probation uses a separate opaque-origin import-contract probe: it revalidates
+the exact unknown-health pending revision before and after import, exposes no
+host port, and never mounts or returns a launchable runtime. Its `healthy`
+receipt means only that the signed candidate satisfied the import/export
+contract. A mount-health probe is still absent; any `mount-contract` mode fails
+closed until that host-owned path exists. Canonical trust, signed publication,
+activation, promotion, rollback and distribution remain closed independently.
 
 Apps retain their own packaged source and UI slot. The Notes source in
 `ordax-apps` uses `data-app-extension="notes"`, derived from its component
@@ -99,7 +179,7 @@ The Native catalog verifier owns signature verification **and** anti-replay pers
 
 The canonical `ordaxsystems/ordax-apps` repository has independent unsigned candidate packages for basic utility apps (Calculator, Clock, Converter, Text Viewer, Image Viewer, Calendar, Colors, Character Map, Paint, Media Player, PDF Viewer and Toolbox). The platform's `delivery-policy.mjs` now explicitly recognizes those product IDs as **on-demand / store-only**, so a **future signed and verified** Store catalog can project them without an accidental `first-party-delivery-policy-unavailable` blocker.
 
-This extension is *not* an expansion of the initial public USB MVP application payload. `mvp-delivery-policy.mjs` continues to define the six initial on-demand products, plus Files/Internet bootstrap and structural surfaces; additional policies must remain `store-only`. New on-demand policies do **not** publish candidates, select artifacts, authorize a signer or enable the native lifecycle executor. Unknown app IDs, unsigned catalogs and unavailable Native activation metadata still fail closed. The Store UI remains disabled for the public MVP under its existing contract. No app source is copied from the platform by adding a delivery policy.
+This extension is *not* an expansion of the initial public USB MVP application payload. `mvp-delivery-policy.mjs` defines the initial on-demand scope including Files and Internet, with no removable bootstrap products and four structural surfaces; additional policies must remain `store-only`. New on-demand policies do **not** publish candidates, select artifacts, authorize a signer or enable the native lifecycle executor. Unknown app IDs, unsigned catalogs and unavailable Native activation metadata still fail closed. The Store UI remains disabled for the public MVP under its existing contract. No app source is copied from the platform by adding a delivery policy.
 
 ### Ampliação gradual do leitor Native de módulos
 
@@ -111,7 +191,7 @@ A adição da Calculadora **não** altera o conjunto de health mutation (Interne
 
 ## Surface da Loja: experiência e contrato
 
-A Loja estrutural permanece sob `system/apps/store` e `system/surface/ui/store-overview-controls.mjs`, usando estilos em `store.css` e mensagens component-scoped em `system/services/i18n/catalog/store.mjs`. Este frontend **não** é um segundo catálogo nem um gerenciador de pacotes: consome somente o snapshot validado `ordax.app-store-catalog/2`.
+A Loja estrutural permanece sob `system/services/system-ui/store` e `system/surface/ui/store-overview-controls.mjs`, usando estilos em `store.css` e mensagens component-scoped em `system/services/i18n/catalog/store.mjs`. Este frontend **não** é um segundo catálogo nem um gerenciador de pacotes: consome somente o snapshot validado `ordax.app-store-catalog/2`.
 
 - **Descobrir**: apresenta apenas entradas fornecidas pelo catálogo verificado. A busca local funciona por título/ID com normalização de acentos e não altera o snapshot. A apresentação tem ordenação alfabética natural, independente da ordem do catálogo assinado.
 - **Instalados**: deriva da versão instalada confirmada pelo owner canônico, nunca de arquivos em cache.
@@ -133,8 +213,8 @@ Categorias, badges de Intelligence, avaliações e capturas exigem evolução **
 The first public Stable/MVP surface is deliberately small:
 
 - structural: `account`, `settings`, `store`, `system`;
-- bootstrap: `files`, `internet`;
-- on-demand/post-launch: `activity`, `assistant`, `network`, `notes`, `projects`, `studio`.
+- bootstrap: **none** (a clean OS boots without removable applications);
+- on-demand/post-launch: `files`, `internet`, `activity`, `assistant`, `network`, `notes`, `projects`, `studio`.
 
 Completion of the on-demand apps does not block the public USB launch. Physical byte-level removal of their dormant source from the current image is also not a launch requirement.
 
@@ -187,3 +267,18 @@ Once the ledger is full, **new** IDs receive
 Native delegation is attempted. The UI must establish a fresh service session
 for additional operations rather than reusing an old ID. This is a request
 admission policy, not proof of installation or a persistent Native receipt.
+
+## CI ownership for independent app delivery
+
+Changes limited to the three application-delivery policy contracts, their
+focused tests, and high-level `system/services/apps/` implementations are
+validated through First-party App Delivery, Foundation, Surface and Store
+contracts. They must not trigger an expensive Portable/QEMU boot proof solely
+because a JSON policy or test changed. The causal impact policy uses an exact
+allowlist for these contracts and remains fail-closed for unknown paths.
+
+Changes affecting kernel, initramfs, Native boot launcher, signed Portable
+release production, or unclassified authority remain subject to their full
+Portable/QEMU gates. Omitting Portable QEMU for an app-policy-only delta is not
+proof of app installation, physical USB readiness, signed publication, or
+working Native distribution.

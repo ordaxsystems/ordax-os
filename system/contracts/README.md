@@ -24,6 +24,14 @@ Rules are machine-readable in `docs/contracts/module-boundaries.json`.
 Component update contracts follow the same boundary: `component-manifest.mjs` declares identity, version, failure domain and release mode; `component-state-store.mjs` owns persisted slot state; `component-manager.mjs` exposes the neutral runtime port. A semantic version does not by itself grant independent update authority — only `releaseMode: "component-slot"` does.
 `component-runtime-metadata.mjs` is the single shared validator for the read-only Native `current|pending` runtime-component resolution. Services must consume it instead of reimplementing `slot|absent|bundled` identity rules.
 
+O preflight compartilhado de ações é implementado pelo owner de sistema
+`system/services/device-agent/action-preflight.mjs`, consumindo as
+validações existentes em `device-agent.mjs` e
+`device-action-envelope.mjs`. O wrapper legado do Studio não é uma
+autoridade distinta. Este preflight não é uma porta de execução, não
+autentica grants e não habilita ações por qualquer aplicativo.
+Veja `docs/MCP-SYSTEM-CAPABILITIES.md`.
+
 ## Pre-MVP ecosystem contracts
 
 The product foundation also defines narrow provider-neutral ports for the next account/ecosystem layer:
@@ -34,6 +42,7 @@ The product foundation also defines narrow provider-neutral ports for the next a
 - `space-lifecycle.mjs` — explicit versioned rename/archive/restore action boundary; requests carry Space identity, bounded payload and idempotency only, never client-supplied actor/role/ownership authority;
 - `space-actor-capability.mjs` - subject-bound, read-only Space participation/capability projection; presentation capability is server-authored and never derived from role in the client;
 - `space-membership-actions.mjs` — bounded actions over already-existing memberships (`change-role`, `suspend`, `reactivate`, `remove`); direct member creation, invites, leave and ownership transfer remain separate flows, and `owner` is never assignable through this boundary;
+- `space-invites.mjs` — transport-neutral, versioned invite value/port contract only (no mounted executor): invites are not memberships; owner transfer is forbidden; secrets never enter the invite read model; authenticated acceptance and authorization remain server-owned when implemented.
 - `memory.mjs` — scoped, provenance-bearing OrdaX Memory independent of model provider;
 - `model-router.mjs` — local/external inference route selection with explicit egress for cloud providers;
 - `intelligence-artifact.mjs` — signed/content-addressed identity, provenance, compatibility and resource gates for replaceable engines, models, embeddings, tool runtimes and knowledge packs;
@@ -51,6 +60,7 @@ The product foundation also defines narrow provider-neutral ports for the next a
 - `profile-content-pack.mjs` — declarative Knowledge/Skill payload structure with per-entry hashes, per-source provenance, no executable media, and no Skill authority/tools in the current foundation.
 - `operational-realtime.mjs` — Space-scoped live operational events plus typed Device Action request/receipt validation; account sync, notifications and action authorization remain separate authorities.
 - `mobile-companion.mjs` — explicit, expiring phone/tablet capability grants for camera, microphone, location/presence, sensors, sharing and notifications; silent sensor activation is forbidden.
+- `audio-outputs.mjs` — bounded, session-scoped output selection, volume and mute snapshots; native host actions remain behind the per-session loopback token.
 - `application-compatibility.mjs` — fail-closed inspection and runtime-selection boundary for foreign desktop formats; no install/execute authority and no implicit Wine/Proton provider.
 - `application-compatibility-profile.mjs` — payload/runtime-bound isolated profile identity and side-effect-free creation planning; no absolute host path or profile mutation authority.
 

@@ -21,20 +21,28 @@ from urllib.parse import urlparse
 
 # Reuse the current Auth owner and binding rules, never a parallel project authority.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from probe_auth_provider import project_binding
+from probe_auth_provider import (
+    SCHEMA as PROBE_SCHEMA,
+    PROVIDER_CHECK_NAMES,
+    PROVIDER_OBSERVED_NAMES,
+    project_binding,
+)
 from resolve_auth_provider_target import resolve_target
 
 ROOT = Path(__file__).resolve().parents[2]
-PROBE_SCHEMA = "prototype-ordax.auth-provider-proof/2"
-DB_PROBE_SCHEMA = "prototype-ordax.control-plane-privilege-proof/3"
-SESSION_REVOCATION_SCHEMA = "prototype-ordax.account-session-revocation-proof/1"
-REQUIRED_CHECKS = (
-    "confirm_email",
-    "password_policy",
-    "production_origin",
-    "redirect_allowlist",
-    "recovery_template",
+sys.path.insert(0, str(ROOT / "tools/security"))
+from probe_control_plane_privileges import (
+    SCHEMA as DB_PROBE_SCHEMA,
+    EXPECTED_SYNC_POLICIES,
+    EXPECTED_AUTH_PRIVATE_HELPERS,
+    EXPECTED_AUTH_PRIVATE_RLS_POLICIES,
 )
+from probe_private_data_api_exposure import (
+    EXPECTED as PRIVATE_DATA_API_EXPECTED,
+    validate_responses as validate_postgrest_profiles,
+)
+SESSION_REVOCATION_SCHEMA = "prototype-ordax.account-session-revocation-proof/1"
+REQUIRED_CHECKS = PROVIDER_CHECK_NAMES
 REQUIRED_DB_CHECKS = (
     "no_anon_table_grants",
     "no_anon_function_execute",
@@ -48,26 +56,26 @@ REQUIRED_DB_CHECKS = (
     "no_service_role_user_sync_rpc_execute",
     "no_app_role_sync_sequence_privilege",
     "no_unexpected_authenticated_write_grants",
-    "no_authenticated_private_schema_usage",
-    "no_authenticated_private_function_execute",
+    "authenticated_private_schema_rls_usage",
+    "no_authenticated_private_schema_create",
+    "authenticated_private_helpers_exact",
+    "authenticated_private_rls_dependencies_exact",
 )
 
 
-REQUIRED_PROVIDER_OBSERVED = frozenset((
-    "password_min_length",
-    "redirect_count",
-    "wildcard_redirect_present",
-    "cross_origin_redirect_present",
-))
+REQUIRED_PROVIDER_OBSERVED = PROVIDER_OBSERVED_NAMES
 REQUIRED_DB_OBSERVED_COUNTERS = frozenset((
     "anon_table_grant_count",
     "anon_function_execute_count",
     "public_function_execute_count",
     "unsafe_security_definer_search_path_count",
     "authenticated_private_function_execute_count",
+    "unexpected_authenticated_private_function_execute_count",
+    "authenticated_private_rls_dependency_count",
+    "unexpected_authenticated_private_rls_dependency_count",
     "authenticated_sync_table_grant_count",
     "service_role_sync_table_grant_count",
-    "non_executor_sync_policy_count",
+    "unexpected_sync_policy_count",
     "service_role_user_sync_rpc_execute_count",
     "unexpected_authenticated_write_grant_count",
     "private_cloud_storage_rls_enabled_count",
@@ -76,6 +84,7 @@ REQUIRED_DB_OBSERVED_COUNTERS = frozenset((
 REQUIRED_DB_OBSERVED_FLAGS = frozenset((
     "anon_private_schema_usage",
     "authenticated_private_schema_usage",
+    "authenticated_private_schema_create",
     "app_role_sync_sequence_privilege",
 ))
 PROVIDER_PROOF_FIELDS = frozenset((
@@ -83,7 +92,7 @@ PROVIDER_PROOF_FIELDS = frozenset((
     "expected_origin", "checks", "observed", "ready"
 ))
 DATABASE_PROOF_FIELDS = frozenset((
-    "$schema", "provider", "project_ref", "checks", "observed", "ready"
+    "$schema", "provider", "project_ref", "project_binding", "source_commit", "checks", "observed", "ready"
 ))
 SESSION_REVOCATION_PROOF_FIELDS = frozenset((
     "$schema", "status", "scope", "gateway_origin", "source_commit", "workflow_run_id",
@@ -169,7 +178,9 @@ def validate_provider_proof(
     return sorted(set(blockers))
 
 
-def validate_database_proof(value: object) -> list[str]:
+def validate_database_proof(
+    value: object, expected_source_commit: str, root: Path = ROOT
+) -> list[str]:
     blockers: list[str] = []
     if not isinstance(value, dict):
         return ["database-proof-object-required"]
@@ -181,6 +192,14 @@ def validate_database_proof(value: object) -> list[str]:
         blockers.append("database-proof-provider")
     if value.get("project_ref") != "redacted":
         blockers.append("database-proof-not-sanitized")
+    contract = json.loads(
+        (root / "docs/contracts/public-auth-hardening.json").read_text(encoding="utf-8")
+    )
+    dest_ref = contract["postgresql_destination"]["project_ref"]
+    if value.get("project_binding") != project_binding(dest_ref):
+        blockers.append("database-proof-project-binding")
+    if value.get("source_commit") != clean_commit(expected_source_commit):
+        blockers.append("database-proof-source-commit")
     checks = value.get("checks")
     if not isinstance(checks, dict):
         blockers.append("database-proof-checks")
@@ -210,10 +229,11 @@ def validate_database_proof(value: object) -> list[str]:
             "anon_function_execute_count",
             "public_function_execute_count",
             "unsafe_security_definer_search_path_count",
-            "authenticated_private_function_execute_count",
+            "unexpected_authenticated_private_function_execute_count",
+            "unexpected_authenticated_private_rls_dependency_count",
             "authenticated_sync_table_grant_count",
             "service_role_sync_table_grant_count",
-            "non_executor_sync_policy_count",
+            "unexpected_sync_policy_count",
             "service_role_user_sync_rpc_execute_count",
             "unexpected_authenticated_write_grant_count",
         ):
@@ -221,14 +241,20 @@ def validate_database_proof(value: object) -> list[str]:
                 blockers.append(f"database-proof-{name}")
         if observed.get("private_cloud_storage_rls_enabled_count") != 2:
             blockers.append("database-proof-private_cloud_storage_rls_enabled_count")
-        if observed.get("sync_policy_count") != 5:
+        if observed.get("authenticated_private_function_execute_count") != len(EXPECTED_AUTH_PRIVATE_HELPERS):
+            blockers.append("database-proof-authenticated_private_function_execute_count")
+        if observed.get("authenticated_private_rls_dependency_count") != len(EXPECTED_AUTH_PRIVATE_RLS_POLICIES):
+            blockers.append("database-proof-authenticated_private_rls_dependency_count")
+        if observed.get("sync_policy_count") != len(EXPECTED_SYNC_POLICIES):
             blockers.append("database-proof-sync_policy_count")
         if observed.get("app_role_sync_sequence_privilege") is not False:
             blockers.append("database-proof-app-role-sync-sequence-privilege")
         if observed.get("anon_private_schema_usage") is not False:
             blockers.append("database-proof-anon-private-schema-usage")
-        if observed.get("authenticated_private_schema_usage") is not False:
-            blockers.append("database-proof-authenticated-private-schema-usage")
+        if observed.get("authenticated_private_schema_usage") is not True:
+            blockers.append("database-proof-authenticated-private-schema-rls-usage")
+        if observed.get("authenticated_private_schema_create") is not False:
+            blockers.append("database-proof-authenticated-private-schema-create")
     return sorted(set(blockers))
 
 
@@ -285,6 +311,52 @@ def validate_session_revocation_proof(
     return sorted(set(blockers))
 
 
+def validate_private_rls_runtime_review(root: Path = ROOT) -> list[str]:
+    # A SQL privilege inventory cannot prove that the private schema is absent
+    # from PostgREST exposed schemas, or that two different real JWT identities
+    # are isolated. Those are separate release gates, never inferred from ACLs.
+    owner = json.loads(
+        (root / "docs/contracts/public-auth-hardening.json").read_text(encoding="utf-8")
+    )
+    path = root / owner["postgresql_destination"]["private_rls_helper_contract"]
+    private = json.loads(path.read_text(encoding="utf-8"))
+    blockers = []
+    if private.get("$schema") != "prototype-ordax.auth-private-rls-helper-contract/1":
+        blockers.append("private-rls-contract-schema")
+    if private.get("private_schema_data_api_exposure_allowed") is not False:
+        blockers.append("private-rls-private-schema-exposure-not-denied")
+    if private.get("private_schema_data_api_exclusion_verified") is not True:
+        blockers.append("private-rls-data-api-exclusion-unverified")
+    else:
+        try:
+            evidence_rel = private["private_schema_data_api_exclusion_evidence"]
+            if (
+                not isinstance(evidence_rel, str)
+                or evidence_rel != "docs/evidence/private-schema-data-api-exclusion-2026-10-26.json"
+            ):
+                raise ValueError("unreviewed-data-api-evidence-path")
+            evidence = json.loads((root / evidence_rel).read_text(encoding="utf-8"))
+            profiles = {
+                "public": evidence["public_baseline"],
+                "private": evidence["private_profile"],
+            }
+            if (
+                evidence.get("$schema") != "prototype-ordax.private-data-api-schema-exclusion/1"
+                or evidence.get("project_ref") != owner["postgresql_destination"]["project_ref"]
+                or evidence.get("private_schema_data_api_exclusion_verified") is not True
+                or validate_postgrest_profiles(profiles)
+                or evidence.get("scope", {}).get("no_real_user_authentication") is not True
+                or evidence["scope"].get("public_account_activation_approved") is not False
+                or evidence["scope"].get("no_production_ddl") is not True
+            ):
+                raise ValueError("data-api-evidence-invalid")
+        except (OSError, KeyError, ValueError, TypeError, AttributeError):
+            blockers.append("private-rls-data-api-evidence-invalid")
+    if private.get("two_subject_authenticated_negative_isolation_verified") is not True:
+        blockers.append("private-rls-two-subject-e2e-unverified")
+    return blockers
+
+
 def load_proof(path: Path) -> object:
     if path.stat().st_size > 64 * 1024:
         raise ValueError("proof too large")
@@ -308,7 +380,7 @@ def main(argv: list[str] | None = None) -> int:
         blockers = validate_provider_proof(
             provider_proof, args.expected_origin, args.expected_source_commit, root
         )
-        blockers.extend(validate_database_proof(database_proof))
+        blockers.extend(validate_database_proof(database_proof, args.expected_source_commit, root))
         blockers.extend(
             validate_session_revocation_proof(
                 session_proof,
@@ -316,6 +388,7 @@ def main(argv: list[str] | None = None) -> int:
                 args.expected_source_commit,
             )
         )
+        blockers.extend(validate_private_rls_runtime_review(root))
         blockers = sorted(set(blockers))
     except (OSError, ValueError, json.JSONDecodeError) as exc:
         print(f"ACCOUNT_RELEASE_GATE=FAIL reason={exc}", file=sys.stderr)

@@ -67,6 +67,25 @@ function clock() {
 
 const settle = () => new Promise((resolve) => setImmediate(resolve));
 
+test("optional Native Aura discovery remains dormant until explicitly started", async () => {
+  const port = fakePort();
+  const timer = clock();
+  const supervisor = createLocalAiProbeSupervisor({
+    localPort: port, schedule: timer.schedule, cancel: timer.cancel,
+  });
+  await settle();
+  assert.equal(port.calls, 0, "composing the supervisor must not fetch during boot");
+  assert.equal(timer.size, 0);
+  assert.equal(port.listenerCount, 1);
+  supervisor.start();
+  await settle();
+  assert.equal(port.calls, 1, "late start uses the same verified read-only probe");
+  assert.equal(timer.size, 1, "original bounded retry remains active");
+  supervisor.dispose();
+  assert.equal(timer.size, 0);
+  assert.equal(port.listenerCount, 0);
+});
+
 test("Native Local AI recovers when engine becomes ready after Surface boot", async () => {
   const port = fakePort();
   const timer = clock();

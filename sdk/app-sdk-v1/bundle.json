@@ -1,7 +1,7 @@
 {
   "$schema": "ordax.app-sdk-bundle/1",
   "authority": "none",
-  "bundle_version": "1.19.0",
+  "bundle_version": "1.21.0",
   "compatibility_policy": "contract-major",
   "contracts": [
     {
@@ -225,7 +225,7 @@
       "major": 11,
       "name": "file-space",
       "schema": "ordax.file-space/11",
-      "source_git_blob": "e775c22080e40dc3fb8ab8d2e2f00ccf312825d0",
+      "source_git_blob": "133d40904f48bbf981dbdfe7e34d275d1a7b1cd1",
       "source_path": "system/contracts/file-space.mjs"
     },
     {
@@ -253,7 +253,7 @@
       "major": 1,
       "name": "identity-session",
       "schema": "ordax.identity-session/1",
-      "source_git_blob": "42de971e341fa746e2e2383120b3132b6f8e913b",
+      "source_git_blob": "1a4d6ceb7aaab482fb77712b3c6bc5a3cf36e5ba",
       "source_path": "system/contracts/identity-session.mjs"
     },
     {
@@ -439,6 +439,34 @@
       "source_path": "system/contracts/project-web-references.mjs"
     },
     {
+      "major": 2,
+      "name": "space-capability-provider",
+      "schema": "ordax.space-capability-provider/2",
+      "source_git_blob": "d97f85ebf5e44cdf0a81579d869ab7404d2e6f31",
+      "source_path": "system/contracts/space-experience.mjs"
+    },
+    {
+      "major": 1,
+      "name": "space-capability-snapshot",
+      "schema": "ordax.space-capability-snapshot/1",
+      "source_git_blob": "d97f85ebf5e44cdf0a81579d869ab7404d2e6f31",
+      "source_path": "system/contracts/space-experience.mjs"
+    },
+    {
+      "major": 1,
+      "name": "space-experience",
+      "schema": "ordax.space-experience/1",
+      "source_git_blob": "d97f85ebf5e44cdf0a81579d869ab7404d2e6f31",
+      "source_path": "system/contracts/space-experience.mjs"
+    },
+    {
+      "major": 1,
+      "name": "space-experience-source",
+      "schema": "ordax.space-experience-source/1",
+      "source_git_blob": "d97f85ebf5e44cdf0a81579d869ab7404d2e6f31",
+      "source_path": "system/contracts/space-experience.mjs"
+    },
+    {
       "major": 1,
       "name": "space-selection",
       "schema": "ordax.space-selection/1",
@@ -458,6 +486,20 @@
       "schema": "ordax.space-selection-store/1",
       "source_git_blob": "047106b36d733452c27a88d145c3aa7e465112d0",
       "source_path": "system/contracts/space-selection.mjs"
+    },
+    {
+      "major": 2,
+      "name": "space-type-catalog",
+      "schema": "ordax.space-type-catalog/2",
+      "source_git_blob": "d97f85ebf5e44cdf0a81579d869ab7404d2e6f31",
+      "source_path": "system/contracts/space-experience.mjs"
+    },
+    {
+      "major": 2,
+      "name": "space-type-definition",
+      "schema": "ordax.space-type-definition/2",
+      "source_git_blob": "d97f85ebf5e44cdf0a81579d869ab7404d2e6f31",
+      "source_path": "system/contracts/space-experience.mjs"
     },
     {
       "major": 1,

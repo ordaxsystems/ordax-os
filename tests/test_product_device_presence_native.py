@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import fcntl
 import json
+import os
 from pathlib import Path
 import stat
 import sys
@@ -67,6 +69,17 @@ class ProductDevicePresenceNativeTests(unittest.TestCase):
         path.symlink_to(saved)
         self.assertIsNone(self.store.read_enrolled_credential())
 
+    def test_private_device_credential_rejects_hardlinks_or_other_owner(self):
+        path = self.store.credential_path
+        other = path.with_name("unexpected-hardlink")
+        os.link(path, other)
+        self.assertIsNone(self.store.read_enrolled_credential())
+        other.unlink()
+        self.assertEqual(self.store.read_enrolled_credential()["device_id"], DEVICE_ID)
+        with patch("product_device_identity.os.geteuid", return_value=-1):
+            self.assertIsNone(self.store.read_enrolled_credential())
+        self.assertEqual(self.store.read_enrolled_credential()["device_id"], DEVICE_ID)
+
     def test_successful_presence_is_device_only_and_no_token_on_argv(self):
         client = ProductDevicePresenceClient("https://cp.example", self.store)
         client._opener = FakeOpener(FakeResponse({
@@ -90,6 +103,54 @@ class ProductDevicePresenceNativeTests(unittest.TestCase):
             self.assertEqual(payload["runtime_kind"], "ordax-os")
             self.assertIsNone(payload["capability_digest"])
             self.assertNotIn(credential["device_token"], request.data.decode())
+
+    def test_runtime_singleton_prevents_conflicting_device_heartbeats(self):
+        client = ProductDevicePresenceClient("https://cp.example", self.store)
+        client._opener = FakeOpener(FakeResponse({
+            "ok": True, "device_id": DEVICE_ID,
+        }))
+        self.assertTrue(client.report(True))
+        # Same exact lock file as native_main.run's instance guard; the
+        # installed Runtime holds this lock across its entire process life.
+        instance_lock = self.store.root.parent / "product-runtime" / "instance.lock"
+        self.assertTrue(instance_lock.is_file())
+        descriptor = os.open(instance_lock, os.O_RDWR | os.O_NOFOLLOW)
+        try:
+            fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            self.assertFalse(client.report(True))
+            self.assertFalse(client.report(False))
+            self.assertEqual(len(client._opener.calls), 1)
+        finally:
+            fcntl.flock(descriptor, fcntl.LOCK_UN)
+            os.close(descriptor)
+        self.assertTrue(client.report(True))
+        self.assertEqual(len(client._opener.calls), 2)
+
+    def test_bad_runtime_lock_never_sends_device_credentials(self):
+        runtime_dir = self.store.root.parent / "product-runtime"
+        runtime_dir.mkdir(mode=0o700)
+        runtime_dir.chmod(0o755)
+        client = ProductDevicePresenceClient("https://cp.example", self.store)
+        client._opener = Mock()
+        with self.assertRaisesRegex(ProductDevicePresenceError, "device-presence-runtime-state-unsafe"):
+            client.report(True)
+        client._opener.open.assert_not_called()
+        runtime_dir.chmod(0o700)
+
+    def test_rejected_server_receipt_releases_shared_runtime_lock(self):
+        client = ProductDevicePresenceClient("https://cp.example", self.store)
+        client._opener = FakeOpener(FakeResponse({
+            "ok": False, "device_id": DEVICE_ID,
+        }))
+        with self.assertRaises(ProductDevicePresenceError):
+            client.report(True)
+        instance_lock = self.store.root.parent / "product-runtime" / "instance.lock"
+        descriptor = os.open(instance_lock, os.O_RDWR | os.O_NOFOLLOW)
+        try:
+            fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        finally:
+            fcntl.flock(descriptor, fcntl.LOCK_UN)
+            os.close(descriptor)
 
     def test_no_credential_means_no_network(self):
         self.store.credential_path.unlink()
@@ -141,6 +202,35 @@ class ProductDevicePresenceNativeTests(unittest.TestCase):
             worker._enabled = False
         self.assertEqual(worker.connection_state(), "disabled")
         self.assertEqual(client.calls, [True, True])
+
+    def test_shutdown_does_not_claim_quiescence_after_join_timeout(self):
+        client = Mock()
+        worker = ProductDevicePresenceWorker(client)
+        unfinished = Mock()
+        unfinished.is_alive.return_value = True
+        worker._thread = unfinished
+        with self.assertRaisesRegex(ProductDevicePresenceError, "device-presence-worker-still-running"):
+            worker.stop(wait=True)
+        unfinished.join.assert_called_once_with(timeout=11.0)
+        self.assertTrue(worker._closed)
+        self.assertFalse(worker._enabled)
+        self.assertEqual(worker.connection_state(), "disabled")
+
+    def test_shutdown_cannot_join_itself_and_cannot_authorize_takeover(self):
+        worker = ProductDevicePresenceWorker(Mock())
+        worker._thread = threading.current_thread()
+        with self.assertRaisesRegex(ProductDevicePresenceError, "device-presence-stop-from-own-thread"):
+            worker.stop(wait=True)
+        self.assertTrue(worker._closed)
+
+    def test_successful_wait_requires_thread_not_alive(self):
+        worker = ProductDevicePresenceWorker(Mock())
+        stopped = Mock()
+        stopped.is_alive.return_value = False
+        worker._thread = stopped
+        worker.stop(wait=True)
+        stopped.join.assert_called_once_with(timeout=11.0)
+        self.assertTrue(worker._closed)
 
     def test_exactly_one_worker_and_offline_on_stop(self):
         class Device:

@@ -173,6 +173,8 @@ class ProductDeviceIdentityStore:
         try:
             meta = os.fstat(fd)
             if (not stat.S_ISREG(meta.st_mode)
+                    or meta.st_uid != os.geteuid()
+                    or meta.st_nlink != 1
                     or stat.S_IMODE(meta.st_mode) != 0o600
                     or not 0 < meta.st_size <= MAX_STATE_BYTES):
                 return None
@@ -192,17 +194,14 @@ class ProductDeviceIdentityStore:
             return None
         return {"device_id": device_id, "device_token": token}
 
-    def connector_visibility_enabled(self, subject: str | None = None) -> bool:
-        """Read private Owner opt-in; missing/malformed state fails closed."""
-        if not isinstance(subject, str) or not UUID_RE.fullmatch(subject):
-            return False
-        subject = str(uuid.UUID(subject))
+    def _read_connector_visibility(self) -> dict | None:
+        """Read the single private discovery policy; never follow symlinks."""
         path = self.connector_visibility_path
         flags = os.O_RDONLY | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NOFOLLOW", 0)
         try:
             descriptor = os.open(path, flags)
         except OSError:
-            return False
+            return None
         try:
             meta = os.fstat(descriptor)
             if (not stat.S_ISREG(meta.st_mode)
@@ -210,13 +209,21 @@ class ProductDeviceIdentityStore:
                     or meta.st_nlink != 1
                     or stat.S_IMODE(meta.st_mode) != 0o600
                     or not 0 < meta.st_size <= MAX_STATE_BYTES):
-                return False
+                return None
             raw = os.read(descriptor, MAX_STATE_BYTES + 1)
             payload = json.loads(raw.decode("utf-8"))
         except (OSError, UnicodeError, json.JSONDecodeError):
-            return False
+            return None
         finally:
             os.close(descriptor)
+        return payload if isinstance(payload, dict) else None
+
+    def connector_visibility_enabled(self, subject: str | None = None) -> bool:
+        """Read account-bound opt-in for the login-gated discovery policy."""
+        if not isinstance(subject, str) or not UUID_RE.fullmatch(subject):
+            return False
+        subject = str(uuid.UUID(subject))
+        payload = self._read_connector_visibility()
         return (
             isinstance(payload, dict)
             and set(payload) == {"schema", "enabled", "subject"}
@@ -224,6 +231,44 @@ class ProductDeviceIdentityStore:
             and payload["enabled"] is True
             and payload["subject"] == subject
         )
+
+    def development_visibility_enabled(self) -> bool:
+        """DEV USB only: enrolled device presence defaults on without login.
+
+        The caller owns the distribution/mode gate. Existing explicit opt-out
+        is preserved; malformed policy or credential never enables discovery.
+        """
+        credential = self.read_enrolled_credential()
+        if credential is None:
+            return False
+        if not os.path.lexists(self.connector_visibility_path):
+            return True
+        payload = self._read_connector_visibility()
+        if payload is None or payload.get("enabled") is not True:
+            return False
+        if payload.get("schema") == "ordax.product-connector-development-visibility/1":
+            return (set(payload) == {"schema", "enabled", "deviceId"}
+                    and payload["deviceId"] == credential["device_id"])
+        # Preserve existing enabled policies while migrating this DEV device.
+        return (set(payload) == {"schema", "enabled", "subject"}
+                and payload.get("schema") == "ordax.product-connector-visibility/1"
+                and isinstance(payload.get("subject"), str)
+                and UUID_RE.fullmatch(payload["subject"]) is not None)
+
+    def set_development_connector_visibility(self, enabled: bool) -> None:
+        if type(enabled) is not bool:
+            raise TypeError("connector visibility must be a boolean")
+        credential = self.read_enrolled_credential()
+        if credential is None:
+            if not enabled:
+                self.set_connector_visibility(False)
+                return
+            raise ProductDeviceIdentityError("device-enrollment-required")
+        self._atomic_write(self.connector_visibility_path, {
+            "schema": "ordax.product-connector-development-visibility/1",
+            "enabled": enabled,
+            "deviceId": credential["device_id"],
+        })
 
     def set_connector_visibility(self, enabled: bool, subject: str | None = None) -> None:
         """Persist only device discoverability, never OAuth or action grants."""
