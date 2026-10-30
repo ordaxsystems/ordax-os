@@ -93,11 +93,15 @@ function assertExternalCallerContext(context) {
 export async function mountNativeVerifiedInstalledApps({
   installed, source, fetchImpl, importModule,
   context, onError = null,
+  signedCurrentCompatibility = null,
 } = {}) {
   if (!Array.isArray(installed)) throw new TypeError("Installed app mounts require an array");
   const narrowContext = assertExternalCallerContext(context);
   if (onError !== null && typeof onError !== "function") {
     throw new TypeError("Installed app mount error handler must be a function or null");
+  }
+  if (signedCurrentCompatibility !== null && typeof signedCurrentCompatibility !== "function") {
+    throw new TypeError("Signed compatibility resolver must be a trusted Native function");
   }
   const results = await Promise.all(installed.map(async (entry) => {
     const appId = entry.component.id;
@@ -106,13 +110,22 @@ export async function mountNativeVerifiedInstalledApps({
       return null;
     }
     try {
+      // The optional Windows path reads a release/2 sidecar through the
+      // same Go verifier that owns the activation-state revision. A missing,
+      // stale or unsigned descriptor never permits dropping App Data.
+      const signed = signedCurrentCompatibility === null
+        ? null : await signedCurrentCompatibility(entry.metadata);
+      const requireAppData = signed === null ? true : signed.requiresAppData;
+      if (typeof requireAppData !== "boolean")
+        throw new TypeError("Signed current compatibility requirement is invalid");
       const mounted = await loadVerifiedCurrentComponentRuntime({
         componentId: appId,
         source,
         fetchImpl,
         importModule,
         context: narrowContext,
-        requireTrustedAppData: true,
+        requireTrustedAppData: requireAppData,
+        forbidUnrequiredAppData: signed !== null && !requireAppData,
         expectedCurrent: entry.metadata,
         onError(error) { onError?.(error, appId); },
       });
