@@ -64,6 +64,7 @@ Não é owner de:
 
 É owner de:
 - ORDAX Runtime para Windows;
+- OrdaX MCP para Windows como **distribuição independente**, sem depender do Studio ou do Electron;
 - device host/agent;
 - Computer Control;
 - filesystem/process/input/screenshot/app launch;
@@ -171,6 +172,24 @@ ChatGPT
   -> receipt/audit
 ```
 
+### OrdaX MCP independente para Windows
+
+```text
+ordaxsystems/ordax-runtime
+  -> instalador e processo OrdaX MCP / ORDAX Runtime (mesmo executor)
+  -> capabilities locais sujeitas a política e consentimento
+  -> ordaxsystems/ordax-platform (Conta, OAuth, grants, sessões e MCP remoto)
+  -> ChatGPT e outros clientes autorizados
+```
+
+A distribuição Windows do **OrdaX MCP** pertence exclusivamente a
+`ordax-runtime`, e não ao Studio. O candidato independente foi validado
+na [PR #278 do Runtime](https://github.com/ordaxsystems/ordax-runtime/pull/278)
+com build, instalação e desinstalação em runner Windows; não é release
+público assinado nem comprovação de onboarding gráfico completo.
+`ordax-platform` permanece a autoridade remota. Não existe segundo MCP,
+executor, base de identidade ou atualização sob a responsabilidade de apps.
+
 ### ORDAX Studio no Windows
 
 ```text
@@ -195,9 +214,11 @@ O OrdaX OS não deve empacotar um segundo ORDAX Runtime apenas para executar o S
 O OrdaX OS é owner dos **serviços nativos de permissões e capabilities**
 consumidos por todos os apps, não apenas Studio. A Platform é owner do
 Product MCP remoto e dos grants OAuth/PostgreSQL. No Windows, o Runtime
-implementa a política e as capacidades locais; o Studio pode apresentar a
-interface Owner para autorizações Windows, mas não se torna serviço de
-permissões universal.
+implementa a política e as capacidades locais; a instalação e a vinculação
+Owner pertencem ao produto independente **OrdaX MCP**, e não ao Studio.
+O Studio consome capabilities autorizadas como qualquer outro aplicativo,
+sem assumir onboarding obrigatório, grant minting ou autoridade de permissões.
+A interface gráfica própria do OrdaX MCP ainda exige gates de produto.
 
 No OrdaX OS, Settings/Permissions e o host de sistema administram acesso
 tipado por app verificado/cliente + conta + Space/projeto + dispositivo +
