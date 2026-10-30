@@ -58,6 +58,8 @@ const PORTUGUESE_GREETING_STYLE =
   "For a simple Portuguese greeting such as oi or olá, respond in Brazilian Portuguese in one very short friendly sentence. Do not mention permissions or capabilities unless the user asks.";
 const OTHER_GREETING_STYLE =
   "For a simple greeting, respond in the user's language in one very short friendly sentence. Do not mention permissions or capabilities unless asked.";
+const CANONICAL_LOCALE_GREETING_STYLE =
+  "For a simple greeting, use the OrdaX system response language specified above in one very short friendly sentence. Do not mention permissions or capabilities unless asked.";
 const CANONICAL_INTELLIGENCE_IDENTITY =
   "You are Ordax Intelligence, the consultative intelligence layer of the OrdaX system.";
 
@@ -72,9 +74,14 @@ function boundWindowsGreeting(value) {
   // The authenticated canonical envelope has already established intent=ask
   // with no context. Feed the user's actual greeting, not transport metadata,
   // to the small local model. All system security rules remain unchanged.
-  const style = PORTUGUESE_GREETING.test(prompt.trim())
-    ? PORTUGUESE_GREETING_STYLE : OTHER_GREETING_STYLE;
   const system = value.messages[0].content;
+  // Intelligence supplies the authoritative regional language once per
+  // request. A user greeting like "oi" cannot switch an English system back
+  // to Portuguese through the Windows-only latency optimization.
+  const style = system.includes("OrdaX system response language:")
+    ? CANONICAL_LOCALE_GREETING_STYLE :
+    PORTUGUESE_GREETING.test(prompt.trim())
+      ? PORTUGUESE_GREETING_STYLE : OTHER_GREETING_STYLE;
   // Preserve original security instructions, even under an output budget.
   const styled = system.length + 1 + style.length <= LOCAL_AI_MAX_SYSTEM_PROMPT_CHARS
     ? system + "\n" + style : system;
