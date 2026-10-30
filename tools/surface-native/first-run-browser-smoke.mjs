@@ -289,7 +289,12 @@ async function scenario(modules,css,origin) {
  // Native Desktop reuses this wizard, but its review must never claim USB.
  const desktop=await fixture();
  mountFirstRunExperience(root,{...desktop.ports,productMode:'desktop'});
- await reachAccount();await click('account-local');
+ await click('next');
+ checks.desktopSkipsSystemNetworkSetup=
+   document.querySelectorAll('.ordax-first-run-steps li').length===4
+   && document.querySelector('.ordax-first-run')?.dataset.firstRunStep==='account'
+   && !document.querySelector('[data-first-run-action="account-network"]');
+ await click('account-local');
  checks.desktopSecurityHasNoUSB=!document.querySelector('.ordax-first-run-body')?.textContent.includes('pendrive')
    && document.querySelector('.ordax-first-run-body')?.textContent.includes('OrdaX Desktop');
  await click('next');

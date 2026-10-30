@@ -58,7 +58,8 @@ test("native First Run resumes with independent cursor, never a second receipt",
 test("First Run resume reads the bounded cursor once and resolves indices through the canonical journey", async () => {
   const ui = await readFile(new URL("../system/surface/ui/first-run.mjs", import.meta.url), "utf8");
   assert.equal((ui.match(/cursorPort\?\.load\(\)\.step/g) ?? []).length, 1);
-  assert.match(ui, /let stepIndex = getFirstRunStepIndex\(resumedStep\)/);
+  assert.match(ui, /let stepIndex = Math\.max\(0, stepIndexFor\(resumedStep\)\)/);
+  assert.match(ui, /FIRST_RUN_JOURNEY\.filter/);
   assert.doesNotMatch(ui, /STEPS\.indexOf\(/);
   assert.equal(getFirstRunStepIndex(safeFirstRunResumeStep("ready")), getFirstRunStepIndex("account"));
   for (const [index, step] of FIRST_RUN_STEP_IDS.entries()) {
