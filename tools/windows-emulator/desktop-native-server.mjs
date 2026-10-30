@@ -3,6 +3,7 @@
 // starts. This serves the SAME Native middleware as Vite without running Vite
 // or transforming source at boot. The visual emulator still uses Vite.
 import { createServer } from "node:http";
+import { createHmac } from "node:crypto";
 import { lstatSync, realpathSync, readFileSync } from "node:fs";
 import { resolve, join, sep, extname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -64,6 +65,13 @@ export function createDesktopNativeServer({root,stateDirectory,accountGatewayOri
      !process.env.ORDAX_DESKTOP_UPDATE_USER_DATA||
      !process.env.ORDAX_DESKTOP_ASSETS_ROOT)
     throw TypeError("Installed Desktop host requires verified Electron session and built assets");
+  // The installed Native listener must prove possession of the existing
+  // per-launch Electron-to-Native grant, not just that *any* local HTTP
+  // server answered 200 on a port released before process startup.
+  const nativeGrant=process.env.ORDAX_DESKTOP_NATIVE_SESSION_TOKEN;
+  if(typeof nativeGrant!=="string"||!/^[0-9a-f]{64}$/.test(nativeGrant))
+    throw TypeError("Installed Native listener requires the existing per-launch grant");
+  const readyKey=Buffer.from(nativeGrant,"hex");
   const middleware=[];
   // The one Native plugin owns routes and all Electron grants. Reuse its
   // existing registration; do not fork accounts, files, observations or UI.
@@ -72,6 +80,23 @@ export function createDesktopNativeServer({root,stateDirectory,accountGatewayOri
   }).configureServer({middlewares:{use(fn){middleware.push(fn);}}});
   middleware.push(createDesktopStaticMiddleware(root));
   const server=createServer((req,res)=>{
+    if(req.url?.split("?")[0]==="/__ordax/desktop-host-ready"){
+      const challenge=req.headers["x-ordax-desktop-ready-challenge"];
+      const local=["127.0.0.1","::1","::ffff:127.0.0.1"]
+        .includes(req.socket?.remoteAddress);
+      if(req.method!=="GET"||req.url!=="/__ordax/desktop-host-ready"||
+          !local||typeof challenge!=="string"||!/^[0-9a-f]{64}$/.test(challenge)){
+        res.writeHead(404,{"Cache-Control":"no-store"});return res.end();
+      }
+      // Domain-separated, nonce-bound HMAC. Never echo the native grant or
+      // treat ordinary HTML availability as authorization to load a Surface.
+      const proof=createHmac("sha256",readyKey)
+        .update("ordax.desktop.native-ready/1:"+challenge).digest("hex");
+      res.writeHead(200,{"Cache-Control":"no-store",
+        "X-Ordax-Desktop-Ready-Proof":proof,
+        "Content-Length":"0"});
+      return res.end();
+    }
     let index=0;
     const next=()=>{
       if(res.writableEnded)return;
