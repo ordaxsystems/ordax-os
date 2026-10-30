@@ -5518,6 +5518,15 @@ class NativeHostHandler(SimpleHTTPRequestHandler):
                 print(f"ordax-native-host: could not persist device profile: {exc}", file=sys.stderr, flush=True)
                 self._empty(500)
                 return
+            # The Native host owns one durable Device Profile write path.
+            # Product registration is optional and must never roll back a
+            # successful local rename or create a second route for Surface.
+            reconcile = getattr(self.server.account_gateway, "reconcile_device_profile", None)
+            if callable(reconcile):
+                try:
+                    reconcile(updated)
+                except (OSError, RuntimeError, UnicodeError, ValueError, TypeError, AttributeError):
+                    pass
             self._write_json(200, updated)
             return
 

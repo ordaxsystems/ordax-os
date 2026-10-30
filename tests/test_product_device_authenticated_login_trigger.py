@@ -92,6 +92,60 @@ class ProductDeviceAuthenticatedLoginTriggerTests(unittest.TestCase):
         self.assertEqual(gateway.session_calls, 1)
         self.assertEqual(coordinator.calls, [(profile, SUBJECT)])
 
+    def test_authenticated_rename_reconciles_same_subject_and_device_binding(self):
+        gateway = FakeGateway()
+        coordinator = FakeCoordinator()
+        original = {"devicePublicId": "same-binding", "displayName": "Meu OrdaX"}
+        proxy = module.ProductDeviceAccountGatewayProxy(gateway, coordinator, lambda: original)
+        proxy.login("owner@example.test", "secret")
+        renamed = {"devicePublicId": "same-binding", "displayName": "Meu Notebook"}
+        proxy.reconcile_device_profile(renamed)
+        self.assertEqual(coordinator.calls, [(original, SUBJECT), (renamed, SUBJECT)])
+        self.assertEqual(proxy._enrolled_subject, SUBJECT)
+        self.assertEqual(gateway.login_calls, [("owner@example.test", "secret")])
+
+    def test_anonymous_rename_does_not_enroll_or_query_account(self):
+        gateway = FakeGateway(authenticated=False)
+        coordinator = FakeCoordinator()
+        proxy = module.ProductDeviceAccountGatewayProxy(gateway, coordinator, lambda: {})
+        proxy.reconcile_device_profile({"displayName": "Sem conta"})
+        self.assertEqual(gateway.session_calls, 0)
+        self.assertEqual(coordinator.calls, [])
+
+    def test_rename_fails_closed_if_session_subject_changes_or_expires(self):
+        for changed in (False, True):
+            with self.subTest(changed=changed):
+                gateway = FakeGateway()
+                coordinator = FakeCoordinator()
+                proxy = module.ProductDeviceAccountGatewayProxy(gateway, coordinator, lambda: {})
+                proxy.login("owner@example.test", "secret")
+                if changed:
+                    gateway.subject = "123e4567-e89b-42d3-a456-426614174001"
+                else:
+                    gateway.authenticated = False
+                proxy.reconcile_device_profile({"displayName": "Outro"})
+                self.assertEqual(len(coordinator.calls), 1)
+                self.assertFalse(proxy._authenticated)
+
+    def test_rename_preserves_local_success_when_control_plane_fails(self):
+        gateway = FakeGateway()
+        coordinator = FakeCoordinator()
+        proxy = module.ProductDeviceAccountGatewayProxy(gateway, coordinator, lambda: {})
+        proxy.login("owner@example.test", "secret")
+        coordinator.raises = OSError("control-plane-offline")
+        self.assertIsNone(proxy.reconcile_device_profile({"displayName": "Local preservado"}))
+        self.assertIsNone(proxy._enrolled_subject)
+        self.assertEqual(coordinator.calls[-1][1], SUBJECT)
+
+    def test_device_profile_owner_reuses_single_native_write_path(self):
+        source = (RUNTIME / "native_host_server.py").read_text(encoding="utf-8")
+        route = source.split("if parsed_path == DEVICE_PROFILE_PATH:", 2)[2].split(
+            "if parsed_path == FIRST_RUN_CURSOR_PATH:", 1
+        )[0]
+        self.assertEqual(route.count("write_device_profile(updated)"), 1)
+        self.assertIn('getattr(self.server.account_gateway, "reconcile_device_profile", None)', route)
+        self.assertLess(route.index("write_device_profile(updated)"), route.index("reconcile(updated)"))
+
     def test_switching_accounts_stops_the_prior_device_presence(self):
         gateway = FakeGateway()
         coordinator = FakeCoordinator()
