@@ -79,6 +79,9 @@ try {
     (Join-Path $resources "runtime-template\desktop-assets\system\composition\native\index.html"),
     (Join-Path $resources "runtime-template\toolchain\node_modules.tar.gz"),
     (Join-Path $resources "runtime-template\toolchain\toolchain-receipt.json"),
+    (Join-Path $resources "runtime-template\\tools\\runtime-component-channel\\ordax-runtime-component-channel.exe"),
+    (Join-Path $resources "runtime-template\\docs\\contracts\\runtime-component-trust-policy.json"),
+    (Join-Path $resources "runtime-template\\docs\\contracts\\runtime-component-package.json"),
     (Join-Path $resources "runtime-template\local-ai-runtime\engine\llama-server.exe"),
     (Join-Path $resources "runtime-template\local-ai-runtime\models\Qwen3.5-0.8B-Q4_0.gguf")
   )

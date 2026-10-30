@@ -15,6 +15,7 @@ import { createDesktopClientDiagnosticsMiddleware } from "../../system/adapters/
 import { createDesktopDeviceProfileMiddleware } from "../../system/adapters/desktop/device-profile-host.mjs";
 import { createDesktopWlanMiddleware } from "../../system/adapters/desktop/wifi-radio-host.mjs";
 import { createDesktopLocalAiMiddleware } from "../../system/adapters/desktop/local-ai-host.mjs";
+import { createDesktopVerifiedComponentSlotMiddleware } from "../../system/adapters/desktop/verified-component-slot-host.mjs";
 import { createDesktopDisplayCurrentModeMiddleware } from "../../system/adapters/desktop/display-current-mode-host.mjs";
 import observationPolicy from "../../system/adapters/desktop/observation-grant.cjs";
 const { OBSERVATION_ROUTES, createDesktopObservationGrantMiddleware }=observationPolicy;
@@ -193,6 +194,14 @@ export function nativeEmulatorPlugin(stateDirectory, { desktopHost = false, acco
           token:process.env.ORDAX_DESKTOP_DEVICE_PROFILE_TOKEN,
           sessionLocked:localSession?.readLocked??null,
         }).middleware);
+      }
+      if (desktopHost && process.platform === "win32" && userData) {
+        // The installed Electron owner selected the exact verified OS root.
+        // Signed-slot reads reuse the canonical Go verifier; no signing,
+        // installation, health, grant or promotion authority lives here.
+        server.middlewares.use(createDesktopVerifiedComponentSlotMiddleware({
+          systemRoot: process.cwd(), userData,
+        }));
       }
       if (desktopHost && process.env.ORDAX_DESKTOP_UPDATE_USER_DATA) {
         // Logical "/" is a private, persistent Windows user-data file-space,
