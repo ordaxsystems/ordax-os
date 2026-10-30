@@ -267,3 +267,82 @@ test("Windows Native recycles a disconnected orphan without a second concurrent 
   const dirs=(await readdir(dir)).filter(p=>p.startsWith(".local-ai-auth-"));
   assert.equal(dirs.length,1,"old private API key must be deleted during recycle");
 });
+
+test("Windows Aura recovers a signaled backend once without duplicate engine or retry storm", async t => {
+  const { readdir } = await import("node:fs/promises");
+  const profile = await mkdtemp(join(tmpdir(), "ordax-aura-exit-recovery-"));
+  t.after(async () => rm(profile, { recursive:true, force:true }));
+  let verified=0, alive=0, killedExited=0;
+  const spawned=[];
+  const local=createDesktopLocalAiMiddleware({
+    packageRoot:"C:/verified",userData:profile,token:TOKEN,
+    verifyPackage:async()=>{ verified++; return model; },
+    launch:()=>{
+      const child=new EventEmitter();
+      child.pid=23000+spawned.length;
+      child.exitCode=null;
+      child.signalCode=null;
+      child.kill=()=>{
+        if(child.exitCode!==null || child.signalCode!==null){
+          killedExited++;return false;
+        }
+        child.exitCode=0;
+        alive--;
+        queueMicrotask(()=>child.emit("exit",0,null));
+        return true;
+      };
+      alive++;
+      assert.equal(alive,1,"only one llama engine can be alive");
+      spawned.push(child);
+      return child;
+    },
+    fetchImpl:async()=>new Response(JSON.stringify({status:"ok"}),{
+      status:200,headers:{"content-type":"application/json"},
+    }),
+  });
+  const server=createServer((req,res)=>local.middleware(req,res,()=>{
+    res.writeHead(418);res.end();
+  }));
+  await new Promise(resolve=>server.listen(0,"127.0.0.1",resolve));
+  t.after(async()=>{
+    await local.dispose();
+    await new Promise(resolve=>server.close(resolve));
+  });
+  const health="http://127.0.0.1:"+server.address().port+"/__ordax/native/local-ai/health";
+  async function ready(){
+    for(let n=0;n<100;n++){
+      if((await fetch(health,opts)).status===200)return true;
+      await new Promise(resolve=>setTimeout(resolve,15));
+    }
+    return false;
+  }
+  const crash=child=>{
+    assert.equal(child.exitCode,null);
+    child.signalCode="SIGTERM";
+    alive--;
+    child.emit("exit",null,"SIGTERM");
+  };
+  assert.equal((await fetch(health,opts)).status,503);
+  assert.equal(await ready(),true);
+  assert.equal(spawned.length,1);
+  crash(spawned[0]);
+  assert.equal((await fetch(health)).status,401,"unauthorized request cannot trigger recovery");
+  assert.equal(spawned.length,1);
+  const recovering=await fetch(health,opts);
+  assert.equal(recovering.status,503,"recovery must not fake model readiness");
+  assert.equal(await ready(),true,"exact pinned engine must come back once");
+  assert.equal(spawned.length,2);
+  assert.equal(verified,2,"backend and model must be fully reverified");
+  assert.equal(alive,1);
+  assert.equal(killedExited,0,"never target an already-signaled/reusable PID");
+  assert.equal((await readdir(profile)).filter(x=>x.startsWith(".local-ai-auth-")).length,1,
+    "old ephemeral API key directory must not survive a crash recovery");
+  crash(spawned[1]);
+  for(let n=0;n<5;n++){
+    const after=await fetch(health,opts);
+    assert.equal(after.status,503,"second crash must fail closed");
+  }
+  assert.equal(spawned.length,2,"no uncontrolled restart loop");
+  assert.equal(verified,2,"no unnecessary repackaging/reverification storm");
+  assert.equal(killedExited,0);
+});
