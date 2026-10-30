@@ -66,7 +66,7 @@ class BranchHygieneTests(unittest.TestCase):
 
         def ahead(ref, expected_sha):
             compared.append((ref, expected_sha))
-            return 0
+            return 1 if ref == "abandoned" else 0
 
         candidates = branch_hygiene.plan_deletions(
             REPO,
@@ -77,12 +77,38 @@ class BranchHygieneTests(unittest.TestCase):
         )
         by_ref = {candidate.ref: candidate for candidate in candidates}
 
-        self.assertEqual(set(by_ref), {"merged", "abandoned", "feature/contained"})
+        self.assertEqual(set(by_ref), {"merged", "feature/contained"})
         self.assertEqual(by_ref["merged"].reason, "merged-head-unchanged")
-        self.assertEqual(by_ref["abandoned"].reason, "closed-unmerged-head-unchanged")
         self.assertEqual(by_ref["feature/contained"].reason, "fully-contained-in-main")
-        self.assertEqual(compared, [("feature/contained", "c" * 40)])
+        self.assertEqual(compared, [("abandoned", "b" * 40), ("feature/contained", "c" * 40)])
         self.assertEqual(len(candidates), len(set(by_ref)))
+
+    def test_closed_without_merge_keeps_unique_commits_even_at_exact_head(self):
+        abandoned = pr("superseded/unique-code", "d" * 40)
+        branches = [branch("main", "0" * 40), branch("superseded/unique-code", "d" * 40)]
+        seen = []
+
+        def ahead(ref, sha):
+            seen.append((ref, sha))
+            return 3
+
+        candidates = branch_hygiene.plan_deletions(
+            REPO, [], [abandoned], branches, ahead,
+        )
+        self.assertEqual(candidates, [])
+        self.assertEqual(seen, [("superseded/unique-code", "d" * 40)])
+
+    def test_closed_without_merge_prunes_only_if_fully_contained(self):
+        abandoned = pr("superseded/in-main", "d" * 40)
+        branches = [branch("main", "0" * 40), branch("superseded/in-main", "d" * 40)]
+        candidates = branch_hygiene.plan_deletions(
+            REPO, [], [abandoned], branches, lambda _ref, _sha: 0,
+        )
+        self.assertEqual(candidates, [
+            branch_hygiene.DeleteCandidate(
+                "superseded/in-main", "d" * 40, "fully-contained-in-main",
+            ),
+        ])
 
     def test_open_pr_and_protected_branches_are_never_candidates(self):
         open_prs = [pr("active", "d" * 40)]
