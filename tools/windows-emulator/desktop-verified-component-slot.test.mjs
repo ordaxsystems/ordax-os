@@ -237,3 +237,71 @@ test("Windows component reader cannot adopt modified checkout trust or missing i
   assert.equal((await fetch(url)).status, 404);
   assert.equal(invoked, 1);
 });
+
+
+test("Windows exposes release/2 compatibility only through exact current revision and pinned Go trust", async t => {
+  const f = setup(t);
+  const calls = [];
+  const trustSha = createHash("sha256").update(readFileSync(f.installedAnchorPath)).digest("hex");
+  const descriptor = Object.freeze({
+    schema: "ordax.component-compatibility/1", componentId: "assistant",
+    componentVersion: "0.1.2",
+    provides: [{ id: "ordax.component-runtime", major: 1 }],
+    requires: [{ id: "ordax.identity-session", minMajor: 1, maxMajor: 1, optional: false }],
+    state: null, authority: "none",
+  });
+  const report = {
+    schema: "ordax.activation-slot-compatibility-snapshot/1",
+    authority: "none", componentId: "assistant", target: "current", revision: 7,
+    trustScope: "caller-supplied-public-anchor", trustSHA256: trustSha,
+    pendingHealth: "none",
+    verifiedSlot: {
+      schema: "ordax.verified-slot-compatibility/1", authority: "none",
+      trustScope: "caller-supplied-public-anchor", trustSHA256: trustSha,
+      activationStatus: "not-evaluated", componentId: "assistant",
+      version: "0.1.2", sourceCommit: SOURCE, descriptor,
+    },
+  };
+  let responseReport = report;
+  const base = await serve(t, f, (binary, args, opts, cb) => {
+    calls.push(args);
+    assert.equal(binary, f.helper);
+    assert.deepEqual(args, [
+      "inspect-activation-compatibility-v2", "--component", "assistant",
+      "--target", "current", "--expected-revision", "7",
+      "--trust", f.installedAnchorPath, "--root", f.componentRoot,
+    ]);
+    assert.equal(opts.timeout, 3000);
+    cb(null, Buffer.from(JSON.stringify(responseReport)));
+  });
+  const url = base + "/__ordax/native/component-compatibility?component=assistant&state=current&revision=7";
+  const ok = await fetch(url);
+  assert.equal(ok.status, 200);
+  assert.deepEqual(await ok.json(), {
+    schema: "ordax.native-verified-current-compatibility/1",
+    componentId: "assistant", state: "current", revision: 7,
+    version: "0.1.2", sourceCommit: SOURCE, descriptor,
+  });
+  assert.equal(calls.length, 1);
+  const invalid = [
+    "component=assistant&state=pending&revision=7",
+    "component=assistant&state=current&revision=0",
+    "component=assistant&state=current&revision=07",
+    "component=assistant&state=current&revision=7&revision=7",
+    "component=calendar&state=current&revision=7",
+  ];
+  for (const query of invalid) {
+    assert.notEqual((await fetch(base + "/__ordax/native/component-compatibility?" + query)).status, 200);
+  }
+  assert.equal(calls.length, 1);
+  for (const forged of [
+    { ...report, revision: 8 },
+    { ...report, trustSHA256: "0".repeat(64) },
+    { ...report, verifiedSlot: { ...report.verifiedSlot, sourceCommit: "bad" } },
+    { ...report, verifiedSlot: { ...report.verifiedSlot, descriptor: { ...descriptor, componentId: "studio" } } },
+  ]) {
+    responseReport = forged;
+    assert.equal((await fetch(url)).status, 409);
+  }
+  assert.equal(calls.length, 5);
+});
