@@ -19,6 +19,10 @@ from native_component_pending_decision import (
     promote_component_pending,
     reject_component_pending,
 )
+from native_component_slots import (
+    ComponentSlotError,
+    resolve_component_slot,
+)
 from native_store_metadata_policy import (
     NATIVE_CANONICAL_COMPONENT_TRUST_ANCHOR_PINNED,
     NATIVE_PENDING_DECISION_EXECUTION_ENABLED,
@@ -233,6 +237,36 @@ class ComponentPendingDecisionOwner:
                 state="blocked",
                 mutated=False,
                 reason="component-promotion-gates-closed",
+            )
+
+        try:
+            pending = resolve_component_slot(
+                helper_path=self._helper_path,
+                trust_path=self._trust_path,
+                component_id=plan["component_id"],
+                state="pending",
+                slot_root=self._slot_root,
+                timeout_seconds=self._timeout_seconds,
+            )
+        except ComponentSlotError as exc:
+            raise ComponentPendingDecisionOwnerError(
+                "runtime component pending decision state revalidation failed closed"
+            ) from exc
+        if (
+            pending.source != "slot"
+            or pending.version != plan["version"]
+            or pending.source_commit != plan["source_commit"]
+            or pending.revision != plan["revision"]
+            or pending.pending_health != plan["health"]
+        ):
+            raise ComponentPendingDecisionOwnerError(
+                "runtime component pending decision state identity drifted"
+            )
+        if action == "promote" and (
+            pending.release_mode != "component-slot" or pending.health_mode != "runtime"
+        ):
+            raise ComponentPendingDecisionOwnerError(
+                "runtime component pending decision signed lifecycle metadata blocks promotion"
             )
 
         try:

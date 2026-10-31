@@ -64,7 +64,9 @@ function parseFields(buffer, id, state, slotRoot) {
     return { componentId: id, state, source: source === "REMOVED" ? "removed" : "absent",
       revision, version: null, sourceCommit: null, entrypoint: null, pendingHealth: null };
   }
-  if (source !== "SLOT" || fields.size !== 9
+  if (source !== "SLOT" || fields.size !== 11
+    || fields.get("RELEASE_MODE") !== "component-slot"
+    || !["runtime", "none"].includes(fields.get("HEALTH_MODE"))
     || !SEMVER.test(fields.get("CURRENT_VERSION") ?? "")
     || !SHA.test(fields.get("CURRENT_SOURCE_COMMIT") ?? "")
     || !within(slotRoot, fields.get("SLOT") ?? "")
