@@ -213,11 +213,14 @@ def verified_legacy_profile_deletion(base, head, *, root=ROOT):
         before = _git_show(base, LEGACY_PROFILE_DOC, root)
         if not before.startswith("# OrdaX") or "ARCHIVED / SUPERSEDED" not in before:
             return False
+        # cat-file -e returns 128 for both absent paths and corrupt refs.
+        # ls-tree must succeed against the verified commit and yield no path.
         probe = subprocess.run(
-            ["git", "-C", str(root), "cat-file", "-e", f"{head}:{LEGACY_PROFILE_DOC}"],
-            capture_output=True, timeout=20,
+            ["git", "-C", str(root), "ls-tree", "-r", "--name-only",
+             head, "--", LEGACY_PROFILE_DOC],
+            check=True, capture_output=True, text=True, timeout=20,
         )
-        return probe.returncode == 1
+        return not probe.stdout.strip()
     except (OSError, UnicodeError, ValueError, subprocess.SubprocessError):
         return False
 
