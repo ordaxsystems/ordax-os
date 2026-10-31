@@ -197,12 +197,11 @@ func verifiedNativeProductHandoff(lockPath, policyPath, trustPath, slotRoot, tar
     if strings.ContainsAny(entry, "\r\n\x00") {
         return result, errors.New("invalid product runtime executable path")
     }
-    // The shared slot verifier already validates this file's signed hash and
-    // immutable 0555 mode; reject a changed inode type before handoff too.
+    // The shared verifier already rechecks Ed25519, SHA-256 and the
+    // platform-specific non-writable slot. Do not apply POSIX 0555 to Windows.
     info, err := os.Lstat(entry)
     if err != nil { return result, err }
-    if !info.Mode().IsRegular() || info.Mode()&os.ModeSymlink != 0 ||
-        info.Mode().Perm() != 0o555 {
+    if !verifiedExecutableSlotFile(info, "product-runtime", manifest.Files[0]) {
         return result, errors.New("installed Product Runtime executable is not immutable")
     }
     return nativeProductHandoff{

@@ -644,6 +644,19 @@ func verifiedFileMode(componentID string, record packageFile) os.FileMode {
 	return 0o444
 }
 
+// A signed executable uses immutable POSIX mode on Native and the Windows
+// read-only attribute on Desktop. In both cases its full signed SHA-256 is
+// rechecked by the shared slot verifier; this is not an ACL or session grant.
+func verifiedExecutableSlotFile(info os.FileInfo, componentID string, record packageFile) bool {
+	if !executablePackageFile(componentID, record) ||
+		!info.Mode().IsRegular() || info.Mode()&os.ModeSymlink != 0 ||
+		info.Mode().Perm()&0o222 != 0 {
+		return false
+	}
+	return runtime.GOOS == "windows" ||
+		info.Mode().Perm() == verifiedFileMode(componentID, record)
+}
+
 func validatePackageManifest(manifest componentPackageManifest, release releaseDescriptor) error {
 	if manifest.Schema != packageSchema || manifest.Status != "candidate" {
 		return errors.New("unsupported runtime component package manifest")
@@ -1073,19 +1086,23 @@ func removeStagingTree(root string) {
 	if strings.TrimSpace(root) == "" {
 		return
 	}
-	if runtime.GOOS != "windows" {
-		_ = filepath.WalkDir(root, func(path string, entry os.DirEntry, err error) error {
-			if err != nil {
-				return nil
-			}
-			if entry.IsDir() {
-				_ = os.Chmod(path, 0o700)
-			} else {
-				_ = os.Chmod(path, 0o600)
-			}
+	// Clear Windows read-only attributes as well as POSIX slot modes before
+	// disposing a rejected STAGING tree. Never touch a current slot or user data.
+	_ = filepath.WalkDir(root, func(path string, entry os.DirEntry, err error) error {
+		if err != nil {
 			return nil
-		})
-	}
+		}
+		if runtime.GOOS == "windows" {
+			if !entry.IsDir() {
+				_ = os.Chmod(path, 0o666)
+			}
+		} else if entry.IsDir() {
+			_ = os.Chmod(path, 0o700)
+		} else {
+			_ = os.Chmod(path, 0o600)
+		}
+		return nil
+	})
 	_ = os.RemoveAll(root)
 }
 
@@ -1109,21 +1126,23 @@ func makeSlotReadOnly(root string, manifest componentPackageManifest) error {
 		if !info.Mode().IsRegular() {
 			return errors.New("runtime component slot contains a non-regular file")
 		}
-		if runtime.GOOS != "windows" {
-			relative, err := filepath.Rel(root, path)
-			if err != nil {
-				return err
-			}
-			mode := os.FileMode(0o444)
-			for _, record := range manifest.Files {
-				if record.Path == filepath.ToSlash(relative) {
-					mode = verifiedFileMode(manifest.Component.ID, record)
-					break
-				}
-			}
-			return os.Chmod(path, mode)
+		// Go maps Chmod to FILE_ATTRIBUTE_READONLY on Windows; POSIX
+		// retains its executable 0555 mode. Both are reverified on read.
+		if runtime.GOOS == "windows" {
+			return os.Chmod(path, 0o444)
 		}
-		return nil
+		relative, err := filepath.Rel(root, path)
+		if err != nil {
+			return err
+		}
+		mode := os.FileMode(0o444)
+		for _, record := range manifest.Files {
+			if record.Path == filepath.ToSlash(relative) {
+				mode = verifiedFileMode(manifest.Component.ID, record)
+				break
+			}
+		}
+		return os.Chmod(path, mode)
 	}); err != nil {
 		return err
 	}
@@ -1204,7 +1223,7 @@ func verifySlotWithTrustBytes(slot string, trustBytes []byte) (releaseDescriptor
 		if !info.Mode().IsRegular() {
 			return errors.New("installed runtime component slot contains unsafe entry type")
 		}
-		if runtime.GOOS != "windows" && info.Mode().Perm()&0o222 != 0 {
+		if info.Mode().Perm()&0o222 != 0 {
 			return fmt.Errorf("installed runtime component file is writable: %s", path)
 		}
 		relative, err := filepath.Rel(absolute, path)
@@ -1228,13 +1247,12 @@ func verifySlotWithTrustBytes(slot string, trustBytes []byte) (releaseDescriptor
 	}
 	for _, record := range manifest.Files {
 		filePath := filepath.Join(absolute, filepath.FromSlash(record.Path))
-		if runtime.GOOS != "windows" {
+		if executablePackageFile(manifest.Component.ID, record) {
 			info, err := os.Lstat(filePath)
 			if err != nil {
 				return releaseDescriptor{}, err
 			}
-			if executablePackageFile(manifest.Component.ID, record) &&
-				info.Mode().Perm() != verifiedFileMode(manifest.Component.ID, record) {
+			if !verifiedExecutableSlotFile(info, manifest.Component.ID, record) {
 				return releaseDescriptor{}, fmt.Errorf("installed runtime component file mode mismatch: %s", record.Path)
 			}
 		}

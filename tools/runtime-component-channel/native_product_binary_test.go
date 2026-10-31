@@ -268,6 +268,39 @@ func TestNativeSignedPackageRejectsELFWithValidSignatureAndBrokenHeaders(t *test
 	}
 }
 
+func TestWindowsSignedProductRuntimeSlotRequiresReadOnlyAttribute(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("verify Windows file attributes on Windows runner")
+	}
+	fixture := productRuntimeFixtureWithTarget(t, true, 0o555,
+		productRuntimeWindowsTarget, productRuntimeWindowsPEFixture())
+	root := filepath.Join(fixture.dir, "windows-slots")
+	// Remove only this temporary signed fixture; Windows read-only attributes
+	// require the same canonical staging disposal policy.
+	t.Cleanup(func() { removeStagingTree(root) })
+	_, slot, changed, err := stageComponent(
+		fixture.envelopePath, fixture.trustPath, fixture.packagePath, root,
+	)
+	if err != nil || !changed {
+		t.Fatalf("Windows signed slot did not stage: changed=%v err=%v", changed, err)
+	}
+	executable := filepath.Join(slot, filepath.FromSlash(productRuntimeWindowsExecutablePath))
+	info, err := os.Lstat(executable)
+	if err != nil || info.Mode().Perm()&0o222 != 0 {
+		t.Fatalf("Windows staged executable must be read-only, info=%v err=%v", info, err)
+	}
+	trust, err := os.ReadFile(fixture.trustPath)
+	if err != nil { t.Fatal(err) }
+	if _, err := verifySlotWithTrustBytes(slot, trust); err != nil {
+		t.Fatalf("read-only signed Windows slot refused: %v", err)
+	}
+	if err := os.Chmod(executable, 0o666); err != nil { t.Fatal(err) }
+	if _, err := verifySlotWithTrustBytes(slot, trust); err == nil ||
+		!strings.Contains(err.Error(), "file is writable") {
+		t.Fatalf("writable Windows executable passed signed slot proof: %v", err)
+	}
+}
+
 func TestNativeSignedSlotAllowsBoundELFWithoutActivation(t *testing.T) {
 	fixture := nativePackageFixture(t, true, 0o555)
 	root := filepath.Join(fixture.dir, "slots")
