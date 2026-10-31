@@ -1,3 +1,19 @@
+OrdaX Desktop Windows Runtime component candidate (2026-10-31):
+`ordax-runtime` PR #281 is merged at `3a62460a`; the tested source
+`6b191cb8273577d94352893497b0eb118e3b98ae` is preserved in main ancestry.
+The self-contained Windows executable and unsigned component-channel v1
+package passed 45 focused tests, isolated Windows CI execution and an
+additional offline probe on `DESKTOP-PNUHUA0` (Windows 10), without an
+installed Python on PATH, Studio, network or enrolled credentials.
+Exact source, artifact and executable hashes are recorded in
+[`desktop-runtime-windows-candidate-2026-10-31.json`](evidence/desktop-runtime-windows-candidate-2026-10-31.json).
+This is a local `agent.status` package proof, **not remote MCP execution**.
+The canonical source lock and trust flags are not promoted by CI evidence.
+The external component trust/custody/recovery ceremony and public-only
+handoff remain mandatory before signed Windows slot promotion; the official
+Desktop installer update and supervised remote session/grant/action proof
+remain pending. Follow issue #1985. No USB/Buildroot/QEMU change or build.
+
 OrdaX Desktop Native Product MCP — Windows adapter (2026-10-30):
 The canonical Native Host source now owns a bounded OrdaX Supervisor
 adapter in `system/adapters/desktop/product-runtime-supervisor.mjs`.
