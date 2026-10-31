@@ -438,6 +438,8 @@ This decision refines earlier USB-only **MVP scope** language in ADRs/docs; it d
 
 Decision: a Space type owns domain/UX semantics, while runtime availability is projected exclusively from real capability providers. Profile Pack remains the versioned technical composition owner and does not become the owner of Space navigation, dashboard cards, operational metrics or business state.
 
+**UX clarification (2026-10-31):** `Spaces` is the **sole ordinary-user entry point** for professional workspaces. Creation selects a Space type and resolves its exact approved Profile Pack automatically. There must not be a second top-level `Perfis Profissionais` management journey, duplicate Space identity or separate account. Profile versions, permission review, installation state, rollback and advanced changes belong beneath the selected Space's professional-composition settings. Internal create, provisioning, approval, activation and health remain separate authorized operations, with a recoverable pending state; a create receipt must never be misrepresented as completed installation. Canonical UX details: `docs/SPACES-AND-PROFILES.md`. This refines this ADR without inventing another registry or backend.
+
 Canonical flow:
 
 ```text

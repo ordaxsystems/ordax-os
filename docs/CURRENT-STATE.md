@@ -1,3 +1,16 @@
+Spaces / Professional Profiles UX SSOT (2026-10-31):
+User-visible Spaces must be the sole creation, selection and management
+surface; Profile Packs are versioned composition attached to the selected
+Space, with advanced settings only. `docs/SPACES-AND-PROFILES.md` is the
+canonical UX owner and ADR-028 clarifies the existing design; the older
+root PLANO-06 is ARCHIVED, retained only because existing historic plans
+and CI refer to it. The Surface currently exposes separate `spaces`
+and `profiles` Account sections, so the one-journey UX **is not shipped**.
+Its exclusive implementation owner remains ordax-surface#33, including
+the pending/failed provisioning state and real Windows login→create→
+activate→select→restart E2E. The OS contract and data owners are not
+merged. No new Profile database, session, runtime or app installer.
+
 OrdaX Desktop Windows MCP — **DEV FIRST** (31/10/2026):
 A direção canônica da execução está em `docs/DEVELOPMENT-WORKFLOW.md`,
 seção "P0 — Native MCP no Windows/Desktop DEV", e na issue #1985.
@@ -31,8 +44,8 @@ Windows-only `system/adapters/desktop/` and Web-only
 Shared `system/composition/native/main.mjs`, Native adapters, and
 `system/adapters/web/` used by Native remain USB-sensitive.
 The Windows host's authenticated Space create gateway was merged in OS #2360
-(`6c29f4da`); the Desktop-only create port/contract is under validation in
-OS #2361 without changing the shared Native entrypoint. The Surface UI
+(`6c29f4da`), and the Desktop-only create port/contract merged as OS #2361
+(`81553f2c`) without changing the shared Native entrypoint. The Surface UI
 remains unimplemented (ordax-surface#33); this is **not** a completed
 authenticated Windows E2E or actual Profile Pack provisioning.
 The prior #2361 Creator workflow #41176996362 failed and is not release proof.

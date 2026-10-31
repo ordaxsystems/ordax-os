@@ -1,6 +1,10 @@
 # OrdaX — parte 6: Profiles profissionais e distribuição sob demanda
 
-**Estado:** fundação MVP em implementação.  
+**Estado documental: ARCHIVED / SUPERSEDED FOR CURRENT PRODUCT UX (2026-10-31).**
+
+**Sucessores canônicos:** [Spaces and Profiles](docs/SPACES-AND-PROFILES.md) para jornada única do usuário; [contrato Spaces/Profile](docs/contracts/spaces-and-profile-packs.json) e manifests versionados em `system/profile-packs/` para semântica executável; [estado atual](docs/CURRENT-STATE.md) para implementação/provas.
+
+Este plano permanece somente por referências históricas em planos de verticais e workflow de prova. Os itens abaixo são registros de fases e hipóteses anteriores, **não instruções atuais para recriar UI separada de Profiles**, ativar USB/Creator nem promover capacidades. Não executar se divergirem dos owners e gates presentes.  
 **Decisão canônica:** o pendrive Stable não carrega todos os Profiles profissionais. Ele carrega o Runtime único, Intelligence, Memory, apps essenciais e um catálogo leve. Conteúdo profissional é provisionado sob demanda e, depois de instalado, deve continuar utilizável offline dentro de suas capacidades locais.
 
 > **Arquitetura cognitiva/RAG:** consultar [`docs/PROFILE-INTELLIGENCE-ARCHITECTURE.md`](docs/PROFILE-INTELLIGENCE-ARCHITECTURE.md). A fundação atual já combina conteúdo Profile Pack e Memory segregada; RAG vetorial operacional e distribuição pública de conhecimento em escala continuam pendentes. O único OrdaX Intelligence atende todos os perfis, sem modelos duplicados ou treinamento por Space.
