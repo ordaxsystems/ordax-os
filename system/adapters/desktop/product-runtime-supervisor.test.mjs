@@ -176,10 +176,14 @@ test("revoking canonical trust stops only process created by this supervisor",as
  f.policy.current_gates.component_publish_allowed=false;
  writeFileSync(f.policyFile,JSON.stringify(f.policy));
  const status=await sup.reconcile();
- assert.equal(status.state,"blocked");
+ assert.equal(status.state,"stopping");
+ assert.equal(status.processRunning,true);
  assert.equal(status.reason,"component_trust_not_authorized");
  assert.deepEqual(spawned.kills,["SIGTERM"]);
  assert.equal(status.capabilityDigest,null);
+ spawned.exitCode=0;spawned.emit("exit",0);
+ assert.equal(sup.status().state,"stopped");
+ assert.equal(sup.status().processRunning,false);
 });
 test("source mismatch, missing signature and executable outside Components all fail",async t=>{
  const f=fixture(t,{approved:true});
@@ -242,6 +246,23 @@ test("replacement is blocked until previous owned child really exits",async t=>{
  assert.equal((await sup.reconcile()).state,"running");
  assert.equal(launches,2);
  sup.stop();
+});
+test("shutdown never reports a still-running child as fully stopped",async t=>{
+ const f=fixture(t,{approved:true});
+ const spawned=child();
+ // Child.kill requests SIGTERM but cannot prove the process has exited yet.
+ spawned.kill=signal=>{spawned.kills.push(signal);return true};
+ const sup=createDesktopProductRuntimeSupervisor({systemRoot:f.systemRoot,userData:f.userData,
+   platform:"win32",verifiedHandoff:()=>f.plan,spawnImpl:()=>spawned});
+ assert.equal((await sup.reconcile()).state,"running");
+ const stopping=sup.stop();
+ assert.equal(stopping.state,"stopping");
+ assert.equal(stopping.processRunning,true);
+ assert.equal(stopping.mcpReady,false);
+ assert.deepEqual(spawned.kills,["SIGTERM"]);
+ spawned.exitCode=0;spawned.emit("exit",0);
+ assert.equal(sup.status().state,"stopped");
+ assert.equal(sup.status().processRunning,false);
 });
 test("invalid token or device ID cannot reuse Windows identity",async t=>{
  const f=fixture(t,{approved:true});

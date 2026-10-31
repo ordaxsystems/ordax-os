@@ -234,7 +234,12 @@ export function nativeEmulatorPlugin(stateDirectory, { desktopHost = false, acco
             }),
           });
           void productRuntime.reconcile().catch(() => {});
-          process.once("exit", () => productRuntime.stop());
+          // Stop the owned child on the normal Native Host shutdown signals,
+          // not only in the final process exit callback (too late to reap).
+          const stopProductRuntime=()=>productRuntime.stop();
+          process.once("SIGINT",stopProductRuntime);
+          process.once("SIGTERM",stopProductRuntime);
+          process.once("exit",stopProductRuntime);
           server.middlewares.use((request,response,next) => {
             if (request.url?.split("?")[0]!=="/__ordax/native/product-runtime-status")
               return next();

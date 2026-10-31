@@ -141,7 +141,7 @@ export function createDesktopSignedRuntimeHandoff({
 function snapshot(state,reason,identity){
   return Object.freeze({
     schema:SCHEMA,host:HOST,state,reason,
-    enrolled:identity,processRunning:state==="running",
+    enrolled:identity,processRunning:state==="running"||state==="stopping",
     // Process presence must never be displayed as an attested MCP session.
     mcpReady:false,capabilityDigest:null,centralSessionAttested:false,
   });
@@ -172,22 +172,28 @@ export function createDesktopProductRuntimeSupervisor({
     return false;
   };
   function reconcileNow(){
-    if(closed)return current=snapshot("stopped","supervisor_closed",false);
+    if(closed){
+      const ended=stopActive();
+      return current=snapshot(ended?"stopped":"stopping","supervisor_closed",false);
+    }
     if(platform!=="win32"){
       stopActive();return current=snapshot("blocked","unsupported_host",false);
     }
     let identity=null;
     try{identity=readIdentity(userData)}catch{}
     if(!identity){
-      stopActive();return current=snapshot("blocked","device_not_enrolled",false);
+      const ended=stopActive();
+      return current=snapshot(ended?"blocked":"stopping","device_not_enrolled",false);
     }
     let gate=null;
     try{gate=readReleaseGate(systemRoot)}catch{}
     if(!gate){
-      stopActive();return current=snapshot("blocked","component_trust_not_authorized",true);
+      const ended=stopActive();
+      return current=snapshot(ended?"blocked":"stopping","component_trust_not_authorized",true);
     }
     if(!verifiedHandoff){
-      stopActive();return current=snapshot("blocked","signed_windows_runtime_unavailable",true);
+      const ended=stopActive();
+      return current=snapshot(ended?"blocked":"stopping","signed_windows_runtime_unavailable",true);
     }
     return {gate,identity};
   }
@@ -200,7 +206,8 @@ export function createDesktopProductRuntimeSupervisor({
     })}catch{}
     const plan=safePlan(userData,prepared.gate.sourceCommit,receipt);
     if(!plan){
-      stopActive();return current=snapshot("blocked","signed_windows_runtime_unavailable",true);
+      const ended=stopActive();
+      return current=snapshot(ended?"blocked":"stopping","signed_windows_runtime_unavailable",true);
     }
     // Recheck the exact trust and token after asynchronous signed-slot work.
     // A revoked key or an updated OS/source pin cannot authorize a launch.
@@ -210,8 +217,8 @@ export function createDesktopProductRuntimeSupervisor({
        fresh.identity.deviceId!==prepared.identity.deviceId||
        fresh.identity.transport!==prepared.identity.transport||
        fresh.identity.tokenFingerprint!==prepared.identity.tokenFingerprint){
-      stopActive();
-      return current=snapshot("blocked","identity_or_release_changed",true);
+      const ended=stopActive();
+      return current=snapshot(ended?"blocked":"stopping","identity_or_release_changed",true);
     }
     const key=plan.executable+":"+plan.sourceCommit+":"+prepared.identity.deviceId;
     if(active?.key===key&&!active.stopRequested&&active.child.exitCode===null&&active.child.signalCode===null)
@@ -268,8 +275,8 @@ export function createDesktopProductRuntimeSupervisor({
     },
     stop(){
       closed=true;
-      stopActive();
-      current=snapshot("stopped","supervisor_closed",false);
+      const ended=stopActive();
+      current=snapshot(ended?"stopped":"stopping","supervisor_closed",false);
       return current;
     },
   });
