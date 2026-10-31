@@ -1,3 +1,34 @@
+OrdaX Desktop Native Product MCP — Windows adapter (2026-10-30):
+The canonical Native Host source now owns a bounded OrdaX Supervisor
+adapter in `system/adapters/desktop/product-runtime-supervisor.mjs`.
+It uses the **existing** Go Runtime Component Channel
+`inspect-native-product-handoff` signed receipt, the OS source lock
+and the separate Product device credential stored in
+`<Desktop userData>/native-state/product-runtime`. The protected
+`/__ordax/native/product-runtime-status` projection does **not**
+expose credentials, and `processRunning` never implies a
+`capabilityDigest`, an authorized central session or MCP readiness.
+The source tests prove no launch without enrollment, approved trust
+and a Windows signed executable; revoked trust stops the owned child
+and one instance must terminate before replacement.
+
+**This is NOT a functional OrdaX Desktop MCP release yet.** The current
+policy `runtime-component-trust-policy.json` remains
+`operator-ceremony-pending` and publication/activation are disabled;
+the source lock describes an unsigned Linux ABI candidate, not a
+signed Windows `.exe` in the canonical slot. The Go verifier and
+signed Windows ABI/package must be reconciled by the component owner,
+without weakening the global trust policy or importing a Python
+checkout as production Runtime. The auxiliary Windows agent's Product
+identity is not the Desktop identity. The installed Electron version
+may also require one Windows installer update for the newly protected
+observation route because the per-launch header allowlist is loaded
+from the bundled template. No USB/Buildroot build is justified by
+these Windows-only additions. The full gate remains: separate Owner
+enrollment, verified Runtime lifecycle, nonempty `capability_digest`,
+exact authorized client and one real MCP action. Native/USB continues
+using the existing Linux Supervisor and its own credential.
+
 Native Product MCP lifecycle integration (2026-10-23): Owner/Development USB
 `system/supervisor` reconciles the OS-owned
 `system/services/device-agent/native-product-lifecycle.sh` after the first

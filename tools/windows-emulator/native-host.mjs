@@ -16,6 +16,7 @@ import { createDesktopDeviceProfileMiddleware } from "../../system/adapters/desk
 import { createDesktopWlanMiddleware } from "../../system/adapters/desktop/wifi-radio-host.mjs";
 import { createDesktopLocalAiMiddleware } from "../../system/adapters/desktop/local-ai-host.mjs";
 import { createDesktopVerifiedComponentSlotMiddleware } from "../../system/adapters/desktop/verified-component-slot-host.mjs";
+import { createDesktopProductRuntimeSupervisor, createDesktopSignedRuntimeHandoff } from "../../system/adapters/desktop/product-runtime-supervisor.mjs";
 import { createDesktopDisplayCurrentModeMiddleware } from "../../system/adapters/desktop/display-current-mode-host.mjs";
 import observationPolicy from "../../system/adapters/desktop/observation-grant.cjs";
 const { OBSERVATION_ROUTES, createDesktopObservationGrantMiddleware }=observationPolicy;
@@ -222,6 +223,28 @@ export function nativeEmulatorPlugin(stateDirectory, { desktopHost = false, acco
         server.middlewares.use(createDesktopObservationGrantMiddleware({
           token:process.env.ORDAX_DESKTOP_OBSERVATION_TOKEN,
         }));
+        if (process.platform === "win32" && userData) {
+          // The installed Native Host is the OrdaX Supervisor owner. It may
+          // supervise a verified Runtime, never the separate Windows agent.
+          // Current unsigned component policy intentionally leaves it blocked.
+          const productRuntime = createDesktopProductRuntimeSupervisor({
+            systemRoot:process.cwd(),userData,
+            verifiedHandoff:createDesktopSignedRuntimeHandoff({
+              verifierRoot:process.env.ORDAX_DESKTOP_COMPONENT_VERIFIER_ROOT,
+            }),
+          });
+          void productRuntime.reconcile().catch(() => {});
+          process.once("exit", () => productRuntime.stop());
+          server.middlewares.use((request,response,next) => {
+            if (request.url?.split("?")[0]!=="/__ordax/native/product-runtime-status")
+              return next();
+            // The preceding shared observation middleware already verified
+            // loopback, the per-launch Electron grant, GET and exact URL.
+            response.writeHead(200,{"Content-Type":"application/json",
+              "Cache-Control":"no-store","X-Content-Type-Options":"nosniff"});
+            response.end(JSON.stringify(productRuntime.status()));
+          });
+        }
         // Genuine Windows host observation under the canonical Native port.
         server.middlewares.use((request, response, next) => {
           const path = request.url.split("?")[0];
