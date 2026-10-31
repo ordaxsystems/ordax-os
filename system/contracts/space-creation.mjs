@@ -160,7 +160,16 @@ export function validateSpaceCreateReceipt(value, { subjectId, request } = {}) {
   return Object.freeze({
     $schema: SPACE_CREATE_RECEIPT_SCHEMA,
     created: value.created,
-    space,
+    space: Object.freeze({
+      id: space.id,
+      ownerId: space.ownerId,
+      name: space.name,
+      kind: space.kind,
+      state: space.state,
+      domain: space.domain,
+      subtype: space.subtype,
+      profilePack: null,
+    }),
     profileToProvision: Object.freeze({
       slug: profile.slug,
       version: profile.version,
