@@ -4,7 +4,7 @@ import test from "node:test";
 import { Readable } from "node:stream";
 import { createEmulatorAccountGateway } from "../tools/windows-emulator/account-gateway.mjs";
 import { assertSpaceCreatePort, validateSpaceCreateCommand, validateSpaceCreateReceipt } from "../system/contracts/space-creation.mjs";
-import { createNativeSpaceCreatePort } from "../system/adapters/native/space-create.mjs";
+import { createDesktopSpaceCreatePort } from "../system/adapters/desktop/space-create.mjs";
 import { IDENTITY_SESSION_SCHEMA } from "../system/contracts/identity-session.mjs";
 
 import {
@@ -282,6 +282,11 @@ test("Packaged Desktop command validation agrees with authoritative Gateway pars
   assert.match(windowsModule, /validateSpaceCreateCommand/);
 });
 
+function desktopBrowser(fetchImpl) {
+  return { fetch: fetchImpl, location: { protocol: "http:", hostname: "127.0.0.1" },
+    ordaxDesktopBrowser: { postMessage() { return true; } } };
+}
+
 function nativeIdentity(initial = { state: "signed-in", subjectId: SUBJECT, displayName: "Owner" }) {
   let snapshot = initial;
   const listeners = new Set();
@@ -303,11 +308,11 @@ function nativeIdentity(initial = { state: "signed-in", subjectId: SUBJECT, disp
 test("Native Desktop port submits user intent on existing same-origin authority, without client-created owner", async () => {
   const identity = nativeIdentity();
   const calls = [];
-  const host = { fetch: async (path, options) => {
+  const host = desktopBrowser(async (path, options) => {
     calls.push({ path, options });
     return new Response(JSON.stringify(spaceReceipt()), { status: 201 });
-  } };
-  const port = assertSpaceCreatePort(createNativeSpaceCreatePort(host, identity));
+  });
+  const port = assertSpaceCreatePort(createDesktopSpaceCreatePort(host, identity));
   try {
     const result = await port.create(request());
     assert.equal(result.space.ownerId, SUBJECT);
@@ -328,7 +333,7 @@ test("Native Desktop port submits user intent on existing same-origin authority,
 test("Native Space creation port rejects absent session and drops in-flight response after account change", async () => {
   const guest = nativeIdentity({ state: "signed-out" });
   let requests = 0;
-  const disabled = createNativeSpaceCreatePort({ fetch: async () => { requests++; throw Error("unexpected"); } }, guest);
+  const disabled = createDesktopSpaceCreatePort(desktopBrowser(async () => { requests++; throw Error("unexpected"); }), guest);
   try {
     await assert.rejects(disabled.create(request()), /authenticated/);
     assert.equal(requests, 0);
@@ -338,9 +343,9 @@ test("Native Space creation port rejects absent session and drops in-flight resp
 
   const identity = nativeIdentity();
   let resolveRequest;
-  const port = createNativeSpaceCreatePort({
-    fetch: () => new Promise(resolve => { resolveRequest = resolve; }),
-  }, identity);
+  const port = createDesktopSpaceCreatePort(desktopBrowser(
+    () => new Promise(resolve => { resolveRequest = resolve; }),
+  ), identity);
   const pending = port.create(request());
   identity.update({ state: "signed-in", subjectId: "33333333-3333-4333-8333-333333333333", displayName: "Other" });
   resolveRequest(new Response(JSON.stringify(spaceReceipt()), { status: 201 }));
@@ -361,9 +366,9 @@ test("Native Space creation port honors replay and denies gateway failures, wron
   ];
   for (const item of cases) {
     const identity = nativeIdentity();
-    const port = createNativeSpaceCreatePort({
-      fetch: async () => new Response(JSON.stringify(item.receipt), { status: item.status }),
-    }, identity);
+    const port = createDesktopSpaceCreatePort(desktopBrowser(
+      async () => new Response(JSON.stringify(item.receipt), { status: item.status }),
+    ), identity);
     try {
       if (item.passes) {
         const result = await port.create(request());
@@ -377,9 +382,14 @@ test("Native Space creation port honors replay and denies gateway failures, wron
   }
 });
 
-test("Native composition exposes creation only when installed Desktop transport exists", () => {
+test("Windows Space adapter never mutates shared Native startup and refuses Web", () => {
   const source = readFileSync(new URL("../system/composition/native/main.mjs", import.meta.url), "utf8");
-  assert.match(source, /const spaceCreation = windowsDesktopHost/);
-  assert.match(source, /createNativeSpaceCreatePort\(window, identitySession\)/);
-  assert.match(source, /spaceCreation\?\.dispose\(\)/);
+  assert.doesNotMatch(source, /spaceCreation|createDesktopSpaceCreatePort/);
+  const identity = nativeIdentity();
+  assert.throws(() => createDesktopSpaceCreatePort({ fetch: async () => {} }, identity), /Windows Desktop browser transport required/);
+  assert.throws(() => createDesktopSpaceCreatePort({
+    fetch: async () => {},
+    location: { protocol: "https:", hostname: "ordax.com.br" },
+    ordaxDesktopBrowser: { postMessage() {} },
+  }, identity), /Windows Desktop browser transport required/);
 });

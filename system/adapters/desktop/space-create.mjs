@@ -1,3 +1,4 @@
+import { hasDesktopBrowserTransport } from "../native/browser-host-transport.mjs";
 import {
   SPACE_CREATE_PORT_SCHEMA,
   validateSpaceCreateCommand,
@@ -13,7 +14,10 @@ const MAX_RECEIPT_CHARS = 8192;
 
 // A browser adapter for the authenticated Native/Desktop Account host.
 // The server-side RPC is the only source of authorization and persistence.
-export function createNativeSpaceCreatePort(windowRef, identitySession) {
+export function createDesktopSpaceCreatePort(windowRef, identitySession) {
+  if (!hasDesktopBrowserTransport(windowRef)) {
+    throw new TypeError("Windows Desktop browser transport required for Space creation");
+  }
   if (!windowRef || typeof windowRef.fetch !== "function") {
     throw new TypeError("Native Space creation requires same-origin fetch");
   }

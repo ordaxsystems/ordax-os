@@ -35,7 +35,6 @@ import { createNativeProfileActivationState } from "../../adapters/native/profil
 import { createNativeProfileContentContext } from "../../adapters/native/profile-content-context.mjs";
 import { readNativeProfileContentContextCapability } from "../../adapters/native/profile-content-context-capability.mjs";
 import { createNativeSpaceSelectionStore } from "../../adapters/native/space-selection.mjs";
-import { createNativeSpaceCreatePort } from "../../adapters/native/space-create.mjs";
 import { createSessionProfileComponentInventory } from "../../services/profile-packs/inventory.mjs";
 import { createNativeSurfaceHost } from "../../adapters/native/runtime.mjs";
 import { createNativeSystemMetrics } from "../../adapters/native/system-metrics.mjs";
@@ -539,11 +538,6 @@ async function start() {
     registrationPolicy: () => identityCredentials.registrationPolicy(),
   });
   const spaces = createWebSpacesCatalog(window);
-  // Native/Desktop supplies mutation authority independently of the read-only catalog.
-  // The Linux host has no creation endpoint yet; never advertise it there.
-  const spaceCreation = windowsDesktopHost
-    ? createNativeSpaceCreatePort(window, identitySession)
-    : null;
   const spaceSelection = createSpaceSelectionRuntime({
     identitySession,
     spaces,
@@ -922,7 +916,6 @@ async function start() {
     profileTaxonomy,
     spaceExperience,
     { isAvailable: hasNativeHostBridge, postMessage: postNativeHostMessage },
-    spaceCreation,
   );
   const homeContinuation = mountHomeContinuation(root, { projects, recentFiles, surfaceLifecycle: surface });
   const homePending = mountHomePending(root, { notifications, syncRuntime: accountSync, surfaceLifecycle: surface });
@@ -1230,7 +1223,6 @@ async function start() {
       projectReferences?.destroy();
       projectCloudLinks?.destroy();
       accountOverviewControls.destroy();
-      spaceCreation?.dispose();
       spaceSwitcherControls.destroy();
       accountLifecycle.dispose();
       memoryReview?.dispose();
