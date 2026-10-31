@@ -30,8 +30,11 @@ async function createHost(){
 test('every canonical Desktop observation path is private; only Electron-granted GET reaches provider',async()=>{
   const host=await createHost();
   try{
-    assert.equal(OBSERVATION_ROUTES.length,6);
-    assert.equal(new Set(OBSERVATION_ROUTES).size,6);
+    assert.equal(OBSERVATION_ROUTES.length,7);
+    assert.equal(new Set(OBSERVATION_ROUTES).size,7);
+    assert.ok(OBSERVATION_ROUTES.includes('/__ordax/native/product-runtime-status'));
+    // The MCP lifecycle status is observation-only: the same grant and
+    // read-only boundary must apply to all existing providers and this one.
     for(const path of OBSERVATION_ROUTES){
       assert.equal((await host.fetch(path)).status,401,path);
       assert.equal((await host.fetch(path,{headers:{'X-OrdaX-Observation-Token':'b'.repeat(64)}})).status,401,path);
