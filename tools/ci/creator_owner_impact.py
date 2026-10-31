@@ -18,6 +18,14 @@ LIGHT_EXACT = frozenset({
     "docs/BUILD-AUTONOMY.md",
     "docs/DECISIONS.md",
     "docs/CURRENT-STATE.md",
+    # Existing docs index + UX owner and archived historical reference:
+    # no executable Native, USB, release, kernel or signing producer bytes.
+    # Keep this exact allowlist; docs/contracts/** cannot be skipped wholesale.
+    "docs/README.md",
+    "docs/SPACES-AND-PROFILES.md",
+    "README.md",
+    "PLANO-06-PERFIS-PROFISSIONAIS-E-DISTRIBUICAO-SOB-DEMANDA.md",
+    "00-PLANOS-PRIORITARIOS/REGISTRY.md",
     "docs/contracts/build-autonomy.json",
     # Dedicated Desktop command contract, adapter and proof. Neither is
     # imported by the Linux Native boot composition/USB host.

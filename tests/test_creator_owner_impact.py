@@ -159,6 +159,11 @@ class CreatorOwnerImpactTests(unittest.TestCase):
             "docs/BUILD-AUTONOMY.md",
             "docs/CURRENT-STATE.md",
             "docs/DECISIONS.md",
+            "docs/README.md",
+            "docs/SPACES-AND-PROFILES.md",
+            "README.md",
+            "PLANO-06-PERFIS-PROFISSIONAIS-E-DISTRIBUICAO-SOB-DEMANDA.md",
+            "00-PLANOS-PRIORITARIOS/REGISTRY.md",
         ):
             with self.subTest(path=path):
                 next_rev = self.commit(path=path)

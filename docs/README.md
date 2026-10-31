@@ -32,6 +32,7 @@ Historical wording inside a root `PLANO-*` such as `CANONICAL`, `P0`, `mandatory
 | Current state / handoff | `docs/CURRENT-STATE.md` |
 | Architecture | `docs/ARCHITECTURE.md` |
 | Personal OrdaX orchestration | `docs/PERSONAL-ORDAX.md` |
+| Spaces + professional composition (single user journey) | `docs/SPACES-AND-PROFILES.md` + `docs/contracts/spaces-and-profile-packs.json` |
 | Decisions / ADRs | `docs/DECISIONS.md` |
 | Build autonomy | `docs/BUILD-AUTONOMY.md` |
 | Product modes | `docs/PRODUCT-MODES.md` |
@@ -109,7 +110,7 @@ All root planning files are subordinate to the authority order above, including:
 - `PLANO-02-EVOLUCAO-E-REAPROVEITAMENTO-DO-LEGADO.md` — dated legacy analysis/reference;
 - `PLANO-03-FECHAMENTO-PRE-USB-NOVA-ORDAX.md` — completed source-closure baseline/reference; live physical gates come from current canonical owners;
 - `PLANO-04-FUNDACAO-ECOSSISTEMA-PRE-MVP.md` — ecosystem foundation reference with implemented and future material mixed;
-- `PLANO-06-PERFIS-PROFISSIONAIS-E-DISTRIBUICAO-SOB-DEMANDA.md` — Profile/product reference; manifests/contracts/current owners define factual state;
+- `PLANO-06-PERFIS-PROFISSIONAIS-E-DISTRIBUICAO-SOB-DEMANDA.md` — **ARCHIVED historical Profile/USB proposal**; superseded for UX and current operation by `docs/SPACES-AND-PROFILES.md`, Profile manifests and contracts. Retained only for referenced provenance;
 - `PLANO-07-PERSONAL-ORDAX-E-TRABALHO-INTELIGENTE.md` — execution plan/reference; `docs/PERSONAL-ORDAX.md` is the canonical foundation owner;
 - `PLANO-08-ORDAX-NETWORK-COMUNIDADES-E-MENSAGENS.md` — Network reference; any historical self-declaration of MVP canonicity is subordinate to `MVP.md`, contracts and canonical owners.
 
