@@ -524,3 +524,17 @@ operator-ceremony-pending. The Windows installer in ordax-runtime is not a
 signed, self-contained Product Runtime component slot. Synthetic PE tests
 are protocol proofs only: they do not establish real Windows execution,
 device enrollment, central attestation, or grants.
+
+### One source lock, multiple verified targets
+
+The OS source lock now has a single `candidate_evidence_by_target` map
+indexed by the same `linux-amd64` and `windows-amd64` values bound into
+the signed package manifest. Each target retains its own executable digest,
+file size, source commit and ABI/dependency-closure evidence. Adding a Windows
+candidate must **not** overwrite the Linux/USB evidence, and vice versa.
+The Linux offline verifier reads only the Linux entry. Windows Desktop reads
+only the Windows entry. Unknown targets or a missing entry fail closed.
+
+There is no second source lock, downloaded Runtime, private signing key,
+unverified fallback or duplicated MCP dispatcher. The existing Linux
+CI-only candidate remains untrusted and Windows has no approved entry yet.

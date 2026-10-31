@@ -21,21 +21,23 @@ func nativeProductHandoffFixture(t *testing.T) (string, string, string, string, 
     )
     if err != nil || !changed { t.Fatalf("signed stage: %v", err) }
     lock := nativeProductSourceLock{}
+    lock.CandidateEvidenceByTarget = map[string]*nativeProductTargetEvidence{
+        productRuntimeLinuxTarget: &nativeProductTargetEvidence{},
+    }
     lock.Schema = productRuntimeLockSchema
     lock.Source.Repository = productRuntimeSourceURL
     lock.Source.Commit = testSourceCommit
-    lock.CandidateEvidence.SourceCommit = testSourceCommit
-    lock.CandidateEvidence.TargetPlatform = productRuntimeLinuxTarget
+    lock.CandidateEvidenceByTarget[productRuntimeLinuxTarget].SourceCommit = testSourceCommit
     executable, err := os.ReadFile(filepath.Join(slot, filepath.FromSlash(productRuntimeExecutablePath)))
     if err != nil { t.Fatal(err) }
     binaryDigest := sha256.Sum256(executable)
-    lock.CandidateEvidence.ExecutableSHA256 = hex.EncodeToString(binaryDigest[:])
-    lock.CandidateEvidence.ExecutableSizeBytes = int64(len(executable))
-    lock.CandidateEvidence.IndependentBaseABIReady = true // fixture only; never physical evidence
-    lock.CandidateEvidence.IndependentBaseABIBlockers = []string{}
-    lock.CandidateEvidence.SignedDistributionAuthorized = true
-    lock.CandidateEvidence.EmbeddedELFInventory.IndependentBaseCompatibilityProven = true
-    lock.CandidateEvidence.EmbeddedELFInventory.InstallAuthorized = true
+    lock.CandidateEvidenceByTarget[productRuntimeLinuxTarget].ExecutableSHA256 = hex.EncodeToString(binaryDigest[:])
+    lock.CandidateEvidenceByTarget[productRuntimeLinuxTarget].ExecutableSizeBytes = int64(len(executable))
+    lock.CandidateEvidenceByTarget[productRuntimeLinuxTarget].IndependentBaseABIReady = true // fixture only; never physical evidence
+    lock.CandidateEvidenceByTarget[productRuntimeLinuxTarget].IndependentBaseABIBlockers = []string{}
+    lock.CandidateEvidenceByTarget[productRuntimeLinuxTarget].SignedDistributionAuthorized = true
+    lock.CandidateEvidenceByTarget[productRuntimeLinuxTarget].EmbeddedELFInventory.IndependentBaseCompatibilityProven = true
+    lock.CandidateEvidenceByTarget[productRuntimeLinuxTarget].EmbeddedELFInventory.InstallAuthorized = true
     lock.Distribution.RuntimeArtifactClaimed = true
     lock.Distribution.SignedRuntimeSlotAvailable = true
     lock.Activation.RequiresSignedRuntimeSlot = true
@@ -86,13 +88,13 @@ func TestNativeProductHandoffRejectsContradictoryABIEvidence(t *testing.T) {
     var lock nativeProductSourceLock
     if err := json.Unmarshal(data, &lock); err != nil { t.Fatal(err) }
     // ABI success flags must not erase an explicitly recorded blocker.
-    lock.CandidateEvidence.IndependentBaseABIBlockers = []string{"external-shared-libraries"}
+    lock.CandidateEvidenceByTarget[productRuntimeLinuxTarget].IndependentBaseABIBlockers = []string{"external-shared-libraries"}
     if err := validateNativeProductSourceLock(lock, productRuntimeLinuxTarget); err == nil ||
         !strings.Contains(err.Error(), "unresolved independent base ABI blockers") {
         t.Fatalf("contradictory ABI proof accepted: %v", err)
     }
     // Omitting the evidence array is not an affirmative zero-blocker proof.
-    lock.CandidateEvidence.IndependentBaseABIBlockers = nil
+    lock.CandidateEvidenceByTarget[productRuntimeLinuxTarget].IndependentBaseABIBlockers = nil
     if err := validateNativeProductSourceLock(lock, productRuntimeLinuxTarget); err == nil ||
         !strings.Contains(err.Error(), "unresolved independent base ABI blockers") {
         t.Fatalf("missing zero-blocker proof accepted: %v", err)
@@ -128,15 +130,15 @@ func TestNativeProductHandoffVerifiesCurrentIdentityAndAnchor(t *testing.T) {
     if err != nil { t.Fatal(err) }
     var candidate nativeProductSourceLock
     if err := json.Unmarshal(tampered, &candidate); err != nil { t.Fatal(err) }
-    candidate.CandidateEvidence.IndependentBaseABIReady = false
+    candidate.CandidateEvidenceByTarget[productRuntimeLinuxTarget].IndependentBaseABIReady = false
     mutation, _ := json.Marshal(candidate)
     if err := os.WriteFile(lock, mutation, 0o600); err != nil { t.Fatal(err) }
     if _, err := verifiedNativeProductHandoff(lock, policy, trust, root, productRuntimeLinuxTarget); err == nil {
         t.Fatal("ABI revocation did not close handoff")
     }
 
-    candidate.CandidateEvidence.IndependentBaseABIReady = true
-    candidate.CandidateEvidence.ExecutableSHA256 = strings.Repeat("0", 64)
+    candidate.CandidateEvidenceByTarget[productRuntimeLinuxTarget].IndependentBaseABIReady = true
+    candidate.CandidateEvidenceByTarget[productRuntimeLinuxTarget].ExecutableSHA256 = strings.Repeat("0", 64)
     mutation, _ = json.Marshal(candidate)
     if err := os.WriteFile(lock, mutation, 0o600); err != nil { t.Fatal(err) }
     if _, err := verifiedNativeProductHandoff(lock, policy, trust, root, productRuntimeLinuxTarget); err == nil ||
@@ -144,9 +146,9 @@ func TestNativeProductHandoffVerifiesCurrentIdentityAndAnchor(t *testing.T) {
         t.Fatalf("different signed binary from pinned CI provenance accepted: %v", err)
     }
 
-    candidate.CandidateEvidence.ExecutableSHA256 = hex.EncodeToString(sha256SumForHandoffFixture(t, result.Executable))
+    candidate.CandidateEvidenceByTarget[productRuntimeLinuxTarget].ExecutableSHA256 = hex.EncodeToString(sha256SumForHandoffFixture(t, result.Executable))
     candidate.Source.Commit = strings.Repeat("e", 40)
-    candidate.CandidateEvidence.SourceCommit = candidate.Source.Commit
+    candidate.CandidateEvidenceByTarget[productRuntimeLinuxTarget].SourceCommit = candidate.Source.Commit
     mutation, _ = json.Marshal(candidate)
     if err := os.WriteFile(lock, mutation, 0o600); err != nil { t.Fatal(err) }
     if _, err := verifiedNativeProductHandoff(lock, policy, trust, root, productRuntimeLinuxTarget); err == nil ||
@@ -189,6 +191,38 @@ func TestNativeProductHandoffRejectsUnpinnedOrWrongTrust(t *testing.T) {
         !strings.Contains(err.Error(), "fingerprint mismatch") {
         t.Fatalf("wrong trust fingerprint authorized Product runtime: %v", err)
     }
+}
+
+func TestNativeSourceLockKeepsBothTargetsIndependentlyVerified(t *testing.T) {
+    lockPath, _, _, _, _ := nativeProductHandoffFixture(t)
+    contents, err := os.ReadFile(lockPath)
+    if err != nil { t.Fatal(err) }
+    var lock nativeProductSourceLock
+    if err := json.Unmarshal(contents, &lock); err != nil { t.Fatal(err) }
+    linux := lock.CandidateEvidenceByTarget[productRuntimeLinuxTarget]
+    if linux == nil { t.Fatal("Linux fixture missing") }
+    windows := *linux
+    windows.ExecutableSHA256 = strings.Repeat("b", 64)
+    windows.SignedDistributionAuthorized = false
+    windows.WindowsRuntimeClosure.CompleteAndPortable = false
+    windows.WindowsRuntimeClosure.InstallAuthorized = false
+    lock.CandidateEvidenceByTarget[productRuntimeWindowsTarget] = &windows
+    if err := validateNativeProductSourceLock(lock, productRuntimeLinuxTarget); err != nil {
+        t.Fatalf("adding unsigned Windows evidence revoked verified Linux: %v", err)
+    }
+    if err := validateNativeProductSourceLock(lock, productRuntimeWindowsTarget); err == nil {
+        t.Fatal("unproven Windows private-runtime closure authorized")
+    }
+    windows.SignedDistributionAuthorized = true
+    windows.WindowsRuntimeClosure.CompleteAndPortable = true
+    windows.WindowsRuntimeClosure.InstallAuthorized = true
+    if err := validateNativeProductSourceLock(lock, productRuntimeWindowsTarget); err != nil {
+        t.Fatalf("independent target metadata denied: %v", err)
+    }
+    if linux.ExecutableSHA256 == windows.ExecutableSHA256 {
+        t.Fatal("Windows target reused Linux binary provenance")
+    }
+    // Metadata-only fixture: no actual Windows slot, signed publisher or session.
 }
 
 func TestNativeProductHandoffRejectsCrossPlatformOrUnknownTarget(t *testing.T) {

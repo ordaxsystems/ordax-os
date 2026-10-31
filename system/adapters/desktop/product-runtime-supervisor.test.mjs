@@ -36,7 +36,7 @@ function fixture(t,{identity=true,approved=false}={}){
    source:{commit:SHA},
    distribution:{signed_runtime_slot_available:approved,source_binding_only:!approved},
    activation:{requires_signed_runtime_slot:true},
-   candidate_evidence:{target_platform:"windows-amd64"},
+   candidate_evidence_by_target:{"windows-amd64":{source_commit:SHA}},
  };
  const policyFile=join(policyDir,"runtime-component-trust-policy.json");
  const lockFile=join(lockDir,"studio-runtime-source-lock.json");

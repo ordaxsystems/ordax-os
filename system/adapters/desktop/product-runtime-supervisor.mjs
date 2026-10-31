@@ -62,7 +62,7 @@ function readReleaseGate(systemRoot){
      lock.distribution?.signed_runtime_slot_available!==true||
      lock.distribution?.source_binding_only!==false||
      lock.activation?.requires_signed_runtime_slot!==true||
-     lock.candidate_evidence?.target_platform!=="windows-amd64"||
+     lock.candidate_evidence_by_target?.["windows-amd64"]?.source_commit!==lock.source?.commit||
      !SHA40.test(lock.source?.commit??""))
     return null;
   return {sourceCommit:lock.source.commit};

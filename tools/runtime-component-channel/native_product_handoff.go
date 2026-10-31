@@ -21,6 +21,23 @@ const (
     productRuntimeSourceURL = "https://github.com/ordaxsystems/ordax-runtime"
 )
 
+type nativeProductTargetEvidence struct {
+    SourceCommit string `json:"source_commit"`
+    ExecutableSHA256 string `json:"executable_sha256"`
+    ExecutableSizeBytes int64 `json:"executable_size_bytes"`
+    IndependentBaseABIReady bool `json:"independent_base_abi_ready"`
+    IndependentBaseABIBlockers []string `json:"independent_base_abi_blockers"`
+    SignedDistributionAuthorized bool `json:"signed_distribution_authorized"`
+    WindowsRuntimeClosure struct {
+        CompleteAndPortable bool `json:"complete_and_portable"`
+        InstallAuthorized bool `json:"install_authorized"`
+    } `json:"windows_runtime_closure"`
+    EmbeddedELFInventory struct {
+        IndependentBaseCompatibilityProven bool `json:"independent_base_compatibility_proven"`
+        InstallAuthorized bool `json:"install_authorized"`
+    } `json:"embedded_elf_inventory"`
+}
+
 type nativeProductSourceLock struct {
     Schema string `json:"$schema"`
     Source struct {
@@ -40,23 +57,7 @@ type nativeProductSourceLock struct {
         RequiresOAuthGrants bool `json:"requires_product_oauth_client_consent"`
         RequiresDeviceGrants bool `json:"requires_device_scoped_grants"`
     } `json:"activation"`
-    CandidateEvidence struct {
-        SourceCommit string `json:"source_commit"`
-        ExecutableSHA256 string `json:"executable_sha256"`
-        TargetPlatform string `json:"target_platform"`
-        ExecutableSizeBytes int64 `json:"executable_size_bytes"`
-        IndependentBaseABIReady bool `json:"independent_base_abi_ready"`
-        IndependentBaseABIBlockers []string `json:"independent_base_abi_blockers"`
-        SignedDistributionAuthorized bool `json:"signed_distribution_authorized"`
-        WindowsRuntimeClosure struct {
-            CompleteAndPortable bool `json:"complete_and_portable"`
-            InstallAuthorized bool `json:"install_authorized"`
-        } `json:"windows_runtime_closure"`
-        EmbeddedELFInventory struct {
-            IndependentBaseCompatibilityProven bool `json:"independent_base_compatibility_proven"`
-            InstallAuthorized bool `json:"install_authorized"`
-        } `json:"embedded_elf_inventory"`
-    } `json:"candidate_evidence"`
+    CandidateEvidenceByTarget map[string]*nativeProductTargetEvidence `json:"candidate_evidence_by_target"`
 }
 
 type nativeProductTrustPolicy struct {
@@ -85,8 +86,7 @@ type nativeProductHandoff struct {
 func validateNativeProductSourceLock(lock nativeProductSourceLock, target string) error {
     if lock.Schema != productRuntimeLockSchema ||
         lock.Source.Repository != productRuntimeSourceURL ||
-        !commitPattern.MatchString(lock.Source.Commit) ||
-        lock.CandidateEvidence.SourceCommit != lock.Source.Commit {
+        !commitPattern.MatchString(lock.Source.Commit) {
 
         return errors.New("native Product Runtime source provenance invalid")
     }
@@ -96,8 +96,21 @@ func validateNativeProductSourceLock(lock nativeProductSourceLock, target string
         !a.RequiresOAuthGrants || !a.RequiresDeviceGrants {
         return errors.New("native Product Runtime activation prerequisites invalid")
     }
+    if len(lock.CandidateEvidenceByTarget) == 0 ||
+        len(lock.CandidateEvidenceByTarget) > 2 {
+        return errors.New("Product Runtime requires canonical target evidence")
+    }
+    for knownTarget, evidence := range lock.CandidateEvidenceByTarget {
+        if _, err := canonicalProductRuntimeEntrypoint(knownTarget); err != nil ||
+            evidence == nil || evidence.SourceCommit != lock.Source.Commit {
+            return errors.New("Product Runtime target source provenance invalid")
+        }
+    }
+    c := lock.CandidateEvidenceByTarget[target]
+    if c == nil {
+        return errors.New("Product Runtime requested target has no verified candidate")
+    }
     d := lock.Distribution
-    c := lock.CandidateEvidence
     if !shaPattern.MatchString(c.ExecutableSHA256) || c.ExecutableSizeBytes <= 0 ||
         c.ExecutableSizeBytes > maxProductRuntimeFileBytes {
         return errors.New("native Product Runtime binary provenance missing")
@@ -108,9 +121,6 @@ func validateNativeProductSourceLock(lock nativeProductSourceLock, target string
     }
     if _, err := canonicalProductRuntimeEntrypoint(target); err != nil {
         return err
-    }
-    if c.TargetPlatform != target {
-        return errors.New("signed Product Runtime target differs from OS source provenance")
     }
     switch target {
     case productRuntimeLinuxTarget:
@@ -179,8 +189,8 @@ func verifiedNativeProductHandoff(lockPath, policyPath, trustPath, slotRoot, tar
     }
     // The signed package digest and the OS-owned CI provenance must bind the
     // exact *same bytes*. Matching the source commit alone is insufficient.
-    if manifest.Files[0].SHA256 != lock.CandidateEvidence.ExecutableSHA256 ||
-        manifest.Files[0].Size != lock.CandidateEvidence.ExecutableSizeBytes {
+    if manifest.Files[0].SHA256 != lock.CandidateEvidenceByTarget[target].ExecutableSHA256 ||
+        manifest.Files[0].Size != lock.CandidateEvidenceByTarget[target].ExecutableSizeBytes {
         return result, errors.New("signed Product Runtime binary differs from pinned provenance")
     }
     entry := filepath.Join(slot, filepath.FromSlash(entrypoint))
