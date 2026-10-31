@@ -224,6 +224,7 @@ test("Owner DEV CI candidate is recorded as evidence, not unsigned installation 
     kind: "ci-only-unsigned",
     source_commit: lock.source.commit,
     platform: "linux-amd64-musl",
+    target_platform: "linux-amd64",
     workflow_run_id: 39732421629,
     artifact_id: 12406001168,
     archive_sha256: "2344c035f29755ca445c826060287a62c864dcaf6b1f9bfaf8c749f82bf095e8",
