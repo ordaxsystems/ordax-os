@@ -2,6 +2,69 @@
 
 Status: CANONICAL FOR PROTOTYPE
 
+
+## P0 — Native MCP no Windows/Desktop DEV (31/10/2026)
+
+**Objetivo fixo:** fazer a mesma implementação `ordaxsystems/ordax-runtime`
+responder a uma chamada remota real `agent.status` (1) no agente auxiliar
+Windows e (2) no **OrdaX OS Desktop executado no Windows**, com duas identidades
+de Product Device independentes. A conversa ChatGPT MCP usa a Platform/Worker
+existente. Não há segunda implementação MCP, Dispatcher, Supervisor ou banco de
+grants. Esta é uma tarefa de integração DEV no Windows, **não** uma tarefa
+de USB, Creator, Buildroot, QEMU, distribuição de componentes ou lançamento.
+
+**Critério de conclusão (verificação física, dois alvos):**
+- `DESKTOP-PNUHUA0` Windows e OrdaX Desktop DEV identificados distintamente.
+- Uma instância Runtime por identidade, com proprietário de processo e parada
+  verificável; sem duplicar heartbeat, token ou processo.
+- Sessão do cliente e grants por dispositivo válidos; `capability_digest`
+  não vazio e atestado no caminho real, nunca preenchido artificialmente.
+- `agent.status` remoto executado pela Platform/MCP e comprovado com o
+  dispositivo correto; processo local, heartbeat ou teste offline **não**
+  contam como sucesso. Não expor segredos no relatório.
+- Se um gate falhar, manter a falha explícita e corrigir o owner real,
+  sem simular `mcpReady=true`, nem desabilitar grants.
+
+**Caminho DEV de menor custo, sem enfraquecer produção:**
+1. Reaproveitar `ordax-runtime` Windows self-contained já gerado pela
+   [PR #281](https://github.com/ordaxsystems/ordax-runtime/pull/281),
+   candidato exato e hash em
+   `docs/evidence/desktop-runtime-windows-candidate-2026-10-31.json`.
+   Não recompilar para repetir `--self-test`.
+2. `system/adapters/desktop/product-runtime-supervisor.mjs` mantém intacto
+   o caminho de release assinada; o caminho DEV requer opção local explícita
+   `ORDAX_DESKTOP_MCP_DEV=1` no **Native Host do Desktop DEV**,
+   identidade Product já matriculada, arquivo
+   `<Desktop userData>/native-state/product-runtime-dev/ordax-product-agent.exe`
+   idêntico ao SHA-256 e tamanho do artefato oficial. Não aceita URL
+   arbitrária, novos hashes fornecidos pelo usuário, symlinks ou grants
+   herdados de outro agente. Opt-in DEV **não** altera o contrato
+   `runtime-component-trust-policy.json` e **não** produz assinatura.
+3. Iniciar e testar no Windows real, primeiro o agente auxiliar existente,
+   depois o Desktop; preservar isolamento de identidades. Status DEV
+   `dev_remote_attestation_pending` significa **não pronto**, até prova real.
+4. Só após esses dois E2E funcionarem considerar assinatura oficial,
+   cerimônia de custódia, distribuição pública e instaladores de release.
+   São gates de **produção**, não pré-requisitos para teste DEV isolado.
+
+**Restrições de execução para este objetivo:** usar **um único PR de correção
+em `ordax-os`** e o Runtime já integrado, com testes focados e uso da compilação
+já existente. Nenhum CLI paralelo, segundo workflow, novo serviço ou rebuild
+USB/Creator/Buildroot/QEMU/EROFS/NSIS apenas para investigar MCP.
+Um build Desktop Windows só quando a alteração efetivamente exigir nova
+instalação e os testes de fonte já estiverem verdes; aproveitar cache.
+Não iniciar migração global de `studio-runtime-source-lock.json` ou fabricar
+evidência Linux para corrigir o Desktop Windows. Preservar os PRs e
+workflows de outros engenheiros sem interferir.
+
+**Próximos chats:** antes de agir, ler esta seção, `docs/CURRENT-STATE.md`
+e [issue canônica #1985](https://github.com/ordaxsystems/ordax-os/issues/1985);
+inspecionar somente os HEADs, arquivos e gates diretamente relacionados.
+Continuar de onde os testes terminaram; não abrir nova auditoria,
+PR paralela ou projeto alternativo. Atualizar o estado real e a issue ao
+mudar de fase. Se o ambiente físico estiver indisponível, reportar o
+bloqueio exato, não declarar a tarefa concluída.
+
 ## Source model
 
 `main` is the source authority for this prototype.
