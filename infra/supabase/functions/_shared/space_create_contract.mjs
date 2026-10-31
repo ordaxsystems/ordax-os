@@ -96,3 +96,59 @@ export function projectSpaceCreateResult(row, { subjectId, request } = {}) {
     nextStep: "validate-profile-provisioning",
   });
 }
+
+/**
+ * Validate the exact HTTP receipt before a Desktop host publishes it to UI.
+ * The gateway/RPC remain the only authority; this is a fail-closed projection.
+ */
+export function validateSpaceCreateReceipt(value, { subjectId, request } = {}) {
+  if (
+    !exactKeys(value, ["$schema", "created", "space", "profileToProvision", "nextStep"])
+    || value.$schema !== SPACE_CREATE_SCHEMA
+    || typeof value.created !== "boolean"
+    || value.nextStep !== "validate-profile-provisioning"
+    || !exactKeys(value.space, [
+      "id", "ownerId", "name", "kind", "state", "domain", "subtype", "profilePack",
+    ])
+    || !exactKeys(value.profileToProvision, ["slug", "version"])
+  ) throw new TypeError("invalid-space-create-receipt");
+
+  const space = value.space;
+  const profile = value.profileToProvision;
+  if (
+    typeof subjectId !== "string" || !UUID.test(subjectId)
+    || typeof space.id !== "string" || !UUID.test(space.id)
+    || space.ownerId !== subjectId
+    || typeof space.name !== "string" || space.name.length < 1
+    || space.name.length > 120 || space.name.trim() !== space.name
+    || CONTROL.test(space.name)
+    || !SPACE_KINDS.has(space.kind) || !SPACE_STATES.has(space.state)
+    || space.profilePack !== null
+    || typeof space.domain !== "string" || !IDENTIFIER.test(space.domain) || space.domain.length > 80
+    || typeof space.subtype !== "string" || !IDENTIFIER.test(space.subtype) || space.subtype.length > 80
+    || !request || space.name !== request.name || space.domain !== request.domain
+    || space.subtype !== request.subtype
+    || typeof profile.slug !== "string" || !PROFILE_SLUG.test(profile.slug)
+    || !Number.isSafeInteger(profile.version) || profile.version < 1
+  ) throw new TypeError("invalid-space-create-receipt");
+
+  return Object.freeze({
+    $schema: SPACE_CREATE_SCHEMA,
+    created: value.created,
+    space: Object.freeze({
+      id: space.id,
+      ownerId: space.ownerId,
+      name: space.name,
+      kind: space.kind,
+      state: space.state,
+      domain: space.domain,
+      subtype: space.subtype,
+      profilePack: null,
+    }),
+    profileToProvision: Object.freeze({
+      slug: profile.slug,
+      version: profile.version,
+    }),
+    nextStep: "validate-profile-provisioning",
+  });
+}
