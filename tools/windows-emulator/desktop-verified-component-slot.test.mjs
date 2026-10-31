@@ -117,6 +117,8 @@ test("Windows current-slot metadata and exact module bytes delegate to Go withou
         + "SOURCE=SLOT\n"
         + "CURRENT_VERSION=0.1.2\n"
         + "CURRENT_SOURCE_COMMIT=" + SOURCE + "\n"
+        + "RELEASE_MODE=component-slot\n"
+        + "HEALTH_MODE=runtime\n"
         + "SLOT=" + join(f.componentRoot, "assistant", "slot") + "\n"
         + "ENTRYPOINT=system/apps/assistant/src/runtime.mjs\n"
         + "RUNTIME_SERVED_FROM_SLOT=NO\n",
@@ -146,6 +148,48 @@ test("Windows current-slot metadata and exact module bytes delegate to Go withou
   assert.equal(await runtime.text(), "export const componentRuntime = {};\n");
   assert.equal(calls.length, 2);
   assert.deepEqual(calls.map(({ args }) => args[0]), ["resolve-current", "read-runtime-file"]);
+});
+
+test("Windows rejects stale or forged signed current-slot lifecycle metadata", async t => {
+  const f = setup(t);
+  let releaseMode = "component-slot";
+  let healthMode = "runtime";
+  const base = await serve(t, f, (_binary, args, _options, cb) => {
+    assert.equal(args[0], "resolve-current");
+    cb(null, Buffer.from(
+      "RUNTIME_COMPONENT_CURRENT_RESOLVED=YES\n"
+      + "COMPONENT_ID=assistant\n"
+      + "REVISION=4\n"
+      + "SOURCE=SLOT\n"
+      + "CURRENT_VERSION=0.1.2\n"
+      + "CURRENT_SOURCE_COMMIT=" + SOURCE + "\n"
+      + "RELEASE_MODE=" + releaseMode + "\n"
+      + (healthMode === null ? "" : "HEALTH_MODE=" + healthMode + "\n")
+      + "SLOT=" + join(f.componentRoot, "assistant", "slot") + "\n"
+      + "ENTRYPOINT=system/apps/assistant/src/runtime.mjs\n"
+      + "RUNTIME_SERVED_FROM_SLOT=NO\n",
+    ));
+  });
+  const path = base + "/__ordax/native/component-runtime?component=assistant&state=current";
+  for (const [release, health, expected] of [
+    ["component-slot", "runtime", 200],
+    ["component-slot", "none", 200],
+    ["git-app", "runtime", 409],
+    ["component-slot", "unknown", 409],
+    ["component-slot", null, 409],
+  ]) {
+    releaseMode = release;
+    healthMode = health;
+    const response = await fetch(path);
+    assert.equal(response.status, expected, release + "/" + health);
+    if (expected === 200) {
+      const payload = await response.json();
+      assert.equal(payload.source, "slot");
+      assert.equal(payload.entrypoint, "system/apps/assistant/src/runtime.mjs");
+      assert.equal(Object.hasOwn(payload, "releaseMode"), false,
+        "Native metadata transport must not silently expand its public contract");
+    }
+  }
 });
 
 test("Windows Native slot reader rejects traversal, pending, stale identity and forged CLI responses", async t => {
