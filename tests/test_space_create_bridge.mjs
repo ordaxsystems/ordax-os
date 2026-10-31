@@ -446,9 +446,13 @@ test("Desktop Space creation crosses the real loopback HTTP gateway without crea
   assert.equal(gateway.calls.length, before);
 });
 
-test("Windows Space adapter never mutates shared Native startup and refuses Web", () => {
+test("Native Account receives Space create port only from the Windows composition owner", () => {
   const source = readFileSync(new URL("../system/composition/native/main.mjs", import.meta.url), "utf8");
-  assert.doesNotMatch(source, /spaceCreation|createDesktopSpaceCreatePort/);
+  assert.match(source, /const spaceCreatePort = windowsDesktopHost\s*\? await optionalNativeProbe\(/);
+  assert.match(source, /import\("\.\.\/\.\.\/adapters\/desktop\/space-create\.mjs"\)/);
+  assert.match(source, /return createDesktopSpaceCreatePort\(window, identitySession\)/);
+  assert.match(source, /\{ isAvailable: hasNativeHostBridge, postMessage: postNativeHostMessage \},\s*spaceCreatePort,/);
+  assert.match(source, /: null;\s*const accountOverviewControls = mountAccountOverviewControls/);
   const identity = nativeIdentity();
   assert.throws(() => createDesktopSpaceCreatePort({ fetch: async () => {} }, identity), /Windows Desktop browser transport required/);
   assert.throws(() => createDesktopSpaceCreatePort({

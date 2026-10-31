@@ -896,6 +896,18 @@ async function start() {
     surface,
     profileActivationState,
   );
+  // OS composition owns platform adapters. The Surface consumes only the
+  // authenticated command contract, and Linux/Web never construct this port.
+  const spaceCreatePort = windowsDesktopHost
+    ? await optionalNativeProbe(
+        "OrdaX Windows Space creation unavailable",
+        async () => {
+          const { createDesktopSpaceCreatePort } =
+            await import("../../adapters/desktop/space-create.mjs");
+          return createDesktopSpaceCreatePort(window, identitySession);
+        },
+      )
+    : null;
   const accountOverviewControls = mountAccountOverviewControls(
     root,
     identitySession,
@@ -916,6 +928,7 @@ async function start() {
     profileTaxonomy,
     spaceExperience,
     { isAvailable: hasNativeHostBridge, postMessage: postNativeHostMessage },
+    spaceCreatePort,
   );
   const homeContinuation = mountHomeContinuation(root, { projects, recentFiles, surfaceLifecycle: surface });
   const homePending = mountHomePending(root, { notifications, syncRuntime: accountSync, surfaceLifecycle: surface });
