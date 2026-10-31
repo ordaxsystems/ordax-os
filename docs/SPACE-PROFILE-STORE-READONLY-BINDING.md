@@ -16,11 +16,13 @@ The canonical Space contract already carries `profilePack` identifiers such as `
 
 The projector is pure and read-only. It creates no independent package catalog, install/update/rollback capability, new version field, persistence, or authorization route.
 
-## Integration gate
+## Canonical Surface consumption (2026-10-31)
 
-This stage adds a version-safe domain projection and tests. It does **not** yet wire a live Space-scoped app list into Web/Native. The Surface must consume both the **authorized active Space** and the **published validated Profile catalog**, and use the canonical Store snapshot. For unpinned legacy spaces, offer a truthful unresolved state until the account/Space assignment authority supplies an exact `slug@version`; do not invent one in the client.
+`ordax-surface#32` restored `SpaceProfileAppsPanel` inside the authorized active Space account view and consolidated the single Store status label vocabulary with the Profile catalog. The Surface reads `useWebAccount().authorized.activeSpace`, `useProfileCatalogReader()` and the existing `StoreCatalogProvider`, and invokes **this OS projector**. Signed-out, offline, inactive and unpinned Space contexts never infer an installed app. No new app registry, lifecycle, authorization endpoint or local storage.
 
-Tests: `node --test tests/test_space_profile_store_status.mjs tests/test_profile_store_app_status.mjs`.
+The source belongs to `ordaxsystems/ordax-surface`; only `docs/contracts/surface-source.json` pins its revision. Do not restore copied Surface UI files into this OS repository.
+
+Tests: `node --test tests/test_space_profile_store_status.mjs tests/test_profile_store_app_status.mjs tests/test_web_space_profile_apps.mjs`. The last test exercises the real Surface candidate through existing Web Vite SSR, while the Surface owner CI validates its own source.
 
 ## CI baseline findings (2026-10-18)
 
