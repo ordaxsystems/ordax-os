@@ -1051,7 +1051,13 @@ func ensureSecureDirectory(path string, mode os.FileMode) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if filepath.Clean(resolvedAbs) != filepath.Clean(absolute) {
+	if runtime.GOOS == "windows" {
+		// Windows path aliases may differ textually without being junctions.
+		// Enforce the same physical ancestor check used for signed inputs.
+		if err := verifyWindowsDirectoryAncestry(absolute); err != nil {
+			return "", err
+		}
+	} else if filepath.Clean(resolvedAbs) != filepath.Clean(absolute) {
 		return "", errors.New("runtime component slot path may not traverse symlinks")
 	}
 	return absolute, nil

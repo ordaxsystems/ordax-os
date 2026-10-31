@@ -276,6 +276,12 @@ func TestWindowsSignedChannelAllowsCanonicalTempWithoutReparsePoint(t *testing.T
 	if _,err := ensureRealParent(filepath.Join(parent,"canonical-key.pem")); err != nil {
 		t.Fatalf("real Windows temp path rejected: %v",err)
 	}
+	slotRoot := filepath.Join(parent, "component-slots")
+	slotRoot,err := ensureSecureDirectory(slotRoot,0o755)
+	if err != nil { t.Fatalf("canonical Windows slot root rejected: %v",err) }
+	if _,err := secureExistingDirectory(slotRoot); err != nil {
+		t.Fatalf("canonical Windows activation root rejected: %v",err)
+	}
 	// A nested symbolic path must be rejected even when the immediate parent
 	// itself is a real directory, regardless of case/short-name normalization.
 	real := filepath.Join(parent, "real")
