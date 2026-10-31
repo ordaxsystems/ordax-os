@@ -408,7 +408,12 @@ async function start() {
     fetchImpl: localAiFetch,
     endpoint: LOCAL_AI_NATIVE_ENDPOINT,
   });
-  const intelligence = createIntelligenceRuntime({ inferencePort: localAi });
+  const intelligence = createIntelligenceRuntime({
+    inferencePort: localAi,
+    // Read the same durable regional preference used by the Surface, including
+    // changes made after first run; no second language setting or cached guess.
+    getLocale: () => preferenceStore.load()["regional.locale"] ?? "pt-BR",
+  });
   const memory = memoryStore === null
     ? null
     : createMemoryRuntime({ store: memoryStore });
@@ -805,7 +810,7 @@ async function start() {
     workspaceStore,
     appActivation,
   );
-  // Switch partitions before downstream Account Sync consumes an identity change.
+  // Select the verified workspace partition before downstream Account Sync subscribers.
   const unsubscribeWorkspaceIdentity = identitySession.subscribe((snapshot) => {
     if (localWorkspaceStore.selectOwner(snapshot)) workspaceStore.load();
   });

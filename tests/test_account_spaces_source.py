@@ -31,6 +31,9 @@ class AccountSpacesSourceTests(unittest.TestCase):
         self.assertIn("SPACE_SEMANTIC_IDENTIFIER", source)
         self.assertIn('.limit(MAX_VISIBLE_SPACES + 1)', source)
         self.assertIn('version: 17', source)
+        self.assertIn('packBySpace.set(raw.space_id, `${raw.pack_slug}@${raw.pack_version}`)', source)
+        self.assertIn('typeof raw.pack_version !== "number"', source)
+        self.assertIn('!Number.isSafeInteger(raw.pack_version)', source)
 
         route = exact_route_block(
             source,

@@ -6,6 +6,8 @@ import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, unlinkSync
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createDesktopVerifiedComponentSlotMiddleware } from "../../system/adapters/desktop/verified-component-slot-host.mjs";
+import { createDesktopVerifiedStoreCatalogMiddleware } from "../../system/adapters/desktop/verified-store-catalog-host.mjs";
+import { nativeEmulatorPlugin } from "./native-host.mjs";
 
 const SHA = "a".repeat(40);
 const SOURCE = "578d38256fc906e7208764ef0b2616c8d64b784f";
@@ -304,4 +306,164 @@ test("Windows exposes release/2 compatibility only through exact current revisio
     assert.equal((await fetch(url)).status, 409);
   }
   assert.equal(calls.length, 5);
+});
+
+
+async function serveVerifiedStore(t, fixture, execFileImpl) {
+  const middleware = createDesktopVerifiedStoreCatalogMiddleware({
+    systemRoot: fixture.osRoot, verifierRoot: fixture.verifierRoot,
+    userData: fixture.userData, platform: "win32", execFileImpl,
+  });
+  const server = createServer((req, res) => middleware(req, res, () => {
+    res.writeHead(418); res.end();
+  }));
+  await new Promise(resolve => server.listen(0, "127.0.0.1", resolve));
+  t.after(() => new Promise(resolve => server.close(resolve)));
+  return "http://127.0.0.1:" + server.address().port;
+}
+
+function signedCatalogFixture(sequence = 4, digest = "f".repeat(64)) {
+  const COMMIT = "a".repeat(40);
+  const identity = (name, hash) => ({ name, sha256: hash.repeat(64), size: 123 });
+  return {
+    schema: "ordax.verified-app-store-catalog/1", state: "ready",
+    sequence, catalogSha256: digest,
+    source: { repository: "ordaxsystems/ordax-apps", commit: COMMIT },
+    trust: { domain: "runtime-components", keyId: "ordax-runtime-components-v1" },
+    entries: [{
+      appId: "notes", title: "Notas", version: "0.4.3",
+      releaseMode: "component-slot", sourceCommit: COMMIT,
+      artifacts: {
+        package: identity("notes.zip", "b"),
+        release: identity("notes.release.json", "c"),
+        compatibility: identity("notes.compatibility.json", "d"),
+        componentEnvelope: identity("notes.runtime-component-envelope.json", "e"),
+      },
+    }],
+    reason: null, authority: "none",
+  };
+}
+
+test("Desktop Store route is truthful and cannot run an unsigned or unpublished verifier", async t => {
+  const f = setup(t);
+  let invocations = 0;
+  const base = await serveVerifiedStore(t, f, () => { invocations++; throw Error("must not run"); });
+  const url = base + "/__ordax/native/store-catalog";
+  let res = await fetch(url);
+  assert.equal(res.status, 200);
+  let body = await res.json();
+  assert.equal(body.state, "unavailable");
+  assert.equal(body.authority, "none");
+  assert.deepEqual(body.entries, []);
+  f.policy.current_gates.component_publish_allowed = true;
+  writeFileSync(f.policyPath, JSON.stringify(f.policy));
+  res = await fetch(url);
+  assert.equal((await res.json()).reason, "catalog-envelope-unavailable");
+  assert.equal(invocations, 0);
+  for (const [method, suffix, expected] of [
+    ["POST", "", 405], ["GET", "?anything=1", 400],
+  ]) assert.equal((await fetch(url + suffix, { method })).status, expected);
+  assert.equal(invocations, 0);
+});
+
+test("Desktop Store reuses pinned Go verifier and rejects signed catalog replay/equivocation", async t => {
+  const f = setup(t);
+  f.policy.current_gates.component_publish_allowed = true;
+  writeFileSync(f.policyPath, JSON.stringify(f.policy));
+  const store = join(f.userData, "Store");
+  mkdirSync(store);
+  writeFileSync(join(store, "catalog-envelope.json"), "SIGNED_ENVELOPE_TEST_FIXTURE");
+  let answer = signedCatalogFixture(), calls = 0;
+  const base = await serveVerifiedStore(t, f, (binary, args, options, cb) => {
+    calls++;
+    assert.equal(binary, f.helper, "The helper comes from the installed template");
+    assert.equal(args[0], "verify-store-catalog");
+    assert.equal(args[args.indexOf("--trust") + 1], f.installedAnchorPath);
+    assert.equal(options.timeout, 3000);
+    const output = args[args.indexOf("--out") + 1];
+    writeFileSync(output, JSON.stringify(answer));
+    cb(null, Buffer.alloc(0));
+  });
+  const url = base + "/__ordax/native/store-catalog";
+  let r = await fetch(url); assert.equal(r.status, 200);
+  assert.deepEqual(await r.json(), answer);
+  const watermark = JSON.parse(readFileSync(join(store, "catalog-watermark.json"), "utf8"));
+  assert.equal(watermark.sequence, 4);
+  answer = signedCatalogFixture(3, "d".repeat(64));
+  r = await fetch(url);
+  assert.equal((await r.json()).state, "unavailable", "Downgrade fails closed");
+  answer = signedCatalogFixture(4, "0".repeat(64));
+  r = await fetch(url);
+  assert.equal((await r.json()).state, "unavailable", "Same sequence with changed digest fails closed");
+  answer = signedCatalogFixture(5, "5".repeat(64));
+  r = await fetch(url);
+  assert.equal((await r.json()).state, "ready");
+  assert.equal(JSON.parse(readFileSync(join(store, "catalog-watermark.json"), "utf8")).sequence, 5);
+  f.policy.current_gates.component_publish_allowed = false;
+  writeFileSync(f.policyPath, JSON.stringify(f.policy));
+  r = await fetch(url);
+  assert.equal((await r.json()).reason, "catalog-publication-disabled", "Revocation is immediate");
+  assert.equal(calls, 4);
+});
+
+test("Desktop Store refuses forged verifier output, symlinked envelopes and tampered watermark", async t => {
+  const f = setup(t);
+  f.policy.current_gates.component_publish_allowed = true;
+  writeFileSync(f.policyPath, JSON.stringify(f.policy));
+  const store = join(f.userData, "Store");
+  mkdirSync(store);
+  const envelope = join(store, "catalog-envelope.json");
+  writeFileSync(envelope, "signed-test-placeholder");
+  let forged = { ...signedCatalogFixture(), authority: "install" }, calls = 0;
+  const base = await serveVerifiedStore(t, f, (_binary, args, _options, cb) => {
+    calls++;
+    writeFileSync(args[args.indexOf("--out") + 1], JSON.stringify(forged));
+    cb(null, Buffer.alloc(0));
+  });
+  const url = base + "/__ordax/native/store-catalog";
+  assert.equal((await (await fetch(url)).json()).reason, "catalog-verification-failed");
+  assert.equal(calls, 1);
+  writeFileSync(join(store, "catalog-watermark.json"), "CORRUPTED");
+  forged = signedCatalogFixture();
+  assert.equal((await (await fetch(url)).json()).state, "unavailable");
+  assert.equal(calls, 2);
+  unlinkSync(envelope);
+  symlinkSync(f.helper, envelope);
+  assert.equal((await (await fetch(url)).json()).reason, "catalog-envelope-unavailable");
+  assert.equal(calls, 2);
+});
+
+
+test("the shared Windows development preview registers a truthful Store route without a signer", async t => {
+  const f = setup(t);
+  const handlers = [];
+  const plugin = nativeEmulatorPlugin(join(f.root, "preview-state"), { desktopHost: false });
+  plugin.configureServer({ middlewares: { use(handler) { handlers.push(handler); } } });
+  const server = createServer((req, res) => {
+    let index = 0;
+    const next = () => {
+      const handler = handlers[index++];
+      if (!handler) { res.writeHead(404); res.end(); return; }
+      Promise.resolve(handler(req, res, next)).catch(() => {
+        if (!res.headersSent) { res.writeHead(503); res.end(); }
+      });
+    };
+    next();
+  });
+  await new Promise(resolve => server.listen(0, "127.0.0.1", resolve));
+  t.after(() => new Promise(resolve => server.close(resolve)));
+  const origin = "http://127.0.0.1:" + server.address().port;
+  const url = origin + "/__ordax/native/store-catalog";
+  const response = await fetch(url);
+  assert.equal(response.status, 200, "The preview must not silently fall through to emulator 503");
+  const snapshot = await response.json();
+  assert.equal(snapshot.schema, "ordax.verified-app-store-catalog/1");
+  assert.equal(snapshot.state, "unavailable");
+  assert.equal(snapshot.authority, "none");
+  assert.deepEqual(snapshot.entries, []);
+  assert.equal(snapshot.reason, "catalog-trust-unavailable");
+  assert.equal((await fetch(url + "?unsafe=1")).status, 400);
+  assert.equal((await fetch(url, {method: "POST"})).status, 405);
+  const existing = await fetch(origin + "/__ordax/native/first-run");
+  assert.equal(existing.status, 200, "Existing Native routes stay owned by the emulator host");
 });

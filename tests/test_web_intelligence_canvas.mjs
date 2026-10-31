@@ -179,7 +179,9 @@ test("Web Intelligence client drops results from ports that ignore cancellation"
   const pending = client.ask("Teste de cancelamento", { signal: controller.signal });
   controller.abort(new Error("client-request-cancelled"));
   finish(remoteResponse(remoteContext()).response);
-  await assert.rejects(pending, /client-request-cancelled/);
+  // The canonical Aura boundary rejects with a stable AbortError rather than
+  // relaying arbitrary caller-supplied reasons through UI/service boundaries.
+  await assert.rejects(pending, { name: "AbortError", message: "Aura request was cancelled" });
 });
 
 test("Remote Web Intelligence rejects late responses after cancellation or disposal", async () => {

@@ -22,6 +22,9 @@ on:
       - 'system/surface/workspace/components/central/space-members-panel.css'
       - 'infra/supabase/functions/_shared/account_transport_admission.mjs'
       - 'infra/supabase/functions/ordax-account-gateway/index.ts'
+      - 'services/public-identity/supabase_account.py'
+      - 'tests/test_supabase_account_provider.py'
+      - 'tests/test_account_spaces_source.py'
       - 'infra/supabase/product/migrations/*space_members*'
       - 'infra/supabase/product/migrations/*space_actor_capability*'
       - 'tests/test_identity_bound_space_experience.mjs'
@@ -68,6 +71,9 @@ on:
       - 'system/surface/workspace/components/central/space-members-panel.css'
       - 'infra/supabase/functions/_shared/account_transport_admission.mjs'
       - 'infra/supabase/functions/ordax-account-gateway/index.ts'
+      - 'services/public-identity/supabase_account.py'
+      - 'tests/test_supabase_account_provider.py'
+      - 'tests/test_account_spaces_source.py'
       - 'infra/supabase/product/migrations/*space_members*'
       - 'infra/supabase/product/migrations/*space_actor_capability*'
       - 'tests/test_identity_bound_space_experience.mjs'
@@ -136,6 +142,8 @@ jobs:
       - name: Prove non-blocking compatibility
         run: |
           set -euo pipefail
+          python tests/test_supabase_account_provider.py -q
+          python tests/test_account_spaces_source.py -q
           python tests/test_space_members_read_authority.py -q
           python tests/test_space_actor_capability_authority.py -q
           node --test tests/test_space_foundation_nonblocking.mjs

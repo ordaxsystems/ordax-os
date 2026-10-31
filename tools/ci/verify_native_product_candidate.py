@@ -128,7 +128,12 @@ def verify(archive: Path, source_lock: Path) -> dict:
     if lock.get("$schema") != "prototype-ordax.studio-runtime-source-lock/1":
         raise CandidateError("unexpected OS source-lock schema")
     source = lock.get("source", {})
-    evidence = lock.get("candidate_evidence", {})
+    targets = lock.get("candidate_evidence_by_target", {})
+    if (not isinstance(targets, dict) or
+            not set(targets).issubset({"linux-amd64", "windows-amd64"}) or
+            not isinstance(targets.get("linux-amd64"), dict)):
+        raise CandidateError("canonical Linux candidate target provenance missing")
+    evidence = targets["linux-amd64"]
     distribution = lock.get("distribution", {})
     activation = lock.get("activation", {})
     sha = source.get("commit")
