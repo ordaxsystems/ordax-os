@@ -119,6 +119,35 @@ export function validateSpaceCreationPreflight(value) {
   });
 }
 
+// Local transport admission for Desktop. The Supabase gateway/RPC continue to
+// validate and authorize the request independently; this has no write authority.
+const SPACE_CREATE_IDENTIFIER = /^[a-z0-9][a-z0-9]*(?:[._-][a-z0-9]+)*$/;
+const SPACE_CREATE_CONTROLS = /[\u0000-\u001f\u007f]/;
+export function validateSpaceCreateCommand(value) {
+  if (!exactReceiptKeys(value, ["name", "domain", "subtype", "idempotencyKey"])) {
+    throw new TypeError("invalid-space-create-request");
+  }
+  const name = typeof value.name === "string" ? value.name.trim() : "";
+  if (!name || name.length > 120 || SPACE_CREATE_CONTROLS.test(name)) {
+    throw new TypeError("invalid-space-name");
+  }
+  for (const candidate of [value.domain, value.subtype]) {
+    if (typeof candidate !== "string" || !candidate || candidate.length > 80
+      || !SPACE_CREATE_IDENTIFIER.test(candidate)) {
+      throw new TypeError("invalid-space-semantics");
+    }
+  }
+  if (typeof value.idempotencyKey !== "string" || !SPACE_CREATE_UUID.test(value.idempotencyKey)) {
+    throw new TypeError("invalid-space-idempotency-key");
+  }
+  return Object.freeze({
+    name,
+    domain: value.domain,
+    subtype: value.subtype,
+    idempotencyKey: value.idempotencyKey.toLowerCase(),
+  });
+}
+
 export const SPACE_CREATE_RECEIPT_SCHEMA = "prototype-ordax.space-create/1";
 const SPACE_CREATE_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
