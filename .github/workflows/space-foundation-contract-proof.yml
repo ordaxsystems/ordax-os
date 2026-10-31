@@ -22,6 +22,11 @@ on:
       - 'system/surface/workspace/components/central/space-members-panel.css'
       - 'infra/supabase/functions/_shared/account_transport_admission.mjs'
       - 'infra/supabase/functions/ordax-account-gateway/index.ts'
+      - 'infra/supabase/functions/_shared/space_create_contract.mjs'
+      - 'system/surface/runtime/native_account_gateway.py'
+      - 'tests/test_space_create_bridge.mjs'
+      - 'tests/test_native_account_gateway.py'
+      - 'tests/test_native_account_session_contract.py'
       - 'services/public-identity/supabase_account.py'
       - 'tests/test_supabase_account_provider.py'
       - 'tests/test_account_spaces_source.py'
@@ -71,6 +76,11 @@ on:
       - 'system/surface/workspace/components/central/space-members-panel.css'
       - 'infra/supabase/functions/_shared/account_transport_admission.mjs'
       - 'infra/supabase/functions/ordax-account-gateway/index.ts'
+      - 'infra/supabase/functions/_shared/space_create_contract.mjs'
+      - 'system/surface/runtime/native_account_gateway.py'
+      - 'tests/test_space_create_bridge.mjs'
+      - 'tests/test_native_account_gateway.py'
+      - 'tests/test_native_account_session_contract.py'
       - 'services/public-identity/supabase_account.py'
       - 'tests/test_supabase_account_provider.py'
       - 'tests/test_account_spaces_source.py'
@@ -138,15 +148,20 @@ jobs:
           node --check system/adapters/web/space-actor-capability.mjs
           node --check system/adapters/web/space-membership-actions.mjs
           node --check system/composition/web/account-session.mjs
+          node --check infra/supabase/functions/_shared/space_create_contract.mjs
+          node --check tests/test_space_create_bridge.mjs
 
       - name: Prove non-blocking compatibility
         run: |
           set -euo pipefail
           python tests/test_supabase_account_provider.py -q
           python tests/test_account_spaces_source.py -q
+          python tests/test_native_account_gateway.py -q
+          python tests/test_native_account_session_contract.py -q
           python tests/test_space_members_read_authority.py -q
           python tests/test_space_actor_capability_authority.py -q
           node --test tests/test_space_foundation_nonblocking.mjs
+          node --test tests/test_space_create_bridge.mjs
           node --test tests/test_space_lifecycle.mjs
           node --test tests/test_space_lifecycle_runtime.mjs
           node --test tests/test_space_members.mjs
