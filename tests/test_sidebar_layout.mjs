@@ -64,9 +64,9 @@ test("Web and Native share the Meridian rail destination order and grouping", as
     readFile(new URL("../system/surface/ui/sidebar-layout.css", import.meta.url), "utf8"),
     readFile(new URL("../system/surface/ui/meridian.tokens.css", import.meta.url), "utf8"),
   ]);
-  assert.deepEqual(MERIDIAN_RAIL_DESTINATIONS.map(item => item.key), ["home", "intelligence", "spaces", "apps", "profiles", "devices", "store"]);
+  assert.deepEqual(MERIDIAN_RAIL_DESTINATIONS.map(item => item.key), ["home", "intelligence", "spaces", "apps", "devices", "store"]);
   assert.deepEqual(MERIDIAN_RAIL_DESTINATIONS.filter(item => item.group === "principal").map(item => item.key), ["intelligence", "spaces", "apps"]);
-  assert.deepEqual(MERIDIAN_RAIL_DESTINATIONS.filter(item => item.group === "ecossistema").map(item => item.key), ["profiles", "devices", "store"]);
+  assert.deepEqual(MERIDIAN_RAIL_DESTINATIONS.filter(item => item.group === "ecossistema").map(item => item.key), ["devices", "store"]);
   assert.match(webConfig, /MERIDIAN_RAIL_DESTINATIONS/);
   assert.match(nativeShell, /MERIDIAN_RAIL_DESTINATIONS/);
   assert.equal((nativeShell.match(/ICONS\[destination\.glyph\]/g) ?? []).length, 3, "Native home, navigation, and overflow menu use canonical Meridian glyph metadata");
