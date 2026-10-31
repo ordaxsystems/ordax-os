@@ -347,6 +347,9 @@ export function createDesktopProductRuntimeSupervisor({
     });
     child.once?.("exit",(code)=>{
       if(active?.child===child){
+        // An exit code is safe to publish; never log stderr, tokens, paths or
+        // the remote control-plane payload as part of lifecycle diagnostics.
+        log("Product Runtime exit code="+(Number.isInteger(code)?code:"signal"));
         // Runtime exit 43 means the Device credential was rejected or its
         // canonical store is unavailable. The only authorized recovery is
         // owner re-enrollment, not infinite process restarts or bypasses.
