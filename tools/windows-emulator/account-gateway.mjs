@@ -1,8 +1,7 @@
 import { validateIdentityCredentialInput, validateIdentityRegistrationInput } from "../../system/contracts/identity-credentials.mjs";
 import { validateEntitlementDecision } from "../../system/contracts/entitlements.mjs";
 import { validateAccountCloseRequest } from "../../system/contracts/account-lifecycle.mjs";
-import { parseSpaceCreateRequest } from "../../infra/supabase/functions/_shared/space_create_contract.mjs";
-import { validateSpaceCreateReceipt } from "../../system/contracts/space-creation.mjs";
+import { validateSpaceCreateCommand, validateSpaceCreateReceipt } from "../../system/contracts/space-creation.mjs";
 
 const SESSION_SCHEMA = "prototype-ordax.public-identity-session/1";
 const MAX_REQUEST_BYTES = 64 * 1024;
@@ -370,7 +369,7 @@ export function createEmulatorAccountGateway({ origin = "", fetchImpl = globalTh
       if (body.byteLength > MAX_SPACE_CREATE_BYTES) return { status: 413, value: null };
       let intent;
       try {
-        intent = parseSpaceCreateRequest(body.toString("utf8"), "application/json");
+        intent = validateSpaceCreateCommand(JSON.parse(body.toString("utf8")));
       } catch {
         return { status: 400, value: null };
       }
