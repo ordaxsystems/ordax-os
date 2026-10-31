@@ -8,8 +8,8 @@
 - **Atualizado:** 2026-10-15
 - **Owner canônico:** `system/profile-packs/`, `docs/OPERATIONAL-REALTIME.md`, `docs/contracts/operational-realtime.json`, `docs/PROFILE-INTELLIGENCE-ARCHITECTURE.md`, owners canônicos de Account/Spaces/Entitlements/Applications/Intelligence; owners horizontais de People/Workforce, Payments e Finance devem ser definidos/reutilizados na Fase 0 antes de implementação
 - **Base factual:** `main` verificada em 2026-10-15; `pizzaria-br@1` já existe como Profile Pack first-party ativo e demonstrável; Profile Packs são composição, não owners de Finanças/Vendas/Estoque/CRM
-- **Relatórios de apoio:** `PLANO-06-PERFIS-PROFISSIONAIS-E-DISTRIBUICAO-SOB-DEMANDA.md`, `INTELLIGENCE-HANDOFF.md`, `system/profile-packs/README.md`
-- **Dependências:** PROFILE-001, MODE-001, Account/Spaces, Entitlements, Operational Realtime, Action Gateway/Device Agent quando houver equipamento local, Intelligence/Model Router, Store/Billing quando monetização for promovida, owners horizontais de People/Workforce, Payments e Finance quando existirem/promovidos
+- **Relatórios de apoio:** `docs/SPACES-AND-PROFILES.md`, `INTELLIGENCE-HANDOFF.md`, `system/profile-packs/README.md`
+- **Dependências:** `docs/SPACES-AND-PROFILES.md`, MODE-001, Account/Spaces, Entitlements, Operational Realtime, Action Gateway/Device Agent quando houver equipamento local, Intelligence/Model Router, Store/Billing quando monetização for promovida, owners horizontais de People/Workforce, Payments e Finance quando existirem/promovidos
 
 `READY` descreve maturidade documental. Este plano **não autoriza** iniciar o OrdaX Food completo durante a janela atual de fechamento do MVP. O único recorte pré-MVP elegível continua sendo aquilo que `MVP.md`, contratos e owners canônicos já exigirem do `pizzaria-br@1`.
 
@@ -1557,7 +1557,7 @@ Antes de alterar source:
 1. leia `AGENTS.md` e a ordem canônica obrigatória;
 2. leia `00-PLANOS-PRIORITARIOS/README.md`, `ROADMAP.md` e `REGISTRY.md`;
 3. leia este FOOD-001 por completo;
-4. leia `PLANO-06-PERFIS-PROFISSIONAIS-E-DISTRIBUICAO-SOB-DEMANDA.md`;
+4. leia `docs/SPACES-AND-PROFILES.md`;
 5. leia `system/profile-packs/README.md`, especialmente a separação de owners de Finanças/Vendas/Estoque/CRM;
 6. leia `docs/OPERATIONAL-REALTIME.md` e contrato;
 7. leia `docs/MOBILE-COMPANION.md`, `docs/ACCOUNT-SYNC-AND-PLANS.md` e `docs/PRODUCT-MODES.md` antes de backend/realtime/mobile;

@@ -233,7 +233,7 @@ Plano detalhado: `plans/HEALTH-001-HEALTHCARE-CLINIC-AND-PATIENT-PORTAL.md`.
 
 ### Demais planos existentes
 
-`SURFACE-001`, `ECO-001`, `PROFILE-001`, `PERSONAL-001`, `NETWORK-001` e demais itens catalogados permanecem preservados conforme `REGISTRY.md`.
+`SURFACE-001`, `ECO-001`, `PERSONAL-001`, `NETWORK-001` e demais itens seguem o `REGISTRY.md`. O antigo `PROFILE-001` foi absorvido por `docs/SPACES-AND-PROFILES.md` e pelos contratos/manifests canônicos, sem backlog duplicado.
 
 Regra comum:
 

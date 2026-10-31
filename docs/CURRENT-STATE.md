@@ -2,9 +2,9 @@ Spaces / Professional Profiles UX SSOT (2026-10-31):
 User-visible Spaces must be the sole creation, selection and management
 surface; Profile Packs are versioned composition attached to the selected
 Space, with advanced settings only. `docs/SPACES-AND-PROFILES.md` is the
-canonical UX owner and ADR-028 clarifies the existing design; the older
-root PLANO-06 is ARCHIVED, retained only because existing historic plans
-and CI refer to it. The Surface currently exposes separate `spaces`
+canonical UX owner and ADR-028 clarifies the existing design. The old
+root Profile plan was deleted after migrating its references to canonical
+owners; its provenance remains in Git history. The Surface currently exposes separate `spaces`
 and `profiles` Account sections, so the one-journey UX **is not shipped**.
 Its exclusive implementation owner remains ordax-surface#33, including
 the pending/failed provisioning state and real Windows login→create→

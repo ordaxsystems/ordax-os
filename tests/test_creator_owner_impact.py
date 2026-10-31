@@ -24,11 +24,21 @@ class CreatorOwnerImpactTests(unittest.TestCase):
                     ["config", "user.name", "CI"]):
             subprocess.run(["git", "-C", str(self.root), *cmd], check=True, capture_output=True)
 
-    def commit(self, workflow=None, lock=None, path=None):
+    def commit(self, workflow=None, lock=None, path=None,
+               intelligence_workflow=None, delete_path=None):
         if workflow is not None:
             f = self.root / impact.WORKFLOW
             f.parent.mkdir(parents=True, exist_ok=True)
             f.write_text(workflow, encoding="utf-8")
+        if intelligence_workflow is not None:
+            f = self.root / impact.INTELLIGENCE_WORKFLOW
+            f.parent.mkdir(parents=True, exist_ok=True)
+            f.write_text(intelligence_workflow, encoding="utf-8")
+        if delete_path is not None:
+            f = self.root / delete_path
+            if not f.is_file():
+                raise AssertionError("delete fixture path must exist")
+            f.unlink()
         if lock is not None:
             f = self.root / impact.SURFACE_LOCK
             f.parent.mkdir(parents=True, exist_ok=True)
@@ -162,8 +172,13 @@ class CreatorOwnerImpactTests(unittest.TestCase):
             "docs/README.md",
             "docs/SPACES-AND-PROFILES.md",
             "README.md",
-            "PLANO-06-PERFIS-PROFISSIONAIS-E-DISTRIBUICAO-SOB-DEMANDA.md",
             "00-PLANOS-PRIORITARIOS/REGISTRY.md",
+            "PLANO-00-ESTADO-ATUAL-E-PRIORIDADES.md",
+            "PLANO-04-FUNDACAO-ECOSSISTEMA-PRE-MVP.md",
+            "00-PLANOS-PRIORITARIOS/ROADMAP.md",
+            "00-PLANOS-PRIORITARIOS/plans/MODE-001-WEB-CLOUD-DEVICE-RUNTIME.md",
+            "00-PLANOS-PRIORITARIOS/plans/FOOD-001-ORDAX-FOOD-PIZZA-PILOT.md",
+            "00-PLANOS-PRIORITARIOS/plans/FAB-001-ORDAX-FABRICATION-3D-PRINTING-PILOT.md",
         ):
             with self.subTest(path=path):
                 next_rev = self.commit(path=path)
@@ -181,6 +196,31 @@ class CreatorOwnerImpactTests(unittest.TestCase):
             with self.subTest(shared=shared):
                 next_rev = self.commit(path=shared)
                 self.assertTrue(impact.classify(base, next_rev, root=self.root)[0])
+
+    def test_archived_profile_plan_deletion_and_exact_intelligence_trigger(self):
+        workflow = WORKFLOW.read_text(encoding="utf-8")
+        source = (ROOT / impact.INTELLIGENCE_WORKFLOW).read_text(encoding="utf-8")
+        self.assertEqual(source.count(impact.CURRENT_PROFILE_TRIGGER), 2)
+        self.assertNotIn(impact.LEGACY_PROFILE_TRIGGER, source)
+        old = source.replace(impact.CURRENT_PROFILE_TRIGGER, impact.LEGACY_PROFILE_TRIGGER)
+        self.commit(workflow=workflow, lock=VISUAL, intelligence_workflow=old,
+                    path=impact.LEGACY_PROFILE_DOC)
+        (self.root / impact.LEGACY_PROFILE_DOC).write_text(
+            "# OrdaX\\n\\nARCHIVED / SUPERSEDED\\n", encoding="utf-8")
+        base = self.commit()
+        head = self.commit(intelligence_workflow=source,
+                           delete_path=impact.LEGACY_PROFILE_DOC)
+        self.assertEqual(impact.classify(base, head, root=self.root),
+                         (False, "nonproducer-contract-only"))
+        self.assertTrue(impact.verified_legacy_profile_trigger_migration(base, head, root=self.root))
+        self.assertTrue(impact.verified_legacy_profile_deletion(base, head, root=self.root))
+        tampered = self.commit(intelligence_workflow=source.replace(
+            "name: Intelligence Foundation", "name: Malicious Change"))
+        self.assertTrue(impact.classify(base, tampered, root=self.root)[0])
+        restored = self.commit(intelligence_workflow=source, path=impact.LEGACY_PROFILE_DOC)
+        self.assertTrue(impact.classify(base, restored, root=self.root)[0])
+        extended = self.commit(intelligence_workflow=source + "\\n# unrelated")
+        self.assertTrue(impact.classify(restored, extended, root=self.root)[0])
 
     def test_build_autonomy_has_no_creator_dependency_for_web_or_desktop(self):
         contract = json.loads((ROOT / "docs/contracts/build-autonomy.json").read_text(encoding="utf-8"))
