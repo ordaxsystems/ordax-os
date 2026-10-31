@@ -53,8 +53,8 @@ export function createPreferencePersistence(preferenceStore = null) {
   });
 }
 
-// Portable binding for the existing preference semantics and persistence port.
-// Native's Surface reducer uses the same catalog; no new preference IDs or sync.
+// Portable binding for the shared preference catalog and persistence port.
+// Account synchronization keeps its own explicit allowlist in the sync owner.
 export function createPreferenceRuntime(preferenceStore) {
   const store = assertPreferenceStore(preferenceStore);
   let seed;

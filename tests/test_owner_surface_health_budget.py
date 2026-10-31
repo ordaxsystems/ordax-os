@@ -39,10 +39,12 @@ class OwnerSurfaceHealthBudgetTests(unittest.TestCase):
         supervisor = SUPERVISOR.read_text(encoding="utf-8")
         surface = SURFACE.read_text(encoding="utf-8")
         self.assertIn("OWNER_PROVISION_TIMEOUT=${ORDAX_OWNER_SURFACE_PROVISION_TIMEOUT_SECONDS:-660}", supervisor)
-        self.assertIn('[ "$marker_source" = "$expected_sha" ]', supervisor)
-        self.assertIn('provisioning_elapsed=$((provisioning_elapsed + 1))', supervisor)
-        self.assertIn('[ "$provisioning_elapsed" -gt "$OWNER_PROVISION_TIMEOUT" ]', supervisor)
-        self.assertIn('normal_elapsed=0', supervisor)
+        # First-boot budgets now use one monotonic Supervisor event loop.
+        self.assertIn('[ "$marker_source" = "$initial_sha" ]', supervisor)
+        self.assertIn('OWNER_INITIAL_PROVISION_SINCE=$owner_now', supervisor)
+        self.assertIn('[ $((owner_now - OWNER_INITIAL_PROVISION_SINCE)) -gt "$OWNER_PROVISION_TIMEOUT" ]', supervisor)
+        self.assertIn('OWNER_INITIAL_NORMAL_SINCE=$owner_now', supervisor)
+        self.assertIn('owner_monotonic_seconds()', supervisor)
         for state in ("starting", "provisioning", "waiting-health", "healthy", "failed"):
             self.assertIn(f"write_surface_health_state {state}", supervisor)
         marker_write = surface.index("printf '%s\\n' \"$SOURCE_SHA\" >\"$RUNTIME_PROVISIONING_FILE\"")
@@ -50,6 +52,25 @@ class OwnerSurfaceHealthBudgetTests(unittest.TestCase):
         marker_clear = surface.index('rm -f "$RUNTIME_PROVISIONING_FILE"', marker_write)
         self.assertLess(marker_write, ensure_runtime)
         self.assertLess(ensure_runtime, marker_clear)
+
+    def test_owner_cold_boot_failure_reports_only_canonical_witness_classes(self):
+        supervisor = SUPERVISOR.read_text(encoding="utf-8")
+        failure = supervisor.split("owner_initial_surface_health_failed() {", 1)[1]
+        failure = failure.split("\n}\n", 1)[0]
+        self.assertIn('read_state_value "$HEALTH_FILE"', failure)
+        self.assertIn('surface_heartbeat_sha', failure)
+        self.assertIn('[ "$(read_state_value "$HEALTH_FILE")" = "$initial_sha" ]', failure)
+        self.assertIn('[ "$(surface_heartbeat_sha)" = "$initial_sha" ]', failure)
+        marker = "cold-boot Surface evidence: native_health="
+        self.assertIn(marker, failure)
+        self.assertLess(failure.index(marker), failure.index("clear_surface_health"))
+        self.assertNotIn("echo $HEALTH_FILE", failure)
+        self.assertNotIn("echo $SURFACE_HEARTBEAT_FILE", failure)
+        # The debug witness is read-only. The original fail-closed recovery
+        # and all real Surface health requirements remain unchanged.
+        self.assertIn('owner_initial_surface_health_failed', supervisor)
+        self.assertIn('[ "$healthy_sha" = "$expected_sha" ]', supervisor)
+        self.assertIn('[ "$rendered_sha" = "$expected_sha" ]', supervisor)
 
     def test_stable_budget_remains_separate(self):
         entrypoint = ENTRYPOINT.read_text(encoding="utf-8")

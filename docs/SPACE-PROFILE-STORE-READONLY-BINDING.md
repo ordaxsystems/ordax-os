@@ -5,6 +5,7 @@ The canonical Space contract already carries `profilePack` identifiers such as `
 `system/services/spaces/profile-store-status.mjs` composes the existing canonical Store projector `projectProfileStoreAppStatus` and the validated published Profile Pack catalog:
 
 - No selected Space: `no-space`; no linked Profile: `no-profile`.
+- Archived Space: `space-inactive`; no Profile or device Store observations are exposed.
 - A legacy/unpinned bare slug: `profile-unpinned`. A single published version is not sufficient evidence to bind it.
 - An invalid `slug@version` or unsafe integer: `profile-invalid-binding`.
 - An exact pinned published version absent from the catalog: `profile-not-listed` (no silent fallback).
@@ -15,17 +16,13 @@ The canonical Space contract already carries `profilePack` identifiers such as `
 
 The projector is pure and read-only. It creates no independent package catalog, install/update/rollback capability, new version field, persistence, or authorization route.
 
-## Surface Meridian Web consumption
+## Canonical Surface consumption (2026-10-31)
 
-The selected account Space is read exclusively from `useWebAccount().authorized.activeSpace`; a signed-out, revoked, offline or unselected session renders no Space app rows. The `SpacesExperience` account view includes `SpaceProfileAppsPanel` between the real Space selection and members sections; fictional examples remain separate.
+`ordax-surface#32` restored `SpaceProfileAppsPanel` inside the authorized active Space account view and consolidated the single Store status label vocabulary with the Profile catalog. The Surface reads `useWebAccount().authorized.activeSpace`, `useProfileCatalogReader()` and the existing `StoreCatalogProvider`, and invokes **this OS projector**. Signed-out, offline, inactive and unpinned Space contexts never infer an installed app. No new app registry, lifecycle, authorization endpoint or local storage.
 
-The component reads the published, validated Profile catalog using `useProfileCatalogReader()`, reads the Store through `useStoreCatalog()`, and passes both into `projectSpaceProfileStoreStatus`. It creates **no** new Store, installer, app entitlement, persisted cache or independent Profile version. Each selected Space receives a keyed presentation scope, and the Profile read is aborted on unmount/switch. A failed catalog is shown as an explicit error with retry rather than an empty success.
+The source belongs to `ordaxsystems/ordax-surface`; only `docs/contracts/surface-source.json` pins its revision. Do not restore copied Surface UI files into this OS repository.
 
-This Web composition currently supplies an unavailable Store transport; the UI must therefore label app states **unknown** instead of claiming installation until an authorized verified Store snapshot is actually composed. Referenced app IDs remain visible after an exact published Profile binding has been verified. There are no install/update/launch actions in this projection.
-
-The same shared status labels are consumed by the Profile catalog and active Space view. Native app capability composition remains outside this Web-only change.
-
-Tests: `node --test tests/test_web_space_profile_apps.mjs tests/test_web_meridian_spaces.mjs tests/test_space_profile_store_status.mjs tests/test_profile_store_app_status.mjs`.
+Tests: `node --test tests/test_space_profile_store_status.mjs tests/test_profile_store_app_status.mjs tests/test_web_space_profile_apps.mjs`. The last test exercises the real Surface candidate through existing Web Vite SSR, while the Surface owner CI validates its own source.
 
 ## CI baseline findings (2026-10-18)
 

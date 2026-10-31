@@ -4,7 +4,11 @@ import {readFile, mkdir, writeFile} from 'node:fs/promises';
 import {createServer} from 'node:http';
 import {resolve, relative, isAbsolute, sep, join, extname} from 'node:path';
 import {runBrowser, sleep} from '../browser-proof/chromium.mjs';
+import { getSurfaceWindowTitle } from '../../system/services/surface/destination-catalog.mjs';
 
+// Integration selectors use the structural Surface destination's canonical title.
+const productTitle=getSurfaceWindowTitle('intelligence');
+const substituteProductTitle=value=>value.replaceAll('@@INTELLIGENCE_TITLE@@',productTitle);
 const args=process.argv.slice(2);
 if(args.length%2)throw Error('Arguments require values');
 if (args.some((value,index)=>index%2===0&&!['--bundle-dir','--evidence-dir','--public-policy','--mount-path'].includes(value))) throw Error('Unsupported argument');
@@ -46,6 +50,7 @@ try {
   const reports=await runBrowser(async client=>{
     if(publicHeaders)await client.send('Page.addScriptToEvaluateOnNewDocument',{source:"window.surfacePolicyViolations=[];document.addEventListener('securitypolicyviolation',event=>window.surfacePolicyViolations.push({directive:event.effectiveDirective,blocked:event.blockedURI,source:event.sourceFile,line:event.lineNumber}));"});
     async function evaluate(expression){
+      expression=substituteProductTitle(expression);
       const reply=await client.send('Runtime.evaluate',{expression,returnByValue:true,awaitPromise:true});
       if(reply.exceptionDetails)throw Error(reply.exceptionDetails.exception?.description??'Evaluation failed');
       return reply.result?.value;
@@ -63,6 +68,7 @@ try {
       await evaluate("Promise.all([...document.images].filter(img=>img.getClientRects().length).map(img=>img.decode())).then(()=>true)");
     }
     async function click(selector){
+      selector=substituteProductTitle(selector);
       const point=await evaluate("(()=>{const node=[...document.querySelectorAll("+JSON.stringify(selector)+")].find(n=>n.getClientRects().length);if(!node)throw Error("+JSON.stringify('Missing control: '+selector)+");node.scrollIntoView({block:'center',inline:'nearest',behavior:'instant'});const box=node.getBoundingClientRect();return{x:box.left+box.width/2,y:box.top+box.height/2};})()");
       await client.send('Input.dispatchMouseEvent',{type:'mousePressed',...point,button:'left',clickCount:1});
       await client.send('Input.dispatchMouseEvent',{type:'mouseReleased',...point,button:'left',clickCount:1});
@@ -93,6 +99,8 @@ try {
     }
     await client.send('Page.navigate',{url:runtimeUrl});await ready();
     async function compactAction(title,label,menuTitle){
+      title=substituteProductTitle(title);
+      label=substituteProductTitle(label);
       const selector='[aria-label='+JSON.stringify(label)+']';
       const visible=await evaluate('[...document.querySelectorAll('+JSON.stringify(selector)+')].some(node=>node.getClientRects().length>0)');
       const clickedSelector=visible?selector:'[aria-label='+JSON.stringify('Mais ações de '+title)+']';
@@ -133,7 +141,7 @@ try {
       await client.send('Page.navigate',{url:runtimeUrl});await ready();
       await until("!!document.querySelector('.os-shell')");
       assert.equal(await evaluate("!document.querySelector('.web-workspace')"),true,'Previous page must not be mounted');
-      assert.equal(await evaluate("/\\bWEB\\b/.test(document.querySelector('.brand-sub').textContent)"),true);
+      assert.equal(await evaluate("document.querySelector('.brand-name')?.textContent.trim()==='OrdaX' && document.querySelector('.brand-sub')?.textContent.trim()==='OS'"),true,'Shared Meridian product wordmark is stable across Web and Native');
       assert.equal(await evaluate('document.documentElement.scrollWidth<=innerWidth+1'),true,'No horizontal document overflow');
       assert.equal(await evaluate("(()=>{const main=document.querySelector('.central-presentation .os-main');return main.clientHeight>0&&main.scrollWidth<=main.clientWidth+1&&['auto','scroll','hidden'].includes(getComputedStyle(main).overflowY);})()"),true,'Central fits horizontally and retains its bounded content area');
       assert.equal(await evaluate("!document.querySelector('.home-overflow')"),true,'Home overflow button is removed');
@@ -182,7 +190,9 @@ try {
         // The official Store catalog takes precedence. Enter the explicitly
         // labeled planned preview before asserting its isolated stylesheet.
         if(await evaluate("document.querySelector('.ordax-store-experience')?.dataset.storeMode==='official'"))
-          await click('.ordax-store-experience [data-store-switch]');
+          // The official Store switch is a window action, mounted beside the
+          // titlebar controls rather than inside the Store content root.
+          await click('.workspace-window:has(.ordax-store-experience) [data-store-switch]');
         await until("!!document.querySelector('.ordax-store-experience[data-store-mode=planned] [data-store-preview-host]')?.shadowRoot?.querySelector('[data-meridian]')");
         assert.equal(await evaluate("(()=>{const root=document.querySelector('.ordax-store-experience [data-store-preview-host]').shadowRoot;return root.adoptedStyleSheets.length===1&&!root.querySelector('style')&&getComputedStyle(root.querySelector('[data-meridian]')).getPropertyValue('--md-canvas').trim()==='#f4f2ed';})()"),true,'Store planned preview uses the canonical bundled stylesheet without inline styles');
         await click('[aria-label="Fechar Loja"]');
@@ -217,7 +227,14 @@ try {
         await click('.sidebar-collapse');
         await until("document.querySelector('.sidebar-collapse').getAttribute('aria-expanded')!=="+JSON.stringify(initiallyExpanded));
         await until("document.querySelector('.workspace-sidebar').getBoundingClientRect().width!=="+initialRail);
-        assert.equal(await evaluate("[...document.querySelectorAll('.meridian-rail-utilities button')].every(button=>{const box=button.getBoundingClientRect();return box.width>=44&&box.height>=44;})"),true,'Collapsed sidebar utilities keep usable hit areas');
+        const previousScale=await evaluate("document.documentElement.getAttribute('data-ordax-display-scale')");
+        for(const scale of ['compact','comfortable','large','automatic']){
+          await evaluate('document.documentElement.dataset.ordaxDisplayScale='+JSON.stringify(scale));
+          const utilityGeometry=await evaluate("[...document.querySelectorAll('.meridian-rail-utilities button')].filter(button=>button.getClientRects().length).map(button=>{const box=button.getBoundingClientRect();return {label:button.getAttribute('aria-label'),width:Math.round(box.width*100)/100,height:Math.round(box.height*100)/100};})");
+          assert.ok(utilityGeometry.length>0,'Collapsed sidebar exposes visible utilities at '+scale);
+          assert.deepEqual(utilityGeometry.filter(button=>button.width<44||button.height<44),[],'Collapsed sidebar utilities keep 44px hit areas at '+scale+': '+JSON.stringify(utilityGeometry));
+        }
+        await evaluate('(()=>{const scale='+JSON.stringify(previousScale)+";if(scale===null)document.documentElement.removeAttribute('data-ordax-display-scale');else document.documentElement.setAttribute('data-ordax-display-scale',scale);})()");
         await click('.sidebar-collapse');
         await until("document.querySelector('.sidebar-collapse').getAttribute('aria-expanded')==="+JSON.stringify(initiallyExpanded));
       }
@@ -244,43 +261,55 @@ try {
       else assert.ok(Math.abs(railGeometry.bottom-railGeometry.viewport)<2,'Sidebar reaches viewport bottom: '+JSON.stringify(railGeometry));
       assert.equal(await evaluate("!!document.querySelector('.workspace-navigation [data-workspace-switch]') && !document.querySelector('.desktop-start-button')"),true,'View switch belongs to the dock; Start button is absent');
       await evaluate("(()=>{const n=document.querySelector('#meridian-prompt');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(n,'Apenas demonstração');n.dispatchEvent(new Event('input',{bubbles:true}));})()");
-      await click('[aria-label="Enviar ao Aura"]');
-      await until("!!document.querySelector('[aria-label=\"Janela Aura\"]')");
-      assert.equal(await evaluate("document.querySelector('[aria-label=\"Janela Aura\"]').textContent.includes('não está conectada')"),true,'Prompt cannot imply real inference');
-      await evaluate("window.proofAura=document.querySelector('[aria-label=\"Janela Aura\"]');window.proofAura.querySelector('input').focus()");
-      await click('[aria-label="Compactar Aura"]');
+      await click('[aria-label="Enviar pergunta"]');
+      await until("!!document.querySelector('[aria-label=\"Janela @@INTELLIGENCE_TITLE@@\"]')");
+      // The pinned Surface owner now reports explicit engine availability, not
+      // the retired "não está conectada" copy. Assert actual disabled inference,
+      // no fabricated Aura turn and an explicit unavailable service status.
+      await until("!!document.querySelector('.aura-experience .service-state[data-intelligence-state]')");
+      const auraAvailabilityProof=await evaluate("(()=>{const pane=document.querySelector('.aura-experience');const state=pane?.querySelector('.service-state[data-intelligence-state]');const send=pane?.querySelector('.aura-search button.send-button');return {state:state?.getAttribute('data-intelligence-state'),label:state?.textContent??'',disabled:send?.disabled===true,answers:pane?.querySelectorAll('.aura-turn[data-speaker=aura]').length??-1};})()");
+      assert.equal(
+        auraAvailabilityProof.disabled
+          && ['unavailable','degraded','error'].includes(auraAvailabilityProof.state)
+          && /não disponível|Falha no serviço/.test(auraAvailabilityProof.label)
+          && auraAvailabilityProof.answers===0,
+        true,
+        'Unavailable Web engine must disable sending and never invent an Aura answer: '+JSON.stringify(auraAvailabilityProof),
+      );
+      await evaluate("window.proofAura=document.querySelector('[aria-label=\"Janela @@INTELLIGENCE_TITLE@@\"]');window.proofAura.querySelector('input').focus()");
+      await click('[aria-label="Compactar @@INTELLIGENCE_TITLE@@"]');
       assert.equal(await evaluate("document.querySelector('.window-workspace').dataset.compact"),'expanded');
-      assert.equal(await evaluate("window.proofAura===document.querySelector('[aria-label=\"Janela Aura\"]')"),true,'Compact keeps the same mounted app');
+      assert.equal(await evaluate("window.proofAura===document.querySelector('[aria-label=\"Janela @@INTELLIGENCE_TITLE@@\"]')"),true,'Compact keeps the same mounted app');
       await openSidebarDestination('Projetos');
       await click('[aria-label="Compactar Projetos"]');
       assert.equal(await evaluate("document.querySelectorAll('.workspace-window[data-mode=\"compact\"]').length"),2,'Both compact app instances remain mounted');
       if (width <= 760) {
         await until("(()=>{const strip=document.querySelector('.workspace-windows');const panes=[...strip.querySelectorAll('[data-mode=\"compact\"]')];const shown=panes.filter(p=>p.getClientRects().length>0);if(panes.length!==2||shown.length!==1)return false;const selected=shown[0];const bounds=selected.getBoundingClientRect();const all=strip.getBoundingClientRect();return selected.getAttribute('aria-label')==='Janela Projetos'&&selected.dataset.compactSelected==='true'&&Math.abs(bounds.width-all.width)<2&&strip.scrollWidth<=strip.clientWidth+1;})()");
-        assert.equal(await evaluate("(()=>{const pane=document.querySelector('[aria-label=\"Janela Projetos\"]');const select=pane?.querySelector('.compact-window-switcher');return !!select&&select.getClientRects().length>0&&[...select.options].some(option=>option.value==='Aura');})()"),true,'Mobile panel must expose keyboard-reachable switcher for the other mounted app');
+        assert.equal(await evaluate("(()=>{const pane=document.querySelector('[aria-label=\"Janela Projetos\"]');const select=pane?.querySelector('.compact-window-switcher');return !!select&&select.getClientRects().length>0&&[...select.options].some(option=>option.value==='@@INTELLIGENCE_TITLE@@');})()"),true,'Mobile panel must expose keyboard-reachable switcher for the other mounted app');
       } else {
         assert.equal(await evaluate("document.querySelectorAll('.workspace-window[data-mode=\"compact\"]:not([hidden])').length"),2,'Both compact apps remain visible on desktop');
-        assert.equal(await evaluate("(()=>{const a=document.querySelector('[aria-label=\"Janela Aura\"]').getBoundingClientRect();const b=document.querySelector('[aria-label=\"Janela Projetos\"]').getBoundingClientRect();return Math.abs(a.top-b.top)<2&&a.right<=b.left+1;})()"),true,'Compact apps tile horizontally without overlap');
+        assert.equal(await evaluate("(()=>{const a=document.querySelector('[aria-label=\"Janela @@INTELLIGENCE_TITLE@@\"]').getBoundingClientRect();const b=document.querySelector('[aria-label=\"Janela Projetos\"]').getBoundingClientRect();return Math.abs(a.top-b.top)<2&&a.right<=b.left+1;})()"),true,'Compact apps tile horizontally without overlap');
         assert.equal(await evaluate("(()=>{const strip=document.querySelector('.workspace-windows');const panes=[...strip.querySelectorAll('[data-mode=\"compact\"]:not([hidden])')].map(p=>p.getBoundingClientRect());return strip.scrollWidth<=strip.clientWidth+1&&Math.abs(panes[0].width-panes[1].width)<2;})()"),true,'Compact panels share available width equally without strip overflow');
       }
-      assert.equal(await evaluate("window.proofAura===document.querySelector('[aria-label=\"Janela Aura\"]')"),true,'Adding a neighbor keeps the existing app node');
+      assert.equal(await evaluate("window.proofAura===document.querySelector('[aria-label=\"Janela @@INTELLIGENCE_TITLE@@\"]')"),true,'Adding a neighbor keeps the existing app node');
       await click('[aria-label="Fechar Projetos"]');
-      if (width <= 760) await until("document.querySelector('[aria-label=\"Janela Aura\"]').getClientRects().length>0");
+      if (width <= 760) await until("document.querySelector('[aria-label=\"Janela @@INTELLIGENCE_TITLE@@\"]').getClientRects().length>0");
       await openSidebarDestination('Arquivos');
       await evaluate("window.proofUpperHeight=document.querySelector('[aria-label=\"Janela Arquivos\"]').getBoundingClientRect().height");
-      assert.equal(await evaluate("(()=>{const upper=document.querySelector('[aria-label=\"Janela Arquivos\"]').getBoundingClientRect();const lower=document.querySelector('[aria-label=\"Janela Aura\"]').getBoundingClientRect();return upper.bottom<=lower.top+1;})()"),true,'New app fits above compact panels without overlap');
-      await compactAction('Aura','Recolher painel Aura','Recolher painel');
+      assert.equal(await evaluate("(()=>{const upper=document.querySelector('[aria-label=\"Janela Arquivos\"]').getBoundingClientRect();const lower=document.querySelector('[aria-label=\"Janela @@INTELLIGENCE_TITLE@@\"]').getBoundingClientRect();return upper.bottom<=lower.top+1;})()"),true,'New app fits above compact panels without overlap');
+      await compactAction('@@INTELLIGENCE_TITLE@@','Recolher painel @@INTELLIGENCE_TITLE@@','Recolher painel');
       await until("document.querySelector('.window-workspace').dataset.compact==='collapsed'");
       await until("document.querySelector('[aria-label=\"Janela Arquivos\"]').getBoundingClientRect().height>window.proofUpperHeight");
-      await compactAction('Aura','Expandir painel Aura','Expandir painel');
+      await compactAction('@@INTELLIGENCE_TITLE@@','Expandir painel @@INTELLIGENCE_TITLE@@','Expandir painel');
       await until("document.querySelector('.window-workspace').dataset.compact==='expanded'");
       await until("Math.abs(document.querySelector('[aria-label=\"Janela Arquivos\"]').getBoundingClientRect().height-window.proofUpperHeight)<2");
       await click('[aria-label="Fechar Arquivos"]');
-      await compactAction('Aura','Minimizar Aura','Minimizar');
+      await compactAction('@@INTELLIGENCE_TITLE@@','Minimizar @@INTELLIGENCE_TITLE@@','Minimizar');
       await until("window.proofAura.hidden===true");
-      await click('[aria-label="Restaurar janela Aura"]');
+      await click('[aria-label="Restaurar janela @@INTELLIGENCE_TITLE@@"]');
       assert.equal(await evaluate("window.proofAura.querySelector('input').value"),'Apenas demonstração','Minimize keeps the draft');
-      await compactAction('Aura','Expandir janela Aura','Expandir janela');
-      await click('[aria-label="Fechar Aura"]');
+      await compactAction('@@INTELLIGENCE_TITLE@@','Expandir janela @@INTELLIGENCE_TITLE@@','Expandir janela');
+      await click('[aria-label="Fechar @@INTELLIGENCE_TITLE@@"]');
       await evaluate("window.proofNavigation=document.querySelector('.workspace-navigation');window.proofToggle=document.querySelector('[data-workspace-switch]').getBoundingClientRect().left-document.querySelector('.workspace-navigation').getBoundingClientRect().left");
       await click('[data-workspace-switch]');
       assert.equal(await evaluate("window.proofNavigation===document.querySelector('.workspace-navigation')"),true,'Switch keeps the same navigation node');

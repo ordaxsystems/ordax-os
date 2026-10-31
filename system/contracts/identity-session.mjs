@@ -27,6 +27,10 @@ export function validateIdentitySessionSnapshot(value) {
     state,
     subjectId: value.subjectId,
     displayName: value.displayName,
+    // Optional presentation data from the verified session; never an identity key.
+    ...(typeof value.email === "string" && value.email.length <= 320
+      && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.email)
+      ? { email: value.email } : {}),
   });
 }
 

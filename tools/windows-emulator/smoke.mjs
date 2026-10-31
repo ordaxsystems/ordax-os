@@ -39,6 +39,11 @@ async function action(client,id){
   const reply=await client.send("Runtime.evaluate",{
     expression:`(()=>{
       const doc=document.querySelector("#ordax-emulator-surface")?.contentDocument;
+      if (${JSON.stringify(id)} === "finish") {
+        const terms=doc?.querySelector('[data-first-run-system-terms-acceptance]');
+        if(!terms)return false;
+        terms.checked=true;terms.dispatchEvent(new doc.defaultView.Event('change',{bubbles:true}));
+      }
       const button=doc?.querySelector(${JSON.stringify('[data-first-run-action="'+id+'"]')});
       if(button?.tagName!=="BUTTON"||button.disabled)return false;
       button.click();return true;
@@ -55,7 +60,7 @@ runBrowser(async client=>{
     throw Error("Emulator must render the real Native entry: "+JSON.stringify(initial));
   if(!initial.meridian||!initial.accent)throw Error("Native Meridian presentation is missing");
   if(initial.stage!=="welcome")throw Error("Use fresh isolated emulator state before smoke proof");
-  for(const id of ["next","next","next","next","account-local","next","next","finish"])await action(client,id);
+  for(const id of ["next","next","account-local","next","next","finish"])await action(client,id);
   const result=await until(client,value=>value?.completed===true&&!value.firstRunVisible&&value.shell&&value.boot==="ready");
   await client.send("Page.reload",{});
   await until(client,value=>value?.completed===true&&!value.firstRunVisible&&value.shell&&value.boot==="ready");

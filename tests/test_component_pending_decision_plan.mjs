@@ -207,9 +207,9 @@ test("failed probation may include bounded diagnostic and canonical probe mode",
   assert.equal(result.authority, "none");
 });
 
-test("probation probe mode comes from generated SSOT without granting Files", () => {
+test("probation probe mode comes from generated SSOT without enabling pending-slot actions", () => {
   assert.equal(NATIVE_COMPONENT_PROBE_MODE_BY_ID.notes, "import-contract");
-  assert.equal(Object.hasOwn(NATIVE_COMPONENT_PROBE_MODE_BY_ID, "files"), false);
+  assert.equal(NATIVE_COMPONENT_PROBE_MODE_BY_ID.files, "mount-contract");
   assert.match(PENDING_DECISION_SOURCE, /NATIVE_COMPONENT_PROBE_MODE_BY_ID\[componentId\]/);
   assert.doesNotMatch(
     PENDING_DECISION_SOURCE,

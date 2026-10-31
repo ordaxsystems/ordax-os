@@ -64,6 +64,7 @@ test("registration policy validates server-owned canonical metadata", () => {
     },
   });
   assert.equal(policy.registrationEnabled, false);
+  assert.equal(policy.publicRegistrationEnabled, false); // older Gateway fails closed
   assert.equal(policy.privacy.version, "2026-10-02");
   assert.throws(
     () => validateRegistrationPolicy({
@@ -88,11 +89,39 @@ test("registration policy validates server-owned canonical metadata", () => {
   );
 });
 
+test("explicit hosted registration capability validates strict Boolean and remains separate from Native", () => {
+  const data = { $schema: "prototype-ordax.registration-legal-policy/1", active: true,
+    registrationEnabled: false, publicRegistrationEnabled: true,
+    policyId: "11111111-1111-4111-8111-111111111111",
+    privacy: { version: "2026-10-02", effectiveDate: "2026-10-02", sha256: "a".repeat(64), url: "https://ordax.example/privacidade/" },
+    terms: { version: "2026-10-02", effectiveDate: "2026-10-02", sha256: "b".repeat(64), url: "https://ordax.example/termos/" },
+  };
+  const parsed = validateRegistrationPolicy(data);
+  assert.equal(parsed.registrationEnabled, false);
+  assert.equal(parsed.publicRegistrationEnabled, true);
+  assert.throws(() => validateRegistrationPolicy({ ...data, publicRegistrationEnabled: "true" }), TypeError);
+  assert.equal(validateRegistrationPolicy({ ...data, publicRegistrationEnabled: false }).publicRegistrationEnabled, false);
+});
+
 test("same-origin credential adapter posts only to OrdaX auth routes", async () => {
   const calls = [];
   const windowRef = {
     fetch: async (path, options) => {
       calls.push({ path, options });
+      if (path === "/auth/session") {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            $schema: "prototype-ordax.public-identity-session/1",
+            authenticated: true,
+            status: "authenticated",
+            provider: "supabase",
+            subject: "validated-subject",
+            email: "pessoa@example.com",
+          }),
+        };
+      }
       return { ok: true, status: 303 };
     },
   };
@@ -107,12 +136,15 @@ test("same-origin credential adapter posts only to OrdaX auth routes", async () 
     legalAccepted: true,
   });
 
-  assert.deepEqual(calls.map((call) => call.path), ["/auth/login", "/auth/register"]);
+  assert.deepEqual(calls.map((call) => call.path), [
+    "/auth/login", "/auth/session", "/auth/register", "/auth/session",
+  ]);
   assert.equal(calls.every((call) => call.options.credentials === "same-origin"), true);
-  assert.equal(calls.every((call) => call.options.redirect === "manual"), true);
+  assert.equal(calls.filter((call) => call.options.method === "POST").every((call) => call.options.redirect === "manual"), true);
   assert.equal(calls[0].options.body.includes("pessoa%40example.com"), true);
   assert.equal(calls[0].options.body.includes("secret-1"), true);
-  assert.equal(calls[1].options.body.includes("legal_acceptance=accepted"), true);
+  assert.equal(calls[2].options.body.includes("legal_acceptance=accepted"), true);
+  assert.equal(calls.filter((call) => call.path === "/auth/session").every((call) => call.options.cache === "no-store"), true);
 });
 
 test("registration confirmation is explicit and does not claim a session", async () => {
@@ -124,6 +156,64 @@ test("registration confirmation is explicit and does not claim a session", async
       email: "nova@example.com",
       password: "secret",
       legalAccepted: true,
+    }),
+    { authenticated: false, confirmationRequired: true },
+  );
+});
+
+test("credential POST success cannot activate a signed-out or unverified account", async () => {
+  const credentials = { email: "pessoa@example.com", password: "secret-1" };
+  const signedOut = {
+    $schema: "prototype-ordax.public-identity-session/1",
+    authenticated: false, status: "anonymous",
+  };
+  for (const [title, sessionReply] of [
+    ["anonymous", { ok: true, status: 200, json: async () => signedOut }],
+    ["upstream unavailable", { ok: false, status: 503 }],
+    ["opaque", { ok: true, status: 200, json: async () => ({}) }],
+    ["missing subject", {
+      ok: true, status: 200,
+      json: async () => ({
+        $schema: "prototype-ordax.public-identity-session/1",
+        authenticated: true, status: "authenticated", email: "pessoa@example.com",
+      }),
+    }],
+  ]) {
+    const calls = [];
+    const port = createSameOriginIdentityCredentials({
+      fetch: async (path, options) => {
+        calls.push([path, options.method]);
+        return path === "/auth/login" ? { ok: true, status: 200 } : sessionReply;
+      },
+    });
+    await assert.rejects(port.signIn(credentials), /session/i, title);
+    assert.deepEqual(calls, [["/auth/login", "POST"], ["/auth/session", "GET"]], title);
+  }
+});
+
+test("opaque redirect and 202 cannot be accepted as login", async () => {
+  let calls = 0;
+  for (const status of [0, 202]) {
+    const port = createSameOriginIdentityCredentials({
+      fetch: async () => { calls += 1; return { status, ok: status === 202 }; },
+    });
+    await assert.rejects(port.signIn({ email: "pessoa@example.com", password: "secret-1" }));
+  }
+  assert.equal(calls, 2, "unsafe responses never trigger session activation");
+});
+
+test("registration with a verified anonymous session requires confirmation", async () => {
+  const port = createSameOriginIdentityCredentials({
+    fetch: async (path) => path === "/auth/register"
+      ? { status: 200, ok: true }
+      : { status: 200, ok: true, json: async () => ({
+        $schema: "prototype-ordax.public-identity-session/1",
+        authenticated: false, status: "anonymous",
+      }) },
+  });
+  assert.deepEqual(
+    await port.register({
+      email: "nova@example.com", password: "secret-2", legalAccepted: true,
     }),
     { authenticated: false, confirmationRequired: true },
   );
@@ -208,4 +298,58 @@ test("OOBE must request fresh legal acceptance when any authoritative document c
     change(altered);
     assert.equal(sameRegistrationLegalPolicy(original, validateRegistrationPolicy(altered)), false);
   }
+});
+
+test("verified login remembers only the email in same-origin profile storage", async () => {
+  const storage = new Map();
+  const localStorage = {
+    getItem(key) { return storage.get(key) ?? null; },
+    setItem(key, value) { storage.set(key, value); },
+    removeItem(key) { storage.delete(key); },
+  };
+  const windowRef = {
+    localStorage,
+    fetch: async (path) => path === "/auth/login"
+      ? { status: 200, ok: true }
+      : { status: 200, ok: true, json: async () => ({
+        $schema: "prototype-ordax.public-identity-session/1",
+        authenticated: true, status: "authenticated", provider: "supabase",
+        subject: "session-owner", email: "pessoa@example.com",
+      }) },
+  };
+  await createSameOriginIdentityCredentials(windowRef).signIn({
+    email: "pessoa@example.com", password: "never-save-this-password",
+  });
+  const { readRememberedLoginEmail, forgetRememberedLoginEmail } = await import(
+    "../system/services/account/remembered-login-email.mjs"
+  );
+  assert.equal(readRememberedLoginEmail(windowRef), "pessoa@example.com");
+  assert.equal(storage.size, 1);
+  assert.equal(JSON.stringify([...storage]), JSON.stringify([["ordax.account.remembered-email.v1", "pessoa@example.com"]]));
+  assert.equal(forgetRememberedLoginEmail(windowRef), true);
+  assert.equal(readRememberedLoginEmail(windowRef), "");
+});
+
+test("unverified login and unavailable storage do not create a remembered email", async () => {
+  const stored = new Map();
+  const windowRef = {
+    localStorage: { getItem: (key) => stored.get(key) ?? null, setItem: (key, value) => stored.set(key, value) },
+    fetch: async (path) => path === "/auth/login"
+      ? { status: 200, ok: true }
+      : { status: 200, ok: true, json: async () => ({
+        $schema: "prototype-ordax.public-identity-session/1",
+        authenticated: false, status: "anonymous",
+      }) },
+  };
+  await assert.rejects(
+    createSameOriginIdentityCredentials(windowRef).signIn({email:"pessoa@example.com", password:"secret"}),
+    /session/i,
+  );
+  assert.equal(stored.size, 0);
+  const { readRememberedLoginEmail, rememberVerifiedLoginEmail } = await import(
+    "../system/services/account/remembered-login-email.mjs"
+  );
+  const forbidden = { get localStorage() { throw new Error("storage blocked"); } };
+  assert.equal(readRememberedLoginEmail(forbidden), "");
+  assert.equal(rememberVerifiedLoginEmail(forbidden, "pessoa@example.com"), false);
 });

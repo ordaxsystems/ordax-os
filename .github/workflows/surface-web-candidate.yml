@@ -101,6 +101,9 @@ on:
       - 'system/adapters/web/**'
       - 'system/adapters/mobile/**'
       - 'system/adapters/native/**'
+      - 'tests/test_native_preview_transport.mjs'
+      - 'tests/test_audio_output_controls.mjs'
+      - 'tests/test_native_session_read.mjs'
       - 'system/composition/web/**'
       - 'system/composition/native/**'
       - 'tools/surface-web/**'
@@ -120,6 +123,7 @@ on:
       - 'tests/test_surface_async_lifecycle.py'
       - 'tests/test_native_local_session.py'
       - 'tests/test_native_network_management.py'
+      - 'tests/test_native_audio_outputs_host.py'
       - 'tests/test_native_power_status.py'
       - 'tests/test_surface_boot_screen.py'
       - 'tests/test_surface_web_builder.py'
@@ -194,6 +198,10 @@ on:
       - 'tests/test_internet_popup_policy.py'
       - 'tests/test_internet_project_context_contract.py'
       - 'tests/test_native_host_module_integrity.py'
+      - 'tests/test_native_account_portal.py'
+      - 'tests/test_windows_emulator_native_host.mjs'
+      - 'tests/test_native_hosted_registration.mjs'
+      - 'tools/windows-emulator/account-gateway.mjs'
       - 'tests/test_native_account_gateway.py'
       - 'tests/test_native_request_boundary.py'
       - 'tests/test_first_run_native_http.py'
@@ -336,6 +344,7 @@ on:
       - 'system/adapters/web/**'
       - 'system/adapters/mobile/**'
       - 'system/adapters/native/**'
+      - 'tests/test_native_preview_transport.mjs'
       - 'system/composition/web/**'
       - 'system/composition/native/**'
       - 'tools/surface-web/**'
@@ -423,6 +432,10 @@ on:
       - 'tests/test_internet_popup_policy.py'
       - 'tests/test_internet_project_context_contract.py'
       - 'tests/test_native_host_module_integrity.py'
+      - 'tests/test_native_account_portal.py'
+      - 'tests/test_windows_emulator_native_host.mjs'
+      - 'tests/test_native_hosted_registration.mjs'
+      - 'tools/windows-emulator/account-gateway.mjs'
       - 'tests/test_native_request_boundary.py'
       - 'tests/test_first_run_native_http.py'
       - 'tests/test_native_capability_adapter.py'
@@ -479,6 +492,9 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
+
+      - name: Prepare external Surface in disposable CI checkout
+        uses: ./.github/actions/prepare-verified-surface
 
       - name: Install locked Web build dependencies
         run: npm ci --ignore-scripts --no-audit --no-fund
@@ -543,7 +559,7 @@ jobs:
           node --test tests/test_browser_download.mjs
           node --test tests/test_native_browser_page_selection.mjs
           node --test tests/test_project_file_space_continuity.mjs
-          node --test tests/test_native_file_space_response_identity.mjs
+          node --test tests/test_native_file_space_response_identity.mjs tests/test_native_preview_transport.mjs
           node --test tests/test_files_async_activation.mjs
           node --test tests/test_files_component_ownership.mjs
           node --test tests/test_files_component_runtime.mjs
@@ -566,6 +582,8 @@ jobs:
           node --test tests/test_identity_session.mjs tests/test_web_json_read.mjs
           node --test tests/test_identity_actions.mjs
           node --test tests/test_identity_credentials.mjs
+          node --test tests/test_windows_emulator_native_host.mjs
+          node --test tests/test_native_hosted_registration.mjs
           node --test tests/test_account_lifecycle.mjs
           node --test tests/test_power_actions.mjs
           node --test tests/test_power_status.mjs
@@ -643,6 +661,7 @@ jobs:
           python -m unittest tests.test_internet_favorites_contract -v
           python -m unittest tests.test_internet_history_contract -v
           python -m unittest tests.test_native_host_module_integrity -v
+          python -m unittest tests.test_native_account_portal -v
           python -m unittest tests.test_native_account_gateway -v
           python -m unittest tests.test_native_request_boundary -v
           python -m unittest tests.test_first_run_native_http -v
@@ -670,7 +689,7 @@ jobs:
       - name: Run real Chromium Surface smoke
         run: |
           set -euo pipefail
-          node --test --experimental-strip-types tests/test_web_account_session.mjs tests/test_web_identity_capability_refresh.mjs tests/test_web_json_read.mjs tests/test_space_selection.mjs tests/test_web_store_catalog.mjs tests/test_meridian_navigation.mjs tests/test_meridian_localization.mjs tests/test_web_central_windows.mjs tests/test_web_profile_catalog.mjs tests/test_web_meridian_spaces.mjs tests/test_store_preview.mjs tests/test_identity_actions.mjs tests/test_identity_credentials.mjs
+          node --test --experimental-strip-types tests/test_web_account_session.mjs tests/test_web_identity_capability_refresh.mjs tests/test_web_json_read.mjs tests/test_space_selection.mjs tests/test_web_store_catalog.mjs tests/test_web_space_profile_apps.mjs tests/test_meridian_navigation.mjs tests/test_meridian_localization.mjs tests/test_web_central_windows.mjs tests/test_web_profile_catalog.mjs tests/test_web_meridian_spaces.mjs tests/test_store_preview.mjs tests/test_identity_actions.mjs tests/test_identity_credentials.mjs
           npm run verify --workspace tools/surface-web
           node --test tests/test_web_dependency_styles.mjs
           node tools/surface-native/browser-smoke.mjs

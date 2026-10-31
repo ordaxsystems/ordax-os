@@ -98,7 +98,7 @@
     "portable_artifact_count": 17,
     "portable_application_operation_count": 39,
     "portable_source_preflight_implemented": true,
-    "portable_source_preflight_owner": "tools/creator/core/portable_sources.go#VerifyPortableSources",
+    "portable_source_preflight_owner": "github.com/ordaxsystems/ordax-creator/core/portable_sources.go#VerifyPortableSources",
     "portable_source_preflight_requires_exact_17_flat_files": true,
     "portable_source_preflight_is_destructive_authorization": false,
     "offline_writer_slot_rejects_unbound_root_entries": true,
@@ -139,7 +139,7 @@
     "write_or_readback_failure": "report_failure_and_never_claim_success"
   },
   "media_acquisition": {
-    "owner": "tools/creator/physicalchannel",
+    "owner": "github.com/ordaxsystems/ordax-creator/physicalchannel",
     "official_delivery": "ed25519-signed-portable-physical-release",
     "official_format": "17-exact-artifacts-with-hashes-and-sizes-not-monolithic-disk-raw",
     "consumer_selects_iso_or_image": false,

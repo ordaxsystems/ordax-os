@@ -1,4 +1,8 @@
 export const FILE_SPACE_SCHEMA = "ordax.file-space/11";
+export const DEVICE_LOCAL_FILE_SPACE_SCOPE = Object.freeze({
+  schema: "ordax.file-space-scope/1",
+  kind: "device-local",
+});
 export const MAX_TEXT_FILE_BYTES = 256 * 1024;
 export const MAX_FILE_COPY_BYTES = 64 * 1024 * 1024;
 export const MAX_FILE_EXPORT_BYTES = 64 * 1024 * 1024;
@@ -236,6 +240,41 @@ export function assertFileSpacePort(port) {
     throw new TypeError(
       "File-space port must implement list(), createDirectory(), readTextFile(), renameEntry(), copyFile(), moveEntry(), trashEntry(), listTrash(), restoreTrashEntry(), exportFile(), and importFile()",
     );
+  }
+  return port;
+}
+
+// Native Files currently manages the device's persistent local user root. It
+// is not an account Space and must never be inferred to be one. Only the OS
+// host may attach this fixed scope to a File Space port.
+export function assertDeviceLocalFileSpacePort(port) {
+  assertFileSpacePort(port);
+  if (!Object.isFrozen(port) || Array.isArray(port)
+    || Object.getPrototypeOf(port) !== Object.prototype
+    || Object.getOwnPropertySymbols(port).length !== 0
+    || Object.values(Object.getOwnPropertyDescriptors(port)).some((descriptor) =>
+      !Object.prototype.hasOwnProperty.call(descriptor, "value"))) {
+    throw new TypeError("Native external Files requires an immutable host-owned File Space port");
+  }
+  if (typeof port.readImagePreview !== "function"
+    || typeof port.readMediaPreview !== "function"
+    || typeof port.readDocumentPreview !== "function") {
+    throw new TypeError("Native external Files requires bounded image, media and document previews");
+  }
+  const scopeDescriptor = Object.getOwnPropertyDescriptor(port, "scope");
+  const scope = scopeDescriptor && Object.prototype.hasOwnProperty.call(scopeDescriptor, "value")
+    ? scopeDescriptor.value : null;
+  if (!scope || typeof scope !== "object" || Array.isArray(scope)
+    || Object.getPrototypeOf(scope) !== Object.prototype
+    || !Object.isFrozen(scope)
+    || Object.getOwnPropertySymbols(scope).length !== 0
+    || Object.keys(scope).sort().join(",") !== "kind,schema"
+    || Object.values(Object.getOwnPropertyDescriptors(scope)).some((descriptor) =>
+      !Object.prototype.hasOwnProperty.call(descriptor, "value")
+      || descriptor.writable || descriptor.configurable || !descriptor.enumerable)
+    || scope.schema !== DEVICE_LOCAL_FILE_SPACE_SCOPE.schema
+    || scope.kind !== DEVICE_LOCAL_FILE_SPACE_SCOPE.kind) {
+    throw new TypeError("Native external Files requires the fixed device-local file-space scope");
   }
   return port;
 }

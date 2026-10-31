@@ -24,6 +24,8 @@ on:
       - 'docs/MVP-PRONTIDAO-CONTINUA.md'
       - '.github/workflows/stable-mvp-readiness-snapshot.yml'
       - 'tests/test_stable_mvp_readiness_snapshot_workflow.py'
+      - 'docs/contracts/surface-source.json'
+      - '.github/actions/prepare-verified-surface/**'
   workflow_dispatch:
 
 permissions:
@@ -44,6 +46,11 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
+
+      # Same immutable visual source used by Foundation/Owner gates. CI only.
+      # Do not restore a tracked visual source in ordax-os or relax the audit.
+      - name: Prepare pinned Surface for read-only source and authorization gates
+        uses: ./.github/actions/prepare-verified-surface
 
       - name: Set up Python
         uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6

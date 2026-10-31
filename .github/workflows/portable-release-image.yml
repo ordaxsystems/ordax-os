@@ -14,6 +14,9 @@ on:
       - '!tools/release-signing/README.md'
       - 'bootstrap/release-acquisition/**'
       - 'docs/contracts/portable-release-image.json'
+      - 'docs/contracts/intelligence-source.json'
+      - 'tools/intelligence-source/**'
+      - '.github/actions/assemble-intelligence/**'
       - 'docs/contracts/release-protocol.json'
       - 'docs/contracts/storage-architecture.json'
       - 'docs/RELEASE-BUNDLE.md'
@@ -31,6 +34,9 @@ on:
       - '!tools/release-signing/README.md'
       - 'bootstrap/release-acquisition/**'
       - 'docs/contracts/portable-release-image.json'
+      - 'docs/contracts/intelligence-source.json'
+      - 'tools/intelligence-source/**'
+      - '.github/actions/assemble-intelligence/**'
       - 'docs/contracts/release-protocol.json'
       - 'docs/contracts/storage-architecture.json'
       - 'docs/RELEASE-BUNDLE.md'
@@ -78,6 +84,17 @@ jobs:
           set -euo pipefail
           python -m unittest tests.test_portable_release_image_contract -v
 
+      - name: Assemble release source with pinned external Surface
+        uses: ./.github/actions/assemble-surface
+        with:
+          out-root: ${{ runner.temp }}/ordax-assembled-system
+
+      - name: Compose the same immutable Intelligence source as the Native release
+        uses: ./.github/actions/assemble-intelligence
+        with:
+          source-root: ${{ runner.temp }}/ordax-assembled-system
+          out-root: ${{ runner.temp }}/ordax-assembled-intelligence
+
       - name: Build canonical deterministic system tar
         run: |
           set -euo pipefail
@@ -89,9 +106,33 @@ jobs:
               -o "$RUNNER_TEMP/portable-release/ordax-release-bundle" .
           )
           "$RUNNER_TEMP/portable-release/ordax-release-bundle" \
-            --root "$PWD" \
+            --root "$RUNNER_TEMP/ordax-assembled-intelligence" \
             --out "$RUNNER_TEMP/portable-release/system.tar" \
             | tee "$RUNNER_TEMP/portable-release/bundle.txt"
+
+      - name: Prove EROFS source tar contains only pinned external Intelligence
+        run: |
+          python - <<'PY'
+          import hashlib, json, os, pathlib, tarfile
+          lock=json.loads(pathlib.Path('docs/contracts/intelligence-source.json').read_text())
+          stage=pathlib.Path(os.environ['RUNNER_TEMP'])/'portable-release/system.tar'
+          with tarfile.open(stage, 'r:') as archive:
+              names=archive.getnames()
+              assert len(set(names))==len(names)
+              record=json.loads(archive.extractfile('system/intelligence-source/source-provenance.json').read())
+              assert record['source_repository']==lock['source_repository']
+              assert record['source_commit']==lock['source_commit']
+              assert record['activation_authorized'] is False
+              assert record['legacy_implementation_bytes_packaged'] is False
+              for path,sha in lock['source_paths'].items():
+                  payload=archive.extractfile('system/intelligence-source/'+path).read()
+                  found=hashlib.sha1(b'blob '+str(len(payload)).encode()+b'\0'+payload).hexdigest()
+                  assert found==sha, path
+              for old in record['replaced_services']:
+                  wrapper=archive.extractfile(old).read().decode('utf-8')
+                  assert 'intelligence-source/src/index.mjs' in wrapper and len(wrapper)<1500
+          print('PORTABLE_EROFS_INTELLIGENCE_CANONICAL=PASS')
+          PY
 
       - name: Build byte-identical EROFS candidates
         run: |
@@ -214,6 +255,7 @@ jobs:
           mkdir -p "$metadata"
           cp "$work/a/result.json" "$metadata/build.json"
           cp "$work/verified.json" "$metadata/verify.json"
+          cp "$RUNNER_TEMP/ordax-assembled-intelligence/system/intelligence-source/source-provenance.json" "$metadata/intelligence-provenance.json"
           sha256sum "$work/system.tar" "$work/a/system.erofs" > "$metadata/SHA256SUMS"
           test -s "$metadata/build.json"
           test -s "$metadata/verify.json"

@@ -100,15 +100,15 @@ read_generation() {
 record_command() {
     generation=$1
     action=$2
-    temporary=$LAST_GENERATION_FILE.tmp.$
+    temporary=$LAST_GENERATION_FILE.tmp.$$
     printf '%s\n' "$generation" >"$temporary"
     /bin/busybox mv -f "$temporary" "$LAST_GENERATION_FILE"
-    temporary=$LAST_ACTION_FILE.tmp.$
+    temporary=$LAST_ACTION_FILE.tmp.$$
     printf '%s %s\n' "$generation" "$action" >"$temporary"
     /bin/busybox mv -f "$temporary" "$LAST_ACTION_FILE"
 
     mkdir -p "$(dirname "$TELEMETRY_STATUS_FILE")"
-    temporary=$TELEMETRY_STATUS_FILE.tmp.$
+    temporary=$TELEMETRY_STATUS_FILE.tmp.$$
     printf '{"generation":%s,"action":"%s"}\n' "$generation" "$action" >"$temporary"
     /bin/busybox mv -f "$temporary" "$TELEMETRY_STATUS_FILE"
 }
@@ -243,5 +243,7 @@ while :; do
             fi
         fi
     fi
-    /bin/busybox sleep "$INTERVAL"
+    # A delayed child can outlive this agent if the Guardian terminates its
+    # parent during shutdown. Never inherit rootfs-backed launcher log FDs.
+    /bin/busybox sleep "$INTERVAL" </dev/null >/dev/null 2>&1
 done

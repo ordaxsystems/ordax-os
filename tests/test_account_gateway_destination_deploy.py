@@ -50,6 +50,16 @@ class AccountGatewayDestinationDeployTests(unittest.TestCase):
         self.assertIn("SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}", text)
         self.assertIn("ACCOUNT_GATEWAY_DESTINATION=NOT_DEPLOYED", text)
         self.assertIn("enabled=false", text)
+        # Missing production credentials must fail the workflow instead of
+        # reporting a green run in which deployment and verification were skipped.
+        missing_credential_step = text.split(
+            "      - name: Resolve management credential availability without printing it",
+            1,
+        )[1].split("      - name: Set up pinned Supabase CLI", 1)[0]
+        self.assertIn("::error::ACCOUNT_GATEWAY_DESTINATION=NOT_DEPLOYED", missing_credential_step)
+        self.assertIn("exit 2", missing_credential_step)
+        self.assertNotIn("exit 0", missing_credential_step)
+
         self.assertIn("enabled=true", text)
         self.assertEqual(text.count("if: steps.credential.outputs.enabled == 'true'"), 4)
         self.assertNotIn("SUPABASE_ACCESS_TOKEN repository secret is required.", text)
@@ -62,7 +72,10 @@ class AccountGatewayDestinationDeployTests(unittest.TestCase):
         self.assertNotIn("apply_migration", text)
         self.assertNotIn("functional_provider_cutover_complete = true", text.lower())
         self.assertIn('"version": 17', text)
-        self.assertIn('value.get("error") == "authentication-required"', text)
+        self.assertIn('value.get("error") == "native-account-session-required"', text)
+        self.assertIn("ACCOUNT_GATEWAY_MCP_USAGE_UNAUTH=PASS", text)
+        self.assertIn('Deno.env.get("ORDAX_MCP_USAGE_READ_ENABLED")', text)
+        self.assertIn("node --test tests/test_account_mcp_usage_bridge.mjs", text)
 
     def test_workflow_pins_approved_cli_action_and_version(self):
         text = WORKFLOW.read_text(encoding="utf-8")
@@ -82,6 +95,8 @@ class AccountGatewayDestinationDeployTests(unittest.TestCase):
             ".github/workflows/ordax-account-gateway-destination.yml",
             "infra/supabase/functions/ordax-account-gateway/**",
             "infra/supabase/functions/_shared/account_transport_admission.mjs",
+            "infra/supabase/functions/_shared/account_mcp_usage.mjs",
+            "tests/test_account_mcp_usage_bridge.mjs",
             "tools/account/resolve_account_gateway_destination.py",
         ):
             self.assertIn(required, text)

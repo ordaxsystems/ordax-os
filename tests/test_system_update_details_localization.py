@@ -22,6 +22,7 @@ class SystemUpdateDetailsLocalizationTests(unittest.TestCase):
             "system.updates.fact.status",
             "system.updates.fact.phase",
             "system.updates.fact.applyMode",
+            "system.updates.fact.transport",
             "system.updates.fact.boot",
             "system.updates.duration",
             "system.updates.attention.generic",
@@ -47,6 +48,7 @@ class SystemUpdateDetailsLocalizationTests(unittest.TestCase):
         self.assertIn("UPDATE_PHASE_MESSAGE_IDS[updateSnapshot.phase]", block)
         self.assertIn("BASE_PHASE_MESSAGE_IDS[updateSnapshot.baseUpdatePhase]", block)
         self.assertIn("BOOT_MESSAGE_IDS[updateSnapshot.baseUpdatePhase]", block)
+        self.assertIn("UPDATE_TRANSPORT_MESSAGE_IDS[updateSnapshot.updateTransport]", block)
         self.assertNotIn("updateStatusLabel(updateSnapshot.status)", block)
         self.assertNotIn("readableUpdatePhase(updateSnapshot.phase)", block)
         self.assertNotIn("readableUpdateMode(updateSnapshot.applyMode)", block)
@@ -152,6 +154,8 @@ class SystemUpdateDetailsLocalizationTests(unittest.TestCase):
         self.assertIn('"system.updates.boot.pendingActivation": "Base pendente de ativação"', catalog)
         self.assertIn('"system.updates.boot.pendingActivation": "Base pending activation"', catalog)
         self.assertEqual(catalog.count('"system.updates.attention.generic"'), 2)
+        for key in ("system.updates.fact.transport", "system.updates.transport.gitMain", "system.updates.transport.signedRelease"):
+            self.assertEqual(catalog.count(f'"{key}"'), 2)
         self.assertIn('"system.history.title": "Histórico de atualizações"', catalog)
         self.assertIn('"system.history.title": "Update history"', catalog)
         self.assertIn('"system.history.result.rolledBack": "Revertida"', catalog)

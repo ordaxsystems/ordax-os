@@ -41,6 +41,10 @@ __pycache__/
 .venv/
 venv/
 
+# Canonical Surface is mounted from the external owner only in local dev
+/system/surface/ui/
+/system/surface/workspace/
+
 # Node/tool caches
 node_modules/
 .cache/

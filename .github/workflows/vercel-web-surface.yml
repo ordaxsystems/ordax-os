@@ -1,0 +1,49 @@
+name: Vercel Web external Surface integration
+on:
+  pull_request:
+    paths:
+      - "tools/vercel/build.py"
+      - "tools/surface-source/**"
+      - "docs/contracts/surface-source.json"
+      - ".github/workflows/vercel-web-surface.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: vercel-web-surface-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  real-web-build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Install lockfile dependencies without install scripts
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Reproduce actual Vercel Web build without deployment
+        env:
+          VERCEL_PROJECT_ID: prj_ftACluUqk6i9DoD9GPIwmgURwckP
+          VERCEL_GIT_COMMIT_SHA: ${{ github.sha }}
+        run: python3 tools/vercel/build.py
+      - name: Verify both external owners and no staged UI left behind
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          root = Path.cwd()
+          manifest = json.loads((root / "out/vercel/web-deployment-manifest.json").read_text())
+          site_pin = json.loads((root / "docs/contracts/public-site-source.json").read_text())
+          surface_pin = json.loads((root / "docs/contracts/surface-source.json").read_text())
+          assert manifest["site_source_repository"] == site_pin["repository"]
+          assert manifest["site_source_commit"] == site_pin["commit"]
+          assert (root / "out/vercel/web-client-manifest.json").is_file()
+          assert (root / "out/vercel/login/index.html").is_file()
+          assert not (root / "system/surface/ui").exists()
+          assert not (root / "system/surface/workspace").exists()
+          assert surface_pin["source_repository"] == "ordaxsystems/ordax-surface"
+          assert manifest["files"]
+          print("VERCEL_WEB_INDEPENDENT_SITE_AND_SURFACE=PASS")
+          PY

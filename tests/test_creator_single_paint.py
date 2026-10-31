@@ -1,12 +1,28 @@
 """Regression for Creator single paint ownership and flicker-free redraw."""
 from pathlib import Path
+import os
 import re
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
-APP = ROOT / "tools/creator/cmd/ordax-creator-app"
+# Source inspection runs only with the immutable Creator checkout from the
+# canonical resolver. The OS Foundation tests this coupling; it must never
+# silently inspect an embedded Go copy.
+APP = (Path(os.environ["ORDAX_CREATOR_NATIVE_SOURCE"]) / "cmd/ordax-creator-app"
+       if os.environ.get("ORDAX_CREATOR_NATIVE_SOURCE") else None)
 
 
+class CreatorSinglePaintBoundaryTests(unittest.TestCase):
+    def test_ux_tests_run_against_the_pinned_independent_source(self):
+        w = (ROOT / ".github/workflows/creator-ux-baseline.yml").read_text(encoding="utf-8")
+        self.assertIn("uses: ./.github/actions/resolve-creator-source", w)
+        self.assertIn("tests.test_creator_single_paint", w)
+        self.assertIn('pushd "$ORDAX_CREATOR_NATIVE_SOURCE"', w)
+        self.assertNotIn("pushd tools/creator", w)
+
+
+@unittest.skipUnless(os.environ.get("ORDAX_CREATOR_NATIVE_SOURCE"),
+                     "GUI Go inspection belongs to pinned Creator UX CI")
 class CreatorSinglePaintTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):

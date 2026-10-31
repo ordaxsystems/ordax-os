@@ -181,6 +181,29 @@ test("calculator module read is ready while unsupported Native probation keeps S
   projection.destroy();
 });
 
+test("Aura derives its displayed title from verified catalog but cannot install without probation", async () => {
+  const projection = createVerifiedAppStoreProjection({
+    verifiedCatalogPort: catalogPort(ready([
+      candidate("assistant", "0.1.2", "Aura"),
+    ])).port,
+    componentSource: source(),
+    fetchImpl: fetchFrom({ assistant: metadata("assistant") }),
+  });
+  await projection.refresh();
+  const snapshot = projection.port.getSnapshot();
+  assert.equal(snapshot.state, "ready");
+  const aura = snapshot.entries.find(item => item.appId === "assistant");
+  assert.ok(aura);
+  assert.equal(aura.title, "Aura");
+  assert.equal(aura.state, "blocked");
+  assert.equal(aura.blockedReason, "runtime-probation-unavailable");
+  assert.equal(aura.installable, false);
+  assert.equal(aura.updatable, false);
+  assert.equal(aura.artifactIdentityVerified, true);
+  assert.equal(aura.provenanceVerified, true);
+  projection.destroy();
+});
+
 test("exact active slot is installed and a newer verified catalog candidate is updatable", async () => {
   for (const [currentVersion, currentCommit, expected] of [
     ["0.4.3", SOURCE_COMMIT, { updatable: false, availableVersion: null }],
@@ -562,4 +585,31 @@ test("new signed catalog immediately clears stale Store actions while Native ref
   assert.equal(fresh.entries[0].availableVersion, "0.4.4");
   assert.equal(fresh.entries[0].installable, true);
   projection.destroy();
+});
+
+test("disposing a ready Store projection revokes installable candidates for all retained readers", async () => {
+  const catalog = catalogPort(ready());
+  const projection = createVerifiedAppStoreProjection({
+    verifiedCatalogPort: catalog.port,
+    componentSource: source(),
+    fetchImpl: fetchFrom({ notes: metadata("notes") }),
+  });
+  await projection.refresh();
+  assert.equal(projection.port.getSnapshot().state, "ready");
+  assert.equal(projection.port.getSnapshot().entries[0].installable, true);
+  assert.ok(projection.getCurrentObservations().length > 0);
+
+  const seen = [];
+  projection.port.subscribe((snapshot) => seen.push(snapshot.state));
+  projection.destroy();
+  const closed = projection.port.getSnapshot();
+  assert.equal(closed.state, "unavailable");
+  assert.equal(closed.reason, "verified-store-projection-disposed");
+  assert.deepEqual(closed.entries, []);
+  assert.deepEqual(projection.getCurrentObservations(), []);
+  assert.deepEqual(seen, ["unavailable"]);
+
+  await projection.refresh();
+  assert.equal(projection.port.getSnapshot(), closed);
+  assert.deepEqual(seen, ["unavailable"], "a disposed projection never publishes another candidate");
 });

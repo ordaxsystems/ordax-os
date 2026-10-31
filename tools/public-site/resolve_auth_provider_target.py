@@ -36,11 +36,13 @@ def project_ref(value: object, label: str) -> str:
     return value
 
 
-def resolve_target(root: Path, requested_origin: str) -> tuple[str, str]:
+def resolve_target(root: Path, requested_origin: str, *, scope: str = "active") -> tuple[str, str]:
     hardening = read_object(root, HARDENING)
     policy = read_object(root, POLICY)
     plan = read_object(root, DESTINATION_PLAN)
 
+    if scope not in ("active", "destination"):
+        raise ValueError("unsupported provider probe scope")
     origin = clean_origin(requested_origin)
     redirect_policy = policy.get("redirect_policy")
     if not isinstance(redirect_policy, dict):
@@ -70,16 +72,27 @@ def resolve_target(root: Path, requested_origin: str) -> tuple[str, str]:
         raise ValueError("provider cutover marked complete without target switch")
     if not promoted and active_ref == destination_ref:
         raise ValueError("destination target selected before verified cutover")
+    if scope == "destination":
+        # Read-only provider configuration proof for the prepared destination.
+        # This does NOT make the destination the active Auth owner.
+        if promoted:
+            raise ValueError("destination probe scope unavailable after verified cutover")
+        if (destination.get("public_registration_enabled") is not False
+                or destination.get("public_login_enabled") is not False
+                or destination.get("parallel_identity_write_enabled") is not False):
+            raise ValueError("destination probe requires public Auth to remain disabled")
+        return destination_ref, origin
     return active_ref, origin
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--origin", required=True)
+    parser.add_argument("--scope", choices=("active", "destination"), default="active")
     parser.add_argument("--root", type=Path, default=ROOT)
     args = parser.parse_args(argv)
     try:
-        project, origin = resolve_target(args.root, args.origin)
+        project, origin = resolve_target(args.root, args.origin, scope=args.scope)
     except (OSError, ValueError, KeyError, TypeError) as exc:
         print(f"AUTH_PROVIDER_TARGET=BLOCKED reason={exc}", file=sys.stderr)
         return 1
