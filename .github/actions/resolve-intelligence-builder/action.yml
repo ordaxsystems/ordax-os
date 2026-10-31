@@ -1,0 +1,65 @@
+name: Resolve verified Intelligence inference builder
+description: Stage the exact external technical builder through the canonical OS source lock; never execute unverified source or touch devices
+inputs:
+  out-root:
+    description: New absolute disposable stage directory
+    required: true
+outputs:
+  builder:
+    description: Exact verified external builder path
+    value: ${{ steps.resolve.outputs.builder }}
+runs:
+  using: composite
+  steps:
+    - id: resolve
+      shell: bash
+      working-directory: ${{ github.workspace }}
+      env:
+        ORDAX_INTELLIGENCE_OUT: ${{ inputs.out-root }}
+      run: |
+        set -euo pipefail
+        case "$ORDAX_INTELLIGENCE_OUT" in /*) ;; *) echo "::error::Absolute stage path required"; exit 1 ;; esac
+        test ! -e "$ORDAX_INTELLIGENCE_OUT"
+        test ! -L "$ORDAX_INTELLIGENCE_OUT"
+        intelligence_sha="$(python3 - <<'PY'
+        import importlib.util
+        spec=importlib.util.spec_from_file_location("intelligence_source", "tools/intelligence-source/materialize.py")
+        mod=importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        print(mod.load_lock()["source_commit"])
+        PY
+        )"
+        [[ "$intelligence_sha" =~ ^[0-9a-f]{40}$ ]]
+        scratch="$(mktemp -d)"
+        trap 'rm -rf -- "$scratch"' EXIT
+        git clone --quiet --no-tags --filter=blob:none --no-checkout \
+          https://github.com/ordaxsystems/ordax-intelligence.git "$scratch/intelligence"
+        git -C "$scratch/intelligence" checkout --quiet --detach "$intelligence_sha"
+        test "$(git -C "$scratch/intelligence" rev-parse HEAD)" = "$intelligence_sha"
+        python3 tools/intelligence-source/materialize.py verify --source-dir "$scratch/intelligence"
+        python3 tools/intelligence-source/materialize.py stage \
+          --source-dir "$scratch/intelligence" --out-dir "$ORDAX_INTELLIGENCE_OUT"
+        python3 - <<'PY'
+        import json, os
+        from pathlib import Path
+        root=Path(os.environ["ORDAX_INTELLIGENCE_OUT"])
+        receipt=json.loads((root/"intelligence-source-receipt.json").read_text())
+        lock=json.loads(Path("docs/contracts/intelligence-source.json").read_text())
+        assert receipt["source_commit"]==lock["source_commit"]
+        assert receipt["source_file_count"]==len(lock["source_paths"])==8
+        assert receipt["activation_authorized"] is False
+        assert receipt["engine_included"] is False and receipt["model_included"] is False
+        assert (root/"system/intelligence-source/tools/inference-builder/build.py").is_file()
+        print("EXTERNAL_INFERENCE_BUILDER_SOURCE=VERIFIED")
+        PY
+        builder="$ORDAX_INTELLIGENCE_OUT/system/intelligence-source/tools/inference-builder/build.py"
+        # Compile in memory: bytecode cache would modify the verified source tree.
+        python3 - "$builder" <<'PY'
+        from pathlib import Path
+        import sys
+        source=Path(sys.argv[1])
+        compile(source.read_text(encoding="utf-8"), str(source), "exec")
+        PY
+        test ! -e "$ORDAX_INTELLIGENCE_OUT/system/intelligence-source/tools/inference-builder/__pycache__"
+        echo "builder=$builder" >> "$GITHUB_OUTPUT"
+        echo "ORDAX_EXTERNAL_AI_BUILDER=$builder" >> "$GITHUB_ENV"

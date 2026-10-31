@@ -1,3 +1,4 @@
+import importlib.util
 import re
 import unittest
 from pathlib import Path
@@ -26,6 +27,29 @@ def strip_sql_comments(sql: str) -> str:
 
 def split_statements(sql: str):
     return [statement.strip() for statement in strip_sql_comments(sql).split(";") if statement.strip()]
+
+
+# The populated destination uses a reviewed private SECURITY DEFINER helper
+# boundary for RLS. Permit only the *exact* Storage SELECT policy emitted
+# by the canonical renderer in its one CLI-versioned artifact. Any other
+# private invocation (including in this artifact) remains forbidden.
+REVIEWED_STORAGE_MIGRATION = "20261026222222_storage_quota_populated_destination_v1.sql"
+
+
+def reviewed_storage_rls_policy(path: Path, statement: str) -> bool:
+    if path.name != REVIEWED_STORAGE_MIGRATION:
+        return False
+    generator = ROOT / "infra/supabase/product/render_storage_quota_destination_migration.py"
+    spec = importlib.util.spec_from_file_location("ordax_reviewed_storage_rls", generator)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    expected = (
+        "create policy ordax_user_objects_select_authorized\n"
+        "on public.ordax_user_objects for select to authenticated\n"
+        + module.DESTINATION_POLICY.rstrip(";")
+    )
+    normalized = lambda sql: " ".join(sql.lower().split()).rstrip(";")
+    return normalized(statement) == normalized(expected)
 
 
 def targets_api_role(statement: str) -> bool:
@@ -290,6 +314,26 @@ class PrivateApiSealTests(unittest.TestCase):
         self.assertNotIn("private.", table_policy[pattern.search(table_policy).start():])
         self.assertIn("private.", indirect_call[pattern.search(indirect_call).start():])
 
+    def test_reviewed_storage_policy_exception_rejects_any_additional_private_call(self):
+        source = MIGRATIONS / REVIEWED_STORAGE_MIGRATION
+        sql = source.read_text(encoding="utf-8")
+        approved = [
+            stmt for stmt in split_statements(sql)
+            if is_rls_policy_statement(stmt)
+            and "ordax_user_objects_select_authorized" in stmt
+        ]
+        self.assertEqual(len(approved), 1)
+        self.assertTrue(reviewed_storage_rls_policy(source, approved[0]))
+        self.assertFalse(reviewed_storage_rls_policy(
+            source, approved[0].replace("private.ordax_can_access_space(", "private.unsafe_helper(")
+        ))
+        self.assertFalse(reviewed_storage_rls_policy(
+            source, approved[0].replace(" and (", " and private.unauthorized() and (", 1)
+        ))
+        self.assertFalse(reviewed_storage_rls_policy(
+            MIGRATIONS / "20261026222223_unreviewed_private_rls.sql", approved[0]
+        ))
+
     def test_future_rls_migrations_cannot_call_private_schema(self):
         violations = []
         for path in sorted(MIGRATIONS.glob("*.sql")):
@@ -306,7 +350,8 @@ class PrivateApiSealTests(unittest.TestCase):
                     r"\b(?:using|with\s+check)\s*\(", normalized
                 )
                 if predicate and "private." in normalized[predicate.start():]:
-                    violations.append((path.name, normalized[:240]))
+                    if not reviewed_storage_rls_policy(path, statement):
+                        violations.append((path.name, normalized[:240]))
         self.assertEqual([], violations, f"future RLS policy references private schema: {violations}")
 
 

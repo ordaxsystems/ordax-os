@@ -381,10 +381,9 @@ class AccountLegalPolicyActivationTests(unittest.TestCase):
                 "redirect_policy": {"origin": "https://ordax.com.br"}
             }), encoding="utf-8")
             import hashlib
-            emitted = {
-                name: activation.render_public_html(value.decode("utf-8")).encode("utf-8")
-                for name, value in contents.items()
-            }
+            # Fixtures represent the final, byte-exact independent Site build.
+            # The OS must never re-render legal presentation from Site markup.
+            emitted = dict(contents)
             candidate = {
                 "origin": "https://ordax.com.br",
                 "privacy": {

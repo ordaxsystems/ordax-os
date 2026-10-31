@@ -77,11 +77,16 @@ class PhysicalMvpHardeningTests(unittest.TestCase):
         self.assertRegex(footer, r"flex\s*:\s*0\s+0\s+auto")
         self.assertRegex(shell, r"height\s*:\s*min\(\d+px,\s*calc\(100dvh\s*-\s*\d+px\)\)")
 
-        # Eight canonical steps share a responsive column flow; an obsolete
-        # seven-step fixed grid would hide the current navigation.
-        self.assertRegex(text, r"@media\s*\(max-width:\s*820px\)")
-        self.assertRegex(text, r"grid-auto-flow\s*:\s*column")
-        self.assertRegex(text, r"grid-auto-columns\s*:\s*minmax\(0,\s*1fr\)")
+        # USB/native First Run is desktop-only: its Meridian rail and content
+        # panel remain the same layout instead of switching to a phone flow.
+        # Height pressure may compact the desktop layout while the rail itself
+        # keeps its steps reachable through its own scroll region.
+        self.assertRegex(shell, r"min-width\s*:\s*900px")
+        self.assertRegex(shell, r"grid-template-columns\s*:\s*var\(--md-rail-width\)\s+minmax\(0,\s*1fr\)")
+        progress = declarations(".ordax-first-run-progress")
+        self.assertRegex(progress, r"overflow\s*:\s*auto")
+        self.assertRegex(text, r"@media\s*\(max-height:\s*800px\)")
+        self.assertNotRegex(text, r"@media\s*\(max-width\s*:")
 
 
 

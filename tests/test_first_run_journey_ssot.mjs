@@ -56,8 +56,17 @@ test("First Run presentation consumes Meridian directly and adapts all canonical
   assert.doesNotMatch(css,/var\(--ordax-|repeat\(7,/);
   assert.ok(css.includes("var(--md-canvas)"));
   assert.ok(css.includes("var(--md-font)"));
-  assert.ok(css.includes("grid-template-rows:auto minmax(0,1fr)"));
-  assert.ok(css.includes("grid-auto-flow:column"));
+  assert.match(css, /\.ordax-first-run-card\s*\{[^}]*grid-template-rows\s*:\s*minmax\(0,\s*1fr\)\s+auto/s);
+  assert.match(css, /\.ordax-first-run-steps\s*\{[^}]*display\s*:\s*grid/s);
+});
+
+test("optional network work never blocks the first-run journey", async () => {
+  const ui = await readFile(new URL("../system/surface/ui/first-run.mjs", import.meta.url), "utf8");
+  assert.match(ui, /const busy = identityPending !== null \|\| identityAvailabilityPending \|\| localSessionPending \|\| deviceNamePending;/);
+  assert.match(ui, /scan\.disabled = networkPending;/);
+  assert.match(ui, /connect\.disabled = networkPending;/);
+  assert.match(ui, /validateWifiCredentials\(\{ ssid, password \}\)/);
+  assert.ok(ui.indexOf("validateWifiCredentials({ ssid, password })") < ui.indexOf("void connectNetwork(ssid, password)", ui.indexOf("validateWifiCredentials({ ssid, password })")));
 });
 
 test("runtime journeys cannot expose another first-run; planned design details remain archived", async () => {

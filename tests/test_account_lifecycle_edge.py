@@ -135,7 +135,31 @@ class AccountLifecycleEdgeTests(unittest.TestCase):
         self.assertIsNotNone(spec)
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
-        bundle = module.render(project_ref="jhfphsjptrpmtnzkpwud")
+        # A live destination with users/sync data must not even render the
+        # historical empty-destination migration. This is an expected blocker.
+        with self.assertRaisesRegex(ValueError, "destination-cutover-destination-already-populated"):
+            module.render(project_ref="jhfphsjptrpmtnzkpwud")
+
+        # Test the historical SQL recipe only with a synthetic *empty* contract
+        # fixture; never weaken the actual owner contract to exercise old SQL.
+        import tempfile
+        from unittest.mock import patch
+        hardening = json.loads((ROOT / "docs/contracts/public-auth-hardening.json").read_text(encoding="utf-8"))
+        stage = hardening["postgresql_destination"]
+        self.assertTrue(stage["existing_auth_users_observed"])
+        self.assertTrue(stage["active_legal_policy_present"])
+        stage["existing_auth_users_observed"] = False
+        stage["active_legal_policy_present"] = False
+        with tempfile.TemporaryDirectory(prefix="ordax-empty-destination-contract-") as tmp:
+            fixture = Path(tmp) / "hardening.json"
+            fixture.write_text(json.dumps(hardening), encoding="utf-8")
+            with patch.object(module, "HARDENING", fixture):
+                bundle = module.render(project_ref="jhfphsjptrpmtnzkpwud")
+                stage["existing_auth_users_observed"] = True
+                fixture.write_text(json.dumps(hardening), encoding="utf-8")
+                with self.assertRaisesRegex(ValueError, "destination-cutover-destination-already-populated"):
+                    module.render(project_ref="jhfphsjptrpmtnzkpwud")
+
         plan = json.loads(
             (ROOT / "infra" / "supabase" / "product"
              / "account_destination_migration_plan.json").read_text(encoding="utf-8")

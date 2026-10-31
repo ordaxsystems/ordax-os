@@ -16,6 +16,44 @@ Native
 
 The account owns identity, entitlements and synchronized user state. A device owns only device-local state and secrets.
 
+## Account activation on Native/USB
+
+OrdaX OS is **one product**: Dev and Stable share the same First Run,
+Identity Session contract, Native Account gateway adapter and online-account
+activation. Their update channels differ, not their authentication semantics.
+
+A successful login HTTP response is only a credential-operation acknowledgement.
+The Native Host must fetch a **fresh authenticated** `/auth/session` response
+from the configured HTTPS account gateway, verify the canonical schema, provider,
+subject and email, and return a sanitized public session projection. The Web/USB
+credentials adapter independently requires a fresh same-origin session before
+telling the interface that the account is active. HTTP redirects, opaque
+responses, unavailable backends, missing subject identity and anonymous sessions
+must not be presented as successful logins. Registration awaiting email
+confirmation is explicitly `confirmationRequired`, not signed-in.
+
+First Run is offline-first. An initial failed probe cannot permanently disable
+the login controls after Wi-Fi is connected: entering/resuming the Account step
+refreshes existing Identity Session/Actions owners and displays a bounded user
+retry action. A user can still choose `Continuar sem conta`. The clock, DNS
+and verified gateway availability must be tested separately in QEMU/physical
+hardware before live login activation is declared proven.
+
+The canonical USB/Native credential policy is `docs/contracts/native-account-session.json`.
+The Native Account Gateway remains the single account-session owner. The same Native
+Host PIN/password verifier can unlock an AES-256-GCM encrypted refresh-cookie vault
+only when the local secret is a strong passphrase (at least 16 characters),
+using memory-hard scrypt with a distinct random salt. Short PINs remain
+screen locks only: a copied USB has no hardware-backed rate limiting, so
+persisting an offline-guessable refresh token would be unsafe.
+The kernel keyring remains the current-boot cache. Once unlocked, the Gateway
+revalidates and renews the restored session online; a revoked or permanently
+expired account session requires login, and no offline cloud session is invented.
+Explicit logout deletes the encrypted vault and revokes the Gateway session.
+Legacy plaintext `session.json` is cleanup-only. This conditional capability
+does not claim short-PIN persistence, TPM enrollment or physical USB proof.
+Dev and Stable share the same session implementation and differ only in update channels.
+
 ## Spaces and professional Profile Packs
 
 The account profile identifies the user. **Spaces** organize contexts of work, projects, memory and future collaboration.
@@ -32,7 +70,7 @@ Profile Packs may compose apps, templates, knowledge-source policy and Intellige
 
 The account-scoped synchronization backend is applied to the dedicated `ordax-control-plane` project. It provides owner-scoped RLS, stable object IDs, per-object server revisions, idempotent mutation keys, explicit tombstones and optimistic conflict detection. Backend v2 also records an immutable account change sequence: first reconciliation uses `ordax_sync_snapshot_v1` to obtain an atomic object snapshot plus baseline cursor, mutations use `ordax_apply_sync_mutation_v2`, and later reconciliations page through `ordax_pull_sync_changes_v1`. This avoids incorrectly treating a per-object revision as an account-wide cursor.
 
-Web and USB/Native now use the same OrdaX-owned transport semantics for `appearance`, portable accessibility preferences and portable workspace metadata. Each client persists a subject-bound checkpoint containing the opaque account cursor plus known object revisions; Native stores it in private device state and degrades to an in-memory session checkpoint if durable checkpoint persistence is unavailable. Provider tokens remain outside Surface JavaScript. A credential-safe two-client proof harness now has a manual-only GitHub Actions wrapper: it opens two independent cookie jars for the same dedicated proof account, proves A -> B incremental delivery, tombstones the unique proof object and uploads only a sanitized receipt with cursors/source provenance. The workflow requires encrypted repository secrets and does not persist account identifiers, credentials, cookies or tokens. It has not yet been executed with a real proof account, so multi-device E2E remains pending. Mobile still lacks its final integration. Native/USB physical proof and public same-origin browser activation also remain pending, so synchronization remains **Em breve** in public copy and is not yet advertised as a released MVP capability.
+The canonical backend and Web transport adapter support `appearance`, `preferences` and `workspace-metadata`, and the Native/USB composition currently runs the account-sync orchestrator for those classes. The Web composition does not yet mount that orchestrator, so Web-to-USB continuity is not currently available. Native portable preferences are limited to accessibility contrast, motion and text scale; regional locale and time zone are not in the sync allowlist. Web stores its preferences locally. Each Native client persists a subject-bound checkpoint containing the opaque account cursor plus known object revisions; Native stores it in private device state and degrades to an in-memory session checkpoint if durable checkpoint persistence is unavailable. Provider tokens remain outside Surface JavaScript. A credential-safe two-client proof harness has a manual-only GitHub Actions wrapper: it opens two independent cookie jars for the same dedicated proof account, proves A -> B incremental delivery, tombstones the unique proof object and uploads only a sanitized receipt with cursors/source provenance. The workflow requires encrypted repository secrets and does not persist account identifiers, credentials, cookies or tokens. It has not yet been executed with a real proof account, so multi-device E2E remains pending. Mobile still lacks its final integration. Native/USB physical proof and public same-origin browser activation also remain pending, so synchronization remains **Em breve** in public copy and is not advertised as a released MVP capability.
 
 ### Live proof execution boundary
 
@@ -127,14 +165,44 @@ Synchronization requires:
 
 Platform biometric APIs may protect local session access, but biometrics do not replace canonical account authentication or server authorization.
 
-## Monetization architecture — commercial policy deferred
+## Plans, benefits and additional products
 
-No billing, price table, commercial tier name or device-count paywall is defined for the MVP.
+The canonical commercial catalog is `docs/contracts/entitlements.json`. Free,
+Personal, Professional and Team retain their stable IDs and structural benefits.
+The operator authorized implementation on 2026-10-22. The first increment records
+reference BRL prices, storage/history/MCP capacities and additional offers in that
+same owner; no checkout, paid assignment or cloud quota allocation is enabled.
 
-The account/domain architecture keeps an entitlement boundary so future services can be authorized server-side without fragmenting identity. Potential value-bearing categories include synchronization capacity/history, cloud storage, backup/restore, PC/Web/Mobile continuity, collaboration, premium compute/features and enhanced recovery/support.
+The public landing page and Account consume the same deterministic build-time
+projection. They show planned benefits and reference values, without claiming
+an active subscription, confirmed consumption or availability of future services.
+Changing a reference value is not a payment receipt or entitlement grant.
 
-The direction is to charge for **ecosystem value and service capacity**, not to impose an arbitrary fee merely because a user connects a second device.
+Free preserves local OS use, local first-party apps, local Intelligence/Memory,
+identity, official update/recovery and own-data access. Personal targets continuity,
+cloud memory, supported sync/backup and small-scale sharing. Professional expands
+professional capacity, connectors, automations and support. Team targets shared
+Spaces, access administration and pooled organizational capacity.
 
+MCP can be standalone and included in paid bundles; buying a bundle must not
+charge twice for the same MCP capacity. Flow central AI, research/compute, storage
+and MCP top-ups, commercial content/connectors, vertical business modules and
+implementation services are distinct offers when actually delivered. GPT used by
+the customer's external MCP client is paid by that customer; Flow/API inference
+has its own provider budget and is not implicitly included. Profile category names
+never create a paywall. A business Profile does not itself supply a complete ERP.
+
+Space-member capacity is not a paid-seat count. Team seats, execution budgets,
+structured cloud-memory limits, retention after cancellation and provider fees
+must be specified before purchase. The reference storage pool covers personal
+files, versions and backups; it does not authorize unbounded database rows,
+semantic indexes, inference, media processing or permanent cloud VMs.
+
+The execution plan is registered as COMMERCE-001 in the existing planning hub.
+Real payment activation requires verified idempotent provider events, server-side
+assignment, reconciliation and real cancellation/downgrade tests. Public cloud
+benefits additionally require each service's existing authorization, measurement,
+restore and availability gates. No billing provider is selected by this increment.
 
 ## Downgrade safety
 
@@ -172,6 +240,31 @@ No platform gets its own incompatible synchronization model.
 
 The existing `ordax.identity-session/1` adapter (`system/adapters/web/identity.mjs`) is the only session reader for Surface consumers, including OOBE and account actions. Multiple `/auth/session` reads may overlap. Each refresh receives a monotonically increasing local sequence; only the most recently started pending refresh may publish a snapshot. Late older responses and transport errors cannot roll back a newer account/logout observation, and disposed instances cannot publish. This ordering is ephemeral presentation state, not a second session authority, authentication receipt or cross-device session sync. The existing identity-actions adapter also orders registration-policy reads: a stale earlier response cannot re-enable or disable Create account after a newer legal-capability decision, and disposing the adapter invalidates pending policy reads.
 
+## Native USB gateway destination and activation proof (2026-10-19)
+
+The Native USB Account client uses the existing `ordax-account-gateway` on
+`ordax-platform` (`jhfphsjptrpmtnzkpwud`) through the one checked-in
+`system/services/account/gateway-base-url` value. The previous direct
+Native endpoint on `ordax-control-plane` (`eobcxuyvhkvdmkbaihwh`) failed
+DNS resolution from the authorized Windows validation host; the replacement
+returned HTTP 200 for both `/health` and the anonymous `/auth/session`
+projection, without credentials.
+
+This **client endpoint correction is not the global public identity-provider
+cutover**: `docs/contracts/public-auth-hardening.json` still marks the
+destination cutover incomplete; public account registration and production
+activation gates are unchanged. The Native login must still validate a real
+authenticated session after its POST, using the pre-existing gateway and
+memory-only cookie owner. HTTP 200 from an anonymous session does **not**
+prove login or account activation.
+
+Regression: `tests/test_native_account_session_contract.py` pins the
+configured HTTPS endpoint and guards against the dead legacy address,
+while `tests/test_native_account_gateway.py` validates session parsing.
+Verified in isolated Linux (5/5 + 19/19), not with an actual account or
+the physical notebook. The real USB must receive a tested update via its
+existing Dev channel before the client behavior changes on the device.
+
 ## Device-private account session
 
-On Native/USB, provider bearer tokens never enter Surface JavaScript. The local host owns an OrdaX gateway session in private device state (mode `0600`) and exposes only sanitized `/auth/*` and `/sync/*` responses to the loopback Surface. That session is explicitly outside the sync data model.
+On Native/USB, provider bearer tokens never enter Surface JavaScript. The **Native Host process** is the sole owner of access/refresh cookies **in memory** and exposes only sanitized `/auth/*` and `/sync/*` responses to the loopback Surface. Login is accepted only after a fresh authenticated `/auth/session` proof from the configured HTTPS gateway. A Native Host restart during the same Linux boot can recover the current session from the kernel user keyring when supported; unsupported kernels fail closed to signed-out, not plaintext disk storage. A full notebook reboot clears the kernel session and requires authentication again. The retired `0600` on-disk `account/session.json` is cleanup-only and must never be loaded. Long-lived credentials on removable media remain prohibited until the versioned encrypted-vault, local-unlock and anti-rollback proof gate is approved in `docs/contracts/native-account-session.json`. This session is outside the sync data model, and local-only OS use must continue when no cloud session exists.

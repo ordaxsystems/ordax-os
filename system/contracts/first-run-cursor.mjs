@@ -6,9 +6,11 @@ export const FIRST_RUN_CURSOR_STEPS = Object.freeze([
 const STEPS = new Set(FIRST_RUN_CURSOR_STEPS);
 
 export function safeFirstRunResumeStep(step) {
+  // The former regional page is now part of welcome. Read old cursors safely.
+  if (step === "regional") return "welcome";
   // No account selection, secrets or identity is persisted. Later stages must
   // re-enter the account step after a Surface restart.
-  if (["privacy", "name", "ready"].includes(step)) return "account";
+  if (["security", "privacy", "name", "ready"].includes(step)) return "account";
   return STEPS.has(step) ? step : "welcome";
 }
 

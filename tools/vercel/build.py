@@ -15,6 +15,8 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
+from contextlib import contextmanager
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -25,6 +27,7 @@ SHA40_RE = re.compile(r"^[0-9a-f]{40}$")
 WEB_DEPLOYMENT_MANIFEST = "web-deployment-manifest.json"
 WEB_DEPLOYMENT_SCHEMA = "prototype-ordax.web-deployment-bundle/1"
 PUBLIC_ORIGIN = "https://ordax.com.br"
+WEB_LOGIN_SOURCE_CONTRACT = "docs/contracts/public-site-source.json"
 WEB_IDENTITY_SOURCE_FILES = (
     "assets/site.css",
     "assets/account.css",
@@ -37,6 +40,8 @@ WEB_IDENTITY_SUPPORT_FILES = (
     *WEB_IDENTITY_SOURCE_FILES,
     "assets/ordax-design-tokens.css",
     "assets/ordax-symbol.png",
+    "assets/ordax-font.css",
+    "assets/fonts/inter-latin-wght-normal.woff2",
 )
 
 
@@ -45,23 +50,22 @@ class DeploymentBuildError(RuntimeError):
 
 
 def run(*args: str) -> None:
-    result = subprocess.run(args, cwd=ROOT, check=False)
+    # A fetched Site checkout stays immutable between public and Web builds.
+    # Python bytecode belongs to the interpreter cache, never to source input.
+    result = subprocess.run(args, cwd=ROOT, check=False,
+                            env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"})
     if result.returncode:
         raise DeploymentBuildError("command failed: " + " ".join(args))
 
 
-def load_helper(path: Path, module_name: str, attribute: str):
-    if path.is_symlink() or not path.is_file():
-        raise DeploymentBuildError(f"missing canonical build helper: {path}")
-    spec = importlib.util.spec_from_file_location(module_name, path)
+def load_site_source_resolver():
+    path = ROOT / "tools/vercel/site_source.py"
+    spec = importlib.util.spec_from_file_location("_ordax_external_site_build_source", path)
     if spec is None or spec.loader is None:
-        raise DeploymentBuildError(f"cannot load canonical build helper: {path}")
+        raise DeploymentBuildError("external Site resolver unavailable")
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
-    helper = getattr(module, attribute, None)
-    if not callable(helper):
-        raise DeploymentBuildError(f"canonical build helper is missing {attribute}: {path}")
-    return helper
+    return module.resolve
 
 
 def clean_output() -> None:
@@ -72,18 +76,25 @@ def clean_output() -> None:
     OUTPUT.parent.mkdir(parents=True, exist_ok=True)
 
 
+def build_independent_site_candidate(destination: Path) -> str:
+    """Invoke the sole Site-owned builder against the exact pinned commit."""
+    checkout, site_commit = load_site_source_resolver()()
+    builder = checkout / "scripts/build.py"
+    lock = checkout / "contracts/dev-artifact-lock.json"
+    run(sys.executable, str(builder), "build",
+        "--source-commit", site_commit,
+        "--dev-lock", str(lock),
+        "--public-origin", PUBLIC_ORIGIN,
+        "--out", str(destination))
+    run(sys.executable, str(builder), "verify", "--out", str(destination))
+    return site_commit
+
+
 def build_public(source_commit: str) -> None:
-    run(sys.executable, "tools/public-site/build.py", "check")
-    run(
-        sys.executable,
-        "tools/public-site/build.py",
-        "build",
-        "--source-commit",
-        source_commit,
-        "--out-dir",
-        str(OUTPUT),
-    )
-    run(sys.executable, "tools/public-site/build.py", "verify", "--out-dir", str(OUTPUT))
+    # The Vercel account gateway stays in OS; all static Site output now
+    # belongs to the independent Site builder. No local portal fallback.
+    del source_commit
+    build_independent_site_candidate(OUTPUT)
 
 
 def copy_unique(source: Path, destination: Path) -> None:
@@ -104,48 +115,23 @@ def sha256_file(path: Path) -> str:
 
 
 def compose_web_identity_bootstrap(source_commit: str) -> None:
-    """Derive the minimal Web login closure from canonical Account sources.
+    """Compose Web login from the independently verified Site bundle.
 
-    The dedicated Web host owns its own HttpOnly session cookie, so anonymous
-    users need a same-origin credential POST. This composition consumes the same
-    checked-in Account presentation, the same deterministic HTML renderer and
-    the same brand compiler as the public portal without invoking the portal's
-    whole artifact builder. That keeps the two Vercel products independent while
-    retaining one presentation and one brand source of truth.
+    One owner renders its HTML, styles and brand. Web selects only the
+    necessary output files and rewrites off-host public-account links.
     """
-    del source_commit  # provenance is recorded by the final deployment manifest.
-    public_source = ROOT / "sites" / "public"
-    if public_source.is_symlink() or not public_source.is_dir():
-        raise DeploymentBuildError("canonical public Account source is unavailable")
-
-    render_public_html = load_helper(
-        ROOT / "tools/public-site/public_html_render.py",
-        "_ordax_web_public_html_render",
-        "render_public_html",
-    )
-    render_site_identity_css = load_helper(
-        ROOT / "tools/brand/build.py",
-        "_ordax_web_brand_compiler",
-        "render_site_identity_css",
-    )
-
-    for relative in WEB_IDENTITY_SOURCE_FILES:
-        copy_unique(public_source / relative, OUTPUT / relative)
-
-    token_destination = OUTPUT / "assets/ordax-design-tokens.css"
-    if token_destination.exists():
-        raise DeploymentBuildError("Web identity token bridge collides with Surface output")
-    token_destination.parent.mkdir(parents=True, exist_ok=True)
-    token_destination.write_text(render_site_identity_css(), encoding="utf-8")
-    # The shared symbol CSS resolves this local PNG relative to the token sheet.
-    # Keep its bytes and path owned by Surface, just as the public portal does.
-    copy_unique(ROOT / "system/surface/ui/brand/ordax-symbol.png",
-                OUTPUT / "assets/ordax-symbol.png")
-
-    source_login = public_source / "login/index.html"
-    if source_login.is_symlink() or not source_login.is_file():
-        raise DeploymentBuildError("canonical login presentation is unavailable")
-    login_html = render_public_html(source_login.read_text(encoding="utf-8"))
+    del source_commit
+    # No private OS copy of the Site renderer, CSS compiler or HTML is used.
+    (ROOT / "out").mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix=".ordax-web-site-", dir=ROOT / "out") as tmp:
+        candidate = Path(tmp) / "site"
+        build_independent_site_candidate(candidate)
+        for relative in WEB_IDENTITY_SUPPORT_FILES:
+            copy_unique(candidate / relative, OUTPUT / relative)
+        login_source = candidate / "login/index.html"
+        if not login_source.is_file() or login_source.is_symlink():
+            raise DeploymentBuildError("pinned Site bundle lacks login route")
+        login_html = login_source.read_text(encoding="utf-8")
 
     # Match the public portal's deterministic cache-busting for the shared
     # generated token bridge and shared presentation runtime. Stable bytes keep
@@ -207,13 +193,16 @@ def write_web_deployment_manifest(source_commit: str) -> None:
             "sha256": sha256_file(path),
             "size": path.stat().st_size,
         })
+    source_pin = json.loads((ROOT / WEB_LOGIN_SOURCE_CONTRACT).read_text(encoding="utf-8"))
     manifest = {
         "$schema": WEB_DEPLOYMENT_SCHEMA,
         "source_commit": source_commit,
+        "site_source_repository": source_pin["repository"],
+        "site_source_commit": source_pin["commit"],
         "surface_manifest": "web-client-manifest.json",
         "login_path": "/login/",
-        "login_presentation_owner": "sites/public/login/index.html",
-        "login_runtime_owner": "sites/public/assets/site.js",
+        "login_presentation_owner": "ordaxsystems/ordax-site:site/login/index.html",
+        "login_runtime_owner": "ordaxsystems/ordax-site:site/assets/site.js",
         "host_only_session_required": True,
         "identity_support_files": list(WEB_IDENTITY_SUPPORT_FILES),
         "files": records,
@@ -224,20 +213,73 @@ def write_web_deployment_manifest(source_commit: str) -> None:
     )
 
 
+@contextmanager
+def mounted_vercel_surface():
+    """Verify and mount Surface in the *disposable* Vercel build workspace.
+
+    Use the OS's one canonical Surface Git verifier/materializer. The source
+    never enters the OS Git history and is unmounted even if the build fails.
+    """
+    owner_path = ROOT / "tools/surface-source/materialize.py"
+    spec = importlib.util.spec_from_file_location("_ordax_vercel_surface_materializer", owner_path)
+    if spec is None or spec.loader is None:
+        raise DeploymentBuildError("canonical Surface verifier unavailable")
+    source = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(source)
+    lock = source.load_lock()
+    surface_root = ROOT / "system/surface"
+    if surface_root.is_symlink() or not surface_root.is_dir():
+        raise DeploymentBuildError("Surface mount root is missing or linked")
+    targets = [surface_root / part for part in ("ui", "workspace")]
+    if any(p.exists() or p.is_symlink() for p in targets):
+        raise DeploymentBuildError("OS Vercel build already contains another Surface visual source")
+    (ROOT / "out").mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix=".ordax-vercel-surface-", dir=ROOT / "out") as temp:
+        root = Path(temp)
+        checkout = root / "checkout"
+        checkout.mkdir()
+        source.git(checkout, "init", "-q")
+        source.git(checkout, "remote", "add", "origin",
+                   "https://github.com/ordaxsystems/ordax-surface.git")
+        source.git(checkout, "fetch", "--depth=1", "--no-tags", "origin", lock["source_commit"])
+        source.git(checkout, "checkout", "--detach", "-q", "FETCH_HEAD")
+        records, receipt = source.verify_source(checkout, lock)
+        staged = root / "stage"
+        source.stage_source(records, receipt, staged)
+        mounted = []
+        try:
+            for part, target in zip(("ui", "workspace"), targets):
+                origin = staged / "system/surface" / part
+                if not origin.is_dir() or origin.is_symlink() or target.exists() or target.is_symlink():
+                    raise DeploymentBuildError("verified Surface mount missing or collision: " + part)
+                origin.rename(target)
+                mounted.append(target)
+            print("VERCEL_SURFACE_SOURCE=VERIFIED commit=" + lock["source_commit"])
+            yield receipt
+        finally:
+            for target in reversed(mounted):
+                if target.is_dir() and not target.is_symlink():
+                    shutil.rmtree(target)
+
+
 def build_web(source_commit: str) -> None:
-    run(sys.executable, "tools/surface-web/build.py", "check")
-    run(
-        sys.executable,
-        "tools/surface-web/build.py",
-        "build",
-        "--source-commit",
-        source_commit,
-        "--mount-path",
-        "/",
-        "--out-dir",
-        str(OUTPUT),
-    )
-    run(sys.executable, "tools/surface-web/build.py", "verify", "--out-dir", str(OUTPUT))
+    # Surface UI was extracted from ordax-os Git. Vercel does not execute
+    # GitHub's prepare-verified-surface action, so assemble the same pinned
+    # source before invoking the existing Web check/build/verify.
+    with mounted_vercel_surface():
+        run(sys.executable, "tools/surface-web/build.py", "check")
+        run(
+            sys.executable,
+            "tools/surface-web/build.py",
+            "build",
+            "--source-commit",
+            source_commit,
+            "--mount-path",
+            "/",
+            "--out-dir",
+            str(OUTPUT),
+        )
+        run(sys.executable, "tools/surface-web/build.py", "verify", "--out-dir", str(OUTPUT))
     manifest = json.loads((OUTPUT / "web-client-manifest.json").read_text(encoding="utf-8"))
     if manifest.get("mount_path") != "/":
         raise DeploymentBuildError("OrdaX Web must own the deployment root")

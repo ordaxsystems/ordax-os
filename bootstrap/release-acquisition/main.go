@@ -415,7 +415,10 @@ func ensureDir(path string, mode os.FileMode) error {
 	return nil
 }
 
-func downloadArtifact(client *http.Client, a Artifact, dst string) error {
+func downloadArtifact(client *http.Client, a Artifact, dst string, local ...*localReleaseBundle) error {
+	if len(local) != 0 && local[0] != nil {
+		return local[0].copyArtifact(a, dst)
+	}
 	resp, err := client.Get(a.URL)
 	if err != nil {
 		return err
@@ -430,12 +433,18 @@ func downloadArtifact(client *http.Client, a Artifact, dst string) error {
 	if resp.ContentLength >= 0 && resp.ContentLength != a.Size {
 		return fmt.Errorf("artifact Content-Length mismatch for %s", a.Name)
 	}
+	return writeVerifiedArtifact(resp.Body, a, dst)
+}
+
+// The HTTPS and offline byte sources converge on one bounded and synced
+// size/SHA-256 writer. Never publish unverified source bytes.
+func writeVerifiedArtifact(reader io.Reader, a Artifact, dst string) error {
 	file, err := os.OpenFile(dst, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644)
 	if err != nil {
 		return err
 	}
 	var h hash.Hash = sha256.New()
-	n, copyErr := io.Copy(io.MultiWriter(file, h), io.LimitReader(resp.Body, a.Size+1))
+	n, copyErr := io.Copy(io.MultiWriter(file, h), io.LimitReader(reader, a.Size+1))
 	syncErr := file.Sync()
 	closeErr := file.Close()
 	if copyErr != nil {
@@ -810,8 +819,8 @@ func verifyExistingPortableRelease(path string, m Manifest, payload, envelope []
 	return nil
 }
 
-func materializePortable(client *http.Client, envelopeURL, root string, trust TrustAnchor, key ed25519.PublicKey, expectedRepo, expectedCommit string) (PortableMaterializeReceipt, error) {
-	envelope, err := fetchBytes(client, envelopeURL, maxEnvelope)
+func materializePortable(client *http.Client, envelopeURL, root string, trust TrustAnchor, key ed25519.PublicKey, expectedRepo, expectedCommit string, local ...*localReleaseBundle) (PortableMaterializeReceipt, error) {
+	envelope, err := readAcquisitionEnvelope(client, envelopeURL, local...)
 	if err != nil {
 		return PortableMaterializeReceipt{}, fmt.Errorf("fetch envelope: %w", err)
 	}
@@ -873,7 +882,7 @@ func materializePortable(client *http.Client, envelopeURL, root string, trust Tr
 	}()
 
 	stageImage := filepath.Join(stage, "system.erofs")
-	if err := downloadArtifact(client, manifest.Artifacts[0], stageImage); err != nil {
+	if err := downloadArtifact(client, manifest.Artifacts[0], stageImage, local...); err != nil {
 		return PortableMaterializeReceipt{}, err
 	}
 	if err := verifyPortableEROFS(stageImage); err != nil {
@@ -983,7 +992,7 @@ func verifyRuntimeStoreFile(root string, artifact Artifact) (string, error) {
 	return runtimePath, nil
 }
 
-func materializeRuntimeBlob(client *http.Client, root string, artifact Artifact) (string, bool, error) {
+func materializeRuntimeBlob(client *http.Client, root string, artifact Artifact, local ...*localReleaseBundle) (string, bool, error) {
 	if artifact.Name != "native-surface-runtime.erofs" || artifact.Role != "surface-runtime" {
 		return "", false, errors.New("invalid Surface runtime artifact identity")
 	}
@@ -1014,7 +1023,7 @@ func materializeRuntimeBlob(client *http.Client, root string, artifact Artifact)
 	}()
 
 	stagePath := filepath.Join(stage, "native-surface-runtime.erofs")
-	if err := downloadArtifact(client, artifact, stagePath); err != nil {
+	if err := downloadArtifact(client, artifact, stagePath, local...); err != nil {
 		return "", false, err
 	}
 	if err := verifySurfaceRuntimeEROFS(stagePath); err != nil {
@@ -1037,88 +1046,157 @@ func materializeRuntimeBlob(client *http.Client, root string, artifact Artifact)
 	return path, false, nil
 }
 
-func verifyAIRuntimeStoreFile(root string, artifact Artifact) (string, error) {
-	aiRuntimeDir := filepath.Join(root, "ai-runtimes", "sha256", artifact.SHA256)
-	info, err := os.Lstat(aiRuntimeDir)
-	if err != nil {
-		return "", err
-	}
+// Stable v4 and Owner/Development share one exact content-addressed AI
+// verifier and transactional publisher. The latter has private permissions.
+func verifyAIInStore(digestRoot string, artifact Artifact, private bool) (string, error) {
+	dir := filepath.Join(digestRoot, artifact.SHA256)
+	info, err := os.Lstat(dir)
+	if err != nil { return "", err }
 	if !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
 		return "", errors.New("local AI runtime store entry is not a safe directory")
 	}
-	entries, err := os.ReadDir(aiRuntimeDir)
-	if err != nil {
-		return "", err
+	if private && info.Mode().Perm() != 0o700 {
+		return "", errors.New("owner-dev AI digest directory must be private")
 	}
+	entries, err := os.ReadDir(dir)
+	if err != nil { return "", err }
 	if len(entries) != 1 || entries[0].Name() != "local-ai-runtime.erofs" {
 		return "", errors.New("local AI runtime store entry contains unexpected files")
 	}
-	runtimePath := filepath.Join(aiRuntimeDir, "local-ai-runtime.erofs")
-	actualHash, actualSize, err := hashFile(runtimePath)
-	if err != nil || actualSize != artifact.Size {
+	path := filepath.Join(dir, "local-ai-runtime.erofs")
+	if private {
+		fi, err := os.Lstat(path)
+		if err != nil { return "", err }
+		if !fi.Mode().IsRegular() || fi.Mode().Perm() != 0o600 {
+			return "", errors.New("owner-dev AI file must be private and regular")
+		}
+	}
+	hash, size, err := hashFile(path)
+	if err != nil || size != artifact.Size {
 		return "", errors.New("local AI runtime stored size is invalid")
 	}
-	if actualHash != artifact.SHA256 {
-		return "", errors.New("local AI runtime stored digest mismatch")
-	}
-	if err := verifyLocalAIRuntimeEROFS(runtimePath); err != nil {
-		return "", err
-	}
-	return runtimePath, nil
+	if hash != artifact.SHA256 { return "", errors.New("local AI runtime stored digest mismatch") }
+	if err := verifyLocalAIRuntimeEROFS(path); err != nil { return "", err }
+	return path, nil
 }
 
-func materializeAIRuntimeBlob(client *http.Client, root string, artifact Artifact) (string, bool, error) {
+func verifyAIRuntimeStoreFile(root string, artifact Artifact) (string, error) {
+	return verifyAIInStore(filepath.Join(root, "ai-runtimes", "sha256"), artifact, false)
+}
+
+// Existing roots must not be symlinks. Create only new private store
+// directories; never chmod an existing shared OS directory.
+func ensurePrivateAIStore(root string) (string, error) {
+	root, err := filepath.Abs(root)
+	if err != nil || root == string(os.PathSeparator) {
+		return "", errors.New("owner-dev state root must be an existing private directory")
+	}
+	for path := root; ; path = filepath.Dir(path) {
+		fi, err := os.Lstat(path)
+		if err != nil || !fi.IsDir() || fi.Mode()&os.ModeSymlink != 0 {
+			return "", errors.New("owner-dev state ancestor must be a real directory")
+		}
+		if next := filepath.Dir(path); next == path { break }
+	}
+	fi, _ := os.Lstat(root)
+	if fi.Mode().Perm()&0o022 != 0 {
+		return "", errors.New("owner-dev state root is writable by other users")
+	}
+	dir := root
+	for _, sub := range []string{"local-ai", "sha256"} {
+		dir = filepath.Join(dir, sub)
+		if err := os.Mkdir(dir, 0o700); err != nil && !errors.Is(err, os.ErrExist) {
+			return "", err
+		}
+		fi, err := os.Lstat(dir)
+		if err != nil || !fi.IsDir() || fi.Mode()&os.ModeSymlink != 0 || fi.Mode().Perm() != 0o700 {
+			return "", errors.New("owner-dev AI store must be a private directory")
+		}
+	}
+	return dir, nil
+}
+
+func materializeAIInStore(client *http.Client, digestRoot string, artifact Artifact, private bool, local ...*localReleaseBundle) (string, bool, error) {
 	if artifact.Name != "local-ai-runtime.erofs" || artifact.Role != "local-ai-runtime" {
 		return "", false, errors.New("invalid local AI runtime artifact identity")
 	}
-	digestRoot := filepath.Join(root, "ai-runtimes", "sha256")
-	if err := ensureDir(digestRoot, 0o755); err != nil {
-		return "", false, err
+	if !private {
+		if err := ensureDir(digestRoot, 0o755); err != nil { return "", false, err }
 	}
-	targetDir := filepath.Join(digestRoot, artifact.SHA256)
-	if info, err := os.Lstat(targetDir); err == nil {
-		if !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
-			return "", false, errors.New("local AI runtime digest target exists but is not a safe directory")
+	target := filepath.Join(digestRoot, artifact.SHA256)
+	if fi, err := os.Lstat(target); err == nil {
+		if !fi.IsDir() || fi.Mode()&os.ModeSymlink != 0 {
+			return "", false, errors.New("local AI digest target is unsafe")
 		}
-		path, err := verifyAIRuntimeStoreFile(root, artifact)
+		path, err := verifyAIInStore(digestRoot, artifact, private)
 		return path, true, err
 	} else if !errors.Is(err, os.ErrNotExist) {
 		return "", false, err
 	}
-
 	stage, err := os.MkdirTemp(digestRoot, ".ai-runtime-staging-"+artifact.SHA256[:12]+"-")
-	if err != nil {
-		return "", false, err
+	if err != nil { return "", false, err }
+	defer os.RemoveAll(stage)
+	stageFile := filepath.Join(stage, "local-ai-runtime.erofs")
+	if err := downloadArtifact(client, artifact, stageFile, local...); err != nil { return "", false, err }
+	if private {
+		if err := os.Chmod(stageFile, 0o600); err != nil { return "", false, err }
 	}
-	keepStage := false
-	defer func() {
-		if !keepStage {
-			_ = os.RemoveAll(stage)
-		}
-	}()
+	if err := verifyLocalAIRuntimeEROFS(stageFile); err != nil {
+		return "", false, fmt.Errorf("verify local AI EROFS: %w", err)
+	}
+	if err := syncDir(stage); err != nil { return "", false, err }
+	if err := os.Rename(stage, target); err != nil { return "", false, err }
+	if err := syncDir(digestRoot); err != nil { return "", false, err }
+	path, err := verifyAIInStore(digestRoot, artifact, private)
+	return path, false, err
+}
 
-	stagePath := filepath.Join(stage, "local-ai-runtime.erofs")
-	if err := downloadArtifact(client, artifact, stagePath); err != nil {
-		return "", false, err
+func materializeAIRuntimeBlob(client *http.Client, root string, artifact Artifact, local ...*localReleaseBundle) (string, bool, error) {
+	return materializeAIInStore(client, filepath.Join(root, "ai-runtimes", "sha256"), artifact, false, local...)
+}
+
+type OwnerDevAIReceipt map[string]any
+
+// The source checkout SHA is NOT the Stable release SHA. The caller must
+// pin the signed v4 release identity, its AI blob, and the current local
+// source lock. Neither system.erofs nor the Surface blob is downloaded.
+func materializeOwnerDevAI(
+	client *http.Client, envelopeURL, stateRoot, sourceLock string,
+	trust TrustAnchor, key ed25519.PublicKey, repo, expectedRelease, expectedAIHash string, expectedAISize int64,
+) (OwnerDevAIReceipt, error) {
+	if !commitPattern.MatchString(expectedRelease) || !shaPattern.MatchString(expectedAIHash) ||
+		expectedAISize <= 0 {
+		return nil, errors.New("exact release commit and AI digest/size pins required")
 	}
-	if err := verifyLocalAIRuntimeEROFS(stagePath); err != nil {
-		return "", false, fmt.Errorf("verify local AI runtime image: %w", err)
+	lock, err := readBoundedRegularFile(sourceLock, 64<<10, "active local AI source lock")
+	if err != nil { return nil, err }
+	digest := sha256.Sum256(lock)
+	lockHash := hex.EncodeToString(digest[:])
+	envelope, err := fetchBytes(client, envelopeURL, maxEnvelope)
+	if err != nil { return nil, err }
+	manifest, _, err := verifyEnvelope(envelope, trust, key, repo)
+	if err != nil { return nil, err }
+	if manifest.Schema != manifestSchemaV4 || manifest.SourceCommit != expectedRelease {
+		return nil, errors.New("signed v4 release identity mismatch")
 	}
-	if err := syncDir(stage); err != nil {
-		return "", false, err
+	ai := manifest.Artifacts[2]
+	if manifest.LocalAI == nil || manifest.LocalAI.SourceLockSHA256 != lockHash ||
+		ai.SHA256 != expectedAIHash || ai.Size != expectedAISize {
+		return nil, errors.New("signed AI artifact or source lock differs from Owner Dev pins")
 	}
-	if err := os.Rename(stage, targetDir); err != nil {
-		return "", false, err
-	}
-	keepStage = true
-	if err := syncDir(digestRoot); err != nil {
-		return "", false, err
-	}
-	path, err := verifyAIRuntimeStoreFile(root, artifact)
-	if err != nil {
-		return "", false, err
-	}
-	return path, false, nil
+	store, err := ensurePrivateAIStore(stateRoot)
+	if err != nil { return nil, err }
+	path, reused, err := materializeAIInStore(client, store, ai, true)
+	if err != nil { return nil, err }
+	return OwnerDevAIReceipt{
+		"status": "materialized-owner-dev-local-ai",
+		"release_commit": manifest.SourceCommit,
+		"source_lock_sha256": lockHash,
+		"artifact_sha256": ai.SHA256,
+		"artifact_path": path,
+		"reused": reused,
+		"activation_allowed": false,
+	}, nil
 }
 
 func verifyExistingPortableV3Release(path, root string, m Manifest, payload, envelope []byte) error {
@@ -1183,8 +1261,8 @@ func verifyExistingPortableV3Release(path, root string, m Manifest, payload, env
 	return nil
 }
 
-func materializePortableV3(client *http.Client, envelopeURL, root string, trust TrustAnchor, key ed25519.PublicKey, expectedRepo, expectedCommit string) (PortableMaterializeReceipt, error) {
-	envelope, err := fetchBytes(client, envelopeURL, maxEnvelope)
+func materializePortableV3(client *http.Client, envelopeURL, root string, trust TrustAnchor, key ed25519.PublicKey, expectedRepo, expectedCommit string, local ...*localReleaseBundle) (PortableMaterializeReceipt, error) {
+	envelope, err := readAcquisitionEnvelope(client, envelopeURL, local...)
 	if err != nil {
 		return PortableMaterializeReceipt{}, fmt.Errorf("fetch envelope: %w", err)
 	}
@@ -1213,7 +1291,7 @@ func materializePortableV3(client *http.Client, envelopeURL, root string, trust 
 		return PortableMaterializeReceipt{}, err
 	}
 
-	runtimePath, runtimeReused, err := materializeRuntimeBlob(client, root, manifest.Artifacts[1])
+	runtimePath, runtimeReused, err := materializeRuntimeBlob(client, root, manifest.Artifacts[1], local...)
 	if err != nil {
 		return PortableMaterializeReceipt{}, err
 	}
@@ -1253,7 +1331,7 @@ func materializePortableV3(client *http.Client, envelopeURL, root string, trust 
 	}()
 
 	stageSystem := filepath.Join(stage, "system.erofs")
-	if err := downloadArtifact(client, manifest.Artifacts[0], stageSystem); err != nil {
+	if err := downloadArtifact(client, manifest.Artifacts[0], stageSystem, local...); err != nil {
 		return PortableMaterializeReceipt{}, err
 	}
 	if err := verifyPortableEROFS(stageSystem); err != nil {
@@ -1418,8 +1496,8 @@ func verifyExistingPortableV4Release(path, root string, m Manifest, payload, env
 	return nil
 }
 
-func materializePortableV4(client *http.Client, envelopeURL, root string, trust TrustAnchor, key ed25519.PublicKey, expectedRepo, expectedCommit string) (PortableMaterializeReceipt, error) {
-	envelope, err := fetchBytes(client, envelopeURL, maxEnvelope)
+func materializePortableV4(client *http.Client, envelopeURL, root string, trust TrustAnchor, key ed25519.PublicKey, expectedRepo, expectedCommit string, local ...*localReleaseBundle) (PortableMaterializeReceipt, error) {
+	envelope, err := readAcquisitionEnvelope(client, envelopeURL, local...)
 	if err != nil {
 		return PortableMaterializeReceipt{}, fmt.Errorf("fetch envelope: %w", err)
 	}
@@ -1448,11 +1526,11 @@ func materializePortableV4(client *http.Client, envelopeURL, root string, trust 
 		return PortableMaterializeReceipt{}, err
 	}
 
-	runtimePath, runtimeReused, err := materializeRuntimeBlob(client, root, manifest.Artifacts[1])
+	runtimePath, runtimeReused, err := materializeRuntimeBlob(client, root, manifest.Artifacts[1], local...)
 	if err != nil {
 		return PortableMaterializeReceipt{}, err
 	}
-	aiRuntimePath, aiRuntimeReused, err := materializeAIRuntimeBlob(client, root, manifest.Artifacts[2])
+	aiRuntimePath, aiRuntimeReused, err := materializeAIRuntimeBlob(client, root, manifest.Artifacts[2], local...)
 	if err != nil {
 		return PortableMaterializeReceipt{}, err
 	}
@@ -1494,7 +1572,7 @@ func materializePortableV4(client *http.Client, envelopeURL, root string, trust 
 	}()
 
 	stageSystem := filepath.Join(stage, "system.erofs")
-	if err := downloadArtifact(client, manifest.Artifacts[0], stageSystem); err != nil {
+	if err := downloadArtifact(client, manifest.Artifacts[0], stageSystem, local...); err != nil {
 		return PortableMaterializeReceipt{}, err
 	}
 	if err := verifyPortableEROFS(stageSystem); err != nil {
@@ -1821,8 +1899,8 @@ func inspectRelease(client *http.Client, envelopeURL string, trust TrustAnchor, 
 	return receipt, nil
 }
 
-func materialize(client *http.Client, envelopeURL, root string, trust TrustAnchor, key ed25519.PublicKey, expectedRepo, expectedCommit string) (MaterializeReceipt, error) {
-	envelope, err := fetchBytes(client, envelopeURL, maxEnvelope)
+func materialize(client *http.Client, envelopeURL, root string, trust TrustAnchor, key ed25519.PublicKey, expectedRepo, expectedCommit string, local ...*localReleaseBundle) (MaterializeReceipt, error) {
+	envelope, err := readAcquisitionEnvelope(client, envelopeURL, local...)
 	if err != nil {
 		return MaterializeReceipt{}, fmt.Errorf("fetch envelope: %w", err)
 	}
@@ -1885,7 +1963,7 @@ func materialize(client *http.Client, envelopeURL, root string, trust TrustAncho
 	}
 	for _, a := range manifest.Artifacts {
 		archivePath := filepath.Join(artifactRoot, a.Name)
-		if err := downloadArtifact(client, a, archivePath); err != nil {
+		if err := downloadArtifact(client, a, archivePath, local...); err != nil {
 			return MaterializeReceipt{}, err
 		}
 		if err := extractSystemArchive(archivePath, stage); err != nil {
@@ -2003,6 +2081,7 @@ func inspectCommand(args []string) error {
 func materializePortableCommand(args []string) error {
 	fs := flag.NewFlagSet("materialize-portable", flag.ContinueOnError)
 	envelopeURL := fs.String("envelope-url", "", "HTTPS URL for signed portable release envelope")
+	localBundle := fs.String("local-bundle", "", "directory containing signed release-envelope.json and signed artifact files (offline)")
 	trustPath := fs.String("trust", "", "release trust anchor file")
 	root := fs.String("root", "/ordax-data/.ordax", "portable OrdaX internal root")
 	repository := fs.String("repository", defaultRepo, "expected source repository")
@@ -2010,8 +2089,8 @@ func materializePortableCommand(args []string) error {
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
-	if *envelopeURL == "" || *trustPath == "" || *expectedCommit == "" || fs.NArg() != 0 {
-		return errors.New("materialize-portable requires --envelope-url, --trust and --expected-commit")
+	if (*envelopeURL == "") == (*localBundle == "") || *trustPath == "" || *expectedCommit == "" || fs.NArg() != 0 {
+		return errors.New("materialize-portable requires exactly one of --envelope-url or --local-bundle, plus --trust and --expected-commit")
 	}
 	if !commitPattern.MatchString(*expectedCommit) {
 		return errors.New("expected_commit must be lowercase 40-hex")
@@ -2020,14 +2099,19 @@ func materializePortableCommand(args []string) error {
 	if err != nil {
 		return err
 	}
+	bundle, err := prepareLocalBundle(*localBundle, *envelopeURL, *root, trust, key, *repository, *expectedCommit, manifestSchemaV2)
+	if err != nil {
+		return err
+	}
 	receipt, err := materializePortable(
-		secureClient(),
+		acquisitionClient(bundle),
 		*envelopeURL,
 		*root,
 		trust,
 		key,
 		*repository,
 		*expectedCommit,
+		bundle,
 	)
 	if err != nil {
 		return err
@@ -2064,6 +2148,7 @@ func verifyPortableExactCommand(args []string) error {
 func materializePortableV3Command(args []string) error {
 	fs := flag.NewFlagSet("materialize-portable-v3", flag.ContinueOnError)
 	envelopeURL := fs.String("envelope-url", "", "HTTPS URL for signed portable v3 release envelope")
+	localBundle := fs.String("local-bundle", "", "directory containing signed release-envelope.json and signed artifact files (offline)")
 	trustPath := fs.String("trust", "", "release trust anchor file")
 	root := fs.String("root", "/ordax-data/.ordax", "portable OrdaX internal root")
 	repository := fs.String("repository", defaultRepo, "expected source repository")
@@ -2071,8 +2156,8 @@ func materializePortableV3Command(args []string) error {
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
-	if *envelopeURL == "" || *trustPath == "" || *expectedCommit == "" || fs.NArg() != 0 {
-		return errors.New("materialize-portable-v3 requires --envelope-url, --trust and --expected-commit")
+	if (*envelopeURL == "") == (*localBundle == "") || *trustPath == "" || *expectedCommit == "" || fs.NArg() != 0 {
+		return errors.New("materialize-portable-v3 requires exactly one of --envelope-url or --local-bundle, plus --trust and --expected-commit")
 	}
 	if !commitPattern.MatchString(*expectedCommit) {
 		return errors.New("expected_commit must be lowercase 40-hex")
@@ -2081,14 +2166,19 @@ func materializePortableV3Command(args []string) error {
 	if err != nil {
 		return err
 	}
+	bundle, err := prepareLocalBundle(*localBundle, *envelopeURL, *root, trust, key, *repository, *expectedCommit, manifestSchemaV3)
+	if err != nil {
+		return err
+	}
 	receipt, err := materializePortableV3(
-		secureClient(),
+		acquisitionClient(bundle),
 		*envelopeURL,
 		*root,
 		trust,
 		key,
 		*repository,
 		*expectedCommit,
+		bundle,
 	)
 	if err != nil {
 		return err
@@ -2122,9 +2212,33 @@ func verifyPortableV3ExactCommand(args []string) error {
 	return printJSON(receipt)
 }
 
+func materializeOwnerDevAICommand(args []string) error {
+	fs := flag.NewFlagSet("materialize-owner-dev-local-ai", flag.ContinueOnError)
+	envelopeURL := fs.String("envelope-url", "", "signed v4 release envelope over HTTPS")
+	trustPath := fs.String("trust", "", "canonical public release trust anchor")
+	stateRoot := fs.String("state-root", "/state/ordax", "existing Owner Dev state root")
+	sourceLock := fs.String("source-lock", "", "active Git checkout source-lock.json")
+	repository := fs.String("repository", defaultRepo, "expected source repository")
+	release := fs.String("expected-release-commit", "", "exact signed Stable v4 source commit")
+	aiSHA := fs.String("expected-artifact-sha256", "", "exact authorized AI EROFS SHA-256")
+	aiSize := fs.Int64("expected-artifact-size", 0, "exact authorized AI EROFS size")
+	if err := fs.Parse(args); err != nil { return err }
+	if *envelopeURL == "" || *trustPath == "" || *sourceLock == "" ||
+		*release == "" || *aiSHA == "" || *aiSize <= 0 || fs.NArg() != 0 {
+		return errors.New("materialize-owner-dev-local-ai requires signed envelope, trust, source lock and exact release/artifact pins")
+	}
+	trust, key, err := loadTrust(*trustPath)
+	if err != nil { return err }
+	receipt, err := materializeOwnerDevAI(secureClient(), *envelopeURL, *stateRoot,
+		*sourceLock, trust, key, *repository, *release, *aiSHA, *aiSize)
+	if err != nil { return err }
+	return printJSON(receipt)
+}
+
 func materializePortableV4Command(args []string) error {
 	fs := flag.NewFlagSet("materialize-portable-v4", flag.ContinueOnError)
 	envelopeURL := fs.String("envelope-url", "", "HTTPS URL for signed portable v4 release envelope")
+	localBundle := fs.String("local-bundle", "", "directory containing signed release-envelope.json and signed artifact files (offline)")
 	trustPath := fs.String("trust", "", "release trust anchor file")
 	root := fs.String("root", "/ordax-data/.ordax", "portable OrdaX internal root")
 	repository := fs.String("repository", defaultRepo, "expected source repository")
@@ -2132,8 +2246,8 @@ func materializePortableV4Command(args []string) error {
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
-	if *envelopeURL == "" || *trustPath == "" || *expectedCommit == "" || fs.NArg() != 0 {
-		return errors.New("materialize-portable-v4 requires --envelope-url, --trust and --expected-commit")
+	if (*envelopeURL == "") == (*localBundle == "") || *trustPath == "" || *expectedCommit == "" || fs.NArg() != 0 {
+		return errors.New("materialize-portable-v4 requires exactly one of --envelope-url or --local-bundle, plus --trust and --expected-commit")
 	}
 	if !commitPattern.MatchString(*expectedCommit) {
 		return errors.New("expected_commit must be lowercase 40-hex")
@@ -2142,14 +2256,19 @@ func materializePortableV4Command(args []string) error {
 	if err != nil {
 		return err
 	}
+	bundle, err := prepareLocalBundle(*localBundle, *envelopeURL, *root, trust, key, *repository, *expectedCommit, manifestSchemaV4)
+	if err != nil {
+		return err
+	}
 	receipt, err := materializePortableV4(
-		secureClient(),
+		acquisitionClient(bundle),
 		*envelopeURL,
 		*root,
 		trust,
 		key,
 		*repository,
 		*expectedCommit,
+		bundle,
 	)
 	if err != nil {
 		return err
@@ -2234,6 +2353,7 @@ func installCommand(args []string) error {
 func materializeCommand(args []string) error {
 	fs := flag.NewFlagSet("materialize", flag.ContinueOnError)
 	envelopeURL := fs.String("envelope-url", "", "HTTPS URL for signed release envelope")
+	localBundle := fs.String("local-bundle", "", "directory containing signed release-envelope.json and signed artifact files (offline)")
 	trustPath := fs.String("trust", "", "release trust anchor file")
 	root := fs.String("root", "/ordax", "OrdaX root")
 	repository := fs.String("repository", defaultRepo, "expected source repository")
@@ -2241,8 +2361,8 @@ func materializeCommand(args []string) error {
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
-	if *envelopeURL == "" || *trustPath == "" || *expectedCommit == "" || fs.NArg() != 0 {
-		return errors.New("materialize requires --envelope-url, --trust and --expected-commit")
+	if (*envelopeURL == "") == (*localBundle == "") || *trustPath == "" || *expectedCommit == "" || fs.NArg() != 0 {
+		return errors.New("materialize requires exactly one of --envelope-url or --local-bundle, plus --trust and --expected-commit")
 	}
 	if !commitPattern.MatchString(*expectedCommit) {
 		return errors.New("expected_commit must be lowercase 40-hex")
@@ -2251,14 +2371,19 @@ func materializeCommand(args []string) error {
 	if err != nil {
 		return err
 	}
+	bundle, err := prepareLocalBundle(*localBundle, *envelopeURL, *root, trust, key, *repository, *expectedCommit, manifestSchema)
+	if err != nil {
+		return err
+	}
 	receipt, err := materialize(
-		secureClient(),
+		acquisitionClient(bundle),
 		*envelopeURL,
 		*root,
 		trust,
 		key,
 		*repository,
 		*expectedCommit,
+		bundle,
 	)
 	if err != nil {
 		return err
@@ -2268,7 +2393,7 @@ func materializeCommand(args []string) error {
 
 
 func usage() {
-	fmt.Fprintln(os.Stderr, "usage: ordax-release-agent <verify-envelope|verify-trust-transition|inspect|materialize|materialize-portable|verify-portable-exact|materialize-portable-v3|verify-portable-v3-exact|materialize-portable-v4|verify-portable-v4-exact|activate-exact|install> [options]")
+	fmt.Fprintln(os.Stderr, "usage: ordax-release-agent <verify-envelope|verify-trust-transition|inspect|materialize|materialize-portable|verify-portable-exact|materialize-portable-v3|verify-portable-v3-exact|materialize-portable-v4|verify-portable-v4-exact|materialize-owner-dev-local-ai|activate-exact|install> [options]")
 }
 
 func main() {
@@ -2296,6 +2421,8 @@ func main() {
 		err = verifyPortableV3ExactCommand(os.Args[2:])
 	case "materialize-portable-v4":
 		err = materializePortableV4Command(os.Args[2:])
+	case "materialize-owner-dev-local-ai":
+		err = materializeOwnerDevAICommand(os.Args[2:])
 	case "verify-portable-v4-exact":
 		err = verifyPortableV4ExactCommand(os.Args[2:])
 	case "activate-exact":

@@ -21,8 +21,9 @@ class OwnerDevOfflineSeedRunnerBoundaryTests(unittest.TestCase):
         self.assertIn('ORDAX_STATE_DIR="$rootfs/state/ordax"', seed)
         self.assertIn('ORDAX_UPDATE_RUN_DIR="$RUNNER_TEMP/ordax-owner-dev-seed-run"', seed)
         self.assertIn('ORDAX_DEV_HELPER_TARGET_ROOT="$(realpath "$rootfs")"', seed)
-        self.assertIn('--seed-from-local "$GITHUB_WORKSPACE" "$GITHUB_SHA"', seed)
-        self.assertIn('test "$(cat "$rootfs/state/ordax/current-commit")" = "$GITHUB_SHA"', seed)
+        self.assertIn('--seed-from-local "$GITHUB_WORKSPACE" "$ORDAX_OWNER_SOURCE_COMMIT"', seed)
+        self.assertIn('test "$(cat "$rootfs/state/ordax/current-commit")" = "$ORDAX_OWNER_SOURCE_COMMIT"', seed)
+        self.assertIn('test "$(git -C "$rootfs/workspace/ordax" rev-parse HEAD)" = "$ORDAX_OWNER_SOURCE_COMMIT"', seed)
         self.assertIn('test -x out/dev-base/rootfs/usr/local/bin/ordax-pull', seed)
 
     def test_device_runtime_default_remains_strict(self) -> None:

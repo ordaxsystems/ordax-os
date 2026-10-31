@@ -8,7 +8,9 @@ class NativeBrowserFavoritesBoundaryTests(unittest.TestCase):
         native = (ROOT / "system/composition/native/main.mjs").read_text(encoding="utf-8")
         web = (ROOT / "system/composition/web/main.tsx").read_text(encoding="utf-8")
         adapter = (ROOT / "system/adapters/native/browser-favorites.mjs").read_text(encoding="utf-8")
-        self.assertIn("createNativeBrowserFavoritesStore", native)
+        # Preserve the canonical host adapter without forcing an unused eager import.
+        self.assertIn("export function createNativeBrowserFavoritesStore", adapter)
+        self.assertNotIn("createNativeBrowserFavoritesStore", native)
         self.assertNotIn("createBrowserFavoritesRuntime", native)
         self.assertNotIn("createNativeBrowserFavoritesStore", web)
         self.assertIn("ordax.native.browser-favorites.v1", adapter)

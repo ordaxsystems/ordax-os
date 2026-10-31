@@ -1,0 +1,38 @@
+{
+  "$schema": "prototype-ordax.storage-quota-forward-migration-preflight/1",
+  "observed_date": "2026-10-26",
+  "target_project_ref": "jhfphsjptrpmtnzkpwud",
+  "method": "Supabase read-only SQL: EXISTS, to_regclass, to_regnamespace and to_regprocedure only",
+  "observed": {
+    "project_auth_users_present": true,
+    "spaces_table_present": true,
+    "entitlement_table_present": true,
+    "private_schema_present": true,
+    "auth_uid_present": true,
+    "touch_timestamp_present": true,
+    "session_eligibility_present": true,
+    "reviewed_space_authority_present": true,
+    "obsolete_policy_schema_present": false,
+    "object_table_present": false,
+    "provider_refs_table_present": false,
+    "upload_reservation_table_present": false,
+    "quota_usage_table_present": false,
+    "quota_reservation_table_present": false,
+    "quota_reserve_rpc_present": false,
+    "quota_reduce_rpc_present": false,
+    "quota_status_rpc_present": false
+  },
+  "renderer": "infra/supabase/product/render_storage_quota_destination_migration.py",
+  "synthetic_database_proof": "https://github.com/ordaxsystems/ordax-os/actions/runs/40407828654",
+  "synthetic_sql_test_passed": true,
+  "public_account_release_approved": false,
+  "production_ddl_executed": false,
+  "production_sql_generated_and_committed": false,
+  "actual_two_auth_account_isolation_tested": false,
+  "private_schema_data_api_exclusion_verified": false,
+  "safety_notes": [
+    "The read-only inventory proves preconditions but does not prove DDL can be safely deployed on the live event-trigger and migration-ledger boundary.",
+    "The PostgreSQL synthetic fixture does not represent real Supabase Auth/JWT behavior or prove production isolation.",
+    "For an actual migration, deploy only via reviewed migration tracking, and only after production schema/roles and staging parity checks."
+  ]
+}

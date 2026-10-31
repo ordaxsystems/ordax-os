@@ -21,27 +21,25 @@ INTER_LICENSE = ROOT / "third_party" / "licenses" / "Inter-OFL-1.1.txt"
 
 
 class SurfaceVisualIdentityTests(unittest.TestCase):
-    def test_midnight_ice_tokens_are_canonical(self):
-        tokens = (SURFACE / "tokens.css").read_text(encoding="utf-8")
-        self.assertNotIn("#ed4b25", tokens)
+    def test_meridian_tokens_are_canonical(self):
+        tokens = (SURFACE / "meridian.tokens.css").read_text(encoding="utf-8")
+        aliases = (SURFACE / "meridian.css").read_text(encoding="utf-8")
         for declaration in (
-            "--ordax-bg: #0a0f1f",
-            "--ordax-app-bg: #111827",
-            "--ordax-panel: #161f33",
-            "--ordax-text: #e3f0ff",
-            "--ordax-accent: #8dbbff",
-            "--ordax-bg: #edf3fc",
-            "--ordax-app-bg: #f8fbff",
-            "--ordax-panel: #ffffff",
-            "--ordax-text: #14213b",
-            "--ordax-accent: #235ac0",
-            "--ordax-font: Inter, system-ui, \"Segoe UI\", sans-serif",
-            "--ordax-font-display: Inter, system-ui, \"Segoe UI\", sans-serif",
-            "--ordax-motion-fast: 150ms",
-            "--ordax-motion-base: 200ms",
-            "--ordax-motion-slow: 250ms",
+            "--md-canvas:#f4f2ed;",
+            "--md-surface:#fffcf7;",
+            "--md-ink:#282c29;",
+            "--md-accent:#a44426;",
+            '--md-font:Inter,system-ui,"Segoe UI",sans-serif;',
         ):
             self.assertIn(declaration, tokens)
+        for declaration in (
+            "--ordax-bg:var(--md-canvas)",
+            "--ordax-panel:var(--md-surface)",
+            "--ordax-text:var(--md-ink)",
+            "--ordax-accent:var(--md-accent)",
+            "--ordax-font:var(--md-font)",
+        ):
+            self.assertIn(declaration, aliases)
 
     def test_identity_preserves_theme_default_and_public_values(self):
         appearance = APPEARANCE.read_text(encoding="utf-8")
@@ -64,8 +62,13 @@ class SurfaceVisualIdentityTests(unittest.TestCase):
         self.assertFalse((SURFACE / "app-identity.css").exists())
 
         css = identity.read_text(encoding="utf-8")
-        self.assertIn("var(--ordax-accent)", css)
-        self.assertIn("var(--ordax-panel)", css)
+        self.assertIn("var(--md-accent)", css)
+        self.assertIn("var(--md-rail)", css)
+        self.assertIn("var(--md-surface)", css)
+        # Legacy semantic aliases are mapped once from Meridian tokens.
+        meridian = (SURFACE / "meridian.css").read_text(encoding="utf-8")
+        self.assertIn("--ordax-accent:var(--md-accent)", meridian)
+        self.assertIn("--ordax-panel:var(--md-surface)", meridian)
         self.assertIn(".ordax-window", css)
         self.assertIn(".ordax-rail", css)
         self.assertIn(".ordax-launcher-panel", css)
@@ -75,21 +78,27 @@ class SurfaceVisualIdentityTests(unittest.TestCase):
             html = index.read_text(encoding="utf-8")
             self.assertIn('../../surface/ui/identity.css', html)
             self.assertNotIn('../../surface/ui/app-identity.css', html)
-            self.assertIn('name="theme-color" content="#edf3fc"', html)
+            palette = (SURFACE / "meridian.tokens.css").read_text(encoding="utf-8")
+            self.assertIn("--md-canvas:#f4f2ed;", palette)
+            self.assertIn('name="theme-color" content="#f4f2ed"', html)
 
     def test_refreshed_shell_keeps_launcher_dock_and_panels_anchored(self):
         css = (SURFACE / "identity.css").read_text(encoding="utf-8")
+        meridian = (SURFACE / "meridian.css").read_text(encoding="utf-8")
         for declaration in (
             ".ordax-launcher {",
             "top: auto;",
             "transform: translateX(-50%);",
             ".ordax-launcher-app .ordax-app-mark {",
             ".ordax-statusbar {",
-            ".ordax-running-app[data-active=\"true\"] {",
             ".ordax-quick-panel-layer {",
             ".ordax-quick-panel-header {",
         ):
             self.assertIn(declaration, css)
+        self.assertIn(
+            ':is(.ordax-dock-shortcut,.ordax-running-app,.desktop-task)[data-active="true"]',
+            meridian,
+        )
 
     def test_local_session_lock_uses_product_tokens_without_legacy_warm_fallback(self):
         css = LOCK_CSS.read_text(encoding="utf-8")
@@ -201,9 +210,15 @@ class SurfaceVisualIdentityTests(unittest.TestCase):
         self.assertEqual(wallpaper[:8], b'\x89PNG\r\n\x1a\n')
         self.assertEqual(hashlib.sha256(wallpaper).hexdigest(),
                          '805969ce2fb30001842a545c2dead4516285bcc4973a8673f66aa3599d2601ce')
-        css = (SURFACE / 'identity.css').read_text(encoding='utf-8')
-        self.assertIn('url("./brand/midnight-landscape.png")', css)
-        self.assertNotRegex(css, r'#[a-fA-F0-9]{3,8}\b')
+        css = (SURFACE / 'meridian.css').read_text(encoding='utf-8')
+        # The pinned historical artwork stays provenance-bound, while
+        # Meridian deliberately uses the single canonical field artwork.
+        self.assertIn('url("./brand/meridian-field.svg")', css)
+        self.assertNotIn('url("./brand/midnight-landscape.png")', css)
+        # Solid black is the opacity stop in dock mask-image gradients, not a
+        # theme color. Keep the no-hardcoded-palette check on actual paint CSS.
+        paint_css = re.sub(r'mask-image:\s*linear-gradient\([^;]*\);', '', css)
+        self.assertNotRegex(paint_css, r'#[a-fA-F0-9]{3,8}\b')
         provenance = (SURFACE / 'brand' / 'ARTWORK-SOURCE.md').read_text(encoding='utf-8')
         self.assertIn(hashlib.sha256(wallpaper).hexdigest(), provenance)
         self.assertIn('No text, logo, interface', provenance)

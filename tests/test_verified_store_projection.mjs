@@ -181,6 +181,29 @@ test("calculator module read is ready while unsupported Native probation keeps S
   projection.destroy();
 });
 
+test("Aura derives its displayed title from verified catalog but cannot install without probation", async () => {
+  const projection = createVerifiedAppStoreProjection({
+    verifiedCatalogPort: catalogPort(ready([
+      candidate("assistant", "0.1.2", "Aura"),
+    ])).port,
+    componentSource: source(),
+    fetchImpl: fetchFrom({ assistant: metadata("assistant") }),
+  });
+  await projection.refresh();
+  const snapshot = projection.port.getSnapshot();
+  assert.equal(snapshot.state, "ready");
+  const aura = snapshot.entries.find(item => item.appId === "assistant");
+  assert.ok(aura);
+  assert.equal(aura.title, "Aura");
+  assert.equal(aura.state, "blocked");
+  assert.equal(aura.blockedReason, "runtime-probation-unavailable");
+  assert.equal(aura.installable, false);
+  assert.equal(aura.updatable, false);
+  assert.equal(aura.artifactIdentityVerified, true);
+  assert.equal(aura.provenanceVerified, true);
+  projection.destroy();
+});
+
 test("exact active slot is installed and a newer verified catalog candidate is updatable", async () => {
   for (const [currentVersion, currentCommit, expected] of [
     ["0.4.3", SOURCE_COMMIT, { updatable: false, availableVersion: null }],

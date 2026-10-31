@@ -14,6 +14,8 @@ npm run emulator:windows
 ```
 
 Open `http://127.0.0.1:4202/tools/windows-emulator/index.html`.
+
+To test from another computer on the same trusted local network, set `ORDAX_EMULATOR_HOST` to the development PC LAN address before starting Vite (for example `192.168.100.197`). The default remains loopback-only. This exposes the development host and its mock state endpoints to that LAN; it is not a production server or a bridge to USB hardware.
 The existing development supervisor watches origin/main and applies only a clean
 fast-forward. Local edits pause Git updates; Vite continues serving the checkout.
 Network failure or divergence never causes reset/discard of source work.
@@ -32,17 +34,33 @@ They validate canonical contracts and persist in `out/windows-emulator-state/`,
 separate from physical USB state. Resetting First Run preserves preferences.
 Unreadable persisted data is not silently overwritten.
 
+Account requests use the same `system/services/account/gateway-base-url` as the
+USB Native host. The development host calls that HTTPS gateway server-side,
+keeps its account cookies in process memory, and exposes only the validated
+same-origin account responses to the Native composition. Passwords and session
+cookies are not written to browser storage or emulator state files. Requests
+remain local-loopback only. Only the packaged Windows Desktop host may
+opt in to the same gateway with a CurrentUser DPAPI encrypted cookie vault;
+the plain emulator intentionally remains memory-only. Existing-account
+sign-in uses the real gateway;
+registration stays disabled under the Native product policy until the backend
+legal and activation gates are released.
+
 The emulator does not provide Linux/kernel boot, Wi-Fi control, power actions,
-disk access, local authentication credentials, verified package installation,
-privileged WebKit App Data or Intelligence host IPC. Unsupported endpoints fail
-closed; the existing Native UI reports their capability availability. No fake
-privileged browser bridge or authenticated identity is installed.
+disk access, local-device authentication credentials, verified package
+installation, privileged WebKit App Data or Intelligence host IPC. Unsupported
+endpoints fail closed; the existing Native UI reports their capability
+availability. No fake privileged browser bridge or authenticated identity is
+installed. If the HTTPS account gateway cannot be reached or rejects the
+session, the shared Native account UI remains unavailable rather than showing a
+mock signed-in user.
 
 Existing older emulator browser-storage keys remain untouched; they are no longer
 runtime authorities. The canonical Native adapters now own the UI's ports.
 
-The small development control can restart First Run. It is outside the Native
-frame and is not shipped as product UI.
+The development-only First Run reset stays outside the Native frame and is not
+shipped as product UI. It is hidden in the normal emulator view; append
+`?dev-controls=1` to the URL when you need the reset tool.
 
 ## Verification
 

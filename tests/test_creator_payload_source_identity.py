@@ -16,6 +16,7 @@ FULL = ROOT / ".github/workflows/full-bootstrap-media-proof.yml"
 PAYLOAD = ROOT / ".github/workflows/creator-payload-candidate.yml"
 GROWTH = ROOT / "bootstrap/initramfs/prove_ext4_growth.sh"
 PREPARED = ROOT / "tools/creator/proof/prove_prepared_ext4_growth.sh"
+OWNER = ROOT / ".github/workflows/creator-owner-dev-git.yml"
 
 spec = importlib.util.spec_from_file_location("ordax_creator_assemble_identity", ASSEMBLER)
 module = importlib.util.module_from_spec(spec)
@@ -53,6 +54,25 @@ class CreatorPayloadSourceIdentityTests(unittest.TestCase):
         full = FULL.read_text(encoding="utf-8")
         self.assertNotIn("environ['GITHUB_SHA']", full)
         self.assertIn("environ['ORDAX_SOURCE_COMMIT']", full)
+
+    def test_prepared_ext4_proof_uses_only_verified_independent_creator_source(self):
+        source = PREPARED.read_text(encoding="utf-8")
+        self.assertIn('CREATOR_SOURCE="${ORDAX_CREATOR_NATIVE_SOURCE:-}"', source)
+        self.assertIn("docs/contracts/native-release-assembly.json", source)
+        self.assertIn("ORDAX_CREATOR_SOURCE_COMMIT", source)
+        self.assertIn("ORDAX_CREATOR_SOURCE_TREE", source)
+        self.assertIn("git('rev-parse', 'HEAD^{tree}')", source)
+        self.assertIn("git('status', '--porcelain', '--untracked-files=all')", source)
+        self.assertIn('cd "$CREATOR_SOURCE"', source)
+        self.assertIn("CREATOR_PREPARED_IMAGE_SOURCE=PINNED_INDEPENDENT", source)
+        self.assertIn("CREATOR_PREPARED_PHYSICAL_WRITE=NOT_AUTHORIZED", source)
+        self.assertNotIn('pushd "$ROOT/tools/creator"', source)
+        self.assertIn('"creator_source_repository": "$ORDAX_CREATOR_SOURCE_REPOSITORY"', source)
+        self.assertIn('"creator_source_commit": "$ORDAX_CREATOR_SOURCE_COMMIT"', source)
+        self.assertIn('"creator_source_tree": "$ORDAX_CREATOR_SOURCE_TREE"', source)
+        owner = OWNER.read_text(encoding="utf-8")
+        self.assertIn("'tools/creator/proof/prove_prepared_ext4_growth.sh'", owner)
+        self.assertIn("'tests/test_creator_payload_source_identity.py'", owner)
 
     def test_media_proofs_prefer_explicit_ordax_source_identity(self):
         for path in (GROWTH, PREPARED):

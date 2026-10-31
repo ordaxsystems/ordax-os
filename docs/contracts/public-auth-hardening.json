@@ -190,7 +190,7 @@
     "account_create_trigger_count": 1,
     "legal_acceptance_negative_transactional_proof_passed": true,
     "backend_only_rpc_grants_verified": true,
-    "active_legal_policy_present": false,
+    "active_legal_policy_present": true,
     "public_account_gateway_deployed": true,
     "public_login_enabled": false,
     "public_registration_enabled": false,
@@ -199,7 +199,7 @@
     "provider_settings_e2e_verified": false,
     "session_revocation_e2e_verified": false,
     "recovery_e2e_verified": false,
-    "warning": "Web authentication transport is live on ordax-platform, but broad public Account activation remains gated by registration, recovery, revocation and legal readiness. Do not interpret transport proof as activation authorization.",
+    "warning": "Active legal policy and user records exist in the destination database, but approved legal snapshots, operator review, provider cutover and real Account E2E remain blocked. Do not treat a database policy state as permission to enable public accounts.",
     "database_rate_limit_full_sql_proof_passed": true,
     "database_rate_limit_test_rows_rolled_back": true,
     "legacy_legal_quarantine_applied": true,
@@ -261,7 +261,13 @@
     "internal_gateway_staging_source_commit": "fd17f81a1092c3c587bd1c6009c6c1c80c93779d",
     "destination_internal_gateway_anonymous_http_denials_verified": true,
     "destination_internal_gateway_http_proof_source": "external-host-http-2026-10-09-no-cookies-no-secrets",
-    "destination_internal_gateway_platform_auth_custom": true
+    "destination_internal_gateway_platform_auth_custom": true,
+    "active_legal_policy_observation_evidence": "docs/evidence/account-legal-destination-state-2026-10-26.json",
+    "existing_auth_users_observed": true,
+    "existing_auth_users_observation_evidence": "docs/evidence/account-legal-destination-state-2026-10-26.json",
+    "database_privilege_readonly_observation": "docs/evidence/public-account-postgres-privilege-observation-2026-10-26.json",
+    "private_helper_dependency_evidence": "docs/evidence/authenticated-private-helper-dependencies-2026-10-26.json",
+    "private_rls_helper_contract": "docs/contracts/public-auth-rls-private-helpers.json"
   },
   "rules": {
     "public_login_must_fail_closed_until_all_required_gates_pass": true,

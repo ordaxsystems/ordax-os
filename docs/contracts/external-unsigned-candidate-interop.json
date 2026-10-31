@@ -2,9 +2,6 @@
   "$schema": "prototype-ordax.external-unsigned-candidate-interop/1",
   "status": "read-only-contract-proof",
   "source_repository": "ordaxsystems/ordax-apps",
-  "source_commit": "acaa6b0ae910b89334dbb1cbf3cfe9203f5faa5e",
-  "component_id": "notes",
-  "component_version": "0.4.3",
   "handoff_schema": "ordax-apps.unsigned-component-candidate/1",
   "release_schema": "prototype-ordax.runtime-component-release/2",
   "package_schema": "prototype-ordax.runtime-component-package/1",
@@ -15,5 +12,19 @@
   "publication_authorized": false,
   "installation_authorized": false,
   "activation_authorized": false,
-  "authority": "none"
+  "authority": "none",
+  "fixtures": [
+    {
+      "component_id": "notes",
+      "component_version": "0.4.3",
+      "source_commit": "acaa6b0ae910b89334dbb1cbf3cfe9203f5faa5e",
+      "compatibility_path": "migrations/notes.compatibility.json"
+    },
+    {
+      "component_id": "assistant",
+      "component_version": "0.1.2",
+      "source_commit": "578d38256fc906e7208764ef0b2616c8d64b784f",
+      "compatibility_path": "apps/assistant/compatibility.json"
+    }
+  ]
 }

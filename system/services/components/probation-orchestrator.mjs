@@ -72,7 +72,7 @@ export async function runSystemPendingComponentProbation({
   componentId,
   source,
   fetchImpl = globalThis.fetch?.bind(globalThis),
-  importModule = (url) => import(url),
+  importModule = null,
   mountContext = null,
   timeoutMs = 5_000,
 } = {}) {

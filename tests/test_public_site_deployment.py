@@ -38,23 +38,57 @@ class PublicSiteDeploymentTests(unittest.TestCase):
         self.vercel_proxy = VERCEL_PROXY_CORE.read_text(encoding="utf-8")
 
     def test_web_login_bundle_contains_shared_css_brand_dependency(self):
+        # The Site owns these build outputs; OS only composes the narrow
+        # identity closure into Web. Do not depend on OS's removed Surface CSS.
         spec = importlib.util.spec_from_file_location("web_login_deployment", ROOT / "tools/vercel/build.py")
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
-        with tempfile.TemporaryDirectory() as directory, patch.object(module, "OUTPUT", Path(directory)):
-            module.compose_web_identity_bootstrap("a" * 40)
-            output = Path(directory)
-            css = (output / "assets/ordax-design-tokens.css").read_text(encoding="utf-8")
-            dependencies = re.findall(r'url\(\s*[\"\']?([^\"\')]+)', css)
-            self.assertIn("./ordax-symbol.png", dependencies)
-            for dependency in dependencies:
-                self.assertTrue((output / "assets" / dependency).is_file(), dependency)
-            self.assertEqual((output / "assets/ordax-symbol.png").read_bytes(),
-                             (ROOT / "system/surface/ui/brand/ordax-symbol.png").read_bytes())
-            module.write_web_deployment_manifest("a" * 40)
-            receipt = json.loads((output / module.WEB_DEPLOYMENT_MANIFEST).read_text(encoding="utf-8"))
-            self.assertIn("assets/ordax-symbol.png", receipt["identity_support_files"])
-            self.assertIn("assets/ordax-symbol.png", {item["path"] for item in receipt["files"]})
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            output = root / "web"
+            staged = root / "verified-site"
+
+            def materialize_test_site(_dest):
+                staged.mkdir(parents=True, exist_ok=True)
+                for relative in module.WEB_IDENTITY_SUPPORT_FILES:
+                    target = _dest / relative
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    target.write_text("site-owned-output", encoding="utf-8")
+                (_dest / "assets/ordax-design-tokens.css").write_text(
+                    "a{background-image:url('./ordax-symbol.png')}", encoding="utf-8")
+                (_dest / "assets/ordax-symbol.png").write_bytes(b"pinned-site-symbol")
+                (_dest / "config/public-site.json").write_text(
+                    json.dumps({"identity": {
+                        "login_url": "/auth/login",
+                        "turnstile_sitekey": "0x4AAAAAAFR-Kz0Uc9rNW_iE",
+                    }}), encoding="utf-8")
+                login = _dest / "login/index.html"
+                login.parent.mkdir(parents=True, exist_ok=True)
+                login.write_text(
+                    '<html><head><link href="/assets/site.css" rel="stylesheet">'
+                    '<script src="/assets/site.js"></script></head>'
+                    '<body><form data-identity-form="login" action="/auth/login"></form>'
+                    '<a href="/cadastro/">Cadastro</a></body></html>', encoding="utf-8")
+                return "c" * 40
+
+            with patch.object(module, "OUTPUT", output), patch.object(
+                module, "build_independent_site_candidate", materialize_test_site
+            ):
+                module.compose_web_identity_bootstrap("a" * 40)
+                css = (output / "assets/ordax-design-tokens.css").read_text(encoding="utf-8")
+                dependencies = re.findall(r"url\(\s*['\"]?([^'\")]+)", css)
+                self.assertIn("./ordax-symbol.png", dependencies)
+                for dependency in dependencies:
+                    self.assertTrue((output / "assets" / dependency).is_file(), dependency)
+                self.assertEqual((output / "assets/ordax-symbol.png").read_bytes(),
+                                 b"pinned-site-symbol")
+                module.write_web_deployment_manifest("a" * 40)
+                receipt = json.loads((output / module.WEB_DEPLOYMENT_MANIFEST).read_text(encoding="utf-8"))
+                self.assertEqual(receipt["site_source_repository"], "ordaxsystems/ordax-site")
+                self.assertEqual(receipt["login_runtime_owner"],
+                                 "ordaxsystems/ordax-site:site/assets/site.js")
+                self.assertIn("assets/ordax-symbol.png", receipt["identity_support_files"])
+                self.assertIn("assets/ordax-symbol.png", {item["path"] for item in receipt["files"]})
 
     def test_vercel_ignore_build_is_fail_safe_on_first_deploy_and_git_history_gaps(self):
         self.assertEqual(
@@ -102,7 +136,7 @@ class PublicSiteDeploymentTests(unittest.TestCase):
                 return result.returncode
 
             git("init")
-            write("sites/public/index.html", "<h1>OrdaX</h1>")
+            write("docs/contracts/public-site-source.json", '{"commit":"site-a"}')
             write("docs/README.md", "initial documentation")
             initial = commit("initial")
             self.assertEqual(ignored("", initial), 1)
@@ -115,7 +149,7 @@ class PublicSiteDeploymentTests(unittest.TestCase):
             self.assertEqual(ignored(initial, docs_only), 0)
             self.assertEqual(ignored(initial, docs_only, "production"), 0)
 
-            write("sites/public/index.html", "<h1>OrdaX updated</h1>")
+            write("docs/contracts/public-site-source.json", '{"commit":"site-b"}')
             site_change = commit("public site change")
             self.assertEqual(ignored(docs_only, site_change), 1)
 
@@ -128,6 +162,21 @@ class PublicSiteDeploymentTests(unittest.TestCase):
         self.assertTrue(migration["registrar_nameserver_update_completed"])
         self.assertTrue(migration["public_delegation_points_to_destination"])
         self.assertTrue(migration["destination_https_and_www_production_revalidated_after_delegation"])
+        self.assertEqual(migration["status"], "dedicated-zone-active-independent-registrar-and-https-verified")
+        self.assertTrue(migration["independent_parent_ns_recheck_completed"])
+        self.assertEqual(migration["independent_parent_ns_registrar_source"], "https://rdap.registro.br/domain/ordax.com.br")
+        proof_path = ROOT / migration["independent_parent_ns_evidence"]
+        proof = json.loads(proof_path.read_text(encoding="utf-8"))
+        self.assertEqual(proof["domain"], "ordax.com.br")
+        self.assertEqual(proof["registry"]["observed_nameservers"], migration["destination_nameservers"])
+        self.assertEqual(proof["cloudflare"]["observed_nameservers"], migration["destination_nameservers"])
+        self.assertEqual(proof["cloudflare"]["zone_id"], migration["destination_zone_id"])
+        self.assertEqual(proof["vercel"]["project_id"], PUBLIC_VERCEL_PROJECT_ID)
+        self.assertTrue(proof["https"]["certificate_validation_enabled"])
+        self.assertEqual(proof["https"]["www_http_status"], 308)
+        self.assertEqual(proof["https"]["account_session_http_status"], 200)
+        self.assertFalse(proof["security_scope"]["authenticated_account_e2e_proven"])
+        self.assertTrue(proof["security_scope"]["no_legacy_zone_deletion"])
         self.assertFalse(migration["source_zone_may_be_removed"])
         self.assertFalse(migration["legacy_catalog_data_deleted"])
 
@@ -151,7 +200,7 @@ class PublicSiteDeploymentTests(unittest.TestCase):
     def test_live_oidc_and_gateway_transport_are_proven_without_opening_full_account(self):
         self.assertEqual(
             self.contract["status"],
-            "canonical-public-edge-v8-oidc-bridge-runtime-proven-account-activation-gated",
+            "canonical-public-edge-oidc-bridge-runtime-proven-account-activation-gated",
         )
         self.assertEqual(
             self.contract["runtime_evidence"],
@@ -178,14 +227,22 @@ class PublicSiteDeploymentTests(unittest.TestCase):
 
         edge = self.contract["public_edge_gateway"]
         self.assertTrue(edge["deployed"])
-        self.assertEqual(edge["deployed_version"], 8)
+        parity = json.loads((ROOT / edge["current_runtime_source_parity_evidence"]).read_text(encoding="utf-8"))
+        historical = json.loads(RUNTIME_EVIDENCE.read_text(encoding="utf-8"))
+        self.assertGreaterEqual(edge["deployed_version"], historical["runtime"]["public_gateway"]["version"])
+        self.assertEqual(edge["deployed_version"], parity["public_gateway"]["version"])
+        self.assertTrue(parity["public_gateway"]["all_deployed_source_files_match_main"])
         self.assertEqual(edge["canonical_project_ref"], "jhfphsjptrpmtnzkpwud")
         self.assertTrue(edge["runtime_provenance_e2e_verified"])
         self.assertTrue(edge["named_inner_service_bridge_provisioned"])
         self.assertTrue(edge["named_inner_service_bridge_runtime_e2e_verified"])
         self.assertEqual(edge["named_inner_service_bridge_http_status"], 200)
         self.assertIsNone(edge["named_inner_service_bridge_diagnostic"])
-        self.assertEqual(edge["inner_gateway_deployed_version"], 13)
+        self.assertGreaterEqual(edge["inner_gateway_deployed_version"], historical["runtime"]["internal_gateway"]["version"])
+        self.assertEqual(edge["inner_gateway_deployed_version"], parity["internal_gateway"]["version"])
+        self.assertTrue(parity["internal_gateway"]["all_deployed_source_files_match_main"])
+        self.assertFalse(parity["anonymous_transport"]["public_registration_enabled"])
+        self.assertFalse(parity["public_auth_gates_changed"])
         self.assertFalse(edge["inner_gateway_platform_verify_jwt"])
         self.assertFalse(edge["oidc_authorization_forwarded_to_inner_gateway"])
         self.assertFalse(edge["sensitive_proxy_headers_forwarded_to_inner_gateway"])
@@ -289,6 +346,23 @@ class PublicSiteDeploymentTests(unittest.TestCase):
         self.assertFalse(bot["production_e2e_verified"])
         self.assertFalse(bot["secret_may_exist_in_repository"])
         self.assertFalse(bot["token_forwarded_to_inner_gateway"])
+
+    def test_web_runtime_cutover_owner_and_live_turnstile_hostname_contract(self):
+        # Revalidated against the authoritative production Turnstile widget
+        # on 2026-10-30. Web's project split does not activate public access.
+        web = self.contract["vercel_adapter"]["web_runtime"]
+        self.assertEqual(web["project"], "ordax-web")
+        self.assertEqual(web["project_id"], "prj_ftACluUqk6i9DoD9GPIwmgURwckP")
+        self.assertEqual(web["canonical_origin"], "https://web.ordax.com.br")
+        self.assertEqual(web["mount_path"], "/")
+
+        bot = self.contract["bot_protection"]
+        self.assertEqual(
+            bot["hostname_allowlist"],
+            ["ordax.com.br", "web.ordax.com.br", "www.ordax.com.br"],
+        )
+        self.assertFalse(bot["production_e2e_verified"])
+        self.assertFalse(self.contract["routing"]["gateway_public_activation_currently_enabled"])
 
     def test_nginx_adapter_is_loopback_only_and_does_not_replace_vercel_identity(self):
         adapter = self.contract["adapter"]
