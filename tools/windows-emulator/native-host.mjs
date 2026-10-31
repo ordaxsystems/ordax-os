@@ -251,6 +251,7 @@ export function nativeEmulatorPlugin(stateDirectory, { desktopHost = false, acco
             // signs a component, grants MCP access or enables Stable/MVP.
             developmentCandidate:process.env.ORDAX_DESKTOP_HOST==="1" &&
               process.env.ORDAX_DESKTOP_MCP_DEV==="1",
+            log:message=>console.info("runtime: "+message),
           });
           void productRuntime.reconcile().catch(() => {});
           // Re-check post-boot enrollment and trust under one serialized
