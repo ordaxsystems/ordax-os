@@ -31,6 +31,7 @@ LIGHT_EXACT = frozenset({
     "README.md",
     # Removed Profile plan is only eligible through a verified deletion.
     "00-PLANOS-PRIORITARIOS/REGISTRY.md",
+    "00-PLANOS-PRIORITARIOS/README.md",
     "PLANO-00-ESTADO-ATUAL-E-PRIORIDADES.md",
     "PLANO-04-FUNDACAO-ECOSSISTEMA-PRE-MVP.md",
     "00-PLANOS-PRIORITARIOS/ROADMAP.md",

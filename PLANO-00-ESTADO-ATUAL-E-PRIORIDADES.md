@@ -1,6 +1,6 @@
 # OrdaX — estado atual e prioridades de execução
 
-**Status:** ARCHIVED — snapshot histórico, não prioridade operacional corrente. **Revisão original:** 02/10/2026. **Base:** `main`, sempre revalidada contra contratos e source estruturado; este documento não fixa um SHA como autoridade.
+**Status:** ARCHIVED — snapshot histórico de 02/10/2026, **não** prioridade operacional corrente. Não seguir o antigo P0 Creator/USB: em 31/10/2026, o Windows Desktop e as funcionalidades básicas têm precedência; consultar `docs/CURRENT-STATE.md`, `docs/DEVELOPMENT-WORKFLOW.md` e `MVP.md`. **Revisão original:** 02/10/2026. **Base:** `main`, sempre revalidada contra contratos e source estruturado; este documento não fixa um SHA como autoridade.
 
 Este arquivo existe para impedir que inventários históricos dos planos longos sejam usados como se fossem o estado atual do repositório. Ele **não substitui a especificação de produto** de `PLANO-FUNCIONAL-SURFACE-E-APPS.md` nem a análise de legado de `PLANO-02-EVOLUCAO-E-REAPROVEITAMENTO-DO-LEGADO.md`. Quando houver divergência sobre **o que já existe, o que já foi provado ou qual é a próxima prioridade**, prevalecem, nesta ordem:
 

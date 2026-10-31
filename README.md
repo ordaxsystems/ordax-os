@@ -25,7 +25,7 @@ O roteador de planejamento fica em [`00-PLANOS-PRIORITARIOS/`](00-PLANOS-PRIORIT
 1. [`00-PLANOS-PRIORITARIOS/ROADMAP.md`](00-PLANOS-PRIORITARIOS/ROADMAP.md);
 2. [`00-PLANOS-PRIORITARIOS/REGISTRY.md`](00-PLANOS-PRIORITARIOS/REGISTRY.md).
 
-Durante a janela atual, a prioridade é **fechar o MVP pelos owners canônicos**. Planos futuros podem ser documentados, auditados e preservados, mas não formam uma fila automática de implementação. `READY` não significa `EXECUTION-ELIGIBLE`.
+**Prioridade vigente (31/10/2026): OrdaX Desktop Windows funcional primeiro**, incluindo Conta/Spaces, Loja/Apps, Aura, arquivos e Platform, com validações focadas. Web evolui por seu próprio canal. USB, Creator, Buildroot e homologação física vêm depois e **não bloqueiam** o Desktop/Web. `MVP.md` já esclarece que "MVP" é nomenclatura histórica. Planos futuros podem ser preservados, mas `READY` não significa `EXECUTION-ELIGIBLE`.
 
 Os planos antigos da raiz permanecem temporariamente nos caminhos atuais porque ainda possuem referências vivas. Eles são subordinados a `docs/README.md`, `docs/CURRENT-STATE.md`, `MVP.md`, contratos, ADRs e owners canônicos.
 
