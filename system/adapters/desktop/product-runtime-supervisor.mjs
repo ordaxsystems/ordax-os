@@ -217,6 +217,10 @@ export function createDesktopProductRuntimeSupervisor({
      typeof spawnImpl!=="function"||typeof log!=="function")
     throw TypeError("OrdaX Supervisor requires OS-owned roots and verifier");
   let active=null,closed=false,transition=Promise.resolve();
+  // Exit 43 is the canonical Runtime credential-recovery request. Repeating
+  // the same rejected identity every 30s cannot repair it and wastes calls.
+  // Never persist the token or authorize retry until its fingerprint changes.
+  let credentialRecoveryFingerprint=null;
   let current=snapshot("blocked","not_checked",false);
   const stopActive=()=>{
     if(!active)return true;
@@ -246,6 +250,12 @@ export function createDesktopProductRuntimeSupervisor({
       const ended=stopActive();
       return current=snapshot(ended?"blocked":"stopping","device_not_enrolled",false);
     }
+    if(credentialRecoveryFingerprint===identity.tokenFingerprint){
+      const ended=stopActive();
+      return current=snapshot(ended?"blocked":"stopping",
+        "device_credential_recovery_required",true);
+    }
+    credentialRecoveryFingerprint=null;
     let gate=null;
     try{gate=readReleaseGate(systemRoot)}catch{}
     // The unsigned candidate is eligible ONLY by explicit local DEV opt-in,
@@ -326,7 +336,8 @@ export function createDesktopProductRuntimeSupervisor({
     }catch{
       return current=snapshot("blocked","runtime_spawn_failed",true);
     }
-    active={key,child,stopRequested:false};
+    active={key,child,stopRequested:false,
+      tokenFingerprint:prepared.identity.tokenFingerprint};
     child.once?.("error",()=>{
       if(active?.child===child){
         active=null;
@@ -334,11 +345,22 @@ export function createDesktopProductRuntimeSupervisor({
           current=snapshot("blocked","runtime_spawn_failed",true);
       }
     });
-    child.once?.("exit",()=>{
+    child.once?.("exit",(code)=>{
       if(active?.child===child){
+        // An exit code is safe to publish; never log stderr, tokens, paths or
+        // the remote control-plane payload as part of lifecycle diagnostics.
+        log("Product Runtime exit code="+(Number.isInteger(code)?code:"signal"));
+        // Runtime exit 43 means the Device credential was rejected or its
+        // canonical store is unavailable. The only authorized recovery is
+        // owner re-enrollment, not infinite process restarts or bypasses.
+        const needsRecovery=code===43&&!active.stopRequested&&!closed;
+        if(needsRecovery)
+          credentialRecoveryFingerprint=active.tokenFingerprint;
         active=null;
         if(current.state==="running"||current.state==="stopping")
-          current=snapshot("stopped","runtime_exited",true);
+          current=needsRecovery
+            ? snapshot("blocked","device_credential_recovery_required",true)
+            : snapshot("stopped","runtime_exited",true);
       }
     });
     log("OrdaX product runtime process owned by Native host; remote session not attested");
