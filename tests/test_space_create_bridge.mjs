@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import { Readable } from "node:stream";
+import { createServer } from "node:http";
 import { createEmulatorAccountGateway } from "../tools/windows-emulator/account-gateway.mjs";
 import { validateSpaceCreateCommand, validateSpaceCreateReceipt } from "../system/contracts/space-creation.mjs";
 import { assertSpaceCreatePort } from "../system/contracts/space-create-port.mjs";
@@ -381,6 +382,68 @@ test("Native Space creation port honors replay and denies gateway failures, wron
       port.dispose();
     }
   }
+});
+
+test("Desktop Space creation crosses the real loopback HTTP gateway without creating a Profile twice", async (t) => {
+  // Exercise the existing Desktop adapter AND Account middleware through an
+  // actual bound socket. RPC transport is stubbed at the external HTTPS edge;
+  // no account, database or installed Windows profile is mutated by this test.
+  const gateway = fakeWindowsAccountGateway();
+  const httpServer = createServer((incoming, response) => {
+    void gateway.middleware(incoming, response).then((handled) => {
+      if (!handled && !response.writableEnded) {
+        response.writeHead(404);
+        response.end();
+      }
+    }).catch(() => {
+      if (!response.writableEnded) {
+        response.writeHead(503);
+        response.end();
+      }
+    });
+  });
+  await new Promise((resolve, reject) => {
+    httpServer.once("error", reject);
+    httpServer.listen(0, "127.0.0.1", resolve);
+  });
+  t.after(() => new Promise((resolve) => httpServer.close(resolve)));
+  const address = httpServer.address();
+  assert.ok(address && typeof address === "object");
+  const origin = `http://127.0.0.1:${address.port}`;
+  const account = nativeIdentity();
+  const windowRef = desktopBrowser((path, options) =>
+    fetch(origin + path, {
+      ...options,
+      // Chromium supplies this automatically for same-origin POST; Node
+      // fetch does not, so the harness models the exact renderer Origin.
+      headers: { ...options.headers, Origin: origin },
+    }));
+  const port = assertSpaceCreatePort(createDesktopSpaceCreatePort(windowRef, account));
+  t.after(() => port.dispose());
+
+  const receipt = await port.create(request());
+  assert.equal(receipt.created, true);
+  assert.equal(receipt.space.ownerId, SUBJECT);
+  assert.equal(receipt.space.profilePack, null);
+  assert.deepEqual(receipt.profileToProvision, { slug: "pizzaria-br", version: 1 });
+  assert.equal(receipt.nextStep, "validate-profile-provisioning");
+  assert.deepEqual(gateway.calls.map((call) => call.method), ["GET", "POST"]);
+  assert.deepEqual(JSON.parse(gateway.calls[1].body), request());
+
+  // Another localhost client is not a trusted renderer. Origin and session
+  // validation must happen before the HTTPS gateway sees a request.
+  const before = gateway.calls.length;
+  const unauthorized = await fetch(origin + "/account/spaces/create", {
+    method: "POST",
+    headers: { Origin: "https://other.invalid", "Content-Type": "application/json" },
+    body: JSON.stringify(request()),
+  });
+  assert.equal(unauthorized.status, 403);
+  assert.equal(gateway.calls.length, before);
+
+  account.update({ state: "signed-out" });
+  await assert.rejects(port.create(request()), /authenticated/);
+  assert.equal(gateway.calls.length, before);
 });
 
 test("Windows Space adapter never mutates shared Native startup and refuses Web", () => {
