@@ -105,6 +105,77 @@ function stagePinnedDesktopDevCandidate(f){
   writeFileSync(path,JSON.stringify(evidence));
   return {executable,path,payload,evidence};
 }
+test("Runtime credential rejection (exit 43) halts retries until Owner rotates token",async t=>{
+  const f=fixture(t,{approved:false});
+  stagePinnedDesktopDevCandidate(f);
+  let launches=0;
+  const children=[];
+  const sup=createDesktopProductRuntimeSupervisor({
+    systemRoot:f.systemRoot,userData:f.userData,platform:"win32",
+    developmentCandidate:true,
+    spawnImpl:()=>{launches++;const p=child();children.push(p);return p},
+  });
+  assert.equal((await sup.reconcile()).state,"running");
+  children[0].exitCode=43;
+  children[0].emit("exit",43,null);
+  assert.equal(sup.status().state,"blocked");
+  assert.equal(sup.status().reason,"device_credential_recovery_required");
+  assert.equal(sup.status().mcpReady,false);
+  // Several Supervisor ticks cannot re-use the same rejected credential.
+  for(let tick=0;tick<5;tick++){
+    const state=await sup.reconcile();
+    assert.equal(state.reason,"device_credential_recovery_required");
+    assert.equal(state.processRunning,false);
+  }
+  assert.equal(launches,1);
+  // Only the canonical Owner identity-store credential update releases latch.
+  writeFileSync(join(f.state,"device-token.cloudflare-v3.txt"),"c".repeat(64));
+  const recovered=await sup.reconcile();
+  assert.equal(recovered.state,"running");
+  assert.equal(recovered.reason,"dev_remote_attestation_pending");
+  assert.equal(recovered.mcpReady,false);
+  assert.equal(launches,2);
+  sup.stop();
+});
+test("Runtime requested restart (exit 42) retains ordinary supervised recovery",async t=>{
+  const f=fixture(t,{approved:false});
+  stagePinnedDesktopDevCandidate(f);
+  let launches=0;
+  const children=[];
+  const sup=createDesktopProductRuntimeSupervisor({
+    systemRoot:f.systemRoot,userData:f.userData,platform:"win32",
+    developmentCandidate:true,
+    spawnImpl:()=>{launches++;const p=child();children.push(p);return p},
+  });
+  assert.equal((await sup.reconcile()).state,"running");
+  children[0].exitCode=42;children[0].emit("exit",42,null);
+  assert.equal(sup.status().reason,"runtime_exited");
+  assert.equal((await sup.reconcile()).state,"running");
+  assert.equal(launches,2);
+  sup.stop();
+});
+test("credential recovery never bypasses signed production trust gate",async t=>{
+  const f=fixture(t,{approved:true});
+  let launches=0;
+  const children=[];
+  const sup=createDesktopProductRuntimeSupervisor({
+    systemRoot:f.systemRoot,userData:f.userData,platform:"win32",
+    verifiedHandoff:()=>f.plan,
+    spawnImpl:()=>{launches++;const p=child();children.push(p);return p},
+  });
+  assert.equal((await sup.reconcile()).state,"running");
+  children[0].exitCode=43;children[0].emit("exit",43,null);
+  assert.equal((await sup.reconcile()).reason,"device_credential_recovery_required");
+  assert.equal(launches,1);
+  // Token rotation must not override the separate signed-release gate.
+  f.policy.current_gates.component_publish_allowed=false;
+  writeFileSync(f.policyFile,JSON.stringify(f.policy));
+  writeFileSync(join(f.state,"device-token.cloudflare-v3.txt"),"c".repeat(64));
+  assert.equal((await sup.reconcile()).reason,"component_trust_not_authorized");
+  assert.equal(launches,1);
+  sup.stop();
+});
+
 test("DEV candidate requires explicit opt-in; unsigned bytes alone grant nothing",async t=>{
   const f=fixture(t,{approved:false});
   stagePinnedDesktopDevCandidate(f);
