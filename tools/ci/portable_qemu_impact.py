@@ -145,6 +145,11 @@ PRODUCT_DEVICE_PRESENCE_LIGHT_EXACT = {
     "tests/test_product_device_presence_agent.py",
 }
 ACCOUNT_SPACE_SEMANTICS_LIGHT_EXACT = {
+    # Exact, focused SQL owner-authority repair; no boot or initramfs code.
+    "infra/supabase/product/migrations/20261031051500_space_owner_ssot_creation_fix_v1.sql",
+    "tests/sql/test_space_creation_authority_v1.sql",
+    "tests/test_space_creation_authority.mjs",
+    ".github/workflows/space-creation-authority-v1-proof.yml",
     "infra/supabase/functions/ordax-account-gateway/index.ts",
     "infra/supabase/product/migrations/20261015153000_space_semantics_v1.sql",
     "infra/supabase/product/migrations/20261015195800_space_semantics_write_guard_v1.sql",
