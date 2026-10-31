@@ -20,8 +20,13 @@ test('Desktop DEV Git sparse checkout includes the existing MCP candidate proof'
   assert.equal(evidence.$schema,'ordax.desktop-runtime-candidate-evidence/1');
   assert.equal(evidence.candidate.platform,'windows-amd64');
   assert.equal(evidence.candidate.signature_present,false);
-  assert.equal(evidence.candidate.sha256,
-    'c0712bf0979025093226610e41ef39853e23a4ec6cdfa89541cba98a4ffed6a2');
+  // Bind to the current official OS evidence, not a superseded candidate hash.
+  assert.match(evidence.candidate.sha256,/^[a-f0-9]{64}$/);
+  assert.match(evidence.candidate.source_commit,/^[a-f0-9]{40}$/);
+  assert.equal(evidence.candidate.sha256,evidence.physical_offline_proof.executable_sha256);
+  assert.equal(evidence.candidate.source_commit,evidence.physical_offline_proof.source_commit);
+  assert.equal(evidence.physical_offline_proof.passed,true);
+  assert.equal(evidence.candidate.stable_activation_authorized,false);
 });
 
 test('Electron connects ordax-pull staging to automatic, health-gated idle activation',()=>{
