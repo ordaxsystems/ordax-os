@@ -12,6 +12,18 @@ const { readState, writeState, validateState, versionRoot, stageMain,
   chooseBootVersion, confirmHealthy, pinPrevious, unpin, shouldAutoActivate, desktopFirstRunComplete, createDesktopIdleActivation, createDesktopWindowIdleTracker,
   sweepStaleCandidates, removeOwnedCandidate, prepareWindowsGitDeletion } = require('./dev-update.cjs');
 
+test('Desktop DEV Git sparse checkout includes the existing MCP candidate proof',()=>{
+  const source=readFileSync(join(__dirname,'dev-update.cjs'),'utf8');
+  assert.match(source,/'sparse-checkout','set',\s*'system','docs\/contracts','docs\/evidence','tools\/windows-emulator'/);
+  const evidence=JSON.parse(readFileSync(join(__dirname,
+    '../../docs/evidence/desktop-runtime-windows-candidate-2026-10-31.json'),'utf8'));
+  assert.equal(evidence.$schema,'ordax.desktop-runtime-candidate-evidence/1');
+  assert.equal(evidence.candidate.platform,'windows-amd64');
+  assert.equal(evidence.candidate.signature_present,false);
+  assert.equal(evidence.candidate.sha256,
+    'c0712bf0979025093226610e41ef39853e23a4ec6cdfa89541cba98a4ffed6a2');
+});
+
 test('Electron connects ordax-pull staging to automatic, health-gated idle activation',()=>{
   const source=readFileSync(join(__dirname,'main.cjs'),'utf8');
   assert.match(source,/const result=await stageMain\(\{userData,template,log\}\)/);
