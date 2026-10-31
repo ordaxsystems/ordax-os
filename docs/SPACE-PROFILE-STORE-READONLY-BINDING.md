@@ -24,6 +24,21 @@ The source belongs to `ordaxsystems/ordax-surface`; only `docs/contracts/surface
 
 Tests: `node --test tests/test_space_profile_store_status.mjs tests/test_profile_store_app_status.mjs tests/test_web_space_profile_apps.mjs`. The last test exercises the real Surface candidate through existing Web Vite SSR, while the Surface owner CI validates its own source.
 
+## Account version binding restored (2026-10-31)
+
+The two canonical Account readers, GET /account/spaces (Edge) and
+SupabaseAccountProvider.list_spaces() (Native), preserve the persisted
+ordax_space_profile_packs(pack_slug, pack_version) identity as an exact
+single profilePack value of slug@version. Previously both silently dropped
+the version and the Store projector reported profile-unpinned even when
+the database had a valid exact association.
+
+Both readers reject malformed slug/unsafe version/duplicate bindings.
+No new database column, Store catalog, installation capability, or
+authorization was added. A missing/legacy association remains unpinned.
+Authenticated session/RLS behavior remains unchanged. Source merge
+does not prove the Edge gateway has been deployed; that remains an
+independent authority-controlled release gate.
 ## CI baseline findings (2026-10-18)
 
 Foundation Contract and Surface Web Candidate failed on the branch for First Run tests unrelated to the added projector. The touched First Run source and smoke-test files have identical blob SHAs in `main` and this PR. Keep fixes to First Run in their owning code/PR, not in this projection, and do not bypass the CI gates.
