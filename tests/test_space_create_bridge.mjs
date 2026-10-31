@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 import { Readable } from "node:stream";
 import { createEmulatorAccountGateway } from "../tools/windows-emulator/account-gateway.mjs";
-import { validateSpaceCreateReceipt } from "../system/contracts/space-creation.mjs";
+import { validateSpaceCreateCommand, validateSpaceCreateReceipt } from "../system/contracts/space-creation.mjs";
 
 import {
   parseSpaceCreateRequest,
@@ -259,4 +259,23 @@ test("Windows Desktop keeps idempotent 200 replay and rejects invented/foreign c
   for (const gateway of [mismatchedStatus, wrongOwner, extraField]) {
     assert.equal(gateway.calls.length, 2);
   }
+});
+
+test("Packaged Desktop command validation agrees with authoritative Gateway parser", () => {
+  const input = request({ name: "  Minha Pizzaria  " });
+  const server = parseSpaceCreateRequest(JSON.stringify(input), "application/json");
+  assert.deepEqual(validateSpaceCreateCommand(input), server);
+  for (const invalid of [
+    request({ extra: true }),
+    request({ domain: "Food" }),
+    request({ subtype: "3d print " }),
+    request({ idempotencyKey: "invalid" }),
+    request({ name: "\u0001" }),
+  ]) {
+    assert.throws(() => validateSpaceCreateCommand(invalid));
+    assert.throws(() => parseSpaceCreateRequest(JSON.stringify(invalid), "application/json"));
+  }
+  const windowsModule = readFileSync(new URL("../tools/windows-emulator/account-gateway.mjs", import.meta.url), "utf8");
+  assert.doesNotMatch(windowsModule, /from\s+["'][^"']*infra\/supabase\//);
+  assert.match(windowsModule, /validateSpaceCreateCommand/);
 });
