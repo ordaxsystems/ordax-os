@@ -4,6 +4,9 @@ import test from "node:test";
 import { Readable } from "node:stream";
 import { createEmulatorAccountGateway } from "../tools/windows-emulator/account-gateway.mjs";
 import { validateSpaceCreateCommand, validateSpaceCreateReceipt } from "../system/contracts/space-creation.mjs";
+import { assertSpaceCreatePort } from "../system/contracts/space-create-port.mjs";
+import { createDesktopSpaceCreatePort } from "../system/adapters/desktop/space-create.mjs";
+import { IDENTITY_SESSION_SCHEMA } from "../system/contracts/identity-session.mjs";
 
 import {
   parseSpaceCreateRequest,
@@ -278,4 +281,116 @@ test("Packaged Desktop command validation agrees with authoritative Gateway pars
   const windowsModule = readFileSync(new URL("../tools/windows-emulator/account-gateway.mjs", import.meta.url), "utf8");
   assert.doesNotMatch(windowsModule, /from\s+["'][^"']*infra\/supabase\//);
   assert.match(windowsModule, /validateSpaceCreateCommand/);
+});
+
+function desktopBrowser(fetchImpl) {
+  return { fetch: fetchImpl, location: { protocol: "http:", hostname: "127.0.0.1" },
+    ordaxDesktopBrowser: { postMessage() { return true; } } };
+}
+
+function nativeIdentity(initial = { state: "signed-in", subjectId: SUBJECT, displayName: "Owner" }) {
+  let snapshot = initial;
+  const listeners = new Set();
+  return {
+    schema: IDENTITY_SESSION_SCHEMA,
+    getSnapshot() { return snapshot; },
+    subscribe(listener) {
+      listeners.add(listener);
+      listener(snapshot);
+      return () => listeners.delete(listener);
+    },
+    update(next) {
+      snapshot = next;
+      for (const listener of listeners) listener(snapshot);
+    },
+  };
+}
+
+test("Native Desktop port submits user intent on existing same-origin authority, without client-created owner", async () => {
+  const identity = nativeIdentity();
+  const calls = [];
+  const host = desktopBrowser(async (path, options) => {
+    calls.push({ path, options });
+    return new Response(JSON.stringify(spaceReceipt()), { status: 201 });
+  });
+  const port = assertSpaceCreatePort(createDesktopSpaceCreatePort(host, identity));
+  try {
+    const result = await port.create(request());
+    assert.equal(result.space.ownerId, SUBJECT);
+    assert.equal(result.space.profilePack, null);
+    assert.equal(result.nextStep, "validate-profile-provisioning");
+    assert.deepEqual(result.profileToProvision, { slug: "pizzaria-br", version: 1 });
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].path, "/account/spaces/create");
+    assert.equal(calls[0].options.method, "POST");
+    assert.equal(calls[0].options.credentials, "same-origin");
+    assert.equal(calls[0].options.redirect, "manual");
+    assert.deepEqual(JSON.parse(calls[0].options.body), request());
+  } finally {
+    port.dispose();
+  }
+});
+
+test("Native Space creation port rejects absent session and drops in-flight response after account change", async () => {
+  const guest = nativeIdentity({ state: "signed-out" });
+  let requests = 0;
+  const disabled = createDesktopSpaceCreatePort(desktopBrowser(async () => { requests++; throw Error("unexpected"); }), guest);
+  try {
+    await assert.rejects(disabled.create(request()), /authenticated/);
+    assert.equal(requests, 0);
+  } finally {
+    disabled.dispose();
+  }
+
+  const identity = nativeIdentity();
+  let resolveRequest;
+  const port = createDesktopSpaceCreatePort(desktopBrowser(
+    () => new Promise(resolve => { resolveRequest = resolve; }),
+  ), identity);
+  const pending = port.create(request());
+  identity.update({ state: "signed-in", subjectId: "33333333-3333-4333-8333-333333333333", displayName: "Other" });
+  resolveRequest(new Response(JSON.stringify(spaceReceipt()), { status: 201 }));
+  await assert.rejects(pending, /session changed/);
+  port.dispose();
+  await assert.rejects(port.create(request()), /disposed/);
+});
+
+test("Native Space creation port honors replay and denies gateway failures, wrong owner and false receipts", async () => {
+  const cases = [
+    { status: 200, receipt: spaceReceipt({ created: false }), passes: true },
+    { status: 401, receipt: { error: "auth" } },
+    { status: 409, receipt: { error: "conflict" } },
+    { status: 423, receipt: { error: "locked" } },
+    { status: 201, receipt: spaceReceipt({ created: false }) },
+    { status: 201, receipt: spaceReceipt({ subject: "33333333-3333-4333-8333-333333333333" }) },
+    { status: 201, receipt: spaceReceipt({ extra: { alreadyInstalled: true } }) },
+  ];
+  for (const item of cases) {
+    const identity = nativeIdentity();
+    const port = createDesktopSpaceCreatePort(desktopBrowser(
+      async () => new Response(JSON.stringify(item.receipt), { status: item.status }),
+    ), identity);
+    try {
+      if (item.passes) {
+        const result = await port.create(request());
+        assert.equal(result.created, false);
+      } else {
+        await assert.rejects(port.create(request()));
+      }
+    } finally {
+      port.dispose();
+    }
+  }
+});
+
+test("Windows Space adapter never mutates shared Native startup and refuses Web", () => {
+  const source = readFileSync(new URL("../system/composition/native/main.mjs", import.meta.url), "utf8");
+  assert.doesNotMatch(source, /spaceCreation|createDesktopSpaceCreatePort/);
+  const identity = nativeIdentity();
+  assert.throws(() => createDesktopSpaceCreatePort({ fetch: async () => {} }, identity), /Windows Desktop browser transport required/);
+  assert.throws(() => createDesktopSpaceCreatePort({
+    fetch: async () => {},
+    location: { protocol: "https:", hostname: "ordax.com.br" },
+    ordaxDesktopBrowser: { postMessage() {} },
+  }, identity), /Windows Desktop browser transport required/);
 });

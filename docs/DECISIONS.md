@@ -457,3 +457,27 @@ Aura remains the single OrdaX Intelligence layer. Space projection may provide o
 Implementation note (2026-10-15): the first promoted provider is `system/services/spaces/aura-provider.mjs`. It reuses the already authorized selected-Space Intelligence owner, requires exact selected-Space identity plus real inference availability, and emits no dashboard metric. This promotion does not imply availability of any domain transaction capability.
 
 Machine-readable/versioned contracts: `system/contracts/space-experience.mjs` and `docs/contracts/spaces-and-profile-packs.json`. Semantic catalog owner: `system/services/spaces/type-catalog.mjs`. User-facing type presentation owner: `system/services/spaces/presentation.mjs`; explicit `domain/subtype` takes precedence and Profile Pack resolution is legacy-only when canonical semantics are absent. Projection owner: `system/services/spaces/composition.mjs`.
+
+## ADR-029 - Client delivery must not depend on USB Creator (2026-10-31)
+
+Decision: OrdaX Desktop Windows and OrdaX Web are independent delivery
+artifacts. Their changes use their own installer/Native Windows or Chromium Web
+build and verification paths, without a dependency on Creator, Buildroot,
+Linux kernel, initramfs, USB provisioning or physical USB testing.
+
+The product remains one canonical codebase/contract graph: Surface visual code
+belongs to `ordax-surface`, shared Account/Spaces semantics to their original
+owners, and product capability availability to authenticated runtime receipts.
+Windows-only behavior lives in `system/adapters/desktop/` or the installed
+Windows host; Web-only composition lives in `system/composition/web/`.
+Do not add Desktop-only conditional wiring into
+`system/composition/native/main.mjs` merely to save a client-layer change.
+Native shared entrypoints, boot code, and Web adapters used by Native still
+require their legitimate impact proofs.
+
+The authoritative dependency relationship is
+`docs/contracts/build-autonomy.json#client_build_independence`.
+`tools/ci/creator_owner_impact.py` and its tests classify only proven
+exclusive client owners as lightweight; unknown and mixed deltas fail
+closed. Neither the client classifications nor the absence of a Creator
+build proves a released Desktop, Web login, Space creation UI, or Profile Pack.

@@ -145,5 +145,52 @@ class CreatorOwnerImpactTests(unittest.TestCase):
         self.assertTrue(impact.classify(base, current, root=self.root)[0])
         self.assertTrue(impact.classify("not-a-sha", current, root=self.root)[0])
 
+    def test_desktop_and_web_client_owners_do_not_depend_on_usb_creator(self):
+        base = self.commit(WORKFLOW.read_text(encoding="utf-8"), VISUAL)
+        for path in (
+            "system/adapters/desktop/space-create.mjs",
+            "system/adapters/desktop/display-current-mode-host.mjs",
+            "system/composition/web/account-session.mjs",
+            "tools/windows-desktop/native-build.cjs",
+            "tools/windows-emulator/account-gateway.mjs",
+            "system/contracts/space-create-port.mjs",
+            "tests/test_space_create_bridge.mjs",
+            "docs/contracts/build-autonomy.json",
+            "docs/BUILD-AUTONOMY.md",
+            "docs/CURRENT-STATE.md",
+            "docs/DECISIONS.md",
+        ):
+            with self.subTest(path=path):
+                next_rev = self.commit(path=path)
+                self.assertEqual(impact.classify(base, next_rev, root=self.root),
+                                 (False, "nonproducer-contract-only"))
+        for shared in (
+            "system/composition/native/main.mjs",
+            "system/adapters/native/space-selection.mjs",
+            "system/adapters/web/spaces.mjs",
+            "system/contracts/space-creation.mjs",
+            "system/supervisor",
+            "bootstrap/initramfs/build.py",
+            "docs/contracts/unknown-new-owner.json",
+        ):
+            with self.subTest(shared=shared):
+                next_rev = self.commit(path=shared)
+                self.assertTrue(impact.classify(base, next_rev, root=self.root)[0])
+
+    def test_build_autonomy_has_no_creator_dependency_for_web_or_desktop(self):
+        contract = json.loads((ROOT / "docs/contracts/build-autonomy.json").read_text(encoding="utf-8"))
+        graph = contract["target_relationships"]
+        independent = contract["client_build_independence"]
+        for target in ("web-client", "desktop-client"):
+            self.assertNotIn("creator", graph[target])
+            self.assertNotIn("minimal-bootstrap", graph[target])
+            self.assertNotIn("native-system-release", graph[target])
+            self.assertFalse(independent[target]["requires_creator"])
+            self.assertFalse(independent[target]["requires_usb_producer"])
+        self.assertTrue(independent["shared_native_changes_require_usb_proof"])
+        self.assertTrue(independent["unknown_owner_changes_fail_closed"])
+        self.assertEqual(tuple(impact.CLIENT_ONLY_PREFIXES),
+                         tuple(independent["client_only_source_prefixes"]))
+
 if __name__ == "__main__":
     unittest.main()
