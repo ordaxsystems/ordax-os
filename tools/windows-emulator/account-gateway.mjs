@@ -1,7 +1,8 @@
 import { validateIdentityCredentialInput, validateIdentityRegistrationInput } from "../../system/contracts/identity-credentials.mjs";
 import { validateEntitlementDecision } from "../../system/contracts/entitlements.mjs";
 import { validateAccountCloseRequest } from "../../system/contracts/account-lifecycle.mjs";
-import { parseSpaceCreateRequest, validateSpaceCreateReceipt } from "../../infra/supabase/functions/_shared/space_create_contract.mjs";
+import { parseSpaceCreateRequest } from "../../infra/supabase/functions/_shared/space_create_contract.mjs";
+import { validateSpaceCreateReceipt } from "../../system/contracts/space-creation.mjs";
 
 const SESSION_SCHEMA = "prototype-ordax.public-identity-session/1";
 const MAX_REQUEST_BYTES = 64 * 1024;
