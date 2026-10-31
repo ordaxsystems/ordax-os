@@ -36,6 +36,7 @@ function fixture(t,{identity=true,approved=false}={}){
    source:{commit:SHA},
    distribution:{signed_runtime_slot_available:approved,source_binding_only:!approved},
    activation:{requires_signed_runtime_slot:true},
+   candidate_evidence_by_target:{"windows-amd64":{source_commit:SHA}},
  };
  const policyFile=join(policyDir,"runtime-component-trust-policy.json");
  const lockFile=join(lockDir,"studio-runtime-source-lock.json");
@@ -86,6 +87,7 @@ test("canonical Go verifier receipt reused without a second signing authority",a
      calls++;
      assert.equal(exe,helper);
      assert.equal(args[0],"inspect-native-product-handoff");
+     assert.deepEqual(args.slice(1,3),["--target","windows-amd64"]);
      assert.ok(args.includes("--source-lock"));
      assert.ok(args.includes("--trust-policy"));
      assert.ok(args.includes("--trust"));

@@ -216,6 +216,16 @@ jobs:
         with:
           go-version: '1.27.1'
           cache-dependency-path: tools/runtime-component-channel/go.mod
+      - name: Prove signed component slot file attributes on real Windows
+        shell: pwsh
+        run: |
+          Push-Location tools/runtime-component-channel
+          try {
+            & go test -count=1 -run '^(TestWindowsSignedChannelAllowsCanonicalTempWithoutReparsePoint|TestWindowsSignedProductRuntimeSlotRequiresReadOnlyAttribute|TestWindowsProductRuntimePERejectsMalformedPayload|TestSignedProductRuntimeRejectsCrossTargetPayloads)$' .
+            if ($LASTEXITCODE -ne 0) { throw 'Windows signed component slot regression failed' }
+          } finally {
+            Pop-Location
+          }
       - name: Build the one canonical read-only Windows component verifier
         shell: pwsh
         run: |

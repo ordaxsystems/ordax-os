@@ -133,7 +133,11 @@ func secureExistingDirectory(path string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if filepath.Clean(resolvedAbs) != filepath.Clean(absolute) {
+	if runtime.GOOS == "windows" {
+		if err := verifyWindowsDirectoryAncestry(absolute); err != nil {
+			return "", err
+		}
+	} else if filepath.Clean(resolvedAbs) != filepath.Clean(absolute) {
 		return "", errors.New("runtime component activation path may not traverse symlinks")
 	}
 	return absolute, nil
