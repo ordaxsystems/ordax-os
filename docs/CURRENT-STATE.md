@@ -25,27 +25,29 @@ activate→select→restart E2E. The OS contract and data owners are not
 merged. No new Profile database, session, runtime or app installer.
 
 OrdaX Desktop Windows MCP — **DEV FIRST** (31/10/2026):
-A direção canônica da execução está em `docs/DEVELOPMENT-WORKFLOW.md`,
-seção "P0 — Native MCP no Windows/Desktop DEV", e na issue #1985.
-**Não iniciar** cerimônia de chaves, build USB/Creator/Buildroot/QEMU,
-novo CLI/workflow ou outra auditoria geral para destravar esta tarefa.
-O objetivo são duas sessões reais de Product Device (agente auxiliar
-Windows e OrdaX Desktop Windows) usando o `ordax-runtime` já integrado,
-com grants, `capability_digest` não vazio e `agent.status` remoto comprovado.
-O candidato Windows `0.4.8` validado tem SHA-256
-`c0712bf0979025093226610e41ef39853e23a4ec6cdfa89541cba98a4ffed6a2`
-e source `6b191cb8273577d94352893497b0eb118e3b98ae`.
-O Supervisor Desktop recebeu caminho de desenvolvimento explícito
-`ORDAX_DESKTOP_MCP_DEV=1`, separado do release assinado. Ele lê somente
-o candidato CI exato do arquivo de evidência e exige binário intacto em
-`<Desktop userData>/native-state/product-runtime-dev/ordax-product-agent.exe`,
-identidade de Product Device matriculada e host Windows; mantém
-`mcpReady=false` até atestação remota independente. Modo produção
-continua inteiramente sob verificação Ed25519/slot e source lock
-canônicos. Esta implementação **não** é prova de instalação, sessão,
-grants ou ação remota no Windows físico. Evidência E2E e atualização do
-Desktop instalado continuam pendentes, a serem comprovadas uma vez.
-Retomar o PR de correção existente, não criar solução paralela.
+O Desktop NSIS foi atualizado no Windows físico e seu Runtime
+Product Device separado está **online**, sem reutilizar a instância do
+agente auxiliar. O OAuth Owner autorizou o cliente ChatGPT exato com
+`computer-observe` temporário e a sessão efetivamente despachou
+`computer.access_status` ao Runtime Desktop anterior; ele respondeu
+`action not allowed`. A correção causal no
+[ordax-runtime#282](https://github.com/ordaxsystems/ordax-runtime/pull/282)
+já está integrada (commit `726f41f77897aed7bdadbf4a7865a9aeca032f9c`):
+limite Desktop de somente `agent.status` e
+`computer.access_status`, sem ações Windows de escrita/terminal/GUI.
+O novo candidato `ordax-runtime@50a8626d9212e3741b38b87fbe658e24c8bee024`
+tem SHA-256 `33e6c14b2f6e03e275697806f686195ca3de1a13296adc107bd003f5d71ceae2`
+e passou self-test físico isolado no `DESKTOP-PNUHUA0` (sem Python,
+rede ou credenciais). O **único** manifesto atualizado é
+`docs/evidence/desktop-runtime-windows-candidate-2026-10-31.json`.
+**Pendente**: aplicar exatamente o novo candidato ao slot **DEV** do
+Supervisor e comprovar `computer.access_status` remoto com recibo
+`status=succeeded`/`ok=true`; `queued` não conta. O agente Windows
+auxiliar permanece sem matrícula própria: sua configuração atual
+reutiliza o ID do Desktop e não deve ser iniciada. A política de
+produção Ed25519/source lock permanece fail-closed.
+Prioridade/processo em `docs/DEVELOPMENT-WORKFLOW.md` e issue #1985.
+Não iniciar USB/Creator/Buildroot/QEMU, novos CLIs/workflows ou builds.
 
 Desktop/Web build separation (2026-10-31): canonical architecture and executable
 impact classification now distinguish Windows Desktop and Web client-only owners
@@ -62,22 +64,6 @@ The Windows host's authenticated Space create gateway was merged in OS #2360
 remains unimplemented (ordax-surface#33); this is **not** a completed
 authenticated Windows E2E or actual Profile Pack provisioning.
 The prior #2361 Creator workflow #41176996362 failed and is not release proof.
-
-OrdaX Desktop Windows Runtime component candidate (2026-10-31):
-`ordax-runtime` PR #281 is merged at `3a62460a`; the tested source
-`6b191cb8273577d94352893497b0eb118e3b98ae` is preserved in main ancestry.
-The self-contained Windows executable and unsigned component-channel v1
-package passed 45 focused tests, isolated Windows CI execution and an
-additional offline probe on `DESKTOP-PNUHUA0` (Windows 10), without an
-installed Python on PATH, Studio, network or enrolled credentials.
-Exact source, artifact and executable hashes are recorded in
-[`desktop-runtime-windows-candidate-2026-10-31.json`](evidence/desktop-runtime-windows-candidate-2026-10-31.json).
-This is a local `agent.status` package proof, **not remote MCP execution**.
-The canonical source lock and trust flags are not promoted by CI evidence.
-The external component trust/custody/recovery ceremony and public-only
-handoff remain mandatory before production signed Windows slot promotion; the official
-Desktop installer update and supervised remote session/grant/action proof
-remain pending. Follow issue #1985. No USB/Buildroot/QEMU change or build.
 
 OrdaX Desktop Native Product MCP — Windows adapter (2026-10-30):
 The canonical Native Host source now owns a bounded OrdaX Supervisor
