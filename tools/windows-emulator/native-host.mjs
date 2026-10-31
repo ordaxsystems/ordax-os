@@ -197,6 +197,18 @@ export function nativeEmulatorPlugin(stateDirectory, { desktopHost = false, acco
           sessionLocked:localSession?.readLocked??null,
         }).middleware);
       }
+      // Every Native development and installed host exposes the same read-only
+      // Store contract. Without installed Electron trust or a signed publication
+      // the canonical response is unavailable, never a 503 or fake catalog.
+      // No preview can activate Windows signature verification by setting env.
+      const installedStoreTrust = desktopHost && process.platform === "win32"
+        && Boolean(userData) && Boolean(process.env.ORDAX_DESKTOP_COMPONENT_VERIFIER_ROOT);
+      server.middlewares.use(createDesktopVerifiedStoreCatalogMiddleware({
+        systemRoot: process.cwd(),
+        verifierRoot: installedStoreTrust ? process.env.ORDAX_DESKTOP_COMPONENT_VERIFIER_ROOT : "",
+        userData: installedStoreTrust ? userData : stateDirectory,
+        platform: installedStoreTrust ? "win32" : "unavailable",
+      }));
       if (desktopHost && process.platform === "win32" && userData &&
           process.env.ORDAX_DESKTOP_COMPONENT_VERIFIER_ROOT) {
         // The current OS revision owns policies; the Electron installer owns
@@ -204,13 +216,6 @@ export function nativeEmulatorPlugin(stateDirectory, { desktopHost = false, acco
         // Signed-slot reads reuse the canonical Go verifier; no signing,
         // installation, health, grant or promotion authority lives here.
         server.middlewares.use(createDesktopVerifiedComponentSlotMiddleware({
-          systemRoot: process.cwd(),
-          verifierRoot: process.env.ORDAX_DESKTOP_COMPONENT_VERIFIER_ROOT,
-          userData,
-        }));
-        // Same pinned public trust and installed Go verifier as signed current slots.
-        // Without publication authorization the result is explicitly unavailable.
-        server.middlewares.use(createDesktopVerifiedStoreCatalogMiddleware({
           systemRoot: process.cwd(),
           verifierRoot: process.env.ORDAX_DESKTOP_COMPONENT_VERIFIER_ROOT,
           userData,

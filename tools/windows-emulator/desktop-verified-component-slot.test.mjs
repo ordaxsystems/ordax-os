@@ -7,6 +7,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createDesktopVerifiedComponentSlotMiddleware } from "../../system/adapters/desktop/verified-component-slot-host.mjs";
 import { createDesktopVerifiedStoreCatalogMiddleware } from "../../system/adapters/desktop/verified-store-catalog-host.mjs";
+import { nativeEmulatorPlugin } from "./native-host.mjs";
 
 const SHA = "a".repeat(40);
 const SOURCE = "578d38256fc906e7208764ef0b2616c8d64b784f";
@@ -430,4 +431,39 @@ test("Desktop Store refuses forged verifier output, symlinked envelopes and tamp
   symlinkSync(f.helper, envelope);
   assert.equal((await (await fetch(url)).json()).reason, "catalog-envelope-unavailable");
   assert.equal(calls, 2);
+});
+
+
+test("the shared Windows development preview registers a truthful Store route without a signer", async t => {
+  const f = setup(t);
+  const handlers = [];
+  const plugin = nativeEmulatorPlugin(join(f.root, "preview-state"), { desktopHost: false });
+  plugin.configureServer({ middlewares: { use(handler) { handlers.push(handler); } } });
+  const server = createServer((req, res) => {
+    let index = 0;
+    const next = () => {
+      const handler = handlers[index++];
+      if (!handler) { res.writeHead(404); res.end(); return; }
+      Promise.resolve(handler(req, res, next)).catch(() => {
+        if (!res.headersSent) { res.writeHead(503); res.end(); }
+      });
+    };
+    next();
+  });
+  await new Promise(resolve => server.listen(0, "127.0.0.1", resolve));
+  t.after(() => new Promise(resolve => server.close(resolve)));
+  const origin = "http://127.0.0.1:" + server.address().port;
+  const url = origin + "/__ordax/native/store-catalog";
+  const response = await fetch(url);
+  assert.equal(response.status, 200, "The preview must not silently fall through to emulator 503");
+  const snapshot = await response.json();
+  assert.equal(snapshot.schema, "ordax.verified-app-store-catalog/1");
+  assert.equal(snapshot.state, "unavailable");
+  assert.equal(snapshot.authority, "none");
+  assert.deepEqual(snapshot.entries, []);
+  assert.equal(snapshot.reason, "catalog-trust-unavailable");
+  assert.equal((await fetch(url + "?unsafe=1")).status, 400);
+  assert.equal((await fetch(url, {method: "POST"})).status, 405);
+  const existing = await fetch(origin + "/__ordax/native/first-run");
+  assert.equal(existing.status, 200, "Existing Native routes stay owned by the emulator host");
 });
