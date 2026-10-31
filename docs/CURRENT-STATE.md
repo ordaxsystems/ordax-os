@@ -17,12 +17,16 @@ surface; Profile Packs are versioned composition attached to the selected
 Space, with advanced settings only. `docs/SPACES-AND-PROFILES.md` is the
 canonical UX owner and ADR-028 clarifies the existing design. The old
 root Profile plan was deleted after migrating its references to canonical
-owners; its provenance remains in Git history. The Surface currently exposes separate `spaces`
-and `profiles` Account sections, so the one-journey UX **is not shipped**.
-Its exclusive implementation owner remains ordax-surface#33, including
-the pending/failed provisioning state and real Windows login→create→
-activate→select→restart E2E. The OS contract and data owners are not
-merged. No new Profile database, session, runtime or app installer.
+owners; its provenance remains in Git history. Surface #34/#35 and OS #2369 are now **integrated in source**: one `spaces`
+entry in the Meridian rail, legacy `profiles` destinations resolving to
+Spaces and the existing authenticated create port bound only to verified
+Windows Desktop transport. The OS pins Surface source `56e63bc14e7df964beb293bc1d05843b80ebc0c6`.
+This is **not** proof of the updated installed Electron, actual authenticated
+login→create→provision→activate→select→restart E2E or Profile Pack health.
+Keep the visual/product gates in ordax-surface#33 and OS #2007 open until
+real receipts; `profilePack:null` is pending, not provisioned.
+The OS contract/data owners remain separate; no second Profile database,
+session, runtime or app installer.
 
 OrdaX Desktop Windows MCP — **DEV FIRST** (31/10/2026):
 O Desktop NSIS foi atualizado no Windows físico e seu Runtime
@@ -48,6 +52,26 @@ reutiliza o ID do Desktop e não deve ser iniciada. A política de
 produção Ed25519/source lock permanece fail-closed.
 Prioridade/processo em `docs/DEVELOPMENT-WORKFLOW.md` e issue #1985.
 Não iniciar USB/Creator/Buildroot/QEMU, novos CLIs/workflows ou builds.
+
+Windows Store verified catalog (2026-10-31): the Native catalog revocation
+and single metadata-read implementation from #1981 are integrated. OS #2356
+and #2357 integrated the **same** signed-catalog read middleware for installed
+Windows and for preview; preview without installed verifier trust returns a
+canonical `unavailable` snapshot instead of a generic HTTP 503. The installed
+host verifies a locally supplied envelope through the existing Go helper and
+persistent anti-replay watermark; the canonical public trust anchor and
+publication gates remain disabled. **No actual signed catalog, official
+acquisition origin, usable installation lifecycle or physical Windows E2E is
+proven**. Keep #2351 open for these distinct release gates; never assert
+`ready` or invent entries from the successful HTTP response.
+
+Public legal release proof (2026-10-31): Actions run #41233251204 completed
+its source/local tests but its live immutable-document audit failed with
+`published-legal-document-hash-mismatch:privacy`. Public HTML/digest drift is
+**not** fixed by changing the approved hash or suppressing the gate. The site
+and legal owners must restore approved bytes or approve and publish a new
+versioned legal snapshot using their canonical process. Keep the public
+registration/consent promotion fail-closed until that independent proof passes.
 
 Desktop/Web build separation (2026-10-31): canonical architecture and executable
 impact classification now distinguish Windows Desktop and Web client-only owners
