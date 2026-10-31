@@ -1,4 +1,3 @@
-import { hasDesktopBrowserTransport } from "../native/browser-host-transport.mjs";
 import {
   validateSpaceCreateCommand,
   validateSpaceCreateReceipt,
@@ -15,7 +14,11 @@ const MAX_RECEIPT_CHARS = 8192;
 // A browser adapter for the authenticated Native/Desktop Account host.
 // The server-side RPC is the only source of authorization and persistence.
 export function createDesktopSpaceCreatePort(windowRef, identitySession) {
-  if (!hasDesktopBrowserTransport(windowRef)) {
+  // Same fail-closed Windows preload admission used by Desktop recovery.
+  // Desktop adapters never import a Native adapter across the module boundary.
+  if (windowRef?.location?.protocol !== "http:"
+    || windowRef.location.hostname !== "127.0.0.1"
+    || typeof windowRef.ordaxDesktopBrowser?.postMessage !== "function") {
     throw new TypeError("Windows Desktop browser transport required for Space creation");
   }
   if (!windowRef || typeof windowRef.fetch !== "function") {
