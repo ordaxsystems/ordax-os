@@ -16,6 +16,7 @@ import { createDesktopDeviceProfileMiddleware } from "../../system/adapters/desk
 import { createDesktopWlanMiddleware } from "../../system/adapters/desktop/wifi-radio-host.mjs";
 import { createDesktopLocalAiMiddleware } from "../../system/adapters/desktop/local-ai-host.mjs";
 import { createDesktopVerifiedComponentSlotMiddleware } from "../../system/adapters/desktop/verified-component-slot-host.mjs";
+import { createDesktopVerifiedStoreCatalogMiddleware } from "../../system/adapters/desktop/verified-store-catalog-host.mjs";
 import { createDesktopProductRuntimeSupervisor, createDesktopSignedRuntimeHandoff } from "../../system/adapters/desktop/product-runtime-supervisor.mjs";
 import { createDesktopDisplayCurrentModeMiddleware } from "../../system/adapters/desktop/display-current-mode-host.mjs";
 import observationPolicy from "../../system/adapters/desktop/observation-grant.cjs";
@@ -203,6 +204,13 @@ export function nativeEmulatorPlugin(stateDirectory, { desktopHost = false, acco
         // Signed-slot reads reuse the canonical Go verifier; no signing,
         // installation, health, grant or promotion authority lives here.
         server.middlewares.use(createDesktopVerifiedComponentSlotMiddleware({
+          systemRoot: process.cwd(),
+          verifierRoot: process.env.ORDAX_DESKTOP_COMPONENT_VERIFIER_ROOT,
+          userData,
+        }));
+        // Same pinned public trust and installed Go verifier as signed current slots.
+        // Without publication authorization the result is explicitly unavailable.
+        server.middlewares.use(createDesktopVerifiedStoreCatalogMiddleware({
           systemRoot: process.cwd(),
           verifierRoot: process.env.ORDAX_DESKTOP_COMPONENT_VERIFIER_ROOT,
           userData,
