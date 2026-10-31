@@ -9,6 +9,7 @@ function storage() {
   return {
     getItem: key => values.get(key) ?? null,
     setItem(key, value) { values.set(key, String(value)); },
+    removeItem(key) { values.delete(key); },
     raw: key => values.get(key) ?? null,
   };
 }
@@ -144,4 +145,61 @@ test("Interrupted durable write does not assert persistence or cross subject bou
   assert.equal(store.save(workspace("/volatile-B")), false);
   store.selectOwner(subject("A"));
   assert.equal(target(store.load()), "/volatile-A");
+});
+
+test("Failed overwrite of a previously persisted owner remains volatile, not falsely durable", () => {
+  const backing = storage();
+  let writesBlocked = false;
+  const localStorage = {
+    getItem: backing.getItem,
+    setItem(key, value) {
+      if (writesBlocked) throw new Error("filesystem is read-only");
+      backing.setItem(key, value);
+    },
+  };
+  const store = createNativeWorkspaceStore({ localStorage });
+  store.selectOwner(subject("A"));
+  const bridge = createWorkspaceMetadataBridge(store);
+  assert.equal(bridge.store.save(workspace("/durable-A")), true);
+  writesBlocked = true;
+  assert.equal(bridge.store.save(workspace("/volatile-A")), false);
+  assert.equal(target(bridge.store.load()), "/volatile-A");
+  store.selectOwner(subject("B"));
+  assert.equal(target(bridge.store.load()), null);
+  store.selectOwner(subject("A"));
+  assert.equal(target(bridge.store.load()), "/volatile-A");
+  const rebooted = createNativeWorkspaceStore({ localStorage });
+  rebooted.selectOwner(subject("A"));
+  assert.equal(target(rebooted.load()), "/durable-A", "reboot cannot claim a failed write survived");
+  assert.equal(backing.raw("ordax.native.workspace.v2.subject.B"), null);
+});
+
+test("Durable partition removal invalidates cache; corrupt disk still blocks volatile fallback", () => {
+  const localStorage = storage();
+  const store = createNativeWorkspaceStore({ localStorage });
+  const key = "ordax.native.workspace.v2.subject.A";
+  store.selectOwner(subject("A"));
+  assert.equal(store.save(workspace("/persisted-A")), true);
+  localStorage.removeItem(key);
+  assert.equal(target(store.load()), null, "deleted durable data must not return from cache");
+
+  // Validate persistent bytes even if this owner has an unsaved volatile edit.
+  const backend = storage();
+  let blocked = false;
+  const guarded = {
+    getItem: backend.getItem,
+    setItem(key, value) {
+      if (blocked) throw new Error("write rejected");
+      backend.setItem(key, value);
+    },
+  };
+  const checked = createNativeWorkspaceStore({ localStorage: guarded });
+  checked.selectOwner(subject("A"));
+  assert.equal(checked.save(workspace("/old")), true);
+  blocked = true;
+  assert.equal(checked.save(workspace("/unsaved")), false);
+  backend.setItem(key, "{corrupt");
+  assert.equal(target(checked.load()), null);
+  assert.equal(checked.save(workspace("/must-not-overwrite")), false);
+  assert.equal(backend.raw(key), "{corrupt");
 });

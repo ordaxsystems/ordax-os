@@ -32,6 +32,8 @@ export function createNativeWorkspaceStore(windowRef = globalThis.window) {
   const storage = resolveStorage(windowRef);
   const emptyWorkspace = validateWorkspaceRecord(null);
   const volatilePartitions = new Map();
+  // A failed persistent write is retained only in the verified owner's session.
+  const volatileOnlyPartitions = new Set();
   const blockedPartitions = new Set();
   let currentKey = STORAGE_KEY;
 
@@ -47,6 +49,12 @@ export function createNativeWorkspaceStore(windowRef = globalThis.window) {
     if (currentRaw !== null) {
       try {
         const value = validateWorkspaceRecord(JSON.parse(currentRaw));
+        // A rejected write must not be mistaken for durable state on the
+        // next read. Still validate existing disk bytes to fail closed if
+        // another writer corrupted the verified owner partition.
+        if (volatileOnlyPartitions.has(currentKey)) {
+          return volatilePartitions.get(currentKey) ?? emptyWorkspace;
+        }
         volatilePartitions.set(currentKey, value);
         return value;
       } catch {
@@ -55,19 +63,30 @@ export function createNativeWorkspaceStore(windowRef = globalThis.window) {
         return emptyWorkspace;
       }
     }
+    if (volatileOnlyPartitions.has(currentKey)) {
+      return volatilePartitions.get(currentKey) ?? emptyWorkspace;
+    }
     if (currentKey === STORAGE_KEY) {
       try {
         const legacy = readStored(storage, LEGACY_STORAGE_KEY, migrateLegacyWorkspaceRecord);
         if (legacy) {
           volatilePartitions.set(currentKey, legacy);
-          storage.setItem(STORAGE_KEY, JSON.stringify(legacy));
+          try {
+            storage.setItem(STORAGE_KEY, JSON.stringify(legacy));
+          } catch {
+            // A migration remains usable in memory without claiming that
+            // it reached durable storage; the legacy record is untouched.
+            volatileOnlyPartitions.add(currentKey);
+          }
           return legacy;
         }
       } catch {
         // The old guest record is left untouched for explicit recovery.
       }
     }
-    return volatilePartitions.get(currentKey) ?? emptyWorkspace;
+    // External removal of durable state must not resurrect an old cache.
+    volatilePartitions.delete(currentKey);
+    return emptyWorkspace;
   };
 
   const store = {
@@ -93,6 +112,7 @@ export function createNativeWorkspaceStore(windowRef = globalThis.window) {
       if (currentKey === null || blockedPartitions.has(currentKey)) return false;
       if (!storage) {
         volatilePartitions.set(currentKey, validated);
+        volatileOnlyPartitions.add(currentKey);
         return false;
       }
       // A first write without a preceding load must not overwrite an
@@ -107,8 +127,10 @@ export function createNativeWorkspaceStore(windowRef = globalThis.window) {
       volatilePartitions.set(currentKey, validated);
       try {
         storage.setItem(currentKey, JSON.stringify(validated));
+        volatileOnlyPartitions.delete(currentKey);
         return true;
       } catch {
+        volatileOnlyPartitions.add(currentKey);
         return false;
       }
     },
