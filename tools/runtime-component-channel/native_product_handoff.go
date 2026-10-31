@@ -43,10 +43,15 @@ type nativeProductSourceLock struct {
     CandidateEvidence struct {
         SourceCommit string `json:"source_commit"`
         ExecutableSHA256 string `json:"executable_sha256"`
+        TargetPlatform string `json:"target_platform"`
         ExecutableSizeBytes int64 `json:"executable_size_bytes"`
         IndependentBaseABIReady bool `json:"independent_base_abi_ready"`
         IndependentBaseABIBlockers []string `json:"independent_base_abi_blockers"`
         SignedDistributionAuthorized bool `json:"signed_distribution_authorized"`
+        WindowsRuntimeClosure struct {
+            CompleteAndPortable bool `json:"complete_and_portable"`
+            InstallAuthorized bool `json:"install_authorized"`
+        } `json:"windows_runtime_closure"`
         EmbeddedELFInventory struct {
             IndependentBaseCompatibilityProven bool `json:"independent_base_compatibility_proven"`
             InstallAuthorized bool `json:"install_authorized"`
@@ -77,7 +82,7 @@ type nativeProductHandoff struct {
 // A lock may describe candidates but cannot authorize execution by itself.
 // These checks consume the OS's existing source/provenance flags rather than
 // keeping a parallel list of versions or platform-specific dynamic libraries.
-func validateNativeProductSourceLock(lock nativeProductSourceLock) error {
+func validateNativeProductSourceLock(lock nativeProductSourceLock, target string) error {
     if lock.Schema != productRuntimeLockSchema ||
         lock.Source.Repository != productRuntimeSourceURL ||
         !commitPattern.MatchString(lock.Source.Commit) ||
@@ -98,21 +103,35 @@ func validateNativeProductSourceLock(lock nativeProductSourceLock) error {
         return errors.New("native Product Runtime binary provenance missing")
     }
     if !d.RuntimeArtifactClaimed || d.SourceBindingOnly || !d.SignedRuntimeSlotAvailable ||
-        !c.IndependentBaseABIReady || !c.SignedDistributionAuthorized ||
-        !c.EmbeddedELFInventory.IndependentBaseCompatibilityProven ||
-        !c.EmbeddedELFInventory.InstallAuthorized {
+        !c.SignedDistributionAuthorized {
         return errors.New("native Product Runtime independent base ABI/distribution not proven")
     }
-    // The ABI compatibility flags are a positive proof only when the same
-    // canonical source lock explicitly records no outstanding ABI blockers.
-    // A missing array is not proof of zero blockers.
-    if c.IndependentBaseABIBlockers == nil || len(c.IndependentBaseABIBlockers) != 0 {
-        return errors.New("native Product Runtime unresolved independent base ABI blockers")
+    if _, err := canonicalProductRuntimeEntrypoint(target); err != nil {
+        return err
+    }
+    if c.TargetPlatform != target {
+        return errors.New("signed Product Runtime target differs from OS source provenance")
+    }
+    switch target {
+    case productRuntimeLinuxTarget:
+        if !c.IndependentBaseABIReady ||
+            !c.EmbeddedELFInventory.IndependentBaseCompatibilityProven ||
+            !c.EmbeddedELFInventory.InstallAuthorized {
+            return errors.New("native Product Runtime independent base ABI/distribution not proven")
+        }
+        if c.IndependentBaseABIBlockers == nil || len(c.IndependentBaseABIBlockers) != 0 {
+            return errors.New("native Product Runtime unresolved independent base ABI blockers")
+        }
+    case productRuntimeWindowsTarget:
+        if !c.WindowsRuntimeClosure.CompleteAndPortable ||
+            !c.WindowsRuntimeClosure.InstallAuthorized {
+            return errors.New("Windows Product Runtime dependency closure not proven")
+        }
     }
     return nil
 }
 
-func verifiedNativeProductHandoff(lockPath, policyPath, trustPath, slotRoot string) (nativeProductHandoff, error) {
+func verifiedNativeProductHandoff(lockPath, policyPath, trustPath, slotRoot, target string) (nativeProductHandoff, error) {
     var result nativeProductHandoff
     lockBytes, err := readRegular(lockPath, 64<<10, false)
     if err != nil { return result, fmt.Errorf("source lock unavailable: %w", err) }
@@ -120,7 +139,7 @@ func verifiedNativeProductHandoff(lockPath, policyPath, trustPath, slotRoot stri
     if err := json.Unmarshal(lockBytes, &lock); err != nil {
         return result, errors.New("native Product Runtime source lock invalid")
     }
-    if err := validateNativeProductSourceLock(lock); err != nil { return result, err }
+    if err := validateNativeProductSourceLock(lock, target); err != nil { return result, err }
 
     policyBytes, err := readRegular(policyPath, 64<<10, false)
     if err != nil { return result, fmt.Errorf("component trust policy unavailable: %w", err) }
@@ -145,12 +164,15 @@ func verifiedNativeProductHandoff(lockPath, policyPath, trustPath, slotRoot stri
         return result, errors.New("component trust anchor fingerprint mismatch")
     }
 
+    entrypoint, err := canonicalProductRuntimeEntrypoint(target)
+    if err != nil { return result, err }
     state, slot, manifest, bundled, err := resolveRuntimeSlot(slotRoot, "product-runtime", trustPath, "current")
     if err != nil { return result, fmt.Errorf("verified product runtime slot unavailable: %w", err) }
     if bundled || state.Current == nil || state.UserRemoved ||
         state.Current.SourceCommit != lock.Source.Commit ||
         manifest.SourceCommit != lock.Source.Commit ||
-        manifest.Entrypoint != productRuntimeExecutablePath ||
+        manifest.TargetPlatform != target ||
+        manifest.Entrypoint != entrypoint ||
         len(manifest.Files) != 1 ||
         !executablePackageFile("product-runtime", manifest.Files[0]) {
         return result, errors.New("installed Product Runtime does not match the canonical pinned source")
@@ -161,7 +183,7 @@ func verifiedNativeProductHandoff(lockPath, policyPath, trustPath, slotRoot stri
         manifest.Files[0].Size != lock.CandidateEvidence.ExecutableSizeBytes {
         return result, errors.New("signed Product Runtime binary differs from pinned provenance")
     }
-    entry := filepath.Join(slot, filepath.FromSlash(productRuntimeExecutablePath))
+    entry := filepath.Join(slot, filepath.FromSlash(entrypoint))
     if strings.ContainsAny(entry, "\r\n\x00") {
         return result, errors.New("invalid product runtime executable path")
     }
@@ -185,11 +207,12 @@ func inspectNativeProductHandoffCommand(args []string) error {
     policy := flags.String("trust-policy", "", "OS-owned canonical component trust policy")
     trust := flags.String("trust", "", "pinned canonical public component trust")
     root := flags.String("root", defaultSlotRoot, "canonical signed runtime slot root")
+    target := flags.String("target", "", "required signed runtime target")
     if err := flags.Parse(args); err != nil { return err }
-    if *lock == "" || *policy == "" || *trust == "" || flags.NArg() != 0 {
+    if *lock == "" || *policy == "" || *trust == "" || *target == "" || flags.NArg() != 0 {
         return errors.New("inspect-native-product-handoff requires --source-lock, --trust-policy and --trust")
     }
-    plan, err := verifiedNativeProductHandoff(*lock, *policy, *trust, *root)
+    plan, err := verifiedNativeProductHandoff(*lock, *policy, *trust, *root, *target)
     if err != nil { return err }
     fmt.Printf("PRODUCT_RUNTIME_HANDOFF_VERIFIED=YES\nSOURCE_COMMIT=%s\nVERSION=%s\nREVISION=%d\nEXECUTABLE=%s\nRUNTIME_STARTED=NO\nCENTRAL_SESSION_ATTESTED=NO\n",
         plan.SourceCommit, plan.Version, plan.Revision, plan.Executable)

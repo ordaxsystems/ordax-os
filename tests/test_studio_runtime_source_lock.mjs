@@ -41,6 +41,7 @@ test("Studio runtime source lock pins the merged headless compatibility contract
     product_version: "0.4.7",
   });
 
+  assert.equal(lock.candidate_evidence.target_platform, "linux-amd64");
   assert.equal(lock.runtime.profile, "headless");
   assert.equal(lock.runtime.python, ">=3.11");
   assert.deepEqual(lock.runtime.entrypoints, ["ordax-dev-agent", "ordax-device-agent"]);

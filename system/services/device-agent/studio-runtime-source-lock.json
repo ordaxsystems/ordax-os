@@ -114,6 +114,7 @@
       ],
       "independent_base_compatibility_proven": false,
       "install_authorized": false
-    }
+    },
+    "target_platform": "linux-amd64"
   }
 }

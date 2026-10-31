@@ -8,6 +8,7 @@ import (
 	"crypto/sha256"
 	"crypto/x509"
 	"debug/elf"
+	"debug/pe"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
@@ -47,6 +48,9 @@ const (
 	maxProductRuntimeFileBytes  = int64(28 << 20)
 	maxProductRuntimeTotalBytes = int64(30 << 20)
 	productRuntimeExecutablePath = "system/components/product-runtime/ordax-product-agent"
+	productRuntimeWindowsExecutablePath = "system/components/product-runtime/ordax-product-agent.exe"
+	productRuntimeLinuxTarget = "linux-amd64"
+	productRuntimeWindowsTarget = "windows-amd64"
 	maxFiles         = 256
 )
 
@@ -148,6 +152,7 @@ type componentPackageManifest struct {
 	Component                         packageComponent `json:"component"`
 	SourceCommit                      string           `json:"source_commit"`
 	Entrypoint                        string           `json:"entrypoint"`
+	TargetPlatform                    string           `json:"target_platform,omitempty"`
 	SelfContainedSourceGraph          bool             `json:"self_contained_source_graph"`
 	RemoteRuntimeDependencies         bool             `json:"remote_runtime_dependencies"`
 	ActivationAllowed                 bool             `json:"activation_allowed"`
@@ -601,9 +606,21 @@ func componentOwnedPackagePath(path, componentID string) bool {
 // exclusively meaningful for this OS-owned signed component slot, never for
 // the ordinary app/module distribution policy. This is not an ABI readiness
 // or activation decision.
+func canonicalProductRuntimeEntrypoint(target string) (string, error) {
+	switch target {
+	case productRuntimeLinuxTarget:
+		return productRuntimeExecutablePath, nil
+	case productRuntimeWindowsTarget:
+		return productRuntimeWindowsExecutablePath, nil
+	default:
+		return "", errors.New("Product Runtime target platform is unsupported")
+	}
+}
+
 func executablePackageFile(componentID string, record packageFile) bool {
-	return componentID == "product-runtime" &&
-		record.Path == productRuntimeExecutablePath && record.Executable
+	return componentID == "product-runtime" && record.Executable &&
+		(record.Path == productRuntimeExecutablePath ||
+			record.Path == productRuntimeWindowsExecutablePath)
 }
 
 func productRuntimeFileLimit(componentID string, record packageFile) int64 {
@@ -664,13 +681,19 @@ func validatePackageManifest(manifest componentPackageManifest, release releaseD
 		return errors.New("runtime component package file count is invalid")
 	}
 	if manifest.Component.ID == "product-runtime" {
+		entry, err := canonicalProductRuntimeEntrypoint(manifest.TargetPlatform)
+		if err != nil {
+			return err
+		}
 		if manifest.Component.Kind != "service" ||
 			manifest.Component.Owner != productRuntimeSourceRepository ||
 			manifest.Component.ReleaseMode != "component-slot" ||
-			manifest.Entrypoint != productRuntimeExecutablePath ||
+			manifest.Entrypoint != entry ||
 			len(manifest.Files) != 1 {
-			return errors.New("native Product Runtime package shape is not canonical")
+			return errors.New("Product Runtime signed target and package shape disagree")
 		}
+	} else if manifest.TargetPlatform != "" {
+		return errors.New("only Product Runtime may declare a signed binary target")
 	}
 	seen := make(map[string]struct{}, len(manifest.Files))
 	var total int64
@@ -785,6 +808,42 @@ func validateNativeProductRuntimeELF(payload []byte) error {
 		return errors.New("native Product Runtime ELF entrypoint is not mapped executable")
 	}
 	return nil
+}
+
+// A signed Windows package is not a valid Linux package. Validate PE32+
+// architecture and executable entrypoint before any component slot staging.
+// This is structural only: dependency closure and release authorization
+// require independent, explicit evidence.
+func validateProductRuntimePE(payload []byte) error {
+	if len(payload) < 512 {
+		return errors.New("Windows Product Runtime PE is truncated")
+	}
+	binary, err := pe.NewFile(bytes.NewReader(payload))
+	if err != nil {
+		return fmt.Errorf("Windows Product Runtime PE structure invalid: %w", err)
+	}
+	defer binary.Close()
+	optional, ok := binary.OptionalHeader.(*pe.OptionalHeader64)
+	if !ok || binary.Machine != pe.IMAGE_FILE_MACHINE_AMD64 ||
+		binary.Characteristics&0x0002 == 0 || optional.AddressOfEntryPoint == 0 {
+		return errors.New("Windows Product Runtime must be executable amd64 PE32+")
+	}
+	entry := optional.AddressOfEntryPoint
+	for _, section := range binary.Sections {
+		if section.Offset > uint32(len(payload)) ||
+			section.Size > uint32(len(payload))-section.Offset {
+			return errors.New("Windows Product Runtime section extent is invalid")
+		}
+		length := section.VirtualSize
+		if section.Size > length {
+			length = section.Size
+		}
+		if section.Characteristics&0x20000000 != 0 &&
+			section.VirtualAddress <= entry && entry-section.VirtualAddress < length {
+			return nil
+		}
+	}
+	return errors.New("Windows Product Runtime entrypoint is not mapped executable")
 }
 
 func inspectPackage(packagePath string, release releaseDescriptor) (verifiedPackage, error) {
@@ -902,8 +961,17 @@ func inspectPackage(packagePath string, release releaseDescriptor) (verifiedPack
 			return verifiedPackage{}, fmt.Errorf("runtime component file integrity mismatch: %s", record.Path)
 		}
 		if executablePackageFile(manifest.Component.ID, record) {
-			if err := validateNativeProductRuntimeELF(payload); err != nil {
-				return verifiedPackage{}, fmt.Errorf("native Product Runtime file %s: %w", record.Path, err)
+			var checkErr error
+			switch manifest.TargetPlatform {
+			case productRuntimeLinuxTarget:
+				checkErr = validateNativeProductRuntimeELF(payload)
+			case productRuntimeWindowsTarget:
+				checkErr = validateProductRuntimePE(payload)
+			default:
+				return verifiedPackage{}, errors.New("Product Runtime signed target is unsupported")
+			}
+			if checkErr != nil {
+				return verifiedPackage{}, fmt.Errorf("Product Runtime target binary %s: %w", record.Path, checkErr)
 			}
 		}
 		files[record.Path] = payload

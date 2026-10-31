@@ -62,6 +62,7 @@ function readReleaseGate(systemRoot){
      lock.distribution?.signed_runtime_slot_available!==true||
      lock.distribution?.source_binding_only!==false||
      lock.activation?.requires_signed_runtime_slot!==true||
+     lock.candidate_evidence?.target_platform!=="windows-amd64"||
      !SHA40.test(lock.source?.commit??""))
     return null;
   return {sourceCommit:lock.source.commit};
@@ -126,7 +127,7 @@ export function createDesktopSignedRuntimeHandoff({
     }catch{
       return reject(Error("Trusted Windows verifier unavailable"));
     }
-    execFileImpl(helper,["inspect-native-product-handoff",
+    execFileImpl(helper,["inspect-native-product-handoff","--target","windows-amd64",
       "--source-lock",join(systemRoot,"system","services","device-agent",
         "studio-runtime-source-lock.json"),
       "--trust-policy",join(systemRoot,"docs","contracts",

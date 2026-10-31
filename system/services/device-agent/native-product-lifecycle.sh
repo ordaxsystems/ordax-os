@@ -144,6 +144,7 @@ native_product_verified_plan() {
         --source-lock "$SYSTEM_ROOT/services/device-agent/studio-runtime-source-lock.json" \
         --trust-policy "$native_product_policy" \
         --trust "$native_product_trust" \
+        --target linux-amd64 \
         --root "$native_product_slots" 2>/dev/null) || return 1
     native_product_parse_plan "$native_product_verified_output" "$native_product_slots" || return 1
     NATIVE_PRODUCT_VERIFIED_PLAN=$native_product_verified_output

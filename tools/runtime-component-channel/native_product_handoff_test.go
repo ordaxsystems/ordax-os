@@ -25,6 +25,7 @@ func nativeProductHandoffFixture(t *testing.T) (string, string, string, string, 
     lock.Source.Repository = productRuntimeSourceURL
     lock.Source.Commit = testSourceCommit
     lock.CandidateEvidence.SourceCommit = testSourceCommit
+    lock.CandidateEvidence.TargetPlatform = productRuntimeLinuxTarget
     executable, err := os.ReadFile(filepath.Join(slot, filepath.FromSlash(productRuntimeExecutablePath)))
     if err != nil { t.Fatal(err) }
     binaryDigest := sha256.Sum256(executable)
@@ -72,7 +73,7 @@ func TestNativeProductHandoffCurrentSourceLockStaysClosed(t *testing.T) {
     if err != nil { t.Fatal(err) }
     var lock nativeProductSourceLock
     if err := json.Unmarshal(data, &lock); err != nil { t.Fatal(err) }
-    if err := validateNativeProductSourceLock(lock); err == nil ||
+    if err := validateNativeProductSourceLock(lock, productRuntimeLinuxTarget); err == nil ||
         !strings.Contains(err.Error(), "ABI/distribution not proven") {
         t.Fatalf("unsigned, non-ABI-ready OS source lock authorized handoff: %v", err)
     }
@@ -86,13 +87,13 @@ func TestNativeProductHandoffRejectsContradictoryABIEvidence(t *testing.T) {
     if err := json.Unmarshal(data, &lock); err != nil { t.Fatal(err) }
     // ABI success flags must not erase an explicitly recorded blocker.
     lock.CandidateEvidence.IndependentBaseABIBlockers = []string{"external-shared-libraries"}
-    if err := validateNativeProductSourceLock(lock); err == nil ||
+    if err := validateNativeProductSourceLock(lock, productRuntimeLinuxTarget); err == nil ||
         !strings.Contains(err.Error(), "unresolved independent base ABI blockers") {
         t.Fatalf("contradictory ABI proof accepted: %v", err)
     }
     // Omitting the evidence array is not an affirmative zero-blocker proof.
     lock.CandidateEvidence.IndependentBaseABIBlockers = nil
-    if err := validateNativeProductSourceLock(lock); err == nil ||
+    if err := validateNativeProductSourceLock(lock, productRuntimeLinuxTarget); err == nil ||
         !strings.Contains(err.Error(), "unresolved independent base ABI blockers") {
         t.Fatalf("missing zero-blocker proof accepted: %v", err)
     }
@@ -100,7 +101,7 @@ func TestNativeProductHandoffRejectsContradictoryABIEvidence(t *testing.T) {
 
 func TestNativeProductHandoffRejectsStagedNotInstalled(t *testing.T) {
     lock, policy, trust, root, _ := nativeProductHandoffFixture(t)
-    if _, err := verifiedNativeProductHandoff(lock, policy, trust, root); err == nil ||
+    if _, err := verifiedNativeProductHandoff(lock, policy, trust, root, productRuntimeLinuxTarget); err == nil ||
         !strings.Contains(err.Error(), "installed Product Runtime") {
         t.Fatalf("staged slot incorrectly treated as current: %v", err)
     }
@@ -114,7 +115,7 @@ func TestNativeProductHandoffVerifiesCurrentIdentityAndAnchor(t *testing.T) {
     state.Revision = 1
     if err := writeActivationState(root, state); err != nil { t.Fatal(err) }
 
-    result, err := verifiedNativeProductHandoff(lock, policy, trust, root)
+    result, err := verifiedNativeProductHandoff(lock, policy, trust, root, productRuntimeLinuxTarget)
     if err != nil { t.Fatal(err) }
     if result.Executable != filepath.Join(slot, filepath.FromSlash(productRuntimeExecutablePath)) ||
         result.SourceCommit != testSourceCommit || result.Revision != 1 {
@@ -130,7 +131,7 @@ func TestNativeProductHandoffVerifiesCurrentIdentityAndAnchor(t *testing.T) {
     candidate.CandidateEvidence.IndependentBaseABIReady = false
     mutation, _ := json.Marshal(candidate)
     if err := os.WriteFile(lock, mutation, 0o600); err != nil { t.Fatal(err) }
-    if _, err := verifiedNativeProductHandoff(lock, policy, trust, root); err == nil {
+    if _, err := verifiedNativeProductHandoff(lock, policy, trust, root, productRuntimeLinuxTarget); err == nil {
         t.Fatal("ABI revocation did not close handoff")
     }
 
@@ -138,7 +139,7 @@ func TestNativeProductHandoffVerifiesCurrentIdentityAndAnchor(t *testing.T) {
     candidate.CandidateEvidence.ExecutableSHA256 = strings.Repeat("0", 64)
     mutation, _ = json.Marshal(candidate)
     if err := os.WriteFile(lock, mutation, 0o600); err != nil { t.Fatal(err) }
-    if _, err := verifiedNativeProductHandoff(lock, policy, trust, root); err == nil ||
+    if _, err := verifiedNativeProductHandoff(lock, policy, trust, root, productRuntimeLinuxTarget); err == nil ||
         !strings.Contains(err.Error(), "binary differs from pinned provenance") {
         t.Fatalf("different signed binary from pinned CI provenance accepted: %v", err)
     }
@@ -148,7 +149,7 @@ func TestNativeProductHandoffVerifiesCurrentIdentityAndAnchor(t *testing.T) {
     candidate.CandidateEvidence.SourceCommit = candidate.Source.Commit
     mutation, _ = json.Marshal(candidate)
     if err := os.WriteFile(lock, mutation, 0o600); err != nil { t.Fatal(err) }
-    if _, err := verifiedNativeProductHandoff(lock, policy, trust, root); err == nil ||
+    if _, err := verifiedNativeProductHandoff(lock, policy, trust, root, productRuntimeLinuxTarget); err == nil ||
         !strings.Contains(err.Error(), "canonical pinned source") {
         t.Fatalf("signed current accepted mismatched OS source: %v", err)
     }
@@ -167,7 +168,7 @@ func TestNativeProductHandoffRejectsUnpinnedOrWrongTrust(t *testing.T) {
     candidate.PublicAnchor.Pinned = false
     mutation, _ := json.Marshal(candidate)
     if err := os.WriteFile(policy, mutation, 0o600); err != nil { t.Fatal(err) }
-    if _, err := verifiedNativeProductHandoff(lock, policy, trust, root); err == nil ||
+    if _, err := verifiedNativeProductHandoff(lock, policy, trust, root, productRuntimeLinuxTarget); err == nil ||
         !strings.Contains(err.Error(), "not pinned") {
         t.Fatalf("untrusted anchor authorized Product runtime: %v", err)
     }
@@ -175,7 +176,7 @@ func TestNativeProductHandoffRejectsUnpinnedOrWrongTrust(t *testing.T) {
     candidate.Status = "operator-ceremony-pending"
     mutation, _ = json.Marshal(candidate)
     if err := os.WriteFile(policy, mutation, 0o600); err != nil { t.Fatal(err) }
-    if _, err := verifiedNativeProductHandoff(lock, policy, trust, root); err == nil ||
+    if _, err := verifiedNativeProductHandoff(lock, policy, trust, root, productRuntimeLinuxTarget); err == nil ||
         !strings.Contains(err.Error(), "not pinned") {
         t.Fatalf("unpromoted trust ceremony authorized Product runtime: %v", err)
     }
@@ -184,9 +185,18 @@ func TestNativeProductHandoffRejectsUnpinnedOrWrongTrust(t *testing.T) {
     candidate.PublicAnchor.SHA256 = strings.Repeat("0", 64)
     mutation, _ = json.Marshal(candidate)
     if err := os.WriteFile(policy, mutation, 0o600); err != nil { t.Fatal(err) }
-    if _, err := verifiedNativeProductHandoff(lock, policy, trust, root); err == nil ||
+    if _, err := verifiedNativeProductHandoff(lock, policy, trust, root, productRuntimeLinuxTarget); err == nil ||
         !strings.Contains(err.Error(), "fingerprint mismatch") {
         t.Fatalf("wrong trust fingerprint authorized Product runtime: %v", err)
+    }
+}
+
+func TestNativeProductHandoffRejectsCrossPlatformOrUnknownTarget(t *testing.T) {
+    lock, policy, trust, root, _ := nativeProductHandoffFixture(t)
+    for _, target := range []string{productRuntimeWindowsTarget, "darwin-amd64", ""} {
+        if _, err := verifiedNativeProductHandoff(lock, policy, trust, root, target); err == nil {
+            t.Fatalf("cross-platform target %q got signed handoff", target)
+        }
     }
 }
 

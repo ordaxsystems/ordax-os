@@ -503,3 +503,24 @@ At present the OS source lock explicitly denies this handoff. Unit tests
 use a **synthetic ELF with an ephemeral signing key** solely to exercise
 metadata validation; they do not provide evidence of an installable
 Buildroot Runtime or actual MCP control on USB hardware.
+
+## Signed Product Runtime target binding
+
+The single canonical component channel binds `target_platform` in the
+signed Product Runtime package manifest. Only `linux-amd64` ELF64 and
+`windows-amd64` PE32+ binaries are recognized. The exact executable path,
+file hash, signed target, source commit and OS-pinned target evidence must
+agree. A foreign binary, omitted target or target field in an ordinary app
+package is rejected. Platform format inspection alone is not ABI readiness.
+
+`inspect-native-product-handoff` requires `--target linux-amd64` on the
+Native Supervisor and `--target windows-amd64` on Windows Desktop. It reuses
+the same signed component slot and canonical trust anchor. The Windows target
+also requires independently attested private-runtime dependency closure.
+
+**Activation is still prohibited.** The current OS source lock describes a
+Linux CI-only unsigned candidate; the component trust anchor remains
+operator-ceremony-pending. The Windows installer in ordax-runtime is not a
+signed, self-contained Product Runtime component slot. Synthetic PE tests
+are protocol proofs only: they do not establish real Windows execution,
+device enrollment, central attestation, or grants.
