@@ -22,6 +22,8 @@ MAX_RESPONSE_BYTES = 16 * 1024 * 1024
 MAX_VISIBLE_SPACES = 64
 EXPORT_SCHEMA = "prototype-ordax.account-export/1"
 SPACE_SEMANTIC_IDENTIFIER = re.compile(r"^[a-z0-9][a-z0-9]*(?:[._-][a-z0-9]+)*$")
+PROFILE_PACK_SLUG = re.compile(r"^[a-z0-9][a-z0-9-]{1,79}$")
+MAX_JS_SAFE_INTEGER = 9007199254740991
 
 
 class SupabaseAccountError(RuntimeError):
@@ -208,15 +210,15 @@ class SupabaseAccountProvider:
                 not isinstance(row, dict)
                 or not isinstance(row.get("space_id"), str)
                 or not isinstance(row.get("pack_slug"), str)
-                or not 1 <= len(row["pack_slug"]) <= 160
-                or "\x00" in row["pack_slug"]
+                or PROFILE_PACK_SLUG.fullmatch(row["pack_slug"]) is None
                 or isinstance(row.get("pack_version"), bool)
                 or not isinstance(row.get("pack_version"), int)
-                or row["pack_version"] < 1
+                or not 1 <= row["pack_version"] <= MAX_JS_SAFE_INTEGER
+                or len(f'{row["pack_slug"]}@{row["pack_version"]}') > 160
                 or row["space_id"] in pack_by_space
             ):
                 raise SupabaseAccountError("provider-invalid-spaces-response")
-            pack_by_space[row["space_id"]] = row["pack_slug"]
+            pack_by_space[row["space_id"]] = f'{row["pack_slug"]}@{row["pack_version"]}'
 
         spaces: list[dict] = []
         seen: set[str] = set()

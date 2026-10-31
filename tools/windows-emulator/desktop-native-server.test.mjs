@@ -84,15 +84,6 @@ test("standalone installed Native host serves verified bundle and existing privi
   assert.equal((await fetch(base+"/system/contracts/%2e%2e%2fsecret.mjs")).status,404);
   assert.equal((await fetch(base+"/__ordax/native/network-status")).status,401);
   assert.equal((await fetch(base+"/__ordax/native/product-runtime-status")).status,401);
-  const mcpStatus=await fetch(base+"/__ordax/native/product-runtime-status",{
-    headers:{"x-ordax-observation-token":tokens.ORDAX_DESKTOP_OBSERVATION_TOKEN}});
-  assert.equal(mcpStatus.status,200);
-  const mcp=await mcpStatus.json();
-  assert.equal(mcp.schema,"ordax.product-runtime-supervision/1");
-  assert.equal(mcp.ready,false);
-  assert.equal(mcp.centralSessionAttested,false);
-  assert.equal(mcp.capabilityDigest,null);
-  assert.ok(mcp.blockers.length>0);
   assert.equal((await fetch(base+"/__ordax/native/product-runtime-status?x=1",{
     headers:{"x-ordax-observation-token":tokens.ORDAX_DESKTOP_OBSERVATION_TOKEN}})).status,400);
   assert.equal((await fetch(base+"/__ordax/native/product-runtime-status",{
@@ -113,6 +104,28 @@ test("standalone installed Native host serves verified bundle and existing privi
     headers:{"x-ordax-observation-token":tokens.ORDAX_DESKTOP_OBSERVATION_TOKEN}});
   assert.equal(recovery.status,200);
   assert.equal((await recovery.json()).platform,"windows");
+  // MCP presence is not a substitute for signed Runtime, per-device
+  // enrollment, a fresh capability digest or an attested client grant.
+  const productRoute=base+"/__ordax/native/product-runtime-status";
+  assert.equal((await fetch(productRoute)).status,401);
+  assert.equal((await fetch(productRoute+"?probe=1",{
+    headers:{"x-ordax-observation-token":tokens.ORDAX_DESKTOP_OBSERVATION_TOKEN},
+  })).status,400);
+  assert.equal((await fetch(productRoute,{
+    method:"POST",headers:{"x-ordax-observation-token":tokens.ORDAX_DESKTOP_OBSERVATION_TOKEN},
+  })).status,405);
+  const productResponse=await fetch(productRoute,{
+    headers:{"x-ordax-observation-token":tokens.ORDAX_DESKTOP_OBSERVATION_TOKEN},
+  });
+  assert.equal(productResponse.status,200);
+  const product=await productResponse.json();
+  assert.equal(product.schema,"ordax.product-runtime-supervisor-status/1");
+  assert.equal(product.host,"ordax-desktop");
+  assert.equal(product.mcpReady,false);
+  assert.equal(product.capabilityDigest,null);
+  assert.equal(product.enrolled,false);
+  assert.equal(product.state,"blocked");
+  assert.equal(product.reason,"device_not_enrolled");
 });
 
 test("source-only system middleware denies path escapes and unsupported files", async t=>{

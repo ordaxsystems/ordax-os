@@ -8,6 +8,7 @@ import (
 	"crypto/sha256"
 	"crypto/x509"
 	"debug/elf"
+	"debug/pe"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
@@ -47,6 +48,9 @@ const (
 	maxProductRuntimeFileBytes  = int64(28 << 20)
 	maxProductRuntimeTotalBytes = int64(30 << 20)
 	productRuntimeExecutablePath = "system/components/product-runtime/ordax-product-agent"
+	productRuntimeWindowsExecutablePath = "system/components/product-runtime/ordax-product-agent.exe"
+	productRuntimeLinuxTarget = "linux-amd64"
+	productRuntimeWindowsTarget = "windows-amd64"
 	maxFiles         = 256
 )
 
@@ -148,6 +152,7 @@ type componentPackageManifest struct {
 	Component                         packageComponent `json:"component"`
 	SourceCommit                      string           `json:"source_commit"`
 	Entrypoint                        string           `json:"entrypoint"`
+	TargetPlatform                    string           `json:"target_platform,omitempty"`
 	SelfContainedSourceGraph          bool             `json:"self_contained_source_graph"`
 	RemoteRuntimeDependencies         bool             `json:"remote_runtime_dependencies"`
 	ActivationAllowed                 bool             `json:"activation_allowed"`
@@ -189,6 +194,38 @@ func validateKeyID(value string) error {
 	return nil
 }
 
+// Windows EvalSymlinks also expands case and short-name aliases, so textual
+// comparison against the original path rejects legitimate parent directories.
+// Walk each real ancestor with Lstat instead: a junction/reparse symlink must
+// not become a trusted signed-component package or key path.
+func verifyWindowsDirectoryAncestry(parent string) error {
+	volume := filepath.VolumeName(parent)
+	if volume == "" {
+		return errors.New("Windows component path must have an absolute volume")
+	}
+	root := volume + string(os.PathSeparator)
+	relative, err := filepath.Rel(root, parent)
+	if err != nil || filepath.IsAbs(relative) || relative == ".." ||
+		strings.HasPrefix(relative, ".."+string(os.PathSeparator)) {
+		return errors.New("Windows component parent escaped its volume")
+	}
+	current := root
+	for _,part := range strings.Split(relative, string(os.PathSeparator)) {
+		if part == "" || part == "." {
+			continue
+		}
+		current = filepath.Join(current,part)
+		info, err := os.Lstat(current)
+		if err != nil {
+			return err
+		}
+		if !info.IsDir() || info.Mode()&(os.ModeSymlink|os.ModeIrregular) != 0 {
+			return errors.New("Windows component parent may not traverse reparse points")
+		}
+	}
+	return nil
+}
+
 func ensureRealParent(path string) (string, error) {
 	absolute, err := filepath.Abs(path)
 	if err != nil {
@@ -210,7 +247,11 @@ func ensureRealParent(path string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if filepath.Clean(resolvedAbs) != filepath.Clean(parent) {
+	if runtime.GOOS == "windows" {
+		if err := verifyWindowsDirectoryAncestry(parent); err != nil {
+			return "", err
+		}
+	} else if filepath.Clean(resolvedAbs) != filepath.Clean(parent) {
 		return "", errors.New("parent path may not traverse symlinks")
 	}
 	return absolute, nil
@@ -601,9 +642,21 @@ func componentOwnedPackagePath(path, componentID string) bool {
 // exclusively meaningful for this OS-owned signed component slot, never for
 // the ordinary app/module distribution policy. This is not an ABI readiness
 // or activation decision.
+func canonicalProductRuntimeEntrypoint(target string) (string, error) {
+	switch target {
+	case productRuntimeLinuxTarget:
+		return productRuntimeExecutablePath, nil
+	case productRuntimeWindowsTarget:
+		return productRuntimeWindowsExecutablePath, nil
+	default:
+		return "", errors.New("Product Runtime target platform is unsupported")
+	}
+}
+
 func executablePackageFile(componentID string, record packageFile) bool {
-	return componentID == "product-runtime" &&
-		record.Path == productRuntimeExecutablePath && record.Executable
+	return componentID == "product-runtime" && record.Executable &&
+		(record.Path == productRuntimeExecutablePath ||
+			record.Path == productRuntimeWindowsExecutablePath)
 }
 
 func productRuntimeFileLimit(componentID string, record packageFile) int64 {
@@ -625,6 +678,19 @@ func verifiedFileMode(componentID string, record packageFile) os.FileMode {
 		return 0o555
 	}
 	return 0o444
+}
+
+// A signed executable uses immutable POSIX mode on Native and the Windows
+// read-only attribute on Desktop. In both cases its full signed SHA-256 is
+// rechecked by the shared slot verifier; this is not an ACL or session grant.
+func verifiedExecutableSlotFile(info os.FileInfo, componentID string, record packageFile) bool {
+	if !executablePackageFile(componentID, record) ||
+		!info.Mode().IsRegular() || info.Mode()&os.ModeSymlink != 0 ||
+		info.Mode().Perm()&0o222 != 0 {
+		return false
+	}
+	return runtime.GOOS == "windows" ||
+		info.Mode().Perm() == verifiedFileMode(componentID, record)
 }
 
 func validatePackageManifest(manifest componentPackageManifest, release releaseDescriptor) error {
@@ -664,13 +730,19 @@ func validatePackageManifest(manifest componentPackageManifest, release releaseD
 		return errors.New("runtime component package file count is invalid")
 	}
 	if manifest.Component.ID == "product-runtime" {
+		entry, err := canonicalProductRuntimeEntrypoint(manifest.TargetPlatform)
+		if err != nil {
+			return err
+		}
 		if manifest.Component.Kind != "service" ||
 			manifest.Component.Owner != productRuntimeSourceRepository ||
 			manifest.Component.ReleaseMode != "component-slot" ||
-			manifest.Entrypoint != productRuntimeExecutablePath ||
+			manifest.Entrypoint != entry ||
 			len(manifest.Files) != 1 {
-			return errors.New("native Product Runtime package shape is not canonical")
+			return errors.New("Product Runtime signed target and package shape disagree")
 		}
+	} else if manifest.TargetPlatform != "" {
+		return errors.New("only Product Runtime may declare a signed binary target")
 	}
 	seen := make(map[string]struct{}, len(manifest.Files))
 	var total int64
@@ -785,6 +857,42 @@ func validateNativeProductRuntimeELF(payload []byte) error {
 		return errors.New("native Product Runtime ELF entrypoint is not mapped executable")
 	}
 	return nil
+}
+
+// A signed Windows package is not a valid Linux package. Validate PE32+
+// architecture and executable entrypoint before any component slot staging.
+// This is structural only: dependency closure and release authorization
+// require independent, explicit evidence.
+func validateProductRuntimePE(payload []byte) error {
+	if len(payload) < 512 {
+		return errors.New("Windows Product Runtime PE is truncated")
+	}
+	binary, err := pe.NewFile(bytes.NewReader(payload))
+	if err != nil {
+		return fmt.Errorf("Windows Product Runtime PE structure invalid: %w", err)
+	}
+	defer binary.Close()
+	optional, ok := binary.OptionalHeader.(*pe.OptionalHeader64)
+	if !ok || binary.Machine != pe.IMAGE_FILE_MACHINE_AMD64 ||
+		binary.Characteristics&0x0002 == 0 || optional.AddressOfEntryPoint == 0 {
+		return errors.New("Windows Product Runtime must be executable amd64 PE32+")
+	}
+	entry := optional.AddressOfEntryPoint
+	for _, section := range binary.Sections {
+		if section.Offset > uint32(len(payload)) ||
+			section.Size > uint32(len(payload))-section.Offset {
+			return errors.New("Windows Product Runtime section extent is invalid")
+		}
+		length := section.VirtualSize
+		if section.Size > length {
+			length = section.Size
+		}
+		if section.Characteristics&0x20000000 != 0 &&
+			section.VirtualAddress <= entry && entry-section.VirtualAddress < length {
+			return nil
+		}
+	}
+	return errors.New("Windows Product Runtime entrypoint is not mapped executable")
 }
 
 func inspectPackage(packagePath string, release releaseDescriptor) (verifiedPackage, error) {
@@ -902,8 +1010,17 @@ func inspectPackage(packagePath string, release releaseDescriptor) (verifiedPack
 			return verifiedPackage{}, fmt.Errorf("runtime component file integrity mismatch: %s", record.Path)
 		}
 		if executablePackageFile(manifest.Component.ID, record) {
-			if err := validateNativeProductRuntimeELF(payload); err != nil {
-				return verifiedPackage{}, fmt.Errorf("native Product Runtime file %s: %w", record.Path, err)
+			var checkErr error
+			switch manifest.TargetPlatform {
+			case productRuntimeLinuxTarget:
+				checkErr = validateNativeProductRuntimeELF(payload)
+			case productRuntimeWindowsTarget:
+				checkErr = validateProductRuntimePE(payload)
+			default:
+				return verifiedPackage{}, errors.New("Product Runtime signed target is unsupported")
+			}
+			if checkErr != nil {
+				return verifiedPackage{}, fmt.Errorf("Product Runtime target binary %s: %w", record.Path, checkErr)
 			}
 		}
 		files[record.Path] = payload
@@ -934,7 +1051,13 @@ func ensureSecureDirectory(path string, mode os.FileMode) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if filepath.Clean(resolvedAbs) != filepath.Clean(absolute) {
+	if runtime.GOOS == "windows" {
+		// Windows path aliases may differ textually without being junctions.
+		// Enforce the same physical ancestor check used for signed inputs.
+		if err := verifyWindowsDirectoryAncestry(absolute); err != nil {
+			return "", err
+		}
+	} else if filepath.Clean(resolvedAbs) != filepath.Clean(absolute) {
 		return "", errors.New("runtime component slot path may not traverse symlinks")
 	}
 	return absolute, nil
@@ -1005,19 +1128,23 @@ func removeStagingTree(root string) {
 	if strings.TrimSpace(root) == "" {
 		return
 	}
-	if runtime.GOOS != "windows" {
-		_ = filepath.WalkDir(root, func(path string, entry os.DirEntry, err error) error {
-			if err != nil {
-				return nil
-			}
-			if entry.IsDir() {
-				_ = os.Chmod(path, 0o700)
-			} else {
-				_ = os.Chmod(path, 0o600)
-			}
+	// Clear Windows read-only attributes as well as POSIX slot modes before
+	// disposing a rejected STAGING tree. Never touch a current slot or user data.
+	_ = filepath.WalkDir(root, func(path string, entry os.DirEntry, err error) error {
+		if err != nil {
 			return nil
-		})
-	}
+		}
+		if runtime.GOOS == "windows" {
+			if !entry.IsDir() {
+				_ = os.Chmod(path, 0o666)
+			}
+		} else if entry.IsDir() {
+			_ = os.Chmod(path, 0o700)
+		} else {
+			_ = os.Chmod(path, 0o600)
+		}
+		return nil
+	})
 	_ = os.RemoveAll(root)
 }
 
@@ -1041,21 +1168,23 @@ func makeSlotReadOnly(root string, manifest componentPackageManifest) error {
 		if !info.Mode().IsRegular() {
 			return errors.New("runtime component slot contains a non-regular file")
 		}
-		if runtime.GOOS != "windows" {
-			relative, err := filepath.Rel(root, path)
-			if err != nil {
-				return err
-			}
-			mode := os.FileMode(0o444)
-			for _, record := range manifest.Files {
-				if record.Path == filepath.ToSlash(relative) {
-					mode = verifiedFileMode(manifest.Component.ID, record)
-					break
-				}
-			}
-			return os.Chmod(path, mode)
+		// Go maps Chmod to FILE_ATTRIBUTE_READONLY on Windows; POSIX
+		// retains its executable 0555 mode. Both are reverified on read.
+		if runtime.GOOS == "windows" {
+			return os.Chmod(path, 0o444)
 		}
-		return nil
+		relative, err := filepath.Rel(root, path)
+		if err != nil {
+			return err
+		}
+		mode := os.FileMode(0o444)
+		for _, record := range manifest.Files {
+			if record.Path == filepath.ToSlash(relative) {
+				mode = verifiedFileMode(manifest.Component.ID, record)
+				break
+			}
+		}
+		return os.Chmod(path, mode)
 	}); err != nil {
 		return err
 	}
@@ -1136,7 +1265,7 @@ func verifySlotWithTrustBytes(slot string, trustBytes []byte) (releaseDescriptor
 		if !info.Mode().IsRegular() {
 			return errors.New("installed runtime component slot contains unsafe entry type")
 		}
-		if runtime.GOOS != "windows" && info.Mode().Perm()&0o222 != 0 {
+		if info.Mode().Perm()&0o222 != 0 {
 			return fmt.Errorf("installed runtime component file is writable: %s", path)
 		}
 		relative, err := filepath.Rel(absolute, path)
@@ -1160,13 +1289,12 @@ func verifySlotWithTrustBytes(slot string, trustBytes []byte) (releaseDescriptor
 	}
 	for _, record := range manifest.Files {
 		filePath := filepath.Join(absolute, filepath.FromSlash(record.Path))
-		if runtime.GOOS != "windows" {
+		if executablePackageFile(manifest.Component.ID, record) {
 			info, err := os.Lstat(filePath)
 			if err != nil {
 				return releaseDescriptor{}, err
 			}
-			if executablePackageFile(manifest.Component.ID, record) &&
-				info.Mode().Perm() != verifiedFileMode(manifest.Component.ID, record) {
+			if !verifiedExecutableSlotFile(info, manifest.Component.ID, record) {
 				return releaseDescriptor{}, fmt.Errorf("installed runtime component file mode mismatch: %s", record.Path)
 			}
 		}
