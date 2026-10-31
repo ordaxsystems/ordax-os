@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 import { Readable } from "node:stream";
 import { createEmulatorAccountGateway } from "../tools/windows-emulator/account-gateway.mjs";
-import { validateSpaceCreateReceipt } from "../infra/supabase/functions/_shared/space_create_contract.mjs";
+import { validateSpaceCreateReceipt } from "../system/contracts/space-creation.mjs";
 
 import {
   parseSpaceCreateRequest,
