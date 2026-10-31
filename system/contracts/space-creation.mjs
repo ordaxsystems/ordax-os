@@ -1,3 +1,4 @@
+import { validateSpace } from "./spaces.mjs";
 export const SPACE_CREATION_INTENT_SCHEMA = "ordax.space-creation-intent/1";
 export const SPACE_CREATION_PREFLIGHT_SCHEMA = "ordax.space-creation-preflight/1";
 
@@ -115,5 +116,55 @@ export function validateSpaceCreationPreflight(value) {
       provisionProfile: false,
       activateProfile: false,
     }),
+  });
+}
+
+export const SPACE_CREATE_RECEIPT_SCHEMA = "prototype-ordax.space-create/1";
+const SPACE_CREATE_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function exactReceiptKeys(value, expected) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const actual = Object.keys(value).sort();
+  const wanted = [...expected].sort();
+  return actual.length === wanted.length
+    && actual.every((key, index) => key === wanted[index]);
+}
+
+// Consumer-only validation: the authenticated Account gateway and its RPC own
+// persistence and authorization. No second Profile/Space mutation authority.
+export function validateSpaceCreateReceipt(value, { subjectId, request } = {}) {
+  if (
+    !exactReceiptKeys(value, ["$schema", "created", "space", "profileToProvision", "nextStep"])
+    || value.$schema !== SPACE_CREATE_RECEIPT_SCHEMA
+    || typeof value.created !== "boolean"
+    || value.nextStep !== "validate-profile-provisioning"
+    || !exactReceiptKeys(value.space, [
+      "id", "ownerId", "name", "kind", "state", "domain", "subtype", "profilePack",
+    ])
+    || !exactReceiptKeys(value.profileToProvision, ["slug", "version"])
+    || typeof subjectId !== "string" || !SPACE_CREATE_UUID.test(subjectId)
+  ) throw new TypeError("invalid-space-create-receipt");
+
+  const space = validateSpace(value.space);
+  const profile = value.profileToProvision;
+  if (
+    !SPACE_CREATE_UUID.test(space.id)
+    || space.ownerId !== subjectId
+    || space.profilePack !== null
+    || !request || space.name !== request.name
+    || space.domain !== request.domain || space.subtype !== request.subtype
+    || typeof profile.slug !== "string" || !PROFILE_SLUG.test(profile.slug)
+    || !Number.isSafeInteger(profile.version) || profile.version < 1
+  ) throw new TypeError("invalid-space-create-receipt");
+
+  return Object.freeze({
+    $schema: SPACE_CREATE_RECEIPT_SCHEMA,
+    created: value.created,
+    space,
+    profileToProvision: Object.freeze({
+      slug: profile.slug,
+      version: profile.version,
+    }),
+    nextStep: "validate-profile-provisioning",
   });
 }
