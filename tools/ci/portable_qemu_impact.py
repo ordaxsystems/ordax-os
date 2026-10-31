@@ -168,6 +168,7 @@ ACCOUNT_SPACE_SEMANTICS_LIGHT_EXACT = {
     "tests/test_supabase_account_provider.py",
 }
 SPACE_COMPOSITION_LIGHT_EXACT = {
+    ".github/workflows/space-foundation-contract-proof.yml",
     "docs/contracts/spaces-and-profile-packs.json",
     "tests/test_account_canonical_navigation.py",
     "tests/test_space_aura_provider.mjs",

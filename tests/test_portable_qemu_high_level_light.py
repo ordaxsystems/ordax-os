@@ -46,6 +46,7 @@ def test_native_account_transport_and_focused_contracts_do_not_require_portable_
         "infra/supabase/functions/ordax-account-gateway/index.ts",
         "infra/supabase/functions/_shared/space_create_contract.mjs",
         ".github/workflows/ordax-account-gateway-destination.yml",
+        ".github/workflows/space-foundation-contract-proof.yml",
         "tests/test_native_account_gateway.py",
         "tests/test_native_account_session_contract.py",
         "tests/test_space_create_bridge.mjs",
