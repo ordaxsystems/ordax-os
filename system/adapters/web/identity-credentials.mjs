@@ -12,9 +12,12 @@ import { rememberVerifiedLoginEmail } from "../../services/account/remembered-lo
 export class IdentityCredentialRequestError extends Error {
   constructor(status) {
     const parsed = Number(status);
-    super("Identity credential request failed");
+    const safeStatus = Number.isInteger(parsed) && parsed >= 400 && parsed <= 599 ? parsed : null;
+    // Existing contract consumers can read the bounded HTTP code in the
+    // error message; never include provider response bodies or credentials.
+    super(`Identity credential request failed: ${safeStatus ?? "unknown"}`);
     this.name = "IdentityCredentialRequestError";
-    this.status = Number.isInteger(parsed) && parsed >= 400 && parsed <= 599 ? parsed : null;
+    this.status = safeStatus;
   }
 }
 export function createWebRegistrationPolicyReader(windowRef = globalThis.window) {

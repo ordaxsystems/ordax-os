@@ -374,6 +374,7 @@ test("credential errors keep bounded transport status without leaking provider c
     await assert.rejects(port.signIn(credentials), error => {
       assert.ok(error instanceof IdentityCredentialRequestError);
       assert.equal(error.status, expectedStatus);
+      if (expectedStatus !== null) assert.match(error.message, new RegExp(String(expectedStatus)));
       assert.equal(identityCredentialFailureMessageId(error),messageId);
       assert.doesNotMatch(error.message,/secret|trace|pessoa@example.com|secret-1/i);
       return true;
