@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
+import { Readable } from "node:stream";
+import { createEmulatorAccountGateway } from "../tools/windows-emulator/account-gateway.mjs";
+import { validateSpaceCreateCommand, validateSpaceCreateReceipt } from "../system/contracts/space-creation.mjs";
 
 import {
   parseSpaceCreateRequest,
@@ -134,4 +137,145 @@ test("Space create result rejects coerced, ambiguous Profile Pack versions", () 
       /invalid-space-create-result/,
     );
   }
+});
+
+const SESSION_SCHEMA = "prototype-ordax.public-identity-session/1";
+function spaceReceipt({ subject = SUBJECT, created = true, extra = {} } = {}) {
+  return {
+    $schema: SPACE_CREATE_SCHEMA,
+    created,
+    space: {
+      id: SPACE,
+      ownerId: subject,
+      name: "Minha Pizzaria",
+      kind: "professional",
+      state: "active",
+      domain: "food",
+      subtype: "pizzeria",
+      profilePack: null,
+    },
+    profileToProvision: { slug: "pizzaria-br", version: 1 },
+    nextStep: "validate-profile-provisioning",
+    ...extra,
+  };
+}
+function accountBrowserRequest(body, headers = {}, url = "/account/spaces/create") {
+  const request = Readable.from([Buffer.from(body)]);
+  request.method = "POST";
+  request.url = url;
+  request.socket = { remoteAddress: "127.0.0.1" };
+  request.headers = {
+    host: "127.0.0.1:3333",
+    origin: "http://127.0.0.1:3333",
+    "content-type": "application/json",
+    ...headers,
+  };
+  let status = null;
+  let payload = null;
+  const response = {
+    writeHead(nextStatus) { status = nextStatus; },
+    end(content) { payload = content ? JSON.parse(content.toString()) : null; },
+  };
+  return { request, response, result: () => ({ status, payload }) };
+}
+async function invokeAccountGateway(middleware, value, headers = {}, url) {
+  const req = accountBrowserRequest(typeof value === "string" ? value : JSON.stringify(value), headers, url);
+  const handled = await middleware(req.request, req.response);
+  assert.equal(handled, true);
+  return req.result();
+}
+function fakeWindowsAccountGateway({ authenticated = true, status = 201, receipt = spaceReceipt() } = {}) {
+  const calls = [];
+  const fetchImpl = async (url, options) => {
+    calls.push({ url, method: options.method, body: options.body });
+    if (url.endsWith("/auth/session")) {
+      return new Response(JSON.stringify(authenticated
+        ? { $schema: SESSION_SCHEMA, authenticated: true, status: "authenticated", provider: "supabase", subject: SUBJECT, email: "owner@example.test" }
+        : { $schema: SESSION_SCHEMA, authenticated: false, status: "anonymous", provider: "supabase" }), { status: 200 });
+    }
+    if (url.endsWith("/account/spaces/create")) {
+      return new Response(JSON.stringify(receipt), { status });
+    }
+    throw Error("unexpected upstream route");
+  };
+  const middleware = createEmulatorAccountGateway({
+    origin: "https://example.test/functions/v1/ordax-account-gateway",
+    fetchImpl,
+    cookieVault: {
+      async load() { return new Map([["ordax_access", "opaque-native-session"]]); },
+      async save() {},
+    },
+  });
+  return { middleware, calls };
+}
+
+test("Windows Desktop forwards an authenticated, bounded Space intent and validates 201 receipt", async () => {
+  const gateway = fakeWindowsAccountGateway();
+  const result = await invokeAccountGateway(gateway.middleware, request());
+  assert.equal(result.status, 201);
+  assert.equal(result.payload.created, true);
+  assert.equal(result.payload.space.ownerId, SUBJECT);
+  assert.equal(result.payload.space.profilePack, null);
+  assert.deepEqual(result.payload.profileToProvision, { slug: "pizzaria-br", version: 1 });
+  assert.deepEqual(gateway.calls.map(call => call.method), ["GET", "POST"]);
+  assert.deepEqual(JSON.parse(gateway.calls[1].body), request());
+  assert.equal(gateway.calls[1].url.endsWith("/account/spaces/create"), true);
+});
+
+test("Windows Desktop denies anonymous create without forwarding and never trusts foreign Origin", async () => {
+  const guest = fakeWindowsAccountGateway({ authenticated: false });
+  assert.equal((await invokeAccountGateway(guest.middleware, request())).status, 401);
+  assert.deepEqual(guest.calls.map(call => call.method), ["GET"]);
+
+  const forged = fakeWindowsAccountGateway();
+  assert.equal((await invokeAccountGateway(forged.middleware, request(), { origin: "https://other.example" })).status, 403);
+  assert.equal(forged.calls.length, 0);
+  assert.equal((await invokeAccountGateway(forged.middleware, request(), {}, "/account/spaces/create?debug=1")).status, 400);
+  assert.equal((await invokeAccountGateway(forged.middleware, request(), { "content-type": "text/plain" })).status, 415);
+  assert.equal(forged.calls.length, 0);
+});
+
+test("Windows Desktop rejects invalid intent, unexpected fields and oversized bodies before network", async () => {
+  const gateway = fakeWindowsAccountGateway();
+  for (const invalid of [request({ idempotencyKey: "bad" }), request({ ownerId: SUBJECT }), request({ domain: "Food" })]) {
+    assert.equal((await invokeAccountGateway(gateway.middleware, invalid)).status, 400);
+  }
+  assert.equal((await invokeAccountGateway(gateway.middleware, "x".repeat(4097))).status, 413);
+  assert.equal(gateway.calls.length, 0);
+});
+
+test("Windows Desktop keeps idempotent 200 replay and rejects invented/foreign creation receipt", async () => {
+  const replay = fakeWindowsAccountGateway({ status: 200, receipt: spaceReceipt({ created: false }) });
+  assert.equal((await invokeAccountGateway(replay.middleware, request())).status, 200);
+  const mismatchedStatus = fakeWindowsAccountGateway({ status: 200 });
+  assert.equal((await invokeAccountGateway(mismatchedStatus.middleware, request())).status, 503);
+  const wrongOwner = fakeWindowsAccountGateway({ receipt: spaceReceipt({ subject: "33333333-3333-4333-8333-333333333333" }) });
+  assert.equal((await invokeAccountGateway(wrongOwner.middleware, request())).status, 503);
+  const extraField = fakeWindowsAccountGateway({ receipt: spaceReceipt({ extra: { authorization: "invented" } }) });
+  assert.equal((await invokeAccountGateway(extraField.middleware, request())).status, 503);
+  assert.throws(() => validateSpaceCreateReceipt(spaceReceipt({ extra: { installed: true } }), {
+    subjectId: SUBJECT, request: request(),
+  }));
+  for (const gateway of [mismatchedStatus, wrongOwner, extraField]) {
+    assert.equal(gateway.calls.length, 2);
+  }
+});
+
+test("Packaged Desktop command validation agrees with authoritative Gateway parser", () => {
+  const input = request({ name: "  Minha Pizzaria  " });
+  const server = parseSpaceCreateRequest(JSON.stringify(input), "application/json");
+  assert.deepEqual(validateSpaceCreateCommand(input), server);
+  for (const invalid of [
+    request({ extra: true }),
+    request({ domain: "Food" }),
+    request({ subtype: "3d print " }),
+    request({ idempotencyKey: "invalid" }),
+    request({ name: "\u0001" }),
+  ]) {
+    assert.throws(() => validateSpaceCreateCommand(invalid));
+    assert.throws(() => parseSpaceCreateRequest(JSON.stringify(invalid), "application/json"));
+  }
+  const windowsModule = readFileSync(new URL("../tools/windows-emulator/account-gateway.mjs", import.meta.url), "utf8");
+  assert.doesNotMatch(windowsModule, /from\s+["'][^"']*infra\/supabase\//);
+  assert.match(windowsModule, /validateSpaceCreateCommand/);
 });
