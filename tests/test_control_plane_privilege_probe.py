@@ -18,13 +18,17 @@ class ControlPlanePrivilegeProbeTests(unittest.TestCase):
             "public_function_execute": 0,
             "unsafe_security_definer_search_path": 0,
             "anon_private_schema_usage": False,
-            "authenticated_private_schema_usage": False,
-            "authenticated_private_function_execute": 0,
+            "authenticated_private_schema_usage": True,
+            "authenticated_private_schema_create": False,
+            "authenticated_private_function_execute": 5,
+            "unexpected_authenticated_private_function_execute": 0,
+            "authenticated_private_rls_dependency_count": 15,
+            "unexpected_authenticated_private_rls_dependency_count": 0,
             "private_cloud_storage_rls_enabled_count": 2,
             "authenticated_sync_table_grants": 0,
             "service_role_sync_table_grants": 0,
-            "sync_policy_count": 5,
-            "non_executor_sync_policy_count": 0,
+            "sync_policy_count": 6,
+            "unexpected_sync_policy_count": 0,
             "service_role_user_sync_rpc_execute": 0,
             "app_role_sync_sequence_privilege": False,
             "unexpected_authenticated_write_grants": [],
@@ -32,7 +36,7 @@ class ControlPlanePrivilegeProbeTests(unittest.TestCase):
 
     def test_target_boundary_is_ready(self):
         proof = MODULE.evaluate(self.valid_observation())
-        self.assertEqual(proof["$schema"], "prototype-ordax.control-plane-privilege-proof/3")
+        self.assertEqual(proof["$schema"], "prototype-ordax.control-plane-privilege-proof/5")
         self.assertTrue(proof["ready"])
         self.assertEqual(proof["project_ref"], "redacted")
         self.assertTrue(all(proof["checks"].values()))
@@ -70,9 +74,34 @@ class ControlPlanePrivilegeProbeTests(unittest.TestCase):
         self.assertFalse(proof["checks"]["no_service_role_sync_table_grants"])
         self.assertFalse(proof["checks"]["no_service_role_user_sync_rpc_execute"])
 
+    def test_export_policy_is_authorized_but_unauthorized_extra_is_rejected(self):
+        self.assertIn(
+            ("ordax_sync_objects", "ordax_sync_objects_export_own", "ordax_account_export_executor"),
+            MODULE.EXPECTED_SYNC_POLICIES,
+        )
+        for text in ("ordax_sync_objects_export_own", "ordax_account_export_executor"):
+            self.assertIn(text, MODULE.SQL)
+        self.assertEqual(len(MODULE.EXPECTED_SYNC_POLICIES), 6)
+        self.assertNotIn("EXACT_SYNC_POLICIES", MODULE.SQL)
+        bad = self.valid_observation()
+        bad["unexpected_sync_policy_count"] = 1
+        self.assertFalse(MODULE.evaluate(bad)["checks"]["sync_policies_executor_only"])
+
+    def test_live_target_rejects_other_projects_and_unknown_hosts(self):
+        ref = "a" * 20
+        MODULE.validate_database_target("postgresql://postgres@db." + ref + ".supabase.co:5432/postgres", ref)
+        MODULE.validate_database_target("postgresql://postgres." + ref + "@aws-0-sa-east-1.pooler.supabase.com:5432/postgres", ref)
+        for uri in (
+            "postgresql://postgres@db." + "b"*20 + ".supabase.co/postgres",
+            "postgresql://postgres@evil.example/postgres",
+            "postgresql://postgres." + "b"*20 + "@aws-0-sa-east-1.pooler.supabase.com/postgres",
+        ):
+            with self.subTest(uri=uri), self.assertRaises(ValueError):
+                MODULE.validate_database_target(uri, ref)
+
     def test_sync_policies_must_be_exact_executor_only_set(self):
         observed = self.valid_observation()
-        observed["non_executor_sync_policy_count"] = 1
+        observed["unexpected_sync_policy_count"] = 1
         proof = MODULE.evaluate(observed)
         self.assertFalse(proof["checks"]["sync_policies_executor_only"])
 
@@ -86,13 +115,43 @@ class ControlPlanePrivilegeProbeTests(unittest.TestCase):
         observed["app_role_sync_sequence_privilege"] = True
         self.assertFalse(MODULE.evaluate(observed)["checks"]["no_app_role_sync_sequence_privilege"])
 
-    def test_authenticated_private_surface_blocks_release(self):
-        observed = self.valid_observation()
-        observed["authenticated_private_schema_usage"] = True
-        observed["authenticated_private_function_execute"] = 1
-        proof = MODULE.evaluate(observed)
-        self.assertFalse(proof["checks"]["no_authenticated_private_schema_usage"])
-        self.assertFalse(proof["checks"]["no_authenticated_private_function_execute"])
+    def test_private_helpers_must_be_exact_allowlist_and_rls_dependent(self):
+        self.assertEqual(len(MODULE.EXPECTED_AUTH_PRIVATE_HELPERS), 5)
+        self.assertEqual(len(MODULE.EXPECTED_AUTH_PRIVATE_RLS_POLICIES), 15)
+        self.assertTrue(MODULE.evaluate(self.valid_observation())["ready"])
+        for key, check in (
+            ("unexpected_authenticated_private_function_execute", "authenticated_private_helpers_exact"),
+            ("unexpected_authenticated_private_rls_dependency_count", "authenticated_private_rls_dependencies_exact"),
+        ):
+            bad = self.valid_observation()
+            bad[key] = 1
+            self.assertFalse(MODULE.evaluate(bad)["checks"][check])
+        for key, check in (
+            ("authenticated_private_function_execute", "authenticated_private_helpers_exact"),
+            ("authenticated_private_rls_dependency_count", "authenticated_private_rls_dependencies_exact"),
+        ):
+            bad = self.valid_observation()
+            bad[key] = 0
+            self.assertFalse(MODULE.evaluate(bad)["checks"][check])
+
+    def test_private_schema_usage_required_only_for_rls_not_create(self):
+        missing = self.valid_observation()
+        missing["authenticated_private_schema_usage"] = False
+        self.assertFalse(MODULE.evaluate(missing)["checks"]["authenticated_private_schema_rls_usage"])
+        excess = self.valid_observation()
+        excess["authenticated_private_schema_create"] = True
+        self.assertFalse(MODULE.evaluate(excess)["checks"]["no_authenticated_private_schema_create"])
+
+    def test_sql_checks_function_signatures_and_dependency_policies(self):
+        for helper, args in MODULE.EXPECTED_AUTH_PRIVATE_HELPERS:
+            self.assertIn(helper, MODULE.SQL)
+        for table, policy in MODULE.EXPECTED_AUTH_PRIVATE_RLS_POLICIES:
+            self.assertIn(table, MODULE.SQL)
+            self.assertIn(policy, MODULE.SQL)
+        self.assertNotIn("EXACT_PRIVATE_HELPERS", MODULE.SQL)
+        self.assertIn("has_function_privilege('anon',f.oid,'EXECUTE')", MODULE.SQL)
+        self.assertIn("has_function_privilege('service_role',f.oid,'EXECUTE')", MODULE.SQL)
+        self.assertIn("f.function_owner <> 'postgres'", MODULE.SQL)
 
     def test_private_cloud_storage_requires_rls_on_both_tables(self):
         observed = self.valid_observation()

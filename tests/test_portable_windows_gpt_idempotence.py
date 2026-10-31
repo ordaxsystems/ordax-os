@@ -1,11 +1,26 @@
 import unittest
+import os
+import json
 from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-RUNTIME = ROOT / "tools/creator/host/windows/portable_apply_windows.go"
+RUNTIME = (Path(os.environ["ORDAX_CREATOR_NATIVE_SOURCE"]) / "host/windows/portable_apply_windows.go"
+           if os.environ.get("ORDAX_CREATOR_NATIVE_SOURCE") else None)
 
 
+class PortableWindowsGPTSourceBoundaryTests(unittest.TestCase):
+    def test_gpt_regression_uses_immutable_creator_source_in_windows_safety_ci(self):
+        pin = json.loads((ROOT / "docs/contracts/native-release-assembly.json").read_text(encoding="utf-8"))["creator_source"]
+        self.assertEqual(pin["repository"], "ordaxsystems/ordax-creator")
+        workflow = (ROOT / ".github/workflows/physical-usb-test-toolkit.yml").read_text(encoding="utf-8")
+        self.assertIn("uses: ./.github/actions/resolve-creator-source", workflow)
+        self.assertIn("tests.test_portable_windows_gpt_idempotence", workflow)
+        self.assertNotIn("Push-Location tools/creator", workflow)
+
+
+@unittest.skipUnless(os.environ.get("ORDAX_CREATOR_NATIVE_SOURCE"),
+                     "Windows PowerShell GPT implementation is checked from pinned independent Creator source")
 class PortableWindowsGPTIdempotenceTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):

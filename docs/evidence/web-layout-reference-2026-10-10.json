@@ -121,11 +121,23 @@
     },
     {
       "path": "src/lib/store/catalog.ts",
-      "sha256": "e9ad236cbcebda382d96421cf47c2b2f37a5602d53be26b55ddf7f99ac0cfacb"
+      "sha256": "e9ad236cbcebda382d96421cf47c2b2f37a5602d53be26b55ddf7f99ac0cfacb",
+      "adaptedSha256": "e9bfbc2f9537f232b36df0282e95feb3a1f55e9f5c3be7d6b5a43c0c08d5c924",
+      "adaptation": "Typed facade over the single browser-ready MJS runtime, shared by Web and Native Store; original provenance retained.",
+      "runtime": {
+        "target": "system/surface/workspace/lib/store/catalog.mjs",
+        "sha256": "4763154a6d67466e4f5fcad8dcb462c85bcefa19c175b30e8f712d90dd3bdec4"
+      }
     },
     {
       "path": "src/lib/store/state.ts",
-      "sha256": "7ef42d2a507d0ce6fe38bef62c1bd2f8b8389c6b0c4d5aa414ce41134716037f"
+      "sha256": "7ef42d2a507d0ce6fe38bef62c1bd2f8b8389c6b0c4d5aa414ce41134716037f",
+      "adaptedSha256": "08aef7902adc7d718f96ee3aca092b8458177cd4d16c0b555f991417c27204f8",
+      "adaptation": "Typed facade over the single browser-ready MJS runtime, shared by Web and Native Store; original provenance retained.",
+      "runtime": {
+        "target": "system/surface/workspace/lib/store/state.mjs",
+        "sha256": "72bad51fdfe394f579c8a5f118cf062f5f8a4350e7be1afc7dbedd2206ff1082"
+      }
     },
     {
       "path": "src/lib/utils.ts",
@@ -133,7 +145,9 @@
     },
     {
       "path": "src/lib/web/model.ts",
-      "sha256": "6518123ca40b26bf2a0f135ef32ec78e2fd436aa9cb2ee9afac4f6a62bcb1b78"
+      "sha256": "6518123ca40b26bf2a0f135ef32ec78e2fd436aa9cb2ee9afac4f6a62bcb1b78",
+      "adaptedSha256": "95ff902fc4584ccdb0b4e050a974b438cff287e22842275eeca4d01cdeb3b88f",
+      "adaptation": "2026-10-23: Web Surface app and navigation presentation now resolve the Intelligence display title through the existing OS destination catalog, without changing app IDs, installed-state, or AI authority. The original upstream sha256 stays immutable; this reviewed adapted digest pins the exact LF-normalized Native consumer source."
     },
     {
       "path": "src/lib/web/windows.ts",
@@ -721,12 +735,24 @@
       {
         "from": "      {sections.map(s => <button type=\"button\" key={s.id} aria-current={section === s.id && !item ? 'page' : undefined} onClick={() => go(s.id)}><s.icon/><span>{s.label}</span>{s.id === 'updates' && ups.length > 0 && <b>{ups.length}</b>}</button>)}",
         "to": "      {sections.map(s => <button type=\"button\" key={s.id} aria-current={section === s.id && !item ? 'page' : undefined} onClick={() => go(s.id)}><s.icon/><span>{s.label}</span>{s.id === 'updates' && ups.length > 0 && <b>{ups.length}</b>}</button>)}\n      <select className=\"st-section-select\" aria-label=\"Seção da Loja\" value={section} onChange={event => go(event.target.value as Section)}>\n        {sections.map(item => <option key={item.id} value={item.id}>{item.label}</option>)}\n      </select>"
+      },
+      {
+        "from": "export function StoreExperience(",
+        "to": "export function OfficialStoreExperience("
+      },
+      {
+        "from": "",
+        "to": "\n// Compatibility for existing host consumers; the official view stays fail-closed.\nexport { OfficialStoreExperience as StoreExperience };\n"
       }
     ],
     "src/lib/store/catalog.ts": [
       {
         "from": "export function platformLabel(p: Platform[]): string {",
         "to": "export function platformLabel(p: Platform[]): string {\n  if (!p.length) return 'Compatibilidade não informada pelo catálogo';"
+      },
+      {
+        "from": "norm([i.name, i.tagline, i.developer, ...i.tags].join(' ')).includes(q)",
+        "to": "norm([\n    i.name, i.tagline, i.description, i.developer, kindMeta[i.kind].label, ...i.tags,\n    ...('category' in i ? [i.category] : []),\n    ...('capabilities' in i ? i.capabilities : []),\n    ...('provides' in i ? i.provides : []),\n    ...('tasks' in i ? i.tasks : []),\n  ].join(' ')).includes(q)"
       }
     ],
     "src/components/web/window.tsx": [

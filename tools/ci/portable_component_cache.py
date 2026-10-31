@@ -36,6 +36,7 @@ class CacheError(RuntimeError):
 # verification changes fail-closed without forcing an unrelated recompilation.
 PROVENANCE_FILES = {
     "kernel": "kernel-provenance.json",
+    "independent-base": "provenance.json",
     "local-ai": "local-ai-runtime-provenance.json",
     "surface": "surface-runtime-provenance.json",
 }
@@ -50,8 +51,34 @@ COMPONENTS = {
             "docs/contracts/kernel-build-environment.json",
         ),
     },
+    "independent-base": {
+        "inputs": (
+            "bootstrap/independent-base/build.py",
+            "bootstrap/independent-base/source.json",
+            "bootstrap/independent-base/Config.in",
+            "bootstrap/independent-base/external.desc",
+            "bootstrap/independent-base/external.mk",
+            "bootstrap/independent-base/configs",
+            "bootstrap/independent-base/overlay",
+            "bootstrap/independent-base/patches",
+            "bootstrap/independent-base/post-build.sh",
+            "bootstrap/kernel/source.json",
+            "bootstrap/stable-base/source.json",
+            "bootstrap/network/source.json",
+            "bootstrap/network/bring-up",
+            "bootstrap/network/udhcpc.script",
+            "docs/contracts/portable-boot-handoff.json",
+        ),
+    },
     "local-ai": {
         "inputs": (
+            # The external builder is immutable by its OS-owned exact commit
+            # and eight Git blob locks. This lock MUST invalidate any cached
+            # EROFS when the external builder source changes.
+            "docs/contracts/intelligence-source.json",
+            "tools/intelligence-source/materialize.py",
+            ".github/actions/resolve-intelligence-builder/action.yml",
+            # Retained only for cross-verification until signed v4 cutover.
             "bootstrap/local-ai-runtime/build.py",
             "system/services/local-ai/source-lock.json",
             "docs/contracts/local-ai.json",
@@ -61,6 +88,10 @@ COMPONENTS = {
         "inputs": (
             "bootstrap/surface-runtime/build.py",
             "bootstrap/surface-runtime/source.json",
+            "bootstrap/surface-runtime/package_config.py",
+            "system/surface/runtime/packages.txt",
+            "system/surface/runtime/media_runtime_probe.py",
+            "system/surface/runtime/audio-session.sh",
             "bootstrap/base/alpine_core.py",
         ),
     },
@@ -337,6 +368,7 @@ def write_fingerprints(github_output: Path, root: Path = ROOT) -> dict[str, str]
     values = {name: component_fingerprint(name, root) for name in COMPONENTS}
     aliases = {
         "kernel": "kernel",
+        "independent_base": "independent-base",
         "local_ai": "local-ai",
         "surface": "surface",
         "release_agent": "release-agent",

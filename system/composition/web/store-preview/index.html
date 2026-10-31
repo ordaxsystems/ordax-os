@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="pt-BR" data-meridian data-material="paper">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <meta name="description" content="Prévia isolada da Loja OrdaX com identidade visual Meridian.">
+  <title>Loja OrdaX · Prévia Meridian</title>
+  <link rel="stylesheet" href="./meridian.tokens.css">
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <a class="skip" href="#content">Ir para o conteúdo</a>
+  <div class="store-shell">
+    <aside class="sidebar" id="sidebar" aria-label="Navegação da Loja">
+      <a class="brand" href="#discover"><span id="brand-symbol" aria-hidden="true"></span><span>OrdaX<small>LOJA</small></span></a>
+      <nav id="navigation" aria-label="Seções da Loja"></nav>
+      <div class="sidebar-bottom"><span class="scope-dot"></span><span>Seu OrdaX, suas escolhas<small>Origem e permissões à vista.</small></span></div>
+    </aside>
+    <div class="store-workspace">
+      <header class="topbar">
+        <button class="icon-button mobile-menu" id="menu-toggle" aria-label="Abrir navegação" aria-expanded="false" aria-controls="sidebar"></button>
+        <div class="location"><span>Loja</span><span class="location-slash">/</span><strong id="breadcrumb">Descobrir</strong></div>
+        <label class="global-search"><span id="search-icon" aria-hidden="true"></span><input id="search" type="search" placeholder="Buscar na Loja" aria-label="Buscar por nome, categoria, desenvolvedor ou recurso" autocomplete="off"><kbd>/</kbd></label>
+        <button class="icon-button" id="material-toggle" aria-label="Usar material Grafite"></button>
+      </header>
+      <div class="preview-strip"><span><i></i>Prévia da Loja <b>·</b> Dados demonstrativos, ações simuladas</span><div><label class="sr-only" for="scene">Condição demonstrativa</label><select id="scene"><option value="ready">Catálogo disponível</option><option value="offline">Modo offline</option><option value="loading">Carregando</option><option value="error">Catálogo indisponível</option></select><button id="reset" aria-label="Reiniciar dados da prévia">Reiniciar</button></div></div>
+      <main id="content" tabindex="-1"><div id="view"></div></main>
+      <footer class="page-footer"><span>OrdaX Store</span><span>Uma prévia visual. Instalações, serviços e verificações reais dependem dos owners do sistema.</span></footer>
+    </div>
+  </div>
+  <div id="queue-dock" aria-live="polite"></div>
+  <div id="toast" role="status" aria-live="polite" hidden></div>
+  <dialog id="confirmation" aria-labelledby="dialog-title"><div id="dialog-content"></div></dialog>
+  <noscript><p class="no-js">Ative JavaScript para explorar esta prévia da Loja.</p></noscript>
+  <script type="module" src="./app.js"></script>
+</body>
+</html>

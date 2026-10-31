@@ -4,13 +4,30 @@ import {
   validateIdentityRegistrationInput,
   validateRegistrationPolicy,
 } from "../../contracts/identity-credentials.mjs";
+import { createWebJsonReader } from "./json-read.mjs";
+import { rememberVerifiedLoginEmail } from "../../services/account/remembered-login-email.mjs";
 
+// Read-only lifecycle extension. The gateway owns activation and legal metadata.
+// Transport status is bounded; never expose provider response bodies or credentials.
 export class IdentityCredentialRequestError extends Error {
   constructor(status) {
-    super(`Identity credential request failed: ${status}`);
+    const parsed = Number(status);
+    super("Identity credential request failed");
     this.name = "IdentityCredentialRequestError";
-    this.status = Number(status);
+    this.status = Number.isInteger(parsed) && parsed >= 400 && parsed <= 599 ? parsed : null;
   }
+}
+export function createWebRegistrationPolicyReader(windowRef = globalThis.window) {
+  const reader = createWebJsonReader(windowRef);
+  return Object.freeze({
+    async read() {
+      const response = await reader.read("/auth/registration-policy");
+      if (!response.ok) throw new Error(`Registration policy request failed: ${response.status}`);
+      return validateRegistrationPolicy(response.value);
+    },
+    cancel: reader.cancel,
+    dispose: reader.dispose,
+  });
 }
 
 async function submit(windowRef, path, credentials, { registration = false } = {}) {
@@ -32,33 +49,62 @@ async function submit(windowRef, path, credentials, { registration = false } = {
     },
     body: body.toString(),
   });
-  if (response.status === 202) {
+  if (registration && response.status === 202) {
     return Object.freeze({ authenticated: false, confirmationRequired: true });
   }
-  if (!(response.ok || response.status === 303 || response.status === 0)) {
+  if (response.status !== 200 && response.status !== 303) {
+    // An opaque redirect (status 0), empty success, or transport error is
+    // never account activation. Do not report a signed-in identity without
+    // an independently verified same-origin session.
     throw new IdentityCredentialRequestError(response.status);
   }
-  return Object.freeze({ authenticated: true, confirmationRequired: false });
+  const sessionResponse = await windowRef.fetch("/auth/session", {
+    method: "GET",
+    credentials: "same-origin",
+    cache: "no-store",
+    headers: { Accept: "application/json" },
+  });
+  if (!sessionResponse.ok || sessionResponse.status !== 200) {
+    throw new Error("Identity session verification unavailable");
+  }
+  const session = await sessionResponse.json();
+  if (!session || session.$schema !== "prototype-ordax.public-identity-session/1") {
+    throw new Error("Identity session verification invalid");
+  }
+  if (
+    session.authenticated === true
+    && session.status === "authenticated"
+    && typeof session.provider === "string"
+    && session.provider.length > 0
+    && session.provider !== "unconfigured"
+    && session.provider !== "gated"
+    && typeof session.subject === "string"
+    && session.subject.length > 0
+    && typeof session.email === "string"
+    && session.email.length > 0
+  ) {
+    if (!registration) rememberVerifiedLoginEmail(windowRef, session.email);
+    return Object.freeze({ authenticated: true, confirmationRequired: false });
+  }
+  if (
+    registration
+    && session.authenticated === false
+    && session.status === "anonymous"
+  ) {
+    return Object.freeze({ authenticated: false, confirmationRequired: true });
+  }
+  throw new Error("Identity session was not activated");
+
 }
 
 export function createSameOriginIdentityCredentials(windowRef = globalThis.window) {
   if (!windowRef || typeof windowRef.fetch !== "function") {
     throw new TypeError("Identity credentials adapter requires window.fetch");
   }
+  const policy = createWebRegistrationPolicyReader(windowRef);
   return Object.freeze({
     schema: IDENTITY_CREDENTIALS_SCHEMA,
-    async registrationPolicy() {
-      const response = await windowRef.fetch("/auth/registration-policy", {
-        method: "GET",
-        credentials: "same-origin",
-        cache: "no-store",
-        headers: { Accept: "application/json" },
-      });
-      if (!response.ok) {
-        throw new Error(`Registration policy request failed: ${response.status}`);
-      }
-      return validateRegistrationPolicy(await response.json());
-    },
+    registrationPolicy: policy.read,
     signIn(credentials) {
       return submit(windowRef, "/auth/login", credentials);
     },

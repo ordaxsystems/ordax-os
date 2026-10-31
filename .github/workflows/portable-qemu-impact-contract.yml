@@ -30,6 +30,11 @@ jobs:
         with:
           persist-credentials: false
 
+      # The classifier walks actual Native imports, whose visual source is
+      # canonically staged from ordax-surface; running without it is invalid.
+      - name: Prepare verified Surface for native import graph
+        uses: ./.github/actions/prepare-verified-surface
+
       - name: Verify causal impact policy
         run: python3 -m unittest tests.test_portable_qemu_impact -v
 

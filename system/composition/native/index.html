@@ -1,10 +1,10 @@
 <!doctype html>
-<html lang="und">
+<html lang="und" data-meridian>
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="color-scheme" content="light dark" />
-    <meta name="theme-color" content="#edf3fc" />
+    <meta name="theme-color" content="#f4f2ed" />
     <title>OrdaX</title>
     <link rel="stylesheet" href="../../surface/ui/tokens.css" />
     <link rel="stylesheet" href="../../surface/ui/color-palettes.css" />
@@ -14,23 +14,26 @@
     <link rel="stylesheet" href="../../surface/ui/first-run.css" />
     <link rel="stylesheet" href="../../surface/ui/local-session-lock.css" />
     <link rel="stylesheet" href="../../surface/ui/workspace-areas.css" />
-    <link rel="stylesheet" href="../../surface/ui/files.css" />
     <link rel="stylesheet" href="../../surface/ui/system.css" />
     <link rel="stylesheet" href="../../surface/ui/account.css" />
     <link rel="stylesheet" href="../../surface/ui/space-switcher.css" />
     <link rel="stylesheet" href="../../surface/ui/settings.css" />
     <link rel="stylesheet" href="../../surface/ui/store.css" />
+    <link rel="stylesheet" href="../../surface/ui/store-experience.css" />
     <link rel="stylesheet" href="../../surface/ui/identity.css" />
     <link rel="stylesheet" href="../../surface/ui/sidebar-hints.css" />
     <link rel="stylesheet" href="../../surface/ui/sidebar-layout.css" />
     <link rel="stylesheet" href="../../surface/ui/brand/symbol.css" />
+    <link rel="stylesheet" href="../../surface/ui/meridian.tokens.css" />
+    <link rel="stylesheet" href="../../surface/ui/meridian.css" />
+    <link rel="stylesheet" href="../../surface/ui/journeys/styles.css" />
+    <link rel="stylesheet" href="../../surface/ui/journeys/settings.css" />
   </head>
   <body>
     <div
       id="ordax-boot-screen"
       class="ordax-boot-screen"
       data-state="loading"
-      data-ready-gate="next-stage"
       role="status"
       aria-live="polite"
     >
@@ -42,7 +45,7 @@
         <span class="ordax-boot-progress" aria-hidden="true"></span>
       </div>
     </div>
-    <div id="ordax-root"></div>
+    <div id="ordax-root" data-meridian></div>
     <noscript>OrdaX Surface requires JavaScript in this host.</noscript>
     <script type="module" src="./app-data-bootstrap.mjs"></script>
     <script type="module" src="./main.mjs"></script>

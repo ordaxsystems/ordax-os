@@ -39,6 +39,10 @@ Somente os gates realmente correntes e comprovados pelos owners canônicos são 
 6. **Hardware mínimo do modelo Native anunciado:** quando necessário ao claim de produto, áudio e suspend/resume deixam de ser "extras" para aquele hardware específico e passam a integrar a homologação real do modelo; não generalizar suporte para outras máquinas.
 7. **Profiles profissionais já exigidos pelo MVP:** fechar somente os recortes seguros de `pizzaria-br@1` e `impressao-3d-br@1` definidos pelos owners atuais de Profile/MVP; isso **não** promove OrdaX Food ou OrdaX Fabrication comerciais completos para P0.
 
+### FOUNDATION-001 — higiene e confiabilidade da fundação (recorte P0 já canônico)
+
+Roteiro de auditoria, SSOT, limpeza de legado comprovado, boot/Supervisor, atualização transacional, Creator/USB e provas está em `plans/FOUNDATION-001-OS-ARCHITECTURE-CONSOLIDATION.md`. É **handoff interagentes**, não um novo instalador, atualizador, gate de release ou source de estado; complementa `EXEC-000` e **não duplica** `NATIVE-001`. Execute apenas defeitos e fechamento já exigidos pelos owners MVP, com testes e evidências por fase; nenhuma autorização de escrita física é concedida.
+
 Fonte de execução: `docs/CURRENT-STATE.md` + `docs/PROMOTION-GATES.md` + `MVP.md` + `docs/NATIVE-INSTALLATION.md` + contratos correntes. `PLANO-00-ESTADO-ATUAL-E-PRIORIDADES.md` é apenas overlay auxiliar.
 
 ### NATIVE-001 — posição exata na janela P0
@@ -302,3 +306,6 @@ Um chat/agente não pode promover sua própria frente, criar tarefa de implement
 - ACHEGUESE-002 não ativa módulos pausados, não substitui os owners do Achegue-se e começa por read models/actions explicitamente autorizados.
 - TALENT/EDU/MARKET não ativam verticais nem publicação.
 - HEALTH-001 permanece `TRIAGED` até pesquisa regulatória/segurança e owner explícito.
+## COMMERCE-001 — escopo autorizado pelo operador (2026-10-22)
+
+Solicitação explícita de registrar e iniciar assinaturas/benefícios e atualizar o site. A execução atual fecha catálogo de referência e apresentação nos owners existentes, sem interferir nos gates físicos do OS. Billing, alocação paga e disponibilidade dos serviços cloud seguem incrementos e provas próprios. Ver `plans/COMMERCE-001-SUBSCRIPTIONS-AND-BENEFITS.md`. Esta autorização não promove os demais planos adiados.

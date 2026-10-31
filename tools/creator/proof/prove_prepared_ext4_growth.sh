@@ -24,13 +24,58 @@ if [[ -n "$EXPECTED_TRUST_SHA256" && ! "$EXPECTED_TRUST_SHA256" =~ ^[0-9a-f]{64}
   fail "expected canonical trust SHA-256 must be 64 lowercase hexadecimal characters"
 fi
 
-for command in go sgdisk losetup mount umount mountpoint blockdev blkid dumpe2fs resize2fs e2fsck sha256sum awk sed stat python3 readelf; do
+for command in git go sgdisk losetup mount umount mountpoint blockdev blkid dumpe2fs resize2fs e2fsck sha256sum awk sed stat python3 readelf; do
   command -v "$command" >/dev/null 2>&1 || fail "required program not found: $command"
 done
 
 if readelf -l "$HELPER" | grep -q 'Requesting program interpreter'; then
   fail "growth helper is dynamically linked"
 fi
+
+# The OS owns this disposable GPT/ext4 proof. The Go preparer comes only from
+# the exact standalone Creator SHA/tree resolved by the shared source action.
+# Reject a missing or dirty checkout, not silently fall back to embedded Go.
+CREATOR_SOURCE="${ORDAX_CREATOR_NATIVE_SOURCE:-}"
+[[ -n "$CREATOR_SOURCE" && "$CREATOR_SOURCE" = /* ]] || fail "verified independent Creator source must be an absolute path"
+[[ -d "$CREATOR_SOURCE" && ! -L "$CREATOR_SOURCE" ]] || fail "verified independent Creator source is missing or a symlink"
+python3 - "$ROOT/docs/contracts/native-release-assembly.json" "$CREATOR_SOURCE" <<'PY' || fail "independent Creator source lock or checkout mismatch"
+import json, os, pathlib, re, stat, subprocess, sys
+lock_path = pathlib.Path(sys.argv[1])
+source_path = pathlib.Path(sys.argv[2])
+if not stat.S_ISREG(lock_path.lstat().st_mode):
+    raise SystemExit('Creator source lock must be a regular file')
+contract = json.loads(lock_path.read_text(encoding='utf-8'))
+pin = contract['creator_source']
+if (pin['repository'] != 'ordaxsystems/ordax-creator'
+    or pin['module'] != 'github.com/ordaxsystems/ordax-creator'
+    or pin['publisher_authority'] != 'ordaxsystems/ordax-os'
+    or pin['physical_apply_authorized'] is not False):
+    raise SystemExit('Creator source authority or physical isolation mismatch')
+def read_env(name):
+    value = os.environ.get(name, '')
+    if not value:
+        raise SystemExit(f'missing verified Creator source identity: {name}')
+    return value
+if (read_env('ORDAX_CREATOR_SOURCE_REPOSITORY') != pin['repository']
+    or read_env('ORDAX_CREATOR_SOURCE_COMMIT') != pin['commit']
+    or read_env('ORDAX_CREATOR_SOURCE_TREE') != pin['tree']):
+    raise SystemExit('Creator source env does not match canonical OS lock')
+for field in ('commit', 'tree'):
+    if re.fullmatch(r'[0-9a-f]{40}', pin[field]) is None:
+        raise SystemExit('Creator source SHA or tree is not exact lowercase Git hash')
+def git(*args):
+    return subprocess.check_output(['git', '-C', str(source_path), *args], text=True).strip()
+if git('rev-parse', 'HEAD') != pin['commit']:
+    raise SystemExit('Creator checked-out commit differs from OS lock')
+if git('rev-parse', 'HEAD^{tree}') != pin['tree']:
+    raise SystemExit('Creator checked-out tree differs from OS lock')
+if git('status', '--porcelain', '--untracked-files=all'):
+    raise SystemExit('Creator checkout contains modified or untracked source')
+if (source_path / 'go.mod').read_text(encoding='utf-8').splitlines()[0] != 'module github.com/ordaxsystems/ordax-creator':
+    raise SystemExit('Creator source module is not the canonical Go module')
+PY
+echo 'CREATOR_PREPARED_IMAGE_SOURCE=PINNED_INDEPENDENT'
+echo 'CREATOR_PREPARED_PHYSICAL_WRITE=NOT_AUTHORIZED'
 
 SEED_ABS="$(cd "$(dirname "$SEED")" && pwd)/$(basename "$SEED")"
 HELPER_ABS="$(cd "$(dirname "$HELPER")" && pwd)/$(basename "$HELPER")"
@@ -70,12 +115,14 @@ cleanup() {
 trap cleanup EXIT
 mkdir -p "$MOUNT" "$BASELINE_MOUNT"
 
-pushd "$ROOT/tools/creator" >/dev/null
-PREPARE_OUTPUT="$(go run ./cmd/ordax-creator prepare-image \
-  --seed "$SEED_ABS" \
-  --out "$PREPARED" \
-  --target-bytes "$TARGET_BYTES")"
-popd >/dev/null
+PREPARE_OUTPUT="$(
+  cd "$CREATOR_SOURCE"
+  ORDAX_OS_CONTRACTS_DIR="$ROOT/docs/contracts" \
+    go run ./cmd/ordax-creator prepare-image \
+      --seed "$SEED_ABS" \
+      --out "$PREPARED" \
+      --target-bytes "$TARGET_BYTES"
+)"
 printf '%s\n' "$PREPARE_OUTPUT"
 grep -qx 'PREPARED_PHYSICAL_IMAGE=YES' <<<"$PREPARE_OUTPUT" || fail "Creator did not report prepared image success"
 grep -qx 'PHYSICAL_DEVICE_TOUCHED=NO' <<<"$PREPARE_OUTPUT" || fail "Creator regular-file preparation lost its no-device guarantee"
@@ -219,6 +266,9 @@ cat >"$PROOF_ABS" <<EOF
   "\$schema": "prototype-ordax.creator-prepared-ext4-growth-proof/1",
   "status": "pass",
   "source_commit": "$SOURCE_COMMIT",
+  "creator_source_repository": "$ORDAX_CREATOR_SOURCE_REPOSITORY",
+  "creator_source_commit": "$ORDAX_CREATOR_SOURCE_COMMIT",
+  "creator_source_tree": "$ORDAX_CREATOR_SOURCE_TREE",
   "seed_image_sha256": "$SEED_SHA256",
   "prepared_image_sha256_before_growth": "$PREPARED_SHA256",
   "target_image_bytes": $TARGET_BYTES,

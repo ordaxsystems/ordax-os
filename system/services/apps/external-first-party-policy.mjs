@@ -7,13 +7,16 @@ import { validateComponentId } from "../../contracts/component-manifest.mjs";
 export const EXTERNAL_FIRST_PARTY_OWNER = "ordaxsystems/ordax-apps";
 export const EXTERNAL_FIRST_PARTY_SOURCE_REPOSITORY_BY_COMPONENT = Object.freeze({
   "activity": "ordaxsystems/ordax-apps",
+  "assistant": "ordaxsystems/ordax-apps",
   "calculator": "ordaxsystems/ordax-apps",
   "calendar": "ordaxsystems/ordax-apps",
   "character-map": "ordaxsystems/ordax-apps",
   "clock": "ordaxsystems/ordax-apps",
   "colors": "ordaxsystems/ordax-apps",
   "converter": "ordaxsystems/ordax-apps",
+  "files": "ordaxsystems/ordax-apps",
   "image-viewer": "ordaxsystems/ordax-apps",
+  "internet": "ordaxsystems/ordax-apps",
   "media-player": "ordaxsystems/ordax-apps",
   "network": "ordaxsystems/ordax-apps",
   "notes": "ordaxsystems/ordax-apps",
@@ -31,17 +34,24 @@ export const EXTERNAL_FIRST_PARTY_COMPONENT_IDS = Object.freeze(
 // Generated from the same canonical OS package policy's Native module broker
 // scope. Store catalog presence alone does not grant executable-read support.
 export const EXTERNAL_FIRST_PARTY_NATIVE_MODULE_READ_IDS = Object.freeze([
+  "assistant",
   "calculator",
+  "files",
   "notes",
   "studio",
 ]);
 export const EXTERNAL_FIRST_PARTY_NATIVE_PROBATION_IDS = Object.freeze([
+  "files",
   "notes",
+]);
+export const EXTERNAL_FIRST_PARTY_BUNDLED_SOURCE_BLOCKED_IDS = Object.freeze([
+
 ]);
 
 const IDS = new Set(EXTERNAL_FIRST_PARTY_COMPONENT_IDS);
 const MODULE_READ_IDS = new Set(EXTERNAL_FIRST_PARTY_NATIVE_MODULE_READ_IDS);
 const PROBATION_IDS = new Set(EXTERNAL_FIRST_PARTY_NATIVE_PROBATION_IDS);
+const BUNDLED_SOURCE_BLOCKED_IDS = new Set(EXTERNAL_FIRST_PARTY_BUNDLED_SOURCE_BLOCKED_IDS);
 if (PROBATION_IDS.size !== EXTERNAL_FIRST_PARTY_NATIVE_PROBATION_IDS.length
   || [...PROBATION_IDS].some((appId) => !MODULE_READ_IDS.has(appId))) {
   throw new TypeError("External first-party probation ids disagree with canonical Native read scope");
@@ -49,6 +59,10 @@ if (PROBATION_IDS.size !== EXTERNAL_FIRST_PARTY_NATIVE_PROBATION_IDS.length
 if (MODULE_READ_IDS.size !== EXTERNAL_FIRST_PARTY_NATIVE_MODULE_READ_IDS.length
   || [...MODULE_READ_IDS].some((appId) => !IDS.has(appId))) {
   throw new TypeError("External first-party module-read ids disagree with canonical owners");
+}
+if (BUNDLED_SOURCE_BLOCKED_IDS.size !== EXTERNAL_FIRST_PARTY_BUNDLED_SOURCE_BLOCKED_IDS.length
+  || [...BUNDLED_SOURCE_BLOCKED_IDS].some((appId) => !MODULE_READ_IDS.has(appId))) {
+  throw new TypeError("External first-party bundled-source exclusions exceed canonical Native read scope");
 }
 if (IDS.size !== EXTERNAL_FIRST_PARTY_COMPONENT_IDS.length) {
   throw new TypeError("External first-party component ids must be unique");
@@ -86,6 +100,16 @@ export function hasNativeExternalFirstPartyModuleRead(value) {
 export function hasNativeExternalFirstPartyProbation(value) {
   try {
     return PROBATION_IDS.has(validateComponentId(value));
+  } catch {
+    return false;
+  }
+}
+
+// A component may have an Apps owner while its live UI source is still
+// bundled in the OS. Do not discover a competing current slot before Gate A.
+export function isNativeExternalFirstPartyCurrentSlotBlockedByBundledOwner(value) {
+  try {
+    return BUNDLED_SOURCE_BLOCKED_IDS.has(validateComponentId(value));
   } catch {
     return false;
   }

@@ -46,6 +46,9 @@ class SmokeHandler(BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(body)
             return
+        if self.path == "/__ordax/native/preferences":
+            self._send_json({"appearance.theme": "dark", "private.customer-note": "SECRET-PREFERENCE"})
+            return
         if self.path == "/__ordax/native/metrics":
             self._send_json({
                 "uptimeSeconds": 123,
@@ -203,6 +206,7 @@ class MvpSurfaceSmokeTests(unittest.TestCase):
                     source_root=source,
                     run_root=run,
                     proc_root=proc,
+                    expected_theme="dark",
                 )
         finally:
             server.shutdown()
@@ -214,6 +218,10 @@ class MvpSurfaceSmokeTests(unittest.TestCase):
         self.assertEqual(report["observed"]["network_status"]["interface_count"], 2)
         self.assertEqual(report["evidence_context"]["evidence_scope"], "development")
         self.assertIsNone(report["evidence_context"]["runtime_sha256"])
+        self.assertEqual(
+            report["observed"]["preference_theme_witness"],
+            {"preference_id": "appearance.theme", "expected_theme": "dark", "matched": True},
+        )
         self.assertTrue(report["observed"]["keyboard_layout"]["settled"])
         self.assertEqual(report["observed"]["keyboard_layout"]["applied_layout_id"], "br-abnt2")
         self.assertEqual(report["observed"]["update_status"]["status"], "running")
@@ -226,7 +234,45 @@ class MvpSurfaceSmokeTests(unittest.TestCase):
         self.assertNotIn("wlan0", serialized)
         self.assertNotIn("eth0", serialized)
         self.assertNotIn("SECRET-HEALTH-TOKEN", serialized)
+        self.assertNotIn("SECRET-PREFERENCE", serialized)
+        self.assertNotIn("private.customer-note", serialized)
         self.assertNotIn("b" * 40, serialized)
+
+    def test_preference_reboot_requires_different_boot_and_identical_witness(self):
+        before = self._comparison_report(boot_id="boot-A", label="before")
+        after = self._comparison_report(boot_id="boot-B", label="after")
+        witness = {"preference_id": "appearance.theme", "expected_theme": "dark", "matched": True}
+        before["observed"]["preference_theme_witness"] = dict(witness)
+        after["observed"]["preference_theme_witness"] = dict(witness)
+        report = proof.compare_preference_reboots(before, after)
+        self.assertEqual(report["schema"], proof.PREFERENCE_REBOOT_SCHEMA)
+        self.assertEqual(report["summary"]["fail"], 0, report["checks"])
+        self.assertGreater(proof.compare_reports(before, after)["summary"]["fail"], 0)
+        self.assertNotIn("boot-A", json.dumps(report))
+
+        same_boot = self._comparison_report(boot_id="boot-A")
+        same_boot["observed"]["preference_theme_witness"] = dict(witness)
+        self.assertGreater(proof.compare_preference_reboots(before, same_boot)["summary"]["fail"], 0)
+        missing = self._comparison_report(boot_id="boot-B")
+        self.assertGreater(proof.compare_preference_reboots(before, missing)["summary"]["fail"], 0)
+        changed = self._comparison_report(boot_id="boot-B")
+        changed["observed"]["preference_theme_witness"] = {
+            "preference_id": "appearance.theme", "expected_theme": "light", "matched": True,
+        }
+        self.assertGreater(proof.compare_preference_reboots(before, changed)["summary"]["fail"], 0)
+        failed = self._comparison_report(boot_id="boot-B")
+        failed["observed"]["preference_theme_witness"] = {**witness, "matched": False}
+        self.assertGreater(proof.compare_preference_reboots(before, failed)["summary"]["fail"], 0)
+        malformed = self._comparison_report(boot_id="boot-B")
+        malformed["observed"]["preference_theme_witness"] = {**witness, "matched": 1}
+        self.assertGreater(proof.compare_preference_reboots(before, malformed)["summary"]["fail"], 0)
+
+    def test_read_only_optional_theme_probe_rejects_unknown_ids_and_network_failures(self):
+        with self.assertRaises(ValueError):
+            proof.preference_theme_witness("regional.locale", "127.0.0.1", 8765, 0.1)
+        witness, checks = proof.preference_theme_witness("dark", "127.0.0.1", 0, 0.1)
+        self.assertFalse(witness["matched"])
+        self.assertEqual(checks[0]["status"], "fail")
 
     def test_files_validator_rejects_traversal_and_never_returns_entry_names(self):
         with self.assertRaises(ValueError):
@@ -307,6 +353,40 @@ class MvpSurfaceSmokeTests(unittest.TestCase):
         ):
             with self.assertRaisesRegex(ValueError, "runtime digest"):
                 proof.evidence_context_from_environment()
+
+    def test_owner_verified_erofs_proof_is_development_scoped_and_digest_bound(self):
+        context = {
+            "ORDAX_PROOF_PROFILE": "owner-development",
+            "ORDAX_PROOF_RUNTIME_MODE": "verified-erofs-overlay",
+            "ORDAX_PROOF_EVIDENCE_SCOPE": "development",
+            "ORDAX_PROOF_RUNTIME_SHA256": "b" * 64,
+        }
+        with mock.patch.dict("os.environ", context, clear=False):
+            self.assertEqual(
+                proof.evidence_context_from_environment(),
+                {
+                    "distribution_profile": "owner-development",
+                    "runtime_mode": "verified-erofs-overlay",
+                    "evidence_scope": "development",
+                    "runtime_sha256": "b" * 64,
+                },
+            )
+            self.assertIsNotNone(proof._evidence_context({"evidence_context": proof.evidence_context_from_environment()}))
+        for changes in (
+            {"ORDAX_PROOF_RUNTIME_SHA256": ""},
+            {"ORDAX_PROOF_EVIDENCE_SCOPE": "canonical-stable-mvp"},
+        ):
+            with self.subTest(changes=changes), mock.patch.dict(
+                "os.environ", {**context, **changes}, clear=False
+            ):
+                with self.assertRaises(ValueError):
+                    proof.evidence_context_from_environment()
+        self.assertIsNone(proof._evidence_context({"evidence_context": {
+            "distribution_profile": "owner-development",
+            "runtime_mode": "verified-erofs-overlay",
+            "evidence_scope": "development",
+            "runtime_sha256": None,
+        }}))
 
     def test_metrics_validator_rejects_impossible_values(self):
         with self.assertRaises(ValueError):
@@ -498,7 +578,7 @@ class MvpSurfaceSmokeTests(unittest.TestCase):
             self._source_tree(root)
             snapshot, checks = proof.source_snapshot(root)
         self.assertEqual(len(snapshot["files"]), len(proof.REQUIRED_SOURCE_FILES))
-        self.assertIn("apps/account/app.mjs", snapshot["files"])
+        self.assertIn("services/system-ui/account/app.mjs", snapshot["files"])
         self.assertIn("surface/ui/account-overview-controls.mjs", snapshot["files"])
         self.assertIn("surface/ui/memory-review-controls.mjs", snapshot["files"])
         self.assertTrue(all(item["status"] == "pass" for item in checks))

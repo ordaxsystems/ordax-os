@@ -54,15 +54,7 @@ Instalação Native e escrita destrutiva em disco interno continuam dependentes 
 
 ## Site publico
 
-O portal publico fica em `sites/public/` e e um artefato separado do **OrdaX Web**. O portal apresenta o produto, hospeda a entrada de login/cadastro e lista downloads somente a partir de um catalogo de releases publicas autorizado. Ele nao importa a Surface, nao cria uma segunda identidade e nao inventa releases.
-
-```text
-sites/public/
- -> landing page
- -> download
- -> login
- -> cadastro
-```
+O site público pertence exclusivamente a [`ordaxsystems/ordax-site`](https://github.com/ordaxsystems/ordax-site), com landing, catálogo visual de downloads, login/cadastro, Conta e páginas legais. A revisão consumida pelo OS em **Dev** é fixada por `docs/contracts/public-site-source.json`; builds OS/Vercel verificam o source independente e não mantêm cópias em `sites/public/`. O OS conserva gateway de Identity, autorizações e publicação de releases. OrdaX Web é outro produto e consome apenas a apresentação de login necessária do bundle verificado. Esta migração não autoriza release pública ou Stable.
 
 Enquanto identidade e catalogo de releases nao estiverem configurados, essas integracoes falham fechado e mostram estado indisponivel sem formularios ou downloads ficticios. Ver `docs/PUBLIC-SITE.md` e `docs/contracts/public-site.json`.
 

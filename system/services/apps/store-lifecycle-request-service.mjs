@@ -13,6 +13,9 @@ import {
   validateAppStoreCatalogSnapshot,
 } from "../../contracts/app-store.mjs";
 import {
+  validateComponentRuntimeMetadata,
+} from "../../contracts/component-runtime-metadata.mjs";
+import {
   assertVerifiedAppStoreCatalogPort,
   validateVerifiedAppStoreCatalogSnapshot,
 } from "../../contracts/verified-app-store-catalog.mjs";
@@ -24,7 +27,10 @@ import {
 
 export const APP_LIFECYCLE_DELEGATE_SCHEMA = "ordax.app-lifecycle-delegate/1";
 
-const MAX_COMPLETED_REQUESTS = 256;
+// Remember every request identity for the lifetime of this runtime instance.
+// Evicting an old decision would allow the same requestId to acquire a new
+// lifecycle plan after the Store/catalog changes.
+const MAX_REQUEST_IDENTITIES = 256;
 
 function assertExactKeys(value, expected, label) {
   const actual = Object.keys(value).sort();
@@ -97,21 +103,50 @@ export function createAppLifecycleRequestService({
   catalogPort,
   verifiedCatalogPort,
   lifecycleDelegate,
+  getCurrentObservations,
 } = {}) {
+  if (typeof getCurrentObservations !== "function") {
+    throw new TypeError("Native Store lifecycle requires canonical current observations");
+  }
   const catalog = assertAppStoreCatalogPort(catalogPort);
   const verifiedCatalog = assertVerifiedAppStoreCatalogPort(verifiedCatalogPort);
   const delegate = assertAppLifecycleDelegate(lifecycleDelegate);
   const inFlightByApp = new Map();
   const requests = new Map();
 
+  const expectedActivationFor = (request, entry) => {
+    const raw = getCurrentObservations();
+    if (!Array.isArray(raw)) {
+      throw new TypeError("Native Store current observations are unavailable");
+    }
+    const matches = raw.filter((item) => item?.componentId === request.appId);
+    if (matches.length !== 1) {
+      throw new TypeError("Native Store requires exactly one current activation observation");
+    }
+    const current = validateComponentRuntimeMetadata(matches[0], {
+      componentId: request.appId,
+      state: "current",
+    });
+    if (
+      (current.source === "slot" && current.version !== entry.installedVersion)
+      || (current.source !== "slot" && entry.installedVersion !== null)
+      || current.source === "bundled"
+    ) {
+      throw new TypeError("Store projection and Native current activation disagree");
+    }
+    return {
+      source: current.source,
+      revision: current.revision,
+      version: current.version,
+      sourceCommit: current.sourceCommit,
+    };
+  };
+
+  // A bounded instance cannot forget an earlier accepted or rejected ID.
+  // Fresh requests fail closed after the capacity is reached; the caller must
+  // establish a new lifecycle session rather than reusing stale identities.
   const remember = (requestId, fingerprint, promise) => {
     requests.set(requestId, { fingerprint, promise });
-    while (requests.size > MAX_COMPLETED_REQUESTS) {
-      const activeRequestIds = new Set(inFlightByApp.values());
-      const evictable = [...requests.keys()].find((requestId) => !activeRequestIds.has(requestId));
-      if (evictable === undefined) break;
-      requests.delete(evictable);
-    }
   };
 
   // Every valid requestId identifies one decision, including decisions rejected
@@ -134,12 +169,25 @@ export function createAppLifecycleRequestService({
       return known.promise;
     }
 
+    // Known requestIds remain idempotent even when the ledger is full.
+    // No new request can evict their decisions or reach Native authority.
+    if (requests.size >= MAX_REQUEST_IDENTITIES) {
+      return Promise.resolve(rejection(request, "lifecycle-request-capacity-exhausted"));
+    }
+
     const currentRequestId = inFlightByApp.get(request.appId);
     if (currentRequestId) {
       return rejectAndRemember(request, fingerprint, "lifecycle-request-in-flight");
     }
 
-    const snapshot = validateAppStoreCatalogSnapshot(catalog.getSnapshot());
+    let snapshot;
+    try {
+      snapshot = validateAppStoreCatalogSnapshot(catalog.getSnapshot());
+    } catch {
+      // A malformed or throwing read is an unavailable authorization
+      // projection. Remember this specific denial before any Native handoff.
+      return rejectAndRemember(request, fingerprint, "verified-catalog-unavailable");
+    }
     if (snapshot.state !== "ready") {
       return rejectAndRemember(request, fingerprint, "verified-catalog-unavailable");
     }
@@ -151,7 +199,12 @@ export function createAppLifecycleRequestService({
       return rejectAndRemember(request, fingerprint, "lifecycle-operation-not-available");
     }
 
-    const verified = validateVerifiedAppStoreCatalogSnapshot(verifiedCatalog.getSnapshot());
+    let verified;
+    try {
+      verified = validateVerifiedAppStoreCatalogSnapshot(verifiedCatalog.getSnapshot());
+    } catch {
+      return rejectAndRemember(request, fingerprint, "verified-catalog-unavailable");
+    }
     if (verified.state !== "ready") {
       return rejectAndRemember(request, fingerprint, "verified-catalog-unavailable");
     }
@@ -185,6 +238,7 @@ export function createAppLifecycleRequestService({
         request,
         verifiedCatalog: verified,
         candidate,
+        expectedActivation: expectedActivationFor(request, entry),
       });
       validateAppLifecyclePlan(plan);
     } catch {
@@ -223,6 +277,7 @@ export function createAppLifecycleRequestService({
           request,
           verifiedCatalog: latestCatalog,
           candidate: latestCandidate,
+          expectedActivation: expectedActivationFor(request, currentEntry),
         });
         return JSON.stringify(currentPlan) === JSON.stringify(plan);
       } catch {

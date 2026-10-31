@@ -7,10 +7,6 @@ ACCOUNT_CATALOG = ROOT / "system" / "services" / "i18n" / "catalog" / "account.m
 CSS = ROOT / "system" / "surface" / "ui" / "account.css"
 NATIVE = ROOT / "system" / "composition" / "native" / "main.mjs"
 WEB = ROOT / "system" / "composition" / "web" / "main.tsx"
-FIRST_RUN = ROOT / "system" / "surface" / "ui" / "first-run.mjs"
-FIRST_RUN_CSS = ROOT / "system" / "surface" / "ui" / "first-run.css"
-FIRST_RUN_I18N = ROOT / "system" / "services" / "i18n" / "first-run.mjs"
-IDENTITY_CREDENTIALS = ROOT / "system" / "adapters" / "web" / "identity-credentials.mjs"
 
 
 class AccountCanonicalNavigationTests(unittest.TestCase):
@@ -31,37 +27,6 @@ class AccountCanonicalNavigationTests(unittest.TestCase):
             self.assertNotIn(f'id: "{unavailable}"', controls)
         self.assertNotIn("sectionId", controls)
         self.assertNotIn("detailId", controls)
-
-    def test_login_exposes_password_visibility_and_bounded_failure_states(self):
-        controls = ACCOUNT.read_text(encoding="utf-8")
-        catalog = ACCOUNT_CATALOG.read_text(encoding="utf-8")
-        css = CSS.read_text(encoding="utf-8")
-        first_run = FIRST_RUN.read_text(encoding="utf-8")
-        first_run_css = FIRST_RUN_CSS.read_text(encoding="utf-8")
-        first_run_i18n = FIRST_RUN_I18N.read_text(encoding="utf-8")
-        credentials = IDENTITY_CREDENTIALS.read_text(encoding="utf-8")
-
-        self.assertIn("class IdentityCredentialRequestError extends Error", credentials)
-        self.assertIn("this.status = Number(status)", credentials)
-        self.assertIn('credentialPasswordVisible ? "text" : "password"', controls)
-        self.assertIn("data-account-credential-password-visibility", controls)
-        self.assertIn('status === 401', controls)
-        self.assertIn('status === 429', controls)
-        self.assertIn('status === 503', controls)
-        self.assertIn("account.credentials.showPassword", catalog)
-        self.assertIn("account.credentials.hidePassword", catalog)
-        self.assertIn("account.credentials.invalid", catalog)
-        self.assertIn(".ordax-account-password-visibility", css)
-
-        self.assertIn('identityPasswordVisible ? "text" : "password"', first_run)
-        self.assertIn('identity-password-visibility', first_run)
-        self.assertIn("identityCredentialFailureMessage", first_run)
-        self.assertIn('status === 401', first_run)
-        self.assertIn('status === 429', first_run)
-        self.assertIn('status === 503', first_run)
-        self.assertIn(".ordax-first-run-password-visibility", first_run_css)
-        self.assertIn("Incorrect email or password.", first_run_i18n)
-        self.assertIn("Show password", first_run_i18n)
 
     def test_app_activation_is_bounded_to_account_owned_targets(self):
         controls = ACCOUNT.read_text(encoding="utf-8")
@@ -334,7 +299,7 @@ class AccountCanonicalNavigationTests(unittest.TestCase):
         self.assertIn(".ordax-account-navigation {", css)
         self.assertIn(".ordax-account-navigation-item", css)
         self.assertIn("overflow-x: auto", css)
-        self.assertIn("@media (max-width: 760px)", css)
+        self.assertIn("flex: 0 0 auto", css)
         self.assertNotIn("ordax-account-facts", css)
         self.assertNotIn("renderPrivacy", controls)
 

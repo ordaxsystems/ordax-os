@@ -14,7 +14,14 @@ class IntelligenceProductConsumerTests(unittest.TestCase):
     def test_native_composes_intelligence_once_and_injects_consumers(self):
         text = NATIVE.read_text(encoding="utf-8")
         self.assertEqual(text.count("createLocalAiRuntime({"), 1)
-        self.assertEqual(text.count("createIntelligenceRuntime({ inferencePort: localAi })"), 1)
+        # The unique Intelligence consumer may include additional canonical
+        # options such as locale without adding another model/provider.
+        import re
+        consumers = re.findall(
+            r"createIntelligenceRuntime\(\{\s*inferencePort:\s*localAi,", text
+        )
+        self.assertEqual(len(consumers), 1)
+        self.assertIn('getLocale: () => preferenceStore.load()["regional.locale"]', text)
         self.assertIn("createLocalAiProbeSupervisor", text)
         self.assertIn("localAiProbeSupervisor.start();", text)
         self.assertIn("localAiProbeSupervisor.dispose();", text)
@@ -40,6 +47,32 @@ class IntelligenceProductConsumerTests(unittest.TestCase):
         self.assertIn("intelligencePort: appAwareIntelligence", text)
         self.assertIn(": appAwareIntelligence;", text)
 
+
+    def test_optional_aura_probe_does_not_compete_with_shell_boot_health(self):
+        source = NATIVE.read_text(encoding="utf-8")
+        self.assertEqual(source.count("localAiProbeSupervisor.start();"), 1)
+        self.assertEqual(source.count("createLocalAiProbeSupervisor({"), 1)
+        self.assertLess(
+            source.index('const localAiProbeSupervisor = createLocalAiProbeSupervisor({'),
+            source.index('const surface = mountSurface('),
+        )
+        self.assertLess(
+            source.index('bootScreen.ready();'),
+            source.index('localAiProbeSupervisor.start();'),
+        )
+        self.assertLess(
+            source.index('void updateWatcher.markHealthy();'),
+            source.index('localAiProbeSupervisor.start();'),
+        )
+        self.assertLess(
+            source.index('const surfaceHeartbeat = createNativeSurfaceHeartbeat(window);'),
+            source.index('localAiProbeSupervisor.start();'),
+        )
+        self.assertLess(
+            source.index('localAiProbeSupervisor.start();'),
+            source.index('void resumeAccountConnectivity().catch('),
+        )
+        self.assertIn('localAiProbeSupervisor.dispose();', source)
 
     def test_system_explanation_is_consultative_and_provider_neutral(self):
         ui = SYSTEM_UI.read_text(encoding="utf-8")

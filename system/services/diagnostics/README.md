@@ -37,6 +37,23 @@ The report never serializes the diagnostic store payload directly. Event fields 
 
 `createDiagnosticReportDocument()` creates a deterministic local JSON document from the already validated/redacted report. It does **not** write a file, trigger a browser download or send data remotely. Review, save/export and any future remote submission are separate explicit product actions and must remain outside the diagnostic domain model.
 
+## System UI first-open behavior
+
+Opening **Sistema → Diagnóstico** is the explicit user action that starts a
+single local, sanitized review through the existing controller. The review is
+prepared once per System view owner and remains available through UI repaints.
+The user may select **Preparar nova revisão** to fetch newer observations.
+Review preparation never saves to disk, sends telemetry, changes connectivity
+or attempts device repair. Copy and export remain separate explicit actions.
+
+This UI convenience does **not** make the Owner/Development USB a standalone
+offline recovery system: the existing local `ordax-diagnose` maintenance command
+and signed Stable release A/B logic have distinct activation gates. An offline
+USB can display its last local diagnostic state, but the cause of a live
+`remote-check-failed` still requires network, time and Git error evidence.
+Do not imply that an active Graphical Surface proves physical rollback or
+signed USB package installation.
+
 ## Explicit review collection
 
 `review.mjs` is the on-demand collection layer for a future `Sistema > Diagnóstico` review flow. Calling `createDiagnosticReview()` is itself the explicit collection action; the service does not poll, subscribe, schedule work, download files or transmit data.

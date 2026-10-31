@@ -26,7 +26,7 @@ The package payload remains `prototype-ordax.runtime-component-package/1`.
 - **Release/2 com estado persistente:** o writer Go bloqueia `uninstall-state` antes de alterar `activation-state.json`, mesmo com pacote assinado, revisão correta e sem dependentes. O contrato assinado `compatibility.state` indica dados que precisam permanecer seguros, mas não demonstra que o processo foi encerrado ou que existe uma transação recuperável de App Data. O mesmo bloqueio vale para retry de uma desinstalação stateful histórica: reencontrar um tombstone assinado não pode produzir um falso comprovante de quiescência. Releases/2 assinadas com `state=null` preservam o fluxo de remoção atual; release/1 de desenvolvimento mantém as semânticas próprias e não recebe autorização de produção. A proteção é aplicada sob os locks existentes do grafo Go, com leitura do contrato Ed25519 já verificado, sem novo SSOT, permissão ou serviço.
 - Uninstall never deletes App Data, documents, Memory, Projects or other user state. User-data deletion is a separate product action owned by the relevant data owner.
 - An immutable verified slot may remain as a local package cache after uninstall. Cache garbage collection is separate from installation state and must never make an app appear installed.
-- When an externally sourced component such as `notes` or `studio` has no current activation, resolution reports it as absent. Only platform-owned components may resolve `current=nil` as a real bundled fallback.
+- When an externally sourced component such as `internet`, `notes` or `studio` has no current activation, resolution reports it as absent. Only platform-owned components may resolve `current=nil` as a real bundled fallback.
 
 ## Commands
 
@@ -436,3 +436,105 @@ does **not** assert a live instance, create authority, grant access or bypass
 Native mount/probation. The real host must inject typed ports and reject
 missing/invalid ports before reporting runtime healthy. It is not a substitute
 for a real installer/boot/health proof.
+
+### Native Product Runtime executable payload (signed slot, not activation)
+
+The signed component channel now has a **component-scoped**, fail-closed binary
+file contract for `product-runtime`, sourced exclusively from the OS
+`studio-runtime-source-lock.json` binding to `ordaxsystems/ordax-runtime`.
+The package must be signed by the *existing runtime-components trust domain*,
+use `component-slot` release mode, describe a `service` owned by that repository,
+and bind exactly one path:
+`system/components/product-runtime/ordax-product-agent`.
+Its signed file record has `executable:true`; the ZIP member MUST have mode
+`0555`, and the verified immutable POSIX slot retains mode `0555` (non-writable).
+That permission and the exact SHA-256 are rechecked when resolving a v1/v2
+signed slot. The payload must be a structurally valid ELF64 little-endian amd64 executable:
+the built-in Go ELF decoder checks file type, nonempty program headers, valid
+loadable segment extents, an executable mapping for its entrypoint, and an
+optional well-formed interpreter path. A forged magic number/machine-id alone
+is insufficient to pass signed staging. This is a **format/integrity** gate;
+it cannot demonstrate dynamic loader availability, Python frozen-module ABI,
+symbol relocations or execution in the Independent Base, which must instead
+be proved by the canonical `ordax-runtime` audit and QEMU/hardware tests.
+Only this one native payload may exceed the ordinary 2 MiB file and 16 MiB
+unpacked limits, capped at **28 MiB per file** and **30 MiB total**. The
+existing compressed ZIP cap of **32 MiB** is unchanged, and app components
+cannot claim the executable flag. This does not create a separate installer.
+
+**Staging is not activation.** In the current OS source lock,
+`independent_base_abi_ready=false`, `dispatch_enabled=false`, and
+`signed_runtime_slot_available=false`. The current PyInstaller candidate
+still requires the musl loader and libraries absent from the proven static
+Independent Base profile. No public component signer/trust anchor, runtime
+health promotion, USB delivery, or remote authorization is established by
+this packaging contract. Do not stage the unsigned CI artifact as a signed
+component or execute it on hardware.
+
+
+### Verified native Product Runtime handoff (read-only)
+
+The *existing* `ordax-runtime-component-channel` is also the owner of the
+read-only handoff inspection; no new package installer, credential parser, or
+action dispatcher is introduced.
+
+```sh
+ordax-runtime-component-channel inspect-native-product-handoff \
+  --source-lock /srv/ordax-system/services/device-agent/studio-runtime-source-lock.json \
+  --trust-policy /srv/ordax-system/contracts/runtime-component-trust-policy.json \
+  --trust /srv/ordax-system/trust/runtime-components-ed25519.json \
+  --root /var/lib/ordax/components
+```
+
+The command **only** returns an exact signed-current slot path, version,
+source commit and activation revision after the OS-owned Runtime lock states
+that the Independent Base ABI/embedded dependency closure and signed
+distribution are proven; the canonical component trust anchor is pinned
+to an exact SHA-256; and the same Go channel verifies the current slot,
+component-specific executable entrypoint and immutable mode. It rejects
+unsigned CI ZIPs, staged-but-not-installed packages, mismatched pinned
+commits, missing ABI proof, and missing component trust. It never calls
+`exec`, attests a Central session, opens a port, turns on remote actions or
+persists a separate installed-state record. The caller must still guard
+against slot identity changes before execution, observe the existing local
+Product Connector permission, supervise the process and record real health.
+
+At present the OS source lock explicitly denies this handoff. Unit tests
+use a **synthetic ELF with an ephemeral signing key** solely to exercise
+metadata validation; they do not provide evidence of an installable
+Buildroot Runtime or actual MCP control on USB hardware.
+
+## Signed Product Runtime target binding
+
+The single canonical component channel binds `target_platform` in the
+signed Product Runtime package manifest. Only `linux-amd64` ELF64 and
+`windows-amd64` PE32+ binaries are recognized. The exact executable path,
+file hash, signed target, source commit and OS-pinned target evidence must
+agree. A foreign binary, omitted target or target field in an ordinary app
+package is rejected. Platform format inspection alone is not ABI readiness.
+
+`inspect-native-product-handoff` requires `--target linux-amd64` on the
+Native Supervisor and `--target windows-amd64` on Windows Desktop. It reuses
+the same signed component slot and canonical trust anchor. The Windows target
+also requires independently attested private-runtime dependency closure.
+
+**Activation is still prohibited.** The current OS source lock describes a
+Linux CI-only unsigned candidate; the component trust anchor remains
+operator-ceremony-pending. The Windows installer in ordax-runtime is not a
+signed, self-contained Product Runtime component slot. Synthetic PE tests
+are protocol proofs only: they do not establish real Windows execution,
+device enrollment, central attestation, or grants.
+
+### One source lock, multiple verified targets
+
+The OS source lock now has a single `candidate_evidence_by_target` map
+indexed by the same `linux-amd64` and `windows-amd64` values bound into
+the signed package manifest. Each target retains its own executable digest,
+file size, source commit and ABI/dependency-closure evidence. Adding a Windows
+candidate must **not** overwrite the Linux/USB evidence, and vice versa.
+The Linux offline verifier reads only the Linux entry. Windows Desktop reads
+only the Windows entry. Unknown targets or a missing entry fail closed.
+
+There is no second source lock, downloaded Runtime, private signing key,
+unverified fallback or duplicated MCP dispatcher. The existing Linux
+CI-only candidate remains untrusted and Windows has no approved entry yet.
