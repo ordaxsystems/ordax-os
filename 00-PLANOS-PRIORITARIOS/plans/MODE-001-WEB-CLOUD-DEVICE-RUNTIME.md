@@ -564,7 +564,7 @@ Secure Mesh e VPS **não elevam a prioridade do MODE-001 nem criam novos P0/P1 i
 ## Relação com outros planos
 
 - `SURFACE-001`: referência funcional; `MODE-001` não recria UI, apenas fecha capability/transport/runtime boundaries.
-- `PROFILE-001`: continua owner de direção de perfis; `MODE-001` apenas consome Profile/Space válido.
+- `docs/SPACES-AND-PROFILES.md`: é o owner canônico da experiência unificada Space/composição; `MODE-001` consome apenas Space e Profile autorizados, sem owner paralelo.
 - `PERSONAL-001`: pode consumir continuidade cross-device quando seu owner liberar.
 - `NETWORK-001`: realtime social continua com seu owner e contratos.
 - `WEB-001`: Web Research é capability distinta de pesquisa externa; não deve ser confundida com OrdaX Web. Pode usar a infraestrutura de identidade/budget/transport quando aplicável, mas continua plano separado.

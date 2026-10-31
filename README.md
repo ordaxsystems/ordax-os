@@ -25,14 +25,14 @@ O roteador de planejamento fica em [`00-PLANOS-PRIORITARIOS/`](00-PLANOS-PRIORIT
 1. [`00-PLANOS-PRIORITARIOS/ROADMAP.md`](00-PLANOS-PRIORITARIOS/ROADMAP.md);
 2. [`00-PLANOS-PRIORITARIOS/REGISTRY.md`](00-PLANOS-PRIORITARIOS/REGISTRY.md).
 
-Durante a janela atual, a prioridade é **fechar o MVP pelos owners canônicos**. Planos futuros podem ser documentados, auditados e preservados, mas não formam uma fila automática de implementação. `READY` não significa `EXECUTION-ELIGIBLE`.
+**Prioridade vigente (31/10/2026): OrdaX Desktop Windows funcional primeiro**, incluindo Conta/Spaces, Loja/Apps, Aura, arquivos e Platform, com validações focadas. Web evolui por seu próprio canal. USB, Creator, Buildroot e homologação física vêm depois e **não bloqueiam** o Desktop/Web. `MVP.md` já esclarece que "MVP" é nomenclatura histórica. Planos futuros podem ser preservados, mas `READY` não significa `EXECUTION-ELIGIBLE`.
 
 Os planos antigos da raiz permanecem temporariamente nos caminhos atuais porque ainda possuem referências vivas. Eles são subordinados a `docs/README.md`, `docs/CURRENT-STATE.md`, `MVP.md`, contratos, ADRs e owners canônicos.
 
 - [PLANO-FUNCIONAL-SURFACE-E-APPS.md](PLANO-FUNCIONAL-SURFACE-E-APPS.md) é referência funcional acumulada da Surface/apps; não é `CURRENT-STATE` nem changelog canônico.
 - [PLANO-02-EVOLUCAO-E-REAPROVEITAMENTO-DO-LEGADO.md](PLANO-02-EVOLUCAO-E-REAPROVEITAMENTO-DO-LEGADO.md) é análise histórica do legado e não é backlog atual.
 - [PLANO-03-FECHAMENTO-PRE-USB-NOVA-ORDAX.md](PLANO-03-FECHAMENTO-PRE-USB-NOVA-ORDAX.md) é baseline de auditoria cujo fechamento de source já foi concluído; gates vivos estão nos owners canônicos.
-- [docs/SPACES-AND-PROFILES.md](docs/SPACES-AND-PROFILES.md) é a autoridade de experiência de Spaces e composição profissional. [PLANO-06](PLANO-06-PERFIS-PROFISSIONAIS-E-DISTRIBUICAO-SOB-DEMANDA.md) é histórico arquivado, não outro fluxo de produto.
+- [docs/SPACES-AND-PROFILES.md](docs/SPACES-AND-PROFILES.md) é a autoridade única de experiência de Spaces e composição profissional; [docs/PROFILE-INTELLIGENCE-ARCHITECTURE.md](docs/PROFILE-INTELLIGENCE-ARCHITECTURE.md) governa conhecimento e Intelligence dos Profiles. O plano duplicado foi retirado do source após migrar seus consumidores.
 - [PLANO-07-PERSONAL-ORDAX-E-TRABALHO-INTELIGENTE.md](PLANO-07-PERSONAL-ORDAX-E-TRABALHO-INTELIGENTE.md) preserva fases futuras; o owner canônico é [`docs/PERSONAL-ORDAX.md`](docs/PERSONAL-ORDAX.md).
 - [PLANO-08-ORDAX-NETWORK-COMUNIDADES-E-MENSAGENS.md](PLANO-08-ORDAX-NETWORK-COMUNIDADES-E-MENSAGENS.md) é referência de produto; qualquer texto histórico de “canônico” não altera a hierarquia documental.
 

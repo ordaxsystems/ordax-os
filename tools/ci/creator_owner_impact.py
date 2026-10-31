@@ -14,6 +14,11 @@ else:
 ROOT = Path(__file__).resolve().parents[2]
 WORKFLOW = ".github/workflows/creator-owner-dev-git.yml"
 SURFACE_LOCK = "docs/contracts/surface-source.json"
+INTELLIGENCE_WORKFLOW = ".github/workflows/intelligence-foundation.yml"
+LEGACY_PROFILE_DOC = "PLANO-06-PERFIS-PROFISSIONAIS-E-DISTRIBUICAO-SOB-DEMANDA.md"
+CURRENT_PROFILE_KNOWLEDGE_DOC = "docs/PROFILE-INTELLIGENCE-ARCHITECTURE.md"
+LEGACY_PROFILE_TRIGGER = f"      - '{LEGACY_PROFILE_DOC}'"
+CURRENT_PROFILE_TRIGGER = f"      - '{CURRENT_PROFILE_KNOWLEDGE_DOC}'"
 LIGHT_EXACT = frozenset({
     "docs/BUILD-AUTONOMY.md",
     "docs/DECISIONS.md",
@@ -24,8 +29,15 @@ LIGHT_EXACT = frozenset({
     "docs/README.md",
     "docs/SPACES-AND-PROFILES.md",
     "README.md",
-    "PLANO-06-PERFIS-PROFISSIONAIS-E-DISTRIBUICAO-SOB-DEMANDA.md",
+    # Removed Profile plan is only eligible through a verified deletion.
     "00-PLANOS-PRIORITARIOS/REGISTRY.md",
+    "00-PLANOS-PRIORITARIOS/README.md",
+    "PLANO-00-ESTADO-ATUAL-E-PRIORIDADES.md",
+    "PLANO-04-FUNDACAO-ECOSSISTEMA-PRE-MVP.md",
+    "00-PLANOS-PRIORITARIOS/ROADMAP.md",
+    "00-PLANOS-PRIORITARIOS/plans/MODE-001-WEB-CLOUD-DEVICE-RUNTIME.md",
+    "00-PLANOS-PRIORITARIOS/plans/FOOD-001-ORDAX-FOOD-PIZZA-PILOT.md",
+    "00-PLANOS-PRIORITARIOS/plans/FAB-001-ORDAX-FABRICATION-3D-PRINTING-PILOT.md",
     "docs/contracts/build-autonomy.json",
     # Dedicated Desktop command contract, adapter and proof. Neither is
     # imported by the Linux Native boot composition/USB host.
@@ -182,6 +194,38 @@ def workflow_trigger_only(base, head, *, root=ROOT):
         return False
 
 
+
+def verified_legacy_profile_trigger_migration(base, head, *, root=ROOT):
+    """Only an exact two-entry Intelligence CI documentation path migration is light."""
+    try:
+        before = _git_show(base, INTELLIGENCE_WORKFLOW, root)
+        after = _git_show(head, INTELLIGENCE_WORKFLOW, root)
+        return (before.count(LEGACY_PROFILE_TRIGGER) == 2
+                and CURRENT_PROFILE_TRIGGER not in before
+                and after == before.replace(LEGACY_PROFILE_TRIGGER,
+                                             CURRENT_PROFILE_TRIGGER))
+    except (OSError, ValueError, UnicodeError, subprocess.SubprocessError):
+        return False
+
+
+def verified_legacy_profile_deletion(base, head, *, root=ROOT):
+    """An archived root plan may be deleted, never edited/reintroduced as authority."""
+    try:
+        before = _git_show(base, LEGACY_PROFILE_DOC, root)
+        if not before.startswith("# OrdaX") or "ARCHIVED / SUPERSEDED" not in before:
+            return False
+        # cat-file -e returns 128 for both absent paths and corrupt refs.
+        # ls-tree must succeed against the verified commit and yield no path.
+        probe = subprocess.run(
+            ["git", "-C", str(root), "ls-tree", "-r", "--name-only",
+             head, "--", LEGACY_PROFILE_DOC],
+            check=True, capture_output=True, text=True, timeout=20,
+        )
+        return not probe.stdout.strip()
+    except (OSError, UnicodeError, ValueError, subprocess.SubprocessError):
+        return False
+
+
 def changed_paths(base, head, *, root=ROOT):
     if any(not re.fullmatch(r"[0-9a-f]{40}", x or "") or x == "0" * 40
            for x in (base, head)):
@@ -205,6 +249,12 @@ def classify(base, head, *, root=ROOT):
             elif path == SURFACE_LOCK:
                 if not verified_surface_visual_source_lock_delta(base, head, root=root):
                     return True, "surface-lock-not-proven-visual-only"
+            elif path == INTELLIGENCE_WORKFLOW:
+                if not verified_legacy_profile_trigger_migration(base, head, root=root):
+                    return True, "intelligence-workflow-not-exact-profile-doc-migration"
+            elif path == LEGACY_PROFILE_DOC:
+                if not verified_legacy_profile_deletion(base, head, root=root):
+                    return True, "legacy-profile-doc-not-verified-deletion"
             elif path not in LIGHT_EXACT and not any(
                 path.startswith(prefix) for prefix in CLIENT_ONLY_PREFIXES
             ):
