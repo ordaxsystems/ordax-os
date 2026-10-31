@@ -15,6 +15,8 @@ function unresolved(state, profile) {
 export function projectSpaceProfileStoreStatus({ space, profiles, storeSnapshot } = {}) {
   if (space == null) return unresolved("no-space", null);
   const selected = validateSpace(space);
+  // An archived Space cannot project live Store observations or Profile contents.
+  if (selected.state !== "active") return unresolved("space-inactive", null);
   if (selected.profilePack === null) return unresolved("no-profile", null);
 
   const binding = selected.profilePack;

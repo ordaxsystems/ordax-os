@@ -347,6 +347,23 @@ class PublicSiteDeploymentTests(unittest.TestCase):
         self.assertFalse(bot["secret_may_exist_in_repository"])
         self.assertFalse(bot["token_forwarded_to_inner_gateway"])
 
+    def test_web_runtime_cutover_owner_and_live_turnstile_hostname_contract(self):
+        # Revalidated against the authoritative production Turnstile widget
+        # on 2026-10-30. Web's project split does not activate public access.
+        web = self.contract["vercel_adapter"]["web_runtime"]
+        self.assertEqual(web["project"], "ordax-web")
+        self.assertEqual(web["project_id"], "prj_ftACluUqk6i9DoD9GPIwmgURwckP")
+        self.assertEqual(web["canonical_origin"], "https://web.ordax.com.br")
+        self.assertEqual(web["mount_path"], "/")
+
+        bot = self.contract["bot_protection"]
+        self.assertEqual(
+            bot["hostname_allowlist"],
+            ["ordax.com.br", "web.ordax.com.br", "www.ordax.com.br"],
+        )
+        self.assertFalse(bot["production_e2e_verified"])
+        self.assertFalse(self.contract["routing"]["gateway_public_activation_currently_enabled"])
+
     def test_nginx_adapter_is_loopback_only_and_does_not_replace_vercel_identity(self):
         adapter = self.contract["adapter"]
         self.assertEqual(adapter["kind"], "nginx-loopback-behind-https-terminator")

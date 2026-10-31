@@ -2,7 +2,7 @@
   "$schema": "prototype-ordax.surface-source/1",
   "status": "canonical",
   "source_repository": "ordaxsystems/ordax-surface",
-  "source_commit": "3ed6156f52184f6057866bea7e1871d294460ff6",
+  "source_commit": "24710c9711b283232d8fdaa5534a8082793fdab9",
   "imported_from_repository": "ordaxsystems/ordax-os",
   "imported_from_commit": "f65acc4fb9f8ded376fc9b44b4c7c2068c793265",
   "visual_source_paths": [

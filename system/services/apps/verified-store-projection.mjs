@@ -372,7 +372,7 @@ export function createVerifiedAppStoreProjection({
     };
   };
 
-  const refresh = async () => {
+  const performRefresh = async () => {
     if (destroyed) return snapshot;
     activeRefresh?.abort();
     const controller = new AbortController();
@@ -393,6 +393,16 @@ export function createVerifiedAppStoreProjection({
     if (activeRefresh === controller) activeRefresh = null;
     emit(next.catalog, next.observations);
     return snapshot;
+  };
+
+  // The Native catalog subscription already starts the unique current-state
+  // reconciliation. Callers awaiting that same verification must not abort it
+  // and start another identical metadata sweep.
+  let lastRefresh = Promise.resolve(snapshot);
+  const refresh = () => {
+    const pending = performRefresh();
+    lastRefresh = pending;
+    return pending;
   };
 
   const unsubscribeCatalog = catalog.subscribe(() => {
@@ -420,6 +430,9 @@ export function createVerifiedAppStoreProjection({
   return Object.freeze({
     port,
     refresh,
+    waitForCurrentRefresh() {
+      return destroyed ? Promise.resolve(snapshot) : lastRefresh;
+    },
     getCurrentObservations() {
       return currentObservations;
     },
@@ -431,6 +444,11 @@ export function createVerifiedAppStoreProjection({
       activeRefresh = null;
       currentObservations = Object.freeze([]);
       unsubscribeCatalog?.();
+      // A retained read-only Store port must fail closed after its runtime
+      // owner exits. Clearing listeners alone kept the last installable
+      // snapshot visible to other consumers after teardown.
+      snapshot = unavailable("verified-store-projection-disposed");
+      for (const listener of [...listeners]) listener(snapshot);
       listeners.clear();
     },
   });

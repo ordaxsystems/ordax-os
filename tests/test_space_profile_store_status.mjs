@@ -23,6 +23,16 @@ test("without selected Space or linked Profile, no app list is invented", () => 
   assert.equal(projectSpaceProfileStoreStatus({ space: space(null) }).state, "no-profile");
 });
 
+test("archived Space cannot expose bound Profile apps or Store observations", () => {
+  const result = projectSpaceProfileStoreStatus({
+    space: { ...space("pizzaria-br@1"), state: "archived" },
+    profiles: [profile(1)], storeSnapshot: unavailableStore,
+  });
+  assert.equal(result.state, "space-inactive");
+  assert.equal(result.profile, null);
+  assert.deepEqual(result.entries, []);
+});
+
 test("bare slug never silently selects a Profile version even if only one exists", () => {
   const result = projectSpaceProfileStoreStatus({
     space: space("pizzaria-br"), profiles: [profile(1)], storeSnapshot: unavailableStore,
