@@ -17,6 +17,7 @@ import { createDesktopWlanMiddleware } from "../../system/adapters/desktop/wifi-
 import { createDesktopLocalAiMiddleware } from "../../system/adapters/desktop/local-ai-host.mjs";
 import { createDesktopVerifiedComponentSlotMiddleware } from "../../system/adapters/desktop/verified-component-slot-host.mjs";
 import { createDesktopDisplayCurrentModeMiddleware } from "../../system/adapters/desktop/display-current-mode-host.mjs";
+import { readDesktopProductRuntimeStatus } from "../../system/adapters/desktop/product-runtime-status.mjs";
 import observationPolicy from "../../system/adapters/desktop/observation-grant.cjs";
 const { OBSERVATION_ROUTES, createDesktopObservationGrantMiddleware }=observationPolicy;
 import { createInitialFirstRunState, validateFirstRunState } from "../../system/contracts/first-run-state-store.mjs";
@@ -237,6 +238,9 @@ export function nativeEmulatorPlugin(stateDirectory, { desktopHost = false, acco
             response.end(JSON.stringify(payload));
           };
           try {
+            if (path === "/__ordax/native/product-runtime-status") {
+              return respond(readDesktopProductRuntimeStatus(process.cwd()));
+            }
             if (path === "/__ordax/native/network-status") {
               void readDesktopNetworkStatus().then(respond).catch(() => {
                 response.statusCode = 503;

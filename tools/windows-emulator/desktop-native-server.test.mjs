@@ -83,6 +83,20 @@ test("standalone installed Native host serves verified bundle and existing privi
   assert.equal((await fetch(base+"/system/services/account/gateway-base-url")).status,404);
   assert.equal((await fetch(base+"/system/contracts/%2e%2e%2fsecret.mjs")).status,404);
   assert.equal((await fetch(base+"/__ordax/native/network-status")).status,401);
+  assert.equal((await fetch(base+"/__ordax/native/product-runtime-status")).status,401);
+  const mcpStatus=await fetch(base+"/__ordax/native/product-runtime-status",{
+    headers:{"x-ordax-observation-token":tokens.ORDAX_DESKTOP_OBSERVATION_TOKEN}});
+  assert.equal(mcpStatus.status,200);
+  const mcp=await mcpStatus.json();
+  assert.equal(mcp.schema,"ordax.product-runtime-supervision/1");
+  assert.equal(mcp.ready,false);
+  assert.equal(mcp.centralSessionAttested,false);
+  assert.equal(mcp.capabilityDigest,null);
+  assert.ok(mcp.blockers.length>0);
+  assert.equal((await fetch(base+"/__ordax/native/product-runtime-status?x=1",{
+    headers:{"x-ordax-observation-token":tokens.ORDAX_DESKTOP_OBSERVATION_TOKEN}})).status,400);
+  assert.equal((await fetch(base+"/__ordax/native/product-runtime-status",{
+    method:"POST",headers:{"x-ordax-observation-token":tokens.ORDAX_DESKTOP_OBSERVATION_TOKEN}})).status,405);
   assert.equal((await fetch(base+"/__ordax/native/first-run")).status,401);
   const first=await fetch(base+"/__ordax/native/first-run",{
     headers:{"x-ordax-desktop-state-token":tokens.ORDAX_DESKTOP_STATE_TOKEN}});
