@@ -3,7 +3,8 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 import { Readable } from "node:stream";
 import { createEmulatorAccountGateway } from "../tools/windows-emulator/account-gateway.mjs";
-import { assertSpaceCreatePort, validateSpaceCreateCommand, validateSpaceCreateReceipt } from "../system/contracts/space-creation.mjs";
+import { validateSpaceCreateCommand, validateSpaceCreateReceipt } from "../system/contracts/space-creation.mjs";
+import { assertSpaceCreatePort } from "../system/contracts/space-create-port.mjs";
 import { createDesktopSpaceCreatePort } from "../system/adapters/desktop/space-create.mjs";
 import { IDENTITY_SESSION_SCHEMA } from "../system/contracts/identity-session.mjs";
 

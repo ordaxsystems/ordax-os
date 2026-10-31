@@ -1,9 +1,9 @@
 import { hasDesktopBrowserTransport } from "../native/browser-host-transport.mjs";
 import {
-  SPACE_CREATE_PORT_SCHEMA,
   validateSpaceCreateCommand,
   validateSpaceCreateReceipt,
 } from "../../contracts/space-creation.mjs";
+import { SPACE_CREATE_PORT_SCHEMA } from "../../contracts/space-create-port.mjs";
 import {
   assertIdentitySessionPort,
   validateIdentitySessionSnapshot,

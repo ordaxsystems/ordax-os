@@ -1,3 +1,19 @@
+Desktop/Web build separation (2026-10-31): canonical architecture and executable
+impact classification now distinguish Windows Desktop and Web client-only owners
+from Creator/USB release producers. The source-of-truth is
+`docs/contracts/build-autonomy.json#client_build_independence`,
+`docs/BUILD-AUTONOMY.md` and `tools/ci/creator_owner_impact.py`.
+Windows-only `system/adapters/desktop/` and Web-only
+`system/composition/web/` no longer trigger Creator USB on their own.
+Shared `system/composition/native/main.mjs`, Native adapters, and
+`system/adapters/web/` used by Native remain USB-sensitive.
+The Windows host's authenticated Space create gateway was merged in OS #2360
+(`6c29f4da`); the Desktop-only create port/contract is under validation in
+OS #2361 without changing the shared Native entrypoint. The Surface UI
+remains unimplemented (ordax-surface#33); this is **not** a completed
+authenticated Windows E2E or actual Profile Pack provisioning.
+The prior #2361 Creator workflow #41176996362 failed and is not release proof.
+
 OrdaX Desktop Windows Runtime component candidate (2026-10-31):
 `ordax-runtime` PR #281 is merged at `3a62460a`; the tested source
 `6b191cb8273577d94352893497b0eb118e3b98ae` is preserved in main ancestry.

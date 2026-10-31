@@ -16,6 +16,13 @@ WORKFLOW = ".github/workflows/creator-owner-dev-git.yml"
 SURFACE_LOCK = "docs/contracts/surface-source.json"
 LIGHT_EXACT = frozenset({
     "docs/BUILD-AUTONOMY.md",
+    "docs/DECISIONS.md",
+    "docs/CURRENT-STATE.md",
+    "docs/contracts/build-autonomy.json",
+    # Dedicated Desktop command contract, adapter and proof. Neither is
+    # imported by the Linux Native boot composition/USB host.
+    "system/contracts/space-create-port.mjs",
+    "tests/test_space_create_bridge.mjs",
     "system/adapters/desktop/local-ai-host.mjs",
     # Windows-only signed-component bridge and Windows installer producer
     # are proven in the installed NSIS/Native gates, not the Linux Creator.
@@ -36,6 +43,16 @@ LIGHT_EXACT = frozenset({
     "tools/ci/creator_owner_impact.py",
     "tests/test_creator_owner_impact.py",
 })
+# Self-contained artifact consumers. Changes in these owners are validated
+# by installed Windows Desktop / Chromium Web gates, never the USB producer.
+# Do not include system/adapters/web/**: Native imports some of those modules.
+# Do not include system/composition/native/**: it is the real USB boot entry.
+CLIENT_ONLY_PREFIXES = (
+    "system/adapters/desktop/",
+    "system/composition/web/",
+    "tools/windows-desktop/",
+    "tools/windows-emulator/",
+)
 PUSH_EXCLUDES = ("!system/adapters/desktop/**", "!system/surface/ui/**", "!system/surface/workspace/**")
 PR_REMOVED = ("docs/contracts/surface-source.json", "system/surface/ui/**", "system/surface/workspace/**")
 PR_ADDED = ("tools/ci/creator_owner_impact.py", "tests/test_creator_owner_impact.py")
@@ -180,7 +197,9 @@ def classify(base, head, *, root=ROOT):
             elif path == SURFACE_LOCK:
                 if not verified_surface_visual_source_lock_delta(base, head, root=root):
                     return True, "surface-lock-not-proven-visual-only"
-            elif path not in LIGHT_EXACT:
+            elif path not in LIGHT_EXACT and not any(
+                path.startswith(prefix) for prefix in CLIENT_ONLY_PREFIXES
+            ):
                 return True, "real-or-unknown-usb-producer:" + path
         return False, "nonproducer-contract-only"
     except (OSError, UnicodeError, ValueError, subprocess.SubprocessError):
