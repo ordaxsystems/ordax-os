@@ -148,6 +148,21 @@ export function validateSpaceCreateCommand(value) {
   });
 }
 
+export const SPACE_CREATE_PORT_SCHEMA = "ordax.space-create-port/1";
+
+// Mutation authority is deliberately separate from the read-only ordax.spaces/1
+// catalog. This port only carries an authenticated user intent to the Account RPC.
+export function assertSpaceCreatePort(port) {
+  if (!port || typeof port !== "object" || port.schema !== SPACE_CREATE_PORT_SCHEMA
+    || typeof port.create !== "function" || typeof port.dispose !== "function") {
+    throw new TypeError("Compatible authenticated Space creation port required");
+  }
+  for (const forbidden of ["getSnapshot", "refresh", "select", "archive", "delete"]) {
+    if (forbidden in port) throw new TypeError("Space creation port must not own catalog or lifecycle state");
+  }
+  return port;
+}
+
 export const SPACE_CREATE_RECEIPT_SCHEMA = "prototype-ordax.space-create/1";
 const SPACE_CREATE_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
