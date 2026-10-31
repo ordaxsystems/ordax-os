@@ -242,9 +242,16 @@ export function nativeEmulatorPlugin(stateDirectory, { desktopHost = false, acco
           // Current unsigned component policy intentionally leaves it blocked.
           const productRuntime = createDesktopProductRuntimeSupervisor({
             systemRoot:process.cwd(),userData,
-            verifiedHandoff:createDesktopSignedRuntimeHandoff({
-              verifierRoot:process.env.ORDAX_DESKTOP_COMPONENT_VERIFIER_ROOT,
-            }),
+            verifiedHandoff:process.env.ORDAX_DESKTOP_COMPONENT_VERIFIER_ROOT
+              ? createDesktopSignedRuntimeHandoff({
+                  verifierRoot:process.env.ORDAX_DESKTOP_COMPONENT_VERIFIER_ROOT,
+                }) : null,
+            // Explicit Windows Desktop development opt-in only. This consumes
+            // the OS-pinned CI binary hash; it never changes production trust,
+            // signs a component, grants MCP access or enables Stable/MVP.
+            developmentCandidate:process.env.ORDAX_DESKTOP_HOST==="1" &&
+              process.env.ORDAX_DESKTOP_MCP_DEV==="1",
+            log:message=>console.info("runtime: "+message),
           });
           void productRuntime.reconcile().catch(() => {});
           // Re-check post-boot enrollment and trust under one serialized

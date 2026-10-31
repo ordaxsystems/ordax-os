@@ -4,6 +4,7 @@ const assert = require('node:assert/strict');
 const { readFileSync } = require('node:fs');
 const { join, resolve } = require('node:path');
 const { resolveTemplate, runtimeStateDirectory, OFFICIAL_REMOTE } = require('./runtime.cjs');
+const { resolveInstalledGit } = require('./checkout.cjs');
 
 test('Dev and MVP share the single authoritative distribution contract', () => {
   const source = JSON.parse(readFileSync(join(__dirname,'../../docs/contracts/distribution-profiles.json'),'utf8'));
@@ -24,6 +25,26 @@ test('packaged Windows uses offline verified snapshot with isolated state', () =
   assert.equal(template,join('C:\\OrdaXResources','runtime-template'));
   assert.ok(!runtimeStateDirectory('C:\\UserData').includes('runtime-template'));
 });
+test('Windows Git discovery reuses installed Git without PATH or a second installer',()=>{
+  const expected='C:\\Program Files\\Git\\cmd\\git.exe';
+  const seen=[];
+  const fakeStat=path=>{
+    seen.push(path);
+    if(path===expected)return {isFile:()=>true,isSymbolicLink:()=>false};
+    throw Object.assign(Error('ENOENT'),{code:'ENOENT'});
+  };
+  assert.equal(resolveInstalledGit({
+    platform:'win32',env:{ProgramFiles:'C:\\Program Files',PATH:'C:\\Windows'},
+    stat:fakeStat,
+  }),expected);
+  assert.equal(seen.includes(expected),true);
+  assert.equal(resolveInstalledGit({
+    platform:'win32',env:{ProgramFiles:'C:\\Untrusted',PATH:''},
+    stat:()=>({isFile:()=>true,isSymbolicLink:()=>true}),
+  }),'git','never select a symlink as a privileged Git binary');
+  assert.equal(resolveInstalledGit({platform:'linux'}),'git');
+});
+
 test('Desktop Dev source is the sole canonical remote, with no shallow live merge', () => {
   assert.equal(OFFICIAL_REMOTE, 'https://github.com/ordaxsystems/ordax-os.git');
   const main = readFileSync(join(__dirname,'main.cjs'),'utf8');

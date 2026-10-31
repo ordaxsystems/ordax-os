@@ -120,10 +120,19 @@ WINDOWS_LOCAL_AI_SOURCE_LOCK = "system/services/local-ai/source-lock.json"
 SURFACE_VISUAL_SOURCE_LOCK = "docs/contracts/surface-source.json"
 
 ACCOUNT_GATEWAY_DEPLOY_LIGHT_EXACT = {
+    # Exact high-level Account HTTP transport and contract tests.
+    "docs/contracts/native-account-session.json",
+    "infra/supabase/functions/_shared/space_create_contract.mjs",
+    "tests/test_native_account_gateway.py",
+    "tests/test_native_account_session_contract.py",
+    "tests/test_space_create_bridge.mjs",
     ".github/workflows/ordax-account-gateway-destination.yml",
     "docs/contracts/ci-supply-chain.json",
     "tools/account/resolve_account_gateway_destination.py",
     "tests/test_account_gateway_destination_deploy.py",
+}
+NATIVE_ACCOUNT_TRANSPORT_LIGHT_EXACT = {
+    "system/surface/runtime/native_account_gateway.py",
 }
 IMPACT_POLICY_LIGHT_EXACT = {
     ".github/workflows/portable-qemu-impact-contract.yml",
@@ -147,6 +156,11 @@ PRODUCT_DEVICE_PRESENCE_LIGHT_EXACT = {
     "tests/test_product_device_presence_agent.py",
 }
 ACCOUNT_SPACE_SEMANTICS_LIGHT_EXACT = {
+    # Exact, focused SQL owner-authority repair; no boot or initramfs code.
+    "infra/supabase/product/migrations/20261031051500_space_owner_ssot_creation_fix_v1.sql",
+    "tests/sql/test_space_creation_authority_v1.sql",
+    "tests/test_space_creation_authority.mjs",
+    ".github/workflows/space-creation-authority-v1-proof.yml",
     "infra/supabase/functions/ordax-account-gateway/index.ts",
     "infra/supabase/product/migrations/20261015153000_space_semantics_v1.sql",
     "infra/supabase/product/migrations/20261015195800_space_semantics_write_guard_v1.sql",
@@ -156,6 +170,7 @@ ACCOUNT_SPACE_SEMANTICS_LIGHT_EXACT = {
     "tests/test_supabase_account_provider.py",
 }
 SPACE_COMPOSITION_LIGHT_EXACT = {
+    ".github/workflows/space-foundation-contract-proof.yml",
     "docs/contracts/spaces-and-profile-packs.json",
     "tests/test_account_canonical_navigation.py",
     "tests/test_space_aura_provider.mjs",
@@ -460,6 +475,8 @@ def classify_paths(
             if path == WINDOWS_LOCAL_AI_SOURCE_LOCK and windows_lock_verified:
                 continue
             reasons.append(f"heavy-exact:{path}")
+            continue
+        if path in NATIVE_ACCOUNT_TRANSPORT_LIGHT_EXACT:
             continue
         if path.startswith(ALWAYS_HEAVY_PREFIXES):
             reasons.append(f"heavy-prefix:{path}")

@@ -2,6 +2,82 @@
 
 Status: CANONICAL FOR PROTOTYPE
 
+
+## P0 — Native MCP no Windows/Desktop DEV (31/10/2026)
+
+**Missão canônica:** provar o mesmo `ordax-runtime` no OrdaX OS Desktop
+instalado no Windows **e**, depois, no agente auxiliar Windows com outra
+identidade Product Device. Prova DEV antes de assinatura de produção.
+A Platform, OAuth/grants, Worker e Supervisor existentes são as únicas
+autoridades. Não criar Runtime, dispatcher, CLI, banco, sessão, workflow ou
+instalador paralelo.
+
+**Estado comprovado em `DESKTOP-PNUHUA0`:**
+- Desktop NSIS oficial já atualizado; um único Runtime DEV existente
+  iniciado pelo Supervisor, com processo principal + subprocesso PyInstaller.
+  O Device `OrdaX Desktop (DESKTOP-PNUHUA0)` ficou online na Platform.
+- OAuth Owner do cliente ChatGPT exato e grant `computer-observe` por 1 dia
+  foram concluídos. A seleção Owner de um challenge foi aceita pelo sistema,
+  e uma chamada MCP real `computer.access_status` chegou ao Runtime, mas
+  recebeu `action not allowed: computer.access_status`. Portanto conexão e
+  resposta remota foram **provadas**, sucesso da leitura ainda não.
+- Causa no owner Runtime: a antiga lista permitia só `agent.status`.
+  [ordax-runtime#282](https://github.com/ordaxsystems/ordax-runtime/pull/282)
+  foi integrada à Runtime main (commit `726f41f77897aed7bdadbf4a7865a9aeca032f9c`)
+  e limita o Desktop a **exatamente** `agent.status` +
+  `computer.access_status`; não há terminal, escrita, clique, GUI nem
+  segundo adapter Windows.
+- O novo executável Windows foi gerado pela mesma workflow oficial e
+  provado no Windows físico **sem Python no PATH, credenciais ou rede**.
+  Origem `ordax-runtime@50a8626d9212e3741b38b87fbe658e24c8bee024`,
+  SHA-256 `33e6c14b2f6e03e275697806f686195ca3de1a13296adc107bd003f5d71ceae2`,
+  19.491.629 bytes. O único manifesto fonte de verdade é
+  `docs/evidence/desktop-runtime-windows-candidate-2026-10-31.json`;
+  ele não é licença para ativação de produção.
+- **Ainda pendente:** o executável **novo** ainda não substituiu o antigo
+  na instância supervisionada; a leitura remota nova não foi concluída.
+  O Windows auxiliar ainda usa a identidade do Desktop indevidamente em
+  sua configuração DevAgent. **Não iniciar** agente auxiliar ou instalador
+  com autostart enquanto as identidades colidirem.
+
+**Ordem mínima do próximo executor:**
+1. Após integrar o PR que atualiza o único manifesto OS, deixar
+   o `ordax-pull` canônico materializar a revisão. Confirmar que o
+   manifesto veio de `main`, a SHA é a acima e que o binário oficial
+   obtido em CI já passou o self-test físico. Não alterar o checkout
+   imutável manualmente nem inventar hash local.
+2. Substituir **apenas** o executável DEV em
+   `<Desktop userData>/native-state/product-runtime-dev/ordax-product-agent.exe`
+   pela mesma origem, com Supervisor parado e recuperação segura se
+   a verificação falhar. Não mexer em token, matrícula ou
+   `Components` de produção, nem reinstalar Electron.
+3. Reiniciar uma única instância Desktop DEV com
+   `ORDAX_DESKTOP_MCP_DEV=1`, confirmar online/presença, grant exato,
+   sessão atestada e chamar `computer.access_status` via o conector
+   **OrdaX MCP** do ChatGPT; exigir receipt `status=succeeded`
+   e `result.ok=true` no mesmo dispositivo. `queued` ou `pending`
+   **não** bastam. Não marcar `mcpReady=true` sem digest atestado.
+4. Com Desktop E2E provado, matricular o **agente auxiliar Windows**
+   em uma identidade Product Device própria, usando o Owner oficial.
+   Só então instalar/iniciar o Runtime auxiliar canônico e conceder
+   os grants específicos do cliente, sem emprestar credenciais Desktop.
+5. Assinatura Ed25519, cerimônia, distribuição estável e USB/Creator
+   pertencem à fase de **produção/portabilidade**, não ao teste DEV.
+
+**Restrições duras:** zero novos workflows, CLIs, serviços ou canais MCP.
+Não iniciar buildroot/USB/Creator/QEMU/EROFS ou reinstalar NSIS do Desktop
+para essa tarefa. Não recompilar o mesmo candidato já atestado.
+Proibir grants implícitos, cópia de tokens, redirecionamentos permanentes
+de endpoint e fallback de produção para binário unsigned. Quando o Worker
+precisar de acesso Owner, usar OAuth oficial para o cliente exato; uma
+seleção de challenge jamais substitui atestação do Device.
+
+**Próximos chats:** ler esta seção, `docs/CURRENT-STATE.md` e
+[issue canônica #1985](https://github.com/ordaxsystems/ordax-os/issues/1985)
+antes de executar. Reaproveitar os commits/artifacts já aprovados e
+continuar no último checkpoint; não repetir auditorias gerais ou criar
+PR paralela. Registrar sucesso somente com ação física remota e receipt.
+
 ## Source model
 
 `main` is the source authority for this prototype.

@@ -438,6 +438,8 @@ This decision refines earlier USB-only **MVP scope** language in ADRs/docs; it d
 
 Decision: a Space type owns domain/UX semantics, while runtime availability is projected exclusively from real capability providers. Profile Pack remains the versioned technical composition owner and does not become the owner of Space navigation, dashboard cards, operational metrics or business state.
 
+**UX clarification (2026-10-31):** `Spaces` is the **sole ordinary-user entry point** for professional workspaces. Creation selects a Space type and resolves its exact approved Profile Pack automatically. There must not be a second top-level `Perfis Profissionais` management journey, duplicate Space identity or separate account. Profile versions, permission review, installation state, rollback and advanced changes belong beneath the selected Space's professional-composition settings. Internal create, provisioning, approval, activation and health remain separate authorized operations, with a recoverable pending state; a create receipt must never be misrepresented as completed installation. Canonical UX details: `docs/SPACES-AND-PROFILES.md`. This refines this ADR without inventing another registry or backend.
+
 Canonical flow:
 
 ```text
@@ -457,3 +459,27 @@ Aura remains the single OrdaX Intelligence layer. Space projection may provide o
 Implementation note (2026-10-15): the first promoted provider is `system/services/spaces/aura-provider.mjs`. It reuses the already authorized selected-Space Intelligence owner, requires exact selected-Space identity plus real inference availability, and emits no dashboard metric. This promotion does not imply availability of any domain transaction capability.
 
 Machine-readable/versioned contracts: `system/contracts/space-experience.mjs` and `docs/contracts/spaces-and-profile-packs.json`. Semantic catalog owner: `system/services/spaces/type-catalog.mjs`. User-facing type presentation owner: `system/services/spaces/presentation.mjs`; explicit `domain/subtype` takes precedence and Profile Pack resolution is legacy-only when canonical semantics are absent. Projection owner: `system/services/spaces/composition.mjs`.
+
+## ADR-029 - Client delivery must not depend on USB Creator (2026-10-31)
+
+Decision: OrdaX Desktop Windows and OrdaX Web are independent delivery
+artifacts. Their changes use their own installer/Native Windows or Chromium Web
+build and verification paths, without a dependency on Creator, Buildroot,
+Linux kernel, initramfs, USB provisioning or physical USB testing.
+
+The product remains one canonical codebase/contract graph: Surface visual code
+belongs to `ordax-surface`, shared Account/Spaces semantics to their original
+owners, and product capability availability to authenticated runtime receipts.
+Windows-only behavior lives in `system/adapters/desktop/` or the installed
+Windows host; Web-only composition lives in `system/composition/web/`.
+Do not add Desktop-only conditional wiring into
+`system/composition/native/main.mjs` merely to save a client-layer change.
+Native shared entrypoints, boot code, and Web adapters used by Native still
+require their legitimate impact proofs.
+
+The authoritative dependency relationship is
+`docs/contracts/build-autonomy.json#client_build_independence`.
+`tools/ci/creator_owner_impact.py` and its tests classify only proven
+exclusive client owners as lightweight; unknown and mixed deltas fail
+closed. Neither the client classifications nor the absence of a Creator
+build proves a released Desktop, Web login, Space creation UI, or Profile Pack.

@@ -6,19 +6,19 @@ Esta pasta é o ponto único para organizar **planos, pesquisas, relatórios, pr
 
 Ela existe porque o repositório já possui vários planos históricos na raiz e várias frentes podem estar sendo analisadas por chats/agentes diferentes. O objetivo é impedir perda de contexto, duplicação de implementação e prioridades contraditórias.
 
-## Regra operacional atual — fechamento do MVP primeiro
+## Regra operacional atual — Desktop Windows primeiro (2026-10-31)
 
-Até o fechamento do MVP atual, este hub funciona principalmente como **registro, triagem, preservação e reconciliação documental**.
+O produto não está mais em estratégia de "MVP mínimo" (`MVP.md`). A janela corrente prioriza **Windows Desktop funcional**, integração real de Conta/Spaces, Store/Apps, Aura, arquivos, Platform e estabilidade. Web usa seu próprio canal. **USB/Creator/Buildroot/Native físico não são pré-requisitos** dessa janela e não devem ser compilados por mudanças de clientes ou documentação. Este hub continua servindo como **registro, triagem, preservação e reconciliação documental**, nunca autoridade paralela.
 
 - planos desta pasta ou planos históricos da raiz **não abrem trabalho de implementação por si só**;
 - nenhuma frente futura deve ser iniciada apenas porque está `READY`, P1, P2 ou documentada em detalhes;
-- antes do fechamento do MVP, execução só ocorre quando já for exigida pelos owners canônicos do MVP, contratos, `docs/CURRENT-STATE.md` ou `docs/PROMOTION-GATES.md`;
+- execução depende da prioridade contemporânea e de owners canônicos, contratos, `docs/CURRENT-STATE.md`, `docs/DEVELOPMENT-WORKFLOW.md` e `docs/PROMOTION-GATES.md` — não de status de plano legado;
 - pesquisa, documentação, auditoria de links e correção de classificação documental podem continuar sem promover execução de produto;
-- depois do fechamento do MVP, `ROADMAP.md` deve ser revalidado contra a `main` e os owners canônicos antes de liberar qualquer plano adiado.
+- antes de promover a etapa USB/Native físico, `ROADMAP.md` deve ser revalidado contra a `main`, os owners, o runtime Desktop já estabilizado e os gates físicos reais.
 
 Isso separa **preservar uma boa ideia** de **autorizar sua implementação agora**.
 
-`NATIVE-001` merece leitura especial: ele organiza a jornada USB → Native que `MVP.md` já inclui no ciclo do MVP. Portanto seus recortes podem ser P0/EXECUTION-ELIGIBLE **somente quando os owners canônicos atuais já os exigirem**. O plano não liga flags, não autoriza disco e não vence gates de consentimento/escrita física.
+`NATIVE-001` permanece no baseline de lançamento, mas **não reordena a janela Windows-first nem antecipa builds USB/Creator**. Só volta à execução quando houver autorização contemporânea do owner, sem relaxar consentimento/escrita física nem restaurar Alpine/legado.
 
 ## Autoridade
 
@@ -48,7 +48,7 @@ Antes de iniciar uma nova frente de implementação:
 6. verificar se a frente está **EXECUTION-ELIGIBLE** no roadmap atual;
 7. somente então criar/continuar implementação.
 
-Enquanto vigorar o fechamento do MVP, planos futuros ficam **DEFERRED FOR EXECUTION** mesmo que continuem `READY` documentalmente.
+Enquanto vigorar a prioridade Windows Desktop, planos não explicitamente autorizados pelos owners continuam **DEFERRED FOR EXECUTION** mesmo que estejam `READY` documentalmente.
 
 Se a frente já existir, atualizar o mesmo item. **Não criar `v2`, `final`, `novo`, `alternativo` ou outro plano paralelo para a mesma responsabilidade.**
 
@@ -96,7 +96,7 @@ O status documental é separado da janela de execução:
 - `DEFERRED FOR EXECUTION`: preservar e manter atualizado, mas não iniciar implementação agora.
 - `NOT APPLICABLE`: relatório, referência ou histórico que não representa trabalho executável.
 
-Durante o fechamento atual do MVP, a regra padrão para planos futuros é `DEFERRED FOR EXECUTION`.
+Na janela corrente de Windows Desktop, a regra padrão para planos futuros é `DEFERRED FOR EXECUTION` até autorização do owner.
 
 ## Planos centrais atuais deste hub
 
