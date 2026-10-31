@@ -16,7 +16,7 @@ export const displayScalePreference = Object.freeze({
   label: "Tela",
   title: "Escala da interface",
   description:
-    "Ajuste o tamanho dos elementos da Surface neste dispositivo. O modo automático acompanha a largura disponível; a resolução e o brilho do monitor dependem do suporte do host.",
+    "Ajuste a escala da interface neste monitor sem alterar o zoom do navegador. O modo automático considera a largura e a altura úteis; a escolha fica salva neste dispositivo.",
   defaultValue: "automatic",
   options: DISPLAY_SCALE_OPTIONS,
   validate(value) {

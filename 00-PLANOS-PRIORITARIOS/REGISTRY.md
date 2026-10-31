@@ -9,6 +9,8 @@ Enquanto o MVP atual não estiver fechado, planos futuros permanecem registrados
 | ID | Tipo | Documento / rota | Prioridade | Status documental | Execução agora | Observação |
 |---|---|---|---|---|---|---|
 | EXEC-000 | execution overlay | `PLANO-00-ESTADO-ATUAL-E-PRIORIDADES.md` | P0/P1 conforme item | ACTIVE | EXECUTION-ELIGIBLE somente para gates canônicos correntes | Overlay factual; revalidar contra `main`/canônicos |
+| FOUNDATION-001 | auditoria e consolidação da fundação | `plans/FOUNDATION-001-OS-ARCHITECTURE-CONSOLIDATION.md` | **P0**, somente recortes exigidos por owners canônicos | **ACTIVE** — auditoria em curso | **EXECUTION-ELIGIBLE** para integridade/boot/update/Creator já exigidos pelo MVP; escrita física continua gated | Handoff interagentes; não é novo SSOT de arquitetura/estado, não duplica NATIVE-001 nem a fila EXEC-000 |
+| COMMERCE-001 | plano comercial | `plans/COMMERCE-001-SUBSCRIPTIONS-AND-BENEFITS.md` | solicitação explícita | READY | EXECUTION-ELIGIBLE no escopo autorizado em 2026-10-22 | Catálogo e apresentação nos owners existentes; billing/cotas pagas e serviços futuros continuam gated |
 | SURFACE-001 | plano funcional | `PLANO-FUNCIONAL-SURFACE-E-APPS.md` | conforme overlay | REFERENCE | DEFERRED FOR EXECUTION salvo requisito canônico do MVP | Especificação funcional detalhada; não é `CURRENT-STATE` nem changelog canônico |
 | LEGACY-001 | análise/migração histórica | `PLANO-02-EVOLUCAO-E-REAPROVEITAMENTO-DO-LEGADO.md` | histórico | REFERENCE | NOT APPLICABLE | Comparação datada do legado; reuso real é governado por `docs/SOURCE-MIGRATION.md` |
 | USB-001 | baseline pré-USB | `PLANO-03-FECHAMENTO-PRE-USB-NOVA-ORDAX.md` | histórico/P0 quando citado por owner | REFERENCE | NOT APPLICABLE como plano; gates físicos vêm dos owners canônicos | Fechamento de source concluído; preservar como baseline até auditoria de links/sucessor |
@@ -86,6 +88,7 @@ Enquanto o MVP atual não estiver fechado, planos futuros permanecem registrados
 - `COMP-*`: comparação/auditoria de referência externa; nunca executável por si só.
 - `INTEL-*`: Intelligence/model routing.
 - `USB-*`: mídia física/boot/release portátil.
+- `FOUNDATION-*`: auditoria e consolidação transversal da fundação de OS sem substituir owners de boot, update, Creator, storage ou NATIVE-*.
 - `SURFACE-*`: Surface/apps/UI compartilhada.
 - `IDENTITY-*`: conta/identidade/entitlements/membership e convites de Space.
 - `NETWORK-*`: comunidades/mensagens/realtime social.

@@ -5,6 +5,7 @@ The canonical Space contract already carries `profilePack` identifiers such as `
 `system/services/spaces/profile-store-status.mjs` composes the existing canonical Store projector `projectProfileStoreAppStatus` and the validated published Profile Pack catalog:
 
 - No selected Space: `no-space`; no linked Profile: `no-profile`.
+- Archived Space: `space-inactive`; no Profile or device Store observations are exposed.
 - A legacy/unpinned bare slug: `profile-unpinned`. A single published version is not sufficient evidence to bind it.
 - An invalid `slug@version` or unsafe integer: `profile-invalid-binding`.
 - An exact pinned published version absent from the catalog: `profile-not-listed` (no silent fallback).
@@ -15,20 +16,31 @@ The canonical Space contract already carries `profilePack` identifiers such as `
 
 The projector is pure and read-only. It creates no independent package catalog, install/update/rollback capability, new version field, persistence, or authorization route.
 
-## Integration gate
+## Canonical Surface consumption (2026-10-31)
 
-This stage adds a version-safe domain projection and tests. It does **not** yet wire a live Space-scoped app list into Web/Native. The Surface must consume both the **authorized active Space** and the **published validated Profile catalog**, and use the canonical Store snapshot. For unpinned legacy spaces, offer a truthful unresolved state until the account/Space assignment authority supplies an exact `slug@version`; do not invent one in the client.
+`ordax-surface#32` restored `SpaceProfileAppsPanel` inside the authorized active Space account view and consolidated the single Store status label vocabulary with the Profile catalog. The Surface reads `useWebAccount().authorized.activeSpace`, `useProfileCatalogReader()` and the existing `StoreCatalogProvider`, and invokes **this OS projector**. Signed-out, offline, inactive and unpinned Space contexts never infer an installed app. No new app registry, lifecycle, authorization endpoint or local storage.
 
-Tests: `node --test tests/test_space_profile_store_status.mjs tests/test_profile_store_app_status.mjs`.
+The source belongs to `ordaxsystems/ordax-surface`; only `docs/contracts/surface-source.json` pins its revision. Do not restore copied Surface UI files into this OS repository.
 
+Tests: `node --test tests/test_space_profile_store_status.mjs tests/test_profile_store_app_status.mjs tests/test_web_space_profile_apps.mjs`. The last test exercises the real Surface candidate through existing Web Vite SSR, while the Surface owner CI validates its own source.
+
+## Account version binding restored (2026-10-31)
+
+The two canonical Account readers, GET /account/spaces (Edge) and
+SupabaseAccountProvider.list_spaces() (Native), preserve the persisted
+ordax_space_profile_packs(pack_slug, pack_version) identity as an exact
+single profilePack value of slug@version. Previously both silently dropped
+the version and the Store projector reported profile-unpinned even when
+the database had a valid exact association.
+
+Both readers reject malformed slug/unsafe version/duplicate bindings.
+No new database column, Store catalog, installation capability, or
+authorization was added. A missing/legacy association remains unpinned.
+Authenticated session/RLS behavior remains unchanged. Source merge
+does not prove the Edge gateway has been deployed; that remains an
+independent authority-controlled release gate.
 ## CI baseline findings (2026-10-18)
 
 Foundation Contract and Surface Web Candidate failed on the branch for First Run tests unrelated to the added projector. The touched First Run source and smoke-test files have identical blob SHAs in `main` and this PR. Keep fixes to First Run in their owning code/PR, not in this projection, and do not bypass the CI gates.
 
 Resolution: PR #1972 corrected the First Run Chromium origin and strengthened its contract/layout assertions; it was merged to main before this PR's CI was revalidated.
-
-## Projeção exata da versão na Conta — 2026-10-19
-
-A rota `GET /account/spaces` e o adaptador Python `SupabaseAccountProvider.list_spaces` agora projetam o **mesmo registro persistente** `ordax_space_profile_packs(pack_slug, pack_version)` como `profilePack: "slug@version"` (por exemplo, `pizzaria-br@1`). Não há nova tabela, campo nem migração: trata-se de correção de perda de informação na leitura. A versão já armazenada não pode ser inferida de um catálogo ou escolhida automaticamente.
-
-Ambos exigem slug canônico e versão numérica inteira segura e positiva. Linhas malformadas continuam a falhar fechadas, sem vincular outra composição. A proteção de lista duplicada por Space e o escopo RLS da Conta continuam preservados. Clientes legados que persistiram apenas o slug permanecem representáveis no port `ordax.spaces/1`, mas o projetor de Loja mantém seu estado honesto `profile-unpinned` até que a autoridade resolva explicitamente a associação.

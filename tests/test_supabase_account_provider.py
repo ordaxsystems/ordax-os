@@ -172,7 +172,6 @@ class SupabaseAccountProviderTests(unittest.TestCase):
         with self.assertRaises(account_module.SupabaseAccountError):
             provider.list_spaces("user-access-token")
 
-
     def test_spaces_profile_pack_uses_exact_version_and_rejects_ambiguous_rows(self):
         space = {
             "space_id": "space-1", "owner_user_id": "owner-1",
@@ -187,13 +186,9 @@ class SupabaseAccountProviderTests(unittest.TestCase):
                 self.assertEqual(provider.list_spaces("session")[0]["profilePack"], expected)
 
         for slug, version in (
-            ("pizzaria-br", 0),
-            ("pizzaria-br", True),
-            ("pizzaria-br", "1"),
-            ("pizzaria-br", 9007199254740992),
-            ("Pizzaria", 1),
-            ("bad@1", 1),
-            ("x", 1),
+            ("pizzaria-br", 0), ("pizzaria-br", True), ("pizzaria-br", "1"),
+            ("pizzaria-br", 9007199254740992), ("Pizzaria", 1),
+            ("bad@1", 1), ("x", 1),
         ):
             with self.subTest(slug=slug, version=version):
                 provider, _ = self.provider([

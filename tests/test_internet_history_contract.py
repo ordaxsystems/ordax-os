@@ -8,7 +8,9 @@ class NativeBrowserHistoryBoundaryTests(unittest.TestCase):
         native = (ROOT / "system/composition/native/main.mjs").read_text(encoding="utf-8")
         web = (ROOT / "system/composition/web/main.tsx").read_text(encoding="utf-8")
         adapter = (ROOT / "system/adapters/native/browser-history.mjs").read_text(encoding="utf-8")
-        self.assertIn("createNativeBrowserHistoryStore", native)
+        # Preserve the canonical host adapter without forcing an unused eager import.
+        self.assertIn("export function createNativeBrowserHistoryStore", adapter)
+        self.assertNotIn("createNativeBrowserHistoryStore", native)
         self.assertNotIn("createBrowserHistoryRuntime", native)
         self.assertNotIn("createBrowserHistoryBridge", native)
         self.assertNotIn("createNativeBrowserHistoryStore", web)

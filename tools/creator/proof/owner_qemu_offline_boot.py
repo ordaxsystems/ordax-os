@@ -15,6 +15,7 @@ from pathlib import Path
 import re
 import shutil
 import socket
+import struct
 import stat
 import subprocess
 import sys
@@ -199,9 +200,8 @@ def analyze_ppm(path: Path) -> dict[str, int | float]:
     }
 
 
-def capture_qmp_framebuffer(socket_path: Path, image_path: Path) -> dict[str, int | float]:
-    if image_path.exists() or image_path.is_symlink():
-        raise ProofError("QEMU framebuffer evidence destination already exists")
+def qmp_request(socket_path: Path, command: str, arguments: dict | None = None) -> None:
+    """One bounded local QMP channel for evidence and guest ACPI requests."""
     with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as connection:
         connection.settimeout(8)
         connection.connect(str(socket_path))
@@ -209,10 +209,11 @@ def capture_qmp_framebuffer(socket_path: Path, image_path: Path) -> dict[str, in
             greeting = json.loads(channel.readline())
             if "QMP" not in greeting:
                 raise ProofError("QEMU QMP greeting is invalid")
-            def request(command: str, arguments: dict | None = None) -> None:
-                payload: dict = {"execute": command}
-                if arguments is not None:
-                    payload["arguments"] = arguments
+
+            def request(name: str, args: dict | None = None) -> None:
+                payload: dict = {"execute": name}
+                if args is not None:
+                    payload["arguments"] = args
                 channel.write(json.dumps(payload).encode("utf-8") + b"\r\n")
                 for _ in range(32):
                     line = channel.readline()
@@ -220,22 +221,123 @@ def capture_qmp_framebuffer(socket_path: Path, image_path: Path) -> dict[str, in
                         raise ProofError("QMP disconnected before reply")
                     reply = json.loads(line)
                     if "error" in reply:
-                        raise ProofError(f"QMP {command} refused graphical proof: {reply['error']!r}")
+                        raise ProofError(f"QMP {name} failed: {reply['error']!r}")
                     if "return" in reply:
                         return
-                raise ProofError(f"QMP {command} reply was not observed")
+                raise ProofError(f"QMP {name} reply was not observed")
+
             request("qmp_capabilities")
-            request("screendump", {"filename": str(image_path)})
+            request(command, arguments)
+
+
+def capture_qmp_framebuffer(socket_path: Path, image_path: Path) -> dict[str, int | float]:
+    if image_path.exists() or image_path.is_symlink():
+        raise ProofError("QEMU framebuffer evidence destination already exists")
+    qmp_request(socket_path, "screendump", {"filename": str(image_path)})
     if image_path.is_symlink() or not image_path.is_file():
         raise ProofError("QEMU screenshot was not created as a regular file")
     return analyze_ppm(image_path)
 
+
+def owner_ext4_partition_bounds(disk: Path) -> tuple[int, int]:
+    """Resolve the Owner p2 offset/size from the checked disposable GPT."""
+    regular(disk, "disposable QEMU disk")
+    with disk.open("rb") as stream:
+        stream.seek(512)
+        header = stream.read(512)
+        if header[:8] != b"EFI PART":
+            raise ProofError("QEMU disposable disk has no GPT header")
+        entries_lba = struct.unpack_from("<Q", header, 72)[0]
+        count = struct.unpack_from("<I", header, 80)[0]
+        entry_size = struct.unpack_from("<I", header, 84)[0]
+        if entries_lba < 2 or count < 2 or not 128 <= entry_size <= 512:
+            raise ProofError("disposable GPT partition table dimensions invalid")
+        stream.seek(entries_lba * 512 + entry_size)
+        part = stream.read(entry_size)
+        if len(part) != entry_size or part[:16] == b"\0" * 16:
+            raise ProofError("disposable Owner ext4 p2 missing")
+        first_lba, last_lba = struct.unpack_from("<QQ", part, 32)
+        offset, size = first_lba * 512, (last_lba - first_lba + 1) * 512
+        if first_lba < 34 or last_lba < first_lba or offset + size > disk.stat().st_size:
+            raise ProofError("disposable Owner ext4 p2 outside disk")
+    return offset, size
+
+
+def owner_qemu_failure_diagnostic(disk: Path, source: str) -> dict[str, str]:
+    """Read the existing redacted Native receipt, never guest files/content.
+
+    QEMU has already stopped; a disposable RAW copy is the only source.
+    No journal replay, no guest filesystem writes and no host disk access.
+    """
+    offset, size = owner_ext4_partition_bounds(disk)
+    loop = subprocess.run(
+        ["sudo", "losetup", "--read-only", "--find", "--show",
+         "--offset", str(offset), "--sizelimit", str(size), str(disk)],
+        capture_output=True, text=True, timeout=20, check=True,
+    ).stdout.strip()
+    if re.fullmatch(r"/dev/loop[0-9]+", loop) is None:
+        raise ProofError("QEMU diagnostic loop device identity invalid")
+    try:
+        result = subprocess.run(
+            ["sudo", "debugfs", "-R",
+             "cat /dev-base/state/ordax/native-state/client-diagnostic.json", loop],
+            capture_output=True, text=True, timeout=20,
+        )
+        if result.returncode != 0 or len(result.stdout) > 1024:
+            return {"status": "unavailable"}
+        try:
+            value = json.loads(result.stdout)
+        except json.JSONDecodeError:
+            return {"status": "unavailable"}
+        if not isinstance(value, dict) or value.get("sourceSha") != source:
+            return {"status": "unavailable"}
+        stage, name, origin = (value.get(k) for k in ("stage", "errorName", "source"))
+        if (not isinstance(stage, str) or
+                re.fullmatch(r"[a-z][a-z0-9.-]{0,63}", stage) is None or
+                not isinstance(name, str) or
+                re.fullmatch(r"[A-Za-z][A-Za-z0-9]{0,63}", name) is None or
+                not isinstance(origin, str) or
+                (origin and re.fullmatch(
+                    r"[A-Za-z0-9_.-]+\.mjs:[1-9][0-9]{0,5}:[1-9][0-9]{0,5}", origin
+                ) is None)):
+            return {"status": "unavailable"}
+        return {"status": "recorded", "stage": stage, "errorName": name, "source": origin}
+    finally:
+        subprocess.run(["sudo", "losetup", "-d", loop], check=True, timeout=20)
+
+
+def prove_ext4_clean_after_guest_poweroff(disk: Path) -> bool:
+    """Check p2 of a disposable GPT RAW, with no physical-device writes."""
+    offset, size = owner_ext4_partition_bounds(disk)
+    loop = subprocess.run(
+        ["sudo", "losetup", "--read-only", "--find", "--show",
+         "--offset", str(offset), "--sizelimit", str(size), str(disk)],
+        capture_output=True, text=True, timeout=25, check=True,
+    ).stdout.strip()
+    if re.fullmatch(r"/dev/loop[0-9]+", loop) is None:
+        raise ProofError("loop device identity invalid for disposable QEMU RAW")
+    try:
+        check = subprocess.run(
+            ["sudo", "e2fsck", "-fn", loop],
+            capture_output=True, text=True, timeout=90,
+        )
+        if check.returncode != 0:
+            raise ProofError(
+                "Owner ext4 failed offline check after ACPI shutdown: "
+                f"rc={check.returncode}, tail={check.stdout[-1800:]!r}, "
+                f"stderr={check.stderr[-500:]!r}"
+            )
+    finally:
+        subprocess.run(["sudo", "losetup", "-d", loop], check=True, timeout=20)
+    return True
+
+
 def prove_guest_boot(
     disk: Path, kernel: Path, initramfs: Path, source: str,
     serial: Path, qmp_socket: Path, framebuffer_out: Path, serial_out: Path,
-    timeout_seconds: int,
+    timeout_seconds: int, *, acpi_shutdown: bool = False,
 ) -> dict:
-    """Boot a real isolated guest, prove WebKit and pixels, then close QEMU.
+    """Boot a real isolated guest; optionally prove its own ACPI poweroff.
 
     Both boots in the caller receive the SAME disposable regular-file USB,
     never a host disk and never a newly reseeded image.
@@ -285,7 +387,23 @@ def prove_guest_boot(
                 f"Owner USB offline rendered-health check timed out; checks={checks}; serial-tail={detail!r}"
             )
         framebuffer = capture_qmp_framebuffer(qmp_socket, framebuffer_out)
-        return {"checks": checks, "qemu_framebuffer": framebuffer}
+        if acpi_shutdown:
+            qmp_request(qmp_socket, "system_powerdown")
+            try:
+                guest.wait(timeout=95)
+            except subprocess.TimeoutExpired as exc:
+                raise ProofError("Owner Guest ACPI poweroff timed out") from exc
+            if guest.returncode != 0:
+                raise ProofError(
+                    f"Owner Guest ACPI transition exited abnormally: {guest.returncode}"
+                )
+            guest_serial = serial.read_text(encoding="utf-8", errors="replace")
+            if "reboot: Power down" not in guest_serial:
+                raise ProofError("guest QEMU exited without kernel Power down confirmation")
+        return {
+            "checks": checks, "qemu_framebuffer": framebuffer,
+            "acpi_shutdown_proven": acpi_shutdown,
+        }
     finally:
         # A QEMU process stop and new process constitute a *virtual cold
         # power-cycle*, not a claim of graceful guest shutdown. Wait until
@@ -308,17 +426,23 @@ def prove_guest_boot(
 def prove_boot_pair(
     disk: Path, kernel: Path, initramfs: Path, source: str,
     temporary_root: Path, outputs: tuple[tuple[Path, Path], tuple[Path, Path]],
-    timeout_seconds: int,
+    timeout_seconds: int, *, prove_acpi_shutdown: bool = False,
 ) -> list[dict]:
-    """Two separate real QEMU launches using a single, already-verified disk."""
+    """Two separate real QEMU launches on the same disposable disk."""
     boots = []
     for index, (framebuffer_out, serial_out) in enumerate(outputs, start=1):
-        boots.append(prove_guest_boot(
+        kwargs = {"acpi_shutdown": True} if index == 1 and prove_acpi_shutdown else {}
+        boot = prove_guest_boot(
             disk, kernel, initramfs, source,
             temporary_root / f"boot-{index}.serial",
             temporary_root / f"boot-{index}.qmp.sock",
-            framebuffer_out, serial_out, timeout_seconds,
-        ))
+            framebuffer_out, serial_out, timeout_seconds, **kwargs,
+        )
+        if index == 1 and prove_acpi_shutdown:
+            if boot.get("acpi_shutdown_proven") is not True:
+                raise ProofError("Guest ACPI shutdown proof was not produced")
+            boot["ext4_clean_after_shutdown"] = prove_ext4_clean_after_guest_poweroff(disk)
+        boots.append(boot)
     return boots
 
 
@@ -335,6 +459,7 @@ def main() -> int:
     parser.add_argument("--second-framebuffer-out", type=Path, required=True)
     parser.add_argument("--second-serial-out", type=Path, required=True)
     parser.add_argument("--timeout-seconds", type=int, default=210)
+    parser.add_argument("--prove-acpi-shutdown", action="store_true")
     args = parser.parse_args()
 
     try:
@@ -371,10 +496,24 @@ def main() -> int:
                 raise ProofError("QEMU guest disk copy does not match verified Owner seed")
             kernel = regular(args.kernel, "kernel")
             initramfs = regular(args.initramfs, "initramfs")
-            boots = prove_boot_pair(
-                disk, kernel, initramfs, args.source_commit, root, outputs,
-                args.timeout_seconds,
-            )
+            try:
+                boots = prove_boot_pair(
+                    disk, kernel, initramfs, args.source_commit, root, outputs,
+                    args.timeout_seconds, prove_acpi_shutdown=args.prove_acpi_shutdown,
+                )
+            except ProofError:
+                # Preserve only the already-authorized, bounded Native error
+                # identity. Never downgrade the QEMU health gate on failure.
+                try:
+                    diagnostic = owner_qemu_failure_diagnostic(disk, args.source_commit)
+                except (OSError, ProofError, subprocess.SubprocessError):
+                    diagnostic = {"status": "unavailable"}
+                print(
+                    "ORDAX_OWNER_QEMU_CLIENT_DIAGNOSTIC="
+                    + json.dumps(diagnostic, separators=(",", ":"), sort_keys=True),
+                    file=sys.stderr,
+                )
+                raise
             report = {
                 "$schema": SCHEMA, "status": "pass",
                 "source_commit": args.source_commit,
@@ -384,6 +523,8 @@ def main() -> int:
                 "qemu_framebuffer": boots[0]["qemu_framebuffer"],
                 "graphical_framebuffer_varied_proven": True,
                 "second_offline_boot_proven": True,
+                "guest_acpi_shutdown_proven": boots[0].get("acpi_shutdown_proven") is True,
+                "ext4_clean_after_guest_shutdown": boots[0].get("ext4_clean_after_shutdown") is True,
                 "second_boot": {
                     "checks": boots[1]["checks"],
                     "healthy_observation_seconds": STABLE_SECONDS,
@@ -403,6 +544,8 @@ def main() -> int:
             args.output.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
             print("ORDAX_OWNER_QEMU_OFFLINE_HANDOFF=PASS")
             print("ORDAX_OWNER_QEMU_SECOND_BOOT=PASS")
+            if args.prove_acpi_shutdown:
+                print("ORDAX_OWNER_QEMU_GUEST_ACPI_SHUTDOWN_AND_FSCK=PASS")
             return 0
     except (OSError, ProofError, ValueError, json.JSONDecodeError, subprocess.SubprocessError) as exc:
         print(f"ORDAX_OWNER_QEMU_OFFLINE_HANDOFF=FAIL: {exc}", file=sys.stderr)

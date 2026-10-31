@@ -166,6 +166,58 @@ test("Web Intelligence client rejects malformed or authority-bearing responses",
   await assert.rejects(malformed.ask("teste"), /response text/);
 });
 
+test("Web Intelligence client drops results from ports that ignore cancellation", async () => {
+  let finish;
+  const port = {
+    schema: INTELLIGENCE_PORT_SCHEMA,
+    getSnapshot: () => readyIntelligenceSnapshot(),
+    subscribe: () => () => {},
+    respond: () => new Promise(resolve => { finish = resolve; }),
+  };
+  const client = createIntelligenceClient(port);
+  const controller = new AbortController();
+  const pending = client.ask("Teste de cancelamento", { signal: controller.signal });
+  controller.abort(new Error("client-request-cancelled"));
+  finish(remoteResponse(remoteContext()).response);
+  // The canonical Aura boundary rejects with a stable AbortError rather than
+  // relaying arbitrary caller-supplied reasons through UI/service boundaries.
+  await assert.rejects(pending, { name: "AbortError", message: "Aura request was cancelled" });
+});
+
+test("Remote Web Intelligence rejects late responses after cancellation or disposal", async () => {
+  const context = remoteContext();
+  let finish;
+  let emit;
+  const transport = {
+    schema: WEB_INTELLIGENCE_REMOTE_TRANSPORT_SCHEMA,
+    getSnapshot: () => readyIntelligenceSnapshot(),
+    subscribe(listener) { emit = listener; return () => {}; },
+    respond: () => new Promise(resolve => { finish = resolve; }),
+  };
+  const port = createRemoteWebIntelligencePort({ transport, readContext: () => context });
+  const controller = new AbortController();
+  const cancelled = port.respond({ prompt: "Cancelada" }, { signal: controller.signal });
+  controller.abort(new Error("remote-request-cancelled"));
+  finish(remoteResponse(context));
+  await assert.rejects(cancelled, /remote-request-cancelled/);
+
+  const beforeDispose = port.getSnapshot();
+  const disposedRequest = port.respond({ prompt: "Descartada" });
+  port.dispose();
+  emit({
+    schema: INTELLIGENCE_PORT_SCHEMA,
+    state: "degraded",
+    inferenceAvailable: false,
+    engineId: null,
+    modelId: null,
+    authority: "none",
+    toolExecution: false,
+  });
+  assert.equal(port.getSnapshot(), beforeDispose, "A disposed adapter must ignore late transport events");
+  finish(remoteResponse(context));
+  await assert.rejects(disposedRequest, /adapter is disposed/);
+});
+
 test("Remote Web Intelligence dispatches once with explicit target context and forwards cancellation", async () => {
   const calls = [];
   const context = remoteContext();

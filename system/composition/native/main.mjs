@@ -1,16 +1,14 @@
+import { hasNativeHostBridge, postNativeHostMessage } from "../../adapters/native/host-bridge.mjs";
+import { createNativeIsolatedComponentModuleImporter } from "../../adapters/native/isolated-component-executor.mjs";
 import { mountNativeSidebarAccount } from "../../surface/ui/sidebar-account.mjs";
 import {
   createNativeClientDiagnostics,
   renderedSourceSha,
+  sanitizeClientDiagnostic,
 } from "../../adapters/native/client-diagnostics.mjs";
 import { createNativeBrowserSession } from "../../adapters/native/browser-session.mjs";
-import { createNativeBrowserPageSelection } from "../../adapters/native/browser-page-selection.mjs";
-import { createNativeBrowserPageFind } from "../../adapters/native/browser-page-find.mjs";
-import { createNativeBrowserDownload } from "../../adapters/native/browser-download.mjs";
+import { hasDesktopBrowserTransport } from "../../adapters/native/browser-host-transport.mjs";
 import { createNativeComponentStateStore } from "../../adapters/native/component-state.mjs";
-import { createNativeBrowserFavoritesStore } from "../../adapters/native/browser-favorites.mjs";
-import { createNativeBrowserHistoryStore } from "../../adapters/native/browser-history.mjs";
-import { createNativeBrowserSearchPreferencesStore } from "../../adapters/native/browser-search-preferences.mjs";
 import { createNativeDiagnosticJournalStore } from "../../adapters/native/diagnostic-journal-store.mjs";
 import { createNativeFileSpace } from "../../adapters/native/file-space.mjs";
 import { createNativePersonalOrdaxFileActions } from "../../adapters/native/personal-ordax-file-actions.mjs";
@@ -22,6 +20,7 @@ import { createNativeNetworkManagement } from "../../adapters/native/network-man
 import { createNativeProductConnector } from "../../adapters/native/product-connector.mjs";
 import { createNativeKeyboardLayout } from "../../adapters/native/keyboard-layout.mjs";
 import { createNativeDisplayOutputs } from "../../adapters/native/display-outputs.mjs";
+import { createNativeAudioOutputs } from "../../adapters/native/audio-outputs.mjs";
 import { createNativeDeviceProfile } from "../../adapters/native/device-profile.mjs";
 import { createNativeNotificationStore } from "../../adapters/native/notifications.mjs";
 import { createNativeNetworkStatus } from "../../adapters/native/network-status.mjs";
@@ -65,6 +64,7 @@ import { listSystemComponents } from "../../apps/component-catalog.mjs";
 import { listFirstPartyApps } from "../../apps/catalog.mjs";
 import { discoverVerifiedExternalApplications } from "../../services/apps/verified-external-app-catalog.mjs";
 import { createNativeComponentSlotSource } from "../../adapters/native/component-slot-source.mjs";
+import { createNativeSignedCurrentCompatibilityResolver } from "../../adapters/native/signed-current-compatibility.mjs";
 import {
   createNativeVerifiedInstalledAppCatalog,
   mountNativeVerifiedInstalledApps,
@@ -78,8 +78,8 @@ import { createProjectCloudLinksReader } from "../../services/projects/cloud-lin
 import { createProjectWebReferenceRuntime } from "../../services/projects/web-references.mjs";
 import { createProjectContinuityFileSpace } from "../../services/files/project-continuity-file-space.mjs";
 import { installTrustedComponentContextProvider } from "../../services/components/runtime-loader.mjs";
-import { createNativeFilesTrustedContextProvider } from "./files-trusted-context.mjs";
-import { createNativeFilesProbationContextBootstrap } from "./files-probation-context.mjs";
+import { createNativeWorkspacePendingBootstrap, installNativeWorkspaceVerifiedContext } from "./component-workspace-ports.mjs";
+import { createNativeIntelligenceClientTrustedContextProvider } from "./intelligence-client-trusted-context.mjs";
 import { createPersonalActionCatalog } from "../../services/personal-ordax/action-catalog.mjs";
 import { createNotificationsRuntime } from "../../services/notifications/runtime.mjs";
 import { createUpdateNotificationBridge } from "../../services/notifications/update-bridge.mjs";
@@ -110,6 +110,7 @@ import { createMemoryReviewViewModel } from "../../services/memory/review-view-m
 import { createProfileProvisioningRuntime } from "../../services/profile-packs/provisioning.mjs";
 import { createSpaceSelectionRuntime } from "../../services/spaces/selection.mjs";
 import { createSpaceExperienceSource } from "../../services/spaces/composition.mjs";
+import { createIdentityBoundSpaceExperienceSource } from "../../services/spaces/identity-bound-experience.mjs";
 import { createSelectedSpaceAuraCapabilityProvider } from "../../services/spaces/aura-provider.mjs";
 import { loadBundledProfilePacks } from "../../services/profile-packs/bundled-source.mjs";
 import { loadBundledProfileTaxonomy } from "../../services/profile-packs/taxonomy-source.mjs";
@@ -132,14 +133,16 @@ import { createNativeStoreCatalogComposition } from "./store-catalog.mjs";
 import { installNativeIntelligenceHostBridge } from "./intelligence-host-bridge.mjs";
 import { mountAccountOverviewControls } from "../../surface/ui/account-overview-controls.mjs";
 import { mountSpaceSwitcherControls } from "../../surface/ui/space-switcher-controls.mjs";
-import { mountFileSpaceControls } from "../../surface/ui/file-space-controls.mjs";
 import { mountNetworkQuickPanel } from "../../surface/ui/network-quick-panel.mjs";
 import { mountNetworkTrayControls } from "../../surface/ui/network-tray-controls.mjs";
 import { mountNotificationCenterControls } from "../../surface/ui/notification-center-controls.mjs";
 import { mountBatteryQuickPanel } from "../../surface/ui/battery-quick-panel.mjs";
 import { mountBatteryTrayControls } from "../../surface/ui/battery-tray-controls.mjs";
 import { mountHomeContinuation } from "../../surface/ui/home-continuation.mjs";
+import { mountHomeAuraComposer } from "../../surface/ui/home-aura-composer.mjs";
 import { mountHomePending } from "../../surface/ui/home-pending.mjs";
+import { mountHomeSpaceCard } from "../../surface/ui/home-space-card.mjs";
+import { mountHomeStatus } from "../../surface/ui/home-status.mjs";
 import { mountPowerControls } from "../../surface/ui/power-controls.mjs";
 import { mountSurface } from "../../surface/ui/surface.mjs";
 import { createSurfaceBootScreen } from "../../surface/ui/boot-screen.mjs";
@@ -174,7 +177,7 @@ function blockedAccountMemoryMutations() {
 
 const bootScreen = createSurfaceBootScreen(document);
 let bootLocale = "pt-BR";
-let filesProbationContextBootstrap = null;
+let workspaceComponentBootstrap = null;
 const bootText = (messageId) => translateSurfaceMessage(bootLocale, messageId);
 
 async function start() {
@@ -182,9 +185,10 @@ async function start() {
   if (!root) {
     throw new Error("OrdaX composition root is missing #ordax-root");
   }
-  filesProbationContextBootstrap = createNativeFilesProbationContextBootstrap();
+  workspaceComponentBootstrap = createNativeWorkspacePendingBootstrap();
 
   const browserSession = createNativeBrowserSession(window);
+  const windowsDesktopHost = hasDesktopBrowserTransport(window);
   const verifiedComponentPackageSource = createNativeVerifiedComponentPackageSource(window);
   const verifiedComponentFetch = typeof window.fetch === "function"
     ? window.fetch.bind(window)
@@ -229,6 +233,32 @@ async function start() {
     () => loadBundledProfilePacks({
       fetchImpl: typeof window.fetch === "function" ? window.fetch.bind(window) : null,
     }),
+  );
+  // Taxonomy is independent read-only navigation metadata. Once the verified
+  // Profile catalog exists, load it concurrently with the remaining Native
+  // capabilities. Never fetch it if the canonical catalog is unavailable.
+  const bundledProfileTaxonomyPromise = bundledProfilePacksPromise.then((packs) => (
+    packs === null
+      ? null
+      : optionalNativeProbe(
+          "OrdaX Profile taxonomy unavailable; preserving ungrouped catalog",
+          () => loadBundledProfileTaxonomy({
+            fetchImpl: typeof window.fetch === "function" ? window.fetch.bind(window) : null,
+          }),
+        )
+  ));
+  // Profile inventory is a read-only, independent Native Host observation.
+  // Start it with the other optional probes instead of serializing it after
+  // Intelligence, app semantics and Personal OrdaX composition.
+  const profileComponentInventoryPromise = optionalNativeProbe(
+    "OrdaX Profile component inventory unavailable; using empty session inventory",
+    () => createNativeProfileComponentInventory(window),
+  );
+  // Device identity is only needed by First Run, mounted after real Surface
+  // health. Start its verified read now but do not gate shell readiness on it.
+  const deviceProfilePromise = optionalNativeProbe(
+    "OrdaX native device profile unavailable",
+    () => createNativeDeviceProfile(window),
   );
   const optionalPortsPromise = Promise.all([
     optionalNativeProbe(
@@ -287,23 +317,32 @@ async function start() {
       "OrdaX native Product Connector unavailable",
       () => createNativeProductConnector(window),
     ),
-    optionalNativeProbe(
+    // The Linux keyboard-layout port manages physical XKB and session
+    // restarts. The installed Desktop has no equivalent Windows owner yet.
+    // Keep it explicitly unavailable rather than calling the emulator's
+    // generic 503 fallback or advertising a fabricated keyboard layout.
+    windowsDesktopHost ? Promise.resolve(null) : optionalNativeProbe(
       "OrdaX native keyboard layout unavailable",
       () => createNativeKeyboardLayout(window),
     ),
     optionalNativeProbe(
       "OrdaX native display output controls unavailable",
-      () => createNativeDisplayOutputs(window),
+      () => createNativeDisplayOutputs(window, {
+        deferInitialRead: windowsDesktopHost,
+      }),
     ),
     optionalNativeProbe(
-      "OrdaX native device profile unavailable",
-      () => createNativeDeviceProfile(window),
+      "OrdaX native audio output controls unavailable",
+      () => createNativeAudioOutputs(window),
     ),
     optionalNativeProbe(
       "OrdaX native system metrics unavailable",
       () => createNativeSystemMetrics(window),
     ),
-    optionalNativeProbe(
+    // Portable-v2 recovery belongs to Linux USB. Windows observes its own
+    // distinct Desktop recovery journal at /__ordax/desktop/recovery; never
+    // ask a Windows host for a fictitious Linux boot-slot receipt.
+    windowsDesktopHost ? Promise.resolve(null) : optionalNativeProbe(
       "OrdaX native recovery status unavailable",
       () => createNativeRecoveryStatus(window),
     ),
@@ -345,7 +384,7 @@ async function start() {
     productConnector,
     keyboardLayout,
     displayOutputs,
-    deviceProfile,
+    audioOutputs,
     systemMetrics,
     recoveryStatus,
     powerStatus,
@@ -369,7 +408,12 @@ async function start() {
     fetchImpl: localAiFetch,
     endpoint: LOCAL_AI_NATIVE_ENDPOINT,
   });
-  const intelligence = createIntelligenceRuntime({ inferencePort: localAi });
+  const intelligence = createIntelligenceRuntime({
+    inferencePort: localAi,
+    // Read the same durable regional preference used by the Surface, including
+    // changes made after first run; no second language setting or cached guess.
+    getLocale: () => preferenceStore.load()["regional.locale"] ?? "pt-BR",
+  });
   const memory = memoryStore === null
     ? null
     : createMemoryRuntime({ store: memoryStore });
@@ -390,7 +434,6 @@ async function start() {
   updateLocalAiHealth(localAi.getSnapshot());
   updateIntelligenceHealth(intelligence.getSnapshot());
   const localAiProbeSupervisor = createLocalAiProbeSupervisor({ localPort: localAi });
-  localAiProbeSupervisor.start();
 
   const localWorkspaceStore = createNativeWorkspaceStore(window);
   const recentFiles = fileSpace === null ? null : createRecentFilesRuntime({
@@ -494,7 +537,6 @@ async function start() {
   const identityActions = createWebIdentityActions(window, identitySession, {
     registrationPolicy: () => identityCredentials.registrationPolicy(),
   });
-  await identityActions.refresh();
   const spaces = createWebSpacesCatalog(window);
   const spaceSelection = createSpaceSelectionRuntime({
     identitySession,
@@ -567,12 +609,17 @@ async function start() {
     spaceSelectionPort: spaceSelection,
     intelligencePort: selectedSpaceIntelligence,
   });
-  const spaceExperience = createSpaceExperienceSource({
-    providers: [selectedSpaceAuraCapability],
+  const spaceExperience = createIdentityBoundSpaceExperienceSource({
+    experienceSource: createSpaceExperienceSource({
+      providers: [selectedSpaceAuraCapability],
+    }),
+    identitySessionPort: identitySession,
+    spaceSelectionPort: spaceSelection,
+    spacesPort: spaces,
   });
   // The shared Native UI may run in an unprivileged development browser.
   // Only a real host bridge may expose Intelligence to privileged consumers.
-  if (typeof window.webkit?.messageHandlers?.ordaxBrowser?.postMessage === "function") {
+  if (hasNativeHostBridge(window)) {
     installNativeIntelligenceHostBridge({
       windowRef: window,
       intelligencePort: selectedSpaceIntelligence,
@@ -619,30 +666,29 @@ async function start() {
       expectedApplicationActionProviderOwner: EXTERNAL_FIRST_PARTY_OWNER,
     }),
   );
-  const profileComponentInventory = await optionalNativeProbe(
-    "OrdaX Profile component inventory unavailable; using empty session inventory",
-    () => createNativeProfileComponentInventory(window),
-  ) ?? createSessionProfileComponentInventory();
+  const profileComponentInventory = await profileComponentInventoryPromise
+    ?? createSessionProfileComponentInventory();
   let profileDistributions = [];
   let profileTaxonomy = null;
   if (bundledProfilePacks !== null) {
     try {
       profileDistributions = createLocalProfileDistributions(bundledProfilePacks.packs);
-      try {
-        profileTaxonomy = Object.freeze({
-          catalogPort: createProfilePackCatalogFromPacks({ packs: bundledProfilePacks.packs }),
-          taxonomy: await loadBundledProfileTaxonomy({
-            fetchImpl: typeof window.fetch === "function" ? window.fetch.bind(window) : null,
-          }),
-        });
-        // Fail closed on unknown categories before the UI can open.
-        createProfileTaxonomyView({
-          catalogPort: profileTaxonomy.catalogPort,
-          taxonomy: profileTaxonomy.taxonomy,
-        });
-      } catch (error) {
-        profileTaxonomy = null;
-        console.warn("OrdaX Profile taxonomy unavailable; preserving ungrouped catalog", error);
+      const taxonomy = await bundledProfileTaxonomyPromise;
+      if (taxonomy !== null) {
+        try {
+          profileTaxonomy = Object.freeze({
+            catalogPort: createProfilePackCatalogFromPacks({ packs: bundledProfilePacks.packs }),
+            taxonomy,
+          });
+          // Fail closed on unknown categories before the UI can open.
+          createProfileTaxonomyView({
+            catalogPort: profileTaxonomy.catalogPort,
+            taxonomy: profileTaxonomy.taxonomy,
+          });
+        } catch (error) {
+          profileTaxonomy = null;
+          console.warn("OrdaX Profile taxonomy unavailable; preserving ungrouped catalog", error);
+        }
       }
     } catch (error) {
       console.warn("OrdaX Profile distribution metadata unavailable; continuing without Profiles", error);
@@ -869,9 +915,23 @@ async function start() {
     accountLifecycle,
     profileTaxonomy,
     spaceExperience,
+    { isAvailable: hasNativeHostBridge, postMessage: postNativeHostMessage },
   );
   const homeContinuation = mountHomeContinuation(root, { projects, recentFiles, surfaceLifecycle: surface });
   const homePending = mountHomePending(root, { notifications, syncRuntime: accountSync, surfaceLifecycle: surface });
+  const homeAuraComposer = mountHomeAuraComposer(root, {
+    intelligence: selectedSpaceIntelligence,
+    surfaceLifecycle: surface,
+  });
+  const homeStatus = mountHomeStatus(root, {
+    networkStatus,
+    identitySession,
+    syncRuntime: accountSync,
+    systemMetrics,
+    updateStatus: updateWatcher,
+    surfaceLifecycle: surface,
+  });
+  const homeSpaceCard = mountHomeSpaceCard(root, { spaceSelection, surfaceLifecycle: surface });
   const filesOwnerSpace = fileSpace === null
     ? null
     : createProjectContinuityFileSpace(fileSpace, projects, {
@@ -880,34 +940,34 @@ async function start() {
         },
       });
   try {
-    filesProbationContextBootstrap.bind({
+    workspaceComponentBootstrap?.bind({
       root,
-      fileSpace: filesOwnerSpace,
-      recentFiles,
-      projects,
-      appActivation,
+      ports: { fileSpace: filesOwnerSpace, recentFiles, projects, appActivation },
     });
   } catch (error) {
-    console.warn("OrdaX Files probation context unavailable", error);
-    filesProbationContextBootstrap.fail(error);
+    console.warn("OrdaX optional workspace component probation unavailable", error);
+    workspaceComponentBootstrap?.fail(error);
   }
-  // This binding is dormant while Files is bundled or the Native signed-slot
-  // read policy excludes it. No alternative Files source is mounted here.
-  if (hasNativeExternalFirstPartyModuleRead("files")
-    && !listFirstPartyApps().some((app) => app.id === "files")) {
+  // Verified-current slot metadata is the only authority for workspace ports.
+  installNativeWorkspaceVerifiedContext({
+    installed: installedAppCatalog?.installed ?? [],
+    fileSpace: filesOwnerSpace, recentFiles, projects, appActivation,
+  });
+  // The existing verified-current loader revalidates this same slot before
+  // import and mount. Missing/removed Aura cannot obtain these host ports.
+  if (hasNativeExternalFirstPartyModuleRead("assistant")
+    && !listFirstPartyApps().some((app) => app.id === "assistant")) {
     installTrustedComponentContextProvider(
-      createNativeFilesTrustedContextProvider({
-        fileSpace: filesOwnerSpace, recentFiles, projects, appActivation,
+      createNativeIntelligenceClientTrustedContextProvider({
+        verifiedCurrent: installedAppCatalog?.installed.find(
+          (entry) => entry.component.id === "assistant",
+        )?.metadata ?? null,
+        identitySessionPort: identitySession,
+        spaceSelectionPort: spaceSelection,
+        intelligencePort: selectedSpaceIntelligence,
       }),
     );
   }
-  const fileSpaceControls = mountFileSpaceControls(
-    root,
-    filesOwnerSpace,
-    appActivation,
-    surface,
-    { recentFiles, projects },
-  );
   let settingsOverviewControls;
   try {
     settingsOverviewControls = mountSettingsOverviewControls(
@@ -924,6 +984,7 @@ async function start() {
       localAi,
       productConnector,
       displayOutputs,
+      audioOutputs,
     );
   } catch (error) {
     reportClientDiagnostic("settings-network-management", error);
@@ -941,6 +1002,7 @@ async function start() {
       localAi,
       productConnector,
       null,
+      audioOutputs,
     );
   }
   // Store is optional: its asynchronous verified projection must not prevent
@@ -962,7 +1024,7 @@ async function start() {
     recoveryStatus,
   );
   const updateControls = mountUpdateControls(root, updateWatcher, appActivation, surface);
-  const powerControls = mountPowerControls(root, powerActions, surface);
+  const powerControls = mountPowerControls(root, powerActions, surface, updateWatcher);
 
   // Reaching this point proves that the shared Surface composition mounted.
   // Optional app runtimes load only after this acknowledgement so an app-level
@@ -973,6 +1035,23 @@ async function start() {
   componentManager.setCurrentHealth("surface-shell", "healthy");
   void updateWatcher.markHealthy();
   const surfaceHeartbeat = createNativeSurfaceHeartbeat(window);
+  // WebKit's load-finished event precedes ES module composition. Starting
+  // component probation at that point can seal the context-provider registry
+  // before its canonical Native providers have installed. Reuse the single
+  // privileged host bridge after the real shell/heartbeat is established.
+  // This message never claims Supervisor health or grants component access.
+  if (hasNativeHostBridge(window)) {
+    try {
+      postNativeHostMessage(window, { type: "surface.shell.ready" });
+    } catch (error) {
+      reportClientDiagnostic("component-probation-start", error);
+    }
+  }
+
+  // Optional Aura discovery can compete for the Native Host while booting.
+  // Keep its existing bounded, read-only retry supervisor; start it only
+  // after the shared shell and official health/heartbeat paths are live.
+  localAiProbeSupervisor.start();
 
   // Account/continuity is online enrichment, not a boot-health dependency.
   // Start it only after the real shared Surface has mounted and acknowledged
@@ -1023,13 +1102,29 @@ async function start() {
     getAppTarget: surface.getAppTarget,
     setAppTarget: surface.setAppTarget,
   });
+  const nativeCurrentSlotSource = createNativeComponentSlotSource(window);
   const externalAppMounts = await optionalNativeProbe(
     "OrdaX installed component runtime mounting unavailable",
     () => mountNativeVerifiedInstalledApps({
       installed: installedAppCatalog?.installed ?? [],
-      source: createNativeComponentSlotSource(window),
+      source: nativeCurrentSlotSource,
       fetchImpl: verifiedComponentFetch,
-      importModule: (url) => import(url),
+      // Windows may omit durable App Data only when its Native broker has
+      // verified the exact signed release/2 compatibility descriptor.
+      signedCurrentCompatibility: windowsDesktopHost
+        ? createNativeSignedCurrentCompatibilityResolver({
+            source: verifiedComponentPackageSource,
+            fetchImpl: verifiedComponentFetch,
+          })
+        : null,
+      importModule: createNativeIsolatedComponentModuleImporter({
+        windowRef: window,
+        allowedComponentIds: EXTERNAL_FIRST_PARTY_COMPONENT_IDS.filter(
+          (appId) => hasNativeExternalFirstPartyModuleRead(appId),
+        ),
+        currentSlotSource: nativeCurrentSlotSource,
+        fetchImpl: verifiedComponentFetch,
+      }),
       context: {
         root, surfaceLifecycle: externalAppSurfaceLifecycle,
       },
@@ -1044,7 +1139,6 @@ async function start() {
   );
   surface.replaceAppCatalog(activeExternalCatalog.catalog);
 
-  bootScreen.setStage(surface.localization.translate("surface.boot.preparingFirstRun"));
   // First Run reads the already-verified Store projection and its matching
   // ephemeral Native current observations. It has NO installation authority.
   let firstRunAppSelection = null;
@@ -1061,6 +1155,9 @@ async function start() {
     // or prevent first boot. First Run proceeds without a guessed plan.
     reportClientDiagnostic("first-run-app-selection", error);
   }
+  // The slow/missing optional Device Profile can no longer delay the real
+  // shell health acknowledgement. First Run still receives the verified port.
+  const deviceProfile = await deviceProfilePromise;
   let firstRun = null;
   try {
     firstRun = mountFirstRunExperience(root, {
@@ -1078,6 +1175,10 @@ async function start() {
         "OrdaX native First Run cursor unavailable",
         () => createNativeFirstRunCursor(window),
       ),
+      hostedSignupBridge: {
+        isAvailable: hasNativeHostBridge,
+        postMessage: postNativeHostMessage,
+      },
     });
   } catch (error) {
     reportClientDiagnostic("first-run", error);
@@ -1102,6 +1203,9 @@ async function start() {
       surfaceHeartbeat.dispose();
       homePending.dispose();
       homeContinuation.dispose();
+      homeAuraComposer.dispose();
+      homeStatus.dispose();
+      homeSpaceCard.dispose();
       powerControls.destroy();
       updateControls.destroy();
       systemOverviewControls.destroy();
@@ -1114,8 +1218,7 @@ async function start() {
       notificationCenter.destroy();
       batteryTrayControls?.destroy();
       batteryQuickPanel?.destroy();
-      fileSpaceControls.destroy();
-      filesProbationContextBootstrap?.destroy();
+      workspaceComponentBootstrap?.destroy();
       externalAppMounts?.destroy();
       projectReferences?.destroy();
       projectCloudLinks?.destroy();
@@ -1157,7 +1260,24 @@ async function start() {
 }
 
 start().catch((error) => {
-  filesProbationContextBootstrap?.fail(error);
+  workspaceComponentBootstrap?.fail(error);
   bootScreen.fail(bootText("surface.boot.failed"));
+  // The Native diagnostic POST may be unavailable during a failed bootstrap.
+  // Keep only its existing sanitized, bounded identity on the local boot
+  // element so the isolated Owner QEMU WebKit probe can report the real
+  // failure without accessing page text, tokens or untrusted URLs.
+  const { errorName, source } = sanitizeClientDiagnostic("composition-bootstrap", error);
+  const bootElement = document.getElementById("ordax-boot-screen");
+  if (bootElement) {
+    bootElement.dataset.errorName = errorName;
+    bootElement.dataset.errorSource = source;
+  }
   console.error("OrdaX native composition failed", error);
+  // A failed composition may never reach the normal diagnostic port binding.
+  // Reuse the authorized Native diagnostic token and its redacted error schema
+  // so the next offline audit can identify the exception behind a rollback.
+  // This is observation only: never assert healthy or retry boot here.
+  void createNativeClientDiagnostics(window)
+    .then((diagnostics) => diagnostics.report(renderedSourceSha(window), "composition-bootstrap", error))
+    .catch(() => {});
 });
