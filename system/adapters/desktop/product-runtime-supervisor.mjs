@@ -8,6 +8,7 @@ import {lstatSync,readFileSync,realpathSync} from "node:fs";
 import {isAbsolute,join,relative,sep} from "node:path";
 
 const SHA40=/^[a-f0-9]{40}$/;
+const SHA256=/^[a-f0-9]{64}$/;
 const UUID=/^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/;
 const TOKEN=/^[a-f0-9]{64}$/;
 const HOST="ordax-desktop";
@@ -67,6 +68,64 @@ function readReleaseGate(systemRoot){
     return null;
   return {sourceCommit:lock.source.commit};
 }
+
+// DEV is an independent, explicitly opted-in launch proof, not a signed-slot
+// fallback. The canonical production trust policy and source lock remain
+// untouched. Candidate bytes are pinned to the OS-owned CI evidence; a local
+// file name, environment variable or Runtime self-report never proves them.
+function readDesktopDevCandidateGate(systemRoot){
+  const policy=JSON.parse(readRegular(join(systemRoot,"docs","contracts",
+    "runtime-component-trust-policy.json"),65536).toString("utf8"));
+  const evidence=JSON.parse(readRegular(join(systemRoot,"docs","evidence",
+    "desktop-runtime-windows-candidate-2026-10-31.json"),65536).toString("utf8"));
+  const candidate=evidence.candidate,proof=evidence.physical_offline_proof;
+  if(policy.$schema!==POLICY_SCHEMA||policy.trust_domain!=="runtime-components"||
+     policy.status!=="operator-ceremony-pending"||
+     policy.current_gates?.canonical_component_trust_anchor_pinned!==false||
+     policy.current_gates?.component_publish_allowed!==false||
+     policy.current_gates?.production_component_slot_activation_allowed!==false||
+     evidence.$schema!=="ordax.desktop-runtime-candidate-evidence/1"||
+     evidence.status!=="unsigned-candidate-physically-offline-proven"||
+     candidate?.schema!=="ordax.desktop-runtime-candidate/1"||
+     candidate.source_repository!=="ordaxsystems/ordax-runtime"||
+     candidate.profile!=="ordax-desktop"||candidate.platform!=="windows-amd64"||
+     candidate.artifact!=="ordax-product-agent.exe"||
+     !SHA40.test(candidate.source_commit??"")||
+     !SHA256.test(candidate.sha256??"")||
+     !Number.isSafeInteger(candidate.size_bytes)||
+     candidate.size_bytes<512||candidate.size_bytes>32*1024*1024||
+     candidate.offline_proof_verified!==true||
+     candidate.signature_present!==false||
+     candidate.signed_distribution_authorized!==false||
+     candidate.stable_activation_authorized!==false||
+     evidence.canonical_source_lock_promoted!==false||
+     proof?.passed!==true||proof.source_commit!==candidate.source_commit||
+     proof.executable_sha256!==candidate.sha256||
+     proof.remote_action_proven!==false)
+    return null;
+  return {sourceCommit:candidate.source_commit,sha256:candidate.sha256,
+    sizeBytes:candidate.size_bytes,dev:true};
+}
+function readDesktopDevCandidate(userData,gate){
+  try {
+    const base=join(userData,"native-state");
+    const dir=join(base,"product-runtime-dev");
+    const executable=join(dir,"ordax-product-agent.exe");
+    if(!isSafeDirectory(userData)||!isSafeDirectory(base)||!isSafeDirectory(dir))
+      return null;
+    const file=lstatSync(executable);
+    if(!file.isFile()||file.isSymbolicLink()||file.size!==gate.sizeBytes)
+      return null;
+    const parent=realpathSync(dir),resolved=realpathSync(executable);
+    if(!isWithin(realpathSync(userData),parent)||
+       !isWithin(parent,resolved)||relative(parent,resolved)!=="ordax-product-agent.exe")
+      return null;
+    const hash=createHash("sha256").update(readRegular(executable,32*1024*1024)).digest("hex");
+    if(hash!==gate.sha256)return null;
+    return {executable:resolved,sourceCommit:gate.sourceCommit,dev:true};
+  } catch {return null}
+}
+
 // The Product component-channel Go helper already defines the seven-field
 // inspect-native-product-handoff receipt. Never invent another source of
 // signed artifact metadata for the Windows adapter.
@@ -148,11 +207,12 @@ function snapshot(state,reason,identity){
   });
 }
 export function createDesktopProductRuntimeSupervisor({
-  systemRoot,userData,verifiedHandoff=null,spawnImpl=spawn,
+  systemRoot,userData,verifiedHandoff=null,developmentCandidate=false,spawnImpl=spawn,
   platform=process.platform,env=process.env,log=()=>{},
 }={}){
   if(typeof systemRoot!=="string"||!isAbsolute(systemRoot)||
      typeof userData!=="string"||!isAbsolute(userData)||
+     typeof developmentCandidate!=="boolean"||
      (verifiedHandoff!==null&&typeof verifiedHandoff!=="function")||
      typeof spawnImpl!=="function"||typeof log!=="function")
     throw TypeError("OrdaX Supervisor requires OS-owned roots and verifier");
@@ -188,11 +248,16 @@ export function createDesktopProductRuntimeSupervisor({
     }
     let gate=null;
     try{gate=readReleaseGate(systemRoot)}catch{}
+    // The unsigned candidate is eligible ONLY by explicit local DEV opt-in,
+    // and only while all production trust/publication gates remain closed.
+    if(!gate&&developmentCandidate){
+      try{gate=readDesktopDevCandidateGate(systemRoot)}catch{}
+    }
     if(!gate){
       const ended=stopActive();
       return current=snapshot(ended?"blocked":"stopping","component_trust_not_authorized",true);
     }
-    if(!verifiedHandoff){
+    if(!gate.dev&&!verifiedHandoff){
       const ended=stopActive();
       return current=snapshot(ended?"blocked":"stopping","signed_windows_runtime_unavailable",true);
     }
@@ -201,29 +266,38 @@ export function createDesktopProductRuntimeSupervisor({
   async function actuallyReconcile(){
     const prepared=reconcileNow();
     if(!prepared?.gate)return current;
-    let receipt;
-    try{receipt=await verifiedHandoff({
-      systemRoot,userData,sourceCommit:prepared.gate.sourceCommit,
-    })}catch{}
-    const plan=safePlan(userData,prepared.gate.sourceCommit,receipt);
+    let plan=null;
+    if(prepared.gate.dev){
+      plan=readDesktopDevCandidate(userData,prepared.gate);
+    }else{
+      let receipt;
+      try{receipt=await verifiedHandoff({
+        systemRoot,userData,sourceCommit:prepared.gate.sourceCommit,
+      })}catch{}
+      plan=safePlan(userData,prepared.gate.sourceCommit,receipt);
+    }
     if(!plan){
       const ended=stopActive();
-      return current=snapshot(ended?"blocked":"stopping","signed_windows_runtime_unavailable",true);
+      return current=snapshot(ended?"blocked":"stopping",
+        prepared.gate.dev?"dev_candidate_unavailable":"signed_windows_runtime_unavailable",true);
     }
     // Recheck the exact trust and token after asynchronous signed-slot work.
     // A revoked key or an updated OS/source pin cannot authorize a launch.
     const fresh=reconcileNow();
     if(!fresh?.gate)return current;
     if(fresh.gate.sourceCommit!==prepared.gate.sourceCommit||
+       fresh.gate.dev!==prepared.gate.dev||
        fresh.identity.deviceId!==prepared.identity.deviceId||
        fresh.identity.transport!==prepared.identity.transport||
        fresh.identity.tokenFingerprint!==prepared.identity.tokenFingerprint){
       const ended=stopActive();
       return current=snapshot(ended?"blocked":"stopping","identity_or_release_changed",true);
     }
-    const key=plan.executable+":"+plan.sourceCommit+":"+prepared.identity.deviceId;
+    // Never reuse a process across unsigned DEV and signed release authority.
+    const key=(plan.dev?"dev:":"signed:")+plan.executable+":"+
+      plan.sourceCommit+":"+prepared.identity.deviceId;
     if(active?.key===key&&!active.stopRequested&&active.child.exitCode===null&&active.child.signalCode===null)
-      return current=snapshot("running","remote_attestation_pending",true);
+      return current=snapshot("running",plan.dev?"dev_remote_attestation_pending":"remote_attestation_pending",true);
     if(!stopActive()){
       return current=snapshot("stopping","previous_instance_still_running",true);
     }
@@ -268,7 +342,7 @@ export function createDesktopProductRuntimeSupervisor({
       }
     });
     log("OrdaX product runtime process owned by Native host; remote session not attested");
-    return current=snapshot("running","remote_attestation_pending",true);
+    return current=snapshot("running",plan.dev?"dev_remote_attestation_pending":"remote_attestation_pending",true);
   }
   return Object.freeze({
     status(){return current},

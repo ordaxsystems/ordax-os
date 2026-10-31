@@ -4,6 +4,7 @@ import {EventEmitter} from "node:events";
 import {mkdtempSync,mkdirSync,writeFileSync,symlinkSync,rmSync} from "node:fs";
 import {tmpdir} from "node:os";
 import {join} from "node:path";
+import {createHash} from "node:crypto";
 import {createDesktopProductRuntimeSupervisor,createDesktopSignedRuntimeHandoff} from "./product-runtime-supervisor.mjs";
 
 const SHA="a".repeat(40);
@@ -71,6 +72,138 @@ function child(){
  proc.kill=signal=>{proc.kills.push(signal);proc.signalCode=signal;return true};
  return proc;
 }
+
+function stagePinnedDesktopDevCandidate(f){
+  const directory=join(f.userData,"native-state","product-runtime-dev");
+  const evidenceDirectory=join(f.systemRoot,"docs","evidence");
+  mkdirSync(directory,{recursive:true});
+  mkdirSync(evidenceDirectory,{recursive:true});
+  const executable=join(directory,"ordax-product-agent.exe");
+  const payload=Buffer.alloc(640);
+  payload.write("MZ",0,"ascii");
+  payload.write("dev-test-only",32,"ascii");
+  writeFileSync(executable,payload);
+  const hash=createHash("sha256").update(payload).digest("hex");
+  const evidence={
+    $schema:"ordax.desktop-runtime-candidate-evidence/1",
+    status:"unsigned-candidate-physically-offline-proven",
+    canonical_source_lock_promoted:false,
+    candidate:{
+      schema:"ordax.desktop-runtime-candidate/1",
+      source_repository:"ordaxsystems/ordax-runtime",source_commit:SHA,
+      profile:"ordax-desktop",platform:"windows-amd64",
+      artifact:"ordax-product-agent.exe",sha256:hash,size_bytes:payload.length,
+      offline_proof_verified:true,signature_present:false,
+      signed_distribution_authorized:false,stable_activation_authorized:false,
+    },
+    physical_offline_proof:{
+      passed:true,source_commit:SHA,executable_sha256:hash,
+      remote_action_proven:false,
+    },
+  };
+  const path=join(evidenceDirectory,"desktop-runtime-windows-candidate-2026-10-31.json");
+  writeFileSync(path,JSON.stringify(evidence));
+  return {executable,path,payload,evidence};
+}
+test("DEV candidate requires explicit opt-in; unsigned bytes alone grant nothing",async t=>{
+  const f=fixture(t,{approved:false});
+  stagePinnedDesktopDevCandidate(f);
+  const sup=createDesktopProductRuntimeSupervisor({
+    systemRoot:f.systemRoot,userData:f.userData,platform:"win32",
+    spawnImpl:()=>{throw Error("DEV must not start without opt-in")},
+  });
+  assert.equal((await sup.reconcile()).reason,"component_trust_not_authorized");
+  assert.equal(sup.status().mcpReady,false);
+  sup.stop();
+});
+test("opted-in, hash-pinned DEV candidate starts ONE canonical scoped process",async t=>{
+  const f=fixture(t,{approved:false});
+  const candidate=stagePinnedDesktopDevCandidate(f);
+  let launches=0,actual=null,settings=null;
+  const sup=createDesktopProductRuntimeSupervisor({
+    systemRoot:f.systemRoot,userData:f.userData,platform:"win32",
+    developmentCandidate:true,verifiedHandoff:null,
+    env:{ORDAX_COMPUTER_FULL_ACCESS:"1",ORDAX_MCP_DEV:"1",
+      NODE_OPTIONS:"--require unsafe",UNRELATED:"safe"},
+    spawnImpl:(file,args,options)=>{
+      assert.equal(file,candidate.executable);
+      assert.deepEqual(args,[]);
+      settings=options;
+      launches++;actual=child();return actual;
+    },
+  });
+  const [one,two]=await Promise.all([sup.reconcile(),sup.reconcile()]);
+  assert.equal(one.state,"running");
+  assert.equal(one.reason,"dev_remote_attestation_pending");
+  assert.equal(two.reason,"dev_remote_attestation_pending");
+  assert.equal(launches,1);
+  assert.equal(one.mcpReady,false);
+  assert.equal(one.centralSessionAttested,false);
+  assert.equal(one.capabilityDigest,null);
+  assert.equal(settings.env.ORDAX_RUNTIME_HOST_PROFILE,"ordax-desktop");
+  assert.equal(settings.env.ORDAX_AGENT_STATE_DIR,f.state);
+  assert.equal(settings.env.ORDAX_MCP_DEV,undefined);
+  assert.equal(settings.env.ORDAX_COMPUTER_FULL_ACCESS,undefined);
+  assert.equal(settings.env.NODE_OPTIONS,undefined);
+  assert.equal(settings.env.UNRELATED,"safe");
+  sup.stop();
+  assert.deepEqual(actual.kills,["SIGTERM"]);
+});
+test("DEV candidate tampering stops owned Runtime and never grants remote readiness",async t=>{
+  const f=fixture(t,{approved:false});
+  const candidate=stagePinnedDesktopDevCandidate(f);
+  const spawned=child();
+  let launches=0;
+  const sup=createDesktopProductRuntimeSupervisor({
+    systemRoot:f.systemRoot,userData:f.userData,platform:"win32",
+    developmentCandidate:true,spawnImpl:()=>{launches++;return spawned},
+  });
+  assert.equal((await sup.reconcile()).state,"running");
+  candidate.payload.write("CHANGED",32,"ascii");
+  writeFileSync(candidate.executable,candidate.payload);
+  const status=await sup.reconcile();
+  assert.equal(status.state,"stopping");
+  assert.equal(status.reason,"dev_candidate_unavailable");
+  assert.equal(status.mcpReady,false);
+  assert.equal(launches,1);
+  assert.deepEqual(spawned.kills,["SIGTERM"]);
+  spawned.exitCode=0;spawned.emit("exit",0);
+  sup.stop();
+});
+test("signed production policy never falls back to unsigned DEV candidate",async t=>{
+  const f=fixture(t,{approved:true});
+  stagePinnedDesktopDevCandidate(f);
+  const sup=createDesktopProductRuntimeSupervisor({
+    systemRoot:f.systemRoot,userData:f.userData,platform:"win32",
+    developmentCandidate:true,
+    spawnImpl:()=>{throw Error("Must require signed provider")},
+  });
+  assert.equal((await sup.reconcile()).reason,"signed_windows_runtime_unavailable");
+  sup.stop();
+});
+test("DEV candidate source mismatch and altered trust status fail closed",async t=>{
+  const f=fixture(t,{approved:false});
+  const d=stagePinnedDesktopDevCandidate(f);
+  d.evidence.physical_offline_proof.source_commit="b".repeat(40);
+  writeFileSync(d.path,JSON.stringify(d.evidence));
+  let sup=createDesktopProductRuntimeSupervisor({
+    systemRoot:f.systemRoot,userData:f.userData,platform:"win32",
+    developmentCandidate:true,spawnImpl:()=>{throw Error("must not spawn")},
+  });
+  assert.equal((await sup.reconcile()).reason,"component_trust_not_authorized");
+  sup.stop();
+  d.evidence.physical_offline_proof.source_commit=SHA;
+  writeFileSync(d.path,JSON.stringify(d.evidence));
+  f.policy.status="canonical-public-trust-pinned";
+  writeFileSync(f.policyFile,JSON.stringify(f.policy));
+  sup=createDesktopProductRuntimeSupervisor({
+    systemRoot:f.systemRoot,userData:f.userData,platform:"win32",
+    developmentCandidate:true,spawnImpl:()=>{throw Error("must not spawn")},
+  });
+  assert.equal((await sup.reconcile()).reason,"component_trust_not_authorized");
+  sup.stop();
+});
+
 test("canonical Go verifier receipt reused without a second signing authority",async t=>{
  const f=fixture(t,{approved:true});
  const verifierRoot=join(f.root,"installer");

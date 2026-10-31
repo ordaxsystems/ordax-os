@@ -62,3 +62,22 @@ test('comparison fails closed when compiled assets are missing', () => {
     assert.throws(() => nativeBundleComparison({ groups: { 'surface/ui': { files: 1, bytes: 1 }, 'surface/workspace': { files: 1, bytes: 1 } } }, root), /compiled Native/);
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
+
+
+test('installed Desktop includes exactly the OS-pinned DEV provenance but no unsigned executable',()=>{
+  const config=require('./package.json');
+  const resources=config.build.extraResources;
+  const target='runtime-template/docs/evidence/desktop-runtime-windows-candidate-2026-10-31.json';
+  const selected=resources.filter(item=>item.to===target);
+  assert.equal(selected.length,1,'DEV evidence must not be a second file authority');
+  assert.equal(selected[0].from,'../../docs/evidence/desktop-runtime-windows-candidate-2026-10-31.json');
+  const evidence=require('../../docs/evidence/desktop-runtime-windows-candidate-2026-10-31.json');
+  assert.equal(evidence.status,'unsigned-candidate-physically-offline-proven');
+  assert.equal(evidence.candidate.platform,'windows-amd64');
+  assert.equal(evidence.candidate.signature_present,false);
+  assert.equal(evidence.candidate.stable_activation_authorized,false);
+  assert.equal(resources.some(item=>
+    item.to?.includes('product-runtime-dev')||
+    item.from?.includes('ordax-product-agent.exe')),false,
+    'unsigned DEV Runtime may never be silently bundled or installed');
+});

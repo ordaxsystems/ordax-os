@@ -1,3 +1,26 @@
+OrdaX Desktop Windows MCP — **DEV FIRST** (31/10/2026):
+A direção canônica da execução está em `docs/DEVELOPMENT-WORKFLOW.md`,
+seção "P0 — Native MCP no Windows/Desktop DEV", e na issue #1985.
+**Não iniciar** cerimônia de chaves, build USB/Creator/Buildroot/QEMU,
+novo CLI/workflow ou outra auditoria geral para destravar esta tarefa.
+O objetivo são duas sessões reais de Product Device (agente auxiliar
+Windows e OrdaX Desktop Windows) usando o `ordax-runtime` já integrado,
+com grants, `capability_digest` não vazio e `agent.status` remoto comprovado.
+O candidato Windows `0.4.8` validado tem SHA-256
+`c0712bf0979025093226610e41ef39853e23a4ec6cdfa89541cba98a4ffed6a2`
+e source `6b191cb8273577d94352893497b0eb118e3b98ae`.
+O Supervisor Desktop recebeu caminho de desenvolvimento explícito
+`ORDAX_DESKTOP_MCP_DEV=1`, separado do release assinado. Ele lê somente
+o candidato CI exato do arquivo de evidência e exige binário intacto em
+`<Desktop userData>/native-state/product-runtime-dev/ordax-product-agent.exe`,
+identidade de Product Device matriculada e host Windows; mantém
+`mcpReady=false` até atestação remota independente. Modo produção
+continua inteiramente sob verificação Ed25519/slot e source lock
+canônicos. Esta implementação **não** é prova de instalação, sessão,
+grants ou ação remota no Windows físico. Evidência E2E e atualização do
+Desktop instalado continuam pendentes, a serem comprovadas uma vez.
+Retomar o PR de correção existente, não criar solução paralela.
+
 Desktop/Web build separation (2026-10-31): canonical architecture and executable
 impact classification now distinguish Windows Desktop and Web client-only owners
 from Creator/USB release producers. The source-of-truth is
@@ -26,7 +49,7 @@ Exact source, artifact and executable hashes are recorded in
 This is a local `agent.status` package proof, **not remote MCP execution**.
 The canonical source lock and trust flags are not promoted by CI evidence.
 The external component trust/custody/recovery ceremony and public-only
-handoff remain mandatory before signed Windows slot promotion; the official
+handoff remain mandatory before production signed Windows slot promotion; the official
 Desktop installer update and supervised remote session/grant/action proof
 remain pending. Follow issue #1985. No USB/Buildroot/QEMU change or build.
 
