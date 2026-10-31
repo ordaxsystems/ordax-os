@@ -12,6 +12,16 @@ They may describe:
 
 They do **not** fork OrdaX, grant privileges, bypass app signatures, store provider secrets or turn model output into an authoritative knowledge source.
 
+### App delivery belongs to the Store, not to the Space or Profile Pack
+
+- `Space` owns stable workspace identity and scoped business data. Updating the Spaces service/contract does **not** install or update business applications.
+- `Profile Pack` owns a **versioned list of app references** (`apps[]`) and composition defaults, not the executable artifact or app version. A reference such as `orders` is not proof the app is published or installed.
+- `OrdaX Store` and the canonical component runtime own signed app packages, installation, update, removal, rollback and their independently versioned releases. A Store app can be reused by multiple Spaces without copying its code or sharing their data.
+- `Profile Pack components[]` is reserved for non-app artifacts (e.g. Knowledge, Skill, Model and Connector packs). An artifact with `kind: app` is rejected: this would create a second installation authority. `apps[]` accepts only unique canonical Store-compatible IDs.
+- Updating a Profile composition never edits installed app versions, creates a second app instance, grants access or rolls back Space business data. Provisioning/consent still applies for non-app components; app availability requires a separate trusted Store/runtime read.
+
+These are **independent update boundaries**, not a claim that a complete end-user update manager is already shipped.
+
 The user account profile remains separate from Profile Packs.
 
 Professional networking is also a separate horizontal domain. A Profile may recommend Network

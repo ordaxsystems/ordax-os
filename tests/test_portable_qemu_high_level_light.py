@@ -27,6 +27,18 @@ def test_update_presentation_and_its_focused_contract_do_not_require_portable_qe
     assert result.required is False
 
 
+def test_space_owner_sql_fix_has_focused_postgres_proof_without_boot_rebuild():
+    result = impact.classify_paths([
+        "infra/supabase/product/migrations/20261031051500_space_owner_ssot_creation_fix_v1.sql",
+        "tests/sql/test_space_creation_authority_v1.sql",
+        "tests/test_space_creation_authority.mjs",
+        ".github/workflows/space-creation-authority-v1-proof.yml",
+    ])
+    assert result.required is False
+    heavy = impact.classify_paths(["bootstrap/initramfs/entrypoint"])
+    assert heavy.required is True
+
+
 def test_native_account_transport_and_focused_contracts_do_not_require_portable_qemu():
     result = impact.classify_paths([
         "system/surface/runtime/native_account_gateway.py",

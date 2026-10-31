@@ -72,7 +72,7 @@ export function projectSpaceCreateResult(row, { subjectId, request } = {}) {
     || typeof row.name !== "string" || row.name.length < 1 || row.name.length > 120 || CONTROL.test(row.name)
     || !SPACE_KINDS.has(row.kind) || !SPACE_STATES.has(row.state)
     || typeof row.profile_slug !== "string" || !PROFILE_SLUG.test(row.profile_slug)
-    || !Number.isSafeInteger(Number(row.profile_version)) || Number(row.profile_version) < 1
+    || !Number.isSafeInteger(row.profile_version) || row.profile_version < 1
     || typeof row.created !== "boolean"
   ) throw new TypeError("invalid-space-create-result");
 
@@ -91,7 +91,7 @@ export function projectSpaceCreateResult(row, { subjectId, request } = {}) {
     }),
     profileToProvision: Object.freeze({
       slug: row.profile_slug,
-      version: Number(row.profile_version),
+      version: row.profile_version,
     }),
     nextStep: "validate-profile-provisioning",
   });

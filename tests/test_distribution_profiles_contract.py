@@ -39,6 +39,21 @@ class DistributionProfilesContractTests(unittest.TestCase):
             "bootstrap/dev-base/ordax-pull",
         )
         self.assertEqual(owner["runtime_update_owner"], "system/supervisor")
+        adapters = owner["runtime_host_adapters"]
+        self.assertEqual(adapters["linux-usb"]["git_main_materializer"],
+                         owner["normal_update_owner"])
+        self.assertEqual(adapters["linux-usb"]["health_promotion_owner"],
+                         owner["runtime_update_owner"])
+        windows = adapters["windows-desktop"]
+        self.assertEqual(windows["git_main_materializer"],
+                         "tools/windows-desktop/dev-update.cjs")
+        self.assertEqual(windows["health_promotion_owner"],
+                         "tools/windows-desktop/dev-update.cjs")
+        self.assertEqual(windows["application_relaunch_owner"],
+                         "tools/windows-desktop/main.cjs")
+        self.assertTrue(windows["automatic_idle_activation"])
+        self.assertTrue(windows["operates_only_while_electron_is_running"])
+        self.assertFalse(windows["electron_shell_self_update_implemented"])
         self.assertEqual(
             owner["base_update_owner"],
             "system/services/base-update/agent.sh",
@@ -265,6 +280,79 @@ class DistributionProfilesContractTests(unittest.TestCase):
         self.assertTrue(CONTRACT["invariants"]["same_main_source_authority"])
         self.assertTrue(CONTRACT["invariants"]["stable_must_not_require_git_client"])
         self.assertTrue(CONTRACT["invariants"]["stable_must_not_require_source_checkout"])
+
+
+    def test_dual_delivery_selection_is_staged_and_fail_closed(self):
+        policy = CONTRACT["update_delivery_selection"]
+        self.assertEqual(policy["$schema"], "ordax.update-delivery-selection/1")
+        self.assertEqual(policy["policy_owner"], "docs/contracts/distribution-profiles.json")
+        self.assertEqual(policy["execution_owner"], "system/supervisor")
+        self.assertFalse(policy["runtime_method_switch_implemented"])
+        self.assertFalse(policy["owner_signed_release_transport_implemented"])
+        self.assertFalse(policy["stable_signed_git_transport_implemented"])
+
+        methods = policy["methods"]
+        self.assertFalse(methods["git-main"]["public_allowed"])
+        self.assertTrue(methods["official-signed-release-channel"]["requires_signed_release"])
+        self.assertTrue(methods["signed-exact-git"]["requires_signed_release"])
+        self.assertTrue(methods["signed-exact-git"]["exact_signed_source_commit_required"])
+        self.assertEqual(methods["git-main"]["acquisition_owner"], "bootstrap/dev-base/ordax-pull")
+        self.assertEqual(
+            methods["official-signed-release-channel"]["acquisition_owner"],
+            "bootstrap/release-acquisition",
+        )
+
+        profiles = policy["profiles"]
+        for name in ("owner-development", "stable-mvp"):
+            item = profiles[name]
+            self.assertEqual(item["default"], CONTRACT["profiles"][name]["normal_update_transport"])
+            self.assertIn(item["default"], item["enabled"])
+            self.assertFalse(set(item["enabled"]) & set(item["gated"]))
+
+        self.assertEqual(profiles["owner-development"]["enabled"], ["git-main"])
+        self.assertEqual(
+            profiles["owner-development"]["gated"],
+            ["official-signed-release-channel"],
+        )
+        self.assertEqual(
+            profiles["stable-mvp"]["enabled"],
+            ["official-signed-release-channel"],
+        )
+        self.assertEqual(profiles["stable-mvp"]["gated"], ["signed-exact-git"])
+        self.assertNotIn("git-main", profiles["stable-mvp"]["enabled"])
+        for required in (
+            "one_transport_per_transaction",
+            "switch_only_when_idle",
+            "no_transport_fallback_on_verification_failure",
+            "signed_release_required_for_all_public_updates",
+            "base_ab_activation_is_separate",
+            "known_good_boot_must_remain_offline",
+            "do_not_change_current_until_health_gate",
+            "user_consent_does_not_override_integrity",
+        ):
+            self.assertIs(policy["rules"][required], True, required)
+        self.assertEqual(policy["user_experience"]["stable_default"], "notify-before-download")
+        self.assertFalse(policy["user_experience"]["implemented"])
+
+
+    def test_runtime_status_transport_matches_the_distribution_ssot(self):
+        supervisor = (ROOT / "system/supervisor").read_text(encoding="utf-8")
+        for profile, transport in (
+            ("owner-development", "git-main"),
+            ("stable-mvp", "official-signed-release-channel"),
+        ):
+            self.assertEqual(
+                CONTRACT["profiles"][profile]["normal_update_transport"], transport
+            )
+            self.assertEqual(
+                CONTRACT["update_delivery_selection"]["profiles"][profile]["default"], transport
+            )
+            self.assertIn("UPDATE_TRANSPORT=" + transport, supervisor)
+        self.assertIn('"updateTransport":"%s"', supervisor)
+        self.assertIn('"$UPDATE_TRANSPORT" "$UPDATE_ATTEMPT_ID"', supervisor)
+        self.assertIn('check_stable_signed_update "$current"', supervisor)
+        self.assertIn('check_stable_portable_update "$current"', supervisor)
+        self.assertIn('check_for_update() {', supervisor)
 
 
 if __name__ == "__main__":

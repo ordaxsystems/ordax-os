@@ -113,8 +113,6 @@ class PublicIdentityBackendPrepTests(unittest.TestCase):
         self.assertTrue(contract["backend"]["password_recovery_completion_flow_implemented"])
         self.assertFalse(contract["backend"]["password_recovery_completion_enabled"])
         self.assertFalse(contract["backend"]["password_recovery_email_template_applied"])
-        # Only the canonical migration/destination plan owns the provider.
-        # Old project refs must not survive in a second identity contract.
         self.assertNotIn("supabase_candidate", contract)
         destination_path = ROOT / contract["backend"]["canonical_supabase_destination_contract"]
         destination = json.loads(destination_path.read_text(encoding="utf-8"))
@@ -124,7 +122,7 @@ class PublicIdentityBackendPrepTests(unittest.TestCase):
         self.assertNotIn("eobcxuyvhkvdmkbaihwh", json.dumps(contract))
         self.assertFalse(destination["parallel_identity_write_allowed"])
 
-    def test_gateway_boundary_does_not_claim_live_public_provider(self):
+    def test_gateway_boundary_does_not_claim_full_public_account_activation(self):
         text = SERVICE_README.read_text(encoding="utf-8")
         self.assertIn("PUBLIC SAME-ORIGIN ACTIVATION GATED", text)
         self.assertIn("no public same-origin identity surface is enabled yet", text)
@@ -134,38 +132,33 @@ class PublicIdentityBackendPrepTests(unittest.TestCase):
         self.assertIn("HttpOnly", text)
         self.assertNotIn("service_role", text.lower())
 
-    def test_public_auth_hardening_keeps_login_fail_closed(self):
+    def test_public_auth_hardening_records_live_transport_without_opening_account_gates(self):
         hardening = json.loads(AUTH_HARDENING.read_text(encoding="utf-8"))
-        self.assertEqual(hardening["status"], "public-auth-disabled-bridge-unprovisioned-legal-pending")
         self.assertEqual(
-            hardening["current_observation"]["leaked_password_protection"],
-            "enabled-product-gateway",
+            hardening["status"],
+            "web-auth-runtime-proven-public-account-activation-gated",
         )
-        self.assertFalse(hardening["current_observation"]["public_login_enabled"])
-        self.assertEqual(hardening["current_observation"]["provider_plan"], "free")
-        self.assertFalse(
-            hardening["current_observation"]["provider_leaked_password_protection_enabled"]
-        )
+        observation = hardening["current_observation"]
+        destination = hardening["postgresql_destination"]
+        self.assertEqual(observation["observed_date"], "2026-10-16")
         self.assertEqual(
-            hardening["current_observation"]["provider_leaked_password_protection_advisor"],
-            "disabled-warn",
+            observation["runtime_evidence"],
+            "docs/evidence/web-account-runtime-2026-10-16.json",
         )
-        self.assertTrue(
-            hardening["current_observation"]["product_leaked_password_protection_verified"]
-        )
-        self.assertFalse(
-            hardening["current_observation"]["product_leaked_password_plaintext_sent"]
-        )
-        self.assertFalse(
-            hardening["current_observation"]["product_leaked_password_full_hash_sent"]
-        )
+        self.assertEqual(observation["leaked_password_protection"], "enabled-product-gateway")
+        self.assertFalse(observation["public_login_enabled"])
+        self.assertEqual(observation["provider_plan"], "free")
+        self.assertFalse(observation["provider_leaked_password_protection_enabled"])
+        self.assertEqual(observation["provider_leaked_password_protection_advisor"], "disabled-warn")
+        self.assertTrue(observation["product_leaked_password_protection_verified"])
+        self.assertFalse(observation["product_leaked_password_plaintext_sent"])
+        self.assertFalse(observation["product_leaked_password_full_hash_sent"])
         self.assertTrue(
             hardening["rules"]["public_login_must_fail_closed_until_all_required_gates_pass"]
         )
         self.assertTrue(
             hardening["required_before_public_login"]["leaked_password_protection_enabled"]
         )
-        observation = hardening["current_observation"]
         self.assertEqual(observation["password_policy_product_minimum_chars"], 12)
         self.assertFalse(observation["provider_password_policy_verified"])
         self.assertTrue(observation["email_confirmation_provider_verified"])
@@ -192,17 +185,20 @@ class PublicIdentityBackendPrepTests(unittest.TestCase):
         self.assertFalse(observation["password_recovery_completion_enabled"])
         self.assertFalse(observation["password_recovery_email_template_applied"])
         self.assertFalse(observation["account_recovery_flow_tested"])
-        self.assertEqual(observation["observed_date"], "2026-10-09")
-        self.assertEqual(observation["public_edge_gateway_version"], 3)
+        self.assertEqual(observation["public_edge_gateway_version"], 8)
         self.assertIn("v28-deployed", observation["edge_gateway"])
-        self.assertIn("canonical-supabase-v3", observation["public_edge_gateway"])
+        self.assertIn("canonical-supabase-v8", observation["public_edge_gateway"])
+        self.assertTrue(observation["public_edge_oidc_runtime_verified"])
+        self.assertTrue(observation["vercel_public_edge_routing_verified"])
+        self.assertTrue(observation["public_edge_provenance_e2e_verified"])
+        self.assertTrue(observation["same_origin_session_owner_deployed"])
         self.assertTrue(observation["public_edge_product_cookie_envelope_deployed"])
         self.assertEqual(
             observation["public_edge_product_cookie_envelope_header"],
             "x-ordax-cookie-envelope",
         )
         self.assertTrue(observation["vercel_product_cookie_envelope_source_merged"])
-        self.assertFalse(observation["vercel_product_cookie_envelope_deployed"])
+        self.assertTrue(observation["vercel_product_cookie_envelope_deployed"])
         self.assertTrue(observation["password_recovery_session_isolated"])
         self.assertEqual(observation["password_recovery_cookie_path"], "/auth/recover")
         self.assertFalse(observation["bot_protection_widget_live_verified"])
@@ -213,9 +209,7 @@ class PublicIdentityBackendPrepTests(unittest.TestCase):
         self.assertTrue(observation["bot_protection_production_secret_configured"])
         self.assertFalse(observation["public_adapter_rate_limit_deployed"])
         self.assertTrue(
-            hardening["required_before_public_login"][
-                "registration_provider_bypass_guard_verified"
-            ]
+            hardening["required_before_public_login"]["registration_provider_bypass_guard_verified"]
         )
         self.assertTrue(observation["provider_signup_api_enabled"])
         self.assertTrue(observation["registration_provider_bypass_guard_verified"])
@@ -227,27 +221,15 @@ class PublicIdentityBackendPrepTests(unittest.TestCase):
             observation["registration_provider_bypass_guard_function"],
             "private.handle_ordax_account_created",
         )
+        self.assertTrue(observation["registration_provider_bypass_guard_search_path_empty"])
+        self.assertTrue(observation["registration_provider_bypass_guard_requires_active_policy"])
+        self.assertTrue(observation["registration_provider_bypass_guard_requires_email_hash_match"])
         self.assertTrue(
-            observation["registration_provider_bypass_guard_search_path_empty"]
+            observation["registration_provider_bypass_guard_requires_unconsumed_unexpired_intent"]
         )
-        self.assertTrue(
-            observation["registration_provider_bypass_guard_requires_active_policy"]
-        )
-        self.assertTrue(
-            observation["registration_provider_bypass_guard_requires_email_hash_match"]
-        )
-        self.assertTrue(
-            observation[
-                "registration_provider_bypass_guard_requires_unconsumed_unexpired_intent"
-            ]
-        )
-        self.assertTrue(
-            observation["registration_provider_bypass_guard_writes_legal_receipt"]
-        )
+        self.assertTrue(observation["registration_provider_bypass_guard_writes_legal_receipt"])
         self.assertEqual(observation["legacy_accounts_without_legal_receipt_count"], 2)
-        self.assertTrue(
-            observation["legacy_account_legal_receipt_reconciliation_verified"]
-        )
+        self.assertTrue(observation["legacy_account_legal_receipt_reconciliation_verified"])
         self.assertEqual(observation["legacy_account_legal_quarantine_active_count"], 2)
         self.assertEqual(observation["legacy_account_legal_quarantine_unreconciled_count"], 0)
         self.assertTrue(observation["legacy_account_legal_quarantine_deployed"])
@@ -266,14 +248,19 @@ class PublicIdentityBackendPrepTests(unittest.TestCase):
             observation["public_login_legal_receipt_guard_deployment_revision_observed"],
             28,
         )
-        self.assertTrue(
-            observation["public_login_legal_receipt_guard_live_nonexistent_subject_denied"]
-        )
+        self.assertTrue(observation["public_login_legal_receipt_guard_live_nonexistent_subject_denied"])
         self.assertTrue(observation["public_login_legal_receipt_guard_public_only"])
-        self.assertEqual(
-            observation["public_login_legal_receipt_guard_rejected_session_scope"],
-            "local",
-        )
+        self.assertEqual(observation["public_login_legal_receipt_guard_rejected_session_scope"], "local")
+        self.assertTrue(destination["public_account_gateway_deployed"])
+        self.assertTrue(destination["internal_gateway_runtime_e2e_verified"])
+        self.assertTrue(destination["destination_vercel_oidc_runtime_e2e_verified"])
+        self.assertTrue(destination["destination_named_bridge_key_provisioned"])
+        self.assertTrue(destination["destination_named_bridge_runtime_e2e_verified"])
+        self.assertTrue(destination["destination_service_transport_runtime_verified"])
+        self.assertFalse(destination["public_login_enabled"])
+        self.assertFalse(destination["public_registration_enabled"])
+        self.assertFalse(destination["recovery_e2e_verified"])
+        self.assertFalse(destination["session_revocation_e2e_verified"])
 
     def test_supabase_preflight_is_read_only(self):
         sql = PREFLIGHT.read_text(encoding="utf-8").lower()

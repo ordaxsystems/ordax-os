@@ -105,7 +105,7 @@ func TestRollbackReceiptUsesActualSourceResolution(t *testing.T) {
 		componentID string
 		want        string
 	}{
-		{componentID: "internet", want: "bundled"},
+		{componentID: "internet", want: "absent"},
 		{componentID: "notes", want: "absent"},
 		{componentID: "studio", want: "absent"},
 	}

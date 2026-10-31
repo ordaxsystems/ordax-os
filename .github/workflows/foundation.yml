@@ -1,6 +1,7 @@
 name: Foundation Contract
 
 on:
+  workflow_dispatch: # Run existing consumer validation on immutable bot PR branches
   push:
     branches: [main]
   pull_request:
@@ -16,6 +17,9 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
+
+      - name: Prepare external Surface in disposable CI checkout
+        uses: ./.github/actions/prepare-verified-surface
 
       - name: Install locked Web build dependencies
         run: npm ci --ignore-scripts --no-audit --no-fund
@@ -48,5 +52,14 @@ jobs:
       - name: Run foundation regressions
         run: python -m unittest discover -s tests -p 'test_*.py' -v
 
+      - name: Validate canonical Native Product Connector port
+        run: node --test tests/test_product_connector_adapter.mjs
+
+      - name: Validate signed Runtime and MCP authority SSOT
+        run: node --test tests/test_studio_runtime_source_lock.mjs
+
       - name: Validate product family version identities
         run: node --test tests/test_product_family.mjs
+
+      - name: Validate dual update transport selection policy
+        run: node --test tests/test_update_transport_selection.mjs tests/test_update_status.mjs

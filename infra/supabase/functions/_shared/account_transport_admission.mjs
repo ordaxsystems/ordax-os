@@ -30,10 +30,14 @@ export function accountGatewayRoutePath(pathname) {
 // Account gateway. A named bridge key is authentication, not blanket authority
 // for every Native route; all three hops enforce this same routing decision.
 const PUBLIC_ACCOUNT_ROUTES = new Map([
-  ["/account/export", "GET"],
-  ["/account/spaces", "GET"],
-  ["/account/entitlements/memory-cloud", "GET"],
-  ["/account/close", "POST"],
+  ["/account/export", Object.freeze({ method: "GET", preActivation: false })],
+  ["/account/spaces", Object.freeze({ method: "GET", preActivation: true })],
+  ["/account/usage/mcp", Object.freeze({ method: "GET", preActivation: false })],
+  ["/account/space-members", Object.freeze({ method: "GET", preActivation: true })],
+  ["/account/space-actor-capability", Object.freeze({ method: "GET", preActivation: true })],
+  ["/account/space-membership-actions", Object.freeze({ method: "POST", preActivation: false })],
+  ["/account/entitlements/memory-cloud", Object.freeze({ method: "GET", preActivation: false })],
+  ["/account/close", Object.freeze({ method: "POST", preActivation: false })],
 ]);
 const PUBLIC_ALLOWED_METHODS = new Set(["GET", "POST"]);
 const PUBLIC_ALLOWED_PREFIXES = ["/auth/", "/sync/"];
@@ -43,9 +47,14 @@ export function isPublicBridgeRoute(method, pathname) {
       || pathname.length > 2048 || !pathname.startsWith("/")
       || pathname.includes("\\") || pathname.includes("\0")
       || pathname.includes("?") || pathname.includes("#")) return false;
-  const exactAccountMethod = PUBLIC_ACCOUNT_ROUTES.get(pathname);
-  if (exactAccountMethod) return exactAccountMethod === method;
+  const exactAccountRoute = PUBLIC_ACCOUNT_ROUTES.get(pathname);
+  if (exactAccountRoute) return exactAccountRoute.method === method;
   return PUBLIC_ALLOWED_PREFIXES.some(prefix => pathname.startsWith(prefix));
+}
+
+export function isPublicAccountPreActivationRoute(method, pathname) {
+  const route = PUBLIC_ACCOUNT_ROUTES.get(pathname);
+  return Boolean(route && route.method === method && route.preActivation === true);
 }
 
 // These paths are necessarily callable before a user has a session. State-

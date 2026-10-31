@@ -113,8 +113,31 @@ jobs:
           for key in ("publication_performed", "release_activated", "physical_write_authorized", "physical_write_performed"):
               if publication.get(key) is not False:
                   raise SystemExit("PUBLICATION=BLOCKED_UNSAFE_REQUEST")
-          if (auth.get("physical_write_allowed") is not False
-              or auth.get("explicit_owner_authorization") is not False):
+          # Canonical v4 HTTPS publication is a separate ceremony from the
+          # owner's first physical USB consent. Never infer physical authority
+          # from the public release or turn off a real approved owner grant.
+          # If approved, re-use the existing physical promotion evaluator to
+          # verify the entire source context; malformed grants remain blocked.
+          if auth.get("status") == "authorized":
+              from importlib.util import module_from_spec, spec_from_file_location
+              spec = spec_from_file_location(
+                  "canonical_physical_promotion", Path("tools/creator/physical_promotion.py")
+              )
+              if spec is None or spec.loader is None:
+                  raise SystemExit("PUBLICATION=BLOCKED_PHYSICAL_AUTHORITY")
+              evaluator = module_from_spec(spec)
+              spec.loader.exec_module(evaluator)
+              physical = evaluator.evaluate(Path.cwd())
+              if (auth.get("physical_write_allowed") is not True
+                  or auth.get("explicit_owner_authorization") is not True
+                  or physical.get("ready") is not True
+                  or physical.get("authorization_context_matches_current_source") is not True
+                  or physical.get("authorization_blockers") != []):
+                  raise SystemExit("PUBLICATION=BLOCKED_PHYSICAL_AUTHORITY")
+          elif (auth.get("status") != "blocked-explicit-physical-authorization-pending"
+                or auth.get("physical_write_allowed") is not False
+                or auth.get("explicit_owner_authorization") is not False
+                or auth.get("authorization_context_sha256") is not None):
               raise SystemExit("PUBLICATION=BLOCKED_PHYSICAL_AUTHORITY")
           for kind in ("signing_request", "signed_handoff"):
               item = publication[kind]

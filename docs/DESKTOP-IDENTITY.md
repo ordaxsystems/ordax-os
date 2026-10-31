@@ -1,15 +1,17 @@
 # OrdaX Desktop Identity
 
-The OrdaX shared Surface identity follows the user-approved 2026-10-09 ribbon/blue-violet reference: **Midnight / Meia-noite** (dark) and **Ice / Gelo** (light). Navigation, command search, a landscape Home and a floating dock are implemented in the existing shared Surface, with the same application and preference owners across Web/Native. This direction supersedes the earlier visual candidate.
+The sole current visual authority is **Meridian**, reaffirmed explicitly by the user on 2026-10-18 for the entire OrdaX OS. Argila/light and Grafite/dark are materials of this identity, not alternate product designs. `system/surface/ui/meridian.tokens.css` owns its palette/type/spacing policy; shared component styles consume that owner. Historical Midnight/Ice and pre-Meridian presentation notes below are provenance, not permission to reintroduce another identity.
+
+Migration is staged without removing real operations or planned mocks. The current First Run uses Meridian directly in its canonical renderer/CSS, and the Windows emulator loads the actual Native composition used by USB rather than a Web preview. Later shell/app stages remain subject to this same visual rule; completing First Run does not imply that every legacy screen has already migrated.
 
 This is a product identity contract, not a screenshot contract. Implementations preserve the visual language while remaining functional, responsive, accessible, offline-capable and shared across supported hosts.
 
 ## Canonical visual language
 
-- midnight navy and ice canvases, with opaque working application surfaces;
-- ice text in dark mode and deep blue ink in light mode;
-- blue/violet/cyan for brand decoration; accessible semantic accents for controls;
-- thin structural rules, rounded cards, restrained glow and translucent shell materials;
+- Meridian Argila/light and Grafite/dark canvases, with opaque working application surfaces;
+- text, muted text and structural contrast from the shared Meridian token owner;
+- clay accents, sage context and independent semantic status colors from Meridian;
+- editorial hierarchy, thin structural rules, rounded surfaces and restrained shared shadows;
 - Inter as the canonical product type family, with compact, legible controls;
 - the user-approved transparent ribbon-loop image shared by the navigation, header, Home and loading screen;
 - labeled lateral navigation on desktop, compact rail on intermediate widths and one-column Home on narrow surfaces;
@@ -21,7 +23,7 @@ The user-approved symbol is `system/surface/ui/brand/ordax-symbol.png`, copied b
 
 ## Shared design-system ownership
 
-`system/surface/ui/tokens.css` owns the USB palette, typography, geometry and accessibility policy. `system/surface/ui/color-palettes.css` owns standard light/dark colors moved from the approved Web stylesheet and semantic aliases for both renderers. These sources form the single source of visual policy. Each palette is declared once; Surface and first-party application styles consume that shared policy without a second palette per application.
+`system/surface/ui/tokens.css` owns base typography, geometry and accessibility policy. `system/surface/ui/color-palettes.css` owns standard light/dark colors moved from the approved Web stylesheet and semantic aliases for both renderers. These sources form the single source of visual policy. Each palette is declared once; Surface and first-party application styles consume that shared policy without a second palette per application.
 
 `system/surface/ui/identity.css` is the shared component/composition layer for this identity. It may map existing components onto the semantic tokens while older component CSS is migrated, but it must not become a second token source.
 
@@ -33,6 +35,36 @@ legal HTML transforms or introducing page-specific drawings of the mark.
 Legacy palette literals must be removed from active contracts when the identity changes; they must not be retained in comments or assertions merely to satisfy obsolete tests. Projects, Notes and Internet now consume the shared semantic tokens directly in their component styles, so the temporary first-party application identity bridge is no longer part of the runtime.
 
 Existing `appearance.theme` values (`light`, `dark`), labels (Claro, Escuro), persistence, account synchronization and the light default remain unchanged. Users switch materials in **Ajustes → Aparência**. Settings miniatures inherit the exact theme tokens through `data-theme-preview`, so they cannot drift into independent palettes. Success, warning and error retain independent semantic colors.
+
+### Desktop canvas ownership — 2026-10-19
+
+`system/surface/ui/meridian.css` owns the desktop wallpaper asset and its
+shared treatment for the Web `classic-desktop` and Native `.ordax-workspace`.
+Both consume the existing `--ordax-wallpaper-opacity` preference, so light
+material and high-contrast wallpaper removal stay aligned. Host markup supplies
+the canvas and functional shortcuts/windows but does not select another
+wallpaper or add a Web-only watermark. The SVG remains a decorative background
+behind the working controls.
+
+### Desktop taskbar frame — 2026-10-19
+
+`system/surface/ui/meridian.css` owns the shared three-column taskbar frame,
+group alignment, dock targets, app glyph scale and open/active/minimized
+indicators. Meridian tokens own the side minimum, horizontal inset, control
+size, item gap and glyph size. Shared dock navigation uses wrapping arrow keys
+and Home/End without activating apps; each host retains only its own horizontal
+scroll reveal. Taskbar hover, focus and pressed states are shared; the Central/
+desktop switch is highlighted only when its `aria-pressed` state is active. Web
+and Native may arrange host-specific controls and responsive collapse behavior,
+but must not redefine shared dock geometry or interaction.
+
+### Desktop window chrome — 2026-10-19
+
+`system/surface/ui/meridian.css` owns the shared Web and Native window frame,
+active state, titlebar, app mark, title type and control target size. Window
+placement and host-specific actions remain with their respective window
+managers. Compact Web windows may reduce their titlebar only while in the
+explicit compact presentation state.
 
 Normal text, secondary text and state labels must maintain at least 4.5:1 contrast on their opaque canvas/panel backgrounds; focus must maintain at least 3:1. High-contrast text maintains at least 7:1. Automated palette checks complement real browser rendering, theme persistence and responsive layout checks; they do not replace assistive-technology or physical-device verification.
 
@@ -973,6 +1005,62 @@ or warnings. Authenticated gateway/catalog, signed installation, native/device
 execution and production activation remain outside this local proof.
 
 
+### Isolated Store visual preview — 2026-10-14
+
+Explicit user scope: a separate Store page following the supplied product prompt
+and Meridian colors/identity, with optional mocks. Tests, npm and build were
+initially excluded; the user subsequently authorized validation and necessary fixes.
+The preview entry is `system/composition/web/store-preview/index.html`, served by
+the existing local Web host at `/store-preview/`. It is not mounted as another
+workspace app, production catalog or Native Store. The prior integrated-renderer
+attempt was superseded; its renderer/CSS changes are not part of this delivery.
+
+The preview imports the existing demonstrative catalog and session reducer from
+`workspace/lib/store`, and the canonical first-run selection IDs for Essentials.
+One version/date/size fixture overlay is confined to `preview-data.js`; it never
+enters an official port. The shared presentation search helper also matches
+description, category, capabilities and tasks, without new catalog state.
+
+The page covers Discover, Essentials, Applications, AI models/providers/agents,
+Connectors, Extensions, Personalization, Library, Installed and Updates. Hash
+navigation and the return control retain the search/filter/scroll context. Model
+comparison and task filtering do not invent hardware evidence or enable model
+installation. Details present illustrative interface previews, metadata,
+permissions, changes and explicit unknown fields.
+
+Updates separate eligible items, sequential demo queue and outcomes. Named stages
+are specific to installation/update, removal, connector authorization, agents and
+declarative package application. Cancelling is offered only before demo execution.
+Failed verification retains the previous demo version. Language packages show a
+pending session restart; templates are available for new projects. Loading/error
+scenarios retain known library/installed state while disabling acquisition.
+
+Argila/Grafite palette and glyphs are presentation references from the frozen
+Meridian study; provenance is recorded in SOURCE-MIGRATION and the preview README.
+No experiment controller, shell, grants, downloader, permission manager, remote
+account, live OAuth or lifecycle authority is imported. All page actions are
+explicitly simulated, with session-only state and native confirmation dialogs.
+
+Validation after explicit user authorization: 49 Store contract/catalog/projection/
+batch tests, 12 preview behavior regression tests and 8 Web builder tests passed.
+Web type-check, canonical Web build, dedicated preview build and verification of
+34 reference files passed. The isolated build emits `out/store-preview`, without
+adding this presentation to the production entry. The serial queue adapter uses
+the existing demo reducer and its failure fixture, with no second lifecycle owner.
+The shared catalog search adaptation is recorded reversibly in the original
+reference ledger; the upstream digest remains unchanged.
+
+Twenty-eight browser checks cover search/return context, permissions, favorites,
+serial updates, cancellation, failed-update version retention, unavailable catalog,
+connector authorization, model blocking, removal/reinstallation, responsive
+390/820/1440 layouts and the actual compiled artifact. Console checks were clean.
+[Commands, results, screenshots and limits](evidence/store-preview-2026-10-14/README.md).
+The existing canonical Web chunk-size warning remains; the isolated JS is
+69.29 kB (22.25 kB gzip). Real OAuth, host installation, backend/Native and physical
+lifecycle remain unvalidated and absent from this page. The next gate is user
+visual review, followed by separately authorized integration through canonical
+Surface/catalog/lifecycle owners.
+
 ### Destination menu focus — 2026-10-12
 
 Owner: OS Surface; bounded continuation of the requested Web integration and
@@ -1442,3 +1530,304 @@ notification and builder checks passed; module boundaries and reference integrit
 passed. Isolated Native browser proof passed 1280×800, 390×844, 320×568 and
 844×390, including unread preservation, action failure, focus recovery,
 destination delegation, teardown and notification panel bounds/overflow.
+
+
+### Meridian Web and Store integration — 2026-10-14
+
+The user explicitly requested the Web use the Meridian/USB direction, integrate
+the validated Store appearance, retain unimplemented resources as reminders in
+mock form, and add the current Web hero imagery to Meridian. This later request
+supersedes the earlier standalone-only placement decision. It does not authorize
+new backend, authentication, inference, lifecycle or physical-media authority.
+
+`Central` keeps the existing account-keyed composition, one desktop reducer,
+WindowLayer, session and preference providers. `MeridianHome` adapts the frozen
+editorial hierarchy: header, greeting/Space, alpine image hero, session strip,
+Intelligence entry, Day/Work/Ecosystem perspectives, project continuation, files,
+agenda, devices and routines. The canonical alpine day/night assets are reused;
+no image is downloaded or generated. The Meridian field SVG styles Desktop.
+The rail/dock open the same managed windows; pinned launchers reuse existing
+shortcut metadata, and an open window appears once. The canonical OrdaX symbol
+replaces the earlier decorative mark.
+
+Projects, agenda, files and routines without services are visibly labelled
+examples/planned; their dialogs say no real data or operation is connected.
+The checklist changes only the current component session. Account/Space/Aura
+continue through their existing providers and unavailable service states. A
+planned card never claims an actual cloud identity, connected device, grant,
+file write or AI answer. Preserve these placeholders until each canonical owner
+has an implementation; connect one resource at a time and remove its mock only
+when its actual replacement is available and reviewed.
+
+The existing validated Store presentation moved to
+`workspace/components/store/presentation/`. Both the standalone entry and the
+system wrapper consume that one renderer, fixtures and serial demo adapter.
+The wrapper uses a ShadowRoot for stylesheet/DOM isolation, not an iframe. Its
+navigation is local to the instance, never changes the system URL/title, and
+retains context when minimized, compacted or switched between Central/Desktop.
+Each mounted presentation has an AbortController and timer cleanup. Material
+comes from existing Preferences in the system; there is no nested material owner.
+Switching to the actual catalog preserves the demo session while hiding it.
+An initially ready verified port selects the actual view by default; absent Web
+transport keeps the planned view accessible and explicitly marked. The original
+fail-closed catalog renderer and snapshot service remain available and tested.
+
+`ui/meridian.tokens.css` is the shared visual token source. `ui/meridian.css`
+adapts existing Web/Native semantic variables and styles the Native Store without
+changing its services. The canonical light/dark/native preference IDs and
+persistence remain; light uses Argila and dark/USB uses Grafite under Meridian.
+Native layout, capabilities and physical proof are not inferred from a browser.
+The frozen experiment controller/runtime is never imported. Historical reference
+digests are preserved with explicit adaptation history.
+
+Validation and screenshots: [integration evidence](evidence/meridian-integration-2026-10-14/README.md).
+
+
+#### Meridian chrome completion — 2026-10-14
+
+The user identified the preceding chrome as only partially adapted. The Web rail
+now has the canonical symbol/Space selector, principal and ecosystem groups,
+continuity/notifications/settings utilities and a compact real-account identity
+control. Projects, Files, Internet and other existing destinations remain in the
+single navigation menu and dock; no destination is lost to rail fitting. Central
+uses the wide context rail, Desktop the compact icon rail, and mobile a disclosed
+menu. Available rail height uses the existing shared fit policy/slots.
+
+The persistent Central header provides location/Space, destination search,
+material and settings controls. Ctrl/Command K opens that same navigation Dialog;
+Escape returns focus to the originating control. Desktop has no permanent topbar.
+The centered dock has 44px icon targets, stable pinned/open ordering, explicit
+active/open/minimized markers, horizontal overflow cues and Arrow/Home/End focus
+navigation. Pins alone have no running marker. The presentation toggle/launcher
+remain at the start; notifications/system availability remain at the end. Network,
+battery and unread-count fixtures are not fabricated for the real Web.
+
+A shared UI title adapter maps the Intelligence shortcut to the existing Aura
+window; rail/dock cannot create two windows for that same destination. Window
+reducer, account, preferences, Store and Dialog owners remain unchanged. Planned
+professional profiles remain explicitly identified mocks.
+
+[Checks and screenshots](evidence/meridian-integration-2026-10-14/README.md#chrome-completion).
+
+#### Meridian preferences consistency — 2026-10-14
+
+Appearance miniatures and canonical PT/EN copy reflect Argila/Grafite. The dock
+uses the existing home-shortcuts preference, retaining unpinned running windows
+until closed. Favorite launches reuse the canonical Aura title. Store shadow
+presentation receives contrast/motion attributes from existing preferences; rem
+typography follows document text scale. No new preference authority or runtime
+service is introduced. See the preferences follow-up in the integration evidence.
+
+#### Meridian backend compatibility review — 2026-10-14
+
+User rule: preserve every frontend feature/mock. Connect only compatible existing
+behavior; when the frontend proposal exceeds the backend, retain the demonstration
+and record the missing backend capabilities rather than ship a reduced replacement.
+A source module is not proof of a deployed service or an authorized Web transport.
+
+| Frontend capability | Existing owner / current coverage | Decision and missing parity |
+|---|---|---|
+| Account and Space selection | `composition/web/account-session.mjs`, identity and Spaces adapters; same-origin session and read-only Space catalog | Already composed. Host must actually expose authenticated session/Space routes. No local authentication substitute. |
+| Appearance, accessibility, favorites | Existing preference runtime and Web store | Already composed, browser persistence only; no account-sync claim. |
+| Professional profile consultation | `services/profile-packs/bundled-source.mjs` and `catalog.mjs`, canonical versioned manifests | Add read-only consultation of active profiles alongside the original planned copy. Pizzaria and Impressão 3D are active; Developer and Jurídico are draft and remain unpublished. No activation, entitlement, application installation or business operations inferred. |
+| Applying professional profiles | Native provisioning/activation owners and host/Space context | Not connected to Web. Preserve planned behavior; requires authorized activation transport and compatible host lifecycle. Active manifest does not prove its referenced app/template payload installed. |
+| Store discovery, resource details, library and lifecycle across apps, models, connectors, plugins and packages | `contracts/app-store.mjs` is a verified app catalog; `services/apps/verified-store-projection.mjs` and Native catalog/lifecycle exist | Front is broader. Do not substitute the narrower app projection for the planned multi-resource Store. Keep official view distinct; Web transport, typed metadata, permission/release details, resource-specific lifecycle/auth and library persistence need parity before cutover. Fixture versions/images/permissions never become official metadata. |
+| Projects, recent files, collaboration | `services/files/projects.mjs`, `recent-files.mjs`, Native file-space adapters | Local services exist, but no authorized Web file/project transport is composed. Atlas and collaborative cards are examples, not real projects. Preserve complete proposal; project repository/collaboration parity must be reviewed before replacement. |
+| Notifications and activity | Shared notification runtime/view, Native update bridge; local histories are not an account feed | Web notification view has no delivery adapter; activity proposal needs scoped aggregation. No copying Native notifications or synthesizing activity. |
+| Aura and voice | Canonical Intelligence runtime/client, Web remote adapter, device-local bridge | Web currently unavailable. Requires authenticated remote transport/target/context and runtime routing proof. Voice interaction is still a demonstration and is not implied by chat transport. |
+| Devices, phone camera/audio/second display | Device/remote capability contracts and host infrastructure | No Web device discovery/control integration composed. Camera, microphone, display streaming and consent are distinct missing flows; preserve card. |
+| Continuity, account Memory and sync | `services/sync/`, Web sync adapters, Native composition | Not composed into current Central; requires account/entitlement/context validation and supported host transport. Metadata sync is not files, commands or universal session restore. |
+| Agenda, meeting preparation, routines and task examples | No complete matching composed service found in this review | Preserve every example and its session-only behavior; no partial activation. |
+
+The new Web profile reader packages the existing source assets, calls the same
+validated bundled loader/catalog projection and publishes only active entries.
+It is lazy, read-only and provided by composition; Surface does not import a
+composition module or access storage/endpoints. Cancellation/disposal prevents
+late results from updating a closed window. Failed reads retain planned content.
+This is bundled metadata consultation, not a newly connected remote backend.
+
+#### Profile categories and visible parity notes — 2026-10-14
+
+The Web profile consultation now consumes the existing canonical taxonomy loader
+and `createProfileTaxonomyView`. Category/niche labels, parent relationships and
+counts derive from that view, while membership stays in each Profile manifest.
+Only categories containing published active profiles are offered. Parent filters
+include descendants. No taxonomy, activation or app composition is copied into
+Surface. If taxonomy fetch/validation/membership fails, filtering is omitted and
+the complete validated Profile catalog remains available with an explicit hint.
+Failure of the catalog itself remains an error; no synthetic empty success.
+
+The existing Store, Projects, Files, Activity, Devices and Continuity screens add
+collapsed “O que falta conectar” notes from the preceding compatibility review.
+These are presentation explanations, not capability declarations or a second
+backend registry. All planned content and simulated operations are retained.
+The Store note is outside its shadow presentation; toggling official/planned
+views retains its search and demonstration session. No backend transport is
+newly activated, and narrower services do not replace richer planned flows.
+
+
+### Shared Spaces presentation — 2026-10-15
+
+The Web Spaces window now consumes `system/surface/ui/spaces/presentation/`, the same
+renderer, styles and fictional examples used by the Meridian preview. The preview
+imports these owners instead of maintaining another Spaces dashboard. Rendering
+primitives and icons live under `system/surface/ui/meridian/`. The Web adapter follows
+the existing Store lifecycle: scoped Shadow DOM, disposal on unmount, material from
+canonical preferences and no iframe. Opening another window does not reset its state.
+
+The canonical account Spaces panel remains intact and separately accessible. It
+still reads only authorized membership and uses the existing selection/session
+owner. Fictional examples never become account memberships or backend metrics.
+The presentation opens on the real account panel, including explicit unavailable
+states. Complete examples remain accessible through a separate mode switch. Achegue-se is the example in
+use; Estúdio takes its former primary-card position. The Achegue-se cover reuses
+`workspace/assets/demo-salvador-1.jpg`; it is illustrative, not remotely fetched.
+
+Indicators are supplied by each example, with labels, values, optional supporting
+text, progress and tone. All example metrics remain visible. Capabilities narrower
+than the design remain unconnected: covers/metrics/activity, creation, templates,
+permissions and membership mutations require authoritative contracts and services.
+Search, sorting, favorites and example context switching are memory-only. The
+creation example only reviews a proposal and never reports backend provisioning.
+The complete isolated preview journeys remain available separately.
+
+The integration branch includes canonical `main` through `7e71ead5`. Browser visual
+inspection confirmed the Spaces window and cover inside the existing Web shell.
+No npm commands, automated tests, type-check or build were run, as requested. Native
+hardware/runtime integration and backend availability are not claimed.
+
+
+### Web Settings Meridian layout — 2026-10-15
+
+Web Settings now follows the Meridian preview's category grid and four-panel layout:
+appearance, privacy/context, accessibility/focus and account/system. All existing
+Web capabilities remain connected to the same preference owner: all color-theme
+options (including native), contrast, movement, all three text scales and browser
+persistence feedback. Account opens the existing managed account window.
+
+The twelve category entry points remain visible. Unsupported device controls and
+privacy/continuity/focus are explicitly identified as examples or pending connections;
+local draft review never claims a device change or backend success. This is a Web
+layout change only: the separate Meridian branch is not merged or visually changed.
+Visual browser inspection completed; npm, automated tests and builds were not run
+at the user's request.
+
+
+### Shared Settings journeys — 2026-10-15
+
+`system/surface/ui/journeys/` owns the shared presentation scenarios, navigation,
+renderer and styles. The Meridian reference imports those owners through re-exports;
+Web Settings consumes the same catalog and `settings-mount.mjs`. Account, updates,
+recovery, storage, generic device settings and power retain their complete original
+screen definitions, confirmation gates, alternate/error paths and Back behavior.
+Memory and continuity have local review examples. The Web-only energy-profile
+choices remain alongside the battery-state examples in the shared definition.
+
+The shared controller is presentation-only: it receives no account/session, command
+or hardware ports and performs no request, persistence, sign-in, grant, update,
+recovery, disk or power operation. A permanent banner identifies every journey as an
+example. Success/effect fields in a scenario are descriptive; the controller never
+executes them. Web account consultation remains reachable through its existing
+managed account window. Real appearance/accessibility and persistence controls are
+preserved independently of the fictional journeys.
+
+The actual Native/USB composition loads these styles and its Settings controller
+adds the shared full-journey entry grid on Appearance. Existing Native tabs and
+bindings (network/keyboard, regional/preferences, Intelligence, notifications and
+local-session security) remain in place. This is not a replacement with fake native
+operations. Examples have memory-only state and are disposed with the Settings
+controller. Visual branches remain separate; no branch merge was performed.
+
+Source integration does not prove a USB artifact has been built/deployed or verified
+on hardware. Browser visual inspection covered Web storage presentation and the
+reference loading path. No npm, automated tests, type-check or build were run for
+this change, as requested. Remaining work is capability-by-capability mapping to
+existing native services and authorized Web device transport; unsupported behavior
+must stay visibly planned until its contract/backend is available.
+
+
+### Web Meridian account-backed Spaces and pending integrations — 2026-10-16
+
+The active Web composition now opens Spaces on its account-backed view. It reuses
+`useWebAccount`, `deriveAuthorizedSpaces`, the existing same-origin `/auth/session`
+and `/account/spaces` readers and the canonical session-only selection service.
+Meridian cards display only validated names, kind, profile linkage and selection.
+The active banner requires a selected authorized Space. No orders, financial
+metrics, covers, membership mutations or operational capabilities are inferred.
+Anonymous, offline, failed and successfully empty catalogs remain distinct.
+
+The complete Spaces dashboard/examples remain behind “Ver exemplos completos”,
+with their renderer, templates, metrics, favorites and simulated creation intact.
+The Central ecosystem's professional-profile entry now opens the existing real
+bundled Profile catalog instead of the example dialog. This is catalog consultation,
+not backend activation or Profile provisioning.
+
+Pending integrations receive a shared red text badge (“Backend pendente”) and
+expandable explanations. The Central reads Intelligence availability from its
+existing port, distinguishes offline/busy/error, and does not compose a provider.
+Account status must not claim online connectivity from a cached identity. Settings'
+planned controls stay visible; their real preference controls remain unchanged.
+
+Validation: 72 targeted Node tests pass, including six new account-backed Spaces
+rendering/authorization cases, TypeScript and the 34-reference verification. The
+existing adaptation digests were reconciled after review; historical source hashes
+and all verification assertions remain intact. SSR test servers explicitly disable
+HMR/WebSocket ports and dependency scanning that is irrelevant to their proof.
+The candidate workflow includes the same regression command and relevant triggers.
+
+Manual review on the existing port 4201 confirmed the pending account state, the
+complete examples toggle and the two bundled professional profiles. This local
+Vite origin has no configured authenticated gateway; successful live account/backend
+E2E is not claimed. No production build, deployment, main merge or USB validation
+was performed. Detailed evidence: [2026-10-16](evidence/meridian-web-2026-10-16/README.md).
+
+
+### Web account registration policy — 2026-10-16
+
+The Web account composition now consults the existing `/auth/registration-policy`
+only after a confirmed anonymous session. It uses the canonical legal-policy
+validator through the existing identity-credentials adapter and bounded same-origin
+JSON reader. Signed-in/unconfigured sessions do not issue this read. Offline,
+identity replacement and disposal cancel pending requests and prevent stale
+permissions from enabling signup. Credential submission is unchanged; the shared
+credential adapter reuses the same bounded policy reader.
+
+Identity actions revalidate a previously allowed registration policy before opening
+`/cadastro/`. This only navigates: account creation, terms acceptance and activation
+remain with the existing public form/gateway. The Account window preserves visible
+sign-in/signup controls, disables unsupported actions, and explains the pending
+service in red. No localhost gateway bypass, provider credentials or production
+configuration change was introduced.
+
+Regression: 96 targeted tests, TypeScript and reference verification pass. Eight new
+cases cover server-enabled/invalid/revoked policies, anonymous vs signed-in scope,
+offline/account-change/disposal cancellation and rendered signup gating. Manual
+review on 4201 confirms the unavailable-service state. Authenticated live-gateway
+E2E remains pending; no main promotion or deployment is claimed.
+
+
+### Shared Meridian language ownership — 2026-10-16
+
+Shared Settings journeys and opt-in Space examples read their pt-BR/en-US copy from
+`system/services/i18n/catalog/meridian.mjs`, registered with the canonical Surface
+catalog. Localized factories preserve one implementation and all scenario/navigation
+identities; language never grants a capability. Web receives the real regional
+preference, and Native receives its current localization port. Example state remains
+session-only; account/session/data operations retain their existing owners and gates.
+The existing English audit and the new cross-language transition/rendering regressions
+cover this boundary. Public runtime packaging and browser/release proofs are separate.
+
+### Shared sidebar account profile — 2026-10-18
+
+The Meridian profile row now shares its geometry, avatar, typography, focus and
+connection-indicator styles through `system/surface/ui/sidebar-layout.css`.
+The corresponding Web-only style block was removed. Native/USB retains the
+canonical account launch and existing storage/notification controls; Web keeps
+its Account window, utilities and planned resources.
+
+`projectSidebarAccount` remains the identity presentation owner and now projects
+connection availability as well. Web consumes its localized status/open label;
+Native refreshes the same connection mark on real session/host changes.
+Offline is not a new signed-in claim; logout or lost identity capability clears
+stale identity through the existing port validation. This increment unifies the
+profile component, not the complete Web and Native shell compositions.

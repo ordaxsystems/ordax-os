@@ -167,26 +167,21 @@ class ServiceQuotaLedgerTests(unittest.TestCase):
         )
 
     def test_contract_keeps_commercial_values_unassigned_and_rollout_closed(self):
+        self.assertEqual(self.contract["status"], "source-ledger-destination-not-installed-commercial-values-unassigned-rollout-disabled")
         ledger = self.contract["server_ledger"]
         self.assertTrue(ledger["source_ready"])
-        self.assertTrue(ledger["production_applied"])
-        self.assertEqual(ledger["production_migration_version"], "20261007081854")
-        self.assertEqual(ledger["production_migration_name"], "service_quota_ledger_v1")
-        self.assertEqual(ledger["production_postgres_major"], 17)
-        self.assertTrue(ledger["live_private_tables_rls_enabled"])
-        self.assertTrue(ledger["live_api_role_dml_denied"])
-        self.assertTrue(ledger["live_private_helpers_api_execute_denied"])
-        self.assertTrue(ledger["live_operational_status_service_role_only"])
+        self.assertFalse(ledger["production_applied"])
+        self.assertFalse(ledger["live_private_tables_rls_enabled"])
         self.assertFalse(ledger["public_allocation_enabled"])
-        reduction = ledger["usage_reduction"]
-        self.assertTrue(reduction["source_ready"])
-        self.assertTrue(reduction["production_applied"])
-        self.assertEqual(reduction["production_migration_version"], "20261007083105")
-        self.assertEqual(reduction["production_migration_name"], "service_quota_usage_reduction_v1")
-        self.assertEqual(reduction["production_postgres_major"], 17)
-        self.assertTrue(reduction["api_roles_execute_denied"])
-        self.assertFalse(reduction["active_entitlement_required"])
-        self.assertTrue(reduction["underflow_fails_closed"])
+        self.assertFalse(ledger["replay_historical_migrations_unmodified_allowed"])
+        self.assertTrue(all(value is False for value in ledger["observed_tables"].values()))
+        self.assertTrue(ledger["usage_reduction"]["source_ready"])
+        self.assertFalse(ledger["usage_reduction"]["production_applied"])
+        history = json.loads((ROOT / ledger["historical_deployment_evidence"]).read_text())
+        evidence = json.loads((ROOT / ledger["destination_inventory_evidence"]).read_text())
+        self.assertTrue(history["quota_ledger_prior_deployment"]["production_applied"])
+        self.assertEqual(evidence["target_project_ref"], ledger["target_project_ref"])
+        self.assertFalse(evidence["runtime_proofs"]["quota_reservation_ledger_deployed"])
         for resource in self.contract["prepared_resources"]:
             if resource["unit"] == "bytes":
                 self.assertFalse(resource["commercial_value_assigned"])

@@ -93,5 +93,49 @@
     "stale_knowledge_must_be_identified": true,
     "model_output_is_not_source_of_law": true,
     "professional_judgment_not_replaced": true
+  },
+  "update_ownership": {
+    "space_structure": {
+      "owner": "ordax-spaces-core",
+      "distribution": "native-versioned-service",
+      "independent_of": [
+        "os-base",
+        "store-apps",
+        "profile-packs"
+      ],
+      "preserves": "stable-space-identity-and-data"
+    },
+    "store_app": {
+      "owner": "ordax-store",
+      "distribution": "verified-versioned-package",
+      "installation_scope": "authorized-space",
+      "code_shared_across_spaces": true,
+      "data_owner": "domain-service-by-space-id",
+      "independent_of": [
+        "os-base",
+        "space-structure",
+        "profile-packs"
+      ]
+    },
+    "profile_pack": {
+      "owner": "profile-pack-catalog",
+      "distribution": "immutable-versioned-composition",
+      "contains_app_binaries": false,
+      "installs_apps_directly": false,
+      "may_request_store_apps": true,
+      "activation_requires": [
+        "store-package-trust",
+        "compatibility",
+        "entitlement",
+        "explicit-consent-when-required"
+      ],
+      "rollback_preserves_business_data": true
+    },
+    "os_base": {
+      "owner": "ordax-base",
+      "distribution": "verified-base-update",
+      "space_data_migration_implicit": false
+    },
+    "runtime_gate": "declared-app-or-capability-never-proves-installed-ready-or-authorized"
   }
 }

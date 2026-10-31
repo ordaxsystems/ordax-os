@@ -52,9 +52,18 @@ NATIVE_INSTALL_REQUEST=$SESSION_DIR/native-install-request
 NATIVE_INSTALL_RESPONSE=$SESSION_DIR/native-install-response
 NATIVE_INSTALL_SNAPSHOT=$SESSION_DIR/native-install-targets.json
 POWER_REQUEST=$SESSION_DIR/power-request
+HOST_POWER_REQUEST=${ORDAX_HOST_POWER_REQUEST:-/run/ordax-update/host-power-request}
+KEYBOARD_SESSION_RESTART_REQUEST=$SESSION_DIR/keyboard-session-restart-request
+SURFACE_PID=$$
 POWER_STATE_DIR=$STATE_ROOT/power
+POWER_RECEIPTS_MOUNT_RELATIVE=/srv/ordax-power-receipts
 POWER_LAST_REQUEST=$POWER_STATE_DIR/last-request
 POWER_PENDING_STALE_SECONDS=120
+POWER_TERM_GRACE_SECONDS=2
+POWER_KILL_SETTLE_SECONDS=1
+POWER_SYNC_TIMEOUT_SECONDS=12
+POWER_REMOUNT_TIMEOUT_SECONDS=5
+POWER_KERNEL_ACTION_TIMEOUT_SECONDS=5
 SEATD_SOCKET=/run/seatd.sock
 RUNTIME_STATE=$STATE_ROOT/runtime/native-surface
 RUNTIME_ID=alpine-v3.22-cage-webkitgtk-v1
@@ -73,6 +82,7 @@ RUNTIME_UPGRADE_TIMEOUT=${ORDAX_RUNTIME_UPGRADE_TIMEOUT_SECONDS:-120}
 HTTP_PID=""
 GRAPHICS_PID=""
 POWER_BROKER_PID=""
+KEYBOARD_SESSION_RESTART_BROKER_PID=""
 NETWORK_BROKER_PID=""
 NATIVE_INSTALL_BROKER_PID=""
 TIME_SYNC_PID=""
@@ -80,12 +90,14 @@ STAGING_DIR=""
 DEV_BOUND=0
 PROC_BOUND=0
 SYS_BOUND=0
+EFIVARFS_BOUND=0
 RUN_BOUND=0
 SYSTEM_BOUND=0
 REPO_BOUND=0
 ORDAX_BOUND=0
 STATE_BOUND=0
 USER_HOME_BOUND=0
+POWER_RECEIPTS_BOUND=0
 UDEV_ACTIVE=0
 
 mkdir -p "$SESSION_DIR" "$PERSISTENT_NATIVE_STATE" "$PERSISTENT_USER_HOME" "$RESCUE_DIR" "$BASE_TELEMETRY_DIR" "$BASE_UPDATE_DIR" "$POWER_STATE_DIR"
@@ -144,20 +156,20 @@ esac
 # foundation, but the public profile cannot activate its broker or token.
 [ "$DISTRIBUTION_PROFILE" = "stable-mvp" ] && NATIVE_INSTALL_CAPABILITY=disabled
 
-if [ "$DISTRIBUTION_PROFILE" = "stable-mvp" ]; then
+if [ "$DISTRIBUTION_PROFILE" = "stable-mvp" ] || [ -n "$VERIFIED_RUNTIME_MODE" ]; then
     case "$VERIFIED_RUNTIME_MODE" in
         verified-erofs-overlay)
             [ "$VERIFIED_RUNTIME_ROOT" = "/run/ordax/runtime/native-surface/rootfs" ] || {
-                echo "ordax-surface: verified Stable runtime root is invalid" >&2
+                echo "ordax-surface: verified runtime root is invalid" >&2
                 exit 1
             }
             [ "${#VERIFIED_RUNTIME_SHA256}" -eq 64 ] || {
-                echo "ordax-surface: verified Stable runtime digest is invalid" >&2
+                echo "ordax-surface: verified runtime digest is invalid" >&2
                 exit 1
             }
             case "$VERIFIED_RUNTIME_SHA256" in
                 *[!0-9a-f]*)
-                    echo "ordax-surface: verified Stable runtime digest is invalid" >&2
+                    echo "ordax-surface: verified runtime digest is invalid" >&2
                     exit 1
                     ;;
             esac
@@ -169,7 +181,7 @@ if [ "$DISTRIBUTION_PROFILE" = "stable-mvp" ]; then
             # must never provision its graphical runtime from the network.
             ;;
         *)
-            echo "ordax-surface: unsupported Stable runtime mode" >&2
+            echo "ordax-surface: unsupported verified runtime mode" >&2
             exit 1
             ;;
     esac
@@ -285,17 +297,17 @@ ensure_base_update_agent() {
         return 0
     fi
 
+    # Only Owner/Development may launch the Git-owned Base update agent.
+    [ "$DISTRIBUTION_PROFILE" = "owner-development" ] || return 0
+
     [ -f "$BASE_UPDATE_SOURCE" ] || {
         echo "ordax-surface: base update owner source unavailable: $BASE_UPDATE_SOURCE" >>"$BASE_UPDATE_LOG"
         return 0
     }
 
-    repo_root=${SYSTEM_ROOT%/system}
-    if [ -z "$repo_root" ] || [ "$repo_root" = "$SYSTEM_ROOT" ] || [ ! -d "$repo_root" ]; then
-        echo "ordax-surface: source root unavailable for base update owner" >>"$BASE_UPDATE_LOG"
-        return 0
-    fi
-    if [ "$DISTRIBUTION_PROFILE" = "owner-development" ] && [ ! -d "$repo_root/.git" ]; then
+    # The Native executable may live in a verified immutable release slot.
+    # Git remains at the canonical Owner workspace for the Base update owner.
+    if ! resolve_owner_checkout_root; then
         echo "ordax-surface: Owner/Development Git root unavailable for base update owner" >>"$BASE_UPDATE_LOG"
         return 0
     fi
@@ -309,7 +321,7 @@ ensure_base_update_agent() {
         owner_changed=0
     fi
 
-    temporary=$BASE_UPDATE_AGENT.tmp.$
+    temporary=$BASE_UPDATE_AGENT.tmp.$$
     cp "$BASE_UPDATE_SOURCE" "$temporary" >>"$BASE_UPDATE_LOG" 2>&1 || return 1
     chmod 700 "$temporary" >>"$BASE_UPDATE_LOG" 2>&1 || return 1
     /bin/busybox mv -f "$temporary" "$BASE_UPDATE_AGENT" >>"$BASE_UPDATE_LOG" 2>&1 || return 1
@@ -428,6 +440,48 @@ terminate_child() {
     wait "$pid" 2>/dev/null || true
 }
 
+# SIGTERM all the Surface-owned children before waiting for any of them.
+# The previous serial two-second wait per broker could exceed the Supervisor's
+# entire shutdown grace budget even when each child responded promptly.
+# Only PIDs started by this launcher are eligible; never kill by process name.
+quiesce_surface_children() {
+    owned_pids=""
+    for child_pid in "$NATIVE_INSTALL_BROKER_PID" "$NETWORK_BROKER_PID" "$TIME_SYNC_PID" \
+                     "$POWER_BROKER_PID" "$KEYBOARD_SESSION_RESTART_BROKER_PID" \
+                     "$GRAPHICS_PID" "$HTTP_PID"; do
+        case "$child_pid" in
+            ''|*[!0-9]*) continue ;;
+        esac
+        [ "$child_pid" -gt 1 ] 2>/dev/null || continue
+        owned_pids="$owned_pids $child_pid"
+        kill "$child_pid" >/dev/null 2>&1 || true
+    done
+    remaining=4
+    while [ "$remaining" -gt 0 ]; do
+        active=0
+        for child_pid in $owned_pids; do
+            kill -0 "$child_pid" >/dev/null 2>&1 || continue
+            child_state=$(/bin/busybox awk '$1 == "State:" { print $2; exit }' "/proc/$child_pid/status" 2>/dev/null || true)
+            [ "$child_state" = Z ] && continue
+            active=1
+            break
+        done
+        [ "$active" -eq 0 ] && break
+        /bin/busybox sleep 1
+        remaining=$((remaining - 1))
+    done
+    for child_pid in $owned_pids; do
+        if kill -0 "$child_pid" >/dev/null 2>&1; then
+            child_state=$(/bin/busybox awk '$1 == "State:" { print $2; exit }' "/proc/$child_pid/status" 2>/dev/null || true)
+            if [ "$child_state" != Z ]; then
+                echo "ordax-surface: forcing unresponsive owned child pid $child_pid" >>"$HOST_LOG"
+                kill -KILL "$child_pid" >/dev/null 2>&1 || true
+            fi
+        fi
+        wait "$child_pid" 2>/dev/null || true
+    done
+}
+
 runtime_root_processes() {
     [ -d "$RUNTIME_ROOT" ] || [ -d "$LEGACY_RUNTIME_ROOT" ] || return 0
     for root_link in /proc/[0-9]*/root; do
@@ -491,12 +545,14 @@ clear_runtime_mounts_at() {
     runtime_root=$1
     [ -d "$runtime_root" ] || return 0
     for target in \
+        "$runtime_root/srv/ordax-power-receipts" \
         "$runtime_root/var/lib/ordax-user" \
         "$runtime_root/var/lib/ordax" \
         "$runtime_root/ordax" \
         "$runtime_root/srv/ordax-repo" \
         "$runtime_root/srv/ordax-system" \
         "$runtime_root/run" \
+        "$runtime_root/sys/firmware/efi/efivars" \
         "$runtime_root/sys" \
         "$runtime_root/proc" \
         "$runtime_root/dev"
@@ -537,33 +593,17 @@ remove_stale_seatd_socket() {
 
 cleanup() {
     rm -f "$RUNTIME_PROOF_CONTEXT" >/dev/null 2>&1 || true
-    if [ -n "$NATIVE_INSTALL_BROKER_PID" ]; then
-        terminate_child "$NATIVE_INSTALL_BROKER_PID" "Native install broker"
-        NATIVE_INSTALL_BROKER_PID=""
-    fi
+    quiesce_surface_children
+    NATIVE_INSTALL_BROKER_PID=""
+    NETWORK_BROKER_PID=""
+    TIME_SYNC_PID=""
+    POWER_BROKER_PID=""
+    KEYBOARD_SESSION_RESTART_BROKER_PID=""
+    GRAPHICS_PID=""
+    HTTP_PID=""
     rm -f "$NATIVE_INSTALL_CONTROL" "$NATIVE_INSTALL_REQUEST" "$NATIVE_INSTALL_RESPONSE" "$NATIVE_INSTALL_SNAPSHOT" >/dev/null 2>&1 || true
-    if [ -n "$NETWORK_BROKER_PID" ]; then
-        terminate_child "$NETWORK_BROKER_PID" "network broker"
-        NETWORK_BROKER_PID=""
-    fi
     rm -f "$NETWORK_CONTROL" "$NETWORK_REQUEST" "$NETWORK_RESPONSE" "$NETWORK_SCAN_RAW" "$NETWORK_LINK_RAW" "$NETWORK_SAVED_SSID" >/dev/null 2>&1 || true
-    if [ -n "$TIME_SYNC_PID" ]; then
-        terminate_child "$TIME_SYNC_PID" "time sync agent"
-        TIME_SYNC_PID=""
-    fi
-    if [ -n "$POWER_BROKER_PID" ]; then
-        terminate_child "$POWER_BROKER_PID" "power broker"
-        POWER_BROKER_PID=""
-    fi
-    rm -f "$POWER_REQUEST" >/dev/null 2>&1 || true
-    if [ -n "$GRAPHICS_PID" ]; then
-        terminate_child "$GRAPHICS_PID" "graphics host"
-        GRAPHICS_PID=""
-    fi
-    if [ -n "$HTTP_PID" ]; then
-        terminate_child "$HTTP_PID" "native HTTP host"
-        HTTP_PID=""
-    fi
+    rm -f "$POWER_REQUEST" "$KEYBOARD_SESSION_RESTART_REQUEST" >/dev/null 2>&1 || true
     if ! reap_stale_runtime_processes; then
         # Preserve mounted state rather than unmount resources still used by
         # an unverified live process. The next owner must fail closed too.
@@ -576,6 +616,10 @@ cleanup() {
     fi
     if [ -S "$SEATD_SOCKET" ] && ! seatd_process_running; then
         rm -f "$SEATD_SOCKET" >/dev/null 2>&1 || true
+    fi
+    if [ "$POWER_RECEIPTS_BOUND" -eq 1 ]; then
+        /bin/busybox umount "$RUNTIME_ROOT$POWER_RECEIPTS_MOUNT_RELATIVE" >/dev/null 2>&1 || true
+        POWER_RECEIPTS_BOUND=0
     fi
     if [ "$ORDAX_BOUND" -eq 1 ]; then
         /bin/busybox umount "$RUNTIME_ROOT/ordax" >/dev/null 2>&1 || true
@@ -600,6 +644,15 @@ cleanup() {
     if [ "$RUN_BOUND" -eq 1 ]; then
         /bin/busybox umount "$RUNTIME_ROOT/run" >/dev/null 2>&1 || true
         RUN_BOUND=0
+    fi
+    # Nested EFI bind must go away before /sys, including when shutdown
+    # failed and the Surface is being restarted by the Guardian.
+    if [ "$EFIVARFS_BOUND" -eq 1 ]; then
+        /bin/busybox umount "$RUNTIME_ROOT/sys/firmware/efi/efivars" >>"$HOST_LOG" 2>&1 || {
+            echo "ordax-surface: cannot release runtime efivarfs mount" >>"$HOST_LOG"
+            return 1
+        }
+        EFIVARFS_BOUND=0
     fi
     if [ "$SYS_BOUND" -eq 1 ]; then
         /bin/busybox umount "$RUNTIME_ROOT/sys" >/dev/null 2>&1 || true
@@ -657,8 +710,45 @@ fallback_with_reason() {
     console_fallback
 }
 
+runtime_packages() {
+    package_manifest=$SYSTEM_ROOT/surface/runtime/packages.txt
+    [ -f "$package_manifest" ] && [ ! -L "$package_manifest" ] || return 1
+    package_count=0
+    seen_packages=
+    while IFS= read -r package || [ -n "$package" ]; do
+        case "$package" in
+            ''|[!A-Za-z0-9]*|*[!A-Za-z0-9+_.-]*) return 1 ;;
+        esac
+        case " $seen_packages " in
+            *" $package "*) return 1 ;;
+        esac
+        seen_packages="$seen_packages $package"
+        package_count=$((package_count + 1))
+        printf '%s\n' "$package"
+    done <"$package_manifest"
+    [ "$package_count" -gt 0 ]
+}
+
+runtime_media_is_ready() {
+    # Baseline demuxers/decoders used by the platform's advertised file types.
+    # This checks the runtime payload, not physical audio/acceleration health.
+    for plugin in alsa playback isomp4 matroska mpg123 wavparse flac libav; do
+        [ -f "$RUNTIME_ROOT/usr/lib/gstreamer-1.0/libgst$plugin.so" ] || return 1
+    done
+}
+
+runtime_audio_is_ready() {
+    [ -x "$RUNTIME_ROOT/usr/bin/dbus-run-session" ] &&
+        [ -x "$RUNTIME_ROOT/usr/bin/pipewire" ] &&
+        [ -x "$RUNTIME_ROOT/usr/bin/wireplumber" ] &&
+        [ -x "$RUNTIME_ROOT/usr/bin/pipewire-pulse" ] &&
+        [ -x "$RUNTIME_ROOT/usr/bin/pactl" ] &&
+        [ -f "$RUNTIME_ROOT/usr/lib/gstreamer-1.0/libgstpipewire.so" ]
+}
+
 runtime_base_is_ready() {
-    if [ "$DISTRIBUTION_PROFILE" = "stable-mvp" ]; then
+    if [ "$DISTRIBUTION_PROFILE" = "stable-mvp" ] ||
+       [ "$VERIFIED_RUNTIME_MODE" = "verified-erofs-overlay" ]; then
         [ "$VERIFIED_RUNTIME_MODE" = "verified-erofs-overlay" ] || return 1
         [ "$RUNTIME_ROOT" = "$VERIFIED_RUNTIME_ROOT" ] || return 1
     else
@@ -738,9 +828,11 @@ migrate_legacy_runtime() {
         return 1
     fi
 
+    packages=$(runtime_packages) || return 1
+    # Intentional word splitting of validated package names, never shell code.
     if ! run_bounded_apk "$RUNTIME_UPGRADE_TIMEOUT" \
         --root "$STAGING_DIR/rootfs" --keys-dir /etc/apk/keys --no-cache add \
-        xwayland eudev libinput-udev python3 py3-gobject3 gtk+3.0 webkit2gtk-4.1 \
+        $packages \
         >>"$HOST_LOG" 2>&1; then
         echo "ordax-surface: legacy runtime migration timed out or failed" >>"$HOST_LOG"
         rm -rf "$STAGING_DIR"
@@ -773,12 +865,11 @@ REPOSITORIES
 
     printf 'OrdaX: preparando novo runtime grafico...\n'
     echo "ordax-surface: provisioning replaceable graphical runtime in $RUNTIME_STATE" >>"$HOST_LOG"
+    packages=$(runtime_packages) || return 1
+    # The same source manifest feeds the immutable CI build and dev provisioning.
     if ! run_bounded_apk "$RUNTIME_INSTALL_TIMEOUT" \
         --root "$STAGING_DIR/rootfs" --keys-dir /etc/apk/keys --no-cache --initdb add \
-        alpine-baselayout busybox ca-certificates cage xwayland \
-        python3 py3-gobject3 gtk+3.0 webkit2gtk-4.1 \
-        seatd-launch mesa-dri-gallium mesa-egl mesa-gbm font-dejavu \
-        eudev libinput-udev >>"$HOST_LOG" 2>&1; then
+        $packages >>"$HOST_LOG" 2>&1; then
         echo "ordax-surface: graphical runtime provisioning timed out or failed" >>"$HOST_LOG"
         rm -rf "$STAGING_DIR"
         STAGING_DIR=""
@@ -791,16 +882,28 @@ REPOSITORIES
 upgrade_existing_runtime() {
     printf 'OrdaX: atualizando runtime grafico existente...\n'
     echo "ordax-surface: extending existing graphical runtime with WebKit browser host support" >>"$HOST_LOG"
+    packages=$(runtime_packages) || return 1
     if ! run_bounded_apk "$RUNTIME_UPGRADE_TIMEOUT" \
         --root "$RUNTIME_ROOT" --keys-dir /etc/apk/keys --no-cache add \
-        xwayland eudev libinput-udev python3 py3-gobject3 gtk+3.0 webkit2gtk-4.1 >>"$HOST_LOG" 2>&1; then
+        $packages >>"$HOST_LOG" 2>&1; then
         echo "ordax-surface: graphical runtime upgrade timed out or failed" >>"$HOST_LOG"
         return 1
     fi
-    runtime_is_ready
+    runtime_is_ready && runtime_media_is_ready && runtime_audio_is_ready
 }
 
 ensure_runtime() {
+    # Owner USB reuses the canonical verified EROFS/overlay handoff. A missing
+    # or invalid preseed must fail closed: never fall through to APK downloads.
+    if [ "$DISTRIBUTION_PROFILE" = "owner-development" ] &&
+       [ "$VERIFIED_RUNTIME_MODE" = "verified-erofs-overlay" ]; then
+        runtime_is_ready || {
+            echo "ordax-surface: Owner USB offline graphical runtime is invalid" >>"$HOST_LOG"
+            return 1
+        }
+        echo "ordax-surface: using preverified Owner USB EROFS runtime" >>"$HOST_LOG"
+        return 0
+    fi
     if [ "$DISTRIBUTION_PROFILE" = "stable-mvp" ]; then
         runtime_is_ready || {
             echo "ordax-surface: Stable/MVP requires the preverified offline graphical runtime" >>"$HOST_LOG"
@@ -810,7 +913,15 @@ ensure_runtime() {
         return 0
     fi
 
-    runtime_is_ready && return 0
+    if runtime_is_ready; then
+        if ! runtime_media_is_ready || ! runtime_audio_is_ready; then
+            if ! upgrade_existing_runtime; then
+                echo "ordax-surface: optional media runtime upgrade incomplete; preserving the usable Surface" >>"$HOST_LOG"
+                runtime_is_ready || return 1
+            fi
+        fi
+        return 0
+    fi
     if runtime_base_is_ready; then
         upgrade_existing_runtime || return 1
         return 0
@@ -830,49 +941,9 @@ ensure_loopback() {
 }
 
 sync_runtime_resolver() {
-    host_resolver=/etc/resolv.conf
-    runtime_resolver=$RUNTIME_ROOT/etc/resolv.conf
-    [ -r "$host_resolver" ] || {
-        echo "ordax-surface: host resolver is unavailable: $host_resolver" >>"$HOST_LOG"
-        return 1
-    }
-
-    mkdir -p "$RUNTIME_ROOT/etc" || return 1
-    temporary=$RUNTIME_ROOT/etc/.resolv.conf.ordax.$
-    rm -f "$temporary" >/dev/null 2>&1 || true
-
-    if ! /bin/busybox cat "$host_resolver" >"$temporary"; then
-        rm -f "$temporary" >/dev/null 2>&1 || true
-        echo "ordax-surface: failed to snapshot host resolver" >>"$HOST_LOG"
-        return 1
-    fi
-
-    resolver_size=$(/bin/busybox stat -c %s "$temporary" 2>/dev/null || printf '0')
-    case "$resolver_size" in
-        ''|*[!0-9]*) resolver_size=0 ;;
-    esac
-    if [ "$resolver_size" -le 0 ] 2>/dev/null || [ "$resolver_size" -gt 16384 ] 2>/dev/null; then
-        rm -f "$temporary" >/dev/null 2>&1 || true
-        echo "ordax-surface: host resolver size is outside the allowed range" >>"$HOST_LOG"
-        return 1
-    fi
-
-    if ! /bin/busybox grep -Eq '^[[:space:]]*nameserver[[:space:]]+[^[:space:]#]+' "$temporary"; then
-        rm -f "$temporary" >/dev/null 2>&1 || true
-        echo "ordax-surface: host resolver has no usable nameserver" >>"$HOST_LOG"
-        return 1
-    fi
-
-    chmod 644 "$temporary" || {
-        rm -f "$temporary" >/dev/null 2>&1 || true
-        return 1
-    }
-    /bin/busybox mv -f "$temporary" "$runtime_resolver" || {
-        rm -f "$temporary" >/dev/null 2>&1 || true
-        return 1
-    }
-    echo "ordax-surface: synchronized host resolver into graphical runtime" >>"$HOST_LOG"
-    return 0
+    resolver_sync=$SYSTEM_ROOT/surface/runtime/resolver_sync.sh
+    [ -f "$resolver_sync" ] && [ ! -L "$resolver_sync" ] || return 1
+    /bin/sh "$resolver_sync" "$RUNTIME_ROOT" "$HOST_LOG"
 }
 
 ensure_shared_memory() {
@@ -889,8 +960,40 @@ is_source_sha() {
     return 0
 }
 
+# Resolve the only authorized Owner Git checkout independently of the
+# immutable Surface execution slot. No repository is copied into the slot;
+# the Supervisor stages/verifies that slot before launching this process.
+resolve_owner_checkout_root() {
+    is_source_sha "$SOURCE_SHA_HINT" || return 1
+    owner_worktree=${ORDAX_WORKTREE:-/workspace/ordax}
+    case "$owner_worktree" in /*) ;; *) return 1 ;; esac
+    [ -d "$owner_worktree" ] && [ ! -L "$owner_worktree" ] || return 1
+    [ -d "$owner_worktree/.git" ] || [ -f "$owner_worktree/.git" ] || return 1
+    [ ! -L "$owner_worktree/.git" ] || return 1
+    owner_release_root=${ORDAX_RELEASES_DIR:-$STATE_ROOT/releases}
+    case "$SYSTEM_ROOT" in
+        "$owner_worktree/system")
+            # Legacy Owner source remains executable until the cutover.
+            ;;
+        "$owner_release_root/$SOURCE_SHA_HINT/system")
+            owner_slot=${SYSTEM_ROOT%/system}
+            for owner_marker in .sha .ready .surface-source-sha; do
+                [ -f "$owner_slot/$owner_marker" ] && [ ! -L "$owner_slot/$owner_marker" ] || return 1
+            done
+            owner_slot_sha=""
+            IFS= read -r owner_slot_sha < "$owner_slot/.sha" || return 1
+            [ "$owner_slot_sha" = "$SOURCE_SHA_HINT" ] || return 1
+            # The Supervisor's existing ready gate validates the exact pinned
+            # visual source and all visual hashes before every start.
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+    repo_root=$owner_worktree
+}
+
 resolve_source_identity() {
-    repo_root=${SYSTEM_ROOT%/system}
     case "$DISTRIBUTION_PROFILE" in
         stable-mvp)
             is_source_sha "$SOURCE_SHA_HINT" || {
@@ -904,8 +1007,8 @@ resolve_source_identity() {
                 echo "ordax-surface: Owner/Development source SHA hint is invalid" >>"$HOST_LOG"
                 return 1
             }
-            [ "$repo_root" != "$SYSTEM_ROOT" ] && [ -x /usr/bin/git ] || {
-                echo "ordax-surface: Owner/Development source repository is unavailable" >>"$HOST_LOG"
+            [ -x /usr/bin/git ] && resolve_owner_checkout_root || {
+                echo "ordax-surface: Owner/Development source repository or verified slot is unavailable" >>"$HOST_LOG"
                 return 1
             }
             candidate_sha=$(/usr/bin/git -C "$repo_root" rev-parse HEAD 2>/dev/null || printf 'unknown')
@@ -936,12 +1039,56 @@ configure_graphics_host() {
     mkdir -p "$RUNTIME_ROOT/tmp/ordax-web-cache-$SOURCE_SHA" || return 1
 }
 
+# The ordinary /sys bind intentionally does not include its submounts.
+# A real UEFI boot mounts efivarfs beneath /sys; without an explicit bind,
+# the Base Update preflight inside the graphical runtime's chroot always
+# sees a directory instead of a *direct efivarfs mount*. Do not mount a new
+# efivarfs filesystem, spoof a receipt, or grant firmware access on BIOS.
+bind_owner_efivarfs_into_runtime() {
+    [ "$DISTRIBUTION_PROFILE" = owner-development ] && [ "$PRODUCT_MODE" = usb ] || return 0
+    host_efivars=/sys/firmware/efi/efivars
+    [ -d /sys/firmware/efi ] || return 0
+    if [ ! -d "$host_efivars" ] || [ -L "$host_efivars" ]; then
+        echo "ordax-surface: UEFI variables directory unavailable or unsafe; Base activation blocked" >>"$HOST_LOG"
+        return 0
+    fi
+    # The exact host mount must be a single root-backed efivarfs instance.
+    # No overmount and no nested/inferred path: the Python owner rechecks
+    # writable mount flags, UEFI identity and all activation constraints.
+    if ! /bin/busybox awk '
+        $5 == "/sys/firmware/efi/efivars" {
+            count++
+            for (i = 7; i <= NF; i++) {
+                if ($i == "-") {
+                    if ($4 == "/" && $(i+1) == "efivarfs" && $(i+2) == "efivarfs")
+                        valid++
+                    break
+                }
+            }
+        }
+        END { exit !(count == 1 && valid == 1) }
+    ' /proc/self/mountinfo; then
+        echo "ordax-surface: direct host efivarfs mount not proven; Base activation blocked" >>"$HOST_LOG"
+        return 0
+    fi
+    target=$RUNTIME_ROOT$host_efivars
+    [ -d "$target" ] && [ ! -L "$target" ] || return 1
+    # Never stack a bind over an existing mount of unknown provenance.
+    if /bin/busybox awk -v target="$target" '$5 == target { found=1 } END { exit !found }' /proc/self/mountinfo; then
+        echo "ordax-surface: runtime efivarfs destination already mounted" >>"$HOST_LOG"
+        return 1
+    fi
+    /bin/busybox mount -o bind "$host_efivars" "$target" >>"$HOST_LOG" 2>&1 || return 1
+    EFIVARFS_BOUND=1
+    return 0
+}
+
 bind_runtime_mounts() {
-    repo_root=${SYSTEM_ROOT%/system}
+    repo_root=
     case "$DISTRIBUTION_PROFILE" in
         owner-development)
-            [ -n "$repo_root" ] && [ "$repo_root" != "$SYSTEM_ROOT" ] && [ -d "$repo_root" ] || {
-                echo "ordax-surface: Owner/Development source repository root is unavailable" >>"$HOST_LOG"
+            resolve_owner_checkout_root || {
+                echo "ordax-surface: Owner/Development Git checkout or verified slot is unavailable" >>"$HOST_LOG"
                 return 1
             }
             ;;
@@ -986,8 +1133,27 @@ bind_runtime_mounts() {
     PROC_BOUND=1
     /bin/busybox mount -o bind /sys "$RUNTIME_ROOT/sys" >>"$HOST_LOG" 2>&1 || return 1
     SYS_BOUND=1
+    bind_owner_efivarfs_into_runtime || return 1
     /bin/busybox mount -o bind /run "$RUNTIME_ROOT/run" >>"$HOST_LOG" 2>&1 || return 1
     RUN_BOUND=1
+    # Owner USB receipts are written by the Guardian in /state/ordax/power.
+    # The graphical chroot's /ordax bind is NOT a contract for that host path.
+    # Bind only the dedicated state directory, never the whole host state tree.
+    if [ "$DISTRIBUTION_PROFILE" = "owner-development" ] && [ "$PRODUCT_MODE" = "usb" ]; then
+        [ -d "$POWER_STATE_DIR" ] && [ ! -L "$POWER_STATE_DIR" ] || return 1
+        receipts_target=$RUNTIME_ROOT$POWER_RECEIPTS_MOUNT_RELATIVE
+        [ ! -L "$receipts_target" ] || return 1
+        mkdir -p "$receipts_target" || return 1
+        /bin/busybox mount -o bind "$POWER_STATE_DIR" "$receipts_target" >>"$HOST_LOG" 2>&1 || return 1
+        POWER_RECEIPTS_BOUND=1
+        /bin/busybox mount -o remount,bind,ro "$receipts_target" >>"$HOST_LOG" 2>&1 || return 1
+        # Verify the mount flags, rather than guessing from the superblock.
+        receipts_options=$(/bin/busybox awk -v path="$receipts_target" '$2 == path { print $4; exit }' /proc/mounts 2>/dev/null || true)
+        case ",$receipts_options," in
+            *,ro,*) ;;
+            *) echo "ordax-surface: power receipts mount is not read-only" >>"$HOST_LOG"; return 1 ;;
+        esac
+    fi
 }
 
 bootstrap_verified_app_install_identities() {
@@ -1016,8 +1182,19 @@ publish_runtime_proof_context() {
 
     case "$DISTRIBUTION_PROFILE" in
         owner-development)
-            runtime_mode=dynamic-native-runtime
             evidence_scope=development
+            if [ "$VERIFIED_RUNTIME_MODE" = "verified-erofs-overlay" ]; then
+                [ "$RUNTIME_ROOT" = "/run/ordax/runtime/native-surface/rootfs" ] || return 1
+                [ "${#VERIFIED_RUNTIME_SHA256}" -eq 64 ] || return 1
+                case "$VERIFIED_RUNTIME_SHA256" in
+                    *[!0-9a-f]*) return 1 ;;
+                esac
+                runtime_mode=verified-erofs-overlay
+                runtime_sha256=$VERIFIED_RUNTIME_SHA256
+            else
+                [ -z "$VERIFIED_RUNTIME_MODE" ] || return 1
+                runtime_mode=dynamic-native-runtime
+            fi
             ;;
         stable-mvp)
             [ "$VERIFIED_RUNTIME_MODE" = "verified-erofs-overlay" ] || return 1
@@ -1035,7 +1212,7 @@ publish_runtime_proof_context() {
             ;;
     esac
 
-    temporary=$RUNTIME_PROOF_CONTEXT.tmp.$
+    temporary=$RUNTIME_PROOF_CONTEXT.tmp.$$
     {
         printf 'distribution_profile=%s\n' "$DISTRIBUTION_PROFILE"
         printf 'runtime_mode=%s\n' "$runtime_mode"
@@ -1056,12 +1233,39 @@ publish_runtime_proof_context() {
     return 0
 }
 
+supervise_network_broker() (
+    # A failed broker must not strand network management for the rest of a
+    # graphical session. Keep its lifecycle under the existing Surface owner.
+    broker_pid=""
+    stop_broker_supervisor() {
+        trap - HUP INT TERM
+        if [ -n "$broker_pid" ]; then
+            kill -TERM "$broker_pid" >/dev/null 2>&1 || true
+            wait "$broker_pid" >/dev/null 2>&1 || true
+        fi
+        exit 0
+    }
+    trap 'stop_broker_supervisor' HUP INT TERM
+    while :; do
+        ORDAX_NETWORK_STATE_DIR=${ORDAX_NETWORK_STATE_DIR:-/state/network} \
+        ORDAX_NETWORK_SESSION_DIR="$SESSION_DIR" \
+        ORDAX_RUNTIME_RESOLVER_SYNC_SCRIPT="$SYSTEM_ROOT/surface/runtime/resolver_sync.sh" \
+        ORDAX_RUNTIME_RESOLVER_ROOT="$RUNTIME_ROOT" \
+        ORDAX_RUNTIME_RESOLVER_LOG="$NETWORK_LOG" \
+            /bin/sh "$NETWORK_BROKER_SOURCE" >>"$NETWORK_LOG" 2>&1 &
+        broker_pid=$!
+        broker_exit=0
+        wait "$broker_pid" || broker_exit=$?
+        broker_pid=""
+        echo "ordax-surface: Wi-Fi broker exited (status=$broker_exit); restarting its IPC owner" >>"$NETWORK_LOG"
+        /bin/busybox sleep 3
+    done
+)
+
 start_network_broker() {
-    [ -f "$NETWORK_BROKER_SOURCE" ] || return 1
+    [ -f "$NETWORK_BROKER_SOURCE" ] && [ ! -L "$NETWORK_BROKER_SOURCE" ] || return 1
     rm -f "$NETWORK_CONTROL" "$NETWORK_REQUEST" "$NETWORK_RESPONSE" "$NETWORK_SCAN_RAW" "$NETWORK_LINK_RAW" "$NETWORK_SAVED_SSID" >/dev/null 2>&1 || true
-    ORDAX_NETWORK_STATE_DIR=${ORDAX_NETWORK_STATE_DIR:-/state/network} \
-    ORDAX_NETWORK_SESSION_DIR="$SESSION_DIR" \
-        /bin/sh "$NETWORK_BROKER_SOURCE" >>"$NETWORK_LOG" 2>&1 &
+    supervise_network_broker &
     NETWORK_BROKER_PID=$!
 
     remaining=20
@@ -1071,6 +1275,7 @@ start_network_broker() {
         /bin/busybox sleep 0.1
         remaining=$((remaining - 1))
     done
+    # The supervisor continues bounded retries without blocking boot.
     return 1
 }
 
@@ -1100,12 +1305,41 @@ start_native_install_broker() {
     return 1
 }
 
+supervise_time_sync_agent() (
+    # The clock must recover AFTER network readiness. Launching ntpd once
+    # before a saved Wi-Fi connection exists could leave the 2015 RTC intact
+    # for the entire graphical session after a transient DNS failure.
+    ntp_pid=""
+    stop_clock_supervisor() {
+        trap - HUP INT TERM
+        if [ -n "$ntp_pid" ]; then
+            kill -TERM "$ntp_pid" >/dev/null 2>&1 || true
+            wait "$ntp_pid" >/dev/null 2>&1 || true
+        fi
+        exit 0
+    }
+    trap 'stop_clock_supervisor' HUP INT TERM
+    while :; do
+        if ! /bin/busybox ip -4 addr show scope global 2>/dev/null |
+            /bin/busybox grep -q ' inet '; then
+            /bin/busybox sleep 5
+            continue
+        fi
+        /bin/busybox ntpd -n \
+            -p time.cloudflare.com \
+            -p time.google.com \
+            -p pool.ntp.org \
+            >>"$TIME_SYNC_LOG" 2>&1 &
+        ntp_pid=$!
+        wait "$ntp_pid" >/dev/null 2>&1 || true
+        ntp_pid=""
+        echo "ordax-surface: clock synchronization exited; retrying after network recovery" >>"$TIME_SYNC_LOG"
+        /bin/busybox sleep 15
+    done
+)
+
 start_time_sync_agent() {
-    /bin/busybox ntpd -n \
-        -p time.cloudflare.com \
-        -p time.google.com \
-        -p pool.ntp.org \
-        >>"$TIME_SYNC_LOG" 2>&1 &
+    supervise_time_sync_agent &
     TIME_SYNC_PID=$!
     kill -0 "$TIME_SYNC_PID" >/dev/null 2>&1
 }
@@ -1166,11 +1400,11 @@ write_power_request_record() {
         ''|*[!0-9]*) return 1 ;;
     esac
     case "$status" in
-        pending|failed) ;;
+        pending|stopping|syncing|rebooting|powering-off|failed) ;;
         *) return 1 ;;
     esac
 
-    temporary=$POWER_LAST_REQUEST.tmp.$
+    temporary=$POWER_LAST_REQUEST.tmp.$$
     printf '%s|%s|%s|%s\n' "$action" "$request_boot_id" "$request_epoch" "$status" >"$temporary" || return 1
     chmod 600 "$temporary" || return 1
     /bin/busybox mv -f "$temporary" "$POWER_LAST_REQUEST" || return 1
@@ -1209,7 +1443,10 @@ reconcile_stale_power_request() {
     request_epoch=""
     status=""
     IFS='|' read -r action request_boot_id request_epoch status <"$POWER_LAST_REQUEST" || return 0
-    [ "$status" = "pending" ] || return 0
+    case "$status" in
+        pending|stopping|syncing|rebooting|powering-off) ;;
+        *) return 0 ;;
+    esac
     case "$action" in restart|shutdown) ;; *) return 0 ;; esac
     case "$request_boot_id" in ''|*[!0-9a-f]*) return 0 ;; esac
     case "$request_epoch" in ''|*[!0-9]*) return 0 ;; esac
@@ -1231,30 +1468,72 @@ reconcile_stale_power_request() {
     fi
 }
 
-restart_host() {
-    echo "ordax-surface: host restart requested; flushing filesystems" >>"$HOST_LOG"
-    /bin/busybox sync >>"$HOST_LOG" 2>&1 || true
-
-    echo "ordax-surface: attempting primary reboot syscall" >>"$HOST_LOG"
-    /bin/busybox reboot -f >>"$HOST_LOG" 2>&1 || true
-
-    echo "ordax-surface: primary reboot returned; attempting kernel sysrq restart fallback" >>"$HOST_LOG"
-    if [ -w /proc/sysrq-trigger ]; then
-        /bin/busybox sync >>"$HOST_LOG" 2>&1 || true
-        if printf 'b' >/proc/sysrq-trigger 2>>"$HOST_LOG"; then
-            # A successful emergency restart never returns.
-            /bin/busybox sleep 1
-        fi
-    else
-        echo "ordax-surface: /proc/sysrq-trigger is unavailable; no kernel restart fallback exists" >>"$HOST_LOG"
+forward_host_power_request() {
+    action=$1
+    case "$action" in restart|shutdown) ;; *) return 1 ;; esac
+    [ -p "$HOST_POWER_REQUEST" ] || {
+        echo "ordax-surface: host power owner channel is unavailable" >>"$HOST_LOG"
+        return 1
+    }
+    # A FIFO can survive its Guardian reader. Plain shell redirection would
+    # block indefinitely if the host owner dies after the UI accepts a request.
+    # Keep the destructive handoff bounded and report failure to the broker.
+    if ! /bin/busybox timeout -k 1 3 /bin/sh -c \
+        'printf "%s\\n" "$1" >"$2"' sh "$action" "$HOST_POWER_REQUEST"; then
+        echo "ordax-surface: host power owner did not accept $action within timeout" >>"$HOST_LOG"
+        return 1
     fi
+    return 0
+}
 
-    echo "ordax-surface: all host restart methods returned without rebooting" >>"$HOST_LOG"
-    return 1
+prepare_keyboard_session_restart_broker() {
+    rm -f "$KEYBOARD_SESSION_RESTART_REQUEST" >/dev/null 2>&1 || true
+    /bin/busybox mkfifo "$KEYBOARD_SESSION_RESTART_REQUEST" >>"$HOST_LOG" 2>&1 || return 1
+    chmod 600 "$KEYBOARD_SESSION_RESTART_REQUEST" >>"$HOST_LOG" 2>&1 || return 1
+
+    (
+        exec 8<>"$KEYBOARD_SESSION_RESTART_REQUEST" || exit 1
+        while :; do
+            requested_layout=""
+            if IFS= read -r requested_layout <&8; then
+                case "$requested_layout" in
+                    br-abnt2|us) ;;
+                    *) continue ;;
+                esac
+                [ -r "$KEYBOARD_LAYOUT_STATE" ] && [ ! -L "$KEYBOARD_LAYOUT_STATE" ] || continue
+                configured_layout=""
+                IFS= read -r configured_layout <"$KEYBOARD_LAYOUT_STATE" || configured_layout=""
+                [ "$configured_layout" = "$requested_layout" ] || continue
+                [ "$configured_layout" != "$ORDAX_KEYBOARD_LAYOUT_ID" ] || continue
+                echo "ordax-surface: applying configured keyboard at next graphical session" >>"$HOST_LOG"
+                # Allow the HTTP response to drain, then revalidate: a later
+                # configure() may have replaced the pending layout meanwhile.
+                /bin/busybox sleep 2
+                [ -r "$KEYBOARD_LAYOUT_STATE" ] && [ ! -L "$KEYBOARD_LAYOUT_STATE" ] || continue
+                latest_layout=""
+                IFS= read -r latest_layout <"$KEYBOARD_LAYOUT_STATE" || latest_layout=""
+                [ "$latest_layout" = "$requested_layout" ] || continue
+                /bin/busybox kill -TERM "$SURFACE_PID" >/dev/null 2>&1 || true
+                exit 0
+            else
+                /bin/busybox sleep 1
+            fi
+        done
+    ) &
+    KEYBOARD_SESSION_RESTART_BROKER_PID=$!
+    kill -0 "$KEYBOARD_SESSION_RESTART_BROKER_PID" >/dev/null 2>&1 || return 1
 }
 
 prepare_power_broker() {
-    rm -f "$POWER_REQUEST" >/dev/null 2>&1 || true
+    # Remove any stale local capability before checking the Guardian.
+    # Otherwise a previous FIFO could still be visible to the Native server.
+    rm -f "$POWER_REQUEST" >/dev/null 2>&1 || return 1
+    # Never advertise a functioning power control when its actual root-owned
+    # Guardian channel is missing. The graphical desktop must still boot.
+    [ -p "$HOST_POWER_REQUEST" ] || {
+        echo "ordax-surface: Guardian host power channel absent; controls disabled" >>"$HOST_LOG"
+        return 1
+    }
     /bin/busybox mkfifo "$POWER_REQUEST" >>"$HOST_LOG" 2>&1 || return 1
     chmod 600 "$POWER_REQUEST" >>"$HOST_LOG" 2>&1 || return 1
 
@@ -1266,20 +1545,25 @@ prepare_power_broker() {
                 case "$action" in
                     restart)
                         echo "ordax-surface: host power broker accepted restart" >>"$HOST_LOG"
-                        record_power_request restart pending || echo "ordax-surface: failed to persist restart request proof" >>"$HOST_LOG"
+                        if ! record_power_request restart pending; then
+                            echo "ordax-surface: refusing restart because pending power proof could not be persisted" >>"$HOST_LOG"
+                            continue
+                        fi
                         /bin/busybox sleep 1
-                        if ! restart_host; then
+                        if ! forward_host_power_request restart; then
                             record_power_request restart failed || true
                         fi
                         ;;
                     shutdown)
                         echo "ordax-surface: host power broker accepted shutdown" >>"$HOST_LOG"
-                        record_power_request shutdown pending || echo "ordax-surface: failed to persist shutdown request proof" >>"$HOST_LOG"
+                        if ! record_power_request shutdown pending; then
+                            echo "ordax-surface: refusing shutdown because pending power proof could not be persisted" >>"$HOST_LOG"
+                            continue
+                        fi
                         /bin/busybox sleep 1
-                        /bin/busybox sync >>"$HOST_LOG" 2>&1 || true
-                        /bin/busybox poweroff -f >>"$HOST_LOG" 2>&1 || true
-                        echo "ordax-surface: host poweroff command returned without shutting down" >>"$HOST_LOG"
-                        record_power_request shutdown failed || true
+                        if ! forward_host_power_request shutdown; then
+                            record_power_request shutdown failed || true
+                        fi
                         ;;
                     *)
                         [ -n "$action" ] && echo "ordax-surface: rejected unknown host power request: $action" >>"$HOST_LOG"
@@ -1294,8 +1578,11 @@ prepare_power_broker() {
     kill -0 "$POWER_BROKER_PID" >/dev/null 2>&1 || return 1
 }
 
+# The native Python HTTP server is not a boot blocker until the bounded
+# readiness window expires. Its former 10s bound caused false cold-boot
+# failures under QEMU TCG despite the Guardian's 90s Surface health budget.
 wait_for_native_server() {
-    remaining=${1:-10}
+    remaining=${1:-30}
     while [ "$remaining" -gt 0 ]; do
         [ -n "$HTTP_PID" ] && kill -0 "$HTTP_PID" >/dev/null 2>&1 || return 1
         if /bin/busybox chroot "$RUNTIME_ROOT" /usr/bin/python3 -c 'import socket; s=socket.create_connection(("127.0.0.1", 8765), 0.5); s.close()' >>"$HTTP_LOG" 2>&1; then
@@ -1342,6 +1629,10 @@ start_native_install_broker || echo "ordax-surface: Native install discovery bro
 reap_stale_runtime_processes || fallback_with_reason "stale runtime processes survived bounded termination; refusing mount reuse"
 clear_stale_runtime_mounts
 resolve_source_identity || fallback_with_reason "failed to resolve exact Surface source identity"
+# Bind the existing signed Account gateway after the exact Surface source is
+# resolved, even when the Supervisor starts this runtime without an exported
+# optional environment override. Missing/invalid settings stay offline-first.
+resolve_account_gateway_base_url
 if ! runtime_is_ready; then
     printf 'OrdaX: preparando Surface grafica...\n'
     # Current-boot, exact-SHA marker. Stable/MVP never acquires APK packages.
@@ -1359,9 +1650,10 @@ bind_runtime_mounts || fallback_with_reason "failed to bind host resources into 
 bootstrap_verified_app_install_identities || fallback_with_reason "failed to bootstrap verified app install identities"
 prepare_input_stack || fallback_with_reason "failed to prepare physical keyboard/touchpad input devices"
 configure_keyboard_layout
+prepare_keyboard_session_restart_broker || echo "ordax-surface: keyboard session restart unavailable; next startup still applies configured layout" >>"$HOST_LOG"
 publish_runtime_proof_context || fallback_with_reason "failed to publish active Surface runtime proof context"
 remove_stale_seatd_socket || fallback_with_reason "failed to clear stale seatd socket before native host startup"
-prepare_power_broker || fallback_with_reason "failed to prepare host power broker"
+prepare_power_broker || echo "ordax-surface: host power broker unavailable; continuing without power actions" >>"$HOST_LOG"
 ensure_base_update_agent || echo "ordax-surface: base update owner unavailable; continuing Surface startup" >>"$HOST_LOG"
 
 export XDG_RUNTIME_DIR="$SESSION_DIR"
@@ -1384,13 +1676,68 @@ export ORDAX_SURFACE_MODE=native-graphical
     --telemetry-config /srv/ordax-system/services/telemetry/relay.json \
     >"$HTTP_LOG" 2>&1 &
 HTTP_PID=$!
-wait_for_native_server 10 || fallback_with_reason "native Surface HTTP/control server failed readiness check"
+wait_for_native_server 30 || fallback_with_reason "native Surface HTTP/control server failed readiness check"
 
 printf '\033[2J\033[H'
 printf 'OrdaX: iniciando Surface grafica...\n'
 
+# WebKitGTK 2.48 can negotiate DMA-BUF on a DRM device that cannot present
+# those buffers. Restrict shared-memory transport to the *active* virtio DRM
+# device in Owner Development; no global software-rendering switch, no
+# change to real Intel/AMD/NVIDIA devices, and no Stable/MVP contract change.
+# The driver identity comes from sysfs, not the QEMU proof's command line.
+select_owner_virtio_webkit_transport() {
+    [ "$DISTRIBUTION_PROFILE" = "owner-development" ] || return 0
+    # A DRM card may be represented as a PCI or virtio child in sysfs.
+    # Inspect the bound device and its kernel uevent, not the presence of a
+    # loaded module or a test-only command-line parameter.
+    drm_device=/sys/class/drm/card0/device
+    active_driver=$(/bin/busybox readlink -f "$drm_device/driver" 2>/dev/null || true)
+    active_device=$(/bin/busybox readlink -f "$drm_device" 2>/dev/null || true)
+    detected=0
+    case "$active_driver" in */virtio_gpu) detected=1 ;; esac
+    if [ "$detected" -eq 0 ] && [ -r "$drm_device/uevent" ]; then
+        /bin/busybox grep -qx 'DRIVER=virtio_gpu' "$drm_device/uevent" && detected=1
+    fi
+    case "$active_device" in
+        */virtio[0-9]*)
+            # Only a kernel-bound virtio child, not an arbitrary PCI alias.
+            [ -e /sys/module/virtio_gpu ] && detected=1
+            ;;
+    esac
+    # virtio-vga's DRM card0 may expose its *parent PCI device* as
+    # /sys/class/drm/card0/device (driver=virtio-pci). Require the documented
+    # exact modern VirtIO-GPU PCI vendor/device pair; never match the bus or
+    # vendor alone, which would misclassify other VirtIO devices.
+    if [ "$detected" -eq 0 ] && [ "$active_driver" = "/sys/bus/pci/drivers/virtio-pci" ] &&
+       [ -r "$drm_device/vendor" ] && [ -r "$drm_device/device" ] &&
+       /bin/busybox grep -qx '0x1af4' "$drm_device/vendor" &&
+       /bin/busybox grep -qx '0x1050' "$drm_device/device"; then
+        detected=1
+    fi
+    if [ "$detected" -eq 1 ]; then
+        export WEBKIT_DISABLE_DMABUF_RENDERER=1
+        printf 'ordax-surface: owner virtio_gpu selected WebKit non-DMA-BUF transport\n'
+        return 0
+    fi
+    if [ -r /proc/cmdline ] &&
+       /bin/busybox grep -qw 'ordax.owner_qemu_graphics_probe=1' /proc/cmdline; then
+        # Bounded non-sensitive QEMU-only evidence to correct DRM classification.
+        printf 'ORDAX_OWNER_DRM_DRIVER_PATH=%s\n' "${active_driver:-unavailable}"
+        printf 'ORDAX_OWNER_DRM_DEVICE_PATH=%s\n' "${active_device:-unavailable}"
+        if [ -r "$drm_device/uevent" ]; then
+            /bin/busybox grep '^DRIVER=' "$drm_device/uevent" || true
+        fi
+        [ -r "$drm_device/vendor" ] && /bin/busybox sed -n '1s/^/ORDAX_OWNER_DRM_PCI_VENDOR=/p' "$drm_device/vendor" || true
+        [ -r "$drm_device/device" ] && /bin/busybox sed -n '1s/^/ORDAX_OWNER_DRM_PCI_DEVICE=/p' "$drm_device/device" || true
+    fi
+}
+select_owner_virtio_webkit_transport
+
 START_URI="http://127.0.0.1:8765/composition/native/index.html?source=$SOURCE_SHA"
 /bin/busybox chroot "$RUNTIME_ROOT" \
+    /bin/busybox sh /srv/ordax-system/surface/runtime/audio-session.sh \
+    --runtime-dir /run/ordax-surface/audio -- \
     /usr/bin/seatd-launch -- /usr/bin/cage -s -- \
     /usr/bin/python3 /srv/ordax-system/surface/runtime/ordax_browser_host.py \
     --start-uri "$START_URI" --profile-root /var/lib/ordax-user/browser \

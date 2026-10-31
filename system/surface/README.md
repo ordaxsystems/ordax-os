@@ -1,6 +1,6 @@
 # Surface
 
-`system/surface/` is the single user-facing Surface source for OrdaX shell, windows/workspaces, explorer, settings, design tokens and shared interaction behavior.
+The visual Surface source is independently versioned in `ordaxsystems/ordax-surface`. This OS folder remains the **native host/runtime boundary**. The exact external visual revision is pinned by `docs/contracts/surface-source.json` and supplied to the composed `system/surface/{ui,workspace}` release tree, not duplicated as Git-tracked OS source.
 
 The same product Surface serves every applicable execution mode:
 
@@ -16,7 +16,7 @@ Those modes may host/render the Surface differently, but they do not own separat
 
 ## Visual source
 
-The first graphical source lives under `system/surface/ui/` as standards-first HTML/CSS/JavaScript modules with no remote asset or framework dependency. This is an implementation baseline, not a permanent framework choice.
+The graphical modules live under the **external Surface owner** at `system/surface/ui/` and `system/surface/workspace/` for compatible release-layout paths. They are mounted only into verified staging/build trees; `ordax-os` does not keep a second visual source.
 
 `surface-state.mjs` keeps interaction state independent from DOM rendering. `surface.mjs` mounts the shared UI against the platform-neutral `ordax.surface-host/1` contract. Design tokens and responsive behavior remain shared CSS.
 
@@ -72,6 +72,48 @@ The machine-readable boundaries are:
 - `docs/contracts/product-capabilities.json`;
 - `docs/contracts/module-boundaries.json`;
 - `docs/contracts/runtime-configuration.json`.
+
+## Multimedia runtime
+
+`runtime/packages.txt` is the package selection owner for both development
+provisioning and the immutable offline runtime. GStreamer Base/Bad are brought
+by WebKit; Good and libav are explicit requirements for the formats exposed by
+File Space (including MP3, WAV, FLAC, MP4 and WebM). The development launcher
+File Space (including MP3, WAV, FLAC, MP4 and WebM). PipeWire, WirePlumber,
+Pulse-compatible controls, ALSA compatibility and the GStreamer PipeWire plugin
+are explicit requirements for native output routing. One session wrapper starts
+the D-Bus, PipeWire and WirePlumber owners alongside Cage and stops only the
+processes it started in a private audio runtime directory, preserving the
+established Wayland `XDG_RUNTIME_DIR`. Native Settings routes physical ALSA or
+Bluetooth sinks, migrates active playback streams, and changes output volume or
+mute through one session-token-protected host provider; settings apply to the
+current session. A failed stream migration restores the previous default route
+and any streams already moved. If the service or a physical output is absent, Settings reports
+that state and the graphical Surface still starts.
+
+The development launcher checks the codec and audio-control payload and extends
+an existing dynamic runtime when needed. Verified EROFS runtimes remain immutable
+and offline: they receive these dependencies through a newly built, verified
+runtime artifact, never an APK install at boot. An older verified runtime can
+still boot the Surface; its presence alone does not prove multimedia readiness.
+The offline builder runs `runtime/media_runtime_probe.py` against the installed
+dependencies before packaging: plugin discovery plus encode/decode round trips
+for WAV, WebM, MP4, PNG and JPEG, then starts the session server in a device-less
+guest and reads its Pulse-compatible socket. Decode checks use disposable files
+and `fakesink`; the software session probe opens no physical device.
+
+Image, media and PDF previews share one bounded streaming reader in the Native
+File Space adapter. It validates MIME before consuming bytes, checks advertised
+length, enforces the limit while receiving unknown-length bodies, cancels failed
+transfers and rejects truncated responses. Supported formats describe preview
+input, not a guarantee that a particular host can decode every codec profile.
+
+Player and Image Viewer remain app-owned in `ordax-apps`, consuming the public
+File Space ports and verified app lifecycle. No second player/viewer is embedded
+in the OS. Physical speaker/headphone output, microphone/camera permission,
+GPU decoding and actual playback still need independent device validation.
+Camera and microphone requests remain denied until a user-facing permission
+flow is connected; installing capture-capable plugins does not activate capture.
 
 ## Rendering/runtime technology
 

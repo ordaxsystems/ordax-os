@@ -118,3 +118,20 @@ test("Account gateway delegates authority to the authenticated database RPC", ()
   assert.match(route, /projectSpaceCreateResult/);
   assert.doesNotMatch(route, /service_role|adminConfig|accountAdminRpc/);
 });
+
+test("Space create result rejects coerced, ambiguous Profile Pack versions", () => {
+  const row = {
+    space_id: SPACE, owner_user_id: SUBJECT, name: "Minha Pizzaria",
+    kind: "professional", state: "active", domain: "food", subtype: "pizzeria",
+    profile_slug: "pizzaria-br", profile_version: 1, created: true,
+  };
+  for (const invalid of ["1", true, null, 0, -1, 9007199254740992]) {
+    assert.throws(
+      () => projectSpaceCreateResult({ ...row, profile_version: invalid }, {
+        subjectId: SUBJECT,
+        request: request(),
+      }),
+      /invalid-space-create-result/,
+    );
+  }
+});

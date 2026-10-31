@@ -10,7 +10,11 @@ OWNER_ROOT_PROBE=/run/ordax-owner-root-probe
 OWNER_ESP_PROBE=/run/ordax-owner-esp-probe
 
 rescue() {
-    echo "ordax-initramfs: entering local recovery shell: $*" >&2
+    echo "ordax-initramfs: local recovery (no automatic filesystem repair): $*" >&2
+    echo "OrdaX cannot safely continue. Do not remove the USB until the host is fully powered off." >&2
+    echo "A previous software version cannot fix damaged ext4 metadata." >&2
+    echo "For offline repair, preserve a disk image first and check the unmounted filesystem." >&2
+    echo "Type 'poweroff -f' to shut down, or use the local shell for diagnosis." >&2
     exec sh
 }
 
@@ -52,6 +56,7 @@ esac
 discover_owner_development_device() {
     ORDAX_DEVICE=""
     ORDAX_DEVICE_MATCHES=0
+    ORDAX_ROOT_PROBE_FAILED=0
 
     for sys in /sys/class/block/*; do
         case "$(cat "$sys/partition" 2>/dev/null || true)" in
@@ -69,8 +74,12 @@ discover_owner_development_device() {
             *'LABEL="ORDAX"'*) ;;
             *) continue ;;
         esac
+        # Keep media identity separate from filesystem health. On corrupt
+        # ext4, blkid can still prove the ORDAX label while a read-only
+        # mount fails. We must not misreport that USB as "not found".
+        root_probe_ok=1
         if ! probe_read_only_filesystem "/dev/$name" ext4 "$OWNER_ROOT_PROBE"; then
-            continue
+            root_probe_ok=0
         fi
 
         parent_dev="$(cat "$sys/../dev" 2>/dev/null || true)"
@@ -114,6 +123,9 @@ discover_owner_development_device() {
             *) ORDAX_DEVICE_MATCHES=many ;;
         esac
         ORDAX_DEVICE="/dev/$name"
+        case "$root_probe_ok" in
+            0) ORDAX_ROOT_PROBE_FAILED=1 ;;
+        esac
     done
 }
 
@@ -132,6 +144,12 @@ case "$OWNER_DEVELOPMENT" in
                 *) rescue "multiple owner-development USB roots detected; refusing ambiguous writable mount" ;;
             esac
         done
+        # Do not mount a known-damaged Owner USB read-write, and do not
+        # confuse it with an absent device. The fixed initramfs is already
+        # an independent, read-only recovery environment.
+        case "$ORDAX_ROOT_PROBE_FAILED" in
+            1) rescue "ORDAX USB identified, but ext4 read-only probe failed; offline filesystem repair required" ;;
+        esac
         ;;
     *)
         ORDAX_DEVICE="$(findfs LABEL=ORDAX 2>/dev/null || true)"
@@ -144,7 +162,7 @@ esac
 enter_recovery() {
     reason=$1
     echo "ordax-initramfs: $reason; opening read-only recovery" >&2
-    mount -t ext4 -o ro "$ORDAX_DEVICE" /ordax || rescue "cannot mount ORDAX read-only"
+    mount -t ext4 -o ro,noload "$ORDAX_DEVICE" /ordax || rescue "cannot mount ORDAX read-only"
     cat "$RECOVERY_BOOTSTRAP_PATH" >/dev/null 2>&1 || rescue "recovery entrypoint is missing or unreadable: $RECOVERY_BOOTSTRAP_PATH"
     exec "$RECOVERY_BOOTSTRAP_PATH"
 }
@@ -162,7 +180,8 @@ case "$health_rc" in
     *) enter_recovery "ORDAX filesystem requires offline repair (health rc=$health_rc)" ;;
 esac
 
-mount -t ext4 -o rw,errors=remount-ro "$ORDAX_DEVICE" /ordax || rescue "cannot mount ORDAX"
+mount -t ext4 -o rw,errors=remount-ro "$ORDAX_DEVICE" /ordax ||
+    rescue "cannot mount ORDAX ext4 read-write; offline filesystem check required"
 if ! /sbin/ordax-grow-ext4 "$ORDAX_DEVICE" /ordax; then
     echo "ordax-initramfs: warning: ORDAX filesystem could not grow to partition capacity; continuing with current verified filesystem" >&2
 fi

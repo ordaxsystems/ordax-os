@@ -2,6 +2,7 @@ import {
   SURFACE_HOST_SCHEMA,
   validateSurfaceSnapshot,
 } from "../../contracts/surface-host.mjs";
+import { deriveAccountSurfaceCapabilityIds } from "../../services/account/runtime.mjs";
 
 export function createWebSurfaceHost(
   windowRef = globalThis.window,
@@ -24,23 +25,12 @@ export function createWebSurfaceHost(
   let current = null;
   let disposed = false;
   const readSnapshot = () => {
-    const accountIdentityAvailable = readAccountIdentityAvailable();
-    const syncSafeStateAvailable = readSyncSafeStateAvailable();
-    if (typeof accountIdentityAvailable !== "boolean") {
-      throw new TypeError("account identity availability reader must return a boolean");
-    }
-    if (typeof syncSafeStateAvailable !== "boolean") {
-      throw new TypeError("sync availability reader must return a boolean");
-    }
-    if (syncSafeStateAvailable && !accountIdentityAvailable) {
-      throw new TypeError("sync.safe-state requires account.identity");
-    }
+    const accountCapabilities = deriveAccountSurfaceCapabilityIds({
+      accountIdentityAvailable: readAccountIdentityAvailable(),
+      syncSafeStateAvailable: readSyncSafeStateAvailable(),
+    });
     return validateSurfaceSnapshot({
-      capabilityIds: [
-        "network.https",
-        ...(accountIdentityAvailable ? ["account.identity"] : []),
-        ...(syncSafeStateAvailable ? ["sync.safe-state"] : []),
-      ],
+      capabilityIds: ["network.https", ...accountCapabilities],
       // A browser hint only; this does not prove server or device availability.
       connectivity: windowRef.navigator.onLine === true ? "online"
         : windowRef.navigator.onLine === false ? "offline" : "unknown",

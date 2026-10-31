@@ -8,6 +8,15 @@ SEMANTICS_MIGRATION = ROOT / "infra" / "supabase" / "product" / "migrations" / "
 SEMANTICS_WRITE_GUARD = ROOT / "infra" / "supabase" / "product" / "migrations" / "20261015195800_space_semantics_write_guard_v1.sql"
 WEB_ADAPTER = ROOT / "system" / "adapters" / "web" / "spaces.mjs"
 NATIVE_HOST = ROOT / "system" / "surface" / "runtime" / "native_host_server.py"
+TRANSPORT = ROOT / "infra" / "supabase" / "functions" / "_shared" / "account_transport_admission.mjs"
+
+
+def exact_route_block(source: str, route_start: str) -> str:
+    start = source.index(route_start)
+    next_route = source.find('\n  if (path === "', start + len(route_start))
+    if next_route < 0:
+        raise AssertionError(f"route following {route_start!r} was not found")
+    return source[start:next_route]
 
 
 class AccountSpacesSourceTests(unittest.TestCase):
@@ -22,12 +31,27 @@ class AccountSpacesSourceTests(unittest.TestCase):
         self.assertIn("SPACE_SEMANTIC_IDENTIFIER", source)
         self.assertIn('.limit(MAX_VISIBLE_SPACES + 1)', source)
         self.assertIn('version: 18', source)
+        self.assertIn('packBySpace.set(raw.space_id, `${raw.pack_slug}@${raw.pack_version}`)', source)
+        self.assertIn('typeof raw.pack_version !== "number"', source)
+        self.assertIn('!Number.isSafeInteger(raw.pack_version)', source)
 
-        start = source.index('if (path === "/account/spaces" && req.method === "GET")')
-        end = source.index('if (path === "/sync/snapshot"', start)
-        route = source[start:end]
+        route = exact_route_block(
+            source,
+            'if (path === "/account/spaces" && req.method === "GET")',
+        )
         for forbidden in (".insert(", ".update(", ".delete(", ".upsert(", ".rpc("):
             self.assertNotIn(forbidden, route)
+
+    def test_public_web_spaces_is_only_pre_activation_account_capability(self):
+        source = EDGE.read_text(encoding="utf-8")
+        transport = TRANSPORT.read_text(encoding="utf-8")
+        self.assertIn("isPublicAccountPreActivationRoute", source)
+        self.assertIn("&& !isPublicAccountPreActivationRoute(req.method, path)", source)
+        self.assertIn('["/account/spaces", Object.freeze({ method: "GET", preActivation: true })]', transport)
+        self.assertIn('["/account/export", Object.freeze({ method: "GET", preActivation: false })]', transport)
+        self.assertIn('["/account/entitlements/memory-cloud", Object.freeze({ method: "GET", preActivation: false })]', transport)
+        self.assertIn('["/account/close", Object.freeze({ method: "POST", preActivation: false })]', transport)
+        self.assertNotIn('"GET /account/spaces"', source)
 
     def test_supabase_rls_limits_spaces_to_owner_or_active_member(self):
         sql = MIGRATION.read_text(encoding="utf-8").lower()

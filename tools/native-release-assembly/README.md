@@ -8,7 +8,7 @@ It does not replace the shared `system/` source and does not introduce a second 
 
 ```text
 repository system/
- + repository Creator Core / Linux Native target helper source
+ + immutable Creator source from docs/contracts/native-release-assembly.json#creator_source
  -> Native release assembly
  -> staged system/
       ├─ shared product source
@@ -30,7 +30,7 @@ The injected helpers have separate responsibilities:
 The assembly recipe:
 
 - cross-compiles the helper as `linux/amd64` with `CGO_ENABLED=0`;
-- uses the repository Go modules under `tools/creator` and `tools/runtime-component-channel`;
+- uses a clean exact-SHA, Git-tree-verified checkout of `ordaxsystems/ordax-creator` for the read-only Native targets helper and the OS-owned module `tools/runtime-component-channel`;
 - emits the helpers at `system/bin/ordax-native-install-targets` and `system/bin/ordax-runtime-component-channel`;
 - binds each helper's SHA-256, size, mode, role, source package and source commit into release-local provenance;
 - refuses an output tree inside repository source;
@@ -38,3 +38,11 @@ The assembly recipe:
 - leaves release identity and signature authority to the existing release manifest/signing pipeline.
 
 No compiler or source checkout is required on the end-user OrdaX USB.
+
+The OS Native assembler now requires `--creator-source <verified-checkout>` and rejects missing, mutable, dirty or mismatched Git source revisions. The exact repository, commit and tree are pinned **once** in the OS canonical `native-release-assembly.json` contract; the signed `system.tar` publisher remains OS-owned. The OS release CI obtains the exact Creator checkout read-only before both reproducibility assemblies. This change does not authorize physical media writes or remove remaining OS Creator publisher-source dependencies.
+
+## Pinned external Intelligence
+
+The release CI stages verified `ordax-intelligence` source only after the canonical Surface assembly, by calling `.github/actions/assemble-intelligence`. The same Native assembler runs with `--require-external-intelligence`, re-verifies the copy after the helpers are built and writes the source identity to `system/.ordax/native-release-tools.json`. The existing `system.tar` ownership and signing boundary remain unchanged; consumer devices require no build toolchain.
+
+This is a source/build pipeline gate. First boot, signed publication, real llama.cpp/GGUF and the OS Supervisor cutover remain unproven.

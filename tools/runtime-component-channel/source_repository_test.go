@@ -34,11 +34,22 @@ func TestCanonicalComponentSourceRepositoryPolicy(t *testing.T) {
 		repository string
 		wantOK     bool
 	}{
-		{name: "platform component stays in OS repository", component: "internet", repository: sourceRepository, wantOK: true},
+		{name: "unlisted platform component stays in OS repository", component: "settings", repository: sourceRepository, wantOK: true},
+		{name: "Internet is sourced from ordax-apps", component: "internet", repository: appsSourceRepository, wantOK: true},
+		{name: "Assistant is sourced from ordax-apps", component: "assistant", repository: appsSourceRepository, wantOK: true},
+		{name: "Projects is sourced from ordax-apps", component: "projects", repository: appsSourceRepository, wantOK: true},
+		{name: "Activity is sourced from ordax-apps", component: "activity", repository: appsSourceRepository, wantOK: true},
+		{name: "Network is sourced from ordax-apps", component: "network", repository: appsSourceRepository, wantOK: true},
 		{name: "Notes is sourced from ordax-apps", component: "notes", repository: appsSourceRepository, wantOK: true},
 		{name: "Studio is sourced from ordax-apps", component: "studio", repository: appsSourceRepository, wantOK: true},
+		{name: "Files is sourced from ordax-apps after remove-first", component: "files", repository: appsSourceRepository, wantOK: true},
+		{name: "Files cannot claim the old OS source", component: "files", repository: sourceRepository, wantOK: false},
+		{name: "Product Runtime is sourced from canonical Runtime", component: "product-runtime", repository: productRuntimeSourceRepository, wantOK: true},
+		{name: "Product Runtime cannot claim OS repository", component: "product-runtime", repository: sourceRepository, wantOK: false},
+		{name: "Product Runtime cannot claim apps repository", component: "product-runtime", repository: appsSourceRepository, wantOK: false},
+		{name: "Internet cannot claim Runtime repository", component: "internet", repository: productRuntimeSourceRepository, wantOK: false},
+		{name: "unlisted platform component cannot claim ordax-apps", component: "settings", repository: appsSourceRepository, wantOK: false},
 		{name: "Notes cannot claim OS repository", component: "notes", repository: sourceRepository, wantOK: false},
-		{name: "platform component cannot claim ordax-apps", component: "internet", repository: appsSourceRepository, wantOK: false},
 	}
 
 	for _, tc := range cases {
@@ -51,6 +62,15 @@ func TestCanonicalComponentSourceRepositoryPolicy(t *testing.T) {
 				t.Fatal("non-canonical source repository unexpectedly passed")
 			}
 		})
+	}
+}
+
+func TestFilesCanonicalSignerSourceTracksExternalOwner(t *testing.T) {
+	if got := canonicalSourceRepository("files"); got != appsSourceRepository {
+		t.Fatalf("Files signer source must match ordax-apps after remove-first, got %q", got)
+	}
+	if _, blocked := nativeExternalCurrentSlotBlockedByBundledOwnerComponents["files"]; blocked {
+		t.Fatal("Files cannot remain blocked by a deleted bundled OS owner")
 	}
 }
 

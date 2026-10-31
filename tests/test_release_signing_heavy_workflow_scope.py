@@ -10,6 +10,7 @@ HEAVY_WORKFLOWS = (
     ".github/workflows/full-bootstrap-media-proof.yml",
     ".github/workflows/portable-v2-qemu-boot-proof.yml",
     ".github/workflows/creator-owner-dev-git.yml",
+    ".github/workflows/local-ai-runtime-candidate.yml",
 )
 
 SIGNER_SOURCE_BOUND_HEAVY_WORKFLOWS = tuple(
@@ -48,6 +49,24 @@ class ReleaseSigningHeavyWorkflowScopeTests(unittest.TestCase):
         self.assertNotIn("tools/release-signing/**", canonical)
         for excluded in ADMIN_EXCLUDES:
             self.assertNotIn(excluded, canonical)
+
+    def test_local_ai_runtime_still_tracks_canonical_release_signer(self):
+        relative = ".github/workflows/local-ai-runtime-candidate.yml"
+        text = (ROOT / relative).read_text(encoding="utf-8")
+        canonical = "- 'tools/release-signing/**'"
+        self.assertIn(canonical, text)
+        self.assertLess(
+            text.index(canonical),
+            text.index("- '!tools/release-signing/cmd/ordax-physical-release-signing/**'"),
+        )
+        # Only administrative and unrelated physical-signer paths are excluded.
+        # The canonical release signer, manifest builder, and acquisition proof
+        # remain direct trigger inputs for Local AI reproducibility.
+        self.assertNotIn("!tools/release-signing/main.go", text)
+        self.assertNotIn("!tools/release-signing/trust_transition.go", text)
+        self.assertIn("- 'tools/release-manifest/**'", text)
+        self.assertIn("- 'bootstrap/release-acquisition/**'", text)
+        self.assertIn("- 'bootstrap/local-ai-runtime/**'", text)
 
     def test_dedicated_signing_and_toolkit_owners_remain_broad(self):
         for relative in BROAD_OWNER_WORKFLOWS:

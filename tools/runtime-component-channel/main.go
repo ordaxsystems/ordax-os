@@ -7,6 +7,8 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"crypto/x509"
+	"debug/elf"
+	"debug/pe"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
@@ -43,6 +45,12 @@ const (
 	maxPackageBytes  = int64(32 << 20)
 	maxFileBytes     = int64(2 << 20)
 	maxTotalBytes    = int64(16 << 20)
+	maxProductRuntimeFileBytes  = int64(28 << 20)
+	maxProductRuntimeTotalBytes = int64(30 << 20)
+	productRuntimeExecutablePath = "system/components/product-runtime/ordax-product-agent"
+	productRuntimeWindowsExecutablePath = "system/components/product-runtime/ordax-product-agent.exe"
+	productRuntimeLinuxTarget = "linux-amd64"
+	productRuntimeWindowsTarget = "windows-amd64"
 	maxFiles         = 256
 )
 
@@ -62,6 +70,13 @@ var forbiddenPackagePrefixes = []string{
 }
 
 func canonicalSourceRepository(componentID string) string {
+	// The package owner map names the canonical external package source, but a
+	// bundled platform owner remains authoritative for signing until Gate A
+	// removes that source. This keeps temporary candidates from becoming signed
+	// slots while both implementations still exist.
+	if _, blocked := nativeExternalCurrentSlotBlockedByBundledOwnerComponents[componentID]; blocked {
+		return sourceRepository
+	}
 	if repository, ok := canonicalExternalComponentSourceRepositories[componentID]; ok {
 		return repository
 	}
@@ -128,6 +143,7 @@ type packageFile struct {
 	Path   string `json:"path"`
 	SHA256 string `json:"sha256"`
 	Size   int64  `json:"size"`
+	Executable bool `json:"executable,omitempty"`
 }
 
 type componentPackageManifest struct {
@@ -136,6 +152,7 @@ type componentPackageManifest struct {
 	Component                         packageComponent `json:"component"`
 	SourceCommit                      string           `json:"source_commit"`
 	Entrypoint                        string           `json:"entrypoint"`
+	TargetPlatform                    string           `json:"target_platform,omitempty"`
 	SelfContainedSourceGraph          bool             `json:"self_contained_source_graph"`
 	RemoteRuntimeDependencies         bool             `json:"remote_runtime_dependencies"`
 	ActivationAllowed                 bool             `json:"activation_allowed"`
@@ -177,6 +194,38 @@ func validateKeyID(value string) error {
 	return nil
 }
 
+// Windows EvalSymlinks also expands case and short-name aliases, so textual
+// comparison against the original path rejects legitimate parent directories.
+// Walk each real ancestor with Lstat instead: a junction/reparse symlink must
+// not become a trusted signed-component package or key path.
+func verifyWindowsDirectoryAncestry(parent string) error {
+	volume := filepath.VolumeName(parent)
+	if volume == "" {
+		return errors.New("Windows component path must have an absolute volume")
+	}
+	root := volume + string(os.PathSeparator)
+	relative, err := filepath.Rel(root, parent)
+	if err != nil || filepath.IsAbs(relative) || relative == ".." ||
+		strings.HasPrefix(relative, ".."+string(os.PathSeparator)) {
+		return errors.New("Windows component parent escaped its volume")
+	}
+	current := root
+	for _,part := range strings.Split(relative, string(os.PathSeparator)) {
+		if part == "" || part == "." {
+			continue
+		}
+		current = filepath.Join(current,part)
+		info, err := os.Lstat(current)
+		if err != nil {
+			return err
+		}
+		if !info.IsDir() || info.Mode()&(os.ModeSymlink|os.ModeIrregular) != 0 {
+			return errors.New("Windows component parent may not traverse reparse points")
+		}
+	}
+	return nil
+}
+
 func ensureRealParent(path string) (string, error) {
 	absolute, err := filepath.Abs(path)
 	if err != nil {
@@ -198,7 +247,11 @@ func ensureRealParent(path string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if filepath.Clean(resolvedAbs) != filepath.Clean(parent) {
+	if runtime.GOOS == "windows" {
+		if err := verifyWindowsDirectoryAncestry(parent); err != nil {
+			return "", err
+		}
+	} else if filepath.Clean(resolvedAbs) != filepath.Clean(parent) {
 		return "", errors.New("parent path may not traverse symlinks")
 	}
 	return absolute, nil
@@ -585,6 +638,61 @@ func componentOwnedPackagePath(path, componentID string) bool {
 	return true
 }
 
+// Executable metadata is signed as part of the package manifest. It is
+// exclusively meaningful for this OS-owned signed component slot, never for
+// the ordinary app/module distribution policy. This is not an ABI readiness
+// or activation decision.
+func canonicalProductRuntimeEntrypoint(target string) (string, error) {
+	switch target {
+	case productRuntimeLinuxTarget:
+		return productRuntimeExecutablePath, nil
+	case productRuntimeWindowsTarget:
+		return productRuntimeWindowsExecutablePath, nil
+	default:
+		return "", errors.New("Product Runtime target platform is unsupported")
+	}
+}
+
+func executablePackageFile(componentID string, record packageFile) bool {
+	return componentID == "product-runtime" && record.Executable &&
+		(record.Path == productRuntimeExecutablePath ||
+			record.Path == productRuntimeWindowsExecutablePath)
+}
+
+func productRuntimeFileLimit(componentID string, record packageFile) int64 {
+	if executablePackageFile(componentID, record) {
+		return maxProductRuntimeFileBytes
+	}
+	return maxFileBytes
+}
+
+func productRuntimeTotalLimit(componentID string) int64 {
+	if componentID == "product-runtime" {
+		return maxProductRuntimeTotalBytes
+	}
+	return maxTotalBytes
+}
+
+func verifiedFileMode(componentID string, record packageFile) os.FileMode {
+	if executablePackageFile(componentID, record) {
+		return 0o555
+	}
+	return 0o444
+}
+
+// A signed executable uses immutable POSIX mode on Native and the Windows
+// read-only attribute on Desktop. In both cases its full signed SHA-256 is
+// rechecked by the shared slot verifier; this is not an ACL or session grant.
+func verifiedExecutableSlotFile(info os.FileInfo, componentID string, record packageFile) bool {
+	if !executablePackageFile(componentID, record) ||
+		!info.Mode().IsRegular() || info.Mode()&os.ModeSymlink != 0 ||
+		info.Mode().Perm()&0o222 != 0 {
+		return false
+	}
+	return runtime.GOOS == "windows" ||
+		info.Mode().Perm() == verifiedFileMode(componentID, record)
+}
+
 func validatePackageManifest(manifest componentPackageManifest, release releaseDescriptor) error {
 	if manifest.Schema != packageSchema || manifest.Status != "candidate" {
 		return errors.New("unsupported runtime component package manifest")
@@ -621,6 +729,21 @@ func validatePackageManifest(manifest componentPackageManifest, release releaseD
 	if len(manifest.Files) == 0 || len(manifest.Files) > maxFiles {
 		return errors.New("runtime component package file count is invalid")
 	}
+	if manifest.Component.ID == "product-runtime" {
+		entry, err := canonicalProductRuntimeEntrypoint(manifest.TargetPlatform)
+		if err != nil {
+			return err
+		}
+		if manifest.Component.Kind != "service" ||
+			manifest.Component.Owner != productRuntimeSourceRepository ||
+			manifest.Component.ReleaseMode != "component-slot" ||
+			manifest.Entrypoint != entry ||
+			len(manifest.Files) != 1 {
+			return errors.New("Product Runtime signed target and package shape disagree")
+		}
+	} else if manifest.TargetPlatform != "" {
+		return errors.New("only Product Runtime may declare a signed binary target")
+	}
 	seen := make(map[string]struct{}, len(manifest.Files))
 	var total int64
 	for _, record := range manifest.Files {
@@ -635,12 +758,18 @@ func validatePackageManifest(manifest componentPackageManifest, release releaseD
 			return errors.New("runtime component package file paths must be unique")
 		}
 		seen[path] = struct{}{}
+		if record.Executable && !executablePackageFile(manifest.Component.ID, record) {
+			return errors.New("executable package files are restricted to native Product Runtime")
+		}
+		if manifest.Component.ID == "product-runtime" && !executablePackageFile(manifest.Component.ID, record) {
+			return errors.New("native Product Runtime binary must be executable in signed manifest")
+		}
 		if !shaPattern.MatchString(record.SHA256) ||
-			record.Size <= 0 || record.Size > maxFileBytes {
+			record.Size <= 0 || record.Size > productRuntimeFileLimit(manifest.Component.ID, record) {
 			return fmt.Errorf("runtime component file binding is invalid: %s", path)
 		}
 		total += record.Size
-		if total > maxTotalBytes {
+		if total > productRuntimeTotalLimit(manifest.Component.ID) {
 			return errors.New("runtime component package exceeds total size limit")
 		}
 	}
@@ -675,6 +804,95 @@ func sha256File(path string, max int64) (string, int64, error) {
 		return "", 0, errors.New("package size changed during verification")
 	}
 	return hex.EncodeToString(hash.Sum(nil)), n, nil
+}
+
+// validateNativeProductRuntimeELF checks the executable file *structure*
+// before a signed component enters a slot. Complete ELF dependency/Buildroot
+// ABI audits remain exclusively owned by the canonical ordax-runtime auditor;
+// passing this check does not authorize execution or OS activation.
+func validateNativeProductRuntimeELF(payload []byte) error {
+	if len(payload) < 64 {
+		return errors.New("native Product Runtime ELF is truncated")
+	}
+	binary, err := elf.NewFile(bytes.NewReader(payload))
+	if err != nil {
+		return fmt.Errorf("native Product Runtime ELF structure invalid: %w", err)
+	}
+	defer binary.Close()
+	if binary.Class != elf.ELFCLASS64 || binary.Data != elf.ELFDATA2LSB ||
+		binary.Version != elf.EV_CURRENT || binary.Machine != elf.EM_X86_64 ||
+		(binary.Type != elf.ET_EXEC && binary.Type != elf.ET_DYN) {
+		return errors.New("native Product Runtime must be an amd64 ELF64 executable")
+	}
+	if len(binary.Progs) == 0 || len(binary.Progs) > 256 || binary.Entry == 0 {
+		return errors.New("native Product Runtime ELF executable program headers are invalid")
+	}
+	var executableEntryMapped bool
+	var interpreterCount int
+	fileSize := uint64(len(payload))
+	for _, prog := range binary.Progs {
+		if prog.Filesz > prog.Memsz || prog.Off > fileSize ||
+			prog.Filesz > fileSize-prog.Off {
+			return errors.New("native Product Runtime ELF segment extent is invalid")
+		}
+		switch prog.Type {
+		case elf.PT_LOAD:
+			if prog.Flags&elf.PF_X != 0 && prog.Vaddr <= binary.Entry &&
+				binary.Entry-prog.Vaddr < prog.Memsz {
+				executableEntryMapped = true
+			}
+		case elf.PT_INTERP:
+			interpreterCount++
+			if interpreterCount > 1 || prog.Filesz < 2 || prog.Filesz > 4096 {
+				return errors.New("native Product Runtime ELF interpreter is invalid")
+			}
+			raw := payload[prog.Off : prog.Off+prog.Filesz]
+			if raw[0] != '/' || raw[len(raw)-1] != 0 ||
+				bytes.IndexByte(raw[:len(raw)-1], 0) >= 0 {
+				return errors.New("native Product Runtime ELF interpreter is invalid")
+			}
+		}
+	}
+	if !executableEntryMapped {
+		return errors.New("native Product Runtime ELF entrypoint is not mapped executable")
+	}
+	return nil
+}
+
+// A signed Windows package is not a valid Linux package. Validate PE32+
+// architecture and executable entrypoint before any component slot staging.
+// This is structural only: dependency closure and release authorization
+// require independent, explicit evidence.
+func validateProductRuntimePE(payload []byte) error {
+	if len(payload) < 512 {
+		return errors.New("Windows Product Runtime PE is truncated")
+	}
+	binary, err := pe.NewFile(bytes.NewReader(payload))
+	if err != nil {
+		return fmt.Errorf("Windows Product Runtime PE structure invalid: %w", err)
+	}
+	defer binary.Close()
+	optional, ok := binary.OptionalHeader.(*pe.OptionalHeader64)
+	if !ok || binary.Machine != pe.IMAGE_FILE_MACHINE_AMD64 ||
+		binary.Characteristics&0x0002 == 0 || optional.AddressOfEntryPoint == 0 {
+		return errors.New("Windows Product Runtime must be executable amd64 PE32+")
+	}
+	entry := optional.AddressOfEntryPoint
+	for _, section := range binary.Sections {
+		if section.Offset > uint32(len(payload)) ||
+			section.Size > uint32(len(payload))-section.Offset {
+			return errors.New("Windows Product Runtime section extent is invalid")
+		}
+		length := section.VirtualSize
+		if section.Size > length {
+			length = section.Size
+		}
+		if section.Characteristics&0x20000000 != 0 &&
+			section.VirtualAddress <= entry && entry-section.VirtualAddress < length {
+			return nil
+		}
+	}
+	return errors.New("Windows Product Runtime entrypoint is not mapped executable")
 }
 
 func inspectPackage(packagePath string, release releaseDescriptor) (verifiedPackage, error) {
@@ -763,11 +981,23 @@ func inspectPackage(packagePath string, release releaseDescriptor) (verifiedPack
 		if entry == nil || int64(entry.UncompressedSize64) != record.Size {
 			return verifiedPackage{}, fmt.Errorf("runtime component file size mismatch: %s", record.Path)
 		}
+		expectedMode := os.FileMode(0o644)
+		if executablePackageFile(manifest.Component.ID, record) {
+			expectedMode = 0o555
+		}
+		zipMode := entry.Mode().Perm()
+		if executablePackageFile(manifest.Component.ID, record) {
+			if zipMode != expectedMode {
+				return verifiedPackage{}, fmt.Errorf("runtime component ZIP file mode mismatch: %s", record.Path)
+			}
+		} else if zipMode&0o111 != 0 {
+			return verifiedPackage{}, fmt.Errorf("ordinary component ZIP cannot claim executable permissions: %s", record.Path)
+		}
 		reader, err := entry.Open()
 		if err != nil {
 			return verifiedPackage{}, err
 		}
-		payload, readErr := io.ReadAll(io.LimitReader(reader, maxFileBytes+1))
+		payload, readErr := io.ReadAll(io.LimitReader(reader, productRuntimeFileLimit(manifest.Component.ID, record)+1))
 		closeErr := reader.Close()
 		if readErr != nil {
 			return verifiedPackage{}, readErr
@@ -778,6 +1008,20 @@ func inspectPackage(packagePath string, release releaseDescriptor) (verifiedPack
 		digest := sha256.Sum256(payload)
 		if int64(len(payload)) != record.Size || hex.EncodeToString(digest[:]) != record.SHA256 {
 			return verifiedPackage{}, fmt.Errorf("runtime component file integrity mismatch: %s", record.Path)
+		}
+		if executablePackageFile(manifest.Component.ID, record) {
+			var checkErr error
+			switch manifest.TargetPlatform {
+			case productRuntimeLinuxTarget:
+				checkErr = validateNativeProductRuntimeELF(payload)
+			case productRuntimeWindowsTarget:
+				checkErr = validateProductRuntimePE(payload)
+			default:
+				return verifiedPackage{}, errors.New("Product Runtime signed target is unsupported")
+			}
+			if checkErr != nil {
+				return verifiedPackage{}, fmt.Errorf("Product Runtime target binary %s: %w", record.Path, checkErr)
+			}
 		}
 		files[record.Path] = payload
 	}
@@ -807,7 +1051,13 @@ func ensureSecureDirectory(path string, mode os.FileMode) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if filepath.Clean(resolvedAbs) != filepath.Clean(absolute) {
+	if runtime.GOOS == "windows" {
+		// Windows path aliases may differ textually without being junctions.
+		// Enforce the same physical ancestor check used for signed inputs.
+		if err := verifyWindowsDirectoryAncestry(absolute); err != nil {
+			return "", err
+		}
+	} else if filepath.Clean(resolvedAbs) != filepath.Clean(absolute) {
 		return "", errors.New("runtime component slot path may not traverse symlinks")
 	}
 	return absolute, nil
@@ -857,7 +1107,14 @@ func materializeSlot(tempDir string, verified verifiedPackage, envelopeBytes []b
 		if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
 			return err
 		}
-		if err := writeFileSynced(target, verified.Files[name], 0o644); err != nil {
+		mode := os.FileMode(0o644)
+		for _, record := range verified.Manifest.Files {
+			if record.Path == name && executablePackageFile(verified.Manifest.Component.ID, record) {
+				mode = 0o755
+				break
+			}
+		}
+		if err := writeFileSynced(target, verified.Files[name], mode); err != nil {
 			return err
 		}
 	}
@@ -871,23 +1128,27 @@ func removeStagingTree(root string) {
 	if strings.TrimSpace(root) == "" {
 		return
 	}
-	if runtime.GOOS != "windows" {
-		_ = filepath.WalkDir(root, func(path string, entry os.DirEntry, err error) error {
-			if err != nil {
-				return nil
-			}
-			if entry.IsDir() {
-				_ = os.Chmod(path, 0o700)
-			} else {
-				_ = os.Chmod(path, 0o600)
-			}
+	// Clear Windows read-only attributes as well as POSIX slot modes before
+	// disposing a rejected STAGING tree. Never touch a current slot or user data.
+	_ = filepath.WalkDir(root, func(path string, entry os.DirEntry, err error) error {
+		if err != nil {
 			return nil
-		})
-	}
+		}
+		if runtime.GOOS == "windows" {
+			if !entry.IsDir() {
+				_ = os.Chmod(path, 0o666)
+			}
+		} else if entry.IsDir() {
+			_ = os.Chmod(path, 0o700)
+		} else {
+			_ = os.Chmod(path, 0o600)
+		}
+		return nil
+	})
 	_ = os.RemoveAll(root)
 }
 
-func makeSlotReadOnly(root string) error {
+func makeSlotReadOnly(root string, manifest componentPackageManifest) error {
 	directories := []string{}
 	if err := filepath.WalkDir(root, func(path string, entry os.DirEntry, err error) error {
 		if err != nil {
@@ -907,10 +1168,23 @@ func makeSlotReadOnly(root string) error {
 		if !info.Mode().IsRegular() {
 			return errors.New("runtime component slot contains a non-regular file")
 		}
-		if runtime.GOOS != "windows" {
+		// Go maps Chmod to FILE_ATTRIBUTE_READONLY on Windows; POSIX
+		// retains its executable 0555 mode. Both are reverified on read.
+		if runtime.GOOS == "windows" {
 			return os.Chmod(path, 0o444)
 		}
-		return nil
+		relative, err := filepath.Rel(root, path)
+		if err != nil {
+			return err
+		}
+		mode := os.FileMode(0o444)
+		for _, record := range manifest.Files {
+			if record.Path == filepath.ToSlash(relative) {
+				mode = verifiedFileMode(manifest.Component.ID, record)
+				break
+			}
+		}
+		return os.Chmod(path, mode)
 	}); err != nil {
 		return err
 	}
@@ -991,7 +1265,7 @@ func verifySlotWithTrustBytes(slot string, trustBytes []byte) (releaseDescriptor
 		if !info.Mode().IsRegular() {
 			return errors.New("installed runtime component slot contains unsafe entry type")
 		}
-		if runtime.GOOS != "windows" && info.Mode().Perm()&0o222 != 0 {
+		if info.Mode().Perm()&0o222 != 0 {
 			return fmt.Errorf("installed runtime component file is writable: %s", path)
 		}
 		relative, err := filepath.Rel(absolute, path)
@@ -1014,7 +1288,17 @@ func verifySlotWithTrustBytes(slot string, trustBytes []byte) (releaseDescriptor
 		}
 	}
 	for _, record := range manifest.Files {
-		payload, err := readRegular(filepath.Join(absolute, filepath.FromSlash(record.Path)), maxFileBytes, false)
+		filePath := filepath.Join(absolute, filepath.FromSlash(record.Path))
+		if executablePackageFile(manifest.Component.ID, record) {
+			info, err := os.Lstat(filePath)
+			if err != nil {
+				return releaseDescriptor{}, err
+			}
+			if !verifiedExecutableSlotFile(info, manifest.Component.ID, record) {
+				return releaseDescriptor{}, fmt.Errorf("installed runtime component file mode mismatch: %s", record.Path)
+			}
+		}
+		payload, err := readRegular(filePath, productRuntimeFileLimit(manifest.Component.ID, record), false)
 		if err != nil {
 			return releaseDescriptor{}, err
 		}
@@ -1083,7 +1367,7 @@ func stageComponent(envelopePath, trustPath, packagePath, root string) (releaseD
 	if err := materializeSlot(tempDir, verified, envelopeBytes); err != nil {
 		return releaseDescriptor{}, "", false, err
 	}
-	if err := makeSlotReadOnly(tempDir); err != nil {
+	if err := makeSlotReadOnly(tempDir, verified.Manifest); err != nil {
 		return releaseDescriptor{}, "", false, err
 	}
 	if _, err := verifySlotWithTrustBytes(tempDir, trustBytes); err != nil {
@@ -1241,7 +1525,7 @@ func verifySlotCommand(args []string) error {
 }
 
 func usage() {
-	fmt.Fprintln(os.Stderr, "usage: ordax-runtime-component-channel <generate-key|derive-trust|sign|verify-envelope|stage|verify-slot|sign-v2|verify-envelope-v2|stage-v2|verify-slot-v2|inspect-slot-compatibility-v2|inspect-activation-compatibility-v2|inspect-active-compatibility-catalog-v2|sign-store-catalog|verify-store-catalog|arm-pending|record-health|promote-state|reject-pending|rollback-state|uninstall-state|resolve-current|resolve-pending|read-runtime-file|status> [options]")
+	fmt.Fprintln(os.Stderr, "usage: ordax-runtime-component-channel <generate-key|derive-trust|sign|verify-envelope|stage|verify-slot|sign-v2|verify-envelope-v2|stage-v2|verify-slot-v2|inspect-slot-compatibility-v2|inspect-activation-compatibility-v2|inspect-active-compatibility-catalog-v2|sign-store-catalog|verify-store-catalog|arm-pending|record-health|promote-state|reject-pending|rollback-state|uninstall-state|resolve-current|resolve-pending|inspect-native-product-handoff|read-runtime-file|status> [options]")
 }
 
 func main() {
@@ -1293,6 +1577,8 @@ func main() {
 		err = rollbackStateCommand(os.Args[2:])
 	case "uninstall-state":
 		err = uninstallStateCommand(os.Args[2:])
+	case "inspect-native-product-handoff":
+		err = inspectNativeProductHandoffCommand(os.Args[2:])
 	case "resolve-current":
 		err = resolveCurrentCommand(os.Args[2:])
 	case "resolve-pending":

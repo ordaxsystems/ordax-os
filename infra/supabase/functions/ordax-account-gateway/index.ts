@@ -6,14 +6,23 @@ import {
   validateRateLimitRpcResult,
 } from "../_shared/auth_rate_limit.mjs";
 import { readBoundedBody } from "../_shared/bounded_body.mjs";
+import { ACCOUNT_MCP_USAGE_PATH, readAccountMcpUsage } from "../_shared/account_mcp_usage.mjs";
 import { accountPrivilegedRpc } from "../_shared/account_privileged_rpc.mjs";
-import { authorizeAccountTransport, accountGatewayRoutePath } from "../_shared/account_transport_admission.mjs";
+import { authorizeAccountTransport, accountGatewayRoutePath, isPublicAccountPreActivationRoute } from "../_shared/account_transport_admission.mjs";
 import { parseSpaceCreateRequest, projectSpaceCreateResult, spaceCreateRpcArgs } from "../_shared/space_create_contract.mjs";
 import { PUBLIC_CONFIRMATION_PATH, PUBLIC_SIGNUP_REDIRECT, PUBLIC_RECOVERY_VERIFY_PATH, PUBLIC_RECOVERY_VERIFY_URL, parseSignupConfirmation, parseRecoveryLink } from "../_shared/account_email_confirmation.mjs";
 
 const SESSION_SCHEMA = "prototype-ordax.public-identity-session/1";
 const REGISTRATION_POLICY_SCHEMA = "prototype-ordax.registration-legal-policy/1";
 const ACCOUNT_SPACES_SCHEMA = "prototype-ordax.account-spaces/1";
+const SPACE_MEMBERS_PAGE_SCHEMA = "ordax.space-members-page/3";
+const SPACE_ACTOR_CAPABILITY_SCHEMA = "ordax.space-actor-capability/1";
+const SPACE_MEMBERSHIP_ACTION_REQUEST_SCHEMA = "ordax.space-membership-action-request/1";
+const SPACE_MEMBERSHIP_ACTION_RESULT_SCHEMA = "ordax.space-membership-action-result/1";
+const SPACE_MEMBERSHIP_ACTIONS = new Set(["change-role", "suspend", "reactivate", "remove"]);
+const SPACE_MEMBERSHIP_ASSIGNABLE_ROLES = new Set(["admin", "member", "viewer"]);
+const ACCOUNT_SPACE_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const MAX_SPACE_MEMBERS_PAGE_SIZE = 128;
 const ENTITLEMENTS_SCHEMA = "ordax.entitlements/1";
 const MEMORY_CLOUD_ENTITLEMENT = "memory.cloud.enabled";
 const MAX_MEMORY_ENTITLEMENT_ROWS = 16;
@@ -49,6 +58,9 @@ const PWNED_PASSWORDS_USER_AGENT = "OrdaX-Account-Gateway/1";
 const PUBLIC_SITE_ACCOUNT_ENABLED = false;
 const ACCOUNT_REGISTRATION_ENABLED = false;
 const PUBLIC_WEB_AUTH_ENABLED = true;
+// Public login stays available. Signup requires separately approved immutable
+// legal documents; an active database policy alone is not release proof.
+const PUBLIC_WEB_REGISTRATION_ENABLED = false;
 // Limit public login/registration to explicit methods and routes; sync,
 // memory, Network and account-data operations remain behind their own gates.
 const PUBLIC_WEB_AUTH_ROUTES = new Set([
@@ -301,7 +313,9 @@ async function registrationLegalPolicy(publicRequest = false) {
   return {
     $schema: REGISTRATION_POLICY_SCHEMA,
     active: true,
-    registrationEnabled: ACCOUNT_REGISTRATION_ENABLED || (publicRequest && PUBLIC_WEB_AUTH_ENABLED),
+    registrationEnabled: ACCOUNT_REGISTRATION_ENABLED || (publicRequest && PUBLIC_WEB_REGISTRATION_ENABLED),
+    // Read-only, server-owned capability for clients that cannot register natively.
+    publicRegistrationEnabled: PUBLIC_WEB_REGISTRATION_ENABLED,
     policyId: item.policy_id,
     privacy: {
       version: item.privacy_version,
@@ -445,6 +459,40 @@ async function boundedBody(req: Request) {
   return new TextDecoder().decode(raw);
 }
 
+function parseSpaceMembershipActionBody(raw: string) {
+  let value: Record<string, unknown>;
+  try {
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("invalid");
+    value = parsed as Record<string, unknown>;
+  } catch {
+    throw new Error("invalid-space-membership-action-request");
+  }
+  const action = typeof value.action === "string" ? value.action : "";
+  const allowed = new Set(["schema", "action", "spaceId", "targetUserId", "idempotencyKey"]);
+  if (action === "change-role") allowed.add("role");
+  if (value.schema !== SPACE_MEMBERSHIP_ACTION_REQUEST_SCHEMA
+      || !SPACE_MEMBERSHIP_ACTIONS.has(action)
+      || Object.keys(value).some((key) => !allowed.has(key))
+      || !ACCOUNT_SPACE_UUID.test(String(value.spaceId ?? ""))
+      || !ACCOUNT_SPACE_UUID.test(String(value.targetUserId ?? ""))
+      || !ACCOUNT_SPACE_UUID.test(String(value.idempotencyKey ?? ""))) {
+    throw new Error("invalid-space-membership-action-request");
+  }
+  const role = action === "change-role" ? value.role : null;
+  if ((action === "change-role" && !SPACE_MEMBERSHIP_ASSIGNABLE_ROLES.has(String(role)))
+      || (action !== "change-role" && "role" in value)) {
+    throw new Error("invalid-space-membership-action-request");
+  }
+  return {
+    action,
+    spaceId: String(value.spaceId).toLowerCase(),
+    targetUserId: String(value.targetUserId).toLowerCase(),
+    idempotencyKey: String(value.idempotencyKey).toLowerCase(),
+    role: role === null ? null : String(role),
+  };
+}
+
 function syncObject(item: Record<string, unknown>) {
   return {
     objectId: item.stable_object_id,
@@ -502,6 +550,30 @@ function authenticated(req: Request) {
     sessionVerificationCache.set(req, result);
   }
   return result;
+}
+
+function safeAccountDisplayName(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const displayName = value.trim();
+  if (!displayName || Array.from(displayName).length > 120 || /[\u0000-\u001f\u007f]/u.test(displayName)) {
+    return null;
+  }
+  return displayName;
+}
+
+async function readAccountDisplayName(access: string, userId: string): Promise<string | null> {
+  try {
+    // Use the user's access token and owner-scoped RLS. Profile-read failure
+    // must not invalidate the authenticated session.
+    const { data, error: profileError } = await client(access)
+      .from("ordax_accounts")
+      .select("display_name")
+      .eq("user_id", userId)
+      .maybeSingle();
+    return profileError ? null : safeAccountDisplayName(data?.display_name);
+  } catch {
+    return null;
+  }
 }
 
 async function authenticatedRecovery(req: Request) {
@@ -825,7 +897,7 @@ async function confirmPublicSignup(url: URL) {
 }
 
 async function credentials(req: Request, register: boolean) {
-  if (register && !(ACCOUNT_REGISTRATION_ENABLED || (PUBLIC_WEB_AUTH_ENABLED && publicSiteRequest(req)))) {
+  if (register && !(ACCOUNT_REGISTRATION_ENABLED || (PUBLIC_WEB_REGISTRATION_ENABLED && publicSiteRequest(req)))) {
     return error(
       503,
       "account-registration-disabled",
@@ -1103,7 +1175,8 @@ Deno.serve(async (req: Request) => {
   }
 
   if (publicSiteRequest(req) && !PUBLIC_SITE_ACCOUNT_ENABLED
-    && !(PUBLIC_WEB_AUTH_ENABLED && PUBLIC_WEB_AUTH_ROUTES.has(req.method + " " + path))) {
+    && !(PUBLIC_WEB_AUTH_ENABLED && PUBLIC_WEB_AUTH_ROUTES.has(req.method + " " + path))
+    && !isPublicAccountPreActivationRoute(req.method, path)) {
     if (path === "/auth/login" && req.method === "GET") return redirectResponse("/login/");
     if (path === "/auth/register" && req.method === "GET") return redirectResponse("/cadastro/");
     if (path === "/auth/logout" && req.method === "POST") {
@@ -1160,6 +1233,9 @@ Deno.serve(async (req: Request) => {
           accountCloseEnabled: false,
         }, session.cookies);
       }
+      const displayName = session.access
+        ? await readAccountDisplayName(session.access, session.user.id)
+        : null;
       return json(200, {
         $schema: SESSION_SCHEMA,
         authenticated: true,
@@ -1167,6 +1243,7 @@ Deno.serve(async (req: Request) => {
         status: "authenticated",
         subject: session.user.id,
         email: session.user.email ?? null,
+        ...(displayName ? { displayName } : {}),
         accountCloseEnabled: ACCOUNT_CLOSE_ENABLED,
       }, session.cookies);
     } catch {
@@ -1220,6 +1297,29 @@ Deno.serve(async (req: Request) => {
       return error(502, "account-export-failed", "Não foi possível gerar a exportação da Conta OrdaX.");
     }
     return json(200, data, session.cookies);
+  }
+
+  if (path === ACCOUNT_MCP_USAGE_PATH && req.method === "GET") {
+    const session = await authenticated(req);
+    if (!session.user || !session.access) {
+      return json(401, {
+        $schema: ERROR_SCHEMA,
+        error: "authentication-required",
+        message: "Entre na Conta OrdaX para consultar o consumo MCP.",
+      }, session.cookies);
+    }
+    // Separate activation from identity and MCP subscription. A live session
+    // cannot implicitly enable external bearer forwarding or shadow collection.
+    if (Deno.env.get("ORDAX_MCP_USAGE_READ_ENABLED") !== "1") {
+      return error(503, "mcp-usage-unavailable", "A medição MCP ainda não está disponível nesta Conta.");
+    }
+    try {
+      const usage = await readAccountMcpUsage(session.access);
+      return json(200, usage, session.cookies);
+    } catch {
+      // Never expose bearer, provider response, SQL or upstream diagnostics.
+      return error(503, "mcp-usage-unavailable", "Não foi possível consultar a medição MCP.");
+    }
   }
 
   if (path === "/account/spaces/create" && req.method === "POST") {
@@ -1323,15 +1423,16 @@ Deno.serve(async (req: Request) => {
       if (
         typeof raw.space_id !== "string" ||
         typeof raw.pack_slug !== "string" ||
-        raw.pack_slug.length < 1 ||
-        raw.pack_slug.length > 160 ||
-        !Number.isSafeInteger(Number(raw.pack_version)) ||
-        Number(raw.pack_version) < 1 ||
+        !/^[a-z0-9][a-z0-9-]{1,79}$/.test(raw.pack_slug) ||
+        typeof raw.pack_version !== "number" ||
+        !Number.isSafeInteger(raw.pack_version) ||
+        raw.pack_version < 1 ||
+        `${raw.pack_slug}@${raw.pack_version}`.length > 160 ||
         packBySpace.has(raw.space_id)
       ) {
         return error(502, "spaces-read-failed", "Não foi possível validar seus Spaces.");
       }
-      packBySpace.set(raw.space_id, raw.pack_slug);
+      packBySpace.set(raw.space_id, `${raw.pack_slug}@${raw.pack_version}`);
     }
 
     const spaces = [];
@@ -1371,6 +1472,171 @@ Deno.serve(async (req: Request) => {
     }
 
     return json(200, { $schema: ACCOUNT_SPACES_SCHEMA, spaces }, session.cookies);
+  }
+
+  if (path === "/account/space-members" && req.method === "GET") {
+    const session = await authenticated(req);
+    if (!session.user || !session.access) {
+      return json(401, {
+        $schema: ERROR_SCHEMA,
+        error: "authentication-required",
+        message: "Entre na Conta OrdaX para ver os membros deste Space.",
+      }, session.cookies);
+    }
+
+    const allowedQueryKeys = new Set(["spaceId", "cursor"]);
+    for (const key of url.searchParams.keys()) {
+      if (!allowedQueryKeys.has(key)) return error(400, "invalid-space-members-query", "Consulta de membros inválida.");
+    }
+    const spaceIds = url.searchParams.getAll("spaceId");
+    const cursors = url.searchParams.getAll("cursor");
+    const requestedSpaceId = spaceIds.length === 1 ? spaceIds[0] : "";
+    const requestedCursor = cursors.length === 0 ? null : cursors.length === 1 ? cursors[0] : "";
+    if (!ACCOUNT_SPACE_UUID.test(requestedSpaceId) || (requestedCursor !== null && !ACCOUNT_SPACE_UUID.test(requestedCursor))) {
+      return error(400, "invalid-space-members-query", "Consulta de membros inválida.");
+    }
+    // Canonical UUID text order agrees with PostgreSQL uuid order, including mixed-case input.
+    const spaceId = requestedSpaceId.toLowerCase();
+    const cursor = requestedCursor === null ? null : requestedCursor.toLowerCase();
+
+    try {
+      const supabase = client(session.access);
+      const { data, error: rpcError } = await supabase.rpc("ordax_list_space_members_v1", {
+        p_space_id: spaceId,
+        p_after_user_id: cursor,
+        p_limit: MAX_SPACE_MEMBERS_PAGE_SIZE,
+      });
+      if (rpcError || !Array.isArray(data) || data.length > MAX_SPACE_MEMBERS_PAGE_SIZE) {
+        return error(502, "space-members-read-failed", "Não foi possível ler os membros deste Space.");
+      }
+
+      const members = [];
+      // The first row must advance beyond the requested cursor; later rows beyond
+      // each predecessor. Never accept repeated or regressive provider pages.
+      let previousUserId = cursor;
+      for (const raw of data as Array<Record<string, unknown>>) {
+        if (
+          typeof raw.space_id !== "string" || raw.space_id !== spaceId ||
+          typeof raw.user_id !== "string" || !ACCOUNT_SPACE_UUID.test(raw.user_id) ||
+          raw.user_id !== raw.user_id.toLowerCase() ||
+          !["owner", "admin", "member", "viewer"].includes(String(raw.role)) ||
+          !["active", "suspended"].includes(String(raw.state)) ||
+          typeof raw.can_change_role !== "boolean" ||
+          typeof raw.can_suspend !== "boolean" ||
+          typeof raw.can_reactivate !== "boolean" ||
+          typeof raw.can_remove !== "boolean" ||
+          !Array.isArray(raw.assignable_roles) || raw.assignable_roles.length > SPACE_MEMBERSHIP_ASSIGNABLE_ROLES.size ||
+          raw.assignable_roles.some((role) => typeof role !== "string" || !SPACE_MEMBERSHIP_ASSIGNABLE_ROLES.has(role)) ||
+          new Set(raw.assignable_roles).size !== raw.assignable_roles.length ||
+          raw.can_change_role !== (raw.assignable_roles.length > 0) ||
+          (raw.state === "active" && raw.can_reactivate) ||
+          (raw.state === "suspended" && raw.can_suspend) ||
+          (previousUserId !== null && raw.user_id <= previousUserId)
+        ) return error(502, "space-members-read-failed", "Não foi possível validar os membros deste Space.");
+        previousUserId = raw.user_id;
+        members.push({
+          spaceId,
+          userId: raw.user_id,
+          role: raw.role,
+          state: raw.state,
+          actions: {
+            canChangeRole: raw.can_change_role,
+            canSuspend: raw.can_suspend,
+            canReactivate: raw.can_reactivate,
+            canRemove: raw.can_remove,
+            assignableRoles: raw.assignable_roles,
+          },
+        });
+      }
+
+      return json(200, {
+        schema: SPACE_MEMBERS_PAGE_SCHEMA,
+        spaceId,
+        members,
+        nextCursor: data.length === MAX_SPACE_MEMBERS_PAGE_SIZE ? previousUserId : null,
+      }, session.cookies);
+    } catch {
+      return error(503, "space-members-unavailable", "A leitura de membros está temporariamente indisponível.");
+    }
+  }
+
+  if (path === "/account/space-actor-capability" && req.method === "GET") {
+    const session = await authenticated(req);
+    if (!session.user || !session.access) {
+      return json(401, { $schema: ERROR_SCHEMA, error: "authentication-required", message: "Entre na Conta OrdaX para verificar sua participacao neste Space." }, session.cookies);
+    }
+    const allowedQueryKeys = new Set(["spaceId"]);
+    for (const key of url.searchParams.keys()) {
+      if (!allowedQueryKeys.has(key)) return error(400, "invalid-space-actor-capability-query", "Consulta de participacao invalida.");
+    }
+    const spaceIds = url.searchParams.getAll("spaceId");
+    const spaceId = spaceIds.length === 1 ? spaceIds[0] : "";
+    if (!ACCOUNT_SPACE_UUID.test(spaceId)) return error(400, "invalid-space-actor-capability-query", "Consulta de participacao invalida.");
+    try {
+      const supabase = client(session.access);
+      const { data, error: rpcError } = await supabase.rpc("ordax_get_space_actor_capability_v1", { p_space_id: spaceId });
+      if (rpcError) {
+        const message = String(rpcError.message ?? "");
+        if (message.includes("space-not-found-or-forbidden") || message.includes("authentication-required")) return error(403, "space-actor-capability-forbidden", "A participacao neste Space nao esta disponivel.");
+        if (message.includes("space-id-required") || message.includes("invalid input syntax for type uuid")) return error(400, "invalid-space-actor-capability-query", "Consulta de participacao invalida.");
+        return error(502, "space-actor-capability-read-failed", "Nao foi possivel verificar sua participacao neste Space.");
+      }
+      if (!Array.isArray(data) || data.length !== 1 || !data[0]) return error(502, "space-actor-capability-read-failed", "A resposta de participacao e invalida.");
+      const item = data[0] as Record<string, unknown>;
+      if (item.space_id !== spaceId || item.user_id !== session.user.id
+          || !["owner", "admin", "member", "viewer"].includes(String(item.role))
+          || !["active", "suspended"].includes(String(item.state))
+          || typeof item.can_manage_members !== "boolean") {
+        return error(502, "space-actor-capability-read-failed", "A resposta de participacao e invalida.");
+      }
+      return json(200, { schema: SPACE_ACTOR_CAPABILITY_SCHEMA, spaceId: item.space_id, userId: item.user_id, role: item.role, state: item.state, canManageMembers: item.can_manage_members }, session.cookies);
+    } catch {
+      return error(503, "space-actor-capability-unavailable", "A verificacao de participacao esta temporariamente indisponivel.");
+    }
+  }
+
+  if (path === "/account/space-membership-actions" && req.method === "POST") {
+    const session = await authenticated(req);
+    if (!session.user || !session.access) {
+      return json(401, {
+        $schema: ERROR_SCHEMA,
+        error: "authentication-required",
+        message: "Entre na Conta OrdaX para administrar membros deste Space.",
+      }, session.cookies);
+    }
+    const mediaType = (req.headers.get("content-type") ?? "").split(";", 1)[0].trim().toLowerCase();
+    if (mediaType !== "application/json") return error(415, "unsupported-media-type", "A ação de membro exige JSON.");
+    let request;
+    try { request = parseSpaceMembershipActionBody(await boundedBody(req)); }
+    catch { return error(400, "invalid-space-membership-action-request", "A ação de membro é inválida."); }
+    try {
+      const supabase = client(session.access);
+      const { data, error: rpcError } = await supabase.rpc("ordax_mutate_space_membership_v1", {
+        p_space_id: request.spaceId,
+        p_target_user_id: request.targetUserId,
+        p_action: request.action,
+        p_role: request.role,
+        p_idempotency_key: request.idempotencyKey,
+      });
+      if (rpcError) {
+        const message = String(rpcError.message ?? "");
+        if (message.includes("space-membership-idempotency-conflict")) return error(409, "space-membership-idempotency-conflict", "A chave de idempotência já pertence a outra ação.");
+        if (message.includes("space-membership-action-forbidden") || message.includes("space-membership-not-found-or-forbidden")) return error(403, "space-membership-action-forbidden", "A ação de membro não é permitida.");
+        if (message.includes("space-membership-") || message.includes("invalid input syntax for type uuid")) return error(400, "invalid-space-membership-action-request", "A ação de membro é inválida.");
+        return error(502, "space-membership-action-failed", "Não foi possível aplicar a ação de membro.");
+      }
+      if (!Array.isArray(data) || data.length !== 1 || !data[0]) return error(502, "space-membership-action-failed", "A resposta da ação de membro é inválida.");
+      const result = data[0] as Record<string, unknown>;
+      if (result.space_id !== request.spaceId || result.target_user_id !== request.targetUserId
+          || !SPACE_MEMBERSHIP_ASSIGNABLE_ROLES.has(String(result.role))
+          || !["active", "suspended"].includes(String(result.state))
+          || typeof result.removed !== "boolean" || typeof result.changed !== "boolean") {
+        return error(502, "space-membership-action-failed", "A resposta da ação de membro é inválida.");
+      }
+      return json(200, { schema: SPACE_MEMBERSHIP_ACTION_RESULT_SCHEMA, spaceId: result.space_id, targetUserId: result.target_user_id, role: result.role, state: result.state, removed: result.removed, changed: result.changed }, session.cookies);
+    } catch {
+      return error(503, "space-membership-action-unavailable", "A administração de membros está temporariamente indisponível.");
+    }
   }
 
   if (path === "/account/entitlements/memory-cloud") {
