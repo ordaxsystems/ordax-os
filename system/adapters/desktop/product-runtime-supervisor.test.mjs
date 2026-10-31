@@ -145,6 +145,7 @@ test("valid signed plan launches ONE scoped process without inherited Windows pr
  const sup=createDesktopProductRuntimeSupervisor({
    systemRoot:f.systemRoot,userData:f.userData,platform:"win32",
    env:{ORDAX_COMPUTER_FULL_ACCESS:"1",ORDAX_COMPUTER_ENABLED:"1",
+     ORDAX_OWNER_SECRET:"not-inherited",PYTHONPATH:"untrusted-path",
      ORDAX_AGENT_STATE_DIR:"C:\\Windows Agent",UNRELATED:"safe"},
    verifiedHandoff:()=>f.plan,
    spawnImpl:(_file,_args,opts)=>{launches++;settings=opts;spawned=child();return spawned},
@@ -161,6 +162,8 @@ test("valid signed plan launches ONE scoped process without inherited Windows pr
  assert.equal(settings.env.ORDAX_PRODUCT_MCP_URL,"https://ordax-mcp.ordaxsystems.workers.dev");
  assert.equal(settings.env.ORDAX_COMPUTER_FULL_ACCESS,undefined);
  assert.equal(settings.env.ORDAX_COMPUTER_ENABLED,undefined);
+ assert.equal(settings.env.ORDAX_OWNER_SECRET,undefined);
+ assert.equal(settings.env.PYTHONPATH,undefined);
  assert.equal(settings.env.UNRELATED,"safe");
  assert.equal(settings.cwd,join(f.userData,"native-state"));
  sup.stop();

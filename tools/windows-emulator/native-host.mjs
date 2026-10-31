@@ -234,9 +234,18 @@ export function nativeEmulatorPlugin(stateDirectory, { desktopHost = false, acco
             }),
           });
           void productRuntime.reconcile().catch(() => {});
+          // Re-check post-boot enrollment and trust under one serialized
+          // Supervisor: a revoked identity cannot keep a Runtime alive.
+          const productRuntimeTimer=setInterval(() => {
+            void productRuntime.reconcile().catch(() => {});
+          },30000);
+          productRuntimeTimer.unref?.();
           // Stop the owned child on the normal Native Host shutdown signals,
           // not only in the final process exit callback (too late to reap).
-          const stopProductRuntime=()=>productRuntime.stop();
+          const stopProductRuntime=()=>{
+            clearInterval(productRuntimeTimer);
+            productRuntime.stop();
+          };
           process.once("SIGINT",stopProductRuntime);
           process.once("SIGTERM",stopProductRuntime);
           process.once("exit",stopProductRuntime);

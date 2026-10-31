@@ -226,18 +226,21 @@ export function createDesktopProductRuntimeSupervisor({
     if(!stopActive()){
       return current=snapshot("stopping","previous_instance_still_running",true);
     }
-    const childEnv={...env,
+    // Never inherit other Windows agent grants, secrets or interpreter overrides.
+    const childEnv={};
+    for(const [name,value] of Object.entries(env)){
+      if(/^ORDAX_/i.test(name) ||
+         /^(?:PYTHONPATH|PYTHONHOME|PYTHONSTARTUP|PYTHONINSPECT|VIRTUAL_ENV|NODE_OPTIONS)$/i.test(name))
+        continue;
+      childEnv[name]=value;
+    }
+    Object.assign(childEnv,{
       ORDAX_RUNTIME_HOST_PROFILE:"ordax-desktop",
       ORDAX_DESKTOP_USER_DATA:userData,
       ORDAX_AGENT_STATE_DIR:prepared.identity.directory,
       ORDAX_PRODUCT_MCP_URL:prepared.identity.transport,
       PYTHONNOUSERSITE:"1",
-    };
-    // These OS privileges never follow from a Windows shell session or from
-    // the ambient environment of the host process.
-    for(const key of Object.keys(childEnv)){
-      if(/^ORDAX_COMPUTER_(?:FULL|ACCESS|ENABLED)/.test(key))delete childEnv[key];
-    }
+    });
     let child;
     try{
       child=spawnImpl(plan.executable,[],{
