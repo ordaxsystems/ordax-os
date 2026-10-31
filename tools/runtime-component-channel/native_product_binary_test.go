@@ -268,6 +268,29 @@ func TestNativeSignedPackageRejectsELFWithValidSignatureAndBrokenHeaders(t *test
 	}
 }
 
+func TestWindowsSignedChannelAllowsCanonicalTempWithoutReparsePoint(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("Windows canonical path normalization")
+	}
+	parent := t.TempDir()
+	if _,err := ensureRealParent(filepath.Join(parent,"canonical-key.pem")); err != nil {
+		t.Fatalf("real Windows temp path rejected: %v",err)
+	}
+	// A nested symbolic path must be rejected even when the immediate parent
+	// itself is a real directory, regardless of case/short-name normalization.
+	real := filepath.Join(parent, "real")
+	child := filepath.Join(real, "nested")
+	if err := os.MkdirAll(child, 0o700); err != nil { t.Fatal(err) }
+	alias := filepath.Join(parent, "alias")
+	if err := os.Symlink(real,alias); err != nil {
+		t.Logf("Windows symlink creation unavailable; canonical temp case remains covered: %v",err)
+		return
+	}
+	if _,err := ensureRealParent(filepath.Join(alias,"nested","bad.pem")); err == nil {
+		t.Fatal("Windows ancestor symlink silently accepted as real component parent")
+	}
+}
+
 func TestWindowsSignedProductRuntimeSlotRequiresReadOnlyAttribute(t *testing.T) {
 	if runtime.GOOS != "windows" {
 		t.Skip("verify Windows file attributes on Windows runner")

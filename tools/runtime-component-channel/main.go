@@ -194,6 +194,38 @@ func validateKeyID(value string) error {
 	return nil
 }
 
+// Windows EvalSymlinks also expands case and short-name aliases, so textual
+// comparison against the original path rejects legitimate parent directories.
+// Walk each real ancestor with Lstat instead: a junction/reparse symlink must
+// not become a trusted signed-component package or key path.
+func verifyWindowsDirectoryAncestry(parent string) error {
+	volume := filepath.VolumeName(parent)
+	if volume == "" {
+		return errors.New("Windows component path must have an absolute volume")
+	}
+	root := volume + string(os.PathSeparator)
+	relative, err := filepath.Rel(root, parent)
+	if err != nil || filepath.IsAbs(relative) || relative == ".." ||
+		strings.HasPrefix(relative, ".."+string(os.PathSeparator)) {
+		return errors.New("Windows component parent escaped its volume")
+	}
+	current := root
+	for _,part := range strings.Split(relative, string(os.PathSeparator)) {
+		if part == "" || part == "." {
+			continue
+		}
+		current = filepath.Join(current,part)
+		info, err := os.Lstat(current)
+		if err != nil {
+			return err
+		}
+		if !info.IsDir() || info.Mode()&(os.ModeSymlink|os.ModeIrregular) != 0 {
+			return errors.New("Windows component parent may not traverse reparse points")
+		}
+	}
+	return nil
+}
+
 func ensureRealParent(path string) (string, error) {
 	absolute, err := filepath.Abs(path)
 	if err != nil {
@@ -215,7 +247,11 @@ func ensureRealParent(path string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if filepath.Clean(resolvedAbs) != filepath.Clean(parent) {
+	if runtime.GOOS == "windows" {
+		if err := verifyWindowsDirectoryAncestry(parent); err != nil {
+			return "", err
+		}
+	} else if filepath.Clean(resolvedAbs) != filepath.Clean(parent) {
 		return "", errors.New("parent path may not traverse symlinks")
 	}
 	return absolute, nil

@@ -221,7 +221,7 @@ jobs:
         run: |
           Push-Location tools/runtime-component-channel
           try {
-            & go test -count=1 -run '^(TestWindowsSignedProductRuntimeSlotRequiresReadOnlyAttribute|TestWindowsProductRuntimePERejectsMalformedPayload|TestSignedProductRuntimeRejectsCrossTargetPayloads)$' .
+            & go test -count=1 -run '^(TestWindowsSignedChannelAllowsCanonicalTempWithoutReparsePoint|TestWindowsSignedProductRuntimeSlotRequiresReadOnlyAttribute|TestWindowsProductRuntimePERejectsMalformedPayload|TestSignedProductRuntimeRejectsCrossTargetPayloads)$' .
             if ($LASTEXITCODE -ne 0) { throw 'Windows signed component slot regression failed' }
           } finally {
             Pop-Location
