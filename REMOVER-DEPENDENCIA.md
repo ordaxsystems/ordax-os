@@ -295,3 +295,34 @@ arquivos da revisão candidata. A falha anterior `untrusted` era causada
 pela ausência deles no fixture, não pela política em produção. O mesmo teste
 agora prova ausência de três arquivos Linux/Web no checkout imutável,
 status Git limpo, compilação Vite verdadeira e os recibos de rollback.
+
+### Fechamento do grafo Python do runtime gráfico Linux — 2026-11-01
+
+Auditoria da árvore `system/surface/runtime/` identificou **64 módulos Python**
+(aproximadamente **927 KiB** de fontes). Seis já tinham owner Linux
+explícito: os dois hosts Native GTK/HTTP e os quatro probes físicos.
+Os outros **58 módulos de suporte**, incluindo Conta, Store, Apps,
+Profile, áudio, display e privacidade, dependem da composição Python
+do Linux, não do host Windows Node ou do cliente Web.
+
+O contrato `docs/contracts/build-autonomy.json` passou a declarar
+`linux_only_client_python_support_paths`: uma única lista completa
+de 58 caminhos exatos. A projeção NSIS, os filtros GitHub (Windows
+e Web), o verificador Vercel e o classificador de impacto Creator
+devem corresponder estritamente à mesma lista; sem `*.py` genérico.
+Provas adicionais: inventário total de 64 módulos (hosts + probes
++ suporte), limites de tamanho, assinatura Python por módulo (o
+`native_store_metadata_policy.py` é gerado pelo contrato canônico),
+ausência de symlinks, reação fail-closed a módulos inesperados e
+vazamento de suporte na extração NSIS. Testes de Vercel modificam
+commits Git de verdade, provando tanto SKIP válido quanto BUILD
+quando há divergência.
+
+**Efeito:** 58 fontes de suporte Python deixam de ser empacotadas
+no Windows e passam a ser identificadas como Linux-only nas
+decisões de CI/Web. Os arquivos permanecem nos produtores e no
+runtime USB; mudanças efetivas nesses arquivos ainda exigem o
+gate físico Linux/Creator. Nenhuma dependência do kernel ou
+runtime Native compartilhado foi removida.
+A PR #1980 segue Draft por causa da reidratação visual
+de contas não resolvida na Surface; sem declaração de E2E físico.

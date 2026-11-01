@@ -42,6 +42,27 @@ test('Git update sparse patterns are an exact projection of the NSIS ownership',
   assert.throws(()=>canonicalWindowsSparsePatterns(pkg,corrupted),/diverge|Unsafe/);
 });
 
+
+test('Linux Python support omissions derive exclusively from the source-reviewed contract',()=>{
+  const pkg=require('./package.json');
+  const authority=require('../../docs/contracts/build-autonomy.json').client_build_independence;
+  const modules=authority.linux_only_client_python_support_paths;
+  assert.equal(modules.length,58);
+  assert.equal(new Set(modules).size,58);
+  const excluded=canonicalWindowsPackageExclusions(pkg,{client_build_independence:authority});
+  for(const relative of modules) {
+    assert.ok(excluded.includes('!'+relative),relative);
+    assert.ok(!relative.includes('*'), 'never use an unreviewed Python glob');
+  }
+  const report=inventory(join(__dirname,'..','..','system'),excluded);
+  assert.deepEqual(report.missingExclusions,[]);
+  const tampered=structuredClone(pkg);
+  tampered.build.extraResources[0].filter.splice(
+    tampered.build.extraResources[0].filter.indexOf('!'+modules[0]),1);
+  assert.throws(()=>canonicalWindowsPackageExclusions(
+    tampered,{client_build_independence:authority}),/diverge/);
+});
+
 test('NSIS exclusions are exactly the canonical dependency contract, never extra Native files', () => {
   const pkg = require('./package.json');
   const contract = require('../../docs/contracts/build-autonomy.json');
@@ -80,6 +101,8 @@ test('real extracted NSIS verification rejects Linux/USB and Web leaks using the
     'surface/runtime/media_runtime_probe.py',
     'surface/runtime/native_host_server.py',
     'surface/runtime/ordax_browser_host.py',
+    'surface/runtime/native_account_gateway.py',
+    'surface/runtime/native_store_metadata_policy.py',
     'diagnostics/mvp_surface_smoke.py',
     'services/base-update/esp_readonly.py',
     'composition/web/leak.js'];

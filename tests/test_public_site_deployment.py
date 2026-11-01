@@ -141,6 +141,13 @@ class PublicSiteDeploymentTests(unittest.TestCase):
                              if path.endswith("native_host_server.py")
                              else 'gi.require_version("WebKit2", "4.1")')
                 write("system/" + path, "#!/usr/bin/env python3\n" + signature + "\n")
+            for relative in boundaries["linux_only_client_python_support_paths"]:
+                if relative.endswith("/native_store_metadata_policy.py"):
+                    content = ("# GENERATED FILE. DO NOT EDIT BY HAND.\n"
+                               "# Source of truth: docs/contracts/runtime-component-package.json\n")
+                else:
+                    content = "from __future__ import annotations\n"
+                write("system/" + relative, content)
             for relative in boundaries["linux_only_client_base_update_diagnostics_paths"]:
                 write("system/" + relative,
                       "#!/usr/bin/env python3\nfrom __future__ import annotations\n")
@@ -213,9 +220,31 @@ class PublicSiteDeploymentTests(unittest.TestCase):
             recovered_diagnostic = commit("Restore Linux physical diagnostics")
             self.assertEqual(ignored(unverified_diagnostic, recovered_diagnostic), 0)
 
+            # Direct changes to verified Python support cannot rebuild the
+            # Web; invalid/new support modules must build, never be hidden.
+            write("system/surface/runtime/native_account_gateway.py",
+                  "from __future__ import annotations\n# Linux host support updated\n")
+            verified_support = commit("Linux host support-only change")
+            self.assertEqual(ignored(recovered_diagnostic, verified_support), 0)
+            write("system/surface/runtime/native_account_gateway.py",
+                  "print('lost trusted Python owner')\n")
+            untrusted_support = commit("Python host support provenance changed")
+            self.assertEqual(ignored(verified_support, untrusted_support), 1)
+            write("system/surface/runtime/native_account_gateway.py",
+                  "from __future__ import annotations\n")
+            restored_support = commit("Restore Linux host support provenance")
+            self.assertEqual(ignored(untrusted_support, restored_support), 0)
+            write("system/surface/runtime/new_unreviewed_module.py",
+                  "from __future__ import annotations\n")
+            unknown_module = commit("New unclassified Linux Python dependency")
+            self.assertEqual(ignored(restored_support, unknown_module), 1)
+            (work / "system/surface/runtime/new_unreviewed_module.py").unlink()
+            restored_inventory = commit("Restore exact Linux Python inventory")
+            self.assertEqual(ignored(unknown_module, restored_inventory), 0)
+
             write("system/composition/native/main.mjs", "export const native=false;\n")
             native_changed = commit("shared Native source changed")
-            self.assertEqual(ignored(recovered_diagnostic, native_changed), 1)
+            self.assertEqual(ignored(restored_inventory, native_changed), 1)
 
             write("system/composition/web/main.tsx", "export const web=false;\n")
             web_changed = commit("Web-only source changed")

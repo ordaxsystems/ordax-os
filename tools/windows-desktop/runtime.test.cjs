@@ -150,6 +150,8 @@ test('Windows package excludes Linux-only Alpine package declaration without dro
     ...require('../../docs/contracts/build-autonomy.json').client_build_independence
       .linux_only_client_host_entrypoints.map(path=>'!'+path),
     ...require('../../docs/contracts/build-autonomy.json').client_build_independence
+      .linux_only_client_python_support_paths.map(path=>'!'+path),
+    ...require('../../docs/contracts/build-autonomy.json').client_build_independence
       .linux_only_client_base_update_diagnostics_paths.map(path=>'!'+path),
     '!composition/web/**',
   ]);

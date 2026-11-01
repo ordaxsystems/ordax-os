@@ -279,6 +279,34 @@ def verified_client_delivery_contract_delta(base, head, *, root=ROOT):
                 if (not content.startswith("#!/usr/bin/env python3\n")
                         or len(content) > 512 * 1024 or signature not in content):
                     return False
+        support = additions.pop("linux_only_client_python_support_paths", None)
+        if support is not None:
+            if (not isinstance(support, list) or len(support) != 58
+                    or len(set(map(str, support))) != 58
+                    or any(not isinstance(p, str) or not re.fullmatch(
+                        r"surface/runtime/[a-z][a-z0-9_]*\.py", p)
+                           for p in support)):
+                return False
+            runtime_files = subprocess.run(
+                ["git", "-C", str(root), "ls-tree", "-r", "--name-only", head,
+                 "--", "system/surface/runtime"],
+                check=True, capture_output=True, text=True, timeout=20,
+            ).stdout.splitlines()
+            runtime_python = sorted(p[7:] for p in runtime_files if p.endswith(".py"))
+            host_paths = current.get("linux_only_client_host_entrypoints", ())
+            probe_paths = current.get("linux_only_client_probe_paths", ())
+            if sorted([*support, *host_paths, *probe_paths]) != runtime_python:
+                return False
+            for rel in support:
+                raw = _git_show(head, "system/" + rel, root)
+                if not raw or len(raw) > 256 * 1024:
+                    return False
+                if rel == "surface/runtime/native_store_metadata_policy.py":
+                    if (not raw.startswith("# GENERATED FILE. DO NOT EDIT BY HAND.\n")
+                            or "docs/contracts/runtime-component-package.json" not in raw[:300]):
+                        return False
+                elif "from __future__ import annotations" not in raw[:1024]:
+                    return False
         linux_owner = additions.pop("linux_only_client_base_update_diagnostics_paths", None)
         if linux_owner is not None:
             if (not isinstance(linux_owner, list) or len(linux_owner) != 13
@@ -327,7 +355,7 @@ def verified_client_delivery_contract_delta(base, head, *, root=ROOT):
                     return False
         return (bool(additions) or scripts is not None or manifest is not None
                 or probes is not None or hosts is not None
-                or linux_owner is not None) and all(
+                or linux_owner is not None or support is not None) and all(
             k in expected and v == expected[k] for k, v in additions.items()
         )
     except (OSError, UnicodeError, ValueError, KeyError, TypeError,

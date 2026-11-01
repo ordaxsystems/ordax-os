@@ -23,6 +23,7 @@ def linux_only_exclusions() -> list[str]:
     shells = client["windows_package_forbidden_linux_shell_paths"]
     probes = client["linux_only_client_probe_paths"]
     hosts = client["linux_only_client_host_entrypoints"]
+    support = client["linux_only_client_python_support_paths"]
     linux_owner = client["linux_only_client_base_update_diagnostics_paths"]
     manifest = client["linux_only_client_package_manifest"]
     if manifest != "surface/runtime/packages.txt":
@@ -98,24 +99,54 @@ def linux_only_exclusions() -> list[str]:
         if (not content.startswith("#!/usr/bin/env python3\n")
                 or "from __future__ import annotations" not in content[:1024]):
             raise ValueError("Linux-only Python producer identity changed")
-    paths = boot + shells + probes + hosts + linux_owner
+    # Full bounded Linux Python runtime closure. The two graphical entrypoints
+    # and four physical probes have explicit owners above; every remaining
+    # Python file belongs to their Linux-only host graph. Never silently skip
+    # a newly introduced module under a broad *.py path pattern.
+    if (not isinstance(support, list) or len(support) != 58
+            or len(set(map(str, support))) != 58
+            or any(not isinstance(p, str) or not re.fullmatch(
+                r"surface/runtime/[a-z][a-z0-9_]*\.py", p)
+                   for p in support)):
+        raise ValueError("unverified Linux Python support inventory")
+    runtime_python = sorted("surface/runtime/" + p.name for p
+                            in (ROOT / "system/surface/runtime").glob("*.py"))
+    if sorted([*hosts, *probes, *support]) != runtime_python:
+        raise ValueError("unverified Linux Python dependency graph drift")
+    generated = "surface/runtime/native_store_metadata_policy.py"
+    for rel in support:
+        source_file = ROOT / "system" / rel
+        if (source_file.is_symlink() or not source_file.is_file()
+                or source_file.stat().st_size > 256 * 1024):
+            raise ValueError("Linux Python support source unavailable")
+        body = source_file.read_text(encoding="utf-8")
+        if rel == generated:
+            if (not body.startswith("# GENERATED FILE. DO NOT EDIT BY HAND.\n")
+                    or "docs/contracts/runtime-component-package.json" not in body[:300]):
+                raise ValueError("Linux generated support ownership drift")
+        elif "from __future__ import annotations" not in body[:1024]:
+            raise ValueError("Linux Python support identity changed")
+    paths = boot + shells + probes + hosts + support + linux_owner
     if len(set(paths)) != len(paths):
         raise ValueError("duplicate Linux exclusion")
     for rel in paths:
         if (not isinstance(rel, str) or not SAFE.fullmatch(rel)
                 or any(segment in ("", ".", "..") for segment in rel.split("/"))
                 or (rel not in boot and rel not in probes and rel not in hosts
-                    and rel not in linux_owner and
+                    and rel not in support and rel not in linux_owner and
                     not rel.endswith(".sh") and
                     not re.fullmatch(r"surface/bin/ordax-[a-z0-9-]+", rel))):
             raise ValueError("unsafe Linux exclusion")
         file = ROOT / "system" / rel
         if file.is_symlink() or not file.is_file() or file.stat().st_size > 512 * 1024:
             raise ValueError("unverified Linux source")
-        with file.open("rb") as handle:
-            expected = b"#!/usr/bin/env python3\n" if rel in probes or rel in hosts or rel in linux_owner else b"#!/bin/sh\n"
-            if handle.read(len(expected)) != expected:
-                raise ValueError("unverified Linux-only executable")
+        # Support modules need not be executable; their verified module
+        # provenance is enforced above, not an invented shebang.
+        if rel not in support:
+            with file.open("rb") as handle:
+                expected = b"#!/usr/bin/env python3\n" if rel in probes or rel in hosts or rel in linux_owner else b"#!/bin/sh\n"
+                if handle.read(len(expected)) != expected:
+                    raise ValueError("unverified Linux-only executable")
     # Alpine package selection is a Linux producer, never a Web client input.
     # Fail closed on an absent, linked, oversized or unexpected manifest.
     package_source = ROOT / "system" / manifest

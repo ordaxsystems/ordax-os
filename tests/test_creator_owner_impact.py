@@ -245,6 +245,7 @@ class CreatorOwnerImpactTests(unittest.TestCase):
                     "linux_only_client_package_manifest",
                     "linux_only_client_probe_paths",
                     "linux_only_client_host_entrypoints",
+                    "linux_only_client_python_support_paths",
                     "linux_only_client_base_update_diagnostics_paths",
                     "client_delivery_gate_decoupling_fully_proven",
                     "windows_physical_and_web_live_independence_proven")
@@ -274,6 +275,19 @@ class CreatorOwnerImpactTests(unittest.TestCase):
                          if relative.endswith("native_host_server.py")
                          else 'gi.require_version("WebKit2", "4.1")')
             source.write_text("#!/usr/bin/env python3\n" + signature + "\n", encoding="utf-8")
+        # All 58 support modules are owned by the two POSIX Python graphical
+        # hosts and diagnostics. Preserve the exact Git inventory so an added
+        # or missing module cannot silently become a Windows/Web skip.
+        for relative in contract["client_build_independence"][
+                "linux_only_client_python_support_paths"]:
+            source = self.root / "system" / relative
+            source.parent.mkdir(parents=True, exist_ok=True)
+            if relative.endswith("/native_store_metadata_policy.py"):
+                content = ("# GENERATED FILE. DO NOT EDIT BY HAND.\n"
+                           "# Source of truth: docs/contracts/runtime-component-package.json\n")
+            else:
+                content = "from __future__ import annotations\n"
+            source.write_text(content, encoding="utf-8")
         # Git provenance for Linux Base/EFI owner and physical proof scripts.
         linux_owner = contract["client_build_independence"][
             "linux_only_client_base_update_diagnostics_paths"]
@@ -357,6 +371,28 @@ class CreatorOwnerImpactTests(unittest.TestCase):
         self.assertIn('gi.require_version("WebKit2", "4.1")',
                       (ROOT / "system" / hosts[1]).read_text(encoding="utf-8"))
 
+    def test_linux_python_support_closure_is_exact_and_has_single_owner(self):
+        contract = json.loads((ROOT / impact.CLIENT_AUTONOMY_CONTRACT)
+                              .read_text(encoding="utf-8"))["client_build_independence"]
+        support = contract["linux_only_client_python_support_paths"]
+        owners = contract["linux_only_client_host_entrypoints"]
+        probes = contract["linux_only_client_probe_paths"]
+        self.assertEqual(len(support), 58)
+        self.assertEqual(len(set([*support, *owners, *probes])), 64)
+        actual = sorted("surface/runtime/" + p.name
+                        for p in (ROOT / "system/surface/runtime").glob("*.py"))
+        self.assertEqual(actual, sorted([*support, *owners, *probes]))
+        for relative in support:
+            with self.subTest(path=relative):
+                source = ROOT / "system" / relative
+                self.assertLess(source.stat().st_size, 256 * 1024)
+                body = source.read_text(encoding="utf-8")
+                if relative.endswith("/native_store_metadata_policy.py"):
+                    self.assertTrue(body.startswith("# GENERATED FILE. DO NOT EDIT BY HAND.\n"))
+                    self.assertIn("docs/contracts/runtime-component-package.json", body[:300])
+                else:
+                    self.assertIn("from __future__ import annotations", body[:1024])
+
     def test_linux_base_and_diagnostics_owners_are_exact_python_sources(self):
         client = json.loads((ROOT / impact.CLIENT_AUTONOMY_CONTRACT)
                             .read_text(encoding="utf-8"))["client_build_independence"]
@@ -407,6 +443,7 @@ class CreatorOwnerImpactTests(unittest.TestCase):
             + boundary["windows_package_forbidden_linux_shell_paths"]
             + boundary["linux_only_client_probe_paths"]
             + boundary["linux_only_client_host_entrypoints"]
+            + boundary["linux_only_client_python_support_paths"]
             + boundary["linux_only_client_base_update_diagnostics_paths"]
             + [boundary["linux_only_client_package_manifest"]]
         )
