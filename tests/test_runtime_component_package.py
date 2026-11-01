@@ -411,6 +411,29 @@ class RuntimeComponentPackageTests(unittest.TestCase):
         ):
             builder.validate_manifest_shape(manifest)
 
+    def test_commonjs_runtime_package_cannot_claim_missing_dependency(self):
+        builder = load_builder()
+        entry = "system/components/local-ai-service/runtime.cjs"
+        files = {entry: b'const helper = require("./missing.cjs");'}
+        with self.assertRaisesRegex(
+            builder.ComponentPackageError, "not self-contained"
+        ):
+            builder.verify_internal_graph(files, entry)
+
+    def test_commonjs_runtime_package_requires_exact_local_helper(self):
+        builder = load_builder()
+        entry = "system/components/local-ai-service/runtime.cjs"
+        helper = "system/components/local-ai-service/helper.cjs"
+        files = {
+            entry: b'const helper = require.resolve("./helper.cjs");',
+            helper: b"exports.ok = true;",
+        }
+        builder.verify_internal_graph(files, entry)
+        with self.assertRaisesRegex(
+            builder.ComponentPackageError, "not self-contained"
+        ):
+            builder.verify_internal_graph({entry: files[entry]}, entry)
+
     def test_shared_source_graph_detects_import_meta_assets(self):
         builder = load_builder()
         with tempfile.TemporaryDirectory() as directory:
