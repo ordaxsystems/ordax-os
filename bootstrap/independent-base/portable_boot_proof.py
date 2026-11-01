@@ -18,6 +18,7 @@ from build import ROOT, BaseError, CANONICAL_HANDOFF, contracts, digest, verify
 
 SHA40 = re.compile(r"[0-9a-f]{40}\Z")
 INDEPENDENT_PORTABLE_PROFILE = "minimal"
+INDEPENDENT_PORTABLE_PROFILES = ("minimal", "stable-mvp")
 
 
 def regular_file(path: Path, label: str) -> Path:
@@ -68,6 +69,8 @@ def command(argv: list[str]) -> None:
 
 def prove(args: argparse.Namespace) -> dict:
     require_canonical_owners()
+    if args.base_profile not in INDEPENDENT_PORTABLE_PROFILES:
+        raise BaseError("unsupported Independent Base portable proof profile")
     if not SHA40.fullmatch(args.source_commit):
         raise BaseError("source commit must be lowercase 40-hex")
     out = outside_source(args.output_dir)
@@ -81,7 +84,9 @@ def prove(args: argparse.Namespace) -> dict:
         staged_base = regular_file(args.stable_base, "portable-v2 staged base")
         if digest(staged_base) != digest(candidate):
             raise BaseError("staged portable EROFS differs from independent Buildroot source")
-    receipt = verify(base_dir, INDEPENDENT_PORTABLE_PROFILE)
+    receipt = verify(base_dir, args.base_profile)
+    if receipt.get("profile") != args.base_profile:
+        raise BaseError("candidate portable proof profile drift")
     if receipt.get("canonical_portable_handoff_sha256") != digest(CANONICAL_HANDOFF):
         raise BaseError("candidate handoff is not the canonical owner")
     if receipt.get("source_commit") != args.source_commit:
@@ -165,6 +170,7 @@ def prove(args: argparse.Namespace) -> dict:
         raise BaseError("original ext4 source unexpectedly changed during QEMU proof")
     result = {
         "status": "pass",
+        "base_profile": args.base_profile,
         "independent_base_sha256": digest(candidate),
         "original_ext4_image_sha256": source_state_sha256,
         "original_ext4_image_unchanged": True,
@@ -180,6 +186,8 @@ def prove(args: argparse.Namespace) -> dict:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--base-out", required=True, type=Path)
+    parser.add_argument("--base-profile", choices=INDEPENDENT_PORTABLE_PROFILES,
+                        default=INDEPENDENT_PORTABLE_PROFILE)
     parser.add_argument("--stable-base", type=Path)
     parser.add_argument("--initramfs", type=Path)
     parser.add_argument("--initramfs-provenance", type=Path)

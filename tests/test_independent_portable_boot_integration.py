@@ -90,7 +90,10 @@ class IndependentPortableBootIntegrationTest(unittest.TestCase):
         self.assertIn("ORDAX_INDEPENDENT_PORTABLE_BRIDGE=EXECUTING", official)
         adapter = (BASE / "portable_boot_proof.py").read_text()
         self.assertIn('INDEPENDENT_PORTABLE_PROFILE = "minimal"', adapter)
-        self.assertIn('verify(base_dir, INDEPENDENT_PORTABLE_PROFILE)', adapter)
+        self.assertIn('verify(base_dir, args.base_profile)', adapter)
+        self.assertIn('INDEPENDENT_PORTABLE_PROFILES = ("minimal", "stable-mvp")', adapter)
+        self.assertIn('if args.base_profile not in INDEPENDENT_PORTABLE_PROFILES:', adapter)
+        self.assertIn('"base_profile": args.base_profile', adapter)
         self.assertIn('"--out", str(qemu_result)', adapter)
         self.assertIn('command(argv)  # official portable PID1 QEMU harness', adapter)
         self.assertIn('"--initramfs", str(initramfs_out / "initramfs.cpio.gz")', adapter)
@@ -139,6 +142,26 @@ class IndependentPortableBootIntegrationTest(unittest.TestCase):
             self.assertNotEqual(second.returncode, 0)
             self.assertIn("ERROR", second.stderr)
             self.assertFalse((Path(tmp) / "result").exists())
+
+    def test_bridge_rejects_owner_development_as_signed_portable_base(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            target = Path(tmp) / "not-created"
+            args = [
+                sys.executable, str(BASE / "portable_boot_proof.py"),
+                "--base-profile", "owner-development",
+                "--base-out", str(target),
+                "--kernel", str(Path(tmp) / "missing-kernel"),
+                "--capsule", str(Path(tmp) / "missing-capsule"),
+                "--state-image", str(Path(tmp) / "missing-state"),
+                "--portable-root", str(Path(tmp) / "missing-portable"),
+                "--trust", str(Path(tmp) / "missing-trust"),
+                "--source-commit", "a" * 40,
+                "--output-dir", str(Path(tmp) / "proof"),
+            ]
+            rejected = subprocess.run(args, capture_output=True, text=True, cwd=ROOT)
+            self.assertNotEqual(rejected.returncode, 0)
+            self.assertIn("invalid choice", rejected.stderr)
+            self.assertFalse((Path(tmp) / "proof").exists())
 
     def test_canonical_contract_and_physical_gate(self):
         source = json.loads((BASE / "source.json").read_text())
