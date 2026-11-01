@@ -253,6 +253,7 @@ on:
       # Apply negative patterns at the END of each event's paths list.
       - '!system/entrypoint'
       - '!system/supervisor'
+      - '!system/surface/entrypoint'
       - '!system/rescue/agent.sh'
       - '!system/services/base-update/agent.sh'
       - '!system/services/base-update/dev-helpers.sh'
@@ -520,6 +521,7 @@ on:
       # Apply negative patterns at the END of each event's paths list.
       - '!system/entrypoint'
       - '!system/supervisor'
+      - '!system/surface/entrypoint'
       - '!system/rescue/agent.sh'
       - '!system/services/base-update/agent.sh'
       - '!system/services/base-update/dev-helpers.sh'

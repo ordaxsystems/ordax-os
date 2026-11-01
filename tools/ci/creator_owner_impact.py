@@ -84,7 +84,8 @@ PR_REMOVED = ("docs/contracts/surface-source.json", "system/surface/ui/**", "sys
 PR_ADDED = ("tools/ci/creator_owner_impact.py", "tests/test_creator_owner_impact.py")
 REQUIRED_PR = (
     "bootstrap/dev/**", "bootstrap/dev-base/**", "bootstrap/surface-runtime/**",
-    "system/entrypoint", "system/supervisor", "system/surface/bin/ordax-surface",
+    "system/entrypoint", "system/supervisor", "system/surface/entrypoint",
+    "system/surface/bin/ordax-surface",
     "system/surface/runtime/ordax_browser_host.py",
     ".github/actions/prepare-verified-surface/**", WORKFLOW,
 )
@@ -231,7 +232,8 @@ def verified_client_delivery_contract_delta(base, head, *, root=ROOT):
                 "web-client": ".github/workflows/surface-web-candidate.yml",
             },
             "windows_package_forbidden_linux_boot_paths": [
-                "entrypoint", "supervisor", "surface/bin/ordax-surface",
+                "entrypoint", "supervisor", "surface/entrypoint",
+                "surface/bin/ordax-surface",
             ],
             "client_delivery_gate_decoupling_fully_proven": False,
             "windows_physical_and_web_live_independence_proven": False,

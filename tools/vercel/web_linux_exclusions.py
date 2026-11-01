@@ -25,7 +25,7 @@ def linux_only_exclusions() -> list[str]:
     manifest = client["linux_only_client_package_manifest"]
     if manifest != "surface/runtime/packages.txt":
         raise ValueError("unrecognized Linux package manifest")
-    if not isinstance(boot, list) or not isinstance(shells, list) or len(boot) != 3 or not shells:
+    if not isinstance(boot, list) or not isinstance(shells, list) or len(boot) != 4 or not shells:
         raise ValueError("missing canonical Linux-only source classification")
     if (not isinstance(probes, list) or len(probes) != 4
             or any(not isinstance(item, str) or not re.fullmatch(

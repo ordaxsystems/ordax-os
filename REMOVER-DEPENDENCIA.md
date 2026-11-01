@@ -140,3 +140,26 @@ Nenhuma lista alternativa de caminhos nem novo produtor foi criada.
 Exige CI Windows do novo HEAD para comprovar a instalação no runner;
 o equipamento pessoal, os required checks e a promoção USB permanecem
 pendentes de suas provas específicas.
+
+### Isolamento da entrada gráfica Linux — 2026-11-01
+
+A auditoria de consumidores encontrou `system/surface/entrypoint` ainda no
+pacote NSIS e nos gatilhos de clientes, embora seja um launcher POSIX que aceita
+somente `usb|native-disk`, executa `system/surface/bin/ordax-surface` e
+não é chamado pelo Electron/Vite. A classificação agora está no mesmo grupo
+`windows_package_forbidden_linux_boot_paths` do SSOT, não em lista paralela:
+o pacote e o smoke de NSIS proíbem sua cópia, e os filtros Windows, Web e
+Vercel ignoram alterações exclusivamente desse arquivo. O Creator e o
+classificador QEMU ainda tratam mudanças do launcher como boot real.
+Testes do pacote, do classificador e de diffs Git reais são os gates.
+
+Nenhum arquivo de boot foi removido do OS/USB, nenhum runtime duplicado e
+nenhum resultado de produção foi presumido. Exigir CI Windows/Web/Foundation
+do HEAD exato antes de homologar, e manter prova física e gates USB separados.
+
+**Gatilho USB preservado:** o workflow `Creator Owner Development Git USB`
+passa a incluir explicitamente `system/surface/entrypoint` em PRs, e o
+classificador mantém o caminho entre os gatilhos obrigatórios. Dessa forma
+uma alteração real do launcher não perde a prova de boot ao mesmo tempo em
+que deixa de provocar builds dos clientes. O Creator continua sujeito à
+correção causal do produtor Alpine/Buildroot, sem dispensa de prova.

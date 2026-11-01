@@ -112,9 +112,13 @@ class CreatorOwnerImpactTests(unittest.TestCase):
         self.assertTrue(impact.classify("0" * 40, boot, root=self.root)[0])
 
     def test_boot_and_unknown_owner_changes_require_real_usb(self):
+        self.assertIn("      - 'system/surface/entrypoint'",
+                      WORKFLOW.read_text(encoding="utf-8"),
+                      "A Linux Surface boot change must trigger the PR Owner USB gate")
         base = self.commit(WORKFLOW.read_text(encoding="utf-8"), VISUAL)
         for path in ("bootstrap/initramfs/build.py", "bootstrap/surface-runtime/build.py",
-                     "system/supervisor", "tools/creator/assemble.py",
+                     "system/supervisor", "system/surface/entrypoint",
+                     "tools/creator/assemble.py",
                      "docs/contracts/unknown-owner.json"):
             with self.subTest(path=path):
                 current = self.commit(path=path)

@@ -152,10 +152,15 @@ class PublicSiteDeploymentTests(unittest.TestCase):
             boot_only = commit("Linux USB entrypoint changed")
             self.assertEqual(ignored(linux_only, boot_only), 0)
 
+            write("system/surface/entrypoint", "#!/bin/sh\nexit 1\n")
+            surface_boot_only = commit("Linux Surface graphical boot launcher changed")
+            self.assertEqual(ignored(boot_only, surface_boot_only), 0,
+                             "Linux graphical launcher must not rebuild the Web")
+
             write("system/surface/runtime/physical_ata_probe.py",
                   "#!/usr/bin/env python3\nprint('updated')\n")
             probe_only = commit("Linux-only sysfs diagnostic changed")
-            self.assertEqual(ignored(boot_only, probe_only), 0)
+            self.assertEqual(ignored(surface_boot_only, probe_only), 0)
 
             write("system/composition/native/main.mjs", "export const native=false;\n")
             native_changed = commit("shared Native source changed")

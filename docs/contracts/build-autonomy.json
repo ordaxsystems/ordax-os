@@ -153,6 +153,7 @@
     "windows_package_forbidden_linux_boot_paths": [
       "entrypoint",
       "supervisor",
+      "surface/entrypoint",
       "surface/bin/ordax-surface"
     ],
     "client_delivery_gate_decoupling_fully_proven": false,

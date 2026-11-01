@@ -158,7 +158,7 @@ test('Desktop artifact excludes Linux/USB boot executables without removing shar
   const filter=selected[0].filter;
   assert.ok(filter.includes('**/*'),'single shared Native source must remain included');
   const roots=contract.windows_package_forbidden_linux_boot_paths;
-  assert.deepEqual(roots,['entrypoint','supervisor','surface/bin/ordax-surface']);
+  assert.deepEqual(roots,['entrypoint','supervisor','surface/entrypoint','surface/bin/ordax-surface']);
   for(const path of roots)assert.ok(filter.includes('!'+path),'USB Linux boot executable still packaged: '+path);
   const source=join(__dirname,'..','..','system');
   const report=inventory(source,filter.slice(1));
