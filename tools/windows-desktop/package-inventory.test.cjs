@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 const { mkdtempSync, mkdirSync, writeFileSync, symlinkSync, rmSync, readFileSync } = require('node:fs');
 const { tmpdir } = require('node:os');
 const { join } = require('node:path');
-const { inventory, nativeBundleComparison, canonicalWindowsPackageExclusions } = require('./package-inventory.cjs');
+const { inventory, nativeBundleComparison, canonicalWindowsPackageExclusions, verifyInstalledWindowsPackage } = require('./package-inventory.cjs');
 
 test('inventory counts included bytes and exact Linux exclusions', () => {
   const root = mkdtempSync(join(tmpdir(), 'ordax-package-inventory-'));
@@ -52,6 +52,42 @@ test('NSIS exclusions are exactly the canonical dependency contract, never extra
   duplicated.client_build_independence.windows_package_forbidden_linux_shell_paths.push(
     duplicated.client_build_independence.windows_package_forbidden_linux_boot_paths[0]);
   assert.throws(() => canonicalWindowsPackageExclusions(pkg, duplicated), /Duplicate/);
+});
+
+test('real extracted NSIS verification rejects Linux/USB and Web leaks using the same contract', () => {
+  const pkg = require('./package.json');
+  const contract = require('../../docs/contracts/build-autonomy.json');
+  const fixtures = [null, 'supervisor', 'surface/runtime/packages.txt',
+    'surface/runtime/media_runtime_probe.py', 'composition/web/leak.js'];
+  for (const leak of fixtures) {
+    const root = mkdtempSync(join(tmpdir(), 'ordax-installed-package-'));
+    try {
+      const native = join(root,'composition','native');
+      mkdirSync(native,{recursive:true});
+      writeFileSync(join(native,'index.html'),'Native source');
+      if (leak) {
+        const path = join(root,...leak.split('/'));
+        mkdirSync(require('node:path').dirname(path),{recursive:true});
+        writeFileSync(path,'Unwanted Linux/Web file');
+        assert.throws(() => verifyInstalledWindowsPackage(root,pkg,contract),
+          /Forbidden Linux\/Web source shipped/, leak);
+      } else {
+        const report = verifyInstalledWindowsPackage(root,pkg,contract);
+        assert.equal(report.verifiedExclusions,
+          canonicalWindowsPackageExclusions(pkg,contract).length);
+        assert.equal(report.nativeEntryVerified,true);
+      }
+    } finally { rmSync(root,{recursive:true,force:true}); }
+  }
+});
+
+test('real extracted NSIS verifier fails closed if Native source entry is absent', () => {
+  const root = mkdtempSync(join(tmpdir(),'ordax-installed-no-native-'));
+  try {
+    assert.throws(() => verifyInstalledWindowsPackage(root,
+      require('./package.json'),require('../../docs/contracts/build-autonomy.json')),
+    /ENOENT|Native source entry/);
+  } finally { rmSync(root,{recursive:true,force:true}); }
 });
 
 test('unknown wildcard exclusions fail closed', () => {

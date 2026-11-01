@@ -106,6 +106,14 @@ try {
     throw "Web-only build tools leaked into installed Windows Desktop"
   }
   Write-Output "DESKTOP_WEB_TOOLS_ABSENT=PASS"
+  # Real NSIS extraction proof: inspect every forbidden Linux/USB/Web path
+  # through the existing Node inventory and the ONE checked-in build contract.
+  $installedSystem = Join-Path $resources "runtime-template\\system"
+  & node (Join-Path $PSScriptRoot "package-inventory.cjs") --installed-system $installedSystem
+  if ($LASTEXITCODE -ne 0) {
+    throw "Installed Windows system contains forbidden Linux/Web files or lacks Native source"
+  }
+  Write-Output "DESKTOP_CANONICAL_SYSTEM_EXCLUSIONS=PASS"
   $compiledRoot = Join-Path $resources "runtime-template\\desktop-assets"
   $compiledHtml = Get-Content (Join-Path $compiledRoot "system\\composition\\native\\index.html") -Raw
   if ($compiledHtml -notmatch "/__ordax/desktop-assets/assets/") {

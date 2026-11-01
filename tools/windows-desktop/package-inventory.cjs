@@ -87,6 +87,38 @@ function canonicalWindowsPackageExclusions(packageJson, autonomy) {
   return actual;
 }
 
+// Inspect the bytes extracted by NSIS using the SAME canonical exclusions
+// already validated against electron-builder. Never maintain another path list.
+function verifyInstalledWindowsPackage(installedRoot, packageJson, autonomy) {
+  const root = lstatSync(installedRoot);
+  if (!root.isDirectory() || root.isSymbolicLink()) {
+    throw Error('Installed Windows system root must be a real directory');
+  }
+  const exclusions = canonicalWindowsPackageExclusions(packageJson, autonomy);
+  for (const entry of exclusions) {
+    const rel = entry === '!composition/web/**'
+      ? 'composition/web' : entry.slice(1);
+    // The contract is trusted source, but never let a modified path escape
+    // the installed system root, including Windows absolute/path traversal.
+    if (!/^[a-z0-9][a-z0-9._-]*(?:\/[a-z0-9][a-z0-9._-]*)*$/.test(rel)) {
+      throw Error('Unsafe installed Windows exclusion path: ' + rel);
+    }
+    const path = join(installedRoot, ...rel.split('/'));
+    try { lstatSync(path); }
+    catch (error) {
+      if (error?.code === 'ENOENT') continue;
+      throw error;
+    }
+    throw Error('Forbidden Linux/Web source shipped in Windows installer: ' + rel);
+  }
+  const nativeEntry = lstatSync(join(installedRoot,'composition','native','index.html'));
+  if (!nativeEntry.isFile() || nativeEntry.isSymbolicLink()) {
+    throw Error('Installed Windows Native source entry unavailable');
+  }
+  return { schema:'ordax.desktop-installed-exclusions/1',
+    verifiedExclusions:exclusions.length, nativeEntryVerified:true };
+}
+
 // The verified Vite output is a separate runtime artifact. Report it alongside
 // the source template without treating either as an automatic deletion target.
 function nativeBundleComparison(systemReport, compiledRoot) {
@@ -116,6 +148,15 @@ function main() {
   const base = resolve(__dirname, '../..');
   const packageJson = require('./package.json');
   const autonomy = require('../../docs/contracts/build-autonomy.json');
+  const installedFlag = process.argv.indexOf('--installed-system');
+  if (installedFlag !== -1) {
+    if (installedFlag !== 2 || process.argv.length !== 4) {
+      throw Error('Installed Windows verification requires exactly one system path');
+    }
+    process.stdout.write(JSON.stringify(
+      verifyInstalledWindowsPackage(process.argv[3],packageJson,autonomy)) + '\n');
+    return;
+  }
   const exclusions = canonicalWindowsPackageExclusions(packageJson, autonomy);
   const report = inventory(join(base,'system'), exclusions);
   if (report.missingExclusions.length) {
@@ -127,4 +168,4 @@ function main() {
   process.stdout.write(JSON.stringify(report, null, 2) + '\n');
 }
 if (require.main === module) main();
-module.exports = { inventory, nativeBundleComparison, canonicalWindowsPackageExclusions };
+module.exports = { inventory, nativeBundleComparison, canonicalWindowsPackageExclusions, verifyInstalledWindowsPackage };

@@ -121,6 +121,22 @@ inclusive uma exclusão inesperada de Native, duplicatas, uma segunda cópia
 `../../system` e arquivos excluídos que não existam mais na fonte física.
 O teste existente `package-inventory.test.cjs` cobre regressões negativas
 sem copiar a lista de caminhos. Os bytes distribuídos permanecem iguais;
-não há alteração de Creator, Buildroot, USB nem novo produtor. O gate Windows
-do novo HEAD deve passar antes de marcar a etapa como homologada; homologação
-física e separação de required checks seguem pendentes.
+não há alteração de Creator, Buildroot, USB nem novo produtor. O commit `6f6d7909` passou os próprios gates Windows, Web e Foundation
+(15 sucessos, 2 skips, 1 falha Creator/USB); portanto o inventário
+contratual está validado pelo CI dessa revisão. A verificação de arquivos
+efetivamente extraídos continua independente da prova física do computador
+do usuário e da separação dos required checks.
+
+### Prova física dos arquivos NSIS sem duplicar classificação (2026-11-01)
+
+O `install-smoke.ps1` passa o diretório `runtime-template/system` **realmente
+extraído** pelo NSIS ao modo `--installed-system` do mesmo
+`package-inventory.cjs`. O verificador reutiliza
+`canonicalWindowsPackageExclusions` e o contrato de build existente para
+recusar qualquer arquivo Linux/USB proibido, a árvore Web inteira e ausência
+da entrada Native. As regressões existentes ganham fixtures positivas e
+negativas (serviço Linux, manifesto Alpine, sonda física, Web e Native ausente).
+Nenhuma lista alternativa de caminhos nem novo produtor foi criada.
+Exige CI Windows do novo HEAD para comprovar a instalação no runner;
+o equipamento pessoal, os required checks e a promoção USB permanecem
+pendentes de suas provas específicas.
