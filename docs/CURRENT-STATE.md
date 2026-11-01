@@ -1,3 +1,12 @@
+Vercel Web deployment impact — P0, 2026-11-01:
+The ordax-web ignoreCommand previously compared all system/ bytes and thus
+triggered Web deployment on proven Linux-only USB/boot/POSIX source deltas.
+A guarded read-only projection of existing build-autonomy.json paths now
+selects Git excludes for Vercel's Web project only. Unknown state, malformed
+contract, unrecognized file/project or missing Git ancestry means BUILD,
+not bypass. Tested via isolated real Git commits; CI/prod deployment
+validation remains pending. Public Site project behavior is unchanged.
+
 Desktop/Web build separation — evidence update 2026-11-01:
 OS #1980 commits 09e96df5 and 79d2f2cf each finished with 13 passed,
 2 skipped and 1 failure in Creator USB only. Windows/Web/Foundation

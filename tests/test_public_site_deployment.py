@@ -90,6 +90,91 @@ class PublicSiteDeploymentTests(unittest.TestCase):
                 self.assertIn("assets/ordax-symbol.png", receipt["identity_support_files"])
                 self.assertIn("assets/ordax-symbol.png", {item["path"] for item in receipt["files"]})
 
+    def test_web_vercel_skips_proven_linux_usb_only_without_skipping_web_or_native(self):
+        """Use real Git commits: skip physical Linux only, never a Web/client change."""
+        script = ROOT / "tools/vercel/should_skip_build.sh"
+        helper = ROOT / "tools/vercel/web_linux_exclusions.py"
+        self.assertTrue(helper.is_file())
+        contract = json.loads((ROOT / "docs/contracts/build-autonomy.json").read_text(encoding="utf-8"))
+        boundaries = contract["client_build_independence"]
+        linux = (boundaries["windows_package_forbidden_linux_boot_paths"]
+                 + boundaries["windows_package_forbidden_linux_shell_paths"])
+        self.assertEqual(len(linux), len(set(linux)))
+
+        with tempfile.TemporaryDirectory() as temp:
+            work = Path(temp)
+            def git(*args):
+                result = subprocess.run(["git", *args], cwd=work, text=True,
+                                        capture_output=True, check=True)
+                return result.stdout.strip()
+            def write(relative, content):
+                destination = work / relative
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                destination.write_text(content, encoding="utf-8")
+            def commit(label):
+                git("add", "-A")
+                git("-c", "user.name=OrdaX Proof",
+                    "-c", "user.email=ordax-proof@example.invalid",
+                    "commit", "-qm", label)
+                return git("rev-parse", "HEAD")
+            def ignored(previous, current, project="prj_ftACluUqk6i9DoD9GPIwmgURwckP"):
+                env = dict(os.environ)
+                env.update(VERCEL_PROJECT_ID=project, VERCEL_GIT_PREVIOUS_SHA=previous,
+                           VERCEL_GIT_COMMIT_SHA=current)
+                return subprocess.run(["sh", str(script)], cwd=work, env=env,
+                                      capture_output=True, text=True, check=False).returncode
+
+            git("init", "-q")
+            write("docs/contracts/build-autonomy.json", json.dumps(contract))
+            write("docs/README.md", "docs only")
+            write("system/composition/native/main.mjs", "export const native=true;\n")
+            write("system/composition/web/main.tsx", "export const web=true;\n")
+            for path in linux:
+                write("system/" + path, "#!/bin/sh\nexit 0\n")
+            baseline = commit("real canonical sources")
+            self.assertEqual(ignored("", baseline), 1, "first release always builds")
+            self.assertEqual(ignored("f" * 40, baseline), 1, "unknown previous build")
+            self.assertEqual(ignored(baseline, baseline), 1, "same revision is not proof")
+            self.assertEqual(ignored(baseline, "f" * 40), 1, "unknown HEAD")
+
+            write("system/rescue/agent.sh", "#!/bin/sh\nexit 1\n")
+            linux_only = commit("Linux-only service changed")
+            self.assertEqual(ignored(baseline, linux_only), 0)
+            self.assertEqual(ignored(baseline, linux_only,
+                                     "prj_mA9ew6hOfjdqlBr1cC757iMLPQJC"), 0,
+                             "public Site stays on its own producer")
+
+            write("system/entrypoint", "#!/bin/sh\nset -eu\nexit 0\n")
+            boot_only = commit("Linux USB entrypoint changed")
+            self.assertEqual(ignored(linux_only, boot_only), 0)
+
+            write("system/composition/native/main.mjs", "export const native=false;\n")
+            native_changed = commit("shared Native source changed")
+            self.assertEqual(ignored(boot_only, native_changed), 1)
+
+            write("system/composition/web/main.tsx", "export const web=false;\n")
+            web_changed = commit("Web-only source changed")
+            self.assertEqual(ignored(native_changed, web_changed), 1)
+
+            write("docs/README.md", "documentation only")
+            docs_only = commit("unrelated docs changed")
+            self.assertEqual(ignored(web_changed, docs_only), 0)
+            self.assertEqual(ignored(web_changed, docs_only, "wrong-project"), 1)
+
+            write("docs/contracts/build-autonomy.json", "{}")
+            missing_owner = commit("source contract removed")
+            self.assertEqual(ignored(docs_only, missing_owner), 1)
+
+            write("docs/contracts/build-autonomy.json", json.dumps(contract))
+            restored = commit("restore source contract")
+            self.assertEqual(ignored(missing_owner, restored), 1,
+                             "contract update itself must trigger Web rebuild")
+
+            write("system/rescue/agent.sh", "not a Linux shell source\n")
+            tampered = commit("Linux candidate no longer has a POSIX shebang")
+            self.assertEqual(ignored(restored, tampered), 1,
+                             "unknown source owner cannot skip build")
+
     def test_vercel_ignore_build_is_fail_safe_on_first_deploy_and_git_history_gaps(self):
         self.assertEqual(
             self.vercel["ignoreCommand"],

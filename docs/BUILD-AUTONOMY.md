@@ -264,3 +264,17 @@ of Web producer tools in an installed NSIS and a compiled Git candidate.
 This is delivery separation, not a second Native or Web implementation.
 The source graph and integration tests, not file extension guessing,
 remain authoritative for removing any other Python/JS components.
+
+### Vercel Web ignored-build: USB-only inputs are non-producers
+
+The Web Vercel Git ignore command formerly compared the entire `system/`
+tree and rebuilt on Linux-only USB boot and POSIX service changes. It now
+obtains exactly the same verified Linux-only paths already in
+`docs/contracts/build-autonomy.json#client_build_independence` from a
+small read-only `tools/vercel/web_linux_exclusions.py` projection.
+The command skips only when the Git diff contains exclusively those
+proven OS Linux paths (or other non-build docs). Missing/invalid contract,
+Git history, interpreter, file identity or script shape **forces a build**.
+Native shared, composition Web, account/session, contracts, API, Site pin
+and unknown changes still trigger the respective Web build; `ordax-os-public`
+keeps its separate original rule. No new deployment authority is introduced.
