@@ -5,17 +5,42 @@ ordax.verified-app-store-catalog/1 with authority:none. The installed Windows
 Native host owns this transport; there is no second Store service or application
 catalog in the Desktop host.
 
-## Windows removal through the canonical Go owner
+## Windows Store lifecycle through the canonical Go owner
 
-The installed Native host now also accepts POST /__ordax/native/store-lifecycle
-**for remove only**, reusing the existing private
-ordax.app-lifecycle-plan/2 contract. The browser request is a proposal, not
-authority. The Native adapter requires an exact loopback origin, a bounded
-application/json plan, an external first-party app ID from the generated
-canonical package policy, a locally re-verified signed catalog and the exact
-catalog watermark source/sequence/digest. Install and update are explicitly
-unavailable on Windows until signed artifact acquisition, staged activation,
-pending health, review and rollback are fully integrated.
+The installed Native host accepts POST /__ordax/native/store-lifecycle,
+reusing the existing private `ordax.app-lifecycle-plan/2` contract. The browser
+request is a proposal, not authority. Every operation requires exact loopback
+origin, bounded application/json, an external first-party app from the generated
+package policy, a locally reverified signed catalog and matching source commit,
+sequence and digest under the same cross-process watermark lock.
+
+### Install / update: signed candidate to pending-health only
+
+The installed Native process can separately configure the optional
+`ORDAX_DESKTOP_STORE_ARTIFACT_BASE_ORIGIN`. A missing or invalid origin
+prevents install and update before any Go mutation. Only components in the
+generated Native external probation scope currently qualify. No renderer or
+request can select an origin, artifact URL, version or signature.
+
+The Windows transport derives the four artifact URLs from the signed
+`{name,sha256,size}` identities, using the same deterministic
+`sha256/<2>/<64-digit-sha256>` layout as the Linux producer. It rejects
+redirects, foreign final URLs, compression, wrong length and hash, and enforces
+the existing 32 MiB per-artifact maximum. Cached artifacts are rehashed on
+each read; per-digest files are atomically published without overwriting
+another writer and without an additional inventory database.
+
+Within the same watermark lock, Go `status` must match the expected current
+revision and signed release identity. The **existing installed Go tool** then
+runs `verify-envelope-v2`, `stage-v2`, `verify-slot-v2`,
+`arm-pending --expected-revision` and another `status` readback. Native
+responds `accepted` only after a durable `pending_health=unknown` generation
+with exact component/version/source commit. This is **not** an installed healthy
+app: the independent Supervisor retains health, promotion, rollback, cleanup
+and activation authority. No automatic healthy verdict, direct activation,
+App Data mutation or artifact purge is implemented by this transport.
+
+### Remove: signed Go uninstall and durable tombstone
 
 The existing watermark lock is held across the Go `uninstall-state` call;
 the installed, public-trust-pinned Go tool validates the exact component,
@@ -30,10 +55,12 @@ Data or creating a second installed-state database. Native does not acquire
 network bytes during removal. The installed verifier and public anchor remain
 owned by Electron, not the checked-out OS or HTTP client.
 
-This is an implemented **Windows transport and regression proof**, not
-production installation or a successful removal on a physical user device:
-production trust pinning/publication remains disabled; tests inject signed
-fixtures, not keys, signed releases or authorization to promote components.
+These are **Windows transport and offline Go-contract regressions**, not
+a production signed publication or a device-level install/remove E2E.
+Production trust pinning and publication remain disabled by canonical policy;
+tests inject Go verification fixtures only. The Store must remain unavailable
+until the real signed producer, release handoff, health and activation gates
+have independent, verifiable evidence.
 
 - One public trust source: system/adapters/desktop/pinned-component-trust.mjs.
   It validates both current OS policy and the immutable public anchor shipped by
