@@ -344,6 +344,10 @@ desenvolvimento com `state=unlocked` são migrados atomicamente para bloqueado,
 sem remover a credencial; falha na migração impede abrir os dados. O Primeiro
 Uso continua legível pela Surface autorizada durante o bloqueio, mas nenhuma
 escrita no seu recibo é permitida antes da autenticação.
+No Windows instalado, a leitura verificada de `ordax.local-session/1` é requisito
+de montagem: HTTP indisponível, arquivo PIN corrompido ou falha na migração
+interrompem a composição antes de expor a Surface ou declarar saúde. O
+emulador visual e o USB preservam seus contratos de capacidades opcionais.
 O bloqueio é **de Surface/sessão OrdaX**, e não substitui a segurança de disco,
 login do Windows, nem a revogação da Conta. Os demais brokers privilegiados
 ainda precisam de adaptadores Windows e controles próprios. O emulador visual

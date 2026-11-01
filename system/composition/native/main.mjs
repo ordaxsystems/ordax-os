@@ -358,6 +358,12 @@ async function start() {
     localSessionPromise,
     bundledProfilePacksPromise,
   ]);
+  // A desktop without a verified local session must not expose the Surface
+  // as unlocked. Its durable PIN may be corrupt or the protected host down.
+  // USB/emulator capabilities remain optional by their existing contracts.
+  if (windowsDesktopHost && localSession === null) {
+    throw new Error("Windows Native local session unavailable; Surface remains locked");
+  }
   const regionalRecovery = seedMissingRegionalPreferencesFromFirstRun(
     preferenceStore.load(),
     firstRunStateStore.load(),

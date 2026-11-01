@@ -52,6 +52,19 @@ test("emulator loads the Native composition without owning another UI or first-r
   }
 });
 
+test("installed Windows refuses to mount Surface without an authenticated Native local-session port", async () => {
+  const native = await readFile(new URL("../system/composition/native/main.mjs", import.meta.url), "utf8");
+  const resolved = native.indexOf("const [preferenceStore, firstRunStateStore, localSession, bundledProfilePacks]");
+  const guard = native.indexOf("if (windowsDesktopHost && localSession === null)");
+  const mounted = native.indexOf("const surface = mountSurface(");
+  assert.ok(resolved > 0 && guard > resolved && mounted > guard,
+    "Windows must fail closed before rendering the Surface, not after a healthy mount");
+  assert.match(native.slice(guard, mounted),
+    /throw new Error\("Windows Native local session unavailable; Surface remains locked"\)/);
+  assert.match(native, /const localSessionPromise = optionalNativeProbe\(/,
+    "non-Windows devices must keep their existing optional local-session capability");
+});
+
 test("First Run presentation consumes Meridian directly and adapts all canonical steps", async () => {
   const css=await readFile(new URL("../system/surface/ui/first-run.css",import.meta.url),"utf8");
   assert.doesNotMatch(css,/var\(--ordax-|repeat\(7,/);
