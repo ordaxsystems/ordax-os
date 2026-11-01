@@ -124,6 +124,37 @@ class IndependentRootfsExportTests(unittest.TestCase):
             self.assertTrue(resolver_backing.is_file())
             self.assertEqual(resolver_backing.read_bytes(), b"")
 
+    def test_stable_profile_uses_separate_branch_and_fails_closed_without_kernel_receipts(self):
+        script = POST_BUILD.read_text(encoding="utf-8")
+        # Shell syntax alone did not catch a malformed same-line 'else' token.
+        self.assertIn(
+            'printf \'ORDAX_OWNER_DEVELOPMENT_PROFILE=YES\\n\' > '
+            '"$TARGET_DIR/etc/ordax/owner-development"\\n    else\\n',
+            script,
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            target = self._minimal_post_build_target(Path(tmp))
+            for name in ("iw", "wpa_supplicant", "wpa_passphrase", "wpa_cli"):
+                executable_fixture(target / "usr/sbin" / name)
+            ca = target / "etc/ssl/certs/ca-certificates.crt"
+            ca.parent.mkdir(parents=True)
+            ca.write_text("nonempty-fixture\\n", encoding="utf-8")
+            env = os.environ.copy()
+            for key in (
+                "ORDAX_HOST_PYTHON", "ORDAX_KERNEL_MODULES_ARCHIVE",
+                "ORDAX_KERNEL_MODULES_RECEIPT", "ORDAX_FIRMWARE_COVERAGE_RECEIPT",
+            ):
+                env.pop(key, None)
+            result = subprocess.run(
+                [str(POST_BUILD), str(target), "stable-mvp"],
+                cwd=ROOT, env=env, capture_output=True, text=True, check=False,
+            )
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("requires ORDAX_HOST_PYTHON", result.stderr)
+            self.assertNotIn("capability leaked into minimal profile", result.stderr)
+            self.assertFalse((target / "etc/ordax/stable-mvp-candidate").exists())
+            self.assertFalse((target / "etc/ordax/owner-development").exists())
+
     def test_post_build_fails_closed_if_runtime_link_drifted(self):
         with tempfile.TemporaryDirectory() as tmp:
             target = self._minimal_post_build_target(Path(tmp))

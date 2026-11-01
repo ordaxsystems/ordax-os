@@ -215,7 +215,8 @@ if test "$PROFILE" = owner-development || test "$PROFILE" = stable-mvp; then
     mkdir -p "$TARGET_DIR/ordax/bootstrap/recovery"
     cp "$ROOT/bootstrap/recovery/entrypoint" "$TARGET_DIR/ordax/bootstrap/recovery/entrypoint"
     chmod 0755 "$TARGET_DIR/ordax/bootstrap/recovery/entrypoint"
-    printf 'ORDAX_OWNER_DEVELOPMENT_PROFILE=YES\n' > "$TARGET_DIR/etc/ordax/owner-development"    else
+    printf 'ORDAX_OWNER_DEVELOPMENT_PROFILE=YES\n' > "$TARGET_DIR/etc/ordax/owner-development"
+    else
         # No Dev acquisition, Git, or native helper may enter Stable/MVP.
         for forbidden in \
             "$TARGET_DIR/usr/bin/git" \
