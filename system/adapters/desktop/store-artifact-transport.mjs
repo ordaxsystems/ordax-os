@@ -102,6 +102,9 @@ async function persistVerified(parent, filename, bytes, identity) {
     // Atomic creation; never replace a digest path written by another owner.
     try { await link(temp, finalPath); }
     catch (error) { if (error?.code !== "EEXIST") throw error; }
+    // The committed cache file must have exactly one hardlink after the
+    // private temporary link has been removed, even on NTFS.
+    await rm(temp);
     const committed = await verifiedCached(finalPath, identity);
     if (!committed) throw Error("Store artifact was not committed");
     return committed;
