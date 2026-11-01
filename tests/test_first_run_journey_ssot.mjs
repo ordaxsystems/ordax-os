@@ -88,6 +88,28 @@ test("Windows lock screen mounts once before boot health can expose a configured
     "the existing sanitized diagnostic must remain available on mount failure");
 });
 
+test("incomplete Windows setup holds the boot curtain and never covers a locked PIN prompt", async () => {
+  const native = await readFile(new URL("../system/composition/native/main.mjs", import.meta.url), "utf8");
+  const lock = native.indexOf("mountLocalSessionLock(root, localSession, surface)");
+  const pending = native.indexOf("const firstRunPending = !firstRunStateStore.load().completed;");
+  const boot = native.indexOf("if (!firstRunPending) bootScreen.ready();");
+  const health = native.indexOf('componentManager.setCurrentHealth("surface-shell", "healthy")');
+  const mounting = native.indexOf("const mountFirstRunNow = () => {");
+  const subscription = native.indexOf("unsubscribeFirstRunUnlock = localSession.subscribe(snapshot => {");
+  assert.ok(lock >= 0 && pending > lock && boot > pending && health > boot && mounting > health,
+    "PIN must be mounted first, pending First Run keeps the boot curtain until the modal exists");
+  assert.ok(subscription > mounting);
+  assert.match(native.slice(mounting, subscription),
+    /if \(firstRunPending && windowsDesktopHost && firstRun\?\.shown !== true\)/,
+    "Windows first-use modal is mandatory, not a silently ignored optional app");
+  assert.match(native.slice(subscription), /if \(snapshot.state !== "unlocked" \|\| firstRun\) return;/,
+    "previously configured PIN must be verified before resuming incomplete First Run");
+  assert.match(native.slice(subscription), /unsubscribeFirstRunUnlock\?\.\(\);/,
+    "deferred session observer must be released after first-use activation");
+  assert.match(native, /if \(firstRunPending && windowsDesktopHost\) bootScreen.fail\(bootText\("surface.boot.failed"\)\);/,
+    "failed Windows first-use must leave the error curtain visible instead of showing the workspace");
+});
+
 test("First Run presentation consumes Meridian directly and adapts all canonical steps", async () => {
   const css=await readFile(new URL("../system/surface/ui/first-run.css",import.meta.url),"utf8");
   assert.doesNotMatch(css,/var\(--ordax-|repeat\(7,/);

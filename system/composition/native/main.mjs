@@ -1067,7 +1067,11 @@ async function start() {
   // import or mount failure cannot turn into a failed OrdaX cold boot.
   // The already-mounted shell is visible before asking the official
   // Supervisor to acknowledge its identity. No synthetic heartbeat is sent.
-  bootScreen.ready();
+  // An incomplete First Run owns the foreground until its modal is ready.
+  // If a PIN is already configured, the lock is above this still-active boot
+  // screen and must be unlocked before any onboarding modal is created.
+  const firstRunPending = !firstRunStateStore.load().completed;
+  if (!firstRunPending) bootScreen.ready();
   componentManager.setCurrentHealth("surface-shell", "healthy");
   void updateWatcher.markHealthy();
   const surfaceHeartbeat = createNativeSurfaceHeartbeat(window);
@@ -1194,8 +1198,14 @@ async function start() {
   // The slow/missing optional Device Profile can no longer delay the real
   // shell health acknowledgement. First Run still receives the verified port.
   const deviceProfile = await deviceProfilePromise;
+  const resumeFirstRunCursor = await optionalNativeProbe(
+    "OrdaX native First Run cursor unavailable",
+    () => createNativeFirstRunCursor(window),
+  );
   let firstRun = null;
-  try {
+  let unsubscribeFirstRunUnlock = null;
+  const mountFirstRunNow = () => {
+    if (firstRun) return;
     firstRun = mountFirstRunExperience(root, {
       stateStore: firstRunStateStore,
       firstRunAppSelection,
@@ -1208,17 +1218,39 @@ async function start() {
       deviceProfile,
       keyboardLayout,
       productMode: windowsDesktopHost ? "desktop" : "usb",
-      resumeCursor: await optionalNativeProbe(
-        "OrdaX native First Run cursor unavailable",
-        () => createNativeFirstRunCursor(window),
-      ),
+      resumeCursor: resumeFirstRunCursor,
       hostedSignupBridge: {
         isAvailable: hasNativeHostBridge,
         postMessage: postNativeHostMessage,
       },
     });
-  } catch (error) {
+    if (firstRunPending && windowsDesktopHost && firstRun?.shown !== true) {
+      throw new Error("Windows incomplete First Run did not mount its verified modal");
+    }
+    if (firstRunPending) bootScreen.ready();
+  };
+  const onFirstRunFailure = error => {
     reportClientDiagnostic("first-run", error);
+    // A failed Windows first-run mount must leave the boot screen visible,
+    // never expose the already rendered desktop below an absent dialog.
+    if (firstRunPending && windowsDesktopHost) bootScreen.fail(bootText("surface.boot.failed"));
+    else if (firstRunPending) bootScreen.ready();
+  };
+  try {
+    if (!firstRunPending || localSession?.getSnapshot().state !== "locked") {
+      mountFirstRunNow();
+    } else {
+      // Locked users resume the same incomplete first-use receipt only after
+      // authenticating. Never stack the higher-z First Run over the PIN dialog.
+      unsubscribeFirstRunUnlock = localSession.subscribe(snapshot => {
+        if (snapshot.state !== "unlocked" || firstRun) return;
+        unsubscribeFirstRunUnlock?.();
+        unsubscribeFirstRunUnlock = null;
+        try { mountFirstRunNow(); } catch (error) { onFirstRunFailure(error); }
+      });
+    }
+  } catch (error) {
+    onFirstRunFailure(error);
   }
   window.addEventListener(
     "pagehide",
@@ -1227,6 +1259,7 @@ async function start() {
       window.removeEventListener("unhandledrejection", onUnhandledRejection);
       window.removeEventListener("online", onOnline);
       unsubscribeHostIdentity();
+      unsubscribeFirstRunUnlock?.();
       localSessionLock?.destroy();
       firstRun?.destroy();
       surfaceHeartbeat.dispose();

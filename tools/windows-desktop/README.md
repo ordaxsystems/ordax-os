@@ -355,8 +355,14 @@ segundo recibo ou apaga o anterior. Além disso, o bloqueio visual do PIN
 é montado uma única vez **antes** de ocultar a tela de boot, declarar a
 Surface saudável ou iniciar o assistente de primeiro uso. Se o bloqueio
 visual falhar no Windows, o boot é recusado com diagnóstico sanitizado,
-sem mostrar temporariamente o workspace desprotegido. O emulador visual
-e o USB preservam seu bootstrap recuperável e sua sessão opcional.
+sem mostrar temporariamente o workspace desprotegido. Quando o Primeiro Uso
+estiver incompleto, o boot screen permanece até o assistente estar montado;
+se houver PIN configurado e bloqueado, **somente o desbloqueio é exibido**,
+e o assistente é ativado após a confirmação do PIN, nunca por cima dela.
+A saúde do shell continua independente do carregamento opcional do perfil.
+Uma falha do assistente no Windows deixa o boot em erro, sem exibir o
+workspace como se a configuração inicial já tivesse sido realizada. O
+emulador visual e o USB preservam seu bootstrap recuperável e sua sessão opcional.
 O bloqueio é **de Surface/sessão OrdaX**, e não substitui a segurança de disco,
 login do Windows, nem a revogação da Conta. Os demais brokers privilegiados
 ainda precisam de adaptadores Windows e controles próprios. O emulador visual
