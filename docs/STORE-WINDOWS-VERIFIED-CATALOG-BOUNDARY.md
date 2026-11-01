@@ -14,7 +14,11 @@ catalog in the Desktop host.
   Go runtime-component-channel verify-store-catalog command. The host never
   implements Ed25519 signing/verification and never downloads an unsigned feed.
 - The Windows adapter owns only a local monotonic sequence/digest watermark,
-  stored atomically under userData/Store. Lower sequence, same sequence with
+  stored atomically under userData/Store. An exclusive cross-process lock
+  directory serializes compare-and-replace for overlapping installed Native
+  hosts; an existing lock (including interrupted ownership) fails closed and
+  requires explicit recovery, never automatic HTTP-triggered deletion.
+  Lower sequence, same sequence with
   different digest, malformed watermark, symlinked input, invalid helper output,
   missing policy and root revocation all fail closed. Each request revalidates
   the public trust before exposing the snapshot.

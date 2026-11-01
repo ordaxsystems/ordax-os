@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
 import { createHash } from "node:crypto";
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, unlinkSync, symlinkSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, existsSync, unlinkSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createDesktopVerifiedComponentSlotMiddleware } from "../../system/adapters/desktop/verified-component-slot-host.mjs";
@@ -433,6 +433,53 @@ test("Desktop Store refuses forged verifier output, symlinked envelopes and tamp
   assert.equal(calls, 2);
 });
 
+
+test("Windows Store watermark is an exclusive cross-host gate, with no stale-lock reclamation", async t => {
+  const f = setup(t);
+  f.policy.current_gates.component_publish_allowed = true;
+  writeFileSync(f.policyPath, JSON.stringify(f.policy));
+  const store = join(f.userData, "Store");
+  mkdirSync(store);
+  writeFileSync(join(store, "catalog-envelope.json"), "SIGNED_TEST_ONLY");
+
+  let signed = signedCatalogFixture(6, "6".repeat(64));
+  const verify = (_binary, args, _options, cb) => {
+    writeFileSync(args[args.indexOf("--out") + 1], JSON.stringify(signed));
+    cb(null, Buffer.alloc(0));
+  };
+  // Separate middleware instances model independently launched Native hosts.
+  const first = await serveVerifiedStore(t, f, verify);
+  const second = await serveVerifiedStore(t, f, verify);
+  const endpoint = "/__ordax/native/store-catalog";
+  const watermarkPath = join(store, "catalog-watermark.json");
+  const lockPath = watermarkPath + ".lock";
+
+  // An orphaned or owned lock must not be removed by an HTTP request, and
+  // neither host may fabricate a ready catalog or rewrite the watermark.
+  mkdirSync(lockPath);
+  for (const base of [first, second]) {
+    const reply = await (await fetch(base + endpoint)).json();
+    assert.equal(reply.state, "unavailable");
+    assert.equal(reply.reason, "catalog-verification-failed");
+  }
+  assert.equal(existsSync(watermarkPath), false);
+  assert.equal(existsSync(lockPath), true);
+  rmSync(lockPath, { recursive: true });
+
+  let reply = await (await fetch(first + endpoint)).json();
+  assert.equal(reply.state, "ready");
+  assert.equal(reply.sequence, 6);
+  assert.equal(existsSync(lockPath), false, "Writer releases only its own lock");
+  reply = await (await fetch(second + endpoint)).json();
+  assert.equal(reply.state, "ready", "Second host reads the same durable watermark");
+  assert.equal(JSON.parse(readFileSync(watermarkPath, "utf8")).sequence, 6);
+
+  signed = signedCatalogFixture(5, "5".repeat(64));
+  reply = await (await fetch(second + endpoint)).json();
+  assert.equal(reply.state, "unavailable", "Second process cannot replay an earlier catalog");
+  assert.equal(JSON.parse(readFileSync(watermarkPath, "utf8")).sequence, 6);
+  assert.equal(existsSync(lockPath), false);
+});
 
 test("the shared Windows development preview registers a truthful Store route without a signer", async t => {
   const f = setup(t);
