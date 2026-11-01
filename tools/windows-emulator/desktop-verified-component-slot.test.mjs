@@ -636,6 +636,37 @@ test("Windows Store HTTPS rejects redirects, compressed and oversized bodies bef
   assert.equal(existsSync(join(f.userData, "Store", "catalog-envelope.json")), false);
 });
 
+test("Windows Store restores an accepted signed envelope without resetting its watermark", async t => {
+  const f = setup(t);
+  f.policy.current_gates.component_publish_allowed = true;
+  writeFileSync(f.policyPath, JSON.stringify(f.policy));
+  const bytes = Buffer.from("SIGNED_SEQUENCE_11");
+  const base = await serveVerifiedStore(t, f, (_bin, args, _opts, cb) => {
+    assert.deepEqual(readFileSync(args[args.indexOf("--envelope") + 1]), bytes);
+    writeFileSync(args[args.indexOf("--out") + 1],
+      JSON.stringify(signedCatalogFixture(11, "b".repeat(64))));
+    cb(null, Buffer.alloc(0));
+  }, {
+    catalogBaseOrigin: "https://catalog.test/",
+    fetchImpl: async url => remoteCatalogResponse(url, bytes),
+  });
+  const endpoint = base + "/__ordax/native/store-catalog";
+  assert.equal((await (await fetch(endpoint)).json()).state, "ready");
+  const envelope = join(f.userData, "Store", "catalog-envelope.json");
+  const watermarkPath = join(f.userData, "Store", "catalog-watermark.json");
+  unlinkSync(envelope);
+  assert.equal(existsSync(envelope), false);
+  const recovered = await (await fetch(endpoint)).json();
+  assert.equal(recovered.state, "ready");
+  assert.equal(recovered.sequence, 11);
+  assert.deepEqual(readFileSync(envelope), bytes,
+    "Verified remote bytes recover a missing LKG at the accepted sequence");
+  assert.deepEqual(JSON.parse(readFileSync(watermarkPath, "utf8")), {
+    schema: "ordax.store-catalog-watermark/1",
+    sequence: 11, catalogSha256: "b".repeat(64),
+  });
+});
+
 test("Windows Store remote replay and equivocation preserve the last-known-good envelope", async t => {
   const f = setup(t);
   f.policy.current_gates.component_publish_allowed = true;
