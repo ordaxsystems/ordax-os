@@ -366,7 +366,7 @@
     "prove-current-lock-offline-surface-runtime-qemu-handoff"
   ],
   "apk_package_lock_count": 324,
-  "apk_package_lock_status": "reviewed-full-transitive-lock-reproof-passed",
+  "apk_package_lock_status": "reviewed-full-transitive-lock-reproof-required",
   "discovery_evidence": {
     "executor": "github-actions-apk-tools-signed-index-resolution",
     "source_commit": "7618a0af3fd54bcb32f00848e0dcb0d824e284ba",
