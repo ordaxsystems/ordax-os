@@ -9,10 +9,25 @@ catalog in the Desktop host.
   It validates both current OS policy and the immutable public anchor shipped by
   the Electron installer; neither the HTTP client nor an ordax-pull checkout can
   change the trusted signer/verifier.
-- The signed envelope, if externally published into the Electron-selected
-  userData/Store/catalog-envelope.json, is verified by the *existing* installed
-  Go runtime-component-channel verify-store-catalog command. The host never
-  implements Ed25519 signing/verification and never downloads an unsigned feed.
+- The installed host can optionally acquire the fixed
+  `catalog-envelope.json` over HTTPS from
+  `ORDAX_DESKTOP_STORE_CATALOG_BASE_ORIGIN`, configured in the **Native
+  process environment**, never in a Store request or Surface UI. With no
+  configured origin, the existing offline signed-envelope flow is unchanged.
+  No production origin is currently configured by this repository.
+- The byte transport rejects redirects, non-200 responses, unexpected
+  content encoding, wrong final URL, mismatched Content-Length, query, fragment,
+  credentials, ambiguous path segments and envelopes over 4 MiB. Requests
+  carry no credentials, cookies, version selection or trust anchor. Remote
+  bytes are passed to the **existing installed** Go
+  `runtime-component-channel verify-store-catalog` command; the host
+  never implements Ed25519 signing or verification.
+- The remote envelope is written to a private temporary file, cryptographically
+  verified, and promoted atomically under the **same watermark lock** as local
+  reads, with envelope before watermark. Failed transport, invalid signatures,
+  replay and equivocation cannot overwrite the last-known-good envelope.
+  An offline read still re-verifies that signed local envelope; network success
+  never creates install, activation, health or rollback authority.
 - The Windows adapter owns only a local monotonic sequence/digest watermark,
   stored atomically under userData/Store. An exclusive cross-process lock
   directory serializes compare-and-replace for overlapping installed Native
@@ -32,3 +47,7 @@ catalog in the Desktop host.
 
 Tests reuse the existing Windows verified-slot fixture and the established
 Windows Desktop Dev CI instead of introducing a parallel signing pipeline.
+The injected Go helper responses and publication gates in tests are **fixtures**,
+not real signing keys or proof that production publication is enabled.
+The Linux Native transport continues to use its existing HTTPS acquisition
+owner; this Windows reader does not duplicate an installer or catalog authority.
