@@ -244,7 +244,7 @@ class ModuleBoundaryVerifierTests(unittest.TestCase):
             self.write(
                 root,
                 "system/services/sync/client.py",
-                "from ....ordax_platform.private import token\n",
+                "from .....ordax_platform.private import token\n",
             )
             violations = MODULE.find_violations(root, CONTRACT)
             self.assertEqual(len(violations), 1, violations)
