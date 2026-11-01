@@ -200,7 +200,7 @@ class IndependentOwnerDevelopmentProfileTests(unittest.TestCase):
         ):
             self.assertIn(target, script)
         self.assertIn("Owner/Development or Stable/MVP CA trust store is missing", script)
-        self.assertIn("Incomplete Owner/Development target capability set", script)
+        self.assertIn("Incomplete Owner/Development or Stable/MVP target capability set", script)
         self.assertIn("ORDAX_OWNER_DEVELOPMENT_PROFILE=YES", script)
 
     def test_owner_profile_requires_verified_kernel_component_inputs(self) -> None:
