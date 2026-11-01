@@ -287,3 +287,11 @@ do Web e dos entrypoints Linux na versão candidata.
 
 Esta implementação não declara instalação física no PC do usuário nem
 homologação USB. Exige CI Desktop/Web/Foundation + NSIS do HEAD exato.
+
+**Teste de build real corrigido:** o fixture `dev-update-real-build.test.cjs`
+passa a registrar `build-autonomy.json` e `package.json` no Git OS de
+cada commit sintético, pois o novo updater requer corretamente esses dois
+arquivos da revisão candidata. A falha anterior `untrusted` era causada
+pela ausência deles no fixture, não pela política em produção. O mesmo teste
+agora prova ausência de três arquivos Linux/Web no checkout imutável,
+status Git limpo, compilação Vite verdadeira e os recibos de rollback.

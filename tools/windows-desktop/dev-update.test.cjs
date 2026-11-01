@@ -397,6 +397,22 @@ test('real Git update omits Linux/Web but retains Native and a clean immutable S
     'staged official revision must stay clean with sparse worktree');
 });
 
+
+test('missing candidate packaging authority never stages or replaces the known-good',async t=>{
+  const f=fixture(t);
+  const policy=join(f.source,'docs','contracts','build-autonomy.json');
+  rmSync(policy);
+  gitCli(['add','-A'],f.source);
+  gitCli(['commit','-qm','official revision without packaging authority'],f.source);
+  const update=await stageMain({userData:f.userData,template:f.template,
+    runGit:f.offlineGit,buildCandidate:async()=>{throw Error('must never compile');}});
+  assert.equal(update.status,'untrusted');
+  const state=readState(f.userData);
+  assert.equal(state.pendingSha,null);
+  assert.equal(state.activeSha,null);
+  assert.equal(state.attemptedSha,null);
+});
+
 test('verified bundled main is current without staging, recompilation or a false health trial',async t=>{
   const f=fixture(t);
   installVerifiedBundledFixture(f,f.first);
