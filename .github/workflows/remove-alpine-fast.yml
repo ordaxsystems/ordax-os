@@ -3,7 +3,7 @@ name: Remove Alpine Fast Gate
 on:
   push:
     branches:
-      - 'platform/remove-alpine'
+      - 'integration/dev-usb-buildroot-surface-20261024'
     paths:
       - 'bootstrap/base/firmware_policy.py'
       - 'bootstrap/base/kernel_module_payload.py'
