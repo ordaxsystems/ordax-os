@@ -40,6 +40,56 @@ class ModuleBoundaryVerifierTests(unittest.TestCase):
     def test_current_repository_has_no_import_boundary_violations(self):
         self.assertEqual(MODULE.find_violations(ROOT, CONTRACT), [])
 
+    def test_multiline_import_cannot_bypass_service_adapter_boundary(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.seed_roots(root)
+            self.write(
+                root,
+                "system/services/sync/client.ts",
+                """import {
+  privilegedPort,
+} from "../../adapters/desktop/unsafe.mjs";
+""",
+            )
+            violations = MODULE.find_violations(root, CONTRACT)
+            self.assertTrue(
+                any("services may not import adapters" in item for item in violations),
+                violations,
+            )
+
+    def test_multiline_reexport_cannot_bypass_service_surface_boundary(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.seed_roots(root)
+            self.write(
+                root,
+                "system/services/sync/client.ts",
+                """export {
+  internalView,
+} from "../../surface/ui/internal.mjs";
+""",
+            )
+            violations = MODULE.find_violations(root, CONTRACT)
+            self.assertTrue(
+                any("services may not import surface" in item for item in violations),
+                violations,
+            )
+
+    def test_multiline_allowed_app_service_dependency_still_passes(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.seed_roots(root)
+            self.write(
+                root,
+                "system/apps/files/view.ts",
+                """import {
+  syncPort,
+} from "../../services/sync/port.mjs";
+""",
+            )
+            self.assertEqual(MODULE.find_violations(root, CONTRACT), [])
+
     def test_relative_surface_import_of_adapter_is_rejected(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
