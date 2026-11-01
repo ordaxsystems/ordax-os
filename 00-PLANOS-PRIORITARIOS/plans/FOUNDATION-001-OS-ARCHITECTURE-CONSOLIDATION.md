@@ -39,6 +39,20 @@
 
 **Aceite P0-A:** inventário verificável sem ownership ambíguo, fila deduplicada por owner e zero tarefa de exclusão sem prova.
 
+**Revalidação parcial de P0-A (2026-11-01, sem promoção):** os oito
+repositórios foram consultados por suas branches `main` no GitHub.
+O contrato atual descreve sete autoridades operacionais; o oitavo
+(`ordax-intelligence`) é proprietário somente da fonte candidata,
+identificada pelo lock `docs/contracts/intelligence-source.json`.
+A fronteira foi documentada no owner `docs/REPOSITORY-OWNERSHIP.md`
+e recebeu regressão em `tests/test_repository_ownership_contract.py`.
+Oito repos existentes **não significam** oito runtime owners ativos:
+não alterar `cutover_complete`, nem remover motor OS antes do gate P0-B.
+Inventário de consumidores, ciclos, flags e artefatos, além das provas
+Windows, continua aberto. Nenhuma etapa P0-A é marcada completa
+somente por esta correção documental/contratual.
+
+
 ### P0-B — cutover de Intelligence sem código antigo (Windows primeiro)
 
 - [ ] Confirmar o `docs/contracts/intelligence-source.json` vigente, os oito blobs fixados, o `integration-candidate` e `cutover_complete=false`; verificar o estado atual no repo Intelligence antes de assumir que a migração terminou.
