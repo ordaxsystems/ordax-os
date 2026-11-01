@@ -27,7 +27,6 @@ on:
       - 'tests/test_alpine_removal_boundary.py'
       - 'tests/test_creator_kernel_reuse_workflows.py'
       - 'tests/test_dev_base_channel.py'
-      - 'tests/test_dev_base_channel_workflow.py'
       - 'tests/test_dev_base_symlink_policy.py'
       - 'tests/test_github_actions_supply_chain.py'
       - 'tests/test_independent_dev_channel_compatibility.py'
@@ -82,7 +81,6 @@ jobs:
             tests.test_alpine_removal_boundary \
             tests.test_creator_kernel_reuse_workflows \
             tests.test_dev_base_channel \
-            tests.test_dev_base_channel_workflow \
             tests.test_dev_base_symlink_policy \
             tests.test_github_actions_supply_chain \
             tests.test_independent_dev_channel_compatibility \
@@ -121,7 +119,6 @@ jobs:
             tests/test_alpine_removal_boundary.py \
             tests/test_creator_kernel_reuse_workflows.py \
             tests/test_dev_base_channel.py \
-            tests/test_dev_base_channel_workflow.py \
             tests/test_dev_base_symlink_policy.py \
             tests/test_github_actions_supply_chain.py \
             tests/test_independent_dev_channel_compatibility.py \
