@@ -169,7 +169,8 @@ class CreatorOwnerImpactTests(unittest.TestCase):
             "tools/windows-emulator/account-gateway.mjs",
             "system/contracts/space-create-port.mjs",
             "tests/test_space_create_bridge.mjs",
-            "docs/contracts/build-autonomy.json",
+            # The exact build-autonomy JSON is validated in its own test.
+            # Arbitrary edits to its dependency graph must remain USB-heavy.
             "docs/BUILD-AUTONOMY.md",
             "docs/CURRENT-STATE.md",
             "docs/DECISIONS.md",
@@ -189,6 +190,11 @@ class CreatorOwnerImpactTests(unittest.TestCase):
                 next_rev = self.commit(path=path)
                 self.assertEqual(impact.classify(base, next_rev, root=self.root),
                                  (False, "nonproducer-contract-only"))
+        # A malformed or unknown change to the build dependency contract
+        # is explicitly NOT an exclusive Windows/Web no-op.
+        changed = self.commit(path="docs/contracts/build-autonomy.json")
+        self.assertEqual(impact.classify(base, changed, root=self.root),
+                         (True, "client-delivery-contract-unknown-or-producer-delta"))
         for shared in (
             "system/composition/native/main.mjs",
             "system/adapters/native/space-selection.mjs",

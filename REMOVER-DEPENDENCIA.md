@@ -60,7 +60,7 @@ A [PR #2243](https://github.com/ordaxsystems/ordax-os/pull/2243) mantém a migra
 
 - [x] Grafo contratual declara Desktop e Web independentes de Creator/USB (já existente).
 - [x] Workflows Desktop/Web possuem compilação própria, sem chamada direta ao Creator (verificado em fonte).
-- [ ] Remoção dos executáveis Linux do pacote Windows + suite de inventário **CI verde** (implementação iniciada, não homologada).
+- [ ] Remoção dos executáveis Linux do pacote Windows + suite de inventário **CI verde** (arquivos excluídos; `runtime.test.cjs` atualizado para consumir o contrato sem duplicar a lista; aguarda CI).
 - [ ] Classificação de deltas exclusivos Desktop/Web testada em CI no mesmo HEAD.
 - [ ] Redução completa da árvore empacotada Windows comprovada no NSIS instalado.
 - [ ] Entrega Web validada sem USB/Creator.
@@ -68,3 +68,7 @@ A [PR #2243](https://github.com/ordaxsystems/ordax-os/pull/2243) mantém a migra
 - [ ] Surface reidrata Workspace em trocas de contas A/B/guest com E2E visual — owner `ordax-surface`.
 - [ ] Windows físico e Web público/privado homologados com proveniência e sem dependência USB.
 - [ ] USB Buildroot validado e Alpine legado removido pelo owner USB (não bloqueia clientes).
+
+### Registro de validação de 2026-11-01 (HEAD `478bbd10`)
+
+CI após a primeira alteração: Web, source-consumer, durabilidade, Space Foundation e checks de impacto passaram; **Foundation e Windows falharam em expectativas de testes antigas**, sem falha comprovada do compilador ou do runtime do cliente: o teste Windows ainda exigia exatamente seis exclusões anteriores e não aceitava as três entradas Linux agora contratadas; a suite de classificação esperava que um contrato JSON sobrescrito arbitrariamente com texto `changed` fosse leve, o que a proteção nova rejeita corretamente. Ajustar os testes preservando o contrato, sem remover as exclusões e sem autorizar alteração desconhecida do grafo. O Creator continua falhando no pin Alpine/Python em produtor USB independente. Consultar CI do HEAD seguinte antes de marcar estes itens.
