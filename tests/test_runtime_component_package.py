@@ -434,6 +434,30 @@ class RuntimeComponentPackageTests(unittest.TestCase):
         ):
             builder.verify_internal_graph({entry: files[entry]}, entry)
 
+    def test_runtime_component_graph_rejects_parent_symlink_to_external_repo(self):
+        builder = load_builder()
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "ordax-os"
+            external = Path(directory) / "ordax-runtime"
+            external.mkdir()
+            (external / "private.mjs").write_text("export default 'external';", encoding="utf-8")
+            entry = root / "system/components/local-ai-service/runtime.mjs"
+            entry.parent.mkdir(parents=True)
+            entry.write_text(
+                'import "../../contracts/private.mjs";\\n', encoding="utf-8",
+            )
+            linked = root / "system/contracts"
+            try:
+                linked.symlink_to(external, target_is_directory=True)
+            except (OSError, NotImplementedError):
+                self.skipTest("directory symlinks unavailable on this test host")
+            with self.assertRaisesRegex(builder.SourceGraphError, "linked source path"):
+                builder.discover_graph(
+                    root,
+                    builder.PurePosixPath("system/components/local-ai-service/runtime.mjs"),
+                    allowed_prefixes=("system",),
+                )
+
     def test_shared_source_graph_detects_import_meta_assets(self):
         builder = load_builder()
         with tempfile.TemporaryDirectory() as directory:

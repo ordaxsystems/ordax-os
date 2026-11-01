@@ -331,6 +331,14 @@ cliente localhost sem o token recebe HTTP 401.
 
 Com a sessão bloqueada, as rotas de Conta/sync e Files recusam operações
 (HTTP 423); falha de integridade do registro impede abrir os dados (503).
+Com um PIN configurado, o arquivo `desktop-local-session.json` mantém apenas
+sal/verificador e `state=locked`: **desbloqueio é uma decisão volátil do Native
+Host atual**, nunca uma autorização persistida. Um novo processo volta bloqueado
+mesmo que o anterior tenha encerrado autenticado. Registros antigos de
+desenvolvimento com `state=unlocked` são migrados atomicamente para bloqueado,
+sem remover a credencial; falha na migração impede abrir os dados. O Primeiro
+Uso continua legível pela Surface autorizada durante o bloqueio, mas nenhuma
+escrita no seu recibo é permitida antes da autenticação.
 O bloqueio é **de Surface/sessão OrdaX**, e não substitui a segurança de disco,
 login do Windows, nem a revogação da Conta. Os demais brokers privilegiados
 ainda precisam de adaptadores Windows e controles próprios. O emulador visual

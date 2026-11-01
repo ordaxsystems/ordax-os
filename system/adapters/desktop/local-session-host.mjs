@@ -32,9 +32,10 @@ function validateRecord(value) {
 }
 const initialRecord = () => validateRecord({ schema: SCHEMA, state: "unlocked", salt: null, verifier: null });
 const configured = record => record.salt !== null;
-function snapshot(record) {
+function snapshot(record, sessionUnlocked = false) {
   return validateLocalSessionSnapshot({
-    state: record.state, credentialConfigured: configured(record),
+    state: configured(record) && !sessionUnlocked ? "locked" : "unlocked",
+    credentialConfigured: configured(record),
     protectionScope: "surface-session-not-storage-encryption",
   });
 }
@@ -72,26 +73,22 @@ export function createDesktopLocalSessionMiddleware(userData, {token}={}) {
     queue=result.then(()=>{},()=>{});
     return result;
   };
-  // An unlocked snapshot is only valid for the Native host instance that
-  // verified the PIN. On each new process, keep the verifier but relock the
-  // Surface before any privileged route or bootstrap snapshot is exposed.
-  let bootChecked=false;
+  // The durable record never grants an unlocked session. Only this exact
+  // Native host instance can hold the transient successful-PIN decision.
+  let sessionUnlocked=false;
   const load=async()=>{
-    if(!await requireRegularOrMissing(file)){
-      bootChecked=true;
-      return initialRecord();
-    }
+    if(!await requireRegularOrMissing(file))return initialRecord();
     let parsed;
     try { parsed=JSON.parse(await readFile(file,"utf8")); }
     catch { throw Error("Untrusted Desktop local session JSON"); }
     const record=validateRecord(parsed);
-    if(!bootChecked && configured(record) && record.state==="unlocked"){
+    if(configured(record) && record.state==="unlocked"){
+      // Upgrade existing development records without discarding the verifier.
+      // Refuse service if a durable re-lock cannot be persisted.
       const locked={...record,state:"locked"};
       await persist(locked);
-      bootChecked=true;
       return locked;
     }
-    bootChecked=true;
     return record;
   };
   const persist=async record=>{
@@ -129,29 +126,35 @@ export function createDesktopLocalSessionMiddleware(userData, {token}={}) {
       if(configured(record) || record.state==="locked")return {status:409};
       const salt=randomBytes(16).toString("hex");
       const verifier=(await hashSecret(secret,salt)).toString("hex");
-      const next={schema:SCHEMA,state:"unlocked",salt,verifier};
+      const next={schema:SCHEMA,state:"locked",salt,verifier};
       await persist(next);
+      sessionUnlocked=true;
       failures=0;retryAfter=0;
-      return {status:200,data:snapshot(next)};
+      return {status:200,data:snapshot(next,sessionUnlocked)};
     }
     if(!configured(record))return {status:409};
     if(kind==="lock"){
-      const next={...record,state:"locked"};
-      await persist(next);
-      return {status:200,data:snapshot(next)};
+      // No disk mutation: the saved credential is already fail-closed.
+      sessionUnlocked=false;
+      return {status:200,data:snapshot(record,sessionUnlocked)};
     }
-    if(kind==="remove-credential" && record.state==="locked")return {status:423};
+    if(kind==="remove-credential" && !sessionUnlocked)return {status:423};
     if(Date.now()<retryAfter)return {status:429};
     if(!await verifySecret(record,secret)){
       failures=Math.min(8,failures+1);
       retryAfter=Date.now()+Math.min(30000,(2**Math.min(5,failures)-1)*1000);
       return {status:401};
     }
-    const next=kind==="unlock"
-      ? {...record,state:"unlocked"} : initialRecord();
+    if(kind==="unlock"){
+      sessionUnlocked=true;
+      failures=0;retryAfter=0;
+      return {status:200,data:snapshot(record,sessionUnlocked)};
+    }
+    const next=initialRecord();
     await persist(next);
+    sessionUnlocked=false;
     failures=0;retryAfter=0;
-    return {status:200,data:snapshot(next)};
+    return {status:200,data:snapshot(next,sessionUnlocked)};
   };
   const middleware=(req,res,next)=>{
     const path=String(req.url??"").split("?")[0];
@@ -166,7 +169,7 @@ export function createDesktopLocalSessionMiddleware(userData, {token}={}) {
        !timingSafeEqual(expected,bytes))return reply(401);
     if(req.url!==path)return reply(400);
     if(req.method==="GET"){
-      void transaction(async()=>snapshot(await load())).then(data=>reply(200,data),()=>reply(503));
+      void transaction(async()=>snapshot(await load(),sessionUnlocked)).then(data=>reply(200,data),()=>reply(503));
       return;
     }
     if(req.method!=="POST")return reply(405);
@@ -185,5 +188,5 @@ export function createDesktopLocalSessionMiddleware(userData, {token}={}) {
       return action(payload);
     }).then(result=>reply(result.status,result.data),()=>reply(503));
   };
-  return Object.freeze({middleware,readLocked:()=>transaction(async()=> (await load()).state==="locked")});
+  return Object.freeze({middleware,readLocked:()=>transaction(async()=>configured(await load()) && !sessionUnlocked)});
 }
