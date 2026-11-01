@@ -129,7 +129,7 @@ class IndependentRootfsExportTests(unittest.TestCase):
         # Shell syntax alone did not catch a malformed same-line 'else' token.
         self.assertIn(
             'printf \'ORDAX_OWNER_DEVELOPMENT_PROFILE=YES\\n\' > '
-            '"$TARGET_DIR/etc/ordax/owner-development"\\n    else\\n',
+            '"$TARGET_DIR/etc/ordax/owner-development"\n    else\n',
             script,
         )
         with tempfile.TemporaryDirectory() as tmp:
