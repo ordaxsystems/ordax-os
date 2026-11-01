@@ -65,7 +65,9 @@ test('installed fallback rejects wrong Surface source and modified compiled byte
    source_repository:'ordaxsystems/ordax-surface',source_commit:sha,
    visual_source_paths:['system/surface/ui','system/surface/workspace']
  }));
- writeFileSync(join(built,'system','composition','native','index.html'),'<script src="/assets/app.js"></script>');
+ const html=join(built,'system','composition','native','index.html');
+ const canonicalHtml='<script type="module" crossorigin src="/__ordax/desktop-assets/assets/app.js"></script>';
+ writeFileSync(html,'<script src="/assets/app.js"></script>');
  const js=join(built,'assets','app.js');
  writeFileSync(js,'export const ok=true');
  assert.equal(verifyBundledNativeReceipt(root,built),false);
@@ -75,6 +77,21 @@ test('installed fallback rejects wrong Surface source and modified compiled byte
    bundle_sha256:compiledBundleSha256(root,built)};
  const target=join(built,'source-provenance.json');
  writeFileSync(target,JSON.stringify(receipt));
+ assert.equal(verifyBundledNativeReceipt(root,built),false,
+   'installed fallback rejects non-canonical HTML despite a matching self-hash');
+ writeFileSync(html,canonicalHtml);
+ writeFileSync(target,JSON.stringify({...receipt,bundle_sha256:compiledBundleSha256(root,built)}));
+ assert.equal(verifyBundledNativeReceipt(root,built),true);
+ writeFileSync(html,'<script type="module" src="./main.mjs"></script>');
+ writeFileSync(target,JSON.stringify({...receipt,bundle_sha256:compiledBundleSha256(root,built)}));
+ assert.equal(verifyBundledNativeReceipt(root,built),false,
+   'installed fallback must not boot Vite source-tree HTML');
+ writeFileSync(html,'<script type="module" src="/__ordax/desktop-assets/assets/missing.js"></script>');
+ writeFileSync(target,JSON.stringify({...receipt,bundle_sha256:compiledBundleSha256(root,built)}));
+ assert.equal(verifyBundledNativeReceipt(root,built),false,
+   'missing referenced compiled JavaScript cannot pass through the receipt');
+ writeFileSync(html,canonicalHtml);
+ writeFileSync(target,JSON.stringify({...receipt,bundle_sha256:compiledBundleSha256(root,built)}));
  assert.equal(verifyBundledNativeReceipt(root,built),true);
  writeFileSync(js,'export const ok=false');
  assert.equal(verifyBundledNativeReceipt(root,built),false);

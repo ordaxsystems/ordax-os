@@ -54,6 +54,22 @@ function compiledBundleSha256(sourceRoot,emittedRoot=null) {
   return manifest.digest('hex');
 }
 
+// One entry/asset gate for both newly staged candidates and the NSIS bundled
+// fallback. A self-consistent hash receipt cannot turn source-tree HTML or
+// missing compiled assets into an installable Native application.
+function hasCompiledNativeEntry(root) {
+  const html=readFileSync(join(root,'system','composition','native','index.html'),'utf8');
+  if(/<script\s+type="module"\s+src="\.\/main\.mjs"/.test(html))return false;
+  const matches=[...html.matchAll(/\/__ordax\/desktop-assets\/assets\/([a-zA-Z0-9][a-zA-Z0-9._-]{0,180}\.(?:js|css|png|svg|webp|woff2))/g)];
+  if(!matches.some(([,file])=>file.endsWith('.js')))return false;
+  const assets=join(root,'assets');
+  if(!lstatSync(assets).isDirectory())return false;
+  return matches.every(([,file])=>{
+    const stat=lstatSync(join(assets,file));
+    return stat.isFile() && stat.size>0;
+  });
+}
+
 function hasNativeBundle(sourceRoot) {
   try {
     const root=join(sourceRoot,OUTPUT);
@@ -70,18 +86,7 @@ function hasNativeBundle(sourceRoot) {
        !/^[0-9a-f]{64}$/.test(receipt.visual_source_sha256) ||
        !Number.isInteger(receipt.file_count)||receipt.file_count<1 ||
        receipt.bundle_sha256!==compiledBundleSha256(sourceRoot)) return false;
-    const html=readFileSync(htmlPath,'utf8');
-    // A source-tree entry is not an acceptable installed/candidate artifact.
-    if(/<script\s+type="module"\s+src="\.\/main\.mjs"/.test(html))return false;
-    const matches=[...html.matchAll(/\/__ordax\/desktop-assets\/assets\/([a-zA-Z0-9][a-zA-Z0-9._-]{0,180}\.(?:js|css|png|svg|webp|woff2))/g)];
-    if(!matches.some(([,file])=>file.endsWith('.js')))return false;
-    const assetRoot=join(root,'assets');
-    if(!lstatSync(assetRoot).isDirectory())return false;
-    return matches.every(([,file])=>{
-      const item=join(assetRoot,file);
-      const stat=lstatSync(item);
-      return stat.isFile() && stat.size>0;
-    });
+    return hasCompiledNativeEntry(root);
   } catch { return false; }
 }
 async function buildNativeCandidate(root,template,{log=()=>{},timeoutMs=120000,materializeSurface=withPinnedSurface,userData=null}={}) {
@@ -154,7 +159,8 @@ function verifyBundledNativeReceipt(template,emittedRoot) {
       receipt.source_commit===lock.source_commit &&
       SHA256.test(receipt.visual_source_sha256) &&
       Number.isInteger(receipt.file_count)&&receipt.file_count>0 &&
-      receipt.bundle_sha256===compiledBundleSha256(template,emittedRoot);
+      receipt.bundle_sha256===compiledBundleSha256(template,emittedRoot) &&
+      hasCompiledNativeEntry(emittedRoot);
   }catch{return false;}
 }
 
