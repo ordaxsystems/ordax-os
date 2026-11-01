@@ -160,10 +160,10 @@ class PortableComponentCacheTests(unittest.TestCase):
             self.assertTrue(receipt["reused"])
             self.assertEqual((out / "provenance.json").read_bytes(), original)
             # Dev-only helpers must not trigger a Stable rootfs rebuild.
-            (root / "bootstrap/dev-base/ordax-pull").write_text("dev-only-change\\n")
+            (root / "bootstrap/dev-base/ordax-pull").write_text("dev-only-change\n")
             self.assertEqual(stable, CACHE.component_fingerprint("independent-base-stable", root))
             # The canonical firmware provider and kernel ABI DO invalidate it.
-            (root / "bootstrap/base/firmware_policy.py").write_text("new-firmware-policy\\n")
+            (root / "bootstrap/base/firmware_policy.py").write_text("new-firmware-policy\n")
             self.assertNotEqual(stable, CACHE.component_fingerprint("independent-base-stable", root))
             with self.assertRaisesRegex(CACHE.CacheError, "fingerprint mismatch"):
                 CACHE.verify_component(
@@ -182,7 +182,7 @@ class PortableComponentCacheTests(unittest.TestCase):
             receipt = stable / "provenance.json"
             payload = json.loads(receipt.read_text())
             payload["physical_artifact_authorized"] = True
-            receipt.write_text(json.dumps(payload) + "\\n", encoding="utf-8")
+            receipt.write_text(json.dumps(payload) + "\n", encoding="utf-8")
             with self.assertRaisesRegex(CACHE.CacheError, "profile or promotion policy mismatch"):
                 CACHE.record_component("independent-base-stable", stable, "1" * 40, root)
 
@@ -288,7 +288,7 @@ class PortableComponentCacheTests(unittest.TestCase):
                 fingerprints = CACHE.write_fingerprints(output, Path(td))
             self.assertEqual(set(fingerprints), set(CACHE.COMPONENTS))
             keys = {line.split("=", 1)[0] for line in output.read_text(encoding="utf-8").splitlines()}
-            self.assertEqual(keys, {"kernel", "independent_base", "independent_base_owner", "local_ai", "release_agent"})
+            self.assertEqual(keys, {"kernel", "independent_base", "independent_base_owner", "independent_base_stable", "local_ai", "release_agent"})
             self.assertNotIn("surface", keys)
 
     def test_local_ai_cache_tracks_exact_external_builder_revision(self):
