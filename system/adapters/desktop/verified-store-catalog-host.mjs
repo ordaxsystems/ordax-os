@@ -208,7 +208,11 @@ export function createDesktopVerifiedStoreCatalogMiddleware({
     throw TypeError("Desktop Store requires Electron-owned verifier and OS paths");
   // An absent origin preserves the existing local signed-envelope workflow.
   // No renderer, HTTP request or ordax-pull candidate may select a signer.
-  const remoteUrl = desktopStoreCatalogEnvelopeUrl(catalogBaseOrigin);
+  // A malformed operator origin must disable the Store transport, not crash
+  // the whole installed Native host (and not fall back to an arbitrary URL).
+  let remoteUrl;
+  try { remoteUrl = desktopStoreCatalogEnvelopeUrl(catalogBaseOrigin); }
+  catch { remoteUrl = false; }
   let queue = Promise.resolve();
 
   async function readSigned() {
@@ -216,6 +220,7 @@ export function createDesktopVerifiedStoreCatalogMiddleware({
       ? readDesktopPinnedComponentTrust(systemRoot, verifierRoot) : null;
     if (!pinned) return unavailable("catalog-trust-unavailable");
     if (!pinned.publicationAuthorized) return unavailable("catalog-publication-disabled");
+    if (remoteUrl === false) return unavailable("catalog-transport-invalid-origin");
     const directory = storeRoot(userData);
     if (!directory) return unavailable("catalog-storage-unavailable");
     const envelope = join(directory, "catalog-envelope.json");
