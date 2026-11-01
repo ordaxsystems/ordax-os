@@ -6,12 +6,18 @@ import { execFile } from "node:child_process";
 import { lstatSync } from "node:fs";
 import { isAbsolute, join } from "node:path";
 import { readDesktopPinnedComponentTrust, withinPinnedRoot as within } from "./pinned-component-trust.mjs";
-import { EXTERNAL_FIRST_PARTY_NATIVE_MODULE_READ_IDS } from "../../services/apps/external-first-party-policy.mjs";
+import {
+  EXTERNAL_FIRST_PARTY_NATIVE_MODULE_READ_IDS,
+  EXTERNAL_FIRST_PARTY_NATIVE_PROBATION_IDS,
+} from "../../services/apps/external-first-party-policy.mjs";
 
 const META = "/__ordax/native/component-runtime";
 const COMPAT = "/__ordax/native/component-compatibility";
 const MODULE = "/__ordax/native/component-module/";
 const IDS = new Set(EXTERNAL_FIRST_PARTY_NATIVE_MODULE_READ_IDS);
+// Narrow signed pending reads to the probation scope derived from the same
+// package SSOT. They grant neither activation nor any lifecycle mutation.
+const PENDING_IDS = new Set(EXTERNAL_FIRST_PARTY_NATIVE_PROBATION_IDS);
 const ID = /^[a-z][a-z0-9-]{0,63}$/;
 const SHA = /^[0-9a-f]{40}$/;
 const SHA256 = /^[0-9a-f]{64}$/;
@@ -53,27 +59,38 @@ function parseFields(buffer, id, state, slotRoot) {
     fields.set(key, value);
   }
   const marker = state === "current" ? "RUNTIME_COMPONENT_CURRENT_RESOLVED" : "RUNTIME_COMPONENT_PENDING_RESOLVED";
-  if (state !== "current" || fields.get(marker) !== "YES"
+  if (!["current", "pending"].includes(state) || fields.get(marker) !== "YES"
     || fields.get("COMPONENT_ID") !== id || fields.get("RUNTIME_SERVED_FROM_SLOT") !== "NO"
     || !/^(0|[1-9][0-9]*)$/.test(fields.get("REVISION") ?? "")
     || !Number.isSafeInteger(Number(fields.get("REVISION")))) throw Error("Component verifier identity mismatch");
   const revision = Number(fields.get("REVISION"));
   const source = fields.get("SOURCE");
-  if (source === "ABSENT" || source === "REMOVED") {
+  if (state === "current" && (source === "ABSENT" || source === "REMOVED")) {
     if (fields.size !== 5) throw Error("Unexpected absent component fields");
     return { componentId: id, state, source: source === "REMOVED" ? "removed" : "absent",
       revision, version: null, sourceCommit: null, entrypoint: null, pendingHealth: null };
   }
-  if (source !== "SLOT" || fields.size !== 9
-    || !SEMVER.test(fields.get("CURRENT_VERSION") ?? "")
-    || !SHA.test(fields.get("CURRENT_SOURCE_COMMIT") ?? "")
+  const versionKey = state === "current" ? "CURRENT_VERSION" : "PENDING_VERSION";
+  const commitKey = state === "current" ? "CURRENT_SOURCE_COMMIT" : "PENDING_SOURCE_COMMIT";
+  // The Go owner attests signed release/health modes with the exact
+  // activation generation. For probation, only unknown-health pending
+  // runtime slots are readable; healthy/failed need a new decision, not a probe.
+  if (source !== "SLOT" || fields.size !== (state === "pending" ? 12 : 11)
+    || fields.get("RELEASE_MODE") !== "component-slot"
+    || (state === "pending"
+      ? fields.get("HEALTH_MODE") !== "runtime"
+        || fields.get("PENDING_HEALTH") !== "unknown"
+      : !["runtime", "none"].includes(fields.get("HEALTH_MODE")))
+    || !SEMVER.test(fields.get(versionKey) ?? "")
+    || !SHA.test(fields.get(commitKey) ?? "")
     || !within(slotRoot, fields.get("SLOT") ?? "")
     || !(fields.get("ENTRYPOINT") ?? "").startsWith("system/apps/" + id + "/")
     || !(fields.get("ENTRYPOINT") ?? "").split("/").every(part => SEGMENT.test(part) && part !== "." && part !== ".."))
-    throw Error("Invalid verified current component slot");
+    throw Error("Invalid verified component slot");
   return { componentId: id, state, source: "slot", revision,
-    version: fields.get("CURRENT_VERSION"), sourceCommit: fields.get("CURRENT_SOURCE_COMMIT"),
-    entrypoint: fields.get("ENTRYPOINT"), pendingHealth: null };
+    version: fields.get(versionKey), sourceCommit: fields.get(commitKey),
+    entrypoint: fields.get("ENTRYPOINT"),
+    pendingHealth: state === "pending" ? fields.get("PENDING_HEALTH") : null };
 }
 
 function parseRequest(url) {
@@ -101,7 +118,9 @@ function parseRequest(url) {
     const query = new URLSearchParams(rawQuery);
     if ([...query.keys()].sort().join(",") !== "component,state") return { error: 400 };
     const id = query.get("component"), state = query.get("state");
-    if (!ID.test(id ?? "") || !IDS.has(id) || state !== "current") return { error: 404 };
+    if (!ID.test(id ?? "") || !IDS.has(id)
+      || (state !== "current" && !(state === "pending" && PENDING_IDS.has(id))))
+      return { error: 404 };
     return { id, state, kind: "metadata" };
   }
   if (path.startsWith(MODULE)) {
@@ -109,7 +128,9 @@ function parseRequest(url) {
     const parts = path.slice(MODULE.length).split("/");
     if (parts.length < 7) return { error: 400 };
     const [id, state, version, sourceCommit, ...fileParts] = parts;
-    if (!ID.test(id) || !IDS.has(id) || state !== "current") return { error: 404 };
+    if (!ID.test(id) || !IDS.has(id)
+      || (state !== "current" && !(state === "pending" && PENDING_IDS.has(id))))
+      return { error: 404 };
     if (!SEMVER.test(version) || !SHA.test(sourceCommit)
       || !fileParts.every(part => SEGMENT.test(part) && part !== "." && part !== "..")
       || fileParts.slice(0, 3).join("/") !== "system/apps/" + id
@@ -214,7 +235,8 @@ export function createDesktopVerifiedComponentSlotMiddleware({
       }
       if (request.kind === "metadata") {
         const output = await invoke(config.helper, [
-          "resolve-current", "--component", request.id,
+          request.state === "pending" ? "resolve-pending" : "resolve-current",
+          "--component", request.id,
           "--trust", config.trust, "--root", config.root,
         ], execFileImpl, MAX_META);
         const identity = parseFields(output, request.id, request.state, config.root);
@@ -223,7 +245,7 @@ export function createDesktopVerifiedComponentSlotMiddleware({
       // Exact immutable identity: the Go channel revalidates the signed slot
       // and activation state for every individual file read.
       const output = await invoke(config.helper, [
-        "read-runtime-file", "--component", request.id, "--state", "current",
+        "read-runtime-file", "--component", request.id, "--state", request.state,
         "--version", request.version, "--source-commit", request.sourceCommit,
         "--path", request.file, "--trust", config.trust, "--root", config.root,
       ], execFileImpl, MAX_MODULE);
