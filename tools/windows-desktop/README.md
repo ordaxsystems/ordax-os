@@ -351,8 +351,12 @@ A leitura do recibo `ordax.first-run-state/1` também é obrigatória nesse
 modo: HTTP não autorizado/indisponível ou JSON inválido não pode ser
 interpretado como novo usuário, ocultando um primeiro uso já concluído.
 A composição falha fechada antes do mount; nenhuma rotina cria um
-segundo recibo ou apaga o anterior. O emulador visual e o USB preservam
-seu bootstrap recuperável e a semântica opcional de sessão.
+segundo recibo ou apaga o anterior. Além disso, o bloqueio visual do PIN
+é montado uma única vez **antes** de ocultar a tela de boot, declarar a
+Surface saudável ou iniciar o assistente de primeiro uso. Se o bloqueio
+visual falhar no Windows, o boot é recusado com diagnóstico sanitizado,
+sem mostrar temporariamente o workspace desprotegido. O emulador visual
+e o USB preservam seu bootstrap recuperável e sua sessão opcional.
 O bloqueio é **de Surface/sessão OrdaX**, e não substitui a segurança de disco,
 login do Windows, nem a revogação da Conta. Os demais brokers privilegiados
 ainda precisam de adaptadores Windows e controles próprios. O emulador visual

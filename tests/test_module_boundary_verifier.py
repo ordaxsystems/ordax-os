@@ -204,6 +204,87 @@ class ModuleBoundaryVerifierTests(unittest.TestCase):
             self.assertIn("may not import outside repository", violations[0])
             self.assertIn("ordax-surface", violations[0])
 
+    def test_python_relative_import_across_services_and_adapters_is_rejected(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.seed_roots(root)
+            self.write(
+                root,
+                "system/services/sync/client.py",
+                "from ...adapters.desktop import privileged_port\n",
+            )
+            violations = MODULE.find_violations(root, CONTRACT)
+            self.assertTrue(
+                any("services may not import adapters" in item for item in violations),
+                violations,
+            )
+
+    def test_python_from_parent_import_blocks_cross_adapter_mode_and_surface(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.seed_roots(root)
+            self.write(
+                root,
+                "system/adapters/web/port.py",
+                "from .. import mobile\n",
+            )
+            self.write(
+                root,
+                "system/services/sync/client.py",
+                "from ... import surface\n",
+            )
+            violations = MODULE.find_violations(root, CONTRACT)
+            self.assertTrue(any("adapter mode web may not import mobile" in x for x in violations), violations)
+            self.assertTrue(any("services may not import surface" in x for x in violations), violations)
+
+    def test_python_relative_import_cannot_escape_into_sibling_checkout(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "ordax-os"
+            self.seed_roots(root)
+            self.write(
+                root,
+                "system/services/sync/client.py",
+                "from .....ordax_platform.private import token\n",
+            )
+            violations = MODULE.find_violations(root, CONTRACT)
+            self.assertEqual(len(violations), 1, violations)
+            self.assertIn("may not import outside repository", violations[0])
+
+    def test_python_qualified_and_allowed_imports_preserve_contract(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.seed_roots(root)
+            self.write(
+                root,
+                "system/services/sync/client.py",
+                "from ...contracts import capability\n"
+                "from system.contracts import public_port\n"
+                "import os, json\n"
+                "# from ...adapters.mobile import forbidden\n",
+            )
+            self.assertEqual(MODULE.find_violations(root, CONTRACT), [])
+            self.write(
+                root,
+                "system/services/sync/client.py",
+                "from system import adapters\n",
+            )
+            violations = MODULE.find_violations(root, CONTRACT)
+            self.assertTrue(any("services may not import adapters" in x for x in violations), violations)
+
+    def test_spaced_commonjs_and_require_resolve_are_not_boundary_bypasses(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.seed_roots(root)
+            self.write(
+                root,
+                "system/services/sync/adapter.cjs",
+                "const a = require ( \"../../adapters/desktop/private.cjs\" );\n"
+                "const b = require.resolve ( \"../../surface/ui.mjs\" );\n",
+            )
+            violations = MODULE.find_violations(root, CONTRACT)
+            self.assertTrue(any("services may not import adapters" in x for x in violations), violations)
+            self.assertTrue(any("services may not import surface" in x for x in violations), violations)
+
     def test_creator_source_cannot_import_shared_product_implementation(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

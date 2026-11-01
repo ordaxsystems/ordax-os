@@ -1047,6 +1047,21 @@ async function start() {
   const updateControls = mountUpdateControls(root, updateWatcher, appActivation, surface);
   const powerControls = mountPowerControls(root, powerActions, surface, updateWatcher);
 
+  // A configured PIN must cover the Surface before the boot screen is hidden
+  // or a healthy shell is reported. Otherwise the already-rendered workspace
+  // can be visible briefly while First Run and optional apps finish loading.
+  let localSessionLock = null;
+  if (localSession) {
+    try {
+      localSessionLock = mountLocalSessionLock(root, localSession, surface);
+    } catch (error) {
+      reportClientDiagnostic("local-session-lock", error);
+      // Windows owns a mandatory verified local session: if its lock screen
+      // cannot mount, do not expose the workspace as an unlocked Surface.
+      if (windowsDesktopHost) throw error;
+    }
+  }
+
   // Reaching this point proves that the shared Surface composition mounted.
   // Optional app runtimes load only after this acknowledgement so an app-level
   // import or mount failure cannot turn into a failed OrdaX cold boot.
@@ -1204,14 +1219,6 @@ async function start() {
     });
   } catch (error) {
     reportClientDiagnostic("first-run", error);
-  }
-  let localSessionLock = null;
-  if (localSession) {
-    try {
-      localSessionLock = mountLocalSessionLock(root, localSession, surface);
-    } catch (error) {
-      reportClientDiagnostic("local-session-lock", error);
-    }
   }
   window.addEventListener(
     "pagehide",

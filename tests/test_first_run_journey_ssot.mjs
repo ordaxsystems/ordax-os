@@ -68,6 +68,26 @@ test("installed Windows refuses to mount Surface without an authenticated Native
     "non-Windows devices must keep their existing optional local-session capability");
 });
 
+test("Windows lock screen mounts once before boot health can expose a configured PIN session", async () => {
+  const native = await readFile(new URL("../system/composition/native/main.mjs", import.meta.url), "utf8");
+  const rendered = native.indexOf("const surface = mountSurface(");
+  const lock = native.indexOf("localSessionLock = mountLocalSessionLock(root, localSession, surface)");
+  const bootReady = native.indexOf("bootScreen.ready()");
+  const health = native.indexOf('componentManager.setCurrentHealth("surface-shell", "healthy")');
+  const firstRun = native.indexOf("firstRun = mountFirstRunExperience(root, {");
+  assert.ok(rendered >= 0 && lock > rendered && bootReady > lock && health > bootReady,
+    "a locked Windows user must see the lock overlay before boot screen hides and health is acknowledged");
+  assert.ok(firstRun > bootReady,
+    "optional first-use UI must not delay already authenticated Desktop shell health");
+  assert.equal(native.split("mountLocalSessionLock(root, localSession, surface)").length - 1, 1,
+    "one canonical lock mount, not a second post-boot overlay");
+  const guard = native.slice(lock, bootReady);
+  assert.match(guard, /if \(windowsDesktopHost\) throw error;/,
+    "a failed Windows lock overlay must never be reported healthy");
+  assert.match(guard, /reportClientDiagnostic\("local-session-lock", error\)/,
+    "the existing sanitized diagnostic must remain available on mount failure");
+});
+
 test("First Run presentation consumes Meridian directly and adapts all canonical steps", async () => {
   const css=await readFile(new URL("../system/surface/ui/first-run.css",import.meta.url),"utf8");
   assert.doesNotMatch(css,/var\(--ordax-|repeat\(7,/);
