@@ -151,7 +151,24 @@ async function acceptVerifiedCatalog(snapshot, path, candidateEnvelope = null, a
         || snapshot.sequence === current.sequence
         && snapshot.catalogSha256 !== current.catalogSha256)
         throw Error("Store catalog replay or equivocation");
-      if (snapshot.sequence === current.sequence) return;
+      if (snapshot.sequence === current.sequence) {
+        if (candidateEnvelope === null) return;
+        if (activeEnvelope === null) throw Error("Missing active Store envelope");
+        // The durable watermark can outlive an interrupted/removed envelope.
+        // Restore the exact same signed identity from HTTPS only if the active
+        // path is missing. Never replace a symlink or malformed local object.
+        let active;
+        try { active = await lstat(activeEnvelope); }
+        catch (error) { if (error?.code !== "ENOENT") throw error; }
+        if (active) {
+          if (!active.isFile() || active.isSymbolicLink()
+            || active.size === 0 || active.size > MAX_ENVELOPE)
+            throw Error("Active Store envelope is unsafe");
+          return;
+        }
+        await rename(candidateEnvelope, activeEnvelope);
+        return;
+      }
     }
     // An envelope and its watermark must be committed in the same lock.
     // Persist verified bytes first: interruption can be repaired by a local
