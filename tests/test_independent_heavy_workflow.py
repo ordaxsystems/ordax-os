@@ -71,6 +71,8 @@ class IndependentHeavyWorkflowTests(unittest.TestCase):
             text.index("- name: Save verified independent base component")
         ]
         self.assertIn("--component independent-base-stable", verify)
+        self.assertIn('elif [ "$ORDAX_INDEPENDENT_PROFILE" = owner-development ]; then', verify)
+        self.assertIn('elif [ "$ORDAX_INDEPENDENT_PROFILE" = stable-mvp ]; then', verify)
         self.assertIn("independent-stable-component-reuse.json", verify)
         self.assertIn("Save verified Stable Buildroot component", text)
         self.assertIn("independent-stable-component-reuse.json", text[text.index("- name: Upload candidate/provenance"):])
