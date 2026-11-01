@@ -903,6 +903,52 @@ test("Windows Store stages signed install/update only as durable Go pending-heal
   }
 });
 
+test("Windows Store rejects SHA-mismatched remote artifact before any Go staging", async t => {
+  const f = setup(t);
+  f.policy.current_gates.component_publish_allowed = true;
+  writeFileSync(f.policyPath, JSON.stringify(f.policy));
+  const store = join(f.userData, "Store");
+  mkdirSync(store);
+  writeFileSync(join(store, "catalog-envelope.json"), "SIGNED_CATALOG_TEST");
+  const fixture = signedWindowsStageFixture();
+  const calls = [];
+  const base = await serveGoStoreLifecycle(t, f, (_bin, args, _options, cb) => {
+    calls.push(args[0]);
+    if (args[0] === "verify-store-catalog") {
+      writeFileSync(args[args.indexOf("--out") + 1], JSON.stringify(fixture.snapshot));
+      return cb(null, Buffer.alloc(0));
+    }
+    return cb(Error("Untrusted artifact must never reach Go stage"));
+  }, {
+    artifactBaseOrigin: "https://catalog.test/release/",
+    fetchImpl: async url => {
+      // Same byte length as the signed package: size checks alone must not
+      // grant execution or let the cache silently bless forged content.
+      const first = fixture.contents.package;
+      return remoteCatalogResponse(url, Buffer.alloc(first.length, 0x31),
+        {"content-length": String(first.length)});
+    },
+  });
+  const plan = windowsRemovePlan({
+    request: {
+      schema: "ordax.app-lifecycle-request/1",
+      requestId: "store:install:notes:bad-digest",
+      appId: "notes", operation: "install", source: "store", authority: "none",
+    },
+    candidate: {
+      appId: "notes", version: "0.4.3", sourceCommit: "a".repeat(40),
+      artifacts: fixture.identities,
+    },
+    expectedActivation: {source:"absent", revision:0, version:null, sourceCommit:null},
+  });
+  assert.equal((await postStoreLifecycle(base, plan)).status, 503);
+  assert.deepEqual(calls, ["verify-store-catalog"],
+    "No Go activation command may execute for unverified artifact bytes");
+  const firstHash = fixture.identities.package.sha256;
+  assert.equal(existsSync(join(store, "artifacts", "v1", "sha256",
+    firstHash.slice(0, 2), firstHash)), false);
+});
+
 test("Windows Store refuses staged install without configured signed artifact origin", async t => {
   const f = setup(t);
   f.policy.current_gates.component_publish_allowed = true;
