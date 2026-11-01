@@ -878,7 +878,7 @@ test("Windows Store stages signed install/update only as durable Go pending-heal
         },
       });
       const response = await postStoreLifecycle(base, plan);
-      assert.equal(response.status, 200, await response.text().catch(() => ""));
+      assert.equal(response.status, 200);
       const result = await response.json();
       assert.equal(result.state, "accepted");
       assert.equal(result.operation, operation);
