@@ -2051,7 +2051,8 @@ aprovado não comprova boot no USB ou notebook reais.
 ### Ordax Intelligence and local inference
 
 The external portable source is now pinned to Intelligence main commit
-`c5202b2eefa89eee80caed44ead25834e8cac4e6`. The single OS-owned lock contains
+`9ea04bc09618e1f0e5e1eb9b68c5330e8868a400`. Its upstream builder attests the OS checkout and exact committed policy/license bytes before compilation; Intelligence CI run #41301047081 passed.
+The single OS-owned lock contains
 the complete Git-derived portable graph: eight `src/*.mjs` modules, including
 `src/snapshot-notification.mjs`, plus the exact technical inference builder.
 Materialization and automatic lock advancement reject a graph addition,

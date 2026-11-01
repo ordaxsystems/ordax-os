@@ -2,7 +2,7 @@
   "$schema": "prototype-ordax.intelligence-source/1",
   "status": "integration-candidate",
   "source_repository": "ordaxsystems/ordax-intelligence",
-  "source_commit": "c5202b2eefa89eee80caed44ead25834e8cac4e6",
+  "source_commit": "9ea04bc09618e1f0e5e1eb9b68c5330e8868a400",
   "source_paths": {
     "src/contract-bindings.mjs": "ee4ec7edf7c5f259ff6377a85cb689543a84c192",
     "src/index.mjs": "e5b0459e54f01821216dd43e3014c4e0360987d6",
@@ -12,7 +12,7 @@
     "src/local-ai/model-compatibility.mjs": "ff0078dc088ad760752e92f0e23338265cebdc08",
     "src/local-ai/runtime.mjs": "97ff166078aef1e5c5f23b5faf22be8d19f54b44",
     "src/snapshot-notification.mjs": "380c4d27c56c2e045d2f49a617cb5ade4826a460",
-    "tools/inference-builder/build.py": "09504b87ec31fd817a2b30c957e4eb513b90c854"
+    "tools/inference-builder/build.py": "7761bd08ef73a1239616dc79c5c9fb85c8453194"
   },
   "materialization_target": "system/intelligence-source/src",
   "public_ports": [
