@@ -101,7 +101,9 @@ HARDWARE_BASE_INPUTS = (
 # The Stable/MVP and Owner/Development candidates consume the SAME verified
 # kernel modules and firmware policy, but only Owner installs Dev helpers.
 COMPONENTS["independent-base-stable"] = {
-    "inputs": COMPONENTS["independent-base"]["inputs"] + HARDWARE_BASE_INPUTS,
+    "inputs": COMPONENTS["independent-base"]["inputs"] + HARDWARE_BASE_INPUTS + (
+        "bootstrap/base/stable_runtime_layout.py",
+    ),
 }
 COMPONENTS["independent-base-owner"] = {
     "inputs": COMPONENTS["independent-base"]["inputs"] + HARDWARE_BASE_INPUTS + (

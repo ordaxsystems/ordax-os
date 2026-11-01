@@ -39,6 +39,19 @@ class StableRuntimeLayoutTests(unittest.TestCase):
         self.assertNotIn('for relative in (\n        "state",', old_builder)
         self.assertNotIn("bootstrap/independent-base/build.py", old_builder)
 
+    def test_buildroot_stable_uses_same_layout_and_validates_real_target(self):
+        script = POST_BUILD.read_text(encoding="utf-8")
+        builder = (ROOT / "bootstrap/independent-base/build.py").read_text(encoding="utf-8")
+        self.assertIn(
+            '"$ORDAX_HOST_PYTHON" "$ROOT/bootstrap/base/stable_runtime_layout.py" install',
+            script,
+        )
+        self.assertIn(
+            'run(sys.executable, str(STABLE_RUNTIME_LAYOUT), "check", "--target", str(target))',
+            builder,
+        )
+        self.assertNotIn('mkdir -p "$TARGET_DIR/ordax-data"', script)
+
     def test_install_and_check_use_same_contract_and_sticky_tmp(self):
         layout = load_module()
         with tempfile.TemporaryDirectory() as temp:

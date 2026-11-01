@@ -230,6 +230,10 @@ if test "$PROFILE" = owner-development || test "$PROFILE" = stable-mvp; then
                 exit 1
             fi
         done
+        # Import the single canonical Stable mountpoint layout, do not fork
+        # the legacy builder's directory list in this Buildroot profile.
+        "$ORDAX_HOST_PYTHON" "$ROOT/bootstrap/base/stable_runtime_layout.py" install \
+            --target "$TARGET_DIR"
         printf 'ORDAX_STABLE_MVP_CANDIDATE=YES\n' > "$TARGET_DIR/etc/ordax/stable-mvp-candidate"
     fi
 else

@@ -115,7 +115,9 @@ class PortableComponentCacheTests(unittest.TestCase):
         }))
         (root / "bootstrap/kernel/config/ordax.fragment").write_text("CONFIG_TEST=y\\n")
         (root / "docs/contracts/kernel-build-environment.json").write_text('{"env":"v1"}\\n')
-        for relative in CACHE.COMPONENTS["independent-base-owner"]["inputs"]:
+        for relative in set(CACHE.COMPONENTS["independent-base-owner"]["inputs"]) | set(
+            CACHE.COMPONENTS["independent-base-stable"]["inputs"]
+        ):
             target = root / relative
             if not target.exists():
                 target.parent.mkdir(parents=True, exist_ok=True)
@@ -163,6 +165,8 @@ class PortableComponentCacheTests(unittest.TestCase):
             (root / "bootstrap/dev-base/ordax-pull").write_text("dev-only-change\n")
             self.assertEqual(stable, CACHE.component_fingerprint("independent-base-stable", root))
             # The canonical firmware provider and kernel ABI DO invalidate it.
+            (root / "bootstrap/base/stable_runtime_layout.py").write_text("canonical-layout-change\n")
+            self.assertNotEqual(stable, CACHE.component_fingerprint("independent-base-stable", root))
             (root / "bootstrap/base/firmware_policy.py").write_text("new-firmware-policy\n")
             self.assertNotEqual(stable, CACHE.component_fingerprint("independent-base-stable", root))
             with self.assertRaisesRegex(CACHE.CacheError, "fingerprint mismatch"):

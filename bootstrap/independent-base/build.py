@@ -23,6 +23,7 @@ ROOT = HERE.parents[1]
 SOURCE = HERE / "source.json"
 KERNEL = ROOT / "bootstrap/kernel/source.json"
 STABLE = ROOT / "bootstrap/stable-base/source.json"
+STABLE_RUNTIME_LAYOUT = ROOT / "bootstrap/base/stable_runtime_layout.py"
 BOOT_HANDOFF = ROOT / "docs/contracts/portable-boot-handoff.json"
 NETWORK = ROOT / "bootstrap/network/source.json"
 CANONICAL_HANDOFF = ROOT / "bootstrap/stable-base/ordax-stable-init"
@@ -915,6 +916,9 @@ def verify_target(target: Path, profile: str) -> dict:
                 raise BaseError("Stable/MVP candidate contains Dev-only executable")
             if not stable_marker.is_file() or stable_marker.read_text(encoding="utf-8") != "ORDAX_STABLE_MVP_CANDIDATE=YES\n":
                 raise BaseError("Stable/MVP candidate identity marker is absent or invalid")
+            if STABLE_RUNTIME_LAYOUT.is_symlink() or not STABLE_RUNTIME_LAYOUT.is_file():
+                raise BaseError("canonical Stable runtime layout verifier is missing or unsafe")
+            run(sys.executable, str(STABLE_RUNTIME_LAYOUT), "check", "--target", str(target))
         elif stable_marker.exists():
             raise BaseError("minimal target unexpectedly contains Stable/MVP candidate marker")
     return surface_iproute2
