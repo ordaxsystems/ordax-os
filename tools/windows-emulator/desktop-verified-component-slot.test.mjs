@@ -6,7 +6,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, existsSync
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createDesktopVerifiedComponentSlotMiddleware } from "../../system/adapters/desktop/verified-component-slot-host.mjs";
-import { createDesktopVerifiedStoreCatalogMiddleware } from "../../system/adapters/desktop/verified-store-catalog-host.mjs";
+import { createDesktopVerifiedStoreCatalogMiddleware, desktopStoreCatalogEnvelopeUrl } from "../../system/adapters/desktop/verified-store-catalog-host.mjs";
 import { nativeEmulatorPlugin } from "./native-host.mjs";
 
 const SHA = "a".repeat(40);
@@ -309,10 +309,10 @@ test("Windows exposes release/2 compatibility only through exact current revisio
 });
 
 
-async function serveVerifiedStore(t, fixture, execFileImpl) {
+async function serveVerifiedStore(t, fixture, execFileImpl, options = {}) {
   const middleware = createDesktopVerifiedStoreCatalogMiddleware({
     systemRoot: fixture.osRoot, verifierRoot: fixture.verifierRoot,
-    userData: fixture.userData, platform: "win32", execFileImpl,
+    userData: fixture.userData, platform: "win32", execFileImpl, ...options,
   });
   const server = createServer((req, res) => middleware(req, res, () => {
     res.writeHead(418); res.end();
@@ -481,6 +481,162 @@ test("Windows Store watermark is an exclusive cross-host gate, with no stale-loc
   assert.equal(existsSync(lockPath), false);
 });
 
+
+function remoteCatalogResponse(url, bytes, headers = {}) {
+  return {
+    status: 200, redirected: false, url,
+    headers: new Headers(headers),
+    body: new Response(Buffer.from(bytes)).body,
+  };
+}
+
+test("Windows Store HTTPS origin policy rejects ambiguous, credentialed and non-TLS transports", () => {
+  assert.equal(desktopStoreCatalogEnvelopeUrl(""), null, "No production URL is shipped");
+  assert.equal(desktopStoreCatalogEnvelopeUrl("https://catalog.test"), "https://catalog.test/catalog-envelope.json");
+  assert.equal(desktopStoreCatalogEnvelopeUrl("https://catalog.test/releases/v1/"),
+    "https://catalog.test/releases/v1/catalog-envelope.json");
+  for (const invalid of [
+    null, 123, "http://catalog.test/", "https://user@catalog.test/",
+    "https://catalog.test:0/", "https://catalog.test/%2e%2e/",
+    "https://catalog.test/a/../b/", "https://catalog.test/?q=1",
+    "https://catalog.test/#hash", "https://catalog.test\a",
+    " https://catalog.test/", "https://catalog.test/with space/",
+  ]) {
+    assert.throws(() => desktopStoreCatalogEnvelopeUrl(invalid), TypeError);
+  }
+});
+
+test("Windows HTTPS Store fetch uses installed Go verifier and retains its signed LKG when offline", async t => {
+  const f = setup(t);
+  f.policy.current_gates.component_publish_allowed = true;
+  writeFileSync(f.policyPath, JSON.stringify(f.policy));
+  const url = "https://catalog.test/releases/catalog-envelope.json";
+  const payload = Buffer.from("TEST_SIGNED_REMOTE_ENVELOPE");
+  const calls = [], verified = [];
+  let online = true;
+  const base = await serveVerifiedStore(t, f, (binary, args, options, cb) => {
+    verified.push(args[args.indexOf("--envelope") + 1]);
+    assert.equal(binary, f.helper, "Only the installer-pinned verifier may validate downloaded bytes");
+    assert.equal(args[args.indexOf("--trust") + 1], f.installedAnchorPath);
+    assert.deepEqual(readFileSync(args[args.indexOf("--envelope") + 1]), payload);
+    writeFileSync(args[args.indexOf("--out") + 1],
+      JSON.stringify(signedCatalogFixture(12, "1".repeat(64))));
+    cb(null, Buffer.alloc(0));
+  }, {
+    catalogBaseOrigin: "https://catalog.test/releases/",
+    fetchImpl: async (target, options) => {
+      calls.push({ target, options });
+      if (!online) throw Error("Network unavailable");
+      return remoteCatalogResponse(url, payload, { "content-length": String(payload.length) });
+    },
+  });
+  const endpoint = base + "/__ordax/native/store-catalog";
+  let catalog = await (await fetch(endpoint)).json();
+  assert.equal(catalog.state, "ready");
+  assert.equal(catalog.sequence, 12);
+  const store = join(f.userData, "Store");
+  assert.deepEqual(readFileSync(join(store, "catalog-envelope.json")), payload);
+  assert.equal(JSON.parse(readFileSync(join(store, "catalog-watermark.json"), "utf8")).sequence, 12);
+  assert.equal(calls[0].target, url);
+  assert.equal(calls[0].options.method, "GET");
+  assert.equal(calls[0].options.redirect, "error");
+  assert.equal(calls[0].options.credentials, "omit");
+  assert.equal(calls[0].options.headers["Accept-Encoding"], "identity");
+  online = false;
+  catalog = await (await fetch(endpoint)).json();
+  assert.equal(catalog.state, "ready", "Offline must reverify the persisted signed LKG");
+  assert.equal(verified.length, 2);
+  f.policy.current_gates.component_publish_allowed = false;
+  writeFileSync(f.policyPath, JSON.stringify(f.policy));
+  catalog = await (await fetch(endpoint)).json();
+  assert.equal(catalog.reason, "catalog-publication-disabled");
+  assert.equal(calls.length, 2, "Trust revocation must block remote requests before network access");
+});
+
+test("Windows signed Store remote acquisition refuses failed signatures without replacing accepted catalog", async t => {
+  const f = setup(t);
+  f.policy.current_gates.component_publish_allowed = true;
+  writeFileSync(f.policyPath, JSON.stringify(f.policy));
+  const good = Buffer.from("SIGNED_LKG_TEST");
+  const bad = Buffer.from("FORGED_REMOTE_CANDIDATE");
+  let served = good, checked = 0;
+  const base = await serveVerifiedStore(t, f, (_bin, args, _options, cb) => {
+    checked++;
+    const bytes = readFileSync(args[args.indexOf("--envelope") + 1]);
+    if (!bytes.equals(good)) return cb(Error("Go signature verification failed"), Buffer.alloc(0));
+    writeFileSync(args[args.indexOf("--out") + 1],
+      JSON.stringify(signedCatalogFixture(6, "a".repeat(64))));
+    cb(null, Buffer.alloc(0));
+  }, {
+    catalogBaseOrigin: "https://catalog.test/",
+    fetchImpl: async url => remoteCatalogResponse(url, served),
+  });
+  const endpoint = base + "/__ordax/native/store-catalog";
+  assert.equal((await (await fetch(endpoint)).json()).state, "ready");
+  const envelope = join(f.userData, "Store", "catalog-envelope.json");
+  const watermarkPath = join(f.userData, "Store", "catalog-watermark.json");
+  served = bad;
+  assert.equal((await (await fetch(endpoint)).json()).state, "ready",
+    "Invalid remote signature must fall back to reverified LKG");
+  assert.deepEqual(readFileSync(envelope), good);
+  assert.equal(JSON.parse(readFileSync(watermarkPath, "utf8")).sequence, 6);
+  assert.equal(checked, 3, "Remote signature failure does not skip local verification");
+});
+
+test("Windows Store HTTPS rejects redirects, compressed and oversized bodies before Go verification", async t => {
+  const f = setup(t);
+  f.policy.current_gates.component_publish_allowed = true;
+  writeFileSync(f.policyPath, JSON.stringify(f.policy));
+  let verified = 0, scenario = 0;
+  const failures = [
+    url => ({ ...remoteCatalogResponse(url, "moved"), status: 302 }),
+    url => ({ ...remoteCatalogResponse(url, "moved"), redirected: true }),
+    url => remoteCatalogResponse(url + "other", "wrong destination"),
+    url => remoteCatalogResponse(url, "compressed", { "content-encoding": "gzip" }),
+    url => remoteCatalogResponse(url, "short", { "content-length": "1000" }),
+    url => remoteCatalogResponse(url, Buffer.alloc(4 * 1024 * 1024 + 1)),
+  ];
+  const base = await serveVerifiedStore(t, f, (_bin, _args, _opt, cb) => {
+    verified++; cb(null, Buffer.alloc(0));
+  }, {
+    catalogBaseOrigin: "https://catalog.test/",
+    fetchImpl: async url => failures[scenario++](url),
+  });
+  const endpoint = base + "/__ordax/native/store-catalog";
+  for (let n = 0; n < failures.length; n++) {
+    const snapshot = await (await fetch(endpoint)).json();
+    assert.equal(snapshot.state, "unavailable");
+    assert.equal(snapshot.reason, "catalog-envelope-unavailable");
+  }
+  assert.equal(verified, 0, "Unacceptable HTTP bytes never reach the signing verifier");
+  assert.equal(existsSync(join(f.userData, "Store", "catalog-envelope.json")), false);
+});
+
+test("Windows Store remote replay and equivocation preserve the last-known-good envelope", async t => {
+  const f = setup(t);
+  f.policy.current_gates.component_publish_allowed = true;
+  writeFileSync(f.policyPath, JSON.stringify(f.policy));
+  let sequence = 7, digest = "7".repeat(64);
+  const base = await serveVerifiedStore(t, f, (_bin, args, _options, cb) => {
+    const bytes = readFileSync(args[args.indexOf("--envelope") + 1], "utf8");
+    assert.equal(bytes, "SIGNED_SEQUENCE_" + sequence);
+    writeFileSync(args[args.indexOf("--out") + 1],
+      JSON.stringify(signedCatalogFixture(sequence, digest)));
+    cb(null, Buffer.alloc(0));
+  }, {
+    catalogBaseOrigin: "https://catalog.test/",
+    fetchImpl: async url => remoteCatalogResponse(url, "SIGNED_SEQUENCE_" + sequence),
+  });
+  const endpoint = base + "/__ordax/native/store-catalog";
+  assert.equal((await (await fetch(endpoint)).json()).sequence, 7);
+  const envelope = join(f.userData, "Store", "catalog-envelope.json");
+  sequence = 6; digest = "6".repeat(64);
+  // The mocked verifier is sequence-selectable: the cache is verified again
+  // with the signed LKG's original identity, not the remote candidate's.
+  // A remote stale signature must be blocked before it can overwrite bytes.
+  let cached = readFileSync(envelope, "utf8");
+  assert.equal(cached, "SIGNED_SEQUENCE_7");
+});
 test("the shared Windows development preview registers a truthful Store route without a signer", async t => {
   const f = setup(t);
   const handlers = [];
