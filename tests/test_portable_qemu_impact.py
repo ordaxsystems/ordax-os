@@ -209,6 +209,31 @@ class PortableQemuImpactTests(unittest.TestCase):
             result.reasons,
         )
 
+    def test_isolated_web_store_preview_does_not_trigger_portable_kernel_build(self):
+        # These exact files caused an unrelated kernel/QEMU build in PR #2372.
+        light = [
+            "system/composition/web/store-preview/app.js",
+            "system/composition/web/store-preview/preview-origin.js",
+        ]
+        result = impact.classify_paths(light, root=ROOT)
+        self.assertFalse(result.required, result.reasons)
+        self.assertEqual(result.reasons, ("no-heavy-portable-impact",))
+
+        # A neighboring production Web composition is not implicitly exempted.
+        neighbor = impact.classify_paths(
+            light + ["system/composition/web/main.tsx"], root=ROOT
+        )
+        self.assertTrue(neighbor.required)
+        self.assertIn(
+            "heavy-unclassified-system:system/composition/web/main.tsx",
+            neighbor.reasons,
+        )
+        # Kernel and Native boot mutations must still require QEMU.
+        for critical in ("bootstrap/kernel/source.json", "system/entrypoint"):
+            result = impact.classify_paths(light + [critical], root=ROOT)
+            self.assertTrue(result.required)
+            self.assertNotEqual(result.reasons, ("no-heavy-portable-impact",))
+
     def test_presentation_stays_light_even_when_native_composition_imports_it(self):
         result = impact.classify_paths(["system/surface/ui/network-quick-panel.mjs"], root=ROOT)
         self.assertFalse(result.required)
