@@ -415,10 +415,10 @@ def build(kernel_modules: Path, out_dir: Path, cache_dir: Path) -> dict:
         stage("flatten-symlinks")
         flattened = CORE.flatten_symlinks(rootfs)
         verify_rootfs(rootfs, contract)
-        unique_bytes = CORE.unique_regular_bytes(rootfs)
-        limit = int(contract["rootfs"]["maximum_unique_regular_bytes"])
-        if unique_bytes > limit:
-            raise StableBaseError(f"Stable Base too large: {unique_bytes} > {limit}")
+        try:
+            unique_bytes = LAYOUT.verify_stable_size(rootfs, contract)
+        except LAYOUT.StableRuntimeLayoutError as exc:
+            raise StableBaseError(str(exc)) from exc
 
         normalized = work / "stable-base.tar"
         normalized_tar(rootfs, normalized)

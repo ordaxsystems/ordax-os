@@ -38,6 +38,8 @@ class StableRuntimeLayoutTests(unittest.TestCase):
         self.assertIn("LAYOUT.ensure_runtime_directories(rootfs, contract, create=True)", old_builder)
         self.assertNotIn('for relative in (\n        "state",', old_builder)
         self.assertNotIn("bootstrap/independent-base/build.py", old_builder)
+        self.assertIn("LAYOUT.verify_stable_size(rootfs, contract)", old_builder)
+        self.assertNotIn("CORE.unique_regular_bytes(rootfs)", old_builder)
 
     def test_buildroot_stable_uses_same_layout_and_validates_real_target(self):
         script = POST_BUILD.read_text(encoding="utf-8")
@@ -85,6 +87,33 @@ class StableRuntimeLayoutTests(unittest.TestCase):
             with self.assertRaisesRegex(layout.StableRuntimeLayoutError, "unsafe Stable directory"):
                 layout.ensure_runtime_directories(target, self.contract(), create=True)
             self.assertEqual(list(outside.iterdir()), [])
+
+    def test_size_budget_counts_hardlinked_regular_inodes_only(self):
+        layout = load_module()
+        with tempfile.TemporaryDirectory() as temp:
+            target = Path(temp) / "target"
+            target.mkdir()
+            layout.ensure_runtime_directories(target, self.contract(), create=True)
+            (target / "system/payload").write_bytes(b"stable-payload")
+            (target / "home/payload-link").hardlink_to(target / "system/payload")
+            self.assertEqual(layout.unique_regular_bytes(target), len(b"stable-payload"))
+            self.assertEqual(layout.verify_stable_size(target, self.contract()), len(b"stable-payload"))
+
+    def test_size_budget_rejects_oversize_and_invalid_limits(self):
+        layout = load_module()
+        with tempfile.TemporaryDirectory() as temp:
+            target = Path(temp) / "target"
+            target.mkdir()
+            layout.ensure_runtime_directories(target, self.contract(), create=True)
+            (target / "system/payload").write_bytes(b"size-capped")
+            contract = self.contract()
+            contract["rootfs"]["maximum_unique_regular_bytes"] = 4
+            with self.assertRaisesRegex(layout.StableRuntimeLayoutError, "Stable Base too large"):
+                layout.verify_stable_size(target, contract)
+            for unsafe in (True, -1, 0, "1024"):
+                contract["rootfs"]["maximum_unique_regular_bytes"] = unsafe
+                with self.assertRaisesRegex(layout.StableRuntimeLayoutError, "size limit"):
+                    layout.verify_stable_size(target, contract)
 
     def test_duplicate_traversal_and_dev_workspace_are_rejected(self):
         layout = load_module()

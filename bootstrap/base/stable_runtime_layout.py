@@ -74,15 +74,43 @@ def ensure_runtime_directories(target: Path, contract: dict, *, create: bool) ->
     return directories
 
 
+def unique_regular_bytes(target: Path) -> int:
+    """Count each regular inode once, matching the Stable Base size contract."""
+    seen: set[tuple[int, int]] = set()
+    total = 0
+    for path in target.rglob("*"):
+        info = path.lstat()
+        if stat.S_ISREG(info.st_mode):
+            identity = (info.st_dev, info.st_ino)
+            if identity not in seen:
+                seen.add(identity)
+                total += info.st_size
+    return total
+
+
+def verify_stable_size(target: Path, contract: dict) -> int:
+    rootfs = contract.get("rootfs")
+    limit = rootfs.get("maximum_unique_regular_bytes") if isinstance(rootfs, dict) else None
+    if type(limit) is not int or not 0 < limit <= 4 * 1024 * 1024 * 1024:
+        raise StableRuntimeLayoutError("invalid canonical Stable rootfs size limit")
+    used = unique_regular_bytes(target)
+    if used > limit:
+        raise StableRuntimeLayoutError(f"Stable Base too large: {used} > {limit}")
+    return used
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("action", choices=("install", "check"))
     parser.add_argument("--target", type=Path, required=True)
     args = parser.parse_args()
     try:
+        contract = load_contract()
         directories = ensure_runtime_directories(
-            args.target, load_contract(), create=args.action == "install"
+            args.target, contract, create=args.action == "install"
         )
+        if args.action == "check":
+            verify_stable_size(args.target, contract)
     except (StableRuntimeLayoutError, OSError) as exc:
         print(f"stable-runtime-layout: {exc}", file=sys.stderr)
         return 2
