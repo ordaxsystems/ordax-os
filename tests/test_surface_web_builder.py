@@ -153,6 +153,67 @@ class SurfaceWebBuilderTests(unittest.TestCase):
             with self.assertRaisesRegex(MODULE.BundleError, "untrusted Web source directory"):
                 MODULE.discover_graph(root)
 
+    def test_web_inventory_rejects_nested_linked_workspace_directory(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "ordax-os"
+            workspace = root / "system/surface/workspace/components"
+            workspace.mkdir(parents=True)
+            outside = Path(tmp) / "outside-visual-source"
+            outside.mkdir()
+            (outside / "private.tsx").write_text("export default true;", encoding="utf-8")
+            link = workspace / "foreign"
+            try:
+                link.symlink_to(outside, target_is_directory=True)
+            except (OSError, NotImplementedError):
+                self.skipTest("directory symlinks unavailable")
+            # rglob(...).is_file() previously omitted this linked directory:
+            # the build could silently receipt an incomplete visual inventory.
+            with self.assertRaisesRegex(
+                MODULE.BundleError, "linked source path"
+            ):
+                MODULE.discover_graph(root)
+
+    def test_web_inventory_rejects_unreferenced_linked_source_file(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "ordax-os"
+            workspace = root / "system/surface/workspace/components"
+            workspace.mkdir(parents=True)
+            outside = Path(tmp) / "outside-view.tsx"
+            outside.write_text("export default true;", encoding="utf-8")
+            try:
+                (workspace / "alias.tsx").symlink_to(outside)
+            except (OSError, NotImplementedError):
+                self.skipTest("file symlinks unavailable")
+            with self.assertRaisesRegex(MODULE.BundleError, "linked source path"):
+                MODULE.discover_graph(root)
+
+    def test_shared_tree_inventory_accepts_regular_sources_and_rejects_special_nodes(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "ordax-os"
+            workspace = root / "system/surface/workspace"
+            (workspace / "components").mkdir(parents=True)
+            (workspace / "components/view.tsx").write_text(
+                "export default true;", encoding="utf-8"
+            )
+            files = list(MODULE.iter_trusted_source_files(
+                root, PurePosixPath("system/surface/workspace")
+            ))
+            self.assertEqual(
+                files,
+                [PurePosixPath("system/surface/workspace/components/view.tsx")],
+            )
+            import os
+            if hasattr(os, "mkfifo"):
+                fifo = workspace / "components" / "untrusted.sock"
+                try:
+                    os.mkfifo(fifo)
+                except OSError:
+                    self.skipTest("special node creation unavailable")
+                with self.assertRaisesRegex(MODULE.SourceGraphError, "non-regular source path"):
+                    list(MODULE.iter_trusted_source_files(
+                        root, PurePosixPath("system/surface/workspace")
+                    ))
+
     def test_shared_source_path_allows_regular_file_and_blocks_sibling_checkout(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp) / "ordax-os"

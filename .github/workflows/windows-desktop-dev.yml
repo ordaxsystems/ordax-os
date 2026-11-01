@@ -120,6 +120,7 @@ jobs:
             "tests/test_desktop_recovery_status.mjs",
             "tests/test_desktop_recovery_surface.mjs",
             "tests/test_desktop_boot_gate.mjs",
+            "tests/test_browser_proof_shutdown.mjs",
             "tests/test_windows_emulator_native_host.mjs",
             "tests/test_desktop_browser_transport.mjs",
             "tools/windows-desktop/browser-host.test.cjs",

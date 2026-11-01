@@ -285,6 +285,68 @@ class ModuleBoundaryVerifierTests(unittest.TestCase):
             self.assertTrue(any("services may not import adapters" in x for x in violations), violations)
             self.assertTrue(any("services may not import surface" in x for x in violations), violations)
 
+    def test_module_inventory_rejects_nested_directory_symlink(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "ordax-os"
+            self.seed_roots(root)
+            outside = Path(tmp) / "external-owner"
+            outside.mkdir()
+            (outside / "private.mjs").write_text(
+                'import "../../system/adapters/desktop/private.mjs";',
+                encoding="utf-8",
+            )
+            alias = root / "system/services/hidden"
+            try:
+                alias.symlink_to(outside, target_is_directory=True)
+            except (OSError, NotImplementedError):
+                self.skipTest("directory symlinks unavailable")
+            violations = MODULE.find_violations(root, CONTRACT)
+            self.assertEqual(len(violations), 1, violations)
+            self.assertIn("non-canonical OS source tree", violations[0])
+            self.assertIn("linked source path", violations[0])
+
+    def test_module_inventory_rejects_linked_code_file(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "ordax-os"
+            self.seed_roots(root)
+            outside = Path(tmp) / "foreign.mjs"
+            outside.write_text('import "../system/surface/private.mjs";', encoding="utf-8")
+            try:
+                (root / "system/services/foreign.mjs").symlink_to(outside)
+            except (OSError, NotImplementedError):
+                self.skipTest("file symlinks unavailable")
+            violations = MODULE.find_violations(root, CONTRACT)
+            self.assertEqual(len(violations), 1, violations)
+            self.assertIn("linked source path", violations[0])
+
+    def test_module_inventory_rejects_invalid_utf8_instead_of_ignoring_imports(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.seed_roots(root)
+            path = root / "system/services/hidden.mjs"
+            path.write_bytes(
+                b'import "../../adapters/desktop/private.mjs";\n\xff'
+            )
+            violations = MODULE.find_violations(root, CONTRACT)
+            self.assertEqual(len(violations), 1, violations)
+            self.assertIn("not readable UTF-8", violations[0])
+
+    def test_module_inventory_skips_only_explicit_generated_directories(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.seed_roots(root)
+            self.write(
+                root,
+                "system/services/build/generated.mjs",
+                'import "../../adapters/desktop/private.mjs";\n',
+            )
+            self.write(
+                root,
+                "system/services/live.mjs",
+                'import "../contracts/port.mjs";\n',
+            )
+            self.assertEqual(MODULE.find_violations(root, CONTRACT), [])
+
     def test_creator_source_cannot_import_shared_product_implementation(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

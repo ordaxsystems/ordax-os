@@ -53,6 +53,42 @@ def require_source_path(
     return current
 
 
+def iter_trusted_source_files(
+    root: Path,
+    subtree: PurePosixPath,
+    *,
+    ignored_dirs: frozenset[str] = frozenset(),
+):
+    """Enumerate only regular, real source files; reject hidden linked nodes.
+
+    Path.rglob()/is_file() may ignore symlinked directories or follow linked
+    file bytes. A build or module-boundary receipt cannot attest a partial
+    inventory while a noncanonical directory sits in its source tree.
+    """
+    if root.is_symlink():
+        raise SourceGraphError("linked source root is forbidden")
+    top = require_source_path(root, subtree, directory=True)
+    pending = [top]
+    while pending:
+        directory = pending.pop()
+        for path in sorted(directory.iterdir(), key=lambda item: item.name):
+            if path.name in ignored_dirs:
+                continue
+            relative = PurePosixPath(path.relative_to(root).as_posix())
+            try:
+                mode = path.lstat().st_mode
+            except OSError as exc:
+                raise SourceGraphError(f"unreadable source path: {relative}") from exc
+            if stat.S_ISLNK(mode):
+                raise SourceGraphError(f"linked source path is forbidden: {relative}")
+            if stat.S_ISDIR(mode):
+                pending.append(path)
+            elif stat.S_ISREG(mode):
+                yield relative
+            else:
+                raise SourceGraphError(f"non-regular source path is forbidden: {relative}")
+
+
 def _srcset_urls(value: str) -> list[str]:
     # HTML srcset separates candidates by a comma following a URL or its
     # descriptors. A URL itself may contain commas (notably data: URLs), so

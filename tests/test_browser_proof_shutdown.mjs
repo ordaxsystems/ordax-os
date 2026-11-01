@@ -61,6 +61,24 @@ test('Windows cleanup terminates child processes retaining the disposable profil
   }
 });
 
+test('Windows browser proof recognizes an already-dead launcher with a delayed Node exit callback',{
+  skip:process.platform!=='win32',
+},async()=>{
+  const profile=await mkdtemp(join(tmpdir(),'ordax-browser-smoke-'));
+  const {child}=spawnOwnedNode('');
+  try{
+    await new Promise((resolvePromise,reject)=>{
+      child.once('error',reject);
+      child.once('close',resolvePromise);
+    });
+    // The actual OS process is dead; reproduce the launcher callback race
+    // that previously led to taskkill 128 and a leaked disposable profile.
+    await stopOwnedBrowser(child,()=>null,'win32',profile);
+  }finally{
+    await rm(profile,{recursive:true,force:true});
+  }
+});
+
 test('Chrome-owned DevToolsActivePort is validated independently of launcher PID',()=>{
   assert.equal(parseDevToolsActivePort('53402\n/devtools/browser/uuid\n'),53402);
   for(const bad of ['', '0\n', '65536\n', 'not-a-port\n', '1.5\n']){
