@@ -21,6 +21,7 @@ if str(TOOLS) not in sys.path:
 from source_graph import (
     SourceGraphError,
     discover_graph as discover_source_graph,
+    require_source_path,
 )
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -55,6 +56,10 @@ def discover_graph(root: Path = ROOT) -> list[PurePosixPath]:
         PurePosixPath("third_party/licenses/Inter-OFL-1.1.txt"),
     }
     for subtree in ("system/surface/workspace",):
+        try:
+            require_source_path(root, PurePosixPath(subtree), directory=True)
+        except SourceGraphError as exc:
+            raise BundleError(f"untrusted Web source directory: {exc}") from exc
         inputs.update(PurePosixPath(p.relative_to(root).as_posix())
                       for p in (root / subtree).rglob("*") if p.is_file())
     for entry in ("system/surface/ui/boot-screen.mjs", "system/surface/ui/boot-screen.css",
@@ -68,9 +73,10 @@ def discover_graph(root: Path = ROOT) -> list[PurePosixPath]:
         inputs.update(discover_source_graph(root, PurePosixPath(entry),
                                            allowed_prefixes=("system",)))
     for relative in inputs:
-        path = root / relative
-        if not path.is_file() or path.is_symlink():
-            raise BundleError(f"missing or linked Web input: {relative}")
+        try:
+            require_source_path(root, relative)
+        except SourceGraphError as exc:
+            raise BundleError(f"missing or linked Web input: {relative}: {exc}") from exc
     root_package = json.loads((root / "package.json").read_text(encoding="utf-8"))
     lock = json.loads((root / "package-lock.json").read_text(encoding="utf-8"))
     for group in ("dependencies", "devDependencies"):
