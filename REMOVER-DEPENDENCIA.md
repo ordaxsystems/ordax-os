@@ -163,3 +163,23 @@ classificador mantém o caminho entre os gatilhos obrigatórios. Dessa forma
 uma alteração real do launcher não perde a prova de boot ao mesmo tempo em
 que deixa de provocar builds dos clientes. O Creator continua sujeito à
 correção causal do produtor Alpine/Buildroot, sem dispensa de prova.
+
+### Gates de filtros por projeção exata do SSOT — 2026-11-01
+
+O HEAD `425e5f17` fechou os gates Windows, Web e Foundation no GitHub:
+16 aprovações, dois skips por impacto e falha separada do Creator, causada
+pelo pedido de `python3=3.12.15-r0` contra o repositório Alpine que oferece
+`3.12.16-r0`. Esse defeito USB permanece sem dispensa de prova.
+
+A auditoria encontrou duas exclusões Linux posicionadas no meio dos eventos
+Web e todas as exclusões Windows anteriores a padrões positivos. GitHub Actions
+interpreta `paths` sequencialmente: incluir futuros globs após `!` pode
+reativar builds indevidos. Os filtros negativos existentes foram movidos para
+o **final** dos gatilhos Windows e de **ambos** os eventos Web, sem alterar a
+seleção permitida. O teste `test_ci_exclusions_exactly_match_ssot_and_are_terminal`
+agora compara exclusões exatas e sem duplicação às classificações do
+`build-autonomy.json` (32 Windows, 31 Web por evento), recusando filtros
+extra, omissões e reintroduções posteriores. Não cria outra lista de autoridade.
+
+Esta nova revisão permanece condicionada aos próprios gates do HEAD exato,
+sem publicar Web, reinstalar Desktop ou substituir o gate Creator.

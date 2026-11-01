@@ -322,6 +322,60 @@ class CreatorOwnerImpactTests(unittest.TestCase):
         self.assertIn("      - 'system/**'", windows)
         self.assertEqual(windows.count("      - 'system/composition/native/**'"), 0)
 
+
+    def test_ci_exclusions_exactly_match_ssot_and_are_terminal(self):
+        """A later positive glob must never re-include a Linux or Web payload.
+
+        Use the checked-in build autonomy contract, not a second exclusion
+        list, for both the single Windows YAML anchor and Web push/PR events.
+        """
+        boundary = json.loads((ROOT / "docs/contracts/build-autonomy.json")
+                              .read_text(encoding="utf-8"))["client_build_independence"]
+        linux = (
+            boundary["windows_package_forbidden_linux_boot_paths"]
+            + boundary["windows_package_forbidden_linux_shell_paths"]
+            + boundary["linux_only_client_probe_paths"]
+            + [boundary["linux_only_client_package_manifest"]]
+        )
+        expected_web = {"!system/" + path for path in linux}
+        expected_desktop = expected_web | {"!system/composition/web/**"}
+        self.assertEqual(len(linux), len(expected_web),
+                         "Duplicate Linux ownership in build-autonomy contract")
+
+        windows = (ROOT / ".github/workflows/windows-desktop-dev.yml").read_text(encoding="utf-8")
+        web = (ROOT / ".github/workflows/surface-web-candidate.yml").read_text(encoding="utf-8")
+        self.assertIn("paths: *desktop_product_sources", windows)
+        self.assertEqual(web.count("\n  pull_request:\n"), 1)
+        web_push, web_pr = web.split("\n  pull_request:\n", 1)
+
+        def patterns(body):
+            return [line[9:-1] for line in body.splitlines()
+                    if line.startswith("      - '") and line.endswith("'")]
+
+        def prove_exact_terminal_negatives(source, expected):
+            seen = patterns(source)
+            negatives = [path for path in seen if path.startswith("!")]
+            self.assertEqual(set(negatives), expected,
+                             "Client workflow has a missing or extra exclusion")
+            self.assertEqual(len(negatives), len(expected),
+                             "Client workflow duplicates a negative pattern")
+            self.assertEqual(seen[-len(negatives):], negatives,
+                             "An event has positive includes after negative filters")
+            self.assertTrue(all(not path.startswith("!") for path in
+                                seen[:-len(negatives)]),
+                            "Client workflow has an early negative filter")
+
+        prove_exact_terminal_negatives(windows.split("\n  push:\n", 1)[0],
+                                       expected_desktop)
+        for event in (web_push, web_pr):
+            prove_exact_terminal_negatives(event, expected_web)
+
+        # The order invariant must protect real client inputs as well.
+        self.assertIn("system/**", patterns(windows))
+        self.assertIn("system/surface/**", patterns(web_push))
+        self.assertIn("system/composition/native/**", patterns(web_push))
+        self.assertIn("system/composition/web/**", patterns(web_pr))
+
     def test_usb_boot_only_paths_do_not_trigger_client_builds(self):
         contract = json.loads((ROOT / "docs/contracts/build-autonomy.json").read_text(encoding="utf-8"))
         windows = (ROOT / ".github/workflows/windows-desktop-dev.yml").read_text(encoding="utf-8")

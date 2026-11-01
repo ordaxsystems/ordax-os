@@ -4,6 +4,13 @@ on:
   pull_request:
     paths: &desktop_product_sources
       - 'system/**'
+      - 'tools/windows-emulator/**'
+      - 'tools/windows-desktop/**'
+      - '.github/workflows/windows-desktop-dev.yml'
+      - 'package*.json'
+      - 'docs/contracts/surface-source.json'
+      - 'tools/surface-source/**'
+      - 'tests/test_desktop_browser_transport.mjs'
       # Web has its own client producer and never enters the Native NSIS
       # source template; do not rebuild Windows for Web-only composition.
       - '!system/composition/web/**'
@@ -43,13 +50,6 @@ on:
       - '!system/surface/runtime/native_install_broker.sh'
       - '!system/surface/runtime/network_broker.sh'
       - '!system/surface/runtime/resolver_sync.sh'
-      - 'tools/windows-emulator/**'
-      - 'tools/windows-desktop/**'
-      - '.github/workflows/windows-desktop-dev.yml'
-      - 'package*.json'
-      - 'docs/contracts/surface-source.json'
-      - 'tools/surface-source/**'
-      - 'tests/test_desktop_browser_transport.mjs'
   # Every integrated main revision that changes the shared Windows product
   # must produce the same tested, source-bound installer as its PR.
   # Reuse the exact impact filter instead of maintaining divergent lists.
