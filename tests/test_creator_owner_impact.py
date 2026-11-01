@@ -372,7 +372,7 @@ class CreatorOwnerImpactTests(unittest.TestCase):
             with self.subTest(source=relative):
                 body = (ROOT / "system" / relative).read_text(encoding="utf-8")
                 self.assertTrue(body.startswith("#!/usr/bin/env python3\n"))
-                self.assertIn("from __future__ import annotations", body[:300])
+                self.assertIn("from __future__ import annotations", body[:1024])
         for script, name in (
             ("system/services/base-update/agent.sh", "orchestrator.py"),
             ("system/surface/bin/ordax-internet-proof", "internet_native_physical_proof.py"),

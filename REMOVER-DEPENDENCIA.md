@@ -251,3 +251,12 @@ Esta revisão exige Windows, Web, Foundation e NSIS verdes no HEAD. Não há
 publicação Web automática nova, instalação no PC físico ou dispensa de gate
 Creator para alterações reais de código Linux. O defeito anterior de pin
 Alpine/Python permanece no produtor USB, fora da entrega independente.
+
+
+**Gate Foundation revisado (2026-11-01):** o HEAD `adb5d25e` falhou em
+10 casos da mesma asserção, que examinava o marcador `from __future__`
+apenas em 300 caracteres, embora os produtores canônicos Base/EFI tenham
+docstrings superiores a esse limite. O verificador Git/Vercel já exige
+shebang e marcador em até **1024 caracteres** com inventário exato e
+consumidores POSIX; o teste de regressão passa a usar esse mesmo limite.
+Os fontes Linux não foram alterados nem a exigência de prova reduzida.
