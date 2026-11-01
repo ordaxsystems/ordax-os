@@ -123,6 +123,30 @@ Identity, sessão, autorização, billing, publicação assinada de releases, do
 
 O corte de fonte do Creator já foi concluído (C6), mas esta declaração de owner **não** promove payload, dispositivo físico, release assinada ou qualquer alteração à PR USB Dev #2243.
 
+### 8. ordaxsystems/ordax-intelligence — fonte portátil candidata, não autoridade ativa
+
+O oitavo repositório possui a **fonte portátil candidata** do motor de
+Intelligence, router, streaming, compatibilidade e builder técnico. Seu único
+pin de integração, incluindo os oito blobs verificados, é
+`docs/contracts/intelligence-source.json`. Enquanto o lock declarar
+`integration-candidate`, `cutover_complete=false` e
+`activation_authorized=false`, essa fonte **não substitui** o motor
+ativo no OS nem autoriza remoção de consumidores antigos, assinatura ou boot.
+
+Por isso `docs/contracts/repository-ownership.json#repositories` ainda
+enumera **sete autoridades operacionais**: o OS retém Intelligence de
+sistema, Memory, permissões, Supervisor, composição Native e política de
+modelos. O conjunto de **oito repositórios em auditoria** é obtido desses
+sete owners mais o `source_repository` do lock, **sem manter segunda lista
+de versões ou duplicar ownership**. O teste de contrato impede promover
+a candidata como owner operacional antes do cutover atestado.
+
+O corte definitivo exige migrar consumidores e validar OS/Windows com
+as mesmas portas públicas, segurança, cancelamento, recuperação e artefatos
+verificados. Só então atualizar owner ativo, remover o motor OS substituído
+e encerrar o estado de candidata no mesmo change set. Nenhum trabalho
+de código é autorizado no repositório Intelligence por esta definição.
+
 ## Fluxos oficiais
 
 ### Site público independente

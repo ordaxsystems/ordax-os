@@ -25,6 +25,30 @@ class RepositoryOwnershipContractTests(unittest.TestCase):
         self.assertEqual(repos["runtime"]["repo"], "ordaxsystems/ordax-runtime")
         self.assertEqual(repos["control_plane"]["repo"], "ordaxsystems/ordax-platform")
 
+    def test_eighth_intelligence_source_is_pinned_without_premature_owner_cutover(self):
+        # Seven active runtime authorities plus one separately owned, pinned
+        # source candidate. Do not silently promote source into runtime authority.
+        source = json.loads(
+            (ROOT / "docs/contracts/intelligence-source.json").read_text(encoding="utf-8")
+        )
+        repos = self.contract["repositories"]
+        active = {record["repo"] for record in repos.values()}
+        self.assertEqual(len(active), len(repos), "duplicate active repository")
+        self.assertEqual(source["source_repository"], "ordaxsystems/ordax-intelligence")
+        self.assertNotIn(source["source_repository"], active)
+        self.assertEqual(len(active | {source["source_repository"]}), 8)
+        self.assertEqual(source["status"], "integration-candidate")
+        self.assertIs(source["cutover_complete"], False)
+        self.assertIs(source["activation_authorized"], False)
+        self.assertIs(source["builder_activation_authorized"], False)
+        self.assertIs(source["change_live_os"], False)
+        self.assertIs(source["source_only"], True)
+        self.assertEqual(len(source["source_paths"]), 8)
+        self.assertIn("intelligence", repos["platform"]["owns"])
+        # Memory, model authorization and Native/Supervisor remain OS owners.
+        self.assertIn("global-memory", repos["platform"]["owns"])
+        self.assertIn("native-capability-preflight", repos["platform"]["owns"])
+
     def test_creator_is_independent_consumer_not_os_media_producer(self):
         repos = self.contract["repositories"]
         creator = repos["creator"]
