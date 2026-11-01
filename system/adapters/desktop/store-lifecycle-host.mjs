@@ -1,13 +1,16 @@
-// Windows Native Store removal transport. This adapter has no package installer,
-// signing key, activation writer or App Data authority: Go owns the mutation.
-// Install/update remain unavailable until the complete artifact/pending-health
-// protocol is implemented; never acknowledge a request without Go readback.
+// Native Windows Store bridge. Go remains the sole activation-state writer.
+// A signed candidate can reach pending-health only, never active without
+// independent Supervisor health/probation. No signing or App Data mutation.
 import { execFile } from "node:child_process";
 import { lstat } from "node:fs/promises";
 import { join } from "node:path";
 import { validateAppLifecyclePlan } from "../../contracts/app-lifecycle-plan.mjs";
 import { APP_LIFECYCLE_REQUEST_RESULT_SCHEMA } from "../../contracts/app-lifecycle-request.mjs";
-import { isExternalFirstPartyComponentId } from "../../services/apps/external-first-party-policy.mjs";
+import {
+  isExternalFirstPartyComponentId, hasNativeExternalFirstPartyProbation,
+} from "../../services/apps/external-first-party-policy.mjs";
+import { acquireDesktopStoreArtifacts } from "./store-artifact-transport.mjs";
+import { stageDesktopStorePending } from "./store-pending-stage.mjs";
 import { readDesktopPinnedComponentTrust } from "./pinned-component-trust.mjs";
 import { withDesktopStoreCatalogWatermark } from "./verified-store-catalog-host.mjs";
 
@@ -111,25 +114,30 @@ async function readBody(req) {
 export function createDesktopStoreLifecycleMiddleware({
   systemRoot, verifierRoot, userData, catalogReader,
   platform = process.platform, execFileImpl = execFile,
+  artifactBaseOrigin = "", fetchImpl = globalThis.fetch,
 } = {}) {
   if (typeof systemRoot !== "string" || typeof verifierRoot !== "string"
     || typeof userData !== "string" || typeof catalogReader !== "function"
-    || typeof execFileImpl !== "function") {
+    || typeof execFileImpl !== "function" || typeof fetchImpl !== "function") {
     throw TypeError("Windows Store lifecycle requires installed Native owners");
   }
   let queue = Promise.resolve();
 
-  async function remove(plan) {
-    if (platform !== "win32" || plan.request.operation !== "remove"
-      || !isExternalFirstPartyComponentId(plan.request.appId)
-      || plan.expectedActivation.source !== "slot") {
+  async function execute(plan) {
+    const operation = plan.request.operation, appId = plan.request.appId;
+    const stage = operation === "install" || operation === "update";
+    if (platform !== "win32" || !isExternalFirstPartyComponentId(appId)
+      || operation === "remove" && plan.expectedActivation.source !== "slot"
+      || stage && (!plan.candidate || !hasNativeExternalFirstPartyProbation(appId)
+        || !artifactBaseOrigin)) {
       throw Error("Store lifecycle operation is unavailable");
     }
     const pinned = readDesktopPinnedComponentTrust(systemRoot, verifierRoot);
     if (!pinned || !pinned.publicationAuthorized)
       throw Error("Store canonical trust is unavailable");
-    // Local-only signed verification; never let an install/removal request
-    // choose a URL or start network traffic inside a privileged mutation.
+    // The signed local catalog remains the sole source for every plan.
+    // Only install/update can acquire content-addressed remote bytes; removal
+    // never sends an HTTPS request during the privileged mutation.
     const catalog = await catalogReader();
     if (catalog.state !== "ready" || catalog.sequence !== plan.catalogSequence
       || catalog.catalogSha256 !== plan.catalogSha256
@@ -150,23 +158,41 @@ export function createDesktopStoreLifecycleMiddleware({
         || latest.trustSha256 !== pinned.trustSha256
         || latest.helper !== pinned.helper || latest.trust !== pinned.trust)
         throw Error("Store trust changed before Go state mutation");
-      const expected = plan.expectedActivation;
-      const receipt = await executeGo(pinned.helper, [
-        "uninstall-state", "--component", plan.request.appId,
-        "--version", expected.version, "--source-commit", expected.sourceCommit,
-        "--expected-revision", String(expected.revision),
-        "--trust", pinned.trust, "--root", slotRoot,
-      ], execFileImpl);
-      const revision = parseUninstallReceipt(receipt, plan);
-      const status = await executeGo(pinned.helper, [
-        "status", "--component", plan.request.appId, "--root", slotRoot,
-      ], execFileImpl);
-      assertDurableUninstall(status, plan, revision);
+      if (operation === "remove") {
+        const expected = plan.expectedActivation;
+        const receipt = await executeGo(pinned.helper, [
+          "uninstall-state", "--component", appId,
+          "--version", expected.version, "--source-commit", expected.sourceCommit,
+          "--expected-revision", String(expected.revision),
+          "--trust", pinned.trust, "--root", slotRoot,
+        ], execFileImpl);
+        const revision = parseUninstallReceipt(receipt, plan);
+        const status = await executeGo(pinned.helper, [
+          "status", "--component", appId, "--root", slotRoot,
+        ], execFileImpl);
+        assertDurableUninstall(status, plan, revision);
+      } else {
+        const artifacts = await acquireDesktopStoreArtifacts({
+          userData, baseOrigin: artifactBaseOrigin, candidate: plan.candidate,
+          fetchImpl,
+        });
+        // An HTTPS download is not authority. Recheck the installed trust
+        // immediately before invoking the Go verification and state writer.
+        const after = readDesktopPinnedComponentTrust(systemRoot, verifierRoot);
+        if (!after || !after.publicationAuthorized
+          || after.trustSha256 !== pinned.trustSha256
+          || after.helper !== pinned.helper || after.trust !== pinned.trust)
+          throw Error("Store trust changed during artifact acquisition");
+        await stageDesktopStorePending({
+          plan, artifacts, slotRoot, trust: pinned.trust,
+          runGo: args => executeGo(pinned.helper, args, execFileImpl),
+        });
+      }
     });
     return {
       schema: APP_LIFECYCLE_REQUEST_RESULT_SCHEMA,
       requestId: plan.request.requestId, appId: plan.request.appId,
-      operation: "remove", source: plan.request.source,
+      operation, source: plan.request.source,
       state: "accepted", reason: null, authority: "none",
     };
   }
@@ -192,10 +218,9 @@ export function createDesktopStoreLifecycleMiddleware({
       let plan;
       try { plan = validateAppLifecyclePlan(await readBody(req)); }
       catch { return reply(400); }
-      // This bridge intentionally does not turn an unsigned artifact into a
-      // staged install: only the canonical Go uninstall is available here.
-      if (plan.request.operation !== "remove") return reply(503);
-      try { return reply(200, await remove(plan)); }
+      // A successful stage is not activation; the Go readback proves only
+      // pending-health. Actual health and promotion remain independent.
+      try { return reply(200, await execute(plan)); }
       catch { return reply(503); }
     }, () => reply(503));
     queue = run.then(() => {}, () => {});

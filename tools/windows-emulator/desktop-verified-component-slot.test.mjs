@@ -708,7 +708,7 @@ test("Windows Store remote replay and equivocation preserve the last-known-good 
 
 
 
-async function serveGoStoreLifecycle(t, fixture, execFileImpl) {
+async function serveGoStoreLifecycle(t, fixture, execFileImpl, options = {}) {
   const catalog = createDesktopVerifiedStoreCatalogMiddleware({
     systemRoot: fixture.osRoot, verifierRoot: fixture.verifierRoot,
     userData: fixture.userData, platform: "win32", execFileImpl,
@@ -716,7 +716,7 @@ async function serveGoStoreLifecycle(t, fixture, execFileImpl) {
   const lifecycle = createDesktopStoreLifecycleMiddleware({
     systemRoot: fixture.osRoot, verifierRoot: fixture.verifierRoot,
     userData: fixture.userData, catalogReader: catalog.readVerifiedLocalCatalog,
-    platform: "win32", execFileImpl,
+    platform: "win32", execFileImpl, ...options,
   });
   const server = createServer((req, res) => catalog(req, res, () =>
     lifecycle(req, res, () => { res.writeHead(418); res.end(); })));
@@ -750,6 +750,227 @@ async function postStoreLifecycle(base, plan, headers = {}) {
     body: JSON.stringify(plan),
   });
 }
+
+
+function signedWindowsStageFixture() {
+  const roles = ["package", "release", "compatibility", "componentEnvelope"];
+  const contents = Object.fromEntries(roles.map(role =>
+    [role, Buffer.from("ORDAX_SIGNED_STAGE_FIXTURE_" + role)]));
+  const identities = Object.fromEntries(roles.map(role => [role, {
+    name: "notes." + (role === "package" ? "zip"
+      : role === "componentEnvelope" ? "runtime-component-envelope.json"
+      : role + ".json"),
+    sha256: createHash("sha256").update(contents[role]).digest("hex"),
+    size: contents[role].length,
+  }]));
+  const snapshot = signedCatalogFixture();
+  snapshot.entries[0].artifacts = identities;
+  return {contents, identities, snapshot};
+}
+
+test("Windows Store stages signed install/update only as durable Go pending-health", async t => {
+  for (const operation of ["install", "update"]) {
+    await t.test(operation, async st => {
+      const f = setup(st);
+      f.policy.current_gates.component_publish_allowed = true;
+      writeFileSync(f.policyPath, JSON.stringify(f.policy));
+      const store = join(f.userData, "Store");
+      mkdirSync(store);
+      writeFileSync(join(store, "catalog-envelope.json"), "SIGNED_CATALOG_TEST");
+      const fixture = signedWindowsStageFixture();
+      const expected = operation === "install"
+        ? {source: "absent", revision: 0, version: null, sourceCommit: null}
+        : {source: "slot", revision: 5, version: "0.4.2", sourceCommit: "a".repeat(40)};
+      const plan = windowsRemovePlan({
+        request: {
+          schema: "ordax.app-lifecycle-request/1",
+          requestId: "store:" + operation + ":notes:windows-test",
+          appId: "notes", operation, source: "store", authority: "none",
+        },
+        expectedActivation: expected,
+        candidate: {
+          appId: "notes", version: "0.4.3", sourceCommit: "a".repeat(40),
+          artifacts: fixture.identities,
+        },
+      });
+      const bytesByDigest = new Map(Object.keys(fixture.identities).map(role => [
+        fixture.identities[role].sha256, fixture.contents[role],
+      ]));
+      let armed = false;
+      const commands = [], downloads = [];
+      const run = (_bin, args, options, cb) => {
+        assert.equal(_bin, f.helper);
+        commands.push(args[0]);
+        if (args[0] === "verify-store-catalog") {
+          writeFileSync(args[args.indexOf("--out") + 1], JSON.stringify(fixture.snapshot));
+          return cb(null, Buffer.alloc(0));
+        }
+        if (args[0] === "status") {
+          const rev = armed ? expected.revision + 1 : expected.revision;
+          return cb(null, Buffer.from(JSON.stringify({
+            $schema: "prototype-ordax.runtime-component-activation-state/1",
+            component_id: "notes", revision: rev,
+            current: expected.source === "slot" ? {
+              version: expected.version, source_commit: expected.sourceCommit,
+            } : null,
+            pending: armed ? {
+              version: "0.4.3", source_commit: "a".repeat(40),
+            } : null,
+            pending_health: "unknown", user_removed: false,
+          })));
+        }
+        if (args[0] === "verify-envelope-v2") {
+          assert.deepEqual(readFileSync(args[args.indexOf("--envelope") + 1]),
+            fixture.contents.componentEnvelope);
+          return cb(null, Buffer.from([
+            "RUNTIME_COMPONENT_RELEASE_V2_VERIFIED=YES",
+            "COMPONENT_ID=notes", "COMPONENT_VERSION=0.4.3",
+            "SOURCE_COMMIT=" + "a".repeat(40),
+            "PENDING_HEALTH_REQUIRED=YES", "DIRECT_ACTIVATION_ALLOWED=NO", "",
+          ].join("\n")));
+        }
+        if (args[0] === "stage-v2") {
+          assert.deepEqual(readFileSync(args[args.indexOf("--package") + 1]),
+            fixture.contents.package);
+          assert.deepEqual(readFileSync(args[args.indexOf("--compatibility") + 1]),
+            fixture.contents.compatibility);
+          assert.equal(args[args.indexOf("--root") + 1], f.componentRoot);
+          return cb(null, Buffer.from([
+            "RUNTIME_COMPONENT_RELEASE_V2_STAGED=YES",
+            "COMPONENT_ID=notes", "COMPONENT_VERSION=0.4.3",
+            "SOURCE_COMMIT=" + "a".repeat(40),
+            "SLOT=" + join(f.componentRoot, "notes", "slots", "0.4.3"),
+            "SLOT_CHANGED=true", "PENDING_HEALTH_REQUIRED=YES",
+            "ACTIVATED=NO", "",
+          ].join("\n")));
+        }
+        if (args[0] === "verify-slot-v2") {
+          assert.equal(args[args.indexOf("--trust") + 1], f.installedAnchorPath);
+          return cb(null, Buffer.from([
+            "RUNTIME_COMPONENT_RELEASE_V2_SLOT_VERIFIED=YES",
+            "COMPONENT_ID=notes", "COMPONENT_VERSION=0.4.3",
+            "SOURCE_COMMIT=" + "a".repeat(40),
+            "DIRECT_ACTIVATION_ALLOWED=NO", "",
+          ].join("\n")));
+        }
+        if (args[0] === "arm-pending") {
+          assert.equal(args[args.indexOf("--expected-revision") + 1],
+            String(expected.revision));
+          armed = true;
+          return cb(null, Buffer.from([
+            "RUNTIME_COMPONENT_PENDING_ARMED=YES", "COMPONENT_ID=notes",
+            "REVISION=" + (expected.revision + 1),
+            "PENDING_VERSION=0.4.3",
+            "PENDING_SOURCE_COMMIT=" + "a".repeat(40),
+            "PENDING_HEALTH=unknown", "RUNTIME_ACTIVATED=NO", "",
+          ].join("\n")));
+        }
+        throw Error("Unexpected Native mutation command " + args[0]);
+      };
+      const base = await serveGoStoreLifecycle(st, f, run, {
+        artifactBaseOrigin: "https://catalog.test/release/",
+        fetchImpl: async url => {
+          downloads.push(url);
+          const bytes = bytesByDigest.get(new URL(url).pathname.split("/").at(-1));
+          assert.ok(bytes, "Only candidate-addressed digests are fetched");
+          return remoteCatalogResponse(url, bytes,
+            {"content-length": String(bytes.length)});
+        },
+      });
+      const response = await postStoreLifecycle(base, plan);
+      assert.equal(response.status, 200);
+      const result = await response.json();
+      assert.equal(result.state, "accepted");
+      assert.equal(result.operation, operation);
+      assert.equal(result.authority, "none");
+      assert.equal(armed, true);
+      assert.deepEqual(commands, [
+        "verify-store-catalog", "status", "verify-envelope-v2",
+        "stage-v2", "verify-slot-v2", "arm-pending", "status",
+      ], "Never promote, activate, sign or synthesize health in Windows");
+      assert.equal(downloads.length, 4);
+      for (const identity of Object.values(fixture.identities)) {
+        const path = join(store, "artifacts", "v1", "sha256",
+          identity.sha256.slice(0, 2), identity.sha256);
+        assert.equal(existsSync(path), true);
+        assert.equal(readFileSync(path).length, identity.size);
+      }
+      // Replay of a now-stale expected generation never runs stage again.
+      assert.equal((await postStoreLifecycle(base, plan)).status, 503);
+      assert.equal(commands.filter(x => x === "stage-v2").length, 1);
+      assert.equal(downloads.length, 4, "Verified cache prevents repeated network acquisition");
+    });
+  }
+});
+
+test("Windows Store rejects SHA-mismatched remote artifact before any Go staging", async t => {
+  const f = setup(t);
+  f.policy.current_gates.component_publish_allowed = true;
+  writeFileSync(f.policyPath, JSON.stringify(f.policy));
+  const store = join(f.userData, "Store");
+  mkdirSync(store);
+  writeFileSync(join(store, "catalog-envelope.json"), "SIGNED_CATALOG_TEST");
+  const fixture = signedWindowsStageFixture();
+  const calls = [];
+  const base = await serveGoStoreLifecycle(t, f, (_bin, args, _options, cb) => {
+    calls.push(args[0]);
+    if (args[0] === "verify-store-catalog") {
+      writeFileSync(args[args.indexOf("--out") + 1], JSON.stringify(fixture.snapshot));
+      return cb(null, Buffer.alloc(0));
+    }
+    return cb(Error("Untrusted artifact must never reach Go stage"));
+  }, {
+    artifactBaseOrigin: "https://catalog.test/release/",
+    fetchImpl: async url => {
+      // Same byte length as the signed package: size checks alone must not
+      // grant execution or let the cache silently bless forged content.
+      const first = fixture.contents.package;
+      return remoteCatalogResponse(url, Buffer.alloc(first.length, 0x31),
+        {"content-length": String(first.length)});
+    },
+  });
+  const plan = windowsRemovePlan({
+    request: {
+      schema: "ordax.app-lifecycle-request/1",
+      requestId: "store:install:notes:bad-digest",
+      appId: "notes", operation: "install", source: "store", authority: "none",
+    },
+    candidate: {
+      appId: "notes", version: "0.4.3", sourceCommit: "a".repeat(40),
+      artifacts: fixture.identities,
+    },
+    expectedActivation: {source:"absent", revision:0, version:null, sourceCommit:null},
+  });
+  assert.equal((await postStoreLifecycle(base, plan)).status, 503);
+  assert.deepEqual(calls, ["verify-store-catalog"],
+    "No Go activation command may execute for unverified artifact bytes");
+  const firstHash = fixture.identities.package.sha256;
+  assert.equal(existsSync(join(store, "artifacts", "v1", "sha256",
+    firstHash.slice(0, 2), firstHash)), false);
+});
+
+test("Windows Store refuses staged install without configured signed artifact origin", async t => {
+  const f = setup(t);
+  f.policy.current_gates.component_publish_allowed = true;
+  writeFileSync(f.policyPath, JSON.stringify(f.policy));
+  const candidate = signedWindowsStageFixture();
+  let commands = 0;
+  const base = await serveGoStoreLifecycle(t, f, () => { commands++; throw Error("Go must not execute"); });
+  const plan = windowsRemovePlan({
+    request: {
+      schema: "ordax.app-lifecycle-request/1",
+      requestId: "store:install:notes:no-origin", appId: "notes",
+      operation: "install", source: "store", authority: "none",
+    },
+    expectedActivation: {source:"absent", revision:0, version:null, sourceCommit:null},
+    candidate: {
+      appId:"notes", version:"0.4.3", sourceCommit:"a".repeat(40),
+      artifacts:candidate.identities,
+    },
+  });
+  assert.equal((await postStoreLifecycle(base, plan)).status, 503);
+  assert.equal(commands, 0);
+});
 
 test("Windows Store removes only after Go commits exact signed uninstall and reads back state", async t => {
   const f = setup(t);

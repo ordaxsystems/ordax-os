@@ -223,6 +223,10 @@ export function nativeEmulatorPlugin(stateDirectory, { desktopHost = false, acco
           verifierRoot: process.env.ORDAX_DESKTOP_COMPONENT_VERIFIER_ROOT,
           userData,
           catalogReader: signedStoreCatalog.readVerifiedLocalCatalog,
+          // Only the installed Native process may select the signed
+          // content-addressed artifact origin; no Store UI URLs are accepted.
+          artifactBaseOrigin:
+            process.env.ORDAX_DESKTOP_STORE_ARTIFACT_BASE_ORIGIN ?? "",
         }));
       }
       if (desktopHost && process.platform === "win32" && userData &&
