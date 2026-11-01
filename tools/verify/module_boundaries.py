@@ -70,7 +70,10 @@ def normalize_specifier(source_rel: PurePosixPath, specifier: str) -> str | None
         return None
 
     if candidate == ".." or candidate.startswith("../") or candidate.startswith("/"):
-        return None
+        # Never treat an import into an adjacent checkout as an unrecognized
+        # npm/stdlib dependency. The existing boundary check must fail closed
+        # even if that checkout is not present on the CI runner.
+        raise ValueError("relative import escapes canonical repository root")
     return candidate
 
 
@@ -123,7 +126,13 @@ def find_violations(root: Path, contract: dict | None = None) -> list[str]:
         text = path.read_text(encoding="utf-8", errors="ignore")
 
         for specifier in sorted(extract_import_specifiers(path, text)):
-            target = normalize_specifier(source_rel, specifier)
+            try:
+                target = normalize_specifier(source_rel, specifier)
+            except ValueError:
+                violations.append(
+                    f"{source_str}: source may not import outside repository via {specifier!r}"
+                )
+                continue
             if target is None:
                 continue
             target_layer = layer_for_path(target, contract)
