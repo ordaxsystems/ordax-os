@@ -83,17 +83,17 @@ test("live runtime proof mismatching active Git journal fails closed without fal
 test("staged source, active source and pinned rollback produce real canonical phases", () => {
   const state = {schema:"ordax.desktop-dev-update-state/1", activeSha:a,
     previousSha:null,pendingSha:b,attemptedSha:null,pinnedSha:null,rejectedSha:null};
-  const staged = projectDesktopUpdateState(state);
+  const staged = projectDesktopUpdateState(state, { renderedSourceSha: a });
   assert.equal(staged.sourceSha,a);
   assert.equal(staged.targetSha,b);
   assert.equal(staged.status,"updating");
   assert.equal(staged.phase,"activating","verified staged source waits only for safe health-gated relaunch");
   assert.equal(staged.deliveryNumber,0);
   assert.equal(staged.applyMode,"surface-restart");
-  assert.equal(projectDesktopUpdateState({...state,attemptedSha:b}).phase,"health-wait");
-  assert.equal(projectDesktopUpdateState({...state,pendingSha:null}).status,"running");
-  assert.equal(projectDesktopUpdateState({...state,pendingSha:null,pinnedSha:a}).status,"pinned");
-  assert.equal(projectDesktopUpdateState({...state,pendingSha:null,rejectedSha:b}).status,"rejected");
+  assert.equal(projectDesktopUpdateState({...state,attemptedSha:b}, { renderedSourceSha: a }).phase,"health-wait");
+  assert.equal(projectDesktopUpdateState({...state,pendingSha:null}, { renderedSourceSha: a }).status,"running");
+  assert.equal(projectDesktopUpdateState({...state,pendingSha:null,pinnedSha:a}, { renderedSourceSha: a }).status,"pinned");
+  assert.equal(projectDesktopUpdateState({...state,pendingSha:null,rejectedSha:b}, { renderedSourceSha: a }).status,"rejected");
 });
 
 test("incompatible official revision is visible without fabricating a release or hiding known-good", async t => {
@@ -103,7 +103,7 @@ test("incompatible official revision is visible without fabricating a release or
     previousSha:null,pendingSha:null,attemptedSha:null,pinnedSha:null,
     rejectedSha:null,incompatibleSha:b};
   writeFileSync(join(root,"desktop-dev-update-state.json"),JSON.stringify(state));
-  const snap=await readDesktopUpdateStatus(root);
+  const snap=await readDesktopUpdateStatus(root,{renderedSourceSha:a});
   assert.equal(snap.sourceSha,a);
   assert.equal(snap.targetSha,b);
   assert.equal(snap.status,"running");
@@ -189,4 +189,48 @@ test("the packaged host is configured to read the same journal used by Desktop D
   assert.ok(nativeHost.includes("createDesktopObservationGrantMiddleware"));
   assert.ok(nativeHost.includes("readDesktopUpdateStatus(directory,{renderedSourceSha})"));
   assert.ok(nativeHost.includes("process.env.ORDAX_DESKTOP_RENDERED_SOURCE_SHA"));
+});
+
+test("persisted Git active SHA is not proof of the actual running Windows revision", async t => {
+  const root=mkdtempSync(join(tmpdir(),"ordax-desktop-proof-required-"));
+  t.after(()=>rmSync(root,{recursive:true,force:true}));
+  const journal={schema:"ordax.desktop-dev-update-state/1",activeSha:a,
+    previousSha:null,pendingSha:null,attemptedSha:null,pinnedSha:null,
+    rejectedSha:null,incompatibleSha:null};
+  writeFileSync(join(root,"desktop-dev-update-state.json"),JSON.stringify(journal));
+  const noProof=await readDesktopUpdateStatus(root);
+  assert.equal(noProof.status,"unavailable");
+  assert.equal(noProof.phase,"blocked");
+  assert.equal(noProof.sourceSha,"bundled-desktop");
+  assert.equal(noProof.lastAppliedSha,a,"journal history is retained separately");
+  assert.match(noProof.lastError,/atestada/);
+
+  const verified=await readDesktopUpdateStatus(root,{renderedSourceSha:a});
+  assert.equal(verified.status,"running");
+  assert.equal(verified.sourceSha,a);
+  assert.equal(verified.lastAppliedSha,a);
+
+  const pending={...journal,pendingSha:b};
+  const noProofPending=projectDesktopUpdateState(pending);
+  assert.equal(noProofPending.status,"unavailable");
+  assert.equal(noProofPending.phase,"blocked");
+  assert.equal(noProofPending.targetSha,b);
+});
+
+test("bounded Windows Desktop journal rejects large or expanding user-data files", async t => {
+  const root=mkdtempSync(join(tmpdir(),"ordax-desktop-journal-bounds-"));
+  t.after(()=>rmSync(root,{recursive:true,force:true}));
+  let reads=0;
+  writeFileSync(join(root,"desktop-dev-update-state.json"),"X".repeat(8193));
+  await assert.rejects(()=>readDesktopDevUpdateState(root,{read:async()=>{reads++;return "{}";}}),
+    /unavailable or corrupt/);
+  assert.equal(reads,0,"reject by file size before reading");
+  assert.equal((await readDesktopUpdateStatus(root)).status,"unavailable");
+
+  const growing=async()=>"{".repeat(8193);
+  await assert.rejects(()=>readDesktopDevUpdateState(root,{
+    read:growing,stat:async()=>({
+      size:128,isFile:()=>true,isSymbolicLink:()=>false,
+    }),
+  }),/unavailable or corrupt/);
 });
