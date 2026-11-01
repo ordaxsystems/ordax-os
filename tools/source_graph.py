@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import posixpath
 import re
+import stat
 from html.parser import HTMLParser
 from pathlib import Path, PurePosixPath
 
@@ -22,6 +23,34 @@ REMOTE_PREFIXES = ("http://", "https://", "//", "data:", "javascript:")
 
 class SourceGraphError(RuntimeError):
     pass
+
+
+def require_source_path(
+    root: Path, relative: PurePosixPath, *, directory: bool = False
+) -> Path:
+    """Reject links in *any* source path component before reading or packaging.
+
+    A regular leaf beneath a directory symlink is not canonical OS source.
+    The same check covers generated Web input inventories and component
+    source-graph traversal, without creating a second source authority.
+    """
+    if relative.is_absolute() or not relative.parts or ".." in relative.parts:
+        raise SourceGraphError(f"unsafe source path: {relative}")
+    current = root
+    for index, part in enumerate(relative.parts):
+        current = current / part
+        try:
+            mode = current.lstat().st_mode
+        except OSError as exc:
+            raise SourceGraphError(f"missing source dependency: {relative}") from exc
+        if stat.S_ISLNK(mode):
+            raise SourceGraphError(f"linked source path is forbidden: {relative}")
+        must_be_directory = index < len(relative.parts) - 1 or directory
+        if must_be_directory and not stat.S_ISDIR(mode):
+            raise SourceGraphError(f"source ancestor is not a directory: {relative}")
+        if not must_be_directory and not stat.S_ISREG(mode):
+            raise SourceGraphError(f"source dependency is not a regular file: {relative}")
+    return current
 
 
 def _srcset_urls(value: str) -> list[str]:
@@ -143,9 +172,12 @@ def discover_graph(
         current = pending.pop()
         if current in discovered:
             continue
-        file_path = root / current
-        if not file_path.is_file():
-            raise SourceGraphError(f"missing source dependency: {current}")
+        if not any(
+            str(current) == prefix or str(current).startswith(prefix + "/")
+            for prefix in allowed_prefixes
+        ):
+            raise SourceGraphError(f"entrypoint escapes allowed source roots: {current}")
+        file_path = require_source_path(root, current)
         discovered.add(current)
 
         if file_path.suffix.lower() not in {".html", ".htm", ".mjs", ".js", ".cjs", ".css"}:
