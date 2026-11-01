@@ -58,12 +58,14 @@ class PortableComponentReuseWorkflowTests(unittest.TestCase):
                 block = self.step_block(step)
                 self.assertNotRegex(block, r"\n\s+if:\s+steps\..*cache")
 
-    def test_cached_local_ai_skips_only_head_bound_legacy_reverification(self):
+    def test_cached_local_ai_revalidates_original_build_commit_and_current_inputs(self):
         block = self.step_block("Verify local AI component and exact integration binding")
-        self.assertIn('python "$ORDAX_EXTERNAL_AI_BUILDER"', block)
-        self.assertIn("if [ \"$cache_hit\" = 'false' ]; then", block)
-        self.assertIn("bootstrap/local-ai-runtime/build.py verify", block)
         self.assertIn("portable_component_cache.py verify", block)
+        self.assertIn("--receipt \"$work/metadata/local-ai-cache-preflight.json\"", block)
+        self.assertIn('manifest.get("build_source_commit")', block)
+        self.assertIn('git worktree add --detach "$source" "$build_source_commit"', block)
+        self.assertIn('ORDAX_SOURCE_COMMIT="$build_source_commit" python "$ORDAX_EXTERNAL_AI_BUILDER"', block)
+        self.assertIn('"$source/bootstrap/local-ai-runtime/build.py" verify', block)
         self.assertIn("--integration-commit \"$ORDAX_SOURCE_COMMIT\"", block)
         self.assertIn("--cache-hit \"$cache_hit\"", block)
 
