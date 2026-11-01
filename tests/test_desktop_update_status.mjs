@@ -268,3 +268,37 @@ test("Desktop journal observation bounds physical read and refuses symlinked jou
   }));
   assert.equal((await readDesktopDevUpdateState(root)).activeSha,a);
 });
+
+test("Desktop journal vanishing after stat is an error, not a healthy missing journal", async () => {
+  const stat=async()=>({
+    size:256,isFile:()=>true,isSymbolicLink:()=>false,
+  });
+  let reads=0;
+  const read=async()=>{reads++;throw Object.assign(new Error("file removed after stat"),{code:"ENOENT"});};
+  await assert.rejects(
+    ()=>readDesktopDevUpdateState("owner-profile",{stat,read}),
+    /unavailable or corrupt/,
+  );
+  assert.equal(reads,1);
+  const status=await readDesktopUpdateStatus("owner-profile",{
+    stat,read,renderedSourceSha:a,
+  });
+  assert.equal(status.status,"unavailable","a torn journal cannot be reported as running");
+  assert.equal(status.phase,"error");
+  assert.equal(status.applyMode,"none");
+});
+
+test("Only initial absent Desktop journal is treated as legitimately missing", async () => {
+  let reads=0;
+  const stat=async()=>{throw Object.assign(new Error("no journal"),{code:"ENOENT"});};
+  const read=async()=>{reads++;throw new Error("must never read");};
+  assert.equal(await readDesktopDevUpdateState("owner-profile",{stat,read}),null);
+  assert.equal(reads,0);
+  // A separately verified packaged source may still be running; the missing
+  // journal is not proof that a Git SHA was activated.
+  const status=await readDesktopUpdateStatus("owner-profile",{
+    stat,read,renderedSourceSha:a,
+  });
+  assert.equal(status.status,"running");
+  assert.equal(status.lastAppliedSha,"");
+});

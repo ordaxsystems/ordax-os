@@ -57,9 +57,14 @@ export async function readDesktopDevUpdateState(userData, { read = readBoundedJo
     throw new TypeError("The Windows Desktop update profile directory is required");
   }
   let parsed;
+  // Only an ENOENT from the initial lstat means there was no journal.
+  // A disappeared file AFTER that probe is a torn concurrent update, not a
+  // fresh bundled install, and must never be reported as a healthy absence.
+  let initialStatCompleted = false;
   try {
     const path = join(userData, UPDATE_STATE);
     const info = await stat(path);
+    initialStatCompleted = true;
     // The writable Owner/Dev journal must be a regular host-owned file,
     // never a junction/symlink to an unrelated file. Mirror the updater gate.
     if (!info.isFile() || info.isSymbolicLink()
@@ -74,7 +79,7 @@ export async function readDesktopDevUpdateState(userData, { read = readBoundedJo
     }
     parsed = JSON.parse(raw);
   } catch (error) {
-    if (error?.code === "ENOENT") return null;
+    if (error?.code === "ENOENT" && !initialStatCompleted) return null;
     throw new Error("Windows Desktop update journal is unavailable or corrupt", { cause: error });
   }
   if (!parsed || parsed.schema !== JOURNAL_SCHEMA ||
