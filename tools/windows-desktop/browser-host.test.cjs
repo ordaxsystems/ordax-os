@@ -46,7 +46,7 @@ function fixture(){
   const dialog={showSaveDialog:async()=>({canceled:true})};
   const host=createDesktopBrowserHost({window,ipcMain,WebContentsView:View,session,dialog});
   const post=payload=>ipcMain.emit('ordax:desktop-browser:command',{sender:ui},JSON.stringify(payload));
-  return {window,ui,host,post,browserSession,ipcMain};
+  return {window,ui,host,post,browserSession,ipcMain,dialog};
 }
 
 test('Browser URL validation rejects privileged schemes, credentials and oversized data',()=>{
@@ -119,6 +119,32 @@ test('malformed and cross-window commands cannot acquire browser privileges',t=>
   assert.equal(f.browserSession.check(),false);
   let allowed;f.browserSession.permission(null,'camera',v=>{allowed=v;});
   assert.equal(allowed,false);
+});
+
+test('download IPC rejects oversized and foreign-window requests before save dialog',async t=>{
+  const f=fixture();t.after(()=>f.host.dispose());
+  f.post({type:'tab.open',tabId:'tab-download',url:'https://example.com/'});
+  await Promise.resolve();
+  const wc=View.all[0].webContents;
+  let cancelled=false, dialogs=0;
+  const item=new EventEmitter();
+  item.getFilename=()=> 'safe-file.txt';
+  item.pause=()=>{};
+  item.cancel=()=>{cancelled=true;};
+  f.browserSession.emit('will-download',{preventDefault(){throw Error('unexpected reject');}},item,wc);
+  const pending=f.ui.sent.map(x=>x.value).find(x=>x.type==='browser-download'&&x.status==='pending');
+  assert.match(pending.id,/^download-[0-9a-f]{16}$/);
+  f.dialog.showSaveDialog=async()=>{dialogs++;return {canceled:true};};
+  f.ipcMain.emit('ordax:desktop-browser:command',{sender:f.ui},
+    JSON.stringify({type:'download.approve',id:pending.id,padding:'x'.repeat(12000)}));
+  assert.equal(dialogs,0,'oversized payload must not invoke the privileged save dialog');
+  f.ipcMain.emit('ordax:desktop-browser:command',{sender:{}},
+    JSON.stringify({type:'download.cancel',id:pending.id}));
+  assert.equal(cancelled,false,'another WebContents cannot cancel a download');
+  f.post({type:'download.approve',id:pending.id});
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(dialogs,1,'bounded request retains the intended save flow');
+  assert.equal(cancelled,true,'canceling the save dialog cancels the download');
 });
 
 test('untrusted page selection is only returned to OrdaX on explicit tab-scoped request',async t=>{
