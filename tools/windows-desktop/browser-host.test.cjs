@@ -245,6 +245,103 @@ test('untrusted page selection is only returned to OrdaX on explicit tab-scoped 
   assert.equal(event.selection.url,'https://example.com/');
 });
 
+test('late page selection from a previous navigation cannot be attributed to the new document',async t=>{
+  const f=fixture();t.after(()=>f.host.dispose());
+  f.post({type:'tab.open',tabId:'tab-selection',url:'https://old.example/'});
+  await Promise.resolve();
+  const wc=View.all[0].webContents;
+  let resolveSelection;
+  wc.executeJavaScript=()=>new Promise(resolve=>{resolveSelection=resolve;});
+  f.post({type:'page-selection.capture',tabId:'tab-selection',requestId:'old-selection'});
+  f.post({type:'tab.navigate',tabId:'tab-selection',url:'https://new.example/'});
+  await Promise.resolve();
+  resolveSelection('private text from previous document');
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(f.ui.sent.some(x=>x.value.type==='page-selection.result'
+    && x.value.requestId==='old-selection'),false,
+    'previous document text must not reach the new page context');
+  wc.executeJavaScript=async()=> 'current text';
+  f.post({type:'page-selection.capture',tabId:'tab-selection',requestId:'current-selection'});
+  await new Promise(resolve=>setImmediate(resolve));
+  const fresh=f.ui.sent.map(x=>x.value).find(x=>x.requestId==='current-selection');
+  assert.equal(fresh.selection.text,'current text');
+  assert.equal(fresh.selection.url,'https://new.example/');
+});
+
+test('closing and reusing a tab ID cannot revive old pending selection',async t=>{
+  const f=fixture();t.after(()=>f.host.dispose());
+  f.post({type:'tab.open',tabId:'tab-reuse',url:'https://old.example/'});
+  await Promise.resolve();
+  let complete;
+  View.all[0].webContents.executeJavaScript=()=>new Promise(resolve=>{complete=resolve;});
+  f.post({type:'page-selection.capture',tabId:'tab-reuse',requestId:'old-request'});
+  f.post({type:'tab.close',tabId:'tab-reuse'});
+  f.post({type:'tab.open',tabId:'tab-reuse',url:'https://new.example/'});
+  await Promise.resolve();
+  complete('old tab secret');
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(f.ui.sent.some(x=>x.value.requestId==='old-request'),false);
+  f.post({type:'page-selection.capture',tabId:'tab-reuse',requestId:'new-request'});
+  await new Promise(resolve=>setImmediate(resolve));
+  const current=f.ui.sent.map(x=>x.value).find(x=>x.requestId==='new-request');
+  assert.equal(current.selection.text,'selected web text');
+  assert.equal(current.selection.url,'https://new.example/');
+});
+
+test('page find accepts only current requestId and clears pending listeners at navigation',async t=>{
+  const f=fixture();t.after(()=>f.host.dispose());
+  f.post({type:'tab.open',tabId:'tab-find',url:'https://old.example/'});
+  await Promise.resolve();
+  const wc=View.all[0].webContents;
+  let nextId=40;
+  const queries=[];
+  wc.findInPage=q=>{queries.push(q);return ++nextId;};
+  f.post({type:'page-find.search',tabId:'tab-find',query:'old private query'});
+  assert.equal(wc.listenerCount('found-in-page'),1);
+  wc.emit('found-in-page',{}, {requestId:40,matches:10});
+  assert.equal(f.ui.sent.some(x=>x.value.type==='page-find.result'),false,
+    'stale Chromium request ID is not a fresh find response');
+  wc.emit('found-in-page',{}, {requestId:41,matches:3});
+  assert.equal(f.ui.sent.filter(x=>x.value.type==='page-find.result').length,1);
+  assert.equal(wc.listenerCount('found-in-page'),0);
+  f.post({type:'page-find.search',tabId:'tab-find',query:'pending old query'});
+  assert.equal(wc.listenerCount('found-in-page'),1);
+  f.post({type:'tab.navigate',tabId:'tab-find',url:'https://new.example/'});
+  await Promise.resolve();
+  assert.equal(wc.listenerCount('found-in-page'),0,
+    'navigation must remove the old page find listener');
+  wc.emit('found-in-page',{}, {requestId:42,matches:20});
+  assert.equal(f.ui.sent.filter(x=>x.value.type==='page-find.result').length,1);
+  f.post({type:'page-find.next',tabId:'tab-find'});
+  assert.equal(queries.length,2,
+    'new document must not inherit the previous document search query');
+  f.post({type:'page-find.search',tabId:'tab-find',query:'new query'});
+  assert.equal(queries.at(-1),'new query');
+  f.post({type:'page-find.finish',tabId:'tab-find'});
+  assert.equal(wc.listenerCount('found-in-page'),0);
+});
+
+test('closing a tab and disposing the host clear outstanding find and selection work',async()=>{
+  const f=fixture();
+  f.post({type:'tab.open',tabId:'tab-clean',url:'https://old.example/'});
+  await Promise.resolve();
+  const wc=View.all[0].webContents;
+  wc.findInPage=()=>77;
+  f.post({type:'page-find.search',tabId:'tab-clean',query:'old'});
+  assert.equal(wc.listenerCount('found-in-page'),1);
+  f.post({type:'tab.close',tabId:'tab-clean'});
+  assert.equal(wc.listenerCount('found-in-page'),0);
+  f.post({type:'tab.open',tabId:'tab-clean',url:'https://new.example/'});
+  await Promise.resolve();
+  let resolveSelection;
+  View.all[1].webContents.executeJavaScript=()=>new Promise(resolve=>{resolveSelection=resolve;});
+  f.post({type:'page-selection.capture',tabId:'tab-clean',requestId:'disposed-request'});
+  f.host.dispose();
+  resolveSelection('no consent after disposal');
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(f.ui.sent.some(x=>x.value.requestId==='disposed-request'),false);
+});
+
 test('Desktop bridge remains a preload-only port on canonical Native; no privileged browser shortcuts',()=>{
   const preload=readFileSync(join(__dirname,'browser-preload.cjs'),'utf8');
   const main=readFileSync(join(__dirname,'main.cjs'),'utf8');
