@@ -1,4 +1,12 @@
 Desktop/Web build separation — evidence update 2026-11-01:
+OS #1980 commits 09e96df5 and 79d2f2cf each finished with 13 passed,
+2 skipped and 1 failure in Creator USB only. Windows/Web/Foundation
+passed; the NSIS installed smoke validated omission of Web composition.
+The next change removes tools/surface-web both from the installed Windows
+template and ordax-pull's sparse candidate materialization. The only
+installed Native Vite compiler remains Windows-owned and verified by
+toolchain receipts. This new change still requires CI and physical user PC
+homologation. Earlier source verification:
 OS #1980 commit 09e96df5 finished with 13 passed, 2 skipped and 1 failure
 only in Creator USB (Alpine/Python pin). Windows Desktop (SSOT) CI
 #41273803078 passed and produced a 680377335-byte NSIS artifact;

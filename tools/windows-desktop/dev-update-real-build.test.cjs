@@ -124,6 +124,8 @@ test('Windows Dev compiles real Git revisions, restores known-good after interru
   assert.equal(buildCount,1);assert.equal(readState(userData).activeSha,null);
   const one=versionRoot(userData,osOne);
   assert.equal(hasNativeBundle(one),true);
+  assert.equal(existsSync(join(one,'tools','surface-web')),false,
+    'Native update source must not retain the Web build-tool owner');
   const bytesOne=compiledBundleSha256(one);
   assert.equal(existsSync(join(one,'system/surface/ui')),false,'visual source must not be retained');
   let boot=await chooseBootVersion({userData,template});

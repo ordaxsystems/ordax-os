@@ -101,6 +101,11 @@ try {
     throw "Web-only composition leaked into installed Windows Desktop"
   }
   Write-Output "DESKTOP_WEB_COMPOSITION_ABSENT=PASS"
+  $webToolRoot = Join-Path $resources "runtime-template\\tools\\surface-web"
+  if (Test-Path -LiteralPath $webToolRoot) {
+    throw "Web-only build tools leaked into installed Windows Desktop"
+  }
+  Write-Output "DESKTOP_WEB_TOOLS_ABSENT=PASS"
   $compiledRoot = Join-Path $resources "runtime-template\\desktop-assets"
   $compiledHtml = Get-Content (Join-Path $compiledRoot "system\\composition\\native\\index.html") -Raw
   if ($compiledHtml -notmatch "/__ordax/desktop-assets/assets/") {

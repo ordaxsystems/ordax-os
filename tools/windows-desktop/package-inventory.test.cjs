@@ -158,3 +158,16 @@ test('source inventory accepts ONLY the reviewed Web-only subtree exclusion',()=
     assert.throws(()=>inventory(root,['!composition/w?b']),/non-exact exclusion/);
   } finally{rmSync(root,{recursive:true,force:true});}
 });
+
+test('Windows NSIS includes no Web-only build tools but retains its own Native compiler',()=>{
+  const config=require('./package.json');
+  const resources=config.build.extraResources;
+  assert.equal(resources.some(x=>x.from==='../surface-web'||
+    x.to==='runtime-template/tools/surface-web'),false);
+  assert.equal(resources.filter(x=>x.from==='../windows-emulator'&&
+    x.to==='runtime-template/tools/windows-emulator').length,1);
+  assert.ok(config.build.files.includes('native-build.cjs'),
+    'Windows must retain the canonical Native compiler');
+  assert.ok(resources.some(x=>x.to==='runtime-template/toolchain/node_modules.tar.gz'),
+    'Windows must preserve verified offline Vite for staged Native updates');
+});

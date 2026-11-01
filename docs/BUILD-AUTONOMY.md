@@ -255,5 +255,12 @@ inventory accepts exactly `!composition/web/**`, no arbitrary subtree
 wildcards; the Windows workflow excludes `system/composition/web/**`
 from its rebuild triggers, while the Web workflow retains that source.
 An actual extracted NSIS must have no Web-only composition directory.
+`tools/surface-web/` is also a **Web producer**, not a Windows Native
+compiler. The installed NSIS runtime must not copy it, nor should the
+Windows Git updater sparse-checkout stage it. Preserve Windows' existing
+`tools/windows-desktop/vite-native-build.mjs`, canonical locked Vite
+archive, verified Surface source and rollback validation; test the absence
+of Web producer tools in an installed NSIS and a compiled Git candidate.
+This is delivery separation, not a second Native or Web implementation.
 The source graph and integration tests, not file extension guessing,
 remain authoritative for removing any other Python/JS components.

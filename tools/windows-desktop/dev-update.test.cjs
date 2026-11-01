@@ -14,7 +14,9 @@ const { readState, writeState, validateState, versionRoot, stageMain,
 
 test('Desktop DEV Git sparse checkout includes the existing MCP candidate proof',()=>{
   const source=readFileSync(join(__dirname,'dev-update.cjs'),'utf8');
-  assert.match(source,/'sparse-checkout','set',\s*'system','docs\/contracts','docs\/evidence','tools\/windows-emulator'/);
+  assert.match(source,/'sparse-checkout','set',\s*'system','docs\/contracts','docs\/evidence','tools\/windows-emulator','tools\/windows-desktop'/);
+  assert.doesNotMatch(source, /'tools\/surface-web'/,
+    'Windows staged source must not materialize Web producer tools');
   const evidence=JSON.parse(readFileSync(join(__dirname,
     '../../docs/evidence/desktop-runtime-windows-candidate-2026-10-31.json'),'utf8'));
   assert.equal(evidence.$schema,'ordax.desktop-runtime-candidate-evidence/1');

@@ -160,3 +160,14 @@ test('Windows package excludes Linux-only Alpine package declaration without dro
   assert.match(paths, /- '!system\/surface\/runtime\/physical_performance_probe\.py'/);
   assert.ok(workflow.includes('paths: *desktop_product_sources'));
 });
+
+test('Native Desktop updater never stages the Web-only producer',()=>{
+  const source=readFileSync(join(__dirname,'dev-update.cjs'),'utf8');
+  assert.match(source, /'sparse-checkout','set',\s*'system','docs\/contracts','docs\/evidence','tools\/windows-emulator','tools\/windows-desktop'/);
+  assert.ok(!source.includes("'tools/surface-web'"));
+  const resources=require('./package.json').build.extraResources;
+  assert.ok(!resources.some(x=>x.to==='runtime-template/tools/surface-web'));
+  const nativeCompiler=readFileSync(join(__dirname,'vite-native-build.mjs'),'utf8');
+  assert.ok(nativeCompiler.includes('system/composition/native/index.html'));
+  assert.ok(!nativeCompiler.includes('tools/surface-web/'));
+});
