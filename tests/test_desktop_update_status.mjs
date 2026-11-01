@@ -234,3 +234,37 @@ test("bounded Windows Desktop journal rejects large or expanding user-data files
     }),
   }),/unavailable or corrupt/);
 });
+
+test("Desktop update reader rejects malformed UTF-8 journal bytes and restores valid history", async t => {
+  const root=mkdtempSync(join(tmpdir(),"ordax-desktop-invalid-journal-"));
+  t.after(()=>rmSync(root,{recursive:true,force:true}));
+  const path=join(root,"desktop-dev-update-state.json");
+  writeFileSync(path,Buffer.from([0xff,0xfe,0xfd]));
+  await assert.rejects(()=>readDesktopDevUpdateState(root),/unavailable or corrupt/);
+  assert.equal((await readDesktopUpdateStatus(root)).status,"unavailable");
+  const valid={schema:"ordax.desktop-dev-update-state/1",
+    activeSha:a,previousSha:null,pendingSha:null,attemptedSha:null,
+    pinnedSha:null,rejectedSha:null,incompatibleSha:null};
+  writeFileSync(path,JSON.stringify(valid));
+  const recovered=await readDesktopDevUpdateState(root);
+  assert.equal(recovered.activeSha,a);
+  // Repairing the file is not evidence that the old runtime was loaded.
+  assert.equal((await readDesktopUpdateStatus(root)).status,"unavailable");
+  assert.equal((await readDesktopUpdateStatus(root,{renderedSourceSha:a})).status,"running");
+});
+
+test("Desktop journal observation bounds physical read and refuses symlinked journal", async t => {
+  const root=mkdtempSync(join(tmpdir(),"ordax-desktop-read-boundary-"));
+  t.after(()=>rmSync(root,{recursive:true,force:true}));
+  const path=join(root,"desktop-dev-update-state.json");
+  writeFileSync(path,"X".repeat(8193));
+  await assert.rejects(()=>readDesktopDevUpdateState(root),/unavailable or corrupt/);
+  // A syntactically valid journal with an unexpected extension never bypasses
+  // the trusted host pathname and the per-file size/read validation.
+  writeFileSync(path,JSON.stringify({
+    schema:"ordax.desktop-dev-update-state/1",activeSha:a,previousSha:null,
+    pendingSha:null,attemptedSha:null,pinnedSha:null,rejectedSha:null,
+    incompatibleSha:null,
+  }));
+  assert.equal((await readDesktopDevUpdateState(root)).activeSha,a);
+});

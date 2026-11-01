@@ -1,6 +1,6 @@
 // Read-only Windows projection of the existing canonical update-status port.
 // This is an adapter, not another update policy or a release authority.
-import { readFile, lstat } from "node:fs/promises";
+import { open, lstat } from "node:fs/promises";
 import { join } from "node:path";
 import { validateUpdateStatusSnapshot } from "../../contracts/update-status.mjs";
 import { validateUpdateHistorySnapshot } from "../../contracts/update-history.mjs";
@@ -11,7 +11,48 @@ const MAX_JOURNAL_BYTES = 8 * 1024;
 const JOURNAL_SCHEMA = "ordax.desktop-dev-update-state/1";
 const JOURNAL_FIELDS = ["activeSha", "previousSha", "pendingSha", "attemptedSha", "pinnedSha", "rejectedSha"];
 
-export async function readDesktopDevUpdateState(userData, { read = readFile, stat = lstat } = {}) {
+function sameFileIdentity(left, right) {
+  for (const key of ["dev", "ino"]) {
+    if (Number.isSafeInteger(left?.[key]) && Number.isSafeInteger(right?.[key])
+      && left[key] !== right[key]) return false;
+  }
+  return true;
+}
+
+// Read at most MAX_JOURNAL_BYTES + 1 even if the host-owned file is replaced
+// or grows between the first lstat and open. The handle pins the file under
+// inspection; re-stat both it and the pathname before accepting its contents.
+async function readBoundedJournal(path, _encoding, initial) {
+  const handle = await open(path, "r");
+  try {
+    const opened = await handle.stat();
+    if (!opened.isFile() || opened.size < 1 || opened.size > MAX_JOURNAL_BYTES
+      || opened.size !== initial.size || !sameFileIdentity(initial, opened)) {
+      throw new Error("Windows Desktop update journal changed during open");
+    }
+    const buffer = Buffer.alloc(MAX_JOURNAL_BYTES + 1);
+    let length = 0;
+    while (length < buffer.length) {
+      const { bytesRead } = await handle.read(buffer, length, buffer.length - length, length);
+      if (!bytesRead) break;
+      length += bytesRead;
+    }
+    const final = await handle.stat();
+    const pathFinal = await lstat(path);
+    if (length > MAX_JOURNAL_BYTES || length !== opened.size
+      || final.size !== opened.size || final.mtimeMs !== opened.mtimeMs
+      || !sameFileIdentity(opened, final)
+      || !pathFinal.isFile() || pathFinal.isSymbolicLink()
+      || pathFinal.size !== opened.size || !sameFileIdentity(opened, pathFinal)) {
+      throw new Error("Windows Desktop update journal changed during read");
+    }
+    return new TextDecoder("utf-8", { fatal: true }).decode(buffer.subarray(0, length));
+  } finally {
+    await handle.close();
+  }
+}
+
+export async function readDesktopDevUpdateState(userData, { read = readBoundedJournal, stat = lstat } = {}) {
   if (typeof userData !== "string" || !userData) {
     throw new TypeError("The Windows Desktop update profile directory is required");
   }
@@ -26,7 +67,7 @@ export async function readDesktopDevUpdateState(userData, { read = readFile, sta
       || info.size < 1 || info.size > MAX_JOURNAL_BYTES) {
       throw new Error("Windows Desktop update journal is not a bounded regular file");
     }
-    const raw = await read(path, "utf8");
+    const raw = await read(path, "utf8", info);
     // A replaced/growing journal cannot escape the same bounded read contract.
     if (typeof raw !== "string" || Buffer.byteLength(raw, "utf8") > MAX_JOURNAL_BYTES) {
       throw new Error("Windows Desktop update journal exceeded safe bounds");
