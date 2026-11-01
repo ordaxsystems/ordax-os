@@ -6,6 +6,7 @@ on:
       - 'integration/dev-usb-buildroot-surface-20261024'
     paths:
       - 'bootstrap/base/firmware_policy.py'
+      - 'bootstrap/base/stable_runtime_layout.py'
       - 'bootstrap/base/kernel_module_payload.py'
       - 'bootstrap/independent-base/**'
       - 'bootstrap/network/**'
@@ -25,6 +26,7 @@ on:
       - 'docs/contracts/kernel-build-environment.json'
       - 'tools/ci/portable_component_cache.py'
       - 'tests/test_alpine_removal_boundary.py'
+      - 'tests/test_stable_runtime_layout.py'
       - 'tests/test_creator_kernel_reuse_workflows.py'
       - 'tests/test_dev_base_channel.py'
       - 'tests/test_dev_base_symlink_policy.py'
@@ -81,6 +83,7 @@ jobs:
           python3 tools/verify/github_actions_supply_chain.py
           python3 -m unittest \
             tests.test_alpine_removal_boundary \
+            tests.test_stable_runtime_layout \
             tests.test_creator_kernel_reuse_workflows \
             tests.test_dev_base_channel \
             tests.test_dev_base_symlink_policy \
@@ -110,6 +113,7 @@ jobs:
           set -euo pipefail
           python3 -m py_compile \
             bootstrap/base/firmware_policy.py \
+            bootstrap/base/stable_runtime_layout.py \
             bootstrap/base/kernel_module_payload.py \
             bootstrap/independent-base/build.py \
             bootstrap/independent-base/qemu_proof.py \
@@ -121,6 +125,7 @@ jobs:
             tools/creator/proof/disposable_media.py \
             tools/verify/github_actions_supply_chain.py \
             tests/test_alpine_removal_boundary.py \
+            tests/test_stable_runtime_layout.py \
             tests/test_creator_kernel_reuse_workflows.py \
             tests/test_dev_base_channel.py \
             tests/test_dev_base_symlink_policy.py \

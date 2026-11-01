@@ -62,7 +62,21 @@
     "product_system_tree_embedded": false,
     "surface_runtime_embedded": false,
     "mutable_state_embedded": false,
-    "maximum_unique_regular_bytes": 230686720
+    "maximum_unique_regular_bytes": 230686720,
+    "runtime_directories": [
+      "state",
+      "system",
+      "ordax",
+      "ordax-data",
+      "ordax-esp",
+      "home",
+      "run",
+      "tmp",
+      "proc",
+      "sys",
+      "dev",
+      "root"
+    ]
   },
   "entrypoint": {
     "source": "bootstrap/stable-base/ordax-stable-init",

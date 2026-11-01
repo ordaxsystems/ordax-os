@@ -45,6 +45,7 @@ def load_module(name: str, path: Path):
 CORE = load_module("ordax_stable_alpine_core", ROOT / "bootstrap/base/alpine_core.py")
 FIRMWARE = load_module("ordax_stable_firmware_policy", ROOT / "bootstrap/base/firmware_policy.py")
 RUNTIME = load_module("ordax_stable_runtime_policy", ROOT / "bootstrap/base/runtime_policy.py")
+LAYOUT = load_module("ordax_stable_runtime_layout", ROOT / "bootstrap/base/stable_runtime_layout.py")
 
 
 class StableBaseError(RuntimeError):
@@ -243,22 +244,7 @@ def install_stable_runtime(rootfs: Path, kernel_modules: Path, contract: dict) -
     shutil.copy2(init_source, init_target)
     init_target.chmod(0o755)
 
-    for relative in (
-        "state",
-        "system",
-        "ordax",
-        "ordax-data",
-        "ordax-esp",
-        "home",
-        "run",
-        "tmp",
-        "proc",
-        "sys",
-        "dev",
-        "root",
-    ):
-        (rootfs / relative).mkdir(parents=True, exist_ok=True)
-    (rootfs / "tmp").chmod(0o1777)
+    LAYOUT.ensure_runtime_directories(rootfs, contract, create=True)
 
     for directory in (rootfs / "dev", rootfs / "proc", rootfs / "sys", rootfs / "run"):
         for child in list(directory.iterdir()):
