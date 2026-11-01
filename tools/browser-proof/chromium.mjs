@@ -203,16 +203,26 @@ async function stopOwnedWindowsProfile(profile) {
  * taskkill /T targets the owned PID and its children, never all Chrome
  * instances or another user profile. The caller waits before deleting data.
  */
+function ownedPidIsAlive(pid) {
+  try {
+    // Node's child 'exit' callback may lag behind an already-dead Windows
+    // launcher. The OS PID, not callback delivery, is authoritative.
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    if (error?.code === 'ESRCH') return false;
+    throw error; // EPERM or an unknown failure cannot prove safe cleanup.
+  }
+}
+
 export async function stopOwnedBrowser(child, getExitState, platform = process.platform, profile = null) {
   if (platform === 'win32' && profile !== null) {
     await stopOwnedWindowsProfile(profile);
-    // Chromium may close its own profile-scoped processes before Node emits
-    // the launcher child's `exit` event. Give that event a moment to arrive
-    // before taskkill targets the already-closed PID and reports a false error.
-    const exitDeadline = Date.now() + 750;
-    while (!getExitState() && Date.now() < exitDeadline) await sleep(30);
+    // Profile-scoped processes are gone. Avoid taskkill on a dead/recycled
+    // launcher PID just because Node has not emitted its exit callback.
   }
   if (getExitState() || !Number.isSafeInteger(child.pid) || child.pid <= 0) return;
+  if (platform === 'win32' && profile !== null && !ownedPidIsAlive(child.pid)) return;
   if (platform === 'win32') {
     await new Promise((resolvePromise, reject) => {
       const killer = spawn('taskkill.exe', ['/PID', String(child.pid), '/T', '/F'], {
@@ -233,7 +243,8 @@ export async function stopOwnedBrowser(child, getExitState, platform = process.p
       }, 10_000);
       killer.once('error', settle);
       killer.once('close', (code) => {
-        if (code !== 0 && !getExitState()) {
+        if (code !== 0 && !getExitState()
+            && (profile === null || ownedPidIsAlive(child.pid))) {
           settle(new Error('Could not terminate test-owned Chromium process tree'));
         } else settle();
       });
@@ -241,14 +252,18 @@ export async function stopOwnedBrowser(child, getExitState, platform = process.p
   } else {
     child.kill('SIGTERM');
   }
+  const stillRunning = () => !getExitState()
+    && (platform !== 'win32' || profile === null || ownedPidIsAlive(child.pid));
   let deadline = Date.now() + 3000;
-  while (!getExitState() && Date.now() < deadline) await sleep(30);
-  if (!getExitState()) {
+  while (stillRunning() && Date.now() < deadline) await sleep(30);
+  if (stillRunning()) {
     child.kill('SIGKILL');
     deadline = Date.now() + 2000;
-    while (!getExitState() && Date.now() < deadline) await sleep(30);
+    while (stillRunning() && Date.now() < deadline) await sleep(30);
   }
-  if (!getExitState()) throw new Error('Test-owned Chromium did not exit; refusing to remove its profile');
+  if (stillRunning()) {
+    throw new Error('Test-owned Chromium did not exit; refusing to remove its profile');
+  }
 }
 
 export async function runBrowser(proof) {

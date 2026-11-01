@@ -7,7 +7,7 @@ import {
 
 const DEVICE_PROFILE_ENDPOINT = "/__ordax/native/device-profile";
 
-export async function createNativeDeviceProfile(windowRef = globalThis.window) {
+export async function createNativeDeviceProfile(windowRef = globalThis.window, { signal = null } = {}) {
   if (!windowRef || typeof windowRef.fetch !== "function") {
     throw new TypeError("Native device profile requires window.fetch");
   }
@@ -16,6 +16,7 @@ export async function createNativeDeviceProfile(windowRef = globalThis.window) {
     method: "GET",
     cache: "no-store",
     credentials: "same-origin",
+    ...(signal ? { signal } : {}),
   });
   if (!response.ok) {
     throw new Error(`Native device profile unavailable: ${response.status}`);

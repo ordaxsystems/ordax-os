@@ -7,9 +7,14 @@ import {
 
 const FIRST_RUN_ENDPOINT = "/__ordax/native/first-run";
 
-export async function createNativeFirstRunStateStore(windowRef = globalThis.window) {
+export async function createNativeFirstRunStateStore(
+  windowRef = globalThis.window, { requireDurableRead = false } = {},
+) {
   if (!windowRef || typeof windowRef.fetch !== "function") {
     throw new TypeError("Native first-run state store requires window.fetch");
+  }
+  if (typeof requireDurableRead !== "boolean") {
+    throw new TypeError("First-run durable bootstrap policy must be a boolean");
   }
 
   let memory = createInitialFirstRunState();
@@ -19,12 +24,21 @@ export async function createNativeFirstRunStateStore(windowRef = globalThis.wind
       cache: "no-store",
       credentials: "same-origin",
     });
-    if (response.ok) {
+    if (!response.ok) {
+      if (requireDurableRead) {
+        throw new Error(`Native first-run bootstrap rejected: ${response.status}`);
+      }
+    } else {
       memory = validateFirstRunState(await response.json());
     }
-  } catch {
-    // First boot must remain recoverable if durable state is temporarily
-    // unreadable. Completion is not dismissed until a later save succeeds.
+  } catch (error) {
+    // Installed Desktop must never mistake an unreadable completed receipt
+    // for a genuinely new user. Prevent Surface mount and healthy heartbeat
+    // until Native state can be verified. The USB/emulator retain the original
+    // recoverable in-memory bootstrap behavior.
+    if (requireDurableRead) {
+      throw new Error("Native first-run bootstrap could not be verified", { cause: error });
+    }
   }
 
   const store = {

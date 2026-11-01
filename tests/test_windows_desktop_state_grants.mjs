@@ -1,12 +1,14 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
-import { mkdtemp,readFile,writeFile,rm } from "node:fs/promises";
+import { mkdtemp,readFile,writeFile,rm,readdir,lstat,symlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createEmulatorNativeHost } from "../tools/windows-emulator/native-host.mjs";
 import { createNativePreferenceStore } from "../system/adapters/native/preferences.mjs";
 import { createNativeFirstRunStateStore } from "../system/adapters/native/first-run-state.mjs";
+import { createInitialFirstRunState } from "../system/contracts/first-run-state-store.mjs";
+import { createSystemTermsAcceptance } from "../system/contracts/system-terms.mjs";
 
 const GRANT="d".repeat(64);
 const STATE_ROUTES=[
@@ -52,9 +54,23 @@ test("Windows Desktop first-run and preferences require Electron-only state gran
     })).status,404);
     const client={fetch:(path,options={})=>h.trusted(path,options)};
     const prefs=await createNativePreferenceStore(client);
-    const firstRun=await createNativeFirstRunStateStore(client);
+    const firstRun=await createNativeFirstRunStateStore(client,{requireDurableRead:true});
     assert.equal(firstRun.load().completed,false);
+    await assert.rejects(
+      ()=>createNativeFirstRunStateStore({fetch:(path,options)=>h.direct(path,options)},
+        {requireDurableRead:true}),
+      /Native first-run bootstrap could not be verified/,
+      "installed Desktop cannot interpret an unauthorized receipt as new First Run",
+    );
+    // An old predictable temp pathname must never be reused or overwritten.
+    const legacyTemp=join(dir,"native-state.json.tmp");
+    await writeFile(legacyTemp,"keep-existing-untrusted-temp","utf8");
     assert.equal(await prefs.save({"regional.locale":"pt-BR","regional.time-zone":"America/Bahia"}),true);
+    assert.equal(await readFile(legacyTemp,"utf8"),"keep-existing-untrusted-temp");
+    assert.deepEqual((await readdir(dir)).filter(name=>name.startsWith(".native-state.json.")),[]);
+    const savedInfo=await lstat(join(dir,"native-state.json"));
+    assert.equal(savedInfo.isFile(),true);
+    if(process.platform!=="win32")assert.equal(savedInfo.mode & 0o777,0o600);
     assert.equal((await createNativePreferenceStore(client)).load()["regional.locale"],"pt-BR");
     const before=await readFile(join(dir,"native-state.json"),"utf8");
     locked=true;
@@ -80,8 +96,96 @@ test("Windows Desktop first-run and preferences require Electron-only state gran
     assert.equal((await h.direct("/__ordax/native/preferences")).status,401);
     await writeFile(join(dir,"native-state.json"),"{bad","utf8");
     assert.equal((await h.trusted("/__ordax/native/preferences")).status,503);
+    await assert.rejects(
+      ()=>createNativeFirstRunStateStore(client,{requireDurableRead:true}),
+      /Native first-run bootstrap could not be verified/,
+      "corrupted persisted receipt must block installed Desktop bootstrap",
+    );
+    assert.equal((await createNativeFirstRunStateStore(client)).load().completed,false,
+      "the original USB/emulator recovery mode must remain available");
     assert.equal(await readFile(join(dir,"native-state.json"),"utf8"),"{bad");
   }finally{if(h)await h.close();await rm(dir,{recursive:true,force:true});}
+});
+
+test("new Windows First Run completion requires explicit OS acknowledgement while retaining legacy receipts",async()=>{
+  const contract=JSON.parse(await readFile(new URL("../docs/contracts/first-run.json",import.meta.url),"utf8"));
+  assert.equal(contract.system_terms.windows_new_completion_without_acknowledgement_denied,true);
+  const dir=await mkdtemp(join(tmpdir(),"ordax-native-state-terms-"));
+  let h;
+  try{
+    h=await startHost(dir);
+    const route="/__ordax/native/first-run";
+    const post=receipt=>h.trusted(route,{
+      method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify(receipt),
+    });
+    const initial=await (await h.trusted(route)).json();
+    const noTerms={...initial,completed:true,accountMode:"local-only"};
+    assert.equal((await post(noTerms)).status,400,
+      "the authorized Desktop host cannot mint a completed receipt without OS acknowledgement");
+    assert.deepEqual(await (await h.trusted(route)).json(),initial,
+      "invalid completion must leave the on-disk onboarding state unchanged");
+    const accepted={...noTerms,systemTerms:createSystemTermsAcceptance(true)};
+    assert.equal((await post(accepted)).status,200);
+    assert.equal((await post(accepted)).status,200,
+      "identical current completed receipt must remain idempotent");
+    assert.deepEqual(await (await h.trusted(route)).json(),accepted);
+    assert.equal((await post(noTerms)).status,409,
+      "a completed acknowledgement cannot be removed by a later write");
+    await h.close();h=null;
+
+    // Existing development receipts predating the acknowledgement remain
+    // valid without inventing or backfilling a legal decision for the user.
+    const legacyDir=await mkdtemp(join(tmpdir(),"ordax-native-state-legacy-terms-"));
+    let oldHost;
+    try{
+      await writeFile(join(legacyDir,"native-state.json"),JSON.stringify({
+        firstRun:noTerms,preferences:{},
+        cursor:{schema:"ordax.first-run-cursor/1",step:"welcome"},
+      }),"utf8");
+      oldHost=await startHost(legacyDir);
+      assert.deepEqual(await (await oldHost.trusted(route)).json(),noTerms);
+      assert.equal((await oldHost.trusted(route,{method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify(noTerms),
+      })).status,200,"exact legacy receipt replay preserves monotonicity");
+      assert.deepEqual(await (await oldHost.trusted(route)).json(),noTerms);
+    }finally{if(oldHost)await oldHost.close();await rm(legacyDir,{recursive:true,force:true});}
+  }finally{if(h)await h.close();await rm(dir,{recursive:true,force:true});}
+});
+
+test("Desktop state denies linked receipts without modifying the link target",async t=>{
+  // Windows developer mode is not guaranteed to permit unprivileged symlinks.
+  if(process.platform==="win32"){t.skip("symlink creation requires Windows developer privileges");return;}
+  const dir=await mkdtemp(join(tmpdir(),"ordax-native-state-linked-"));
+  let h;
+  try{
+    const outside=join(dir,"unrelated.json");
+    await writeFile(outside,"preserve-external-file","utf8");
+    await symlink(outside,join(dir,"native-state.json"));
+    h=await startHost(dir);
+    assert.equal((await h.trusted("/__ordax/native/first-run")).status,503);
+    assert.equal((await h.trusted("/__ordax/native/first-run",{
+      method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify(createInitialFirstRunState()),
+    })).status,503);
+    assert.equal(await readFile(outside,"utf8"),"preserve-external-file");
+    assert.deepEqual((await readdir(dir)).filter(name=>name.startsWith(".native-state.json.")),[]);
+  }finally{if(h)await h.close();await rm(dir,{recursive:true,force:true});}
+});
+
+test("installed Native first-run also rejects malformed successful bootstrap responses",async()=>{
+  const poisoned={fetch:async()=>new Response('{"completed":true}',{
+    status:200,headers:{"Content-Type":"application/json"},
+  })};
+  await assert.rejects(()=>createNativeFirstRunStateStore(poisoned,{
+    requireDurableRead:true,
+  }),/Native first-run bootstrap could not be verified/);
+  assert.equal((await createNativeFirstRunStateStore(poisoned)).load().completed,false,
+    "recoverable emulator/USB bootstrap must keep its established fallback");
+  await assert.rejects(()=>createNativeFirstRunStateStore(poisoned,{
+    requireDurableRead:"true",
+  }),/bootstrap policy must be a boolean/);
 });
 
 test("visual emulator retains its existing no-token state port while installed mode fails on weak token",async()=>{

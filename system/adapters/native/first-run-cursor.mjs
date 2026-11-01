@@ -7,12 +7,13 @@ import {
 
 const ENDPOINT = "/__ordax/native/first-run-cursor";
 
-export async function createNativeFirstRunCursor(windowRef = globalThis.window) {
+export async function createNativeFirstRunCursor(windowRef = globalThis.window, { signal = null } = {}) {
   if (!windowRef || typeof windowRef.fetch !== "function") {
     throw new TypeError("Native first-run cursor requires window.fetch");
   }
   const response = await windowRef.fetch(ENDPOINT, {
     method: "GET", credentials: "same-origin", cache: "no-store",
+    ...(signal ? { signal } : {}),
   });
   if (!response.ok) throw new Error("First-run cursor unavailable");
   let snapshot = validateFirstRunCursor(await response.json());

@@ -29,7 +29,8 @@
     "never_store_identity_secret_or_keyboard": true,
     "resume_later_steps_at_account": true,
     "completion_receipt_unchanged": true,
-    "optional_cursor_does_not_block_boot": true
+    "optional_cursor_does_not_block_boot": true,
+    "windows_read_deadline_ms": 5000
   },
   "persistence": {
     "native_path": "/var/lib/ordax/first-run.json",
@@ -50,7 +51,6 @@
     "network",
     "account",
     "security",
-    "name",
     "ready"
   ],
   "presentation": {
@@ -62,6 +62,7 @@
     "account_before_personalization": true,
     "network_before_account": true,
     "single_primary_action_per_step": true,
+    "device_name_optional_in_final_review": true,
     "registration_consent_before_registration_submission": true,
     "device_privacy_separate_from_registration_consent": true,
     "existing_login_does_not_create_new_legal_acceptance": true
@@ -153,6 +154,7 @@
     "separate_from_account_registration": true,
     "required_in_current_first_run_ui": true,
     "required_for_local_only_and_identity_modes": true,
+    "windows_new_completion_without_acknowledgement_denied": true,
     "acceptance_step": "ready",
     "checkbox_initially_unchecked": true,
     "document_status": "draft",
@@ -182,7 +184,8 @@
     "capability_driven": true,
     "rename_must_be_confirmed_before_advancing": true,
     "must_not_enter_first_run_state": true,
-    "owner_unavailable_must_not_block_boot": true
+    "owner_unavailable_must_not_block_boot": true,
+    "windows_read_deadline_ms": 5000
   },
   "mvp": {
     "runs_from_usb": true,

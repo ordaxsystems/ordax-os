@@ -10,6 +10,7 @@ import {createNativeFirstRunStateStore} from "../system/adapters/native/first-ru
 import {createWebIdentitySession} from "../system/adapters/web/identity.mjs";
 import {createSameOriginIdentityCredentials} from "../system/adapters/web/identity-credentials.mjs";
 import {completeFirstRunState,createInitialFirstRunState} from "../system/services/state/first-run.mjs";
+import {createSystemTermsAcceptance} from "../system/contracts/system-terms.mjs";
 // The existing Windows CI suite also runs the DPAPI Desktop account regressions.
 import "./test_windows_desktop_account_vault.mjs";
 import "./test_windows_desktop_local_session.mjs";
@@ -46,7 +47,8 @@ test("emulator persists through the real Native adapters and never grants hardwa
     assert.equal(firstRun.load().completed,false);
     const preferences=await createNativePreferenceStore(windowRef);
     assert.equal(await preferences.save({"regional.locale":"en-US","regional.time-zone":"America/Manaus"}),true);
-    const receipt=completeFirstRunState({locale:"en-US",timeZone:"America/Manaus",accountMode:"local-only"});
+    const receipt=completeFirstRunState({locale:"en-US",timeZone:"America/Manaus",accountMode:"local-only",
+      systemTerms:createSystemTermsAcceptance(true)});
     assert.equal(await firstRun.save(receipt),true);
     middleware=createEmulatorNativeHost({stateDirectory:directory});
     assert.deepEqual((await createNativeFirstRunStateStore(windowRef)).load(),receipt);

@@ -1,5 +1,8 @@
 const TABLES = Object.freeze({
   "en-US": Object.freeze({
+    "Nome do dispositivo (opcional)": "Device name (optional)",
+    "OrdaX Desktop": "OrdaX Desktop",
+    "OrdaX instalado": "Installed OrdaX",
     "Use um PIN ou senha local para proteger o acesso ao OrdaX Desktop. Isso não criptografa os arquivos do computador.": "Use a local PIN or password to protect access to OrdaX Desktop. This does not encrypt the computer's files.",
     "Confira suas escolhas para começar a usar o OrdaX Desktop.": "Review your choices to start using OrdaX Desktop.",
     "Continuar offline": "Continue offline",
@@ -232,6 +235,9 @@ const TABLES = Object.freeze({
     "Não foi possível confirmar a gravação do primeiro uso no pendrive. O assistente continua aberto para não perder a configuração.": "First-use state could not be confirmed on the USB drive. The assistant remains open so the configuration is not lost."
   }),
   "es-ES": Object.freeze({
+    "Nome do dispositivo (opcional)": "Nombre del dispositivo (opcional)",
+    "OrdaX Desktop": "OrdaX Desktop",
+    "OrdaX instalado": "OrdaX instalado",
     "Use um PIN ou senha local para proteger o acesso ao OrdaX Desktop. Isso não criptografa os arquivos do computador.": "Usa un PIN o una contraseña local para proteger el acceso a OrdaX Desktop. Esto no cifra los archivos del ordenador.",
     "Confira suas escolhas para começar a usar o OrdaX Desktop.": "Revisa tus elecciones antes de empezar a usar OrdaX Desktop.",
     "Continuar offline": "Continuar sin conexión",
@@ -463,6 +469,9 @@ const TABLES = Object.freeze({
     "Não foi possível confirmar a gravação do primeiro uso no pendrive. O assistente continua aberto para não perder a configuração.": "No se pudo confirmar el guardado del primer uso en la memoria USB. El asistente permanece abierto para no perder la configuración."
   }),
   "de-DE": Object.freeze({
+    "Nome do dispositivo (opcional)": "Gerätename (optional)",
+    "OrdaX Desktop": "OrdaX Desktop",
+    "OrdaX instalado": "Installiertes OrdaX",
     "Use um PIN ou senha local para proteger o acesso ao OrdaX Desktop. Isso não criptografa os arquivos do computador.": "Verwende eine lokale PIN oder ein Passwort, um den Zugriff auf OrdaX Desktop zu schützen. Dadurch werden die Dateien des Computers nicht verschlüsselt.",
     "Confira suas escolhas para começar a usar o OrdaX Desktop.": "Überprüfe deine Einstellungen, bevor du OrdaX Desktop verwendest.",
     "Continuar offline": "Offline fortfahren",
@@ -694,6 +703,9 @@ const TABLES = Object.freeze({
     "Não foi possível confirmar a gravação do primeiro uso no pendrive. O assistente continua aberto para não perder a configuração.": "Der Einrichtungsstatus konnte nicht auf dem USB-Stick bestätigt werden. Der Assistent bleibt geöffnet, damit die Konfiguration nicht verloren geht."
   }),
   "fr-FR": Object.freeze({
+    "Nome do dispositivo (opcional)": "Nom de l’appareil (facultatif)",
+    "OrdaX Desktop": "OrdaX Desktop",
+    "OrdaX instalado": "OrdaX installé",
     "Use um PIN ou senha local para proteger o acesso ao OrdaX Desktop. Isso não criptografa os arquivos do computador.": "Utilisez un code PIN ou un mot de passe local pour protéger l'accès à OrdaX Desktop. Cela ne chiffre pas les fichiers de l'ordinateur.",
     "Confira suas escolhas para começar a usar o OrdaX Desktop.": "Vérifiez vos choix avant de commencer à utiliser OrdaX Desktop.",
     "Continuar offline": "Continuer hors ligne",
