@@ -51,6 +51,7 @@ on:
       # not only on the subsequent main push (when the rollback risk is live).
       # Keep this scoped to the actual cold-boot composition entrypoints.
       - 'system/supervisor'
+      - 'system/surface/entrypoint'
       - 'docs/contracts/intelligence-source.json'
       - 'system/services/intelligence-source/**'
       - 'tools/intelligence-source/**'

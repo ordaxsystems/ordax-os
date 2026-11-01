@@ -90,6 +90,205 @@ class PublicSiteDeploymentTests(unittest.TestCase):
                 self.assertIn("assets/ordax-symbol.png", receipt["identity_support_files"])
                 self.assertIn("assets/ordax-symbol.png", {item["path"] for item in receipt["files"]})
 
+    def test_web_vercel_skips_proven_linux_usb_only_without_skipping_web_or_native(self):
+        """Use real Git commits: skip physical Linux only, never a Web/client change."""
+        script = ROOT / "tools/vercel/should_skip_build.sh"
+        helper = ROOT / "tools/vercel/web_linux_exclusions.py"
+        self.assertTrue(helper.is_file())
+        contract = json.loads((ROOT / "docs/contracts/build-autonomy.json").read_text(encoding="utf-8"))
+        boundaries = contract["client_build_independence"]
+        linux = (boundaries["windows_package_forbidden_linux_boot_paths"]
+                 + boundaries["windows_package_forbidden_linux_shell_paths"])
+        self.assertEqual(len(linux), len(set(linux)))
+
+        with tempfile.TemporaryDirectory() as temp:
+            work = Path(temp)
+            def git(*args):
+                result = subprocess.run(["git", *args], cwd=work, text=True,
+                                        capture_output=True, check=True)
+                return result.stdout.strip()
+            def write(relative, content):
+                destination = work / relative
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                destination.write_text(content, encoding="utf-8")
+            def commit(label):
+                git("add", "-A")
+                git("-c", "user.name=OrdaX Proof",
+                    "-c", "user.email=ordax-proof@example.invalid",
+                    "commit", "-qm", label)
+                return git("rev-parse", "HEAD")
+            def ignored(previous, current, project="prj_ftACluUqk6i9DoD9GPIwmgURwckP"):
+                env = dict(os.environ)
+                env.update(VERCEL_PROJECT_ID=project, VERCEL_GIT_PREVIOUS_SHA=previous,
+                           VERCEL_GIT_COMMIT_SHA=current)
+                return subprocess.run(["sh", str(script)], cwd=work, env=env,
+                                      capture_output=True, text=True, check=False).returncode
+
+            git("init", "-q")
+            write("docs/contracts/build-autonomy.json", json.dumps(contract))
+            write("docs/README.md", "docs only")
+            write("system/composition/native/main.mjs", "export const native=true;\n")
+            write("system/composition/web/main.tsx", "export const web=true;\n")
+            for path in linux:
+                write("system/" + path, "#!/bin/sh\nexit 0\n")
+            for path in boundaries["linux_only_client_probe_paths"]:
+                write("system/" + path, "#!/usr/bin/env python3\nprint('ok')\n")
+            hosts = boundaries["linux_only_client_host_entrypoints"]
+            write("system/surface/bin/ordax-surface",
+                  "#!/bin/sh\n" + "\n".join(hosts) + "\n")
+            for path in hosts:
+                signature = ("from http.server import ThreadingHTTPServer"
+                             if path.endswith("native_host_server.py")
+                             else 'gi.require_version("WebKit2", "4.1")')
+                write("system/" + path, "#!/usr/bin/env python3\n" + signature + "\n")
+            for relative in boundaries["linux_only_client_python_support_paths"]:
+                if relative.endswith("/native_store_metadata_policy.py"):
+                    content = ("# GENERATED FILE. DO NOT EDIT BY HAND.\n"
+                               "# Source of truth: docs/contracts/runtime-component-package.json\n")
+                else:
+                    content = "from __future__ import annotations\n"
+                write("system/" + relative, content)
+            for relative in boundaries["linux_only_client_base_update_diagnostics_paths"]:
+                write("system/" + relative,
+                      "#!/usr/bin/env python3\nfrom __future__ import annotations\n")
+            for relative, marker in (
+                ("services/base-update/agent.sh", "orchestrator.py"),
+                ("surface/bin/ordax-internet-proof", "internet_native_physical_proof.py"),
+                ("surface/bin/ordax-mvp-smoke", "mvp_surface_smoke.py"),
+            ):
+                write("system/" + relative, "#!/bin/sh\n" + marker + "\n")
+            package_path = "system/" + boundaries["linux_only_client_package_manifest"]
+            write(package_path, "alpine-baselayout\nbusybox\n")
+            baseline = commit("real canonical sources")
+            self.assertEqual(ignored("", baseline), 1, "first release always builds")
+            self.assertEqual(ignored("f" * 40, baseline), 1, "unknown previous build")
+            self.assertEqual(ignored(baseline, baseline), 1, "same revision is not proof")
+            self.assertEqual(ignored(baseline, "f" * 40), 1, "unknown HEAD")
+
+            write("system/rescue/agent.sh", "#!/bin/sh\nexit 1\n")
+            linux_only = commit("Linux-only service changed")
+            self.assertEqual(ignored(baseline, linux_only), 0)
+            self.assertEqual(ignored(baseline, linux_only,
+                                     "prj_mA9ew6hOfjdqlBr1cC757iMLPQJC"), 0,
+                             "public Site stays on its own producer")
+
+            write("system/entrypoint", "#!/bin/sh\nset -eu\nexit 0\n")
+            boot_only = commit("Linux USB entrypoint changed")
+            self.assertEqual(ignored(linux_only, boot_only), 0)
+
+            write("system/surface/entrypoint", "#!/bin/sh\nexit 1\n")
+            surface_boot_only = commit("Linux Surface graphical boot launcher changed")
+            self.assertEqual(ignored(boot_only, surface_boot_only), 0,
+                             "Linux graphical launcher must not rebuild the Web")
+
+            write("system/surface/runtime/physical_ata_probe.py",
+                  "#!/usr/bin/env python3\nprint('updated')\n")
+            probe_only = commit("Linux-only sysfs diagnostic changed")
+            self.assertEqual(ignored(surface_boot_only, probe_only), 0)
+
+            write("system/surface/runtime/native_host_server.py",
+                  "#!/usr/bin/env python3\nfrom http.server import SimpleHTTPRequestHandler\n")
+            native_host_only = commit("Linux HTTP graphical server updated")
+            self.assertEqual(ignored(probe_only, native_host_only), 0)
+            write("system/surface/runtime/native_host_server.py",
+                  "#!/usr/bin/env python3\nprint('not a verified HTTP host')\n")
+            unverified_host = commit("Native Linux HTTP host identity lost")
+            self.assertEqual(ignored(native_host_only, unverified_host), 1,
+                             "Unknown Python producer cannot skip Web delivery")
+            write("system/surface/runtime/native_host_server.py",
+                  "#!/usr/bin/env python3\nfrom http.server import ThreadingHTTPServer\n")
+            recovered_host = commit("Native Linux HTTP host restored")
+            self.assertEqual(ignored(unverified_host, recovered_host), 0)
+
+            write("system/services/base-update/orchestrator.py",
+                  "#!/usr/bin/env python3\nfrom __future__ import annotations\n"
+                  "# Updated Linux-only Base/ESP owner\n")
+            base_owner_only = commit("Linux-only EFI Base owner changed")
+            self.assertEqual(ignored(recovered_host, base_owner_only), 0)
+            write("system/diagnostics/mvp_surface_smoke.py",
+                  "#!/usr/bin/env python3\nfrom __future__ import annotations\n"
+                  "# physical smoke changed\n")
+            linux_diagnostic_only = commit("Linux-only physical diagnostic changed")
+            self.assertEqual(ignored(base_owner_only, linux_diagnostic_only), 0)
+            write("system/diagnostics/mvp_surface_smoke.py",
+                  "#!/usr/bin/env python3\nprint('changed owner')\n")
+            unverified_diagnostic = commit("Unknown physical diagnostic owner")
+            self.assertEqual(ignored(linux_diagnostic_only, unverified_diagnostic), 1,
+                             "Web build is required when Linux source identity is lost")
+            write("system/diagnostics/mvp_surface_smoke.py",
+                  "#!/usr/bin/env python3\nfrom __future__ import annotations\n")
+            recovered_diagnostic = commit("Restore Linux physical diagnostics")
+            self.assertEqual(ignored(unverified_diagnostic, recovered_diagnostic), 0)
+
+            # Direct changes to verified Python support cannot rebuild the
+            # Web; invalid/new support modules must build, never be hidden.
+            write("system/surface/runtime/native_account_gateway.py",
+                  "from __future__ import annotations\n# Linux host support updated\n")
+            verified_support = commit("Linux host support-only change")
+            self.assertEqual(ignored(recovered_diagnostic, verified_support), 0)
+            write("system/surface/runtime/native_account_gateway.py",
+                  "print('lost trusted Python owner')\n")
+            untrusted_support = commit("Python host support provenance changed")
+            self.assertEqual(ignored(verified_support, untrusted_support), 1)
+            write("system/surface/runtime/native_account_gateway.py",
+                  "from __future__ import annotations\n")
+            restored_support = commit("Restore Linux host support provenance")
+            self.assertEqual(ignored(untrusted_support, restored_support), 0)
+            write("system/surface/runtime/new_unreviewed_module.py",
+                  "from __future__ import annotations\n")
+            unknown_module = commit("New unclassified Linux Python dependency")
+            self.assertEqual(ignored(restored_support, unknown_module), 1)
+            (work / "system/surface/runtime/new_unreviewed_module.py").unlink()
+            restored_inventory = commit("Restore exact Linux Python inventory")
+            self.assertEqual(ignored(unknown_module, restored_inventory), 1,
+                             "Removing unknown Python is still an unclassified change")
+            write("system/surface/runtime/native_account_gateway.py",
+                  "from __future__ import annotations\n# Proven support after removal\n")
+            verified_after_recovery = commit("Verified Linux support after inventory recovery")
+            self.assertEqual(ignored(restored_inventory, verified_after_recovery), 0)
+
+            write("system/composition/native/main.mjs", "export const native=false;\n")
+            native_changed = commit("shared Native source changed")
+            self.assertEqual(ignored(verified_after_recovery, native_changed), 1)
+
+            write("system/composition/web/main.tsx", "export const web=false;\n")
+            web_changed = commit("Web-only source changed")
+            self.assertEqual(ignored(native_changed, web_changed), 1)
+
+            write("docs/README.md", "documentation only")
+            docs_only = commit("unrelated docs changed")
+            self.assertEqual(ignored(web_changed, docs_only), 0)
+            self.assertEqual(ignored(web_changed, docs_only, "wrong-project"), 1)
+
+            write("docs/contracts/build-autonomy.json", "{}")
+            missing_owner = commit("source contract removed")
+            self.assertEqual(ignored(docs_only, missing_owner), 1)
+
+            write("docs/contracts/build-autonomy.json", json.dumps(contract))
+            restored = commit("restore source contract")
+            self.assertEqual(ignored(missing_owner, restored), 1,
+                             "contract update itself must trigger Web rebuild")
+
+            write("system/rescue/agent.sh", "not a Linux shell source\n")
+            tampered = commit("Linux candidate no longer has a POSIX shebang")
+            self.assertEqual(ignored(restored, tampered), 1,
+                             "unknown source owner cannot skip build")
+
+            write("system/rescue/agent.sh", "#!/bin/sh\nexit 0\n")
+            recovered = commit("restore valid POSIX script")
+            write(package_path, "alpine-baselayout\nbusybox\npython3\n")
+            package_only = commit("Linux Alpine package list changed")
+            self.assertEqual(ignored(recovered, package_only), 0,
+                             "Alpine manifest must never rebuild the Web client")
+            write(package_path, "not valid package text!\n")
+            bad_package = commit("unexpected Alpine package manifest syntax")
+            self.assertEqual(ignored(package_only, bad_package), 1,
+                             "invalid or changed manifest ownership must build")
+            write(package_path, "alpine-baselayout\nbusybox\n")
+            package_recovered = commit("restore package manifest")
+            self.assertEqual(ignored(bad_package, package_recovered), 0,
+                             "a verified Alpine-only manifest remains outside Web")
+
     def test_vercel_ignore_build_is_fail_safe_on_first_deploy_and_git_history_gaps(self):
         self.assertEqual(
             self.vercel["ignoreCommand"],

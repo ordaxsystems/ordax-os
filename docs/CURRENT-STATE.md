@@ -1,3 +1,86 @@
+Remoção de dependências Linux exclusivas de Windows/Web (P0, 2026-11-01):
+O pacote NSIS e Web já excluíam várias sondas físicas, mas quatro scripts
+Python de diagnóstico Linux e a sessão de áudio POSIX ainda apareciam em
+listas dispersas. O contrato build-autonomy.json agora agrupa os quatro
+probes (linux_only_client_probe_paths) e audio-session.sh no conjunto
+existente de shells Linux, conservando o mesmo conteúdo permitido no NSIS
+Windows e cortando triggers Web/Vercel para arquivos somente físicos Linux.
+Não se exclui qualquer módulo Python nativo compartilhado. Web, Foundation
+e OS required client checks da revisão corrente ainda precisam de CI.
+Creator USB permanece separado, sem waiver dos entrypoints Native reais.
+A entrega física Windows continua não homologada; SSOT operacional:
+REMOVER-DEPENDENCIA.md.
+
+Separação Windows/Web ↔ USB — atualização 2026-11-01:
+PR OS #1980 HEAD eca2f3d1: 15 checks passaram (Windows NSIS,
+Web Candidate, Foundation, Site/gateway), 2 skips, 1 falha independente
+no Creator USB. A revisão corrige publicação Web que reconstruía por
+mudanças exclusivamente POSIX Linux. Nova etapa documentada em
+REMOVER-DEPENDENCIA.md torna system/surface/runtime/packages.txt,
+manifesto Alpine do produtor USB, não acionador de Vercel Web mediante
+verificação estrita da fonte Git e do único build-autonomy.json.
+A modificação do contrato ainda aguarda CI novo; sem merge e sem Vercel
+deploy. Código Native compartilhado permanece sujeito a teste USB;
+Surface #33 e required checks sem leitura (403) permanecem bloqueadores.
+
+Vercel Web deployment impact — P0, 2026-11-01:
+The ordax-web ignoreCommand previously compared all system/ bytes and thus
+triggered Web deployment on proven Linux-only USB/boot/POSIX source deltas.
+A guarded read-only projection of existing build-autonomy.json paths now
+selects Git excludes for Vercel's Web project only. Unknown state, malformed
+contract, unrecognized file/project or missing Git ancestry means BUILD,
+not bypass. Tested via isolated real Git commits; CI/prod deployment
+validation remains pending. Public Site project behavior is unchanged.
+
+Desktop/Web build separation — evidence update 2026-11-01:
+OS #1980 commits 09e96df5 and 79d2f2cf each finished with 13 passed,
+2 skipped and 1 failure in Creator USB only. Windows/Web/Foundation
+passed; the NSIS installed smoke validated omission of Web composition.
+The next change removes tools/surface-web both from the installed Windows
+template and ordax-pull's sparse candidate materialization. The only
+installed Native Vite compiler remains Windows-owned and verified by
+toolchain receipts. This new change still requires CI and physical user PC
+homologation. Earlier source verification:
+OS #1980 commit 09e96df5 finished with 13 passed, 2 skipped and 1 failure
+only in Creator USB (Alpine/Python pin). Windows Desktop (SSOT) CI
+#41273803078 passed and produced a 680377335-byte NSIS artifact;
+Surface Web Candidate and Foundation passed at the SAME exact source SHA.
+The single REMOVER-DEPENDENCIA.md roadmap marks boot and 21 POSIX
+exclusions verified by Windows CI. Current new work targets the accidental
+Windows-packaging inclusion of system/composition/web/, already owned
+exclusively by the Web client in the canonical build contract. The Native
+Vite entry is system/composition/native/index.html; only the Web subtree
+is excluded from Windows NSIS with a strict filesystem inventory and
+a real installed-NSIS negative assertion. The new revision is not yet
+CI/physical-proven. Shared Native changes and Surface A/B privacy
+remain separate gates; do not claim PR merge readiness.
+
+Independência de entrega Desktop/Web P0 (2026-11-01; roadmap REMOVER-DEPENDENCIA.md):
+Windows Desktop e Surface Web concluíram seus próprios checks na PR #1980
+em 80a40d7a; o Creator USB é um produtor separado e falha por lock
+Alpine/Python. A primeira redução NSIS excluiu os três executáveis de boot
+Linux, validada no CI Windows. Uma segunda redução em andamento exclui
+21 scripts POSIX de serviços/diagnósticos Linux do NSIS e dos filtros de
+rebuild Windows/Web, com fonte única em
+docs/contracts/build-autonomy.json#client_build_independence.
+A aprovação de CI/instalador físico dessa segunda etapa ainda está pendente.
+A mudança Native compartilhada na PR continua justificando prova USB;
+não afirmar independência de required checks sem ler regras (403).
+O E2E visual Workspace de troca de usuário pertence à Surface #33.
+
+Desktop/Web P0 implementation (2026-11-01; tracked by REMOVER-DEPENDENCIA.md):
+The artifact graph already treats Windows and Web as independent of USB Creator;
+current Windows/Web workflows do not call the USB producer. The active OS
+PR #1980 nevertheless changes the shared Native entrypoint and therefore
+legitimately triggers USB impact proof. Its Creator job fails before boot at
+Alpine Python 3.12.15-r0 versus 3.12.16-r0; this is NOT a Windows/Web
+compilation failure. The target is separate client delivery/promotion gates,
+not falsely marking the shared Native USB artifact safe. Root roadmap contains
+staged changes and acceptance gates. First Windows packaging reduction:
+exclude Linux-only boot executable entrypoints from the existing NSIS template;
+validate through exact inventory + installed NSIS tests before marking done.
+Surface cross-account workspace visual rehydration remains with Surface #33.
+
 Priority / delivery autonomy (2026-10-31):
 The active Windows Desktop release track has priority over Linux USB/Creator
 and Buildroot. Complete real installed Desktop and its essential Account,

@@ -25,7 +25,7 @@ class CreatorOwnerImpactTests(unittest.TestCase):
             subprocess.run(["git", "-C", str(self.root), *cmd], check=True, capture_output=True)
 
     def commit(self, workflow=None, lock=None, path=None,
-               intelligence_workflow=None, delete_path=None):
+               intelligence_workflow=None, delete_path=None, client_contract=None):
         if workflow is not None:
             f = self.root / impact.WORKFLOW
             f.parent.mkdir(parents=True, exist_ok=True)
@@ -39,6 +39,10 @@ class CreatorOwnerImpactTests(unittest.TestCase):
             if not f.is_file():
                 raise AssertionError("delete fixture path must exist")
             f.unlink()
+        if client_contract is not None:
+            f = self.root / impact.CLIENT_AUTONOMY_CONTRACT
+            f.parent.mkdir(parents=True, exist_ok=True)
+            f.write_text(json.dumps(client_contract, sort_keys=True) + "\n", encoding="utf-8")
         if lock is not None:
             f = self.root / impact.SURFACE_LOCK
             f.parent.mkdir(parents=True, exist_ok=True)
@@ -108,9 +112,13 @@ class CreatorOwnerImpactTests(unittest.TestCase):
         self.assertTrue(impact.classify("0" * 40, boot, root=self.root)[0])
 
     def test_boot_and_unknown_owner_changes_require_real_usb(self):
+        self.assertIn("      - 'system/surface/entrypoint'",
+                      WORKFLOW.read_text(encoding="utf-8"),
+                      "A Linux Surface boot change must trigger the PR Owner USB gate")
         base = self.commit(WORKFLOW.read_text(encoding="utf-8"), VISUAL)
         for path in ("bootstrap/initramfs/build.py", "bootstrap/surface-runtime/build.py",
-                     "system/supervisor", "tools/creator/assemble.py",
+                     "system/supervisor", "system/surface/entrypoint",
+                     "tools/creator/assemble.py",
                      "docs/contracts/unknown-owner.json"):
             with self.subTest(path=path):
                 current = self.commit(path=path)
@@ -165,7 +173,8 @@ class CreatorOwnerImpactTests(unittest.TestCase):
             "tools/windows-emulator/account-gateway.mjs",
             "system/contracts/space-create-port.mjs",
             "tests/test_space_create_bridge.mjs",
-            "docs/contracts/build-autonomy.json",
+            # The exact build-autonomy JSON is validated in its own test.
+            # Arbitrary edits to its dependency graph must remain USB-heavy.
             "docs/BUILD-AUTONOMY.md",
             "docs/CURRENT-STATE.md",
             "docs/DECISIONS.md",
@@ -185,6 +194,11 @@ class CreatorOwnerImpactTests(unittest.TestCase):
                 next_rev = self.commit(path=path)
                 self.assertEqual(impact.classify(base, next_rev, root=self.root),
                                  (False, "nonproducer-contract-only"))
+        # A malformed or unknown change to the build dependency contract
+        # is explicitly NOT an exclusive Windows/Web no-op.
+        changed = self.commit(path="docs/contracts/build-autonomy.json")
+        self.assertEqual(impact.classify(base, changed, root=self.root),
+                         (True, "client-delivery-contract-unknown-or-producer-delta"))
         for shared in (
             "system/composition/native/main.mjs",
             "system/adapters/native/space-selection.mjs",
@@ -222,6 +236,311 @@ class CreatorOwnerImpactTests(unittest.TestCase):
         self.assertTrue(impact.classify(base, restored, root=self.root)[0])
         extended = self.commit(intelligence_workflow=source + "\\n# unrelated")
         self.assertTrue(impact.classify(restored, extended, root=self.root)[0])
+
+    def test_client_contract_metadata_addition_skips_usb_but_dependency_mutation_does_not(self):
+        contract = json.loads((ROOT / impact.CLIENT_AUTONOMY_CONTRACT).read_text(encoding="utf-8"))
+        new_keys = ("separation_roadmap", "client_validation_workflows",
+                    "windows_package_forbidden_linux_boot_paths",
+                    "windows_package_forbidden_linux_shell_paths",
+                    "linux_only_client_package_manifest",
+                    "linux_only_client_probe_paths",
+                    "linux_only_client_host_entrypoints",
+                    "linux_only_client_python_support_paths",
+                    "linux_only_client_base_update_diagnostics_paths",
+                    "client_delivery_gate_decoupling_fully_proven",
+                    "windows_physical_and_web_live_independence_proven")
+        old = json.loads(json.dumps(contract))
+        for key in new_keys:
+            old["client_build_independence"].pop(key)
+        # The classifier checks file shebang and Git source provenance, not
+        # a hardcoded duplicate list of approved Linux exclusions.
+        for relative in contract["client_build_independence"]["windows_package_forbidden_linux_shell_paths"]:
+            source = self.root / "system" / relative
+            source.parent.mkdir(parents=True, exist_ok=True)
+            source.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+        for relative in contract["client_build_independence"]["linux_only_client_probe_paths"]:
+            probe = self.root / "system" / relative
+            probe.parent.mkdir(parents=True, exist_ok=True)
+            probe.write_text("#!/usr/bin/env python3\nprint('ok')\n", encoding="utf-8")
+        # The actual Linux graphical launcher consumes these Python hosts.
+        launcher = self.root / "system/surface/bin/ordax-surface"
+        launcher.parent.mkdir(parents=True, exist_ok=True)
+        launcher.write_text("#!/bin/sh\n" + "\n".join(
+            contract["client_build_independence"]["linux_only_client_host_entrypoints"]) + "\n",
+            encoding="utf-8")
+        for relative in contract["client_build_independence"]["linux_only_client_host_entrypoints"]:
+            source = self.root / "system" / relative
+            source.parent.mkdir(parents=True, exist_ok=True)
+            signature = ("from http.server import ThreadingHTTPServer"
+                         if relative.endswith("native_host_server.py")
+                         else 'gi.require_version("WebKit2", "4.1")')
+            source.write_text("#!/usr/bin/env python3\n" + signature + "\n", encoding="utf-8")
+        # All 58 support modules are owned by the two POSIX Python graphical
+        # hosts and diagnostics. Preserve the exact Git inventory so an added
+        # or missing module cannot silently become a Windows/Web skip.
+        for relative in contract["client_build_independence"][
+                "linux_only_client_python_support_paths"]:
+            source = self.root / "system" / relative
+            source.parent.mkdir(parents=True, exist_ok=True)
+            if relative.endswith("/native_store_metadata_policy.py"):
+                content = ("# GENERATED FILE. DO NOT EDIT BY HAND.\n"
+                           "# Source of truth: docs/contracts/runtime-component-package.json\n")
+            else:
+                content = "from __future__ import annotations\n"
+            source.write_text(content, encoding="utf-8")
+        # Git provenance for Linux Base/EFI owner and physical proof scripts.
+        linux_owner = contract["client_build_independence"][
+            "linux_only_client_base_update_diagnostics_paths"]
+        for relative in linux_owner:
+            source = self.root / "system" / relative
+            source.parent.mkdir(parents=True, exist_ok=True)
+            source.write_text(
+                "#!/usr/bin/env python3\nfrom __future__ import annotations\n",
+                encoding="utf-8")
+        for relative, marker in (
+            ("services/base-update/agent.sh", "orchestrator.py"),
+            ("surface/bin/ordax-internet-proof", "internet_native_physical_proof.py"),
+            ("surface/bin/ordax-mvp-smoke", "mvp_surface_smoke.py"),
+        ):
+            source = self.root / "system" / relative
+            source.parent.mkdir(parents=True, exist_ok=True)
+            source.write_text("#!/bin/sh\n" + marker + "\n", encoding="utf-8")
+        manifest_path = self.root / "system" / contract["client_build_independence"]["linux_only_client_package_manifest"]
+        manifest_path.parent.mkdir(parents=True, exist_ok=True)
+        manifest_path.write_text("alpine-baselayout\nbusybox\n", encoding="utf-8")
+        base = self.commit(workflow=WORKFLOW.read_text(encoding="utf-8"),
+                           lock=VISUAL, client_contract=old)
+        changed = self.commit(client_contract=contract)
+        self.assertEqual(impact.classify(base, changed, root=self.root),
+                         (False, "nonproducer-contract-only"))
+        unsafe = json.loads(json.dumps(contract))
+        unsafe["target_relationships"]["desktop-client"].append("creator")
+        dangerous = self.commit(client_contract=unsafe)
+        self.assertEqual(impact.classify(changed, dangerous, root=self.root),
+                         (True, "client-delivery-contract-unknown-or-producer-delta"))
+
+    def test_linux_only_alpine_manifest_is_single_source_and_fail_closed(self):
+        client = json.loads((ROOT / impact.CLIENT_AUTONOMY_CONTRACT).read_text(encoding="utf-8"))["client_build_independence"]
+        manifest = client["linux_only_client_package_manifest"]
+        self.assertEqual(manifest, "surface/runtime/packages.txt")
+        source = (ROOT / "system" / manifest).read_text(encoding="utf-8")
+        self.assertTrue(source.endswith("\n"))
+        self.assertIn("alpine-baselayout", source)
+        for line in source.splitlines():
+            self.assertRegex(line, r"^[a-z0-9][a-z0-9+._-]*$")
+
+    def test_surface_web_workflow_is_owned_by_web_not_usb_creator(self):
+        base = self.commit(WORKFLOW.read_text(encoding="utf-8"), VISUAL)
+        head = self.commit(path=".github/workflows/surface-web-candidate.yml")
+        self.assertEqual(impact.classify(base, head, root=self.root),
+                         (False, "nonproducer-contract-only"))
+
+    def test_linux_shell_exclusion_must_be_real_posix_source(self):
+        contract = json.loads((ROOT / impact.CLIENT_AUTONOMY_CONTRACT).read_text(encoding="utf-8"))
+        shell = contract["client_build_independence"]["windows_package_forbidden_linux_shell_paths"]
+        self.assertGreaterEqual(len(shell), 15)
+        for relative in shell:
+            with self.subTest(script=relative):
+                self.assertTrue(relative.startswith(("rescue/", "services/", "surface/")))
+                self.assertTrue((ROOT / "system" / relative).read_bytes().startswith(b"#!/bin/sh\n"))
+
+    def test_linux_only_physical_probes_have_proven_python_entrypoints(self):
+        client = json.loads((ROOT / impact.CLIENT_AUTONOMY_CONTRACT).read_text(encoding="utf-8"))["client_build_independence"]
+        probes = client["linux_only_client_probe_paths"]
+        self.assertEqual(len(probes), 4)
+        for relative in probes:
+            with self.subTest(path=relative):
+                self.assertTrue(relative.startswith("surface/runtime/"))
+                self.assertTrue((ROOT / "system" / relative).read_bytes().startswith(b"#!/usr/bin/env python3\n"))
+        self.assertIn("surface/runtime/audio-session.sh",
+                      client["windows_package_forbidden_linux_shell_paths"])
+
+    def test_linux_python_graphical_hosts_have_actual_launcher_consumers(self):
+        client = json.loads((ROOT / impact.CLIENT_AUTONOMY_CONTRACT)
+                            .read_text(encoding="utf-8"))["client_build_independence"]
+        hosts = client["linux_only_client_host_entrypoints"]
+        self.assertEqual(hosts, ["surface/runtime/native_host_server.py",
+                                 "surface/runtime/ordax_browser_host.py"])
+        launcher = (ROOT / "system/surface/bin/ordax-surface").read_text(encoding="utf-8")
+        for host in hosts:
+            self.assertIn(host, launcher)
+            self.assertTrue((ROOT / "system" / host).read_bytes().startswith(
+                b"#!/usr/bin/env python3\n"))
+        self.assertIn("from http.server import",
+                      (ROOT / "system" / hosts[0]).read_text(encoding="utf-8"))
+        self.assertIn('gi.require_version("WebKit2", "4.1")',
+                      (ROOT / "system" / hosts[1]).read_text(encoding="utf-8"))
+
+    def test_linux_python_support_closure_is_exact_and_has_single_owner(self):
+        contract = json.loads((ROOT / impact.CLIENT_AUTONOMY_CONTRACT)
+                              .read_text(encoding="utf-8"))["client_build_independence"]
+        support = contract["linux_only_client_python_support_paths"]
+        owners = contract["linux_only_client_host_entrypoints"]
+        probes = contract["linux_only_client_probe_paths"]
+        self.assertEqual(len(support), 58)
+        self.assertEqual(len(set([*support, *owners, *probes])), 64)
+        actual = sorted("surface/runtime/" + p.name
+                        for p in (ROOT / "system/surface/runtime").glob("*.py"))
+        self.assertEqual(actual, sorted([*support, *owners, *probes]))
+        for relative in support:
+            with self.subTest(path=relative):
+                source = ROOT / "system" / relative
+                self.assertLess(source.stat().st_size, 256 * 1024)
+                body = source.read_text(encoding="utf-8")
+                if relative.endswith("/native_store_metadata_policy.py"):
+                    self.assertTrue(body.startswith("# GENERATED FILE. DO NOT EDIT BY HAND.\n"))
+                    self.assertIn("docs/contracts/runtime-component-package.json", body[:300])
+                else:
+                    self.assertIn("from __future__ import annotations", body[:1024])
+
+    def test_linux_base_and_diagnostics_owners_are_exact_python_sources(self):
+        client = json.loads((ROOT / impact.CLIENT_AUTONOMY_CONTRACT)
+                            .read_text(encoding="utf-8"))["client_build_independence"]
+        files = client["linux_only_client_base_update_diagnostics_paths"]
+        self.assertEqual(len(files), 13)
+        owner = sorted(
+            str(p.relative_to(ROOT / "system")).replace("\\", "/")
+            for folder in ("system/services/base-update", "system/diagnostics")
+            for p in (ROOT / folder).glob("*.py")
+        )
+        self.assertEqual(sorted(files), owner)
+        for relative in files:
+            with self.subTest(source=relative):
+                body = (ROOT / "system" / relative).read_text(encoding="utf-8")
+                self.assertTrue(body.startswith("#!/usr/bin/env python3\n"))
+                self.assertIn("from __future__ import annotations", body[:1024])
+        for script, name in (
+            ("system/services/base-update/agent.sh", "orchestrator.py"),
+            ("system/surface/bin/ordax-internet-proof", "internet_native_physical_proof.py"),
+            ("system/surface/bin/ordax-mvp-smoke", "mvp_surface_smoke.py"),
+        ):
+            self.assertIn(name, (ROOT / script).read_text(encoding="utf-8"))
+
+    def test_web_only_composition_is_excluded_from_windows_not_web_delivery(self):
+        scope = json.loads((ROOT / "docs/contracts/build-autonomy.json").read_text(encoding="utf-8"))
+        self.assertIn("system/composition/web/",
+                      scope["client_build_independence"]["client_only_source_prefixes"])
+        windows = (ROOT / ".github/workflows/windows-desktop-dev.yml").read_text(encoding="utf-8")
+        web = (ROOT / ".github/workflows/surface-web-candidate.yml").read_text(encoding="utf-8")
+        self.assertEqual(windows.count("      - '!system/composition/web/**'"), 1)
+        self.assertIn("paths: *desktop_product_sources", windows)
+        self.assertEqual(web.count("      - 'system/composition/web/**'"), 2)
+        self.assertEqual(web.count("      - '!system/composition/web/**'"), 0)
+        self.assertIn("      - 'system/**'", windows)
+        self.assertEqual(windows.count("      - 'system/composition/native/**'"), 0)
+
+
+    def test_ci_exclusions_exactly_match_ssot_and_are_terminal(self):
+        """A later positive glob must never re-include a Linux or Web payload.
+
+        Use the checked-in build autonomy contract, not a second exclusion
+        list, for both the single Windows YAML anchor and Web push/PR events.
+        """
+        boundary = json.loads((ROOT / "docs/contracts/build-autonomy.json")
+                              .read_text(encoding="utf-8"))["client_build_independence"]
+        linux = (
+            boundary["windows_package_forbidden_linux_boot_paths"]
+            + boundary["windows_package_forbidden_linux_shell_paths"]
+            + boundary["linux_only_client_probe_paths"]
+            + boundary["linux_only_client_host_entrypoints"]
+            + boundary["linux_only_client_python_support_paths"]
+            + boundary["linux_only_client_base_update_diagnostics_paths"]
+            + [boundary["linux_only_client_package_manifest"]]
+        )
+        expected_web = {"!system/" + path for path in linux}
+        expected_desktop = expected_web | {"!system/composition/web/**"}
+        self.assertEqual(len(linux), len(expected_web),
+                         "Duplicate Linux ownership in build-autonomy contract")
+
+        windows = (ROOT / ".github/workflows/windows-desktop-dev.yml").read_text(encoding="utf-8")
+        web = (ROOT / ".github/workflows/surface-web-candidate.yml").read_text(encoding="utf-8")
+        self.assertIn("paths: *desktop_product_sources", windows)
+        self.assertEqual(web.count("\n  pull_request:\n"), 1)
+        web_push, web_pr = web.split("\n  pull_request:\n", 1)
+
+        def patterns(body):
+            return [line[9:-1] for line in body.splitlines()
+                    if line.startswith("      - '") and line.endswith("'")]
+
+        def prove_exact_terminal_negatives(source, expected):
+            seen = patterns(source)
+            negatives = [path for path in seen if path.startswith("!")]
+            self.assertEqual(set(negatives), expected,
+                             "Client workflow has a missing or extra exclusion")
+            self.assertEqual(len(negatives), len(expected),
+                             "Client workflow duplicates a negative pattern")
+            self.assertEqual(seen[-len(negatives):], negatives,
+                             "An event has positive includes after negative filters")
+            self.assertTrue(all(not path.startswith("!") for path in
+                                seen[:-len(negatives)]),
+                            "Client workflow has an early negative filter")
+
+        prove_exact_terminal_negatives(windows.split("\n  push:\n", 1)[0],
+                                       expected_desktop)
+        for event in (web_push, web_pr):
+            prove_exact_terminal_negatives(event, expected_web)
+
+        # The order invariant must protect real client inputs as well.
+        self.assertIn("system/**", patterns(windows))
+        self.assertIn("system/surface/**", patterns(web_push))
+        self.assertIn("system/composition/native/**", patterns(web_push))
+        self.assertIn("system/composition/web/**", patterns(web_pr))
+
+    def test_usb_boot_only_paths_do_not_trigger_client_builds(self):
+        contract = json.loads((ROOT / "docs/contracts/build-autonomy.json").read_text(encoding="utf-8"))
+        windows = (ROOT / ".github/workflows/windows-desktop-dev.yml").read_text(encoding="utf-8")
+        web = (ROOT / ".github/workflows/surface-web-candidate.yml").read_text(encoding="utf-8")
+        # Windows uses one shared event-path YAML anchor for both push and PR.
+        self.assertIn("paths: *desktop_product_sources", windows)
+        self.assertIn("- 'system/**'", windows)
+        for field in ("windows_package_forbidden_linux_boot_paths",
+                      "windows_package_forbidden_linux_shell_paths",
+                      "linux_only_client_probe_paths"):
+            for path in contract["client_build_independence"][field]:
+                self.assertEqual(windows.count(f"      - '!system/{path}'"), 1,
+                                 "Linux-only input must not rebuild Windows CI")
+                self.assertEqual(web.count(f"      - '!system/{path}'"), 2,
+                                 "Linux-only input must not rebuild Web CI")
+        # Web has separate push and pull_request path tables; both must exclude.
+        self.assertEqual(web.count("      - 'system/surface/**'"), 2)
+        for path in ("system/surface/bin/ordax-surface",
+                     "system/surface/runtime/packages.txt"):
+            self.assertEqual(web.count(f"      - '!{path}'"), 2,
+                             "must exclude USB-specific inputs on both Web events")
+        self.assertEqual(web.count("      - 'system/composition/native/**'"), 2,
+                         "shared Native integration remains validated")
+        self.assertEqual(web.count("      - 'system/composition/web/**'"), 2,
+                         "Web source remains validated")
+
+    def test_client_workflows_have_no_direct_usb_creator_producer_dependency(self):
+        contract = json.loads((ROOT / "docs/contracts/build-autonomy.json").read_text(encoding="utf-8"))
+        independent = contract["client_build_independence"]
+        self.assertEqual(independent["separation_roadmap"], "REMOVER-DEPENDENCIA.md")
+        self.assertTrue((ROOT / independent["separation_roadmap"]).is_file())
+        for target, workflow in independent["client_validation_workflows"].items():
+            with self.subTest(target=target):
+                self.assertIn(target, ("desktop-client", "web-client"))
+                source = (ROOT / workflow).read_text(encoding="utf-8")
+                # Exclude prose comments: only executable jobs and actions count.
+                executable = "\n".join(line for line in source.splitlines()
+                                       if not line.lstrip().startswith("#"))
+                self.assertIn("jobs:", executable)
+                for forbidden in ("needs: build-and-publish", "needs: creator",
+                                  "uses: ./.github/actions/resolve-creator-source",
+                                  "tools/creator/", "bootstrap/dev-base/build.py",
+                                  "bootstrap/surface-runtime/build.py", "qemu-system",
+                                  "apk add --no-cache"):
+                    self.assertNotIn(forbidden, executable)
+        self.assertFalse(independent["client_delivery_gate_decoupling_fully_proven"])
+        self.assertFalse(independent["windows_physical_and_web_live_independence_proven"])
+
+    def test_root_dependency_roadmap_is_nonproducer_but_unknown_root_stays_heavy(self):
+        base = self.commit(WORKFLOW.read_text(encoding="utf-8"), VISUAL)
+        plan = self.commit(path="REMOVER-DEPENDENCIA.md")
+        self.assertEqual(impact.classify(base, plan, root=self.root),
+                         (False, "nonproducer-contract-only"))
+        dangerous = self.commit(path="UNKNOWN-BOOT-GATE.md")
+        self.assertTrue(impact.classify(plan, dangerous, root=self.root)[0])
 
     def test_build_autonomy_has_no_creator_dependency_for_web_or_desktop(self):
         contract = json.loads((ROOT / "docs/contracts/build-autonomy.json").read_text(encoding="utf-8"))

@@ -63,6 +63,19 @@ def test_other_native_runtime_sources_remain_portable_qemu_heavy():
     assert "heavy-prefix:system/surface/runtime/ordax_browser_host.py" in result.reasons
 
 
+def test_account_workspace_identity_isolation_has_focused_ci_without_boot_rebuild():
+    result = impact.classify_paths([
+        ".github/workflows/account-sync-checkpoint-durability.yml",
+        "system/adapters/native/workspace.mjs",
+        "system/services/sync/workspace-metadata.mjs",
+        "system/composition/native/main.mjs",
+        "tests/test_native_workspace_owner_isolation.mjs",
+    ])
+    assert result.required is False
+    heavy = impact.classify_paths(["system/surface/runtime/ordax_browser_host.py"])
+    assert heavy.required is True
+
+
 def test_unclassified_non_system_test_remains_fail_closed():
     result = impact.classify_paths(["tests/test_unknown_boot_sensitive_owner.py"])
     assert result.required is True

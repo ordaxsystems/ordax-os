@@ -38,8 +38,13 @@ case "$project" in
     # Web composes the pinned independent Site login and Surface source.
     # Neither source is copied into OS Git; their lock changes are watched
     # through docs/contracts and the resolver through tools/vercel.
-    if git diff --quiet "$previous" "$current" -- \
-      system \
+    # The checked-in autonomy contract owns the exact Linux-only excludes.
+    # Failure to inspect or validate ANY source means BUILD, not silent skip.
+    script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd) || exit 1
+    linux_excludes=$(python3 "$script_dir/web_linux_exclusions.py" 2>/dev/null) || exit 1
+    [ -n "$linux_excludes" ] || exit 1
+    set -f
+    set -- system \
       tools/surface-web \
       tools/brand \
       tools/source_graph.py \
@@ -52,7 +57,12 @@ case "$project" in
       docs/contracts \
       docs/evidence/web-layout-reference-2026-10-10.json \
       docs/evidence/web-central-reference-2026-10-11.json \
-      package.json package-lock.json vercel.json; then
+      package.json package-lock.json vercel.json
+    for excluded in $linux_excludes; do
+      set -- "$@" "$excluded"
+    done
+    set +f
+    if git diff --quiet "$previous" "$current" -- "$@"; then
       exit 0
     fi
     ;;

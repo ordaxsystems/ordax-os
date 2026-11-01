@@ -49,6 +49,16 @@ function surfaceFiles(root,revision) {
 }
 function osFiles(root,lock,revision) {
   put(root,'docs/contracts/surface-source.json',surfaceLock(lock));
+  // This is a complete, policy-bearing official OS Git candidate.
+  put(root,'docs/contracts/build-autonomy.json',
+    readFileSync(join(__dirname,'../../docs/contracts/build-autonomy.json')));
+  put(root,'tools/windows-desktop/package.json',
+    readFileSync(join(__dirname,'package.json')));
+  // Linux and Web sources exist in Git but must not materialize in Windows.
+  put(root,'system/entrypoint','#!/bin/sh\nexit 0\n');
+  put(root,'system/surface/runtime/native_host_server.py',
+    '#!/usr/bin/env python3\n# Linux graphical host fixture\n');
+  put(root,'system/composition/web/main.tsx','// Web producer fixture\n');
   put(root,'system/composition/native/index.html',
     '<!doctype html><html><head><meta charset="utf-8"></head><body>'+
     '<script type="module" src="./main.mjs"></script></body></html>\n');
@@ -124,6 +134,15 @@ test('Windows Dev compiles real Git revisions, restores known-good after interru
   assert.equal(buildCount,1);assert.equal(readState(userData).activeSha,null);
   const one=versionRoot(userData,osOne);
   assert.equal(hasNativeBundle(one),true);
+  assert.equal(existsSync(join(one,'tools','surface-web')),false,
+    'Native update source must not retain the Web build-tool owner');
+  for(const excluded of ['system/entrypoint',
+    'system/surface/runtime/native_host_server.py',
+    'system/composition/web/main.tsx']) {
+    assert.equal(existsSync(join(one,excluded)),false,
+      'Git candidate reintroduced Linux/Web source: '+excluded);
+  }
+  assert.equal(gitCommand(one,'status','--porcelain'),'');
   const bytesOne=compiledBundleSha256(one);
   assert.equal(existsSync(join(one,'system/surface/ui')),false,'visual source must not be retained');
   let boot=await chooseBootVersion({userData,template});

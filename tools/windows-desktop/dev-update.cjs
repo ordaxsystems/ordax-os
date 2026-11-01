@@ -5,15 +5,18 @@
 const { randomUUID } = require('node:crypto');
 const { pathToFileURL } = require('node:url');
 const { join, basename, dirname } = require('node:path');
-const { mkdirSync, readFileSync, writeFileSync, renameSync, rmSync, readdirSync, lstatSync, existsSync, unlinkSync, openSync, closeSync, fsyncSync } = require('node:fs');
+const { mkdirSync, readFileSync, readSync, fstatSync, writeFileSync, renameSync, rmSync, readdirSync, lstatSync, existsSync, unlinkSync, openSync, closeSync, fsyncSync } = require('node:fs');
 const { OFFICIAL_REMOTE } = require('./runtime.cjs');
 const { git, isTrusted, hasDesktopHostContract, dependencies } = require('./checkout.cjs');
 const { hasNativeBundle, buildNativeCandidate, verifyBundledNativeReceipt } = require('./native-build.cjs');
 const { prepareWindowsGitDeletion } = require('./git-cleanup.cjs');
+const { canonicalWindowsSparsePatterns } = require('./package-inventory.cjs');
 
 const SHA_RE = /^[0-9a-f]{40}$/;
 const CHANNEL_SCHEMA = 'ordax.desktop-dev-update-state/1';
 const STATE_FILENAME = 'desktop-dev-update-state.json';
+// Same physical cap already enforced by the Desktop read-only status adapter.
+const MAX_STATE_BYTES = 8 * 1024;
 const VERSIONS_DIR = 'runtime-versions';
 const DEFAULT_STATE = Object.freeze({
   schema: CHANNEL_SCHEMA, activeSha: null, previousSha: null,
@@ -51,11 +54,54 @@ function validateState(value) {
   });
 }
 function statePath(userData) { return join(userData, STATE_FILENAME); }
+function sameStateFile(left,right) {
+  // Node's Win32 stat returns stable device and inode keys for a file handle.
+  // Comparing the actual handle with both pathname probes detects replacements.
+  return left.dev === right.dev && left.ino === right.ino;
+}
+function stateIsBoundedRegularFile(stat) {
+  return stat.isFile() && !stat.isSymbolicLink() &&
+    Number.isSafeInteger(stat.size) && stat.size > 0 && stat.size <= MAX_STATE_BYTES;
+}
 function readState(userData) {
   const path = statePath(userData);
-  if (!existsSync(path)) return { ...DEFAULT_STATE };
-  if (!lstatSync(path).isFile()) throw Error('Desktop update state is not a regular file');
-  return validateState(JSON.parse(readFileSync(path, 'utf8')));
+  let initial;
+  try { initial = lstatSync(path); }
+  catch (error) {
+    // No journal on the FIRST lookup is a fresh installation. Disappearance
+    // after the first lookup is a torn update transaction, never a reset.
+    if (error?.code === 'ENOENT') return { ...DEFAULT_STATE };
+    throw error;
+  }
+  if (!stateIsBoundedRegularFile(initial))
+    throw Error('Desktop Dev update journal must be a bounded regular file');
+  let fd = null;
+  try {
+    fd = openSync(path,'r');
+    const opened = fstatSync(fd);
+    if (!stateIsBoundedRegularFile(opened) ||
+        !sameStateFile(initial,opened) || opened.size !== initial.size)
+      throw Error('Desktop Dev update journal changed during open');
+    // Read no more than the cap + sentinel byte even when the file grows.
+    const bytes = Buffer.alloc(MAX_STATE_BYTES + 1);
+    let count = 0;
+    while (count < bytes.length) {
+      const received = readSync(fd,bytes,count,bytes.length - count,count);
+      if (received === 0) break;
+      count += received;
+    }
+    const final = fstatSync(fd), nameFinal = lstatSync(path);
+    if (count !== opened.size || count > MAX_STATE_BYTES ||
+        final.size !== opened.size || final.mtimeMs !== opened.mtimeMs ||
+        !sameStateFile(opened,final) || !stateIsBoundedRegularFile(nameFinal) ||
+        !sameStateFile(opened,nameFinal) || nameFinal.size !== opened.size)
+      throw Error('Desktop Dev update journal changed during read');
+    return validateState(JSON.parse(
+      new TextDecoder('utf-8',{fatal:true}).decode(bytes.subarray(0,count))
+    ));
+  } finally {
+    if (fd !== null) closeSync(fd);
+  }
 }
 function writeState(userData, state) {
   const value = validateState(state);
@@ -417,8 +463,34 @@ async function stageMain({ userData, template, log = () => {}, remote = OFFICIAL
         '--filter=blob:none','--sparse',
         '--single-branch','--no-tags','--branch','main',OFFICIAL_REMOTE,staging],userData,120000);
       if (!clone.ok) return {status:'unavailable'};
+      // First materialize ONLY the verified candidate's policy and Windows
+      // owner metadata. Never trust a separately invented sparse path list.
+      const policy = await runGit(['-C',staging,'sparse-checkout','set',
+        'docs/contracts','tools/windows-desktop'],staging,60000);
+      if (!policy.ok) {
+        log('Windows Git could not materialize exact candidate policy');
+        return {status:'unavailable'};
+      }
+      let patterns;
+      try {
+        const readCandidateJson = (relative,maximum) => {
+          const path = join(staging,...relative.split('/'));
+          const stat = lstatSync(path);
+          if (!stat.isFile() || stat.isSymbolicLink() || stat.size < 2 ||
+              stat.size > maximum) throw Error('Untrusted Windows candidate policy file');
+          return JSON.parse(readFileSync(path,'utf8'));
+        };
+        const candidatePackage = readCandidateJson('tools/windows-desktop/package.json',32*1024);
+        const candidateAuthority = readCandidateJson('docs/contracts/build-autonomy.json',64*1024);
+        patterns = canonicalWindowsSparsePatterns(candidatePackage,candidateAuthority);
+      } catch(error) {
+        log('Windows Git candidate has no verified packaging policy: '+error.name);
+        return {status:'untrusted'};
+      }
+      // Preserve root package manifests and both verified Native owners;
+      // omit only Linux/USB or Web-only blobs excluded by canonical NSIS.
       const sparse = await runGit(['-C',staging,'sparse-checkout','set',
-        'system','docs/contracts','docs/evidence','tools/windows-emulator','tools/surface-web','tools/windows-desktop'],staging,60000);
+        '--no-cone',...patterns],staging,60000);
       if (!sparse.ok) {
         log('Windows Git sparse-checkout refused official main candidate: '+
           String(sparse.stderr||'no Git diagnostic').slice(-350));
