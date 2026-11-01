@@ -8,6 +8,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, rmSync, readFileSync } from "nod
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { createDesktopNativeServer, createDesktopStaticMiddleware } from "./desktop-native-server.mjs";
+import { createSystemTermsAcceptance } from "../../system/contracts/system-terms.mjs";
 
 const tokens={
   ORDAX_DESKTOP_FILE_TOKEN:"a".repeat(64),
@@ -97,7 +98,8 @@ test("standalone installed Native host serves verified bundle and existing privi
   // remain immutable; a UI reload alone would not prove durable persistence.
   const firstReceipt=await first.json();
   assert.equal(firstReceipt.completed,false);
-  const completedReceipt={...firstReceipt,completed:true,accountMode:"local-only"};
+  const completedReceipt={...firstReceipt,completed:true,accountMode:"local-only",
+    systemTerms:createSystemTermsAcceptance(true)};
   const stateHeaders={
     "x-ordax-desktop-state-token":tokens.ORDAX_DESKTOP_STATE_TOKEN,
   };
@@ -106,6 +108,14 @@ test("standalone installed Native host serves verified bundle and existing privi
     headers:{...stateHeaders,"Content-Type":"application/json",Origin:url},
     body:JSON.stringify(snapshot),
   });
+  for(const invalidTerms of [
+    {...completedReceipt.systemTerms,accepted:false},
+    {...completedReceipt.systemTerms,documentId:"account-terms"},
+    {...completedReceipt.systemTerms,status:"published"},
+  ]){
+    assert.equal((await writeFirstRun(base,{...completedReceipt,systemTerms:invalidTerms})).status,400,
+      "untrusted system-terms acknowledgement must not complete First Run");
+  }
   assert.equal((await writeFirstRun(base,completedReceipt)).status,200);
   assert.equal((await writeFirstRun(base,completedReceipt)).status,200,
     "same completed receipt must be idempotent");
