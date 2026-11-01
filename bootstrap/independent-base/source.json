@@ -18,7 +18,8 @@
     "owner-development": {
       "defconfig": "bootstrap/independent-base/configs/ordax_minimal_defconfig",
       "fragment": "bootstrap/independent-base/configs/owner-development.fragment",
-      "purpose": "owner-development-parity-without-alpine"
+      "purpose": "owner-development-parity-without-alpine",
+      "shared_fragment": "bootstrap/independent-base/configs/wifi-hardware.fragment"
     }
   },
   "architecture": "x86_64",

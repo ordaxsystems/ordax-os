@@ -17,7 +17,7 @@ A Independent Base possui dois perfis derivados do mesmo defconfig e do mesmo bu
 - `minimal`: prova portátil mínima, sem Git, Wi-Fi de notebook ou firmware Owner;
 - `owner-development`: extensão explícita do mesmo owner para a paridade do Dev USB, com CA trust, Git, `iw`, `wpa_supplicant`, `wpa_passphrase`, provider `linux-firmware`, módulos selecionados do kernel canônico e helpers existentes do Dev USB.
 
-O perfil Owner não cria outra distro. `configs/owner-development.fragment` é o único fragmento de capacidades adicionais; `build.py` valida todos os símbolos declarados contra o Kconfig real do Buildroot. As famílias de firmware não são duplicadas em Python.
+O perfil Owner não cria outra distro. `configs/wifi-hardware.fragment` é a única declaração das capacidades Wi-Fi/firmware compartilháveis; `configs/owner-development.fragment` acrescenta somente Git e applets Dev; `build.py` valida todos os símbolos declarados contra o Kconfig real do Buildroot. As famílias de firmware não são duplicadas em Python.
 
 `kmod` não entra no runtime Owner porque `/sbin/modprobe` já pertence à base BusyBox canônica. `zstd` também não foi adicionado: sua necessidade pertencia ao antigo caminho Alpine de materialização de firmware comprimido e não há consumidor runtime comprovado no perfil Owner atual.
 

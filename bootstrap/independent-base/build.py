@@ -29,6 +29,7 @@ CANONICAL_HANDOFF = ROOT / "bootstrap/stable-base/ordax-stable-init"
 BASE_DEFCONFIG = HERE / "configs/ordax_minimal_defconfig"
 BUSYBOX_FRAGMENT = HERE / "configs/portable-handoff.busybox.fragment"
 OWNER_BUSYBOX_FRAGMENT = HERE / "configs/owner-development.busybox.fragment"
+WIFI_HARDWARE_FRAGMENT = HERE / "configs/wifi-hardware.fragment"
 IPROUTE2_PATCH_ROOT = HERE / "patches/iproute2"
 IPROUTE2_PATCH_NAME = "0001-ordax-minimal-ip-only.patch"
 IPROUTE2_PATCH_CONFIG = 'BR2_GLOBAL_PATCH_DIR="$(BR2_EXTERNAL_ORDAX_MINIMAL_PATH)/patches"'
@@ -61,14 +62,14 @@ NATIVE_COMPONENT_REQUIRED = (
     "BR2_PACKAGE_CA_CERTIFICATES=y", "BR2_TARGET_ROOTFS_TAR=y",
     "BR2_PACKAGE_PYTHON_HTTPX=y",
 )
-OWNER_USERSPACE_CONFIG = (
+WIFI_USERSPACE_CONFIG = (
     "BR2_PACKAGE_CA_CERTIFICATES=y",
-    "BR2_PACKAGE_GIT=y",
     "BR2_PACKAGE_IW=y",
     "BR2_PACKAGE_WPA_SUPPLICANT=y",
     "BR2_PACKAGE_WPA_SUPPLICANT_PASSPHRASE=y",
     "BR2_PACKAGE_WPA_SUPPLICANT_CLI=y",
 )
+OWNER_USERSPACE_CONFIG = WIFI_USERSPACE_CONFIG + ("BR2_PACKAGE_GIT=y",)
 OWNER_FIRMWARE_CONFIG_PREFIX = "BR2_PACKAGE_LINUX_FIRMWARE"
 HASH = re.compile(r"[0-9a-f]{64}\Z")
 
@@ -133,42 +134,40 @@ def validate_owner_busybox_fragment() -> set[str]:
     return lines
 
 
-def validate_owner_fragment(path: Path) -> set[str]:
+def validate_wifi_hardware_fragment(path: Path) -> set[str]:
+    """One firmware/network option authority shared by Owner and future Stable."""
+    if path != WIFI_HARDWARE_FRAGMENT or path.is_symlink() or not path.is_file():
+        raise BaseError("canonical Wi-Fi hardware fragment is missing or unsafe")
     lines = config_lines(path)
-    missing_userspace = sorted(set(OWNER_USERSPACE_CONFIG) - lines)
-    if missing_userspace:
-        raise BaseError(
-            "Owner/Development fragment lost required userspace capabilities: "
-            + ", ".join(missing_userspace)
-        )
-    if OWNER_BUSYBOX_FRAGMENT_CONFIG not in lines:
-        raise BaseError("Owner/Development fragment lost its exact BusyBox capability composition")
+    missing = sorted(set(WIFI_USERSPACE_CONFIG) - lines)
+    if missing:
+        raise BaseError("Wi-Fi hardware fragment lost required capabilities: " + ", ".join(missing))
     firmware = {
-        line
-        for line in lines
+        line for line in lines
         if line.startswith(OWNER_FIRMWARE_CONFIG_PREFIX) and line.endswith("=y")
     }
-    if f"{OWNER_FIRMWARE_CONFIG_PREFIX}=y" not in firmware:
-        raise BaseError("Owner/Development fragment must select Buildroot linux-firmware")
-    unexpected = sorted(
-        lines
-        - set(OWNER_USERSPACE_CONFIG)
-        - {OWNER_BUSYBOX_FRAGMENT_CONFIG}
-        - firmware
-    )
+    if f"{OWNER_FIRMWARE_CONFIG_PREFIX}=y" not in firmware or len(firmware) <= 1:
+        raise BaseError("Wi-Fi hardware fragment must select Buildroot linux-firmware families")
+    unexpected = sorted(lines - set(WIFI_USERSPACE_CONFIG) - firmware)
     if unexpected:
-        raise BaseError(
-            "Owner/Development fragment contains unsupported configuration: "
-            + ", ".join(unexpected)
-        )
-    if len(firmware) <= 1:
-        raise BaseError("Owner/Development linux-firmware provider has no selected family")
-    validate_owner_busybox_fragment()
-    text = path.read_text(encoding="utf-8").lower()
-    if "alpine" in text or "apk" in text:
-        raise BaseError("Owner/Development fragment reintroduced Alpine/APK")
+        raise BaseError("Wi-Fi hardware fragment contains unsupported configuration: " + ", ".join(unexpected))
+    if "alpine" in path.read_text(encoding="utf-8").lower() or "apk" in path.read_text(encoding="utf-8").lower():
+        raise BaseError("Wi-Fi hardware fragment introduced a distribution package manager")
     return lines
 
+
+def validate_owner_fragment(path: Path) -> set[str]:
+    """Only Dev-specific deltas belong here, never duplicate hardware options."""
+    if path.is_symlink() or not path.is_file():
+        raise BaseError("Owner/Development fragment is missing or unsafe")
+    lines = config_lines(path)
+    required = {"BR2_PACKAGE_GIT=y", OWNER_BUSYBOX_FRAGMENT_CONFIG}
+    if lines != required:
+        raise BaseError("Owner/Development fragment must contain only Dev-specific capabilities")
+    validate_owner_busybox_fragment()
+    if "alpine" in path.read_text(encoding="utf-8").lower() or "apk" in path.read_text(encoding="utf-8").lower():
+        raise BaseError("Owner/Development fragment introduced a distribution package manager")
+    return lines
 
 def contracts() -> tuple[dict, dict, dict, dict]:
     source = json.loads(SOURCE.read_text(encoding="utf-8"))
@@ -200,6 +199,7 @@ def contracts() -> tuple[dict, dict, dict, dict]:
         "defconfig": expected_defconfig,
         "fragment": "bootstrap/independent-base/configs/owner-development.fragment",
         "purpose": "owner-development-parity-without-alpine",
+        "shared_fragment": "bootstrap/independent-base/configs/wifi-hardware.fragment",
     }:
         raise BaseError("Owner/Development profile contract drift")
     expected_component = {
@@ -269,6 +269,8 @@ def profile_inputs(source: dict, profile: str) -> dict:
     base_lines = config_lines(defconfig)
     owner_busybox_fragment = None
     owner_busybox_lines: set[str] = set()
+    shared_fragment = None
+    shared_lines: set[str] = set()
     if profile == "minimal":
         leaked_userspace = sorted(set(OWNER_USERSPACE_CONFIG) & base_lines)
         leaked_firmware = sorted(
@@ -281,6 +283,11 @@ def profile_inputs(source: dict, profile: str) -> dict:
     else:
         assert fragment is not None
         fragment_lines = validate_owner_fragment(fragment)
+        shared_name = spec.get("shared_fragment")
+        if shared_name != str(WIFI_HARDWARE_FRAGMENT.relative_to(ROOT)):
+            raise BaseError("Owner/Development shared Wi-Fi source authority drift")
+        shared_fragment = ROOT / shared_name
+        shared_lines = validate_wifi_hardware_fragment(shared_fragment)
         owner_busybox_fragment = OWNER_BUSYBOX_FRAGMENT
         owner_busybox_lines = validate_owner_busybox_fragment()
 
@@ -290,6 +297,8 @@ def profile_inputs(source: dict, profile: str) -> dict:
         "defconfig": defconfig,
         "fragment": fragment,
         "fragment_config": sorted(fragment_lines),
+        "shared_fragment": shared_fragment,
+        "shared_fragment_config": sorted(shared_lines),
         "owner_busybox_fragment": owner_busybox_fragment,
         "owner_busybox_fragment_config": sorted(owner_busybox_lines),
     }
@@ -297,6 +306,7 @@ def profile_inputs(source: dict, profile: str) -> dict:
 
 def profile_provenance(inputs: dict) -> dict:
     fragment = inputs["fragment"]
+    shared_fragment = inputs["shared_fragment"]
     owner_busybox_fragment = inputs["owner_busybox_fragment"]
     return {
         "name": inputs["profile"],
@@ -306,6 +316,9 @@ def profile_provenance(inputs: dict) -> dict:
         "fragment": None if fragment is None else str(fragment.relative_to(ROOT)),
         "fragment_sha256": None if fragment is None else digest(fragment),
         "fragment_config": inputs["fragment_config"],
+        "shared_fragment": None if shared_fragment is None else str(shared_fragment.relative_to(ROOT)),
+        "shared_fragment_sha256": None if shared_fragment is None else digest(shared_fragment),
+        "shared_fragment_config": inputs["shared_fragment_config"],
         "owner_busybox_fragment": (
             None
             if owner_busybox_fragment is None
@@ -326,6 +339,8 @@ def generate_defconfig(source: dict, kernel: dict, profile: str, destination: Pa
             raise BaseError("minimal defconfig lost canonical BusyBox fragment authority")
         base_text = base_text.replace(MINIMAL_BUSYBOX_FRAGMENT_CONFIG, "")
     pieces = [base_text]
+    if inputs["shared_fragment"] is not None:
+        pieces.append(inputs["shared_fragment"].read_text(encoding="utf-8").rstrip())
     if inputs["fragment"] is not None:
         pieces.append(inputs["fragment"].read_text(encoding="utf-8").rstrip())
     pieces.extend([
@@ -362,7 +377,7 @@ def verify_resolved_config(config: str, kernel: dict, profile: str) -> None:
     if profile == "owner-development":
         source = json.loads(SOURCE.read_text(encoding="utf-8"))
         owner = profile_inputs(source, profile)
-        for key in owner["fragment_config"]:
+        for key in owner["shared_fragment_config"] + owner["fragment_config"]:
             if key not in config:
                 raise BaseError(f"Buildroot rejected Owner/Development configuration {key}")
         if MINIMAL_BUSYBOX_FRAGMENT_CONFIG in config:

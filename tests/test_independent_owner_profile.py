@@ -12,6 +12,7 @@ ROOT = Path(__file__).resolve().parents[1]
 BASE = ROOT / "bootstrap" / "independent-base"
 SOURCE = BASE / "source.json"
 FRAGMENT = BASE / "configs" / "owner-development.fragment"
+WIFI_FRAGMENT = BASE / "configs" / "wifi-hardware.fragment"
 OWNER_BUSYBOX_FRAGMENT = BASE / "configs" / "owner-development.busybox.fragment"
 NETWORK_HELPER = ROOT / "bootstrap" / "dev-base" / "ordax-network"
 POST_BUILD = BASE / "post-build.sh"
@@ -40,35 +41,35 @@ class IndependentOwnerDevelopmentProfileTests(unittest.TestCase):
             "bootstrap/independent-base/configs/owner-development.fragment",
         )
         self.assertEqual(owner["purpose"], "owner-development-parity-without-alpine")
+        self.assertEqual(owner["shared_fragment"], "bootstrap/independent-base/configs/wifi-hardware.fragment")
 
     def test_owner_profile_declares_userspace_busybox_and_firmware_provider(self) -> None:
-        lines = {
-            line.strip()
-            for line in FRAGMENT.read_text(encoding="utf-8").splitlines()
+        owner_lines = {
+            line.strip() for line in FRAGMENT.read_text(encoding="utf-8").splitlines()
             if line.strip() and not line.lstrip().startswith("#")
         }
-        required_userspace = {
+        wifi_lines = {
+            line.strip() for line in WIFI_FRAGMENT.read_text(encoding="utf-8").splitlines()
+            if line.strip() and not line.lstrip().startswith("#")
+        }
+        self.assertEqual(owner_lines, {"BR2_PACKAGE_GIT=y", OWNER_BUSYBOX_CONFIG})
+        required_wifi = {
             "BR2_PACKAGE_CA_CERTIFICATES=y",
-            "BR2_PACKAGE_GIT=y",
             "BR2_PACKAGE_IW=y",
             "BR2_PACKAGE_WPA_SUPPLICANT=y",
             "BR2_PACKAGE_WPA_SUPPLICANT_PASSPHRASE=y",
             "BR2_PACKAGE_WPA_SUPPLICANT_CLI=y",
         }
-        self.assertTrue(required_userspace.issubset(lines))
-        self.assertIn(OWNER_BUSYBOX_CONFIG, lines)
-        firmware = lines - required_userspace - {OWNER_BUSYBOX_CONFIG}
+        self.assertTrue(required_wifi.issubset(wifi_lines))
+        firmware = wifi_lines - required_wifi
         self.assertIn("BR2_PACKAGE_LINUX_FIRMWARE=y", firmware)
         self.assertGreater(len(firmware), 1)
-        self.assertTrue(
-            all(line.startswith("BR2_PACKAGE_LINUX_FIRMWARE") for line in firmware),
-            firmware,
-        )
-        self.assertNotIn("BR2_PACKAGE_KMOD=y", lines)
-        self.assertNotIn("BR2_PACKAGE_ZSTD=y", lines)
-        text = FRAGMENT.read_text(encoding="utf-8").lower()
-        self.assertNotIn("alpine", text)
-        self.assertNotIn("apk", text)
+        self.assertTrue(all(option.startswith("BR2_PACKAGE_LINUX_FIRMWARE") for option in firmware))
+        self.assertFalse(owner_lines & wifi_lines, "hardware options must have one declaration")
+        for fragment in (FRAGMENT, WIFI_FRAGMENT):
+            content = fragment.read_text(encoding="utf-8").lower()
+            self.assertNotIn("apk", content)
+            self.assertNotIn("alpine", content)
 
     def test_owner_busybox_fragment_adds_only_network_diagnostics(self) -> None:
         lines = [
@@ -91,7 +92,7 @@ class IndependentOwnerDevelopmentProfileTests(unittest.TestCase):
     def test_owner_wifi_cli_capability_has_a_real_runtime_consumer(self) -> None:
         helper = NETWORK_HELPER.read_text(encoding="utf-8")
         self.assertIn("for tool in iw wpa_supplicant wpa_cli wpa_passphrase", helper)
-        fragment = FRAGMENT.read_text(encoding="utf-8")
+        fragment = WIFI_FRAGMENT.read_text(encoding="utf-8")
         self.assertIn("BR2_PACKAGE_WPA_SUPPLICANT_CLI=y", fragment)
         builder = BUILD.read_text(encoding="utf-8")
         self.assertIn('"usr/sbin/wpa_cli": None', builder)
@@ -109,6 +110,8 @@ class IndependentOwnerDevelopmentProfileTests(unittest.TestCase):
         text = BUILD.read_text(encoding="utf-8")
         self.assertIn('OWNER_FIRMWARE_CONFIG_PREFIX = "BR2_PACKAGE_LINUX_FIRMWARE"', text)
         self.assertIn("validate_owner_fragment", text)
+        self.assertIn("validate_wifi_hardware_fragment", text)
+        self.assertIn('owner["shared_fragment_config"]', text)
         self.assertIn('owner["fragment_config"]', text)
         self.assertIn('OWNER_BUSYBOX_SYMBOLS = ("CONFIG_NTPD=y", "CONFIG_NSLOOKUP=y", "CONFIG_WGET=y")', text)
         self.assertIn("OWNER_BUSYBOX_FRAGMENT_CONFIG", text)
