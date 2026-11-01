@@ -45,7 +45,7 @@ OWNER_BUSYBOX_FRAGMENT_CONFIG = (
 BUSYBOX_HANDOFF_SYMBOLS = ("CONFIG_STAT=y", "CONFIG_FEATURE_STAT_FORMAT=y", "CONFIG_TIMEOUT=y", "CONFIG_FLOCK=y", "CONFIG_MKTEMP=y")
 OWNER_BUSYBOX_SYMBOLS = ("CONFIG_NTPD=y", "CONFIG_NSLOOKUP=y", "CONFIG_WGET=y")
 SUPPORTED_PROFILES = ("minimal", "owner-development", "stable-mvp")
-# Component-private Python must not change the two canonical OS boot profiles.
+# Component-private Python must not change any canonical OS boot profile.
 NATIVE_COMPONENT_PROFILE = "native-product-runtime"
 NATIVE_BUILD_INPUT_TAR = "native-python-build-input.rootfs.tar"
 NATIVE_BUILD_INPUT_MAX_BYTES = 1024 * 1024 * 1024

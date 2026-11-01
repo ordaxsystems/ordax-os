@@ -127,8 +127,8 @@ class IndependentOwnerDevelopmentProfileTests(unittest.TestCase):
         self.assertIn('OWNER_FIRMWARE_CONFIG_PREFIX = "BR2_PACKAGE_LINUX_FIRMWARE"', text)
         self.assertIn("validate_owner_fragment", text)
         self.assertIn("validate_wifi_hardware_fragment", text)
-        self.assertIn('owner["shared_fragment_config"]', text)
-        self.assertIn('owner["fragment_config"]', text)
+        self.assertIn('selected["shared_fragment_config"]', text)
+        self.assertIn('selected["fragment_config"]', text)
         self.assertIn('OWNER_BUSYBOX_SYMBOLS = ("CONFIG_NTPD=y", "CONFIG_NSLOOKUP=y", "CONFIG_WGET=y")', text)
         self.assertIn("OWNER_BUSYBOX_FRAGMENT_CONFIG", text)
         self.assertNotIn("OWNER_FIRMWARE_CONFIG = (", text)
@@ -187,7 +187,7 @@ class IndependentOwnerDevelopmentProfileTests(unittest.TestCase):
         self.assertIn('prototype-ordax.checkout-exchange/1', script)
         self.assertNotIn('musl-gcc -static', script)
         self.assertIn('run(str(exchange), "--abi")', builder)
-        self.assertIn('minimal target unexpectedly contains Owner native helper', builder)
+        self.assertIn('target unexpectedly contains Owner native helper', builder)
 
     def test_owner_helpers_are_fail_closed_on_complete_capability_set(self) -> None:
         script = POST_BUILD.read_text(encoding="utf-8")
@@ -199,7 +199,7 @@ class IndependentOwnerDevelopmentProfileTests(unittest.TestCase):
             "$TARGET_DIR/usr/sbin/wpa_cli",
         ):
             self.assertIn(target, script)
-        self.assertIn("Owner/Development CA trust store is missing", script)
+        self.assertIn("Owner/Development or Stable/MVP CA trust store is missing", script)
         self.assertIn("Incomplete Owner/Development target capability set", script)
         self.assertIn("ORDAX_OWNER_DEVELOPMENT_PROFILE=YES", script)
 

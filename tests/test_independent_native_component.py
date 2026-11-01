@@ -32,7 +32,7 @@ class NativeComponentBuildrootTests(unittest.TestCase):
 
     def test_component_uses_the_same_buildroot_source_but_not_os_rootfs(self):
         profiles = self.source["profiles"]
-        self.assertEqual(set(profiles), {"minimal", "owner-development"})
+        self.assertEqual(set(profiles), {"minimal", "owner-development", "stable-mvp"})
         fragment = self.source["component_profiles"]["native-product-runtime"]
         self.assertEqual(fragment["source_owner"], "ordaxsystems/ordax-runtime")
         self.assertFalse(fragment["base_rootfs_mutation_allowed"])

@@ -49,7 +49,7 @@ O loop de desenvolvimento e a prova de plataforma são deliberadamente diferente
 ```text
 push em platform/remove-alpine
  -> .github/workflows/remove-alpine-fast.yml
- -> contratos + unitários + sintaxe + Kconfig real dos dois perfis
+ -> contratos + unitários + sintaxe + Kconfig real dos perfis minimal, Owner e Stable candidato
  -> sem compilar rootfs/kernel/full USB
 
 marco estrutural / integração final
