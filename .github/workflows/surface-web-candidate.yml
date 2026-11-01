@@ -81,6 +81,10 @@ on:
       - 'system/contracts/browser-page-find.mjs'
       - 'system/contracts/browser-download.mjs'
       - 'system/surface/**'
+      # Linux-only USB host launcher and APK selection are never Web payload.
+      # Shared Native/Surface runtime contracts remain covered below.
+      - '!system/surface/bin/ordax-surface'
+      - '!system/surface/runtime/packages.txt'
       - 'system/apps/**'
       - 'system/services/account/**'
       - 'system/services/spaces/**'
@@ -324,6 +328,10 @@ on:
       - 'system/contracts/browser-page-find.mjs'
       - 'system/contracts/browser-download.mjs'
       - 'system/surface/**'
+      # Linux-only USB host launcher and APK selection are never Web payload.
+      # Shared Native/Surface runtime contracts remain covered below.
+      - '!system/surface/bin/ordax-surface'
+      - '!system/surface/runtime/packages.txt'
       - 'system/apps/**'
       - 'system/services/account/**'
       - 'system/services/spaces/**'

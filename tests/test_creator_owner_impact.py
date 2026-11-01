@@ -253,6 +253,27 @@ class CreatorOwnerImpactTests(unittest.TestCase):
         self.assertEqual(impact.classify(changed, dangerous, root=self.root),
                          (True, "client-delivery-contract-unknown-or-producer-delta"))
 
+    def test_usb_boot_only_paths_do_not_trigger_client_builds(self):
+        contract = json.loads((ROOT / "docs/contracts/build-autonomy.json").read_text(encoding="utf-8"))
+        windows = (ROOT / ".github/workflows/windows-desktop-dev.yml").read_text(encoding="utf-8")
+        web = (ROOT / ".github/workflows/surface-web-candidate.yml").read_text(encoding="utf-8")
+        # Windows uses one shared event-path YAML anchor for both push and PR.
+        self.assertIn("paths: *desktop_product_sources", windows)
+        self.assertIn("- 'system/**'", windows)
+        for path in contract["client_build_independence"]["windows_package_forbidden_linux_boot_paths"]:
+            self.assertEqual(windows.count(f"      - '!system/{path}'"), 1,
+                             "must exclude the exact USB boot entry from Windows CI")
+        # Web has separate push and pull_request path tables; both must exclude.
+        self.assertEqual(web.count("      - 'system/surface/**'"), 2)
+        for path in ("system/surface/bin/ordax-surface",
+                     "system/surface/runtime/packages.txt"):
+            self.assertEqual(web.count(f"      - '!{path}'"), 2,
+                             "must exclude USB-specific inputs on both Web events")
+        self.assertEqual(web.count("      - 'system/composition/native/**'"), 2,
+                         "shared Native integration remains validated")
+        self.assertEqual(web.count("      - 'system/composition/web/**'"), 2,
+                         "Web source remains validated")
+
     def test_client_workflows_have_no_direct_usb_creator_producer_dependency(self):
         contract = json.loads((ROOT / "docs/contracts/build-autonomy.json").read_text(encoding="utf-8"))
         independent = contract["client_build_independence"]

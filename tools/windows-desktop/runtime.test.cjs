@@ -79,6 +79,12 @@ test('canonical main automatically builds one SSOT Windows artifact for relevant
   assert.match(events, /\n  push:\n    branches:\n      - main\n    paths: \*desktop_product_sources\n/);
   assert.match(events, /\nconcurrency:\n  group: windows-desktop-dev-/);
   assert.match(events, /\n  cancel-in-progress: true\n/);
+  const forbiddenLinuxBoot=require('../../docs/contracts/build-autonomy.json')
+    .client_build_independence.windows_package_forbidden_linux_boot_paths;
+  for(const file of forbiddenLinuxBoot) {
+    assert.ok(events.includes(`- '!system/${file}'`),
+      `USB-only boot file must not rebuild the Desktop installer: ${file}`);
+  }
   assert.ok(workflow.includes('EXPECTED_SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}'));
   assert.ok(workflow.includes('Bind installer to exact OS + Surface Native provenance'));
   assert.ok(workflow.includes('Verify isolated NSIS installation and Native files'));
