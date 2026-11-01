@@ -32,6 +32,7 @@ on:
       - 'tools/ci/portable_component_cache.py'
       - 'tests/test_portable_component_cache.py'
       - 'tests/test_intelligence_external_builder_consumers.py'
+      - 'tests/test_intelligence_external_integration.mjs'
       - '.github/workflows/intelligence-source.yml'
 permissions:
   contents: read
@@ -216,3 +217,70 @@ jobs:
           assert (root/"system/intelligence-source/tools/inference-builder/build.py").is_file()
           assert not Path("system/intelligence-source").exists()
           PY
+
+  verify-windows-consumer:
+    runs-on: windows-2022
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '24'
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.12'
+      - name: Resolve exact source revision from the OS candidate lock
+        id: intelligence-lock
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $lock = Get-Content 'docs/contracts/intelligence-source.json' -Raw | ConvertFrom-Json
+          if ($lock.status -ne 'integration-candidate' -or
+              $lock.source_repository -ne 'ordaxsystems/ordax-intelligence' -or
+              $lock.source_commit -notmatch '^[0-9a-f]{40}$' -or
+              $lock.source_only -ne $true -or
+              $lock.activation_authorized -ne $false) {
+            throw 'Untrusted or promotable Intelligence source lock'
+          }
+          Add-Content -LiteralPath $env:GITHUB_OUTPUT -Value "source_sha=$($lock.source_commit)"
+      - name: Acquire the exact Intelligence revision without line-ending conversion
+        shell: pwsh
+        env:
+          EXPECTED_SOURCE_SHA: ${{ steps.intelligence-lock.outputs.source_sha }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $source = Join-Path $env:RUNNER_TEMP 'ordax-intelligence-pinned'
+          & git -c core.autocrlf=false clone --config core.autocrlf=false --filter=blob:none --single-branch --branch main --no-tags https://github.com/ordaxsystems/ordax-intelligence.git $source
+          if ($LASTEXITCODE -ne 0) { throw 'Pinned Intelligence Git acquisition failed' }
+          & git -C $source -c core.autocrlf=false checkout --quiet --detach $env:EXPECTED_SOURCE_SHA
+          if ($LASTEXITCODE -ne 0) { throw 'Pinned Intelligence commit is unavailable' }
+          $head = (& git -C $source rev-parse HEAD).Trim()
+          if ($LASTEXITCODE -ne 0 -or $head -cne $env:EXPECTED_SOURCE_SHA) {
+            throw 'Windows Intelligence checkout differs from the OS source lock'
+          }
+      - name: Verify and stage the exact OS-pinned source on Windows
+        shell: pwsh
+        env:
+          ORDAX_INTELLIGENCE_STAGE: ${{ runner.temp }}/ordax-intelligence-stage
+          INTELLIGENCE_SOURCE_DIR: ${{ runner.temp }}/ordax-intelligence-pinned
+          EXPECTED_SOURCE_SHA: ${{ steps.intelligence-lock.outputs.source_sha }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          & python tools/intelligence-source/materialize.py verify --source-dir $env:INTELLIGENCE_SOURCE_DIR
+          if ($LASTEXITCODE -ne 0) { throw 'Pinned Intelligence source verification failed' }
+          & python tools/intelligence-source/materialize.py stage --source-dir $env:INTELLIGENCE_SOURCE_DIR --out-dir $env:ORDAX_INTELLIGENCE_STAGE
+          if ($LASTEXITCODE -ne 0) { throw 'Pinned Intelligence source staging failed' }
+          $receiptPath = Join-Path $env:ORDAX_INTELLIGENCE_STAGE 'intelligence-source-receipt.json'
+          $receipt = Get-Content $receiptPath -Raw | ConvertFrom-Json
+          if ($receipt.source_commit -cne $env:EXPECTED_SOURCE_SHA -or
+              $receipt.activation_authorized -ne $false -or
+              $receipt.engine_included -ne $false -or
+              $receipt.model_included -ne $false) {
+            throw 'Windows source stage receipt is not bound to the inactive OS candidate'
+          }
+      - name: Test verified source against OS public contracts on Windows
+        env:
+          ORDAX_INTELLIGENCE_STAGE: ${{ runner.temp }}/ordax-intelligence-stage
+        run: node --test tests/test_intelligence_external_integration.mjs

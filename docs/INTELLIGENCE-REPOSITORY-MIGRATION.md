@@ -1,6 +1,6 @@
 # OrdaX Intelligence — fonte externa verificada
 
-**Estado: `integration-candidate`, sem cutover físico (2026-10-26).**
+**Estado: `integration-candidate`, sem cutover (2026-11-01).**
 
 A fonte portátil do `ordaxsystems/ordax-intelligence` está fixada no commit
 `a39c8ddcba1ac466a3697e03c20e0a8f186e4fc8` pelo **único** lock
@@ -10,6 +10,22 @@ sete módulos e `tools/inference-builder/build.py`. O verificador canônico
 modos corretos, árvore restrita e staging descartável. Não inclui GGUF nem
 motor executável; a seleção de modelo, licença, limites e permissões continua
 pertencendo ao OS.
+
+## Validação do consumidor no Windows — 2026-11-01
+
+O workflow de integração de Intelligence agora executa a fonte candidata em
+`windows-2022` usando a revisão imutável resolvida de
+`docs/contracts/intelligence-source.json`. O runner verifica e materializa
+a revisão pelo mesmo `materialize.py` canônico e executa
+`tests/test_intelligence_external_integration.mjs` contra os contratos
+públicos do OS. Isso cobre a composição buffered/SSE, o estado degradado sem
+backend, a recusa do roteador cloud e a compatibilidade sem autorização
+implícita usando backend fixture.
+
+Essa é uma prova de consumidor da fonte candidata em Windows CI. Não comprova
+inferência com modelo real, o instalador Desktop, funcionamento instalado,
+ativação, rollback de release ou hardware físico; o lock permanece
+`integration-candidate`.
 
 ## Integrações validadas
 
