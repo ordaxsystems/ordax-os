@@ -17,6 +17,7 @@ import { createDesktopWlanMiddleware } from "../../system/adapters/desktop/wifi-
 import { createDesktopLocalAiMiddleware } from "../../system/adapters/desktop/local-ai-host.mjs";
 import { createDesktopVerifiedComponentSlotMiddleware } from "../../system/adapters/desktop/verified-component-slot-host.mjs";
 import { createDesktopVerifiedStoreCatalogMiddleware } from "../../system/adapters/desktop/verified-store-catalog-host.mjs";
+import { createDesktopStoreLifecycleMiddleware } from "../../system/adapters/desktop/store-lifecycle-host.mjs";
 import { createDesktopProductRuntimeSupervisor, createDesktopSignedRuntimeHandoff } from "../../system/adapters/desktop/product-runtime-supervisor.mjs";
 import { createDesktopDisplayCurrentModeMiddleware } from "../../system/adapters/desktop/display-current-mode-host.mjs";
 import observationPolicy from "../../system/adapters/desktop/observation-grant.cjs";
@@ -203,7 +204,7 @@ export function nativeEmulatorPlugin(stateDirectory, { desktopHost = false, acco
       // No preview can activate Windows signature verification by setting env.
       const installedStoreTrust = desktopHost && process.platform === "win32"
         && Boolean(userData) && Boolean(process.env.ORDAX_DESKTOP_COMPONENT_VERIFIER_ROOT);
-      server.middlewares.use(createDesktopVerifiedStoreCatalogMiddleware({
+      const signedStoreCatalog = createDesktopVerifiedStoreCatalogMiddleware({
         systemRoot: process.cwd(),
         verifierRoot: installedStoreTrust ? process.env.ORDAX_DESKTOP_COMPONENT_VERIFIER_ROOT : "",
         userData: installedStoreTrust ? userData : stateDirectory,
@@ -212,7 +213,18 @@ export function nativeEmulatorPlugin(stateDirectory, { desktopHost = false, acco
         // Preview, renderer and HTTP requests never supply a catalog source.
         catalogBaseOrigin: installedStoreTrust
           ? process.env.ORDAX_DESKTOP_STORE_CATALOG_BASE_ORIGIN ?? "" : "",
-      }));
+      });
+      server.middlewares.use(signedStoreCatalog);
+      if (installedStoreTrust) {
+        // One signed catalog reader and the existing installed Go activation
+        // writer. No second catalog, installer, signer or state authority.
+        server.middlewares.use(createDesktopStoreLifecycleMiddleware({
+          systemRoot: process.cwd(),
+          verifierRoot: process.env.ORDAX_DESKTOP_COMPONENT_VERIFIER_ROOT,
+          userData,
+          catalogReader: signedStoreCatalog.readVerifiedLocalCatalog,
+        }));
+      }
       if (desktopHost && process.platform === "win32" && userData &&
           process.env.ORDAX_DESKTOP_COMPONENT_VERIFIER_ROOT) {
         // The current OS revision owns policies; the Electron installer owns
