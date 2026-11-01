@@ -2,12 +2,12 @@ import { validateIdentitySessionSnapshot } from "../../contracts/identity-sessio
 import {
   WORKSPACE_STORE_SCHEMA,
   assertWorkspaceStore,
-  migrateLegacyWorkspaceRecord,
   validateWorkspaceRecord,
 } from "../../contracts/workspace-store.mjs";
 
-const STORAGE_KEY = "ordax.native.workspace.v2";
-const LEGACY_STORAGE_KEY = "ordax.native.workspace.v1";
+// The old v1/v2 records had no attested owner. Never project them as guest.
+// Preserve the original bytes for explicit owner-verified recovery.
+const GUEST_STORAGE_KEY = "ordax.native.workspace.v2.guest";
 const SUBJECT_STORAGE_PREFIX = "ordax.native.workspace.v2.subject.";
 
 function resolveStorage(windowRef) {
@@ -22,12 +22,6 @@ function resolveStorage(windowRef) {
   return null;
 }
 
-function readStored(storage, key, validator) {
-  const raw = storage.getItem(key);
-  if (raw === null) return null;
-  return validator(JSON.parse(raw));
-}
-
 export function createNativeWorkspaceStore(windowRef = globalThis.window) {
   const storage = resolveStorage(windowRef);
   const emptyWorkspace = validateWorkspaceRecord(null);
@@ -35,7 +29,8 @@ export function createNativeWorkspaceStore(windowRef = globalThis.window) {
   // A failed persistent write is retained only in the verified owner's session.
   const volatileOnlyPartitions = new Set();
   const blockedPartitions = new Set();
-  let currentKey = STORAGE_KEY;
+  // No implicit owner: only a verified signed-in or signed-out snapshot selects a partition.
+  let currentKey = null;
 
   const load = () => {
     if (currentKey === null || blockedPartitions.has(currentKey)) return emptyWorkspace;
@@ -44,7 +39,9 @@ export function createNativeWorkspaceStore(windowRef = globalThis.window) {
     try {
       currentRaw = storage.getItem(currentKey);
     } catch {
-      return volatilePartitions.get(currentKey) ?? emptyWorkspace;
+      // An unreadable backing partition cannot be proven to match a cached edit.
+      blockedPartitions.add(currentKey);
+      return emptyWorkspace;
     }
     if (currentRaw !== null) {
       try {
@@ -66,24 +63,6 @@ export function createNativeWorkspaceStore(windowRef = globalThis.window) {
     if (volatileOnlyPartitions.has(currentKey)) {
       return volatilePartitions.get(currentKey) ?? emptyWorkspace;
     }
-    if (currentKey === STORAGE_KEY) {
-      try {
-        const legacy = readStored(storage, LEGACY_STORAGE_KEY, migrateLegacyWorkspaceRecord);
-        if (legacy) {
-          volatilePartitions.set(currentKey, legacy);
-          try {
-            storage.setItem(STORAGE_KEY, JSON.stringify(legacy));
-          } catch {
-            // A migration remains usable in memory without claiming that
-            // it reached durable storage; the legacy record is untouched.
-            volatileOnlyPartitions.add(currentKey);
-          }
-          return legacy;
-        }
-      } catch {
-        // The old guest record is left untouched for explicit recovery.
-      }
-    }
     // External removal of durable state must not resurrect an old cache.
     volatilePartitions.delete(currentKey);
     return emptyWorkspace;
@@ -102,7 +81,7 @@ export function createNativeWorkspaceStore(windowRef = globalThis.window) {
       }
       const nextKey = identity?.state === "signed-in"
         ? SUBJECT_STORAGE_PREFIX + encodeURIComponent(identity.subjectId)
-        : identity?.state === "signed-out" ? STORAGE_KEY : null;
+        : identity?.state === "signed-out" ? GUEST_STORAGE_KEY : null;
       if (currentKey === nextKey) return false;
       currentKey = nextKey;
       return true;

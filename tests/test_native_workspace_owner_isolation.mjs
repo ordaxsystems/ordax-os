@@ -48,7 +48,7 @@ test("Native owner persists guest, A and B independently across reboot", () => {
   assert.equal(target(store.load()), "/private-A");
   store.selectOwner(subject("B"));
   assert.equal(target(store.load()), "/private-B");
-  assert.equal(target(JSON.parse(localStorage.raw("ordax.native.workspace.v2"))), "/guest");
+  assert.equal(target(JSON.parse(localStorage.raw("ordax.native.workspace.v2.guest"))), "/guest");
   const rebooted = createNativeWorkspaceStore({ localStorage });
   rebooted.selectOwner(subject("A"));
   assert.equal(target(rebooted.load()), "/private-A");
@@ -202,4 +202,70 @@ test("Durable partition removal invalidates cache; corrupt disk still blocks vol
   assert.equal(target(checked.load()), null);
   assert.equal(checked.save(workspace("/must-not-overwrite")), false);
   assert.equal(backend.raw(key), "{corrupt");
+});
+
+test("Unowned historical v2 and v1 workspaces are quarantined, never disclosed to signed-out guest", () => {
+  const localStorage = storage();
+  const legacyV2 = JSON.stringify(workspace("/previous-signed-in-account"));
+  const old = workspace("/prior-v1-owner").areas[0];
+  const legacyV1 = JSON.stringify({
+    windows: old.windows, activeWindowId: old.activeWindowId, nextWindowOrdinal: old.nextWindowOrdinal,
+  });
+  localStorage.setItem("ordax.native.workspace.v2", legacyV2);
+  localStorage.setItem("ordax.native.workspace.v1", legacyV1);
+  const native = createNativeWorkspaceStore({ localStorage });
+  assert.equal(target(native.load()), null, "identity is initially unavailable");
+  assert.equal(native.save(workspace("/unauthenticated")), false);
+  native.selectOwner({ state: "signed-out" });
+  assert.equal(target(native.load()), null, "legacy v2 is not proven to belong to guest");
+  native.selectOwner(subject("account-A"));
+  assert.equal(target(native.load()), null, "legacy v2 is not proven to belong to account A");
+  native.selectOwner({ state: "signed-out" });
+  assert.equal(native.save(workspace("/new-guest")), true);
+  assert.equal(target(native.load()), "/new-guest");
+  assert.equal(localStorage.raw("ordax.native.workspace.v2"), legacyV2);
+  assert.equal(localStorage.raw("ordax.native.workspace.v1"), legacyV1);
+  assert.equal(target(JSON.parse(localStorage.raw("ordax.native.workspace.v2.guest"))), "/new-guest");
+  const reopened = createNativeWorkspaceStore({ localStorage });
+  reopened.selectOwner({ state: "signed-out" });
+  assert.equal(target(reopened.load()), "/new-guest");
+});
+
+test("Unreadable stored record blocks cached and unsaved owner data instead of guessing authority", () => {
+  const backing = storage();
+  let unreadable = false;
+  const localStorage = {
+    getItem(key) {
+      if (unreadable && key === "ordax.native.workspace.v2.subject.A") throw new Error("storage denied");
+      return backing.getItem(key);
+    },
+    setItem: backing.setItem,
+  };
+  const native = createNativeWorkspaceStore({ localStorage });
+  native.selectOwner(subject("A"));
+  assert.equal(native.save(workspace("/previous-A")), true);
+  unreadable = true;
+  assert.equal(target(native.load()), null, "cached A must not override an unreadable disk partition");
+  assert.equal(native.save(workspace("/overwrite-A")), false);
+  unreadable = false;
+  assert.equal(target(native.load()), null, "a blocked partition cannot silently recover");
+  assert.equal(backing.raw("ordax.native.workspace.v2.subject.A") !== null, true);
+  native.selectOwner(subject("B"));
+  assert.equal(native.save(workspace("/separate-B")), true);
+  assert.equal(target(native.load()), "/separate-B");
+});
+
+test("No verified session never defaults to the guest partition", () => {
+  const localStorage = storage();
+  const store = createNativeWorkspaceStore({ localStorage });
+  assert.equal(store.save(workspace("/pre-session")), false);
+  assert.equal(target(store.load()), null);
+  assert.equal(localStorage.raw("ordax.native.workspace.v2.guest"), null);
+  store.selectOwner({ state: "signed-out" });
+  assert.equal(store.save(workspace("/proven-guest")), true);
+  store.selectOwner({ state: "unavailable" });
+  assert.equal(target(store.load()), null);
+  assert.equal(store.save(workspace("/post-unavailable")), false);
+  store.selectOwner({ state: "signed-out" });
+  assert.equal(target(store.load()), "/proven-guest");
 });
