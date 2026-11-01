@@ -208,6 +208,10 @@ export function nativeEmulatorPlugin(stateDirectory, { desktopHost = false, acco
         verifierRoot: installedStoreTrust ? process.env.ORDAX_DESKTOP_COMPONENT_VERIFIER_ROOT : "",
         userData: installedStoreTrust ? userData : stateDirectory,
         platform: installedStoreTrust ? "win32" : "unavailable",
+        // Operator-selected HTTPS byte origin only for the installed Native host.
+        // Preview, renderer and HTTP requests never supply a catalog source.
+        catalogBaseOrigin: installedStoreTrust
+          ? process.env.ORDAX_DESKTOP_STORE_CATALOG_BASE_ORIGIN ?? "" : "",
       }));
       if (desktopHost && process.platform === "win32" && userData &&
           process.env.ORDAX_DESKTOP_COMPONENT_VERIFIER_ROOT) {
