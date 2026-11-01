@@ -79,11 +79,12 @@ test('canonical main automatically builds one SSOT Windows artifact for relevant
   assert.match(events, /\n  push:\n    branches:\n      - main\n    paths: \*desktop_product_sources\n/);
   assert.match(events, /\nconcurrency:\n  group: windows-desktop-dev-/);
   assert.match(events, /\n  cancel-in-progress: true\n/);
-  const forbiddenLinuxBoot=require('../../docs/contracts/build-autonomy.json')
-    .client_build_independence.windows_package_forbidden_linux_boot_paths;
-  for(const file of forbiddenLinuxBoot) {
-    assert.ok(events.includes(`- '!system/${file}'`),
-      `USB-only boot file must not rebuild the Desktop installer: ${file}`);
+  const boundary=require('../../docs/contracts/build-autonomy.json').client_build_independence;
+  for(const field of ['windows_package_forbidden_linux_boot_paths','windows_package_forbidden_linux_shell_paths']){
+    for(const file of boundary[field]){
+      assert.ok(events.includes(`- '!system/${file}'`),
+        `Linux-only source must not rebuild the Desktop installer: ${file}`);
+    }
   }
   assert.ok(workflow.includes('EXPECTED_SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}'));
   assert.ok(workflow.includes('Bind installer to exact OS + Surface Native provenance'));
@@ -144,6 +145,8 @@ test('Windows package excludes Linux-only Alpine package declaration without dro
     '!surface/runtime/physical_ata_probe.py', '!surface/runtime/physical_kernel_log_probe.py', '!surface/runtime/physical_performance_probe.py',
     ...require('../../docs/contracts/build-autonomy.json').client_build_independence
       .windows_package_forbidden_linux_boot_paths.map(path=>'!'+path),
+    ...require('../../docs/contracts/build-autonomy.json').client_build_independence
+      .windows_package_forbidden_linux_shell_paths.map(path=>'!'+path),
   ]);
   const workflow = readFileSync(join(__dirname, '../../.github/workflows/windows-desktop-dev.yml'), 'utf8');
   const paths = workflow.split('paths: &desktop_product_sources', 2)[1].split('  # Every integrated main', 1)[0];

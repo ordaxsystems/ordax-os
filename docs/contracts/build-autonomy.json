@@ -156,6 +156,29 @@
       "surface/bin/ordax-surface"
     ],
     "client_delivery_gate_decoupling_fully_proven": false,
-    "windows_physical_and_web_live_independence_proven": false
+    "windows_physical_and_web_live_independence_proven": false,
+    "windows_package_forbidden_linux_shell_paths": [
+      "rescue/agent.sh",
+      "services/base-update/agent.sh",
+      "services/base-update/dev-helpers.sh",
+      "services/device-agent/native-product-lifecycle.sh",
+      "services/device-agent/product-presence-report.sh",
+      "services/intelligence-source/owner-stage.sh",
+      "services/local-ai/owner-dev-runtime.sh",
+      "services/local-ai/run-low-priority.sh",
+      "services/power/acpi-button-action.sh",
+      "services/surface-source/owner-stage.sh",
+      "services/telemetry/base-agent.sh",
+      "services/update/owner-signed-preview.sh",
+      "surface/bin/ordax-ata-evidence",
+      "surface/bin/ordax-internet-proof",
+      "surface/bin/ordax-kernel-log-evidence",
+      "surface/bin/ordax-mvp-smoke",
+      "surface/bin/ordax-performance-evidence",
+      "surface/bin/ordax-proof-runtime.sh",
+      "surface/runtime/native_install_broker.sh",
+      "surface/runtime/network_broker.sh",
+      "surface/runtime/resolver_sync.sh"
+    ]
   }
 }

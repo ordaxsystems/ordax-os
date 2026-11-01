@@ -54,6 +54,8 @@ LIGHT_EXACT = frozenset({
     # Shared Native composition, component runtime and OS host paths are
     # deliberately NOT excluded; a change to those remains a real USB build.
     ".github/workflows/windows-desktop-dev.yml",
+    # Web client workflow is a client delivery owner, not a USB producer.
+    ".github/workflows/surface-web-candidate.yml",
     "system/adapters/desktop/verified-component-slot-host.mjs",
     "system/adapters/native/signed-current-compatibility.mjs",
     "tests/test_native_signed_current_compatibility.mjs",
@@ -234,7 +236,23 @@ def verified_client_delivery_contract_delta(base, head, *, root=ROOT):
             "client_delivery_gate_decoupling_fully_proven": False,
             "windows_physical_and_web_live_independence_proven": False,
         }
-        return bool(additions) and all(
+        scripts = additions.pop("windows_package_forbidden_linux_shell_paths", None)
+        if scripts is not None:
+            # Only tracked POSIX scripts may be omitted from Windows client
+            # artifacts. No second pathname authority: paths come exclusively
+            # from the build-autonomy contract and verified Git source.
+            if (not isinstance(scripts, list) or not scripts or len(scripts) > 64
+                    or len(set(map(str, scripts))) != len(scripts)):
+                return False
+            for path in scripts:
+                if not isinstance(path, str) or not re.fullmatch(
+                    r"(?:[a-z0-9-]+/)+[a-z0-9._-]+\.sh|surface/bin/ordax-[a-z0-9-]+",
+                    path,
+                ):
+                    return False
+                if not _git_show(head, "system/" + path, root).startswith("#!/bin/sh\n"):
+                    return False
+        return (bool(additions) or scripts is not None) and all(
             k in expected and v == expected[k] for k, v in additions.items()
         )
     except (OSError, UnicodeError, ValueError, KeyError, TypeError,

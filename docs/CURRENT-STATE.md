@@ -1,3 +1,16 @@
+Independência de entrega Desktop/Web P0 (2026-11-01; roadmap REMOVER-DEPENDENCIA.md):
+Windows Desktop e Surface Web concluíram seus próprios checks na PR #1980
+em 80a40d7a; o Creator USB é um produtor separado e falha por lock
+Alpine/Python. A primeira redução NSIS excluiu os três executáveis de boot
+Linux, validada no CI Windows. Uma segunda redução em andamento exclui
+21 scripts POSIX de serviços/diagnósticos Linux do NSIS e dos filtros de
+rebuild Windows/Web, com fonte única em
+docs/contracts/build-autonomy.json#client_build_independence.
+A aprovação de CI/instalador físico dessa segunda etapa ainda está pendente.
+A mudança Native compartilhada na PR continua justificando prova USB;
+não afirmar independência de required checks sem ler regras (403).
+O E2E visual Workspace de troca de usuário pertence à Surface #33.
+
 Desktop/Web P0 implementation (2026-11-01; tracked by REMOVER-DEPENDENCIA.md):
 The artifact graph already treats Windows and Web as independent of USB Creator;
 current Windows/Web workflows do not call the USB producer. The active OS

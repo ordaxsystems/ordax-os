@@ -237,11 +237,18 @@ class CreatorOwnerImpactTests(unittest.TestCase):
         contract = json.loads((ROOT / impact.CLIENT_AUTONOMY_CONTRACT).read_text(encoding="utf-8"))
         new_keys = ("separation_roadmap", "client_validation_workflows",
                     "windows_package_forbidden_linux_boot_paths",
+                    "windows_package_forbidden_linux_shell_paths",
                     "client_delivery_gate_decoupling_fully_proven",
                     "windows_physical_and_web_live_independence_proven")
         old = json.loads(json.dumps(contract))
         for key in new_keys:
             old["client_build_independence"].pop(key)
+        # The classifier checks file shebang and Git source provenance, not
+        # a hardcoded duplicate list of approved Linux exclusions.
+        for relative in contract["client_build_independence"]["windows_package_forbidden_linux_shell_paths"]:
+            source = self.root / "system" / relative
+            source.parent.mkdir(parents=True, exist_ok=True)
+            source.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
         base = self.commit(workflow=WORKFLOW.read_text(encoding="utf-8"),
                            lock=VISUAL, client_contract=old)
         changed = self.commit(client_contract=contract)
@@ -253,6 +260,21 @@ class CreatorOwnerImpactTests(unittest.TestCase):
         self.assertEqual(impact.classify(changed, dangerous, root=self.root),
                          (True, "client-delivery-contract-unknown-or-producer-delta"))
 
+    def test_surface_web_workflow_is_owned_by_web_not_usb_creator(self):
+        base = self.commit(WORKFLOW.read_text(encoding="utf-8"), VISUAL)
+        head = self.commit(path=".github/workflows/surface-web-candidate.yml")
+        self.assertEqual(impact.classify(base, head, root=self.root),
+                         (False, "nonproducer-contract-only"))
+
+    def test_linux_shell_exclusion_must_be_real_posix_source(self):
+        contract = json.loads((ROOT / impact.CLIENT_AUTONOMY_CONTRACT).read_text(encoding="utf-8"))
+        shell = contract["client_build_independence"]["windows_package_forbidden_linux_shell_paths"]
+        self.assertGreaterEqual(len(shell), 15)
+        for relative in shell:
+            with self.subTest(script=relative):
+                self.assertTrue(relative.startswith(("rescue/", "services/", "surface/")))
+                self.assertTrue((ROOT / "system" / relative).read_bytes().startswith(b"#!/bin/sh\n"))
+
     def test_usb_boot_only_paths_do_not_trigger_client_builds(self):
         contract = json.loads((ROOT / "docs/contracts/build-autonomy.json").read_text(encoding="utf-8"))
         windows = (ROOT / ".github/workflows/windows-desktop-dev.yml").read_text(encoding="utf-8")
@@ -260,9 +282,13 @@ class CreatorOwnerImpactTests(unittest.TestCase):
         # Windows uses one shared event-path YAML anchor for both push and PR.
         self.assertIn("paths: *desktop_product_sources", windows)
         self.assertIn("- 'system/**'", windows)
-        for path in contract["client_build_independence"]["windows_package_forbidden_linux_boot_paths"]:
-            self.assertEqual(windows.count(f"      - '!system/{path}'"), 1,
-                             "must exclude the exact USB boot entry from Windows CI")
+        for field in ("windows_package_forbidden_linux_boot_paths",
+                      "windows_package_forbidden_linux_shell_paths"):
+            for path in contract["client_build_independence"][field]:
+                self.assertEqual(windows.count(f"      - '!system/{path}'"), 1,
+                                 "Linux-only input must not rebuild Windows CI")
+                self.assertEqual(web.count(f"      - '!system/{path}'"), 2,
+                                 "Linux-only input must not rebuild Web CI")
         # Web has separate push and pull_request path tables; both must exclude.
         self.assertEqual(web.count("      - 'system/surface/**'"), 2)
         for path in ("system/surface/bin/ordax-surface",

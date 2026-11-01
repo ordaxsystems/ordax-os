@@ -1,7 +1,7 @@
 'use strict';
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { mkdtempSync, mkdirSync, writeFileSync, symlinkSync, rmSync } = require('node:fs');
+const { mkdtempSync, mkdirSync, writeFileSync, symlinkSync, rmSync, readFileSync } = require('node:fs');
 const { tmpdir } = require('node:os');
 const { join } = require('node:path');
 const { inventory, nativeBundleComparison } = require('./package-inventory.cjs');
@@ -99,4 +99,27 @@ test('Desktop artifact excludes Linux/USB boot executables without removing shar
     'Linux executable exclusion must be observed in the real source tree');
   assert.ok(report.groups['composition/native']?.files>0,
     'Windows still requires the single Native composition source');
+});
+
+test('NSIS payload contains no POSIX service or USB diagnostic shell executables',()=>{
+  const scope=require('../../docs/contracts/build-autonomy.json').client_build_independence;
+  const config=require('./package.json');
+  const resources=config.build.extraResources.filter(item=>
+    item.from==='../../system' && item.to==='runtime-template/system');
+  assert.equal(resources.length,1);
+  const filter=resources[0].filter;
+  const scripts=scope.windows_package_forbidden_linux_shell_paths;
+  assert.equal(new Set(scripts).size,scripts.length,'source lock must not duplicate a shell entry');
+  assert.ok(scripts.length>=20,'all current Linux service + diagnostic scripts must be isolated');
+  const root=join(__dirname,'..','..','system');
+  const report=inventory(root,filter.slice(1));
+  for(const path of scripts){
+    assert.equal(readFileSync(join(root,path),'utf8').startsWith('#!/bin/sh\n'),true,
+      'only actual POSIX executables may be excluded from Windows: '+path);
+    assert.ok(filter.includes('!'+path),'POSIX executable was packaged: '+path);
+    assert.equal(report.missingExclusions.includes(path),false,
+      'POSIX exclusion not proved against real source bytes: '+path);
+  }
+  assert.ok(report.groups['composition/native']?.files>0,
+    'removing Linux shell must never remove the compiled Native source');
 });

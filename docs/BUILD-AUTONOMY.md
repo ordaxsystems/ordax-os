@@ -224,3 +224,22 @@ The executable build graph SSOT is `docs/contracts/build-autonomy.json#client_bu
 The **single** root roadmap is [`REMOVER-DEPENDENCIA.md`](../REMOVER-DEPENDENCIA.md). It is subordinate to the machine contract `docs/contracts/build-autonomy.json#client_build_independence` and tracks concrete status/gates. Client artifacts must remain buildable while the USB producer is broken. Currently separate Windows/Web jobs already meet that direct build invariant, but the physical USB check may still block a mixed Native PR merge; branch ruleset access was denied during this audit (403). No gate may be waived without an independently verified replacement.
 
 The first safe packaging reduction removes only the Linux USB boot executables from the Windows NSIS runtime template with exact exclusions and an inventory regression. Complete Linux/Native/Windows import-graph analysis and installed NSIS proof are still pending. The Linux Alpine/Python mismatch belongs exclusively to the USB producer and is not to be repaired by adding Alpine or Linux tooling to Windows/Web.
+
+## P0 — exclusão de scripts Linux dos clientes (2026-11-01)
+
+O pacote Windows **não** deve materializar scripts POSIX destinados ao boot
+Linux, monitoramento físico USB, ACPI, WPA, recuperação, montagem EROFS nem
+ao supervisor de base. A relação exata, não uma varredura por extensão, está
+em `docs/contracts/build-autonomy.json#client_build_independence.windows_package_forbidden_linux_shell_paths`.
+O NSIS utiliza exclusões explícitas em `tools/windows-desktop/package.json`;
+`tools/windows-desktop/package-inventory.test.cjs` verifica seus bytes `#!/bin/sh`
+e a inexistência de inclusões acidentais. Os filtros push/PR de Windows/Web
+ignoram estes artefatos de Linux somente; os imports Native compartilhados
+continuam testados. `tools/ci/creator_owner_impact.py` verifica identidade Git
+e shebang das adições contratuais, sem manter outra lista de caminho canônica.
+
+A independência é de **compilação, distribuição e entrega** do cliente.
+Não autoriza remover arquivos de suporte Python/JS que sejam consumidos pelo
+Native Windows nem alterar política de boot do Linux/USB sem QEMU/Creator.
+Prova de pacote NSIS e status de required checks continuam exigidos antes
+de promover ou declarar encerramento do roadmap.
