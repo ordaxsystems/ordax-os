@@ -347,7 +347,7 @@ function installVerifiedBundledFixture(f,sha) {
   mkdirSync(join(assets,'system','composition','native'),{recursive:true});
   mkdirSync(join(assets,'assets'),{recursive:true});
   writeFileSync(join(assets,'system','composition','native','index.html'),
-    '<!doctype html><script src="/assets/app.js"></script>');
+    '<!doctype html><script type="module" src="/__ordax/desktop-assets/assets/app.js"></script>');
   writeFileSync(join(assets,'assets','app.js'),'export const installed=true;');
   writeFileSync(join(assets,'source-provenance.json'),JSON.stringify({
     schema:'ordax.desktop-native-bundle-provenance/1',os_sha:sha,
