@@ -147,6 +147,92 @@ test('download IPC rejects oversized and foreign-window requests before save dia
   assert.equal(cancelled,true,'canceling the save dialog cancels the download');
 });
 
+test('download consent is single-use and cancelled pending approval never writes a file',async t=>{
+  const f=fixture();t.after(()=>f.host.dispose());
+  f.post({type:'tab.open',tabId:'tab-download',url:'https://example.com'});
+  await Promise.resolve();
+  let resolveSave, dialogs=0, cancellations=0, resumed=0;
+  const paths=[];
+  const item=new EventEmitter();
+  item.getFilename=()=> 'private.txt';
+  item.pause=()=>{};
+  item.cancel=()=>{cancellations++;};
+  item.setSavePath=p=>paths.push(p);
+  item.resume=()=>{resumed++;};
+  f.browserSession.emit('will-download',{preventDefault(){throw Error('unexpected reject');}},
+    item,View.all[0].webContents);
+  const pending=f.ui.sent.map(x=>x.value).find(x=>x.type==='browser-download'&&x.status==='pending');
+  f.dialog.showSaveDialog=()=>{
+    dialogs++;
+    return new Promise(resolve=>{resolveSave=resolve;});
+  };
+  f.post({type:'download.approve',id:pending.id});
+  f.post({type:'download.approve',id:pending.id});
+  assert.equal(dialogs,1,'concurrent approvals must not create multiple native dialogs');
+  f.post({type:'download.cancel',id:pending.id});
+  f.post({type:'download.cancel',id:pending.id});
+  resolveSave({canceled:false,filePath:'C:\\Users\\Dev\\private.txt'});
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(cancellations,1,'only the first cancel is applied');
+  assert.deepEqual(paths,[],'late native approval must not write after cancellation');
+  assert.equal(resumed,0,'cancelled transfer must never resume');
+});
+
+test('late save dialogs cannot resume downloads after browser disposal or completion',async()=>{
+  for(const terminal of ['disposed','completed']){
+    const f=fixture();
+    f.post({type:'tab.open',tabId:'tab-file',url:'https://example.com'});
+    await Promise.resolve();
+    const item=new EventEmitter();
+    let cancellations=0, resumed=0, saved=0, resolveSave;
+    item.getFilename=()=> 'file.txt';
+    item.pause=()=>{};
+    item.cancel=()=>{cancellations++;};
+    item.setSavePath=()=>{saved++;};
+    item.resume=()=>{resumed++;};
+    f.browserSession.emit('will-download',{preventDefault(){throw Error('unexpected reject');}},
+      item,View.all[0].webContents);
+    const pending=f.ui.sent.map(x=>x.value).find(x=>x.type==='browser-download'&&x.status==='pending');
+    f.dialog.showSaveDialog=()=>new Promise(resolve=>{resolveSave=resolve;});
+    f.post({type:'download.approve',id:pending.id});
+    if(terminal==='disposed') f.host.dispose();
+    else item.emit('done',{},'cancelled');
+    resolveSave({canceled:false,filePath:'C:\\Users\\Dev\\file.txt'});
+    await new Promise(resolve=>setImmediate(resolve));
+    assert.equal(saved,0,terminal+' pending approval never sets a save path');
+    assert.equal(resumed,0,terminal+' pending approval never resumes a transfer');
+    assert.equal(cancellations,terminal==='disposed'?1:0);
+    f.host.dispose();
+  }
+});
+
+test('single valid download approval still saves and starts the transfer',async t=>{
+  const f=fixture();t.after(()=>f.host.dispose());
+  f.post({type:'tab.open',tabId:'tab-valid',url:'https://example.com'});
+  await Promise.resolve();
+  const item=new EventEmitter();
+  let savePath=null, resumed=0, dialogs=0;
+  item.getFilename=()=> 'file.txt';
+  item.pause=()=>{};
+  item.cancel=()=>{};
+  item.setSavePath=path=>{savePath=path;};
+  item.resume=()=>{resumed++;};
+  f.browserSession.emit('will-download',{preventDefault(){throw Error('unexpected reject');}},
+    item,View.all[0].webContents);
+  const pending=f.ui.sent.map(x=>x.value).find(x=>x.type==='browser-download'&&x.status==='pending');
+  f.dialog.showSaveDialog=async()=>{
+    dialogs++;
+    return {canceled:false,filePath:'C:\\Users\\Dev\\file.txt'};
+  };
+  f.post({type:'download.approve',id:pending.id});
+  await new Promise(resolve=>setImmediate(resolve));
+  f.post({type:'download.approve',id:pending.id});
+  assert.equal(dialogs,1);
+  assert.equal(savePath,'C:\\Users\\Dev\\file.txt');
+  assert.equal(resumed,1);
+  assert.ok(f.ui.sent.some(x=>x.value.type==='browser-download'&&x.value.status==='downloading'));
+});
+
 test('untrusted page selection is only returned to OrdaX on explicit tab-scoped request',async t=>{
   const f=fixture();t.after(()=>f.host.dispose());
   f.post({type:'tab.open',tabId:'tab-a',url:'https://example.com'});
