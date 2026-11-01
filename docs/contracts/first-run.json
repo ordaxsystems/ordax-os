@@ -29,7 +29,8 @@
     "never_store_identity_secret_or_keyboard": true,
     "resume_later_steps_at_account": true,
     "completion_receipt_unchanged": true,
-    "optional_cursor_does_not_block_boot": true
+    "optional_cursor_does_not_block_boot": true,
+    "windows_read_deadline_ms": 5000
   },
   "persistence": {
     "native_path": "/var/lib/ordax/first-run.json",
@@ -183,7 +184,8 @@
     "capability_driven": true,
     "rename_must_be_confirmed_before_advancing": true,
     "must_not_enter_first_run_state": true,
-    "owner_unavailable_must_not_block_boot": true
+    "owner_unavailable_must_not_block_boot": true,
+    "windows_read_deadline_ms": 5000
   },
   "mvp": {
     "runs_from_usb": true,

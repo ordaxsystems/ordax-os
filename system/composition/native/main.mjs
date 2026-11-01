@@ -256,11 +256,18 @@ async function start() {
     "OrdaX Profile component inventory unavailable; using empty session inventory",
     () => createNativeProfileComponentInventory(window),
   );
-  // Device identity is only needed by First Run, mounted after real Surface
-  // health. Start its verified read now but do not gate shell readiness on it.
+  // First Run's read-only Device Profile and cursor must not hang the Windows
+  // welcome screen if their optional Native routes stop answering. Use one
+  // shared deadline, not two serial waits; do not bound writes/rename because
+  // they must receive an actual durable acknowledgement from their owner.
+  const firstRunOptionalReadSignal = windowsDesktopHost ? AbortSignal.timeout(5000) : null;
   const deviceProfilePromise = optionalNativeProbe(
     "OrdaX native device profile unavailable",
-    () => createNativeDeviceProfile(window),
+    () => createNativeDeviceProfile(window, { signal: firstRunOptionalReadSignal }),
+  );
+  const firstRunCursorPromise = optionalNativeProbe(
+    "OrdaX native First Run cursor unavailable",
+    () => createNativeFirstRunCursor(window, { signal: firstRunOptionalReadSignal }),
   );
   const optionalPortsPromise = Promise.all([
     optionalNativeProbe(
@@ -1198,10 +1205,7 @@ async function start() {
   // The slow/missing optional Device Profile can no longer delay the real
   // shell health acknowledgement. First Run still receives the verified port.
   const deviceProfile = await deviceProfilePromise;
-  const resumeFirstRunCursor = await optionalNativeProbe(
-    "OrdaX native First Run cursor unavailable",
-    () => createNativeFirstRunCursor(window),
-  );
+  const resumeFirstRunCursor = await firstRunCursorPromise;
   let firstRun = null;
   let unsubscribeFirstRunUnlock = null;
   const mountFirstRunNow = () => {

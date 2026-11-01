@@ -364,6 +364,12 @@ estiver incompleto, o boot screen permanece até o assistente estar montado;
 se houver PIN configurado e bloqueado, **somente o desbloqueio é exibido**,
 e o assistente é ativado após a confirmação do PIN, nunca por cima dela.
 A saúde do shell continua independente do carregamento opcional do perfil.
+O Device Profile e o cursor do assistente usam no Windows um prazo
+**compartilhado de 5 segundos para leitura**: requisições HTTP sem resposta
+são canceladas e tratadas como capacidades opcionais indisponíveis, não
+como dados inventados. A retomada continua possível pelo passo inicial
+canônico. Isso não se aplica à gravação do recibo, do cursor ou do nome:
+uma escrita exige resposta real e persistente do respectivo host.
 Uma falha do assistente no Windows deixa o boot em erro, sem exibir o
 workspace como se a configuração inicial já tivesse sido realizada. O
 emulador visual e o USB preservam seu bootstrap recuperável e sua sessão opcional.
