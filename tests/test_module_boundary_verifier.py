@@ -47,7 +47,10 @@ class ModuleBoundaryVerifierTests(unittest.TestCase):
             self.write(
                 root,
                 "system/services/sync/client.ts",
-                'import {\\n  privilegedPort,\\n} from "../../adapters/desktop/unsafe.mjs";\\n'.replace("\\n", "\n"),
+                """import {
+  privilegedPort,
+} from "../../adapters/desktop/unsafe.mjs";
+""",
             )
             violations = MODULE.find_violations(root, CONTRACT)
             self.assertTrue(
@@ -62,7 +65,10 @@ class ModuleBoundaryVerifierTests(unittest.TestCase):
             self.write(
                 root,
                 "system/services/sync/client.ts",
-                'export {\\n  internalView,\\n} from "../../surface/ui/internal.mjs";\\n'.replace("\\n", "\n"),
+                """export {
+  internalView,
+} from "../../surface/ui/internal.mjs";
+""",
             )
             violations = MODULE.find_violations(root, CONTRACT)
             self.assertTrue(
@@ -77,7 +83,10 @@ class ModuleBoundaryVerifierTests(unittest.TestCase):
             self.write(
                 root,
                 "system/apps/files/view.ts",
-                'import {\\n  syncPort,\\n} from "../../services/sync/port.mjs";\\n'.replace("\\n", "\n"),
+                """import {
+  syncPort,
+} from "../../services/sync/port.mjs";
+""",
             )
             self.assertEqual(MODULE.find_violations(root, CONTRACT), [])
 
