@@ -192,6 +192,101 @@ test("Windows rejects stale or forged signed current-slot lifecycle metadata", a
   }
 });
 
+test("Windows pending-slot probation metadata and bytes reuse the installed Go verifier", async t => {
+  const f = setup(t);
+  const calls = [];
+  const base = await serve(t, f, (binary, args, opts, cb) => {
+    calls.push(args);
+    assert.equal(binary, f.helper, "Only the immutable Electron verifier may read a pending slot");
+    assert.equal(opts.windowsHide, true);
+    assert.equal(opts.encoding, "buffer");
+    assert.equal(args[args.indexOf("--trust") + 1], f.installedAnchorPath);
+    assert.equal(args[args.indexOf("--root") + 1], f.componentRoot);
+    if (args[0] === "resolve-pending") {
+      assert.deepEqual(args, [
+        "resolve-pending", "--component", "notes",
+        "--trust", f.installedAnchorPath, "--root", f.componentRoot,
+      ]);
+      return cb(null, Buffer.from([
+        "RUNTIME_COMPONENT_PENDING_RESOLVED=YES",
+        "COMPONENT_ID=notes", "REVISION=6", "SOURCE=SLOT",
+        "PENDING_VERSION=0.4.3", "PENDING_SOURCE_COMMIT=" + SOURCE,
+        "PENDING_HEALTH=unknown",
+        "RELEASE_MODE=component-slot", "HEALTH_MODE=runtime",
+        "SLOT=" + join(f.componentRoot, "notes", "slot"),
+        "ENTRYPOINT=system/apps/notes/runtime.mjs",
+        "RUNTIME_SERVED_FROM_SLOT=NO", "",
+      ].join("\n")));
+    }
+    if (args[0] === "read-runtime-file") {
+      assert.deepEqual(args, [
+        "read-runtime-file", "--component", "notes", "--state", "pending",
+        "--version", "0.4.3", "--source-commit", SOURCE,
+        "--path", "system/apps/notes/runtime.mjs",
+        "--trust", f.installedAnchorPath, "--root", f.componentRoot,
+      ]);
+      return cb(null, Buffer.from("export const componentRuntime = {probe: true};\n"));
+    }
+    throw Error("Unexpected Go command " + args[0]);
+  });
+  const metadata = await fetch(base + "/__ordax/native/component-runtime?component=notes&state=pending");
+  assert.equal(metadata.status, 200);
+  assert.deepEqual(await metadata.json(), {
+    componentId: "notes", state: "pending", source: "slot", revision: 6,
+    version: "0.4.3", sourceCommit: SOURCE,
+    entrypoint: "system/apps/notes/runtime.mjs", pendingHealth: "unknown",
+  });
+  const moduleUrl = "/__ordax/native/component-module/notes/pending/0.4.3/"
+    + SOURCE + "/system/apps/notes/runtime.mjs";
+  const moduleResponse = await fetch(base + moduleUrl);
+  assert.equal(moduleResponse.status, 200);
+  assert.equal(moduleResponse.headers.get("cache-control"), "no-store");
+  assert.match(moduleResponse.headers.get("content-type"), /text\/javascript/);
+  assert.match(await moduleResponse.text(), /componentRuntime/);
+  assert.deepEqual(calls.map(args => args[0]), ["resolve-pending", "read-runtime-file"]);
+  // A non-probation component must not reach even read-only Go resolution.
+  assert.equal((await fetch(base
+    + "/__ordax/native/component-runtime?component=assistant&state=pending")).status, 404);
+  assert.equal((await fetch(base + moduleUrl.replace("/notes/", "/studio/")).status, 404);
+  assert.equal(calls.length, 2);
+  // Exact slot identity continues to be reverified by Go on each module read.
+  const stale = await fetch(base + moduleUrl.replace("/0.4.3/", "/0.4.2/"));
+  assert.equal(stale.status, 409);
+});
+
+test("Windows pending-slot parser fails closed on forged signed health and lifecycle metadata", async t => {
+  const f = setup(t);
+  let health = "unknown", mode = "runtime", releaseMode = "component-slot";
+  let revision = "6", version = "0.4.3";
+  const base = await serve(t, f, (_binary, args, _opts, cb) => {
+    assert.equal(args[0], "resolve-pending");
+    return cb(null, Buffer.from([
+      "RUNTIME_COMPONENT_PENDING_RESOLVED=YES",
+      "COMPONENT_ID=notes", "REVISION=" + revision, "SOURCE=SLOT",
+      "PENDING_VERSION=" + version, "PENDING_SOURCE_COMMIT=" + SOURCE,
+      "PENDING_HEALTH=" + health,
+      "RELEASE_MODE=" + releaseMode, "HEALTH_MODE=" + mode,
+      "SLOT=" + join(f.componentRoot, "notes", "slot"),
+      "ENTRYPOINT=system/apps/notes/runtime.mjs",
+      "RUNTIME_SERVED_FROM_SLOT=NO", "",
+    ].join("\n")));
+  });
+  const url = base + "/__ordax/native/component-runtime?component=notes&state=pending";
+  for (const [h, m, release, rev, ver, expected] of [
+    ["unknown", "runtime", "component-slot", "6", "0.4.3", 200],
+    ["healthy", "runtime", "component-slot", "6", "0.4.3", 409],
+    ["failed", "runtime", "component-slot", "6", "0.4.3", 409],
+    ["unknown", "none", "component-slot", "6", "0.4.3", 409],
+    ["unknown", "runtime", "git-app", "6", "0.4.3", 409],
+    ["unknown", "runtime", "component-slot", "-1", "0.4.3", 409],
+    ["unknown", "runtime", "component-slot", "6", "../../evil", 409],
+  ]) {
+    health = h; mode = m; releaseMode = release; revision = rev; version = ver;
+    assert.equal((await fetch(url)).status, expected,
+      [h, m, release, rev, ver].join(" / "));
+  }
+});
+
 test("Windows Native slot reader rejects traversal, pending, stale identity and forged CLI responses", async t => {
   const f = setup(t);
   let invocations = 0;
