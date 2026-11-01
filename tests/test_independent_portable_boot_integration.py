@@ -79,6 +79,15 @@ class IndependentPortableBootIntegrationTest(unittest.TestCase):
         self.assertIn("uses: ./.github/workflows/portable-v2-qemu-boot-proof.yml",
                       experimental)
         self.assertIn("base_source: independent", experimental)
+        self.assertIn("independent_base_profile: ${{ inputs.base_profile || 'minimal' }}", experimental)
+        self.assertIn("- stable-mvp", experimental)
+        self.assertIn("independent_base_profile:", official)
+        self.assertIn("Stable/MVP portable proof requires explicit dispatch", official)
+        self.assertIn("Require existing verified kernel for Stable/MVP proof", official)
+        self.assertIn("Stable/MVP proof requires verified kernel cache", official)
+        self.assertIn('--profile "$ORDAX_INDEPENDENT_BASE_PROFILE"', official)
+        self.assertIn("ORDAX_FIRMWARE_COVERAGE_RECEIPT", official)
+        self.assertEqual(official.count("--base-profile"), 2)
         # Caller may not elevate permissions required by the canonical
         # reusable workflow; without actions:read, startup creates no jobs.
         self.assertIn("permissions:\n  contents: read\n  actions: read", experimental)
@@ -99,6 +108,15 @@ class IndependentPortableBootIntegrationTest(unittest.TestCase):
         self.assertIn('"--initramfs", str(initramfs_out / "initramfs.cpio.gz")', adapter)
 
         self.assertNotIn("rdinit=/sbin/ordax-independent-probe-init", experimental)
+
+    def test_stable_profile_is_explicit_without_automatic_pr_promotion(self):
+        official = (ROOT / ".github/workflows/portable-v2-qemu-boot-proof.yml").read_text()
+        experimental = (ROOT / ".github/workflows/independent-portable-v2-integration.yml").read_text()
+        self.assertIn('if [ "$ORDAX_BASE_PROOF_SOURCE" != independent ] || [ "$ORDAX_PROOF_EVENT" != workflow_dispatch ]; then', official)
+        self.assertIn("inputs.independent_base_profile != 'stable-mvp'", official)
+        self.assertIn("ORDAX_STABLE_MVP_HARDWARE_RECEIPTS=VERIFIED", official)
+        self.assertIn("if: github.event_name != 'pull_request' || !github.event.pull_request.draft", experimental)
+        self.assertIn("default: minimal", experimental)
 
     def test_signed_release_fault_qemu_is_real_and_separate_from_product_boot(self):
         official = (ROOT / ".github/workflows/portable-v2-qemu-boot-proof.yml").read_text()

@@ -141,6 +141,11 @@ on:
         description: 'stable (default) or isolated independent Buildroot candidate'
         required: false
         default: stable
+      independent_base_profile:
+        type: string
+        description: 'Independent base only: minimal or explicit non-promotable stable-mvp'
+        required: false
+        default: minimal
       surface_source:
         type: string
         description: 'stable (default) or same-run verified independent Buildroot Surface artifact'
@@ -257,10 +262,19 @@ jobs:
       - name: Validate portable-v2 QEMU contract
         env:
           ORDAX_BASE_PROOF_SOURCE: ${{ inputs.base_source || 'stable' }}
+          ORDAX_INDEPENDENT_BASE_PROFILE: ${{ inputs.independent_base_profile || 'minimal' }}
+          ORDAX_PROOF_EVENT: ${{ github.event_name }}
           ORDAX_SURFACE_PROOF_SOURCE: ${{ inputs.surface_source || 'stable' }}
         run: |
           set -euo pipefail
           case "$ORDAX_BASE_PROOF_SOURCE" in stable|independent) ;; *) echo 'unsupported portable base proof source' >&2; exit 1 ;; esac
+          case "$ORDAX_INDEPENDENT_BASE_PROFILE" in minimal|stable-mvp) ;; *) echo 'unsupported independent base proof profile' >&2; exit 1 ;; esac
+          if [ "$ORDAX_INDEPENDENT_BASE_PROFILE" = stable-mvp ]; then
+            if [ "$ORDAX_BASE_PROOF_SOURCE" != independent ] || [ "$ORDAX_PROOF_EVENT" != workflow_dispatch ]; then
+              echo 'Stable/MVP portable proof requires explicit dispatch with independent base source' >&2
+              exit 1
+            fi
+          fi
           case "$ORDAX_SURFACE_PROOF_SOURCE" in stable|independent) ;; *) echo 'unsupported Surface proof source' >&2; exit 1 ;; esac
           if [ "$ORDAX_SURFACE_PROOF_SOURCE" = independent ] && [ "$ORDAX_BASE_PROOF_SOURCE" != independent ]; then
             echo 'independent Surface proof currently requires the independent base candidate' >&2
@@ -438,8 +452,18 @@ jobs:
           path: ${{ runner.temp }}/portable-v2-qemu/kernel
           key: ordax-portable-component-v1-${{ runner.os }}-${{ runner.arch }}-kernel-${{ steps.component-fingerprints.outputs.kernel }}
 
+      - name: Require existing verified kernel for Stable/MVP proof
+        if: ${{ inputs.base_source == 'independent' && inputs.independent_base_profile == 'stable-mvp' }}
+        env:
+          ORDAX_KERNEL_CACHE_HIT: ${{ steps.kernel-cache.outputs.cache-hit }}
+        run: |
+          set -euo pipefail
+          if [ "$ORDAX_KERNEL_CACHE_HIT" != true ]; then
+            echo 'Stable/MVP proof requires verified kernel cache; no implicit kernel rebuild' >&2
+            exit 1
+          fi
       - name: Build exact kernel and kernel modules on cache miss
-        if: steps.kernel-cache.outputs.cache-hit != 'true'
+        if: steps.kernel-cache.outputs.cache-hit != 'true' && inputs.independent_base_profile != 'stable-mvp'
         env:
           ORDAX_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
@@ -481,7 +505,7 @@ jobs:
             --receipt "$work/metadata/kernel-component-reuse.json"
 
       - name: Save verified kernel component
-        if: steps.kernel-cache.outputs.cache-hit != 'true'
+        if: steps.kernel-cache.outputs.cache-hit != 'true' && inputs.independent_base_profile != 'stable-mvp'
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ runner.temp }}/portable-v2-qemu/kernel
@@ -491,6 +515,7 @@ jobs:
         env:
           ORDAX_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
           ORDAX_BASE_PROOF_SOURCE: ${{ inputs.base_source || 'stable' }}
+          ORDAX_INDEPENDENT_BASE_PROFILE: ${{ inputs.independent_base_profile || 'minimal' }}
         run: |
           set -euo pipefail
           work="$RUNNER_TEMP/portable-v2-qemu"
@@ -515,16 +540,28 @@ jobs:
               base_out="$work/independent-base"
               test -f "$module_archive"
               test ! -L "$module_archive"
+              case "$ORDAX_INDEPENDENT_BASE_PROFILE" in
+                minimal|stable-mvp) ;;
+                *) echo 'unexpected Buildroot base profile' >&2; exit 1 ;;
+              esac
               export ORDAX_HOST_PYTHON="$(command -v python3)"
               export ORDAX_KERNEL_MODULES_ARCHIVE="$module_archive"
+              mkdir -p "$base_out"
               export ORDAX_KERNEL_MODULES_RECEIPT="$base_out/kernel-module-selection.json"
+              export ORDAX_FIRMWARE_COVERAGE_RECEIPT="$base_out/firmware-coverage.json"
               python3 bootstrap/independent-base/build.py build \
+                --profile "$ORDAX_INDEPENDENT_BASE_PROFILE" \
                 --out "$base_out" \
                 --cache "$work/independent-base-cache" --jobs 4 \
                 > "$work/metadata/independent-base-build.json"
               python3 bootstrap/independent-base/build.py verify \
-                --out "$base_out" \
+                --profile "$ORDAX_INDEPENDENT_BASE_PROFILE" --out "$base_out" \
                 > "$work/metadata/independent-base-verify.json"
+              if [ "$ORDAX_INDEPENDENT_BASE_PROFILE" = stable-mvp ]; then
+                test -s "$ORDAX_KERNEL_MODULES_RECEIPT"
+                test -s "$ORDAX_FIRMWARE_COVERAGE_RECEIPT"
+                echo 'ORDAX_STABLE_MVP_HARDWARE_RECEIPTS=VERIFIED'
+              fi
               mkdir -p "$work/stable-base"
               cp -- "$base_out/independent-base.erofs" \
                 "$work/stable-base/stable-base.erofs"
@@ -936,7 +973,7 @@ jobs:
           proof_extra=()
           if [ "${{ inputs.base_source || 'stable' }}" = independent ]; then
             proof_runner=bootstrap/independent-base/portable_boot_proof.py
-            proof_extra=(--base-out "$work/independent-base" --output-dir "$work/qemu-proof/bridge")
+            proof_extra=(--base-out "$work/independent-base" --base-profile "${{ inputs.independent_base_profile || 'minimal' }}" --output-dir "$work/qemu-proof/bridge")
             echo 'ORDAX_INDEPENDENT_PORTABLE_BRIDGE=EXECUTING'
           fi
           sudo -E python3 "$proof_runner" "${proof_extra[@]}" \
@@ -1031,7 +1068,7 @@ jobs:
           proof_extra=()
           if [ "${{ inputs.base_source || 'stable' }}" = independent ]; then
             proof_runner=bootstrap/independent-base/portable_boot_proof.py
-            proof_extra=(--base-out "$work/independent-base" --output-dir "$work/qemu-one-shot-proof/bridge")
+            proof_extra=(--base-out "$work/independent-base" --base-profile "${{ inputs.independent_base_profile || 'minimal' }}" --output-dir "$work/qemu-one-shot-proof/bridge")
             echo 'ORDAX_INDEPENDENT_PORTABLE_BRIDGE=EXECUTING'
           fi
           sudo -E python3 "$proof_runner" "${proof_extra[@]}" \

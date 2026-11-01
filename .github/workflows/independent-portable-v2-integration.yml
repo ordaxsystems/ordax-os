@@ -8,6 +8,15 @@ on:
       - 'tests/test_independent_portable_boot_integration.py'
       - '.github/workflows/independent-portable-v2-integration.yml'
   workflow_dispatch:
+    inputs:
+      base_profile:
+        description: 'Independent Buildroot base to prove, minimal by default'
+        required: true
+        default: minimal
+        type: choice
+        options:
+          - minimal
+          - stable-mvp
 
 permissions:
   contents: read
@@ -57,6 +66,7 @@ jobs:
     uses: ./.github/workflows/portable-v2-qemu-boot-proof.yml
     with:
       base_source: independent
+      independent_base_profile: ${{ inputs.base_profile || 'minimal' }}
     permissions:
       contents: read
       actions: read
