@@ -47,7 +47,7 @@ def sha256_bytes(data: bytes) -> str:
 
 def canonical_bundle_path(value: object) -> str:
     """A receipt has exactly one lexical name for each packaged file."""
-    if not isinstance(value, str) or not value or "\" in value or "\0" in value:
+    if not isinstance(value, str) or not value or "\\" in value or "\0" in value:
         raise BundleError("unsafe Web bundle path")
     path = PurePosixPath(value)
     if (
