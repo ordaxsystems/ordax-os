@@ -130,10 +130,20 @@ class NativeCapabilityAdapterTests(unittest.TestCase):
             "const optionalPortsPromise = Promise.all([", 1
         )[1].split("  ]);", 1)[0]
         self.assertNotIn("createNativeDeviceProfile", boot_probes)
-        self.assertEqual(source.count("createNativeDeviceProfile(window)"), 1)
+        self.assertEqual(
+            source.count("createNativeDeviceProfile(window, { signal: firstRunOptionalReadSignal })"), 1,
+        )
+        self.assertEqual(
+            source.count("createNativeFirstRunCursor(window, { signal: firstRunOptionalReadSignal })"), 1,
+        )
+        self.assertIn("AbortSignal.timeout(5000)", source)
         self.assertIn(
             "const deviceProfilePromise = optionalNativeProbe(",
             source,
+        )
+        self.assertLess(
+            source.index("const firstRunCursorPromise = optionalNativeProbe("),
+            source.index("const optionalPortsPromise = Promise.all(["),
         )
         self.assertLess(
             source.index("const deviceProfilePromise = optionalNativeProbe("),
