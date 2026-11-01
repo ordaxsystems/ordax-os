@@ -2,6 +2,8 @@ from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
 import hashlib
 import json
+import copy
+import stat
 import shutil
 import tempfile
 import unittest
@@ -348,6 +350,94 @@ class RuntimeComponentPackageTests(unittest.TestCase):
                 "integrity mismatch",
             ):
                 builder.verify_package(tampered)
+
+    def test_archive_manifest_rejects_incomplete_and_inconsistent_component_identity(self):
+        builder = load_builder()
+        manifest, _ = builder.render_manifest("local-ai-service", "9" * 40)
+        invalid = (
+            {"owner": {"not": "a canonical owner"}},
+            {"title": ""},
+            {"dependencies": "ordax-base"},
+            {"dependencies": ["ordax-base", "ordax-base"]},
+            {"dependencies": ["local-ai-service"]},
+            {"kind": "unrecognized"},
+            {"criticality": "unrecognized"},
+            {"failureDomain": "unrecognized"},
+            {"restartScope": "unrecognized"},
+            {"healthMode": "unrecognized"},
+            {"kind": "app"},
+            {"releaseMode": "git-app"},
+            {"obsolete_field": True},
+        )
+        for change in invalid:
+            with self.subTest(change=change):
+                damaged = copy.deepcopy(manifest)
+                damaged["component"].update(change)
+                with self.assertRaises(builder.ComponentPackageError):
+                    builder.validate_manifest_shape(damaged)
+
+    def test_archive_paths_must_have_one_exact_posix_representation(self):
+        builder = load_builder()
+        for name in (
+            "system//components/local-ai-service/runtime.mjs",
+            "system/components/./local-ai-service/runtime.mjs",
+            "system/components/local-ai-service/runtime.mjs/",
+            "./system/components/local-ai-service/runtime.mjs",
+            "system/components/local-ai-service/../runtime.mjs",
+            "system\\components\\local-ai-service\\runtime.mjs",
+        ):
+            with self.subTest(name=name):
+                with self.assertRaises(builder.ComponentPackageError):
+                    builder.safe_zip_name(name)
+
+    def test_package_verifier_rejects_special_entries_and_alternate_compression(self):
+        builder = load_builder()
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            original = root / "local-ai-service.zip"
+            builder.build_package("local-ai-service", "a" * 40, original)
+            with zipfile.ZipFile(original, "r") as archive:
+                entries = [(info.filename, archive.read(info.filename))
+                           for info in archive.infolist()]
+            runtime = "system/components/local-ai-service/runtime.mjs"
+            for case in ("fifo", "deflated"):
+                with self.subTest(case=case):
+                    changed = root / f"noncanonical-{case}.zip"
+                    with zipfile.ZipFile(changed, "w") as output:
+                        for name, content in entries:
+                            info = builder.zip_info(name)
+                            if name == runtime and case == "fifo":
+                                info.external_attr = (stat.S_IFIFO | 0o644) << 16
+                            if name == runtime and case == "deflated":
+                                info.compress_type = zipfile.ZIP_DEFLATED
+                            output.writestr(info, content)
+                    with self.assertRaisesRegex(
+                        builder.ComponentPackageError,
+                        "unsafe entry type|non-canonical compression",
+                    ):
+                        builder.verify_package(changed)
+
+    def test_package_verifier_rejects_rewritten_identity_even_with_matching_payload_hashes(self):
+        builder = load_builder()
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            original = root / "local-ai-service.zip"
+            changed = root / "tampered-identity.zip"
+            builder.build_package("local-ai-service", "b" * 40, original)
+            with zipfile.ZipFile(original, "r") as archive:
+                entries = [(info.filename, archive.read(info.filename))
+                           for info in archive.infolist()]
+            with zipfile.ZipFile(changed, "w") as output:
+                for name, payload in entries:
+                    if name == builder.MANIFEST_NAME:
+                        manifest = json.loads(payload.decode("utf-8"))
+                        manifest["component"]["owner"] = ["untrusted"]
+                        payload = (json.dumps(manifest, sort_keys=True) + "\\n").encode("utf-8")
+                    output.writestr(builder.zip_info(name), payload)
+            with self.assertRaisesRegex(
+                builder.ComponentPackageError, "component package owner is invalid"
+            ):
+                builder.verify_package(changed)
 
     def test_archive_traversal_and_unreachable_payload_are_rejected(self):
         builder = load_builder()
