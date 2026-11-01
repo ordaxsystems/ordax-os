@@ -469,11 +469,7 @@ class RuntimeComponentPackageTests(unittest.TestCase):
         manifest = {
             "$schema": builder.SCHEMA,
             "status": "candidate",
-            "component": {
-                "id": "local-ai-service",
-                "version": "0.1.0",
-                "releaseMode": "bundled",
-            },
+            "component": builder.load_component_metadata("local-ai-service")["component"],
             "source_commit": "b" * 40,
             "entrypoint": "system/components/local-ai-service/runtime.mjs",
             "self_contained_source_graph": True,
