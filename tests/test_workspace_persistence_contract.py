@@ -45,13 +45,20 @@ class WorkspacePersistenceContractTests(unittest.TestCase):
         self.assertNotIn('../../adapters/native/workspace.mjs', web)
         self.assertNotIn('../../adapters/web/workspace.mjs', native)
 
-    def test_browser_backed_stores_are_bounded_namespaced_and_migrating(self):
+    def test_browser_backed_stores_are_bounded_namespaced_and_owner_scoped(self):
         web = WEB_ADAPTER.read_text(encoding="utf-8")
         native = NATIVE_ADAPTER.read_text(encoding="utf-8")
         contract = CONTRACT.read_text(encoding="utf-8")
-        self.assertIn('"ordax.native.workspace.v2"', native)
-        self.assertIn('"ordax.native.workspace.v1"', native)
-        self.assertIn("migrateLegacyWorkspaceRecord", native)
+        # The original Native v1/v2 records contained no verified subject.
+        # They must remain untouched for authorized recovery, not be silently
+        # imported into a guest or a newly signed-in account.
+        self.assertIn('GUEST_STORAGE_KEY = "ordax.native.workspace.v2.guest"', native)
+        self.assertIn('SUBJECT_STORAGE_PREFIX = "ordax.native.workspace.v2.subject."', native)
+        self.assertIn("let currentKey = null", native)
+        self.assertIn('identity?.state === "signed-out" ? GUEST_STORAGE_KEY : null', native)
+        self.assertIn("validateIdentitySessionSnapshot(sessionSnapshot)", native)
+        self.assertNotIn("migrateLegacyWorkspaceRecord", native)
+        self.assertNotIn('storage.setItem("ordax.native.workspace.v2"', native)
         self.assertIn("MAX_WINDOWS = 32", contract)
         self.assertIn("MAX_WORKSPACE_AREAS = 8", contract)
         self.assertIn("MAX_COORDINATE = 1_000_000", contract)
