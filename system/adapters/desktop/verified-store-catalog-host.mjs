@@ -139,12 +139,37 @@ async function writeDurably(path, content) {
   }
 }
 
-async function acceptVerifiedCatalog(snapshot, path, candidateEnvelope = null, activeEnvelope = null) {
+async function withLockedWatermark(path, task) {
   const lockPath = path + ".lock";
   let locked = false;
   try {
     await mkdir(lockPath, { mode: 0o700 });
     locked = true;
+    return await task();
+  } finally {
+    // Never release a lock acquired by another Native process.
+    // Interrupted locks require explicit operator recovery.
+    if (locked) await rmdir(lockPath);
+  }
+}
+
+// Server-only: hold the same monotonic watermark lock through the canonical
+// Go state mutation. This cannot be reached through the read-only Store HTTP
+// endpoint or used to change the accepted catalog identity.
+export async function withDesktopStoreCatalogWatermark(userData, task) {
+  if (typeof task !== "function") throw TypeError("Store watermark task required");
+  const root = storeRoot(userData);
+  if (!root) throw Error("Store catalog storage unavailable");
+  const path = join(root, "catalog-watermark.json");
+  return withLockedWatermark(path, async () => {
+    const current = await watermark(path);
+    if (!current) throw Error("Store catalog watermark unavailable");
+    return task(current);
+  });
+}
+
+async function acceptVerifiedCatalog(snapshot, path, candidateEnvelope = null, activeEnvelope = null) {
+  return withLockedWatermark(path, async () => {
     const current = await watermark(path);
     if (current) {
       if (snapshot.sequence < current.sequence
@@ -197,11 +222,7 @@ async function acceptVerifiedCatalog(snapshot, path, candidateEnvelope = null, a
         || persisted.catalogSha256 !== snapshot.catalogSha256)
         throw Error("Store watermark persistence readback failed");
     } finally { await rm(candidate, { force: true }).catch(() => {}); }
-  } finally {
-    // Never delete a lock acquired by another host or silently reclaim a
-    // potentially live process's lock. On failure, retain fail-closed state.
-    if (locked) await rmdir(lockPath);
-  }
+  });
 }
 
 function verify(helper, envelope, trust, output, execFileImpl) {
@@ -232,7 +253,7 @@ export function createDesktopVerifiedStoreCatalogMiddleware({
   catch { remoteUrl = false; }
   let queue = Promise.resolve();
 
-  async function readSigned() {
+  async function readSigned(allowRemote = true) {
     const pinned = platform === "win32"
       ? readDesktopPinnedComponentTrust(systemRoot, verifierRoot) : null;
     if (!pinned) return unavailable("catalog-trust-unavailable");
@@ -272,7 +293,7 @@ export function createDesktopVerifiedStoreCatalogMiddleware({
     // The HTTPS source is a byte transport only. Verify with the installed Go
     // CLI before atomic LKG promotion. A remote failure preserves the previous
     // signed envelope and monotonic watermark; no unsigned fallback is added.
-    if (remoteUrl !== null) {
+    if (allowRemote && remoteUrl !== null) {
       const candidate = join(directory, ".catalog-remote-" + randomUUID() + ".tmp");
       try {
         const payload = await fetchRemoteEnvelope(remoteUrl, fetchImpl);
@@ -289,7 +310,12 @@ export function createDesktopVerifiedStoreCatalogMiddleware({
     try { return await verifyAndAccept(envelope); }
     catch { return unavailable("catalog-verification-failed"); }
   }
-  return function desktopVerifiedStoreCatalog(req, res, next) {
+  function queuedRead(allowRemote) {
+    const task = queue.then(() => readSigned(allowRemote), () => readSigned(allowRemote));
+    queue = task.then(() => {}, () => {});
+    return task;
+  }
+  function desktopVerifiedStoreCatalog(req, res, next) {
     if (req.url?.split("?")[0] !== ENDPOINT) return next();
     const reply = (code, body) => {
       if (res.headersSent) return res.destroy();
@@ -305,8 +331,15 @@ export function createDesktopVerifiedStoreCatalogMiddleware({
       return reply(403, { error: "Native Store requires loopback" });
     if (req.headers.origin && req.headers.origin !== "http://" + req.headers.host)
       return reply(403, { error: "Native Store rejects foreign origin" });
-    const task = queue.then(readSigned, readSigned);
-    queue = task.then(() => {}, () => {});
-    void task.then(result => reply(200, result), () => reply(200, unavailable("catalog-verification-failed")));
-  };
+    void queuedRead(true).then(
+      result => reply(200, result),
+      () => reply(200, unavailable("catalog-verification-failed")),
+    );
+  }
+  // Private, serialized, locally reverified signed catalog. Privileged
+  // lifecycle endpoints never download bytes inside a mutation.
+  Object.defineProperty(desktopVerifiedStoreCatalog, "readVerifiedLocalCatalog", {
+    value: () => queuedRead(false),
+  });
+  return desktopVerifiedStoreCatalog;
 }
