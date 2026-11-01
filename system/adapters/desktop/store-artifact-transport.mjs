@@ -4,10 +4,9 @@
 import { createHash, randomUUID } from "node:crypto";
 import { lstat, link, mkdir, open, readFile, rm } from "node:fs/promises";
 import { join } from "node:path";
-import { validateAppArtifactIdentity } from "../../contracts/app-artifact-identity.mjs";
+import { validateAppArtifactIdentity, appArtifactContentPath, MAX_APP_ARTIFACT_BYTES } from "../../contracts/app-artifact-identity.mjs";
 import { desktopStoreCatalogEnvelopeUrl } from "./verified-store-catalog-host.mjs";
 
-const MAX_ARTIFACT = 32 * 1024 * 1024;
 const ARTIFACT_ROLES = Object.freeze(["package", "release", "compatibility", "componentEnvelope"]);
 const TIMEOUT_MS = 20000;
 
@@ -15,8 +14,7 @@ export function desktopStoreArtifactUrl(baseOrigin, identity) {
   const normalized = validateAppArtifactIdentity(identity);
   const catalogUrl = desktopStoreCatalogEnvelopeUrl(baseOrigin);
   if (catalogUrl === null) throw Error("Signed Store artifact HTTPS origin is unavailable");
-  const digest = normalized.sha256;
-  return new URL("sha256/" + digest.slice(0, 2) + "/" + digest,
+  return new URL(appArtifactContentPath(normalized),
     new URL(".", catalogUrl)).href;
 }
 
@@ -76,7 +74,7 @@ async function download(identity, url, fetchImpl) {
     for await (const chunk of result.body) {
       if (!(chunk instanceof Uint8Array)) throw Error("Nonbinary Store artifact body");
       count += chunk.byteLength;
-      if (count > identity.size || count > MAX_ARTIFACT)
+      if (count > identity.size || count > MAX_APP_ARTIFACT_BYTES)
         throw Error("Store artifact exceeds signed size");
       chunks.push(Buffer.from(chunk));
     }
