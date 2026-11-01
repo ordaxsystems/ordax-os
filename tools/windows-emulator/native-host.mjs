@@ -1,7 +1,7 @@
 // Development host for Native contracts. Account authority stays in the HTTPS gateway.
-import { mkdir, readFile, writeFile, rename } from "node:fs/promises";
+import { mkdir, lstat, open, readFile, rename, unlink } from "node:fs/promises";
 import { join } from "node:path";
-import { timingSafeEqual } from "node:crypto";
+import { randomUUID, timingSafeEqual } from "node:crypto";
 import { readDesktopNetworkStatus } from "../../system/adapters/desktop/network-status.mjs";
 import { readDesktopSystemMetrics } from "../../system/adapters/desktop/system-metrics.mjs";
 import { readDesktopPowerStatus } from "../../system/adapters/desktop/power-status.mjs";
@@ -39,15 +39,53 @@ export function createEmulatorNativeHost({
     origin: accountGatewayOrigin, fetchImpl, cookieVault,
   });
   const file = join(stateDirectory, "native-state.json");
+  // Three bounded Native state ports share this one record. Never follow a
+  // linked or oversized receipt into another path owned by the Windows user.
+  const MAX_STATE_FILE_BYTES = 256 * 1024;
+  const regularOrMissing = async () => {
+    try {
+      const entry = await lstat(file);
+      if (!entry.isFile() || entry.isSymbolicLink() ||
+          entry.size < 1 || entry.size > MAX_STATE_FILE_BYTES)
+        throw new Error("Untrusted Desktop Native state file");
+      return true;
+    } catch (error) {
+      if (error?.code === "ENOENT") return false;
+      throw error;
+    }
+  };
   const initialCursor = () => ({ schema: FIRST_RUN_CURSOR_SCHEMA, step: "welcome" });
   const defaults = () => ({ firstRun: createInitialFirstRunState(), preferences: validatePreferenceRecord({}), cursor: initialCursor() });
   const load = async () => {
     try {
+      if (!await regularOrMissing()) return defaults();
       const saved = JSON.parse(await readFile(file, "utf8"));
       return { firstRun: validateFirstRunState(saved.firstRun), preferences: validatePreferenceRecord(saved.preferences), cursor: validateFirstRunCursor(saved.cursor) };
     } catch (error) {
-      if (error.code === "ENOENT") return defaults();
       throw new Error("Saved development state is unreadable", { cause: error });
+    }
+  };
+  const persist = async state => {
+    await mkdir(stateDirectory, { recursive: true });
+    await regularOrMissing();
+    // A predictable ".tmp" name can be pre-created or linked by another
+    // process. Exclusive creation, file sync and rename avoid acknowledging
+    // incomplete First Run state and leave the prior receipt intact on error.
+    const temporary = join(stateDirectory, ".native-state.json." + randomUUID());
+    let handle = null;
+    try {
+      handle = await open(temporary, "wx", 0o600);
+      await handle.writeFile(JSON.stringify(state), "utf8");
+      await handle.sync();
+      await handle.close();
+      handle = null;
+      await regularOrMissing();
+      await rename(temporary, file);
+    } finally {
+      if (handle) await handle.close();
+      await unlink(temporary).catch(error => {
+        if (error?.code !== "ENOENT") throw error;
+      });
     }
   };
   let queue = Promise.resolve();
@@ -55,9 +93,7 @@ export function createEmulatorNativeHost({
     const result = queue.then(async () => {
       const state = await load();
       operation(state);
-      await mkdir(stateDirectory, { recursive: true });
-      await writeFile(file + ".tmp", JSON.stringify(state), "utf8");
-      await rename(file + ".tmp", file);
+      await persist(state);
       return state;
     });
     queue = result.catch(() => {});

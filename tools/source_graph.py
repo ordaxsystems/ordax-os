@@ -4,11 +4,11 @@ from __future__ import annotations
 
 import posixpath
 import re
+from html.parser import HTMLParser
 from pathlib import Path, PurePosixPath
 
-HTML_REF_RE = re.compile(r"\b(src|href)=(['\"])([^'\"]+)\2", re.IGNORECASE)
 JS_FROM_RE = re.compile(r"\b(?:import|export)\s+(?:[^;]*?\s+from\s*)?[\"']([^\"']+)[\"']")
-JS_CALL_RE = re.compile(r"\bimport\(\s*[\"']([^\"']+)[\"']\s*\)")
+JS_CALL_RE = re.compile(r"\b(?:import|require(?:\.resolve)?)\s*\(\s*[\"']([^\"']+)[\"']\s*\)")
 JS_URL_RE = re.compile(
     r"\bnew\s+URL\(\s*[\"']([^\"']+)[\"']\s*,\s*import\.meta\.url\s*\)"
 )
@@ -24,10 +24,64 @@ class SourceGraphError(RuntimeError):
     pass
 
 
+def _srcset_urls(value: str) -> list[str]:
+    # HTML srcset separates candidates by a comma following a URL or its
+    # descriptors. A URL itself may contain commas (notably data: URLs), so
+    # a simple split(',') could lose an untrusted external dependency.
+    urls: list[str] = []
+    index = 0
+    while index < len(value):
+        while index < len(value) and (value[index].isspace() or value[index] == ","):
+            index += 1
+        if index >= len(value):
+            break
+        start = index
+        while index < len(value) and not value[index].isspace():
+            index += 1
+        token = value[start:index]
+        url = token.rstrip(",")
+        if url:
+            urls.append(url)
+        if token.endswith(","):
+            continue
+        parentheses = 0
+        while index < len(value):
+            character = value[index]
+            if character == "(":
+                parentheses += 1
+            elif character == ")" and parentheses:
+                parentheses -= 1
+            elif character == "," and parentheses == 0:
+                index += 1
+                break
+            index += 1
+    return urls
+
+
+class _HTMLDependencies(HTMLParser):
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self.urls: list[str] = []
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        for name, value in attrs:
+            if value is None:
+                continue
+            if name in {"src", "href"}:
+                self.urls.append(value)
+            elif name in {"srcset", "imagesrcset"}:
+                self.urls.extend(_srcset_urls(value))
+
+    handle_startendtag = handle_starttag
+
+
 def dependency_specifiers(path: PurePosixPath, text: str) -> list[str]:
     suffix = path.suffix.lower()
     if suffix in {".html", ".htm"}:
-        return [match.group(3) for match in HTML_REF_RE.finditer(text)]
+        parser = _HTMLDependencies()
+        parser.feed(text)
+        parser.close()
+        return parser.urls
     if suffix in {".mjs", ".js", ".cjs"}:
         specs = (
             set(JS_FROM_RE.findall(text))
