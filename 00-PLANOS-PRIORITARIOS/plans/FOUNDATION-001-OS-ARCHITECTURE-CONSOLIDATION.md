@@ -1,10 +1,10 @@
 # FOUNDATION-001 — Auditoria e consolidação da fundação do OrdaX OS
 
 - **Tipo:** PLAN / MVP FOUNDATION / CROSS-AGENT HANDOFF
-- **Status documental:** ACTIVE — auditoria inicial, implementação estrutural pendente
-- **Elegibilidade de execução:** EXECUTION-ELIGIBLE **somente** para corrigir defeitos/falhas e fechar gates já exigidos por `MVP.md`, contratos e owners canônicos. Não promove funcionalidades futuras nem autoriza escrita física.
-- **Prioridade:** P0 para integridade estrutural, boot, atualização e USB do MVP; demais melhorias são subordinadas aos gates atuais.
-- **Criado/atualizado:** 2026-10-23
+- **Status documental:** REFERENCE — roteiro/handoff de auditoria e consolidação, alinhado ao `REGISTRY.md`; não é fila paralela de implementação.
+- **Elegibilidade de execução:** EXECUTION-ELIGIBLE **somente** para defeitos reais, limpeza e integração exigidos pelos owners atuais do Desktop Windows/Web. USB/Creator/Buildroot/Native físico ficam DEFERRED até nova janela e autorização explícita; o plano não autoriza publicação ou escrita física.
+- **Prioridade:** P0 para integridade/SSOT, remoção de legado comprovado, contratos e Desktop Windows instalado; P1 para eficiência de integração/CI; USB/Native físico conforme janela posterior do `ROADMAP.md`.
+- **Criado:** 2026-10-23; **diretriz vigente revisada:** 2026-11-01.
 - **Owner de execução:** `ordaxsystems/ordax-os` (consolidação transversal; NÃO se torna dono dos demais repositórios).
 - **Autoridades reais:** `AGENTS.md`, `docs/README.md`, `docs/CURRENT-STATE.md`, `MVP.md`, `docs/ARCHITECTURE.md`, `docs/PROMOTION-GATES.md`, `docs/DECISIONS.md`, `docs/contracts/repository-ownership.json`, contratos de boot/storage/atualização e respectivos arquivos-fonte.
 - **Planejamento:** `00-PLANOS-PRIORITARIOS/ROADMAP.md` e `REGISTRY.md`; `NATIVE-001` continua proprietário do plano de instalação whole-disk, sem duplicação.
@@ -12,9 +12,121 @@
 
 > **Handoff independente de conversa:** este é o roteiro persistente de execução; NÃO é novo SSOT de arquitetura, versões, bugs, grants, estado físico ou releases. Nunca presumir que o snapshot abaixo permanece atual. Nenhuma tarefa pode ser marcada concluída por edição, teste isolado ou PR aberta; exigir evidência no owner correto.
 
+
+## Diretriz vigente — 2026-11-01: remoção de pendências, zero legado artificial, Windows-first
+
+**Precedência:** `ROADMAP.md`, `REGISTRY.md`, `docs/CURRENT-STATE.md` e os contratos atuais vencem fotografias históricas abaixo. Este programa atualiza o handoff de consolidação, **não** cria outro SSOT, outro backlog ou uma nova autorização de release. A pesquisa pública comparou AOSP, GNOME, Linux/Buildroot, VS Code, Element, Bitwarden, discussões Reddit/Hacker News, Electron e práticas SLSA: a fronteira útil é ownership + contrato + build + release, não quantidade de repositórios.
+
+**Condição de desenvolvimento:** ainda não há uma base pública de usuários a sustentar retrocompatibilidade artificial de APIs internas. Portanto, **preferir corte limpo**: alterar consumidores, contratos e testes e **remover o caminho antigo na mesma migração validada**, sem aliases, wrappers duplicados, flags eternas, cópias de código, mocks permanentes ou fallback silencioso. Isso **não** dispensa preservar dados de desenvolvimento existentes, proveniência Git, releases assinadas já consumidas, trust, consentimento, known-good, rollback e recovery. Não reescrever a `main` nem modificar um protocolo assinado antigo sem migração explícita; segurança não é legado descartável.
+
+### Regras inegociáveis para o agente que remove pendências
+
+- [ ] **Prova antes de exclusão:** para cada arquivo/caminho candidato, registrar owner, propósito, imports/callers, CLI, instalador, CI, testes, contratos, source locks, release, recovery, docs e consumo cross-repo; classificar `KEEP / MOVE / REPLACE-AND-DELETE / DELETE / GENERATED / HISTORICAL / DEFER`. Ausência em busca textual isolada não é prova suficiente.
+- [ ] **Sem coexistência permanente:** uma implementação por responsabilidade. Uma ponte temporária só pode existir durante um cutover delimitado, com owner, teste, condição objetiva e PR de remoção vinculada; não encerrar a migração deixando o shim como solução final. Não deixar diretórios `old`, `legacy`, `v2-final` ou cópias paralelas ativas.
+- [ ] **Sem compatibilidade fictícia:** quebrar APIs internas ainda não publicadas é aceitável quando todos os consumidores são migrados atomicamente e os testes passam; manter contratos publicados/assinados ou estados persistidos **apenas** enquanto houver consumidor real e política canônica. Nunca falsificar PASS, remover testes para fazê-los passar, reduzir gates, desligar assinatura, usar `try/catch` para esconder erro ou trocar integração real por mock.
+- [ ] **Sem novo produto por organização:** não criar outro OS, Runtime, Identity, Memory, Store, updater, Creator, motor de IA, release publisher, serviço MCP ou base de dados. Não confundir código-fonte duplicado com assets gerados/staged verificados, adapters legítimos, contracts publicados ou artefatos de distribuição.
+- [ ] **Remoção completa por change set:** eliminar código, imports, rotas, exports, scripts, dependências, workflows, fixtures obsoletas, documentação ativa e referências ao caminho antigo; manter apenas evidência histórica em `docs/evidence/`/Git e links necessários à proveniência. Adicionar teste negativo que falhe se o legado voltar.
+- [ ] **PRs pequenas e coordenadas:** uma fronteira por owner, sem PRs concorrentes nos mesmos arquivos; comparar SHA da `main` antes de editar, preservar histórico com merge commit, medir regressões e atualizar contrato, CI e `docs/CURRENT-STATE.md` na mesma entrega quando o estado factual mudar.
+- [ ] **Segurança e dados continuam fail-closed:** nunca apagar dados de usuário/Owner/Dev ou known-good automaticamente, nem abrir acesso a filesystem/terminal/GUI por conveniência; nada de credenciais em source, ações destrutivas, publicação Stable ou escrita física sem autorização própria.
+
+### P0-A — inventário real e fronteiras dos oito repositórios (primeiro gate)
+
+- [ ] Revalidar SHA/branch, PRs abertas, jobs obrigatórios, source locks, manifests e entrypoints em **todos os oito** repositórios: `ordax-os`, `ordax-surface`, `ordax-apps`, `ordax-runtime`, `ordax-platform`, `ordax-intelligence`, `ordax-creator` e `ordax-site`.
+- [ ] Construir matriz `owner → responsabilidade → consumidores → contrato → artefato → release → testes → status`. Gerar grafo de dependências/imports, detectar ciclos, consumo de `main` flutuante, caminhos relativos entre checkouts, clones/copias versionadas e código morto comprovado.
+- [ ] Reconciliar `docs/contracts/repository-ownership.json` com os oito owners, `repository-migration-status.json`, `module-boundaries.json` e docs dos repos. **Achado conhecido:** o ownership atual ainda atribui `intelligence` ao OS e não cadastra `ordax-intelligence`; distinguir engine portátil de autorização/Memory/Supervisor/composição retidos no OS.
+- [ ] Auditar SSOT visual `ordax-surface` versus `ordax-os/system/surface` (host, não UI); `ordax-apps` versus `system/apps` (apps removíveis versus Store/Settings/Account/System estruturais); `ordax-creator` versus `tools/creator` (app/core versus provas, payload e assinatura do OS); `ordax-site` versus gateways OS. Não apagar adapters legítimos por nomes parecidos.
+- [ ] Registrar cada defeito **com caminho, evidência, owner, consumidor, teste que falha, correção mínima, remoção esperada e PR existente**; não marcar hipóteses como bugs nem criar documento paralelo ao owner.
+
+**Aceite P0-A:** inventário verificável sem ownership ambíguo, fila deduplicada por owner e zero tarefa de exclusão sem prova.
+
+### P0-B — cutover de Intelligence sem código antigo (Windows primeiro)
+
+- [ ] Confirmar o `docs/contracts/intelligence-source.json` vigente, os oito blobs fixados, o `integration-candidate` e `cutover_complete=false`; verificar o estado atual no repo Intelligence antes de assumir que a migração terminou.
+- [ ] Separar motor portátil (`intelligence/runtime`, `model-router`, `local-ai/runtime`, streaming, compatibilidade e builder técnico) dos owners OS de `native-service`, `authorized-memory`, `client-actions`, `tool-grants`, Supervisor, modelos/locks, permissões, assinatura e distribuição.
+- [ ] Substituir consumidores da implementação OS por portas `ordax.intelligence/1`, `ordax.model-router/1` e `ordax.local-ai/1` e por artefatos/source fixados, sem import privado cross-repo; validar composição e inferência reais na plataforma **Windows prioritária**. Linux/Buildroot/QEMU só na janela autorizada.
+- [ ] Cobrir buffered/SSE, timeout, cancelamento, ausência de modelo, rejeição de `tool_calls`/ações não autorizadas, permissões, restart, modelo incompatível, falha do motor e recuperação; registrar limites de CPU/RAM quando testados de fato.
+- [ ] **Após gate real de cutover**, apagar as implementações OS substituídas, builder duplicado e referências antigas; bloquear sua reintrodução no CI. Não deixar implementação velha como fallback “temporário” indefinido; não marcar `cutover_complete=true` antes das provas.
+- [ ] Atualizar ownership, source lock, docs e receipts **na mesma PR/coordenação**; não copiar contratos OS para Intelligence nem criar segunda autoridade de Memory/Identity.
+
+**Aceite P0-B:** um motor canônico, nenhum import do legado, contratos/testes de consumidor verdes, Desktop real funcional, falha fechada, rollback verificável e status canônico fiel.
+
+### P0-C — identidade, Platform e Runtime: uma autoridade por operação
+
+- [ ] Mapear emissão, renovação, validação, revogação e persistência de sessões; OAuth remoto, grants e filas em `ordax-platform`; gateway, sessão e aplicação de política local no `ordax-os`. Auditar concretamente `services/product-oauth`, `services/public-identity`, `services/product-gateway` e `services/product-mcp` **antes** de mover ou remover qualquer um.
+- [ ] Eliminar apenas implementações remotas duplicadas **comprovadas**; não remover gateway/adapters necessários, nem criar outra autoridade de login, política, permissões, sessão ou banco no Desktop, Apps ou Site.
+- [ ] Verificar `ordax-runtime` como owner único de host/device agent, computer-control e MCP local Windows; Desktop integra por API/IPC tipada e grants existentes, sem segundo dispatcher, executor, terminal genérico ou agente auxiliar disfarçado.
+- [ ] Testar sessão expirada, revogada, offline, reconnect, troca de Space, isolamento de device, privilégio mínimo e negativa de ações não autorizadas; preservar a distinção entre Conta, Space, Device e Profile Pack.
+- [ ] Remover rotas, bridges, flags e serviços de transição obsoletos **no mesmo corte validado** e atualizar os contratos/consumidores em cada repo owner.
+
+**Aceite P0-C:** uma autoridade remota, enforcement local claro, zero rota paralela de concessão e regressões de autenticação/permissão verificadas.
+
+### P0-D — composição de versões/release: usar owners existentes, não inventar outro manifest
+
+- [ ] Inventariar `docs/contracts/release-protocol.json`, `release-channel.json`, `component-update-compatibility.json`, `surface-source.json`, `intelligence-source.json`, contratos de Apps/Runtime, `tools/release-manifest` e recibos de build Desktop; **já existe protocolo de release**, logo não criar `ordax-release-manifest` separado automaticamente.
+- [ ] Determinar se o registro canônico de **composição do produto** já fixa SHA/tag/versão, hash, API major, provenance e artefatos efetivos de OS, Surface, Apps, Runtime, Intelligence e Desktop, além do contrato Platform API. Se faltar informação, **estender o owner correto** ou propor ADR de um lock de integração pequeno, sem duplicar o manifest assinado ou mudar semântica `release-manifest/1`.
+- [ ] Impedir que build/release use HEAD/`main` flutuante de outro repo, checkout vizinho, asset “latest” não verificado ou download sem hash. Resolver um conjunto exato, reproduzir em CI e comparar recibo do instalador com o conjunto consumido.
+- [ ] Versionar portas e mudanças incompatíveis, testar produtor/consumidor antes do merge; distinguir versão do produto, versão do componente, versão do contrato e commit Git. Release Windows, Web e USB têm artefatos próprios, sem bifurcar política do produto.
+- [ ] Para atualização: `download → verify → stage → health → promote / rollback`, known-good, interrupções e recuperação. Assinatura/trust de Stable continuam gates separados de DEV e não podem ser contornados.
+
+**Aceite P0-D:** uma composição reconstituível por SHAs/hashes, contrato compatível, recibos verificáveis e nenhum segundo publisher/SSOT.
+
+### P0-E — Desktop Windows instalado: produto real antes de repositório novo
+
+- [ ] Auditar `tools/windows-desktop`, Electron/NSIS, bundle Native, pin da Surface, Runtime distribuído, instalador, atualização e evidências reais; **não** inferir que CI verde significa produto instalado pronto.
+- [ ] Executar E2E em Windows físico instalado: instalação limpa → primeira abertura → login/Conta → criar/selecionar Space → Store/Apps → Files → Aura/Intelligence → Runtime/MCP permitido → fechar/reabrir/reiniciar → offline/reconnect → update e rollback; registrar SHA OS/Surface/Runtime/Intelligence, hashes, versão, logs e falhas.
+- [ ] Segurança Electron: `contextIsolation`, sandbox, `nodeIntegration` desativado no renderer não confiável, preload com allowlist, IPC tipada, validação de origem/parâmetros, CSP/navegação, acesso a arquivos mediado e testes de tentativa de escalada. Não expor token, shell ou APIs Windows genéricas à Surface.
+- [ ] Garantir que o Desktop não mantenha segunda UI, segundo catálogo de Apps, segunda sessão, segundo motor IA, segundo updater ou política divergente; diferenciar host Windows de Surface visual e Runtime de dispositivo.
+- [ ] Corrigir causas reais e remover caminhos/fallbacks de DEV obsoletos após substituição testada; manter mecanismos de recovery e diagnóstico necessários, sem esconder falhas com retries infinitos.
+
+**Aceite P0-E:** E2E instalado reproduzível com evidência de Windows real, atualização/rollback íntegros e nenhuma implementação concorrente.
+
+### P1-A — CI por impacto, contratos, supply chain e exclusão comprovada
+
+- [ ] Estabelecer grafo de impacto por componente: alteração visual não recompila kernel/Buildroot; alteração de contrato aciona consumidores; jobs essenciais de validação não desaparecem por `paths`. Reutilizar `docs/contracts/build-autonomy.json`, `ci-supply-chain.json` e workflows atuais; um `plan` sempre executável pode controlar o fan-out.
+- [ ] Exigir lint/typecheck, testes unitários, contratos cruzados, integração de artefatos fixados, smoke de Desktop instalado quando afetado e testes negativos que detectem imports/paths legados; nunca tornar teste “verde” pulando o caminho relevante.
+- [ ] Fixar actions/dependências/ambientes por SHA/digest, gerar hashes e SBOM, attestations/provenance para artefatos de entrega, separar permissões de build, assinatura e publicação, e auditar secrets, licenças e dependências vulneráveis.
+- [ ] Eliminar workflows duplicados, scripts não chamados, geradores antigos, dependências e lockfiles sem consumidores, assets rastreados indevidamente e documentação ativa contraditória **com teste de ausência e rollback**. Artefatos gerados intencionalmente e evidências históricas não são source duplicado.
+- [ ] Medir p50/p95 de CI, builds por impacto, taxa de PRs cross-repo, regressões de contrato, tempo de recuperação, falhas de instalação/update e taxa de releases reconstruíveis; comparar antes/depois.
+
+**Aceite P1-A:** builds por impacto corretos, provenance verificável, falhas de contrato detectadas antes do merge e resíduos antigos não reaparecem.
+
+### P1-B — decisão fundamentada sobre novos repositórios (não extrair por estética)
+
+| Candidato | Decisão nesta janela | Gate para reconsiderar |
+| --- | --- | --- |
+| `ordax-desktop` | **NÃO criar ainda**; auditar host Windows no OS | Pelo menos 4 de 6 evidências: release independente, owner distinto, build independente, packaging/assinatura/updater próprios, Surface consumida por contrato/artefato, maioria das mudanças sem PR simultânea na Surface. Registrar ADR e custo da migração. |
+| `ordax-kernel` | **NÃO** | Fork/patchset relevante, maintainer e ciclo de CVEs/backports próprio; caso contrário usar upstream pinado + configuração/patches no OS. |
+| `ordax-drivers`/`ordax-firmware` | **NÃO** | Hardware/BSP com releases e owner independentes; preferir pacotes/layers/`br2-external` quando apropriado. |
+| `ordax-updater` | **NÃO** | Produto reutilizável com protocolo/trust root e release realmente independentes; nunca dois mecanismos de promoção. |
+| `ordax-contracts`/`ordax-ci` | **NÃO por padrão** | Múltiplos consumidores independentes ou duplicação de workflows mensurada; preferir contratos do provider e reusable workflows existentes. |
+| `ordax-release-manifest` | **NÃO por padrão** | Só ADR após provar que os owners atuais de release/locks não comportam composição verificável; evitar segundo manifest/assinador. |
+
+Se o Desktop for essencialmente um wrapper em lock-step com a Surface, **repo separado pode piorar** coordenação; se for host Windows com release/assinatura independentes, pode valer a pena. Não mover host privilegiado para `ordax-surface` sem revisar `repository-ownership.json`, `module-boundaries.json` e segurança. A extração aprovada exige preservar histórico, migrar CI/packaging, testes de IPC, instalação, upgrade, rollback, source locks e exclusão do caminho antigo **no corte final**.
+
+### P2 — Kernel, Base, USB/Creator e Native físico: preservar arquitetura, adiar execução
+
+- [ ] Manter Kernel Linux, boot, initramfs, Buildroot/Base, Supervisor, recovery e updater estrutural sob owners `ordax-os`, com upstream pinado, patches/configuração versionados, builds por artefato e sem fork/repo novo por estética.
+- [ ] Quando a janela física abrir, reconciliar `ordax-creator` (aplicação/Core) com `ordax-os/tools/creator` (provas/payload/assinatura) e contratos de geometria distintos; eliminar duplicação comprovada sem apagar produtores legítimos.
+- [ ] Não iniciar agora builds caros de kernel/Buildroot, USB/QEMU, publicação de mídia ou testes físicos para satisfazer um plano documental; usar `NATIVE-001`, owners e gates atuais quando autorizado.
+- [ ] Em eventual corte de Base/Alpine, provar ABI, PID1, recovery, health, update e boot real no perfil-alvo antes de apagar a implementação anterior; depois remover todo legado de execução sem compatibilidade eterna.
+
+### Ordem de entrega, critérios de encerramento e handoff
+
+1. **Gate 0 — baseline:** inventário e métricas, PRs existentes, source locks e defeitos comprovados; nenhuma mudança cega.
+2. **Gate 1 — ownership:** oito repos reconciliados, imports proibidos bloqueados, contratos e documentação canônica alinhados.
+3. **Gate 2 — cutovers:** Intelligence e identidade/Platform sem duas implementações; cada PR termina com exclusão do legado e teste negativo.
+4. **Gate 3 — integração:** composição exata de artefatos/contratos e Desktop Windows instalado E2E, incluindo update/recovery.
+5. **Gate 4 — qualidade:** CI por impacto, supply chain, métricas e revisão de resíduos; reavaliar `ordax-desktop` com evidência.
+6. **Gate 5 — futuro:** só depois da janela Windows-first, retomar USB/Creator/Buildroot/Native com autorização própria.
+
+**Definição de DONE por pendência:** owner correto; mudança na `main` após merge; implementação substituta exercitada por consumidor real; **implementação obsoleta e seus imports/scripts/tests/docs ativos removidos**; nenhum alias/fallback permanente; testes positivos, negativos e cross-repo verdes; release/rollback/segurança preservados; recibo com SHA/CI/evidência; `docs/CURRENT-STATE.md` e contrato atualizados quando cabível. Caso falte qualquer item, marcar `BLOCKED`/`NOT-PROVEN` com causa objetiva, não `DONE`.
+
+**Fontes de comparação (referência, não autoridade OrdaX):** [AOSP source/manifest](https://source.android.com/docs/setup/download/source-control-tools), [GNOME build-meta](https://gnome.pages.gitlab.gnome.org/gnome-build-meta/docs/index.html), [Buildroot br2-external](https://buildroot.org/downloads/manual/manual.html), [VS Code source organization](https://github.com/microsoft/vscode/wiki/source-code-organization), [Element monorepo](https://github.com/element-hq/element-web/blob/develop/docs/monorepo.md), [Bitwarden clients](https://github.com/bitwarden/clients), [Electron Security](https://www.electronjs.org/docs/latest/tutorial/security), [SLSA](https://slsa.dev/) e [Reddit ExperiencedDevs — mono vs multi](https://www.reddit.com/r/ExperiencedDevs/comments/ywbw0a).
+
+
 ## Problema e resultado esperado
 
-Consolidar a fundação do OrdaX OS sem criar subsistemas paralelos, retrocompatibilidade artificial ou reestruturação simultânea incontrolável. Prioridade ordenada: (1) projeto/ownership, (2) USB/Creator, (3) boot/supervisão, (4) atualização, (5) Runtime e serviços estruturais. A sequência de **execução segura** continua auditando dependências primeiro, consolidando por owner e validando cada migração antes de remover caminhos antigos. A prioridade de produto não autoriza editar todas essas áreas ao mesmo tempo.
+Consolidar a fundação do OrdaX OS sem criar subsistemas paralelos, retrocompatibilidade artificial ou reestruturação simultânea incontrolável. **Ordem vigente:** (1) ownership e dependências entre os oito repositórios, (2) limpeza/cutover de Intelligence e autoridade de identidade/Platform, (3) composição de release e contratos versionados, (4) Desktop Windows instalado e testes de integração, (5) CI por impacto, segurança e eliminação de resíduos. **Boot/USB/Creator/Buildroot/Native físico são trabalho posterior**, salvo defeito concreto que bloqueie a janela atual. Auditar antes, corrigir por owner, provar o substituto e remover o antigo no mesmo fechamento; não deixar duas implementações permanentes.
 
 Pronto significa: layout reproduzível, cold boot previsível, Surface e sessão saudáveis, atualização determinística com known-good/rollback, shutdown limitado, recuperação diagnóstica, source/CI/documentação alinhados; evidência física separada de testes de CI.
 
@@ -31,7 +143,7 @@ Pronto significa: layout reproduzível, cold boot previsível, Surface e sessão
 
 | Evidência | Status na fotografia | Fonte/limite |
 | --- | --- | --- |
-| Quatro repositórios oficiais | Confirmados | `docs/contracts/repository-ownership.json`; GitHub nas `main` indicadas |
+| Quatro repositórios examinados neste snapshot histórico (não é inventário atual) | Confirmados naquela fotografia | A revisão de 2026-11-01 considera oito repositórios; o contrato `repository-ownership.json` ainda precisa ser reconciliado com `ordax-intelligence` |
 | Estrutura `ordax-os` | Inspeção inicial, NÃO auditoria exaustiva | Árvore Git com ~3.480 entradas; `boot/`, `bootstrap/`, `system/`, `tools/creator/`, `docs/contracts/` |
 | Desenvolvimento Git-first | Implementação existente | `bootstrap/dev-base/ordax-pull`, `system/supervisor`, `docs/contracts/distribution-profiles.json`; não comprovado neste snapshot no USB físico |
 | Stable/MVP signed | Contrato e componentes existentes, promoção física não provada aqui | `bootstrap/release-acquisition/`, `docs/PROMOTION-GATES.md` |
@@ -66,7 +178,7 @@ ordax-os/
     supervisor             autoridade de ciclo de vida e health
     contracts/             contratos do produto
     services/              serviços estruturais (account, power, state, update, apps, etc.)
-    surface/               interface nativa/Web
+    surface/               host/composição Native; UI visual canônica é ordax-surface
     composition/           composição por ambiente
     adapters/              portas e adaptadores de plataforma
   tools/creator/           único produtor/provisionador de mídia física
@@ -87,19 +199,21 @@ Esta é uma **organização lógica**, não uma autorização para mover diretó
 | Git Dev (`ordax-pull`) | `bootstrap/dev-base/ordax-pull`, acionado pelo Supervisor; somente aquisição de código Dev |
 | Kernel/Base A/B, ativação e promoção | `bootstrap/base-update` e `system/services/base-update` conforme `docs/contracts/base-update.json` |
 | Stable signed release/Portable activation | `bootstrap/release-acquisition`, `bootstrap/initramfs`, `ordax-portable-state`, Supervisor e contratos `portable-*` |
-| Layout e gravação física | `ordax-os/tools/creator` com `physical-*.json` e autorização explícita |
-| Conta/sessão local, Surface/Settings/Store e lifecycle | `ordax-os/system/*`, nunca `ordax-apps` |
+| Provas, payload, assinatura e autorização física do OS | `ordax-os/tools/creator` e `docs/contracts/physical-*.json`; NÃO é segunda implementação do Creator standalone |
+| Conta/sessão local, política nativa, Settings/Store estruturais e lifecycle | `ordax-os/system/*`; apresentação visual canônica em `ordax-surface` |
 | Aplicativos removíveis | `ordax-apps`; o OS fornece contracts/ports, não source duplicado |
 | Agente de ações e adaptadores nativos do computador | `ordax-runtime`; OS hospeda lifecycle/permissão local |
-| OAuth remoto, grants, sessões atestadas, MCP/queue | `ordax-platform`; sem execução local duplicada |
+| OAuth remoto, grants, sessões atestadas, MCP/queue | `ordax-platform`; OS mantém somente gateways/adapters e enforcement local legítimos, sem segunda autoridade remota |
 
 `ordax-pull` e release-agent são **aquisições distintas por política**, não dois sistemas independentes de autoridade de estado/health; consolidar contratos de estado, detecção, ativação, promoção/rollback com seus owners reais sem forçar um único binário para tarefas fisicamente diferentes.
 
 ## Fases de execução, dependências e evidência exigida
 
+**Nota de precedência (2026-11-01):** as fases 4–7 abaixo preservam obrigações históricas de boot/USB/Creator e suas provas, mas **não são tarefas imediatas** durante a janela Windows-first. O programa atual de limpeza e integração está na seção anterior. Nenhuma menção histórica a P0 ou a uma PR USB reabre essa frente automaticamente.
+
 ### Fase 1 — auditoria real do source e concorrência (P0)
 
-- [ ] Revalidar heads de quatro repos, PRs/workflows ativos, alterações concorrentes por arquivo e owners.
+- [ ] Revalidar heads dos **oito** repos (`ordax-os`, `ordax-surface`, `ordax-apps`, `ordax-runtime`, `ordax-platform`, `ordax-intelligence`, `ordax-creator`, `ordax-site`), PRs/workflows ativos, alterações concorrentes por arquivo e owners.
 - [ ] Construir inventário de diretórios/entrypoints, imports, runtime call graph, serviços, scripts, build/test/CI, arquivos gerados, dependencies e source duplicated/unused.
 - [ ] Distinguir **código morto comprovado**, projeções deliberadas, compatibilidade temporária necessária e caminho de recovery essencial.
 - [ ] Mapear boot firmware→ESP→initramfs→Base→Supervisor→Surface→sessão, incluindo gates de maintenance e shutdown.
@@ -188,13 +302,15 @@ Esta é uma **organização lógica**, não uma autorização para mover diretó
 
 A autorização física/trust/EFI é controlada exclusivamente por seus contratos e cerimônias; status de desenvolvimento não remove essas condições. Provas em arquivos RAW descartáveis não autorizam escrita em disco real. Mudanças de filesystem e estado exigem preservação de user-data e known-good. Para PC fraco, medir tempo de boot, CPU/RAM, I/O USB e latência da Surface **antes e depois**, fixando regressões por perfil; não introduzir serviços extras em background. Não aumentar superfície de ataque, serviços remotos ou dependências por conforto.
 
-## Próxima ação de execução (handoff imediato)
+## Próxima ação de execução (handoff imediato — 2026-11-01)
 
-**Próxima ação P0 — exclusivamente source/CI/QEMU, sem notebook ou USB físico nesta janela:** revalidar a `main` corrente e os checks pós-merge, sem fixar um commit histórico como autoridade. Fechar a PR #2000 no owner do Creator **somente** após as provas: o CI antigo do `First Physical USB Payload` falhou ao reconstruir a release imutável `03f88eea`, cujo lock APK pede `ca-certificates=20260909-r0` ausente do índice atual, embora a Base da `main` já use `20261020-r0` com reproof. A tag antiga publica cinco assets; o publicador/writer físico v3 exige 17 fontes remotas verificáveis. Não alterar a tag, selecionar bytes de outra revisão, abrir publisher paralelo ou transformar CI parcial em aprovação. A cadeia de assinatura/publicação, o binding autorizado e o readback devem ser consertados nos owners existentes.
+**P0 agora, somente software e Windows Desktop:** revalidar a `main` atual e os PRs/CI dos oito repos; montar o inventário verificável de owners, imports, locks, artefatos, workflows e consumidores; abrir **uma única unidade de correção por owner** para cada defeito comprovado. Começar pelo conflito `docs/contracts/repository-ownership.json` × `ordax-intelligence` e pelo cutover ainda não concluído em `docs/contracts/intelligence-source.json`; em paralelo, auditar as responsabilidades reais de `services/product-oauth`/`services/public-identity` frente a `ordax-platform`, sem mover código funcional por suposição.
 
-Na sequência, provar **em um mesmo disco QEMU descartável** o bootstrap Owner Git-first e o Portable assinado, seleção de perfil, cold-health e fallback/rollback com estado persistente (a PR #2167 prova apenas Portable sobre três partições, com ORDAX ext4 vazia). Continuar auditoria e limpeza somente após grafo de consumidores e regressões. Toda prova física permanece `NOT-PROVEN` até uma etapa futura **posterior ao fechamento source da fundação**, com nova decisão e autorização específica. Não investigar presença, login ou atualizações de dispositivos físicos durante este trabalho.
+**Depois, ainda na janela atual:** confirmar se a composição versionada já existente (release protocol + source locks + contratos de componentes) consegue reconstruir o **mesmo** Desktop instalado; preencher apenas os campos/gates faltantes no owner existente; validar login/Conta, Spaces, Store/Apps, Aura, Files, Runtime/MCP, restart, atualização/rollback e segurança Electron no Windows real. Fazer limpeza definitiva de caminhos antigos **na PR que fecha cada cutover**, com testes de ausência e sem shims permanentes. Avaliar `ordax-desktop` apenas pelo gate objetivo deste plano; não criar o repositório antes da decisão.
 
-**Handoff para novo chat/agente:** "No repositório `ordaxsystems/ordax-os`, leia `AGENTS.md` e `00-PLANOS-PRIORITARIOS/plans/FOUNDATION-001-OS-ARCHITECTURE-CONSOLIDATION.md`. Revalide contratos, `main`, PRs concorrentes e provas. Continue a próxima fase elegível pelo owner existente; não crie SSOT/planos/updaters paralelos. Diferencie merge/CI/QEMU/USB físico e atualize os owners com evidências." 
+**Fora desta janela:** a PR histórica Creator #2000, USB/QEMU, Buildroot, Kernel/Native físico e gates de gravação continuam sob seus owners e o `ROADMAP.md`, sem builds ou investigações físicas por impulso deste documento. Os checkpoints abaixo são **históricos de 2026-10-23**, não comandos atuais de execução; seus status devem ser revalidados antes de qualquer retomada.
+
+**Handoff para o chat/agente “remover pendências”:** "Leia `AGENTS.md`, `00-PLANOS-PRIORITARIOS/README.md`, `ROADMAP.md`, `REGISTRY.md` e este `FOUNDATION-001`. Siga primeiro a diretriz de 2026-11-01. Faça inventário real dos oito repos, reconcilie owners e locks, conclua cutovers sem código legado, teste o Desktop Windows instalado e atualize cada owner canônico com evidência. Não crie repos/SSOT/bridges/updaters paralelos, não mantenha implementações obsoletas e não reabra USB/Creator/Native sem nova janela. Nunca confunda CI, instalação Windows e prova física USB." 
 
 ## Checkpoint de execução da Fase 1 — 2026-10-23
 
