@@ -206,7 +206,6 @@ jobs:
           import json
           root=Path("${{ runner.temp }}/ordax-intelligence-stage")
           receipt=json.loads((root/"intelligence-source-receipt.json").read_text())
-          assert receipt["source_file_count"] == 8
           lock=json.loads(Path("docs/contracts/intelligence-source.json").read_text())
           assert receipt["source_commit"] == lock["source_commit"]
           assert receipt["source_file_count"] == len(lock["source_paths"])

@@ -46,7 +46,7 @@ runs:
         receipt=json.loads((root/"intelligence-source-receipt.json").read_text())
         lock=json.loads(Path("docs/contracts/intelligence-source.json").read_text())
         assert receipt["source_commit"]==lock["source_commit"]
-        assert receipt["source_file_count"]==len(lock["source_paths"])==8
+        assert receipt["source_file_count"]==len(lock["source_paths"])
         assert receipt["activation_authorized"] is False
         assert receipt["engine_included"] is False and receipt["model_included"] is False
         assert (root/"system/intelligence-source/tools/inference-builder/build.py").is_file()

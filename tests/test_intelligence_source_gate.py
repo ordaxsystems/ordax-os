@@ -20,6 +20,17 @@ def git(root,*args):
     return p.stdout.strip()
 
 class IntelligenceSourceGateTests(unittest.TestCase):
+    PINNED = (
+        "src/index.mjs",
+        "src/contract-bindings.mjs",
+        "src/intelligence/runtime.mjs",
+        "src/intelligence/model-router.mjs",
+        "src/local-ai/runtime.mjs",
+        "src/local-ai/completion-stream.mjs",
+        "src/local-ai/model-compatibility.mjs",
+        "tools/inference-builder/build.py",
+    )
+
     def setUp(self):
         self.tmp=tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
@@ -29,7 +40,7 @@ class IntelligenceSourceGateTests(unittest.TestCase):
         git(self.checkout,"init","-q")
         git(self.checkout,"config","user.name","Source Gate")
         git(self.checkout,"config","user.email","source@example.invalid")
-        for name in source.EXPECTED:
+        for name in self.PINNED:
             f=self.checkout/name
             f.parent.mkdir(parents=True,exist_ok=True)
             f.write_text("export const verified = 1;\n",encoding="utf-8")
@@ -38,7 +49,7 @@ class IntelligenceSourceGateTests(unittest.TestCase):
         self.lock={
             "$schema":source.SCHEMA,"status":"integration-candidate",
             "source_repository":source.REPO,"source_commit":git(self.checkout,"rev-parse","HEAD"),
-            "source_paths":{p:git(self.checkout,"rev-parse","HEAD:"+p) for p in source.EXPECTED},
+            "source_paths":{p:git(self.checkout,"rev-parse","HEAD:"+p) for p in self.PINNED},
             "materialization_target":source.TARGET,
             "public_ports":["ordax.intelligence/1","ordax.model-router/1","ordax.local-ai/1"],
             "source_only":True,"change_live_os":False,"activation_authorized":False,
@@ -51,7 +62,7 @@ class IntelligenceSourceGateTests(unittest.TestCase):
         return source.verify_source(self.checkout,source.load_lock(self.lockfile))
     def test_exact_source_stages_and_remains_read_only(self):
         entries,receipt=self.verify()
-        self.assertEqual(len(entries),8)
+        self.assertEqual(len(entries),len(self.PINNED))
         dest=self.root/"stage"
         source.stage_source(entries,receipt,dest,self.checkout)
         self.assertTrue((dest/"system/intelligence-source/src/index.mjs").is_file())
@@ -68,9 +79,9 @@ class IntelligenceSourceGateTests(unittest.TestCase):
         self.lock["source_commit"]=git(self.checkout,"rev-parse","HEAD")
         self.lock["source_paths"]["src/index.mjs"]="f"*40
         self.write_lock()
-        with self.assertRaisesRegex(source.IntelligenceSourceError,"pinned source blob"):
+        with self.assertRaisesRegex(source.IntelligenceSourceError,"source graph differs"):
             self.verify()
-    def test_rejects_untracked_edits_and_extra_tracked_code(self):
+    def test_rejects_untracked_edits_and_unpinned_portable_modules(self):
         (self.checkout/"src/index.mjs").write_text("export const injected = true;\n",encoding="utf-8")
         with self.assertRaisesRegex(source.IntelligenceSourceError,"modified"):
             self.verify()
@@ -82,13 +93,29 @@ class IntelligenceSourceGateTests(unittest.TestCase):
         git(self.checkout,"commit","-qm","extra")
         self.lock["source_commit"]=git(self.checkout,"rev-parse","HEAD")
         self.write_lock()
+        with self.assertRaisesRegex(source.IntelligenceSourceError,"differs from immutable OS pin"):
+            self.verify()
+        self.lock["source_paths"]["src/new-secret.mjs"] = git(
+            self.checkout, "rev-parse", "HEAD:src/new-secret.mjs"
+        )
+        self.write_lock()
         entries, receipt = self.verify()
-        self.assertEqual(receipt["source_file_count"], 8)
-        self.assertEqual({name for name, _ in entries}, set(source.EXPECTED))
-        self.assertNotIn("src/new-secret.mjs", {name for name, _ in entries})
+        expected = set(self.PINNED) | {"src/new-secret.mjs"}
+        self.assertEqual(receipt["source_file_count"], len(expected))
+        self.assertEqual({name for name, _ in entries}, expected)
         out = self.root / "isolated-extra"
         source.stage_source(entries, receipt, out, self.checkout)
-        self.assertFalse((out / "system/intelligence-source/src/new-secret.mjs").exists())
+        self.assertTrue((out / "system/intelligence-source/src/new-secret.mjs").is_file())
+
+    def test_non_module_under_portable_source_root_is_rejected(self):
+        extra = self.checkout / "src/opaque.bin"
+        extra.write_bytes(b"not-portable-source")
+        git(self.checkout, "add", "src/opaque.bin")
+        git(self.checkout, "commit", "-qm", "invalid portable source")
+        self.lock["source_commit"] = git(self.checkout, "rev-parse", "HEAD")
+        self.write_lock()
+        with self.assertRaisesRegex(source.IntelligenceSourceError, "unexpected.*portable"):
+            self.verify()
     def test_rejects_symlinks_and_changed_authority(self):
         self.lock["activation_authorized"]=True
         self.write_lock()

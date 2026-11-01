@@ -46,7 +46,14 @@ test("OS contract schemas bind to source-only Intelligence and prevent implicit 
       requests.push({ url, options });
       if (url.endsWith("/health")) return new Response("", { status: 200 });
       if (url.endsWith("/v1/chat/completions"))
-        return new Response(JSON.stringify({ model: "reviewed-test-model", choices: [{ message: { content: "resultado verificado" } }] }), { status: 200 });
+        return new Response(JSON.stringify({
+          model: "reviewed-test-model",
+          choices: [{
+            index: 0,
+            message: { role: "assistant", content: "resultado verificado" },
+            finish_reason: "stop",
+          }],
+        }), { status: 200 });
       throw new Error("Unexpected endpoint");
     },
   });

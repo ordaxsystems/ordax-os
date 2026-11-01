@@ -43,7 +43,14 @@ class RepositoryOwnershipContractTests(unittest.TestCase):
         self.assertIs(source["builder_activation_authorized"], False)
         self.assertIs(source["change_live_os"], False)
         self.assertIs(source["source_only"], True)
-        self.assertEqual(len(source["source_paths"]), 8)
+        source_paths = set(source["source_paths"])
+        self.assertIn("src/snapshot-notification.mjs", source_paths)
+        self.assertIn("tools/inference-builder/build.py", source_paths)
+        self.assertTrue(all(
+            path == "tools/inference-builder/build.py"
+            or (path.startswith("src/") and path.endswith(".mjs"))
+            for path in source_paths
+        ))
         self.assertIn("intelligence", repos["platform"]["owns"])
         # Memory, model authorization and Native/Supervisor remain OS owners.
         self.assertIn("global-memory", repos["platform"]["owns"])

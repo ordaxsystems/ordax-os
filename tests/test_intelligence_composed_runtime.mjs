@@ -47,7 +47,12 @@ test("composed OS bridges consultative inference without private or implicit exe
       if(url.endsWith("/health"))return new Response("",{status:200});
       generated++;
       return new Response(JSON.stringify({
-        model:"fixture-model",choices:[{message:{content:"resposta de teste"}}]
+        model:"fixture-model",
+        choices:[{
+          index:0,
+          message:{role:"assistant",content:"resposta de teste"},
+          finish_reason:"stop",
+        }]
       }),{status:200});
     }
   });

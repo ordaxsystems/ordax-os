@@ -2050,6 +2050,17 @@ aprovado não comprova boot no USB ou notebook reais.
 
 ### Ordax Intelligence and local inference
 
+The external portable source is now pinned to Intelligence main commit
+`c5202b2eefa89eee80caed44ead25834e8cac4e6`. The single OS-owned lock contains
+the complete Git-derived portable graph: eight `src/*.mjs` modules, including
+`src/snapshot-notification.mjs`, plus the exact technical inference builder.
+Materialization and automatic lock advancement reject a graph addition,
+removal, symlink, executable mode or hash mismatch instead of relying on a
+duplicated fixed file list. This is provenance/integrity evidence only: the
+source remains `integration-candidate`, with `activation_authorized=false` and
+`cutover_complete=false`; it does not prove the installed Windows Desktop or
+authorize removal of the still-active OS implementation.
+
 The canonical Memory-to-Intelligence composition now guards account/Space
 continuity throughout asynchronous inference. Account changes, logout and Space
 changes discard a pending response even after returning to the original context;

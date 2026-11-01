@@ -20,7 +20,8 @@ O script [advance.py](../tools/source-integration/advance.py) usa o repositório
 registrado **no próprio lock**. Exige SHA completo e descendente do commit
 pinado, alteração real apenas no source do respectivo owner, Git checkout limpo,
 conteúdo/modos/árvore aprovados pelo verificador **já canônico**. Para Intelligence,
-os oito Git blobs exatos são atualizados em conjunto. Um commit que muda só
+o grafo portátil completo — todos os módulos `src/*.mjs` e o builder técnico
+exato — é derivado da árvore Git e atualizado em conjunto. Um commit que muda só
 documentação não causa release/rebuild do OS. O avanço nunca altera status,
 activation_authorized, cutover_complete, política de distribuição, dispositivos
 físicos ou o código de serviços do OS.
@@ -46,8 +47,9 @@ avança essa branch exclusivamente por fast-forward. Uma branch fechada sem
 merge não é sobrescrita e causa falha fechada, sem abrir uma segunda branch.
 Não há force-push, rebase de histórico de terceiros ou segunda PR em paralelo. Caso a main
 upstream tenha sido reescrita, falha em vez de aceitar um force-push como
-atualização. A PR altera **somente um lock**. No caso da Intelligence, apenas os oito Git blobs fixados contam como
-código consumido; um helper adicional exclusivo do Windows, documentação ou CI
+atualização. A PR altera **somente um lock**. No caso da Intelligence, todos os
+módulos `src/*.mjs` e o builder técnico fixado contam como código consumido;
+um helper adicional exclusivo do Windows fora de `src/`, documentação ou CI
 externa não entra no OS, não altera o pin nem obriga recompilar o kernel.
 
 A integração usa os workflows consumidores que o OS **já possui**, com
@@ -121,7 +123,7 @@ python3 -m unittest discover -s tests -p test_source_integration_advance.py -v
 O teste inclui alteração de source, ausência de mudança relevante, seleção
 do commit de origem quando a main termina com documentação ou ferramentas
 Windows não consumidas, rollback proibido, idempotência, isolamento do grafo
-de oito arquivos Intelligence, autorização de source inativa e ciclo da PR
+portátil completo da Intelligence, autorização de source inativa e ciclo da PR
 única (paginação, verificação de repositório/lock, deduplicação e atualização
 sem force-push). Testes do consumidor continuam
 nos workflows originais, sem cópia do materializador nem outro updater.

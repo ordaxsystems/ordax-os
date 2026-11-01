@@ -2,16 +2,17 @@
   "$schema": "prototype-ordax.intelligence-source/1",
   "status": "integration-candidate",
   "source_repository": "ordaxsystems/ordax-intelligence",
-  "source_commit": "a39c8ddcba1ac466a3697e03c20e0a8f186e4fc8",
+  "source_commit": "c5202b2eefa89eee80caed44ead25834e8cac4e6",
   "source_paths": {
-    "src/index.mjs": "e5b0459e54f01821216dd43e3014c4e0360987d6",
     "src/contract-bindings.mjs": "ee4ec7edf7c5f259ff6377a85cb689543a84c192",
-    "src/intelligence/runtime.mjs": "f83dd2a277239a9ca412c96fd2a6208f92976d4b",
+    "src/index.mjs": "e5b0459e54f01821216dd43e3014c4e0360987d6",
     "src/intelligence/model-router.mjs": "a841b1d9642244f21a3216a8c283c943474339ae",
-    "src/local-ai/runtime.mjs": "e954e9e0c1980a3289ead9aea6999aa298ae58a1",
-    "src/local-ai/completion-stream.mjs": "018b54ea1f0de017a1b5ec92ac4e4c1da7e29dc6",
+    "src/intelligence/runtime.mjs": "fc9a683af7e228b1cd8de23e275f2fca3e129b64",
+    "src/local-ai/completion-stream.mjs": "8b18971316f3fbb2dc1fcfea6175d310d917ad95",
     "src/local-ai/model-compatibility.mjs": "ff0078dc088ad760752e92f0e23338265cebdc08",
-    "tools/inference-builder/build.py": "d17f8f69de23a098b78418a070011e16357c64d4"
+    "src/local-ai/runtime.mjs": "97ff166078aef1e5c5f23b5faf22be8d19f54b44",
+    "src/snapshot-notification.mjs": "380c4d27c56c2e045d2f49a617cb5ade4826a460",
+    "tools/inference-builder/build.py": "09504b87ec31fd817a2b30c957e4eb513b90c854"
   },
   "materialization_target": "system/intelligence-source/src",
   "public_ports": [

@@ -127,7 +127,7 @@ O corte de fonte do Creator já foi concluído (C6), mas esta declaração de ow
 
 O oitavo repositório possui a **fonte portátil candidata** do motor de
 Intelligence, router, streaming, compatibilidade e builder técnico. Seu único
-pin de integração, incluindo os oito blobs verificados, é
+pin de integração, incluindo o grafo portátil completo verificado, é
 `docs/contracts/intelligence-source.json`. Enquanto o lock declarar
 `integration-candidate`, `cutover_complete=false` e
 `activation_authorized=false`, essa fonte **não substitui** o motor
