@@ -112,3 +112,15 @@ Na mesma árvore `system/surface/runtime/` foram identificados **quatro executá
 A projeção de publicação Vercel Web rejeita sondas não registradas, caminhos arbitrários, links simbólicos, fontes maiores que 512 KiB e shebang distinto de `#!/usr/bin/env python3`; outros módulos Python **continuam permitidos e não são excluídos por extensão**. O classificador Creator verifica cabeçalho e proveniência Git e continua fail-closed em mudanças desconhecidas. Testes de Foundation, Web (commits Git reais) e inventário NSIS validam os limites. **Nova revisão só será marcada homologada após CI**, sem reinstalação, sem publicação Web e sem alterar produtores USB.
 
 A separação de *required checks* da promoção USB, a integração Surface A/B e a prova Windows físico permanecem gates em aberto; não confundir isolamento de arquivos com autorização de merge.
+
+### Verificação de SSOT do inventário NSIS — 2026-11-01
+
+O inventário Windows agora rejeita exclusões ausentes ou adicionais em relação
+à projeção **exata** do contrato `docs/contracts/build-autonomy.json`,
+inclusive uma exclusão inesperada de Native, duplicatas, uma segunda cópia
+`../../system` e arquivos excluídos que não existam mais na fonte física.
+O teste existente `package-inventory.test.cjs` cobre regressões negativas
+sem copiar a lista de caminhos. Os bytes distribuídos permanecem iguais;
+não há alteração de Creator, Buildroot, USB nem novo produtor. O gate Windows
+do novo HEAD deve passar antes de marcar a etapa como homologada; homologação
+física e separação de required checks seguem pendentes.

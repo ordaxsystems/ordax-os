@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 const { mkdtempSync, mkdirSync, writeFileSync, symlinkSync, rmSync, readFileSync } = require('node:fs');
 const { tmpdir } = require('node:os');
 const { join } = require('node:path');
-const { inventory, nativeBundleComparison } = require('./package-inventory.cjs');
+const { inventory, nativeBundleComparison, canonicalWindowsPackageExclusions } = require('./package-inventory.cjs');
 
 test('inventory counts included bytes and exact Linux exclusions', () => {
   const root = mkdtempSync(join(tmpdir(), 'ordax-package-inventory-'));
@@ -23,6 +23,37 @@ test('inventory counts included bytes and exact Linux exclusions', () => {
     assert.match(report.fingerprint, /^[0-9a-f]{64}$/);
   } finally { rmSync(root,{ recursive:true, force:true }); }
 });
+test('NSIS exclusions are exactly the canonical dependency contract, never extra Native files', () => {
+  const pkg = require('./package.json');
+  const contract = require('../../docs/contracts/build-autonomy.json');
+  const verified = canonicalWindowsPackageExclusions(pkg, contract);
+  assert.ok(verified.includes('!composition/web/**'));
+  assert.equal(verified.length, new Set(verified).size);
+
+  const extra = structuredClone(pkg);
+  extra.build.extraResources.find(x => x.from === '../../system').filter.push('!composition/native/main.mjs');
+  assert.throws(() => canonicalWindowsPackageExclusions(extra, contract), /diverge/);
+
+  const missing = structuredClone(pkg);
+  missing.build.extraResources.find(x => x.from === '../../system').filter.pop();
+  assert.throws(() => canonicalWindowsPackageExclusions(missing, contract), /diverge/);
+
+  const repeat = structuredClone(pkg);
+  const entry = repeat.build.extraResources.find(x => x.from === '../../system');
+  entry.filter.push(entry.filter[1]);
+  assert.throws(() => canonicalWindowsPackageExclusions(repeat, contract), /diverge/);
+
+  const shadow = structuredClone(pkg);
+  shadow.build.extraResources.push({from:'../../system',
+    to:'runtime-template/system-shadow',filter:['**/*']});
+  assert.throws(() => canonicalWindowsPackageExclusions(shadow, contract), /not unique/);
+
+  const duplicated = structuredClone(contract);
+  duplicated.client_build_independence.windows_package_forbidden_linux_shell_paths.push(
+    duplicated.client_build_independence.windows_package_forbidden_linux_boot_paths[0]);
+  assert.throws(() => canonicalWindowsPackageExclusions(pkg, duplicated), /Duplicate/);
+});
+
 test('unknown wildcard exclusions fail closed', () => {
   assert.throws(() => inventory('.', ['!surface/runtime/**']), /non-exact exclusion/);
 });

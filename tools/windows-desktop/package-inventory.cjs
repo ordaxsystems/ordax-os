@@ -50,6 +50,43 @@ function inventory(root, exclusions) {
     missingExclusions:missing, groups, fingerprint };
 }
 
+// Enforce the single checked-in contract before shipping an NSIS system tree.
+// Neither arbitrary extra omissions nor parallel system copies are allowed.
+function canonicalWindowsPackageExclusions(packageJson, autonomy) {
+  const resources = packageJson?.build?.extraResources;
+  if (!Array.isArray(resources)) throw Error('Windows package resources unavailable');
+  const sources = resources.filter(x => x.from === '../../system');
+  if (sources.length !== 1 || sources[0].to !== 'runtime-template/system' ||
+      !Array.isArray(sources[0].filter) || sources[0].filter[0] !== '**/*') {
+    throw Error('Windows system packaging source is not unique');
+  }
+  const scope = autonomy?.client_build_independence;
+  const groups = [
+    scope?.windows_package_forbidden_linux_boot_paths,
+    scope?.windows_package_forbidden_linux_shell_paths,
+    scope?.linux_only_client_probe_paths,
+  ];
+  if (groups.some(group => !Array.isArray(group) || group.length === 0) ||
+      typeof scope?.linux_only_client_package_manifest !== 'string' ||
+      !scope.linux_only_client_package_manifest) {
+    throw Error('Canonical Windows exclusions unavailable');
+  }
+  const paths = [...groups.flat(), scope.linux_only_client_package_manifest,
+    'composition/web/**'];
+  if (paths.some(x => typeof x !== 'string' || !x) ||
+      new Set(paths).size !== paths.length) {
+    throw Error('Duplicate or malformed canonical Windows exclusion');
+  }
+  const allowed = new Set(paths.map(x => '!' + x));
+  const actual = sources[0].filter.slice(1);
+  if (actual.length !== allowed.size ||
+      new Set(actual).size !== actual.length ||
+      actual.some(x => !allowed.has(x))) {
+    throw Error('Windows package exclusions diverge from canonical build-autonomy contract');
+  }
+  return actual;
+}
+
 // The verified Vite output is a separate runtime artifact. Report it alongside
 // the source template without treating either as an automatic deletion target.
 function nativeBundleComparison(systemReport, compiledRoot) {
@@ -78,13 +115,16 @@ function nativeBundleComparison(systemReport, compiledRoot) {
 function main() {
   const base = resolve(__dirname, '../..');
   const packageJson = require('./package.json');
-  const sources = packageJson.build.extraResources.filter(x => x.from === '../../system' && x.to === 'runtime-template/system');
-  if (sources.length !== 1 || sources[0].filter[0] !== '**/*') throw Error('Windows system packaging source is not unique');
-  const report = inventory(join(base,'system'), sources[0].filter.slice(1));
+  const autonomy = require('../../docs/contracts/build-autonomy.json');
+  const exclusions = canonicalWindowsPackageExclusions(packageJson, autonomy);
+  const report = inventory(join(base,'system'), exclusions);
+  if (report.missingExclusions.length) {
+    throw Error('Unverified Windows exclusions: ' + report.missingExclusions.join(', '));
+  }
   if (process.argv.includes('--compiled')) {
     report.nativeRepresentations = nativeBundleComparison(report, join(base, 'out', 'windows-desktop-native'));
   }
   process.stdout.write(JSON.stringify(report, null, 2) + '\n');
 }
 if (require.main === module) main();
-module.exports = { inventory, nativeBundleComparison };
+module.exports = { inventory, nativeBundleComparison, canonicalWindowsPackageExclusions };
