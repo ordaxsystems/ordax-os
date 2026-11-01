@@ -461,3 +461,71 @@ test("Native Account receives Space create port only from the Windows compositio
     ordaxDesktopBrowser: { postMessage() {} },
   }, identity), /Windows Desktop browser transport required/);
 });
+
+test("Desktop Space creation reads a bounded stream and rejects oversized, empty or invalid UTF-8 receipts", async () => {
+  const identity = nativeIdentity();
+  const makePort = body => createDesktopSpaceCreatePort(desktopBrowser(
+    async () => new Response(body, { status: 201 }),
+  ), identity);
+  const oversized = new ReadableStream({
+    start(controller) {
+      controller.enqueue(new Uint8Array(5000));
+      controller.enqueue(new Uint8Array(5000));
+      controller.close();
+    },
+  });
+  const port1 = makePort(oversized);
+  await assert.rejects(port1.create(request()), /exceeded safe bounds/);
+  port1.dispose();
+
+  const port2 = makePort(null);
+  await assert.rejects(port2.create(request()), /stream unavailable/);
+  port2.dispose();
+
+  const port3 = makePort(new Uint8Array([0xff, 0xfe]));
+  await assert.rejects(port3.create(request()));
+  port3.dispose();
+
+  // Exact, valid receipts still pass the streamed verifier.
+  const port4 = makePort(JSON.stringify(spaceReceipt()));
+  assert.equal((await port4.create(request())).space.ownerId, SUBJECT);
+  port4.dispose();
+});
+
+test("Desktop Space creation cancels a hung HTTP request on deadline, identity change and disposal", async () => {
+  const identity = nativeIdentity();
+  let timeoutSignal;
+  const timed = createDesktopSpaceCreatePort(desktopBrowser((_path, options) => {
+    timeoutSignal = options.signal;
+    return new Promise(() => {}); // A compromised/buggy fetch that ignores AbortSignal.
+  }), identity, { timeoutMs: 15 });
+  await assert.rejects(timed.create(request()), /cancelled or timed out/);
+  assert.equal(timeoutSignal.aborted, true);
+  timed.dispose();
+
+  const owner = nativeIdentity();
+  let previousSignal;
+  const revokable = createDesktopSpaceCreatePort(desktopBrowser((_path, options) => {
+    previousSignal = options.signal;
+    return new Promise(() => {});
+  }), owner);
+  const pending = revokable.create(request());
+  owner.update({ state: "signed-out" });
+  await assert.rejects(pending, /cancelled or timed out|session changed/);
+  assert.equal(previousSignal.aborted, true);
+  revokable.dispose();
+
+  const finalOwner = nativeIdentity();
+  let finalSignal;
+  const disposable = createDesktopSpaceCreatePort(desktopBrowser((_path, options) => {
+    finalSignal = options.signal;
+    return new Promise(() => {});
+  }), finalOwner);
+  const pendingDispose = disposable.create(request());
+  disposable.dispose();
+  await assert.rejects(pendingDispose, /cancelled or timed out|session changed/);
+  assert.equal(finalSignal.aborted, true);
+
+  assert.throws(() => createDesktopSpaceCreatePort(desktopBrowser(async () => {}), finalOwner,
+    { timeoutMs: 0 }), /bounded positive integer/);
+});
