@@ -133,9 +133,19 @@ function binary(response,bytes,mime,downloadName=null) {
 }
 function metadataPath(root,id){return join(root,SYSTEM_TRASH,id+".json");}
 function payloadPath(root,id){return join(root,SYSTEM_TRASH,id+".data");}
-async function trashListing(root) {
+// The private trash is a privileged internal path, deliberately unavailable
+// through the public file-space path validator. A pre-existing Windows
+// junction or symlink must never redirect trash/restore outside Files.
+async function checkedTrash(root,{create=false}={}) {
   const dir=join(root,SYSTEM_TRASH);
-  await mkdir(dir,{recursive:true});
+  if(create)await mkdir(dir,{recursive:true});
+  const stat=await lstat(dir);
+  if(!stat.isDirectory() || stat.isSymbolicLink())
+    reject(503,"Untrusted OrdaX trash directory");
+  return dir;
+}
+async function trashListing(root) {
+  const dir=await checkedTrash(root,{create:true});
   const records=[];
   for(const name of await readdir(dir)){
     if(!/^[0-9a-f]{32}\.json$/.test(name))continue;
@@ -258,7 +268,7 @@ export function createDesktopFileSpaceMiddleware(filesDirectory,{token,sessionLo
           const src=await existing(root,sourceLogical);
           const sourceStat=await lstat(src);
           if(action==="trash-entry"){
-            const trash=join(root,SYSTEM_TRASH);await mkdir(trash,{recursive:true});
+            await checkedTrash(root,{create:true});
             const id=randomBytes(16).toString("hex");
             const record={id,name:input.name,kind:sourceStat.isDirectory()?"directory":"file",
               size:sourceStat.isFile()?sourceStat.size:0,
@@ -291,6 +301,7 @@ export function createDesktopFileSpaceMiddleware(filesDirectory,{token,sessionLo
         if(action==="restore-trash-entry"){
           if(typeof input.id!=="string" || !/^[0-9a-f]{32}$/.test(input.id))
             reject(400,"Invalid trash id");
+          await checkedTrash(root);
           const name=metadataPath(root,input.id);
           const metadataStat=await lstat(name);
           if(!metadataStat.isFile() || metadataStat.isSymbolicLink())reject(503,"Untrusted trash metadata");
