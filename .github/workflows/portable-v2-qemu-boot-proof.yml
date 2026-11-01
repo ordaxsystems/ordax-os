@@ -307,10 +307,15 @@ jobs:
           python "$ORDAX_EXTERNAL_AI_BUILDER" --os-source "$GITHUB_WORKSPACE" verify \
             --out-dir "$work/local-ai-runtime" \
             > "$work/metadata/local-ai-runtime-verify.json"
-          # Both verifiers must agree on the exact legacy v4 signed ABI.
-          python bootstrap/local-ai-runtime/build.py verify \
-            --out-dir "$work/local-ai-runtime" \
-            > "$work/metadata/local-ai-runtime-legacy-abi-verify.json"
+          # The legacy verifier binds provenance.source_commit to this HEAD.
+          # Reuse preserves the original build provenance; the pinned external
+          # verifier plus the cache manifest/fingerprint validate the reused bytes.
+          # Cross-check both independent builders only for a fresh exact-HEAD build.
+          if [ "$cache_hit" = 'false' ]; then
+            python bootstrap/local-ai-runtime/build.py verify \
+              --out-dir "$work/local-ai-runtime" \
+              > "$work/metadata/local-ai-runtime-legacy-abi-verify.json"
+          fi
           test -s "$work/local-ai-runtime/local-ai-runtime.erofs"
           if [ "$cache_hit" = 'false' ]; then
             python3 tools/ci/portable_component_cache.py record \
