@@ -60,6 +60,7 @@ class IndependentBaseTest(unittest.TestCase):
         qemu_proof = self._load_qemu_proof()
         self.assertEqual(qemu_proof.qemu_memory_mib("minimal"), 384)
         self.assertEqual(qemu_proof.qemu_memory_mib("owner-development"), 768)
+        self.assertEqual(qemu_proof.qemu_memory_mib("stable-mvp"), 768)
         with self.assertRaises(qemu_proof.BaseError):
             qemu_proof.qemu_memory_mib("unknown")
         proof = (BASE / "qemu_proof.py").read_text()

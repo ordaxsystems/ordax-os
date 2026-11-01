@@ -135,12 +135,56 @@ class PortableComponentCacheTests(unittest.TestCase):
             "source_commit": "1" * 40,
             "status": "candidate-build-only",
             "profile": profile,
-            "owner_development_capabilities_verified": True,
+            "owner_development_capabilities_verified": profile == "owner-development",
             "physical_artifact_authorized": False,
             "signed_release_equivalence_proven": False,
             "artifacts": declared,
         }) + "\n", encoding="utf-8")
         return out
+
+
+    def test_stable_candidate_cache_is_profile_bound_without_dev_helpers(self):
+        with tempfile.TemporaryDirectory() as td:
+            temp = Path(td)
+            root = self.owner_fixture(temp / "repo")
+            out = self.owner_artifacts(temp / "stable", profile="stable-mvp")
+            stable = CACHE.component_fingerprint("independent-base-stable", root)
+            owner = CACHE.component_fingerprint("independent-base-owner", root)
+            self.assertNotEqual(stable, owner)
+            CACHE.record_component("independent-base-stable", out, "1" * 40, root)
+            original = (out / "provenance.json").read_bytes()
+            receipt = CACHE.verify_component(
+                "independent-base-stable", out, "2" * 40,
+                temp / "stable-reuse.json", cache_hit=True, root=root,
+            )
+            self.assertTrue(receipt["reused"])
+            self.assertEqual((out / "provenance.json").read_bytes(), original)
+            # Dev-only helpers must not trigger a Stable rootfs rebuild.
+            (root / "bootstrap/dev-base/ordax-pull").write_text("dev-only-change\\n")
+            self.assertEqual(stable, CACHE.component_fingerprint("independent-base-stable", root))
+            # The canonical firmware provider and kernel ABI DO invalidate it.
+            (root / "bootstrap/base/firmware_policy.py").write_text("new-firmware-policy\\n")
+            self.assertNotEqual(stable, CACHE.component_fingerprint("independent-base-stable", root))
+            with self.assertRaisesRegex(CACHE.CacheError, "fingerprint mismatch"):
+                CACHE.verify_component(
+                    "independent-base-stable", out, "2" * 40,
+                    temp / "stale.json", cache_hit=True, root=root,
+                )
+
+    def test_stable_candidate_rejects_owner_payload_or_promotion(self):
+        with tempfile.TemporaryDirectory() as td:
+            temp = Path(td)
+            root = self.owner_fixture(temp / "repo")
+            wrong = self.owner_artifacts(temp / "wrong", profile="owner-development")
+            with self.assertRaisesRegex(CACHE.CacheError, "profile or promotion policy mismatch"):
+                CACHE.record_component("independent-base-stable", wrong, "1" * 40, root)
+            stable = self.owner_artifacts(temp / "stable", profile="stable-mvp")
+            receipt = stable / "provenance.json"
+            payload = json.loads(receipt.read_text())
+            payload["physical_artifact_authorized"] = True
+            receipt.write_text(json.dumps(payload) + "\\n", encoding="utf-8")
+            with self.assertRaisesRegex(CACHE.CacheError, "profile or promotion policy mismatch"):
+                CACHE.record_component("independent-base-stable", stable, "1" * 40, root)
 
     def test_owner_base_cache_reuses_across_commits_without_rewriting_provenance(self):
         with tempfile.TemporaryDirectory() as td:

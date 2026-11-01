@@ -26,6 +26,8 @@ from build import contracts, digest, BaseError, ROOT
 QEMU_MEMORY_MIB_BY_PROFILE = {
     "minimal": 384,
     "owner-development": 768,
+    # Includes the same Wi-Fi/firmware module closure but no Dev helpers.
+    "stable-mvp": 768,
 }
 
 

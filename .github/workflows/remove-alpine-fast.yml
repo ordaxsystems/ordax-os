@@ -39,6 +39,7 @@ on:
       - 'tests/test_kernel_module_payload.py'
       - 'tests/test_firmware_policy_neutral.py'
       - 'tests/test_independent_heavy_workflow.py'
+      - 'tests/test_portable_component_cache.py'
       - 'tests/test_physical_media_contract.py'
       - '.github/workflows/creator-owner-build-diagnose.yml'
       - '.github/workflows/creator-owner-dev-git.yml'
@@ -94,6 +95,7 @@ jobs:
             tests.test_kernel_module_payload \
             tests.test_firmware_policy_neutral \
             tests.test_independent_heavy_workflow \
+            tests.test_portable_component_cache \
             tests.test_physical_media_contract -v
       - name: Resolve Buildroot profiles without compiling rootfs or kernel
         run: |
@@ -131,6 +133,7 @@ jobs:
             tests/test_kernel_module_payload.py \
             tests/test_firmware_policy_neutral.py \
             tests/test_independent_heavy_workflow.py \
+            tests/test_portable_component_cache.py \
             tests/test_physical_media_contract.py
           sh -n bootstrap/independent-base/post-build.sh
           sh -n bootstrap/independent-base/post-image.sh
