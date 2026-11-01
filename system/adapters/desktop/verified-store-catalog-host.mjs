@@ -4,7 +4,7 @@
 import { execFile } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { lstatSync, mkdirSync, realpathSync } from "node:fs";
-import { lstat, mkdtemp, readFile, rename, rm, writeFile } from "node:fs/promises";
+import { lstat, mkdir, mkdtemp, readFile, rename, rm, rmdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import {
   VERIFIED_APP_STORE_CATALOG_SCHEMA, validateVerifiedAppStoreCatalogSnapshot,
@@ -63,24 +63,41 @@ async function watermark(path) {
     || !SHA256.test(value.catalogSha256)) throw Error("Invalid Store watermark identity");
   return value;
 }
+// A single host-process Promise queue cannot protect a persisted watermark if
+// two installed Native hosts overlap. The canonical Go activation owner uses
+// exclusive lock directories for exactly this cross-process failure mode.
+// This lock is synchronization metadata, never a second catalog identity.
+// Existing locks (including interrupted owners) fail closed: no stale-lock
+// reclamation by the HTTP reader or request-supplied paths.
 async function acceptVerifiedCatalog(snapshot, path) {
-  const current = await watermark(path);
-  if (current) {
-    if (snapshot.sequence < current.sequence
-      || snapshot.sequence === current.sequence
-      && snapshot.catalogSha256 !== current.catalogSha256)
-      throw Error("Store catalog replay or equivocation");
-    if (snapshot.sequence === current.sequence) return;
-  }
-  const candidate = path + "." + randomUUID() + ".tmp";
+  const lockPath = path + ".lock";
+  let locked = false;
   try {
-    await writeFile(candidate, JSON.stringify({
-      schema: WATERMARK_SCHEMA, sequence: snapshot.sequence,
-      catalogSha256: snapshot.catalogSha256,
-    }) + "\n", { flag: "wx", mode: 0o600 });
-    await rename(candidate, path);
-  } finally { await rm(candidate, { force: true }).catch(() => {}); }
+    await mkdir(lockPath, { mode: 0o700 });
+    locked = true;
+    const current = await watermark(path);
+    if (current) {
+      if (snapshot.sequence < current.sequence
+        || snapshot.sequence === current.sequence
+        && snapshot.catalogSha256 !== current.catalogSha256)
+        throw Error("Store catalog replay or equivocation");
+      if (snapshot.sequence === current.sequence) return;
+    }
+    const candidate = path + "." + randomUUID() + ".tmp";
+    try {
+      await writeFile(candidate, JSON.stringify({
+        schema: WATERMARK_SCHEMA, sequence: snapshot.sequence,
+        catalogSha256: snapshot.catalogSha256,
+      }) + "\\n", { flag: "wx", mode: 0o600 });
+      await rename(candidate, path);
+    } finally { await rm(candidate, { force: true }).catch(() => {}); }
+  } finally {
+    // Never delete a lock acquired by another host or silently reclaim a
+    // potentially live process's lock. On failure, retain fail-closed state.
+    if (locked) await rmdir(lockPath);
+  }
 }
+
 function verify(helper, envelope, trust, output, execFileImpl) {
   return new Promise((resolve, reject) => {
     execFileImpl(helper, [
