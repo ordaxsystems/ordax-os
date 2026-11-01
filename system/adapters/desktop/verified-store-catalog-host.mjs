@@ -88,7 +88,7 @@ async function acceptVerifiedCatalog(snapshot, path) {
       await writeFile(candidate, JSON.stringify({
         schema: WATERMARK_SCHEMA, sequence: snapshot.sequence,
         catalogSha256: snapshot.catalogSha256,
-      }) + "\\n", { flag: "wx", mode: 0o600 });
+      }) + "\n", { flag: "wx", mode: 0o600 });
       await rename(candidate, path);
     } finally { await rm(candidate, { force: true }).catch(() => {}); }
   } finally {
