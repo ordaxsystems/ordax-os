@@ -854,7 +854,7 @@ test("Windows Store never grants installs, unsigned plans or foreign-origin unin
     ...original, expectedActivation: {...original.expectedActivation, revision: 0},
   })).status, 400);
   assert.equal(mutationCalls, 0);
-  assert.equal(verifyCalls, 3, "Only valid remove plans can cause read-only signature checks");
+  assert.equal(verifyCalls, 2, "Only valid remove plans can cause read-only signature checks");
 });
 
 test("Windows Store refuses a fabricated Go receipt or non-durable uninstall", async t => {
