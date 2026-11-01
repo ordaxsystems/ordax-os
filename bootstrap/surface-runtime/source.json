@@ -279,10 +279,10 @@
     "pulseaudio-utils": "17.0-r5",
     "py3-gobject3": "3.52.3-r1",
     "py3-gobject3-pyc": "3.52.3-r1",
-    "pyc": "3.12.15-r0",
-    "python3": "3.12.15-r0",
-    "python3-pyc": "3.12.15-r0",
-    "python3-pycache-pyc0": "3.12.15-r0",
+    "pyc": "3.12.16-r0",
+    "python3": "3.12.16-r0",
+    "python3-pyc": "3.12.16-r0",
+    "python3-pycache-pyc0": "3.12.16-r0",
     "rav1e-libs": "0.7.1-r2",
     "readline": "8.2.13-r1",
     "roc-toolkit-libs": "0.4.0-r1",
@@ -487,7 +487,7 @@
     },
     "discovery_lock_sha256": "dfabd41c5760c705541f2d84351e3dada972ba818743e406b1a92452fe1c8320"
   },
-  "apk_package_lock_sha256": "dfabd41c5760c705541f2d84351e3dada972ba818743e406b1a92452fe1c8320",
+  "apk_package_lock_sha256": "cbe5039db67c9c71a970623ca78ffa4100df34e999d2737108b3cf26f316f849",
   "packages_file": "system/surface/runtime/packages.txt",
   "previous_discovery_evidence": {
     "workflow_run_id": 39727906716,
