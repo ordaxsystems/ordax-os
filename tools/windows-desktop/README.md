@@ -21,7 +21,10 @@ proprietário e aplica o mesmo limite de **12.000 caracteres** usado pelos
 comandos do navegador, antes de interpretar JSON ou abrir um diálogo
 privilegiado de gravação. Requisições excessivas ou de outra janela são
 rejeitadas; um pedido válido ainda precisa de confirmação explícita no
-diálogo nativo de salvar arquivo. A regressão está em
+diálogo nativo de salvar arquivo. Cada item aceita um único diálogo;
+se o download for cancelado, concluído ou se o host encerrar enquanto
+o diálogo estiver aberto, a resposta atrasada não pode reativar o item,
+atribuir um novo caminho ou gravar o arquivo. A regressão está em
 `browser-host.test.cjs`. Isso é uma correção de source e teste isolado,
 **não** comprovação de funcionamento no Desktop instalado.
 
