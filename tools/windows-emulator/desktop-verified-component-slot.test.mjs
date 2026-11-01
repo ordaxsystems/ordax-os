@@ -219,6 +219,10 @@ test("Windows pending-slot probation metadata and bytes reuse the installed Go v
       ].join("\n")));
     }
     if (args[0] === "read-runtime-file") {
+      // The installed Go reader must independently reject stale path
+      // identity; the Surface transport never serves cached module bytes.
+      if (args[args.indexOf("--version") + 1] !== "0.4.3")
+        return cb(Error("Signed pending identity changed"), Buffer.alloc(0));
       assert.deepEqual(args, [
         "read-runtime-file", "--component", "notes", "--state", "pending",
         "--version", "0.4.3", "--source-commit", SOURCE,
