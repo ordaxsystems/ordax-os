@@ -244,6 +244,7 @@ class CreatorOwnerImpactTests(unittest.TestCase):
                     "windows_package_forbidden_linux_shell_paths",
                     "linux_only_client_package_manifest",
                     "linux_only_client_probe_paths",
+                    "linux_only_client_host_entrypoints",
                     "client_delivery_gate_decoupling_fully_proven",
                     "windows_physical_and_web_live_independence_proven")
         old = json.loads(json.dumps(contract))
@@ -259,6 +260,19 @@ class CreatorOwnerImpactTests(unittest.TestCase):
             probe = self.root / "system" / relative
             probe.parent.mkdir(parents=True, exist_ok=True)
             probe.write_text("#!/usr/bin/env python3\nprint('ok')\n", encoding="utf-8")
+        # The actual Linux graphical launcher consumes these Python hosts.
+        launcher = self.root / "system/surface/bin/ordax-surface"
+        launcher.parent.mkdir(parents=True, exist_ok=True)
+        launcher.write_text("#!/bin/sh\n" + "\n".join(
+            contract["client_build_independence"]["linux_only_client_host_entrypoints"]) + "\n",
+            encoding="utf-8")
+        for relative in contract["client_build_independence"]["linux_only_client_host_entrypoints"]:
+            source = self.root / "system" / relative
+            source.parent.mkdir(parents=True, exist_ok=True)
+            signature = ("from http.server import ThreadingHTTPServer"
+                         if relative.endswith("native_host_server.py")
+                         else 'gi.require_version("WebKit2", "4.1")')
+            source.write_text("#!/usr/bin/env python3\n" + signature + "\n", encoding="utf-8")
         manifest_path = self.root / "system" / contract["client_build_independence"]["linux_only_client_package_manifest"]
         manifest_path.parent.mkdir(parents=True, exist_ok=True)
         manifest_path.write_text("alpine-baselayout\nbusybox\n", encoding="utf-8")
@@ -309,6 +323,22 @@ class CreatorOwnerImpactTests(unittest.TestCase):
         self.assertIn("surface/runtime/audio-session.sh",
                       client["windows_package_forbidden_linux_shell_paths"])
 
+    def test_linux_python_graphical_hosts_have_actual_launcher_consumers(self):
+        client = json.loads((ROOT / impact.CLIENT_AUTONOMY_CONTRACT)
+                            .read_text(encoding="utf-8"))["client_build_independence"]
+        hosts = client["linux_only_client_host_entrypoints"]
+        self.assertEqual(hosts, ["surface/runtime/native_host_server.py",
+                                 "surface/runtime/ordax_browser_host.py"])
+        launcher = (ROOT / "system/surface/bin/ordax-surface").read_text(encoding="utf-8")
+        for host in hosts:
+            self.assertIn(host, launcher)
+            self.assertTrue((ROOT / "system" / host).read_bytes().startswith(
+                b"#!/usr/bin/env python3\n"))
+        self.assertIn("from http.server import",
+                      (ROOT / "system" / hosts[0]).read_text(encoding="utf-8"))
+        self.assertIn('gi.require_version("WebKit2", "4.1")',
+                      (ROOT / "system" / hosts[1]).read_text(encoding="utf-8"))
+
     def test_web_only_composition_is_excluded_from_windows_not_web_delivery(self):
         scope = json.loads((ROOT / "docs/contracts/build-autonomy.json").read_text(encoding="utf-8"))
         self.assertIn("system/composition/web/",
@@ -335,6 +365,7 @@ class CreatorOwnerImpactTests(unittest.TestCase):
             boundary["windows_package_forbidden_linux_boot_paths"]
             + boundary["windows_package_forbidden_linux_shell_paths"]
             + boundary["linux_only_client_probe_paths"]
+            + boundary["linux_only_client_host_entrypoints"]
             + [boundary["linux_only_client_package_manifest"]]
         )
         expected_web = {"!system/" + path for path in linux}

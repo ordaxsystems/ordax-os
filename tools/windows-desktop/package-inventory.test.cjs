@@ -58,7 +58,9 @@ test('real extracted NSIS verification rejects Linux/USB and Web leaks using the
   const pkg = require('./package.json');
   const contract = require('../../docs/contracts/build-autonomy.json');
   const fixtures = [null, 'supervisor', 'surface/runtime/packages.txt',
-    'surface/runtime/media_runtime_probe.py', 'composition/web/leak.js'];
+    'surface/runtime/media_runtime_probe.py',
+    'surface/runtime/native_host_server.py',
+    'surface/runtime/ordax_browser_host.py', 'composition/web/leak.js'];
   for (const leak of fixtures) {
     const root = mkdtempSync(join(tmpdir(), 'ordax-installed-package-'));
     try {

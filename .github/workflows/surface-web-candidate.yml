@@ -278,6 +278,8 @@ on:
       - '!system/surface/runtime/physical_ata_probe.py'
       - '!system/surface/runtime/physical_kernel_log_probe.py'
       - '!system/surface/runtime/physical_performance_probe.py'
+      - '!system/surface/runtime/native_host_server.py'
+      - '!system/surface/runtime/ordax_browser_host.py'
   pull_request:
     paths:
       - 'docs/contracts/diagnostics.json'
@@ -544,6 +546,8 @@ on:
       - '!system/surface/runtime/physical_ata_probe.py'
       - '!system/surface/runtime/physical_kernel_log_probe.py'
       - '!system/surface/runtime/physical_performance_probe.py'
+      - '!system/surface/runtime/native_host_server.py'
+      - '!system/surface/runtime/ordax_browser_host.py'
   workflow_dispatch:
 
 permissions:

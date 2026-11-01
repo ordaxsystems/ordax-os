@@ -133,6 +133,14 @@ class PublicSiteDeploymentTests(unittest.TestCase):
                 write("system/" + path, "#!/bin/sh\nexit 0\n")
             for path in boundaries["linux_only_client_probe_paths"]:
                 write("system/" + path, "#!/usr/bin/env python3\nprint('ok')\n")
+            hosts = boundaries["linux_only_client_host_entrypoints"]
+            write("system/surface/bin/ordax-surface",
+                  "#!/bin/sh\n" + "\n".join(hosts) + "\n")
+            for path in hosts:
+                signature = ("from http.server import ThreadingHTTPServer"
+                             if path.endswith("native_host_server.py")
+                             else 'gi.require_version("WebKit2", "4.1")')
+                write("system/" + path, "#!/usr/bin/env python3\n" + signature + "\n")
             package_path = "system/" + boundaries["linux_only_client_package_manifest"]
             write(package_path, "alpine-baselayout\nbusybox\n")
             baseline = commit("real canonical sources")
@@ -162,9 +170,23 @@ class PublicSiteDeploymentTests(unittest.TestCase):
             probe_only = commit("Linux-only sysfs diagnostic changed")
             self.assertEqual(ignored(surface_boot_only, probe_only), 0)
 
+            write("system/surface/runtime/native_host_server.py",
+                  "#!/usr/bin/env python3\nfrom http.server import SimpleHTTPRequestHandler\n")
+            native_host_only = commit("Linux HTTP graphical server updated")
+            self.assertEqual(ignored(probe_only, native_host_only), 0)
+            write("system/surface/runtime/native_host_server.py",
+                  "#!/usr/bin/env python3\nprint('not a verified HTTP host')\n")
+            unverified_host = commit("Native Linux HTTP host identity lost")
+            self.assertEqual(ignored(native_host_only, unverified_host), 1,
+                             "Unknown Python producer cannot skip Web delivery")
+            write("system/surface/runtime/native_host_server.py",
+                  "#!/usr/bin/env python3\nfrom http.server import ThreadingHTTPServer\n")
+            recovered_host = commit("Native Linux HTTP host restored")
+            self.assertEqual(ignored(unverified_host, recovered_host), 0)
+
             write("system/composition/native/main.mjs", "export const native=false;\n")
             native_changed = commit("shared Native source changed")
-            self.assertEqual(ignored(probe_only, native_changed), 1)
+            self.assertEqual(ignored(recovered_host, native_changed), 1)
 
             write("system/composition/web/main.tsx", "export const web=false;\n")
             web_changed = commit("Web-only source changed")

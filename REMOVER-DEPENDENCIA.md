@@ -183,3 +183,29 @@ extra, omissões e reintroduções posteriores. Não cria outra lista de autorid
 
 Esta nova revisão permanece condicionada aos próprios gates do HEAD exato,
 sem publicar Web, reinstalar Desktop ou substituir o gate Creator.
+
+### Dois entrypoints Python Linux retirados do NSIS e da entrega Web — 2026-11-01
+
+A análise de consumidores confirmou que
+`system/surface/runtime/native_host_server.py` é o servidor HTTP do
+launcher gráfico Linux em chroot, e
+`system/surface/runtime/ordax_browser_host.py` usa GTK/WebKit2 Linux.
+Ambos são consumidos explicitamente pelo launcher
+`system/surface/bin/ordax-surface`; nenhum é invocado pelo host Node
+`tools/windows-emulator/desktop-native-server.mjs`, que atende o Desktop
+instalado. O bundle Web tampouco executa esses entrypoints Python.
+
+A classificação **exata** e limitada aos dois caminhos está em
+`docs/contracts/build-autonomy.json#client_build_independence.linux_only_client_host_entrypoints`.
+O pacote NSIS, os filtros de evento Windows e Web, a projeção Vercel e
+os testes reutilizam essa única classificação. Os validadores exigem
+identidade de script Python, presença no launcher POSIX Linux, assinatura
+HTTP/GTK e tamanho limitado; alterações que perdem essa identidade
+causam BUILD (fail-closed). O smoke NSIS recusa ambos após extração.
+Os demais módulos Python continuam na distribuição até ser provada
+sua ausência de consumidores sem bifurcar o runtime Native.
+
+Nenhum arquivo do OS/USB foi apagado; alterações nesses hosts Linux
+continuam sujeitas ao classificador USB obrigatório. O trabalho depende
+de Windows/Web/Foundation/NSIS no HEAD exato, não de uma versão cosmética
+nem da aceitação da falha externa de pin Alpine/Python do produtor USB.

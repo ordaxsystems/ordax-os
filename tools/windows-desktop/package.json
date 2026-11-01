@@ -72,6 +72,8 @@
           "!surface/runtime/physical_ata_probe.py",
           "!surface/runtime/physical_kernel_log_probe.py",
           "!surface/runtime/physical_performance_probe.py",
+          "!surface/runtime/native_host_server.py",
+          "!surface/runtime/ordax_browser_host.py",
           "!composition/web/**"
         ]
       },

@@ -260,6 +260,25 @@ def verified_client_delivery_contract_delta(base, head, *, root=ROOT):
                 content = _git_show(head, "system/" + path, root)
                 if not content.startswith("#!/usr/bin/env python3\n") or len(content) > 64 * 1024:
                     return False
+        hosts = additions.pop("linux_only_client_host_entrypoints", None)
+        if hosts is not None:
+            if (not isinstance(hosts, list) or len(hosts) != 2
+                    or len(set(map(str, hosts))) != 2):
+                return False
+            launcher = _git_show(head, "system/surface/bin/ordax-surface", root)
+            if not launcher.startswith("#!/bin/sh\n"):
+                return False
+            for path in hosts:
+                if (not isinstance(path, str) or not re.fullmatch(
+                    r"surface/runtime/(?:native_host_server|ordax_browser_host)\.py", path)
+                        or path not in launcher):
+                    return False
+                content = _git_show(head, "system/" + path, root)
+                signature = ("from http.server import" if path.endswith("native_host_server.py")
+                             else 'gi.require_version("WebKit2", "4.1")')
+                if (not content.startswith("#!/usr/bin/env python3\n")
+                        or len(content) > 512 * 1024 or signature not in content):
+                    return False
         scripts = additions.pop("windows_package_forbidden_linux_shell_paths", None)
         if scripts is not None:
             # Only tracked POSIX scripts may be omitted from Windows client
@@ -276,7 +295,8 @@ def verified_client_delivery_contract_delta(base, head, *, root=ROOT):
                     return False
                 if not _git_show(head, "system/" + path, root).startswith("#!/bin/sh\n"):
                     return False
-        return (bool(additions) or scripts is not None or manifest is not None or probes is not None) and all(
+        return (bool(additions) or scripts is not None or manifest is not None
+                or probes is not None or hosts is not None) and all(
             k in expected and v == expected[k] for k, v in additions.items()
         )
     except (OSError, UnicodeError, ValueError, KeyError, TypeError,

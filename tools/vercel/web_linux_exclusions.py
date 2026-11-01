@@ -22,6 +22,7 @@ def linux_only_exclusions() -> list[str]:
     boot = client["windows_package_forbidden_linux_boot_paths"]
     shells = client["windows_package_forbidden_linux_shell_paths"]
     probes = client["linux_only_client_probe_paths"]
+    hosts = client["linux_only_client_host_entrypoints"]
     manifest = client["linux_only_client_package_manifest"]
     if manifest != "surface/runtime/packages.txt":
         raise ValueError("unrecognized Linux package manifest")
@@ -32,7 +33,31 @@ def linux_only_exclusions() -> list[str]:
                 r"surface/runtime/(?:media_runtime|physical_(?:ata|kernel_log|performance))_probe\.py",
                 item) for item in probes)):
         raise ValueError("invalid Linux-only probes")
-    paths = boot + shells + probes
+    if (not isinstance(hosts, list) or len(hosts) != 2
+            or len(set(map(str, hosts))) != 2
+            or any(not isinstance(p, str) or not re.fullmatch(
+                r"surface/runtime/(?:native_host_server|ordax_browser_host)\.py", p)
+                   for p in hosts)):
+        raise ValueError("unverified Linux graphical host classification")
+    linux_launcher = ROOT / "system/surface/bin/ordax-surface"
+    if linux_launcher.is_symlink() or not linux_launcher.is_file():
+        raise ValueError("Linux graphical launcher missing")
+    launcher = linux_launcher.read_text(encoding="utf-8")
+    if not launcher.startswith("#!/bin/sh\n"):
+        raise ValueError("Linux graphical launcher not POSIX")
+    for path in hosts:
+        if path not in launcher:
+            raise ValueError("Unconsumed Linux graphical host")
+        source_file = ROOT / "system" / path
+        if (source_file.is_symlink() or not source_file.is_file()
+                or source_file.stat().st_size > 512 * 1024):
+            raise ValueError("Linux graphical host unavailable")
+        source = source_file.read_text(encoding="utf-8")
+        signature = ("from http.server import" if path.endswith("native_host_server.py")
+                     else 'gi.require_version("WebKit2", "4.1")')
+        if not source.startswith("#!/usr/bin/env python3\n") or signature not in source:
+            raise ValueError("Linux graphical host identity changed")
+    paths = boot + shells + probes + hosts
     if len(set(paths)) != len(paths):
         raise ValueError("duplicate Linux exclusion")
     for rel in paths:
@@ -46,7 +71,7 @@ def linux_only_exclusions() -> list[str]:
         if file.is_symlink() or not file.is_file() or file.stat().st_size > 512 * 1024:
             raise ValueError("unverified Linux source")
         with file.open("rb") as handle:
-            expected = b"#!/usr/bin/env python3\n" if rel in probes else b"#!/bin/sh\n"
+            expected = b"#!/usr/bin/env python3\n" if rel in probes or rel in hosts else b"#!/bin/sh\n"
             if handle.read(len(expected)) != expected:
                 raise ValueError("unverified Linux-only executable")
     # Alpine package selection is a Linux producer, never a Web client input.
