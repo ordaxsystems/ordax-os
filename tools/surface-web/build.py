@@ -22,6 +22,7 @@ from source_graph import (
     SourceGraphError,
     discover_graph as discover_source_graph,
     require_source_path,
+    iter_trusted_source_files,
 )
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -135,11 +136,11 @@ def discover_graph(root: Path = ROOT) -> list[PurePosixPath]:
     }
     for subtree in ("system/surface/workspace",):
         try:
-            require_source_path(root, PurePosixPath(subtree), directory=True)
+            # The shared inventory also rejects linked/special nested paths
+            # that rglob() silently omits or is_file() follows.
+            inputs.update(iter_trusted_source_files(root, PurePosixPath(subtree)))
         except SourceGraphError as exc:
             raise BundleError(f"untrusted Web source directory: {exc}") from exc
-        inputs.update(PurePosixPath(p.relative_to(root).as_posix())
-                      for p in (root / subtree).rglob("*") if p.is_file())
     for entry in ("system/surface/ui/boot-screen.mjs", "system/surface/ui/boot-screen.css",
                   "system/surface/ui/tokens.css", "system/services/i18n/surface.mjs",
                   "system/surface/ui/notification-center-controls.mjs", "system/surface/ui/notification-center.css",
