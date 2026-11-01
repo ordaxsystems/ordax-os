@@ -5,6 +5,8 @@ import importlib.util
 import json
 from pathlib import Path
 import stat
+import subprocess
+import sys
 import tempfile
 import unittest
 
@@ -114,6 +116,26 @@ class StableRuntimeLayoutTests(unittest.TestCase):
                 contract["rootfs"]["maximum_unique_regular_bytes"] = unsafe
                 with self.assertRaisesRegex(layout.StableRuntimeLayoutError, "size limit"):
                     layout.verify_stable_size(target, contract)
+
+    def test_real_cli_install_check_and_mode_rejection(self):
+        with tempfile.TemporaryDirectory() as temp:
+            target = Path(temp) / "target"
+            target.mkdir()
+
+            def run(action: str):
+                return subprocess.run(
+                    [sys.executable, str(HELPER), action, "--target", str(target)],
+                    capture_output=True, text=True, check=False,
+                )
+
+            installed = run("install")
+            self.assertEqual(installed.returncode, 0, installed.stderr)
+            checked = run("check")
+            self.assertEqual(checked.returncode, 0, checked.stderr)
+            (target / "tmp").chmod(0o755)
+            rejected = run("check")
+            self.assertEqual(rejected.returncode, 2)
+            self.assertIn("/tmp must have mode 1777", rejected.stderr)
 
     def test_duplicate_traversal_and_dev_workspace_are_rejected(self):
         layout = load_module()
