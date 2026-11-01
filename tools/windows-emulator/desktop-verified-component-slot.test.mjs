@@ -506,6 +506,30 @@ test("Windows Store HTTPS origin policy rejects ambiguous, credentialed and non-
   }
 });
 
+test("Malformed operator Store origin only disables the catalog, not other Native routes", async t => {
+  const f = setup(t);
+  f.policy.current_gates.component_publish_allowed = true;
+  writeFileSync(f.policyPath, JSON.stringify(f.policy));
+  let network = 0, signing = 0;
+  const base = await serveVerifiedStore(t, f, (_bin, _args, _opts, cb) => {
+    signing++; cb(Error("Verifier must not run"));
+  }, {
+    catalogBaseOrigin: "https://catalog.test/%2e%2e/",
+    fetchImpl: async () => { network++; throw Error("No network on malformed origin"); },
+  });
+  const catalog = await fetch(base + "/__ordax/native/store-catalog");
+  assert.equal(catalog.status, 200);
+  const snapshot = await catalog.json();
+  assert.equal(snapshot.state, "unavailable");
+  assert.equal(snapshot.reason, "catalog-transport-invalid-origin");
+  assert.equal(snapshot.authority, "none");
+  assert.deepEqual(snapshot.entries, []);
+  assert.equal(network, 0);
+  assert.equal(signing, 0);
+  const unrelated = await fetch(base + "/__ordax/native/another-route");
+  assert.equal(unrelated.status, 418, "Middleware preserves unrelated Native routes");
+});
+
 test("Windows HTTPS Store fetch uses installed Go verifier and retains its signed LKG when offline", async t => {
   const f = setup(t);
   f.policy.current_gates.component_publish_allowed = true;
