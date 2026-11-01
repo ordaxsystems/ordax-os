@@ -102,7 +102,12 @@ assinatura, outra política comercial ou uma segunda versão de código.
 O instalador CI agora transporta o lock da Surface e o recibo contendo
 OS SHA, Surface SHA e fingerprint SHA-256 dos arquivos Native gerados. O
 Electron recusa abrir o bundle de instalação se faltar esse manifesto ou
-houver divergência dos bytes. Isso não é assinatura de release pública.
+houver divergência dos bytes. A verificação também valida a **tag inteira**
+de cada script executável contra o caminho compilado de assets do host,
+rejeitando `src` duplicado, atributo que simule um `src` legítimo,
+scripts externos e tags adicionais mesmo com caixa diferente. Um recibo
+SHA-256 autoconsistente não transforma HTML com script externo em bundle
+Native válido. Isso não é assinatura de release pública.
 Intelligence/Aura local, autenticação real, updates assinados e rollback
 E2E instalado ainda **não estão homologados como produto completo**. Os PRs de infraestrutura já integrados não equivalem à homologação comercial Stable/MVP.
 
