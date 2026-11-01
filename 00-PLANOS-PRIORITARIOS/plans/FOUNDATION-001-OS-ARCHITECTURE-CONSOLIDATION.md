@@ -52,6 +52,16 @@ Inventário de consumidores, ciclos, flags e artefatos, além das provas
 Windows, continua aberto. Nenhuma etapa P0-A é marcada completa
 somente por esta correção documental/contratual.
 
+**Snapshot operacional adicional (2026-11-01):** consulta de branches main
+retornou OS `6e181598`, Surface `ae74b02a`, Apps `2a068bab`, Runtime
+`9e9bec72`, Platform `10c9e9bf`, Intelligence `025cb017`, Creator
+`600eb152` e Site `0db2cf72`. A busca de PRs abertas retornou 14 no OS
+(`#2396, #2383, #2343, #2296, #2243, #2142, #2135, #2035, #2009, #1980,
+#1841, #1791, #1780, #1778`) e uma em Apps (`#402`); as outras seis
+consultas não retornaram PRs. Isto é apenas snapshot da busca autenticada:
+não prova branch protection, checks obrigatórios, ausência de branches sem PR
+ou completude da matriz cross-repo. Revalidar antes de qualquer integração.
+
 
 ### P0-B — cutover de Intelligence sem código antigo (Windows primeiro)
 
