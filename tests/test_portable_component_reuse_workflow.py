@@ -58,6 +58,15 @@ class PortableComponentReuseWorkflowTests(unittest.TestCase):
                 block = self.step_block(step)
                 self.assertNotRegex(block, r"\n\s+if:\s+steps\..*cache")
 
+    def test_cached_local_ai_skips_only_head_bound_legacy_reverification(self):
+        block = self.step_block("Verify local AI component and exact integration binding")
+        self.assertIn('python "$ORDAX_EXTERNAL_AI_BUILDER"', block)
+        self.assertIn("if [ \"$cache_hit\" = 'false' ]; then", block)
+        self.assertIn("bootstrap/local-ai-runtime/build.py verify", block)
+        self.assertIn("portable_component_cache.py verify", block)
+        self.assertIn("--integration-commit \"$ORDAX_SOURCE_COMMIT\"", block)
+        self.assertIn("--cache-hit \"$cache_hit\"", block)
+
     def test_every_cache_hit_is_verified_without_rewriting_provenance(self):
         workflow = self.workflow()
         for component in ("local-ai", "kernel", "surface", "release-agent"):
