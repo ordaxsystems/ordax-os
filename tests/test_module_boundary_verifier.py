@@ -162,6 +162,48 @@ class ModuleBoundaryVerifierTests(unittest.TestCase):
             )
             self.assertEqual(MODULE.find_violations(root, CONTRACT), [])
 
+    def test_relative_import_cannot_escape_os_into_sibling_checkout(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "ordax-os"
+            self.seed_roots(root)
+            self.write(
+                root,
+                "system/services/user/context.mjs",
+                'import { authority } from "../../../../ordax-platform/src/private.mjs";\\n',
+            )
+            violations = MODULE.find_violations(root, CONTRACT)
+            self.assertEqual(len(violations), 1, violations)
+            self.assertIn("may not import outside repository", violations[0])
+            self.assertIn("ordax-platform", violations[0])
+
+    def test_creator_require_cannot_escape_into_external_runtime(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "ordax-os"
+            self.seed_roots(root)
+            self.write(
+                root,
+                "tools/creator/windows/runtime.cjs",
+                'const runtime = require("../../../../ordax-runtime/src/private.cjs");\\n',
+            )
+            violations = MODULE.find_violations(root, CONTRACT)
+            self.assertEqual(len(violations), 1, violations)
+            self.assertIn("may not import outside repository", violations[0])
+            self.assertIn("ordax-runtime", violations[0])
+
+    def test_dynamic_import_cannot_escape_to_external_visual_source(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "ordax-os"
+            self.seed_roots(root)
+            self.write(
+                root,
+                "system/composition/web/host.js",
+                'const view = import("../../../../ordax-surface/system/surface/ui");\\n',
+            )
+            violations = MODULE.find_violations(root, CONTRACT)
+            self.assertEqual(len(violations), 1, violations)
+            self.assertIn("may not import outside repository", violations[0])
+            self.assertIn("ordax-surface", violations[0])
+
     def test_creator_source_cannot_import_shared_product_implementation(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
