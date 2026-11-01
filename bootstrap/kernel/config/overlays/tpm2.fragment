@@ -1,0 +1,8 @@
+# Experimental TPM2 Kconfig delta: never part of the default shipped kernel.
+# Explicit use only through bootstrap/kernel/build.py --config-overlay.
+CONFIG_KEYS=y
+CONFIG_TCG_TPM=y
+CONFIG_TCG_TIS=y
+CONFIG_TCG_CRB=y
+CONFIG_TRUSTED_KEYS=y
+CONFIG_TRUSTED_KEYS_TPM=y
