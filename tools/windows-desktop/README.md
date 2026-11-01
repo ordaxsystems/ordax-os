@@ -14,6 +14,17 @@ arquivo existente no instalador não prova a capacidade funcionando. A
 matriz, bloqueios e gates estão em
 [`docs/plans/ordax-os-desktop-windows-ssot-2026-10-20.md`](../../docs/plans/ordax-os-desktop-windows-ssot-2026-10-20.md).
 
+## Canal IPC de downloads do navegador
+
+O bridge Electron de downloads recebe somente mensagens do WebContents
+proprietário e aplica o mesmo limite de **12.000 caracteres** usado pelos
+comandos do navegador, antes de interpretar JSON ou abrir um diálogo
+privilegiado de gravação. Requisições excessivas ou de outra janela são
+rejeitadas; um pedido válido ainda precisa de confirmação explícita no
+diálogo nativo de salvar arquivo. A regressão está em
+`browser-host.test.cjs`. Isso é uma correção de source e teste isolado,
+**não** comprovação de funcionamento no Desktop instalado.
+
 ## Prova de prontidão do Native host instalado
 
 No Windows instalado, a porta loopback é escolhida dinamicamente e liberada
