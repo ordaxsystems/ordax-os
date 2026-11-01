@@ -499,7 +499,7 @@ test("Windows Store HTTPS origin policy rejects ambiguous, credentialed and non-
     null, 123, "http://catalog.test/", "https://user@catalog.test/",
     "https://catalog.test:0/", "https://catalog.test/%2e%2e/",
     "https://catalog.test/a/../b/", "https://catalog.test/?q=1",
-    "https://catalog.test/#hash", "https://catalog.test\a",
+    "https://catalog.test/#hash", "https://catalog.test\\bad",
     " https://catalog.test/", "https://catalog.test/with space/",
   ]) {
     assert.throws(() => desktopStoreCatalogEnvelopeUrl(invalid), TypeError);
@@ -616,27 +616,41 @@ test("Windows Store remote replay and equivocation preserve the last-known-good 
   const f = setup(t);
   f.policy.current_gates.component_publish_allowed = true;
   writeFileSync(f.policyPath, JSON.stringify(f.policy));
-  let sequence = 7, digest = "7".repeat(64);
+  let remoteBytes = "SIGNED_SEQUENCE_7";
   const base = await serveVerifiedStore(t, f, (_bin, args, _options, cb) => {
     const bytes = readFileSync(args[args.indexOf("--envelope") + 1], "utf8");
-    assert.equal(bytes, "SIGNED_SEQUENCE_" + sequence);
+    const identity = /^SIGNED_SEQUENCE_(6|7)(?:_DIFFERENT)?$/.exec(bytes);
+    if (!identity) return cb(Error("Unverified bytes"));
+    const sequence = Number(identity[1]);
+    const digest = bytes.endsWith("_DIFFERENT") ? "8".repeat(64) : String(sequence).repeat(64);
     writeFileSync(args[args.indexOf("--out") + 1],
       JSON.stringify(signedCatalogFixture(sequence, digest)));
     cb(null, Buffer.alloc(0));
   }, {
     catalogBaseOrigin: "https://catalog.test/",
-    fetchImpl: async url => remoteCatalogResponse(url, "SIGNED_SEQUENCE_" + sequence),
+    fetchImpl: async url => remoteCatalogResponse(url, remoteBytes),
   });
   const endpoint = base + "/__ordax/native/store-catalog";
   assert.equal((await (await fetch(endpoint)).json()).sequence, 7);
   const envelope = join(f.userData, "Store", "catalog-envelope.json");
-  sequence = 6; digest = "6".repeat(64);
-  // The mocked verifier is sequence-selectable: the cache is verified again
-  // with the signed LKG's original identity, not the remote candidate's.
-  // A remote stale signature must be blocked before it can overwrite bytes.
-  let cached = readFileSync(envelope, "utf8");
-  assert.equal(cached, "SIGNED_SEQUENCE_7");
+  const watermarkPath = join(f.userData, "Store", "catalog-watermark.json");
+  assert.equal(readFileSync(envelope, "utf8"), "SIGNED_SEQUENCE_7");
+  remoteBytes = "SIGNED_SEQUENCE_6";
+  const rollback = await (await fetch(endpoint)).json();
+  assert.equal(rollback.state, "ready", "Remote downgrade must not replace signed LKG");
+  assert.equal(rollback.sequence, 7);
+  assert.equal(readFileSync(envelope, "utf8"), "SIGNED_SEQUENCE_7");
+  remoteBytes = "SIGNED_SEQUENCE_7_DIFFERENT";
+  const equivocation = await (await fetch(endpoint)).json();
+  assert.equal(equivocation.state, "ready", "Same sequence with another digest cannot replace LKG");
+  assert.equal(equivocation.catalogSha256, "7".repeat(64));
+  assert.equal(readFileSync(envelope, "utf8"), "SIGNED_SEQUENCE_7");
+  assert.deepEqual(JSON.parse(readFileSync(watermarkPath, "utf8")), {
+    schema: "ordax.store-catalog-watermark/1", sequence: 7, catalogSha256: "7".repeat(64),
+  });
 });
+
+
 test("the shared Windows development preview registers a truthful Store route without a signer", async t => {
   const f = setup(t);
   const handlers = [];
