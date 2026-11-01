@@ -29,6 +29,9 @@ PRESENTATION_LIGHT_PREFIXES = (
     "system/surface/ui/",
     "system/surface/workspace/",
 )
+# The isolated /store-preview/ Vite entry contains only local demonstration
+# presentation. It never produces a Native boot, kernel or Portable rootfs.
+WEB_STORE_PREVIEW_LIGHT_PREFIX = "system/composition/web/store-preview/"
 HIGH_LEVEL_LIGHT_PREFIXES = (
     "system/apps/",
     "system/adapters/",
@@ -500,6 +503,11 @@ def classify_paths(
             or path in SPACE_COMPOSITION_LIGHT_EXACT
             or path in ACCOUNT_SPACE_SEMANTICS_LIGHT_EXACT
         ):
+            continue
+        # The isolated Web Store presentation is proved by the Web candidate.
+        # If any of its files becomes Native-startup reachable in a later revision,
+        # fall through to the heavy native-runtime gate instead of skipping QEMU.
+        if path.startswith(WEB_STORE_PREVIEW_LIGHT_PREFIX) and path not in reachable:
             continue
         # Markdown and Surface presentation sources cannot alter boot artifacts.
         # Classify them before the non-system fail-closed rule so docs/*.md do not

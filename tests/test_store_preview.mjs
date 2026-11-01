@@ -2,6 +2,7 @@ import test, { before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { fileURLToPath } from 'node:url';
 import { createServer } from 'vite';
+import { isLocalStorePreviewOrigin } from '../system/composition/web/store-preview/preview-origin.js';
 
 let server, session, data, domain, catalog;
 before(async () => {
@@ -157,4 +158,21 @@ test('missing agent dependency is a visible block rather than an enabled state',
   assert.equal(state.ops[0].state, 'blocked');
   assert.match(state.ops[0].message, /dependência/i);
   assert.equal(domain.statusOf(state, find('projects-agent')), 'disabled');
+});
+
+test('demonstration Store is restricted to loopback HTTP and never authorized on deployed domains', () => {
+  const local = ['127.0.0.1', 'localhost', '[::1]'];
+  for (const hostname of local) {
+    assert.equal(isLocalStorePreviewOrigin({ protocol: 'http:', hostname }), true, hostname);
+    assert.equal(isLocalStorePreviewOrigin({ protocol: 'https:', hostname }), false, 'Preview cannot be promoted by HTTPS hostname');
+  }
+  for (const hostname of [
+    'ordax.com.br', 'web.ordax.com.br', 'localhost.example.com',
+    '127.0.0.1.example.com', '0.0.0.0', '127.0.0.2', '::1', '',
+  ]) {
+    assert.equal(isLocalStorePreviewOrigin({ protocol: 'http:', hostname }), false, hostname);
+  }
+  for (const value of [null, undefined, {}, 'localhost', { protocol: 'file:', hostname: 'localhost' }]) {
+    assert.equal(isLocalStorePreviewOrigin(value), false);
+  }
 });
