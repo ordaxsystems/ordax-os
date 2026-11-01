@@ -147,6 +147,8 @@ test('Windows package excludes Linux-only Alpine package declaration without dro
       .windows_package_forbidden_linux_shell_paths.map(path=>'!'+path),
     ...require('../../docs/contracts/build-autonomy.json').client_build_independence
       .linux_only_client_probe_paths.map(path=>'!'+path),
+    ...require('../../docs/contracts/build-autonomy.json').client_build_independence
+      .linux_only_client_host_entrypoints.map(path=>'!'+path),
     '!composition/web/**',
   ]);
   const workflow = readFileSync(join(__dirname, '../../.github/workflows/windows-desktop-dev.yml'), 'utf8');

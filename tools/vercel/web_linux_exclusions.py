@@ -63,7 +63,7 @@ def linux_only_exclusions() -> list[str]:
     for rel in paths:
         if (not isinstance(rel, str) or not SAFE.fullmatch(rel)
                 or any(segment in ("", ".", "..") for segment in rel.split("/"))
-                or (rel not in boot and rel not in probes and
+                or (rel not in boot and rel not in probes and rel not in hosts and
                     not rel.endswith(".sh") and
                     not re.fullmatch(r"surface/bin/ordax-[a-z0-9-]+", rel))):
             raise ValueError("unsafe Linux exclusion")

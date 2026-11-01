@@ -209,3 +209,19 @@ Nenhum arquivo do OS/USB foi apagado; alterações nesses hosts Linux
 continuam sujeitas ao classificador USB obrigatório. O trabalho depende
 de Windows/Web/Foundation/NSIS no HEAD exato, não de uma versão cosmética
 nem da aceitação da falha externa de pin Alpine/Python do produtor USB.
+
+
+Correção causal do gate Vercel no HEAD posterior: a classificação passou a
+incluir `hosts` também na etapa final de validação de caminhos. O primeiro
+CI recusou corretamente a lista nova por regra genérica anterior, falhando
+`test_web_vercel_skips_proven_linux_usb_only_without_skipping_web_or_native`.
+A mudança preserva a conferência exata de dois entrypoints, shebang,
+assinatura HTTP/GTK e referência no launcher Linux; qualquer caminho extra
+continua proibido. Não habilita publicação nem bypass de segurança.
+
+O gate Windows encontrou em `tools/windows-desktop/runtime.test.cjs`
+uma expectativa antiga que projetava somente os grupos anteriores do
+contrato. A asserção agora consome também
+`linux_only_client_host_entrypoints` do SSOT, sem inserir lista fixa de
+caminhos ou aceitar exclusões extras. A regra principal
+`canonicalWindowsPackageExclusions` e o smoke NSIS continuam obrigatórios.
