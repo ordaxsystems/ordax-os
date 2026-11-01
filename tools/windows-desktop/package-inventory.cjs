@@ -4,7 +4,12 @@ const { join, relative, resolve, sep } = require('node:path');
 const { createHash } = require('node:crypto');
 
 function inventory(root, exclusions) {
-  if (!Array.isArray(exclusions) || exclusions.some(x => typeof x !== 'string' || !x.startsWith('!') || x.includes('**'))) {
+  // Only the canonical Web-only composition may use a subtree exclusion.
+  // Every other omission stays exact and reviewable against the real source tree.
+  const WEB_ONLY = '!composition/web/**';
+  if (!Array.isArray(exclusions) || exclusions.some(x =>
+    typeof x !== 'string' || !x.startsWith('!') ||
+    ((x.includes('*') || x.includes('?') || x.includes('[')) && x !== WEB_ONLY))) {
     throw Error('Unexpected non-exact exclusion; inventory requires explicit review');
   }
   const excluded = new Set(exclusions.map(x => x.slice(1)));
@@ -18,13 +23,17 @@ function inventory(root, exclusions) {
       if (entry.isDirectory()) { walk(absolute); continue; }
       if (!entry.isFile()) throw Error('Unsupported packaged entry: ' + key);
       const size = lstatSync(absolute).size;
-      (excluded.has(key) ? skipped : included).push({ path: key, bytes: size });
+      (excluded.has(key) ||
+        (excluded.has('composition/web/**') && key.startsWith('composition/web/'))
+        ? skipped : included).push({ path: key, bytes: size });
     }
   };
   walk(root);
   included.sort((a,b) => a.path.localeCompare(b.path, 'en'));
   skipped.sort((a,b) => a.path.localeCompare(b.path, 'en'));
-  const missing = [...excluded].filter(key => !skipped.some(x => x.path === key)).sort();
+  const missing = [...excluded].filter(key => key === 'composition/web/**'
+    ? !skipped.some(x => x.path.startsWith('composition/web/'))
+    : !skipped.some(x => x.path === key)).sort();
   // Missing exclusion targets are expected during source migrations; never
   // pretend they were removed from an actual installer.
   const groups = {};

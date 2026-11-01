@@ -123,3 +123,38 @@ test('NSIS payload contains no POSIX service or USB diagnostic shell executables
   assert.ok(report.groups['composition/native']?.files>0,
     'removing Linux shell must never remove the compiled Native source');
 });
+
+test('Windows package never carries the Web-only composition while retaining Native',()=>{
+  const cfg=require('./package.json');
+  const resources=cfg.build.extraResources.filter(x=>x.from==='../../system'&&x.to==='runtime-template/system');
+  assert.equal(resources.length,1);
+  const exclusions=resources[0].filter.slice(1);
+  assert.equal(exclusions.filter(x=>x==='!composition/web/**').length,1);
+  const graph=require('../../docs/contracts/build-autonomy.json').client_build_independence;
+  assert.ok(graph.client_only_source_prefixes.includes('system/composition/web/'));
+  assert.ok(graph.shared_native_changes_require_usb_proof);
+  const result=inventory(join(__dirname,'..','..','system'),exclusions);
+  assert.ok(result.excludedFiles>0);
+  assert.equal(result.missingExclusions.includes('composition/web/**'),false);
+  assert.equal(result.groups['composition/web'],undefined);
+  assert.ok(result.groups['composition/native']?.files>0);
+});
+
+test('source inventory accepts ONLY the reviewed Web-only subtree exclusion',()=>{
+  const root=mkdtempSync(join(tmpdir(),'ordax-web-composition-exclusion-'));
+  try{
+    mkdirSync(join(root,'composition','web'),{recursive:true});
+    mkdirSync(join(root,'composition','native'),{recursive:true});
+    writeFileSync(join(root,'composition','web','main.tsx'),'web');
+    writeFileSync(join(root,'composition','web','index.html'),'html');
+    writeFileSync(join(root,'composition','native','main.mjs'),'native');
+    const result=inventory(root,['!composition/web/**']);
+    assert.equal(result.excludedFiles,2);
+    assert.equal(result.includedFiles,1);
+    assert.deepEqual(result.missingExclusions,[]);
+    assert.equal(result.groups['composition/native'].files,1);
+    assert.throws(()=>inventory(root,['!composition/native/**']),/non-exact exclusion/);
+    assert.throws(()=>inventory(root,['!surface/**']),/non-exact exclusion/);
+    assert.throws(()=>inventory(root,['!composition/w?b']),/non-exact exclusion/);
+  } finally{rmSync(root,{recursive:true,force:true});}
+});

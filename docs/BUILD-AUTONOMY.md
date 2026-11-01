@@ -243,3 +243,17 @@ Não autoriza remover arquivos de suporte Python/JS que sejam consumidos pelo
 Native Windows nem alterar política de boot do Linux/USB sem QEMU/Creator.
 Prova de pacote NSIS e status de required checks continuam exigidos antes
 de promover ou declarar encerramento do roadmap.
+
+### Windows packaging of Web-only composition
+
+The canonical Web `system/composition/web/` is never a Native Desktop
+runtime prerequisite: `tools/windows-desktop/vite-native-build.mjs` names
+`system/composition/native/index.html` as the single input. The Windows
+template can therefore exclude the Web composition subtree, without
+altering Web source, Native composition or Surface ownership. The
+inventory accepts exactly `!composition/web/**`, no arbitrary subtree
+wildcards; the Windows workflow excludes `system/composition/web/**`
+from its rebuild triggers, while the Web workflow retains that source.
+An actual extracted NSIS must have no Web-only composition directory.
+The source graph and integration tests, not file extension guessing,
+remain authoritative for removing any other Python/JS components.

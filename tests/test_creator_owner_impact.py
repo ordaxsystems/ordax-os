@@ -275,6 +275,19 @@ class CreatorOwnerImpactTests(unittest.TestCase):
                 self.assertTrue(relative.startswith(("rescue/", "services/", "surface/")))
                 self.assertTrue((ROOT / "system" / relative).read_bytes().startswith(b"#!/bin/sh\n"))
 
+    def test_web_only_composition_is_excluded_from_windows_not_web_delivery(self):
+        scope = json.loads((ROOT / "docs/contracts/build-autonomy.json").read_text(encoding="utf-8"))
+        self.assertIn("system/composition/web/",
+                      scope["client_build_independence"]["client_only_source_prefixes"])
+        windows = (ROOT / ".github/workflows/windows-desktop-dev.yml").read_text(encoding="utf-8")
+        web = (ROOT / ".github/workflows/surface-web-candidate.yml").read_text(encoding="utf-8")
+        self.assertEqual(windows.count("      - '!system/composition/web/**'"), 1)
+        self.assertIn("paths: *desktop_product_sources", windows)
+        self.assertEqual(web.count("      - 'system/composition/web/**'"), 2)
+        self.assertEqual(web.count("      - '!system/composition/web/**'"), 0)
+        self.assertIn("      - 'system/**'", windows)
+        self.assertEqual(windows.count("      - 'system/composition/native/**'"), 0)
+
     def test_usb_boot_only_paths_do_not_trigger_client_builds(self):
         contract = json.loads((ROOT / "docs/contracts/build-autonomy.json").read_text(encoding="utf-8"))
         windows = (ROOT / ".github/workflows/windows-desktop-dev.yml").read_text(encoding="utf-8")

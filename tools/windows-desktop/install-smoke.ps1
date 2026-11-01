@@ -94,6 +94,13 @@ try {
       throw ("Packaged Native dependency missing: " + $entry)
     }
   }
+  # Real NSIS extraction proof: the Web-only composition must not be shipped.
+  # This is stronger than only checking electron-builder filter declarations.
+  $webOnly = Join-Path $resources "runtime-template\\system\\composition\\web"
+  if (Test-Path -LiteralPath $webOnly) {
+    throw "Web-only composition leaked into installed Windows Desktop"
+  }
+  Write-Output "DESKTOP_WEB_COMPOSITION_ABSENT=PASS"
   $compiledRoot = Join-Path $resources "runtime-template\\desktop-assets"
   $compiledHtml = Get-Content (Join-Path $compiledRoot "system\\composition\\native\\index.html") -Raw
   if ($compiledHtml -notmatch "/__ordax/desktop-assets/assets/") {

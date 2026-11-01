@@ -60,8 +60,8 @@ A [PR #2243](https://github.com/ordaxsystems/ordax-os/pull/2243) mantém a migra
 
 - [x] Grafo contratual declara Desktop e Web independentes de Creator/USB (já existente).
 - [x] Workflows Desktop/Web possuem compilação própria, sem chamada direta ao Creator (verificado em fonte).
-- [ ] Remoção dos executáveis Linux do pacote Windows + suite de inventário **CI verde** (arquivos excluídos; `runtime.test.cjs` atualizado para consumir o contrato sem duplicar a lista; aguarda CI).
-- [ ] Classificação de deltas exclusivos Desktop/Web testada em CI no mesmo HEAD; filtros exatos dos workflows Windows/Web ajustados para ignorar entrypoints/arquivos Linux sem remover cobertura Native compartilhada.
+- [x] Remoção dos três executáveis Linux de boot e 21 scripts POSIX do pacote Windows + suíte de inventário **CI Windows verde** (commit `09e96df5`, workflow #41273803078; prova de instalação NSIS isolada no runner).
+- [x] Classificação de impacto e filtros exclusivos Desktop/Web testados no mesmo HEAD `09e96df5`: Foundation, Windows e Web aprovados; contratos Native compartilhados preservados.
 - [ ] Redução completa da árvore empacotada Windows comprovada no NSIS instalado.
 - [ ] Entrega Web validada sem USB/Creator.
 - [ ] Required checks/branch rules ajustados com segurança para separar promoção USB de cliente.
@@ -83,4 +83,10 @@ A auditoria de `system/` identificou **21 scripts POSIX** ligados a serviços Li
 
 A política `creator_owner_impact.py` admite metadados novos **somente** se os scripts estiverem registrados no commit Git e seu conteúdo começar por `#!/bin/sh`; alterações desconhecidas do grafo/boot permanecem USB-heavy. O workflow Web é reconhecido como owner de entrega do próprio Web, não produtor USB. Esta limpeza não implica autorização para remover os módulos JavaScript/Python que o Desktop utiliza, nem para dispensar o Creator quando uma PR ainda modifica entrypoint Native compartilhado.
 
-**Prova já existente:** no commit `80a40d7a`, Web e Windows Desktop passaram independentemente do Creator (USB falhou por Python Alpine). **Prova pendente desta ampliação:** checks Windows/Web/Foundation no novo HEAD e inspeção do instalador NSIS atualizado. O bloqueio visual A→B da Surface permanece com seu owner.
+**Prova final desta ampliação:** no commit `09e96df5`, Foundation, Web e Windows Desktop aprovaram; o workflow Windows #41273803078 publicou um NSIS de 680.377.335 bytes e passou sua instalação isolada. O Creator USB falhou por Python Alpine, sem bloquear a compilação dos clientes. A homologação física do computador do usuário e a separação dos required checks permanecem pendentes. O bloqueio visual A→B da Surface permanece com seu owner.
+
+### Fase 1 — retirar composição exclusivamente Web do instalador Windows
+
+O pacote NSIS ainda incluía `system/composition/web/` apesar de o builder Windows usar exclusivamente `system/composition/native/index.html` como entrada Vite e `system/composition/web/` já ser owner Web no contrato. A próxima mudança remove a árvore Web **somente da distribuição Windows**, preservando-a no OS Git e na entrega Web, sem bifurcar Surface e sem alterar imports Native.
+
+A verificação é tripla: `package-inventory.cjs` aceita um único padrão de exclusão de diretório `!composition/web/**` (nenhum outro wildcard); testes provam que apenas arquivos da composição Web são omitidos e que Native permanece; e `install-smoke.ps1` exige a **ausência real** de `runtime-template/system/composition/web` após extrair o NSIS. Mudanças em `system/composition/web/**` não devem iniciar o produtor Windows; continuarão iniciando o próprio Web. Aguardar CI Windows/Web/Foundation e artefato no HEAD novo antes de marcar esta etapa como homologada. Não dispensa Creator quando houver mudança compartilhada em `system/composition/native/main.mjs`.

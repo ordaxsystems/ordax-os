@@ -1,3 +1,18 @@
+Desktop/Web build separation — evidence update 2026-11-01:
+OS #1980 commit 09e96df5 finished with 13 passed, 2 skipped and 1 failure
+only in Creator USB (Alpine/Python pin). Windows Desktop (SSOT) CI
+#41273803078 passed and produced a 680377335-byte NSIS artifact;
+Surface Web Candidate and Foundation passed at the SAME exact source SHA.
+The single REMOVER-DEPENDENCIA.md roadmap marks boot and 21 POSIX
+exclusions verified by Windows CI. Current new work targets the accidental
+Windows-packaging inclusion of system/composition/web/, already owned
+exclusively by the Web client in the canonical build contract. The Native
+Vite entry is system/composition/native/index.html; only the Web subtree
+is excluded from Windows NSIS with a strict filesystem inventory and
+a real installed-NSIS negative assertion. The new revision is not yet
+CI/physical-proven. Shared Native changes and Surface A/B privacy
+remain separate gates; do not claim PR merge readiness.
+
 Independência de entrega Desktop/Web P0 (2026-11-01; roadmap REMOVER-DEPENDENCIA.md):
 Windows Desktop e Surface Web concluíram seus próprios checks na PR #1980
 em 80a40d7a; o Creator USB é um produtor separado e falha por lock

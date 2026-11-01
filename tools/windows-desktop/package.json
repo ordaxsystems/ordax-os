@@ -70,7 +70,8 @@
           "!surface/bin/ordax-proof-runtime.sh",
           "!surface/runtime/native_install_broker.sh",
           "!surface/runtime/network_broker.sh",
-          "!surface/runtime/resolver_sync.sh"
+          "!surface/runtime/resolver_sync.sh",
+          "!composition/web/**"
         ]
       },
       {
