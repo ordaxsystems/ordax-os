@@ -109,7 +109,11 @@ export function createDesktopSpaceCreatePort(
       const cancelled = new Promise((_, reject) => {
         rejectCancelled = reject;
       });
-      const onAbort = () => rejectCancelled(new Error("Space creation cancelled or timed out"));
+      const onAbort = () => rejectCancelled(new Error(
+        disposed || revision !== sessionRevision
+          ? "Space creation account session changed"
+          : "Space creation cancelled or timed out",
+      ));
       controller.signal.addEventListener("abort", onAbort, { once: true });
       const deadline = setTimeout(() => controller.abort(), timeoutMs);
       try {
