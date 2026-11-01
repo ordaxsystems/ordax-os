@@ -166,6 +166,13 @@ export function createEmulatorNativeHost({
       }
       const validated = route[1](JSON.parse(Buffer.concat(chunks).toString("utf8")));
       const state = await change(state => {
+        // Previously completed development receipts without a Terms field
+        // remain readable/idempotent. Every NEW completion must carry the
+        // versioned OS acknowledgement already required by First Run UI.
+        if (route[0] === "firstRun" && !state.firstRun.completed
+            && validated.completed && validated.systemTerms === undefined) {
+          throw new TypeError("New First Run completion requires OS terms acknowledgement");
+        }
         if (route[0] === "firstRun" && state.firstRun.completed
             && JSON.stringify(state.firstRun) !== JSON.stringify(validated)) {
           const conflict = new Error("Completed development receipt cannot be replaced");

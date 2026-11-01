@@ -153,6 +153,7 @@
     "separate_from_account_registration": true,
     "required_in_current_first_run_ui": true,
     "required_for_local_only_and_identity_modes": true,
+    "windows_new_completion_without_acknowledgement_denied": true,
     "acceptance_step": "ready",
     "checkbox_initially_unchecked": true,
     "document_status": "draft",

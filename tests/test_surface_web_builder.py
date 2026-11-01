@@ -1,4 +1,5 @@
 import importlib.util
+import json
 from pathlib import Path, PurePosixPath
 from unittest.mock import patch
 import tempfile
@@ -190,6 +191,121 @@ class SurfaceWebBuilderTests(unittest.TestCase):
             (base / "a/assets/app.js").write_text("tampered", encoding="utf-8")
             with self.assertRaises(MODULE.BundleError):
                 MODULE.verify_bundle(base / "a")
+
+    def make_verifiable_test_bundle(self, base: Path) -> Path:
+        """Real canonical receipt, with the expensive frontend compiler stubbed."""
+        compiled = base / "compiled"
+        (compiled / "assets").mkdir(parents=True)
+        (compiled / "index.html").write_text(
+            '<script src="./assets/app.js"></script>', encoding="utf-8"
+        )
+        (compiled / "assets/app.js").write_text(
+            'console.log("local bundle");', encoding="utf-8"
+        )
+        with patch.object(MODULE, "compile_frontend", return_value=compiled):
+            MODULE.build_bundle(base / "bundle", "b" * 40)
+        return base / "bundle"
+
+    def test_web_receipt_rejects_duplicate_file_and_source_input_records(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            output = self.make_verifiable_test_bundle(Path(tmp))
+            receipt = output / MODULE.MANIFEST_NAME
+            original = json.loads(receipt.read_text(encoding="utf-8"))
+            for collection in ("files", "source_inputs"):
+                with self.subTest(collection=collection):
+                    altered = json.loads(json.dumps(original))
+                    altered[collection].append(dict(altered[collection][0]))
+                    receipt.write_text(json.dumps(altered), encoding="utf-8")
+                    with self.assertRaisesRegex(
+                        MODULE.BundleError, "must be unique"
+                    ):
+                        MODULE.verify_bundle(output)
+            receipt.write_text(json.dumps(original), encoding="utf-8")
+            MODULE.verify_bundle(output)
+
+    def test_web_receipt_rejects_invalid_identity_and_noncanonical_paths(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            output = self.make_verifiable_test_bundle(Path(tmp))
+            receipt = output / MODULE.MANIFEST_NAME
+            original = json.loads(receipt.read_text(encoding="utf-8"))
+            for field, invalid in (
+                ("status", "promoted"),
+                ("framework_runtime_dependency", False),
+                ("framework_runtime_delivery", "remote"),
+                ("node_required_at_client", True),
+                ("source_graph_entrypoint", "system/foreign/index.html"),
+                ("mount_path", None),
+            ):
+                with self.subTest(field=field):
+                    altered = json.loads(json.dumps(original))
+                    altered[field] = invalid
+                    receipt.write_text(json.dumps(altered), encoding="utf-8")
+                    with self.assertRaises(MODULE.BundleError):
+                        MODULE.verify_bundle(output)
+            for path in (
+                "./assets/app.js", "assets//app.js", "assets/../assets/app.js",
+                "assets\\app.js", "../private.js", "/private.js",
+            ):
+                with self.subTest(path=path):
+                    altered = json.loads(json.dumps(original))
+                    altered["files"][1]["path"] = path
+                    receipt.write_text(json.dumps(altered), encoding="utf-8")
+                    with self.assertRaises(MODULE.BundleError):
+                        MODULE.verify_bundle(output)
+            receipt.write_text(json.dumps(original), encoding="utf-8")
+            MODULE.verify_bundle(output)
+
+    def test_web_bundle_rejects_linked_assets_and_linked_directories(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            output = self.make_verifiable_test_bundle(base)
+            MODULE.verify_bundle(output)
+            regular = output / "assets/app.js"
+            foreign = base / "foreign.js"
+            foreign.write_bytes(regular.read_bytes())
+            regular.unlink()
+            try:
+                regular.symlink_to(foreign)
+            except (OSError, NotImplementedError):
+                self.skipTest("symlinks unavailable")
+            with self.assertRaisesRegex(MODULE.BundleError, "linked Web bundle path"):
+                MODULE.verify_bundle(output)
+            regular.unlink()
+            regular.write_bytes(foreign.read_bytes())
+            MODULE.verify_bundle(output)
+
+            # rglob may not follow a linked directory; it must not silently
+            # ignore a foreign tree outside the manifest's file inventory.
+            foreign_dir = base / "foreign-directory"
+            foreign_dir.mkdir()
+            (foreign_dir / "unlisted.js").write_text("external", encoding="utf-8")
+            (output / "unlisted").symlink_to(foreign_dir, target_is_directory=True)
+            with self.assertRaisesRegex(MODULE.BundleError, "linked Web bundle path"):
+                MODULE.verify_bundle(output)
+            (output / "unlisted").unlink()
+
+            # The root and the receipt itself must also be regular owned paths.
+            alias = base / "linked-bundle"
+            alias.symlink_to(output, target_is_directory=True)
+            with self.assertRaisesRegex(MODULE.BundleError, "bundle root"):
+                MODULE.verify_bundle(alias)
+            alias.unlink()
+            receipt = output / MODULE.MANIFEST_NAME
+            copy = base / "foreign-receipt.json"
+            copy.write_bytes(receipt.read_bytes())
+            receipt.unlink()
+            receipt.symlink_to(copy)
+            with self.assertRaisesRegex(MODULE.BundleError, "linked web-client-manifest.json"):
+                MODULE.verify_bundle(output)
+
+    def test_web_bundle_does_not_ignore_nested_manifest_named_file(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            output = self.make_verifiable_test_bundle(Path(tmp))
+            (output / "assets" / MODULE.MANIFEST_NAME).write_text(
+                "hidden unexpected file", encoding="utf-8"
+            )
+            with self.assertRaisesRegex(MODULE.BundleError, "bundle file set mismatch"):
+                MODULE.verify_bundle(output)
 
     def test_nonempty_output_is_not_replaced(self):
         with tempfile.TemporaryDirectory() as tmp:

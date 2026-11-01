@@ -351,7 +351,11 @@ A leitura do recibo `ordax.first-run-state/1` também é obrigatória nesse
 modo: HTTP não autorizado/indisponível ou JSON inválido não pode ser
 interpretado como novo usuário, ocultando um primeiro uso já concluído.
 A composição falha fechada antes do mount; nenhuma rotina cria um
-segundo recibo ou apaga o anterior. Além disso, o bloqueio visual do PIN
+segundo recibo ou apaga o anterior. O host de estado Windows exige o
+aceite versionado dos Termos do OS ao gravar uma **nova conclusão**; um
+POST sem aceite recebe HTTP 400 sem concluir o primeiro uso. Recibos
+antigos já concluídos permanecem legíveis e aceitam regravação idêntica,
+sem atribuir um consentimento que o usuário não deu. Além disso, o bloqueio visual do PIN
 é montado uma única vez **antes** de ocultar a tela de boot, declarar a
 Surface saudável ou iniciar o assistente de primeiro uso. Se o bloqueio
 visual falhar no Windows, o boot é recusado com diagnóstico sanitizado,

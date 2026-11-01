@@ -8,6 +8,7 @@ import { createEmulatorNativeHost } from "../tools/windows-emulator/native-host.
 import { createNativePreferenceStore } from "../system/adapters/native/preferences.mjs";
 import { createNativeFirstRunStateStore } from "../system/adapters/native/first-run-state.mjs";
 import { createInitialFirstRunState } from "../system/contracts/first-run-state-store.mjs";
+import { createSystemTermsAcceptance } from "../system/contracts/system-terms.mjs";
 
 const GRANT="d".repeat(64);
 const STATE_ROUTES=[
@@ -103,6 +104,53 @@ test("Windows Desktop first-run and preferences require Electron-only state gran
     assert.equal((await createNativeFirstRunStateStore(client)).load().completed,false,
       "the original USB/emulator recovery mode must remain available");
     assert.equal(await readFile(join(dir,"native-state.json"),"utf8"),"{bad");
+  }finally{if(h)await h.close();await rm(dir,{recursive:true,force:true});}
+});
+
+test("new Windows First Run completion requires explicit OS acknowledgement while retaining legacy receipts",async()=>{
+  const contract=JSON.parse(await readFile(new URL("../docs/contracts/first-run.json",import.meta.url),"utf8"));
+  assert.equal(contract.system_terms.windows_new_completion_without_acknowledgement_denied,true);
+  const dir=await mkdtemp(join(tmpdir(),"ordax-native-state-terms-"));
+  let h;
+  try{
+    h=await startHost(dir);
+    const route="/__ordax/native/first-run";
+    const post=receipt=>h.trusted(route,{
+      method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify(receipt),
+    });
+    const initial=await (await h.trusted(route)).json();
+    const noTerms={...initial,completed:true,accountMode:"local-only"};
+    assert.equal((await post(noTerms)).status,400,
+      "the authorized Desktop host cannot mint a completed receipt without OS acknowledgement");
+    assert.deepEqual(await (await h.trusted(route)).json(),initial,
+      "invalid completion must leave the on-disk onboarding state unchanged");
+    const accepted={...noTerms,systemTerms:createSystemTermsAcceptance(true)};
+    assert.equal((await post(accepted)).status,200);
+    assert.equal((await post(accepted)).status,200,
+      "identical current completed receipt must remain idempotent");
+    assert.deepEqual(await (await h.trusted(route)).json(),accepted);
+    assert.equal((await post(noTerms)).status,409,
+      "a completed acknowledgement cannot be removed by a later write");
+    await h.close();h=null;
+
+    // Existing development receipts predating the acknowledgement remain
+    // valid without inventing or backfilling a legal decision for the user.
+    const legacyDir=await mkdtemp(join(tmpdir(),"ordax-native-state-legacy-terms-"));
+    let oldHost;
+    try{
+      await writeFile(join(legacyDir,"native-state.json"),JSON.stringify({
+        firstRun:noTerms,preferences:{},
+        cursor:{schema:"ordax.first-run-cursor/1",step:"welcome"},
+      }),"utf8");
+      oldHost=await startHost(legacyDir);
+      assert.deepEqual(await (await oldHost.trusted(route)).json(),noTerms);
+      assert.equal((await oldHost.trusted(route,{method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify(noTerms),
+      })).status,200,"exact legacy receipt replay preserves monotonicity");
+      assert.deepEqual(await (await oldHost.trusted(route)).json(),noTerms);
+    }finally{if(oldHost)await oldHost.close();await rm(legacyDir,{recursive:true,force:true});}
   }finally{if(h)await h.close();await rm(dir,{recursive:true,force:true});}
 });
 
