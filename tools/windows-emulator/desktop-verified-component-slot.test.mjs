@@ -7,6 +7,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createDesktopVerifiedComponentSlotMiddleware } from "../../system/adapters/desktop/verified-component-slot-host.mjs";
 import { createDesktopVerifiedStoreCatalogMiddleware, desktopStoreCatalogEnvelopeUrl } from "../../system/adapters/desktop/verified-store-catalog-host.mjs";
+import { createDesktopStoreLifecycleMiddleware } from "../../system/adapters/desktop/store-lifecycle-host.mjs";
 import { nativeEmulatorPlugin } from "./native-host.mjs";
 
 const SHA = "a".repeat(40);
@@ -705,6 +706,197 @@ test("Windows Store remote replay and equivocation preserve the last-known-good 
   });
 });
 
+
+
+async function serveGoStoreLifecycle(t, fixture, execFileImpl) {
+  const catalog = createDesktopVerifiedStoreCatalogMiddleware({
+    systemRoot: fixture.osRoot, verifierRoot: fixture.verifierRoot,
+    userData: fixture.userData, platform: "win32", execFileImpl,
+  });
+  const lifecycle = createDesktopStoreLifecycleMiddleware({
+    systemRoot: fixture.osRoot, verifierRoot: fixture.verifierRoot,
+    userData: fixture.userData, catalogReader: catalog.readVerifiedLocalCatalog,
+    platform: "win32", execFileImpl,
+  });
+  const server = createServer((req, res) => catalog(req, res, () =>
+    lifecycle(req, res, () => { res.writeHead(418); res.end(); })));
+  await new Promise(resolve => server.listen(0, "127.0.0.1", resolve));
+  t.after(() => new Promise(resolve => server.close(resolve)));
+  return "http://127.0.0.1:" + server.address().port;
+}
+
+function windowsRemovePlan(overrides = {}) {
+  const commit = "a".repeat(40);
+  return {
+    schema: "ordax.app-lifecycle-plan/2",
+    request: {
+      schema: "ordax.app-lifecycle-request/1",
+      requestId: "store:remove:notes:desktop-test", appId: "notes",
+      operation: "remove", source: "store", authority: "none",
+    },
+    catalogSequence: 4, catalogSha256: "f".repeat(64),
+    catalogSourceCommit: commit, candidate: null,
+    expectedActivation: {
+      source: "slot", revision: 11, version: "0.4.3", sourceCommit: commit,
+    },
+    authority: "none", ...overrides,
+  };
+}
+
+async function postStoreLifecycle(base, plan, headers = {}) {
+  return fetch(base + "/__ordax/native/store-lifecycle", {
+    method: "POST",
+    headers: { Origin: base, "Content-Type": "application/json", ...headers },
+    body: JSON.stringify(plan),
+  });
+}
+
+test("Windows Store removes only after Go commits exact signed uninstall and reads back state", async t => {
+  const f = setup(t);
+  f.policy.current_gates.component_publish_allowed = true;
+  writeFileSync(f.policyPath, JSON.stringify(f.policy));
+  const store = join(f.userData, "Store");
+  mkdirSync(store);
+  writeFileSync(join(store, "catalog-envelope.json"), "SIGNED_TEST_ENVELOPE");
+  const calls = [];
+  const go = (binary, args, options, cb) => {
+    assert.equal(binary, f.helper);
+    assert.equal(options.windowsHide, true);
+    assert.equal(options.encoding, "buffer");
+    calls.push(args);
+    if (args[0] === "verify-store-catalog") {
+      assert.equal(args[args.indexOf("--trust") + 1], f.installedAnchorPath);
+      writeFileSync(args[args.indexOf("--out") + 1],
+        JSON.stringify(signedCatalogFixture()));
+      return cb(null, Buffer.alloc(0));
+    }
+    if (args[0] === "uninstall-state") {
+      assert.deepEqual(args, [
+        "uninstall-state", "--component", "notes", "--version", "0.4.3",
+        "--source-commit", "a".repeat(40), "--expected-revision", "11",
+        "--trust", f.installedAnchorPath, "--root", f.componentRoot,
+      ]);
+      return cb(null, Buffer.from([
+        "RUNTIME_COMPONENT_STATE_UNINSTALLED=YES", "COMPONENT_ID=notes",
+        "REVISION=12", "CURRENT_PRESENT=NO", "APP_DATA_TOUCHED=NO",
+        "SLOT_CACHE_PURGED=NO", "",
+      ].join("\n")));
+    }
+    if (args[0] === "status") {
+      assert.deepEqual(args, ["status", "--component", "notes",
+        "--root", f.componentRoot]);
+      return cb(null, Buffer.from(JSON.stringify({
+        $schema: "prototype-ordax.runtime-component-activation-state/1",
+        component_id: "notes", revision: 12, current: null, previous: null,
+        pending: null, rejected: null, pending_health: "unknown",
+        user_removed: true, removed_identity: {
+          version: "0.4.3", source_commit: "a".repeat(40),
+        },
+      })));
+    }
+    throw Error("Unexpected Go command");
+  };
+  const base = await serveGoStoreLifecycle(t, f, go);
+  const response = await postStoreLifecycle(base, windowsRemovePlan());
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), {
+    schema: "ordax.app-lifecycle-request-result/1",
+    requestId: "store:remove:notes:desktop-test", appId: "notes",
+    operation: "remove", source: "store",
+    state: "accepted", reason: null, authority: "none",
+  });
+  assert.deepEqual(calls.map(args => args[0]),
+    ["verify-store-catalog", "uninstall-state", "status"]);
+  assert.equal((await (await fetch(base + "/__ordax/native/store-catalog")).json()).state,
+    "ready", "Catalog remains available after its lock is released");
+});
+
+test("Windows Store never grants installs, unsigned plans or foreign-origin uninstall", async t => {
+  const f = setup(t);
+  f.policy.current_gates.component_publish_allowed = true;
+  writeFileSync(f.policyPath, JSON.stringify(f.policy));
+  const store = join(f.userData, "Store");
+  mkdirSync(store);
+  writeFileSync(join(store, "catalog-envelope.json"), "SIGNED_TEST_ENVELOPE");
+  let verifyCalls = 0, mutationCalls = 0;
+  const base = await serveGoStoreLifecycle(t, f, (_binary, args, _opts, cb) => {
+    if (args[0] === "verify-store-catalog") {
+      verifyCalls++;
+      writeFileSync(args[args.indexOf("--out") + 1], JSON.stringify(signedCatalogFixture()));
+      return cb(null, Buffer.alloc(0));
+    }
+    mutationCalls++;
+    return cb(Error("Must not mutate"));
+  });
+  const original = windowsRemovePlan();
+  assert.equal((await postStoreLifecycle(base, original, {Origin: "https://evil.test"})).status, 403);
+  assert.equal((await postStoreLifecycle(base, original, {Origin: ""})).status, 403);
+  assert.equal((await fetch(base + "/__ordax/native/store-lifecycle")).status, 405);
+  assert.equal((await fetch(base + "/__ordax/native/store-lifecycle?x=1")).status, 400);
+  assert.equal((await postStoreLifecycle(base, {
+    ...original, request: {...original.request, operation: "install"},
+    expectedActivation: {source: "absent", revision: 0, version: null, sourceCommit: null},
+    candidate: {
+      appId: "notes", version: "0.4.3", sourceCommit: "a".repeat(40),
+      artifacts: signedCatalogFixture().entries[0].artifacts,
+    },
+  })).status, 503);
+  assert.equal((await postStoreLifecycle(base, {
+    ...original, catalogSequence: 5,
+  })).status, 503);
+  assert.equal((await postStoreLifecycle(base, {
+    ...original, catalogSha256: "0".repeat(64),
+  })).status, 503);
+  assert.equal((await postStoreLifecycle(base, {
+    ...original, request: {...original.request, appId: "surface"},
+  })).status, 503);
+  assert.equal((await postStoreLifecycle(base, {
+    ...original, expectedActivation: {...original.expectedActivation, revision: 0},
+  })).status, 400);
+  assert.equal(mutationCalls, 0);
+  assert.equal(verifyCalls, 3, "Only valid remove plans can cause read-only signature checks");
+});
+
+test("Windows Store refuses a fabricated Go receipt or non-durable uninstall", async t => {
+  const f = setup(t);
+  f.policy.current_gates.component_publish_allowed = true;
+  writeFileSync(f.policyPath, JSON.stringify(f.policy));
+  const store = join(f.userData, "Store");
+  mkdirSync(store);
+  writeFileSync(join(store, "catalog-envelope.json"), "SIGNED_TEST_ENVELOPE");
+  let receiptOk = false, mutated = 0;
+  const base = await serveGoStoreLifecycle(t, f, (_binary, args, _opts, cb) => {
+    if (args[0] === "verify-store-catalog") {
+      writeFileSync(args[args.indexOf("--out") + 1], JSON.stringify(signedCatalogFixture()));
+      return cb(null, Buffer.alloc(0));
+    }
+    if (args[0] === "uninstall-state") {
+      mutated++;
+      return cb(null, Buffer.from([
+        "RUNTIME_COMPONENT_STATE_UNINSTALLED=YES", "COMPONENT_ID=notes",
+        "REVISION=" + (receiptOk ? "12" : "99"),
+        "CURRENT_PRESENT=NO", "APP_DATA_TOUCHED=NO",
+        "SLOT_CACHE_PURGED=NO", "",
+      ].join("\n")));
+    }
+    if (args[0] === "status") {
+      return cb(null, Buffer.from(JSON.stringify({
+        $schema: "prototype-ordax.runtime-component-activation-state/1",
+        component_id: "notes", revision: 12,
+        current: {version:"0.4.3", source_commit:"a".repeat(40)},
+        previous: null, pending: null, rejected: null,
+        pending_health: "unknown", removed_identity: null, user_removed: false,
+      })));
+    }
+    return cb(Error("Unexpected command"));
+  });
+  assert.equal((await postStoreLifecycle(base, windowsRemovePlan())).status, 503);
+  receiptOk = true;
+  assert.equal((await postStoreLifecycle(base, windowsRemovePlan())).status, 503);
+  assert.equal(mutated, 2);
+  assert.equal((await fetch(base + "/__ordax/native/store-catalog")).status, 200,
+    "Failed Native command must not leak the filesystem lock");
+});
 
 test("the shared Windows development preview registers a truthful Store route without a signer", async t => {
   const f = setup(t);
