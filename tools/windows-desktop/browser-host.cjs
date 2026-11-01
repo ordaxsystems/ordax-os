@@ -206,7 +206,7 @@ function createDesktopBrowserHost({window, ipcMain, WebContentsView, session, di
     }
   };
   const handleDownloads = (event,raw)=>{
-    if(disposed||event.sender!==window.webContents||typeof raw!=='string')return;
+    if(disposed||event.sender!==window.webContents||typeof raw!=='string'||raw.length>MAX_BYTES)return;
     let command;try{command=JSON.parse(raw)}catch{return;}
     if(!DOWNLOAD_ID.test(command?.id))return;
     const record=downloads.get(command.id);
