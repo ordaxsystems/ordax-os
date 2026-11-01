@@ -251,7 +251,7 @@ test("Windows pending-slot probation metadata and bytes reuse the installed Go v
   // A non-probation component must not reach even read-only Go resolution.
   assert.equal((await fetch(base
     + "/__ordax/native/component-runtime?component=assistant&state=pending")).status, 404);
-  assert.equal((await fetch(base + moduleUrl.replace("/notes/", "/studio/")).status, 404);
+  assert.equal((await fetch(base + moduleUrl.replace("/notes/", "/studio/"))).status, 404);
   assert.equal(calls.length, 2);
   // Exact slot identity continues to be reverified by Go on each module read.
   const stale = await fetch(base + moduleUrl.replace("/0.4.3/", "/0.4.2/"));
