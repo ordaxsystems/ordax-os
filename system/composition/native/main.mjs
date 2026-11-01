@@ -408,7 +408,12 @@ async function start() {
     fetchImpl: localAiFetch,
     endpoint: LOCAL_AI_NATIVE_ENDPOINT,
   });
-  const intelligence = createIntelligenceRuntime({ inferencePort: localAi });
+  const intelligence = createIntelligenceRuntime({
+    inferencePort: localAi,
+    // Read the same durable regional preference used by the Surface, including
+    // changes made after first run; no second language setting or cached guess.
+    getLocale: () => preferenceStore.load()["regional.locale"] ?? "pt-BR",
+  });
   const memory = memoryStore === null
     ? null
     : createMemoryRuntime({ store: memoryStore });
@@ -891,6 +896,18 @@ async function start() {
     surface,
     profileActivationState,
   );
+  // OS composition owns platform adapters. The Surface consumes only the
+  // authenticated command contract, and Linux/Web never construct this port.
+  const spaceCreatePort = windowsDesktopHost
+    ? await optionalNativeProbe(
+        "OrdaX Windows Space creation unavailable",
+        async () => {
+          const { createDesktopSpaceCreatePort } =
+            await import("../../adapters/desktop/space-create.mjs");
+          return createDesktopSpaceCreatePort(window, identitySession);
+        },
+      )
+    : null;
   const accountOverviewControls = mountAccountOverviewControls(
     root,
     identitySession,
@@ -911,6 +928,7 @@ async function start() {
     profileTaxonomy,
     spaceExperience,
     { isAvailable: hasNativeHostBridge, postMessage: postNativeHostMessage },
+    spaceCreatePort,
   );
   const homeContinuation = mountHomeContinuation(root, { projects, recentFiles, surfaceLifecycle: surface });
   const homePending = mountHomePending(root, { notifications, syncRuntime: accountSync, surfaceLifecycle: surface });

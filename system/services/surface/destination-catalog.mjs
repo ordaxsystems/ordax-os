@@ -23,6 +23,11 @@ for (const entry of entries) {
   }
 }
 
+// Historic windows/shortcuts focus the one Spaces destination; no alias appears
+// as a second item in the rail or application catalog.
+managedWindowTitles.set('Perfis profissionais', 'Espaços');
+managedWindowTitles.set('Professional profiles', 'Espaços');
+
 export const SURFACE_DESTINATIONS = Object.freeze(
   Object.fromEntries(entries.map(entry => [entry.id, Object.freeze({ ...entry })])),
 );

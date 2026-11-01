@@ -3,9 +3,9 @@
 // private key, HTTP client, or Surface renderer may select verifier/trust paths.
 // Activation, pending health, probation and rollback remain separate owners.
 import { execFile } from "node:child_process";
-import { createHash } from "node:crypto";
-import { lstatSync, readFileSync, realpathSync } from "node:fs";
-import { isAbsolute, join, relative, sep } from "node:path";
+import { lstatSync } from "node:fs";
+import { isAbsolute, join } from "node:path";
+import { readDesktopPinnedComponentTrust, withinPinnedRoot as within } from "./pinned-component-trust.mjs";
 import { EXTERNAL_FIRST_PARTY_NATIVE_MODULE_READ_IDS } from "../../services/apps/external-first-party-policy.mjs";
 
 const META = "/__ordax/native/component-runtime";
@@ -30,69 +30,14 @@ const MIME = Object.freeze({
   ".ttf": "font/ttf", ".otf": "font/otf",
 });
 
-function regular(path, maxBytes) {
-  try {
-    const stat = lstatSync(path);
-    return stat.isFile() && !stat.isSymbolicLink()
-      && stat.size > 0 && stat.size <= maxBytes;
-  } catch { return false; }
-}
-
-function within(root, path) {
-  if (!isAbsolute(path)) return false;
-  const rest = relative(root, path);
-  return rest.length > 0 && rest !== ".." && !rest.startsWith(".." + sep)
-    && !isAbsolute(rest);
-}
-
 function trustedConfiguration(systemRoot, verifierRoot, userData) {
-  // Re-evaluate on every request; a removed or changed anchor revokes reads.
-  const policyPath = join(systemRoot, "docs", "contracts", "runtime-component-trust-policy.json");
-  const packagePolicyPath = join(systemRoot, "docs", "contracts", "runtime-component-package.json");
-  const anchorPath = join(verifierRoot, "system", "trust", "runtime-components-ed25519.json");
-  const activeAnchor = join(systemRoot, "system", "trust", "runtime-components-ed25519.json");
-  const helper = join(verifierRoot, "tools", "runtime-component-channel", "ordax-runtime-component-channel.exe");
+  const trusted = readDesktopPinnedComponentTrust(systemRoot, verifierRoot);
+  if (!trusted) return null;
   const root = join(userData, "Components");
-  if (!regular(policyPath, 64 * 1024) || !regular(packagePolicyPath, 64 * 1024)
-      || !regular(anchorPath, 16 * 1024) || !regular(activeAnchor, 16 * 1024)
-      || !regular(helper, 32 * 1024 * 1024)) return null;
   try {
-    const policy = JSON.parse(readFileSync(policyPath, "utf8"));
-    const packagePolicy = JSON.parse(readFileSync(packagePolicyPath, "utf8"));
-    if (policy["$schema"] !== "prototype-ordax.runtime-component-trust-policy/1"
-      || policy.status !== "canonical-public-trust-pinned"
-      || policy.trust_domain !== "runtime-components"
-      || policy.key_id !== "ordax-runtime-components-v1"
-      || policy.public_anchor?.repository_path !== "system/trust/runtime-components-ed25519.json"
-      || policy.public_anchor?.pinned !== true
-      || policy.current_gates?.canonical_component_trust_anchor_pinned !== true
-      || packagePolicy["$schema"] !== "prototype-ordax.runtime-component-package-policy/1"
-      || packagePolicy.canonical_component_trust_anchor_pinned !== true
-      || !SHA256.test(policy.public_anchor?.sha256)) return null;
-    const anchor = readFileSync(anchorPath);
-    // The protected Electron resource is the trust source. The current
-    // Git checkout must agree byte-for-byte; editing its copy cannot
-    // introduce a new root signing key on the user's machine.
-    if (createHash("sha256").update(anchor).digest("hex") !== policy.public_anchor.sha256
-      || !readFileSync(activeAnchor).equals(anchor)) return null;
-    const trust = JSON.parse(anchor.toString("utf8"));
-    if (trust["$schema"] !== "prototype-ordax.runtime-component-trust/1"
-      || trust.key_id !== policy.key_id
-      || typeof trust.public_key_base64 !== "string"
-      || !/^[A-Za-z0-9+/]{43}=$/.test(trust.public_key_base64)
-      || Buffer.from(trust.public_key_base64, "base64").length !== 32) return null;
-    // The executable is part of the Electron-installed runtime-template, not
-    // the Git-managed OS checkout selected by ordax-pull. Only the Electron
-    // owner may select this path. Policies and anchor still belong to the
-    // exact active OS checkout. Never resolve executable files from user data.
-    if (lstatSync(verifierRoot).isSymbolicLink()
-      || !within(realpathSync(verifierRoot), realpathSync(helper))
-      || !within(realpathSync(verifierRoot), realpathSync(anchorPath))
-      || !within(realpathSync(systemRoot), realpathSync(activeAnchor))) return null;
     const slot = lstatSync(root);
     if (!slot.isDirectory() || slot.isSymbolicLink()) return null;
-    return Object.freeze({ helper, trust: anchorPath, root,
-      trustSha256: createHash("sha256").update(anchor).digest("hex") });
+    return Object.freeze({ ...trusted, root });
   } catch { return null; }
 }
 

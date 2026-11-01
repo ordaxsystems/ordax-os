@@ -16,6 +16,9 @@ import { createDesktopDeviceProfileMiddleware } from "../../system/adapters/desk
 import { createDesktopWlanMiddleware } from "../../system/adapters/desktop/wifi-radio-host.mjs";
 import { createDesktopLocalAiMiddleware } from "../../system/adapters/desktop/local-ai-host.mjs";
 import { createDesktopVerifiedComponentSlotMiddleware } from "../../system/adapters/desktop/verified-component-slot-host.mjs";
+import { createDesktopVerifiedStoreCatalogMiddleware } from "../../system/adapters/desktop/verified-store-catalog-host.mjs";
+import { createDesktopStoreLifecycleMiddleware } from "../../system/adapters/desktop/store-lifecycle-host.mjs";
+import { createDesktopProductRuntimeSupervisor, createDesktopSignedRuntimeHandoff } from "../../system/adapters/desktop/product-runtime-supervisor.mjs";
 import { createDesktopDisplayCurrentModeMiddleware } from "../../system/adapters/desktop/display-current-mode-host.mjs";
 import observationPolicy from "../../system/adapters/desktop/observation-grant.cjs";
 const { OBSERVATION_ROUTES, createDesktopObservationGrantMiddleware }=observationPolicy;
@@ -195,6 +198,37 @@ export function nativeEmulatorPlugin(stateDirectory, { desktopHost = false, acco
           sessionLocked:localSession?.readLocked??null,
         }).middleware);
       }
+      // Every Native development and installed host exposes the same read-only
+      // Store contract. Without installed Electron trust or a signed publication
+      // the canonical response is unavailable, never a 503 or fake catalog.
+      // No preview can activate Windows signature verification by setting env.
+      const installedStoreTrust = desktopHost && process.platform === "win32"
+        && Boolean(userData) && Boolean(process.env.ORDAX_DESKTOP_COMPONENT_VERIFIER_ROOT);
+      const signedStoreCatalog = createDesktopVerifiedStoreCatalogMiddleware({
+        systemRoot: process.cwd(),
+        verifierRoot: installedStoreTrust ? process.env.ORDAX_DESKTOP_COMPONENT_VERIFIER_ROOT : "",
+        userData: installedStoreTrust ? userData : stateDirectory,
+        platform: installedStoreTrust ? "win32" : "unavailable",
+        // Operator-selected HTTPS byte origin only for the installed Native host.
+        // Preview, renderer and HTTP requests never supply a catalog source.
+        catalogBaseOrigin: installedStoreTrust
+          ? process.env.ORDAX_DESKTOP_STORE_CATALOG_BASE_ORIGIN ?? "" : "",
+      });
+      server.middlewares.use(signedStoreCatalog);
+      if (installedStoreTrust) {
+        // One signed catalog reader and the existing installed Go activation
+        // writer. No second catalog, installer, signer or state authority.
+        server.middlewares.use(createDesktopStoreLifecycleMiddleware({
+          systemRoot: process.cwd(),
+          verifierRoot: process.env.ORDAX_DESKTOP_COMPONENT_VERIFIER_ROOT,
+          userData,
+          catalogReader: signedStoreCatalog.readVerifiedLocalCatalog,
+          // Only the installed Native process may select the signed
+          // content-addressed artifact origin; no Store UI URLs are accepted.
+          artifactBaseOrigin:
+            process.env.ORDAX_DESKTOP_STORE_ARTIFACT_BASE_ORIGIN ?? "",
+        }));
+      }
       if (desktopHost && process.platform === "win32" && userData &&
           process.env.ORDAX_DESKTOP_COMPONENT_VERIFIER_ROOT) {
         // The current OS revision owns policies; the Electron installer owns
@@ -222,6 +256,49 @@ export function nativeEmulatorPlugin(stateDirectory, { desktopHost = false, acco
         server.middlewares.use(createDesktopObservationGrantMiddleware({
           token:process.env.ORDAX_DESKTOP_OBSERVATION_TOKEN,
         }));
+        if (process.platform === "win32" && userData) {
+          // The installed Native Host is the OrdaX Supervisor owner. It may
+          // supervise a verified Runtime, never the separate Windows agent.
+          // Current unsigned component policy intentionally leaves it blocked.
+          const productRuntime = createDesktopProductRuntimeSupervisor({
+            systemRoot:process.cwd(),userData,
+            verifiedHandoff:process.env.ORDAX_DESKTOP_COMPONENT_VERIFIER_ROOT
+              ? createDesktopSignedRuntimeHandoff({
+                  verifierRoot:process.env.ORDAX_DESKTOP_COMPONENT_VERIFIER_ROOT,
+                }) : null,
+            // Explicit Windows Desktop development opt-in only. This consumes
+            // the OS-pinned CI binary hash; it never changes production trust,
+            // signs a component, grants MCP access or enables Stable/MVP.
+            developmentCandidate:process.env.ORDAX_DESKTOP_HOST==="1" &&
+              process.env.ORDAX_DESKTOP_MCP_DEV==="1",
+            log:message=>console.info("runtime: "+message),
+          });
+          void productRuntime.reconcile().catch(() => {});
+          // Re-check post-boot enrollment and trust under one serialized
+          // Supervisor: a revoked identity cannot keep a Runtime alive.
+          const productRuntimeTimer=setInterval(() => {
+            void productRuntime.reconcile().catch(() => {});
+          },30000);
+          productRuntimeTimer.unref?.();
+          // Stop the owned child on the normal Native Host shutdown signals,
+          // not only in the final process exit callback (too late to reap).
+          const stopProductRuntime=()=>{
+            clearInterval(productRuntimeTimer);
+            productRuntime.stop();
+          };
+          process.once("SIGINT",stopProductRuntime);
+          process.once("SIGTERM",stopProductRuntime);
+          process.once("exit",stopProductRuntime);
+          server.middlewares.use((request,response,next) => {
+            if (request.url?.split("?")[0]!=="/__ordax/native/product-runtime-status")
+              return next();
+            // The preceding shared observation middleware already verified
+            // loopback, the per-launch Electron grant, GET and exact URL.
+            response.writeHead(200,{"Content-Type":"application/json",
+              "Cache-Control":"no-store","X-Content-Type-Options":"nosniff"});
+            response.end(JSON.stringify(productRuntime.status()));
+          });
+        }
         // Genuine Windows host observation under the canonical Native port.
         server.middlewares.use((request, response, next) => {
           const path = request.url.split("?")[0];

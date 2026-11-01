@@ -24,11 +24,21 @@ class CreatorOwnerImpactTests(unittest.TestCase):
                     ["config", "user.name", "CI"]):
             subprocess.run(["git", "-C", str(self.root), *cmd], check=True, capture_output=True)
 
-    def commit(self, workflow=None, lock=None, path=None):
+    def commit(self, workflow=None, lock=None, path=None,
+               intelligence_workflow=None, delete_path=None):
         if workflow is not None:
             f = self.root / impact.WORKFLOW
             f.parent.mkdir(parents=True, exist_ok=True)
             f.write_text(workflow, encoding="utf-8")
+        if intelligence_workflow is not None:
+            f = self.root / impact.INTELLIGENCE_WORKFLOW
+            f.parent.mkdir(parents=True, exist_ok=True)
+            f.write_text(intelligence_workflow, encoding="utf-8")
+        if delete_path is not None:
+            f = self.root / delete_path
+            if not f.is_file():
+                raise AssertionError("delete fixture path must exist")
+            f.unlink()
         if lock is not None:
             f = self.root / impact.SURFACE_LOCK
             f.parent.mkdir(parents=True, exist_ok=True)
@@ -144,6 +154,89 @@ class CreatorOwnerImpactTests(unittest.TestCase):
                                     "os_host_paths": ["system/entrypoint"]})
         self.assertTrue(impact.classify(base, current, root=self.root)[0])
         self.assertTrue(impact.classify("not-a-sha", current, root=self.root)[0])
+
+    def test_desktop_and_web_client_owners_do_not_depend_on_usb_creator(self):
+        base = self.commit(WORKFLOW.read_text(encoding="utf-8"), VISUAL)
+        for path in (
+            "system/adapters/desktop/space-create.mjs",
+            "system/adapters/desktop/display-current-mode-host.mjs",
+            "system/composition/web/account-session.mjs",
+            "tools/windows-desktop/native-build.cjs",
+            "tools/windows-emulator/account-gateway.mjs",
+            "system/contracts/space-create-port.mjs",
+            "tests/test_space_create_bridge.mjs",
+            "docs/contracts/build-autonomy.json",
+            "docs/BUILD-AUTONOMY.md",
+            "docs/CURRENT-STATE.md",
+            "docs/DECISIONS.md",
+            "docs/README.md",
+            "docs/SPACES-AND-PROFILES.md",
+            "README.md",
+            "00-PLANOS-PRIORITARIOS/REGISTRY.md",
+            "00-PLANOS-PRIORITARIOS/README.md",
+            "PLANO-00-ESTADO-ATUAL-E-PRIORIDADES.md",
+            "PLANO-04-FUNDACAO-ECOSSISTEMA-PRE-MVP.md",
+            "00-PLANOS-PRIORITARIOS/ROADMAP.md",
+            "00-PLANOS-PRIORITARIOS/plans/MODE-001-WEB-CLOUD-DEVICE-RUNTIME.md",
+            "00-PLANOS-PRIORITARIOS/plans/FOOD-001-ORDAX-FOOD-PIZZA-PILOT.md",
+            "00-PLANOS-PRIORITARIOS/plans/FAB-001-ORDAX-FABRICATION-3D-PRINTING-PILOT.md",
+        ):
+            with self.subTest(path=path):
+                next_rev = self.commit(path=path)
+                self.assertEqual(impact.classify(base, next_rev, root=self.root),
+                                 (False, "nonproducer-contract-only"))
+        for shared in (
+            "system/composition/native/main.mjs",
+            "system/adapters/native/space-selection.mjs",
+            "system/adapters/web/spaces.mjs",
+            "system/contracts/space-creation.mjs",
+            "system/supervisor",
+            "bootstrap/initramfs/build.py",
+            "docs/contracts/unknown-new-owner.json",
+        ):
+            with self.subTest(shared=shared):
+                next_rev = self.commit(path=shared)
+                self.assertTrue(impact.classify(base, next_rev, root=self.root)[0])
+
+    def test_archived_profile_plan_deletion_and_exact_intelligence_trigger(self):
+        workflow = WORKFLOW.read_text(encoding="utf-8")
+        source = (ROOT / impact.INTELLIGENCE_WORKFLOW).read_text(encoding="utf-8")
+        self.assertEqual(source.count(impact.CURRENT_PROFILE_TRIGGER), 2)
+        self.assertNotIn(impact.LEGACY_PROFILE_TRIGGER, source)
+        old = source.replace(impact.CURRENT_PROFILE_TRIGGER, impact.LEGACY_PROFILE_TRIGGER)
+        self.commit(workflow=workflow, lock=VISUAL, intelligence_workflow=old,
+                    path=impact.LEGACY_PROFILE_DOC)
+        (self.root / impact.LEGACY_PROFILE_DOC).write_text(
+            "# OrdaX\\n\\nARCHIVED / SUPERSEDED\\n", encoding="utf-8")
+        base = self.commit()
+        head = self.commit(intelligence_workflow=source,
+                           delete_path=impact.LEGACY_PROFILE_DOC)
+        self.assertEqual(impact.classify(base, head, root=self.root),
+                         (False, "nonproducer-contract-only"))
+        self.assertTrue(impact.verified_legacy_profile_trigger_migration(base, head, root=self.root))
+        self.assertTrue(impact.verified_legacy_profile_deletion(base, head, root=self.root))
+        tampered = self.commit(intelligence_workflow=source.replace(
+            "name: Intelligence Foundation", "name: Malicious Change"))
+        self.assertTrue(impact.classify(base, tampered, root=self.root)[0])
+        restored = self.commit(intelligence_workflow=source, path=impact.LEGACY_PROFILE_DOC)
+        self.assertTrue(impact.classify(base, restored, root=self.root)[0])
+        extended = self.commit(intelligence_workflow=source + "\\n# unrelated")
+        self.assertTrue(impact.classify(restored, extended, root=self.root)[0])
+
+    def test_build_autonomy_has_no_creator_dependency_for_web_or_desktop(self):
+        contract = json.loads((ROOT / "docs/contracts/build-autonomy.json").read_text(encoding="utf-8"))
+        graph = contract["target_relationships"]
+        independent = contract["client_build_independence"]
+        for target in ("web-client", "desktop-client"):
+            self.assertNotIn("creator", graph[target])
+            self.assertNotIn("minimal-bootstrap", graph[target])
+            self.assertNotIn("native-system-release", graph[target])
+            self.assertFalse(independent[target]["requires_creator"])
+            self.assertFalse(independent[target]["requires_usb_producer"])
+        self.assertTrue(independent["shared_native_changes_require_usb_proof"])
+        self.assertTrue(independent["unknown_owner_changes_fail_closed"])
+        self.assertEqual(tuple(impact.CLIENT_ONLY_PREFIXES),
+                         tuple(independent["client_only_source_prefixes"]))
 
 if __name__ == "__main__":
     unittest.main()

@@ -14,6 +14,7 @@ on:
       - 'tests/test_account_mcp_usage_bridge.mjs'
       - 'infra/supabase/functions/_shared/account_service_bridge.mjs'
       - 'infra/supabase/functions/_shared/account_email_confirmation.mjs'
+      - 'infra/supabase/functions/_shared/space_create_contract.mjs'
       - 'tools/account/resolve_account_gateway_destination.py'
   workflow_dispatch:
 
@@ -86,7 +87,7 @@ jobs:
         run: |
           set -euo pipefail
           test "$(supabase --version)" = "2.121.0"
-          grep -Fq 'version: 17' infra/supabase/functions/ordax-account-gateway/index.ts
+          grep -Fq 'version: 18' infra/supabase/functions/ordax-account-gateway/index.ts
           grep -Fq '.select("space_id,owner_user_id,name,kind,state,domain,subtype")' \
             infra/supabase/functions/ordax-account-gateway/index.ts
           test -f infra/supabase/functions/_shared/account_transport_admission.mjs
@@ -123,7 +124,7 @@ jobs:
           import pathlib
           import sys
           value = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))
-          assert value == {"status": "ok", "service": "ordax-account-gateway", "version": 17}
+          assert value == {"status": "ok", "service": "ordax-account-gateway", "version": 18}
           print("ACCOUNT_GATEWAY_DESTINATION_HEALTH=PASS")
           PY
 

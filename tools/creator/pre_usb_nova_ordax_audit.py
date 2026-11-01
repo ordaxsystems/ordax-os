@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 from pathlib import Path
 import stat
 from typing import Any
@@ -177,9 +178,16 @@ def evaluate(repo_root: Path) -> dict[str, Any]:
             intel_policy.get("system_explanation_is_read_only") is True,
             _contains_all(native, (
                 "const localAi = createLocalAiRuntime({",
-                "const intelligence = createIntelligenceRuntime({ inferencePort: localAi });",
                 "const systemOverviewControls = mountSystemOverviewControls(",
             )),
+            # Accept the same single canonical consumer with an extra
+            # regional-locale option; require the real inferencePort binding
+            # rather than a brittle one-line source spelling.
+            re.search(
+                r"const\s+intelligence\s*=\s*createIntelligenceRuntime\s*\(\s*\{\s*"
+                r"inferencePort\s*:\s*localAi\s*[,}]",
+                native,
+            ) is not None,
         )),
         ["docs/contracts/intelligence.json", "system/composition/native/main.mjs"],
     )

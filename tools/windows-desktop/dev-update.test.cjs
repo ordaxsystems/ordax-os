@@ -12,6 +12,23 @@ const { readState, writeState, validateState, versionRoot, stageMain,
   chooseBootVersion, confirmHealthy, pinPrevious, unpin, shouldAutoActivate, desktopFirstRunComplete, createDesktopIdleActivation, createDesktopWindowIdleTracker,
   sweepStaleCandidates, removeOwnedCandidate, prepareWindowsGitDeletion } = require('./dev-update.cjs');
 
+test('Desktop DEV Git sparse checkout includes the existing MCP candidate proof',()=>{
+  const source=readFileSync(join(__dirname,'dev-update.cjs'),'utf8');
+  assert.match(source,/'sparse-checkout','set',\s*'system','docs\/contracts','docs\/evidence','tools\/windows-emulator'/);
+  const evidence=JSON.parse(readFileSync(join(__dirname,
+    '../../docs/evidence/desktop-runtime-windows-candidate-2026-10-31.json'),'utf8'));
+  assert.equal(evidence.$schema,'ordax.desktop-runtime-candidate-evidence/1');
+  assert.equal(evidence.candidate.platform,'windows-amd64');
+  assert.equal(evidence.candidate.signature_present,false);
+  // Bind to the current official OS evidence, not a superseded candidate hash.
+  assert.match(evidence.candidate.sha256,/^[a-f0-9]{64}$/);
+  assert.match(evidence.candidate.source_commit,/^[a-f0-9]{40}$/);
+  assert.equal(evidence.candidate.sha256,evidence.physical_offline_proof.executable_sha256);
+  assert.equal(evidence.candidate.source_commit,evidence.physical_offline_proof.source_commit);
+  assert.equal(evidence.physical_offline_proof.passed,true);
+  assert.equal(evidence.candidate.stable_activation_authorized,false);
+});
+
 test('Electron connects ordax-pull staging to automatic, health-gated idle activation',()=>{
   const source=readFileSync(join(__dirname,'main.cjs'),'utf8');
   assert.match(source,/const result=await stageMain\(\{userData,template,log\}\)/);
@@ -330,7 +347,7 @@ function installVerifiedBundledFixture(f,sha) {
   mkdirSync(join(assets,'system','composition','native'),{recursive:true});
   mkdirSync(join(assets,'assets'),{recursive:true});
   writeFileSync(join(assets,'system','composition','native','index.html'),
-    '<!doctype html><script src="/assets/app.js"></script>');
+    '<!doctype html><script type="module" src="/__ordax/desktop-assets/assets/app.js"></script>');
   writeFileSync(join(assets,'assets','app.js'),'export const installed=true;');
   writeFileSync(join(assets,'source-provenance.json'),JSON.stringify({
     schema:'ordax.desktop-native-bundle-provenance/1',os_sha:sha,

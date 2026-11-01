@@ -7,6 +7,7 @@ import test from "node:test";
 import { SPACE_TYPE_CATALOG } from "../system/services/spaces/type-catalog.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
+const OWNER_FIX = join(ROOT, "infra/supabase/product/migrations/20261031051500_space_owner_ssot_creation_fix_v1.sql");
 const MIGRATION = join(
   ROOT,
   "infra/supabase/product/migrations/20261016014500_space_creation_authority_v1.sql",
@@ -86,4 +87,23 @@ test("creation RPC removes direct authenticated INSERT and keeps mutation bounde
     /grant execute on function public\.ordax_create_space_v1\(text, text, text, uuid\)\n  to authenticated;/,
   );
   assert.doesNotMatch(source, /grant execute[\s\S]*to anon;/);
+});
+
+test("owner is one canonical Space column, never a second membership role", () => {
+  const sql = readFileSync(OWNER_FIX, "utf-8");
+  const historical = readFileSync(MIGRATION, "utf-8");
+  assert.match(historical, /insert into public\.ordax_space_members/);
+  assert.match(sql, /space-owner-source-diverged/);
+  assert.match(sql, /space-owner-membership-policy-diverged/);
+  assert.match(sql, /space-owner-postflight-failed/);
+  const start = sql.indexOf("create or replace function public.ordax_create_space_v1(");
+  assert.notEqual(start, -1, "replacement function must be present");
+  const replacement = sql.slice(start, sql.indexOf("$$;", start) + 3);
+  assert.match(replacement, /insert into public\.ordax_spaces/);
+  assert.match(replacement, /insert into private\.ordax_space_creation_requests/);
+  assert.doesNotMatch(replacement, /insert into public\.ordax_space_members/);
+  assert.match(replacement, /v_actor uuid := \(select auth\.uid\(\)\)/);
+  assert.match(replacement, /v_owned_count >= 64/);
+  assert.match(replacement, /space-create-idempotency-conflict/);
+  assert.match(replacement, /security definer\nset search_path = ''/);
 });

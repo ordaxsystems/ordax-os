@@ -345,6 +345,36 @@ fi
         self.assertIn("refuse overwrite", workflow)
         self.assertNotIn("git push --force", workflow)
 
+    def test_new_source_owner_pr_denies_native_token_before_branch_push(self):
+        # Reproduce the repository's disabled GitHub Actions PR-creation policy.
+        # Authentication preflight must reject an orphan push while continuing
+        # to allow native-token updates of an existing, verified single-lock PR.
+        import os
+        workflow = (advance.ROOT / ".github/workflows/external-source-lock-integration.yml").read_text()
+        publish = workflow.split("      - name: Create or fast-forward the single owner lock PR", 1)[1]
+        guard = publish.split('          test -n "$GH_TOKEN"\n', 1)[1].split(
+            "          candidate_lock=", 1
+        )[0]
+        guard = 'test -n "$GH_TOKEN"\n' + "\n".join(
+            line[10:] if line.startswith(" " * 10) else line
+            for line in guard.splitlines()
+        ) + "\n"
+        self.assertLess(
+            publish.index('if [ "$EXISTING" != true ] && [ "$NATIVE_FALLBACK" = true ]; then'),
+            publish.index('git switch -c "$branch"'),
+        )
+        def check(existing, native, token="fixture-token"):
+            env = dict(os.environ, EXISTING=existing, NATIVE_FALLBACK=native,
+                       GH_TOKEN=token)
+            return subprocess.run(["bash", "-e"], input=guard, text=True,
+                                  capture_output=True, env=env)
+        blocked = check("false", "true")
+        self.assertNotEqual(blocked.returncode, 0)
+        self.assertIn("No branch was pushed", blocked.stdout)
+        self.assertEqual(check("true", "true").returncode, 0)
+        self.assertEqual(check("false", "false").returncode, 0)
+        self.assertNotEqual(check("false", "false", "").returncode, 0)
+
     def test_native_bot_uses_existing_ci_without_duplicated_release_authority(self):
         root = advance.ROOT
         workflow = (root / ".github/workflows/external-source-lock-integration.yml").read_text()

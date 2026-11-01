@@ -15,8 +15,10 @@ CONTRACT_PATH = ROOT / "docs" / "contracts" / "module-boundaries.json"
 CODE_SUFFIXES = {".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".py", ".go"}
 IGNORED_DIRS = {".git", "node_modules", "vendor", "dist", "build", "out", "coverage"}
 
+# ESM import/export declarations may span multiple lines. Do not let a
+# newline conceal a cross-layer dependency from the canonical verifier.
 JS_FROM_RE = re.compile(
-    r"\b(?:import|export)\s+(?:[^;\n]*?\s+from\s*)?[\"']([^\"']+)[\"']"
+    r"\b(?:import|export)\s+(?:[^;]*?\s+from\s*)?[\"']([^\"']+)[\"']"
 )
 JS_CALL_RE = re.compile(r"\b(?:require|import)\(\s*[\"']([^\"']+)[\"']\s*\)")
 PY_FROM_RE = re.compile(r"^\s*from\s+([A-Za-z_][A-Za-z0-9_.]*)\s+import\s+", re.MULTILINE)

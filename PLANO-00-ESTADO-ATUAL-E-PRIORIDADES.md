@@ -1,6 +1,6 @@
 # OrdaX — estado atual e prioridades de execução
 
-**Status:** overlay factual de execução. **Revisão:** 02/10/2026. **Base:** `main`, sempre revalidada contra contratos e source estruturado; este documento não fixa um SHA como autoridade.
+**Status:** ARCHIVED — snapshot histórico de 02/10/2026, **não** prioridade operacional corrente. Não seguir o antigo P0 Creator/USB: em 31/10/2026, o Windows Desktop e as funcionalidades básicas têm precedência; consultar `docs/CURRENT-STATE.md`, `docs/DEVELOPMENT-WORKFLOW.md` e `MVP.md`. **Revisão original:** 02/10/2026. **Base:** `main`, sempre revalidada contra contratos e source estruturado; este documento não fixa um SHA como autoridade.
 
 Este arquivo existe para impedir que inventários históricos dos planos longos sejam usados como se fossem o estado atual do repositório. Ele **não substitui a especificação de produto** de `PLANO-FUNCIONAL-SURFACE-E-APPS.md` nem a análise de legado de `PLANO-02-EVOLUCAO-E-REAPROVEITAMENTO-DO-LEGADO.md`. Quando houver divergência sobre **o que já existe, o que já foi provado ou qual é a próxima prioridade**, prevalecem, nesta ordem:
 
@@ -127,7 +127,7 @@ Os planos longos registram capacidades herdadas como referência de produto, mas
 | C11 Desktop instalado / Creator | **Creator ENTRA; Desktop instalado NÃO** | Creator USB é P0. Instalação permanente/desktop Native continua pós-MVP. |
 | C12 Apps instaláveis/SDK | **FUNDAÇÃO PRÉ-MVP; instalação externa pós-MVP** | Contrato de manifesto/distribuição assinada entra agora para não refazer supply chain depois. Instalar apps terceiros/SDK público continua fora do primeiro USB. |
 | C13 Store | **FUNDAÇÃO PRÉ-MVP; produto Store pós-MVP** | Store futura usa o mesmo manifesto/updater/permissions; UI pública, publicação de terceiros e billing continuam posteriores. |
-| C14 Perfis profissionais | **FUNDAÇÃO MVP via Spaces/Profile Packs + provisioning sob demanda** | Conta pessoal é separada. Catálogo leve, planner fail-closed e seção Perfis na Conta já fazem parte da fundação do MVP; Developer continua prova interna e Legal-BR permanece bloqueado até knowledge/trust profissional. Ver `PLANO-06-PERFIS-PROFISSIONAIS-E-DISTRIBUICAO-SOB-DEMANDA.md`. |
+| C14 Perfis profissionais | **FUNDAÇÃO MVP via Spaces/Profile Packs + provisioning sob demanda** | Conta pessoal é separada. Catálogo e planner são contratos técnicos, não outro produto. A aba separada de Perfis ainda existe no source da Surface aguardando unificação via ordax-surface#33; não é UX canônica. Developer continua prova interna e Legal-BR permanece bloqueado até knowledge/trust profissional. Ver `docs/SPACES-AND-PROFILES.md` e `docs/PROFILE-INTELLIGENCE-ARCHITECTURE.md`. |
 | C15 Objetos/proveniência de produto | **PÓS-MVP** | Fora do lançamento básico. |
 | C16 IA nativa | **ENTRA como capability do sistema** | Intelligence + backend local fazem parte do Stable/MVP v4. A fundação `ordax.memory/1` + `ordax.model-router/1` preserva memória OrdaX/provider-neutral e rotas futuras; cloud e tools mutáveis ainda não estão ativos. |
 | C17 Conectores/automações | **BOUNDARY PRÉ-MVP; runtime pós-MVP** | Product MCP/OAuth e separação GitHub App/Space/project ficam definidos agora. Conectores ativos, automações e mutações continuam posteriores. |
@@ -142,7 +142,7 @@ Os planos longos registram capacidades herdadas como referência de produto, mas
 | C27 Backup/histórico pessoal | **PÓS-MVP** | Não confundir backup de dados com rollback/known-good do sistema, que é P0. |
 | C28 OrdaX Network | **ENTRA NO MVP ONLINE, NÃO BLOQUEIA BOOT** | Diretório profissional opt-in por Space, comunidades, grupos, mensagens 1:1/grupo e trust & safety mínimos. Autorização é server-side/default-deny e a falha da Network degrada sem impedir Surface/apps locais. Ver `PLANO-08-ORDAX-NETWORK-COMUNIDADES-E-MENSAGENS.md`. |
 
-Portanto, o fechamento do **primeiro USB físico** continua dominado pelas provas de C02/C03/C07/C16/C20/C21/C26 e por qualquer gap C18 realmente reproduzido. Em paralelo, C08/C12/C13/C16/C17 recebem as fundações de domínio definidas no `PLANO-04`, enquanto C14 segue também o `PLANO-06` de provisioning sob demanda; elas evitam dívida arquitetural, mas não transformam Store, billing, sync cloud ou MCP mutável em gates da mídia física.
+Portanto, o fechamento do **primeiro USB físico** continua dominado pelas provas de C02/C03/C07/C16/C20/C21/C26 e por qualquer gap C18 realmente reproduzido. Em paralelo, C08/C12/C13/C16/C17 recebem as fundações de domínio definidas no `PLANO-04`, enquanto C14 segue os contratos canônicos de Spaces/Profile e `docs/SPACES-AND-PROFILES.md`; elas evitam dívida arquitetural, mas não transformam Store, billing, sync cloud ou MCP mutável em gates da mídia física.
 
 ## 2.1 Modo de encerramento do MVP
 

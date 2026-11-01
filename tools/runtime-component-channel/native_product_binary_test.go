@@ -4,6 +4,7 @@ import (
 	"archive/zip"
 	"crypto/sha256"
 	"debug/elf"
+	"debug/pe"
 	"encoding/binary"
 	"encoding/hex"
 	"os"
@@ -41,7 +42,15 @@ func nativePackageFixture(t *testing.T, executable bool, zipMode os.FileMode) te
 }
 
 func nativePackageFixtureWithPayload(t *testing.T, executable bool, zipMode os.FileMode, body []byte) testFixture {
+	return productRuntimeFixtureWithTarget(t, executable, zipMode, productRuntimeLinuxTarget, body)
+}
+
+func productRuntimeFixtureWithTarget(t *testing.T, executable bool, zipMode os.FileMode, target string, body []byte) testFixture {
 	t.Helper()
+	entrypoint, err := canonicalProductRuntimeEntrypoint(target)
+	if err != nil {
+		t.Fatal(err)
+	}
 	dir := t.TempDir()
 	digest := sha256.Sum256(body)
 	manifest := componentPackageManifest{
@@ -56,14 +65,15 @@ func nativePackageFixtureWithPayload(t *testing.T, executable bool, zipMode os.F
 			Dependencies: []string{},
 		},
 		SourceCommit: testSourceCommit,
-		Entrypoint: productRuntimeExecutablePath,
+		Entrypoint: entrypoint,
+		TargetPlatform: target,
 		SelfContainedSourceGraph: true,
 		RemoteRuntimeDependencies: false,
 		ActivationAllowed: false,
 		SignatureRequiredBeforeActivation: true,
 		NativeAdaptersPackaged: false,
 		CompositionPackaged: false,
-		Files: []packageFile{{Path: productRuntimeExecutablePath,
+		Files: []packageFile{{Path: entrypoint,
 			SHA256: hex.EncodeToString(digest[:]), Size: int64(len(body)),
 			Executable: executable}},
 	}
@@ -74,7 +84,7 @@ func nativePackageFixtureWithPayload(t *testing.T, executable bool, zipMode os.F
 	if err != nil { t.Fatal(err) }
 	archive := zip.NewWriter(file)
 	writeZipEntry(t, archive, packageManifestName, manifestBytes)
-	header := &zip.FileHeader{Name: productRuntimeExecutablePath, Method: zip.Store}
+	header := &zip.FileHeader{Name: entrypoint, Method: zip.Store}
 	header.SetMode(zipMode)
 	entry, err := archive.CreateHeader(header)
 	if err != nil { t.Fatal(err) }
@@ -109,6 +119,99 @@ func nativePackageFixtureWithPayload(t *testing.T, executable bool, zipMode os.F
 		privatePath: privatePath, trustPath: trustPath, envelopePath: envelopePath,
 		release: release,
 	}
+}
+
+// A synthetic PE validates only the signed format contract, never an actual Runtime.
+func productRuntimeWindowsPEFixture() []byte {
+    payload := make([]byte, 0x400)
+    copy(payload, "MZ")
+    binary.LittleEndian.PutUint32(payload[0x3c:], 0x80)
+    copy(payload[0x80:], "PE\x00\x00")
+    binary.LittleEndian.PutUint16(payload[0x84:], pe.IMAGE_FILE_MACHINE_AMD64)
+    binary.LittleEndian.PutUint16(payload[0x86:], 1)
+    binary.LittleEndian.PutUint16(payload[0x94:], 0xf0)
+    binary.LittleEndian.PutUint16(payload[0x96:], 0x0002)
+    optional := 0x98
+    binary.LittleEndian.PutUint16(payload[optional:], 0x20b)
+    binary.LittleEndian.PutUint32(payload[optional+16:], 0x1000)
+    binary.LittleEndian.PutUint32(payload[optional+20:], 0x1000)
+    binary.LittleEndian.PutUint64(payload[optional+24:], 0x140000000)
+    binary.LittleEndian.PutUint32(payload[optional+32:], 0x1000)
+    binary.LittleEndian.PutUint32(payload[optional+36:], 0x200)
+    binary.LittleEndian.PutUint32(payload[optional+56:], 0x2000)
+    binary.LittleEndian.PutUint32(payload[optional+60:], 0x200)
+    binary.LittleEndian.PutUint32(payload[optional+108:], 16)
+    section := 0x188
+    copy(payload[section:], ".text")
+    binary.LittleEndian.PutUint32(payload[section+8:], 0x200)
+    binary.LittleEndian.PutUint32(payload[section+12:], 0x1000)
+    binary.LittleEndian.PutUint32(payload[section+16:], 0x200)
+    binary.LittleEndian.PutUint32(payload[section+20:], 0x200)
+    binary.LittleEndian.PutUint32(payload[section+36:], 0x60000020)
+    return payload
+}
+
+func TestSignedProductRuntimeWindowsPEIsTargetBound(t *testing.T) {
+    body := productRuntimeWindowsPEFixture()
+    if err := validateProductRuntimePE(body); err != nil {
+        t.Fatalf("synthetic PE structure refused: %v", err)
+    }
+    fixture := productRuntimeFixtureWithTarget(t, true, 0o555, productRuntimeWindowsTarget, body)
+    pkg, err := inspectPackage(fixture.packagePath, fixture.release)
+    if err != nil {
+        t.Fatalf("target-bound synthetic PE refused: %v", err)
+    }
+    if pkg.Manifest.TargetPlatform != productRuntimeWindowsTarget ||
+        pkg.Manifest.Entrypoint != productRuntimeWindowsExecutablePath {
+        t.Fatal("signed package did not retain exact Windows target")
+    }
+    pkg.Manifest.TargetPlatform = productRuntimeLinuxTarget
+    if err := validatePackageManifest(pkg.Manifest, fixture.release); err == nil {
+        t.Fatal("Windows PE accepted Linux target label")
+    }
+    pkg.Manifest.TargetPlatform = ""
+    if err := validatePackageManifest(pkg.Manifest, fixture.release); err == nil {
+        t.Fatal("implicit/default target accepted")
+    }
+}
+
+func TestSignedProductRuntimeRejectsCrossTargetPayloads(t *testing.T) {
+    for _, tc := range []struct{
+        name, target string
+        body []byte
+    }{
+        {"ELF as Windows PE", productRuntimeWindowsTarget, nativeExecutableBytes()},
+        {"Windows PE as Linux ELF", productRuntimeLinuxTarget, productRuntimeWindowsPEFixture()},
+    } {
+        t.Run(tc.name, func(t *testing.T) {
+            fixture := productRuntimeFixtureWithTarget(t, true, 0o555, tc.target, tc.body)
+            if _, err := inspectPackage(fixture.packagePath, fixture.release); err == nil {
+                t.Fatal("signed foreign-target executable passed structural preflight")
+            }
+        })
+    }
+}
+
+func TestWindowsProductRuntimePERejectsMalformedPayload(t *testing.T) {
+    for _, tc := range []struct{
+        name string
+        mutate func([]byte)
+    }{
+        {"foreign architecture", func(p []byte){binary.LittleEndian.PutUint16(p[0x84:], pe.IMAGE_FILE_MACHINE_I386)}},
+        {"not executable", func(p []byte){binary.LittleEndian.PutUint16(p[0x96:], 0)}},
+        {"nonexecuting section", func(p []byte){binary.LittleEndian.PutUint32(p[0x188+36:], 0x40000040)}},
+        {"unmapped entry", func(p []byte){binary.LittleEndian.PutUint32(p[0x98+16:], 0x8000)}},
+        {"section outside image", func(p []byte){binary.LittleEndian.PutUint32(p[0x188+20:], 0x600)}},
+    } {
+        t.Run(tc.name, func(t *testing.T) {
+            body := productRuntimeWindowsPEFixture()
+            tc.mutate(body)
+            fixture := productRuntimeFixtureWithTarget(t, true, 0o555, productRuntimeWindowsTarget, body)
+            if _, err := inspectPackage(fixture.packagePath, fixture.release); err == nil {
+                t.Fatal("malformed signed PE passed fail-closed validation")
+            }
+        })
+    }
 }
 
 func TestNativeProductRuntimeELFStructuralPreflightRejectsMalformedPayload(t *testing.T) {
@@ -162,6 +265,68 @@ func TestNativeSignedPackageRejectsELFWithValidSignatureAndBrokenHeaders(t *test
 	_, err := inspectPackage(fixture.packagePath, fixture.release)
 	if err == nil || !strings.Contains(err.Error(), "entrypoint is not mapped executable") {
 		t.Fatalf("signed package with invalid ELF structure should fail closed: %v", err)
+	}
+}
+
+func TestWindowsSignedChannelAllowsCanonicalTempWithoutReparsePoint(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("Windows canonical path normalization")
+	}
+	parent := t.TempDir()
+	if _,err := ensureRealParent(filepath.Join(parent,"canonical-key.pem")); err != nil {
+		t.Fatalf("real Windows temp path rejected: %v",err)
+	}
+	slotRoot := filepath.Join(parent, "component-slots")
+	slotRoot,err := ensureSecureDirectory(slotRoot,0o755)
+	if err != nil { t.Fatalf("canonical Windows slot root rejected: %v",err) }
+	if _,err := secureExistingDirectory(slotRoot); err != nil {
+		t.Fatalf("canonical Windows activation root rejected: %v",err)
+	}
+	// A nested symbolic path must be rejected even when the immediate parent
+	// itself is a real directory, regardless of case/short-name normalization.
+	real := filepath.Join(parent, "real")
+	child := filepath.Join(real, "nested")
+	if err := os.MkdirAll(child, 0o700); err != nil { t.Fatal(err) }
+	alias := filepath.Join(parent, "alias")
+	if err := os.Symlink(real,alias); err != nil {
+		t.Logf("Windows symlink creation unavailable; canonical temp case remains covered: %v",err)
+		return
+	}
+	if _,err := ensureRealParent(filepath.Join(alias,"nested","bad.pem")); err == nil {
+		t.Fatal("Windows ancestor symlink silently accepted as real component parent")
+	}
+}
+
+func TestWindowsSignedProductRuntimeSlotRequiresReadOnlyAttribute(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("verify Windows file attributes on Windows runner")
+	}
+	fixture := productRuntimeFixtureWithTarget(t, true, 0o555,
+		productRuntimeWindowsTarget, productRuntimeWindowsPEFixture())
+	root := filepath.Join(fixture.dir, "windows-slots")
+	// Remove only this temporary signed fixture; Windows read-only attributes
+	// require the same canonical staging disposal policy.
+	t.Cleanup(func() { removeStagingTree(root) })
+	_, slot, changed, err := stageComponent(
+		fixture.envelopePath, fixture.trustPath, fixture.packagePath, root,
+	)
+	if err != nil || !changed {
+		t.Fatalf("Windows signed slot did not stage: changed=%v err=%v", changed, err)
+	}
+	executable := filepath.Join(slot, filepath.FromSlash(productRuntimeWindowsExecutablePath))
+	info, err := os.Lstat(executable)
+	if err != nil || info.Mode().Perm()&0o222 != 0 {
+		t.Fatalf("Windows staged executable must be read-only, info=%v err=%v", info, err)
+	}
+	trust, err := os.ReadFile(fixture.trustPath)
+	if err != nil { t.Fatal(err) }
+	if _, err := verifySlotWithTrustBytes(slot, trust); err != nil {
+		t.Fatalf("read-only signed Windows slot refused: %v", err)
+	}
+	if err := os.Chmod(executable, 0o666); err != nil { t.Fatal(err) }
+	if _, err := verifySlotWithTrustBytes(slot, trust); err == nil ||
+		!strings.Contains(err.Error(), "file is writable") {
+		t.Fatalf("writable Windows executable passed signed slot proof: %v", err)
 	}
 }
 

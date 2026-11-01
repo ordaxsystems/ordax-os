@@ -106,6 +106,10 @@
         "to": "runtime-template/docs/contracts/runtime-component-trust-policy.json"
       },
       {
+        "from": "../../docs/evidence/desktop-runtime-windows-candidate-2026-10-31.json",
+        "to": "runtime-template/docs/evidence/desktop-runtime-windows-candidate-2026-10-31.json"
+      },
+      {
         "from": "../../docs/contracts/runtime-component-package.json",
         "to": "runtime-template/docs/contracts/runtime-component-package.json"
       }

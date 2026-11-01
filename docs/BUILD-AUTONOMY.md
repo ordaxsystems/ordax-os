@@ -206,3 +206,14 @@ PHYSICAL_DEVICE_ACTION_STILL_REQUIRES_AUTHORIZED_LOCAL_EXECUTION=YES
 ## Failure rule
 
 If CI is unavailable, source must remain reproducible from the versioned build recipe in another compatible container executor. CI availability must not redefine source truth.
+
+## Desktop/Web independent of Creator and USB (2026-10-31)
+
+This is an artifact and release gate boundary, **not a fork of the product**:
+
+- **Desktop Windows:** `tools/windows-desktop/`, `tools/windows-emulator/` and `system/adapters/desktop/` are owned by the installed Windows Desktop/NSIS gates. The Desktop consumes shared versioned OS contracts and the separately pinned Surface; it never consumes or builds a Creator USB image, Buildroot, kernel or initramfs to deliver Windows-only code.
+- **OrdaX Web:** `system/composition/web/` is owned by Surface Web/Chromium client gates. It does not consume Creator, Native Linux releases, or USB installation. Shared Account/Platform semantics remain authoritative; no shadow backend is allowed.
+- **Shared Native / USB:** `system/composition/native/`, `system/adapters/native/`, `system/adapters/web/` (also imported by Native), shared nontrivial contracts, system runtime/hosts and boot/USB producer sources remain fail-closed. A change to `system/composition/native/main.mjs` is **not Windows-only** merely because a runtime branch checks `windowsDesktopHost`; it still reaches the USB entrypoint and requires a valid Native/Creator proof or a real architectural refactor.
+- **CI ownership:** `tools/ci/creator_owner_impact.py` recognizes only the exact client-exclusive roots and reviewed pure client contracts/tests. Web/Windows still run their respective builds and tests. Unknown or mixed deltas trigger the USB producer; the classifier cannot replace product tests, disable required checks or claim runtime availability.
+
+The executable build graph SSOT is `docs/contracts/build-autonomy.json#client_build_independence`; the Python impact classifier and `tests/test_creator_owner_impact.py` verify routing. Expensive USB gates must not be coupled to a Desktop/Web-only PR. A one-time shared Native entrypoint migration remains a genuinely shared change; it may not be relabeled merely to save CI time.

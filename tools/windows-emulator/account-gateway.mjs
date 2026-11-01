@@ -1,6 +1,7 @@
 import { validateIdentityCredentialInput, validateIdentityRegistrationInput } from "../../system/contracts/identity-credentials.mjs";
 import { validateEntitlementDecision } from "../../system/contracts/entitlements.mjs";
 import { validateAccountCloseRequest } from "../../system/contracts/account-lifecycle.mjs";
+import { validateSpaceCreateCommand, validateSpaceCreateReceipt } from "../../system/contracts/space-creation.mjs";
 
 const SESSION_SCHEMA = "prototype-ordax.public-identity-session/1";
 const MAX_REQUEST_BYTES = 64 * 1024;
@@ -8,6 +9,7 @@ const MAX_CREDENTIAL_BYTES = 4 * 1024;
 const MAX_RESPONSE_BYTES = 2 * 1024 * 1024;
 const MAX_MEMORY_ENTITLEMENT_BYTES = 16 * 1024;
 const MAX_NETWORK_MESSAGE_BYTES = 24 * 1024;
+const MAX_SPACE_CREATE_BYTES = 4 * 1024;
 const COOKIE_NAMES = new Set(["ordax_access", "ordax_refresh"]);
 const COOKIE_VALUE_RE = /^[^;\r\n]{1,16384}$/;
 
@@ -27,6 +29,7 @@ const WRITE_PATHS = new Set([
   "/auth/register",
   "/auth/logout",
   "/account/close",
+  "/account/spaces/create",
   "/sync/mutate",
   "/network/v2/messages/send",
 ]);
@@ -362,6 +365,39 @@ export function createEmulatorAccountGateway({ origin = "", fetchImpl = globalTh
       return value === null ? { status: 503, value: null } : { status: result.status, value };
     }
 
+    if (method === "POST" && path === "/account/spaces/create") {
+      if (body.byteLength > MAX_SPACE_CREATE_BYTES) return { status: 413, value: null };
+      let intent;
+      try {
+        intent = validateSpaceCreateCommand(JSON.parse(body.toString("utf8")));
+      } catch {
+        return { status: 400, value: null };
+      }
+      // Validate the same account session that the renderer displays, but never
+      // forward its bearer/cookies to the renderer or invent creation authority.
+      const session = await readVerifiedSession();
+      if (session === null) return { status: 503, value: null };
+      if (session.authenticated !== true) return { status: 401, value: null };
+
+      const result = await upstream("POST", path, JSON.stringify(intent), "application/json");
+      if (![200, 201].includes(result.status)) {
+        return { status: result.status, value: null };
+      }
+      try {
+        const receipt = validateSpaceCreateReceipt(jsonObject(result), {
+          subjectId: session.subject,
+          request: intent,
+        });
+        // 201 is a new Space; 200 is a replay of the same idempotency key.
+        if ((result.status === 201) !== receipt.created) {
+          return { status: 503, value: null };
+        }
+        return { status: result.status, value: receipt };
+      } catch {
+        return { status: 503, value: null };
+      }
+    }
+
     if (method === "GET" && path === "/account/entitlements/memory-cloud") {
       const result = await upstream("GET", path);
       if (result.status !== 200 || result.bytes.length > MAX_MEMORY_ENTITLEMENT_BYTES) {
@@ -454,6 +490,12 @@ export function createEmulatorAccountGateway({ origin = "", fetchImpl = globalTh
     }
     if ((path.startsWith("/auth/") || path === "/account/close") && url.search) return finish(400);
     if (path === "/account/entitlements/memory-cloud" && url.search) return finish(400);
+    if (path === "/account/spaces/create") {
+      if (url.search) return finish(400);
+      if (request.headers["content-type"]?.split(";", 1)[0].trim().toLowerCase() !== "application/json") {
+        return finish(415);
+      }
+    }
     if (url.search.length > 1024) return finish(400);
 
     try {

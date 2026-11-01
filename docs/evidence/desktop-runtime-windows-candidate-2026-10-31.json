@@ -1,0 +1,75 @@
+{
+  "$schema": "ordax.desktop-runtime-candidate-evidence/1",
+  "status": "unsigned-candidate-physically-offline-proven",
+  "runtime_pull_request": "https://github.com/ordaxsystems/ordax-runtime/pull/282",
+  "runtime_merge_commit": "726f41f77897aed7bdadbf4a7865a9aeca032f9c",
+  "candidate": {
+    "schema": "ordax.desktop-runtime-candidate/1",
+    "source_repository": "ordaxsystems/ordax-runtime",
+    "source_commit": "50a8626d9212e3741b38b87fbe658e24c8bee024",
+    "profile": "ordax-desktop",
+    "platform": "windows-amd64",
+    "artifact": "ordax-product-agent.exe",
+    "sha256": "33e6c14b2f6e03e275697806f686195ca3de1a13296adc107bd003f5d71ceae2",
+    "size_bytes": 19491629,
+    "runtime_version": "0.4.8",
+    "build_python_version": "3.12.10",
+    "python_required_on_device": false,
+    "studio_required": false,
+    "offline_proof_verified": true,
+    "device_execution_proven": false,
+    "signature_present": false,
+    "signed_distribution_authorized": false,
+    "installation_authorized_by_candidate": false,
+    "stable_activation_authorized": false,
+    "recipe_sha256": "cfcd06ef16f6a33453e84a42baf8cc91f656e50cf174a84f62d40bf913b44183",
+    "requirements_sha256": "ec8e7c0a91787a9660669fa6af50f48666643046797ed7b973d813bff0c4de3c",
+    "component_package": {
+      "name": "product-runtime.zip",
+      "sha256": "2991ef3f8b8aa7969af1c19bfd940ac9b53ae491179e9e11c6f17d721160bd9e",
+      "size": 19493051,
+      "manifest_sha256": "707b8347a9f4a2525c5cdc1a2e6c540ada1b6263142f9b6419b3f7ae313345f3"
+    }
+  },
+  "ci": {
+    "workflow_run_id": 41183501481,
+    "artifact_id": 13036500163,
+    "archive_sha256": "5a5a16e8ed5865a85170ad6cf860a2c11a810677d0bb2068ecb7ae436ad9f38a",
+    "focused_tests_passed": 45,
+    "applicable_pr_checks_passed": 10
+  },
+  "physical_offline_proof": {
+    "device": "DESKTOP-PNUHUA0",
+    "os": "Windows 10",
+    "source_commit": "50a8626d9212e3741b38b87fbe658e24c8bee024",
+    "executable_sha256": "33e6c14b2f6e03e275697806f686195ca3de1a13296adc107bd003f5d71ceae2",
+    "exit_code": 0,
+    "passed": true,
+    "python_on_path": false,
+    "checkout_required": false,
+    "studio_required": false,
+    "device_credential_used": false,
+    "network_used": false,
+    "action": "agent.status",
+    "remote_action_proven": false,
+    "product_slot_activated": false,
+    "verified_actions": [
+      "agent.status",
+      "computer.access_status"
+    ]
+  },
+  "canonical_source_lock_promoted": false,
+  "trust_policy": "docs/contracts/runtime-component-trust-policy.json",
+  "trust_status": "operator-ceremony-pending",
+  "component_publish_allowed": false,
+  "production_component_slot_activation_allowed": false,
+  "remaining_gates": [
+    "dev-hash-pinned-candidate-stage-and-supervised-restart",
+    "dev-attested-remote-readonly-action-receipt",
+    "auxiliary-windows-agent-independent-identity-enrollment",
+    "external-component-trust-custody-and-recovery-ceremony",
+    "public-only-handoff-reverification-and-anchor-promotion",
+    "source-lock-and-signed-windows-component-promotion"
+  ],
+  "tracking_issue": "https://github.com/ordaxsystems/ordax-os/issues/1985"
+}

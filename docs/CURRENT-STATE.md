@@ -1,3 +1,125 @@
+Priority / delivery autonomy (2026-10-31):
+The active Windows Desktop release track has priority over Linux USB/Creator
+and Buildroot. Complete real installed Desktop and its essential Account,
+Spaces + professional composition, Store/apps, Aura, files, Platform,
+update and recovery slices with causal tests and physical Windows proof.
+Web is a separate client delivery, not dependent on Creator/USB. Linux
+Native/USB and physical media remain launch-baseline work but are not
+the prerequisite for finishing Desktop/Web. Do not start costly unrelated
+USB/QEMU/Creator builds, spawn parallel PRs or falsify trust/readiness.
+Contract authority: MVP.md (not a minimum-product strategy),
+docs/BUILD-AUTONOMY.md, docs/contracts/build-autonomy.json, and
+docs/DEVELOPMENT-WORKFLOW.md.
+
+Spaces / Professional Profiles UX SSOT (2026-10-31):
+User-visible Spaces must be the sole creation, selection and management
+surface; Profile Packs are versioned composition attached to the selected
+Space, with advanced settings only. `docs/SPACES-AND-PROFILES.md` is the
+canonical UX owner and ADR-028 clarifies the existing design. The old
+root Profile plan was deleted after migrating its references to canonical
+owners; its provenance remains in Git history. Surface #34/#35 and OS #2369 are now **integrated in source**: one `spaces`
+entry in the Meridian rail, legacy `profiles` destinations resolving to
+Spaces and the existing authenticated create port bound only to verified
+Windows Desktop transport. The OS pins Surface source `56e63bc14e7df964beb293bc1d05843b80ebc0c6`.
+This is **not** proof of the updated installed Electron, actual authenticated
+login→create→provision→activate→select→restart E2E or Profile Pack health.
+Keep the visual/product gates in ordax-surface#33 and OS #2007 open until
+real receipts; `profilePack:null` is pending, not provisioned.
+The OS contract/data owners remain separate; no second Profile database,
+session, runtime or app installer.
+
+OrdaX Desktop Windows MCP — **DEV FIRST** (31/10/2026):
+O Desktop NSIS foi atualizado no Windows físico e seu Runtime
+Product Device separado está **online**, sem reutilizar a instância do
+agente auxiliar. O OAuth Owner autorizou o cliente ChatGPT exato com
+`computer-observe` temporário e a sessão efetivamente despachou
+`computer.access_status` ao Runtime Desktop anterior; ele respondeu
+`action not allowed`. A correção causal no
+[ordax-runtime#282](https://github.com/ordaxsystems/ordax-runtime/pull/282)
+já está integrada (commit `726f41f77897aed7bdadbf4a7865a9aeca032f9c`):
+limite Desktop de somente `agent.status` e
+`computer.access_status`, sem ações Windows de escrita/terminal/GUI.
+O novo candidato `ordax-runtime@50a8626d9212e3741b38b87fbe658e24c8bee024`
+tem SHA-256 `33e6c14b2f6e03e275697806f686195ca3de1a13296adc107bd003f5d71ceae2`
+e passou self-test físico isolado no `DESKTOP-PNUHUA0` (sem Python,
+rede ou credenciais). O **único** manifesto atualizado é
+`docs/evidence/desktop-runtime-windows-candidate-2026-10-31.json`.
+**Pendente**: aplicar exatamente o novo candidato ao slot **DEV** do
+Supervisor e comprovar `computer.access_status` remoto com recibo
+`status=succeeded`/`ok=true`; `queued` não conta. O agente Windows
+auxiliar permanece sem matrícula própria: sua configuração atual
+reutiliza o ID do Desktop e não deve ser iniciada. A política de
+produção Ed25519/source lock permanece fail-closed.
+Prioridade/processo em `docs/DEVELOPMENT-WORKFLOW.md` e issue #1985.
+Não iniciar USB/Creator/Buildroot/QEMU, novos CLIs/workflows ou builds.
+
+Windows Store verified catalog (2026-10-31): the Native catalog revocation
+and single metadata-read implementation from #1981 are integrated. OS #2356
+and #2357 integrated the **same** signed-catalog read middleware for installed
+Windows and for preview; preview without installed verifier trust returns a
+canonical `unavailable` snapshot instead of a generic HTTP 503. The installed
+host verifies a locally supplied envelope through the existing Go helper and
+persistent anti-replay watermark; the canonical public trust anchor and
+publication gates remain disabled. **No actual signed catalog, official
+acquisition origin, usable installation lifecycle or physical Windows E2E is
+proven**. Keep #2351 open for these distinct release gates; never assert
+`ready` or invent entries from the successful HTTP response.
+
+Public legal release proof (2026-10-31): Actions run #41233251204 completed
+its source/local tests but its live immutable-document audit failed with
+`published-legal-document-hash-mismatch:privacy`. Public HTML/digest drift is
+**not** fixed by changing the approved hash or suppressing the gate. The site
+and legal owners must restore approved bytes or approve and publish a new
+versioned legal snapshot using their canonical process. Keep the public
+registration/consent promotion fail-closed until that independent proof passes.
+
+Desktop/Web build separation (2026-10-31): canonical architecture and executable
+impact classification now distinguish Windows Desktop and Web client-only owners
+from Creator/USB release producers. The source-of-truth is
+`docs/contracts/build-autonomy.json#client_build_independence`,
+`docs/BUILD-AUTONOMY.md` and `tools/ci/creator_owner_impact.py`.
+Windows-only `system/adapters/desktop/` and Web-only
+`system/composition/web/` no longer trigger Creator USB on their own.
+Shared `system/composition/native/main.mjs`, Native adapters, and
+`system/adapters/web/` used by Native remain USB-sensitive.
+The Windows host's authenticated Space create gateway was merged in OS #2360
+(`6c29f4da`), and the Desktop-only create port/contract merged as OS #2361
+(`81553f2c`) without changing the shared Native entrypoint. The Surface UI
+remains unimplemented (ordax-surface#33); this is **not** a completed
+authenticated Windows E2E or actual Profile Pack provisioning.
+The prior #2361 Creator workflow #41176996362 failed and is not release proof.
+
+OrdaX Desktop Native Product MCP — Windows adapter (2026-10-30):
+The canonical Native Host source now owns a bounded OrdaX Supervisor
+adapter in `system/adapters/desktop/product-runtime-supervisor.mjs`.
+It uses the **existing** Go Runtime Component Channel
+`inspect-native-product-handoff` signed receipt, the OS source lock
+and the separate Product device credential stored in
+`<Desktop userData>/native-state/product-runtime`. The protected
+`/__ordax/native/product-runtime-status` projection does **not**
+expose credentials, and `processRunning` never implies a
+`capabilityDigest`, an authorized central session or MCP readiness.
+The source tests prove no launch without enrollment, approved trust
+and a Windows signed executable; revoked trust stops the owned child
+and one instance must terminate before replacement.
+
+**This is NOT a functional OrdaX Desktop MCP release yet.** The current
+policy `runtime-component-trust-policy.json` remains
+`operator-ceremony-pending` and publication/activation are disabled;
+the source lock describes an unsigned Linux ABI candidate, not a
+signed Windows `.exe` in the canonical slot. The Go verifier and
+signed Windows ABI/package must be reconciled by the component owner,
+without weakening the global trust policy or importing a Python
+checkout as production Runtime. The auxiliary Windows agent's Product
+identity is not the Desktop identity. The installed Electron version
+may also require one Windows installer update for the newly protected
+observation route because the per-launch header allowlist is loaded
+from the bundled template. No USB/Buildroot build is justified by
+these Windows-only additions. The full gate remains: separate Owner
+enrollment, verified Runtime lifecycle, nonempty `capability_digest`,
+exact authorized client and one real MCP action. Native/USB continues
+using the existing Linux Supervisor and its own credential.
+
 Native Product MCP lifecycle integration (2026-10-23): Owner/Development USB
 `system/supervisor` reconciles the OS-owned
 `system/services/device-agent/native-product-lifecycle.sh` after the first

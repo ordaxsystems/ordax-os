@@ -23,11 +23,15 @@ ROOT = Path(__file__).resolve().parents[2]
 NATIVE_COMPOSITION_INDEX = Path("system/composition/native/index.html")
 NATIVE_COMPOSITION_MAIN = Path("system/composition/native/main.mjs")
 NATIVE_BROWSER_HOST = Path("system/surface/runtime/ordax_browser_host.py")
+QEMU_WORKFLOW = Path(".github/workflows/portable-v2-qemu-boot-proof.yml")
 
 PRESENTATION_LIGHT_PREFIXES = (
     "system/surface/ui/",
     "system/surface/workspace/",
 )
+# The isolated /store-preview/ Vite entry contains only local demonstration
+# presentation. It never produces a Native boot, kernel or Portable rootfs.
+WEB_STORE_PREVIEW_LIGHT_PREFIX = "system/composition/web/store-preview/"
 HIGH_LEVEL_LIGHT_PREFIXES = (
     "system/apps/",
     "system/adapters/",
@@ -117,10 +121,19 @@ WINDOWS_LOCAL_AI_SOURCE_LOCK = "system/services/local-ai/source-lock.json"
 SURFACE_VISUAL_SOURCE_LOCK = "docs/contracts/surface-source.json"
 
 ACCOUNT_GATEWAY_DEPLOY_LIGHT_EXACT = {
+    # Exact high-level Account HTTP transport and contract tests.
+    "docs/contracts/native-account-session.json",
+    "infra/supabase/functions/_shared/space_create_contract.mjs",
+    "tests/test_native_account_gateway.py",
+    "tests/test_native_account_session_contract.py",
+    "tests/test_space_create_bridge.mjs",
     ".github/workflows/ordax-account-gateway-destination.yml",
     "docs/contracts/ci-supply-chain.json",
     "tools/account/resolve_account_gateway_destination.py",
     "tests/test_account_gateway_destination_deploy.py",
+}
+NATIVE_ACCOUNT_TRANSPORT_LIGHT_EXACT = {
+    "system/surface/runtime/native_account_gateway.py",
 }
 IMPACT_POLICY_LIGHT_EXACT = {
     ".github/workflows/portable-qemu-impact-contract.yml",
@@ -144,6 +157,11 @@ PRODUCT_DEVICE_PRESENCE_LIGHT_EXACT = {
     "tests/test_product_device_presence_agent.py",
 }
 ACCOUNT_SPACE_SEMANTICS_LIGHT_EXACT = {
+    # Exact, focused SQL owner-authority repair; no boot or initramfs code.
+    "infra/supabase/product/migrations/20261031051500_space_owner_ssot_creation_fix_v1.sql",
+    "tests/sql/test_space_creation_authority_v1.sql",
+    "tests/test_space_creation_authority.mjs",
+    ".github/workflows/space-creation-authority-v1-proof.yml",
     "infra/supabase/functions/ordax-account-gateway/index.ts",
     "infra/supabase/product/migrations/20261015153000_space_semantics_v1.sql",
     "infra/supabase/product/migrations/20261015195800_space_semantics_write_guard_v1.sql",
@@ -153,6 +171,7 @@ ACCOUNT_SPACE_SEMANTICS_LIGHT_EXACT = {
     "tests/test_supabase_account_provider.py",
 }
 SPACE_COMPOSITION_LIGHT_EXACT = {
+    ".github/workflows/space-foundation-contract-proof.yml",
     "docs/contracts/spaces-and-profile-packs.json",
     "tests/test_account_canonical_navigation.py",
     "tests/test_space_aura_provider.mjs",
@@ -186,6 +205,7 @@ BROWSER_NATIVE_IMPORT_RE = re.compile(
     r"[\"'](/composition/native/[^\"'?#\s]+\.(?:mjs|js))[\"']"
 )
 IMPORT_EXTENSIONS = (".mjs", ".js", ".cjs", ".json")
+WORKFLOW_PATH_ITEM_RE = re.compile(r"^ {6}-\s+([\'\"])(.+)\1\s*$")
 
 
 @dataclass(frozen=True)
@@ -220,6 +240,104 @@ def _normalise_path(value: str) -> str:
 
 def _is_presentation_light(path: str) -> bool:
     return path.endswith(".md") or path.startswith(PRESENTATION_LIGHT_PREFIXES)
+
+
+def workflow_path_patterns(root: Path = ROOT) -> tuple[str, ...]:
+    """Return the single canonical push/PR path scope from the workflow YAML.
+
+    The workflow intentionally duplicates its path list for ``push`` and
+    ``pull_request``. Both blocks must remain byte-for-byte equivalent here;
+    drift makes impact classification fail closed instead of guessing.
+    """
+    workflow = root / QEMU_WORKFLOW
+    try:
+        lines = workflow.read_text(encoding="utf-8").splitlines()
+    except (OSError, UnicodeError) as exc:
+        raise ValueError(f"workflow-unreadable:{type(exc).__name__}") from exc
+
+    blocks: list[tuple[str, ...]] = []
+    index = 0
+    while index < len(lines):
+        if lines[index] != "    paths:":
+            index += 1
+            continue
+        index += 1
+        patterns: list[str] = []
+        while index < len(lines):
+            line = lines[index]
+            if not line.strip():
+                index += 1
+                continue
+            indent = len(line) - len(line.lstrip(" "))
+            if indent <= 4:
+                break
+            match = WORKFLOW_PATH_ITEM_RE.fullmatch(line)
+            if match is None:
+                raise ValueError(f"unsupported-workflow-path-line:{index + 1}")
+            patterns.append(match.group(2))
+            index += 1
+        if not patterns:
+            raise ValueError("empty-workflow-path-block")
+        blocks.append(tuple(patterns))
+
+    if len(blocks) != 2:
+        raise ValueError(f"expected-two-workflow-path-blocks:found-{len(blocks)}")
+    if blocks[0] != blocks[1]:
+        raise ValueError("push-pull-workflow-path-scope-drift")
+    return blocks[0]
+
+
+def _github_glob_regex(pattern: str) -> re.Pattern[str]:
+    """Compile the bounded glob syntax currently used by this workflow."""
+    if not pattern or pattern.startswith("!"):
+        raise ValueError("glob-pattern-must-be-positive")
+    out = ["^"]
+    index = 0
+    while index < len(pattern):
+        char = pattern[index]
+        if char == "*":
+            if index + 1 < len(pattern) and pattern[index + 1] == "*":
+                index += 2
+                if index < len(pattern) and pattern[index] == "/":
+                    out.append("(?:.*/)?")
+                    index += 1
+                else:
+                    out.append(".*")
+                continue
+            out.append("[^/]*")
+        elif char == "?":
+            out.append("[^/]")
+        elif char in "[]{}":
+            # The current workflow does not use character classes or brace
+            # expansion. Reject future syntax until matching semantics are added.
+            raise ValueError(f"unsupported-workflow-glob-syntax:{char}")
+        else:
+            out.append(re.escape(char))
+        index += 1
+    out.append("$")
+    return re.compile("".join(out))
+
+
+def _path_matches_workflow(path: str, patterns: tuple[str, ...]) -> bool:
+    matched = False
+    for raw_pattern in patterns:
+        negative = raw_pattern.startswith("!")
+        pattern = raw_pattern[1:] if negative else raw_pattern
+        if _github_glob_regex(pattern).fullmatch(path):
+            matched = not negative
+    return matched
+
+
+def workflow_scoped_paths(paths: Iterable[str], *, root: Path = ROOT) -> tuple[str, ...]:
+    patterns = workflow_path_patterns(root)
+    normalized = {_normalise_path(raw) for raw in paths}
+    return tuple(
+        sorted(
+            path
+            for path in normalized
+            if path and _path_matches_workflow(path, patterns)
+        )
+    )
 
 
 def _path_inside_root(candidate: Path, root: Path) -> Path | None:
@@ -359,6 +477,8 @@ def classify_paths(
                 continue
             reasons.append(f"heavy-exact:{path}")
             continue
+        if path in NATIVE_ACCOUNT_TRANSPORT_LIGHT_EXACT:
+            continue
         if path.startswith(ALWAYS_HEAVY_PREFIXES):
             reasons.append(f"heavy-prefix:{path}")
             continue
@@ -383,6 +503,11 @@ def classify_paths(
             or path in SPACE_COMPOSITION_LIGHT_EXACT
             or path in ACCOUNT_SPACE_SEMANTICS_LIGHT_EXACT
         ):
+            continue
+        # The isolated Web Store presentation is proved by the Web candidate.
+        # If any of its files becomes Native-startup reachable in a later revision,
+        # fall through to the heavy native-runtime gate instead of skipping QEMU.
+        if path.startswith(WEB_STORE_PREVIEW_LIGHT_PREFIX) and path not in reachable:
             continue
         # Markdown and Surface presentation sources cannot alter boot artifacts.
         # Classify them before the non-system fail-closed rule so docs/*.md do not
@@ -518,6 +643,28 @@ def verified_windows_only_local_ai_lock_delta(
         return False
 
 
+def classify_workflow_paths(
+    paths: Iterable[str], *, root: Path = ROOT, windows_lock_verified: bool = False,
+    surface_visual_lock_verified: bool = False,
+) -> ImpactResult:
+    """Classify only files that belong to the workflow's canonical YAML scope."""
+    changed = tuple(sorted({p for raw in paths if (p := _normalise_path(raw))}))
+    try:
+        scoped = workflow_scoped_paths(changed, root=root)
+    except Exception as exc:
+        return ImpactResult(
+            True,
+            (f"workflow-scope:{type(exc).__name__}:{exc}",),
+            changed,
+        )
+    if not scoped:
+        return ImpactResult(False, ("outside-workflow-scope-only",), scoped)
+    return classify_paths(
+        scoped, root=root, windows_lock_verified=windows_lock_verified,
+        surface_visual_lock_verified=surface_visual_lock_verified,
+    )
+
+
 def changed_paths_between(base: str, head: str, *, root: Path = ROOT) -> tuple[str, ...]:
     sha = re.compile(r"^[0-9a-f]{40}$")
     if sha.fullmatch(base or "") is None or sha.fullmatch(head or "") is None:
@@ -556,7 +703,7 @@ def command_classify(args: argparse.Namespace) -> int:
                 SURFACE_VISUAL_SOURCE_LOCK in paths
                 and verified_surface_visual_source_lock_delta(args.base, args.head)
             )
-            result = classify_paths(
+            result = classify_workflow_paths(
                 paths, windows_lock_verified=windows_lock_verified,
                 surface_visual_lock_verified=surface_visual_lock_verified,
             )
