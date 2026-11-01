@@ -102,6 +102,48 @@ test("Windows native local session is real, persistent, authenticated and does n
  }
 });
 
+test("Windows configured PIN is retained but every new Native host starts locked",async()=>{
+  const dir=await mkdtemp(join(tmpdir(),"ordax-session-relock-"));
+  let host=null;
+  const secret="persistent-test-pin-2026";
+  try{
+    host=await createHost(dir,{account:true});
+    const first=await createNativeLocalSession({
+      fetch:(path,options={})=>host.fetchTrusted(path,options),
+    });
+    assert.equal((await first.configureCredential(secret)).state,"unlocked");
+    const before=JSON.parse(await readFile(join(dir,"desktop-local-session.json"),"utf8"));
+    assert.equal(before.state,"unlocked");
+    assert.equal(typeof before.verifier,"string");
+    await host.close();host=null;
+
+    host=await createHost(dir,{account:true});
+    const boot=await host.fetchTrusted(route);
+    assert.equal(boot.status,200);
+    assert.deepEqual(await boot.json(),{
+      schema:"ordax.local-session/1",state:"locked",credentialConfigured:true,canLock:true,
+      protectionScope:"surface-session-not-storage-encryption",
+    });
+    assert.equal((await host.fetchTrusted("/auth/session")).status,423);
+    assert.equal((await host.fetchFiles("/__ordax/native/files?path=%2F")).status,423);
+    const after=JSON.parse(await readFile(join(dir,"desktop-local-session.json"),"utf8"));
+    assert.equal(after.state,"locked");
+    assert.equal(after.salt,before.salt);
+    assert.equal(after.verifier,before.verifier,"relock must never reset the existing PIN");
+
+    const native=await createNativeLocalSession({
+      fetch:(path,options={})=>host.fetchTrusted(path,options),
+    });
+    assert.equal((await native.unlock(secret)).state,"unlocked");
+    assert.equal((await host.fetchTrusted("/auth/session")).status,200);
+    await host.close();host=null;
+
+    host=await createHost(dir,{account:true});
+    assert.equal((await (await host.fetchTrusted(route)).json()).state,"locked",
+      "a second fresh process must relock an otherwise unlocked protected session");
+  }finally{if(host)await host.close();await rm(dir,{recursive:true,force:true});}
+});
+
 test("Windows local session rejects corrupt state without silently unlocking",async()=>{
  const dir=await mkdtemp(join(tmpdir(),"ordax-session-corrupt-"));
  let host=null;

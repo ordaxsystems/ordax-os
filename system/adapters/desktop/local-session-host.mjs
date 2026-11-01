@@ -72,12 +72,27 @@ export function createDesktopLocalSessionMiddleware(userData, {token}={}) {
     queue=result.then(()=>{},()=>{});
     return result;
   };
+  // An unlocked snapshot is only valid for the Native host instance that
+  // verified the PIN. On each new process, keep the verifier but relock the
+  // Surface before any privileged route or bootstrap snapshot is exposed.
+  let bootChecked=false;
   const load=async()=>{
-    if(!await requireRegularOrMissing(file))return initialRecord();
+    if(!await requireRegularOrMissing(file)){
+      bootChecked=true;
+      return initialRecord();
+    }
     let parsed;
     try { parsed=JSON.parse(await readFile(file,"utf8")); }
     catch { throw Error("Untrusted Desktop local session JSON"); }
-    return validateRecord(parsed);
+    const record=validateRecord(parsed);
+    if(!bootChecked && configured(record) && record.state==="unlocked"){
+      const locked={...record,state:"locked"};
+      await persist(locked);
+      bootChecked=true;
+      return locked;
+    }
+    bootChecked=true;
+    return record;
   };
   const persist=async record=>{
     await mkdir(userData,{recursive:true});
