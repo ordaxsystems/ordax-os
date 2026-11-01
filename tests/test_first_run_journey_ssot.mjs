@@ -54,8 +54,11 @@ test("emulator loads the Native composition without owning another UI or first-r
 
 test("installed Windows refuses to mount Surface without an authenticated Native local-session port", async () => {
   const native = await readFile(new URL("../system/composition/native/main.mjs", import.meta.url), "utf8");
+  const durableBootstrap = native.indexOf("requireDurableRead: windowsDesktopHost");
   const resolved = native.indexOf("const [preferenceStore, firstRunStateStore, localSession, bundledProfilePacks]");
   const guard = native.indexOf("if (windowsDesktopHost && localSession === null)");
+  assert.ok(durableBootstrap > 0 && durableBootstrap < resolved,
+    "installed Windows must verify the durable first-run receipt before mounting Surface");
   const mounted = native.indexOf("const surface = mountSurface(");
   assert.ok(resolved > 0 && guard > resolved && mounted > guard,
     "Windows must fail closed before rendering the Surface, not after a healthy mount");

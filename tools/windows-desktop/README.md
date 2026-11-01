@@ -346,8 +346,13 @@ Uso continua legível pela Surface autorizada durante o bloqueio, mas nenhuma
 escrita no seu recibo é permitida antes da autenticação.
 No Windows instalado, a leitura verificada de `ordax.local-session/1` é requisito
 de montagem: HTTP indisponível, arquivo PIN corrompido ou falha na migração
-interrompem a composição antes de expor a Surface ou declarar saúde. O
-emulador visual e o USB preservam seus contratos de capacidades opcionais.
+interrompem a composição antes de expor a Surface ou declarar saúde.
+A leitura do recibo `ordax.first-run-state/1` também é obrigatória nesse
+modo: HTTP não autorizado/indisponível ou JSON inválido não pode ser
+interpretado como novo usuário, ocultando um primeiro uso já concluído.
+A composição falha fechada antes do mount; nenhuma rotina cria um
+segundo recibo ou apaga o anterior. O emulador visual e o USB preservam
+seu bootstrap recuperável e a semântica opcional de sessão.
 O bloqueio é **de Surface/sessão OrdaX**, e não substitui a segurança de disco,
 login do Windows, nem a revogação da Conta. Os demais brokers privilegiados
 ainda precisam de adaptadores Windows e controles próprios. O emulador visual

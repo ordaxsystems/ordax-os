@@ -53,8 +53,14 @@ test("Windows Desktop first-run and preferences require Electron-only state gran
     })).status,404);
     const client={fetch:(path,options={})=>h.trusted(path,options)};
     const prefs=await createNativePreferenceStore(client);
-    const firstRun=await createNativeFirstRunStateStore(client);
+    const firstRun=await createNativeFirstRunStateStore(client,{requireDurableRead:true});
     assert.equal(firstRun.load().completed,false);
+    await assert.rejects(
+      ()=>createNativeFirstRunStateStore({fetch:(path,options)=>h.direct(path,options)},
+        {requireDurableRead:true}),
+      /Native first-run bootstrap could not be verified/,
+      "installed Desktop cannot interpret an unauthorized receipt as new First Run",
+    );
     // An old predictable temp pathname must never be reused or overwritten.
     const legacyTemp=join(dir,"native-state.json.tmp");
     await writeFile(legacyTemp,"keep-existing-untrusted-temp","utf8");
@@ -89,6 +95,13 @@ test("Windows Desktop first-run and preferences require Electron-only state gran
     assert.equal((await h.direct("/__ordax/native/preferences")).status,401);
     await writeFile(join(dir,"native-state.json"),"{bad","utf8");
     assert.equal((await h.trusted("/__ordax/native/preferences")).status,503);
+    await assert.rejects(
+      ()=>createNativeFirstRunStateStore(client,{requireDurableRead:true}),
+      /Native first-run bootstrap could not be verified/,
+      "corrupted persisted receipt must block installed Desktop bootstrap",
+    );
+    assert.equal((await createNativeFirstRunStateStore(client)).load().completed,false,
+      "the original USB/emulator recovery mode must remain available");
     assert.equal(await readFile(join(dir,"native-state.json"),"utf8"),"{bad");
   }finally{if(h)await h.close();await rm(dir,{recursive:true,force:true});}
 });
@@ -111,6 +124,20 @@ test("Desktop state denies linked receipts without modifying the link target",as
     assert.equal(await readFile(outside,"utf8"),"preserve-external-file");
     assert.deepEqual((await readdir(dir)).filter(name=>name.startsWith(".native-state.json.")),[]);
   }finally{if(h)await h.close();await rm(dir,{recursive:true,force:true});}
+});
+
+test("installed Native first-run also rejects malformed successful bootstrap responses",async()=>{
+  const poisoned={fetch:async()=>new Response('{"completed":true}',{
+    status:200,headers:{"Content-Type":"application/json"},
+  })};
+  await assert.rejects(()=>createNativeFirstRunStateStore(poisoned,{
+    requireDurableRead:true,
+  }),/Native first-run bootstrap could not be verified/);
+  assert.equal((await createNativeFirstRunStateStore(poisoned)).load().completed,false,
+    "recoverable emulator/USB bootstrap must keep its established fallback");
+  await assert.rejects(()=>createNativeFirstRunStateStore(poisoned,{
+    requireDurableRead:"true",
+  }),/bootstrap policy must be a boolean/);
 });
 
 test("visual emulator retains its existing no-token state port while installed mode fails on weak token",async()=>{

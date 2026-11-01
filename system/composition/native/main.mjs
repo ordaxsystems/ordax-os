@@ -223,7 +223,9 @@ async function start() {
     }),
   );
   const preferenceStorePromise = createNativePreferenceStore(window);
-  const firstRunStateStorePromise = createNativeFirstRunStateStore(window);
+  const firstRunStateStorePromise = createNativeFirstRunStateStore(window, {
+    requireDurableRead: windowsDesktopHost,
+  });
   const localSessionPromise = optionalNativeProbe(
     "OrdaX native local session unavailable",
     () => createNativeLocalSession(window),
