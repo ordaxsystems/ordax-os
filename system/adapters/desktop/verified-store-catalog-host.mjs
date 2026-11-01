@@ -77,7 +77,7 @@ const FETCH_TIMEOUT_MS = 8000;
 export function desktopStoreCatalogEnvelopeUrl(baseOrigin) {
   if (baseOrigin === "") return null;
   if (typeof baseOrigin !== "string" || baseOrigin !== baseOrigin.trim()
-    || /[\u0000-\u001f\u007f\\%]/.test(baseOrigin)) {
+    || /[\u0000-\u0020\u007f\\%]/.test(baseOrigin)) {
     throw new TypeError("Invalid configured Store HTTPS origin");
   }
   const raw = /^https:\/\/[^/?#]+(\/[^?#]*)?$/.exec(baseOrigin);
