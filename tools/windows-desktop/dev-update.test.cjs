@@ -678,3 +678,62 @@ test('candidate cleanup refuses unexpected real node_modules tree before recursi
   assert.equal(readFileSync(join(unexpected,'keep'),'utf8'),
     'candidate source is not an external junction');
 });
+
+test('Desktop updater bounds and verifies the SAME journal bytes as the read-only observation', async t=>{
+  const folder=mkdtempSync(join(tmpdir(),'ordax-dev-journal-contract-'));
+  t.after(()=>rmSync(folder,{recursive:true,force:true}));
+  const path=join(folder,'desktop-dev-update-state.json');
+  const initial=readState(folder);
+  assert.equal(initial.activeSha,null);
+  const sha='a'.repeat(40);
+  const saved=writeState(folder,{...initial,activeSha:sha});
+  assert.equal(readState(folder).activeSha,sha);
+  const {readDesktopDevUpdateState,readDesktopUpdateStatus}=await import(
+    '../../system/adapters/desktop/update-observation.mjs'
+  );
+  assert.equal((await readDesktopDevUpdateState(folder)).activeSha,sha);
+  const withoutRuntimeProof=await readDesktopUpdateStatus(folder);
+  assert.equal(withoutRuntimeProof.status,'unavailable');
+  assert.equal((await readDesktopUpdateStatus(folder,{renderedSourceSha:sha})).status,'running');
+  assert.equal(saved.activeSha,sha);
+
+  writeFileSync(path,Buffer.alloc(8193,65));
+  assert.throws(()=>readState(folder),/bounded regular file/);
+  assert.equal((await readDesktopUpdateStatus(folder)).status,'unavailable');
+  writeFileSync(path,Buffer.from([0xff,0xfe,0xfd]));
+  assert.throws(()=>readState(folder));
+  assert.equal((await readDesktopUpdateStatus(folder)).status,'unavailable');
+
+  // A malicious profile entry must not cause the updater to follow a link.
+  const external=join(folder,'external-private-state.json');
+  writeFileSync(external,JSON.stringify(saved));
+  rmSync(path);
+  try { symlinkSync(external,path,'file'); }
+  catch(error) {
+    // Some Windows runners deny symlink creation without Developer Mode.
+    // Preserve the other real on-disk tests instead of a privilege-only fail.
+    if(process.platform!=='win32' || !['EPERM','EACCES','ENOTSUP'].includes(error?.code)) throw error;
+    t.diagnostic('Windows runner forbids creating a fixture symlink; size/UTF-8 checks remain enforced');
+    return;
+  }
+  assert.throws(()=>readState(folder),/bounded regular file/);
+  assert.equal((await readDesktopUpdateStatus(folder)).status,'unavailable');
+  assert.equal(JSON.parse(readFileSync(external,'utf8')).activeSha,sha);
+});
+
+test('Desktop updater refuses malformed journal without clearing the verified known-good version',t=>{
+  const folder=mkdtempSync(join(tmpdir(),'ordax-dev-bad-journal-'));
+  t.after(()=>rmSync(folder,{recursive:true,force:true}));
+  const journal=join(folder,'desktop-dev-update-state.json');
+  const a='a'.repeat(40),b='b'.repeat(40);
+  writeState(folder,{...readState(folder),activeSha:a,previousSha:b});
+  assert.equal(readState(folder).activeSha,a);
+  writeFileSync(journal,'{unclosed json');
+  assert.throws(()=>readState(folder),SyntaxError);
+  // Journal corruption can never be mistaken for a clean fresh install.
+  assert.throws(()=>writeState(folder,{...readState(folder),activeSha:b}));
+  writeState(folder,{...validateState({schema:'ordax.desktop-dev-update-state/1',
+    activeSha:a,previousSha:b,pendingSha:null,attemptedSha:null,
+    pinnedSha:null,rejectedSha:null,incompatibleSha:null})});
+  assert.equal(readState(folder).activeSha,a);
+});
