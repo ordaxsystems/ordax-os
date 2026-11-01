@@ -1,9 +1,39 @@
 # Windows Desktop — signed Store catalog transport
 
-The existing Surface consumes only GET /__ordax/native/store-catalog as
+The existing Surface reads GET /__ordax/native/store-catalog as
 ordax.verified-app-store-catalog/1 with authority:none. The installed Windows
 Native host owns this transport; there is no second Store service or application
 catalog in the Desktop host.
+
+## Windows removal through the canonical Go owner
+
+The installed Native host now also accepts POST /__ordax/native/store-lifecycle
+**for remove only**, reusing the existing private
+ordax.app-lifecycle-plan/2 contract. The browser request is a proposal, not
+authority. The Native adapter requires an exact loopback origin, a bounded
+application/json plan, an external first-party app ID from the generated
+canonical package policy, a locally re-verified signed catalog and the exact
+catalog watermark source/sequence/digest. Install and update are explicitly
+unavailable on Windows until signed artifact acquisition, staged activation,
+pending health, review and rollback are fully integrated.
+
+The existing watermark lock is held across the Go `uninstall-state` call;
+the installed, public-trust-pinned Go tool validates the exact component,
+version, source commit, expected revision and signed slot compatibility.
+Its own graph/activation locks and safety policy refuse dependent consumers,
+pending activations and stateful releases without quiescence proof. Only after
+a canonical uninstall receipt **and** a separate Go `status` readback proving
+the durable user-removed tombstone does Native respond with
+`ordax.app-lifecycle-request-result/1 state=accepted`. Any failure returns
+an unavailable response without exposing a simulated success, deleting App
+Data or creating a second installed-state database. Native does not acquire
+network bytes during removal. The installed verifier and public anchor remain
+owned by Electron, not the checked-out OS or HTTP client.
+
+This is an implemented **Windows transport and regression proof**, not
+production installation or a successful removal on a physical user device:
+production trust pinning/publication remains disabled; tests inject signed
+fixtures, not keys, signed releases or authorization to promote components.
 
 - One public trust source: system/adapters/desktop/pinned-component-trust.mjs.
   It validates both current OS policy and the immutable public anchor shipped by
@@ -38,7 +68,9 @@ catalog in the Desktop host.
   missing policy and root revocation all fail closed. Each request revalidates
   the public trust before exposing the snapshot.
 - No install, update, remove, execution, grant, activation or publication
-  authority is exposed on the route. Strict loopback, GET, exact URL, no-store.
+  authority is exposed by the **catalog GET** route. Strict loopback, GET,
+  exact URL, no-store. The separate lifecycle POST delegates removal only
+  to the canonical Go owner under the same persisted watermark lock.
 - The canonical public anchor is **not pinned yet**; publication is explicitly
   disabled in docs/contracts/runtime-component-trust-policy.json. The current
   expected result is a schema-valid unavailable snapshot with empty entries.
