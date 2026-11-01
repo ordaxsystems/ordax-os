@@ -131,6 +131,8 @@ class PublicSiteDeploymentTests(unittest.TestCase):
             write("system/composition/web/main.tsx", "export const web=true;\n")
             for path in linux:
                 write("system/" + path, "#!/bin/sh\nexit 0\n")
+            package_path = "system/" + boundaries["linux_only_client_package_manifest"]
+            write(package_path, "alpine-baselayout\nbusybox\n")
             baseline = commit("real canonical sources")
             self.assertEqual(ignored("", baseline), 1, "first release always builds")
             self.assertEqual(ignored("f" * 40, baseline), 1, "unknown previous build")
@@ -174,6 +176,21 @@ class PublicSiteDeploymentTests(unittest.TestCase):
             tampered = commit("Linux candidate no longer has a POSIX shebang")
             self.assertEqual(ignored(restored, tampered), 1,
                              "unknown source owner cannot skip build")
+
+            write("system/rescue/agent.sh", "#!/bin/sh\nexit 0\n")
+            recovered = commit("restore valid POSIX script")
+            write(package_path, "alpine-baselayout\nbusybox\npython3\n")
+            package_only = commit("Linux Alpine package list changed")
+            self.assertEqual(ignored(recovered, package_only), 0,
+                             "Alpine manifest must never rebuild the Web client")
+            write(package_path, "not valid package text!\n")
+            bad_package = commit("unexpected Alpine package manifest syntax")
+            self.assertEqual(ignored(package_only, bad_package), 1,
+                             "invalid or changed manifest ownership must build")
+            write(package_path, "alpine-baselayout\nbusybox\n")
+            package_recovered = commit("restore package manifest")
+            self.assertEqual(ignored(bad_package, package_recovered), 0,
+                             "a verified Alpine-only manifest remains outside Web")
 
     def test_vercel_ignore_build_is_fail_safe_on_first_deploy_and_git_history_gaps(self):
         self.assertEqual(

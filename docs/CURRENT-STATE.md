@@ -1,3 +1,15 @@
+Separação Windows/Web ↔ USB — atualização 2026-11-01:
+PR OS #1980 HEAD eca2f3d1: 15 checks passaram (Windows NSIS,
+Web Candidate, Foundation, Site/gateway), 2 skips, 1 falha independente
+no Creator USB. A revisão corrige publicação Web que reconstruía por
+mudanças exclusivamente POSIX Linux. Nova etapa documentada em
+REMOVER-DEPENDENCIA.md torna system/surface/runtime/packages.txt,
+manifesto Alpine do produtor USB, não acionador de Vercel Web mediante
+verificação estrita da fonte Git e do único build-autonomy.json.
+A modificação do contrato ainda aguarda CI novo; sem merge e sem Vercel
+deploy. Código Native compartilhado permanece sujeito a teste USB;
+Surface #33 e required checks sem leitura (403) permanecem bloqueadores.
+
 Vercel Web deployment impact — P0, 2026-11-01:
 The ordax-web ignoreCommand previously compared all system/ bytes and thus
 triggered Web deployment on proven Linux-only USB/boot/POSIX source deltas.

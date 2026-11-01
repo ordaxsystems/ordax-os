@@ -278,3 +278,16 @@ Git history, interpreter, file identity or script shape **forces a build**.
 Native shared, composition Web, account/session, contracts, API, Site pin
 and unknown changes still trigger the respective Web build; `ordax-os-public`
 keeps its separate original rule. No new deployment authority is introduced.
+
+### Alpine package manifest has no Web delivery owner
+
+`system/surface/runtime/packages.txt` is a package selection manifest of
+the Linux/USB producer and is already excluded from the Windows installer
+and Web Git workflow source paths. The Web Vercel ignored-build now obtains
+its precise path from the same `docs/contracts/build-autonomy.json` as
+`linux_only_client_package_manifest`. The read-only Git exclusion
+projection verifies a regular, bounded, syntactically valid Alpine package
+list and fails closed (BUILD) on any unknown state; an invalid/changed
+source owner is never silently excluded from the Web deployment gate.
+The Creator impact classifier verifies the metadata addition and exact
+Git source bytes, without reducing Native shared USB proof.

@@ -238,6 +238,7 @@ class CreatorOwnerImpactTests(unittest.TestCase):
         new_keys = ("separation_roadmap", "client_validation_workflows",
                     "windows_package_forbidden_linux_boot_paths",
                     "windows_package_forbidden_linux_shell_paths",
+                    "linux_only_client_package_manifest",
                     "client_delivery_gate_decoupling_fully_proven",
                     "windows_physical_and_web_live_independence_proven")
         old = json.loads(json.dumps(contract))
@@ -249,6 +250,9 @@ class CreatorOwnerImpactTests(unittest.TestCase):
             source = self.root / "system" / relative
             source.parent.mkdir(parents=True, exist_ok=True)
             source.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+        manifest_path = self.root / "system" / contract["client_build_independence"]["linux_only_client_package_manifest"]
+        manifest_path.parent.mkdir(parents=True, exist_ok=True)
+        manifest_path.write_text("alpine-baselayout\nbusybox\n", encoding="utf-8")
         base = self.commit(workflow=WORKFLOW.read_text(encoding="utf-8"),
                            lock=VISUAL, client_contract=old)
         changed = self.commit(client_contract=contract)
@@ -259,6 +263,16 @@ class CreatorOwnerImpactTests(unittest.TestCase):
         dangerous = self.commit(client_contract=unsafe)
         self.assertEqual(impact.classify(changed, dangerous, root=self.root),
                          (True, "client-delivery-contract-unknown-or-producer-delta"))
+
+    def test_linux_only_alpine_manifest_is_single_source_and_fail_closed(self):
+        client = json.loads((ROOT / impact.CLIENT_AUTONOMY_CONTRACT).read_text(encoding="utf-8"))["client_build_independence"]
+        manifest = client["linux_only_client_package_manifest"]
+        self.assertEqual(manifest, "surface/runtime/packages.txt")
+        source = (ROOT / "system" / manifest).read_text(encoding="utf-8")
+        self.assertTrue(source.endswith("\n"))
+        self.assertIn("alpine-baselayout", source)
+        for line in source.splitlines():
+            self.assertRegex(line, r"^[a-z0-9][a-z0-9+._-]*$")
 
     def test_surface_web_workflow_is_owned_by_web_not_usb_creator(self):
         base = self.commit(WORKFLOW.read_text(encoding="utf-8"), VISUAL)

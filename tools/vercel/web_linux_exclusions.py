@@ -21,6 +21,9 @@ def linux_only_exclusions() -> list[str]:
     client = source["client_build_independence"]
     boot = client["windows_package_forbidden_linux_boot_paths"]
     shells = client["windows_package_forbidden_linux_shell_paths"]
+    manifest = client["linux_only_client_package_manifest"]
+    if manifest != "surface/runtime/packages.txt":
+        raise ValueError("unrecognized Linux package manifest")
     if not isinstance(boot, list) or not isinstance(shells, list) or len(boot) != 3 or not shells:
         raise ValueError("missing canonical Linux-only source classification")
     paths = boot + shells
@@ -38,7 +41,18 @@ def linux_only_exclusions() -> list[str]:
         with file.open("rb") as handle:
             if handle.read(10) != b"#!/bin/sh\n":
                 raise ValueError("exclusion is not a Linux shell entrypoint")
-    return [":(exclude)system/" + rel for rel in paths]
+    # Alpine package selection is a Linux producer, never a Web client input.
+    # Fail closed on an absent, linked, oversized or unexpected manifest.
+    package_source = ROOT / "system" / manifest
+    if (package_source.is_symlink() or not package_source.is_file()
+            or package_source.stat().st_size > 16 * 1024):
+        raise ValueError("unverified Linux package manifest")
+    manifest_bytes = package_source.read_bytes()
+    if (not manifest_bytes or not manifest_bytes.endswith(b"\n")
+            or any(re.fullmatch(rb"[a-z0-9][a-z0-9+._-]{0,79}", item) is None
+                   for item in manifest_bytes.splitlines())):
+        raise ValueError("malformed Linux-only package list")
+    return [":(exclude)system/" + rel for rel in [*paths, manifest]]
 
 
 if __name__ == "__main__":

@@ -236,6 +236,15 @@ def verified_client_delivery_contract_delta(base, head, *, root=ROOT):
             "client_delivery_gate_decoupling_fully_proven": False,
             "windows_physical_and_web_live_independence_proven": False,
         }
+        manifest = additions.pop("linux_only_client_package_manifest", None)
+        if manifest is not None:
+            if manifest != "surface/runtime/packages.txt":
+                return False
+            raw = _git_show(head, "system/" + manifest, root)
+            if (not raw or len(raw) > 16 * 1024 or not raw.endswith("\n")
+                    or any(re.fullmatch(r"[a-z0-9][a-z0-9+._-]{0,79}", line) is None
+                           for line in raw.splitlines())):
+                return False
         scripts = additions.pop("windows_package_forbidden_linux_shell_paths", None)
         if scripts is not None:
             # Only tracked POSIX scripts may be omitted from Windows client
@@ -252,7 +261,7 @@ def verified_client_delivery_contract_delta(base, head, *, root=ROOT):
                     return False
                 if not _git_show(head, "system/" + path, root).startswith("#!/bin/sh\n"):
                     return False
-        return (bool(additions) or scripts is not None) and all(
+        return (bool(additions) or scripts is not None or manifest is not None) and all(
             k in expected and v == expected[k] for k, v in additions.items()
         )
     except (OSError, UnicodeError, ValueError, KeyError, TypeError,

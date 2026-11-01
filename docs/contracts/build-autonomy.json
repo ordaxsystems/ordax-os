@@ -179,6 +179,7 @@
       "surface/runtime/native_install_broker.sh",
       "surface/runtime/network_broker.sh",
       "surface/runtime/resolver_sync.sh"
-    ]
+    ],
+    "linux_only_client_package_manifest": "surface/runtime/packages.txt"
   }
 }
