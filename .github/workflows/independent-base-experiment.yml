@@ -38,6 +38,7 @@ on:
         options:
           - minimal
           - owner-development
+          - stable-mvp
 
 permissions:
   contents: read
@@ -85,7 +86,7 @@ jobs:
             profile=owner-development
           fi
           case "$profile" in
-            minimal|owner-development) ;;
+            minimal|owner-development|stable-mvp) ;;
             *) echo "unsupported Independent Base profile: $profile" >&2; exit 1 ;;
           esac
           printf 'ORDAX_INDEPENDENT_PROFILE=%s\n' "$profile" >> "$GITHUB_ENV"
@@ -159,7 +160,7 @@ jobs:
         run: |
           set -euo pipefail
           case "$CONTRACT_PROFILE" in
-            minimal|owner-development) ;;
+            minimal|owner-development|stable-mvp) ;;
             *) echo 'Base contract profile absent or invalid' >&2; exit 1 ;;
           esac
           printf 'ORDAX_INDEPENDENT_PROFILE=%s\n' "$CONTRACT_PROFILE" >> "$GITHUB_ENV"
@@ -179,8 +180,18 @@ jobs:
         with:
           path: ${{ runner.temp }}/portable-v2-qemu/kernel
           key: ordax-portable-component-v1-${{ runner.os }}-${{ runner.arch }}-kernel-${{ steps.component-fingerprints.outputs.kernel }}
+      - name: Require a previously verified kernel for Stable candidate
+        if: env.ORDAX_INDEPENDENT_PROFILE == 'stable-mvp'
+        env:
+          ORDAX_STABLE_KERNEL_CACHE_HIT: ${{ steps.kernel-cache.outputs.cache-hit }}
+        run: |
+          set -euo pipefail
+          if [ "$ORDAX_STABLE_KERNEL_CACHE_HIT" != true ]; then
+            echo 'Stable candidate must reuse an existing verified kernel; no recompilation authorized' >&2
+            exit 1
+          fi
       - name: Build canonical OrdaX kernel on verified cache miss
-        if: steps.kernel-cache.outputs.cache-hit != 'true'
+        if: steps.kernel-cache.outputs.cache-hit != 'true' && env.ORDAX_INDEPENDENT_PROFILE != 'stable-mvp'
         env:
           ORDAX_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
@@ -250,15 +261,22 @@ jobs:
         with:
           path: ${{ runner.temp }}/ordax-independent
           key: ordax-portable-component-v1-${{ runner.os }}-${{ runner.arch }}-independent-base-owner-${{ steps.component-fingerprints.outputs.independent_base_owner }}
+      - name: Restore verified Stable Buildroot component
+        if: env.ORDAX_INDEPENDENT_PROFILE == 'stable-mvp'
+        id: independent-stable-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/ordax-independent
+          key: ordax-portable-component-v1-${{ runner.os }}-${{ runner.arch }}-independent-base-stable-${{ steps.component-fingerprints.outputs.independent_base_stable }}
       - name: Restore Buildroot sources and package downloads
-        if: (env.ORDAX_INDEPENDENT_PROFILE == 'minimal' && steps.independent-base-cache.outputs.cache-hit != 'true') || (env.ORDAX_INDEPENDENT_PROFILE == 'owner-development' && steps.independent-owner-cache.outputs.cache-hit != 'true')
+        if: (env.ORDAX_INDEPENDENT_PROFILE == 'minimal' && steps.independent-base-cache.outputs.cache-hit != 'true') || (env.ORDAX_INDEPENDENT_PROFILE == 'owner-development' && steps.independent-owner-cache.outputs.cache-hit != 'true') || (env.ORDAX_INDEPENDENT_PROFILE == 'stable-mvp' && steps.independent-stable-cache.outputs.cache-hit != 'true')
         id: buildroot-download-cache
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ runner.temp }}/ordax-independent-cache
           key: ordax-buildroot-download-v1-${{ runner.os }}-${{ hashFiles('bootstrap/independent-base/source.json', 'bootstrap/independent-base/configs/**', 'bootstrap/independent-base/patches/**') }}
       - name: Build rootfs from official Buildroot source
-        if: (env.ORDAX_INDEPENDENT_PROFILE == 'minimal' && steps.independent-base-cache.outputs.cache-hit != 'true') || (env.ORDAX_INDEPENDENT_PROFILE == 'owner-development' && steps.independent-owner-cache.outputs.cache-hit != 'true')
+        if: (env.ORDAX_INDEPENDENT_PROFILE == 'minimal' && steps.independent-base-cache.outputs.cache-hit != 'true') || (env.ORDAX_INDEPENDENT_PROFILE == 'owner-development' && steps.independent-owner-cache.outputs.cache-hit != 'true') || (env.ORDAX_INDEPENDENT_PROFILE == 'stable-mvp' && steps.independent-stable-cache.outputs.cache-hit != 'true')
         run: |
           set -euo pipefail
           python3 bootstrap/independent-base/build.py build \
@@ -266,7 +284,7 @@ jobs:
             --out "$RUNNER_TEMP/ordax-independent" \
             --cache "$RUNNER_TEMP/ordax-independent-cache" --jobs 4
       - name: Save Buildroot source/package download cache
-        if: steps.buildroot-download-cache.outputs.cache-hit != 'true' && ((env.ORDAX_INDEPENDENT_PROFILE == 'minimal' && steps.independent-base-cache.outputs.cache-hit != 'true') || (env.ORDAX_INDEPENDENT_PROFILE == 'owner-development' && steps.independent-owner-cache.outputs.cache-hit != 'true'))
+        if: steps.buildroot-download-cache.outputs.cache-hit != 'true' && ((env.ORDAX_INDEPENDENT_PROFILE == 'minimal' && steps.independent-base-cache.outputs.cache-hit != 'true') || (env.ORDAX_INDEPENDENT_PROFILE == 'owner-development' && steps.independent-owner-cache.outputs.cache-hit != 'true') || (env.ORDAX_INDEPENDENT_PROFILE == 'stable-mvp' && steps.independent-stable-cache.outputs.cache-hit != 'true'))
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ runner.temp }}/ordax-independent-cache
@@ -316,6 +334,21 @@ jobs:
               --receipt "$metadata/independent-owner-component-reuse.json"
             echo "ORDAX_OWNER_BASE_CACHE_HIT=$cache_hit"
           fi
+          if [ "$ORDAX_INDEPENDENT_PROFILE" = stable-mvp ]; then
+            cache_hit='${{ steps.independent-stable-cache.outputs.cache-hit }}'
+            if [ "$cache_hit" != true ]; then cache_hit=false; fi
+            if [ "$cache_hit" = false ]; then
+              python3 tools/ci/portable_component_cache.py record \
+                --component independent-base-stable \
+                --out-dir "$base_dir" --source-commit "$ORDAX_SOURCE_COMMIT" \
+                > "$metadata/independent-stable-cache-record.json"
+            fi
+            python3 tools/ci/portable_component_cache.py verify \
+              --component independent-base-stable --out-dir "$base_dir" \
+              --integration-commit "$ORDAX_SOURCE_COMMIT" --cache-hit "$cache_hit" \
+              --receipt "$metadata/independent-stable-component-reuse.json"
+            echo "ORDAX_STABLE_BASE_CACHE_HIT=$cache_hit"
+          fi
       - name: Save verified independent base component
         if: env.ORDAX_INDEPENDENT_PROFILE == 'minimal' && steps.independent-base-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -328,6 +361,12 @@ jobs:
         with:
           path: ${{ runner.temp }}/ordax-independent
           key: ordax-portable-component-v1-${{ runner.os }}-${{ runner.arch }}-independent-base-owner-${{ steps.component-fingerprints.outputs.independent_base_owner }}
+      - name: Save verified Stable Buildroot component
+        if: env.ORDAX_INDEPENDENT_PROFILE == 'stable-mvp' && steps.independent-stable-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/ordax-independent
+          key: ordax-portable-component-v1-${{ runner.os }}-${{ runner.arch }}-independent-base-stable-${{ steps.component-fingerprints.outputs.independent_base_stable }}
       - name: Prove Owner rootfs against the real Dev Channel consumer
         if: env.ORDAX_INDEPENDENT_PROFILE == 'owner-development'
         env:
@@ -360,6 +399,7 @@ jobs:
             ${{ runner.temp }}/ordax-independent/rootfs.cpio.gz
             ${{ runner.temp }}/portable-v2-qemu/kernel/kernel-provenance.json
             ${{ runner.temp }}/portable-v2-qemu/metadata/kernel-component-reuse.json
+            ${{ runner.temp }}/portable-v2-qemu/metadata/independent-stable-component-reuse.json
             ${{ runner.temp }}/ordax-independent-qemu-result.json
             ${{ runner.temp }}/ordax-independent-qemu-result-serial/*.serial.log
           if-no-files-found: warn

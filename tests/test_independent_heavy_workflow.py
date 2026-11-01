@@ -44,6 +44,37 @@ class IndependentHeavyWorkflowTests(unittest.TestCase):
         self.assertIn("--reuse-receipt", text[text.index("- name: Prove Owner rootfs against") :])
         self.assertIn("tests.test_independent_rootfs_inventory", text)
 
+    def test_stable_candidate_reuses_verified_kernel_and_separate_base_cache(self) -> None:
+        text = self.text()
+        self.assertIn("- stable-mvp", text)
+        self.assertIn("minimal|owner-development|stable-mvp", text)
+        self.assertIn("Require a previously verified kernel for Stable candidate", text)
+        self.assertIn("Stable candidate must reuse an existing verified kernel", text)
+        kernel_build = text[
+            text.index("- name: Build canonical OrdaX kernel on verified cache miss"):
+            text.index("- name: Verify kernel component and exact integration binding")
+        ]
+        self.assertIn("env.ORDAX_INDEPENDENT_PROFILE != 'stable-mvp'", kernel_build)
+        restore = text[
+            text.index("- name: Restore verified Stable Buildroot component"):
+            text.index("- name: Build rootfs from official Buildroot source")
+        ]
+        self.assertIn("independent-base-stable-", restore)
+        self.assertIn("independent_base_stable", restore)
+        build_step = text[
+            text.index("- name: Build rootfs from official Buildroot source"):
+            text.index("- name: Save Buildroot source/package download cache")
+        ]
+        self.assertIn("steps.independent-stable-cache.outputs.cache-hit != 'true'", build_step)
+        verify = text[
+            text.index("- name: Verify independent base component and exact integration binding"):
+            text.index("- name: Save verified independent base component")
+        ]
+        self.assertIn("--component independent-base-stable", verify)
+        self.assertIn("independent-stable-component-reuse.json", verify)
+        self.assertIn("Save verified Stable Buildroot component", text)
+        self.assertIn("independent-stable-component-reuse.json", text[text.index("- name: Upload candidate/provenance"):])
+
     def test_owner_profile_is_explicit_and_dispatchable(self) -> None:
         text = self.text()
         self.assertIn("workflow_dispatch:", text)
