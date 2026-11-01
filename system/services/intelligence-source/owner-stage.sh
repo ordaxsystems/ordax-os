@@ -31,14 +31,51 @@ state=$(field status) || exit 2
 case "$state" in canonical|integration-candidate) ;; *) exit 2 ;; esac
 source_sha=$(field source_commit) || exit 2
 sha_ok "$source_sha" || exit 2
-files='src/index.mjs
-src/contract-bindings.mjs
-src/intelligence/runtime.mjs
-src/intelligence/model-router.mjs
-src/local-ai/runtime.mjs
-src/local-ai/completion-stream.mjs
-src/local-ai/model-compatibility.mjs
-tools/inference-builder/build.py'
+source_paths() {
+    printf '%s\n' "$lock" | /bin/busybox awk -F '"' '
+      BEGIN { inside=0; opened=0; count=0; bad=0 }
+      {
+        for (i=1;i<=NF;i++) {
+          if (i % 2 == 1) {
+            if (inside && index($i,"}") != 0) inside=0
+            continue
+          }
+          token=$i
+          separator=(i<NF ? $(i+1) : "")
+          if (!inside) {
+            if (token=="source_paths" && separator~/^[[:space:]]*:[[:space:]]*\{[[:space:]]*$/) {
+              if (opened) bad=1
+              inside=1
+              opened=1
+            }
+            continue
+          }
+          if (separator~/^[[:space:]]*:[[:space:]]*$/) {
+            if (i+2>NF) { bad=1; continue }
+            value=$(i+2)
+            if (token!~/^[A-Za-z0-9._\/-]+$/ || length(value)!=40 || value~/[^0-9a-f]/ || seen[token]++) bad=1
+            else { print token; count++ }
+          }
+        }
+      }
+      END { if (!opened || inside || bad || count<3 || count>64) exit 1 }'
+}
+files=$(source_paths) || exit 2
+files=$(printf '%s\n' "$files" | LC_ALL=C /bin/busybox sort) || exit 2
+required_index=0
+required_contracts=0
+required_builder=0
+for src in $files; do
+    case "/$src/" in *'/../'*|*'/./'*|*'//'*) exit 2 ;; esac
+    case "$src" in
+      src/index.mjs) required_index=1 ;;
+      src/contract-bindings.mjs) required_contracts=1 ;;
+      tools/inference-builder/build.py) required_builder=1 ;;
+      src/*.mjs) ;;
+      *) exit 2 ;;
+    esac
+done
+[ "$required_index$required_contracts$required_builder" = 111 ] || exit 2
 bridges='system/services/intelligence/model-router.mjs:model-router.mjs
 system/services/intelligence/runtime.mjs:intelligence-runtime.mjs
 system/services/local-ai/runtime.mjs:local-ai-runtime.mjs
@@ -97,7 +134,7 @@ archive=$stage_dir/.intelligence-source.tar
 "$git_bin" -C "$git_root" remote add origin https://github.com/ordaxsystems/ordax-intelligence.git || exit 1
 /bin/busybox timeout -k 5 90 "$git_bin" -C "$git_root" fetch --no-tags --depth=1 origin "$source_sha" >/dev/null 2>&1 || exit 1
 [ "$("$git_bin" -C "$git_root" rev-parse 'FETCH_HEAD^{commit}')" = "$source_sha" ] || exit 1
-listing=$("$git_bin" -C "$git_root" ls-tree -r "$source_sha" -- src tools/inference-builder) || exit 1
+listing=$("$git_bin" -C "$git_root" ls-tree -r "$source_sha" -- src tools/inference-builder/build.py) || exit 1
 found=$(printf '%s\n' "$listing" | /bin/busybox awk '{ print $4 }' | LC_ALL=C /bin/busybox sort)
 expected=$(printf '%s\n' "$files" | LC_ALL=C /bin/busybox sort)
 [ "$found" = "$expected" ] || exit 1
@@ -107,7 +144,7 @@ for src in $files; do
     [ "$#" -eq 3 ] && [ "$1" = 100644 ] && [ "$2" = blob ] || exit 1
     [ "$3" = "$(field "$src")" ] || exit 1
 done
-"$git_bin" -C "$git_root" archive --format=tar "$source_sha" src tools/inference-builder > "$archive" || exit 1
+"$git_bin" -C "$git_root" archive --format=tar "$source_sha" src tools/inference-builder/build.py > "$archive" || exit 1
 [ -s "$archive" ] || exit 1
 /bin/busybox mkdir -p "$stage_dir/system/intelligence-source"
 /bin/busybox tar -xf "$archive" -C "$stage_dir/system/intelligence-source" || exit 1

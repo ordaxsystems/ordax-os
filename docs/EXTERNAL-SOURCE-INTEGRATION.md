@@ -20,7 +20,8 @@ O script [advance.py](../tools/source-integration/advance.py) usa o repositório
 registrado **no próprio lock**. Exige SHA completo e descendente do commit
 pinado, alteração real apenas no source do respectivo owner, Git checkout limpo,
 conteúdo/modos/árvore aprovados pelo verificador **já canônico**. Para Intelligence,
-os oito Git blobs exatos são atualizados em conjunto. Um commit que muda só
+o grafo portátil completo — todos os módulos `src/*.mjs` e o builder técnico
+exato — é derivado da árvore Git e atualizado em conjunto. Um commit que muda só
 documentação não causa release/rebuild do OS. O avanço nunca altera status,
 activation_authorized, cutover_complete, política de distribuição, dispositivos
 físicos ou o código de serviços do OS.
@@ -46,27 +47,34 @@ avança essa branch exclusivamente por fast-forward. Uma branch fechada sem
 merge não é sobrescrita e causa falha fechada, sem abrir uma segunda branch.
 Não há force-push, rebase de histórico de terceiros ou segunda PR em paralelo. Caso a main
 upstream tenha sido reescrita, falha em vez de aceitar um force-push como
-atualização. A PR altera **somente um lock**. No caso da Intelligence, apenas os oito Git blobs fixados contam como
-código consumido; um helper adicional exclusivo do Windows, documentação ou CI
+atualização. A PR altera **somente um lock**. No caso da Intelligence, todos os
+módulos `src/*.mjs` e o builder técnico fixado contam como código consumido;
+um helper adicional exclusivo do Windows fora de `src/`, documentação ou CI
 externa não entra no OS, não altera o pin nem obriga recompilar o kernel.
 
 A integração usa os workflows consumidores que o OS **já possui**, com
 workflow_dispatch em SHA de branch quando a PR é criada por GITHUB_TOKEN.
 Não há merge automático que salte CI, gate de hardware, revisão ou rollback.
 
-## Autenticação do job — sem PAT obrigatório
+## Autenticação do job — credencial mínima para PR nova
 
-A prioridade é a credencial efêmera **GITHUB_TOKEN** do próprio repositório
-ordax-os (permissions por job: contents:write, pull-requests:write,
-actions:write). Não se copia segredo, token de conta ou chave de release no
-source. Uma única configuração administrativa do GitHub pode ser necessária:
-permitir que GitHub Actions crie pull requests em Actions → General →
-Workflow permissions. Se essa política estiver desabilitada, o job falha
-fechado e não tenta atualizar a main diretamente.
+A automação usa a credencial efêmera **GITHUB_TOKEN** para ler e validar
+sources e atualizar uma PR existente que já tenha sido verificada como a
+única PR autorizada para aquele lock. Essa credencial **não pode criar uma PR
+nova**: o workflow exige **ORDAX_INTEGRATION_TOKEN**, emitido por um GitHub
+App de escopo mínimo, antes de publicar uma nova branch ou PR. Sem essa
+credencial, o job falha fechado antes de criar a branch; não tenta atualizar
+a main diretamente nem deixa uma branch órfã.
 
-Como PRs abertas por GITHUB_TOKEN não disparam eventos pull_request, a
-própria automação dispara via workflow_dispatch **as implementações
-originais** de CI no SHA da branch, sem duplicar código de testes:
+Não se copia token de conta ou chave de release no source. O token do App é
+usado somente para a operação que exige eventos GitHub nativos; não usar PAT
+pessoal amplo como atalho. A configuração administrativa que permite a
+Actions criar PRs não substitui esse requisito explícito do workflow.
+
+Quando a atualização usa GITHUB_TOKEN em uma PR já existente, os eventos
+pull_request não são disparados automaticamente. Por isso a própria
+automação dispara via workflow_dispatch **as implementações originais** de
+CI no SHA da branch, sem duplicar código de testes:
 
 - Surface: Foundation, Surface External Source Consumer, Owner Surface Source
   Transaction e Windows Desktop Dev.
@@ -77,15 +85,13 @@ Checks adicionais necessários à promoção — como Creator/USB/QEMU e outros
 consumidores sujeitos a gating próprio — continuam exigidos antes de merge.
 Nenhum workflow_dispatch publica Stable ou altera dispositivos físicos.
 
-Opcionalmente, pode-se configurar ORDAX_INTEGRATION_TOKEN como credencial
-GitHub App de escopo mínimo para permitir que o GitHub dispare os próprios
-eventos pull_request e toda a CI habitual; nesse caso o workflow **não**
-dispara o segundo conjunto de verificações. Essa credencial não é requisito
-para o caminho nativo. Nunca usar PAT pessoal amplo como atalho.
-
-Se o repositório proibir criação de PR pelo GitHub Actions, é necessário
-autorizar o controle administrativo correto ou fornecer uma credencial de
-GitHub App reduzida; sem isso, a proposta não é publicada.
+Com ORDAX_INTEGRATION_TOKEN, o GitHub App dispara os eventos nativos
+pull_request e a CI habitual; nesse caminho o workflow **não** dispara o
+segundo conjunto de verificações. Para atualizações de uma PR existente
+autorizada, GITHUB_TOKEN continua permitido e o workflow_dispatch executa
+os checks originais. Se o App não estiver provisionado, uma source nova não
+é publicada e o operador deve provisionar a credencial de escopo mínimo
+antes de tentar novamente.
 
 ## Ativação após o merge
 
@@ -121,7 +127,7 @@ python3 -m unittest discover -s tests -p test_source_integration_advance.py -v
 O teste inclui alteração de source, ausência de mudança relevante, seleção
 do commit de origem quando a main termina com documentação ou ferramentas
 Windows não consumidas, rollback proibido, idempotência, isolamento do grafo
-de oito arquivos Intelligence, autorização de source inativa e ciclo da PR
+portátil completo da Intelligence, autorização de source inativa e ciclo da PR
 única (paginação, verificação de repositório/lock, deduplicação e atualização
 sem force-push). Testes do consumidor continuam
 nos workflows originais, sem cópia do materializador nem outro updater.

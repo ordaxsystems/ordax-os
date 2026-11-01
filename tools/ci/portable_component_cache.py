@@ -73,7 +73,8 @@ COMPONENTS = {
     "local-ai": {
         "inputs": (
             # The external builder is immutable by its OS-owned exact commit
-            # and eight Git blob locks. This lock MUST invalidate any cached
+            # and complete portable source-graph pin. This lock MUST invalidate
+            # any cached
             # EROFS when the external builder source changes.
             "docs/contracts/intelligence-source.json",
             "tools/intelligence-source/materialize.py",

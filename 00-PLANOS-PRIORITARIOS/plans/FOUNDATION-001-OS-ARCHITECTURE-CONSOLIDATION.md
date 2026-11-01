@@ -33,7 +33,7 @@
 
 - [ ] Revalidar SHA/branch, PRs abertas, jobs obrigatórios, source locks, manifests e entrypoints em **todos os oito** repositórios: `ordax-os`, `ordax-surface`, `ordax-apps`, `ordax-runtime`, `ordax-platform`, `ordax-intelligence`, `ordax-creator` e `ordax-site`.
 - [ ] Construir matriz `owner → responsabilidade → consumidores → contrato → artefato → release → testes → status`. Gerar grafo de dependências/imports, detectar ciclos, consumo de `main` flutuante, caminhos relativos entre checkouts, clones/copias versionadas e código morto comprovado. Inventariar também feature flags, endpoints não chamados e workflows abandonados; preferir automação de inventário existente ou relatório simples, sem criar framework de auditoria permanente.
-- [ ] Reconciliar `docs/contracts/repository-ownership.json` com os oito owners, `repository-migration-status.json`, `module-boundaries.json` e docs dos repos. Quando houver `CODEOWNERS`, verificar alinhamento como mecanismo de revisão (não como segunda autoridade). **Achado conhecido:** o ownership atual ainda atribui `intelligence` ao OS e não cadastra `ordax-intelligence`; distinguir engine portátil de autorização/Memory/Supervisor/composição retidos no OS.
+- [ ] Reconciliar `docs/contracts/repository-ownership.json` com `repository-migration-status.json`, `module-boundaries.json` e docs dos repos. Quando houver `CODEOWNERS`, verificar alinhamento como mecanismo de revisão (não como segunda autoridade). **Fronteira já comprovada:** há sete autoridades operacionais; `ordax-intelligence` é somente a fonte candidata registrada em `docs/contracts/intelligence-source.json`. Sua ausência do mapa de owners ativos é intencional até o gate P0-B; o OS mantém autorização, Memory, Supervisor e composição Native.
 - [ ] Auditar SSOT visual `ordax-surface` versus `ordax-os/system/surface` (host, não UI); `ordax-apps` versus `system/apps` (apps removíveis versus Store/Settings/Account/System estruturais); `ordax-creator` versus `tools/creator` (app/core versus provas, payload e assinatura do OS); `ordax-site` versus gateways OS. Não apagar adapters legítimos por nomes parecidos.
 - [ ] Registrar cada defeito **com caminho, evidência, owner, consumidor, teste que falha, correção mínima, remoção esperada e PR existente**; não marcar hipóteses como bugs nem criar documento paralelo ao owner.
 
@@ -52,10 +52,20 @@ Inventário de consumidores, ciclos, flags e artefatos, além das provas
 Windows, continua aberto. Nenhuma etapa P0-A é marcada completa
 somente por esta correção documental/contratual.
 
+**Snapshot operacional adicional (2026-11-01):** consulta de branches main
+retornou OS `6e181598`, Surface `ae74b02a`, Apps `2a068bab`, Runtime
+`9e9bec72`, Platform `10c9e9bf`, Intelligence `025cb017`, Creator
+`600eb152` e Site `0db2cf72`. A busca de PRs abertas retornou 14 no OS
+(`#2396, #2383, #2343, #2296, #2243, #2142, #2135, #2035, #2009, #1980,
+#1841, #1791, #1780, #1778`) e uma em Apps (`#402`); as outras seis
+consultas não retornaram PRs. Isto é apenas snapshot da busca autenticada:
+não prova branch protection, checks obrigatórios, ausência de branches sem PR
+ou completude da matriz cross-repo. Revalidar antes de qualquer integração.
+
 
 ### P0-B — cutover de Intelligence sem código antigo (Windows primeiro)
 
-- [ ] Confirmar o `docs/contracts/intelligence-source.json` vigente, os oito blobs fixados, o `integration-candidate` e `cutover_complete=false`; verificar o estado atual no repo Intelligence antes de assumir que a migração terminou.
+- [x] Confirmar o `docs/contracts/intelligence-source.json` vigente, o grafo portátil completo fixado (nove blobs na revisão atual), o `integration-candidate` e `cutover_complete=false`; verificado contra a `main` do Intelligence sem assumir que a migração terminou. Evidência: lock, materializador, avanço automático e Owner slot derivados da árvore/lock canônicos; testes de expansão/redução, composição real com os nove blobs e pin `9ea04bc09618e1f0e5e1eb9b68c5330e8868a400`, cuja [Intelligence CI #41301047081](https://github.com/ordaxsystems/ordax-intelligence/actions/runs/41301047081) passou.
 - [ ] Separar motor portátil (`intelligence/runtime`, `model-router`, `local-ai/runtime`, streaming, compatibilidade e builder técnico) dos owners OS de `native-service`, `authorized-memory`, `client-actions`, `tool-grants`, Supervisor, modelos/locks, permissões, assinatura e distribuição.
 - [ ] Substituir consumidores da implementação OS por portas `ordax.intelligence/1`, `ordax.model-router/1` e `ordax.local-ai/1` e por artefatos/source fixados, sem import privado cross-repo; validar composição e inferência reais na plataforma **Windows prioritária**. Linux/Buildroot/QEMU só na janela autorizada.
 - [ ] Cobrir buffered/SSE, timeout, cancelamento, ausência de modelo, rejeição de `tool_calls`/ações não autorizadas, permissões, restart, modelo incompatível, falha do motor e recuperação; registrar limites de CPU/RAM quando testados de fato.
@@ -64,12 +74,16 @@ somente por esta correção documental/contratual.
 
 **Aceite P0-B:** um motor canônico, nenhum import do legado, contratos/testes de consumidor verdes, Desktop real funcional, falha fechada, rollback verificável e status canônico fiel.
 
+**Validação parcial do consumidor Windows (2026-11-01):** a CI de integração agora resolve o SHA do lock OS, materializa a fonte candidata e executa os testes de contratos no runner `windows-2022`. Essa prova usa backend fixture; não é inferência real, Desktop instalado, ativação nem rollback. O primeiro runner Windows revelou a diferença de modos POSIX do filesystem; o materializador agora valida o modo canônico do Git e as representações nativas Windows sem relaxar hashes, regularidade ou rejeição de links. P0-B continua aberto; as cinco implementações OS antigas permanecem no source até o cutover comprovado.
+
 ### P0-C — identidade, Platform e Runtime: uma autoridade por operação
 
-- [ ] Mapear emissão, renovação, validação, revogação e persistência de sessões; OAuth remoto, grants e filas em `ordax-platform`; gateway, sessão e aplicação de política local no `ordax-os`. Auditar concretamente `services/product-oauth`, `services/public-identity`, `services/product-gateway` e `services/product-mcp` **antes** de mover ou remover qualquer um.
-- [ ] Eliminar apenas implementações remotas duplicadas **comprovadas**; não remover gateway/adapters necessários, nem criar outra autoridade de login, política, permissões, sessão ou banco no Desktop, Apps ou Site.
+- [ ] Mapear emissão, renovação, validação, revogação e persistência de sessões; OAuth remoto, grants e filas em `ordax-platform`; gateway, sessão e aplicação de política local no `ordax-os`. A revisão de código/contratos identificou como limites a conferir `services/product-oauth`, `services/public-identity`, `services/product-gateway` e o entrypoint remoto atual em `ordax-platform` **antes** de qualquer corte de código.
+- [x] Auditar duplicação de Product MCP remoto: o contrato de ownership atribui o remoto a `ordax-platform` e proíbe `product-mcp-remote` no OS; `ordax-platform` identifica `control-plane/cloudflare/src/product_mcp_entry.ts` como entrypoint. No OS, `services/product-mcp/` continha apenas um README de proposta antiga, sem código, teste, workflow ou consumidor ativo; a busca por referências ao caminho encontrou somente este handoff. O README foi removido nesta change set. Nenhuma implementação funcional foi movida ou apagada.
 - [ ] Verificar `ordax-runtime` como owner único de host/device agent, computer-control e MCP local Windows; Desktop integra por API/IPC tipada e grants existentes, sem segundo dispatcher, executor, terminal genérico ou agente auxiliar disfarçado.
 - [ ] Testar sessão expirada, revogada, offline, reconnect, troca de Space, isolamento de device, privilégio mínimo e negativa de ações não autorizadas; preservar a distinção entre Conta, Space, Device e Profile Pack.
+
+**Auditoria parcial P0-C (2026-11-01, source e contratos):** `services/public-identity` no OS é o gateway de Conta, sessão e sync com adapter Supabase; cadastro/recuperação/fechamento continuam gated no contrato. `services/product-oauth` mais `services/product-gateway` são fronteiras de autorização/resource para first-party products (ex.: Achegue-se), com cliente desativado, authority HTTP fail-closed e scopes próprios; não aceitam credenciais/grants do Product MCP. O Platform usa Supabase Auth como issuer OAuth do cliente MCP e mantém grants remotos, fila, audit e projeção MCP em PostgreSQL. Os limites são compatíveis com `repository-ownership.json`; compartilhar o provider Supabase não cria uma segunda sessão ou autoridade de grants. Esta leitura ainda não prova o ciclo integrado de sessão/revogação em Windows real, offline/reconnect ou troca de Space/device; P0-C permanece aberto.
 - [ ] Remover rotas, bridges, flags e serviços de transição obsoletos **no mesmo corte validado** e atualizar os contratos/consumidores em cada repo owner.
 
 **Aceite P0-C:** uma autoridade remota, enforcement local claro, zero rota paralela de concessão e regressões de autenticação/permissão verificadas.
@@ -318,7 +332,7 @@ A autorização física/trust/EFI é controlada exclusivamente por seus contrato
 
 ## Próxima ação de execução (handoff imediato — 2026-11-01)
 
-**P0 agora, somente software e Windows Desktop:** revalidar a `main` atual e os PRs/CI dos oito repos; montar o inventário verificável de owners, imports, locks, artefatos, workflows e consumidores; abrir **uma única unidade de correção por owner** para cada defeito comprovado. Começar pelo conflito `docs/contracts/repository-ownership.json` × `ordax-intelligence` e pelo cutover ainda não concluído em `docs/contracts/intelligence-source.json`; em paralelo, auditar as responsabilidades reais de `services/product-oauth`/`services/public-identity` frente a `ordax-platform`, sem mover código funcional por suposição.
+**P0 agora, somente software e Windows Desktop:** revalidar a `main` atual e os PRs/CI dos oito repos; montar o inventário verificável de owners, imports, locks, artefatos, workflows e consumidores; abrir **uma única unidade de correção por owner** para cada defeito comprovado. Preservar a fronteira já validada: sete owners operacionais no OS e `ordax-intelligence` como fonte candidata, sem promovê-lo no contrato de ownership antes do P0-B. Prosseguir o cutover a partir do lock atual e da nova validação candidata em Windows CI; em paralelo, auditar as responsabilidades reais de `services/product-oauth`/`services/public-identity` frente a `ordax-platform`, sem mover código funcional por suposição.
 
 **Depois, ainda na janela atual:** confirmar se a composição versionada já existente (release protocol + source locks + contratos de componentes) consegue reconstruir o **mesmo** Desktop instalado; preencher apenas os campos/gates faltantes no owner existente; validar login/Conta, Spaces, Store/Apps, Aura, Files, Runtime/MCP, restart, atualização/rollback e segurança Electron no Windows real. Fazer limpeza definitiva de caminhos antigos **na PR que fecha cada cutover**, com testes de ausência e sem shims permanentes. Avaliar `ordax-desktop` apenas pelo gate objetivo deste plano; não criar o repositório antes da decisão.
 

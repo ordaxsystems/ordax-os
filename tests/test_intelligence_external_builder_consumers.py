@@ -85,6 +85,26 @@ class ExternalBuilderConsumerRegressionTests(unittest.TestCase):
                 self.assertIn("'" + name + "'", block)
         self.assertIn("python -m unittest tests.test_intelligence_external_builder_consumers -v", gate)
 
+    def test_windows_candidate_consumer_runs_the_os_pinned_source(self):
+        gate = GATE.read_text(encoding="utf-8")
+        start = gate.index("  verify-windows-consumer:")
+        windows_job = gate[start:]
+        for required in (
+            "runs-on: windows-2022",
+            "https://github.com/ordaxsystems/ordax-intelligence.git",
+            "checkout --quiet --detach $env:EXPECTED_SOURCE_SHA",
+            "tools/intelligence-source/materialize.py stage",
+            "tests/test_intelligence_external_integration.mjs",
+            "status -ne 'integration-candidate'",
+            "activation_authorized -ne $false",
+        ):
+            self.assertIn(required, windows_job)
+        pull_request, push = gate.split("  push:", 1)
+        for block in (pull_request, push):
+            self.assertIn("'docs/contracts/intelligence-source.json'", block)
+            self.assertIn("'tests/test_intelligence_external_integration.mjs'", block)
+            self.assertIn("'tests/test_intelligence_external_builder_consumers.py'", block)
+
     def test_mutated_legacy_build_and_unpinned_cache_are_rejected(self):
         original = QEMU.read_text(encoding="utf-8")
         legacy = original.replace(

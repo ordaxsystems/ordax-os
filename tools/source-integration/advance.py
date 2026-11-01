@@ -52,31 +52,12 @@ def module_for(root: Path, owner: str):
     return module
 
 
-def git_tree_blobs(checkout: Path, required: set[str]) -> dict[str, str]:
-    # Only the eight OS-consumed blobs: never mistake an unrelated upstream
-    # tool or Windows-only builder for a change to the OS's source graph.
-    raw = git(checkout, "ls-tree", "-rz", "HEAD", "--", *sorted(required)).stdout
-    result = {}
-    for record in raw.split(b"\0"):
-        if not record:
-            continue
-        try:
-            meta, raw_path = record.split(b"\t", 1)
-            mode, kind, blob = meta.decode("ascii").split()
-            path = raw_path.decode("utf-8")
-        except (ValueError, UnicodeError) as exc:
-            raise SourceAdvanceError("malformed source tree record") from exc
-        if path not in required or path in result or mode != "100644" or kind != "blob" or not SHA.fullmatch(blob):
-            raise SourceAdvanceError("Intelligence candidate changes the fixed source graph")
-        result[path] = blob
-    if set(result) != required:
-        raise SourceAdvanceError("Intelligence candidate has missing or unexpected source files")
-    return result
-
-
 def consumed_paths(owner: str, lock: dict) -> tuple[str, ...]:
     if owner == "intelligence":
-        return tuple(sorted(lock["source_paths"]))
+        # Every portable module below src is part of one source graph. The
+        # technical builder is consumed explicitly; optional platform builders
+        # elsewhere in tools/inference-builder remain independent.
+        return ("src", "tools/inference-builder/build.py")
     return tuple(OWNERS[owner]["paths"])
 
 
@@ -140,9 +121,9 @@ def advance(root: Path, owner: str, checkout: Path, apply: bool = False) -> dict
     ancestor = git(checkout, "merge-base", "--is-ancestor", old, target, accepted=(0, 1))
     if ancestor.returncode:
         raise SourceAdvanceError("candidate does not descend from the pinned source")
-    # Intelligence is an eight-blob source integration, not a mirror of its
-    # repository's independently evolving Windows builder and CI files.
-    # Only a change to one of the OS-pinned blobs can advance this lock.
+    # Intelligence integrates the complete portable src graph plus its one
+    # technical builder, not a mirror of independently evolving platform tools.
+    # Additions/removals below src therefore advance the immutable OS pin.
     owned_paths = consumed_paths(owner, previous)
     diff = git(checkout, "diff", "--quiet", old, target, "--", *owned_paths, accepted=(0, 1))
     if diff.returncode == 0:
@@ -150,7 +131,7 @@ def advance(root: Path, owner: str, checkout: Path, apply: bool = False) -> dict
     proposed = dict(previous)
     proposed["source_commit"] = target
     if owner == "intelligence":
-        proposed["source_paths"] = git_tree_blobs(checkout, set(previous["source_paths"]))
+        proposed["source_paths"] = materializer.source_tree_blobs(checkout)
     # Reuse the exact already-tested OS authority, including blob, mode,
     # symlink, size, cleanliness and public contract validation.
     materializer.verify_source(checkout, proposed)

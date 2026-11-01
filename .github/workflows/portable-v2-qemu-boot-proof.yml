@@ -304,21 +304,64 @@ jobs:
           if [ "$cache_hit" != 'true' ]; then
             cache_hit=false
           fi
-          python "$ORDAX_EXTERNAL_AI_BUILDER" --os-source "$GITHUB_WORKSPACE" verify \
-            --out-dir "$work/local-ai-runtime" \
-            > "$work/metadata/local-ai-runtime-verify.json"
-          # Both verifiers must agree on the exact legacy v4 signed ABI.
-          python bootstrap/local-ai-runtime/build.py verify \
-            --out-dir "$work/local-ai-runtime" \
-            > "$work/metadata/local-ai-runtime-legacy-abi-verify.json"
-          test -s "$work/local-ai-runtime/local-ai-runtime.erofs"
-          if [ "$cache_hit" = 'false' ]; then
+
+          if [ "$cache_hit" = 'true' ]; then
+            # First prove this cached output still matches the current exact build inputs.
+            python3 tools/ci/portable_component_cache.py verify \
+              --component local-ai \
+              --out-dir "$work/local-ai-runtime" \
+              --integration-commit "$ORDAX_SOURCE_COMMIT" \
+              --cache-hit true \
+              --receipt "$work/metadata/local-ai-cache-preflight.json"
+
+            # Preserve the original producer provenance and verify it against that
+            # exact committed OS tree. The separate cache receipt binds it to this
+            # integration commit after input fingerprints and bytes match.
+            build_source_commit="$(python3 - "$work/local-ai-runtime/.ordax-component-cache.json" <<'PY'
+          import json
+          import re
+          import sys
+          from pathlib import Path
+
+          manifest = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+          commit = manifest.get("build_source_commit")
+          if not isinstance(commit, str) or re.fullmatch(r"[0-9a-f]{40}", commit) is None:
+              raise SystemExit("cached producer commit is invalid")
+          print(commit)
+          PY
+          )"
+            if ! git cat-file -e "$build_source_commit^{commit}"; then
+              git fetch --no-tags origin "$build_source_commit"
+            fi
+            test "$(git rev-parse "$build_source_commit^{commit}")" = "$build_source_commit"
+            source="$work/local-ai-build-source"
+            test ! -e "$source"
+            git worktree add --detach "$source" "$build_source_commit"
+            test "$(git -C "$source" rev-parse --verify HEAD)" = "$build_source_commit"
+            ORDAX_SOURCE_COMMIT="$build_source_commit" python "$ORDAX_EXTERNAL_AI_BUILDER" \
+              --os-source "$source" verify \
+              --out-dir "$work/local-ai-runtime" \
+              > "$work/metadata/local-ai-runtime-verify.json"
+            ORDAX_SOURCE_COMMIT="$build_source_commit" python \
+              "$source/bootstrap/local-ai-runtime/build.py" verify \
+              --out-dir "$work/local-ai-runtime" \
+              > "$work/metadata/local-ai-runtime-legacy-abi-verify.json"
+          else
+            # A fresh build is produced and verified against the current exact HEAD.
+            python "$ORDAX_EXTERNAL_AI_BUILDER" --os-source "$GITHUB_WORKSPACE" verify \
+              --out-dir "$work/local-ai-runtime" \
+              > "$work/metadata/local-ai-runtime-verify.json"
+            python bootstrap/local-ai-runtime/build.py verify \
+              --out-dir "$work/local-ai-runtime" \
+              > "$work/metadata/local-ai-runtime-legacy-abi-verify.json"
             python3 tools/ci/portable_component_cache.py record \
               --component local-ai \
               --out-dir "$work/local-ai-runtime" \
               --source-commit "$ORDAX_SOURCE_COMMIT" \
               > "$work/metadata/local-ai-cache-record.json"
           fi
+
+          test -s "$work/local-ai-runtime/local-ai-runtime.erofs"
           python3 tools/ci/portable_component_cache.py verify \
             --component local-ai \
             --out-dir "$work/local-ai-runtime" \
