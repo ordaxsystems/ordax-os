@@ -62,8 +62,13 @@ function hasCompiledNativeEntry(root) {
   if(/<script\s+type="module"\s+src="\.\/main\.mjs"/.test(html))return false;
   // Every executable script must actually be a compiled, same-origin Vite
   // asset. A URL merely mentioned in HTML text cannot attest the entrypoint.
-  const scriptTags=[...html.matchAll(/<script\b[^>]*>/g)];
-  const compiledScript=/\ssrc="\/__ordax\/desktop-assets\/assets\/[a-zA-Z0-9][a-zA-Z0-9._-]{0,180}\.js"/;
+  // Match every script tag case-insensitively, including an untrusted upper-
+  // case tag following an otherwise valid compiled script. Inspect the WHOLE
+  // opening tag: a quoted fake src, duplicate src or event handler must not
+  // pass just because it contains the expected asset path as a substring.
+  // Vite emits a module script with an optional crossorigin attribute.
+  const scriptTags=[...html.matchAll(/<script\b[^>]*>/gi)];
+  const compiledScript=/^<script\s+(?:type="module"\s+)?(?:crossorigin(?:="anonymous")?\s+)?src="\/__ordax\/desktop-assets\/assets\/[a-zA-Z0-9][a-zA-Z0-9._-]{0,180}\.js"\s*>$/;
   if(!scriptTags.length || scriptTags.some(([tag])=>!compiledScript.test(tag)))return false;
   const matches=[...html.matchAll(/\/__ordax\/desktop-assets\/assets\/([a-zA-Z0-9][a-zA-Z0-9._-]{0,180}\.(?:js|css|png|svg|webp|woff2))/g)];
   if(!matches.some(([,file])=>file.endsWith('.js')))return false;
