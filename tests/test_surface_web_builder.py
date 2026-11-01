@@ -119,6 +119,56 @@ class SurfaceWebBuilderTests(unittest.TestCase):
                 with self.assertRaises(MODULE.SourceGraphError):
                     MODULE.discover_source_graph(root, PurePosixPath("system/composition/test/index.html"), allowed_prefixes=("system",))
 
+    def test_shared_source_graph_rejects_parent_symlink_outside_checkout(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "ordax-os"
+            external = Path(tmp) / "other-repository"
+            external.mkdir()
+            (external / "runtime.mjs").write_text("export default true;", encoding="utf-8")
+            parent = root / "system/components/external"
+            parent.parent.mkdir(parents=True)
+            try:
+                parent.symlink_to(external, target_is_directory=True)
+            except (OSError, NotImplementedError):
+                self.skipTest("directory symlinks unavailable on this test host")
+            with self.assertRaisesRegex(MODULE.SourceGraphError, "linked source path"):
+                MODULE.discover_source_graph(
+                    root, PurePosixPath("system/components/external/runtime.mjs"),
+                    allowed_prefixes=("system",),
+                )
+
+    def test_web_inventory_rejects_linked_workspace_source_before_build(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "ordax-os"
+            external = Path(tmp) / "visual-workspace"
+            external.mkdir()
+            (external / "view.tsx").write_text("export default true;", encoding="utf-8")
+            workspace = root / "system/surface/workspace"
+            workspace.parent.mkdir(parents=True)
+            try:
+                workspace.symlink_to(external, target_is_directory=True)
+            except (OSError, NotImplementedError):
+                self.skipTest("directory symlinks unavailable on this test host")
+            with self.assertRaisesRegex(MODULE.BundleError, "untrusted Web source directory"):
+                MODULE.discover_graph(root)
+
+    def test_shared_source_path_allows_regular_file_and_blocks_sibling_checkout(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "ordax-os"
+            external = Path(tmp) / "outside"
+            external.mkdir()
+            file = root / "system/contracts/port.mjs"
+            file.parent.mkdir(parents=True)
+            file.write_text("export const port = 1;", encoding="utf-8")
+            self.assertEqual(
+                MODULE.require_source_path(root, PurePosixPath("system/contracts/port.mjs")),
+                file,
+            )
+            with self.assertRaisesRegex(MODULE.SourceGraphError, "unsafe source path"):
+                MODULE.require_source_path(
+                    root, PurePosixPath("../outside/port.mjs"),
+                )
+
     def test_receipt_is_reproducible_and_detects_corruption(self):
         # Vite itself is built twice by the candidate CI; this test isolates receipt integrity.
         with tempfile.TemporaryDirectory() as tmp:
