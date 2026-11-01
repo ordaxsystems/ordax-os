@@ -89,6 +89,28 @@ function canonicalWindowsPackageExclusions(packageJson, autonomy) {
   return actual;
 }
 
+
+// Git candidate materialization must obey the SAME exclusion authority as
+// NSIS. Non-cone patterns retain root files but forbid unrelated producers;
+// all Linux/Web omissions are projections of the canonical package contract.
+function canonicalWindowsSparsePatterns(packageJson, autonomy) {
+  const exclusions = canonicalWindowsPackageExclusions(packageJson, autonomy);
+  const patterns = [
+    '/*', '!/*/',
+    '/system/**', '/docs/contracts/**', '/docs/evidence/**',
+    '/tools/windows-emulator/**', '/tools/windows-desktop/**',
+  ];
+  for (const exclusion of exclusions) {
+    const rel = exclusion.slice(1);
+    if (rel !== 'composition/web/**' &&
+        !/^[a-z0-9][a-z0-9._-]*(?:\/[a-z0-9][a-z0-9._-]*)*$/.test(rel)) {
+      throw Error('Unsafe Desktop Git sparse exclusion: ' + rel);
+    }
+    patterns.push('!/system/' + rel);
+  }
+  return patterns;
+}
+
 // Inspect the bytes extracted by NSIS using the SAME canonical exclusions
 // already validated against electron-builder. Never maintain another path list.
 function verifyInstalledWindowsPackage(installedRoot, packageJson, autonomy) {
@@ -170,4 +192,4 @@ function main() {
   process.stdout.write(JSON.stringify(report, null, 2) + '\n');
 }
 if (require.main === module) main();
-module.exports = { inventory, nativeBundleComparison, canonicalWindowsPackageExclusions, verifyInstalledWindowsPackage };
+module.exports = { inventory, nativeBundleComparison, canonicalWindowsPackageExclusions, canonicalWindowsSparsePatterns, verifyInstalledWindowsPackage };

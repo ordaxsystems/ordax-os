@@ -10,6 +10,7 @@ const { OFFICIAL_REMOTE } = require('./runtime.cjs');
 const { git, isTrusted, hasDesktopHostContract, dependencies } = require('./checkout.cjs');
 const { hasNativeBundle, buildNativeCandidate, verifyBundledNativeReceipt } = require('./native-build.cjs');
 const { prepareWindowsGitDeletion } = require('./git-cleanup.cjs');
+const { canonicalWindowsSparsePatterns } = require('./package-inventory.cjs');
 
 const SHA_RE = /^[0-9a-f]{40}$/;
 const CHANNEL_SCHEMA = 'ordax.desktop-dev-update-state/1';
@@ -462,8 +463,34 @@ async function stageMain({ userData, template, log = () => {}, remote = OFFICIAL
         '--filter=blob:none','--sparse',
         '--single-branch','--no-tags','--branch','main',OFFICIAL_REMOTE,staging],userData,120000);
       if (!clone.ok) return {status:'unavailable'};
+      // First materialize ONLY the verified candidate's policy and Windows
+      // owner metadata. Never trust a separately invented sparse path list.
+      const policy = await runGit(['-C',staging,'sparse-checkout','set',
+        'docs/contracts','tools/windows-desktop'],staging,60000);
+      if (!policy.ok) {
+        log('Windows Git could not materialize exact candidate policy');
+        return {status:'unavailable'};
+      }
+      let patterns;
+      try {
+        const readCandidateJson = (relative,maximum) => {
+          const path = join(staging,...relative.split('/'));
+          const stat = lstatSync(path);
+          if (!stat.isFile() || stat.isSymbolicLink() || stat.size < 2 ||
+              stat.size > maximum) throw Error('Untrusted Windows candidate policy file');
+          return JSON.parse(readFileSync(path,'utf8'));
+        };
+        const candidatePackage = readCandidateJson('tools/windows-desktop/package.json',32*1024);
+        const candidateAuthority = readCandidateJson('docs/contracts/build-autonomy.json',64*1024);
+        patterns = canonicalWindowsSparsePatterns(candidatePackage,candidateAuthority);
+      } catch(error) {
+        log('Windows Git candidate has no verified packaging policy: '+error.name);
+        return {status:'untrusted'};
+      }
+      // Preserve root package manifests and both verified Native owners;
+      // omit only Linux/USB or Web-only blobs excluded by canonical NSIS.
       const sparse = await runGit(['-C',staging,'sparse-checkout','set',
-        'system','docs/contracts','docs/evidence','tools/windows-emulator','tools/windows-desktop'],staging,60000);
+        '--no-cone',...patterns],staging,60000);
       if (!sparse.ok) {
         log('Windows Git sparse-checkout refused official main candidate: '+
           String(sparse.stderr||'no Git diagnostic').slice(-350));

@@ -260,3 +260,30 @@ docstrings superiores a esse limite. O verificador Git/Vercel já exige
 shebang e marcador em até **1024 caracteres** com inventário exato e
 consumidores POSIX; o teste de regressão passa a usar esse mesmo limite.
 Os fontes Linux não foram alterados nem a exigência de prova reduzida.
+
+### Atualização Windows também remove a dependência de fontes USB/Web — 2026-11-01
+
+Os 47 caminhos que o NSIS já excluía continuavam sendo materializados
+no checkout Git do `ordax-pull` por `sparse-checkout set system`.
+Isso cria downloads e fontes Linux desnecessárias dentro do candidato Windows,
+mesmo depois da limpeza do instalador.
+
+O atualizador agora lê `docs/contracts/build-autonomy.json` e
+`tools/windows-desktop/package.json` **do mesmo commit Git oficial**,
+por uma etapa inicial pequena de materialização. O módulo
+`package-inventory.cjs`, distribuído dentro do Electron, valida as
+exclusões NSIS do contrato antes da segunda etapa de checkout. A projeção
+`canonicalWindowsSparsePatterns` reusa esse exato conjunto em
+`git sparse-checkout set --no-cone`, retendo apenas arquivos raiz,
+`system/` permitido, contratos, evidências e os dois owners Windows.
+Nenhum caminho foi duplicado em outra lista.
+
+Política ausente, vinculada por symlink, fora do limite de tamanho,
+corrompida ou divergente impede atualização (fail-closed) sem mexer no
+known-good. A revisão preserva SHA, proveniência de Git, build Native
+do mesmo commit, transação pendente, tentativa de boot e rollback.
+Os testes com Git verdadeiro confirmam o checkout limpo e a ausência
+do Web e dos entrypoints Linux na versão candidata.
+
+Esta implementação não declara instalação física no PC do usuário nem
+homologação USB. Exige CI Desktop/Web/Foundation + NSIS do HEAD exato.

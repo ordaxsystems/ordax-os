@@ -14,7 +14,9 @@ const { readState, writeState, validateState, versionRoot, stageMain,
 
 test('Desktop DEV Git sparse checkout includes the existing MCP candidate proof',()=>{
   const source=readFileSync(join(__dirname,'dev-update.cjs'),'utf8');
-  assert.match(source,/'sparse-checkout','set',\s*'system','docs\/contracts','docs\/evidence','tools\/windows-emulator','tools\/windows-desktop'/);
+  assert.match(source,/'sparse-checkout','set',\s*'--no-cone',\.\.\.patterns/);
+  assert.match(source,/canonicalWindowsSparsePatterns\(candidatePackage,candidateAuthority\)/);
+  assert.match(source,/'sparse-checkout','set',\s*'docs\/contracts','tools\/windows-desktop'/);
   assert.doesNotMatch(source, /'tools\/surface-web'/,
     'Windows staged source must not materialize Web producer tools');
   const evidence=JSON.parse(readFileSync(join(__dirname,
@@ -299,6 +301,19 @@ function fixture(t) {
     source_repository:'ordaxsystems/ordax-surface',source_commit:'a'.repeat(40),
     visual_source_paths:['system/surface/ui','system/surface/workspace']};
   writeFileSync(join(source,'docs','contracts','surface-source.json'),JSON.stringify(surfaceLock));
+  // An immutable Git candidate brings the packaging/ownership SSOT before
+  // materializing the Native source. No installed-app path list is trusted.
+  writeFileSync(join(source,'docs','contracts','build-autonomy.json'),
+    readFileSync(join(__dirname,'../../docs/contracts/build-autonomy.json')));
+  const desktopOwner=join(source,'tools','windows-desktop');
+  mkdirSync(desktopOwner,{recursive:true});
+  writeFileSync(join(desktopOwner,'package.json'),readFileSync(join(__dirname,'package.json')));
+  mkdirSync(join(source,'system','surface','runtime'),{recursive:true});
+  writeFileSync(join(source,'system','surface','runtime','native_host_server.py'),
+    '#!/usr/bin/env python3\n# Linux-only source fixture\n');
+  writeFileSync(join(source,'system','entrypoint'),'#!/bin/sh\nexit 0\n');
+  mkdirSync(join(source,'system','composition','web'),{recursive:true});
+  writeFileSync(join(source,'system','composition','web','main.tsx'),'// Web only\n');
   writeFileSync(join(source,'.gitignore'),'node_modules/\nout/\n');
   gitCli(['add','.'],source);
   gitCli(['commit','-qm','first canonical Native source'],source);
@@ -359,6 +374,28 @@ function installVerifiedBundledFixture(f,sha) {
   }));
   return assets;
 }
+
+
+test('real Git update omits Linux/Web but retains Native and a clean immutable SHA',async t=>{
+  const f=fixture(t);
+  const staged=await stageMain({userData:f.userData,template:f.template,
+    runGit:f.offlineGit,buildCandidate:f.offlineBuild});
+  assert.equal(staged.status,'staged');
+  assert.equal(staged.sha,f.first);
+  const root=versionRoot(f.userData,f.first);
+  for(const path of [
+    'system/composition/native/index.html','docs/contracts/build-autonomy.json',
+    'docs/contracts/surface-source.json','tools/windows-desktop/package.json',
+    'tools/windows-emulator/dev-supervisor.mjs'
+  ]) assert.ok(existsSync(join(root,...path.split('/'))),path);
+  for(const path of [
+    'system/entrypoint','system/surface/runtime/native_host_server.py',
+    'system/composition/web/main.tsx','tools/surface-web/README.md'
+  ]) assert.equal(existsSync(join(root,...path.split('/'))),false,
+    'Git staging reintroduced Linux/Web source: '+path);
+  assert.equal(gitCli(['-C',root,'status','--porcelain'],root),'',
+    'staged official revision must stay clean with sparse worktree');
+});
 
 test('verified bundled main is current without staging, recompilation or a false health trial',async t=>{
   const f=fixture(t);

@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 const { mkdtempSync, mkdirSync, writeFileSync, symlinkSync, rmSync, readFileSync } = require('node:fs');
 const { tmpdir } = require('node:os');
 const { join } = require('node:path');
-const { inventory, nativeBundleComparison, canonicalWindowsPackageExclusions, verifyInstalledWindowsPackage } = require('./package-inventory.cjs');
+const { inventory, nativeBundleComparison, canonicalWindowsPackageExclusions, canonicalWindowsSparsePatterns, verifyInstalledWindowsPackage } = require('./package-inventory.cjs');
 
 test('inventory counts included bytes and exact Linux exclusions', () => {
   const root = mkdtempSync(join(tmpdir(), 'ordax-package-inventory-'));
@@ -23,6 +23,25 @@ test('inventory counts included bytes and exact Linux exclusions', () => {
     assert.match(report.fingerprint, /^[0-9a-f]{64}$/);
   } finally { rmSync(root,{ recursive:true, force:true }); }
 });
+
+test('Git update sparse patterns are an exact projection of the NSIS ownership',()=>{
+  const pkg=require('./package.json');
+  const authority=require('../../docs/contracts/build-autonomy.json');
+  const patterns=canonicalWindowsSparsePatterns(pkg,authority);
+  assert.deepEqual(patterns.slice(0,7),[
+    '/*','!/*/','/system/**','/docs/contracts/**','/docs/evidence/**',
+    '/tools/windows-emulator/**','/tools/windows-desktop/**'
+  ]);
+  assert.deepEqual(patterns.slice(7),canonicalWindowsPackageExclusions(pkg,authority)
+    .map(x=>'!/system/'+x.slice(1)));
+  assert.ok(patterns.includes('!/system/composition/web/**'));
+  assert.ok(patterns.includes('!/system/services/base-update/orchestrator.py'));
+  assert.ok(!patterns.includes('!/system/composition/native/**'));
+  const corrupted=structuredClone(authority);
+  corrupted.client_build_independence.linux_only_client_host_entrypoints[0]='../../escape.py';
+  assert.throws(()=>canonicalWindowsSparsePatterns(pkg,corrupted),/diverge|Unsafe/);
+});
+
 test('NSIS exclusions are exactly the canonical dependency contract, never extra Native files', () => {
   const pkg = require('./package.json');
   const contract = require('../../docs/contracts/build-autonomy.json');
