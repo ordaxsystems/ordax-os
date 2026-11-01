@@ -4,6 +4,8 @@ Status: CANONICAL DOCUMENTATION ROUTER
 
 This file is the entry point for documentation under `docs/`. Its purpose is to prevent stale plans and historical evidence from competing with current architecture.
 
+**P0 Desktop/Web delivery separation:** [`REMOVER-DEPENDENCIA.md`](../REMOVER-DEPENDENCIA.md) is the single operational roadmap. It has **plan** authority only; the executable graph remains `docs/contracts/build-autonomy.json` and implementation proof belongs in `docs/CURRENT-STATE.md`. No USB/Creator producer is required to build Windows or Web artifacts.
+
 ## Authority order
 
 When two files disagree, use this order:

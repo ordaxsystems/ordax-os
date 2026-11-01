@@ -144,6 +144,18 @@
     "shared_native_changes_require_usb_proof": true,
     "unknown_owner_changes_fail_closed": true,
     "identity_and_shared_contracts_remain_cross_mode": true,
-    "ci_path_filters_not_authority": true
+    "ci_path_filters_not_authority": true,
+    "separation_roadmap": "REMOVER-DEPENDENCIA.md",
+    "client_validation_workflows": {
+      "desktop-client": ".github/workflows/windows-desktop-dev.yml",
+      "web-client": ".github/workflows/surface-web-candidate.yml"
+    },
+    "windows_package_forbidden_linux_boot_paths": [
+      "entrypoint",
+      "supervisor",
+      "surface/bin/ordax-surface"
+    ],
+    "client_delivery_gate_decoupling_fully_proven": false,
+    "windows_physical_and_web_live_independence_proven": false
   }
 }

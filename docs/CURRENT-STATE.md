@@ -1,3 +1,16 @@
+Desktop/Web P0 implementation (2026-11-01; tracked by REMOVER-DEPENDENCIA.md):
+The artifact graph already treats Windows and Web as independent of USB Creator;
+current Windows/Web workflows do not call the USB producer. The active OS
+PR #1980 nevertheless changes the shared Native entrypoint and therefore
+legitimately triggers USB impact proof. Its Creator job fails before boot at
+Alpine Python 3.12.15-r0 versus 3.12.16-r0; this is NOT a Windows/Web
+compilation failure. The target is separate client delivery/promotion gates,
+not falsely marking the shared Native USB artifact safe. Root roadmap contains
+staged changes and acceptance gates. First Windows packaging reduction:
+exclude Linux-only boot executable entrypoints from the existing NSIS template;
+validate through exact inventory + installed NSIS tests before marking done.
+Surface cross-account workspace visual rehydration remains with Surface #33.
+
 Priority / delivery autonomy (2026-10-31):
 The active Windows Desktop release track has priority over Linux USB/Creator
 and Buildroot. Complete real installed Desktop and its essential Account,

@@ -483,3 +483,6 @@ The authoritative dependency relationship is
 exclusive client owners as lightweight; unknown and mixed deltas fail
 closed. Neither the client classifications nor the absence of a Creator
 build proves a released Desktop, Web login, Space creation UI, or Profile Pack.
+
+
+**Priority implementation directive (2026-11-01):** the root `REMOVER-DEPENDENCIA.md` is the execution roadmap for this ADR (not a second architectural owner). The Desktop installer must not include USB/Linux boot entrypoints or depend on the Creator producer. However, the shared Native entrypoint is currently still consumed by USB; its USB proof cannot be silently waived. Split the release/promotion gates and eventually the host-specific boot composition by dependency graph and verify with real Windows/Web artifacts. A failed USB producer cannot be misreported as a failed Windows/Web build, and a green client build does not authorize USB promotion.

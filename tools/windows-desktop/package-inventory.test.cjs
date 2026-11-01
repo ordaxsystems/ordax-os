@@ -81,3 +81,22 @@ test('installed Desktop includes exactly the OS-pinned DEV provenance but no uns
     item.from?.includes('ordax-product-agent.exe')),false,
     'unsigned DEV Runtime may never be silently bundled or installed');
 });
+
+test('Desktop artifact excludes Linux/USB boot executables without removing shared Native Surface',()=>{
+  const contract=require('../../docs/contracts/build-autonomy.json').client_build_independence;
+  const config=require('./package.json');
+  const selected=config.build.extraResources.filter(item=>
+    item.from==='../../system'&&item.to==='runtime-template/system');
+  assert.equal(selected.length,1);
+  const filter=selected[0].filter;
+  assert.ok(filter.includes('**/*'),'single shared Native source must remain included');
+  const roots=contract.windows_package_forbidden_linux_boot_paths;
+  assert.deepEqual(roots,['entrypoint','supervisor','surface/bin/ordax-surface']);
+  for(const path of roots)assert.ok(filter.includes('!'+path),'USB Linux boot executable still packaged: '+path);
+  const source=join(__dirname,'..','..','system');
+  const report=inventory(source,filter.slice(1));
+  assert.equal(roots.filter(path=>report.missingExclusions.includes(path)).length,0,
+    'Linux executable exclusion must be observed in the real source tree');
+  assert.ok(report.groups['composition/native']?.files>0,
+    'Windows still requires the single Native composition source');
+});

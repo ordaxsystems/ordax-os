@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Fail-closed Owner USB impact: separate CI/visual contracts from physical producer bytes."""
 import argparse
+import json
 import os
 from pathlib import Path
 import re
@@ -14,12 +15,15 @@ else:
 ROOT = Path(__file__).resolve().parents[2]
 WORKFLOW = ".github/workflows/creator-owner-dev-git.yml"
 SURFACE_LOCK = "docs/contracts/surface-source.json"
+CLIENT_AUTONOMY_CONTRACT = "docs/contracts/build-autonomy.json"
 INTELLIGENCE_WORKFLOW = ".github/workflows/intelligence-foundation.yml"
 LEGACY_PROFILE_DOC = "PLANO-06-PERFIS-PROFISSIONAIS-E-DISTRIBUICAO-SOB-DEMANDA.md"
 CURRENT_PROFILE_KNOWLEDGE_DOC = "docs/PROFILE-INTELLIGENCE-ARCHITECTURE.md"
 LEGACY_PROFILE_TRIGGER = f"      - '{LEGACY_PROFILE_DOC}'"
 CURRENT_PROFILE_TRIGGER = f"      - '{CURRENT_PROFILE_KNOWLEDGE_DOC}'"
 LIGHT_EXACT = frozenset({
+    # Root roadmap: delivery scheduling only, not kernel, USB, or media bytes.
+    "REMOVER-DEPENDENCIA.md",
     "docs/BUILD-AUTONOMY.md",
     "docs/DECISIONS.md",
     "docs/CURRENT-STATE.md",
@@ -195,6 +199,48 @@ def workflow_trigger_only(base, head, *, root=ROOT):
 
 
 
+
+def verified_client_delivery_contract_delta(base, head, *, root=ROOT):
+    """Allow ONLY exact addition of bounded client independence metadata.
+
+    Existing dependency graph/provenance/USB policy are byte-stable as parsed
+    JSON objects; changing any existing key reverts to full USB proof.
+    """
+    try:
+        before = json.loads(_git_show(base, CLIENT_AUTONOMY_CONTRACT, root))
+        after = json.loads(_git_show(head, CLIENT_AUTONOMY_CONTRACT, root))
+        old = before["client_build_independence"]
+        current = after["client_build_independence"]
+        if not isinstance(old, dict) or not isinstance(current, dict):
+            return False
+        original_without_client = dict(before)
+        updated_without_client = dict(after)
+        original_without_client.pop("client_build_independence", None)
+        updated_without_client.pop("client_build_independence", None)
+        if original_without_client != updated_without_client:
+            return False
+        if any(k not in current or current[k] != v for k, v in old.items()):
+            return False
+        additions = {k: v for k, v in current.items() if k not in old}
+        expected = {
+            "separation_roadmap": "REMOVER-DEPENDENCIA.md",
+            "client_validation_workflows": {
+                "desktop-client": ".github/workflows/windows-desktop-dev.yml",
+                "web-client": ".github/workflows/surface-web-candidate.yml",
+            },
+            "windows_package_forbidden_linux_boot_paths": [
+                "entrypoint", "supervisor", "surface/bin/ordax-surface",
+            ],
+            "client_delivery_gate_decoupling_fully_proven": False,
+            "windows_physical_and_web_live_independence_proven": False,
+        }
+        return bool(additions) and all(
+            k in expected and v == expected[k] for k, v in additions.items()
+        )
+    except (OSError, UnicodeError, ValueError, KeyError, TypeError,
+            subprocess.SubprocessError):
+        return False
+
 def verified_legacy_profile_trigger_migration(base, head, *, root=ROOT):
     """Only an exact two-entry Intelligence CI documentation path migration is light."""
     try:
@@ -249,6 +295,9 @@ def classify(base, head, *, root=ROOT):
             elif path == SURFACE_LOCK:
                 if not verified_surface_visual_source_lock_delta(base, head, root=root):
                     return True, "surface-lock-not-proven-visual-only"
+            elif path == CLIENT_AUTONOMY_CONTRACT:
+                if not verified_client_delivery_contract_delta(base, head, root=root):
+                    return True, "client-delivery-contract-unknown-or-producer-delta"
             elif path == INTELLIGENCE_WORKFLOW:
                 if not verified_legacy_profile_trigger_migration(base, head, root=root):
                     return True, "intelligence-workflow-not-exact-profile-doc-migration"

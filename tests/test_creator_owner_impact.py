@@ -25,7 +25,7 @@ class CreatorOwnerImpactTests(unittest.TestCase):
             subprocess.run(["git", "-C", str(self.root), *cmd], check=True, capture_output=True)
 
     def commit(self, workflow=None, lock=None, path=None,
-               intelligence_workflow=None, delete_path=None):
+               intelligence_workflow=None, delete_path=None, client_contract=None):
         if workflow is not None:
             f = self.root / impact.WORKFLOW
             f.parent.mkdir(parents=True, exist_ok=True)
@@ -39,6 +39,10 @@ class CreatorOwnerImpactTests(unittest.TestCase):
             if not f.is_file():
                 raise AssertionError("delete fixture path must exist")
             f.unlink()
+        if client_contract is not None:
+            f = self.root / impact.CLIENT_AUTONOMY_CONTRACT
+            f.parent.mkdir(parents=True, exist_ok=True)
+            f.write_text(json.dumps(client_contract, sort_keys=True) + "\n", encoding="utf-8")
         if lock is not None:
             f = self.root / impact.SURFACE_LOCK
             f.parent.mkdir(parents=True, exist_ok=True)
@@ -222,6 +226,56 @@ class CreatorOwnerImpactTests(unittest.TestCase):
         self.assertTrue(impact.classify(base, restored, root=self.root)[0])
         extended = self.commit(intelligence_workflow=source + "\\n# unrelated")
         self.assertTrue(impact.classify(restored, extended, root=self.root)[0])
+
+    def test_client_contract_metadata_addition_skips_usb_but_dependency_mutation_does_not(self):
+        contract = json.loads((ROOT / impact.CLIENT_AUTONOMY_CONTRACT).read_text(encoding="utf-8"))
+        new_keys = ("separation_roadmap", "client_validation_workflows",
+                    "windows_package_forbidden_linux_boot_paths",
+                    "client_delivery_gate_decoupling_fully_proven",
+                    "windows_physical_and_web_live_independence_proven")
+        old = json.loads(json.dumps(contract))
+        for key in new_keys:
+            old["client_build_independence"].pop(key)
+        base = self.commit(workflow=WORKFLOW.read_text(encoding="utf-8"),
+                           lock=VISUAL, client_contract=old)
+        changed = self.commit(client_contract=contract)
+        self.assertEqual(impact.classify(base, changed, root=self.root),
+                         (False, "nonproducer-contract-only"))
+        unsafe = json.loads(json.dumps(contract))
+        unsafe["target_relationships"]["desktop-client"].append("creator")
+        dangerous = self.commit(client_contract=unsafe)
+        self.assertEqual(impact.classify(changed, dangerous, root=self.root),
+                         (True, "client-delivery-contract-unknown-or-producer-delta"))
+
+    def test_client_workflows_have_no_direct_usb_creator_producer_dependency(self):
+        contract = json.loads((ROOT / "docs/contracts/build-autonomy.json").read_text(encoding="utf-8"))
+        independent = contract["client_build_independence"]
+        self.assertEqual(independent["separation_roadmap"], "REMOVER-DEPENDENCIA.md")
+        self.assertTrue((ROOT / independent["separation_roadmap"]).is_file())
+        for target, workflow in independent["client_validation_workflows"].items():
+            with self.subTest(target=target):
+                self.assertIn(target, ("desktop-client", "web-client"))
+                source = (ROOT / workflow).read_text(encoding="utf-8")
+                # Exclude prose comments: only executable jobs and actions count.
+                executable = "\n".join(line for line in source.splitlines()
+                                       if not line.lstrip().startswith("#"))
+                self.assertIn("jobs:", executable)
+                for forbidden in ("needs: build-and-publish", "needs: creator",
+                                  "uses: ./.github/actions/resolve-creator-source",
+                                  "tools/creator/", "bootstrap/dev-base/build.py",
+                                  "bootstrap/surface-runtime/build.py", "qemu-system",
+                                  "apk add --no-cache"):
+                    self.assertNotIn(forbidden, executable)
+        self.assertFalse(independent["client_delivery_gate_decoupling_fully_proven"])
+        self.assertFalse(independent["windows_physical_and_web_live_independence_proven"])
+
+    def test_root_dependency_roadmap_is_nonproducer_but_unknown_root_stays_heavy(self):
+        base = self.commit(WORKFLOW.read_text(encoding="utf-8"), VISUAL)
+        plan = self.commit(path="REMOVER-DEPENDENCIA.md")
+        self.assertEqual(impact.classify(base, plan, root=self.root),
+                         (False, "nonproducer-contract-only"))
+        dangerous = self.commit(path="UNKNOWN-BOOT-GATE.md")
+        self.assertTrue(impact.classify(plan, dangerous, root=self.root)[0])
 
     def test_build_autonomy_has_no_creator_dependency_for_web_or_desktop(self):
         contract = json.loads((ROOT / "docs/contracts/build-autonomy.json").read_text(encoding="utf-8"))

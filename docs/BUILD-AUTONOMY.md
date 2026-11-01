@@ -217,3 +217,10 @@ This is an artifact and release gate boundary, **not a fork of the product**:
 - **CI ownership:** `tools/ci/creator_owner_impact.py` recognizes only the exact client-exclusive roots and reviewed pure client contracts/tests. Web/Windows still run their respective builds and tests. Unknown or mixed deltas trigger the USB producer; the classifier cannot replace product tests, disable required checks or claim runtime availability.
 
 The executable build graph SSOT is `docs/contracts/build-autonomy.json#client_build_independence`; the Python impact classifier and `tests/test_creator_owner_impact.py` verify routing. Expensive USB gates must not be coupled to a Desktop/Web-only PR. A one-time shared Native entrypoint migration remains a genuinely shared change; it may not be relabeled merely to save CI time.
+
+
+## P0 execution roadmap: remove Desktop/Web dependency on USB Creator (2026-11-01)
+
+The **single** root roadmap is [`REMOVER-DEPENDENCIA.md`](../REMOVER-DEPENDENCIA.md). It is subordinate to the machine contract `docs/contracts/build-autonomy.json#client_build_independence` and tracks concrete status/gates. Client artifacts must remain buildable while the USB producer is broken. Currently separate Windows/Web jobs already meet that direct build invariant, but the physical USB check may still block a mixed Native PR merge; branch ruleset access was denied during this audit (403). No gate may be waived without an independently verified replacement.
+
+The first safe packaging reduction removes only the Linux USB boot executables from the Windows NSIS runtime template with exact exclusions and an inventory regression. Complete Linux/Native/Windows import-graph analysis and installed NSIS proof are still pending. The Linux Alpine/Python mismatch belongs exclusively to the USB producer and is not to be repaired by adding Alpine or Linux tooling to Windows/Web.
