@@ -326,3 +326,9 @@ gate físico Linux/Creator. Nenhuma dependência do kernel ou
 runtime Native compartilhado foi removida.
 A PR #1980 segue Draft por causa da reidratação visual
 de contas não resolvida na Surface; sem declaração de E2E físico.
+
+**Fail-closed no ciclo de remoção:** o teste de commits reais agora trata a
+**inclusão e a exclusão** de um módulo Python não classificado como BUILD
+obrigatório; apenas uma alteração *posterior* a um módulo já verificado é
+candidata a SKIP. O verificador de produção já tinha essa política correta:
+a revisão ajusta somente a asserção do fixture, não a regra de segurança.

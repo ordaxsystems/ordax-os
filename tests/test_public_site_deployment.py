@@ -240,11 +240,16 @@ class PublicSiteDeploymentTests(unittest.TestCase):
             self.assertEqual(ignored(restored_support, unknown_module), 1)
             (work / "system/surface/runtime/new_unreviewed_module.py").unlink()
             restored_inventory = commit("Restore exact Linux Python inventory")
-            self.assertEqual(ignored(unknown_module, restored_inventory), 0)
+            self.assertEqual(ignored(unknown_module, restored_inventory), 1,
+                             "Removing unknown Python is still an unclassified change")
+            write("system/surface/runtime/native_account_gateway.py",
+                  "from __future__ import annotations\n# Proven support after removal\n")
+            verified_after_recovery = commit("Verified Linux support after inventory recovery")
+            self.assertEqual(ignored(restored_inventory, verified_after_recovery), 0)
 
             write("system/composition/native/main.mjs", "export const native=false;\n")
             native_changed = commit("shared Native source changed")
-            self.assertEqual(ignored(restored_inventory, native_changed), 1)
+            self.assertEqual(ignored(verified_after_recovery, native_changed), 1)
 
             write("system/composition/web/main.tsx", "export const web=false;\n")
             web_changed = commit("Web-only source changed")
