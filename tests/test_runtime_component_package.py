@@ -432,7 +432,7 @@ class RuntimeComponentPackageTests(unittest.TestCase):
                     if name == builder.MANIFEST_NAME:
                         manifest = json.loads(payload.decode("utf-8"))
                         manifest["component"]["owner"] = ["untrusted"]
-                        payload = (json.dumps(manifest, sort_keys=True) + "\\n").encode("utf-8")
+                        payload = (json.dumps(manifest, sort_keys=True) + "\n").encode("utf-8")
                     output.writestr(builder.zip_info(name), payload)
             with self.assertRaisesRegex(
                 builder.ComponentPackageError, "component package owner is invalid"
