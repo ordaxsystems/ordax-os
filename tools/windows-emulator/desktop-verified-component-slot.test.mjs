@@ -708,7 +708,7 @@ test("Windows Store remote replay and equivocation preserve the last-known-good 
 
 
 
-async function serveGoStoreLifecycle(t, fixture, execFileImpl) {
+async function serveGoStoreLifecycle(t, fixture, execFileImpl, options = {}) {
   const catalog = createDesktopVerifiedStoreCatalogMiddleware({
     systemRoot: fixture.osRoot, verifierRoot: fixture.verifierRoot,
     userData: fixture.userData, platform: "win32", execFileImpl,
@@ -716,7 +716,7 @@ async function serveGoStoreLifecycle(t, fixture, execFileImpl) {
   const lifecycle = createDesktopStoreLifecycleMiddleware({
     systemRoot: fixture.osRoot, verifierRoot: fixture.verifierRoot,
     userData: fixture.userData, catalogReader: catalog.readVerifiedLocalCatalog,
-    platform: "win32", execFileImpl,
+    platform: "win32", execFileImpl, ...options,
   });
   const server = createServer((req, res) => catalog(req, res, () =>
     lifecycle(req, res, () => { res.writeHead(418); res.end(); })));
