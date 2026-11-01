@@ -319,7 +319,7 @@ jobs:
               --integration-commit "$ORDAX_SOURCE_COMMIT" \
               --cache-hit "$cache_hit" \
               --receipt "$metadata/independent-base-component-reuse.json"
-          else
+          elif [ "$ORDAX_INDEPENDENT_PROFILE" = owner-development ]; then
             cache_hit='${{ steps.independent-owner-cache.outputs.cache-hit }}'
             if [ "$cache_hit" != true ]; then cache_hit=false; fi
             if [ "$cache_hit" = false ]; then
@@ -333,8 +333,7 @@ jobs:
               --integration-commit "$ORDAX_SOURCE_COMMIT" --cache-hit "$cache_hit" \
               --receipt "$metadata/independent-owner-component-reuse.json"
             echo "ORDAX_OWNER_BASE_CACHE_HIT=$cache_hit"
-          fi
-          if [ "$ORDAX_INDEPENDENT_PROFILE" = stable-mvp ]; then
+          elif [ "$ORDAX_INDEPENDENT_PROFILE" = stable-mvp ]; then
             cache_hit='${{ steps.independent-stable-cache.outputs.cache-hit }}'
             if [ "$cache_hit" != true ]; then cache_hit=false; fi
             if [ "$cache_hit" = false ]; then
@@ -348,6 +347,9 @@ jobs:
               --integration-commit "$ORDAX_SOURCE_COMMIT" --cache-hit "$cache_hit" \
               --receipt "$metadata/independent-stable-component-reuse.json"
             echo "ORDAX_STABLE_BASE_CACHE_HIT=$cache_hit"
+          else
+            echo "unsupported Independent Base profile: $ORDAX_INDEPENDENT_PROFILE" >&2
+            exit 1
           fi
       - name: Save verified independent base component
         if: env.ORDAX_INDEPENDENT_PROFILE == 'minimal' && steps.independent-base-cache.outputs.cache-hit != 'true'
