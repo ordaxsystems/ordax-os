@@ -60,6 +60,11 @@ function compiledBundleSha256(sourceRoot,emittedRoot=null) {
 function hasCompiledNativeEntry(root) {
   const html=readFileSync(join(root,'system','composition','native','index.html'),'utf8');
   if(/<script\s+type="module"\s+src="\.\/main\.mjs"/.test(html))return false;
+  // Every executable script must actually be a compiled, same-origin Vite
+  // asset. A URL merely mentioned in HTML text cannot attest the entrypoint.
+  const scriptTags=[...html.matchAll(/<script\b[^>]*>/g)];
+  const compiledScript=/\ssrc="\/__ordax\/desktop-assets\/assets\/[a-zA-Z0-9][a-zA-Z0-9._-]{0,180}\.js"/;
+  if(!scriptTags.length || scriptTags.some(([tag])=>!compiledScript.test(tag)))return false;
   const matches=[...html.matchAll(/\/__ordax\/desktop-assets\/assets\/([a-zA-Z0-9][a-zA-Z0-9._-]{0,180}\.(?:js|css|png|svg|webp|woff2))/g)];
   if(!matches.some(([,file])=>file.endsWith('.js')))return false;
   const assets=join(root,'assets');

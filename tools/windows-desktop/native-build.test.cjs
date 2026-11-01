@@ -90,6 +90,10 @@ test('installed fallback rejects wrong Surface source and modified compiled byte
  writeFileSync(target,JSON.stringify({...receipt,bundle_sha256:compiledBundleSha256(root,built)}));
  assert.equal(verifyBundledNativeReceipt(root,built),false,
    'missing referenced compiled JavaScript cannot pass through the receipt');
+ writeFileSync(html,'<script src="https://untrusted.example/app.js"></script><p>/__ordax/desktop-assets/assets/app.js</p>');
+ writeFileSync(target,JSON.stringify({...receipt,bundle_sha256:compiledBundleSha256(root,built)}));
+ assert.equal(verifyBundledNativeReceipt(root,built),false,
+   'a compiled asset path mentioned in HTML cannot attest an external script');
  writeFileSync(html,canonicalHtml);
  writeFileSync(target,JSON.stringify({...receipt,bundle_sha256:compiledBundleSha256(root,built)}));
  assert.equal(verifyBundledNativeReceipt(root,built),true);
