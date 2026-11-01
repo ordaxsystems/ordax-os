@@ -42,11 +42,6 @@
         "filter": [
           "**/*",
           "!surface/runtime/packages.txt",
-          "!surface/runtime/media_runtime_probe.py",
-          "!surface/runtime/audio-session.sh",
-          "!surface/runtime/physical_ata_probe.py",
-          "!surface/runtime/physical_kernel_log_probe.py",
-          "!surface/runtime/physical_performance_probe.py",
           "!entrypoint",
           "!supervisor",
           "!surface/bin/ordax-surface",
@@ -71,6 +66,11 @@
           "!surface/runtime/native_install_broker.sh",
           "!surface/runtime/network_broker.sh",
           "!surface/runtime/resolver_sync.sh",
+          "!surface/runtime/audio-session.sh",
+          "!surface/runtime/media_runtime_probe.py",
+          "!surface/runtime/physical_ata_probe.py",
+          "!surface/runtime/physical_kernel_log_probe.py",
+          "!surface/runtime/physical_performance_probe.py",
           "!composition/web/**"
         ]
       },

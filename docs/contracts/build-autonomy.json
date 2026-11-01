@@ -178,8 +178,15 @@
       "surface/bin/ordax-proof-runtime.sh",
       "surface/runtime/native_install_broker.sh",
       "surface/runtime/network_broker.sh",
-      "surface/runtime/resolver_sync.sh"
+      "surface/runtime/resolver_sync.sh",
+      "surface/runtime/audio-session.sh"
     ],
-    "linux_only_client_package_manifest": "surface/runtime/packages.txt"
+    "linux_only_client_package_manifest": "surface/runtime/packages.txt",
+    "linux_only_client_probe_paths": [
+      "surface/runtime/media_runtime_probe.py",
+      "surface/runtime/physical_ata_probe.py",
+      "surface/runtime/physical_kernel_log_probe.py",
+      "surface/runtime/physical_performance_probe.py"
+    ]
   }
 }

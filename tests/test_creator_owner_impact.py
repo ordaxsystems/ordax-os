@@ -239,6 +239,7 @@ class CreatorOwnerImpactTests(unittest.TestCase):
                     "windows_package_forbidden_linux_boot_paths",
                     "windows_package_forbidden_linux_shell_paths",
                     "linux_only_client_package_manifest",
+                    "linux_only_client_probe_paths",
                     "client_delivery_gate_decoupling_fully_proven",
                     "windows_physical_and_web_live_independence_proven")
         old = json.loads(json.dumps(contract))
@@ -250,6 +251,10 @@ class CreatorOwnerImpactTests(unittest.TestCase):
             source = self.root / "system" / relative
             source.parent.mkdir(parents=True, exist_ok=True)
             source.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+        for relative in contract["client_build_independence"]["linux_only_client_probe_paths"]:
+            probe = self.root / "system" / relative
+            probe.parent.mkdir(parents=True, exist_ok=True)
+            probe.write_text("#!/usr/bin/env python3\nprint('ok')\n", encoding="utf-8")
         manifest_path = self.root / "system" / contract["client_build_independence"]["linux_only_client_package_manifest"]
         manifest_path.parent.mkdir(parents=True, exist_ok=True)
         manifest_path.write_text("alpine-baselayout\nbusybox\n", encoding="utf-8")
@@ -289,6 +294,17 @@ class CreatorOwnerImpactTests(unittest.TestCase):
                 self.assertTrue(relative.startswith(("rescue/", "services/", "surface/")))
                 self.assertTrue((ROOT / "system" / relative).read_bytes().startswith(b"#!/bin/sh\n"))
 
+    def test_linux_only_physical_probes_have_proven_python_entrypoints(self):
+        client = json.loads((ROOT / impact.CLIENT_AUTONOMY_CONTRACT).read_text(encoding="utf-8"))["client_build_independence"]
+        probes = client["linux_only_client_probe_paths"]
+        self.assertEqual(len(probes), 4)
+        for relative in probes:
+            with self.subTest(path=relative):
+                self.assertTrue(relative.startswith("surface/runtime/"))
+                self.assertTrue((ROOT / "system" / relative).read_bytes().startswith(b"#!/usr/bin/env python3\n"))
+        self.assertIn("surface/runtime/audio-session.sh",
+                      client["windows_package_forbidden_linux_shell_paths"])
+
     def test_web_only_composition_is_excluded_from_windows_not_web_delivery(self):
         scope = json.loads((ROOT / "docs/contracts/build-autonomy.json").read_text(encoding="utf-8"))
         self.assertIn("system/composition/web/",
@@ -310,7 +326,8 @@ class CreatorOwnerImpactTests(unittest.TestCase):
         self.assertIn("paths: *desktop_product_sources", windows)
         self.assertIn("- 'system/**'", windows)
         for field in ("windows_package_forbidden_linux_boot_paths",
-                      "windows_package_forbidden_linux_shell_paths"):
+                      "windows_package_forbidden_linux_shell_paths",
+                      "linux_only_client_probe_paths"):
             for path in contract["client_build_independence"][field]:
                 self.assertEqual(windows.count(f"      - '!system/{path}'"), 1,
                                  "Linux-only input must not rebuild Windows CI")

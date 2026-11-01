@@ -131,6 +131,8 @@ class PublicSiteDeploymentTests(unittest.TestCase):
             write("system/composition/web/main.tsx", "export const web=true;\n")
             for path in linux:
                 write("system/" + path, "#!/bin/sh\nexit 0\n")
+            for path in boundaries["linux_only_client_probe_paths"]:
+                write("system/" + path, "#!/usr/bin/env python3\nprint('ok')\n")
             package_path = "system/" + boundaries["linux_only_client_package_manifest"]
             write(package_path, "alpine-baselayout\nbusybox\n")
             baseline = commit("real canonical sources")
@@ -150,9 +152,14 @@ class PublicSiteDeploymentTests(unittest.TestCase):
             boot_only = commit("Linux USB entrypoint changed")
             self.assertEqual(ignored(linux_only, boot_only), 0)
 
+            write("system/surface/runtime/physical_ata_probe.py",
+                  "#!/usr/bin/env python3\nprint('updated')\n")
+            probe_only = commit("Linux-only sysfs diagnostic changed")
+            self.assertEqual(ignored(boot_only, probe_only), 0)
+
             write("system/composition/native/main.mjs", "export const native=false;\n")
             native_changed = commit("shared Native source changed")
-            self.assertEqual(ignored(boot_only, native_changed), 1)
+            self.assertEqual(ignored(probe_only, native_changed), 1)
 
             write("system/composition/web/main.tsx", "export const web=false;\n")
             web_changed = commit("Web-only source changed")

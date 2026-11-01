@@ -274,6 +274,11 @@ on:
       - '!system/surface/runtime/native_install_broker.sh'
       - '!system/surface/runtime/network_broker.sh'
       - '!system/surface/runtime/resolver_sync.sh'
+      - '!system/surface/runtime/audio-session.sh'
+      - '!system/surface/runtime/media_runtime_probe.py'
+      - '!system/surface/runtime/physical_ata_probe.py'
+      - '!system/surface/runtime/physical_kernel_log_probe.py'
+      - '!system/surface/runtime/physical_performance_probe.py'
   pull_request:
     paths:
       - 'docs/contracts/diagnostics.json'
@@ -536,6 +541,11 @@ on:
       - '!system/surface/runtime/native_install_broker.sh'
       - '!system/surface/runtime/network_broker.sh'
       - '!system/surface/runtime/resolver_sync.sh'
+      - '!system/surface/runtime/audio-session.sh'
+      - '!system/surface/runtime/media_runtime_probe.py'
+      - '!system/surface/runtime/physical_ata_probe.py'
+      - '!system/surface/runtime/physical_kernel_log_probe.py'
+      - '!system/surface/runtime/physical_performance_probe.py'
   workflow_dispatch:
 
 permissions:

@@ -171,3 +171,23 @@ test('Windows NSIS includes no Web-only build tools but retains its own Native c
   assert.ok(resources.some(x=>x.to==='runtime-template/toolchain/node_modules.tar.gz'),
     'Windows must preserve verified offline Vite for staged Native updates');
 });
+
+test('Windows package excludes verified Linux-only Python diagnostic probes',()=>{
+  const client=require('../../docs/contracts/build-autonomy.json').client_build_independence;
+  const system=require('./package.json').build.extraResources.filter(x=>
+    x.from==='../../system'&&x.to==='runtime-template/system');
+  assert.equal(system.length,1);
+  const filter=system[0].filter;
+  const probes=client.linux_only_client_probe_paths;
+  assert.equal(probes.length,4);
+  const root=join(__dirname,'..','..','system');
+  const report=inventory(root,filter.slice(1));
+  for(const path of probes){
+    assert.equal(readFileSync(join(root,path),'utf8').startsWith('#!/usr/bin/env python3\n'),true,
+      'only verified source probes may be excluded: '+path);
+    assert.ok(filter.includes('!'+path),'Linux probe re-entered Windows package: '+path);
+    assert.ok(!report.missingExclusions.includes(path),'Linux probe exclusion unproven: '+path);
+  }
+  assert.ok(report.groups['composition/native']?.files>0,
+    'Linux probe exclusions must not remove the shared Native consumer');
+});

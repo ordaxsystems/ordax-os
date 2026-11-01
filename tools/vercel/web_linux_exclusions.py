@@ -21,26 +21,34 @@ def linux_only_exclusions() -> list[str]:
     client = source["client_build_independence"]
     boot = client["windows_package_forbidden_linux_boot_paths"]
     shells = client["windows_package_forbidden_linux_shell_paths"]
+    probes = client["linux_only_client_probe_paths"]
     manifest = client["linux_only_client_package_manifest"]
     if manifest != "surface/runtime/packages.txt":
         raise ValueError("unrecognized Linux package manifest")
     if not isinstance(boot, list) or not isinstance(shells, list) or len(boot) != 3 or not shells:
         raise ValueError("missing canonical Linux-only source classification")
-    paths = boot + shells
+    if (not isinstance(probes, list) or len(probes) != 4
+            or any(not isinstance(item, str) or not re.fullmatch(
+                r"surface/runtime/(?:media_runtime|physical_(?:ata|kernel_log|performance))_probe\.py",
+                item) for item in probes)):
+        raise ValueError("invalid Linux-only probes")
+    paths = boot + shells + probes
     if len(set(paths)) != len(paths):
         raise ValueError("duplicate Linux exclusion")
     for rel in paths:
         if (not isinstance(rel, str) or not SAFE.fullmatch(rel)
                 or any(segment in ("", ".", "..") for segment in rel.split("/"))
-                or (rel not in boot and not rel.endswith(".sh") and not re.fullmatch(
-                    r"surface/bin/ordax-[a-z0-9-]+", rel))):
+                or (rel not in boot and rel not in probes and
+                    not rel.endswith(".sh") and
+                    not re.fullmatch(r"surface/bin/ordax-[a-z0-9-]+", rel))):
             raise ValueError("unsafe Linux exclusion")
         file = ROOT / "system" / rel
         if file.is_symlink() or not file.is_file() or file.stat().st_size > 512 * 1024:
             raise ValueError("unverified Linux source")
         with file.open("rb") as handle:
-            if handle.read(10) != b"#!/bin/sh\n":
-                raise ValueError("exclusion is not a Linux shell entrypoint")
+            expected = b"#!/usr/bin/env python3\n" if rel in probes else b"#!/bin/sh\n"
+            if handle.read(len(expected)) != expected:
+                raise ValueError("unverified Linux-only executable")
     # Alpine package selection is a Linux producer, never a Web client input.
     # Fail closed on an absent, linked, oversized or unexpected manifest.
     package_source = ROOT / "system" / manifest

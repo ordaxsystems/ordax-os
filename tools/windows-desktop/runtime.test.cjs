@@ -141,12 +141,12 @@ test('Windows package excludes Linux-only Alpine package declaration without dro
   assert.equal(system[0].from, '../../system');
   assert.deepEqual(system[0].filter, [
     '**/*', '!surface/runtime/packages.txt',
-    '!surface/runtime/media_runtime_probe.py', '!surface/runtime/audio-session.sh',
-    '!surface/runtime/physical_ata_probe.py', '!surface/runtime/physical_kernel_log_probe.py', '!surface/runtime/physical_performance_probe.py',
     ...require('../../docs/contracts/build-autonomy.json').client_build_independence
       .windows_package_forbidden_linux_boot_paths.map(path=>'!'+path),
     ...require('../../docs/contracts/build-autonomy.json').client_build_independence
       .windows_package_forbidden_linux_shell_paths.map(path=>'!'+path),
+    ...require('../../docs/contracts/build-autonomy.json').client_build_independence
+      .linux_only_client_probe_paths.map(path=>'!'+path),
     '!composition/web/**',
   ]);
   const workflow = readFileSync(join(__dirname, '../../.github/workflows/windows-desktop-dev.yml'), 'utf8');

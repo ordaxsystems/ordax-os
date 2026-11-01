@@ -1,3 +1,16 @@
+Remoção de dependências Linux exclusivas de Windows/Web (P0, 2026-11-01):
+O pacote NSIS e Web já excluíam várias sondas físicas, mas quatro scripts
+Python de diagnóstico Linux e a sessão de áudio POSIX ainda apareciam em
+listas dispersas. O contrato build-autonomy.json agora agrupa os quatro
+probes (linux_only_client_probe_paths) e audio-session.sh no conjunto
+existente de shells Linux, conservando o mesmo conteúdo permitido no NSIS
+Windows e cortando triggers Web/Vercel para arquivos somente físicos Linux.
+Não se exclui qualquer módulo Python nativo compartilhado. Web, Foundation
+e OS required client checks da revisão corrente ainda precisam de CI.
+Creator USB permanece separado, sem waiver dos entrypoints Native reais.
+A entrega física Windows continua não homologada; SSOT operacional:
+REMOVER-DEPENDENCIA.md.
+
 Separação Windows/Web ↔ USB — atualização 2026-11-01:
 PR OS #1980 HEAD eca2f3d1: 15 checks passaram (Windows NSIS,
 Web Candidate, Foundation, Site/gateway), 2 skips, 1 falha independente

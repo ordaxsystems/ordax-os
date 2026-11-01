@@ -291,3 +291,20 @@ list and fails closed (BUILD) on any unknown state; an invalid/changed
 source owner is never silently excluded from the Web deployment gate.
 The Creator impact classifier verifies the metadata addition and exact
 Git source bytes, without reducing Native shared USB proof.
+
+### Linux-only physical probes and POSIX audio session
+
+Four existing Python probes (`surface/runtime/media_runtime_probe.py`,
+`physical_ata_probe.py`, `physical_kernel_log_probe.py`,
+`physical_performance_probe.py`) and the POSIX `audio-session.sh`
+are Linux physical-runtime evidence tools, **not** Windows Native or
+browser Web payloads. Each has a verified executable shebang and is
+already omitted from the Windows package. The single
+`build-autonomy.json#client_build_independence` owns their client
+exclusions: `linux_only_client_probe_paths` and the existing
+`windows_package_forbidden_linux_shell_paths`, respectively.
+The NSIS exact filter is reconciled against these arrays; Web PR/push
+filters and the Vercel read-only impact projector ignore only those
+exact source paths. Unlisted Python code is **never** excluded.
+Physical USB builds still own these files, and any unknown/corrupt
+source/contract change is a build-trigger, not a waiver.
