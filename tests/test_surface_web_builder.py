@@ -49,9 +49,68 @@ class SurfaceWebBuilderTests(unittest.TestCase):
             graph = MODULE.discover_source_graph(root, PurePosixPath("system/composition/test/index.html"), allowed_prefixes=("system",))
             self.assertIn(PurePosixPath("system/components/demo/demo.css"), graph)
 
+    def test_shared_graph_tracks_commonjs_require_resolve_and_spaced_dynamic_import(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            files = {
+                "system/components/demo/entry.cjs": (
+                    'const helper = require ("./helper.cjs");\\n'
+                    'const meta = require.resolve("./meta.json");\\n'
+                    'const module = import ("./extension.mjs");\\n'
+                ),
+                "system/components/demo/helper.cjs": "exports.ok = true;",
+                "system/components/demo/meta.json": '{"schema":1}',
+                "system/components/demo/extension.mjs": "export default true;",
+            }
+            for name, text in files.items():
+                file = root / name
+                file.parent.mkdir(parents=True, exist_ok=True)
+                file.write_text(text, encoding="utf-8")
+            graph = MODULE.discover_source_graph(
+                root, PurePosixPath("system/components/demo/entry.cjs"),
+                allowed_prefixes=("system",),
+            )
+            self.assertEqual({path.as_posix() for path in graph}, set(files))
+            (root / "system/components/demo/helper.cjs").unlink()
+            with self.assertRaisesRegex(MODULE.SourceGraphError, "missing source dependency"):
+                MODULE.discover_source_graph(
+                    root, PurePosixPath("system/components/demo/entry.cjs"),
+                    allowed_prefixes=("system",),
+                )
+
+    def test_html_responsive_images_are_in_self_contained_graph(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            entry = root / "system/composition/test/index.html"
+            entry.parent.mkdir(parents=True)
+            entry.write_text(
+                '<picture><source srcset="./small.webp 1x, ./large.webp 2x">'
+                '<img src="./small.webp"></picture>'
+                '<link rel="preload" imagesrcset="./medium.webp 640w, ./large.webp 1280w">',
+                encoding="utf-8",
+            )
+            for name in ("small.webp", "medium.webp", "large.webp"):
+                (entry.parent / name).write_bytes(b"img")
+            graph = MODULE.discover_source_graph(
+                root, PurePosixPath("system/composition/test/index.html"),
+                allowed_prefixes=("system",),
+            )
+            self.assertEqual(
+                {path.as_posix() for path in graph},
+                {
+                    "system/composition/test/index.html",
+                    "system/composition/test/small.webp",
+                    "system/composition/test/medium.webp",
+                    "system/composition/test/large.webp",
+                },
+            )
+
     def test_remote_and_escape_references_are_rejected_by_shared_source_policy(self):
         for source in ('<script src="https://example.invalid/app.js"></script>',
-                       '<script src="../../../../outside.js"></script>'):
+                       '<script src="../../../../outside.js"></script>',
+                       '<img srcset="./local.webp 1x, https://example.invalid/remote.webp 2x">',
+                       '<source srcset="data:image/png;base64,AAAA 1x, ./local.webp 2x">',
+                       '<link imagesrcset="./local.webp 1x, ../../../../outside.webp 2x">'):
             with self.subTest(source=source), tempfile.TemporaryDirectory() as tmp:
                 root = Path(tmp)
                 entry = root / "system/composition/test/index.html"
