@@ -9,7 +9,7 @@ A implementação reutiliza exclusivamente o owner existente `bootstrap/independ
 ## Autoridade e branch de trabalho
 
 - `main` continua sendo a única source authority do produto.
-- `platform/remove-alpine` é uma branch temporária de integração, nunca uma segunda autoridade.
+- `integration/dev-usb-buildroot-surface-20261024` é a única branch de integração desta migração, na PR #2243; `main` permanece a autoridade do produto. A antiga `platform/remove-alpine` não recebe novos cortes.
 - A branch deve receber `main` regularmente e ser removida após a integração final.
 - Nenhum artefato dessa branch é Stable, release física ou autorização de gravação por existir nessa branch.
 
@@ -19,7 +19,7 @@ O desenvolvimento da migração usa dois níveis distintos.
 
 ### Gate rápido por push
 
-`.github/workflows/remove-alpine-fast.yml` roda somente em `platform/remove-alpine` para mudanças relevantes e valida contratos, testes unitários, sintaxe e a resolução real do Kconfig Buildroot sem compilar rootfs, kernel ou imagem USB inteira.
+`.github/workflows/remove-alpine-fast.yml` roda na branch `integration/dev-usb-buildroot-surface-20261024` para mudanças relevantes e valida contratos, testes unitários, sintaxe e a resolução real do Kconfig Buildroot sem compilar rootfs, kernel ou imagem USB inteira.
 
 O gate executa `tests/test_alpine_removal_boundary.py`, que congela o conjunto atual de consumidores Python de `bootstrap/base/alpine_core.py`. Novos consumidores são proibidos; a allowlist só pode encolher à medida que a migração avança.
 
@@ -31,7 +31,7 @@ O gate executa `tests/test_alpine_removal_boundary.py`, que congela o conjunto a
 
 `tests/test_independent_heavy_workflow.py` trava a estrutura da prova cara: kernel canônico verificado antes do rootfs, archive de módulos exato, receipts externos explícitos, mesmo perfil no build/verify e upload das evidências de hardware.
 
-O gate rápido executa `build.py resolve` para `minimal` e `owner-development`. Esse comando baixa/autentica a fonte Buildroot pinada, executa `defconfig` e verifica o `.config` resultante; ele registra explicitamente que não compilou rootfs nem kernel.
+O gate rápido executa `build.py resolve` para `minimal`, `owner-development` e `stable-mvp`. Esse comando baixa/autentica a fonte Buildroot pinada, executa `defconfig` e verifica o `.config` resultante; ele registra explicitamente que não compilou rootfs nem kernel.
 
 Objetivo: permitir ciclos normais de desenvolvimento em minutos, sem transformar cada commit em build completo e sem permitir que a dependência Alpine cresça durante a remoção.
 
@@ -39,7 +39,7 @@ Objetivo: permitir ciclos normais de desenvolvimento em minutos, sem transformar
 
 `.github/workflows/independent-base-experiment.yml` continua sendo a única prova pesada existente, com Buildroot, kernel verificável e QEMU. Ele não é o loop de desenvolvimento diário e não foi duplicado para a migração.
 
-O workflow aceita `workflow_dispatch` com `minimal|owner-development`. Em PR originado de `platform/remove-alpine`, seleciona `owner-development`; demais PRs continuam usando `minimal`. A ordem é deliberada:
+O workflow aceita `workflow_dispatch` com `minimal|owner-development|stable-mvp`. A seleção automática em PR continua sendo `owner-development`; a candidata Stable só é provada por despacho explícito, nunca por um push comum. A ordem é deliberada:
 
 1. resolver fingerprint e restaurar/construir o kernel canônico;
 2. verificar o componente e sua ligação ao commit de integração;
@@ -61,7 +61,7 @@ O gate pesado não deve ser tornado obrigatório para mudanças comuns de Surfac
 
 ### Fase A — isolamento operacional
 
-- [x] criar `platform/remove-alpine` a partir da `main` atual;
+- [x] reutilizar a branch de integração da PR #2243, sem PRs/branches paralelas;
 - [x] adicionar gate rápido sem build completo;
 - [x] preservar o workflow pesado existente como prova de integração;
 - [x] congelar a fronteira de novos consumidores de `alpine_core.py`;
@@ -83,18 +83,19 @@ Provar que a Independent Base cobre os requisitos hoje atendidos pela base Alpin
 
 #### Perfil Owner/Development no mesmo owner Buildroot
 
-A paridade do Dev USB não cria outra distribuição nem outro builder. `source.json` registra dois perfis do mesmo owner:
+A paridade do Dev USB não cria outra distribuição nem outro builder. `source.json` registra três perfis do mesmo owner:
 
 - `minimal`: prova portátil mínima já existente;
-- `owner-development`: o mesmo defconfig base mais `configs/owner-development.fragment`.
+- `owner-development`: o mesmo defconfig base mais `configs/wifi-hardware.fragment` e o delta Dev `configs/owner-development.fragment`.
+- `stable-mvp`: o mesmo defconfig mais **somente** `configs/wifi-hardware.fragment`, sem Git, helpers Dev ou permissão de promoção; não substitui ainda o produtor Alpine ativo.
 
 O fragmento Owner/Development declara as capacidades de userspace necessárias ao Dev USB — CA certificates, Git, `iw`, `wpa_supplicant` e `wpa_passphrase` — e o provider `linux-firmware` com as famílias necessárias ao baseline atual. `kmod` não foi adicionado porque `/sbin/modprobe` já pertence à base BusyBox canônica; `zstd` também não foi carregado, porque era uma necessidade do antigo fluxo Alpine de materialização de firmware e não existe consumidor comprovado no runtime Owner atual.
 
 As famílias de firmware vivem somente no fragmento Buildroot. `build.py` não mantém uma segunda lista: aceita apenas símbolos no namespace `BR2_PACKAGE_LINUX_FIRMWARE...` além do conjunto fixo de userspace e exige que cada símbolo declarado sobreviva à resolução Kconfig.
 
-`build.py` aceita `--profile minimal|owner-development`. Defconfig e fragmento usados entram na provenance com SHA-256, e `BR2_ROOTFS_POST_SCRIPT_ARGS` transmite a identidade do perfil de forma explícita ao único `post-build.sh`; não existe detecção por presença acidental de binários.
+`build.py` aceita `--profile minimal|owner-development|stable-mvp`. Defconfig e fragmento usados entram na provenance com SHA-256, e `BR2_ROOTFS_POST_SCRIPT_ARGS` transmite a identidade do perfil de forma explícita ao único `post-build.sh`; não existe detecção por presença acidental de binários.
 
-O Kconfig real do Buildroot 2026.08 já foi resolvido para os dois perfis no Fast Gate, inclusive o provider/famílias de firmware Owner. Isso prova resolução de configuração, não funcionamento físico nem paridade final.
+O Kconfig real do Buildroot 2026.08 já foi resolvido para os três perfis no Fast Gate, inclusive o provider/famílias de firmware compartilhados entre Owner e Stable. Isso prova resolução de configuração, não funcionamento físico nem paridade final.
 
 `post-build.sh` instala os helpers canônicos `ordax-network`, `ordax-pull`, `ordax-rollback`, `ordax-run`, `ordax-diagnose`, `ordax-dev-init` e recovery diretamente de seus owners existentes somente no perfil `owner-development` e apenas quando o target contém o conjunto completo de capacidades exigidas. Presença parcial falha fechada; o perfil `minimal` falha se capacidades Owner vazarem para ele.
 
@@ -208,8 +209,8 @@ hash do CPython, quantidade de ELF e fingerprint do conjunto examinado.
 Uma execução bem-sucedida é **prova de compilação/ABI**, não prova de
 linkagem dos wheels ou de empacotamento do `ordax-runtime`.
 
-O workflow **Independent Base Experiment** possui um job específico
-`private-native-python` para a branch `platform/remove-alpine`. Ele roda
+O workflow **Independent Base Experiment** ainda possui um job histórico
+`private-native-python` limitado à antiga branch `platform/remove-alpine`; ele não é acionado na branch canônica atual. Quando executado, roda
 o compilador real e publica **somente esse recibo não instalável**; não
 assina nem distribui `rootfs.tar`, loader, módulos ou artefato de serviço.
 O kernel e os perfis estáticos do sistema não são reconstruídos por esse job.
@@ -380,6 +381,18 @@ Somente após todos os gates:
 5. executar prova pesada final;
 6. integrar por PR em `main`;
 7. apagar a branch temporária.
+
+## Checkpoint validado — 1º de novembro de 2026 (PR #2243)
+
+- O corte Dev/Base e o Surface runtime Buildroot já estavam implementados; `tests/test_alpine_removal_boundary.py` permite **somente dois** consumidores Python diretos de `bootstrap/base/alpine_core.py`: `bootstrap/stable-base/build.py` e `bootstrap/windows-compat-runtime/configure_probe.py`.
+- `749bea44`: declarações Wi-Fi/firmware concentradas em `configs/wifi-hardware.fragment`, mantendo os 36 símbolos Kconfig anteriormente declarados no Owner sem duplicação.
+- `c30446c8`, `1bfb515c`, `3244456b`: candidato `stable-mvp` no **mesmo** produtor Buildroot, com módulos/firmware provenientes do kernel canônico e sem Git ou helpers Dev.
+- `4e544631`, `d817e602`: cache específico `independent-base-stable` com fingerprint do kernel e dos inputs de hardware, validação de perfil/provenance e proteção contra promoção.
+- `01cd203b`, `6aa8970d`, `00a11062`: workflow pesado existente preparado para despacho explícito `stable-mvp`, cache separado e evidências específicas. Na execução Stable, **kernel cache miss falha fechado**; não existe rebuild automático do kernel ou USB.
+- Gate rápido `Remove Alpine Fast Gate #41362761337`: **PASS** em contratos, testes unitários, sintaxe e Kconfig real dos três perfis; sem compilação de kernel, rootfs completo ou USB.
+- **Ainda pendente:** build real de EROFS Stable e receipts, QEMU real do perfil Stable, boot Portable v2 assinado, rollback/segurança e eventual prova física. A execução pesada Stable **não foi disparada nesta etapa**; nenhuma evidência foi presumida.
+- O builder Alpine `bootstrap/stable-base/build.py` permanece como consumidor ativo até que a paridade seja provada e o corte ocorra. `bootstrap/windows-compat-runtime/configure_probe.py` será migrado separadamente. **Não apagar** `alpine_core.py`, APK locks, workflows ou contratos enquanto houver dependências operacionais.
+- Sem fallbacks, sem segunda PR/branch e sem alterar flags de autorização de publicação.
 
 ## Regra de não bloqueio
 
