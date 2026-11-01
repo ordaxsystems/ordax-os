@@ -104,9 +104,11 @@ function createDesktopBrowserHost({window, ipcMain, WebContentsView, session, di
     const id='download-'+randomBytes(8).toString('hex');
     const fileName=safeDownloadName(item.getFilename());
     item.pause();
-    downloads.set(id,{item,fileName});
+    const record={item,fileName,phase:'pending'};
+    downloads.set(id,record);
     downloadEvent(id,fileName,'pending');
     item.on('done',(_event,state)=>{
+      record.phase='done';
       downloads.delete(id);
       downloadEvent(id,fileName,state==='completed'?'saved':state==='cancelled'?'cancelled':'failed');
     });
@@ -211,15 +213,42 @@ function createDesktopBrowserHost({window, ipcMain, WebContentsView, session, di
     if(!DOWNLOAD_ID.test(command?.id))return;
     const record=downloads.get(command.id);
     if(!record)return;
-    if(command.type==='download.cancel'){record.item.cancel();return;}
-    if(command.type!=='download.approve')return;
+    if(command.type==='download.cancel'){
+      if(record.phase==='pending'||record.phase==='approving'||record.phase==='downloading'){
+        record.phase='cancelled';
+        record.item.cancel();
+      }
+      return;
+    }
+    if(command.type!=='download.approve'||record.phase!=='pending')return;
+    // One consent dialog per item; a late answer must never revive a
+    // cancelled/completed download or an already disposed browser host.
+    record.phase='approving';
     void dialog.showSaveDialog(window,{title:'Salvar arquivo',defaultPath:record.fileName,
       buttonLabel:'Salvar',properties:['createDirectory','showOverwriteConfirmation']})
       .then(result=>{
-        if(result.canceled||!result.filePath){record.item.cancel();return;}
-        record.item.setSavePath(result.filePath);record.item.resume();
-        downloadEvent(command.id,record.fileName,'downloading');
-      }).catch(()=>record.item.cancel());
+        if(disposed||downloads.get(command.id)!==record||record.phase!=='approving')return;
+        if(result.canceled||!result.filePath){
+          record.phase='cancelled';
+          record.item.cancel();
+          return;
+        }
+        try {
+          record.item.setSavePath(result.filePath);
+          record.item.resume();
+          record.phase='downloading';
+          downloadEvent(command.id,record.fileName,'downloading');
+        } catch(error) {
+          record.phase='cancelled';
+          record.item.cancel();
+          log('Browser download could not be saved: '+error.message);
+        }
+      }).catch(error=>{
+        if(disposed||downloads.get(command.id)!==record||record.phase!=='approving')return;
+        record.phase='cancelled';
+        record.item.cancel();
+        log('Browser save dialog failed: '+error.message);
+      });
   };
   const onMessage=(e,raw)=>{handle(e,raw);handleDownloads(e,raw);};
   ipcMain.on(CMD,onMessage);
