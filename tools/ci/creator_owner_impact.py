@@ -279,6 +279,36 @@ def verified_client_delivery_contract_delta(base, head, *, root=ROOT):
                 if (not content.startswith("#!/usr/bin/env python3\n")
                         or len(content) > 512 * 1024 or signature not in content):
                     return False
+        linux_owner = additions.pop("linux_only_client_base_update_diagnostics_paths", None)
+        if linux_owner is not None:
+            if (not isinstance(linux_owner, list) or len(linux_owner) != 13
+                    or len(set(map(str, linux_owner))) != 13
+                    or any(not isinstance(p, str) or not re.fullmatch(
+                        r"(?:diagnostics|services/base-update)/[a-z][a-z0-9_]*\.py", p)
+                           for p in linux_owner)):
+                return False
+            contents = subprocess.run(
+                ["git", "-C", str(root), "ls-tree", "-r", "--name-only", head,
+                 "--", "system/diagnostics", "system/services/base-update"],
+                check=True, capture_output=True, text=True, timeout=20,
+            ).stdout.splitlines()
+            tracked = sorted(p[7:] for p in contents if p.endswith(".py"))
+            if sorted(linux_owner) != tracked:
+                return False
+            for rel in linux_owner:
+                raw = _git_show(head, "system/" + rel, root)
+                if (not raw.startswith("#!/usr/bin/env python3\n")
+                        or len(raw) > 256 * 1024
+                        or "from __future__ import annotations" not in raw[:1024]):
+                    return False
+            for path, name in (
+                ("system/services/base-update/agent.sh", "orchestrator.py"),
+                ("system/surface/bin/ordax-internet-proof", "internet_native_physical_proof.py"),
+                ("system/surface/bin/ordax-mvp-smoke", "mvp_surface_smoke.py"),
+            ):
+                owner = _git_show(head, path, root)
+                if not owner.startswith("#!/bin/sh\n") or name not in owner:
+                    return False
         scripts = additions.pop("windows_package_forbidden_linux_shell_paths", None)
         if scripts is not None:
             # Only tracked POSIX scripts may be omitted from Windows client
@@ -296,7 +326,8 @@ def verified_client_delivery_contract_delta(base, head, *, root=ROOT):
                 if not _git_show(head, "system/" + path, root).startswith("#!/bin/sh\n"):
                     return False
         return (bool(additions) or scripts is not None or manifest is not None
-                or probes is not None or hosts is not None) and all(
+                or probes is not None or hosts is not None
+                or linux_owner is not None) and all(
             k in expected and v == expected[k] for k, v in additions.items()
         )
     except (OSError, UnicodeError, ValueError, KeyError, TypeError,

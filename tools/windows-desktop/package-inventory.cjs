@@ -66,6 +66,7 @@ function canonicalWindowsPackageExclusions(packageJson, autonomy) {
     scope?.windows_package_forbidden_linux_shell_paths,
     scope?.linux_only_client_probe_paths,
     scope?.linux_only_client_host_entrypoints,
+    scope?.linux_only_client_base_update_diagnostics_paths,
   ];
   if (groups.some(group => !Array.isArray(group) || group.length === 0) ||
       typeof scope?.linux_only_client_package_manifest !== 'string' ||

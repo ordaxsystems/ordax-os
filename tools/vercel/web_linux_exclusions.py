@@ -23,6 +23,7 @@ def linux_only_exclusions() -> list[str]:
     shells = client["windows_package_forbidden_linux_shell_paths"]
     probes = client["linux_only_client_probe_paths"]
     hosts = client["linux_only_client_host_entrypoints"]
+    linux_owner = client["linux_only_client_base_update_diagnostics_paths"]
     manifest = client["linux_only_client_package_manifest"]
     if manifest != "surface/runtime/packages.txt":
         raise ValueError("unrecognized Linux package manifest")
@@ -57,13 +58,54 @@ def linux_only_exclusions() -> list[str]:
                      else 'gi.require_version("WebKit2", "4.1")')
         if not source.startswith("#!/usr/bin/env python3\n") or signature not in source:
             raise ValueError("Linux graphical host identity changed")
-    paths = boot + shells + probes + hosts
+    # Exact Linux-owned Python inventory: separate EFI/Base update service
+    # and physical diagnostics. An added, deleted or renamed module forces
+    # a Web build instead of creating a silently broad exclusion.
+    if (not isinstance(linux_owner, list) or len(linux_owner) != 13
+            or len(set(map(str, linux_owner))) != 13
+            or any(not isinstance(p, str) or not re.fullmatch(
+                r"(?:diagnostics|services/base-update)/[a-z][a-z0-9_]*\.py", p)
+                   for p in linux_owner)):
+        raise ValueError("Unverified Linux-only Python owner")
+    physical_inventory = sorted(
+        "diagnostics/" + p.name for p in (ROOT / "system/diagnostics").glob("*.py")
+    ) + sorted(
+        "services/base-update/" + p.name
+        for p in (ROOT / "system/services/base-update").glob("*.py")
+    )
+    if sorted(linux_owner) != sorted(physical_inventory):
+        raise ValueError("Linux Python owner inventory drift")
+    # The service owner must stay a real Linux POSIX launcher, and the two
+    # diagnostic owners must stay connected to their POSIX shell consumers.
+    scripts = {
+        "services/base-update/agent.sh": "orchestrator.py",
+        "surface/bin/ordax-internet-proof": "internet_native_physical_proof.py",
+        "surface/bin/ordax-mvp-smoke": "mvp_surface_smoke.py",
+    }
+    for rel, consumer in scripts.items():
+        producer = ROOT / "system" / rel
+        if producer.is_symlink() or not producer.is_file():
+            raise ValueError("Linux Python owner consumer missing")
+        body = producer.read_text(encoding="utf-8")
+        if not body.startswith("#!/bin/sh\n") or consumer not in body:
+            raise ValueError("Linux-only consumer identity drift")
+    for path in linux_owner:
+        candidate = ROOT / "system" / path
+        if (candidate.is_symlink() or not candidate.is_file()
+                or candidate.stat().st_size > 256 * 1024):
+            raise ValueError("Linux-only Python producer unavailable")
+        content = candidate.read_text(encoding="utf-8")
+        if (not content.startswith("#!/usr/bin/env python3\n")
+                or "from __future__ import annotations" not in content[:1024]):
+            raise ValueError("Linux-only Python producer identity changed")
+    paths = boot + shells + probes + hosts + linux_owner
     if len(set(paths)) != len(paths):
         raise ValueError("duplicate Linux exclusion")
     for rel in paths:
         if (not isinstance(rel, str) or not SAFE.fullmatch(rel)
                 or any(segment in ("", ".", "..") for segment in rel.split("/"))
-                or (rel not in boot and rel not in probes and rel not in hosts and
+                or (rel not in boot and rel not in probes and rel not in hosts
+                    and rel not in linux_owner and
                     not rel.endswith(".sh") and
                     not re.fullmatch(r"surface/bin/ordax-[a-z0-9-]+", rel))):
             raise ValueError("unsafe Linux exclusion")
@@ -71,7 +113,7 @@ def linux_only_exclusions() -> list[str]:
         if file.is_symlink() or not file.is_file() or file.stat().st_size > 512 * 1024:
             raise ValueError("unverified Linux source")
         with file.open("rb") as handle:
-            expected = b"#!/usr/bin/env python3\n" if rel in probes or rel in hosts else b"#!/bin/sh\n"
+            expected = b"#!/usr/bin/env python3\n" if rel in probes or rel in hosts or rel in linux_owner else b"#!/bin/sh\n"
             if handle.read(len(expected)) != expected:
                 raise ValueError("unverified Linux-only executable")
     # Alpine package selection is a Linux producer, never a Web client input.

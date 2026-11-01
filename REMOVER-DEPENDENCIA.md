@@ -225,3 +225,29 @@ contrato. A asserção agora consome também
 `linux_only_client_host_entrypoints` do SSOT, sem inserir lista fixa de
 caminhos ou aceitar exclusões extras. A regra principal
 `canonicalWindowsPackageExclusions` e o smoke NSIS continuam obrigatórios.
+
+### Extração de serviços Linux Base/ESP e diagnóstico físico dos clientes (2026-11-01)
+
+Auditoria da árvore `system/`: 713 arquivos, incluindo 77 módulos Python.
+Além dos dois servidores gráficos Linux já isolados, há 11 módulos Python
+exclusivos de `system/services/base-update/` (estágio e promoção ESP/EFI,
+canal de desenvolvimento e `orchestrator.py` do agente POSIX) e dois
+coletores em `system/diagnostics/` usados pelos comandos Linux
+`ordax-internet-proof` e `ordax-mvp-smoke`. Esses arquivos não são
+carregados pelo host Node do Windows nem pelo bundle Web.
+
+Os 13 caminhos passam a uma única lista explícita no contrato
+`build-autonomy.json#client_build_independence.linux_only_client_base_update_diagnostics_paths`,
+projetada no NSIS e nos filtros Windows, Web e Vercel. Validação fail-closed:
+correspondência exata com o inventário Python registrado nesses dois
+diretórios (não permite novos nomes ocultos), arquivo regular sem symlink,
+limite de 256 KiB, shebang Python, cabeçalho de fonte canônica e provas dos
+consumidores POSIX Linux. O CI de Foundation e os testes com commits Git
+reais incluem mutações válidas e perda de identidade que obriga BUILD.
+O smoke NSIS testa vazamentos dos dois grupos. Sem modificar o kernel,
+o serviço de atualização ou o runtime físico do USB.
+
+Esta revisão exige Windows, Web, Foundation e NSIS verdes no HEAD. Não há
+publicação Web automática nova, instalação no PC físico ou dispensa de gate
+Creator para alterações reais de código Linux. O defeito anterior de pin
+Alpine/Python permanece no produtor USB, fora da entrega independente.

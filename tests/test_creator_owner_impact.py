@@ -245,6 +245,7 @@ class CreatorOwnerImpactTests(unittest.TestCase):
                     "linux_only_client_package_manifest",
                     "linux_only_client_probe_paths",
                     "linux_only_client_host_entrypoints",
+                    "linux_only_client_base_update_diagnostics_paths",
                     "client_delivery_gate_decoupling_fully_proven",
                     "windows_physical_and_web_live_independence_proven")
         old = json.loads(json.dumps(contract))
@@ -273,6 +274,23 @@ class CreatorOwnerImpactTests(unittest.TestCase):
                          if relative.endswith("native_host_server.py")
                          else 'gi.require_version("WebKit2", "4.1")')
             source.write_text("#!/usr/bin/env python3\n" + signature + "\n", encoding="utf-8")
+        # Git provenance for Linux Base/EFI owner and physical proof scripts.
+        linux_owner = contract["client_build_independence"][
+            "linux_only_client_base_update_diagnostics_paths"]
+        for relative in linux_owner:
+            source = self.root / "system" / relative
+            source.parent.mkdir(parents=True, exist_ok=True)
+            source.write_text(
+                "#!/usr/bin/env python3\nfrom __future__ import annotations\n",
+                encoding="utf-8")
+        for relative, marker in (
+            ("services/base-update/agent.sh", "orchestrator.py"),
+            ("surface/bin/ordax-internet-proof", "internet_native_physical_proof.py"),
+            ("surface/bin/ordax-mvp-smoke", "mvp_surface_smoke.py"),
+        ):
+            source = self.root / "system" / relative
+            source.parent.mkdir(parents=True, exist_ok=True)
+            source.write_text("#!/bin/sh\n" + marker + "\n", encoding="utf-8")
         manifest_path = self.root / "system" / contract["client_build_independence"]["linux_only_client_package_manifest"]
         manifest_path.parent.mkdir(parents=True, exist_ok=True)
         manifest_path.write_text("alpine-baselayout\nbusybox\n", encoding="utf-8")
@@ -339,6 +357,29 @@ class CreatorOwnerImpactTests(unittest.TestCase):
         self.assertIn('gi.require_version("WebKit2", "4.1")',
                       (ROOT / "system" / hosts[1]).read_text(encoding="utf-8"))
 
+    def test_linux_base_and_diagnostics_owners_are_exact_python_sources(self):
+        client = json.loads((ROOT / impact.CLIENT_AUTONOMY_CONTRACT)
+                            .read_text(encoding="utf-8"))["client_build_independence"]
+        files = client["linux_only_client_base_update_diagnostics_paths"]
+        self.assertEqual(len(files), 13)
+        owner = sorted(
+            str(p.relative_to(ROOT / "system")).replace("\\", "/")
+            for folder in ("system/services/base-update", "system/diagnostics")
+            for p in (ROOT / folder).glob("*.py")
+        )
+        self.assertEqual(sorted(files), owner)
+        for relative in files:
+            with self.subTest(source=relative):
+                body = (ROOT / "system" / relative).read_text(encoding="utf-8")
+                self.assertTrue(body.startswith("#!/usr/bin/env python3\n"))
+                self.assertIn("from __future__ import annotations", body[:300])
+        for script, name in (
+            ("system/services/base-update/agent.sh", "orchestrator.py"),
+            ("system/surface/bin/ordax-internet-proof", "internet_native_physical_proof.py"),
+            ("system/surface/bin/ordax-mvp-smoke", "mvp_surface_smoke.py"),
+        ):
+            self.assertIn(name, (ROOT / script).read_text(encoding="utf-8"))
+
     def test_web_only_composition_is_excluded_from_windows_not_web_delivery(self):
         scope = json.loads((ROOT / "docs/contracts/build-autonomy.json").read_text(encoding="utf-8"))
         self.assertIn("system/composition/web/",
@@ -366,6 +407,7 @@ class CreatorOwnerImpactTests(unittest.TestCase):
             + boundary["windows_package_forbidden_linux_shell_paths"]
             + boundary["linux_only_client_probe_paths"]
             + boundary["linux_only_client_host_entrypoints"]
+            + boundary["linux_only_client_base_update_diagnostics_paths"]
             + [boundary["linux_only_client_package_manifest"]]
         )
         expected_web = {"!system/" + path for path in linux}
