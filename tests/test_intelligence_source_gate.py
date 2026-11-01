@@ -3,6 +3,7 @@
 import hashlib
 import importlib.util
 import json
+import os
 from pathlib import Path
 import subprocess
 import tempfile
@@ -100,6 +101,13 @@ class IntelligenceSourceGateTests(unittest.TestCase):
         p.symlink_to("contract-bindings.mjs")
         with self.assertRaises(source.IntelligenceSourceError):
             self.verify()
+    @unittest.skipIf(os.name == "nt", "Windows does not preserve POSIX executable mode bits")
+    def test_rejects_executable_worktree_when_git_filemode_is_disabled(self):
+        git(self.checkout, "config", "core.filemode", "false")
+        (self.checkout/"src/index.mjs").chmod(0o755)
+        with self.assertRaisesRegex(source.IntelligenceSourceError, "regular readable Git blob"):
+            self.verify()
+
     def test_cannot_stage_inside_source_checkout(self):
         entries,receipt=self.verify()
         with self.assertRaisesRegex(source.IntelligenceSourceError,"must not alter"):

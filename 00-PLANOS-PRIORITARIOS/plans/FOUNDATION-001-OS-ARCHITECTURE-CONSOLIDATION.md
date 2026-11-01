@@ -64,7 +64,7 @@ somente por esta correção documental/contratual.
 
 **Aceite P0-B:** um motor canônico, nenhum import do legado, contratos/testes de consumidor verdes, Desktop real funcional, falha fechada, rollback verificável e status canônico fiel.
 
-**Validação parcial do consumidor Windows (2026-11-01):** a CI de integração agora resolve o SHA do lock OS, materializa a fonte candidata e executa os testes de contratos no runner `windows-2022`. Essa prova usa backend fixture; não é inferência real, Desktop instalado, ativação nem rollback. P0-B continua aberto; as cinco implementações OS antigas permanecem no source até o cutover comprovado.
+**Validação parcial do consumidor Windows (2026-11-01):** a CI de integração agora resolve o SHA do lock OS, materializa a fonte candidata e executa os testes de contratos no runner `windows-2022`. Essa prova usa backend fixture; não é inferência real, Desktop instalado, ativação nem rollback. O primeiro runner Windows revelou a diferença de modos POSIX do filesystem; o materializador agora valida o modo canônico do Git e as representações nativas Windows sem relaxar hashes, regularidade ou rejeição de links. P0-B continua aberto; as cinco implementações OS antigas permanecem no source até o cutover comprovado.
 
 ### P0-C — identidade, Platform e Runtime: uma autoridade por operação
 

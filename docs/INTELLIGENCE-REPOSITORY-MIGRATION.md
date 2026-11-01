@@ -22,6 +22,11 @@ públicos do OS. Isso cobre a composição buffered/SSE, o estado degradado sem
 backend, a recusa do roteador cloud e a compatibilidade sem autorização
 implícita usando backend fixture.
 
+O modo Git `100644` é a autoridade para bit executável. O materializador
+aceita os modos regulares nativos que o Windows reporta (`0666` gravável ou
+`0444` somente leitura), rejeita links/arquivos especiais e normaliza cada
+arquivo staged para `0644`.
+
 Essa é uma prova de consumidor da fonte candidata em Windows CI. Não comprova
 inferência com modelo real, o instalador Desktop, funcionamento instalado,
 ativação, rollback de release ou hardware físico; o lock permanece

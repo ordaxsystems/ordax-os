@@ -95,7 +95,16 @@ def verify_source(root: Path, lock: dict) -> tuple[list[tuple[str, bytes]], dict
         if filename not in EXPECTED or mode != "100644" or kind != "blob":
             raise IntelligenceSourceError("unexpected, linked or executable Intelligence source: " + filename)
         path = root / filename
-        if path.is_symlink() or not path.is_file() or stat.S_IMODE(path.stat().st_mode) not in (0o644, 0o664, 0o600):
+        file_stat = path.lstat()
+        # The Git tree mode above is the executable-bit authority. Windows
+        # represents writable/read-only regular files as 0666/0444 instead of
+        # POSIX 0644/0444, so accept those native modes while preserving the
+        # exact 100644 Git mode and normalizing every staged file to 0644.
+        allowed_modes = (0o644, 0o664, 0o600)
+        if os.name == "nt":
+            allowed_modes += (0o666, 0o444)
+        if (path.is_symlink() or not stat.S_ISREG(file_stat.st_mode)
+                or stat.S_IMODE(file_stat.st_mode) not in allowed_modes):
             raise IntelligenceSourceError("source file must be a regular readable Git blob")
         payload = path.read_bytes()
         total += len(payload)
