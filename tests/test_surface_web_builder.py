@@ -244,7 +244,7 @@ class SurfaceWebBuilderTests(unittest.TestCase):
                         MODULE.verify_bundle(output)
             for path in (
                 "./assets/app.js", "assets//app.js", "assets/../assets/app.js",
-                "assets\app.js", "../private.js", "/private.js",
+                "assets\\app.js", "../private.js", "/private.js",
             ):
                 with self.subTest(path=path):
                     altered = json.loads(json.dumps(original))
