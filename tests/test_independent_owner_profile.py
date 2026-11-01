@@ -29,7 +29,7 @@ class IndependentOwnerDevelopmentProfileTests(unittest.TestCase):
         source = json.loads(SOURCE.read_text(encoding="utf-8"))
         profiles = source.get("profiles")
         self.assertIsInstance(profiles, dict)
-        self.assertEqual(set(profiles), {"minimal", "owner-development"})
+        self.assertEqual(set(profiles), {"minimal", "owner-development", "stable-mvp"})
         self.assertEqual(
             profiles["minimal"]["defconfig"],
             "bootstrap/independent-base/configs/ordax_minimal_defconfig",
@@ -42,6 +42,10 @@ class IndependentOwnerDevelopmentProfileTests(unittest.TestCase):
         )
         self.assertEqual(owner["purpose"], "owner-development-parity-without-alpine")
         self.assertEqual(owner["shared_fragment"], "bootstrap/independent-base/configs/wifi-hardware.fragment")
+        stable = profiles["stable-mvp"]
+        self.assertEqual(stable["defconfig"], profiles["minimal"]["defconfig"])
+        self.assertEqual(stable["fragment"], owner["shared_fragment"])
+        self.assertNotIn("shared_fragment", stable)
 
     def test_owner_profile_declares_userspace_busybox_and_firmware_provider(self) -> None:
         owner_lines = {
@@ -70,6 +74,18 @@ class IndependentOwnerDevelopmentProfileTests(unittest.TestCase):
             content = fragment.read_text(encoding="utf-8").lower()
             self.assertNotIn("apk", content)
             self.assertNotIn("alpine", content)
+
+    def test_stable_profile_reuses_hardware_authority_without_dev_git(self) -> None:
+        spec = importlib.util.spec_from_file_location("ordax_stable_kconfig_under_test", BUILD)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        source = json.loads(SOURCE.read_text(encoding="utf-8"))
+        stable = module.profile_inputs(source, "stable-mvp")
+        self.assertEqual(stable["fragment"], WIFI_FRAGMENT)
+        self.assertIsNone(stable["shared_fragment"])
+        self.assertIsNone(stable["owner_busybox_fragment"])
+        self.assertIn("BR2_PACKAGE_WPA_SUPPLICANT=y", stable["fragment_config"])
+        self.assertNotIn("BR2_PACKAGE_GIT=y", stable["fragment_config"])
 
     def test_owner_busybox_fragment_adds_only_network_diagnostics(self) -> None:
         lines = [

@@ -74,6 +74,7 @@ jobs:
           set -euo pipefail
           python3 bootstrap/independent-base/build.py check --profile minimal
           python3 bootstrap/independent-base/build.py check --profile owner-development
+          python3 bootstrap/independent-base/build.py check --profile stable-mvp
           python3 bootstrap/independent-base/build.py check-component
           python3 bootstrap/base/kernel_module_payload.py check
           python3 tools/verify/github_actions_supply_chain.py
@@ -100,6 +101,7 @@ jobs:
           cache="$RUNNER_TEMP/ordax-independent-resolution-cache"
           python3 bootstrap/independent-base/build.py resolve --profile minimal --cache "$cache"
           python3 bootstrap/independent-base/build.py resolve --profile owner-development --cache "$cache"
+          python3 bootstrap/independent-base/build.py resolve --profile stable-mvp --cache "$cache"
           python3 bootstrap/independent-base/build.py resolve-component --cache "$cache"
       - name: Validate scripts without compiling Buildroot
         run: |

@@ -12,12 +12,13 @@ O perfil Buildroot usa `bootstrap/kernel/source.json` como única versão de cab
 
 ## Perfis do mesmo owner
 
-A Independent Base possui dois perfis derivados do mesmo defconfig e do mesmo builder:
+A Independent Base possui três perfis derivados do mesmo defconfig e do mesmo builder; o perfil Stable é uma candidata não promovível:
 
 - `minimal`: prova portátil mínima, sem Git, Wi-Fi de notebook ou firmware Owner;
 - `owner-development`: extensão explícita do mesmo owner para a paridade do Dev USB, com CA trust, Git, `iw`, `wpa_supplicant`, `wpa_passphrase`, provider `linux-firmware`, módulos selecionados do kernel canônico e helpers existentes do Dev USB.
+- `stable-mvp`: candidato Buildroot sem Git ou helpers Dev, com o mesmo SSOT de firmware, CA e Wi-Fi, módulos canônicos e receipts vinculados; sem substituição automática do Stable Alpine ou permissão de instalação.
 
-O perfil Owner não cria outra distro. `configs/wifi-hardware.fragment` é a única declaração das capacidades Wi-Fi/firmware compartilháveis; `configs/owner-development.fragment` acrescenta somente Git e applets Dev; `build.py` valida todos os símbolos declarados contra o Kconfig real do Buildroot. As famílias de firmware não são duplicadas em Python.
+Nenhum perfil cria outra distro. `configs/wifi-hardware.fragment` é a única declaração das capacidades Wi-Fi/firmware compartilháveis; `configs/owner-development.fragment` acrescenta somente Git e applets Dev; `build.py` valida todos os símbolos declarados contra o Kconfig real do Buildroot. As famílias de firmware não são duplicadas em Python.
 
 `kmod` não entra no runtime Owner porque `/sbin/modprobe` já pertence à base BusyBox canônica. `zstd` também não foi adicionado: sua necessidade pertencia ao antigo caminho Alpine de materialização de firmware comprimido e não há consumidor runtime comprovado no perfil Owner atual.
 

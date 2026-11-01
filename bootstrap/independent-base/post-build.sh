@@ -6,7 +6,7 @@ PROFILE=${2:-}
 test -n "$TARGET_DIR"
 test -d "$TARGET_DIR"
 case "$PROFILE" in
-    minimal|owner-development) ;;
+    minimal|owner-development|stable-mvp) ;;
     *)
         echo "Unknown Independent Base profile: ${PROFILE:-<empty>}" >&2
         exit 1
@@ -100,23 +100,27 @@ cp "$ROOT/bootstrap/stable-base/ordax-stable-init" "$TARGET_DIR/sbin/ordax-stabl
 chmod 0755 "$TARGET_DIR/sbin/ordax-stable-init"
 test -x "$TARGET_DIR/sbin/modprobe"
 
-if test "$PROFILE" = owner-development; then
-    # Owner/Development is an explicit capability profile of this same
+if test "$PROFILE" = owner-development || test "$PROFILE" = stable-mvp; then
+    # Both profiles consume the same verified canonical hardware provider.
+    HARDWARE_RECEIPT_PREFIX=ORDAX_INDEPENDENT_OWNER
+    if test "$PROFILE" = stable-mvp; then
+        HARDWARE_RECEIPT_PREFIX=ORDAX_INDEPENDENT_STABLE
+    fi
+    # Owner/Development or Stable/MVP is an explicit capability profile of this same
     # Independent Base. Do not infer the profile from incidental binaries.
     for required in \
-        "$TARGET_DIR/usr/bin/git" \
         "$TARGET_DIR/usr/sbin/iw" \
         "$TARGET_DIR/usr/sbin/wpa_supplicant" \
         "$TARGET_DIR/usr/sbin/wpa_passphrase" \
         "$TARGET_DIR/usr/sbin/wpa_cli"
     do
         if ! test -x "$required"; then
-            echo "Incomplete Owner/Development target capability set: $required" >&2
+            echo "Incomplete Owner/Development or Stable/MVP target capability set: $required" >&2
             exit 1
         fi
     done
     test -s "$TARGET_DIR/etc/ssl/certs/ca-certificates.crt" || {
-        echo "Owner/Development CA trust store is missing" >&2
+        echo "Owner/Development or Stable/MVP CA trust store is missing" >&2
         exit 1
     }
 
@@ -124,19 +128,19 @@ if test "$PROFILE" = owner-development; then
     # archive supplied by the integration workflow; never compile or download a
     # second kernel from the Buildroot base build.
     test -n "${ORDAX_HOST_PYTHON:-}" || {
-        echo "Owner/Development requires ORDAX_HOST_PYTHON" >&2
+        echo "Owner/Development or Stable/MVP requires ORDAX_HOST_PYTHON" >&2
         exit 1
     }
     test -n "${ORDAX_KERNEL_MODULES_ARCHIVE:-}" || {
-        echo "Owner/Development requires ORDAX_KERNEL_MODULES_ARCHIVE" >&2
+        echo "Owner/Development or Stable/MVP requires ORDAX_KERNEL_MODULES_ARCHIVE" >&2
         exit 1
     }
     test -n "${ORDAX_KERNEL_MODULES_RECEIPT:-}" || {
-        echo "Owner/Development requires ORDAX_KERNEL_MODULES_RECEIPT" >&2
+        echo "Owner/Development or Stable/MVP requires ORDAX_KERNEL_MODULES_RECEIPT" >&2
         exit 1
     }
     test -n "${ORDAX_FIRMWARE_COVERAGE_RECEIPT:-}" || {
-        echo "Owner/Development requires ORDAX_FIRMWARE_COVERAGE_RECEIPT" >&2
+        echo "Owner/Development or Stable/MVP requires ORDAX_FIRMWARE_COVERAGE_RECEIPT" >&2
         exit 1
     }
     test -f "$ROOT/bootstrap/base/kernel_module_payload.py"
@@ -155,11 +159,16 @@ if test "$PROFILE" = owner-development; then
     "$ORDAX_HOST_PYTHON" "$ROOT/bootstrap/base/firmware_policy.py" check \
         --rootfs "$TARGET_DIR" \
         --receipt "$ORDAX_FIRMWARE_COVERAGE_RECEIPT" \
-        --log-prefix ORDAX_INDEPENDENT_OWNER
+        --log-prefix "$HARDWARE_RECEIPT_PREFIX"
     test -s "$ORDAX_FIRMWARE_COVERAGE_RECEIPT"
     cp "$ORDAX_FIRMWARE_COVERAGE_RECEIPT" "$TARGET_DIR/etc/ordax/firmware-coverage.json"
     cmp -s "$ORDAX_FIRMWARE_COVERAGE_RECEIPT" "$TARGET_DIR/etc/ordax/firmware-coverage.json"
 
+    if test "$PROFILE" = owner-development; then
+        test -x "$TARGET_DIR/usr/bin/git" || {
+            echo "Owner/Development Git capability is missing" >&2
+            exit 1
+        }
     mkdir -p "$TARGET_DIR/usr/local/bin" "$TARGET_DIR/state" "$TARGET_DIR/workspace" "$TARGET_DIR/home" "$TARGET_DIR/root" "$TARGET_DIR/run" "$TARGET_DIR/tmp"
     chmod 1777 "$TARGET_DIR/tmp"
     for helper in ordax-network ordax-pull ordax-rollback ordax-run ordax-diagnose; do
@@ -206,7 +215,22 @@ if test "$PROFILE" = owner-development; then
     mkdir -p "$TARGET_DIR/ordax/bootstrap/recovery"
     cp "$ROOT/bootstrap/recovery/entrypoint" "$TARGET_DIR/ordax/bootstrap/recovery/entrypoint"
     chmod 0755 "$TARGET_DIR/ordax/bootstrap/recovery/entrypoint"
-    printf 'ORDAX_OWNER_DEVELOPMENT_PROFILE=YES\n' > "$TARGET_DIR/etc/ordax/owner-development"
+    printf 'ORDAX_OWNER_DEVELOPMENT_PROFILE=YES\n' > "$TARGET_DIR/etc/ordax/owner-development"    else
+        # No Dev acquisition, Git, or native helper may enter Stable/MVP.
+        for forbidden in \
+            "$TARGET_DIR/usr/bin/git" \
+            "$TARGET_DIR/sbin/ordax-dev-init" \
+            "$TARGET_DIR/usr/local/bin/ordax-pull" \
+            "$TARGET_DIR/usr/local/bin/ordax-checkout-exchange" \
+            "$TARGET_DIR/etc/ordax/owner-development"
+        do
+            if test -e "$forbidden" || test -L "$forbidden"; then
+                echo "Stable/MVP candidate contains Development-only capability: $forbidden" >&2
+                exit 1
+            fi
+        done
+        printf 'ORDAX_STABLE_MVP_CANDIDATE=YES\n' > "$TARGET_DIR/etc/ordax/stable-mvp-candidate"
+    fi
 else
     # The minimal proof must remain minimal. If Owner capabilities leak into
     # this profile, fail instead of silently widening the canonical base.
@@ -214,6 +238,7 @@ else
         "$TARGET_DIR/usr/bin/git" \
         "$TARGET_DIR/usr/sbin/wpa_supplicant" \
         "$TARGET_DIR/etc/ordax/owner-development" \
+        "$TARGET_DIR/etc/ordax/stable-mvp-candidate" \
         "$TARGET_DIR/usr/local/bin/ordax-checkout-exchange" \
         "$TARGET_DIR/usr/local/bin/ordax-usb-mountattr"
     do

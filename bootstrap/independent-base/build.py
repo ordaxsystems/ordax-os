@@ -44,7 +44,7 @@ OWNER_BUSYBOX_FRAGMENT_CONFIG = (
 )
 BUSYBOX_HANDOFF_SYMBOLS = ("CONFIG_STAT=y", "CONFIG_FEATURE_STAT_FORMAT=y", "CONFIG_TIMEOUT=y", "CONFIG_FLOCK=y", "CONFIG_MKTEMP=y")
 OWNER_BUSYBOX_SYMBOLS = ("CONFIG_NTPD=y", "CONFIG_NSLOOKUP=y", "CONFIG_WGET=y")
-SUPPORTED_PROFILES = ("minimal", "owner-development")
+SUPPORTED_PROFILES = ("minimal", "owner-development", "stable-mvp")
 # Component-private Python must not change the two canonical OS boot profiles.
 NATIVE_COMPONENT_PROFILE = "native-product-runtime"
 NATIVE_BUILD_INPUT_TAR = "native-python-build-input.rootfs.tar"
@@ -202,6 +202,12 @@ def contracts() -> tuple[dict, dict, dict, dict]:
         "shared_fragment": "bootstrap/independent-base/configs/wifi-hardware.fragment",
     }:
         raise BaseError("Owner/Development profile contract drift")
+    if profiles.get("stable-mvp") != {
+        "defconfig": expected_defconfig,
+        "fragment": "bootstrap/independent-base/configs/wifi-hardware.fragment",
+        "purpose": "stable-mvp-parity-buildroot-not-promotable",
+    }:
+        raise BaseError("Stable/MVP candidate profile contract drift")
     expected_component = {
         "native-product-runtime": {
             "base_defconfig": str(BASE_DEFCONFIG.relative_to(ROOT)),
@@ -280,7 +286,7 @@ def profile_inputs(source: dict, profile: str) -> dict:
         if leaked:
             raise BaseError(f"Owner capability leaked into minimal defconfig: {leaked}")
         fragment_lines: set[str] = set()
-    else:
+    elif profile == "owner-development":
         assert fragment is not None
         fragment_lines = validate_owner_fragment(fragment)
         shared_name = spec.get("shared_fragment")
@@ -290,6 +296,13 @@ def profile_inputs(source: dict, profile: str) -> dict:
         shared_lines = validate_wifi_hardware_fragment(shared_fragment)
         owner_busybox_fragment = OWNER_BUSYBOX_FRAGMENT
         owner_busybox_lines = validate_owner_busybox_fragment()
+    else:
+        assert profile == "stable-mvp" and fragment is not None
+        if fragment != WIFI_HARDWARE_FRAGMENT:
+            raise BaseError("Stable/MVP must reuse the canonical Wi-Fi hardware fragment")
+        fragment_lines = validate_wifi_hardware_fragment(fragment)
+        if spec.get("shared_fragment") is not None:
+            raise BaseError("Stable/MVP cannot declare a second Wi-Fi firmware fragment")
 
     return {
         "profile": profile,
@@ -374,16 +387,19 @@ def verify_resolved_config(config: str, kernel: dict, profile: str) -> None:
         if key not in config:
             raise BaseError(f"Buildroot rejected required configuration {key}")
 
-    if profile == "owner-development":
+    if profile in ("owner-development", "stable-mvp"):
         source = json.loads(SOURCE.read_text(encoding="utf-8"))
-        owner = profile_inputs(source, profile)
-        for key in owner["shared_fragment_config"] + owner["fragment_config"]:
+        selected = profile_inputs(source, profile)
+        for key in selected["shared_fragment_config"] + selected["fragment_config"]:
             if key not in config:
-                raise BaseError(f"Buildroot rejected Owner/Development configuration {key}")
-        if MINIMAL_BUSYBOX_FRAGMENT_CONFIG in config:
-            raise BaseError("Owner/Development lost its dedicated BusyBox capability composition")
+                raise BaseError(f"Buildroot rejected {profile} configuration {key}")
         if "BR2_PACKAGE_KMOD=y" in config:
-            raise BaseError("Owner/Development duplicated BusyBox modprobe with kmod")
+            raise BaseError(f"{profile} duplicated BusyBox modprobe with kmod")
+        if profile == "owner-development":
+            if MINIMAL_BUSYBOX_FRAGMENT_CONFIG in config:
+                raise BaseError("Owner/Development lost its dedicated BusyBox capability composition")
+        elif "BR2_PACKAGE_GIT=y" in config or OWNER_BUSYBOX_FRAGMENT_CONFIG in config:
+            raise BaseError("Stable/MVP inherited development-only capabilities")
     else:
         config_set = set(config.splitlines())
         leaked_userspace = sorted(set(OWNER_USERSPACE_CONFIG) & config_set)
@@ -754,6 +770,21 @@ def verify_static_userspace_elf_closure(target: Path) -> dict:
     }
 
 
+def verify_wifi_hardware_target(target: Path) -> None:
+    required = ("usr/sbin/iw", "usr/sbin/wpa_supplicant", "usr/sbin/wpa_passphrase", "usr/sbin/wpa_cli")
+    for name in required:
+        path = target / name
+        if not path.is_file() or not os.access(path, os.X_OK):
+            raise BaseError(f"Wi-Fi hardware executable missing: /{name}")
+    ca_store = target / "etc/ssl/certs/ca-certificates.crt"
+    if not ca_store.is_file() or ca_store.stat().st_size == 0:
+        raise BaseError("Wi-Fi hardware CA trust store is missing")
+    for receipt_name in ("kernel-module-payload.json", "firmware-coverage.json"):
+        receipt = target / "etc/ordax" / receipt_name
+        if not receipt.is_file() or receipt.stat().st_size == 0:
+            raise BaseError(f"verified hardware receipt missing: {receipt_name}")
+
+
 def verify_owner_target(target: Path) -> None:
     required_exec = {
         "usr/bin/git": None,
@@ -866,14 +897,26 @@ def verify_target(target: Path, profile: str) -> dict:
                     raise BaseError("BusyBox flock granted a lock already owned by another process")
             finally:
                 fcntl.flock(locked, fcntl.LOCK_UN)
+    if profile in ("owner-development", "stable-mvp"):
+        verify_wifi_hardware_target(target)
     if profile == "owner-development":
         verify_owner_target(target)
-    elif any((target / f"usr/local/bin/{name}").exists() for name in (
-        "ordax-checkout-exchange", "ordax-usb-mountattr"
-    )):
-        raise BaseError("minimal target unexpectedly contains Owner native helper")
-    elif (target / "etc/ordax/owner-development").exists():
-        raise BaseError("minimal target unexpectedly contains Owner/Development marker")
+        if (target / "etc/ordax/stable-mvp-candidate").exists():
+            raise BaseError("Stable/MVP marker leaked into Owner")
+    else:
+        for name in ("ordax-checkout-exchange", "ordax-usb-mountattr"):
+            if (target / f"usr/local/bin/{name}").exists():
+                raise BaseError(f"{profile} target unexpectedly contains Owner native helper")
+        if (target / "etc/ordax/owner-development").exists():
+            raise BaseError(f"{profile} target unexpectedly contains Owner/Development marker")
+        stable_marker = target / "etc/ordax/stable-mvp-candidate"
+        if profile == "stable-mvp":
+            if (target / "usr/bin/git").exists() or (target / "sbin/ordax-dev-init").exists():
+                raise BaseError("Stable/MVP candidate contains Dev-only executable")
+            if not stable_marker.is_file() or stable_marker.read_text(encoding="utf-8") != "ORDAX_STABLE_MVP_CANDIDATE=YES\n":
+                raise BaseError("Stable/MVP candidate identity marker is absent or invalid")
+        elif stable_marker.exists():
+            raise BaseError("minimal target unexpectedly contains Stable/MVP candidate marker")
     return surface_iproute2
 
 
@@ -1476,7 +1519,7 @@ def verify_native_python_receipt(out: Path) -> dict:
 
 def validate_owner_payload_environment(profile: str, kernel: dict) -> None:
     """Fail before hours of Buildroot work if the single kernel owner is unbound."""
-    if profile != "owner-development":
+    if profile not in ("owner-development", "stable-mvp"):
         return
     required = (
         "ORDAX_HOST_PYTHON",
