@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import ast
 import json
 import posixpath
 import re
@@ -20,9 +21,7 @@ IGNORED_DIRS = {".git", "node_modules", "vendor", "dist", "build", "out", "cover
 JS_FROM_RE = re.compile(
     r"\b(?:import|export)\s+(?:[^;]*?\s+from\s*)?[\"']([^\"']+)[\"']"
 )
-JS_CALL_RE = re.compile(r"\b(?:require|import)\(\s*[\"']([^\"']+)[\"']\s*\)")
-PY_FROM_RE = re.compile(r"^\s*from\s+([A-Za-z_][A-Za-z0-9_.]*)\s+import\s+", re.MULTILINE)
-PY_IMPORT_RE = re.compile(r"^\s*import\s+([A-Za-z_][A-Za-z0-9_.]*)", re.MULTILINE)
+JS_CALL_RE = re.compile(r"\b(?:require(?:\.resolve)?|import)\s*\(\s*[\"']([^\"']+)[\"']\s*\)")
 QUOTED_REPO_PATH_RE = re.compile(
     r"[\"']((?:github\.com/ordaxsystems/ordax-os/)?(?:system|bootstrap|tools/creator)/[^\"']+)[\"']"
 )
@@ -33,6 +32,34 @@ def load_contract(root: Path = ROOT) -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def python_import_specifiers(text: str) -> set[str]:
+    """Use Python's AST so relative imports and comma-separated imports count.
+
+    ImportFrom.level follows Python semantics: one dot refers to the current
+    package, two dots to its parent, and so on. Convert that notation into
+    filesystem-style relative specifiers for the one boundary resolver.
+    """
+    specs: set[str] = set()
+    for node in ast.walk(ast.parse(text)):
+        if isinstance(node, ast.Import):
+            specs.update(alias.name for alias in node.names)
+        elif isinstance(node, ast.ImportFrom):
+            module = node.module or ""
+            if node.level:
+                prefix = "../" * (node.level - 1) + "./" if node.level == 1 else "../" * (node.level - 1)
+                if module:
+                    specs.add(prefix + module.replace(".", "/"))
+                else:
+                    specs.update(prefix + alias.name.replace(".", "/")
+                                 for alias in node.names if alias.name != "*")
+            elif module:
+                specs.add(module)
+                if module in {"system", "bootstrap", "tools.creator"}:
+                    specs.update(module + "." + alias.name
+                                 for alias in node.names if alias.name != "*")
+    return specs
+
+
 def extract_import_specifiers(path: Path, text: str) -> set[str]:
     suffix = path.suffix.lower()
     specs: set[str] = set()
@@ -40,8 +67,7 @@ def extract_import_specifiers(path: Path, text: str) -> set[str]:
         specs.update(JS_FROM_RE.findall(text))
         specs.update(JS_CALL_RE.findall(text))
     elif suffix == ".py":
-        specs.update(PY_FROM_RE.findall(text))
-        specs.update(PY_IMPORT_RE.findall(text))
+        specs.update(python_import_specifiers(text))
     elif suffix == ".go":
         specs.update(QUOTED_REPO_PATH_RE.findall(text))
     return specs
@@ -57,7 +83,7 @@ def normalize_specifier(source_rel: PurePosixPath, specifier: str) -> str | None
 
     if spec.startswith("@ordax/"):
         spec = "system/" + spec.removeprefix("@ordax/")
-    elif spec.startswith("system."):
+    elif spec.startswith(("system.", "bootstrap.", "tools.creator.")):
         spec = spec.replace(".", "/")
 
     if spec.startswith("."):
@@ -125,7 +151,13 @@ def find_violations(root: Path, contract: dict | None = None) -> list[str]:
         source_adapter_mode = adapter_mode_for_path(source_str, contract)
         text = path.read_text(encoding="utf-8", errors="ignore")
 
-        for specifier in sorted(extract_import_specifiers(path, text)):
+        try:
+            specifiers = extract_import_specifiers(path, text)
+        except SyntaxError as exc:
+            violations.append(f"{source_str}: invalid Python imports: {exc.msg}")
+            continue
+
+        for specifier in sorted(specifiers):
             try:
                 target = normalize_specifier(source_rel, specifier)
             except ValueError:
