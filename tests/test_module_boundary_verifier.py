@@ -211,7 +211,7 @@ class ModuleBoundaryVerifierTests(unittest.TestCase):
             self.write(
                 root,
                 "system/services/sync/client.py",
-                "from ...adapters.desktop import privileged_port\\n",
+                "from ...adapters.desktop import privileged_port\n",
             )
             violations = MODULE.find_violations(root, CONTRACT)
             self.assertTrue(
@@ -226,12 +226,12 @@ class ModuleBoundaryVerifierTests(unittest.TestCase):
             self.write(
                 root,
                 "system/adapters/web/port.py",
-                "from .. import mobile\\n",
+                "from .. import mobile\n",
             )
             self.write(
                 root,
                 "system/services/sync/client.py",
-                "from ... import surface\\n",
+                "from ... import surface\n",
             )
             violations = MODULE.find_violations(root, CONTRACT)
             self.assertTrue(any("adapter mode web may not import mobile" in x for x in violations), violations)
@@ -244,7 +244,7 @@ class ModuleBoundaryVerifierTests(unittest.TestCase):
             self.write(
                 root,
                 "system/services/sync/client.py",
-                "from ....ordax_platform.private import token\\n",
+                "from ....ordax_platform.private import token\n",
             )
             violations = MODULE.find_violations(root, CONTRACT)
             self.assertEqual(len(violations), 1, violations)
@@ -257,16 +257,16 @@ class ModuleBoundaryVerifierTests(unittest.TestCase):
             self.write(
                 root,
                 "system/services/sync/client.py",
-                "from ...contracts import capability\\n"
-                "from system.contracts import public_port\\n"
-                "import os, json\\n"
-                "# from ...adapters.mobile import forbidden\\n",
+                "from ...contracts import capability\n"
+                "from system.contracts import public_port\n"
+                "import os, json\n"
+                "# from ...adapters.mobile import forbidden\n",
             )
             self.assertEqual(MODULE.find_violations(root, CONTRACT), [])
             self.write(
                 root,
                 "system/services/sync/client.py",
-                "from system import adapters\\n",
+                "from system import adapters\n",
             )
             violations = MODULE.find_violations(root, CONTRACT)
             self.assertTrue(any("services may not import adapters" in x for x in violations), violations)
@@ -278,8 +278,8 @@ class ModuleBoundaryVerifierTests(unittest.TestCase):
             self.write(
                 root,
                 "system/services/sync/adapter.cjs",
-                "const a = require ( \"../../adapters/desktop/private.cjs\" );\\n"
-                "const b = require.resolve ( \"../../surface/ui.mjs\" );\\n",
+                "const a = require ( \"../../adapters/desktop/private.cjs\" );\n"
+                "const b = require.resolve ( \"../../surface/ui.mjs\" );\n",
             )
             violations = MODULE.find_violations(root, CONTRACT)
             self.assertTrue(any("services may not import adapters" in x for x in violations), violations)
