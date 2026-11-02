@@ -3,9 +3,8 @@
 const test=require('node:test');
 const assert=require('node:assert/strict');
 const http=require('node:http');
-const {mkdtempSync,existsSync,rmSync}=require('node:fs');
+const {mkdtempSync,mkdirSync,existsSync}=require('node:fs');
 const {join,resolve}=require('node:path');
-const {tmpdir}=require('node:os');
 const {VisualTestBridge,comparePng}=require('./bridge.cjs');
 test('real headless Chromium supports semantic interaction, inspection, trace and evidence',async t=>{
   const server=http.createServer((req,res)=>{
@@ -18,10 +17,13 @@ test('real headless Chromium supports semantic interaction, inspection, trace an
     res.end('<!doctype html><html><body><div id="ordax-boot-screen" data-state="ready"></div><div id="ordax-root"><button aria-label="Ajustes">Ajustes</button><input aria-label="Pesquisa"/><p id="result"></p></div><script>document.querySelector("button").onclick=()=>document.querySelector("#result").textContent="aberto";</script></body></html>');
   });
   await new Promise(r=>server.listen(0,'127.0.0.1',r));
-  const root=mkdtempSync(join(tmpdir(),'ordax-bridge-adapter-evidence-'));
-  const artifacts=resolve('out/visual-test-bridge/browser-adapter');
+  const evidenceRoot=resolve('out/visual-test-bridge');
+  mkdirSync(evidenceRoot,{recursive:true});
+  // Each execution has append-only output; do not delete or overwrite a
+  // previous screenshot, baseline, trace or debug receipt.
+  const artifacts=mkdtempSync(join(evidenceRoot,'browser-adapter-'));
   const bridge=new VisualTestBridge({artifactsDir:artifacts});
-  t.after(async()=>{await bridge.close();await new Promise(r=>server.close(r));rmSync(root,{recursive:true,force:true});});
+  t.after(async()=>{await bridge.close();await new Promise(r=>server.close(r));});
   const url='http://127.0.0.1:'+server.address().port+'/system/composition/native/index.html';
   assert.equal((await bridge.launch({mode:'web',url})).mode,'web');
   assert.equal((await bridge.listWindows()).length,1);
