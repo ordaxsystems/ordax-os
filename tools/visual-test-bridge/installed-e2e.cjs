@@ -1,6 +1,7 @@
 'use strict';
 // Execute 20 clean, real OrdaX installed Electron sessions on ephemeral Windows CI.
 const {VisualTestBridge}=require('./bridge.cjs');
+const {runInstalledJourney}=require('./installed-journey.cjs');
 const {mkdirSync,writeFileSync}=require('node:fs');
 const {isAbsolute,resolve,join}=require('node:path');
 const executablePath=process.env.ORDAX_VISUAL_INSTALLED_EXE;
@@ -46,5 +47,8 @@ async function main() {
     if(record.status!=='passed')throw Error('Installed E2E iteration '+run+' failed: '+(record.error||record.teardownError||record.diagnosticsError));
   }
   process.stdout.write('ORDAX_INSTALLED_VISUAL_E2E_CONSECUTIVE_PASS=20\n');
+  const journey=await runInstalledJourney({executablePath,artifactsDir:join(artifactsDir,'journey')});
+  if(!journey.passed)throw Error('Installed navigation journey did not pass');
+  process.stdout.write('ORDAX_INSTALLED_VISUAL_NAVIGATION_PASS=home,account,settings,system\n');
 }
 main().catch(error=>{console.error(error.message);process.exitCode=1;});

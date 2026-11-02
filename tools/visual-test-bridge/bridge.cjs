@@ -191,17 +191,48 @@ class VisualTestBridge {
   async scanLayout() {
     return this.currentPage().evaluate(()=>{
       const nodes=[...document.querySelectorAll('button,a,input,textarea,select,[role="button"]')].slice(0,300);
-      const viewport={width:innerWidth,height:innerHeight},offscreen=[],clipped=[],tiny=[];
+      const viewport={width:innerWidth,height:innerHeight};
+      const offscreen=[],clipped=[],tiny=[],hidden=[],clippedByAncestor=[],overlapping=[];
+      const visible=[];
       for(const el of nodes){
         const r=el.getBoundingClientRect(),s=getComputedStyle(el);
-        if(s.display==='none'||s.visibility==='hidden')continue;
         const name=(el.getAttribute('aria-label')||el.textContent||el.tagName).trim().slice(0,70);
+        if(s.display==='none'||s.visibility==='hidden'||Number(s.opacity)<=0.01){
+          hidden.push(name);
+          continue;
+        }
         if(r.right<=0||r.bottom<=0||r.left>=viewport.width||r.top>=viewport.height)offscreen.push(name);
         else if(r.left<0||r.top<0||r.right>viewport.width||r.bottom>viewport.height)clipped.push(name);
         if(r.width>0&&r.height>0&&(r.width<24||r.height<24))tiny.push(name);
+        if(r.width>0&&r.height>0){
+          visible.push({el,name,r});
+          for(let parent=el.parentElement;parent&&parent!==document.body;parent=parent.parentElement){
+            const ps=getComputedStyle(parent);
+            if(!/(hidden|clip|scroll|auto)/.test(ps.overflowX+' '+ps.overflowY))continue;
+            const pr=parent.getBoundingClientRect();
+            if(r.left<pr.left-1||r.top<pr.top-1||r.right>pr.right+1||r.bottom>pr.bottom+1){
+              clippedByAncestor.push(name);
+              break;
+            }
+          }
+        }
       }
-      return {viewport,interactiveElements:nodes.length,offscreen:offscreen.slice(0,30),
-        viewportClipped:clipped.slice(0,30),smallHitTargets:tiny.slice(0,30)};
+      for(let i=0;i<visible.length;i++)for(let j=i+1;j<visible.length;j++){
+        const a=visible[i],b=visible[j];
+        if(a.el.contains(b.el)||b.el.contains(a.el))continue;
+        const dx=Math.max(0,Math.min(a.r.right,b.r.right)-Math.max(a.r.left,b.r.left));
+        const dy=Math.max(0,Math.min(a.r.bottom,b.r.bottom)-Math.max(a.r.top,b.r.top));
+        const ratio=dx*dy/Math.max(1,Math.min(a.r.width*a.r.height,b.r.width*b.r.height));
+        if(ratio>=0.4){
+          overlapping.push({a:a.name,b:b.name,coverage:Math.round(ratio*1000)/1000});
+          if(overlapping.length>=30)break;
+        }
+      }
+      return {viewport,interactiveElements:nodes.length,visibleHitTargets:visible.length,
+        hiddenInteractiveElements:hidden.slice(0,30),
+        offscreen:offscreen.slice(0,30),viewportClipped:clipped.slice(0,30),
+        parentClipped:clippedByAncestor.slice(0,30),
+        overlappingHitTargets:overlapping.slice(0,30),smallHitTargets:tiny.slice(0,30)};
     });
   }
   async compareVisual({name,baseline,channelTolerance=10,maxMismatchRatio=0.001}={}) {
