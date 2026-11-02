@@ -102,8 +102,8 @@ class IndependentPortableBootIntegrationTest(unittest.TestCase):
         # Cache key AND archive path must match the independent Buildroot producer.
         producer = (ROOT / ".github/workflows/independent-base-experiment.yml").read_text()
         cache_path = 'path: ${{ runner.temp }}/ordax-independent'
-        self.assertEqual(official.count(cache_path), 2)
-        self.assertGreaterEqual(producer.count(cache_path), 2)
+        self.assertEqual(sum(line.strip() == cache_path for line in official.splitlines()), 2)
+        self.assertGreaterEqual(sum(line.strip() == cache_path for line in producer.splitlines()), 2)
         self.assertNotIn('path: ${{ runner.temp }}/portable-v2-qemu/independent-base', official)
         self.assertIn('base_out="$RUNNER_TEMP/ordax-independent"', official)
         self.assertIn('printf \'ORDAX_INDEPENDENT_BASE_OUT=%s\\n\' "$base_out" >> "$GITHUB_ENV"', official)
