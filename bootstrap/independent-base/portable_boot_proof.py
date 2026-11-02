@@ -132,6 +132,10 @@ def prove(args: argparse.Namespace) -> dict:
         raise BaseError("Stable portable proof requires a verified hardware-base reuse receipt")
     if args.base_profile != "stable-mvp" and args.reuse_receipt is not None:
         raise BaseError("cache reuse receipt is only supported for the Stable candidate")
+    if args.base_profile == "stable-mvp" and args.kernel_modules is None:
+        raise BaseError("Stable portable proof requires canonical kernel modules archive binding")
+    if args.base_profile != "stable-mvp" and args.kernel_modules is not None:
+        raise BaseError("kernel module binding is exclusive to Stable portable proof")
     if receipt.get("stable_channel_authorized") is True or receipt.get("physical_artifact_authorized") is not False:
         raise BaseError("candidate is not isolated")
     kernel = regular_file(args.kernel, "kernel")
@@ -147,11 +151,28 @@ def prove(args: argparse.Namespace) -> dict:
 
     out.mkdir(parents=True, exist_ok=True)
     stable_binding = None
+    kernel_binding = None
     if args.base_profile == "stable-mvp":
         stable_binding = verify_stable_cache_binding(
             base_dir, args.source_commit, receipt, args.reuse_receipt,
             out / "stable-cache-revalidated.json",
         )
+        source = ROOT / "bootstrap/base/kernel_module_payload.py"
+        if source.is_symlink() or not source.is_file():
+            raise BaseError("canonical kernel module payload verifier is missing or unsafe")
+        spec = importlib.util.spec_from_file_location("ordax_portable_kernel_modules", source)
+        if spec is None or spec.loader is None:
+            raise BaseError("cannot load canonical kernel module payload verifier")
+        module_policy = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module_policy)
+        try:
+            kernel_binding = module_policy.verify_kernel_archive_binding(
+                regular_file(args.kernel_modules, "canonical boot kernel modules"),
+                regular_file(base_dir / "kernel-module-payload.json", "Stable kernel module receipt"),
+                regular_file(base_dir / "rootfs.tar", "Stable rootfs archive"),
+            )
+        except (module_policy.KernelModulePayloadError, OSError, ValueError) as exc:
+            raise BaseError(f"Stable module receipt is not bound to boot kernel: {exc}") from exc
     # The canonical QEMU harness works with disposable images. Never allow an
     # external caller's ext4 source file to become an implicit write target.
     source_state_sha256 = digest(state)
@@ -221,6 +242,10 @@ def prove(args: argparse.Namespace) -> dict:
         "base_cache_reuse_verified": stable_binding is not None,
         "base_cache_reused": stable_binding["reused"] if stable_binding else False,
         "base_build_source_commit": receipt.get("source_commit"),
+        "boot_kernel_modules_bound": kernel_binding is not None,
+        "boot_kernel_module_archive_sha256": (
+            kernel_binding["kernel_module_archive_sha256"] if kernel_binding else None
+        ),
         "independent_base_sha256": digest(candidate),
         "original_ext4_image_sha256": source_state_sha256,
         "original_ext4_image_unchanged": True,
@@ -240,6 +265,8 @@ def main() -> int:
                         default=INDEPENDENT_PORTABLE_PROFILE)
     parser.add_argument("--reuse-receipt", type=Path,
                         help="Verified immutable Stable component binding for signed boot")
+    parser.add_argument("--kernel-modules", type=Path,
+                        help="Same verified canonical kernel module archive used by Stable Buildroot")
     parser.add_argument("--stable-base", type=Path)
     parser.add_argument("--initramfs", type=Path)
     parser.add_argument("--initramfs-provenance", type=Path)

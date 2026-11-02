@@ -1035,6 +1035,7 @@ jobs:
             proof_extra=(--base-out "${ORDAX_INDEPENDENT_BASE_OUT:?}" --base-profile "${{ inputs.independent_base_profile || 'minimal' }}" --output-dir "$work/qemu-proof/bridge")
             if [ "${{ inputs.independent_base_profile || 'minimal' }}" = stable-mvp ]; then
               proof_extra+=(--reuse-receipt "$work/metadata/independent-stable-component-reuse.json")
+              proof_extra+=(--kernel-modules "$work/kernel/kernel-modules-$ORDAX_KERNEL_VERSION.tar")
             fi
             echo 'ORDAX_INDEPENDENT_PORTABLE_BRIDGE=EXECUTING'
           fi
@@ -1133,6 +1134,7 @@ jobs:
             proof_extra=(--base-out "${ORDAX_INDEPENDENT_BASE_OUT:?}" --base-profile "${{ inputs.independent_base_profile || 'minimal' }}" --output-dir "$work/qemu-one-shot-proof/bridge")
             if [ "${{ inputs.independent_base_profile || 'minimal' }}" = stable-mvp ]; then
               proof_extra+=(--reuse-receipt "$work/metadata/independent-stable-component-reuse.json")
+              proof_extra+=(--kernel-modules "$work/kernel/kernel-modules-$ORDAX_KERNEL_VERSION.tar")
             fi
             echo 'ORDAX_INDEPENDENT_PORTABLE_BRIDGE=EXECUTING'
           fi

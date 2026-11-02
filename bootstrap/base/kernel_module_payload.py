@@ -252,6 +252,97 @@ def install(archive_path: Path, target_root: Path, receipt_path: Path, matrix_pa
         shutil.rmtree(work, ignore_errors=True)
 
 
+
+def verify_kernel_archive_binding(
+    archive_path: Path,
+    receipt_path: Path,
+    rootfs_tar: Path,
+    matrix_path: Path = DEFAULT_MATRIX,
+) -> dict:
+    """Bind the Stable rootfs' installed module receipt to the boot kernel.
+
+    Do not accept a separately copied JSON file as evidence by itself:
+    rootfs.tar must contain the identical regular receipt member and the
+    canonical kernel module artifact must hash to the declared source.
+    This checks provenance, not signed boot or physical readiness.
+    """
+    for label, path in (
+        ("kernel modules archive", archive_path),
+        ("installed kernel module receipt", receipt_path),
+        ("Buildroot rootfs tar", rootfs_tar),
+    ):
+        if path.is_symlink() or not path.is_file():
+            raise KernelModulePayloadError(f"{label} must be a regular file")
+    if receipt_path.stat().st_size > 1024 * 1024:
+        raise KernelModulePayloadError("kernel module receipt is unbounded")
+    try:
+        raw = receipt_path.read_bytes()
+        receipt = json.loads(raw)
+    except (UnicodeError, json.JSONDecodeError) as exc:
+        raise KernelModulePayloadError(f"kernel module receipt is not valid JSON: {exc}") from exc
+    policy = load_wifi_policy(matrix_path)
+    release = receipt.get("kernel_release")
+    if (
+        receipt.get("$schema") != "prototype-ordax.kernel-module-payload/1"
+        or receipt.get("status") != "selected-from-canonical-kernel-artifact"
+        or not isinstance(release, str)
+        or SAFE_RELEASE_RE.fullmatch(release) is None
+        or receipt.get("hardware_matrix") != str(matrix_path.resolve().relative_to(ROOT))
+        or receipt.get("hardware_matrix_sha256") != policy["matrix_sha256"]
+        or receipt.get("requested_module_basenames") != policy["module_basenames"]
+        or receipt.get("coldplug_entrypoints") != policy["coldplug_entrypoints"]
+        or receipt.get("kernel_built_here") is not False
+        or receipt.get("network_download_used") is not False
+    ):
+        raise KernelModulePayloadError("kernel module receipt identity or safety policy drift")
+    archive_hash = sha256_file(archive_path)
+    if receipt.get("kernel_module_archive_sha256") != archive_hash:
+        raise KernelModulePayloadError("Stable module payload differs from verified boot kernel archive")
+    files = receipt.get("files")
+    count = receipt.get("selected_module_count")
+    if not isinstance(files, list) or not files or type(count) is not int or count < len(policy["module_basenames"]):
+        raise KernelModulePayloadError("kernel module receipt has invalid selected file inventory")
+    prefix = f"/lib/modules/{release}/"
+    paths: set[str] = set()
+    modules = 0
+    for entry in files:
+        if not isinstance(entry, dict):
+            raise KernelModulePayloadError("invalid kernel module receipt entry")
+        name, digest, size = entry.get("path"), entry.get("sha256"), entry.get("size")
+        if (
+            not isinstance(name, str)
+            or not name.startswith(prefix)
+            or ".." in Path(name).parts
+            or name in paths
+            or not isinstance(digest, str)
+            or SHA256_RE.fullmatch(digest) is None
+            or type(size) is not int
+            or size < 0
+        ):
+            raise KernelModulePayloadError("unsafe or duplicate kernel module receipt member")
+        paths.add(name)
+        modules += name.endswith(".ko")
+    if modules != count:
+        raise KernelModulePayloadError("kernel module receipt count is inconsistent")
+    with tarfile.open(rootfs_tar, "r") as archive:
+        try:
+            embedded = archive.getmember("etc/ordax/kernel-module-payload.json")
+        except KeyError as exc:
+            raise KernelModulePayloadError("Stable rootfs archive lacks its installed module receipt") from exc
+        if not embedded.isfile() or embedded.size != len(raw):
+            raise KernelModulePayloadError("Stable rootfs contains a nonregular or altered module receipt")
+        stream = archive.extractfile(embedded)
+        if stream is None or stream.read(len(raw) + 1) != raw:
+            raise KernelModulePayloadError("Stable rootfs module receipt differs from verified producer")
+    return {
+        "status": "verified-canonical-kernel-module-binding",
+        "kernel_release": release,
+        "kernel_module_archive_sha256": archive_hash,
+        "rootfs_installed_receipt_sha256": hashlib.sha256(raw).hexdigest(),
+        "selected_module_count": count,
+    }
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("action", choices=("check", "install"))
