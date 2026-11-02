@@ -129,11 +129,41 @@ class KernelModulePayloadTests(unittest.TestCase):
         receipt_bytes = (json.dumps(receipt, sort_keys=True) + "\n").encode("utf-8")
         receipt_path.write_bytes(receipt_bytes)
         rootfs = root / "rootfs.tar"
-        with tarfile.open(rootfs, "w") as dst:
-            info = tarfile.TarInfo("etc/ordax/kernel-module-payload.json")
-            info.size = len(receipt_bytes)
-            dst.addfile(info, io.BytesIO(receipt_bytes))
+        self._write_rootfs_binding_tar(rootfs, receipt_bytes, files)
         return archive, receipt_path, rootfs, receipt
+
+    @staticmethod
+    def _write_rootfs_binding_tar(
+        path: Path, receipt_bytes: bytes, files: list[dict], *,
+        corrupt: str | None = None,
+        omit: str | None = None,
+        link: str | None = None,
+        duplicate: str | None = None,
+    ) -> None:
+        with tarfile.open(path, "w") as dst:
+            items = [("etc/ordax/kernel-module-payload.json", receipt_bytes)]
+            for item in files:
+                name = item["path"][1:]
+                if name == omit:
+                    continue
+                data = (
+                    Path(name).name.removesuffix(".ko").encode("utf-8")
+                    if name.endswith(".ko") else b"deps"
+                )
+                if name == corrupt:
+                    data = b"X" * len(data)
+                items.append((name, data))
+            if duplicate is not None:
+                items.append(next(pair for pair in items if pair[0] == duplicate))
+            for name, data in items:
+                info = tarfile.TarInfo(name)
+                if name == link:
+                    info.type = tarfile.SYMTYPE
+                    info.linkname = "../wrong-target"
+                    dst.addfile(info)
+                else:
+                    info.size = len(data)
+                    dst.addfile(info, io.BytesIO(data))
 
     def test_installed_module_receipt_binds_exact_boot_kernel_and_rootfs(self) -> None:
         with tempfile.TemporaryDirectory() as raw:
@@ -142,6 +172,45 @@ class KernelModulePayloadTests(unittest.TestCase):
             self.assertEqual(result["status"], "verified-canonical-kernel-module-binding")
             self.assertEqual(result["kernel_module_archive_sha256"], PAYLOAD.sha256_file(archive))
             self.assertEqual(result["selected_module_count"], receipt["selected_module_count"])
+            self.assertEqual(result["verified_rootfs_members"], len(receipt["files"]) + 1)
+
+    def test_kernel_binding_rejects_tampered_missing_or_ambiguous_archive_modules(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            archive, receipt_path, rootfs, receipt = self._canonical_test_binding(Path(raw))
+            canonical = json.loads(receipt_path.read_text(encoding="utf-8"))
+            data = receipt_path.read_bytes()
+            member = receipt["files"][0]["path"][1:]
+            for change, message in (
+                ({"corrupt": member}, "module bytes differ"),
+                ({"omit": member}, "lacks verified module files"),
+                ({"link": member}, "not the expected regular file"),
+                ({"duplicate": member}, "duplicate Stable rootfs module member"),
+            ):
+                with self.subTest(change=change):
+                    self._write_rootfs_binding_tar(rootfs, data, canonical["files"], **change)
+                    with self.assertRaisesRegex(PAYLOAD.KernelModulePayloadError, message):
+                        PAYLOAD.verify_kernel_archive_binding(archive, receipt_path, rootfs)
+            self._write_rootfs_binding_tar(rootfs, data, canonical["files"])
+            self.assertEqual(
+                PAYLOAD.verify_kernel_archive_binding(archive, receipt_path, rootfs)["verified_rootfs_members"],
+                len(canonical["files"]) + 1,
+            )
+
+    def test_kernel_binding_rejects_noncanonical_receipt_member_paths(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            archive, receipt_path, rootfs, receipt = self._canonical_test_binding(Path(raw))
+            for unsafe in (
+                "/lib/modules/6.6.158-test//kernel/iwlwifi.ko",
+                "/lib/modules/6.6.158-test/kernel/./iwlwifi.ko",
+                "/lib/modules/6.6.158-test/kernel\\iwlwifi.ko",
+            ):
+                with self.subTest(unsafe=unsafe):
+                    tampered = dict(receipt)
+                    tampered["files"] = [dict(entry) for entry in receipt["files"]]
+                    tampered["files"][0]["path"] = unsafe
+                    receipt_path.write_text(json.dumps(tampered) + "\n", encoding="utf-8")
+                    with self.assertRaisesRegex(PAYLOAD.KernelModulePayloadError, "unsafe or duplicate"):
+                        PAYLOAD.verify_kernel_archive_binding(archive, receipt_path, rootfs)
 
     def test_kernel_module_binding_rejects_altered_archive_and_separate_receipt(self) -> None:
         with tempfile.TemporaryDirectory() as raw:

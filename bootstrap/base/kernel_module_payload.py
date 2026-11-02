@@ -306,6 +306,9 @@ def verify_kernel_archive_binding(
         raise KernelModulePayloadError("kernel module receipt has invalid selected file inventory")
     prefix = f"/lib/modules/{release}/"
     paths: set[str] = set()
+    expected_rootfs = {
+        "etc/ordax/kernel-module-payload.json": (len(raw), hashlib.sha256(raw).hexdigest())
+    }
     installed_modules: set[str] = set()
     modules = 0
     for entry in files:
@@ -315,7 +318,8 @@ def verify_kernel_archive_binding(
         if (
             not isinstance(name, str)
             or not name.startswith(prefix)
-            or ".." in Path(name).parts
+            or any(part in ("", ".", "..") for part in name[1:].split("/"))
+            or "\\" in name
             or name in paths
             or not isinstance(digest, str)
             or SHA256_RE.fullmatch(digest) is None
@@ -324,6 +328,7 @@ def verify_kernel_archive_binding(
         ):
             raise KernelModulePayloadError("unsafe or duplicate kernel module receipt member")
         paths.add(name)
+        expected_rootfs[name[1:]] = (size, digest)
         if name.endswith(".ko"):
             modules += 1
             installed_modules.add(Path(name).name.removesuffix(".ko").replace("-", "_"))
@@ -331,22 +336,46 @@ def verify_kernel_archive_binding(
         raise KernelModulePayloadError("Stable module inventory lost hardware baseline")
     if modules != count:
         raise KernelModulePayloadError("kernel module receipt count is inconsistent")
-    with tarfile.open(rootfs_tar, "r") as archive:
-        try:
-            embedded = archive.getmember("etc/ordax/kernel-module-payload.json")
-        except KeyError as exc:
-            raise KernelModulePayloadError("Stable rootfs archive lacks its installed module receipt") from exc
-        if not embedded.isfile() or embedded.size != len(raw):
-            raise KernelModulePayloadError("Stable rootfs contains a nonregular or altered module receipt")
-        stream = archive.extractfile(embedded)
-        if stream is None or stream.read(len(raw) + 1) != raw:
-            raise KernelModulePayloadError("Stable rootfs module receipt differs from verified producer")
+    # Verify the actual rootfs members, not just a detached manifest.  The
+    # canonical post-image tar exporter writes paths once, without './' and
+    # without following symlinks. Reject duplicate members as ambiguous.
+    verified_members: set[str] = set()
+    try:
+        with tarfile.open(rootfs_tar, "r") as archive:
+            for member in archive:
+                expected = expected_rootfs.get(member.name)
+                if expected is None:
+                    continue
+                if member.name in verified_members:
+                    raise KernelModulePayloadError(f"duplicate Stable rootfs module member: {member.name}")
+                if not member.isfile() or member.size != expected[0]:
+                    raise KernelModulePayloadError(
+                        f"Stable rootfs module member is not the expected regular file: {member.name}"
+                    )
+                stream = archive.extractfile(member)
+                if stream is None:
+                    raise KernelModulePayloadError(f"cannot read Stable rootfs module member: {member.name}")
+                actual = hashlib.sha256()
+                with stream:
+                    for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+                        actual.update(chunk)
+                if actual.hexdigest() != expected[1]:
+                    raise KernelModulePayloadError(f"Stable rootfs module bytes differ from receipt: {member.name}")
+                verified_members.add(member.name)
+    except (tarfile.TarError, EOFError) as exc:
+        raise KernelModulePayloadError(f"invalid Stable rootfs archive: {exc}") from exc
+    missing_members = sorted(set(expected_rootfs) - verified_members)
+    if missing_members:
+        raise KernelModulePayloadError(
+            f"Stable rootfs archive lacks verified module files: {missing_members[:4]}"
+        )
     return {
         "status": "verified-canonical-kernel-module-binding",
         "kernel_release": release,
         "kernel_module_archive_sha256": archive_hash,
         "rootfs_installed_receipt_sha256": hashlib.sha256(raw).hexdigest(),
         "selected_module_count": count,
+        "verified_rootfs_members": len(verified_members),
     }
 
 
