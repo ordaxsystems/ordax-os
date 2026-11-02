@@ -87,54 +87,14 @@ jobs:
           } | Select-Object -First 1)
           if($source.Count -ne 1){throw 'No successful trusted Windows Desktop main workflow run'}
           $run=$source[0]
-          if($run.head_sha -cnotmatch '^[0-9a-f]{40}
-          $artifacts=Invoke-RestMethod -Uri "https://api.github.com/repos/$repo/actions/runs/$($run.id)/artifacts" -Headers $headers
-          $artifact=@($artifacts.artifacts | Where-Object {
-            $_.name -ceq 'ordax-os-desktop-dev-alpha-windows' -and $_.expired -eq $false -and
-            $_.size_in_bytes -gt 10000000 -and $_.digest -match '^sha256:[0-9a-f]{64}$'
-          })
-          if($artifact.Count -ne 1){throw 'Missing unique verified NSIS artifact'}
-          "run_id=$($run.id)" >> $env:GITHUB_OUTPUT
-          "source_sha=$($run.head_sha)" >> $env:GITHUB_OUTPUT
-          Write-Output "VISUAL_INSTALLED_INPUT_MAIN_SHA=$($run.head_sha)"
-          Write-Output "VISUAL_INSTALLED_INPUT_RUN_ID=$($run.id)"
-      - name: Download one existing, already-compiled NSIS from main
-        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
-        with:
-          name: ordax-os-desktop-dev-alpha-windows
-          run-id: ${{ steps.source.outputs.run_id }}
-          github-token: ${{ github.token }}
-          path: out/visual-test-bridge/installer
-      - name: Install verified Desktop in isolated runner and run 20 real full navigation journeys
-        shell: pwsh
-        env:
-          ORDAX_VISUAL_SOURCE_RUN_ID: ${{ steps.source.outputs.run_id }}
-          ORDAX_VISUAL_SOURCE_SHA: ${{ steps.source.outputs.source_sha }}
-        run: |
-          $ErrorActionPreference='Stop'
-          $installers=@(Get-ChildItem out/visual-test-bridge/installer -Filter '*.exe' -File)
-          if($installers.Count -ne 1){throw 'Expected exactly one NSIS installer'}
-          & .\tools\visual-test-bridge\installed-e2e.ps1 -Installer $installers[0].FullName -ExpectedSourceSha $env:ORDAX_VISUAL_SOURCE_SHA
-          if($LASTEXITCODE -ne 0){throw 'Installed OrdaX visual suite failed'}
-      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
-        if: always()
-        with:
-          name: visual-test-bridge-installed-windows-evidence
-          path: |
-            out/visual-test-bridge/installed/**
-          if-no-files-found: warn
-          retention-days: 7
-){throw 'Invalid installed source SHA'}
-          # Cheap preflight on this EXACT installed-source SHA, before fetching a 600MB+ NSIS.
-          # This is NOT a substitute for the actual 20 full Playwright journeys.
-          # The First Run owner already implements the canonical four-stage Desktop mode
-          # in PR #2343. Never fake that mode in the renderer or consume a draft artifact.
-          $mainPath='system/composition/native/main.mjs'
-          $committed=Invoke-RestMethod -Uri "https://api.github.com/repos/$repo/contents/$mainPath?ref=$($run.head_sha)" -Headers $headers
-          if($committed.type -cne 'file' -or $committed.encoding -cne 'base64'){throw 'Installed Native composition source not attested'}
-          $contents=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String(($committed.content -replace '\s','')))
-          if(-not $contents.Contains('productMode: windowsDesktopHost ? "desktop" : "usb"')){
-            throw "Installed NSIS source $($run.head_sha) predates canonical Desktop First Run; OS PR #2343 must merge and pass Windows release gates before costly installed visual E2E"
+          if($run.head_sha -cnotmatch '^[0-9a-f]{40}$'){throw 'Invalid installed source SHA'}
+          # Cheap probe of this exact source before downloading the already-built NSIS.
+          # PR #2343 is the sole owner of the Desktop First Run product mode.
+          $composition=Invoke-RestMethod -Uri "https://api.github.com/repos/$repo/contents/system/composition/native/main.mjs?ref=$($run.head_sha)" -Headers $headers
+          if($composition.type -cne 'file' -or $composition.encoding -cne 'base64'){throw 'Unverified installed Native composition'}
+          $native=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String(($composition.content -replace '\s','')))
+          if(-not $native.Contains('productMode: windowsDesktopHost ? "desktop" : "usb"')){
+            throw "Installed source $($run.head_sha) predates the canonical Windows First Run (OS PR #2343); blocking NSIS download"
           }
           $artifacts=Invoke-RestMethod -Uri "https://api.github.com/repos/$repo/actions/runs/$($run.id)/artifacts" -Headers $headers
           $artifact=@($artifacts.artifacts | Where-Object {
@@ -153,7 +113,7 @@ jobs:
           run-id: ${{ steps.source.outputs.run_id }}
           github-token: ${{ github.token }}
           path: out/visual-test-bridge/installer
-      - name: Install verified Desktop in isolated runner and run 20 real clean E2Es
+      - name: Install verified Desktop in isolated runner and run 20 real full navigation journeys
         shell: pwsh
         env:
           ORDAX_VISUAL_SOURCE_RUN_ID: ${{ steps.source.outputs.run_id }}
