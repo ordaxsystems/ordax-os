@@ -82,6 +82,17 @@ jobs:
       # separately owned Surface. Materialize its pinned source in this
       # disposable checkout just like the real QEMU workflow; do not bypass
       # unresolved imports or duplicate Surface files in ordax-os.
+      # Exercise the actual expression in a GitHub-hosted runner, not just
+      # source-text assertions. The producer's separate self-hosted branch
+      # still requires its own authenticated runner.environment check.
+      - name: Prove authenticated runner context reaches Shell
+        env:
+          ORDAX_VERIFIED_RUNNER_ENVIRONMENT: ${{ runner.environment }}
+        run: |
+          set -euo pipefail
+          test "${ORDAX_VERIFIED_RUNNER_ENVIRONMENT:-}" = github-hosted
+          test "$RUNNER_OS" = Linux
+          echo 'ORDAX_SURFACE_RUNNER_CONTEXT=VERIFIED_GITHUB_HOSTED'
       - name: Prepare verified Surface for Portable impact contracts
         uses: ./.github/actions/prepare-verified-surface
       - name: Validate Independent Base contracts and migration boundary
