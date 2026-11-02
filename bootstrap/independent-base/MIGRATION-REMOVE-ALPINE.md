@@ -426,6 +426,14 @@ Somente após todos os gates:
 - `e01f0c78`, `c24c5ba1`: o mesmo owner neutro agora percorre o `rootfs.tar` canônico e autentica **cada arquivo regular** do recibo `kernel-module-payload.json` por caminho exato, tamanho e SHA-256. Duplicatas, symlinks, módulos ausentes, conteúdo alterado e caminhos não canônicos falham fechados. Testes de fixture verificam o algoritmo sem fingir uma imagem de boot. Gate rápido `#41372088662`: **PASS — 210 testes**, três resoluções Kconfig reais e sintaxe; zero builds de kernel/USB/EROFS completo.
 - A checagem de kernel e recibo só autoriza **continuar a prova assinada**, nunca promover o Stable. Permanecem faltando EROFS real, QEMU direto e UEFI, rollback/assinatura e gates físicos; não retirar Alpine Stable nem o segundo consumidor Windows Compat antes das evidências.
 
+### Checkpoint — vínculo integral de módulos com o kernel fonte (1º de novembro de 2026, Bahia)
+
+- `896e7151`: a mesma função neutra `bootstrap/base/kernel_module_payload.py:verify_kernel_archive_binding` não se limita a conferir o recibo independente e os arquivos `rootfs.tar`. Agora ela abre o **tar original do kernel canônico verificado pelo workflow**, confere os bytes de cada módulo e metadado selecionado contra os hashes e tamanhos esperados, e rejeita duplicação, módulo ausente, objeto não regular ou substituição. A comparação com o rootfs permanece obrigatória; os dois lados devem corresponder à mesma fonte, sem nova lista de hardware ou produção de kernel.
+- Testes executam de fato o verificador usando dois arquivos TAR pequenos. Um caso negativo altera **simultaneamente** o recibo e o rootfs para que concordem entre si, mas a origem kernel canônica intacta bloqueia a aprovação. Outros recusam ausência ou duplicação de arquivos no TAR fonte, preservando os demais cenários de corrupção, symlinks e caminhos inseguros.
+- `1d8d3785`: o teste antigo de divergência do recibo foi ajustado para reconhecer o erro mais estrito emitido pela nova verificação do kernel fonte.
+- Gate rápido `#41373224677`: **PASS — 212 testes**, com Kconfig real dos três perfis e sintaxe; não compilou kernel, rootfs EROFS completo nem USB.
+- **Atenção:** trata-se apenas de segurança e integridade pré-boot no mesmo pipeline. A execução pesada `stable-mvp` com EROFS real, assinatura Ed25519, QEMU/UEFI, falhas e rollback continua pendente; por isso o Stable Alpine e o consumidor Windows Compat permanecem ativos, e as flags de promoção continuam falsas.
+
 ## Regra de não bloqueio
 
 Mudanças normais do produto não devem depender da conclusão da migração. Uma mudança em `system/`, Surface, apps ou Web não deve reconstruir Buildroot/kernel se seus contratos não mudaram.
