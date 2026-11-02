@@ -7,9 +7,10 @@ const {join}=require('node:path');
 const {PNG}=require('pngjs');
 const {VisualTestBridge,localUrl,safeText,comparePng,OPERATIONS,isolatedElectronEnv}=require('./bridge.cjs');
 test('bridge exposes one bounded command surface without an HTTP listener',()=>{
-  assert.equal(OPERATIONS.size,15);
+  assert.equal(OPERATIONS.size,16);
   assert.equal(OPERATIONS.has('terminal_exec'),false);
   assert.equal(OPERATIONS.has('select_window'),true);
+  assert.equal(OPERATIONS.has('assert'),true);
 });
 test('preview only accepts local HTTP without injected credentials',()=>{
   assert.equal(localUrl('http://127.0.0.1:4202/').port,'4202');
@@ -79,4 +80,13 @@ test('isolated Electron spawn never inherits MCP, GitHub, Groq or CI secrets',()
   assert.equal(Object.prototype.hasOwnProperty.call(env,'ELECTRON_RUN_AS_NODE'),false);
   assert.equal(Object.prototype.hasOwnProperty.call(env,'ORDAX_DESKTOP_LOCAL_DEV'),false);
   assert.equal(isolatedElectronEnv(src,{profileDir,development:true}).ORDAX_DESKTOP_LOCAL_DEV,'1');
+});
+
+test('semantic assertions reject impossible bounds and uncontrolled requests',async()=>{
+  const bridge=new VisualTestBridge();
+  await assert.rejects(bridge.assertTarget({timeoutMs:60000}),/Invalid bounded/);
+  await assert.rejects(bridge.assertTarget({visible:false,minWidth:200}),/Invalid bounded/);
+  await assert.rejects(bridge.assertTarget({textContains:'x'.repeat(161)}),/Invalid bounded/);
+  await assert.rejects(bridge.execute({op:'assert',args:{target:{css:'#missing'}}}),
+    /no launched test session/);
 });

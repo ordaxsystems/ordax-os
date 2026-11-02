@@ -35,6 +35,23 @@ test('real headless Chromium supports semantic interaction, inspection, trace an
   assert.ok(denied.some(x=>x.kind==='network-blocked'&&x.detail.includes('off-origin')));
   assert.ok(denied.some(x=>x.kind==='websocket-blocked'&&x.detail.includes('off-origin')));
   assert.equal((await bridge.inspect({target:{role:'button',name:'Ajustes'}})).visible,true);
+  const assertion=await bridge.execute({op:'assert',args:{
+    target:{role:'button',name:'Ajustes'},visible:true,minWidth:1,minHeight:1
+  }});
+  assert.equal(assertion.passed,true);
+  await assert.rejects(bridge.assertTarget({target:{css:'#missing'},timeoutMs:200}),
+    /not mounted/);
+  const scenario=await bridge.runE2E({scenario:'semantic-journey',steps:[
+    {op:'assert',args:{target:{role:'button',name:'Ajustes'},visible:true}},
+    {op:'inspect',args:{target:{css:'#ordax-root'}}}
+  ]});
+  assert.equal(scenario.passed,true);
+  assert.equal(scenario.assertions.length,2);
+  await assert.rejects(bridge.runE2E({scenario:'semantic-journey',steps:[
+    {op:'inspect',args:{target:{css:'#missing'}}}
+  ]}),/not mounted/);
+  assert.equal(existsSync(join(artifacts,'e2e-failed-01.png')),true);
+  assert.ok(bridge.getLogs().events.some(x=>x.kind==='e2e-step-failed'));
   const before=await bridge.currentPage().screenshot({animations:'disabled'});
   await bridge.screenshot({name:'web-initial'});
   await bridge.click({target:{role:'button',name:'Ajustes'}});

@@ -25,7 +25,7 @@ function isolatedElectronEnv(source=process.env,{development=false,profileDir}={
   return selected;
 }
 const MAX_LOGS=500;
-const OPERATIONS=new Set(['launch','close','list_windows','select_window','navigate','inspect','click','type','screenshot','get_logs','get_accessibility_tree','run_e2e','compare_visual','collect_artifacts','scan_layout']);
+const OPERATIONS=new Set(['launch','close','list_windows','select_window','navigate','inspect','assert','click','type','screenshot','get_logs','get_accessibility_tree','run_e2e','compare_visual','collect_artifacts','scan_layout']);
 function localUrl(input) {
   let parsed;
   try {parsed=new URL(input);} catch {throw Error('An absolute loopback URL is required');}
@@ -238,6 +238,7 @@ class VisualTestBridge {
     throw Error('Target requires bounded role+name, testId or CSS');
   }
   async navigate({url}={}) {
+    if(this.mode!=='web')throw Error('Navigation is only permitted in the isolated Web preview');
     const page=this.currentPage(),source=localUrl(page.url()),target=localUrl(url);
     if(source.origin!==target.origin)throw Error('Cross-origin navigation blocked');
     await page.goto(target.href,{waitUntil:'domcontentloaded'});
@@ -259,6 +260,32 @@ class VisualTestBridge {
         bounds:{x:box.x,y:box.y,width:box.width,height:box.height}};
     });
     return {count,found:true,visible:await item.isVisible(),...style};
+  }
+  async assertTarget({target,visible=true,textContains,minWidth=0,minHeight=0,timeoutMs=10000}={}) {
+    if(typeof visible!=='boolean'||typeof timeoutMs!=='number'||
+       !Number.isInteger(timeoutMs)||timeoutMs<100||timeoutMs>30000||
+       ![minWidth,minHeight].every(x=>Number.isFinite(x)&&x>=0&&x<=3840)||
+       (textContains!==undefined&&(typeof textContains!=='string'||
+         textContains.length===0||textContains.length>160))||
+       (!visible&&(minWidth>0||minHeight>0)))
+      throw Error('Invalid bounded semantic assertion');
+    const locator=this.locator(target);
+    try{await locator.first().waitFor({state:'attached',timeout:timeoutMs});}
+    catch{throw Error('Expected semantic target is not mounted');}
+    if(await locator.count()!==1)throw Error('Expected semantic target is not unique');
+    try{await locator.waitFor({state:visible?'visible':'hidden',timeout:timeoutMs});}
+    catch{throw Error('Semantic target visibility does not match expectation');}
+    if(await locator.count()!==1)throw Error('Semantic target became unavailable');
+    if(textContains!==undefined){
+      const contains=await locator.evaluate((el,needle)=>
+        (el.textContent||'').slice(0,8192).includes(needle),textContains);
+      if(!contains)throw Error('Semantic target does not include required text');
+    }
+    const box=await locator.boundingBox();
+    if(visible&&(!box||box.width<minWidth||box.height<minHeight))
+      throw Error('Semantic target is smaller than required bounds');
+    return {passed:true,visible,textMatched:textContains===undefined?null:true,
+      bounds:box?{width:box.width,height:box.height}:null};
   }
   async click({target}={}) {await this.locator(target).click({timeout:10000});return {clicked:true};}
   async type({target,text}={}) {
@@ -361,19 +388,38 @@ class VisualTestBridge {
     await page.locator('#ordax-boot-screen[data-state="ready"]').waitFor({state:'attached',timeout:90000});
     if(!(await page.locator('#ordax-root').evaluate(el=>el.childElementCount>0)))
       throw Error('Surface root is empty');
+    const assertions=[];
     if(scenario==='semantic-journey'){
       if(!Array.isArray(steps)||steps.length===0||steps.length>30)
         throw Error('Semantic journey must provide 1..30 steps');
-      for(const step of steps){
-        if(!['click','type','inspect'].includes(step?.op))throw Error('E2E step not allowed');
-        await this.execute(step);
+      for(let index=0;index<steps.length;index++){
+        const step=steps[index];
+        try {
+          if(!['click','type','inspect','assert'].includes(step?.op))
+            throw Error('E2E step not allowed');
+          if(step.op==='inspect'){
+            // Introspection alone must never be counted as a successful assertion
+            // when its target is absent. Preserve inspect's read-only semantics
+            // outside E2E while enforcing a visible, unique target inside E2E.
+            const result=await this.assertTarget({target:step.args?.target});
+            assertions.push({step:index+1,op:step.op,...result});
+          }else {
+            const result=await this.execute(step);
+            if(step.op==='assert')assertions.push({step:index+1,op:step.op,...result});
+          }
+        }catch(error){
+          this.record('e2e-step-failed','Step '+(index+1)+' ('+String(step?.op||'unknown')+')');
+          try{await this.screenshot({name:'e2e-failed-'+String(index+1).padStart(2,'0')});}
+          catch{this.record('e2e-evidence-failed','Could not capture failing step');}
+          throw error;
+        }
       }
     }
     const critical=this.logs.filter(l=>l.kind==='pageerror'||l.kind==='crash');
     if(critical.length)throw Error('Native E2E detected '+critical.length+' renderer exceptions/crashes');
     const visual=await this.screenshot({name:scenario});
     const scan=await this.scanLayout();
-    return {scenario,passed:true,visual,scan,jsErrors:critical};
+    return {scenario,passed:true,visual,scan,assertions,jsErrors:critical};
   }
   async collectArtifacts() {
     mkdirSync(this.artifactsDir,{recursive:true});
@@ -399,6 +445,7 @@ class VisualTestBridge {
       case 'select_window':return this.selectWindow(args);
       case 'navigate':return this.navigate(args);
       case 'inspect':return this.inspect(args);
+      case 'assert':return this.assertTarget(args);
       case 'click':return this.click(args);
       case 'type':return this.type(args);
       case 'screenshot':return this.screenshot(args);

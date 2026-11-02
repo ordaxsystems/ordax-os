@@ -59,14 +59,26 @@ test('real stdio NDJSON runner controls Chromium without a network listener',asy
   assert.equal(listed.result.length,1);
   const selected=await send('select_window',{id:listed.result[0].id});
   assert.equal(selected.ok,true);
+  const asserted=await send('assert',{
+    target:{role:'button',name:'Ajustes'},visible:true,minWidth:1
+  });
+  assert.equal(asserted.result.passed,true);
   const clicked=await send('click',{target:{role:'button',name:'Ajustes'}});
   assert.equal(clicked.ok,true);
   const inspected=await send('inspect',{target:{css:'#state'}});
   assert.equal(inspected.result.text,'opened');
   const a11y=await send('get_accessibility_tree');
   assert.match(a11y.result.ariaSnapshot,/Ajustes/);
-  const e2e=await send('run_e2e',{scenario:'native-smoke'});
+  const e2e=await send('run_e2e',{scenario:'semantic-journey',steps:[
+    {op:'assert',args:{target:{css:'#state'},textContains:'opened'}}
+  ]});
   assert.equal(e2e.result.passed,true);
+  assert.equal(e2e.result.assertions.length,1);
+  const bad=await send('run_e2e',{scenario:'semantic-journey',steps:[
+    {op:'inspect',args:{target:{css:'#never-mounted'}}}
+  ]});
+  assert.equal(bad.ok,false);
+  assert.match(bad.error,/not mounted/);
   const receipt=await send('collect_artifacts');
   assert.equal(existsSync(receipt.result.diagnostics),true);
   assert.ok(receipt.result.artifacts.some(path=>path.endsWith('trace.zip')));
