@@ -100,12 +100,17 @@ class IndependentHeavyWorkflowTests(unittest.TestCase):
         self.assertIn("      queue: max", text)
         self.assertNotIn("ordax-surface-producer-${{ github.event.pull_request.head.sha || github.sha }}", text)
         self.assertIn("needs: independent-base-contract", text)
-        # Heavy QEMU/Buildroot proofs run only on an explicit dispatch or a
-        # candidate PR; a draft still runs the mandatory lightweight contract.
-        self.assertIn(
-            "if: github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && !github.event.pull_request.draft)",
-            text,
-        )
+        # Heavy proof requires dispatch, a ready PR, or exact migration-branch
+        # opt-in marker; draft PRs remain contract-only.
+        self.assertIn("github.event_name == 'workflow_dispatch'", text)
+        self.assertIn("github.event_name == 'pull_request' && !github.event.pull_request.draft", text)
+        self.assertEqual(text.count("contains(github.event.head_commit.message, '[stable-mvp-proof]')"), 2)
+        self.assertIn("branches: ['platform/remove-alpine', 'integration/dev-usb-buildroot-surface-20261024']", text)
+        self.assertIn("if: ${{ github.event_name != 'push' || github.ref == 'refs/heads/platform/remove-alpine'", text)
+        self.assertIn("github.ref == 'refs/heads/integration/dev-usb-buildroot-surface-20261024'", text)
+        self.assertIn('elif [ "$EVENT_NAME" = push ] && [ "$GITHUB_REF" = refs/heads/integration/dev-usb-buildroot-surface-20261024 ]; then', text)
+        self.assertIn("profile=stable-mvp", text)
+        self.assertIn("Stable candidate must reuse an existing verified kernel; no recompilation authorized", text)
         self.assertNotIn("if: github.event_name != 'push'", text)
         self.assertIn("github.event_name == 'push' && github.ref == 'refs/heads/platform/remove-alpine'", text)
         self.assertIn("github.event_name == 'pull_request' && github.base_ref == 'platform/remove-alpine'", text)
