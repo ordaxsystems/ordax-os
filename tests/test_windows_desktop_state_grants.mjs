@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createServer } from "node:http";
+import { createServer, request as httpRequest } from "node:http";
 import { mkdtemp,readFile,writeFile,rm,readdir,lstat,symlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -197,4 +197,61 @@ test("visual emulator retains its existing no-token state port while installed m
     assert.equal((await h.direct("/__ordax/native/first-run")).status,200);
     assert.equal((await h.direct("/__ordax/emulator/reset-first-run",{method:"POST"})).status,200);
   }finally{if(h)await h.close();await rm(dir,{recursive:true,force:true});}
+});
+
+test("Windows Native state commits recheck PIN after a partially streamed authorized POST",async()=>{
+  // Both ports use the same canonical transaction; a request approved at
+  // headers must never write after the user locks their Surface session.
+  for(const [path,buildBody] of [
+    ["/__ordax/native/preferences",()=>({"regional.locale":"en-US"})],
+    ["/__ordax/native/first-run",()=>createInitialFirstRunState()],
+  ]){
+    const dir=await mkdtemp(join(tmpdir(),"ordax-native-state-post-lock-"));
+    let h=null;
+    let locked=false;
+    let checked;
+    let checks=0;
+    const firstCheck=new Promise(resolve=>{checked=resolve;});
+    const readLock=()=>{
+      checks++;
+      if(checks===1)checked();
+      return locked;
+    };
+    try{
+      h=await startHost(dir,{sessionLocked:readLock});
+      const before=await (await h.trusted(path)).json();
+      const body=JSON.stringify(buildBody());
+      const reply=new Promise((resolve,reject)=>{
+        const pending=httpRequest(h.origin+path,{
+          method:"POST",signal:AbortSignal.timeout(6000),
+          headers:{
+            "X-OrdaX-Desktop-State-Token":GRANT,
+            Origin:h.origin,
+            "Content-Type":"application/json",
+            "Content-Length":Buffer.byteLength(body),
+          },
+        },response=>{
+          response.resume();
+          response.once("end",()=>resolve(response.statusCode));
+        });
+        pending.once("error",reject);
+        pending.write(body.slice(0,10));
+        // No mutation has been authorized yet: only the initial check has run.
+        firstCheck.then(()=>{
+          locked=true;
+          pending.end(body.slice(10));
+        },reject);
+      });
+      const responseStatus=await reply;
+      assert.equal(responseStatus,423,path+" must reject a write after PIN lock");
+      assert.ok(checks>=2,path+" must recheck lock at the persistence boundary");
+      assert.deepEqual(await (await h.trusted(path)).json(),before,
+        path+" must preserve the last confirmed Native state");
+      assert.deepEqual(await readdir(dir),[],
+        path+" must not create a receipt while the session is locked");
+    }finally{
+      if(h)await h.close();
+      await rm(dir,{recursive:true,force:true});
+    }
+  }
 });

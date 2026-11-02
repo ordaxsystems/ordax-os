@@ -93,6 +93,13 @@ export function createEmulatorNativeHost({
   const change = operation => {
     const result = queue.then(async () => {
       const state = await load();
+      // A POST can start unlocked, then finish receiving its body after PIN
+      // lock. Authorization must be checked again at the mutation boundary.
+      if (authorizedStateToken && sessionLocked && await sessionLocked()) {
+        const denied = new Error("Desktop Native state write denied after session lock");
+        denied.status = 423;
+        throw denied;
+      }
       operation(state);
       await persist(state);
       return state;
@@ -184,7 +191,9 @@ export function createEmulatorNativeHost({
       });
       return reply(200, state[route[0]]);
     } catch (error) {
-      return reply(error.status === 409 ? 409 : error instanceof TypeError || error instanceof SyntaxError ? 400 : 503, { error: "Development state could not be read or saved" });
+      return reply(error.status === 423 ? 423 : error.status === 409 ? 409 :
+        error instanceof TypeError || error instanceof SyntaxError ? 400 : 503,
+        { error: "Development state could not be read or saved" });
     }
   };
 }
