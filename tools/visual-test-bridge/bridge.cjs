@@ -307,13 +307,18 @@ class VisualTestBridge {
   getLogs(){return {events:[...this.logs]};}
   async scanLayout() {
     return this.currentPage().evaluate(()=>{
-      const nodes=[...document.querySelectorAll('button,a,input,textarea,select,[role="button"]')].slice(0,300);
+      const selector='button,a,input,textarea,select,[role="button"]';
+      const allNodes=[...document.querySelectorAll(selector)];
       const viewport={width:innerWidth,height:innerHeight};
       const offscreen=[],clipped=[],tiny=[],hidden=[],disabled=[],clippedByAncestor=[],overlapping=[];
       const visible=[];
       const activeDialog=[...document.querySelectorAll('[role="dialog"][aria-modal="true"],dialog[open][aria-modal="true"]')]
         .find(el=>el.checkVisibility({checkOpacity:true,checkVisibilityCSS:true}));
-      let excludedBackgroundTargets=0;
+      // An active modal may appear after hundreds of background controls.
+      // Filter background BEFORE applying the bounded 300-control scan.
+      const activeNodes=activeDialog?allNodes.filter(el=>activeDialog.contains(el)):allNodes;
+      const nodes=activeNodes.slice(0,300);
+      let excludedBackgroundTargets=allNodes.length-activeNodes.length;
       for(const el of nodes){
         const name=(el.getAttribute('aria-label')||el.textContent||el.tagName).trim().slice(0,70);
         // The underlying desktop remains mounted while First Run / a modal is
@@ -361,7 +366,8 @@ class VisualTestBridge {
           if(overlapping.length>=30)break;
         }
       }
-      return {viewport,interactiveElements:nodes.length,visibleHitTargets:visible.length,
+      return {viewport,interactiveElements:allNodes.length,scannedInteractiveElements:nodes.length,
+        unscannedInteractiveElements:activeNodes.length-nodes.length,visibleHitTargets:visible.length,
         activeModal:!!activeDialog,excludedBackgroundTargets,
         disabledInteractiveElements:disabled.slice(0,30),
         hiddenInteractiveElements:hidden.slice(0,30),

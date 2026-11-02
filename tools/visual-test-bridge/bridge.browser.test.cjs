@@ -116,9 +116,33 @@ test('real headless Chromium supports semantic interaction, inspection, trace an
   assert.equal(modalScan.overlappingHitTargets.some(
     pair=>pair.a==='Probe A'||pair.b==='Probe B'),false);
   assert.equal(modalScan.visibleHitTargets,1);
+  // Stress the realistic case where modal controls are beyond the old
+  // first-300 selection. The active dialog must still be inspected.
+  await bridge.currentPage().evaluate(()=>{
+    const shell=document.querySelector('#ordax-root');
+    for(let i=0;i<320;i++){
+      const button=document.createElement('button');
+      button.dataset.visualBackgroundStress='1';
+      button.textContent='Background control '+i;
+      shell.append(button);
+    }
+  });
+  const crowdedModal=await bridge.scanLayout();
+  assert.ok(crowdedModal.interactiveElements>300);
+  assert.equal(crowdedModal.scannedInteractiveElements,1);
+  assert.equal(crowdedModal.unscannedInteractiveElements,0);
+  assert.equal(crowdedModal.visibleHitTargets,1);
+  assert.ok(crowdedModal.excludedBackgroundTargets>300);
   await bridge.currentPage().evaluate(()=>{
     document.querySelector('[role="dialog"][aria-modal="true"]').remove();
     document.querySelector('#ordax-root').inert=false;
+  });
+  const denseDesktop=await bridge.scanLayout();
+  assert.equal(denseDesktop.scannedInteractiveElements,300);
+  assert.ok(denseDesktop.unscannedInteractiveElements>0);
+  assert.ok(denseDesktop.interactiveElements>300);
+  await bridge.currentPage().evaluate(()=>{
+    document.querySelectorAll('[data-visual-background-stress]').forEach(el=>el.remove());
   });
   await bridge.currentPage().evaluate(()=>{setTimeout(()=>{throw Error('ORDAX_VISUAL_EXPECTED_RENDERER_EXCEPTION');},0);});
   await bridge.currentPage().waitForTimeout(100);
