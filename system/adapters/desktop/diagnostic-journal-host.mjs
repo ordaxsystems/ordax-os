@@ -107,6 +107,9 @@ export function createDesktopDiagnosticJournalMiddleware(directory,{token,sessio
       } catch(error) {
         return respond(error instanceof TypeError||error instanceof SyntaxError?400:503);
       }
+      // The PIN can lock while a client is still streaming the POST body.
+      // Authorize again at the persistence boundary, not only at request entry.
+      if(sessionLocked&&await sessionLocked())return respond(423);
       await write(payload);
       return respond(200,{saved:true});
     }).catch(()=>{if(!res.writableEnded)respond(503);});

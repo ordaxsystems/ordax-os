@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createServer } from "node:http";
+import { createServer, request as httpRequest } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { mkdtemp, readFile, rm, writeFile, symlink } from "node:fs/promises";
@@ -98,4 +98,40 @@ test("Desktop journal serializes concurrent changes and validates size",async t=
   assert.equal((await h.request()).status,200);
   assert.equal(typeof (await (await h.request()).json()).payload,"string");
   assert.equal((await h.save(null)).status,200);
+});
+
+test("Desktop journal rejects a write when PIN locks during streamed request", async t => {
+  let locked=false;
+  let inspected;
+  const checked=new Promise(resolve => { inspected=resolve; });
+  const h=await harness(t, {sessionLocked: async () => {
+    if (!locked) inspected();
+    return locked;
+  }});
+  const body=JSON.stringify({payload:"should never reach disk"});
+  const responseStatus=new Promise((resolve,reject) => {
+    const request=httpRequest(h.origin+route,{
+      method:"POST",
+      headers:{
+        Origin:h.origin,
+        "Content-Type":"application/json",
+        "Content-Length":Buffer.byteLength(body),
+        "x-ordax-desktop-state-token":token,
+      },
+    },response => {
+      response.resume();
+      response.once("end",()=>resolve(response.statusCode));
+    });
+    request.once("error",reject);
+    request.write(body.slice(0,9));
+    void checked.then(() => {
+      locked=true;
+      request.end(body.slice(9));
+    }).catch(reject);
+  });
+  assert.equal(await responseStatus,423);
+  await assert.rejects(
+    () => readFile(join(h.directory,"diagnostic-journal.json"),"utf8"),
+    {code:"ENOENT"},
+  );
 });
