@@ -256,7 +256,13 @@ class IndependentSurfaceRuntimeTests(unittest.TestCase):
         self.assertIn('echo "BR2_DL_DIR=$cache_root/downloads"', resolver)
         self.assertIn('echo "BR2_CCACHE_DIR=$cache_root/ordax-independent-surface-ccache"', resolver)
         self.assertIn('echo "BR2_DL_DIR=$cache_root/ordax-independent-surface-dl"', resolver)
-        self.assertIn('if [ "${RUNNER_ENVIRONMENT:-}" != "self-hosted" ]; then', resolver)
+        self.assertIn("ORDAX_VERIFIED_RUNNER_ENVIRONMENT: ${{ runner.environment }}", resolver)
+        self.assertEqual(resolver.count('if [ "${ORDAX_VERIFIED_RUNNER_ENVIRONMENT:-}" != "self-hosted" ]; then'), 2)
+        self.assertNotIn('${RUNNER_ENVIRONMENT:-}', resolver)
+        # Neither pinned identity nor persistent workspace may be accepted on
+        # an untrusted or unknown runner, regardless of env injection.
+        self.assertIn('if [ -n "${ORDAX_SURFACE_PRODUCER_ENVIRONMENT:-}" ]; then', resolver)
+        self.assertIn('if [ -n "${ORDAX_SURFACE_PERSISTENT_WORK_ROOT:-}" ]; then', resolver)
         self.assertIn('if [ -z "${ORDAX_SURFACE_PRODUCER_ENVIRONMENT:-}" ]; then', resolver)
         self.assertIn('cache_root="$(realpath -m -- "$ORDAX_SURFACE_PERSISTENT_WORK_ROOT")"', resolver)
         self.assertIn("Surface persistent cache must be outside workspace and runner temp", resolver)

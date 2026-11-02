@@ -138,10 +138,15 @@ jobs:
 
       - name: Resolve exact Surface artifact fingerprint
         id: surface-artifact-fingerprint
+        # GitHub exposes runner.environment as a context, not a documented
+        # shell variable. Bind the authenticated runner class explicitly;
+        # never trust an arbitrarily injected RUNNER_ENVIRONMENT in a job.
+        env:
+          ORDAX_VERIFIED_RUNNER_ENVIRONMENT: ${{ runner.environment }}
         run: |
           set -euo pipefail
           if [ -n "${ORDAX_SURFACE_PRODUCER_ENVIRONMENT:-}" ]; then
-            if [ "${RUNNER_ENVIRONMENT:-}" != "self-hosted" ]; then
+            if [ "${ORDAX_VERIFIED_RUNNER_ENVIRONMENT:-}" != "self-hosted" ]; then
               echo "::error::Explicit Surface producer identity requires a trusted self-hosted executor" >&2
               exit 1
             fi
@@ -155,7 +160,7 @@ jobs:
           # Reuse both downloaded source packages and compiled objects when
           # the same trusted self-hosted executor keeps its disk across runs.
           if [ -n "${ORDAX_SURFACE_PERSISTENT_WORK_ROOT:-}" ]; then
-            if [ "${RUNNER_ENVIRONMENT:-}" != "self-hosted" ]; then
+            if [ "${ORDAX_VERIFIED_RUNNER_ENVIRONMENT:-}" != "self-hosted" ]; then
               echo "::error::Durable Surface cache requires a self-hosted runner" >&2
               exit 1
             fi
