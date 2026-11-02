@@ -157,6 +157,17 @@ class KernelModulePayloadTests(unittest.TestCase):
             with self.assertRaisesRegex(PAYLOAD.KernelModulePayloadError, "altered module receipt|differs from verified producer"):
                 PAYLOAD.verify_kernel_archive_binding(archive, receipt_path, rootfs)
 
+    def test_kernel_module_binding_rejects_missing_wifi_module_and_json_list(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            archive, receipt_path, rootfs, receipt = self._canonical_test_binding(Path(raw))
+            receipt["files"][0]["path"] = "/lib/modules/6.6.158-test/kernel/irrelevant.ko"
+            receipt_path.write_text(json.dumps(receipt) + "\n", encoding="utf-8")
+            with self.assertRaisesRegex(PAYLOAD.KernelModulePayloadError, "lost hardware baseline"):
+                PAYLOAD.verify_kernel_archive_binding(archive, receipt_path, rootfs)
+            receipt_path.write_text("[]", encoding="utf-8")
+            with self.assertRaisesRegex(PAYLOAD.KernelModulePayloadError, "JSON object"):
+                PAYLOAD.verify_kernel_archive_binding(archive, receipt_path, rootfs)
+
     def test_kernel_module_binding_rejects_unsafe_inventory_and_symlink(self) -> None:
         with tempfile.TemporaryDirectory() as raw:
             archive, receipt_path, rootfs, receipt = self._canonical_test_binding(Path(raw))

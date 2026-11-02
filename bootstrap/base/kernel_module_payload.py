@@ -280,6 +280,8 @@ def verify_kernel_archive_binding(
         receipt = json.loads(raw)
     except (UnicodeError, json.JSONDecodeError) as exc:
         raise KernelModulePayloadError(f"kernel module receipt is not valid JSON: {exc}") from exc
+    if not isinstance(receipt, dict):
+        raise KernelModulePayloadError("kernel module receipt must be a JSON object")
     policy = load_wifi_policy(matrix_path)
     release = receipt.get("kernel_release")
     if (
@@ -304,6 +306,7 @@ def verify_kernel_archive_binding(
         raise KernelModulePayloadError("kernel module receipt has invalid selected file inventory")
     prefix = f"/lib/modules/{release}/"
     paths: set[str] = set()
+    installed_modules: set[str] = set()
     modules = 0
     for entry in files:
         if not isinstance(entry, dict):
@@ -321,7 +324,11 @@ def verify_kernel_archive_binding(
         ):
             raise KernelModulePayloadError("unsafe or duplicate kernel module receipt member")
         paths.add(name)
-        modules += name.endswith(".ko")
+        if name.endswith(".ko"):
+            modules += 1
+            installed_modules.add(Path(name).name.removesuffix(".ko").replace("-", "_"))
+    if not set(policy["module_basenames"]).issubset(installed_modules):
+        raise KernelModulePayloadError("Stable module inventory lost hardware baseline")
     if modules != count:
         raise KernelModulePayloadError("kernel module receipt count is inconsistent")
     with tarfile.open(rootfs_tar, "r") as archive:

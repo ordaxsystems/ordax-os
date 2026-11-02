@@ -418,6 +418,13 @@ Somente após todos os gates:
 - Gates rápidos `#41370304587` e `#41370432608`: **PASS — 204 testes** em ambos, contratos, sintaxe e resolução Kconfig real dos três perfis, sem compilação de kernel, rootfs completo nem USB. A regressão passa a exigir caminho e chave idênticos nos dois workflows.
 - **Bloqueio em aberto:** falta executar e aprovar a prova pesada Stable no fluxo oficial (artefato EROFS real, assinatura/manifesto, QEMU direct-kernel e UEFI, falhas Ed25519 e rollback, hardware físico quando aplicável). A preservação de provenance e aprovação do cache **não** provam boot nem autorizam a remoção do produtor Stable Alpine. O consumidor separado Windows Compat também permanece intocado. As flags de promoção ficam falsas até prova real.
 
+### Checkpoint — vínculo do kernel no boot Stable (1º de novembro de 2026, Bahia)
+
+- `2e445205`: a ponte **já existente** `bootstrap/independent-base/portable_boot_proof.py` agora exige `--kernel-modules` somente para `stable-mvp`, junto com o `--reuse-receipt` verificado. A seleção `minimal` e os owners Portable PID1/assinatura/QEMU permanecem intactos.
+- `bootstrap/base/kernel_module_payload.py:verify_kernel_archive_binding` é o único verificador neutro responsável por comparar os bytes do arquivo de módulos do kernel atestado ao SHA-256 registrado pelo produtor Buildroot; exige que `rootfs.tar` tenha um membro **regular e byte a byte idêntico** ao recibo externo `kernel-module-payload.json`, além de conferir baseline Wi-Fi canônico, schema, inventário, ausência de downloads/builder paralelo e restrição de caminhos. Não há novo kernel nem segunda lista de hardware.
+- `518dfb2f`, `878a55d4`: testes executam de fato a função de vínculo em entradas descartáveis com recibos válidos, alteração do kernel, discrepância de recibos, escape de caminho e symlink. A contagem da chamada do QEMU foi corrigida para não confundir o build do próprio kernel. Gate rápido `#41371402847`: **PASS — 207 testes** (nenhuma compilação pesada).
+- A checagem de kernel e recibo só autoriza **continuar a prova assinada**, nunca promover o Stable. Permanecem faltando EROFS real, QEMU direto e UEFI, rollback/assinatura e gates físicos; não retirar Alpine Stable nem o segundo consumidor Windows Compat antes das evidências.
+
 ## Regra de não bloqueio
 
 Mudanças normais do produto não devem depender da conclusão da migração. Uma mudança em `system/`, Surface, apps ou Web não deve reconstruir Buildroot/kernel se seus contratos não mudaram.
