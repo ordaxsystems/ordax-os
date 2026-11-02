@@ -39,6 +39,7 @@ on:
       - 'tests/test_independent_native_component.py'
       - 'tests/test_independent_portable_boot_integration.py'
       - 'tests/test_portable_v2_qemu_boot_proof_contract.py'
+      - 'tests/test_portable_qemu_kernel_source_ssot.py'
       - '.github/workflows/portable-v2-qemu-boot-proof.yml'
       - 'tests/test_kernel_module_payload.py'
       - 'tests/test_firmware_policy_neutral.py'
@@ -98,6 +99,18 @@ jobs:
             tests.test_independent_native_component \
             tests.test_independent_portable_boot_integration \
             tests.test_portable_v2_qemu_boot_proof_contract \
+            tests.test_portable_qemu_kernel_source_ssot \
+            tests.test_initramfs_upstream_authentication \
+            tests.test_kernel_ci_env \
+            tests.test_portable_v4_ai_handoff_contract \
+            tests.test_portable_v3_cold_health_qemu_proof \
+            tests.test_portable_component_reuse_workflow \
+            tests.test_portable_qemu_impact \
+            tests.test_bootstrap_current_verification \
+            tests.test_portable_verified_boot_selection \
+            tests.test_portable_media_discovery \
+            tests.test_portable_activation_state_helper \
+            tests.test_portable_exact_runtime_handoff \
             tests.test_kernel_module_payload \
             tests.test_firmware_policy_neutral \
             tests.test_independent_heavy_workflow \
@@ -139,6 +152,7 @@ jobs:
             tests/test_independent_native_component.py \
             tests/test_independent_portable_boot_integration.py \
             tests/test_portable_v2_qemu_boot_proof_contract.py \
+            tests/test_portable_qemu_kernel_source_ssot.py \
             tests/test_kernel_module_payload.py \
             tests/test_firmware_policy_neutral.py \
             tests/test_independent_heavy_workflow.py \

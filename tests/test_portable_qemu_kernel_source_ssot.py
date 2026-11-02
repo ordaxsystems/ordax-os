@@ -19,13 +19,25 @@ class PortableQemuKernelSourceSSOTTests(unittest.TestCase):
 
     def test_all_qemu_and_uefi_artifact_paths_use_canonical_version(self):
         workflow = WORKFLOW.read_text(encoding="utf-8")
-        expected = {
+        # Exact counts are not a source-identity invariant: a new verified
+        # Stable bridge legitimately consumes the same canonical module tar
+        # twice more. Require the established consumers and the two explicit
+        # Stable boot links, rejecting a hardcoded ABI instead.
+        minimum_references = {
             'vmlinuz-$ORDAX_KERNEL_VERSION': 6,
             'kernel-modules-$ORDAX_KERNEL_VERSION.tar': 3,
             'kernel-$ORDAX_KERNEL_VERSION.config': 3,
         }
-        for artifact, count in expected.items():
-            self.assertEqual(workflow.count(artifact), count, artifact)
+        for artifact, minimum in minimum_references.items():
+            self.assertGreaterEqual(workflow.count(artifact), minimum, artifact)
+        self.assertEqual(
+            workflow.count(
+                'proof_extra+=(--kernel-modules "$work/kernel/kernel-modules-$ORDAX_KERNEL_VERSION.tar")'
+            ),
+            2,
+        )
+        self.assertNotRegex(workflow, r"kernel-modules-[0-9]+\.[0-9]+\.[0-9]+\.tar")
+        self.assertNotRegex(workflow, r"vmlinuz-[0-9]+\.[0-9]+\.[0-9]+")
         for step in (
             "Build exact kernel and kernel modules",
             "Build and verify exact Stable Base",
