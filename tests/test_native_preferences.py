@@ -159,10 +159,23 @@ class NativePreferenceTests(unittest.TestCase):
     def test_native_composition_no_longer_uses_web_preference_store(self):
         text = NATIVE_COMPOSITION.read_text(encoding="utf-8")
         self.assertIn('../../adapters/native/preferences.mjs', text)
-        self.assertIn("const preferenceStorePromise = createNativePreferenceStore(window);", text)
+        # Installed Windows gives critical GETs one bounded startup window.
+        # Preferences must still use the Native adapter, never Web storage.
+        preference_bootstrap = """const preferenceStorePromise = createNativePreferenceStore(window, {
+    signal: desktopBootstrapSignal,
+  });"""
+        self.assertIn(preference_bootstrap, text)
+        # The four independent bootstrap ports still start concurrently;
+        # a shared deadline now guards their resolution before Surface mount.
+        self.assertIn("const bootState = Promise.all([", text)
         self.assertIn(
-            "const [preferenceStore, firstRunStateStore, localSession, bundledProfilePacks] = await Promise.all([",
+            "const [preferenceStore, firstRunStateStore, localSession, bundledProfilePacks] =",
             text,
+        )
+        self.assertIn("Windows Native bootstrap timed out; Surface remains locked", text)
+        self.assertLess(
+            text.index(preference_bootstrap),
+            text.index("const bootState = Promise.all(["),
         )
         self.assertIn("preferenceStorePromise,", text)
         self.assertIn("firstRunStateStorePromise,", text)
