@@ -64,6 +64,7 @@ test('the installer owns exactly one private Git rather than a global Git depend
   const stage=workflow.indexOf('name: Materialize pinned private MinGit for Windows Dev updates');
   const audit=workflow.indexOf('name: Reject unprovided MSVC dependencies in Windows Aura package');
   const build=workflow.indexOf('name: Build unsigned Windows installer');
-  assert.ok(audit>=0 && stage>audit && build>stage);
+  assert.ok(stage>=0 && audit>stage && build>audit,
+    'MinGit must be verified before the independent Aura gate and the installer must remain blocked by it');
   assert.match(workflow,/package-git-toolchain\.ps1/);
 });
