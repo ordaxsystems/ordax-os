@@ -20,6 +20,7 @@ test('logs redact credentials and are bounded',()=>{
   const bridge=new VisualTestBridge();
   bridge.record('error','Bearer secret123 '+('a'.repeat(64))+' https://foo.test/abc?token=private');
   assert.doesNotMatch(JSON.stringify(bridge.getLogs()),/secret123|token=private|aaaaaaaaa/);
+  assert.doesNotMatch(safeText('wss://private.example.net/socket'),/private.example.net/);
   for(let i=0;i<510;i++)bridge.record('event',String(i));
   assert.equal(bridge.getLogs().events.length,500);
 });

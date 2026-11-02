@@ -32,8 +32,8 @@ test('real headless Chromium supports semantic interaction, inspection, trace an
   });
   await bridge.currentPage().waitForTimeout(250);
   const denied=bridge.getLogs().events;
-  assert.ok(denied.some(x=>x.kind==='network-blocked'&&x.detail.includes('example.org')));
-  assert.ok(denied.some(x=>x.kind==='websocket-blocked'&&x.detail.includes('example.org')));
+  assert.ok(denied.some(x=>x.kind==='network-blocked'&&x.detail.includes('off-origin')));
+  assert.ok(denied.some(x=>x.kind==='websocket-blocked'&&x.detail.includes('off-origin')));
   assert.equal((await bridge.inspect({target:{role:'button',name:'Ajustes'}})).visible,true);
   const before=await bridge.currentPage().screenshot({animations:'disabled'});
   await bridge.screenshot({name:'web-initial'});
@@ -100,6 +100,6 @@ test('real headless Chromium supports semantic interaction, inspection, trace an
   await bridge.close();
   await assert.rejects(
     bridge.launch({mode:'web',url:'http://127.0.0.1:'+server.address().port+'/redirect'}),
-    /ERR_FAILED|ERR_BLOCKED|net::|Navigation failed|aborted/i
+    /ERR_FAILED|ERR_BLOCKED|net::|Navigation failed|aborted|Preview escaped/i
   );
 });

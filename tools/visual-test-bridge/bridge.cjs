@@ -17,7 +17,7 @@ function localUrl(input) {
 }
 function safeText(input) {
   return String(input??'').replace(/(?:[0-9a-f]{32,}|Bearer\s+\S+)/gi,'[REDACTED]')
-    .replace(/https?:\/\/[^\s/'"]+([^\s'"]*)/g,(_full,path)=>path.split('?')[0])
+    .replace(/(?:https?|wss?):\/\/[^\s/'"]+([^\s'"]*)/g,(_full,path)=>path.split('?')[0])
     .slice(0,1200);
 }
 function boundedName(input) {
@@ -102,7 +102,7 @@ class VisualTestBridge {
             return route.abort('blockedbyclient');
           }
           if(target.origin!==preview.origin){
-            this.record('network-blocked',target.origin);
+            this.record('network-blocked','off-origin HTTP request');
             return route.abort('blockedbyclient');
           }
           return route.continue();
@@ -114,7 +114,7 @@ class VisualTestBridge {
             return ws.close({code:1008,reason:'Invalid WebSocket URL'});
           }
           if(target.protocol!=='ws:'||'http://'+target.host!==preview.origin){
-            this.record('websocket-blocked',target.origin);
+            this.record('websocket-blocked','off-origin WebSocket');
             return ws.close({code:1008,reason:'External WebSocket denied'});
           }
           return ws.connectToServer();
