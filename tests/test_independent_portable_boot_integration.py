@@ -83,7 +83,7 @@ class IndependentPortableBootIntegrationTest(unittest.TestCase):
         self.assertIn("uses: ./.github/workflows/portable-v2-qemu-boot-proof.yml",
                       experimental)
         self.assertIn("base_source: independent", experimental)
-        self.assertIn("independent_base_profile: ${{ inputs.base_profile || 'minimal' }}", experimental)
+        self.assertIn("independent_base_profile: ${{ github.event_name == 'push' && 'stable-mvp' || inputs.base_profile || 'minimal' }}", experimental)
         self.assertIn("- stable-mvp", experimental)
         self.assertIn("independent_base_profile:", official)
         self.assertIn("Stable/MVP portable proof requires explicit dispatch", official)
@@ -156,11 +156,19 @@ class IndependentPortableBootIntegrationTest(unittest.TestCase):
     def test_stable_profile_is_explicit_without_automatic_pr_promotion(self):
         official = (ROOT / ".github/workflows/portable-v2-qemu-boot-proof.yml").read_text()
         experimental = (ROOT / ".github/workflows/independent-portable-v2-integration.yml").read_text()
-        self.assertIn('if [ "$ORDAX_BASE_PROOF_SOURCE" != independent ] || [ "$ORDAX_PROOF_EVENT" != workflow_dispatch ]; then', official)
+        self.assertIn('if [ "$ORDAX_BASE_PROOF_SOURCE" != independent ] || {', official)
+        self.assertIn('[ "$ORDAX_PROOF_EVENT" != workflow_dispatch ] && [ "$ORDAX_EXPLICIT_STABLE_SIGNED_BOOT" != true ]', official)
         self.assertIn("inputs.independent_base_profile != 'stable-mvp'", official)
         self.assertIn("ORDAX_STABLE_MVP_HARDWARE_RECEIPTS=VERIFIED", official)
-        self.assertIn("if: github.event_name != 'pull_request' || !github.event.pull_request.draft", experimental)
         self.assertIn("default: minimal", experimental)
+        signed_marker = "contains(github.event.head_commit.message, '[stable-mvp-signed-boot]')"
+        self.assertEqual(experimental.count(signed_marker), 2)
+        self.assertEqual(official.count(signed_marker), 1)
+        self.assertIn("branches: ['integration/dev-usb-buildroot-surface-20261024']", experimental)
+        self.assertIn("github.event_name == 'pull_request' && !github.event.pull_request.draft", experimental)
+        self.assertIn("if: ${{ github.event_name != 'push' || (github.ref == 'refs/heads/integration/dev-usb-buildroot-surface-20261024'", experimental)
+        self.assertIn("ORDAX_EXPLICIT_STABLE_SIGNED_BOOT:", official)
+        self.assertNotIn("github.event_name == 'push' && 'minimal'", experimental)
 
     def test_signed_release_fault_qemu_is_real_and_separate_from_product_boot(self):
         official = (ROOT / ".github/workflows/portable-v2-qemu-boot-proof.yml").read_text()
