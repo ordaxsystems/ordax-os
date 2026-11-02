@@ -156,6 +156,13 @@ on:
         description: 'force heavy Portable/QEMU proof for explicit reusable-workflow callers'
         required: false
         default: true
+    secrets:
+      ORDAX_R2_ACCESS_KEY_ID:
+        description: 'Optional scoped R2 key used only for hash-bound Surface artifact restore'
+        required: false
+      ORDAX_R2_SECRET_ACCESS_KEY:
+        description: 'Optional scoped R2 secret used only for hash-bound Surface artifact restore'
+        required: false
 
 
 concurrency:

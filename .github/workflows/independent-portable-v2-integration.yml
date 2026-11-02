@@ -80,3 +80,9 @@ jobs:
     permissions:
       contents: read
       actions: read
+    # Least privilege: only the two read-only-in-this-job R2 transport
+    # credentials needed to restore immutable, hash-bound Surface artifacts.
+    # Never grant all repository secrets to the reusable QEMU pipeline.
+    secrets:
+      ORDAX_R2_ACCESS_KEY_ID: ${{ secrets.ORDAX_R2_ACCESS_KEY_ID }}
+      ORDAX_R2_SECRET_ACCESS_KEY: ${{ secrets.ORDAX_R2_SECRET_ACCESS_KEY }}

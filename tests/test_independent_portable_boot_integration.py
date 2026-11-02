@@ -170,6 +170,19 @@ class IndependentPortableBootIntegrationTest(unittest.TestCase):
         self.assertIn("ORDAX_EXPLICIT_STABLE_SIGNED_BOOT:", official)
         self.assertNotIn("github.event_name == 'push' && 'minimal'", experimental)
 
+    def test_r2_surface_restore_secrets_are_least_privilege_and_explicit(self):
+        official = (ROOT / ".github/workflows/portable-v2-qemu-boot-proof.yml").read_text()
+        caller = (ROOT / ".github/workflows/independent-portable-v2-integration.yml").read_text()
+        self.assertIn("  workflow_call:\n    inputs:", official)
+        self.assertIn("    secrets:\n      ORDAX_R2_ACCESS_KEY_ID:", official)
+        self.assertIn("      ORDAX_R2_SECRET_ACCESS_KEY:\n        description:", official)
+        self.assertIn("    secrets:\n      ORDAX_R2_ACCESS_KEY_ID: ${{ secrets.ORDAX_R2_ACCESS_KEY_ID }}", caller)
+        self.assertIn("      ORDAX_R2_SECRET_ACCESS_KEY: ${{ secrets.ORDAX_R2_SECRET_ACCESS_KEY }}", caller)
+        self.assertNotIn("secrets: inherit", caller)
+        self.assertIn("bash tools/ci/independent_surface_r2.sh restore", official)
+        self.assertIn("Verify and bind canonical Surface EROFS for QEMU", official)
+        self.assertIn("Never compile Surface inside the QEMU consumer", official)
+
     def test_signed_release_fault_qemu_is_real_and_separate_from_product_boot(self):
         official = (ROOT / ".github/workflows/portable-v2-qemu-boot-proof.yml").read_text()
         fault = (BASE / "signed_release_failure_qemu.py").read_text()
