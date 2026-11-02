@@ -69,6 +69,14 @@ test('real headless Chromium supports semantic interaction, inspection, trace an
   assert.equal(comparison.match,false);
   assert.ok(comparison.mismatchedPixels>0);
   assert.equal(existsSync(comparison.diffFile),true);
+  const originalDiff=require('node:fs').readFileSync(comparison.diffFile);
+  const secondDiff=await bridge.compareVisual({name:'state-diff',referenceCapture:'web-initial',
+    channelTolerance:0,maxMismatchRatio:0});
+  assert.equal(secondDiff.match,false);
+  assert.notEqual(secondDiff.diffFile,comparison.diffFile);
+  assert.equal(existsSync(secondDiff.diffFile),true);
+  assert.equal(require('node:fs').readFileSync(comparison.diffFile).equals(originalDiff),true);
+  assert.equal(require('node:fs').readFileSync(secondDiff.diffFile).equals(originalDiff),true);
   assert.equal((await bridge.compareVisual({name:'unknown',referenceCapture:'not-captured'})).reason,'capture-missing');
   assert.equal(comparePng(before,after,{channelTolerance:0,maxMismatchRatio:0}).match,false);
   assert.equal((await bridge.inspect({target:{css:'#result'}})).text,'aberto');

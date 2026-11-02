@@ -429,7 +429,7 @@ class VisualTestBridge {
     let diffFile=null;
     if(diffPng){
       mkdirSync(this.artifactsDir,{recursive:true});
-      diffFile=join(this.artifactsDir,id+'-diff.png');
+      diffFile=this.uniqueEvidencePath(id+'-diff','png');
       writeFileSync(diffFile,diffPng,{flag:'wx'});
       this.artifacts.push(diffFile);
     }
