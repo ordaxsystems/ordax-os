@@ -97,7 +97,7 @@ class IndependentPortableBootIntegrationTest(unittest.TestCase):
         self.assertIn('"$receipt_root/firmware-coverage.json"', experiment)
         self.assertEqual(official.count("--base-profile"), 2)
         self.assertEqual(official.count('--reuse-receipt "$work/metadata/independent-stable-component-reuse.json"'), 2)
-        self.assertEqual(official.count('--kernel-modules "$work/kernel/kernel-modules-$ORDAX_KERNEL_VERSION.tar"'), 2)
+        self.assertEqual(official.count('proof_extra+=(--kernel-modules "$work/kernel/kernel-modules-$ORDAX_KERNEL_VERSION.tar")'), 2)
         self.assertIn("verify_kernel_archive_binding(", (BASE / "portable_boot_proof.py").read_text())
         self.assertIn('"boot_kernel_modules_bound": kernel_binding is not None', (BASE / "portable_boot_proof.py").read_text())
         self.assertIn("Restore verified Stable Buildroot component for official signed boot", official)
