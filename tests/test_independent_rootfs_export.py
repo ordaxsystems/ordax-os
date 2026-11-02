@@ -155,6 +155,26 @@ class IndependentRootfsExportTests(unittest.TestCase):
             self.assertFalse((target / "etc/ordax/stable-mvp-candidate").exists())
             self.assertFalse((target / "etc/ordax/owner-development").exists())
 
+    def test_stable_rejects_dev_payload_before_hardware_receipts(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            target = self._minimal_post_build_target(Path(tmp))
+            executable_fixture(target / "usr/bin/git")
+            env = os.environ.copy()
+            for key in (
+                "ORDAX_HOST_PYTHON", "ORDAX_KERNEL_MODULES_ARCHIVE",
+                "ORDAX_KERNEL_MODULES_RECEIPT", "ORDAX_FIRMWARE_COVERAGE_RECEIPT",
+            ):
+                env.pop(key, None)
+            result = subprocess.run(
+                [str(POST_BUILD), str(target), "stable-mvp"],
+                cwd=ROOT, env=env, capture_output=True, text=True, check=False,
+            )
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("Stable/MVP candidate contains Development-only capability:", result.stderr)
+            self.assertIn("/usr/bin/git", result.stderr)
+            self.assertNotIn("requires ORDAX_HOST_PYTHON", result.stderr)
+            self.assertFalse((target / "etc/ordax/stable-mvp-candidate").exists())
+
     def test_post_build_fails_closed_if_runtime_link_drifted(self):
         with tempfile.TemporaryDirectory() as tmp:
             target = self._minimal_post_build_target(Path(tmp))

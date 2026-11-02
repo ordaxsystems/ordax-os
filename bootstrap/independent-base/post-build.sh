@@ -105,6 +105,26 @@ if test "$PROFILE" = owner-development || test "$PROFILE" = stable-mvp; then
     HARDWARE_RECEIPT_PREFIX=ORDAX_INDEPENDENT_OWNER
     if test "$PROFILE" = stable-mvp; then
         HARDWARE_RECEIPT_PREFIX=ORDAX_INDEPENDENT_STABLE
+        # Reject Dev-only payload BEFORE expensive module/firmware installation.
+        # A contaminated target cannot be corrected by removing files later.
+        for forbidden in \
+            "$TARGET_DIR/usr/bin/git" \
+            "$TARGET_DIR/sbin/ordax-dev-init" \
+            "$TARGET_DIR/usr/local/bin/ordax-network" \
+            "$TARGET_DIR/usr/local/bin/ordax-pull" \
+            "$TARGET_DIR/usr/local/bin/ordax-rollback" \
+            "$TARGET_DIR/usr/local/bin/ordax-run" \
+            "$TARGET_DIR/usr/local/bin/ordax-diagnose" \
+            "$TARGET_DIR/usr/local/bin/ordax-checkout-exchange" \
+            "$TARGET_DIR/usr/local/bin/ordax-usb-mountattr" \
+            "$TARGET_DIR/etc/ordax/owner-development" \
+            "$TARGET_DIR/workspace"
+        do
+            if test -e "$forbidden" || test -L "$forbidden"; then
+                echo "Stable/MVP candidate contains Development-only capability: $forbidden" >&2
+                exit 1
+            fi
+        done
     fi
     # Owner/Development or Stable/MVP is an explicit capability profile of this same
     # Independent Base. Do not infer the profile from incidental binaries.
@@ -217,19 +237,6 @@ if test "$PROFILE" = owner-development || test "$PROFILE" = stable-mvp; then
     chmod 0755 "$TARGET_DIR/ordax/bootstrap/recovery/entrypoint"
     printf 'ORDAX_OWNER_DEVELOPMENT_PROFILE=YES\n' > "$TARGET_DIR/etc/ordax/owner-development"
     else
-        # No Dev acquisition, Git, or native helper may enter Stable/MVP.
-        for forbidden in \
-            "$TARGET_DIR/usr/bin/git" \
-            "$TARGET_DIR/sbin/ordax-dev-init" \
-            "$TARGET_DIR/usr/local/bin/ordax-pull" \
-            "$TARGET_DIR/usr/local/bin/ordax-checkout-exchange" \
-            "$TARGET_DIR/etc/ordax/owner-development"
-        do
-            if test -e "$forbidden" || test -L "$forbidden"; then
-                echo "Stable/MVP candidate contains Development-only capability: $forbidden" >&2
-                exit 1
-            fi
-        done
         # Import the single canonical Stable mountpoint layout, do not fork
         # the legacy builder's directory list in this Buildroot profile.
         "$ORDAX_HOST_PYTHON" "$ROOT/bootstrap/base/stable_runtime_layout.py" install \
