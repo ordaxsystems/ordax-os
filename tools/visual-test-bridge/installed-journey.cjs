@@ -22,17 +22,21 @@ async function runInstalledJourney({executablePath,artifactsDir}){
     await bridge.launch({mode:'electron-installed',executablePath});
     const page=bridge.currentPage();
     await page.locator('.ordax-first-run[data-first-run-step="welcome"]').waitFor({state:'visible',timeout:90000});
-    await step('welcome',async()=>{});
-    await step('account',async()=>{
+    await step('first-run-welcome',async()=>{});
+    await step('first-run-account',async()=>{
       await page.locator('[data-first-run-action="next"]').click({timeout:30000});
       await page.locator('.ordax-first-run[data-first-run-step="account"]').waitFor({timeout:20000});
     });
-    await step('security',async()=>{
+    await step('first-run-security',async()=>{
       await page.locator('[data-first-run-action="account-local"]').click({timeout:30000});
       await page.locator('.ordax-first-run[data-first-run-step="security"]').waitFor({timeout:20000});
     });
-    await step('ready',async()=>{
-      // The button is expected to become enabled without bypassing identity checks.
+    await step('first-run-device',async()=>{
+      // The next step must enable without bypassing pending identity requests.
+      await page.locator('[data-first-run-action="next"]').click({timeout:60000});
+      await page.locator('.ordax-first-run[data-first-run-step="name"]').waitFor({timeout:20000});
+    });
+    await step('first-run-ready',async()=>{
       await page.locator('[data-first-run-action="next"]').click({timeout:60000});
       await page.locator('.ordax-first-run[data-first-run-step="ready"]').waitFor({timeout:20000});
     });
