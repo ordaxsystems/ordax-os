@@ -301,18 +301,24 @@ class PortableV2QEMUBootProofTests(unittest.TestCase):
         self.assertNotIn("liblzma-dev", before_ai)
 
     def test_independent_base_path_binds_verified_kernel_module_inputs(self):
-        independent = WORKFLOW.split("            independent)", 1)[1].split(
-            "            *)", 1
+        # The independent branch contains its own nested profile case. The
+        # previous broad "*)" split stopped at that inner case and silently
+        # omitted the real module-binding and Buildroot-verification commands.
+        independent = WORKFLOW.split("            independent)\n", 1)[1].split(
+            "            *)\n", 1
         )[0]
         for marker in (
             'module_archive="$work/kernel/kernel-modules-$ORDAX_KERNEL_VERSION.tar"',
             'base_out="$work/independent-base"',
+            'base_out="$RUNNER_TEMP/ordax-independent"',
             'test -f "$module_archive"',
             'test ! -L "$module_archive"',
             'export ORDAX_HOST_PYTHON="$(command -v python3)"',
             'export ORDAX_KERNEL_MODULES_ARCHIVE="$module_archive"',
-            'export ORDAX_KERNEL_MODULES_RECEIPT="$base_out/kernel-module-selection.json"',
+            'export ORDAX_KERNEL_MODULES_RECEIPT="$base_out/kernel-module-payload.json"',
             '--out "$base_out"',
+            'python3 bootstrap/independent-base/build.py verify',
+            'portable_component_cache.py verify',
         ):
             self.assertIn(marker, independent)
         self.assertNotIn("bootstrap/kernel/build.py build", independent)
