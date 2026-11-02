@@ -66,8 +66,8 @@ async function runInstalledJourney({executablePath,artifactsDir}){
       await step(area,async()=>{
         const selector=page.locator(target).first();
         await selector.click({timeout:20000});
-        await page.locator('[data-window-id="'+area+'"]').waitFor({state:'visible',timeout:20000});
-        const dom=await bridge.inspect({target:{css:'[data-window-id="'+area+'"]'}});
+        await page.locator('[data-app-id="'+area+'"]').waitFor({state:'visible',timeout:20000});
+        const dom=await bridge.inspect({target:{css:'[data-app-id="'+area+'"]'}});
         if(!dom.found||!dom.visible||dom.bounds.width<50||dom.bounds.height<50)
           throw Error('Native '+area+' window not visible/bounded');
         receipt[area+'Dom']={tag:dom.tag,visible:dom.visible,bounds:dom.bounds,style:dom.style};
