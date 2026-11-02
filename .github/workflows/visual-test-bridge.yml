@@ -51,12 +51,14 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
 
-  installed-desktop:
-    name: Isolated installed OrdaX Desktop (20 full visual E2E journeys)
-    needs: bridge
+  installed-source:
+    name: Verify canonical installed source (cheap, fail-closed)
     if: github.event_name == 'pull_request'
-    runs-on: windows-2022
-    timeout-minutes: 50
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    outputs:
+      run_id: ${{ steps.source.outputs.run_id }}
+      source_sha: ${{ steps.source.outputs.source_sha }}
     steps:
       - name: Resolve latest completed, successful main-only Windows NSIS source
         shell: pwsh
@@ -99,6 +101,13 @@ jobs:
           "source_sha=$($run.head_sha)" >> $env:GITHUB_OUTPUT
           Write-Output "VISUAL_INSTALLED_INPUT_MAIN_SHA=$($run.head_sha)"
           Write-Output "VISUAL_INSTALLED_INPUT_RUN_ID=$($run.id)"
+  installed-desktop:
+    name: Isolated installed OrdaX Desktop (20 full visual E2E journeys)
+    needs: [bridge, installed-source]
+    if: github.event_name == 'pull_request'
+    runs-on: windows-2022
+    timeout-minutes: 50
+    steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
@@ -115,14 +124,14 @@ jobs:
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: ordax-os-desktop-dev-alpha-windows
-          run-id: ${{ steps.source.outputs.run_id }}
+          run-id: ${{ needs.installed-source.outputs.run_id }}
           github-token: ${{ github.token }}
           path: out/visual-test-bridge/installer
       - name: Install verified Desktop in isolated runner and run 20 real full navigation journeys
         shell: pwsh
         env:
-          ORDAX_VISUAL_SOURCE_RUN_ID: ${{ steps.source.outputs.run_id }}
-          ORDAX_VISUAL_SOURCE_SHA: ${{ steps.source.outputs.source_sha }}
+          ORDAX_VISUAL_SOURCE_RUN_ID: ${{ needs.installed-source.outputs.run_id }}
+          ORDAX_VISUAL_SOURCE_SHA: ${{ needs.installed-source.outputs.source_sha }}
         run: |
           $ErrorActionPreference='Stop'
           $installers=@(Get-ChildItem out/visual-test-bridge/installer -Filter '*.exe' -File)
