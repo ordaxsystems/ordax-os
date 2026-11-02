@@ -516,7 +516,8 @@ jobs:
         id: independent-stable-cache
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: ${{ runner.temp }}/portable-v2-qemu/independent-base
+          # Identical archive path to the single Independent Base producer.
+          path: ${{ runner.temp }}/ordax-independent
           key: ordax-portable-component-v1-${{ runner.os }}-${{ runner.arch }}-independent-base-stable-${{ steps.component-fingerprints.outputs.independent_base_stable }}
       - name: Build and verify exact Stable Base or experimental independent candidate
         env:
@@ -550,6 +551,10 @@ jobs:
               fi
               module_archive="$work/kernel/kernel-modules-$ORDAX_KERNEL_VERSION.tar"
               base_out="$work/independent-base"
+              if [ "$ORDAX_INDEPENDENT_BASE_PROFILE" = stable-mvp ]; then
+                base_out="$RUNNER_TEMP/ordax-independent"
+              fi
+              printf 'ORDAX_INDEPENDENT_BASE_OUT=%s\n' "$base_out" >> "$GITHUB_ENV"
               test -f "$module_archive"
               test ! -L "$module_archive"
               case "$ORDAX_INDEPENDENT_BASE_PROFILE" in
@@ -606,7 +611,7 @@ jobs:
         if: ${{ inputs.base_source == 'independent' && inputs.independent_base_profile == 'stable-mvp' && steps.independent-stable-cache.outputs.cache-hit != 'true' }}
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: ${{ runner.temp }}/portable-v2-qemu/independent-base
+          path: ${{ runner.temp }}/ordax-independent
           key: ordax-portable-component-v1-${{ runner.os }}-${{ runner.arch }}-independent-base-stable-${{ steps.component-fingerprints.outputs.independent_base_stable }}
 
       - name: Download same-run independent Surface runtime
@@ -1007,7 +1012,7 @@ jobs:
           proof_extra=()
           if [ "${{ inputs.base_source || 'stable' }}" = independent ]; then
             proof_runner=bootstrap/independent-base/portable_boot_proof.py
-            proof_extra=(--base-out "$work/independent-base" --base-profile "${{ inputs.independent_base_profile || 'minimal' }}" --output-dir "$work/qemu-proof/bridge")
+            proof_extra=(--base-out "${ORDAX_INDEPENDENT_BASE_OUT:?}" --base-profile "${{ inputs.independent_base_profile || 'minimal' }}" --output-dir "$work/qemu-proof/bridge")
             if [ "${{ inputs.independent_base_profile || 'minimal' }}" = stable-mvp ]; then
               proof_extra+=(--reuse-receipt "$work/metadata/independent-stable-component-reuse.json")
             fi
@@ -1105,7 +1110,7 @@ jobs:
           proof_extra=()
           if [ "${{ inputs.base_source || 'stable' }}" = independent ]; then
             proof_runner=bootstrap/independent-base/portable_boot_proof.py
-            proof_extra=(--base-out "$work/independent-base" --base-profile "${{ inputs.independent_base_profile || 'minimal' }}" --output-dir "$work/qemu-one-shot-proof/bridge")
+            proof_extra=(--base-out "${ORDAX_INDEPENDENT_BASE_OUT:?}" --base-profile "${{ inputs.independent_base_profile || 'minimal' }}" --output-dir "$work/qemu-one-shot-proof/bridge")
             if [ "${{ inputs.independent_base_profile || 'minimal' }}" = stable-mvp ]; then
               proof_extra+=(--reuse-receipt "$work/metadata/independent-stable-component-reuse.json")
             fi

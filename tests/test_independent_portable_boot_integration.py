@@ -99,6 +99,16 @@ class IndependentPortableBootIntegrationTest(unittest.TestCase):
         self.assertEqual(official.count('--reuse-receipt "$work/metadata/independent-stable-component-reuse.json"'), 2)
         self.assertIn("Restore verified Stable Buildroot component for official signed boot", official)
         self.assertIn("Save verified Stable Buildroot component for signed Portable boot", official)
+        # Cache key AND archive path must match the independent Buildroot producer.
+        producer = (ROOT / ".github/workflows/independent-base-experiment.yml").read_text()
+        cache_path = 'path: ${{ runner.temp }}/ordax-independent'
+        self.assertEqual(official.count(cache_path), 2)
+        self.assertGreaterEqual(producer.count(cache_path), 2)
+        self.assertNotIn('path: ${{ runner.temp }}/portable-v2-qemu/independent-base', official)
+        self.assertIn('base_out="$RUNNER_TEMP/ordax-independent"', official)
+        self.assertIn('printf \'ORDAX_INDEPENDENT_BASE_OUT=%s\\n\' "$base_out" >> "$GITHUB_ENV"', official)
+        self.assertEqual(official.count('--base-out "${ORDAX_INDEPENDENT_BASE_OUT:?}"'), 2)
+        self.assertNotIn('--base-out "$work/independent-base"', official)
         self.assertIn("independent-base-stable-${{ steps.component-fingerprints.outputs.independent_base_stable }}", official)
         self.assertIn("--component independent-base-stable", official)
         self.assertIn("--receipt \"$work/metadata/independent-stable-component-reuse.json\"", official)
