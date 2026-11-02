@@ -32,6 +32,11 @@
     "optional_cursor_does_not_block_boot": true,
     "windows_read_deadline_ms": 5000
   },
+  "windows_critical_bootstrap": {
+    "read_deadline_ms": 15000,
+    "timeout_fails_closed_before_surface_mount": true,
+    "write_confirmations_are_not_cancelled": true
+  },
   "persistence": {
     "native_path": "/var/lib/ordax/first-run.json",
     "persistent_usb_state": true,

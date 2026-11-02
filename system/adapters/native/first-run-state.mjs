@@ -8,7 +8,7 @@ import {
 const FIRST_RUN_ENDPOINT = "/__ordax/native/first-run";
 
 export async function createNativeFirstRunStateStore(
-  windowRef = globalThis.window, { requireDurableRead = false } = {},
+  windowRef = globalThis.window, { requireDurableRead = false, signal = null } = {},
 ) {
   if (!windowRef || typeof windowRef.fetch !== "function") {
     throw new TypeError("Native first-run state store requires window.fetch");
@@ -23,6 +23,7 @@ export async function createNativeFirstRunStateStore(
       method: "GET",
       cache: "no-store",
       credentials: "same-origin",
+      ...(signal ? { signal } : {}),
     });
     if (!response.ok) {
       if (requireDurableRead) {

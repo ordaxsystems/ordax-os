@@ -222,13 +222,19 @@ async function start() {
       },
     }),
   );
-  const preferenceStorePromise = createNativePreferenceStore(window);
+  // One bounded bootstrap deadline for installed Windows Native reads.
+  // All persistent writes remain unbounded until the host acknowledges them.
+  const desktopBootstrapSignal = windowsDesktopHost ? AbortSignal.timeout(15000) : null;
+  const preferenceStorePromise = createNativePreferenceStore(window, {
+    signal: desktopBootstrapSignal,
+  });
   const firstRunStateStorePromise = createNativeFirstRunStateStore(window, {
     requireDurableRead: windowsDesktopHost,
+    signal: desktopBootstrapSignal,
   });
   const localSessionPromise = optionalNativeProbe(
     "OrdaX native local session unavailable",
-    () => createNativeLocalSession(window),
+    () => createNativeLocalSession(window, { signal: desktopBootstrapSignal }),
   );
   const bundledProfilePacksPromise = optionalNativeProbe(
     "OrdaX bundled Profile manifests unavailable",
@@ -361,12 +367,25 @@ async function start() {
     ),
   ]);
 
-  const [preferenceStore, firstRunStateStore, localSession, bundledProfilePacks] = await Promise.all([
+  const bootState = Promise.all([
     preferenceStorePromise,
     firstRunStateStorePromise,
     localSessionPromise,
     bundledProfilePacksPromise,
   ]);
+  // An unresponsive mandatory Native service must not leave an installed
+  // Windows Desktop indefinitely behind a boot curtain or claim healthy.
+  // The deadline rejects before Surface mount; no guest/empty PIN fallback.
+  const [preferenceStore, firstRunStateStore, localSession, bundledProfilePacks] =
+    desktopBootstrapSignal === null ? await bootState : await new Promise((resolve, reject) => {
+      const timeout = () => reject(new Error("Windows Native bootstrap timed out; Surface remains locked"));
+      if (desktopBootstrapSignal.aborted) return timeout();
+      desktopBootstrapSignal.addEventListener("abort", timeout, { once: true });
+      bootState.then(
+        value => { desktopBootstrapSignal.removeEventListener("abort", timeout); resolve(value); },
+        error => { desktopBootstrapSignal.removeEventListener("abort", timeout); reject(error); },
+      );
+    });
   // A desktop without a verified local session must not expose the Surface
   // as unlocked. Its durable PIN may be corrupt or the protected host down.
   // USB/emulator capabilities remain optional by their existing contracts.
