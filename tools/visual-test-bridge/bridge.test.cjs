@@ -82,6 +82,32 @@ test('isolated Electron spawn never inherits MCP, GitHub, Groq or CI secrets',()
   assert.equal(isolatedElectronEnv(src,{profileDir,development:true}).ORDAX_DESKTOP_LOCAL_DEV,'1');
 });
 
+test('diagnostics and trace names preserve pre-existing evidence on repeated calls',async()=>{
+  const fs=require('node:fs');
+  const evidence=mkdtempSync(join(tmpdir(),'ordax-visual-evidence-preserve-'));
+  try{
+    const originalTrace=join(evidence,'trace.zip');
+    const originalDiagnostics=join(evidence,'diagnostics.json');
+    fs.writeFileSync(originalTrace,'sentinel-zip');
+    fs.writeFileSync(originalDiagnostics,'sentinel-json');
+    const bridge=new VisualTestBridge({artifactsDir:evidence});
+    bridge.sessionIndex=1;
+    assert.equal(bridge.tracePath(),join(evidence,'trace-v02.zip'));
+    const first=await bridge.collectArtifacts();
+    const second=await bridge.collectArtifacts();
+    assert.equal(first.diagnostics,join(evidence,'diagnostics-v02.json'));
+    assert.equal(second.diagnostics,join(evidence,'diagnostics-v03.json'));
+    assert.equal(fs.readFileSync(originalTrace,'utf8'),'sentinel-zip');
+    assert.equal(fs.readFileSync(originalDiagnostics,'utf8'),'sentinel-json');
+    assert.equal(fs.existsSync(first.diagnostics),true);
+    assert.equal(fs.existsSync(second.diagnostics),true);
+    bridge.sessionIndex=2;
+    assert.equal(bridge.tracePath(),join(evidence,'trace-02.zip'));
+    assert.equal((await bridge.collectArtifacts()).diagnostics,
+      join(evidence,'diagnostics-02.json'));
+  }finally{rmSync(evidence,{recursive:true,force:true});}
+});
+
 test('semantic assertions reject impossible bounds and uncontrolled requests',async()=>{
   const bridge=new VisualTestBridge();
   await assert.rejects(bridge.assertTarget({timeoutMs:60000}),/Invalid bounded/);

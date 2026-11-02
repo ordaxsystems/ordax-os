@@ -164,6 +164,11 @@ test('real headless Chromium supports semantic interaction, inspection, trace an
   const evidence=await bridge.collectArtifacts();
   assert.equal(existsSync(evidence.diagnostics),true);
   assert.equal(evidence.artifacts.some(a=>a.endsWith('trace.zip')),true);
+  const firstDiagnostics=require('node:fs').readFileSync(evidence.diagnostics);
+  const another=await bridge.collectArtifacts();
+  assert.equal(another.diagnostics,join(artifacts,'diagnostics-v02.json'));
+  assert.equal(require('node:fs').readFileSync(evidence.diagnostics).equals(firstDiagnostics),true);
+  assert.equal(existsSync(another.diagnostics),true);
   await bridge.close();
   // The same bridge process can compare Web and Electron test renderings across
   // two isolated sessions without destroying the first reference or trace.

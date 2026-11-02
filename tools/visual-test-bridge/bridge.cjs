@@ -184,8 +184,23 @@ class VisualTestBridge {
         browserSandbox:true};
     }catch(error){await this.close();throw error;}
   }
-  tracePath(){return join(this.artifactsDir,this.sessionIndex===1?'trace.zip':
-    'trace-'+String(this.sessionIndex).padStart(2,'0')+'.zip');}
+  uniqueEvidencePath(stem,extension) {
+    // A new bridge process may reuse a caller-supplied artifact directory.
+    // Preserve existing ZIPs and diagnostics instead of silently replacing them.
+    const initial=join(this.artifactsDir,stem+'.'+extension);
+    if(!existsSync(initial))return initial;
+    for(let index=2;index<=9999;index++){
+      const name=stem+'-v'+String(index).padStart(2,'0')+'.'+extension;
+      const candidate=join(this.artifactsDir,name);
+      if(!existsSync(candidate))return candidate;
+    }
+    throw Error('No unused evidence identifier remains');
+  }
+  tracePath(){
+    const stem=this.sessionIndex===1?'trace':
+      'trace-'+String(this.sessionIndex).padStart(2,'0');
+    return this.uniqueEvidencePath(stem,'zip');
+  }
   async close() {
     try{
       if(this.tracing&&this.context){
@@ -467,11 +482,12 @@ class VisualTestBridge {
       await this.context.tracing.stop({path:trace});
       this.tracing=false;this.artifacts.push(trace);
     }
-    const logsPath=join(this.artifactsDir,this.sessionIndex<=1?'diagnostics.json':
-      'diagnostics-'+String(this.sessionIndex).padStart(2,'0')+'.json');
+    const stem=this.sessionIndex<=1?'diagnostics':
+      'diagnostics-'+String(this.sessionIndex).padStart(2,'0');
+    const logsPath=this.uniqueEvidencePath(stem,'json');
     writeFileSync(logsPath,JSON.stringify({schema:'ordax.visual-test-evidence/1',
       recordedAt:new Date().toISOString(),mode:this.mode,session:this.sessionIndex,
-      events:this.logs,artifacts:[...this.artifacts]},null,2)+'\n');
+      events:this.logs,artifacts:[...this.artifacts]},null,2)+'\n',{flag:'wx'});
     return {diagnostics:logsPath,artifacts:[...this.artifacts]};
   }
   async execute(request) {
