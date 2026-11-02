@@ -38,6 +38,26 @@ test('real headless Chromium supports semantic interaction, inspection, trace an
   assert.equal((await bridge.runE2E()).passed,true);
   assert.equal((await bridge.compareVisual({name:'missing-baseline'})).reason,'baseline-missing');
   assert.equal((await bridge.scanLayout()).interactiveElements,2);
+  const firstWindowId=(await bridge.listWindows())[0].id;
+  await bridge.currentPage().evaluate(()=>{
+    const button=document.createElement('button');
+    button.setAttribute('aria-label','Open detail window');
+    button.onclick=()=>window.open('/detail','_blank');
+    document.body.append(button);
+  });
+  const childPromise=bridge.context.waitForEvent('page');
+  await bridge.click({target:{role:'button',name:'Open detail window'}});
+  const child=await childPromise;
+  await child.waitForLoadState('domcontentloaded');
+  const childWindow=(await bridge.listWindows()).find(w=>w.id!==firstWindowId);
+  assert.ok(childWindow);
+  assert.equal((await bridge.selectWindow({id:childWindow.id})).path,'/detail');
+  assert.equal((await bridge.listWindows()).find(w=>w.id===childWindow.id).selected,true);
+  assert.equal((await bridge.inspect({target:{css:'#ordax-root'}})).found,true);
+  await assert.rejects(bridge.selectWindow({id:-1}),/numeric ID/);
+  await assert.rejects(bridge.selectWindow({id:9999}),/not present/);
+  await bridge.selectWindow({id:firstWindowId});
+  assert.equal((await bridge.listWindows()).find(w=>w.id===firstWindowId).selected,true);
   await bridge.currentPage().evaluate(()=>{
     const a=document.createElement('button'),b=document.createElement('button');
     for(const [node,label] of [[a,'Probe A'],[b,'Probe B']]){

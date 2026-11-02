@@ -7,8 +7,9 @@ const {join}=require('node:path');
 const {PNG}=require('pngjs');
 const {VisualTestBridge,localUrl,safeText,comparePng,OPERATIONS}=require('./bridge.cjs');
 test('bridge exposes one bounded command surface without an HTTP listener',()=>{
-  assert.equal(OPERATIONS.size,14);
+  assert.equal(OPERATIONS.size,15);
   assert.equal(OPERATIONS.has('terminal_exec'),false);
+  assert.equal(OPERATIONS.has('select_window'),true);
 });
 test('preview only accepts local HTTP without injected credentials',()=>{
   assert.equal(localUrl('http://127.0.0.1:4202/').port,'4202');

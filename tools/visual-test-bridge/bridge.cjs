@@ -6,7 +6,7 @@ const {tmpdir}=require('node:os');
 const {createHash}=require('node:crypto');
 
 const MAX_LOGS=500;
-const OPERATIONS=new Set(['launch','close','list_windows','navigate','inspect','click','type','screenshot','get_logs','get_accessibility_tree','run_e2e','compare_visual','collect_artifacts','scan_layout']);
+const OPERATIONS=new Set(['launch','close','list_windows','select_window','navigate','inspect','click','type','screenshot','get_logs','get_accessibility_tree','run_e2e','compare_visual','collect_artifacts','scan_layout']);
 function localUrl(input) {
   let parsed;
   try {parsed=new URL(input);} catch {throw Error('An absolute loopback URL is required');}
@@ -61,6 +61,7 @@ class VisualTestBridge {
     this.app=null;this.browser=null;this.context=null;this.page=null;
     this.mode=null;this.profileRoot=null;this.tracing=false;this.logs=[];this.artifacts=[];
     this.snapshots=new Map();this.sessionIndex=0;
+    this.boundPages=new WeakSet();this.windowIds=new WeakMap();this.nextWindowId=1;
   }
   record(kind,detail) {
     this.logs.push({at:new Date().toISOString(),kind,detail:safeText(detail)});
@@ -68,6 +69,8 @@ class VisualTestBridge {
   }
   currentPage(){if(!this.page)throw Error('Bridge has no launched test session');return this.page;}
   bindPage(page){
+    if(this.boundPages.has(page))return;
+    this.boundPages.add(page);
     page.on('pageerror',error=>this.record('pageerror',error.message));
     page.on('console',message=>{if(message.type()==='error')this.record('console-error',message.text());});
     page.on('requestfailed',request=>this.record('requestfailed',request.method()+' '+new URL(request.url()).pathname+' '+(request.failure()?.errorText||'')));
@@ -88,6 +91,7 @@ class VisualTestBridge {
         const preview=localUrl(url);
         this.browser=await pw.chromium.launch({headless:true,chromiumSandbox:true});
         this.context=await this.browser.newContext({viewport:{width,height},deviceScaleFactor:1});
+        this.context.on('page',page=>this.bindPage(page));
         this.page=await this.context.newPage();
         this.bindPage(this.page);
         await this.page.goto(preview.href,{waitUntil:'domcontentloaded',timeout:60000});
@@ -117,10 +121,12 @@ class VisualTestBridge {
         const child=this.app.process();
         child.stdout?.on('data',data=>this.record('electron-stdout',String(data)));
         child.stderr?.on('data',data=>this.record('electron-stderr',String(data)));
+        // Bind before waiting for firstWindow so early renderer logs are captured.
+        this.app.on('window',page=>this.bindPage(page));
+        for(const page of this.app.windows())this.bindPage(page);
         this.page=await this.app.firstWindow({timeout:120000});
         this.context=this.page.context();
         this.bindPage(this.page);
-        this.app.on('window',page=>this.bindPage(page));
       }
       await this.context.tracing.start({screenshots:true,snapshots:true,sources:false});
       this.tracing=true;
@@ -149,11 +155,29 @@ class VisualTestBridge {
     }
     return {closed:true,artifacts:[...this.artifacts]};
   }
+  windowId(page){
+    if(!this.windowIds.has(page))this.windowIds.set(page,this.nextWindowId++);
+    return this.windowIds.get(page);
+  }
   async listWindows() {
     this.currentPage();
-    const pages=this.app?this.app.windows():this.context.pages();
-    return Promise.all(pages.map(async(page,index)=>({id:index,
-      title:safeText(await page.title()),path:(new URL(page.url())).pathname,closed:page.isClosed()})));
+    const pages=(this.app?this.app.windows():this.context.pages()).filter(p=>!p.isClosed());
+    return Promise.all(pages.map(async(page)=>({
+      id:this.windowId(page),title:safeText(await page.title()),
+      path:(new URL(page.url())).pathname,closed:false,selected:page===this.page
+    })));
+  }
+  async selectWindow({id}={}) {
+    this.currentPage();
+    if(!Number.isInteger(id)||id<1)throw Error('Window selection requires a listed numeric ID');
+    const pages=(this.app?this.app.windows():this.context.pages()).filter(p=>!p.isClosed());
+    const selected=pages.find(page=>this.windowId(page)===id);
+    if(!selected)throw Error('Window ID not present in the current test session');
+    this.page=selected;
+    this.bindPage(selected);
+    // Focus is confined to the dedicated VM/CI desktop or headless browser.
+    await selected.bringToFront();
+    return {id,path:(new URL(selected.url())).pathname,selected:true};
   }
   locator({role,name,testId,css}={}) {
     const page=this.currentPage();
@@ -323,6 +347,7 @@ class VisualTestBridge {
       case 'launch':return this.launch(args);
       case 'close':return this.close();
       case 'list_windows':return this.listWindows();
+      case 'select_window':return this.selectWindow(args);
       case 'navigate':return this.navigate(args);
       case 'inspect':return this.inspect(args);
       case 'click':return this.click(args);
