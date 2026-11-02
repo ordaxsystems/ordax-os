@@ -398,7 +398,7 @@ Somente após todos os gates:
 - O builder Alpine `bootstrap/stable-base/build.py` permanece como consumidor ativo até que a paridade seja provada e o corte ocorra. `bootstrap/windows-compat-runtime/configure_probe.py` será migrado separadamente. **Não apagar** `alpine_core.py`, APK locks, workflows ou contratos enquanto houver dependências operacionais.
 - Sem fallbacks, sem segunda PR/branch e sem alterar flags de autorização de publicação.
 
-### Continuação: ponte Stable → boot Portable assinado (2 de novembro de 2026)
+### Continuação: ponte Stable → boot Portable assinado (1º de novembro de 2026, Bahia)
 
 - `14ed0ccc`: `portable_boot_proof.py` aceita **explicitamente** `--base-profile stable-mvp`, verifica provenance desse perfil no próprio produtor e rejeita a seleção `owner-development`. O padrão `minimal` permanece inalterado.
 - `e9327480`: o workflow reutilizável existente `.github/workflows/portable-v2-qemu-boot-proof.yml` passou a receber `independent_base_profile`. A execução da candidata `stable-mvp` é exclusiva de `workflow_dispatch`, com `base_source=independent`; não se ativa por PR nem altera o produtor Stable antigo. Usa os mesmos owners de assinatura Ed25519, Portable PID1, EROFS, ext4, recuperação, QEMU/OVMF e rollback já existentes. **Não** há outro fluxo de boot.
