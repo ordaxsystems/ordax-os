@@ -42,7 +42,7 @@ jobs:
         run: npx playwright install chromium
       - name: Exercise real headless Chromium adapter (not OrdaX E2E)
         shell: pwsh
-        run: node --test tools/visual-test-bridge/bridge.browser.test.cjs tools/visual-test-bridge/cli.browser.test.cjs
+        run: node --test --test-concurrency=1 tools/visual-test-bridge/bridge.browser.test.cjs tools/visual-test-bridge/cli.browser.test.cjs
       - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         if: always()
         with:
