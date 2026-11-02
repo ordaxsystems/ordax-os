@@ -1,12 +1,16 @@
 """Phase 2 adapter regression: reuse the canonical portable boot implementation."""
 from __future__ import annotations
 
+import hashlib
+import importlib.util
 import json
+import os
 from pathlib import Path
 import subprocess
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 BASE = ROOT / "bootstrap/independent-base"
@@ -191,6 +195,88 @@ class IndependentPortableBootIntegrationTest(unittest.TestCase):
             self.assertNotEqual(rejected.returncode, 0)
             self.assertIn("invalid choice", rejected.stderr)
             self.assertFalse((Path(tmp) / "proof").exists())
+
+    def test_stable_cache_reuse_binding_checks_real_manifest_and_detects_tampering(self):
+        # Unit-test only: tiny synthetic files exercise the *actual* cache
+        # verifier, not the Buildroot build, signature or QEMU success path.
+        cache_path = ROOT / "tools/ci/portable_component_cache.py"
+        spec = importlib.util.spec_from_file_location("stable_cache_binding_test", cache_path)
+        self.assertIsNotNone(spec)
+        self.assertIsNotNone(spec.loader)
+        cache = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(cache)
+
+        bridge_spec = importlib.util.spec_from_file_location(
+            "stable_portable_bridge_test", BASE / "portable_boot_proof.py")
+        self.assertIsNotNone(bridge_spec)
+        self.assertIsNotNone(bridge_spec.loader)
+        sys.path.insert(0, str(BASE))
+        try:
+            bridge = importlib.util.module_from_spec(bridge_spec)
+            bridge_spec.loader.exec_module(bridge)
+        finally:
+            sys.path.remove(str(BASE))
+
+        with tempfile.TemporaryDirectory() as td, patch.dict(
+            os.environ, {"ORDAX_COMPONENT_CACHE_ENVIRONMENT": "unit-test/portable-bridge"}
+        ):
+            root = Path(td)
+            output = root / "stable"
+            output.mkdir()
+            digests = {}
+            for name in ("rootfs.tar", "rootfs.cpio.gz", "independent-base.erofs"):
+                payload = ("unit-only-" + name).encode("utf-8")
+                (output / name).write_bytes(payload)
+                digests[name] = hashlib.sha256(payload).hexdigest()
+            origin = "1" * 40
+            current = "2" * 40
+            provenance = {
+                "$schema": "prototype-ordax.independent-base-provenance/1",
+                "status": "candidate-build-only",
+                "source_commit": origin,
+                "profile": "stable-mvp",
+                "owner_development_capabilities_verified": False,
+                "physical_artifact_authorized": False,
+                "signed_release_equivalence_proven": False,
+                "artifacts": digests,
+            }
+            (output / "provenance.json").write_text(
+                json.dumps(provenance) + "\n", encoding="utf-8")
+            cache.record_component("independent-base-stable", output, origin, ROOT)
+            binding_path = root / "binding.json"
+            cache.verify_component(
+                "independent-base-stable", output, current, binding_path,
+                cache_hit=True, root=ROOT,
+            )
+            evidence_path = root / "independently-verified.json"
+            validated = bridge.verify_stable_cache_binding(
+                output, current, provenance, binding_path, evidence_path,
+            )
+            self.assertTrue(validated["reused"])
+            self.assertEqual(validated["build_source_commit"], origin)
+            self.assertEqual(validated["integration_source_commit"], current)
+            self.assertFalse(validated["provenance_rewritten"])
+            self.assertEqual(
+                json.loads((output / "provenance.json").read_text()), provenance,
+                "reuse must not rewrite the producer provenance",
+            )
+
+            # A forged integration commit cannot turn a stale cache into a
+            # signed release candidate even when all original files are intact.
+            original = binding_path.read_text(encoding="utf-8")
+            forged = json.loads(original)
+            forged["integration_source_commit"] = "3" * 40
+            binding_path.write_text(json.dumps(forged) + "\n", encoding="utf-8")
+            with self.assertRaisesRegex(bridge.BaseError, "receipt differs"):
+                bridge.verify_stable_cache_binding(
+                    output, current, provenance, binding_path, root / "forgery.json")
+            binding_path.write_text(original, encoding="utf-8")
+
+            # A single mutated cached byte also invalidates the whole binding.
+            (output / "rootfs.tar").write_bytes(b"tampered")
+            with self.assertRaisesRegex(bridge.BaseError, "does not validate"):
+                bridge.verify_stable_cache_binding(
+                    output, current, provenance, binding_path, root / "tampered.json")
 
     def test_canonical_contract_and_physical_gate(self):
         source = json.loads((BASE / "source.json").read_text())
