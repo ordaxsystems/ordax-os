@@ -291,7 +291,7 @@ class KernelModulePayloadTests(unittest.TestCase):
             receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
             receipt["files"][0]["size"] += 1
             receipt_path.write_text(json.dumps(receipt) + "\n", encoding="utf-8")
-            with self.assertRaisesRegex(PAYLOAD.KernelModulePayloadError, "module bytes differ from receipt|altered module receipt|differs from verified producer"):
+            with self.assertRaisesRegex(PAYLOAD.KernelModulePayloadError, "canonical kernel archive member is not the expected regular file|module bytes differ from receipt|altered module receipt|differs from verified producer"):
                 PAYLOAD.verify_kernel_archive_binding(archive, receipt_path, rootfs)
 
     def test_kernel_module_binding_rejects_missing_wifi_module_and_json_list(self) -> None:
