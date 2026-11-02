@@ -157,7 +157,8 @@ function authorizeDesktopFileRequests(browserWindow,base,fileToken,localSessionT
         if(trusted && target.pathname==='/__ordax/native/device-profile')
           headers['X-OrdaX-Device-Profile-Token']=deviceProfileToken;
         if(trusted && ['/__ordax/native/first-run','/__ordax/native/preferences',
-                       '/__ordax/native/first-run-cursor'].includes(target.pathname))
+                       '/__ordax/native/first-run-cursor',
+                       '/__ordax/native/diagnostic-journal'].includes(target.pathname))
           headers['X-OrdaX-Desktop-State-Token']=stateToken;
         if(trusted && OBSERVATION_ROUTES.includes(target.pathname))
           headers['X-OrdaX-Observation-Token']=observationToken;

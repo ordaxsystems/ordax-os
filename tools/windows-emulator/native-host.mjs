@@ -9,6 +9,7 @@ import { readDesktopUpdateStatus, readDesktopUpdateHistory } from "../../system/
 import { readDesktopRecovery } from "../../system/adapters/desktop/recovery-observation.mjs";
 import { createDesktopBuiltAssetsMiddleware } from "./desktop-built-assets.mjs";
 import { createDesktopFileSpaceMiddleware } from "../../system/adapters/desktop/file-space-host.mjs";
+import { createDesktopDiagnosticJournalMiddleware } from "../../system/adapters/desktop/diagnostic-journal-host.mjs";
 import { createDesktopAccountCookieVault } from "../../system/adapters/desktop/account-cookie-vault.mjs";
 import { createDesktopLocalSessionMiddleware } from "../../system/adapters/desktop/local-session-host.mjs";
 import { createDesktopClientDiagnosticsMiddleware } from "../../system/adapters/desktop/client-diagnostics-host.mjs";
@@ -291,6 +292,16 @@ export function nativeEmulatorPlugin(stateDirectory, { desktopHost = false, acco
           join(process.env.ORDAX_DESKTOP_UPDATE_USER_DATA,"Files"),
           {token:process.env.ORDAX_DESKTOP_FILE_TOKEN,
            sessionLocked:localSession?.readLocked??null}
+        ));
+      }
+      if (desktopHost && process.platform==="win32" && userData) {
+        // One device-local diagnostic journal. Reuse the existing Electron
+        // state grant; never grant arbitrary loopback requests this capability.
+        server.middlewares.use(createDesktopDiagnosticJournalMiddleware(
+          stateDirectory,{
+            token:process.env.ORDAX_DESKTOP_STATE_TOKEN,
+            sessionLocked:localSession?.readLocked??null,
+          }
         ));
       }
       if (desktopHost) {
