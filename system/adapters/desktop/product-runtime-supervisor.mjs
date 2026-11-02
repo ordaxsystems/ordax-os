@@ -6,6 +6,8 @@ import {spawn,execFile} from "node:child_process";
 import {createHash} from "node:crypto";
 import {lstatSync,readFileSync,realpathSync} from "node:fs";
 import {isAbsolute,join,relative,sep} from "node:path";
+import ownedProcessTree from "./owned-process-tree.cjs";
+const {stopOwnedWindowsProcessTree}=ownedProcessTree;
 
 const SHA40=/^[a-f0-9]{40}$/;
 const SHA256=/^[a-f0-9]{64}$/;
@@ -71,7 +73,7 @@ function readReleaseGate(systemRoot){
 
 // DEV is an independent, explicitly opted-in launch proof, not a signed-slot
 // fallback. The canonical production trust policy and source lock remain
-// untouched. Candidate bytes are pinned to the OS-owned CI evidence; a local
+// untouched. Candidate bytes are pinned to the OS-owned verified evidence; a
 // file name, environment variable or Runtime self-report never proves them.
 function readDesktopDevCandidateGate(systemRoot){
   const policy=JSON.parse(readRegular(join(systemRoot,"docs","contracts",
@@ -198,6 +200,16 @@ export function createDesktopSignedRuntimeHandoff({
       resolve(stdout));
   });
 }
+/**
+ * A Windows PyInstaller --onefile component owns a second executable process.
+ * child.kill() terminates only the bootloader, leaving the Runtime running
+ * without its Supervisor. Use the Windows native tree-termination primitive
+ * while the owned process is still live, before the Native host may exit.
+ * No process lookup, wildcard or name-wide termination is permitted here.
+ */
+export function stopOwnedDesktopWindowsTree(pid,options){
+  return stopOwnedWindowsProcessTree(pid,options);
+}
 function snapshot(state,reason,identity){
   return Object.freeze({
     schema:SCHEMA,host:HOST,state,reason,
@@ -208,14 +220,20 @@ function snapshot(state,reason,identity){
 }
 export function createDesktopProductRuntimeSupervisor({
   systemRoot,userData,verifiedHandoff=null,developmentCandidate=false,spawnImpl=spawn,
-  platform=process.platform,env=process.env,log=()=>{},
+  platform=process.platform,env=process.env,log=()=>{},nativeBridge=null,
+  stopTreeImpl=null,
 }={}){
   if(typeof systemRoot!=="string"||!isAbsolute(systemRoot)||
      typeof userData!=="string"||!isAbsolute(userData)||
      typeof developmentCandidate!=="boolean"||
      (verifiedHandoff!==null&&typeof verifiedHandoff!=="function")||
-     typeof spawnImpl!=="function"||typeof log!=="function")
+     typeof spawnImpl!=="function"||typeof log!=="function"||
+     (nativeBridge!==null&&typeof nativeBridge!=="function")||
+     (stopTreeImpl!==null&&typeof stopTreeImpl!=="function"))
     throw TypeError("OrdaX Supervisor requires OS-owned roots and verifier");
+  const stopOwnedTree=stopTreeImpl??(spawnImpl===spawn
+    ? pid=>stopOwnedDesktopWindowsTree(pid,{windowsRoot:env.SystemRoot})
+    : ()=>false);
   let active=null,closed=false,transition=Promise.resolve();
   // Exit 43 is the canonical Runtime credential-recovery request. Repeating
   // the same rejected identity every 30s cannot repair it and wastes calls.
@@ -232,7 +250,13 @@ export function createDesktopProductRuntimeSupervisor({
     // executing. It is reaped only by its own exit/error event, never by PID.
     if(!owned.stopRequested){
       owned.stopRequested=true;
-      try{owned.child.kill("SIGTERM")}catch{}
+      // Do not terminate only the frozen executable bootloader: it owns a
+      // separate Python Runtime child. Taskkill /T addresses the exact owned
+      // PID and its descendants synchronously before the host itself exits.
+      let treeStopped=false;
+      if(platform==="win32"&&Number.isSafeInteger(owned.child.pid))
+        try{treeStopped=stopOwnedTree(owned.child.pid)===true}catch{}
+      if(!treeStopped)try{owned.child.kill("SIGTERM")}catch{}
     }
     return false;
   };
@@ -326,6 +350,19 @@ export function createDesktopProductRuntimeSupervisor({
       ORDAX_PRODUCT_MCP_URL:prepared.identity.transport,
       PYTHONNOUSERSITE:"1",
     });
+    if(nativeBridge!==null){
+      // The trusted Native host supplies the per-launch loopback channel.
+      // No bridge means no OS status action; never fall back to Windows APIs.
+      let bridge=null;
+      try{bridge=nativeBridge()}catch{}
+      const valid=bridge && typeof bridge.url==="string" &&
+        /^http:\/\/127\.0\.0\.1:(?:[1-9][0-9]{0,4})\/__ordax\/native\/desktop-surface-state$/.test(bridge.url) &&
+        Number(new URL(bridge.url).port)<=65535 &&
+        typeof bridge.token==="string" && /^[a-f0-9]{64}$/.test(bridge.token);
+      if(!valid)return current=snapshot("blocked","native_surface_bridge_unavailable",true);
+      childEnv.ORDAX_DESKTOP_SURFACE_BRIDGE_URL=bridge.url;
+      childEnv.ORDAX_DESKTOP_SURFACE_BRIDGE_TOKEN=bridge.token;
+    }
     let child;
     try{
       child=spawnImpl(plan.executable,[],{

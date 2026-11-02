@@ -28,31 +28,77 @@ real receipts; `profilePack:null` is pending, not provisioned.
 The OS contract/data owners remain separate; no second Profile database,
 session, runtime or app installer.
 
-OrdaX Desktop Windows MCP — **DEV FIRST** (31/10/2026):
-O Desktop NSIS foi atualizado no Windows físico e seu Runtime
-Product Device separado está **online**, sem reutilizar a instância do
-agente auxiliar. O OAuth Owner autorizou o cliente ChatGPT exato com
-`computer-observe` temporário e a sessão efetivamente despachou
-`computer.access_status` ao Runtime Desktop anterior; ele respondeu
-`action not allowed`. A correção causal no
-[ordax-runtime#282](https://github.com/ordaxsystems/ordax-runtime/pull/282)
-já está integrada (commit `726f41f77897aed7bdadbf4a7865a9aeca032f9c`):
-limite Desktop de somente `agent.status` e
-`computer.access_status`, sem ações Windows de escrita/terminal/GUI.
-O novo candidato `ordax-runtime@50a8626d9212e3741b38b87fbe658e24c8bee024`
-tem SHA-256 `33e6c14b2f6e03e275697806f686195ca3de1a13296adc107bd003f5d71ceae2`
-e passou self-test físico isolado no `DESKTOP-PNUHUA0` (sem Python,
-rede ou credenciais). O **único** manifesto atualizado é
-`docs/evidence/desktop-runtime-windows-candidate-2026-10-31.json`.
-**Pendente**: aplicar exatamente o novo candidato ao slot **DEV** do
-Supervisor e comprovar `computer.access_status` remoto com recibo
-`status=succeeded`/`ok=true`; `queued` não conta. O agente Windows
-auxiliar permanece sem matrícula própria: sua configuração atual
-reutiliza o ID do Desktop e não deve ser iniciada. A política de
-produção Ed25519/source lock permanece fail-closed.
-Prioridade/processo em `docs/DEVELOPMENT-WORKFLOW.md` e issue #1985.
-Não iniciar USB/Creator/Buildroot/QEMU, novos CLIs/workflows ou builds.
+OrdaX Desktop Windows MCP - **Dev Native integrado localmente (02/11/2026)**:
+O GPT deve tratar o Product Device OrdaX Desktop como um sistema
+independente do computador Windows: a autoridade vem da Platform,
+o dispatcher unico permanece no ordax-runtime e a Surface recebe
+acoes por contratos Native do OS, nao mouse/terminal/screenshot Windows.
+O Desktop em DESKTOP-4UFL03B mantem duas identidades online separadas:
+DESKTOP-4UFL03B (Windows MCP) e OrdaX Desktop (DESKTOP-4UFL03B).
 
+O canal per-launch autenticado permite ordax.surface.status e
+ordax.surface.open. A segunda acao aceita apenas os apps Native
+account, settings, system e store; a Surface usa o appActivation
+canonico, reaplica o catalogo/permissoes existente e devolve receipt
+apenas se o app realmente estiver visivel. Uma acao sem confirmacao
+falha, sem retornar sucesso ficticio. O Native Host exige uma revisao
+de relatorio posterior a cada comando, nao somente timestamp; a
+regressao de dois eventos no mesmo milissegundo foi reproduzida e
+corrigida. Gates OS de ponte, Supervisor e Native Host: 53/53.
+Em 02/11, foi corrigido o caso de HTTP 503 ao publicar a nova
+Surface: o reporter mantem o requestId em andamento, repete somente
+a observacao (a cada poll de 450ms) e envia receipt "applied"
+apenas apos HTTP 200 do Host, sem executar appActivation novamente.
+Teste de regressao reproduziu a falha antes da correcao e passou
+depois. Gates locais: 58/58 OS Native e 130/130 Surface.
+No canal MCP, appActivation aguarda a janela realmente montada antes
+de emitir sucesso; uma janela ja visivel nao e reaberta. Falhas de
+publicacao HTTP 503 reenviam somente o relatorio, sem repetir a
+ativacao. Prova integrada com HTTP loopback real: comando, renderer,
+confirmacao e leitura posterior de status passaram. Um app que nao
+abre termina com HTTP 504 e nao produz receipt falso.
+MCP Product DEV e Windows MCP permaneceram separados na prova fisica.
+A selecao Owner por conversa segue obrigatoria quando nao existe
+binding vigente; nenhuma escolha silenciosa de Device foi criada.
+O OS corrigiu a observacao para
+usar o appId da janela, nao o ID efemero da instancia.
+Autorizacoes independentes para Runtime e Surface; no browser
+externo e no processo Windows MCP nao existe token do Runtime.
+
+Candidato congelado oficial do Runtime: commit
+5173f2b01cb7abb1e5d98fdd00750c17fb6f85e4,
+SHA-256 988f2ee5a57404f03db8536d515551d3ed2976783a1575e92223b8f611fe327e,
+18.682.343 bytes, Python 3.12.16 e lockfile verificado por hashes.
+Self-test offline prova somente agent.status, computer.access_status,
+ordax.surface.open e ordax.surface.status; nunca concede Windows
+computer control. Slot DEV unico atualizado atomicamente e hash validado.
+O Desktop fisico carregou Surface ready e o Native Host confirmou
+tanto state reporter quanto command polling autenticados; uma janela
+e um par PyInstaller/Runtime, Windows MCP separado intacto.
+Testes locais: OS 51/51, Surface 130/130 e Runtime Desktop
+29 testes aprovados (um ignorado). Integracao UI e host simulada
+prova receipts, bloqueios e falhas seguras; o comando novo
+ainda **nao teve execucao remota GPT atestada**.
+
+**Cadeia canonica do MCP Native (02/11/2026):**
+- ordax-platform/main integrou PR #333 em bcb9c8e7 com
+  ordax_surface_status/open, grants independentes da autoridade Windows,
+  e cinco gates de candidato aprovados. Worker publico nao foi implantado.
+- ordax-runtime/main integrou PR #306 em f89ab01c com acoes Product,
+  identidade propria, despacho unico e verificacao de escopo do pacote.
+  Dez gates obrigatorios passaram; assinatura/release nao foram acionados.
+- Esta revisao do ordax-os contem apenas a ponte e o Supervisor DEV do
+  MCP Native, observacao e confirmacao da Surface. O pin oficial da
+  Surface e o fluxo Windows First Run nao foram alterados neste PR.
+- O Runtime DEV instalado no Windows foi fisicamente validado com
+  SHA e ciclo de vida unico; provas HTTP locais cobrem ativacao
+  confirmada, render atrasado, timeout e isolamento do Windows.
+- Ainda falta disponibilizar as novas tools no MCP publico (cliente
+  continua com 51), Owner grant/conversa, receipt remoto executado e
+  promocao de distribuicao aprovada. Nao afirmar mcpReady a partir
+  de processo online, CI ou simulacao de renderizacao.
+  Referencia de evidencia DEV: docs/evidence/desktop-runtime-windows-candidate-2026-10-31.json.
+  Nao houve rollout de producao, assinatura, USB, QEMU ou Creator.
 Windows Store verified catalog (2026-10-31): the Native catalog revocation
 and single metadata-read implementation from #1981 are integrated. OS #2356
 and #2357 integrated the **same** signed-catalog read middleware for installed

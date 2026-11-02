@@ -36,7 +36,7 @@ if(require.main===module){
     const checkout=prepare();
     console.log('Canonical Surface linked for HMR: '+checkout);
     const child=spawn(process.execPath,[join(__dirname,'node_modules','electron','cli.js'),__dirname],{
-      cwd:__dirname,env:{...process.env,ORDAX_DESKTOP_LOCAL_DEV:'1',ORDAX_DESKTOP_SURFACE_ROOT:checkout},stdio:'inherit',windowsHide:false});
+      cwd:__dirname,env:{...process.env,ORDAX_DESKTOP_LOCAL_DEV:'1',ORDAX_DESKTOP_MCP_DEV:'1',ORDAX_DESKTOP_SURFACE_ROOT:checkout},stdio:'inherit',windowsHide:false});
     child.on('exit',code=>process.exitCode=code??1);
     child.on('error',err=>{console.error(err);process.exitCode=1});
   }catch(error){console.error(error.message);process.exitCode=1}

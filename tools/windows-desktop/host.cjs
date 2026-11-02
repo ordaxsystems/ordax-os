@@ -1,5 +1,5 @@
 'use strict';
-const { fork, spawn } = require('node:child_process');
+const { fork } = require('node:child_process');
 const { join } = require('node:path');
 const { existsSync } = require('node:fs');
 const net = require('node:net');
@@ -48,7 +48,7 @@ function hasHostExited(child) {
   return child.exitCode!==null || child.signalCode!==null;
 }
 async function startHost({root,template=root,stateDirectory,userData,log,builtAssetsRoot=null,
-  fileToken,localSessionToken,nativeSessionToken,diagnosticToken,deviceProfileToken,stateToken,networkToken,observationToken,displayToken,localAiToken,sourceSha=""}) {
+  fileToken,localSessionToken,nativeSessionToken,diagnosticToken,deviceProfileToken,stateToken,networkToken,observationToken,surfaceReportToken,displayToken,localAiToken,sourceSha=""}) {
   if(typeof fileToken!=="string" || !/^[0-9a-f]{64}$/.test(fileToken))
     throw TypeError("OrdaX Desktop Files require per-launch authorization");
   if(typeof localSessionToken!=="string" || !/^[0-9a-f]{64}$/.test(localSessionToken) ||
@@ -60,9 +60,10 @@ async function startHost({root,template=root,stateDirectory,userData,log,builtAs
      !/^[0-9a-f]{64}$/.test(stateToken) ||
      !/^[0-9a-f]{64}$/.test(networkToken) ||
      !/^[0-9a-f]{64}$/.test(observationToken) ||
+     !/^[0-9a-f]{64}$/.test(surfaceReportToken) ||
      !/^[0-9a-f]{64}$/.test(displayToken) ||
      !/^[0-9a-f]{64}$/.test(localAiToken) ||
-     new Set([fileToken,localSessionToken,nativeSessionToken,diagnosticToken,deviceProfileToken,stateToken,networkToken,observationToken,displayToken,localAiToken]).size!==10)
+     new Set([fileToken,localSessionToken,nativeSessionToken,diagnosticToken,deviceProfileToken,stateToken,networkToken,observationToken,surfaceReportToken,displayToken,localAiToken]).size!==11)
     throw TypeError("Desktop Native sessions require independent per-launch tokens");
   if(sourceSha!=="" && !/^[0-9a-f]{40}$/.test(sourceSha))
     throw TypeError("Desktop diagnostic source SHA must be verified");
@@ -97,6 +98,7 @@ async function startHost({root,template=root,stateDirectory,userData,log,builtAs
       ORDAX_DESKTOP_STATE_TOKEN:stateToken,
       ORDAX_DESKTOP_NETWORK_TOKEN:networkToken,
       ORDAX_DESKTOP_OBSERVATION_TOKEN:observationToken,
+      ORDAX_DESKTOP_SURFACE_REPORT_TOKEN:surfaceReportToken,
       ORDAX_DESKTOP_LOCAL_AI_TOKEN:localAiToken,
       ORDAX_DESKTOP_LOCAL_AI_ROOT:join(template,'local-ai-runtime'),
       // The signed component verifier is an installer resource. Git version
@@ -143,12 +145,12 @@ async function startHost({root,template=root,stateDirectory,userData,log,builtAs
     if(await isReady(port,staticHost?nativeSessionToken:null)){
       log((staticHost?'Installed Native':'Vite fallback')+
         ' http-ready after '+Math.round((Date.now()-startedAt)/1000)+'s; probes='+probes);
-      return {child,url:'http://127.0.0.1:'+port};
+      return {child,url:'http://127.0.0.1:'+port,template};
     }
     await new Promise(resolve=>setTimeout(resolve,350));
   }
   const exited=hasHostExited(child);
-  stopHost(child);
+  stopHost(child,template);
   throw Error(launchError
     ? 'Canonical Native server could not start: '+(launchError.code||'SPAWN_ERROR')
     : exited
@@ -158,14 +160,20 @@ async function startHost({root,template=root,stateDirectory,userData,log,builtAs
         (staticHost?'installed-host':'vite-fallback')+' stage: '+
         (runtimeReadyAt===null?'not reached':'ready')+')');
 }
-function stopHost(child) {
-  // Never taskkill a PID after it has exited: Windows can reuse that PID.
-  if(!child?.pid || hasHostExited(child)) return;
-  if(process.platform==='win32') {
-    const kill=spawn('taskkill',['/PID',String(child.pid),'/T','/F'],{
-      windowsHide:true,stdio:'ignore',
-    });
-    kill.on('error',()=>{});
-  } else child.kill('SIGTERM');
+function stopHost(child,template=null) {
+  // Wait for the real Win32 process tree to terminate before Electron exits.
+  // The async taskkill used previously lost the PyInstaller child as its
+  // parent was already gone. Never scan/terminate by executable name.
+  if(!child?.pid || hasHostExited(child)) return true;
+  if(process.platform==='win32' && typeof template==='string') {
+    try {
+      const {stopOwnedWindowsProcessTree}=require(join(template,
+        'system','adapters','desktop','owned-process-tree.cjs'));
+      if(stopOwnedWindowsProcessTree(child.pid)) return true;
+    }catch{}
+  }
+  // Fail closed: fallback only affects this exact owned child PID.
+  try{child.kill('SIGTERM')}catch{}
+  return false;
 }
 module.exports={startHost,stopHost,freePort,isReady};

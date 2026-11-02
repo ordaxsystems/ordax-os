@@ -5,7 +5,7 @@ import {mkdtempSync,mkdirSync,writeFileSync,symlinkSync,rmSync} from "node:fs";
 import {tmpdir} from "node:os";
 import {join} from "node:path";
 import {createHash} from "node:crypto";
-import {createDesktopProductRuntimeSupervisor,createDesktopSignedRuntimeHandoff} from "./product-runtime-supervisor.mjs";
+import {createDesktopProductRuntimeSupervisor,createDesktopSignedRuntimeHandoff,stopOwnedDesktopWindowsTree} from "./product-runtime-supervisor.mjs";
 
 const SHA="a".repeat(40);
 function fixture(t,{identity=true,approved=false}={}){
@@ -512,4 +512,109 @@ test("unexpected Runtime exit cannot imply an attested session",async t=>{
  assert.equal(sup.status().mcpReady,false);
  assert.equal(sup.status().reason,"runtime_exited");
  sup.stop();
+});
+
+
+test("scoped Surface bridge is injected only into the owned Product child", async t=>{
+  const f=fixture(t,{approved:false});
+  stagePinnedDesktopDevCandidate(f);
+  let launched=null;
+  const sup=createDesktopProductRuntimeSupervisor({
+    systemRoot:f.systemRoot,userData:f.userData,platform:"win32",
+    developmentCandidate:true,
+    nativeBridge:()=>({url:"http://127.0.0.1:45678/__ordax/native/desktop-surface-state",
+      token:"c".repeat(64)}),
+    env:{ORDAX_DESKTOP_SURFACE_BRIDGE_TOKEN:"fake-windows-token",
+      ORDAX_COMPUTER_FULL_ACCESS:"1",UNRELATED:"safe"},
+    spawnImpl:(_file,_args,opts)=>{launched=opts;return child()},
+  });
+  assert.equal((await sup.reconcile()).state,"running");
+  assert.equal(launched.env.ORDAX_DESKTOP_SURFACE_BRIDGE_TOKEN,"c".repeat(64));
+  assert.equal(launched.env.ORDAX_DESKTOP_SURFACE_BRIDGE_URL,
+    "http://127.0.0.1:45678/__ordax/native/desktop-surface-state");
+  assert.equal(launched.env.ORDAX_COMPUTER_FULL_ACCESS,undefined);
+  assert.equal(launched.env.UNRELATED,"safe");
+  sup.stop();
+});
+
+test("malformed, non-loopback and absent Native bridges block Product spawn",async t=>{
+  for(const bridge of [
+    null,
+    {url:"http://localhost:45678/__ordax/native/desktop-surface-state",token:"c".repeat(64)},
+    {url:"http://127.0.0.1:45678/__ordax/native/desktop-surface-state",token:"invalid"},
+    {url:"http://127.0.0.1:45678/__ordax/native/desktop-surface-state?x=1",token:"c".repeat(64)},
+  ]){
+    const f=fixture(t,{approved:false});
+    stagePinnedDesktopDevCandidate(f);
+    const sup=createDesktopProductRuntimeSupervisor({
+      systemRoot:f.systemRoot,userData:f.userData,platform:"win32",
+      developmentCandidate:true,nativeBridge:()=>bridge,
+      spawnImpl:()=>{throw Error("Unverified bridge must not spawn")},
+    });
+    assert.equal((await sup.reconcile()).reason,"native_surface_bridge_unavailable");
+    sup.stop();
+  }
+});
+
+test("Windows tree termination operates on exact owned PID and Win32 child process tree",()=>{
+  let invoked=null;
+  const valid=stopOwnedDesktopWindowsTree(27182,{
+    windowsRoot:"C:\\Windows",
+    execImpl:(command,args,options)=>{
+      invoked={command,args,options};
+      return {status:0,error:null,signal:null};
+    },
+  });
+  assert.equal(valid,true);
+  assert.equal(invoked.command,"C:\\Windows\\System32\\taskkill.exe");
+  assert.deepEqual(invoked.args,["/PID","27182","/T","/F"]);
+  assert.equal(invoked.options.shell,false);
+  assert.equal(invoked.options.timeout,5000);
+  assert.equal(invoked.options.windowsHide,true);
+  assert.equal(invoked.options.stdio,"ignore");
+  for(const pid of [-1,0,Number.NaN,Infinity,1.4,0x100000000]){
+    assert.equal(stopOwnedDesktopWindowsTree(pid,{
+      windowsRoot:"C:\\Windows",execImpl:()=>{throw Error("invalid PID invoked")},
+    }),false);
+  }
+  assert.equal(stopOwnedDesktopWindowsTree(123,{windowsRoot:"",execImpl:()=>({status:0})}),false);
+  assert.equal(stopOwnedDesktopWindowsTree(123,{windowsRoot:"C:\\Windows",execImpl:()=>({status:5})}),false);
+});
+
+test("a supervised Windows Product Runtime stops its full tree without orphaning its frozen child",async t=>{
+  const f=fixture(t,{approved:false});
+  stagePinnedDesktopDevCandidate(f);
+  const proc=child();
+  proc.pid=27182;
+  let stopped=[];
+  const sup=createDesktopProductRuntimeSupervisor({
+    systemRoot:f.systemRoot,userData:f.userData,platform:"win32",
+    developmentCandidate:true,spawnImpl:()=>proc,
+    stopTreeImpl:pid=>{stopped.push(pid);return true},
+  });
+  assert.equal((await sup.reconcile()).state,"running");
+  sup.stop();
+  assert.deepEqual(stopped,[27182]);
+  assert.deepEqual(proc.kills,[]);
+  assert.equal(sup.status().state,"stopping");
+  proc.exitCode=1;
+  proc.emit("exit",1,null);
+  assert.equal(sup.status().state,"stopped");
+});
+
+test("failed native Windows tree termination falls back only to owned Runtime child",async t=>{
+  const f=fixture(t,{approved:false});
+  stagePinnedDesktopDevCandidate(f);
+  const proc=child();
+  proc.pid=27183;
+  let treeCalls=0;
+  const sup=createDesktopProductRuntimeSupervisor({
+    systemRoot:f.systemRoot,userData:f.userData,platform:"win32",
+    developmentCandidate:true,spawnImpl:()=>proc,
+    stopTreeImpl:()=>{treeCalls++;return false},
+  });
+  assert.equal((await sup.reconcile()).state,"running");
+  sup.stop();
+  assert.equal(treeCalls,1);
+  assert.deepEqual(proc.kills,["SIGTERM"]);
 });
