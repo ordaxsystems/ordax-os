@@ -398,6 +398,15 @@ Somente após todos os gates:
 - O builder Alpine `bootstrap/stable-base/build.py` permanece como consumidor ativo até que a paridade seja provada e o corte ocorra. `bootstrap/windows-compat-runtime/configure_probe.py` será migrado separadamente. **Não apagar** `alpine_core.py`, APK locks, workflows ou contratos enquanto houver dependências operacionais.
 - Sem fallbacks, sem segunda PR/branch e sem alterar flags de autorização de publicação.
 
+### Continuação: ponte Stable → boot Portable assinado (2 de novembro de 2026)
+
+- `14ed0ccc`: `portable_boot_proof.py` aceita **explicitamente** `--base-profile stable-mvp`, verifica provenance desse perfil no próprio produtor e rejeita a seleção `owner-development`. O padrão `minimal` permanece inalterado.
+- `e9327480`: o workflow reutilizável existente `.github/workflows/portable-v2-qemu-boot-proof.yml` passou a receber `independent_base_profile`. A execução da candidata `stable-mvp` é exclusiva de `workflow_dispatch`, com `base_source=independent`; não se ativa por PR nem altera o produtor Stable antigo. Usa os mesmos owners de assinatura Ed25519, Portable PID1, EROFS, ext4, recuperação, QEMU/OVMF e rollback já existentes. **Não** há outro fluxo de boot.
+- `.github/workflows/independent-portable-v2-integration.yml` expõe `workflow_dispatch` com `base_profile=stable-mvp`; mantém `minimal` como padrão. O kernel do Stable exige cache previamente verificado e, na ausência, a execução falha antes de compilar. A Base Buildroot é produzida com `--profile stable-mvp`, receipts de módulos e firmware e verificação do mesmo perfil; o adaptador de boot exige essa mesma identidade.
+- `cdc4fc24`: o hook Buildroot rejeita Git, workspace e auxiliares Dev **antes** do trabalho caro de módulos/firmware. O teste executa o hook com um payload Dev proposital e comprova a rejeição, sem gerar imagem fictícia.
+- Gate rápido `#41364914372`: **PASS — 203 testes**, Kconfig autêntico dos três perfis, contratos e sintaxe; sem build de kernel/rootfs completo/USB.
+- **Bloqueio preservado:** o novo caminho Stable para Portable/QEMU **ainda não foi executado** e nenhum artefato Stable real foi atestado por esse gate. A aprovação acima valida implementação e contratos, **não** equivalência de boot, assinatura, UEFI nem rollback. Antes de retirar `bootstrap/stable-base/build.py`, usar a prova pesada do workflow oficial com `base_profile=stable-mvp` e verificar os recibos reais de imagem, assinatura, boot e falha/rollback. Secure Boot físico e promoção permanecem gates separados. Não substituir `alpine_core.py`, APK locks nem workflows enquanto o Stable e Windows Compat forem consumidores.
+
 ## Regra de não bloqueio
 
 Mudanças normais do produto não devem depender da conclusão da migração. Uma mudança em `system/`, Surface, apps ou Web não deve reconstruir Buildroot/kernel se seus contratos não mudaram.
