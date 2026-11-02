@@ -139,7 +139,6 @@ import { mountNotificationCenterControls } from "../../surface/ui/notification-c
 import { mountBatteryQuickPanel } from "../../surface/ui/battery-quick-panel.mjs";
 import { mountBatteryTrayControls } from "../../surface/ui/battery-tray-controls.mjs";
 import { mountHomeContinuation } from "../../surface/ui/home-continuation.mjs";
-import { mountHomeAuraComposer } from "../../surface/ui/home-aura-composer.mjs";
 import { mountHomePending } from "../../surface/ui/home-pending.mjs";
 import { mountHomeSpaceCard } from "../../surface/ui/home-space-card.mjs";
 import { mountHomeStatus } from "../../surface/ui/home-status.mjs";
@@ -932,10 +931,6 @@ async function start() {
   );
   const homeContinuation = mountHomeContinuation(root, { projects, recentFiles, surfaceLifecycle: surface });
   const homePending = mountHomePending(root, { notifications, syncRuntime: accountSync, surfaceLifecycle: surface });
-  const homeAuraComposer = mountHomeAuraComposer(root, {
-    intelligence: selectedSpaceIntelligence,
-    surfaceLifecycle: surface,
-  });
   const homeStatus = mountHomeStatus(root, {
     networkStatus,
     identitySession,
@@ -1216,7 +1211,6 @@ async function start() {
       surfaceHeartbeat.dispose();
       homePending.dispose();
       homeContinuation.dispose();
-      homeAuraComposer.dispose();
       homeStatus.dispose();
       homeSpaceCard.dispose();
       powerControls.destroy();
