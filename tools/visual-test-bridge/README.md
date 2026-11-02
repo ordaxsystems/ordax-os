@@ -1,0 +1,44 @@
+# OrdaX Visual Test Bridge (developer tool)
+
+One **local process**, not a product service. Source and Native host remain in `ordax-os`; the visual renderer remains pinned from `ordax-surface`. MCP device permissions remain exclusively in `ordax-runtime` / `ordax-platform`. This tool does not grant access, start a remote listener, or replace the existing Chromium CDP smoke.
+
+## Install and run
+
+```powershell
+cd tools/visual-test-bridge
+npm ci
+npm test
+$env:ORDAX_VISUAL_ISOLATED_SESSION="1"  # only in dedicated Windows runner/VM, NOT interactive user desktop
+node cli.cjs
+```
+
+Send **newline-delimited JSON** to stdin. Example for a dedicated Windows VM with the verified Desktop installed:
+
+```json
+{"id":"1","op":"launch","args":{"mode":"electron-installed","executablePath":"C:\\isolated\\OrdaX OS Desktop Dev.exe"}}
+{"id":"2","op":"list_windows"}
+{"id":"3","op":"run_e2e","args":{"scenario":"native-smoke"}}
+{"id":"4","op":"inspect","args":{"target":{"css":"#ordax-root"}}}
+{"id":"5","op":"get_accessibility_tree"}
+{"id":"6","op":"scan_layout"}
+{"id":"7","op":"collect_artifacts"}
+{"id":"8","op":"close"}
+```
+
+For source development use `mode=electron-development`, the exact Electron executable at `tools/windows-desktop/node_modules/electron/dist/electron.exe` and `appPath=<absolute path to tools/windows-desktop>`. Use the existing `local-dev.cjs` to attach the **pinned** external Surface for Native development; no second visual source is created. For Web previews choose `mode=web`, `url=http://127.0.0.1:<port>/...`; only loopback URLs are accepted and the browser runs headless. The preview service must already be started by its canonical owner.
+
+The Bridge supports `launch`, `close`, `list_windows`, `navigate`, `inspect`, `click`, `type`, `screenshot`, `get_logs`, `get_accessibility_tree`, `run_e2e`, `compare_visual`, `collect_artifacts`, and `scan_layout`. Prefer semantic `{"role":"button","name":"Ajustes"}` or `{"testId":"..."}` targets; bounded CSS is available only where a semantic target does not exist.
+
+`run_e2e` always tests the **actual OrdaX Native boot root** and state. The optional `semantic-journey` adds 1–30 caller-supplied typed click/type/inspect actions; it does not fabricate unavailable screens. Test cases must fail if required controls are absent.
+
+Screenshots, trace ZIPs and structured diagnostics are stored under `out/visual-test-bridge`. Baselines live under `tools/visual-test-bridge/baselines` and must be explicitly reviewed and committed; a missing baseline fails closed. Comparisons use channel tolerance 10 and maximum mismatched ratio 0.001 by default. No PII-bearing screenshots may be committed: ephemeral test profiles only.
+
+## Security and proof gate
+
+- Electron is invoked through Playwright's documented experimental `_electron.launch` support (Electron 40 is above the supported v21+ minimum). The Electron application's `contextIsolation`, `sandbox` and `nodeIntegration:false` remain unchanged. Automation explicitly requests Chromium sandbox.
+- The developer CLI listens **only to stdin**; there is no CDP port exposed by this code and no generic terminal or OS control operation.
+- Every Electron session gets a fresh disposable `OrdaX OS Desktop Dev Test` profile using the host's **existing** test-profile guard; production userData is never selected.
+- **Do not run Electron tests in a human's interactive Windows session**. Use dedicated user/VM or isolated CI runner to avoid stealing mouse focus; hidden/offscreen rendering is not declared proven.
+- A GitHub workflow or MCP execution requires an existing authorized runner/device. This file does not change OrdaX Runtime/Platform grants. Invoking the local CLI over an MCP terminal must be authorized by the Runtime owner; a dedicated MCP adapter, if needed, belongs in `ordax-runtime`.
+- 20 consecutive full desktop E2E runs and installed-app proof are promotion gates, not statuses inferred from source code or unit tests.
+- No kernel, USB, Buildroot or EROFS changes are required for this test tool.
