@@ -33,6 +33,14 @@ The Bridge supports `launch`, `close`, `list_windows`, `navigate`, `inspect`, `c
 
 Screenshots, trace ZIPs and structured diagnostics are stored under `out/visual-test-bridge`. Baselines live under `tools/visual-test-bridge/baselines` and must be explicitly reviewed and committed; a missing baseline fails closed. Comparisons use channel tolerance 10 and maximum mismatched ratio 0.001 by default. No PII-bearing screenshots may be committed: ephemeral test profiles only.
 
+## Installed Windows CI proof
+
+The path-scoped `.github/workflows/visual-test-bridge.yml` runs the adapter contract separately from an **installed-product** job. The installed job selects the most recent **successful main-only** Windows Desktop NSIS workflow artifact (already compiled; **no kernel, Buildroot, USB or new installer compilation**), validates artifact identity and installed OS provenance, installs into a new temporary directory on a disposable GitHub-hosted Windows runner and invokes `installed-e2e.cjs`.
+
+Twenty consecutive independent, fresh Electron sessions must pass actual Native boot/root, accessibility inspection, screenshot generation, layout inspection and clean teardown. Every run writes its own trace, screenshot and diagnostics under `out/visual-test-bridge/installed/run-NN`; a `runs.json` receipt and exact installed executable SHA-256 are published as CI artifacts. **A passing adapter fixture does not satisfy this installed-app gate.** A full navigation journey through Home/Conta/Ajustes/Sistema and an authorized OrdaX Runtime MCP receipt remain separate acceptance tests; no missing capability is simulated.
+
+This runner is ephemeral and must never be repointed to the human Windows desktop. GitHub artifacts expire, so resolution of the latest successful artifact fails closed when missing; neither an expired nor an unverified bundle is silently replaced.
+
 ## Security and proof gate
 
 - Electron is invoked through Playwright's documented experimental `_electron.launch` support (Electron 40 is above the supported v21+ minimum). The Electron application's `contextIsolation`, `sandbox` and `nodeIntegration:false` remain unchanged. Automation explicitly requests Chromium sandbox.

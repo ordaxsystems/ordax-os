@@ -86,6 +86,8 @@ class VisualTestBridge {
           throw Error('An existing absolute Electron executable is required');
         if(mode==='electron-installed' && basename(executablePath)!=='OrdaX OS Desktop Dev.exe')
           throw Error('Installed mode requires the canonical Desktop executable');
+        if(mode==='electron-development' && basename(executablePath).toLowerCase()!=='electron.exe')
+          throw Error('Development mode requires the pinned Electron executable');
         if(mode==='electron-development' &&
           (!isAbsolute(appPath||'')||!existsSync(join(appPath,'main.cjs'))))
           throw Error('Development mode requires the canonical Electron app directory');
@@ -99,6 +101,9 @@ class VisualTestBridge {
             ORDAX_DESKTOP_TEST_PROFILE_DIR:profileDir},
           chromiumSandbox:true,timeout:120000,
         });
+        const child=this.app.process();
+        child.stdout?.on('data',data=>this.record('electron-stdout',String(data)));
+        child.stderr?.on('data',data=>this.record('electron-stderr',String(data)));
         this.page=await this.app.firstWindow({timeout:120000});
         this.context=this.page.context();
         this.bindPage(this.page);
@@ -226,9 +231,11 @@ class VisualTestBridge {
         await this.execute(step);
       }
     }
+    const critical=this.logs.filter(l=>l.kind==='pageerror'||l.kind==='crash');
+    if(critical.length)throw Error('Native E2E detected '+critical.length+' renderer exceptions/crashes');
     const visual=await this.screenshot({name:scenario});
     const scan=await this.scanLayout();
-    return {scenario,passed:true,visual,scan,jsErrors:this.logs.filter(l=>l.kind==='pageerror')};
+    return {scenario,passed:true,visual,scan,jsErrors:critical};
   }
   async collectArtifacts() {
     mkdirSync(this.artifactsDir,{recursive:true});

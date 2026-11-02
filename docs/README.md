@@ -43,6 +43,7 @@ Historical wording inside a root `PLANO-*` such as `CANONICAL`, `P0`, `mandatory
 | Minimal USB bootstrap | `docs/MINIMAL-USB-BOOTSTRAP.md` |
 | Physical media | `docs/PHYSICAL-MEDIA.md` |
 | Development workflow | `docs/DEVELOPMENT-WORKFLOW.md` |
+| Windows Desktop visual test automation (developer-only runbook, not a Runtime/MCP owner) | [`tools/visual-test-bridge/README.md`](../tools/visual-test-bridge/README.md) |
 | Promotion gates | `docs/PROMOTION-GATES.md` |
 | Release signing | `docs/RELEASE-SIGNING.md` |
 | Release trust ceremony | `docs/RELEASE-TRUST-CEREMONY.md` |
