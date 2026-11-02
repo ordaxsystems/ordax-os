@@ -55,6 +55,14 @@ class IndependentHeavyWorkflowTests(unittest.TestCase):
             text.index("- name: Verify kernel component and exact integration binding")
         ]
         self.assertIn("env.ORDAX_INDEPENDENT_PROFILE != 'stable-mvp'", kernel_build)
+        self.assertIn("contains(github.event.head_commit.message, '[stable-mvp-bootstrap-kernel]')", kernel_build)
+        self.assertIn("github.ref == 'refs/heads/integration/dev-usb-buildroot-surface-20261024'", kernel_build)
+        self.assertIn("ORDAX_EXPLICIT_STABLE_KERNEL_BOOTSTRAP", text)
+        self.assertIn("if [ \"$ORDAX_EXPLICIT_STABLE_KERNEL_BOOTSTRAP\" != true ]; then", text)
+        self.assertIn("ORDAX_EXPLICIT_STABLE_KERNEL_CACHE_SEED=AUTHORIZED", text)
+        self.assertEqual(text.count("python3 bootstrap/kernel/build.py build"), 1)
+        self.assertIn("--component kernel", text)
+        self.assertIn("--cache-hit \"$cache_hit\"", text)
         restore = text[
             text.index("- name: Restore verified Stable Buildroot component"):
             text.index("- name: Build rootfs from official Buildroot source")

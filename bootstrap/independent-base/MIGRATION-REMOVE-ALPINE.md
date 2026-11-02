@@ -434,6 +434,13 @@ Somente após todos os gates:
 - Gate rápido `#41373224677`: **PASS — 212 testes**, com Kconfig real dos três perfis e sintaxe; não compilou kernel, rootfs EROFS completo nem USB.
 - **Atenção:** trata-se apenas de segurança e integridade pré-boot no mesmo pipeline. A execução pesada `stable-mvp` com EROFS real, assinatura Ed25519, QEMU/UEFI, falhas e rollback continua pendente; por isso o Stable Alpine e o consumidor Windows Compat permanecem ativos, e as flags de promoção continuam falsas.
 
+### Bloqueio da prova real e bootstrap explícito do cache (2 de novembro de 2026, Bahia)
+
+- `1bd78de8`: adicionada entrada opt-in de **push exclusivamente na branch existente** `integration/dev-usb-buildroot-surface-20261024`, com marcador de commit `[stable-mvp-proof]`. O job de testes contratuais e o job Buildroot/QEMU existentes recebem `stable-mvp` apenas nesse evento marcado. O comportamento de PR draft, PR pronta, `workflow_dispatch` e `platform/remove-alpine` foi preservado; nenhuma publicação ou instalação é autorizada.
+- Execução real `Independent Base Experiment #41383672044`: contrato inicial aprovado; o job Buildroot/QEMU parou **corretamente**, antes de compilar kernel e rootfs, por **cache miss** da chave do kernel canônico `ordax-portable-component-v1-Linux-X64-kernel-20ec1638758643a31ed20f193118abddfcc3d87e859fa4225ee6741be9de1998`. Portanto EROFS/QEMU continuam não comprovados. A verificação barata `Remove Alpine Fast Gate #41383671919` executou em paralelo.
+- Para romper somente este bloqueio factual, um novo commit opt-in pode incluir **ambos** `[stable-mvp-proof]` e `[stable-mvp-bootstrap-kernel]`. A segunda marca autoriza, nesta branch apenas e **somente no cache miss**, **uma** compilação canônica via `bootstrap/kernel/build.py build` já existente, seguida dos verificadores de provenance e manifesto e salvamento no mesmo cache com SHA de inputs. Não é um segundo produtor, nem fallback que pule validação; os demais eventos Stable continuam impedidos de compilar kernel implicitamente. Após semear o cache, as próximas provas devem apenas reutilizar esse componente verificado.
+- A prova real de Stable requer ainda construir/validar a Base EROFS, executar QEMU de persistência/recuperação, o Portable assinado/UEFI e os testes de falha/rollback. Não declarar migração concluída, não retirar Alpine/APK nem alterar autorização física antes dessas evidências.
+
 ## Regra de não bloqueio
 
 Mudanças normais do produto não devem depender da conclusão da migração. Uma mudança em `system/`, Surface, apps ou Web não deve reconstruir Buildroot/kernel se seus contratos não mudaram.

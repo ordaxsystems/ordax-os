@@ -190,14 +190,21 @@ jobs:
         if: env.ORDAX_INDEPENDENT_PROFILE == 'stable-mvp'
         env:
           ORDAX_STABLE_KERNEL_CACHE_HIT: ${{ steps.kernel-cache.outputs.cache-hit }}
+          # Only this explicitly marked integration-branch commit may seed a
+          # missing kernel cache once. Ordinary Stable, dispatch, PR and
+          # subsequent unmarked commits remain strictly cache-only.
+          ORDAX_EXPLICIT_STABLE_KERNEL_BOOTSTRAP: ${{ github.event_name == 'push' && github.ref == 'refs/heads/integration/dev-usb-buildroot-surface-20261024' && contains(github.event.head_commit.message, '[stable-mvp-bootstrap-kernel]') }}
         run: |
           set -euo pipefail
           if [ "$ORDAX_STABLE_KERNEL_CACHE_HIT" != true ]; then
-            echo 'Stable candidate must reuse an existing verified kernel; no recompilation authorized' >&2
-            exit 1
+            if [ "$ORDAX_EXPLICIT_STABLE_KERNEL_BOOTSTRAP" != true ]; then
+              echo 'Stable candidate must reuse an existing verified kernel; no recompilation authorized' >&2
+              exit 1
+            fi
+            echo 'ORDAX_EXPLICIT_STABLE_KERNEL_CACHE_SEED=AUTHORIZED'
           fi
       - name: Build canonical OrdaX kernel on verified cache miss
-        if: steps.kernel-cache.outputs.cache-hit != 'true' && env.ORDAX_INDEPENDENT_PROFILE != 'stable-mvp'
+        if: ${{ steps.kernel-cache.outputs.cache-hit != 'true' && (env.ORDAX_INDEPENDENT_PROFILE != 'stable-mvp' || (github.event_name == 'push' && github.ref == 'refs/heads/integration/dev-usb-buildroot-surface-20261024' && contains(github.event.head_commit.message, '[stable-mvp-bootstrap-kernel]'))) }}
         env:
           ORDAX_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
