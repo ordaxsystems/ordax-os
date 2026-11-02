@@ -175,7 +175,9 @@ export function createDesktopLocalSessionMiddleware(userData, {token}={}) {
     if(req.method!=="POST")return reply(405);
     if(req.headers.origin!==`http://${req.headers.host}`)return reply(403);
     if(!String(req.headers["content-type"]??"").startsWith("application/json"))return reply(415);
-    void transaction(async()=>{
+    // Receive bounded POST bodies before entering the session transaction.
+    // An unfinished sender must not block PIN state reads or other host grants.
+    void (async()=>{
       let total=0;const chunks=[];
       for await(const chunk of req){
         total+=chunk.length;
@@ -185,8 +187,9 @@ export function createDesktopLocalSessionMiddleware(userData, {token}={}) {
       let payload;
       try{payload=JSON.parse(Buffer.concat(chunks).toString("utf8"));}
       catch{return {status:400};}
-      return action(payload);
-    }).then(result=>reply(result.status,result.data),()=>reply(503));
+      // Serialize credential and lock mutations after full payload validation.
+      return transaction(()=>action(payload));
+    })().then(result=>reply(result.status,result.data),()=>reply(503));
   };
   return Object.freeze({middleware,readLocked:()=>transaction(async()=>configured(await load()) && !sessionUnlocked)});
 }
