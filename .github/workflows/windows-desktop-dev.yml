@@ -133,6 +133,7 @@ jobs:
             "tools/windows-desktop/dev-update.test.cjs",
             "tools/windows-desktop/runtime.test.cjs",
             "tools/windows-desktop/runtime-toolchain.test.cjs",
+            "tools/windows-desktop/pe-dependency-audit.test.cjs",
             "tools/windows-desktop/toolchain-cache.test.cjs",
             "tools/windows-desktop/checkout.test.cjs"
           )
@@ -208,6 +209,14 @@ jobs:
         run: |
           node --input-type=module -e "import('./system/adapters/desktop/local-ai-package.mjs').then(m=>m.verifyWindowsLocalAiPackage('out/windows-local-ai-runtime')).then(x=>console.log('WINDOWS_AURA_PAYLOAD_VERIFIED='+x.modelId)).catch(e=>{console.error(e);process.exitCode=1})"
           if ($LASTEXITCODE -ne 0) { throw 'Windows Aura package digest mismatch' }
+      - name: Reject unprovided MSVC dependencies in Windows Aura package
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          & node tools/windows-desktop/pe-dependency-audit.cjs out/windows-local-ai-runtime/engine system/services/local-ai/source-lock.json
+          if ($LASTEXITCODE -ne 0) {
+            throw 'Aura cannot be considered ready for clean Windows until its pinned engine is self-contained or the approved prerequisite is shipped'
+          }
       - name: Save verified content-pinned Windows Aura cache
         if: steps.aura-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
