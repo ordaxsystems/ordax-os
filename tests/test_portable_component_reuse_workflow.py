@@ -22,8 +22,14 @@ class PortableComponentReuseWorkflowTests(unittest.TestCase):
 
     def test_cache_action_is_exactly_pinned_and_never_uses_prefix_fallback(self):
         workflow = self.workflow()
-        self.assertEqual(workflow.count(f"actions/cache/restore@{CACHE_SHA}"), 4)
-        self.assertEqual(workflow.count(f"actions/cache/save@{CACHE_SHA}"), 3)
+        # Cache count may grow when a canonical candidate gains a verified
+        # producer. All actions must still be pinned, with no prefix fallback.
+        actions = re.findall(
+            r"uses:\s+actions/cache/(restore|save)@([^\s#]+)", workflow
+        )
+        self.assertGreaterEqual(sum(kind == "restore" for kind, _ in actions), 4)
+        self.assertGreaterEqual(sum(kind == "save" for kind, _ in actions), 3)
+        self.assertTrue(all(ref == CACHE_SHA for _, ref in actions))
         self.assertNotIn("restore-keys:", workflow)
         self.assertNotRegex(workflow, r"actions/cache/(restore|save)@v[0-9]")
 
