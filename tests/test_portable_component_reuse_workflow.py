@@ -58,6 +58,37 @@ class PortableComponentReuseWorkflowTests(unittest.TestCase):
         self.assertIn("surface-component-reuse.json", surface)
         self.assertNotIn("bootstrap/surface-runtime/build.py build", self.workflow())
 
+    def test_surface_producer_artifact_is_verified_before_expensive_tool_setup(self):
+        workflow = self.workflow()
+        restore = workflow.index("Restore verified canonical Surface EROFS for QEMU")
+        verify = workflow.index("Verify and bind canonical Surface EROFS for QEMU")
+        intelligence = workflow.index("Resolve exact Intelligence builder for real local AI QEMU payload")
+        go = workflow.index("Set up Go")
+        broad_deps = workflow.index("Install bounded local AI build dependencies")
+        self.assertLess(restore, verify)
+        self.assertLess(verify, intelligence)
+        self.assertLess(verify, go)
+        self.assertLess(verify, broad_deps)
+        self.assertLess(
+            workflow.index("Validate portable-v2 QEMU contract"),
+            verify,
+        )
+        self.assertLess(
+            workflow.index("Resolve reusable component fingerprints"),
+            restore,
+        )
+        minimal = self.step_block("Install minimal Surface EROFS verification tool")
+        self.assertIn("steps.surface-artifact-cache.outputs.cache-hit == 'true'", minimal)
+        self.assertIn("steps.surface-r2.outputs.hit == 'true'", minimal)
+        self.assertIn("erofs-utils", minimal)
+        self.assertIn("Never compile Surface inside the QEMU consumer", self.step_block(
+            "Verify and bind canonical Surface EROFS for QEMU"
+        ))
+        self.assertEqual(
+            workflow.count("      - name: Verify and bind canonical Surface EROFS for QEMU"),
+            1,
+        )
+
     def test_missing_surface_fails_before_any_expensive_qemu_component(self):
         workflow = self.workflow()
         early_gate = workflow.index("Verify and bind canonical Surface EROFS for QEMU")
