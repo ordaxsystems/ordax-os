@@ -454,6 +454,13 @@ Somente após todos os gates:
 - Com o produtor QEMU aprovado e o cache canônico semeado, este checkpoint solicita de forma **explícita** a prova de signed Portable v2 pelo marcador de commit `[stable-mvp-signed-boot]`. A autorização é **somente para CI/QEMU descartável**, usando o workflow oficial existente; continua vedada qualquer promoção Stable, USB físico ou remoção do Alpine/Windows Compat. O resultado da prova assinada deve ser observado diretamente na execução disparada antes de mudar o estado do produto.
 - Gates de falha continuam obrigatórios: kernel cache validado (nenhum rebuild implícito), cache/provenance da Base, Ed25519, seleção e recuperação da release, QEMU/UEFI, one-shot rollback e cenário de imagem/assinatura adulterada. Se algum falhar, corrigir a causa na mesma branch e registrar o erro sem forçar sucesso.
 
+### Validação do contrato Portable e nova prova assinada isolada (2 de novembro de 2026, Bahia)
+
+- O primeiro disparo assinado `Independent Portable v2 Integration #41389023042` executou o contrato de fronteira com sucesso, mas o QEMU oficial **parou antes do build/boot** em `Validate portable-v2 QEMU contract`: o teste `test_independent_base_path_binds_verified_kernel_module_inputs` cortava o bloco de `independent)` no `*)` de um `case` interno, escondendo os comandos corretos; usava ainda o nome obsoleto `kernel-module-selection.json` em vez do recibo canônico `kernel-module-payload.json`.
+- `8f474983` corrigiu o escopo desse teste para o **case externo**, conferindo os comandos reais e os dois caminhos de saída (`minimal` e `stable-mvp`), sem alterar a segurança da aplicação. O arquivo `tests/test_portable_v2_qemu_boot_proof_contract.py` foi adicionado ao **gate rápido por impacto**, junto com o workflow oficial de QEMU, para evitar novo desperdício de execução pesada para encontrar erros de asserção antigos.
+- `Remove Alpine Fast Gate #41389207345`: **SUCCESS — 227 testes**, com os 15 contratos Portable/QEMU incluídos, Kconfig dos três perfis e sintaxe. Nenhum kernel/USB/EROFS foi recompilado por este gate.
+- O marcador explícito `[stable-mvp-signed-boot]` deste checkpoint solicita nova execução **somente** do workflow oficial Portable, usando os caches/provenance já gerados pelo produtor `#41383902314`. As assinaturas, os cenários de falha, recuperação/rollback e o boot por OVMF permanecem obrigatórios. Continuam falsas as flags de promoção e instalação física.
+
 ## Regra de não bloqueio
 
 Mudanças normais do produto não devem depender da conclusão da migração. Uma mudança em `system/`, Surface, apps ou Web não deve reconstruir Buildroot/kernel se seus contratos não mudaram.
