@@ -285,7 +285,13 @@ class IndependentSurfaceComponentCacheTests(unittest.TestCase):
             bin_dir.mkdir()
             curl_log = temp / "curl-called"
             fake_curl = bin_dir / "curl"
-            fake_curl.write_text("#!/bin/sh\\nprintf called >> \\"$SURFACE_MOCK_CURL_LOG\\"\\nprintf 404\\n", encoding="utf-8")
+            fake_curl.write_text(
+                '''#!/bin/sh
+echo called >> "$SURFACE_MOCK_CURL_LOG"
+printf 404
+''',
+                encoding="utf-8",
+            )
             fake_curl.chmod(0o755)
             env = dict(os.environ, **{
                 "RUNNER_TEMP": str(temp),
@@ -336,13 +342,19 @@ class IndependentSurfaceComponentCacheTests(unittest.TestCase):
             # One mocked R2 GET returns HTTP 200 with an invalid manifest.
             # The operation must stop before it downloads any blob or marks a hit.
             fake_curl.write_text(
-                "#!/usr/bin/env python3\\n"
-                "import os,sys\\n"
-                "from pathlib import Path\\n"
-                "Path(os.environ['SURFACE_MOCK_CURL_LOG']).open('a').write('request\\\\n')\\n"
-                "dest = sys.argv[sys.argv.index('--output') + 1]\\n"
-                "Path(dest).write_text('{\\\"$schema\\\":\\\"invalid\\\"}')\\n"
-                "sys.stdout.write('200')\\n",
+                '''#!/bin/sh
+echo request >> "$SURFACE_MOCK_CURL_LOG"
+while [ "$#" -gt 0 ]; do
+  if [ "$1" = --output ]; then
+    shift
+    printf '%s' '{"$schema":"invalid"}' > "$1"
+    printf 200
+    exit 0
+  fi
+  shift
+done
+exit 2
+''',
                 encoding="utf-8",
             )
             fake_curl.chmod(0o755)
