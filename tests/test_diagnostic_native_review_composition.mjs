@@ -45,13 +45,25 @@ function updateStatus() {
 }
 
 function fileSpace(onImport) {
+  let hasDownloads = false;
   return Object.freeze({
     schema: FILE_SPACE_SCHEMA,
     async list() {
-      return { path: "/", entries: [] };
+      return {
+        path: "/",
+        entries: hasDownloads
+          ? [{ name: "Downloads", kind: "directory", size: 0, modifiedAt: 1 }]
+          : [],
+      };
     },
-    async createDirectory() {
-      return { path: "/", entries: [] };
+    async createDirectory(path, name) {
+      assert.equal(path, "/");
+      assert.equal(name, "Downloads");
+      hasDownloads = true;
+      return {
+        path: "/",
+        entries: [{ name, kind: "directory", size: 0, modifiedAt: 1 }],
+      };
     },
     async readTextFile() {
       throw new Error("unused");

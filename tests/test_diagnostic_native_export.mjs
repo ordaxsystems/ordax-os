@@ -17,14 +17,19 @@ function exportDocument(overrides = {}) {
   };
 }
 
-function createFileSpace({ importFile } = {}) {
+function createFileSpace({ importFile, initialDownloads = null, onCreate = () => {} } = {}) {
+  let downloads = initialDownloads;
   return Object.freeze({
     schema: FILE_SPACE_SCHEMA,
     async list() {
-      return { path: "/", entries: [] };
+      return { path: "/", entries: downloads ? [downloads] : [] };
     },
-    async createDirectory() {
-      return { path: "/", entries: [] };
+    async createDirectory(path, name) {
+      assert.equal(path, "/");
+      assert.equal(name, "Downloads");
+      onCreate();
+      downloads = { name, kind: "directory", size: 0, modifiedAt: 1 };
+      return { path: "/", entries: [downloads] };
     },
     async readTextFile() {
       throw new Error("unused");
@@ -183,4 +188,31 @@ test("adapter requires a real file-space port and UTF-8 encoder", () => {
     () => createNativeDiagnosticExport(createFileSpace(), { TextEncoderCtor: null }),
     TypeError,
   );
+});
+
+test("diagnostic export provisions only missing Downloads via the canonical file-space", async () => {
+  let created = 0;
+  let imported = 0;
+  const entries = createFileSpace({
+    onCreate() { created += 1; },
+    async importFile(path, name, bytes) {
+      imported += 1;
+      return { path, entries: [{ name, kind: "file", size: bytes.byteLength, modifiedAt: 1 }] };
+    },
+  });
+  const port = createNativeDiagnosticExport(entries);
+  assert.equal((await port.save(exportDocument())).status, "saved");
+  assert.equal((await port.save(exportDocument({ fileName: "next.json" }))).status, "saved");
+  assert.equal(created, 1);
+  assert.equal(imported, 2);
+});
+
+test("diagnostic export refuses a non-directory Downloads without mutating files", async () => {
+  let imported = 0;
+  const files = createFileSpace({
+    initialDownloads: { name: "Downloads", kind: "file", size: 9, modifiedAt: 1 },
+    async importFile() { imported += 1; throw new Error("must not reach import"); },
+  });
+  await assert.rejects(() => createNativeDiagnosticExport(files).save(exportDocument()), TypeError);
+  assert.equal(imported, 0);
 });
