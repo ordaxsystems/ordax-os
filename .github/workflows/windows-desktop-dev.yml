@@ -178,16 +178,13 @@ jobs:
           Write-Output ("NATIVE_BUNDLE_SMOKE=PASS assets=" + $scripts.Count)
       - name: Materialize minimal canonical Native runtime dependencies
         run: node tools/windows-desktop/runtime-toolchain.cjs
-      - name: Restore exact private MinGit cache
+      - name: Restore exact private MinGit source archive cache
         id: mingit-cache
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: |
-            out/windows-desktop-toolchain/git
-            out/windows-desktop-toolchain/git-receipt.json
-          key: ordax-windows-mingit-v1-${{ runner.os }}-${{ hashFiles('tools/windows-desktop/git-toolchain-lock.json') }}
+          path: out/windows-desktop-toolchain/source
+          key: ordax-windows-mingit-source-v2-${{ runner.os }}-${{ hashFiles('tools/windows-desktop/git-toolchain-lock.json') }}
       - name: Materialize pinned private MinGit for Windows Dev updates
-        if: steps.mingit-cache.outputs.cache-hit != 'true'
         shell: pwsh
         run: pwsh -NoProfile -File tools/windows-desktop/package-git-toolchain.ps1
       - name: Verify source-pinned private MinGit on cache hit and miss
@@ -196,14 +193,12 @@ jobs:
           $ErrorActionPreference = 'Stop'
           node -e "const m=require('./tools/windows-desktop/checkout.cjs'); const p=m.bundledGit({platform:'win32',toolchainRoot:require('node:path').resolve('out/windows-desktop-toolchain')}); if(!p)process.exit(1); console.log('WINDOWS_PRIVATE_MINGIT_VERIFIED='+p)"
           if ($LASTEXITCODE -ne 0) { throw 'Private MinGit failed canonical receipt or PE digests' }
-      - name: Save source-pinned private MinGit cache
+      - name: Save source-pinned private MinGit archive cache
         if: steps.mingit-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: |
-            out/windows-desktop-toolchain/git
-            out/windows-desktop-toolchain/git-receipt.json
-          key: ordax-windows-mingit-v1-${{ runner.os }}-${{ hashFiles('tools/windows-desktop/git-toolchain-lock.json') }}
+          path: out/windows-desktop-toolchain/source
+          key: ordax-windows-mingit-source-v2-${{ runner.os }}-${{ hashFiles('tools/windows-desktop/git-toolchain-lock.json') }}
       - name: Restore content-pinned Windows Aura engine and model cache
         id: aura-cache
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0

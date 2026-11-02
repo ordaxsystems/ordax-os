@@ -21,14 +21,35 @@ if ((Test-Path -LiteralPath $dest) -or (Test-Path -LiteralPath $receiptFile)) {
   throw 'Bundled Git output already exists; refuse overwrite'
 }
 New-Item -ItemType Directory -Path $out -Force | Out-Null
-$downloaded = $false
 $archiveFile = $Archive
 if (-not $archiveFile) {
-  $archiveFile = Join-Path $out $lock.archive
-  if (Test-Path -LiteralPath $archiveFile) {throw 'Untrusted existing Git archive'}
-  & curl.exe --fail --location --silent --show-error --connect-timeout 12 --max-time 180 --output $archiveFile $lock.url
-  if ($LASTEXITCODE -ne 0) {throw 'Canonical MinGit download failed'}
-  $downloaded = $true
+  # Cache the exact upstream ZIP, not an expanded DLL tree or a receipt.
+  # On every CI run the archive digest is verified before extraction.
+  $sourceCache = Join-Path $out 'source'
+  if (Test-Path -LiteralPath $sourceCache) {
+    $sourceInfo = Get-Item -LiteralPath $sourceCache -Force
+    if (-not $sourceInfo.PSIsContainer -or
+        ($sourceInfo.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) {
+      throw 'Untrusted MinGit source cache directory'
+    }
+  } else {
+    New-Item -ItemType Directory -Path $sourceCache | Out-Null
+  }
+  $archiveFile = Join-Path $sourceCache $lock.archive
+  $entries = @(Get-ChildItem -LiteralPath $sourceCache -Force)
+  if ($entries.Count -gt 1 -or
+      ($entries.Count -eq 1 -and $entries[0].Name -cne $lock.archive)) {
+    throw 'Untrusted MinGit source cache contents'
+  }
+  if ($entries.Count -eq 1) {
+    if ($entries[0].PSIsContainer -or
+        ($entries[0].Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) {
+      throw 'Untrusted MinGit cached archive'
+    }
+  } else {
+    & curl.exe --fail --location --silent --show-error --connect-timeout 12 --max-time 180 --output $archiveFile $lock.url
+    if ($LASTEXITCODE -ne 0) {throw 'Canonical MinGit download failed'}
+  }
 }
 try {
   $actualHash = (Get-FileHash -LiteralPath $archiveFile -Algorithm SHA256).Hash.ToLowerInvariant()
@@ -68,8 +89,4 @@ try {
   if (Test-Path -LiteralPath $dest) {Remove-Item -LiteralPath $dest -Recurse -Force}
   if (Test-Path -LiteralPath $receiptFile) {Remove-Item -LiteralPath $receiptFile -Force}
   throw
-} finally {
-  if ($downloaded -and (Test-Path -LiteralPath $archiveFile)) {
-    Remove-Item -LiteralPath $archiveFile -Force
-  }
 }

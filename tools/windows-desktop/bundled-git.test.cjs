@@ -68,3 +68,29 @@ test('the installer owns exactly one private Git rather than a global Git depend
     'MinGit must be verified before the independent Aura gate and the installer must remain blocked by it');
   assert.match(workflow,/package-git-toolchain\.ps1/);
 });
+
+test('private MinGit caches only the upstream ZIP and revalidates every restored cache',()=>{
+  const {join}=require('node:path');
+  const workflow=readFileSync(join(__dirname,'../../.github/workflows/windows-desktop-dev.yml'),'utf8');
+  const script=readFileSync(join(__dirname,'package-git-toolchain.ps1'),'utf8');
+  const restore=workflow.indexOf('name: Restore exact private MinGit source archive cache');
+  const materialize=workflow.indexOf('name: Materialize pinned private MinGit for Windows Dev updates',restore);
+  const verify=workflow.indexOf('name: Verify source-pinned private MinGit on cache hit and miss',materialize);
+  const save=workflow.indexOf('name: Save source-pinned private MinGit archive cache',verify);
+  assert.ok(restore>=0 && materialize>restore && verify>materialize && save>verify);
+  const restored=workflow.slice(restore,materialize);
+  const produced=workflow.slice(materialize,verify);
+  const saved=workflow.slice(save,workflow.indexOf('name: Restore content-pinned Windows Aura engine and model cache',save));
+  assert.match(restored,/path: out\/windows-desktop-toolchain\/source/);
+  assert.match(saved,/path: out\/windows-desktop-toolchain\/source/);
+  assert.doesNotMatch(restored,/out\/windows-desktop-toolchain\/git(?:\r?\n|$)|git-receipt\.json/);
+  assert.doesNotMatch(saved,/out\/windows-desktop-toolchain\/git(?:\r?\n|$)|git-receipt\.json/);
+  assert.match(restored,/ordax-windows-mingit-source-v2/);
+  assert.doesNotMatch(produced,/\n\s+if:/,'ZIP must be verified and re-extracted even on a cache hit');
+  assert.match(script,/Join-Path \$out 'source'/);
+  assert.match(script,/Get-ChildItem -LiteralPath \$sourceCache -Force/);
+  assert.match(script,/Untrusted MinGit source cache contents/);
+  const digest=script.indexOf('Get-FileHash -LiteralPath $archiveFile -Algorithm SHA256');
+  const extract=script.indexOf('Expand-Archive -LiteralPath $archiveFile');
+  assert.ok(digest>=0 && extract>digest,'hash the complete archive before any extraction');
+});
