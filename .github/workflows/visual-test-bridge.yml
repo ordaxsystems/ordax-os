@@ -9,6 +9,7 @@ on:
 permissions:
   contents: read
   actions: read
+  pull-requests: read
 
 concurrency:
   group: visual-test-bridge-${{ github.event.pull_request.number || github.ref }}
@@ -57,18 +58,6 @@ jobs:
     runs-on: windows-2022
     timeout-minutes: 50
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-        with:
-          persist-credentials: false
-      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
-        with:
-          node-version: '24'
-          cache: npm
-          cache-dependency-path: tools/visual-test-bridge/package-lock.json
-      - name: Install visual adapter tooling without downloading a second Chromium
-        run: npm ci --prefix tools/visual-test-bridge --ignore-scripts --no-audit --no-fund
-        env:
-          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
       - name: Resolve latest completed, successful main-only Windows NSIS source
         shell: pwsh
         id: source
@@ -88,13 +77,17 @@ jobs:
           if($source.Count -ne 1){throw 'No successful trusted Windows Desktop main workflow run'}
           $run=$source[0]
           if($run.head_sha -cnotmatch '^[0-9a-f]{40}$'){throw 'Invalid installed source SHA'}
-          # Cheap probe of this exact source before downloading the already-built NSIS.
-          # PR #2343 is the sole owner of the Desktop First Run product mode.
-          $composition=Invoke-RestMethod -Uri "https://api.github.com/repos/$repo/contents/system/composition/native/main.mjs?ref=$($run.head_sha)" -Headers $headers
-          if($composition.type -cne 'file' -or $composition.encoding -cne 'base64'){throw 'Unverified installed Native composition'}
-          $native=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String(($composition.content -replace '\s','')))
-          if(-not $native.Contains('productMode: windowsDesktopHost ? "desktop" : "usb"')){
-            throw "Installed source $($run.head_sha) predates the canonical Windows First Run (OS PR #2343); blocking NSIS download"
+          # The owner PR is the SSOT of Windows Desktop First Run. Require
+          # its actual merge commit to be an ancestor of the INSTALLED source.
+          # No source-text matching or unchecked draft-branch installer is allowed.
+          $ownerPr=Invoke-RestMethod -Uri "https://api.github.com/repos/$repo/pulls/2343" -Headers $headers
+          if($ownerPr.merged -ne $true -or $ownerPr.merge_commit_sha -cnotmatch '^[0-9a-f]{40}$'){
+            throw 'Canonical Windows Desktop First Run owner PR #2343 is not merged; blocking stale NSIS'
+          }
+          $ownerCommit=$ownerPr.merge_commit_sha
+          $compare=Invoke-RestMethod -Uri "https://api.github.com/repos/$repo/compare/$($ownerCommit)...$($run.head_sha)" -Headers $headers
+          if($compare.status -cnotin @('identical','ahead')){
+            throw "Installed source $($run.head_sha) does not descend from First Run owner merge $ownerCommit"
           }
           $artifacts=Invoke-RestMethod -Uri "https://api.github.com/repos/$repo/actions/runs/$($run.id)/artifacts" -Headers $headers
           $artifact=@($artifacts.artifacts | Where-Object {
@@ -106,6 +99,18 @@ jobs:
           "source_sha=$($run.head_sha)" >> $env:GITHUB_OUTPUT
           Write-Output "VISUAL_INSTALLED_INPUT_MAIN_SHA=$($run.head_sha)"
           Write-Output "VISUAL_INSTALLED_INPUT_RUN_ID=$($run.id)"
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: tools/visual-test-bridge/package-lock.json
+      - name: Install visual adapter tooling without downloading a second Chromium
+        run: npm ci --prefix tools/visual-test-bridge --ignore-scripts --no-audit --no-fund
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
       - name: Download one existing, already-compiled NSIS from main
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
