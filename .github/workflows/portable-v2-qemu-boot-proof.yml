@@ -519,6 +519,15 @@ jobs:
           # Identical archive path to the single Independent Base producer.
           path: ${{ runner.temp }}/ordax-independent
           key: ordax-portable-component-v1-${{ runner.os }}-${{ runner.arch }}-independent-base-stable-${{ steps.component-fingerprints.outputs.independent_base_stable }}
+      - name: Reuse canonical Buildroot sources and package downloads for Stable
+        if: ${{ inputs.base_source == 'independent' && inputs.independent_base_profile == 'stable-mvp' && steps.independent-stable-cache.outputs.cache-hit != 'true' }}
+        id: independent-buildroot-download-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          # Exact producer archive path and key; Buildroot source digests are
+          # still authenticated by bootstrap/independent-base/build.py.
+          path: ${{ runner.temp }}/ordax-independent-cache
+          key: ordax-buildroot-download-v1-${{ runner.os }}-${{ hashFiles('bootstrap/independent-base/source.json', 'bootstrap/independent-base/configs/**', 'bootstrap/independent-base/patches/**') }}
       - name: Build and verify exact Stable Base or experimental independent candidate
         env:
           ORDAX_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
@@ -567,10 +576,14 @@ jobs:
               export ORDAX_KERNEL_MODULES_RECEIPT="$base_out/kernel-module-payload.json"
               export ORDAX_FIRMWARE_COVERAGE_RECEIPT="$base_out/firmware-coverage.json"
               if [ "$ORDAX_INDEPENDENT_BASE_PROFILE" != stable-mvp ] || [ "$ORDAX_STABLE_BASE_CACHE_HIT" != true ]; then
+                buildroot_cache="$work/independent-base-cache"
+                if [ "$ORDAX_INDEPENDENT_BASE_PROFILE" = stable-mvp ]; then
+                  buildroot_cache="$RUNNER_TEMP/ordax-independent-cache"
+                fi
                 python3 bootstrap/independent-base/build.py build \
                   --profile "$ORDAX_INDEPENDENT_BASE_PROFILE" \
                   --out "$base_out" \
-                  --cache "$work/independent-base-cache" --jobs 4 \
+                  --cache "$buildroot_cache" --jobs 4 \
                   > "$work/metadata/independent-base-build.json"
               fi
               python3 bootstrap/independent-base/build.py verify \
@@ -606,6 +619,13 @@ jobs:
               exit 1
               ;;
           esac
+
+      - name: Save canonical Buildroot downloads after Stable cache miss
+        if: ${{ inputs.base_source == 'independent' && inputs.independent_base_profile == 'stable-mvp' && steps.independent-stable-cache.outputs.cache-hit != 'true' && steps.independent-buildroot-download-cache.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/ordax-independent-cache
+          key: ordax-buildroot-download-v1-${{ runner.os }}-${{ hashFiles('bootstrap/independent-base/source.json', 'bootstrap/independent-base/configs/**', 'bootstrap/independent-base/patches/**') }}
 
       - name: Save verified Stable Buildroot component for signed Portable boot
         if: ${{ inputs.base_source == 'independent' && inputs.independent_base_profile == 'stable-mvp' && steps.independent-stable-cache.outputs.cache-hit != 'true' }}

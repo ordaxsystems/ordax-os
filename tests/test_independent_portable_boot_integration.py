@@ -99,6 +99,13 @@ class IndependentPortableBootIntegrationTest(unittest.TestCase):
         self.assertEqual(official.count('--reuse-receipt "$work/metadata/independent-stable-component-reuse.json"'), 2)
         self.assertIn("Restore verified Stable Buildroot component for official signed boot", official)
         self.assertIn("Save verified Stable Buildroot component for signed Portable boot", official)
+        self.assertIn("Reuse canonical Buildroot sources and package downloads for Stable", official)
+        self.assertIn("Save canonical Buildroot downloads after Stable cache miss", official)
+        self.assertEqual(sum(line.strip() == 'path: ${{ runner.temp }}/ordax-independent-cache' for line in official.splitlines()), 2)
+        self.assertEqual(sum(line.strip() == 'path: ${{ runner.temp }}/ordax-independent-cache' for line in producer.splitlines()), 2)
+        self.assertIn('buildroot_cache="$RUNNER_TEMP/ordax-independent-cache"', official)
+        self.assertIn('--cache "$buildroot_cache" --jobs 4', official)
+        self.assertIn("steps.independent-buildroot-download-cache.outputs.cache-hit != 'true'", official)
         # Cache key AND archive path must match the independent Buildroot producer.
         producer = (ROOT / ".github/workflows/independent-base-experiment.yml").read_text()
         cache_path = 'path: ${{ runner.temp }}/ordax-independent'
