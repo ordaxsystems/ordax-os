@@ -7,6 +7,7 @@ All inputs are disposable files; invoking this does not authorize promotion.
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
 from pathlib import Path
 import re
@@ -67,6 +68,42 @@ def command(argv: list[str]) -> None:
                         + result.stdout[-6000:])
 
 
+def verify_stable_cache_binding(
+    base_dir: Path, source_commit: str, provenance: dict, original_receipt: Path, evidence: Path
+) -> dict:
+    """Re-verify exact source graph and artifact bytes without rewriting producer provenance."""
+    provided_path = regular_file(original_receipt, "Stable Buildroot cache reuse receipt")
+    outside_source(provided_path)
+    try:
+        provided = json.loads(provided_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        raise BaseError(f"Stable cache reuse receipt is unreadable: {exc}") from exc
+    if not isinstance(provided, dict) or type(provided.get("reused")) is not bool:
+        raise BaseError("Stable cache reuse receipt must contain an exact reuse boolean")
+    cache_path = ROOT / "tools/ci/portable_component_cache.py"
+    if cache_path.is_symlink() or not cache_path.is_file():
+        raise BaseError("canonical component cache verifier is missing or unsafe")
+    spec = importlib.util.spec_from_file_location("ordax_stable_portable_cache", cache_path)
+    if spec is None or spec.loader is None:
+        raise BaseError("cannot load canonical component cache verifier")
+    cache = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(cache)
+    try:
+        confirmed = cache.verify_component(
+            "independent-base-stable", base_dir, source_commit, evidence,
+            cache_hit=provided["reused"], root=ROOT,
+        )
+    except (cache.CacheError, OSError, ValueError) as exc:
+        raise BaseError(f"Stable cache binding does not validate: {exc}") from exc
+    if provided != confirmed:
+        raise BaseError("Stable cache receipt differs from reverified artifact binding")
+    if provenance.get("source_commit") != confirmed["build_source_commit"]:
+        raise BaseError("Stable producer provenance differs from immutable cache origin")
+    if confirmed["integration_source_commit"] != source_commit:
+        raise BaseError("Stable cache binding does not match integration source commit")
+    return confirmed
+
+
 def prove(args: argparse.Namespace) -> dict:
     require_canonical_owners()
     if args.base_profile not in INDEPENDENT_PORTABLE_PROFILES:
@@ -89,8 +126,12 @@ def prove(args: argparse.Namespace) -> dict:
         raise BaseError("candidate portable proof profile drift")
     if receipt.get("canonical_portable_handoff_sha256") != digest(CANONICAL_HANDOFF):
         raise BaseError("candidate handoff is not the canonical owner")
-    if receipt.get("source_commit") != args.source_commit:
+    if args.base_profile != "stable-mvp" and receipt.get("source_commit") != args.source_commit:
         raise BaseError("candidate was compiled from a different source commit")
+    if args.base_profile == "stable-mvp" and args.reuse_receipt is None:
+        raise BaseError("Stable portable proof requires a verified hardware-base reuse receipt")
+    if args.base_profile != "stable-mvp" and args.reuse_receipt is not None:
+        raise BaseError("cache reuse receipt is only supported for the Stable candidate")
     if receipt.get("stable_channel_authorized") is True or receipt.get("physical_artifact_authorized") is not False:
         raise BaseError("candidate is not isolated")
     kernel = regular_file(args.kernel, "kernel")
@@ -105,6 +146,12 @@ def prove(args: argparse.Namespace) -> dict:
             raise BaseError("QEMU candidate inputs must be staged outside source repository")
 
     out.mkdir(parents=True, exist_ok=True)
+    stable_binding = None
+    if args.base_profile == "stable-mvp":
+        stable_binding = verify_stable_cache_binding(
+            base_dir, args.source_commit, receipt, args.reuse_receipt,
+            out / "stable-cache-revalidated.json",
+        )
     # The canonical QEMU harness works with disposable images. Never allow an
     # external caller's ext4 source file to become an implicit write target.
     source_state_sha256 = digest(state)
@@ -171,6 +218,9 @@ def prove(args: argparse.Namespace) -> dict:
     result = {
         "status": "pass",
         "base_profile": args.base_profile,
+        "base_cache_reuse_verified": stable_binding is not None,
+        "base_cache_reused": stable_binding["reused"] if stable_binding else False,
+        "base_build_source_commit": receipt.get("source_commit"),
         "independent_base_sha256": digest(candidate),
         "original_ext4_image_sha256": source_state_sha256,
         "original_ext4_image_unchanged": True,
@@ -188,6 +238,8 @@ def main() -> int:
     parser.add_argument("--base-out", required=True, type=Path)
     parser.add_argument("--base-profile", choices=INDEPENDENT_PORTABLE_PROFILES,
                         default=INDEPENDENT_PORTABLE_PROFILE)
+    parser.add_argument("--reuse-receipt", type=Path,
+                        help="Verified immutable Stable component binding for signed boot")
     parser.add_argument("--stable-base", type=Path)
     parser.add_argument("--initramfs", type=Path)
     parser.add_argument("--initramfs-provenance", type=Path)
