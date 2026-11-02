@@ -378,7 +378,7 @@ exit 2
             )
             self.assertNotEqual(proc.returncode, 0, proc.stdout)
             self.assertIn("Rejecting unverified durable Surface manifest", proc.stderr)
-            self.assertEqual(output.read_text(encoding="utf-8"), "hit=false\\n")
+            self.assertEqual(output.read_text(encoding="utf-8"), "hit=false\n")
             self.assertEqual(curl_log.read_text(encoding="utf-8").count("request"), 1)
 
     def test_durable_publication_is_immutable_and_credentials_are_not_hardcoded(self):
