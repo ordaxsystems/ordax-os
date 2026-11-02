@@ -336,6 +336,45 @@ def verify_kernel_archive_binding(
         raise KernelModulePayloadError("Stable module inventory lost hardware baseline")
     if modules != count:
         raise KernelModulePayloadError("kernel module receipt count is inconsistent")
+    # The rootfs and its receipt are both produced by Buildroot. Prove that
+    # they ALSO match the independently verified canonical kernel tar rather
+    # than accepting two mutually consistent but substituted module payloads.
+    verified_source: set[str] = set()
+    try:
+        with tarfile.open(archive_path, "r") as source_archive:
+            for member in source_archive:
+                expected = expected_rootfs.get(member.name)
+                if expected is None:
+                    continue
+                if member.name in verified_source:
+                    raise KernelModulePayloadError(
+                        f"duplicate canonical kernel archive member: {member.name}"
+                    )
+                if not member.isfile() or member.size != expected[0]:
+                    raise KernelModulePayloadError(
+                        f"canonical kernel archive member is not the expected regular file: {member.name}"
+                    )
+                stream = source_archive.extractfile(member)
+                if stream is None:
+                    raise KernelModulePayloadError(
+                        f"cannot read canonical kernel module: {member.name}"
+                    )
+                actual = hashlib.sha256()
+                with stream:
+                    for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+                        actual.update(chunk)
+                if actual.hexdigest() != expected[1]:
+                    raise KernelModulePayloadError(
+                        f"Stable module differs from canonical kernel source: {member.name}"
+                    )
+                verified_source.add(member.name)
+    except (tarfile.TarError, EOFError) as exc:
+        raise KernelModulePayloadError(f"invalid canonical kernel module archive: {exc}") from exc
+    missing_source = sorted((set(expected_rootfs) - {"etc/ordax/kernel-module-payload.json"}) - verified_source)
+    if missing_source:
+        raise KernelModulePayloadError(
+            f"canonical kernel archive lacks selected module files: {missing_source[:4]}"
+        )
     # Verify the actual rootfs members, not just a detached manifest.  The
     # canonical post-image tar exporter writes paths once, without './' and
     # without following symlinks. Reject duplicate members as ambiguous.
@@ -376,6 +415,7 @@ def verify_kernel_archive_binding(
         "rootfs_installed_receipt_sha256": hashlib.sha256(raw).hexdigest(),
         "selected_module_count": count,
         "verified_rootfs_members": len(verified_members),
+        "verified_kernel_source_members": len(verified_source),
     }
 
 

@@ -95,7 +95,6 @@ class KernelModulePayloadTests(unittest.TestCase):
     def _canonical_test_binding(self, root: Path) -> tuple[Path, Path, Path, dict]:
         """Synthetic files only: tests the real binding algorithm, not boot."""
         archive = root / "canonical-kernel-modules.tar"
-        archive.write_bytes(b"fixture canonical modules bytes")
         policy = PAYLOAD.load_wifi_policy()
         release = "6.6.158-test"
         files = [
@@ -111,6 +110,16 @@ class KernelModulePayloadTests(unittest.TestCase):
             "sha256": hashlib.sha256(b"deps").hexdigest(),
             "size": 4,
         })
+        with tarfile.open(archive, "w") as dst:
+            for item in files:
+                name = item["path"][1:]
+                content = (
+                    Path(name).name.removesuffix(".ko").encode("utf-8")
+                    if name.endswith(".ko") else b"deps"
+                )
+                info = tarfile.TarInfo(name)
+                info.size = len(content)
+                dst.addfile(info, io.BytesIO(content))
         receipt = {
             "$schema": "prototype-ordax.kernel-module-payload/1",
             "status": "selected-from-canonical-kernel-artifact",
@@ -173,6 +182,7 @@ class KernelModulePayloadTests(unittest.TestCase):
             self.assertEqual(result["kernel_module_archive_sha256"], PAYLOAD.sha256_file(archive))
             self.assertEqual(result["selected_module_count"], receipt["selected_module_count"])
             self.assertEqual(result["verified_rootfs_members"], len(receipt["files"]) + 1)
+            self.assertEqual(result["verified_kernel_source_members"], len(receipt["files"]))
 
     def test_kernel_binding_rejects_tampered_missing_or_ambiguous_archive_modules(self) -> None:
         with tempfile.TemporaryDirectory() as raw:
@@ -195,6 +205,64 @@ class KernelModulePayloadTests(unittest.TestCase):
                 PAYLOAD.verify_kernel_archive_binding(archive, receipt_path, rootfs)["verified_rootfs_members"],
                 len(canonical["files"]) + 1,
             )
+
+    def test_kernel_binding_rejects_jointly_forged_receipt_and_rootfs(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            archive, receipt_path, rootfs, receipt = self._canonical_test_binding(Path(raw))
+            member = receipt["files"][0]["path"][1:]
+            replacement = b"X" * receipt["files"][0]["size"]
+            forged = dict(receipt)
+            forged["files"] = [dict(item) for item in receipt["files"]]
+            forged["files"][0]["sha256"] = hashlib.sha256(replacement).hexdigest()
+            receipt_data = (json.dumps(forged, sort_keys=True) + "\n").encode("utf-8")
+            receipt_path.write_bytes(receipt_data)
+            self._write_rootfs_binding_tar(rootfs, receipt_data, forged["files"], corrupt=member)
+            # The detached receipt and rootfs agree, but the canonical kernel
+            # archive still has the original module bytes.
+            with self.assertRaisesRegex(
+                PAYLOAD.KernelModulePayloadError, "differs from canonical kernel source"
+            ):
+                PAYLOAD.verify_kernel_archive_binding(archive, receipt_path, rootfs)
+
+    def test_kernel_binding_rejects_missing_or_duplicate_canonical_source_member(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            archive, receipt_path, rootfs, receipt = self._canonical_test_binding(Path(raw))
+            member = receipt["files"][0]["path"][1:]
+            with tarfile.open(archive, "w") as tar:
+                for entry in receipt["files"][1:]:
+                    name = entry["path"][1:]
+                    payload = (
+                        Path(name).name.removesuffix(".ko").encode("utf-8")
+                        if name.endswith(".ko") else b"deps"
+                    )
+                    header = tarfile.TarInfo(name)
+                    header.size = len(payload)
+                    tar.addfile(header, io.BytesIO(payload))
+            data = json.loads(receipt_path.read_text())
+            data["kernel_module_archive_sha256"] = PAYLOAD.sha256_file(archive)
+            raw_receipt = (json.dumps(data, sort_keys=True) + "\n").encode()
+            receipt_path.write_bytes(raw_receipt)
+            self._write_rootfs_binding_tar(rootfs, raw_receipt, data["files"])
+            with self.assertRaisesRegex(
+                PAYLOAD.KernelModulePayloadError, "lacks selected module files"
+            ):
+                PAYLOAD.verify_kernel_archive_binding(archive, receipt_path, rootfs)
+
+            with tarfile.open(archive, "a") as tar:
+                name = member
+                content = Path(name).name.removesuffix(".ko").encode()
+                for _ in range(2):
+                    header = tarfile.TarInfo(name)
+                    header.size = len(content)
+                    tar.addfile(header, io.BytesIO(content))
+            data["kernel_module_archive_sha256"] = PAYLOAD.sha256_file(archive)
+            raw_receipt = (json.dumps(data, sort_keys=True) + "\n").encode()
+            receipt_path.write_bytes(raw_receipt)
+            self._write_rootfs_binding_tar(rootfs, raw_receipt, data["files"])
+            with self.assertRaisesRegex(
+                PAYLOAD.KernelModulePayloadError, "duplicate canonical kernel archive member"
+            ):
+                PAYLOAD.verify_kernel_archive_binding(archive, receipt_path, rootfs)
 
     def test_kernel_binding_rejects_noncanonical_receipt_member_paths(self) -> None:
         with tempfile.TemporaryDirectory() as raw:
