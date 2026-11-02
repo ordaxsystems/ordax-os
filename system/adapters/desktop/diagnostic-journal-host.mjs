@@ -89,9 +89,14 @@ export function createDesktopDiagnosticJournalMiddleware(directory,{token,sessio
       return respond(403);
     if(req.method==="POST"&&!String(req.headers["content-type"]??"").startsWith("application/json"))
       return respond(415);
-    void serial(async()=>{
+    const handle=async()=>{
+      if(req.method==="GET")return serial(async()=>{
+        if(sessionLocked&&await sessionLocked())return respond(423);
+        return respond(200,{payload:await read()});
+      });
+      // Parse incomplete POST bodies outside the persistence queue, so a
+      // slow/abandoned sender cannot block independent authorized reads.
       if(sessionLocked&&await sessionLocked())return respond(423);
-      if(req.method==="GET")return respond(200,{payload:await read()});
       let bytes=0;const parts=[];
       for await(const part of req){
         bytes+=part.length;
@@ -107,11 +112,14 @@ export function createDesktopDiagnosticJournalMiddleware(directory,{token,sessio
       } catch(error) {
         return respond(error instanceof TypeError||error instanceof SyntaxError?400:503);
       }
-      // The PIN can lock while a client is still streaming the POST body.
-      // Authorize again at the persistence boundary, not only at request entry.
-      if(sessionLocked&&await sessionLocked())return respond(423);
-      await write(payload);
-      return respond(200,{saved:true});
-    }).catch(()=>{if(!res.writableEnded)respond(503);});
+      // Serialized mutation retains the exact same session authority;
+      // a PIN change while streaming must be rejected before disk I/O.
+      return serial(async()=>{
+        if(sessionLocked&&await sessionLocked())return respond(423);
+        await write(payload);
+        return respond(200,{saved:true});
+      });
+    };
+    void handle().catch(()=>{if(!res.writableEnded)respond(503);});
   };
 }

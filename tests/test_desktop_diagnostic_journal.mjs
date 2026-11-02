@@ -135,3 +135,47 @@ test("Desktop journal rejects a write when PIN locks during streamed request", a
     {code:"ENOENT"},
   );
 });
+
+test("Incomplete authenticated POST cannot starve concurrent diagnostic GET", async t => {
+  let requestStarted;
+  const observedPost=new Promise(resolve => { requestStarted=resolve; });
+  let admissionCalls=0;
+  const h=await harness(t,{sessionLocked:async()=>{
+    if(admissionCalls++===0)requestStarted();
+    return false;
+  }});
+  const body=JSON.stringify({payload:"slow POST"});
+  let postRequest;
+  const posted=new Promise((resolve,reject)=>{
+    postRequest=httpRequest(h.origin+route,{
+      method:"POST",
+      headers:{
+        Origin:h.origin,
+        "Content-Type":"application/json",
+        "Content-Length":Buffer.byteLength(body),
+        "x-ordax-desktop-state-token":token,
+      },
+    },response=>{
+      response.resume();
+      response.once("end",()=>resolve(response.statusCode));
+    });
+    postRequest.once("error",reject);
+    postRequest.write(body.slice(0,9));
+  });
+  await observedPost;
+  const readPromise=h.request().then(async response=>({
+    status:response.status,body:await response.json(),
+  }));
+  let deadline;
+  const earlyRead=await Promise.race([
+    readPromise,
+    new Promise(resolve=>{deadline=setTimeout(()=>resolve(null),1500);}),
+  ]);
+  clearTimeout(deadline);
+  postRequest.end(body.slice(9));
+  assert.equal(await posted,200);
+  assert.notEqual(earlyRead,null,"a pending request body must not hold the journal mutation queue");
+  assert.equal(earlyRead.status,200);
+  assert.deepEqual(earlyRead.body,{payload:null});
+  assert.deepEqual(await (await h.request()).json(),{payload:"slow POST"});
+});
