@@ -24,24 +24,35 @@ function boundedName(input) {
   if(typeof input!=='string'||!/^[a-z0-9][a-z0-9._-]{0,80}$/i.test(input))throw Error('Invalid artifact identifier');
   return input;
 }
-function comparePng(actualBytes,baselineBytes,{channelTolerance=10,maxMismatchRatio=0.001}={}) {
+function comparePngDetailed(actualBytes,baselineBytes,{channelTolerance=10,maxMismatchRatio=0.001}={},withDiff=false) {
   if(!Number.isInteger(channelTolerance)||channelTolerance<0||channelTolerance>255 ||
      typeof maxMismatchRatio!=='number'||maxMismatchRatio<0||maxMismatchRatio>1)
     throw Error('Invalid comparison tolerances');
   const {PNG}=require('pngjs');
-  const actual=PNG.sync.read(actualBytes), baseline=PNG.sync.read(baselineBytes);
+  const actual=PNG.sync.read(actualBytes),baseline=PNG.sync.read(baselineBytes);
   if(actual.width!==baseline.width||actual.height!==baseline.height)
-    return {match:false,reason:'dimensions',actual:[actual.width,actual.height],
-      baseline:[baseline.width,baseline.height],mismatchedPixels:null};
+    return {result:{match:false,reason:'dimensions',actual:[actual.width,actual.height],
+      baseline:[baseline.width,baseline.height],mismatchedPixels:null},diffPng:null};
+  const overlay=withDiff?new PNG({width:actual.width,height:actual.height}):null;
   let mismatch=0;
   for(let i=0;i<actual.data.length;i+=4){
-    if([0,1,2,3].some(c=>Math.abs(actual.data[i+c]-baseline.data[i+c])>channelTolerance))mismatch++;
+    const changed=[0,1,2,3].some(c=>Math.abs(actual.data[i+c]-baseline.data[i+c])>channelTolerance);
+    if(changed)mismatch++;
+    if(overlay){
+      overlay.data[i]=changed?255:0;
+      overlay.data[i+1]=changed?32:0;
+      overlay.data[i+2]=changed?32:0;
+      overlay.data[i+3]=changed?255:0;
+    }
   }
-  const pixels=actual.width*actual.height;
-  const mismatchRatio=mismatch/pixels;
-  return {match:mismatchRatio<=maxMismatchRatio,reason:'pixels',
-    width:actual.width,height:actual.height,mismatchedPixels:mismatch,mismatchRatio,
-    channelTolerance,maxMismatchRatio};
+  const pixels=actual.width*actual.height,mismatchRatio=mismatch/pixels;
+  return {result:{match:mismatchRatio<=maxMismatchRatio,reason:'pixels',
+      width:actual.width,height:actual.height,mismatchedPixels:mismatch,mismatchRatio,
+      channelTolerance,maxMismatchRatio},
+    diffPng:overlay&&mismatch?PNG.sync.write(overlay):null};
+}
+function comparePng(actualBytes,baselineBytes,options={}) {
+  return comparePngDetailed(actualBytes,baselineBytes,options).result;
 }
 
 class VisualTestBridge {
@@ -49,6 +60,7 @@ class VisualTestBridge {
     this.playwright=playwright;this.artifactsDir=resolve(artifactsDir);
     this.app=null;this.browser=null;this.context=null;this.page=null;
     this.mode=null;this.profileRoot=null;this.tracing=false;this.logs=[];this.artifacts=[];
+    this.snapshots=new Map();this.sessionIndex=0;
   }
   record(kind,detail) {
     this.logs.push({at:new Date().toISOString(),kind,detail:safeText(detail)});
@@ -70,6 +82,7 @@ class VisualTestBridge {
       throw Error('Viewport out of tested bounds');
     const pw=this.playwright||require('playwright');
     this.mode=mode;
+    this.logs=[];
     try {
       if(mode==='web'){
         const preview=localUrl(url);
@@ -111,15 +124,18 @@ class VisualTestBridge {
       }
       await this.context.tracing.start({screenshots:true,snapshots:true,sources:false});
       this.tracing=true;
+      this.sessionIndex++;
       return {mode,windows:await this.listWindows(),profileIsolated:mode!=='web',
         browserSandbox:true};
     }catch(error){await this.close();throw error;}
   }
+  tracePath(){return join(this.artifactsDir,this.sessionIndex===1?'trace.zip':
+    'trace-'+String(this.sessionIndex).padStart(2,'0')+'.zip');}
   async close() {
     try{
       if(this.tracing&&this.context){
         mkdirSync(this.artifactsDir,{recursive:true});
-        const path=join(this.artifactsDir,'trace.zip');
+        const path=this.tracePath();
         await this.context.tracing.stop({path});
         this.artifacts.push(path);
       }
@@ -181,6 +197,7 @@ class VisualTestBridge {
     mkdirSync(this.artifactsDir,{recursive:true});
     const bytes=await this.currentPage().screenshot({path:file,animations:'disabled'});
     this.artifacts.push(file);
+    this.snapshots.set(name,file);
     return {file,sha256:createHash('sha256').update(bytes).digest('hex'),
       size:bytes.length};
   }
@@ -235,17 +252,34 @@ class VisualTestBridge {
         overlappingHitTargets:overlapping.slice(0,30),smallHitTargets:tiny.slice(0,30)};
     });
   }
-  async compareVisual({name,baseline,channelTolerance=10,maxMismatchRatio=0.001}={}) {
-    boundedName(name);
-    // Paths must remain inside the versioned baseline directory. Never update
-    // approvals as a side effect of a failing test.
-    const base=resolve(__dirname,'baselines');
-    const candidate=resolve(base,boundedName(baseline||name)+'.png');
-    if(!candidate.startsWith(base+require('node:path').sep)||!existsSync(candidate))
-      return {match:false,reason:'baseline-missing',baseline:candidate};
+  async compareVisual({name,baseline,referenceCapture,channelTolerance=10,maxMismatchRatio=0.001}={}) {
+    const id=boundedName(name);
+    if(baseline&&referenceCapture)throw Error('Select either a versioned baseline or a captured rendering');
+    let reference;
+    if(referenceCapture!==undefined){
+      const label=boundedName(referenceCapture);
+      reference=this.snapshots.get(label);
+      if(!reference||!existsSync(reference))
+        return {match:false,reason:'capture-missing',referenceCapture:label};
+    }else{
+      const base=resolve(__dirname,'baselines');
+      reference=resolve(base,boundedName(baseline||id)+'.png');
+      if(!reference.startsWith(base+require('node:path').sep)||!existsSync(reference))
+        return {match:false,reason:'baseline-missing',baseline:reference};
+    }
+    const {statSync}=require('node:fs');
+    if(statSync(reference).size>20*1024*1024)throw Error('Visual reference exceeds the 20MB bound');
     const current=await this.currentPage().screenshot({animations:'disabled'});
-    const result=comparePng(current,readFileSync(candidate),{channelTolerance,maxMismatchRatio});
-    return {...result,baseline:candidate};
+    const {result,diffPng}=comparePngDetailed(current,readFileSync(reference),
+      {channelTolerance,maxMismatchRatio},true);
+    let diffFile=null;
+    if(diffPng){
+      mkdirSync(this.artifactsDir,{recursive:true});
+      diffFile=join(this.artifactsDir,id+'-diff.png');
+      writeFileSync(diffFile,diffPng);
+      this.artifacts.push(diffFile);
+    }
+    return {...result,reference,diffFile};
   }
   async runE2E({scenario='native-smoke',steps=[]}={}) {
     if(!['native-smoke','semantic-journey'].includes(scenario))throw Error('Unknown E2E scenario');
@@ -270,15 +304,16 @@ class VisualTestBridge {
   }
   async collectArtifacts() {
     mkdirSync(this.artifactsDir,{recursive:true});
-    const logsPath=join(this.artifactsDir,'diagnostics.json');
-    writeFileSync(logsPath,JSON.stringify({schema:'ordax.visual-test-evidence/1',
-      recordedAt:new Date().toISOString(),mode:this.mode,events:this.logs,
-      artifacts:this.artifacts},null,2)+'\n');
     if(this.tracing&&this.context){
-      const trace=join(this.artifactsDir,'trace.zip');
+      const trace=this.tracePath();
       await this.context.tracing.stop({path:trace});
       this.tracing=false;this.artifacts.push(trace);
     }
+    const logsPath=join(this.artifactsDir,this.sessionIndex<=1?'diagnostics.json':
+      'diagnostics-'+String(this.sessionIndex).padStart(2,'0')+'.json');
+    writeFileSync(logsPath,JSON.stringify({schema:'ordax.visual-test-evidence/1',
+      recordedAt:new Date().toISOString(),mode:this.mode,session:this.sessionIndex,
+      events:this.logs,artifacts:[...this.artifacts]},null,2)+'\n');
     return {diagnostics:logsPath,artifacts:[...this.artifacts]};
   }
   async execute(request) {

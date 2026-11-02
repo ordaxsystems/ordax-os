@@ -31,7 +31,7 @@ The Bridge supports `launch`, `close`, `list_windows`, `navigate`, `inspect`, `c
 
 `run_e2e` always tests the **actual OrdaX Native boot root** and state. The optional `semantic-journey` adds 1–30 caller-supplied typed click/type/inspect actions; it does not fabricate unavailable screens. Test cases must fail if required controls are absent.
 
-Screenshots, trace ZIPs and structured diagnostics are stored under `out/visual-test-bridge`. Baselines live under `tools/visual-test-bridge/baselines` and must be explicitly reviewed and committed; a missing baseline fails closed. Comparisons use channel tolerance 10 and maximum mismatched ratio 0.001 by default. No PII-bearing screenshots may be committed: ephemeral test profiles only.
+Screenshots, trace ZIPs and structured diagnostics are stored under `out/visual-test-bridge`. `compare_visual` also accepts `referenceCapture`: first use `screenshot({name:"web-home"})`, close that disposable session, launch the installed Electron in the **same bridge process**, then use `compare_visual({name:"desktop-against-web",referenceCapture:"web-home"})`. Both sessions retain independent trace files; visual mismatches produce a red-pixel transparent `*-diff.png` artifact. This does not bypass OS/API permissions, imply visual equivalence at different viewport sizes, or approve a new baseline. Baselines live under `tools/visual-test-bridge/baselines` and must be explicitly reviewed and committed; a missing baseline fails closed. Comparisons use channel tolerance 10 and maximum mismatched ratio 0.001 by default. No PII-bearing screenshots may be committed: ephemeral test profiles only.
 
 ## Installed Windows CI proof
 

@@ -22,8 +22,15 @@ test('real headless Chromium supports semantic interaction, inspection, trace an
   assert.equal((await bridge.listWindows()).length,1);
   assert.equal((await bridge.inspect({target:{role:'button',name:'Ajustes'}})).visible,true);
   const before=await bridge.currentPage().screenshot({animations:'disabled'});
+  await bridge.screenshot({name:'web-initial'});
   await bridge.click({target:{role:'button',name:'Ajustes'}});
   const after=await bridge.currentPage().screenshot({animations:'disabled'});
+  const comparison=await bridge.compareVisual({name:'state-diff',referenceCapture:'web-initial',
+    channelTolerance:0,maxMismatchRatio:0});
+  assert.equal(comparison.match,false);
+  assert.ok(comparison.mismatchedPixels>0);
+  assert.equal(existsSync(comparison.diffFile),true);
+  assert.equal((await bridge.compareVisual({name:'unknown',referenceCapture:'not-captured'})).reason,'capture-missing');
   assert.equal(comparePng(before,after,{channelTolerance:0,maxMismatchRatio:0}).match,false);
   assert.equal((await bridge.inspect({target:{css:'#result'}})).text,'aberto');
   await bridge.type({target:{role:'textbox',name:'Pesquisa'},text:'OrdaX'});
@@ -47,4 +54,13 @@ test('real headless Chromium supports semantic interaction, inspection, trace an
   assert.equal(existsSync(evidence.diagnostics),true);
   assert.equal(evidence.artifacts.some(a=>a.endsWith('trace.zip')),true);
   await bridge.close();
+  // The same bridge process can compare Web and Electron test renderings across
+  // two isolated sessions without destroying the first reference or trace.
+  await bridge.launch({mode:'web',url});
+  const second=await bridge.compareVisual({name:'cross-session',referenceCapture:'web-initial',
+    channelTolerance:4,maxMismatchRatio:0.01});
+  assert.equal(second.match,true);
+  const nextArtifacts=await bridge.collectArtifacts();
+  assert.ok(nextArtifacts.artifacts.some(a=>a.endsWith('trace-02.zip')));
+  assert.ok(nextArtifacts.diagnostics.endsWith('diagnostics-02.json'));
 });
