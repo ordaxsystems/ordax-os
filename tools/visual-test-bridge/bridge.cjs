@@ -5,6 +5,25 @@ const {resolve,join,basename,isAbsolute}=require('node:path');
 const {tmpdir}=require('node:os');
 const {createHash}=require('node:crypto');
 
+// Child Electron/host processes must not inherit API keys, MCP grants, CI
+// tokens, or unrelated ORDAX_* secrets from the invoking development agent.
+const OS_ENV_KEYS=new Set(['PATH','PATHEXT','SYSTEMROOT','WINDIR','COMSPEC','TEMP','TMP',
+  'TMPDIR','APPDATA','LOCALAPPDATA','PROGRAMDATA','USERPROFILE','HOMEDRIVE',
+  'HOMEPATH','USERNAME','USERDOMAIN','PROCESSOR_ARCHITECTURE','NUMBER_OF_PROCESSORS',
+  'PUBLIC','PROGRAMFILES','PROGRAMFILES(X86)','COMMONPROGRAMFILES',
+  'ALLUSERSPROFILE','HOME','LANG','LC_ALL','DISPLAY','XDG_RUNTIME_DIR',
+  'XDG_CONFIG_HOME']);
+function isolatedElectronEnv(source=process.env,{development=false,profileDir}={}) {
+  if(typeof profileDir!=='string'||!isAbsolute(profileDir))
+    throw Error('An absolute disposable Electron profile is required');
+  const selected=Object.fromEntries(Object.entries(source)
+    .filter(([name,value])=>OS_ENV_KEYS.has(name.toUpperCase())&&typeof value==='string'));
+  selected.ORDAX_DESKTOP_TEST_PROFILE='1';
+  selected.ORDAX_DESKTOP_TEST_PROFILE_DIR=profileDir;
+  if(development && source.ORDAX_DESKTOP_LOCAL_DEV==='1')
+    selected.ORDAX_DESKTOP_LOCAL_DEV='1';
+  return selected;
+}
 const MAX_LOGS=500;
 const OPERATIONS=new Set(['launch','close','list_windows','select_window','navigate','inspect','click','type','screenshot','get_logs','get_accessibility_tree','run_e2e','compare_visual','collect_artifacts','scan_layout']);
 function localUrl(input) {
@@ -144,8 +163,8 @@ class VisualTestBridge {
         this.app=await pw._electron.launch({
           executablePath,args:mode==='electron-development'?[appPath]:[],
           cwd:mode==='electron-development'?appPath:undefined,
-          env:{...process.env,ORDAX_DESKTOP_TEST_PROFILE:'1',
-            ORDAX_DESKTOP_TEST_PROFILE_DIR:profileDir},
+          env:isolatedElectronEnv(process.env,{
+            development:mode==='electron-development',profileDir}),
           chromiumSandbox:true,timeout:120000,
         });
         const child=this.app.process();
@@ -393,4 +412,4 @@ class VisualTestBridge {
     }
   }
 }
-module.exports={VisualTestBridge,localUrl,safeText,comparePng,OPERATIONS};
+module.exports={VisualTestBridge,localUrl,safeText,comparePng,OPERATIONS,isolatedElectronEnv};

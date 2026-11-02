@@ -5,7 +5,7 @@ const {mkdtempSync,rmSync}=require('node:fs');
 const {tmpdir}=require('node:os');
 const {join}=require('node:path');
 const {PNG}=require('pngjs');
-const {VisualTestBridge,localUrl,safeText,comparePng,OPERATIONS}=require('./bridge.cjs');
+const {VisualTestBridge,localUrl,safeText,comparePng,OPERATIONS,isolatedElectronEnv}=require('./bridge.cjs');
 test('bridge exposes one bounded command surface without an HTTP listener',()=>{
   assert.equal(OPERATIONS.size,15);
   assert.equal(OPERATIONS.has('terminal_exec'),false);
@@ -57,4 +57,26 @@ test('installed Windows First Run uses its existing four-stage contract, never U
  assert.equal(assertCanonicalDesktopJourney(['Início','Conta','Segurança','Revisão']),true);
  assert.throws(()=>assertCanonicalDesktopJourney(['Início','Rede','Conta','Segurança','Dispositivo','Revisão']),/PR #2343/);
  assert.throws(()=>assertCanonicalDesktopJourney(['Início','Conta','Revisão']),/non-canonical/);
+});
+
+test('isolated Electron spawn never inherits MCP, GitHub, Groq or CI secrets',()=>{
+  const src={PATH:'C:\\Windows\\System32',SystemRoot:'C:\\Windows',TEMP:'C:\\Temp',
+    GH_TOKEN:'secret-github',GROQ_API_KEY:'secret-groq',
+    ORDAX_PLATFORM_TOKEN:'secret-platform',OPENAI_API_KEY:'secret-openai',
+    ELECTRON_RUN_AS_NODE:'1',NODE_OPTIONS:'--require malicious.js',
+    ORDAX_DESKTOP_LOCAL_DEV:'1'};
+  const profileDir=require('node:path').resolve('out','visual-test-profile');
+  const env=isolatedElectronEnv(src,{profileDir});
+  assert.equal(env.PATH,src.PATH);
+  assert.equal(env.SystemRoot,src.SystemRoot);
+  assert.equal(env.ORDAX_DESKTOP_TEST_PROFILE,'1');
+  assert.equal(env.ORDAX_DESKTOP_TEST_PROFILE_DIR,profileDir);
+  assert.equal(Object.prototype.hasOwnProperty.call(env,'GH_TOKEN'),false);
+  assert.equal(Object.prototype.hasOwnProperty.call(env,'GROQ_API_KEY'),false);
+  assert.equal(Object.prototype.hasOwnProperty.call(env,'ORDAX_PLATFORM_TOKEN'),false);
+  assert.equal(Object.prototype.hasOwnProperty.call(env,'OPENAI_API_KEY'),false);
+  assert.equal(Object.prototype.hasOwnProperty.call(env,'NODE_OPTIONS'),false);
+  assert.equal(Object.prototype.hasOwnProperty.call(env,'ELECTRON_RUN_AS_NODE'),false);
+  assert.equal(Object.prototype.hasOwnProperty.call(env,'ORDAX_DESKTOP_LOCAL_DEV'),false);
+  assert.equal(isolatedElectronEnv(src,{profileDir,development:true}).ORDAX_DESKTOP_LOCAL_DEV,'1');
 });
