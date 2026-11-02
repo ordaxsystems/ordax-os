@@ -90,11 +90,41 @@ class VisualTestBridge {
       if(mode==='web'){
         const preview=localUrl(url);
         this.browser=await pw.chromium.launch({headless:true,chromiumSandbox:true});
-        this.context=await this.browser.newContext({viewport:{width,height},deviceScaleFactor:1});
+        this.context=await this.browser.newContext({viewport:{width,height},deviceScaleFactor:1,
+          serviceWorkers:'block'});
+        // Local previews are deliberately not allowed to load scripts, fonts,
+        // requests, redirects or WebSocket traffic from unrelated origins.
+        // Keep this restriction on WEB testing only, not on product Electron.
+        await this.context.route('**/*',route=>{
+          let target;
+          try{target=new URL(route.request().url());}catch{
+            this.record('network-blocked','invalid URL');
+            return route.abort('blockedbyclient');
+          }
+          if(target.origin!==preview.origin){
+            this.record('network-blocked',target.origin);
+            return route.abort('blockedbyclient');
+          }
+          return route.continue();
+        });
+        await this.context.routeWebSocket('**/*',ws=>{
+          let target;
+          try{target=new URL(ws.url());}catch{
+            this.record('websocket-blocked','invalid URL');
+            return ws.close({code:1008,reason:'Invalid WebSocket URL'});
+          }
+          if(target.protocol!=='ws:'||'http://'+target.host!==preview.origin){
+            this.record('websocket-blocked',target.origin);
+            return ws.close({code:1008,reason:'External WebSocket denied'});
+          }
+          return ws.connectToServer();
+        });
         this.context.on('page',page=>this.bindPage(page));
         this.page=await this.context.newPage();
         this.bindPage(this.page);
         await this.page.goto(preview.href,{waitUntil:'domcontentloaded',timeout:60000});
+        if(new URL(this.page.url()).origin!==preview.origin)
+          throw Error('Preview escaped its authorized local origin');
       }else{
         // Local test grants are NOT product authorization. The caller must run in
         // an isolated Windows account / CI runner / VM, never a user's interactive session.

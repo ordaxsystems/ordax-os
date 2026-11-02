@@ -9,6 +9,11 @@ const {tmpdir}=require('node:os');
 const {VisualTestBridge,comparePng}=require('./bridge.cjs');
 test('real headless Chromium supports semantic interaction, inspection, trace and evidence',async t=>{
   const server=http.createServer((req,res)=>{
+    if(req.url==='/redirect'){
+      res.writeHead(302,{location:'https://example.org/unauthorized'});
+      res.end();
+      return;
+    }
     res.writeHead(200,{'content-type':'text/html; charset=utf-8'});
     res.end('<!doctype html><html><body><div id="ordax-boot-screen" data-state="ready"></div><div id="ordax-root"><button aria-label="Ajustes">Ajustes</button><input aria-label="Pesquisa"/><p id="result"></p></div><script>document.querySelector("button").onclick=()=>document.querySelector("#result").textContent="aberto";</script></body></html>');
   });
@@ -20,6 +25,15 @@ test('real headless Chromium supports semantic interaction, inspection, trace an
   const url='http://127.0.0.1:'+server.address().port+'/system/composition/native/index.html';
   assert.equal((await bridge.launch({mode:'web',url})).mode,'web');
   assert.equal((await bridge.listWindows()).length,1);
+  await bridge.currentPage().evaluate(()=>{
+    fetch('https://example.org/blocked').catch(()=>{});
+    const socket=new WebSocket('wss://example.org/blocked');
+    socket.onerror=()=>{};
+  });
+  await bridge.currentPage().waitForTimeout(250);
+  const denied=bridge.getLogs().events;
+  assert.ok(denied.some(x=>x.kind==='network-blocked'&&x.detail.includes('example.org')));
+  assert.ok(denied.some(x=>x.kind==='websocket-blocked'&&x.detail.includes('example.org')));
   assert.equal((await bridge.inspect({target:{role:'button',name:'Ajustes'}})).visible,true);
   const before=await bridge.currentPage().screenshot({animations:'disabled'});
   await bridge.screenshot({name:'web-initial'});
@@ -83,4 +97,9 @@ test('real headless Chromium supports semantic interaction, inspection, trace an
   const nextArtifacts=await bridge.collectArtifacts();
   assert.ok(nextArtifacts.artifacts.some(a=>a.endsWith('trace-02.zip')));
   assert.ok(nextArtifacts.diagnostics.endsWith('diagnostics-02.json'));
+  await bridge.close();
+  await assert.rejects(
+    bridge.launch({mode:'web',url:'http://127.0.0.1:'+server.address().port+'/redirect'}),
+    /ERR_FAILED|ERR_BLOCKED|net::|Navigation failed|aborted/i
+  );
 });
