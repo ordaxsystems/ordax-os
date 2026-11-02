@@ -559,7 +559,7 @@ jobs:
               export ORDAX_HOST_PYTHON="$(command -v python3)"
               export ORDAX_KERNEL_MODULES_ARCHIVE="$module_archive"
               mkdir -p "$base_out"
-              export ORDAX_KERNEL_MODULES_RECEIPT="$base_out/kernel-module-selection.json"
+              export ORDAX_KERNEL_MODULES_RECEIPT="$base_out/kernel-module-payload.json"
               export ORDAX_FIRMWARE_COVERAGE_RECEIPT="$base_out/firmware-coverage.json"
               if [ "$ORDAX_INDEPENDENT_BASE_PROFILE" != stable-mvp ] || [ "$ORDAX_STABLE_BASE_CACHE_HIT" != true ]; then
                 python3 bootstrap/independent-base/build.py build \
