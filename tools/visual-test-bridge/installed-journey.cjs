@@ -4,6 +4,14 @@
 const {VisualTestBridge,comparePng}=require('./bridge.cjs');
 const {mkdirSync,writeFileSync}=require('node:fs');
 const {join}=require('node:path');
+const DESKTOP_STEPS=Object.freeze(['Início','Conta','Segurança','Revisão']);
+function assertCanonicalDesktopJourney(labels) {
+  if(!Array.isArray(labels)||labels.length!==DESKTOP_STEPS.length||
+     labels.some((label,index)=>!String(label).includes(DESKTOP_STEPS[index])))
+    throw Error('Installed Windows Desktop has non-canonical First Run steps: '+JSON.stringify(labels)
+      +'; required four-step Desktop mode is already implemented in OrdaX OS PR #2343');
+  return true;
+}
 
 async function runInstalledJourney({executablePath,artifactsDir}){
   mkdirSync(artifactsDir,{recursive:true});
@@ -22,7 +30,14 @@ async function runInstalledJourney({executablePath,artifactsDir}){
     await bridge.launch({mode:'electron-installed',executablePath});
     const page=bridge.currentPage();
     await page.locator('.ordax-first-run[data-first-run-step="welcome"]').waitFor({state:'visible',timeout:90000});
+    const smoke=await bridge.runE2E({scenario:'native-smoke'});
+    receipt.nativeSmokeSha256=smoke.visual.sha256;
+    const labels=(await page.locator('.ordax-first-run-steps li').allTextContents()).map(s=>s.trim());
+    receipt.firstRunSteps=labels;
     await step('first-run-welcome',async()=>{});
+    assertCanonicalDesktopJourney(labels);
+    // The mounted product must prove the actual 4-stage Desktop presentation.
+    // Never click through USB Network to manufacture a successful Windows E2E.
     await step('first-run-account',async()=>{
       await page.locator('[data-first-run-action="next"]').click({timeout:30000});
       await page.locator('.ordax-first-run[data-first-run-step="account"]').waitFor({timeout:20000});
@@ -30,11 +45,6 @@ async function runInstalledJourney({executablePath,artifactsDir}){
     await step('first-run-security',async()=>{
       await page.locator('[data-first-run-action="account-local"]').click({timeout:30000});
       await page.locator('.ordax-first-run[data-first-run-step="security"]').waitFor({timeout:20000});
-    });
-    await step('first-run-device',async()=>{
-      // The next step must enable without bypassing pending identity requests.
-      await page.locator('[data-first-run-action="next"]').click({timeout:60000});
-      await page.locator('.ordax-first-run[data-first-run-step="name"]').waitFor({timeout:20000});
     });
     await step('first-run-ready',async()=>{
       await page.locator('[data-first-run-action="next"]').click({timeout:60000});
@@ -85,4 +95,4 @@ async function runInstalledJourney({executablePath,artifactsDir}){
     writeFileSync(join(artifactsDir,'journey.json'),JSON.stringify(receipt,null,2)+'\n');
   }
 }
-module.exports={runInstalledJourney};
+module.exports={runInstalledJourney,assertCanonicalDesktopJourney};

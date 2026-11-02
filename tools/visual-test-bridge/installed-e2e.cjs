@@ -1,54 +1,40 @@
 'use strict';
-// Execute 20 clean, real OrdaX installed Electron sessions on ephemeral Windows CI.
-const {VisualTestBridge}=require('./bridge.cjs');
+// The 20-run gate exercises REAL installed First Run + Home/Account/Settings/System
+// on twenty independent, disposable Windows Electron profiles. Fail closed at
+// the first regression instead of burning CI on stale installed source.
 const {runInstalledJourney}=require('./installed-journey.cjs');
 const {mkdirSync,writeFileSync}=require('node:fs');
-const {isAbsolute,resolve,join}=require('node:path');
+const {join,isAbsolute,resolve}=require('node:path');
 const executablePath=process.env.ORDAX_VISUAL_INSTALLED_EXE;
 if(process.env.GITHUB_ACTIONS!=='true'||process.env.RUNNER_OS!=='Windows'||
-   process.env.ORDAX_VISUAL_ISOLATED_SESSION!=='1'||!executablePath||!isAbsolute(executablePath)){
-  throw Error('Installed E2E requires a dedicated Windows GitHub Actions runner and absolute verified executable');
-}
-const artifactsDir=resolve(process.env.ORDAX_VISUAL_ARTIFACTS||'out/visual-test-bridge/installed');
-mkdirSync(artifactsDir,{recursive:true});
+   process.env.ORDAX_VISUAL_ISOLATED_SESSION!=='1'||!executablePath||!isAbsolute(executablePath))
+  throw Error('20-run installed E2E requires a verified executable on an isolated Windows GitHub runner');
+const artifactRoot=resolve(process.env.ORDAX_VISUAL_ARTIFACTS||'out/visual-test-bridge/installed');
+mkdirSync(artifactRoot,{recursive:true});
 const results=[];
-async function main() {
-  for(let run=1;run<=20;run++){
-    const evidenceDir=join(artifactsDir,'run-'+String(run).padStart(2,'0'));
-    const bridge=new VisualTestBridge({artifactsDir:evidenceDir});
-    const record={run,status:'failed',startedAt:new Date().toISOString()};
-    results.push(record);
-    try{
-      const launch=await bridge.launch({mode:'electron-installed',executablePath});
-      if(launch.windows.length!==1||!launch.profileIsolated)throw Error('Wrong installed window/profile topology');
-      const report=await bridge.runE2E({scenario:'native-smoke'});
-      if(report.jsErrors.length)throw Error('Surface JavaScript exceptions: '+report.jsErrors.length);
-      const inspection=await bridge.inspect({target:{css:'#ordax-root'}});
-      if(!inspection.found||!inspection.visible)throw Error('Native Surface missing after startup');
-      const accessibility=await bridge.getAccessibilityTree();
-      if(accessibility.ariaSnapshot.length<20)throw Error('Native Surface accessibility tree is empty');
-      record.status='passed';
-      record.visual=report.visual.sha256;
-      record.interactive=report.scan.interactiveElements;
-      record.rootBounds=inspection.bounds;
-      record.accessibilityChars=accessibility.ariaSnapshot.length;
-      record.path=launch.windows[0].path;
-    }catch(error){record.error=String(error?.message||error).slice(0,1200);}
-    finally{
-      try{record.diagnostics=await bridge.collectArtifacts();}
-      catch(error){record.diagnosticsError=String(error).slice(0,400);record.status='failed';}
-      try{await bridge.close();}
-      catch(error){record.teardownError=String(error).slice(0,400);record.status='failed';}
-      record.finishedAt=new Date().toISOString();
-      writeFileSync(join(artifactsDir,'runs.json'),JSON.stringify({schema:'ordax.visual-installed-runs/1',
-        requiredConsecutivePasses:20,results},null,2)+'\n');
-    }
-    process.stdout.write('ORDAX_INSTALLED_VISUAL_E2E_RUN='+run+' status='+record.status+'\n');
-    if(record.status!=='passed')throw Error('Installed E2E iteration '+run+' failed: '+(record.error||record.teardownError||record.diagnosticsError));
+async function main(){
+ for(let iteration=1;iteration<=20;iteration++){
+  const runDir=join(artifactRoot,'run-'+String(iteration).padStart(2,'0'));
+  const record={iteration,status:'failed',startedAt:new Date().toISOString()};
+  results.push(record);
+  try{
+   const result=await runInstalledJourney({executablePath,artifactsDir:runDir});
+   if(!result.passed)throw Error('Installed journey returned a non-passing result');
+   record.status='passed';
+   record.steps=result.steps;
+   record.firstRunSteps=result.firstRunSteps;
+   record.nativeSmokeSha256=result.nativeSmokeSha256;
+   record.screenDifference=result.screenDifference;
+  }catch(error){record.error=String(error?.message||error).slice(0,1200);}
+  finally{
+   record.finishedAt=new Date().toISOString();
+   writeFileSync(join(artifactRoot,'runs.json'),JSON.stringify({
+    schema:'ordax.visual-installed-runs/2',requiredConsecutivePasses:20,
+    expectedFullNavigation:true,results},null,2)+'\n');
   }
-  process.stdout.write('ORDAX_INSTALLED_VISUAL_E2E_CONSECUTIVE_PASS=20\n');
-  const journey=await runInstalledJourney({executablePath,artifactsDir:join(artifactsDir,'journey')});
-  if(!journey.passed)throw Error('Installed navigation journey did not pass');
-  process.stdout.write('ORDAX_INSTALLED_VISUAL_NAVIGATION_PASS=home,account,settings,system\n');
+  process.stdout.write('ORDAX_INSTALLED_VISUAL_E2E_RUN='+iteration+' status='+record.status+'\n');
+  if(record.status!=='passed')throw Error('Installed full navigation E2E failed at iteration '+iteration+': '+record.error);
+ }
+ process.stdout.write('ORDAX_INSTALLED_VISUAL_FULL_JOURNEY_CONSECUTIVE_PASS=20\n');
 }
 main().catch(error=>{console.error(error.message);process.exitCode=1;});

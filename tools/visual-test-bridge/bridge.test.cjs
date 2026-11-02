@@ -49,3 +49,10 @@ test('failed launch never deletes pre-existing user profile',async()=>{
     assert.equal(require('node:fs').existsSync(sentinel),true);
   }finally{rmSync(sentinel,{force:true,recursive:true});}
 });
+
+test('installed Windows First Run uses its existing four-stage contract, never USB/network',()=>{
+ const {assertCanonicalDesktopJourney}=require('./installed-journey.cjs');
+ assert.equal(assertCanonicalDesktopJourney(['Início','Conta','Segurança','Revisão']),true);
+ assert.throws(()=>assertCanonicalDesktopJourney(['Início','Rede','Conta','Segurança','Dispositivo','Revisão']),/PR #2343/);
+ assert.throws(()=>assertCanonicalDesktopJourney(['Início','Conta','Revisão']),/non-canonical/);
+});
