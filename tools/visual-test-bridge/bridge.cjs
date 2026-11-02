@@ -292,12 +292,27 @@ class VisualTestBridge {
     if(typeof text!=='string'||text.length>4096)throw Error('Invalid input length');
     await this.locator(target).fill(text,{timeout:10000});return {typed:true,length:text.length};
   }
+  nextCaptureName(base) {
+    const label=boundedName(base);
+    for(let index=1;index<=9999;index++){
+      const candidate=index===1?label:label+'-'+String(index).padStart(2,'0');
+      if(!this.snapshots.has(candidate)&&!existsSync(join(this.artifactsDir,candidate+'.png')))
+        return candidate;
+    }
+    throw Error('No unused bounded screenshot identifier remains');
+  }
   async screenshot({name='desktop'}={}) {
-    const file=join(this.artifactsDir,boundedName(name)+'.png');
+    const label=boundedName(name),file=join(this.artifactsDir,label+'.png');
+    this.currentPage();
     mkdirSync(this.artifactsDir,{recursive:true});
-    const bytes=await this.currentPage().screenshot({path:file,animations:'disabled'});
+    if(this.snapshots.has(label)||existsSync(file))
+      throw Error('Screenshot identifier already captured; choose a distinct name');
+    const bytes=await this.currentPage().screenshot({animations:'disabled'});
+    // wx prevents accidental replacement even if another process creates
+    // an artifact of the same name while Chromium is rendering.
+    writeFileSync(file,bytes,{flag:'wx'});
     this.artifacts.push(file);
-    this.snapshots.set(name,file);
+    this.snapshots.set(label,file);
     return {file,sha256:createHash('sha256').update(bytes).digest('hex'),
       size:bytes.length};
   }
@@ -400,7 +415,7 @@ class VisualTestBridge {
     if(diffPng){
       mkdirSync(this.artifactsDir,{recursive:true});
       diffFile=join(this.artifactsDir,id+'-diff.png');
-      writeFileSync(diffFile,diffPng);
+      writeFileSync(diffFile,diffPng,{flag:'wx'});
       this.artifacts.push(diffFile);
     }
     return {...result,reference,diffFile};
@@ -433,7 +448,7 @@ class VisualTestBridge {
           }
         }catch(error){
           this.record('e2e-step-failed','Step '+(index+1)+' ('+String(step?.op||'unknown')+')');
-          try{await this.screenshot({name:'e2e-failed-'+String(index+1).padStart(2,'0')});}
+          try{await this.screenshot({name:this.nextCaptureName('e2e-failed-'+String(index+1).padStart(2,'0'))});}
           catch{this.record('e2e-evidence-failed','Could not capture failing step');}
           throw error;
         }
@@ -441,7 +456,7 @@ class VisualTestBridge {
     }
     const critical=this.logs.filter(l=>l.kind==='pageerror'||l.kind==='crash');
     if(critical.length)throw Error('Native E2E detected '+critical.length+' renderer exceptions/crashes');
-    const visual=await this.screenshot({name:scenario});
+    const visual=await this.screenshot({name:this.nextCaptureName(scenario)});
     const scan=await this.scanLayout();
     return {scenario,passed:true,visual,scan,assertions,jsErrors:critical};
   }

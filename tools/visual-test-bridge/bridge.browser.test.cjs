@@ -51,9 +51,15 @@ test('real headless Chromium supports semantic interaction, inspection, trace an
     {op:'inspect',args:{target:{css:'#missing'}}}
   ]}),/not mounted/);
   assert.equal(existsSync(join(artifacts,'e2e-failed-01.png')),true);
+  await assert.rejects(bridge.runE2E({scenario:'semantic-journey',steps:[
+    {op:'inspect',args:{target:{css:'#missing'}}}
+  ]}),/not mounted/);
+  assert.ok(existsSync(join(artifacts,'e2e-failed-01-02.png')));
   assert.ok(bridge.getLogs().events.some(x=>x.kind==='e2e-step-failed'));
   const before=await bridge.currentPage().screenshot({animations:'disabled'});
-  await bridge.screenshot({name:'web-initial'});
+  const firstCapture=await bridge.screenshot({name:'web-initial'});
+  await assert.rejects(bridge.screenshot({name:'web-initial'}),/already captured/);
+  assert.equal(existsSync(firstCapture.file),true);
   await bridge.click({target:{role:'button',name:'Ajustes'}});
   const after=await bridge.currentPage().screenshot({animations:'disabled'});
   const comparison=await bridge.compareVisual({name:'state-diff',referenceCapture:'web-initial',
@@ -66,7 +72,13 @@ test('real headless Chromium supports semantic interaction, inspection, trace an
   assert.equal((await bridge.inspect({target:{css:'#result'}})).text,'aberto');
   await bridge.type({target:{role:'textbox',name:'Pesquisa'},text:'OrdaX'});
   assert.match((await bridge.getAccessibilityTree()).ariaSnapshot,/Pesquisa/);
-  assert.equal((await bridge.runE2E()).passed,true);
+  const firstSmoke=await bridge.runE2E();
+  const secondSmoke=await bridge.runE2E();
+  assert.equal(firstSmoke.passed,true);
+  assert.equal(secondSmoke.passed,true);
+  assert.notEqual(firstSmoke.visual.file,secondSmoke.visual.file);
+  assert.ok(existsSync(firstSmoke.visual.file));
+  assert.ok(existsSync(secondSmoke.visual.file));
   assert.equal((await bridge.compareVisual({name:'missing-baseline'})).reason,'baseline-missing');
   assert.equal((await bridge.scanLayout()).interactiveElements,2);
   const firstWindowId=(await bridge.listWindows())[0].id;
