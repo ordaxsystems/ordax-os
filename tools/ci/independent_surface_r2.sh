@@ -179,6 +179,23 @@ r2_status() {
     "${endpoint}/${ORDAX_R2_BUCKET}/${key}" || true
 }
 
+# A 412 response means another publisher won the immutable manifest key.
+# A fingerprint alone does not authorize accepting DIFFERENT manifest bytes.
+r2_assert_same_manifest() {
+  local existing_manifest="$RUNNER_TEMP/existing-independent-surface-r2-manifest.json"
+  local code
+  code="$(curl --silent --show-error --retry 3 --retry-all-errors \
+    --connect-timeout 15 --max-time 120 \
+    --aws-sigv4 'aws:amz:auto:s3' \
+    --user "${ORDAX_R2_ACCESS_KEY_ID}:${ORDAX_R2_SECRET_ACCESS_KEY}" \
+    --output "$existing_manifest" --write-out '%{http_code}' \
+    "${endpoint}/${ORDAX_R2_BUCKET}/${manifest_key}" || true)"
+  if [ "$code" != 200 ] || ! cmp -s "$manifest" "$existing_manifest"; then
+    echo 'R2 fingerprint manifest already exists with different bytes or cannot be verified; refusing overwrite.' >&2
+    return 1
+  fi
+}
+
 r2_put_immutable() {
   key="$1"
   file="$2"
@@ -203,6 +220,11 @@ r2_put_immutable() {
       return 0
       ;;
     412)
+      # Blob keys are SHA-256 content addressed; manifest names are input
+      # fingerprints, so a winner must be compared byte-for-byte.
+      if [ "$key" = "$manifest_key" ]; then
+        r2_assert_same_manifest || return 1
+      fi
       echo "Durable object won publication race and remains immutable: $key"
       return 0
       ;;
@@ -230,20 +252,9 @@ for row in "${artifact_rows[@]}"; do
   r2_put_immutable "${prefix}/blobs/sha256/${digest}" "$out/$name"
 done
 
-existing_manifest="$RUNNER_TEMP/existing-independent-surface-r2-manifest.json"
 manifest_status="$(r2_status "$manifest_key")"
 if [ "$manifest_status" = 200 ]; then
-  code="$(curl --silent --show-error --retry 3 --retry-all-errors \
-    --connect-timeout 15 --max-time 120 \
-    --aws-sigv4 'aws:amz:auto:s3' \
-    --user "${ORDAX_R2_ACCESS_KEY_ID}:${ORDAX_R2_SECRET_ACCESS_KEY}" \
-    --output "$existing_manifest" --write-out '%{http_code}' \
-    "${endpoint}/${ORDAX_R2_BUCKET}/${manifest_key}" || true)"
-  test "$code" = 200
-  if ! cmp -s "$manifest" "$existing_manifest"; then
-    echo 'R2 fingerprint manifest already exists with different bytes; refusing overwrite.' >&2
-    exit 1
-  fi
+  r2_assert_same_manifest
 elif [ "$manifest_status" = 404 ]; then
   r2_put_immutable "$manifest_key" "$manifest"
 else

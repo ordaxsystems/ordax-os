@@ -381,6 +381,88 @@ exit 2
             self.assertEqual(output.read_text(encoding="utf-8"), "hit=false\n")
             self.assertEqual(curl_log.read_text(encoding="utf-8").count("request"), 1)
 
+    def test_r2_immutable_manifest_race_requires_identical_winning_bytes(self):
+        # An R2 412 on manifest PUT can hide a different already-published
+        # manifest. Do not claim success unless a subsequent GET matches.
+        with tempfile.TemporaryDirectory() as td:
+            temp = Path(td)
+            out = temp / "ordax-independent-surface"
+            out.mkdir()
+            files = {
+                "provenance.json": b'{"source_commit":"test"}',
+                "native-surface-runtime.erofs": b"verified-image",
+            }
+            for name, data in files.items():
+                (out / name).write_bytes(data)
+            manifest = {
+                "$schema": self.mod.SCHEMA,
+                "fingerprint_version": self.mod.FINGERPRINT_VERSION,
+                "input_fingerprint": "a" * 64,
+                "artifacts": {
+                    name: {"sha256": hashlib.sha256(data).hexdigest(), "size": len(data)}
+                    for name, data in files.items()
+                },
+            }
+            (out / self.mod.MANIFEST).write_text(json.dumps(manifest), encoding="utf-8")
+            bin_dir = temp / "bin"
+            bin_dir.mkdir()
+            fake_curl = bin_dir / "curl"
+            fake_curl.write_text(
+                '''#!/usr/bin/env python3
+import os
+import sys
+from pathlib import Path
+args = sys.argv[1:]
+url = args[-1]
+with Path(os.environ["SURFACE_MOCK_CURL_LOG"]).open("a") as log:
+    if "--head" in args:
+        log.write("HEAD\\n")
+        sys.stdout.write("404")
+    elif "--upload-file" in args:
+        log.write("PUT\\n")
+        sys.stdout.write("412" if "/manifests/" in url and os.environ.get("SURFACE_MOCK_RACE") == "1" else "201")
+    elif "--output" in args:
+        log.write("GET\\n")
+        dest = Path(args[args.index("--output") + 1])
+        dest.write_text('{"conflicting":"manifest"}')
+        sys.stdout.write("200")
+    else:
+        raise SystemExit("unexpected mocked R2 call")
+''',
+                encoding="utf-8",
+            )
+            fake_curl.chmod(0o755)
+            curl_log = temp / "curl-called"
+            env = dict(os.environ, **{
+                "RUNNER_TEMP": str(temp),
+                "ORDAX_R2_ACCOUNT_ID": "0" * 32,
+                "ORDAX_R2_BUCKET": "test-bucket",
+                "ORDAX_R2_ACCESS_KEY_ID": "test-only",
+                "ORDAX_R2_SECRET_ACCESS_KEY": "test-only",
+                "ORDAX_SURFACE_FINGERPRINT": "a" * 64,
+                "SURFACE_MOCK_CURL_LOG": str(curl_log),
+                "PATH": str(bin_dir) + os.pathsep + os.environ.get("PATH", ""),
+            })
+            for race in ("0", "1"):
+                with self.subTest(manifest_race=race):
+                    curl_log.unlink(missing_ok=True)
+                    env["SURFACE_MOCK_RACE"] = race
+                    proc = subprocess.run(
+                        ["bash", str(R2_SCRIPT), "publish"], cwd=ROOT,
+                        env=env, text=True, capture_output=True, check=False,
+                    )
+                    requests = curl_log.read_text(encoding="utf-8").splitlines()
+                    self.assertEqual(requests.count("PUT"), 3, requests)
+                    if race == "0":
+                        self.assertEqual(proc.returncode, 0, proc.stderr)
+                        self.assertIn("Verified Surface ensured", proc.stdout)
+                        self.assertNotIn("GET", requests)
+                    else:
+                        self.assertNotEqual(proc.returncode, 0)
+                        self.assertIn("refusing overwrite", proc.stderr)
+                        self.assertEqual(requests.count("GET"), 1)
+                        self.assertNotIn("Verified Surface ensured", proc.stdout)
+
     def test_durable_publication_is_immutable_and_credentials_are_not_hardcoded(self):
         workflow = WORKFLOW.read_text(encoding="utf-8")
         self.assertIn("--header 'If-None-Match: *'", R2_SCRIPT.read_text(encoding="utf-8"))
