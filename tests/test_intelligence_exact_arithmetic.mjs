@@ -26,6 +26,13 @@ test("Aura exact arithmetic respects precedence, rational precision and provenan
 
 test("Arithmetic uses the regional locale and defines division by zero honestly",()=>{
   assert.equal(solve("0.1+0.2","en-US").text,"0.3");
+  assert.equal(solve("0,1+0,2").text,"0,3");
+  assert.equal(solve("1,000+2","en-US"),null,"English grouping is not a decimal");
+  assert.equal(solve("1.000+2","pt-BR"),null,"Portuguese grouping is not a decimal");
+  assert.equal(solve("1.5+2","pt-BR"),null,"noncanonical decimal must be refused");
+  assert.equal(solve("1,5+2","en-US"),null,"noncanonical decimal must be refused");
+  assert.equal(solve("0.001+0.002","en-US").text,"0.003");
+  assert.equal(solve("0,001+0,002").text,"0,003");
   assert.equal(solve("What is 7*8? Answer with just the number.","en-US").text,"56");
   assert.equal(solve("7/0").kind,"division-by-zero");
   assert.equal(solve("7/0").text,"Divisão por zero não é definida.");

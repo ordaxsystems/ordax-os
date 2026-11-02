@@ -34,12 +34,17 @@ function extract(raw){
     .replace(/\bmenos\b/giu,"-").replace(/[×xX]/gu,"*")
     .replace(/÷/gu,"/").replace(/[−–]/gu,"-");
 }
-function parse(input){
+function parse(input, locale){
+  // A comma is decimal only in comma-decimal locales; English grouping like
+  // 1,000 must never be interpreted as 1.000. Reject the other punctuation.
+  const numberPattern=locale==="en-US"
+    ? /^(?:\d+(?:\.\d+)?|\.\d+)/u
+    : /^(?:\d+(?:,\d+)?|,\d+)/u;
   const tokens=[];let offset=0;
   while(offset<input.length){
     if(/\s/u.test(input[offset])){offset++;continue;}
     const fragment=input.slice(offset);
-    const matched=/^(?:\d+(?:[.,]\d+)?|[.,]\d+)/u.exec(fragment);
+    const matched=numberPattern.exec(fragment);
     if(matched){
       const literal=matched[0],digits=literal.replace(/[.,]/gu,"");
       if(digits.length>18)return null;
@@ -113,7 +118,7 @@ export function solveExactArithmetic(prompt,{locale="pt-BR"}={}){
   if(!["pt-BR","en-US","es-ES","de-DE","fr-FR"].includes(locale))
     throw TypeError("Unsupported arithmetic locale");
   const expression=extract(prompt);if(!expression)return null;
-  const result=parse(expression);if(!result)return null;
+  const result=parse(expression,locale);if(!result)return null;
   const text=result.kind==="division-by-zero"?
     ({"pt-BR":"Divisão por zero não é definida.",
       "en-US":"Division by zero is undefined.",
