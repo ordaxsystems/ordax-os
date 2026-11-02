@@ -231,6 +231,23 @@ class IndependentSurfaceRuntimeTests(unittest.TestCase):
         self.assertIn("work_args", build_step)
         self.assertIn("ORDAX_SURFACE_BUILD_JOBS", build_step)
 
+    def test_fast_gate_reports_producer_variable_presence_without_exposing_values(self):
+        gate = (ROOT / ".github/workflows/remove-alpine-fast.yml").read_text(encoding="utf-8")
+        self.assertIn("Diagnose durable Surface producer configuration without building", gate)
+        diagnostic = gate.split("      - name: Diagnose durable Surface producer configuration without building", 1)[1].split("      - name: Prove authenticated runner context reaches Shell", 1)[0]
+        for variable in (
+            "ORDAX_SURFACE_RUNNER_LABEL",
+            "ORDAX_SURFACE_PERSISTENT_WORK_ROOT",
+            "ORDAX_SURFACE_PRODUCER_ENVIRONMENT",
+        ):
+            self.assertIn("vars." + variable + " != ''", diagnostic)
+        self.assertIn("ORDAX_SURFACE_PRODUCER_VARS=INCOMPLETE", diagnostic)
+        self.assertIn("ORDAX_SURFACE_PRODUCER_VARS=CONFIGURED_NOT_ATTESTED", diagnostic)
+        self.assertIn('case "${!config}" in', diagnostic)
+        self.assertNotIn("secrets.", diagnostic)
+        self.assertNotIn("bootstrap/surface-runtime/build.py build", diagnostic)
+        self.assertNotIn("actions/runner", diagnostic)
+
     def test_graphical_cache_miss_never_restarts_webkit_on_disposable_runner(self):
         workflow = WORKFLOW_PATH.read_text(encoding="utf-8")
         guard = workflow.split(
