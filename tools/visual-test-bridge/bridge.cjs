@@ -309,28 +309,44 @@ class VisualTestBridge {
     return this.currentPage().evaluate(()=>{
       const nodes=[...document.querySelectorAll('button,a,input,textarea,select,[role="button"]')].slice(0,300);
       const viewport={width:innerWidth,height:innerHeight};
-      const offscreen=[],clipped=[],tiny=[],hidden=[],clippedByAncestor=[],overlapping=[];
+      const offscreen=[],clipped=[],tiny=[],hidden=[],disabled=[],clippedByAncestor=[],overlapping=[];
       const visible=[];
+      const activeDialog=[...document.querySelectorAll('[role="dialog"][aria-modal="true"],dialog[open][aria-modal="true"]')]
+        .find(el=>el.checkVisibility({checkOpacity:true,checkVisibilityCSS:true}));
+      let excludedBackgroundTargets=0;
       for(const el of nodes){
-        const r=el.getBoundingClientRect(),s=getComputedStyle(el);
         const name=(el.getAttribute('aria-label')||el.textContent||el.tagName).trim().slice(0,70);
-        if(s.display==='none'||s.visibility==='hidden'||Number(s.opacity)<=0.01){
+        // The underlying desktop remains mounted while First Run / a modal is
+        // active. Never diagnose its intentionally inert background as clickable.
+        if((activeDialog&&!activeDialog.contains(el))||
+           el.closest('[inert],[aria-hidden="true"]')){
+          excludedBackgroundTargets++;
+          continue;
+        }
+        const s=getComputedStyle(el),r=el.getBoundingClientRect();
+        if(!el.checkVisibility({checkOpacity:true,checkVisibilityCSS:true})||
+           s.pointerEvents==='none'||r.width<=0||r.height<=0){
           hidden.push(name);
           continue;
         }
-        if(r.right<=0||r.bottom<=0||r.left>=viewport.width||r.top>=viewport.height)offscreen.push(name);
-        else if(r.left<0||r.top<0||r.right>viewport.width||r.bottom>viewport.height)clipped.push(name);
-        if(r.width>0&&r.height>0&&(r.width<24||r.height<24))tiny.push(name);
-        if(r.width>0&&r.height>0){
-          visible.push({el,name,r});
-          for(let parent=el.parentElement;parent&&parent!==document.body;parent=parent.parentElement){
-            const ps=getComputedStyle(parent);
-            if(!/(hidden|clip|scroll|auto)/.test(ps.overflowX+' '+ps.overflowY))continue;
-            const pr=parent.getBoundingClientRect();
-            if(r.left<pr.left-1||r.top<pr.top-1||r.right>pr.right+1||r.bottom>pr.bottom+1){
-              clippedByAncestor.push(name);
-              break;
-            }
+        if(el.matches(':disabled,[aria-disabled="true"]')){
+          disabled.push(name);
+          continue;
+        }
+        if(r.right<=0||r.bottom<=0||r.left>=viewport.width||r.top>=viewport.height){
+          offscreen.push(name);
+          continue;
+        }
+        if(r.left<0||r.top<0||r.right>viewport.width||r.bottom>viewport.height)clipped.push(name);
+        if(r.width<24||r.height<24)tiny.push(name);
+        visible.push({el,name,r});
+        for(let parent=el.parentElement;parent&&parent!==document.body;parent=parent.parentElement){
+          const ps=getComputedStyle(parent);
+          if(!/(hidden|clip|scroll|auto)/.test(ps.overflowX+' '+ps.overflowY))continue;
+          const pr=parent.getBoundingClientRect();
+          if(r.left<pr.left-1||r.top<pr.top-1||r.right>pr.right+1||r.bottom>pr.bottom+1){
+            clippedByAncestor.push(name);
+            break;
           }
         }
       }
@@ -346,6 +362,8 @@ class VisualTestBridge {
         }
       }
       return {viewport,interactiveElements:nodes.length,visibleHitTargets:visible.length,
+        activeModal:!!activeDialog,excludedBackgroundTargets,
+        disabledInteractiveElements:disabled.slice(0,30),
         hiddenInteractiveElements:hidden.slice(0,30),
         offscreen:offscreen.slice(0,30),viewportClipped:clipped.slice(0,30),
         parentClipped:clippedByAncestor.slice(0,30),

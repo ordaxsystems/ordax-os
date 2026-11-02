@@ -98,6 +98,28 @@ test('real headless Chromium supports semantic interaction, inspection, trace an
   });
   const overlap=await bridge.scanLayout();
   assert.ok(overlap.overlappingHitTargets.some(pair=>pair.a==='Probe A'&&pair.b==='Probe B'));
+  await bridge.currentPage().evaluate(()=>{
+    const shell=document.querySelector('#ordax-root');
+    shell.inert=true;
+    const dlg=document.createElement('section');
+    dlg.setAttribute('role','dialog');
+    dlg.setAttribute('aria-modal','true');
+    dlg.style.cssText='position:fixed;inset:50px;background:white;z-index:9000;';
+    const action=document.createElement('button');
+    action.textContent='Dialog action';
+    dlg.append(action);
+    document.body.append(dlg);
+  });
+  const modalScan=await bridge.scanLayout();
+  assert.equal(modalScan.activeModal,true);
+  assert.ok(modalScan.excludedBackgroundTargets>=2);
+  assert.equal(modalScan.overlappingHitTargets.some(
+    pair=>pair.a==='Probe A'||pair.b==='Probe B'),false);
+  assert.equal(modalScan.visibleHitTargets,1);
+  await bridge.currentPage().evaluate(()=>{
+    document.querySelector('[role="dialog"][aria-modal="true"]').remove();
+    document.querySelector('#ordax-root').inert=false;
+  });
   await bridge.currentPage().evaluate(()=>{setTimeout(()=>{throw Error('ORDAX_VISUAL_EXPECTED_RENDERER_EXCEPTION');},0);});
   await bridge.currentPage().waitForTimeout(100);
   assert.ok(bridge.getLogs().events.some(x=>x.kind==='pageerror'&&x.detail.includes('ORDAX_VISUAL_EXPECTED_RENDERER_EXCEPTION')));
