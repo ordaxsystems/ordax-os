@@ -42,6 +42,8 @@ on:
       - 'tests/test_portable_qemu_kernel_source_ssot.py'
       - 'tests/test_portable_component_reuse_workflow.py'
       - 'tests/test_independent_surface_runtime.py'
+      - 'tests/test_independent_surface_component_cache.py'
+      - 'tools/ci/independent_surface_r2.sh'
       - '.github/workflows/independent-surface-runtime.yml'
       - '.github/workflows/portable-v2-qemu-boot-proof.yml'
       - 'tests/test_kernel_module_payload.py'
@@ -145,6 +147,7 @@ jobs:
             tests.test_independent_native_component \
             tests.test_independent_portable_boot_integration \
             tests.test_independent_surface_runtime \
+            tests.test_independent_surface_component_cache \
             tests.test_portable_v2_qemu_boot_proof_contract \
             tests.test_portable_qemu_kernel_source_ssot \
             tests.test_initramfs_upstream_authentication \
@@ -199,6 +202,7 @@ jobs:
             tests/test_independent_native_component.py \
             tests/test_independent_portable_boot_integration.py \
             tests/test_independent_surface_runtime.py \
+            tests/test_independent_surface_component_cache.py \
             tests/test_portable_v2_qemu_boot_proof_contract.py \
             tests/test_portable_qemu_kernel_source_ssot.py \
             tests/test_kernel_module_payload.py \

@@ -12,6 +12,65 @@ case "$ORDAX_SURFACE_FINGERPRINT" in
   ''|*[!0-9a-f]*) echo 'invalid Surface input fingerprint' >&2; exit 2 ;;
 esac
 [ "${#ORDAX_SURFACE_FINGERPRINT}" -eq 64 ] || { echo 'invalid Surface input fingerprint length' >&2; exit 2; }
+# Read one immutable Surface manifest in the parent shell's exit-status scope.
+# Process substitution (mapfile < <(python3 ...)) discards Python failures:
+# the caller could otherwise publish a manifest without its two blob objects.
+surface_manifest_rows() {
+  local manifest_file="$1" mode="$2"
+  python3 - "$manifest_file" "$mode" <<'PY'
+import hashlib
+import json
+import os
+import re
+import sys
+from pathlib import Path
+
+manifest_path = Path(sys.argv[1])
+mode = sys.argv[2]
+if mode not in ("restore", "publish"):
+    raise SystemExit("unsupported Surface manifest operation")
+if manifest_path.is_symlink() or not manifest_path.is_file():
+    raise SystemExit("unsafe or missing Surface manifest")
+manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+if not isinstance(manifest, dict):
+    raise SystemExit("invalid Surface manifest object")
+if manifest.get("$schema") != "prototype-ordax.independent-surface-component-cache/1":
+    raise SystemExit("unexpected Surface manifest schema")
+if manifest.get("fingerprint_version") != "independent-surface-inputs-v1":
+    raise SystemExit("unexpected Surface fingerprint version")
+if manifest.get("input_fingerprint") != os.environ["ORDAX_SURFACE_FINGERPRINT"]:
+    raise SystemExit("Surface manifest fingerprint mismatch")
+expected = ("provenance.json", "native-surface-runtime.erofs")
+artifacts = manifest.get("artifacts")
+if not isinstance(artifacts, dict) or set(artifacts) != set(expected):
+    raise SystemExit("Surface manifest artifact inventory mismatch")
+rows = []
+for name in expected:
+    entry = artifacts[name]
+    if not isinstance(entry, dict):
+        raise SystemExit(f"invalid Surface artifact metadata: {name}")
+    digest = entry.get("sha256")
+    size = entry.get("size")
+    if not isinstance(digest, str) or re.fullmatch(r"[0-9a-f]{64}", digest) is None:
+        raise SystemExit(f"invalid Surface digest: {name}")
+    if type(size) is not int or size < 1:
+        raise SystemExit(f"invalid Surface artifact size: {name}")
+    if mode == "publish":
+        path = manifest_path.parent / name
+        if path.is_symlink() or not path.is_file() or path.stat().st_size != size:
+            raise SystemExit(f"Surface artifact missing, unsafe or changed size: {name}")
+        actual = hashlib.sha256()
+        with path.open("rb") as stream:
+            for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+                actual.update(chunk)
+        if actual.hexdigest() != digest:
+            raise SystemExit(f"Surface artifact bytes differ from manifest: {name}")
+    rows.append(f"{name}\t{digest}")
+for row in rows:
+    print(row)
+PY
+}
+
 restore_surface() {
 set -euo pipefail
 printf 'hit=false\n' >> "$GITHUB_OUTPUT"
@@ -68,30 +127,16 @@ else
   exit "$status"
 fi
 
-mapfile -t artifact_rows < <(python3 - "$out/.ordax-independent-surface-cache.json" <<'PY'
-import json
-import os
-import re
-import sys
-from pathlib import Path
-manifest = json.loads(Path(sys.argv[1]).read_text(encoding='utf-8'))
-if manifest.get('$schema') != 'prototype-ordax.independent-surface-component-cache/1':
-    raise SystemExit('unexpected durable Surface manifest schema')
-if manifest.get('input_fingerprint') != os.environ['ORDAX_SURFACE_FINGERPRINT']:
-    raise SystemExit('durable Surface manifest fingerprint mismatch')
-artifacts = manifest.get('artifacts')
-expected = ('provenance.json', 'native-surface-runtime.erofs')
-if not isinstance(artifacts, dict) or set(artifacts) != set(expected):
-    raise SystemExit('durable Surface manifest artifact set mismatch')
-for name in expected:
-    entry = artifacts[name]
-    digest = str(entry.get('sha256', ''))
-    if re.fullmatch(r'[0-9a-f]{64}', digest) is None:
-        raise SystemExit(f'invalid durable digest for {name}')
-    print(f'{name}\t{digest}')
-PY
-)
-
+# Command substitution propagates the validator's failure to this shell.
+if ! rows="$(surface_manifest_rows "$out/.ordax-independent-surface-cache.json" restore)"; then
+  echo "Rejecting unverified durable Surface manifest before downloading blobs." >&2
+  exit 1
+fi
+mapfile -t artifact_rows <<< "$rows"
+if [ "${#artifact_rows[@]}" -ne 2 ]; then
+  echo "Durable Surface manifest did not declare both required blobs." >&2
+  exit 1
+fi
 for row in "${artifact_rows[@]}"; do
   name="${row%%$'\t'*}"
   digest="${row#*$'\t'}"
@@ -168,24 +213,17 @@ r2_put_immutable() {
   esac
 }
 
-mapfile -t artifact_rows < <(python3 - "$manifest" <<'PY'
-import json
-import re
-import sys
-from pathlib import Path
-manifest = json.loads(Path(sys.argv[1]).read_text(encoding='utf-8'))
-artifacts = manifest.get('artifacts')
-expected = ('provenance.json', 'native-surface-runtime.erofs')
-if not isinstance(artifacts, dict) or set(artifacts) != set(expected):
-    raise SystemExit('fresh Surface manifest artifact set mismatch')
-for name in expected:
-    digest = str(artifacts[name].get('sha256', ''))
-    if re.fullmatch(r'[0-9a-f]{64}', digest) is None:
-        raise SystemExit(f'invalid fresh Surface digest for {name}')
-    print(f'{name}\t{digest}')
-PY
-)
-
+# Validate schema, input fingerprint and both local SHA-256 digests
+# before ANY immutable R2 write. An invalid manifest cannot become permanent.
+if ! rows="$(surface_manifest_rows "$manifest" publish)"; then
+  echo "Refusing durable Surface publication without verified local bytes." >&2
+  exit 1
+fi
+mapfile -t artifact_rows <<< "$rows"
+if [ "${#artifact_rows[@]}" -ne 2 ]; then
+  echo "Refusing publication with an incomplete Surface blob inventory." >&2
+  exit 1
+fi
 for row in "${artifact_rows[@]}"; do
   name="${row%%$'\t'*}"
   digest="${row#*$'\t'}"

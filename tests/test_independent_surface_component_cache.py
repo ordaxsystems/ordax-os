@@ -1,4 +1,6 @@
 import importlib.util
+import hashlib
+import subprocess
 import json
 import os
 from pathlib import Path
@@ -256,6 +258,116 @@ class IndependentSurfaceComponentCacheTests(unittest.TestCase):
         block = workflow[start:end]
         self.assertIn("steps.surface-artifact-cache.outputs.cache-hit != 'true'", block)
         self.assertIn("steps.surface-r2.outputs.hit != 'true'", block)
+
+    def test_r2_publish_rejects_corrupt_manifest_or_blobs_before_any_network_write(self):
+        # Offline, mocked network: a bad manifest must not poison the immutable
+        # content-addressed namespace even if a caller bypasses the producer.
+        with tempfile.TemporaryDirectory() as td:
+            temp = Path(td)
+            out = temp / "ordax-independent-surface"
+            out.mkdir()
+            payloads = {
+                "provenance.json": b'{"source_commit":"test"}',
+                "native-surface-runtime.erofs": b"verified-image",
+            }
+            for name, data in payloads.items():
+                (out / name).write_bytes(data)
+            good = {
+                "$schema": self.mod.SCHEMA,
+                "fingerprint_version": self.mod.FINGERPRINT_VERSION,
+                "input_fingerprint": "a" * 64,
+                "artifacts": {
+                    name: {"sha256": hashlib.sha256(data).hexdigest(), "size": len(data)}
+                    for name, data in payloads.items()
+                },
+            }
+            bin_dir = temp / "bin"
+            bin_dir.mkdir()
+            curl_log = temp / "curl-called"
+            fake_curl = bin_dir / "curl"
+            fake_curl.write_text("#!/bin/sh\\nprintf called >> \\"$SURFACE_MOCK_CURL_LOG\\"\\nprintf 404\\n", encoding="utf-8")
+            fake_curl.chmod(0o755)
+            env = dict(os.environ, **{
+                "RUNNER_TEMP": str(temp),
+                "ORDAX_R2_ACCOUNT_ID": "0" * 32,
+                "ORDAX_R2_BUCKET": "test-bucket",
+                "ORDAX_R2_ACCESS_KEY_ID": "test-only",
+                "ORDAX_R2_SECRET_ACCESS_KEY": "test-only",
+                "ORDAX_SURFACE_FINGERPRINT": "a" * 64,
+                "SURFACE_MOCK_CURL_LOG": str(curl_log),
+                "PATH": str(bin_dir) + os.pathsep + os.environ.get("PATH", ""),
+            })
+            variants = {
+                "broken-schema": {"$schema": "wrong"},
+                "wrong-fingerprint": {"input_fingerprint": "b" * 64},
+                "bad-digest": {"artifacts": {
+                    **good["artifacts"],
+                    "provenance.json": {"sha256": "z" * 64, "size": len(payloads["provenance.json"])},
+                }},
+                "missing-artifact": {"artifacts": {
+                    "provenance.json": good["artifacts"]["provenance.json"],
+                }},
+                "changed-bytes": {},
+            }
+            for case, fields in variants.items():
+                with self.subTest(case=case):
+                    manifest = dict(good, **fields)
+                    (out / self.mod.MANIFEST).write_text(json.dumps(manifest), encoding="utf-8")
+                    if case == "changed-bytes":
+                        (out / "native-surface-runtime.erofs").write_bytes(b"tampered-image")
+                    else:
+                        (out / "native-surface-runtime.erofs").write_bytes(payloads["native-surface-runtime.erofs"])
+                    curl_log.unlink(missing_ok=True)
+                    proc = subprocess.run(
+                        ["bash", str(R2_SCRIPT), "publish"],
+                        cwd=ROOT, env=env, text=True, capture_output=True, check=False,
+                    )
+                    self.assertNotEqual(proc.returncode, 0, proc.stdout)
+                    self.assertIn("Refusing durable Surface publication", proc.stderr)
+                    self.assertFalse(curl_log.exists(), "invalid Surface reached R2 network")
+            self.assertNotIn("mapfile -t artifact_rows < <(", R2_SCRIPT.read_text(encoding="utf-8"))
+
+    def test_r2_restore_preserves_fail_closed_status_on_invalid_remote_manifest(self):
+        with tempfile.TemporaryDirectory() as td:
+            temp = Path(td)
+            bin_dir = temp / "bin"
+            bin_dir.mkdir()
+            fake_curl = bin_dir / "curl"
+            # One mocked R2 GET returns HTTP 200 with an invalid manifest.
+            # The operation must stop before it downloads any blob or marks a hit.
+            fake_curl.write_text(
+                "#!/usr/bin/env python3\\n"
+                "import os,sys\\n"
+                "from pathlib import Path\\n"
+                "Path(os.environ['SURFACE_MOCK_CURL_LOG']).open('a').write('request\\\\n')\\n"
+                "dest = sys.argv[sys.argv.index('--output') + 1]\\n"
+                "Path(dest).write_text('{\\\"$schema\\\":\\\"invalid\\\"}')\\n"
+                "sys.stdout.write('200')\\n",
+                encoding="utf-8",
+            )
+            fake_curl.chmod(0o755)
+            output = temp / "github-output"
+            curl_log = temp / "curl-called"
+            env = dict(os.environ, **{
+                "RUNNER_TEMP": str(temp),
+                "GITHUB_OUTPUT": str(output),
+                "ORDAX_SOURCE_COMMIT": "1" * 40,
+                "ORDAX_R2_ACCOUNT_ID": "0" * 32,
+                "ORDAX_R2_BUCKET": "test-bucket",
+                "ORDAX_R2_ACCESS_KEY_ID": "test-only",
+                "ORDAX_R2_SECRET_ACCESS_KEY": "test-only",
+                "ORDAX_SURFACE_FINGERPRINT": "a" * 64,
+                "SURFACE_MOCK_CURL_LOG": str(curl_log),
+                "PATH": str(bin_dir) + os.pathsep + os.environ.get("PATH", ""),
+            })
+            proc = subprocess.run(
+                ["bash", str(R2_SCRIPT), "restore"],
+                cwd=ROOT, env=env, text=True, capture_output=True, check=False,
+            )
+            self.assertNotEqual(proc.returncode, 0, proc.stdout)
+            self.assertIn("Rejecting unverified durable Surface manifest", proc.stderr)
+            self.assertEqual(output.read_text(encoding="utf-8"), "hit=false\\n")
+            self.assertEqual(curl_log.read_text(encoding="utf-8").count("request"), 1)
 
     def test_durable_publication_is_immutable_and_credentials_are_not_hardcoded(self):
         workflow = WORKFLOW.read_text(encoding="utf-8")
