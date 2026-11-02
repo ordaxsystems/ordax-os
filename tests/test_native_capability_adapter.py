@@ -78,7 +78,21 @@ class NativeCapabilityAdapterTests(unittest.TestCase):
 
     def test_native_optional_capability_probes_run_in_parallel(self):
         text = NATIVE_COMPOSITION.read_text(encoding="utf-8")
-        self.assertIn("const preferenceStorePromise = createNativePreferenceStore(window);", text)
+        # Preference bootstrap remains concurrent with optional probes, but
+        # installed Windows now shares a bounded GET signal across critical ports.
+        preference_read = """const preferenceStorePromise = createNativePreferenceStore(window, {
+    signal: desktopBootstrapSignal,
+  });"""
+        self.assertIn(preference_read, text)
+        self.assertIn("const bootState = Promise.all([", text)
+        self.assertLess(
+            text.index(preference_read),
+            text.index("const optionalPortsPromise = Promise.all(["),
+        )
+        self.assertLess(
+            text.index("const optionalPortsPromise = Promise.all(["),
+            text.index("const bootState = Promise.all(["),
+        )
         self.assertIn("const optionalPortsPromise = Promise.all([", text)
         self.assertIn("] = await optionalPortsPromise;", text)
         for factory in (
